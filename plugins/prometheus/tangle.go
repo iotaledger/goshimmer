@@ -1,7 +1,7 @@
 package prometheus
 
 import (
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -92,7 +92,7 @@ func collectTangleMetrics() {
 	messageTips.Set(float64(metrics.MessageTips()))
 	msgCountPerPayload := metrics.MessageCountSinceStartPerPayload()
 	for payloadType, count := range msgCountPerPayload {
-		messagePerTypeCount.WithLabelValues(payload.Name(payloadType)).Set(float64(count))
+		messagePerTypeCount.WithLabelValues(tangle.Name(payloadType)).Set(float64(count))
 	}
 	messageTotalCount.Set(float64(metrics.MessageTotalCountSinceStart()))
 	messageTotalCountDB.Set(float64(metrics.MessageTotalCountDB()))

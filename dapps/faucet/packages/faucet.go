@@ -12,11 +12,11 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
+	valuetangle "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/packages/binary/datastructure/orderedmap"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
+	"github.com/iotaledger/hive.go/datastructure/orderedmap"
 )
 
 var (
@@ -73,7 +73,7 @@ func (f *Faucet) addAddressToBlacklist(addr address.Address) {
 }
 
 // SendFunds sends IOTA tokens to the address from faucet request.
-func (f *Faucet) SendFunds(msg *message.Message) (m *message.Message, txID string, err error) {
+func (f *Faucet) SendFunds(msg *tangle.Message) (m *tangle.Message, txID string, err error) {
 	// ensure that only one request is being processed any given time
 	f.Lock()
 	defer f.Unlock()
@@ -143,7 +143,7 @@ func (f *Faucet) collectUTXOsForFunding() (outputIds []transaction.OutputID, add
 	// get a list of address for inputs
 	for i = 0; total > 0; i++ {
 		addr := f.seed.Address(i).Address
-		valuetransfers.Tangle().OutputsOnAddress(addr).Consume(func(output *tangle.Output) {
+		valuetransfers.Tangle().OutputsOnAddress(addr).Consume(func(output *valuetangle.Output) {
 			if output.ConsumerCount() > 0 || total == 0 {
 				return
 			}

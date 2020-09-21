@@ -8,10 +8,9 @@ import (
 
 	faucet "github.com/iotaledger/goshimmer/dapps/faucet/packages"
 	faucetpayload "github.com/iotaledger/goshimmer/dapps/faucet/packages/payload"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/daemon"
@@ -100,7 +99,7 @@ func configure(*node.Plugin) {
 	Faucet()
 
 	fundingWorkerPool = workerpool.New(func(task workerpool.Task) {
-		msg := task.Param(0).(*message.Message)
+		msg := task.Param(0).(*tangle.Message)
 		addr := msg.Payload().(*faucetpayload.Payload).Address()
 		msg, txID, err := Faucet().SendFunds(msg)
 		if err != nil {

@@ -1,6 +1,9 @@
 package branchmanager
 
 import (
+	"fmt"
+
+	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 )
@@ -24,57 +27,36 @@ func NewChildBranch(parentID BranchID, childID BranchID) *ChildBranch {
 }
 
 // ChildBranchFromBytes unmarshals a ChildBranch from a sequence of bytes.
-func ChildBranchFromBytes(bytes []byte, optionalTargetObject ...*ChildBranch) (result *ChildBranch, consumedBytes int, err error) {
+func ChildBranchFromBytes(bytes []byte) (result *ChildBranch, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = ParseChildBranch(marshalUtil, optionalTargetObject...)
+	result, err = ParseChildBranch(marshalUtil)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
-// ChildBranchFromStorageKey is a factory method that creates a new ChildBranch instance from a storage key of the
+// ChildBranchFromObjectStorage is a factory method that creates a new ChildBranch instance from a storage key of the
 // objectstorage. It is used by the objectstorage, to create new instances of this entity.
-func ChildBranchFromStorageKey(key []byte, optionalTargetObject ...*ChildBranch) (result *ChildBranch, consumedBytes int, err error) {
-	// determine the target object that will hold the unmarshaled information
-	switch len(optionalTargetObject) {
-	case 0:
-		result = &ChildBranch{}
-	case 1:
-		result = optionalTargetObject[0]
-	default:
-		panic("too many arguments in call to ChildBranchFromStorageKey")
-	}
-
-	// parse the properties that are stored in the key
-	marshalUtil := marshalutil.New(key)
-	if result.parentID, err = ParseBranchID(marshalUtil); err != nil {
+func ChildBranchFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
+	if result, _, err = ChildBranchFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
 		return
 	}
-	if result.childID, err = ParseBranchID(marshalUtil); err != nil {
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
 // ParseChildBranch unmarshals a ChildBranch using the given marshalUtil (for easier marshaling/unmarshaling).
-func ParseChildBranch(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*ChildBranch) (result *ChildBranch, err error) {
-	parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
-		return ChildBranchFromStorageKey(data, optionalTargetObject...)
-	})
-	if parseErr != nil {
-		err = parseErr
+func ParseChildBranch(marshalUtil *marshalutil.MarshalUtil) (result *ChildBranch, err error) {
+	result = &ChildBranch{}
 
+	if result.parentID, err = ParseBranchID(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse parent branch ID: %w", err)
 		return
 	}
-
-	result = parsedObject.(*ChildBranch)
-	_, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
-		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
-
+	if result.childID, err = ParseBranchID(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse child branch ID: %w", err)
 		return
-	})
+	}
 
 	return
 }
@@ -89,6 +71,11 @@ func (childBranch *ChildBranch) ChildID() BranchID {
 	return childBranch.childID
 }
 
+// Bytes returns a marshaled version of this ChildBranch.
+func (childBranch *ChildBranch) Bytes() []byte {
+	return childBranch.ObjectStorageKey()
+}
+
 // ObjectStorageKey returns the bytes that are used a key when storing the Branch in an objectstorage.
 func (childBranch ChildBranch) ObjectStorageKey() []byte {
 	return marshalutil.New(ConflictIDLength + BranchIDLength).
@@ -101,12 +88,6 @@ func (childBranch ChildBranch) ObjectStorageKey() []byte {
 // ChildBranch.
 func (childBranch ChildBranch) ObjectStorageValue() []byte {
 	return nil
-}
-
-// UnmarshalObjectStorageValue returns the bytes that represent all remaining information (not stored in the key) of a
-// marshaled Branch.
-func (childBranch ChildBranch) UnmarshalObjectStorageValue([]byte) (consumedBytes int, err error) {
-	return
 }
 
 // Update is disabled but needs to be implemented to be compatible with the objectstorage.

@@ -1,8 +1,11 @@
 package tangle
 
 import (
+	"fmt"
+
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
@@ -18,8 +21,6 @@ type Consumer struct {
 
 	consumedInput transaction.OutputID
 	transactionID transaction.ID
-
-	storageKey []byte
 }
 
 // NewConsumer creates a Consumer object with the given information.
@@ -27,68 +28,42 @@ func NewConsumer(consumedInput transaction.OutputID, transactionID transaction.I
 	return &Consumer{
 		consumedInput: consumedInput,
 		transactionID: transactionID,
-
-		storageKey: marshalutil.New(ConsumerLength).
-			WriteBytes(consumedInput.Bytes()).
-			WriteBytes(transactionID.Bytes()).
-			Bytes(),
 	}
 }
 
 // ConsumerFromBytes unmarshals a Consumer from a sequence of bytes - it either creates a new object or fills the
 // optionally provided one with the parsed information.
-func ConsumerFromBytes(bytes []byte, optionalTargetObject ...*Consumer) (result *Consumer, consumedBytes int, err error) {
+func ConsumerFromBytes(bytes []byte) (result *Consumer, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = ParseConsumer(marshalUtil, optionalTargetObject...)
+	result, err = ParseConsumer(marshalUtil)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
 // ParseConsumer unmarshals a Consumer using the given marshalUtil (for easier marshaling/unmarshaling).
-func ParseConsumer(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Consumer) (result *Consumer, err error) {
-	parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
-		return ConsumerFromStorageKey(data, optionalTargetObject...)
-	})
-	if parseErr != nil {
-		err = parseErr
+func ParseConsumer(marshalUtil *marshalutil.MarshalUtil) (result *Consumer, err error) {
+	result = &Consumer{}
 
+	if result.consumedInput, err = transaction.ParseOutputID(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse output ID of consumer: %w", err)
 		return
 	}
-
-	result = parsedObject.(*Consumer)
-	_, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
-		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
-
+	if result.transactionID, err = transaction.ParseID(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse transaction ID of consumer: %w", err)
 		return
-	})
+	}
 
 	return
 }
 
-// ConsumerFromStorageKey is a factory method that creates a new Consumer instance from a storage key of the
+// ConsumerFromObjectStorage is a factory method that creates a new Consumer instance from a storage key of the
 // objectstorage. It is used by the objectstorage, to create new instances of this entity.
-func ConsumerFromStorageKey(key []byte, optionalTargetObject ...*Consumer) (result *Consumer, consumedBytes int, err error) {
-	// determine the target object that will hold the unmarshaled information
-	switch len(optionalTargetObject) {
-	case 0:
-		result = &Consumer{}
-	case 1:
-		result = optionalTargetObject[0]
-	default:
-		panic("too many arguments in call to ConsumerFromStorageKey")
+func ConsumerFromObjectStorage(key []byte, _ []byte) (result objectstorage.StorableObject, err error) {
+	result, _, err = ConsumerFromBytes(key)
+	if err != nil {
+		err = fmt.Errorf("failed to parse consumer from object storage: %w", err)
 	}
-
-	// parse the properties that are stored in the key
-	marshalUtil := marshalutil.New(key)
-	if result.consumedInput, err = transaction.ParseOutputID(marshalUtil); err != nil {
-		return
-	}
-	if result.transactionID, err = transaction.ParseID(marshalUtil); err != nil {
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-	result.storageKey = marshalutil.New(key[:consumedBytes]).Bytes(true)
 
 	return
 }
@@ -118,18 +93,12 @@ func (consumer *Consumer) String() string {
 
 // ObjectStorageKey returns the key that is used to store the object in the database.
 func (consumer *Consumer) ObjectStorageKey() []byte {
-	return consumer.storageKey
+	return byteutils.ConcatBytes(consumer.consumedInput.Bytes(), consumer.transactionID.Bytes())
 }
 
 // ObjectStorageValue marshals the "content part" of an Consumer to a sequence of bytes. Since all of the information for
 // this object are stored in its key, this method does nothing and is only required to conform with the interface.
 func (consumer *Consumer) ObjectStorageValue() (data []byte) {
-	return
-}
-
-// UnmarshalObjectStorageValue unmarshals the "content part" of a Consumer from a sequence of bytes. Since all of the information
-// for this object are stored in its key, this method does nothing and is only required to conform with the interface.
-func (consumer *Consumer) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
 	return
 }
 

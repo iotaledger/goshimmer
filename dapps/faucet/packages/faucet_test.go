@@ -12,8 +12,7 @@ import (
 
 	faucet "github.com/iotaledger/goshimmer/dapps/faucet/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
-	data "github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
 func TestIsFaucetReq(t *testing.T) {
@@ -25,9 +24,9 @@ func TestIsFaucetReq(t *testing.T) {
 		require.NoError(t, err)
 		return
 	}
-	faucetMsg := message.New(
-		message.EmptyID,
-		message.EmptyID,
+	faucetMsg := tangle.NewMessage(
+		tangle.EmptyMessageID,
+		tangle.EmptyMessageID,
 		time.Now(),
 		local.PublicKey(),
 		0,
@@ -36,13 +35,13 @@ func TestIsFaucetReq(t *testing.T) {
 		ed25519.EmptySignature,
 	)
 
-	dataMsg := message.New(
-		message.EmptyID,
-		message.EmptyID,
+	dataMsg := tangle.NewMessage(
+		tangle.EmptyMessageID,
+		tangle.EmptyMessageID,
 		time.Now(),
 		local.PublicKey(),
 		0,
-		data.NewData([]byte("data")),
+		tangle.NewDataPayload([]byte("data")),
 		0,
 		ed25519.EmptySignature,
 	)

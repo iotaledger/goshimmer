@@ -1,11 +1,11 @@
 package transaction
 
 import (
+	"github.com/iotaledger/hive.go/datastructure/orderedmap"
 	"github.com/iotaledger/hive.go/marshalutil"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
-	"github.com/iotaledger/goshimmer/packages/binary/datastructure/orderedmap"
 )
 
 // Signatures represents a container for the address signatures of a value transfer.

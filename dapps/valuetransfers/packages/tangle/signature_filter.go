@@ -5,15 +5,14 @@ import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/messageparser"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 )
 
 // SignatureFilter represents a filter for the MessageParser that filters out transactions with an invalid signature.
 type SignatureFilter struct {
-	onAcceptCallback      func(message *message.Message, peer *peer.Peer)
-	onRejectCallback      func(message *message.Message, err error, peer *peer.Peer)
+	onAcceptCallback      func(message *tangle.Message, peer *peer.Peer)
+	onRejectCallback      func(message *tangle.Message, err error, peer *peer.Peer)
 	onAcceptCallbackMutex sync.RWMutex
 	onRejectCallbackMutex sync.RWMutex
 }
@@ -25,7 +24,7 @@ func NewSignatureFilter() *SignatureFilter {
 
 // Filter get's called whenever a new message is received. It rejects the message, if the message is not a valid value
 // message.
-func (filter *SignatureFilter) Filter(message *message.Message, peer *peer.Peer) {
+func (filter *SignatureFilter) Filter(message *tangle.Message, peer *peer.Peer) {
 	// accept message if the message is not a value message (it will be checked by other filters)
 	valuePayload := message.Payload()
 	if valuePayload.Type() != payload.Type {
@@ -54,7 +53,7 @@ func (filter *SignatureFilter) Filter(message *message.Message, peer *peer.Peer)
 }
 
 // OnAccept registers the given callback as the acceptance function of the filter.
-func (filter *SignatureFilter) OnAccept(callback func(message *message.Message, peer *peer.Peer)) {
+func (filter *SignatureFilter) OnAccept(callback func(message *tangle.Message, peer *peer.Peer)) {
 	filter.onAcceptCallbackMutex.Lock()
 	defer filter.onAcceptCallbackMutex.Unlock()
 
@@ -62,7 +61,7 @@ func (filter *SignatureFilter) OnAccept(callback func(message *message.Message, 
 }
 
 // OnReject registers the given callback as the rejection function of the filter.
-func (filter *SignatureFilter) OnReject(callback func(message *message.Message, err error, peer *peer.Peer)) {
+func (filter *SignatureFilter) OnReject(callback func(message *tangle.Message, err error, peer *peer.Peer)) {
 	filter.onRejectCallbackMutex.Lock()
 	defer filter.onRejectCallbackMutex.Unlock()
 
@@ -70,7 +69,7 @@ func (filter *SignatureFilter) OnReject(callback func(message *message.Message, 
 }
 
 // getAcceptCallback returns the callback that is executed when a message passes the filter.
-func (filter *SignatureFilter) getAcceptCallback() func(message *message.Message, peer *peer.Peer) {
+func (filter *SignatureFilter) getAcceptCallback() func(message *tangle.Message, peer *peer.Peer) {
 	filter.onAcceptCallbackMutex.RLock()
 	defer filter.onAcceptCallbackMutex.RUnlock()
 
@@ -78,7 +77,7 @@ func (filter *SignatureFilter) getAcceptCallback() func(message *message.Message
 }
 
 // getRejectCallback returns the callback that is executed when a message is blocked by the filter.
-func (filter *SignatureFilter) getRejectCallback() func(message *message.Message, err error, peer *peer.Peer) {
+func (filter *SignatureFilter) getRejectCallback() func(message *tangle.Message, err error, peer *peer.Peer) {
 	filter.onRejectCallbackMutex.RLock()
 	defer filter.onRejectCallbackMutex.RUnlock()
 
@@ -86,4 +85,4 @@ func (filter *SignatureFilter) getRejectCallback() func(message *message.Message
 }
 
 // interface contract (allow the compiler to check if the implementation has all of the required methods).
-var _ messageparser.MessageFilter = &SignatureFilter{}
+var _ tangle.MessageFilter = &SignatureFilter{}
