@@ -130,12 +130,8 @@ type mockConnector struct {
 
 func (connector *mockConnector) GetAllowedPledgeIDs() (pledgeIDMap map[mana.Type][]string, err error) {
 	res := map[mana.Type][]string{
-		mana.AccessMana: []string{
-			base58.Encode(identity.GenerateIdentity().ID().Bytes()),
-		},
-		mana.ConsensusMana: []string{
-			base58.Encode(identity.GenerateIdentity().ID().Bytes()),
-		},
+		mana.AccessMana:    {base58.Encode(identity.GenerateIdentity().ID().Bytes())},
+		mana.ConsensusMana: {base58.Encode(identity.GenerateIdentity().ID().Bytes())},
 	}
 	return res, nil
 }
