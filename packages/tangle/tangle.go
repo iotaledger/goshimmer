@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
+	"github.com/iotaledger/goshimmer/packages/storageprefix"
 	"github.com/iotaledger/hive.go/async"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/objectstorage"
