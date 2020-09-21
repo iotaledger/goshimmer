@@ -7,12 +7,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestParseHeader(t *testing.T) {
+func TestHeaderFromMarshalUtil(t *testing.T) {
 	header := NewHeader(TypeCollectiveBeacon, 0)
 	bytes := header.Bytes()
 
 	marshalUtil := marshalutil.New(bytes)
-	parsedHeader, err := ParseHeader(marshalUtil)
+	parsedHeader, err := HeaderFromMarshalUtil(marshalUtil)
 	require.NoError(t, err)
 
 	require.Equal(t, header, parsedHeader)

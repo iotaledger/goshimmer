@@ -31,8 +31,8 @@ func NewPayload(header Header, data []byte) *Payload {
 	}
 }
 
-// ParsePayload is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
-func ParsePayload(marshalUtil *marshalutil.MarshalUtil) (*Payload, error) {
+// PayloadFromMarshalUtil is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
+func PayloadFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*Payload, error) {
 	payload, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return FromBytes(data) })
 	if err != nil {
 		err = fmt.Errorf("failed to parse drng payload: %w", err)
@@ -61,7 +61,7 @@ func FromBytes(bytes []byte) (result *Payload, consumedBytes int, err error) {
 	}
 
 	// parse header
-	if result.Header, err = ParseHeader(marshalUtil); err != nil {
+	if result.Header, err = HeaderFromMarshalUtil(marshalUtil); err != nil {
 		err = fmt.Errorf("failed to parse header of drng payload: %w", err)
 		return
 	}

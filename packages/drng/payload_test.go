@@ -13,12 +13,12 @@ func dummyPayload() *Payload {
 	return NewPayload(header, data)
 }
 
-func TestParsePayload(t *testing.T) {
+func TestPayloadFromMarshalUtil(t *testing.T) {
 	payload := dummyPayload()
 	bytes := payload.Bytes()
 
 	marshalUtil := marshalutil.New(bytes)
-	parsedPayload, err := ParsePayload(marshalUtil)
+	parsedPayload, err := PayloadFromMarshalUtil(marshalUtil)
 	require.NoError(t, err)
 
 	require.Equal(t, payload.Header.PayloadType, parsedPayload.Header.PayloadType)

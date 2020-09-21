@@ -19,7 +19,7 @@ func Handler(c echo.Context) error {
 	}
 
 	marshalUtil := marshalutil.New(request.Payload)
-	parsedPayload, err := drng.ParseCollectiveBeaconPayload(marshalUtil)
+	parsedPayload, err := drng.CollectiveBeaconPayloadFromMarshalUtil(marshalUtil)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}

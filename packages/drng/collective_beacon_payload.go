@@ -38,8 +38,8 @@ func NewCollectiveBeaconPayload(instanceID uint32, round uint64, prevSignature, 
 	}
 }
 
-// ParseCollectiveBeaconPayload is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
-func ParseCollectiveBeaconPayload(marshalUtil *marshalutil.MarshalUtil) (*CollectiveBeaconPayload, error) {
+// CollectiveBeaconPayloadFromeMarshalUtil is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
+func CollectiveBeaconPayloadFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*CollectiveBeaconPayload, error) {
 	unmarshalledPayload, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return CollectiveBeaconPayloadFromBytes(data) })
 	if err != nil {
 		err = fmt.Errorf("failed to parse collective beacon payload: %w", err)
@@ -68,7 +68,7 @@ func CollectiveBeaconPayloadFromBytes(bytes []byte) (result *CollectiveBeaconPay
 
 	// parse header
 	result = &CollectiveBeaconPayload{}
-	if result.Header, err = ParseHeader(marshalUtil); err != nil {
+	if result.Header, err = HeaderFromMarshalUtil(marshalUtil); err != nil {
 		err = fmt.Errorf("failed to parse header of collective beacon payload: %w", err)
 		return
 	}

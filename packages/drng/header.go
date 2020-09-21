@@ -29,8 +29,8 @@ func NewHeader(payloadType Type, instanceID uint32) Header {
 	}
 }
 
-// ParseHeader is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
-func ParseHeader(marshalUtil *marshalutil.MarshalUtil) (Header, error) {
+// HeaderFromMarshalUtil is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
+func HeaderFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (Header, error) {
 	header, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return HeaderFromBytes(data) })
 	if err != nil {
 		return Header{}, err

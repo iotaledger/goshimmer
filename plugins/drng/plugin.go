@@ -51,7 +51,7 @@ func configureEvents() {
 				return
 			}
 			marshalUtil := marshalutil.New(msg.Payload().Bytes())
-			parsedPayload, err := drng.ParsePayload(marshalUtil)
+			parsedPayload, err := drng.PayloadFromMarshalUtil(marshalUtil)
 			if err != nil {
 				//TODO: handle error
 				log.Debug(err)

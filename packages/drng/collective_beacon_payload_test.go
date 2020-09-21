@@ -21,7 +21,7 @@ func TestParse(t *testing.T) {
 	bytes := payload.Bytes()
 
 	marshalUtil := marshalutil.New(bytes)
-	parsedPayload, err := ParseCollectiveBeaconPayload(marshalUtil)
+	parsedPayload, err := CollectiveBeaconPayloadFromMarshalUtil(marshalUtil)
 	require.NoError(t, err)
 
 	require.Equal(t, payload.Header.PayloadType, parsedPayload.Header.PayloadType)

@@ -14,7 +14,7 @@ func (d *DRNG) Dispatch(issuer ed25519.PublicKey, timestamp time.Time, payload *
 	case TypeCollectiveBeacon:
 		// parse as CollectiveBeaconType
 		marshalUtil := marshalutil.New(payload.Bytes())
-		parsedPayload, err := ParseCollectiveBeaconPayload(marshalUtil)
+		parsedPayload, err := CollectiveBeaconPayloadFromMarshalUtil(marshalUtil)
 		if err != nil {
 			return err
 		}

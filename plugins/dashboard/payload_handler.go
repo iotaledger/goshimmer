@@ -110,13 +110,13 @@ func ProcessPayload(p tangle.Payload) interface{} {
 func processDrngPayload(p tangle.Payload) (dp DrngPayload) {
 	var subpayload interface{}
 	marshalUtil := marshalutil.New(p.Bytes())
-	drngPayload, _ := drng.ParsePayload(marshalUtil)
+	drngPayload, _ := drng.PayloadFromMarshalUtil(marshalUtil)
 
 	switch drngPayload.Header.PayloadType {
 	case drng.TypeCollectiveBeacon:
 		// collective beacon
 		marshalUtil := marshalutil.New(p.Bytes())
-		cbp, _ := drng.ParseCollectiveBeaconPayload(marshalUtil)
+		cbp, _ := drng.CollectiveBeaconPayloadFromMarshalUtil(marshalUtil)
 		subpayload = DrngCollectiveBeaconPayload{
 			Round:   cbp.Round,
 			PrevSig: cbp.PrevSignature,

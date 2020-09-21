@@ -55,7 +55,7 @@ func testPayload() *CollectiveBeaconPayload {
 
 func TestDispatcher(t *testing.T) {
 	marshalUtil := marshalutil.New(testPayload().Bytes())
-	parsedPayload, err := ParsePayload(marshalUtil)
+	parsedPayload, err := PayloadFromMarshalUtil(marshalUtil)
 	require.NoError(t, err)
 
 	drng := New(SetCommittee(committeeTest))
