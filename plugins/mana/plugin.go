@@ -280,6 +280,8 @@ func verifyPledgeNodes() error {
 	}
 
 	access.Allowed = set.New(false)
+	// own ID is allowed by default
+	access.Allowed.Add(local.GetInstance().ID())
 	if access.IsFilterEnabled {
 		for _, pubKey := range config.Node().GetStringSlice(CfgAllowedAccessPledge) {
 			ID, err := mana.IDFromStr(pubKey)
@@ -289,10 +291,10 @@ func verifyPledgeNodes() error {
 			access.Allowed.Add(ID)
 		}
 	}
-	// own ID is allowed by default
-	access.Allowed.Add(local.GetInstance().ID())
 
 	consensus.Allowed = set.New(false)
+	// own ID is allowed by default
+	consensus.Allowed.Add(local.GetInstance().ID())
 	if consensus.IsFilterEnabled {
 		for _, pubKey := range config.Node().GetStringSlice(CfgAllowedConsensusPledge) {
 			ID, err := mana.IDFromStr(pubKey)
@@ -302,8 +304,6 @@ func verifyPledgeNodes() error {
 			consensus.Allowed.Add(ID)
 		}
 	}
-	// own ID is allowed by default
-	consensus.Allowed.Add(local.GetInstance().ID())
 
 	allowedPledgeNodes[mana.AccessMana] = access
 	allowedPledgeNodes[mana.ConsensusMana] = consensus
