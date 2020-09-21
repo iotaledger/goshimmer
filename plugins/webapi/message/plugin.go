@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/logger"
@@ -52,7 +52,7 @@ func findMessageByID(c echo.Context) error {
 	for _, id := range request.IDs {
 		log.Info("Received:", id)
 
-		msgID, err := message.NewID(id)
+		msgID, err := tangle.NewMessageID(id)
 		if err != nil {
 			log.Info(err)
 			return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})

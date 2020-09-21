@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/labstack/echo"
 )
@@ -18,7 +18,7 @@ func Handler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 
-	msgID, err := message.NewID(request.ID)
+	msgID, err := tangle.NewMessageID(request.ID)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
@@ -28,14 +28,14 @@ func Handler(c echo.Context) error {
 	stack.PushBack(msgID)
 	// keep track of submitted checks (to not re-add something to the stack that is already in it)
 	// searching in double-linked list is quite expensive, but not in a map
-	submitted := make(map[message.ID]bool)
+	submitted := make(map[tangle.MessageID]bool)
 
 	// process messages in stack, try to request parents until we end up at the genesis
 	for stack.Len() > 0 {
 		checkedMessageCount++
 		// pop the first element from stack
 		currentMsgElement := stack.Front()
-		currentMsgID := currentMsgElement.Value.(message.ID)
+		currentMsgID := currentMsgElement.Value.(tangle.MessageID)
 		stack.Remove(currentMsgElement)
 
 		// ask node if it has it
@@ -55,15 +55,15 @@ func Handler(c echo.Context) error {
 		msgObject.Release()
 		msgMetadataObject.Release()
 
-		if parent2ID == message.EmptyID && msg.Parent1ID() == message.EmptyID {
+		if parent2ID == tangle.EmptyMessageID && msg.Parent1ID() == tangle.EmptyMessageID {
 			// msg only attaches to genesis
 			continue
 		} else {
-			if !submitted[parent2ID] && parent2ID != message.EmptyID {
+			if !submitted[parent2ID] && parent2ID != tangle.EmptyMessageID {
 				stack.PushBack(parent2ID)
 				submitted[parent2ID] = true
 			}
-			if !submitted[parent1ID] && parent1ID != message.EmptyID {
+			if !submitted[parent1ID] && parent1ID != tangle.EmptyMessageID {
 				stack.PushBack(parent1ID)
 				submitted[parent1ID] = true
 			}

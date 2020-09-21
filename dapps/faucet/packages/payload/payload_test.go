@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
 func ExamplePayload() {
@@ -24,9 +24,9 @@ func ExamplePayload() {
 	}
 
 	// 2. build actual message
-	tx := message.New(
-		message.EmptyID,
-		message.EmptyID,
+	tx := tangle.NewMessage(
+		tangle.EmptyMessageID,
+		tangle.EmptyMessageID,
 		time.Now(),
 		local.PublicKey(),
 		0,

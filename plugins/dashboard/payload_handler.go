@@ -8,7 +8,7 @@ import (
 	drngpayload "github.com/iotaledger/goshimmer/packages/binary/drng/payload"
 	drngheader "github.com/iotaledger/goshimmer/packages/binary/drng/payload/header"
 	cb "github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectivebeacon/payload"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	syncbeaconpayload "github.com/iotaledger/goshimmer/plugins/syncbeacon/payload"
 	"github.com/iotaledger/hive.go/marshalutil"
 )
@@ -77,13 +77,13 @@ type Balance struct {
 
 // ProcessPayload returns different structs regarding to the
 // payload type.
-func ProcessPayload(p payload.Payload) interface{} {
+func ProcessPayload(p tangle.Payload) interface{} {
 	switch p.Type() {
-	case payload.DataType:
+	case tangle.DataType:
 		// data payload
 		return BasicPayload{
 			ContentTitle: "Data",
-			Content:      p.(*payload.Data).Data(),
+			Content:      p.(*tangle.DataPayload).Data(),
 		}
 	case faucetpayload.Type:
 		// faucet payload
@@ -109,7 +109,7 @@ func ProcessPayload(p payload.Payload) interface{} {
 }
 
 // processDrngPayload handles the subtypes of Drng payload
-func processDrngPayload(p payload.Payload) (dp DrngPayload) {
+func processDrngPayload(p tangle.Payload) (dp DrngPayload) {
 	var subpayload interface{}
 	marshalUtil := marshalutil.New(p.Bytes())
 	drngPayload, _ := drngpayload.Parse(marshalUtil)
@@ -139,7 +139,7 @@ func processDrngPayload(p payload.Payload) (dp DrngPayload) {
 }
 
 // processDrngPayload handles the subtypes of Drng payload
-func processSyncBeaconPayload(p payload.Payload) (dp SyncBeaconPayload) {
+func processSyncBeaconPayload(p tangle.Payload) (dp SyncBeaconPayload) {
 	syncBeaconPayload, ok := p.(*syncbeaconpayload.Payload)
 	if !ok {
 		log.Info("could not cast payload to sync beacon object")
@@ -152,7 +152,7 @@ func processSyncBeaconPayload(p payload.Payload) (dp SyncBeaconPayload) {
 }
 
 // processValuePayload handles Value payload
-func processValuePayload(p payload.Payload) (vp ValuePayload) {
+func processValuePayload(p tangle.Payload) (vp ValuePayload) {
 	marshalUtil := marshalutil.New(p.Bytes())
 	v, _ := valuepayload.Parse(marshalUtil)
 

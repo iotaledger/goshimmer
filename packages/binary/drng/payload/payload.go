@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/binary/drng/payload/header"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 )
@@ -127,10 +127,10 @@ func (payload *Payload) String() string {
 // region Payload implementation ///////////////////////////////////////////////////////////////////////////////////////
 
 // Type defines the type of the drng payload.
-var Type = payload.Type(111)
+var Type = tangle.PayloadType(111)
 
 // Type returns the type of the drng payload.
-func (payload *Payload) Type() payload.Type {
+func (payload *Payload) Type() tangle.PayloadType {
 	return Type
 }
 
@@ -140,7 +140,7 @@ func (payload *Payload) Marshal() (bytes []byte, err error) {
 }
 
 func init() {
-	payload.RegisterType(Type, ObjectName, func(data []byte) (payload payload.Payload, err error) {
+	tangle.RegisterPayloadType(Type, ObjectName, func(data []byte) (payload tangle.Payload, err error) {
 		payload, _, err = FromBytes(data)
 
 		return

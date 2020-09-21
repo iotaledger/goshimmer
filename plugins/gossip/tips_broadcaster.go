@@ -4,7 +4,7 @@ import (
 	"container/list"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/timeutil"
@@ -15,17 +15,17 @@ const (
 	tipsBroadcasterName = PluginName + "[TipsBroadcaster]"
 )
 
-var tips = tiplist{dict: make(map[message.ID]*list.Element)}
+var tips = tiplist{dict: make(map[tangle.MessageID]*list.Element)}
 
 type tiplist struct {
 	mu sync.Mutex
 
-	dict     map[message.ID]*list.Element
+	dict     map[tangle.MessageID]*list.Element
 	list     list.List
 	iterator *list.Element
 }
 
-func (s *tiplist) AddTip(id message.ID) {
+func (s *tiplist) AddTip(id tangle.MessageID) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -39,7 +39,7 @@ func (s *tiplist) AddTip(id message.ID) {
 	}
 }
 
-func (s *tiplist) RemoveTip(id message.ID) {
+func (s *tiplist) RemoveTip(id tangle.MessageID) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -54,14 +54,14 @@ func (s *tiplist) RemoveTip(id message.ID) {
 	}
 }
 
-func (s *tiplist) Next() message.ID {
+func (s *tiplist) Next() tangle.MessageID {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if s.iterator == nil {
-		return message.EmptyID
+		return tangle.EmptyMessageID
 	}
-	id := s.iterator.Value.(message.ID)
+	id := s.iterator.Value.(tangle.MessageID)
 	s.next(s.iterator)
 	return id
 }
@@ -94,14 +94,14 @@ func startTipBroadcaster(shutdownSignal <-chan struct{}) {
 // broadcasts the next oldest tip from the tip pool to all connected neighbors.
 func broadcastNextOldestTip() {
 	msgID := tips.Next()
-	if msgID == message.EmptyID {
+	if msgID == tangle.EmptyMessageID {
 		return
 	}
 	broadcastMessage(msgID)
 }
 
 // broadcasts the given message to all neighbors if it exists.
-func broadcastMessage(msgID message.ID) {
+func broadcastMessage(msgID tangle.MessageID) {
 	msgBytes, err := loadMessage(msgID)
 	if err != nil {
 		return
