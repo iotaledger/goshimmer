@@ -3,8 +3,8 @@ package metrics
 import (
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 	"github.com/iotaledger/goshimmer/packages/metrics"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/syncutils"
 	"go.uber.org/atomic"
@@ -49,7 +49,7 @@ var (
 	measuredReceivedMPS atomic.Uint64
 
 	// Number of messages per payload type since start of the node.
-	messageCountPerPayload = make(map[payload.Type]uint64)
+	messageCountPerPayload = make(map[tangle.PayloadType]uint64)
 
 	// protect map from concurrent read/write.
 	messageCountPerPayloadMutex syncutils.RWMutex
@@ -66,12 +66,12 @@ func MessageTotalCountSinceStart() uint64 {
 }
 
 // MessageCountSinceStartPerPayload returns a map of message payload types and their count since the start of the node.
-func MessageCountSinceStartPerPayload() map[payload.Type]uint64 {
+func MessageCountSinceStartPerPayload() map[tangle.PayloadType]uint64 {
 	messageCountPerPayloadMutex.RLock()
 	defer messageCountPerPayloadMutex.RUnlock()
 
 	// copy the original map
-	copy := make(map[payload.Type]uint64)
+	copy := make(map[tangle.PayloadType]uint64)
 	for key, element := range messageCountPerPayload {
 		copy[key] = element
 	}
@@ -122,7 +122,7 @@ func ReceivedMessagesPerSecond() uint64 {
 
 ////// Handling data updates and measuring //////
 
-func increasePerPayloadCounter(p payload.Type) {
+func increasePerPayloadCounter(p tangle.PayloadType) {
 	messageCountPerPayloadMutex.Lock()
 	defer messageCountPerPayloadMutex.Unlock()
 

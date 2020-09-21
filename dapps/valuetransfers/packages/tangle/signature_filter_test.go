@@ -9,11 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	valuePayload "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/messagefactory"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/messageparser"
-	messagePayload "github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tipselector"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
@@ -28,7 +24,7 @@ func TestSignatureFilter(t *testing.T) {
 
 	// create helper instances
 	seed := newSeed()
-	messageFactory := messagefactory.New(mapdb.NewMapDB(), []byte("sequenceKey"), identity.GenerateLocalIdentity(), tipselector.New())
+	messageFactory := tangle.NewMessageFactory(mapdb.NewMapDB(), []byte("sequenceKey"), identity.GenerateLocalIdentity(), tangle.NewMessageTipSelector())
 
 	// 1. test value message without signatures
 	{
@@ -84,14 +80,14 @@ func TestSignatureFilter(t *testing.T) {
 	// 3. test message with an invalid value payload
 	{
 		// create a data payload
-		marshalUtil := marshalutil.New(messagePayload.NewData([]byte("test")).Bytes())
+		marshalUtil := marshalutil.New(tangle.NewDataPayload([]byte("test")).Bytes())
 
 		// set the type to be a value payload
-		marshalUtil.WriteSeek(0)
+		marshalUtil.WriteSeek(4)
 		marshalUtil.WriteUint32(valuePayload.Type)
 
 		// parse modified bytes back into a payload object
-		dataPayload, _, err := messagePayload.DataFromBytes(marshalUtil.Bytes())
+		dataPayload, _, err := tangle.DataPayloadFromBytes(marshalUtil.Bytes())
 		require.NoError(t, err)
 
 		// parse message bytes
@@ -108,9 +104,9 @@ func TestSignatureFilter(t *testing.T) {
 
 // newSyncMessageParser creates a wrapped MessageParser that works synchronously by using a WaitGroup to wait for the
 // parse result.
-func newSyncMessageParser(messageFilters ...messageparser.MessageFilter) (tester *syncMessageParser) {
+func newSyncMessageParser(messageFilters ...tangle.MessageFilter) (tester *syncMessageParser) {
 	// initialize MessageParser
-	messageParser := messageparser.New()
+	messageParser := tangle.NewMessageParser()
 	for _, messageFilter := range messageFilters {
 		messageParser.AddMessageFilter(messageFilter)
 	}
@@ -121,7 +117,7 @@ func newSyncMessageParser(messageFilters ...messageparser.MessageFilter) (tester
 	}
 
 	// setup async behavior (store result + mark WaitGroup done)
-	messageParser.Events.BytesRejected.Attach(events.NewClosure(func(bytesRejectedEvent *messageparser.BytesRejectedEvent, err error) {
+	messageParser.Events.BytesRejected.Attach(events.NewClosure(func(bytesRejectedEvent *tangle.BytesRejectedEvent, err error) {
 		tester.result = &messageParserResult{
 			accepted: false,
 			message:  nil,
@@ -131,7 +127,7 @@ func newSyncMessageParser(messageFilters ...messageparser.MessageFilter) (tester
 
 		tester.wg.Done()
 	}))
-	messageParser.Events.MessageRejected.Attach(events.NewClosure(func(msgRejectedEvent *messageparser.MessageRejectedEvent, err error) {
+	messageParser.Events.MessageRejected.Attach(events.NewClosure(func(msgRejectedEvent *tangle.MessageRejectedEvent, err error) {
 		tester.result = &messageParserResult{
 			accepted: false,
 			message:  msgRejectedEvent.Message,
@@ -141,7 +137,7 @@ func newSyncMessageParser(messageFilters ...messageparser.MessageFilter) (tester
 
 		tester.wg.Done()
 	}))
-	messageParser.Events.MessageParsed.Attach(events.NewClosure(func(msgParsedEvent *messageparser.MessageParsedEvent) {
+	messageParser.Events.MessageParsed.Attach(events.NewClosure(func(msgParsedEvent *tangle.MessageParsedEvent) {
 		tester.result = &messageParserResult{
 			accepted: true,
 			message:  msgParsedEvent.Message,
@@ -157,13 +153,13 @@ func newSyncMessageParser(messageFilters ...messageparser.MessageFilter) (tester
 
 // syncMessageParser is a wrapper for the MessageParser that allows to parse Messages synchronously.
 type syncMessageParser struct {
-	messageParser *messageparser.MessageParser
+	messageParser *tangle.MessageParser
 	result        *messageParserResult
 	wg            sync.WaitGroup
 }
 
 // Parse parses the message bytes into a message. It either gets accepted or rejected.
-func (tester *syncMessageParser) Parse(messageBytes []byte, peer *peer.Peer) (bool, *message.Message, *peer.Peer, error) {
+func (tester *syncMessageParser) Parse(messageBytes []byte, peer *peer.Peer) (bool, *tangle.Message, *peer.Peer, error) {
 	tester.wg.Add(1)
 	tester.messageParser.Parse(messageBytes, peer)
 	tester.wg.Wait()
@@ -175,7 +171,7 @@ func (tester *syncMessageParser) Parse(messageBytes []byte, peer *peer.Peer) (bo
 // WaitGroup is done waiting.
 type messageParserResult struct {
 	accepted bool
-	message  *message.Message
+	message  *tangle.Message
 	peer     *peer.Peer
 	err      error
 }

@@ -1,11 +1,13 @@
 package drng
 
 import (
+	"fmt"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
-	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
+
+	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/hive.go/marshalutil"
 )
 
 // CollectiveBeaconPayload is a collective beacon payload.
@@ -40,6 +42,7 @@ func NewCollectiveBeaconPayload(instanceID uint32, round uint64, prevSignature, 
 func ParseCollectiveBeaconPayload(marshalUtil *marshalutil.MarshalUtil) (*CollectiveBeaconPayload, error) {
 	unmarshalledPayload, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return CollectiveBeaconPayloadFromBytes(data) })
 	if err != nil {
+		err = fmt.Errorf("failed to parse collective beacon payload: %w", err)
 		return nil, err
 	}
 	_payload := unmarshalledPayload.(*CollectiveBeaconPayload)
@@ -49,50 +52,48 @@ func ParseCollectiveBeaconPayload(marshalUtil *marshalutil.MarshalUtil) (*Collec
 
 // CollectiveBeaconPayloadFromBytes parses the marshaled version of a Payload into an object.
 // It either returns a new Payload or fills an optionally provided Payload with the parsed information.
-func CollectiveBeaconPayloadFromBytes(bytes []byte, optionalTargetObject ...*CollectiveBeaconPayload) (result *CollectiveBeaconPayload, consumedBytes int, err error) {
-	// determine the target object that will hold the unmarshaled information
-	switch len(optionalTargetObject) {
-	case 0:
-		result = &CollectiveBeaconPayload{}
-	case 1:
-		result = optionalTargetObject[0]
-	default:
-		panic("too many arguments in call to OutputFromBytes")
-	}
-
+func CollectiveBeaconPayloadFromBytes(bytes []byte) (result *CollectiveBeaconPayload, consumedBytes int, err error) {
 	// initialize helper
 	marshalUtil := marshalutil.New(bytes)
 
 	// read information that are required to identify the payload from the outside
 	if _, err = marshalUtil.ReadUint32(); err != nil {
+		err = fmt.Errorf("failed to parse payload size of collective beacon payload: %w", err)
 		return
 	}
 	if _, err = marshalUtil.ReadUint32(); err != nil {
+		err = fmt.Errorf("failed to parse payload type of collective beacon payload: %w", err)
 		return
 	}
 
 	// parse header
+	result = &CollectiveBeaconPayload{}
 	if result.Header, err = ParseHeader(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse header of collective beacon payload: %w", err)
 		return
 	}
 
 	// parse round
 	if result.Round, err = marshalUtil.ReadUint64(); err != nil {
+		err = fmt.Errorf("failed to parse round of collective beacon payload: %w", err)
 		return
 	}
 
 	// parse prevSignature
 	if result.PrevSignature, err = marshalUtil.ReadBytes(SignatureSize); err != nil {
+		err = fmt.Errorf("failed to parse prevSignature of collective beacon payload: %w", err)
 		return
 	}
 
 	// parse current signature
 	if result.Signature, err = marshalUtil.ReadBytes(SignatureSize); err != nil {
+		err = fmt.Errorf("failed to parse current signature of collective beacon payload: %w", err)
 		return
 	}
 
 	// parse distributed public key
 	if result.Dpk, err = marshalUtil.ReadBytes(PublicKeySize); err != nil {
+		err = fmt.Errorf("failed to parse distributed public key of collective beacon payload: %w", err)
 		return
 	}
 
@@ -129,8 +130,8 @@ func (p *CollectiveBeaconPayload) Bytes() (bytes []byte) {
 	// marshal fields
 	payloadLength := HeaderLength + marshalutil.UINT64_SIZE + SignatureSize*2 + PublicKeySize
 	marshalUtil := marshalutil.New(marshalutil.UINT32_SIZE + marshalutil.UINT32_SIZE + payloadLength)
-	marshalUtil.WriteUint32(PayloadType)
 	marshalUtil.WriteUint32(uint32(payloadLength))
+	marshalUtil.WriteUint32(PayloadType)
 	marshalUtil.WriteBytes(p.Header.Bytes())
 	marshalUtil.WriteUint64(p.Round)
 	marshalUtil.WriteBytes(p.PrevSignature)
@@ -159,20 +160,13 @@ func (p *CollectiveBeaconPayload) String() string {
 // region Payload implementation ///////////////////////////////////////////////////////////////////////////////////////
 
 // Type returns the collective beacon payload type.
-func (p *CollectiveBeaconPayload) Type() payload.Type {
+func (p *CollectiveBeaconPayload) Type() tangle.PayloadType {
 	return PayloadType
 }
 
 // Marshal marshals the collective beacon payload into bytes.
 func (p *CollectiveBeaconPayload) Marshal() (bytes []byte, err error) {
 	return p.Bytes(), nil
-}
-
-// Unmarshal returns a collective beacon payload from the given bytes.
-func (p *CollectiveBeaconPayload) Unmarshal(data []byte) (err error) {
-	_, _, err = CollectiveBeaconPayloadFromBytes(data, p)
-
-	return
 }
 
 // // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

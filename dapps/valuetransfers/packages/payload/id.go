@@ -33,6 +33,7 @@ func NewID(base58EncodedString string) (result ID, err error) {
 func ParseID(marshalUtil *marshalutil.MarshalUtil) (ID, error) {
 	id, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return IDFromBytes(data) })
 	if err != nil {
+		err = fmt.Errorf("failed to parse value payload ID: %w", err)
 		return ID{}, err
 	}
 

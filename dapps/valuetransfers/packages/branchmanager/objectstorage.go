@@ -47,19 +47,3 @@ var (
 		osLeakDetectionOption,
 	}
 )
-
-func osBranchFactory(key []byte) (objectstorage.StorableObject, int, error) {
-	return BranchFromStorageKey(key)
-}
-
-func osChildBranchFactory(key []byte) (objectstorage.StorableObject, int, error) {
-	return ChildBranchFromStorageKey(key)
-}
-
-func osConflictFactory(key []byte) (objectstorage.StorableObject, int, error) {
-	return ConflictFromStorageKey(key)
-}
-
-func osConflictMemberFactory(key []byte) (objectstorage.StorableObject, int, error) {
-	return ConflictMemberFromStorageKey(key)
-}
