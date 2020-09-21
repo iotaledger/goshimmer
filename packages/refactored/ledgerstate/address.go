@@ -49,7 +49,7 @@ type Address interface {
 	// Base58 returns a base58 encoded version of the Address.
 	Base58() string
 
-	// String returns a human readable version of the addresses for debug purposes.
+	// String returns a human readable version of the Address for debug purposes.
 	String() string
 }
 
@@ -79,7 +79,7 @@ func AddressFromBase58EncodedString(base58String string) (address Address, err e
 func AddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address Address, err error) {
 	addressType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = errors.Wrap(err, "error while parsing OutputType of Address")
+		err = errors.Wrap(err, "error while parsing AddressType of Address")
 		return
 	}
 	marshalUtil.ReadSeek(-1)
@@ -127,11 +127,11 @@ func ED25519AddressFromBytes(bytes []byte) (address *ED25519Address, consumedByt
 func ED25519AddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address *ED25519Address, err error) {
 	addressType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = errors.Wrap(err, "error parsing OutputType")
+		err = errors.Wrap(err, "error parsing AddressType")
 		return
 	}
 	if AddressType(addressType) != AddressTypeBLS {
-		err = errors.Errorf("invalid OutputType '%X'", addressType)
+		err = errors.Errorf("invalid AddressType '%X'", addressType)
 		return
 	}
 
@@ -205,11 +205,11 @@ func BLSAddressFromBytes(bytes []byte) (address *BLSAddress, consumedBytes int, 
 func BLSAddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address *BLSAddress, err error) {
 	addressType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = errors.Wrap(err, "error parsing OutputType")
+		err = errors.Wrap(err, "error parsing AddressType")
 		return
 	}
 	if AddressType(addressType) != AddressTypeBLS {
-		err = errors.Errorf("invalid OutputType `%X`", addressType)
+		err = errors.Errorf("invalid AddressType `%X`", addressType)
 		return
 	}
 
