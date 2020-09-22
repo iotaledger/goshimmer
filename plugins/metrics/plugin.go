@@ -88,12 +88,12 @@ func run(_ *node.Plugin) {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
 
-	// create a background worker that update the mana metrics every minute
+	// create a background worker that updates the mana metrics
 	if err := daemon.BackgroundWorker("Metrics Mana Updater", func(shutdownSignal <-chan struct{}) {
 		defer log.Infof("Stopping Metrics Mana Updater ... done")
 		timeutil.Ticker(func() {
 			measureMana()
-		}, 10*time.Second, shutdownSignal)
+		}, time.Second*time.Duration(config.Node().GetUint(CfgManaUpdateInterval)), shutdownSignal)
 
 		log.Infof("Stopping Metrics Mana Updater ...")
 	}, shutdown.PriorityMetrics); err != nil {
