@@ -5,8 +5,11 @@ import (
 )
 
 const (
+	// DisablePlugins contains the name of the parameter that allows to manually disable node plugins.
 	DisablePlugins = "node.disablePlugins"
-	EnablePlugins  = "node.enablePlugins"
+
+	// EnablePlugins contains the name of the parameter that allows to manually enable node plugins.
+	EnablePlugins = "node.enablePlugins"
 )
 
 func init() {
