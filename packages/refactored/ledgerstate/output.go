@@ -7,7 +7,6 @@ import (
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/mr-tron/base58"
-	"github.com/pkg/errors"
 	"golang.org/x/xerrors"
 )
 
@@ -83,7 +82,8 @@ func OutputIDFromBase58(base58String string) (outputID OutputID, err error) {
 func OutputIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (outputID OutputID, err error) {
 	outputIDBytes, err := marshalUtil.ReadBytes(OutputIDLength)
 	if err != nil {
-		err = errors.Wrap(err, "failed to read bytes to parse OutputID")
+		err = xerrors.Errorf("failed to parse OutputID (%v): %w", err, ErrParseBytesFailed)
+		return
 	}
 	copy(outputID[:], outputIDBytes)
 
@@ -126,7 +126,7 @@ func (o OutputID) String() string {
 
 // Output is a generic interface for the different types of Outputs (with different unlock behaviors).
 type Output interface {
-	// ID returns the identifier of the output that is used to address the Output in the UTXODAG.
+	// ID returns the identifier of the Output that is used to address the Output in the UTXODAG.
 	ID() OutputID
 
 	// SetID allows to set the identifier of the Output. We offer a setter for this property since Outputs that are
@@ -135,7 +135,7 @@ type Output interface {
 	// only accessed when the Output is supposed to be persisted.
 	SetID(outputID OutputID)
 
-	// Type returns the type of the Output, which allows us to generically handle Outputs of different types.
+	// Type returns the type of the Output which allows us to generically handle Outputs of different types.
 	Type() OutputType
 
 	// Balances returns the funds that are associated with this Output.
@@ -151,53 +151,63 @@ type Output interface {
 	// String returns a human readable version of the Output for debug purposes.
 	String() string
 
-	// make Outputs storable in the ObjectStorage.
+	// StorableObject makes Outputs storable in the ObjectStorage.
 	objectstorage.StorableObject
 }
 
 // OutputFromBytes unmarshals an Output from a sequence of bytes.
-func OutputFromBytes(bytes []byte) (result Output, consumedBytes int, err error) {
+func OutputFromBytes(bytes []byte) (output Output, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = OutputFromMarshalUtil(marshalUtil)
+	if output, err = OutputFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse Output: %w", err)
+	}
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
 // OutputFromMarshalUtil unmarshals an Output using a MarshalUtil (for easier unmarshaling).
-func OutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result Output, err error) {
+func OutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output Output, err error) {
 	outputType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = errors.Wrap(err, "error while parsing OutputType")
-
+		err = xerrors.Errorf("failed to parse OutputType (%v): %w", err, ErrParseBytesFailed)
 		return
 	}
 	marshalUtil.ReadSeek(-1)
 
 	switch OutputType(outputType) {
 	case SigLockedSingleOutputType:
-		result, err = SigLockedSingleOutputFromMarshalUtil(marshalUtil)
+		if output, err = SigLockedSingleOutputFromMarshalUtil(marshalUtil); err != nil {
+			err = xerrors.Errorf("failed to parse SigLockedSingleOutput: %w", err)
+			return
+		}
 	case SigLockedColoredOutputType:
-		// TODO: PARSE OUTPUT
+		if output, err = SigLockedColoredOutputFromMarshalUtil(marshalUtil); err != nil {
+			err = xerrors.Errorf("failed to parse SigLockedColoredOutput: %w", err)
+			return
+		}
 	default:
-		err = errors.Errorf("unsupported OutputType `%X`", outputType)
+		err = xerrors.Errorf("unsupported OutputType (%X): %w", outputType, ErrParseBytesFailed)
+		return
 	}
 
 	return
 }
 
 // OutputFromObjectStorage restores an Output that was stored in the ObjectStorage.
-func OutputFromObjectStorage(key []byte, data []byte) (result Output, err error) {
-	result, err = OutputFromMarshalUtil(marshalutil.New(data))
+func OutputFromObjectStorage(key []byte, data []byte) (output Output, err error) {
+	output, err = OutputFromMarshalUtil(marshalutil.New(data))
 	if err != nil {
+		err = xerrors.Errorf("failed to parse Output: %w", err)
 		return
 	}
 
 	outputID, err := OutputIDFromMarshalUtil(marshalutil.New(key))
 	if err != nil {
+		err = xerrors.Errorf("failed to parse OutputID: %w", err)
 		return
 	}
-	result.SetID(outputID)
+	output.SetID(outputID)
 
 	return
 }
@@ -207,7 +217,7 @@ func OutputFromObjectStorage(key []byte, data []byte) (result Output, err error)
 // region SigLockedSingleOutput ////////////////////////////////////////////////////////////////////////////////////////
 
 // SigLockedSingleOutput is an Output that holds exactly one uncolored balance and that can be unlocked by providing a
-// signature for the given address.
+// signature for an Address.
 type SigLockedSingleOutput struct {
 	id      OutputID
 	address Address
@@ -217,39 +227,43 @@ type SigLockedSingleOutput struct {
 }
 
 // SigLockedSingleOutputFromBytes unmarshals a SigLockedSingleOutput from a sequence of bytes.
-func SigLockedSingleOutputFromBytes(bytes []byte) (result *SigLockedSingleOutput, consumedBytes int, err error) {
+func SigLockedSingleOutputFromBytes(bytes []byte) (output *SigLockedSingleOutput, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = SigLockedSingleOutputFromMarshalUtil(marshalUtil)
+	if output, err = SigLockedSingleOutputFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse SigLockedSingleOutput: %w", err)
+		return
+	}
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
 // SigLockedSingleOutputFromMarshalUtil unmarshals a SigLockedSingleOutput using a MarshalUtil (for easier unmarshaling).
-func SigLockedSingleOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *SigLockedSingleOutput, err error) {
+func SigLockedSingleOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output *SigLockedSingleOutput, err error) {
 	outputType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = errors.Wrap(err, "error parsing OutputType")
+		err = xerrors.Errorf("failed to parse OutputType (%v): %w", err, ErrParseBytesFailed)
 		return
 	}
 	if OutputType(outputType) != SigLockedSingleOutputType {
-		err = errors.Errorf("invalid OutputType `%X`", outputType)
+		err = xerrors.Errorf("invalid OutputType (%X): %w", outputType, ErrParseBytesFailed)
 		return
 	}
 
-	result = &SigLockedSingleOutput{}
-	if result.balance, err = marshalUtil.ReadUint64(); err != nil {
-		err = errors.Wrap(err, "error parsing balance")
+	output = &SigLockedSingleOutput{}
+	if output.balance, err = marshalUtil.ReadUint64(); err != nil {
+		err = xerrors.Errorf("failed to parse balance (%v): %w", err, ErrParseBytesFailed)
 		return
 	}
-	if result.address, err = AddressFromMarshalUtil(marshalUtil); err != nil {
+	if output.address, err = AddressFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse Address (%v): %w", err, ErrParseBytesFailed)
 		return
 	}
 
 	return
 }
 
-// ID returns the identifier of the output that is used to address the Output in the UTXODAG.
+// ID returns the identifier of the Output that is used to address the Output in the UTXODAG.
 func (o *SigLockedSingleOutput) ID() OutputID {
 	return o.id
 }
@@ -262,7 +276,7 @@ func (o *SigLockedSingleOutput) SetID(outputID OutputID) {
 	o.id = outputID
 }
 
-// Type returns the type of the Output, which allows us to generically handle Outputs of different types.
+// Type returns the type of the Output which allows us to generically handle Outputs of different types.
 func (o *SigLockedSingleOutput) Type() OutputType {
 	return SigLockedSingleOutputType
 }
@@ -276,13 +290,19 @@ func (o *SigLockedSingleOutput) Balances() *ColoredBalances {
 }
 
 // UnlockValid determines if the given Transaction and the corresponding UnlockBlock are allowed to spend the Output.
-func (o *SigLockedSingleOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock) (bool, error) {
+func (o *SigLockedSingleOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock) (unlockValid bool, err error) {
 	signatureUnlockBlock, correctType := unlockBlock.(*SignatureUnlockBlock)
 	if !correctType {
-		return false, errors.New("UnlockBlock does not match OutputType")
+		err = xerrors.Errorf("UnlockBlock does not match expected OutputType: %w", ErrTransactionInvalid)
+		return
 	}
 
-	return signatureUnlockBlock.SignatureValid(o.address, tx.UnsignedBytes())
+	if unlockValid, err = signatureUnlockBlock.SignatureValid(o.address, tx.UnsignedBytes()); err != nil {
+		err = xerrors.Errorf("failed to check signature: %w", err)
+		return
+	}
+
+	return
 }
 
 // Address returns the Address that this output is associated to.
@@ -333,7 +353,7 @@ var _ Output = &SigLockedSingleOutput{}
 // region SigLockedColoredOutput ////////////////////////////////////////////////////////////////////////////////////////
 
 // SigLockedColoredOutput is an Output that holds colored balances and that can be unlocked by providing a signature for
-// the given address.
+// an Address.
 type SigLockedColoredOutput struct {
 	id       OutputID
 	address  Address
@@ -343,38 +363,43 @@ type SigLockedColoredOutput struct {
 }
 
 // SigLockedColoredOutputFromBytes unmarshals a SigLockedColoredOutput from a sequence of bytes.
-func SigLockedColoredOutputFromBytes(bytes []byte) (result *SigLockedColoredOutput, consumedBytes int, err error) {
+func SigLockedColoredOutputFromBytes(bytes []byte) (output *SigLockedColoredOutput, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = SigLockedColoredOutputFromMarshalUtil(marshalUtil)
+	if output, err = SigLockedColoredOutputFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse SigLockedColoredOutput: %w", err)
+		return
+	}
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
 // SigLockedColoredOutputFromMarshalUtil unmarshals a SigLockedColoredOutput using a MarshalUtil (for easier unmarshaling).
-func SigLockedColoredOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *SigLockedColoredOutput, err error) {
+func SigLockedColoredOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output *SigLockedColoredOutput, err error) {
 	outputType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = errors.Wrap(err, "error parsing OutputType")
+		err = xerrors.Errorf("failed to parse OutputType (%v): %w", err, ErrParseBytesFailed)
 		return
 	}
 	if OutputType(outputType) != SigLockedColoredOutputType {
-		err = errors.Errorf("invalid OutputType `%X`", outputType)
+		err = xerrors.Errorf("invalid OutputType (%X): %w", outputType, ErrParseBytesFailed)
 		return
 	}
 
-	result = &SigLockedColoredOutput{}
-	if result.balances, err = ColoredBalancesFromMarshalUtil(marshalUtil); err != nil {
+	output = &SigLockedColoredOutput{}
+	if output.balances, err = ColoredBalancesFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse ColoredBalances: %w", err)
 		return
 	}
-	if result.address, err = AddressFromMarshalUtil(marshalUtil); err != nil {
+	if output.address, err = AddressFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse Address (%v): %w", err, ErrParseBytesFailed)
 		return
 	}
 
 	return
 }
 
-// ID returns the identifier of the output that is used to address the Output in the UTXODAG.
+// ID returns the identifier of the Output that is used to address the Output in the UTXODAG.
 func (o *SigLockedColoredOutput) ID() OutputID {
 	return o.id
 }
@@ -387,7 +412,7 @@ func (o *SigLockedColoredOutput) SetID(outputID OutputID) {
 	o.id = outputID
 }
 
-// Type returns the type of the Output, which allows us to generically handle Outputs of different types.
+// Type returns the type of the Output which allows us to generically handle Outputs of different types.
 func (o *SigLockedColoredOutput) Type() OutputType {
 	return SigLockedColoredOutputType
 }
@@ -398,13 +423,19 @@ func (o *SigLockedColoredOutput) Balances() *ColoredBalances {
 }
 
 // UnlockValid determines if the given Transaction and the corresponding UnlockBlock are allowed to spend the Output.
-func (o *SigLockedColoredOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock) (bool, error) {
+func (o *SigLockedColoredOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock) (unlockValid bool, err error) {
 	signatureUnlockBlock, correctType := unlockBlock.(*SignatureUnlockBlock)
 	if !correctType {
-		return false, errors.New("UnlockBlock does not match OutputType")
+		err = xerrors.Errorf("UnlockBlock does not match expected OutputType: %w", ErrTransactionInvalid)
+		return
 	}
 
-	return signatureUnlockBlock.SignatureValid(o.address, tx.UnsignedBytes())
+	if unlockValid, err = signatureUnlockBlock.SignatureValid(o.address, tx.UnsignedBytes()); err != nil {
+		err = xerrors.Errorf("failed to check signature validity: %w", err)
+		return
+	}
+
+	return
 }
 
 // Address returns the Address that this output is associated to.
@@ -443,7 +474,7 @@ func (o *SigLockedColoredOutput) String() string {
 	return stringify.Struct("SigLockedColoredOutput",
 		stringify.StructField("id", o.id),
 		stringify.StructField("address", o.address),
-		stringify.StructField("balance", o.balances),
+		stringify.StructField("balances", o.balances),
 	)
 }
 
@@ -454,8 +485,8 @@ var _ Output = &SigLockedColoredOutput{}
 
 // region CachedOutput /////////////////////////////////////////////////////////////////////////////////////////////////
 
-// CachedOutput is a wrapper for the generic CachedObject returned by the objectstorage, that overrides the accessor
-// methods, with a type-casted one.
+// CachedOutput is a wrapper for the generic CachedObject returned by the objectstorage that overrides the accessor
+// methods with a type-casted one.
 type CachedOutput struct {
 	objectstorage.CachedObject
 }

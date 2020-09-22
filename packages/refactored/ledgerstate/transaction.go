@@ -6,6 +6,7 @@ import (
 
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/mr-tron/base58"
+	"golang.org/x/xerrors"
 )
 
 // region TransactionID ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -24,15 +25,13 @@ func TransactionIDFromBase58(base58String string) (id TransactionID, err error) 
 	// decode string
 	bytes, err := base58.Decode(base58String)
 	if err != nil {
-		err = fmt.Errorf("failed to decode base58 encoded string '%s': %w", base58String, err)
-
+		err = xerrors.Errorf("failed to decode base58 encoded TransactionID (%v): %w", err, ErrBase58DecodeFailed)
 		return
 	}
 
 	// sanitize input
 	if len(bytes) != TransactionIDLength {
 		err = fmt.Errorf("base58 decoded TransactionID '%s' does not match expected length of %d bytes", base58String, TransactionIDLength)
-
 		return
 	}
 
