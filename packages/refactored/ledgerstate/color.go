@@ -5,7 +5,7 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/mr-tron/base58"
-	"github.com/pkg/errors"
+	"golang.org/x/xerrors"
 )
 
 // region Color ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -19,8 +19,27 @@ type Color [ColorLength]byte
 // ColorFromBytes unmarshals a Color from a sequence of bytes.
 func ColorFromBytes(bytes []byte) (color Color, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	color, err = ColorFromMarshalUtil(marshalUtil)
+	if color, err = ColorFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse Color: %w", err)
+		return
+	}
 	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// ColorFromBase58EncodedString creates a Color from a base58 encoded string.
+func ColorFromBase58EncodedString(base58String string) (color Color, err error) {
+	bytes, err := base58.Decode(base58String)
+	if err != nil {
+		err = xerrors.Errorf("error while decoding base58 encoded Color (%v): %w", err, ErrBase58DecodeFailed)
+		return
+	}
+
+	if color, _, err = ColorFromBytes(bytes); err != nil {
+		err = xerrors.Errorf("failed to parse Color: %w", err)
+		return
+	}
 
 	return
 }
@@ -29,7 +48,7 @@ func ColorFromBytes(bytes []byte) (color Color, consumedBytes int, err error) {
 func ColorFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (color Color, err error) {
 	colorBytes, err := marshalUtil.ReadBytes(ColorLength)
 	if err != nil {
-		err = errors.Wrap(err, "failed to parse Color")
+		err = xerrors.Errorf("failed to parse Color (%v): %w", err, ErrParseBytesFailed)
 		return
 	}
 	copy(color[:], colorBytes)
@@ -82,7 +101,10 @@ func NewColoredBalances() *ColoredBalances {
 // ColoredBalancesFromBytes unmarshals ColoredBalances from a sequence of bytes.
 func ColoredBalancesFromBytes(bytes []byte) (coloredBalances *ColoredBalances, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	coloredBalances, err = ColoredBalancesFromMarshalUtil(marshalUtil)
+	if coloredBalances, err = ColoredBalancesFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse ColoredBalances: %w", err)
+		return
+	}
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
@@ -92,21 +114,21 @@ func ColoredBalancesFromBytes(bytes []byte) (coloredBalances *ColoredBalances, c
 func ColoredBalancesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (coloredBalances *ColoredBalances, err error) {
 	balancesCount, err := marshalUtil.ReadUint32()
 	if err != nil {
-		err = errors.Wrap(err, "failed to read element count")
+		err = xerrors.Errorf("failed to read element count (%v): %w", err, ErrParseBytesFailed)
 		return
 	}
 
 	coloredBalances = NewColoredBalances()
 	for i := uint32(0); i < balancesCount; i++ {
-		color, marshalErr := ColorFromMarshalUtil(marshalUtil)
-		if marshalErr != nil {
-			err = marshalErr
+		color, colorErr := ColorFromMarshalUtil(marshalUtil)
+		if colorErr != nil {
+			err = xerrors.Errorf("failed to parse Color: %w", colorErr)
 			return
 		}
 
-		balance, marshalErr := marshalUtil.ReadUint64()
-		if marshalErr != nil {
-			err = errors.Wrap(err, "failed to read balance")
+		balance, balanceErr := marshalUtil.ReadUint64()
+		if balanceErr != nil {
+			err = xerrors.Errorf("failed to parse balance (%v): %w", balanceErr, ErrParseBytesFailed)
 			return
 		}
 

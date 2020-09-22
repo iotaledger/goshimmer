@@ -74,6 +74,7 @@ func AddressFromBase58EncodedString(base58String string) (address Address, err e
 
 	if address, _, err = AddressFromBytes(bytes); err != nil {
 		err = xerrors.Errorf("failed to parse Address: %w", err)
+		return
 	}
 
 	return
@@ -95,9 +96,8 @@ func AddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address Addre
 		return BLSAddressFromMarshalUtil(marshalUtil)
 	default:
 		err = xerrors.Errorf("unsupported address type (%X): %w", addressType, ErrParseBytesFailed)
+		return
 	}
-
-	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -123,6 +123,7 @@ func ED25519AddressFromBytes(bytes []byte) (address *ED25519Address, consumedByt
 	marshalUtil := marshalutil.New(bytes)
 	if address, err = ED25519AddressFromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse ED25519Address: %w", err)
+		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
 
@@ -203,6 +204,7 @@ func BLSAddressFromBytes(bytes []byte) (address *BLSAddress, consumedBytes int, 
 	marshalUtil := marshalutil.New(bytes)
 	if address, err = BLSAddressFromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse BLSAddress: %w", err)
+		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
 

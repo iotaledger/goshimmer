@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
+	"golang.org/x/xerrors"
 )
 
 // region OutputType ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -53,7 +54,10 @@ func NewOutputID(transactionID TransactionID, outputIndex uint16) (outputID Outp
 // OutputIDFromBytes unmarshals an OutputID from a sequence of bytes.
 func OutputIDFromBytes(bytes []byte) (outputID OutputID, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	outputID, err = OutputIDFromMarshalUtil(marshalUtil)
+	if outputID, err = OutputIDFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse OutputID: %w", err)
+		return
+	}
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
@@ -63,11 +67,14 @@ func OutputIDFromBytes(bytes []byte) (outputID OutputID, consumedBytes int, err 
 func OutputIDFromBase58(base58String string) (outputID OutputID, err error) {
 	bytes, err := base58.Decode(base58String)
 	if err != nil {
-		err = errors.Wrap(err, "failed to decode base58 encoded string")
+		err = xerrors.Errorf("error while decoding base58 encoded OutputID (%v): %w", err, ErrBase58DecodeFailed)
 		return
 	}
 
-	outputID, _, err = OutputIDFromBytes(bytes)
+	if outputID, _, err = OutputIDFromBytes(bytes); err != nil {
+		err = xerrors.Errorf("failed to parse OutputID: %w", err)
+		return
+	}
 
 	return
 }
