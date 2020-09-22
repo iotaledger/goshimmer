@@ -23,6 +23,9 @@ const (
 	PrefixMissingMessage
 
 	cacheTime = 20 * time.Second
+
+	// DBSequenceNumber defines the db sequence number.
+	DBSequenceNumber = "seq"
 )
 
 // Tangle represents the base layer of messages.

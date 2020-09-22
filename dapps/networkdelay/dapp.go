@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	messageTangle "github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -76,7 +76,7 @@ func configure(_ *node.Plugin) {
 	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
 }
 
-func onReceiveMessageFromMessageLayer(cachedMessageEvent *messageTangle.CachedMessageEvent) {
+func onReceiveMessageFromMessageLayer(cachedMessageEvent *tangle.CachedMessageEvent) {
 	defer cachedMessageEvent.Message.Release()
 	defer cachedMessageEvent.MessageMetadata.Release()
 

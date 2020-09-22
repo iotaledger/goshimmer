@@ -3,13 +3,8 @@ package messagelayer
 import (
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/messagefactory"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/messageparser"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/messagerequester"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tipselector"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/hive.go/daemon"
@@ -21,23 +16,21 @@ import (
 const (
 	// PluginName defines the plugin name.
 	PluginName = "MessageLayer"
-	// DBSequenceNumber defines the db sequence number.
-	DBSequenceNumber = "seq"
 )
 
 var (
 	// plugin is the plugin instance of the message layer plugin.
 	plugin           *node.Plugin
 	pluginOnce       sync.Once
-	messageParser    *messageparser.MessageParser
+	messageParser    *tangle.MessageParser
 	msgParserOnce    sync.Once
-	messageRequester *messagerequester.MessageRequester
+	messageRequester *tangle.MessageRequester
 	msgReqOnce       sync.Once
-	tipSelector      *tipselector.TipSelector
+	tipSelector      *tangle.MessageTipSelector
 	tipSelectorOnce  sync.Once
 	_tangle          *tangle.Tangle
 	tangleOnce       sync.Once
-	messageFactory   *messagefactory.MessageFactory
+	messageFactory   *tangle.MessageFactory
 	msgFactoryOnce   sync.Once
 	log              *logger.Logger
 )
@@ -51,17 +44,17 @@ func Plugin() *node.Plugin {
 }
 
 // MessageParser gets the messageParser instance.
-func MessageParser() *messageparser.MessageParser {
+func MessageParser() *tangle.MessageParser {
 	msgParserOnce.Do(func() {
-		messageParser = messageparser.New()
+		messageParser = tangle.NewMessageParser()
 	})
 	return messageParser
 }
 
 // TipSelector gets the tipSelector instance.
-func TipSelector() *tipselector.TipSelector {
+func TipSelector() *tangle.MessageTipSelector {
 	tipSelectorOnce.Do(func() {
-		tipSelector = tipselector.New()
+		tipSelector = tangle.NewMessageTipSelector()
 	})
 	return tipSelector
 }
@@ -76,18 +69,18 @@ func Tangle() *tangle.Tangle {
 }
 
 // MessageFactory gets the messageFactory instance.
-func MessageFactory() *messagefactory.MessageFactory {
+func MessageFactory() *tangle.MessageFactory {
 	msgFactoryOnce.Do(func() {
-		messageFactory = messagefactory.New(database.Store(), []byte(DBSequenceNumber), local.GetInstance().LocalIdentity(), TipSelector())
+		messageFactory = tangle.NewMessageFactory(database.Store(), []byte(tangle.DBSequenceNumber), local.GetInstance().LocalIdentity(), TipSelector())
 	})
 	return messageFactory
 }
 
 // MessageRequester gets the messageRequester instance.
-func MessageRequester() *messagerequester.MessageRequester {
+func MessageRequester() *tangle.MessageRequester {
 	msgReqOnce.Do(func() {
 		// load all missing messages on start up
-		messageRequester = messagerequester.New(Tangle().MissingMessages())
+		messageRequester = tangle.NewMessageRequester(Tangle().MissingMessages())
 	})
 	return messageRequester
 }
@@ -109,7 +102,7 @@ func configure(*node.Plugin) {
 	}))
 
 	// setup messageParser
-	messageParser.Events.MessageParsed.Attach(events.NewClosure(func(msgParsedEvent *messageparser.MessageParsedEvent) {
+	messageParser.Events.MessageParsed.Attach(events.NewClosure(func(msgParsedEvent *tangle.MessageParsedEvent) {
 		// TODO: ADD PEER
 		_tangle.AttachMessage(msgParsedEvent.Message)
 	}))
@@ -118,7 +111,7 @@ func configure(*node.Plugin) {
 	_tangle.Events.MessageMissing.Attach(events.NewClosure(messageRequester.StartRequest))
 	_tangle.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
 		cachedMsgEvent.MessageMetadata.Release()
-		cachedMsgEvent.Message.Consume(func(msg *message.Message) {
+		cachedMsgEvent.Message.Consume(func(msg *tangle.Message) {
 			messageRequester.StopRequest(msg.ID())
 		})
 	}))
@@ -129,7 +122,7 @@ func configure(*node.Plugin) {
 		cachedMsgEvent.Message.Consume(tipSelector.AddTip)
 	}))
 
-	MessageRequester().Events.MissingMessageAppeared.Attach(events.NewClosure(func(missingMessageAppeared *messagerequester.MissingMessageAppearedEvent) {
+	MessageRequester().Events.MissingMessageAppeared.Attach(events.NewClosure(func(missingMessageAppeared *tangle.MissingMessageAppearedEvent) {
 		_tangle.DeleteMissingMessage(missingMessageAppeared.ID)
 	}))
 }
