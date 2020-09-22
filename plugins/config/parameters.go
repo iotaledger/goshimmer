@@ -5,14 +5,14 @@ import (
 )
 
 const (
-	// DisablePlugins contains the name of the parameter that allows to manually disable node plugins.
-	DisablePlugins = "node.disablePlugins"
+	// CfgDisablePlugins contains the name of the parameter that allows to manually disable node plugins.
+	CfgDisablePlugins = "node.disablePlugins"
 
-	// EnablePlugins contains the name of the parameter that allows to manually enable node plugins.
-	EnablePlugins = "node.enablePlugins"
+	// CfgEnablePlugins contains the name of the parameter that allows to manually enable node plugins.
+	CfgEnablePlugins = "node.enablePlugins"
 )
 
 func init() {
-	flag.StringSlice(DisablePlugins, nil, "a list of plugins that shall be disabled")
-	flag.StringSlice(EnablePlugins, nil, "a list of plugins that shall be enabled")
+	flag.StringSlice(CfgDisablePlugins, nil, "a list of plugins that shall be disabled")
+	flag.StringSlice(CfgEnablePlugins, nil, "a list of plugins that shall be enabled")
 }
