@@ -120,7 +120,16 @@ func (webConnector WebConnector) SendTransaction(tx *transaction.Transaction) (e
 
 // GetAllowedPledgeIDs gets the list of nodeIDs that the node accepts as pledgeIDs in a transaction.
 func (webConnector WebConnector) GetAllowedPledgeIDs() (pledgeIDMap map[mana.Type][]string, err error) {
-	return webConnector.client.GetAllowedManaPledgeNodeIDs()
+	res, err := webConnector.client.GetAllowedManaPledgeNodeIDs()
+	if err != nil {
+		return
+	}
+	pledgeIDMap = map[mana.Type][]string{
+		mana.AccessMana:    res.Access.Allowed,
+		mana.ConsensusMana: res.Consensus.Allowed,
+	}
+
+	return
 }
 
 // colorFromString is an internal utility method that parses the given string into a Color.
