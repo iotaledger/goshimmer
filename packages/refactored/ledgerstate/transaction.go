@@ -126,6 +126,7 @@ type UnlockBlock interface {
 // region SignatureUnlockBlock /////////////////////////////////////////////////////////////////////////////////////////
 
 type SignatureUnlockBlock struct {
+	signature *Signature
 }
 
 func (s *SignatureUnlockBlock) SignatureValid(address Address, unsignedBytes []byte) (bool, error) {
