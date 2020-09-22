@@ -17,11 +17,19 @@ func Handler(c echo.Context) error {
 	access.Allowed.ForEach(func(element interface{}) {
 		accessNodes = append(accessNodes, base58.Encode(element.(identity.ID).Bytes()))
 	})
+	if len(accessNodes) == 0 {
+		return c.JSON(http.StatusNotFound, Response{Error: "No access mana pledge IDs are accepted"})
+	}
+
 	consensus := manaPlugin.GetAllowedPledgeNodes(mana.ConsensusMana)
 	var consensusNodes []string
 	consensus.Allowed.ForEach(func(element interface{}) {
 		consensusNodes = append(consensusNodes, base58.Encode(element.(identity.ID).Bytes()))
 	})
+	if len(consensusNodes) == 0 {
+		return c.JSON(http.StatusNotFound, Response{Error: "No consensus mana pledge IDs are accepted"})
+	}
+
 	return c.JSON(http.StatusOK, Response{
 		Access: AllowedPledge{
 			IsFilterEnabled: access.IsFilterEnabled,
