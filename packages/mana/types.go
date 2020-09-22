@@ -10,6 +10,7 @@ const (
 	ConsensusMana
 )
 
+// String returns a string representation of the type of mana.
 func (t Type) String() string {
 	switch t {
 	case AccessMana:

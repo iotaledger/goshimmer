@@ -14,7 +14,6 @@ func execAllowedPledgeNodeIDsCommand(command *flag.FlagSet, cliWallet *wallet.Wa
 		printUsage(nil, err.Error())
 	}
 
-	fmt.Println()
 	fmt.Println("Querying node about allowed pledge nodeIDs ... ")
 
 	// query about pledgeNodeIDs
@@ -24,8 +23,7 @@ func execAllowedPledgeNodeIDsCommand(command *flag.FlagSet, cliWallet *wallet.Wa
 	}
 
 	for key, value := range res {
-		fmt.Printf("\nAllowed %s full nodeIDs:", key.String())
-		fmt.Println()
+		fmt.Printf("\nAllowed %s full nodeIDs: \n", key.String())
 		for _, nodeID := range value {
 			fmt.Printf("\n   %s", nodeID)
 		}
