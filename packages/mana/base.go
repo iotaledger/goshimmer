@@ -82,9 +82,8 @@ func (bm *BaseMana) revokeBaseMana1(amount float64, t time.Time) error {
 		EBM1Compensation := amount * (1 - math.Pow(math.E, -emaCoeff1*n.Seconds()))
 		if bm.EffectiveBaseMana1-EBM1Compensation < 0.0 {
 			return ErrEffBaseManaNegative
-		} else {
-			bm.EffectiveBaseMana1 -= EBM1Compensation
 		}
+		bm.EffectiveBaseMana1 -= EBM1Compensation
 	}
 	return nil
 }
