@@ -3,7 +3,7 @@ package client
 import (
 	"net/http"
 
-	webapi_message "github.com/iotaledger/goshimmer/plugins/webapi/message"
+	webapi "github.com/iotaledger/goshimmer/plugins/webapi"
 )
 
 const (
@@ -13,13 +13,13 @@ const (
 
 // FindMessageByID finds messages by the given base58 encoded IDs. The messages are returned in the same order as
 // the given IDs. Non available messages are empty at their corresponding index.
-func (api *GoShimmerAPI) FindMessageByID(base58EncodedIDs []string) (*webapi_message.Response, error) {
-	res := &webapi_message.Response{}
+func (api *GoShimmerAPI) FindMessageByID(base58EncodedIDs []string) (*webapi.FindByIDResponse, error) {
+	res := &webapi.FindByIDResponse{}
 
 	if err := api.do(
 		http.MethodPost,
 		routeFindByID,
-		&webapi_message.Request{IDs: base58EncodedIDs},
+		&webapi.FindByIDRequest{IDs: base58EncodedIDs},
 		res,
 	); err != nil {
 		return nil, err
@@ -30,9 +30,9 @@ func (api *GoShimmerAPI) FindMessageByID(base58EncodedIDs []string) (*webapi_mes
 
 // SendPayload send a message with the given payload.
 func (api *GoShimmerAPI) SendPayload(payload []byte) (string, error) {
-	res := &webapi_message.MsgResponse{}
+	res := &webapi.MsgResponse{}
 	if err := api.do(http.MethodPost, routeSendPayload,
-		&webapi_message.MsgRequest{Payload: payload}, res); err != nil {
+		&webapi.MsgRequest{Payload: payload}, res); err != nil {
 		return "", err
 	}
 

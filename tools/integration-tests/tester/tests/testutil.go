@@ -14,7 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/webapi/value/utils"
+	webapi "github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
@@ -448,7 +448,7 @@ type ExpectedTransaction struct {
 	// The optional input IDs to check against.
 	Inputs *[]string
 	// The optional outputs to check against.
-	Outputs *[]utils.Output
+	Outputs *[]webapi.Output
 	// The optional signature to check against.
 	Signature *[]byte
 }

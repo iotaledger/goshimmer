@@ -7,7 +7,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/client"
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	"github.com/iotaledger/goshimmer/plugins/webapi/autopeering"
+	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/identity"
 )
 
@@ -28,8 +28,8 @@ type Peer struct {
 	// Seed
 	*walletseed.Seed
 
-	chosen   []autopeering.Neighbor
-	accepted []autopeering.Neighbor
+	chosen   []webapi.Neighbor
+	accepted []webapi.Neighbor
 }
 
 // newPeer creates a new instance of Peer with the given information.
@@ -61,10 +61,10 @@ func (p *Peer) TotalNeighbors() int {
 }
 
 // SetNeighbors sets the neighbors of the peer accordingly.
-func (p *Peer) SetNeighbors(chosen, accepted []autopeering.Neighbor) {
-	p.chosen = make([]autopeering.Neighbor, len(chosen))
+func (p *Peer) SetNeighbors(chosen, accepted []webapi.Neighbor) {
+	p.chosen = make([]webapi.Neighbor, len(chosen))
 	copy(p.chosen, chosen)
 
-	p.accepted = make([]autopeering.Neighbor, len(accepted))
+	p.accepted = make([]webapi.Neighbor, len(accepted))
 	copy(p.accepted, accepted)
 }

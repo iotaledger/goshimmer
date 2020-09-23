@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -26,8 +27,10 @@ var (
 	// server is the web API server.
 	server     *echo.Echo
 	serverOnce sync.Once
-
-	log *logger.Logger
+	// DisabledAPIs is a list of disabled apis
+	DisabledAPIs = make(map[string]struct{})
+	// Log is the logger of webapi plugin
+	Log *logger.Logger
 )
 
 // Plugin gets the plugin instance.
@@ -53,30 +56,36 @@ func Server() *echo.Echo {
 
 func configure(*node.Plugin) {
 	server = Server()
-	log = logger.NewLogger(PluginName)
+	Log = logger.NewLogger(PluginName)
 	// configure the server
 	server.HideBanner = true
 	server.HidePort = true
 	server.GET("/", IndexRequest)
+
+	// get disabled apis
+	DisabledAPI := config.Node().GetStringSlice(CfgDisabledAPI)
+	for _, d := range DisabledAPI {
+		DisabledAPIs[strings.ToLower(d)] = struct{}{}
+	}
 }
 
 func run(*node.Plugin) {
-	log.Infof("Starting %s ...", PluginName)
+	Log.Infof("Starting %s ...", PluginName)
 	if err := daemon.BackgroundWorker("WebAPI server", worker, shutdown.PriorityWebAPI); err != nil {
-		log.Panicf("Failed to start as daemon: %s", err)
+		Log.Panicf("Failed to start as daemon: %s", err)
 	}
 }
 
 func worker(shutdownSignal <-chan struct{}) {
-	defer log.Infof("Stopping %s ... done", PluginName)
+	defer Log.Infof("Stopping %s ... done", PluginName)
 
 	stopped := make(chan struct{})
 	bindAddr := config.Node().GetString(CfgBindAddress)
 	go func() {
-		log.Infof("%s started, bind-address=%s", PluginName, bindAddr)
+		Log.Infof("%s started, bind-address=%s", PluginName, bindAddr)
 		if err := server.Start(bindAddr); err != nil {
 			if !errors.Is(err, http.ErrServerClosed) {
-				log.Errorf("Error serving: %s", err)
+				Log.Errorf("Error serving: %s", err)
 			}
 			close(stopped)
 		}
@@ -88,10 +97,10 @@ func worker(shutdownSignal <-chan struct{}) {
 	case <-stopped:
 	}
 
-	log.Infof("Stopping %s ...", PluginName)
+	Log.Infof("Stopping %s ...", PluginName)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	if err := server.Shutdown(ctx); err != nil {
-		log.Errorf("Error stopping: %s", err)
+		Log.Errorf("Error stopping: %s", err)
 	}
 }

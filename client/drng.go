@@ -3,9 +3,7 @@ package client
 import (
 	"net/http"
 
-	webapi_collectiveBeacon "github.com/iotaledger/goshimmer/plugins/webapi/drng/collectivebeacon"
-	webapi_committee "github.com/iotaledger/goshimmer/plugins/webapi/drng/info/committee"
-	webapi_randomness "github.com/iotaledger/goshimmer/plugins/webapi/drng/info/randomness"
+	webapi "github.com/iotaledger/goshimmer/plugins/webapi"
 )
 
 const (
@@ -17,9 +15,9 @@ const (
 // BroadcastCollectiveBeacon sends the given collective beacon (payload) by creating a message in the backend.
 func (api *GoShimmerAPI) BroadcastCollectiveBeacon(payload []byte) (string, error) {
 
-	res := &webapi_collectiveBeacon.Response{}
+	res := &webapi.CollectiveBeaconResponse{}
 	if err := api.do(http.MethodPost, routeCollectiveBeacon,
-		&webapi_collectiveBeacon.Request{Payload: payload}, res); err != nil {
+		&webapi.CollectiveBeaconRequest{Payload: payload}, res); err != nil {
 		return "", err
 	}
 
@@ -27,8 +25,8 @@ func (api *GoShimmerAPI) BroadcastCollectiveBeacon(payload []byte) (string, erro
 }
 
 // GetRandomness gets the current randomness.
-func (api *GoShimmerAPI) GetRandomness() (*webapi_randomness.Response, error) {
-	res := &webapi_randomness.Response{}
+func (api *GoShimmerAPI) GetRandomness() (*webapi.RandomnessResponse, error) {
+	res := &webapi.RandomnessResponse{}
 	if err := api.do(http.MethodGet, func() string {
 		return routeRandomness
 	}(), nil, res); err != nil {
@@ -38,8 +36,8 @@ func (api *GoShimmerAPI) GetRandomness() (*webapi_randomness.Response, error) {
 }
 
 // GetCommittee gets the current committee.
-func (api *GoShimmerAPI) GetCommittee() (*webapi_committee.Response, error) {
-	res := &webapi_committee.Response{}
+func (api *GoShimmerAPI) GetCommittee() (*webapi.CommitteeResponse, error) {
+	res := &webapi.CommitteeResponse{}
 	if err := api.do(http.MethodGet, func() string {
 		return routeCommittee
 	}(), nil, res); err != nil {

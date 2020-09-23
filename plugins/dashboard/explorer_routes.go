@@ -9,7 +9,7 @@ import (
 	valuetangle "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/goshimmer/plugins/webapi/value/utils"
+	valueutils "github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58/base58"
 )
@@ -70,11 +70,11 @@ type ExplorerAddress struct {
 
 // ExplorerOutput defines the struct of the ExplorerOutput.
 type ExplorerOutput struct {
-	ID                 string               `json:"id"`
-	Balances           []utils.Balance      `json:"balances"`
-	InclusionState     utils.InclusionState `json:"inclusion_state"`
-	SolidificationTime int64                `json:"solidification_time"`
-	ConsumerCount      int                  `json:"consumer_count"`
+	ID                 string                    `json:"id"`
+	Balances           []valueutils.Balance      `json:"balances"`
+	InclusionState     valueutils.InclusionState `json:"inclusion_state"`
+	SolidificationTime int64                     `json:"solidification_time"`
+	ConsumerCount      int                       `json:"consumer_count"`
 }
 
 // SearchResult defines the struct of the SearchResult.
@@ -162,7 +162,7 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 	}
 
 	outputids := make([]ExplorerOutput, 0)
-	inclusionState := utils.InclusionState{}
+	inclusionState := valueutils.InclusionState{}
 
 	// get outputids by address
 	for id, cachedOutput := range valuetransfers.Tangle().OutputsOnAddress(address) {
@@ -170,9 +170,9 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 		cachedOutput.Consume(func(output *valuetangle.Output) {
 
 			// iterate balances
-			var b []utils.Balance
+			var b []valueutils.Balance
 			for _, balance := range output.Balances() {
-				b = append(b, utils.Balance{
+				b = append(b, valueutils.Balance{
 					Value: balance.Value,
 					Color: balance.Color.String(),
 				})
