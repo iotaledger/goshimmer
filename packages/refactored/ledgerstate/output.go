@@ -15,15 +15,15 @@ import (
 
 // region OutputType ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-// OutputType represents the type of an output. Different output types can have different unlock rules and allow for
+// OutputType represents the type of an Output. Outputs of different types can have different unlock rules and allow for
 // some relatively basic smart contract logic.
 type OutputType uint8
 
 const (
-	// SigLockedSingleOutputType represents an  output holding vanilla IOTA tokens.
+	// SigLockedSingleOutputType represents an Output holding vanilla IOTA tokens that gets unlocked by a signature.
 	SigLockedSingleOutputType OutputType = iota
 
-	// SigLockedColoredOutputType represents an output that holds colored coins.
+	// SigLockedColoredOutputType represents an Output that holds colored coins that gets unlocked by a signature.
 	SigLockedColoredOutputType
 )
 
@@ -42,10 +42,10 @@ func (o OutputType) String() string {
 // OutputIDLength contains the amount of bytes that a marshaled version of the OutputID contains.
 const OutputIDLength = TransactionIDLength + marshalutil.UINT16_SIZE
 
-// OutputID is the data type that represents the identifier for a SigLockedSingleOutput.
+// OutputID is the data type that represents the identifier of an Output.
 type OutputID [OutputIDLength]byte
 
-// NewOutputID is the constructor for the OutputID type.
+// NewOutputID is the constructor for the OutputID.
 func NewOutputID(transactionID TransactionID, outputIndex uint16) (outputID OutputID) {
 	copy(outputID[:TransactionIDLength], transactionID.Bytes())
 	binary.LittleEndian.PutUint16(outputID[TransactionIDLength:], outputIndex)
@@ -57,7 +57,7 @@ func NewOutputID(transactionID TransactionID, outputIndex uint16) (outputID Outp
 func OutputIDFromBytes(bytes []byte) (outputID OutputID, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if outputID, err = OutputIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse OutputID: %w", err)
+		err = xerrors.Errorf("failed to parse OutputID from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -74,7 +74,7 @@ func OutputIDFromBase58(base58String string) (outputID OutputID, err error) {
 	}
 
 	if outputID, _, err = OutputIDFromBytes(bytes); err != nil {
-		err = xerrors.Errorf("failed to parse OutputID: %w", err)
+		err = xerrors.Errorf("failed to parse OutputID from bytes: %w", err)
 		return
 	}
 
@@ -115,7 +115,7 @@ func (o OutputID) Base58() string {
 	return base58.Encode(o[:])
 }
 
-// String creates a human readable version base58 encoded of the OutputID.
+// String creates a human readable version of the OutputID.
 func (o OutputID) String() string {
 	return stringify.Struct("OutputID",
 		stringify.StructField("transactionID", o.TransactionID()),
@@ -138,7 +138,7 @@ type Output interface {
 	// only accessed when the Output is supposed to be persisted.
 	SetID(outputID OutputID)
 
-	// Type returns the type of the Output which allows us to generically handle Outputs of different types.
+	// Type returns the OutputType which allows us to generically handle Outputs of different types.
 	Type() OutputType
 
 	// Balances returns the funds that are associated with this Output.
@@ -162,7 +162,7 @@ type Output interface {
 func OutputFromBytes(bytes []byte) (output Output, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if output, err = OutputFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Output: %w", err)
+		err = xerrors.Errorf("failed to parse Output from bytes: %w", err)
 	}
 	consumedBytes = marshalUtil.ReadOffset()
 
@@ -199,15 +199,14 @@ func OutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output Output,
 
 // OutputFromObjectStorage restores an Output that was stored in the ObjectStorage.
 func OutputFromObjectStorage(key []byte, data []byte) (output Output, err error) {
-	output, err = OutputFromMarshalUtil(marshalutil.New(data))
-	if err != nil {
-		err = xerrors.Errorf("failed to parse Output: %w", err)
+	if output, _, err = OutputFromBytes(data); err != nil {
+		err = xerrors.Errorf("failed to parse Output from bytes: %w", err)
 		return
 	}
 
-	outputID, err := OutputIDFromMarshalUtil(marshalutil.New(key))
+	outputID, _, err := OutputIDFromBytes(key)
 	if err != nil {
-		err = xerrors.Errorf("failed to parse OutputID: %w", err)
+		err = xerrors.Errorf("failed to parse OutputID from bytes: %w", err)
 		return
 	}
 	output.SetID(outputID)
@@ -223,17 +222,26 @@ func OutputFromObjectStorage(key []byte, data []byte) (output Output, err error)
 // signature for an Address.
 type SigLockedSingleOutput struct {
 	id      OutputID
+	idMutex sync.RWMutex
 	balance uint64
 	address Address
 
 	objectstorage.StorableObjectFlags
 }
 
+// NewSigLockedSingleOutput is the constructor for a SigLockedSingleOutput.
+func NewSigLockedSingleOutput(balance uint64, address Address) *SigLockedSingleOutput {
+	return &SigLockedSingleOutput{
+		balance: balance,
+		address: address,
+	}
+}
+
 // SigLockedSingleOutputFromBytes unmarshals a SigLockedSingleOutput from a sequence of bytes.
 func SigLockedSingleOutputFromBytes(bytes []byte) (output *SigLockedSingleOutput, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if output, err = SigLockedSingleOutputFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse SigLockedSingleOutput: %w", err)
+		err = xerrors.Errorf("failed to parse SigLockedSingleOutput from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -268,6 +276,9 @@ func SigLockedSingleOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) 
 
 // ID returns the identifier of the Output that is used to address the Output in the UTXODAG.
 func (s *SigLockedSingleOutput) ID() OutputID {
+	s.idMutex.RLock()
+	defer s.idMutex.RUnlock()
+
 	return s.id
 }
 
@@ -276,6 +287,9 @@ func (s *SigLockedSingleOutput) ID() OutputID {
 // the TransactionID that is only determinable after the Transaction has been fully constructed. The ID is therefore
 // only accessed when the Output is supposed to be persisted by the node.
 func (s *SigLockedSingleOutput) SetID(outputID OutputID) {
+	s.idMutex.Lock()
+	defer s.idMutex.Unlock()
+
 	s.id = outputID
 }
 
@@ -326,7 +340,7 @@ func (s *SigLockedSingleOutput) Update(objectstorage.StorableObject) {
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (s *SigLockedSingleOutput) ObjectStorageKey() []byte {
-	return s.id.Bytes()
+	return s.ID().Bytes()
 }
 
 // ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
@@ -342,7 +356,7 @@ func (s *SigLockedSingleOutput) ObjectStorageValue() []byte {
 // String returns a human readable version of this Output.
 func (s *SigLockedSingleOutput) String() string {
 	return stringify.Struct("SigLockedSingleOutput",
-		stringify.StructField("id", s.id),
+		stringify.StructField("id", s.ID()),
 		stringify.StructField("address", s.address),
 		stringify.StructField("balance", s.balance),
 	)
@@ -359,17 +373,26 @@ var _ Output = &SigLockedSingleOutput{}
 // an Address.
 type SigLockedColoredOutput struct {
 	id       OutputID
+	idMutex  sync.RWMutex
 	balances *ColoredBalances
 	address  Address
 
 	objectstorage.StorableObjectFlags
 }
 
+// NewSigLockedSingleOutput is the constructor for a SigLockedColoredOutput.
+func NewSigLockedColoredOutput(balances *ColoredBalances, address Address) *SigLockedColoredOutput {
+	return &SigLockedColoredOutput{
+		balances: balances,
+		address:  address,
+	}
+}
+
 // SigLockedColoredOutputFromBytes unmarshals a SigLockedColoredOutput from a sequence of bytes.
 func SigLockedColoredOutputFromBytes(bytes []byte) (output *SigLockedColoredOutput, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if output, err = SigLockedColoredOutputFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse SigLockedColoredOutput: %w", err)
+		err = xerrors.Errorf("failed to parse SigLockedColoredOutput from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -404,6 +427,9 @@ func SigLockedColoredOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil)
 
 // ID returns the identifier of the Output that is used to address the Output in the UTXODAG.
 func (s *SigLockedColoredOutput) ID() OutputID {
+	s.idMutex.RLock()
+	defer s.idMutex.RUnlock()
+
 	return s.id
 }
 
@@ -412,6 +438,9 @@ func (s *SigLockedColoredOutput) ID() OutputID {
 // the TransactionID that is only determinable after the Transaction has been fully constructed. The ID is therefore
 // only accessed when the Output is supposed to be persisted by the node.
 func (s *SigLockedColoredOutput) SetID(outputID OutputID) {
+	s.idMutex.Lock()
+	defer s.idMutex.Unlock()
+
 	s.id = outputID
 }
 
@@ -475,7 +504,7 @@ func (s *SigLockedColoredOutput) ObjectStorageValue() []byte {
 // String returns a human readable version of this Output.
 func (s *SigLockedColoredOutput) String() string {
 	return stringify.Struct("SigLockedColoredOutput",
-		stringify.StructField("id", s.id),
+		stringify.StructField("id", s.ID()),
 		stringify.StructField("address", s.address),
 		stringify.StructField("balances", s.balances),
 	)
@@ -558,7 +587,7 @@ func NewOutputMetadata(outputID OutputID) *OutputMetadata {
 func OutputMetadataFromBytes(bytes []byte) (outputMetadata *OutputMetadata, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if outputMetadata, err = OutputMetadataFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse OutputMetadata: %w", err)
+		err = xerrors.Errorf("failed to parse OutputMetadata from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -622,19 +651,19 @@ func OutputMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output
 // OutputMetadataFromObjectStorage restores an OutputMetadata object that was stored in the ObjectStorage.
 func OutputMetadataFromObjectStorage(key []byte, data []byte) (outputMetadata *OutputMetadata, err error) {
 	if outputMetadata, _, err = OutputMetadataFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = xerrors.Errorf("failed to parse OutputMetadata: %w", err)
+		err = xerrors.Errorf("failed to parse OutputMetadata from bytes: %w", err)
 		return
 	}
 
 	return
 }
 
-// ID returns the identifier of the Output that this OutputMetadata belongs to.
+// ID returns the OutputID of the Output that this OutputMetadata belongs to.
 func (o *OutputMetadata) ID() OutputID {
 	return o.id
 }
 
-// BranchID returns the identifier of the Branch that this output was booked in.
+// BranchID returns the identifier of the Branch that this Output was booked in.
 func (o *OutputMetadata) BranchID() BranchID {
 	o.branchIDMutex.RLock()
 	defer o.branchIDMutex.RUnlock()
@@ -642,7 +671,7 @@ func (o *OutputMetadata) BranchID() BranchID {
 	return o.branchID
 }
 
-// SetBranchID sets the identifier of the Branch that this output was booked in.
+// SetBranchID sets the identifier of the Branch that this Output was booked in.
 func (o *OutputMetadata) SetBranchID(branchID BranchID) (modified bool) {
 	o.branchIDMutex.RLock()
 	if o.branchID == branchID {
@@ -720,7 +749,7 @@ func (o *OutputMetadata) ConsumerCount() int {
 }
 
 // RegisterConsumer increases the consumer count of an Output and stores the first Consumer that was ever registered. It
-// returns the previous consumer count and the first consumer.
+// returns the previous consumer count.
 func (o *OutputMetadata) RegisterConsumer(consumer TransactionID) (previousConsumerCount int) {
 	o.consumerMutex.Lock()
 	defer o.consumerMutex.Unlock()
@@ -743,14 +772,14 @@ func (o *OutputMetadata) FirstConsumer() TransactionID {
 }
 
 // Preferred returns true if the Output belongs to a preferred transaction.
-func (o *OutputMetadata) Preferred() (result bool) {
+func (o *OutputMetadata) Preferred() bool {
 	o.preferredMutex.RLock()
 	defer o.preferredMutex.RUnlock()
 
 	return o.preferred
 }
 
-// SetPreferred updates the preferred flag of the Output.
+// SetPreferred updates the preferred flag.
 func (o *OutputMetadata) SetPreferred(preferred bool) (modified bool) {
 	o.preferredMutex.RLock()
 	if o.preferred == preferred {
@@ -782,7 +811,7 @@ func (o *OutputMetadata) Liked() bool {
 	return o.liked
 }
 
-// SetLiked modifies the liked flag of the given Output. It returns true if the value has been updated.
+// SetLiked modifies the liked flag. It returns true if the value has been modified.
 func (o *OutputMetadata) SetLiked(liked bool) (modified bool) {
 	o.likedMutex.RLock()
 	if o.liked == liked {
@@ -806,7 +835,7 @@ func (o *OutputMetadata) SetLiked(liked bool) (modified bool) {
 	return
 }
 
-// Finalized returns true, if the decision if this output is preferred or not has been finalized by consensus already.
+// Finalized returns true if the decision if this output is preferred or not has been finalized by consensus already.
 func (o *OutputMetadata) Finalized() bool {
 	o.finalizedMutex.RLock()
 	defer o.finalizedMutex.RUnlock()
@@ -814,8 +843,7 @@ func (o *OutputMetadata) Finalized() bool {
 	return o.finalized
 }
 
-// SetFinalized allows us to set the finalized flag on the outputs. Finalized outputs will not be forked when
-// a conflict arrives later.
+// SetFinalized modifies the finalized flag. Finalized outputs will not be forked when a conflict arrives later.
 func (o *OutputMetadata) SetFinalized(finalized bool) (modified bool) {
 	o.finalizedMutex.RLock()
 	if o.finalized == finalized {
@@ -847,7 +875,7 @@ func (o *OutputMetadata) Confirmed() bool {
 	return o.confirmed
 }
 
-// SetConfirmed modifies the confirmed flag of the given Output. It returns true if the value has been updated.
+// SetConfirmed modifies the confirmed flag. It returns true if the value has been updated.
 func (o *OutputMetadata) SetConfirmed(confirmed bool) (modified bool) {
 	o.confirmedMutex.RLock()
 	if o.confirmed == confirmed {
@@ -871,7 +899,7 @@ func (o *OutputMetadata) SetConfirmed(confirmed bool) (modified bool) {
 	return
 }
 
-// Rejected returns true if the Output was marked as confirmed.
+// Rejected returns true if the Output was marked as rejected.
 func (o *OutputMetadata) Rejected() bool {
 	o.rejectedMutex.RLock()
 	defer o.rejectedMutex.RUnlock()
@@ -879,7 +907,7 @@ func (o *OutputMetadata) Rejected() bool {
 	return o.rejected
 }
 
-// SetRejected modifies the rejected flag of the given Output. It returns true if the value has been updated.
+// SetRejected modifies the rejected flag. It returns true if the value has been updated.
 func (o *OutputMetadata) SetRejected(rejected bool) (modified bool) {
 	o.rejectedMutex.RLock()
 	if o.rejected == rejected {
@@ -967,13 +995,13 @@ type CachedOutputMetadata struct {
 }
 
 // Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
-func (c *CachedOutputMetadata) Unwrap() Output {
+func (c *CachedOutputMetadata) Unwrap() *OutputMetadata {
 	untypedObject := c.Get()
 	if untypedObject == nil {
 		return nil
 	}
 
-	typedObject := untypedObject.(Output)
+	typedObject := untypedObject.(*OutputMetadata)
 	if typedObject == nil || typedObject.IsDeleted() {
 		return nil
 	}
