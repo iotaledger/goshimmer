@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/marshalutil"
 )
@@ -71,6 +72,11 @@ func (wallet *Wallet) ServerStatus() (status ServerStatus, err error) {
 	return wallet.connector.(*WebConnector).ServerStatus()
 }
 
+// AllowedPledgeNodeIDs retrieves the allowed pledge node IDs.
+func (wallet *Wallet) AllowedPledgeNodeIDs() (res map[mana.Type][]string, err error) {
+	return wallet.connector.(*WebConnector).GetAllowedPledgeIDs()
+}
+
 // SendFunds issues a payment of the given amount to the given address.
 func (wallet *Wallet) SendFunds(options ...SendFundsOption) (tx *transaction.Transaction, err error) {
 	// build options from the parameters
@@ -88,7 +94,23 @@ func (wallet *Wallet) SendFunds(options ...SendFundsOption) (tx *transaction.Tra
 	// build transaction
 	inputs, consumedFunds := wallet.buildInputs(consumedOutputs)
 	outputs := wallet.buildOutputs(sendFundsOptions, consumedFunds)
-	tx = transaction.New(inputs, outputs)
+	// determine pledge IDs
+	allowedPledgeNodeIDs, err := wallet.connector.GetAllowedPledgeIDs()
+	if err != nil {
+		return
+	}
+	// take the first in the list (node's own ID is always returned)
+	// TODO: extend this to choose from the list
+	accessPledgeNodeID, err := mana.IDFromStr(allowedPledgeNodeIDs[mana.AccessMana][0])
+	if err != nil {
+		return
+	}
+	consensusPledgeNodeID, err := mana.IDFromStr(allowedPledgeNodeIDs[mana.ConsensusMana][0])
+	if err != nil {
+		return
+	}
+
+	tx = transaction.New(inputs, outputs, accessPledgeNodeID, consensusPledgeNodeID)
 	for addr := range consumedOutputs {
 		tx.Sign(signaturescheme.ED25519(*wallet.Seed().KeyPair(addr.Index)))
 	}

@@ -9,7 +9,10 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/hive.go/bitmask"
+	"github.com/iotaledger/hive.go/identity"
+	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -123,6 +126,14 @@ func TestWallet_SendFunds(t *testing.T) {
 
 type mockConnector struct {
 	outputs map[address.Address]map[transaction.ID]*Output
+}
+
+func (connector *mockConnector) GetAllowedPledgeIDs() (pledgeIDMap map[mana.Type][]string, err error) {
+	res := map[mana.Type][]string{
+		mana.AccessMana:    {base58.Encode(identity.GenerateIdentity().ID().Bytes())},
+		mana.ConsensusMana: {base58.Encode(identity.GenerateIdentity().ID().Bytes())},
+	}
+	return res, nil
 }
 
 func (connector *mockConnector) RequestFaucetFunds(addr walletaddr.Address) (err error) {

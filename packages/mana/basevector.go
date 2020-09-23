@@ -99,7 +99,7 @@ func (bmv *BaseManaVector) BookMana(txInfo *TxInfo) {
 		// save old mana
 		oldMana := bmv.vector[pledgeNodeID]
 		// revoke BM1
-		if err := bmv.vector[pledgeNodeID].revokeBaseMana1(inputInfo.Amount, txInfo.TimeStamp); err == ErrBaseManaNegative {
+		if err := bmv.vector[pledgeNodeID].revokeBaseMana1(inputInfo.Amount, txInfo.TimeStamp); err == ErrBaseManaNegative || err == ErrEffBaseManaNegative {
 			panic(fmt.Sprintf("Revoking %f base mana 1 from node %s results in negative balance", inputInfo.Amount, pledgeNodeID.String()))
 		}
 

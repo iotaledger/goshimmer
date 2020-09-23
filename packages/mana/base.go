@@ -11,6 +11,8 @@ var (
 	ErrAlreadyUpdated = errors.New("already updated to a later timestamp")
 	// ErrBaseManaNegative is returned if base mana will become negative.
 	ErrBaseManaNegative = errors.New("base mana should never be negative")
+	// ErrEffBaseManaNegative is returned if base mana will become negative.
+	ErrEffBaseManaNegative = errors.New("effective base mana should never be negative")
 )
 
 // BaseMana holds information about the base mana values of a single node.
@@ -23,7 +25,7 @@ type BaseMana struct {
 }
 
 func (bm *BaseMana) update(t time.Time) error {
-	if t.Before(bm.LastUpdated) {
+	if t.Before(bm.LastUpdated) || t == bm.LastUpdated {
 		// trying to do a time wise update to the past, that is not allowed
 		return ErrAlreadyUpdated
 	}
@@ -77,7 +79,11 @@ func (bm *BaseMana) revokeBaseMana1(amount float64, t time.Time) error {
 		// revoke BM1 at `t`
 		bm.BaseMana1 -= amount
 		// update EBM1 to `bm.LastUpdated`
-		bm.EffectiveBaseMana1 -= amount * (1 - math.Pow(math.E, -emaCoeff1*n.Seconds()))
+		EBM1Compensation := amount * (1 - math.Pow(math.E, -emaCoeff1*n.Seconds()))
+		if bm.EffectiveBaseMana1-EBM1Compensation < 0.0 {
+			return ErrEffBaseManaNegative
+		}
+		bm.EffectiveBaseMana1 -= EBM1Compensation
 	}
 	return nil
 }

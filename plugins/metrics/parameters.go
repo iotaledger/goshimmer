@@ -9,9 +9,12 @@ const (
 	CfgMetricsLocal = "metrics.local"
 	// CfgMetricsGlobal defines the config flag to enable/disable global metrics.
 	CfgMetricsGlobal = "metrics.global"
+	// CfgManaUpdateInterval defines the interval in seconds at which mana metrics are updated.
+	CfgManaUpdateInterval = "metrics.manaUpdateInterval"
 )
 
 func init() {
 	flag.Bool(CfgMetricsLocal, true, "include local metrics")
 	flag.Bool(CfgMetricsGlobal, false, "include global metrics")
+	flag.Uint(CfgManaUpdateInterval, 30, "mana metrics update interval")
 }

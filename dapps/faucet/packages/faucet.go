@@ -18,6 +18,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
 	"github.com/iotaledger/hive.go/datastructure/orderedmap"
+	"github.com/iotaledger/hive.go/identity"
 )
 
 var (
@@ -80,6 +81,7 @@ func (f *Faucet) SendFunds(msg *message.Message) (m *message.Message, txID strin
 	defer f.Unlock()
 
 	addr := msg.Payload().(*faucetpayload.Payload).Address()
+	nodeID := identity.NewID(msg.IssuerPublicKey())
 
 	if f.IsAddressBlacklisted(addr) {
 		return nil, "", ErrAddressIsBlacklisted
@@ -98,6 +100,7 @@ func (f *Faucet) SendFunds(msg *message.Message) (m *message.Message, txID strin
 				balance.New(balance.ColorIOTA, f.tokensPerRequest),
 			},
 		}),
+		nodeID,
 	)
 
 	// add remainder address if needed
@@ -160,10 +163,8 @@ func (f *Faucet) MoveAllFunds() (msg *message.Message, err error) {
 					balance.New(balance.ColorIOTA, val),
 				},
 			}),
+			local.GetInstance().ID(),
 		)
-		tx.SetAccessManaNodeID(local.GetInstance().ID())
-		tx.SetConsensusManaNodeID(local.GetInstance().ID())
-		tx.SetTimestamp(time.Now())
 
 		tx.Sign(signaturescheme.ED25519(*f.seed.KeyPair(0)))
 		// prepare value payload with value factory

@@ -17,15 +17,1172 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": 2,
+  "iteration": 1600773498094,
   "links": [],
   "panels": [
     {
+      "collapsed": false,
       "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
         "y": 0
+      },
+      "id": 105,
+      "panels": [],
+      "title": "Mana",
+      "type": "row"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "Amount of access mana this node has",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 4,
+        "x": 0,
+        "y": 1
+      },
+      "id": 85,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      },
+      "pluginVersion": "7.1.1",
+      "targets": [
+        {
+          "expr": "mana_access{nodeID=\"$NodeID\"}",
+          "interval": "",
+          "legendFormat": "Access",
+          "refId": "A"
+        },
+        {
+          "expr": "mana_consensus{nodeID=\"$NodeID\"}",
+          "interval": "",
+          "legendFormat": "Consensus",
+          "refId": "B"
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Current Mana",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 4,
+        "x": 4,
+        "y": 1
+      },
+      "id": 101,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "7.1.1",
+      "targets": [
+        {
+          "expr": "mana_access_percentile",
+          "interval": "",
+          "legendFormat": "Access",
+          "refId": "A"
+        },
+        {
+          "expr": "mana_consensus_percentile",
+          "interval": "",
+          "legendFormat": "Consensus",
+          "refId": "B"
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Mana Percentile",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "Average mana of a node i nthe network.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 4,
+        "x": 8,
+        "y": 1
+      },
+      "id": 95,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "7.1.1",
+      "targets": [
+        {
+          "expr": "avg(mana_access)",
+          "interval": "",
+          "legendFormat": "Access",
+          "refId": "A"
+        },
+        {
+          "expr": "avg(mana_consensus)",
+          "interval": "",
+          "legendFormat": "Consensus",
+          "refId": "B"
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Average Mana",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "Standard deviation of mana of nodes in the network.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 4,
+        "x": 12,
+        "y": 1
+      },
+      "id": 96,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "7.1.1",
+      "targets": [
+        {
+          "expr": "stddev(mana_access)",
+          "interval": "",
+          "legendFormat": "Access",
+          "refId": "A"
+        },
+        {
+          "expr": "stddev(mana_consensus)",
+          "interval": "",
+          "legendFormat": "Consensus",
+          "refId": "B"
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Standard Deviation of Mana",
+      "type": "stat"
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "description": "Total Access & Consensus Mana In the network.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 15,
+        "w": 6,
+        "x": 18,
+        "y": 1
+      },
+      "hiddenSeries": false,
+      "id": 89,
+      "legend": {
+        "alignAsTable": true,
+        "avg": false,
+        "current": true,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": true
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "percentage": false,
+      "pluginVersion": "7.1.1",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "sum(mana_access)",
+          "interval": "",
+          "legendFormat": "Total Access Mana In Network",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(mana_consensus)",
+          "interval": "",
+          "legendFormat": "Total Consensus Mana In Network",
+          "refId": "B"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Total Mana",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": true,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "description": "Histogram of access mana of nodes.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 12,
+        "w": 9,
+        "x": 0,
+        "y": 4
+      },
+      "hiddenSeries": false,
+      "id": 98,
+      "legend": {
+        "alignAsTable": false,
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "rightSide": false,
+        "show": false,
+        "total": false,
+        "values": false
+      },
+      "lines": false,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "percentage": false,
+      "pluginVersion": "7.1.1",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "mana_access",
+          "instant": true,
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Access Mana Distribution In Network",
+      "tooltip": {
+        "shared": false,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "histogram",
+        "name": null,
+        "show": true,
+        "values": [
+          "total"
+        ]
+      },
+      "yaxes": [
+        {
+          "decimals": 0,
+          "format": "none",
+          "label": "Number of Nodes",
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": "",
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": true,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "description": "Histogram of consensus mana of nodes.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 12,
+        "w": 9,
+        "x": 9,
+        "y": 4
+      },
+      "hiddenSeries": false,
+      "id": 99,
+      "legend": {
+        "alignAsTable": false,
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "rightSide": false,
+        "show": false,
+        "total": false,
+        "values": false
+      },
+      "lines": false,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "percentage": false,
+      "pluginVersion": "7.1.1",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "mana_consensus",
+          "instant": true,
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Consensus Mana Distribution in Network",
+      "tooltip": {
+        "shared": false,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "histogram",
+        "name": null,
+        "show": true,
+        "values": [
+          "total"
+        ]
+      },
+      "yaxes": [
+        {
+          "decimals": 0,
+          "format": "none",
+          "label": "Number of Nodes",
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": "",
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "description": "Amount of access mana this node has",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "fill": 3,
+      "fillGradient": 4,
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 0,
+        "y": 16
+      },
+      "hiddenSeries": false,
+      "id": 83,
+      "legend": {
+        "alignAsTable": true,
+        "avg": false,
+        "current": true,
+        "max": false,
+        "min": false,
+        "rightSide": false,
+        "show": true,
+        "total": false,
+        "values": true
+      },
+      "lines": true,
+      "linewidth": 2,
+      "nullPointMode": "null",
+      "percentage": false,
+      "pluginVersion": "7.1.1",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "mana_access{nodeID=\"$NodeID\"}",
+          "interval": "",
+          "legendFormat": "{{nodeID}}",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Access Mana",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "description": "Amount of access mana of nodes in the network.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "fill": 3,
+      "fillGradient": 4,
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 8,
+        "y": 16
+      },
+      "hiddenSeries": false,
+      "id": 90,
+      "legend": {
+        "alignAsTable": true,
+        "avg": false,
+        "current": true,
+        "max": false,
+        "min": false,
+        "rightSide": true,
+        "show": true,
+        "sort": "current",
+        "sortDesc": true,
+        "total": false,
+        "values": true
+      },
+      "lines": true,
+      "linewidth": 2,
+      "nullPointMode": "null",
+      "percentage": false,
+      "pluginVersion": "7.1.1",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "mana_access",
+          "interval": "",
+          "legendFormat": "{{nodeID}}",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Network Wide Access Mana",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "breakPoint": "50%",
+      "cacheTimeout": null,
+      "combine": {
+        "label": "Others",
+        "threshold": 0
+      },
+      "datasource": "Prometheus",
+      "description": "Allocation of access mana of nodes in the network.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "fontSize": "80%",
+      "format": "short",
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 16,
+        "y": 16
+      },
+      "id": 92,
+      "interval": null,
+      "legend": {
+        "show": true,
+        "sort": "current",
+        "sortDesc": true,
+        "values": true
+      },
+      "legendType": "Under graph",
+      "links": [],
+      "nullPointMode": "connected",
+      "pieType": "pie",
+      "pluginVersion": "7.1.1",
+      "strokeWidth": 1,
+      "targets": [
+        {
+          "expr": "mana_access",
+          "interval": "",
+          "legendFormat": "{{nodeID}}",
+          "refId": "A"
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Access Mana Allocation",
+      "type": "grafana-piechart-panel",
+      "valueName": "current"
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "description": "Amount of consensus mana this node has.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "fill": 3,
+      "fillGradient": 4,
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 0,
+        "y": 25
+      },
+      "hiddenSeries": false,
+      "id": 84,
+      "legend": {
+        "alignAsTable": true,
+        "avg": false,
+        "current": true,
+        "max": false,
+        "min": false,
+        "rightSide": false,
+        "show": true,
+        "total": false,
+        "values": true
+      },
+      "lines": true,
+      "linewidth": 2,
+      "nullPointMode": "null",
+      "percentage": false,
+      "pluginVersion": "7.1.1",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "mana_consensus{nodeID=\"$NodeID\"}",
+          "interval": "",
+          "legendFormat": "{{nodeID}}",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Consensus Mana",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "description": "Amount of consensus mana of nodes in the network.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "fill": 3,
+      "fillGradient": 4,
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 8,
+        "y": 25
+      },
+      "hiddenSeries": false,
+      "id": 91,
+      "legend": {
+        "alignAsTable": true,
+        "avg": false,
+        "current": true,
+        "max": false,
+        "min": false,
+        "rightSide": true,
+        "show": true,
+        "sort": "current",
+        "sortDesc": true,
+        "total": false,
+        "values": true
+      },
+      "lines": true,
+      "linewidth": 2,
+      "nullPointMode": "null",
+      "percentage": false,
+      "pluginVersion": "7.1.1",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "mana_consensus",
+          "interval": "",
+          "legendFormat": "{{nodeID}}",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Network Wide Consensus Mana",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "breakPoint": "50%",
+      "cacheTimeout": null,
+      "combine": {
+        "label": "Others",
+        "threshold": 0
+      },
+      "datasource": "Prometheus",
+      "description": "Allocation of consensus mana of nodes in the network.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "fontSize": "80%",
+      "format": "short",
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 16,
+        "y": 25
+      },
+      "id": 93,
+      "interval": null,
+      "legend": {
+        "show": true,
+        "sort": "current",
+        "sortDesc": true,
+        "values": true
+      },
+      "legendType": "Under graph",
+      "links": [],
+      "nullPointMode": "connected",
+      "pieType": "pie",
+      "pluginVersion": "7.1.1",
+      "strokeWidth": 1,
+      "targets": [
+        {
+          "expr": "mana_consensus",
+          "interval": "",
+          "legendFormat": "{{nodeID}}",
+          "refId": "A"
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Consensus Mana Allocation",
+      "type": "grafana-piechart-panel",
+      "valueName": "current"
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 11,
+        "w": 11,
+        "x": 0,
+        "y": 34
+      },
+      "hiddenSeries": false,
+      "id": 103,
+      "legend": {
+        "alignAsTable": true,
+        "avg": false,
+        "current": true,
+        "max": false,
+        "min": false,
+        "rightSide": true,
+        "show": true,
+        "total": false,
+        "values": true
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "percentage": false,
+      "pluginVersion": "7.1.1",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "mana_access_percentile",
+          "interval": "",
+          "legendFormat": "Access Percentile",
+          "refId": "A"
+        },
+        {
+          "expr": "mana_access_percentile",
+          "interval": "",
+          "legendFormat": "Consensus Percentile",
+          "refId": "B"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Mana Percentile Development",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "percent",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "datasource": null,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 45
       },
       "id": 57,
       "title": "Status",
@@ -58,7 +1215,7 @@
         "h": 2,
         "w": 2,
         "x": 0,
-        "y": 1
+        "y": 46
       },
       "id": 48,
       "options": {
@@ -118,7 +1275,7 @@
         "h": 2,
         "w": 2,
         "x": 2,
-        "y": 1
+        "y": 46
       },
       "id": 81,
       "options": {
@@ -179,7 +1336,7 @@
         "h": 2,
         "w": 2,
         "x": 4,
-        "y": 1
+        "y": 46
       },
       "id": 79,
       "options": {
@@ -253,7 +1410,7 @@
         "h": 2,
         "w": 2,
         "x": 6,
-        "y": 1
+        "y": 46
       },
       "id": 22,
       "options": {
@@ -313,7 +1470,7 @@
         "h": 2,
         "w": 2,
         "x": 8,
-        "y": 1
+        "y": 46
       },
       "id": 30,
       "options": {
@@ -372,7 +1529,7 @@
         "h": 2,
         "w": 2,
         "x": 10,
-        "y": 1
+        "y": 46
       },
       "id": 53,
       "options": {
@@ -427,7 +1584,7 @@
         "h": 2,
         "w": 2,
         "x": 12,
-        "y": 1
+        "y": 46
       },
       "id": 20,
       "options": {
@@ -486,7 +1643,7 @@
         "h": 2,
         "w": 2,
         "x": 14,
-        "y": 1
+        "y": 46
       },
       "id": 58,
       "options": {
@@ -524,7 +1681,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 3
+        "y": 48
       },
       "id": 55,
       "panels": [],
@@ -550,7 +1707,7 @@
         "h": 11,
         "w": 11,
         "x": 0,
-        "y": 4
+        "y": 49
       },
       "hiddenSeries": false,
       "id": 32,
@@ -673,7 +1830,7 @@
         "h": 8,
         "w": 13,
         "x": 11,
-        "y": 4
+        "y": 49
       },
       "hiddenSeries": false,
       "id": 4,
@@ -787,7 +1944,7 @@
         "h": 4,
         "w": 3,
         "x": 11,
-        "y": 12
+        "y": 57
       },
       "id": 6,
       "options": {
@@ -842,7 +1999,7 @@
         "h": 4,
         "w": 4,
         "x": 14,
-        "y": 12
+        "y": 57
       },
       "id": 2,
       "options": {
@@ -900,7 +2057,7 @@
         "h": 4,
         "w": 3,
         "x": 18,
-        "y": 12
+        "y": 57
       },
       "id": 8,
       "options": {
@@ -958,7 +2115,7 @@
         "h": 4,
         "w": 3,
         "x": 21,
-        "y": 12
+        "y": 57
       },
       "id": 10,
       "options": {
@@ -1009,7 +2166,7 @@
         "h": 10,
         "w": 11,
         "x": 0,
-        "y": 15
+        "y": 60
       },
       "hiddenSeries": false,
       "id": 52,
@@ -1108,7 +2265,7 @@
         "h": 9,
         "w": 7,
         "x": 11,
-        "y": 16
+        "y": 61
       },
       "hiddenSeries": false,
       "id": 16,
@@ -1201,7 +2358,7 @@
         "h": 9,
         "w": 6,
         "x": 18,
-        "y": 16
+        "y": 61
       },
       "hiddenSeries": false,
       "id": 18,
@@ -1295,7 +2452,7 @@
         "h": 8,
         "w": 11,
         "x": 0,
-        "y": 25
+        "y": 70
       },
       "hiddenSeries": false,
       "id": 77,
@@ -1389,7 +2546,7 @@
         "h": 16,
         "w": 13,
         "x": 11,
-        "y": 25
+        "y": 70
       },
       "hiddenSeries": false,
       "id": 73,
@@ -1497,7 +2654,7 @@
         "h": 8,
         "w": 11,
         "x": 0,
-        "y": 33
+        "y": 78
       },
       "hiddenSeries": false,
       "id": 69,
@@ -1590,7 +2747,7 @@
         "h": 10,
         "w": 11,
         "x": 0,
-        "y": 41
+        "y": 86
       },
       "hiddenSeries": false,
       "id": 26,
@@ -1720,7 +2877,7 @@
         "h": 10,
         "w": 11,
         "x": 11,
-        "y": 41
+        "y": 86
       },
       "hiddenSeries": false,
       "id": 75,
@@ -1808,7 +2965,7 @@
         "h": 4,
         "w": 3,
         "x": 0,
-        "y": 51
+        "y": 96
       },
       "id": 61,
       "mode": "markdown",
@@ -1845,7 +3002,7 @@
         "h": 2,
         "w": 2,
         "x": 3,
-        "y": 51
+        "y": 96
       },
       "id": 67,
       "options": {
@@ -1899,7 +3056,7 @@
         "h": 2,
         "w": 2,
         "x": 5,
-        "y": 51
+        "y": 96
       },
       "id": 66,
       "options": {
@@ -1953,7 +3110,7 @@
         "h": 2,
         "w": 2,
         "x": 7,
-        "y": 51
+        "y": 96
       },
       "id": 63,
       "options": {
@@ -2007,7 +3164,7 @@
         "h": 2,
         "w": 2,
         "x": 9,
-        "y": 51
+        "y": 96
       },
       "id": 62,
       "options": {
@@ -2061,7 +3218,7 @@
         "h": 2,
         "w": 2,
         "x": 3,
-        "y": 53
+        "y": 98
       },
       "id": 64,
       "options": {
@@ -2115,7 +3272,7 @@
         "h": 2,
         "w": 2,
         "x": 5,
-        "y": 53
+        "y": 98
       },
       "id": 65,
       "options": {
@@ -2169,7 +3326,7 @@
         "h": 2,
         "w": 2,
         "x": 7,
-        "y": 53
+        "y": 98
       },
       "id": 59,
       "options": {
@@ -2207,7 +3364,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 55
+        "y": 100
       },
       "id": 34,
       "panels": [],
@@ -2233,7 +3390,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 56
+        "y": 101
       },
       "hiddenSeries": false,
       "id": 36,
@@ -2334,7 +3491,7 @@
         "h": 8,
         "w": 4,
         "x": 12,
-        "y": 56
+        "y": 101
       },
       "id": 38,
       "options": {
@@ -2392,7 +3549,7 @@
         "h": 8,
         "w": 3,
         "x": 16,
-        "y": 56
+        "y": 101
       },
       "id": 42,
       "options": {
@@ -2450,7 +3607,7 @@
         "h": 8,
         "w": 3,
         "x": 19,
-        "y": 56
+        "y": 101
       },
       "id": 40,
       "options": {
@@ -2501,7 +3658,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 64
+        "y": 109
       },
       "hiddenSeries": false,
       "id": 44,
@@ -2594,7 +3751,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 64
+        "y": 109
       },
       "hiddenSeries": false,
       "id": 50,
@@ -2688,7 +3845,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 72
+        "y": 117
       },
       "hiddenSeries": false,
       "id": 49,
@@ -2781,7 +3938,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 72
+        "y": 117
       },
       "hiddenSeries": false,
       "id": 46,
@@ -2864,14 +4021,48 @@
   "style": "dark",
   "tags": [],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "allValue": null,
+        "current": {
+          "selected": true,
+          "text": "4AeXyZ26e4G",
+          "value": "4AeXyZ26e4G"
+        },
+        "datasource": "Prometheus",
+        "definition": "label_values(iota_info_app, nodeID)",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Node Identity",
+        "multi": false,
+        "name": "NodeID",
+        "options": [
+          {
+            "selected": true,
+            "text": "4AeXyZ26e4G",
+            "value": "4AeXyZ26e4G"
+          }
+        ],
+        "query": "label_values(iota_info_app, nodeID)",
+        "refresh": 0,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "tagValuesQuery": "",
+        "tags": [],
+        "tagsQuery": "",
+        "type": "query",
+        "useTags": false
+      }
+    ]
   },
   "time": {
-    "from": "now-5m",
+    "from": "now-15m",
     "to": "now"
   },
   "timepicker": {
     "refresh_intervals": [
+      "5s",
       "10s",
       "30s",
       "1m",
@@ -2886,5 +4077,5 @@
   "timezone": "",
   "title": "GoShimmer Local Metrics",
   "uid": "kjOQZ2ZMk",
-  "version": 17
+  "version": 40
 }

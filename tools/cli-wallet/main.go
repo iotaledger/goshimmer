@@ -40,6 +40,7 @@ func main() {
 	addressCommand := flag.NewFlagSet("address", flag.ExitOnError)
 	requestFaucetFundsCommand := flag.NewFlagSet("request-funds", flag.ExitOnError)
 	serverStatusCommand := flag.NewFlagSet("server-status", flag.ExitOnError)
+	allowedPledgeIDCommand := flag.NewFlagSet("pledge-id", flag.ExitOnError)
 
 	// switch logic according to provided sub command
 	switch os.Args[1] {
@@ -53,6 +54,8 @@ func main() {
 		execCreateAssetCommand(createAssetCommand, wallet)
 	case "request-funds":
 		execRequestFundsCommand(requestFaucetFundsCommand, wallet)
+	case "pledge-id":
+		execAllowedPledgeNodeIDsCommand(allowedPledgeIDCommand, wallet)
 	case "init":
 		fmt.Println()
 		fmt.Println("CREATING WALLET STATE FILE (wallet.dat) ...               [DONE]")
