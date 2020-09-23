@@ -2,7 +2,10 @@ package ledgerstate
 
 import (
 	"encoding/binary"
+	"sync"
+	"time"
 
+	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
@@ -264,40 +267,40 @@ func SigLockedSingleOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) 
 }
 
 // ID returns the identifier of the Output that is used to address the Output in the UTXODAG.
-func (o *SigLockedSingleOutput) ID() OutputID {
-	return o.id
+func (s *SigLockedSingleOutput) ID() OutputID {
+	return s.id
 }
 
 // SetID allows to set the identifier of the Output. We offer a setter for this property since Outputs that are
 // created to become part of a transaction usually do not have an identifier, yet as their identifier depends on
 // the TransactionID that is only determinable after the Transaction has been fully constructed. The ID is therefore
 // only accessed when the Output is supposed to be persisted by the node.
-func (o *SigLockedSingleOutput) SetID(outputID OutputID) {
-	o.id = outputID
+func (s *SigLockedSingleOutput) SetID(outputID OutputID) {
+	s.id = outputID
 }
 
 // Type returns the type of the Output which allows us to generically handle Outputs of different types.
-func (o *SigLockedSingleOutput) Type() OutputType {
+func (s *SigLockedSingleOutput) Type() OutputType {
 	return SigLockedSingleOutputType
 }
 
 // Balances returns the funds that are associated with this Output.
-func (o *SigLockedSingleOutput) Balances() *ColoredBalances {
+func (s *SigLockedSingleOutput) Balances() *ColoredBalances {
 	balances := NewColoredBalances()
-	balances.Set(ColorIOTA, o.balance)
+	balances.Set(ColorIOTA, s.balance)
 
 	return balances
 }
 
 // UnlockValid determines if the given Transaction and the corresponding UnlockBlock are allowed to spend the Output.
-func (o *SigLockedSingleOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock) (unlockValid bool, err error) {
+func (s *SigLockedSingleOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock) (unlockValid bool, err error) {
 	signatureUnlockBlock, correctType := unlockBlock.(*SignatureUnlockBlock)
 	if !correctType {
 		err = xerrors.Errorf("UnlockBlock does not match expected OutputType: %w", ErrTransactionInvalid)
 		return
 	}
 
-	if unlockValid, err = signatureUnlockBlock.SignatureValid(o.address, tx.UnsignedBytes()); err != nil {
+	if unlockValid, err = signatureUnlockBlock.SignatureValid(s.address, tx.UnsignedBytes()); err != nil {
 		err = xerrors.Errorf("failed to check signature: %w", err)
 		return
 	}
@@ -306,42 +309,42 @@ func (o *SigLockedSingleOutput) UnlockValid(tx *Transaction, unlockBlock UnlockB
 }
 
 // Address returns the Address that this output is associated to.
-func (o *SigLockedSingleOutput) Address() Address {
-	return o.address
+func (s *SigLockedSingleOutput) Address() Address {
+	return s.address
 }
 
 // Bytes returns a marshaled version of this Output.
-func (o *SigLockedSingleOutput) Bytes() []byte {
-	return o.ObjectStorageValue()
+func (s *SigLockedSingleOutput) Bytes() []byte {
+	return s.ObjectStorageValue()
 }
 
 // Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (o *SigLockedSingleOutput) Update(objectstorage.StorableObject) {
+func (s *SigLockedSingleOutput) Update(objectstorage.StorableObject) {
 	panic("updates disabled")
 }
 
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match
-// the StorableObject interface.
-func (o *SigLockedSingleOutput) ObjectStorageKey() []byte {
-	return o.id.Bytes()
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (s *SigLockedSingleOutput) ObjectStorageKey() []byte {
+	return s.id.Bytes()
 }
 
 // ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
 // a key in the ObjectStorage.
-func (o *SigLockedSingleOutput) ObjectStorageValue() []byte {
+func (s *SigLockedSingleOutput) ObjectStorageValue() []byte {
 	return marshalutil.New().
 		WriteByte(byte(SigLockedSingleOutputType)).
-		WriteUint64(o.balance).
-		WriteBytes(o.address.Bytes()).
+		WriteUint64(s.balance).
+		WriteBytes(s.address.Bytes()).
 		Bytes()
 }
 
 // String returns a human readable version of this Output.
-func (o *SigLockedSingleOutput) String() string {
+func (s *SigLockedSingleOutput) String() string {
 	return stringify.Struct("SigLockedSingleOutput",
-		stringify.StructField("id", o.id),
-		stringify.StructField("address", o.address),
-		stringify.StructField("balance", o.balance),
+		stringify.StructField("id", s.id),
+		stringify.StructField("address", s.address),
+		stringify.StructField("balance", s.balance),
 	)
 }
 
@@ -400,37 +403,37 @@ func SigLockedColoredOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil)
 }
 
 // ID returns the identifier of the Output that is used to address the Output in the UTXODAG.
-func (o *SigLockedColoredOutput) ID() OutputID {
-	return o.id
+func (s *SigLockedColoredOutput) ID() OutputID {
+	return s.id
 }
 
 // SetID allows to set the identifier of the Output. We offer a setter for this property since Outputs that are
 // created to become part of a transaction usually do not have an identifier, yet as their identifier depends on
 // the TransactionID that is only determinable after the Transaction has been fully constructed. The ID is therefore
 // only accessed when the Output is supposed to be persisted by the node.
-func (o *SigLockedColoredOutput) SetID(outputID OutputID) {
-	o.id = outputID
+func (s *SigLockedColoredOutput) SetID(outputID OutputID) {
+	s.id = outputID
 }
 
 // Type returns the type of the Output which allows us to generically handle Outputs of different types.
-func (o *SigLockedColoredOutput) Type() OutputType {
+func (s *SigLockedColoredOutput) Type() OutputType {
 	return SigLockedColoredOutputType
 }
 
 // Balances returns the funds that are associated with this Output.
-func (o *SigLockedColoredOutput) Balances() *ColoredBalances {
-	return o.balances
+func (s *SigLockedColoredOutput) Balances() *ColoredBalances {
+	return s.balances
 }
 
 // UnlockValid determines if the given Transaction and the corresponding UnlockBlock are allowed to spend the Output.
-func (o *SigLockedColoredOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock) (unlockValid bool, err error) {
+func (s *SigLockedColoredOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock) (unlockValid bool, err error) {
 	signatureUnlockBlock, correctType := unlockBlock.(*SignatureUnlockBlock)
 	if !correctType {
 		err = xerrors.Errorf("UnlockBlock does not match expected OutputType: %w", ErrTransactionInvalid)
 		return
 	}
 
-	if unlockValid, err = signatureUnlockBlock.SignatureValid(o.address, tx.UnsignedBytes()); err != nil {
+	if unlockValid, err = signatureUnlockBlock.SignatureValid(s.address, tx.UnsignedBytes()); err != nil {
 		err = xerrors.Errorf("failed to check signature validity: %w", err)
 		return
 	}
@@ -439,42 +442,42 @@ func (o *SigLockedColoredOutput) UnlockValid(tx *Transaction, unlockBlock Unlock
 }
 
 // Address returns the Address that this output is associated to.
-func (o *SigLockedColoredOutput) Address() Address {
-	return o.address
+func (s *SigLockedColoredOutput) Address() Address {
+	return s.address
 }
 
 // Bytes returns a marshaled version of this Output.
-func (o *SigLockedColoredOutput) Bytes() []byte {
-	return o.ObjectStorageValue()
+func (s *SigLockedColoredOutput) Bytes() []byte {
+	return s.ObjectStorageValue()
 }
 
 // Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (o *SigLockedColoredOutput) Update(objectstorage.StorableObject) {
+func (s *SigLockedColoredOutput) Update(objectstorage.StorableObject) {
 	panic("updates disabled")
 }
 
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match
-// the StorableObject interface.
-func (o *SigLockedColoredOutput) ObjectStorageKey() []byte {
-	return o.id.Bytes()
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (s *SigLockedColoredOutput) ObjectStorageKey() []byte {
+	return s.id.Bytes()
 }
 
 // ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
 // a key in the ObjectStorage.
-func (o *SigLockedColoredOutput) ObjectStorageValue() []byte {
+func (s *SigLockedColoredOutput) ObjectStorageValue() []byte {
 	return marshalutil.New().
 		WriteByte(byte(SigLockedColoredOutputType)).
-		WriteBytes(o.balances.Bytes()).
-		WriteBytes(o.address.Bytes()).
+		WriteBytes(s.balances.Bytes()).
+		WriteBytes(s.address.Bytes()).
 		Bytes()
 }
 
 // String returns a human readable version of this Output.
-func (o *SigLockedColoredOutput) String() string {
+func (s *SigLockedColoredOutput) String() string {
 	return stringify.Struct("SigLockedColoredOutput",
-		stringify.StructField("id", o.id),
-		stringify.StructField("address", o.address),
-		stringify.StructField("balances", o.balances),
+		stringify.StructField("id", s.id),
+		stringify.StructField("address", s.address),
+		stringify.StructField("balances", s.balances),
 	)
 }
 
@@ -492,8 +495,8 @@ type CachedOutput struct {
 }
 
 // Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
-func (cachedOutput *CachedOutput) Unwrap() Output {
-	untypedObject := cachedOutput.Get()
+func (c *CachedOutput) Unwrap() Output {
+	untypedObject := c.Get()
 	if untypedObject == nil {
 		return nil
 	}
@@ -508,9 +511,389 @@ func (cachedOutput *CachedOutput) Unwrap() Output {
 
 // Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
 // exists). It automatically releases the object when the consumer finishes.
-func (cachedOutput *CachedOutput) Consume(consumer func(output Output)) (consumed bool) {
-	return cachedOutput.CachedObject.Consume(func(object objectstorage.StorableObject) {
+func (c *CachedOutput) Consume(consumer func(output Output)) (consumed bool) {
+	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(Output))
+	})
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region OutputMetadata ///////////////////////////////////////////////////////////////////////////////////////////////
+
+// OutputMetadata contains additional Output information that are derived from the local perception of the node.
+type OutputMetadata struct {
+	id                      OutputID
+	branchID                BranchID
+	branchIDMutex           sync.RWMutex
+	solid                   bool
+	solidMutex              sync.RWMutex
+	solidificationTime      time.Time
+	solidificationTimeMutex sync.RWMutex
+	firstConsumer           TransactionID
+	consumerCount           int
+	consumerMutex           sync.RWMutex
+	preferred               bool
+	preferredMutex          sync.RWMutex
+	liked                   bool
+	likedMutex              sync.RWMutex
+	finalized               bool
+	finalizedMutex          sync.RWMutex
+	confirmed               bool
+	confirmedMutex          sync.RWMutex
+	rejected                bool
+	rejectedMutex           sync.RWMutex
+
+	objectstorage.StorableObjectFlags
+}
+
+// ID returns the identifier of the Output that this OutputMetadata belongs to.
+func (o *OutputMetadata) ID() OutputID {
+	return o.id
+}
+
+// BranchID returns the identifier of the Branch that this output was booked in.
+func (o *OutputMetadata) BranchID() BranchID {
+	o.branchIDMutex.RLock()
+	defer o.branchIDMutex.RUnlock()
+
+	return o.branchID
+}
+
+// SetBranchID sets the identifier of the Branch that this output was booked in.
+func (o *OutputMetadata) SetBranchID(branchID BranchID) (modified bool) {
+	o.branchIDMutex.RLock()
+	if o.branchID == branchID {
+		o.branchIDMutex.RUnlock()
+
+		return
+	}
+
+	o.branchIDMutex.RUnlock()
+	o.branchIDMutex.Lock()
+	defer o.branchIDMutex.Unlock()
+
+	if o.branchID == branchID {
+		return
+	}
+
+	o.branchID = branchID
+	o.SetModified()
+	modified = true
+
+	return
+}
+
+// Solid returns true if the Output has been marked as solid.
+func (o *OutputMetadata) Solid() bool {
+	o.solidMutex.RLock()
+	defer o.solidMutex.RUnlock()
+
+	return o.solid
+}
+
+// SetSolid updates the solid flag of the Output. It returns true if the solid flag was modified and updates the
+// solidification time if the Output was marked as solid.
+func (o *OutputMetadata) SetSolid(solid bool) (modified bool) {
+	o.solidMutex.RLock()
+	if o.solid != solid {
+		o.solidMutex.RUnlock()
+
+		o.solidMutex.Lock()
+		if o.solid != solid {
+			o.solid = solid
+			if solid {
+				o.solidificationTimeMutex.Lock()
+				o.solidificationTime = time.Now()
+				o.solidificationTimeMutex.Unlock()
+			}
+
+			o.SetModified()
+
+			modified = true
+		}
+		o.solidMutex.Unlock()
+
+	} else {
+		o.solidMutex.RUnlock()
+	}
+
+	return
+}
+
+// SolidificationTime returns the time when this Output was marked as solid.
+func (o *OutputMetadata) SolidificationTime() time.Time {
+	o.solidificationTimeMutex.RLock()
+	defer o.solidificationTimeMutex.RUnlock()
+
+	return o.solidificationTime
+}
+
+// ConsumerCount returns the number of transactions that have spent this Output.
+func (o *OutputMetadata) ConsumerCount() int {
+	o.consumerMutex.RLock()
+	defer o.consumerMutex.RUnlock()
+
+	return o.consumerCount
+}
+
+// RegisterConsumer increases the consumer count of an Output and stores the first Consumer that was ever registered. It
+// returns the previous consumer count and the first consumer.
+func (o *OutputMetadata) RegisterConsumer(consumer TransactionID) (previousConsumerCount int) {
+	o.consumerMutex.Lock()
+	defer o.consumerMutex.Unlock()
+
+	if previousConsumerCount = o.consumerCount; previousConsumerCount == 0 {
+		o.firstConsumer = consumer
+	}
+	o.consumerCount++
+	o.SetModified()
+
+	return
+}
+
+// FirstConsumer returns the first TransactionID that ever spent this Output.
+func (o *OutputMetadata) FirstConsumer() TransactionID {
+	o.consumerMutex.RLock()
+	defer o.consumerMutex.RUnlock()
+
+	return o.firstConsumer
+}
+
+// Preferred returns true if the Output belongs to a preferred transaction.
+func (o *OutputMetadata) Preferred() (result bool) {
+	o.preferredMutex.RLock()
+	defer o.preferredMutex.RUnlock()
+
+	return o.preferred
+}
+
+// SetPreferred updates the preferred flag of the Output.
+func (o *OutputMetadata) SetPreferred(preferred bool) (modified bool) {
+	o.preferredMutex.RLock()
+	if o.preferred == preferred {
+		o.preferredMutex.RUnlock()
+
+		return
+	}
+
+	o.preferredMutex.RUnlock()
+	o.preferredMutex.Lock()
+	defer o.preferredMutex.Unlock()
+
+	if o.preferred == preferred {
+		return
+	}
+
+	o.preferred = preferred
+	o.SetModified()
+	modified = true
+
+	return
+}
+
+// Liked returns true if the Output was marked as liked.
+func (o *OutputMetadata) Liked() bool {
+	o.likedMutex.RLock()
+	defer o.likedMutex.RUnlock()
+
+	return o.liked
+}
+
+// SetLiked modifies the liked flag of the given Output. It returns true if the value has been updated.
+func (o *OutputMetadata) SetLiked(liked bool) (modified bool) {
+	o.likedMutex.RLock()
+	if o.liked == liked {
+		o.likedMutex.RUnlock()
+
+		return
+	}
+
+	o.likedMutex.RUnlock()
+	o.likedMutex.Lock()
+	defer o.likedMutex.Unlock()
+
+	if o.liked == liked {
+		return
+	}
+
+	o.liked = liked
+	o.SetModified()
+	modified = true
+
+	return
+}
+
+// Finalized returns true, if the decision if this output is preferred or not has been finalized by consensus already.
+func (o *OutputMetadata) Finalized() bool {
+	o.finalizedMutex.RLock()
+	defer o.finalizedMutex.RUnlock()
+
+	return o.finalized
+}
+
+// SetFinalized allows us to set the finalized flag on the outputs. Finalized outputs will not be forked when
+// a conflict arrives later.
+func (o *OutputMetadata) SetFinalized(finalized bool) (modified bool) {
+	o.finalizedMutex.RLock()
+	if o.finalized == finalized {
+		o.finalizedMutex.RUnlock()
+
+		return
+	}
+
+	o.finalizedMutex.RUnlock()
+	o.finalizedMutex.Lock()
+	defer o.finalizedMutex.Unlock()
+
+	if o.finalized == finalized {
+		return
+	}
+
+	o.finalized = finalized
+	o.SetModified()
+	modified = true
+
+	return
+}
+
+// Confirmed returns true if the Output was marked as confirmed.
+func (o *OutputMetadata) Confirmed() bool {
+	o.confirmedMutex.RLock()
+	defer o.confirmedMutex.RUnlock()
+
+	return o.confirmed
+}
+
+// SetConfirmed modifies the confirmed flag of the given Output. It returns true if the value has been updated.
+func (o *OutputMetadata) SetConfirmed(confirmed bool) (modified bool) {
+	o.confirmedMutex.RLock()
+	if o.confirmed == confirmed {
+		o.confirmedMutex.RUnlock()
+
+		return
+	}
+
+	o.confirmedMutex.RUnlock()
+	o.confirmedMutex.Lock()
+	defer o.confirmedMutex.Unlock()
+
+	if o.confirmed == confirmed {
+		return
+	}
+
+	o.confirmed = confirmed
+	o.SetModified()
+	modified = true
+
+	return
+}
+
+// Rejected returns true if the Output was marked as confirmed.
+func (o *OutputMetadata) Rejected() bool {
+	o.rejectedMutex.RLock()
+	defer o.rejectedMutex.RUnlock()
+
+	return o.rejected
+}
+
+// SetRejected modifies the rejected flag of the given Output. It returns true if the value has been updated.
+func (o *OutputMetadata) SetRejected(rejected bool) (modified bool) {
+	o.rejectedMutex.RLock()
+	if o.rejected == rejected {
+		o.rejectedMutex.RUnlock()
+
+		return
+	}
+
+	o.rejectedMutex.RUnlock()
+	o.rejectedMutex.Lock()
+	defer o.rejectedMutex.Unlock()
+
+	if o.rejected == rejected {
+		return
+	}
+
+	o.rejected = rejected
+	o.SetModified()
+	modified = true
+
+	return
+}
+
+// Bytes marshals the OutputMetadata into a sequence of bytes.
+func (o *OutputMetadata) Bytes() []byte {
+	return byteutils.ConcatBytes(o.ObjectStorageKey(), o.ObjectStorageValue())
+}
+
+// String returns a human readable version of the OutputMetadata.
+func (o *OutputMetadata) String() string {
+	return stringify.Struct("OutputMetadata",
+		stringify.StructField("id", o.ID()),
+		stringify.StructField("branchID", o.BranchID()),
+		stringify.StructField("solid", o.Solid()),
+		stringify.StructField("solidificationTime", o.SolidificationTime()),
+		stringify.StructField("consumerCount", o.ConsumerCount()),
+		stringify.StructField("firstConsumer", o.FirstConsumer()),
+		stringify.StructField("preferred", o.Preferred()),
+		stringify.StructField("liked", o.Liked()),
+		stringify.StructField("finalized", o.Finalized()),
+		stringify.StructField("confirmed", o.Confirmed()),
+		stringify.StructField("rejected", o.Rejected()),
+	)
+}
+
+// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
+func (o *OutputMetadata) Update(objectstorage.StorableObject) {
+	panic("updates disabled")
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (o *OutputMetadata) ObjectStorageKey() []byte {
+	return o.id.Bytes()
+}
+
+// ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
+// a key in the ObjectStorage.
+func (o *OutputMetadata) ObjectStorageValue() []byte {
+	// TODO: FINISH MARSHALING
+	return marshalutil.New().Bytes()
+}
+
+// code contract (make sure the type implements all required methods)
+var _ objectstorage.StorableObject = &OutputMetadata{}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region CachedOutputMetadata /////////////////////////////////////////////////////////////////////////////////////////
+
+// CachedOutputMetadata is a wrapper for the generic CachedObject returned by the objectstorage that overrides the
+// accessor methods with a type-casted one.
+type CachedOutputMetadata struct {
+	objectstorage.CachedObject
+}
+
+// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
+func (c *CachedOutputMetadata) Unwrap() Output {
+	untypedObject := c.Get()
+	if untypedObject == nil {
+		return nil
+	}
+
+	typedObject := untypedObject.(Output)
+	if typedObject == nil || typedObject.IsDeleted() {
+		return nil
+	}
+
+	return typedObject
+}
+
+// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
+// exists). It automatically releases the object when the consumer finishes.
+func (c *CachedOutputMetadata) Consume(consumer func(cachedOutputMetadata *OutputMetadata)) (consumed bool) {
+	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*OutputMetadata))
 	})
 }
 
