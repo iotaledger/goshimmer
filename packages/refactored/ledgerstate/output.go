@@ -223,8 +223,8 @@ func OutputFromObjectStorage(key []byte, data []byte) (output Output, err error)
 // signature for an Address.
 type SigLockedSingleOutput struct {
 	id      OutputID
-	address Address
 	balance uint64
+	address Address
 
 	objectstorage.StorableObjectFlags
 }
@@ -359,8 +359,8 @@ var _ Output = &SigLockedSingleOutput{}
 // an Address.
 type SigLockedColoredOutput struct {
 	id       OutputID
-	address  Address
 	balances *ColoredBalances
+	address  Address
 
 	objectstorage.StorableObjectFlags
 }
@@ -530,8 +530,8 @@ type OutputMetadata struct {
 	solidMutex              sync.RWMutex
 	solidificationTime      time.Time
 	solidificationTimeMutex sync.RWMutex
-	firstConsumer           TransactionID
 	consumerCount           int
+	firstConsumer           TransactionID
 	consumerMutex           sync.RWMutex
 	preferred               bool
 	preferredMutex          sync.RWMutex
@@ -545,6 +545,88 @@ type OutputMetadata struct {
 	rejectedMutex           sync.RWMutex
 
 	objectstorage.StorableObjectFlags
+}
+
+// NewOutputMetadata creates a new empty OutputMetadata object.
+func NewOutputMetadata(outputID OutputID) *OutputMetadata {
+	return &OutputMetadata{
+		id: outputID,
+	}
+}
+
+// OutputMetadataFromBytes unmarshals an OutputMetadata object from a sequence of bytes.
+func OutputMetadataFromBytes(bytes []byte) (outputMetadata *OutputMetadata, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(bytes)
+	if outputMetadata, err = OutputMetadataFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse OutputMetadata: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// OutputMetadataFromMarshalUtil unmarshals an OutputMetadata object using a MarshalUtil (for easier unmarshaling).
+func OutputMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (outputMetadata *OutputMetadata, err error) {
+	outputMetadata = &OutputMetadata{}
+	if outputMetadata.id, err = OutputIDFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse OutputID: %w", err)
+		return
+	}
+	if outputMetadata.branchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse BranchID: %w", err)
+		return
+	}
+	if outputMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
+		err = xerrors.Errorf("failed to parse solid flag (%v): %w", err, ErrParseBytesFailed)
+		return
+	}
+	if outputMetadata.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
+		err = xerrors.Errorf("failed to parse solidification time (%v): %w", err, ErrParseBytesFailed)
+		return
+	}
+	consumerCount, err := marshalUtil.ReadUint64()
+	if err != nil {
+		err = xerrors.Errorf("failed to parse consumer count (%v): %w", err, ErrParseBytesFailed)
+		return
+	}
+	outputMetadata.consumerCount = int(consumerCount)
+	if outputMetadata.firstConsumer, err = TransactionIDFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse first consumer: %w", err)
+		return
+	}
+	if outputMetadata.preferred, err = marshalUtil.ReadBool(); err != nil {
+		err = xerrors.Errorf("failed to parse preferred flag (%v): %w", err, ErrParseBytesFailed)
+		return
+	}
+	if outputMetadata.liked, err = marshalUtil.ReadBool(); err != nil {
+		err = xerrors.Errorf("failed to parse liked flag (%v): %w", err, ErrParseBytesFailed)
+		return
+	}
+	if outputMetadata.finalized, err = marshalUtil.ReadBool(); err != nil {
+		err = xerrors.Errorf("failed to parse finalized flag (%v): %w", err, ErrParseBytesFailed)
+		return
+	}
+	if outputMetadata.confirmed, err = marshalUtil.ReadBool(); err != nil {
+		err = xerrors.Errorf("failed to parse confirmed flag (%v): %w", err, ErrParseBytesFailed)
+		return
+	}
+	if outputMetadata.rejected, err = marshalUtil.ReadBool(); err != nil {
+		err = xerrors.Errorf("failed to parse rejected flag (%v): %w", err, ErrParseBytesFailed)
+		return
+	}
+
+	return
+}
+
+// OutputMetadataFromObjectStorage restores an OutputMetadata object that was stored in the ObjectStorage.
+func OutputMetadataFromObjectStorage(key []byte, data []byte) (outputMetadata *OutputMetadata, err error) {
+	if outputMetadata, _, err = OutputMetadataFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
+		err = xerrors.Errorf("failed to parse OutputMetadata: %w", err)
+		return
+	}
+
+	return
 }
 
 // ID returns the identifier of the Output that this OutputMetadata belongs to.
@@ -857,8 +939,18 @@ func (o *OutputMetadata) ObjectStorageKey() []byte {
 // ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
 // a key in the ObjectStorage.
 func (o *OutputMetadata) ObjectStorageValue() []byte {
-	// TODO: FINISH MARSHALING
-	return marshalutil.New().Bytes()
+	return marshalutil.New().
+		WriteBytes(o.BranchID().Bytes()).
+		WriteBool(o.Solid()).
+		WriteTime(o.SolidificationTime()).
+		WriteUint64(uint64(o.ConsumerCount())).
+		WriteBytes(o.FirstConsumer().Bytes()).
+		WriteBool(o.Preferred()).
+		WriteBool(o.Liked()).
+		WriteBool(o.Finalized()).
+		WriteBool(o.Confirmed()).
+		WriteBool(o.Rejected()).
+		Bytes()
 }
 
 // code contract (make sure the type implements all required methods)

@@ -57,9 +57,9 @@ func TransactionIDFromBytes(bytes []byte) (result TransactionID, consumedBytes i
 	return
 }
 
-// ParseTransactionID is a wrapper for simplified unmarshaling of TransactionIDs from a byte stream using the
+// TransactionIDFromMarshalUtil is a wrapper for simplified unmarshaling of TransactionIDs from a byte stream using the
 // marshalUtil package.
-func ParseTransactionID(marshalUtil *marshalutil.MarshalUtil) (TransactionID, error) {
+func TransactionIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (TransactionID, error) {
 	id, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return TransactionIDFromBytes(data) })
 	if err != nil {
 		return TransactionID{}, err
