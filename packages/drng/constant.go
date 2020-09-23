@@ -1,4 +1,4 @@
-package payload
+package drng
 
 const (
 	// SignatureSize defines the BLS Signature size in bytes.
