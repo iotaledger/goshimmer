@@ -4,7 +4,6 @@ import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/plugins/webapi"
-	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 )
 
@@ -15,7 +14,6 @@ var (
 	// plugin is the plugin instance of the web API mana endpoint plugin.
 	plugin *node.Plugin
 	once   sync.Once
-	log    *logger.Logger
 )
 
 // Plugin gets the plugin instance.
@@ -27,12 +25,11 @@ func Plugin() *node.Plugin {
 }
 
 func configure(_ *node.Plugin) {
-	log = logger.NewLogger(PluginName)
-	webapi.Server().GET("mana", getMana)
-	webapi.Server().GET("mana/all", getAllMana)
-	webapi.Server().GET("/mana/access/nhighest", getNHighestAccess)
-	webapi.Server().GET("/mana/consensus/nhighest", getNHighestConsensus)
-	webapi.Server().GET("/mana/percentile", getPercentile)
-	webapi.Server().GET("/mana/access/online", getOnlineAccess)
-	webapi.Server().GET("/mana/consensus/online", getOnlineConsensus)
+	webapi.Server().GET("mana", getManaHandler)
+	webapi.Server().GET("mana/all", getAllManaHandler)
+	webapi.Server().GET("/mana/access/nhighest", getNHighestAccessHandler)
+	webapi.Server().GET("/mana/consensus/nhighest", getNHighestConsensusHandler)
+	webapi.Server().GET("/mana/percentile", getPercentileHandler)
+	webapi.Server().GET("/mana/access/online", getOnlineAccessHandler)
+	webapi.Server().GET("/mana/consensus/online", getOnlineConsensusHandler)
 }

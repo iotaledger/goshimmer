@@ -8,16 +8,16 @@ import (
 	"github.com/labstack/echo"
 )
 
-func getOnlineAccess(c echo.Context) error {
-	return getOnline(c, manaPkg.AccessMana)
+func getOnlineAccessHandler(c echo.Context) error {
+	return getOnlineHandler(c, manaPkg.AccessMana)
 }
 
-func getOnlineConsensus(c echo.Context) error {
-	return getOnline(c, manaPkg.ConsensusMana)
+func getOnlineConsensusHandler(c echo.Context) error {
+	return getOnlineHandler(c, manaPkg.ConsensusMana)
 }
 
-// getOnline handles the request.
-func getOnline(c echo.Context, manaType manaPkg.Type) error {
+// getOnlineHandler handles the request.
+func getOnlineHandler(c echo.Context, manaType manaPkg.Type) error {
 	onlinePeersMana, err := manaPlugin.GetOnlineNodes(manaType)
 	if err != nil {
 		return c.JSON(http.StatusNotFound, GetOnlineResponse{Error: err.Error()})
@@ -36,7 +36,7 @@ type GetOnlineResponse struct {
 	Error  string          `json:"error,omitempty"`
 }
 
-// OnlineNodeStr holds infromation about online rank, nodeID and mana,
+// OnlineNodeStr holds information about online rank, nodeID and mana,
 type OnlineNodeStr struct {
 	OnlineRank int     `json:"rank"`
 	NodeID     string  `json:"nodeID"`

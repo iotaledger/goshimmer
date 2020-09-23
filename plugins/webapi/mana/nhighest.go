@@ -9,18 +9,18 @@ import (
 	"github.com/labstack/echo"
 )
 
-// getNHighestAccess handles a /mana/access/nhighest request.
-func getNHighestAccess(c echo.Context) error {
-	return nhighest(c, manaPkg.AccessMana)
+// getNHighestAccessHandler handles a /mana/access/nhighest request.
+func getNHighestAccessHandler(c echo.Context) error {
+	return nHighestHandler(c, manaPkg.AccessMana)
 }
 
-// getNHighestConsensus handles a /mana/consensus/nhighest request.
-func getNHighestConsensus(c echo.Context) error {
-	return nhighest(c, manaPkg.ConsensusMana)
+// getNHighestConsensusHandler handles a /mana/consensus/nhighest request.
+func getNHighestConsensusHandler(c echo.Context) error {
+	return nHighestHandler(c, manaPkg.ConsensusMana)
 }
 
-// Handler handles the request.
-func nhighest(c echo.Context, manaType manaPkg.Type) error {
+// nHighestHandler handles the request.
+func nHighestHandler(c echo.Context, manaType manaPkg.Type) error {
 	number, err := strconv.ParseUint(c.QueryParam("number"), 10, 32)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, GetNHighestResponse{Error: err.Error()})

@@ -8,8 +8,8 @@ import (
 	"github.com/labstack/echo"
 )
 
-// Handler handles the request.
-func getAllMana(c echo.Context) error {
+// getAllManaHandler handles the request.
+func getAllManaHandler(c echo.Context) error {
 	access := manaPlugin.GetManaMap(manaPkg.AccessMana).ToNodeStrList()
 	consensus := manaPlugin.GetManaMap(manaPkg.ConsensusMana).ToNodeStrList()
 	return c.JSON(http.StatusOK, getAllManaResponse{
@@ -18,7 +18,7 @@ func getAllMana(c echo.Context) error {
 	})
 }
 
-// getAllManaResponse is the request to a getAllMana request.
+// getAllManaResponse is the request to a getAllManaHandler request.
 type getAllManaResponse struct {
 	Access    []manaPkg.NodeStr `json:"access"`
 	Consensus []manaPkg.NodeStr `json:"consensus"`

@@ -11,7 +11,8 @@ import (
 	"github.com/mr-tron/base58"
 )
 
-func getMana(c echo.Context) error {
+// getManaHandler handles the request.
+func getManaHandler(c echo.Context) error {
 	var request GetManaRequest
 	if err := c.Bind(&request); err != nil {
 		return c.JSON(http.StatusBadRequest, GetManaResponse{Error: err.Error()})

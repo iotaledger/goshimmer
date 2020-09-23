@@ -11,8 +11,8 @@ import (
 	"github.com/mr-tron/base58"
 )
 
-// getPercentile handles the request.
-func getPercentile(c echo.Context) error {
+// getPercentileHandler handles the request.
+func getPercentileHandler(c echo.Context) error {
 	var request GetPercentileRequest
 	if err := c.Bind(&request); err != nil {
 		return c.JSON(http.StatusBadRequest, GetPercentileResponse{Error: err.Error()})
