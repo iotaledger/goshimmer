@@ -94,10 +94,10 @@ func fetch(printConfig bool, ignoreSettingsAtPrint ...[]string) error {
 		parameter.PrintConfig(_node, ignoreSettingsAtPrint...)
 	}
 
-	for _, pluginName := range _node.GetStringSlice(node.CFG_DISABLE_PLUGINS) {
+	for _, pluginName := range _node.GetStringSlice(CfgDisablePlugins) {
 		node.DisabledPlugins[node.GetPluginIdentifier(pluginName)] = true
 	}
-	for _, pluginName := range _node.GetStringSlice(node.CFG_ENABLE_PLUGINS) {
+	for _, pluginName := range _node.GetStringSlice(CfgEnablePlugins) {
 		node.EnabledPlugins[node.GetPluginIdentifier(pluginName)] = true
 	}
 

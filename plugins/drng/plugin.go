@@ -6,8 +6,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/drng"
 	"github.com/iotaledger/goshimmer/packages/binary/drng/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/drng/payload/header"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
@@ -46,7 +45,7 @@ func configureEvents() {
 	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
 		cachedMsgEvent.MessageMetadata.Release()
 
-		cachedMsgEvent.Message.Consume(func(msg *message.Message) {
+		cachedMsgEvent.Message.Consume(func(msg *tangle.Message) {
 			if msg.Payload().Type() != payload.Type {
 				return
 			}
