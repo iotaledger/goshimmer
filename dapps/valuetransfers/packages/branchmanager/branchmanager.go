@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/types"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
+	"github.com/iotaledger/goshimmer/packages/storageprefix"
 )
 
 // BranchManager is an entity that manages the branches of a UTXODAG. It offers methods to add, delete and modify
