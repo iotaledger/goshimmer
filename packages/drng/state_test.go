@@ -1,4 +1,4 @@
-package state
+package drng
 
 import (
 	"testing"
@@ -26,7 +26,7 @@ func dummyCommittee() *Committee {
 
 func TestState(t *testing.T) {
 	// constructor
-	stateTest := New(SetCommittee(dummyCommittee()), SetRandomness(dummyRandomness()))
+	stateTest := NewState(SetCommittee(dummyCommittee()), SetRandomness(dummyRandomness()))
 	require.Equal(t, *dummyRandomness(), stateTest.Randomness())
 	require.Equal(t, *dummyCommittee(), stateTest.Committee())
 
@@ -45,7 +45,7 @@ func TestFloat64(t *testing.T) {
 
 	max := []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 	r := &Randomness{1, max, time.Now()}
-	stateTest := New(SetRandomness(r))
+	stateTest := NewState(SetRandomness(r))
 	require.Equal(t, 0.9999999999999999, stateTest.Randomness().Float64())
 
 }

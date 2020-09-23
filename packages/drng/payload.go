@@ -1,10 +1,9 @@
-package payload
+package drng
 
 import (
 	"fmt"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/binary/drng/payload/header"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
@@ -17,23 +16,23 @@ const (
 
 // Payload defines a DRNG payload.
 type Payload struct {
-	header.Header
+	Header
 	Data []byte
 
 	bytes      []byte
 	bytesMutex sync.RWMutex
 }
 
-// New creates a new DRNG payload.
-func New(header header.Header, data []byte) *Payload {
+// NewPayload creates a new DRNG payload.
+func NewPayload(header Header, data []byte) *Payload {
 	return &Payload{
 		Header: header,
 		Data:   data,
 	}
 }
 
-// Parse is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
-func Parse(marshalUtil *marshalutil.MarshalUtil) (*Payload, error) {
+// PayloadFromMarshalUtil is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
+func PayloadFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*Payload, error) {
 	payload, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return FromBytes(data) })
 	if err != nil {
 		err = fmt.Errorf("failed to parse drng payload: %w", err)
@@ -62,13 +61,13 @@ func FromBytes(bytes []byte) (result *Payload, consumedBytes int, err error) {
 	}
 
 	// parse header
-	if result.Header, err = header.Parse(marshalUtil); err != nil {
+	if result.Header, err = HeaderFromMarshalUtil(marshalUtil); err != nil {
 		err = fmt.Errorf("failed to parse header of drng payload: %w", err)
 		return
 	}
 
 	// parse data
-	if result.Data, err = marshalUtil.ReadBytes(int(len - header.Length)); err != nil {
+	if result.Data, err = marshalUtil.ReadBytes(int(len - HeaderLength)); err != nil {
 		err = fmt.Errorf("failed to parse data of drng payload: %w", err)
 		return
 	}
@@ -83,64 +82,64 @@ func FromBytes(bytes []byte) (result *Payload, consumedBytes int, err error) {
 }
 
 // Bytes returns the drng payload bytes.
-func (payload *Payload) Bytes() (bytes []byte) {
+func (p *Payload) Bytes() (bytes []byte) {
 	// acquire lock for reading bytes
-	payload.bytesMutex.RLock()
+	p.bytesMutex.RLock()
 
 	// return if bytes have been determined already
-	if bytes = payload.bytes; bytes != nil {
-		payload.bytesMutex.RUnlock()
+	if bytes = p.bytes; bytes != nil {
+		p.bytesMutex.RUnlock()
 		return
 	}
 
 	// switch to write lock
-	payload.bytesMutex.RUnlock()
-	payload.bytesMutex.Lock()
-	defer payload.bytesMutex.Unlock()
+	p.bytesMutex.RUnlock()
+	p.bytesMutex.Lock()
+	defer p.bytesMutex.Unlock()
 
 	// return if bytes have been determined in the mean time
-	if bytes = payload.bytes; bytes != nil {
+	if bytes = p.bytes; bytes != nil {
 		return
 	}
 	// initialize helper
 	marshalUtil := marshalutil.New()
 
 	// marshal the payload specific information
-	marshalUtil.WriteUint32(uint32(len(payload.Data) + header.Length))
-	marshalUtil.WriteUint32(Type)
-	marshalUtil.WriteBytes(payload.Header.Bytes())
-	marshalUtil.WriteBytes(payload.Data[:])
+	marshalUtil.WriteUint32(uint32(len(p.Data) + HeaderLength))
+	marshalUtil.WriteUint32(PayloadType)
+	marshalUtil.WriteBytes(p.Header.Bytes())
+	marshalUtil.WriteBytes(p.Data[:])
 
 	bytes = marshalUtil.Bytes()
 
 	return
 }
 
-func (payload *Payload) String() string {
+func (p *Payload) String() string {
 	return stringify.Struct("Payload",
-		stringify.StructField("type", uint64(payload.Header.PayloadType)),
-		stringify.StructField("instance", uint64(payload.Header.InstanceID)),
-		stringify.StructField("data", payload.Data),
+		stringify.StructField("type", uint64(p.Header.PayloadType)),
+		stringify.StructField("instance", uint64(p.Header.InstanceID)),
+		stringify.StructField("data", p.Data),
 	)
 }
 
 // region Payload implementation ///////////////////////////////////////////////////////////////////////////////////////
 
-// Type defines the type of the drng payload.
-var Type = tangle.PayloadType(111)
+// PayloadType defines the type of the drng payload.
+var PayloadType = tangle.PayloadType(111)
 
 // Type returns the type of the drng payload.
-func (payload *Payload) Type() tangle.PayloadType {
-	return Type
+func (p *Payload) Type() tangle.PayloadType {
+	return PayloadType
 }
 
 // Marshal marshals the drng payload into bytes.
-func (payload *Payload) Marshal() (bytes []byte, err error) {
-	return payload.Bytes(), nil
+func (p *Payload) Marshal() (bytes []byte, err error) {
+	return p.Bytes(), nil
 }
 
 func init() {
-	tangle.RegisterPayloadType(Type, ObjectName, func(data []byte) (payload tangle.Payload, err error) {
+	tangle.RegisterPayloadType(PayloadType, ObjectName, func(data []byte) (payload tangle.Payload, err error) {
 		payload, _, err = FromBytes(data)
 
 		return

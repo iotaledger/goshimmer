@@ -1,4 +1,4 @@
-package collectivebeacon
+package drng
 
 import (
 	"encoding/hex"
@@ -9,20 +9,13 @@ import (
 	"github.com/drand/drand/key"
 	"github.com/drand/kyber/share"
 	"github.com/drand/kyber/util/random"
-	"github.com/iotaledger/goshimmer/packages/binary/drng/state"
-	"github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectivebeacon/events"
-	"github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectivebeacon/payload"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/stretchr/testify/require"
 )
 
 var (
-	eventTest         *events.CollectiveBeaconEvent
-	prevSignatureTest []byte
-	signatureTest     []byte
-	dpkTest           []byte
-	issuerPK          ed25519.PublicKey
-	stateTest         *state.State
+	eventTest *CollectiveBeaconEvent
+	stateTest *State
 )
 
 func init() {
@@ -33,7 +26,7 @@ func init() {
 	kp := ed25519.GenerateKeyPair()
 	issuerPK = kp.PublicKey
 
-	eventTest = &events.CollectiveBeaconEvent{
+	eventTest = &CollectiveBeaconEvent{
 		IssuerPublicKey: issuerPK,
 		InstanceID:      1,
 		Round:           1,
@@ -42,8 +35,8 @@ func init() {
 		Dpk:             dpkTest,
 	}
 
-	stateTest = state.New(state.SetCommittee(
-		&state.Committee{
+	stateTest = NewState(SetCommittee(
+		&Committee{
 			InstanceID:    1,
 			Threshold:     3,
 			Identities:    []ed25519.PublicKey{issuerPK},
@@ -70,7 +63,7 @@ func TestDkgShares(t *testing.T) {
 	dkgShares(t, 5, 3)
 }
 
-func dkgShares(t *testing.T, n, threshold int) *payload.Payload {
+func dkgShares(t *testing.T, n, threshold int) *CollectiveBeaconPayload {
 	var priPoly *share.PriPoly
 	var pubPoly *share.PubPoly
 	var err error
@@ -137,5 +130,5 @@ func dkgShares(t *testing.T, n, threshold int) *payload.Payload {
 	log.Println(hex.EncodeToString(newSig))
 	log.Println(hex.EncodeToString(dpk))
 
-	return payload.New(1, 1, sig, newSig, dpk)
+	return NewCollectiveBeaconPayload(1, 1, sig, newSig, dpk)
 }
