@@ -79,6 +79,14 @@ func (bmv *BaseManaVector) Size() int {
 	return len(bmv.vector)
 }
 
+// Has returns if the given node has mana defined in the vector.
+func (bmv *BaseManaVector) Has(nodeID identity.ID) bool {
+	bmv.RLock()
+	defer bmv.RUnlock()
+	_, exists := bmv.vector[nodeID]
+	return exists
+}
+
 // BookMana books mana for a transaction.
 func (bmv *BaseManaVector) BookMana(txInfo *TxInfo) {
 	bmv.Lock()
