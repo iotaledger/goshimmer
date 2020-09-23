@@ -1,4 +1,4 @@
-package state
+package drng
 
 import (
 	"encoding/binary"
@@ -7,6 +7,45 @@ import (
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 )
+
+// DRNG holds the state and events of a drng instance.
+type DRNG struct {
+	State  *State // The state of the DRNG.
+	Events *Event // The events fired on the DRNG.
+}
+
+// New creates a new DRNG instance.
+func New(setters ...Option) *DRNG {
+	return &DRNG{
+		State:  NewState(setters...),
+		Events: newEvent(),
+	}
+}
+
+// Options define state options of a DRNG.
+type Options struct {
+	// The initial committee of the DRNG.
+	Committee *Committee
+	// The initial randomness of the DRNG.
+	Randomness *Randomness
+}
+
+// Option is a function which sets the given option.
+type Option func(*Options)
+
+// SetCommittee sets the initial committee
+func SetCommittee(c *Committee) Option {
+	return func(args *Options) {
+		args.Committee = c
+	}
+}
+
+// SetRandomness sets the initial randomness
+func SetRandomness(r *Randomness) Option {
+	return func(args *Options) {
+		args.Randomness = r
+	}
+}
 
 // Randomness defines the current randomness state of a DRNG instance.
 type Randomness struct {
@@ -43,8 +82,8 @@ type State struct {
 	mutex sync.RWMutex
 }
 
-// New creates a new State with the given optional options
-func New(setters ...Option) *State {
+// NewState creates a new State with the given optional options
+func NewState(setters ...Option) *State {
 	args := &Options{}
 
 	for _, setter := range setters {

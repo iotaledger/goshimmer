@@ -5,11 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/binary/drng/payload"
-	"github.com/iotaledger/goshimmer/packages/binary/drng/payload/header"
-	"github.com/iotaledger/goshimmer/packages/binary/drng/state"
-	"github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectivebeacon"
-	cbPayload "github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectivebeacon/payload"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/stretchr/testify/require"
@@ -20,9 +15,9 @@ var (
 	signatureTest     []byte
 	dpkTest           []byte
 	issuerPK          ed25519.PublicKey
-	committeeTest     *state.Committee
+	committeeTest     *Committee
 	timestampTest     time.Time
-	randomnessTest    *state.Randomness
+	randomnessTest    *Randomness
 )
 
 func init() {
@@ -31,8 +26,8 @@ func init() {
 	dpkTest, _ = hex.DecodeString("80b319dbf164d852cdac3d86f0b362e0131ddeae3d87f6c3c5e3b6a9de384093b983db88f70e2008b0e945657d5980e2")
 	timestampTest = time.Now()
 
-	rand, _ := collectivebeacon.ExtractRandomness(signatureTest)
-	randomnessTest = &state.Randomness{
+	rand, _ := ExtractRandomness(signatureTest)
+	randomnessTest = &Randomness{
 		Round:      1,
 		Randomness: rand,
 		Timestamp:  timestampTest,
@@ -41,7 +36,7 @@ func init() {
 	kp := ed25519.GenerateKeyPair()
 	issuerPK = kp.PublicKey
 
-	committeeTest = &state.Committee{
+	committeeTest = &Committee{
 		InstanceID:    1,
 		Threshold:     3,
 		Identities:    []ed25519.PublicKey{issuerPK},
@@ -49,9 +44,9 @@ func init() {
 	}
 }
 
-func dummyPayload() *cbPayload.Payload {
-	header := header.New(header.TypeCollectiveBeacon, 1)
-	return cbPayload.New(header.InstanceID,
+func testPayload() *CollectiveBeaconPayload {
+	header := NewHeader(TypeCollectiveBeacon, 1)
+	return NewCollectiveBeaconPayload(header.InstanceID,
 		1,
 		prevSignatureTest,
 		signatureTest,
@@ -59,11 +54,11 @@ func dummyPayload() *cbPayload.Payload {
 }
 
 func TestDispatcher(t *testing.T) {
-	marshalUtil := marshalutil.New(dummyPayload().Bytes())
-	parsedPayload, err := payload.Parse(marshalUtil)
+	marshalUtil := marshalutil.New(testPayload().Bytes())
+	parsedPayload, err := PayloadFromMarshalUtil(marshalUtil)
 	require.NoError(t, err)
 
-	drng := New(state.SetCommittee(committeeTest))
+	drng := New(SetCommittee(committeeTest))
 	err = drng.Dispatch(issuerPK, timestampTest, parsedPayload)
 	require.NoError(t, err)
 	require.Equal(t, *randomnessTest, drng.State.Randomness())

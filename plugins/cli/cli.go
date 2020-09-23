@@ -43,7 +43,7 @@ func printUsage() {
 	)
 	flag.PrintDefaults()
 
-	fmt.Fprintf(os.Stderr, "\nThe following plugins are enabled by default and can be disabled with -%s:\n  %s\n", config.DISABLE_PLUGINS, getList(enabledPlugins))
-	fmt.Fprintf(os.Stderr, "The following plugins are disabled by default and can be enabled with -%s:\n  %s\n", config.ENABLE_PLUGINS, getList(disabledPlugins))
-	fmt.Fprintf(os.Stderr, "The enabled/disabled plugins can be overridden by altering %s/%s inside config.json\n\n", config.ENABLE_PLUGINS, config.DISABLE_PLUGINS)
+	fmt.Fprintf(os.Stderr, "\nThe following plugins are enabled by default and can be disabled with -%s:\n  %s\n", config.CfgDisablePlugins, getList(enabledPlugins))
+	fmt.Fprintf(os.Stderr, "The following plugins are disabled by default and can be enabled with -%s:\n  %s\n", config.CfgEnablePlugins, getList(disabledPlugins))
+	fmt.Fprintf(os.Stderr, "The enabled/disabled plugins can be overridden by altering %s/%s inside config.json\n\n", config.CfgEnablePlugins, config.CfgDisablePlugins)
 }

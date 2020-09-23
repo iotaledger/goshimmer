@@ -1,25 +1,24 @@
-package payload
+package drng
 
 import (
 	"testing"
 
-	"github.com/iotaledger/goshimmer/packages/binary/drng/payload/header"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/stretchr/testify/require"
 )
 
 func dummyPayload() *Payload {
-	header := header.New(header.TypeCollectiveBeacon, 0)
+	header := NewHeader(TypeCollectiveBeacon, 0)
 	data := []byte("test")
-	return New(header, data)
+	return NewPayload(header, data)
 }
 
-func TestParse(t *testing.T) {
+func TestPayloadFromMarshalUtil(t *testing.T) {
 	payload := dummyPayload()
 	bytes := payload.Bytes()
 
 	marshalUtil := marshalutil.New(bytes)
-	parsedPayload, err := Parse(marshalUtil)
+	parsedPayload, err := PayloadFromMarshalUtil(marshalUtil)
 	require.NoError(t, err)
 
 	require.Equal(t, payload.Header.PayloadType, parsedPayload.Header.PayloadType)
