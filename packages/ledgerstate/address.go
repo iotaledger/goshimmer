@@ -57,7 +57,7 @@ type Address interface {
 func AddressFromBytes(bytes []byte) (address Address, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if address, err = AddressFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Address: %w", err)
+		err = xerrors.Errorf("failed to parse Address from MarshalUtil: %w", err)
 	}
 	consumedBytes = marshalUtil.ReadOffset()
 
@@ -73,7 +73,7 @@ func AddressFromBase58EncodedString(base58String string) (address Address, err e
 	}
 
 	if address, _, err = AddressFromBytes(bytes); err != nil {
-		err = xerrors.Errorf("failed to parse Address: %w", err)
+		err = xerrors.Errorf("failed to parse Address from bytes: %w", err)
 		return
 	}
 
@@ -122,10 +122,26 @@ func NewED25519Address(publicKey ed25519.PublicKey) *ED25519Address {
 func ED25519AddressFromBytes(bytes []byte) (address *ED25519Address, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if address, err = ED25519AddressFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse ED25519Address: %w", err)
+		err = xerrors.Errorf("failed to parse ED25519Address from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// ED25519AddressFromBase58EncodedString creates an ED25519Address from a base58 encoded string.
+func ED25519AddressFromBase58EncodedString(base58String string) (address *ED25519Address, err error) {
+	bytes, err := base58.Decode(base58String)
+	if err != nil {
+		err = xerrors.Errorf("error while decoding base58 encoded ED25519Address (%v): %w", err, ErrBase58DecodeFailed)
+		return
+	}
+
+	if address, _, err = ED25519AddressFromBytes(bytes); err != nil {
+		err = xerrors.Errorf("failed to parse ED25519Address from bytes: %w", err)
+		return
+	}
 
 	return
 }
@@ -203,10 +219,26 @@ func NewBLSAddress(publicKey []byte) *BLSAddress {
 func BLSAddressFromBytes(bytes []byte) (address *BLSAddress, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if address, err = BLSAddressFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse BLSAddress: %w", err)
+		err = xerrors.Errorf("failed to parse BLSAddress from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// BLSAddressFromBase58EncodedString creates an BLSAddress from a base58 encoded string.
+func BLSAddressFromBase58EncodedString(base58String string) (address *BLSAddress, err error) {
+	bytes, err := base58.Decode(base58String)
+	if err != nil {
+		err = xerrors.Errorf("error while decoding base58 encoded BLSAddress (%v): %w", err, ErrBase58DecodeFailed)
+		return
+	}
+
+	if address, _, err = BLSAddressFromBytes(bytes); err != nil {
+		err = xerrors.Errorf("failed to parse BLSAddress from bytes: %w", err)
+		return
+	}
 
 	return
 }
