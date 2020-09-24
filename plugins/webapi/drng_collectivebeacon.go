@@ -3,7 +3,7 @@ package webapi
 import (
 	"net/http"
 
-	"github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectivebeacon/payload"
+	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/labstack/echo"
@@ -26,7 +26,7 @@ func collectiveBeaconHandler(c echo.Context) error {
 	}
 
 	marshalUtil := marshalutil.New(request.Payload)
-	parsedPayload, err := payload.Parse(marshalUtil)
+	parsedPayload, err := drng.CollectiveBeaconPayloadFromMarshalUtil(marshalUtil)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, CollectiveBeaconResponse{Error: err.Error()})
 	}
