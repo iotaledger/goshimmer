@@ -20,7 +20,7 @@ func unspentOutputsHandler(c echo.Context) error {
 
 	var request UnspentOutputsRequest
 	if err := c.Bind(&request); err != nil {
-		Log.Info(err.Error())
+		log.Info(err.Error())
 		return c.JSON(http.StatusBadRequest, UnspentOutputsResponse{Error: err.Error()})
 	}
 
@@ -28,7 +28,7 @@ func unspentOutputsHandler(c echo.Context) error {
 	for _, strAddress := range request.Addresses {
 		address, err := address.FromBase58(strAddress)
 		if err != nil {
-			Log.Info(err.Error())
+			log.Info(err.Error())
 			continue
 		}
 

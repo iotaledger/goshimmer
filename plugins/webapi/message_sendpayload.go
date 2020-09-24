@@ -21,7 +21,7 @@ func sendPayload(c echo.Context) error {
 
 	var request MsgRequest
 	if err := c.Bind(&request); err != nil {
-		Log.Info(err.Error())
+		log.Info(err.Error())
 		return c.JSON(http.StatusBadRequest, MsgResponse{Error: err.Error()})
 	}
 

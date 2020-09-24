@@ -21,7 +21,7 @@ func collectiveBeaconHandler(c echo.Context) error {
 
 	var request CollectiveBeaconRequest
 	if err := c.Bind(&request); err != nil {
-		Log.Info(err.Error())
+		log.Info(err.Error())
 		return c.JSON(http.StatusBadRequest, CollectiveBeaconResponse{Error: err.Error()})
 	}
 

@@ -24,17 +24,17 @@ func findMessageByID(c echo.Context) error {
 
 	var request FindByIDRequest
 	if err := c.Bind(&request); err != nil {
-		Log.Info(err.Error())
+		log.Info(err.Error())
 		return c.JSON(http.StatusBadRequest, FindByIDResponse{Error: err.Error()})
 	}
 
 	var result []Message
 	for _, id := range request.IDs {
-		Log.Info("Received:", id)
+		log.Info("Received:", id)
 
 		msgID, err := tangle.NewMessageID(id)
 		if err != nil {
-			Log.Info(err)
+			log.Info(err)
 			return c.JSON(http.StatusBadRequest, FindByIDResponse{Error: err.Error()})
 		}
 

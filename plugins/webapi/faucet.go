@@ -34,11 +34,11 @@ func requestFunds(c echo.Context) error {
 	var request FaucetRequest
 	var addr address.Address
 	if err := c.Bind(&request); err != nil {
-		Log.Info(err.Error())
+		log.Info(err.Error())
 		return c.JSON(http.StatusBadRequest, FaucetResponse{Error: err.Error()})
 	}
 
-	Log.Debug("Received - address:", request.Address)
+	log.Debug("Received - address:", request.Address)
 
 	addr, err := address.FromBase58(request.Address)
 	if err != nil {

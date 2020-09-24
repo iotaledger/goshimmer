@@ -20,7 +20,7 @@ func attachmentsHandler(c echo.Context) error {
 
 	txnID, err := transaction.IDFromBase58(c.QueryParam("txnID"))
 	if err != nil {
-		Log.Info(err)
+		log.Info(err)
 		return c.JSON(http.StatusBadRequest, AttachmentsResponse{Error: err.Error()})
 	}
 

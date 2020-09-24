@@ -29,8 +29,7 @@ var (
 	serverOnce sync.Once
 	// DisabledAPIs is a list of disabled apis
 	DisabledAPIs = make(map[string]struct{})
-	// Log is the logger of webapi plugin
-	Log *logger.Logger
+	log          *logger.Logger
 )
 
 // Plugin gets the plugin instance.
@@ -56,7 +55,7 @@ func Server() *echo.Echo {
 
 func configure(*node.Plugin) {
 	server = Server()
-	Log = logger.NewLogger(PluginName)
+	log = logger.NewLogger(PluginName)
 	// configure the server
 	server.HideBanner = true
 	server.HidePort = true
@@ -70,22 +69,22 @@ func configure(*node.Plugin) {
 }
 
 func run(*node.Plugin) {
-	Log.Infof("Starting %s ...", PluginName)
+	log.Infof("Starting %s ...", PluginName)
 	if err := daemon.BackgroundWorker("WebAPI server", worker, shutdown.PriorityWebAPI); err != nil {
-		Log.Panicf("Failed to start as daemon: %s", err)
+		log.Panicf("Failed to start as daemon: %s", err)
 	}
 }
 
 func worker(shutdownSignal <-chan struct{}) {
-	defer Log.Infof("Stopping %s ... done", PluginName)
+	defer log.Infof("Stopping %s ... done", PluginName)
 
 	stopped := make(chan struct{})
 	bindAddr := config.Node().GetString(CfgBindAddress)
 	go func() {
-		Log.Infof("%s started, bind-address=%s", PluginName, bindAddr)
+		log.Infof("%s started, bind-address=%s", PluginName, bindAddr)
 		if err := server.Start(bindAddr); err != nil {
 			if !errors.Is(err, http.ErrServerClosed) {
-				Log.Errorf("Error serving: %s", err)
+				log.Errorf("Error serving: %s", err)
 			}
 			close(stopped)
 		}
@@ -97,10 +96,10 @@ func worker(shutdownSignal <-chan struct{}) {
 	case <-stopped:
 	}
 
-	Log.Infof("Stopping %s ...", PluginName)
+	log.Infof("Stopping %s ...", PluginName)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	if err := server.Shutdown(ctx); err != nil {
-		Log.Errorf("Error stopping: %s", err)
+		log.Errorf("Error stopping: %s", err)
 	}
 }
