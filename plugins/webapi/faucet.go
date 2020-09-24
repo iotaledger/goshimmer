@@ -13,8 +13,6 @@ import (
 	"github.com/labstack/echo"
 )
 
-const FaucetEndpoint = "faucet"
-
 var fundingMu goSync.Mutex
 
 func init() {
@@ -24,7 +22,7 @@ func init() {
 // requestFunds creates a faucet request (0-value) message with the given destination address and
 // broadcasts it to the node's neighbors. It returns the message ID if successful.
 func requestFunds(c echo.Context) error {
-	if _, exists := DisabledAPIs[FaucetEndpoint]; exists {
+	if _, exists := DisabledAPIs[FaucetRoot]; exists {
 		return c.JSON(http.StatusForbidden, FaucetResponse{Error: "Forbidden endpoint"})
 	}
 

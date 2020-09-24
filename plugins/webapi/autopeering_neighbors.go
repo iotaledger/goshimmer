@@ -11,15 +11,13 @@ import (
 	"github.com/labstack/echo"
 )
 
-const AutopeeringEndpoint = "autopeering"
-
 func init() {
 	Server().GET("autopeering/neighbors", getNeighbors)
 }
 
 // getNeighbors returns the chosen and accepted neighbors of the node
 func getNeighbors(c echo.Context) error {
-	if _, exists := DisabledAPIs[AutopeeringEndpoint]; exists {
+	if _, exists := DisabledAPIs[AutopeeringRoot]; exists {
 		return c.JSON(http.StatusForbidden, AutopeeringResponse{Error: "Forbidden endpoint"})
 	}
 

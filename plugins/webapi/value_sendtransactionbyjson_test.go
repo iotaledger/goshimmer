@@ -72,7 +72,7 @@ func TestNewTransactionFromJSON(t *testing.T) {
 	}
 
 	// create tx JSON
-	jsonRequest := SendTxByJsonRequest{
+	jsonRequest := SendTxByJSONRequest{
 		Inputs:     inputsBase58,
 		Outputs:    outputsBase58,
 		Data:       []byte("TEST"),

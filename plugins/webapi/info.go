@@ -13,8 +13,6 @@ import (
 	"github.com/labstack/echo"
 )
 
-const InfoEndpoint = "info"
-
 func init() {
 	Server().GET("info", getInfo)
 }
@@ -61,7 +59,7 @@ func init() {
 // 	]
 // }
 func getInfo(c echo.Context) error {
-	if _, exists := DisabledAPIs[InfoEndpoint]; exists {
+	if _, exists := DisabledAPIs[InfoRoot]; exists {
 		return c.JSON(http.StatusForbidden, InfoResponse{Error: "Forbidden endpoint"})
 	}
 

@@ -8,8 +8,6 @@ import (
 	"github.com/labstack/echo"
 )
 
-const Data = "data"
-
 func init() {
 	Server().POST("data", broadcastData)
 }
@@ -17,7 +15,7 @@ func init() {
 // broadcastData creates a message of the given payload and
 // broadcasts it to the node's neighbors. It returns the message ID if successful.
 func broadcastData(c echo.Context) error {
-	if _, exists := DisabledAPIs[Data]; exists {
+	if _, exists := DisabledAPIs[DataRoot]; exists {
 		return c.JSON(http.StatusForbidden, DataResponse{Error: "Forbidden endpoint"})
 	}
 

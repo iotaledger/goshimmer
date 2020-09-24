@@ -8,14 +8,12 @@ import (
 	"github.com/labstack/echo"
 )
 
-const HealthzEndpoint = "healthz"
-
 func init() {
 	Server().GET("healthz", getHealthz)
 }
 
 func getHealthz(c echo.Context) error {
-	if _, exists := DisabledAPIs[HealthzEndpoint]; exists {
+	if _, exists := DisabledAPIs[HealthzRoot]; exists {
 		return c.NoContent(http.StatusForbidden)
 	}
 
