@@ -116,6 +116,8 @@ type UnlockBlockType uint8
 // region UnlockBlock //////////////////////////////////////////////////////////////////////////////////////////////////
 
 type UnlockBlock interface {
+	Type() UnlockBlockType
+
 	// Bytes returns a marshaled version of this UnlockBlock.
 	Bytes() []byte
 }
@@ -125,11 +127,15 @@ type UnlockBlock interface {
 // region SignatureUnlockBlock /////////////////////////////////////////////////////////////////////////////////////////
 
 type SignatureUnlockBlock struct {
-	signature *Signature
+	signature Signature
+}
+
+func (s *SignatureUnlockBlock) Type() UnlockBlockType {
+	return 0
 }
 
 func (s *SignatureUnlockBlock) SignatureValid(address Address, unsignedBytes []byte) (bool, error) {
-	return true, nil
+	return s.signature.SignsAddress(address, unsignedBytes), nil
 }
 
 // Bytes returns a marshaled version of this UnlockBlock.
