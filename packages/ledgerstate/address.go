@@ -35,7 +35,7 @@ func (a AddressType) String() string {
 
 // region Address //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Address is an interface for the different kind of Addresses that are support by the ledger state.
+// Address is an interface for the different kind of Addresses that are supported by the ledger state.
 type Address interface {
 	// Type returns the AddressType of the Address.
 	Type() AddressType
@@ -109,7 +109,7 @@ type ED25519Address struct {
 	digest []byte
 }
 
-// NewED25519Address creates a new ED25519Address from then given public key.
+// NewED25519Address creates a new ED25519Address from the given public key.
 func NewED25519Address(publicKey ed25519.PublicKey) *ED25519Address {
 	digest := blake2b.Sum256(publicKey[:])
 
@@ -137,7 +137,7 @@ func ED25519AddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (addres
 		err = xerrors.Errorf("failed to parse AddressType (%v): %w", err, ErrParseBytesFailed)
 		return
 	}
-	if AddressType(addressType) != AddressTypeBLS {
+	if AddressType(addressType) != AddressTypeED25519 {
 		err = xerrors.Errorf("invalid AddressType (%X): %w", addressType, ErrParseBytesFailed)
 		return
 	}
@@ -190,7 +190,7 @@ type BLSAddress struct {
 	digest []byte
 }
 
-// NewBLSAddress creates a new BLSAddress from then given public key.
+// NewBLSAddress creates a new BLSAddress from the given public key.
 func NewBLSAddress(publicKey []byte) *BLSAddress {
 	digest := blake2b.Sum256(publicKey)
 
@@ -199,7 +199,7 @@ func NewBLSAddress(publicKey []byte) *BLSAddress {
 	}
 }
 
-// BLSAddressFromBytes unmarshals an ED25519Address from a sequence of bytes.
+// BLSAddressFromBytes unmarshals an BLSAddress from a sequence of bytes.
 func BLSAddressFromBytes(bytes []byte) (address *BLSAddress, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if address, err = BLSAddressFromMarshalUtil(marshalUtil); err != nil {
