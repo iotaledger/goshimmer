@@ -1,7 +1,6 @@
 #!/bin/bash
 
-#TEST_NAMES='autopeering common drng message value consensus faucet syncbeacon'
-TEST_NAMES='message'
+TEST_NAMES='autopeering common drng message value consensus faucet syncbeacon'
 
 echo "Build GoShimmer image"
 docker build -t iotaledger/goshimmer ../../.
