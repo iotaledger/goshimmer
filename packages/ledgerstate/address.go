@@ -137,7 +137,7 @@ func ED25519AddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (addres
 		err = xerrors.Errorf("failed to parse AddressType (%v): %w", err, ErrParseBytesFailed)
 		return
 	}
-	if AddressType(addressType) != AddressTypeBLS {
+	if AddressType(addressType) != AddressTypeED25519 {
 		err = xerrors.Errorf("invalid AddressType (%X): %w", addressType, ErrParseBytesFailed)
 		return
 	}
