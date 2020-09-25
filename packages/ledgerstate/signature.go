@@ -4,9 +4,11 @@ import (
 	"bytes"
 
 	"github.com/iotaledger/hive.go/byteutils"
+	"github.com/iotaledger/hive.go/crypto/bls"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
+	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/xerrors"
 )
@@ -50,6 +52,9 @@ type Signature interface {
 	// Bytes returns a marshaled version of the Signature.
 	Bytes() []byte
 
+	// Base58 returns a base58 encoded version of the Signature.
+	Base58() string
+
 	// String returns a human readable version of the Signature.
 	String() string
 }
@@ -61,6 +66,22 @@ func SignatureFromBytes(bytes []byte) (signature Signature, consumedBytes int, e
 		err = xerrors.Errorf("failed to parse Signature from MarshalUtil: %w", err)
 	}
 	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// SignatureFromBase58EncodedString creates a Signature from a base58 encoded string.
+func SignatureFromBase58EncodedString(base58String string) (signature Signature, err error) {
+	decodedBytes, err := base58.Decode(base58String)
+	if err != nil {
+		err = xerrors.Errorf("error while decoding base58 encoded Signature (%v): %w", err, ErrBase58DecodeFailed)
+		return
+	}
+
+	if signature, _, err = SignatureFromBytes(decodedBytes); err != nil {
+		err = xerrors.Errorf("failed to parse Signature from bytes: %w", err)
+		return
+	}
 
 	return
 }
@@ -116,8 +137,25 @@ func ED25519SignatureFromBytes(bytes []byte) (signature *ED25519Signature, consu
 	marshalUtil := marshalutil.New(bytes)
 	if signature, err = ED25519SignatureFromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse ED25519Signature from MarshalUtil: %w", err)
+		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// ED25519SignatureFromBase58EncodedString creates an ED25519Signature from a base58 encoded string.
+func ED25519SignatureFromBase58EncodedString(base58String string) (signature *ED25519Signature, err error) {
+	decodedBytes, err := base58.Decode(base58String)
+	if err != nil {
+		err = xerrors.Errorf("error while decoding base58 encoded ED25519Signature (%v): %w", err, ErrBase58DecodeFailed)
+		return
+	}
+
+	if signature, _, err = ED25519SignatureFromBytes(decodedBytes); err != nil {
+		err = xerrors.Errorf("failed to parse ED25519Signature from bytes: %w", err)
+		return
+	}
 
 	return
 }
@@ -175,6 +213,11 @@ func (e *ED25519Signature) Bytes() []byte {
 	return byteutils.ConcatBytes([]byte{byte(SignatureTypeED25519)}, e.publicKey.Bytes(), e.signature.Bytes())
 }
 
+// Base58 returns a base58 encoded version of the Signature.
+func (e *ED25519Signature) Base58() string {
+	return base58.Encode(e.Bytes())
+}
+
 // String returns a human readable version of the Signature.
 func (e *ED25519Signature) String() string {
 	return stringify.Struct("ED25519Signature",
@@ -190,12 +233,64 @@ var _ Signature = &ED25519Signature{}
 
 // region BLSSignature /////////////////////////////////////////////////////////////////////////////////////////////////
 
+// BLSSignature represents a Signature created with the BLS signature scheme.
 type BLSSignature struct {
-	publicKey []byte
-	signature []byte
+	signature bls.SignatureWithPublicKey
 }
 
+// NewBLSSignature is the constructor of a BLSSignature.
+func NewBLSSignature(signature bls.SignatureWithPublicKey) *BLSSignature {
+	return &BLSSignature{
+		signature: signature,
+	}
+}
+
+// BLSSignatureFromBytes unmarshals a BLSSignature from a sequence of bytes.
+func BLSSignatureFromBytes(bytes []byte) (signature *BLSSignature, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(bytes)
+	if signature, err = BLSSignatureFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse BLSSignature from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// BLSSignatureFromBase58EncodedString creates a BLSSignature from a base58 encoded string.
+func BLSSignatureFromBase58EncodedString(base58String string) (signature *BLSSignature, err error) {
+	decodedBytes, err := base58.Decode(base58String)
+	if err != nil {
+		err = xerrors.Errorf("error while decoding base58 encoded BLSSignature (%v): %w", err, ErrBase58DecodeFailed)
+		return
+	}
+
+	if signature, _, err = BLSSignatureFromBytes(decodedBytes); err != nil {
+		err = xerrors.Errorf("failed to parse BLSSignature from bytes: %w", err)
+		return
+	}
+
+	return
+}
+
+// BLSSignatureFromMarshalUtil unmarshals a BLSSignature using a MarshalUtil (for easier unmarshaling).
 func BLSSignatureFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (signature *BLSSignature, err error) {
+	signatureType, err := marshalUtil.ReadByte()
+	if err != nil {
+		err = xerrors.Errorf("failed to parse SignatureType (%v): %w", err, ErrParseBytesFailed)
+		return
+	}
+	if SignatureType(signatureType) != SignatureTypeBLS {
+		err = xerrors.Errorf("invalid SignatureType (%X): %w", signatureType, ErrParseBytesFailed)
+		return
+	}
+
+	signature = &BLSSignature{}
+	if signature.signature, err = bls.SignatureWithPublicKeyFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse SignatureWithPublicKey from MarshalUtil (%v): %w", err, ErrParseBytesFailed)
+		return
+	}
+
 	return
 }
 
@@ -206,7 +301,7 @@ func (b *BLSSignature) Type() SignatureType {
 
 // SignsData returns true if the Signature signs the given data.
 func (b *BLSSignature) SignsData(data []byte) bool {
-	panic("implement me")
+	return b.signature.IsValid(data)
 }
 
 // SignsAddress returns true if the Signature signs the given address.
@@ -215,7 +310,7 @@ func (b *BLSSignature) SignsAddress(address Address, data []byte) bool {
 		return false
 	}
 
-	hashedPublicKey := blake2b.Sum256(b.publicKey)
+	hashedPublicKey := blake2b.Sum256(b.signature.PublicKey.Bytes())
 	if !bytes.Equal(hashedPublicKey[:], address.Digest()) {
 		return false
 	}
@@ -225,14 +320,19 @@ func (b *BLSSignature) SignsAddress(address Address, data []byte) bool {
 
 // Bytes returns a marshaled version of the Signature.
 func (b *BLSSignature) Bytes() []byte {
-	return byteutils.ConcatBytes([]byte{byte(SignatureTypeBLS)}, b.publicKey, b.signature)
+	return byteutils.ConcatBytes([]byte{byte(SignatureTypeBLS)}, b.signature.Bytes())
+}
+
+// Base58 returns a base58 encoded version of the Signature.
+func (b *BLSSignature) Base58() string {
+	return base58.Encode(b.Bytes())
 }
 
 // String returns a human readable version of the Signature.
 func (b *BLSSignature) String() string {
 	return stringify.Struct("BLSSignature",
-		stringify.StructField("publicKey", b.publicKey),
-		stringify.StructField("signature", b.signature),
+		stringify.StructField("publicKey", b.signature.PublicKey),
+		stringify.StructField("signature", b.signature.Signature),
 	)
 }
 
