@@ -59,6 +59,7 @@ func configure(plugin *node.Plugin) {
 	configureLiveFeed()
 	configureDrngLiveFeed()
 	configureVisualizer()
+	configureManaFeed()
 	configureServer()
 }
 
@@ -88,6 +89,7 @@ func run(*node.Plugin) {
 	runLiveFeed()
 	// run the visualizer vertex feed
 	runVisualizer()
+	runManaFeed()
 	// run dRNG live feed if dRNG plugin is enabled
 	if !node.IsSkipped(drng.Plugin()) {
 		runDrngLiveFeed()
@@ -154,6 +156,12 @@ const (
 	MsgTypeVertex
 	// MsgTypeTipInfo defines a tip info message.
 	MsgTypeTipInfo
+	// MsgTypeManaValues defines a mana value message.
+	MsgTypeManaValue
+	// MsgManaMapOverall defines a message containing overall mana map.
+	MsgTypeManaMapOverall
+	// MsgManaMapOnline defines a message containing online mana map.
+	MsgTypeManaMapOnline
 )
 
 type wsmsg struct {

@@ -1,4 +1,4 @@
-import {observer} from "mobx-react";
+import {inject, observer} from "mobx-react";
 import * as React from "react";
 import Card from "react-bootstrap/Card";
 import {Chart} from "react-google-charts"
@@ -8,9 +8,13 @@ interface Props {
     data;
 }
 
+@inject("manaStore")
 @observer
 export default class ManaChart extends React.Component<Props, any> {
     render() {
+        if (this.props.data.length == 0) {
+            return []
+        }
         return (
             <Card style={{height: '400px', paddingBottom: 80}}>
                 <Card.Body>

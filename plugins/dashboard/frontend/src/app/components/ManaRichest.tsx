@@ -1,4 +1,4 @@
-import {observer} from "mobx-react";
+import {inject, observer} from "mobx-react";
 import * as React from "react";
 import Card from "react-bootstrap/Card";
 import {Table} from "react-bootstrap";
@@ -8,6 +8,7 @@ interface Props {
     title;
 }
 
+@inject("manaStore")
 @observer
 export default class ManaRichest extends React.Component<Props, any> {
     render() {

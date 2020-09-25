@@ -1,4 +1,4 @@
-import {observer} from "mobx-react";
+import {inject, observer} from "mobx-react";
 import * as React from "react";
 import Card from "react-bootstrap/Card";
 import {Chart} from "react-google-charts"
@@ -7,6 +7,7 @@ interface Props {
     data;
 }
 
+@inject("manaStore")
 @observer
 export default class ManaHistogram extends React.Component<Props, any> {
     render() {
@@ -20,7 +21,7 @@ export default class ManaHistogram extends React.Component<Props, any> {
                         chartType="Histogram"
                         loader={<div>Loading Chart</div>}
                         data={[
-                            ['NodeID', {type: 'number', label: 'Mana' }, {type: 'string', role: 'style'}],
+                            ['NodeID', {type: 'number', label: 'Mana' }],
                             ...this.props.data
                         ]}
                         options={{

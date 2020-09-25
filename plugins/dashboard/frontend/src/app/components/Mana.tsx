@@ -14,17 +14,17 @@ interface Props {
     manaStore?: ManaStore;
 }
 
-var customData = [
-    [new Date(2020,0,0,0,0,0,0), 1500, 2000],
-    [new Date(2020,0,0,0,1,0,0), 1800, 2325],
-    [new Date(2020,0,0,0,2,0,0), 1900, 2896],
-    [new Date(2020,0,0,0,3,0,0), 2052, 1752],
-    [new Date(2020,0,0,0,4,0,0), 2456, 1968],
-    [new Date(2020,0,0,0,5,0,0), 986, 1100],
-    [new Date(2020,0,0,0,6,0,0), 236, 1056],
-    [new Date(2020,0,0,0,7,0,0), 500, 785],
-    [new Date(2020,0,0,0,8,0,0), 1300, 1800],
-]
+// var customData = [
+//     [new Date(2020,0,0,0,0,0,0), 1500, 2000],
+//     [new Date(2020,0,0,0,1,0,0), 1800, 2325],
+//     [new Date(2020,0,0,0,2,0,0), 1900, 2896],
+//     [new Date(2020,0,0,0,3,0,0), 2052, 1752],
+//     [new Date(2020,0,0,0,4,0,0), 2456, 1968],
+//     [new Date(2020,0,0,0,5,0,0), 986, 1100],
+//     [new Date(2020,0,0,0,6,0,0), 236, 1056],
+//     [new Date(2020,0,0,0,7,0,0), 500, 785],
+//     [new Date(2020,0,0,0,8,0,0), 1300, 1800],
+// ]
 
 var nodeMap = [
     ["node1", 3456],
@@ -62,7 +62,10 @@ export class Mana extends React.Component<Props, any> {
                 </Row>
                 <Row className={"mb-3"}>
                     <Col>
-                        <ManaChart node={"MyLittleNodey"} data={customData}/>
+                        <ManaChart
+                            node={this.props.nodeStore.status.id}
+                            data={this.props.manaStore.manaValues}
+                        />
                     </Col>
                 </Row>
                 <Row className={"mb-3"}>
