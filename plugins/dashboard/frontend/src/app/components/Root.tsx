@@ -17,6 +17,7 @@ import {Faucet} from "app/components/Faucet";
 import {Neighbors} from "app/components/Neighbors";
 import {Visualizer} from "app/components/Visualizer";
 import {Drng} from "app/components/Drng";
+import {Mana} from "app/components/Mana";
 
 interface Props {
     history: any;
@@ -71,6 +72,11 @@ export class Root extends React.Component<Props, any> {
                                 Faucet 
                             </Nav.Link>
                         </LinkContainer>
+                        <LinkContainer to="/mana">
+                            <Nav.Link>
+                                Mana
+                            </Nav.Link>
+                        </LinkContainer>
                     </Nav>
                     <Navbar.Collapse className="justify-content-end">
                         <NavExplorerSearchbar/>
@@ -91,6 +97,7 @@ export class Root extends React.Component<Props, any> {
                     <Route exact path="/explorer" component={Explorer}/>
                     <Route exact path="/visualizer" component={Visualizer}/>
                     <Route exact path="/faucet" component={Faucet}/>
+                    <Route exact path="/mana" component={Mana}/>
                     <Redirect to="/dashboard"/>
                 </Switch>
                 {this.props.children}
