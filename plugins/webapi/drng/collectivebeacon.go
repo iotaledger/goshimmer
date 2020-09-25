@@ -1,4 +1,4 @@
-package webapi
+package drng
 
 import (
 	"net/http"
@@ -7,18 +7,11 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/issuer"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/labstack/echo"
+	"github.com/labstack/gommon/log"
 )
 
-func init() {
-	Server().POST("drng/collectiveBeacon", collectiveBeaconHandler)
-}
-
-// collectiveBeaconHandler gets the current DRNG committee.
-func collectiveBeaconHandler(c echo.Context) error {
-	if _, exists := DisabledAPIs[DrngRoot]; exists {
-		return c.JSON(http.StatusForbidden, CollectiveBeaconResponse{Error: "Forbidden endpoint"})
-	}
-
+// CollectiveBeaconHandler gets the current DRNG committee.
+func CollectiveBeaconHandler(c echo.Context) error {
 	var request CollectiveBeaconRequest
 	if err := c.Bind(&request); err != nil {
 		log.Info(err.Error())

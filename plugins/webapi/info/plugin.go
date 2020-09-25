@@ -1,20 +1,39 @@
-package webapi
+package info
 
 import (
 	"net/http"
 	"sort"
+	goSync "sync"
 
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/goshimmer/plugins/syncbeaconfollower"
+	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 )
 
-func init() {
-	Server().GET("info", getInfo)
+// PluginName is the name of the web API info endpoint plugin.
+const PluginName = "WebAPI info Endpoint"
+
+var (
+	// plugin is the plugin instance of the web API info endpoint plugin.
+	plugin *node.Plugin
+	once   goSync.Once
+)
+
+// Plugin gets the plugin instance.
+func Plugin() *node.Plugin {
+	once.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+	})
+	return plugin
+}
+
+func configure(_ *node.Plugin) {
+	webapi.Server().GET("info", getInfo)
 }
 
 // getInfo returns the info of the node
@@ -59,10 +78,6 @@ func init() {
 // 	]
 // }
 func getInfo(c echo.Context) error {
-	if _, exists := DisabledAPIs[InfoRoot]; exists {
-		return c.JSON(http.StatusForbidden, InfoResponse{Error: "Forbidden endpoint"})
-	}
-
 	var enabledPlugins []string
 	var disabledPlugins []string
 	for pluginName, plugin := range node.GetPlugins() {
@@ -87,7 +102,7 @@ func getInfo(c echo.Context) error {
 		})
 	}
 
-	return c.JSON(http.StatusOK, InfoResponse{
+	return c.JSON(http.StatusOK, Response{
 		Version:                 banner.AppVersion,
 		NetworkVersion:          autopeering.NetworkVersion(),
 		Synced:                  synced,
@@ -102,8 +117,8 @@ func getInfo(c echo.Context) error {
 	})
 }
 
-// InfoResponse holds the response of the GET request.
-type InfoResponse struct {
+// Response holds the response of the GET request.
+type Response struct {
 	// version of GoShimmer
 	Version string `json:"version,omitempty"`
 	// Network Version of the autopeering

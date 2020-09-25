@@ -1,4 +1,4 @@
-package webapi
+package message
 
 import (
 	"net/http"
@@ -8,20 +8,12 @@ import (
 	"github.com/labstack/echo"
 )
 
-func init() {
-	Server().POST("message/findById", findMessageByID)
-}
-
-// findMessageByID returns the array of messages for the
+// FindByIDHandler returns the array of messages for the
 // given message ids (MUST be encoded in base58), in the same order as the parameters.
 // If a node doesn't have the message for a given ID in its ledger,
 // the value at the index of that message ID is empty.
 // If an ID is not base58 encoded, an error is returned
-func findMessageByID(c echo.Context) error {
-	if _, exists := DisabledAPIs[MessageRoot]; exists {
-		return c.JSON(http.StatusForbidden, FindByIDResponse{Error: "Forbidden endpoint"})
-	}
-
+func FindByIDHandler(c echo.Context) error {
 	var request FindByIDRequest
 	if err := c.Bind(&request); err != nil {
 		log.Info(err.Error())
@@ -81,4 +73,23 @@ type FindByIDResponse struct {
 // FindByIDRequest holds the message ids to query.
 type FindByIDRequest struct {
 	IDs []string `json:"ids"`
+}
+
+// Message contains information about a given message.
+type Message struct {
+	Metadata        `json:"metadata,omitempty"`
+	ID              string `json:"ID,omitempty"`
+	Parent1ID       string `json:"parent1Id,omitempty"`
+	Parent2ID       string `json:"parent2Id,omitempty"`
+	IssuerPublicKey string `json:"issuerPublicKey,omitempty"`
+	IssuingTime     int64  `json:"issuingTime,omitempty"`
+	SequenceNumber  uint64 `json:"sequenceNumber,omitempty"`
+	Payload         []byte `json:"payload,omitempty"`
+	Signature       string `json:"signature,omitempty"`
+}
+
+// Metadata contains metadata information of a message.
+type Metadata struct {
+	Solid              bool  `json:"solid,omitempty"`
+	SolidificationTime int64 `json:"solidificationTime,omitempty"`
 }

@@ -1,9 +1,8 @@
-package webapi
+package value
 
 import (
 	"net/http"
 	"sync"
-	"time"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
@@ -11,21 +10,10 @@ import (
 	"github.com/labstack/echo"
 )
 
-var (
-	sendTxMu           sync.Mutex
-	maxBookedAwaitTime = 5 * time.Second
-)
+var sendTxMu sync.Mutex
 
-func init() {
-	Server().POST("value/sendTransaction", sendTransactionHandler)
-}
-
-// sendTransactionHandler sends a transaction.
-func sendTransactionHandler(c echo.Context) error {
-	if _, exists := DisabledAPIs[ValueRoot]; exists {
-		return c.JSON(http.StatusForbidden, SendTransactionResponse{Error: "Forbidden endpoint"})
-	}
-
+// SendTransactionHandler sends a transaction.
+func SendTransactionHandler(c echo.Context) error {
 	sendTxMu.Lock()
 	defer sendTxMu.Unlock()
 

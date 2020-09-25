@@ -1,4 +1,4 @@
-package webapi
+package value
 
 import (
 	"fmt"
@@ -38,53 +38,45 @@ var (
 	ErrSignatureVersion = fmt.Errorf("unsupported signature version")
 )
 
-func init() {
-	Server().POST("value/sendTransactionByJson", sendTransactionByJSONHandler)
-}
-
-// sendTransactionByJSONHandler sends a transaction.
-func sendTransactionByJSONHandler(c echo.Context) error {
-	if _, exists := DisabledAPIs[ValueRoot]; exists {
-		return c.JSON(http.StatusForbidden, SendTxByJSONResponse{Error: "Forbidden endpoint"})
-	}
-
+// SendTransactionByJSONHandler sends a transaction.
+func SendTransactionByJSONHandler(c echo.Context) error {
 	sendTxByJSONMu.Lock()
 	defer sendTxByJSONMu.Unlock()
 
-	var request SendTxByJSONRequest
+	var request SendTransactionByJSONRequest
 	if err := c.Bind(&request); err != nil {
-		return c.JSON(http.StatusBadRequest, SendTxByJSONResponse{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, SendTransactionByJSONResponse{Error: err.Error()})
 	}
 
 	tx, err := NewTransactionFromJSON(request)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, SendTxByJSONResponse{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, SendTransactionByJSONResponse{Error: err.Error()})
 	}
 
 	// validate transaction
 	err = valuetransfers.Tangle().ValidateTransactionToAttach(tx)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, SendTxByJSONResponse{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, SendTransactionByJSONResponse{Error: err.Error()})
 	}
 
 	// Prepare value payload and send the message to tangle
 	payload, err := valuetransfers.ValueObjectFactory().IssueTransaction(tx)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, SendTxByJSONResponse{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, SendTransactionByJSONResponse{Error: err.Error()})
 	}
 	_, err = issuer.IssuePayload(payload)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, SendTxByJSONResponse{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, SendTransactionByJSONResponse{Error: err.Error()})
 	}
 
 	if err := valuetransfers.AwaitTransactionToBeBooked(tx.ID(), maxBookedAwaitTime); err != nil {
-		return c.JSON(http.StatusBadRequest, SendTxByJSONResponse{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, SendTransactionByJSONResponse{Error: err.Error()})
 	}
-	return c.JSON(http.StatusOK, SendTxByJSONResponse{TransactionID: tx.ID().String()})
+	return c.JSON(http.StatusOK, SendTransactionByJSONResponse{TransactionID: tx.ID().String()})
 }
 
 // NewTransactionFromJSON returns a new transaction from a given JSON request or an error.
-func NewTransactionFromJSON(request SendTxByJSONRequest) (*transaction.Transaction, error) {
+func NewTransactionFromJSON(request SendTransactionByJSONRequest) (*transaction.Transaction, error) {
 	// prepare inputs
 	inputs := make([]transaction.OutputID, len(request.Inputs))
 	for i, input := range request.Inputs {
@@ -194,7 +186,7 @@ func NewTransactionFromJSON(request SendTxByJSONRequest) (*transaction.Transacti
 	return tx, nil
 }
 
-// Request holds the transaction object(json) to send.
+// SendTransactionByJSONRequest holds the transaction object(json) to send.
 // e.g.,
 // {
 // 	"inputs": string[],
@@ -212,15 +204,15 @@ func NewTransactionFromJSON(request SendTxByJSONRequest) (*transaction.Transacti
 // 		"signature": string
 // 	   }[]
 //  }
-type SendTxByJSONRequest struct {
+type SendTransactionByJSONRequest struct {
 	Inputs     []string    `json:"inputs"`
 	Outputs    []Output    `json:"outputs"`
 	Data       []byte      `json:"data,omitempty"`
 	Signatures []Signature `json:"signatures"`
 }
 
-// SendTxByJSONResponse is the HTTP response from sending transaction.
-type SendTxByJSONResponse struct {
+// SendTransactionByJSONResponse is the HTTP response from sending transaction.
+type SendTransactionByJSONResponse struct {
 	TransactionID string `json:"transaction_id,omitempty"`
 	Error         string `json:"error,omitempty"`
 }

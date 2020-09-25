@@ -1,4 +1,4 @@
-package webapi
+package value
 
 import (
 	"net/http"
@@ -9,16 +9,8 @@ import (
 	"github.com/labstack/echo"
 )
 
-func init() {
-	Server().GET("tools/value/tips", tipsHandler)
-}
-
-// tipsHandler gets the value object info from the tips.
-func tipsHandler(c echo.Context) error {
-	if _, exists := DisabledAPIs[ToolsRoot]; exists {
-		return c.JSON(http.StatusForbidden, TipsResponse{Error: "Forbidden endpoint"})
-	}
-
+// TipsHandler gets the value object info from the tips.
+func TipsHandler(c echo.Context) error {
 	result := make([]ValueObject, valuetransfers.TipManager().Size())
 	for i, valueID := range valuetransfers.TipManager().AllTips() {
 		var obj ValueObject

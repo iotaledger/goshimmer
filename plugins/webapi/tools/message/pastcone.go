@@ -1,4 +1,4 @@
-package webapi
+package message
 
 import (
 	"container/list"
@@ -10,16 +10,8 @@ import (
 	"github.com/labstack/echo"
 )
 
-func init() {
-	Server().GET("tools/message/pastcone", pastconeHandler)
-}
-
-// pastconeHandler process a pastcone request.
-func pastconeHandler(c echo.Context) error {
-	if _, exists := DisabledAPIs[ToolsRoot]; exists {
-		return c.JSON(http.StatusForbidden, PastconeResponse{Error: "Forbidden endpoint"})
-	}
-
+// PastconeHandler process a pastcone request.
+func PastconeHandler(c echo.Context) error {
 	var checkedMessageCount int
 	var request PastconeRequest
 	if err := c.Bind(&request); err != nil {

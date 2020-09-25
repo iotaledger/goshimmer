@@ -1,4 +1,4 @@
-package webapi
+package value
 
 import (
 	"net/http"
@@ -8,16 +8,8 @@ import (
 	"github.com/labstack/echo"
 )
 
-func init() {
-	Server().GET("value/transactionByID", getTransactionByIDHandler)
-}
-
-// getTransactionByIDHandler gets the transaction by id.
-func getTransactionByIDHandler(c echo.Context) error {
-	if _, exists := DisabledAPIs[ValueRoot]; exists {
-		return c.JSON(http.StatusForbidden, GetTransactionByIDResponse{Error: "Forbidden endpoint"})
-	}
-
+// GetTransactionByIDHandler gets the transaction by id.
+func GetTransactionByIDHandler(c echo.Context) error {
 	txnID, err := transaction.IDFromBase58(c.QueryParam("txnID"))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, GetTransactionByIDResponse{Error: err.Error()})

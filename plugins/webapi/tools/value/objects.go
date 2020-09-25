@@ -1,4 +1,4 @@
-package webapi
+package value
 
 import (
 	"container/list"
@@ -10,16 +10,8 @@ import (
 	"github.com/labstack/echo"
 )
 
-func init() {
-	Server().GET("tools/value/objects", objectsHandler)
-}
-
-// objectsHandler returns the list of value objects.
-func objectsHandler(c echo.Context) error {
-	if _, exists := DisabledAPIs[ToolsRoot]; exists {
-		return c.JSON(http.StatusForbidden, ObjectsResponse{Error: "Forbidden endpoint"})
-	}
-
+// ObjectsHandler returns the list of value objects.
+func ObjectsHandler(c echo.Context) error {
 	result := []ValueObject{}
 
 	for _, valueID := range Approvers(payload.GenesisID) {

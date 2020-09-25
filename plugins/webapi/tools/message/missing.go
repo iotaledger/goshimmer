@@ -1,4 +1,4 @@
-package webapi
+package message
 
 import (
 	"net/http"
@@ -7,16 +7,8 @@ import (
 	"github.com/labstack/echo"
 )
 
-func init() {
-	Server().GET("tools/message/missing", missingHandler)
-}
-
-// missingHandler process missing requests.
-func missingHandler(c echo.Context) error {
-	if _, exists := DisabledAPIs[ToolsRoot]; exists {
-		return c.JSON(http.StatusForbidden, MissingResponse{Error: "Forbidden endpoint"})
-	}
-
+// MissingHandler process missing requests.
+func MissingHandler(c echo.Context) error {
 	res := &MissingResponse{}
 	missingIDs := messagelayer.Tangle().MissingMessages()
 	for _, msg := range missingIDs {
@@ -30,5 +22,4 @@ func missingHandler(c echo.Context) error {
 type MissingResponse struct {
 	IDs   []string `json:"ids,omitempty"`
 	Count int      `json:"count,omitempty"`
-	Error string   `json:"error,omitempty"`
 }

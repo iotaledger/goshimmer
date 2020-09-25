@@ -1,4 +1,4 @@
-package webapi
+package value
 
 import (
 	"testing"
@@ -72,7 +72,7 @@ func TestNewTransactionFromJSON(t *testing.T) {
 	}
 
 	// create tx JSON
-	jsonRequest := SendTxByJSONRequest{
+	jsonRequest := SendTransactionByJSONRequest{
 		Inputs:     inputsBase58,
 		Outputs:    outputsBase58,
 		Data:       []byte("TEST"),

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -27,9 +26,8 @@ var (
 	// server is the web API server.
 	server     *echo.Echo
 	serverOnce sync.Once
-	// DisabledAPIs is a list of disabled apis
-	DisabledAPIs = make(map[string]struct{})
-	log          *logger.Logger
+
+	log *logger.Logger
 )
 
 // Plugin gets the plugin instance.
@@ -60,12 +58,6 @@ func configure(*node.Plugin) {
 	server.HideBanner = true
 	server.HidePort = true
 	server.GET("/", IndexRequest)
-
-	// get disabled apis
-	DisabledAPI := config.Node().GetStringSlice(CfgDisabledAPI)
-	for _, d := range DisabledAPI {
-		DisabledAPIs[strings.ToLower(d)] = struct{}{}
-	}
 }
 
 func run(*node.Plugin) {

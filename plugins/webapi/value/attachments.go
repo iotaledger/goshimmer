@@ -1,4 +1,4 @@
-package webapi
+package value
 
 import (
 	"net/http"
@@ -6,18 +6,11 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/labstack/echo"
+	"github.com/labstack/gommon/log"
 )
 
-func init() {
-	Server().GET("value/attachments", attachmentsHandler)
-}
-
-// attachmentsHandler gets the value attachments.
-func attachmentsHandler(c echo.Context) error {
-	if _, exists := DisabledAPIs[ValueRoot]; exists {
-		return c.JSON(http.StatusForbidden, AttachmentsResponse{Error: "Forbidden endpoint"})
-	}
-
+// AttachmentsHandler gets the value attachments.
+func AttachmentsHandler(c echo.Context) error {
 	txnID, err := transaction.IDFromBase58(c.QueryParam("txnID"))
 	if err != nil {
 		log.Info(err)
@@ -53,8 +46,8 @@ func attachmentsHandler(c echo.Context) error {
 		// append value object
 		valueObjs = append(valueObjs, ValueObject{
 			ID:          payload.ID().String(),
-			Parent1:     payload.Parent1ID().String(),
-			Parent2:     payload.Parent2ID().String(),
+			Parent1ID:   payload.Parent1ID().String(),
+			Parent2ID:   payload.Parent2ID().String(),
 			Transaction: txn,
 		})
 	}
@@ -66,4 +59,12 @@ func attachmentsHandler(c echo.Context) error {
 type AttachmentsResponse struct {
 	Attachments []ValueObject `json:"attachments,omitempty"`
 	Error       string        `json:"error,omitempty"`
+}
+
+// ValueObject holds the information of a value object.
+type ValueObject struct {
+	ID          string      `json:"id"`
+	Parent1ID   string      `json:"parent1_id"`
+	Parent2ID   string      `json:"parent2_id"`
+	Transaction Transaction `json:"transaction"`
 }

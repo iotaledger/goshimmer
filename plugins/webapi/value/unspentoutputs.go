@@ -1,4 +1,4 @@
-package webapi
+package value
 
 import (
 	"net/http"
@@ -6,18 +6,11 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/labstack/echo"
+	"github.com/labstack/gommon/log"
 )
 
-func init() {
-	Server().POST("value/unspentOutputs", unspentOutputsHandler)
-}
-
-// unspentOutputsHandler gets the unspent outputs.
-func unspentOutputsHandler(c echo.Context) error {
-	if _, exists := DisabledAPIs[ValueRoot]; exists {
-		return c.JSON(http.StatusForbidden, UnspentOutputsResponse{Error: "Forbidden endpoint"})
-	}
-
+// UnspentOutputsHandler gets the unspent outputs.
+func UnspentOutputsHandler(c echo.Context) error {
 	var request UnspentOutputsRequest
 	if err := c.Bind(&request); err != nil {
 		log.Info(err.Error())

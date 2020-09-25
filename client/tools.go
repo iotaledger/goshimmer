@@ -4,7 +4,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/iotaledger/goshimmer/plugins/webapi"
+	webapi_tools_message "github.com/iotaledger/goshimmer/plugins/webapi/tools/message"
+	webapi_tools_value "github.com/iotaledger/goshimmer/plugins/webapi/tools/value"
 )
 
 const (
@@ -19,13 +20,13 @@ const (
 
 // PastConeExist checks that all of the messages in the past cone of a message are existing on the node
 // down to the genesis. Returns the number of messages in the past cone as well.
-func (api *GoShimmerAPI) PastConeExist(base58EncodedMessageID string) (*webapi.PastconeResponse, error) {
-	res := &webapi.PastconeResponse{}
+func (api *GoShimmerAPI) PastConeExist(base58EncodedMessageID string) (*webapi_tools_message.PastconeResponse, error) {
+	res := &webapi_tools_message.PastconeResponse{}
 
 	if err := api.do(
 		http.MethodGet,
 		routePastCone,
-		&webapi.PastconeRequest{ID: base58EncodedMessageID},
+		&webapi_tools_message.PastconeRequest{ID: base58EncodedMessageID},
 		res,
 	); err != nil {
 		return nil, err
@@ -38,8 +39,8 @@ func (api *GoShimmerAPI) PastConeExist(base58EncodedMessageID string) (*webapi.P
 }
 
 // Missing returns all the missing messages and their count.
-func (api *GoShimmerAPI) Missing() (*webapi.MissingResponse, error) {
-	res := &webapi.MissingResponse{}
+func (api *GoShimmerAPI) Missing() (*webapi_tools_message.MissingResponse, error) {
+	res := &webapi_tools_message.MissingResponse{}
 	if err := api.do(http.MethodGet, routeMissing, nil, res); err != nil {
 		return nil, err
 	}
@@ -49,8 +50,8 @@ func (api *GoShimmerAPI) Missing() (*webapi.MissingResponse, error) {
 // ------------------- Value layer -----------------------------
 
 // ValueTips returns the value objects info from the tips.
-func (api *GoShimmerAPI) ValueTips() (*webapi.TipsResponse, error) {
-	res := &webapi.TipsResponse{}
+func (api *GoShimmerAPI) ValueTips() (*webapi_tools_value.TipsResponse, error) {
+	res := &webapi_tools_value.TipsResponse{}
 	if err := api.do(http.MethodGet, routeValueTips, nil, res); err != nil {
 		return nil, err
 	}
@@ -58,8 +59,8 @@ func (api *GoShimmerAPI) ValueTips() (*webapi.TipsResponse, error) {
 }
 
 // ValueObjects returns the list of value objects.
-func (api *GoShimmerAPI) ValueObjects() (*webapi.ObjectsResponse, error) {
-	res := &webapi.ObjectsResponse{}
+func (api *GoShimmerAPI) ValueObjects() (*webapi_tools_value.ObjectsResponse, error) {
+	res := &webapi_tools_value.ObjectsResponse{}
 	if err := api.do(http.MethodGet, routeValueDebug, nil, res); err != nil {
 		return nil, err
 	}

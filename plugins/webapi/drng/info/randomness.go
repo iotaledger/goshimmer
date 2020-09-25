@@ -1,4 +1,4 @@
-package webapi
+package info
 
 import (
 	"net/http"
@@ -8,16 +8,8 @@ import (
 	"github.com/labstack/echo"
 )
 
-func init() {
-	Server().GET("drng/info/randomness", randomnessHandler)
-}
-
-// randomnessHandler returns the current DRNG randomness used.
-func randomnessHandler(c echo.Context) error {
-	if _, exists := DisabledAPIs[DrngRoot]; exists {
-		return c.JSON(http.StatusForbidden, RandomnessResponse{Error: "Forbidden endpoint"})
-	}
-
+// RandomnessHandler returns the current DRNG randomness used.
+func RandomnessHandler(c echo.Context) error {
 	randomness := drng.Instance().State.Randomness()
 	return c.JSON(http.StatusOK, RandomnessResponse{
 		Round:      randomness.Round,

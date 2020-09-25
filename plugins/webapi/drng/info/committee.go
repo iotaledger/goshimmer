@@ -1,4 +1,4 @@
-package webapi
+package info
 
 import (
 	"encoding/hex"
@@ -9,16 +9,8 @@ import (
 	"github.com/mr-tron/base58"
 )
 
-func init() {
-	Server().GET("drng/info/committee", committeeHandler)
-}
-
-// committeeHandler returns the current DRNG committee used.
-func committeeHandler(c echo.Context) error {
-	if _, exists := DisabledAPIs[DrngRoot]; exists {
-		return c.JSON(http.StatusForbidden, CommitteeResponse{Error: "Forbidden endpoint"})
-	}
-
+// CommitteeHandler returns the current DRNG committee used.
+func CommitteeHandler(c echo.Context) error {
 	committee := drng.Instance().State.Committee()
 	identities := []string{}
 	for _, pk := range committee.Identities {

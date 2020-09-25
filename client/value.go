@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/iotaledger/goshimmer/plugins/webapi"
+	webapi_value "github.com/iotaledger/goshimmer/plugins/webapi/value"
 )
 
 const (
@@ -16,8 +16,8 @@ const (
 )
 
 // GetAttachments gets the attachments of a transaction ID
-func (api *GoShimmerAPI) GetAttachments(base58EncodedTxnID string) (*webapi.AttachmentsResponse, error) {
-	res := &webapi.AttachmentsResponse{}
+func (api *GoShimmerAPI) GetAttachments(base58EncodedTxnID string) (*webapi_value.AttachmentsResponse, error) {
+	res := &webapi_value.AttachmentsResponse{}
 	if err := api.do(http.MethodGet, func() string {
 		return fmt.Sprintf("%s?txnID=%s", routeAttachments, base58EncodedTxnID)
 	}(), nil, res); err != nil {
@@ -28,8 +28,8 @@ func (api *GoShimmerAPI) GetAttachments(base58EncodedTxnID string) (*webapi.Atta
 }
 
 // GetTransactionByID gets the transaction of a transaction ID
-func (api *GoShimmerAPI) GetTransactionByID(base58EncodedTxnID string) (*webapi.GetTransactionByIDResponse, error) {
-	res := &webapi.GetTransactionByIDResponse{}
+func (api *GoShimmerAPI) GetTransactionByID(base58EncodedTxnID string) (*webapi_value.GetTransactionByIDResponse, error) {
+	res := &webapi_value.GetTransactionByIDResponse{}
 	if err := api.do(http.MethodGet, func() string {
 		return fmt.Sprintf("%s?txnID=%s", routeGetTxnByID, base58EncodedTxnID)
 	}(), nil, res); err != nil {
@@ -40,10 +40,10 @@ func (api *GoShimmerAPI) GetTransactionByID(base58EncodedTxnID string) (*webapi.
 }
 
 // GetUnspentOutputs return unspent output IDs of addresses
-func (api *GoShimmerAPI) GetUnspentOutputs(addresses []string) (*webapi.UnspentOutputsResponse, error) {
-	res := &webapi.UnspentOutputsResponse{}
+func (api *GoShimmerAPI) GetUnspentOutputs(addresses []string) (*webapi_value.UnspentOutputsResponse, error) {
+	res := &webapi_value.UnspentOutputsResponse{}
 	if err := api.do(http.MethodPost, routeUnspentOutputs,
-		&webapi.UnspentOutputsRequest{Addresses: addresses}, res); err != nil {
+		&webapi_value.UnspentOutputsRequest{Addresses: addresses}, res); err != nil {
 		return nil, err
 	}
 
@@ -52,9 +52,9 @@ func (api *GoShimmerAPI) GetUnspentOutputs(addresses []string) (*webapi.UnspentO
 
 // SendTransaction sends the transaction(bytes) to the Value Tangle and returns transaction ID.
 func (api *GoShimmerAPI) SendTransaction(txnBytes []byte) (string, error) {
-	res := &webapi.SendTransactionResponse{}
+	res := &webapi_value.SendTransactionResponse{}
 	if err := api.do(http.MethodPost, routeSendTxn,
-		&webapi.SendTransactionRequest{TransactionBytes: txnBytes}, res); err != nil {
+		&webapi_value.SendTransactionRequest{TransactionBytes: txnBytes}, res); err != nil {
 		return "", err
 	}
 
@@ -62,10 +62,10 @@ func (api *GoShimmerAPI) SendTransaction(txnBytes []byte) (string, error) {
 }
 
 // SendTransactionByJSON sends the transaction(JSON) to the Value Tangle and returns transaction ID.
-func (api *GoShimmerAPI) SendTransactionByJSON(txn webapi.SendTxByJSONRequest) (string, error) {
-	res := &webapi.SendTxByJSONResponse{}
+func (api *GoShimmerAPI) SendTransactionByJSON(txn webapi_value.SendTransactionByJSONRequest) (string, error) {
+	res := &webapi_value.SendTransactionByJSONResponse{}
 	if err := api.do(http.MethodPost, routeSendTxnByJSON,
-		&webapi.SendTxByJSONRequest{
+		&webapi_value.SendTransactionByJSONRequest{
 			Inputs:     txn.Inputs,
 			Outputs:    txn.Outputs,
 			Data:       txn.Data,

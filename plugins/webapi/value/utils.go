@@ -1,44 +1,14 @@
-package webapi
+package value
 
 import (
+	"time"
+
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 )
 
-// Message contains information about a given message.
-type Message struct {
-	Metadata        `json:"metadata,omitempty"`
-	ID              string `json:"ID,omitempty"`
-	Parent1ID       string `json:"parent1Id,omitempty"`
-	Parent2ID       string `json:"parent2Id,omitempty"`
-	IssuerPublicKey string `json:"issuerPublicKey,omitempty"`
-	IssuingTime     int64  `json:"issuingTime,omitempty"`
-	SequenceNumber  uint64 `json:"sequenceNumber,omitempty"`
-	Payload         []byte `json:"payload,omitempty"`
-	Signature       string `json:"signature,omitempty"`
-}
-
-// Metadata contains metadata information of a message.
-type Metadata struct {
-	Solid              bool  `json:"solid,omitempty"`
-	SolidificationTime int64 `json:"solidificationTime,omitempty"`
-}
-
-// ValueObject holds the info of a ValueObject
-type ValueObject struct {
-	Parent1       string      `json:"parent_1,omitempty"`
-	Parent2       string      `json:"parent_2,omitempty"`
-	ID            string      `json:"id"`
-	Tip           bool        `json:"tip,omitempty"`
-	Solid         bool        `json:"solid"`
-	Liked         bool        `json:"liked"`
-	Confirmed     bool        `json:"confirmed"`
-	Rejected      bool        `json:"rejected"`
-	BranchID      string      `json:"branch_id"`
-	TransactionID string      `json:"transaction_id"`
-	Transaction   Transaction `json:"transaction,omitempty"`
-}
+var maxBookedAwaitTime = 5 * time.Second
 
 // ParseTransaction handle transaction json object.
 func ParseTransaction(t *transaction.Transaction) (txn Transaction) {
@@ -84,6 +54,19 @@ type Transaction struct {
 	DataPayload []byte   `json:"data_payload"`
 }
 
+// OutputID holds the output id and its inclusion state
+type OutputID struct {
+	ID             string         `json:"id"`
+	Balances       []Balance      `json:"balances"`
+	InclusionState InclusionState `json:"inclusion_state"`
+}
+
+// UnspentOutput holds the address and the corresponding unspent output ids
+type UnspentOutput struct {
+	Address   string     `json:"address"`
+	OutputIDs []OutputID `json:"output_ids"`
+}
+
 // Output consists an address and balances
 type Output struct {
 	Address  string    `json:"address"`
@@ -105,19 +88,6 @@ type InclusionState struct {
 	Conflicting bool `json:"conflicting,omitempty"`
 	Finalized   bool `json:"finalized,omitempty"`
 	Preferred   bool `json:"preferred,omitempty"`
-}
-
-// UnspentOutput holds the address and the corresponding unspent output ids
-type UnspentOutput struct {
-	Address   string     `json:"address"`
-	OutputIDs []OutputID `json:"output_ids"`
-}
-
-// OutputID holds the output id and its inclusion state
-type OutputID struct {
-	ID             string         `json:"id"`
-	Balances       []Balance      `json:"balances"`
-	InclusionState InclusionState `json:"inclusion_state"`
 }
 
 // Signature defines the struct of a signature.

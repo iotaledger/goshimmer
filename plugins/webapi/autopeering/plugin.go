@@ -1,25 +1,42 @@
-package webapi
+package autopeering
 
 import (
 	"net"
 	"net/http"
 	"strconv"
+	"sync"
 
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
+	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
+	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 )
 
-func init() {
-	Server().GET("autopeering/neighbors", getNeighbors)
+// PluginName is the name of the web API autopeering endpoint plugin.
+const PluginName = "WebAPI autopeering Endpoint"
+
+var (
+	// plugin is the plugin instance of the web API autopeering endpoint plugin.
+	plugin *node.Plugin
+	once   sync.Once
+)
+
+func configure(plugin *node.Plugin) {
+	webapi.Server().GET("autopeering/neighbors", getNeighbors)
+}
+
+// Plugin gets the plugin instance.
+func Plugin() *node.Plugin {
+	once.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+	})
+	return plugin
 }
 
 // getNeighbors returns the chosen and accepted neighbors of the node
 func getNeighbors(c echo.Context) error {
-	if _, exists := DisabledAPIs[AutopeeringRoot]; exists {
-		return c.JSON(http.StatusForbidden, AutopeeringResponse{Error: "Forbidden endpoint"})
-	}
 
 	var chosen []Neighbor
 	var accepted []Neighbor
@@ -38,7 +55,7 @@ func getNeighbors(c echo.Context) error {
 		accepted = append(accepted, createNeighborFromPeer(p))
 	}
 
-	return c.JSON(http.StatusOK, AutopeeringResponse{KnownPeers: knownPeers, Chosen: chosen, Accepted: accepted})
+	return c.JSON(http.StatusOK, Response{KnownPeers: knownPeers, Chosen: chosen, Accepted: accepted})
 }
 
 func createNeighborFromPeer(p *peer.Peer) Neighbor {
@@ -51,8 +68,8 @@ func createNeighborFromPeer(p *peer.Peer) Neighbor {
 	return n
 }
 
-// AutopeeringResponse contains information of the autopeering.
-type AutopeeringResponse struct {
+// Response contains information of the autopeering.
+type Response struct {
 	KnownPeers []Neighbor `json:"known,omitempty"`
 	Chosen     []Neighbor `json:"chosen"`
 	Accepted   []Neighbor `json:"accepted"`
