@@ -1,7 +1,7 @@
 package value
 
-// ValueObject holds the info of a ValueObject
-type ValueObject struct {
+// Object holds the info of a value object
+type Object struct {
 	Parent1       string `json:"parent_1,omitempty"`
 	Parent2       string `json:"parent_2,omitempty"`
 	ID            string `json:"id"`

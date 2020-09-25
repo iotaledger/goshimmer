@@ -12,10 +12,10 @@ import (
 
 // ObjectsHandler returns the list of value objects.
 func ObjectsHandler(c echo.Context) error {
-	result := []ValueObject{}
+	result := []Object{}
 
 	for _, valueID := range Approvers(payload.GenesisID) {
-		var obj ValueObject
+		var obj Object
 
 		valuetransfers.Tangle().Payload(valueID).Consume(func(p *payload.Payload) {
 			obj.Parent1 = p.Parent1ID().String()
@@ -41,8 +41,8 @@ func ObjectsHandler(c echo.Context) error {
 
 // ObjectsResponse is the HTTP response from retrieving value objects.
 type ObjectsResponse struct {
-	ValueObjects []ValueObject `json:"value_objects,omitempty"`
-	Error        string        `json:"error,omitempty"`
+	ValueObjects []Object `json:"value_objects,omitempty"`
+	Error        string   `json:"error,omitempty"`
 }
 
 // Approvers returns the list of approvers up to the tips.

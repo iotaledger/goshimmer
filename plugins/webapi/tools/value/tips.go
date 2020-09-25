@@ -11,9 +11,9 @@ import (
 
 // TipsHandler gets the value object info from the tips.
 func TipsHandler(c echo.Context) error {
-	result := make([]ValueObject, valuetransfers.TipManager().Size())
+	result := make([]Object, valuetransfers.TipManager().Size())
 	for i, valueID := range valuetransfers.TipManager().AllTips() {
-		var obj ValueObject
+		var obj Object
 		valuetransfers.Tangle().PayloadMetadata(valueID).Consume(func(payloadMetadata *tangle.PayloadMetadata) {
 			obj.ID = payloadMetadata.PayloadID().String()
 			obj.Solid = payloadMetadata.IsSolid()
@@ -34,6 +34,6 @@ func TipsHandler(c echo.Context) error {
 
 // TipsResponse is the HTTP response from retrieving value objects.
 type TipsResponse struct {
-	ValueObjects []ValueObject `json:"value_objects,omitempty"`
-	Error        string        `json:"error,omitempty"`
+	ValueObjects []Object `json:"value_objects,omitempty"`
+	Error        string   `json:"error,omitempty"`
 }
