@@ -12,12 +12,12 @@ interface Props {
 export default class ManaChart extends React.Component<Props, any> {
     render() {
         return (
-            <Card>
+            <Card style={{height: '400px', paddingBottom: 80}}>
                 <Card.Body>
                     <Card.Title>Mana of Node: {this.props.node}</Card.Title>
                     <Chart
-                        width={'auto'}
-                        height={'auto'}
+                        width={'100%'}
+                        height={'300px'}
                         chartType="AreaChart"
                         loader={<div>Loading Chart</div>}
                         data={[
@@ -27,10 +27,10 @@ export default class ManaChart extends React.Component<Props, any> {
                         options={{
                             title: '',
                             hAxis: { title: 'Time', titleTextStyle: { color: '#333' } },
-                            vAxis: { minValue: 0 },
+                            vAxis: { title: 'Mana', minValue: 0 },
                             legend: {position: 'top'},
                             // For the legend to fit, we make the chart area smaller
-                            //chartArea: { width: '50%', height: '70%' },
+                            chartArea: { width: '80%', height: '70%' },
                             // lineWidth: 25
                         }}
                         // For tests
@@ -43,7 +43,7 @@ export default class ManaChart extends React.Component<Props, any> {
                                     ui: {
                                         chartType: 'LineChart',
                                         chartOptions: {
-                                            chartArea: { width: '90%', height: '50%' },
+                                            chartArea: { width: '80%', height: '20%' },
                                             hAxis: { baselineColor: 'none' },
                                         },
                                     },

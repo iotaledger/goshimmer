@@ -3,8 +3,10 @@ import Container from "react-bootstrap/Container";
 import Row from "react-bootstrap/Row";
 import NodeStore from "app/stores/NodeStore";
 import {inject, observer} from "mobx-react";
-import Col from "react-bootstrap/Col";
 import ManaChart from "app/components/ManaChart";
+import RichestMana from "app/components/ManaRichest";
+import ManaHistogram from "app/components/ManaHistogram";
+import {Col} from "react-bootstrap";
 
 interface Props {
     nodeStore?: NodeStore;
@@ -22,6 +24,29 @@ var customData = [
     [new Date(2020,0,0,0,8,0,0), 1300, 1800],
 ]
 
+var nodeMap = [
+    ["node1", 3456,null],
+    ["node2", 2865, null],
+    ["MyLittleNodey", 2860, 'rect {fill: #dc3545;}'],
+    ["node4", 2715, null],
+    ["node5", 2200, null],
+    ["node6", 1300, null],
+]
+
+
+let richestFeed = () => {
+    let feed = []
+    for (let i= 0; i< nodeMap.length; i++) {
+        feed.push(
+            <tr key={nodeMap[i][0]}>
+                <td> {i + 1} </td>
+                <td>{nodeMap[i][0]}</td>
+                <td>{nodeMap[i][1]}</td>
+            </tr>
+        )
+    }
+    return feed
+}
 
 @inject("nodeStore")
 @observer
@@ -34,10 +59,20 @@ export class Mana extends React.Component<Props, any> {
                 </Row>
                 <Row className={"mb-3"}>
                     <Col>
-                        <ManaChart
-                            node={this.props.nodeStore.status.id}
-                            data={customData}
-                        />
+                        <ManaChart node={"MyLittleNodey"} data={customData}/>
+                    </Col>
+                </Row>
+                <Row className={"mb-3"}>
+                    <Col>
+                        <ManaHistogram data={nodeMap}/>
+                    </Col>
+                </Row>
+                <Row className={"mb-3"}>
+                    <Col>
+                        <RichestMana data={richestFeed()} title={"Overall Richest Mana Nodes"}/>
+                    </Col>
+                    <Col>
+                        <RichestMana data={richestFeed()} title={"Online Richest Mana Nodes"}/>
                     </Col>
                 </Row>
             </Container>
