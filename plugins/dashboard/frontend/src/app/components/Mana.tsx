@@ -7,9 +7,11 @@ import ManaChart from "app/components/ManaChart";
 import RichestMana from "app/components/ManaRichest";
 import ManaHistogram from "app/components/ManaHistogram";
 import {Col} from "react-bootstrap";
+import {ManaStore} from "app/stores/ManaStore";
 
 interface Props {
     nodeStore?: NodeStore;
+    manaStore?: ManaStore;
 }
 
 var customData = [
@@ -25,12 +27,12 @@ var customData = [
 ]
 
 var nodeMap = [
-    ["node1", 3456,null],
-    ["node2", 2865, null],
-    ["MyLittleNodey", 2860, 'rect {fill: #dc3545;}'],
-    ["node4", 2715, null],
-    ["node5", 2200, null],
-    ["node6", 1300, null],
+    ["node1", 3456],
+    ["node2", 2865],
+    ["MyLittleNodey", 2860],
+    ["node4", 2715],
+    ["node5", 2200],
+    ["node6", 1300],
 ]
 
 
@@ -49,6 +51,7 @@ let richestFeed = () => {
 }
 
 @inject("nodeStore")
+@inject("manaStore")
 @observer
 export class Mana extends React.Component<Props, any> {
     render() {

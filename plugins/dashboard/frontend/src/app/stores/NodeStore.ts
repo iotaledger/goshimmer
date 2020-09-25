@@ -210,6 +210,7 @@ export class NodeStore {
     connect() {
         connectWebSocket(statusWebSocketPath,
             () => this.updateWebSocketConnected(true),
+            // TODO: reconnect on close
             () => this.updateWebSocketConnected(false),
             () => this.updateWebSocketConnected(false))
     }

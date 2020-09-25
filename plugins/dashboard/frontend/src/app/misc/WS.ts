@@ -7,6 +7,9 @@ export enum WSMsgType {
     TipsMetrics,
     Vertex,
     TipInfo,
+    Mana,
+    ManaMapOverall,
+    ManaMapOnline,
 }
 
 export interface WSMessage {
