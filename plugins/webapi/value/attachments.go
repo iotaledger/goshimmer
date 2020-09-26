@@ -9,8 +9,8 @@ import (
 	"github.com/labstack/gommon/log"
 )
 
-// AttachmentsHandler gets the value attachments.
-func AttachmentsHandler(c echo.Context) error {
+// attachmentsHandler gets the value attachments.
+func attachmentsHandler(c echo.Context) error {
 	txnID, err := transaction.IDFromBase58(c.QueryParam("txnID"))
 	if err != nil {
 		log.Info(err)

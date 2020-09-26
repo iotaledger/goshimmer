@@ -12,8 +12,8 @@ import (
 
 var sendTxMu sync.Mutex
 
-// SendTransactionHandler sends a transaction.
-func SendTransactionHandler(c echo.Context) error {
+// sendTransactionHandler sends a transaction.
+func sendTransactionHandler(c echo.Context) error {
 	sendTxMu.Lock()
 	defer sendTxMu.Unlock()
 

@@ -28,6 +28,6 @@ func Plugin() *node.Plugin {
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	webapi.Server().POST("message/findById", FindByIDHandler)
-	webapi.Server().POST("message/sendPayload", SendPayloadHandler)
+	webapi.Server().POST("message/findById", findByIDHandler)
+	webapi.Server().POST("message/sendPayload", sendPayloadHandler)
 }

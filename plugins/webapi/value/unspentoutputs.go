@@ -9,8 +9,8 @@ import (
 	"github.com/labstack/gommon/log"
 )
 
-// UnspentOutputsHandler gets the unspent outputs.
-func UnspentOutputsHandler(c echo.Context) error {
+// unspentOutputsHandler gets the unspent outputs.
+func unspentOutputsHandler(c echo.Context) error {
 	var request UnspentOutputsRequest
 	if err := c.Bind(&request); err != nil {
 		log.Info(err.Error())

@@ -25,9 +25,9 @@ func Plugin() *node.Plugin {
 }
 
 func configure(_ *node.Plugin) {
-	webapi.Server().GET("value/attachments", AttachmentsHandler)
-	webapi.Server().POST("value/unspentOutputs", UnspentOutputsHandler)
-	webapi.Server().POST("value/sendTransaction", SendTransactionHandler)
-	webapi.Server().POST("value/sendTransactionByJson", SendTransactionByJSONHandler)
+	webapi.Server().GET("value/attachments", attachmentsHandler)
+	webapi.Server().POST("value/unspentOutputs", unspentOutputsHandler)
+	webapi.Server().POST("value/sendTransaction", sendTransactionHandler)
+	webapi.Server().POST("value/sendTransactionByJson", sendTransactionByJSONHandler)
 	webapi.Server().GET("value/transactionByID", GetTransactionByIDHandler)
 }

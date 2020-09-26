@@ -8,12 +8,12 @@ import (
 	"github.com/labstack/echo"
 )
 
-// FindByIDHandler returns the array of messages for the
+// findByIDHandler returns the array of messages for the
 // given message ids (MUST be encoded in base58), in the same order as the parameters.
 // If a node doesn't have the message for a given ID in its ledger,
 // the value at the index of that message ID is empty.
 // If an ID is not base58 encoded, an error is returned
-func FindByIDHandler(c echo.Context) error {
+func findByIDHandler(c echo.Context) error {
 	var request FindByIDRequest
 	if err := c.Bind(&request); err != nil {
 		log.Info(err.Error())

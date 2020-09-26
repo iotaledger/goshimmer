@@ -38,8 +38,8 @@ var (
 	ErrSignatureVersion = fmt.Errorf("unsupported signature version")
 )
 
-// SendTransactionByJSONHandler sends a transaction.
-func SendTransactionByJSONHandler(c echo.Context) error {
+// sendTransactionByJSONHandler sends a transaction.
+func sendTransactionByJSONHandler(c echo.Context) error {
 	sendTxByJSONMu.Lock()
 	defer sendTxByJSONMu.Unlock()
 

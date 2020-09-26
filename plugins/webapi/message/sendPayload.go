@@ -8,9 +8,9 @@ import (
 	"github.com/labstack/echo"
 )
 
-// SendPayloadHandler creates a message of the given payload and
+// sendPayloadHandler creates a message of the given payload and
 // broadcasts it to the node's neighbors. It returns the message ID if successful.
-func SendPayloadHandler(c echo.Context) error {
+func sendPayloadHandler(c echo.Context) error {
 	var request SendPayloadRequest
 	if err := c.Bind(&request); err != nil {
 		log.Info(err.Error())
