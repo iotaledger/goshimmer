@@ -9,15 +9,16 @@ package net
 import (
 	context "context"
 	fmt "fmt"
+	math "math"
+	reflect "reflect"
+	sync "sync"
+
 	proto "github.com/golang/protobuf/proto"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	math "math"
-	reflect "reflect"
-	sync "sync"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
