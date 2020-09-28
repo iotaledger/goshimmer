@@ -13,7 +13,7 @@ require (
 	github.com/gobuffalo/packr/v2 v2.8.0
 	github.com/golang/protobuf v1.4.2
 	github.com/gorilla/websocket v1.4.2
-	github.com/iotaledger/hive.go v0.0.0-20200917222020-d5f10a0e336e
+	github.com/iotaledger/hive.go v0.0.0-20200928092608-af0f0dc4fd6f
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0
 	github.com/magiconair/properties v1.8.1
@@ -27,7 +27,7 @@ require (
 	github.com/stretchr/testify v1.6.1
 	github.com/valyala/fasttemplate v1.1.0 // indirect
 	github.com/xdg/stringprep v1.0.0 // indirect
-	go.dedis.ch/kyber/v3 v3.0.12
+	go.dedis.ch/kyber/v3 v3.0.13
 	go.mongodb.org/mongo-driver v1.3.4
 	go.uber.org/atomic v1.6.0
 	go.uber.org/zap v1.15.0
