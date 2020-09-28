@@ -59,7 +59,8 @@ export default class ManaChart extends React.Component<Props, any> {
                                 controlWrapperParams: {
                                     state: {
                                         range: {
-                                            start: new Date( this.props.data[this.props.data.length-1][0].getTime() - (5*60*1000)),
+                                            // (30*60*1000) is half an hour in milliseconds
+                                            start: new Date( this.props.data[this.props.data.length-1][0].getTime() - (30*60*1000)),
                                             end: this.props.data[this.props.data.length-1][0] },
                                     },
                                 },

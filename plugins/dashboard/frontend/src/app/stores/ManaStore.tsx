@@ -21,7 +21,8 @@ class NetworkManaMsg {
     nodes: Array<Node>;
 }
 
-const maxRegistrySize = 100;
+// every 10 seconds, a new value arrives, so this is roughly 166 mins
+const maxStoredManaValues = 1000;
 
 export class ManaStore {
     // mana values
@@ -51,7 +52,7 @@ export class ManaStore {
     @action
     addNewManaValue = (manaMsg: ManaMsg) =>  {
         this.ownID = this.ownID? this.ownID : manaMsg.nodeID;
-        if (this.manaValues.length === maxRegistrySize) {
+        if (this.manaValues.length === maxStoredManaValues) {
             // shift if we already have enough values
             this.manaValues.shift();
         }
