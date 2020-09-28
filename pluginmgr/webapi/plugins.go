@@ -1,7 +1,6 @@
 package webapi
 
 import (
-	"github.com/iotaledger/goshimmer/plugins/spammer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/goshimmer/plugins/webapi/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/webapi/data"
@@ -20,7 +19,6 @@ import (
 var PLUGINS = node.Plugins(
 	webapi.Plugin(),
 	webauth.Plugin(),
-	spammer.Plugin(),
 	data.Plugin(),
 	drng.Plugin(),
 	faucet.Plugin(),
