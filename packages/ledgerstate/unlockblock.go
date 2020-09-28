@@ -1,6 +1,8 @@
 package ledgerstate
 
 import (
+	"strconv"
+
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
@@ -146,7 +148,7 @@ func (s *SignatureUnlockBlock) Type() UnlockBlockType {
 
 // Bytes returns a marshaled version of this UnlockBlock.
 func (s *SignatureUnlockBlock) Bytes() []byte {
-	return byteutils.ConcatBytes([]byte(byte(SignatureUnlockBlockType)), s.signature.Bytes())
+	return byteutils.ConcatBytes([]byte{byte(SignatureUnlockBlockType)}, s.signature.Bytes())
 }
 
 // String returns a human readable version of this UnlockBlock.
@@ -229,11 +231,70 @@ func (r *ReferenceUnlockBlock) Bytes() []byte {
 // String returns a human readable version of this UnlockBlock.
 func (r *ReferenceUnlockBlock) String() string {
 	return stringify.Struct("ReferenceUnlockBlock",
-		stringify.StructField("referencedIndex", r.referencedIndex),
+		stringify.StructField("referencedIndex", int(r.referencedIndex)),
 	)
 }
 
 // code contract (make sure the type implements all required methods)
 var _ UnlockBlock = &ReferenceUnlockBlock{}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region UnlockBlocks /////////////////////////////////////////////////////////////////////////////////////////////////
+
+// UnlockBlocks is slice of UnlockBlocks that offers additional methods for easier marshaling and unmarshaling.
+type UnlockBlocks []UnlockBlock
+
+// UnlockBlocksFromBytes unmarshals UnlockBlocks from a sequence of bytes.
+func UnlockBlocksFromBytes(bytes []byte) (unlockBlocks UnlockBlocks, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(bytes)
+	if unlockBlocks, err = UnlockBlocksFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse UnlockBlocks from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// UnlockBlocksFromMarshalUtil unmarshals UnlockBlocks using a MarshalUtil (for easier unmarshaling).
+func UnlockBlocksFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (unlockBlocks UnlockBlocks, err error) {
+	unlockBlockCount, err := marshalUtil.ReadUint16()
+	if err != nil {
+		err = xerrors.Errorf("failed to parse UnlockBlock count (%v): %w", err, ErrParseBytesFailed)
+		return
+	}
+
+	unlockBlocks = make(UnlockBlocks, unlockBlockCount)
+	for i := uint16(0); i < unlockBlockCount; i++ {
+		if unlockBlocks[i], err = UnlockBlockFromMarshalUtil(marshalUtil); err != nil {
+			err = xerrors.Errorf("failed to parse UnlockBlock from MarshalUtil: %w", err)
+			return
+		}
+	}
+
+	return
+}
+
+// Bytes returns a marshaled version of the UnlockBlocks.
+func (u UnlockBlocks) Bytes() []byte {
+	marshalUtil := marshalutil.New()
+	marshalUtil.WriteUint16(uint16(len(u)))
+	for _, unlockBlock := range u {
+		marshalUtil.WriteBytes(unlockBlock.Bytes())
+	}
+
+	return marshalUtil.Bytes()
+}
+
+// String returns a human readable version of the UnlockBlocks.
+func (u UnlockBlocks) String() string {
+	structBuilder := stringify.StructBuilder("UnlockBlocks")
+	for i, unlockBlock := range u {
+		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), unlockBlock))
+	}
+
+	return structBuilder.String()
+}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
