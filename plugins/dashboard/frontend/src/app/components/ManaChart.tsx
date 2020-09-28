@@ -30,7 +30,11 @@ export default class ManaChart extends React.Component<Props, any> {
                         ]}
                         options={{
                             title: '',
-                            hAxis: { title: 'Time', titleTextStyle: { color: '#333' } },
+                            hAxis: {
+                                title: 'Time',
+                                titleTextStyle: { color: '#333' },
+                                format:  'hh:mm:ss',
+                                },
                             vAxis: { title: 'Mana', minValue: 0 },
                             legend: {position: 'top'},
                             // For the legend to fit, we make the chart area smaller

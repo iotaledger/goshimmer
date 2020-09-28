@@ -236,8 +236,8 @@ type Node struct {
 // NodeStr defines a node and its mana value.
 // The node ID is stringified.
 type NodeStr struct {
-	ID   string
-	Mana float64
+	ID   string  `json:"nodeID"`
+	Mana float64 `json:"mana"`
 }
 
 // ToNodeStr converts a Node to a Nodestr

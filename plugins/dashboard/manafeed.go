@@ -3,6 +3,7 @@ package dashboard
 import (
 	"time"
 
+	manaPkg "github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/mana"
@@ -20,11 +21,12 @@ type manaValue struct {
 	NodeID    string  `json:"nodeID"`
 	Access    float64 `json:"access"`
 	Consensus float64 `json:"consensus"`
-	Time      string  `json:"time"`
+	Time      int64   `json:"time"`
 }
 
 type manaNetworkList struct {
-	Nodes []manaValue `json:"nodes"`
+	ManaType string            `json:"manaType"`
+	Nodes    []manaPkg.NodeStr `json:"nodes"`
 }
 
 func configureManaFeed() {
@@ -33,7 +35,9 @@ func configureManaFeed() {
 		case MsgTypeManaValue:
 			sendManaValue()
 		case MsgTypeManaMapOverall:
+			sendManaMapOverall()
 		case MsgTypeManaMapOnline:
+			sendManaMapOnline()
 		}
 		task.Return(nil)
 	}, workerpool.WorkerCount(manaFeedWorkerCount), workerpool.QueueSize(manaFeedWorkerQueueSize))
@@ -49,8 +53,50 @@ func sendManaValue() {
 			NodeID:    ownID.String(),
 			Access:    access,
 			Consensus: consensus,
-			Time:      time.Now().String(),
+			Time:      time.Now().Unix(),
 		},
+	})
+}
+
+func sendManaMapOverall() {
+	accessManaList := mana.GetHighestManaNodes(manaPkg.AccessMana, 100)
+	accessPayload := manaNetworkList{ManaType: manaPkg.AccessMana.String()}
+	for i := 0; i < len(accessManaList); i++ {
+		accessPayload.Nodes = append(accessPayload.Nodes, accessManaList[i].ToNodeStr())
+	}
+	broadcastWsMessage(&wsmsg{
+		Type: MsgTypeManaMapOverall,
+		Data: accessPayload,
+	})
+	consensusManaList := mana.GetHighestManaNodes(manaPkg.ConsensusMana, 100)
+	consensusPayload := manaNetworkList{ManaType: manaPkg.ConsensusMana.String()}
+	for i := 0; i < len(consensusManaList); i++ {
+		consensusPayload.Nodes = append(consensusPayload.Nodes, consensusManaList[i].ToNodeStr())
+	}
+	broadcastWsMessage(&wsmsg{
+		Type: MsgTypeManaMapOverall,
+		Data: consensusPayload,
+	})
+}
+
+func sendManaMapOnline() {
+	accessManaList, _ := mana.GetOnlineNodes(manaPkg.AccessMana)
+	accessPayload := manaNetworkList{ManaType: manaPkg.AccessMana.String()}
+	for i := 0; i < len(accessManaList); i++ {
+		accessPayload.Nodes = append(accessPayload.Nodes, accessManaList[i].ToNodeStr())
+	}
+	broadcastWsMessage(&wsmsg{
+		Type: MsgTypeManaMapOnline,
+		Data: accessPayload,
+	})
+	consensusManaList, _ := mana.GetOnlineNodes(manaPkg.AccessMana)
+	consensusPayload := manaNetworkList{ManaType: manaPkg.ConsensusMana.String()}
+	for i := 0; i < len(consensusManaList); i++ {
+		consensusPayload.Nodes = append(consensusPayload.Nodes, consensusManaList[i].ToNodeStr())
+	}
+	broadcastWsMessage(&wsmsg{
+		Type: MsgTypeManaMapOnline,
+		Data: consensusPayload,
 	})
 }
 
@@ -68,6 +114,8 @@ func runManaFeed() {
 				return
 			case <-manaTicker.C:
 				manaFeedWorkerPool.Submit(MsgTypeManaValue)
+				manaFeedWorkerPool.Submit(MsgTypeManaMapOverall)
+				manaFeedWorkerPool.Submit(MsgTypeManaMapOnline)
 			}
 		}
 

@@ -26,30 +26,6 @@ interface Props {
 //     [new Date(2020,0,0,0,8,0,0), 1300, 1800],
 // ]
 
-var nodeMap = [
-    ["node1", 3456],
-    ["node2", 2865],
-    ["MyLittleNodey", 2860],
-    ["node4", 2715],
-    ["node5", 2200],
-    ["node6", 1300],
-]
-
-
-let richestFeed = () => {
-    let feed = []
-    for (let i= 0; i< nodeMap.length; i++) {
-        feed.push(
-            <tr key={nodeMap[i][0]}>
-                <td> {i + 1} </td>
-                <td>{nodeMap[i][0]}</td>
-                <td>{nodeMap[i][1]}</td>
-            </tr>
-        )
-    }
-    return feed
-}
-
 @inject("nodeStore")
 @inject("manaStore")
 @observer
@@ -70,15 +46,23 @@ export class Mana extends React.Component<Props, any> {
                 </Row>
                 <Row className={"mb-3"}>
                     <Col>
-                        <ManaHistogram data={nodeMap}/>
+                        <ManaHistogram data={this.props.manaStore.accessHistogramInput}/>
                     </Col>
                 </Row>
                 <Row className={"mb-3"}>
                     <Col>
-                        <RichestMana data={richestFeed()} title={"Overall Richest Mana Nodes"}/>
+                        <RichestMana data={this.props.manaStore.networkRichestFeedAccess} title={"Richest Access Mana Nodes"}/>
                     </Col>
                     <Col>
-                        <RichestMana data={richestFeed()} title={"Online Richest Mana Nodes"}/>
+                        <RichestMana data={this.props.manaStore.networkRichestFeedConsensus} title={"Richest Consensus Mana Nodes"}/>
+                    </Col>
+                </Row>
+                <Row>
+                    <Col>
+                        <RichestMana data={this.props.manaStore.onlineRichestFeedAccess} title={"Online Richest Access Mana Nodes"}/>
+                    </Col>
+                    <Col>
+                        <RichestMana data={this.props.manaStore.onlineRichestFeedConsensus} title={"Online Richest Consensus Mana Nodes"}/>
                     </Col>
                 </Row>
             </Container>
