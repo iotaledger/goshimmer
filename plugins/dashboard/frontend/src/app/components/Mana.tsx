@@ -34,18 +34,18 @@ export class Mana extends React.Component<Props, any> {
                 </Row>
                 <Row className={"mb-3"}>
                     <Col>
-                        <RichestMana data={this.props.manaStore.networkRichestFeedAccess} title={"Richest Access Mana Nodes"}/>
+                        <RichestMana data={this.props.manaStore.networkRichestFeedAccess} title={"Access Mana Leaderborad"}/>
                     </Col>
                     <Col>
-                        <RichestMana data={this.props.manaStore.networkRichestFeedConsensus} title={"Richest Consensus Mana Nodes"}/>
+                        <RichestMana data={this.props.manaStore.networkRichestFeedConsensus} title={"Consensus Mana Leaderboard"}/>
                     </Col>
                 </Row>
                 <Row>
                     <Col>
-                        <RichestMana data={this.props.manaStore.activeRichestFeedAccess} title={"Online Richest Access Mana Nodes"}/>
+                        <RichestMana data={this.props.manaStore.activeRichestFeedAccess} title={"Active Access Mana Leaderboard"}/>
                     </Col>
                     <Col>
-                        <RichestMana data={this.props.manaStore.activeRichestFeedConsensus} title={"Online Richest Consensus Mana Nodes"}/>
+                        <RichestMana data={this.props.manaStore.activeRichestFeedConsensus} title={"Active Consensus Mana Leaderboard"}/>
                     </Col>
                 </Row>
                 <Row className={"mb-3"}>
