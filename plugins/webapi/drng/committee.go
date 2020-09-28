@@ -1,4 +1,4 @@
-package info
+package drng
 
 import (
 	"encoding/hex"
@@ -9,8 +9,8 @@ import (
 	"github.com/mr-tron/base58"
 )
 
-// CommitteeHandler returns the current DRNG committee used.
-func CommitteeHandler(c echo.Context) error {
+// committeeHandler returns the current DRNG committee used.
+func committeeHandler(c echo.Context) error {
 	committee := drng.Instance().State.Committee()
 	identities := []string{}
 	for _, pk := range committee.Identities {

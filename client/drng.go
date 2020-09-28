@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	webapi_drng "github.com/iotaledger/goshimmer/plugins/webapi/drng"
-	webapi_drng_info "github.com/iotaledger/goshimmer/plugins/webapi/drng/info"
 )
 
 const (
@@ -26,8 +25,8 @@ func (api *GoShimmerAPI) BroadcastCollectiveBeacon(payload []byte) (string, erro
 }
 
 // GetRandomness gets the current randomness.
-func (api *GoShimmerAPI) GetRandomness() (*webapi_drng_info.RandomnessResponse, error) {
-	res := &webapi_drng_info.RandomnessResponse{}
+func (api *GoShimmerAPI) GetRandomness() (*webapi_drng.RandomnessResponse, error) {
+	res := &webapi_drng.RandomnessResponse{}
 	if err := api.do(http.MethodGet, func() string {
 		return routeRandomness
 	}(), nil, res); err != nil {
@@ -37,8 +36,8 @@ func (api *GoShimmerAPI) GetRandomness() (*webapi_drng_info.RandomnessResponse, 
 }
 
 // GetCommittee gets the current committee.
-func (api *GoShimmerAPI) GetCommittee() (*webapi_drng_info.CommitteeResponse, error) {
-	res := &webapi_drng_info.CommitteeResponse{}
+func (api *GoShimmerAPI) GetCommittee() (*webapi_drng.CommitteeResponse, error) {
+	res := &webapi_drng.CommitteeResponse{}
 	if err := api.do(http.MethodGet, func() string {
 		return routeCommittee
 	}(), nil, res); err != nil {

@@ -4,7 +4,6 @@ import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/plugins/webapi"
-	"github.com/iotaledger/goshimmer/plugins/webapi/drng/info"
 	"github.com/iotaledger/hive.go/node"
 )
 
@@ -26,7 +25,7 @@ func Plugin() *node.Plugin {
 }
 
 func configure(_ *node.Plugin) {
-	webapi.Server().POST("drng/collectiveBeacon", CollectiveBeaconHandler)
-	webapi.Server().GET("drng/info/committee", info.CommitteeHandler)
-	webapi.Server().GET("drng/info/randomness", info.RandomnessHandler)
+	webapi.Server().POST("drng/collectiveBeacon", collectiveBeaconHandler)
+	webapi.Server().GET("drng/info/committee", committeeHandler)
+	webapi.Server().GET("drng/info/randomness", randomnessHandler)
 }

@@ -1,4 +1,4 @@
-package info
+package drng
 
 import (
 	"net/http"
@@ -8,8 +8,8 @@ import (
 	"github.com/labstack/echo"
 )
 
-// RandomnessHandler returns the current DRNG randomness used.
-func RandomnessHandler(c echo.Context) error {
+// randomnessHandler returns the current DRNG randomness used.
+func randomnessHandler(c echo.Context) error {
 	randomness := drng.Instance().State.Randomness()
 	return c.JSON(http.StatusOK, RandomnessResponse{
 		Round:      randomness.Round,

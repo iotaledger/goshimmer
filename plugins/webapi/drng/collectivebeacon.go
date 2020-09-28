@@ -10,8 +10,8 @@ import (
 	"github.com/labstack/gommon/log"
 )
 
-// CollectiveBeaconHandler gets the current DRNG committee.
-func CollectiveBeaconHandler(c echo.Context) error {
+// collectiveBeaconHandler gets the current DRNG committee.
+func collectiveBeaconHandler(c echo.Context) error {
 	var request CollectiveBeaconRequest
 	if err := c.Bind(&request); err != nil {
 		log.Info(err.Error())
