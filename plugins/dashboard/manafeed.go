@@ -25,8 +25,9 @@ type manaValue struct {
 }
 
 type manaNetworkList struct {
-	ManaType string            `json:"manaType"`
-	Nodes    []manaPkg.NodeStr `json:"nodes"`
+	ManaType  string            `json:"manaType"`
+	TotalMana float64           `json:"totalMana"`
+	Nodes     []manaPkg.NodeStr `json:"nodes"`
 }
 
 func configureManaFeed() {
@@ -59,20 +60,26 @@ func sendManaValue() {
 }
 
 func sendManaMapOverall() {
-	accessManaList := mana.GetHighestManaNodes(manaPkg.AccessMana, 100)
+	accessManaList := mana.GetHighestManaNodes(manaPkg.AccessMana, 0)
 	accessPayload := manaNetworkList{ManaType: manaPkg.AccessMana.String()}
+	totalAccessMana := 0.0
 	for i := 0; i < len(accessManaList); i++ {
 		accessPayload.Nodes = append(accessPayload.Nodes, accessManaList[i].ToNodeStr())
+		totalAccessMana += accessManaList[i].Mana
 	}
+	accessPayload.TotalMana = totalAccessMana
 	broadcastWsMessage(&wsmsg{
 		Type: MsgTypeManaMapOverall,
 		Data: accessPayload,
 	})
-	consensusManaList := mana.GetHighestManaNodes(manaPkg.ConsensusMana, 100)
+	consensusManaList := mana.GetHighestManaNodes(manaPkg.ConsensusMana, 0)
 	consensusPayload := manaNetworkList{ManaType: manaPkg.ConsensusMana.String()}
+	totalConsensusMana := 0.0
 	for i := 0; i < len(consensusManaList); i++ {
 		consensusPayload.Nodes = append(consensusPayload.Nodes, consensusManaList[i].ToNodeStr())
+		totalConsensusMana += consensusManaList[i].Mana
 	}
+	consensusPayload.TotalMana = totalConsensusMana
 	broadcastWsMessage(&wsmsg{
 		Type: MsgTypeManaMapOverall,
 		Data: consensusPayload,
@@ -82,18 +89,24 @@ func sendManaMapOverall() {
 func sendManaMapOnline() {
 	accessManaList, _ := mana.GetOnlineNodes(manaPkg.AccessMana)
 	accessPayload := manaNetworkList{ManaType: manaPkg.AccessMana.String()}
+	totalAccessMana := 0.0
 	for i := 0; i < len(accessManaList); i++ {
 		accessPayload.Nodes = append(accessPayload.Nodes, accessManaList[i].ToNodeStr())
+		totalAccessMana += accessManaList[i].Mana
 	}
+	accessPayload.TotalMana = totalAccessMana
 	broadcastWsMessage(&wsmsg{
 		Type: MsgTypeManaMapOnline,
 		Data: accessPayload,
 	})
 	consensusManaList, _ := mana.GetOnlineNodes(manaPkg.AccessMana)
 	consensusPayload := manaNetworkList{ManaType: manaPkg.ConsensusMana.String()}
+	totalConsensusMana := 0.0
 	for i := 0; i < len(consensusManaList); i++ {
 		consensusPayload.Nodes = append(consensusPayload.Nodes, consensusManaList[i].ToNodeStr())
+		totalConsensusMana += consensusManaList[i].Mana
 	}
+	consensusPayload.TotalMana = totalConsensusMana
 	broadcastWsMessage(&wsmsg{
 		Type: MsgTypeManaMapOnline,
 		Data: consensusPayload,

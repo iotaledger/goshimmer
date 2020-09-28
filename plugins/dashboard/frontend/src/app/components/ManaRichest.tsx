@@ -1,4 +1,4 @@
-import {inject, observer} from "mobx-react";
+import {observer} from "mobx-react";
 import * as React from "react";
 import Card from "react-bootstrap/Card";
 import {Table} from "react-bootstrap";
@@ -8,7 +8,6 @@ interface Props {
     title;
 }
 
-@inject("manaStore")
 @observer
 export default class ManaRichest extends React.Component<Props, any> {
     render() {
@@ -22,6 +21,7 @@ export default class ManaRichest extends React.Component<Props, any> {
                             <th style={{'position': 'sticky', 'top': 0,'background': 'white'}}>Rank</th>
                             <th style={{'position': 'sticky', 'top': 0,'background': 'white'}}>NodeID</th>
                             <th style={{'position': 'sticky', 'top': 0,'background': 'white'}}>Mana</th>
+                            <th style={{'position': 'sticky', 'top': 0,'background': 'white'}}>% of All</th>
                         </tr>
                         </thead>
                         <tbody>

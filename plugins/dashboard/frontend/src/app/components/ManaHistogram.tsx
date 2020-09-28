@@ -1,4 +1,4 @@
-import {inject, observer} from "mobx-react";
+import {observer} from "mobx-react";
 import * as React from "react";
 import Card from "react-bootstrap/Card";
 import {Chart} from "react-google-charts"
@@ -7,7 +7,6 @@ interface Props {
     data;
 }
 
-@inject("manaStore")
 @observer
 export default class ManaHistogram extends React.Component<Props, any> {
     render() {

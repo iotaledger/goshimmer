@@ -17,6 +17,7 @@ class Node {
 
 class NetworkManaMsg {
     manaType: string;
+    totalMana: number;
     nodes: Array<Node>;
 }
 
@@ -25,14 +26,18 @@ const maxRegistrySize = 100;
 export class ManaStore {
     // mana values
     @observable manaValues: Array<any> = [];
-    // list of 100 richest access mana nodes in their network, sorted in descending order
+    // list of richest access mana nodes in  network, sorted in descending order
     @observable accessNetworkRichest: Array<Node> = [];
-    // list of richest online access mana nodes in their network, sorted in descending order
-    @observable accessOnlineRichest: Array<Node> = [];
-    // list of 100 richest consensus mana nodes in their network, sorted in descending order
+    @observable totalAccessNetwork: number = 0.0;
+    // list of richest active access mana nodes in the network, sorted in descending order
+    @observable accessActiveRichest: Array<Node> = [];
+    @observable totalAccessActive: number = 0.0;
+    // list of richest consensus mana nodes in their network, sorted in descending order
     @observable consensusNetworkRichest: Array<Node> = [];
-    // list of richest online consensus mana nodes in their network, sorted in descending order
-    @observable consensusOnlineRichest: Array<Node> = [];
+    @observable totalConsensusNetwork: number = 0.0;
+    // list of richest active consensus mana nodes in their network, sorted in descending order
+    @observable consensusActiveRichest: Array<Node> = [];
+    @observable totalConsensusActive: number = 0.0;
 
     ownID: string;
 
@@ -40,7 +45,7 @@ export class ManaStore {
         this.manaValues = [];
         registerHandler(WSMsgType.Mana, this.addNewManaValue);
         registerHandler(WSMsgType.ManaMapOverall, this.updateNetworkRichest);
-        registerHandler(WSMsgType.ManaMapOnline, this.updateOnlineRichest);
+        registerHandler(WSMsgType.ManaMapOnline, this.updateActiveRichest);
     };
 
     @action
@@ -60,9 +65,11 @@ export class ManaStore {
         console.log(tmp);
         switch (msg.manaType) {
             case "Access Mana":
+                this.totalAccessNetwork = msg.totalMana;
                 this.accessNetworkRichest = msg.nodes;
                 break;
             case "Consensus Mana":
+                this.totalConsensusNetwork = msg.totalMana;
                 this.consensusNetworkRichest = msg.nodes;
                 break;
 
@@ -70,13 +77,15 @@ export class ManaStore {
     }
 
     @action
-    updateOnlineRichest = (msg: NetworkManaMsg) => {
+    updateActiveRichest = (msg: NetworkManaMsg) => {
         switch (msg.manaType) {
             case "Access Mana":
-                this.accessOnlineRichest = msg.nodes;
+                this.totalAccessActive = msg.totalMana;
+                this.accessActiveRichest = msg.nodes;
                 break;
             case "Consensus Mana":
-                this.consensusOnlineRichest = msg.nodes;
+                this.totalConsensusActive = msg.totalMana;
+                this.consensusActiveRichest = msg.nodes;
                 break;
 
         }
@@ -90,11 +99,14 @@ export class ManaStore {
         let feed = []
         for (let i= 0; i< this.accessNetworkRichest.length; i++) {
             feed.push(
-                <tr key={this.accessNetworkRichest[i].nodeID} style={{color: this.accessNetworkRichest[i].nodeID === this.ownID? 'red': 'black'}
-                }>
+                <tr
+                    key={this.accessNetworkRichest[i].nodeID}
+                    style={{color: this.accessNetworkRichest[i].nodeID === this.ownID? 'red': 'black'}}
+                >
                     <td> {i + 1} </td>
                     <td>{this.accessNetworkRichest[i].nodeID}</td>
                     <td>{this.accessNetworkRichest[i].mana.toFixed(2)}</td>
+                    <td>{((this.accessNetworkRichest[i].mana / this.totalAccessNetwork)*100.0).toFixed(2)}%</td>
                 </tr>
             )
         }
@@ -109,10 +121,14 @@ export class ManaStore {
         let feed = []
         for (let i= 0; i< this.consensusNetworkRichest.length; i++) {
             feed.push(
-                <tr key={this.consensusNetworkRichest[i].nodeID}>
+                <tr
+                    key={this.consensusNetworkRichest[i].nodeID}
+                    style={{color: this.consensusNetworkRichest[i].nodeID === this.ownID? 'red': 'black'}}
+                >
                     <td> {i + 1} </td>
                     <td>{this.consensusNetworkRichest[i].nodeID}</td>
                     <td>{this.consensusNetworkRichest[i].mana.toFixed(2)}</td>
+                    <td>{((this.consensusNetworkRichest[i].mana / this.totalConsensusNetwork)*100.0).toFixed(2)}%</td>
                 </tr>
             )
         }
@@ -120,17 +136,21 @@ export class ManaStore {
     }
 
     @computed
-    get onlineRichestFeedAccess() {
-        if (this.accessOnlineRichest === null || undefined) {
+    get activeRichestFeedAccess() {
+        if (this.accessActiveRichest === null || undefined) {
             return []
         }
         let feed = []
-        for (let i= 0; i< this.accessOnlineRichest.length; i++) {
+        for (let i= 0; i< this.accessActiveRichest.length; i++) {
             feed.push(
-                <tr key={this.accessOnlineRichest[i].nodeID}>
+                <tr
+                    key={this.accessActiveRichest[i].nodeID}
+                    style={{color: this.accessActiveRichest[i].nodeID === this.ownID? 'red': 'black'}}
+                >
                     <td> {i + 1} </td>
-                    <td>{this.accessOnlineRichest[i].nodeID}</td>
-                    <td>{this.accessOnlineRichest[i].mana.toFixed(2)}</td>
+                    <td>{this.accessActiveRichest[i].nodeID}</td>
+                    <td>{this.accessActiveRichest[i].mana.toFixed(2)}</td>
+                    <td>{((this.accessActiveRichest[i].mana / this.totalAccessActive)*100.0).toFixed(2)}%</td>
                 </tr>
             )
         }
@@ -138,17 +158,21 @@ export class ManaStore {
     }
 
     @computed
-    get onlineRichestFeedConsensus() {
-        if (this.consensusOnlineRichest === null || undefined) {
+    get activeRichestFeedConsensus() {
+        if (this.consensusActiveRichest === null || undefined) {
             return []
         }
         let feed = []
-        for (let i= 0; i< this.consensusOnlineRichest.length; i++) {
+        for (let i= 0; i< this.consensusActiveRichest.length; i++) {
             feed.push(
-                <tr key={this.consensusOnlineRichest[i].nodeID}>
+                <tr
+                    key={this.consensusActiveRichest[i].nodeID}
+                    style={{color: this.consensusActiveRichest[i].nodeID === this.ownID? 'red': 'black'}}
+                >
                     <td> {i + 1} </td>
-                    <td>{this.consensusOnlineRichest[i].nodeID}</td>
-                    <td>{this.consensusOnlineRichest[i].mana.toFixed(2)}</td>
+                    <td>{this.consensusActiveRichest[i].nodeID}</td>
+                    <td>{this.consensusActiveRichest[i].mana.toFixed(2)}</td>
+                    <td>{((this.consensusActiveRichest[i].mana / this.totalConsensusActive)*100.0).toFixed(2)}%</td>
                 </tr>
             )
         }
