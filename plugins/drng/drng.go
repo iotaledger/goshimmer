@@ -5,9 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/iotaledger/goshimmer/packages/binary/drng"
-	"github.com/iotaledger/goshimmer/packages/binary/drng/state"
-	cbPayload "github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectivebeacon/payload"
+	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/logger"
@@ -34,21 +32,21 @@ func configureDRNG() *drng.DRNG {
 		if err != nil {
 			log.Warnf("Invalid %s: %s", CfgDRNGDistributedPubKey, err)
 		}
-		if l := len(bytes); l != cbPayload.PublicKeySize {
-			log.Warnf("Invalid %s length: %d, need %d", CfgDRNGDistributedPubKey, l, cbPayload.PublicKeySize)
+		if l := len(bytes); l != drng.PublicKeySize {
+			log.Warnf("Invalid %s length: %d, need %d", CfgDRNGDistributedPubKey, l, drng.PublicKeySize)
 		}
 		dpk = append(dpk, bytes...)
 	}
 
 	// configure committee
-	committeeConf := &state.Committee{
+	committeeConf := &drng.Committee{
 		InstanceID:    config.Node().GetUint32(CfgDRNGInstanceID),
 		Threshold:     uint8(config.Node().GetUint32(CfgDRNGThreshold)),
 		DistributedPK: dpk,
 		Identities:    committeeMembers,
 	}
 
-	return drng.New(state.SetCommittee(committeeConf))
+	return drng.New(drng.SetCommittee(committeeConf))
 }
 
 // Instance returns the DRNG instance.

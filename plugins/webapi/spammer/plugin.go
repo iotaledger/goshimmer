@@ -3,8 +3,8 @@ package spammer
 import (
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/binary/spammer"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/spammer"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/daemon"
