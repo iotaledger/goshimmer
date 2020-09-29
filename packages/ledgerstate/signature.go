@@ -307,7 +307,7 @@ func (b *BLSSignature) SignatureValid(data []byte) bool {
 
 // AddressSignatureValid returns true if the Signature signs the given Address.
 func (b *BLSSignature) AddressSignatureValid(address Address, data []byte) bool {
-	if address.Type() != AddressTypeBLS {
+	if address.Type() != BLSAddressType {
 		return false
 	}
 
