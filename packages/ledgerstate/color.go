@@ -26,8 +26,8 @@ const ColorLength = 32
 type Color [ColorLength]byte
 
 // ColorFromBytes unmarshals a Color from a sequence of bytes.
-func ColorFromBytes(bytes []byte) (color Color, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
+func ColorFromBytes(colorBytes []byte) (color Color, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(colorBytes)
 	if color, err = ColorFromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse Color from MarshalUtil: %w", err)
 		return
