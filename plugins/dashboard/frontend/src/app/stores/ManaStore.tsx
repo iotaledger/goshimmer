@@ -1,6 +1,7 @@
 import {action, computed, observable} from 'mobx';
 import {registerHandler, WSMsgType} from "app/misc/WS";
 import * as React from "react";
+import ManaPercentile from "app/components/ManaPercentile";
 
 class ManaMsg {
     nodeID: string;
@@ -182,7 +183,7 @@ export class ManaStore {
 
     @computed
     get accessHistogramInput() {
-        if (this.accessNetworkRichest === null || undefined) {
+        if (this.accessNetworkRichest === undefined || this.accessNetworkRichest === null) {
             return []
         }
         let histInput = []
@@ -192,6 +193,41 @@ export class ManaStore {
             )
         }
         return histInput
+    }
+
+    @computed
+    get accessPercentile() {
+        let per = 0.0;
+        // find id
+        if (this.accessNetworkRichest !== undefined && this.accessNetworkRichest !== null) {
+            const isOwnID = (element) => element.nodeID === this.ownID;
+            let index = this.accessNetworkRichest.findIndex(isOwnID);
+            switch (index) {
+                case -1:
+                    break;
+                default:
+                    per = ((this.accessNetworkRichest.length - (index + 1)) / this.accessNetworkRichest.length) * 100;
+                    break;
+            }
+        }
+        return [<ManaPercentile data={per} key={per.toString()}/>]
+    }
+
+    @computed
+    get consensusPercentile() {
+        let per = 0.0;
+        // find id
+        if ( this.consensusNetworkRichest !== undefined && this.consensusNetworkRichest !== null) {
+            const isOwnID = (element) => element.nodeID === this.ownID;
+            let index = this.consensusNetworkRichest.findIndex(isOwnID);
+            switch (index) {
+                case -1:
+                    break;
+                default:
+                    per = ((this.consensusNetworkRichest.length - (index +1)) / this.consensusNetworkRichest.length) * 100;
+            }
+        }
+        return [<ManaPercentile data={per} key={per.toString()}/>]
     }
 }
 

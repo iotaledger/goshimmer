@@ -11,9 +11,6 @@ interface Props {
 @observer
 export default class ManaChart extends React.Component<Props, any> {
     render() {
-        if (this.props.data.length == 0) {
-            return []
-        }
         return (
             <Card style={{height: '400px', paddingBottom: 80}}>
                 <Card.Body>
