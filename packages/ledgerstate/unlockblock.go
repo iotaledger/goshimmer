@@ -210,7 +210,7 @@ func ReferenceUnlockBlockFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (
 	return
 }
 
-// Reference returns the index of the referenced UnlockBlock.
+// ReferencedIndex returns the index of the referenced UnlockBlock.
 func (r *ReferenceUnlockBlock) ReferencedIndex() uint16 {
 	return r.referencedIndex
 }
