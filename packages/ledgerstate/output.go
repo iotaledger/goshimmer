@@ -300,8 +300,9 @@ func (s *SigLockedSingleOutput) Type() OutputType {
 
 // Balances returns the funds that are associated with this Output.
 func (s *SigLockedSingleOutput) Balances() *ColoredBalances {
-	balances := NewColoredBalances()
-	balances.Set(ColorIOTA, s.balance)
+	balances := NewColoredBalances(map[Color]uint64{
+		ColorIOTA: s.balance,
+	})
 
 	return balances
 }

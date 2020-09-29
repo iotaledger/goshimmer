@@ -7,28 +7,63 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestNewColoredBalances(t *testing.T) {
+	coloredBalances := NewColoredBalances(map[Color]uint64{
+		{3}: 100,
+		{0}: 200,
+		{1}: 300,
+		{2}: 400,
+	})
+
+	orderedKeys := make([]Color, 0)
+	orderedBalances := make([]uint64, 0)
+	coloredBalances.ForEach(func(color Color, balance uint64) bool {
+		orderedKeys = append(orderedKeys, color)
+		orderedBalances = append(orderedBalances, balance)
+
+		return true
+	})
+	assert.Equal(t, []Color{{0}, {1}, {2}, {3}}, orderedKeys)
+	assert.Equal(t, []uint64{200, 300, 400, 100}, orderedBalances)
+}
+
 func TestColoredBalancesFromBytes(t *testing.T) {
-	coloredBalances := NewColoredBalances()
-	coloredBalances.Set(ColorIOTA, 100)
-	coloredBalances.Set(ColorMint, 120)
+	coloredBalances := NewColoredBalances(map[Color]uint64{
+		{3}: 100,
+		{0}: 200,
+		{1}: 300,
+		{2}: 400,
+	})
+	marshaledColoredBalances := coloredBalances.Bytes()
 
-	restoredColoredBalances, _, err := ColoredBalancesFromBytes(coloredBalances.Bytes())
+	clonedColoredBalances, consumedBytes, err := ColoredBalancesFromBytes(marshaledColoredBalances)
 	require.NoError(t, err)
+	assert.Equal(t, len(marshaledColoredBalances), consumedBytes)
+	assert.Equal(t, clonedColoredBalances.Size(), coloredBalances.Size())
+	assert.Equal(t, clonedColoredBalances.Bytes(), coloredBalances.Bytes())
 
-	iotaBalance, iotaColorExists := restoredColoredBalances.Get(ColorIOTA)
-	mintBalance, mintColorExists := restoredColoredBalances.Get(ColorMint)
+	color0Balance, color0Exists := clonedColoredBalances.Get(Color{0})
+	assert.True(t, color0Exists)
+	assert.Equal(t, color0Balance, uint64(200))
 
-	assert.True(t, iotaColorExists)
-	assert.Equal(t, uint64(100), iotaBalance)
-	assert.True(t, mintColorExists)
-	assert.Equal(t, uint64(120), mintBalance)
-	assert.Equal(t, 2, restoredColoredBalances.Size())
+	color1Balance, color1Exists := clonedColoredBalances.Get(Color{1})
+	assert.True(t, color1Exists)
+	assert.Equal(t, color1Balance, uint64(300))
+
+	color2Balance, color2Exists := clonedColoredBalances.Get(Color{2})
+	assert.True(t, color2Exists)
+	assert.Equal(t, color2Balance, uint64(400))
+
+	color3Balance, color3Exists := clonedColoredBalances.Get(Color{3})
+	assert.True(t, color3Exists)
+	assert.Equal(t, color3Balance, uint64(100))
 }
 
 func TestColoredBalances_String(t *testing.T) {
-	coloredBalances := NewColoredBalances()
-	coloredBalances.Set(ColorIOTA, 100)
-	coloredBalances.Set(ColorMint, 120)
+	coloredBalances := NewColoredBalances(map[Color]uint64{
+		ColorIOTA: 100,
+		ColorMint: 120,
+	})
 
 	assert.Equal(t, "ColoredBalances {\n    IOTA: 100\n    MINT: 120\n}", coloredBalances.String())
 }
