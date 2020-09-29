@@ -13,11 +13,11 @@ import (
 // region AddressType //////////////////////////////////////////////////////////////////////////////////////////////////
 
 const (
-	// AddressTypeED25519 represents an Address secured by the ED25519 signature scheme.
-	AddressTypeED25519 AddressType = iota
+	// ED25519AddressType represents an Address secured by the ED25519 signature scheme.
+	ED25519AddressType AddressType = iota
 
-	// AddressTypeBLS represents an Address secured by the BLS signature scheme.
-	AddressTypeBLS
+	// BLSAddressType represents an Address secured by the BLS signature scheme.
+	BLSAddressType
 )
 
 // AddressType represents the type of the Address (different types encode different signature schemes).
@@ -90,9 +90,9 @@ func AddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address Addre
 	marshalUtil.ReadSeek(-1)
 
 	switch AddressType(addressType) {
-	case AddressTypeED25519:
+	case ED25519AddressType:
 		return ED25519AddressFromMarshalUtil(marshalUtil)
-	case AddressTypeBLS:
+	case BLSAddressType:
 		return BLSAddressFromMarshalUtil(marshalUtil)
 	default:
 		err = xerrors.Errorf("unsupported address type (%X): %w", addressType, ErrParseBytesFailed)
@@ -153,7 +153,7 @@ func ED25519AddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (addres
 		err = xerrors.Errorf("failed to parse AddressType (%v): %w", err, ErrParseBytesFailed)
 		return
 	}
-	if AddressType(addressType) != AddressTypeED25519 {
+	if AddressType(addressType) != ED25519AddressType {
 		err = xerrors.Errorf("invalid AddressType (%X): %w", addressType, ErrParseBytesFailed)
 		return
 	}
@@ -169,7 +169,7 @@ func ED25519AddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (addres
 
 // Type returns the AddressType of the Address.
 func (e *ED25519Address) Type() AddressType {
-	return AddressTypeED25519
+	return ED25519AddressType
 }
 
 // Digest returns the hashed version of the Addresses public key.
@@ -179,7 +179,7 @@ func (e *ED25519Address) Digest() []byte {
 
 // Bytes returns a marshaled version of the Address.
 func (e *ED25519Address) Bytes() []byte {
-	return byteutils.ConcatBytes([]byte{byte(AddressTypeED25519)}, e.digest)
+	return byteutils.ConcatBytes([]byte{byte(ED25519AddressType)}, e.digest)
 }
 
 // Base58 returns a base58 encoded version of the address.
@@ -250,7 +250,7 @@ func BLSAddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address *B
 		err = xerrors.Errorf("error parsing AddressType (%v): %w", err, ErrParseBytesFailed)
 		return
 	}
-	if AddressType(addressType) != AddressTypeBLS {
+	if AddressType(addressType) != BLSAddressType {
 		err = xerrors.Errorf("invalid AddressType (%X): %w", addressType, ErrParseBytesFailed)
 		return
 	}
@@ -266,7 +266,7 @@ func BLSAddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address *B
 
 // Type returns the AddressType of the Address.
 func (b *BLSAddress) Type() AddressType {
-	return AddressTypeBLS
+	return BLSAddressType
 }
 
 // Digest returns the hashed version of the Addresses public key.
@@ -276,7 +276,7 @@ func (b *BLSAddress) Digest() []byte {
 
 // Bytes returns a marshaled version of the Address.
 func (b *BLSAddress) Bytes() []byte {
-	return byteutils.ConcatBytes([]byte{byte(AddressTypeBLS)}, b.digest)
+	return byteutils.ConcatBytes([]byte{byte(BLSAddressType)}, b.digest)
 }
 
 // Base58 returns a base58 encoded version of the Address.
