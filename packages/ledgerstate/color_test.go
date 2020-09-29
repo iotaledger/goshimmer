@@ -44,19 +44,19 @@ func TestColoredBalancesFromBytes(t *testing.T) {
 
 	color0Balance, color0Exists := clonedColoredBalances.Get(Color{0})
 	assert.True(t, color0Exists)
-	assert.Equal(t, color0Balance, uint64(200))
+	assert.Equal(t, uint64(200), color0Balance)
 
 	color1Balance, color1Exists := clonedColoredBalances.Get(Color{1})
 	assert.True(t, color1Exists)
-	assert.Equal(t, color1Balance, uint64(300))
+	assert.Equal(t, uint64(300), color1Balance)
 
 	color2Balance, color2Exists := clonedColoredBalances.Get(Color{2})
 	assert.True(t, color2Exists)
-	assert.Equal(t, color2Balance, uint64(400))
+	assert.Equal(t, uint64(400), color2Balance)
 
 	color3Balance, color3Exists := clonedColoredBalances.Get(Color{3})
 	assert.True(t, color3Exists)
-	assert.Equal(t, color3Balance, uint64(100))
+	assert.Equal(t, uint64(100), color3Balance)
 }
 
 func TestColoredBalances_String(t *testing.T) {

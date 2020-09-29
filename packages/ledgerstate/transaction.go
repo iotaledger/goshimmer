@@ -97,6 +97,7 @@ func (i TransactionID) String() string {
 // region Transaction //////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Transaction struct {
+	unlockBlocks UnlockBlocks
 }
 
 func (t *Transaction) UnsignedBytes() []byte {
