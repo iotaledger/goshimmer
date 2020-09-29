@@ -13,6 +13,12 @@ import (
 
 // region Color ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// ColorIOTA is the zero value of the Color and represents uncolored tokens.
+var ColorIOTA = Color{}
+
+// ColorMint represents a placeholder Color that indicates that tokens should be "colored" in their Output.
+var ColorMint = Color{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
+
 // ColorLength represents the length of a Color (amount of bytes).
 const ColorLength = 32
 
@@ -33,13 +39,13 @@ func ColorFromBytes(bytes []byte) (color Color, consumedBytes int, err error) {
 
 // ColorFromBase58EncodedString creates a Color from a base58 encoded string.
 func ColorFromBase58EncodedString(base58String string) (color Color, err error) {
-	bytes, err := base58.Decode(base58String)
+	parsedBytes, err := base58.Decode(base58String)
 	if err != nil {
 		err = xerrors.Errorf("error while decoding base58 encoded Color (%v): %w", err, ErrBase58DecodeFailed)
 		return
 	}
 
-	if color, _, err = ColorFromBytes(bytes); err != nil {
+	if color, _, err = ColorFromBytes(parsedBytes); err != nil {
 		err = xerrors.Errorf("failed to parse Color from bytes: %w", err)
 		return
 	}
@@ -81,11 +87,11 @@ func (c Color) String() string {
 	}
 }
 
-// ColorIOTA is the zero value of the Color and represents uncolored tokens.
-var ColorIOTA = Color{}
-
-// ColorMint represents a placeholder Color that indicates that tokens should be "colored" in their Output.
-var ColorMint = Color{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
+// Compare offers a comparator for Colors which returns -1 if otherColor is bigger, 1 if it is smaller and 0 if they are
+// the same.
+func (c Color) Compare(otherColor Color) int {
+	return bytes.Compare(c[:], otherColor[:])
+}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -106,7 +112,7 @@ func NewColoredBalances(balances map[Color]uint64) (coloredBalances *ColoredBala
 	for color := range balances {
 		sortedColors = append(sortedColors, color)
 	}
-	sort.Slice(sortedColors, func(i, j int) bool { return bytes.Compare(sortedColors[i][:], sortedColors[j][:]) < 0 })
+	sort.Slice(sortedColors, func(i, j int) bool { return sortedColors[i].Compare(sortedColors[j]) < 0 })
 
 	// add sorted colors to the underlying map
 	for _, color := range sortedColors {
@@ -146,7 +152,7 @@ func ColoredBalancesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (color
 		}
 
 		// check semantic correctness (ensure ordering)
-		if previousColor != nil && bytes.Compare(previousColor[:], color[:]) != -1 {
+		if previousColor != nil && previousColor.Compare(color) != -1 {
 			err = xerrors.Errorf("parsed Colors are not in correct order: %w", ErrParseBytesFailed)
 			return
 		}
