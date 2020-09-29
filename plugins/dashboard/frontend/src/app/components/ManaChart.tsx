@@ -36,33 +36,12 @@ export default class ManaChart extends React.Component<Props, any> {
                             // For the legend to fit, we make the chart area smaller
                             chartArea: { width: '80%', height: '70%' },
                             // lineWidth: 25
+                            explorer: { actions: ["dragToPan", "rightClickToReset"],
+                                keepInBounds: true
+                            },
                         }}
                         // For tests
                         rootProps={{ 'data-testid': '1' }}
-                        controls={[
-                            {
-                                controlType: 'ChartRangeFilter',
-                                options: {
-                                    filterColumnIndex: 0,
-                                    ui: {
-                                        chartType: 'LineChart',
-                                        chartOptions: {
-                                            chartArea: { width: '80%', height: '20%' },
-                                            hAxis: { baselineColor: 'none' },
-                                        },
-                                    },
-                                },
-                                controlPosition: 'bottom',
-                                controlWrapperParams: {
-                                    state: {
-                                        range: {
-                                            // (30*60*1000) is half an hour in milliseconds
-                                            start: new Date( this.props.data[this.props.data.length-1][0].getTime() - (30*60*1000)),
-                                            end: this.props.data[this.props.data.length-1][0] },
-                                    },
-                                },
-                            },
-                        ]}
                     />
                 </Card.Body>
             </Card>

@@ -28,6 +28,8 @@ const maxStoredManaValues = 1000;
 export class ManaStore {
     // mana values
     @observable manaValues: Array<any> = [];
+    // first is accessm second consensus
+    @observable prevManaValues: Array<number> = [0,0];
     // list of richest access mana nodes in  network, sorted in descending order
     @observable accessNetworkRichest: Array<Node> = [];
     @observable totalAccessNetwork: number = 0.0;
@@ -41,6 +43,8 @@ export class ManaStore {
     @observable consensusActiveRichest: Array<Node> = [];
     @observable totalConsensusActive: number = 0.0;
 
+    @observable public searchNode = "";
+
     ownID: string;
 
     constructor() {
@@ -51,6 +55,11 @@ export class ManaStore {
     };
 
     @action
+    updateSearch(searchNode: string): void {
+        this.searchNode = searchNode.trim();
+    }
+
+    @action
     addNewManaValue = (manaMsg: ManaMsg) =>  {
         this.ownID = this.ownID? this.ownID : manaMsg.nodeID;
         if (this.manaValues.length === maxStoredManaValues) {
@@ -58,6 +67,9 @@ export class ManaStore {
             this.manaValues.shift();
         }
         let newManaData = [new Date(manaMsg.time*1000), manaMsg.access, manaMsg.consensus];
+        if (this.manaValues.length > 0){
+            this.prevManaValues = [this.manaValues[this.manaValues.length -1][1] , this.manaValues[this.manaValues.length -1][2]]
+        }
         this.manaValues.push(newManaData);
     }
 
@@ -91,94 +103,60 @@ export class ManaStore {
                 break;
 
         }
+    };
+
+    nodeList = (leaderBoard: Array<Node>, manaSum: number) => {
+        if (leaderBoard === null || undefined) {
+            return []
+        }
+        let feed = []
+        let pushToFeed = (node: Node, i: number) => {
+            feed.push(
+                <tr
+                    key={node.nodeID}
+                    style={{color: node.nodeID === this.ownID? 'red': 'black'}}
+                >
+                    <td> {i + 1} </td>
+                    <td>{node.nodeID}</td>
+                    <td>{node.mana.toFixed(2)}</td>
+                    <td>{((node.mana / manaSum)*100.0).toFixed(2)}%</td>
+                </tr>
+            );
+        };
+        let callbackNoSearch = (node: Node, i: number) => {
+            pushToFeed(node, i);
+        };
+        let callbackSearch = (node: Node, i: number) => {
+            if (node.nodeID.toLowerCase().includes(this.searchNode.toLowerCase())){
+                pushToFeed(node, i);
+            }
+        };
+        if (this.searchNode.trim().length === 0) {
+            leaderBoard.forEach(callbackNoSearch);
+        } else {
+            leaderBoard.forEach(callbackSearch)
+        }
+        return feed
     }
 
     @computed
     get networkRichestFeedAccess() {
-        if (this.accessNetworkRichest === null || undefined) {
-            return []
-        }
-        let feed = []
-        for (let i= 0; i< this.accessNetworkRichest.length; i++) {
-            feed.push(
-                <tr
-                    key={this.accessNetworkRichest[i].nodeID}
-                    style={{color: this.accessNetworkRichest[i].nodeID === this.ownID? 'red': 'black'}}
-                >
-                    <td> {i + 1} </td>
-                    <td>{this.accessNetworkRichest[i].nodeID}</td>
-                    <td>{this.accessNetworkRichest[i].mana.toFixed(2)}</td>
-                    <td>{((this.accessNetworkRichest[i].mana / this.totalAccessNetwork)*100.0).toFixed(2)}%</td>
-                </tr>
-            )
-        }
-        return feed
+        return this.nodeList(this.accessNetworkRichest, this.totalAccessNetwork);
     }
 
     @computed
     get networkRichestFeedConsensus() {
-        if (this.consensusNetworkRichest === null || undefined) {
-            return []
-        }
-        let feed = []
-        for (let i= 0; i< this.consensusNetworkRichest.length; i++) {
-            feed.push(
-                <tr
-                    key={this.consensusNetworkRichest[i].nodeID}
-                    style={{color: this.consensusNetworkRichest[i].nodeID === this.ownID? 'red': 'black'}}
-                >
-                    <td> {i + 1} </td>
-                    <td>{this.consensusNetworkRichest[i].nodeID}</td>
-                    <td>{this.consensusNetworkRichest[i].mana.toFixed(2)}</td>
-                    <td>{((this.consensusNetworkRichest[i].mana / this.totalConsensusNetwork)*100.0).toFixed(2)}%</td>
-                </tr>
-            )
-        }
-        return feed
+        return this.nodeList(this.consensusNetworkRichest, this.totalConsensusNetwork);
     }
 
     @computed
     get activeRichestFeedAccess() {
-        if (this.accessActiveRichest === null || undefined) {
-            return []
-        }
-        let feed = []
-        for (let i= 0; i< this.accessActiveRichest.length; i++) {
-            feed.push(
-                <tr
-                    key={this.accessActiveRichest[i].nodeID}
-                    style={{color: this.accessActiveRichest[i].nodeID === this.ownID? 'red': 'black'}}
-                >
-                    <td> {i + 1} </td>
-                    <td>{this.accessActiveRichest[i].nodeID}</td>
-                    <td>{this.accessActiveRichest[i].mana.toFixed(2)}</td>
-                    <td>{((this.accessActiveRichest[i].mana / this.totalAccessActive)*100.0).toFixed(2)}%</td>
-                </tr>
-            )
-        }
-        return feed
+        return this.nodeList(this.accessActiveRichest, this.totalAccessActive);
     }
 
     @computed
     get activeRichestFeedConsensus() {
-        if (this.consensusActiveRichest === null || undefined) {
-            return []
-        }
-        let feed = []
-        for (let i= 0; i< this.consensusActiveRichest.length; i++) {
-            feed.push(
-                <tr
-                    key={this.consensusActiveRichest[i].nodeID}
-                    style={{color: this.consensusActiveRichest[i].nodeID === this.ownID? 'red': 'black'}}
-                >
-                    <td> {i + 1} </td>
-                    <td>{this.consensusActiveRichest[i].nodeID}</td>
-                    <td>{this.consensusActiveRichest[i].mana.toFixed(2)}</td>
-                    <td>{((this.consensusActiveRichest[i].mana / this.totalConsensusActive)*100.0).toFixed(2)}%</td>
-                </tr>
-            )
-        }
-        return feed
+        return this.nodeList(this.consensusActiveRichest, this.totalConsensusActive);
     }
 
     @computed
