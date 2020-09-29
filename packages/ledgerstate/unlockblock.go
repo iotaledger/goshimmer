@@ -138,7 +138,7 @@ func SignatureUnlockBlockFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (
 
 // AddressSignatureValid returns true if this UnlockBlock correctly signs the given Address.
 func (s *SignatureUnlockBlock) AddressSignatureValid(address Address, signedData []byte) (bool, error) {
-	return s.signature.SignsAddress(address, signedData), nil
+	return s.signature.AddressSignatureValid(address, signedData), nil
 }
 
 // Type returns the UnlockBlockType of this UnlockBlock.

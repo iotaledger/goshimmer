@@ -16,11 +16,11 @@ import (
 // region SignatureType ////////////////////////////////////////////////////////////////////////////////////////////////
 
 const (
-	// SignatureTypeED25519 represents an ED25519 signature.
-	SignatureTypeED25519 SignatureType = iota
+	// ED25519SignatureType represents an ED25519 Signature.
+	ED25519SignatureType SignatureType = iota
 
-	// SignatureTypeBLS represents a BLS signature.
-	SignatureTypeBLS
+	// BLSSignatureType represents a BLS Signature.
+	BLSSignatureType
 )
 
 // SignatureType represents the type of the signature scheme.
@@ -29,8 +29,8 @@ type SignatureType uint8
 // String returns a human readable representation of the SignatureType.
 func (s SignatureType) String() string {
 	return [...]string{
-		"SignatureTypeED25519",
-		"SignatureTypeBLS",
+		"ED25519SignatureType",
+		"BLSSignatureType",
 	}[s]
 }
 
@@ -43,11 +43,11 @@ type Signature interface {
 	// Type returns the SignatureType of this Signature.
 	Type() SignatureType
 
-	// SignsData returns true if the Signature signs the given data.
-	SignsData(data []byte) bool
+	// SignatureValid returns true if the Signature signs the given data.
+	SignatureValid(data []byte) bool
 
-	// SignsAddress returns true if the Signature signs the given address.
-	SignsAddress(address Address, data []byte) bool
+	// AddressSignatureValid returns true if the Signature signs the given Address.
+	AddressSignatureValid(address Address, data []byte) bool
 
 	// Bytes returns a marshaled version of the Signature.
 	Bytes() []byte
@@ -64,6 +64,7 @@ func SignatureFromBytes(bytes []byte) (signature Signature, consumedBytes int, e
 	marshalUtil := marshalutil.New(bytes)
 	if signature, err = SignatureFromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse Signature from MarshalUtil: %w", err)
+		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
 
@@ -96,12 +97,12 @@ func SignatureFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (signature S
 	marshalUtil.ReadSeek(-1)
 
 	switch SignatureType(signatureType) {
-	case SignatureTypeED25519:
+	case ED25519SignatureType:
 		if signature, err = ED25519SignatureFromMarshalUtil(marshalUtil); err != nil {
 			err = xerrors.Errorf("failed to parse ED25519Signature: %w", err)
 			return
 		}
-	case SignatureTypeBLS:
+	case BLSSignatureType:
 		if signature, err = BLSSignatureFromMarshalUtil(marshalUtil); err != nil {
 			err = xerrors.Errorf("failed to parse BLSSignature: %w", err)
 			return
@@ -167,7 +168,7 @@ func ED25519SignatureFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sign
 		err = xerrors.Errorf("failed to parse SignatureType (%v): %w", err, ErrParseBytesFailed)
 		return
 	}
-	if SignatureType(signatureType) != SignatureTypeED25519 {
+	if SignatureType(signatureType) != ED25519SignatureType {
 		err = xerrors.Errorf("invalid SignatureType (%X): %w", signatureType, ErrParseBytesFailed)
 		return
 	}
@@ -186,17 +187,17 @@ func ED25519SignatureFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sign
 
 // Type returns the SignatureType of this Signature.
 func (e *ED25519Signature) Type() SignatureType {
-	return SignatureTypeED25519
+	return ED25519SignatureType
 }
 
-// SignsData returns true if the Signature signs the given data.
-func (e *ED25519Signature) SignsData(data []byte) bool {
+// SignatureValid returns true if the Signature signs the given data.
+func (e *ED25519Signature) SignatureValid(data []byte) bool {
 	return e.publicKey.VerifySignature(data, e.signature)
 }
 
-// SignsAddress returns true if the Signature signs the given address.
-func (e *ED25519Signature) SignsAddress(address Address, data []byte) bool {
-	if address.Type() != AddressTypeED25519 {
+// AddressSignatureValid returns true if the Signature signs the given Address.
+func (e *ED25519Signature) AddressSignatureValid(address Address, data []byte) bool {
+	if address.Type() != ED25519AddressType {
 		return false
 	}
 
@@ -205,12 +206,12 @@ func (e *ED25519Signature) SignsAddress(address Address, data []byte) bool {
 		return false
 	}
 
-	return e.SignsData(data)
+	return e.SignatureValid(data)
 }
 
 // Bytes returns a marshaled version of the Signature.
 func (e *ED25519Signature) Bytes() []byte {
-	return byteutils.ConcatBytes([]byte{byte(SignatureTypeED25519)}, e.publicKey.Bytes(), e.signature.Bytes())
+	return byteutils.ConcatBytes([]byte{byte(ED25519SignatureType)}, e.publicKey.Bytes(), e.signature.Bytes())
 }
 
 // Base58 returns a base58 encoded version of the Signature.
@@ -280,7 +281,7 @@ func BLSSignatureFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (signatur
 		err = xerrors.Errorf("failed to parse SignatureType (%v): %w", err, ErrParseBytesFailed)
 		return
 	}
-	if SignatureType(signatureType) != SignatureTypeBLS {
+	if SignatureType(signatureType) != BLSSignatureType {
 		err = xerrors.Errorf("invalid SignatureType (%X): %w", signatureType, ErrParseBytesFailed)
 		return
 	}
@@ -296,16 +297,16 @@ func BLSSignatureFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (signatur
 
 // Type returns the SignatureType of this Signature.
 func (b *BLSSignature) Type() SignatureType {
-	return SignatureTypeBLS
+	return BLSSignatureType
 }
 
-// SignsData returns true if the Signature signs the given data.
-func (b *BLSSignature) SignsData(data []byte) bool {
+// SignatureValid returns true if the Signature signs the given data.
+func (b *BLSSignature) SignatureValid(data []byte) bool {
 	return b.signature.IsValid(data)
 }
 
-// SignsAddress returns true if the Signature signs the given address.
-func (b *BLSSignature) SignsAddress(address Address, data []byte) bool {
+// AddressSignatureValid returns true if the Signature signs the given Address.
+func (b *BLSSignature) AddressSignatureValid(address Address, data []byte) bool {
 	if address.Type() != AddressTypeBLS {
 		return false
 	}
@@ -315,12 +316,12 @@ func (b *BLSSignature) SignsAddress(address Address, data []byte) bool {
 		return false
 	}
 
-	return b.SignsData(data)
+	return b.SignatureValid(data)
 }
 
 // Bytes returns a marshaled version of the Signature.
 func (b *BLSSignature) Bytes() []byte {
-	return byteutils.ConcatBytes([]byte{byte(SignatureTypeBLS)}, b.signature.Bytes())
+	return byteutils.ConcatBytes([]byte{byte(BLSSignatureType)}, b.signature.Bytes())
 }
 
 // Base58 returns a base58 encoded version of the Signature.

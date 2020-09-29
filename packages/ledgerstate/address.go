@@ -14,7 +14,7 @@ import (
 
 const (
 	// AddressTypeED25519 represents an Address secured by the ED25519 signature scheme.
-	AddressTypeED25519 AddressType = iota
+	ED25519AddressType AddressType = iota
 
 	// AddressTypeBLS represents an Address secured by the BLS signature scheme.
 	AddressTypeBLS
@@ -90,7 +90,7 @@ func AddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address Addre
 	marshalUtil.ReadSeek(-1)
 
 	switch AddressType(addressType) {
-	case AddressTypeED25519:
+	case ED25519AddressType:
 		return ED25519AddressFromMarshalUtil(marshalUtil)
 	case AddressTypeBLS:
 		return BLSAddressFromMarshalUtil(marshalUtil)
@@ -153,7 +153,7 @@ func ED25519AddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (addres
 		err = xerrors.Errorf("failed to parse AddressType (%v): %w", err, ErrParseBytesFailed)
 		return
 	}
-	if AddressType(addressType) != AddressTypeED25519 {
+	if AddressType(addressType) != ED25519AddressType {
 		err = xerrors.Errorf("invalid AddressType (%X): %w", addressType, ErrParseBytesFailed)
 		return
 	}
@@ -169,7 +169,7 @@ func ED25519AddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (addres
 
 // Type returns the AddressType of the Address.
 func (e *ED25519Address) Type() AddressType {
-	return AddressTypeED25519
+	return ED25519AddressType
 }
 
 // Digest returns the hashed version of the Addresses public key.
@@ -179,7 +179,7 @@ func (e *ED25519Address) Digest() []byte {
 
 // Bytes returns a marshaled version of the Address.
 func (e *ED25519Address) Bytes() []byte {
-	return byteutils.ConcatBytes([]byte{byte(AddressTypeED25519)}, e.digest)
+	return byteutils.ConcatBytes([]byte{byte(ED25519AddressType)}, e.digest)
 }
 
 // Base58 returns a base58 encoded version of the address.
