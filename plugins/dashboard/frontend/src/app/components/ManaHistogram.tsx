@@ -5,6 +5,7 @@ import {Chart} from "react-google-charts"
 
 interface Props {
     data;
+    title;
 }
 
 @observer
@@ -13,7 +14,7 @@ export default class ManaHistogram extends React.Component<Props, any> {
         return (
             <Card>
                 <Card.Body>
-                    <Card.Title>Mana Distribution</Card.Title>
+                    <Card.Title>{this.props.title}</Card.Title>
                     <Chart
                         width={'100%'}
                         height={'400px'}

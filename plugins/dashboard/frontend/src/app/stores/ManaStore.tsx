@@ -184,12 +184,26 @@ export class ManaStore {
     @computed
     get accessHistogramInput() {
         if (this.accessNetworkRichest === undefined || this.accessNetworkRichest === null) {
-            return []
+            return [["", 0]]
         }
         let histInput = []
         for (let i = 0; i < this.accessNetworkRichest.length; i++) {
             histInput.push(
                 [this.accessNetworkRichest[i].nodeID, this.accessNetworkRichest[i].mana]
+            )
+        }
+        return histInput
+    }
+
+    @computed
+    get consensusHistogramInput() {
+        if (this.consensusNetworkRichest === undefined || this.consensusNetworkRichest === null) {
+            return [["", 0]]
+        }
+        let histInput = []
+        for (let i = 0; i < this.consensusNetworkRichest.length; i++) {
+            histInput.push(
+                [this.consensusNetworkRichest[i].nodeID, this.consensusNetworkRichest[i].mana]
             )
         }
         return histInput

@@ -60,7 +60,7 @@ export class Mana extends React.Component<Props, any> {
                         <RichestMana data={this.props.manaStore.networkRichestFeedConsensus} title={"Consensus Mana Leaderboard"}/>
                     </Col>
                 </Row>
-                <Row>
+                <Row className={"mb-3"}>
                     <Col>
                         <RichestMana data={this.props.manaStore.activeRichestFeedAccess} title={"Active Access Mana Leaderboard"}/>
                     </Col>
@@ -70,7 +70,10 @@ export class Mana extends React.Component<Props, any> {
                 </Row>
                 <Row className={"mb-3"}>
                     <Col>
-                        <ManaHistogram data={this.props.manaStore.accessHistogramInput}/>
+                        <ManaHistogram data={this.props.manaStore.accessHistogramInput} title={"Access Mana Distribution"}/>
+                    </Col>
+                    <Col>
+                        <ManaHistogram data={this.props.manaStore.consensusHistogramInput} title={"Consensus Mana Distribution"}/>
                     </Col>
                 </Row>
             </Container>
