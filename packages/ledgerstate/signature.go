@@ -38,7 +38,7 @@ func (s SignatureType) String() string {
 
 // region Signature ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Signature is an interface for the different kind of Signatures that are support by the ledger state.
+// Signature is an interface for the different kinds of Signatures that are supported by the ledger state.
 type Signature interface {
 	// Type returns the SignatureType of this Signature.
 	Type() SignatureType
