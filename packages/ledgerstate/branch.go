@@ -2,8 +2,10 @@ package ledgerstate
 
 import (
 	"strings"
+	"sync"
 
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
@@ -147,10 +149,10 @@ func BranchIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchIDs B
 }
 
 // Slice creates a slice of BranchIDs from the collection.
-func (branchIDs BranchIDs) Slice() (list []BranchID) {
-	list = make([]BranchID, len(branchIDs))
+func (b BranchIDs) Slice() (list []BranchID) {
+	list = make([]BranchID, len(b))
 	i := 0
-	for branchID := range branchIDs {
+	for branchID := range b {
 		list[i] = branchID
 		i++
 	}
@@ -159,10 +161,10 @@ func (branchIDs BranchIDs) Slice() (list []BranchID) {
 }
 
 // Bytes returns a marshaled version of the BranchIDs.
-func (branchIDs BranchIDs) Bytes() []byte {
-	marshalUtil := marshalutil.New(marshalutil.INT64_SIZE + len(branchIDs)*BranchIDLength)
-	marshalUtil.WriteUint64(uint64(len(branchIDs)))
-	for branchID := range branchIDs {
+func (b BranchIDs) Bytes() []byte {
+	marshalUtil := marshalutil.New(marshalutil.INT64_SIZE + len(b)*BranchIDLength)
+	marshalUtil.WriteUint64(uint64(len(b)))
+	for branchID := range b {
 		marshalUtil.WriteBytes(branchID.Bytes())
 	}
 
@@ -170,13 +172,13 @@ func (branchIDs BranchIDs) Bytes() []byte {
 }
 
 // String returns a human readable version of the BranchIDs.
-func (branchIDs BranchIDs) String() string {
-	if len(branchIDs) == 0 {
+func (b BranchIDs) String() string {
+	if len(b) == 0 {
 		return "BranchIDs{}"
 	}
 
 	result := "BranchIDs{\n"
-	for branchID := range branchIDs {
+	for branchID := range b {
 		result += strings.Repeat(" ", stringify.INDENTATION_SIZE) + branchID.String() + ",\n"
 	}
 	result += "}"
@@ -190,6 +192,26 @@ func (branchIDs BranchIDs) String() string {
 
 // Branch represents a container for Transactions and Outputs representing a certain perception of the ledger state.
 type Branch struct {
+	id                  BranchID
+	parentBranches      BranchIDs
+	parentBranchesMutex sync.RWMutex
+	conflicts           ConflictIDs
+	conflictsMutex      sync.RWMutex
+
+	objectstorage.StorableObjectFlags
+}
+
+// BranchID returns the identifier of this Branch.
+func (b *Branch) BranchID() BranchID {
+	return b.id
+}
+
+// ParentBranches returns the parents in the BranchDAG of this Branch.
+func (b *Branch) ParentBranches() BranchIDs {
+	b.parentBranchesMutex.RLock()
+	defer b.parentBranchesMutex.RUnlock()
+
+	return b.parentBranches
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
