@@ -221,6 +221,16 @@ func ConflictFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflict *Co
 	return
 }
 
+// ConflictFromObjectStorage restores a Conflict object that was stored in the ObjectStorage.
+func ConflictFromObjectStorage(key []byte, data []byte) (outputMetadata *Conflict, err error) {
+	if outputMetadata, _, err = ConflictFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
+		err = xerrors.Errorf("failed to parse Conflict from bytes: %w", err)
+		return
+	}
+
+	return
+}
+
 // ID returns the identifier of this Conflict.
 func (c *Conflict) ID() ConflictID {
 	return c.id
@@ -301,5 +311,65 @@ func (c *Conflict) ObjectStorageValue() []byte {
 
 // code contract (make sure the type implements all required methods)
 var _ objectstorage.StorableObject = &Conflict{}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region CachedConflict ///////////////////////////////////////////////////////////////////////////////////////////////
+
+// CachedConflict is a wrapper for the generic CachedObject returned by the objectstorage that overrides the accessor
+// methods with a type-casted one.
+type CachedConflict struct {
+	objectstorage.CachedObject
+}
+
+// Retain marks this CachedObject to still be in use by the program.
+func (cachedConflict *CachedConflict) Retain() *CachedConflict {
+	return &CachedConflict{cachedConflict.CachedObject.Retain()}
+}
+
+// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
+func (cachedConflict *CachedConflict) Unwrap() *Conflict {
+	untypedObject := cachedConflict.Get()
+	if untypedObject == nil {
+		return nil
+	}
+
+	typedObject := untypedObject.(*Conflict)
+	if typedObject == nil || typedObject.IsDeleted() {
+		return nil
+	}
+
+	return typedObject
+}
+
+// Consume unwraps the CachedObject and passes a type-casted version to the consumer. It automatically releases the
+// object when the consumer finishes and returns true of there was at least one object that was consumed.
+func (cachedConflict *CachedConflict) Consume(consumer func(conflict *Conflict), forceRelease ...bool) (consumed bool) {
+	return cachedConflict.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*Conflict))
+	}, forceRelease...)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region ConflictMember ///////////////////////////////////////////////////////////////////////////////////////////////
+
+// ConflictMember represents the relationship between a Conflict and its Branches. Since a Conflict can have a
+// potentially unbounded amount of conflicting Consumers, we store this as a separate k/v pair instead of a marshaled
+// ist of members inside the Branch.
+type ConflictMember struct {
+	conflictID ConflictID
+	branchID   BranchID
+
+	objectstorage.StorableObjectFlags
+}
+
+// NewConflictMember is the constructor of the ConflictMember reference.
+func NewConflictMember(conflictID ConflictID, branchID BranchID) *ConflictMember {
+	return &ConflictMember{
+		conflictID: conflictID,
+		branchID:   branchID,
+	}
+}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
