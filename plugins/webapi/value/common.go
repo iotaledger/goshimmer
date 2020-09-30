@@ -1,10 +1,14 @@
-package utils
+package value
 
 import (
+	"time"
+
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 )
+
+var maxBookedAwaitTime = 5 * time.Second
 
 // ParseTransaction handle transaction json object.
 func ParseTransaction(t *transaction.Transaction) (txn Transaction) {
@@ -50,6 +54,19 @@ type Transaction struct {
 	DataPayload []byte   `json:"data_payload"`
 }
 
+// OutputID holds the output id and its inclusion state
+type OutputID struct {
+	ID             string         `json:"id"`
+	Balances       []Balance      `json:"balances"`
+	InclusionState InclusionState `json:"inclusion_state"`
+}
+
+// UnspentOutput holds the address and the corresponding unspent output ids
+type UnspentOutput struct {
+	Address   string     `json:"address"`
+	OutputIDs []OutputID `json:"output_ids"`
+}
+
 // Output consists an address and balances
 type Output struct {
 	Address  string    `json:"address"`
@@ -71,4 +88,11 @@ type InclusionState struct {
 	Conflicting bool `json:"conflicting,omitempty"`
 	Finalized   bool `json:"finalized,omitempty"`
 	Preferred   bool `json:"preferred,omitempty"`
+}
+
+// Signature defines the struct of a signature.
+type Signature struct {
+	Version   byte   `json:"version"`
+	PublicKey string `json:"publicKey"`
+	Signature string `json:"signature"`
 }

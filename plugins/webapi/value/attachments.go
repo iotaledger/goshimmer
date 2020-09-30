@@ -1,21 +1,20 @@
-package attachments
+package value
 
 import (
 	"net/http"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/plugins/webapi/value/utils"
 	"github.com/labstack/echo"
 	"github.com/labstack/gommon/log"
 )
 
-// Handler gets the value attachments.
-func Handler(c echo.Context) error {
+// attachmentsHandler gets the value attachments.
+func attachmentsHandler(c echo.Context) error {
 	txnID, err := transaction.IDFromBase58(c.QueryParam("txnID"))
 	if err != nil {
 		log.Info(err)
-		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, AttachmentsResponse{Error: err.Error()})
 	}
 
 	var valueObjs []ValueObject
@@ -24,9 +23,9 @@ func Handler(c echo.Context) error {
 	txnObj := valuetransfers.Tangle().Transaction(txnID)
 	defer txnObj.Release()
 	if !txnObj.Exists() {
-		return c.JSON(http.StatusNotFound, Response{Error: "Transaction not found"})
+		return c.JSON(http.StatusNotFound, AttachmentsResponse{Error: "Transaction not found"})
 	}
-	txn := utils.ParseTransaction(txnObj.Unwrap())
+	txn := ParseTransaction(txnObj.Unwrap())
 
 	// get attachments by txn id
 	for _, attachmentObj := range valuetransfers.Tangle().Attachments(txnID) {
@@ -53,19 +52,19 @@ func Handler(c echo.Context) error {
 		})
 	}
 
-	return c.JSON(http.StatusOK, Response{Attachments: valueObjs})
+	return c.JSON(http.StatusOK, AttachmentsResponse{Attachments: valueObjs})
 }
 
-// Response is the HTTP response from retrieving value objects.
-type Response struct {
+// AttachmentsResponse is the HTTP response from retrieving value objects.
+type AttachmentsResponse struct {
 	Attachments []ValueObject `json:"attachments,omitempty"`
 	Error       string        `json:"error,omitempty"`
 }
 
 // ValueObject holds the information of a value object.
 type ValueObject struct {
-	ID          string            `json:"id"`
-	Parent1ID   string            `json:"parent1_id"`
-	Parent2ID   string            `json:"parent2_id"`
-	Transaction utils.Transaction `json:"transaction"`
+	ID          string      `json:"id"`
+	Parent1ID   string      `json:"parent1_id"`
+	Parent2ID   string      `json:"parent2_id"`
+	Transaction Transaction `json:"transaction"`
 }

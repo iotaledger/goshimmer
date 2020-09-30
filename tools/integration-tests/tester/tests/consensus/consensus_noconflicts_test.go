@@ -12,7 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/plugins/webapi/value/utils"
+	valueutils "github.com/iotaledger/goshimmer/plugins/webapi/value"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 	"github.com/mr-tron/base58/base58"
 	"github.com/stretchr/testify/require"
@@ -55,7 +55,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 	log.Printf("issuing transaction spending genesis to %d addresses", depositCount)
 	tx := transaction.New(transaction.NewInputs(genesisOutputID), transaction.NewOutputs(firstReceiverDepositOutputs))
 	tx = tx.Sign(signaturescheme.ED25519(*genesisSeed.KeyPair(0)))
-	utilsTx := utils.ParseTransaction(tx)
+	utilsTx := valueutils.ParseTransaction(tx)
 
 	txID, err := n.Peers()[0].SendTransaction(tx.Bytes())
 	require.NoError(t, err)
@@ -103,7 +103,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 		txID, err := n.Peers()[rand.Intn(len(n.Peers()))].SendTransaction(tx.Bytes())
 		require.NoError(t, err)
 
-		utilsTx := utils.ParseTransaction(tx)
+		utilsTx := valueutils.ParseTransaction(tx)
 		secondReceiverExpectedBalances[addr.String()] = map[balance.Color]int64{balance.ColorIOTA: deposit}
 		secondReceiverExpectedTransactions[txID] = &tests.ExpectedTransaction{
 			Inputs: &utilsTx.Inputs, Outputs: &utilsTx.Outputs, Signature: &utilsTx.Signature,

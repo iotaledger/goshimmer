@@ -1,21 +1,20 @@
-package unspentoutputs
+package value
 
 import (
 	"net/http"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
-	"github.com/iotaledger/goshimmer/plugins/webapi/value/utils"
 	"github.com/labstack/echo"
 	"github.com/labstack/gommon/log"
 )
 
-// Handler gets the unspent outputs.
-func Handler(c echo.Context) error {
-	var request Request
+// unspentOutputsHandler gets the unspent outputs.
+func unspentOutputsHandler(c echo.Context) error {
+	var request UnspentOutputsRequest
 	if err := c.Bind(&request); err != nil {
 		log.Info(err.Error())
-		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, UnspentOutputsResponse{Error: err.Error()})
 	}
 
 	var unspents []UnspentOutput
@@ -38,15 +37,15 @@ func Handler(c echo.Context) error {
 
 			if output.ConsumerCount() == 0 {
 				// iterate balances
-				var b []utils.Balance
+				var b []Balance
 				for _, balance := range output.Balances() {
-					b = append(b, utils.Balance{
+					b = append(b, Balance{
 						Value: balance.Value,
 						Color: balance.Color.String(),
 					})
 				}
 
-				inclusionState := utils.InclusionState{}
+				inclusionState := InclusionState{}
 				if cachedTxMeta.Exists() {
 					txMeta := cachedTxMeta.Unwrap()
 					inclusionState.Confirmed = txMeta.Confirmed()
@@ -70,30 +69,17 @@ func Handler(c echo.Context) error {
 		})
 	}
 
-	return c.JSON(http.StatusOK, Response{UnspentOutputs: unspents})
+	return c.JSON(http.StatusOK, UnspentOutputsResponse{UnspentOutputs: unspents})
 }
 
-// Request holds the addresses to query.
-type Request struct {
+// UnspentOutputsRequest holds the addresses to query.
+type UnspentOutputsRequest struct {
 	Addresses []string `json:"addresses,omitempty"`
 	Error     string   `json:"error,omitempty"`
 }
 
-// Response is the HTTP response from retrieving value objects.
-type Response struct {
+// UnspentOutputsResponse is the HTTP response from retrieving value objects.
+type UnspentOutputsResponse struct {
 	UnspentOutputs []UnspentOutput `json:"unspent_outputs,omitempty"`
 	Error          string          `json:"error,omitempty"`
-}
-
-// UnspentOutput holds the address and the corresponding unspent output ids
-type UnspentOutput struct {
-	Address   string     `json:"address"`
-	OutputIDs []OutputID `json:"output_ids"`
-}
-
-// OutputID holds the output id and its inclusion state
-type OutputID struct {
-	ID             string               `json:"id"`
-	Balances       []utils.Balance      `json:"balances"`
-	InclusionState utils.InclusionState `json:"inclusion_state"`
 }
