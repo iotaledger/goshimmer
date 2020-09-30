@@ -159,7 +159,7 @@ func ColoredBalancesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (color
 
 		balance, balanceErr := marshalUtil.ReadUint64()
 		if balanceErr != nil {
-			err = xerrors.Errorf("failed to parse balance (%v): %w", balanceErr, ErrParseBytesFailed)
+			err = xerrors.Errorf("failed to parse balance of Color %s (%v): %w", color.String(), balanceErr, ErrParseBytesFailed)
 			return
 		}
 
