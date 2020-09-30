@@ -6,6 +6,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/cli"
+	"github.com/iotaledger/goshimmer/plugins/clock"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/drng"
@@ -47,4 +48,5 @@ var PLUGINS = node.Plugins(
 	syncbeacon.Plugin(),
 	syncbeaconfollower.Plugin(),
 	spammer.Plugin(),
+	clock.Plugin(),
 )
