@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/webapi/healthz"
 	"github.com/iotaledger/goshimmer/plugins/webapi/info"
 	"github.com/iotaledger/goshimmer/plugins/webapi/message"
-	"github.com/iotaledger/goshimmer/plugins/webapi/spammer"
 	"github.com/iotaledger/goshimmer/plugins/webapi/tools"
 	"github.com/iotaledger/goshimmer/plugins/webapi/value"
 	"github.com/iotaledger/goshimmer/plugins/webauth"
@@ -20,7 +19,6 @@ import (
 var PLUGINS = node.Plugins(
 	webapi.Plugin(),
 	webauth.Plugin(),
-	spammer.Plugin(),
 	data.Plugin(),
 	drng.Plugin(),
 	faucet.Plugin(),

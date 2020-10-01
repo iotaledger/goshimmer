@@ -1,4 +1,4 @@
-package tips
+package value
 
 import (
 	"net/http"
@@ -9,11 +9,11 @@ import (
 	"github.com/labstack/echo"
 )
 
-// Handler gets the value object info from the tips.
-func Handler(c echo.Context) error {
-	result := make([]ValueObject, valuetransfers.TipManager().Size())
+// TipsHandler gets the value object info from the tips.
+func TipsHandler(c echo.Context) error {
+	result := make([]Object, valuetransfers.TipManager().Size())
 	for i, valueID := range valuetransfers.TipManager().AllTips() {
-		var obj ValueObject
+		var obj Object
 		valuetransfers.Tangle().PayloadMetadata(valueID).Consume(func(payloadMetadata *tangle.PayloadMetadata) {
 			obj.ID = payloadMetadata.PayloadID().String()
 			obj.Solid = payloadMetadata.IsSolid()
@@ -29,22 +29,11 @@ func Handler(c echo.Context) error {
 
 		result[i] = obj
 	}
-	return c.JSON(http.StatusOK, Response{ValueObjects: result})
+	return c.JSON(http.StatusOK, TipsResponse{ValueObjects: result})
 }
 
-// Response is the HTTP response from retrieving value objects.
-type Response struct {
-	ValueObjects []ValueObject `json:"value_objects,omitempty"`
-	Error        string        `json:"error,omitempty"`
-}
-
-// ValueObject holds the info of a ValueObject
-type ValueObject struct {
-	ID            string `json:"id"`
-	Solid         bool   `json:"solid"`
-	Liked         bool   `json:"liked"`
-	Confirmed     bool   `json:"confirmed"`
-	Rejected      bool   `json:"rejected"`
-	BranchID      string `json:"branch_id"`
-	TransactionID string `json:"transaction_id"`
+// TipsResponse is the HTTP response from retrieving value objects.
+type TipsResponse struct {
+	ValueObjects []Object `json:"value_objects,omitempty"`
+	Error        string   `json:"error,omitempty"`
 }

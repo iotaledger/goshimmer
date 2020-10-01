@@ -1,4 +1,4 @@
-package objects
+package value
 
 import (
 	"container/list"
@@ -10,12 +10,12 @@ import (
 	"github.com/labstack/echo"
 )
 
-// Handler returns the list of value objects.
-func Handler(c echo.Context) error {
-	result := []ValueObject{}
+// ObjectsHandler returns the list of value objects.
+func ObjectsHandler(c echo.Context) error {
+	result := []Object{}
 
 	for _, valueID := range Approvers(payload.GenesisID) {
-		var obj ValueObject
+		var obj Object
 
 		valuetransfers.Tangle().Payload(valueID).Consume(func(p *payload.Payload) {
 			obj.Parent1 = p.Parent1ID().String()
@@ -36,27 +36,13 @@ func Handler(c echo.Context) error {
 
 		result = append(result, obj)
 	}
-	return c.JSON(http.StatusOK, Response{ValueObjects: result})
+	return c.JSON(http.StatusOK, ObjectsResponse{ValueObjects: result})
 }
 
-// Response is the HTTP response from retrieving value objects.
-type Response struct {
-	ValueObjects []ValueObject `json:"value_objects,omitempty"`
-	Error        string        `json:"error,omitempty"`
-}
-
-// ValueObject holds the info of a ValueObject
-type ValueObject struct {
-	Parent1       string `json:"parent_1"`
-	Parent2       string `json:"parent_2"`
-	ID            string `json:"id"`
-	Tip           bool   `json:"tip"`
-	Solid         bool   `json:"solid"`
-	Liked         bool   `json:"liked"`
-	Confirmed     bool   `json:"confirmed"`
-	Rejected      bool   `json:"rejected"`
-	BranchID      string `json:"branch_id"`
-	TransactionID string `json:"transaction_id"`
+// ObjectsResponse is the HTTP response from retrieving value objects.
+type ObjectsResponse struct {
+	ValueObjects []Object `json:"value_objects,omitempty"`
+	Error        string   `json:"error,omitempty"`
 }
 
 // Approvers returns the list of approvers up to the tips.

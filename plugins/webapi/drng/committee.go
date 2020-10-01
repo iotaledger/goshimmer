@@ -1,4 +1,4 @@
-package committee
+package drng
 
 import (
 	"encoding/hex"
@@ -9,14 +9,14 @@ import (
 	"github.com/mr-tron/base58"
 )
 
-// Handler returns the current DRNG committee used.
-func Handler(c echo.Context) error {
+// committeeHandler returns the current DRNG committee used.
+func committeeHandler(c echo.Context) error {
 	committee := drng.Instance().State.Committee()
 	identities := []string{}
 	for _, pk := range committee.Identities {
 		identities = append(identities, base58.Encode(pk[:]))
 	}
-	return c.JSON(http.StatusOK, Response{
+	return c.JSON(http.StatusOK, CommitteeResponse{
 		InstanceID:    committee.InstanceID,
 		Threshold:     committee.Threshold,
 		Identities:    identities,
@@ -24,8 +24,8 @@ func Handler(c echo.Context) error {
 	})
 }
 
-// Response is the HTTP message containing the DRNG committee.
-type Response struct {
+// CommitteeResponse is the HTTP message containing the DRNG committee.
+type CommitteeResponse struct {
 	InstanceID    uint32   `json:"instanceID,omitempty"`
 	Threshold     uint8    `json:"threshold,omitempty"`
 	Identities    []string `json:"identities,omitempty"`

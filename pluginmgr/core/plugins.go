@@ -6,6 +6,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/cli"
+	"github.com/iotaledger/goshimmer/plugins/clock"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/drng"
@@ -18,6 +19,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/portcheck"
 	"github.com/iotaledger/goshimmer/plugins/pow"
 	"github.com/iotaledger/goshimmer/plugins/profiling"
+	"github.com/iotaledger/goshimmer/plugins/spammer"
 	"github.com/iotaledger/goshimmer/plugins/syncbeacon"
 	"github.com/iotaledger/goshimmer/plugins/syncbeaconfollower"
 
@@ -45,4 +47,6 @@ var PLUGINS = node.Plugins(
 	valuetransfers.App(),
 	syncbeacon.Plugin(),
 	syncbeaconfollower.Plugin(),
+	spammer.Plugin(),
+	clock.Plugin(),
 )

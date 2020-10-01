@@ -1,9 +1,8 @@
-package sendtransaction
+package value
 
 import (
 	"net/http"
 	"sync"
-	"time"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
@@ -11,55 +10,52 @@ import (
 	"github.com/labstack/echo"
 )
 
-var (
-	sendTxMu           sync.Mutex
-	maxBookedAwaitTime = 5 * time.Second
-)
+var sendTxMu sync.Mutex
 
-// Handler sends a transaction.
-func Handler(c echo.Context) error {
+// sendTransactionHandler sends a transaction.
+func sendTransactionHandler(c echo.Context) error {
 	sendTxMu.Lock()
 	defer sendTxMu.Unlock()
 
-	var request Request
+	var request SendTransactionRequest
 	if err := c.Bind(&request); err != nil {
-		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: err.Error()})
 	}
 
 	// prepare transaction
 	tx, _, err := transaction.FromBytes(request.TransactionBytes)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: err.Error()})
 	}
 
 	err = valuetransfers.Tangle().ValidateTransactionToAttach(tx)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: err.Error()})
 	}
 
 	// Prepare value payload and send the message to tangle
 	payload, err := valuetransfers.ValueObjectFactory().IssueTransaction(tx)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: err.Error()})
 	}
 	_, err = issuer.IssuePayload(payload)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: err.Error()})
 	}
 
 	if err := valuetransfers.AwaitTransactionToBeBooked(tx.ID(), maxBookedAwaitTime); err != nil {
-		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: err.Error()})
 	}
-	return c.JSON(http.StatusOK, Response{TransactionID: tx.ID().String()})
+	return c.JSON(http.StatusOK, SendTransactionResponse{TransactionID: tx.ID().String()})
 }
 
-// Request holds the transaction object(bytes) to send.
-type Request struct {
+// SendTransactionRequest holds the transaction object(bytes) to send.
+type SendTransactionRequest struct {
 	TransactionBytes []byte `json:"txn_bytes"`
 }
 
-// Response is the HTTP response from sending transaction.
-type Response struct {
+// SendTransactionResponse is the HTTP response from sending transaction.
+type SendTransactionResponse struct {
 	TransactionID string `json:"transaction_id,omitempty"`
 	Error         string `json:"error,omitempty"`
 }
