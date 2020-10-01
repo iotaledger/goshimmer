@@ -16,12 +16,12 @@ import (
 // region ConflictID ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ConflictIDLength contains the amount of bytes that a marshaled version of the ConflictID contains.
-const ConflictIDLength = 32
+const ConflictIDLength = OutputIDLength
 
 // ConflictID is the data type that represents the identifier of a Conflict.
 type ConflictID [ConflictIDLength]byte
 
-// NewConflictID creates a new ConflictID from a OutputID.
+// NewConflictID creates a new ConflictID from an OutputID.
 func NewConflictID(outputID OutputID) (conflictID ConflictID) {
 	copy(conflictID[:], outputID[:])
 
@@ -90,7 +90,7 @@ func (c ConflictID) String() string {
 // ConflictIDs represents a collection of ConflictIDs.
 type ConflictIDs map[ConflictID]types.Empty
 
-// NewConflictIDs creates a new collection of ConflictIDs from the given ConflictIDs.
+// NewConflictIDs creates a new collection of ConflictIDs from the given list of ConflictIDs.
 func NewConflictIDs(branches ...ConflictID) (conflictIDs ConflictIDs) {
 	conflictIDs = make(ConflictIDs)
 	for _, conflictID := range branches {
@@ -116,7 +116,7 @@ func ConflictIDsFromBytes(bytes []byte) (conflictIDs ConflictIDs, consumedBytes 
 func ConflictIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictIDs ConflictIDs, err error) {
 	conflictIDsCount, err := marshalUtil.ReadUint64()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse ConflictIDs count (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse amount of ConflictIDs (%v): %w", err, ErrParseBytesFailed)
 		return
 	}
 
@@ -134,7 +134,7 @@ func ConflictIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictI
 	return
 }
 
-// Slice creates a slice of ConflictIDs from the collection.
+// Slice returns a slice of ConflictIDs.
 func (c ConflictIDs) Slice() (list []ConflictID) {
 	list = make([]ConflictID, len(c))
 	i := 0
@@ -323,13 +323,13 @@ type CachedConflict struct {
 }
 
 // Retain marks this CachedObject to still be in use by the program.
-func (cachedConflict *CachedConflict) Retain() *CachedConflict {
-	return &CachedConflict{cachedConflict.CachedObject.Retain()}
+func (c *CachedConflict) Retain() *CachedConflict {
+	return &CachedConflict{c.CachedObject.Retain()}
 }
 
 // Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
-func (cachedConflict *CachedConflict) Unwrap() *Conflict {
-	untypedObject := cachedConflict.Get()
+func (c *CachedConflict) Unwrap() *Conflict {
+	untypedObject := c.Get()
 	if untypedObject == nil {
 		return nil
 	}
@@ -344,8 +344,8 @@ func (cachedConflict *CachedConflict) Unwrap() *Conflict {
 
 // Consume unwraps the CachedObject and passes a type-casted version to the consumer. It automatically releases the
 // object when the consumer finishes and returns true of there was at least one object that was consumed.
-func (cachedConflict *CachedConflict) Consume(consumer func(conflict *Conflict), forceRelease ...bool) (consumed bool) {
-	return cachedConflict.CachedObject.Consume(func(object objectstorage.StorableObject) {
+func (c *CachedConflict) Consume(consumer func(conflict *Conflict), forceRelease ...bool) (consumed bool) {
+	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*Conflict))
 	}, forceRelease...)
 }
@@ -354,9 +354,12 @@ func (cachedConflict *CachedConflict) Consume(consumer func(conflict *Conflict),
 
 // region ConflictMember ///////////////////////////////////////////////////////////////////////////////////////////////
 
-// ConflictMember represents the relationship between a Conflict and its Branches. Since a Conflict can have a
-// potentially unbounded amount of conflicting Consumers, we store this as a separate k/v pair instead of a marshaled
-// ist of members inside the Branch.
+// ConflictMemberKeyPartition defines the partition of the storage key of the ConflictMember model.
+var ConflictMemberKeyPartition = objectstorage.PartitionKey(ConflictIDLength, BranchIDLength)
+
+// ConflictMember represents the relationship between a Conflict and its Branches. Since an Output can have a
+// potentially unbounded amount of conflicting Consumers, we store the membership of the Branches in the corresponding
+// Conflicts as a separate k/v pair instead of a marshaled list of members inside the Branch.
 type ConflictMember struct {
 	conflictID ConflictID
 	branchID   BranchID
@@ -414,5 +417,43 @@ func (c *ConflictMember) ObjectStorageValue() []byte {
 
 // code contract (make sure the type implements all required methods)
 var _ objectstorage.StorableObject = &ConflictMember{}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region CachedConflictMember /////////////////////////////////////////////////////////////////////////////////////////
+
+// CachedConflictMember is a wrapper for the generic CachedObject returned by the objectstorage that overrides the
+// accessor methods with a type-casted one.
+type CachedConflictMember struct {
+	objectstorage.CachedObject
+}
+
+// Retain marks this CachedObject to still be in use by the program.
+func (c *CachedConflictMember) Retain() *CachedConflictMember {
+	return &CachedConflictMember{c.CachedObject.Retain()}
+}
+
+// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
+func (c *CachedConflictMember) Unwrap() *ConflictMember {
+	untypedObject := c.Get()
+	if untypedObject == nil {
+		return nil
+	}
+
+	typedObject := untypedObject.(*ConflictMember)
+	if typedObject == nil || typedObject.IsDeleted() {
+		return nil
+	}
+
+	return typedObject
+}
+
+// Consume unwraps the CachedObject and passes a type-casted version to the consumer. It automatically releases the
+// object when the consumer finishes and returns true of there was at least one object that was consumed.
+func (c *CachedConflictMember) Consume(consumer func(conflictMember *ConflictMember), forceRelease ...bool) (consumed bool) {
+	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*ConflictMember))
+	}, forceRelease...)
+}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
