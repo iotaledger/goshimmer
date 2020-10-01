@@ -372,4 +372,47 @@ func NewConflictMember(conflictID ConflictID, branchID BranchID) *ConflictMember
 	}
 }
 
+// ConflictID returns the identifier of the Conflict that this ConflictMember belongs to.
+func (c *ConflictMember) ConflictID() ConflictID {
+	return c.conflictID
+}
+
+// BranchID returns the identifier of the Branch that this ConflictMember references.
+func (c *ConflictMember) BranchID() BranchID {
+	return c.branchID
+}
+
+// Bytes returns a marshaled version of this ConflictMember.
+func (c *ConflictMember) Bytes() []byte {
+	return c.ObjectStorageKey()
+}
+
+// String returns a human readable version of this ConflictMember.
+func (c *ConflictMember) String() string {
+	return stringify.Struct("ConflictMember",
+		stringify.StructField("conflictID", c.conflictID),
+		stringify.StructField("branchID", c.branchID),
+	)
+}
+
+// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
+func (c *ConflictMember) Update(objectstorage.StorableObject) {
+	panic("updates disabled")
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (c *ConflictMember) ObjectStorageKey() []byte {
+	return byteutils.ConcatBytes(c.conflictID.Bytes(), c.branchID.Bytes())
+}
+
+// ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
+// a key in the ObjectStorage.
+func (c *ConflictMember) ObjectStorageValue() []byte {
+	return nil
+}
+
+// code contract (make sure the type implements all required methods)
+var _ objectstorage.StorableObject = &ConflictMember{}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
