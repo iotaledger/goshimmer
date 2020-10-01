@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/storageprefix"
+	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/hive.go/async"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/objectstorage"
@@ -44,7 +44,7 @@ type Tangle struct {
 
 // New creates a new Tangle.
 func New(store kvstore.KVStore) (result *Tangle) {
-	osFactory := objectstorage.NewFactory(store, storageprefix.MessageLayer)
+	osFactory := objectstorage.NewFactory(store, database.PrefixMessageLayer)
 
 	result = &Tangle{
 		shutdown:               make(chan struct{}),
