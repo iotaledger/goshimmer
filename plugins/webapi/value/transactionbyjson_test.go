@@ -1,4 +1,4 @@
-package sendtransactionbyjson
+package value
 
 import (
 	"testing"
@@ -7,7 +7,6 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/plugins/webapi/value/utils"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/mr-tron/base58/base58"
 	"github.com/stretchr/testify/assert"
@@ -46,9 +45,9 @@ func TestNewTransactionFromJSON(t *testing.T) {
 	// Parse outputs to base58
 	outputsBase58 := []Output{}
 	outputs.ForEach(func(address address.Address, balances []*balance.Balance) bool {
-		var b []utils.Balance
+		var b []Balance
 		for _, balance := range balances {
-			b = append(b, utils.Balance{
+			b = append(b, Balance{
 				Value: balance.Value,
 				Color: balance.Color.String(),
 			})
@@ -73,7 +72,7 @@ func TestNewTransactionFromJSON(t *testing.T) {
 	}
 
 	// create tx JSON
-	jsonRequest := Request{
+	jsonRequest := SendTransactionByJSONRequest{
 		Inputs:     inputsBase58,
 		Outputs:    outputsBase58,
 		Data:       []byte("TEST"),

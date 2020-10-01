@@ -1,4 +1,4 @@
-package pastcone
+package message
 
 import (
 	"container/list"
@@ -10,17 +10,17 @@ import (
 	"github.com/labstack/echo"
 )
 
-// Handler process a pastcone request.
-func Handler(c echo.Context) error {
+// PastconeHandler process a pastcone request.
+func PastconeHandler(c echo.Context) error {
 	var checkedMessageCount int
-	var request Request
+	var request PastconeRequest
 	if err := c.Bind(&request); err != nil {
-		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, PastconeResponse{Error: err.Error()})
 	}
 
 	msgID, err := tangle.NewMessageID(request.ID)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, PastconeResponse{Error: err.Error()})
 	}
 
 	// create a new stack that hold messages to check
@@ -43,7 +43,7 @@ func Handler(c echo.Context) error {
 		msgMetadataObject := messagelayer.Tangle().MessageMetadata(currentMsgID)
 
 		if !msgObject.Exists() || !msgMetadataObject.Exists() {
-			return c.JSON(http.StatusOK, Response{Exist: false, PastConeSize: checkedMessageCount, Error: fmt.Sprintf("couldn't find %s message on node", currentMsgID)})
+			return c.JSON(http.StatusOK, PastconeResponse{Exist: false, PastConeSize: checkedMessageCount, Error: fmt.Sprintf("couldn't find %s message on node", currentMsgID)})
 		}
 
 		// get parent1 and parent2
@@ -69,17 +69,17 @@ func Handler(c echo.Context) error {
 			}
 		}
 	}
-	return c.JSON(http.StatusOK, Response{Exist: true, PastConeSize: checkedMessageCount})
+	return c.JSON(http.StatusOK, PastconeResponse{Exist: true, PastConeSize: checkedMessageCount})
 }
 
-// Request holds the message id to query.
-type Request struct {
+// PastconeRequest holds the message id to query.
+type PastconeRequest struct {
 	ID string `json:"id"`
 }
 
-// Response is the HTTP response containing the number of messages in the past cone and if all messages of the past cone
+// PastconeResponse is the HTTP response containing the number of messages in the past cone and if all messages of the past cone
 // exist on the node.
-type Response struct {
+type PastconeResponse struct {
 	Exist        bool   `json:"exist,omitempty"`
 	PastConeSize int    `json:"pastConeSize,omitempty"`
 	Error        string `json:"error,omitempty"`

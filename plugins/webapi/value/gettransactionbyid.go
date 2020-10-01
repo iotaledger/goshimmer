@@ -1,39 +1,38 @@
-package gettransactionbyid
+package value
 
 import (
 	"net/http"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/plugins/webapi/value/utils"
 	"github.com/labstack/echo"
 )
 
-// Handler gets the transaction by id.
-func Handler(c echo.Context) error {
+// getTransactionByIDHandler gets the transaction by id.
+func getTransactionByIDHandler(c echo.Context) error {
 	txnID, err := transaction.IDFromBase58(c.QueryParam("txnID"))
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, GetTransactionByIDResponse{Error: err.Error()})
 	}
 
 	// get txn by txn id
 	cachedTxnMetaObj := valuetransfers.Tangle().TransactionMetadata(txnID)
 	defer cachedTxnMetaObj.Release()
 	if !cachedTxnMetaObj.Exists() {
-		return c.JSON(http.StatusNotFound, Response{Error: "Transaction not found"})
+		return c.JSON(http.StatusNotFound, GetTransactionByIDResponse{Error: "Transaction not found"})
 	}
 	cachedTxnObj := valuetransfers.Tangle().Transaction(txnID)
 	defer cachedTxnObj.Release()
 	if !cachedTxnObj.Exists() {
-		return c.JSON(http.StatusNotFound, Response{Error: "Transaction not found"})
+		return c.JSON(http.StatusNotFound, GetTransactionByIDResponse{Error: "Transaction not found"})
 	}
-	txn := utils.ParseTransaction(cachedTxnObj.Unwrap())
+	txn := ParseTransaction(cachedTxnObj.Unwrap())
 
 	txnMeta := cachedTxnMetaObj.Unwrap()
 	txnMeta.Preferred()
-	return c.JSON(http.StatusOK, Response{
+	return c.JSON(http.StatusOK, GetTransactionByIDResponse{
 		Transaction: txn,
-		InclusionState: utils.InclusionState{
+		InclusionState: InclusionState{
 			Confirmed:   txnMeta.Confirmed(),
 			Conflicting: txnMeta.Conflicting(),
 			Liked:       txnMeta.Liked(),
@@ -45,9 +44,9 @@ func Handler(c echo.Context) error {
 	})
 }
 
-// Response is the HTTP response from retrieving transaction.
-type Response struct {
-	Transaction    utils.Transaction    `json:"transaction,omitempty"`
-	InclusionState utils.InclusionState `json:"inclusion_state,omitempty"`
-	Error          string               `json:"error,omitempty"`
+// GetTransactionByIDResponse is the HTTP response from retrieving transaction.
+type GetTransactionByIDResponse struct {
+	Transaction    Transaction    `json:"transaction,omitempty"`
+	InclusionState InclusionState `json:"inclusion_state,omitempty"`
+	Error          string         `json:"error,omitempty"`
 }
