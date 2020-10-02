@@ -1,6 +1,7 @@
 package ledgerstate
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 
@@ -201,8 +202,8 @@ type Branch struct {
 	objectstorage.StorableObjectFlags
 }
 
-// BranchID returns the identifier of this Branch.
-func (b *Branch) BranchID() BranchID {
+// ID returns the identifier of this Branch.
+func (b *Branch) ID() BranchID {
 	return b.id
 }
 
@@ -212,6 +213,39 @@ func (b *Branch) ParentBranches() BranchIDs {
 	defer b.parentBranchesMutex.RUnlock()
 
 	return b.parentBranches
+}
+
+// UpdateParentBranch updates the parent of a non-aggregated Branch. Aggregated branches can not simply be "moved
+// around" by changing their parent and need to be re-aggregated (because their ID depends on their parents).
+func (b *Branch) UpdateParentBranch(newParentBranchID BranchID) (modified bool, err error) {
+	b.parentBranchesMutex.RLock()
+	if len(b.parentBranches) != 1 {
+		err = fmt.Errorf("tried to update parent of aggregated Branch '%s'", b.ID())
+
+		b.parentBranchesMutex.RUnlock()
+
+		return
+	}
+
+	if _, parentBranchExists := b.parentBranches[newParentBranchID]; parentBranchExists {
+		b.parentBranchesMutex.RUnlock()
+
+		return
+	}
+
+	b.parentBranchesMutex.RUnlock()
+	b.parentBranchesMutex.Lock()
+	defer b.parentBranchesMutex.Unlock()
+
+	if _, parentBranchExists := b.parentBranches[newParentBranchID]; parentBranchExists {
+		return
+	}
+
+	b.parentBranches = NewBranchIDs(newParentBranchID)
+	b.SetModified()
+	modified = true
+
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
