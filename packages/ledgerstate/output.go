@@ -316,10 +316,7 @@ func (s *SigLockedSingleOutput) UnlockValid(tx *Transaction, unlockBlock UnlockB
 		return
 	}
 
-	if unlockValid, err = signatureUnlockBlock.AddressSignatureValid(s.address, tx.UnsignedBytes()); err != nil {
-		err = xerrors.Errorf("failed to check signature: %w", err)
-		return
-	}
+	unlockValid = signatureUnlockBlock.AddressSignatureValid(s.address, tx.UnsignedBytes())
 
 	return
 }
@@ -464,10 +461,7 @@ func (s *SigLockedColoredOutput) UnlockValid(tx *Transaction, unlockBlock Unlock
 		return
 	}
 
-	if unlockValid, err = signatureUnlockBlock.AddressSignatureValid(s.address, tx.UnsignedBytes()); err != nil {
-		err = xerrors.Errorf("failed to check signature validity: %w", err)
-		return
-	}
+	unlockValid = signatureUnlockBlock.AddressSignatureValid(s.address, tx.UnsignedBytes())
 
 	return
 }

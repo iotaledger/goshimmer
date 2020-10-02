@@ -38,13 +38,13 @@ func (a UnlockBlockType) String() string {
 // UnlockBlock represents the interface to generically addresses different kinds of UnlockBlocks that contain different
 // information that can be used to unlock different kinds of Outputs.
 type UnlockBlock interface {
-	// Type returns the UnlockBlockType of this UnlockBlock.
+	// Type returns the UnlockBlockType of the UnlockBlock.
 	Type() UnlockBlockType
 
-	// Bytes returns a marshaled version of this UnlockBlock.
+	// Bytes returns a marshaled version of the UnlockBlock.
 	Bytes() []byte
 
-	// String returns a human readable version of this UnlockBlock.
+	// String returns a human readable version of the UnlockBlock.
 	String() string
 }
 
@@ -86,6 +86,65 @@ func UnlockBlockFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (unlockBlo
 	}
 
 	return
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region UnlockBlocks /////////////////////////////////////////////////////////////////////////////////////////////////
+
+// UnlockBlocks is slice of UnlockBlocks that offers additional methods for easier marshaling and unmarshaling.
+type UnlockBlocks []UnlockBlock
+
+// UnlockBlocksFromBytes unmarshals UnlockBlocks from a sequence of bytes.
+func UnlockBlocksFromBytes(bytes []byte) (unlockBlocks UnlockBlocks, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(bytes)
+	if unlockBlocks, err = UnlockBlocksFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse UnlockBlocks from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// UnlockBlocksFromMarshalUtil unmarshals UnlockBlocks using a MarshalUtil (for easier unmarshaling).
+func UnlockBlocksFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (unlockBlocks UnlockBlocks, err error) {
+	unlockBlockCount, err := marshalUtil.ReadUint16()
+	if err != nil {
+		err = xerrors.Errorf("failed to parse UnlockBlock count (%v): %w", err, ErrParseBytesFailed)
+		return
+	}
+
+	unlockBlocks = make(UnlockBlocks, unlockBlockCount)
+	for i := uint16(0); i < unlockBlockCount; i++ {
+		if unlockBlocks[i], err = UnlockBlockFromMarshalUtil(marshalUtil); err != nil {
+			err = xerrors.Errorf("failed to parse UnlockBlock from MarshalUtil: %w", err)
+			return
+		}
+	}
+
+	return
+}
+
+// Bytes returns a marshaled version of the UnlockBlocks.
+func (u UnlockBlocks) Bytes() []byte {
+	marshalUtil := marshalutil.New()
+	marshalUtil.WriteUint16(uint16(len(u)))
+	for _, unlockBlock := range u {
+		marshalUtil.WriteBytes(unlockBlock.Bytes())
+	}
+
+	return marshalUtil.Bytes()
+}
+
+// String returns a human readable version of the UnlockBlocks.
+func (u UnlockBlocks) String() string {
+	structBuilder := stringify.StructBuilder("UnlockBlocks")
+	for i, unlockBlock := range u {
+		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), unlockBlock))
+	}
+
+	return structBuilder.String()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -136,22 +195,22 @@ func SignatureUnlockBlockFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (
 	return
 }
 
-// AddressSignatureValid returns true if this UnlockBlock correctly signs the given Address.
-func (s *SignatureUnlockBlock) AddressSignatureValid(address Address, signedData []byte) (bool, error) {
-	return s.signature.AddressSignatureValid(address, signedData), nil
+// AddressSignatureValid returns true if the UnlockBlock correctly signs the given Address.
+func (s *SignatureUnlockBlock) AddressSignatureValid(address Address, signedData []byte) bool {
+	return s.signature.AddressSignatureValid(address, signedData)
 }
 
-// Type returns the UnlockBlockType of this UnlockBlock.
+// Type returns the UnlockBlockType of the UnlockBlock.
 func (s *SignatureUnlockBlock) Type() UnlockBlockType {
 	return SignatureUnlockBlockType
 }
 
-// Bytes returns a marshaled version of this UnlockBlock.
+// Bytes returns a marshaled version of the UnlockBlock.
 func (s *SignatureUnlockBlock) Bytes() []byte {
 	return byteutils.ConcatBytes([]byte{byte(SignatureUnlockBlockType)}, s.signature.Bytes())
 }
 
-// String returns a human readable version of this UnlockBlock.
+// String returns a human readable version of the UnlockBlock.
 func (s *SignatureUnlockBlock) String() string {
 	return stringify.Struct("SignatureUnlockBlock",
 		stringify.StructField("signature", s.signature),
@@ -215,12 +274,12 @@ func (r *ReferenceUnlockBlock) ReferencedIndex() uint16 {
 	return r.referencedIndex
 }
 
-// Type returns the UnlockBlockType of this UnlockBlock.
+// Type returns the UnlockBlockType of the UnlockBlock.
 func (r *ReferenceUnlockBlock) Type() UnlockBlockType {
 	return ReferenceUnlockBlockType
 }
 
-// Bytes returns a marshaled version of this UnlockBlock.
+// Bytes returns a marshaled version of the UnlockBlock.
 func (r *ReferenceUnlockBlock) Bytes() []byte {
 	return marshalutil.New(1 + marshalutil.UINT16_SIZE).
 		WriteByte(byte(ReferenceUnlockBlockType)).
@@ -228,7 +287,7 @@ func (r *ReferenceUnlockBlock) Bytes() []byte {
 		Bytes()
 }
 
-// String returns a human readable version of this UnlockBlock.
+// String returns a human readable version of the UnlockBlock.
 func (r *ReferenceUnlockBlock) String() string {
 	return stringify.Struct("ReferenceUnlockBlock",
 		stringify.StructField("referencedIndex", int(r.referencedIndex)),
@@ -237,64 +296,5 @@ func (r *ReferenceUnlockBlock) String() string {
 
 // code contract (make sure the type implements all required methods)
 var _ UnlockBlock = &ReferenceUnlockBlock{}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region UnlockBlocks /////////////////////////////////////////////////////////////////////////////////////////////////
-
-// UnlockBlocks is slice of UnlockBlocks that offers additional methods for easier marshaling and unmarshaling.
-type UnlockBlocks []UnlockBlock
-
-// UnlockBlocksFromBytes unmarshals UnlockBlocks from a sequence of bytes.
-func UnlockBlocksFromBytes(bytes []byte) (unlockBlocks UnlockBlocks, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if unlockBlocks, err = UnlockBlocksFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse UnlockBlocks from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// UnlockBlocksFromMarshalUtil unmarshals UnlockBlocks using a MarshalUtil (for easier unmarshaling).
-func UnlockBlocksFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (unlockBlocks UnlockBlocks, err error) {
-	unlockBlockCount, err := marshalUtil.ReadUint16()
-	if err != nil {
-		err = xerrors.Errorf("failed to parse UnlockBlock count (%v): %w", err, ErrParseBytesFailed)
-		return
-	}
-
-	unlockBlocks = make(UnlockBlocks, unlockBlockCount)
-	for i := uint16(0); i < unlockBlockCount; i++ {
-		if unlockBlocks[i], err = UnlockBlockFromMarshalUtil(marshalUtil); err != nil {
-			err = xerrors.Errorf("failed to parse UnlockBlock from MarshalUtil: %w", err)
-			return
-		}
-	}
-
-	return
-}
-
-// Bytes returns a marshaled version of the UnlockBlocks.
-func (u UnlockBlocks) Bytes() []byte {
-	marshalUtil := marshalutil.New()
-	marshalUtil.WriteUint16(uint16(len(u)))
-	for _, unlockBlock := range u {
-		marshalUtil.WriteBytes(unlockBlock.Bytes())
-	}
-
-	return marshalUtil.Bytes()
-}
-
-// String returns a human readable version of the UnlockBlocks.
-func (u UnlockBlocks) String() string {
-	structBuilder := stringify.StructBuilder("UnlockBlocks")
-	for i, unlockBlock := range u {
-		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), unlockBlock))
-	}
-
-	return structBuilder.String()
-}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
