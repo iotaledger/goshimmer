@@ -136,11 +136,9 @@ func ConflictIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictI
 
 // Slice returns a slice of ConflictIDs.
 func (c ConflictIDs) Slice() (list []ConflictID) {
-	list = make([]ConflictID, len(c))
-	i := 0
+	list = make([]ConflictID, 0, len(c))
 	for conflictID := range c {
-		list[i] = conflictID
-		i++
+		list = append(list, conflictID)
 	}
 
 	return
