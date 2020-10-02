@@ -42,7 +42,8 @@ func (o OutputType) String() string {
 // OutputIDLength contains the amount of bytes that a marshaled version of the OutputID contains.
 const OutputIDLength = TransactionIDLength + marshalutil.UINT16_SIZE
 
-// OutputID is the data type that represents the identifier of an Output.
+// OutputID is the data type that represents the identifier of an Output (which consists of a TransactionID and the
+// index of the Output in the Transaction that created it).
 type OutputID [OutputIDLength]byte
 
 // NewOutputID is the constructor for the OutputID.
@@ -679,14 +680,6 @@ func (o *OutputMetadata) BranchID() BranchID {
 
 // SetBranchID sets the identifier of the Branch that the Output was booked in.
 func (o *OutputMetadata) SetBranchID(branchID BranchID) (modified bool) {
-	o.branchIDMutex.RLock()
-	if o.branchID == branchID {
-		o.branchIDMutex.RUnlock()
-
-		return
-	}
-
-	o.branchIDMutex.RUnlock()
 	o.branchIDMutex.Lock()
 	defer o.branchIDMutex.Unlock()
 
@@ -712,28 +705,22 @@ func (o *OutputMetadata) Solid() bool {
 // SetSolid updates the solid flag of the Output. It returns true if the solid flag was modified and updates the
 // solidification time if the Output was marked as solid.
 func (o *OutputMetadata) SetSolid(solid bool) (modified bool) {
-	o.solidMutex.RLock()
-	if o.solid != solid {
-		o.solidMutex.RUnlock()
+	o.solidMutex.Lock()
+	defer o.solidMutex.Unlock()
 
-		o.solidMutex.Lock()
-		if o.solid != solid {
-			o.solid = solid
-			if solid {
-				o.solidificationTimeMutex.Lock()
-				o.solidificationTime = time.Now()
-				o.solidificationTimeMutex.Unlock()
-			}
-
-			o.SetModified()
-
-			modified = true
-		}
-		o.solidMutex.Unlock()
-
-	} else {
-		o.solidMutex.RUnlock()
+	if o.solid == solid {
+		return
 	}
+
+	if solid {
+		o.solidificationTimeMutex.Lock()
+		o.solidificationTime = time.Now()
+		o.solidificationTimeMutex.Unlock()
+	}
+
+	o.solid = solid
+	o.SetModified()
+	modified = true
 
 	return
 }
@@ -787,14 +774,6 @@ func (o *OutputMetadata) Preferred() bool {
 
 // SetPreferred updates the preferred flag.
 func (o *OutputMetadata) SetPreferred(preferred bool) (modified bool) {
-	o.preferredMutex.RLock()
-	if o.preferred == preferred {
-		o.preferredMutex.RUnlock()
-
-		return
-	}
-
-	o.preferredMutex.RUnlock()
 	o.preferredMutex.Lock()
 	defer o.preferredMutex.Unlock()
 
@@ -819,14 +798,6 @@ func (o *OutputMetadata) Liked() bool {
 
 // SetLiked modifies the liked flag. It returns true if the value has been modified.
 func (o *OutputMetadata) SetLiked(liked bool) (modified bool) {
-	o.likedMutex.RLock()
-	if o.liked == liked {
-		o.likedMutex.RUnlock()
-
-		return
-	}
-
-	o.likedMutex.RUnlock()
 	o.likedMutex.Lock()
 	defer o.likedMutex.Unlock()
 
@@ -851,14 +822,6 @@ func (o *OutputMetadata) Finalized() bool {
 
 // SetFinalized modifies the finalized flag. Finalized Outputs will not be forked when a conflict arrives later.
 func (o *OutputMetadata) SetFinalized(finalized bool) (modified bool) {
-	o.finalizedMutex.RLock()
-	if o.finalized == finalized {
-		o.finalizedMutex.RUnlock()
-
-		return
-	}
-
-	o.finalizedMutex.RUnlock()
 	o.finalizedMutex.Lock()
 	defer o.finalizedMutex.Unlock()
 
@@ -883,14 +846,6 @@ func (o *OutputMetadata) Confirmed() bool {
 
 // SetConfirmed modifies the confirmed flag. It returns true if the value has been updated.
 func (o *OutputMetadata) SetConfirmed(confirmed bool) (modified bool) {
-	o.confirmedMutex.RLock()
-	if o.confirmed == confirmed {
-		o.confirmedMutex.RUnlock()
-
-		return
-	}
-
-	o.confirmedMutex.RUnlock()
 	o.confirmedMutex.Lock()
 	defer o.confirmedMutex.Unlock()
 
@@ -915,14 +870,6 @@ func (o *OutputMetadata) Rejected() bool {
 
 // SetRejected modifies the rejected flag. It returns true if the value has been updated.
 func (o *OutputMetadata) SetRejected(rejected bool) (modified bool) {
-	o.rejectedMutex.RLock()
-	if o.rejected == rejected {
-		o.rejectedMutex.RUnlock()
-
-		return
-	}
-
-	o.rejectedMutex.RUnlock()
 	o.rejectedMutex.Lock()
 	defer o.rejectedMutex.Unlock()
 
