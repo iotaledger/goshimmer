@@ -68,7 +68,7 @@ func ConflictIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictID
 	return
 }
 
-// Bytes returns a marshaled version of this ConflictID.
+// Bytes returns a marshaled version of the ConflictID.
 func (c ConflictID) Bytes() []byte {
 	return c[:]
 }
