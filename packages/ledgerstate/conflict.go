@@ -301,7 +301,7 @@ func (c *Conflict) ObjectStorageKey() []byte {
 	return c.id.Bytes()
 }
 
-// ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
+// ObjectStorageValue marshals the Conflict into a sequence of bytes. The ID is not serialized here as it is only used as
 // a key in the ObjectStorage.
 func (c *Conflict) ObjectStorageValue() []byte {
 	return marshalutil.New(marshalutil.UINT64_SIZE).
