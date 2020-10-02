@@ -222,7 +222,7 @@ func ConflictFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflict *Co
 }
 
 // ConflictFromObjectStorage restores a Conflict object that was stored in the ObjectStorage.
-func ConflictFromObjectStorage(key []byte, data []byte) (outputMetadata *Conflict, err error) {
+func ConflictFromObjectStorage(key []byte, data []byte) (conflict *Conflict, err error) {
 	if outputMetadata, _, err = ConflictFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
 		err = xerrors.Errorf("failed to parse Conflict from bytes: %w", err)
 		return
