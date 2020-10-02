@@ -239,13 +239,13 @@ func (c *Conflict) ID() ConflictID {
 // MemberCount returns the amount of Branches that are part of this Conflict.
 func (c *Conflict) MemberCount() int {
 	c.memberCountMutex.RLock()
-	defer c.memberCountMutex.RUnLock()
+	defer c.memberCountMutex.RUnlock()
 
 	return c.memberCount
 }
 
 // IncreaseMemberCount increase the MemberCount of this Conflict.
-func (c *Conflict) IncreaseMemberCount(optionalDelta ...int) int {
+func (c *Conflict) IncreaseMemberCount(optionalDelta ...int) (newMemberCount int) {
 	delta := 1
 	if len(optionalDelta) >= 1 {
 		delta = optionalDelta[0]
@@ -256,6 +256,7 @@ func (c *Conflict) IncreaseMemberCount(optionalDelta ...int) int {
 
 	c.memberCount = c.memberCount + delta
 	c.SetModified()
+	newMemberCount = c.memberCount
 
 	return c.memberCount
 }
