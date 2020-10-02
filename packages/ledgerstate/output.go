@@ -100,7 +100,7 @@ func (o OutputID) TransactionID() (transactionID TransactionID) {
 	return
 }
 
-// OutputIndex returns the output index part of an OutputID.
+// OutputIndex returns the Output index part of an OutputID.
 func (o OutputID) OutputIndex() uint16 {
 	return binary.LittleEndian.Uint16(o[TransactionIDLength:])
 }
@@ -132,7 +132,7 @@ type Output interface {
 	// ID returns the identifier of the Output that is used to address the Output in the UTXODAG.
 	ID() OutputID
 
-	// SetID allows to set the identifier of the Output. We offer a setter for this property since Outputs that are
+	// SetID allows to set the identifier of the Output. We offer a setter for the property since Outputs that are
 	// created to become part of a transaction usually do not have an identifier, yet as their identifier depends on
 	// the TransactionID that is only determinable after the Transaction has been fully constructed. The ID is therefore
 	// only accessed when the Output is supposed to be persisted.
@@ -141,14 +141,14 @@ type Output interface {
 	// Type returns the OutputType which allows us to generically handle Outputs of different types.
 	Type() OutputType
 
-	// Balances returns the funds that are associated with this Output.
+	// Balances returns the funds that are associated with the Output.
 	Balances() *ColoredBalances
 
 	// UnlockValid determines if the given Transaction and the corresponding UnlockBlock are allowed to spend the
 	// Output.
 	UnlockValid(tx *Transaction, unlockBlock UnlockBlock) (bool, error)
 
-	// Bytes returns a marshaled version of this Output.
+	// Bytes returns a marshaled version of the Output.
 	Bytes() []byte
 
 	// String returns a human readable version of the Output for debug purposes.
@@ -282,7 +282,7 @@ func (s *SigLockedSingleOutput) ID() OutputID {
 	return s.id
 }
 
-// SetID allows to set the identifier of the Output. We offer a setter for this property since Outputs that are
+// SetID allows to set the identifier of the Output. We offer a setter for the property since Outputs that are
 // created to become part of a transaction usually do not have an identifier, yet as their identifier depends on
 // the TransactionID that is only determinable after the Transaction has been fully constructed. The ID is therefore
 // only accessed when the Output is supposed to be persisted by the node.
@@ -298,7 +298,7 @@ func (s *SigLockedSingleOutput) Type() OutputType {
 	return SigLockedSingleOutputType
 }
 
-// Balances returns the funds that are associated with this Output.
+// Balances returns the funds that are associated with the Output.
 func (s *SigLockedSingleOutput) Balances() *ColoredBalances {
 	balances := NewColoredBalances(map[Color]uint64{
 		ColorIOTA: s.balance,
@@ -323,12 +323,12 @@ func (s *SigLockedSingleOutput) UnlockValid(tx *Transaction, unlockBlock UnlockB
 	return
 }
 
-// Address returns the Address that this output is associated to.
+// Address returns the Address that the Output is associated to.
 func (s *SigLockedSingleOutput) Address() Address {
 	return s.address
 }
 
-// Bytes returns a marshaled version of this Output.
+// Bytes returns a marshaled version of the Output.
 func (s *SigLockedSingleOutput) Bytes() []byte {
 	return s.ObjectStorageValue()
 }
@@ -354,7 +354,7 @@ func (s *SigLockedSingleOutput) ObjectStorageValue() []byte {
 		Bytes()
 }
 
-// String returns a human readable version of this Output.
+// String returns a human readable version of the Output.
 func (s *SigLockedSingleOutput) String() string {
 	return stringify.Struct("SigLockedSingleOutput",
 		stringify.StructField("id", s.ID()),
@@ -434,7 +434,7 @@ func (s *SigLockedColoredOutput) ID() OutputID {
 	return s.id
 }
 
-// SetID allows to set the identifier of the Output. We offer a setter for this property since Outputs that are
+// SetID allows to set the identifier of the Output. We offer a setter for the property since Outputs that are
 // created to become part of a transaction usually do not have an identifier, yet as their identifier depends on
 // the TransactionID that is only determinable after the Transaction has been fully constructed. The ID is therefore
 // only accessed when the Output is supposed to be persisted by the node.
@@ -450,7 +450,7 @@ func (s *SigLockedColoredOutput) Type() OutputType {
 	return SigLockedColoredOutputType
 }
 
-// Balances returns the funds that are associated with this Output.
+// Balances returns the funds that are associated with the Output.
 func (s *SigLockedColoredOutput) Balances() *ColoredBalances {
 	return s.balances
 }
@@ -471,12 +471,12 @@ func (s *SigLockedColoredOutput) UnlockValid(tx *Transaction, unlockBlock Unlock
 	return
 }
 
-// Address returns the Address that this output is associated to.
+// Address returns the Address that the Output is associated to.
 func (s *SigLockedColoredOutput) Address() Address {
 	return s.address
 }
 
-// Bytes returns a marshaled version of this Output.
+// Bytes returns a marshaled version of the Output.
 func (s *SigLockedColoredOutput) Bytes() []byte {
 	return s.ObjectStorageValue()
 }
@@ -502,7 +502,7 @@ func (s *SigLockedColoredOutput) ObjectStorageValue() []byte {
 		Bytes()
 }
 
-// String returns a human readable version of this Output.
+// String returns a human readable version of the Output.
 func (s *SigLockedColoredOutput) String() string {
 	return stringify.Struct("SigLockedColoredOutput",
 		stringify.StructField("id", s.ID()),
@@ -524,6 +524,11 @@ type CachedOutput struct {
 	objectstorage.CachedObject
 }
 
+// Retain marks the CachedObject to still be in use by the program.
+func (c *CachedOutput) Retain() *CachedOutput {
+	return &CachedOutput{c.CachedObject.Retain()}
+}
+
 // Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
 func (c *CachedOutput) Unwrap() Output {
 	untypedObject := c.Get()
@@ -541,10 +546,10 @@ func (c *CachedOutput) Unwrap() Output {
 
 // Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
 // exists). It automatically releases the object when the consumer finishes.
-func (c *CachedOutput) Consume(consumer func(output Output)) (consumed bool) {
+func (c *CachedOutput) Consume(consumer func(output Output), forceRelease ...bool) (consumed bool) {
 	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(Output))
-	})
+	}, forceRelease...)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -659,12 +664,12 @@ func OutputMetadataFromObjectStorage(key []byte, data []byte) (outputMetadata *O
 	return
 }
 
-// ID returns the OutputID of the Output that this OutputMetadata belongs to.
+// ID returns the OutputID of the Output that the OutputMetadata belongs to.
 func (o *OutputMetadata) ID() OutputID {
 	return o.id
 }
 
-// BranchID returns the identifier of the Branch that this Output was booked in.
+// BranchID returns the identifier of the Branch that the Output was booked in.
 func (o *OutputMetadata) BranchID() BranchID {
 	o.branchIDMutex.RLock()
 	defer o.branchIDMutex.RUnlock()
@@ -672,7 +677,7 @@ func (o *OutputMetadata) BranchID() BranchID {
 	return o.branchID
 }
 
-// SetBranchID sets the identifier of the Branch that this Output was booked in.
+// SetBranchID sets the identifier of the Branch that the Output was booked in.
 func (o *OutputMetadata) SetBranchID(branchID BranchID) (modified bool) {
 	o.branchIDMutex.RLock()
 	if o.branchID == branchID {
@@ -733,7 +738,7 @@ func (o *OutputMetadata) SetSolid(solid bool) (modified bool) {
 	return
 }
 
-// SolidificationTime returns the time when this Output was marked as solid.
+// SolidificationTime returns the time when the Output was marked as solid.
 func (o *OutputMetadata) SolidificationTime() time.Time {
 	o.solidificationTimeMutex.RLock()
 	defer o.solidificationTimeMutex.RUnlock()
@@ -741,7 +746,7 @@ func (o *OutputMetadata) SolidificationTime() time.Time {
 	return o.solidificationTime
 }
 
-// ConsumerCount returns the number of transactions that have spent this Output.
+// ConsumerCount returns the number of transactions that have spent the Output.
 func (o *OutputMetadata) ConsumerCount() int {
 	o.consumerMutex.RLock()
 	defer o.consumerMutex.RUnlock()
@@ -764,7 +769,7 @@ func (o *OutputMetadata) RegisterConsumer(consumer TransactionID) (previousConsu
 	return
 }
 
-// FirstConsumer returns the first TransactionID that ever spent this Output.
+// FirstConsumer returns the first TransactionID that ever spent the Output.
 func (o *OutputMetadata) FirstConsumer() TransactionID {
 	o.consumerMutex.RLock()
 	defer o.consumerMutex.RUnlock()
@@ -836,7 +841,7 @@ func (o *OutputMetadata) SetLiked(liked bool) (modified bool) {
 	return
 }
 
-// Finalized returns true if the decision if this output is preferred or not has been finalized by consensus already.
+// Finalized returns true if the decision if the Output is preferred or not has been finalized by consensus already.
 func (o *OutputMetadata) Finalized() bool {
 	o.finalizedMutex.RLock()
 	defer o.finalizedMutex.RUnlock()
@@ -844,7 +849,7 @@ func (o *OutputMetadata) Finalized() bool {
 	return o.finalized
 }
 
-// SetFinalized modifies the finalized flag. Finalized outputs will not be forked when a conflict arrives later.
+// SetFinalized modifies the finalized flag. Finalized Outputs will not be forked when a conflict arrives later.
 func (o *OutputMetadata) SetFinalized(finalized bool) (modified bool) {
 	o.finalizedMutex.RLock()
 	if o.finalized == finalized {
@@ -995,6 +1000,11 @@ type CachedOutputMetadata struct {
 	objectstorage.CachedObject
 }
 
+// Retain marks the CachedObject to still be in use by the program.
+func (c *CachedOutputMetadata) Retain() *CachedOutputMetadata {
+	return &CachedOutputMetadata{c.CachedObject.Retain()}
+}
+
 // Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
 func (c *CachedOutputMetadata) Unwrap() *OutputMetadata {
 	untypedObject := c.Get()
@@ -1012,10 +1022,10 @@ func (c *CachedOutputMetadata) Unwrap() *OutputMetadata {
 
 // Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
 // exists). It automatically releases the object when the consumer finishes.
-func (c *CachedOutputMetadata) Consume(consumer func(cachedOutputMetadata *OutputMetadata)) (consumed bool) {
+func (c *CachedOutputMetadata) Consume(consumer func(cachedOutputMetadata *OutputMetadata), forceRelease ...bool) (consumed bool) {
 	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*OutputMetadata))
-	})
+	}, forceRelease...)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
