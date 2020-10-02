@@ -11,7 +11,7 @@ func main() {
 	node.Run(
 		plugins.Core,
 		plugins.Research,
-		plugins.Ui,
-		plugins.WebApi,
+		plugins.UI,
+		plugins.WebAPI,
 	)
 }

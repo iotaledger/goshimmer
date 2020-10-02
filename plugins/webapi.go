@@ -15,8 +15,8 @@ import (
 	"github.com/iotaledger/hive.go/node"
 )
 
-// WebApi contains the webapi endpoint plugins of a GoShimmer node.
-var WebApi = node.Plugins(
+// WebAPI contains the webapi endpoint plugins of a GoShimmer node.
+var WebAPI = node.Plugins(
 	webapi.Plugin(),
 	webauth.Plugin(),
 	data.Plugin(),

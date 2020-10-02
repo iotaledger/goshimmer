@@ -5,7 +5,7 @@ import (
 	"github.com/iotaledger/hive.go/node"
 )
 
-// Ui contains the user interface plugins of a GoShimmer node.
-var Ui = node.Plugins(
+// UI contains the user interface plugins of a GoShimmer node.
+var UI = node.Plugins(
 	dashboard.Plugin(),
 )
