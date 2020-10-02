@@ -381,7 +381,7 @@ type SigLockedColoredOutput struct {
 	objectstorage.StorableObjectFlags
 }
 
-// NewSigLockedSingleOutput is the constructor for a SigLockedColoredOutput.
+// NewSigLockedColoredOutput is the constructor for a SigLockedColoredOutput.
 func NewSigLockedColoredOutput(balances *ColoredBalances, address Address) *SigLockedColoredOutput {
 	return &SigLockedColoredOutput{
 		balances: balances,
