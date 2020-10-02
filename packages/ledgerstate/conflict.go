@@ -68,7 +68,7 @@ func ConflictIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictID
 	return
 }
 
-// Bytes returns a marshaled version of this ConflictID.
+// Bytes returns a marshaled version of the ConflictID.
 func (c ConflictID) Bytes() []byte {
 	return c[:]
 }
@@ -116,7 +116,7 @@ func ConflictIDsFromBytes(bytes []byte) (conflictIDs ConflictIDs, consumedBytes 
 func ConflictIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictIDs ConflictIDs, err error) {
 	conflictIDsCount, err := marshalUtil.ReadUint64()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse amount of ConflictIDs (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse count of ConflictIDs (%v): %w", err, ErrParseBytesFailed)
 		return
 	}
 
@@ -136,11 +136,9 @@ func ConflictIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictI
 
 // Slice returns a slice of ConflictIDs.
 func (c ConflictIDs) Slice() (list []ConflictID) {
-	list = make([]ConflictID, len(c))
-	i := 0
+	list = make([]ConflictID, 0, len(c))
 	for conflictID := range c {
-		list[i] = conflictID
-		i++
+		list = append(list, conflictID)
 	}
 
 	return
@@ -222,8 +220,8 @@ func ConflictFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflict *Co
 }
 
 // ConflictFromObjectStorage restores a Conflict object that was stored in the ObjectStorage.
-func ConflictFromObjectStorage(key []byte, data []byte) (outputMetadata *Conflict, err error) {
-	if outputMetadata, _, err = ConflictFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
+func ConflictFromObjectStorage(key []byte, data []byte) (conflict *Conflict, err error) {
+	if conflict, _, err = ConflictFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
 		err = xerrors.Errorf("failed to parse Conflict from bytes: %w", err)
 		return
 	}
@@ -239,13 +237,13 @@ func (c *Conflict) ID() ConflictID {
 // MemberCount returns the amount of Branches that are part of this Conflict.
 func (c *Conflict) MemberCount() int {
 	c.memberCountMutex.RLock()
-	defer c.memberCountMutex.RLock()
+	defer c.memberCountMutex.RUnlock()
 
 	return c.memberCount
 }
 
 // IncreaseMemberCount increase the MemberCount of this Conflict.
-func (c *Conflict) IncreaseMemberCount(optionalDelta ...int) int {
+func (c *Conflict) IncreaseMemberCount(optionalDelta ...int) (newMemberCount int) {
 	delta := 1
 	if len(optionalDelta) >= 1 {
 		delta = optionalDelta[0]
@@ -256,6 +254,7 @@ func (c *Conflict) IncreaseMemberCount(optionalDelta ...int) int {
 
 	c.memberCount = c.memberCount + delta
 	c.SetModified()
+	newMemberCount = c.memberCount
 
 	return c.memberCount
 }
@@ -301,7 +300,7 @@ func (c *Conflict) ObjectStorageKey() []byte {
 	return c.id.Bytes()
 }
 
-// ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
+// ObjectStorageValue marshals the Conflict into a sequence of bytes. The ID is not serialized here as it is only used as
 // a key in the ObjectStorage.
 func (c *Conflict) ObjectStorageValue() []byte {
 	return marshalutil.New(marshalutil.UINT64_SIZE).
