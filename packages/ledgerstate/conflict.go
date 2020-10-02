@@ -116,7 +116,7 @@ func ConflictIDsFromBytes(bytes []byte) (conflictIDs ConflictIDs, consumedBytes 
 func ConflictIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictIDs ConflictIDs, err error) {
 	conflictIDsCount, err := marshalUtil.ReadUint64()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse amount of ConflictIDs (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse count of ConflictIDs (%v): %w", err, ErrParseBytesFailed)
 		return
 	}
 
