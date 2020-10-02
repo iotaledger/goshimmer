@@ -3,12 +3,15 @@ package dashboard
 import (
 	"time"
 
+	"github.com/gorilla/websocket"
 	manaPkg "github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/mana"
 	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/workerpool"
+	"github.com/mr-tron/base58"
 )
 
 var (
@@ -28,6 +31,21 @@ type manaNetworkList struct {
 	ManaType  string            `json:"manaType"`
 	TotalMana float64           `json:"totalMana"`
 	Nodes     []manaPkg.NodeStr `json:"nodes"`
+}
+
+type allowedPledgeIDs struct {
+	Access    pledgeIDFilter `json:"accessFilter"`
+	Consensus pledgeIDFilter `json:"consensusFilter"`
+}
+
+type pledgeIDFilter struct {
+	Enabled        bool             `json:"enabled"`
+	AllowedNodeIDs []allowedNodeStr `json:"allowedNodeIDs"`
+}
+
+type allowedNodeStr struct {
+	ShortID string `json:"shortID"`
+	FullID  string `json:"fullID"`
 }
 
 func configureManaFeed() {
@@ -135,4 +153,37 @@ func runManaFeed() {
 	}, shutdown.PriorityDashboard); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
+}
+
+//// functions for initial data sending ///
+
+func sendAllowedManaPledge(ws *websocket.Conn) error {
+	allowedAccess := mana.GetAllowedPledgeNodes(manaPkg.AccessMana)
+	allowedConsensus := mana.GetAllowedPledgeNodes(manaPkg.ConsensusMana)
+
+	wsmsgData := &allowedPledgeIDs{}
+	wsmsgData.Access.Enabled = allowedAccess.IsFilterEnabled
+	allowedAccess.Allowed.ForEach(func(element interface{}) {
+		ID := element.(identity.ID)
+		wsmsgData.Access.AllowedNodeIDs = append(wsmsgData.Access.AllowedNodeIDs, allowedNodeStr{
+			ShortID: ID.String(),
+			FullID:  base58.Encode(ID.Bytes()),
+		})
+	})
+	wsmsgData.Consensus.Enabled = allowedConsensus.IsFilterEnabled
+	allowedConsensus.Allowed.ForEach(func(element interface{}) {
+		ID := element.(identity.ID)
+		wsmsgData.Consensus.AllowedNodeIDs = append(wsmsgData.Consensus.AllowedNodeIDs, allowedNodeStr{
+			ShortID: ID.String(),
+			FullID:  base58.Encode(ID.Bytes()),
+		})
+	})
+
+	if err := sendJSON(ws, &wsmsg{
+		Type: MsgTypeManaAllowedPledge,
+		Data: wsmsgData,
+	}); err != nil {
+		return err
+	}
+	return nil
 }

@@ -22,6 +22,21 @@ class NetworkManaMsg {
     nodes: Array<Node>;
 }
 
+export class AllowedPledgeIDsMsg {
+    accessFilter: PledgeIDFilter;
+    consensusFilter: PledgeIDFilter;
+}
+
+export class PledgeIDFilter {
+    enabled: boolean;
+    allowedNodeIDs: Array<AllowedNodeStr>;
+}
+
+export class AllowedNodeStr {
+    shortID: string;
+    fullID: string;
+}
+
 // every 10 seconds, a new value arrives, so this is roughly 166 mins
 const maxStoredManaValues = 1000;
 
@@ -45,6 +60,8 @@ export class ManaStore {
 
     @observable public searchNode = "";
 
+    @observable public allowedPledgeIDs: AllowedPledgeIDsMsg;
+
     ownID: string;
 
     constructor() {
@@ -52,6 +69,7 @@ export class ManaStore {
         registerHandler(WSMsgType.Mana, this.addNewManaValue);
         registerHandler(WSMsgType.ManaMapOverall, this.updateNetworkRichest);
         registerHandler(WSMsgType.ManaMapOnline, this.updateActiveRichest);
+        registerHandler(WSMsgType.ManaAllowedPledge, this.updateAllowedPledgeIDs);
     };
 
     @action
@@ -104,6 +122,11 @@ export class ManaStore {
 
         }
     };
+
+    @action
+    updateAllowedPledgeIDs = (msg: AllowedPledgeIDsMsg) => {
+        this.allowedPledgeIDs = msg;
+    }
 
     nodeList = (leaderBoard: Array<Node>, manaSum: number) => {
         if (leaderBoard === null || undefined) {

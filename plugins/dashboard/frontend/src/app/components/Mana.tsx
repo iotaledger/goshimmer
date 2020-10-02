@@ -9,6 +9,7 @@ import ManaHistogram from "app/components/ManaHistogram";
 import {Card, Col} from "react-bootstrap";
 import {ManaStore} from "app/stores/ManaStore";
 import ManaGauge from "app/components/ManaGauge";
+import ManaAllowedPledgeID from "app/components/ManaAllowedPledgeID";
 
 interface Props {
     nodeStore?: NodeStore;
@@ -107,6 +108,7 @@ export class Mana extends React.Component<Props, any> {
                         <ManaHistogram data={manaStore.consensusHistogramInput} title={"Consensus Mana Distribution"}/>
                     </Col>
                 </Row>
+                <ManaAllowedPledgeID manaStore={manaStore}/>
             </Container>
         );
     }

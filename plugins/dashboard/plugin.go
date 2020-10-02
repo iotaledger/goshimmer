@@ -156,12 +156,14 @@ const (
 	MsgTypeVertex
 	// MsgTypeTipInfo defines a tip info message.
 	MsgTypeTipInfo
-	// MsgTypeManaValues defines a mana value message.
+	// MsgTypeManaValue defines a mana value message.
 	MsgTypeManaValue
-	// MsgManaMapOverall defines a message containing overall mana map.
+	// MsgTypeManaMapOverall defines a message containing overall mana map.
 	MsgTypeManaMapOverall
-	// MsgManaMapOnline defines a message containing online mana map.
+	// MsgTypeManaMapOnline defines a message containing online mana map.
 	MsgTypeManaMapOnline
+	// MsgTypeManaAllowedPledge defines a message containing a list of allowed mana pledge nodeIDs.
+	MsgTypeManaAllowedPledge
 )
 
 type wsmsg struct {

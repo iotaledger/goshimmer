@@ -116,6 +116,13 @@ func broadcastWsMessage(msg interface{}, dontDrop ...bool) {
 	}
 }
 
+func sendInitialData(ws *websocket.Conn) error {
+	if err := sendAllowedManaPledge(ws); err != nil {
+		return err
+	}
+	return nil
+}
+
 func websocketRoute(c echo.Context) error {
 	defer func() {
 		if r := recover(); r != nil {
@@ -135,6 +142,12 @@ func websocketRoute(c echo.Context) error {
 	clientID, wsClient := registerWSClient()
 	defer removeWsClient(clientID)
 
+	// send initial data to the connected client
+	err = sendInitialData(ws)
+	if err != nil {
+		return err
+	}
+
 	for {
 		msg := <-wsClient.channel
 		if err := ws.WriteJSON(msg); err != nil {
@@ -143,6 +156,16 @@ func websocketRoute(c echo.Context) error {
 		if err := ws.SetWriteDeadline(time.Now().Add(webSocketWriteTimeout)); err != nil {
 			break
 		}
+	}
+	return nil
+}
+
+func sendJSON(ws *websocket.Conn, msg *wsmsg) error {
+	if err := ws.WriteJSON(msg); err != nil {
+		return err
+	}
+	if err := ws.SetWriteDeadline(time.Now().Add(webSocketWriteTimeout)); err != nil {
+		return err
 	}
 	return nil
 }
