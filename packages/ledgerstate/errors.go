@@ -10,4 +10,7 @@ var (
 
 	// ErrParseBytesFailed is returned if information can not be parsed from a sequence of bytes.
 	ErrParseBytesFailed = errors.New("failed to parse bytes")
+
+	// ErrTransactionInvalid is returned if a transaction or any of its building blocks is considered to be invalid.
+	ErrTransactionInvalid = errors.New("transaction invalid")
 )
