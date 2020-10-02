@@ -239,7 +239,7 @@ func (c *Conflict) ID() ConflictID {
 // MemberCount returns the amount of Branches that are part of this Conflict.
 func (c *Conflict) MemberCount() int {
 	c.memberCountMutex.RLock()
-	defer c.memberCountMutex.RLock()
+	defer c.memberCountMutex.RUnLock()
 
 	return c.memberCount
 }
