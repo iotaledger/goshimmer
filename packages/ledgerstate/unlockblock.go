@@ -36,7 +36,7 @@ func (a UnlockBlockType) String() string {
 // region UnlockBlock //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // UnlockBlock represents a generic interface to address the different kinds of unlock information that are required to
-// authorize spends from different Outputs.
+// authorize the spending of different Output types.
 type UnlockBlock interface {
 	// Type returns the UnlockBlockType of the UnlockBlock.
 	Type() UnlockBlockType
