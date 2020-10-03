@@ -35,8 +35,8 @@ func (a UnlockBlockType) String() string {
 
 // region UnlockBlock //////////////////////////////////////////////////////////////////////////////////////////////////
 
-// UnlockBlock represents the interface to generically addresses different kinds of UnlockBlocks that contain different
-// information that can be used to unlock different kinds of Outputs.
+// UnlockBlock represents a generic interface to address the different kinds of unlock information that are required to
+// authorize the spending of different Output types.
 type UnlockBlock interface {
 	// Type returns the UnlockBlockType of the UnlockBlock.
 	Type() UnlockBlockType
@@ -64,7 +64,7 @@ func UnlockBlockFromBytes(bytes []byte) (unlockBlock UnlockBlock, consumedBytes 
 func UnlockBlockFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (unlockBlock UnlockBlock, err error) {
 	unlockBlockType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse OutputType (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse UnlockBlockType (%v): %w", err, ErrParseBytesFailed)
 		return
 	}
 	marshalUtil.ReadSeek(-1)
