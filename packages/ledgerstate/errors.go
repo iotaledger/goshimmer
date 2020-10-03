@@ -13,4 +13,7 @@ var (
 
 	// ErrTransactionInvalid is returned if a transaction or any of its building blocks is considered to be invalid.
 	ErrTransactionInvalid = errors.New("transaction invalid")
+
+	// ErrInvalidArgument is returned if a function is called with an argument that is not allowed.
+	ErrInvalidArgument = errors.New("invalid argument")
 )

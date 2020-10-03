@@ -1,7 +1,6 @@
 package ledgerstate
 
 import (
-	"fmt"
 	"strings"
 	"sync"
 
@@ -215,27 +214,16 @@ func (b *Branch) ParentBranches() BranchIDs {
 	return b.parentBranches
 }
 
-// UpdateParentBranch updates the parent of a non-aggregated Branch. Aggregated branches can not simply be "moved
+// SetParentBranches updates the parent of a non-aggregated Branch. Aggregated branches can not simply be "moved
 // around" by changing their parent and need to be re-aggregated (because their ID depends on their parents).
-func (b *Branch) UpdateParentBranch(newParentBranchID BranchID) (modified bool, err error) {
-	b.parentBranchesMutex.RLock()
-	if len(b.parentBranches) != 1 {
-		err = fmt.Errorf("tried to update parent of aggregated Branch '%s'", b.ID())
-
-		b.parentBranchesMutex.RUnlock()
-
-		return
-	}
-
-	if _, parentBranchExists := b.parentBranches[newParentBranchID]; parentBranchExists {
-		b.parentBranchesMutex.RUnlock()
-
-		return
-	}
-
-	b.parentBranchesMutex.RUnlock()
+func (b *Branch) SetParentBranches(newParentBranchID BranchID) (modified bool, err error) {
 	b.parentBranchesMutex.Lock()
 	defer b.parentBranchesMutex.Unlock()
+
+	if b.IsAggregatedBranch() {
+		err = xerrors.Errorf("parents of aggregated Branch can not be updated '%s'", b.ID(), ErrInvalidArgument)
+		return
+	}
 
 	if _, parentBranchExists := b.parentBranches[newParentBranchID]; parentBranchExists {
 		return
@@ -246,6 +234,24 @@ func (b *Branch) UpdateParentBranch(newParentBranchID BranchID) (modified bool, 
 	modified = true
 
 	return
+}
+
+// IsConflictBranch returns true if the Branch is a conflict Branch, which means that it was created by a Transaction
+// that spent conflicting Outputs.
+func (b *Branch) IsConflictBranch() bool {
+	b.conflictsMutex.RLock()
+	defer b.conflictsMutex.RUnlock()
+
+	return len(b.conflicts) != 0
+}
+
+// IsAggregatedBranch returns true if the Branch is an aggregated Branch which means that it was created by combining
+// a set of non-conflicting Branches.
+func (b *Branch) IsAggregatedBranch() bool {
+	b.conflictsMutex.RLock()
+	defer b.conflictsMutex.RUnlock()
+
+	return len(b.conflicts) == 0
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
