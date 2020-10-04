@@ -1,9 +1,7 @@
 package ledgerstate
 
 import (
-	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/stringify"
 	"golang.org/x/xerrors"
 )
 
@@ -76,58 +74,6 @@ func BranchIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchID Bra
 // Bytes returns a marshaled version of this BranchID.
 func (b BranchID) Bytes() []byte {
 	return b[:]
-}
-
-const (
-	// SignatureUnlockBlockType represents the type of a SignatureUnlockBlock.
-	SignatureUnlockBlockType UnlockBlockType = iota
-
-	// ReferenceUnlockBlockType represents the type of a ReferenceUnlockBlock.
-	ReferenceUnlockBlockType
-)
-
-// UnlockBlockType represents the type of the UnlockBlock. Different types of UnlockBlocks can unlock different types of
-// Outputs.
-type UnlockBlockType uint8
-
-// UnlockBlock represents the interface to generically addresses different kinds of UnlockBlocks that contain different
-// information that can be used to unlock different kinds of Outputs.
-type UnlockBlock interface {
-	// Type returns the UnlockBlockType of this UnlockBlock.
-	Type() UnlockBlockType
-
-	// Bytes returns a marshaled version of this UnlockBlock.
-	Bytes() []byte
-
-	// String returns a human readable version of this UnlockBlock.
-	String() string
-}
-
-// SignatureUnlockBlock represents an UnlockBlock that contains a Signature for an Address.
-type SignatureUnlockBlock struct {
-	signature Signature
-}
-
-// AddressSignatureValid returns true if this UnlockBlock correctly signs the given Address.
-func (s *SignatureUnlockBlock) AddressSignatureValid(address Address, signedData []byte) (bool, error) {
-	return s.signature.AddressSignatureValid(address, signedData), nil
-}
-
-// Type returns the UnlockBlockType of this UnlockBlock.
-func (s *SignatureUnlockBlock) Type() UnlockBlockType {
-	return SignatureUnlockBlockType
-}
-
-// Bytes returns a marshaled version of this UnlockBlock.
-func (s *SignatureUnlockBlock) Bytes() []byte {
-	return byteutils.ConcatBytes([]byte{byte(SignatureUnlockBlockType)}, s.signature.Bytes())
-}
-
-// String returns a human readable version of this UnlockBlock.
-func (s *SignatureUnlockBlock) String() string {
-	return stringify.Struct("SignatureUnlockBlock",
-		stringify.StructField("signature", s.signature),
-	)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
