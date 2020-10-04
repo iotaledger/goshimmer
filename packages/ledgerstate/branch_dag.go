@@ -19,7 +19,7 @@ func (branchManager *BranchManager) ConflictBranches(branches ...BranchID) (conf
 		}
 
 		// process branch or abort if it can not be found
-		if !branchManager.Branch(branchID).Consume(func(branch *Branch) {
+		if !branchManager.ConflictBranch(branchID).Consume(func(branch *ConflictBranch) {
 			// abort if the branch is not an aggregated branch
 			if !branch.IsAggregated() {
 				conflictBranches[branch.ID()] = types.Void
@@ -28,7 +28,7 @@ func (branchManager *BranchManager) ConflictBranches(branches ...BranchID) (conf
 			}
 
 			// otherwise collect its parents
-			for _, parentBranchID := range branch.ParentBranches() {
+			for _, parentBranchID := range branch.Parents() {
 				conflictBranches[parentBranchID] = types.Void
 			}
 		}) {
@@ -62,7 +62,7 @@ func (branchManager *BranchManager) NormalizeBranches(branches ...BranchID) (nor
 	parentsToCheck := stack.New()
 
 	// checks if branches are conflicting and queues parents to be checked
-	checkConflictsAndQueueParents := func(currentBranch *Branch) {
+	checkConflictsAndQueueParents := func(currentBranch *ConflictBranch) {
 		// abort if branch was traversed already
 		if !traversedBranches.Add(currentBranch.ID()) {
 			return
@@ -78,7 +78,7 @@ func (branchManager *BranchManager) NormalizeBranches(branches ...BranchID) (nor
 		}
 
 		// queue parents to be checked when traversing ancestors
-		for _, parentBranchID := range currentBranch.ParentBranches() {
+		for _, parentBranchID := range currentBranch.Parents() {
 			parentsToCheck.Push(parentBranchID)
 		}
 
@@ -92,7 +92,7 @@ func (branchManager *BranchManager) NormalizeBranches(branches ...BranchID) (nor
 		normalizedBranches[conflictBranchID] = types.Void
 
 		// check branch, queue parents and abort if we faced an error
-		if !branchManager.Branch(conflictBranchID).Consume(checkConflictsAndQueueParents) {
+		if !branchManager.ConflictBranch(conflictBranchID).Consume(checkConflictsAndQueueParents) {
 			err = fmt.Errorf("error loading branch %v: %w", conflictBranchID, ErrBranchNotFound)
 		}
 		if err != nil {
@@ -109,7 +109,7 @@ func (branchManager *BranchManager) NormalizeBranches(branches ...BranchID) (nor
 		delete(normalizedBranches, parentBranchID)
 
 		// check branch, queue parents and abort if we faced an error
-		if !branchManager.Branch(parentBranchID).Consume(checkConflictsAndQueueParents) {
+		if !branchManager.ConflictBranch(parentBranchID).Consume(checkConflictsAndQueueParents) {
 			err = fmt.Errorf("error loading branch %v: %w", parentBranchID, ErrBranchNotFound)
 		}
 		if err != nil {

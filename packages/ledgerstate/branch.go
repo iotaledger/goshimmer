@@ -18,14 +18,14 @@ var (
 	// UndefinedBranchID is the zero value of a BranchID and represents a branch that has not been set.
 	UndefinedBranchID = BranchID{}
 
-	// MasterBranchID is the identifier of the MasterBranch (root of the Branch DAG).
+	// MasterBranchID is the identifier of the MasterBranch (root of the ConflictBranch DAG).
 	MasterBranchID = BranchID{1}
 )
 
 // BranchIDLength contains the amount of bytes that a marshaled version of the BranchID contains.
 const BranchIDLength = 32
 
-// BranchID is the data type that represents the identifier of a Branch.
+// BranchID is the data type that represents the identifier of a ConflictBranch.
 type BranchID [BranchIDLength]byte
 
 // NewBranchID creates a new BranchID from a TransactionID.
@@ -75,7 +75,7 @@ func BranchIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchID Bra
 	return
 }
 
-// Bytes returns a marshaled version of this BranchID.
+// Bytes returns a marshaled version of the BranchID.
 func (b BranchID) Bytes() []byte {
 	return b[:]
 }
@@ -188,70 +188,409 @@ func (b BranchIDs) String() string {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// region BranchType ///////////////////////////////////////////////////////////////////////////////////////////////////
+
+// BranchType represents the type of a Branch which can either be a ConflictBranch or an AggregatedBranch.
+type BranchType uint8
+
+const (
+	// ConflictBranchType represents the type of a Branch that was created by a Transaction spending conflicting Outputs.
+	ConflictBranchType BranchType = iota
+
+	// AggregatedBranchType represents the type of a Branch that was created by combining Outputs of multiple
+	// non-conflicting Branches.
+	AggregatedBranchType
+)
+
+// String returns a human readable representation of the BranchType.
+func (b BranchType) String() string {
+	return [...]string{
+		"ConflictBranchType",
+		"AggregatedBranchType",
+	}[b]
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // region Branch ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Branch represents a container for Transactions and Outputs representing a certain perception of the ledger state.
-type Branch struct {
-	id                  BranchID
-	parentBranches      BranchIDs
-	parentBranchesMutex sync.RWMutex
-	conflicts           ConflictIDs
-	conflictsMutex      sync.RWMutex
+// Branch is an interface for a container for Transactions and Outputs representing a certain perception of the ledger
+// state.
+type Branch interface {
+	// ID returns the identifier of the Branch.
+	ID() BranchID
+
+	// Type returns the type of the Branch.
+	Type() BranchType
+
+	// Parents returns the BranchIDs of the Branches parents in the BranchDAG.
+	Parents() BranchIDs
+
+	// Preferred returns true if the branch is "liked within it's scope" (ignoring monotonicity).
+	Preferred() bool
+
+	// SetPreferred sets the preferred property to the given value. It returns true if the value has been updated.
+	SetPreferred(preferred bool) (modified bool)
+
+	// Liked returns true if the branch is liked (taking monotonicity in account - i.e. all parents are also liked).
+	Liked() bool
+
+	// SetLiked sets the liked property to the given value. It returns true if the value has been updated.
+	SetLiked(liked bool) (modified bool)
+
+	// Finalized returns true if the decision whether it is preferred has been finalized.
+	Finalized() bool
+
+	// SetFinalized sets the finalized property to the given value. It returns true if the value has been updated.
+	SetFinalized(finalized bool) (modified bool)
+
+	// Confirmed returns true if the decision that the Branch is liked has been finalized and all of its parents have
+	// been confirmed.
+	Confirmed() bool
+
+	// SetConfirmed sets the confirmed property to the given value. It returns true if the value has been updated.
+	SetConfirmed(confirmed bool) (modified bool)
+
+	// Rejected returns true if either a decision that the Branch is not liked has been finalized or any of its
+	// parents are rejected.
+	Rejected() bool
+
+	// SetRejected sets the rejected property to the given value. It returns true if the value has been updated.
+	SetRejected(rejected bool) (modified bool)
+
+	// Bytes returns a marshaled version of the Branch.
+	Bytes() []byte
+
+	// String returns a human readable version of the Branch.
+	String() string
+
+	// StorableObject enables the Branch to be stored in the ObjectStorage.
+	objectstorage.StorableObject
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region ConflictBranch ///////////////////////////////////////////////////////////////////////////////////////////////
+
+// ConflictBranch represents a container for Transactions and Outputs representing a certain perception of the ledger state.
+type ConflictBranch struct {
+	id             BranchID
+	parents        BranchIDs
+	parentsMutex   sync.RWMutex
+	conflicts      ConflictIDs
+	conflictsMutex sync.RWMutex
+	preferred      bool
+	preferredMutex sync.RWMutex
+	liked          bool
+	likedMutex     sync.RWMutex
+	finalized      bool
+	finalizedMutex sync.RWMutex
+	confirmed      bool
+	confirmedMutex sync.RWMutex
+	rejected       bool
+	rejectedMutex  sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
 
-// ID returns the identifier of this Branch.
-func (b *Branch) ID() BranchID {
+// NewConflictBranch creates a new ConflictBranch from the given details.
+func NewConflictBranch(id BranchID, parents BranchIDs, conflicts ConflictIDs) *ConflictBranch {
+	return &ConflictBranch{
+		id:        id,
+		parents:   parents,
+		conflicts: conflicts,
+	}
+}
+
+// ConflictBranchFromBytes unmarshals an ConflictBranch from a sequence of bytes.
+func ConflictBranchFromBytes(bytes []byte) (conflictBranch *ConflictBranch, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(bytes)
+	if conflictBranch, err = ConflictBranchFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse ConflictBranch from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// ConflictBranchFromMarshalUtil unmarshals an ConflictBranch using a MarshalUtil (for easier unmarshaling).
+func ConflictBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictBranch *ConflictBranch, err error) {
+	branchType, err := marshalUtil.ReadByte()
+	if err != nil {
+		err = xerrors.Errorf("failed to parse BranchType (%v): %w", err, ErrParseBytesFailed)
+		return
+	}
+	if BranchType(branchType) != ConflictBranchType {
+		err = xerrors.Errorf("invalid BranchType (%X): %w", branchType, ErrParseBytesFailed)
+		return
+	}
+
+	conflictBranch = &ConflictBranch{}
+	if conflictBranch.id, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse id: %w", err)
+		return
+	}
+	if conflictBranch.parents, err = BranchIDsFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse parents: %w", err)
+		return
+	}
+	if conflictBranch.conflicts, err = ConflictIDsFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse conflicts: %w", err)
+		return
+	}
+	if conflictBranch.preferred, err = marshalUtil.ReadBool(); err != nil {
+		err = xerrors.Errorf("failed to parse preferred flag (%v): %w", err, ErrParseBytesFailed)
+		return
+	}
+	if conflictBranch.liked, err = marshalUtil.ReadBool(); err != nil {
+		err = xerrors.Errorf("failed to parse liked flag (%v): %w", err, ErrParseBytesFailed)
+		return
+	}
+	if conflictBranch.finalized, err = marshalUtil.ReadBool(); err != nil {
+		err = xerrors.Errorf("failed to parse finalized flag (%v): %w", err, ErrParseBytesFailed)
+		return
+	}
+	if conflictBranch.confirmed, err = marshalUtil.ReadBool(); err != nil {
+		err = xerrors.Errorf("failed to parse confirmed flag (%v): %w", err, ErrParseBytesFailed)
+		return
+	}
+	if conflictBranch.rejected, err = marshalUtil.ReadBool(); err != nil {
+		err = xerrors.Errorf("failed to parse rejected flag (%v): %w", err, ErrParseBytesFailed)
+		return
+	}
+
+	return
+}
+
+// ID returns the identifier of the Branch.
+func (b *ConflictBranch) ID() BranchID {
 	return b.id
 }
 
-// ParentBranches returns the parents in the BranchDAG of this Branch.
-func (b *Branch) ParentBranches() BranchIDs {
-	b.parentBranchesMutex.RLock()
-	defer b.parentBranchesMutex.RUnlock()
-
-	return b.parentBranches
+// Type returns the type of the Branch.
+func (b *ConflictBranch) Type() BranchType {
+	return ConflictBranchType
 }
 
-// SetParentBranches updates the parent of a non-aggregated Branch. Aggregated branches can not simply be "moved
-// around" by changing their parent and need to be re-aggregated (because their ID depends on their parents).
-func (b *Branch) SetParentBranches(newParentBranchID BranchID) (modified bool, err error) {
-	b.parentBranchesMutex.Lock()
-	defer b.parentBranchesMutex.Unlock()
+// Parents returns the BranchIDs of the Branches parents in the BranchDAG.
+func (b *ConflictBranch) Parents() BranchIDs {
+	b.parentsMutex.RLock()
+	defer b.parentsMutex.RUnlock()
 
-	if b.IsAggregatedBranch() {
-		err = xerrors.Errorf("parents of aggregated Branch can not be updated '%s'", b.ID(), ErrInvalidArgument)
-		return
-	}
+	return b.parents
+}
 
-	if _, parentBranchExists := b.parentBranches[newParentBranchID]; parentBranchExists {
-		return
-	}
+// SetParents updates the parents of the ConflictBranch.
+func (b *ConflictBranch) SetParents(parentBranches ...BranchID) (modified bool, err error) {
+	b.parentsMutex.Lock()
+	defer b.parentsMutex.Unlock()
 
-	b.parentBranches = NewBranchIDs(newParentBranchID)
+	b.parents = NewBranchIDs(parentBranches...)
 	b.SetModified()
 	modified = true
 
 	return
 }
 
-// IsConflictBranch returns true if the Branch is a conflict Branch, which means that it was created by a Transaction
-// that spent conflicting Outputs.
-func (b *Branch) IsConflictBranch() bool {
+// Conflicts returns the Conflicts that the ConflictBranch is part of.
+func (b *ConflictBranch) Conflicts() (conflicts ConflictIDs) {
 	b.conflictsMutex.RLock()
 	defer b.conflictsMutex.RUnlock()
 
-	return len(b.conflicts) != 0
+	conflicts = make(ConflictIDs)
+	for conflict := range b.conflicts {
+		conflicts[conflict] = types.Void
+	}
+
+	return
 }
 
-// IsAggregatedBranch returns true if the Branch is an aggregated Branch which means that it was created by combining
-// a set of non-conflicting Branches.
-func (b *Branch) IsAggregatedBranch() bool {
-	b.conflictsMutex.RLock()
-	defer b.conflictsMutex.RUnlock()
+// AddConflict registers the membership of the ConflictBranch in the given Conflict.
+func (b *ConflictBranch) AddConflict(conflictID ConflictID) (added bool) {
+	b.conflictsMutex.Lock()
+	defer b.conflictsMutex.Unlock()
 
-	return len(b.conflicts) == 0
+	if _, exists := b.conflicts[conflictID]; exists {
+		return
+	}
+
+	b.conflicts[conflictID] = types.Void
+	b.SetModified()
+	added = true
+
+	return
 }
+
+// Preferred returns true if the branch is "liked within it's scope" (ignoring monotonicity).
+func (b *ConflictBranch) Preferred() bool {
+	b.preferredMutex.RLock()
+	defer b.preferredMutex.RUnlock()
+
+	return b.preferred
+}
+
+// SetPreferred sets the preferred property to the given value. It returns true if the value has been updated.
+func (b *ConflictBranch) SetPreferred(preferred bool) (modified bool) {
+	b.preferredMutex.Lock()
+	defer b.preferredMutex.Unlock()
+
+	if b.preferred == preferred {
+		return
+	}
+
+	b.preferred = preferred
+	b.SetModified()
+	modified = true
+
+	return
+}
+
+// Liked returns true if the branch is liked (taking monotonicity in account - i.e. all parents are also liked).
+func (b *ConflictBranch) Liked() bool {
+	b.likedMutex.RLock()
+	defer b.likedMutex.RUnlock()
+
+	return b.liked
+}
+
+// SetLiked sets the liked property to the given value. It returns true if the value has been updated.
+func (b *ConflictBranch) SetLiked(liked bool) (modified bool) {
+	b.likedMutex.Lock()
+	defer b.likedMutex.Unlock()
+
+	if b.liked == liked {
+		return
+	}
+
+	b.liked = liked
+	b.SetModified()
+	modified = true
+
+	return
+}
+
+// SetFinalized sets the finalized property to the given value. It returns true if the value has been updated.
+func (b *ConflictBranch) Finalized() bool {
+	b.finalizedMutex.RLock()
+	defer b.finalizedMutex.RUnlock()
+
+	return b.finalized
+}
+
+// SetFinalized is the setter for the finalized flag. It returns true if the value of the flag has been updated.
+func (b *ConflictBranch) SetFinalized(finalized bool) (modified bool) {
+	b.finalizedMutex.Lock()
+	defer b.finalizedMutex.Unlock()
+
+	if b.finalized == finalized {
+		return
+	}
+
+	b.finalized = finalized
+	b.SetModified()
+	modified = true
+
+	return
+}
+
+// Confirmed returns true if the decision that the Branch is liked has been finalized and all of its parents have
+// been confirmed.
+func (b *ConflictBranch) Confirmed() bool {
+	b.confirmedMutex.RLock()
+	defer b.confirmedMutex.RUnlock()
+
+	return b.confirmed
+}
+
+// SetConfirmed is the setter for the confirmed flag. It returns true if the value of the flag has been updated.
+func (b *ConflictBranch) SetConfirmed(confirmed bool) (modified bool) {
+	b.confirmedMutex.Lock()
+	defer b.confirmedMutex.Unlock()
+
+	if b.confirmed == confirmed {
+		return
+	}
+
+	b.confirmed = confirmed
+	b.SetModified()
+	modified = true
+
+	return
+}
+
+// Rejected returns true if either a decision that the Branch is not liked has been finalized or any of its
+// parents are rejected.
+func (b *ConflictBranch) Rejected() bool {
+	b.confirmedMutex.RLock()
+	defer b.confirmedMutex.RUnlock()
+
+	return b.confirmed
+}
+
+// SetRejected sets the rejected property to the given value. It returns true if the value has been updated.
+func (b *ConflictBranch) SetRejected(rejected bool) (modified bool) {
+	b.rejectedMutex.Lock()
+	defer b.rejectedMutex.Unlock()
+
+	if b.rejected == rejected {
+		return
+	}
+
+	b.rejected = rejected
+	b.SetModified()
+	modified = true
+
+	return
+}
+
+// Bytes returns a marshaled version of the Branch.
+func (b *ConflictBranch) Bytes() []byte {
+	return b.ObjectStorageValue()
+}
+
+// String returns a human readable version of the Branch.
+func (b *ConflictBranch) String() string {
+	return stringify.Struct("ConflictBranch",
+		stringify.StructField("id", b.ID()),
+		stringify.StructField("parents", b.Parents()),
+		stringify.StructField("conflicts", b.Conflicts()),
+		stringify.StructField("preferred", b.Preferred()),
+		stringify.StructField("liked", b.Liked()),
+		stringify.StructField("finalized", b.Finalized()),
+		stringify.StructField("confirmed", b.Confirmed()),
+		stringify.StructField("rejected", b.Rejected()),
+	)
+}
+
+// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
+func (b *ConflictBranch) Update(objectstorage.StorableObject) {
+	panic("updates disabled")
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (b *ConflictBranch) ObjectStorageKey() []byte {
+	return b.ID().Bytes()
+}
+
+// ObjectStorageValue marshals the Conflict into a sequence of bytes. The ID is not serialized here as it is only used as
+// a key in the ObjectStorage.
+func (b *ConflictBranch) ObjectStorageValue() []byte {
+	return marshalutil.New().
+		WriteByte(byte(b.Type())).
+		WriteBytes(b.ID().Bytes()).
+		WriteBytes(b.Parents().Bytes()).
+		WriteBytes(b.Conflicts().Bytes()).
+		WriteBool(b.Preferred()).
+		WriteBool(b.Liked()).
+		WriteBool(b.Finalized()).
+		WriteBool(b.Confirmed()).
+		WriteBool(b.Rejected()).
+		Bytes()
+}
+
+// code contract (make sure the struct implements all required methods)
+var _ Branch = &ConflictBranch{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

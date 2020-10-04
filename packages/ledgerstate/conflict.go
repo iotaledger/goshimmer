@@ -358,7 +358,7 @@ var ConflictMemberKeyPartition = objectstorage.PartitionKey(ConflictIDLength, Br
 
 // ConflictMember represents the relationship between a Conflict and its Branches. Since an Output can have a
 // potentially unbounded amount of conflicting Consumers, we store the membership of the Branches in the corresponding
-// Conflicts as a separate k/v pair instead of a marshaled list of members inside the Branch.
+// Conflicts as a separate k/v pair instead of a marshaled list of members inside the ConflictBranch.
 type ConflictMember struct {
 	conflictID ConflictID
 	branchID   BranchID
@@ -379,7 +379,7 @@ func (c *ConflictMember) ConflictID() ConflictID {
 	return c.conflictID
 }
 
-// BranchID returns the identifier of the Branch that this ConflictMember references.
+// BranchID returns the identifier of the ConflictBranch that this ConflictMember references.
 func (c *ConflictMember) BranchID() BranchID {
 	return c.branchID
 }
