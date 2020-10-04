@@ -1,4 +1,4 @@
-package research
+package plugins
 
 import (
 	"github.com/iotaledger/goshimmer/dapps/networkdelay"
@@ -10,8 +10,8 @@ import (
 	"github.com/iotaledger/hive.go/node"
 )
 
-// PLUGINS is the list of research plugins.
-var PLUGINS = node.Plugins(
+// Research contains research plugins of a GoShimmer node.
+var Research = node.Plugins(
 	remotelog.Plugin(),
 	analysisserver.Plugin(),
 	analysisclient.Plugin(),
