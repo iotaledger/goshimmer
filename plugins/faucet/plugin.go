@@ -47,7 +47,7 @@ func init() {
 }
 
 var (
-	// App is the "plugin" instance of the faucet application.
+	// Plugin is the "plugin" instance of the faucet application.
 	plugin                 *node.Plugin
 	pluginOnce             sync.Once
 	_faucet                *Component
@@ -59,8 +59,8 @@ var (
 	fundingWorkerQueueSize = 500
 )
 
-// App returns the plugin instance of the faucet dApp.
-func App() *node.Plugin {
+// Plugin returns the plugin instance of the faucet dApp.
+func Plugin() *node.Plugin {
 	pluginOnce.Do(func() {
 		plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
 	})

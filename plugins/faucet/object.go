@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto"
 	"fmt"
-	"sync"
 
 	// Only want to use init
 	_ "golang.org/x/crypto/blake2b"
@@ -31,9 +30,6 @@ type Object struct {
 	payloadType tangle.PayloadType
 	address     address.Address
 	nonce       uint64
-
-	bytes      []byte
-	bytesMutex sync.RWMutex
 }
 
 // Type returns the type of the faucet Object.
@@ -48,32 +44,11 @@ func (o *Object) Address() address.Address {
 
 // Bytes marshals the faucet object into a sequence of bytes.
 func (o *Object) Bytes() (bytes []byte) {
-	// acquire lock for reading bytes
-	o.bytesMutex.RLock()
-
-	// return if bytes have been determined already
-	if bytes = o.bytes; bytes != nil {
-		o.bytesMutex.RUnlock()
-		return
-	}
-
-	// switch to write lock
-	o.bytesMutex.RUnlock()
-	o.bytesMutex.Lock()
-	defer o.bytesMutex.Unlock()
-
-	// return if bytes have been determined in the mean time
-	if bytes = o.bytes; bytes != nil {
-		return
-	}
-
-	// Length + Type + Address + Nonce (size in bytes)
-	objectLength := 2*marshalutil.UINT32_SIZE + address.Length + pow.NonceBytes
 	// initialize helper
-	marshalUtil := marshalutil.New(objectLength)
+	marshalUtil := marshalutil.New()
 
 	// marshal the payload specific information
-	marshalUtil.WriteUint32(uint32(objectLength))
+	marshalUtil.WriteUint32(uint32(address.Length + pow.NonceBytes))
 	marshalUtil.WriteUint32(o.Type())
 	marshalUtil.WriteBytes(o.address.Bytes())
 	marshalUtil.WriteUint64(o.nonce)
@@ -130,15 +105,7 @@ func NewObject(addr address.Address, powTarget int) (*Object, error) {
 func FromBytes(bytes []byte) (result *Object, consumedBytes int, err error) {
 	// initialize helper
 	marshalUtil := marshalutil.New(bytes)
-	result, err = Parse(marshalUtil)
-	consumedBytes = marshalUtil.ReadOffset()
 
-	return
-}
-
-// Parse unmarshals an Object using the given marshalUtil (for easier marshaling/unmarshaling).
-func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Object, err error) {
-	// read data
 	result = &Object{}
 	if _, err = marshalUtil.ReadUint32(); err != nil {
 		err = fmt.Errorf("failed to unmarshal payload size of faucet payload from bytes: %w", err)
@@ -165,10 +132,7 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Object, err error) {
 		err = fmt.Errorf("failed to unmarshal nonce of faucet payload from bytes: %w", err)
 		return
 	}
-
-	// return the number of bytes we processed
-	consumedBytes := marshalUtil.ReadOffset()
-	copy(result.bytes, marshalUtil.Bytes()[:consumedBytes])
+	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
