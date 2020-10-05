@@ -73,7 +73,7 @@
     "prettysize": "^2.0.0",
     "react": "^16.7.0",
     "react-apexcharts": "^1.3.3",
-    "react-bootstrap": "^1.0.0-beta.16",
+    "react-bootstrap": "^1.3.0",
     "react-chartjs-2": "^2.8.0",
     "react-dom": "^16.7.0",
     "react-icons": "^3.10.0",
