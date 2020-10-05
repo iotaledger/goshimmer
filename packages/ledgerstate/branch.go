@@ -909,8 +909,8 @@ func (b *AggregatedBranch) SetConfirmed(confirmed bool) (modified bool) {
 // Rejected returns true if either a decision that the Branch is not liked has been finalized or any of its
 // parents are rejected.
 func (b *AggregatedBranch) Rejected() bool {
-	b.confirmedMutex.RLock()
-	defer b.confirmedMutex.RUnlock()
+	b.rejectedMutex.RLock()
+	defer b.rejectedMutex.RUnlock()
 
 	return b.confirmed
 }
