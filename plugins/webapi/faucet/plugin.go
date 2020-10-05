@@ -6,7 +6,6 @@ import (
 	goSync "sync"
 
 	"github.com/iotaledger/goshimmer/dapps/faucet"
-	faucetpayload "github.com/iotaledger/goshimmer/dapps/faucet/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -61,7 +60,7 @@ func requestFunds(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, Response{Error: "Invalid address"})
 	}
 
-	faucetPayload, err := faucetpayload.New(addr, config.Node().GetInt(faucet.CfgFaucetPoWDifficulty))
+	faucetPayload, err := faucet.NewObject(addr, config.Node().GetInt(faucet.CfgFaucetPoWDifficulty))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
