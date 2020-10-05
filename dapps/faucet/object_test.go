@@ -1,4 +1,4 @@
-package faucetpayload
+package faucet
 
 import (
 	"fmt"
@@ -13,12 +13,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
-func ExamplePayload() {
+func ExampleObject() {
 	keyPair := ed25519.GenerateKeyPair()
 	local := identity.NewLocalIdentity(keyPair.PublicKey, keyPair.PrivateKey)
 
 	// 1. create faucet payload
-	faucetPayload, err := New(address.Random(), 4)
+	faucetPayload, err := NewObject(address.Random(), 4)
 	if err != nil {
 		panic(err)
 	}
@@ -37,23 +37,23 @@ func ExamplePayload() {
 	fmt.Println(tx.String())
 }
 
-func TestPayload(t *testing.T) {
-	originalPayload, err := New(address.Random(), 4)
+func TestObject(t *testing.T) {
+	originalObject, err := NewObject(address.Random(), 4)
 	if err != nil {
 		panic(err)
 	}
 
-	clonedPayload1, _, err := FromBytes(originalPayload.Bytes())
+	clonedObject1, _, err := FromBytes(originalObject.Bytes())
 	if err != nil {
 		panic(err)
 	}
 
-	assert.Equal(t, originalPayload.Address(), clonedPayload1.Address())
+	assert.Equal(t, originalObject.Address(), clonedObject1.Address())
 
-	clonedPayload2, _, err := FromBytes(clonedPayload1.Bytes())
+	clonedObject2, _, err := FromBytes(clonedObject1.Bytes())
 	if err != nil {
 		panic(err)
 	}
 
-	assert.Equal(t, originalPayload.Address(), clonedPayload2.Address())
+	assert.Equal(t, originalObject.Address(), clonedObject2.Address())
 }

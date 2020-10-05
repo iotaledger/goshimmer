@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 
-	faucet "github.com/iotaledger/goshimmer/dapps/faucet/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
@@ -19,7 +18,7 @@ func TestIsFaucetReq(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()
 	local := identity.NewLocalIdentity(keyPair.PublicKey, keyPair.PrivateKey)
 
-	faucetPayload, err := faucet.New(address.Random(), 4)
+	faucetObject, err := NewObject(address.Random(), 4)
 	if err != nil {
 		require.NoError(t, err)
 		return
@@ -30,7 +29,7 @@ func TestIsFaucetReq(t *testing.T) {
 		time.Now(),
 		local.PublicKey(),
 		0,
-		faucetPayload,
+		faucetObject,
 		0,
 		ed25519.EmptySignature,
 	)
@@ -46,6 +45,6 @@ func TestIsFaucetReq(t *testing.T) {
 		ed25519.EmptySignature,
 	)
 
-	assert.Equal(t, true, faucet.IsFaucetReq(faucetMsg))
-	assert.Equal(t, false, faucet.IsFaucetReq(dataMsg))
+	assert.Equal(t, true, IsFaucetReq(faucetMsg))
+	assert.Equal(t, false, IsFaucetReq(dataMsg))
 }

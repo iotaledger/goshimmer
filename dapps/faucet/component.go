@@ -1,13 +1,11 @@
 package faucet
 
 import (
-	"errors"
 	"fmt"
 	"sync"
 	"time"
 
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	faucetpayload "github.com/iotaledger/goshimmer/dapps/faucet/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
@@ -19,17 +17,9 @@ import (
 	"github.com/iotaledger/hive.go/datastructure/orderedmap"
 )
 
-var (
-	// ErrFundingTxNotBookedInTime is returned when a funding transaction didn't get booked
-	// by this node in the maximum defined await time for it to get booked.
-	ErrFundingTxNotBookedInTime = errors.New("funding transaction didn't get booked in time")
-	// ErrAddressIsBlacklisted is returned if a funding can't be processed since the address is blacklisted.
-	ErrAddressIsBlacklisted = errors.New("can't fund address as it is blacklisted")
-)
-
-// New creates a new faucet using the given seed and tokensPerRequest config.
-func New(seed []byte, tokensPerRequest int64, blacklistCapacity int, maxTxBookedAwaitTime time.Duration) *Faucet {
-	return &Faucet{
+// New creates a new faucet component using the given seed and tokensPerRequest config.
+func New(seed []byte, tokensPerRequest int64, blacklistCapacity int, maxTxBookedAwaitTime time.Duration) *Component {
+	return &Component{
 		tokensPerRequest:     tokensPerRequest,
 		seed:                 walletseed.NewSeed(seed),
 		maxTxBookedAwaitTime: maxTxBookedAwaitTime,
@@ -38,8 +28,8 @@ func New(seed []byte, tokensPerRequest int64, blacklistCapacity int, maxTxBooked
 	}
 }
 
-// The Faucet implements a component which will send tokens to actors requesting tokens.
-type Faucet struct {
+// Component implements a faucet component which will send tokens to actors requesting tokens.
+type Component struct {
 	sync.Mutex
 	// the amount of tokens to send to every request
 	tokensPerRequest int64
@@ -53,39 +43,39 @@ type Faucet struct {
 }
 
 // IsAddressBlacklisted checks whether the given address is currently blacklisted.
-func (f *Faucet) IsAddressBlacklisted(addr address.Address) bool {
-	_, blacklisted := f.blacklist.Get(addr)
+func (c *Component) IsAddressBlacklisted(addr address.Address) bool {
+	_, blacklisted := c.blacklist.Get(addr)
 	return blacklisted
 }
 
 // adds the given address to the blacklist and removes the oldest blacklist entry
 // if it would go over capacity.
-func (f *Faucet) addAddressToBlacklist(addr address.Address) {
-	f.blacklist.Set(addr, true)
-	if f.blacklist.Size() > f.blacklistCapacity {
+func (c *Component) addAddressToBlacklist(addr address.Address) {
+	c.blacklist.Set(addr, true)
+	if c.blacklist.Size() > c.blacklistCapacity {
 		var headKey interface{}
-		f.blacklist.ForEach(func(key, value interface{}) bool {
+		c.blacklist.ForEach(func(key, value interface{}) bool {
 			headKey = key
 			return false
 		})
-		f.blacklist.Delete(headKey)
+		c.blacklist.Delete(headKey)
 	}
 }
 
 // SendFunds sends IOTA tokens to the address from faucet request.
-func (f *Faucet) SendFunds(msg *tangle.Message) (m *tangle.Message, txID string, err error) {
+func (c *Component) SendFunds(msg *tangle.Message) (m *tangle.Message, txID string, err error) {
 	// ensure that only one request is being processed any given time
-	f.Lock()
-	defer f.Unlock()
+	c.Lock()
+	defer c.Unlock()
 
-	addr := msg.Payload().(*faucetpayload.Payload).Address()
+	addr := msg.Payload().(*Object).Address()
 
-	if f.IsAddressBlacklisted(addr) {
+	if c.IsAddressBlacklisted(addr) {
 		return nil, "", ErrAddressIsBlacklisted
 	}
 
 	// get the output ids for the inputs and remainder balance
-	outputIds, addrsIndices, remainder := f.collectUTXOsForFunding()
+	outputIds, addrsIndices, remainder := c.collectUTXOsForFunding()
 
 	tx := transaction.New(
 		// inputs
@@ -94,19 +84,19 @@ func (f *Faucet) SendFunds(msg *tangle.Message) (m *tangle.Message, txID string,
 		// outputs
 		transaction.NewOutputs(map[address.Address][]*balance.Balance{
 			addr: {
-				balance.New(balance.ColorIOTA, f.tokensPerRequest),
+				balance.New(balance.ColorIOTA, c.tokensPerRequest),
 			},
 		}),
 	)
 
 	// add remainder address if needed
 	if remainder > 0 {
-		remainAddr := f.nextUnusedAddress()
+		remainAddr := c.nextUnusedAddress()
 		tx.Outputs().Add(remainAddr, []*balance.Balance{balance.New(balance.ColorIOTA, remainder)})
 	}
 
 	for index := range addrsIndices {
-		tx.Sign(signaturescheme.ED25519(*f.seed.KeyPair(index)))
+		tx.Sign(signaturescheme.ED25519(*c.seed.KeyPair(index)))
 	}
 
 	// prepare value payload with value factory
@@ -124,25 +114,25 @@ func (f *Faucet) SendFunds(msg *tangle.Message) (m *tangle.Message, txID string,
 	// block for a certain amount of time until we know that the transaction
 	// actually got booked by this node itself
 	// TODO: replace with an actual more reactive way
-	if err := valuetransfers.AwaitTransactionToBeBooked(tx.ID(), f.maxTxBookedAwaitTime); err != nil {
+	if err := valuetransfers.AwaitTransactionToBeBooked(tx.ID(), c.maxTxBookedAwaitTime); err != nil {
 		return nil, "", fmt.Errorf("%w: tx %s", err, tx.ID().String())
 	}
 
-	f.addAddressToBlacklist(addr)
+	c.addAddressToBlacklist(addr)
 
 	return msg, tx.ID().String(), nil
 }
 
 // collectUTXOsForFunding iterates over the faucet's UTXOs until the token threshold is reached.
 // this function also returns the remainder balance for the given outputs.
-func (f *Faucet) collectUTXOsForFunding() (outputIds []transaction.OutputID, addrsIndices map[uint64]struct{}, remainder int64) {
-	var total = f.tokensPerRequest
+func (c *Component) collectUTXOsForFunding() (outputIds []transaction.OutputID, addrsIndices map[uint64]struct{}, remainder int64) {
+	var total = c.tokensPerRequest
 	var i uint64
 	addrsIndices = map[uint64]struct{}{}
 
 	// get a list of address for inputs
 	for i = 0; total > 0; i++ {
-		addr := f.seed.Address(i).Address
+		addr := c.seed.Address(i).Address
 		valuetransfers.Tangle().OutputsOnAddress(addr).Consume(func(output *valuetangle.Output) {
 			if output.ConsumerCount() > 0 || total == 0 {
 				return
@@ -169,10 +159,10 @@ func (f *Faucet) collectUTXOsForFunding() (outputIds []transaction.OutputID, add
 }
 
 // nextUnusedAddress generates an unused address from the faucet seed.
-func (f *Faucet) nextUnusedAddress() address.Address {
+func (c *Component) nextUnusedAddress() address.Address {
 	var index uint64
 	for index = 0; ; index++ {
-		addr := f.seed.Address(index).Address
+		addr := c.seed.Address(index).Address
 		cachedOutputs := valuetransfers.Tangle().OutputsOnAddress(addr)
 		if len(cachedOutputs) == 0 {
 			// unused address

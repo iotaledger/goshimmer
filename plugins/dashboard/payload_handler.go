@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"github.com/iotaledger/goshimmer/dapps/faucet"
 	faucetpayload "github.com/iotaledger/goshimmer/dapps/faucet/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
@@ -83,11 +84,11 @@ func ProcessPayload(p tangle.Payload) interface{} {
 			ContentTitle: "Data",
 			Content:      p.(*tangle.DataPayload).Data(),
 		}
-	case faucetpayload.Type:
+	case faucet.Type:
 		// faucet payload
 		return BasicStringPayload{
 			ContentTitle: "address",
-			Content:      p.(*faucetpayload.Payload).Address().String(),
+			Content:      p.(*faucetpayload.Object).Address().String(),
 		}
 	case drng.PayloadType:
 		// drng payload
