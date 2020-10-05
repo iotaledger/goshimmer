@@ -521,7 +521,7 @@ func (b *ConflictBranch) SetLiked(liked bool) (modified bool) {
 	return
 }
 
-// SetFinalized sets the finalized property to the given value. It returns true if the value has been updated.
+// Finalized returns true if the decision whether it is preferred has been finalized.
 func (b *ConflictBranch) Finalized() bool {
 	b.finalizedMutex.RLock()
 	defer b.finalizedMutex.RUnlock()
@@ -819,7 +819,7 @@ func (b *AggregatedBranch) SetLiked(liked bool) (modified bool) {
 	return
 }
 
-// SetFinalized sets the finalized property to the given value. It returns true if the value has been updated.
+// Finalized returns true if the decision whether it is preferred has been finalized.
 func (b *AggregatedBranch) Finalized() bool {
 	b.finalizedMutex.RLock()
 	defer b.finalizedMutex.RUnlock()
