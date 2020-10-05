@@ -58,7 +58,7 @@
     "@types/glob": "^7.1.1",
     "apexcharts": "^3.10.1",
     "apexcharts-react": "^1.0.0",
-    "bootstrap": "^4.3.1",
+    "bootstrap": "^4.5.2",
     "chart.js": "^2.9.3",
     "chartjs-plugin-streaming": "^1.8.0",
     "classnames": "^2.2.6",
