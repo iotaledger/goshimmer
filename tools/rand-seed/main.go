@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"os"
 
 	"github.com/mr-tron/base58"
 )
@@ -16,6 +17,18 @@ func main() {
 		return
 	}
 
-	fmt.Printf("base64:%s\n", base64.StdEncoding.EncodeToString(b))
-	fmt.Printf("base58:%s\n", base58.Encode(b))
+	// If the file doesn't exist, create it, or append to the file
+	f, err := os.OpenFile("random-seed.txt", os.O_WRONLY|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer f.Close()
+
+	_ = f.Truncate(0)
+
+	f.WriteString("base64:" + base64.StdEncoding.EncodeToString(b) + "\n")
+	f.WriteString("base58:" + base58.Encode(b))
+
+	fmt.Println("New random seed generated (both base64 and base58 encoded) and written in random-seed.txt")
 }
