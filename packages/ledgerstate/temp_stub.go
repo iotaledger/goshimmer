@@ -2,7 +2,6 @@ package ledgerstate
 
 import (
 	"github.com/iotaledger/hive.go/marshalutil"
-	"golang.org/x/xerrors"
 )
 
 // region TEMPORARY DEFINITIONS TO PREVENT ERRORS DUE TO UNMERGED MODELS ///////////////////////////////////////////////
@@ -51,29 +50,6 @@ type Transaction struct{}
 // UnsignedBytes returns the unsigned bytes of the Transaction.
 func (t *Transaction) UnsignedBytes() []byte {
 	return nil
-}
-
-// BranchIDLength contains the amount of bytes that a marshaled version of the BranchID contains.
-const BranchIDLength = 32
-
-// BranchID is the data type that represents the identifier of a Branch.
-type BranchID [BranchIDLength]byte
-
-// BranchIDFromMarshalUtil unmarshals a BranchID using a MarshalUtil (for easier unmarshaling).
-func BranchIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchID BranchID, err error) {
-	branchIDBytes, err := marshalUtil.ReadBytes(BranchIDLength)
-	if err != nil {
-		err = xerrors.Errorf("failed to parse BranchID (%v): %w", err, ErrParseBytesFailed)
-		return
-	}
-	copy(branchID[:], branchIDBytes)
-
-	return
-}
-
-// Bytes returns a marshaled version of this BranchID.
-func (b BranchID) Bytes() []byte {
-	return b[:]
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
