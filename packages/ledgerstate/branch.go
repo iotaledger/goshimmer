@@ -321,6 +321,44 @@ func BranchFromObjectStorage(_ []byte, data []byte) (branch objectstorage.Storab
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// region CachedBranch /////////////////////////////////////////////////////////////////////////////////////////////////
+
+// CachedBranch is a wrapper for the generic CachedObject returned by the objectstorage that overrides the accessor
+// methods with a type-casted one.
+type CachedBranch struct {
+	objectstorage.CachedObject
+}
+
+// Retain marks the CachedObject to still be in use by the program.
+func (c *CachedBranch) Retain() *CachedBranch {
+	return &CachedBranch{c.CachedObject.Retain()}
+}
+
+// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
+func (c *CachedBranch) Unwrap() Branch {
+	untypedObject := c.Get()
+	if untypedObject == nil {
+		return nil
+	}
+
+	typedObject := untypedObject.(Branch)
+	if typedObject == nil || typedObject.IsDeleted() {
+		return nil
+	}
+
+	return typedObject
+}
+
+// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
+// exists). It automatically releases the object when the consumer finishes.
+func (c *CachedBranch) Consume(consumer func(branch Branch), forceRelease ...bool) (consumed bool) {
+	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(Branch))
+	}, forceRelease...)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // region ConflictBranch ///////////////////////////////////////////////////////////////////////////////////////////////
 
 // ConflictBranch represents a container for Transactions and Outputs representing a certain perception of the ledger state.
