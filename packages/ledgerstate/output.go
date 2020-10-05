@@ -163,7 +163,7 @@ type Output interface {
 func OutputFromBytes(bytes []byte) (output Output, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if output, err = OutputFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Output from bytes: %w", err)
+		err = xerrors.Errorf("failed to parse Output from MarshalUtil: %w", err)
 	}
 	consumedBytes = marshalUtil.ReadOffset()
 
@@ -199,7 +199,7 @@ func OutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output Output,
 }
 
 // OutputFromObjectStorage restores an Output that was stored in the ObjectStorage.
-func OutputFromObjectStorage(key []byte, data []byte) (output Output, err error) {
+func OutputFromObjectStorage(key []byte, data []byte) (output objectstorage.StorableObject, err error) {
 	if output, _, err = OutputFromBytes(data); err != nil {
 		err = xerrors.Errorf("failed to parse Output from bytes: %w", err)
 		return
@@ -210,7 +210,7 @@ func OutputFromObjectStorage(key []byte, data []byte) (output Output, err error)
 		err = xerrors.Errorf("failed to parse OutputID from bytes: %w", err)
 		return
 	}
-	output.SetID(outputID)
+	output.(Output).SetID(outputID)
 
 	return
 }
@@ -650,7 +650,7 @@ func OutputMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output
 }
 
 // OutputMetadataFromObjectStorage restores an OutputMetadata object that was stored in the ObjectStorage.
-func OutputMetadataFromObjectStorage(key []byte, data []byte) (outputMetadata *OutputMetadata, err error) {
+func OutputMetadataFromObjectStorage(key []byte, data []byte) (outputMetadata objectstorage.StorableObject, err error) {
 	if outputMetadata, _, err = OutputMetadataFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
 		err = xerrors.Errorf("failed to parse OutputMetadata from bytes: %w", err)
 		return
