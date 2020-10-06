@@ -31,9 +31,9 @@ func configureDRNG() *drng.DRNG {
 	// parse distributed public key of the committee
 	var dpk []byte
 	if str := config.Node().GetString(CfgDRNGDistributedPubKey); str != "" {
-		bytes, err := hex.DecodeString(str)
-		if err != nil {
-			log.Warnf("Invalid %s: %s", CfgDRNGDistributedPubKey, err)
+		bytes, e := hex.DecodeString(str)
+		if e != nil {
+			log.Warnf("Invalid %s: %s", CfgDRNGDistributedPubKey, e)
 		}
 		if l := len(bytes); l != drng.PublicKeySize {
 			log.Warnf("Invalid %s length: %d, need %d", CfgDRNGDistributedPubKey, l, drng.PublicKeySize)
@@ -63,9 +63,9 @@ func configureDRNG() *drng.DRNG {
 	// parse distributed public key of the committee
 	dpk = []byte{}
 	if str := config.Node().GetString(CfgDRNGXTeamDistributedPubKey); str != "" {
-		bytes, err := hex.DecodeString(str)
-		if err != nil {
-			log.Warnf("Invalid %s: %s", CfgDRNGXTeamDistributedPubKey, err)
+		bytes, e := hex.DecodeString(str)
+		if e != nil {
+			log.Warnf("Invalid %s: %s", CfgDRNGXTeamDistributedPubKey, e)
 		}
 		if l := len(bytes); l != drng.PublicKeySize {
 			log.Warnf("Invalid %s length: %d, need %d", CfgDRNGXTeamDistributedPubKey, l, drng.PublicKeySize)
@@ -99,9 +99,9 @@ func configureDRNG() *drng.DRNG {
 	// parse distributed public key of the committee
 	dpk = []byte{}
 	if str := config.Node().GetString(CfgDRNGCustomDistributedPubKey); str != "" {
-		bytes, err := hex.DecodeString(str)
-		if err != nil {
-			log.Warnf("Invalid %s: %s", CfgDRNGCustomDistributedPubKey, err)
+		bytes, e := hex.DecodeString(str)
+		if e != nil {
+			log.Warnf("Invalid %s: %s", CfgDRNGCustomDistributedPubKey, e)
 		}
 		if l := len(bytes); l != drng.PublicKeySize {
 			log.Warnf("Invalid %s length: %d, need %d", CfgDRNGCustomDistributedPubKey, l, drng.PublicKeySize)
