@@ -39,7 +39,11 @@ func configure(_ *node.Plugin) {
 func run(*node.Plugin) {}
 
 func configureEvents() {
-	instance := Instance()
+	// skip the event configuration if no committee has been configured.
+	if len(Instance().State) == 0 {
+		return
+	}
+
 	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
 		cachedMsgEvent.MessageMetadata.Release()
 

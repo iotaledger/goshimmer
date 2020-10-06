@@ -31,12 +31,12 @@ func (d *DRNG) Dispatch(issuer ed25519.PublicKey, timestamp time.Time, payload *
 		d.Events.CollectiveBeacon.Trigger(cbEvent)
 
 		// process collectiveBeacon
-		if err := ProcessBeacon(d.State, cbEvent); err != nil {
+		if err := ProcessBeacon(d.State[cbEvent.InstanceID], cbEvent); err != nil {
 			return err
 		}
 
 		// trigger RandomnessEvent
-		d.Events.Randomness.Trigger(d.State.Randomness())
+		d.Events.Randomness.Trigger(d.State[cbEvent.InstanceID])
 
 		return nil
 

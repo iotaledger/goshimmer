@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/iotaledger/goshimmer/packages/drng"
-	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/mr-tron/base58/base58"
@@ -18,9 +17,12 @@ var (
 )
 
 func configureDRNG() *drng.DRNG {
+	config := make(map[uint32][]Option)
 	log = logger.NewLogger(PluginName)
+
+	// Pollen dRNG configuration
 	// parse identities of the committee members
-	committeeMembers, err := parseCommitteeMembers()
+	committeeMembers, err := parseCommitteeMembers(config.Node().GetStringSlice(CfgDRNGCommitteeMembers))
 	if err != nil {
 		log.Warnf("Invalid %s: %s", CfgDRNGCommitteeMembers, err)
 	}
@@ -38,15 +40,91 @@ func configureDRNG() *drng.DRNG {
 		dpk = append(dpk, bytes...)
 	}
 
-	// configure committee
-	committeeConf := &drng.Committee{
+	// configure pollen committee
+	pollenConf := &drng.Committee{
 		InstanceID:    config.Node().GetUint32(CfgDRNGInstanceID),
 		Threshold:     uint8(config.Node().GetUint32(CfgDRNGThreshold)),
 		DistributedPK: dpk,
 		Identities:    committeeMembers,
 	}
 
-	return drng.New(drng.SetCommittee(committeeConf))
+	if len(committeeMembers) > 0 {
+		config[pollenConf.InstanceID] = []Option{SetCommittee(pollenConf)}
+	}
+
+	// X-Team dRNG configuration
+	// parse identities of the x-team committee members
+	committeeMembers, err = parseCommitteeMembers(config.Node().GetStringSlice(CfgDRNGXTeamCommitteeMembers))
+	if err != nil {
+		log.Warnf("Invalid %s: %s", CfgDRNGXTeamCommitteeMembers, err)
+	}
+
+	// parse distributed public key of the committee
+	dpk = []byte{}
+	if str := config.Node().GetString(CfgDRNGXTeamDistributedPubKey); str != "" {
+		bytes, err := hex.DecodeString(str)
+		if err != nil {
+			log.Warnf("Invalid %s: %s", CfgDRNGXTeamDistributedPubKey, err)
+		}
+		if l := len(bytes); l != drng.PublicKeySize {
+			log.Warnf("Invalid %s length: %d, need %d", CfgDRNGXTeamDistributedPubKey, l, drng.PublicKeySize)
+		}
+		dpk = append(dpk, bytes...)
+	}
+
+	// configure X-Team committee
+	xTeamConf := &drng.Committee{
+		InstanceID:    config.Node().GetUint32(CfgDRNGXTeamInstanceID),
+		Threshold:     uint8(config.Node().GetUint32(CfgDRNGXTeamThreshold)),
+		DistributedPK: dpk,
+		Identities:    committeeMembers,
+	}
+
+	if len(committeeMembers) > 0 {
+		if xTeamConf.InstanceID != pollenConf.InstanceID {
+			config[xTeamConf.InstanceID] = []Option{SetCommittee(xTeamConf)}
+		} else {
+			log.Warnf("Invalid X-Team dRNG instanceID: %d, must be different than the Pollen dRNG instance ID (%d)", xTeamConf.InstanceID, pollenConf.InstanceID)
+		}
+	}
+
+	// Custom dRNG configuration
+	// parse identities of the x-team committee members
+	committeeMembers, err = parseCommitteeMembers(config.Node().GetStringSlice(CfgDRNGCustomCommitteeMembers))
+	if err != nil {
+		log.Warnf("Invalid %s: %s", CfgDRNGCustomCommitteeMembers, err)
+	}
+
+	// parse distributed public key of the committee
+	dpk = []byte{}
+	if str := config.Node().GetString(CfgDRNGCustomDistributedPubKey); str != "" {
+		bytes, err := hex.DecodeString(str)
+		if err != nil {
+			log.Warnf("Invalid %s: %s", CfgDRNGCustomDistributedPubKey, err)
+		}
+		if l := len(bytes); l != drng.PublicKeySize {
+			log.Warnf("Invalid %s length: %d, need %d", CfgDRNGCustomDistributedPubKey, l, drng.PublicKeySize)
+		}
+		dpk = append(dpk, bytes...)
+	}
+
+	// configure Custom committee
+	customConf := &drng.Committee{
+		InstanceID:    config.Node().GetUint32(CfgDRNGCustomInstanceID),
+		Threshold:     uint8(config.Node().GetUint32(CfgDRNGCustomThreshold)),
+		DistributedPK: dpk,
+		Identities:    committeeMembers,
+	}
+
+	if len(committeeMembers) > 0 {
+		if customConf.InstanceID != xTeamConf.InstanceID && customConf.InstanceID != pollenConf.InstanceID {
+			config[customConf.InstanceID] = []Option{SetCommittee(customConf)}
+		} else {
+			log.Warnf("Invalid Custom dRNG instanceID: %d, must be different than both Pollen and X-Team dRNG instance IDs (%d - %d)", custome.InstanceID, pollenConf.InstanceID, xTeamConf.InstanceID)
+		}
+	}
+
+	return drng.New(config)
 }
 
 // Instance returns the DRNG instance.
@@ -55,8 +133,8 @@ func Instance() *drng.DRNG {
 	return instance
 }
 
-func parseCommitteeMembers() (result []ed25519.PublicKey, err error) {
-	for _, committeeMember := range config.Node().GetStringSlice(CfgDRNGCommitteeMembers) {
+func parseCommitteeMembers(committeeMembers []string) (result []ed25519.PublicKey, err error) {
+	for _, committeeMember := range committeeMembers {
 		if committeeMember == "" {
 			continue
 		}

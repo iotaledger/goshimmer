@@ -26,14 +26,14 @@ type drngMsg struct {
 
 func configureDrngLiveFeed() {
 	drngLiveFeedWorkerPool = workerpool.New(func(task workerpool.Task) {
-		newRandomness := task.Param(0).(drngpkg.Randomness)
+		newRandomness := task.Param(0).(*drngpkg.State)
 
 		broadcastWsMessage(&wsmsg{MsgTypeDrng, &drngMsg{
-			Instance:      drng.Instance().State.Committee().InstanceID,
-			DistributedPK: hex.EncodeToString(drng.Instance().State.Committee().DistributedPK),
-			Round:         newRandomness.Round,
-			Randomness:    hex.EncodeToString(newRandomness.Randomness[:32]),
-			Timestamp:     newRandomness.Timestamp.Format("2 Jan 2006 15:04:05")}})
+			Instance:      newRandomness.Committee().InstanceID,
+			DistributedPK: hex.EncodeToString(newRandomness.Committee().DistributedPK),
+			Round:         newRandomness.Randomness().Round,
+			Randomness:    hex.EncodeToString(newRandomness.Randomness().Randomness[:32]),
+			Timestamp:     newRandomness.Randomness().Timestamp.Format("2 Jan 2006 15:04:05")}})
 
 		task.Return(nil)
 	}, workerpool.WorkerCount(drngLiveFeedWorkerCount), workerpool.QueueSize(drngLiveFeedWorkerQueueSize))
@@ -44,7 +44,7 @@ func runDrngLiveFeed() {
 		newMsgRateLimiter := time.NewTicker(time.Second / 10)
 		defer newMsgRateLimiter.Stop()
 
-		notifyNewRandomness := events.NewClosure(func(message drngpkg.Randomness) {
+		notifyNewRandomness := events.NewClosure(func(message *drngpkg.State) {
 			select {
 			case <-newMsgRateLimiter.C:
 				drngLiveFeedWorkerPool.TrySubmit(message)

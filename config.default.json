@@ -38,10 +38,24 @@
     "inMemory": false
   },
   "drng": {
-    "instanceId": 1,
-    "threshold": 3,
-    "distributedPubKey": "",
-    "committeeMembers": []
+    "pollen": {
+      "instanceId": 1,
+      "threshold": 3,
+      "distributedPubKey": "",
+      "committeeMembers": []
+    },
+    "xteam": {
+      "instanceId": 1339,
+      "threshold": 4,
+      "distributedPubKey": "",
+      "committeeMembers": []
+    },
+    "custom": {
+      "instanceId": 9999,
+      "threshold": 3,
+      "distributedPubKey": "",
+      "committeeMembers": []
+    }
   },
   "fpc": {
     "bindAddress": "0.0.0.0:10895"
