@@ -18,6 +18,7 @@ var drngLiveFeedWorkerPool *workerpool.WorkerPool
 
 type drngMsg struct {
 	Instance      uint32 `json:"instance"`
+	Name          string `json:"name"`
 	DistributedPK string `json:"dpk"`
 	Round         uint64 `json:"round"`
 	Randomness    string `json:"randomness"`
@@ -28,8 +29,20 @@ func configureDrngLiveFeed() {
 	drngLiveFeedWorkerPool = workerpool.New(func(task workerpool.Task) {
 		newRandomness := task.Param(0).(*drngpkg.State)
 
+		// assign the name of the instance based on its instanceID
+		var name string
+		switch newRandomness.Committee().InstanceID {
+		case drng.Pollen:
+			name = "Pollen"
+		case drng.XTeam:
+			name = "X-Team"
+		default:
+			name = "Custom"
+		}
+
 		broadcastWsMessage(&wsmsg{MsgTypeDrng, &drngMsg{
 			Instance:      newRandomness.Committee().InstanceID,
+			Name:          name,
 			DistributedPK: hex.EncodeToString(newRandomness.Committee().DistributedPK),
 			Round:         newRandomness.Randomness().Round,
 			Randomness:    hex.EncodeToString(newRandomness.Randomness().Randomness[:32]),

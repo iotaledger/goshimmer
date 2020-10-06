@@ -30,7 +30,8 @@ export class DrngLiveFeed extends React.Component<Props, any> {
                                     <Table>
                                         <thead>
                                         <tr>
-                                            <td>InstanceID</td>
+                                            <td>Instance Name</td>
+                                            <td>DPubKey</td>
                                             <td>Round</td>
                                             <td>Randomness</td>
                                             <td>Timestamp</td>

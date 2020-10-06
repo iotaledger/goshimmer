@@ -5,6 +5,12 @@ import (
 )
 
 const (
+	// Pollen defines the instance ID of the Pollen drng committee.
+	Pollen = 1
+
+	// XTeam defines the instance ID of the X-Team drng committee.
+	XTeam = 1339
+
 	// Configuration parameters of Pollen dRNG committee.
 
 	// CfgDRNGInstanceID defines the config flag of the DRNG instanceID.
@@ -41,13 +47,13 @@ const (
 
 func init() {
 	// Default parameters of Pollen dRNG committee.
-	flag.Uint32(CfgDRNGInstanceID, 1, "instance ID of the pollen drng instance")
+	flag.Uint32(CfgDRNGInstanceID, Pollen, "instance ID of the pollen drng instance")
 	flag.Uint32(CfgDRNGThreshold, 3, "BLS threshold of the pollen drng")
 	flag.String(CfgDRNGDistributedPubKey, "", "distributed public key of the pollen committee (hex encoded)")
 	flag.StringSlice(CfgDRNGCommitteeMembers, []string{}, "list of committee members of the pollen drng")
 
 	// Default parameters of X-Team dRNG committee.
-	flag.Uint32(CfgDRNGXTeamInstanceID, 1, "instance ID of the x-team drng instance")
+	flag.Uint32(CfgDRNGXTeamInstanceID, XTeam, "instance ID of the x-team drng instance")
 	flag.Uint32(CfgDRNGXTeamThreshold, 3, "BLS threshold of the x-team drng")
 	flag.String(CfgDRNGXTeamDistributedPubKey, "", "distributed public key of the x-team committee (hex encoded)")
 	flag.StringSlice(CfgDRNGXTeamCommitteeMembers, []string{}, "list of committee members of the x-team drng")
