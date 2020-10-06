@@ -77,7 +77,7 @@ func waitForRound(t *testing.T, peer *framework.Peer, round uint64, maxAttempts 
 		resp, err := peer.GetRandomness()
 		require.NoError(t, err)
 		b, _ = json.MarshalIndent(resp, "", " ")
-		if resp.Round == round {
+		if resp.Randomness[0].Round == round {
 			return string(b), nil
 		}
 		time.Sleep(1 * time.Second)
