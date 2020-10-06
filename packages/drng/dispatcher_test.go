@@ -76,6 +76,6 @@ func TestEmptyState(t *testing.T) {
 	drng := New(config)
 	err = drng.Dispatch(issuerPK, timestampTest, parsedPayload)
 	if assert.Error(t, err) {
-		assert.Equal(t, ErrNilState, err)
+		assert.Equal(t, ErrInstanceIDMismatch, err)
 	}
 }
