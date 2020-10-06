@@ -115,7 +115,7 @@ func (bmv *BaseManaVector) BookMana(txInfo *TxInfo) {
 			panic(fmt.Sprintf("Revoking (%f) eff base mana 1 from node %s results in negative balance", inputInfo.Amount, pledgeNodeID.String()))
 		}
 		// trigger events
-		Events().Revoked.Trigger(&RevokedEvent{pledgeNodeID, inputInfo.Amount, txInfo.TimeStamp, bmv.vectorType})
+		Events().Revoked.Trigger(&RevokedEvent{pledgeNodeID, inputInfo.Amount, txInfo.TimeStamp, bmv.vectorType, txInfo.TransactionID})
 		Events().Updated.Trigger(&UpdatedEvent{pledgeNodeID, *oldMana, *bmv.vector[pledgeNodeID], bmv.vectorType})
 	}
 	// second, pledge mana to new nodes
@@ -130,7 +130,7 @@ func (bmv *BaseManaVector) BookMana(txInfo *TxInfo) {
 	bm1Pledged, bm2Pledged := bmv.vector[pledgeNodeID].pledgeAndUpdate(txInfo)
 
 	// trigger events
-	Events().Pledged.Trigger(&PledgedEvent{pledgeNodeID, bm1Pledged, bm2Pledged, txInfo.TimeStamp, bmv.vectorType})
+	Events().Pledged.Trigger(&PledgedEvent{pledgeNodeID, bm1Pledged, bm2Pledged, txInfo.TimeStamp, bmv.vectorType, txInfo.TransactionID})
 	Events().Updated.Trigger(&UpdatedEvent{pledgeNodeID, *oldMana, *bmv.vector[pledgeNodeID], bmv.vectorType})
 }
 

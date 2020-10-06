@@ -125,8 +125,9 @@ func configureEvents() {
 			})
 
 			txInfo = &mana.TxInfo{
-				TimeStamp:    tx.Timestamp(),
-				TotalBalance: totalAmount,
+				TimeStamp:     tx.Timestamp(),
+				TransactionID: tx.ID(),
+				TotalBalance:  totalAmount,
 				PledgeID: map[mana.Type]identity.ID{
 					mana.AccessMana:    tx.AccessManaNodeID(),
 					mana.ConsensusMana: tx.ConsensusManaNodeID(),

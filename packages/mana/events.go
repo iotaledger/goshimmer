@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 )
@@ -41,19 +42,21 @@ type EventDefinitions struct {
 
 // PledgedEvent is the struct that is passed along with triggering a Pledged event.
 type PledgedEvent struct {
-	NodeID    identity.ID
-	AmountBM1 float64
-	AmountBM2 float64
-	Time      time.Time
-	Type      Type // access or consensus
+	NodeID        identity.ID
+	AmountBM1     float64
+	AmountBM2     float64
+	Time          time.Time
+	Type          Type // access or consensus
+	TransactionID transaction.ID
 }
 
 // RevokedEvent is the struct that is passed along with triggering a Revoked event.
 type RevokedEvent struct {
-	NodeID    identity.ID
-	AmountBM1 float64
-	Time      time.Time
-	Type      Type // access or consensus
+	NodeID        identity.ID
+	AmountBM1     float64
+	Time          time.Time
+	Type          Type // access or consensus
+	TransactionID transaction.ID
 }
 
 // UpdatedEvent is the struct that is passed along with triggering an Updated event.

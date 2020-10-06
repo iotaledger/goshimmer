@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
@@ -30,8 +31,9 @@ var (
 		inputPledgeID3: 0,
 	}
 	txInfo = &TxInfo{
-		TimeStamp:    txTime,
-		TotalBalance: 10.0,
+		TimeStamp:     txTime,
+		TransactionID: transaction.RandomID(),
+		TotalBalance:  10.0,
 		PledgeID: map[Type]identity.ID{
 			AccessMana:    txPledgeID,
 			ConsensusMana: txPledgeID,
@@ -227,6 +229,7 @@ func TestBaseManaVector_BookMana(t *testing.T) {
 		assert.Equal(t, afterBookingAmount[ev.NodeID], ev.AmountBM1)
 		assert.InDelta(t, afterBookingAmount[ev.NodeID], ev.AmountBM2, delta)
 		assert.Equal(t, txTime, ev.Time)
+		assert.Equal(t, txInfo.TransactionID, ev.TransactionID)
 		assert.Equal(t, AccessMana, ev.Type)
 		assert.Contains(t, pledgedNodeIds, ev.NodeID)
 		delete(pledgedNodeIds, ev.NodeID)
@@ -235,6 +238,7 @@ func TestBaseManaVector_BookMana(t *testing.T) {
 	for _, ev := range revokeEvents {
 		assert.Equal(t, beforeBookingAmount[ev.NodeID], ev.AmountBM1)
 		assert.Equal(t, txTime, ev.Time)
+		assert.Equal(t, txInfo.TransactionID, ev.TransactionID)
 		assert.Equal(t, AccessMana, ev.Type)
 		assert.Contains(t, revokedNodeIds, ev.NodeID)
 		delete(revokedNodeIds, ev.NodeID)

@@ -3,6 +3,7 @@ package mana
 import (
 	"time"
 
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/hive.go/identity"
 )
 
@@ -10,6 +11,8 @@ import (
 type TxInfo struct {
 	// Timestamp is the timestamp of the transaction.
 	TimeStamp time.Time
+	// TransactionID is the ID of the transaction.
+	TransactionID transaction.ID
 	// TotalBalance is the amount of funds being transferred via the transaction.
 	TotalBalance float64
 	// PledgeID is a map of mana types and the node to which this transaction pledges its mana type to.
