@@ -66,7 +66,7 @@ func configureEvents() {
 				log.Debug(err)
 				return
 			}
-			log.Debug("New randomness: ", instance.State.Randomness())
+			log.Debug("New randomness: ", instance.State[parsedPayload.InstanceID].Randomness())
 		})
 	}))
 }

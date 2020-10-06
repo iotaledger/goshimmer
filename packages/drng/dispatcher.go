@@ -31,6 +31,9 @@ func (d *DRNG) Dispatch(issuer ed25519.PublicKey, timestamp time.Time, payload *
 		d.Events.CollectiveBeacon.Trigger(cbEvent)
 
 		// process collectiveBeacon
+		if _, ok := d.State[cbEvent.InstanceID]; !ok {
+			return ErrInstanceIDMismatch
+		}
 		if err := ProcessBeacon(d.State[cbEvent.InstanceID], cbEvent); err != nil {
 			return err
 		}

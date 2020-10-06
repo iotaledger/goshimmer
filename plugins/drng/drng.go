@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/iotaledger/goshimmer/packages/drng"
+	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/mr-tron/base58/base58"
@@ -17,7 +18,7 @@ var (
 )
 
 func configureDRNG() *drng.DRNG {
-	config := make(map[uint32][]Option)
+	c := make(map[uint32][]drng.Option)
 	log = logger.NewLogger(PluginName)
 
 	// Pollen dRNG configuration
@@ -49,7 +50,7 @@ func configureDRNG() *drng.DRNG {
 	}
 
 	if len(committeeMembers) > 0 {
-		config[pollenConf.InstanceID] = []Option{SetCommittee(pollenConf)}
+		c[pollenConf.InstanceID] = []drng.Option{drng.SetCommittee(pollenConf)}
 	}
 
 	// X-Team dRNG configuration
@@ -82,7 +83,7 @@ func configureDRNG() *drng.DRNG {
 
 	if len(committeeMembers) > 0 {
 		if xTeamConf.InstanceID != pollenConf.InstanceID {
-			config[xTeamConf.InstanceID] = []Option{SetCommittee(xTeamConf)}
+			c[xTeamConf.InstanceID] = []drng.Option{drng.SetCommittee(xTeamConf)}
 		} else {
 			log.Warnf("Invalid X-Team dRNG instanceID: %d, must be different than the Pollen dRNG instance ID (%d)", xTeamConf.InstanceID, pollenConf.InstanceID)
 		}
@@ -118,13 +119,13 @@ func configureDRNG() *drng.DRNG {
 
 	if len(committeeMembers) > 0 {
 		if customConf.InstanceID != xTeamConf.InstanceID && customConf.InstanceID != pollenConf.InstanceID {
-			config[customConf.InstanceID] = []Option{SetCommittee(customConf)}
+			c[customConf.InstanceID] = []drng.Option{drng.SetCommittee(customConf)}
 		} else {
-			log.Warnf("Invalid Custom dRNG instanceID: %d, must be different than both Pollen and X-Team dRNG instance IDs (%d - %d)", custome.InstanceID, pollenConf.InstanceID, xTeamConf.InstanceID)
+			log.Warnf("Invalid Custom dRNG instanceID: %d, must be different than both Pollen and X-Team dRNG instance IDs (%d - %d)", customConf.InstanceID, pollenConf.InstanceID, xTeamConf.InstanceID)
 		}
 	}
 
-	return drng.New(config)
+	return drng.New(c)
 }
 
 // Instance returns the DRNG instance.

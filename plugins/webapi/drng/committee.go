@@ -1,11 +1,11 @@
 package drng
 
 import (
-	"crypto/ed25519"
 	"encoding/hex"
 	"net/http"
 
 	"github.com/iotaledger/goshimmer/plugins/drng"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58"
 )
