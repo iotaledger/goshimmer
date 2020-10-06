@@ -120,6 +120,7 @@ func sendInitialData(ws *websocket.Conn) error {
 	if err := sendAllowedManaPledge(ws); err != nil {
 		return err
 	}
+	// TODO: add additional initial values
 	return nil
 }
 

@@ -10,6 +10,7 @@ import {Card, Col} from "react-bootstrap";
 import {ManaStore} from "app/stores/ManaStore";
 import ManaGauge from "app/components/ManaGauge";
 import ManaAllowedPledgeID from "app/components/ManaAllowedPledgeID";
+import ManaPercentile from "app/components/ManaPercentile";
 
 interface Props {
     nodeStore?: NodeStore;
@@ -26,7 +27,6 @@ export class Mana extends React.Component<Props, any> {
         const {searchNode} = this.props.manaStore;
         return (
             <Container>
-                <h3>Mana</h3>
                 <Row className={"mb-3"}>
                     <Col>
                         <ManaGauge
@@ -35,12 +35,10 @@ export class Mana extends React.Component<Props, any> {
                         />
                     </Col>
                     <Col>
-                        <Col>
-                            <ManaGauge
-                                data={manaStore.manaValues.length === 0 ? [0.0, 0.0] :[manaStore.manaValues[manaStore.manaValues.length -1][2], manaStore.prevManaValues[1]]}
-                                title={"Consensus Mana"}
-                            />
-                        </Col>
+                        <ManaGauge
+                            data={manaStore.manaValues.length === 0 ? [0.0, 0.0] :[manaStore.manaValues[manaStore.manaValues.length -1][2], manaStore.prevManaValues[1]]}
+                            title={"Consensus Mana"}
+                        />
                     </Col>
                 </Row>
                 <Row className={"mb-3"}>
@@ -48,9 +46,18 @@ export class Mana extends React.Component<Props, any> {
                         <Card>
                             <Card.Body>
                                 <Card.Title>
-                                    Access Mana Percentile
+                                    <Container fluid style={{padding: '0rem'}}>
+                                        <Row>
+                                            <Col>
+                                                Access Percentile
+                                            </Col>
+                                            <Col>
+                                                <b>{manaStore.accessPercentile.toFixed(2)} %</b>
+                                            </Col>
+                                        </Row>
+                                    </Container>
                                 </Card.Title>
-                                {manaStore.accessPercentile}
+                                <ManaPercentile data={manaStore.accessPercentile} key={manaStore.accessPercentile.toString()}/>
                             </Card.Body>
                         </Card>
                     </Col>
@@ -58,13 +65,23 @@ export class Mana extends React.Component<Props, any> {
                         <Card>
                             <Card.Body>
                                 <Card.Title>
-                                    Consensus Mana Percentile
+                                    <Container fluid style={{padding: '0rem'}}>
+                                        <Row>
+                                            <Col>
+                                                Consensus Percentile
+                                            </Col>
+                                            <Col>
+                                                <b>{manaStore.consensusPercentile.toFixed(2)} %</b>
+                                            </Col>
+                                        </Row>
+                                    </Container>
                                 </Card.Title>
-                                {manaStore.consensusPercentile}
+                                <ManaPercentile data={manaStore.consensusPercentile} key={manaStore.consensusPercentile.toString()}/>
                             </Card.Body>
                         </Card>
                     </Col>
                 </Row>
+                <ManaAllowedPledgeID manaStore={manaStore}/>
                 <Row className={"mb-3"}>
                     <Col>
                         <ManaChart
@@ -108,7 +125,6 @@ export class Mana extends React.Component<Props, any> {
                         <ManaHistogram data={manaStore.consensusHistogramInput} title={"Consensus Mana Distribution"}/>
                     </Col>
                 </Row>
-                <ManaAllowedPledgeID manaStore={manaStore}/>
             </Container>
         );
     }

@@ -1,7 +1,6 @@
 import {action, computed, observable} from 'mobx';
 import {registerHandler, WSMsgType} from "app/misc/WS";
 import * as React from "react";
-import ManaPercentile from "app/components/ManaPercentile";
 
 class ManaMsg {
     nodeID: string;
@@ -137,12 +136,25 @@ export class ManaStore {
             feed.push(
                 <tr
                     key={node.nodeID}
-                    style={{color: node.nodeID === this.ownID? 'red': 'black'}}
+                    style={{
+                        color: node.nodeID === this.ownID? 'white': 'black',
+                        backgroundColor: node.nodeID === this.ownID ? 'rgba(7, 90, 184, 0.8)': 'white',
+                    }}
                 >
-                    <td> {i + 1} </td>
+                    <td style={
+                        {
+                            borderTopLeftRadius: node.nodeID === this.ownID ? '10px': '0',
+                            borderBottomLeftRadius: node.nodeID === this.ownID ? '10px': '0',
+                        }
+                    }> {i + 1} </td>
                     <td>{node.nodeID}</td>
                     <td>{node.mana.toFixed(2)}</td>
-                    <td>{((node.mana / manaSum)*100.0).toFixed(2)}%</td>
+                    <td style={
+                        {
+                            borderTopRightRadius: node.nodeID === this.ownID ? '10px': '0',
+                            borderBottomRightRadius: node.nodeID === this.ownID ? '10px': '0',
+                        }
+                    }>{((node.mana / manaSum)*100.0).toFixed(2)}%</td>
                 </tr>
             );
         };
@@ -225,7 +237,7 @@ export class ManaStore {
                     break;
             }
         }
-        return [<ManaPercentile data={per} key={per.toString()}/>]
+        return per
     }
 
     @computed
@@ -242,7 +254,7 @@ export class ManaStore {
                     per = ((this.consensusNetworkRichest.length - (index +1)) / this.consensusNetworkRichest.length) * 100;
             }
         }
-        return [<ManaPercentile data={per} key={per.toString()}/>]
+        return per
     }
 }
 

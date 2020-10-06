@@ -1,6 +1,6 @@
 import {inject, observer} from "mobx-react";
 import * as React from "react";
-import {Card, Col, ListGroup, ListGroupItem, Row} from "react-bootstrap";
+import {Badge, Card, Col, ListGroup, ListGroupItem, Row} from "react-bootstrap";
 import ManaStore from "app/stores/ManaStore";
 
 interface Props {
@@ -27,10 +27,8 @@ export default class ManaAllowedPledgeID extends React.Component<Props, any> {
                 allowedAccessPledgeIDList.push(
                     <ListGroupItem
                         key={value.shortID}
-                        as={'button'}
                         onClick={() => navigator.clipboard.writeText(value.fullID)}>
-                        <div>NodeID: {value.shortID}</div>
-                        <div>Base58 Encoded Full NodeID: {value.fullID}</div>
+                        <div> <b>{value.shortID}</b> (<a>{value.fullID})</a></div>
                     </ListGroupItem>
                 )
             })
@@ -48,25 +46,30 @@ export default class ManaAllowedPledgeID extends React.Component<Props, any> {
                     // TODO: align left
                     <ListGroupItem
                         key={value.shortID}
-                        as={'button'}
                         onClick={() => navigator.clipboard.writeText(value.fullID)}>
-                        <h5>NodeID: </h5>{value.shortID}
-                        <h5>Base58 Encoded Full NodeID: </h5>{value.fullID}
+                        <div> <b>{value.shortID}</b> (<a>{value.fullID})</a></div>
                     </ListGroupItem>
                 )
             })
         }
         return (
-            <Row>
+            <Row className={"mb-3"}>
             <Col>
                 <Card>
                     <Card.Body>
                         <Card.Title>
-                            Access Mana Pledge NodeID Filter
+                            Access Pledge Filter
+                            {allowedPledgeIDs.accessFilter.enabled ?
+                                <Badge variant="success">Enabled</Badge>:
+                                <Badge variant="danger">Disabled</Badge>
+                            }
                         </Card.Title>
-                        <p>Enabled: {allowedPledgeIDs.accessFilter.enabled ? 'true': 'false'}</p>
-                        <p>Accepted Access Pledge NodeIDs:</p>
-                        <ListGroup>
+                        <p>Accepted NodeIDs:</p>
+                        <ListGroup style={{
+                            fontSize: '0.75rem',
+                            maxHeight: '150px',
+                            overflowY: 'auto'
+                        }}>
                             {allowedAccessPledgeIDList}
                         </ListGroup>
                     </Card.Body>
@@ -76,11 +79,18 @@ export default class ManaAllowedPledgeID extends React.Component<Props, any> {
                 <Card>
                     <Card.Body>
                         <Card.Title>
-                            Consensus Mana Pledge NodeID Filter
+                            Consensus Pledge Filter
+                            {allowedPledgeIDs.consensusFilter.enabled ?
+                                <Badge variant="success">Enabled</Badge>:
+                                <Badge variant="danger">Disabled</Badge>
+                            }
                         </Card.Title>
-                        <p>Enabled: {allowedPledgeIDs.consensusFilter.enabled ? 'true': 'false'}</p>
-                        <p>Accepted Consensus Pledge NodeIDs:</p>
-                        <ListGroup>
+                        <p>Accepted NodeIDs:</p>
+                        <ListGroup style={{
+                            fontSize: '0.75rem',
+                            maxHeight: '150px',
+                            overflowY: 'auto'
+                        }}>
                             {allowedConsensusPledgeIDList}
                         </ListGroup>
                     </Card.Body>

@@ -3,6 +3,7 @@ import * as React from "react";
 import Card from "react-bootstrap/Card";
 import UpArrow from "../../assets/up.svg";
 import DownArrow from "../../assets/down.svg";
+import {Col, Container, Row} from "react-bootstrap";
 
 
 interface Props {
@@ -18,9 +19,18 @@ export default class ManaGauge extends React.Component<Props, any> {
         return (
             <Card>
                 <Card.Body>
-                    <Card.Title>{this.props.title}</Card.Title>
-                    <h2>{displayManaUnit(currentValue)} {displayChangeIcon(currentValue, prevValue)}</h2>
-
+                    <Card.Title style={{marginBottom: '0rem'}}>
+                        <Container fluid style={{padding: '0rem'}}>
+                            <Row>
+                                <Col>
+                                    {this.props.title}
+                                </Col>
+                                <Col>
+                                    <b>{displayManaUnit(currentValue)} {displayChangeIcon(currentValue, prevValue)}</b>
+                                </Col>
+                            </Row>
+                        </Container>
+                    </Card.Title>
                 </Card.Body>
             </Card>
         );
@@ -31,9 +41,9 @@ export function displayChangeIcon(cur: number, prev: number) {
     if (cur === prev) {return []}
     if (cur > prev)
     {
-        return <img src={UpArrow} alt="Up Arrow" width={'40px'}/>
+        return <img src={UpArrow} alt="Up Arrow" width={'20px'}/>
     } else {
-        return <img src={DownArrow} alt="Down Arrow" width={'40px'} />
+        return <img src={DownArrow} alt="Down Arrow" width={'20px'} />
     }
 }
 
