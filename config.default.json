@@ -54,7 +54,15 @@
       "instanceId": 1339,
       "threshold": 4,
       "distributedPubKey": "",
-      "committeeMembers": []
+      "committeeMembers": [
+        "GUdTwLDb6t6vZ7X5XzEnjFNDEVPteU7tVQ9nzKLfPjdo",
+        "68vNzBFE9HpmWLb2x4599AUUQNuimuhwn3XahTZZYUHt",
+        "Dc9n3JxYecaX3gpxVnWb4jS3KVz1K1SgSK1KpV1dzqT1",
+        "75g6r4tqGZhrgpDYZyZxVje1Qo54ezFYkCw94ELTLhPs",
+        "CN1XLXLHT9hv7fy3qNhpgNMD6uoHFkHtaNNKyNVCKybf",
+        "7SmttyqrKMkLo5NPYaiFoHs8LE6s7oCoWCQaZhui8m16",
+        "CypSmrHpTe3WQmCw54KP91F5gTmrQEL7EmTX38YStFXx"
+      ]
     },
     "custom": {
       "instanceId": 9999,
