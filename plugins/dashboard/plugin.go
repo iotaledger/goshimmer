@@ -164,6 +164,10 @@ const (
 	MsgTypeManaMapOnline
 	// MsgTypeManaAllowedPledge defines a message containing a list of allowed mana pledge nodeIDs.
 	MsgTypeManaAllowedPledge
+	// MsgTypeManaPledge defines a message that is sent when mana was pledged to the node.
+	MsgTypeManaPledge
+	// MsgTypeManaRevoke defines a message that is sent when mana was revoked from a node.
+	MsgTypeManaRevoke
 )
 
 type wsmsg struct {
