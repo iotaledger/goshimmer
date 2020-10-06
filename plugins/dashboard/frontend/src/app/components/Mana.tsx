@@ -11,6 +11,7 @@ import {ManaStore} from "app/stores/ManaStore";
 import ManaGauge from "app/components/ManaGauge";
 import ManaAllowedPledgeID from "app/components/ManaAllowedPledgeID";
 import ManaPercentile from "app/components/ManaPercentile";
+import ManaEventList from "app/components/ManaEventList";
 
 interface Props {
     nodeStore?: NodeStore;
@@ -87,6 +88,20 @@ export class Mana extends React.Component<Props, any> {
                         <ManaChart
                             node={nodeStore.status.id}
                             data= {manaStore.manaValues.length === 0 ? [[new Date(), 0.0, 0.0]] :manaStore.manaValues}
+                        />
+                    </Col>
+                </Row>
+                <Row>
+                    <Col>
+                        <ManaEventList
+                            title={"Access Events"}
+                            listItems={manaStore.accessEventList}
+                        />
+                    </Col>
+                    <Col>
+                        <ManaEventList
+                            title={"Consensus Events"}
+                            listItems={manaStore.consensusEventList}
                         />
                     </Col>
                 </Row>

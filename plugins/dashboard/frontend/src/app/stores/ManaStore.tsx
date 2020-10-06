@@ -1,6 +1,7 @@
 import {action, computed, observable} from 'mobx';
 import {registerHandler, WSMsgType} from "app/misc/WS";
 import * as React from "react";
+import {ListGroupItem} from "react-bootstrap";
 
 class ManaMsg {
     nodeID: string;
@@ -36,8 +37,60 @@ export class AllowedNodeStr {
     fullID: string;
 }
 
+class PledgeMsg {
+    manaType: string;
+    nodeID: string;
+    time: number;
+    txID: string;
+    bm1: number;
+    bm2: number;
+}
+
+class RevokeMsg {
+    manaType: string;
+    nodeID: string;
+    time: number;
+    txID: string;
+    bm1: number;
+}
+
+class ManaEvent {
+    nodeID: string;
+    time: Date;
+    txID: string;
+
+    constructor(nodeID: string, time: Date, txID: string) {
+        this.nodeID = nodeID;
+        this.time = time;
+        this.txID = txID;
+    }
+}
+
+class PledgeEvent extends ManaEvent{
+    bm1: number;
+    bm2: number;
+
+    constructor(nodeID: string, time: Date, txID: string, bm1: number, bm2: number) {
+        super(nodeID, time, txID);
+        this.bm1 = bm1;
+        this.bm2 = bm2;
+    }
+}
+
+class RevokeEvent extends ManaEvent{
+    bm1: number;
+
+    constructor(nodeID: string, time: Date,  txID: string, bm1: number) {
+        super(nodeID, time, txID);
+        this.bm1 = bm1;
+    }
+}
+
+
 // every 10 seconds, a new value arrives, so this is roughly 166 mins
 const maxStoredManaValues = 1000;
+// number of previous pledge/revoke events we keep track of.
+const maxEventsStored = 100;
 
 export class ManaStore {
     // mana values
@@ -61,6 +114,10 @@ export class ManaStore {
 
     @observable public allowedPledgeIDs: AllowedPledgeIDsMsg;
 
+    @observable accessEvents: Array<ManaEvent> = [];
+
+    @observable consensusEvents: Array<ManaEvent> = [];
+
     ownID: string;
 
     constructor() {
@@ -69,6 +126,8 @@ export class ManaStore {
         registerHandler(WSMsgType.ManaMapOverall, this.updateNetworkRichest);
         registerHandler(WSMsgType.ManaMapOnline, this.updateActiveRichest);
         registerHandler(WSMsgType.ManaAllowedPledge, this.updateAllowedPledgeIDs);
+        registerHandler(WSMsgType.ManaPledge, this.addNewPledge);
+        registerHandler(WSMsgType.ManaRevoke, this.addNewRevoke);
     };
 
     @action
@@ -103,7 +162,6 @@ export class ManaStore {
                 this.totalConsensusNetwork = msg.totalMana;
                 this.consensusNetworkRichest = msg.nodes;
                 break;
-
         }
     }
 
@@ -118,13 +176,63 @@ export class ManaStore {
                 this.totalConsensusActive = msg.totalMana;
                 this.consensusActiveRichest = msg.nodes;
                 break;
-
         }
     };
 
     @action
     updateAllowedPledgeIDs = (msg: AllowedPledgeIDsMsg) => {
         this.allowedPledgeIDs = msg;
+    }
+
+    @action
+    addNewPledge = (msg: PledgeMsg) => {
+        switch (msg.manaType) {
+            case "Access Mana":
+                this.handleNewPledgeEvent(this.accessEvents, msg);
+                break;
+            case "Consensus Mana":
+                this.handleNewPledgeEvent(this.consensusEvents, msg);
+                break;
+        }
+    }
+
+    handleNewPledgeEvent = (store: Array<ManaEvent>, msg: PledgeMsg) => {
+        if (store.length === maxEventsStored) {
+            store.shift()
+        }
+        let newData = new PledgeEvent(
+            msg.nodeID,
+            new Date(msg.time*1000),
+            msg.txID,
+            msg.bm1,
+            msg.bm2
+        )
+        store.push(newData)
+    }
+
+    @action
+    addNewRevoke = (msg: RevokeMsg) => {
+        switch (msg.manaType) {
+            case "Access Mana":
+                this.handleNewRevokeEvent(this.accessEvents, msg);
+                break;
+            case "Consensus Mana":
+                this.handleNewRevokeEvent(this.consensusEvents, msg);
+                break;
+        }
+    }
+
+    handleNewRevokeEvent = (store: Array<ManaEvent>, msg: RevokeMsg) => {
+        if (store.length === maxEventsStored) {
+            store.shift()
+        }
+        let newData = new RevokeEvent(
+            msg.nodeID,
+            new Date(msg.time*1000),
+            msg.txID,
+            msg.bm1
+        )
+        store.push(newData)
     }
 
     nodeList = (leaderBoard: Array<Node>, manaSum: number) => {
@@ -255,6 +363,92 @@ export class ManaStore {
             }
         }
         return per
+    }
+
+    @computed
+    get accessEventList() {
+        let result = [];
+        if (this.accessEvents === undefined || this.accessEvents === null) {
+            return result
+        }
+        // reverse traverse bc oldest event is the first
+        this.accessEvents.reverse().forEach( (element: ManaEvent, index) => {
+            if (element instanceof PledgeEvent) {
+                result.push(
+                    <ListGroupItem
+                        style={{backgroundColor: 'green'}}
+                        key={element.nodeID + index.toString(10)}
+                        //onClick={() => do something on click}>
+                    >
+                        <div>Pledge</div>
+                        <div>{element.time.toLocaleString()}</div>
+                        <div>{element.nodeID}</div>
+                        <div>{element.txID}</div>
+                        <div>BM1: +{element.bm1}</div>
+                        <div>BM2: +{element.bm2}</div>
+                    </ListGroupItem>
+                )
+            } else if (element instanceof RevokeEvent){
+                // it's a revoke event then
+                result.push(
+                    <ListGroupItem
+                        style={{backgroundColor: 'red'}}
+                        key={element.nodeID + index.toString(10)}
+                        //onClick={() => do something on click}>
+                    >
+                        <div>Revoke</div>
+                        <div>{element.time.toLocaleString()}</div>
+                        <div>{element.nodeID}</div>
+                        <div>{element.txID}</div>
+                        <div>BM1: -{element.bm1}</div>
+                    </ListGroupItem>
+                )
+            }
+        })
+        return result;
+    }
+
+    @computed
+    get consensusEventList() {
+        let result = [];
+        if (this.consensusEvents === undefined || this.consensusEvents === null) {
+            return result
+        }
+        // reverse traverse bc oldest event is the first
+        this.consensusEvents.reverse().forEach( (element: ManaEvent, index) => {
+            if (element instanceof PledgeEvent) {
+                result.push(
+                    <ListGroupItem
+                        style={{backgroundColor: 'green'}}
+                        key={element.nodeID + index.toString(10)}
+                        //onClick={() => do something on click}>
+                    >
+                        <div>Pledge</div>
+                        <div>{element.time.toLocaleString()}</div>
+                        <div>{element.nodeID}</div>
+                        <div>{element.txID}</div>
+                        <div>BM1: +{element.bm1}</div>
+                        <div>BM2: +{element.bm2}</div>
+                    </ListGroupItem>
+                )
+            } else if (element instanceof RevokeEvent){
+                // it's a revoke event then
+                result.push(
+                    <ListGroupItem
+                        style={{backgroundColor: 'red'}}
+                        key={element.nodeID + index.toString(10)}
+                        //onClick={() => do something on click}>
+                    >
+                        <div>Revoke</div>
+                        <div>{element.time.toLocaleString()}</div>
+                        <div>{element.nodeID}</div>
+                        <div>{element.txID}</div>
+                        <div>BM1: -{element.bm1}</div>
+                    </ListGroupItem>
+                )
+            }
+        })
+        return result;
     }
 }
 

@@ -10,7 +10,9 @@ export enum WSMsgType {
     Mana,
     ManaMapOverall,
     ManaMapOnline,
-    ManaAllowedPledge
+    ManaAllowedPledge,
+    ManaPledge,
+    ManaRevoke
 }
 
 export interface WSMessage {

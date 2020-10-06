@@ -148,6 +148,7 @@ func sendManaPledge(ev *manaPkg.PledgedEvent) {
 			ManaType: ev.Type.String(),
 			NodeID:   ev.NodeID.String(),
 			Time:     ev.Time.Unix(),
+			TxID:     ev.TransactionID.String(),
 			BM1:      ev.AmountBM1,
 			BM2:      ev.AmountBM2,
 		},
@@ -161,6 +162,7 @@ func sendManaRevoke(ev *manaPkg.RevokedEvent) {
 			ManaType: ev.Type.String(),
 			NodeID:   ev.NodeID.String(),
 			Time:     ev.Time.Unix(),
+			TxID:     ev.TransactionID.String(),
 			BM1:      ev.AmountBM1,
 		},
 	})
@@ -235,6 +237,7 @@ type manaPledgeMsgData struct {
 	ManaType string  `json:"manaType"`
 	NodeID   string  `json:"nodeID"`
 	Time     int64   `json:"time"`
+	TxID     string  `json:"txID"`
 	BM1      float64 `json:"bm1"`
 	BM2      float64 `json:"bm2"`
 }
@@ -243,6 +246,7 @@ type manaRevokeMsgData struct {
 	ManaType string  `json:"manaType"`
 	NodeID   string  `json:"nodeID"`
 	Time     int64   `json:"time"`
+	TxID     string  `json:"txID"`
 	BM1      float64 `json:"bm1"`
 }
 
