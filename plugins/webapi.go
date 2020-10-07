@@ -1,4 +1,4 @@
-package webapi
+package plugins
 
 import (
 	"github.com/iotaledger/goshimmer/plugins/webapi"
@@ -15,8 +15,8 @@ import (
 	"github.com/iotaledger/hive.go/node"
 )
 
-// PLUGINS is the list of webapi plugins.
-var PLUGINS = node.Plugins(
+// WebAPI contains the webapi endpoint plugins of a GoShimmer node.
+var WebAPI = node.Plugins(
 	webapi.Plugin(),
 	webauth.Plugin(),
 	data.Plugin(),

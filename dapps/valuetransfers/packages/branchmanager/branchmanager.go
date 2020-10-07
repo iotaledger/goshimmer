@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/types"
 	"golang.org/x/crypto/blake2b"
-
-	"github.com/iotaledger/goshimmer/packages/storageprefix"
 )
 
 // BranchManager is an entity that manages the branches of a UTXODAG. It offers methods to add, delete and modify
@@ -40,7 +39,7 @@ type BranchManager struct {
 
 // New is the constructor of the BranchManager.
 func New(store kvstore.KVStore) (branchManager *BranchManager) {
-	osFactory := objectstorage.NewFactory(store, storageprefix.ValueTransfers)
+	osFactory := objectstorage.NewFactory(store, database.PrefixValueTransfers)
 
 	branchManager = &BranchManager{
 		branchStorage:         osFactory.New(osBranch, BranchFromObjectStorage, osBranchOptions...),

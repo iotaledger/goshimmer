@@ -1,4 +1,4 @@
-package core
+package plugins
 
 import (
 	"github.com/iotaledger/goshimmer/dapps/faucet"
@@ -22,12 +22,11 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/spammer"
 	"github.com/iotaledger/goshimmer/plugins/syncbeacon"
 	"github.com/iotaledger/goshimmer/plugins/syncbeaconfollower"
-
 	"github.com/iotaledger/hive.go/node"
 )
 
-// PLUGINS is the list of core plugins.
-var PLUGINS = node.Plugins(
+// Core contains the core plugins of a GoShimmer node.
+var Core = node.Plugins(
 	banner.Plugin(),
 	config.Plugin(),
 	logger.Plugin(),
