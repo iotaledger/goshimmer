@@ -16,7 +16,7 @@ import (
 // region InputType ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 const (
-	// UTXOInputType represents a reference to an on-chain UTXO input.
+	// UTXOInputType is the type of an Input that references a UTXO Output.
 	UTXOInputType InputType = iota
 )
 
