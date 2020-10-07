@@ -25,8 +25,6 @@ func main() {
 	}
 	defer f.Close()
 
-	_ = f.Truncate(0)
-
 	f.WriteString("base64:" + base64.StdEncoding.EncodeToString(b) + "\n")
 	f.WriteString("base58:" + base58.Encode(b))
 
