@@ -735,9 +735,9 @@ func NewAggregatedBranch(parents BranchIDs) *AggregatedBranch {
 }
 
 // AggregatedBranchFromBytes unmarshals an AggregatedBranch from a sequence of bytes.
-func AggregatedBranchFromBytes(bytes []byte) (conflictBranch *AggregatedBranch, consumedBytes int, err error) {
+func AggregatedBranchFromBytes(bytes []byte) (aggregatedBranch *AggregatedBranch, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	if conflictBranch, err = AggregatedBranchFromMarshalUtil(marshalUtil); err != nil {
+	if aggregatedBranch, err = AggregatedBranchFromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse AggregatedBranch from MarshalUtil: %w", err)
 		return
 	}
@@ -747,7 +747,7 @@ func AggregatedBranchFromBytes(bytes []byte) (conflictBranch *AggregatedBranch, 
 }
 
 // AggregatedBranchFromMarshalUtil unmarshals an AggregatedBranch using a MarshalUtil (for easier unmarshaling).
-func AggregatedBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictBranch *AggregatedBranch, err error) {
+func AggregatedBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (aggregatedBranch *AggregatedBranch, err error) {
 	branchType, err := marshalUtil.ReadByte()
 	if err != nil {
 		err = xerrors.Errorf("failed to parse BranchType (%v): %w", err, ErrParseBytesFailed)
@@ -758,32 +758,32 @@ func AggregatedBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conf
 		return
 	}
 
-	conflictBranch = &AggregatedBranch{}
-	if conflictBranch.id, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
+	aggregatedBranch = &AggregatedBranch{}
+	if aggregatedBranch.id, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse id: %w", err)
 		return
 	}
-	if conflictBranch.parents, err = BranchIDsFromMarshalUtil(marshalUtil); err != nil {
+	if aggregatedBranch.parents, err = BranchIDsFromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse parents: %w", err)
 		return
 	}
-	if conflictBranch.preferred, err = marshalUtil.ReadBool(); err != nil {
+	if aggregatedBranch.preferred, err = marshalUtil.ReadBool(); err != nil {
 		err = xerrors.Errorf("failed to parse preferred flag (%v): %w", err, ErrParseBytesFailed)
 		return
 	}
-	if conflictBranch.liked, err = marshalUtil.ReadBool(); err != nil {
+	if aggregatedBranch.liked, err = marshalUtil.ReadBool(); err != nil {
 		err = xerrors.Errorf("failed to parse liked flag (%v): %w", err, ErrParseBytesFailed)
 		return
 	}
-	if conflictBranch.finalized, err = marshalUtil.ReadBool(); err != nil {
+	if aggregatedBranch.finalized, err = marshalUtil.ReadBool(); err != nil {
 		err = xerrors.Errorf("failed to parse finalized flag (%v): %w", err, ErrParseBytesFailed)
 		return
 	}
-	if conflictBranch.confirmed, err = marshalUtil.ReadBool(); err != nil {
+	if aggregatedBranch.confirmed, err = marshalUtil.ReadBool(); err != nil {
 		err = xerrors.Errorf("failed to parse confirmed flag (%v): %w", err, ErrParseBytesFailed)
 		return
 	}
-	if conflictBranch.rejected, err = marshalUtil.ReadBool(); err != nil {
+	if aggregatedBranch.rejected, err = marshalUtil.ReadBool(); err != nil {
 		err = xerrors.Errorf("failed to parse rejected flag (%v): %w", err, ErrParseBytesFailed)
 		return
 	}
