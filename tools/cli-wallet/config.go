@@ -18,7 +18,7 @@ type configuration struct {
 var config = configuration{}
 
 var configJSON = `{
-	"WebAPI": "http://35.214.46.39:8080",
+	"WebAPI": "http://127.0.0.1:8080",
 	"basic_auth": {
 	  "enabled": false,
 	  "username": "goshimmer",
