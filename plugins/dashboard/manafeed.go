@@ -1,6 +1,8 @@
 package dashboard
 
 import (
+	"errors"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -19,6 +21,8 @@ var (
 	manaFeedWorkerCount     = 1
 	manaFeedWorkerQueueSize = 50
 	manaFeedWorkerPool      *workerpool.WorkerPool
+	manaEventStore          []interface{}
+	eventStoreMutex         sync.RWMutex
 )
 
 func configureManaFeed() {
@@ -47,6 +51,7 @@ func runManaFeed() {
 		manaFeedWorkerPool.Submit(MsgTypeManaRevoke, ev)
 	})
 	if err := daemon.BackgroundWorker("Dashboard[ManaUpdater]", func(shutdownSignal <-chan struct{}) {
+		manaEventStore = make([]interface{}, 0)
 		manaPkg.Events().Pledged.Attach(notifyManaPledge)
 		manaPkg.Events().Revoked.Attach(notifyManaRevoke)
 		manaFeedWorkerPool.Start()
@@ -142,6 +147,12 @@ func sendManaMapOnline() {
 }
 
 func sendManaPledge(ev *manaPkg.PledgedEvent) {
+	func() {
+		eventStoreMutex.Lock()
+		defer eventStoreMutex.Unlock()
+		// TODO: set maximum buffer size
+		manaEventStore = append(manaEventStore, *ev)
+	}()
 	broadcastWsMessage(&wsmsg{
 		Type: MsgTypeManaPledge,
 		Data: &manaPledgeMsgData{
@@ -156,6 +167,11 @@ func sendManaPledge(ev *manaPkg.PledgedEvent) {
 }
 
 func sendManaRevoke(ev *manaPkg.RevokedEvent) {
+	func() {
+		eventStoreMutex.Lock()
+		defer eventStoreMutex.Unlock()
+		manaEventStore = append(manaEventStore, *ev)
+	}()
 	broadcastWsMessage(&wsmsg{
 		Type: MsgTypeManaRevoke,
 		Data: &manaRevokeMsgData{
@@ -198,6 +214,45 @@ func sendAllowedManaPledge(ws *websocket.Conn) error {
 		Data: wsmsgData,
 	}); err != nil {
 		return err
+	}
+	return nil
+}
+
+func sendInitialEvents(ws *websocket.Conn) error {
+	eventStoreMutex.RLock()
+	defer eventStoreMutex.RUnlock()
+	for _, ev := range manaEventStore {
+		var msg *wsmsg
+		switch ev := ev.(type) {
+		case manaPkg.PledgedEvent:
+			msg = &wsmsg{
+				Type: MsgTypeManaPledge,
+				Data: &manaPledgeMsgData{
+					ManaType: ev.Type.String(),
+					NodeID:   ev.NodeID.String(),
+					Time:     ev.Time.Unix(),
+					TxID:     ev.TransactionID.String(),
+					BM1:      ev.AmountBM1,
+					BM2:      ev.AmountBM2,
+				},
+			}
+		case manaPkg.RevokedEvent:
+			msg = &wsmsg{
+				Type: MsgTypeManaRevoke,
+				Data: &manaRevokeMsgData{
+					ManaType: ev.Type.String(),
+					NodeID:   ev.NodeID.String(),
+					Time:     ev.Time.Unix(),
+					TxID:     ev.TransactionID.String(),
+					BM1:      ev.AmountBM1,
+				},
+			}
+		default:
+			return errors.New("unexpected mana event type in manaEventStore")
+		}
+		if err := sendJSON(ws, msg); err != nil {
+			return err
+		}
 	}
 	return nil
 }
