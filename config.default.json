@@ -91,11 +91,6 @@
     "bindAddress": "127.0.0.1:9311"
   },
   "webapi": {
-    "auth": {
-      "password": "goshimmer",
-      "privateKey": "",
-      "username": "goshimmer"
-    },
     "bindAddress": "127.0.0.1:8080"
   },
   "networkdelay": {

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/iotaledger/goshimmer/packages/database/prefix"
+	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/hive.go/kvstore"
 )
 
@@ -14,7 +14,7 @@ var (
 )
 
 func configureHealthStore(store kvstore.KVStore) {
-	healthStore = store.WithRealm([]byte{prefix.DBPrefixHealth})
+	healthStore = store.WithRealm([]byte{database.PrefixHealth})
 }
 
 // MarkDatabaseUnhealthy marks the database as not healthy, meaning
