@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/hive.go/async"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore"
@@ -18,7 +19,6 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
 )
 
 // Tangle represents the value tangle that consists out of value payloads.
@@ -43,7 +43,7 @@ type Tangle struct {
 
 // New is the constructor of a Tangle and creates a new Tangle object from the given details.
 func New(store kvstore.KVStore) (tangle *Tangle) {
-	osFactory := objectstorage.NewFactory(store, storageprefix.ValueTransfers)
+	osFactory := objectstorage.NewFactory(store, database.PrefixValueTransfers)
 
 	tangle = &Tangle{
 		branchManager: branchmanager.New(store),

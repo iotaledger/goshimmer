@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/binary/drng/state"
+	drngpkg "github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/drng"
 	"github.com/iotaledger/hive.go/daemon"
@@ -26,7 +26,7 @@ type drngMsg struct {
 
 func configureDrngLiveFeed() {
 	drngLiveFeedWorkerPool = workerpool.New(func(task workerpool.Task) {
-		newRandomness := task.Param(0).(state.Randomness)
+		newRandomness := task.Param(0).(drngpkg.Randomness)
 
 		broadcastWsMessage(&wsmsg{MsgTypeDrng, &drngMsg{
 			Instance:      drng.Instance().State.Committee().InstanceID,
@@ -44,7 +44,7 @@ func runDrngLiveFeed() {
 		newMsgRateLimiter := time.NewTicker(time.Second / 10)
 		defer newMsgRateLimiter.Stop()
 
-		notifyNewRandomness := events.NewClosure(func(message state.Randomness) {
+		notifyNewRandomness := events.NewClosure(func(message drngpkg.Randomness) {
 			select {
 			case <-newMsgRateLimiter.C:
 				drngLiveFeedWorkerPool.TrySubmit(message)

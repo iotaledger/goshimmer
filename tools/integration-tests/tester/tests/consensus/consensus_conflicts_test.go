@@ -12,7 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/plugins/webapi/value/utils"
+	valueutils "github.com/iotaledger/goshimmer/plugins/webapi/value"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 	"github.com/mr-tron/base58/base58"
 	"github.com/stretchr/testify/assert"
@@ -152,7 +152,7 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 
 	expectations := map[string]*tests.ExpectedTransaction{}
 	for _, conflictingTx := range conflictingTxs {
-		utilsTx := utils.ParseTransaction(conflictingTx)
+		utilsTx := valueutils.ParseTransaction(conflictingTx)
 		expectations[conflictingTx.ID().String()] = &tests.ExpectedTransaction{
 			Inputs:    &utilsTx.Inputs,
 			Outputs:   &utilsTx.Outputs,
