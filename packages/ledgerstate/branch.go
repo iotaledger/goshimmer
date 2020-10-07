@@ -1,6 +1,7 @@
 package ledgerstate
 
 import (
+	"bytes"
 	"sort"
 	"strings"
 	"sync"
@@ -186,6 +187,16 @@ func (b BranchIDs) String() string {
 	result += "}"
 
 	return result
+}
+
+// Clone creates a copy of the BranchIDs.
+func (b BranchIDs) Clone() (clonedBranchIDs BranchIDs) {
+	clonedBranchIDs = make(BranchIDs)
+	for branchID := range b {
+		clonedBranchIDs[branchID] = types.Void
+	}
+
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -386,8 +397,8 @@ type ConflictBranch struct {
 func NewConflictBranch(id BranchID, parents BranchIDs, conflicts ConflictIDs) *ConflictBranch {
 	return &ConflictBranch{
 		id:        id,
-		parents:   parents,
-		conflicts: conflicts,
+		parents:   parents.Clone(),
+		conflicts: conflicts.Clone(),
 	}
 }
 
@@ -707,15 +718,7 @@ func NewAggregatedBranch(parents BranchIDs) *AggregatedBranch {
 	// sort parents
 	parentBranchIDs := parents.Slice()
 	sort.Slice(parentBranchIDs, func(i, j int) bool {
-		for k := 0; k < len(parentBranchIDs[k]); k++ {
-			if parentBranchIDs[i][k] < parentBranchIDs[j][k] {
-				return true
-			} else if parentBranchIDs[i][k] > parentBranchIDs[j][k] {
-				return false
-			}
-		}
-
-		return false
+		return bytes.Compare(parentBranchIDs[i].Bytes(), parentBranchIDs[j].Bytes()) < 0
 	})
 
 	// concatenate sorted parent bytes
@@ -727,7 +730,7 @@ func NewAggregatedBranch(parents BranchIDs) *AggregatedBranch {
 	// return result
 	return &AggregatedBranch{
 		id:      blake2b.Sum256(marshalUtil.Bytes()),
-		parents: parents,
+		parents: parents.Clone(),
 	}
 }
 
