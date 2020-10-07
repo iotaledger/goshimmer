@@ -47,6 +47,17 @@ func Server() *echo.Echo {
 			AllowOrigins: []string{"*"},
 			AllowMethods: []string{http.MethodGet, http.MethodHead, http.MethodPut, http.MethodPatch, http.MethodPost, http.MethodDelete},
 		}))
+
+		// if enabled, configure basic-auth
+		if config.Node().GetBool(CfgBasicAuthEnabled) {
+			server.Use(middleware.BasicAuth(func(username, password string, c echo.Context) (bool, error) {
+				if username == config.Node().GetString(CfgBasicAuthUsername) &&
+					password == config.Node().GetString(CfgBasicAuthPassword) {
+					return true, nil
+				}
+				return false, nil
+			}))
+		}
 	})
 	return server
 }

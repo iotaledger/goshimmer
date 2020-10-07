@@ -30,18 +30,79 @@ const (
 	contentTypeJSON = "application/json"
 )
 
-// NewGoShimmerAPI returns a new *GoShimmerAPI with the given baseURL and httpClient.
-func NewGoShimmerAPI(baseURL string, httpClient ...http.Client) *GoShimmerAPI {
-	if len(httpClient) > 0 {
-		return &GoShimmerAPI{baseURL: baseURL, httpClient: httpClient[0]}
+// Options define the options of a GoShimmer API client.
+type Options struct {
+	// The initial committee of the DRNG.
+	BasicAuth *BasicAuth
+	// The initial randomness of the DRNG.
+	HTTPClient *http.Client
+}
+
+// Option is a function which sets the given option.
+type Option func(*Options)
+
+// BasicAuth defines the basic-auth struct.
+type BasicAuth struct {
+	enabled  bool
+	username string
+	password string
+}
+
+// NewBasicAuth returns a new BasicAuth.
+func NewBasicAuth(username, password string) *BasicAuth {
+	return &BasicAuth{
+		enabled:  true,
+		username: username,
+		password: password,
 	}
-	return &GoShimmerAPI{baseURL: baseURL}
+}
+
+// Enabled returns the enabled state of a given BasicAuth.
+func (b *BasicAuth) Enabled() bool {
+	if b != nil {
+		return b.enabled
+	}
+	return false
+}
+
+// Credentials returns the username and password of a given BasicAuth.
+func (b *BasicAuth) Credentials() (username, password string) {
+	return b.username, b.password
+}
+
+// SetBasicAuth sets the basic-auth.
+func SetBasicAuth(b *BasicAuth) Option {
+	return func(args *Options) {
+		args.BasicAuth = b
+	}
+}
+
+// SetHTTPClient sets the http Client.
+func SetHTTPClient(c *http.Client) Option {
+	return func(args *Options) {
+		args.HTTPClient = c
+	}
+}
+
+// NewGoShimmerAPI returns a new *GoShimmerAPI with the given baseURL and options.
+func NewGoShimmerAPI(baseURL string, setters ...Option) *GoShimmerAPI {
+	args := &Options{}
+
+	for _, setter := range setters {
+		setter(args)
+	}
+	return &GoShimmerAPI{
+		baseURL:    baseURL,
+		httpClient: args.HTTPClient,
+		basicAuth:  args.BasicAuth,
+	}
 }
 
 // GoShimmerAPI is an API wrapper over the web API of GoShimmer.
 type GoShimmerAPI struct {
-	httpClient http.Client
 	baseURL    string
+	httpClient *http.Client
+	basicAuth  *BasicAuth
 }
 
 type errorresponse struct {
@@ -104,6 +165,11 @@ func (api *GoShimmerAPI) do(method string, route string, reqObj interface{}, res
 
 	if data != nil {
 		req.Header.Set("Content-Type", contentTypeJSON)
+	}
+
+	// if enabled, add the basic-auth
+	if api.basicAuth.Enabled() {
+		req.SetBasicAuth(api.basicAuth.Credentials())
 	}
 
 	// make the request
