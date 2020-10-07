@@ -43,31 +43,31 @@ type Option func(*Options)
 
 // BasicAuth defines the basic-auth struct.
 type BasicAuth struct {
-	enabled  bool
-	username string
-	password string
+	Enabled  bool   `json:"enabled,omitempty"`
+	Username string `json:"username,omitempty"`
+	Password string `json:"password,omitempty"`
 }
 
 // NewBasicAuth returns a new BasicAuth.
 func NewBasicAuth(username, password string) *BasicAuth {
 	return &BasicAuth{
-		enabled:  true,
-		username: username,
-		password: password,
+		Enabled:  true,
+		Username: username,
+		Password: password,
 	}
 }
 
-// Enabled returns the enabled state of a given BasicAuth.
-func (b *BasicAuth) Enabled() bool {
+// IsEnabled returns the enabled state of a given BasicAuth.
+func (b *BasicAuth) IsEnabled() bool {
 	if b != nil {
-		return b.enabled
+		return b.Enabled
 	}
 	return false
 }
 
 // Credentials returns the username and password of a given BasicAuth.
 func (b *BasicAuth) Credentials() (username, password string) {
-	return b.username, b.password
+	return b.Username, b.Password
 }
 
 // SetBasicAuth sets the basic-auth.
@@ -90,6 +90,9 @@ func NewGoShimmerAPI(baseURL string, setters ...Option) *GoShimmerAPI {
 
 	for _, setter := range setters {
 		setter(args)
+	}
+	if args.HTTPClient == nil {
+		args.HTTPClient = &http.Client{}
 	}
 	return &GoShimmerAPI{
 		baseURL:    baseURL,
@@ -168,7 +171,7 @@ func (api *GoShimmerAPI) do(method string, route string, reqObj interface{}, res
 	}
 
 	// if enabled, add the basic-auth
-	if api.basicAuth.Enabled() {
+	if api.basicAuth.IsEnabled() {
 		req.SetBasicAuth(api.basicAuth.Credentials())
 	}
 
