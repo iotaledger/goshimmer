@@ -7,6 +7,7 @@ import (
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -57,9 +58,24 @@ func TestDispatcher(t *testing.T) {
 	marshalUtil := marshalutil.New(testPayload().Bytes())
 	parsedPayload, err := PayloadFromMarshalUtil(marshalUtil)
 	require.NoError(t, err)
+	config := make(map[uint32][]Option)
+	config[1] = []Option{SetCommittee(committeeTest)}
 
-	drng := New(SetCommittee(committeeTest))
+	drng := New(config)
 	err = drng.Dispatch(issuerPK, timestampTest, parsedPayload)
 	require.NoError(t, err)
-	require.Equal(t, *randomnessTest, drng.State.Randomness())
+	require.Equal(t, *randomnessTest, drng.State[1].Randomness())
+}
+
+func TestEmptyState(t *testing.T) {
+	marshalUtil := marshalutil.New(testPayload().Bytes())
+	parsedPayload, err := PayloadFromMarshalUtil(marshalUtil)
+	require.NoError(t, err)
+	config := make(map[uint32][]Option)
+
+	drng := New(config)
+	err = drng.Dispatch(issuerPK, timestampTest, parsedPayload)
+	if assert.Error(t, err) {
+		assert.Equal(t, ErrInstanceIDMismatch, err)
+	}
 }
