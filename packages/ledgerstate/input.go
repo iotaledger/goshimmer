@@ -154,7 +154,7 @@ func InputsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (inputs Inputs,
 	parsedInputs := make([]Input, inputsCount)
 	for i := uint16(0); i < inputsCount; i++ {
 		if parsedInputs[i], err = InputFromMarshalUtil(marshalUtil); err != nil {
-			err = xerrors.Errorf("failed to parse Input from MarshalUtil: %w", err, ErrParseBytesFailed)
+			err = xerrors.Errorf("failed to parse Input from MarshalUtil: %w", err)
 			return
 		}
 
@@ -173,9 +173,7 @@ func InputsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (inputs Inputs,
 // Clone creates a copy of the Inputs.
 func (i Inputs) Clone() (clonedInputs Inputs) {
 	clonedInputs = make(Inputs, len(i))
-	for i, input := range i {
-		clonedInputs[i] = input
-	}
+	copy(clonedInputs[:], i)
 
 	return
 }
