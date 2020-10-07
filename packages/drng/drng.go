@@ -20,11 +20,11 @@ func New(config map[uint32][]Option) *DRNG {
 		State:  make(map[uint32]*State),
 		Events: newEvent(),
 	}
-	if len(config) > 0 {
-		for id, setters := range config {
-			drng.State[id] = NewState(setters...)
-		}
+
+	for id, setters := range config {
+		drng.State[id] = NewState(setters...)
 	}
+
 	return drng
 }
 

@@ -29,16 +29,9 @@ func configureDRNG() *drng.DRNG {
 	}
 
 	// parse distributed public key of the committee
-	var dpk []byte
-	if str := config.Node().GetString(CfgDRNGDistributedPubKey); str != "" {
-		bytes, e := hex.DecodeString(str)
-		if e != nil {
-			log.Warnf("Invalid %s: %s", CfgDRNGDistributedPubKey, e)
-		}
-		if l := len(bytes); l != drng.PublicKeySize {
-			log.Warnf("Invalid %s length: %d, need %d", CfgDRNGDistributedPubKey, l, drng.PublicKeySize)
-		}
-		dpk = append(dpk, bytes...)
+	dpk, err := parseDistributedPublicKey(CfgDRNGDistributedPubKey)
+	if err != nil {
+		log.Warn(err)
 	}
 
 	// configure pollen committee
@@ -61,16 +54,9 @@ func configureDRNG() *drng.DRNG {
 	}
 
 	// parse distributed public key of the committee
-	dpk = []byte{}
-	if str := config.Node().GetString(CfgDRNGXTeamDistributedPubKey); str != "" {
-		bytes, e := hex.DecodeString(str)
-		if e != nil {
-			log.Warnf("Invalid %s: %s", CfgDRNGXTeamDistributedPubKey, e)
-		}
-		if l := len(bytes); l != drng.PublicKeySize {
-			log.Warnf("Invalid %s length: %d, need %d", CfgDRNGXTeamDistributedPubKey, l, drng.PublicKeySize)
-		}
-		dpk = append(dpk, bytes...)
+	dpk, err = parseDistributedPublicKey(CfgDRNGXTeamDistributedPubKey)
+	if err != nil {
+		log.Warn(err)
 	}
 
 	// configure X-Team committee
@@ -97,16 +83,9 @@ func configureDRNG() *drng.DRNG {
 	}
 
 	// parse distributed public key of the committee
-	dpk = []byte{}
-	if str := config.Node().GetString(CfgDRNGCustomDistributedPubKey); str != "" {
-		bytes, e := hex.DecodeString(str)
-		if e != nil {
-			log.Warnf("Invalid %s: %s", CfgDRNGCustomDistributedPubKey, e)
-		}
-		if l := len(bytes); l != drng.PublicKeySize {
-			log.Warnf("Invalid %s length: %d, need %d", CfgDRNGCustomDistributedPubKey, l, drng.PublicKeySize)
-		}
-		dpk = append(dpk, bytes...)
+	dpk, err = parseDistributedPublicKey(CfgDRNGCustomDistributedPubKey)
+	if err != nil {
+		log.Warn(err)
 	}
 
 	// configure Custom committee
@@ -153,4 +132,17 @@ func parseCommitteeMembers(committeeMembers []string) (result []ed25519.PublicKe
 	}
 
 	return result, nil
+}
+
+func parseDistributedPublicKey(pubKey string) (dpk []byte, err error) {
+	if str := config.Node().GetString(pubKey); str != "" {
+		dpk, err = hex.DecodeString(str)
+		if err != nil {
+			return []byte{}, fmt.Errorf("Invalid %s: %s", pubKey, err)
+		}
+		if l := len(dpk); l != drng.PublicKeySize {
+			return []byte{}, fmt.Errorf("Invalid %s length: %d, need %d", pubKey, l, drng.PublicKeySize)
+		}
+	}
+	return
 }
