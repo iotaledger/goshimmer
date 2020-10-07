@@ -12,6 +12,14 @@ import (
 	"github.com/mr-tron/base58/base58"
 )
 
+const (
+	// Pollen defines the instance ID of the Pollen drng committee.
+	Pollen = 1
+
+	// XTeam defines the instance ID of the X-Team drng committee.
+	XTeam = 1339
+)
+
 var (
 	// ErrParsingCommitteeMember is returned for an invalid committee member
 	ErrParsingCommitteeMember = errors.New("cannot parse committee member")
@@ -36,7 +44,7 @@ func configureDRNG() *drng.DRNG {
 
 	// configure pollen committee
 	pollenConf := &drng.Committee{
-		InstanceID:    config.Node().GetUint32(CfgDRNGInstanceID),
+		InstanceID:    Pollen,
 		Threshold:     uint8(config.Node().GetUint32(CfgDRNGThreshold)),
 		DistributedPK: dpk,
 		Identities:    committeeMembers,
@@ -61,18 +69,14 @@ func configureDRNG() *drng.DRNG {
 
 	// configure X-Team committee
 	xTeamConf := &drng.Committee{
-		InstanceID:    config.Node().GetUint32(CfgDRNGXTeamInstanceID),
+		InstanceID:    XTeam,
 		Threshold:     uint8(config.Node().GetUint32(CfgDRNGXTeamThreshold)),
 		DistributedPK: dpk,
 		Identities:    committeeMembers,
 	}
 
 	if len(committeeMembers) > 0 {
-		if xTeamConf.InstanceID != pollenConf.InstanceID {
-			c[xTeamConf.InstanceID] = []drng.Option{drng.SetCommittee(xTeamConf)}
-		} else {
-			log.Warnf("Invalid X-Team dRNG instanceID: %d, must be different than the Pollen dRNG instance ID (%d)", xTeamConf.InstanceID, pollenConf.InstanceID)
-		}
+		c[xTeamConf.InstanceID] = []drng.Option{drng.SetCommittee(xTeamConf)}
 	}
 
 	// Custom dRNG configuration
@@ -97,7 +101,7 @@ func configureDRNG() *drng.DRNG {
 	}
 
 	if len(committeeMembers) > 0 {
-		if customConf.InstanceID != xTeamConf.InstanceID && customConf.InstanceID != pollenConf.InstanceID {
+		if customConf.InstanceID != Pollen && customConf.InstanceID != XTeam {
 			c[customConf.InstanceID] = []drng.Option{drng.SetCommittee(customConf)}
 		} else {
 			log.Warnf("Invalid Custom dRNG instanceID: %d, must be different than both Pollen and X-Team dRNG instance IDs (%d - %d)", customConf.InstanceID, pollenConf.InstanceID, xTeamConf.InstanceID)
