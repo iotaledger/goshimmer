@@ -42,7 +42,6 @@ func NewGoShimmerAPI(baseURL string, httpClient ...http.Client) *GoShimmerAPI {
 type GoShimmerAPI struct {
 	httpClient http.Client
 	baseURL    string
-	jwt        string
 }
 
 type errorresponse struct {
@@ -105,11 +104,6 @@ func (api *GoShimmerAPI) do(method string, route string, reqObj interface{}, res
 
 	if data != nil {
 		req.Header.Set("Content-Type", contentTypeJSON)
-	}
-
-	// add authorization header with JWT
-	if len(api.jwt) > 0 {
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", api.jwt))
 	}
 
 	// make the request
