@@ -170,6 +170,16 @@ func (c ConflictIDs) String() string {
 	return result
 }
 
+// Clone creates a copy of the ConflictIDs.
+func (c ConflictIDs) Clone() (clonedConflictIDs ConflictIDs) {
+	clonedConflictIDs = make(ConflictIDs)
+	for conflictID := range c {
+		clonedConflictIDs[conflictID] = types.Void
+	}
+
+	return
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Conflict /////////////////////////////////////////////////////////////////////////////////////////////////////

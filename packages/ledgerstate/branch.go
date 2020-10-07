@@ -487,10 +487,7 @@ func (b *ConflictBranch) Conflicts() (conflicts ConflictIDs) {
 	b.conflictsMutex.RLock()
 	defer b.conflictsMutex.RUnlock()
 
-	conflicts = make(ConflictIDs)
-	for conflict := range b.conflicts {
-		conflicts[conflict] = types.Void
-	}
+	conflicts = b.conflicts.Clone()
 
 	return
 }
