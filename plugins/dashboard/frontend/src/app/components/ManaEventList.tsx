@@ -18,8 +18,8 @@ export default class ManaEventList extends React.Component<Props, any> {
                         {this.props.title}
                     </Card.Title>
                     <ListGroup style={{
-                        fontSize: '0.75rem',
-                        maxHeight: '150px',
+                        fontSize: '0.8rem',
+                        height: '300px',
                         overflowY: 'auto'
                     }}>
                         {this.props.listItems}

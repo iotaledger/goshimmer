@@ -32,6 +32,10 @@ export default class ManaChart extends React.Component<Props, any> {
                                 format:  'hh:mm:ss',
                                 },
                             vAxis: { title: 'Mana', minValue: 0 },
+                            series: {
+                                0: {color: '#213e3b'},
+                                1: {color: '#41aea9'}
+                            },
                             legend: {position: 'top'},
                             // For the legend to fit, we make the chart area smaller
                             chartArea: { width: '80%', height: '70%' },

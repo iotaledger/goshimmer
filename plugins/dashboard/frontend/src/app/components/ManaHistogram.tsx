@@ -39,6 +39,7 @@ export default class ManaHistogram extends React.Component<Props, any> {
                             // land in their own buckets; they will be grouped with the first or last buckets instead.
                             histogram: { lastBucketPercentile: 5 },
                             legend: {position: 'none'},
+                            colors: ['#41aea9']
                         }}
                         // For tests
                         rootProps={{ 'data-testid': '1' }}

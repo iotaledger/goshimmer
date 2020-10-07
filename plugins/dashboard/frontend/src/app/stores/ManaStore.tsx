@@ -1,7 +1,10 @@
 import {action, computed, observable} from 'mobx';
 import {registerHandler, WSMsgType} from "app/misc/WS";
 import * as React from "react";
-import {ListGroupItem} from "react-bootstrap";
+import {Col, ListGroupItem, OverlayTrigger, Popover, Row} from "react-bootstrap";
+import Plus from "../../assets/plus.svg";
+import Minus from "../../assets/minus.svg";
+import {displayManaUnit} from "app/components/ManaGauge";
 
 class ManaMsg {
     nodeID: string;
@@ -151,8 +154,6 @@ export class ManaStore {
 
     @action
     updateNetworkRichest = (msg: NetworkManaMsg) => {
-        let tmp = msg;
-        console.log(tmp);
         switch (msg.manaType) {
             case "Access Mana":
                 this.totalAccessNetwork = msg.totalMana;
@@ -245,8 +246,7 @@ export class ManaStore {
                 <tr
                     key={node.nodeID}
                     style={{
-                        color: node.nodeID === this.ownID? 'white': 'black',
-                        backgroundColor: node.nodeID === this.ownID ? 'rgba(7, 90, 184, 0.8)': 'white',
+                        backgroundColor: node.nodeID === this.ownID ? '#e8ffff': 'white',
                     }}
                 >
                     <td style={
@@ -256,7 +256,7 @@ export class ManaStore {
                         }
                     }> {i + 1} </td>
                     <td>{node.nodeID}</td>
-                    <td>{node.mana.toFixed(2)}</td>
+                    <td>{displayManaUnit(node.mana)}</td>
                     <td style={
                         {
                             borderTopRightRadius: node.nodeID === this.ownID ? '10px': '0',
@@ -365,43 +365,112 @@ export class ManaStore {
         return per
     }
 
-    @computed
-    get accessEventList() {
+    computeEventList = (evArr: Array<ManaEvent>) => {
         let result = [];
-        if (this.accessEvents === undefined || this.accessEvents === null) {
+        result.push(
+            <ListGroupItem
+                style={{textAlign: 'center'}}
+                key={'header'}
+            >
+                <Row>
+                    <Col xs={1} className="m-auto">
+                    </Col>
+                    <Col xs={5}>
+                        Time
+                    </Col>
+                    <Col>
+                        NodeID
+                    </Col>
+                    <Col>
+                        Tx ID
+                    </Col>
+                </Row>
+            </ListGroupItem>
+        )
+        if (evArr === undefined || evArr === null) {
             return result
         }
         // reverse traverse bc oldest event is the first
-        this.accessEvents.reverse().forEach( (element: ManaEvent, index) => {
+        evArr.reverse().forEach( (element: ManaEvent, index) => {
             if (element instanceof PledgeEvent) {
+                let popover = (ev: PledgeEvent) => {
+                    return (
+                        <Popover id={ev.nodeID + index.toString()}>
+                            <Popover.Title as="h3">Mana Pledged</Popover.Title>
+                            <Popover.Content>
+                                <div>Base Mana 1: <strong>+{displayManaUnit(ev.bm1)}</strong></div>
+                                <div>Base Mana 2: <strong>+{displayManaUnit(ev.bm2)}</strong></div>
+                                <div>With Transaction: <strong><a onClick={() => navigator.clipboard.writeText(ev.txID)}>{ev.txID}</a></strong></div>
+                                <div>To NodeID:  <strong>{ev.nodeID}</strong></div>
+                                <div>Time of Pledge:  <strong>{ev.time.toLocaleTimeString()}</strong></div>
+                            </Popover.Content>
+                        </Popover>
+                    )
+                }
                 result.push(
-                    <ListGroupItem
-                        style={{backgroundColor: 'green'}}
-                        key={element.nodeID + index.toString(10)}
-                        //onClick={() => do something on click}>
-                    >
-                        <div>Pledge</div>
-                        <div>{element.time.toLocaleString()}</div>
-                        <div>{element.nodeID}</div>
-                        <div>{element.txID}</div>
-                        <div>BM1: +{element.bm1}</div>
-                        <div>BM2: +{element.bm2}</div>
-                    </ListGroupItem>
+                    <OverlayTrigger key={element.nodeID + index.toString()} trigger="focus" placement="top" overlay={popover(element)}>
+                        <ListGroupItem
+                            style={{backgroundColor: '#41aea9', color: 'white', textAlign: 'center'}}
+                            key={element.nodeID + index.toString(10)}
+                            //onClick={() => do something on click}>
+                            as={'button'}
+                        >
+                            <Row>
+                                <Col xs={1} className="m-auto">
+                                    <img src={Plus} alt="Plus" width={'20px'} className="d-block mx-auto"/>
+                                </Col>
+                                <Col xs={5}>
+                                    {element.time.toLocaleString()}
+                                </Col>
+                                <Col>
+                                    {element.nodeID}
+                                </Col>
+                                <Col>
+                                    {element.txID.substring(0, 10) + '...'}
+                                </Col>
+                            </Row>
+                        </ListGroupItem>
+                    </OverlayTrigger>
                 )
             } else if (element instanceof RevokeEvent){
+                let popover = (ev: RevokeEvent) => {
+                    return (
+                    <Popover id={ev.nodeID + index.toString()}>
+                        <Popover.Title as="h3">Mana Revoked</Popover.Title>
+                        <Popover.Content>
+                            <div>Base Mana 1: <strong>-{displayManaUnit(ev.bm1)}</strong></div>
+                            <div>With Transaction: <strong><a onClick={() => navigator.clipboard.writeText(ev.txID)}>{ev.txID}</a></strong></div>
+                            <div>From NodeID:  <strong>{ev.nodeID}</strong></div>
+                            <div>Time of Revoke:  <strong>{ev.time.toLocaleTimeString()}</strong></div>
+                        </Popover.Content>
+                    </Popover>
+                    )
+                }
                 // it's a revoke event then
                 result.push(
-                    <ListGroupItem
-                        style={{backgroundColor: 'red'}}
-                        key={element.nodeID + index.toString(10)}
-                        //onClick={() => do something on click}>
-                    >
-                        <div>Revoke</div>
-                        <div>{element.time.toLocaleString()}</div>
-                        <div>{element.nodeID}</div>
-                        <div>{element.txID}</div>
-                        <div>BM1: -{element.bm1}</div>
-                    </ListGroupItem>
+                    <OverlayTrigger key={element.nodeID + index.toString()} trigger="focus" placement="top" overlay={popover(element)}>
+                        <ListGroupItem
+                            style={{backgroundColor: '#213e3b', color: 'white', textAlign: 'center'}}
+                            key={element.nodeID + index.toString(10)}
+                            //onClick={() => do something on click}>
+                            as={'button'}
+                        >
+                            <Row>
+                                <Col xs={1}>
+                                    <img src={Minus} alt="Minus" width={'20px'} className=""/>
+                                </Col>
+                                <Col xs={5}>
+                                    {element.time.toLocaleString()}
+                                </Col>
+                                <Col>
+                                    {element.nodeID}
+                                </Col>
+                                <Col>
+                                    {element.txID.substring(0, 10) + '...'}
+                                </Col>
+                            </Row>
+                        </ListGroupItem>
+                    </OverlayTrigger>
                 )
             }
         })
@@ -409,46 +478,13 @@ export class ManaStore {
     }
 
     @computed
+    get accessEventList() {
+        return this.computeEventList(this.accessEvents);
+    }
+
+    @computed
     get consensusEventList() {
-        let result = [];
-        if (this.consensusEvents === undefined || this.consensusEvents === null) {
-            return result
-        }
-        // reverse traverse bc oldest event is the first
-        this.consensusEvents.reverse().forEach( (element: ManaEvent, index) => {
-            if (element instanceof PledgeEvent) {
-                result.push(
-                    <ListGroupItem
-                        style={{backgroundColor: 'green'}}
-                        key={element.nodeID + index.toString(10)}
-                        //onClick={() => do something on click}>
-                    >
-                        <div>Pledge</div>
-                        <div>{element.time.toLocaleString()}</div>
-                        <div>{element.nodeID}</div>
-                        <div>{element.txID}</div>
-                        <div>BM1: +{element.bm1}</div>
-                        <div>BM2: +{element.bm2}</div>
-                    </ListGroupItem>
-                )
-            } else if (element instanceof RevokeEvent){
-                // it's a revoke event then
-                result.push(
-                    <ListGroupItem
-                        style={{backgroundColor: 'red'}}
-                        key={element.nodeID + index.toString(10)}
-                        //onClick={() => do something on click}>
-                    >
-                        <div>Revoke</div>
-                        <div>{element.time.toLocaleString()}</div>
-                        <div>{element.nodeID}</div>
-                        <div>{element.txID}</div>
-                        <div>BM1: -{element.bm1}</div>
-                    </ListGroupItem>
-                )
-            }
-        })
-        return result;
+        return this.computeEventList(this.consensusEvents);
     }
 }
 
