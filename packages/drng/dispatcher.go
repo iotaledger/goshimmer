@@ -38,6 +38,11 @@ func (d *DRNG) Dispatch(issuer ed25519.PublicKey, timestamp time.Time, payload *
 			return err
 		}
 
+		// update the dpk (if not set) from the valid beacon
+		if len(d.State[cbEvent.InstanceID].committee.DistributedPK) == 0 {
+			d.State[cbEvent.InstanceID].UpdateDPK(cbEvent.Dpk)
+		}
+
 		// trigger RandomnessEvent
 		d.Events.Randomness.Trigger(d.State[cbEvent.InstanceID])
 
