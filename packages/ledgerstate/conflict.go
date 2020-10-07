@@ -170,6 +170,16 @@ func (c ConflictIDs) String() string {
 	return result
 }
 
+// Clone creates a copy of the ConflictIDs.
+func (c ConflictIDs) Clone() (clonedConflictIDs ConflictIDs) {
+	clonedConflictIDs = make(ConflictIDs)
+	for conflictID := range c {
+		clonedConflictIDs[conflictID] = types.Void
+	}
+
+	return
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Conflict /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -220,7 +230,7 @@ func ConflictFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflict *Co
 }
 
 // ConflictFromObjectStorage restores a Conflict object that was stored in the ObjectStorage.
-func ConflictFromObjectStorage(key []byte, data []byte) (conflict *Conflict, err error) {
+func ConflictFromObjectStorage(key []byte, data []byte) (conflict objectstorage.StorableObject, err error) {
 	if conflict, _, err = ConflictFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
 		err = xerrors.Errorf("failed to parse Conflict from bytes: %w", err)
 		return
