@@ -5,6 +5,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/async"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
@@ -21,7 +22,7 @@ func BenchmarkVerifyDataMessages(b *testing.B) {
 
 	messages := make([][]byte, b.N)
 	for i := 0; i < b.N; i++ {
-		msg, err := factory.IssuePayload(NewDataPayload([]byte("some data")))
+		msg, err := factory.IssuePayload(payload.NewData([]byte("some data")))
 		require.NoError(b, err)
 		messages[i] = msg.Bytes()
 	}
@@ -49,7 +50,7 @@ func BenchmarkVerifySignature(b *testing.B) {
 
 	messages := make([]*Message, b.N)
 	for i := 0; i < b.N; i++ {
-		msg, err := factory.IssuePayload(NewDataPayload([]byte("some data")))
+		msg, err := factory.IssuePayload(payload.NewData([]byte("some data")))
 		require.NoError(b, err)
 		messages[i] = msg
 		messages[i].Bytes()

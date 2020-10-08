@@ -5,6 +5,7 @@ import (
 	"crypto"
 	"fmt"
 
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	// Only want to use init
 	_ "golang.org/x/crypto/blake2b"
 
@@ -16,20 +17,15 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 )
 
-const (
-	// ObjectName defines the name of the facuet object.
-	ObjectName = "faucet"
-)
-
 // Payload represents a request which contains an address for the faucet to send funds to.
 type Payload struct {
-	payloadType tangle.PayloadType
+	payloadType payload.Type
 	address     address.Address
 	nonce       uint64
 }
 
 // Type represents the identifier for the faucet Payload type.
-var Type = tangle.PayloadType(2)
+var Type = payload.NewType(2, "FaucetType", PayloadUnmarshaler)
 var powWorker = pow.New(crypto.BLAKE2b_512, 1)
 
 // New is the constructor of a Payload and creates a new Payload object from the given details.
@@ -50,10 +46,6 @@ func New(addr address.Address, powTarget int) (*Payload, error) {
 	return p, nil
 }
 
-func init() {
-	tangle.RegisterPayloadType(Type, ObjectName, PayloadUnmarshaler)
-}
-
 // FromBytes parses the marshaled version of a Payload into an object.
 // It either returns a new Payload or fills an optionally provided Payload with the parsed information.
 func FromBytes(bytes []byte) (result *Payload, consumedBytes int, err error) {
@@ -66,7 +58,7 @@ func FromBytes(bytes []byte) (result *Payload, consumedBytes int, err error) {
 		err = fmt.Errorf("failed to unmarshal payload size of faucet payload from bytes: %w", err)
 		return
 	}
-	result.payloadType, err = marshalUtil.ReadUint32()
+	result.payloadType, err = payload.TypeFromMarshalUtil(marshalUtil)
 	if err != nil {
 		err = fmt.Errorf("failed to unmarshal payload type of faucet payload from bytes: %w", err)
 		return
@@ -95,7 +87,7 @@ func FromBytes(bytes []byte) (result *Payload, consumedBytes int, err error) {
 }
 
 // Type returns the type of the faucet Payload.
-func (p *Payload) Type() tangle.PayloadType {
+func (p *Payload) Type() payload.Type {
 	return p.payloadType
 }
 
@@ -111,7 +103,7 @@ func (p *Payload) Bytes() []byte {
 
 	// marshal the payload specific information
 	marshalUtil.WriteUint32(uint32(address.Length + pow.NonceBytes))
-	marshalUtil.WriteUint32(p.Type())
+	marshalUtil.WriteBytes(p.Type().Bytes())
 	marshalUtil.WriteBytes(p.address.Bytes())
 	marshalUtil.WriteUint64(p.nonce)
 
@@ -127,7 +119,7 @@ func (p *Payload) String() string {
 }
 
 // PayloadUnmarshaler sets the generic unmarshaler.
-func PayloadUnmarshaler(data []byte) (payload tangle.Payload, err error) {
+func PayloadUnmarshaler(data []byte) (payload payload.Payload, err error) {
 	payload, _, err = FromBytes(data)
 	if err != nil {
 		err = fmt.Errorf("failed to unmarshal faucet payload from bytes: %w", err)

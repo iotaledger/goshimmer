@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
 const (
@@ -184,10 +184,14 @@ func (p *Payload) String() string {
 // region Payload implementation ///////////////////////////////////////////////////////////////////////////////////////
 
 // Type represents the identifier which addresses the value Payload type.
-const Type = tangle.PayloadType(1)
+var Type = payload.NewType(1, "ValuePayloadType", func(data []byte) (payload payload.Payload, err error) {
+	payload, _, err = FromBytes(data)
+
+	return
+})
 
 // Type returns the type of the Payload.
-func (p *Payload) Type() tangle.PayloadType {
+func (p *Payload) Type() payload.Type {
 	return Type
 }
 
@@ -221,7 +225,7 @@ func (p *Payload) ObjectStorageValue() (bytes []byte) {
 	payloadLength := IDLength + IDLength + len(transferBytes)
 	marshalUtil := marshalutil.New(marshalutil.UINT32_SIZE + marshalutil.UINT32_SIZE + payloadLength)
 	marshalUtil.WriteUint32(uint32(payloadLength))
-	marshalUtil.WriteUint32(Type)
+	marshalUtil.WriteBytes(Type.Bytes())
 	marshalUtil.WriteBytes(p.parent1PayloadID.Bytes())
 	marshalUtil.WriteBytes(p.parent2PayloadID.Bytes())
 	marshalUtil.WriteBytes(transferBytes)
@@ -233,16 +237,8 @@ func (p *Payload) ObjectStorageValue() (bytes []byte) {
 	return
 }
 
-func init() {
-	tangle.RegisterPayloadType(Type, ObjectName, func(data []byte) (payload tangle.Payload, err error) {
-		payload, _, err = FromBytes(data)
-
-		return
-	})
-}
-
 // define contract (ensure that the struct fulfills the corresponding interface)
-var _ tangle.Payload = &Payload{}
+var _ payload.Payload = &Payload{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
@@ -19,6 +20,9 @@ const (
 
 	// MessageIDLength defines the length of an MessageID.
 	MessageIDLength = 64
+
+	// BranchIDLength contains the amount of bytes that a marshaled version of the ContentID contains.
+	ContentIDLength = MessageIDLength
 )
 
 // ContentID identifies the content of a message without its parent1/parent2 ids.
@@ -110,7 +114,7 @@ type Message struct {
 	issuerPublicKey ed25519.PublicKey
 	issuingTime     time.Time
 	sequenceNumber  uint64
-	payload         Payload
+	payload         payload.Payload
 	nonce           uint64
 	signature       ed25519.Signature
 
@@ -124,7 +128,7 @@ type Message struct {
 }
 
 // NewMessage creates a new message with the details provided by the issuer.
-func NewMessage(parent1ID MessageID, parent2ID MessageID, issuingTime time.Time, issuerPublicKey ed25519.PublicKey, sequenceNumber uint64, payload Payload, nonce uint64, signature ed25519.Signature) (result *Message) {
+func NewMessage(parent1ID MessageID, parent2ID MessageID, issuingTime time.Time, issuerPublicKey ed25519.PublicKey, sequenceNumber uint64, payload payload.Payload, nonce uint64, signature ed25519.Signature) (result *Message) {
 	return &Message{
 		parent1ID:       parent1ID,
 		parent2ID:       parent2ID,
@@ -172,7 +176,7 @@ func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Messa
 		err = fmt.Errorf("failed to parse sequence number of the message: %w", err)
 		return
 	}
-	if result.payload, err = PayloadFromMarshalUtil(marshalUtil); err != nil {
+	if result.payload, err = payload.FromMarshalUtil(marshalUtil); err != nil {
 		err = fmt.Errorf("failed to parse payload of the message: %w", err)
 		return
 	}
@@ -282,7 +286,7 @@ func (m *Message) SequenceNumber() uint64 {
 }
 
 // Payload returns the payload of the message.
-func (m *Message) Payload() Payload {
+func (m *Message) Payload() payload.Payload {
 	return m.payload
 }
 
@@ -322,7 +326,7 @@ func (m *Message) ContentID() (result ContentID) {
 // calculates the message id.
 func (m *Message) calculateID() MessageID {
 	return blake2b.Sum512(
-		marshalutil.New(MessageIDLength + MessageIDLength + PayloadIDLength).
+		marshalutil.New(MessageIDLength + MessageIDLength + ContentIDLength).
 			WriteBytes(m.parent1ID.Bytes()).
 			WriteBytes(m.parent2ID.Bytes()).
 			WriteBytes(m.ContentID().Bytes()).

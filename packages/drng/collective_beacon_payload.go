@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/stringify"
 
-	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/hive.go/marshalutil"
 )
 
@@ -131,7 +131,7 @@ func (p *CollectiveBeaconPayload) Bytes() (bytes []byte) {
 	payloadLength := HeaderLength + marshalutil.UINT64_SIZE + SignatureSize*2 + PublicKeySize
 	marshalUtil := marshalutil.New(marshalutil.UINT32_SIZE + marshalutil.UINT32_SIZE + payloadLength)
 	marshalUtil.WriteUint32(uint32(payloadLength))
-	marshalUtil.WriteUint32(PayloadType)
+	marshalUtil.WriteBytes(PayloadType.Bytes())
 	marshalUtil.WriteBytes(p.Header.Bytes())
 	marshalUtil.WriteUint64(p.Round)
 	marshalUtil.WriteBytes(p.PrevSignature)
@@ -160,7 +160,7 @@ func (p *CollectiveBeaconPayload) String() string {
 // region Payload implementation ///////////////////////////////////////////////////////////////////////////////////////
 
 // Type returns the collective beacon payload type.
-func (p *CollectiveBeaconPayload) Type() tangle.PayloadType {
+func (p *CollectiveBeaconPayload) Type() payload.Type {
 	return PayloadType
 }
 

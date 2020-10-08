@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
@@ -65,10 +66,10 @@ func (f *MessageFactory) SetWorker(worker Worker) {
 // IssuePayload creates a new message including sequence number and tip selection and returns it.
 // It also triggers the MessageConstructed event once it's done, which is for example used by the plugins to listen for
 // messages that shall be attached to the tangle.
-func (f *MessageFactory) IssuePayload(p Payload) (*Message, error) {
+func (f *MessageFactory) IssuePayload(p payload.Payload) (*Message, error) {
 	payloadLen := len(p.Bytes())
-	if payloadLen > MaxPayloadSize {
-		err := fmt.Errorf("%w: %d bytes", ErrMaxPayloadSizeExceeded, payloadLen)
+	if payloadLen > payload.MaxSize {
+		err := fmt.Errorf("maximum payload size of %d bytes exceeded", payloadLen)
 		f.Events.Error.Trigger(err)
 		return nil, err
 	}
@@ -118,7 +119,7 @@ func (f *MessageFactory) Shutdown() {
 	}
 }
 
-func (f *MessageFactory) doPOW(parent1ID MessageID, parent2ID MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload Payload) (uint64, error) {
+func (f *MessageFactory) doPOW(parent1ID MessageID, parent2ID MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload payload.Payload) (uint64, error) {
 	// create a dummy message to simplify marshaling
 	dummy := NewMessage(parent1ID, parent2ID, issuingTime, key, seq, payload, 0, ed25519.EmptySignature).Bytes()
 
@@ -127,7 +128,7 @@ func (f *MessageFactory) doPOW(parent1ID MessageID, parent2ID MessageID, issuing
 	return f.worker.DoPOW(dummy)
 }
 
-func (f *MessageFactory) sign(parent1ID MessageID, parent2ID MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload Payload, nonce uint64) ed25519.Signature {
+func (f *MessageFactory) sign(parent1ID MessageID, parent2ID MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload payload.Payload, nonce uint64) ed25519.Signature {
 	// create a dummy message to simplify marshaling
 	dummy := NewMessage(parent1ID, parent2ID, issuingTime, key, seq, payload, nonce, ed25519.EmptySignature)
 	dummyBytes := dummy.Bytes()
