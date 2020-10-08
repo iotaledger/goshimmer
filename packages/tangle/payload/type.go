@@ -27,22 +27,22 @@ var (
 )
 
 // NewType creates and registers a new payload Type.
-func NewType(typeConstant uint32, name string, unmarshaler UnmarshalerFunc) (payloadType Type) {
-	payloadType = Type(typeConstant)
+func NewType(typeNumber uint32, typeName string, typeUnmarshaler UnmarshalerFunc) (payloadType Type) {
+	payloadType = Type(typeNumber)
 
 	typeRegisterMutex.Lock()
 	defer typeRegisterMutex.Unlock()
 
 	if registeredType, typeRegisteredAlready := typeRegister[payloadType]; typeRegisteredAlready {
 		panic("payload type " +
-			name + "(" + strconv.FormatUint(uint64(typeConstant), 10) + ")" +
+			typeName + "(" + strconv.FormatUint(uint64(typeNumber), 10) + ")" +
 			" tries to overwrite previously created type " +
-			registeredType.Name + "(" + strconv.FormatUint(uint64(typeConstant), 10) + ")")
+			registeredType.Name + "(" + strconv.FormatUint(uint64(typeNumber), 10) + ")")
 	}
 
 	typeRegister[payloadType] = typeMetadata{
-		Name:            name,
-		UnmarshalerFunc: unmarshaler,
+		Name:            typeName,
+		UnmarshalerFunc: typeUnmarshaler,
 	}
 
 	return

@@ -17,6 +17,11 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 )
 
+const (
+	// ObjectName defines the name of the facuet object.
+	ObjectName = "faucet"
+)
+
 // Payload represents a request which contains an address for the faucet to send funds to.
 type Payload struct {
 	payloadType payload.Type
@@ -25,7 +30,7 @@ type Payload struct {
 }
 
 // Type represents the identifier for the faucet Payload type.
-var Type = payload.NewType(2, "FaucetType", PayloadUnmarshaler)
+var Type = payload.NewType(2, ObjectName, PayloadUnmarshaler)
 var powWorker = pow.New(crypto.BLAKE2b_512, 1)
 
 // New is the constructor of a Payload and creates a new Payload object from the given details.

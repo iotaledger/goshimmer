@@ -9,8 +9,13 @@ import (
 	"github.com/iotaledger/hive.go/stringify"
 )
 
+const (
+	// ObjectName defines the name of the syncbeacon object.
+	ObjectName = "syncbeacon"
+)
+
 // Type is the type of the syncbeacon payload.
-var Type = payload.NewType(200, "syncbeacon", func(data []byte) (payload payload.Payload, err error) {
+var Type = payload.NewType(200, ObjectName, func(data []byte) (payload payload.Payload, err error) {
 	payload, _, err = FromBytes(data)
 
 	return

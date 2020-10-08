@@ -7,7 +7,7 @@ import (
 )
 
 // DataType is the Type of a generic Data payload.
-var DataType = NewType(0, "Data", DataUnmarshaler)
+var DataType = NewType(0, "DataType", DataUnmarshaler)
 
 // DataUnmarshaler is the UnmarshalerFunc of the Data payload which is also used as a unmarshaler for unknown Types.
 func DataUnmarshaler(data []byte) (Payload, error) {
