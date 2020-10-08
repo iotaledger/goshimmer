@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/datastructure/randommap"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
@@ -120,7 +121,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 	// create a helper function that creates the messages
 	createNewMessage := func() *Message {
 		// issue the payload
-		msg, err := msgFactory.IssuePayload(NewDataPayload([]byte("0")))
+		msg, err := msgFactory.IssuePayload(payload.NewGenericDataPayload([]byte("0")))
 		require.NoError(t, err)
 
 		// remove a tip if the width of the tangle is reached

@@ -10,6 +10,7 @@ import (
 	valuePayload "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
@@ -80,14 +81,14 @@ func TestSignatureFilter(t *testing.T) {
 	// 3. test message with an invalid value payload
 	{
 		// create a data payload
-		marshalUtil := marshalutil.New(tangle.NewDataPayload([]byte("test")).Bytes())
+		marshalUtil := marshalutil.New(payload.NewGenericDataPayload([]byte("test")).Bytes())
 
 		// set the type to be a value payload
 		marshalUtil.WriteSeek(4)
-		marshalUtil.WriteUint32(valuePayload.Type)
+		marshalUtil.WriteBytes(valuePayload.Type.Bytes())
 
 		// parse modified bytes back into a payload object
-		dataPayload, _, err := tangle.DataPayloadFromBytes(marshalUtil.Bytes())
+		dataPayload, _, err := payload.GenericDataPayloadFromBytes(marshalUtil.Bytes())
 		require.NoError(t, err)
 
 		// parse message bytes
