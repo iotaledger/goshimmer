@@ -60,7 +60,7 @@ func TypeFromBytes(typeBytes []byte) (typeResult Type, consumedBytes int, err er
 	return
 }
 
-// DataFromMarshalUtil unmarshals a Type using a MarshalUtil (for easier unmarshaling).
+// TypeFromMarshalUtil unmarshals a Type using a MarshalUtil (for easier unmarshaling).
 func TypeFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (typeResult Type, err error) {
 	typeUint32, err := marshalUtil.ReadUint32()
 	if err != nil {
