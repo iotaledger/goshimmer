@@ -81,14 +81,14 @@ func TestSignatureFilter(t *testing.T) {
 	// 3. test message with an invalid value payload
 	{
 		// create a data payload
-		marshalUtil := marshalutil.New(payload.NewData([]byte("test")).Bytes())
+		marshalUtil := marshalutil.New(payload.NewGenericDataPayload([]byte("test")).Bytes())
 
 		// set the type to be a value payload
 		marshalUtil.WriteSeek(4)
 		marshalUtil.WriteBytes(valuePayload.Type.Bytes())
 
 		// parse modified bytes back into a payload object
-		dataPayload, _, err := payload.DataFromBytes(marshalUtil.Bytes())
+		dataPayload, _, err := payload.GenericDataPayloadFromBytes(marshalUtil.Bytes())
 		require.NoError(t, err)
 
 		// parse message bytes

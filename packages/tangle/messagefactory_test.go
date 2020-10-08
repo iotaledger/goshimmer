@@ -44,7 +44,7 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 	}))
 
 	t.Run("CheckProperties", func(t *testing.T) {
-		p := payload.NewData([]byte("TestCheckProperties"))
+		p := payload.NewGenericDataPayload([]byte("TestCheckProperties"))
 		msg, err := msgFactory.IssuePayload(p)
 		require.NoError(t, err)
 
@@ -70,7 +70,7 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 			t.Run("test", func(t *testing.T) {
 				t.Parallel()
 
-				p := payload.NewData([]byte("TestParallelCreation"))
+				p := payload.NewGenericDataPayload([]byte("TestParallelCreation"))
 				msg, err := msgFactory.IssuePayload(p)
 				require.NoError(t, err)
 
@@ -127,7 +127,7 @@ func TestMessageFactory_POW(t *testing.T) {
 		return worker.Mine(context.Background(), content, targetPOW)
 	}))
 
-	msg, err := msgFactory.IssuePayload(payload.NewData([]byte("test")))
+	msg, err := msgFactory.IssuePayload(payload.NewGenericDataPayload([]byte("test")))
 	require.NoError(t, err)
 
 	msgBytes := msg.Bytes()
@@ -150,13 +150,13 @@ func TestWorkerFunc_PayloadSize(t *testing.T) {
 	// issue message with max allowed payload size
 	// dataPayload headers: type|32bit + size|32bit
 	data := make([]byte, payload.MaxSize-4-4)
-	msg, err := msgFactory.IssuePayload(payload.NewData(data))
+	msg, err := msgFactory.IssuePayload(payload.NewGenericDataPayload(data))
 	require.NoError(t, err)
 	assert.Truef(t, MaxMessageSize == len(msg.Bytes()), "message size should be exactly %d bytes but is %d", MaxMessageSize, len(msg.Bytes()))
 
 	// issue message bigger than max allowed payload size
 	data = make([]byte, payload.MaxSize)
-	msg, err = msgFactory.IssuePayload(payload.NewData(data))
+	msg, err = msgFactory.IssuePayload(payload.NewGenericDataPayload(data))
 	require.Error(t, err)
 	assert.Nil(t, msg)
 }

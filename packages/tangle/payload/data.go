@@ -6,33 +6,33 @@ import (
 	"golang.org/x/xerrors"
 )
 
-// DataType is the Type of a generic Data payload.
-var DataType = NewType(0, "DataType", DataUnmarshaler)
+// GenericDataPayloadType is the Type of a generic GenericDataPayload.
+var GenericDataPayloadType = NewType(0, "GenericDataPayloadType", GenericDataPayloadUnmarshaler)
 
-// DataUnmarshaler is the UnmarshalerFunc of the Data payload which is also used as a unmarshaler for unknown Types.
-func DataUnmarshaler(data []byte) (Payload, error) {
-	return DataFromMarshalUtil(marshalutil.New(data))
+// GenericDataPayloadUnmarshaler is the UnmarshalerFunc of the GenericDataPayload which is also used as a unmarshaler for unknown Types.
+func GenericDataPayloadUnmarshaler(data []byte) (Payload, error) {
+	return GenericDataPayloadFromMarshalUtil(marshalutil.New(data))
 }
 
-// Data represents a payload which just contains a blob of data.
-type Data struct {
+// GenericDataPayload represents a payload which just contains a blob of data.
+type GenericDataPayload struct {
 	payloadType Type
 	data        []byte
 }
 
-// NewData creates new Data payload.
-func NewData(data []byte) *Data {
-	return &Data{
-		payloadType: DataType,
+// NewGenericDataPayload creates new GenericDataPayload.
+func NewGenericDataPayload(data []byte) *GenericDataPayload {
+	return &GenericDataPayload{
+		payloadType: GenericDataPayloadType,
 		data:        data,
 	}
 }
 
-// DataFromBytes unmarshals a Data payload from a sequence of bytes.
-func DataFromBytes(bytes []byte) (result *Data, consumedBytes int, err error) {
+// GenericDataPayloadFromBytes unmarshals a GenericDataPayload from a sequence of bytes.
+func GenericDataPayloadFromBytes(bytes []byte) (genericDataPayload *GenericDataPayload, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	if result, err = DataFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Data from MarshalUtil: %w", err)
+	if genericDataPayload, err = GenericDataPayloadFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse GenericDataPayload from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -40,20 +40,20 @@ func DataFromBytes(bytes []byte) (result *Data, consumedBytes int, err error) {
 	return
 }
 
-// DataFromMarshalUtil unmarshals a Data payload using a MarshalUtil (for easier unmarshaling).
-func DataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Data, err error) {
+// GenericDataPayloadFromMarshalUtil unmarshals a GenericDataPayload using a MarshalUtil (for easier unmarshaling).
+func GenericDataPayloadFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (genericDataPayload *GenericDataPayload, err error) {
 	payloadSize, err := marshalUtil.ReadUint32()
 	if err != nil {
 		err = xerrors.Errorf("failed to parse payload size (%v): %w", err, ErrParseBytesFailed)
 		return
 	}
 
-	result = &Data{}
-	if result.payloadType, err = TypeFromMarshalUtil(marshalUtil); err != nil {
+	genericDataPayload = &GenericDataPayload{}
+	if genericDataPayload.payloadType, err = TypeFromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse Type from MarshalUtil: %w", err)
 		return
 	}
-	if result.data, err = marshalUtil.ReadBytes(int(payloadSize)); err != nil {
+	if genericDataPayload.data, err = marshalUtil.ReadBytes(int(payloadSize)); err != nil {
 		err = xerrors.Errorf("failed to parse data (%v): %w", err, ErrParseBytesFailed)
 		return
 	}
@@ -62,28 +62,28 @@ func DataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Data, er
 }
 
 // Type returns the Type of the Payload.
-func (d *Data) Type() Type {
-	return d.payloadType
+func (g *GenericDataPayload) Type() Type {
+	return g.payloadType
 }
 
-// Blob returns the contained data of the Data payload (without its type and size headers).
-func (d *Data) Blob() []byte {
-	return d.data
+// Blob returns the contained data of the GenericDataPayload (without its type and size headers).
+func (g *GenericDataPayload) Blob() []byte {
+	return g.data
 }
 
 // Bytes returns a marshaled version of the Payload.
-func (d *Data) Bytes() []byte {
+func (g *GenericDataPayload) Bytes() []byte {
 	return marshalutil.New().
-		WriteUint32(uint32(len(d.data))).
-		WriteBytes(d.Type().Bytes()).
-		WriteBytes(d.Blob()).
+		WriteUint32(uint32(len(g.data))).
+		WriteBytes(g.Type().Bytes()).
+		WriteBytes(g.Blob()).
 		Bytes()
 }
 
 // String returns a human readable version of the Payload.
-func (d *Data) String() string {
-	return stringify.Struct("Data",
-		stringify.StructField("type", d.Type()),
-		stringify.StructField("blob", d.Blob()),
+func (g *GenericDataPayload) String() string {
+	return stringify.Struct("GenericDataPayload",
+		stringify.StructField("type", g.Type()),
+		stringify.StructField("blob", g.Blob()),
 	)
 }

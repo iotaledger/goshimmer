@@ -77,11 +77,11 @@ type Balance struct {
 // payload type.
 func ProcessPayload(p payload.Payload) interface{} {
 	switch p.Type() {
-	case payload.DataType:
+	case payload.GenericDataPayloadType:
 		// data payload
 		return BasicPayload{
-			ContentTitle: "Data",
-			Content:      p.(*payload.Data).Blob(),
+			ContentTitle: "GenericDataPayload",
+			Content:      p.(*payload.GenericDataPayload).Blob(),
 		}
 	case faucetpayload.Type:
 		// faucet payload

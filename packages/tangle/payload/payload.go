@@ -63,8 +63,8 @@ func FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (payload Payload, err
 	if payload, err = Unmarshaler(payloadType)(payloadBytes); err != nil {
 		marshalUtil.ReadSeek(readOffset)
 
-		if payload, err = DataUnmarshaler(payloadBytes); err != nil {
-			err = fmt.Errorf("failed to parse Payload with generic DataUnmarshaler: %w", err)
+		if payload, err = GenericDataPayloadUnmarshaler(payloadBytes); err != nil {
+			err = fmt.Errorf("failed to parse Payload with generic GenericDataPayloadUnmarshaler: %w", err)
 			return
 		}
 	}

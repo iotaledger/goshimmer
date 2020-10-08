@@ -70,7 +70,7 @@ func SendDataMessage(t *testing.T, peer *framework.Peer, data []byte, number int
 		number: number,
 		id:     id,
 		// save payload to be able to compare API response
-		data:            payload.NewData(data).Bytes(),
+		data:            payload.NewGenericDataPayload(data).Bytes(),
 		issuerPublicKey: peer.Identity.PublicKey().String(),
 	}
 	return id, sent

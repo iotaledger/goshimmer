@@ -42,7 +42,7 @@ func TestIsFaucetReq(t *testing.T) {
 		time.Now(),
 		local.PublicKey(),
 		0,
-		payload.NewData([]byte("data")),
+		payload.NewGenericDataPayload([]byte("data")),
 		0,
 		ed25519.EmptySignature,
 	)

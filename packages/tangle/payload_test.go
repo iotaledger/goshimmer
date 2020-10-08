@@ -22,7 +22,7 @@ func BenchmarkVerifyDataMessages(b *testing.B) {
 
 	messages := make([][]byte, b.N)
 	for i := 0; i < b.N; i++ {
-		msg, err := factory.IssuePayload(payload.NewData([]byte("some data")))
+		msg, err := factory.IssuePayload(payload.NewGenericDataPayload([]byte("some data")))
 		require.NoError(b, err)
 		messages[i] = msg.Bytes()
 	}
@@ -50,7 +50,7 @@ func BenchmarkVerifySignature(b *testing.B) {
 
 	messages := make([]*Message, b.N)
 	for i := 0; i < b.N; i++ {
-		msg, err := factory.IssuePayload(payload.NewData([]byte("some data")))
+		msg, err := factory.IssuePayload(payload.NewGenericDataPayload([]byte("some data")))
 		require.NoError(b, err)
 		messages[i] = msg
 		messages[i].Bytes()

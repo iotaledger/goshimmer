@@ -3,7 +3,7 @@ package payload
 // UnmarshalerFunc defines the function signature for functions that can unmarshal Payloads.
 type UnmarshalerFunc func(data []byte) (Payload, error)
 
-// Unmarshaler returns the UnmarshalerFunc for the given Type or the generic DataUnmarshaler if the Type is unknown.
+// Unmarshaler returns the UnmarshalerFunc for the given Type or the generic GenericDataPayloadUnmarshaler if the Type is unknown.
 func Unmarshaler(payloadType Type) UnmarshalerFunc {
 	typeRegisterMutex.RLock()
 	defer typeRegisterMutex.RUnlock()
@@ -12,5 +12,5 @@ func Unmarshaler(payloadType Type) UnmarshalerFunc {
 		return definition.UnmarshalerFunc
 	}
 
-	return DataUnmarshaler
+	return GenericDataPayloadUnmarshaler
 }

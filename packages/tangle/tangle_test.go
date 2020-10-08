@@ -121,7 +121,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 	// create a helper function that creates the messages
 	createNewMessage := func() *Message {
 		// issue the payload
-		msg, err := msgFactory.IssuePayload(payload.NewData([]byte("0")))
+		msg, err := msgFactory.IssuePayload(payload.NewGenericDataPayload([]byte("0")))
 		require.NoError(t, err)
 
 		// remove a tip if the width of the tangle is reached

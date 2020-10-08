@@ -49,7 +49,7 @@ func (spammer *Spammer) run(rate int, timeUnit time.Duration, processID int64) {
 		}
 
 		// we don't care about errors or the actual issued message
-		_, _ = spammer.issuePayloadFunc(payload.NewData([]byte("SPAM")))
+		_, _ = spammer.issuePayloadFunc(payload.NewGenericDataPayload([]byte("SPAM")))
 
 		currentSentCounter++
 
