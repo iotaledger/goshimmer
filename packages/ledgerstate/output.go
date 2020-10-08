@@ -316,7 +316,7 @@ func (s *SigLockedSingleOutput) UnlockValid(tx *Transaction, unlockBlock UnlockB
 		return
 	}
 
-	unlockValid = signatureUnlockBlock.AddressSignatureValid(s.address, tx.UnsignedBytes())
+	unlockValid = signatureUnlockBlock.AddressSignatureValid(s.address, tx.Essence().Bytes())
 
 	return
 }
@@ -461,7 +461,7 @@ func (s *SigLockedColoredOutput) UnlockValid(tx *Transaction, unlockBlock Unlock
 		return
 	}
 
-	unlockValid = signatureUnlockBlock.AddressSignatureValid(s.address, tx.UnsignedBytes())
+	unlockValid = signatureUnlockBlock.AddressSignatureValid(s.address, tx.Essence().Bytes())
 
 	return
 }
