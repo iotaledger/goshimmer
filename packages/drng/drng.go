@@ -10,16 +10,22 @@ import (
 
 // DRNG holds the state and events of a drng instance.
 type DRNG struct {
-	State  *State // The state of the DRNG.
-	Events *Event // The events fired on the DRNG.
+	State  map[uint32]*State // The state of the DRNG.
+	Events *Event            // The events fired on the DRNG.
 }
 
 // New creates a new DRNG instance.
-func New(setters ...Option) *DRNG {
-	return &DRNG{
-		State:  NewState(setters...),
+func New(config map[uint32][]Option) *DRNG {
+	drng := &DRNG{
+		State:  make(map[uint32]*State),
 		Events: newEvent(),
 	}
+
+	for id, setters := range config {
+		drng.State[id] = NewState(setters...)
+	}
+
+	return drng
 }
 
 // Options define state options of a DRNG.
@@ -117,6 +123,14 @@ func (s *State) UpdateCommittee(c *Committee) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.committee = c
+}
+
+// UpdateDPK updates the distributed public key of the DRNG state
+func (s *State) UpdateDPK(dpk []byte) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.committee.DistributedPK = make([]byte, PublicKeySize)
+	copy(s.committee.DistributedPK[:], dpk[:PublicKeySize])
 }
 
 // Committee returns the committee of the DRNG state

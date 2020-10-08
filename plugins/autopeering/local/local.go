@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/database/prefix"
+	databasePkg "github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/hive.go/autopeering/peer"
@@ -70,7 +70,7 @@ func configureLocal() *peer.Local {
 		}
 		seed = append(seed, bytes)
 	}
-	peerDB, err := peer.NewDB(database.StoreRealm([]byte{prefix.DBPrefixAutoPeering}))
+	peerDB, err := peer.NewDB(database.StoreRealm([]byte{databasePkg.PrefixAutoPeering}))
 	if err != nil {
 		log.Fatalf("Error creating peer DB: %s", err)
 	}
