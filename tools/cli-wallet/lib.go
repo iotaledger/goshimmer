@@ -30,7 +30,7 @@ func loadWallet() *wallet.Wallet {
 	// configure basic-auth
 	options := []client.Option{}
 	if config.BasicAuth.IsEnabled() {
-		options = append(options, client.SetBasicAuth(client.NewBasicAuth(config.BasicAuth.Credentials())))
+		options = append(options, client.WithBasicAuth(config.BasicAuth.Credentials()))
 	}
 
 	return wallet.New(
