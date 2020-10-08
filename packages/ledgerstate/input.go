@@ -150,7 +150,7 @@ func InputsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (inputs Inputs,
 		return
 	}
 
-	var previousInput *Input
+	var previousInput Input
 	parsedInputs := make([]Input, inputsCount)
 	for i := uint16(0); i < inputsCount; i++ {
 		if parsedInputs[i], err = InputFromMarshalUtil(marshalUtil); err != nil {
@@ -158,11 +158,11 @@ func InputsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (inputs Inputs,
 			return
 		}
 
-		if previousInput != nil && (*previousInput).Compare(parsedInputs[i]) != -1 {
+		if previousInput != nil && previousInput.Compare(parsedInputs[i]) != -1 {
 			err = xerrors.Errorf("order of Inputs is invalid: %w", ErrTransactionInvalid)
 			return
 		}
-		previousInput = &parsedInputs[i]
+		previousInput = parsedInputs[i]
 	}
 
 	inputs = NewInputs(parsedInputs...)
