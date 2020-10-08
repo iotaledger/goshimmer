@@ -21,7 +21,7 @@ const (
 	// MessageIDLength defines the length of an MessageID.
 	MessageIDLength = 64
 
-	// BranchIDLength contains the amount of bytes that a marshaled version of the ContentID contains.
+	// ContentIDLength contains the amount of bytes that a marshaled version of the ContentID contains.
 	ContentIDLength = MessageIDLength
 )
 
