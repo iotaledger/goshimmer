@@ -45,9 +45,9 @@ type Input interface {
 	// String returns a human readable version of the Input.
 	String() string
 
-	// Compare offers a comparator for Inputs which returns -1 if otherInput is bigger, 1 if it is smaller and 0 if they
+	// Compare offers a comparator for Inputs which returns -1 if other Input is bigger, 1 if it is smaller and 0 if they
 	// are the same.
-	Compare(otherInput Input) int
+	Compare(other Input) int
 }
 
 // InputFromBytes unmarshals an Input from a sequence of bytes.
@@ -251,10 +251,10 @@ func (u *UTXOInput) Bytes() []byte {
 	return byteutils.ConcatBytes([]byte{byte(UTXOInputType)}, u.referencedOutputID.Bytes())
 }
 
-// Compare offers a comparator for Inputs which returns -1 if otherInput is bigger, 1 if it is smaller and 0 if they
+// Compare offers a comparator for Inputs which returns -1 if other Input is bigger, 1 if it is smaller and 0 if they
 // are the same.
-func (u *UTXOInput) Compare(otherInput Input) int {
-	return bytes.Compare(u.Bytes(), otherInput.Bytes())
+func (u *UTXOInput) Compare(other Input) int {
+	return bytes.Compare(u.Bytes(), other.Bytes())
 }
 
 // String returns a human readable version of the Input.
