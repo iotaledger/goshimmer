@@ -1,7 +1,6 @@
 package plugins
 
 import (
-	"github.com/iotaledger/goshimmer/dapps/faucet"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/banner"
@@ -10,6 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/drng"
+	"github.com/iotaledger/goshimmer/plugins/faucet"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/gracefulshutdown"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
@@ -42,7 +42,7 @@ var Core = node.Plugins(
 	issuer.Plugin(),
 	metrics.Plugin(),
 	drng.Plugin(),
-	faucet.App(),
+	faucet.Plugin(),
 	valuetransfers.App(),
 	syncbeacon.Plugin(),
 	syncbeaconfollower.Plugin(),

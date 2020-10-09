@@ -6,8 +6,6 @@ import (
 	"sync"
 	"time"
 
-	faucet "github.com/iotaledger/goshimmer/dapps/faucet/packages"
-	faucetpayload "github.com/iotaledger/goshimmer/dapps/faucet/packages/payload"
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -49,10 +47,10 @@ func init() {
 }
 
 var (
-	// App is the "plugin" instance of the faucet application.
+	// Plugin is the "plugin" instance of the faucet application.
 	plugin                 *node.Plugin
 	pluginOnce             sync.Once
-	_faucet                *faucet.Faucet
+	_faucet                *Component
 	faucetOnce             sync.Once
 	log                    *logger.Logger
 	powVerifier            = pow.New(crypto.BLAKE2b_512)
@@ -61,16 +59,16 @@ var (
 	fundingWorkerQueueSize = 500
 )
 
-// App returns the plugin instance of the faucet dApp.
-func App() *node.Plugin {
+// Plugin returns the plugin instance of the faucet dApp.
+func Plugin() *node.Plugin {
 	pluginOnce.Do(func() {
 		plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
 	})
 	return plugin
 }
 
-// Faucet gets the faucet instance the faucet dApp has initialized.
-func Faucet() *faucet.Faucet {
+// Faucet gets the faucet component instance the faucet dApp has initialized.
+func Faucet() *Component {
 	faucetOnce.Do(func() {
 		base58Seed := config.Node().GetString(CfgFaucetSeed)
 		if len(base58Seed) == 0 {
@@ -89,7 +87,7 @@ func Faucet() *faucet.Faucet {
 			log.Fatalf("the max transaction booked await time must be more than 0")
 		}
 		blacklistCapacity := config.Node().GetInt(CfgFaucetBlacklistCapacity)
-		_faucet = faucet.New(seedBytes, tokensPerRequest, blacklistCapacity, time.Duration(maxTxBookedAwaitTime)*time.Second)
+		_faucet = New(seedBytes, tokensPerRequest, blacklistCapacity, time.Duration(maxTxBookedAwaitTime)*time.Second)
 	})
 	return _faucet
 }
@@ -100,7 +98,7 @@ func configure(*node.Plugin) {
 
 	fundingWorkerPool = workerpool.New(func(task workerpool.Task) {
 		msg := task.Param(0).(*tangle.Message)
-		addr := msg.Payload().(*faucetpayload.Payload).Address()
+		addr := msg.Payload().(*Request).Address()
 		msg, txID, err := Faucet().SendFunds(msg)
 		if err != nil {
 			log.Warnf("couldn't fulfill funding request to %s: %s", addr, err)
@@ -128,11 +126,11 @@ func configureEvents() {
 		defer cachedMessageEvent.MessageMetadata.Release()
 
 		msg := cachedMessageEvent.Message.Unwrap()
-		if msg == nil || !faucetpayload.IsFaucetReq(msg) {
+		if msg == nil || !IsFaucetReq(msg) {
 			return
 		}
 
-		fundingRequest := msg.Payload().(*faucetpayload.Payload)
+		fundingRequest := msg.Payload().(*Request)
 		addr := fundingRequest.Address()
 		if Faucet().IsAddressBlacklisted(addr) {
 			log.Debugf("can't fund address %s since it is blacklisted", addr)
