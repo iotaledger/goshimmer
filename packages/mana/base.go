@@ -1,18 +1,8 @@
 package mana
 
 import (
-	"errors"
 	"math"
 	"time"
-)
-
-var (
-	// ErrAlreadyUpdated is returned if mana is tried to be updated at a later time.
-	ErrAlreadyUpdated = errors.New("already updated to a later timestamp")
-	// ErrBaseManaNegative is returned if base mana will become negative.
-	ErrBaseManaNegative = errors.New("base mana should never be negative")
-	// ErrEffBaseManaNegative is returned if base mana will become negative.
-	ErrEffBaseManaNegative = errors.New("effective base mana should never be negative")
 )
 
 // BaseMana holds information about the base mana values of a single node.

@@ -1,8 +1,6 @@
 package dashboard
 
 import (
-	"errors"
-	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -21,8 +19,7 @@ var (
 	manaFeedWorkerCount     = 1
 	manaFeedWorkerQueueSize = 50
 	manaFeedWorkerPool      *workerpool.WorkerPool
-	manaEventStore          []interface{}
-	eventStoreMutex         sync.RWMutex
+	manaBuffer              *ManaBuffer
 )
 
 func configureManaFeed() {
@@ -51,7 +48,7 @@ func runManaFeed() {
 		manaFeedWorkerPool.Submit(MsgTypeManaRevoke, ev)
 	})
 	if err := daemon.BackgroundWorker("Dashboard[ManaUpdater]", func(shutdownSignal <-chan struct{}) {
-		manaEventStore = make([]interface{}, 0)
+		manaBuffer = NewManaBuffer()
 		manaPkg.Events().Pledged.Attach(notifyManaPledge)
 		manaPkg.Events().Revoked.Attach(notifyManaRevoke)
 		manaFeedWorkerPool.Start()
@@ -81,20 +78,22 @@ func sendManaValue() {
 	ownID := local.GetInstance().ID()
 	access, _ := mana.GetAccessMana(ownID)
 	consensus, _ := mana.GetConsensusMana(ownID)
+	msgData := &manaValueMsgData{
+		NodeID:    ownID.String(),
+		Access:    access,
+		Consensus: consensus,
+		Time:      time.Now().Unix(),
+	}
 	broadcastWsMessage(&wsmsg{
 		Type: MsgTypeManaValue,
-		Data: &manaValueMsgData{
-			NodeID:    ownID.String(),
-			Access:    access,
-			Consensus: consensus,
-			Time:      time.Now().Unix(),
-		},
+		Data: msgData,
 	})
+	manaBuffer.StoreValueMsg(msgData)
 }
 
 func sendManaMapOverall() {
 	accessManaList := mana.GetHighestManaNodes(manaPkg.AccessMana, 0)
-	accessPayload := manaNetworkListMsgData{ManaType: manaPkg.AccessMana.String()}
+	accessPayload := &manaNetworkListMsgData{ManaType: manaPkg.AccessMana.String()}
 	totalAccessMana := 0.0
 	for i := 0; i < len(accessManaList); i++ {
 		accessPayload.Nodes = append(accessPayload.Nodes, accessManaList[i].ToNodeStr())
@@ -106,7 +105,7 @@ func sendManaMapOverall() {
 		Data: accessPayload,
 	})
 	consensusManaList := mana.GetHighestManaNodes(manaPkg.ConsensusMana, 0)
-	consensusPayload := manaNetworkListMsgData{ManaType: manaPkg.ConsensusMana.String()}
+	consensusPayload := &manaNetworkListMsgData{ManaType: manaPkg.ConsensusMana.String()}
 	totalConsensusMana := 0.0
 	for i := 0; i < len(consensusManaList); i++ {
 		consensusPayload.Nodes = append(consensusPayload.Nodes, consensusManaList[i].ToNodeStr())
@@ -117,11 +116,12 @@ func sendManaMapOverall() {
 		Type: MsgTypeManaMapOverall,
 		Data: consensusPayload,
 	})
+	manaBuffer.StoreMapOverall(accessPayload, consensusPayload)
 }
 
 func sendManaMapOnline() {
 	accessManaList, _ := mana.GetOnlineNodes(manaPkg.AccessMana)
-	accessPayload := manaNetworkListMsgData{ManaType: manaPkg.AccessMana.String()}
+	accessPayload := &manaNetworkListMsgData{ManaType: manaPkg.AccessMana.String()}
 	totalAccessMana := 0.0
 	for i := 0; i < len(accessManaList); i++ {
 		accessPayload.Nodes = append(accessPayload.Nodes, accessManaList[i].ToNodeStr())
@@ -133,7 +133,7 @@ func sendManaMapOnline() {
 		Data: accessPayload,
 	})
 	consensusManaList, _ := mana.GetOnlineNodes(manaPkg.AccessMana)
-	consensusPayload := manaNetworkListMsgData{ManaType: manaPkg.ConsensusMana.String()}
+	consensusPayload := &manaNetworkListMsgData{ManaType: manaPkg.ConsensusMana.String()}
 	totalConsensusMana := 0.0
 	for i := 0; i < len(consensusManaList); i++ {
 		consensusPayload.Nodes = append(consensusPayload.Nodes, consensusManaList[i].ToNodeStr())
@@ -144,43 +144,22 @@ func sendManaMapOnline() {
 		Type: MsgTypeManaMapOnline,
 		Data: consensusPayload,
 	})
+	manaBuffer.StoreMapOnline(accessPayload, consensusPayload)
 }
 
 func sendManaPledge(ev *manaPkg.PledgedEvent) {
-	func() {
-		eventStoreMutex.Lock()
-		defer eventStoreMutex.Unlock()
-		// TODO: set maximum buffer size
-		manaEventStore = append(manaEventStore, *ev)
-	}()
+	manaBuffer.StoreEvent(ev)
 	broadcastWsMessage(&wsmsg{
 		Type: MsgTypeManaPledge,
-		Data: &manaPledgeMsgData{
-			ManaType: ev.Type.String(),
-			NodeID:   ev.NodeID.String(),
-			Time:     ev.Time.Unix(),
-			TxID:     ev.TransactionID.String(),
-			BM1:      ev.AmountBM1,
-			BM2:      ev.AmountBM2,
-		},
+		Data: ev.ToJSONSerializable(),
 	})
 }
 
 func sendManaRevoke(ev *manaPkg.RevokedEvent) {
-	func() {
-		eventStoreMutex.Lock()
-		defer eventStoreMutex.Unlock()
-		manaEventStore = append(manaEventStore, *ev)
-	}()
+	manaBuffer.StoreEvent(ev)
 	broadcastWsMessage(&wsmsg{
 		Type: MsgTypeManaRevoke,
-		Data: &manaRevokeMsgData{
-			ManaType: ev.Type.String(),
-			NodeID:   ev.NodeID.String(),
-			Time:     ev.Time.Unix(),
-			TxID:     ev.TransactionID.String(),
-			BM1:      ev.AmountBM1,
-		},
+		Data: ev.ToJSONSerializable(),
 	})
 }
 
@@ -218,45 +197,6 @@ func sendAllowedManaPledge(ws *websocket.Conn) error {
 	return nil
 }
 
-func sendInitialEvents(ws *websocket.Conn) error {
-	eventStoreMutex.RLock()
-	defer eventStoreMutex.RUnlock()
-	for _, ev := range manaEventStore {
-		var msg *wsmsg
-		switch ev := ev.(type) {
-		case manaPkg.PledgedEvent:
-			msg = &wsmsg{
-				Type: MsgTypeManaPledge,
-				Data: &manaPledgeMsgData{
-					ManaType: ev.Type.String(),
-					NodeID:   ev.NodeID.String(),
-					Time:     ev.Time.Unix(),
-					TxID:     ev.TransactionID.String(),
-					BM1:      ev.AmountBM1,
-					BM2:      ev.AmountBM2,
-				},
-			}
-		case manaPkg.RevokedEvent:
-			msg = &wsmsg{
-				Type: MsgTypeManaRevoke,
-				Data: &manaRevokeMsgData{
-					ManaType: ev.Type.String(),
-					NodeID:   ev.NodeID.String(),
-					Time:     ev.Time.Unix(),
-					TxID:     ev.TransactionID.String(),
-					BM1:      ev.AmountBM1,
-				},
-			}
-		default:
-			return errors.New("unexpected mana event type in manaEventStore")
-		}
-		if err := sendJSON(ws, msg); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 //endregion
 
 //region Websocket message data structs
@@ -286,23 +226,6 @@ type pledgeIDFilter struct {
 type allowedNodeStr struct {
 	ShortID string `json:"shortID"`
 	FullID  string `json:"fullID"`
-}
-
-type manaPledgeMsgData struct {
-	ManaType string  `json:"manaType"`
-	NodeID   string  `json:"nodeID"`
-	Time     int64   `json:"time"`
-	TxID     string  `json:"txID"`
-	BM1      float64 `json:"bm1"`
-	BM2      float64 `json:"bm2"`
-}
-
-type manaRevokeMsgData struct {
-	ManaType string  `json:"manaType"`
-	NodeID   string  `json:"nodeID"`
-	Time     int64   `json:"time"`
-	TxID     string  `json:"txID"`
-	BM1      float64 `json:"bm1"`
 }
 
 //endregion

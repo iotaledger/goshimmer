@@ -1,20 +1,12 @@
 package mana
 
 import (
-	"errors"
 	"fmt"
 	"sort"
 	"sync"
 	"time"
 
 	"github.com/iotaledger/hive.go/identity"
-)
-
-var (
-	// ErrNodeNotFoundInBaseManaVector is returned if the node is not found in the base mana vector.
-	ErrNodeNotFoundInBaseManaVector = errors.New("node not present in base mana vector")
-	// ErrInvalidWeightParameter is returned if an invalid weight parameter is passed.
-	ErrInvalidWeightParameter = errors.New("invalid weight parameter, outside of [0,1]")
 )
 
 // BaseManaVector represents a base mana vector

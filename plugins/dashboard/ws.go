@@ -120,10 +120,18 @@ func sendInitialData(ws *websocket.Conn) error {
 	if err := sendAllowedManaPledge(ws); err != nil {
 		return err
 	}
-	if err := sendInitialEvents(ws); err != nil {
+	if err := manaBuffer.SendEvents(ws); err != nil {
 		return err
 	}
-	// TODO: add additional initial values
+	if err := manaBuffer.SendValueMsgs(ws); err != nil {
+		return err
+	}
+	if err := manaBuffer.SendMapOverall(ws); err != nil {
+		return err
+	}
+	if err := manaBuffer.SendMapOnline(ws); err != nil {
+		return err
+	}
 	return nil
 }
 

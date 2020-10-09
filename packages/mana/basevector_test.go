@@ -155,7 +155,7 @@ func TestBaseManaVector_BookMana(t *testing.T) {
 	}
 	for _, ev := range updateEvents {
 		// has the right type
-		assert.Equal(t, AccessMana, ev.Type)
+		assert.Equal(t, AccessMana, ev.ManaType)
 		// has the right update time
 		assert.Equal(t, baseTime, ev.NewMana.LastUpdated)
 		// base mana values are expected
@@ -213,7 +213,7 @@ func TestBaseManaVector_BookMana(t *testing.T) {
 
 	for _, ev := range updateEvents {
 		// has the right type
-		assert.Equal(t, AccessMana, ev.Type)
+		assert.Equal(t, AccessMana, ev.ManaType)
 		// has the right update time
 		assert.Equal(t, txTime, ev.NewMana.LastUpdated)
 		// base mana values are expected
@@ -239,7 +239,7 @@ func TestBaseManaVector_BookMana(t *testing.T) {
 		assert.Equal(t, beforeBookingAmount[ev.NodeID], ev.AmountBM1)
 		assert.Equal(t, txTime, ev.Time)
 		assert.Equal(t, txInfo.TransactionID, ev.TransactionID)
-		assert.Equal(t, AccessMana, ev.Type)
+		assert.Equal(t, AccessMana, ev.ManaType)
 		assert.Contains(t, revokedNodeIds, ev.NodeID)
 		delete(revokedNodeIds, ev.NodeID)
 	}
@@ -346,7 +346,7 @@ func TestBaseManaVector_Update(t *testing.T) {
 	assert.Equal(t, 1, len(updateEvents))
 	ev := updateEvents[0]
 	assert.Equal(t, randID, ev.NodeID)
-	assert.Equal(t, AccessMana, ev.Type)
+	assert.Equal(t, AccessMana, ev.ManaType)
 	assert.Equal(t, BaseMana{
 		BaseMana1:   10.0,
 		BaseMana2:   10.0,

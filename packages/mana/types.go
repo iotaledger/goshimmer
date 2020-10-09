@@ -18,6 +18,18 @@ func (t Type) String() string {
 	case ConsensusMana:
 		return "Consensus Mana"
 	default:
-		return "Unknown Mana Type"
+		return "Unknown Mana"
+	}
+}
+
+// TypeFromString parses a string and returns the type of mana it defines.
+func TypeFromString(stringType string) (Type, error) {
+	switch stringType {
+	case "Access Mana":
+		return AccessMana, nil
+	case "Consensus Mana":
+		return ConsensusMana, nil
+	default:
+		return 999, ErrUnknownManaType
 	}
 }
