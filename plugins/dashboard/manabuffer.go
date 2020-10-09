@@ -10,8 +10,11 @@ import (
 )
 
 const (
-	maxManaEventsBufferSize = 100
-	maxManaValuesBufferSize = 100
+	// the age of the oldest event depends on number of utxo inputs spent recently
+	// note, that this is aggregate for both access and consensus events.
+	maxManaEventsBufferSize = 2000
+	// oldest data is 10s * 1000 = 2.77 hours before dropping it
+	maxManaValuesBufferSize = 1000
 )
 
 // ManaBuffer holds recent data related to mana in the dashboard. Used to fill frontend on page load/reload.

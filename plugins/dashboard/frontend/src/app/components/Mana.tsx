@@ -6,7 +6,7 @@ import {inject, observer} from "mobx-react";
 import ManaChart from "app/components/ManaChart";
 import RichestMana from "app/components/ManaRichest";
 import ManaHistogram from "app/components/ManaHistogram";
-import {Card, Col} from "react-bootstrap";
+import {Badge, Card, Col} from "react-bootstrap";
 import {ManaStore} from "app/stores/ManaStore";
 import ManaGauge from "app/components/ManaGauge";
 import ManaAllowedPledgeID from "app/components/ManaAllowedPledgeID";
@@ -25,7 +25,7 @@ export class Mana extends React.Component<Props, any> {
     render() {
         let manaStore = this.props.manaStore;
         let nodeStore = this.props.nodeStore;
-        const {searchNode} = this.props.manaStore;
+        const {searchNode, searchTxID} = this.props.manaStore;
         return (
             <Container>
                 <Row className={"mb-3"}>
@@ -82,7 +82,6 @@ export class Mana extends React.Component<Props, any> {
                         </Card>
                     </Col>
                 </Row>
-                <ManaAllowedPledgeID manaStore={manaStore}/>
                 <Row className={"mb-3"}>
                     <Col>
                         <ManaChart
@@ -91,7 +90,63 @@ export class Mana extends React.Component<Props, any> {
                         />
                     </Col>
                 </Row>
-                <Row>
+                <Row className="mb-3">
+                    <Col>
+                        <Card>
+                            <Card.Body>
+                                <Card.Title>
+                                    Filters
+                                </Card.Title>
+                                <Row>
+                                    <Col>
+                                        <div>
+                                            <Badge pill style={{
+                                                backgroundColor: '#41aea9',
+                                                color: 'white'
+                                            }}>
+                                                Events
+                                            </Badge>
+                                            <Badge pill style={{
+                                                backgroundColor: '#a6f6f1',
+                                                color: 'white'
+                                            }}>
+                                                Leaderboards
+                                            </Badge></div>
+                                        <label>
+                                            Search Node:
+                                        </label>
+                                        <input
+                                            placeholder="Enter a node ID"
+                                            type="text"
+                                            value={searchNode}
+                                            onChange={(e) => manaStore.updateNodeSearch(e.target.value)}
+                                        />
+                                    </Col>
+                                    <Col>
+                                        <div>
+                                            <Badge pill style={{
+                                                backgroundColor: '#41aea9',
+                                                color: 'white'
+                                            }}>
+                                                Events
+                                            </Badge>
+                                        </div>
+                                        <label>
+                                            Search Transaction:
+                                        </label>
+                                        <input
+                                            placeholder="Enter a transaction ID"
+                                            type="text"
+                                            value={searchTxID}
+                                            onChange={(e) => manaStore.updateTxSearch(e.target.value)}
+                                        />
+                                    </Col>
+                                </Row>
+                            </Card.Body>
+                        </Card>
+                    </Col>
+                </Row>
+                <Row className="mb-3">
                     <Col>
                         <ManaEventList
                             title={"Access Events"}
@@ -105,41 +160,31 @@ export class Mana extends React.Component<Props, any> {
                         />
                     </Col>
                 </Row>
-                <div className="mb-3">
-                    <label>
-                        Search Node
-                    </label>
-                    <input
-                        placeholder="Enter a node id"
-                        type="text"
-                        value={searchNode}
-                        onChange={(e) => manaStore.updateSearch(e.target.value)}
-                    />
-                </div>
                 <Row className={"mb-3"}>
                     <Col>
-                        <RichestMana data={manaStore.networkRichestFeedAccess} title={"Access Mana Leaderboard"}/>
+                        <RichestMana data={manaStore.networkRichestFeedAccess} title={"Access Leaderboard"}/>
                     </Col>
                     <Col>
-                        <RichestMana data={manaStore.networkRichestFeedConsensus} title={"Consensus Mana Leaderboard"}/>
+                        <RichestMana data={manaStore.networkRichestFeedConsensus} title={"Consensus Leaderboard"}/>
                     </Col>
                 </Row>
                 <Row className={"mb-3"}>
                     <Col>
-                        <RichestMana data={manaStore.activeRichestFeedAccess} title={"Active Access Mana Leaderboard"}/>
+                        <RichestMana data={manaStore.activeRichestFeedAccess} title={"Active Access Leaderboard"}/>
                     </Col>
                     <Col>
-                        <RichestMana data={manaStore.activeRichestFeedConsensus} title={"Active Consensus Mana Leaderboard"}/>
+                        <RichestMana data={manaStore.activeRichestFeedConsensus} title={"Active Consensus Leaderboard"}/>
                     </Col>
                 </Row>
                 <Row className={"mb-3"}>
                     <Col>
-                        <ManaHistogram data={manaStore.accessHistogramInput} title={"Access Mana Distribution"}/>
+                        <ManaHistogram data={manaStore.accessHistogramInput} title={"Access Distribution"}/>
                     </Col>
                     <Col>
-                        <ManaHistogram data={manaStore.consensusHistogramInput} title={"Consensus Mana Distribution"}/>
+                        <ManaHistogram data={manaStore.consensusHistogramInput} title={"Consensus Distribution"}/>
                     </Col>
                 </Row>
+                <ManaAllowedPledgeID manaStore={manaStore}/>
             </Container>
         );
     }

@@ -13,7 +13,7 @@ export default class ManaRichest extends React.Component<Props, any> {
     render() {
         return (
             <Card>
-                <Card.Body style={{'overflow': 'auto', 'height':'300px'}}>
+                <Card.Body style={{'overflow': 'auto', 'height':'300px', fontSize: '0.8rem',}}>
                     <Card.Title>{this.props.title}</Card.Title>
                     <Table>
                         <thead>

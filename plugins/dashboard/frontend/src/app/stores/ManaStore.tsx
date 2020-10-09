@@ -89,11 +89,13 @@ class RevokeEvent extends ManaEvent{
     }
 }
 
+const emptyRow = (<tr><td colSpan={4}>There are no nodes to view with the current search parameters.</td></tr>)
+const emptyListItem = (<ListGroupItem>There are no events to view with the current search parameters.</ListGroupItem>)
 
 // every 10 seconds, a new value arrives, so this is roughly 166 mins
 const maxStoredManaValues = 1000;
-// number of previous pledge/revoke events we keep track of.
-const maxEventsStored = 100;
+// number of previous pledge/revoke events we keep track of. (/2 of plugins/dashboard/maxManaEventsBufferSize)
+const maxEventsStored = 1000;
 
 export class ManaStore {
     // mana values
@@ -114,6 +116,7 @@ export class ManaStore {
     @observable totalConsensusActive: number = 0.0;
 
     @observable public searchNode = "";
+    @observable public searchTxID = "";
 
     @observable public allowedPledgeIDs: AllowedPledgeIDsMsg;
 
@@ -134,8 +137,13 @@ export class ManaStore {
     };
 
     @action
-    updateSearch(searchNode: string): void {
+    updateNodeSearch(searchNode: string): void {
         this.searchNode = searchNode.trim();
+    }
+
+    @action
+    updateTxSearch(searchTxID: string): void {
+        this.searchTxID = searchTxID.trim();
     }
 
     @action
@@ -155,11 +163,11 @@ export class ManaStore {
     @action
     updateNetworkRichest = (msg: NetworkManaMsg) => {
         switch (msg.manaType) {
-            case "Access Mana":
+            case "Access":
                 this.totalAccessNetwork = msg.totalMana;
                 this.accessNetworkRichest = msg.nodes;
                 break;
-            case "Consensus Mana":
+            case "Consensus":
                 this.totalConsensusNetwork = msg.totalMana;
                 this.consensusNetworkRichest = msg.nodes;
                 break;
@@ -169,11 +177,11 @@ export class ManaStore {
     @action
     updateActiveRichest = (msg: NetworkManaMsg) => {
         switch (msg.manaType) {
-            case "Access Mana":
+            case "Access":
                 this.totalAccessActive = msg.totalMana;
                 this.accessActiveRichest = msg.nodes;
                 break;
-            case "Consensus Mana":
+            case "Consensus":
                 this.totalConsensusActive = msg.totalMana;
                 this.consensusActiveRichest = msg.nodes;
                 break;
@@ -188,10 +196,10 @@ export class ManaStore {
     @action
     addNewPledge = (msg: PledgeMsg) => {
         switch (msg.manaType) {
-            case "Access Mana":
+            case "Access":
                 this.handleNewPledgeEvent(this.accessEvents, msg);
                 break;
-            case "Consensus Mana":
+            case "Consensus":
                 this.handleNewPledgeEvent(this.consensusEvents, msg);
                 break;
         }
@@ -214,10 +222,10 @@ export class ManaStore {
     @action
     addNewRevoke = (msg: RevokeMsg) => {
         switch (msg.manaType) {
-            case "Access Mana":
+            case "Access":
                 this.handleNewRevokeEvent(this.accessEvents, msg);
                 break;
-            case "Consensus Mana":
+            case "Consensus":
                 this.handleNewRevokeEvent(this.consensusEvents, msg);
                 break;
         }
@@ -266,40 +274,53 @@ export class ManaStore {
                 </tr>
             );
         };
-        let callbackNoSearch = (node: Node, i: number) => {
-            pushToFeed(node, i);
-        };
-        let callbackSearch = (node: Node, i: number) => {
-            if (node.nodeID.toLowerCase().includes(this.searchNode.toLowerCase())){
+        let callback = (node: Node, i: number) => {
+            if (this.passesNodeFilter(node.nodeID)){
                 pushToFeed(node, i);
             }
         };
-        if (this.searchNode.trim().length === 0) {
-            leaderBoard.forEach(callbackNoSearch);
-        } else {
-            leaderBoard.forEach(callbackSearch)
-        }
+        leaderBoard.forEach(callback);
         return feed
     }
 
     @computed
     get networkRichestFeedAccess() {
-        return this.nodeList(this.accessNetworkRichest, this.totalAccessNetwork);
+        let result =  this.nodeList(this.accessNetworkRichest, this.totalAccessNetwork);
+        if (result.length === 0) {
+            return [emptyRow];
+        } else {
+            return result;
+        }
     }
 
     @computed
     get networkRichestFeedConsensus() {
-        return this.nodeList(this.consensusNetworkRichest, this.totalConsensusNetwork);
+        let result = this.nodeList(this.consensusNetworkRichest, this.totalConsensusNetwork);
+        if (result.length === 0) {
+            return [emptyRow];
+        } else {
+            return result;
+        }
     }
 
     @computed
     get activeRichestFeedAccess() {
-        return this.nodeList(this.accessActiveRichest, this.totalAccessActive);
+        let result = this.nodeList(this.accessActiveRichest, this.totalAccessActive);
+        if (result.length === 0) {
+            return [emptyRow];
+        } else {
+            return result;
+        }
     }
 
     @computed
     get activeRichestFeedConsensus() {
-        return this.nodeList(this.consensusActiveRichest, this.totalConsensusActive);
+        let result = this.nodeList(this.consensusActiveRichest, this.totalConsensusActive);
+        if (result.length === 0) {
+            return [emptyRow];
+        } else {
+            return result;
+        }
     }
 
     @computed
@@ -390,8 +411,7 @@ export class ManaStore {
         if (evArr === undefined || evArr === null) {
             return result
         }
-        // reverse traverse bc oldest event is the first
-        evArr.reverse().forEach( (element: ManaEvent, index) => {
+        let pushToEventFeed = (element: ManaEvent, index) => {
             if (element instanceof PledgeEvent) {
                 let popover = (ev: PledgeEvent) => {
                     return (
@@ -435,15 +455,15 @@ export class ManaStore {
             } else if (element instanceof RevokeEvent){
                 let popover = (ev: RevokeEvent) => {
                     return (
-                    <Popover id={ev.nodeID + index.toString()}>
-                        <Popover.Title as="h3">Mana Revoked</Popover.Title>
-                        <Popover.Content>
-                            <div>Base Mana 1: <strong>-{displayManaUnit(ev.bm1)}</strong></div>
-                            <div>With Transaction: <strong><a onClick={() => navigator.clipboard.writeText(ev.txID)}>{ev.txID}</a></strong></div>
-                            <div>From NodeID:  <strong>{ev.nodeID}</strong></div>
-                            <div>Time of Revoke:  <strong>{ev.time.toLocaleTimeString()}</strong></div>
-                        </Popover.Content>
-                    </Popover>
+                        <Popover id={ev.nodeID + index.toString()}>
+                            <Popover.Title as="h3">Mana Revoked</Popover.Title>
+                            <Popover.Content>
+                                <div>Base Mana 1: <strong>-{displayManaUnit(ev.bm1)}</strong></div>
+                                <div>With Transaction: <strong><a onClick={() => navigator.clipboard.writeText(ev.txID)}>{ev.txID}</a></strong></div>
+                                <div>From NodeID:  <strong>{ev.nodeID}</strong></div>
+                                <div>Time of Revoke:  <strong>{ev.time.toLocaleTimeString()}</strong></div>
+                            </Popover.Content>
+                        </Popover>
                     )
                 }
                 // it's a revoke event then
@@ -473,18 +493,58 @@ export class ManaStore {
                     </OverlayTrigger>
                 )
             }
-        })
+        };
+        // && this.passesTimeFilter(event.time) {
+        let callback = (event: ManaEvent, i: number) => {
+            if (this.passesNodeFilter(event.nodeID) && this.passesTxFilter(event.txID)){
+                pushToEventFeed(event, i);
+            }
+        };
+        // reverse traverse bc oldest event is the first
+        evArr.reverse().forEach(callback)
         return result;
     }
 
     @computed
     get accessEventList() {
-        return this.computeEventList(this.accessEvents);
+        let result = this.computeEventList(this.accessEvents);
+        if (result.length === 1) {
+            result.push(emptyListItem);
+        }
+        return result;
     }
 
     @computed
     get consensusEventList() {
-        return this.computeEventList(this.consensusEvents);
+        let result = this.computeEventList(this.consensusEvents);
+        if (result.length === 1) {
+            result.push(emptyListItem);
+        }
+        return result;
+    }
+
+    passesNodeFilter = (nodeID: string) : boolean => {
+        if (this.searchNode.trim().length === 0) {
+            // node filter is disabled, anything passes the filter
+            return true;
+        } else if (nodeID.toLowerCase().includes(this.searchNode.toLowerCase())){
+            // node filter is enabled, nodeID contains search term
+            return true;
+        }
+        // filter enabled but nodeID doesn't pass
+        return false;
+    }
+
+    passesTxFilter = (txID: string) : boolean => {
+        if (this.searchTxID.trim().length === 0) {
+            // txID filter is disabled, anything passes the filter
+            return true;
+        } else if (txID.toLowerCase().includes(this.searchTxID.toLowerCase())){
+            // txID filter is enabled, txID contains search term
+            return true;
+        }
+        // filter enabled but txID doesn't pass
+        return false;
     }
 }
 
