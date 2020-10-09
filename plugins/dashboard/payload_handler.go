@@ -1,12 +1,12 @@
 package dashboard
 
 import (
-	faucetpayload "github.com/iotaledger/goshimmer/dapps/faucet/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	valuepayload "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+	"github.com/iotaledger/goshimmer/plugins/faucet"
 	syncbeaconpayload "github.com/iotaledger/goshimmer/plugins/syncbeacon/payload"
 	"github.com/iotaledger/hive.go/marshalutil"
 )
@@ -83,11 +83,11 @@ func ProcessPayload(p payload.Payload) interface{} {
 			ContentTitle: "GenericDataPayload",
 			Content:      p.(*payload.GenericDataPayload).Blob(),
 		}
-	case faucetpayload.Type:
+	case faucet.Type:
 		// faucet payload
 		return BasicStringPayload{
 			ContentTitle: "address",
-			Content:      p.(*faucetpayload.Payload).Address().String(),
+			Content:      p.(*faucet.Request).Address().String(),
 		}
 	case drng.PayloadType:
 		// drng payload

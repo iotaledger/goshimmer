@@ -46,5 +46,5 @@ func newEvent() *Event {
 }
 
 func randomnessReceived(handler interface{}, params ...interface{}) {
-	handler.(func(Randomness))(params[0].(Randomness))
+	handler.(func(*State))(params[0].(*State))
 }
