@@ -10,10 +10,12 @@ var (
 	accessPercentile          prometheus.Gauge
 	consensusManaMap          *prometheus.GaugeVec
 	consensusPercentile       prometheus.Gauge
-	averageAccessPledgeMap    *prometheus.GaugeVec
-	averageConsensusPledgeMap *prometheus.GaugeVec
 	averageNeighborsAccess    prometheus.Gauge
 	averageNeighborsConsensus prometheus.Gauge
+	averageAccessPledgeBM1    prometheus.Gauge
+	averageAccessPledgeBM2    prometheus.Gauge
+	averageConsensusPledgeBM1 prometheus.Gauge
+	averageConsensusPledgeBM2 prometheus.Gauge
 )
 
 func registerManaMetrics() {
@@ -47,22 +49,27 @@ func registerManaMetrics() {
 			Help: "Top percentile node belongs to in terms of consensus mana.",
 		})
 
-	averageAccessPledgeMap = prometheus.NewGaugeVec(
+	averageAccessPledgeBM1 = prometheus.NewGauge(
 		prometheus.GaugeOpts{
-			Name: "mana_average_access_pledge",
-			Help: "Average pledged access mana of nodes",
-		},
-		[]string{
-			"nodeID",
+			Name: "mana_average_access_pledge_bm1",
+			Help: "Average base mana 1 of access mana pledged.",
 		})
 
-	averageConsensusPledgeMap = prometheus.NewGaugeVec(
+	averageAccessPledgeBM2 = prometheus.NewGauge(
 		prometheus.GaugeOpts{
-			Name: "mana_average_consensus_pledge",
-			Help: "Average pledged consensus mana of nodes",
-		},
-		[]string{
-			"nodeID",
+			Name: "mana_average_access_pledge_bm2",
+			Help: "Average base mana 2 of access mana pledged.",
+		})
+	averageConsensusPledgeBM1 = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "mana_average_consensus_pledge_bm1",
+			Help: "Average base mana 1 of consensus mana pledged.",
+		})
+
+	averageConsensusPledgeBM2 = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "mana_average_consensus_pledge_bm2",
+			Help: "Average base mana 2 of consensus mana pledged.",
 		})
 
 	averageNeighborsAccess = prometheus.NewGauge(
@@ -81,8 +88,10 @@ func registerManaMetrics() {
 	registry.MustRegister(accessPercentile)
 	registry.MustRegister(consensusManaMap)
 	registry.MustRegister(consensusPercentile)
-	registry.MustRegister(averageAccessPledgeMap)
-	registry.MustRegister(averageConsensusPledgeMap)
+	registry.MustRegister(averageAccessPledgeBM1)
+	registry.MustRegister(averageAccessPledgeBM2)
+	registry.MustRegister(averageConsensusPledgeBM1)
+	registry.MustRegister(averageConsensusPledgeBM2)
 	registry.MustRegister(averageNeighborsAccess)
 	registry.MustRegister(averageNeighborsConsensus)
 
@@ -98,12 +107,10 @@ func collectManaMetrics() {
 		consensusManaMap.WithLabelValues(nodeID.String()).Set(value)
 	}
 	consensusPercentile.Set(metrics.ConsensusPercentile())
-	for nodeID, value := range metrics.AveragePledgeAccessMap() {
-		averageAccessPledgeMap.WithLabelValues(nodeID.String()).Set(value)
-	}
-	for nodeID, value := range metrics.AveragePledgeConsensusMap() {
-		averageConsensusPledgeMap.WithLabelValues(nodeID.String()).Set(value)
-	}
 	averageNeighborsAccess.Set(metrics.AverageNeighborsAccess())
 	averageNeighborsConsensus.Set(metrics.AverageNeighborsConsensus())
+	averageAccessPledgeBM1.Set(metrics.AveragePledgeAccessBM(0))
+	averageAccessPledgeBM2.Set(metrics.AveragePledgeAccessBM(1))
+	averageConsensusPledgeBM1.Set(metrics.AveragePledgeConsensusBM(0))
+	averageConsensusPledgeBM2.Set(metrics.AveragePledgeConsensusBM(1))
 }

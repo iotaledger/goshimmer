@@ -21,9 +21,9 @@ var (
 	consensusPercentile       atomic.Float64
 	consensusLock             sync.RWMutex
 	accessPledgeLock          sync.RWMutex
-	accessPledge              = NodePledgeMap{}
+	accessPledge              = map[uint][]float64{}
 	consensusPledgeLock       sync.RWMutex
-	consensusPledge           = NodePledgeMap{}
+	consensusPledge           = map[uint][]float64{}
 	averageNeighborsAccess    atomic.Float64
 	averageNeighborsConsensus atomic.Float64
 )
@@ -84,52 +84,60 @@ func AverageNeighborsConsensus() float64 {
 	return averageNeighborsConsensus.Load()
 }
 
-// AveragePledgeAccessMap returns the average pledged access mana of the node.
-func AveragePledgeAccessMap() mana.NodeMap {
-	accessPledgeLock.RLock()
-	defer accessPledgeLock.RUnlock()
-	result := mana.NodeMap{}
-	for k, pledges := range accessPledge {
-		sum := 0.0
-		for _, v := range pledges {
-			sum += v
-		}
-		result[k] = sum / float64(len(pledges))
-	}
-	return result
-}
-
-// AveragePledgeConsensusMap returns the average pledged consensus mana of the node.
-func AveragePledgeConsensusMap() mana.NodeMap {
+// AveragePledgeConsensusBM returns the average pledged consensus base mana of the node.
+func AveragePledgeConsensusBM(baseManaType uint) float64 {
 	consensusPledgeLock.RLock()
 	defer consensusPledgeLock.RUnlock()
-	result := mana.NodeMap{}
-	for k, pledges := range consensusPledge {
-		sum := 0.0
-		for _, v := range pledges {
-			sum += v
-		}
-		result[k] = sum / float64(len(pledges))
+	pledges, ok := consensusPledge[baseManaType]
+	if !ok {
+		return 0
 	}
-	return result
+	var sum float64
+	for _, pledge := range pledges {
+		sum += pledge
+	}
+	return sum / float64(len(pledges))
 }
 
-// addPledge populates the pledge logs.
+// AveragePledgeAccessBM returns the average pledged access base mana of the node.
+func AveragePledgeAccessBM(baseManaType uint) float64 {
+	accessPledgeLock.RLock()
+	defer accessPledgeLock.RUnlock()
+	pledges, ok := accessPledge[baseManaType]
+	if !ok {
+		return 0
+	}
+	var sum float64
+	for _, pledge := range pledges {
+		sum += pledge
+	}
+	return sum / float64(len(pledges))
+}
+
+// addPledge populates the pledge logs for the node.
 func addPledge(event *mana.PledgedEvent) {
-	amount := (event.AmountBM1 + event.AmountBM2) / 2
+	if event.NodeID != local.GetInstance().ID() {
+		return
+	}
 	switch event.Type {
 	case mana.AccessMana:
 		accessPledgeLock.Lock()
 		defer accessPledgeLock.Unlock()
-		pledges := accessPledge[event.NodeID]
-		pledges = append(pledges, amount)
-		accessPledge[event.NodeID] = pledges
+		bm1Pledges := accessPledge[0]
+		bm2Pledges := accessPledge[1]
+		bm1Pledges = append(bm1Pledges, event.AmountBM1)
+		accessPledge[0] = bm1Pledges
+		bm2Pledges = append(bm2Pledges, event.AmountBM2)
+		accessPledge[1] = bm2Pledges
 	case mana.ConsensusMana:
 		consensusPledgeLock.Lock()
 		defer consensusPledgeLock.Unlock()
-		pledges := consensusPledge[event.NodeID]
-		pledges = append(pledges, amount)
-		consensusPledge[event.NodeID] = pledges
+		bm1Pledges := consensusPledge[0]
+		bm2Pledges := consensusPledge[1]
+		bm1Pledges = append(bm1Pledges, event.AmountBM1)
+		consensusPledge[0] = bm1Pledges
+		bm2Pledges = append(bm2Pledges, event.AmountBM2)
+		consensusPledge[1] = bm2Pledges
 	}
 }
 

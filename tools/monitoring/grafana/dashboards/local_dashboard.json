@@ -17,7 +17,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": 2,
-  "iteration": 1602023387065,
+  "iteration": 1602246212405,
   "links": [],
   "panels": [
     {
@@ -283,7 +283,7 @@
     },
     {
       "datasource": "Prometheus",
-      "description": "Size of the ledger database.",
+      "description": "Average access and consensus mana of a nodes nneighbours.",
       "fieldConfig": {
         "defaults": {
           "custom": {},
@@ -294,10 +294,6 @@
               {
                 "color": "green",
                 "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
               }
             ]
           },
@@ -307,7 +303,7 @@
       },
       "gridPos": {
         "h": 3,
-        "w": 2,
+        "w": 4,
         "x": 14,
         "y": 1
       },
@@ -331,72 +327,19 @@
         {
           "expr": "mana_average_neighbors_access",
           "interval": "",
-          "legendFormat": "",
+          "legendFormat": "Access",
           "refId": "A"
-        }
-      ],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "Average Neighbors Access Mana",
-      "type": "stat"
-    },
-    {
-      "datasource": "Prometheus",
-      "description": "Size of the ledger database.",
-      "fieldConfig": {
-        "defaults": {
-          "custom": {},
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "short"
         },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 3,
-        "w": 2,
-        "x": 16,
-        "y": 1
-      },
-      "id": 110,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "pluginVersion": "7.1.0",
-      "targets": [
         {
           "expr": "mana_average_neighbors_consensus",
           "interval": "",
-          "legendFormat": "",
-          "refId": "A"
+          "legendFormat": "Consensus",
+          "refId": "B"
         }
       ],
       "timeFrom": null,
       "timeShift": null,
-      "title": "Average Neighbors Consensus Mana",
+      "title": "Average neighbours mana",
       "type": "stat"
     },
     {
@@ -1293,6 +1236,7 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": "Prometheus",
+      "description": "Average pledged BM1 and BM2 of access mana pledged to the node",
       "fieldConfig": {
         "defaults": {
           "custom": {}
@@ -1332,10 +1276,16 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "mana_average_access_pledge",
+          "expr": "mana_average_access_pledge_bm1",
           "interval": "",
           "legendFormat": "$NodeID",
           "refId": "A"
+        },
+        {
+          "expr": "mana_average_access_pledge_bm2",
+          "interval": "",
+          "legendFormat": "$NodeID",
+          "refId": "B"
         }
       ],
       "thresholds": [],
@@ -1385,6 +1335,7 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": "Prometheus",
+      "description": "Average pledged BM1 and BM2 of consensus mana pledged to the node",
       "fieldConfig": {
         "defaults": {
           "custom": {}
@@ -1400,7 +1351,7 @@
         "y": 34
       },
       "hiddenSeries": false,
-      "id": 108,
+      "id": 110,
       "legend": {
         "avg": false,
         "current": false,
@@ -1424,10 +1375,16 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "mana_average_consensus_pledge",
+          "expr": "mana_average_consensus_pledge_bm1",
           "interval": "",
           "legendFormat": "$NodeID",
           "refId": "A"
+        },
+        {
+          "expr": "mana_average_consensus_pledge_bm2",
+          "interval": "",
+          "legendFormat": "$NodeID",
+          "refId": "B"
         }
       ],
       "thresholds": [],
@@ -4357,5 +4314,5 @@
   "timezone": "",
   "title": "GoShimmer Local Metrics",
   "uid": "kjOQZ2ZMk",
-  "version": 10
+  "version": 14
 }
