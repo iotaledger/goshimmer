@@ -41,6 +41,9 @@ func FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (payload Payload, err
 		err = xerrors.Errorf("failed to parse payload size (%v): %w", err, ErrParseBytesFailed)
 		return
 	}
+	if payloadSize == 0 {
+		return
+	}
 	if payloadSize > MaxSize {
 		err = xerrors.Errorf("maximum payload size of %d bytes exceeded: %w", MaxSize, ErrParseBytesFailed)
 		return

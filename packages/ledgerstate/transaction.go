@@ -3,6 +3,7 @@ package ledgerstate
 import (
 	"crypto/rand"
 	"fmt"
+	"strconv"
 
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/byteutils"
@@ -106,8 +107,8 @@ func (i TransactionID) String() string {
 
 // region Transaction //////////////////////////////////////////////////////////////////////////////////////////////////
 
+// Transaction represents a payload that is executing a value transfer in the ledger state.
 type Transaction struct {
-	payloadType  payload.Type
 	essence      *TransactionEssence
 	unlockBlocks UnlockBlocks
 }
@@ -119,10 +120,32 @@ func TransactionPayloadUnmarshaler(data []byte) (payload.Payload, error) {
 
 // TransactionFromMarshalUtil unmarshals a Transaction using a MarshalUtil (for easier unmarshaling).
 func TransactionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transaction *Transaction, err error) {
-	// TODO: FINISH
+	startOffset := marshalUtil.ReadOffset()
+
+	payloadSize, err := marshalUtil.ReadUint32()
+	if err != nil {
+		err = xerrors.Errorf("failed to parse payload size from MarshalUtil (%v): %w", err, ErrParseBytesFailed)
+		return
+	}
+	payloadType, err := payload.TypeFromMarshalUtil(marshalUtil)
+	if payloadType != TransactionType {
+		err = xerrors.Errorf("payload type '%s' does not match expected '%s': %w", payloadType, TransactionType, ErrParseBytesFailed)
+		return
+	}
+
 	transaction = &Transaction{}
+	if transaction.essence, err = TransactionEssenceFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse TransactionEssence from MarshalUtil: %w", err)
+		return
+	}
 	if transaction.unlockBlocks, err = UnlockBlocksFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse UnlockBlocks: %w", err)
+		err = xerrors.Errorf("failed to parse UnlockBlocks from MarshalUtil: %w", err)
+		return
+	}
+
+	parsedBytes := marshalUtil.ReadOffset() - startOffset
+	if parsedBytes != int(payloadSize) {
+		err = xerrors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, payloadSize, ErrParseBytesFailed)
 		return
 	}
 
@@ -142,13 +165,15 @@ func (t *Transaction) UnlockBlocks() UnlockBlocks {
 	return t.unlockBlocks
 }
 
-func (t *Transaction) UnsignedBytes() []byte {
-	return t.essence.Bytes()
-}
-
 // Bytes returns a marshaled version of the Transaction.
 func (t *Transaction) Bytes() []byte {
-	return byteutils.ConcatBytes(t.essence.Bytes(), t.unlockBlocks.Bytes())
+	payloadBytes := byteutils.ConcatBytes(TransactionType.Bytes(), t.essence.Bytes(), t.unlockBlocks.Bytes())
+	payloadBytesLength := len(payloadBytes)
+
+	return marshalutil.New(marshalutil.UINT16_SIZE + payloadBytesLength).
+		WriteUint16(uint16(payloadBytesLength)).
+		WriteBytes(payloadBytes).
+		Bytes()
 }
 
 // String returns a human readable version of the Transaction.
@@ -167,12 +192,101 @@ var _ payload.Payload = &Transaction{}
 // region TransactionEssence ///////////////////////////////////////////////////////////////////////////////////////////
 
 type TransactionEssence struct {
-	inputs Inputs
+	version TransactionEssenceVersion
+	inputs  Inputs
+	outputs Outputs
+	payload payload.Payload
+}
+
+func TransactionEssenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transactionEssence *TransactionEssence, err error) {
+	transactionEssence = &TransactionEssence{}
+	if transactionEssence.version, err = TransactionEssenceVersionFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse TransactionEssenceVersion from MarshalUtil: %w", err)
+		return
+	}
+	if transactionEssence.inputs, err = InputsFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse Inputs from MarshalUtil: %w", err)
+		return
+	}
+	if transactionEssence.outputs, err = OutputsFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse Outputs from MarshalUtil: %w", err)
+		return
+	}
+	if transactionEssence.payload, err = payload.FromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse Payload from MarshalUtil: %w", err)
+		return
+	}
+
+	return
 }
 
 // Bytes returns a marshaled version of the TransactionEssence.
 func (t *TransactionEssence) Bytes() []byte {
-	return nil
+	return marshalutil.New().
+		Write(t.version).
+		Write(t.inputs).
+		Write(t.outputs).
+		Write(t.payload).
+		Bytes()
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TransactionEssenceVersion ////////////////////////////////////////////////////////////////////////////////////
+
+// TransactionEssenceVersion represents a byte denoting a version augmented with some additional logic.
+type TransactionEssenceVersion uint8
+
+// OutputFromBytes unmarshals an Output from a sequence of bytes.
+func TransactionEssenceVersionFromBytes(bytes []byte) (version TransactionEssenceVersion, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(bytes)
+	if version, err = TransactionEssenceVersionFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse version TransactionEssenceVersion from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// TransactionEssenceVersionFromMarshalUtil unmarshals a TransactionEssenceVersion using a MarshalUtil (for easier
+// unmarshaling).
+func TransactionEssenceVersionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (version TransactionEssenceVersion, err error) {
+	readByte, err := marshalUtil.ReadByte()
+	if err != nil {
+		err = xerrors.Errorf("failed to parse version TransactionEssenceVersion: %w", err)
+		return
+	}
+	if readByte != 0 {
+		err = xerrors.Errorf("failed to parse version TransactionEssenceVersion: %w", err)
+		return
+	}
+	version = TransactionEssenceVersion(readByte)
+
+	return
+}
+
+// Bytes returns a marshaled version of the TransactionEssenceVersion.
+func (v TransactionEssenceVersion) Bytes() []byte {
+	return []byte{byte(v)}
+}
+
+// Compare offers a comparator for TransactionEssenceVersions which returns -1 if otherInput is bigger, 1 if it is
+// smaller and 0 if they are the same.
+func (v TransactionEssenceVersion) Compare(other TransactionEssenceVersion) int {
+	switch {
+	case v < other:
+		return -1
+	case v > other:
+		return 1
+	default:
+		return 0
+	}
+}
+
+// String returns a human readable version of the TransactionEssenceVersion.
+func (v TransactionEssenceVersion) String() string {
+	return "TransactionEssenceVersion(" + strconv.Itoa(int(v)) + ")"
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

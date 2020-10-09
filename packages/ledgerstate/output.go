@@ -1,7 +1,10 @@
 package ledgerstate
 
 import (
+	"bytes"
 	"encoding/binary"
+	"sort"
+	"strconv"
 	"sync"
 	"time"
 
@@ -9,6 +12,8 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
+	"github.com/iotaledger/hive.go/types"
+	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/mr-tron/base58"
 	"golang.org/x/xerrors"
 )
@@ -155,6 +160,10 @@ type Output interface {
 	// String returns a human readable version of the Output for debug purposes.
 	String() string
 
+	// Compare offers a comparator for Outputs which returns -1 if other Output is bigger, 1 if it is smaller and 0 if
+	// they are the same.
+	Compare(other Output) int
+
 	// StorableObject makes Outputs storable in the ObjectStorage.
 	objectstorage.StorableObject
 }
@@ -213,6 +222,120 @@ func OutputFromObjectStorage(key []byte, data []byte) (output objectstorage.Stor
 	output.(Output).SetID(outputID)
 
 	return
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Outputs ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Outputs represents a collection of Outputs.
+type Outputs []Output
+
+// NewOutputs returns a deterministically ordered collection of Outputs removing existing duplicates.
+func NewOutputs(optionalOutputs ...Output) (outputs Outputs) {
+	seenOutputs := make(map[string]types.Empty)
+	sortedOutputs := make([]struct {
+		output           Output
+		outputSerialized []byte
+	}, 0)
+
+	// filter duplicates (store marshaled version so we don't need to marshal a second time during sort)
+	for _, output := range optionalOutputs {
+		marshaledOutput := output.Bytes()
+		marshaledOutputAsString := typeutils.BytesToString(marshaledOutput)
+
+		if _, seenAlready := seenOutputs[marshaledOutputAsString]; seenAlready {
+			continue
+		}
+		seenOutputs[marshaledOutputAsString] = types.Void
+
+		sortedOutputs = append(sortedOutputs, struct {
+			output           Output
+			outputSerialized []byte
+		}{output, marshaledOutput})
+	}
+
+	// sort outputs
+	sort.Slice(sortedOutputs, func(i, j int) bool {
+		return bytes.Compare(sortedOutputs[i].outputSerialized, sortedOutputs[j].outputSerialized) < 0
+	})
+
+	// create result
+	outputs = make(Outputs, len(sortedOutputs))
+	for i, sortedOutput := range sortedOutputs {
+		outputs[i] = sortedOutput.output
+	}
+
+	return
+}
+
+// OutputsFromBytes unmarshals a collection of Outputs from a sequence of bytes.
+func OutputsFromBytes(outputBytes []byte) (outputs Outputs, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(outputBytes)
+	if outputs, err = OutputsFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse Outputs from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// OutputsFromMarshalUtil unmarshals a collection of Outputs using a MarshalUtil (for easier unmarshaling).
+func OutputsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (outputs Outputs, err error) {
+	outputsCount, err := marshalUtil.ReadUint16()
+	if err != nil {
+		err = xerrors.Errorf("failed to parse outputs count (%v): %w", err, ErrParseBytesFailed)
+		return
+	}
+
+	var previousOutput Output
+	parsedOutputs := make([]Output, outputsCount)
+	for i := uint16(0); i < outputsCount; i++ {
+		if parsedOutputs[i], err = OutputFromMarshalUtil(marshalUtil); err != nil {
+			err = xerrors.Errorf("failed to parse Output from MarshalUtil: %w", err)
+			return
+		}
+
+		if previousOutput != nil && previousOutput.Compare(parsedOutputs[i]) != -1 {
+			err = xerrors.Errorf("order of Outputs is invalid: %w", ErrTransactionInvalid)
+			return
+		}
+		previousOutput = parsedOutputs[i]
+	}
+
+	outputs = NewOutputs(parsedOutputs...)
+
+	return
+}
+
+// Clone creates a copy of the Outputs.
+func (i Outputs) Clone() (clonedOutputs Outputs) {
+	clonedOutputs = make(Outputs, len(i))
+	copy(clonedOutputs[:], i)
+
+	return
+}
+
+// Bytes returns a marshaled version of the Outputs.
+func (i Outputs) Bytes() []byte {
+	marshalUtil := marshalutil.New()
+	marshalUtil.WriteUint16(uint16(len(i)))
+	for _, output := range i {
+		marshalUtil.WriteBytes(output.Bytes())
+	}
+
+	return marshalUtil.Bytes()
+}
+
+// String returns a human readable version of the Outputs.
+func (i Outputs) String() string {
+	structBuilder := stringify.StructBuilder("Outputs")
+	for i, output := range i {
+		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), output))
+	}
+
+	return structBuilder.String()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -350,6 +473,12 @@ func (s *SigLockedSingleOutput) ObjectStorageValue() []byte {
 		WriteUint64(s.balance).
 		WriteBytes(s.address.Bytes()).
 		Bytes()
+}
+
+// Compare offers a comparator for Outputs which returns -1 if other Output is bigger, 1 if it is smaller and 0 if they
+// are the same.
+func (s *SigLockedSingleOutput) Compare(other Output) int {
+	return bytes.Compare(s.Bytes(), other.Bytes())
 }
 
 // String returns a human readable version of the Output.
@@ -495,6 +624,12 @@ func (s *SigLockedColoredOutput) ObjectStorageValue() []byte {
 		WriteBytes(s.balances.Bytes()).
 		WriteBytes(s.address.Bytes()).
 		Bytes()
+}
+
+// Compare offers a comparator for Outputs which returns -1 if other Output is bigger, 1 if it is smaller and 0 if they
+// are the same.
+func (s *SigLockedColoredOutput) Compare(other Output) int {
+	return bytes.Compare(s.Bytes(), other.Bytes())
 }
 
 // String returns a human readable version of the Output.
