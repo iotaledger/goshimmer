@@ -3,7 +3,7 @@ package payload
 import (
 	"fmt"
 
-	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
@@ -15,11 +15,15 @@ const (
 )
 
 // Type is the type of the syncbeacon payload.
-var Type = tangle.PayloadType(200)
+var Type = payload.NewType(200, ObjectName, func(data []byte) (payload payload.Payload, err error) {
+	payload, _, err = FromBytes(data)
+
+	return
+})
 
 // Payload represents the syncbeacon payload
 type Payload struct {
-	payloadType tangle.PayloadType
+	payloadType payload.Type
 	sentTime    int64
 }
 
@@ -44,7 +48,7 @@ func FromBytes(bytes []byte) (result *Payload, consumedBytes int, err error) {
 		err = fmt.Errorf("failed to parse payload size of syncbeacon payload: %w", err)
 		return
 	}
-	result.payloadType, err = marshalUtil.ReadUint32()
+	result.payloadType, err = payload.TypeFromMarshalUtil(marshalUtil)
 	if err != nil {
 		err = fmt.Errorf("failed to parse payload type of syncbeacon payload: %w", err)
 		return
@@ -62,7 +66,7 @@ func FromBytes(bytes []byte) (result *Payload, consumedBytes int, err error) {
 }
 
 // Type returns the type of the Payload.
-func (p *Payload) Type() tangle.PayloadType {
+func (p *Payload) Type() payload.Type {
 	return p.payloadType
 }
 
@@ -79,7 +83,7 @@ func (p *Payload) Bytes() []byte {
 
 	// marshal the p specific information
 	marshalUtil.WriteUint32(uint32(objectLength))
-	marshalUtil.WriteUint32(Type)
+	marshalUtil.WriteBytes(Type.Bytes())
 	marshalUtil.WriteInt64(p.sentTime)
 
 	// return result
@@ -95,12 +99,4 @@ func (p *Payload) String() string {
 // IsSyncBeaconPayload checks if the message is sync beacon payload.
 func IsSyncBeaconPayload(p *Payload) bool {
 	return p.Type() == Type
-}
-
-func init() {
-	tangle.RegisterPayloadType(Type, ObjectName, func(data []byte) (payload tangle.Payload, err error) {
-		payload, _, err = FromBytes(data)
-
-		return
-	})
 }

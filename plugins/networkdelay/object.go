@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/mr-tron/base58"
@@ -111,7 +111,7 @@ func (o *Object) Bytes() (bytes []byte) {
 
 	// marshal the payload specific information
 	marshalUtil.WriteUint32(uint32(objectLength))
-	marshalUtil.WriteUint32(Type)
+	marshalUtil.WriteBytes(Type.Bytes())
 	marshalUtil.WriteBytes(o.id[:])
 	marshalUtil.WriteInt64(o.sentTime)
 
@@ -131,19 +131,15 @@ func (o *Object) String() string {
 // region Payload implementation ///////////////////////////////////////////////////////////////////////////////////////
 
 // Type represents the identifier which addresses the network delay Object type.
-const Type = tangle.PayloadType(189)
+var Type = payload.NewType(189, ObjectName, func(data []byte) (payload payload.Payload, err error) {
+	payload, _, err = FromBytes(data)
+
+	return
+})
 
 // Type returns the type of the Object.
-func (o *Object) Type() tangle.PayloadType {
+func (o *Object) Type() payload.Type {
 	return Type
-}
-
-func init() {
-	tangle.RegisterPayloadType(Type, ObjectName, func(data []byte) (payload tangle.Payload, err error) {
-		payload, _, err = FromBytes(data)
-
-		return
-	})
 }
 
 // // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

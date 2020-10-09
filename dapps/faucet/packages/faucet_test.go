@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -41,7 +42,7 @@ func TestIsFaucetReq(t *testing.T) {
 		time.Now(),
 		local.PublicKey(),
 		0,
-		tangle.NewDataPayload([]byte("data")),
+		payload.NewGenericDataPayload([]byte("data")),
 		0,
 		ed25519.EmptySignature,
 	)
