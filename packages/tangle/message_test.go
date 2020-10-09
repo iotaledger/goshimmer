@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
@@ -13,7 +14,7 @@ import (
 
 func TestMessage_VerifySignature(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()
-	pl := NewDataPayload([]byte("test"))
+	pl := payload.NewGenericDataPayload([]byte("test"))
 
 	unsigned := NewMessage(EmptyMessageID, EmptyMessageID, time.Time{}, keyPair.PublicKey, 0, pl, 0, ed25519.Signature{})
 	assert.False(t, unsigned.VerifySignature())
@@ -29,7 +30,7 @@ func TestMessage_MarshalUnmarshal(t *testing.T) {
 	msgFactory := NewMessageFactory(mapdb.NewMapDB(), []byte(DBSequenceNumber), identity.GenerateLocalIdentity(), NewMessageTipSelector())
 	defer msgFactory.Shutdown()
 
-	testMessage, err := msgFactory.IssuePayload(NewDataPayload([]byte("test")))
+	testMessage, err := msgFactory.IssuePayload(payload.NewGenericDataPayload([]byte("test")))
 	require.NoError(t, err)
 	assert.Equal(t, true, testMessage.VerifySignature())
 

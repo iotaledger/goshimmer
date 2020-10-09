@@ -5,6 +5,7 @@ import (
 	"crypto"
 	"fmt"
 
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	// Only want to use init
 	_ "golang.org/x/crypto/blake2b"
 
@@ -20,66 +21,15 @@ const (
 	ObjectName = "faucet"
 )
 
-// region Object implementation ///////////////////////////////////////////////////////////////////////////////////////
-
-// Type represents the identifier for the faucet Object type.
-var Type = tangle.PayloadType(2)
-
-// Object represents a faucet request which contains an address for the faucet to send funds to.
-type Object struct {
-	payloadType tangle.PayloadType
+// Payload represents a request which contains an address for the faucet to send funds to.
+type Payload struct {
+	payloadType payload.Type
 	address     address.Address
 	nonce       uint64
 }
 
-// Type returns the type of the faucet Object.
-func (o *Object) Type() tangle.PayloadType {
-	return o.payloadType
-}
-
-// Address returns the address of the faucet Object.
-func (o *Object) Address() address.Address {
-	return o.address
-}
-
-// Bytes marshals the faucet object into a sequence of bytes.
-func (o *Object) Bytes() (bytes []byte) {
-	// initialize helper
-	marshalUtil := marshalutil.New()
-
-	// marshal the payload specific information
-	marshalUtil.WriteUint32(uint32(address.Length + pow.NonceBytes))
-	marshalUtil.WriteUint32(o.Type())
-	marshalUtil.WriteBytes(o.address.Bytes())
-	marshalUtil.WriteUint64(o.nonce)
-
-	// return result
-	return marshalUtil.Bytes()
-}
-
-// String returns a human readable version of faucet payload (for debug purposes).
-func (o *Object) String() string {
-	return stringify.Struct("FaucetPayload",
-		stringify.StructField("address", o.Address().String()),
-	)
-}
-
-// ObjectUnmarshaler sets the generic unmarshaler.
-func ObjectUnmarshaler(data []byte) (payload tangle.Payload, err error) {
-	payload, _, err = FromBytes(data)
-	if err != nil {
-		err = fmt.Errorf("failed to unmarshal faucet payload from bytes: %w", err)
-	}
-
-	return
-}
-
-func init() {
-	tangle.RegisterPayloadType(Type, ObjectName, ObjectUnmarshaler)
-}
-
-// // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
+// Type represents the identifier for the faucet Payload type.
+var Type = payload.NewType(2, ObjectName, PayloadUnmarshaler)
 var powWorker = pow.New(crypto.BLAKE2b_512, 1)
 
 // NewObject is the constructor of an Object and creates a new Object object from the given details.
@@ -100,9 +50,9 @@ func NewObject(addr address.Address, powTarget int) (*Object, error) {
 	return p, nil
 }
 
-// FromBytes parses the marshaled version of a Object into an object.
-// It either returns a new Object or fills an optionally provided Object with the parsed information.
-func FromBytes(bytes []byte) (result *Object, consumedBytes int, err error) {
+// FromBytes parses the marshaled version of a Payload into an object.
+// It either returns a new Payload or fills an optionally provided Payload with the parsed information.
+func FromBytes(bytes []byte) (result *Payload, consumedBytes int, err error) {
 	// initialize helper
 	marshalUtil := marshalutil.New(bytes)
 
@@ -111,7 +61,7 @@ func FromBytes(bytes []byte) (result *Object, consumedBytes int, err error) {
 		err = fmt.Errorf("failed to unmarshal payload size of faucet payload from bytes: %w", err)
 		return
 	}
-	result.payloadType, err = marshalUtil.ReadUint32()
+	result.payloadType, err = payload.TypeFromMarshalUtil(marshalUtil)
 	if err != nil {
 		err = fmt.Errorf("failed to unmarshal payload type of faucet payload from bytes: %w", err)
 		return
@@ -133,6 +83,48 @@ func FromBytes(bytes []byte) (result *Object, consumedBytes int, err error) {
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// Type returns the type of the faucet Payload.
+func (p *Payload) Type() payload.Type {
+	return p.payloadType
+}
+
+// Address returns the address of the faucet Payload.
+func (p *Payload) Address() address.Address {
+	return p.address
+}
+
+// Bytes marshals the data payload into a sequence of bytes.
+func (p *Payload) Bytes() []byte {
+	// initialize helper
+	marshalUtil := marshalutil.New()
+
+	// marshal the payload specific information
+	marshalUtil.WriteUint32(uint32(address.Length + pow.NonceBytes))
+	marshalUtil.WriteBytes(p.Type().Bytes())
+	marshalUtil.WriteBytes(p.address.Bytes())
+	marshalUtil.WriteUint64(p.nonce)
+
+	// return result
+	return marshalUtil.Bytes()
+}
+
+// String returns a human readable version of faucet payload (for debug purposes).
+func (p *Payload) String() string {
+	return stringify.Struct("FaucetPayload",
+		stringify.StructField("address", p.Address().String()),
+	)
+}
+
+// PayloadUnmarshaler sets the generic unmarshaler.
+func PayloadUnmarshaler(data []byte) (payload payload.Payload, err error) {
+	payload, _, err = FromBytes(data)
+	if err != nil {
+		err = fmt.Errorf("failed to unmarshal faucet payload from bytes: %w", err)
+	}
 
 	return
 }

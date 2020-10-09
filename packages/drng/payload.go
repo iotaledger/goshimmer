@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 )
@@ -106,7 +106,7 @@ func (p *Payload) Bytes() (bytes []byte) {
 
 	// marshal the payload specific information
 	marshalUtil.WriteUint32(uint32(len(p.Data) + HeaderLength))
-	marshalUtil.WriteUint32(PayloadType)
+	marshalUtil.WriteBytes(PayloadType.Bytes())
 	marshalUtil.WriteBytes(p.Header.Bytes())
 	marshalUtil.WriteBytes(p.Data[:])
 
@@ -126,24 +126,20 @@ func (p *Payload) String() string {
 // region Payload implementation ///////////////////////////////////////////////////////////////////////////////////////
 
 // PayloadType defines the type of the drng payload.
-var PayloadType = tangle.PayloadType(111)
+var PayloadType = payload.NewType(111, ObjectName, func(data []byte) (payload payload.Payload, err error) {
+	payload, _, err = FromBytes(data)
+
+	return
+})
 
 // Type returns the type of the drng payload.
-func (p *Payload) Type() tangle.PayloadType {
+func (p *Payload) Type() payload.Type {
 	return PayloadType
 }
 
 // Marshal marshals the drng payload into bytes.
 func (p *Payload) Marshal() (bytes []byte, err error) {
 	return p.Bytes(), nil
-}
-
-func init() {
-	tangle.RegisterPayloadType(PayloadType, ObjectName, func(data []byte) (payload tangle.Payload, err error) {
-		payload, _, err = FromBytes(data)
-
-		return
-	})
 }
 
 // // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
