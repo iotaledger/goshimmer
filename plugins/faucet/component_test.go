@@ -19,7 +19,7 @@ func TestIsFaucetReq(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()
 	local := identity.NewLocalIdentity(keyPair.PublicKey, keyPair.PrivateKey)
 
-	faucetObject, err := NewObject(address.Random(), 4)
+	faucetRequest, err := NewRequest(address.Random(), 4)
 	if err != nil {
 		require.NoError(t, err)
 		return
@@ -30,7 +30,7 @@ func TestIsFaucetReq(t *testing.T) {
 		time.Now(),
 		local.PublicKey(),
 		0,
-		faucetObject,
+		faucetRequest,
 		0,
 		ed25519.EmptySignature,
 	)

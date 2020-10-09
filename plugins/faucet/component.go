@@ -1,9 +1,10 @@
 package faucet
 
 import (
-	"fmt"
 	"sync"
 	"time"
+
+	"golang.org/x/xerrors"
 
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
@@ -68,7 +69,7 @@ func (c *Component) SendFunds(msg *tangle.Message) (m *tangle.Message, txID stri
 	c.Lock()
 	defer c.Unlock()
 
-	addr := msg.Payload().(*Object).Address()
+	addr := msg.Payload().(*Request).Address()
 
 	if c.IsAddressBlacklisted(addr) {
 		return nil, "", ErrAddressIsBlacklisted
@@ -102,7 +103,7 @@ func (c *Component) SendFunds(msg *tangle.Message) (m *tangle.Message, txID stri
 	// prepare value payload with value factory
 	payload, err := valuetransfers.ValueObjectFactory().IssueTransaction(tx)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to issue transaction: %w", err)
+		return nil, "", xerrors.Errorf("failed to issue transaction: %w", err)
 	}
 
 	// attach to message layer
@@ -115,7 +116,7 @@ func (c *Component) SendFunds(msg *tangle.Message) (m *tangle.Message, txID stri
 	// actually got booked by this node itself
 	// TODO: replace with an actual more reactive way
 	if err := valuetransfers.AwaitTransactionToBeBooked(tx.ID(), c.maxTxBookedAwaitTime); err != nil {
-		return nil, "", fmt.Errorf("%w: tx %s", err, tx.ID().String())
+		return nil, "", xerrors.Errorf("%w: tx %s", err, tx.ID().String())
 	}
 
 	c.addAddressToBlacklist(addr)

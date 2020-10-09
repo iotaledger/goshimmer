@@ -3,15 +3,15 @@ package faucet
 import (
 	"context"
 	"crypto"
-	"fmt"
 
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+	"golang.org/x/xerrors"
 	// Only want to use init
 	_ "golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 )
@@ -21,20 +21,20 @@ const (
 	ObjectName = "faucet"
 )
 
-// Payload represents a request which contains an address for the faucet to send funds to.
-type Payload struct {
+// Request represents a faucet request which contains an address for the faucet to send funds to.
+type Request struct {
 	payloadType payload.Type
 	address     address.Address
 	nonce       uint64
 }
 
-// Type represents the identifier for the faucet Payload type.
+// Type represents the identifier for the faucet Request type.
 var Type = payload.NewType(2, ObjectName, PayloadUnmarshaler)
 var powWorker = pow.New(crypto.BLAKE2b_512, 1)
 
-// NewObject is the constructor of an Object and creates a new Object object from the given details.
-func NewObject(addr address.Address, powTarget int) (*Object, error) {
-	p := &Object{
+// NewRequest is the constructor of a Request and creates a new Request object from the given details.
+func NewRequest(addr address.Address, powTarget int) (*Request, error) {
+	p := &Request{
 		payloadType: Type,
 		address:     addr,
 	}
@@ -43,43 +43,42 @@ func NewObject(addr address.Address, powTarget int) (*Object, error) {
 	powRelevantBytes := objectBytes[:len(objectBytes)-pow.NonceBytes]
 	nonce, err := powWorker.Mine(context.Background(), powRelevantBytes, powTarget)
 	if err != nil {
-		err = fmt.Errorf("failed to do PoW for faucet payload: %w", err)
+		err = xerrors.Errorf("failed to do PoW for faucet request: %w", err)
 		return nil, err
 	}
 	p.nonce = nonce
 	return p, nil
 }
 
-// FromBytes parses the marshaled version of a Payload into an object.
-// It either returns a new Payload or fills an optionally provided Payload with the parsed information.
-func FromBytes(bytes []byte) (result *Payload, consumedBytes int, err error) {
+// FromBytes parses the marshaled version of a Request into a request object.
+func FromBytes(bytes []byte) (result *Request, consumedBytes int, err error) {
 	// initialize helper
 	marshalUtil := marshalutil.New(bytes)
 
-	result = &Object{}
+	result = &Request{}
 	if _, err = marshalUtil.ReadUint32(); err != nil {
-		err = fmt.Errorf("failed to unmarshal payload size of faucet payload from bytes: %w", err)
+		err = xerrors.Errorf("failed to parse payload size (%v): %w", err, payload.ErrParseBytesFailed)
 		return
 	}
 	result.payloadType, err = payload.TypeFromMarshalUtil(marshalUtil)
 	if err != nil {
-		err = fmt.Errorf("failed to unmarshal payload type of faucet payload from bytes: %w", err)
+		err = xerrors.Errorf("failed to parse Type from MarshalUtil: %w", err)
 		return
 	}
 	addr, err := marshalUtil.ReadBytes(address.Length)
 	if err != nil {
-		err = fmt.Errorf("failed to unmarshal address of faucet payload from bytes: %w", err)
+		err = xerrors.Errorf("failed to parse address of faucet request (%v): %w", err, payload.ErrParseBytesFailed)
 		return
 	}
 	result.address, _, err = address.FromBytes(addr)
 	if err != nil {
-		err = fmt.Errorf("failed to unmarshal address of faucet payload from bytes: %w", err)
+		err = xerrors.Errorf("failed to unmarshal address of faucet request (%v): %w", err, payload.ErrParseBytesFailed)
 		return
 	}
 
 	result.nonce, err = marshalUtil.ReadUint64()
 	if err != nil {
-		err = fmt.Errorf("failed to unmarshal nonce of faucet payload from bytes: %w", err)
+		err = xerrors.Errorf("failed to unmarshal nonce of faucet request (%v): %w", err, payload.ErrParseBytesFailed)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -87,18 +86,18 @@ func FromBytes(bytes []byte) (result *Payload, consumedBytes int, err error) {
 	return
 }
 
-// Type returns the type of the faucet Payload.
-func (p *Payload) Type() payload.Type {
+// Type returns the type of the faucet Request.
+func (p *Request) Type() payload.Type {
 	return p.payloadType
 }
 
-// Address returns the address of the faucet Payload.
-func (p *Payload) Address() address.Address {
+// Address returns the address of the faucet Request.
+func (p *Request) Address() address.Address {
 	return p.address
 }
 
-// Bytes marshals the data payload into a sequence of bytes.
-func (p *Payload) Bytes() []byte {
+// Bytes marshals the faucet Request payload into a sequence of bytes.
+func (p *Request) Bytes() []byte {
 	// initialize helper
 	marshalUtil := marshalutil.New()
 
@@ -112,8 +111,8 @@ func (p *Payload) Bytes() []byte {
 	return marshalUtil.Bytes()
 }
 
-// String returns a human readable version of faucet payload (for debug purposes).
-func (p *Payload) String() string {
+// String returns a human readable version of faucet Request payload (for debug purposes).
+func (p *Request) String() string {
 	return stringify.Struct("FaucetPayload",
 		stringify.StructField("address", p.Address().String()),
 	)
@@ -123,7 +122,7 @@ func (p *Payload) String() string {
 func PayloadUnmarshaler(data []byte) (payload payload.Payload, err error) {
 	payload, _, err = FromBytes(data)
 	if err != nil {
-		err = fmt.Errorf("failed to unmarshal faucet payload from bytes: %w", err)
+		err = xerrors.Errorf("failed to unmarshal faucet payload from bytes: %w", err)
 	}
 
 	return

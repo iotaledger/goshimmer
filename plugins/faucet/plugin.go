@@ -98,7 +98,7 @@ func configure(*node.Plugin) {
 
 	fundingWorkerPool = workerpool.New(func(task workerpool.Task) {
 		msg := task.Param(0).(*tangle.Message)
-		addr := msg.Payload().(*Object).Address()
+		addr := msg.Payload().(*Request).Address()
 		msg, txID, err := Faucet().SendFunds(msg)
 		if err != nil {
 			log.Warnf("couldn't fulfill funding request to %s: %s", addr, err)
@@ -130,7 +130,7 @@ func configureEvents() {
 			return
 		}
 
-		fundingRequest := msg.Payload().(*Object)
+		fundingRequest := msg.Payload().(*Request)
 		addr := fundingRequest.Address()
 		if Faucet().IsAddressBlacklisted(addr) {
 			log.Debugf("can't fund address %s since it is blacklisted", addr)

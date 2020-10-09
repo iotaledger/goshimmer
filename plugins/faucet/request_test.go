@@ -13,12 +13,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
-func ExampleObject() {
+func ExampleRequest() {
 	keyPair := ed25519.GenerateKeyPair()
 	local := identity.NewLocalIdentity(keyPair.PublicKey, keyPair.PrivateKey)
 
 	// 1. create faucet payload
-	faucetPayload, err := NewObject(address.Random(), 4)
+	faucetRequest, err := NewRequest(address.Random(), 4)
 	if err != nil {
 		panic(err)
 	}
@@ -30,30 +30,30 @@ func ExampleObject() {
 		time.Now(),
 		local.PublicKey(),
 		0,
-		faucetPayload,
+		faucetRequest,
 		0,
 		ed25519.EmptySignature,
 	)
 	fmt.Println(tx.String())
 }
 
-func TestObject(t *testing.T) {
-	originalObject, err := NewObject(address.Random(), 4)
+func TestRequest(t *testing.T) {
+	originalRequest, err := NewRequest(address.Random(), 4)
 	if err != nil {
 		panic(err)
 	}
 
-	clonedObject1, _, err := FromBytes(originalObject.Bytes())
+	clonedRequest, _, err := FromBytes(originalRequest.Bytes())
 	if err != nil {
 		panic(err)
 	}
 
-	assert.Equal(t, originalObject.Address(), clonedObject1.Address())
+	assert.Equal(t, originalRequest.Address(), clonedRequest.Address())
 
-	clonedObject2, _, err := FromBytes(clonedObject1.Bytes())
+	clonedRequest2, _, err := FromBytes(clonedRequest.Bytes())
 	if err != nil {
 		panic(err)
 	}
 
-	assert.Equal(t, originalObject.Address(), clonedObject2.Address())
+	assert.Equal(t, originalRequest.Address(), clonedRequest2.Address())
 }
