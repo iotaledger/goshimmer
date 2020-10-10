@@ -33,4 +33,9 @@ func TestTransaction_Bytes(t *testing.T) {
 	)
 
 	fmt.Print(transaction)
+
+	clonedTransaction, _, err := TransactionFromBytes(transaction.Bytes())
+	require.NoError(t, err)
+
+	fmt.Print(clonedTransaction)
 }
