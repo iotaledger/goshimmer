@@ -120,7 +120,7 @@ func TransactionPayloadUnmarshaler(data []byte) (payload.Payload, error) {
 
 // TransactionFromMarshalUtil unmarshals a Transaction using a MarshalUtil (for easier unmarshaling).
 func TransactionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transaction *Transaction, err error) {
-	startOffset := marshalUtil.ReadOffset()
+	readStartOffset := marshalUtil.ReadOffset()
 
 	payloadSize, err := marshalUtil.ReadUint32()
 	if err != nil {
@@ -143,7 +143,7 @@ func TransactionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transacti
 		return
 	}
 
-	parsedBytes := marshalUtil.ReadOffset() - startOffset
+	parsedBytes := marshalUtil.ReadOffset() - readStartOffset
 	if parsedBytes != int(payloadSize) {
 		err = xerrors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, payloadSize, ErrParseBytesFailed)
 		return
@@ -167,6 +167,10 @@ func (t *Transaction) UnlockBlocks() UnlockBlocks {
 
 // Bytes returns a marshaled version of the Transaction.
 func (t *Transaction) Bytes() []byte {
+	if t == nil {
+		return marshalutil.New(marshalutil.UINT16_SIZE).WriteUint16(0).Bytes()
+	}
+
 	payloadBytes := byteutils.ConcatBytes(TransactionType.Bytes(), t.essence.Bytes(), t.unlockBlocks.Bytes())
 	payloadBytesLength := len(payloadBytes)
 
