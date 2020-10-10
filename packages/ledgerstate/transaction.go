@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
+	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/mr-tron/base58"
 	"golang.org/x/xerrors"
 )
@@ -248,12 +249,18 @@ func TransactionEssenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (tr
 
 // Bytes returns a marshaled version of the TransactionEssence.
 func (t *TransactionEssence) Bytes() []byte {
-	return marshalutil.New().
+	marshalUtil := marshalutil.New().
 		Write(t.version).
 		Write(t.inputs).
-		Write(t.outputs).
-		Write(t.payload).
-		Bytes()
+		Write(t.outputs)
+
+	if !typeutils.IsInterfaceNil(t.payload) {
+		marshalUtil.Write(t.payload)
+	} else {
+		marshalUtil.WriteUint32(0)
+	}
+
+	return marshalUtil.Bytes()
 }
 
 func (t *TransactionEssence) String() string {

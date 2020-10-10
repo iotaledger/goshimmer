@@ -6,6 +6,7 @@ import (
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
+	"github.com/iotaledger/hive.go/typeutils"
 	"golang.org/x/xerrors"
 )
 
@@ -96,8 +97,38 @@ func UnlockBlockFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (unlockBlo
 type UnlockBlocks []UnlockBlock
 
 func NewUnlockBlocks(optionalUnlockBlocks ...UnlockBlock) (unlockBlocks UnlockBlocks) {
+	seenNonReferenceBlocks := make(map[string]uint16)
+
 	unlockBlocks = make(UnlockBlocks, len(optionalUnlockBlocks))
-	copy(unlockBlocks, optionalUnlockBlocks)
+	for i, optionalUnlockBlock := range optionalUnlockBlocks {
+		blockIdentifier := typeutils.BytesToString(optionalUnlockBlock.Bytes())
+
+		if optionalUnlockBlock.Type() == ReferenceUnlockBlockType {
+			referenceUnlockBlock, typeCastOK := optionalUnlockBlock.(*ReferenceUnlockBlock)
+			if !typeCastOK {
+				panic("failed to type cast UnlockBlock to ReferenceUnlockBlock")
+			}
+
+			if referenceUnlockBlock.ReferencedIndex() >= uint16(i) {
+				panic("ReferenceUnlockBlock can only reference previous UnlockBlocks")
+			}
+
+			if _, blockExists := seenNonReferenceBlocks[typeutils.BytesToString(optionalUnlockBlocks[referenceUnlockBlock.ReferencedIndex()].Bytes())]; !blockExists {
+				panic("ReferenceUnlockBlock can only reference previous non-ReferenceUnlockBlocks")
+			}
+		}
+
+		if index, blockSeen := seenNonReferenceBlocks[blockIdentifier]; blockSeen {
+			unlockBlocks[i] = NewReferenceUnlockBlock(index)
+
+			continue
+		}
+		if optionalUnlockBlock.Type() != ReferenceUnlockBlockType {
+			seenNonReferenceBlocks[blockIdentifier] = uint16(i)
+		}
+
+		unlockBlocks[i] = optionalUnlockBlock
+	}
 
 	return
 }
