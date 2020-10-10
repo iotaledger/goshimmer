@@ -2,7 +2,6 @@ package ledgerstate
 
 import (
 	"crypto/rand"
-	"fmt"
 	"strconv"
 
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
@@ -15,10 +14,10 @@ import (
 
 // region TransactionType //////////////////////////////////////////////////////////////////////////////////////////////
 
-// TransactionType represents the Type of the Transaction in its role as a Payload.
+// TransactionType represents the payload Type of a Transaction.
 var TransactionType payload.Type
 
-// init defers the definition of the TransactionType to not have an initialization loop.
+// init defers the initialization of the TransactionType to not have an initialization loop.
 func init() {
 	TransactionType = payload.NewType(1, "TransactionType", TransactionPayloadUnmarshaler)
 }
@@ -33,55 +32,47 @@ const TransactionIDLength = 32
 // TransactionID is the type that represents the identifier of a Transaction.
 type TransactionID [TransactionIDLength]byte
 
-// GenesisTransactionID represents the genesis ID.
+// GenesisTransactionID represents the identifier of the genesis Transaction.
 var GenesisTransactionID TransactionID
 
-// TransactionIDFromBase58 creates a TransactionID from a base58 encoded string.
-func TransactionIDFromBase58(base58String string) (id TransactionID, err error) {
-	// decode string
-	bytes, err := base58.Decode(base58String)
-	if err != nil {
-		err = xerrors.Errorf("failed to decode base58 encoded TransactionID (%v): %w", err, ErrBase58DecodeFailed)
-		return
-	}
-
-	// sanitize input
-	if len(bytes) != TransactionIDLength {
-		err = fmt.Errorf("base58 decoded TransactionID '%s' does not match expected length of %d bytes", base58String, TransactionIDLength)
-		return
-	}
-
-	// copy bytes to result
-	copy(id[:], bytes)
-
-	return
-}
-
 // TransactionIDFromBytes unmarshals a TransactionID from a sequence of bytes.
-func TransactionIDFromBytes(bytes []byte) (result TransactionID, consumedBytes int, err error) {
-	// parse the bytes
+func TransactionIDFromBytes(bytes []byte) (transactionID TransactionID, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	idBytes, idErr := marshalUtil.ReadBytes(TransactionIDLength)
-	if idErr != nil {
-		err = idErr
-
+	if transactionID, err = TransactionIDFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse TransactionID from MarshalUtil: %w", err)
 		return
 	}
-	copy(result[:], idBytes)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
-// TransactionIDFromMarshalUtil is a wrapper for simplified unmarshaling of TransactionIDs from a byte stream using the
-// marshalUtil package.
-func TransactionIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (TransactionID, error) {
-	id, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return TransactionIDFromBytes(data) })
+// TransactionIDFromBase58 creates a TransactionID from a base58 encoded string.
+func TransactionIDFromBase58(base58String string) (transactionID TransactionID, err error) {
+	bytes, err := base58.Decode(base58String)
 	if err != nil {
-		return TransactionID{}, err
+		err = xerrors.Errorf("error while decoding base58 encoded TransactionID (%v): %w", err, ErrBase58DecodeFailed)
+		return
 	}
 
-	return id.(TransactionID), nil
+	if transactionID, _, err = TransactionIDFromBytes(bytes); err != nil {
+		err = xerrors.Errorf("failed to parse TransactionID from bytes: %w", err)
+		return
+	}
+
+	return
+}
+
+// TransactionIDFromMarshalUtil unmarshals a TransactionID using a MarshalUtil (for easier unmarshaling).
+func TransactionIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transactionID TransactionID, err error) {
+	transactionIDBytes, err := marshalUtil.ReadBytes(TransactionIDLength)
+	if err != nil {
+		err = xerrors.Errorf("failed to parse TransactionID (%v): %w", err, ErrParseBytesFailed)
+		return
+	}
+	copy(transactionID[:], transactionIDBytes)
+
+	return
 }
 
 // RandomTransactionID creates a random TransactionID which can for example be used in unit tests.
@@ -103,9 +94,14 @@ func (i TransactionID) Bytes() []byte {
 	return i[:]
 }
 
+// Base58 returns a base58 encoded version of the TransactionID.
+func (i TransactionID) Base58() string {
+	return base58.Encode(i[:])
+}
+
 // String creates a human readable base58 encoded version of the TransactionID.
 func (i TransactionID) String() string {
-	return base58.Encode(i[:])
+	return "TransactionID(" + i.Base58() + ")"
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -116,6 +112,14 @@ func (i TransactionID) String() string {
 type Transaction struct {
 	essence      *TransactionEssence
 	unlockBlocks UnlockBlocks
+}
+
+// NewTransaction create a new Transaction from the given details.
+func NewTransaction(essence *TransactionEssence, unlockBlocks UnlockBlocks) *Transaction {
+	return &Transaction{
+		essence:      essence,
+		unlockBlocks: unlockBlocks,
+	}
 }
 
 // TransactionPayloadUnmarshaler returns a Payload typed Transaction and is required for the payload Type definition.
@@ -204,6 +208,7 @@ var _ payload.Payload = &Transaction{}
 
 // region TransactionEssence ///////////////////////////////////////////////////////////////////////////////////////////
 
+// TransactionEssence contains the relevant information of the transfer (without the unlocking information).
 type TransactionEssence struct {
 	version TransactionEssenceVersion
 	inputs  Inputs
@@ -211,6 +216,14 @@ type TransactionEssence struct {
 	payload payload.Payload
 }
 
+func NewTransactionEssence(version TransactionEssenceVersion, inputs Inputs) *TransactionEssence {
+	return &TransactionEssence{
+		version: version,
+		inputs:  inputs,
+	}
+}
+
+// TransactionEssenceFromMarshalUtil unmarshals a TransactionEssence using a MarshalUtil (for easier unmarshaling).
 func TransactionEssenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transactionEssence *TransactionEssence, err error) {
 	transactionEssence = &TransactionEssence{}
 	if transactionEssence.version, err = TransactionEssenceVersionFromMarshalUtil(marshalUtil); err != nil {
@@ -243,6 +256,15 @@ func (t *TransactionEssence) Bytes() []byte {
 		Bytes()
 }
 
+func (t *TransactionEssence) String() string {
+	return stringify.Struct("TransactionEssence",
+		stringify.StructField("version", t.version),
+		stringify.StructField("inputs", t.inputs),
+		stringify.StructField("outputs", t.outputs),
+		stringify.StructField("payload", t.payload),
+	)
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region TransactionEssenceVersion ////////////////////////////////////////////////////////////////////////////////////
@@ -250,7 +272,7 @@ func (t *TransactionEssence) Bytes() []byte {
 // TransactionEssenceVersion represents a byte denoting a version augmented with some additional logic.
 type TransactionEssenceVersion uint8
 
-// OutputFromBytes unmarshals an Output from a sequence of bytes.
+// TransactionEssenceVersionFromBytes unmarshals a TransactionEssenceVersion from a sequence of bytes.
 func TransactionEssenceVersionFromBytes(bytes []byte) (version TransactionEssenceVersion, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if version, err = TransactionEssenceVersionFromMarshalUtil(marshalUtil); err != nil {

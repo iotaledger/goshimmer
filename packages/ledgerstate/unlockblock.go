@@ -95,6 +95,13 @@ func UnlockBlockFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (unlockBlo
 // UnlockBlocks is slice of UnlockBlocks that offers additional methods for easier marshaling and unmarshaling.
 type UnlockBlocks []UnlockBlock
 
+func NewUnlockBlocks(optionalUnlockBlocks ...UnlockBlock) (unlockBlocks UnlockBlocks) {
+	unlockBlocks = make(UnlockBlocks, len(optionalUnlockBlocks))
+	copy(unlockBlocks, optionalUnlockBlocks)
+
+	return
+}
+
 // UnlockBlocksFromBytes unmarshals UnlockBlocks from a sequence of bytes.
 func UnlockBlocksFromBytes(bytes []byte) (unlockBlocks UnlockBlocks, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
