@@ -1,6 +1,7 @@
 package ledgerstate
 
 import (
+	"bytes"
 	"sort"
 	"strings"
 	"sync"
@@ -186,6 +187,16 @@ func (b BranchIDs) String() string {
 	result += "}"
 
 	return result
+}
+
+// Clone creates a copy of the BranchIDs.
+func (b BranchIDs) Clone() (clonedBranchIDs BranchIDs) {
+	clonedBranchIDs = make(BranchIDs)
+	for branchID := range b {
+		clonedBranchIDs[branchID] = types.Void
+	}
+
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -386,8 +397,8 @@ type ConflictBranch struct {
 func NewConflictBranch(id BranchID, parents BranchIDs, conflicts ConflictIDs) *ConflictBranch {
 	return &ConflictBranch{
 		id:        id,
-		parents:   parents,
-		conflicts: conflicts,
+		parents:   parents.Clone(),
+		conflicts: conflicts.Clone(),
 	}
 }
 
@@ -453,131 +464,128 @@ func ConflictBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (confli
 }
 
 // ID returns the identifier of the Branch.
-func (b *ConflictBranch) ID() BranchID {
-	return b.id
+func (c *ConflictBranch) ID() BranchID {
+	return c.id
 }
 
 // Type returns the type of the Branch.
-func (b *ConflictBranch) Type() BranchType {
+func (c *ConflictBranch) Type() BranchType {
 	return ConflictBranchType
 }
 
 // Parents returns the BranchIDs of the Branches parents in the BranchDAG.
-func (b *ConflictBranch) Parents() BranchIDs {
-	b.parentsMutex.RLock()
-	defer b.parentsMutex.RUnlock()
+func (c *ConflictBranch) Parents() BranchIDs {
+	c.parentsMutex.RLock()
+	defer c.parentsMutex.RUnlock()
 
-	return b.parents
+	return c.parents
 }
 
 // SetParents updates the parents of the ConflictBranch.
-func (b *ConflictBranch) SetParents(parentBranches ...BranchID) (modified bool, err error) {
-	b.parentsMutex.Lock()
-	defer b.parentsMutex.Unlock()
+func (c *ConflictBranch) SetParents(parentBranches ...BranchID) (modified bool, err error) {
+	c.parentsMutex.Lock()
+	defer c.parentsMutex.Unlock()
 
-	b.parents = NewBranchIDs(parentBranches...)
-	b.SetModified()
+	c.parents = NewBranchIDs(parentBranches...)
+	c.SetModified()
 	modified = true
 
 	return
 }
 
 // Conflicts returns the Conflicts that the ConflictBranch is part of.
-func (b *ConflictBranch) Conflicts() (conflicts ConflictIDs) {
-	b.conflictsMutex.RLock()
-	defer b.conflictsMutex.RUnlock()
+func (c *ConflictBranch) Conflicts() (conflicts ConflictIDs) {
+	c.conflictsMutex.RLock()
+	defer c.conflictsMutex.RUnlock()
 
-	conflicts = make(ConflictIDs)
-	for conflict := range b.conflicts {
-		conflicts[conflict] = types.Void
-	}
+	conflicts = c.conflicts.Clone()
 
 	return
 }
 
 // AddConflict registers the membership of the ConflictBranch in the given Conflict.
-func (b *ConflictBranch) AddConflict(conflictID ConflictID) (added bool) {
-	b.conflictsMutex.Lock()
-	defer b.conflictsMutex.Unlock()
+func (c *ConflictBranch) AddConflict(conflictID ConflictID) (added bool) {
+	c.conflictsMutex.Lock()
+	defer c.conflictsMutex.Unlock()
 
-	if _, exists := b.conflicts[conflictID]; exists {
+	if _, exists := c.conflicts[conflictID]; exists {
 		return
 	}
 
-	b.conflicts[conflictID] = types.Void
-	b.SetModified()
+	c.conflicts[conflictID] = types.Void
+	c.SetModified()
 	added = true
 
 	return
 }
 
 // Preferred returns true if the branch is "liked within it's scope" (ignoring monotonicity).
-func (b *ConflictBranch) Preferred() bool {
-	b.preferredMutex.RLock()
-	defer b.preferredMutex.RUnlock()
+func (c *ConflictBranch) Preferred() bool {
+	c.preferredMutex.RLock()
+	defer c.preferredMutex.RUnlock()
 
-	return b.preferred
+	return c.preferred
 }
 
 // SetPreferred sets the preferred property to the given value. It returns true if the value has been updated.
-func (b *ConflictBranch) SetPreferred(preferred bool) (modified bool) {
-	b.preferredMutex.Lock()
-	defer b.preferredMutex.Unlock()
+func (c *ConflictBranch) SetPreferred(preferred bool) (modified bool) {
+	c.preferredMutex.Lock()
+	defer c.preferredMutex.Unlock()
 
-	if b.preferred == preferred {
+	if c.preferred == preferred {
 		return
 	}
 
-	b.preferred = preferred
-	b.SetModified()
+	c.preferred = preferred
+	c.SetModified()
 	modified = true
 
 	return
 }
 
 // Liked returns true if the branch is liked (taking monotonicity in account - i.e. all parents are also liked).
-func (b *ConflictBranch) Liked() bool {
-	b.likedMutex.RLock()
-	defer b.likedMutex.RUnlock()
+func (c *ConflictBranch) Liked() bool {
+	c.likedMutex.RLock()
+	defer c.likedMutex.RUnlock()
 
-	return b.liked
+	return c.liked
 }
 
 // SetLiked sets the liked property to the given value. It returns true if the value has been updated.
-func (b *ConflictBranch) SetLiked(liked bool) (modified bool) {
-	b.likedMutex.Lock()
-	defer b.likedMutex.Unlock()
+func (c *ConflictBranch) SetLiked(liked bool) (modified bool) {
+	c.likedMutex.Lock()
+	defer c.likedMutex.Unlock()
 
-	if b.liked == liked {
+	if c.liked == liked {
 		return
 	}
 
-	b.liked = liked
-	b.SetModified()
+	c.liked = liked
+	c.SetModified()
 	modified = true
 
 	return
 }
 
 // Finalized returns true if the decision whether it is preferred has been finalized.
-func (b *ConflictBranch) Finalized() bool {
-	b.finalizedMutex.RLock()
-	defer b.finalizedMutex.RUnlock()
+func (c *ConflictBranch) Finalized() bool {
+	c.finalizedMutex.RLock()
+	defer c.finalizedMutex.RUnlock()
 
-	return b.finalized
+	return c.finalized
 }
 
 // SetFinalized is the setter for the finalized flag. It returns true if the value of the flag has been updated.
-func (b *ConflictBranch) SetFinalized(finalized bool) (modified bool) {
-	b.finalizedMutex.Lock()
-	defer b.finalizedMutex.Unlock()
+func (c *ConflictBranch) SetFinalized(finalized bool) (modified bool) {
+	c.finalizedMutex.Lock()
+	defer c.finalizedMutex.Unlock()
 
-	if b.finalized == finalized {
+	if c.finalized == finalized {
 		return
 	}
 
-	b.finalized = finalized
-	b.SetModified()
+	c.finalized = finalized
+	c.SetModified()
 	modified = true
 
 	return
@@ -585,24 +593,24 @@ func (b *ConflictBranch) SetFinalized(finalized bool) (modified bool) {
 
 // Confirmed returns true if the decision that the Branch is liked has been finalized and all of its parents have
 // been confirmed.
-func (b *ConflictBranch) Confirmed() bool {
-	b.confirmedMutex.RLock()
-	defer b.confirmedMutex.RUnlock()
+func (c *ConflictBranch) Confirmed() bool {
+	c.confirmedMutex.RLock()
+	defer c.confirmedMutex.RUnlock()
 
-	return b.confirmed
+	return c.confirmed
 }
 
 // SetConfirmed is the setter for the confirmed flag. It returns true if the value of the flag has been updated.
-func (b *ConflictBranch) SetConfirmed(confirmed bool) (modified bool) {
-	b.confirmedMutex.Lock()
-	defer b.confirmedMutex.Unlock()
+func (c *ConflictBranch) SetConfirmed(confirmed bool) (modified bool) {
+	c.confirmedMutex.Lock()
+	defer c.confirmedMutex.Unlock()
 
-	if b.confirmed == confirmed {
+	if c.confirmed == confirmed {
 		return
 	}
 
-	b.confirmed = confirmed
-	b.SetModified()
+	c.confirmed = confirmed
+	c.SetModified()
 	modified = true
 
 	return
@@ -610,72 +618,72 @@ func (b *ConflictBranch) SetConfirmed(confirmed bool) (modified bool) {
 
 // Rejected returns true if either a decision that the Branch is not liked has been finalized or any of its
 // parents are rejected.
-func (b *ConflictBranch) Rejected() bool {
-	b.confirmedMutex.RLock()
-	defer b.confirmedMutex.RUnlock()
+func (c *ConflictBranch) Rejected() bool {
+	c.rejectedMutex.RLock()
+	defer c.rejectedMutex.RUnlock()
 
-	return b.confirmed
+	return c.confirmed
 }
 
 // SetRejected sets the rejected property to the given value. It returns true if the value has been updated.
-func (b *ConflictBranch) SetRejected(rejected bool) (modified bool) {
-	b.rejectedMutex.Lock()
-	defer b.rejectedMutex.Unlock()
+func (c *ConflictBranch) SetRejected(rejected bool) (modified bool) {
+	c.rejectedMutex.Lock()
+	defer c.rejectedMutex.Unlock()
 
-	if b.rejected == rejected {
+	if c.rejected == rejected {
 		return
 	}
 
-	b.rejected = rejected
-	b.SetModified()
+	c.rejected = rejected
+	c.SetModified()
 	modified = true
 
 	return
 }
 
 // Bytes returns a marshaled version of the Branch.
-func (b *ConflictBranch) Bytes() []byte {
-	return b.ObjectStorageValue()
+func (c *ConflictBranch) Bytes() []byte {
+	return c.ObjectStorageValue()
 }
 
 // String returns a human readable version of the Branch.
-func (b *ConflictBranch) String() string {
+func (c *ConflictBranch) String() string {
 	return stringify.Struct("ConflictBranch",
-		stringify.StructField("id", b.ID()),
-		stringify.StructField("parents", b.Parents()),
-		stringify.StructField("conflicts", b.Conflicts()),
-		stringify.StructField("preferred", b.Preferred()),
-		stringify.StructField("liked", b.Liked()),
-		stringify.StructField("finalized", b.Finalized()),
-		stringify.StructField("confirmed", b.Confirmed()),
-		stringify.StructField("rejected", b.Rejected()),
+		stringify.StructField("id", c.ID()),
+		stringify.StructField("parents", c.Parents()),
+		stringify.StructField("conflicts", c.Conflicts()),
+		stringify.StructField("preferred", c.Preferred()),
+		stringify.StructField("liked", c.Liked()),
+		stringify.StructField("finalized", c.Finalized()),
+		stringify.StructField("confirmed", c.Confirmed()),
+		stringify.StructField("rejected", c.Rejected()),
 	)
 }
 
 // Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (b *ConflictBranch) Update(objectstorage.StorableObject) {
+func (c *ConflictBranch) Update(objectstorage.StorableObject) {
 	panic("updates disabled")
 }
 
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
-func (b *ConflictBranch) ObjectStorageKey() []byte {
-	return b.ID().Bytes()
+func (c *ConflictBranch) ObjectStorageKey() []byte {
+	return c.ID().Bytes()
 }
 
 // ObjectStorageValue marshals the ConflictBranch into a sequence of bytes that are used as the value part in the
 // ObjectStorage.
-func (b *ConflictBranch) ObjectStorageValue() []byte {
+func (c *ConflictBranch) ObjectStorageValue() []byte {
 	return marshalutil.New().
-		WriteByte(byte(b.Type())).
-		WriteBytes(b.ID().Bytes()).
-		WriteBytes(b.Parents().Bytes()).
-		WriteBytes(b.Conflicts().Bytes()).
-		WriteBool(b.Preferred()).
-		WriteBool(b.Liked()).
-		WriteBool(b.Finalized()).
-		WriteBool(b.Confirmed()).
-		WriteBool(b.Rejected()).
+		WriteByte(byte(c.Type())).
+		WriteBytes(c.ID().Bytes()).
+		WriteBytes(c.Parents().Bytes()).
+		WriteBytes(c.Conflicts().Bytes()).
+		WriteBool(c.Preferred()).
+		WriteBool(c.Liked()).
+		WriteBool(c.Finalized()).
+		WriteBool(c.Confirmed()).
+		WriteBool(c.Rejected()).
 		Bytes()
 }
 
@@ -710,15 +718,7 @@ func NewAggregatedBranch(parents BranchIDs) *AggregatedBranch {
 	// sort parents
 	parentBranchIDs := parents.Slice()
 	sort.Slice(parentBranchIDs, func(i, j int) bool {
-		for k := 0; k < len(parentBranchIDs[k]); k++ {
-			if parentBranchIDs[i][k] < parentBranchIDs[j][k] {
-				return true
-			} else if parentBranchIDs[i][k] > parentBranchIDs[j][k] {
-				return false
-			}
-		}
-
-		return false
+		return bytes.Compare(parentBranchIDs[i].Bytes(), parentBranchIDs[j].Bytes()) < 0
 	})
 
 	// concatenate sorted parent bytes
@@ -730,14 +730,14 @@ func NewAggregatedBranch(parents BranchIDs) *AggregatedBranch {
 	// return result
 	return &AggregatedBranch{
 		id:      blake2b.Sum256(marshalUtil.Bytes()),
-		parents: parents,
+		parents: parents.Clone(),
 	}
 }
 
 // AggregatedBranchFromBytes unmarshals an AggregatedBranch from a sequence of bytes.
-func AggregatedBranchFromBytes(bytes []byte) (conflictBranch *AggregatedBranch, consumedBytes int, err error) {
+func AggregatedBranchFromBytes(bytes []byte) (aggregatedBranch *AggregatedBranch, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	if conflictBranch, err = AggregatedBranchFromMarshalUtil(marshalUtil); err != nil {
+	if aggregatedBranch, err = AggregatedBranchFromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse AggregatedBranch from MarshalUtil: %w", err)
 		return
 	}
@@ -747,7 +747,7 @@ func AggregatedBranchFromBytes(bytes []byte) (conflictBranch *AggregatedBranch, 
 }
 
 // AggregatedBranchFromMarshalUtil unmarshals an AggregatedBranch using a MarshalUtil (for easier unmarshaling).
-func AggregatedBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictBranch *AggregatedBranch, err error) {
+func AggregatedBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (aggregatedBranch *AggregatedBranch, err error) {
 	branchType, err := marshalUtil.ReadByte()
 	if err != nil {
 		err = xerrors.Errorf("failed to parse BranchType (%v): %w", err, ErrParseBytesFailed)
@@ -758,32 +758,32 @@ func AggregatedBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conf
 		return
 	}
 
-	conflictBranch = &AggregatedBranch{}
-	if conflictBranch.id, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
+	aggregatedBranch = &AggregatedBranch{}
+	if aggregatedBranch.id, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse id: %w", err)
 		return
 	}
-	if conflictBranch.parents, err = BranchIDsFromMarshalUtil(marshalUtil); err != nil {
+	if aggregatedBranch.parents, err = BranchIDsFromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse parents: %w", err)
 		return
 	}
-	if conflictBranch.preferred, err = marshalUtil.ReadBool(); err != nil {
+	if aggregatedBranch.preferred, err = marshalUtil.ReadBool(); err != nil {
 		err = xerrors.Errorf("failed to parse preferred flag (%v): %w", err, ErrParseBytesFailed)
 		return
 	}
-	if conflictBranch.liked, err = marshalUtil.ReadBool(); err != nil {
+	if aggregatedBranch.liked, err = marshalUtil.ReadBool(); err != nil {
 		err = xerrors.Errorf("failed to parse liked flag (%v): %w", err, ErrParseBytesFailed)
 		return
 	}
-	if conflictBranch.finalized, err = marshalUtil.ReadBool(); err != nil {
+	if aggregatedBranch.finalized, err = marshalUtil.ReadBool(); err != nil {
 		err = xerrors.Errorf("failed to parse finalized flag (%v): %w", err, ErrParseBytesFailed)
 		return
 	}
-	if conflictBranch.confirmed, err = marshalUtil.ReadBool(); err != nil {
+	if aggregatedBranch.confirmed, err = marshalUtil.ReadBool(); err != nil {
 		err = xerrors.Errorf("failed to parse confirmed flag (%v): %w", err, ErrParseBytesFailed)
 		return
 	}
-	if conflictBranch.rejected, err = marshalUtil.ReadBool(); err != nil {
+	if aggregatedBranch.rejected, err = marshalUtil.ReadBool(); err != nil {
 		err = xerrors.Errorf("failed to parse rejected flag (%v): %w", err, ErrParseBytesFailed)
 		return
 	}
@@ -792,90 +792,90 @@ func AggregatedBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conf
 }
 
 // ID returns the identifier of the Branch.
-func (b *AggregatedBranch) ID() BranchID {
-	return b.id
+func (a *AggregatedBranch) ID() BranchID {
+	return a.id
 }
 
 // Type returns the type of the Branch.
-func (b *AggregatedBranch) Type() BranchType {
+func (a *AggregatedBranch) Type() BranchType {
 	return AggregatedBranchType
 }
 
 // Parents returns the BranchIDs of the Branches parents in the BranchDAG.
-func (b *AggregatedBranch) Parents() BranchIDs {
-	b.parentsMutex.RLock()
-	defer b.parentsMutex.RUnlock()
+func (a *AggregatedBranch) Parents() BranchIDs {
+	a.parentsMutex.RLock()
+	defer a.parentsMutex.RUnlock()
 
-	return b.parents
+	return a.parents
 }
 
 // Preferred returns true if the branch is "liked within it's scope" (ignoring monotonicity).
-func (b *AggregatedBranch) Preferred() bool {
-	b.preferredMutex.RLock()
-	defer b.preferredMutex.RUnlock()
+func (a *AggregatedBranch) Preferred() bool {
+	a.preferredMutex.RLock()
+	defer a.preferredMutex.RUnlock()
 
-	return b.preferred
+	return a.preferred
 }
 
 // SetPreferred sets the preferred property to the given value. It returns true if the value has been updated.
-func (b *AggregatedBranch) SetPreferred(preferred bool) (modified bool) {
-	b.preferredMutex.Lock()
-	defer b.preferredMutex.Unlock()
+func (a *AggregatedBranch) SetPreferred(preferred bool) (modified bool) {
+	a.preferredMutex.Lock()
+	defer a.preferredMutex.Unlock()
 
-	if b.preferred == preferred {
+	if a.preferred == preferred {
 		return
 	}
 
-	b.preferred = preferred
-	b.SetModified()
+	a.preferred = preferred
+	a.SetModified()
 	modified = true
 
 	return
 }
 
 // Liked returns true if the branch is liked (taking monotonicity in account - i.e. all parents are also liked).
-func (b *AggregatedBranch) Liked() bool {
-	b.likedMutex.RLock()
-	defer b.likedMutex.RUnlock()
+func (a *AggregatedBranch) Liked() bool {
+	a.likedMutex.RLock()
+	defer a.likedMutex.RUnlock()
 
-	return b.liked
+	return a.liked
 }
 
 // SetLiked sets the liked property to the given value. It returns true if the value has been updated.
-func (b *AggregatedBranch) SetLiked(liked bool) (modified bool) {
-	b.likedMutex.Lock()
-	defer b.likedMutex.Unlock()
+func (a *AggregatedBranch) SetLiked(liked bool) (modified bool) {
+	a.likedMutex.Lock()
+	defer a.likedMutex.Unlock()
 
-	if b.liked == liked {
+	if a.liked == liked {
 		return
 	}
 
-	b.liked = liked
-	b.SetModified()
+	a.liked = liked
+	a.SetModified()
 	modified = true
 
 	return
 }
 
 // Finalized returns true if the decision whether it is preferred has been finalized.
-func (b *AggregatedBranch) Finalized() bool {
-	b.finalizedMutex.RLock()
-	defer b.finalizedMutex.RUnlock()
+func (a *AggregatedBranch) Finalized() bool {
+	a.finalizedMutex.RLock()
+	defer a.finalizedMutex.RUnlock()
 
-	return b.finalized
+	return a.finalized
 }
 
 // SetFinalized is the setter for the finalized flag. It returns true if the value of the flag has been updated.
-func (b *AggregatedBranch) SetFinalized(finalized bool) (modified bool) {
-	b.finalizedMutex.Lock()
-	defer b.finalizedMutex.Unlock()
+func (a *AggregatedBranch) SetFinalized(finalized bool) (modified bool) {
+	a.finalizedMutex.Lock()
+	defer a.finalizedMutex.Unlock()
 
-	if b.finalized == finalized {
+	if a.finalized == finalized {
 		return
 	}
 
-	b.finalized = finalized
-	b.SetModified()
+	a.finalized = finalized
+	a.SetModified()
 	modified = true
 
 	return
@@ -883,24 +883,24 @@ func (b *AggregatedBranch) SetFinalized(finalized bool) (modified bool) {
 
 // Confirmed returns true if the decision that the Branch is liked has been finalized and all of its parents have
 // been confirmed.
-func (b *AggregatedBranch) Confirmed() bool {
-	b.confirmedMutex.RLock()
-	defer b.confirmedMutex.RUnlock()
+func (a *AggregatedBranch) Confirmed() bool {
+	a.confirmedMutex.RLock()
+	defer a.confirmedMutex.RUnlock()
 
-	return b.confirmed
+	return a.confirmed
 }
 
 // SetConfirmed is the setter for the confirmed flag. It returns true if the value of the flag has been updated.
-func (b *AggregatedBranch) SetConfirmed(confirmed bool) (modified bool) {
-	b.confirmedMutex.Lock()
-	defer b.confirmedMutex.Unlock()
+func (a *AggregatedBranch) SetConfirmed(confirmed bool) (modified bool) {
+	a.confirmedMutex.Lock()
+	defer a.confirmedMutex.Unlock()
 
-	if b.confirmed == confirmed {
+	if a.confirmed == confirmed {
 		return
 	}
 
-	b.confirmed = confirmed
-	b.SetModified()
+	a.confirmed = confirmed
+	a.SetModified()
 	modified = true
 
 	return
@@ -908,70 +908,70 @@ func (b *AggregatedBranch) SetConfirmed(confirmed bool) (modified bool) {
 
 // Rejected returns true if either a decision that the Branch is not liked has been finalized or any of its
 // parents are rejected.
-func (b *AggregatedBranch) Rejected() bool {
-	b.confirmedMutex.RLock()
-	defer b.confirmedMutex.RUnlock()
+func (a *AggregatedBranch) Rejected() bool {
+	a.rejectedMutex.RLock()
+	defer a.rejectedMutex.RUnlock()
 
-	return b.confirmed
+	return a.confirmed
 }
 
 // SetRejected sets the rejected property to the given value. It returns true if the value has been updated.
-func (b *AggregatedBranch) SetRejected(rejected bool) (modified bool) {
-	b.rejectedMutex.Lock()
-	defer b.rejectedMutex.Unlock()
+func (a *AggregatedBranch) SetRejected(rejected bool) (modified bool) {
+	a.rejectedMutex.Lock()
+	defer a.rejectedMutex.Unlock()
 
-	if b.rejected == rejected {
+	if a.rejected == rejected {
 		return
 	}
 
-	b.rejected = rejected
-	b.SetModified()
+	a.rejected = rejected
+	a.SetModified()
 	modified = true
 
 	return
 }
 
 // Bytes returns a marshaled version of the Branch.
-func (b *AggregatedBranch) Bytes() []byte {
-	return b.ObjectStorageValue()
+func (a *AggregatedBranch) Bytes() []byte {
+	return a.ObjectStorageValue()
 }
 
 // String returns a human readable version of the Branch.
-func (b *AggregatedBranch) String() string {
+func (a *AggregatedBranch) String() string {
 	return stringify.Struct("AggregatedBranch",
-		stringify.StructField("id", b.ID()),
-		stringify.StructField("parents", b.Parents()),
-		stringify.StructField("preferred", b.Preferred()),
-		stringify.StructField("liked", b.Liked()),
-		stringify.StructField("finalized", b.Finalized()),
-		stringify.StructField("confirmed", b.Confirmed()),
-		stringify.StructField("rejected", b.Rejected()),
+		stringify.StructField("id", a.ID()),
+		stringify.StructField("parents", a.Parents()),
+		stringify.StructField("preferred", a.Preferred()),
+		stringify.StructField("liked", a.Liked()),
+		stringify.StructField("finalized", a.Finalized()),
+		stringify.StructField("confirmed", a.Confirmed()),
+		stringify.StructField("rejected", a.Rejected()),
 	)
 }
 
 // Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (b *AggregatedBranch) Update(objectstorage.StorableObject) {
+func (a *AggregatedBranch) Update(objectstorage.StorableObject) {
 	panic("updates disabled")
 }
 
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
-func (b *AggregatedBranch) ObjectStorageKey() []byte {
-	return b.ID().Bytes()
+func (a *AggregatedBranch) ObjectStorageKey() []byte {
+	return a.ID().Bytes()
 }
 
 // ObjectStorageValue marshals the AggregatedBranch into a sequence of bytes that are used as the value part in the
 // ObjectStorage.
-func (b *AggregatedBranch) ObjectStorageValue() []byte {
+func (a *AggregatedBranch) ObjectStorageValue() []byte {
 	return marshalutil.New().
-		WriteByte(byte(b.Type())).
-		WriteBytes(b.ID().Bytes()).
-		WriteBytes(b.Parents().Bytes()).
-		WriteBool(b.Preferred()).
-		WriteBool(b.Liked()).
-		WriteBool(b.Finalized()).
-		WriteBool(b.Confirmed()).
-		WriteBool(b.Rejected()).
+		WriteByte(byte(a.Type())).
+		WriteBytes(a.ID().Bytes()).
+		WriteBytes(a.Parents().Bytes()).
+		WriteBool(a.Preferred()).
+		WriteBool(a.Liked()).
+		WriteBool(a.Finalized()).
+		WriteBool(a.Confirmed()).
+		WriteBool(a.Rejected()).
 		Bytes()
 }
 

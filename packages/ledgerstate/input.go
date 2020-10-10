@@ -16,7 +16,7 @@ import (
 // region InputType ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 const (
-	// UTXOInputType is the type of an Input that references a UTXO Output.
+	// UTXOInputType is the type of an Input that references an UTXO Output.
 	UTXOInputType InputType = iota
 )
 
@@ -45,9 +45,9 @@ type Input interface {
 	// String returns a human readable version of the Input.
 	String() string
 
-	// Compare offers a comparator for Inputs which returns -1 if otherInput is bigger, 1 if it is smaller and 0 if they
+	// Compare offers a comparator for Inputs which returns -1 if other Input is bigger, 1 if it is smaller and 0 if they
 	// are the same.
-	Compare(otherInput Input) int
+	Compare(other Input) int
 }
 
 // InputFromBytes unmarshals an Input from a sequence of bytes.
@@ -150,7 +150,7 @@ func InputsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (inputs Inputs,
 		return
 	}
 
-	var previousInput *Input
+	var previousInput Input
 	parsedInputs := make([]Input, inputsCount)
 	for i := uint16(0); i < inputsCount; i++ {
 		if parsedInputs[i], err = InputFromMarshalUtil(marshalUtil); err != nil {
@@ -158,11 +158,11 @@ func InputsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (inputs Inputs,
 			return
 		}
 
-		if previousInput != nil && (*previousInput).Compare(parsedInputs[i]) != -1 {
+		if previousInput != nil && previousInput.Compare(parsedInputs[i]) != -1 {
 			err = xerrors.Errorf("order of Inputs is invalid: %w", ErrTransactionInvalid)
 			return
 		}
-		previousInput = &parsedInputs[i]
+		previousInput = parsedInputs[i]
 	}
 
 	inputs = NewInputs(parsedInputs...)
@@ -251,10 +251,10 @@ func (u *UTXOInput) Bytes() []byte {
 	return byteutils.ConcatBytes([]byte{byte(UTXOInputType)}, u.referencedOutputID.Bytes())
 }
 
-// Compare offers a comparator for Inputs which returns -1 if otherInput is bigger, 1 if it is smaller and 0 if they
+// Compare offers a comparator for Inputs which returns -1 if other Input is bigger, 1 if it is smaller and 0 if they
 // are the same.
-func (u *UTXOInput) Compare(otherInput Input) int {
-	return bytes.Compare(u.Bytes(), otherInput.Bytes())
+func (u *UTXOInput) Compare(other Input) int {
+	return bytes.Compare(u.Bytes(), other.Bytes())
 }
 
 // String returns a human readable version of the Input.

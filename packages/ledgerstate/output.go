@@ -799,7 +799,7 @@ func (o *OutputMetadata) ID() OutputID {
 	return o.id
 }
 
-// BranchID returns the identifier of the ConflictBranch that the Output was booked in.
+// BranchID returns the identifier of the Branch that the Output was booked in.
 func (o *OutputMetadata) BranchID() BranchID {
 	o.branchIDMutex.RLock()
 	defer o.branchIDMutex.RUnlock()
@@ -807,7 +807,7 @@ func (o *OutputMetadata) BranchID() BranchID {
 	return o.branchID
 }
 
-// SetBranchID sets the identifier of the ConflictBranch that the Output was booked in.
+// SetBranchID sets the identifier of the Branch that the Output was booked in.
 func (o *OutputMetadata) SetBranchID(branchID BranchID) (modified bool) {
 	o.branchIDMutex.Lock()
 	defer o.branchIDMutex.Unlock()
