@@ -16,7 +16,12 @@ import (
 // region TransactionType //////////////////////////////////////////////////////////////////////////////////////////////
 
 // TransactionType represents the Type of the Transaction in its role as a Payload.
-var TransactionType = payload.NewType(1, "TransactionType", TransactionPayloadUnmarshaler)
+var TransactionType payload.Type
+
+// init defers the definition of the TransactionType to not have an initialization loop.
+func init() {
+	TransactionType = payload.NewType(1, "TransactionType", TransactionPayloadUnmarshaler)
+}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -128,6 +133,10 @@ func TransactionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transacti
 		return
 	}
 	payloadType, err := payload.TypeFromMarshalUtil(marshalUtil)
+	if err != nil {
+		err = xerrors.Errorf("failed to parse payload Type from MarshalUtil: %w", err)
+		return
+	}
 	if payloadType != TransactionType {
 		err = xerrors.Errorf("payload type '%s' does not match expected '%s': %w", payloadType, TransactionType, ErrParseBytesFailed)
 		return
