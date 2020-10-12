@@ -74,7 +74,7 @@ func setupRoutes(e *echo.Echo) {
 	setupFaucetRoutes(apiRoutes)
 
 	e.HTTPErrorHandler = func(err error, c echo.Context) {
-		c.Logger().Error(err)
+		log.Warnf("Request failed: %s", err)
 
 		var statusCode int
 		var message string
