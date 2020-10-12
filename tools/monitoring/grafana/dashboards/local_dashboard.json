@@ -17,7 +17,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": 2,
-  "iteration": 1602246212405,
+  "iteration": 1602506907663,
   "links": [],
   "panels": [
     {
@@ -1278,13 +1278,13 @@
         {
           "expr": "mana_average_access_pledge_bm1",
           "interval": "",
-          "legendFormat": "$NodeID",
+          "legendFormat": "$NodeID (BM1)",
           "refId": "A"
         },
         {
           "expr": "mana_average_access_pledge_bm2",
           "interval": "",
-          "legendFormat": "$NodeID",
+          "legendFormat": "$NodeID (BM2)",
           "refId": "B"
         }
       ],
@@ -1377,13 +1377,13 @@
         {
           "expr": "mana_average_consensus_pledge_bm1",
           "interval": "",
-          "legendFormat": "$NodeID",
+          "legendFormat": "$NodeID (BM1)",
           "refId": "A"
         },
         {
           "expr": "mana_average_consensus_pledge_bm2",
           "interval": "",
-          "legendFormat": "$NodeID",
+          "legendFormat": "$NodeID (BM2)",
           "refId": "B"
         }
       ],
@@ -4314,5 +4314,5 @@
   "timezone": "",
   "title": "GoShimmer Local Metrics",
   "uid": "kjOQZ2ZMk",
-  "version": 14
+  "version": 17
 }
