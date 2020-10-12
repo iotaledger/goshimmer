@@ -12,27 +12,50 @@ func TestTransaction_Bytes(t *testing.T) {
 	publicKey, privateKey, err := ed25519.GenerateKey()
 	require.NoError(t, err)
 
-	essence := NewTransactionEssence(0,
-		NewInputs(
-			NewUTXOInput(NewOutputID(GenesisTransactionID, 12)),
-			NewUTXOInput(NewOutputID(GenesisTransactionID, 10)),
-			NewUTXOInput(NewOutputID(GenesisTransactionID, 1)),
+	outputsToSpend := NewOutputs(
+		NewSigLockedSingleOutput(
+			1337,
+			NewED25519Address(publicKey),
+		).SetID(
+			NewOutputID(GenesisTransactionID, 1),
+		),
+
+		NewSigLockedColoredOutput(
+			NewColoredBalances(map[Color]uint64{
+				Color{2}: 100,
+			}),
+			NewED25519Address(publicKey),
+		).SetID(
+			NewOutputID(GenesisTransactionID, 2),
 		),
 	)
 
-	signature := privateKey.Sign(essence.Bytes())
+	essence := NewTransactionEssence(
+		0,
+		outputsToSpend.Inputs(),
+		NewOutputs(
+			NewSigLockedColoredOutput(
+				NewColoredBalances(map[Color]uint64{
+					ColorIOTA: 1337,
+					Color{2}:  100,
+				}),
+				NewED25519Address(publicKey),
+			),
+		),
+	)
 
 	transaction := NewTransaction(
 		essence,
 		NewUnlockBlocks(
-			NewSignatureUnlockBlock(NewED25519Signature(publicKey, signature)),
+			NewSignatureUnlockBlock(NewED25519Signature(publicKey, privateKey.Sign(essence.Bytes()))),
 			NewReferenceUnlockBlock(0),
-			NewSignatureUnlockBlock(NewED25519Signature(publicKey, signature)),
-			NewSignatureUnlockBlock(NewED25519Signature(publicKey, signature)),
 		),
 	)
 
 	fmt.Print(transaction)
+
+	transaction.IsSyntacticallyValid()
+	transaction.IsSemanticallyValid()
 
 	clonedTransaction, _, err := TransactionFromBytes(transaction.Bytes())
 	require.NoError(t, err)

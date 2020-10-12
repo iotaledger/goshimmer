@@ -51,6 +51,9 @@ const OutputIDLength = TransactionIDLength + marshalutil.UINT16_SIZE
 // index of the Output in the Transaction that created it).
 type OutputID [OutputIDLength]byte
 
+// EmptyOutputID represents the zero-value of an OutputID.
+var EmptyOutputID OutputID
+
 // NewOutputID is the constructor for the OutputID.
 func NewOutputID(transactionID TransactionID, outputIndex uint16) (outputID OutputID) {
 	copy(outputID[:TransactionIDLength], transactionID.Bytes())
@@ -142,7 +145,7 @@ type Output interface {
 	// created to become part of a transaction usually do not have an identifier, yet as their identifier depends on
 	// the TransactionID that is only determinable after the Transaction has been fully constructed. The ID is therefore
 	// only accessed when the Output is supposed to be persisted.
-	SetID(outputID OutputID)
+	SetID(outputID OutputID) Output
 
 	// Type returns the OutputType which allows us to generically handle Outputs of different types.
 	Type() OutputType
@@ -153,6 +156,9 @@ type Output interface {
 	// UnlockValid determines if the given Transaction and the corresponding UnlockBlock are allowed to spend the
 	// Output.
 	UnlockValid(tx *Transaction, unlockBlock UnlockBlock) (bool, error)
+
+	// Input returns an Input that references the Output.
+	Input() Input
 
 	// Bytes returns a marshaled version of the Output.
 	Bytes() []byte
@@ -309,19 +315,39 @@ func OutputsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (outputs Outpu
 	return
 }
 
+// Inputs returns Inputs that reference the Outputs.
+func (o Outputs) Inputs() Inputs {
+	inputs := make([]Input, len(o))
+	for i, output := range o {
+		inputs[i] = output.Input()
+	}
+
+	return NewInputs(inputs...)
+}
+
+// Map returns a map of Outputs where the key is the OutputID.
+func (o Outputs) Map() (outputsByID map[OutputID]Output) {
+	outputsByID = make(map[OutputID]Output)
+	for _, output := range o {
+		outputsByID[output.ID()] = output
+	}
+
+	return
+}
+
 // Clone creates a copy of the Outputs.
-func (i Outputs) Clone() (clonedOutputs Outputs) {
-	clonedOutputs = make(Outputs, len(i))
-	copy(clonedOutputs[:], i)
+func (o Outputs) Clone() (clonedOutputs Outputs) {
+	clonedOutputs = make(Outputs, len(o))
+	copy(clonedOutputs[:], o)
 
 	return
 }
 
 // Bytes returns a marshaled version of the Outputs.
-func (i Outputs) Bytes() []byte {
+func (o Outputs) Bytes() []byte {
 	marshalUtil := marshalutil.New()
-	marshalUtil.WriteUint16(uint16(len(i)))
-	for _, output := range i {
+	marshalUtil.WriteUint16(uint16(len(o)))
+	for _, output := range o {
 		marshalUtil.WriteBytes(output.Bytes())
 	}
 
@@ -329,9 +355,9 @@ func (i Outputs) Bytes() []byte {
 }
 
 // String returns a human readable version of the Outputs.
-func (i Outputs) String() string {
+func (o Outputs) String() string {
 	structBuilder := stringify.StructBuilder("Outputs")
-	for i, output := range i {
+	for i, output := range o {
 		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), output))
 	}
 
@@ -410,11 +436,13 @@ func (s *SigLockedSingleOutput) ID() OutputID {
 // created to become part of a transaction usually do not have an identifier, yet as their identifier depends on
 // the TransactionID that is only determinable after the Transaction has been fully constructed. The ID is therefore
 // only accessed when the Output is supposed to be persisted by the node.
-func (s *SigLockedSingleOutput) SetID(outputID OutputID) {
+func (s *SigLockedSingleOutput) SetID(outputID OutputID) Output {
 	s.idMutex.Lock()
 	defer s.idMutex.Unlock()
 
 	s.id = outputID
+
+	return s
 }
 
 // Type returns the type of the Output which allows us to generically handle Outputs of different types.
@@ -447,6 +475,15 @@ func (s *SigLockedSingleOutput) UnlockValid(tx *Transaction, unlockBlock UnlockB
 // Address returns the Address that the Output is associated to.
 func (s *SigLockedSingleOutput) Address() Address {
 	return s.address
+}
+
+// Input returns an Input that references the Output.
+func (s *SigLockedSingleOutput) Input() Input {
+	if s.ID() == EmptyOutputID {
+		panic("Outputs that haven't been assigned an ID, yet cannot be converted to an Input")
+	}
+
+	return NewUTXOInput(s.ID())
 }
 
 // Bytes returns a marshaled version of the Output.
@@ -565,11 +602,13 @@ func (s *SigLockedColoredOutput) ID() OutputID {
 // created to become part of a transaction usually do not have an identifier, yet as their identifier depends on
 // the TransactionID that is only determinable after the Transaction has been fully constructed. The ID is therefore
 // only accessed when the Output is supposed to be persisted by the node.
-func (s *SigLockedColoredOutput) SetID(outputID OutputID) {
+func (s *SigLockedColoredOutput) SetID(outputID OutputID) Output {
 	s.idMutex.Lock()
 	defer s.idMutex.Unlock()
 
 	s.id = outputID
+
+	return s
 }
 
 // Type returns the type of the Output which allows us to generically handle Outputs of different types.
@@ -598,6 +637,15 @@ func (s *SigLockedColoredOutput) UnlockValid(tx *Transaction, unlockBlock Unlock
 // Address returns the Address that the Output is associated to.
 func (s *SigLockedColoredOutput) Address() Address {
 	return s.address
+}
+
+// Input returns an Input that references the Output.
+func (s *SigLockedColoredOutput) Input() Input {
+	if s.ID() == EmptyOutputID {
+		panic("Outputs that haven't been assigned an ID, yet cannot be converted to an Input")
+	}
+
+	return NewUTXOInput(s.ID())
 }
 
 // Bytes returns a marshaled version of the Output.

@@ -229,10 +229,11 @@ type TransactionEssence struct {
 	payload payload.Payload
 }
 
-func NewTransactionEssence(version TransactionEssenceVersion, inputs Inputs) *TransactionEssence {
+func NewTransactionEssence(version TransactionEssenceVersion, inputs Inputs, outputs Outputs) *TransactionEssence {
 	return &TransactionEssence{
 		version: version,
 		inputs:  inputs,
+		outputs: outputs,
 	}
 }
 

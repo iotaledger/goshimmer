@@ -93,9 +93,12 @@ func UnlockBlockFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (unlockBlo
 
 // region UnlockBlocks /////////////////////////////////////////////////////////////////////////////////////////////////
 
-// UnlockBlocks is slice of UnlockBlocks that offers additional methods for easier marshaling and unmarshaling.
+// UnlockBlocks is a list of UnlockBlocks that ensures syntactical correctness (no duplicate UnlockBlocks and
+// ReferenceUnlockBlocks only address previous UnlockBlocks).
 type UnlockBlocks []UnlockBlock
 
+// NewUnlockBlocks creates a new list of UnlockBlocks from the UnlockBlocks in the parameters. It automatically replaces
+// duplicates with ReferenceBlocks and makes sure that any ReferenceBlocks only reference previous UnlockBlocks.
 func NewUnlockBlocks(optionalUnlockBlocks ...UnlockBlock) (unlockBlocks UnlockBlocks) {
 	seenNonReferenceBlocks := make(map[string]uint16)
 
@@ -103,30 +106,32 @@ func NewUnlockBlocks(optionalUnlockBlocks ...UnlockBlock) (unlockBlocks UnlockBl
 	for i, optionalUnlockBlock := range optionalUnlockBlocks {
 		blockIdentifier := typeutils.BytesToString(optionalUnlockBlock.Bytes())
 
-		if optionalUnlockBlock.Type() == ReferenceUnlockBlockType {
-			referenceUnlockBlock, typeCastOK := optionalUnlockBlock.(*ReferenceUnlockBlock)
-			if !typeCastOK {
-				panic("failed to type cast UnlockBlock to ReferenceUnlockBlock")
-			}
-
-			if referenceUnlockBlock.ReferencedIndex() >= uint16(i) {
-				panic("ReferenceUnlockBlock can only reference previous UnlockBlocks")
-			}
-
-			if _, blockExists := seenNonReferenceBlocks[typeutils.BytesToString(optionalUnlockBlocks[referenceUnlockBlock.ReferencedIndex()].Bytes())]; !blockExists {
-				panic("ReferenceUnlockBlock can only reference previous non-ReferenceUnlockBlocks")
-			}
-		}
-
+		// replace already seen UnlockBlocks with ReferenceUnlockBlock and continue
 		if index, blockSeen := seenNonReferenceBlocks[blockIdentifier]; blockSeen {
 			unlockBlocks[i] = NewReferenceUnlockBlock(index)
 
 			continue
 		}
+
+		// store non-ReferenceUnlockBlocks without syntactical validation and continue
 		if optionalUnlockBlock.Type() != ReferenceUnlockBlockType {
+			unlockBlocks[i] = optionalUnlockBlock
 			seenNonReferenceBlocks[blockIdentifier] = uint16(i)
+
+			continue
 		}
 
+		// perform syntactical validation of ReferenceUnlockBlocks and store if valid
+		referenceUnlockBlock, typeCastOK := optionalUnlockBlock.(*ReferenceUnlockBlock)
+		if !typeCastOK {
+			panic("failed to type cast UnlockBlock to ReferenceUnlockBlock")
+		}
+		if referenceUnlockBlock.ReferencedIndex() >= uint16(i) {
+			panic("ReferenceUnlockBlock can only reference previous UnlockBlocks")
+		}
+		if _, blockExists := seenNonReferenceBlocks[typeutils.BytesToString(optionalUnlockBlocks[referenceUnlockBlock.ReferencedIndex()].Bytes())]; !blockExists {
+			panic("ReferenceUnlockBlock can only reference previous non-ReferenceUnlockBlocks")
+		}
 		unlockBlocks[i] = optionalUnlockBlock
 	}
 
@@ -153,12 +158,43 @@ func UnlockBlocksFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (unlockBl
 		return
 	}
 
+	seenNonReferenceBlocks := make(map[string]uint16)
+
 	unlockBlocks = make(UnlockBlocks, unlockBlockCount)
 	for i := uint16(0); i < unlockBlockCount; i++ {
-		if unlockBlocks[i], err = UnlockBlockFromMarshalUtil(marshalUtil); err != nil {
-			err = xerrors.Errorf("failed to parse UnlockBlock from MarshalUtil: %w", err)
+		unmarshaledUnlockBlock, unmarshalErr := UnlockBlockFromMarshalUtil(marshalUtil)
+		if unmarshalErr != nil {
+			err = xerrors.Errorf("failed to parse UnlockBlock from MarshalUtil: %w", unmarshalErr)
 			return
 		}
+		blockIdentifier := typeutils.BytesToString(unmarshaledUnlockBlock.Bytes())
+
+		// ensure there are no already seen UnlockBlocks(always use ReferenceUnlockBlocks if possible)
+		if index, blockSeen := seenNonReferenceBlocks[blockIdentifier]; blockSeen {
+			err = xerrors.Errorf("UnlockBlock %d is identical to UnlockBlock %d and should be a ReferenceUnlockBlock: %w", i, index, ErrParseBytesFailed)
+			return
+		}
+
+		// store non-ReferenceUnlockBlocks without syntactical validation and continue
+		if unmarshaledUnlockBlock.Type() != ReferenceUnlockBlockType {
+			unlockBlocks[i] = unmarshaledUnlockBlock
+			seenNonReferenceBlocks[blockIdentifier] = i
+
+			continue
+		}
+
+		// perform syntactical validation of ReferenceUnlockBlocks and store if valid
+		referenceUnlockBlock, typeCastOK := unmarshaledUnlockBlock.(*ReferenceUnlockBlock)
+		if !typeCastOK {
+			panic("failed to type cast UnlockBlock to ReferenceUnlockBlock")
+		}
+		if referenceUnlockBlock.ReferencedIndex() >= i {
+			panic("ReferenceUnlockBlock can only reference previous UnlockBlocks")
+		}
+		if _, blockExists := seenNonReferenceBlocks[typeutils.BytesToString(unlockBlocks[referenceUnlockBlock.ReferencedIndex()].Bytes())]; !blockExists {
+			panic("ReferenceUnlockBlock can only reference previous non-ReferenceUnlockBlocks")
+		}
+		unlockBlocks[i] = unmarshaledUnlockBlock
 	}
 
 	return
