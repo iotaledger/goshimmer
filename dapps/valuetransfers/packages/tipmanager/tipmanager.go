@@ -2,21 +2,21 @@ package tipmanager
 
 import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
-	"github.com/iotaledger/goshimmer/packages/binary/datastructure"
+	"github.com/iotaledger/hive.go/datastructure/randommap"
 	"github.com/iotaledger/hive.go/events"
 )
 
 // TipManager manages liked tips and emits events for their removal and addition.
 type TipManager struct {
 	// tips are all currently liked tips.
-	tips   *datastructure.RandomMap
+	tips   *randommap.RandomMap
 	Events Events
 }
 
 // New creates a new TipManager.
 func New() *TipManager {
 	return &TipManager{
-		tips: datastructure.NewRandomMap(),
+		tips: randommap.New(),
 		Events: Events{
 			TipAdded:   events.NewEvent(payloadIDEvent),
 			TipRemoved: events.NewEvent(payloadIDEvent),
@@ -27,8 +27,8 @@ func New() *TipManager {
 // AddTip adds the given value object as a tip.
 func (t *TipManager) AddTip(valueObject *payload.Payload) {
 	objectID := valueObject.ID()
-	parent1ID := valueObject.TrunkID()
-	parent2ID := valueObject.BranchID()
+	parent1ID := valueObject.Parent1ID()
+	parent2ID := valueObject.Parent2ID()
 
 	if t.tips.Set(objectID, objectID) {
 		t.Events.TipAdded.Trigger(objectID)

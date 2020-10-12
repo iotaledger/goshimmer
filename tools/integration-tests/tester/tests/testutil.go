@@ -13,8 +13,8 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
-	"github.com/iotaledger/goshimmer/plugins/webapi/value/utils"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+	valueutils "github.com/iotaledger/goshimmer/plugins/webapi/value"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
@@ -70,7 +70,7 @@ func SendDataMessage(t *testing.T, peer *framework.Peer, data []byte, number int
 		number: number,
 		id:     id,
 		// save payload to be able to compare API response
-		data:            payload.NewData(data).Bytes(),
+		data:            payload.NewGenericDataPayload(data).Bytes(),
 		issuerPublicKey: peer.Identity.PublicKey().String(),
 	}
 	return id, sent
@@ -448,7 +448,7 @@ type ExpectedTransaction struct {
 	// The optional input IDs to check against.
 	Inputs *[]string
 	// The optional outputs to check against.
-	Outputs *[]utils.Output
+	Outputs *[]valueutils.Output
 	// The optional signature to check against.
 	Signature *[]byte
 }

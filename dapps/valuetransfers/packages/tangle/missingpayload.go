@@ -1,14 +1,16 @@
 package tangle
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
+	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 )
 
-// MissingPayload represents a payload that was referenced through branch or trunk but that is missing in our object
+// MissingPayload represents a payload that was referenced through parent2 or parent1 but that is missing in our object
 // storage.
 type MissingPayload struct {
 	objectstorage.StorableObjectFlags
@@ -27,54 +29,37 @@ func NewMissingPayload(payloadID payload.ID) *MissingPayload {
 
 // MissingPayloadFromBytes unmarshals an entry for a missing value transfer payload from a sequence of bytes.
 // It either creates a new entry or fills the optionally provided one with the parsed information.
-func MissingPayloadFromBytes(bytes []byte, optionalTargetObject ...*MissingPayload) (result *MissingPayload, consumedBytes int, err error) {
+func MissingPayloadFromBytes(bytes []byte) (result *MissingPayload, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = ParseMissingPayload(marshalUtil, optionalTargetObject...)
+	result, err = ParseMissingPayload(marshalUtil)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
 // ParseMissingPayload unmarshals a MissingPayload using the given marshalUtil (for easier marshaling/unmarshaling).
-func ParseMissingPayload(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*MissingPayload) (result *MissingPayload, err error) {
-	parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
-		return MissingPayloadFromStorageKey(data, optionalTargetObject...)
-	})
-	if parseErr != nil {
-		err = parseErr
+func ParseMissingPayload(marshalUtil *marshalutil.MarshalUtil) (result *MissingPayload, err error) {
+	result = &MissingPayload{}
 
+	if result.payloadID, err = payload.ParseID(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse payload id of missing payload: %w", err)
 		return
 	}
-
-	result = parsedObject.(*MissingPayload)
-	_, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
-		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
-
+	if result.missingSince, err = marshalUtil.ReadTime(); err != nil {
+		err = fmt.Errorf("failed to parse missing time of missing payload: %w", err)
 		return
-	})
+	}
 
 	return
 }
 
-// MissingPayloadFromStorageKey gets called when we restore an entry for a missing value transfer payload from the storage. The bytes and
+// MissingPayloadFromObjectStorage gets called when we restore an entry for a missing value transfer payload from the storage. The bytes and
 // the content will be unmarshaled by an external caller using the binary.ObjectStorageValue interface.
-func MissingPayloadFromStorageKey(key []byte, optionalTargetObject ...*MissingPayload) (result *MissingPayload, consumedBytes int, err error) {
-	// determine the target object that will hold the unmarshaled information
-	switch len(optionalTargetObject) {
-	case 0:
-		result = &MissingPayload{}
-	case 1:
-		result = optionalTargetObject[0]
-	default:
-		panic("too many arguments in call to MissingPayloadFromStorageKey")
+func MissingPayloadFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
+	result, _, err = MissingPayloadFromBytes(byteutils.ConcatBytes(key, data))
+	if err != nil {
+		err = fmt.Errorf("failed to parse missing payload from object storage: %w", err)
 	}
-
-	// parse the properties that are stored in the key
-	marshalUtil := marshalutil.New(key)
-	if result.payloadID, err = payload.ParseID(marshalUtil); err != nil {
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
@@ -91,10 +76,7 @@ func (missingPayload *MissingPayload) MissingSince() time.Time {
 
 // Bytes marshals the missing payload into a sequence of bytes.
 func (missingPayload *MissingPayload) Bytes() []byte {
-	return marshalutil.New(payload.IDLength + marshalutil.TIME_SIZE).
-		WriteBytes(missingPayload.ObjectStorageKey()).
-		WriteBytes(missingPayload.ObjectStorageValue()).
-		Bytes()
+	return byteutils.ConcatBytes(missingPayload.ObjectStorageKey(), missingPayload.ObjectStorageValue())
 }
 
 // Update is disabled and panics if it ever gets called - updates are supposed to happen through the setters.
@@ -114,17 +96,6 @@ func (missingPayload *MissingPayload) ObjectStorageValue() (data []byte) {
 	return marshalutil.New(marshalutil.TIME_SIZE).
 		WriteTime(missingPayload.MissingSince()).
 		Bytes()
-}
-
-// UnmarshalObjectStorageValue is required to match the encoding.BinaryUnmarshaler interface.
-func (missingPayload *MissingPayload) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(data)
-	if missingPayload.missingSince, err = marshalUtil.ReadTime(); err != nil {
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
 }
 
 // Interface contract: make compiler warn if the interface is not implemented correctly.

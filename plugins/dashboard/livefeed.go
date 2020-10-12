@@ -3,9 +3,8 @@ package dashboard
 import (
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
@@ -18,7 +17,7 @@ var liveFeedWorkerPool *workerpool.WorkerPool
 
 func configureLiveFeed() {
 	liveFeedWorkerPool = workerpool.New(func(task workerpool.Task) {
-		task.Param(0).(*message.CachedMessage).Consume(func(message *message.Message) {
+		task.Param(0).(*tangle.CachedMessage).Consume(func(message *tangle.Message) {
 			broadcastWsMessage(&wsmsg{MsgTypeMessage, &msg{message.ID().String(), 0}})
 		})
 
@@ -28,17 +27,17 @@ func configureLiveFeed() {
 
 func runLiveFeed() {
 	newMsgRateLimiter := time.NewTicker(time.Second / 10)
-	notifyNewMsg := events.NewClosure(func(message *message.CachedMessage, metadata *tangle.CachedMessageMetadata) {
-		metadata.Release()
+	notifyNewMsg := events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
+		cachedMsgEvent.MessageMetadata.Release()
 
 		select {
 		case <-newMsgRateLimiter.C:
-			_, ok := liveFeedWorkerPool.TrySubmit(message)
+			_, ok := liveFeedWorkerPool.TrySubmit(cachedMsgEvent.Message)
 			if !ok {
-				message.Release()
+				cachedMsgEvent.Message.Release()
 			}
 		default:
-			message.Release()
+			cachedMsgEvent.Message.Release()
 		}
 	})
 

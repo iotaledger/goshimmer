@@ -5,14 +5,12 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/types"
 	"golang.org/x/crypto/blake2b"
-
-	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
 )
 
 // BranchManager is an entity that manages the branches of a UTXODAG. It offers methods to add, delete and modify
@@ -41,22 +39,14 @@ type BranchManager struct {
 
 // New is the constructor of the BranchManager.
 func New(store kvstore.KVStore) (branchManager *BranchManager) {
-	osFactory := objectstorage.NewFactory(store, storageprefix.ValueTransfers)
+	osFactory := objectstorage.NewFactory(store, database.PrefixValueTransfers)
 
 	branchManager = &BranchManager{
-		branchStorage:         osFactory.New(osBranch, osBranchFactory, osBranchOptions...),
-		childBranchStorage:    osFactory.New(osChildBranch, osChildBranchFactory, osChildBranchOptions...),
-		conflictStorage:       osFactory.New(osConflict, osConflictFactory, osConflictOptions...),
-		conflictMemberStorage: osFactory.New(osConflictMember, osConflictMemberFactory, osConflictMemberOptions...),
-		Events: &Events{
-			BranchPreferred:   events.NewEvent(branchCaller),
-			BranchUnpreferred: events.NewEvent(branchCaller),
-			BranchLiked:       events.NewEvent(branchCaller),
-			BranchDisliked:    events.NewEvent(branchCaller),
-			BranchFinalized:   events.NewEvent(branchCaller),
-			BranchConfirmed:   events.NewEvent(branchCaller),
-			BranchRejected:    events.NewEvent(branchCaller),
-		},
+		branchStorage:         osFactory.New(osBranch, BranchFromObjectStorage, osBranchOptions...),
+		childBranchStorage:    osFactory.New(osChildBranch, ChildBranchFromObjectStorage, osChildBranchOptions...),
+		conflictStorage:       osFactory.New(osConflict, ConflictFromObjectStorage, osConflictOptions...),
+		conflictMemberStorage: osFactory.New(osConflictMember, ConflictMemberFromObjectStorage, osConflictMemberOptions...),
+		Events:                newEvents(),
 	}
 	branchManager.init()
 

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	webapi_spammer "github.com/iotaledger/goshimmer/plugins/webapi/spammer"
+	webapi_spammer "github.com/iotaledger/goshimmer/plugins/spammer"
 )
 
 const (

@@ -4,8 +4,8 @@ go 1.14
 
 require (
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
+	github.com/beevik/ntp v0.3.0
 	github.com/dgraph-io/badger/v2 v2.0.3
-	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/drand/drand v1.1.1
 	github.com/drand/kyber v1.1.2
 	github.com/gin-gonic/gin v1.6.3
@@ -13,7 +13,7 @@ require (
 	github.com/gobuffalo/packr/v2 v2.8.0
 	github.com/golang/protobuf v1.4.2
 	github.com/gorilla/websocket v1.4.2
-	github.com/iotaledger/hive.go v0.0.0-20200824153656-adfc839cc240
+	github.com/iotaledger/hive.go v0.0.0-20200928092608-af0f0dc4fd6f
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0
 	github.com/magiconair/properties v1.8.1
@@ -26,12 +26,14 @@ require (
 	github.com/spf13/viper v1.7.0
 	github.com/stretchr/testify v1.6.1
 	github.com/valyala/fasttemplate v1.1.0 // indirect
-	go.dedis.ch/kyber/v3 v3.0.12
+	github.com/xdg/stringprep v1.0.0 // indirect
+	go.dedis.ch/kyber/v3 v3.0.13
 	go.mongodb.org/mongo-driver v1.3.4
 	go.uber.org/atomic v1.6.0
 	go.uber.org/zap v1.15.0
 	golang.org/x/crypto v0.0.0-20200709230013-948cd5f35899
 	golang.org/x/tools v0.0.0-20200330040139-fa3cc9eebcfe // indirect
+	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
 	google.golang.org/grpc v1.30.0
 	google.golang.org/protobuf v1.25.0
 	gopkg.in/src-d/go-git.v4 v4.13.1

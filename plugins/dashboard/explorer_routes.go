@@ -6,10 +6,10 @@ import (
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
+	valuetangle "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/goshimmer/plugins/webapi/value/utils"
+	valueutils "github.com/iotaledger/goshimmer/plugins/webapi/value"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58/base58"
 )
@@ -28,10 +28,10 @@ type ExplorerMessage struct {
 	IssuerPublicKey string `json:"issuer_public_key"`
 	// The signature of the message.
 	Signature string `json:"signature"`
-	// TrunkMessageId is the Trunk ID of the message.
-	TrunkMessageID string `json:"trunk_message_id"`
-	// BranchMessageId is the Branch ID of the message.
-	BranchMessageID string `json:"branch_message_id"`
+	// Parent1MessageId is the Parent1 ID of the message.
+	Parent1MessageID string `json:"parent1_message_id"`
+	// Parent2MessageId is the Parent2 ID of the message.
+	Parent2MessageID string `json:"parent2_message_id"`
 	// Solid defines the solid status of the message.
 	Solid bool `json:"solid"`
 	// PayloadType defines the type of the payload.
@@ -40,7 +40,7 @@ type ExplorerMessage struct {
 	Payload interface{} `json:"payload"`
 }
 
-func createExplorerMessage(msg *message.Message) (*ExplorerMessage, error) {
+func createExplorerMessage(msg *tangle.Message) (*ExplorerMessage, error) {
 	messageID := msg.ID()
 	cachedMessageMetadata := messagelayer.Tangle().MessageMetadata(messageID)
 	defer cachedMessageMetadata.Release()
@@ -52,10 +52,10 @@ func createExplorerMessage(msg *message.Message) (*ExplorerMessage, error) {
 		IssuerPublicKey:         msg.IssuerPublicKey().String(),
 		Signature:               msg.Signature().String(),
 		SequenceNumber:          msg.SequenceNumber(),
-		TrunkMessageID:          msg.TrunkID().String(),
-		BranchMessageID:         msg.BranchID().String(),
+		Parent1MessageID:        msg.Parent1ID().String(),
+		Parent2MessageID:        msg.Parent2ID().String(),
 		Solid:                   cachedMessageMetadata.Unwrap().IsSolid(),
-		PayloadType:             msg.Payload().Type(),
+		PayloadType:             uint32(msg.Payload().Type()),
 		Payload:                 ProcessPayload(msg.Payload()),
 	}
 
@@ -70,11 +70,11 @@ type ExplorerAddress struct {
 
 // ExplorerOutput defines the struct of the ExplorerOutput.
 type ExplorerOutput struct {
-	ID                 string               `json:"id"`
-	Balances           []utils.Balance      `json:"balances"`
-	InclusionState     utils.InclusionState `json:"inclusion_state"`
-	SolidificationTime int64                `json:"solidification_time"`
-	ConsumerCount      int                  `json:"consumer_count"`
+	ID                 string                    `json:"id"`
+	Balances           []valueutils.Balance      `json:"balances"`
+	InclusionState     valueutils.InclusionState `json:"inclusion_state"`
+	SolidificationTime int64                     `json:"solidification_time"`
+	ConsumerCount      int                       `json:"consumer_count"`
 }
 
 // SearchResult defines the struct of the SearchResult.
@@ -87,7 +87,7 @@ type SearchResult struct {
 
 func setupExplorerRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/message/:id", func(c echo.Context) (err error) {
-		messageID, err := message.NewID(c.Param("id"))
+		messageID, err := tangle.NewMessageID(c.Param("id"))
 		if err != nil {
 			return
 		}
@@ -125,8 +125,8 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 				result.Address = addr
 			}
 
-		case message.IDLength:
-			messageID, err := message.NewID(search)
+		case tangle.MessageIDLength:
+			messageID, err := tangle.NewMessageID(search)
 			if err != nil {
 				return fmt.Errorf("%w: search ID %s", ErrInvalidParameter, search)
 			}
@@ -144,8 +144,8 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 	})
 }
 
-func findMessage(messageID message.ID) (explorerMsg *ExplorerMessage, err error) {
-	if !messagelayer.Tangle().Message(messageID).Consume(func(msg *message.Message) {
+func findMessage(messageID tangle.MessageID) (explorerMsg *ExplorerMessage, err error) {
+	if !messagelayer.Tangle().Message(messageID).Consume(func(msg *tangle.Message) {
 		explorerMsg, err = createExplorerMessage(msg)
 	}) {
 		err = fmt.Errorf("%w: message %s", ErrNotFound, messageID.String())
@@ -162,23 +162,23 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 	}
 
 	outputids := make([]ExplorerOutput, 0)
-	inclusionState := utils.InclusionState{}
+	inclusionState := valueutils.InclusionState{}
 
 	// get outputids by address
 	for id, cachedOutput := range valuetransfers.Tangle().OutputsOnAddress(address) {
 
-		cachedOutput.Consume(func(output *tangle.Output) {
+		cachedOutput.Consume(func(output *valuetangle.Output) {
 
 			// iterate balances
-			var b []utils.Balance
+			var b []valueutils.Balance
 			for _, balance := range output.Balances() {
-				b = append(b, utils.Balance{
+				b = append(b, valueutils.Balance{
 					Value: balance.Value,
 					Color: balance.Color.String(),
 				})
 			}
 			var solidificationTime int64
-			if !valuetransfers.Tangle().TransactionMetadata(output.TransactionID()).Consume(func(txMeta *tangle.TransactionMetadata) {
+			if !valuetransfers.Tangle().TransactionMetadata(output.TransactionID()).Consume(func(txMeta *valuetangle.TransactionMetadata) {
 				inclusionState.Confirmed = txMeta.Confirmed()
 				inclusionState.Liked = txMeta.Liked()
 				inclusionState.Rejected = txMeta.Rejected()

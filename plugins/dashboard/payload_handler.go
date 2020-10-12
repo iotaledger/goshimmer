@@ -1,14 +1,12 @@
 package dashboard
 
 import (
-	faucetpayload "github.com/iotaledger/goshimmer/dapps/faucet/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	valuepayload "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
-	drngpayload "github.com/iotaledger/goshimmer/packages/binary/drng/payload"
-	drngheader "github.com/iotaledger/goshimmer/packages/binary/drng/payload/header"
-	cb "github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectivebeacon/payload"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
+	"github.com/iotaledger/goshimmer/packages/drng"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+	"github.com/iotaledger/goshimmer/plugins/faucet"
 	syncbeaconpayload "github.com/iotaledger/goshimmer/plugins/syncbeacon/payload"
 	"github.com/iotaledger/hive.go/marshalutil"
 )
@@ -50,8 +48,8 @@ type DrngCollectiveBeaconPayload struct {
 // ValuePayload contains the transaction information
 type ValuePayload struct {
 	ID        string          `json:"payload_id"`
-	ParentID0 string          `json:"parent_id_0"`
-	ParentID1 string          `json:"parent_id_1"`
+	Parent1ID string          `json:"parent1_id"`
+	Parent2ID string          `json:"parent2_id"`
 	TxID      string          `json:"tx_id"`
 	Input     []InputContent  `json:"inputs"`
 	Output    []OutputContent `json:"outputs"`
@@ -79,19 +77,19 @@ type Balance struct {
 // payload type.
 func ProcessPayload(p payload.Payload) interface{} {
 	switch p.Type() {
-	case payload.DataType:
+	case payload.GenericDataPayloadType:
 		// data payload
 		return BasicPayload{
-			ContentTitle: "Data",
-			Content:      p.(*payload.Data).Data(),
+			ContentTitle: "GenericDataPayload",
+			Content:      p.(*payload.GenericDataPayload).Blob(),
 		}
-	case faucetpayload.Type:
+	case faucet.Type:
 		// faucet payload
 		return BasicStringPayload{
 			ContentTitle: "address",
-			Content:      p.(*faucetpayload.Payload).Address().String(),
+			Content:      p.(*faucet.Request).Address().String(),
 		}
-	case drngpayload.Type:
+	case drng.PayloadType:
 		// drng payload
 		return processDrngPayload(p)
 	case syncbeaconpayload.Type:
@@ -112,13 +110,13 @@ func ProcessPayload(p payload.Payload) interface{} {
 func processDrngPayload(p payload.Payload) (dp DrngPayload) {
 	var subpayload interface{}
 	marshalUtil := marshalutil.New(p.Bytes())
-	drngPayload, _ := drngpayload.Parse(marshalUtil)
+	drngPayload, _ := drng.PayloadFromMarshalUtil(marshalUtil)
 
 	switch drngPayload.Header.PayloadType {
-	case drngheader.TypeCollectiveBeacon:
+	case drng.TypeCollectiveBeacon:
 		// collective beacon
 		marshalUtil := marshalutil.New(p.Bytes())
-		cbp, _ := cb.Parse(marshalUtil)
+		cbp, _ := drng.CollectiveBeaconPayloadFromMarshalUtil(marshalUtil)
 		subpayload = DrngCollectiveBeaconPayload{
 			Round:   cbp.Round,
 			PrevSig: cbp.PrevSignature,
@@ -190,8 +188,8 @@ func processValuePayload(p payload.Payload) (vp ValuePayload) {
 
 	return ValuePayload{
 		ID:        v.ID().String(),
-		ParentID0: v.TrunkID().String(),
-		ParentID1: v.BranchID().String(),
+		Parent1ID: v.Parent1ID().String(),
+		Parent2ID: v.Parent2ID().String(),
 		TxID:      v.Transaction().ID().String(),
 		Input:     inputs,
 		Output:    outputs,

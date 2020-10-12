@@ -4,10 +4,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -128,22 +127,22 @@ func configureMessageLayer() {
 	}))
 
 	// configure flow of outgoing messages (gossip on solidification)
-	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
-		defer cachedMessage.Release()
-		defer cachedMessageMetadata.Release()
+	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
+		defer cachedMsgEvent.Message.Release()
+		defer cachedMsgEvent.MessageMetadata.Release()
 
 		// only broadcast new message shortly after they have been received
-		metadata := cachedMessageMetadata.Unwrap()
+		metadata := cachedMsgEvent.MessageMetadata.Unwrap()
 		if time.Since(metadata.ReceivedTime()) > ageThreshold {
 			return
 		}
 
-		msg := cachedMessage.Unwrap()
+		msg := cachedMsgEvent.Message.Unwrap()
 		mgr.SendMessage(msg.Bytes())
 	}))
 
 	// request missing messages
-	messagelayer.MessageRequester().Events.SendRequest.Attach(events.NewClosure(func(msgID message.ID) {
-		mgr.RequestMessage(msgID[:])
+	messagelayer.MessageRequester().Events.SendRequest.Attach(events.NewClosure(func(sendRequest *tangle.SendRequestEvent) {
+		mgr.RequestMessage(sendRequest.ID[:])
 	}))
 }

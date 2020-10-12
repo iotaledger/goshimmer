@@ -26,7 +26,9 @@ func TestSetTransactionPreferred(t *testing.T) {
 	valueObject := payload.New(payload.GenesisID, payload.GenesisID, tx)
 	tangle.storeTransactionModels(valueObject)
 
-	event.Expect("TransactionPreferred", tx, mock.Anything)
+	event.Expect("TransactionPreferred", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(tx, cachedTransactionEvent.Transaction.Unwrap())
+	}))
 
 	modified, err := tangle.SetTransactionPreferred(tx.ID(), true)
 	require.NoError(t, err)
@@ -54,7 +56,9 @@ func TestBookTransaction(t *testing.T) {
 		cachedTransaction, cachedTransactionMetadata, _, transactionIsNew := tangle.storeTransactionModels(valueObject)
 		assert.True(t, transactionIsNew)
 
-		event.Expect("TransactionSolid", tx, mock.Anything)
+		event.Expect("TransactionSolid", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(tx, cachedTransactionEvent.Transaction.Unwrap())
+		}))
 
 		// manually trigger a booking: tx will be marked solid, but it cannot be book as its inputs are unavailable
 		transactionBooked, decisionPending, err := tangle.bookTransaction(cachedTransaction, cachedTransactionMetadata)
@@ -124,7 +128,9 @@ func TestBookTransaction(t *testing.T) {
 		// assert that branchID is undefined before being booked
 		assert.Equal(t, branchmanager.UndefinedBranchID, txMetadata.BranchID())
 
-		event.Expect("TransactionSolid", tx1, mock.Anything)
+		event.Expect("TransactionSolid", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(tx1, cachedTransactionEvent.Transaction.Unwrap())
+		}))
 		// TransactionBooked is triggered outside of bookTransaction
 
 		transactionBooked, decisionPending, err := tangle.bookTransaction(cachedTransaction, cachedTransactionMetadata)
@@ -157,8 +163,13 @@ func TestBookTransaction(t *testing.T) {
 			assert.Equal(t, branchmanager.UndefinedBranchID, txMetadata.BranchID())
 
 			// manually book the double spending tx2, this will mark it as solid and trigger a fork
-			event.Expect("TransactionSolid", tx2, mock.Anything)
-			event.Expect("Fork", tx1, mock.Anything, mock.Anything, inputIDs)
+			event.Expect("TransactionSolid", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+				return assert.ObjectsAreEqual(tx2, cachedTransactionEvent.Transaction.Unwrap())
+			}))
+			event.Expect("Fork", mock.MatchedBy(func(forkEvent *ForkEvent) bool {
+				return assert.ObjectsAreEqual(tx1, forkEvent.Transaction.Unwrap()) &&
+					assert.ElementsMatch(t, inputIDs, forkEvent.InputIDs)
+			}))
 
 			transactionBooked, decisionPending, err := tangle.bookTransaction(cachedTransaction, cachedTransactionMetadata)
 			require.NoError(t, err)
@@ -332,7 +343,10 @@ func TestFork(t *testing.T) {
 		valueObject := payload.New(payload.GenesisID, payload.GenesisID, tx)
 		tangle.storeTransactionModels(valueObject)
 
-		event.Expect("Fork", tx, mock.Anything, mock.Anything, []transaction.OutputID{})
+		event.Expect("Fork", mock.MatchedBy(func(forkEvent *ForkEvent) bool {
+			return assert.ObjectsAreEqual(tx, forkEvent.Transaction.Unwrap()) &&
+				assert.ElementsMatch(t, []transaction.OutputID{}, forkEvent.InputIDs)
+		}))
 
 		forked, finalized, err := tangle.Fork(tx.ID(), []transaction.OutputID{})
 		require.NoError(t, err)
@@ -390,7 +404,9 @@ func TestBookPayload(t *testing.T) {
 		txMetadata := cachedTransactionMetadata.Unwrap()
 		txMetadata.setBranchID(branchmanager.BranchID{1})
 
-		event.Expect("PayloadSolid", valueObject, mock.Anything)
+		event.Expect("PayloadSolid", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObject, cachedPayloadEvent.Payload.Unwrap())
+		}))
 		payloadBooked, err := tangle.bookPayload(cachedPayload.Retain(), cachedMetadata.Retain(), cachedTransactionMetadata.Retain())
 		defer func() {
 			cachedPayload.Release()
@@ -420,7 +436,9 @@ func TestBookPayload(t *testing.T) {
 		txMetadata := cachedTransactionMetadata.Unwrap()
 		txMetadata.setBranchID(branchmanager.BranchID{1})
 
-		event.Expect("PayloadSolid", valueObject, mock.Anything)
+		event.Expect("PayloadSolid", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObject, cachedPayloadEvent.Payload.Unwrap())
+		}))
 		payloadBooked, err := tangle.bookPayload(cachedPayload.Retain(), cachedMetadata.Retain(), cachedTransactionMetadata.Retain())
 		defer func() {
 			cachedPayload.Release()
@@ -1261,7 +1279,9 @@ func TestPayloadBranchID(t *testing.T) {
 	{
 		valueObject := payload.New(payload.GenesisID, payload.GenesisID, createDummyTransaction())
 
-		event.Expect("PayloadMissing", valueObject.ID())
+		event.Expect("PayloadMissing", mock.MatchedBy(func(ID payload.ID) bool {
+			return assert.ObjectsAreEqual(valueObject.ID(), ID)
+		}))
 		branchID := tangle.payloadBranchID(valueObject.ID())
 		assert.Equal(t, branchmanager.UndefinedBranchID, branchID)
 	}
@@ -1573,19 +1593,38 @@ func TestMissingPayloadReceived(t *testing.T) {
 	parent := payload.New(payload.GenesisID, payload.GenesisID, tx)
 	child := payload.New(parent.ID(), parent.ID(), tx)
 
-	event.Expect("PayloadAttached", child, mock.Anything)
-	event.Expect("PayloadMissing", parent.ID(), mock.Anything)
-	event.Expect("TransactionReceived", tx, mock.Anything, mock.Anything)
+	event.Expect("PayloadAttached", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+		return assert.ObjectsAreEqual(child, cachedPayloadEvent.Payload.Unwrap())
+	}))
+	event.Expect("PayloadMissing", mock.MatchedBy(func(ID payload.ID) bool {
+		return assert.ObjectsAreEqual(parent.ID(), ID)
+	}))
+	event.Expect("TransactionReceived", mock.MatchedBy(func(cachedAttachmentsEvent *CachedAttachmentsEvent) bool {
+		return assert.ObjectsAreEqual(tx, cachedAttachmentsEvent.Transaction.Unwrap())
+	}))
 
 	// submit the child first; it cannot be solidified
 	tangle.AttachPayloadSync(child)
 
-	event.Expect("PayloadAttached", parent, mock.Anything)
-	event.Expect("PayloadSolid", parent, mock.Anything)
-	event.Expect("MissingPayloadReceived", parent, mock.Anything)
-	event.Expect("PayloadSolid", child, mock.Anything)
-	event.Expect("TransactionSolid", tx, mock.Anything, mock.Anything)
-	event.Expect("TransactionBooked", tx, mock.Anything, true)
+	event.Expect("PayloadAttached", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+		return assert.ObjectsAreEqual(parent, cachedPayloadEvent.Payload.Unwrap())
+	}))
+	event.Expect("PayloadSolid", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+		return assert.ObjectsAreEqual(parent, cachedPayloadEvent.Payload.Unwrap())
+	}))
+	event.Expect("MissingPayloadReceived", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+		return assert.ObjectsAreEqual(parent, cachedPayloadEvent.Payload.Unwrap())
+	}))
+	event.Expect("PayloadSolid", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+		return assert.ObjectsAreEqual(child, cachedPayloadEvent.Payload.Unwrap())
+	}))
+	event.Expect("TransactionSolid", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(tx, cachedTransactionEvent.Transaction.Unwrap())
+	}))
+	event.Expect("TransactionBooked", mock.MatchedBy(func(cachedTransactionBookEvent *CachedTransactionBookEvent) bool {
+		return assert.ObjectsAreEqual(tx, cachedTransactionBookEvent.Transaction.Unwrap()) &&
+			assert.True(t, cachedTransactionBookEvent.Pending)
+	}))
 
 	// submitting the parent makes everything solid
 	tangle.AttachPayloadSync(parent)

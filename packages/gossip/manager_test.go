@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/events"
@@ -27,7 +27,7 @@ var (
 	testMessageData = []byte("testMsg")
 )
 
-func loadTestMessage(message.ID) ([]byte, error) { return testMessageData, nil }
+func loadTestMessage(tangle.MessageID) ([]byte, error) { return testMessageData, nil }
 
 func TestClose(t *testing.T) {
 	_, teardown, _ := newMockedManager(t, "A")
@@ -336,7 +336,7 @@ func TestMessageRequest(t *testing.T) {
 	// wait for the connections to establish
 	wg.Wait()
 
-	id := message.ID{}
+	id := tangle.MessageID{}
 
 	// mgrA should eventually receive the message
 	mgrA.On("messageReceived", &MessageReceivedEvent{Data: testMessageData, Peer: peerB}).Once()

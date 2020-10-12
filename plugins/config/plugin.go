@@ -85,7 +85,7 @@ func fetch(printConfig bool, ignoreSettingsAtPrint ...[]string) error {
 	_node.AutomaticEnv()
 
 	flag.Parse()
-	err := parameter.LoadConfigFile(_node, *configDirPath, *configName, true, *skipConfigAvailable)
+	err := parameter.LoadConfigFile(_node, *configDirPath, *configName, flag.CommandLine, *skipConfigAvailable)
 	if err != nil {
 		return err
 	}
@@ -94,10 +94,10 @@ func fetch(printConfig bool, ignoreSettingsAtPrint ...[]string) error {
 		parameter.PrintConfig(_node, ignoreSettingsAtPrint...)
 	}
 
-	for _, pluginName := range _node.GetStringSlice(node.CFG_DISABLE_PLUGINS) {
+	for _, pluginName := range _node.GetStringSlice(CfgDisablePlugins) {
 		node.DisabledPlugins[node.GetPluginIdentifier(pluginName)] = true
 	}
-	for _, pluginName := range _node.GetStringSlice(node.CFG_ENABLE_PLUGINS) {
+	for _, pluginName := range _node.GetStringSlice(CfgEnablePlugins) {
 		node.EnabledPlugins[node.GetPluginIdentifier(pluginName)] = true
 	}
 

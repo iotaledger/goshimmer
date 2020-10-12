@@ -69,6 +69,40 @@ func (eventSource EventSource) String() string {
 	return [...]string{"EventSourceTangle", "EventSourceBranchManager"}[eventSource]
 }
 
+// CachedPayloadEvent represents the parameters of cachedPayloadEvent
+type CachedPayloadEvent struct {
+	Payload         *payload.CachedPayload
+	PayloadMetadata *CachedPayloadMetadata
+}
+
+// CachedTransactionEvent represents the parameters of cachedTransactionEvent
+type CachedTransactionEvent struct {
+	Transaction         *transaction.CachedTransaction
+	TransactionMetadata *CachedTransactionMetadata
+}
+
+// CachedTransactionBookEvent represents the parameters of transactionBookedEvent
+type CachedTransactionBookEvent struct {
+	Transaction         *transaction.CachedTransaction
+	TransactionMetadata *CachedTransactionMetadata
+	Pending             bool
+}
+
+// ForkEvent represents the parameters of forkEvent
+type ForkEvent struct {
+	Transaction         *transaction.CachedTransaction
+	TransactionMetadata *CachedTransactionMetadata
+	Branch              *branchmanager.CachedBranch
+	InputIDs            []transaction.OutputID
+}
+
+// CachedAttachmentsEvent represents the parameters of cachedTransactionAttachmentEvent
+type CachedAttachmentsEvent struct {
+	Transaction         *transaction.CachedTransaction
+	TransactionMetadata *CachedTransactionMetadata
+	Attachments         *CachedAttachment
+}
+
 func newEvents() *Events {
 	return &Events{
 		PayloadAttached:        events.NewEvent(cachedPayloadEvent),
@@ -101,56 +135,74 @@ func payloadIDEvent(handler interface{}, params ...interface{}) {
 }
 
 func cachedPayloadEvent(handler interface{}, params ...interface{}) {
-	handler.(func(*payload.CachedPayload, *CachedPayloadMetadata))(
-		params[0].(*payload.CachedPayload).Retain(),
-		params[1].(*CachedPayloadMetadata).Retain(),
-	)
+	handler.(func(*CachedPayloadEvent))(cachedPayloadRetain(params[0].(*CachedPayloadEvent)))
 }
 
 func cachedPayloadErrorEvent(handler interface{}, params ...interface{}) {
-	handler.(func(*payload.CachedPayload, *CachedPayloadMetadata, error))(
-		params[0].(*payload.CachedPayload).Retain(),
-		params[1].(*CachedPayloadMetadata).Retain(),
-		params[2].(error),
+	handler.(func(*CachedPayloadEvent, error))(
+		cachedPayloadRetain(params[0].(*CachedPayloadEvent)),
+		params[1].(error),
 	)
 }
 
 func transactionBookedEvent(handler interface{}, params ...interface{}) {
-	handler.(func(*transaction.CachedTransaction, *CachedTransactionMetadata, bool))(
-		params[0].(*transaction.CachedTransaction).Retain(),
-		params[1].(*CachedTransactionMetadata).Retain(),
-		params[2].(bool),
-	)
+	handler.(func(*CachedTransactionBookEvent))(cachedTransactionBookRetain(params[0].(*CachedTransactionBookEvent)))
 }
 
 func forkEvent(handler interface{}, params ...interface{}) {
-	handler.(func(*transaction.CachedTransaction, *CachedTransactionMetadata, *branchmanager.CachedBranch, []transaction.OutputID))(
-		params[0].(*transaction.CachedTransaction).Retain(),
-		params[1].(*CachedTransactionMetadata).Retain(),
-		params[2].(*branchmanager.CachedBranch).Retain(),
-		params[3].([]transaction.OutputID),
-	)
+	handler.(func(*ForkEvent))(forkRetain(params[0].(*ForkEvent)))
 }
 
 func cachedTransactionEvent(handler interface{}, params ...interface{}) {
-	handler.(func(*transaction.CachedTransaction, *CachedTransactionMetadata))(
-		params[0].(*transaction.CachedTransaction).Retain(),
-		params[1].(*CachedTransactionMetadata).Retain(),
-	)
+	handler.(func(*CachedTransactionEvent))(cachedTransactionRetain(params[0].(*CachedTransactionEvent)))
 }
 
 func cachedTransactionErrorEvent(handler interface{}, params ...interface{}) {
-	handler.(func(*transaction.CachedTransaction, *CachedTransactionMetadata, error))(
-		params[0].(*transaction.CachedTransaction).Retain(),
-		params[1].(*CachedTransactionMetadata).Retain(),
-		params[2].(error),
+	handler.(func(*CachedTransactionEvent, error))(
+		cachedTransactionRetain(params[0].(*CachedTransactionEvent)),
+		params[1].(error),
 	)
 }
 
 func cachedTransactionAttachmentEvent(handler interface{}, params ...interface{}) {
-	handler.(func(*transaction.CachedTransaction, *CachedTransactionMetadata, *CachedAttachment))(
-		params[0].(*transaction.CachedTransaction).Retain(),
-		params[1].(*CachedTransactionMetadata).Retain(),
-		params[2].(*CachedAttachment).Retain(),
-	)
+	handler.(func(*CachedAttachmentsEvent))(cachedAttachmentsRetain(params[0].(*CachedAttachmentsEvent)))
+}
+
+func cachedPayloadRetain(cachedPayload *CachedPayloadEvent) *CachedPayloadEvent {
+	return &CachedPayloadEvent{
+		Payload:         cachedPayload.Payload.Retain(),
+		PayloadMetadata: cachedPayload.PayloadMetadata.Retain(),
+	}
+}
+
+func cachedTransactionRetain(cachedTransaction *CachedTransactionEvent) *CachedTransactionEvent {
+	return &CachedTransactionEvent{
+		Transaction:         cachedTransaction.Transaction.Retain(),
+		TransactionMetadata: cachedTransaction.TransactionMetadata.Retain(),
+	}
+}
+
+func cachedTransactionBookRetain(cachedTransaction *CachedTransactionBookEvent) *CachedTransactionBookEvent {
+	return &CachedTransactionBookEvent{
+		Transaction:         cachedTransaction.Transaction.Retain(),
+		TransactionMetadata: cachedTransaction.TransactionMetadata.Retain(),
+		Pending:             cachedTransaction.Pending,
+	}
+}
+
+func forkRetain(forkEvent *ForkEvent) *ForkEvent {
+	return &ForkEvent{
+		Transaction:         forkEvent.Transaction.Retain(),
+		TransactionMetadata: forkEvent.TransactionMetadata.Retain(),
+		Branch:              forkEvent.Branch.Retain(),
+		InputIDs:            forkEvent.InputIDs,
+	}
+}
+
+func cachedAttachmentsRetain(cachedTransaction *CachedAttachmentsEvent) *CachedAttachmentsEvent {
+	return &CachedAttachmentsEvent{
+		Transaction:         cachedTransaction.Transaction.Retain(),
+		TransactionMetadata: cachedTransaction.TransactionMetadata.Retain(),
+		Attachments:         cachedTransaction.Attachments.Retain(),
+	}
 }

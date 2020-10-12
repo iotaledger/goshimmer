@@ -1,89 +1,64 @@
 package tangle
 
 import (
+	"fmt"
+
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
+	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 )
 
 // PayloadApprover is a database entity, that allows us to keep track of the "tangle structure" by encoding which
 // payload approves which other payload. It allows us to traverse the tangle in the opposite direction of the referenced
-// trunk and branch payloads.
+// parent1 and parent2 payloads.
 type PayloadApprover struct {
 	objectstorage.StorableObjectFlags
 
-	storageKey          []byte
 	referencedPayloadID payload.ID
 	approvingPayloadID  payload.ID
 }
 
 // NewPayloadApprover creates an approver object that encodes a single relation between an approved and an approving payload.
 func NewPayloadApprover(referencedPayload payload.ID, approvingPayload payload.ID) *PayloadApprover {
-	marshalUtil := marshalutil.New(payload.IDLength + payload.IDLength)
-	marshalUtil.WriteBytes(referencedPayload.Bytes())
-	marshalUtil.WriteBytes(approvingPayload.Bytes())
-
 	return &PayloadApprover{
 		referencedPayloadID: referencedPayload,
 		approvingPayloadID:  approvingPayload,
-		storageKey:          marshalUtil.Bytes(),
 	}
 }
 
 // PayloadApproverFromBytes unmarshals a PayloadApprover from a sequence of bytes.
-func PayloadApproverFromBytes(bytes []byte, optionalTargetObject ...*PayloadApprover) (result *PayloadApprover, consumedBytes int, err error) {
+func PayloadApproverFromBytes(bytes []byte) (result *PayloadApprover, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = ParsePayloadApprover(marshalUtil, optionalTargetObject...)
+	result, err = ParsePayloadApprover(marshalUtil)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
 // ParsePayloadApprover unmarshals a PayloadApprover using the given marshalUtil (for easier marshaling/unmarshaling).
-func ParsePayloadApprover(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*PayloadApprover) (result *PayloadApprover, err error) {
-	parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
-		return PayloadApproverFromStorageKey(data, optionalTargetObject...)
-	})
-	if parseErr != nil {
-		err = parseErr
-
+func ParsePayloadApprover(marshalUtil *marshalutil.MarshalUtil) (result *PayloadApprover, err error) {
+	result = &PayloadApprover{}
+	if result.referencedPayloadID, err = payload.ParseID(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse referenced payload id of approver: %w", err)
 		return
 	}
-
-	result = parsedObject.(*PayloadApprover)
-	_, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
-		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
-
+	if result.approvingPayloadID, err = payload.ParseID(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse approving payload id of approver: %w", err)
 		return
-	})
+	}
 
 	return
 }
 
-// PayloadApproverFromStorageKey get's called when we restore transaction metadata from the storage.
+// PayloadApproverFromObjectStorage get's called when we restore transaction metadata from the storage.
 // In contrast to other database models, it unmarshals the information from the key and does not use the UnmarshalObjectStorageValue
 // method.
-func PayloadApproverFromStorageKey(key []byte, optionalTargetObject ...*PayloadApprover) (result *PayloadApprover, consumedBytes int, err error) {
-	// determine the target object that will hold the unmarshaled information
-	switch len(optionalTargetObject) {
-	case 0:
-		result = &PayloadApprover{}
-	case 1:
-		result = optionalTargetObject[0]
-	default:
-		panic("too many arguments in call to PayloadApproverFromStorageKey")
+func PayloadApproverFromObjectStorage(key []byte, _ []byte) (result objectstorage.StorableObject, err error) {
+	result, _, err = PayloadMetadataFromBytes(key)
+	if err != nil {
+		err = fmt.Errorf("failed to parse approver from object storage: %w", err)
 	}
-
-	// parse the properties that are stored in the key
-	marshalUtil := marshalutil.New(key)
-	if result.referencedPayloadID, err = payload.ParseID(marshalUtil); err != nil {
-		return
-	}
-	if result.approvingPayloadID, err = payload.ParseID(marshalUtil); err != nil {
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-	result.storageKey = marshalutil.New(key[:consumedBytes]).Bytes(true)
 
 	return
 }
@@ -96,18 +71,12 @@ func (payloadApprover *PayloadApprover) ApprovingPayloadID() payload.ID {
 // ObjectStorageKey returns the key that is used to store the object in the database.
 // It is required to match StorableObject interface.
 func (payloadApprover *PayloadApprover) ObjectStorageKey() []byte {
-	return payloadApprover.storageKey
+	return byteutils.ConcatBytes(payloadApprover.referencedPayloadID.Bytes(), payloadApprover.approvingPayloadID.Bytes())
 }
 
 // ObjectStorageValue is implemented to conform with the StorableObject interface, but it does not really do anything,
 // since all of the information about an approver are stored in the "key".
 func (payloadApprover *PayloadApprover) ObjectStorageValue() (data []byte) {
-	return
-}
-
-// UnmarshalObjectStorageValue is implemented to conform with the StorableObject interface, but it does not really do
-// anything, since all of the information about an approver are stored in the "key".
-func (payloadApprover *PayloadApprover) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
 	return
 }
 

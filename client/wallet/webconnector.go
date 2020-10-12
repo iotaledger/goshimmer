@@ -1,8 +1,6 @@
 package wallet
 
 import (
-	"net/http"
-
 	"github.com/iotaledger/goshimmer/client"
 	walletaddr "github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
@@ -16,9 +14,9 @@ type WebConnector struct {
 }
 
 // NewWebConnector is the constructor for the WebConnector.
-func NewWebConnector(baseURL string, httpClient ...http.Client) *WebConnector {
+func NewWebConnector(baseURL string, setters ...client.Option) *WebConnector {
 	return &WebConnector{
-		client: client.NewGoShimmerAPI(baseURL, httpClient...),
+		client: client.NewGoShimmerAPI(baseURL, setters...),
 	}
 }
 

@@ -6,9 +6,9 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
@@ -31,7 +31,7 @@ var (
 )
 
 // LoadMessageFunc defines a function that returns the message for the given id.
-type LoadMessageFunc func(messageId message.ID) ([]byte, error)
+type LoadMessageFunc func(messageId tangle.MessageID) ([]byte, error)
 
 // The Manager handles the connected neighbors.
 type Manager struct {
@@ -317,7 +317,7 @@ func (m *Manager) processMessageRequest(data []byte, nbr *Neighbor) {
 		m.log.Debugw("invalid packet", "err", err)
 	}
 
-	msgID, _, err := message.IDFromBytes(packet.GetId())
+	msgID, _, err := tangle.MessageIDFromBytes(packet.GetId())
 	if err != nil {
 		m.log.Debugw("invalid message id:", "err", err)
 	}

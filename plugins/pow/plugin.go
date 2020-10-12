@@ -1,8 +1,7 @@
 package pow
 
 import (
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/messagefactory"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/messageparser/builtinfilters"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
@@ -30,6 +29,6 @@ func run(*node.Plugin) {
 
 	log.Infof("%s started: difficult=%d", PluginName, difficulty)
 
-	messagelayer.MessageParser().AddBytesFilter(builtinfilters.NewPowFilter(worker, difficulty))
-	messagelayer.MessageFactory().SetWorker(messagefactory.WorkerFunc(DoPOW))
+	messagelayer.MessageParser().AddBytesFilter(tangle.NewPowFilter(worker, difficulty))
+	messagelayer.MessageFactory().SetWorker(tangle.WorkerFunc(DoPOW))
 }

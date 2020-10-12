@@ -29,6 +29,18 @@ type Events struct {
 	BranchRejected *events.Event
 }
 
+func newEvents() *Events {
+	return &Events{
+		BranchPreferred:   events.NewEvent(branchCaller),
+		BranchUnpreferred: events.NewEvent(branchCaller),
+		BranchLiked:       events.NewEvent(branchCaller),
+		BranchDisliked:    events.NewEvent(branchCaller),
+		BranchFinalized:   events.NewEvent(branchCaller),
+		BranchConfirmed:   events.NewEvent(branchCaller),
+		BranchRejected:    events.NewEvent(branchCaller),
+	}
+}
+
 func branchCaller(handler interface{}, params ...interface{}) {
 	handler.(func(branch *CachedBranch))(params[0].(*CachedBranch).Retain())
 }

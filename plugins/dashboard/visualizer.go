@@ -1,9 +1,8 @@
 package dashboard
 
 import (
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
@@ -18,10 +17,10 @@ var (
 
 // vertex defines a vertex in a DAG.
 type vertex struct {
-	ID       string `json:"id"`
-	TrunkID  string `json:"trunk_id"`
-	BranchID string `json:"branch_id"`
-	IsSolid  bool   `json:"is_solid"`
+	ID        string `json:"id"`
+	Parent1ID string `json:"parent1_id"`
+	Parent2ID string `json:"parent2_id"`
+	IsSolid   bool   `json:"is_solid"`
 }
 
 // tipinfo holds information about whether a given message is a tip or not.
@@ -34,9 +33,9 @@ func configureVisualizer() {
 	visualizerWorkerPool = workerpool.New(func(task workerpool.Task) {
 
 		switch x := task.Param(0).(type) {
-		case *message.CachedMessage:
+		case *tangle.CachedMessage:
 			sendVertex(x, task.Param(1).(*tangle.CachedMessageMetadata))
-		case message.ID:
+		case tangle.MessageID:
 			sendTipInfo(x, task.Param(1).(bool))
 		}
 
@@ -44,7 +43,7 @@ func configureVisualizer() {
 	}, workerpool.WorkerCount(visualizerWorkerCount), workerpool.QueueSize(visualizerWorkerQueueSize))
 }
 
-func sendVertex(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
+func sendVertex(cachedMessage *tangle.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
 	defer cachedMessage.Release()
 	defer cachedMessageMetadata.Release()
 
@@ -53,14 +52,14 @@ func sendVertex(cachedMessage *message.CachedMessage, cachedMessageMetadata *tan
 		return
 	}
 	broadcastWsMessage(&wsmsg{MsgTypeVertex, &vertex{
-		ID:       msg.ID().String(),
-		TrunkID:  msg.TrunkID().String(),
-		BranchID: msg.BranchID().String(),
-		IsSolid:  cachedMessageMetadata.Unwrap().IsSolid(),
+		ID:        msg.ID().String(),
+		Parent1ID: msg.Parent1ID().String(),
+		Parent2ID: msg.Parent2ID().String(),
+		IsSolid:   cachedMessageMetadata.Unwrap().IsSolid(),
 	}}, true)
 }
 
-func sendTipInfo(messageID message.ID, isTip bool) {
+func sendTipInfo(messageID tangle.MessageID, isTip bool) {
 	broadcastWsMessage(&wsmsg{MsgTypeTipInfo, &tipinfo{
 		ID:    messageID.String(),
 		IsTip: isTip,
@@ -68,21 +67,21 @@ func sendTipInfo(messageID message.ID, isTip bool) {
 }
 
 func runVisualizer() {
-	notifyNewMsg := events.NewClosure(func(message *message.CachedMessage, metadata *tangle.CachedMessageMetadata) {
-		defer message.Release()
-		defer metadata.Release()
-		_, ok := visualizerWorkerPool.TrySubmit(message.Retain(), metadata.Retain())
+	notifyNewMsg := events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
+		defer cachedMsgEvent.Message.Release()
+		defer cachedMsgEvent.MessageMetadata.Release()
+		_, ok := visualizerWorkerPool.TrySubmit(cachedMsgEvent.Message.Retain(), cachedMsgEvent.MessageMetadata.Retain())
 		if !ok {
-			message.Release()
-			metadata.Release()
+			cachedMsgEvent.Message.Release()
+			cachedMsgEvent.MessageMetadata.Release()
 		}
 	})
 
-	notifyNewTip := events.NewClosure(func(messageId message.ID) {
+	notifyNewTip := events.NewClosure(func(messageId tangle.MessageID) {
 		visualizerWorkerPool.TrySubmit(messageId, true)
 	})
 
-	notifyDeletedTip := events.NewClosure(func(messageId message.ID) {
+	notifyDeletedTip := events.NewClosure(func(messageId tangle.MessageID) {
 		visualizerWorkerPool.TrySubmit(messageId, false)
 	})
 

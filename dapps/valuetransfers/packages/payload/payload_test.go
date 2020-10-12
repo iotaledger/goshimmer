@@ -12,7 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
 func ExamplePayload() {
@@ -34,10 +34,10 @@ func ExamplePayload() {
 
 	// 2. create value payload (the ontology creates this and wraps the user provided transfer accordingly)
 	valuePayload := New(
-		// trunk in "value transfer ontology" (filled by ontology tipSelector)
+		// parent1 in "value transfer ontology" (filled by ontology tipSelector)
 		GenesisID,
 
-		// branch in "value transfer ontology"  (filled by ontology tipSelector)
+		// parent2 in "value transfer ontology"  (filled by ontology tipSelector)
 		GenesisID,
 
 		// value transfer
@@ -45,12 +45,12 @@ func ExamplePayload() {
 	)
 
 	// 3. build actual transaction (the base layer creates this and wraps the ontology provided payload)
-	tx := message.New(
-		// trunk in "network tangle" ontology (filled by tipSelector)
-		message.EmptyID,
+	tx := tangle.NewMessage(
+		// parent1 in "network tangle" ontology (filled by tipSelector)
+		tangle.EmptyMessageID,
 
-		// branch in "network tangle" ontology (filled by tipSelector)
-		message.EmptyID,
+		// parent2 in "network tangle" ontology (filled by tipSelector)
+		tangle.EmptyMessageID,
 
 		// the time when the transaction was created
 		time.Now(),
@@ -110,8 +110,8 @@ func TestPayload(t *testing.T) {
 		panic(err)
 	}
 
-	assert.Equal(t, originalPayload.BranchID(), clonedPayload1.BranchID())
-	assert.Equal(t, originalPayload.TrunkID(), clonedPayload1.TrunkID())
+	assert.Equal(t, originalPayload.Parent2ID(), clonedPayload1.Parent2ID())
+	assert.Equal(t, originalPayload.Parent1ID(), clonedPayload1.Parent1ID())
 	assert.Equal(t, originalPayload.Transaction().Bytes(), clonedPayload1.Transaction().Bytes())
 	assert.Equal(t, originalPayload.ID(), clonedPayload1.ID())
 	assert.Equal(t, true, clonedPayload1.Transaction().SignaturesValid())

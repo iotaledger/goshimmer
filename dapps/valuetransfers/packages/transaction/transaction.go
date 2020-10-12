@@ -64,54 +64,106 @@ func New(inputs *Inputs, outputs *Outputs) *Transaction {
 }
 
 // FromBytes unmarshals a Transaction from a sequence of bytes.
-func FromBytes(bytes []byte, optionalTargetObject ...*Transaction) (result *Transaction, consumedBytes int, err error) {
+func FromBytes(bytes []byte) (result *Transaction, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = Parse(marshalUtil, optionalTargetObject...)
+	result, err = Parse(marshalUtil)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
-// FromStorageKey is a factory method that creates a new Transaction instance from a storage key of the objectstorage.
+// FromObjectStorage is a factory method that creates a new Transaction instance from a storage key of the objectstorage.
 // It is used by the objectstorage, to create new instances of this entity.
-func FromStorageKey(key []byte, optionalTargetObject ...*Transaction) (result objectstorage.StorableObject, consumedBytes int, err error) {
-	// determine the target object that will hold the unmarshaled information
-	switch len(optionalTargetObject) {
-	case 0:
-		result = &Transaction{}
-	case 1:
-		result = optionalTargetObject[0]
-	default:
-		panic("too many arguments in call to FromStorageKey")
-	}
-
-	marshalUtil := marshalutil.New(key)
-	id, err := ParseID(marshalUtil)
+func FromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
+	// parse the message
+	transaction, err := Parse(marshalutil.New(data))
 	if err != nil {
+		err = fmt.Errorf("failed to parse transaction from object storage: %w", err)
 		return
 	}
-	result.(*Transaction).id = &id
+
+	id, err := ParseID(marshalutil.New(key))
+	if err != nil {
+		err = fmt.Errorf("failed to parse transaction ID from object storage: %w", err)
+		return
+	}
+	transaction.id = &id
+
+	// assign result
+	result = transaction
 
 	return
 }
 
 // Parse unmarshals a Transaction using the given marshalUtil (for easier marshaling/unmarshaling).
-func Parse(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Transaction) (result *Transaction, err error) {
-	// determine the target object that will hold the unmarshaled information
-	switch len(optionalTargetObject) {
-	case 0:
-		result = &Transaction{}
-	case 1:
-		result = optionalTargetObject[0]
-	default:
-		panic("too many arguments in call to Parse")
+func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Transaction, err error) {
+	// determine read offset before starting to parse
+	readOffsetStart := marshalUtil.ReadOffset()
+
+	// parse information
+	result = &Transaction{}
+
+	// unmarshal inputs
+	parsedInputs, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return InputsFromBytes(data) })
+	if err != nil {
+		err = fmt.Errorf("failed to parse inputs of transaction: %w", err)
+		return
+	}
+	result.inputs = parsedInputs.(*Inputs)
+
+	// unmarshal outputs
+	parsedOutputs, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return OutputsFromBytes(data) })
+	if err != nil {
+		err = fmt.Errorf("failed to parse outputs of transaction: %w", err)
+		return
+	}
+	result.outputs = parsedOutputs.(*Outputs)
+
+	// unmarshal data payload size
+	var dataPayloadSize uint32
+	dataPayloadSize, err = marshalUtil.ReadUint32()
+	if err != nil {
+		err = fmt.Errorf("failed to parse data payload size of transaction: %w", err)
+		return
 	}
 
-	_, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
-		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
-
+	// unmarshal data payload
+	result.dataPayload, err = marshalUtil.ReadBytes(int(dataPayloadSize))
+	if err != nil {
+		err = fmt.Errorf("failed to parse data payload of transaction: %w", err)
 		return
-	})
+	}
+
+	// store essence bytes
+	essenceBytesCount := marshalUtil.ReadOffset() - readOffsetStart
+	result.essenceBytes, err = marshalUtil.ReadBytes(essenceBytesCount, readOffsetStart)
+	if err != nil {
+		err = fmt.Errorf("failed to parse essence bytes of transaction: %w", err)
+		return
+	}
+
+	// unmarshal signatures
+	parsedSignatures, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return SignaturesFromBytes(data) })
+	if err != nil {
+		err = fmt.Errorf("failed to parse signatures of transaction: %w", err)
+		return
+	}
+	result.signatures = parsedSignatures.(*Signatures)
+
+	// store signature bytes
+	signatureBytesCount := marshalUtil.ReadOffset() - readOffsetStart - essenceBytesCount
+	result.signatureBytes, err = marshalUtil.ReadBytes(signatureBytesCount, readOffsetStart+essenceBytesCount)
+	if err != nil {
+		err = fmt.Errorf("failed to parse signature bytes of transaction: %w", err)
+		return
+	}
+
+	// store bytes, so we don't have to marshal manually
+	result.bytes, err = marshalUtil.ReadBytes(essenceBytesCount+signatureBytesCount, readOffsetStart)
+	if err != nil {
+		err = fmt.Errorf("failed to parse bytes of transaction: %w", err)
+		return
+	}
 
 	return
 }
@@ -377,64 +429,6 @@ func (transaction *Transaction) Update(other objectstorage.StorableObject) {
 // ObjectStorageValue returns a bytes representation of the Transaction by implementing the encoding.BinaryMarshaler interface.
 func (transaction *Transaction) ObjectStorageValue() []byte {
 	return transaction.Bytes()
-}
-
-// UnmarshalObjectStorageValue unmarshals the bytes that are stored in the value of the objectstorage.
-func (transaction *Transaction) UnmarshalObjectStorageValue(bytes []byte) (consumedBytes int, err error) {
-	// initialize helper
-	marshalUtil := marshalutil.New(bytes)
-
-	// unmarshal inputs
-	parsedInputs, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return InputsFromBytes(data) })
-	if err != nil {
-		return
-	}
-	transaction.inputs = parsedInputs.(*Inputs)
-
-	// unmarshal outputs
-	parsedOutputs, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return OutputsFromBytes(data) })
-	if err != nil {
-		return
-	}
-	transaction.outputs = parsedOutputs.(*Outputs)
-
-	// unmarshal data payload size
-	var dataPayloadSize uint32
-	dataPayloadSize, err = marshalUtil.ReadUint32()
-	if err != nil {
-		return
-	}
-
-	// unmarshal data payload
-	transaction.dataPayload, err = marshalUtil.ReadBytes(int(dataPayloadSize))
-	if err != nil {
-		return
-	}
-
-	// store essence bytes
-	essenceBytesCount := marshalUtil.ReadOffset()
-	transaction.essenceBytes = make([]byte, essenceBytesCount)
-	copy(transaction.essenceBytes, bytes[:essenceBytesCount])
-
-	// unmarshal outputs
-	parsedSignatures, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return SignaturesFromBytes(data) })
-	if err != nil {
-		return
-	}
-	transaction.signatures = parsedSignatures.(*Signatures)
-
-	// store signature bytes
-	signatureBytesCount := marshalUtil.ReadOffset() - essenceBytesCount
-	transaction.signatureBytes = make([]byte, signatureBytesCount)
-	copy(transaction.signatureBytes, bytes[essenceBytesCount:essenceBytesCount+signatureBytesCount])
-
-	// return the number of bytes we processed
-	consumedBytes = essenceBytesCount + signatureBytesCount
-
-	// store bytes, so we don't have to marshal manually
-	transaction.bytes = bytes[:consumedBytes]
-
-	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

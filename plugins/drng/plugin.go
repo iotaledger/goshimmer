@@ -3,11 +3,8 @@ package drng
 import (
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/binary/drng"
-	"github.com/iotaledger/goshimmer/packages/binary/drng/payload"
-	"github.com/iotaledger/goshimmer/packages/binary/drng/payload/header"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
+	"github.com/iotaledger/goshimmer/packages/drng"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
@@ -42,19 +39,23 @@ func configure(_ *node.Plugin) {
 func run(*node.Plugin) {}
 
 func configureEvents() {
-	instance := Instance()
-	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
-		cachedMessageMetadata.Release()
+	// skip the event configuration if no committee has been configured.
+	if len(Instance().State) == 0 {
+		return
+	}
 
-		cachedMessage.Consume(func(msg *message.Message) {
-			if msg.Payload().Type() != payload.Type {
+	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
+		cachedMsgEvent.MessageMetadata.Release()
+
+		cachedMsgEvent.Message.Consume(func(msg *tangle.Message) {
+			if msg.Payload().Type() != drng.PayloadType {
 				return
 			}
-			if len(msg.Payload().Bytes()) < header.Length {
+			if len(msg.Payload().Bytes()) < drng.HeaderLength {
 				return
 			}
 			marshalUtil := marshalutil.New(msg.Payload().Bytes())
-			parsedPayload, err := payload.Parse(marshalUtil)
+			parsedPayload, err := drng.PayloadFromMarshalUtil(marshalUtil)
 			if err != nil {
 				//TODO: handle error
 				log.Debug(err)
@@ -65,7 +66,7 @@ func configureEvents() {
 				log.Debug(err)
 				return
 			}
-			log.Debug("New randomness: ", instance.State.Randomness())
+			log.Debug("New randomness: ", instance.State[parsedPayload.InstanceID].Randomness())
 		})
 	}))
 }
