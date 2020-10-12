@@ -230,7 +230,7 @@ func TestBaseManaVector_BookMana(t *testing.T) {
 		assert.InDelta(t, afterBookingAmount[ev.NodeID], ev.AmountBM2, delta)
 		assert.Equal(t, txTime, ev.Time)
 		assert.Equal(t, txInfo.TransactionID, ev.TransactionID)
-		assert.Equal(t, AccessMana, ev.Type)
+		assert.Equal(t, AccessMana, ev.ManaType)
 		assert.Contains(t, pledgedNodeIds, ev.NodeID)
 		delete(pledgedNodeIds, ev.NodeID)
 	}
