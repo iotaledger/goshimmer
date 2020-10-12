@@ -9,7 +9,7 @@ interface Props {
 }
 
 @observer
-export default class ManaRichest extends React.Component<Props, any> {
+export default class ManaLeaderboard extends React.Component<Props, any> {
     render() {
         return (
             <Card>

@@ -396,14 +396,14 @@ export class ManaStore {
                 <Row>
                     <Col xs={1} className="m-auto">
                     </Col>
-                    <Col xs={5}>
-                        Time
-                    </Col>
                     <Col>
                         NodeID
                     </Col>
                     <Col>
                         Tx ID
+                    </Col>
+                    <Col xs={5}>
+                        Time
                     </Col>
                 </Row>
             </ListGroupItem>
@@ -439,14 +439,14 @@ export class ManaStore {
                                 <Col xs={1} className="m-auto">
                                     <img src={Plus} alt="Plus" width={'20px'} className="d-block mx-auto"/>
                                 </Col>
-                                <Col xs={5}>
-                                    {element.time.toLocaleString()}
-                                </Col>
                                 <Col>
                                     {element.nodeID}
                                 </Col>
                                 <Col>
                                     {element.txID.substring(0, 10) + '...'}
+                                </Col>
+                                <Col xs={5}>
+                                    {element.time.toLocaleString()}
                                 </Col>
                             </Row>
                         </ListGroupItem>
@@ -479,14 +479,14 @@ export class ManaStore {
                                 <Col xs={1}>
                                     <img src={Minus} alt="Minus" width={'20px'} className=""/>
                                 </Col>
-                                <Col xs={5}>
-                                    {element.time.toLocaleString()}
-                                </Col>
                                 <Col>
                                     {element.nodeID}
                                 </Col>
                                 <Col>
                                     {element.txID.substring(0, 10) + '...'}
+                                </Col>
+                                <Col xs={5}>
+                                    {element.time.toLocaleString()}
                                 </Col>
                             </Row>
                         </ListGroupItem>

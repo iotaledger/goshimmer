@@ -4,7 +4,7 @@ import Row from "react-bootstrap/Row";
 import NodeStore from "app/stores/NodeStore";
 import {inject, observer} from "mobx-react";
 import ManaChart from "app/components/ManaChart";
-import RichestMana from "app/components/ManaRichest";
+import ManaLeaderboard from "app/components/ManaLeaderboard";
 import ManaHistogram from "app/components/ManaHistogram";
 import {Badge, Card, Col} from "react-bootstrap";
 import {ManaStore} from "app/stores/ManaStore";
@@ -162,18 +162,18 @@ export class Mana extends React.Component<Props, any> {
                 </Row>
                 <Row className={"mb-3"}>
                     <Col>
-                        <RichestMana data={manaStore.networkRichestFeedAccess} title={"Access Leaderboard"}/>
+                        <ManaLeaderboard data={manaStore.networkRichestFeedAccess} title={"Access Leaderboard"}/>
                     </Col>
                     <Col>
-                        <RichestMana data={manaStore.networkRichestFeedConsensus} title={"Consensus Leaderboard"}/>
+                        <ManaLeaderboard data={manaStore.networkRichestFeedConsensus} title={"Consensus Leaderboard"}/>
                     </Col>
                 </Row>
                 <Row className={"mb-3"}>
                     <Col>
-                        <RichestMana data={manaStore.activeRichestFeedAccess} title={"Active Access Leaderboard"}/>
+                        <ManaLeaderboard data={manaStore.activeRichestFeedAccess} title={"Active Access Leaderboard"}/>
                     </Col>
                     <Col>
-                        <RichestMana data={manaStore.activeRichestFeedConsensus} title={"Active Consensus Leaderboard"}/>
+                        <ManaLeaderboard data={manaStore.activeRichestFeedConsensus} title={"Active Consensus Leaderboard"}/>
                     </Col>
                 </Row>
                 <Row className={"mb-3"}>
