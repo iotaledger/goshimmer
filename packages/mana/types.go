@@ -21,3 +21,12 @@ func (t Type) String() string {
 		return "Unknown Mana Type"
 	}
 }
+
+const (
+	// OnlyMana1 takes only EBM1 into account when getting the mana values.
+	OnlyMana1 float64 = 0
+	// OnlyMana2 takes only EBM2 into account when getting the mana values.
+	OnlyMana2 float64 = 1.0
+	// Mixed takes both EBM1 and EBM2 into account (50-50) when getting the mana values.
+	Mixed float64 = 0.5
+)

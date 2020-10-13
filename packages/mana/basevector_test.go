@@ -434,47 +434,23 @@ func TestBaseManaVector_UpdateAll(t *testing.T) {
 	assert.Empty(t, updatedNodeIds)
 }
 
-func TestBaseManaVector_GetWeightedMana(t *testing.T) {
-	// let's use an Access Base Mana Vector
-	bmv := NewBaseManaVector(AccessMana)
-	randID := randNodeID()
-	mana, err := bmv.GetWeightedMana(randID, 0.5)
-	assert.Equal(t, 0.0, mana)
-	assert.Error(t, err)
-
-	bmv.SetMana(randID, &BaseMana{})
-	mana, err = bmv.GetWeightedMana(randID, -0.5)
-	assert.Equal(t, 0.0, mana)
-	assert.Error(t, err)
-	assert.Equal(t, ErrInvalidWeightParameter, err)
-	mana, err = bmv.GetWeightedMana(randID, 1.5)
-	assert.Equal(t, 0.0, mana)
-	assert.Error(t, err)
-	assert.Equal(t, ErrInvalidWeightParameter, err)
-
-	bmv.SetMana(randID, &BaseMana{
-		BaseMana1:          10.0,
-		EffectiveBaseMana1: 10.0,
-		BaseMana2:          1.0,
-		EffectiveBaseMana2: 1.0,
-		LastUpdated:        time.Now(),
-	})
-
-	mana, err = bmv.GetWeightedMana(randID, 0.5)
-	assert.NoError(t, err)
-	assert.InDelta(t, 5.5, mana, delta)
-	mana, err = bmv.GetWeightedMana(randID, 1)
-	assert.NoError(t, err)
-	assert.InDelta(t, 10.0, mana, delta)
-	mana, err = bmv.GetWeightedMana(randID, 0)
-	assert.NoError(t, err)
-	assert.InDelta(t, 1.0, mana, delta)
-}
-
 func TestBaseManaVector_GetMana(t *testing.T) {
 	// let's use an Access Base Mana Vector
 	bmv := NewBaseManaVector(AccessMana)
 	randID := randNodeID()
+	mana, err := bmv.GetMana(randID, 0.5)
+	assert.Equal(t, 0.0, mana)
+	assert.Error(t, err)
+
+	bmv.SetMana(randID, &BaseMana{})
+	mana, err = bmv.GetMana(randID, -0.5)
+	assert.Equal(t, 0.0, mana)
+	assert.Error(t, err)
+	assert.Equal(t, ErrInvalidWeightParameter, err)
+	mana, err = bmv.GetMana(randID, 1.5)
+	assert.Equal(t, 0.0, mana)
+	assert.Error(t, err)
+	assert.Equal(t, ErrInvalidWeightParameter, err)
 
 	bmv.SetMana(randID, &BaseMana{
 		BaseMana1:          10.0,
@@ -484,9 +460,15 @@ func TestBaseManaVector_GetMana(t *testing.T) {
 		LastUpdated:        time.Now(),
 	})
 
-	mana, err := bmv.GetMana(randID)
+	mana, err = bmv.GetMana(randID, 0.5)
 	assert.NoError(t, err)
 	assert.InDelta(t, 5.5, mana, delta)
+	mana, err = bmv.GetMana(randID, 1)
+	assert.NoError(t, err)
+	assert.InDelta(t, 10.0, mana, delta)
+	mana, err = bmv.GetMana(randID, 0)
+	assert.NoError(t, err)
+	assert.InDelta(t, 1.0, mana, delta)
 }
 
 func TestBaseManaVector_ForEach(t *testing.T) {
@@ -523,7 +505,8 @@ func TestBaseManaVector_GetManaMap(t *testing.T) {
 	bmv := NewBaseManaVector(AccessMana)
 
 	// empty vector returns empty map
-	manaMap := bmv.GetManaMap()
+	manaMap, err := bmv.GetManaMap(Mixed)
+	assert.NoError(t, err)
 	assert.Empty(t, manaMap)
 
 	now := time.Now()
@@ -541,7 +524,8 @@ func TestBaseManaVector_GetManaMap(t *testing.T) {
 		nodeIDs[id] = 0
 	}
 
-	manaMap = bmv.GetManaMap()
+	manaMap, err = bmv.GetManaMap(Mixed)
+	assert.NoError(t, err)
 	assert.Equal(t, 100, len(manaMap))
 	for nodeID, mana := range manaMap {
 		assert.InDelta(t, 5.5, mana, delta)
@@ -571,13 +555,15 @@ func TestBaseManaVector_GetHighestManaNodes(t *testing.T) {
 	}
 
 	// requesting the top mana holder
-	result := bmv.GetHighestManaNodes(1)
+	result, err := bmv.GetHighestManaNodes(1, Mixed)
+	assert.NoError(t, err)
 	assert.Equal(t, 1, len(result))
 	assert.Equal(t, nodeIDs[9], result[0].ID)
 	assert.InDelta(t, 9.0, result[0].Mana, delta)
 
 	// requesting top 3 mana holders
-	result = bmv.GetHighestManaNodes(3)
+	result, err = bmv.GetHighestManaNodes(3, Mixed)
+	assert.NoError(t, err)
 	assert.Equal(t, 3, len(result))
 	assert.InDelta(t, 9.0, result[0].Mana, delta)
 	for index, value := range result {
@@ -589,7 +575,8 @@ func TestBaseManaVector_GetHighestManaNodes(t *testing.T) {
 	}
 
 	// requesting more, than there currently are in the vector
-	result = bmv.GetHighestManaNodes(20)
+	result, err = bmv.GetHighestManaNodes(20, Mixed)
+	assert.NoError(t, err)
 	assert.Equal(t, 10, len(result))
 	for index, value := range result {
 		assert.Equal(t, nodeIDs[9-index], value.ID)
