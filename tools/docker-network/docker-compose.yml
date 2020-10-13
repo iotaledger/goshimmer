@@ -47,6 +47,7 @@ services:
       --valueLayer.snapshot.file=/tmp/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin
       --syncbeacon.broadcastInterval=5
       --syncbeacon.startSynced=true
+      --metrics.manaResearch=true
     volumes:
       - ./config.docker.json:/tmp/config.json:ro
       - goshimmer-cache:/go
