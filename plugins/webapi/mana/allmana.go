@@ -10,11 +10,21 @@ import (
 
 // getAllManaHandler handles the request.
 func getAllManaHandler(c echo.Context) error {
-	access := manaPlugin.GetManaMap(manaPkg.AccessMana).ToNodeStrList()
-	consensus := manaPlugin.GetManaMap(manaPkg.ConsensusMana).ToNodeStrList()
+	access, err := manaPlugin.GetManaMap(manaPkg.AccessMana, manaPkg.Mixed)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, getAllManaResponse{
+			Error: err.Error(),
+		})
+	}
+	consensus, err := manaPlugin.GetManaMap(manaPkg.ConsensusMana, manaPkg.Mixed)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, getAllManaResponse{
+			Error: err.Error(),
+		})
+	}
 	return c.JSON(http.StatusOK, getAllManaResponse{
-		Access:    access,
-		Consensus: consensus,
+		Access:    access.ToNodeStrList(),
+		Consensus: consensus.ToNodeStrList(),
 	})
 }
 
@@ -22,4 +32,5 @@ func getAllManaHandler(c echo.Context) error {
 type getAllManaResponse struct {
 	Access    []manaPkg.NodeStr `json:"access"`
 	Consensus []manaPkg.NodeStr `json:"consensus"`
+	Error     string            `json:"error,omitempty"`
 }

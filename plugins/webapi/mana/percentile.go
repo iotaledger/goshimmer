@@ -25,18 +25,26 @@ func getPercentileHandler(c echo.Context) error {
 	if ID == emptyID {
 		ID = local.GetInstance().ID()
 	}
-	access, err := manaPlugin.GetManaMap(manaPkg.AccessMana).GetPercentile(ID)
+	access, err := manaPlugin.GetManaMap(manaPkg.AccessMana, manaPkg.Mixed)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, GetPercentileResponse{Error: err.Error()})
 	}
-	consensus, err := manaPlugin.GetManaMap(manaPkg.ConsensusMana).GetPercentile(ID)
+	accessPercentile, err := access.GetPercentile(ID)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, GetPercentileResponse{Error: err.Error()})
+	}
+	consensus, err := manaPlugin.GetManaMap(manaPkg.ConsensusMana, manaPkg.Mixed)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, GetPercentileResponse{Error: err.Error()})
+	}
+	consensusPercentile, err := consensus.GetPercentile(ID)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, GetPercentileResponse{Error: err.Error()})
 	}
 	return c.JSON(http.StatusOK, GetPercentileResponse{
 		Node:      base58.Encode(ID.Bytes()),
-		Access:    access,
-		Consensus: consensus,
+		Access:    accessPercentile,
+		Consensus: consensusPercentile,
 	})
 }
 

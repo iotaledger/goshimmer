@@ -25,7 +25,10 @@ func nHighestHandler(c echo.Context, manaType manaPkg.Type) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, GetNHighestResponse{Error: err.Error()})
 	}
-	highestNodes := manaPlugin.GetHighestManaNodes(manaType, uint(number))
+	highestNodes, err := manaPlugin.GetHighestManaNodes(manaType, uint(number), manaPkg.Mixed)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, GetNHighestResponse{Error: err.Error()})
+	}
 	var res []manaPkg.NodeStr
 	for _, n := range highestNodes {
 		res = append(res, n.ToNodeStr())
