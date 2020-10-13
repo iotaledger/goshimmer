@@ -99,6 +99,21 @@ func run(_ *node.Plugin) {
 	}, shutdown.PriorityMetrics); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
+
+	if config.Node().GetBool(CfgMetricsManaResearch) {
+		// create a background worker that updates the research mana metrics
+		if err := daemon.BackgroundWorker("Metrics Research Mana Updater", func(shutdownSignal <-chan struct{}) {
+			defer log.Infof("Stopping Metrics Research Mana Updater ... done")
+			timeutil.Ticker(func() {
+				measureManaBM1()
+				measureManaBM2()
+			}, time.Second*time.Duration(config.Node().GetUint(CfgManaUpdateInterval)), shutdownSignal)
+
+			log.Infof("Stopping Metrics Research Mana Updater ...")
+		}, shutdown.PriorityMetrics); err != nil {
+			log.Panicf("Failed to start as daemon: %s", err)
+		}
+	}
 }
 
 func registerLocalMetrics() {

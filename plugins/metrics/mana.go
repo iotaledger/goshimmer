@@ -65,7 +65,7 @@ func ConsensusManaMap() mana.NodeMap {
 }
 
 func measureMana() {
-	tmp := manaPlugin.GetAllManaMaps()
+	tmp := manaPlugin.GetAllManaMaps(mana.Mixed)
 	accessLock.Lock()
 	defer accessLock.Unlock()
 	accessMap = tmp[mana.AccessMana]
