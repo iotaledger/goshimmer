@@ -16,8 +16,8 @@
   "editable": true,
   "gnetId": null,
   "graphTooltip": 0,
-  "id": 5,
-  "iteration": 1602601061179,
+  "id": 6,
+  "iteration": 1602603298633,
   "links": [],
   "panels": [
     {
@@ -2173,7 +2173,7 @@
         "threshold": 0
       },
       "datasource": "Prometheus",
-      "description": "Allocation of consensus mana of nodes in the network by taking into account only EBM2.",
+      "description": "Allocation of consensus mana of nodes in the network by taking into account 50% EBM1 and 50% EBM2.",
       "fieldConfig": {
         "defaults": {
           "custom": {},
@@ -2205,7 +2205,7 @@
       "strokeWidth": 1,
       "targets": [
         {
-          "expr": "mana_research_consensus{method=\"bm2\"}",
+          "expr": "mana_consensus",
           "interval": "",
           "legendFormat": "{{nodeID}}",
           "refId": "A"
@@ -2213,7 +2213,7 @@
       ],
       "timeFrom": null,
       "timeShift": null,
-      "title": "Consensus Mana 2 Allocation",
+      "title": "Consensus Mana Mixed Allocation",
       "type": "grafana-piechart-panel",
       "valueName": "current"
     },
@@ -2973,5 +2973,5 @@
   "timezone": "",
   "title": "GoShimmer Mana Research",
   "uid": "kjOQZ2ZMo",
-  "version": 8
+  "version": 4
 }
