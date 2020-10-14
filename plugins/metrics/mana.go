@@ -184,7 +184,7 @@ func measureMana() {
 	cPer, _ := consensusMap.GetPercentile(local.GetInstance().ID())
 	consensusPercentile.Store(cPer)
 
-	accessMap, _ := manaPlugin.GetNeighborsMana(mana.AccessMana)
+	accessMap, _ := manaPlugin.GetNeighborsMana(mana.AccessMana, mana.Mixed)
 	accessSum, accessAvg := 0.0, 0.0
 	for _, v := range accessMap {
 		accessSum += v
@@ -194,7 +194,7 @@ func measureMana() {
 	}
 	averageNeighborsAccess.Store(accessAvg)
 
-	consensusMap, _ := manaPlugin.GetNeighborsMana(mana.ConsensusMana)
+	consensusMap, _ := manaPlugin.GetNeighborsMana(mana.ConsensusMana, mana.Mixed)
 	consensusSum, consensusAvg := 0.0, 0.0
 	for _, v := range consensusMap {
 		consensusSum += v
