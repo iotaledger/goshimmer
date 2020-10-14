@@ -8,6 +8,7 @@ import (
 	valuetangle "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
+	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/vote"
@@ -224,5 +225,10 @@ func registerLocalMetrics() {
 	}))
 	metrics.Events().QueryReplyError.Attach(events.NewClosure(func(ev *metrics.QueryReplyErrorEvent) {
 		processQueryReplyError(ev)
+	}))
+
+	// mana pledge events
+	mana.Events().Pledged.Attach(events.NewClosure(func(ev *mana.PledgedEvent) {
+		addPledge(ev)
 	}))
 }
