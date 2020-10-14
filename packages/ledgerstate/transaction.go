@@ -117,6 +117,11 @@ type Transaction struct {
 
 // NewTransaction create a new Transaction from the given details.
 func NewTransaction(essence *TransactionEssence, unlockBlocks UnlockBlocks) *Transaction {
+	// panic if we create a syntactically invalid transaction
+	if len(essence.Inputs()) != len(unlockBlocks) {
+		panic("amount of UnlockBlocks does not match amount of Inputs")
+	}
+
 	return &Transaction{
 		essence:      essence,
 		unlockBlocks: unlockBlocks,
@@ -237,6 +242,18 @@ func NewTransactionEssence(version TransactionEssenceVersion, inputs Inputs, out
 	}
 }
 
+// TransactionEssenceFromBytes unmarshals an Transaction from a sequence of bytes.
+func TransactionEssenceFromBytes(bytes []byte) (transactionEssence *TransactionEssence, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(bytes)
+	if transactionEssence, err = TransactionEssenceFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse TransactionEssence from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
 // TransactionEssenceFromMarshalUtil unmarshals a TransactionEssence using a MarshalUtil (for easier unmarshaling).
 func TransactionEssenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transactionEssence *TransactionEssence, err error) {
 	transactionEssence = &TransactionEssence{}
@@ -258,6 +275,15 @@ func TransactionEssenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (tr
 	}
 
 	return
+}
+
+// Inputs returns the Inputs of the TransactionEssence.
+func (t *TransactionEssence) Inputs() Inputs {
+	return t.inputs
+}
+
+func (t *TransactionEssence) Outputs() Outputs {
+	return t.outputs
 }
 
 // Bytes returns a marshaled version of the TransactionEssence.

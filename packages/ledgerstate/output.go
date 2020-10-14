@@ -234,10 +234,11 @@ func OutputFromObjectStorage(key []byte, data []byte) (output objectstorage.Stor
 
 // region Outputs ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Outputs represents a collection of Outputs.
+// Outputs represents a deterministically ordered collection of Outputs. It can directly be used to model the list of
+// Outputs in a Transaction.
 type Outputs []Output
 
-// NewOutputs returns a deterministically ordered collection of Outputs removing existing duplicates.
+// NewOutputs returns a deterministically ordered collection of Outputs. It removes duplicates in the parameters.
 func NewOutputs(optionalOutputs ...Output) (outputs Outputs) {
 	seenOutputs := make(map[string]types.Empty)
 	sortedOutputs := make([]struct {
@@ -315,7 +316,7 @@ func OutputsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (outputs Outpu
 	return
 }
 
-// Inputs returns Inputs that reference the Outputs.
+// Inputs returns the Inputs that reference the Outputs.
 func (o Outputs) Inputs() Inputs {
 	inputs := make([]Input, len(o))
 	for i, output := range o {
@@ -325,9 +326,9 @@ func (o Outputs) Inputs() Inputs {
 	return NewInputs(inputs...)
 }
 
-// Map returns a map of Outputs where the key is the OutputID.
-func (o Outputs) Map() (outputsByID map[OutputID]Output) {
-	outputsByID = make(map[OutputID]Output)
+// ByID returns a map of Outputs where the key is the OutputID.
+func (o Outputs) ByID() (outputsByID OutputsByID) {
+	outputsByID = make(OutputsByID)
 	for _, output := range o {
 		outputsByID[output.ID()] = output
 	}
@@ -359,6 +360,63 @@ func (o Outputs) String() string {
 	structBuilder := stringify.StructBuilder("Outputs")
 	for i, output := range o {
 		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), output))
+	}
+
+	return structBuilder.String()
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region OutputsByID //////////////////////////////////////////////////////////////////////////////////////////////////
+
+// OutputsByID represents a map of Outputs where every Output is stored with its corresponding OutputID as the key.
+type OutputsByID map[OutputID]Output
+
+// NewOutputsByID returns a map of Outputs where every Output is stored with its corresponding OutputID as the key.
+func NewOutputsByID(optionalOutputs ...Output) (outputsByID OutputsByID) {
+	outputsByID = make(OutputsByID)
+	for _, optionalOutput := range optionalOutputs {
+		outputsByID[optionalOutput.ID()] = optionalOutput
+	}
+
+	return
+}
+
+// Inputs returns the Inputs that reference the Outputs.
+func (o OutputsByID) Inputs() Inputs {
+	inputs := make([]Input, 0, len(o))
+	for _, output := range o {
+		inputs = append(inputs, output.Input())
+	}
+
+	return NewInputs(inputs...)
+}
+
+// Outputs returns a list of Outputs from the OutputsByID.
+func (o OutputsByID) Outputs() Outputs {
+	outputs := make([]Output, 0, len(o))
+	for _, output := range o {
+		outputs = append(outputs, output)
+	}
+
+	return NewOutputs(outputs...)
+}
+
+// Clone creates a copy of the OutputsByID.
+func (o OutputsByID) Clone() (clonedOutputs OutputsByID) {
+	clonedOutputs = make(OutputsByID)
+	for id, output := range o {
+		clonedOutputs[id] = output
+	}
+
+	return
+}
+
+// String returns a human readable version of the OutputsByID.
+func (o OutputsByID) String() string {
+	structBuilder := stringify.StructBuilder("OutputsByID")
+	for id, output := range o {
+		structBuilder.AddField(stringify.StructField(id.String(), output))
 	}
 
 	return structBuilder.String()
