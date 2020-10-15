@@ -2,6 +2,7 @@ package mana
 
 const (
 	// Description: Taking (x * EBM1 + (1-x) * EBM2) into account when getting the mana value.
+
 	// OnlyMana1 takes only EBM1 into account when getting the mana values.
 	OnlyMana1 float64 = 1.0
 	// OnlyMana2 takes only EBM2 into account when getting the mana values.

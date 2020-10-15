@@ -3,7 +3,7 @@ package mana
 import (
 	"net/http"
 
-	manaPkg "github.com/iotaledger/goshimmer/packages/mana"
+	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
 	"github.com/iotaledger/hive.go/identity"
@@ -17,7 +17,7 @@ func getPercentileHandler(c echo.Context) error {
 	if err := c.Bind(&request); err != nil {
 		return c.JSON(http.StatusBadRequest, GetPercentileResponse{Error: err.Error()})
 	}
-	ID, err := manaPkg.IDFromStr(request.Node)
+	ID, err := mana.IDFromStr(request.Node)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, GetPercentileResponse{Error: err.Error()})
 	}
@@ -25,7 +25,7 @@ func getPercentileHandler(c echo.Context) error {
 	if ID == emptyID {
 		ID = local.GetInstance().ID()
 	}
-	access, err := manaPlugin.GetManaMap(manaPkg.AccessMana, manaPkg.Mixed)
+	access, err := manaPlugin.GetManaMap(mana.AccessMana, mana.Mixed)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, GetPercentileResponse{Error: err.Error()})
 	}
@@ -33,7 +33,7 @@ func getPercentileHandler(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, GetPercentileResponse{Error: err.Error()})
 	}
-	consensus, err := manaPlugin.GetManaMap(manaPkg.ConsensusMana, manaPkg.Mixed)
+	consensus, err := manaPlugin.GetManaMap(mana.ConsensusMana, mana.Mixed)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, GetPercentileResponse{Error: err.Error()})
 	}
