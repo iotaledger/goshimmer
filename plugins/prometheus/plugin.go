@@ -56,6 +56,10 @@ func configure(plugin *node.Plugin) {
 	if config.Node().GetBool(metrics.CfgMetricsGlobal) {
 		registerClientsMetrics()
 	}
+
+	if config.Node().GetBool(metrics.CfgMetricsManaResearch) {
+		registerManaResearchMetrics()
+	}
 }
 
 func addCollect(collect func()) {

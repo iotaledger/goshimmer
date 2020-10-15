@@ -197,32 +197,32 @@ func pruneStorages() {
 
 // GetHighestManaNodes returns the n highest type mana nodes in descending order.
 // It also updates the mana values for each node.
-func GetHighestManaNodes(manaType mana.Type, n uint) []mana.Node {
+func GetHighestManaNodes(manaType mana.Type, n uint, mode float64) ([]mana.Node, error) {
 	bmv := baseManaVectors[manaType]
-	return bmv.GetHighestManaNodes(n)
+	return bmv.GetHighestManaNodes(n, mode)
 }
 
 // GetManaMap return type mana perception of the node.
-func GetManaMap(manaType mana.Type) mana.NodeMap {
-	return baseManaVectors[manaType].GetManaMap()
+func GetManaMap(manaType mana.Type, mode float64) (mana.NodeMap, error) {
+	return baseManaVectors[manaType].GetManaMap(mode)
 }
 
 // GetAccessMana returns the access mana of the node specified.
-func GetAccessMana(nodeID identity.ID) (float64, error) {
-	return baseManaVectors[mana.AccessMana].GetMana(nodeID)
+func GetAccessMana(nodeID identity.ID, mode float64) (float64, error) {
+	return baseManaVectors[mana.AccessMana].GetMana(nodeID, mode)
 }
 
 // GetConsensusMana returns the consensus mana of the node specified.
-func GetConsensusMana(nodeID identity.ID) (float64, error) {
-	return baseManaVectors[mana.ConsensusMana].GetMana(nodeID)
+func GetConsensusMana(nodeID identity.ID, mode float64) (float64, error) {
+	return baseManaVectors[mana.ConsensusMana].GetMana(nodeID, mode)
 }
 
 // GetNeighborsMana returns the type mana of the nodes neighbors
-func GetNeighborsMana(manaType mana.Type) (mana.NodeMap, error) {
+func GetNeighborsMana(manaType mana.Type, mode float64) (mana.NodeMap, error) {
 	neighbors := gossip.Manager().AllNeighbors()
 	res := make(mana.NodeMap)
 	for _, n := range neighbors {
-		value, err := baseManaVectors[manaType].GetMana(n.ID())
+		value, err := baseManaVectors[manaType].GetMana(n.ID(), mode)
 		if err != nil {
 			return nil, err
 		}
@@ -232,10 +232,10 @@ func GetNeighborsMana(manaType mana.Type) (mana.NodeMap, error) {
 }
 
 // GetAllManaMaps returns the full mana maps for comparison with the perception of other nodes.
-func GetAllManaMaps() map[mana.Type]mana.NodeMap {
+func GetAllManaMaps(mode float64) map[mana.Type]mana.NodeMap {
 	res := make(map[mana.Type]mana.NodeMap)
 	for manaType := range baseManaVectors {
-		res[manaType] = GetManaMap(manaType)
+		res[manaType], _ = GetManaMap(manaType, mode)
 	}
 	return res
 }
@@ -247,9 +247,9 @@ func OverrideMana(manaType mana.Type, nodeID identity.ID, bm *mana.BaseMana) {
 }
 
 //GetWeightedRandomNodes returns a weighted random selection of n nodes.
-func GetWeightedRandomNodes(n uint, manaType mana.Type) mana.NodeMap {
+func GetWeightedRandomNodes(n uint, manaType mana.Type, mode float64) mana.NodeMap {
 	rand.Seed(time.Now().UTC().UnixNano())
-	manaMap := GetManaMap(manaType)
+	manaMap, _ := GetManaMap(manaType, mode)
 	var choices []mana.RandChoice
 	for nodeID, manaValue := range manaMap {
 		choices = append(choices, mana.RandChoice{
@@ -274,7 +274,7 @@ func GetAllowedPledgeNodes(manaType mana.Type) AllowedPledge {
 
 // GetOnlineNodes gets the list of currently known (and verified) peers in the network, and their respective mana values.
 // Sorted in descending order based on mana.
-func GetOnlineNodes(manaType mana.Type) ([]mana.Node, error) {
+func GetOnlineNodes(manaType mana.Type, mode float64) ([]mana.Node, error) {
 	knownPeers := autopeering.Discovery().GetVerifiedPeers()
 	// consider ourselves as a peer in the network too
 	knownPeers = append(knownPeers, local.GetInstance().Peer)
@@ -283,7 +283,7 @@ func GetOnlineNodes(manaType mana.Type) ([]mana.Node, error) {
 		if !baseManaVectors[manaType].Has(peer.ID()) {
 			onlineNodesMana = append(onlineNodesMana, mana.Node{ID: peer.ID(), Mana: 0})
 		} else {
-			peerMana, err := baseManaVectors[manaType].GetMana(peer.ID())
+			peerMana, err := baseManaVectors[manaType].GetMana(peer.ID(), mode)
 			if err != nil {
 				return nil, err
 			}

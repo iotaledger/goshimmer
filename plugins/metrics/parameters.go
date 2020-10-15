@@ -11,10 +11,13 @@ const (
 	CfgMetricsGlobal = "metrics.global"
 	// CfgManaUpdateInterval defines the interval in seconds at which mana metrics are updated.
 	CfgManaUpdateInterval = "metrics.manaUpdateInterval"
+	// CfgMetricsManaResearch defines mana metrics for research.
+	CfgMetricsManaResearch = "metrics.manaResearch"
 )
 
 func init() {
 	flag.Bool(CfgMetricsLocal, true, "include local metrics")
 	flag.Bool(CfgMetricsGlobal, false, "include global metrics")
 	flag.Uint(CfgManaUpdateInterval, 30, "mana metrics update interval")
+	flag.Bool(CfgMetricsManaResearch, false, "include research mana metrics")
 }

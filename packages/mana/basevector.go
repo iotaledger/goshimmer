@@ -145,19 +145,12 @@ func (bmv *BaseManaVector) UpdateAll(t time.Time) error {
 	return nil
 }
 
-// GetWeightedMana returns the combination of Effective Base Mana 1 & 2, weighted by weight.
+// GetMana returns combination of Effective Base Mana 1 & 2, weighted by `weight` parameter.
 // mana = EBM1 * weight + EBM2 * ( 1- weight), where weight is in [0,1].
-func (bmv *BaseManaVector) GetWeightedMana(nodeID identity.ID, weight float64) (float64, error) {
+func (bmv *BaseManaVector) GetMana(nodeID identity.ID, weight float64) (float64, error) {
 	bmv.Lock()
 	defer bmv.Unlock()
 	return bmv.getWeightedMana(nodeID, weight)
-}
-
-// GetMana returns the 50 - 50 split combination of Effective Base Mana 1 & 2.
-func (bmv *BaseManaVector) GetMana(nodeID identity.ID) (float64, error) {
-	bmv.Lock()
-	defer bmv.Unlock()
-	return bmv.getMana(nodeID)
 }
 
 // ForEach iterates over the vector and calls the provided callback.
@@ -172,44 +165,54 @@ func (bmv *BaseManaVector) ForEach(callback func(ID identity.ID, bm *BaseMana) b
 	}
 }
 
-//GetManaMap return mana perception of the node.
-func (bmv *BaseManaVector) GetManaMap() NodeMap {
+// GetManaMap returns mana perception of the node.
+func (bmv *BaseManaVector) GetManaMap(weight float64) (NodeMap, error) {
 	bmv.Lock()
 	defer bmv.Unlock()
 	res := make(map[identity.ID]float64)
 	for ID := range bmv.vector {
-		mana, _ := bmv.getMana(ID)
+		mana, err := bmv.getWeightedMana(ID, weight)
+		if err != nil {
+			return nil, err
+		}
 		res[ID] = mana
 	}
-	return res
+	return res, nil
 }
 
 // GetHighestManaNodes return the n highest mana nodes in descending order.
 // It also updates the mana values for each node.
 // If n is zero, it returns all nodes.
-func (bmv *BaseManaVector) GetHighestManaNodes(n uint) []Node {
+func (bmv *BaseManaVector) GetHighestManaNodes(n uint, weight float64) ([]Node, error) {
 	var res []Node
-	func() {
+	err := func() error {
 		// don't lock the vector after this func returns
 		bmv.Lock()
 		defer bmv.Unlock()
 		for ID := range bmv.vector {
-			mana, _ := bmv.getMana(ID)
+			mana, err := bmv.getWeightedMana(ID, weight)
+			if err != nil {
+				return err
+			}
 			res = append(res, Node{
 				ID:   ID,
 				Mana: mana,
 			})
 		}
+		return nil
 	}()
+	if err != nil {
+		return nil, err
+	}
 
 	sort.Slice(res[:], func(i, j int) bool {
 		return res[i].Mana > res[j].Mana
 	})
 
 	if n == 0 || int(n) >= len(res) {
-		return res[:]
+		return res[:], nil
 	}
-	return res[:n]
+	return res[:n], nil
 }
 
 // SetMana sets the base mana for a node.
@@ -304,9 +307,4 @@ func (bmv *BaseManaVector) getWeightedMana(nodeID identity.ID, weight float64) (
 	_ = bmv.update(nodeID, time.Now())
 	baseMana := bmv.vector[nodeID]
 	return baseMana.EffectiveBaseMana1*weight + baseMana.EffectiveBaseMana2*(1-weight), nil
-}
-
-// getMana returns the 50 - 50 split combination of Effective Base Mana 1 & 2. Not concurrency safe.
-func (bmv *BaseManaVector) getMana(nodeID identity.ID) (float64, error) {
-	return bmv.getWeightedMana(nodeID, 0.5)
 }

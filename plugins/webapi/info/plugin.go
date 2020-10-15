@@ -5,10 +5,11 @@ import (
 	"sort"
 	goSync "sync"
 
+	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
-	"github.com/iotaledger/goshimmer/plugins/mana"
+	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/goshimmer/plugins/syncbeaconfollower"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
@@ -103,8 +104,8 @@ func getInfo(c echo.Context) error {
 		})
 	}
 
-	accessMana, _ := mana.GetAccessMana(local.GetInstance().ID())
-	consensusMana, _ := mana.GetConsensusMana(local.GetInstance().ID())
+	accessMana, _ := manaPlugin.GetAccessMana(local.GetInstance().ID(), mana.Mixed)
+	consensusMana, _ := manaPlugin.GetConsensusMana(local.GetInstance().ID(), mana.Mixed)
 	nodeMana := Mana{
 		Access:    accessMana,
 		Consensus: consensusMana,

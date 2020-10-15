@@ -17,7 +17,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": 2,
-  "iteration": 1600773498094,
+  "iteration": 1602685111444,
   "links": [],
   "panels": [
     {
@@ -120,7 +120,7 @@
       },
       "gridPos": {
         "h": 3,
-        "w": 4,
+        "w": 3,
         "x": 4,
         "y": 1
       },
@@ -182,7 +182,7 @@
       "gridPos": {
         "h": 3,
         "w": 4,
-        "x": 8,
+        "x": 7,
         "y": 1
       },
       "id": 95,
@@ -242,8 +242,8 @@
       },
       "gridPos": {
         "h": 3,
-        "w": 4,
-        "x": 12,
+        "w": 3,
+        "x": 11,
         "y": 1
       },
       "id": 96,
@@ -282,6 +282,67 @@
       "type": "stat"
     },
     {
+      "datasource": "Prometheus",
+      "description": "Average access and consensus mana of a nodes nneighbours.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 4,
+        "x": 14,
+        "y": 1
+      },
+      "id": 109,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "7.1.1",
+      "targets": [
+        {
+          "expr": "mana_average_neighbors_access",
+          "interval": "",
+          "legendFormat": "Access",
+          "refId": "A"
+        },
+        {
+          "expr": "mana_average_neighbors_consensus",
+          "interval": "",
+          "legendFormat": "Consensus",
+          "refId": "B"
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Average neighbours mana",
+      "type": "stat"
+    },
+    {
       "aliasColors": {},
       "bars": false,
       "dashLength": 10,
@@ -290,8 +351,7 @@
       "description": "Total Access & Consensus Mana In the network.",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
-          "unit": "short"
+          "custom": {}
         },
         "overrides": []
       },
@@ -391,8 +451,7 @@
       "description": "Histogram of access mana of nodes.",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
-          "unit": "none"
+          "custom": {}
         },
         "overrides": []
       },
@@ -491,8 +550,7 @@
       "description": "Histogram of consensus mana of nodes.",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
-          "unit": "none"
+          "custom": {}
         },
         "overrides": []
       },
@@ -591,8 +649,7 @@
       "description": "Amount of access mana this node has",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
-          "unit": "short"
+          "custom": {}
         },
         "overrides": []
       },
@@ -687,8 +744,7 @@
       "description": "Amount of access mana of nodes in the network.",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
-          "unit": "short"
+          "custom": {}
         },
         "overrides": []
       },
@@ -838,8 +894,7 @@
       "description": "Amount of consensus mana this node has.",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
-          "unit": "short"
+          "custom": {}
         },
         "overrides": []
       },
@@ -934,8 +989,7 @@
       "description": "Amount of consensus mana of nodes in the network.",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
-          "unit": "short"
+          "custom": {}
         },
         "overrides": []
       },
@@ -1092,7 +1146,7 @@
       "fillGradient": 0,
       "gridPos": {
         "h": 11,
-        "w": 11,
+        "w": 9,
         "x": 0,
         "y": 34
       },
@@ -1156,6 +1210,204 @@
       "yaxes": [
         {
           "format": "percent",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "description": "Average pledged BM1 and BM2 of access mana pledged to the node",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 11,
+        "w": 7,
+        "x": 9,
+        "y": 34
+      },
+      "hiddenSeries": false,
+      "id": 107,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "percentage": false,
+      "pluginVersion": "7.1.1",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "mana_average_access_pledge{type=\"bm1\"}",
+          "interval": "",
+          "legendFormat": "$NodeID (BM1)",
+          "refId": "A"
+        },
+        {
+          "expr": "mana_average_access_pledge{type=\"bm2\"}",
+          "interval": "",
+          "legendFormat": "$NodeID (BM2)",
+          "refId": "B"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Average Pledged Access Mana",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "description": "Average pledged BM1 and BM2 of consensus mana pledged to the node",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 11,
+        "w": 8,
+        "x": 16,
+        "y": 34
+      },
+      "hiddenSeries": false,
+      "id": 110,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "percentage": false,
+      "pluginVersion": "7.1.1",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "mana_average_consensus_pledge{type=\"bm1\"}",
+          "interval": "",
+          "legendFormat": "$NodeID (BM1)",
+          "refId": "A"
+        },
+        {
+          "expr": "mana_average_consensus_pledge{type=\"bm2\"}",
+          "interval": "",
+          "legendFormat": "$NodeID (BM2)",
+          "refId": "B"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Average Pledged Consensus Mana",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
           "label": null,
           "logBase": 1,
           "max": null,
@@ -1696,8 +1948,7 @@
       "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
-          "links": []
+          "custom": {}
         },
         "overrides": []
       },
@@ -1819,8 +2070,7 @@
       "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
-          "links": []
+          "custom": {}
         },
         "overrides": []
       },
@@ -2155,8 +2405,7 @@
       "description": "Shows tips in message and value layer.",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
-          "links": []
+          "custom": {}
         },
         "overrides": []
       },
@@ -2254,8 +2503,7 @@
       "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
-          "links": []
+          "custom": {}
         },
         "overrides": []
       },
@@ -2347,8 +2595,7 @@
       "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
-          "links": []
+          "custom": {}
         },
         "overrides": []
       },
@@ -2441,8 +2688,7 @@
       "description": "Number of messages in missingMessageStore. These are the message the node knows it doesn't have and tries to requests them.",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
-          "links": []
+          "custom": {}
         },
         "overrides": []
       },
@@ -2535,8 +2781,7 @@
       "description": "Describes the amount of total, solid and not solid messages in the node's database.",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
-          "links": []
+          "custom": {}
         },
         "overrides": []
       },
@@ -2643,8 +2888,7 @@
       "description": "Number of messages currently requested by the message tangle.",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
-          "links": []
+          "custom": {}
         },
         "overrides": []
       },
@@ -2736,8 +2980,7 @@
       "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
-          "links": []
+          "custom": {}
         },
         "overrides": []
       },
@@ -2866,8 +3109,7 @@
       "description": "Average time it takes to solidify messages.",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
-          "links": []
+          "custom": {}
         },
         "overrides": []
       },
@@ -3379,8 +3621,7 @@
       "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
-          "links": []
+          "custom": {}
         },
         "overrides": []
       },
@@ -3647,8 +3888,7 @@
       "description": "Describes how many FPC query requests the node has received.",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
-          "links": []
+          "custom": {}
         },
         "overrides": []
       },
@@ -3740,8 +3980,7 @@
       "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
-          "links": []
+          "custom": {}
         },
         "overrides": []
       },
@@ -3834,8 +4073,7 @@
       "description": "Describes how many FPC opinions were requested from the node.",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
-          "links": []
+          "custom": {}
         },
         "overrides": []
       },
@@ -3927,8 +4165,7 @@
       "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
-          "links": []
+          "custom": {}
         },
         "overrides": []
       },
@@ -4077,5 +4314,5 @@
   "timezone": "",
   "title": "GoShimmer Local Metrics",
   "uid": "kjOQZ2ZMk",
-  "version": 40
+  "version": 49
 }

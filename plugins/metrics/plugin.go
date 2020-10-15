@@ -8,6 +8,7 @@ import (
 	valuetangle "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
+	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/vote"
@@ -98,6 +99,21 @@ func run(_ *node.Plugin) {
 		log.Infof("Stopping Metrics Mana Updater ...")
 	}, shutdown.PriorityMetrics); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
+	}
+
+	if config.Node().GetBool(CfgMetricsManaResearch) {
+		// create a background worker that updates the research mana metrics
+		if err := daemon.BackgroundWorker("Metrics Research Mana Updater", func(shutdownSignal <-chan struct{}) {
+			defer log.Infof("Stopping Metrics Research Mana Updater ... done")
+			timeutil.Ticker(func() {
+				measureManaBM1()
+				measureManaBM2()
+			}, time.Second*time.Duration(config.Node().GetUint(CfgManaUpdateInterval)), shutdownSignal)
+
+			log.Infof("Stopping Metrics Research Mana Updater ...")
+		}, shutdown.PriorityMetrics); err != nil {
+			log.Panicf("Failed to start as daemon: %s", err)
+		}
 	}
 }
 
@@ -209,5 +225,10 @@ func registerLocalMetrics() {
 	}))
 	metrics.Events().QueryReplyError.Attach(events.NewClosure(func(ev *metrics.QueryReplyErrorEvent) {
 		processQueryReplyError(ev)
+	}))
+
+	// mana pledge events
+	mana.Events().Pledged.Attach(events.NewClosure(func(ev *mana.PledgedEvent) {
+		addPledge(ev)
 	}))
 }

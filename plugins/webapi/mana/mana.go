@@ -3,7 +3,7 @@ package mana
 import (
 	"net/http"
 
-	manaPkg "github.com/iotaledger/goshimmer/packages/mana"
+	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
 	"github.com/iotaledger/hive.go/identity"
@@ -17,7 +17,7 @@ func getManaHandler(c echo.Context) error {
 	if err := c.Bind(&request); err != nil {
 		return c.JSON(http.StatusBadRequest, GetManaResponse{Error: err.Error()})
 	}
-	ID, err := manaPkg.IDFromStr(request.Node)
+	ID, err := mana.IDFromStr(request.Node)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, GetManaResponse{Error: err.Error()})
 	}
@@ -25,11 +25,11 @@ func getManaHandler(c echo.Context) error {
 	if ID == emptyID {
 		ID = local.GetInstance().ID()
 	}
-	accessMana, err := manaPlugin.GetAccessMana(ID)
+	accessMana, err := manaPlugin.GetAccessMana(ID, mana.Mixed)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, GetManaResponse{Error: err.Error()})
 	}
-	consensusMana, err := manaPlugin.GetConsensusMana(ID)
+	consensusMana, err := manaPlugin.GetConsensusMana(ID, mana.Mixed)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, GetManaResponse{Error: err.Error()})
 	}
