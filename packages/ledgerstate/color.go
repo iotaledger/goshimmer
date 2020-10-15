@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"sort"
 
+	"github.com/iotaledger/goshimmer/packages/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/orderedmap"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
@@ -41,7 +42,7 @@ func ColorFromBytes(colorBytes []byte) (color Color, consumedBytes int, err erro
 func ColorFromBase58EncodedString(base58String string) (color Color, err error) {
 	parsedBytes, err := base58.Decode(base58String)
 	if err != nil {
-		err = xerrors.Errorf("error while decoding base58 encoded Color (%v): %w", err, ErrBase58DecodeFailed)
+		err = xerrors.Errorf("error while decoding base58 encoded Color (%v): %w", err, cerrors.Base58DecodeFailed)
 		return
 	}
 
@@ -57,7 +58,7 @@ func ColorFromBase58EncodedString(base58String string) (color Color, err error) 
 func ColorFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (color Color, err error) {
 	colorBytes, err := marshalUtil.ReadBytes(ColorLength)
 	if err != nil {
-		err = xerrors.Errorf("failed to parse Color (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse Color (%v): %w", err, cerrors.ParseBytesFailed)
 		return
 	}
 	copy(color[:], colorBytes)
@@ -138,7 +139,7 @@ func ColoredBalancesFromBytes(bytes []byte) (coloredBalances *ColoredBalances, c
 func ColoredBalancesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (coloredBalances *ColoredBalances, err error) {
 	balancesCount, err := marshalUtil.ReadUint32()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse element count (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse element count (%v): %w", err, cerrors.ParseBytesFailed)
 		return
 	}
 
@@ -153,18 +154,18 @@ func ColoredBalancesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (color
 
 		// check semantic correctness (ensure ordering)
 		if previousColor != nil && previousColor.Compare(color) != -1 {
-			err = xerrors.Errorf("parsed Colors are not in correct order: %w", ErrParseBytesFailed)
+			err = xerrors.Errorf("parsed Colors are not in correct order: %w", cerrors.ParseBytesFailed)
 			return
 		}
 
 		balance, balanceErr := marshalUtil.ReadUint64()
 		if balanceErr != nil {
-			err = xerrors.Errorf("failed to parse balance of Color %s (%v): %w", color.String(), balanceErr, ErrParseBytesFailed)
+			err = xerrors.Errorf("failed to parse balance of Color %s (%v): %w", color.String(), balanceErr, cerrors.ParseBytesFailed)
 			return
 		}
 
 		if balance < MinOutputBalance {
-			err = xerrors.Errorf("balance (%d) is smaller than MinOutputBalance (%d): %w", balance, MinOutputBalance, ErrTransactionInvalid)
+			err = xerrors.Errorf("balance (%d) is smaller than MinOutputBalance (%d): %w", balance, MinOutputBalance, cerrors.ParseBytesFailed)
 			return
 		}
 

@@ -3,6 +3,7 @@ package ledgerstate
 import (
 	"strconv"
 
+	"github.com/iotaledger/goshimmer/packages/cerrors"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
@@ -65,7 +66,7 @@ func UnlockBlockFromBytes(bytes []byte) (unlockBlock UnlockBlock, consumedBytes 
 func UnlockBlockFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (unlockBlock UnlockBlock, err error) {
 	unlockBlockType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse UnlockBlockType (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse UnlockBlockType (%v): %w", err, cerrors.ParseBytesFailed)
 		return
 	}
 	marshalUtil.ReadSeek(-1)
@@ -82,7 +83,7 @@ func UnlockBlockFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (unlockBlo
 			return
 		}
 	default:
-		err = xerrors.Errorf("unsupported UnlockBlockType (%X): %w", unlockBlockType, ErrParseBytesFailed)
+		err = xerrors.Errorf("unsupported UnlockBlockType (%X): %w", unlockBlockType, cerrors.ParseBytesFailed)
 		return
 	}
 
@@ -154,7 +155,7 @@ func UnlockBlocksFromBytes(bytes []byte) (unlockBlocks UnlockBlocks, consumedByt
 func UnlockBlocksFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (unlockBlocks UnlockBlocks, err error) {
 	unlockBlockCount, err := marshalUtil.ReadUint16()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse UnlockBlock count (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse UnlockBlock count (%v): %w", err, cerrors.ParseBytesFailed)
 		return
 	}
 
@@ -171,7 +172,7 @@ func UnlockBlocksFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (unlockBl
 
 		// ensure there are no already seen UnlockBlocks(always use ReferenceUnlockBlocks if possible)
 		if index, blockSeen := seenNonReferenceBlocks[blockIdentifier]; blockSeen {
-			err = xerrors.Errorf("UnlockBlock %d is identical to UnlockBlock %d and should be a ReferenceUnlockBlock: %w", i, index, ErrParseBytesFailed)
+			err = xerrors.Errorf("UnlockBlock %d is identical to UnlockBlock %d and should be a ReferenceUnlockBlock: %w", i, index, cerrors.ParseBytesFailed)
 			return
 		}
 
@@ -253,11 +254,11 @@ func SignatureUnlockBlockFromBytes(bytes []byte) (unlockBlock *SignatureUnlockBl
 func SignatureUnlockBlockFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (unlockBlock *SignatureUnlockBlock, err error) {
 	unlockBlockType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse UnlockBlockType (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse UnlockBlockType (%v): %w", err, cerrors.ParseBytesFailed)
 		return
 	}
 	if UnlockBlockType(unlockBlockType) != SignatureUnlockBlockType {
-		err = xerrors.Errorf("invalid UnlockBlockType (%X): %w", unlockBlockType, ErrParseBytesFailed)
+		err = xerrors.Errorf("invalid UnlockBlockType (%X): %w", unlockBlockType, cerrors.ParseBytesFailed)
 		return
 	}
 
@@ -327,17 +328,17 @@ func ReferenceUnlockBlockFromBytes(bytes []byte) (unlockBlock *ReferenceUnlockBl
 func ReferenceUnlockBlockFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (unlockBlock *ReferenceUnlockBlock, err error) {
 	unlockBlockType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse UnlockBlockType (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse UnlockBlockType (%v): %w", err, cerrors.ParseBytesFailed)
 		return
 	}
 	if UnlockBlockType(unlockBlockType) != ReferenceUnlockBlockType {
-		err = xerrors.Errorf("invalid UnlockBlockType (%X): %w", unlockBlockType, ErrParseBytesFailed)
+		err = xerrors.Errorf("invalid UnlockBlockType (%X): %w", unlockBlockType, cerrors.ParseBytesFailed)
 		return
 	}
 
 	unlockBlock = &ReferenceUnlockBlock{}
 	if unlockBlock.referencedIndex, err = marshalUtil.ReadUint16(); err != nil {
-		err = xerrors.Errorf("failed to parse referencedIndex (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse referencedIndex (%v): %w", err, cerrors.ParseBytesFailed)
 		return
 	}
 	return

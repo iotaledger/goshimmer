@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/iotaledger/goshimmer/packages/cerrors"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
@@ -67,7 +68,7 @@ func InputFromBytes(inputBytes []byte) (input Input, consumedBytes int, err erro
 func InputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (input Input, err error) {
 	inputType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse InputType (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse InputType (%v): %w", err, cerrors.ParseBytesFailed)
 		return
 	}
 	marshalUtil.ReadSeek(-1)
@@ -79,7 +80,7 @@ func InputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (input Input, er
 			return
 		}
 	default:
-		err = xerrors.Errorf("unsupported InputType (%X): %w", inputType, ErrParseBytesFailed)
+		err = xerrors.Errorf("unsupported InputType (%X): %w", inputType, cerrors.ParseBytesFailed)
 		return
 	}
 
@@ -163,15 +164,15 @@ func InputsFromBytes(inputBytes []byte) (inputs Inputs, consumedBytes int, err e
 func InputsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (inputs Inputs, err error) {
 	inputsCount, err := marshalUtil.ReadUint16()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse inputs count (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse inputs count (%v): %w", err, cerrors.ParseBytesFailed)
 		return
 	}
 	if inputsCount < MinInputCount {
-		err = xerrors.Errorf("amount of Inputs failed to reach MinInputCount (%d): %w", MinInputCount, ErrParseBytesFailed)
+		err = xerrors.Errorf("amount of Inputs failed to reach MinInputCount (%d): %w", MinInputCount, cerrors.ParseBytesFailed)
 		return
 	}
 	if inputsCount > MaxInputCount {
-		err = xerrors.Errorf("amount of Inputs exceeds MaxInputCount (%d): %w", MaxInputCount, ErrParseBytesFailed)
+		err = xerrors.Errorf("amount of Inputs exceeds MaxInputCount (%d): %w", MaxInputCount, cerrors.ParseBytesFailed)
 		return
 	}
 
@@ -188,13 +189,13 @@ func InputsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (inputs Inputs,
 		readBytes, _ := marshalUtil.ReadBytes(marshalUtil.ReadOffset()-readStartOffset, readStartOffset)
 		readBytesAsString := typeutils.BytesToString(readBytes)
 		if _, inputSeen := seenInputs[readBytesAsString]; inputSeen {
-			err = xerrors.Errorf("Inputs contained a duplicate (at index %d): %w", i, ErrTransactionInvalid)
+			err = xerrors.Errorf("Inputs contained a duplicate (at index %d): %w", i, cerrors.ParseBytesFailed)
 			return
 		}
 		seenInputs[readBytesAsString] = types.Void
 
 		if previousInput != nil && previousInput.Compare(parsedInputs[i]) != -1 {
-			err = xerrors.Errorf("order of Inputs is invalid: %w", ErrTransactionInvalid)
+			err = xerrors.Errorf("order of Inputs is invalid: %w", cerrors.ParseBytesFailed)
 			return
 		}
 		previousInput = parsedInputs[i]
@@ -254,11 +255,11 @@ func NewUTXOInput(referencedOutputID OutputID) *UTXOInput {
 func UTXOInputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (input *UTXOInput, err error) {
 	inputType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse InputType (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse InputType (%v): %w", err, cerrors.ParseBytesFailed)
 		return
 	}
 	if InputType(inputType) != UTXOInputType {
-		err = xerrors.Errorf("invalid InputType (%X): %w", inputType, ErrParseBytesFailed)
+		err = xerrors.Errorf("invalid InputType (%X): %w", inputType, cerrors.ParseBytesFailed)
 		return
 	}
 
