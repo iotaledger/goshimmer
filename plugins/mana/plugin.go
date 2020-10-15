@@ -197,6 +197,7 @@ func pruneStorages() {
 
 // GetHighestManaNodes returns the n highest type mana nodes in descending order.
 // It also updates the mana values for each node.
+// If n is zero, it returns all nodes.
 func GetHighestManaNodes(manaType mana.Type, n uint, mode float64) ([]mana.Node, error) {
 	bmv := baseManaVectors[manaType]
 	return bmv.GetHighestManaNodes(n, mode)
