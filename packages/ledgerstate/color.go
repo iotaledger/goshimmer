@@ -163,6 +163,11 @@ func ColoredBalancesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (color
 			return
 		}
 
+		if balance < MinOutputBalance {
+			err = xerrors.Errorf("balance (%d) is smaller than MinOutputBalance (%d): %w", balance, MinOutputBalance, ErrTransactionInvalid)
+			return
+		}
+
 		coloredBalances.balances.Set(color, balance)
 
 		previousColor = &color

@@ -2,6 +2,7 @@ package ledgerstate
 
 import (
 	"bytes"
+	"fmt"
 	"sort"
 	"strconv"
 
@@ -89,10 +90,19 @@ func InputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (input Input, er
 
 // region Inputs ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Inputs represents a collection of Inputs that ensures a deterministic order.
+const (
+	// MaxInputCount defines an upper threshold for the amount of Inputs in a Transaction.
+	MaxInputCount = 126
+
+	// MinInputCount defines a lower threshold for the amount of Inputs in a Transaction.
+	MinInputCount = 1
+)
+
+// Inputs represents a collection of Inputs which is used in a Transaction that ensures a deterministic order.
 type Inputs []Input
 
-// NewInputs returns a deterministically ordered collection of Inputs removing existing duplicates.
+// NewInputs returns a deterministically ordered collection of Inputs removing existing duplicates and maintaining
+// syntactical correctness.
 func NewInputs(optionalInputs ...Input) (inputs Inputs) {
 	seenInputs := make(map[string]types.Empty)
 	sortedInputs := make([]struct {
@@ -127,6 +137,13 @@ func NewInputs(optionalInputs ...Input) (inputs Inputs) {
 		inputs[i] = sortedInput.input
 	}
 
+	if len(inputs) < MinInputCount {
+		panic(fmt.Sprintf("amount of Inputs failed to reach MinInputCount (%d)", MinInputCount))
+	}
+	if len(inputs) > MaxInputCount {
+		panic(fmt.Sprintf("amount of Inputs exceeds MaxInputCount (%d)", MaxInputCount))
+	}
+
 	return
 }
 
@@ -149,14 +166,32 @@ func InputsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (inputs Inputs,
 		err = xerrors.Errorf("failed to parse inputs count (%v): %w", err, ErrParseBytesFailed)
 		return
 	}
+	if inputsCount < MinInputCount {
+		err = xerrors.Errorf("amount of Inputs failed to reach MinInputCount (%d): %w", MinInputCount, ErrParseBytesFailed)
+		return
+	}
+	if inputsCount > MaxInputCount {
+		err = xerrors.Errorf("amount of Inputs exceeds MaxInputCount (%d): %w", MaxInputCount, ErrParseBytesFailed)
+		return
+	}
 
+	seenInputs := make(map[string]types.Empty)
 	var previousInput Input
 	parsedInputs := make([]Input, inputsCount)
 	for i := uint16(0); i < inputsCount; i++ {
+		readStartOffset := marshalUtil.ReadOffset()
 		if parsedInputs[i], err = InputFromMarshalUtil(marshalUtil); err != nil {
 			err = xerrors.Errorf("failed to parse Input from MarshalUtil: %w", err)
 			return
 		}
+
+		readBytes, _ := marshalUtil.ReadBytes(marshalUtil.ReadOffset()-readStartOffset, readStartOffset)
+		readBytesAsString := typeutils.BytesToString(readBytes)
+		if _, inputSeen := seenInputs[readBytesAsString]; inputSeen {
+			err = xerrors.Errorf("Inputs contained a duplicate (at index %d): %w", i, ErrTransactionInvalid)
+			return
+		}
+		seenInputs[readBytesAsString] = types.Void
 
 		if previousInput != nil && previousInput.Compare(parsedInputs[i]) != -1 {
 			err = xerrors.Errorf("order of Inputs is invalid: %w", ErrTransactionInvalid)

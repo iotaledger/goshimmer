@@ -3,6 +3,7 @@ package ledgerstate
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"sort"
 	"strconv"
 	"sync"
@@ -56,6 +57,10 @@ var EmptyOutputID OutputID
 
 // NewOutputID is the constructor for the OutputID.
 func NewOutputID(transactionID TransactionID, outputIndex uint16) (outputID OutputID) {
+	if outputIndex >= MaxOutputCount {
+		panic(fmt.Sprintf("output index exceeds threshold defined by MaxOutputCount (%d)", MaxOutputCount))
+	}
+
 	copy(outputID[:TransactionIDLength], transactionID.Bytes())
 	binary.LittleEndian.PutUint16(outputID[TransactionIDLength:], outputIndex)
 
@@ -99,6 +104,11 @@ func OutputIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (outputID Out
 	}
 	copy(outputID[:], outputIDBytes)
 
+	if outputID.OutputIndex() >= MaxOutputCount {
+		err = xerrors.Errorf("output index exceeds threshold defined by MaxOutputCount (%d): %w", MaxOutputCount, ErrParseBytesFailed)
+		return
+	}
+
 	return
 }
 
@@ -135,6 +145,12 @@ func (o OutputID) String() string {
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Output ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+const MaxOutputCount = 126
+
+const MinOutputCount = 1
+
+const MinOutputBalance = 1
 
 // Output is a generic interface for the different types of Outputs (with different unlock behaviors).
 type Output interface {
@@ -238,7 +254,8 @@ func OutputFromObjectStorage(key []byte, data []byte) (output objectstorage.Stor
 // Outputs in a Transaction.
 type Outputs []Output
 
-// NewOutputs returns a deterministically ordered collection of Outputs. It removes duplicates in the parameters.
+// NewOutputs returns a deterministically ordered collection of Outputs. It removes duplicates in the parameters and
+// ensures syntactical correctness.
 func NewOutputs(optionalOutputs ...Output) (outputs Outputs) {
 	seenOutputs := make(map[string]types.Empty)
 	sortedOutputs := make([]struct {
@@ -273,6 +290,13 @@ func NewOutputs(optionalOutputs ...Output) (outputs Outputs) {
 		outputs[i] = sortedOutput.output
 	}
 
+	if len(outputs) < MinOutputCount {
+		panic(fmt.Sprintf("amount of Outputs (%d) failed to reach MinOutputCount (%d)", len(outputs), MinOutputCount))
+	}
+	if len(outputs) > MaxOutputCount {
+		panic(fmt.Sprintf("amount of Outputs (%d) exceeds MaxOutputCount (%d)", len(outputs), MaxOutputCount))
+	}
+
 	return
 }
 
@@ -293,6 +317,14 @@ func OutputsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (outputs Outpu
 	outputsCount, err := marshalUtil.ReadUint16()
 	if err != nil {
 		err = xerrors.Errorf("failed to parse outputs count (%v): %w", err, ErrParseBytesFailed)
+		return
+	}
+	if outputsCount < MinOutputCount {
+		err = xerrors.Errorf("amount of Outputs (%d) failed to reach MinOutputCount (%d): %w", outputsCount, MinOutputCount, ErrTransactionInvalid)
+		return
+	}
+	if outputsCount > MaxOutputCount {
+		err = xerrors.Errorf("amount of Outputs (%d) exceeds MaxOutputCount (%d): %w", outputsCount, MaxOutputCount, ErrTransactionInvalid)
 		return
 	}
 
@@ -476,6 +508,11 @@ func SigLockedSingleOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) 
 	}
 	if output.address, err = AddressFromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse Address (%v): %w", err, ErrParseBytesFailed)
+		return
+	}
+
+	if output.balance < MinOutputBalance {
+		err = xerrors.Errorf("balance (%d) is smaller than MinOutputBalance (%d): %w", output.balance, MinOutputBalance, ErrTransactionInvalid)
 		return
 	}
 

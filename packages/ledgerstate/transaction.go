@@ -2,6 +2,7 @@ package ledgerstate
 
 import (
 	"crypto/rand"
+	"fmt"
 	"strconv"
 
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
@@ -118,8 +119,8 @@ type Transaction struct {
 // NewTransaction create a new Transaction from the given details.
 func NewTransaction(essence *TransactionEssence, unlockBlocks UnlockBlocks) *Transaction {
 	// panic if we create a syntactically invalid transaction
-	if len(essence.Inputs()) != len(unlockBlocks) {
-		panic("amount of UnlockBlocks does not match amount of Inputs")
+	if len(unlockBlocks) != len(essence.Inputs()) {
+		panic(fmt.Sprintf("amount of UnlockBlocks (%d) does not match amount of Inputs (%d)", len(unlockBlocks), len(essence.inputs)))
 	}
 
 	return &Transaction{
@@ -177,6 +178,11 @@ func TransactionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transacti
 	parsedBytes := marshalUtil.ReadOffset() - readStartOffset
 	if parsedBytes != int(payloadSize)+4 {
 		err = xerrors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, payloadSize, ErrParseBytesFailed)
+		return
+	}
+
+	if len(transaction.unlockBlocks) != len(transaction.essence.Inputs()) {
+		err = xerrors.Errorf("amount of UnlockBlocks (%d) does not match amount of Inputs (%d): %w", len(transaction.unlockBlocks), len(transaction.essence.inputs), ErrTransactionInvalid)
 		return
 	}
 
