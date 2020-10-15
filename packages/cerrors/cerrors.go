@@ -1,3 +1,4 @@
+// Package cerrors provides sentinel error values for "common errors" that are likely to appear in multiple packages.
 package cerrors
 
 import "errors"

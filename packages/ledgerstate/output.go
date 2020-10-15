@@ -1093,7 +1093,7 @@ func (o *OutputMetadata) Finalized() bool {
 	return o.finalized
 }
 
-// SetFinalized modifies the finalized flag. Finalized Outputs will not be forked when a conflict arrives later.
+// SetFinalized modifies the finalized flag. It returns true if the value has been modified.
 func (o *OutputMetadata) SetFinalized(finalized bool) (modified bool) {
 	o.finalizedMutex.Lock()
 	defer o.finalizedMutex.Unlock()
@@ -1117,7 +1117,7 @@ func (o *OutputMetadata) Confirmed() bool {
 	return o.confirmed
 }
 
-// SetConfirmed modifies the confirmed flag. It returns true if the value has been updated.
+// SetConfirmed modifies the confirmed flag. It returns true if the value has been modified.
 func (o *OutputMetadata) SetConfirmed(confirmed bool) (modified bool) {
 	o.confirmedMutex.Lock()
 	defer o.confirmedMutex.Unlock()
@@ -1141,7 +1141,7 @@ func (o *OutputMetadata) Rejected() bool {
 	return o.rejected
 }
 
-// SetRejected modifies the rejected flag. It returns true if the value has been updated.
+// SetRejected modifies the rejected flag. It returns true if the value has been modified.
 func (o *OutputMetadata) SetRejected(rejected bool) (modified bool) {
 	o.rejectedMutex.Lock()
 	defer o.rejectedMutex.Unlock()
@@ -1190,8 +1190,8 @@ func (o *OutputMetadata) ObjectStorageKey() []byte {
 	return o.id.Bytes()
 }
 
-// ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
-// a key in the ObjectStorage.
+// ObjectStorageValue marshals the OutputMetadata into a sequence of bytes. The ID is not serialized here as it is only
+// used as a key in the ObjectStorage.
 func (o *OutputMetadata) ObjectStorageValue() []byte {
 	return marshalutil.New().
 		WriteBytes(o.BranchID().Bytes()).
