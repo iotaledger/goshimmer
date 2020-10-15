@@ -173,7 +173,7 @@ func (bmv *BaseManaVector) ForEach(callback func(ID identity.ID, bm *BaseMana) b
 	}
 }
 
-//GetManaMap returns mana perception of the node.
+// GetManaMap returns mana perception of the node.
 func (bmv *BaseManaVector) GetManaMap(weight float64) (NodeMap, error) {
 	bmv.Lock()
 	defer bmv.Unlock()
