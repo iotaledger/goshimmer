@@ -3,6 +3,7 @@ package payload
 import (
 	"fmt"
 
+	"github.com/iotaledger/goshimmer/packages/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"golang.org/x/xerrors"
 )
@@ -38,11 +39,11 @@ func FromBytes(payloadBytes []byte) (payload Payload, consumedBytes int, err err
 func FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (payload Payload, err error) {
 	payloadSize, err := marshalUtil.ReadUint32()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse payload size (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse payload size (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if payloadSize > MaxSize {
-		err = xerrors.Errorf("maximum payload size of %d bytes exceeded: %w", MaxSize, ErrParseBytesFailed)
+		err = xerrors.Errorf("maximum payload size of %d bytes exceeded: %w", MaxSize, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -55,7 +56,7 @@ func FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (payload Payload, err
 	marshalUtil.ReadSeek(-marshalutil.UINT32_SIZE * 2)
 	payloadBytes, err := marshalUtil.ReadBytes(int(payloadSize) + 8)
 	if err != nil {
-		err = xerrors.Errorf("failed to unmarshal payload bytes (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to unmarshal payload bytes (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
