@@ -45,7 +45,7 @@ func ConflictIDFromBytes(bytes []byte) (conflictID ConflictID, consumedBytes int
 func ConflictIDFromBase58(base58String string) (conflictID ConflictID, err error) {
 	bytes, err := base58.Decode(base58String)
 	if err != nil {
-		err = xerrors.Errorf("error while decoding base58 encoded ConflictID (%v): %w", err, cerrors.Base58DecodeFailed)
+		err = xerrors.Errorf("error while decoding base58 encoded ConflictID (%v): %w", err, cerrors.ErrBase58DecodeFailed)
 		return
 	}
 
@@ -61,7 +61,7 @@ func ConflictIDFromBase58(base58String string) (conflictID ConflictID, err error
 func ConflictIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictID ConflictID, err error) {
 	conflictIDBytes, err := marshalUtil.ReadBytes(ConflictIDLength)
 	if err != nil {
-		err = xerrors.Errorf("failed to parse ConflictID (%v): %w", err, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("failed to parse ConflictID (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	copy(conflictID[:], conflictIDBytes)
@@ -117,7 +117,7 @@ func ConflictIDsFromBytes(bytes []byte) (conflictIDs ConflictIDs, consumedBytes 
 func ConflictIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictIDs ConflictIDs, err error) {
 	conflictIDsCount, err := marshalUtil.ReadUint64()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse count of ConflictIDs (%v): %w", err, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("failed to parse count of ConflictIDs (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -222,7 +222,7 @@ func ConflictFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflict *Co
 	}
 	memberCount, err := marshalUtil.ReadUint64()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse member count (%v): %w", err, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("failed to parse member count (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	conflict.memberCount = int(memberCount)

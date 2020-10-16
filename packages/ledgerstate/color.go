@@ -42,7 +42,7 @@ func ColorFromBytes(colorBytes []byte) (color Color, consumedBytes int, err erro
 func ColorFromBase58EncodedString(base58String string) (color Color, err error) {
 	parsedBytes, err := base58.Decode(base58String)
 	if err != nil {
-		err = xerrors.Errorf("error while decoding base58 encoded Color (%v): %w", err, cerrors.Base58DecodeFailed)
+		err = xerrors.Errorf("error while decoding base58 encoded Color (%v): %w", err, cerrors.ErrBase58DecodeFailed)
 		return
 	}
 
@@ -58,7 +58,7 @@ func ColorFromBase58EncodedString(base58String string) (color Color, err error) 
 func ColorFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (color Color, err error) {
 	colorBytes, err := marshalUtil.ReadBytes(ColorLength)
 	if err != nil {
-		err = xerrors.Errorf("failed to parse Color (%v): %w", err, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("failed to parse Color (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	copy(color[:], colorBytes)
@@ -139,7 +139,7 @@ func ColoredBalancesFromBytes(bytes []byte) (coloredBalances *ColoredBalances, c
 func ColoredBalancesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (coloredBalances *ColoredBalances, err error) {
 	balancesCount, err := marshalUtil.ReadUint32()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse element count (%v): %w", err, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("failed to parse element count (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -154,18 +154,18 @@ func ColoredBalancesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (color
 
 		// check semantic correctness (ensure ordering)
 		if previousColor != nil && previousColor.Compare(color) != -1 {
-			err = xerrors.Errorf("parsed Colors are not in correct order: %w", cerrors.ParseBytesFailed)
+			err = xerrors.Errorf("parsed Colors are not in correct order: %w", cerrors.ErrParseBytesFailed)
 			return
 		}
 
 		balance, balanceErr := marshalUtil.ReadUint64()
 		if balanceErr != nil {
-			err = xerrors.Errorf("failed to parse balance of Color %s (%v): %w", color.String(), balanceErr, cerrors.ParseBytesFailed)
+			err = xerrors.Errorf("failed to parse balance of Color %s (%v): %w", color.String(), balanceErr, cerrors.ErrParseBytesFailed)
 			return
 		}
 
 		if balance < MinOutputBalance {
-			err = xerrors.Errorf("balance (%d) is smaller than MinOutputBalance (%d): %w", balance, MinOutputBalance, cerrors.ParseBytesFailed)
+			err = xerrors.Errorf("balance (%d) is smaller than MinOutputBalance (%d): %w", balance, MinOutputBalance, cerrors.ErrParseBytesFailed)
 			return
 		}
 

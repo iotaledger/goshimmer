@@ -84,7 +84,7 @@ func OutputIDFromBytes(bytes []byte) (outputID OutputID, consumedBytes int, err 
 func OutputIDFromBase58(base58String string) (outputID OutputID, err error) {
 	bytes, err := base58.Decode(base58String)
 	if err != nil {
-		err = xerrors.Errorf("error while decoding base58 encoded OutputID (%v): %w", err, cerrors.Base58DecodeFailed)
+		err = xerrors.Errorf("error while decoding base58 encoded OutputID (%v): %w", err, cerrors.ErrBase58DecodeFailed)
 		return
 	}
 
@@ -100,13 +100,13 @@ func OutputIDFromBase58(base58String string) (outputID OutputID, err error) {
 func OutputIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (outputID OutputID, err error) {
 	outputIDBytes, err := marshalUtil.ReadBytes(OutputIDLength)
 	if err != nil {
-		err = xerrors.Errorf("failed to parse OutputID (%v): %w", err, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("failed to parse OutputID (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	copy(outputID[:], outputIDBytes)
 
 	if outputID.OutputIndex() >= MaxOutputCount {
-		err = xerrors.Errorf("output index exceeds threshold defined by MaxOutputCount (%d): %w", MaxOutputCount, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("output index exceeds threshold defined by MaxOutputCount (%d): %w", MaxOutputCount, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -206,7 +206,7 @@ func OutputFromBytes(bytes []byte) (output Output, consumedBytes int, err error)
 func OutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output Output, err error) {
 	outputType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse OutputType (%v): %w", err, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("failed to parse OutputType (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	marshalUtil.ReadSeek(-1)
@@ -223,7 +223,7 @@ func OutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output Output,
 			return
 		}
 	default:
-		err = xerrors.Errorf("unsupported OutputType (%X): %w", outputType, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("unsupported OutputType (%X): %w", outputType, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -317,15 +317,15 @@ func OutputsFromBytes(outputBytes []byte) (outputs Outputs, consumedBytes int, e
 func OutputsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (outputs Outputs, err error) {
 	outputsCount, err := marshalUtil.ReadUint16()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse outputs count (%v): %w", err, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("failed to parse outputs count (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if outputsCount < MinOutputCount {
-		err = xerrors.Errorf("amount of Outputs (%d) failed to reach MinOutputCount (%d): %w", outputsCount, MinOutputCount, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("amount of Outputs (%d) failed to reach MinOutputCount (%d): %w", outputsCount, MinOutputCount, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if outputsCount > MaxOutputCount {
-		err = xerrors.Errorf("amount of Outputs (%d) exceeds MaxOutputCount (%d): %w", outputsCount, MaxOutputCount, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("amount of Outputs (%d) exceeds MaxOutputCount (%d): %w", outputsCount, MaxOutputCount, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -338,7 +338,7 @@ func OutputsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (outputs Outpu
 		}
 
 		if previousOutput != nil && previousOutput.Compare(parsedOutputs[i]) != -1 {
-			err = xerrors.Errorf("order of Outputs is invalid: %w", cerrors.ParseBytesFailed)
+			err = xerrors.Errorf("order of Outputs is invalid: %w", cerrors.ErrParseBytesFailed)
 			return
 		}
 		previousOutput = parsedOutputs[i]
@@ -494,26 +494,26 @@ func SigLockedSingleOutputFromBytes(bytes []byte) (output *SigLockedSingleOutput
 func SigLockedSingleOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output *SigLockedSingleOutput, err error) {
 	outputType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse OutputType (%v): %w", err, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("failed to parse OutputType (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if OutputType(outputType) != SigLockedSingleOutputType {
-		err = xerrors.Errorf("invalid OutputType (%X): %w", outputType, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("invalid OutputType (%X): %w", outputType, cerrors.ErrParseBytesFailed)
 		return
 	}
 
 	output = &SigLockedSingleOutput{}
 	if output.balance, err = marshalUtil.ReadUint64(); err != nil {
-		err = xerrors.Errorf("failed to parse balance (%v): %w", err, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("failed to parse balance (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if output.address, err = AddressFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Address (%v): %w", err, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("failed to parse Address (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
 	if output.balance < MinOutputBalance {
-		err = xerrors.Errorf("balance (%d) is smaller than MinOutputBalance (%d): %w", output.balance, MinOutputBalance, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("balance (%d) is smaller than MinOutputBalance (%d): %w", output.balance, MinOutputBalance, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -559,7 +559,7 @@ func (s *SigLockedSingleOutput) Balances() *ColoredBalances {
 func (s *SigLockedSingleOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock) (unlockValid bool, err error) {
 	signatureUnlockBlock, correctType := unlockBlock.(*SignatureUnlockBlock)
 	if !correctType {
-		err = xerrors.Errorf("UnlockBlock does not match expected OutputType: %w", cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("UnlockBlock does not match expected OutputType: %w", cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -665,11 +665,11 @@ func SigLockedColoredOutputFromBytes(bytes []byte) (output *SigLockedColoredOutp
 func SigLockedColoredOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output *SigLockedColoredOutput, err error) {
 	outputType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse OutputType (%v): %w", err, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("failed to parse OutputType (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if OutputType(outputType) != SigLockedColoredOutputType {
-		err = xerrors.Errorf("invalid OutputType (%X): %w", outputType, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("invalid OutputType (%X): %w", outputType, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -679,7 +679,7 @@ func SigLockedColoredOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil)
 		return
 	}
 	if output.address, err = AddressFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Address (%v): %w", err, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("failed to parse Address (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -721,7 +721,7 @@ func (s *SigLockedColoredOutput) Balances() *ColoredBalances {
 func (s *SigLockedColoredOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock) (unlockValid bool, err error) {
 	signatureUnlockBlock, correctType := unlockBlock.(*SignatureUnlockBlock)
 	if !correctType {
-		err = xerrors.Errorf("UnlockBlock does not match expected OutputType: %w", cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("UnlockBlock does not match expected OutputType: %w", cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -887,16 +887,16 @@ func OutputMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output
 		return
 	}
 	if outputMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse solid flag (%v): %w", err, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("failed to parse solid flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if outputMetadata.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
-		err = xerrors.Errorf("failed to parse solidification time (%v): %w", err, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("failed to parse solidification time (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	consumerCount, err := marshalUtil.ReadUint64()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse consumer count (%v): %w", err, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("failed to parse consumer count (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	outputMetadata.consumerCount = int(consumerCount)
@@ -905,23 +905,23 @@ func OutputMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output
 		return
 	}
 	if outputMetadata.preferred, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse preferred flag (%v): %w", err, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("failed to parse preferred flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if outputMetadata.liked, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse liked flag (%v): %w", err, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("failed to parse liked flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if outputMetadata.finalized, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse finalized flag (%v): %w", err, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("failed to parse finalized flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if outputMetadata.confirmed, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse confirmed flag (%v): %w", err, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("failed to parse confirmed flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if outputMetadata.rejected, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse rejected flag (%v): %w", err, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("failed to parse rejected flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 

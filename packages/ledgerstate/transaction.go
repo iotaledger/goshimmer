@@ -60,7 +60,7 @@ func TransactionIDFromBytes(bytes []byte) (transactionID TransactionID, consumed
 func TransactionIDFromBase58(base58String string) (transactionID TransactionID, err error) {
 	bytes, err := base58.Decode(base58String)
 	if err != nil {
-		err = xerrors.Errorf("error while decoding base58 encoded TransactionID (%v): %w", err, cerrors.Base58DecodeFailed)
+		err = xerrors.Errorf("error while decoding base58 encoded TransactionID (%v): %w", err, cerrors.ErrBase58DecodeFailed)
 		return
 	}
 
@@ -76,7 +76,7 @@ func TransactionIDFromBase58(base58String string) (transactionID TransactionID, 
 func TransactionIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transactionID TransactionID, err error) {
 	transactionIDBytes, err := marshalUtil.ReadBytes(TransactionIDLength)
 	if err != nil {
-		err = xerrors.Errorf("failed to parse TransactionID (%v): %w", err, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("failed to parse TransactionID (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	copy(transactionID[:], transactionIDBytes)
@@ -150,7 +150,7 @@ func TransactionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transacti
 
 	payloadSize, err := marshalUtil.ReadUint32()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse payload size from MarshalUtil (%v): %w", err, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("failed to parse payload size from MarshalUtil (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	// a payloadSize of 0 indicates the payload is omitted and the payload is nil
@@ -163,7 +163,7 @@ func TransactionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transacti
 		return
 	}
 	if payloadType != TransactionType {
-		err = xerrors.Errorf("payload type '%s' does not match expected '%s': %w", payloadType, TransactionType, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("payload type '%s' does not match expected '%s': %w", payloadType, TransactionType, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -179,12 +179,12 @@ func TransactionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transacti
 
 	parsedBytes := marshalUtil.ReadOffset() - readStartOffset
 	if parsedBytes != int(payloadSize)+4 {
-		err = xerrors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, payloadSize, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, payloadSize, cerrors.ErrParseBytesFailed)
 		return
 	}
 
 	if len(transaction.unlockBlocks) != len(transaction.essence.Inputs()) {
-		err = xerrors.Errorf("amount of UnlockBlocks (%d) does not match amount of Inputs (%d): %w", len(transaction.unlockBlocks), len(transaction.essence.inputs), cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("amount of UnlockBlocks (%d) does not match amount of Inputs (%d): %w", len(transaction.unlockBlocks), len(transaction.essence.inputs), cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -458,11 +458,11 @@ func TransactionEssenceVersionFromBytes(bytes []byte) (version TransactionEssenc
 func TransactionEssenceVersionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (version TransactionEssenceVersion, err error) {
 	readByte, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse TransactionEssenceVersion (%v): %w", err, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("failed to parse TransactionEssenceVersion (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if readByte != 0 {
-		err = xerrors.Errorf("invalid TransactionVersion (%d): %w", readByte, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("invalid TransactionVersion (%d): %w", readByte, cerrors.ErrParseBytesFailed)
 		return
 	}
 	version = TransactionEssenceVersion(readByte)
@@ -554,35 +554,35 @@ func TransactionMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (t
 		return
 	}
 	if transactionMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse solid flag (%v): %w", err, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("failed to parse solid flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if transactionMetadata.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
-		err = xerrors.Errorf("failed to parse solidification time (%v): %w", err, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("failed to parse solidification time (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if transactionMetadata.preferred, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse preferred flag (%v): %w", err, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("failed to parse preferred flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if transactionMetadata.liked, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse liked flag (%v): %w", err, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("failed to parse liked flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if transactionMetadata.finalized, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse finalized flag (%v): %w", err, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("failed to parse finalized flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if transactionMetadata.finalizationTime, err = marshalUtil.ReadTime(); err != nil {
-		err = xerrors.Errorf("failed to parse finalization time (%v): %w", err, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("failed to parse finalization time (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if transactionMetadata.confirmed, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse confirmed flag (%v): %w", err, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("failed to parse confirmed flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if transactionMetadata.rejected, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse rejected flag (%v): %w", err, cerrors.ParseBytesFailed)
+		err = xerrors.Errorf("failed to parse rejected flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
