@@ -31,6 +31,9 @@ const (
 
 	// MinOutputBalance defines the minimum balance per Output.
 	MinOutputBalance = 1
+
+	// MaxOutputBalance defines the maximum balance on an Output (the supply).
+	MaxOutputBalance = 2779530283
 )
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -522,6 +525,10 @@ func SigLockedSingleOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) 
 
 	if output.balance < MinOutputBalance {
 		err = xerrors.Errorf("balance (%d) is smaller than MinOutputBalance (%d): %w", output.balance, MinOutputBalance, cerrors.ErrParseBytesFailed)
+		return
+	}
+	if output.balance > MaxOutputBalance {
+		err = xerrors.Errorf("balance (%d) is bigger than MaxOutputBalance (%d): %w", output.balance, MaxOutputBalance, cerrors.ErrParseBytesFailed)
 		return
 	}
 
