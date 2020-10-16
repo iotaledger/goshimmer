@@ -96,7 +96,7 @@ func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int, 
 			}(i),
 			Faucet: len(withFaucet) > 0 && i == 0,
 			Mana: func(i int) bool {
-				if ParaSyncBeaconOnEveryNode {
+				if ParaManaOnEveryNode {
 					return true
 				}
 				return i == 0
