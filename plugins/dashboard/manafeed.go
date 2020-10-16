@@ -77,11 +77,13 @@ func runManaFeed() {
 func sendManaValue() {
 	ownID := local.GetInstance().ID()
 	access, err := manaPlugin.GetAccessMana(ownID, mana.Mixed)
-	if err != nil {
+	// if node not found, returned value is 0.0
+	if err != nil && err != mana.ErrNodeNotFoundInBaseManaVector {
 		log.Errorf("failed to get own access mana: %w ", err)
 	}
 	consensus, err := manaPlugin.GetConsensusMana(ownID, mana.Mixed)
-	if err != nil {
+	// if node not found, returned value is 0.0
+	if err != nil && err != mana.ErrNodeNotFoundInBaseManaVector {
 		log.Errorf("failed to get own consensus mana: %w ", err)
 	}
 	msgData := &manaValueMsgData{

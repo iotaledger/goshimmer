@@ -299,7 +299,7 @@ func (bmv *BaseManaVector) update(nodeID identity.ID, t time.Time) error {
 // mana = EBM1 * weight + EBM2 * ( 1- weight), where weight is in [0,1]. Not concurrency safe.
 func (bmv *BaseManaVector) getWeightedMana(nodeID identity.ID, weight float64) (float64, error) {
 	if _, exist := bmv.vector[nodeID]; !exist {
-		return 0.0, fmt.Errorf("node %s not found: %w", nodeID.String(), ErrNodeNotFoundInBaseManaVector)
+		return 0.0, ErrNodeNotFoundInBaseManaVector
 	}
 	if weight < 0.0 || weight > 1.0 {
 		return 0.0, ErrInvalidWeightParameter
