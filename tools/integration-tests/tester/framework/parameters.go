@@ -42,6 +42,8 @@ var (
 	ParaPoWFaucetDifficulty = 2
 	// ParaSyncBeaconOnEveryNode defines whether all nodes should be sync beacons.
 	ParaSyncBeaconOnEveryNode = false
+	// ParaManaOnEveryNode defines whether all nodes should have mana enabled.
+	ParaManaOnEveryNode = false
 )
 
 var (
@@ -71,6 +73,8 @@ type GoShimmerConfig struct {
 	SyncBeaconFollowNodes       string
 	SyncBeaconBroadcastInterval int
 	SyncBeaconMaxTimeOfflineSec int
+
+	Mana bool
 }
 
 // NetworkConfig defines the config of a GoShimmer Docker network.

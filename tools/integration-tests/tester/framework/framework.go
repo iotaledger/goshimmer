@@ -95,6 +95,12 @@ func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int, 
 				return ""
 			}(i),
 			Faucet: len(withFaucet) > 0 && i == 0,
+			Mana: func(i int) bool {
+				if ParaSyncBeaconOnEveryNode {
+					return true
+				}
+				return i == 0
+			}(i),
 		}
 		if _, err = network.CreatePeer(config); err != nil {
 			return nil, err

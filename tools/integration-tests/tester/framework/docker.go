@@ -98,6 +98,9 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 				if config.SyncBeaconFollower {
 					plugins = append(plugins, "SyncBeaconFollower")
 				}
+				if config.Mana {
+					plugins = append(plugins, "Mana")
+				}
 				return strings.Join(plugins[:], ",")
 			}()),
 			// define the faucet seed in case the faucet dApp is enabled
