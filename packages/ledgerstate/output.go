@@ -192,8 +192,8 @@ type Output interface {
 	// String returns a human readable version of the Output for debug purposes.
 	String() string
 
-	// Compare offers a comparator for Outputs which returns -1 if other Output is bigger, 1 if it is smaller and 0 if
-	// they are the same.
+	// Compare offers a comparator for Outputs which returns -1 if the other Output is bigger, 1 if it is smaller and 0
+	// if they are the same.
 	Compare(other Output) int
 
 	// StorableObject makes Outputs storable in the ObjectStorage.
@@ -616,8 +616,8 @@ func (s *SigLockedSingleOutput) ObjectStorageValue() []byte {
 		Bytes()
 }
 
-// Compare offers a comparator for Outputs which returns -1 if other Output is bigger, 1 if it is smaller and 0 if they
-// are the same.
+// Compare offers a comparator for Outputs which returns -1 if the other Output is bigger, 1 if it is smaller and 0 if
+// they are the same.
 func (s *SigLockedSingleOutput) Compare(other Output) int {
 	return bytes.Compare(s.Bytes(), other.Bytes())
 }
@@ -778,8 +778,8 @@ func (s *SigLockedColoredOutput) ObjectStorageValue() []byte {
 		Bytes()
 }
 
-// Compare offers a comparator for Outputs which returns -1 if other Output is bigger, 1 if it is smaller and 0 if they
-// are the same.
+// Compare offers a comparator for Outputs which returns -1 if the other Output is bigger, 1 if it is smaller and 0 if
+// they are the same.
 func (s *SigLockedColoredOutput) Compare(other Output) int {
 	return bytes.Compare(s.Bytes(), other.Bytes())
 }
