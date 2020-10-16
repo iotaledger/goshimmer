@@ -178,7 +178,7 @@ func TransactionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transacti
 	}
 
 	parsedBytes := marshalUtil.ReadOffset() - readStartOffset
-	if parsedBytes != int(payloadSize)+4 {
+	if parsedBytes != int(payloadSize)+marshalutil.UINT32_SIZE {
 		err = xerrors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, payloadSize, cerrors.ErrParseBytesFailed)
 		return
 	}
@@ -270,6 +270,7 @@ func (t *Transaction) Bytes() []byte {
 // String returns a human readable version of the Transaction.
 func (t *Transaction) String() string {
 	return stringify.Struct("Transaction",
+		stringify.StructField("id", t.ID()),
 		stringify.StructField("essence", t.Essence()),
 		stringify.StructField("unlockBlocks", t.UnlockBlocks()),
 	)

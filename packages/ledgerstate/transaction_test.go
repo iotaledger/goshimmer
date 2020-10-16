@@ -1,86 +1,11 @@
 package ledgerstate
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/stretchr/testify/require"
 )
-
-func setupKeyChainAndAddresses(t *testing.T) (keyChain map[Address]ed25519.KeyPair, sourceAddr Address, destAddr Address, remainderAddr Address) {
-	keyChain = make(map[Address]ed25519.KeyPair)
-
-	sourceAddrPublicKey, sourceAddrPrivateKey, err := ed25519.GenerateKey()
-	require.NoError(t, err)
-	sourceAddr = NewED25519Address(sourceAddrPublicKey)
-	keyChain[sourceAddr] = ed25519.KeyPair{PrivateKey: sourceAddrPrivateKey, PublicKey: sourceAddrPublicKey}
-
-	destAddrPublicKey, destAddrPrivateKey, err := ed25519.GenerateKey()
-	require.NoError(t, err)
-	destAddr = NewED25519Address(destAddrPublicKey)
-	keyChain[destAddr] = ed25519.KeyPair{PrivateKey: destAddrPrivateKey, PublicKey: destAddrPublicKey}
-
-	remainderAddrPublicKey, remainderAddrPrivateKey, err := ed25519.GenerateKey()
-	require.NoError(t, err)
-	remainderAddr = NewED25519Address(remainderAddrPublicKey)
-	keyChain[destAddr] = ed25519.KeyPair{PrivateKey: remainderAddrPrivateKey, PublicKey: remainderAddrPublicKey}
-
-	return
-}
-
-func setupUnspentOutputsDB(outputs map[Address]map[OutputID]map[Color]uint64) (unspentOutputsDB map[OutputID]Output) {
-	unspentOutputsDB = make(map[OutputID]Output)
-	for address, outputs := range outputs {
-		for outputID, balances := range outputs {
-			unspentOutputsDB[outputID] = NewSigLockedColoredOutput(NewColoredBalances(balances), address).SetID(outputID)
-		}
-	}
-
-	return
-}
-
-// addressFromInput retrieves the Address belonging to an Input by looking it up in the outputs that we have created for
-// the tests.
-func addressFromInput(input Input, outputsByID OutputsByID) Address {
-	typeCastedInput, ok := input.(*UTXOInput)
-	if !ok {
-		panic("unexpected Input type")
-	}
-
-	switch referencedOutput := outputsByID[typeCastedInput.ReferencedOutputID()]; referencedOutput.Type() {
-	case SigLockedSingleOutputType:
-		typeCastedOutput, ok := referencedOutput.(*SigLockedSingleOutput)
-		if !ok {
-			panic("failed to type cast SigLockedSingleOutput")
-		}
-
-		return typeCastedOutput.Address()
-	case SigLockedColoredOutputType:
-		typeCastedOutput, ok := referencedOutput.(*SigLockedColoredOutput)
-		if !ok {
-			panic("failed to type cast SigLockedColoredOutput")
-		}
-
-		return typeCastedOutput.Address()
-	default:
-		panic("unexpected Output type")
-	}
-}
-
-// signTransaction is a utility function that iterates through a transactions inputs and signs the addresses that are
-// part of the signers key chain.
-func signTransaction(transaction *Transaction, unspentOutputsDB map[OutputID]Output, keyChain map[Address]ed25519.KeyPair) *Transaction {
-	essenceBytesToSign := transaction.Essence().Bytes()
-
-	for i, input := range transaction.Essence().Inputs() {
-		if keyPair, keyPairExists := keyChain[addressFromInput(input, unspentOutputsDB)]; keyPairExists {
-			transaction.UnlockBlocks()[i] = NewSignatureUnlockBlock(NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(essenceBytesToSign)))
-		}
-	}
-
-	return transaction
-}
 
 func TestTransaction_Complex(t *testing.T) {
 	// setup variables representing keys ands outputs for the two parties that wants to trade tokens
@@ -141,8 +66,83 @@ func TestTransaction_Complex(t *testing.T) {
 	transaction := NewTransaction(completedEssence, unlockBlocks)
 
 	// both parties sign the transaction
-	transaction = signTransaction(transaction, unspentOutputsDB, party2KeyChain)
-	transaction = signTransaction(transaction, unspentOutputsDB, party1KeyChain)
+	signTransaction(transaction, unspentOutputsDB, party2KeyChain)
+	signTransaction(transaction, unspentOutputsDB, party1KeyChain)
 
-	fmt.Print(transaction)
+	// TODO: ADD VALIDITY CHECKS ONCE WE ADDED THE UTXO DAG.
+	// assert.True(t, utxoDAG.TransactionValid(transaction))
+}
+
+// setupKeyChainAndAddresses generates keys and addresses that are used by the test case.
+func setupKeyChainAndAddresses(t *testing.T) (keyChain map[Address]ed25519.KeyPair, sourceAddr Address, destAddr Address, remainderAddr Address) {
+	keyChain = make(map[Address]ed25519.KeyPair)
+
+	sourceAddrPublicKey, sourceAddrPrivateKey, err := ed25519.GenerateKey()
+	require.NoError(t, err)
+	sourceAddr = NewED25519Address(sourceAddrPublicKey)
+	keyChain[sourceAddr] = ed25519.KeyPair{PrivateKey: sourceAddrPrivateKey, PublicKey: sourceAddrPublicKey}
+
+	destAddrPublicKey, destAddrPrivateKey, err := ed25519.GenerateKey()
+	require.NoError(t, err)
+	destAddr = NewED25519Address(destAddrPublicKey)
+	keyChain[destAddr] = ed25519.KeyPair{PrivateKey: destAddrPrivateKey, PublicKey: destAddrPublicKey}
+
+	remainderAddrPublicKey, remainderAddrPrivateKey, err := ed25519.GenerateKey()
+	require.NoError(t, err)
+	remainderAddr = NewED25519Address(remainderAddrPublicKey)
+	keyChain[destAddr] = ed25519.KeyPair{PrivateKey: remainderAddrPrivateKey, PublicKey: remainderAddrPublicKey}
+
+	return
+}
+
+// setupUnspentOutputsDB creates a fake database with Outputs.
+func setupUnspentOutputsDB(outputs map[Address]map[OutputID]map[Color]uint64) (unspentOutputsDB OutputsByID) {
+	unspentOutputsDB = make(OutputsByID)
+	for address, outputs := range outputs {
+		for outputID, balances := range outputs {
+			unspentOutputsDB[outputID] = NewSigLockedColoredOutput(NewColoredBalances(balances), address).SetID(outputID)
+		}
+	}
+
+	return
+}
+
+// addressFromInput retrieves the Address belonging to an Input by looking it up in the outputs that we have created for
+// the tests.
+func addressFromInput(input Input, outputsByID OutputsByID) Address {
+	typeCastedInput, ok := input.(*UTXOInput)
+	if !ok {
+		panic("unexpected Input type")
+	}
+
+	switch referencedOutput := outputsByID[typeCastedInput.ReferencedOutputID()]; referencedOutput.Type() {
+	case SigLockedSingleOutputType:
+		typeCastedOutput, ok := referencedOutput.(*SigLockedSingleOutput)
+		if !ok {
+			panic("failed to type cast SigLockedSingleOutput")
+		}
+
+		return typeCastedOutput.Address()
+	case SigLockedColoredOutputType:
+		typeCastedOutput, ok := referencedOutput.(*SigLockedColoredOutput)
+		if !ok {
+			panic("failed to type cast SigLockedColoredOutput")
+		}
+
+		return typeCastedOutput.Address()
+	default:
+		panic("unexpected Output type")
+	}
+}
+
+// signTransaction is a utility function that iterates through a transactions inputs and signs the addresses that are
+// part of the signers key chain.
+func signTransaction(transaction *Transaction, unspentOutputsDB OutputsByID, keyChain map[Address]ed25519.KeyPair) {
+	essenceBytesToSign := transaction.Essence().Bytes()
+
+	for i, input := range transaction.Essence().Inputs() {
+		if keyPair, keyPairExists := keyChain[addressFromInput(input, unspentOutputsDB)]; keyPairExists {
+			transaction.UnlockBlocks()[i] = NewSignatureUnlockBlock(NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(essenceBytesToSign)))
+		}
+	}
 }
