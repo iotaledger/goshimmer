@@ -260,12 +260,11 @@ func OutputFromObjectStorage(key []byte, data []byte) (output objectstorage.Stor
 
 // region Outputs ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Outputs represents a deterministically ordered collection of Outputs. It can directly be used to model the list of
-// Outputs in a Transaction.
+// Outputs represents a list of Outputs that can be used in a Transaction.
 type Outputs []Output
 
 // NewOutputs returns a deterministically ordered collection of Outputs. It removes duplicates in the parameters and
-// ensures syntactical correctness.
+// sorts the Outputs to ensure syntactical correctness.
 func NewOutputs(optionalOutputs ...Output) (outputs Outputs) {
 	seenOutputs := make(map[string]types.Empty)
 	sortedOutputs := make([]struct {
