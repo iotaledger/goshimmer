@@ -3,6 +3,7 @@ package webapi
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -47,6 +48,54 @@ func Server() *echo.Echo {
 			AllowOrigins: []string{"*"},
 			AllowMethods: []string{http.MethodGet, http.MethodHead, http.MethodPut, http.MethodPatch, http.MethodPost, http.MethodDelete},
 		}))
+
+		// if enabled, configure basic-auth
+		if config.Node().GetBool(CfgBasicAuthEnabled) {
+			server.Use(middleware.BasicAuth(func(username, password string, c echo.Context) (bool, error) {
+				if username == config.Node().GetString(CfgBasicAuthUsername) &&
+					password == config.Node().GetString(CfgBasicAuthPassword) {
+					return true, nil
+				}
+				return false, nil
+			}))
+		}
+
+		server.HTTPErrorHandler = func(err error, c echo.Context) {
+			log.Warnf("Request failed: %s", err)
+
+			var statusCode int
+			var message string
+
+			switch errors.Unwrap(err) {
+
+			case echo.ErrUnauthorized:
+				statusCode = http.StatusUnauthorized
+				message = "unauthorized"
+
+			case echo.ErrForbidden:
+				statusCode = http.StatusForbidden
+				message = "access forbidden"
+
+			case echo.ErrInternalServerError:
+				statusCode = http.StatusInternalServerError
+				message = "internal server error"
+
+			case echo.ErrNotFound:
+				statusCode = http.StatusNotFound
+				message = "not found"
+
+			case echo.ErrBadRequest:
+				statusCode = http.StatusBadRequest
+				message = "bad request"
+
+			default:
+				statusCode = http.StatusInternalServerError
+				message = "internal server error"
+			}
+
+			message = fmt.Sprintf("%s, error: %+v", message, err)
+			c.String(statusCode, message)
+		}
 	})
 	return server
 }
@@ -73,7 +122,7 @@ func worker(shutdownSignal <-chan struct{}) {
 	stopped := make(chan struct{})
 	bindAddr := config.Node().GetString(CfgBindAddress)
 	go func() {
-		log.Infof("%s started, bind-address=%s", PluginName, bindAddr)
+		log.Infof("%s started, bind-address=%s, basic-auth=%v", PluginName, bindAddr, config.Node().GetBool(CfgBasicAuthEnabled))
 		if err := server.Start(bindAddr); err != nil {
 			if !errors.Is(err, http.ErrServerClosed) {
 				log.Errorf("Error serving: %s", err)
