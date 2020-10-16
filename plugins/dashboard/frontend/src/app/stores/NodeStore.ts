@@ -207,10 +207,17 @@ export class NodeStore {
         this.collected_tips_metrics = [];
     }
 
+    reconnect() {
+        this.updateWebSocketConnected(false);
+        setTimeout(() => {
+            this.connect();
+        }, 5000);
+    }
+
     connect() {
         connectWebSocket(statusWebSocketPath,
             () => this.updateWebSocketConnected(true),
-            () => this.updateWebSocketConnected(false),
+            () => this.reconnect(),
             () => this.updateWebSocketConnected(false))
     }
 

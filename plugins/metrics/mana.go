@@ -147,7 +147,7 @@ func AveragePledgeAccessBM() (mana.NodeMap, mana.NodeMap) {
 
 // addPledge populates the pledge logs for the node.
 func addPledge(event *mana.PledgedEvent) {
-	switch event.Type {
+	switch event.ManaType {
 	case mana.AccessMana:
 		accessPledgeLock.Lock()
 		defer accessPledgeLock.Unlock()

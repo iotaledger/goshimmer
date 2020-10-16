@@ -11,6 +11,7 @@ import ExplorerStore from "app/stores/ExplorerStore";
 import DrngStore from "app/stores/DrngStore";
 import FaucetStore from "app/stores/FaucetStore";
 import VisualizerStore from "app/stores/VisualizerStore";
+import ManaStore from "app/stores/ManaStore";
 
 // prepare MobX stores
 const routerStore = new RouterStore();
@@ -19,6 +20,7 @@ const explorerStore = new ExplorerStore(routerStore);
 const drngStore = new DrngStore(routerStore);
 const faucetStore = new FaucetStore(routerStore);
 const visualizerStore = new VisualizerStore(routerStore);
+const manaStore = new ManaStore();
 const stores = {
     "routerStore": routerStore,
     "nodeStore": nodeStore,
@@ -26,6 +28,7 @@ const stores = {
     "drngStore": drngStore,
     "faucetStore": faucetStore,
     "visualizerStore": visualizerStore,
+    "manaStore": manaStore,
 };
 
 const browserHistory = createBrowserHistory();

@@ -1,20 +1,12 @@
 package mana
 
 import (
-	"errors"
 	"fmt"
 	"sort"
 	"sync"
 	"time"
 
 	"github.com/iotaledger/hive.go/identity"
-)
-
-var (
-	// ErrNodeNotFoundInBaseManaVector is returned if the node is not found in the base mana vector.
-	ErrNodeNotFoundInBaseManaVector = errors.New("node not present in base mana vector")
-	// ErrInvalidWeightParameter is returned if an invalid weight parameter is passed.
-	ErrInvalidWeightParameter = errors.New("invalid weight parameter, outside of [0,1]")
 )
 
 // BaseManaVector represents a base mana vector
@@ -115,7 +107,7 @@ func (bmv *BaseManaVector) BookMana(txInfo *TxInfo) {
 			panic(fmt.Sprintf("Revoking (%f) eff base mana 1 from node %s results in negative balance", inputInfo.Amount, pledgeNodeID.String()))
 		}
 		// trigger events
-		Events().Revoked.Trigger(&RevokedEvent{pledgeNodeID, inputInfo.Amount, txInfo.TimeStamp, bmv.vectorType})
+		Events().Revoked.Trigger(&RevokedEvent{pledgeNodeID, inputInfo.Amount, txInfo.TimeStamp, bmv.vectorType, txInfo.TransactionID})
 		Events().Updated.Trigger(&UpdatedEvent{pledgeNodeID, *oldMana, *bmv.vector[pledgeNodeID], bmv.vectorType})
 	}
 	// second, pledge mana to new nodes
@@ -130,7 +122,7 @@ func (bmv *BaseManaVector) BookMana(txInfo *TxInfo) {
 	bm1Pledged, bm2Pledged := bmv.vector[pledgeNodeID].pledgeAndUpdate(txInfo)
 
 	// trigger events
-	Events().Pledged.Trigger(&PledgedEvent{pledgeNodeID, bm1Pledged, bm2Pledged, txInfo.TimeStamp, bmv.vectorType})
+	Events().Pledged.Trigger(&PledgedEvent{pledgeNodeID, bm1Pledged, bm2Pledged, txInfo.TimeStamp, bmv.vectorType, txInfo.TransactionID})
 	Events().Updated.Trigger(&UpdatedEvent{pledgeNodeID, *oldMana, *bmv.vector[pledgeNodeID], bmv.vectorType})
 }
 
@@ -239,8 +231,8 @@ type Node struct {
 // NodeStr defines a node and its mana value.
 // The node ID is stringified.
 type NodeStr struct {
-	ID   string
-	Mana float64
+	ID   string  `json:"nodeID"`
+	Mana float64 `json:"mana"`
 }
 
 // ToNodeStr converts a Node to a Nodestr
@@ -307,7 +299,7 @@ func (bmv *BaseManaVector) update(nodeID identity.ID, t time.Time) error {
 // mana = EBM1 * weight + EBM2 * ( 1- weight), where weight is in [0,1]. Not concurrency safe.
 func (bmv *BaseManaVector) getWeightedMana(nodeID identity.ID, weight float64) (float64, error) {
 	if _, exist := bmv.vector[nodeID]; !exist {
-		return 0.0, fmt.Errorf("node %s not found: %w", nodeID.String(), ErrNodeNotFoundInBaseManaVector)
+		return 0.0, ErrNodeNotFoundInBaseManaVector
 	}
 	if weight < 0.0 || weight > 1.0 {
 		return 0.0, ErrInvalidWeightParameter

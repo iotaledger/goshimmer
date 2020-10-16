@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
@@ -30,8 +31,9 @@ var (
 		inputPledgeID3: 0,
 	}
 	txInfo = &TxInfo{
-		TimeStamp:    txTime,
-		TotalBalance: 10.0,
+		TimeStamp:     txTime,
+		TransactionID: transaction.RandomID(),
+		TotalBalance:  10.0,
 		PledgeID: map[Type]identity.ID{
 			AccessMana:    txPledgeID,
 			ConsensusMana: txPledgeID,
@@ -153,7 +155,7 @@ func TestBaseManaVector_BookMana(t *testing.T) {
 	}
 	for _, ev := range updateEvents {
 		// has the right type
-		assert.Equal(t, AccessMana, ev.Type)
+		assert.Equal(t, AccessMana, ev.ManaType)
 		// has the right update time
 		assert.Equal(t, baseTime, ev.NewMana.LastUpdated)
 		// base mana values are expected
@@ -211,7 +213,7 @@ func TestBaseManaVector_BookMana(t *testing.T) {
 
 	for _, ev := range updateEvents {
 		// has the right type
-		assert.Equal(t, AccessMana, ev.Type)
+		assert.Equal(t, AccessMana, ev.ManaType)
 		// has the right update time
 		assert.Equal(t, txTime, ev.NewMana.LastUpdated)
 		// base mana values are expected
@@ -227,7 +229,8 @@ func TestBaseManaVector_BookMana(t *testing.T) {
 		assert.Equal(t, afterBookingAmount[ev.NodeID], ev.AmountBM1)
 		assert.InDelta(t, afterBookingAmount[ev.NodeID], ev.AmountBM2, delta)
 		assert.Equal(t, txTime, ev.Time)
-		assert.Equal(t, AccessMana, ev.Type)
+		assert.Equal(t, txInfo.TransactionID, ev.TransactionID)
+		assert.Equal(t, AccessMana, ev.ManaType)
 		assert.Contains(t, pledgedNodeIds, ev.NodeID)
 		delete(pledgedNodeIds, ev.NodeID)
 	}
@@ -235,7 +238,8 @@ func TestBaseManaVector_BookMana(t *testing.T) {
 	for _, ev := range revokeEvents {
 		assert.Equal(t, beforeBookingAmount[ev.NodeID], ev.AmountBM1)
 		assert.Equal(t, txTime, ev.Time)
-		assert.Equal(t, AccessMana, ev.Type)
+		assert.Equal(t, txInfo.TransactionID, ev.TransactionID)
+		assert.Equal(t, AccessMana, ev.ManaType)
 		assert.Contains(t, revokedNodeIds, ev.NodeID)
 		delete(revokedNodeIds, ev.NodeID)
 	}
@@ -342,7 +346,7 @@ func TestBaseManaVector_Update(t *testing.T) {
 	assert.Equal(t, 1, len(updateEvents))
 	ev := updateEvents[0]
 	assert.Equal(t, randID, ev.NodeID)
-	assert.Equal(t, AccessMana, ev.Type)
+	assert.Equal(t, AccessMana, ev.ManaType)
 	assert.Equal(t, BaseMana{
 		BaseMana1:   10.0,
 		BaseMana2:   10.0,
