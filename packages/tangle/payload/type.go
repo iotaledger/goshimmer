@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/iotaledger/goshimmer/packages/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"golang.org/x/xerrors"
 )
@@ -64,7 +65,7 @@ func TypeFromBytes(typeBytes []byte) (typeResult Type, consumedBytes int, err er
 func TypeFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (typeResult Type, err error) {
 	typeUint32, err := marshalUtil.ReadUint32()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse type (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse type (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	typeResult = Type(typeUint32)
