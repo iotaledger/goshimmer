@@ -38,12 +38,7 @@ func TestTransaction_Complex(t *testing.T) {
 			NewSigLockedSingleOutput(1337, party1DestAddress),
 
 			// he sends only 100 of the consumed tokens to the remainder leaving 100 unspent
-			NewSigLockedColoredOutput(
-				NewColoredBalances(map[Color]uint64{
-					Color{2}: 100,
-				}),
-				party1RemainderAddress,
-			),
+			NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{Color{2}: 100}), party1RemainderAddress),
 		),
 	).Bytes()
 
