@@ -38,7 +38,9 @@ func TestTransaction_Complex(t *testing.T) {
 			NewSigLockedSingleOutput(1337, party1DestAddress),
 
 			// he sends only 100 of the 200 consumed tokens of Color{2} to the remainder (leaving 100 unspent)
-			NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{Color{2}: 100}), party1RemainderAddress),
+			NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{
+				Color{2}: 100,
+			}), party1RemainderAddress),
 		),
 	).Bytes()
 
@@ -51,7 +53,9 @@ func TestTransaction_Complex(t *testing.T) {
 		NewInputs(append(receivedParty1Essence.Inputs(), unspentOutputsDB[party2ControlledOutputID].Input())...),
 		NewOutputs(append(receivedParty1Essence.Outputs(),
 			// he wants to receive 100 tokens of Color{2} on his destination address
-			NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{Color{2}: 100}), party2DestAddress),
+			NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{
+				Color{2}: 100,
+			}), party2DestAddress),
 
 			// he sends only 1000 of the 2337 consumed IOTA to the remainder (leaving 1337 unspent)
 			NewSigLockedSingleOutput(1000, party2RemainderAddress),
