@@ -37,7 +37,7 @@ func TestTransaction_Complex(t *testing.T) {
 			// he wants to receive 1337 IOTA on his destination address
 			NewSigLockedSingleOutput(1337, party1DestAddress),
 
-			// he sends only 100 of the 200 consumed tokens of Color{2} to the remainder (leaving 100 unspent)
+			// is the linterror gone now?
 			NewSigLockedColoredOutput(
 				NewColoredBalances(map[Color]uint64{
 					Color{2}: 100,
