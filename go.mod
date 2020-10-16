@@ -6,7 +6,6 @@ require (
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
 	github.com/beevik/ntp v0.3.0
 	github.com/dgraph-io/badger/v2 v2.0.3
-	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/drand/drand v1.1.1
 	github.com/drand/kyber v1.1.2
 	github.com/gin-gonic/gin v1.6.3

@@ -1,8 +1,7 @@
 package wallet
 
 import (
-	"net/http"
-
+	"github.com/iotaledger/goshimmer/client"
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/hive.go/bitmask"
 )
@@ -11,9 +10,9 @@ import (
 type Option func(*Wallet)
 
 // WebAPI connects the wallet with the remote API of a node.
-func WebAPI(baseURL string, httpClient ...http.Client) Option {
+func WebAPI(baseURL string, setters ...client.Option) Option {
 	return func(wallet *Wallet) {
-		wallet.connector = NewWebConnector(baseURL, httpClient...)
+		wallet.connector = NewWebConnector(baseURL, setters...)
 	}
 }
 

@@ -7,7 +7,7 @@ import (
 	valuepayload "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/packages/metrics"
-	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/magiconair/properties/assert"
@@ -21,13 +21,13 @@ func TestMessageCountPerPayload(t *testing.T) {
 		increasePerPayloadCounter(valuepayload.Type)
 	}
 	assert.Equal(t, MessageTotalCountSinceStart(), (uint64)(10))
-	assert.Equal(t, MessageCountSinceStartPerPayload(), map[tangle.PayloadType]uint64{valuepayload.Type: 10})
+	assert.Equal(t, MessageCountSinceStartPerPayload(), map[payload.Type]uint64{valuepayload.Type: 10})
 	// simulate attaching 5 drng payloads
 	for i := 0; i < 5; i++ {
 		increasePerPayloadCounter(drng.PayloadType)
 	}
 	assert.Equal(t, MessageTotalCountSinceStart(), (uint64)(15))
-	assert.Equal(t, MessageCountSinceStartPerPayload(), map[tangle.PayloadType]uint64{valuepayload.Type: 10, drng.PayloadType: 5})
+	assert.Equal(t, MessageCountSinceStartPerPayload(), map[payload.Type]uint64{valuepayload.Type: 10, drng.PayloadType: 5})
 }
 
 func TestMessageTips(t *testing.T) {

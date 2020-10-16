@@ -31,12 +31,20 @@ func (d *DRNG) Dispatch(issuer ed25519.PublicKey, timestamp time.Time, payload *
 		d.Events.CollectiveBeacon.Trigger(cbEvent)
 
 		// process collectiveBeacon
-		if err := ProcessBeacon(d.State, cbEvent); err != nil {
+		if _, ok := d.State[cbEvent.InstanceID]; !ok {
+			return ErrInstanceIDMismatch
+		}
+		if err := ProcessBeacon(d.State[cbEvent.InstanceID], cbEvent); err != nil {
 			return err
 		}
 
+		// update the dpk (if not set) from the valid beacon
+		if len(d.State[cbEvent.InstanceID].committee.DistributedPK) == 0 {
+			d.State[cbEvent.InstanceID].UpdateDPK(cbEvent.Dpk)
+		}
+
 		// trigger RandomnessEvent
-		d.Events.Randomness.Trigger(d.State.Randomness())
+		d.Events.Randomness.Trigger(d.State[cbEvent.InstanceID])
 
 		return nil
 

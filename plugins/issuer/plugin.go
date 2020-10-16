@@ -5,6 +5,7 @@ import (
 	goSync "sync"
 
 	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/syncbeaconfollower"
 	"github.com/iotaledger/hive.go/node"
@@ -31,7 +32,7 @@ func configure(_ *node.Plugin) {}
 
 // IssuePayload issues a payload to the message layer.
 // If the node is not synchronized an error is returned.
-func IssuePayload(payload tangle.Payload) (*tangle.Message, error) {
+func IssuePayload(payload payload.Payload) (*tangle.Message, error) {
 	if !syncbeaconfollower.Synced() {
 		return nil, fmt.Errorf("can't issue payload: %w", syncbeaconfollower.ErrNodeNotSynchronized)
 	}
