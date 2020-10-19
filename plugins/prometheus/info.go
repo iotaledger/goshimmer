@@ -27,7 +27,7 @@ func registerInfoMetrics() {
 	infoApp.WithLabelValues(banner.AppName, banner.AppVersion, nodeID).Set(1)
 
 	syncStatus = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "syncStatus",
+		Name: "sync",
 		Help: "Node sync status.",
 	})
 
