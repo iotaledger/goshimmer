@@ -2,6 +2,7 @@ package banner
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/iotaledger/hive.go/node"
@@ -14,12 +15,14 @@ var (
 	// plugin is the plugin instance of the banner plugin.
 	plugin *node.Plugin
 	once   sync.Once
+
+	// AppVersion version number
+	AppVersion = "v0.3.0"
+	// SimplifiedAppVersion is the version number without commit hash
+	SimplifiedAppVersion string
 )
 
 const (
-	// AppVersion version number
-	AppVersion = "v0.3.0"
-
 	// AppName app code name
 	AppName = "GoShimmer"
 )
@@ -44,8 +47,23 @@ func configure(ctx *node.Plugin) {
 `, AppVersion)
 	fmt.Println()
 
+	SimplifiedAppVersion = simplifiedVersion(AppVersion)
+
 	ctx.Node.Logger.Infof("GoShimmer version %s ...", AppVersion)
 	ctx.Node.Logger.Info("Loading plugins ...")
 }
 
 func run(ctx *node.Plugin) {}
+
+func simplifiedVersion(version string) string {
+	// ignore commit hash
+	ver := version
+	if strings.Contains(ver, "-") {
+		ver = strings.Split(ver, "-")[0]
+	}
+	// attach a "v" at front
+	if !strings.Contains(ver, "v") {
+		ver = "v" + ver
+	}
+	return ver
+}

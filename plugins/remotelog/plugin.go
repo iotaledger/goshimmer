@@ -105,7 +105,7 @@ func run(plugin *node.Plugin) {
 
 func sendLogMsg(level logger.Level, name string, msg string) {
 	m := logMessage{
-		banner.AppVersion,
+		banner.SimplifiedAppVersion,
 		myGitHead,
 		myGitBranch,
 		myID,
