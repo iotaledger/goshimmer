@@ -8,7 +8,7 @@ import (
 )
 
 func TestTransaction_Complex(t *testing.T) {
-	// setup variables representing keys ands outputs for the two parties that wants to trade tokens
+	// setup variables representing keys and outputs for the two parties that wants to trade tokens
 	party1KeyChain, party1SrcAddress, party1DestAddress, party1RemainderAddress := setupKeyChainAndAddresses(t)
 	party1ControlledOutputID := NewOutputID(GenesisTransactionID, 1)
 	party2KeyChain, party2SrcAddress, party2DestAddress, party2RemainderAddress := setupKeyChainAndAddresses(t)
