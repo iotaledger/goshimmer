@@ -19,7 +19,7 @@ var (
 	// AppVersion version number
 	AppVersion = "v0.3.0"
 	// SimplifiedAppVersion is the version number without commit hash
-	SimplifiedAppVersion string
+	SimplifiedAppVersion = simplifiedVersion(AppVersion)
 )
 
 const (
@@ -46,8 +46,6 @@ func configure(ctx *node.Plugin) {
                              %s                                     
 `, AppVersion)
 	fmt.Println()
-
-	SimplifiedAppVersion = simplifiedVersion(AppVersion)
 
 	ctx.Node.Logger.Infof("GoShimmer version %s ...", AppVersion)
 	ctx.Node.Logger.Info("Loading plugins ...")
