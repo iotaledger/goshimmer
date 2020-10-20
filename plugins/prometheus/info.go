@@ -8,9 +8,9 @@ import (
 )
 
 var (
-	infoApp *prometheus.GaugeVec
-	sync    prometheus.Gauge
-	nodeID  string
+	infoApp    *prometheus.GaugeVec
+	syncStatus prometheus.Gauge
+	nodeID     string
 )
 
 func registerInfoMetrics() {
@@ -26,19 +26,19 @@ func registerInfoMetrics() {
 	}
 	infoApp.WithLabelValues(banner.AppName, banner.AppVersion, nodeID).Set(1)
 
-	sync = prometheus.NewGauge(prometheus.GaugeOpts{
+	syncStatus = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "sync",
 		Help: "Node sync status.",
 	})
 
 	registry.MustRegister(infoApp)
-	registry.MustRegister(sync)
+	registry.MustRegister(syncStatus)
 
 	addCollect(collectInfoMetrics)
 }
 
 func collectInfoMetrics() {
-	sync.Set(func() float64 {
+	syncStatus.Set(func() float64 {
 		if metrics.Synced() {
 			return 1.0
 		}
