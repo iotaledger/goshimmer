@@ -43,7 +43,7 @@ var (
 	// ParaSyncBeaconOnEveryNode defines whether all nodes should be sync beacons.
 	ParaSyncBeaconOnEveryNode = false
 	// ParaManaOnEveryNode defines whether all nodes should have mana enabled.
-	ParaManaOnEveryNode = false
+	ParaManaOnEveryNode = true
 )
 
 var (
