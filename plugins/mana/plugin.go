@@ -63,8 +63,8 @@ func configure(*node.Plugin) {
 	storages = make(map[mana.Type]*objectstorage.ObjectStorage)
 	store := database.Store()
 	osFactory = objectstorage.NewFactory(store, storageprefix.Mana)
-	storages[mana.AccessMana] = osFactory.New(storageprefix.Mana, mana.FromObjectStorage)
-	storages[mana.ConsensusMana] = osFactory.New(storageprefix.Mana, mana.FromObjectStorage)
+	storages[mana.AccessMana] = osFactory.New(storageprefix.ManaAccess, mana.FromObjectStorage)
+	storages[mana.ConsensusMana] = osFactory.New(storageprefix.ManaConsensus, mana.FromObjectStorage)
 
 	err := verifyPledgeNodes()
 	if err != nil {
