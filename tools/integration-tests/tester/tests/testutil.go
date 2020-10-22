@@ -3,6 +3,7 @@ package tests
 import (
 	"errors"
 	"fmt"
+	"log"
 	"math/rand"
 	"sync"
 	"sync/atomic"
@@ -16,6 +17,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 	"github.com/iotaledger/goshimmer/plugins/webapi/value/utils"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -183,7 +185,7 @@ func SendTransactionOnRandomPeer(t *testing.T, peers []*framework.Peer, addrBala
 	for i := 0; i < numMessages; i++ {
 		from := rand.Intn(len(peers))
 		to := rand.Intn(len(peers))
-		fail, txId := SendIotaTransaction(t, peers[from], peers[to], addrBalance, sentValue)
+		fail, txId := SendIotaTransaction(t, peers[from], peers[to], addrBalance, sentValue, 0, 0)
 		if fail {
 			i--
 			counter++
@@ -205,21 +207,15 @@ func SendTransactionOnRandomPeer(t *testing.T, peers []*framework.Peer, addrBala
 
 // SendIotaTransaction sends sentValue amount of IOTA tokens and remainders from and to a given peer and returns the fail flag and the transaction ID.
 // Every peer sends and receives the transaction on the address of index 0 by default.
-// Optionally, the address index for from and to can be specified.
-func SendIotaTransaction(t *testing.T, from *framework.Peer, to *framework.Peer, addrBalance map[string]map[balance.Color]int64, sentValue int64, fromAndToAddressIndex ...uint64) (fail bool, txId string) {
+// Optionally, the nodes to pledge access and consensus mana can be specified.
+func SendIotaTransaction(t *testing.T, from *framework.Peer, to *framework.Peer, addrBalance map[string]map[balance.Color]int64, sentValue int64, fromAddressIndex uint64, toAddressIndex uint64, manaPledgeIDs ...identity.ID) (fail bool, txId string) {
 	var sigScheme signaturescheme.SignatureScheme
 	var inputAddr address.Address
 	var outputAddr address.Address
 
-	if len(fromAndToAddressIndex) > 1 {
-		inputAddr = from.Seed.Address(fromAndToAddressIndex[0]).Address
-		outputAddr = to.Seed.Address(fromAndToAddressIndex[1]).Address
-		sigScheme = signaturescheme.ED25519(*from.Seed.KeyPair(fromAndToAddressIndex[0]))
-	} else {
-		inputAddr = from.Seed.Address(0).Address
-		outputAddr = to.Seed.Address(0).Address
-		sigScheme = signaturescheme.ED25519(*from.Seed.KeyPair(0))
-	}
+	inputAddr = from.Seed.Address(fromAddressIndex).Address
+	outputAddr = to.Seed.Address(toAddressIndex).Address
+	sigScheme = signaturescheme.ED25519(*from.Seed.KeyPair(fromAddressIndex))
 
 	// prepare inputs
 	resp, err := from.GetUnspentOutputs([]string{inputAddr.String()})
@@ -256,11 +252,20 @@ func SendIotaTransaction(t *testing.T, from *framework.Peer, to *framework.Peer,
 	}
 
 	// sign transaction
-	txn := transaction.New(inputs, outputs).Sign(sigScheme)
+	var txn *transaction.Transaction
+	if len(manaPledgeIDs) > 1 {
+		txn = transaction.New(inputs, outputs, manaPledgeIDs[0], manaPledgeIDs[1])
+	} else {
+		txn = transaction.New(inputs, outputs)
+	}
+	txn = txn.Sign(sigScheme)
 
 	// send transaction
 	txId, err = from.SendTransaction(txn.Bytes())
-	require.NoErrorf(t, err, "could not send transaction on %s", from.String())
+	if err != nil {
+		log.Printf("could not send transaction on %s: %s\n", from.String(), err.Error())
+		return true, ""
+	}
 
 	addrBalance[inputAddr.String()][balance.ColorIOTA] -= sentValue
 	addrBalance[outputAddr.String()][balance.ColorIOTA] += sentValue
