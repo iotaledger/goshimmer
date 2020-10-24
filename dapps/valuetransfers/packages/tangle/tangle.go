@@ -1501,7 +1501,7 @@ func (tangle *Tangle) bookPayload(cachedPayload *payload.CachedPayload, cachedPa
 	return
 }
 
-// payloadBranchID returns the BranchID that the referenced Payload was booked into.
+// payloadBranchID returns the MappedValue that the referenced Payload was booked into.
 func (tangle *Tangle) payloadBranchID(payloadID payload.ID) branchmanager.BranchID {
 	if payloadID == payload.GenesisID {
 		return branchmanager.MasterBranchID
@@ -1523,7 +1523,7 @@ func (tangle *Tangle) payloadBranchID(payloadID payload.ID) branchmanager.Branch
 		return branchmanager.UndefinedBranchID
 	}
 
-	// the BranchID is only set if the payload was also marked as solid
+	// the MappedValue is only set if the payload was also marked as solid
 	return payloadMetadata.BranchID()
 }
 
@@ -1911,7 +1911,7 @@ func (tangle *Tangle) moveTransactionToBranch(cachedTransaction *transaction.Cac
 	return
 }
 
-// updateBranchOfValuePayloadsAttachingTransaction updates the BranchID of all payloads that attach a certain
+// updateBranchOfValuePayloadsAttachingTransaction updates the MappedValue of all payloads that attach a certain
 // transaction (and its approvers).
 func (tangle *Tangle) updateBranchOfValuePayloadsAttachingTransaction(transactionID transaction.ID) {
 	// initialize stack with the attachments of the given transaction
@@ -1975,7 +1975,7 @@ func (tangle *Tangle) updateBranchOfValuePayloadsAttachingTransaction(transactio
 	}
 }
 
-// branchIDofPayload returns the BranchID that a payload is booked into.
+// branchIDofPayload returns the MappedValue that a payload is booked into.
 func (tangle *Tangle) branchIDofPayload(payloadID payload.ID) (branchID branchmanager.BranchID) {
 	if payloadID == payload.GenesisID {
 		return branchmanager.MasterBranchID

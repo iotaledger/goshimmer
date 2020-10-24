@@ -32,7 +32,7 @@ require (
 	go.uber.org/atomic v1.6.0
 	go.uber.org/zap v1.15.0
 	golang.org/x/crypto v0.0.0-20200709230013-948cd5f35899
-	golang.org/x/tools v0.0.0-20200330040139-fa3cc9eebcfe // indirect
+	golang.org/x/tools v0.0.0-20200330040139-fa3cc9eebcfe
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
 	google.golang.org/grpc v1.30.0
 	google.golang.org/protobuf v1.25.0

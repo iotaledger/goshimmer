@@ -550,7 +550,7 @@ func TransactionMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (t
 		return
 	}
 	if transactionMetadata.branchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse BranchID: %w", err)
+		err = xerrors.Errorf("failed to parse MappedValue: %w", err)
 		return
 	}
 	if transactionMetadata.solid, err = marshalUtil.ReadBool(); err != nil {

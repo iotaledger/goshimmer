@@ -883,7 +883,7 @@ func OutputMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output
 		return
 	}
 	if outputMetadata.branchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse BranchID: %w", err)
+		err = xerrors.Errorf("failed to parse MappedValue: %w", err)
 		return
 	}
 	if outputMetadata.solid, err = marshalUtil.ReadBool(); err != nil {

@@ -859,7 +859,7 @@ func (branchManager *BranchManager) determineAggregatedBranchDetails(deepestComm
 			continue
 		}
 
-		// store BranchID as parent
+		// store MappedValue as parent
 		aggregatedBranchParents[i] = branchID
 		i++
 

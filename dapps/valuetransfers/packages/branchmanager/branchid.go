@@ -54,7 +54,7 @@ func BranchIDFromBase58(base58String string) (branchID BranchID, err error) {
 
 	// sanitize input
 	if len(bytes) != BranchIDLength {
-		err = fmt.Errorf("base58 encoded string does not match the length of a BranchID")
+		err = fmt.Errorf("base58 encoded string does not match the length of a MappedValue")
 
 		return
 	}

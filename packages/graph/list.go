@@ -23,7 +23,7 @@ func (l *list) getHead() *node {
 	if l.head == nil {
 		l.tail = nil
 	}
-	// Add elt to the free list
+	// AddMapping elt to the free list
 	elt.next = l.free
 	l.free = elt
 
@@ -42,7 +42,7 @@ func (l *list) pushBack(n *node) {
 		elt.next = nil
 	}
 
-	// Add the element to the tail of the list
+	// AddMapping the element to the tail of the list
 	elt.node = n
 	if l.tail == nil {
 		l.tail = elt

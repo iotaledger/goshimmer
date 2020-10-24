@@ -6,7 +6,7 @@ type BranchDAG struct {
 /*
 // ConflictBranches returns a unique list of conflict branches that the given branches represent.
 // It resolves the aggregated branches to their corresponding conflict branches.
-func (branchManager *BranchManager) ConflictBranches(branches ...BranchID) (conflictBranches BranchIDs, err error) {
+func (branchManager *BranchManager) ConflictBranches(branches ...MappedValue) (conflictBranches BranchIDs, err error) {
 	// initialize return variable
 	conflictBranches = make(BranchIDs)
 
@@ -14,7 +14,7 @@ func (branchManager *BranchManager) ConflictBranches(branches ...BranchID) (conf
 	seenBranches := set.New()
 	for _, branchID := range branches {
 		// abort if branch was processed already
-		if !seenBranches.Add(branchID) {
+		if !seenBranches.AddMapping(branchID) {
 			continue
 		}
 
@@ -42,7 +42,7 @@ func (branchManager *BranchManager) ConflictBranches(branches ...BranchID) (conf
 }
 
 // NormalizeBranches checks if the branches are conflicting and removes superfluous ancestors.
-func (branchManager *BranchManager) NormalizeBranches(branches ...BranchID) (normalizedBranches BranchIDs, err error) {
+func (branchManager *BranchManager) NormalizeBranches(branches ...MappedValue) (normalizedBranches BranchIDs, err error) {
 	// retrieve conflict branches and abort if we either faced an error or are done
 	conflictBranches, err := branchManager.ConflictBranches(branches...)
 	if err != nil || len(conflictBranches) == 1 {
@@ -64,13 +64,13 @@ func (branchManager *BranchManager) NormalizeBranches(branches ...BranchID) (nor
 	// checks if branches are conflicting and queues parents to be checked
 	checkConflictsAndQueueParents := func(currentBranch *ConflictBranch) {
 		// abort if branch was traversed already
-		if !traversedBranches.Add(currentBranch.ID()) {
+		if !traversedBranches.AddMapping(currentBranch.ID()) {
 			return
 		}
 
 		// return error if conflict set was seen twice
 		for conflictSetID := range currentBranch.Conflicts() {
-			if !seenConflictSets.Add(conflictSetID) {
+			if !seenConflictSets.AddMapping(conflictSetID) {
 				err = errors.New("branches conflicting")
 
 				return
@@ -103,7 +103,7 @@ func (branchManager *BranchManager) NormalizeBranches(branches ...BranchID) (nor
 	// remove ancestors from the candidates
 	for !parentsToCheck.IsEmpty() {
 		// retrieve parent branch ID from stack
-		parentBranchID := parentsToCheck.Pop().(BranchID)
+		parentBranchID := parentsToCheck.Pop().(MappedValue)
 
 		// remove ancestor from normalized candidates
 		delete(normalizedBranches, parentBranchID)
@@ -123,10 +123,10 @@ func (branchManager *BranchManager) NormalizeBranches(branches ...BranchID) (nor
 var utxoDAG *tangle.Tangle
 
 func (branchManager *BranchManager) InheritBranch(tx *transaction.Transaction) (BranchIDs, err error) {
-	consumedBranches := make([]BranchID, 0)
+	consumedBranches := make([]MappedValue, 0)
 	tx.Inputs().ForEach(func(outputID transaction.OutputID) bool {
 		utxoDAG.TransactionOutput(outputID).Consume(func(output *tangle.Output) {
-			consumedBranches = append(consumedBranches, output.BranchID())
+			consumedBranches = append(consumedBranches, output.MappedValue())
 		})
 
 		return true

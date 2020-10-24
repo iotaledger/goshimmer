@@ -16,7 +16,7 @@ import (
 	"golang.org/x/xerrors"
 )
 
-// region BranchID /////////////////////////////////////////////////////////////////////////////////////////////////////
+// region MappedValue /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 var (
 	// UndefinedBranchID is the zero value of a BranchID and represents a branch that has not been set.
@@ -43,7 +43,7 @@ func NewBranchID(transactionID TransactionID) (branchID BranchID) {
 func BranchIDFromBytes(bytes []byte) (branchID BranchID, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if branchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
+		err = xerrors.Errorf("failed to parse MappedValue from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -55,12 +55,12 @@ func BranchIDFromBytes(bytes []byte) (branchID BranchID, consumedBytes int, err 
 func BranchIDFromBase58(base58String string) (branchID BranchID, err error) {
 	bytes, err := base58.Decode(base58String)
 	if err != nil {
-		err = xerrors.Errorf("error while decoding base58 encoded BranchID (%v): %w", err, cerrors.ErrBase58DecodeFailed)
+		err = xerrors.Errorf("error while decoding base58 encoded MappedValue (%v): %w", err, cerrors.ErrBase58DecodeFailed)
 		return
 	}
 
 	if branchID, _, err = BranchIDFromBytes(bytes); err != nil {
-		err = xerrors.Errorf("failed to parse BranchID from bytes: %w", err)
+		err = xerrors.Errorf("failed to parse MappedValue from bytes: %w", err)
 		return
 	}
 
@@ -71,7 +71,7 @@ func BranchIDFromBase58(base58String string) (branchID BranchID, err error) {
 func BranchIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchID BranchID, err error) {
 	branchIDBytes, err := marshalUtil.ReadBytes(BranchIDLength)
 	if err != nil {
-		err = xerrors.Errorf("failed to parse BranchID (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse MappedValue (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	copy(branchID[:], branchIDBytes)
@@ -93,11 +93,11 @@ func (b BranchID) Base58() string {
 func (b BranchID) String() string {
 	switch b {
 	case UndefinedBranchID:
-		return "BranchID(UndefinedBranchID)"
+		return "MappedValue(UndefinedBranchID)"
 	case MasterBranchID:
-		return "BranchID(MasterBranchID)"
+		return "MappedValue(MasterBranchID)"
 	default:
-		return "BranchID(" + b.Base58() + ")"
+		return "MappedValue(" + b.Base58() + ")"
 	}
 }
 
@@ -142,7 +142,7 @@ func BranchIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchIDs B
 	for i := uint64(0); i < branchIDsCount; i++ {
 		branchID, branchIDErr := BranchIDFromMarshalUtil(marshalUtil)
 		if branchIDErr != nil {
-			err = xerrors.Errorf("failed to parse BranchID: %w", branchIDErr)
+			err = xerrors.Errorf("failed to parse MappedValue: %w", branchIDErr)
 			return
 		}
 
