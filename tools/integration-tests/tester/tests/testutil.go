@@ -15,7 +15,6 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/webapi/value/utils"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/hive.go/identity"
@@ -262,13 +261,6 @@ func SendIotaTransaction(t *testing.T, from *framework.Peer, to *framework.Peer,
 
 	// sign transaction
 	var txn *transaction.Transaction
-	emptyID := identity.ID{}
-	if txConfig.AccessManaPledgeID == emptyID {
-		txConfig.AccessManaPledgeID = local.GetInstance().ID()
-	}
-	if txConfig.ConsensusManaPledgeID == emptyID {
-		txConfig.ConsensusManaPledgeID = local.GetInstance().ID()
-	}
 	txn = transaction.New(inputs, outputs, txConfig.AccessManaPledgeID, txConfig.ConsensusManaPledgeID)
 	txn = txn.Sign(sigScheme)
 
