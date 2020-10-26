@@ -85,3 +85,9 @@ type GoShimmerConfig struct {
 type NetworkConfig struct {
 	BootstrapInitialIssuanceTimePeriodSec int
 }
+
+// CreateNetworkConfig is the config for optional plugins passed through createNetwork.
+type CreateNetworkConfig struct {
+	Faucet bool
+	Mana   bool
+}

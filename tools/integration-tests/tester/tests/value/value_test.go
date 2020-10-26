@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
+
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 	"github.com/stretchr/testify/require"
@@ -11,7 +13,7 @@ import (
 
 // TestTransactionPersistence issues messages on random peers, restarts them and checks for persistence after restart.
 func TestTransactionPersistence(t *testing.T) {
-	n, err := f.CreateNetwork("transaction_TestPersistence", 4, 2, true)
+	n, err := f.CreateNetwork("transaction_TestPersistence", 4, 2, framework.CreateNetworkConfig{Faucet: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -79,7 +81,7 @@ func TestTransactionPersistence(t *testing.T) {
 
 // TestValueColoredPersistence issues colored tokens on random peers, restarts them and checks for persistence after restart.
 func TestValueColoredPersistence(t *testing.T) {
-	n, err := f.CreateNetwork("valueColor_TestPersistence", 4, 2, true)
+	n, err := f.CreateNetwork("valueColor_TestPersistence", 4, 2, framework.CreateNetworkConfig{Faucet: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 

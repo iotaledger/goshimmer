@@ -12,7 +12,7 @@ import (
 )
 
 func TestManaPersistence(t *testing.T) {
-	n, err := f.CreateNetwork("mana_TestPersistence", 1, 0, true)
+	n, err := f.CreateNetwork("mana_TestPersistence", 1, 0, framework.CreateNetworkConfig{Faucet: true, Mana: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -51,7 +51,7 @@ func TestManaPersistence(t *testing.T) {
 
 func TestAPI(t *testing.T) {
 	numPeers := 2
-	n, err := f.CreateNetwork("mana_TestAPI", 0, 0)
+	n, err := f.CreateNetwork("mana_TestAPI", 0, 0, framework.CreateNetworkConfig{})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -59,8 +59,8 @@ func TestAPI(t *testing.T) {
 	peers := make([]*framework.Peer, numPeers)
 	for i := 0; i < numPeers; i++ {
 		peer, err := n.CreatePeer(framework.GoShimmerConfig{
-			Mana:               true,
-			SyncBeaconFollower: true,
+			Mana:       true,
+			SyncBeacon: true,
 		})
 		require.NoError(t, err)
 		peers[i] = peer
@@ -100,10 +100,20 @@ func TestAPI(t *testing.T) {
 	addrBalance[faucetAddrStr][balance.ColorIOTA] = unspentOutputs.UnspentOutputs[0].OutputIDs[0].Balances[0].Value
 
 	// pledge mana to allowed pledge
-	fail, _ := tests.SendIotaTransaction(t, faucet, allowedPeer, addrBalance, 100, 1, 0, allowedPeer.Identity.ID(), allowedPeer.Identity.ID())
+	fail, _ := tests.SendIotaTransaction(t, faucet, allowedPeer, addrBalance, 100, tests.TransactionConfig{
+		FromAddressIndex:      1,
+		ToAddressIndex:        0,
+		AccessManaPledgeID:    allowedPeer.Identity.ID(),
+		ConsensusManaPledgeID: allowedPeer.Identity.ID(),
+	})
 	require.False(t, fail)
 
 	// pledge mana to disallowed pledge
-	fail, _ = tests.SendIotaTransaction(t, faucet, disallowedPeer, addrBalance, 100, 1, 0, disallowedPeer.Identity.ID(), disallowedPeer.Identity.ID())
+	fail, _ = tests.SendIotaTransaction(t, faucet, disallowedPeer, addrBalance, 100, tests.TransactionConfig{
+		FromAddressIndex:      2,
+		ToAddressIndex:        0,
+		AccessManaPledgeID:    disallowedPeer.Identity.ID(),
+		ConsensusManaPledgeID: disallowedPeer.Identity.ID(),
+	})
 	require.True(t, fail)
 }

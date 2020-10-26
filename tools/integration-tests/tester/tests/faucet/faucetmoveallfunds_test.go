@@ -17,7 +17,7 @@ func TestMoveAllFunds(t *testing.T) {
 	defer func() {
 		framework.ParaPoWDifficulty = prevPoWDiff
 	}()
-	n, err := f.CreateNetwork("faucet_TestMoveAllFunds", 1, 0, true)
+	n, err := f.CreateNetwork("faucet_TestMoveAllFunds", 1, 0, framework.CreateNetworkConfig{Faucet: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 

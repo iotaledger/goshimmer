@@ -13,6 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/goshimmer/plugins/webapi/value/utils"
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 	"github.com/mr-tron/base58/base58"
 	"github.com/stretchr/testify/require"
@@ -21,7 +22,7 @@ import (
 // TestConsensusNoConflicts issues valid non-conflicting value objects and then checks
 // whether the ledger of every peer reflects the same correct state.
 func TestConsensusNoConflicts(t *testing.T) {
-	n, err := f.CreateNetwork("consensus_TestConsensusNoConflicts", 4, 2)
+	n, err := f.CreateNetwork("consensus_TestConsensusNoConflicts", 4, 2, framework.CreateNetworkConfig{})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 

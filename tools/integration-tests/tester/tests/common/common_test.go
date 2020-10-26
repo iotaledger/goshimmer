@@ -15,7 +15,7 @@ import (
 // and becomes synced again.
 func TestSynchronization(t *testing.T) {
 	initialPeers := 4
-	n, err := f.CreateNetwork("common_TestSynchronization", initialPeers, 2)
+	n, err := f.CreateNetwork("common_TestSynchronization", initialPeers, 2, framework.CreateNetworkConfig{})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 

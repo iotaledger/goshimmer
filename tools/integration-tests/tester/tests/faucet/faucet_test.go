@@ -17,7 +17,7 @@ func TestFaucetPersistence(t *testing.T) {
 	defer func() {
 		framework.ParaPoWDifficulty = prevPoWDiff
 	}()
-	n, err := f.CreateNetwork("faucet_TestPersistence", 5, 2, true)
+	n, err := f.CreateNetwork("faucet_TestPersistence", 5, 2, framework.CreateNetworkConfig{Faucet: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 

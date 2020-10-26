@@ -15,6 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/webapi/value/utils"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/hive.go/identity"
@@ -40,6 +41,14 @@ type DataMessageSent struct {
 
 type Shutdowner interface {
 	Shutdown() error
+}
+
+// TransactionConfig defines the configuration for a transaction.
+type TransactionConfig struct {
+	FromAddressIndex      uint64
+	ToAddressIndex        uint64
+	AccessManaPledgeID    identity.ID
+	ConsensusManaPledgeID identity.ID
 }
 
 // SendDataMessagesOnRandomPeer sends data messages on a random peer and saves the sent message to a map.
@@ -168,7 +177,7 @@ func SendTransactionFromFaucet(t *testing.T, peers []*framework.Peer, sentValue 
 
 	// send funds to other peers
 	for i := 1; i < len(peers); i++ {
-		fail, txId := SendIotaTransaction(t, faucetPeer, peers[i], addrBalance, sentValue, 1, 0)
+		fail, txId := SendIotaTransaction(t, faucetPeer, peers[i], addrBalance, sentValue, TransactionConfig{FromAddressIndex: 1, ToAddressIndex: 0})
 		require.False(t, fail)
 		txIds = append(txIds, txId)
 
@@ -185,7 +194,7 @@ func SendTransactionOnRandomPeer(t *testing.T, peers []*framework.Peer, addrBala
 	for i := 0; i < numMessages; i++ {
 		from := rand.Intn(len(peers))
 		to := rand.Intn(len(peers))
-		fail, txId := SendIotaTransaction(t, peers[from], peers[to], addrBalance, sentValue, 0, 0)
+		fail, txId := SendIotaTransaction(t, peers[from], peers[to], addrBalance, sentValue, TransactionConfig{})
 		if fail {
 			i--
 			counter++
@@ -208,14 +217,14 @@ func SendTransactionOnRandomPeer(t *testing.T, peers []*framework.Peer, addrBala
 // SendIotaTransaction sends sentValue amount of IOTA tokens and remainders from and to a given peer and returns the fail flag and the transaction ID.
 // Every peer sends and receives the transaction on the address of index 0 by default.
 // Optionally, the nodes to pledge access and consensus mana can be specified.
-func SendIotaTransaction(t *testing.T, from *framework.Peer, to *framework.Peer, addrBalance map[string]map[balance.Color]int64, sentValue int64, fromAddressIndex uint64, toAddressIndex uint64, manaPledgeIDs ...identity.ID) (fail bool, txId string) {
+func SendIotaTransaction(t *testing.T, from *framework.Peer, to *framework.Peer, addrBalance map[string]map[balance.Color]int64, sentValue int64, txConfig TransactionConfig) (fail bool, txId string) {
 	var sigScheme signaturescheme.SignatureScheme
 	var inputAddr address.Address
 	var outputAddr address.Address
 
-	inputAddr = from.Seed.Address(fromAddressIndex).Address
-	outputAddr = to.Seed.Address(toAddressIndex).Address
-	sigScheme = signaturescheme.ED25519(*from.Seed.KeyPair(fromAddressIndex))
+	inputAddr = from.Seed.Address(txConfig.FromAddressIndex).Address
+	outputAddr = to.Seed.Address(txConfig.ToAddressIndex).Address
+	sigScheme = signaturescheme.ED25519(*from.Seed.KeyPair(txConfig.FromAddressIndex))
 
 	// prepare inputs
 	resp, err := from.GetUnspentOutputs([]string{inputAddr.String()})
@@ -253,11 +262,14 @@ func SendIotaTransaction(t *testing.T, from *framework.Peer, to *framework.Peer,
 
 	// sign transaction
 	var txn *transaction.Transaction
-	if len(manaPledgeIDs) > 1 {
-		txn = transaction.New(inputs, outputs, manaPledgeIDs[0], manaPledgeIDs[1])
-	} else {
-		txn = transaction.New(inputs, outputs)
+	emptyID := identity.ID{}
+	if txConfig.AccessManaPledgeID == emptyID {
+		txConfig.AccessManaPledgeID = local.GetInstance().ID()
 	}
+	if txConfig.ConsensusManaPledgeID == emptyID {
+		txConfig.ConsensusManaPledgeID = local.GetInstance().ID()
+	}
+	txn = transaction.New(inputs, outputs, txConfig.AccessManaPledgeID, txConfig.ConsensusManaPledgeID)
 	txn = txn.Sign(sigScheme)
 
 	// send transaction
