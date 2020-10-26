@@ -62,7 +62,7 @@ func ParseFPCHeartbeat(data []byte) (*FPCHeartbeat, error) {
 		return nil, err
 	}
 
-	if hb.Version != banner.AppVersion {
+	if hb.Version != banner.SimplifiedAppVersion {
 		return nil, ErrInvalidFPCHeartbeatVersion
 	}
 

@@ -182,8 +182,8 @@ func collectNodesInfo() {
 	}
 
 	// TODO: send data for all available networkIDs, not just current
-	if analysisserver.Networks[banner.AppVersion] != nil {
-		for nodeID, neighborCount := range analysisserver.Networks[banner.AppVersion].NumOfNeighbors() {
+	if analysisserver.Networks[banner.SimplifiedAppVersion] != nil {
+		for nodeID, neighborCount := range analysisserver.Networks[banner.SimplifiedAppVersion].NumOfNeighbors() {
 			nodesNeighborCount.WithLabelValues(nodeID, "in").Set(float64(neighborCount.Inbound))
 			nodesNeighborCount.WithLabelValues(nodeID, "out").Set(float64(neighborCount.Outbound))
 		}

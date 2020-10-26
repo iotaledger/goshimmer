@@ -75,5 +75,5 @@ func createHeartbeat() *packet.Heartbeat {
 		copy(inboundIDs[i], neighbor.ID().Bytes())
 	}
 
-	return &packet.Heartbeat{NetworkID: []byte(banner.AppVersion), OwnID: nodeID, OutboundIDs: outboundIDs, InboundIDs: inboundIDs}
+	return &packet.Heartbeat{NetworkID: []byte(banner.SimplifiedAppVersion), OwnID: nodeID, OutboundIDs: outboundIDs, InboundIDs: inboundIDs}
 }

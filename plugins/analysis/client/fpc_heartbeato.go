@@ -39,7 +39,7 @@ func onRoundExecuted(roundStats *vote.RoundStats) {
 		}
 
 		hb := &packet.FPCHeartbeat{
-			Version:    banner.AppVersion,
+			Version:    banner.SimplifiedAppVersion,
 			OwnID:      nodeID,
 			RoundStats: rs,
 		}
