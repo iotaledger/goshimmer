@@ -128,6 +128,14 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 				}
 				return fmt.Sprintf("--syncbeaconfollower.maxTimeOffline=%d", config.SyncBeaconMaxTimeOfflineSec)
 			}(),
+			fmt.Sprintf("--mana.allowedAccessFilterEnabled=%t", config.ManaAllowedAccessFilterEnabled),
+			fmt.Sprintf("--mana.allowedConsensusFilterEnabled=%t", config.ManaAllowedConsensusFilterEnabled),
+			fmt.Sprintf("--mana.allowedAccessPledge=%s", func() string {
+				return strings.Join(config.ManaAllowedAccessPledge[:], ",")
+			}()),
+			fmt.Sprintf("--mana.allowedConsensusPledge=%s", func() string {
+				return strings.Join(config.ManaAllowedAccessPledge[:], ",")
+			}()),
 		},
 	}
 

@@ -74,10 +74,20 @@ type GoShimmerConfig struct {
 	SyncBeaconBroadcastInterval int
 	SyncBeaconMaxTimeOfflineSec int
 
-	Mana bool
+	Mana                              bool
+	ManaAllowedAccessFilterEnabled    bool
+	ManaAllowedConsensusFilterEnabled bool
+	ManaAllowedAccessPledge           []string
+	ManaAllowedConsensusPledge        []string
 }
 
 // NetworkConfig defines the config of a GoShimmer Docker network.
 type NetworkConfig struct {
 	BootstrapInitialIssuanceTimePeriodSec int
+}
+
+// CreateNetworkConfig is the config for optional plugins passed through createNetwork.
+type CreateNetworkConfig struct {
+	Faucet bool
+	Mana   bool
 }

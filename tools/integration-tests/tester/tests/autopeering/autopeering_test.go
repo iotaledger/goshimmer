@@ -3,13 +3,14 @@ package autopeering
 import (
 	"testing"
 
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestNetworkSplit(t *testing.T) {
-	n, err := f.CreateNetworkWithPartitions("autopeering_TestNetworkSplit", 6, 2, 2)
+	n, err := f.CreateNetworkWithPartitions("autopeering_TestNetworkSplit", 6, 2, 2, framework.CreateNetworkConfig{})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
