@@ -3,6 +3,7 @@ package prometheus
 import (
 	"context"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -16,15 +17,27 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+// PluginName is the name of the prometheus plugin.
+const PluginName = "Prometheus"
+
 // Plugin Prometheus
 var (
-	Plugin = node.NewPlugin("Prometheus", node.Disabled, configure, run)
+	plugin *node.Plugin
+	once   sync.Once
 	log    *logger.Logger
 
 	server   *http.Server
 	registry = prometheus.NewRegistry()
 	collects []func()
 )
+
+// Plugin gets the plugin instance.
+func Plugin() *node.Plugin {
+	once.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
+	})
+	return plugin
+}
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(plugin.Name)
