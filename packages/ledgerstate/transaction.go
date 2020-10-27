@@ -349,7 +349,7 @@ type TransactionEssence struct {
 	payload payload.Payload
 }
 
-// NewTransactionEssence create a new TransactionEssence from the given details.
+// NewTransactionEssence creates a new TransactionEssence from the given details.
 func NewTransactionEssence(version TransactionEssenceVersion, inputs Inputs, outputs Outputs) *TransactionEssence {
 	return &TransactionEssence{
 		version: version,
