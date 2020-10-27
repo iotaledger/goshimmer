@@ -132,7 +132,7 @@ func NewTransaction(essence *TransactionEssence, unlockBlocks UnlockBlocks) *Tra
 	}
 }
 
-// TransactionFromBytes unmarshals an Transaction from a sequence of bytes.
+// TransactionFromBytes unmarshals a Transaction from a sequence of bytes.
 func TransactionFromBytes(bytes []byte) (transaction *Transaction, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if transaction, err = TransactionFromMarshalUtil(marshalUtil); err != nil {
