@@ -1,17 +1,42 @@
 package ledgerstate
 
 import (
+	"bytes"
 	"encoding/binary"
+	"fmt"
+	"sort"
+	"strconv"
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/cerrors"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
+	"github.com/iotaledger/hive.go/types"
+	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/mr-tron/base58"
 	"golang.org/x/xerrors"
 )
+
+// region Constraints for syntactical validation ///////////////////////////////////////////////////////////////////////
+
+const (
+	// MinOutputCount defines the minimum amount of Outputs in a Transaction.
+	MinOutputCount = 1
+
+	// MaxOutputCount defines the maximum amount of Outputs in a Transaction.
+	MaxOutputCount = 127
+
+	// MinOutputBalance defines the minimum balance per Output.
+	MinOutputBalance = 1
+
+	// MaxOutputBalance defines the maximum balance on an Output (the supply).
+	MaxOutputBalance = 2779530283277761
+)
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region OutputType ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -46,8 +71,15 @@ const OutputIDLength = TransactionIDLength + marshalutil.UINT16_SIZE
 // index of the Output in the Transaction that created it).
 type OutputID [OutputIDLength]byte
 
+// EmptyOutputID represents the zero-value of an OutputID.
+var EmptyOutputID OutputID
+
 // NewOutputID is the constructor for the OutputID.
 func NewOutputID(transactionID TransactionID, outputIndex uint16) (outputID OutputID) {
+	if outputIndex >= MaxOutputCount {
+		panic(fmt.Sprintf("output index exceeds threshold defined by MaxOutputCount (%d)", MaxOutputCount))
+	}
+
 	copy(outputID[:TransactionIDLength], transactionID.Bytes())
 	binary.LittleEndian.PutUint16(outputID[TransactionIDLength:], outputIndex)
 
@@ -70,7 +102,7 @@ func OutputIDFromBytes(bytes []byte) (outputID OutputID, consumedBytes int, err 
 func OutputIDFromBase58(base58String string) (outputID OutputID, err error) {
 	bytes, err := base58.Decode(base58String)
 	if err != nil {
-		err = xerrors.Errorf("error while decoding base58 encoded OutputID (%v): %w", err, ErrBase58DecodeFailed)
+		err = xerrors.Errorf("error while decoding base58 encoded OutputID (%v): %w", err, cerrors.ErrBase58DecodeFailed)
 		return
 	}
 
@@ -86,10 +118,15 @@ func OutputIDFromBase58(base58String string) (outputID OutputID, err error) {
 func OutputIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (outputID OutputID, err error) {
 	outputIDBytes, err := marshalUtil.ReadBytes(OutputIDLength)
 	if err != nil {
-		err = xerrors.Errorf("failed to parse OutputID (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse OutputID (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	copy(outputID[:], outputIDBytes)
+
+	if outputID.OutputIndex() >= MaxOutputCount {
+		err = xerrors.Errorf("output index exceeds threshold defined by MaxOutputCount (%d): %w", MaxOutputCount, cerrors.ErrParseBytesFailed)
+		return
+	}
 
 	return
 }
@@ -137,7 +174,7 @@ type Output interface {
 	// created to become part of a transaction usually do not have an identifier, yet as their identifier depends on
 	// the TransactionID that is only determinable after the Transaction has been fully constructed. The ID is therefore
 	// only accessed when the Output is supposed to be persisted.
-	SetID(outputID OutputID)
+	SetID(outputID OutputID) Output
 
 	// Type returns the OutputType which allows us to generically handle Outputs of different types.
 	Type() OutputType
@@ -149,11 +186,21 @@ type Output interface {
 	// Output.
 	UnlockValid(tx *Transaction, unlockBlock UnlockBlock) (bool, error)
 
+	// Input returns an Input that references the Output.
+	Input() Input
+
+	// Clone creates a copy of the Output.
+	Clone() Output
+
 	// Bytes returns a marshaled version of the Output.
 	Bytes() []byte
 
 	// String returns a human readable version of the Output for debug purposes.
 	String() string
+
+	// Compare offers a comparator for Outputs which returns -1 if the other Output is bigger, 1 if it is smaller and 0
+	// if they are the same.
+	Compare(other Output) int
 
 	// StorableObject makes Outputs storable in the ObjectStorage.
 	objectstorage.StorableObject
@@ -163,7 +210,7 @@ type Output interface {
 func OutputFromBytes(bytes []byte) (output Output, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if output, err = OutputFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Output from bytes: %w", err)
+		err = xerrors.Errorf("failed to parse Output from MarshalUtil: %w", err)
 	}
 	consumedBytes = marshalUtil.ReadOffset()
 
@@ -174,7 +221,7 @@ func OutputFromBytes(bytes []byte) (output Output, consumedBytes int, err error)
 func OutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output Output, err error) {
 	outputType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse OutputType (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse OutputType (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	marshalUtil.ReadSeek(-1)
@@ -191,7 +238,7 @@ func OutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output Output,
 			return
 		}
 	default:
-		err = xerrors.Errorf("unsupported OutputType (%X): %w", outputType, ErrParseBytesFailed)
+		err = xerrors.Errorf("unsupported OutputType (%X): %w", outputType, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -213,6 +260,215 @@ func OutputFromObjectStorage(key []byte, data []byte) (output objectstorage.Stor
 	output.(Output).SetID(outputID)
 
 	return
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Outputs ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Outputs represents a list of Outputs that can be used in a Transaction.
+type Outputs []Output
+
+// NewOutputs returns a deterministically ordered collection of Outputs. It removes duplicates in the parameters and
+// sorts the Outputs to ensure syntactical correctness.
+func NewOutputs(optionalOutputs ...Output) (outputs Outputs) {
+	seenOutputs := make(map[string]types.Empty)
+	sortedOutputs := make([]struct {
+		output           Output
+		outputSerialized []byte
+	}, 0)
+
+	// filter duplicates (store marshaled version so we don't need to marshal a second time during sort)
+	for _, output := range optionalOutputs {
+		marshaledOutput := output.Bytes()
+		marshaledOutputAsString := typeutils.BytesToString(marshaledOutput)
+
+		if _, seenAlready := seenOutputs[marshaledOutputAsString]; seenAlready {
+			continue
+		}
+		seenOutputs[marshaledOutputAsString] = types.Void
+
+		sortedOutputs = append(sortedOutputs, struct {
+			output           Output
+			outputSerialized []byte
+		}{output, marshaledOutput})
+	}
+
+	// sort outputs
+	sort.Slice(sortedOutputs, func(i, j int) bool {
+		return bytes.Compare(sortedOutputs[i].outputSerialized, sortedOutputs[j].outputSerialized) < 0
+	})
+
+	// create result
+	outputs = make(Outputs, len(sortedOutputs))
+	for i, sortedOutput := range sortedOutputs {
+		outputs[i] = sortedOutput.output
+	}
+
+	if len(outputs) < MinOutputCount {
+		panic(fmt.Sprintf("amount of Outputs (%d) failed to reach MinOutputCount (%d)", len(outputs), MinOutputCount))
+	}
+	if len(outputs) > MaxOutputCount {
+		panic(fmt.Sprintf("amount of Outputs (%d) exceeds MaxOutputCount (%d)", len(outputs), MaxOutputCount))
+	}
+
+	return
+}
+
+// OutputsFromBytes unmarshals a collection of Outputs from a sequence of bytes.
+func OutputsFromBytes(outputBytes []byte) (outputs Outputs, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(outputBytes)
+	if outputs, err = OutputsFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse Outputs from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// OutputsFromMarshalUtil unmarshals a collection of Outputs using a MarshalUtil (for easier unmarshaling).
+func OutputsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (outputs Outputs, err error) {
+	outputsCount, err := marshalUtil.ReadUint16()
+	if err != nil {
+		err = xerrors.Errorf("failed to parse outputs count (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	if outputsCount < MinOutputCount {
+		err = xerrors.Errorf("amount of Outputs (%d) failed to reach MinOutputCount (%d): %w", outputsCount, MinOutputCount, cerrors.ErrParseBytesFailed)
+		return
+	}
+	if outputsCount > MaxOutputCount {
+		err = xerrors.Errorf("amount of Outputs (%d) exceeds MaxOutputCount (%d): %w", outputsCount, MaxOutputCount, cerrors.ErrParseBytesFailed)
+		return
+	}
+
+	var previousOutput Output
+	parsedOutputs := make([]Output, outputsCount)
+	for i := uint16(0); i < outputsCount; i++ {
+		if parsedOutputs[i], err = OutputFromMarshalUtil(marshalUtil); err != nil {
+			err = xerrors.Errorf("failed to parse Output from MarshalUtil: %w", err)
+			return
+		}
+
+		if previousOutput != nil && previousOutput.Compare(parsedOutputs[i]) != -1 {
+			err = xerrors.Errorf("order of Outputs is invalid: %w", cerrors.ErrParseBytesFailed)
+			return
+		}
+		previousOutput = parsedOutputs[i]
+	}
+
+	outputs = NewOutputs(parsedOutputs...)
+
+	return
+}
+
+// Inputs returns the Inputs that reference the Outputs.
+func (o Outputs) Inputs() Inputs {
+	inputs := make([]Input, len(o))
+	for i, output := range o {
+		inputs[i] = output.Input()
+	}
+
+	return NewInputs(inputs...)
+}
+
+// ByID returns a map of Outputs where the key is the OutputID.
+func (o Outputs) ByID() (outputsByID OutputsByID) {
+	outputsByID = make(OutputsByID)
+	for _, output := range o {
+		outputsByID[output.ID()] = output
+	}
+
+	return
+}
+
+// Clone creates a copy of the Outputs.
+func (o Outputs) Clone() (clonedOutputs Outputs) {
+	clonedOutputs = make(Outputs, len(o))
+	for i, output := range o {
+		clonedOutputs[i] = output.Clone()
+	}
+
+	return
+}
+
+// Bytes returns a marshaled version of the Outputs.
+func (o Outputs) Bytes() []byte {
+	marshalUtil := marshalutil.New()
+	marshalUtil.WriteUint16(uint16(len(o)))
+	for _, output := range o {
+		marshalUtil.WriteBytes(output.Bytes())
+	}
+
+	return marshalUtil.Bytes()
+}
+
+// String returns a human readable version of the Outputs.
+func (o Outputs) String() string {
+	structBuilder := stringify.StructBuilder("Outputs")
+	for i, output := range o {
+		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), output))
+	}
+
+	return structBuilder.String()
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region OutputsByID //////////////////////////////////////////////////////////////////////////////////////////////////
+
+// OutputsByID represents a map of Outputs where every Output is stored with its corresponding OutputID as the key.
+type OutputsByID map[OutputID]Output
+
+// NewOutputsByID returns a map of Outputs where every Output is stored with its corresponding OutputID as the key.
+func NewOutputsByID(optionalOutputs ...Output) (outputsByID OutputsByID) {
+	outputsByID = make(OutputsByID)
+	for _, optionalOutput := range optionalOutputs {
+		outputsByID[optionalOutput.ID()] = optionalOutput
+	}
+
+	return
+}
+
+// Inputs returns the Inputs that reference the Outputs.
+func (o OutputsByID) Inputs() Inputs {
+	inputs := make([]Input, 0, len(o))
+	for _, output := range o {
+		inputs = append(inputs, output.Input())
+	}
+
+	return NewInputs(inputs...)
+}
+
+// Outputs returns a list of Outputs from the OutputsByID.
+func (o OutputsByID) Outputs() Outputs {
+	outputs := make([]Output, 0, len(o))
+	for _, output := range o {
+		outputs = append(outputs, output)
+	}
+
+	return NewOutputs(outputs...)
+}
+
+// Clone creates a copy of the OutputsByID.
+func (o OutputsByID) Clone() (clonedOutputs OutputsByID) {
+	clonedOutputs = make(OutputsByID)
+	for id, output := range o {
+		clonedOutputs[id] = output.Clone()
+	}
+
+	return
+}
+
+// String returns a human readable version of the OutputsByID.
+func (o OutputsByID) String() string {
+	structBuilder := stringify.StructBuilder("OutputsByID")
+	for id, output := range o {
+		structBuilder.AddField(stringify.StructField(id.String(), output))
+	}
+
+	return structBuilder.String()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -254,21 +510,30 @@ func SigLockedSingleOutputFromBytes(bytes []byte) (output *SigLockedSingleOutput
 func SigLockedSingleOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output *SigLockedSingleOutput, err error) {
 	outputType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse OutputType (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse OutputType (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if OutputType(outputType) != SigLockedSingleOutputType {
-		err = xerrors.Errorf("invalid OutputType (%X): %w", outputType, ErrParseBytesFailed)
+		err = xerrors.Errorf("invalid OutputType (%X): %w", outputType, cerrors.ErrParseBytesFailed)
 		return
 	}
 
 	output = &SigLockedSingleOutput{}
 	if output.balance, err = marshalUtil.ReadUint64(); err != nil {
-		err = xerrors.Errorf("failed to parse balance (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse balance (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if output.address, err = AddressFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Address (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse Address (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+
+	if output.balance < MinOutputBalance {
+		err = xerrors.Errorf("balance (%d) is smaller than MinOutputBalance (%d): %w", output.balance, MinOutputBalance, cerrors.ErrParseBytesFailed)
+		return
+	}
+	if output.balance > MaxOutputBalance {
+		err = xerrors.Errorf("balance (%d) is bigger than MaxOutputBalance (%d): %w", output.balance, MaxOutputBalance, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -287,11 +552,13 @@ func (s *SigLockedSingleOutput) ID() OutputID {
 // created to become part of a transaction usually do not have an identifier, yet as their identifier depends on
 // the TransactionID that is only determinable after the Transaction has been fully constructed. The ID is therefore
 // only accessed when the Output is supposed to be persisted by the node.
-func (s *SigLockedSingleOutput) SetID(outputID OutputID) {
+func (s *SigLockedSingleOutput) SetID(outputID OutputID) Output {
 	s.idMutex.Lock()
 	defer s.idMutex.Unlock()
 
 	s.id = outputID
+
+	return s
 }
 
 // Type returns the type of the Output which allows us to generically handle Outputs of different types.
@@ -312,11 +579,11 @@ func (s *SigLockedSingleOutput) Balances() *ColoredBalances {
 func (s *SigLockedSingleOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock) (unlockValid bool, err error) {
 	signatureUnlockBlock, correctType := unlockBlock.(*SignatureUnlockBlock)
 	if !correctType {
-		err = xerrors.Errorf("UnlockBlock does not match expected OutputType: %w", ErrTransactionInvalid)
+		err = xerrors.Errorf("UnlockBlock does not match expected OutputType: %w", cerrors.ErrParseBytesFailed)
 		return
 	}
 
-	unlockValid = signatureUnlockBlock.AddressSignatureValid(s.address, tx.UnsignedBytes())
+	unlockValid = signatureUnlockBlock.AddressSignatureValid(s.address, tx.Essence().Bytes())
 
 	return
 }
@@ -324,6 +591,24 @@ func (s *SigLockedSingleOutput) UnlockValid(tx *Transaction, unlockBlock UnlockB
 // Address returns the Address that the Output is associated to.
 func (s *SigLockedSingleOutput) Address() Address {
 	return s.address
+}
+
+// Input returns an Input that references the Output.
+func (s *SigLockedSingleOutput) Input() Input {
+	if s.ID() == EmptyOutputID {
+		panic("Outputs that haven't been assigned an ID yet cannot be converted to an Input")
+	}
+
+	return NewUTXOInput(s.ID())
+}
+
+// Clone creates a copy of the Output.
+func (s *SigLockedSingleOutput) Clone() Output {
+	return &SigLockedSingleOutput{
+		id:      s.id,
+		balance: s.balance,
+		address: s.address.Clone(),
+	}
 }
 
 // Bytes returns a marshaled version of the Output.
@@ -350,6 +635,12 @@ func (s *SigLockedSingleOutput) ObjectStorageValue() []byte {
 		WriteUint64(s.balance).
 		WriteBytes(s.address.Bytes()).
 		Bytes()
+}
+
+// Compare offers a comparator for Outputs which returns -1 if the other Output is bigger, 1 if it is smaller and 0 if
+// they are the same.
+func (s *SigLockedSingleOutput) Compare(other Output) int {
+	return bytes.Compare(s.Bytes(), other.Bytes())
 }
 
 // String returns a human readable version of the Output.
@@ -403,11 +694,11 @@ func SigLockedColoredOutputFromBytes(bytes []byte) (output *SigLockedColoredOutp
 func SigLockedColoredOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output *SigLockedColoredOutput, err error) {
 	outputType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse OutputType (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse OutputType (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if OutputType(outputType) != SigLockedColoredOutputType {
-		err = xerrors.Errorf("invalid OutputType (%X): %w", outputType, ErrParseBytesFailed)
+		err = xerrors.Errorf("invalid OutputType (%X): %w", outputType, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -417,7 +708,7 @@ func SigLockedColoredOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil)
 		return
 	}
 	if output.address, err = AddressFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Address (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse Address (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -436,11 +727,13 @@ func (s *SigLockedColoredOutput) ID() OutputID {
 // created to become part of a transaction usually do not have an identifier, yet as their identifier depends on
 // the TransactionID that is only determinable after the Transaction has been fully constructed. The ID is therefore
 // only accessed when the Output is supposed to be persisted by the node.
-func (s *SigLockedColoredOutput) SetID(outputID OutputID) {
+func (s *SigLockedColoredOutput) SetID(outputID OutputID) Output {
 	s.idMutex.Lock()
 	defer s.idMutex.Unlock()
 
 	s.id = outputID
+
+	return s
 }
 
 // Type returns the type of the Output which allows us to generically handle Outputs of different types.
@@ -457,11 +750,11 @@ func (s *SigLockedColoredOutput) Balances() *ColoredBalances {
 func (s *SigLockedColoredOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock) (unlockValid bool, err error) {
 	signatureUnlockBlock, correctType := unlockBlock.(*SignatureUnlockBlock)
 	if !correctType {
-		err = xerrors.Errorf("UnlockBlock does not match expected OutputType: %w", ErrTransactionInvalid)
+		err = xerrors.Errorf("UnlockBlock does not match expected OutputType: %w", cerrors.ErrParseBytesFailed)
 		return
 	}
 
-	unlockValid = signatureUnlockBlock.AddressSignatureValid(s.address, tx.UnsignedBytes())
+	unlockValid = signatureUnlockBlock.AddressSignatureValid(s.address, tx.Essence().Bytes())
 
 	return
 }
@@ -469,6 +762,24 @@ func (s *SigLockedColoredOutput) UnlockValid(tx *Transaction, unlockBlock Unlock
 // Address returns the Address that the Output is associated to.
 func (s *SigLockedColoredOutput) Address() Address {
 	return s.address
+}
+
+// Input returns an Input that references the Output.
+func (s *SigLockedColoredOutput) Input() Input {
+	if s.ID() == EmptyOutputID {
+		panic("Outputs that haven't been assigned an ID, yet cannot be converted to an Input")
+	}
+
+	return NewUTXOInput(s.ID())
+}
+
+// Clone creates a copy of the Output.
+func (s *SigLockedColoredOutput) Clone() Output {
+	return &SigLockedColoredOutput{
+		id:       s.id,
+		balances: s.balances.Clone(),
+		address:  s.address.Clone(),
+	}
 }
 
 // Bytes returns a marshaled version of the Output.
@@ -495,6 +806,12 @@ func (s *SigLockedColoredOutput) ObjectStorageValue() []byte {
 		WriteBytes(s.balances.Bytes()).
 		WriteBytes(s.address.Bytes()).
 		Bytes()
+}
+
+// Compare offers a comparator for Outputs which returns -1 if the other Output is bigger, 1 if it is smaller and 0 if
+// they are the same.
+func (s *SigLockedColoredOutput) Compare(other Output) int {
+	return bytes.Compare(s.Bytes(), other.Bytes())
 }
 
 // String returns a human readable version of the Output.
@@ -608,16 +925,16 @@ func OutputMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output
 		return
 	}
 	if outputMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse solid flag (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse solid flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if outputMetadata.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
-		err = xerrors.Errorf("failed to parse solidification time (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse solidification time (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	consumerCount, err := marshalUtil.ReadUint64()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse consumer count (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse consumer count (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	outputMetadata.consumerCount = int(consumerCount)
@@ -626,23 +943,23 @@ func OutputMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output
 		return
 	}
 	if outputMetadata.preferred, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse preferred flag (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse preferred flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if outputMetadata.liked, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse liked flag (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse liked flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if outputMetadata.finalized, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse finalized flag (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse finalized flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if outputMetadata.confirmed, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse confirmed flag (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse confirmed flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if outputMetadata.rejected, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse rejected flag (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse rejected flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -814,7 +1131,7 @@ func (o *OutputMetadata) Finalized() bool {
 	return o.finalized
 }
 
-// SetFinalized modifies the finalized flag. Finalized Outputs will not be forked when a conflict arrives later.
+// SetFinalized modifies the finalized flag. It returns true if the value has been modified.
 func (o *OutputMetadata) SetFinalized(finalized bool) (modified bool) {
 	o.finalizedMutex.Lock()
 	defer o.finalizedMutex.Unlock()
@@ -838,7 +1155,7 @@ func (o *OutputMetadata) Confirmed() bool {
 	return o.confirmed
 }
 
-// SetConfirmed modifies the confirmed flag. It returns true if the value has been updated.
+// SetConfirmed modifies the confirmed flag. It returns true if the value has been modified.
 func (o *OutputMetadata) SetConfirmed(confirmed bool) (modified bool) {
 	o.confirmedMutex.Lock()
 	defer o.confirmedMutex.Unlock()
@@ -862,7 +1179,7 @@ func (o *OutputMetadata) Rejected() bool {
 	return o.rejected
 }
 
-// SetRejected modifies the rejected flag. It returns true if the value has been updated.
+// SetRejected modifies the rejected flag. It returns true if the value has been modified.
 func (o *OutputMetadata) SetRejected(rejected bool) (modified bool) {
 	o.rejectedMutex.Lock()
 	defer o.rejectedMutex.Unlock()
@@ -911,8 +1228,8 @@ func (o *OutputMetadata) ObjectStorageKey() []byte {
 	return o.id.Bytes()
 }
 
-// ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
-// a key in the ObjectStorage.
+// ObjectStorageValue marshals the OutputMetadata into a sequence of bytes. The ID is not serialized here as it is only
+// used as a key in the ObjectStorage.
 func (o *OutputMetadata) ObjectStorageValue() []byte {
 	return marshalutil.New().
 		WriteBytes(o.BranchID().Bytes()).

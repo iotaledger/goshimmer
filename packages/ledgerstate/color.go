@@ -190,6 +190,16 @@ func (c *ColoredBalances) Size() int {
 	return c.balances.Size()
 }
 
+// Clone returns a copy of the ColoredBalances.
+func (c *ColoredBalances) Clone() *ColoredBalances {
+	copiedBalances := orderedmap.New()
+	c.balances.ForEach(copiedBalances.Set)
+
+	return &ColoredBalances{
+		balances: copiedBalances,
+	}
+}
+
 // Bytes returns a marshaled version of the ColoredBalances.
 func (c *ColoredBalances) Bytes() []byte {
 	marshalUtil := marshalutil.New()

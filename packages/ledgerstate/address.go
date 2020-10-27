@@ -43,6 +43,9 @@ type Address interface {
 	// Digest returns the hashed version of the Addresses public key.
 	Digest() []byte
 
+	// Clone creates a copy of the Address.
+	Clone() Address
+
 	// Bytes returns a marshaled version of the Address.
 	Bytes() []byte
 
@@ -177,6 +180,16 @@ func (e *ED25519Address) Digest() []byte {
 	return e.digest
 }
 
+// Clone creates a copy of the Address.
+func (e *ED25519Address) Clone() Address {
+	clonedDigest := make([]byte, len(e.digest))
+	copy(clonedDigest, e.digest)
+
+	return &ED25519Address{
+		digest: clonedDigest,
+	}
+}
+
 // Bytes returns a marshaled version of the Address.
 func (e *ED25519Address) Bytes() []byte {
 	return byteutils.ConcatBytes([]byte{byte(ED25519AddressType)}, e.digest)
@@ -272,6 +285,16 @@ func (b *BLSAddress) Type() AddressType {
 // Digest returns the hashed version of the Addresses public key.
 func (b *BLSAddress) Digest() []byte {
 	return b.digest
+}
+
+// Clone creates a copy of the Address.
+func (b *BLSAddress) Clone() Address {
+	clonedDigest := make([]byte, len(b.digest))
+	copy(clonedDigest, b.digest)
+
+	return &BLSAddress{
+		digest: clonedDigest,
+	}
 }
 
 // Bytes returns a marshaled version of the Address.
