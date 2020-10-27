@@ -386,7 +386,9 @@ func (o Outputs) ByID() (outputsByID OutputsByID) {
 // Clone creates a copy of the Outputs.
 func (o Outputs) Clone() (clonedOutputs Outputs) {
 	clonedOutputs = make(Outputs, len(o))
-	copy(clonedOutputs[:], o)
+	for i, output := range o {
+		clonedOutputs[i] = output.Clone()
+	}
 
 	return
 }
@@ -453,7 +455,7 @@ func (o OutputsByID) Outputs() Outputs {
 func (o OutputsByID) Clone() (clonedOutputs OutputsByID) {
 	clonedOutputs = make(OutputsByID)
 	for id, output := range o {
-		clonedOutputs[id] = output
+		clonedOutputs[id] = output.Clone()
 	}
 
 	return
