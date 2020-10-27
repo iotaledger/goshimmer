@@ -358,7 +358,7 @@ func NewTransactionEssence(version TransactionEssenceVersion, inputs Inputs, out
 	}
 }
 
-// TransactionEssenceFromBytes unmarshals an TransactionEssence from a sequence of bytes.
+// TransactionEssenceFromBytes unmarshals a TransactionEssence from a sequence of bytes.
 func TransactionEssenceFromBytes(bytes []byte) (transactionEssence *TransactionEssence, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if transactionEssence, err = TransactionEssenceFromMarshalUtil(marshalUtil); err != nil {
