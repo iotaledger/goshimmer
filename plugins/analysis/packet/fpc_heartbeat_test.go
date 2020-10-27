@@ -46,7 +46,7 @@ func TestFPCHeartbeat(t *testing.T) {
 	_, err = ParseFPCHeartbeat(packet)
 	require.Error(t, err)
 
-	hb.Version = banner.AppVersion
+	hb.Version = banner.SimplifiedAppVersion
 	packet, err = hb.Bytes()
 	require.NoError(t, err)
 

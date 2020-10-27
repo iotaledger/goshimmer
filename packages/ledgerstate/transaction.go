@@ -132,7 +132,7 @@ func NewTransaction(essence *TransactionEssence, unlockBlocks UnlockBlocks) *Tra
 	}
 }
 
-// TransactionFromBytes unmarshals an Transaction from a sequence of bytes.
+// TransactionFromBytes unmarshals a Transaction from a sequence of bytes.
 func TransactionFromBytes(bytes []byte) (transaction *Transaction, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if transaction, err = TransactionFromMarshalUtil(marshalUtil); err != nil {
@@ -178,7 +178,7 @@ func TransactionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transacti
 	}
 
 	parsedBytes := marshalUtil.ReadOffset() - readStartOffset
-	if parsedBytes != int(payloadSize)+4 {
+	if parsedBytes != int(payloadSize)+marshalutil.UINT32_SIZE {
 		err = xerrors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, payloadSize, cerrors.ErrParseBytesFailed)
 		return
 	}
@@ -270,6 +270,7 @@ func (t *Transaction) Bytes() []byte {
 // String returns a human readable version of the Transaction.
 func (t *Transaction) String() string {
 	return stringify.Struct("Transaction",
+		stringify.StructField("id", t.ID()),
 		stringify.StructField("essence", t.Essence()),
 		stringify.StructField("unlockBlocks", t.UnlockBlocks()),
 	)
@@ -348,7 +349,7 @@ type TransactionEssence struct {
 	payload payload.Payload
 }
 
-// NewTransactionEssence create a new TransactionEssence from the given details.
+// NewTransactionEssence creates a new TransactionEssence from the given details.
 func NewTransactionEssence(version TransactionEssenceVersion, inputs Inputs, outputs Outputs) *TransactionEssence {
 	return &TransactionEssence{
 		version: version,
@@ -357,7 +358,7 @@ func NewTransactionEssence(version TransactionEssenceVersion, inputs Inputs, out
 	}
 }
 
-// TransactionEssenceFromBytes unmarshals an TransactionEssence from a sequence of bytes.
+// TransactionEssenceFromBytes unmarshals a TransactionEssence from a sequence of bytes.
 func TransactionEssenceFromBytes(bytes []byte) (transactionEssence *TransactionEssence, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if transactionEssence, err = TransactionEssenceFromMarshalUtil(marshalUtil); err != nil {
@@ -550,7 +551,7 @@ func TransactionMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (t
 		return
 	}
 	if transactionMetadata.branchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse MappedValue: %w", err)
+		err = xerrors.Errorf("failed to parse BranchID: %w", err)
 		return
 	}
 	if transactionMetadata.solid, err = marshalUtil.ReadBool(); err != nil {

@@ -16,6 +16,6 @@ var Research = node.Plugins(
 	analysisserver.Plugin(),
 	analysisclient.Plugin(),
 	analysisdashboard.Plugin(),
-	prometheus.Plugin,
+	prometheus.Plugin(),
 	networkdelay.App(),
 )

@@ -20,6 +20,24 @@ import (
 	"golang.org/x/xerrors"
 )
 
+// region Constraints for syntactical validation ///////////////////////////////////////////////////////////////////////
+
+const (
+	// MinOutputCount defines the minimum amount of Outputs in a Transaction.
+	MinOutputCount = 1
+
+	// MaxOutputCount defines the maximum amount of Outputs in a Transaction.
+	MaxOutputCount = 127
+
+	// MinOutputBalance defines the minimum balance per Output.
+	MinOutputBalance = 1
+
+	// MaxOutputBalance defines the maximum balance on an Output (the supply).
+	MaxOutputBalance = 2779530283277761
+)
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // region OutputType ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // OutputType represents the type of an Output. Outputs of different types can have different unlock rules and allow for
@@ -147,12 +165,6 @@ func (o OutputID) String() string {
 
 // region Output ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-const MaxOutputCount = 126
-
-const MinOutputCount = 1
-
-const MinOutputBalance = 1
-
 // Output is a generic interface for the different types of Outputs (with different unlock behaviors).
 type Output interface {
 	// ID returns the identifier of the Output that is used to address the Output in the UTXODAG.
@@ -177,14 +189,17 @@ type Output interface {
 	// Input returns an Input that references the Output.
 	Input() Input
 
+	// Clone creates a copy of the Output.
+	Clone() Output
+
 	// Bytes returns a marshaled version of the Output.
 	Bytes() []byte
 
 	// String returns a human readable version of the Output for debug purposes.
 	String() string
 
-	// Compare offers a comparator for Outputs which returns -1 if other Output is bigger, 1 if it is smaller and 0 if
-	// they are the same.
+	// Compare offers a comparator for Outputs which returns -1 if the other Output is bigger, 1 if it is smaller and 0
+	// if they are the same.
 	Compare(other Output) int
 
 	// StorableObject makes Outputs storable in the ObjectStorage.
@@ -251,12 +266,11 @@ func OutputFromObjectStorage(key []byte, data []byte) (output objectstorage.Stor
 
 // region Outputs ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Outputs represents a deterministically ordered collection of Outputs. It can directly be used to model the list of
-// Outputs in a Transaction.
+// Outputs represents a list of Outputs that can be used in a Transaction.
 type Outputs []Output
 
 // NewOutputs returns a deterministically ordered collection of Outputs. It removes duplicates in the parameters and
-// ensures syntactical correctness.
+// sorts the Outputs to ensure syntactical correctness.
 func NewOutputs(optionalOutputs ...Output) (outputs Outputs) {
 	seenOutputs := make(map[string]types.Empty)
 	sortedOutputs := make([]struct {
@@ -372,7 +386,9 @@ func (o Outputs) ByID() (outputsByID OutputsByID) {
 // Clone creates a copy of the Outputs.
 func (o Outputs) Clone() (clonedOutputs Outputs) {
 	clonedOutputs = make(Outputs, len(o))
-	copy(clonedOutputs[:], o)
+	for i, output := range o {
+		clonedOutputs[i] = output.Clone()
+	}
 
 	return
 }
@@ -439,7 +455,7 @@ func (o OutputsByID) Outputs() Outputs {
 func (o OutputsByID) Clone() (clonedOutputs OutputsByID) {
 	clonedOutputs = make(OutputsByID)
 	for id, output := range o {
-		clonedOutputs[id] = output
+		clonedOutputs[id] = output.Clone()
 	}
 
 	return
@@ -516,6 +532,10 @@ func SigLockedSingleOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) 
 		err = xerrors.Errorf("balance (%d) is smaller than MinOutputBalance (%d): %w", output.balance, MinOutputBalance, cerrors.ErrParseBytesFailed)
 		return
 	}
+	if output.balance > MaxOutputBalance {
+		err = xerrors.Errorf("balance (%d) is bigger than MaxOutputBalance (%d): %w", output.balance, MaxOutputBalance, cerrors.ErrParseBytesFailed)
+		return
+	}
 
 	return
 }
@@ -576,10 +596,19 @@ func (s *SigLockedSingleOutput) Address() Address {
 // Input returns an Input that references the Output.
 func (s *SigLockedSingleOutput) Input() Input {
 	if s.ID() == EmptyOutputID {
-		panic("Outputs that haven't been assigned an ID, yet cannot be converted to an Input")
+		panic("Outputs that haven't been assigned an ID yet cannot be converted to an Input")
 	}
 
 	return NewUTXOInput(s.ID())
+}
+
+// Clone creates a copy of the Output.
+func (s *SigLockedSingleOutput) Clone() Output {
+	return &SigLockedSingleOutput{
+		id:      s.id,
+		balance: s.balance,
+		address: s.address.Clone(),
+	}
 }
 
 // Bytes returns a marshaled version of the Output.
@@ -608,8 +637,8 @@ func (s *SigLockedSingleOutput) ObjectStorageValue() []byte {
 		Bytes()
 }
 
-// Compare offers a comparator for Outputs which returns -1 if other Output is bigger, 1 if it is smaller and 0 if they
-// are the same.
+// Compare offers a comparator for Outputs which returns -1 if the other Output is bigger, 1 if it is smaller and 0 if
+// they are the same.
 func (s *SigLockedSingleOutput) Compare(other Output) int {
 	return bytes.Compare(s.Bytes(), other.Bytes())
 }
@@ -744,6 +773,15 @@ func (s *SigLockedColoredOutput) Input() Input {
 	return NewUTXOInput(s.ID())
 }
 
+// Clone creates a copy of the Output.
+func (s *SigLockedColoredOutput) Clone() Output {
+	return &SigLockedColoredOutput{
+		id:       s.id,
+		balances: s.balances.Clone(),
+		address:  s.address.Clone(),
+	}
+}
+
 // Bytes returns a marshaled version of the Output.
 func (s *SigLockedColoredOutput) Bytes() []byte {
 	return s.ObjectStorageValue()
@@ -770,8 +808,8 @@ func (s *SigLockedColoredOutput) ObjectStorageValue() []byte {
 		Bytes()
 }
 
-// Compare offers a comparator for Outputs which returns -1 if other Output is bigger, 1 if it is smaller and 0 if they
-// are the same.
+// Compare offers a comparator for Outputs which returns -1 if the other Output is bigger, 1 if it is smaller and 0 if
+// they are the same.
 func (s *SigLockedColoredOutput) Compare(other Output) int {
 	return bytes.Compare(s.Bytes(), other.Bytes())
 }
