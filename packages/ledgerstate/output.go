@@ -189,6 +189,9 @@ type Output interface {
 	// Input returns an Input that references the Output.
 	Input() Input
 
+	// Clone creates a copy of the Output.
+	Clone() Output
+
 	// Bytes returns a marshaled version of the Output.
 	Bytes() []byte
 
@@ -597,6 +600,15 @@ func (s *SigLockedSingleOutput) Input() Input {
 	return NewUTXOInput(s.ID())
 }
 
+// Clone creates a copy of the Output.
+func (s *SigLockedSingleOutput) Clone() Output {
+	return &SigLockedSingleOutput{
+		id:      s.id,
+		balance: s.balance,
+		address: s.address.Clone(),
+	}
+}
+
 // Bytes returns a marshaled version of the Output.
 func (s *SigLockedSingleOutput) Bytes() []byte {
 	return s.ObjectStorageValue()
@@ -757,6 +769,15 @@ func (s *SigLockedColoredOutput) Input() Input {
 	}
 
 	return NewUTXOInput(s.ID())
+}
+
+// Clone creates a copy of the Output.
+func (s *SigLockedColoredOutput) Clone() Output {
+	return &SigLockedColoredOutput{
+		id:       s.id,
+		balances: s.balances.Clone(),
+		address:  s.address.Clone(),
+	}
 }
 
 // Bytes returns a marshaled version of the Output.
