@@ -27,13 +27,13 @@ const (
 	MinOutputCount = 1
 
 	// MaxOutputCount defines the maximum amount of Outputs in a Transaction.
-	MaxOutputCount = 126
+	MaxOutputCount = 127
 
 	// MinOutputBalance defines the minimum balance per Output.
 	MinOutputBalance = 1
 
 	// MaxOutputBalance defines the maximum balance on an Output (the supply).
-	MaxOutputBalance = 2779530283
+	MaxOutputBalance = 2779530283277761
 )
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
