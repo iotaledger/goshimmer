@@ -594,7 +594,7 @@ func (s *SigLockedSingleOutput) Address() Address {
 // Input returns an Input that references the Output.
 func (s *SigLockedSingleOutput) Input() Input {
 	if s.ID() == EmptyOutputID {
-		panic("Outputs that haven't been assigned an ID, yet cannot be converted to an Input")
+		panic("Outputs that haven't been assigned an ID yet cannot be converted to an Input")
 	}
 
 	return NewUTXOInput(s.ID())
