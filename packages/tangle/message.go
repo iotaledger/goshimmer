@@ -1,17 +1,21 @@
 package tangle
 
 import (
+	"bytes"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
+	"golang.org/x/xerrors"
 )
 
 const (
@@ -19,10 +23,13 @@ const (
 	MaxMessageSize = 64 * 1024
 
 	// MessageIDLength defines the length of an MessageID.
-	MessageIDLength = 64
+	MessageIDLength = 32
 
-	// ContentIDLength contains the amount of bytes that a marshaled version of the ContentID contains.
-	ContentIDLength = MessageIDLength
+	// StrongParent identifies a strong parent in the bitmask.
+	StrongParent uint8 = 1
+
+	// WeakParent identifies a weak parent in the bitmask.
+	WeakParent uint8 = 0
 )
 
 // ContentID identifies the content of a message without its parent1/parent2 ids.
@@ -31,6 +38,11 @@ type ContentID = MessageID
 // MessageID identifies a message in its entirety. Unlike the sole content id, it also incorporates
 // the parent1 and parent2 ids.
 type MessageID [MessageIDLength]byte
+
+type Parent struct {
+	ID   MessageID
+	Type uint8
+}
 
 // EmptyMessageID is an empty id.
 var EmptyMessageID = MessageID{}
@@ -109,8 +121,9 @@ type Message struct {
 	objectstorage.StorableObjectFlags
 
 	// core properties (get sent over the wire)
-	parent1ID       MessageID
-	parent2ID       MessageID
+	version         uint8
+	strongParents   []MessageID
+	weakParents     []MessageID
 	issuerPublicKey ed25519.PublicKey
 	issuingTime     time.Time
 	sequenceNumber  uint64
@@ -119,12 +132,10 @@ type Message struct {
 	signature       ed25519.Signature
 
 	// derived properties
-	id             *MessageID
-	idMutex        sync.RWMutex
-	contentID      *ContentID
-	contentIDMutex sync.RWMutex
-	bytes          []byte
-	bytesMutex     sync.RWMutex
+	id         *MessageID
+	idMutex    sync.RWMutex
+	bytes      []byte
+	bytesMutex sync.RWMutex
 }
 
 // NewMessage creates a new message with the details provided by the issuer.
@@ -156,14 +167,37 @@ func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Messa
 
 	// parse information
 	result = &Message{}
-	if result.parent1ID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
-		err = fmt.Errorf("failed to parse parent1 message ID of the message: %w", err)
+	if result.version, err = marshalUtil.ReadByte(); err != nil {
+		err = xerrors.Errorf("failed to parse message version from MarshalUtil: %w", err)
 		return
 	}
-	if result.parent2ID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
-		err = fmt.Errorf("failed to parse parent1 message ID of the message: %w", err)
+
+	parentsCount, err := marshalUtil.ReadByte()
+	if err != nil {
+		err = xerrors.Errorf("failed to parse parents count from MarshalUtil: %w", err)
 		return
 	}
+	parentTypes, err := marshalUtil.ReadByte()
+	if err != nil {
+		err = xerrors.Errorf("failed to parse parent types from MarshalUtil: %w", err)
+		return
+	}
+	bitMask := bitmask.BitMask(parentTypes)
+
+	for i := 0; i < int(parentsCount); i++ {
+		parentID, err := MessageIDFromMarshalUtil(marshalUtil)
+		if err != nil {
+			err = xerrors.Errorf("failed to parse parent %d from MarshalUtil: %w", i, err)
+			return
+		}
+		if bitMask.HasBit(uint(i)) {
+			result.strongParents = append(result.strongParents, parentID)
+		} else {
+			result.weakParents = append(result.weakParents, parentID)
+		}
+		// TODO: check if they are sorted
+	}
+
 	if result.issuerPublicKey, err = ed25519.ParsePublicKey(marshalUtil); err != nil {
 		err = fmt.Errorf("failed to parse issuer public key of the message: %w", err)
 		return
@@ -260,14 +294,8 @@ func (m *Message) ID() (result MessageID) {
 	return
 }
 
-// Parent1ID returns the id of the parent1 message.
-func (m *Message) Parent1ID() MessageID {
-	return m.parent1ID
-}
-
-// Parent2ID returns the id of the parent2 message.
-func (m *Message) Parent2ID() MessageID {
-	return m.parent2ID
+func (m *Message) ParentsCount() uint8 {
+	return uint8(len(m.strongParents) + len(m.weakParents))
 }
 
 // IssuerPublicKey returns the public key of the message issuer.
@@ -300,67 +328,45 @@ func (m *Message) Signature() ed25519.Signature {
 	return m.signature
 }
 
-// ContentID returns the content id of the message which is made up of all the
-// parts of the message minus the parent1 and parent2 ids.
-func (m *Message) ContentID() (result ContentID) {
-	m.contentIDMutex.RLock()
-	if m.contentID == nil {
-		m.contentIDMutex.RUnlock()
-
-		m.contentIDMutex.Lock()
-		defer m.contentIDMutex.Unlock()
-		if m.contentID != nil {
-			result = *m.contentID
-			return
-		}
-		result = m.calculateContentID()
-		m.contentID = &result
-		return
-	}
-
-	result = *m.contentID
-	m.contentIDMutex.RUnlock()
-	return
-}
-
 // calculates the message id.
 func (m *Message) calculateID() MessageID {
-	return blake2b.Sum512(
-		marshalutil.New(MessageIDLength + MessageIDLength + ContentIDLength).
-			WriteBytes(m.parent1ID.Bytes()).
-			WriteBytes(m.parent2ID.Bytes()).
-			WriteBytes(m.ContentID().Bytes()).
-			Bytes(),
-	)
-}
-
-// calculates the content id of the message.
-func (m *Message) calculateContentID() ContentID {
-	// compute content id from the message data (except parent1 and parent2 ids)
-	return blake2b.Sum512(m.Bytes()[2*MessageIDLength:])
+	return blake2b.Sum256(m.Bytes())
 }
 
 // Bytes returns the message in serialized byte form.
 func (m *Message) Bytes() []byte {
-	m.bytesMutex.RLock()
-	if m.bytes != nil {
-		defer m.bytesMutex.RUnlock()
-
-		return m.bytes
-	}
-
-	m.bytesMutex.RUnlock()
-	m.bytesMutex.RLock()
-	defer m.bytesMutex.RUnlock()
-
+	m.bytesMutex.Lock()
+	defer m.bytesMutex.Unlock()
 	if m.bytes != nil {
 		return m.bytes
 	}
 
 	// marshal result
 	marshalUtil := marshalutil.New()
-	marshalUtil.WriteBytes(m.parent1ID.Bytes())
-	marshalUtil.WriteBytes(m.parent2ID.Bytes())
+	marshalUtil.WriteByte(m.version)
+	marshalUtil.WriteByte(m.ParentsCount())
+
+	parents := make([]Parent, 0, m.ParentsCount())
+
+	for _, parent := range m.strongParents {
+		parents = append(parents, Parent{ID: parent, Type: StrongParent})
+	}
+	for _, parent := range m.weakParents {
+		parents = append(parents, Parent{ID: parent, Type: WeakParent})
+	}
+	sort.Slice(parents, func(i, j int) bool {
+		return bytes.Compare(parents[i].ID.Bytes(), parents[j].ID.Bytes()) < 0
+	})
+	var bitMask bitmask.BitMask
+	for i, parent := range parents {
+		if parent.Type == StrongParent {
+			bitMask.SetBit(uint(i))
+		}
+	}
+	marshalUtil.WriteByte(byte(bitMask))
+	for _, parent := range parents {
+		marshalUtil.WriteBytes(parent.ID.Bytes())
+	}
 	marshalUtil.WriteBytes(m.issuerPublicKey.Bytes())
 	marshalUtil.WriteTime(m.issuingTime)
 	marshalUtil.WriteUint64(m.sequenceNumber)

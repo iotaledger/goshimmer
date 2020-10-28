@@ -49,3 +49,7 @@ func TestMessage_MarshalUnmarshal(t *testing.T) {
 		assert.Equal(t, true, restoredMessage.VerifySignature())
 	}
 }
+
+// TODO: check if parents are sorted in Bytes()
+
+// TODO: write unit tests
