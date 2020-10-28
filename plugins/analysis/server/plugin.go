@@ -67,7 +67,7 @@ func configure(_ *node.Plugin) {
 }
 
 func run(_ *node.Plugin) {
-	bindAddr := config.Node().GetString(CfgAnalysisServerBindAddress)
+	bindAddr := config.Node().String(CfgAnalysisServerBindAddress)
 	addr, portStr, err := net.SplitHostPort(bindAddr)
 	if err != nil {
 		log.Fatal("invalid bind address in %s: %s", CfgAnalysisServerBindAddress, err)

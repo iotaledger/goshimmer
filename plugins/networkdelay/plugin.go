@@ -61,7 +61,7 @@ func configure(_ *node.Plugin) {
 	}
 
 	// get origin public key from config
-	bytes, err := base58.Decode(config.Node().GetString(CfgNetworkDelayOriginPublicKey))
+	bytes, err := base58.Decode(config.Node().String(CfgNetworkDelayOriginPublicKey))
 	if err != nil {
 		log.Fatalf("could not parse %s config entry as base58. %v", CfgNetworkDelayOriginPublicKey, err)
 	}

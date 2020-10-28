@@ -39,7 +39,7 @@ func createManager() {
 	log := logger.NewLogger(PluginName)
 
 	// announce the gossip service
-	gossipPort := config.Node().GetInt(CfgGossipPort)
+	gossipPort := config.Node().Int(CfgGossipPort)
 	if !netutil.IsValidPort(gossipPort) {
 		log.Fatalf("Invalid port number (%s): %d", CfgGossipPort, gossipPort)
 	}
@@ -60,7 +60,7 @@ func start(shutdownSignal <-chan struct{}) {
 	gossipEndpoint := lPeer.Services().Get(service.GossipKey)
 
 	// resolve the bind address
-	address := net.JoinHostPort(config.Node().GetString(local.CfgBind), strconv.Itoa(gossipEndpoint.Port()))
+	address := net.JoinHostPort(config.Node().String(local.CfgBind), strconv.Itoa(gossipEndpoint.Port()))
 	localAddr, err := net.ResolveTCPAddr(gossipEndpoint.Network(), address)
 	if err != nil {
 		log.Fatalf("Error resolving %s: %v", local.CfgBind, err)
