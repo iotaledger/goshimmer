@@ -15,8 +15,8 @@ class ManaMsg {
 }
 
 class Node {
+    shortNodeID: string;
     nodeID: string;
-    fullNodeID: string;
     mana: number;
 }
 
@@ -253,30 +253,30 @@ export class ManaStore {
         let pushToFeed = (node: Node, i: number) => {
             feed.push(
                 <tr
-                    key={node.nodeID}
+                    key={node.shortNodeID}
                     style={{
-                        backgroundColor: node.nodeID === this.ownID ? '#e8ffff': 'white',
+                        backgroundColor: node.shortNodeID === this.ownID ? '#e8ffff': 'white',
                     }}
                 >
                     <td style={
                         {
-                            borderTopLeftRadius: node.nodeID === this.ownID ? '10px': '0',
-                            borderBottomLeftRadius: node.nodeID === this.ownID ? '10px': '0',
+                            borderTopLeftRadius: node.shortNodeID === this.ownID ? '10px': '0',
+                            borderBottomLeftRadius: node.shortNodeID === this.ownID ? '10px': '0',
                         }
                     }> {i + 1} </td>
-                    <td>{node.nodeID}</td>
+                    <td>{node.shortNodeID}</td>
                     <td>{displayManaUnit(node.mana)}</td>
                     <td style={
                         {
-                            borderTopRightRadius: node.nodeID === this.ownID ? '10px': '0',
-                            borderBottomRightRadius: node.nodeID === this.ownID ? '10px': '0',
+                            borderTopRightRadius: node.shortNodeID === this.ownID ? '10px': '0',
+                            borderBottomRightRadius: node.shortNodeID === this.ownID ? '10px': '0',
                         }
                     }>{((node.mana / manaSum)*100.0).toFixed(2)}%</td>
                 </tr>
             );
         };
         let callback = (node: Node, i: number) => {
-            if (this.passesNodeFilter(node.nodeID)){
+            if (this.passesNodeFilter(node.shortNodeID)){
                 pushToFeed(node, i);
             }
         };
@@ -332,7 +332,7 @@ export class ManaStore {
         let histInput = []
         for (let i = 0; i < this.accessNetworkRichest.length; i++) {
             histInput.push(
-                [this.accessNetworkRichest[i].nodeID, this.accessNetworkRichest[i].mana]
+                [this.accessNetworkRichest[i].shortNodeID, this.accessNetworkRichest[i].mana]
             )
         }
         return histInput
@@ -346,7 +346,7 @@ export class ManaStore {
         let histInput = []
         for (let i = 0; i < this.consensusNetworkRichest.length; i++) {
             histInput.push(
-                [this.consensusNetworkRichest[i].nodeID, this.consensusNetworkRichest[i].mana]
+                [this.consensusNetworkRichest[i].shortNodeID, this.consensusNetworkRichest[i].mana]
             )
         }
         return histInput
@@ -357,7 +357,7 @@ export class ManaStore {
         let per = 0.0;
         // find id
         if (this.accessNetworkRichest !== undefined && this.accessNetworkRichest !== null) {
-            const isOwnID = (element) => element.nodeID === this.ownID;
+            const isOwnID = (element) => element.shortNodeID === this.ownID;
             let index = this.accessNetworkRichest.findIndex(isOwnID);
             switch (index) {
                 case -1:
@@ -375,7 +375,7 @@ export class ManaStore {
         let per = 0.0;
         // find id
         if ( this.consensusNetworkRichest !== undefined && this.consensusNetworkRichest !== null) {
-            const isOwnID = (element) => element.nodeID === this.ownID;
+            const isOwnID = (element) => element.shortNodeID === this.ownID;
             let index = this.consensusNetworkRichest.findIndex(isOwnID);
             switch (index) {
                 case -1:
@@ -444,7 +444,7 @@ export class ManaStore {
                                     {element.nodeID}
                                 </Col>
                                 <Col>
-                                    {element.txID.substring(0, 10) + '...'}
+                                    {element.txID.substring(0, 7) + '...'}
                                 </Col>
                                 <Col xs={5}>
                                     {element.time.toLocaleString()}
@@ -484,7 +484,7 @@ export class ManaStore {
                                     {element.nodeID}
                                 </Col>
                                 <Col>
-                                    {element.txID.substring(0, 10) + '...'}
+                                    {element.txID.substring(0, 7) + '...'}
                                 </Col>
                                 <Col xs={5}>
                                     {element.time.toLocaleString()}
