@@ -10,13 +10,13 @@ require (
 	github.com/drand/kyber v1.1.2
 	github.com/gin-gonic/gin v1.6.3
 	github.com/go-ole/go-ole v1.2.4 // indirect
-	github.com/gobuffalo/packr/v2 v2.8.0
 	github.com/golang/protobuf v1.4.2
 	github.com/gorilla/websocket v1.4.2
 	github.com/iotaledger/hive.go v0.0.0-20201010155836-c0af5551de50
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0
 	github.com/magiconair/properties v1.8.1
+	github.com/markbates/pkger v0.17.1
 	github.com/mr-tron/base58 v1.2.0
 	github.com/panjf2000/ants/v2 v2.4.1
 	github.com/pkg/errors v0.9.1

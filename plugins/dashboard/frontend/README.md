@@ -14,11 +14,11 @@ The Dashboard is hot-reload enabled.
 
 ### Pack your changes
 
-We are using [packr2](https://github.com/gobuffalo/packr/tree/master/v2) to wrap all built frontend files into Go files.
+We are using [pkger](https://github.com/markbates/pkger) to wrap all built frontend files into Go files.
 
-1. [Install `packr2`](https://github.com/gobuffalo/packr/tree/master/v2#binary-installation) if not already done.
+1. [Install `pkger`](https://github.com/markbates/pkger#installation) if not already done.
 2. Build Dashboard by running `yarn build` within the `frontend` directory.
-3. Change to the `plugins/spa` directory.
-4. Run `packr2`.
-5. `plugins/spa/packrd` should have been modified.
+3. Change to the `plugins/dashboard` directory.
+4. Run `pkger -o /plugins/dashboard`.
+5. `plugins/dashboard/pkged.go` should have been modified.
 6. Done. Now you can build goShimmer and your Dashboard changes will be included within the binary.
