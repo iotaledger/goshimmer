@@ -25,12 +25,7 @@ func broadcastNetworkDelayObject(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, Response{Error: err.Error()})
 	}
 
-	var now int64
-	if clockEnabled {
-		now = clock.SyncedTime().UnixNano()
-	} else {
-		now = time.Now().UnixNano()
-	}
+	now := clock.SyncedTime().UnixNano()
 
 	msg, err := issuer.IssuePayload(NewObject(id, now))
 	if err != nil {

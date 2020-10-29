@@ -112,12 +112,7 @@ func onReceiveMessageFromMessageLayer(cachedMessageEvent *tangle.CachedMessageEv
 		return
 	}
 
-	var now int64
-	if clockEnabled {
-		now = clock.SyncedTime().UnixNano()
-	} else {
-		now = time.Now().UnixNano()
-	}
+	now := clock.SyncedTime().UnixNano()
 
 	// abort if message was sent more than 1min ago
 	// this should only happen due to a node resyncing
