@@ -32,7 +32,7 @@ const (
 	// WeakParent identifies a weak parent in the bitmask.
 	WeakParent uint8 = 0
 
-	MinParentsCount       = 2
+	MinParentsCount       = 1
 	MaxParentsCount       = 8
 	MinStrongParentsCount = 1
 )
@@ -180,8 +180,8 @@ func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Messa
 		return
 	}
 
-	parentsCount, err := marshalUtil.ReadByte()
-	if err != nil {
+	var parentsCount uint8
+	if parentsCount, err = marshalUtil.ReadByte(); err != nil {
 		err = xerrors.Errorf("failed to parse parents count from MarshalUtil: %w", err)
 		return
 	}
@@ -190,8 +190,8 @@ func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Messa
 		return
 	}
 
-	parentTypes, err := marshalUtil.ReadByte()
-	if err != nil {
+	var parentTypes uint8
+	if parentTypes, err = marshalUtil.ReadByte(); err != nil {
 		err = xerrors.Errorf("failed to parse parent types from MarshalUtil: %w", err)
 		return
 	}
@@ -199,8 +199,8 @@ func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Messa
 
 	var previousParent MessageID
 	for i := 0; i < int(parentsCount); i++ {
-		parentID, err := MessageIDFromMarshalUtil(marshalUtil)
-		if err != nil {
+		var parentID MessageID
+		if parentID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
 			err = xerrors.Errorf("failed to parse parent %d from MarshalUtil: %w", i, err)
 			return
 		}
@@ -210,8 +210,7 @@ func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Messa
 			result.weakParents = append(result.weakParents, parentID)
 		}
 
-		// verify that parents are sorted lexicographically ASC
-		// TODO: do we allow duplicate parents?
+		// verify that parents are sorted lexicographically ASC and unique
 		if bytes.Compare(previousParent.Bytes(), parentID.Bytes()) > -1 {
 			err = xerrors.Errorf("parents not sorted lexicographically ascending: %w", cerrors.ErrParseBytesFailed)
 			return
@@ -319,8 +318,52 @@ func (m *Message) ID() (result MessageID) {
 	return
 }
 
-// TODO: accessor/convenience methods to access strong/weak parents
+// Version returns the message version.
+func (m *Message) Version() uint8 {
+	return m.version
+}
 
+// StrongParents returns a slice of all strong parents of the message.
+func (m *Message) StrongParents() []MessageID {
+	return m.strongParents
+}
+
+// StrongParents returns a slice of all strong parents of the message.
+func (m *Message) WeakParents() []MessageID {
+	return m.weakParents
+}
+
+// ForEachParent executes a consumer func for each parent.
+func (m *Message) ForEachParent(consumer func(parent Parent)) {
+	for _, parentID := range m.strongParents {
+		consumer(Parent{
+			ID:   parentID,
+			Type: StrongParent,
+		})
+	}
+	for _, parentID := range m.weakParents {
+		consumer(Parent{
+			ID:   parentID,
+			Type: WeakParent,
+		})
+	}
+}
+
+// ForEachStrongParent executes a consumer func for each strong parent.
+func (m *Message) ForEachStrongParent(consumer func(parent MessageID)) {
+	for _, parentID := range m.strongParents {
+		consumer(parentID)
+	}
+}
+
+// ForEachWeakParent executes a consumer func for each weak parent.
+func (m *Message) ForEachWeakParent(consumer func(parent MessageID)) {
+	for _, parentID := range m.weakParents {
+		consumer(parentID)
+	}
+}
+
+// ParentsCount returns the total parents count of this message.
 func (m *Message) ParentsCount() uint8 {
 	return uint8(len(m.strongParents) + len(m.weakParents))
 }
@@ -355,7 +398,7 @@ func (m *Message) Signature() ed25519.Signature {
 	return m.signature
 }
 
-// calculates the message id.
+// calculates the message's MessageID.
 func (m *Message) calculateID() MessageID {
 	return blake2b.Sum256(m.Bytes())
 }
