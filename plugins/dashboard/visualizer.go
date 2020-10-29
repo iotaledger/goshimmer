@@ -52,10 +52,10 @@ func sendVertex(cachedMessage *tangle.CachedMessage, cachedMessageMetadata *tang
 		return
 	}
 	broadcastWsMessage(&wsmsg{MsgTypeVertex, &vertex{
-		ID:        msg.ID().String(),
-		Parent1ID: msg.Parent1ID().String(),
-		Parent2ID: msg.Parent2ID().String(),
-		IsSolid:   cachedMessageMetadata.Unwrap().IsSolid(),
+		ID: msg.ID().String(),
+		//Parent1ID: msg.Parent1ID().String(),
+		//Parent2ID: msg.Parent2ID().String(),
+		IsSolid: cachedMessageMetadata.Unwrap().IsSolid(),
 	}}, true)
 }
 

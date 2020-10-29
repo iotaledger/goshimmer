@@ -46,9 +46,10 @@ func findByIDHandler(c echo.Context) error {
 				Solid:              msgMetadata.IsSolid(),
 				SolidificationTime: msgMetadata.SolidificationTime().Unix(),
 			},
-			ID:              msg.ID().String(),
-			Parent1ID:       msg.Parent1ID().String(),
-			Parent2ID:       msg.Parent2ID().String(),
+			ID: msg.ID().String(),
+			//TODO: adjust
+			//Parent1ID:       msg.Parent1ID().String(),
+			//Parent2ID:       msg.Parent2ID().String(),
 			IssuerPublicKey: msg.IssuerPublicKey().String(),
 			IssuingTime:     msg.IssuingTime().Unix(),
 			SequenceNumber:  msg.SequenceNumber(),

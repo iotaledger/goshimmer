@@ -52,11 +52,11 @@ func createExplorerMessage(msg *tangle.Message) (*ExplorerMessage, error) {
 		IssuerPublicKey:         msg.IssuerPublicKey().String(),
 		Signature:               msg.Signature().String(),
 		SequenceNumber:          msg.SequenceNumber(),
-		Parent1MessageID:        msg.Parent1ID().String(),
-		Parent2MessageID:        msg.Parent2ID().String(),
-		Solid:                   cachedMessageMetadata.Unwrap().IsSolid(),
-		PayloadType:             uint32(msg.Payload().Type()),
-		Payload:                 ProcessPayload(msg.Payload()),
+		//Parent1MessageID:        msg.Parent1ID().String(),
+		//Parent2MessageID:        msg.Parent2ID().String(),
+		Solid:       cachedMessageMetadata.Unwrap().IsSolid(),
+		PayloadType: uint32(msg.Payload().Type()),
+		Payload:     ProcessPayload(msg.Payload()),
 	}
 
 	return t, nil

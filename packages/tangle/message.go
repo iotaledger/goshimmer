@@ -14,12 +14,15 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
+	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/xerrors"
 )
 
 const (
+	MessageVersion uint8 = 1
+
 	// MaxMessageSize defines the maximum size of a message.
 	MaxMessageSize = 64 * 1024
 
@@ -50,6 +53,7 @@ var EmptyMessageID = MessageID{}
 
 // NewMessageID creates a new message id.
 func NewMessageID(base58EncodedString string) (result MessageID, err error) {
+	// TODO: rename to avoid collision with imported package
 	bytes, err := base58.Decode(base58EncodedString)
 	if err != nil {
 		err = fmt.Errorf("failed to decode base58 encoded string '%s': %w", base58EncodedString, err)
@@ -140,13 +144,21 @@ type Message struct {
 }
 
 // NewMessage creates a new message with the details provided by the issuer.
-func NewMessage(parent1ID MessageID, parent2ID MessageID, issuingTime time.Time, issuerPublicKey ed25519.PublicKey, sequenceNumber uint64, payload payload.Payload, nonce uint64, signature ed25519.Signature) (result *Message) {
-	// TODO: do syntactical validation
+func NewMessage(strongParents []MessageID, weakParents []MessageID, issuingTime time.Time, issuerPublicKey ed25519.PublicKey, sequenceNumber uint64, payload payload.Payload, nonce uint64, signature ed25519.Signature) (result *Message) {
+	// syntactical validation
+	parentsCount := len(strongParents) + len(weakParents)
+	if parentsCount < MinParentsCount || parentsCount > MaxParentsCount {
+		panic(fmt.Sprintf("amount of parents (%d) not in valid range (%d-%d)", parentsCount, MinParentsCount, MaxParentsCount))
+	}
+
+	if len(strongParents) < MinStrongParentsCount {
+		panic(fmt.Sprintf("amount of strong parents (%d) failed to reach MinStrongParentsCount (%d)", len(strongParents), MinStrongParentsCount))
+	}
 
 	return &Message{
-		// TODO: copy slices for strong/weak parents?
-		//parent1ID:       parent1ID,
-		//parent2ID:       parent2ID,
+		version:         MessageVersion,
+		strongParents:   sortParents(strongParents),
+		weakParents:     sortParents(weakParents),
 		issuerPublicKey: issuerPublicKey,
 		issuingTime:     issuingTime,
 		sequenceNumber:  sequenceNumber,
@@ -154,6 +166,28 @@ func NewMessage(parent1ID MessageID, parent2ID MessageID, issuingTime time.Time,
 		nonce:           nonce,
 		signature:       signature,
 	}
+}
+
+// filters and sorts given parents and returns a new slice with sorted parents
+func sortParents(parents []MessageID) (sorted []MessageID) {
+	seen := make(map[MessageID]types.Empty)
+	sorted = make([]MessageID, 0, len(parents))
+
+	// filter duplicates
+	for _, parent := range parents {
+		if _, seenAlready := seen[parent]; seenAlready {
+			continue
+		}
+		seen[parent] = types.Void
+		sorted = append(sorted, parent)
+	}
+
+	// sort parents
+	sort.Slice(parents, func(i, j int) bool {
+		return bytes.Compare(parents[i].Bytes(), parents[j].Bytes()) < 0
+	})
+
+	return
 }
 
 // MessageFromBytes parses the given bytes into a message.

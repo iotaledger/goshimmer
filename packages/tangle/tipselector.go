@@ -38,34 +38,28 @@ func (t *MessageTipSelector) AddTip(msg *Message) {
 		t.Events.TipAdded.Trigger(messageID)
 	}
 
-	parent1MessageID := msg.Parent1ID()
-	if _, deleted := t.tips.Delete(parent1MessageID); deleted {
-		t.Events.TipRemoved.Trigger(parent1MessageID)
-	}
-
-	parent2MessageID := msg.Parent2ID()
-	if _, deleted := t.tips.Delete(parent2MessageID); deleted {
-		t.Events.TipRemoved.Trigger(parent2MessageID)
-	}
+	msg.ForEachStrongParent(func(parent MessageID) {
+		if _, deleted := t.tips.Delete(parent); deleted {
+			t.Events.TipRemoved.Trigger(parent)
+		}
+	})
 }
 
 // Tips returns two tips.
-func (t *MessageTipSelector) Tips() (parent1MessageID, parent2MessageID MessageID) {
+func (t *MessageTipSelector) Tips(count int) (parents []MessageID) {
+	parents = make([]MessageID, 0, count)
+
 	tip := t.tips.RandomEntry()
 	if tip == nil {
-		parent1MessageID = EmptyMessageID
-		parent2MessageID = EmptyMessageID
-
+		parents = append(parents, EmptyMessageID)
 		return
 	}
 
-	parent2MessageID = tip.(MessageID)
+	tipMessageID := tip.(MessageID)
+	parents = append(parents, tipMessageID)
 
-	if t.tips.Size() == 1 {
-		parent1MessageID = parent2MessageID
-		return
-	}
-
+	// TODO: adjust tip selection to select as many tips as count
+	// it is a bit tricky to not cause a deadlock if we don't allow duplicates
 	parent1MessageID = t.tips.RandomEntry().(MessageID)
 	for parent1MessageID == parent2MessageID && t.tips.Size() > 1 {
 		parent1MessageID = t.tips.RandomEntry().(MessageID)
