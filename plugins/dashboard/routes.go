@@ -57,9 +57,6 @@ func indexRoute(e echo.Context) error {
 
 func setupRoutes(e *echo.Echo) {
 
-	pkger.Include(app)
-	pkger.Include(assets)
-
 	if config.Node().GetBool("dashboard.dev") {
 		e.Static("/assets", "./plugins/dashboard/frontend/src/assets")
 	} else {
