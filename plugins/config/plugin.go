@@ -75,11 +75,6 @@ func init() {
 // It automatically reads in a single config file starting with "config" (can be changed via the --config CLI flag)
 // and ending with: .json, .toml, .yaml or .yml (in this sequence).
 func fetch(printConfig bool, ignoreSettingsAtPrint ...[]string) error {
-	// read in ENV variables
-	if err := _node.LoadEnvironmentVars(""); err != nil {
-		return err
-	}
-
 	flag.Parse()
 
 	if err := _node.LoadFile(*configFilePath); err != nil {
@@ -91,6 +86,17 @@ func fetch(printConfig bool, ignoreSettingsAtPrint ...[]string) error {
 		fmt.Printf("No config file found via '%s'. Loading default settings.", *configFilePath)
 	}
 
+	if err := _node.LoadFlagSet(flag.CommandLine); err != nil {
+		return err
+	}
+
+	// read in ENV variables
+	// load the env vars after default values from flags were set (otherwise the env vars are not added because the keys don't exist)
+	if err := _node.LoadEnvironmentVars(""); err != nil {
+		return err
+	}
+
+	// load the flags again to overwrite env vars that were also set via command line
 	if err := _node.LoadFlagSet(flag.CommandLine); err != nil {
 		return err
 	}
