@@ -114,7 +114,7 @@ func (api *GoShimmerAPI) GetNHighestAccessMana(n int) (*webapi_mana.GetNHighestR
 	return res, nil
 }
 
-// GetNHighestConsensusMana returns the N highest access mana holders in the network, sorted in descending order.
+// GetNHighestConsensusMana returns the N highest consensus mana holders in the network, sorted in descending order.
 func (api *GoShimmerAPI) GetNHighestConsensusMana(n int) (*webapi_mana.GetNHighestResponse, error) {
 	res := &webapi_mana.GetNHighestResponse{}
 	if err := api.do(http.MethodGet, func() string {
