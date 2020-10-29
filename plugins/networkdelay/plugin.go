@@ -4,11 +4,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
+	"github.com/iotaledger/goshimmer/plugins/syncbeaconfollower"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
@@ -39,6 +41,9 @@ var (
 	myID            string
 	myPublicKey     ed25519.PublicKey
 	originPublicKey ed25519.PublicKey
+
+	// clockEnabled defines if the clock plugin is enabled.
+	clockEnabled bool
 )
 
 // App gets the plugin instance.
@@ -74,6 +79,8 @@ func configure(_ *node.Plugin) {
 
 	// subscribe to message-layer
 	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
+
+	clockEnabled = node.EnabledPlugins[node.GetPluginIdentifier("Clock")]
 }
 
 func onReceiveMessageFromMessageLayer(cachedMessageEvent *tangle.CachedMessageEvent) {
@@ -105,7 +112,12 @@ func onReceiveMessageFromMessageLayer(cachedMessageEvent *tangle.CachedMessageEv
 		return
 	}
 
-	now := time.Now().UnixNano()
+	var now int64
+	if clockEnabled {
+		now = clock.SyncedTime().UnixNano()
+	} else {
+		now = time.Now().UnixNano()
+	}
 
 	// abort if message was sent more than 1min ago
 	// this should only happen due to a node resyncing
@@ -124,6 +136,8 @@ func sendToRemoteLog(networkDelayObject *Object, receiveTime int64) {
 		SentTime:    networkDelayObject.sentTime,
 		ReceiveTime: receiveTime,
 		Delta:       receiveTime - networkDelayObject.sentTime,
+		Clock:       clockEnabled,
+		Sync:        syncbeaconfollower.Synced(),
 		Type:        remoteLogType,
 	}
 	_ = remoteLogger.Send(m)
@@ -135,5 +149,7 @@ type networkDelay struct {
 	SentTime    int64  `json:"sentTime"`
 	ReceiveTime int64  `json:"receiveTime"`
 	Delta       int64  `json:"delta"`
+	Clock       bool   `json:"clock"`
+	Sync        bool   `json:"sync"`
 	Type        string `json:"type"`
 }

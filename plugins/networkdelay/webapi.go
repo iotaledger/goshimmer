@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/labstack/echo"
@@ -24,7 +25,14 @@ func broadcastNetworkDelayObject(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, Response{Error: err.Error()})
 	}
 
-	msg, err := issuer.IssuePayload(NewObject(id, time.Now().UnixNano()))
+	var now int64
+	if clockEnabled {
+		now = clock.SyncedTime().UnixNano()
+	} else {
+		now = time.Now().UnixNano()
+	}
+
+	msg, err := issuer.IssuePayload(NewObject(id, now))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
