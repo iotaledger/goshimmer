@@ -1,3 +1,19 @@
+# v0.3.0 - 2020-10-12
+* Added multiple dRNG committees support: Pollen, X-Team and Custom.
+* Added clock synchronization plugin via NTP.
+* Added basic codeQL analysis pipeline for common vulnerability scanning.
+* Added basic HTTP authentication.
+* Changed payload layout to be more similar to the one specified for Chrysalis phase 2.
+* Improved rand-seed tool by writing its output to a file.
+* Improved the Docker network by making MongoDB, Grafana and Prometheus optional so that startup/shutdown times are low when not needed.
+* Upgraded to the latest hive.go.
+* Upgraded NodeJS dependencies of the dashboard.
+* Fixed several security issues.
+* Refactored the entire code base to make its package structure flat and more consistent with Hornet.
+* Moved data structures to hive.go 
+* Removed JWT authentication due to security issues of the package dgrijalva/jwt-go
+* **Breaking**: bumps network and database versions
+
 # v0.2.4 - 2020-09-03
 * Fixes race condition that was preventing the deletion of some entries from missing messages.
 * Improves the Tangle-BadgerDB interaction.

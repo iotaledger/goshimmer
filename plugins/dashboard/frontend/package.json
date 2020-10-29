@@ -52,14 +52,15 @@
     "webpack-hot-middleware": "^2.24.3"
   },
   "resolutions": {
-    "html-loader/htmlnano/cssnano/postcss-svgo/svgo/js-yaml": "^3.13.1"
+    "html-loader/htmlnano/cssnano/postcss-svgo/svgo/js-yaml": "^3.13.1",
+    "mkdirp": "^0.5.5"
   },
   "dependencies": {
     "@types/glob": "^7.1.1",
     "apexcharts": "^3.10.1",
     "apexcharts-react": "^1.0.0",
     "bootstrap": "^4.3.1",
-    "chart.js": "^2.9.3",
+    "chart.js": "^2.9.4",
     "chartjs-plugin-streaming": "^1.8.0",
     "classnames": "^2.2.6",
     "dateformat": "^3.0.3",

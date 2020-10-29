@@ -112,7 +112,7 @@ func worker(shutdownSignal <-chan struct{}) {
 	stopped := make(chan struct{})
 	bindAddr := config.Node().GetString(CfgBindAddress)
 	go func() {
-		log.Infof("%s started, bind-address=%s", PluginName, bindAddr)
+		log.Infof("%s started, bind-address=%s, basic-auth=%v", PluginName, bindAddr, config.Node().GetBool(CfgBasicAuthEnabled))
 		if err := server.Start(bindAddr); err != nil {
 			if !errors.Is(err, http.ErrServerClosed) {
 				log.Errorf("Error serving: %s", err)

@@ -45,7 +45,7 @@ func newPeer(name string, identity *identity.Identity, dockerContainer *DockerCo
 		name:            name,
 		ip:              ip,
 		Identity:        identity,
-		GoShimmerAPI:    client.NewGoShimmerAPI(getWebAPIBaseURL(name), http.Client{Timeout: 30 * time.Second}),
+		GoShimmerAPI:    client.NewGoShimmerAPI(getWebAPIBaseURL(name), client.WithHTTPClient(http.Client{Timeout: 30 * time.Second})),
 		DockerContainer: dockerContainer,
 		Seed:            seed,
 	}, nil

@@ -55,7 +55,7 @@ func createExplorerMessage(msg *tangle.Message) (*ExplorerMessage, error) {
 		Parent1MessageID:        msg.Parent1ID().String(),
 		Parent2MessageID:        msg.Parent2ID().String(),
 		Solid:                   cachedMessageMetadata.Unwrap().IsSolid(),
-		PayloadType:             msg.Payload().Type(),
+		PayloadType:             uint32(msg.Payload().Type()),
 		Payload:                 ProcessPayload(msg.Payload()),
 	}
 

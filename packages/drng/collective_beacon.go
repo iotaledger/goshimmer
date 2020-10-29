@@ -68,7 +68,7 @@ func VerifyCollectiveBeacon(state *State, cb *CollectiveBeaconEvent) error {
 		return err
 	}
 
-	if !bytes.Equal(cb.Dpk, state.Committee().DistributedPK) {
+	if len(state.Committee().DistributedPK) != 0 && !bytes.Equal(cb.Dpk, state.Committee().DistributedPK) {
 		return ErrDistributedPubKeyMismatch
 	}
 

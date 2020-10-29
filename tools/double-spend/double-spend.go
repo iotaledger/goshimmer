@@ -26,8 +26,8 @@ func main() {
 		return
 	}
 
-	clients[0] = client.NewGoShimmerAPI(node1APIURL, http.Client{Timeout: 60 * time.Second})
-	clients[1] = client.NewGoShimmerAPI(node2APIURL, http.Client{Timeout: 60 * time.Second})
+	clients[0] = client.NewGoShimmerAPI(node1APIURL, client.WithHTTPClient(http.Client{Timeout: 60 * time.Second}))
+	clients[1] = client.NewGoShimmerAPI(node2APIURL, client.WithHTTPClient(http.Client{Timeout: 60 * time.Second}))
 
 	mySeed := walletseed.NewSeed()
 	myAddr := mySeed.Address(0)
