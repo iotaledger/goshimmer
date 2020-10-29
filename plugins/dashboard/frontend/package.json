@@ -52,7 +52,8 @@
     "webpack-hot-middleware": "^2.24.3"
   },
   "resolutions": {
-    "html-loader/htmlnano/cssnano/postcss-svgo/svgo/js-yaml": "^3.13.1"
+    "html-loader/htmlnano/cssnano/postcss-svgo/svgo/js-yaml": "^3.13.1",
+    "mkdirp": "^0.5.5"
   },
   "dependencies": {
     "@types/glob": "^7.1.1",
