@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-    "os"
+	"os"
 
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/labstack/echo"
@@ -25,9 +25,9 @@ var ErrNotFound = errors.New("not found")
 var ErrForbidden = errors.New("forbidden")
 
 // holds analysis dashboard assets
-const(
-    app = "/plugins/analysis/dashboard/frontend/build"
-    assets = "/plugins/analysis/dashboard/frontend/src/assets"
+const (
+	app    = "/plugins/analysis/dashboard/frontend/build"
+	assets = "/plugins/analysis/dashboard/frontend/src/assets"
 )
 
 func indexRoute(e echo.Context) error {
@@ -42,13 +42,13 @@ func indexRoute(e echo.Context) error {
 		}
 		return e.HTMLBlob(http.StatusOK, devIndexHTML)
 	}
-	index, err := pkger.Open(app+"/index.html")
+	index, err := pkger.Open(app + "/index.html")
 	if err != nil {
 		return err
 	}
-    defer index.Close()
+	defer index.Close()
 
-    indexHTML, err := ioutil.ReadAll(index)
+	indexHTML, err := ioutil.ReadAll(index)
 	if err != nil {
 		return err
 	}
@@ -57,28 +57,28 @@ func indexRoute(e echo.Context) error {
 
 func setupRoutes(e *echo.Echo) {
 
-    pkger.Include(app)
-    pkger.Include(assets)
+	pkger.Include(app)
+	pkger.Include(assets)
 
 	if config.Node().GetBool("analysis.dashboard.dev") {
 		e.Static("/assets", "./plugins/analysis/dashboard/frontend/src/assets")
 	} else {
 
 		// load assets from packr: either from within the binary or actual disk
-        pkger.Walk(app, func(path string, info os.FileInfo, err error) error {
-            if err != nil {
-                return err
-            }
+		pkger.Walk(app, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
 			e.GET("/app/"+info.Name(), echo.WrapHandler(http.StripPrefix("/app", http.FileServer(pkger.Dir(app)))))
-            return nil
+			return nil
 		})
 
-        pkger.Walk(assets, func(path string, info os.FileInfo, err error) error {
-            if err != nil {
-                return err
-            }
+		pkger.Walk(assets, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
 			e.GET("/assets/"+info.Name(), echo.WrapHandler(http.StripPrefix("/assets", http.FileServer(pkger.Dir(assets)))))
-            return nil
+			return nil
 		})
 	}
 
