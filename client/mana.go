@@ -38,7 +38,7 @@ func (api *GoShimmerAPI) GetManaFullNodeID(fullNodeID string) (*webapi_mana.GetM
 	return res, nil
 }
 
-// GetMana returns the access and consensus mana a node hase based on its shortNodeID.
+// GetMana returns the access and consensus mana a node has based on its shortNodeID.
 func (api *GoShimmerAPI) GetMana(shortNodeID string) (*webapi_mana.GetManaResponse, error) {
 	// ask the node about the full mana map and filter out based on shortID
 	allManaRes := &webapi_mana.GetAllManaResponse{}
