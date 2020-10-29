@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/mr-tron/base58"
 )
 
 // BaseManaVector represents a base mana vector
@@ -231,15 +232,17 @@ type Node struct {
 // NodeStr defines a node and its mana value.
 // The node ID is stringified.
 type NodeStr struct {
-	ID   string  `json:"nodeID"`
-	Mana float64 `json:"mana"`
+	ShortNodeID string  `json:"shortNodeID"`
+	NodeID      string  `json:"nodeID"`
+	Mana        float64 `json:"mana"`
 }
 
 // ToNodeStr converts a Node to a Nodestr
 func (n Node) ToNodeStr() NodeStr {
 	return NodeStr{
-		ID:   n.ID.String(),
-		Mana: n.Mana,
+		ShortNodeID: n.ID.String(),
+		NodeID:      base58.Encode(n.ID.Bytes()),
+		Mana:        n.Mana,
 	}
 }
 
@@ -254,8 +257,9 @@ func (n NodeMap) ToNodeStrList() []NodeStr {
 	var list []NodeStr
 	for ID, val := range n {
 		list = append(list, NodeStr{
-			ID:   ID.String(),
-			Mana: val,
+			ShortNodeID: ID.String(),
+			NodeID:      base58.Encode(ID.Bytes()),
+			Mana:        val,
 		})
 	}
 	return list
