@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/cerrors"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -30,13 +31,13 @@ const (
 
 	// WeakParent identifies a weak parent in the bitmask.
 	WeakParent uint8 = 0
+
+	MinParentsCount       = 2
+	MaxParentsCount       = 8
+	MinStrongParentsCount = 1
 )
 
-// ContentID identifies the content of a message without its parent1/parent2 ids.
-type ContentID = MessageID
-
-// MessageID identifies a message in its entirety. Unlike the sole content id, it also incorporates
-// the parent1 and parent2 ids.
+// MessageID identifies a message via its BLAKE2b-256 hash of its bytes.
 type MessageID [MessageIDLength]byte
 
 type Parent struct {
@@ -140,9 +141,12 @@ type Message struct {
 
 // NewMessage creates a new message with the details provided by the issuer.
 func NewMessage(parent1ID MessageID, parent2ID MessageID, issuingTime time.Time, issuerPublicKey ed25519.PublicKey, sequenceNumber uint64, payload payload.Payload, nonce uint64, signature ed25519.Signature) (result *Message) {
+	// TODO: do syntactical validation
+
 	return &Message{
-		parent1ID:       parent1ID,
-		parent2ID:       parent2ID,
+		// TODO: copy slices for strong/weak parents?
+		//parent1ID:       parent1ID,
+		//parent2ID:       parent2ID,
 		issuerPublicKey: issuerPublicKey,
 		issuingTime:     issuingTime,
 		sequenceNumber:  sequenceNumber,
@@ -157,6 +161,10 @@ func MessageFromBytes(bytes []byte) (result *Message, consumedBytes int, err err
 	marshalUtil := marshalutil.New(bytes)
 	result, err = MessageFromMarshalUtil(marshalUtil)
 	consumedBytes = marshalUtil.ReadOffset()
+
+	if len(bytes) != consumedBytes {
+		err = xerrors.Errorf("consumed bytes %d not equal total bytes %d: %w", consumedBytes, len(bytes), cerrors.ErrParseBytesFailed)
+	}
 	return
 }
 
@@ -177,6 +185,11 @@ func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Messa
 		err = xerrors.Errorf("failed to parse parents count from MarshalUtil: %w", err)
 		return
 	}
+	if parentsCount < MinParentsCount || parentsCount > MaxParentsCount {
+		err = xerrors.Errorf("parents count %d not allowed: %w", parentsCount, cerrors.ErrParseBytesFailed)
+		return
+	}
+
 	parentTypes, err := marshalUtil.ReadByte()
 	if err != nil {
 		err = xerrors.Errorf("failed to parse parent types from MarshalUtil: %w", err)
@@ -184,6 +197,7 @@ func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Messa
 	}
 	bitMask := bitmask.BitMask(parentTypes)
 
+	var previousParent MessageID
 	for i := 0; i < int(parentsCount); i++ {
 		parentID, err := MessageIDFromMarshalUtil(marshalUtil)
 		if err != nil {
@@ -195,7 +209,18 @@ func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Messa
 		} else {
 			result.weakParents = append(result.weakParents, parentID)
 		}
-		// TODO: check if they are sorted
+
+		// verify that parents are sorted lexicographically ASC
+		// TODO: do we allow duplicate parents?
+		if bytes.Compare(previousParent.Bytes(), parentID.Bytes()) > -1 {
+			err = xerrors.Errorf("parents not sorted lexicographically ascending: %w", cerrors.ErrParseBytesFailed)
+			return
+		}
+	}
+
+	if len(result.strongParents) < MinStrongParentsCount {
+		err = xerrors.Errorf("strong parents count %d not allowed: %w", len(result.strongParents), cerrors.ErrParseBytesFailed)
+		return
 	}
 
 	if result.issuerPublicKey, err = ed25519.ParsePublicKey(marshalUtil); err != nil {
@@ -294,6 +319,8 @@ func (m *Message) ID() (result MessageID) {
 	return
 }
 
+// TODO: accessor/convenience methods to access strong/weak parents
+
 func (m *Message) ParentsCount() uint8 {
 	return uint8(len(m.strongParents) + len(m.weakParents))
 }
@@ -365,14 +392,14 @@ func (m *Message) Bytes() []byte {
 	}
 	marshalUtil.WriteByte(byte(bitMask))
 	for _, parent := range parents {
-		marshalUtil.WriteBytes(parent.ID.Bytes())
+		marshalUtil.Write(parent.ID)
 	}
-	marshalUtil.WriteBytes(m.issuerPublicKey.Bytes())
+	marshalUtil.Write(m.issuerPublicKey)
 	marshalUtil.WriteTime(m.issuingTime)
 	marshalUtil.WriteUint64(m.sequenceNumber)
-	marshalUtil.WriteBytes(m.payload.Bytes())
+	marshalUtil.Write(m.payload)
 	marshalUtil.WriteUint64(m.nonce)
-	marshalUtil.WriteBytes(m.signature.Bytes())
+	marshalUtil.Write(m.signature)
 
 	m.bytes = marshalUtil.Bytes()
 
@@ -400,8 +427,9 @@ func (m *Message) Update(objectstorage.StorableObject) {
 func (m *Message) String() string {
 	return stringify.Struct("Message",
 		stringify.StructField("id", m.ID()),
-		stringify.StructField("parent1Id", m.Parent1ID()),
-		stringify.StructField("parent2Id", m.Parent2ID()),
+		//TODO: add parents
+		//stringify.StructField("parent1Id", m.Parent1ID()),
+		//stringify.StructField("parent2Id", m.Parent2ID()),
 		stringify.StructField("issuer", m.IssuerPublicKey()),
 		stringify.StructField("issuingTime", m.IssuingTime()),
 		stringify.StructField("sequenceNumber", m.SequenceNumber()),
