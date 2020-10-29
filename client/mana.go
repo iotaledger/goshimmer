@@ -21,7 +21,7 @@ const (
 func (api *GoShimmerAPI) GetOwnMana() (*webapi_mana.GetManaResponse, error) {
 	res := &webapi_mana.GetManaResponse{}
 	if err := api.do(http.MethodGet, routeGetMana,
-		&webapi_mana.GetManaRequest{Node: ""}, res); err != nil {
+		&webapi_mana.GetManaRequest{NodeID: ""}, res); err != nil {
 		return nil, err
 	}
 	return res, nil
@@ -32,7 +32,7 @@ func (api *GoShimmerAPI) GetOwnMana() (*webapi_mana.GetManaResponse, error) {
 func (api *GoShimmerAPI) GetManaFullNodeID(fullNodeID string) (*webapi_mana.GetManaResponse, error) {
 	res := &webapi_mana.GetManaResponse{}
 	if err := api.do(http.MethodGet, routeGetMana,
-		&webapi_mana.GetManaRequest{Node: fullNodeID}, res); err != nil {
+		&webapi_mana.GetManaRequest{NodeID: fullNodeID}, res); err != nil {
 		return nil, err
 	}
 	return res, nil
@@ -46,16 +46,16 @@ func (api *GoShimmerAPI) GetMana(shortNodeID string) (*webapi_mana.GetManaRespon
 		nil, allManaRes); err != nil {
 		return nil, err
 	}
-	res := &webapi_mana.GetManaResponse{Node: shortNodeID}
+	res := &webapi_mana.GetManaResponse{ShortNodeID: shortNodeID}
 	// look for node's mana values in the map
 	for _, nodeStr := range allManaRes.Access {
-		if nodeStr.ID == shortNodeID {
+		if nodeStr.ShortNodeID == shortNodeID {
 			res.Access = nodeStr.Mana
 			break
 		}
 	}
 	for _, nodeStr := range allManaRes.Consensus {
-		if nodeStr.ID == shortNodeID {
+		if nodeStr.ShortNodeID == shortNodeID {
 			res.Consensus = nodeStr.Mana
 			break
 		}
@@ -77,7 +77,7 @@ func (api *GoShimmerAPI) GetAllMana() (*webapi_mana.GetAllManaResponse, error) {
 func (api *GoShimmerAPI) GetManaPercentile(fullNodeID string) (*webapi_mana.GetPercentileResponse, error) {
 	res := &webapi_mana.GetPercentileResponse{}
 	if err := api.do(http.MethodGet, routeGetManaPercentile,
-		&webapi_mana.GetPercentileRequest{Node: fullNodeID}, res); err != nil {
+		&webapi_mana.GetPercentileRequest{NodeID: fullNodeID}, res); err != nil {
 		return nil, err
 	}
 	return res, nil

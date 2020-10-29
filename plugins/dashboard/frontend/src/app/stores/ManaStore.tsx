@@ -16,6 +16,7 @@ class ManaMsg {
 
 class Node {
     nodeID: string;
+    fullNodeID: string;
     mana: number;
 }
 

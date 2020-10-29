@@ -17,7 +17,7 @@ func getPercentileHandler(c echo.Context) error {
 	if err := c.Bind(&request); err != nil {
 		return c.JSON(http.StatusBadRequest, GetPercentileResponse{Error: err.Error()})
 	}
-	ID, err := mana.IDFromStr(request.Node)
+	ID, err := mana.IDFromStr(request.NodeID)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, GetPercentileResponse{Error: err.Error()})
 	}
@@ -42,21 +42,23 @@ func getPercentileHandler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, GetPercentileResponse{Error: err.Error()})
 	}
 	return c.JSON(http.StatusOK, GetPercentileResponse{
-		Node:      base58.Encode(ID.Bytes()),
-		Access:    accessPercentile,
-		Consensus: consensusPercentile,
+		ShortNodeID: ID.String(),
+		NodeID:      base58.Encode(ID.Bytes()),
+		Access:      accessPercentile,
+		Consensus:   consensusPercentile,
 	})
 }
 
 // GetPercentileRequest is the request object of mana/percentile.
 type GetPercentileRequest struct {
-	Node string `json:"node"`
+	NodeID string `json:"nodeID"`
 }
 
 // GetPercentileResponse holds info about the mana percentile(s) of a node.
 type GetPercentileResponse struct {
-	Error     string  `json:"error,omitempty"`
-	Node      string  `json:"node"`
-	Access    float64 `json:"access"`
-	Consensus float64 `json:"consensus"`
+	Error       string  `json:"error,omitempty"`
+	ShortNodeID string  `json:"shortNodeID"`
+	NodeID      string  `json:"nodeID"`
+	Access      float64 `json:"access"`
+	Consensus   float64 `json:"consensus"`
 }

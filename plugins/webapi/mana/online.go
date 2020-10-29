@@ -6,6 +6,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/mana"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
 	"github.com/labstack/echo"
+	"github.com/mr-tron/base58"
 )
 
 func getOnlineAccessHandler(c echo.Context) error {
@@ -24,7 +25,12 @@ func getOnlineHandler(c echo.Context, manaType mana.Type) error {
 	}
 	resp := make([]OnlineNodeStr, 0)
 	for index, value := range onlinePeersMana {
-		resp = append(resp, OnlineNodeStr{OnlineRank: index + 1, NodeID: value.ID.String(), Mana: value.Mana})
+		resp = append(resp, OnlineNodeStr{
+			OnlineRank: index + 1,
+			ShortID:    value.ID.String(),
+			ID:         base58.Encode(value.ID.Bytes()),
+			Mana:       value.Mana,
+		})
 	}
 
 	return c.JSON(http.StatusOK, GetOnlineResponse{Online: resp})
@@ -39,6 +45,7 @@ type GetOnlineResponse struct {
 // OnlineNodeStr holds information about online rank, nodeID and mana,
 type OnlineNodeStr struct {
 	OnlineRank int     `json:"rank"`
-	NodeID     string  `json:"nodeID"`
+	ShortID    string  `json:"shortNodeID"`
+	ID         string  `json:"nodeID"`
 	Mana       float64 `json:"mana"`
 }

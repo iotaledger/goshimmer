@@ -17,7 +17,7 @@ func getManaHandler(c echo.Context) error {
 	if err := c.Bind(&request); err != nil {
 		return c.JSON(http.StatusBadRequest, GetManaResponse{Error: err.Error()})
 	}
-	ID, err := mana.IDFromStr(request.Node)
+	ID, err := mana.IDFromStr(request.NodeID)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, GetManaResponse{Error: err.Error()})
 	}
@@ -35,21 +35,23 @@ func getManaHandler(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, GetManaResponse{
-		Node:      base58.Encode(ID.Bytes()),
-		Access:    accessMana,
-		Consensus: consensusMana,
+		ShortNodeID: ID.String(),
+		NodeID:      base58.Encode(ID.Bytes()),
+		Access:      accessMana,
+		Consensus:   consensusMana,
 	})
 }
 
 // GetManaRequest is the request for get mana.
 type GetManaRequest struct {
-	Node string `json:"node"`
+	NodeID string `json:"nodeID"`
 }
 
 // GetManaResponse defines the response for get mana.
 type GetManaResponse struct {
-	Error     string  `json:"error,omitempty"`
-	Node      string  `json:"node"`
-	Access    float64 `json:"access"`
-	Consensus float64 `json:"consensus"`
+	Error       string  `json:"error,omitempty"`
+	ShortNodeID string  `json:"shortNodeID"`
+	NodeID      string  `json:"nodeID"`
+	Access      float64 `json:"access"`
+	Consensus   float64 `json:"consensus"`
 }
