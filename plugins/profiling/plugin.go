@@ -44,7 +44,7 @@ func configure(_ *node.Plugin) {
 }
 
 func run(_ *node.Plugin) {
-	bindAddr := config.Node().GetString(CfgProfilingBindAddress)
+	bindAddr := config.Node().String(CfgProfilingBindAddress)
 
 	runtime.SetMutexProfileFraction(5)
 	runtime.SetBlockProfileRate(5)

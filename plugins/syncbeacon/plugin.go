@@ -53,7 +53,7 @@ func configure(_ *node.Plugin) {
 
 	log.Infof("starting node as sync beacon")
 
-	if config.Node().GetBool(CfgSyncBeaconStartSynced) {
+	if config.Node().Bool(CfgSyncBeaconStartSynced) {
 		log.Infof("Retrieving all the tips")
 		messagelayer.TipSelector().Set(messagelayer.Tangle().RetrieveAllTips()...)
 
@@ -78,7 +78,7 @@ func broadcastSyncBeaconPayload() {
 
 func run(_ *node.Plugin) {
 	if err := daemon.BackgroundWorker("Sync-Beacon", func(shutdownSignal <-chan struct{}) {
-		ticker := time.NewTicker(config.Node().GetDuration(CfgSyncBeaconBroadcastIntervalSec) * time.Second)
+		ticker := time.NewTicker(config.Node().Duration(CfgSyncBeaconBroadcastIntervalSec) * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
