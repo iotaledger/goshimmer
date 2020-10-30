@@ -93,7 +93,7 @@ func (missingOutput *MissingOutput) MissingSince() time.Time {
 
 // Bytes marshals the MissingOutput into a sequence of bytes.
 func (missingOutput *MissingOutput) Bytes() []byte {
-	return marshalutil.New(transaction.OutputIDLength + marshalutil.TIME_SIZE).
+	return marshalutil.New(transaction.OutputIDLength + marshalutil.TimeSize).
 		WriteBytes(missingOutput.ObjectStorageKey()).
 		WriteBytes(missingOutput.ObjectStorageValue()).
 		Bytes()
@@ -107,7 +107,7 @@ func (missingOutput *MissingOutput) ObjectStorageKey() []byte {
 // ObjectStorageValue returns a bytes representation of the Transaction by implementing the encoding.BinaryMarshaler
 // interface.
 func (missingOutput *MissingOutput) ObjectStorageValue() []byte {
-	return marshalutil.New(marshalutil.TIME_SIZE).
+	return marshalutil.New(marshalutil.TimeSize).
 		WriteTime(missingOutput.MissingSince()).
 		Bytes()
 }
