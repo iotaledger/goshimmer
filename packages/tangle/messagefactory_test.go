@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto"
 	"crypto/ed25519"
+	"crypto/rand"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -143,7 +144,18 @@ func TestWorkerFunc_PayloadSize(t *testing.T) {
 		mapdb.NewMapDB(),
 		[]byte(sequenceKey),
 		identity.GenerateLocalIdentity(),
-		TipSelectorFunc(func(count int) []MessageID { return []MessageID{EmptyMessageID} }),
+		TipSelectorFunc(func(count int) []MessageID {
+			return func() []MessageID {
+				result := make([]MessageID, 0, MaxParentsCount)
+				for i := 0; i < MaxParentsCount; i++ {
+					b := make([]byte, MessageIDLength)
+					_, _ = rand.Read(b)
+					randID, _, _ := MessageIDFromBytes(b)
+					result = append(result, randID)
+				}
+				return result
+			}()
+		}),
 	)
 	defer msgFactory.Shutdown()
 

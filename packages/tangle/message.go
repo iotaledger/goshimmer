@@ -245,10 +245,12 @@ func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Messa
 		}
 
 		// verify that parents are sorted lexicographically ASC and unique
-		if bytes.Compare(previousParent.Bytes(), parentID.Bytes()) > -1 {
+		// if parentID is EmptyMessageID, bytes.Compare returns 0 in the first iteration
+		if bytes.Compare(previousParent.Bytes(), parentID.Bytes()) > 0 {
 			err = xerrors.Errorf("parents not sorted lexicographically ascending: %w", cerrors.ErrParseBytesFailed)
 			return
 		}
+		previousParent = parentID
 	}
 
 	if len(result.strongParents) < MinStrongParentsCount {
@@ -464,7 +466,7 @@ func (m *Message) Bytes() []byte {
 	var bitMask bitmask.BitMask
 	for i, parent := range parents {
 		if parent.Type == StrongParent {
-			bitMask.SetBit(uint(i))
+			bitMask = bitMask.SetBit(uint(i))
 		}
 	}
 	marshalUtil.WriteByte(byte(bitMask))

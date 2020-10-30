@@ -8,6 +8,7 @@ import (
 	"golang.org/x/xerrors"
 )
 
+// TODO: need to adjust the max size of the payload if we want to keep a message to 64 KB
 // MaxSize defines the maximum allowed size of a marshaled Payload (in bytes).
 const MaxSize = 65288
 
