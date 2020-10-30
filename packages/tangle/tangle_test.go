@@ -112,8 +112,25 @@ func TestTangle_MissingMessages(t *testing.T) {
 		badgerDB,
 		[]byte("sequenceKey"),
 		identity.GenerateLocalIdentity(),
-		TipSelectorFunc(func() (MessageID, MessageID) {
-			return tips.RandomEntry().(MessageID), tips.RandomEntry().(MessageID)
+		TipSelectorFunc(func(count int) (parents []MessageID) {
+			parents = make([]MessageID, 0, count)
+
+			tmp := tips.RandomUniqueEntries(count)
+			// count is not valid
+			if tmp == nil {
+				parents = append(parents, EmptyMessageID)
+				return
+			}
+			// count is valid, but there simply are no tips
+			if len(tmp) == 0 {
+				parents = append(parents, EmptyMessageID)
+				return
+			}
+			// at least one tip is returned
+			for _, tip := range tmp {
+				parents = append(parents, tip.(MessageID))
+			}
+			return
 		}),
 	)
 	defer msgFactory.Shutdown()
@@ -232,9 +249,9 @@ func TestTangle_MissingMessages(t *testing.T) {
 func TestRetrieveAllTips(t *testing.T) {
 	messageTangle := New(mapdb.NewMapDB())
 
-	messageA := newTestParentsDataMessage("A", EmptyMessageID, EmptyMessageID)
-	messageB := newTestParentsDataMessage("B", messageA.ID(), EmptyMessageID)
-	messageC := newTestParentsDataMessage("C", messageA.ID(), EmptyMessageID)
+	messageA := newTestParentsDataMessage("A", []MessageID{EmptyMessageID}, []MessageID{EmptyMessageID})
+	messageB := newTestParentsDataMessage("B", []MessageID{messageA.ID()}, []MessageID{EmptyMessageID})
+	messageC := newTestParentsDataMessage("C", []MessageID{messageA.ID()}, []MessageID{EmptyMessageID})
 
 	var wg sync.WaitGroup
 

@@ -45,24 +45,30 @@ func (t *MessageTipSelector) AddTip(msg *Message) {
 	})
 }
 
-// Tips returns two tips.
+// Tips returns count number of tips, maximum MaxParentsCount.
 func (t *MessageTipSelector) Tips(count int) (parents []MessageID) {
+	if count > MaxParentsCount {
+		count = MaxParentsCount
+	}
+	if count < MinParentsCount {
+		count = MinParentsCount
+	}
 	parents = make([]MessageID, 0, count)
 
-	tip := t.tips.RandomEntry()
-	if tip == nil {
+	tips := t.tips.RandomUniqueEntries(count)
+	// count is not valid
+	if tips == nil {
 		parents = append(parents, EmptyMessageID)
 		return
 	}
-
-	tipMessageID := tip.(MessageID)
-	parents = append(parents, tipMessageID)
-
-	// TODO: adjust tip selection to select as many tips as count
-	// it is a bit tricky to not cause a deadlock if we don't allow duplicates
-	parent1MessageID = t.tips.RandomEntry().(MessageID)
-	for parent1MessageID == parent2MessageID && t.tips.Size() > 1 {
-		parent1MessageID = t.tips.RandomEntry().(MessageID)
+	// count is valid, but there simply are no tips
+	if len(tips) == 0 {
+		parents = append(parents, EmptyMessageID)
+		return
+	}
+	// at least one tip is returned
+	for _, tip := range tips {
+		parents = append(parents, tip.(MessageID))
 	}
 
 	return

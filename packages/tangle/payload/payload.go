@@ -53,7 +53,7 @@ func FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (payload Payload, err
 		return
 	}
 
-	marshalUtil.ReadSeek(-marshalutil.UINT32_SIZE * 2)
+	marshalUtil.ReadSeek(-marshalutil.Uint32Size * 2)
 	payloadBytes, err := marshalUtil.ReadBytes(int(payloadSize) + 8)
 	if err != nil {
 		err = xerrors.Errorf("failed to unmarshal payload bytes (%v): %w", err, cerrors.ErrParseBytesFailed)
