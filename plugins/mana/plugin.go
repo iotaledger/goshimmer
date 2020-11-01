@@ -336,6 +336,27 @@ func verifyPledgeNodes() error {
 	return nil
 }
 
+// PendingManaOnOutput predicts how much mana (bm2) will be pledged to a node if the output specified is spent.
+func PendingManaOnOutput(outputID transaction.OutputID) float64 {
+	cachedOutput := valuetransfers.Tangle().TransactionOutput(outputID)
+	defer cachedOutput.Release()
+	output := cachedOutput.Unwrap()
+	var value float64
+	for _, balance := range output.Balances() {
+		value += float64(balance.Value)
+	}
+
+	// spent output has 0 pending mana.
+	if output.ConsumerCount() > 0 {
+		return 0
+	}
+
+	cachedTx := valuetransfers.Tangle().Transaction(output.TransactionID())
+	defer cachedTx.Release()
+	tx := cachedTx.Unwrap()
+	return mana.GetBM2(value, time.Now().Sub(tx.Timestamp()))
+}
+
 // AllowedPledge represents the nodes that mana is allowed to be pledged to.
 type AllowedPledge struct {
 	IsFilterEnabled bool

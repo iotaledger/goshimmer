@@ -37,6 +37,11 @@ func (bm *BaseMana) updateBM2(n time.Duration) {
 	bm.BaseMana2 = bm.BaseMana2 * math.Pow(math.E, -decay*n.Seconds())
 }
 
+// GetBM2 computes and returns the EBM2 based on the value and duration specified.
+func GetBM2(value float64, n time.Duration) float64 {
+	return value * math.Pow(math.E, -decay*n.Seconds())
+}
+
 func (bm *BaseMana) updateEBM2(n time.Duration) {
 	if emaCoeff2 != decay {
 		bm.EffectiveBaseMana2 = math.Pow(math.E, -emaCoeff2*n.Seconds())*bm.EffectiveBaseMana2 +
