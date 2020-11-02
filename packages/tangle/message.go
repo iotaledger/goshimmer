@@ -183,8 +183,8 @@ func sortParents(parents []MessageID) (sorted []MessageID) {
 	}
 
 	// sort parents
-	sort.Slice(parents, func(i, j int) bool {
-		return bytes.Compare(parents[i].Bytes(), parents[j].Bytes()) < 0
+	sort.Slice(sorted, func(i, j int) bool {
+		return bytes.Compare(sorted[i].Bytes(), sorted[j].Bytes()) < 0
 	})
 
 	return
@@ -364,7 +364,7 @@ func (m *Message) StrongParents() []MessageID {
 	return m.strongParents
 }
 
-// StrongParents returns a slice of all strong parents of the message.
+// WeakParents returns a slice of all weak parents of the message.
 func (m *Message) WeakParents() []MessageID {
 	return m.weakParents
 }
