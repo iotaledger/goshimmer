@@ -33,6 +33,7 @@ func (webConnector *WebConnector) ServerStatus() (status ServerStatus, err error
 	status.ID = response.IdentityID
 	status.Synced = response.Synced
 	status.Version = response.Version
+	status.ManaDecay = response.ManaDecay
 
 	return
 }
@@ -88,6 +89,7 @@ func (webConnector WebConnector) UnspentOutputs(addresses ...walletaddr.Address)
 
 			// build output
 			walletOutput := &Output{
+				ID:            outputID,
 				Address:       addr.Address,
 				TransactionID: outputID.TransactionID(),
 				Balances:      balancesByColor,
@@ -97,6 +99,9 @@ func (webConnector WebConnector) UnspentOutputs(addresses ...walletaddr.Address)
 					Rejected:    output.InclusionState.Rejected,
 					Conflicting: output.InclusionState.Conflicting,
 					Spent:       false,
+				},
+				Metadata: OutputMetadata{
+					Timestamp: output.Metadata.Timestamp,
 				},
 			}
 

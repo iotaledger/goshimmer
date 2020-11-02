@@ -187,8 +187,8 @@ func (wallet *Wallet) RemainderAddress() walletaddr.Address {
 }
 
 // UnspentOutputs returns the unspent outputs that are available for spending.
-func (wallet *Wallet) UnspentOutputs() map[walletaddr.Address]map[transaction.ID]*Output {
-	return wallet.unspentOutputManager.UnspentOutputs()
+func (wallet *Wallet) UnspentOutputs(addresses ...walletaddr.Address) map[walletaddr.Address]map[transaction.ID]*Output {
+	return wallet.unspentOutputManager.UnspentOutputs(addresses...)
 }
 
 // RequestFaucetFunds requests some funds from the faucet for testing purposes.
