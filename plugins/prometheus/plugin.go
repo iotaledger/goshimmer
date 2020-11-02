@@ -42,18 +42,18 @@ func Plugin() *node.Plugin {
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(plugin.Name)
 
-	if config.Node().GetBool(CfgPrometheusWorkerpoolMetrics) {
+	if config.Node().Bool(CfgPrometheusWorkerpoolMetrics) {
 		registerWorkerpoolMetrics()
 	}
 
-	if config.Node().GetBool(CfgPrometheusGoMetrics) {
+	if config.Node().Bool(CfgPrometheusGoMetrics) {
 		registry.MustRegister(prometheus.NewGoCollector())
 	}
-	if config.Node().GetBool(CfgPrometheusProcessMetrics) {
+	if config.Node().Bool(CfgPrometheusProcessMetrics) {
 		registry.MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
 	}
 
-	if config.Node().GetBool(metrics.CfgMetricsLocal) {
+	if config.Node().Bool(metrics.CfgMetricsLocal) {
 		registerAutopeeringMetrics()
 		registerDBMetrics()
 		registerFPCMetrics()
@@ -63,7 +63,7 @@ func configure(plugin *node.Plugin) {
 		registerTangleMetrics()
 	}
 
-	if config.Node().GetBool(metrics.CfgMetricsGlobal) {
+	if config.Node().Bool(metrics.CfgMetricsGlobal) {
 		registerClientsMetrics()
 	}
 }
@@ -90,13 +90,13 @@ func run(plugin *node.Plugin) {
 					EnableOpenMetrics: true,
 				},
 			)
-			if config.Node().GetBool(CfgPrometheusPromhttpMetrics) {
+			if config.Node().Bool(CfgPrometheusPromhttpMetrics) {
 				handler = promhttp.InstrumentMetricHandler(registry, handler)
 			}
 			handler.ServeHTTP(c.Writer, c.Request)
 		})
 
-		bindAddr := config.Node().GetString(CfgPrometheusBindAddress)
+		bindAddr := config.Node().String(CfgPrometheusBindAddress)
 		server = &http.Server{Addr: bindAddr, Handler: engine}
 
 		go func() {

@@ -41,8 +41,8 @@ func Plugin() *node.Plugin {
 
 func configure(*node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	ageThreshold = config.Node().GetDuration(CfgGossipAgeThreshold)
-	tipsBroadcasterInterval = config.Node().GetDuration(CfgGossipTipsBroadcastInterval)
+	ageThreshold = config.Node().Duration(CfgGossipAgeThreshold)
+	tipsBroadcasterInterval = config.Node().Duration(CfgGossipTipsBroadcastInterval)
 
 	configureLogging()
 	configureMessageLayer()

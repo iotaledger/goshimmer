@@ -31,7 +31,7 @@ const (
 )
 
 func indexRoute(e echo.Context) error {
-	if config.Node().GetBool(CfgDev) {
+	if config.Node().Bool(CfgDev) {
 		res, err := http.Get("http://127.0.0.1:9090/")
 		if err != nil {
 			return err
@@ -57,7 +57,7 @@ func indexRoute(e echo.Context) error {
 
 func setupRoutes(e *echo.Echo) {
 
-	if config.Node().GetBool("analysis.dashboard.dev") {
+	if config.Node().Bool("analysis.dashboard.dev") {
 		e.Static("/assets", "./plugins/analysis/dashboard/frontend/src/assets")
 	} else {
 
