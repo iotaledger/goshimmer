@@ -33,6 +33,7 @@ func execPendingMana(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 			fmt.Printf("\tOutputID: %s - Pending Mana: %f\n", output.ID.String(), pendingMana)
 		}
 	}
+	fmt.Println()
 }
 
 func getBM2(value float64, n time.Duration, decay float64) float64 {
