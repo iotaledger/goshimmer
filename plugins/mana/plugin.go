@@ -355,7 +355,12 @@ func PendingManaOnOutput(outputID transaction.OutputID) float64 {
 	cachedTx := valuetransfers.Tangle().Transaction(output.TransactionID())
 	defer cachedTx.Release()
 	tx := cachedTx.Unwrap()
-	return value * (1 - math.Pow(math.E, -mana.Decay*(time.Since(tx.Timestamp()).Seconds())))
+	return GetPendingMana(value, time.Since(tx.Timestamp()))
+}
+
+// GetPendingMana returns the mana pledged by spending a `value` output that sat for `n` duration.
+func GetPendingMana(value float64, n time.Duration) float64 {
+	return value * (1 - math.Pow(math.E, -mana.Decay*(n.Seconds())))
 }
 
 // AllowedPledge represents the nodes that mana is allowed to be pledged to.
