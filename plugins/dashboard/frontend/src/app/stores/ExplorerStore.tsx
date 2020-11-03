@@ -32,6 +32,7 @@ class Output {
     inclusion_state: InclusionState;
     consumer_count: number;
     solidification_time: number;
+    pending_mana: number;
 }
 
 class Balance {

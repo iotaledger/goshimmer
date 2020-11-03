@@ -1,6 +1,7 @@
 package mana
 
 import (
+	"math"
 	"math/rand"
 	"sort"
 	"sync"
@@ -354,7 +355,7 @@ func PendingManaOnOutput(outputID transaction.OutputID) float64 {
 	cachedTx := valuetransfers.Tangle().Transaction(output.TransactionID())
 	defer cachedTx.Release()
 	tx := cachedTx.Unwrap()
-	return mana.GetBM2(value, time.Now().Sub(tx.Timestamp()))
+	return value * (1 - math.Pow(math.E, -mana.Decay*(time.Since(tx.Timestamp()).Seconds())))
 }
 
 // AllowedPledge represents the nodes that mana is allowed to be pledged to.

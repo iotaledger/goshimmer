@@ -29,5 +29,6 @@ type InclusionState struct {
 
 // OutputMetadata is metadata about the output.
 type OutputMetadata struct {
+	// Timestamp is the timestamp of the tx that created the output.
 	Timestamp time.Time
 }

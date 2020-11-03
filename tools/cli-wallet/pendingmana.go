@@ -21,9 +21,11 @@ func execPendingMana(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 		printUsage(nil, err.Error())
 	}
 
+	fmt.Println("\nPending Mana for all unspent outputs")
+	fmt.Println("-----------------------------------")
 	unspentOutputs := cliWallet.UnspentOutputs()
 	for addr, v := range unspentOutputs {
-		fmt.Printf("Address: %s\n\n", addr.String())
+		fmt.Printf("Address: %s\n", addr.String())
 		for _, output := range v {
 			var total float64
 			for _, balance := range output.Balances {
@@ -37,5 +39,5 @@ func execPendingMana(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 }
 
 func getBM2(value float64, n time.Duration, decay float64) float64 {
-	return value * math.Pow(math.E, -decay*n.Seconds())
+	return value * (1 - math.Pow(math.E, -decay*(n.Seconds())))
 }

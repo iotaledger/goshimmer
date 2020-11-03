@@ -59,15 +59,6 @@ func TestUpdateBM2(t *testing.T) {
 	assert.InDelta(t, 0.5, bm2.BaseMana2, delta)
 }
 
-func TestGetBM2(t *testing.T) {
-	value := 1.0
-	// with emaCoeff1 = 0.00003209, half value should be reached within 6 hours
-	for i := 0; i < 6; i++ {
-		value = GetBM2(value, time.Hour)
-	}
-	assert.InDelta(t, 0.5, value, delta)
-}
-
 func TestUpdateEBM2CoeffEqual(t *testing.T) {
 	bm1 := BaseMana{}
 	bm2 := BaseMana{}

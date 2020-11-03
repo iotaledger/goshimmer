@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
+	"github.com/iotaledger/goshimmer/plugins/mana"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi/value/utils"
 	"github.com/labstack/echo"
@@ -75,6 +76,7 @@ type ExplorerOutput struct {
 	InclusionState     utils.InclusionState `json:"inclusion_state"`
 	SolidificationTime int64                `json:"solidification_time"`
 	ConsumerCount      int                  `json:"consumer_count"`
+	PendingMana        float64              `json:"pending_mana"`
 }
 
 // SearchResult defines the struct of the SearchResult.
@@ -195,12 +197,14 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 				inclusionState.Confirmed = output.Confirmed()
 			}
 
+			pendingMana := mana.PendingManaOnOutput(id)
 			outputids = append(outputids, ExplorerOutput{
 				ID:                 id.String(),
 				Balances:           b,
 				InclusionState:     inclusionState,
 				ConsumerCount:      output.ConsumerCount(),
 				SolidificationTime: solidificationTime,
+				PendingMana:        pendingMana,
 			})
 		})
 	}
