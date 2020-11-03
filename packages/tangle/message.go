@@ -3,6 +3,7 @@ package tangle
 import (
 	"bytes"
 	"fmt"
+	"math/bits"
 	"sort"
 	"sync"
 	"time"
@@ -21,6 +22,7 @@ import (
 )
 
 const (
+	// MessageVersion defines the version of the message structure.
 	MessageVersion uint8 = 1
 
 	// MaxMessageSize defines the maximum size of a message.
@@ -43,6 +45,7 @@ const (
 // MessageID identifies a message via its BLAKE2b-256 hash of its bytes.
 type MessageID [MessageIDLength]byte
 
+// Parent is a parent that can be either strong or weak.
 type Parent struct {
 	ID   MessageID
 	Type uint8
@@ -53,21 +56,20 @@ var EmptyMessageID = MessageID{}
 
 // NewMessageID creates a new message id.
 func NewMessageID(base58EncodedString string) (result MessageID, err error) {
-	// TODO: rename to avoid collision with imported package
-	bytes, err := base58.Decode(base58EncodedString)
+	msgIDBytes, err := base58.Decode(base58EncodedString)
 	if err != nil {
 		err = fmt.Errorf("failed to decode base58 encoded string '%s': %w", base58EncodedString, err)
 
 		return
 	}
 
-	if len(bytes) != MessageIDLength {
+	if len(msgIDBytes) != MessageIDLength {
 		err = fmt.Errorf("length of base58 formatted message id is wrong")
 
 		return
 	}
 
-	copy(result[:], bytes)
+	copy(result[:], msgIDBytes)
 
 	return
 }
@@ -77,6 +79,7 @@ func MessageIDFromBytes(bytes []byte) (result MessageID, consumedBytes int, err 
 	// check arguments
 	if len(bytes) < MessageIDLength {
 		err = fmt.Errorf("bytes not long enough to encode a valid message id")
+		return
 	}
 
 	// calculate result
@@ -105,6 +108,10 @@ func (id *MessageID) MarshalBinary() (result []byte, err error) {
 
 // UnmarshalBinary unmarshals the bytes into an MessageID.
 func (id *MessageID) UnmarshalBinary(data []byte) (err error) {
+	if len(data) != MessageIDLength {
+		err = fmt.Errorf("data must be exactly %d long to encode a valid message id", MessageIDLength)
+		return
+	}
 	copy(id[:], data)
 
 	return
@@ -194,6 +201,9 @@ func sortParents(parents []MessageID) (sorted []MessageID) {
 func MessageFromBytes(bytes []byte) (result *Message, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	result, err = MessageFromMarshalUtil(marshalUtil)
+	if err != nil {
+		return
+	}
 	consumedBytes = marshalUtil.ReadOffset()
 
 	if len(bytes) != consumedBytes {
@@ -227,6 +237,10 @@ func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Messa
 	var parentTypes uint8
 	if parentTypes, err = marshalUtil.ReadByte(); err != nil {
 		err = xerrors.Errorf("failed to parse parent types from MarshalUtil: %w", err)
+		return
+	}
+	if bits.OnesCount8(parentTypes) < 1 {
+		err = xerrors.Errorf("invalid parent types, no strong parent specified: %b", parentTypes)
 		return
 	}
 	bitMask := bitmask.BitMask(parentTypes)
