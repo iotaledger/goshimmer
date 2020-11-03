@@ -31,13 +31,13 @@ func execPendingMana(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 			for _, balance := range output.Balances {
 				total += float64(balance)
 			}
-			pendingMana := getBM2(total, time.Since(output.Metadata.Timestamp), status.ManaDecay)
+			pendingMana := getPendingMana(total, time.Since(output.Metadata.Timestamp), status.ManaDecay)
 			fmt.Printf("\tOutputID: %s - Pending Mana: %f\n", output.ID.String(), pendingMana)
 		}
 	}
 	fmt.Println()
 }
 
-func getBM2(value float64, n time.Duration, decay float64) float64 {
+func getPendingMana(value float64, n time.Duration, decay float64) float64 {
 	return value * (1 - math.Pow(math.E, -decay*(n.Seconds())))
 }
