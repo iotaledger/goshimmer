@@ -521,18 +521,20 @@ func (m *Message) Update(objectstorage.StorableObject) {
 }
 
 func (m *Message) String() string {
-	return stringify.Struct("Message",
-		stringify.StructField("id", m.ID()),
-		//TODO: add parents
-		//stringify.StructField("parent1Id", m.Parent1ID()),
-		//stringify.StructField("parent2Id", m.Parent2ID()),
-		stringify.StructField("issuer", m.IssuerPublicKey()),
-		stringify.StructField("issuingTime", m.IssuingTime()),
-		stringify.StructField("sequenceNumber", m.SequenceNumber()),
-		stringify.StructField("payload", m.Payload()),
-		stringify.StructField("nonce", m.Nonce()),
-		stringify.StructField("signature", m.Signature()),
-	)
+	builder := stringify.StructBuilder("Message", stringify.StructField("id", m.ID()))
+	for index, parent := range m.strongParents {
+		builder.AddField(stringify.StructField(fmt.Sprintf("strongParent%d", index), parent.String()))
+	}
+	for index, parent := range m.weakParents {
+		builder.AddField(stringify.StructField(fmt.Sprintf("weakParent%d", index), parent.String()))
+	}
+	builder.AddField(stringify.StructField("issuer", m.IssuerPublicKey()))
+	builder.AddField(stringify.StructField("issuingTime", m.IssuingTime()))
+	builder.AddField(stringify.StructField("sequenceNumber", m.SequenceNumber()))
+	builder.AddField(stringify.StructField("payload", m.Payload()))
+	builder.AddField(stringify.StructField("nonce", m.Nonce()))
+	builder.AddField(stringify.StructField("signature", m.Signature()))
+	return builder.String()
 }
 
 // CachedMessage defines a cached message.
