@@ -11,7 +11,8 @@ import (
 )
 
 type SequenceManager struct {
-	sequenceStore *objectstorage.ObjectStorage
+	sequenceStore                    *objectstorage.ObjectStorage
+	aggregatedSequenceIDMappingStore *objectstorage.ObjectStorage
 
 	sequenceIDCounter      SequenceID
 	sequenceIDCounterMutex sync.Mutex
@@ -37,15 +38,19 @@ func NewSequenceManager(store kvstore.KVStore) *SequenceManager {
 	}
 }
 
-func (m *SequenceManager) Sequence(parentSequences SequenceIDs) (newSequence *Sequence) {
-	m.sequenceIDCounterMutex.Lock()
-	defer m.sequenceIDCounterMutex.Unlock()
+func (s *SequenceManager) AggregatedSequenceIDMapping(id AggregatedSequencesID) *CachedAggregatedSequencesIDMapping {
+	return &CachedAggregatedSequencesIDMapping{CachedObject: s.aggregatedSequenceIDMappingStore.Get(id.Bytes())}
+}
+
+func (s *SequenceManager) Sequence(parentSequences SequenceIDs) (newSequence *Sequence) {
+	s.sequenceIDCounterMutex.Lock()
+	defer s.sequenceIDCounterMutex.Unlock()
 
 	newSequence = &Sequence{
-		id:              m.sequenceIDCounter,
+		id:              s.sequenceIDCounter,
 		parentSequences: parentSequences,
 	}
-	m.sequenceIDCounter++
+	s.sequenceIDCounter++
 
 	return
 }
