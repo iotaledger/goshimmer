@@ -59,9 +59,9 @@ func testSortParents(parents []MessageID) {
 func TestNewMessageID(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		randID := randomMessageID()
-		randIdString := randID.String()
+		randIDString := randID.String()
 
-		result, err := NewMessageID(randIdString)
+		result, err := NewMessageID(randIDString)
 		assert.NoError(t, err)
 		assert.Equal(t, randID, result)
 	})
@@ -75,9 +75,9 @@ func TestNewMessageID(t *testing.T) {
 
 	t.Run("CASE: Too long string", func(t *testing.T) {
 		randID := randomMessageID()
-		randIdString := randID.String()
+		randIDString := randID.String()
 
-		result, err := NewMessageID(randIdString + "1")
+		result, err := NewMessageID(randIDString + "1")
 		assert.Error(t, err)
 		assert.True(t, strings.Contains(err.Error(), "length of base58 formatted message id is wrong"))
 		assert.Equal(t, EmptyMessageID, result)

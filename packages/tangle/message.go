@@ -37,8 +37,11 @@ const (
 	// WeakParent identifies a weak parent in the bitmask.
 	WeakParent uint8 = 0
 
-	MinParentsCount       = 1
-	MaxParentsCount       = 8
+	// MinParentsCount defines the minimum number of parents a message must have.
+	MinParentsCount = 1
+	// MaxParentsCount defines the maximum number of parents a message must have.
+	MaxParentsCount = 8
+	// MinStrongParentsCount defines the minimum number of strong parents a message must have.
 	MinStrongParentsCount = 1
 )
 
