@@ -112,7 +112,7 @@ func configure(_ *node.Plugin) {
 	ledgerState = valuetangle.NewLedgerState(Tangle())
 
 	// read snapshot file
-	snapshotFilePath := config.Node().GetString(CfgValueLayerSnapshotFile)
+	snapshotFilePath := config.Node().String(CfgValueLayerSnapshotFile)
 	if len(snapshotFilePath) != 0 {
 		snapshot := valuetangle.Snapshot{}
 		f, err := os.Open(snapshotFilePath)
@@ -144,7 +144,7 @@ func configure(_ *node.Plugin) {
 	}))
 
 	// configure FCOB consensus rules
-	cfgAvgNetworkDelay := config.Node().GetInt(CfgValueLayerFCOBAverageNetworkDelay)
+	cfgAvgNetworkDelay := config.Node().Int(CfgValueLayerFCOBAverageNetworkDelay)
 	log.Infof("avg. network delay configured to %d seconds", cfgAvgNetworkDelay)
 	fcob = consensus.NewFCOB(_tangle, time.Duration(cfgAvgNetworkDelay)*time.Second)
 	fcob.Events.Vote.Attach(events.NewClosure(func(id string, initOpn vote.Opinion) {

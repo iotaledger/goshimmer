@@ -49,7 +49,7 @@ func Plugin() *node.Plugin {
 func run(_ *node.Plugin) {
 	finalized = make(map[string]vote.Opinion)
 	log = logger.NewLogger(PluginName)
-	conn = NewConnector("tcp", config.Node().GetString(CfgServerAddress))
+	conn = NewConnector("tcp", config.Node().String(CfgServerAddress))
 
 	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
 		conn.Start()

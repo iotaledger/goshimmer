@@ -44,4 +44,4 @@ COPY config.default.json /config.json
 # Copy the Pre-built binary file from the previous stage
 COPY --from=build /go/bin/goshimmer /run/goshimmer
 
-ENTRYPOINT ["/run/goshimmer", "--config-dir=/", "--valueLayer.snapshot.file=/snapshot.bin", "--database.directory=/tmp/mainnetdb"]
+ENTRYPOINT ["/run/goshimmer", "--config=/config.json", "--valueLayer.snapshot.file=/snapshot.bin", "--database.directory=/tmp/mainnetdb"]
