@@ -4,7 +4,7 @@ import (
 	"context"
 	"crypto"
 
-	"github.com/iotaledger/goshimmer/packages/cerrors"
+	"github.com/iotaledger/hive.go/cerrors"
 	"golang.org/x/xerrors"
 
 	// Only want to use init
@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	// ObjectName defines the name of the facuet object (payload).
+	// ObjectName defines the name of the faucet object (payload).
 	ObjectName = "faucet"
 )
 

@@ -407,7 +407,7 @@ func (branch *Branch) ObjectStorageValue() []byte {
 	parentBranches := branch.ParentBranches()
 	parentBranchCount := len(parentBranches)
 
-	marshalUtil := marshalutil.New(5*marshalutil.BOOL_SIZE + marshalutil.UINT32_SIZE + parentBranchCount*BranchIDLength)
+	marshalUtil := marshalutil.New(5*marshalutil.BoolSize + marshalutil.Uint32Size + parentBranchCount*BranchIDLength)
 	marshalUtil.WriteBool(branch.Preferred())
 	marshalUtil.WriteBool(branch.Liked())
 	marshalUtil.WriteBool(branch.Finalized())

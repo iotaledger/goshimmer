@@ -105,9 +105,9 @@ func (o *Object) Bytes() (bytes []byte) {
 		return
 	}
 
-	objectLength := len(o.id) + marshalutil.INT64_SIZE
+	objectLength := len(o.id) + marshalutil.Int64Size
 	// initialize helper
-	marshalUtil := marshalutil.New(marshalutil.UINT32_SIZE + marshalutil.UINT32_SIZE + objectLength)
+	marshalUtil := marshalutil.New(marshalutil.Uint32Size + marshalutil.Uint32Size + objectLength)
 
 	// marshal the payload specific information
 	marshalUtil.WriteUint32(uint32(objectLength))
