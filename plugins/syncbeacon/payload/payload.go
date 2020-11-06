@@ -79,7 +79,7 @@ func (p *Payload) SentTime() int64 {
 func (p *Payload) Bytes() []byte {
 	// initialize helper
 	marshalUtil := marshalutil.New()
-	objectLength := marshalutil.INT64_SIZE
+	objectLength := marshalutil.Int64Size
 
 	// marshal the p specific information
 	marshalUtil.WriteUint32(uint32(objectLength))

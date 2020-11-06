@@ -455,7 +455,7 @@ func (output *Output) ObjectStorageValue() []byte {
 	balanceCount := len(balances)
 
 	// initialize helper
-	marshalUtil := marshalutil.New(branchmanager.BranchIDLength + 6*marshalutil.BOOL_SIZE + marshalutil.TIME_SIZE + transaction.IDLength + marshalutil.UINT32_SIZE + marshalutil.UINT32_SIZE + balanceCount*balance.Length)
+	marshalUtil := marshalutil.New(branchmanager.BranchIDLength + 6*marshalutil.BoolSize + marshalutil.TimeSize + transaction.IDLength + marshalutil.Uint32Size + marshalutil.Uint32Size + balanceCount*balance.Length)
 	marshalUtil.WriteBytes(output.branchID.Bytes())
 	marshalUtil.WriteBool(output.Solid())
 	marshalUtil.WriteTime(output.SolidificationTime())
