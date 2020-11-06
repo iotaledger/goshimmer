@@ -165,7 +165,7 @@ func (b BranchIDs) Slice() (list []BranchID) {
 
 // Bytes returns a marshaled version of the BranchIDs.
 func (b BranchIDs) Bytes() []byte {
-	marshalUtil := marshalutil.New(marshalutil.INT64_SIZE + len(b)*BranchIDLength)
+	marshalUtil := marshalutil.New(marshalutil.Int64Size + len(b)*BranchIDLength)
 	marshalUtil.WriteUint64(uint64(len(b)))
 	for branchID := range b {
 		marshalUtil.WriteBytes(branchID.Bytes())

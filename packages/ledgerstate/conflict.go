@@ -146,7 +146,7 @@ func (c ConflictIDs) Slice() (list []ConflictID) {
 
 // Bytes returns a marshaled version of the ConflictIDs.
 func (c ConflictIDs) Bytes() []byte {
-	marshalUtil := marshalutil.New(marshalutil.INT64_SIZE + len(c)*ConflictIDLength)
+	marshalUtil := marshalutil.New(marshalutil.Int64Size + len(c)*ConflictIDLength)
 	marshalUtil.WriteUint64(uint64(len(c)))
 	for conflictID := range c {
 		marshalUtil.WriteBytes(conflictID.Bytes())
@@ -313,7 +313,7 @@ func (c *Conflict) ObjectStorageKey() []byte {
 // ObjectStorageValue marshals the Conflict into a sequence of bytes. The ID is not serialized here as it is only used as
 // a key in the ObjectStorage.
 func (c *Conflict) ObjectStorageValue() []byte {
-	return marshalutil.New(marshalutil.UINT64_SIZE).
+	return marshalutil.New(marshalutil.Uint64Size).
 		WriteUint64(uint64(c.MemberCount())).
 		Bytes()
 }
