@@ -51,9 +51,13 @@ func (s *SequenceManager) NextSequenceID() (nextSequenceID SequenceID) {
 
 func (s *SequenceManager) SequenceFromAlias(alias SequenceAlias, referencedMarkers Markers) (sequence *Sequence, sequenceCreated bool) {
 	s.sequenceAliasStore.ComputeIfAbsent(alias.Bytes(), func(key []byte) objectstorage.StorableObject {
-		newSequence := NewSequence(s.NextSequenceID())
-		s.sequenceStore.Store()
+		//newSequence := NewSequence(s.NextSequenceID())
+		//s.sequenceStore.Store()
+
+		return nil
 	})
+
+	return
 }
 
 func (s *SequenceManager) NormalizeMarkers(referencedMarkers Markers) (normalizedMarkers Markers, highestRank uint64) {
@@ -137,6 +141,8 @@ func (s *SequenceManager) InheritMarkers(referencedMarkers Markers) (inheritedMa
 	if len(highestMarkers) == 1 {
 		// inherit the highest marker
 	}
+
+	return
 }
 
 func (s *SequenceManager) AggregatedSequence(optionalSequenceIDs ...SequenceID) *CachedSequence {
@@ -152,6 +158,8 @@ func (s *SequenceManager) AggregatedSequence(optionalSequenceIDs ...SequenceID) 
 	sequenceIDs := NewSequenceIDs(optionalSequenceIDs...)
 
 	fmt.Println(sequenceIDs)
+	fmt.Println(aggregatedSequenceIDs)
+	fmt.Println(sequenceToRetrieve)
 
 	return nil
 }

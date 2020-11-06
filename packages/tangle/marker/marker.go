@@ -3,7 +3,7 @@ package marker
 import (
 	"strconv"
 
-	"github.com/iotaledger/goshimmer/packages/cerrors"
+	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 	"golang.org/x/xerrors"
@@ -36,7 +36,7 @@ func IndexFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (index Index, er
 }
 
 func (i Index) Bytes() []byte {
-	return marshalutil.New(marshalutil.UINT64_SIZE).
+	return marshalutil.New(marshalutil.Uint64Size).
 		WriteUint64(uint64(i)).
 		Bytes()
 }
@@ -94,7 +94,7 @@ func (m *Marker) Index() Index {
 }
 
 func (m *Marker) Bytes() []byte {
-	return marshalutil.New(marshalutil.UINT64_SIZE + marshalutil.UINT64_SIZE).
+	return marshalutil.New(marshalutil.Uint64Size + marshalutil.Uint64Size).
 		Write(m.sequenceID).
 		Write(m.index).
 		Bytes()

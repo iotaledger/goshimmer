@@ -4,8 +4,8 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/iotaledger/goshimmer/packages/cerrors"
 	"github.com/iotaledger/hive.go/byteutils"
+	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/mr-tron/base58"
@@ -180,7 +180,7 @@ func SequenceIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequenceID
 }
 
 func (a SequenceID) Bytes() []byte {
-	return marshalutil.New(marshalutil.UINT16_SIZE).WriteUint64(uint64(a)).Bytes()
+	return marshalutil.New(marshalutil.Uint16Size).WriteUint64(uint64(a)).Bytes()
 }
 
 func (a SequenceID) String() string {
@@ -232,7 +232,7 @@ func SequenceIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequenceI
 }
 
 func (s SequenceIDs) SequenceAlias() (aggregatedSequencesID SequenceAlias) {
-	marshalUtil := marshalutil.New(marshalutil.UINT64_SIZE * len(s))
+	marshalUtil := marshalutil.New(marshalutil.Uint64Size * len(s))
 	for sequenceID := range s {
 		marshalUtil.WriteUint64(uint64(sequenceID))
 	}
