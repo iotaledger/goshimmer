@@ -281,7 +281,7 @@ func (r *ReferenceUnlockBlock) Type() UnlockBlockType {
 
 // Bytes returns a marshaled version of the UnlockBlock.
 func (r *ReferenceUnlockBlock) Bytes() []byte {
-	return marshalutil.New(1 + marshalutil.UINT16_SIZE).
+	return marshalutil.New(1 + marshalutil.Uint16Size).
 		WriteByte(byte(ReferenceUnlockBlockType)).
 		WriteUint16(r.referencedIndex).
 		Bytes()
