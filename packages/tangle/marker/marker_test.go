@@ -21,9 +21,9 @@ func TestMarker(t *testing.T) {
 
 func TestMarkers(t *testing.T) {
 	markers := Markers{
-		SequenceID(1337): Index(1),
-		SequenceID(1338): Index(2),
-		SequenceID(1339): Index(3),
+		&Marker{1337, 1},
+		&Marker{1338, 2},
+		&Marker{1339, 3},
 	}
 
 	marshaledMarkers := markers.Bytes()
