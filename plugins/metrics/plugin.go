@@ -47,21 +47,21 @@ func configure(_ *node.Plugin) {
 
 func run(_ *node.Plugin) {
 	log.Infof("Starting %s ...", PluginName)
-	if config.Node().GetBool(CfgMetricsLocal) {
+	if config.Node().Bool(CfgMetricsLocal) {
 		// initial measurement, since we have to know how many messages are there in the db
 		measureInitialDBStats()
 		registerLocalMetrics()
 	}
 
 	// Events from analysis server
-	if config.Node().GetBool(CfgMetricsGlobal) {
+	if config.Node().Bool(CfgMetricsGlobal) {
 		server.Events.MetricHeartbeat.Attach(onMetricHeartbeatReceived)
 	}
 
 	// create a background worker that update the metrics every second
 	if err := daemon.BackgroundWorker("Metrics Updater", func(shutdownSignal <-chan struct{}) {
 		defer log.Infof("Stopping Metrics Updater ... done")
-		if config.Node().GetBool(CfgMetricsLocal) {
+		if config.Node().Bool(CfgMetricsLocal) {
 			timeutil.Ticker(func() {
 				measureCPUUsage()
 				measureMemUsage()
@@ -77,7 +77,7 @@ func run(_ *node.Plugin) {
 				gossipCurrentTx.Store(uint64(g.BytesWritten))
 			}, 1*time.Second, shutdownSignal)
 		}
-		if config.Node().GetBool(CfgMetricsGlobal) {
+		if config.Node().Bool(CfgMetricsGlobal) {
 			timeutil.Ticker(calculateNetworkDiameter, 1*time.Minute, shutdownSignal)
 		}
 		log.Infof("Stopping Metrics Updater ...")

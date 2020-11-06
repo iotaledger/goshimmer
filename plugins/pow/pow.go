@@ -41,9 +41,9 @@ func Worker() *pow.Worker {
 	workerOnce.Do(func() {
 		log = logger.NewLogger(PluginName)
 		// load the parameters
-		difficulty = config.Node().GetInt(CfgPOWDifficulty)
-		numWorkers = config.Node().GetInt(CfgPOWNumThreads)
-		timeout = config.Node().GetDuration(CfgPOWTimeout)
+		difficulty = config.Node().Int(CfgPOWDifficulty)
+		numWorkers = config.Node().Int(CfgPOWNumThreads)
+		timeout = config.Node().Duration(CfgPOWTimeout)
 		// create the worker
 		worker = pow.New(hash, numWorkers)
 	})

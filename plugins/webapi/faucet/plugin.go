@@ -60,7 +60,7 @@ func requestFunds(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, Response{Error: "Invalid address"})
 	}
 
-	faucetPayload, err := faucet.NewRequest(addr, config.Node().GetInt(faucet.CfgFaucetPoWDifficulty))
+	faucetPayload, err := faucet.NewRequest(addr, config.Node().Int(faucet.CfgFaucetPoWDifficulty))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}

@@ -128,7 +128,7 @@ func (conflict *Conflict) ObjectStorageKey() []byte {
 // ObjectStorageValue returns the bytes that represent all remaining information (not stored in the key) of a marshaled
 // Branch.
 func (conflict *Conflict) ObjectStorageValue() []byte {
-	return marshalutil.New(marshalutil.UINT32_SIZE).
+	return marshalutil.New(marshalutil.Uint32Size).
 		WriteUint32(uint32(conflict.MemberCount())).
 		Bytes()
 }
