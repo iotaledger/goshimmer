@@ -62,6 +62,12 @@ func New(sequenceID SequenceID, index Index) *Marker {
 }
 
 func FromBytes(markerBytes []byte) (marker *Marker, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(markerBytes)
+	if marker, err = FromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse Marker from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
 	return
 }
 
@@ -120,7 +126,7 @@ func MarkersFromBytes(markersBytes []byte) (markers Markers, consumedBytes int, 
 func MarkersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (markers Markers, err error) {
 	markersCount, err := marshalUtil.ReadUint32()
 	if err != nil {
-		err = xerrors.Errorf("failed to parker Markers count (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse Markers count (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -140,6 +146,15 @@ func MarkersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (markers Marke
 	}
 
 	return
+}
+
+func (m Markers) Bytes() []byte {
+	marshalUtil := marshalutil.New()
+	marshalUtil.WriteUint32(uint32(len(m)))
+	for sequenceID, index := range m {
+		marshalUtil.Write(sequenceID).Write(index)
+	}
+	return marshalUtil.Bytes()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
