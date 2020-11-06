@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/cerrors"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/byteutils"
+	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
@@ -178,7 +178,7 @@ func TransactionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transacti
 	}
 
 	parsedBytes := marshalUtil.ReadOffset() - readStartOffset
-	if parsedBytes != int(payloadSize)+marshalutil.UINT32_SIZE {
+	if parsedBytes != int(payloadSize)+marshalutil.Uint32Size {
 		err = xerrors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, payloadSize, cerrors.ErrParseBytesFailed)
 		return
 	}
@@ -255,13 +255,13 @@ func (t *Transaction) UnlockBlocks() UnlockBlocks {
 func (t *Transaction) Bytes() []byte {
 	if t == nil {
 		// if the payload is nil (i.e. when used as an optional payload) we encode that by setting the length to 0.
-		return marshalutil.New(marshalutil.UINT16_SIZE).WriteUint16(0).Bytes()
+		return marshalutil.New(marshalutil.Uint16Size).WriteUint16(0).Bytes()
 	}
 
 	payloadBytes := byteutils.ConcatBytes(TransactionType.Bytes(), t.essence.Bytes(), t.unlockBlocks.Bytes())
 	payloadBytesLength := len(payloadBytes)
 
-	return marshalutil.New(marshalutil.UINT16_SIZE + payloadBytesLength).
+	return marshalutil.New(marshalutil.Uint16Size + payloadBytesLength).
 		WriteUint16(uint16(payloadBytesLength)).
 		WriteBytes(payloadBytes).
 		Bytes()
