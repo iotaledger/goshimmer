@@ -66,7 +66,7 @@ func (s *SequenceManager) NormalizeMarkers(referencedMarkers Markers) (normalize
 	sequencesByRank := make(map[uint64]map[SequenceID]*Sequence)
 	referencedSequences := make(map[SequenceID]*Sequence)
 	highestMarkers := make(map[SequenceID]Index)
-	lowestRank := uint64(1)<<64 - 1
+	lowestRank := uint64(1<<64 - 1)
 	for _, marker := range referencedMarkers {
 		_, referencedSequenceAlreadyLoaded := referencedSequences[marker.sequenceID]
 		if !referencedSequenceAlreadyLoaded {
