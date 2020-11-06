@@ -231,7 +231,7 @@ func SequenceIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequenceI
 	return
 }
 
-func (s SequenceIDs) AggregatedSequencesID() (aggregatedSequencesID AggregatedSequencesID) {
+func (s SequenceIDs) SequenceAlias() (aggregatedSequencesID SequenceAlias) {
 	marshalUtil := marshalutil.New(marshalutil.UINT64_SIZE * len(s))
 	for sequenceID := range s {
 		marshalUtil.WriteUint64(uint64(sequenceID))
@@ -253,16 +253,16 @@ func (s SequenceIDs) Bytes() []byte {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region AggregatedSequencesID ////////////////////////////////////////////////////////////////////////////////////////
+// region SequenceAlias ////////////////////////////////////////////////////////////////////////////////////////////////
 
-const AggregatedSequencesIDLength = 32
+const SequenceAliasLength = 32
 
-type AggregatedSequencesID [AggregatedSequencesIDLength]byte
+type SequenceAlias [SequenceAliasLength]byte
 
-func AggregatedSequencesIDFromBytes(aggregatedSequencesIDBytes []byte) (aggregatedSequencesID AggregatedSequencesID, consumedBytes int, err error) {
+func SequenceAliasFromBytes(aggregatedSequencesIDBytes []byte) (aggregatedSequencesID SequenceAlias, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(aggregatedSequencesIDBytes)
-	if aggregatedSequencesID, err = AggregatedSequencesIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse AggregatedSequencesID from MarshalUtil: %w", err)
+	if aggregatedSequencesID, err = SequenceAliasFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse SequenceAlias from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -270,25 +270,25 @@ func AggregatedSequencesIDFromBytes(aggregatedSequencesIDBytes []byte) (aggregat
 	return
 }
 
-func AggregatedSequencesIDFromBase58EncodedString(base58String string) (aggregatedSequencesID AggregatedSequencesID, err error) {
+func SequenceAliasFromBase58EncodedString(base58String string) (aggregatedSequencesID SequenceAlias, err error) {
 	bytes, err := base58.Decode(base58String)
 	if err != nil {
-		err = xerrors.Errorf("error while decoding base58 encoded AggregatedSequencesID (%v): %w", err, cerrors.ErrBase58DecodeFailed)
+		err = xerrors.Errorf("error while decoding base58 encoded SequenceAlias (%v): %w", err, cerrors.ErrBase58DecodeFailed)
 		return
 	}
 
-	if aggregatedSequencesID, _, err = AggregatedSequencesIDFromBytes(bytes); err != nil {
-		err = xerrors.Errorf("failed to parse AggregatedSequencesID from bytes: %w", err)
+	if aggregatedSequencesID, _, err = SequenceAliasFromBytes(bytes); err != nil {
+		err = xerrors.Errorf("failed to parse SequenceAlias from bytes: %w", err)
 		return
 	}
 
 	return
 }
 
-func AggregatedSequencesIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (aggregatedSequencesID AggregatedSequencesID, err error) {
-	aggregatedSequencesIDBytes, err := marshalUtil.ReadBytes(AggregatedSequencesIDLength)
+func SequenceAliasFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (aggregatedSequencesID SequenceAlias, err error) {
+	aggregatedSequencesIDBytes, err := marshalUtil.ReadBytes(SequenceAliasLength)
 	if err != nil {
-		err = xerrors.Errorf("failed to parse AggregatedSequencesID (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse SequenceAlias (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	copy(aggregatedSequencesID[:], aggregatedSequencesIDBytes)
@@ -296,33 +296,33 @@ func AggregatedSequencesIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) 
 	return
 }
 
-func (a AggregatedSequencesID) Bytes() []byte {
+func (a SequenceAlias) Bytes() []byte {
 	return a[:]
 }
 
-func (a AggregatedSequencesID) Base58() string {
+func (a SequenceAlias) Base58() string {
 	return base58.Encode(a.Bytes())
 }
 
-func (a AggregatedSequencesID) String() string {
-	return "AggregatedSequencesID(" + a.Base58() + ")"
+func (a SequenceAlias) String() string {
+	return "SequenceAlias(" + a.Base58() + ")"
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region AggregatedSequencesIDMapping /////////////////////////////////////////////////////////////////////////////////
+// region SequenceAliasMapping /////////////////////////////////////////////////////////////////////////////////////////
 
-type AggregatedSequencesIDMapping struct {
-	aggregatedSequencesID AggregatedSequencesID
-	sequenceID            SequenceID
+type SequenceAliasMapping struct {
+	sequenceAlias SequenceAlias
+	sequenceID    SequenceID
 
 	objectstorage.StorableObjectFlags
 }
 
-func AggregatedSequencesIDMappingFromBytes(mappingBytes []byte) (mapping *AggregatedSequencesIDMapping, consumedBytes int, err error) {
+func SequenceAliasMappingFromBytes(mappingBytes []byte) (mapping *SequenceAliasMapping, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(mappingBytes)
-	if mapping, err = AggregatedSequencesIDMappingFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse AggregatedSequencesIDMapping from MarshalUtil: %w", err)
+	if mapping, err = SequenceAliasMappingFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse SequenceAliasMapping from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -330,78 +330,78 @@ func AggregatedSequencesIDMappingFromBytes(mappingBytes []byte) (mapping *Aggreg
 	return
 }
 
-func AggregatedSequencesIDMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (mapping *AggregatedSequencesIDMapping, err error) {
-	mapping = &AggregatedSequencesIDMapping{}
-	if mapping.aggregatedSequencesID, err = AggregatedSequencesIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse AggregatedSequencesID from MarshalUtil: %w", err)
+func SequenceAliasMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (mapping *SequenceAliasMapping, err error) {
+	mapping = &SequenceAliasMapping{}
+	if mapping.sequenceAlias, err = SequenceAliasFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse SequenceAlias from MarshalUtil: %w", err)
 		return
 	}
 	if mapping.sequenceID, err = SequenceIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse AggregatedSequencesID from MarshalUtil: %w", err)
+		err = xerrors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
 		return
 	}
 
 	return
 }
 
-func AggregatedSequencesIDMappingFromObjectStorage(key []byte, data []byte) (mapping objectstorage.StorableObject, err error) {
-	if mapping, _, err = AggregatedSequencesIDMappingFromBytes(data); err != nil {
-		err = xerrors.Errorf("failed to parse AggregatedSequencesIDMapping from bytes: %w", err)
+func SequenceAliasMappingFromObjectStorage(key []byte, data []byte) (mapping objectstorage.StorableObject, err error) {
+	if mapping, _, err = SequenceAliasMappingFromBytes(data); err != nil {
+		err = xerrors.Errorf("failed to parse SequenceAliasMapping from bytes: %w", err)
 		return
 	}
 
 	return
 }
 
-func (a *AggregatedSequencesIDMapping) AggregatedSequencesID() AggregatedSequencesID {
-	return a.aggregatedSequencesID
+func (a *SequenceAliasMapping) SequenceAlias() SequenceAlias {
+	return a.sequenceAlias
 }
 
-func (a *AggregatedSequencesIDMapping) SequenceID() SequenceID {
+func (a *SequenceAliasMapping) SequenceID() SequenceID {
 	return a.sequenceID
 }
 
-func (a *AggregatedSequencesIDMapping) Bytes() []byte {
+func (a *SequenceAliasMapping) Bytes() []byte {
 	return byteutils.ConcatBytes(a.ObjectStorageKey(), a.ObjectStorageValue())
 }
 
-func (a *AggregatedSequencesIDMapping) Update(other objectstorage.StorableObject) {
+func (a *SequenceAliasMapping) Update(other objectstorage.StorableObject) {
 	panic("updates disabled")
 }
 
-func (a *AggregatedSequencesIDMapping) ObjectStorageKey() []byte {
-	return a.aggregatedSequencesID.Bytes()
+func (a *SequenceAliasMapping) ObjectStorageKey() []byte {
+	return a.sequenceAlias.Bytes()
 }
 
-func (a *AggregatedSequencesIDMapping) ObjectStorageValue() []byte {
+func (a *SequenceAliasMapping) ObjectStorageValue() []byte {
 	return a.sequenceID.Bytes()
 }
 
-var _ objectstorage.StorableObject = &AggregatedSequencesIDMapping{}
+var _ objectstorage.StorableObject = &SequenceAliasMapping{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region CachedAggregatedSequencesIDMapping ///////////////////////////////////////////////////////////////////////////
+// region CachedSequenceAliasMapping ///////////////////////////////////////////////////////////////////////////////////
 
-// CachedAggregatedSequencesIDMapping is a wrapper for the generic CachedObject returned by the objectstorage that
-// overrides the accessor methods with a type-casted one.
-type CachedAggregatedSequencesIDMapping struct {
+// CachedSequenceAliasMapping is a wrapper for the generic CachedObject returned by the objectstorage that overrides the
+// accessor methods with a type-casted one.
+type CachedSequenceAliasMapping struct {
 	objectstorage.CachedObject
 }
 
 // Retain marks this CachedObject to still be in use by the program.
-func (c *CachedAggregatedSequencesIDMapping) Retain() *CachedAggregatedSequencesIDMapping {
-	return &CachedAggregatedSequencesIDMapping{c.CachedObject.Retain()}
+func (c *CachedSequenceAliasMapping) Retain() *CachedSequenceAliasMapping {
+	return &CachedSequenceAliasMapping{c.CachedObject.Retain()}
 }
 
 // Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
-func (c *CachedAggregatedSequencesIDMapping) Unwrap() *AggregatedSequencesIDMapping {
+func (c *CachedSequenceAliasMapping) Unwrap() *SequenceAliasMapping {
 	untypedObject := c.Get()
 	if untypedObject == nil {
 		return nil
 	}
 
-	typedObject := untypedObject.(*AggregatedSequencesIDMapping)
+	typedObject := untypedObject.(*SequenceAliasMapping)
 	if typedObject == nil || typedObject.IsDeleted() {
 		return nil
 	}
@@ -411,9 +411,9 @@ func (c *CachedAggregatedSequencesIDMapping) Unwrap() *AggregatedSequencesIDMapp
 
 // Consume unwraps the CachedObject and passes a type-casted version to the consumer. It automatically releases the
 // object when the consumer finishes and returns true of there was at least one object that was consumed.
-func (c *CachedAggregatedSequencesIDMapping) Consume(consumer func(aggregatedSequencesIDMapping *AggregatedSequencesIDMapping), forceRelease ...bool) (consumed bool) {
+func (c *CachedSequenceAliasMapping) Consume(consumer func(aggregatedSequencesIDMapping *SequenceAliasMapping), forceRelease ...bool) (consumed bool) {
 	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
-		consumer(object.(*AggregatedSequencesIDMapping))
+		consumer(object.(*SequenceAliasMapping))
 	}, forceRelease...)
 }
 

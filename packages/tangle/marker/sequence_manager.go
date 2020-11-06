@@ -12,8 +12,8 @@ import (
 )
 
 type SequenceManager struct {
-	sequenceStore                    *objectstorage.ObjectStorage
-	aggregatedSequenceIDMappingStore *objectstorage.ObjectStorage
+	sequenceStore      *objectstorage.ObjectStorage
+	sequenceAliasStore *objectstorage.ObjectStorage
 
 	sequenceIDCounter      SequenceID
 	sequenceIDCounterMutex sync.Mutex
@@ -39,8 +39,79 @@ func NewSequenceManager(store kvstore.KVStore) *SequenceManager {
 	}
 }
 
-func (s *SequenceManager) AggregatedSequenceIDMapping(id AggregatedSequencesID) *CachedAggregatedSequencesIDMapping {
-	return &CachedAggregatedSequencesIDMapping{CachedObject: s.aggregatedSequenceIDMappingStore.Load(id.Bytes())}
+func (s *SequenceManager) NextSequenceID() (nextSequenceID SequenceID) {
+	s.sequenceIDCounterMutex.Lock()
+	defer s.sequenceIDCounterMutex.Unlock()
+
+	nextSequenceID = s.sequenceIDCounter
+	s.sequenceIDCounter++
+
+	return
+}
+
+func (s *SequenceManager) SequenceFromAlias(alias SequenceAlias, referencedMarkers Markers) (sequence *Sequence, sequenceCreated bool) {
+	s.sequenceAliasStore.ComputeIfAbsent(alias.Bytes(), func(key []byte) objectstorage.StorableObject {
+		newSequence := NewSequence(s.NextSequenceID())
+		s.sequenceStore.Store()
+	})
+}
+
+func (s *SequenceManager) NormalizeMarkers(referencedMarkers Markers) (normalizedMarkers Markers, highestRank uint64) {
+	normalizedMarkers = make(Markers, 0)
+
+	sequencesByRank := make(map[uint64]map[SequenceID]*Sequence)
+	referencedSequences := make(map[SequenceID]*Sequence)
+	highestMarkers := make(map[SequenceID]Index)
+	lowestRank := uint64(1)<<64 - 1
+	for _, marker := range referencedMarkers {
+		_, referencedSequenceAlreadyLoaded := referencedSequences[marker.sequenceID]
+		if !referencedSequenceAlreadyLoaded {
+			cachedSequence := s.Sequence(marker.sequenceID)
+			defer cachedSequence.Release()
+
+			sequence := cachedSequence.Unwrap()
+			if sequence == nil {
+				panic(fmt.Sprintf("Sequence belonging to Marker %s does not exist", marker))
+			}
+
+			if sequence.rank < lowestRank {
+				lowestRank = sequence.rank
+			}
+			if sequence.rank > highestRank {
+				highestRank = sequence.rank
+			}
+
+			sequencesByRankMap, mapExists := sequencesByRank[sequence.rank]
+			if !mapExists {
+				sequencesByRankMap = make(map[SequenceID]*Sequence)
+				sequencesByRank[sequence.rank] = sequencesByRankMap
+			}
+			sequencesByRankMap[marker.sequenceID] = sequence
+			referencedSequences[marker.sequenceID] = sequence
+		}
+
+		if previousMarker, previousMarkerExists := highestMarkers[marker.sequenceID]; !previousMarkerExists || marker.index > previousMarker {
+			highestMarkers[marker.sequenceID] = marker.index
+		}
+	}
+
+	if len(highestMarkers) == 0 {
+		return
+	}
+
+	if len(highestMarkers) == 1 {
+		for sequenceID, index := range highestMarkers {
+			normalizedMarkers = append(normalizedMarkers, New(sequenceID, index))
+		}
+
+		return
+	}
+
+	for currentRank := highestRank; currentRank >= lowestRank; currentRank-- {
+
+	}
+
+	return
 }
 
 func (s *SequenceManager) InheritMarkers(referencedMarkers Markers) (inheritedMarkers Markers, newMarkerCreated bool) {
@@ -66,10 +137,6 @@ func (s *SequenceManager) InheritMarkers(referencedMarkers Markers) (inheritedMa
 	if len(highestMarkers) == 1 {
 		// inherit the highest marker
 	}
-}
-
-func (s *SequenceManager) Sequence(sequenceID SequenceID) *CachedSequence {
-	return &CachedSequence{CachedObject: s.sequenceStore.Load(sequenceID.Bytes())}
 }
 
 func (s *SequenceManager) AggregatedSequence(optionalSequenceIDs ...SequenceID) *CachedSequence {
@@ -100,4 +167,12 @@ func (s *SequenceManager) Sequence0r(parentSequences SequenceIDs) (newSequence *
 	s.sequenceIDCounter++
 
 	return
+}
+
+func (s *SequenceManager) Sequence(sequenceID SequenceID) *CachedSequence {
+	return &CachedSequence{CachedObject: s.sequenceStore.Load(sequenceID.Bytes())}
+}
+
+func (s *SequenceManager) SequenceAliasMapping(id SequenceAlias) *CachedSequenceAliasMapping {
+	return &CachedSequenceAliasMapping{CachedObject: s.sequenceAliasStore.Load(id.Bytes())}
 }
