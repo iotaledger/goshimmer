@@ -2,6 +2,7 @@ package marker
 
 import (
 	"sort"
+	"strconv"
 
 	"github.com/iotaledger/goshimmer/packages/cerrors"
 	"github.com/iotaledger/hive.go/byteutils"
@@ -17,15 +18,17 @@ import (
 type Sequence struct {
 	id              SequenceID
 	parentSequences SequenceIDs
+	rank            uint64
 	highestIndex    Index
 
 	objectstorage.StorableObjectFlags
 }
 
-func NewSequence(id SequenceID, parentSequences SequenceIDs, highestIndex Index) *Sequence {
+func NewSequence(id SequenceID, parentSequences SequenceIDs, rank uint64, highestIndex Index) *Sequence {
 	return &Sequence{
 		id:              id,
 		parentSequences: parentSequences,
+		rank:            rank,
 		highestIndex:    highestIndex,
 	}
 }
@@ -49,6 +52,10 @@ func SequenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequence *Se
 	}
 	if sequence.parentSequences, err = SequenceIDsFromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse parent SequenceIDs from MarshalUtil: %w", err)
+		return
+	}
+	if sequence.rank, err = marshalUtil.ReadUint64(); err != nil {
+		err = xerrors.Errorf("failed to parse rank (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if sequence.highestIndex, err = IndexFromMarshalUtil(marshalUtil); err != nil {
@@ -76,6 +83,10 @@ func (s *Sequence) ParentSequences() SequenceIDs {
 	return s.parentSequences
 }
 
+func (s *Sequence) Rank() uint64 {
+	return s.rank
+}
+
 func (s *Sequence) HighestIndex() Index {
 	return s.highestIndex
 }
@@ -95,11 +106,50 @@ func (s *Sequence) ObjectStorageKey() []byte {
 func (s *Sequence) ObjectStorageValue() []byte {
 	return marshalutil.New().
 		Write(s.parentSequences).
+		WriteUint64(s.rank).
 		Write(s.HighestIndex()).
 		Bytes()
 }
 
 var _ objectstorage.StorableObject = &Sequence{}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region CachedSequence ///////////////////////////////////////////////////////////////////////////////////////////////
+
+// CachedSequence is a wrapper for the generic CachedObject returned by the objectstorage that
+// overrides the accessor methods with a type-casted one.
+type CachedSequence struct {
+	objectstorage.CachedObject
+}
+
+// Retain marks this CachedObject to still be in use by the program.
+func (c *CachedSequence) Retain() *CachedSequence {
+	return &CachedSequence{c.CachedObject.Retain()}
+}
+
+// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
+func (c *CachedSequence) Unwrap() *Sequence {
+	untypedObject := c.Get()
+	if untypedObject == nil {
+		return nil
+	}
+
+	typedObject := untypedObject.(*Sequence)
+	if typedObject == nil || typedObject.IsDeleted() {
+		return nil
+	}
+
+	return typedObject
+}
+
+// Consume unwraps the CachedObject and passes a type-casted version to the consumer. It automatically releases the
+// object when the consumer finishes and returns true of there was at least one object that was consumed.
+func (c *CachedSequence) Consume(consumer func(sequence *Sequence), forceRelease ...bool) (consumed bool) {
+	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*Sequence))
+	}, forceRelease...)
+}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -131,6 +181,10 @@ func SequenceIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequenceID
 
 func (a SequenceID) Bytes() []byte {
 	return marshalutil.New(marshalutil.UINT16_SIZE).WriteUint64(uint64(a)).Bytes()
+}
+
+func (a SequenceID) String() string {
+	return "SequenceID(" + strconv.FormatUint(uint64(a), 10) + ")"
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -327,7 +381,7 @@ var _ objectstorage.StorableObject = &AggregatedSequencesIDMapping{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region CachedAggregatedSequenceIDMapping ////////////////////////////////////////////////////////////////////////////
+// region CachedAggregatedSequencesIDMapping ///////////////////////////////////////////////////////////////////////////
 
 // CachedAggregatedSequencesIDMapping is a wrapper for the generic CachedObject returned by the objectstorage that
 // overrides the accessor methods with a type-casted one.

@@ -8,9 +8,10 @@ import (
 )
 
 func TestSequence(t *testing.T) {
-	sequence := NewSequence(1337, NewSequenceIDs(1, 2), 1338)
+	sequence := NewSequence(1337, NewSequenceIDs(1, 2), 7, 1338)
 	assert.Equal(t, SequenceID(1337), sequence.ID())
 	assert.Equal(t, NewSequenceIDs(1, 2), sequence.ParentSequences())
+	assert.Equal(t, uint64(7), sequence.Rank())
 	assert.Equal(t, Index(1338), sequence.HighestIndex())
 
 	marshaledSequence := sequence.Bytes()

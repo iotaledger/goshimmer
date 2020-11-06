@@ -97,6 +97,7 @@ func (m *Marker) Bytes() []byte {
 func (m *Marker) String() string {
 	return stringify.Struct("Marker",
 		stringify.StructField("sequenceID", m.SequenceID()),
+		stringify.StructField("index", m.Index()),
 	)
 }
 
@@ -104,7 +105,7 @@ func (m *Marker) String() string {
 
 // region Markers //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-type Markers map[SequenceID]Index
+type Markers []*Marker
 
 func MarkersFromBytes(markersBytes []byte) (markers Markers, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(markersBytes)
@@ -120,23 +121,16 @@ func MarkersFromBytes(markersBytes []byte) (markers Markers, consumedBytes int, 
 func MarkersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (markers Markers, err error) {
 	markersCount, err := marshalUtil.ReadUint32()
 	if err != nil {
-		err = xerrors.Errorf("failed to parker Markers count (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parker MarkersMap count (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
-	markers = make(Markers)
+	markers = make(Markers, markersCount)
 	for i := 0; i < int(markersCount); i++ {
-		sequenceID, sequenceIDErr := SequenceIDFromMarshalUtil(marshalUtil)
-		if sequenceIDErr != nil {
-			err = xerrors.Errorf("failed to parse SequenceID from MarshalUtil: %w", sequenceIDErr)
+		if markers[i], err = FromMarshalUtil(marshalUtil); err != nil {
+			err = xerrors.Errorf("failed to parse Marker from MarshalUtil: %w", err)
 			return
 		}
-		index, indexErr := IndexFromMarshalUtil(marshalUtil)
-		if indexErr != nil {
-			err = xerrors.Errorf("failed to parse Index from MarshalUtil: %w", indexErr)
-			return
-		}
-		markers[sequenceID] = index
 	}
 
 	return
