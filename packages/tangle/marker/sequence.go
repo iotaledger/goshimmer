@@ -16,20 +16,20 @@ import (
 // region Sequence /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Sequence struct {
-	id              SequenceID
-	parentSequences SequenceIDs
-	rank            uint64
-	highestIndex    Index
+	id               SequenceID
+	parentReferences ParentReferences
+	rank             uint64
+	highestIndex     Index
 
 	objectstorage.StorableObjectFlags
 }
 
-func NewSequence(id SequenceID, parentSequences SequenceIDs, rank uint64, highestIndex Index) *Sequence {
+func NewSequence(id SequenceID, referencedMarkers Markers, rank uint64) *Sequence {
 	return &Sequence{
-		id:              id,
-		parentSequences: parentSequences,
-		rank:            rank,
-		highestIndex:    highestIndex,
+		id:               id,
+		parentReferences: NewParentReferences(referencedMarkers),
+		rank:             rank,
+		highestIndex:     referencedMarkers.HighestIndex() + 1,
 	}
 }
 
@@ -50,8 +50,8 @@ func SequenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequence *Se
 		err = xerrors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
 		return
 	}
-	if sequence.parentSequences, err = SequenceIDsFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse parent SequenceIDs from MarshalUtil: %w", err)
+	if sequence.parentReferences, err = ParentReferencesFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse ParentReferences from MarshalUtil: %w", err)
 		return
 	}
 	if sequence.rank, err = marshalUtil.ReadUint64(); err != nil {
@@ -80,7 +80,7 @@ func (s *Sequence) ID() SequenceID {
 }
 
 func (s *Sequence) ParentSequences() SequenceIDs {
-	return s.parentSequences
+	return s.parentReferences.SequenceIDs()
 }
 
 func (s *Sequence) Rank() uint64 {
@@ -105,7 +105,7 @@ func (s *Sequence) ObjectStorageKey() []byte {
 
 func (s *Sequence) ObjectStorageValue() []byte {
 	return marshalutil.New().
-		Write(s.parentSequences).
+		Write(s.parentReferences).
 		WriteUint64(s.rank).
 		Write(s.HighestIndex()).
 		Bytes()

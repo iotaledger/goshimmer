@@ -169,8 +169,8 @@ func (s *SequenceManager) Sequence0r(parentSequences SequenceIDs) (newSequence *
 	defer s.sequenceIDCounterMutex.Unlock()
 
 	newSequence = &Sequence{
-		id:              s.sequenceIDCounter,
-		parentSequences: parentSequences,
+		id:               s.sequenceIDCounter,
+		parentReferences: parentSequences,
 	}
 	s.sequenceIDCounter++
 

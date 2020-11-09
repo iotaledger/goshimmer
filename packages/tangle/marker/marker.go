@@ -142,6 +142,16 @@ func MarkersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (markers Marke
 	return
 }
 
+func (m Markers) HighestIndex() (highestMarker Index) {
+	for _, marker := range m {
+		if marker.index > highestMarker {
+			highestMarker = marker.index
+		}
+	}
+
+	return
+}
+
 func (m Markers) Bytes() []byte {
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteUint32(uint32(len(m)))
