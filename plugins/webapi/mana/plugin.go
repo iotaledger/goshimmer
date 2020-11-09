@@ -32,4 +32,5 @@ func configure(_ *node.Plugin) {
 	webapi.Server().GET("/mana/percentile", getPercentileHandler)
 	webapi.Server().GET("/mana/access/online", getOnlineAccessHandler)
 	webapi.Server().GET("/mana/consensus/online", getOnlineConsensusHandler)
+	webapi.Server().GET("/mana/pending", getPendingHandler)
 }

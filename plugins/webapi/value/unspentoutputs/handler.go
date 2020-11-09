@@ -2,9 +2,11 @@ package unspentoutputs
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/goshimmer/plugins/webapi/value/utils"
 	"github.com/labstack/echo"
 	"github.com/labstack/gommon/log"
@@ -56,10 +58,17 @@ func Handler(c echo.Context) error {
 					inclusionState.Conflicting = txMeta.Conflicting()
 					inclusionState.Confirmed = txMeta.Confirmed()
 				}
+
+				cachedTx := valuetransfers.Tangle().Transaction(output.TransactionID())
+				var timestamp time.Time
+				cachedTx.Consume(func(tx *transaction.Transaction) {
+					timestamp = tx.Timestamp()
+				})
 				outputids = append(outputids, OutputID{
 					ID:             id.String(),
 					Balances:       b,
 					InclusionState: inclusionState,
+					Metadata:       Metadata{Timestamp: timestamp},
 				})
 			}
 		}
@@ -91,9 +100,15 @@ type UnspentOutput struct {
 	OutputIDs []OutputID `json:"output_ids"`
 }
 
+// Metadata holds metadata about the output.
+type Metadata struct {
+	Timestamp time.Time `json:"timestamp"`
+}
+
 // OutputID holds the output id and its inclusion state
 type OutputID struct {
 	ID             string               `json:"id"`
 	Balances       []utils.Balance      `json:"balances"`
 	InclusionState utils.InclusionState `json:"inclusion_state"`
+	Metadata       Metadata             `json:"output_metadata"`
 }

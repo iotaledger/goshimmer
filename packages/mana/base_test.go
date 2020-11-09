@@ -89,8 +89,8 @@ func TestUpdateEBM2CoeffEqual(t *testing.T) {
 }
 
 //func TestUpdateEBM2CoeffNotEqual(t *testing.T) {
-//	// set coefficients such that emaCoeff2 != decay
-//	SetCoefficients(emaCoeff1, 0.0004, decay)
+//	// set coefficients such that emaCoeff2 != Decay
+//	SetCoefficients(emaCoeff1, 0.0004, Decay)
 //	bm1 := BaseMana{}
 //	bm2 := BaseMana{}
 //

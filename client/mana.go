@@ -15,6 +15,7 @@ const (
 	routeGetOnlineConsensusMana   = "mana/consensus/online"
 	routeGetNHighestAccessMana    = "mana/access/nhighest"
 	routeGetNHighestConsensusMana = "mana/consensus/nhighest"
+	routePending                  = "mana/pending"
 )
 
 // GetOwnMana returns the access and consensus mana of the node this api client is communicating with.
@@ -120,6 +121,16 @@ func (api *GoShimmerAPI) GetNHighestConsensusMana(n int) (*webapi_mana.GetNHighe
 	if err := api.do(http.MethodGet, func() string {
 		return fmt.Sprintf("%s?number=%d", routeGetNHighestConsensusMana, n)
 	}(), nil, res); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+// GetPending returns the mana (bm2) that will be pledged by spending the output specified.
+func (api *GoShimmerAPI) GetPending(outputID string) (*webapi_mana.PendingResponse, error) {
+	res := &webapi_mana.PendingResponse{}
+	if err := api.do(http.MethodGet, routePending,
+		&webapi_mana.PendingRequest{OutputID: outputID}, res); err != nil {
 		return nil, err
 	}
 	return res, nil

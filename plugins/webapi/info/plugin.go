@@ -124,6 +124,7 @@ func getInfo(c echo.Context) error {
 		EnabledPlugins:          enabledPlugins,
 		DisabledPlugins:         disabledPlugins,
 		Mana:                    nodeMana,
+		ManaDecay:               mana.Decay,
 	})
 }
 
@@ -153,6 +154,8 @@ type Response struct {
 	DisabledPlugins []string `json:"disabledPlugins,omitempty"`
 	// Mana values
 	Mana Mana `json:"mana,omitempty"`
+	// ManaDecay is the decay coefficient of bm2.
+	ManaDecay float64 `json:"mana_decay"`
 	// error of the response
 	Error string `json:"error,omitempty"`
 }

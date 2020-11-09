@@ -1,6 +1,7 @@
 package mana
 
 import (
+	"math"
 	"math/rand"
 	"sort"
 	"sync"
@@ -334,6 +335,32 @@ func verifyPledgeNodes() error {
 	allowedPledgeNodes[mana.AccessMana] = access
 	allowedPledgeNodes[mana.ConsensusMana] = consensus
 	return nil
+}
+
+// PendingManaOnOutput predicts how much mana (bm2) will be pledged to a node if the output specified is spent.
+func PendingManaOnOutput(outputID transaction.OutputID) float64 {
+	cachedOutput := valuetransfers.Tangle().TransactionOutput(outputID)
+	defer cachedOutput.Release()
+	output := cachedOutput.Unwrap()
+	var value float64
+	for _, balance := range output.Balances() {
+		value += float64(balance.Value)
+	}
+
+	// spent output has 0 pending mana.
+	if output.ConsumerCount() > 0 {
+		return 0
+	}
+
+	cachedTx := valuetransfers.Tangle().Transaction(output.TransactionID())
+	defer cachedTx.Release()
+	tx := cachedTx.Unwrap()
+	return GetPendingMana(value, time.Since(tx.Timestamp()))
+}
+
+// GetPendingMana returns the mana pledged by spending a `value` output that sat for `n` duration.
+func GetPendingMana(value float64, n time.Duration) float64 {
+	return value * (1 - math.Pow(math.E, -mana.Decay*(n.Seconds())))
 }
 
 // AllowedPledge represents the nodes that mana is allowed to be pledged to.

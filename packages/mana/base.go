@@ -34,17 +34,17 @@ func (bm *BaseMana) updateEBM1(n time.Duration) {
 }
 
 func (bm *BaseMana) updateBM2(n time.Duration) {
-	bm.BaseMana2 = bm.BaseMana2 * math.Pow(math.E, -decay*n.Seconds())
+	bm.BaseMana2 = bm.BaseMana2 * math.Pow(math.E, -Decay*n.Seconds())
 }
 
 func (bm *BaseMana) updateEBM2(n time.Duration) {
-	if emaCoeff2 != decay {
+	if emaCoeff2 != Decay {
 		bm.EffectiveBaseMana2 = math.Pow(math.E, -emaCoeff2*n.Seconds())*bm.EffectiveBaseMana2 +
-			(math.Pow(math.E, -decay*n.Seconds())-math.Pow(math.E, -emaCoeff2*n.Seconds()))/
-				(emaCoeff2-decay)*emaCoeff2/math.Pow(math.E, -decay*n.Seconds())*bm.BaseMana2
+			(math.Pow(math.E, -Decay*n.Seconds())-math.Pow(math.E, -emaCoeff2*n.Seconds()))/
+				(emaCoeff2-Decay)*emaCoeff2/math.Pow(math.E, -Decay*n.Seconds())*bm.BaseMana2
 	} else {
-		bm.EffectiveBaseMana2 = math.Pow(math.E, -decay*n.Seconds())*bm.EffectiveBaseMana2 +
-			decay*n.Seconds()*bm.BaseMana2
+		bm.EffectiveBaseMana2 = math.Pow(math.E, -Decay*n.Seconds())*bm.EffectiveBaseMana2 +
+			Decay*n.Seconds()*bm.BaseMana2
 	}
 }
 
@@ -93,7 +93,7 @@ func (bm *BaseMana) pledgeAndUpdate(tx *TxInfo) (bm1Pledged float64, bm2Pledged 
 		bm.BaseMana1 += bm1Pledged
 		// pending mana awarded, need to see how long funds sat
 		for _, input := range tx.InputInfos {
-			bm2Add := input.Amount * (1 - math.Pow(math.E, -decay*(t.Sub(input.TimeStamp).Seconds())))
+			bm2Add := input.Amount * (1 - math.Pow(math.E, -Decay*(t.Sub(input.TimeStamp).Seconds())))
 			bm.BaseMana2 += bm2Add
 			bm2Pledged += bm2Add
 		}
@@ -104,18 +104,18 @@ func (bm *BaseMana) pledgeAndUpdate(tx *TxInfo) (bm1Pledged float64, bm2Pledged 
 		bm.BaseMana1 += bm1Pledged
 		oldMana2 := bm.BaseMana2
 		for _, input := range tx.InputInfos {
-			bm2Add := input.Amount * (1 - math.Pow(math.E, -decay*(t.Sub(input.TimeStamp).Seconds()))) *
-				math.Pow(math.E, -decay*n.Seconds())
+			bm2Add := input.Amount * (1 - math.Pow(math.E, -Decay*(t.Sub(input.TimeStamp).Seconds()))) *
+				math.Pow(math.E, -Decay*n.Seconds())
 			bm.BaseMana2 += bm2Add
 			bm2Pledged += bm2Add
 		}
 		// update EBM1 and EBM2 to `bm.LastUpdated`
 		bm.EffectiveBaseMana1 += bm1Pledged * (1 - math.Pow(math.E, -emaCoeff1*n.Seconds()))
-		if emaCoeff2 != decay {
-			bm.EffectiveBaseMana2 += (bm.BaseMana2 - oldMana2) * emaCoeff2 * (math.Pow(math.E, -decay*n.Seconds()) -
-				math.Pow(math.E, -emaCoeff2*n.Seconds())) / (emaCoeff2 - decay) / math.Pow(math.E, -decay*n.Seconds())
+		if emaCoeff2 != Decay {
+			bm.EffectiveBaseMana2 += (bm.BaseMana2 - oldMana2) * emaCoeff2 * (math.Pow(math.E, -Decay*n.Seconds()) -
+				math.Pow(math.E, -emaCoeff2*n.Seconds())) / (emaCoeff2 - Decay) / math.Pow(math.E, -Decay*n.Seconds())
 		} else {
-			bm.EffectiveBaseMana2 += (bm.BaseMana2 - oldMana2) * decay * n.Seconds()
+			bm.EffectiveBaseMana2 += (bm.BaseMana2 - oldMana2) * Decay * n.Seconds()
 		}
 	}
 	return bm1Pledged, bm2Pledged

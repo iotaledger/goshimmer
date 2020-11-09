@@ -4,7 +4,7 @@ import * as React from "react";
 import {Col, ListGroupItem, OverlayTrigger, Popover, Row} from "react-bootstrap";
 import Plus from "../../assets/plus.svg";
 import Minus from "../../assets/minus.svg";
-import {displayManaUnit} from "app/components/ManaGauge";
+import {displayManaUnit} from "app/utils";
 
 class ManaMsg {
     nodeID: string;
