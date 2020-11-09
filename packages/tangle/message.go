@@ -48,6 +48,8 @@ const (
 // MessageID identifies a message via its BLAKE2b-256 hash of its bytes.
 type MessageID [MessageIDLength]byte
 
+type MessageIDs []MessageID
+
 // Parent is a parent that can be either strong or weak.
 type Parent struct {
 	ID   MessageID
@@ -128,6 +130,15 @@ func (id MessageID) Bytes() []byte {
 // String returns the base58 encode of the MessageID.
 func (id MessageID) String() string {
 	return base58.Encode(id[:])
+}
+
+// ToStrings converts a slice of MessageIDs to a slice of strings.
+func (ids MessageIDs) ToStrings() []string {
+	result := make([]string, 0, len(ids))
+	for _, id := range ids {
+		result = append(result, id.String())
+	}
+	return result
 }
 
 // Message represents the core message for the base layer Tangle.
@@ -377,12 +388,12 @@ func (m *Message) Version() uint8 {
 }
 
 // StrongParents returns a slice of all strong parents of the message.
-func (m *Message) StrongParents() []MessageID {
+func (m *Message) StrongParents() MessageIDs {
 	return m.strongParents
 }
 
 // WeakParents returns a slice of all weak parents of the message.
-func (m *Message) WeakParents() []MessageID {
+func (m *Message) WeakParents() MessageIDs {
 	return m.weakParents
 }
 

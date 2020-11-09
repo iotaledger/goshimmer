@@ -14,8 +14,8 @@ export class Message {
     sequence_number: number;
     issuer_public_key: string;
     signature: string;
-    parent1_message_id: string;
-    parent2_message_id: string;
+    strongParents: Array<string>;
+    weakParents: Array<string>;
     solid: boolean;
     payload_type: number;
     payload: any;
