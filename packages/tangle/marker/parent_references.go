@@ -12,6 +12,7 @@ import (
 	"golang.org/x/xerrors"
 )
 
+// ParentReferences models the relationship between Sequences by providing a way to encode the
 type ParentReferences map[SequenceID]*thresholdmap.ThresholdMap
 
 func NewParentReferences(referencedMarkers Markers) (parentReferences ParentReferences) {

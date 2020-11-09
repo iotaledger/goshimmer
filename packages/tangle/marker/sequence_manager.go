@@ -164,19 +164,6 @@ func (s *SequenceManager) AggregatedSequence(optionalSequenceIDs ...SequenceID) 
 	return nil
 }
 
-func (s *SequenceManager) Sequence0r(parentSequences SequenceIDs) (newSequence *Sequence) {
-	s.sequenceIDCounterMutex.Lock()
-	defer s.sequenceIDCounterMutex.Unlock()
-
-	newSequence = &Sequence{
-		id:               s.sequenceIDCounter,
-		parentReferences: parentSequences,
-	}
-	s.sequenceIDCounter++
-
-	return
-}
-
 func (s *SequenceManager) Sequence(sequenceID SequenceID) *CachedSequence {
 	return &CachedSequence{CachedObject: s.sequenceStore.Load(sequenceID.Bytes())}
 }
