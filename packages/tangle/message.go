@@ -48,6 +48,7 @@ const (
 // MessageID identifies a message via its BLAKE2b-256 hash of its bytes.
 type MessageID [MessageIDLength]byte
 
+// MessageIDs is a slice of MessageID.
 type MessageIDs []MessageID
 
 // Parent is a parent that can be either strong or weak.
