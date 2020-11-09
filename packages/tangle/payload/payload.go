@@ -3,7 +3,7 @@ package payload
 import (
 	"fmt"
 
-	"github.com/iotaledger/goshimmer/packages/cerrors"
+	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"golang.org/x/xerrors"
 )
