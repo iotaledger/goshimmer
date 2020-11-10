@@ -117,6 +117,19 @@ func (p ParentReferences) HighestReferencedMarker(sequenceID SequenceID, referen
 	}
 }
 
+func (p ParentReferences) HighestReferencedMarkers(index Index) (highestReferencedMarkers UniqueMarkers) {
+	highestReferencedMarkers = make(UniqueMarkers)
+	for sequenceID, thresholdMap := range p {
+		referencedIndex, exists := thresholdMap.Get(uint64(index))
+		if !exists {
+			panic(fmt.Sprintf("%s is smaller than the lowest known Index", index))
+		}
+		highestReferencedMarkers[sequenceID] = Index(referencedIndex.(uint64))
+	}
+
+	return
+}
+
 func (p ParentReferences) SequenceIDs() SequenceIDs {
 	sequenceIDs := make([]SequenceID, 0, len(p))
 	for sequenceID := range p {

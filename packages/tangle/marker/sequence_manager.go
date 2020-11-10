@@ -60,7 +60,62 @@ func (s *SequenceManager) SequenceFromAlias(alias SequenceAlias, referencedMarke
 	return
 }
 
-func (s *SequenceManager) NormalizeMarkers(referencedMarkers Markers) (normalizedMarkers Markers, highestRank uint64) {
+func (s *SequenceManager) NormalizeMarkers(markers Markers) (normalizedMarker Markers) {
+	// 1. determine highest markers of the same sequence
+	highestMarkers := make(UniqueMarkers)
+	for _, marker := range markers {
+		if marker.index > highestMarkers[marker.sequenceID] {
+			highestMarkers[marker.sequenceID] = marker.index
+		}
+	}
+
+	// 2. determine ranks of the markers
+	lowestRank := uint64(1<<64 - 1)
+	highestRank := uint64(0)
+	markersByRank := make(map[uint64]map[SequenceID]*Marker)
+	for sequenceID, index := range highestMarkers {
+		cachedSequence := s.Sequence(sequenceID)
+		defer cachedSequence.Release()
+
+		sequence := cachedSequence.Unwrap()
+		if sequence == nil {
+			panic(fmt.Sprintf("failed to load Sequence with %s", sequenceID))
+		}
+
+		if _, exists := markersByRank[sequence.rank]; !exists {
+			markersByRank[sequence.rank] = make(map[SequenceID]*Marker)
+		}
+		markersByRank[sequence.rank][sequence.id] = &Marker{sequenceID: sequenceID, index: index}
+
+		if sequence.rank > highestRank {
+			highestRank = sequence.rank
+		}
+		if sequence.rank < lowestRank {
+			lowestRank = sequence.rank
+		}
+	}
+
+	for i := highestRank + 1; i > lowestRank; i-- {
+		currentRank := i - 1
+
+		for _, marker := range markersByRank[currentRank] {
+			s.Sequence(marker.sequenceID).Consume(func(sequence *Sequence) {
+				for referencedSequenceID, referencedIndex := range sequence.HighestReferencedParentMarkers(marker.index) {
+					s.Sequence(referencedSequenceID).Consume(func(referencedSequence *Sequence) {
+						// if referencedSequence is lower than bla ...
+					})
+					fmt.Println(sequence.rank, referencedSequenceID, referencedIndex)
+				}
+			})
+		}
+	}
+
+	fmt.Println(highestMarkers)
+
+	return
+}
+
+func (s *SequenceManager) NormalizeMarkersOld(referencedMarkers Markers) (normalizedMarkers Markers, highestRank uint64) {
 	normalizedMarkers = make(Markers, 0)
 
 	sequencesByRank := make(map[uint64]map[SequenceID]*Sequence)

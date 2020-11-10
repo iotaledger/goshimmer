@@ -83,6 +83,10 @@ func (s *Sequence) ParentSequences() SequenceIDs {
 	return s.parentReferences.SequenceIDs()
 }
 
+func (s *Sequence) HighestReferencedParentMarkers(index Index) UniqueMarkers {
+	return s.parentReferences.HighestReferencedMarkers(index)
+}
+
 func (s *Sequence) Rank() uint64 {
 	return s.rank
 }
