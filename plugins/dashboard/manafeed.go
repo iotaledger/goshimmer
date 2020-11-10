@@ -86,7 +86,7 @@ func sendManaValue() {
 	if err != nil && err != mana.ErrNodeNotFoundInBaseManaVector {
 		log.Errorf("failed to get own consensus mana: %w ", err)
 	}
-	msgData := &manaValueMsgData{
+	msgData := &ManaValueMsgData{
 		NodeID:    ownID.String(),
 		Access:    access,
 		Consensus: consensus,
@@ -104,7 +104,7 @@ func sendManaMapOverall() {
 	if err != nil {
 		log.Errorf("failed to get list of n highest access mana nodes: %w ", err)
 	}
-	accessPayload := &manaNetworkListMsgData{ManaType: mana.AccessMana.String()}
+	accessPayload := &ManaNetworkListMsgData{ManaType: mana.AccessMana.String()}
 	totalAccessMana := 0.0
 	for i := 0; i < len(accessManaList); i++ {
 		accessPayload.Nodes = append(accessPayload.Nodes, accessManaList[i].ToNodeStr())
@@ -119,7 +119,7 @@ func sendManaMapOverall() {
 	if err != nil {
 		log.Errorf("failed to get list of n highest consensus mana nodes: %w ", err)
 	}
-	consensusPayload := &manaNetworkListMsgData{ManaType: mana.ConsensusMana.String()}
+	consensusPayload := &ManaNetworkListMsgData{ManaType: mana.ConsensusMana.String()}
 	totalConsensusMana := 0.0
 	for i := 0; i < len(consensusManaList); i++ {
 		consensusPayload.Nodes = append(consensusPayload.Nodes, consensusManaList[i].ToNodeStr())
@@ -138,7 +138,7 @@ func sendManaMapOnline() {
 	if err != nil {
 		log.Errorf("failed to get list of online access mana nodes: %w ", err)
 	}
-	accessPayload := &manaNetworkListMsgData{ManaType: mana.AccessMana.String()}
+	accessPayload := &ManaNetworkListMsgData{ManaType: mana.AccessMana.String()}
 	totalAccessMana := 0.0
 	for i := 0; i < len(accessManaList); i++ {
 		accessPayload.Nodes = append(accessPayload.Nodes, accessManaList[i].ToNodeStr())
@@ -153,7 +153,7 @@ func sendManaMapOnline() {
 	if err != nil {
 		log.Errorf("failed to get list of online consensus mana nodes: %w ", err)
 	}
-	consensusPayload := &manaNetworkListMsgData{ManaType: mana.ConsensusMana.String()}
+	consensusPayload := &ManaNetworkListMsgData{ManaType: mana.ConsensusMana.String()}
 	totalConsensusMana := 0.0
 	for i := 0; i < len(consensusManaList); i++ {
 		consensusPayload.Nodes = append(consensusPayload.Nodes, consensusManaList[i].ToNodeStr())
@@ -190,11 +190,11 @@ func sendAllowedManaPledge(ws *websocket.Conn) error {
 	allowedAccess := manaPlugin.GetAllowedPledgeNodes(mana.AccessMana)
 	allowedConsensus := manaPlugin.GetAllowedPledgeNodes(mana.ConsensusMana)
 
-	wsmsgData := &allowedPledgeIDsMsgData{}
+	wsmsgData := &AllowedPledgeIDsMsgData{}
 	wsmsgData.Access.Enabled = allowedAccess.IsFilterEnabled
 	allowedAccess.Allowed.ForEach(func(element interface{}) {
 		ID := element.(identity.ID)
-		wsmsgData.Access.AllowedNodeIDs = append(wsmsgData.Access.AllowedNodeIDs, allowedNodeStr{
+		wsmsgData.Access.AllowedNodeIDs = append(wsmsgData.Access.AllowedNodeIDs, AllowedNodeStr{
 			ShortID: ID.String(),
 			FullID:  base58.Encode(ID.Bytes()),
 		})
@@ -202,7 +202,7 @@ func sendAllowedManaPledge(ws *websocket.Conn) error {
 	wsmsgData.Consensus.Enabled = allowedConsensus.IsFilterEnabled
 	allowedConsensus.Allowed.ForEach(func(element interface{}) {
 		ID := element.(identity.ID)
-		wsmsgData.Consensus.AllowedNodeIDs = append(wsmsgData.Consensus.AllowedNodeIDs, allowedNodeStr{
+		wsmsgData.Consensus.AllowedNodeIDs = append(wsmsgData.Consensus.AllowedNodeIDs, AllowedNodeStr{
 			ShortID: ID.String(),
 			FullID:  base58.Encode(ID.Bytes()),
 		})
@@ -220,30 +220,30 @@ func sendAllowedManaPledge(ws *websocket.Conn) error {
 //endregion
 
 //region Websocket message data structs
-type manaValueMsgData struct {
+type ManaValueMsgData struct {
 	NodeID    string  `json:"nodeID"`
 	Access    float64 `json:"access"`
 	Consensus float64 `json:"consensus"`
 	Time      int64   `json:"time"`
 }
 
-type manaNetworkListMsgData struct {
+type ManaNetworkListMsgData struct {
 	ManaType  string         `json:"manaType"`
 	TotalMana float64        `json:"totalMana"`
 	Nodes     []mana.NodeStr `json:"nodes"`
 }
 
-type allowedPledgeIDsMsgData struct {
-	Access    pledgeIDFilter `json:"accessFilter"`
-	Consensus pledgeIDFilter `json:"consensusFilter"`
+type AllowedPledgeIDsMsgData struct {
+	Access    PledgeIDFilter `json:"accessFilter"`
+	Consensus PledgeIDFilter `json:"consensusFilter"`
 }
 
-type pledgeIDFilter struct {
+type PledgeIDFilter struct {
 	Enabled        bool             `json:"enabled"`
-	AllowedNodeIDs []allowedNodeStr `json:"allowedNodeIDs"`
+	AllowedNodeIDs []AllowedNodeStr `json:"allowedNodeIDs"`
 }
 
-type allowedNodeStr struct {
+type AllowedNodeStr struct {
 	ShortID string `json:"shortID"`
 	FullID  string `json:"fullID"`
 }

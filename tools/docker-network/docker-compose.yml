@@ -41,7 +41,7 @@ services:
       --config-dir=/tmp
       --database.directory=/tmp/mainnetdb
       --autopeering.seed=base58:8q491c3YWjbPwLmF2WD95YmCgh61j2kenCKHfGfByoWi
-      --node.enablePlugins=prometheus,spammer,faucet,syncbeacon
+      --node.enablePlugins=prometheus,spammer,faucet,syncbeacon,analysis-client
       --node.disablePlugins=syncbeaconfollower
       --faucet.seed=7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih
       --valueLayer.snapshot.file=/tmp/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin

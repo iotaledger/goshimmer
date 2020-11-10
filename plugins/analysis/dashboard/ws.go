@@ -79,6 +79,22 @@ func broadcastWsMessage(msg interface{}, dontDrop ...bool) {
 	}
 }
 
+func sendInitialData(ws *websocket.Conn) error {
+	if err := manaBuffer.SendEvents(ws); err != nil {
+		return err
+	}
+	if err := manaBuffer.SendValueMsgs(ws); err != nil {
+		return err
+	}
+	if err := manaBuffer.SendMapOverall(ws); err != nil {
+		return err
+	}
+	if err := manaBuffer.SendMapOnline(ws); err != nil {
+		return err
+	}
+	return nil
+}
+
 // handles a new websocket connection, registers the client
 // and waits for downstream messages to be sent to the client
 func websocketRoute(c echo.Context) error {
@@ -105,6 +121,8 @@ func websocketRoute(c echo.Context) error {
 
 	// replay FPC past events
 	replayFPCRecords(ws)
+
+	sendInitialData(ws)
 
 	for {
 		msg := <-wsClient.channel

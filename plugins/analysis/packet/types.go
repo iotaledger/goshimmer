@@ -9,4 +9,6 @@ const (
 	MessageTypeFPCHeartbeat
 	// MessageTypeMetricHeartbeat defines the Metric Heartbeat msg type.
 	MessageTypeMetricHeartbeat
+	// MessageTypeManaHeartbeat defines the Mana Heartbeat msg type.
+	MessageTypeManaHeartbeat
 )

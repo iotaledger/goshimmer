@@ -4,5 +4,11 @@ export enum WSMsgType {
     addNode = 2,
     removeNode = 3,
     connectNodes = 4,
-    disconnectNodes = 5
+    disconnectNodes = 5,
+    Mana= 8,
+    ManaMapOverall,
+    ManaMapOnline,
+    ManaAllowedPledge,
+    ManaPledge,
+    ManaRevoke
 }
