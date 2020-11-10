@@ -134,13 +134,9 @@ func configure(_ *node.Plugin) {
 	tipManager = TipManager()
 	valueObjectFactory = ValueObjectFactory()
 
-	_tangle.Events.PayloadLiked.Attach(events.NewClosure(func(cachedPayloadEvent *valuetangle.CachedPayloadEvent) {
+	_tangle.Events.PayloadConfirmed.Attach(events.NewClosure(func(cachedPayloadEvent *valuetangle.CachedPayloadEvent) {
 		cachedPayloadEvent.PayloadMetadata.Release()
 		cachedPayloadEvent.Payload.Consume(tipManager.AddTip)
-	}))
-	_tangle.Events.PayloadDisliked.Attach(events.NewClosure(func(cachedPayloadEvent *valuetangle.CachedPayloadEvent) {
-		cachedPayloadEvent.PayloadMetadata.Release()
-		cachedPayloadEvent.Payload.Consume(tipManager.RemoveTip)
 	}))
 
 	// configure FCOB consensus rules
