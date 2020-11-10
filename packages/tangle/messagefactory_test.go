@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto"
 	"crypto/ed25519"
+	"crypto/rand"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -30,7 +31,7 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 		mapdb.NewMapDB(),
 		[]byte(sequenceKey),
 		identity.GenerateLocalIdentity(),
-		TipSelectorFunc(func() (MessageID, MessageID) { return EmptyMessageID, EmptyMessageID }),
+		TipSelectorFunc(func(count int) []MessageID { return []MessageID{EmptyMessageID} }),
 	)
 	defer msgFactory.Shutdown()
 
@@ -48,8 +49,8 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 		msg, err := msgFactory.IssuePayload(p)
 		require.NoError(t, err)
 
-		assert.NotNil(t, msg.Parent1ID())
-		assert.NotNil(t, msg.Parent2ID())
+		// TODO: approval switch: make test case with weak parents
+		assert.NotEmpty(t, msg.StrongParents())
 
 		// time in range of 0.1 seconds
 		assert.InDelta(t, time.Now().UnixNano(), msg.IssuingTime().UnixNano(), 100000000)
@@ -74,8 +75,8 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 				msg, err := msgFactory.IssuePayload(p)
 				require.NoError(t, err)
 
-				assert.NotNil(t, msg.Parent1ID())
-				assert.NotNil(t, msg.Parent2ID())
+				// TODO: approval switch: make test case with weak parents
+				assert.NotEmpty(t, msg.StrongParents())
 
 				// time in range of 0.1 seconds
 				assert.InDelta(t, time.Now().UnixNano(), msg.IssuingTime().UnixNano(), 100000000)
@@ -116,7 +117,7 @@ func TestMessageFactory_POW(t *testing.T) {
 		mapdb.NewMapDB(),
 		[]byte(sequenceKey),
 		identity.GenerateLocalIdentity(),
-		TipSelectorFunc(func() (MessageID, MessageID) { return EmptyMessageID, EmptyMessageID }),
+		TipSelectorFunc(func(count int) []MessageID { return []MessageID{EmptyMessageID} }),
 	)
 	defer msgFactory.Shutdown()
 
@@ -143,7 +144,18 @@ func TestWorkerFunc_PayloadSize(t *testing.T) {
 		mapdb.NewMapDB(),
 		[]byte(sequenceKey),
 		identity.GenerateLocalIdentity(),
-		TipSelectorFunc(func() (MessageID, MessageID) { return EmptyMessageID, EmptyMessageID }),
+		TipSelectorFunc(func(count int) []MessageID {
+			return func() []MessageID {
+				result := make([]MessageID, 0, MaxParentsCount)
+				for i := 0; i < MaxParentsCount; i++ {
+					b := make([]byte, MessageIDLength)
+					_, _ = rand.Read(b)
+					randID, _, _ := MessageIDFromBytes(b)
+					result = append(result, randID)
+				}
+				return result
+			}()
+		}),
 	)
 	defer msgFactory.Shutdown()
 

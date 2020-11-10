@@ -47,8 +47,8 @@ func findByIDHandler(c echo.Context) error {
 				SolidificationTime: msgMetadata.SolidificationTime().Unix(),
 			},
 			ID:              msg.ID().String(),
-			Parent1ID:       msg.Parent1ID().String(),
-			Parent2ID:       msg.Parent2ID().String(),
+			StrongParents:   msg.StrongParents().ToStrings(),
+			WeakParents:     msg.WeakParents().ToStrings(),
 			IssuerPublicKey: msg.IssuerPublicKey().String(),
 			IssuingTime:     msg.IssuingTime().Unix(),
 			SequenceNumber:  msg.SequenceNumber(),
@@ -78,14 +78,14 @@ type FindByIDRequest struct {
 // Message contains information about a given message.
 type Message struct {
 	Metadata        `json:"metadata,omitempty"`
-	ID              string `json:"ID,omitempty"`
-	Parent1ID       string `json:"parent1Id,omitempty"`
-	Parent2ID       string `json:"parent2Id,omitempty"`
-	IssuerPublicKey string `json:"issuerPublicKey,omitempty"`
-	IssuingTime     int64  `json:"issuingTime,omitempty"`
-	SequenceNumber  uint64 `json:"sequenceNumber,omitempty"`
-	Payload         []byte `json:"payload,omitempty"`
-	Signature       string `json:"signature,omitempty"`
+	ID              string   `json:"ID,omitempty"`
+	StrongParents   []string `json:"strongParents,omitempty"`
+	WeakParents     []string `json:"weakParents,omitempty"`
+	IssuerPublicKey string   `json:"issuerPublicKey,omitempty"`
+	IssuingTime     int64    `json:"issuingTime,omitempty"`
+	SequenceNumber  uint64   `json:"sequenceNumber,omitempty"`
+	Payload         []byte   `json:"payload,omitempty"`
+	Signature       string   `json:"signature,omitempty"`
 }
 
 // Metadata contains metadata information of a message.
