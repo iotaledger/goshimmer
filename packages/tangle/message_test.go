@@ -343,6 +343,24 @@ func TestMessage_NewMessage(t *testing.T) {
 		})
 	})
 
+	t.Run("CASE: Too many parents, but okay without duplicates", func(t *testing.T) {
+		strongParents := randomParents(MaxParentsCount)
+		// MaxParentsCount + 1 parents, but there is one duplicate
+		strongParents = append(strongParents, strongParents[MaxParentsCount-1])
+		assert.NotPanics(t, func() {
+			_ = NewMessage(
+				strongParents,
+				nil,
+				time.Now(),
+				ed25519.PublicKey{},
+				0,
+				payload.NewGenericDataPayload([]byte("")),
+				0,
+				ed25519.Signature{},
+			)
+		})
+	})
+
 	t.Run("CASE: Strong parents are sorted", func(t *testing.T) {
 		// max number of parents supplied (only strong)
 		strongParents := randomParents(MaxParentsCount)

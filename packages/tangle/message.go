@@ -167,20 +167,24 @@ type Message struct {
 
 // NewMessage creates a new message with the details provided by the issuer.
 func NewMessage(strongParents []MessageID, weakParents []MessageID, issuingTime time.Time, issuerPublicKey ed25519.PublicKey, sequenceNumber uint64, payload payload.Payload, nonce uint64, signature ed25519.Signature) (result *Message) {
+	// remove duplicates, sort in ASC
+	sortedStrongParents := sortParents(strongParents)
+	sortedWeakParents := sortParents(weakParents)
+
 	// syntactical validation
-	parentsCount := len(strongParents) + len(weakParents)
+	parentsCount := len(sortedStrongParents) + len(sortedWeakParents)
 	if parentsCount < MinParentsCount || parentsCount > MaxParentsCount {
 		panic(fmt.Sprintf("amount of parents (%d) not in valid range (%d-%d)", parentsCount, MinParentsCount, MaxParentsCount))
 	}
 
-	if len(strongParents) < MinStrongParentsCount {
+	if len(sortedStrongParents) < MinStrongParentsCount {
 		panic(fmt.Sprintf("amount of strong parents (%d) failed to reach MinStrongParentsCount (%d)", len(strongParents), MinStrongParentsCount))
 	}
 
 	return &Message{
 		version:         MessageVersion,
-		strongParents:   sortParents(strongParents),
-		weakParents:     sortParents(weakParents),
+		strongParents:   sortedStrongParents,
+		weakParents:     sortedWeakParents,
 		issuerPublicKey: issuerPublicKey,
 		issuingTime:     issuingTime,
 		sequenceNumber:  sequenceNumber,
