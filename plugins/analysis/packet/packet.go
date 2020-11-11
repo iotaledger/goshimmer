@@ -18,7 +18,6 @@ var (
 	analysisMsgRegistry *message.Registry
 	fpcHeartBeatOnce    sync.Once
 	heartBeatOnce       sync.Once
-	manaHeartBeatOnce   sync.Once
 )
 
 func init() {
@@ -28,7 +27,6 @@ func init() {
 		HeartBeatMessageDefinition(),
 		FPCHeartbeatMessageDefinition(),
 		MetricHeartbeatMessageDefinition,
-		ManaHeartbeatMessageDefinition(),
 	}
 	analysisMsgRegistry = message.NewRegistry(definitions)
 }

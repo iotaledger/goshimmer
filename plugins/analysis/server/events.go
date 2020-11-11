@@ -23,8 +23,6 @@ var Events = struct {
 	FPCHeartbeat *events.Event
 	// MetricHeartbeat triggers when an MetricHeartbeat heartbeat has been received.
 	MetricHeartbeat *events.Event
-	// ManaHeartbeat triggers when an ManaHeartbeat heartbeat has been received.
-	ManaHeartbeat *events.Event
 }{
 	events.NewEvent(addNodeCaller),
 	events.NewEvent(removeNodeCaller),
@@ -34,7 +32,6 @@ var Events = struct {
 	events.NewEvent(heartbeatPacketCaller),
 	events.NewEvent(fpcHeartbeatPacketCaller),
 	events.NewEvent(metricHeartbeatPacketCaller),
-	events.NewEvent(manaHeartbeatPacketCaller),
 }
 
 // AddNodeEvent is the payload type of an AddNode event.
@@ -92,7 +89,4 @@ func fpcHeartbeatPacketCaller(handler interface{}, params ...interface{}) {
 
 func metricHeartbeatPacketCaller(handler interface{}, params ...interface{}) {
 	handler.(func(hb *packet.MetricHeartbeat))(params[0].(*packet.MetricHeartbeat))
-}
-func manaHeartbeatPacketCaller(handler interface{}, params ...interface{}) {
-	handler.(func(hb *packet.ManaHeartbeat))(params[0].(*packet.ManaHeartbeat))
 }

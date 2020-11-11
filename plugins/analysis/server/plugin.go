@@ -133,9 +133,6 @@ func wireUp(p *protocol.Protocol) {
 	p.Events.Received[packet.MessageTypeMetricHeartbeat].Attach(events.NewClosure(func(data []byte) {
 		processMetricHeartbeatPacket(data)
 	}))
-	p.Events.Received[packet.MessageTypeManaHeartbeat].Attach(events.NewClosure(func(data []byte) {
-		processManaHeartbeatPacket(data)
-	}))
 }
 
 // processHeartbeatPacket parses the serialized data into a Heartbeat packet and triggers its event.
@@ -176,18 +173,4 @@ func processMetricHeartbeatPacket(data []byte) {
 		return
 	}
 	Events.MetricHeartbeat.Trigger(hb)
-}
-
-// processManaHeartbeatPacket parses the serialized data into a Mana Heartbeat packet and triggers its event.
-// Note that the ParseManaHeartbeat function will return an error if the hb version field is different than banner.AppVersion,
-// thus the hb will be discarded.
-func processManaHeartbeatPacket(data []byte) {
-	hb, err := packet.ParseManaHeartbeat(data)
-	if err != nil {
-		if err != packet.ErrInvalidManaHeartbeatVersion {
-			Events.Error.Trigger(err)
-		}
-		return
-	}
-	Events.ManaHeartbeat.Trigger(hb)
 }
