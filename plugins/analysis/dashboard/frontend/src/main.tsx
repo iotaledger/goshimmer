@@ -10,7 +10,7 @@ import "./main.scss";
 import ManaStore from "./app/stores/ManaStore";
 
 const fpcStore = new FPCStore();
-const autopeeringStore = new AutopeeringStore();
+export const autopeeringStore = new AutopeeringStore();
 export const manaStore = new ManaStore()
 
 const stores = {

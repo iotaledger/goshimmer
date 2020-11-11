@@ -11,6 +11,7 @@ import {displayManaUnit} from "../../../../../../dashboard/frontend/src/app/util
 import Plus from "../../../../../../../plugins/dashboard/frontend/src/assets/plus.svg"
 import Minus from "../../../../../../../plugins/dashboard/frontend/src/assets/minus.svg"
 import {connectDashboardWebSocket, registerHandler} from "../services/WSmana";
+import {autopeeringStore} from "../../main";
 
 class ManaEvent {
     nodeID: string;
@@ -126,6 +127,11 @@ export class ManaStore {
                 this.consensusNetworkRichest = msg.nodes;
                 break;
         }
+        //TODO: show access or consensus mana
+        this.accessActiveRichest.forEach(node => {
+            let per = this.accessPercentile(node)
+            autopeeringStore.updateSizeBasedOnMana(node.shortNodeID, per)
+        })
     }
 
     @action
@@ -319,20 +325,16 @@ export class ManaStore {
         return histInput
     }
 
-    @computed
-    get accessPercentile() {
-        let per = 0.0;
-        // find id
-        if (this.accessNetworkRichest !== undefined && this.accessNetworkRichest !== null) {
-            const isOwnID = (element) => element.shortNodeID === this.ownID;
-            let index = this.accessNetworkRichest.findIndex(isOwnID);
-            switch (index) {
-                case -1:
-                    break;
-                default:
-                    per = ((this.accessNetworkRichest.length - (index + 1)) / this.accessNetworkRichest.length) * 100;
-                    break;
-            }
+    private accessPercentile(ownNode: INode): number{
+        let per = 0.0
+        if(this.accessActiveRichest !== undefined && this.accessActiveRichest !== null){
+            let nBelow = 0
+            this.accessActiveRichest.forEach(node => {
+                if(node.mana < ownNode.mana){
+                    nBelow++
+                }
+            })
+            per = (nBelow / (this.accessActiveRichest.length)) * 100
         }
         return per
     }

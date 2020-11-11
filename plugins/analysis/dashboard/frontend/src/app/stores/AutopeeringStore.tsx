@@ -528,6 +528,7 @@ export class AutopeeringStore {
 
     // graph related updates //
     private drawNode(node: string): void {
+
         if (this.graph) {
             const existing = this.graph.getNode(node);
 
@@ -545,6 +546,16 @@ export class AutopeeringStore {
             nodeUI.color = color;
             nodeUI.size = size;
         }
+    }
+
+    @action
+    public updateSizeBasedOnMana(nodeId: string, percentile: number): void {
+        const nodeUI = this.graphics.getNodeUI(nodeId)
+        if(!nodeUI){
+            return
+        }
+
+        this.updateNodeUiColor(nodeId, nodeUI.color, VERTEX_SIZE + (Math.floor(percentile/20) * 5))
     }
 
     // updates color of a link (edge) in the graph
