@@ -11,6 +11,8 @@ import (
 	"github.com/iotaledger/hive.go/objectstorage"
 )
 
+// SequenceManager is an entity that manages the marker sequences. It offers methods to add, delete and modify
+// sequences.
 type SequenceManager struct {
 	sequenceStore      *objectstorage.ObjectStorage
 	sequenceAliasStore *objectstorage.ObjectStorage
@@ -19,6 +21,7 @@ type SequenceManager struct {
 	sequenceIDCounterMutex sync.Mutex
 }
 
+// NewSequenceManager is the constructor of the SequenceManager.
 func NewSequenceManager(store kvstore.KVStore) *SequenceManager {
 	storedSequenceIDCounter, err := store.Get(kvstore.Key("sequenceIDCounter"))
 	if err != nil && !errors.Is(err, kvstore.ErrKeyNotFound) {
@@ -39,6 +42,7 @@ func NewSequenceManager(store kvstore.KVStore) *SequenceManager {
 	}
 }
 
+// NextSequenceID returns the new sequence ID for the next sequence.
 func (s *SequenceManager) NextSequenceID() (nextSequenceID SequenceID) {
 	s.sequenceIDCounterMutex.Lock()
 	defer s.sequenceIDCounterMutex.Unlock()

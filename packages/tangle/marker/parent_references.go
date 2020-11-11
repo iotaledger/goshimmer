@@ -15,6 +15,7 @@ import (
 // ParentReferences models the relationship between Sequences by providing a way to encode the
 type ParentReferences map[SequenceID]*thresholdmap.ThresholdMap
 
+// New creates a new ParentReferences.
 func NewParentReferences(referencedMarkers Markers) (parentReferences ParentReferences) {
 	parentReferences = make(ParentReferences)
 
@@ -32,6 +33,7 @@ func NewParentReferences(referencedMarkers Markers) (parentReferences ParentRefe
 	return
 }
 
+// ParentReferencesFromBytes unmarshals a ParentReferences from a sequence of bytes.
 func ParentReferencesFromBytes(parentReferencesBytes []byte) (parentReferences ParentReferences, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(parentReferencesBytes)
 	if parentReferences, err = ParentReferencesFromMarshalUtil(marshalUtil); err != nil {
@@ -43,6 +45,7 @@ func ParentReferencesFromBytes(parentReferencesBytes []byte) (parentReferences P
 	return
 }
 
+// ParentReferencesFromMarshalUtil is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
 func ParentReferencesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (parentReferences ParentReferences, err error) {
 	sequenceCount, err := marshalUtil.ReadUint64()
 	if err != nil {
@@ -85,6 +88,7 @@ func ParentReferencesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (pare
 	return
 }
 
+// AddReferences add referenced markers to the ParentReferences.
 func (p ParentReferences) AddReferences(referencedMarkers Markers, referencingIndex Index) {
 	for _, referencedMarker := range referencedMarkers {
 		thresholdMap, exists := p[referencedMarker.sequenceID]
@@ -100,6 +104,7 @@ func (p ParentReferences) AddReferences(referencedMarkers Markers, referencingIn
 	}
 }
 
+// HighestReferencedMarker returns a marker with the highest index of a specific marker sequence.
 func (p ParentReferences) HighestReferencedMarker(sequenceID SequenceID, referencingIndex Index) (highestReferencedMarker *Marker) {
 	thresholdMap, exists := p[sequenceID]
 	if !exists {
@@ -117,6 +122,7 @@ func (p ParentReferences) HighestReferencedMarker(sequenceID SequenceID, referen
 	}
 }
 
+// HighestReferencedMarkers returns a list of highest index markers in different marker sequence.
 func (p ParentReferences) HighestReferencedMarkers(index Index) (highestReferencedMarkers UniqueMarkers) {
 	highestReferencedMarkers = make(UniqueMarkers)
 	for sequenceID, thresholdMap := range p {
@@ -130,6 +136,7 @@ func (p ParentReferences) HighestReferencedMarkers(index Index) (highestReferenc
 	return
 }
 
+// SequenceIDs returns the IDs of the marker sequence of ParentReferences.
 func (p ParentReferences) SequenceIDs() SequenceIDs {
 	sequenceIDs := make([]SequenceID, 0, len(p))
 	for sequenceID := range p {
@@ -139,6 +146,7 @@ func (p ParentReferences) SequenceIDs() SequenceIDs {
 	return NewSequenceIDs(sequenceIDs...)
 }
 
+// Bytes returns the ParentReferences in serialized byte form.
 func (p ParentReferences) Bytes() []byte {
 	marshalUtil := marshalutil.New()
 
@@ -157,6 +165,7 @@ func (p ParentReferences) Bytes() []byte {
 	return marshalUtil.Bytes()
 }
 
+// String returns the base58 encode of the ParentReferences.
 func (p ParentReferences) String() string {
 	referencingIndexes := make([]Index, 0)
 	referencedMarkersByReferencingIndex := make(map[Index][]*Marker)

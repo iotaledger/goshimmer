@@ -15,6 +15,7 @@ import (
 
 // region Sequence /////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// Sequence represents a marker sequence.
 type Sequence struct {
 	id               SequenceID
 	parentReferences ParentReferences
@@ -24,6 +25,7 @@ type Sequence struct {
 	objectstorage.StorableObjectFlags
 }
 
+// New creates a new Sequence.
 func NewSequence(id SequenceID, referencedMarkers Markers, rank uint64) *Sequence {
 	return &Sequence{
 		id:               id,
@@ -33,6 +35,7 @@ func NewSequence(id SequenceID, referencedMarkers Markers, rank uint64) *Sequenc
 	}
 }
 
+// SequenceFromBytes unmarshals a Sequence from a sequence of bytes.
 func SequenceFromBytes(sequenceBytes []byte) (sequence *Sequence, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(sequenceBytes)
 	if sequence, err = SequenceFromMarshalUtil(marshalUtil); err != nil {
@@ -44,6 +47,7 @@ func SequenceFromBytes(sequenceBytes []byte) (sequence *Sequence, consumedBytes 
 	return
 }
 
+// SequenceFromMarshalUtil is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
 func SequenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequence *Sequence, err error) {
 	sequence = &Sequence{}
 	if sequence.id, err = SequenceIDFromMarshalUtil(marshalUtil); err != nil {
@@ -66,6 +70,7 @@ func SequenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequence *Se
 	return
 }
 
+// SequenceFromObjectStorage restores an Sequence that was stored in the ObjectStorage.
 func SequenceFromObjectStorage(key []byte, data []byte) (sequence objectstorage.StorableObject, err error) {
 	if sequence, _, err = SequenceFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
 		err = xerrors.Errorf("failed to parse Sequence from bytes: %w", err)
@@ -75,38 +80,49 @@ func SequenceFromObjectStorage(key []byte, data []byte) (sequence objectstorage.
 	return
 }
 
+// ID returns the id of the marker sequence.
 func (s *Sequence) ID() SequenceID {
 	return s.id
 }
 
+// ParentReferences returns the sequence ids of the parent sequences.
 func (s *Sequence) ParentSequences() SequenceIDs {
 	return s.parentReferences.SequenceIDs()
 }
 
+// HighestReferencedParentMarkers returns a list of highest index markers in different marker sequence of parent sequences.
 func (s *Sequence) HighestReferencedParentMarkers(index Index) UniqueMarkers {
 	return s.parentReferences.HighestReferencedMarkers(index)
 }
 
+// Rank returns the rank of the sequence.
 func (s *Sequence) Rank() uint64 {
 	return s.rank
 }
 
+// HighestIndex returns the highest index of the sequence.
 func (s *Sequence) HighestIndex() Index {
 	return s.highestIndex
 }
 
+// Bytes returns the Sequence in serialized byte form.
 func (s *Sequence) Bytes() []byte {
 	return byteutils.ConcatBytes(s.ObjectStorageKey(), s.ObjectStorageValue())
 }
 
+// Update updates the sequence to object storage.
 func (s *Sequence) Update(other objectstorage.StorableObject) {
 	panic("updates disabled")
 }
 
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
 func (s *Sequence) ObjectStorageKey() []byte {
 	return s.id.Bytes()
 }
 
+// ObjectStorageValue marshals the Sequence into a sequence of bytes. The ID is not serialized here as it is only used as
+// a key in the ObjectStorage.
 func (s *Sequence) ObjectStorageValue() []byte {
 	return marshalutil.New().
 		Write(s.parentReferences).
@@ -159,8 +175,10 @@ func (c *CachedSequence) Consume(consumer func(sequence *Sequence), forceRelease
 
 // region SequenceID ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+// SequenceID identifies a marker sequence.
 type SequenceID uint64
 
+// SequenceIDFromBytes unmarshals a sequence ID from a sequence of bytes.
 func SequenceIDFromBytes(sequenceIDBytes []byte) (sequenceID SequenceID, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(sequenceIDBytes)
 	if sequenceID, err = SequenceIDFromMarshalUtil(marshalUtil); err != nil {
@@ -172,6 +190,7 @@ func SequenceIDFromBytes(sequenceIDBytes []byte) (sequenceID SequenceID, consume
 	return
 }
 
+// SequenceIDFromMarshalUtil is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
 func SequenceIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequenceID SequenceID, err error) {
 	untypedSequenceID, err := marshalUtil.ReadUint64()
 	if err != nil {
@@ -183,10 +202,12 @@ func SequenceIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequenceID
 	return
 }
 
+// Bytes returns the bytes of the sequence ID.
 func (a SequenceID) Bytes() []byte {
 	return marshalutil.New(marshalutil.Uint16Size).WriteUint64(uint64(a)).Bytes()
 }
 
+// String returns the base58 encode of the SequenceID.
 func (a SequenceID) String() string {
 	return "SequenceID(" + strconv.FormatUint(uint64(a), 10) + ")"
 }
@@ -195,8 +216,10 @@ func (a SequenceID) String() string {
 
 // region SequenceIDs //////////////////////////////////////////////////////////////////////////////////////////////////
 
+// SequenceIDs represents a list of sequence IDs.
 type SequenceIDs []SequenceID
 
+// NewSequenceIDs create a new SequenceIDs.
 func NewSequenceIDs(sequenceIDs ...SequenceID) (result SequenceIDs) {
 	sort.Slice(sequenceIDs, func(i, j int) bool { return sequenceIDs[i] < sequenceIDs[j] })
 	result = make(SequenceIDs, len(sequenceIDs))
@@ -207,6 +230,7 @@ func NewSequenceIDs(sequenceIDs ...SequenceID) (result SequenceIDs) {
 	return
 }
 
+// SequenceIDsFromBytes unmarshals a collection of sequence IDs from a sequence of bytes.
 func SequenceIDsFromBytes(sequenceIDBytes []byte) (sequenceIDs SequenceIDs, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(sequenceIDBytes)
 	if sequenceIDs, err = SequenceIDsFromMarshalUtil(marshalUtil); err != nil {
@@ -218,6 +242,7 @@ func SequenceIDsFromBytes(sequenceIDBytes []byte) (sequenceIDs SequenceIDs, cons
 	return
 }
 
+// SequenceIDsFromMarshalUtil unmarshals a collection of Sequence IDs using a MarshalUtil (for easier unmarshaling).
 func SequenceIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequenceIDs SequenceIDs, err error) {
 	sequenceIDsCount, err := marshalUtil.ReadUint32()
 	if err != nil {
@@ -235,6 +260,7 @@ func SequenceIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequenceI
 	return
 }
 
+// SequenceAlias returns a SequenceAlias computed from SequenceIDs.
 func (s SequenceIDs) SequenceAlias() (aggregatedSequencesID SequenceAlias) {
 	marshalUtil := marshalutil.New(marshalutil.Uint64Size * len(s))
 	for sequenceID := range s {
@@ -245,6 +271,7 @@ func (s SequenceIDs) SequenceAlias() (aggregatedSequencesID SequenceAlias) {
 	return
 }
 
+// Bytes returns the SequenceIDs in serialized byte form.
 func (s SequenceIDs) Bytes() []byte {
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteUint32(uint32(len(s)))
@@ -259,10 +286,13 @@ func (s SequenceIDs) Bytes() []byte {
 
 // region SequenceAlias ////////////////////////////////////////////////////////////////////////////////////////////////
 
+// SequenceAliasLength defines length of an alias sequence ID.
 const SequenceAliasLength = 32
 
+// SequenceAlias identifies an alias sequence ID.
 type SequenceAlias [SequenceAliasLength]byte
 
+// SequenceAliasFromBytes unmarshals a sequence alias from a sequence of bytes.
 func SequenceAliasFromBytes(aggregatedSequencesIDBytes []byte) (aggregatedSequencesID SequenceAlias, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(aggregatedSequencesIDBytes)
 	if aggregatedSequencesID, err = SequenceAliasFromMarshalUtil(marshalUtil); err != nil {
@@ -274,7 +304,8 @@ func SequenceAliasFromBytes(aggregatedSequencesIDBytes []byte) (aggregatedSequen
 	return
 }
 
-func SequenceAliasFromBase58EncodedString(base58String string) (aggregatedSequencesID SequenceAlias, err error) {
+// SequenceAliasFromBase58 creates a SequenceAlias from a base58 encoded string.
+func SequenceAliasFromBase58(base58String string) (aggregatedSequencesID SequenceAlias, err error) {
 	bytes, err := base58.Decode(base58String)
 	if err != nil {
 		err = xerrors.Errorf("error while decoding base58 encoded SequenceAlias (%v): %w", err, cerrors.ErrBase58DecodeFailed)
@@ -289,6 +320,7 @@ func SequenceAliasFromBase58EncodedString(base58String string) (aggregatedSequen
 	return
 }
 
+// SequenceAliasFromMarshalUtil unmarshals a SequenceAlias using a MarshalUtil (for easier unmarshaling).
 func SequenceAliasFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (aggregatedSequencesID SequenceAlias, err error) {
 	aggregatedSequencesIDBytes, err := marshalUtil.ReadBytes(SequenceAliasLength)
 	if err != nil {
@@ -300,14 +332,17 @@ func SequenceAliasFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (aggrega
 	return
 }
 
+// Bytes returns the bytes of the SequenceAlias.
 func (a SequenceAlias) Bytes() []byte {
 	return a[:]
 }
 
+// Base58 returns a base58 encoded version of the SequenceAlias.
 func (a SequenceAlias) Base58() string {
 	return base58.Encode(a.Bytes())
 }
 
+// String creates a human readable version of the SequenceAlias.
 func (a SequenceAlias) String() string {
 	return "SequenceAlias(" + a.Base58() + ")"
 }
@@ -316,6 +351,7 @@ func (a SequenceAlias) String() string {
 
 // region SequenceAliasMapping /////////////////////////////////////////////////////////////////////////////////////////
 
+// SequenceAliasMapping represents a payload that executes a value transfer in the ledger state.
 type SequenceAliasMapping struct {
 	sequenceAlias SequenceAlias
 	sequenceID    SequenceID
@@ -323,6 +359,7 @@ type SequenceAliasMapping struct {
 	objectstorage.StorableObjectFlags
 }
 
+// SequenceAliasMappingFromBytes unmarshals a SequenceAliasMapping from a sequence of bytes.
 func SequenceAliasMappingFromBytes(mappingBytes []byte) (mapping *SequenceAliasMapping, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(mappingBytes)
 	if mapping, err = SequenceAliasMappingFromMarshalUtil(marshalUtil); err != nil {
@@ -334,6 +371,7 @@ func SequenceAliasMappingFromBytes(mappingBytes []byte) (mapping *SequenceAliasM
 	return
 }
 
+// SequenceAliasMappingFromMarshalUtil unmarshals a SequenceAliasMapping using a MarshalUtil (for easier unmarshaling).
 func SequenceAliasMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (mapping *SequenceAliasMapping, err error) {
 	mapping = &SequenceAliasMapping{}
 	if mapping.sequenceAlias, err = SequenceAliasFromMarshalUtil(marshalUtil); err != nil {
@@ -348,6 +386,7 @@ func SequenceAliasMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (
 	return
 }
 
+// SequenceAliasMappingFromObjectStorage restores a SequenceAlias that was stored in the ObjectStorage.
 func SequenceAliasMappingFromObjectStorage(key []byte, data []byte) (mapping objectstorage.StorableObject, err error) {
 	if mapping, _, err = SequenceAliasMappingFromBytes(data); err != nil {
 		err = xerrors.Errorf("failed to parse SequenceAliasMapping from bytes: %w", err)
@@ -357,26 +396,34 @@ func SequenceAliasMappingFromObjectStorage(key []byte, data []byte) (mapping obj
 	return
 }
 
+// SequenceAlias returns the SequenceAlias of SequenceAliasMapping.
 func (a *SequenceAliasMapping) SequenceAlias() SequenceAlias {
 	return a.sequenceAlias
 }
 
+// SequenceID returns the sequence ID of SequenceAliasMapping.
 func (a *SequenceAliasMapping) SequenceID() SequenceID {
 	return a.sequenceID
 }
 
+// Bytes returns a marshaled version of the SequenceAliasMapping.
 func (a *SequenceAliasMapping) Bytes() []byte {
 	return byteutils.ConcatBytes(a.ObjectStorageKey(), a.ObjectStorageValue())
 }
 
+// Update updates the SequenceAliasMapping to object storage.
 func (a *SequenceAliasMapping) Update(other objectstorage.StorableObject) {
 	panic("updates disabled")
 }
 
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
 func (a *SequenceAliasMapping) ObjectStorageKey() []byte {
 	return a.sequenceAlias.Bytes()
 }
 
+// ObjectStorageValue marshals the Transaction into a sequence of bytes. The ID is not serialized here as it is only
+// used as a key in the ObjectStorage.
 func (a *SequenceAliasMapping) ObjectStorageValue() []byte {
 	return a.sequenceID.Bytes()
 }
