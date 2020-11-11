@@ -1,3 +1,23 @@
+# v0.3.1 - 2020-11-13
+* Refactor message structure according to the new Tangle RFC: 
+    * add support for multiple parents
+    * update local dashboard
+    * new unit tests
+    * max payload size changed to 65157 bytes
+* Add community-based entry node.
+* Add commit tag to version.
+* Add package for common sentinel errors.
+* Improve dashboard websocket management.
+* Integrate NTP-based clock to the network delay app.
+* Switch from packer to pkger to pack dashboard.
+* Switch from Viper to koanf as core library for configuration.
+* Fix Value Tangle tip selection management.
+* Fix mps query label in grafana.
+* Fix potential race condition within the clock package.
+* Upgrade to latest hive.go
+* Upgrade NodeJS dependencies of the dashboard.
+* **Breaking**: bumps network and database versions
+
 # v0.3.0 - 2020-10-12
 * Added multiple dRNG committees support: Pollen, X-Team and Custom.
 * Added clock synchronization plugin via NTP.
