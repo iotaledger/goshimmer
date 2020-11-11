@@ -25,7 +25,7 @@ type Sequence struct {
 	objectstorage.StorableObjectFlags
 }
 
-// New creates a new Sequence.
+// NewSequence creates a new Sequence.
 func NewSequence(id SequenceID, referencedMarkers Markers, rank uint64) *Sequence {
 	return &Sequence{
 		id:               id,
@@ -85,7 +85,7 @@ func (s *Sequence) ID() SequenceID {
 	return s.id
 }
 
-// ParentReferences returns the sequence ids of the parent sequences.
+// ParentSequences returns the sequence ids of the parent sequences.
 func (s *Sequence) ParentSequences() SequenceIDs {
 	return s.parentReferences.SequenceIDs()
 }

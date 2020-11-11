@@ -15,7 +15,7 @@ import (
 // ParentReferences models the relationship between Sequences by providing a way to encode the
 type ParentReferences map[SequenceID]*thresholdmap.ThresholdMap
 
-// New creates a new ParentReferences.
+// NewParentReferences creates a new ParentReferences.
 func NewParentReferences(referencedMarkers Markers) (parentReferences ParentReferences) {
 	parentReferences = make(ParentReferences)
 
