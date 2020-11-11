@@ -10,5 +10,7 @@ export enum WSMsgType {
     ManaMapOnline,
     ManaAllowedPledge,
     ManaPledge,
-    ManaRevoke
+    ManaRevoke,
+    MsgManaDashboardAddress,
+    MsgReqManaDashboardAddress
 }

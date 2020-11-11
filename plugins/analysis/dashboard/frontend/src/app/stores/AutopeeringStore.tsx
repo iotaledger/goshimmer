@@ -6,10 +6,11 @@ import { IConnectNodesMessage } from "../models/messages/IConnectNodesMessage";
 import { IDisconnectNodesMessage } from "../models/messages/IDisconnectNodesMessage";
 import { IRemoveNodeMessage } from "../models/messages/IRemoveNodeMessage";
 import { WSMsgType } from "../models/ws/wsMsgType";
-import { connectWebSocket, registerHandler } from "../services/WS";
+import {connectWebSocket, registerHandler, sendMessage} from "../services/WS";
 import { buildCircleNodeShader } from "../utils/circleNodeShader";
 import { parseColor } from "../utils/colorHelper";
 import {Neighbors} from "../models/Neighbors";
+import {manaStore} from "../../main";
 
 const EDGE_COLOR_DEFAULT = "#ff7d6cff";
 const EDGE_COLOR_HIDE = "#ff7d6c40";
@@ -77,6 +78,7 @@ export class AutopeeringStore {
         registerHandler(WSMsgType.removeNode, msg => this.onRemoveNode(msg));
         registerHandler(WSMsgType.connectNodes, msg => this.onConnectNodes(msg));
         registerHandler(WSMsgType.disconnectNodes, msg => this.onDisconnectNodes(msg));
+        registerHandler(WSMsgType.MsgManaDashboardAddress, msg => this.setManaDashboardAddress(msg))
     }
 
     // checks whether selection is already active, then updates selected node
@@ -101,6 +103,9 @@ export class AutopeeringStore {
     @action
     public updateWebSocketConnected(connected: boolean): void {
         this.websocketConnected = connected;
+        sendMessage({
+            type: WSMsgType.MsgReqManaDashboardAddress
+        })
     }
 
     @action
@@ -144,6 +149,11 @@ export class AutopeeringStore {
         })
         return versionsArray[0];
 
+    }
+
+    @action
+    private setManaDashboardAddress(address: string): void {
+       manaStore.setManaDashboardAddress(address)
     }
 
     @action
@@ -364,6 +374,7 @@ export class AutopeeringStore {
             () => this.updateWebSocketConnected(true),
             () => this.updateWebSocketConnected(false),
             () => this.updateWebSocketConnected(false));
+
     }
 
     // create a graph and fill it with data

@@ -1,7 +1,6 @@
 import {action, computed, observable} from 'mobx';
 import * as React from "react";
 import {Col, ListGroupItem, OverlayTrigger, Popover, Row} from "react-bootstrap";
-import {registerHandler} from "../services/WS";
 import {WSMsgType} from "../models/ws/wsMsgType";
 import {IManaMessage} from "../models/mana/IManaMessage";
 import {INetworkManaMessage} from "../models/mana/INetworkManaMessage";
@@ -11,6 +10,7 @@ import {IRevokeMessage} from "../models/mana/IRevokeMessage";
 import {displayManaUnit} from "../../../../../../dashboard/frontend/src/app/utils";
 import Plus from "../../../../../../../plugins/dashboard/frontend/src/assets/plus.svg"
 import Minus from "../../../../../../../plugins/dashboard/frontend/src/assets/minus.svg"
+import {connectDashboardWebSocket, registerHandler} from "../services/WSmana";
 
 class ManaEvent {
     nodeID: string;
@@ -76,6 +76,8 @@ export class ManaStore {
     @observable accessEvents: Array<ManaEvent> = [];
 
     @observable consensusEvents: Array<ManaEvent> = [];
+    @observable public dashboardWebsocketConnected: boolean = false;
+    @observable public manaDashboardAddress: string
 
     ownID: string;
 
@@ -150,6 +152,25 @@ export class ManaStore {
                 this.handleNewPledgeEvent(this.consensusEvents, msg);
                 break;
         }
+    }
+
+
+    @action
+    public updateDashboardWebsocketConnect(connected: boolean): void {
+        this.dashboardWebsocketConnected = connected
+    }
+
+    public connect(): void {
+        connectDashboardWebSocket(this.manaDashboardAddress,
+            () => this.updateDashboardWebsocketConnect(true),
+            () => this.updateDashboardWebsocketConnect(false),
+            () => this.updateDashboardWebsocketConnect(false));
+    }
+
+    @action
+    public setManaDashboardAddress(address: string): void {
+        this.manaDashboardAddress = address
+        this.connect()
     }
 
     handleNewPledgeEvent = (store: Array<ManaEvent>, msg: IPledgeMessage) => {

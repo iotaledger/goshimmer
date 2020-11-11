@@ -47,7 +47,7 @@ var (
 // Plugin gets the plugin instance
 func Plugin() *node.Plugin {
 	once.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Enabled, run)
+		plugin = node.NewPlugin(PluginName, node.Disabled, run)
 	})
 	return plugin
 }

@@ -23,6 +23,8 @@ const (
 	CfgMongoDBPassword = "analysis.dashboard.mongodb.password"
 	// CfgMongoDBHostAddress defines the config flag of the analysis dashboard mongoDB binding address.
 	CfgMongoDBHostAddress = "analysis.dashboard.mongodb.hostAddress"
+	// CfgManaDashboardAddress defines the address of the mana dashboard to stream mana info from.
+	CfgManaDashboardAddress = "analysis.dashboard.manaAddress"
 )
 
 func init() {
@@ -35,4 +37,5 @@ func init() {
 	flag.String(CfgMongoDBUsername, "root", "MongoDB username")
 	flag.String(CfgMongoDBPassword, "password", "MongoDB username")
 	flag.String(CfgMongoDBHostAddress, "mongodb:27017", "MongoDB host address")
+	flag.String(CfgManaDashboardAddress, "http://127.0.0.1:8081", "dashboard host address")
 }
