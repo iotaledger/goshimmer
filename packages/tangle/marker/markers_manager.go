@@ -39,7 +39,7 @@ func NewMarkersManager(store kvstore.KVStore) *MarkersManager {
 	}
 }
 
-func (s *MarkersManager) InheritMarkers(referencedMarkers ...NormalizedMarkers) {
+func (s *MarkersManager) InheritMarkers(referencedMarkers ...Markers) {
 	normalizedMarkers, rank := s.NormalizeMarkers(referencedMarkers...)
 
 	switch len(normalizedMarkers) {
@@ -55,7 +55,7 @@ func (s *MarkersManager) InheritMarkers(referencedMarkers ...NormalizedMarkers) 
 	return
 }
 
-func (s *MarkersManager) NormalizeMarkers(markers ...NormalizedMarkers) (normalizedMarkers NormalizedMarkers, rank uint64) {
+func (s *MarkersManager) NormalizeMarkers(markers ...Markers) (normalizedMarkers Markers, rank uint64) {
 	rankOfSequences := make(map[SequenceID]uint64)
 	rankOfSequence := func(sequenceID SequenceID) uint64 {
 		if rank, rankKnown := rankOfSequences[sequenceID]; rankKnown {
@@ -71,7 +71,7 @@ func (s *MarkersManager) NormalizeMarkers(markers ...NormalizedMarkers) (normali
 		return rankOfSequences[sequenceID]
 	}
 
-	normalizedMarkerCandidates := NewNormalizedMarkersByRank()
+	normalizedMarkerCandidates := NewMarkersByRank()
 	for _, marker := range markers {
 		for sequenceID, index := range marker {
 			normalizedMarkerCandidates.Add(rankOfSequence(sequenceID), sequenceID, index)
@@ -81,7 +81,7 @@ func (s *MarkersManager) NormalizeMarkers(markers ...NormalizedMarkers) (normali
 
 	for i := markersToIterate.HighestRank() + 1; i > normalizedMarkerCandidates.LowestRank(); i-- {
 		currentRank := i - 1
-		markersByRank, rankExists := markersToIterate.NormalizedMarkers(currentRank)
+		markersByRank, rankExists := markersToIterate.Markers(currentRank)
 		if !rankExists {
 			continue
 		}
@@ -89,7 +89,7 @@ func (s *MarkersManager) NormalizeMarkers(markers ...NormalizedMarkers) (normali
 		for sequenceID, index := range markersByRank {
 			s.Sequence(sequenceID).Consume(func(sequence *Sequence) {
 				if currentRank <= normalizedMarkerCandidates.LowestRank() {
-					normalizedMarkers, _ = normalizedMarkerCandidates.NormalizedMarkers()
+					normalizedMarkers, _ = normalizedMarkerCandidates.Markers()
 					rank = normalizedMarkerCandidates.HighestRank()
 					return
 				}
@@ -116,7 +116,7 @@ func (s *MarkersManager) NormalizeMarkers(markers ...NormalizedMarkers) (normali
 		}
 	}
 
-	normalizedMarkers, _ = normalizedMarkerCandidates.NormalizedMarkers()
+	normalizedMarkers, _ = normalizedMarkerCandidates.Markers()
 	rank = normalizedMarkerCandidates.HighestRank()
 	return
 }
@@ -131,7 +131,7 @@ func (s *MarkersManager) NextSequenceID() (nextSequenceID SequenceID) {
 	return
 }
 
-func (s *MarkersManager) RetrieveSequence(referencedMarkers NormalizedMarkers, rank uint64, optionalAlias ...SequenceAlias) (sequence *Sequence, sequenceCreated bool) {
+func (s *MarkersManager) RetrieveSequence(referencedMarkers Markers, rank uint64, optionalAlias ...SequenceAlias) (sequence *Sequence, sequenceCreated bool) {
 	sequenceAlias := referencedMarkers.SequenceIDs().Alias()
 	if len(optionalAlias) >= 1 {
 		sequenceAlias = sequenceAlias.Merge(optionalAlias[0])

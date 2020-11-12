@@ -8,7 +8,7 @@ import (
 )
 
 func TestSequence(t *testing.T) {
-	sequence := NewSequence(1337, NewNormalizedMarkers(
+	sequence := NewSequence(1337, NewMarkers(
 		&Marker{1, 3},
 		&Marker{2, 6},
 	), 7)

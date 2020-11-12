@@ -20,11 +20,11 @@ func TestMarker(t *testing.T) {
 }
 
 func TestMarkers(t *testing.T) {
-	markers := Markers{
+	markers := NewMarkers(
 		&Marker{1337, 1},
 		&Marker{1338, 2},
 		&Marker{1339, 3},
-	}
+	)
 
 	marshaledMarkers := markers.Bytes()
 	unmarshaledMarkers, consumedBytes, err := MarkersFromBytes(marshaledMarkers)
@@ -34,7 +34,7 @@ func TestMarkers(t *testing.T) {
 }
 
 func TestMarkersByRank(t *testing.T) {
-	markersByRank := NewNormalizedMarkersByRank()
+	markersByRank := NewMarkersByRank()
 
 	updated, added := markersByRank.Add(10, 7, 8)
 	assert.True(t, updated)

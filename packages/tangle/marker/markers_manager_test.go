@@ -10,17 +10,18 @@ import (
 func Test(t *testing.T) {
 	markerSequenceManager := NewMarkersManager(mapdb.NewMapDB())
 
-	markerSequenceManager.sequenceStore.Store(NewSequence(0, NewNormalizedMarkers(), 0))
-	markerSequenceManager.sequenceStore.Store(NewSequence(1, NewNormalizedMarkers(
+	markerSequenceManager.sequenceStore.Store(NewSequence(0, NewMarkers(), 0))
+	markerSequenceManager.sequenceStore.Store(NewSequence(1, NewMarkers(
 		&Marker{0, 1},
 	), 1))
-	markerSequenceManager.sequenceStore.Store(NewSequence(2, NewNormalizedMarkers(
+	markerSequenceManager.sequenceStore.Store(NewSequence(2, NewMarkers(
 		&Marker{0, 7},
 	), 1))
 
-	normalizedMarkers, rank := markerSequenceManager.NormalizeMarkers(NewNormalizedMarkers(
-		&Marker{0, 3},
+	normalizedMarkers, rank := markerSequenceManager.NormalizeMarkers(NewMarkers(
 		&Marker{1, 7},
+	), NewMarkers(
+		&Marker{0, 3},
 		&Marker{2, 9},
 	))
 

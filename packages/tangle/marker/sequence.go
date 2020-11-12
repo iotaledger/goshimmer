@@ -26,7 +26,7 @@ type Sequence struct {
 }
 
 // NewSequence creates a new Sequence.
-func NewSequence(id SequenceID, referencedMarkers NormalizedMarkers, rank uint64) *Sequence {
+func NewSequence(id SequenceID, referencedMarkers Markers, rank uint64) *Sequence {
 	return &Sequence{
 		id:               id,
 		parentReferences: NewParentReferences(referencedMarkers),
@@ -91,7 +91,7 @@ func (s *Sequence) ParentSequences() SequenceIDs {
 }
 
 // HighestReferencedParentMarkers returns a list of highest index markers in different marker sequence of parent sequences.
-func (s *Sequence) HighestReferencedParentMarkers(index Index) NormalizedMarkers {
+func (s *Sequence) HighestReferencedParentMarkers(index Index) Markers {
 	return s.parentReferences.HighestReferencedMarkers(index)
 }
 

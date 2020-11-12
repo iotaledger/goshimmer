@@ -9,17 +9,17 @@ import (
 )
 
 func TestParentReferences(t *testing.T) {
-	parentReferences := NewParentReferences(NewNormalizedMarkers(
+	parentReferences := NewParentReferences(NewMarkers(
 		&Marker{1, 3},
 		&Marker{2, 7},
 	))
 
-	parentReferences.AddReferences(NewNormalizedMarkers(
+	parentReferences.AddReferences(NewMarkers(
 		&Marker{1, 5},
 		&Marker{2, 8},
 	), 9)
 
-	parentReferences.AddReferences(NewNormalizedMarkers(
+	parentReferences.AddReferences(NewMarkers(
 		&Marker{1, 7},
 		&Marker{2, 10},
 	), 12)
