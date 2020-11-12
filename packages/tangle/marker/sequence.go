@@ -24,7 +24,7 @@ type Sequence struct {
 	objectstorage.StorableObjectFlags
 }
 
-func NewSequence(id SequenceID, referencedMarkers Markers, rank uint64) *Sequence {
+func NewSequence(id SequenceID, referencedMarkers NormalizedMarkers, rank uint64) *Sequence {
 	return &Sequence{
 		id:               id,
 		parentReferences: NewParentReferences(referencedMarkers),
@@ -83,7 +83,7 @@ func (s *Sequence) ParentSequences() SequenceIDs {
 	return s.parentReferences.SequenceIDs()
 }
 
-func (s *Sequence) HighestReferencedParentMarkers(index Index) UniqueMarkers {
+func (s *Sequence) HighestReferencedParentMarkers(index Index) NormalizedMarkers {
 	return s.parentReferences.HighestReferencedMarkers(index)
 }
 
@@ -235,7 +235,7 @@ func SequenceIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequenceI
 	return
 }
 
-func (s SequenceIDs) SequenceAlias() (aggregatedSequencesID SequenceAlias) {
+func (s SequenceIDs) Alias() (aggregatedSequencesID SequenceAlias) {
 	marshalUtil := marshalutil.New(marshalutil.Uint64Size * len(s))
 	for sequenceID := range s {
 		marshalUtil.WriteUint64(uint64(sequenceID))
@@ -257,7 +257,7 @@ func (s SequenceIDs) Bytes() []byte {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region SequenceAlias ////////////////////////////////////////////////////////////////////////////////////////////////
+// region Alias ////////////////////////////////////////////////////////////////////////////////////////////////
 
 const SequenceAliasLength = 32
 
@@ -266,7 +266,7 @@ type SequenceAlias [SequenceAliasLength]byte
 func SequenceAliasFromBytes(aggregatedSequencesIDBytes []byte) (aggregatedSequencesID SequenceAlias, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(aggregatedSequencesIDBytes)
 	if aggregatedSequencesID, err = SequenceAliasFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse SequenceAlias from MarshalUtil: %w", err)
+		err = xerrors.Errorf("failed to parse Alias from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -277,12 +277,12 @@ func SequenceAliasFromBytes(aggregatedSequencesIDBytes []byte) (aggregatedSequen
 func SequenceAliasFromBase58EncodedString(base58String string) (aggregatedSequencesID SequenceAlias, err error) {
 	bytes, err := base58.Decode(base58String)
 	if err != nil {
-		err = xerrors.Errorf("error while decoding base58 encoded SequenceAlias (%v): %w", err, cerrors.ErrBase58DecodeFailed)
+		err = xerrors.Errorf("error while decoding base58 encoded Alias (%v): %w", err, cerrors.ErrBase58DecodeFailed)
 		return
 	}
 
 	if aggregatedSequencesID, _, err = SequenceAliasFromBytes(bytes); err != nil {
-		err = xerrors.Errorf("failed to parse SequenceAlias from bytes: %w", err)
+		err = xerrors.Errorf("failed to parse Alias from bytes: %w", err)
 		return
 	}
 
@@ -292,10 +292,16 @@ func SequenceAliasFromBase58EncodedString(base58String string) (aggregatedSequen
 func SequenceAliasFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (aggregatedSequencesID SequenceAlias, err error) {
 	aggregatedSequencesIDBytes, err := marshalUtil.ReadBytes(SequenceAliasLength)
 	if err != nil {
-		err = xerrors.Errorf("failed to parse SequenceAlias (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse Alias (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	copy(aggregatedSequencesID[:], aggregatedSequencesIDBytes)
+
+	return
+}
+
+func (a SequenceAlias) Merge(alias SequenceAlias) (mergedSequenceAlias SequenceAlias) {
+	byteutils.XORBytes(mergedSequenceAlias[:], a[:], alias[:])
 
 	return
 }
@@ -309,7 +315,7 @@ func (a SequenceAlias) Base58() string {
 }
 
 func (a SequenceAlias) String() string {
-	return "SequenceAlias(" + a.Base58() + ")"
+	return "Alias(" + a.Base58() + ")"
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -337,7 +343,7 @@ func SequenceAliasMappingFromBytes(mappingBytes []byte) (mapping *SequenceAliasM
 func SequenceAliasMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (mapping *SequenceAliasMapping, err error) {
 	mapping = &SequenceAliasMapping{}
 	if mapping.sequenceAlias, err = SequenceAliasFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse SequenceAlias from MarshalUtil: %w", err)
+		err = xerrors.Errorf("failed to parse Alias from MarshalUtil: %w", err)
 		return
 	}
 	if mapping.sequenceID, err = SequenceIDFromMarshalUtil(marshalUtil); err != nil {

@@ -164,4 +164,224 @@ func (m Markers) Bytes() []byte {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-type UniqueMarkers map[SequenceID]Index
+// region NormalizedMarkers ////////////////////////////////////////////////////////////////////////////////////////////
+
+// NormalizedMarkers represents a collection of Markers that can contain exactly one Index per SequenceID.
+type NormalizedMarkers map[SequenceID]Index
+
+func NewNormalizedMarkers(markers ...*Marker) (normalizedMarkers NormalizedMarkers) {
+	normalizedMarkers = make(NormalizedMarkers)
+	for _, marker := range markers {
+		normalizedMarkers.Set(marker.sequenceID, marker.index)
+	}
+
+	return
+}
+
+// Set adds a new Marker to the collection and updates the Index of an existing entry if it is higher than a possible
+// previously stored one. The method returns two boolean flags that indicate if an entry was updated and added.
+func (n NormalizedMarkers) Set(sequenceID SequenceID, index Index) (updated bool, added bool) {
+	if existingIndex, indexAlreadyStored := n[sequenceID]; indexAlreadyStored {
+		if updated = index > existingIndex; updated {
+			n[sequenceID] = index
+		}
+		return
+	}
+
+	n[sequenceID] = index
+	updated = true
+	added = true
+
+	return
+}
+
+func (n NormalizedMarkers) HighestIndex() (highestMarker Index) {
+	for _, index := range n {
+		if index > highestMarker {
+			highestMarker = index
+		}
+	}
+
+	return
+}
+
+// SequenceIDs returns the SequenceIDs that the normalized Markers represent.
+func (n NormalizedMarkers) SequenceIDs() SequenceIDs {
+	sequenceIDs := make([]SequenceID, 0, len(n))
+	for sequenceID := range n {
+		sequenceIDs = append(sequenceIDs, sequenceID)
+	}
+
+	return NewSequenceIDs(sequenceIDs...)
+}
+
+// Clone create a copy of the NormalizedMarkers.
+func (n NormalizedMarkers) Clone() (clone NormalizedMarkers) {
+	clone = make(NormalizedMarkers)
+	for sequenceID, index := range n {
+		clone[sequenceID] = index
+	}
+
+	return
+}
+
+// String returns a human readable version of the NormalizedMarkers.
+func (n NormalizedMarkers) String() string {
+	structBuilder := stringify.StructBuilder("NormalizedMarkers")
+	for sequenceID, index := range n {
+		structBuilder.AddField(stringify.StructField(sequenceID.String(), index))
+	}
+
+	return structBuilder.String()
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region NormalizedMarkersByRank //////////////////////////////////////////////////////////////////////////////////////
+
+type NormalizedMarkersByRank struct {
+	normalizedMarkersByRank map[uint64]NormalizedMarkers
+	lowestRank              uint64
+	highestRank             uint64
+	size                    uint64
+}
+
+func NewNormalizedMarkersByRank() *NormalizedMarkersByRank {
+	return &NormalizedMarkersByRank{
+		normalizedMarkersByRank: make(map[uint64]NormalizedMarkers),
+		lowestRank:              1<<64 - 1,
+		highestRank:             0,
+		size:                    0,
+	}
+}
+
+func (n *NormalizedMarkersByRank) Add(rank uint64, sequenceID SequenceID, index Index) (updated bool, added bool) {
+	if _, exists := n.normalizedMarkersByRank[rank]; !exists {
+		n.normalizedMarkersByRank[rank] = make(NormalizedMarkers)
+
+		if rank > n.highestRank {
+			n.highestRank = rank
+		}
+		if rank < n.lowestRank {
+			n.lowestRank = rank
+		}
+	}
+
+	updated, added = n.normalizedMarkersByRank[rank].Set(sequenceID, index)
+	if added {
+		n.size++
+	}
+
+	return
+}
+
+func (n *NormalizedMarkersByRank) NormalizedMarkers(optionalRank ...uint64) (normalizedMarkers NormalizedMarkers, exists bool) {
+	if len(optionalRank) >= 1 {
+		normalizedMarkers, exists = n.normalizedMarkersByRank[optionalRank[0]]
+		return
+	}
+
+	normalizedMarkers = make(NormalizedMarkers)
+	for _, uniqueMarkersOfRank := range n.normalizedMarkersByRank {
+		for sequenceID, index := range uniqueMarkersOfRank {
+			normalizedMarkers[sequenceID] = index
+		}
+	}
+	exists = len(normalizedMarkers) >= 1
+
+	return
+}
+
+func (n *NormalizedMarkersByRank) Index(rank uint64, sequenceID SequenceID) (index Index, exists bool) {
+	uniqueMarkers, exists := n.normalizedMarkersByRank[rank]
+	if !exists {
+		return
+	}
+
+	index, exists = uniqueMarkers[sequenceID]
+
+	return
+}
+
+func (n *NormalizedMarkersByRank) Delete(rank uint64, sequenceID SequenceID) (deleted bool) {
+	if sequences, sequencesExist := n.normalizedMarkersByRank[rank]; sequencesExist {
+		if _, indexExists := sequences[sequenceID]; indexExists {
+			delete(sequences, sequenceID)
+			n.size--
+			deleted = true
+
+			if len(sequences) == 0 {
+				delete(n.normalizedMarkersByRank, rank)
+
+				if rank == n.lowestRank {
+					if rank == n.highestRank {
+						n.lowestRank = 1<<64 - 1
+						n.highestRank = 0
+						return
+					}
+
+					for lowestRank := n.lowestRank + 1; lowestRank <= n.highestRank; lowestRank++ {
+						if _, rankExists := n.normalizedMarkersByRank[lowestRank]; rankExists {
+							n.lowestRank = lowestRank
+							break
+						}
+					}
+				}
+
+				if rank == n.highestRank {
+					for highestRank := n.highestRank - 1; highestRank >= n.lowestRank; highestRank-- {
+						if _, rankExists := n.normalizedMarkersByRank[highestRank]; rankExists {
+							n.highestRank = highestRank
+							break
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return
+}
+
+func (n *NormalizedMarkersByRank) LowestRank() uint64 {
+	return n.lowestRank
+}
+
+func (n *NormalizedMarkersByRank) HighestRank() uint64 {
+	return n.highestRank
+}
+
+func (n *NormalizedMarkersByRank) Size() uint64 {
+	return n.size
+}
+
+func (n *NormalizedMarkersByRank) Clone() *NormalizedMarkersByRank {
+	normalizedMarkersByRank := make(map[uint64]NormalizedMarkers)
+	for rank, uniqueMarkers := range n.normalizedMarkersByRank {
+		normalizedMarkersByRank[rank] = uniqueMarkers.Clone()
+	}
+
+	return &NormalizedMarkersByRank{
+		normalizedMarkersByRank: normalizedMarkersByRank,
+		lowestRank:              n.lowestRank,
+		highestRank:             n.highestRank,
+		size:                    n.size,
+	}
+}
+
+func (n *NormalizedMarkersByRank) String() string {
+	structBuilder := stringify.StructBuilder("NormalizedMarkersByRank")
+	if n.highestRank == 0 {
+		return structBuilder.String()
+	}
+
+	for rank := n.lowestRank; rank <= n.highestRank; rank++ {
+		if uniqueMarkers, uniqueMarkersExist := n.normalizedMarkersByRank[rank]; uniqueMarkersExist {
+			structBuilder.AddField(stringify.StructField(strconv.FormatUint(rank, 10), uniqueMarkers))
+		}
+	}
+
+	return structBuilder.String()
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

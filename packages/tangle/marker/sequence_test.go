@@ -8,10 +8,10 @@ import (
 )
 
 func TestSequence(t *testing.T) {
-	sequence := NewSequence(1337, Markers{
+	sequence := NewSequence(1337, NewNormalizedMarkers(
 		&Marker{1, 3},
 		&Marker{2, 6},
-	}, 7)
+	), 7)
 
 	assert.Equal(t, SequenceID(1337), sequence.ID())
 	assert.Equal(t, NewSequenceIDs(1, 2), sequence.ParentSequences())

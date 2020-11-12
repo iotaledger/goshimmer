@@ -9,20 +9,20 @@ import (
 )
 
 func TestParentReferences(t *testing.T) {
-	parentReferences := NewParentReferences(Markers{
+	parentReferences := NewParentReferences(NewNormalizedMarkers(
 		&Marker{1, 3},
 		&Marker{2, 7},
-	})
+	))
 
-	parentReferences.AddReferences(Markers{
+	parentReferences.AddReferences(NewNormalizedMarkers(
 		&Marker{1, 5},
 		&Marker{2, 8},
-	}, 9)
+	), 9)
 
-	parentReferences.AddReferences(Markers{
+	parentReferences.AddReferences(NewNormalizedMarkers(
 		&Marker{1, 7},
 		&Marker{2, 10},
-	}, 12)
+	), 12)
 
 	assert.Equal(t, NewSequenceIDs(1, 2), parentReferences.SequenceIDs())
 	assert.Equal(t, &Marker{1, 3}, parentReferences.HighestReferencedMarker(1, 8))

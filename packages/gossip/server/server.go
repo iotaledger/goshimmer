@@ -201,7 +201,7 @@ func (t *TCP) run() {
 
 	for {
 
-		// Set the timer so that it fires when the next accept expires
+		// Add the timer so that it fires when the next accept expires
 		if e := matcherList.Front(); e != nil {
 			// the first element always has the closest deadline
 			m := e.Value.(*acceptMatcher)

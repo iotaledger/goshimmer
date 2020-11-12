@@ -12,12 +12,12 @@ var (
 
 func initConfig() {
 	if config.Node().String(CfgTargetNode) == "" {
-		panic("Set the target node address\n")
+		panic("Add the target node address\n")
 	}
 	target = config.Node().String(CfgTargetNode)
 
 	if len(config.Node().Strings(CfgTestNodes)) == 0 {
-		panic("Set node addresses\n")
+		panic("Add node addresses\n")
 	}
 	nodes = append(nodes, config.Node().Strings(CfgTestNodes)...)
 

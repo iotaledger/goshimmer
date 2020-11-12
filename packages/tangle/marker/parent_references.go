@@ -15,18 +15,15 @@ import (
 // ParentReferences models the relationship between Sequences by providing a way to encode the
 type ParentReferences map[SequenceID]*thresholdmap.ThresholdMap
 
-func NewParentReferences(referencedMarkers Markers) (parentReferences ParentReferences) {
+func NewParentReferences(referencedMarkers NormalizedMarkers) (parentReferences ParentReferences) {
 	parentReferences = make(ParentReferences)
 
 	initialSequenceIndex := referencedMarkers.HighestIndex() + 1
-	for _, marker := range referencedMarkers {
-		if _, exists := parentReferences[marker.sequenceID]; exists {
-			panic("the Markers passed to NewParentReferences need to be unique (normalized)")
-		}
+	for sequenceID, index := range referencedMarkers {
 		thresholdMap := thresholdmap.New(thresholdmap.LowerThresholdMode)
 
-		thresholdMap.Set(uint64(initialSequenceIndex), uint64(marker.index))
-		parentReferences[marker.sequenceID] = thresholdMap
+		thresholdMap.Set(uint64(initialSequenceIndex), uint64(index))
+		parentReferences[sequenceID] = thresholdMap
 	}
 
 	return
@@ -85,18 +82,14 @@ func ParentReferencesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (pare
 	return
 }
 
-func (p ParentReferences) AddReferences(referencedMarkers Markers, referencingIndex Index) {
-	for _, referencedMarker := range referencedMarkers {
-		thresholdMap, exists := p[referencedMarker.sequenceID]
+func (p ParentReferences) AddReferences(referencedMarkers NormalizedMarkers, referencingIndex Index) {
+	for referencedSequenceID, referencedIndex := range referencedMarkers {
+		thresholdMap, exists := p[referencedSequenceID]
 		if !exists {
-			panic(fmt.Sprintf("tried to update referenced Marker of unknown parent Sequence: %s", referencedMarker.sequenceID))
+			panic(fmt.Sprintf("tried to update referenced Marker of unknown parent Sequence: %s", referencedSequenceID))
 		}
 
-		if thresholdMap.MaxElement().Value().(uint64) >= uint64(referencedMarker.index) {
-			continue
-		}
-
-		thresholdMap.Set(uint64(referencingIndex), uint64(referencedMarker.index))
+		thresholdMap.Set(uint64(referencingIndex), uint64(referencedIndex))
 	}
 }
 
@@ -117,8 +110,8 @@ func (p ParentReferences) HighestReferencedMarker(sequenceID SequenceID, referen
 	}
 }
 
-func (p ParentReferences) HighestReferencedMarkers(index Index) (highestReferencedMarkers UniqueMarkers) {
-	highestReferencedMarkers = make(UniqueMarkers)
+func (p ParentReferences) HighestReferencedMarkers(index Index) (highestReferencedMarkers NormalizedMarkers) {
+	highestReferencedMarkers = make(NormalizedMarkers)
 	for sequenceID, thresholdMap := range p {
 		referencedIndex, exists := thresholdMap.Get(uint64(index))
 		if !exists {
