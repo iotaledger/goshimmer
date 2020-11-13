@@ -36,7 +36,7 @@ var Core = node.Plugins(
 	profiling.Plugin(),
 	database.Plugin(),
 	autopeering.Plugin(),
-	pow.Plugin,
+	pow.Plugin(),
 	messagelayer.Plugin(),
 	gossip.Plugin(),
 	issuer.Plugin(),

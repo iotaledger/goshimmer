@@ -577,37 +577,37 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "irate(tangle_messages_per_type_count{message_type=\"data\"}[5m])",
+          "expr": "irate(tangle_messages_per_type_count{message_type=\"GenericDataPayloadType(0)\"}[5m])",
           "interval": "",
           "legendFormat": "Data Message Per Second",
           "refId": "A"
         },
         {
-          "expr": "irate(tangle_messages_per_type_count{message_type=\"value\"}[5m])",
+          "expr": "irate(tangle_messages_per_type_count{message_type=\"value(1)\"}[5m])",
           "interval": "",
           "legendFormat": "Transaction Per Second",
           "refId": "B"
         },
         {
-          "expr": "irate(tangle_messages_per_type_count{message_type=\"drng\"}[5m])",
+          "expr": "irate(tangle_messages_per_type_count{message_type=\"dRNG(111)\"}[5m])",
           "interval": "",
           "legendFormat": "dRNG Messages Per Second",
           "refId": "C"
         },
         {
-          "expr": "irate(tangle_messages_per_type_count{message_type=\"faucet\"}[5m])",
+          "expr": "irate(tangle_messages_per_type_count{message_type=\"faucet(2)\"}[5m])",
           "interval": "",
           "legendFormat": "Faucet Messages Per Second",
           "refId": "D"
         },
         {
-          "expr": "irate(tangle_messages_per_type_count{message_type=\"networkdelay\"}[5m])",
+          "expr": "irate(tangle_messages_per_type_count{message_type=\"networkdelay(189)\"}[5m])",
           "interval": "",
           "legendFormat": "Network Delay Messages Per Second",
           "refId": "E"
         },
         {
-          "expr": "irate(tangle_messages_per_type_count{message_type=\"syncbeacon\"}[5m])",
+          "expr": "irate(tangle_messages_per_type_count{message_type=\"syncbeacon(200)\"}[5m])",
           "interval": "",
           "legendFormat": "Sync Beacons Per Second",
           "refId": "F"

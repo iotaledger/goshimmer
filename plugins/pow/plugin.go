@@ -1,6 +1,8 @@
 package pow
 
 import (
+	"sync"
+
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/logger"
@@ -12,8 +14,17 @@ const PluginName = "PoW"
 
 var (
 	// Plugin is the plugin instance of the PoW plugin.
-	Plugin = node.NewPlugin(PluginName, node.Enabled, run)
+	plugin *node.Plugin
+	once   sync.Once
 )
+
+// Plugin gets the plugin instance.
+func Plugin() *node.Plugin {
+	once.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Enabled, run)
+	})
+	return plugin
+}
 
 func run(*node.Plugin) {
 	// assure that the logger is available

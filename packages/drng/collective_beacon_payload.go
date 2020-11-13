@@ -128,8 +128,8 @@ func (p *CollectiveBeaconPayload) Bytes() (bytes []byte) {
 	}
 
 	// marshal fields
-	payloadLength := HeaderLength + marshalutil.UINT64_SIZE + SignatureSize*2 + PublicKeySize
-	marshalUtil := marshalutil.New(marshalutil.UINT32_SIZE + marshalutil.UINT32_SIZE + payloadLength)
+	payloadLength := HeaderLength + marshalutil.Uint64Size + SignatureSize*2 + PublicKeySize
+	marshalUtil := marshalutil.New(marshalutil.Uint32Size + marshalutil.Uint32Size + payloadLength)
 	marshalUtil.WriteUint32(uint32(payloadLength))
 	marshalUtil.WriteBytes(PayloadType.Bytes())
 	marshalUtil.WriteBytes(p.Header.Bytes())

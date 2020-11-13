@@ -406,7 +406,7 @@ func (transactionMetadata *TransactionMetadata) Update(other objectstorage.Stora
 // ObjectStorageValue marshals the TransactionMetadata object into a sequence of bytes and matches the encoding.BinaryMarshaler
 // interface.
 func (transactionMetadata *TransactionMetadata) ObjectStorageValue() []byte {
-	return marshalutil.New(branchmanager.BranchIDLength + 2*marshalutil.TIME_SIZE + 6*marshalutil.BOOL_SIZE).
+	return marshalutil.New(branchmanager.BranchIDLength + 2*marshalutil.TimeSize + 6*marshalutil.BoolSize).
 		WriteBytes(transactionMetadata.BranchID().Bytes()).
 		WriteTime(transactionMetadata.SolidificationTime()).
 		WriteTime(transactionMetadata.FinalizationTime()).

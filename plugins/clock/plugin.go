@@ -51,7 +51,7 @@ func init() {
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 
-	ntpPools = config.Node().GetStringSlice(CfgNTPPools)
+	ntpPools = config.Node().Strings(CfgNTPPools)
 	if len(ntpPools) == 0 {
 		log.Fatalf("%s needs to provide at least 1 NTP pool to synchronize the local clock.", CfgNTPPools)
 	}

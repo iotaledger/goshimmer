@@ -4,7 +4,9 @@ import (
 	"context"
 	"crypto"
 
+	"github.com/iotaledger/hive.go/cerrors"
 	"golang.org/x/xerrors"
+
 	// Only want to use init
 	_ "golang.org/x/crypto/blake2b"
 
@@ -17,7 +19,7 @@ import (
 )
 
 const (
-	// ObjectName defines the name of the facuet object (payload).
+	// ObjectName defines the name of the faucet object (payload).
 	ObjectName = "faucet"
 )
 
@@ -57,7 +59,7 @@ func FromBytes(bytes []byte) (result *Request, consumedBytes int, err error) {
 
 	result = &Request{}
 	if _, err = marshalUtil.ReadUint32(); err != nil {
-		err = xerrors.Errorf("failed to parse payload size (%v): %w", err, payload.ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse payload size (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	result.payloadType, err = payload.TypeFromMarshalUtil(marshalUtil)
@@ -67,18 +69,18 @@ func FromBytes(bytes []byte) (result *Request, consumedBytes int, err error) {
 	}
 	addr, err := marshalUtil.ReadBytes(address.Length)
 	if err != nil {
-		err = xerrors.Errorf("failed to parse address of faucet request (%v): %w", err, payload.ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse address of faucet request (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	result.address, _, err = address.FromBytes(addr)
 	if err != nil {
-		err = xerrors.Errorf("failed to unmarshal address of faucet request (%v): %w", err, payload.ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to unmarshal address of faucet request (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
 	result.nonce, err = marshalUtil.ReadUint64()
 	if err != nil {
-		err = xerrors.Errorf("failed to unmarshal nonce of faucet request (%v): %w", err, payload.ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to unmarshal nonce of faucet request (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()

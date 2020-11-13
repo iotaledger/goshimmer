@@ -90,13 +90,11 @@ func (t *Tangle) Approvers(messageID MessageID) CachedApprovers {
 // message as an approver.
 func (t *Tangle) DeleteMessage(messageID MessageID) {
 	t.Message(messageID).Consume(func(currentMsg *Message) {
-		parent1MsgID := currentMsg.Parent1ID()
-		t.deleteApprover(parent1MsgID, messageID)
 
-		parent2MsgID := currentMsg.Parent2ID()
-		if parent2MsgID != parent1MsgID {
-			t.deleteApprover(parent2MsgID, messageID)
-		}
+		// TODO: reconsider behavior with approval switch
+		currentMsg.ForEachParent(func(parent Parent) {
+			t.deleteApprover(parent.ID, messageID)
+		})
 
 		t.messageMetadataStorage.Delete(messageID[:])
 		t.messageStorage.Delete(messageID[:])
@@ -196,14 +194,11 @@ func (t *Tangle) storeMessageWorker(msg *Message) {
 	messageID := msg.ID()
 	cachedMsgMetadata := &CachedMessageMetadata{CachedObject: t.messageMetadataStorage.Store(NewMessageMetadata(messageID))}
 
-	// store parent1 approver
-	parent1MsgID := msg.Parent1ID()
-	t.approverStorage.Store(NewApprover(parent1MsgID, messageID)).Release()
-
-	// store parent2 approver
-	if parent2MsgID := msg.Parent2ID(); parent2MsgID != parent1MsgID {
-		t.approverStorage.Store(NewApprover(parent2MsgID, messageID)).Release()
-	}
+	// TODO: approval switch: we probably need to introduce approver types
+	// store approvers
+	msg.ForEachStrongParent(func(parent MessageID) {
+		t.approverStorage.Store(NewApprover(parent, messageID)).Release()
+	})
 
 	// trigger events
 	if t.missingMessageStorage.DeleteIfPresent(messageID[:]) {
@@ -269,9 +264,13 @@ func (t *Tangle) isMessageSolid(msg *Message, msgMetadata *MessageMetadata) bool
 	}
 
 	// as missing messages are requested in isMessageMarkedAsSolid, we want to prevent short-circuit evaluation
-	parent1Solid := t.isMessageMarkedAsSolid(msg.Parent1ID())
-	parent2Solid := t.isMessageMarkedAsSolid(msg.Parent2ID())
-	return parent1Solid && parent2Solid
+	solid := true
+
+	msg.ForEachParent(func(parent Parent) {
+		solid = solid && t.isMessageMarkedAsSolid(parent.ID)
+	})
+
+	return solid
 }
 
 // builds up a stack from the given message and tries to solidify into the present.

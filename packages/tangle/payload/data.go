@@ -1,6 +1,7 @@
 package payload
 
 import (
+	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 	"golang.org/x/xerrors"
@@ -44,7 +45,7 @@ func GenericDataPayloadFromBytes(bytes []byte) (genericDataPayload *GenericDataP
 func GenericDataPayloadFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (genericDataPayload *GenericDataPayload, err error) {
 	payloadSize, err := marshalUtil.ReadUint32()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse payload size (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse payload size (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -54,7 +55,7 @@ func GenericDataPayloadFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (ge
 		return
 	}
 	if genericDataPayload.data, err = marshalUtil.ReadBytes(int(payloadSize)); err != nil {
-		err = xerrors.Errorf("failed to parse data (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse data (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 

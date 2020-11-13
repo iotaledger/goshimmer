@@ -28,7 +28,7 @@ var (
 )
 
 func configure(*node.Plugin) {
-	waitToKillTimeInSeconds = config.Node().GetInt(CfgWaitToKillTimeInSeconds)
+	waitToKillTimeInSeconds = config.Node().Int(CfgWaitToKillTimeInSeconds)
 
 	log = logger.NewLogger(PluginName)
 	gracefulStop = make(chan os.Signal)
