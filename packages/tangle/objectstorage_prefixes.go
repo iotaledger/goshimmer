@@ -11,4 +11,5 @@ const (
 	PrefixMissingMessage
 	// PrefixMarkerSequence defines the storage prefix for marker sequences.
 	PrefixMarkerSequence
+	PrefixSequenceAlias
 )

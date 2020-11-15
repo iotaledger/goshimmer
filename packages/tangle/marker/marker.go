@@ -174,6 +174,14 @@ func NewMarkers(optionalMarkers ...*Marker) (markers Markers) {
 	return
 }
 
+func (m Markers) Join(markers Markers) Markers {
+	for sequenceID, index := range markers {
+		m.Set(sequenceID, index)
+	}
+
+	return m
+}
+
 // Set adds a new Marker to the collection and updates the Index of an existing entry if it is higher than a possible
 // previously stored one. The method returns two boolean flags that indicate if an entry was updated and added.
 func (m Markers) Set(sequenceID SequenceID, index Index) (updated bool, added bool) {

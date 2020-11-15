@@ -3,11 +3,13 @@ package marker
 import (
 	"sort"
 	"strconv"
+	"sync"
 
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
+	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/xerrors"
@@ -17,21 +19,26 @@ import (
 
 // Sequence represents a marker sequence.
 type Sequence struct {
-	id               SequenceID
-	parentReferences ParentReferences
-	rank             uint64
-	highestIndex     Index
+	id                SequenceID
+	parentReferences  ParentReferences
+	rank              uint64
+	lowestIndex       Index
+	highestIndex      Index
+	highestIndexMutex sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
 
 // NewSequence creates a new Sequence.
 func NewSequence(id SequenceID, referencedMarkers Markers, rank uint64) *Sequence {
+	initialIndex := referencedMarkers.HighestIndex() + 1
+
 	return &Sequence{
 		id:               id,
 		parentReferences: NewParentReferences(referencedMarkers),
 		rank:             rank,
-		highestIndex:     referencedMarkers.HighestIndex() + 1,
+		lowestIndex:      initialIndex,
+		highestIndex:     initialIndex,
 	}
 }
 
@@ -60,6 +67,10 @@ func SequenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequence *Se
 	}
 	if sequence.rank, err = marshalUtil.ReadUint64(); err != nil {
 		err = xerrors.Errorf("failed to parse rank (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	if sequence.lowestIndex, err = IndexFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse lowest Index from MarshalUtil: %w", err)
 		return
 	}
 	if sequence.highestIndex, err = IndexFromMarshalUtil(marshalUtil); err != nil {
@@ -100,9 +111,31 @@ func (s *Sequence) Rank() uint64 {
 	return s.rank
 }
 
+// LowestIndex returns the highest index of the sequence.
+func (s *Sequence) LowestIndex() Index {
+	return s.lowestIndex
+}
+
 // HighestIndex returns the highest index of the sequence.
 func (s *Sequence) HighestIndex() Index {
+	s.highestIndexMutex.RLock()
+	defer s.highestIndexMutex.RUnlock()
+
 	return s.highestIndex
+}
+
+func (s *Sequence) IncreaseHighestIndex(referencedIndex Index) (index Index, increased bool) {
+	s.highestIndexMutex.Lock()
+	defer s.highestIndexMutex.Unlock()
+
+	//s.parentReferences.AddReferences()
+
+	if increased = referencedIndex == s.highestIndex; increased {
+		s.highestIndex++
+	}
+	index = s.highestIndex
+
+	return
 }
 
 // Bytes returns the Sequence in serialized byte form.
@@ -127,6 +160,7 @@ func (s *Sequence) ObjectStorageValue() []byte {
 	return marshalutil.New().
 		Write(s.parentReferences).
 		WriteUint64(s.rank).
+		Write(s.lowestIndex).
 		Write(s.HighestIndex()).
 		Bytes()
 }
@@ -217,14 +251,13 @@ func (a SequenceID) String() string {
 // region SequenceIDs //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // SequenceIDs represents a list of sequence IDs.
-type SequenceIDs []SequenceID
+type SequenceIDs map[SequenceID]types.Empty
 
 // NewSequenceIDs create a new SequenceIDs.
 func NewSequenceIDs(sequenceIDs ...SequenceID) (result SequenceIDs) {
-	sort.Slice(sequenceIDs, func(i, j int) bool { return sequenceIDs[i] < sequenceIDs[j] })
-	result = make(SequenceIDs, len(sequenceIDs))
-	for i, sequenceID := range sequenceIDs {
-		result[i] = sequenceID
+	result = make(SequenceIDs)
+	for _, sequenceID := range sequenceIDs {
+		result[sequenceID] = types.Void
 	}
 
 	return
@@ -251,10 +284,12 @@ func SequenceIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequenceI
 	}
 	sequenceIDs = make(SequenceIDs, sequenceIDsCount)
 	for i := uint32(0); i < sequenceIDsCount; i++ {
-		if sequenceIDs[i], err = SequenceIDFromMarshalUtil(marshalUtil); err != nil {
-			err = xerrors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
+		sequenceID, sequenceIDErr := SequenceIDFromMarshalUtil(marshalUtil)
+		if sequenceIDErr != nil {
+			err = xerrors.Errorf("failed to parse SequenceID from MarshalUtil: %w", sequenceIDErr)
 			return
 		}
+		sequenceIDs[sequenceID] = types.Void
 	}
 
 	return
@@ -262,6 +297,12 @@ func SequenceIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequenceI
 
 // Alias returns a SequenceAlias computed from SequenceIDs.
 func (s SequenceIDs) Alias() (aggregatedSequencesID SequenceAlias) {
+	sequenceIDsSlice := make([]SequenceID, 0, len(s))
+	for sequenceID := range s {
+		sequenceIDsSlice = append(sequenceIDsSlice, sequenceID)
+	}
+	sort.Slice(sequenceIDsSlice, func(i, j int) bool { return sequenceIDsSlice[i] < sequenceIDsSlice[j] })
+
 	marshalUtil := marshalutil.New(marshalutil.Uint64Size * len(s))
 	for sequenceID := range s {
 		marshalUtil.WriteUint64(uint64(sequenceID))
@@ -275,7 +316,7 @@ func (s SequenceIDs) Alias() (aggregatedSequencesID SequenceAlias) {
 func (s SequenceIDs) Bytes() []byte {
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteUint32(uint32(len(s)))
-	for _, sequenceID := range s {
+	for sequenceID := range s {
 		marshalUtil.Write(sequenceID)
 	}
 
@@ -291,6 +332,10 @@ const SequenceAliasLength = 32
 
 // SequenceAlias identifies an alias sequence ID.
 type SequenceAlias [SequenceAliasLength]byte
+
+func NewSequenceAlias(bytes []byte) SequenceAlias {
+	return blake2b.Sum256(bytes)
+}
 
 // SequenceAliasFromBytes unmarshals a sequence alias from a sequence of bytes.
 func SequenceAliasFromBytes(aggregatedSequencesIDBytes []byte) (aggregatedSequencesID SequenceAlias, consumedBytes int, err error) {
