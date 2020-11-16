@@ -11,10 +11,10 @@ import (
 
 // region Index ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Index identifies a marker in a marker sequence.
+// Index represents the ever increasing number of the Markers in a Sequence.
 type Index uint64
 
-// IndexFromBytes unmarshals a marker index from a sequence of bytes.
+// IndexFromBytes unmarshals an Index from a sequence of bytes.
 func IndexFromBytes(sequenceBytes []byte) (index Index, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(sequenceBytes)
 	if index, err = IndexFromMarshalUtil(marshalUtil); err != nil {
@@ -26,7 +26,7 @@ func IndexFromBytes(sequenceBytes []byte) (index Index, consumedBytes int, err e
 	return
 }
 
-// IndexFromMarshalUtil is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
+// IndexFromMarshalUtil unmarshals an Index using a MarshalUtil (for easier unmarshaling).
 func IndexFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (index Index, err error) {
 	untypedIndex, err := marshalUtil.ReadUint64()
 	if err != nil {
@@ -38,14 +38,14 @@ func IndexFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (index Index, er
 	return
 }
 
-// Bytes returns the bytes of the Index.
+// Bytes returns a marshaled version of the Index.
 func (i Index) Bytes() []byte {
 	return marshalutil.New(marshalutil.Uint64Size).
 		WriteUint64(uint64(i)).
 		Bytes()
 }
 
-// String returns the base58 encode of the Index.
+// String returns a human readable version of the Index.
 func (i Index) String() string {
 	return "Index(" + strconv.FormatUint(uint64(i), 10) + ")"
 }
@@ -54,13 +54,13 @@ func (i Index) String() string {
 
 // region Marker ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Marker represents a selected message from the Tangle and forms a marker sequence.
+// Marker represents a point in a Sequence that is identifier by an ever increasing Index.
 type Marker struct {
 	sequenceID SequenceID
 	index      Index
 }
 
-// New creates a new marker.
+// New is the constructor of a Marker.
 func New(sequenceID SequenceID, index Index) *Marker {
 	return &Marker{
 		sequenceID: sequenceID,
@@ -68,7 +68,7 @@ func New(sequenceID SequenceID, index Index) *Marker {
 	}
 }
 
-// FromBytes unmarshals a marker from a sequence of bytes.
+// FromBytes unmarshals a Marker from a sequence of bytes.
 func FromBytes(markerBytes []byte) (marker *Marker, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(markerBytes)
 	if marker, err = FromMarshalUtil(marshalUtil); err != nil {
@@ -79,7 +79,7 @@ func FromBytes(markerBytes []byte) (marker *Marker, consumedBytes int, err error
 	return
 }
 
-// FromMarshalUtil is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
+// FromMarshalUtil unmarshals a Marker using a MarshalUtil (for easier unmarshaling).
 func FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (marker *Marker, err error) {
 	marker = &Marker{}
 	if marker.sequenceID, err = SequenceIDFromMarshalUtil(marshalUtil); err != nil {
@@ -94,17 +94,17 @@ func FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (marker *Marker, err 
 	return
 }
 
-// SequenceID returns the id of the marker sequence of the marker.
+// SequenceID returns the identifier of the Sequence of the Marker.
 func (m *Marker) SequenceID() SequenceID {
 	return m.sequenceID
 }
 
-// Index returns the index of the marker in a marker sequence.
+// Index returns the ever increasing number of the Marker in a Sequence.
 func (m *Marker) Index() Index {
 	return m.index
 }
 
-// Bytes returns the marker in serialized byte form.
+// Bytes returns a marshaled version of the Marker.
 func (m *Marker) Bytes() []byte {
 	return marshalutil.New(marshalutil.Uint64Size + marshalutil.Uint64Size).
 		Write(m.sequenceID).
@@ -112,7 +112,7 @@ func (m *Marker) Bytes() []byte {
 		Bytes()
 }
 
-// String returns the base58 encode of the Marker.
+// String returns a human readable version of the Marker.
 func (m *Marker) String() string {
 	return stringify.Struct("Marker",
 		stringify.StructField("sequenceID", m.SequenceID()),

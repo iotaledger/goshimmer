@@ -8,13 +8,14 @@ import (
 )
 
 func TestMarkersManager_InheritMarkers(t *testing.T) {
-	markerSequenceManager := NewManager(mapdb.NewMapDB())
+	manager := NewManager(mapdb.NewMapDB())
 
-	inheritedMarkers, isNewMarker := markerSequenceManager.InheritMarkers(NewMarkers())
+	inheritedMarkers, isNewMarker, _ := manager.InheritMarkers(manager.NormalizeMarkers(NewMarkers()))
 
 	fmt.Println(inheritedMarkers, isNewMarker)
-	fmt.Println(markerSequenceManager.InheritMarkers(NewMarkers(), NewSequenceAlias([]byte("testBranch"))))
-	fmt.Println(markerSequenceManager.InheritMarkers(inheritedMarkers))
+	normalizedMarkers1, normalizedSequences1, rank1 := manager.NormalizeMarkers(NewMarkers())
+	fmt.Println(manager.InheritMarkers(normalizedMarkers1, normalizedSequences1, rank1, NewSequenceAlias([]byte("testBranch"))))
+	fmt.Println(manager.InheritMarkers(manager.NormalizeMarkers(inheritedMarkers)))
 }
 
 func Test(t *testing.T) {

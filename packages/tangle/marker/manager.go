@@ -12,16 +12,20 @@ import (
 	"github.com/iotaledger/hive.go/types"
 )
 
+// region Manager //////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // Manager is the managing entity for the Marker related business logic. It is stateful and automatically stores its
 // state in an underlying KVStore.
 type Manager struct {
+	store                  kvstore.KVStore
 	sequenceStore          *objectstorage.ObjectStorage
 	sequenceAliasStore     *objectstorage.ObjectStorage
 	sequenceIDCounter      SequenceID
 	sequenceIDCounterMutex sync.Mutex
+	shutdownOnce           sync.Once
 }
 
-// NewManager is the constructor of the Manager.
+// NewManager is the constructor of the Manager that takes a KVStore to persist its state.
 func NewManager(store kvstore.KVStore) *Manager {
 	storedSequenceIDCounter, err := store.Get(kvstore.Key("sequenceIDCounter"))
 	if err != nil && !errors.Is(err, kvstore.ErrKeyNotFound) {
@@ -37,6 +41,7 @@ func NewManager(store kvstore.KVStore) *Manager {
 	}
 
 	return &Manager{
+		store:              store,
 		sequenceStore:      objectstorage.NewFactory(store, database.PrefixMessageLayer).New(tangle.PrefixMarkerSequence, SequenceFromObjectStorage),
 		sequenceAliasStore: objectstorage.NewFactory(store, database.PrefixMessageLayer).New(tangle.PrefixSequenceAlias, SequenceFromObjectStorage),
 		sequenceIDCounter:  sequenceIDCounter,
@@ -59,7 +64,7 @@ func (m *Manager) MergeMarkers(markersToMerge ...Markers) (mergedMarkers Markers
 
 // NormalizeMarkers takes a set of Markers and removes each Marker that is already referenced by another Marker in the
 // same set (the remaining Markers are the "most special" Markers that reference all Markers in the set). In addition,
-// the method returns all SequenceIDs of the Markers that were not referenced by any other Markers (the tips of the
+// the method returns all SequenceIDs of the Markers that were not referenced by any of the Markers (the tips of the
 // Sequence DAG) and the rank of the Sequence that is furthest away from the root.
 func (m *Manager) NormalizeMarkers(markers Markers) (normalizedMarkers Markers, normalizedSequences SequenceIDs, rank uint64) {
 	rankOfSequences := make(map[SequenceID]uint64)
@@ -68,7 +73,7 @@ func (m *Manager) NormalizeMarkers(markers Markers) (normalizedMarkers Markers, 
 			return rank
 		}
 
-		if !m.Sequence(sequenceID).Consume(func(sequence *Sequence) {
+		if !m.sequence(sequenceID).Consume(func(sequence *Sequence) {
 			rankOfSequences[sequenceID] = sequence.rank
 		}) {
 			panic(fmt.Sprintf("failed to load Sequence with %s", sequenceID))
@@ -99,7 +104,7 @@ func (m *Manager) NormalizeMarkers(markers Markers) (normalizedMarkers Markers, 
 				return
 			}
 
-			m.Sequence(sequenceID).Consume(func(sequence *Sequence) {
+			m.sequence(sequenceID).Consume(func(sequence *Sequence) {
 				for referencedSequenceID, referencedIndex := range sequence.HighestReferencedParentMarkers(index) {
 					delete(normalizedSequences, referencedSequenceID)
 
@@ -130,17 +135,18 @@ func (m *Manager) NormalizeMarkers(markers Markers) (normalizedMarkers Markers, 
 }
 
 // InheritMarkers takes the result of the NormalizeMarkers method and determines the resulting markers that should be
-// inherited to the new node in the DAG. It automatically creates new Sequences and Markers if necessary.
-func (m *Manager) InheritMarkers(normalizedMarkers Markers, normalizedSequences SequenceIDs, rank uint64, newSequenceAlias ...SequenceAlias) (inheritedMarkers Markers, newMarkerAssigned bool) {
+// inherited to the a node in the DAG. It automatically creates new Sequences and Markers if necessary and returns two
+// additional flags that indicate if either a new Sequence and or a new Marker where created.
+func (m *Manager) InheritMarkers(normalizedMarkers Markers, normalizedSequences SequenceIDs, rank uint64, newSequenceAlias ...SequenceAlias) (inheritedMarkers Markers, newSequence bool, newMarker bool) {
 	if len(normalizedSequences) == 0 {
 		normalizedSequences[SequenceID(0)] = types.Void
 	}
 
-	cachedSequence, sequenceIsNew := m.FetchSequence(normalizedSequences, normalizedMarkers, rank, newSequenceAlias...)
-	if sequenceIsNew {
+	cachedSequence, newSequence := m.fetchSequence(normalizedSequences, normalizedMarkers, rank, newSequenceAlias...)
+	if newSequence {
 		cachedSequence.Consume(func(sequence *Sequence) {
 			inheritedMarkers = NewMarkers(&Marker{sequenceID: sequence.id, index: sequence.lowestIndex})
-			newMarkerAssigned = true
+			newMarker = true
 		})
 		return
 	}
@@ -156,7 +162,7 @@ func (m *Manager) InheritMarkers(normalizedMarkers Markers, normalizedSequences 
 					}
 
 					inheritedMarkers = NewMarkers(&Marker{sequenceID: sequence.id, index: newIndex})
-					newMarkerAssigned = true
+					newMarker = true
 					return
 				}
 			}
@@ -172,7 +178,21 @@ func (m *Manager) InheritMarkers(normalizedMarkers Markers, normalizedSequences 
 	return
 }
 
-func (m *Manager) FetchSequence(parentSequences SequenceIDs, referencedMarkers Markers, rank uint64, newSequenceAlias ...SequenceAlias) (cachedSequence *CachedSequence, isNew bool) {
+// Shutdown is the function that shuts down the Manager and persists its state.
+func (m *Manager) Shutdown() {
+	m.shutdownOnce.Do(func() {
+		if err := m.store.Set(kvstore.Key("sequenceIDCounter"), m.sequenceIDCounter.Bytes()); err != nil {
+			panic(err)
+		}
+
+		m.sequenceStore.Shutdown()
+		m.sequenceAliasStore.Shutdown()
+	})
+}
+
+// fetchSequence is an internal utility function that retrieves or creates the Sequence that represents the given
+// parameters and returns it.
+func (m *Manager) fetchSequence(parentSequences SequenceIDs, referencedMarkers Markers, rank uint64, newSequenceAlias ...SequenceAlias) (cachedSequence *CachedSequence, isNew bool) {
 	sequenceAlias := parentSequences.Alias()
 	if len(newSequenceAlias) >= 1 {
 		sequenceAlias = sequenceAlias.Merge(newSequenceAlias[0])
@@ -198,16 +218,15 @@ func (m *Manager) FetchSequence(parentSequences SequenceIDs, referencedMarkers M
 	}
 
 	cachedSequenceAliasMapping.Consume(func(aggregatedSequencesIDMapping *SequenceAliasMapping) {
-		cachedSequence = m.Sequence(aggregatedSequencesIDMapping.SequenceID())
+		cachedSequence = m.sequence(aggregatedSequencesIDMapping.SequenceID())
 	})
 
 	return
 }
 
-func (m *Manager) Sequence(sequenceID SequenceID) *CachedSequence {
+// sequence is an internal utility function that loads the given Sequence from the store.
+func (m *Manager) sequence(sequenceID SequenceID) *CachedSequence {
 	return &CachedSequence{CachedObject: m.sequenceStore.Load(sequenceID.Bytes())}
 }
 
-func (m *Manager) SequenceAliasMapping(id SequenceAlias) *CachedSequenceAliasMapping {
-	return &CachedSequenceAliasMapping{CachedObject: m.sequenceAliasStore.Load(id.Bytes())}
-}
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
