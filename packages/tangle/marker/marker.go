@@ -165,6 +165,7 @@ func MarkersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (markers Marke
 	return
 }
 
+// NewMarkers creates a new collection of Markers from the given parameters.
 func NewMarkers(optionalMarkers ...*Marker) (markers Markers) {
 	markers = make(Markers)
 	for _, marker := range optionalMarkers {
@@ -172,14 +173,6 @@ func NewMarkers(optionalMarkers ...*Marker) (markers Markers) {
 	}
 
 	return
-}
-
-func (m Markers) Join(markers Markers) Markers {
-	for sequenceID, index := range markers {
-		m.Set(sequenceID, index)
-	}
-
-	return m
 }
 
 // Set adds a new Marker to the collection and updates the Index of an existing entry if it is higher than a possible
@@ -199,6 +192,7 @@ func (m Markers) Set(sequenceID SequenceID, index Index) (updated bool, added bo
 	return
 }
 
+// HighestIndex returns the the highest Index of all Markers in the collection.
 func (m Markers) HighestIndex() (highestMarker Index) {
 	for _, index := range m {
 		if index > highestMarker {
@@ -207,16 +201,6 @@ func (m Markers) HighestIndex() (highestMarker Index) {
 	}
 
 	return
-}
-
-// SequenceIDs returns the SequenceIDs that the normalized Markers represent.
-func (m Markers) SequenceIDs() SequenceIDs {
-	sequenceIDs := make([]SequenceID, 0, len(m))
-	for sequenceID := range m {
-		sequenceIDs = append(sequenceIDs, sequenceID)
-	}
-
-	return NewSequenceIDs(sequenceIDs...)
 }
 
 // Clone create a copy of the Markers.
@@ -255,6 +239,7 @@ func (m Markers) String() string {
 
 // region MarkersByRank ////////////////////////////////////////////////////////////////////////////////////////////////
 
+// MarkersByRank is a collection of Markers that groups them by the rank of their Sequence.
 type MarkersByRank struct {
 	markersByRank map[uint64]Markers
 	lowestRank    uint64
@@ -262,6 +247,7 @@ type MarkersByRank struct {
 	size          uint64
 }
 
+// NewMarkersByRank creates a new collection of Markers grouped by the rank of their Sequence.
 func NewMarkersByRank() *MarkersByRank {
 	return &MarkersByRank{
 		markersByRank: make(map[uint64]Markers),
@@ -271,6 +257,7 @@ func NewMarkersByRank() *MarkersByRank {
 	}
 }
 
+// Add adds a new Marker to the collection and returns if the marker was updated
 func (m *MarkersByRank) Add(rank uint64, sequenceID SequenceID, index Index) (updated bool, added bool) {
 	if _, exists := m.markersByRank[rank]; !exists {
 		m.markersByRank[rank] = make(Markers)
@@ -291,6 +278,9 @@ func (m *MarkersByRank) Add(rank uint64, sequenceID SequenceID, index Index) (up
 	return
 }
 
+// Markers flattens the collection and returns a normal Markers collection by removing the rank information. The
+// optionalRank parameter allows to optionally filter the collection by rank and only return the Markers of the given
+// rank. The method additionally returns an exists flag that indicates if the returned Markers are not empty.
 func (m *MarkersByRank) Markers(optionalRank ...uint64) (markers Markers, exists bool) {
 	if len(optionalRank) >= 1 {
 		markers, exists = m.markersByRank[optionalRank[0]]
@@ -308,6 +298,8 @@ func (m *MarkersByRank) Markers(optionalRank ...uint64) (markers Markers, exists
 	return
 }
 
+// Index returns the Index of the Marker given by the rank and its SequenceID and a flag that indicates if the Marker
+// exists in the collection.
 func (m *MarkersByRank) Index(rank uint64, sequenceID SequenceID) (index Index, exists bool) {
 	uniqueMarkers, exists := m.markersByRank[rank]
 	if !exists {
@@ -319,6 +311,8 @@ func (m *MarkersByRank) Index(rank uint64, sequenceID SequenceID) (index Index, 
 	return
 }
 
+// Delete removes the given Marker from the collection and returns a flag that indicates if the Marker existed in the
+// collection.
 func (m *MarkersByRank) Delete(rank uint64, sequenceID SequenceID) (deleted bool) {
 	if sequences, sequencesExist := m.markersByRank[rank]; sequencesExist {
 		if _, indexExists := sequences[sequenceID]; indexExists {
@@ -359,18 +353,22 @@ func (m *MarkersByRank) Delete(rank uint64, sequenceID SequenceID) (deleted bool
 	return
 }
 
+// LowestRank returns the lowest rank that has Markers.
 func (m *MarkersByRank) LowestRank() uint64 {
 	return m.lowestRank
 }
 
+// HighestRank returns the highest rank that has Markers.
 func (m *MarkersByRank) HighestRank() uint64 {
 	return m.highestRank
 }
 
+// Size returns the amount of Markers in the collection.
 func (m *MarkersByRank) Size() uint64 {
 	return m.size
 }
 
+// Clone returns a copy of the MarkersByRank.
 func (m *MarkersByRank) Clone() *MarkersByRank {
 	markersByRank := make(map[uint64]Markers)
 	for rank, uniqueMarkers := range m.markersByRank {
@@ -385,6 +383,7 @@ func (m *MarkersByRank) Clone() *MarkersByRank {
 	}
 }
 
+// String returns a human readable version of the MarkersByRank.
 func (m *MarkersByRank) String() string {
 	structBuilder := stringify.StructBuilder("MarkersByRank")
 	if m.highestRank == 0 {

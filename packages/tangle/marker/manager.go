@@ -63,10 +63,10 @@ func (m *Manager) MergeMarkers(markersToMerge ...Markers) (mergedMarkers Markers
 }
 
 // NormalizeMarkers takes a set of Markers and removes each Marker that is already referenced by another Marker in the
-// same set (the remaining Markers are the "most special" Markers that reference all Markers in the set). In addition,
-// the method returns all SequenceIDs of the Markers that were not referenced by any of the Markers (the tips of the
-// Sequence DAG) and the rank of the Sequence that is furthest away from the root.
-func (m *Manager) NormalizeMarkers(markers Markers) (normalizedMarkers Markers, normalizedSequences SequenceIDs, rank uint64) {
+// same set (the remaining Markers are the "most special" Markers that reference all Markers in the set grouped by the
+// rank of their corresponding Sequence). In addition, the method returns all SequenceIDs of the Markers that were not
+// referenced by any of the Markers (the tips of the Sequence DAG).
+func (m *Manager) NormalizeMarkers(markers Markers) (normalizedMarkersByRank *MarkersByRank, normalizedSequences SequenceIDs) {
 	rankOfSequences := make(map[SequenceID]uint64)
 	rankOfSequence := func(sequenceID SequenceID) uint64 {
 		if rank, rankKnown := rankOfSequences[sequenceID]; rankKnown {
@@ -82,15 +82,15 @@ func (m *Manager) NormalizeMarkers(markers Markers) (normalizedMarkers Markers, 
 		return rankOfSequences[sequenceID]
 	}
 
+	normalizedMarkersByRank = NewMarkersByRank()
 	normalizedSequences = make(SequenceIDs)
-	normalizedMarkerCandidates := NewMarkersByRank()
 	for sequenceID, index := range markers {
 		normalizedSequences[sequenceID] = types.Void
-		normalizedMarkerCandidates.Add(rankOfSequence(sequenceID), sequenceID, index)
+		normalizedMarkersByRank.Add(rankOfSequence(sequenceID), sequenceID, index)
 	}
-	markersToIterate := normalizedMarkerCandidates.Clone()
+	markersToIterate := normalizedMarkersByRank.Clone()
 
-	for i := markersToIterate.HighestRank() + 1; i > normalizedMarkerCandidates.LowestRank(); i-- {
+	for i := markersToIterate.HighestRank() + 1; i > normalizedMarkersByRank.LowestRank(); i-- {
 		currentRank := i - 1
 		markersByRank, rankExists := markersToIterate.Markers(currentRank)
 		if !rankExists {
@@ -98,9 +98,7 @@ func (m *Manager) NormalizeMarkers(markers Markers) (normalizedMarkers Markers, 
 		}
 
 		for sequenceID, index := range markersByRank {
-			if currentRank <= normalizedMarkerCandidates.LowestRank() {
-				normalizedMarkers, _ = normalizedMarkerCandidates.Markers()
-				rank = normalizedMarkerCandidates.HighestRank()
+			if currentRank <= normalizedMarkersByRank.LowestRank() {
 				return
 			}
 
@@ -109,11 +107,11 @@ func (m *Manager) NormalizeMarkers(markers Markers) (normalizedMarkers Markers, 
 					delete(normalizedSequences, referencedSequenceID)
 
 					rankOfReferencedSequence := rankOfSequence(referencedSequenceID)
-					if index, indexExists := normalizedMarkerCandidates.Index(rankOfReferencedSequence, referencedSequenceID); indexExists {
+					if index, indexExists := normalizedMarkersByRank.Index(rankOfReferencedSequence, referencedSequenceID); indexExists {
 						if referencedIndex >= index {
-							normalizedMarkerCandidates.Delete(rankOfReferencedSequence, referencedSequenceID)
+							normalizedMarkersByRank.Delete(rankOfReferencedSequence, referencedSequenceID)
 
-							if rankOfReferencedSequence > normalizedMarkerCandidates.LowestRank() {
+							if rankOfReferencedSequence > normalizedMarkersByRank.LowestRank() {
 								markersToIterate.Add(rankOfReferencedSequence, referencedSequenceID, referencedIndex)
 							}
 						}
@@ -121,7 +119,7 @@ func (m *Manager) NormalizeMarkers(markers Markers) (normalizedMarkers Markers, 
 						continue
 					}
 
-					if rankOfReferencedSequence > normalizedMarkerCandidates.LowestRank() {
+					if rankOfReferencedSequence > normalizedMarkersByRank.LowestRank() {
 						markersToIterate.Add(rankOfReferencedSequence, referencedSequenceID, referencedIndex)
 					}
 				}
@@ -129,20 +127,21 @@ func (m *Manager) NormalizeMarkers(markers Markers) (normalizedMarkers Markers, 
 		}
 	}
 
-	normalizedMarkers, _ = normalizedMarkerCandidates.Markers()
-	rank = normalizedMarkerCandidates.HighestRank()
 	return
 }
 
 // InheritMarkers takes the result of the NormalizeMarkers method and determines the resulting markers that should be
 // inherited to the a node in the DAG. It automatically creates new Sequences and Markers if necessary and returns two
 // additional flags that indicate if either a new Sequence and or a new Marker where created.
-func (m *Manager) InheritMarkers(normalizedMarkers Markers, normalizedSequences SequenceIDs, rank uint64, newSequenceAlias ...SequenceAlias) (inheritedMarkers Markers, newSequence bool, newMarker bool) {
+func (m *Manager) InheritMarkers(normalizedMarkers *MarkersByRank, normalizedSequences SequenceIDs, newSequenceAlias ...SequenceAlias) (inheritedMarkers Markers, newSequence bool, newMarker bool) {
+	referencedMarkers, _ := normalizedMarkers.Markers()
+	rank := normalizedMarkers.HighestRank()
+
 	if len(normalizedSequences) == 0 {
 		normalizedSequences[SequenceID(0)] = types.Void
 	}
 
-	cachedSequence, newSequence := m.fetchSequence(normalizedSequences, normalizedMarkers, rank, newSequenceAlias...)
+	cachedSequence, newSequence := m.fetchSequence(normalizedSequences, referencedMarkers, rank, newSequenceAlias...)
 	if newSequence {
 		cachedSequence.Consume(func(sequence *Sequence) {
 			inheritedMarkers = NewMarkers(&Marker{sequenceID: sequence.id, index: sequence.lowestIndex})
@@ -153,12 +152,12 @@ func (m *Manager) InheritMarkers(normalizedMarkers Markers, normalizedSequences 
 
 	if len(normalizedSequences) == 1 {
 		cachedSequence.Consume(func(sequence *Sequence) {
-			if sequence.HighestIndex() == normalizedMarkers[sequence.id] {
-				newIndex, increased := sequence.IncreaseHighestIndex(normalizedMarkers[sequence.id])
+			if sequence.HighestIndex() == referencedMarkers[sequence.id] {
+				newIndex, increased := sequence.IncreaseHighestIndex(referencedMarkers[sequence.id])
 				if increased {
-					if len(normalizedMarkers) > 1 {
-						delete(normalizedMarkers, sequence.id)
-						sequence.parentReferences.AddReferences(normalizedMarkers, newIndex)
+					if len(referencedMarkers) > 1 {
+						delete(referencedMarkers, sequence.id)
+						sequence.parentReferences.AddReferences(referencedMarkers, newIndex)
 					}
 
 					inheritedMarkers = NewMarkers(&Marker{sequenceID: sequence.id, index: newIndex})
@@ -167,13 +166,13 @@ func (m *Manager) InheritMarkers(normalizedMarkers Markers, normalizedSequences 
 				}
 			}
 
-			inheritedMarkers = normalizedMarkers
+			inheritedMarkers = referencedMarkers
 		})
 		return
 	}
 
 	cachedSequence.Release()
-	inheritedMarkers = normalizedMarkers
+	inheritedMarkers = referencedMarkers
 
 	return
 }

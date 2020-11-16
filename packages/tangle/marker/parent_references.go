@@ -12,10 +12,13 @@ import (
 	"golang.org/x/xerrors"
 )
 
-// ParentReferences models the relationship between Sequences by providing a way to encode the
+// region ParentReferences /////////////////////////////////////////////////////////////////////////////////////////////
+
+// ParentReferences models the relationship between Sequences by providing a way to encode which Marker references which
+// other Markers of the corresponding parent Sequences.
 type ParentReferences map[SequenceID]*thresholdmap.ThresholdMap
 
-// NewParentReferences creates a new ParentReferences.
+// NewParentReferences creates a new set of ParentReferences.
 func NewParentReferences(referencedMarkers Markers) (parentReferences ParentReferences) {
 	parentReferences = make(ParentReferences)
 
@@ -201,3 +204,5 @@ func (p ParentReferences) String() string {
 		stringify.StructField("referencedMarkers", referencedMarkers),
 	)
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

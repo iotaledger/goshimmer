@@ -13,8 +13,8 @@ func TestMarkersManager_InheritMarkers(t *testing.T) {
 	inheritedMarkers, isNewMarker, _ := manager.InheritMarkers(manager.NormalizeMarkers(NewMarkers()))
 
 	fmt.Println(inheritedMarkers, isNewMarker)
-	normalizedMarkers1, normalizedSequences1, rank1 := manager.NormalizeMarkers(NewMarkers())
-	fmt.Println(manager.InheritMarkers(normalizedMarkers1, normalizedSequences1, rank1, NewSequenceAlias([]byte("testBranch"))))
+	normalizedMarkers1, normalizedSequences1 := manager.NormalizeMarkers(NewMarkers())
+	fmt.Println(manager.InheritMarkers(normalizedMarkers1, normalizedSequences1, NewSequenceAlias([]byte("testBranch"))))
 	fmt.Println(manager.InheritMarkers(manager.NormalizeMarkers(inheritedMarkers)))
 }
 
@@ -33,7 +33,7 @@ func Test(t *testing.T) {
 		&Marker{2, 1},
 	), 2))
 
-	normalizedMarkers, normalizedSequences, rank := manager.NormalizeMarkers(
+	normalizedMarkers, normalizedSequences := manager.NormalizeMarkers(
 		manager.MergeMarkers(
 			NewMarkers(
 				&Marker{1, 7},
@@ -46,5 +46,5 @@ func Test(t *testing.T) {
 		),
 	)
 
-	fmt.Println(normalizedMarkers, normalizedSequences, rank)
+	fmt.Println(normalizedMarkers, normalizedSequences)
 }

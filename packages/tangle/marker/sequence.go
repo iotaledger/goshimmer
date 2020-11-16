@@ -124,11 +124,11 @@ func (s *Sequence) HighestIndex() Index {
 	return s.highestIndex
 }
 
+// IncreaseHighestIndex increases the highest Index of the Sequence if the referenced Index is pointing at the highest
+// Index. It returns the new highest Index and a boolean flag that indicates if the value was increased.
 func (s *Sequence) IncreaseHighestIndex(referencedIndex Index) (index Index, increased bool) {
 	s.highestIndexMutex.Lock()
 	defer s.highestIndexMutex.Unlock()
-
-	//s.parentReferences.AddReferences()
 
 	if increased = referencedIndex == s.highestIndex; increased {
 		s.highestIndex++
@@ -312,7 +312,7 @@ func (s SequenceIDs) Alias() (aggregatedSequencesID SequenceAlias) {
 	return
 }
 
-// Bytes returns the SequenceIDs in serialized byte form.
+// Bytes returns a marshaled version of the SequenceIDs.
 func (s SequenceIDs) Bytes() []byte {
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteUint32(uint32(len(s)))
@@ -323,16 +323,31 @@ func (s SequenceIDs) Bytes() []byte {
 	return marshalUtil.Bytes()
 }
 
+// String returns a human readable version of the SequenceIDs.
+func (s SequenceIDs) String() string {
+	result := "SequenceIDs("
+	for sequenceID := range s {
+		if len(result) != 12 {
+			result += ", "
+		}
+		result += strconv.FormatUint(uint64(sequenceID), 10)
+	}
+	result += ")"
+
+	return result
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Alias ////////////////////////////////////////////////////////////////////////////////////////////////
 
-// SequenceAliasLength defines length of an alias sequence ID.
+// SequenceAliasLength contains the amount of bytes that a marshaled version of the SequenceAlias contains.
 const SequenceAliasLength = 32
 
-// SequenceAlias identifies an alias sequence ID.
+// SequenceAlias represents an alternative identifier for a Sequence that is used to look up the SequenceID.
 type SequenceAlias [SequenceAliasLength]byte
 
+// NewSequenceAlias creates a new custom identifier from a sequence of bytes.
 func NewSequenceAlias(bytes []byte) SequenceAlias {
 	return blake2b.Sum256(bytes)
 }
@@ -377,6 +392,7 @@ func SequenceAliasFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (aggrega
 	return
 }
 
+// Merge generates a new unique SequenceAlias from the combination of the two SequenceAliases.
 func (a SequenceAlias) Merge(alias SequenceAlias) (mergedSequenceAlias SequenceAlias) {
 	byteutils.XORBytes(mergedSequenceAlias[:], a[:], alias[:])
 
