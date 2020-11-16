@@ -19,7 +19,7 @@ func getOnlineConsensusHandler(c echo.Context) error {
 
 // getOnlineHandler handles the request.
 func getOnlineHandler(c echo.Context, manaType mana.Type) error {
-	onlinePeersMana, err := manaPlugin.GetOnlineNodes(manaType, mana.Mixed)
+	onlinePeersMana, err := manaPlugin.GetOnlineNodes(manaType)
 	if err != nil {
 		return c.JSON(http.StatusNotFound, GetOnlineResponse{Error: err.Error()})
 	}

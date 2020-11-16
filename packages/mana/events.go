@@ -60,8 +60,7 @@ type Event interface {
 // PledgedEvent is the struct that is passed along with triggering a Pledged event.
 type PledgedEvent struct {
 	NodeID        identity.ID
-	AmountBM1     float64
-	AmountBM2     float64
+	Amount        float64
 	Time          time.Time
 	ManaType      Type // access or consensus
 	TransactionID transaction.ID
@@ -73,8 +72,7 @@ type PledgedEventJSON struct {
 	NodeID   string  `json:"nodeID"`
 	Time     int64   `json:"time"`
 	TxID     string  `json:"txID"`
-	BM1      float64 `json:"bm1"`
-	BM2      float64 `json:"bm2"`
+	Amount   float64 `json:"amount"`
 }
 
 // ToJSONSerializable returns a struct that can be serialized into JSON object.
@@ -84,8 +82,7 @@ func (p *PledgedEvent) ToJSONSerializable() interface{} {
 		NodeID:   p.NodeID.String(),
 		Time:     p.Time.Unix(),
 		TxID:     p.TransactionID.String(),
-		BM1:      p.AmountBM1,
-		BM2:      p.AmountBM2,
+		Amount:   p.Amount,
 	}
 }
 
@@ -99,9 +96,9 @@ var _ Event = &PledgedEvent{}
 // RevokedEvent is the struct that is passed along with triggering a Revoked event.
 type RevokedEvent struct {
 	NodeID        identity.ID
-	AmountBM1     float64
+	Amount        float64
 	Time          time.Time
-	ManaType      Type // access or consensus
+	ManaType      Type // shall only be consensus for now
 	TransactionID transaction.ID
 }
 
@@ -111,7 +108,7 @@ type RevokedEventJSON struct {
 	NodeID   string  `json:"nodeID"`
 	Time     int64   `json:"time"`
 	TxID     string  `json:"txID"`
-	BM1      float64 `json:"bm1"`
+	Amount   float64 `json:"amount"`
 }
 
 // ToJSONSerializable returns a struct that can be serialized into JSON object.
@@ -121,7 +118,7 @@ func (r *RevokedEvent) ToJSONSerializable() interface{} {
 		NodeID:   r.NodeID.String(),
 		Time:     r.Time.Unix(),
 		TxID:     r.TransactionID.String(),
-		BM1:      r.AmountBM1,
+		Amount:   r.Amount,
 	}
 }
 
@@ -142,19 +139,17 @@ type UpdatedEvent struct {
 
 // UpdatedEventJSON is a JSON serializable form of an UpdatedEvent.
 type UpdatedEventJSON struct {
-	NodeID   string       `json:"nodeID"`
-	OldMana  BaseManaJSON `json:"oldMana"`
-	NewMana  BaseManaJSON `json:"newMana"`
-	ManaType string       `json:"manaType"`
+	NodeID   string      `json:"nodeID"`
+	OldMana  interface{} `json:"oldMana"`
+	NewMana  interface{} `json:"newMana"`
+	ManaType string      `json:"manaType"`
 }
 
 // BaseManaJSON is a JSON serializable form of a BaseMana.
 type BaseManaJSON struct {
-	BaseMana1          float64 `json:"baseMana1"`
-	EffectiveBaseMana1 float64 `json:"effectiveBaseMana1"`
-	BaseMana2          float64 `json:"baseMana2"`
-	EffectiveBaseMana2 float64 `json:"effectiveBaseMana2"`
-	LastUpdated        int64   `json:"lastUpdated"`
+	BaseMana          float64 `json:"baseMana"`
+	EffectiveBaseMana float64 `json:"effectiveBaseMana"`
+	LastUpdated       int64   `json:"lastUpdated"`
 }
 
 // ToJSONSerializable returns a struct that can be serialized into JSON object.
@@ -162,19 +157,15 @@ func (u *UpdatedEvent) ToJSONSerializable() interface{} {
 	return &UpdatedEventJSON{
 		ManaType: u.ManaType.String(),
 		NodeID:   u.NodeID.String(),
-		OldMana: BaseManaJSON{
-			BaseMana1:          u.OldMana.BaseMana1,
-			EffectiveBaseMana1: u.OldMana.EffectiveBaseMana1,
-			BaseMana2:          u.OldMana.BaseMana2,
-			EffectiveBaseMana2: u.OldMana.EffectiveBaseMana2,
-			LastUpdated:        u.OldMana.LastUpdated.Unix(),
+		OldMana: &BaseManaJSON{
+			BaseMana:          u.OldMana.BaseValue(),
+			EffectiveBaseMana: u.OldMana.EffectiveValue(),
+			LastUpdated:       u.OldMana.LastUpdate().Unix(),
 		},
-		NewMana: BaseManaJSON{
-			BaseMana1:          u.NewMana.BaseMana1,
-			EffectiveBaseMana1: u.NewMana.EffectiveBaseMana1,
-			BaseMana2:          u.NewMana.BaseMana2,
-			EffectiveBaseMana2: u.NewMana.EffectiveBaseMana2,
-			LastUpdated:        u.NewMana.LastUpdated.Unix(),
+		NewMana: &BaseManaJSON{
+			BaseMana:          u.NewMana.BaseValue(),
+			EffectiveBaseMana: u.NewMana.EffectiveValue(),
+			LastUpdated:       u.NewMana.LastUpdate().Unix(),
 		},
 	}
 }

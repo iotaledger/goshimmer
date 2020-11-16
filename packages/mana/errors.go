@@ -15,4 +15,6 @@ var (
 	ErrNodeNotFoundInBaseManaVector = errors.New("node not present in base mana vector")
 	// ErrInvalidWeightParameter is returned if an invalid weight parameter is passed.
 	ErrInvalidWeightParameter = errors.New("invalid weight parameter, outside of [0,1]")
+	// ErrUnknownType is returned when an unknown mana type is encountered.
+	ErrUnknownType = errors.New("unknown mana type")
 )
