@@ -1,7 +1,7 @@
 import {action, computed, observable} from 'mobx';
 import * as React from "react";
 import {Col, ListGroupItem, OverlayTrigger, Popover, Row} from "react-bootstrap";
-import {WSMsgType} from "../models/ws/wsMsgType";
+import {WSMsgTypeDashboard} from "../models/ws/WSMsgTypeDashboard";
 import {IManaMessage} from "../models/mana/IManaMessage";
 import {INetworkManaMessage} from "../models/mana/INetworkManaMessage";
 import {INode} from "../models/mana/INode";
@@ -84,11 +84,10 @@ export class ManaStore {
 
     constructor() {
         this.manaValues = [];
-        registerHandler(WSMsgType.Mana, this.addNewManaValue);
-        registerHandler(WSMsgType.ManaMapOverall, this.updateNetworkRichest);
-        registerHandler(WSMsgType.ManaMapOnline, this.updateActiveRichest);
-        registerHandler(WSMsgType.ManaPledge, this.addNewPledge);
-        registerHandler(WSMsgType.ManaRevoke, this.addNewRevoke);
+        registerHandler(WSMsgTypeDashboard.ManaMapOverall, this.updateNetworkRichest);
+        registerHandler(WSMsgTypeDashboard.ManaMapOnline, this.updateActiveRichest);
+        registerHandler(WSMsgTypeDashboard.ManaPledge, this.addNewPledge);
+        registerHandler(WSMsgTypeDashboard.ManaRevoke, this.addNewRevoke);
     };
 
     @action
@@ -129,8 +128,14 @@ export class ManaStore {
         }
         //TODO: show access or consensus mana
         this.accessActiveRichest.forEach(node => {
-            let per = this.accessPercentile(node)
+            let per = this.accessPercentage(node)
             autopeeringStore.updateSizeBasedOnMana(node.shortNodeID, per)
+        })
+        this.addNewManaValue({
+            nodeID: "",
+            access: this.totalAccessNetwork,
+            consensus: this.totalConsensusNetwork,
+            time: new Date().getTime() * 1000
         })
     }
 
@@ -166,10 +171,17 @@ export class ManaStore {
         this.dashboardWebsocketConnected = connected
     }
 
+    reconnect() {
+        this.updateDashboardWebsocketConnect(false)
+        setTimeout(() => {
+            this.connect();
+        }, 5000);
+    }
+
     public connect(): void {
         connectDashboardWebSocket(this.manaDashboardAddress,
             () => this.updateDashboardWebsocketConnect(true),
-            () => this.updateDashboardWebsocketConnect(false),
+            () => this.reconnect(),
             () => this.updateDashboardWebsocketConnect(false));
     }
 
@@ -325,18 +337,8 @@ export class ManaStore {
         return histInput
     }
 
-    private accessPercentile(ownNode: INode): number{
-        let per = 0.0
-        if(this.accessActiveRichest !== undefined && this.accessActiveRichest !== null){
-            let nBelow = 0
-            this.accessActiveRichest.forEach(node => {
-                if(node.mana < ownNode.mana){
-                    nBelow++
-                }
-            })
-            per = (nBelow / (this.accessActiveRichest.length)) * 100
-        }
-        return per
+    private accessPercentage(ownNode: INode): number{
+        return (ownNode.mana/this.totalAccessNetwork) * 100;
     }
 
     @computed

@@ -367,12 +367,19 @@ export class AutopeeringStore {
         this.selectedNodeOutNeighbors = undefined;
         this.selectionActive = false;
     }
-    
+
+    reconnect() {
+        this.updateWebSocketConnected(false)
+        setTimeout(() => {
+            this.connect();
+        }, 5000);
+    }
+
     // connect to analysis server via websocket
     public connect(): void {
         connectWebSocket(statusWebSocketPath,
             () => this.updateWebSocketConnected(true),
-            () => this.updateWebSocketConnected(false),
+            () => this.reconnect(),
             () => this.updateWebSocketConnected(false));
 
     }
@@ -549,13 +556,16 @@ export class AutopeeringStore {
     }
 
     @action
-    public updateSizeBasedOnMana(nodeId: string, percentile: number): void {
+    public updateSizeBasedOnMana(nodeId: string, percentage: number): void {
+        if(!this.graphics){
+            return
+        }
         const nodeUI = this.graphics.getNodeUI(nodeId)
         if(!nodeUI){
             return
         }
 
-        this.updateNodeUiColor(nodeId, nodeUI.color, VERTEX_SIZE + (Math.floor(percentile/20) * 5))
+        this.updateNodeUiColor(nodeId, nodeUI.color, VERTEX_SIZE + (percentage / 2))
     }
 
     // updates color of a link (edge) in the graph
