@@ -4,7 +4,7 @@ services:
  
   entry_node:
     container_name: entry_node
-    image: golang:1.14.4
+    image: golang:1.15.5
     stop_grace_period: 1m
     entrypoint: /go/bin/main
     command: >
@@ -34,7 +34,7 @@ services:
 
   peer_master:
     container_name: peer_master
-    image: golang:1.14.4
+    image: golang:1.15.5
     stop_grace_period: 1m
     entrypoint: /go/bin/main
     command: >
@@ -59,7 +59,7 @@ services:
       - entry_node
 
   peer_replica:
-    image: golang:1.14.4
+    image: golang:1.15.5
     stop_grace_period: 1m
     entrypoint: /go/bin/main
     command: >
