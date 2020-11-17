@@ -4,10 +4,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	"github.com/iotaledger/hive.go/types"
-
 	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+	"github.com/iotaledger/goshimmer/plugins/syncbeaconfollower"
+	"golang.org/x/xerrors"
 )
 
 // IssuePayloadFunc is a function which issues a payload.
@@ -16,16 +16,13 @@ type IssuePayloadFunc = func(payload payload.Payload) (*tangle.Message, error)
 // Spammer spams messages with a static data payload.
 type Spammer struct {
 	issuePayloadFunc IssuePayloadFunc
-
-	processID      int64
-	shutdownSignal chan types.Empty
+	processID        int64
 }
 
 // New creates a new spammer.
 func New(issuePayloadFunc IssuePayloadFunc) *Spammer {
 	return &Spammer{
 		issuePayloadFunc: issuePayloadFunc,
-		shutdownSignal:   make(chan types.Empty),
 	}
 }
 
@@ -40,7 +37,8 @@ func (spammer *Spammer) Shutdown() {
 }
 
 func (spammer *Spammer) run(rate int, timeUnit time.Duration, processID int64) {
-	currentSentCounter := 0
+	// emit messages every msgInterval interval
+	msgInterval := time.Duration(timeUnit.Nanoseconds() / int64(rate))
 	start := time.Now()
 
 	for {
@@ -49,19 +47,18 @@ func (spammer *Spammer) run(rate int, timeUnit time.Duration, processID int64) {
 		}
 
 		// we don't care about errors or the actual issued message
-		_, _ = spammer.issuePayloadFunc(payload.NewGenericDataPayload([]byte("SPAM")))
-
-		currentSentCounter++
-
-		// rate limit to the specified MPS
-		if currentSentCounter >= rate {
-			duration := time.Since(start)
-			if duration < timeUnit {
-				time.Sleep(timeUnit - duration)
-			}
-
-			start = time.Now()
-			currentSentCounter = 0
+		_, err := spammer.issuePayloadFunc(payload.NewGenericDataPayload([]byte("SPAM")))
+		if xerrors.Is(err, syncbeaconfollower.ErrNodeNotSynchronized) {
+			// can't issue msg because node not in sync
+			return
 		}
+
+		currentInterval := time.Since(start)
+		if currentInterval < msgInterval {
+			//there is still time, sleep until msgInterval
+			time.Sleep(msgInterval - currentInterval)
+		}
+		// when currentInterval > msgInterval, the node can't issue msgs as fast as requested, will do as fast as it can
+		start = time.Now()
 	}
 }

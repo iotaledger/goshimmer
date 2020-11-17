@@ -1,7 +1,6 @@
 package issuer
 
 import (
-	"fmt"
 	goSync "sync"
 
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -9,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/syncbeaconfollower"
 	"github.com/iotaledger/hive.go/node"
+	"golang.org/x/xerrors"
 )
 
 // PluginName is the name of the issuer plugin.
@@ -34,7 +34,7 @@ func configure(_ *node.Plugin) {}
 // If the node is not synchronized an error is returned.
 func IssuePayload(payload payload.Payload) (*tangle.Message, error) {
 	if !syncbeaconfollower.Synced() {
-		return nil, fmt.Errorf("can't issue payload: %w", syncbeaconfollower.ErrNodeNotSynchronized)
+		return nil, xerrors.Errorf("can't issue payload: %w", syncbeaconfollower.ErrNodeNotSynchronized)
 	}
 
 	msg, err := messagelayer.MessageFactory().IssuePayload(payload)
