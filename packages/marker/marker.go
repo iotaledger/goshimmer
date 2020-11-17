@@ -192,11 +192,23 @@ func (m Markers) Set(sequenceID SequenceID, index Index) (updated bool, added bo
 	return
 }
 
-// HighestIndex returns the the highest Index of all Markers in the collection.
-func (m Markers) HighestIndex() (highestMarker Index) {
+// LowestIndex returns the the lowest Index of all Markers in the collection.
+func (m Markers) LowestIndex() (lowestIndex Index) {
+	lowestIndex = 1<<64 - 1
 	for _, index := range m {
-		if index > highestMarker {
-			highestMarker = index
+		if index < lowestIndex {
+			lowestIndex = index
+		}
+	}
+
+	return
+}
+
+// HighestIndex returns the the highest Index of all Markers in the collection.
+func (m Markers) HighestIndex() (highestIndex Index) {
+	for _, index := range m {
+		if index > highestIndex {
+			highestIndex = index
 		}
 	}
 

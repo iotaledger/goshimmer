@@ -67,26 +67,13 @@ func (m *Manager) MergeMarkers(markersToMerge ...Markers) (mergedMarkers Markers
 // rank of their corresponding Sequence). In addition, the method returns all SequenceIDs of the Markers that were not
 // referenced by any of the Markers (the tips of the Sequence DAG).
 func (m *Manager) NormalizeMarkers(markers Markers) (normalizedMarkersByRank *MarkersByRank, normalizedSequences SequenceIDs) {
-	rankOfSequences := make(map[SequenceID]uint64)
-	rankOfSequence := func(sequenceID SequenceID) uint64 {
-		if rank, rankKnown := rankOfSequences[sequenceID]; rankKnown {
-			return rank
-		}
-
-		if !m.sequence(sequenceID).Consume(func(sequence *Sequence) {
-			rankOfSequences[sequenceID] = sequence.rank
-		}) {
-			panic(fmt.Sprintf("failed to load Sequence with %s", sequenceID))
-		}
-
-		return rankOfSequences[sequenceID]
-	}
+	rankOfSequencesCache := make(map[SequenceID]uint64)
 
 	normalizedMarkersByRank = NewMarkersByRank()
 	normalizedSequences = make(SequenceIDs)
 	for sequenceID, index := range markers {
 		normalizedSequences[sequenceID] = types.Void
-		normalizedMarkersByRank.Add(rankOfSequence(sequenceID), sequenceID, index)
+		normalizedMarkersByRank.Add(m.rankOfSequence(sequenceID, rankOfSequencesCache), sequenceID, index)
 	}
 	markersToIterate := normalizedMarkersByRank.Clone()
 
@@ -102,11 +89,11 @@ func (m *Manager) NormalizeMarkers(markers Markers) (normalizedMarkersByRank *Ma
 				return
 			}
 
-			m.sequence(sequenceID).Consume(func(sequence *Sequence) {
+			if !m.sequence(sequenceID).Consume(func(sequence *Sequence) {
 				for referencedSequenceID, referencedIndex := range sequence.HighestReferencedParentMarkers(index) {
 					delete(normalizedSequences, referencedSequenceID)
 
-					rankOfReferencedSequence := rankOfSequence(referencedSequenceID)
+					rankOfReferencedSequence := m.rankOfSequence(referencedSequenceID, rankOfSequencesCache)
 					if index, indexExists := normalizedMarkersByRank.Index(rankOfReferencedSequence, referencedSequenceID); indexExists {
 						if referencedIndex >= index {
 							normalizedMarkersByRank.Delete(rankOfReferencedSequence, referencedSequenceID)
@@ -123,7 +110,9 @@ func (m *Manager) NormalizeMarkers(markers Markers) (normalizedMarkersByRank *Ma
 						markersToIterate.Add(rankOfReferencedSequence, referencedSequenceID, referencedIndex)
 					}
 				}
-			})
+			}) {
+				panic(fmt.Sprintf("failed to load Sequence with %s", sequenceID))
+			}
 		}
 	}
 
@@ -177,6 +166,47 @@ func (m *Manager) InheritMarkers(normalizedMarkers *MarkersByRank, normalizedSeq
 	return
 }
 
+// CheckReference checks if the markers given by the first parameter are referenced by the
+func (m *Manager) CheckReference(olderPastMarkers Markers, olderFutureMarkers Markers, laterPastMarkers Markers, markers Markers, referencedByMarkers Markers) (referenced bool) {
+	if olderPastMarkers.LowestIndex() > laterPastMarkers.HighestIndex() {
+		return false
+	}
+
+	rankOfSequencesCache := make(map[SequenceID]uint64)
+
+	referencedByMarkersByRank := NewMarkersByRank()
+	for sequenceID, index := range referencedByMarkers {
+		referencedByMarkersByRank.Add(m.rankOfSequence(sequenceID, rankOfSequencesCache), sequenceID, index)
+	}
+
+	for i := referencedByMarkersByRank.HighestRank() + 1; true; i-- {
+		currentRank := i - 1
+		markersByRank, rankExists := referencedByMarkersByRank.Markers(currentRank)
+		if !rankExists {
+			continue
+		}
+
+		for sequenceID, index := range markersByRank {
+			if !m.sequence(sequenceID).Consume(func(sequence *Sequence) {
+				for referencedSequenceID, referencedIndex := range sequence.HighestReferencedParentMarkers(index) {
+					if index, exists := markers[referencedSequenceID]; exists && index <= referencedIndex {
+						referenced = true
+						return
+					}
+				}
+			}) {
+				panic(fmt.Sprintf("failed to load Sequence with %s", sequenceID))
+			}
+
+			if referenced {
+				return
+			}
+		}
+	}
+
+	return false
+}
+
 // Shutdown is the function that shuts down the Manager and persists its state.
 func (m *Manager) Shutdown() {
 	m.shutdownOnce.Do(func() {
@@ -226,6 +256,21 @@ func (m *Manager) fetchSequence(parentSequences SequenceIDs, referencedMarkers M
 // sequence is an internal utility function that loads the given Sequence from the store.
 func (m *Manager) sequence(sequenceID SequenceID) *CachedSequence {
 	return &CachedSequence{CachedObject: m.sequenceStore.Load(sequenceID.Bytes())}
+}
+
+// rankOfSequence is an internal utility function that returns the rank of the given Sequence.
+func (m *Manager) rankOfSequence(sequenceID SequenceID, ranksCache map[SequenceID]uint64) uint64 {
+	if rank, rankKnown := ranksCache[sequenceID]; rankKnown {
+		return rank
+	}
+
+	if !m.sequence(sequenceID).Consume(func(sequence *Sequence) {
+		ranksCache[sequenceID] = sequence.rank
+	}) {
+		panic(fmt.Sprintf("failed to load Sequence with %s", sequenceID))
+	}
+
+	return ranksCache[sequenceID]
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
