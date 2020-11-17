@@ -99,8 +99,8 @@ func TestTangle_MissingMessages(t *testing.T) {
 	var missingMessagesMapMutex sync.Mutex
 	wg := sync.WaitGroup{}
 
-	// create badger store
-	badgerDB, err := testutil.BadgerDB(t)
+	// create pebble store
+	pebbleDB, err := testutil.PebbleDB(t)
 	require.NoError(t, err)
 
 	// map to keep track of the tips
@@ -109,7 +109,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 
 	// setup the message factory
 	msgFactory := NewMessageFactory(
-		badgerDB,
+		pebbleDB,
 		[]byte("sequenceKey"),
 		identity.GenerateLocalIdentity(),
 		TipSelectorFunc(func(count int) (parents []MessageID) {
@@ -155,7 +155,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 	}
 
 	// create the tangle
-	tangle := New(badgerDB)
+	tangle := New(pebbleDB)
 	if err := tangle.Prune(); err != nil {
 		t.Error(err)
 
