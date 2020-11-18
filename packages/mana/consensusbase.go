@@ -77,14 +77,17 @@ func (c *ConsensusBaseMana) pledge(tx *TxInfo) (pledged float64) {
 	return pledged
 }
 
+// BaseValue returns the base mana value (BM1).
 func (c *ConsensusBaseMana) BaseValue() float64 {
 	return c.BaseMana1
 }
 
+// EffectiveValue returns the effective base mana value (EBM1).
 func (c *ConsensusBaseMana) EffectiveValue() float64 {
 	return c.EffectiveBaseMana1
 }
 
+// LastUpdate returns the last update time.
 func (c *ConsensusBaseMana) LastUpdate() time.Time {
 	return c.LastUpdated
 }

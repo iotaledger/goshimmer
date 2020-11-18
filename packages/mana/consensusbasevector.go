@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/identity"
+	"golang.org/x/xerrors"
 )
 
 // ConsensusBaseManaVector represents a base mana vector
@@ -195,11 +196,11 @@ func (c *ConsensusBaseManaVector) ToPersistables() []*PersistableBaseMana {
 	var result []*PersistableBaseMana
 	for nodeID, bm := range c.vector {
 		pbm := &PersistableBaseMana{
-			ManaType:       c.Type(),
-			BaseValue:      bm.BaseValue(),
-			EffectiveValue: bm.EffectiveValue(),
-			LastUpdated:    bm.LastUpdated,
-			NodeID:         nodeID,
+			ManaType:        c.Type(),
+			BaseValues:      []float64{bm.BaseValue()},
+			EffectiveValues: []float64{bm.EffectiveValue()},
+			LastUpdated:     bm.LastUpdated,
+			NodeID:          nodeID,
 		}
 		result = append(result, pbm)
 	}
@@ -207,14 +208,27 @@ func (c *ConsensusBaseManaVector) ToPersistables() []*PersistableBaseMana {
 }
 
 // FromPersistable fills the ConsensusBaseManaVector from persistable mana objects.
-func (c *ConsensusBaseManaVector) FromPersistable(p *PersistableBaseMana) {
+func (c *ConsensusBaseManaVector) FromPersistable(p *PersistableBaseMana) (err error) {
+	if p.ManaType != ConsensusMana {
+		err = xerrors.Errorf("persistable mana object has type %s instead of %s", p.ManaType.String(), ConsensusMana.String())
+		return
+	}
+	if len(p.BaseValues) != 1 {
+		err = xerrors.Errorf("persistable mana object has %d base values instead of 1", len(p.BaseValues))
+		return
+	}
+	if len(p.EffectiveValues) != 1 {
+		err = xerrors.Errorf("persistable mana object has %d effective values instead of 1", len(p.EffectiveValues))
+		return
+	}
 	c.Lock()
 	defer c.Unlock()
 	c.vector[p.NodeID] = &ConsensusBaseMana{
-		BaseMana1:          p.BaseValue,
-		EffectiveBaseMana1: p.EffectiveValue,
+		BaseMana1:          p.BaseValues[0],
+		EffectiveBaseMana1: p.EffectiveValues[0],
 		LastUpdated:        p.LastUpdated,
 	}
+	return
 }
 
 var _ BaseManaVector = &ConsensusBaseManaVector{}
