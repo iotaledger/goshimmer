@@ -156,10 +156,14 @@ func configure(_ *node.Plugin) {
 	configureFPC()
 	voter.Events().Finalized.Attach(events.NewClosure(fcob.ProcessVoteResult))
 	voter.Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
-		log.Infof("FPC finalized for transaction with id '%s' - final opinion: '%s'", ev.ID, ev.Opinion)
+		if ev.Ctx.Type == vote.ConflictType {
+			log.Infof("FPC finalized for transaction with id '%s' - final opinion: '%s'", ev.ID, ev.Opinion)
+		}
 	}))
 	voter.Events().Failed.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
-		log.Warnf("FPC failed for transaction with id '%s' - last opinion: '%s'", ev.ID, ev.Opinion)
+		if ev.Ctx.Type == vote.ConflictType {
+			log.Warnf("FPC failed for transaction with id '%s' - last opinion: '%s'", ev.ID, ev.Opinion)
+		}
 	}))
 
 	// register SignatureFilter in Parser

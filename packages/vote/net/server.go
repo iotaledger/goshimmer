@@ -11,9 +11,9 @@ import (
 	"google.golang.org/grpc"
 )
 
-// OpinionRetriever retrieves the opinion for the given ID.
+// OpinionRetriever retrieves the opinion for the given ID and object type.
 // If there's no opinion, the function should return Unknown.
-type OpinionRetriever func(id string) vote.Opinion
+type OpinionRetriever func(id string, objectType vote.ObjectType) vote.Opinion
 
 // New creates a new VoterServer.
 func New(voter vote.Voter, opnRetriever OpinionRetriever, bindAddr string, netRxEvent, netTxEvent, queryReceivedEvent *events.Event) *VoterServer {
@@ -51,7 +51,7 @@ func (vs *VoterServer) Opinion(ctx context.Context, req *QueryRequest) (*QueryRe
 			reply.Opinion[i] = int32(opinion)
 			continue
 		}
-		reply.Opinion[i] = int32(vs.opnRetriever(id))
+		reply.Opinion[i] = int32(vs.opnRetriever(id, vote.ConflictType))
 	}
 	for i, id := range req.TimestampIDs {
 		// check whether there's an ongoing vote
@@ -60,7 +60,7 @@ func (vs *VoterServer) Opinion(ctx context.Context, req *QueryRequest) (*QueryRe
 			reply.Opinion[i+len(req.ConflictIDs)] = int32(opinion)
 			continue
 		}
-		reply.Opinion[i+len(req.ConflictIDs)] = int32(vs.opnRetriever(id))
+		reply.Opinion[i+len(req.ConflictIDs)] = int32(vs.opnRetriever(id, vote.TimestampType))
 	}
 
 	if vs.netRxEvent != nil {

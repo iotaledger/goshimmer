@@ -105,27 +105,33 @@ func runFPC() {
 	if err := daemon.BackgroundWorker(ServerWorkerName, func(shutdownSignal <-chan struct{}) {
 		stopped := make(chan struct{})
 		bindAddr := config.Node().String(CfgFPCBindAddress)
-		voterServer = votenet.New(Voter(), func(id string) vote.Opinion {
-			branchID, err := branchmanager.BranchIDFromBase58(id)
-			if err != nil {
-				log.Errorf("received invalid vote request for branch '%s'", id)
+		voterServer = votenet.New(Voter(), func(id string, objectType vote.ObjectType) vote.Opinion {
+			switch objectType {
+			case vote.TimestampType:
+				// TODO: implement
+				return vote.Like
+			default: // conflict type
+				branchID, err := branchmanager.BranchIDFromBase58(id)
+				if err != nil {
+					log.Errorf("received invalid vote request for branch '%s'", id)
 
-				return vote.Unknown
+					return vote.Unknown
+				}
+
+				cachedBranch := _tangle.BranchManager().Branch(branchID)
+				defer cachedBranch.Release()
+
+				branch := cachedBranch.Unwrap()
+				if branch == nil {
+					return vote.Unknown
+				}
+
+				if !branch.Preferred() {
+					return vote.Dislike
+				}
+
+				return vote.Like
 			}
-
-			cachedBranch := _tangle.BranchManager().Branch(branchID)
-			defer cachedBranch.Release()
-
-			branch := cachedBranch.Unwrap()
-			if branch == nil {
-				return vote.Unknown
-			}
-
-			if !branch.Preferred() {
-				return vote.Dislike
-			}
-
-			return vote.Like
 		}, bindAddr,
 			metrics.Events().FPCInboundBytes,
 			metrics.Events().FPCOutboundBytes,
