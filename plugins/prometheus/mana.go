@@ -103,19 +103,13 @@ func collectManaMetrics() {
 	averageNeighborsAccess.Set(metrics.AverageNeighborsAccess())
 	averageNeighborsConsensus.Set(metrics.AverageNeighborsConsensus())
 
-	accessBM1Pledges, accessBM2Pledges := metrics.AveragePledgeAccessBM()
-	for nodeID, value := range accessBM1Pledges {
-		averageAccessPledge.WithLabelValues(nodeID.String(), "bm1").Set(value)
-	}
-	for nodeID, value := range accessBM2Pledges {
+	accessPledges := metrics.AveragePledgeAccess()
+	for nodeID, value := range accessPledges {
 		averageAccessPledge.WithLabelValues(nodeID.String(), "bm2").Set(value)
 	}
 
-	consensusBM1Pledges, consensusBM2Pledges := metrics.AveragePledgeConsensusBM()
-	for nodeID, value := range consensusBM1Pledges {
+	consensusPledges := metrics.AveragePledgeConsensus()
+	for nodeID, value := range consensusPledges {
 		averageConsensusPledge.WithLabelValues(nodeID.String(), "bm1").Set(value)
-	}
-	for nodeID, value := range consensusBM2Pledges {
-		averageConsensusPledge.WithLabelValues(nodeID.String(), "bm2").Set(value)
 	}
 }
