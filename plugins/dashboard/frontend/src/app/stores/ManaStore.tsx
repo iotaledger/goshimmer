@@ -46,8 +46,7 @@ class PledgeMsg {
     nodeID: string;
     time: number;
     txID: string;
-    bm1: number;
-    bm2: number;
+    amount: number;
 }
 
 class RevokeMsg {
@@ -55,7 +54,7 @@ class RevokeMsg {
     nodeID: string;
     time: number;
     txID: string;
-    bm1: number;
+    amount: number;
 }
 
 class ManaEvent {
@@ -71,22 +70,20 @@ class ManaEvent {
 }
 
 class PledgeEvent extends ManaEvent{
-    bm1: number;
-    bm2: number;
+    amount: number;
 
-    constructor(nodeID: string, time: Date, txID: string, bm1: number, bm2: number) {
+    constructor(nodeID: string, time: Date, txID: string, amount: number) {
         super(nodeID, time, txID);
-        this.bm1 = bm1;
-        this.bm2 = bm2;
+        this.amount = amount;
     }
 }
 
 class RevokeEvent extends ManaEvent{
-    bm1: number;
+    amount: number;
 
-    constructor(nodeID: string, time: Date,  txID: string, bm1: number) {
+    constructor(nodeID: string, time: Date,  txID: string, amount: number) {
         super(nodeID, time, txID);
-        this.bm1 = bm1;
+        this.amount = amount;
     }
 }
 
@@ -214,8 +211,7 @@ export class ManaStore {
             msg.nodeID,
             new Date(msg.time*1000),
             msg.txID,
-            msg.bm1,
-            msg.bm2
+            msg.amount,
         )
         store.push(newData)
     }
@@ -240,7 +236,7 @@ export class ManaStore {
             msg.nodeID,
             new Date(msg.time*1000),
             msg.txID,
-            msg.bm1
+            msg.amount
         )
         store.push(newData)
     }
@@ -419,8 +415,7 @@ export class ManaStore {
                         <Popover id={ev.nodeID + index.toString()}>
                             <Popover.Title as="h3">Mana Pledged</Popover.Title>
                             <Popover.Content>
-                                <div>Base Mana 1: <strong>+{displayManaUnit(ev.bm1)}</strong></div>
-                                <div>Base Mana 2: <strong>+{displayManaUnit(ev.bm2)}</strong></div>
+                                <div>Base Mana: <strong>+{displayManaUnit(ev.amount)}</strong></div>
                                 <div>With Transaction: <strong><a onClick={() => navigator.clipboard.writeText(ev.txID)}>{ev.txID}</a></strong></div>
                                 <div>To NodeID:  <strong>{ev.nodeID}</strong></div>
                                 <div>Time of Pledge:  <strong>{ev.time.toLocaleTimeString()}</strong></div>
@@ -459,7 +454,7 @@ export class ManaStore {
                         <Popover id={ev.nodeID + index.toString()}>
                             <Popover.Title as="h3">Mana Revoked</Popover.Title>
                             <Popover.Content>
-                                <div>Base Mana 1: <strong>-{displayManaUnit(ev.bm1)}</strong></div>
+                                <div>Base Mana 1: <strong>-{displayManaUnit(ev.amount)}</strong></div>
                                 <div>With Transaction: <strong><a onClick={() => navigator.clipboard.writeText(ev.txID)}>{ev.txID}</a></strong></div>
                                 <div>From NodeID:  <strong>{ev.nodeID}</strong></div>
                                 <div>Time of Revoke:  <strong>{ev.time.toLocaleTimeString()}</strong></div>

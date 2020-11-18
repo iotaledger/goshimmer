@@ -76,12 +76,12 @@ func runManaFeed() {
 //region Websocket message sending handlers (live updates)
 func sendManaValue() {
 	ownID := local.GetInstance().ID()
-	access, err := manaPlugin.GetAccessMana(ownID, mana.Mixed)
+	access, err := manaPlugin.GetAccessMana(ownID)
 	// if node not found, returned value is 0.0
 	if err != nil && err != mana.ErrNodeNotFoundInBaseManaVector {
 		log.Errorf("failed to get own access mana: %w ", err)
 	}
-	consensus, err := manaPlugin.GetConsensusMana(ownID, mana.Mixed)
+	consensus, err := manaPlugin.GetConsensusMana(ownID)
 	// if node not found, returned value is 0.0
 	if err != nil && err != mana.ErrNodeNotFoundInBaseManaVector {
 		log.Errorf("failed to get own consensus mana: %w ", err)
@@ -100,7 +100,7 @@ func sendManaValue() {
 }
 
 func sendManaMapOverall() {
-	accessManaList, err := manaPlugin.GetHighestManaNodes(mana.AccessMana, 0, mana.Mixed)
+	accessManaList, err := manaPlugin.GetHighestManaNodes(mana.AccessMana, 0)
 	if err != nil {
 		log.Errorf("failed to get list of n highest access mana nodes: %w ", err)
 	}
@@ -115,7 +115,7 @@ func sendManaMapOverall() {
 		Type: MsgTypeManaMapOverall,
 		Data: accessPayload,
 	})
-	consensusManaList, err := manaPlugin.GetHighestManaNodes(mana.ConsensusMana, 0, mana.Mixed)
+	consensusManaList, err := manaPlugin.GetHighestManaNodes(mana.ConsensusMana, 0)
 	if err != nil {
 		log.Errorf("failed to get list of n highest consensus mana nodes: %w ", err)
 	}
@@ -134,7 +134,7 @@ func sendManaMapOverall() {
 }
 
 func sendManaMapOnline() {
-	accessManaList, err := manaPlugin.GetOnlineNodes(mana.AccessMana, mana.Mixed)
+	accessManaList, err := manaPlugin.GetOnlineNodes(mana.AccessMana)
 	if err != nil {
 		log.Errorf("failed to get list of online access mana nodes: %w ", err)
 	}
@@ -149,7 +149,7 @@ func sendManaMapOnline() {
 		Type: MsgTypeManaMapOnline,
 		Data: accessPayload,
 	})
-	consensusManaList, err := manaPlugin.GetOnlineNodes(mana.AccessMana, mana.Mixed)
+	consensusManaList, err := manaPlugin.GetOnlineNodes(mana.AccessMana)
 	if err != nil {
 		log.Errorf("failed to get list of online consensus mana nodes: %w ", err)
 	}
