@@ -4,19 +4,20 @@ import (
 	"fmt"
 
 	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"golang.org/x/xerrors"
 )
 
 const (
 	// TimestampLength defines the Timestamp length in bytes.
-	TimestampLength = tangle.MessageIDLength + 1
+	TimestampLength = tangle.MessageIDLength + 2
 )
 
 // Timestamp holds the message ID and its timestamp opinion.
 type Timestamp struct {
-	ID      tangle.MessageID
-	Opinion bool
+	ID tangle.MessageID
+	Opinion
 }
 
 // Timestamps is a slice of Timestamp.
@@ -29,7 +30,8 @@ func (t Timestamp) Bytes() (bytes []byte) {
 	// initialize helper
 	marshalUtil := marshalutil.New(bytes)
 	marshalUtil.WriteBytes(t.ID.Bytes())
-	marshalUtil.WriteBool(t.Opinion)
+	marshalUtil.WriteByte(byte(t.Opinion.Value))
+	marshalUtil.WriteUint8(t.Opinion.Round)
 
 	return bytes
 }
@@ -43,7 +45,8 @@ func (t Timestamps) Bytes() (bytes []byte) {
 
 	for _, timestamp := range t {
 		marshalUtil.WriteBytes(timestamp.ID.Bytes())
-		marshalUtil.WriteBool(timestamp.Opinion)
+		marshalUtil.WriteByte(byte(timestamp.Opinion.Value))
+		marshalUtil.WriteUint8(timestamp.Opinion.Round)
 	}
 
 	return bytes
@@ -66,8 +69,15 @@ func TimestampFromBytes(bytes []byte) (result Timestamp, consumedBytes int, err 
 		err = xerrors.Errorf("failed to parse ID from bytes: %w", err)
 		return
 	}
-	if result.Opinion, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse opinion from timestamp: %w", err)
+	opinionByte, e := marshalUtil.ReadByte()
+	if e != nil {
+		err = xerrors.Errorf("failed to parse opinion from timestamp: %w", e)
+		return
+	}
+	result.Opinion.Value = vote.Opinion(opinionByte)
+
+	if result.Opinion.Round, err = marshalUtil.ReadUint8(); err != nil {
+		err = xerrors.Errorf("failed to parse round from timestamp: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()

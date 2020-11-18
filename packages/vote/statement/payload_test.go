@@ -6,18 +6,19 @@ import (
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/stretchr/testify/require"
 )
 
 func dummyPayload() *Payload {
 	conflicts := []Conflict{
-		{transaction.RandomID(), true},
-		{transaction.RandomID(), false},
+		{transaction.RandomID(), Opinion{vote.Like, 1}},
+		{transaction.RandomID(), Opinion{vote.Like, 2}},
 	}
 	timestamps := []Timestamp{
-		{tangle.EmptyMessageID, true},
-		{tangle.EmptyMessageID, false},
+		{tangle.EmptyMessageID, Opinion{vote.Like, 1}},
+		{tangle.EmptyMessageID, Opinion{vote.Dislike, 2}},
 	}
 	return NewPayload(conflicts, timestamps)
 }

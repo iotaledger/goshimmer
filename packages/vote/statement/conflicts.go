@@ -4,19 +4,20 @@ import (
 	"fmt"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"golang.org/x/xerrors"
 )
 
 const (
 	// ConflictLength defines the Conflict length in bytes.
-	ConflictLength = transaction.IDLength + 1
+	ConflictLength = transaction.IDLength + 2
 )
 
 // Conflict holds the conflicting transaction ID and its opinion.
 type Conflict struct {
-	ID      transaction.ID
-	Opinion bool
+	ID transaction.ID
+	Opinion
 }
 
 // Conflicts is a slice of Conflict.
@@ -29,7 +30,8 @@ func (c Conflict) Bytes() (bytes []byte) {
 	// initialize helper
 	marshalUtil := marshalutil.New(bytes)
 	marshalUtil.WriteBytes(c.ID.Bytes())
-	marshalUtil.WriteBool(c.Opinion)
+	marshalUtil.WriteByte(byte(c.Opinion.Value))
+	marshalUtil.WriteUint8(c.Opinion.Round)
 
 	return bytes
 }
@@ -43,7 +45,8 @@ func (c Conflicts) Bytes() (bytes []byte) {
 
 	for _, conflict := range c {
 		marshalUtil.WriteBytes(conflict.ID.Bytes())
-		marshalUtil.WriteBool(conflict.Opinion)
+		marshalUtil.WriteByte(byte(conflict.Opinion.Value))
+		marshalUtil.WriteUint8(conflict.Opinion.Round)
 	}
 
 	return bytes
@@ -66,8 +69,15 @@ func ConflictFromBytes(bytes []byte) (result Conflict, consumedBytes int, err er
 		err = xerrors.Errorf("failed to parse ID from bytes: %w", err)
 		return
 	}
-	if result.Opinion, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse opinion from conflict: %w", err)
+	opinionByte, e := marshalUtil.ReadByte()
+	if e != nil {
+		err = xerrors.Errorf("failed to parse opinion from conflict: %w", e)
+		return
+	}
+	result.Opinion.Value = vote.Opinion(opinionByte)
+
+	if result.Opinion.Round, err = marshalUtil.ReadUint8(); err != nil {
+		err = xerrors.Errorf("failed to parse round from conflict: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
