@@ -104,8 +104,8 @@ func getInfo(c echo.Context) error {
 		})
 	}
 
-	accessMana, _ := manaPlugin.GetAccessMana(local.GetInstance().ID(), mana.Mixed)
-	consensusMana, _ := manaPlugin.GetConsensusMana(local.GetInstance().ID(), mana.Mixed)
+	accessMana, _ := manaPlugin.GetAccessMana(local.GetInstance().ID())
+	consensusMana, _ := manaPlugin.GetConsensusMana(local.GetInstance().ID())
 	nodeMana := Mana{
 		Access:    accessMana,
 		Consensus: consensusMana,
