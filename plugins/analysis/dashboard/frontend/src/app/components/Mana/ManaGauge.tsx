@@ -1,10 +1,10 @@
 import {observer} from "mobx-react";
 import * as React from "react";
 import Card from "react-bootstrap/Card";
-import UpArrow from "../../assets/up.svg";
-import DownArrow from "../../assets/down.svg";
+import UpArrow from "../../../../../../../dashboard/frontend/src/assets/up.svg";
+import DownArrow from  "../../../../../../../dashboard/frontend/src/assets/down.svg";
 import {Col, Container, Row} from "react-bootstrap";
-import {displayManaUnit} from "../utils/";
+import {displayManaUnit} from "../../../../../../../dashboard/frontend/src/app/utils/";
 
 
 interface Props {

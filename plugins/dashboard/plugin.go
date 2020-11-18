@@ -168,6 +168,10 @@ const (
 	MsgTypeManaPledge
 	// MsgTypeManaRevoke defines a message that is sent when mana was revoked from a node.
 	MsgTypeManaRevoke
+	// MsgManaDashboardAddress is the socket address of the dashboard to stream mana from.
+	MsgManaDashboardAddress
+	// MsgManaDashboardAddress defines a request to get the socket address of the dashboard to stream mana from.
+	MsgRequestManaDashboardAddress
 )
 
 type wsmsg struct {

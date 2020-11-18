@@ -7,12 +7,16 @@ import ReactDOM from "react-dom";
 import { Route } from "react-router";
 import { BrowserRouter as Router } from "react-router-dom";
 import "./main.scss";
+import ManaStore from "./app/stores/ManaStore";
 
 const fpcStore = new FPCStore();
-const autopeeringStore = new AutopeeringStore();
+export const autopeeringStore = new AutopeeringStore();
+export const manaStore = new ManaStore()
+
 const stores = {
     "fpcStore": fpcStore,
-    "autopeeringStore": autopeeringStore
+    "autopeeringStore": autopeeringStore,
+    "manaStore": manaStore,
 };
 
 // render react DOM

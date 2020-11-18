@@ -6,10 +6,11 @@ import { IConnectNodesMessage } from "../models/messages/IConnectNodesMessage";
 import { IDisconnectNodesMessage } from "../models/messages/IDisconnectNodesMessage";
 import { IRemoveNodeMessage } from "../models/messages/IRemoveNodeMessage";
 import { WSMsgType } from "../models/ws/wsMsgType";
-import { connectWebSocket, registerHandler } from "../services/WS";
+import {connectWebSocket, registerHandler, sendMessage} from "../services/WS";
 import { buildCircleNodeShader } from "../utils/circleNodeShader";
 import { parseColor } from "../utils/colorHelper";
 import {Neighbors} from "../models/Neighbors";
+import {manaStore} from "../../main";
 
 const EDGE_COLOR_DEFAULT = "#ff7d6cff";
 const EDGE_COLOR_HIDE = "#ff7d6c40";
@@ -77,6 +78,7 @@ export class AutopeeringStore {
         registerHandler(WSMsgType.removeNode, msg => this.onRemoveNode(msg));
         registerHandler(WSMsgType.connectNodes, msg => this.onConnectNodes(msg));
         registerHandler(WSMsgType.disconnectNodes, msg => this.onDisconnectNodes(msg));
+        registerHandler(WSMsgType.MsgManaDashboardAddress, msg => this.setManaDashboardAddress(msg))
     }
 
     // checks whether selection is already active, then updates selected node
@@ -101,6 +103,9 @@ export class AutopeeringStore {
     @action
     public updateWebSocketConnected(connected: boolean): void {
         this.websocketConnected = connected;
+        sendMessage({
+            type: WSMsgType.MsgReqManaDashboardAddress
+        })
     }
 
     @action
@@ -144,6 +149,11 @@ export class AutopeeringStore {
         })
         return versionsArray[0];
 
+    }
+
+    @action
+    private setManaDashboardAddress(address: string): void {
+       manaStore.setManaDashboardAddress(address)
     }
 
     @action
@@ -357,13 +367,21 @@ export class AutopeeringStore {
         this.selectedNodeOutNeighbors = undefined;
         this.selectionActive = false;
     }
-    
+
+    reconnect() {
+        this.updateWebSocketConnected(false)
+        setTimeout(() => {
+            this.connect();
+        }, 5000);
+    }
+
     // connect to analysis server via websocket
     public connect(): void {
         connectWebSocket(statusWebSocketPath,
             () => this.updateWebSocketConnected(true),
-            () => this.updateWebSocketConnected(false),
+            () => this.reconnect(),
             () => this.updateWebSocketConnected(false));
+
     }
 
     // create a graph and fill it with data
@@ -517,6 +535,7 @@ export class AutopeeringStore {
 
     // graph related updates //
     private drawNode(node: string): void {
+
         if (this.graph) {
             const existing = this.graph.getNode(node);
 
@@ -534,6 +553,19 @@ export class AutopeeringStore {
             nodeUI.color = color;
             nodeUI.size = size;
         }
+    }
+
+    @action
+    public updateSizeBasedOnMana(nodeId: string, percentage: number): void {
+        if(!this.graphics){
+            return
+        }
+        const nodeUI = this.graphics.getNodeUI(nodeId)
+        if(!nodeUI){
+            return
+        }
+
+        this.updateNodeUiColor(nodeId, nodeUI.color, VERTEX_SIZE + (percentage / 2))
     }
 
     // updates color of a link (edge) in the graph

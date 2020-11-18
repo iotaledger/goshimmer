@@ -1,12 +1,18 @@
 package dashboard
 
 import (
+	"encoding/json"
 	"net/http"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/gorilla/websocket"
 	analysisserver "github.com/iotaledger/goshimmer/plugins/analysis/server"
+	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/plugins/dashboard"
 	"github.com/labstack/echo"
 )
 
@@ -17,6 +23,7 @@ var (
 	wsClientsMu    sync.Mutex
 	wsClients      = make(map[uint64]*wsclient)
 	nextWsClientID uint64
+	readHandlers   = make(map[byte]func(interface{}))
 
 	// gorilla websocket layer
 	upgrader = websocket.Upgrader{
@@ -24,6 +31,7 @@ var (
 		CheckOrigin:       func(r *http.Request) bool { return true },
 		EnableCompression: true,
 	}
+	shutdownSignal = make(chan os.Signal)
 )
 
 // a websocket client with a channel for downstream messages.
@@ -82,6 +90,9 @@ func broadcastWsMessage(msg interface{}, dontDrop ...bool) {
 // handles a new websocket connection, registers the client
 // and waits for downstream messages to be sent to the client
 func websocketRoute(c echo.Context) error {
+	signal.Notify(shutdownSignal, syscall.SIGTERM)
+	signal.Notify(shutdownSignal, syscall.SIGINT)
+
 	defer func() {
 		if r := recover(); r != nil {
 			log.Errorf("recovered from websocket handle func: %s", r)
@@ -100,6 +111,15 @@ func websocketRoute(c echo.Context) error {
 	clientID, wsClient := registerWSClient()
 	defer removeWsClient(clientID)
 
+	manaDashboardHostAddress := config.Node().GetString(CfgManaDashboardAddress)
+	registerReadHandlers(dashboard.MsgRequestManaDashboardAddress, func(_ interface{}) {
+		msg := &wsmsg{
+			Type: dashboard.MsgManaDashboardAddress,
+			Data: manaDashboardHostAddress,
+		}
+		broadcastWsMessage(msg)
+	})
+
 	// replay autopeering events from the past upon connecting a new client
 	analysisserver.ReplayAutopeeringEvents(createAutopeeringEventHandlers(ws))
 
@@ -107,13 +127,41 @@ func websocketRoute(c echo.Context) error {
 	replayFPCRecords(ws)
 
 	for {
-		msg := <-wsClient.channel
-		if err := ws.WriteJSON(msg); err != nil {
-			break
+		select {
+		case msg := <-wsClient.channel:
+			if err := ws.WriteJSON(msg); err != nil {
+				break
+			}
+			if err := ws.SetWriteDeadline(time.Now().Add(webSocketWriteTimeout)); err != nil {
+				break
+			}
+		case <-shutdownSignal:
+			return nil
+		default:
+			_, msg, err := ws.ReadMessage()
+			if err != nil {
+				// silent
+				break
+			}
+			mg := wsmsg{}
+			if err := json.Unmarshal(msg, &mg); err != nil {
+				log.Errorf("error unmarshalling bytes: %s", err)
+				break
+			}
+			if f, found := readHandlers[mg.Type]; found {
+				f(mg.Data)
+			} else {
+				log.Errorf("no handler for message type %d", msg[0])
+				break
+			}
 		}
-		if err := ws.SetWriteDeadline(time.Now().Add(webSocketWriteTimeout)); err != nil {
-			break
-		}
+
 	}
+
 	return nil
+}
+
+// registers a read handler for the connection.
+func registerReadHandlers(msgType byte, f func(interface{})) {
+	readHandlers[msgType] = f
 }

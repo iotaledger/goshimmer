@@ -21,11 +21,11 @@ type ManaBuffer struct {
 	// Events store PledgedEvent and RevokedEvent structs in chronological order.
 	Events          []mana.Event
 	eventsMutex     sync.RWMutex
-	ValueMsgs       []*manaValueMsgData
+	ValueMsgs       []*ManaValueMsgData
 	valueMsgsMutex  sync.RWMutex
-	MapOverall      map[mana.Type]*manaNetworkListMsgData
+	MapOverall      map[mana.Type]*ManaNetworkListMsgData
 	mapOverallMutex sync.RWMutex
-	MapOnline       map[mana.Type]*manaNetworkListMsgData
+	MapOnline       map[mana.Type]*ManaNetworkListMsgData
 	mapOnlineMutex  sync.RWMutex
 }
 
@@ -33,9 +33,9 @@ type ManaBuffer struct {
 func NewManaBuffer() *ManaBuffer {
 	return &ManaBuffer{
 		Events:     make([]mana.Event, 0),
-		ValueMsgs:  make([]*manaValueMsgData, 0),
-		MapOverall: make(map[mana.Type]*manaNetworkListMsgData),
-		MapOnline:  make(map[mana.Type]*manaNetworkListMsgData),
+		ValueMsgs:  make([]*ManaValueMsgData, 0),
+		MapOverall: make(map[mana.Type]*ManaNetworkListMsgData),
+		MapOnline:  make(map[mana.Type]*ManaNetworkListMsgData),
 	}
 }
 
@@ -78,7 +78,7 @@ func (m *ManaBuffer) SendEvents(ws *websocket.Conn) error {
 }
 
 // StoreValueMsg stores a value msg in the buffer. If it is full, drops the oldest msg.
-func (m *ManaBuffer) StoreValueMsg(msg *manaValueMsgData) {
+func (m *ManaBuffer) StoreValueMsg(msg *ManaValueMsgData) {
 	m.valueMsgsMutex.Lock()
 	defer m.valueMsgsMutex.Unlock()
 	if len(m.ValueMsgs) >= maxManaValuesBufferSize {
@@ -105,7 +105,7 @@ func (m *ManaBuffer) SendValueMsgs(ws *websocket.Conn) error {
 }
 
 // StoreMapOverall stores network mana map msg data.
-func (m *ManaBuffer) StoreMapOverall(msgs ...*manaNetworkListMsgData) {
+func (m *ManaBuffer) StoreMapOverall(msgs ...*ManaNetworkListMsgData) {
 	m.mapOverallMutex.Lock()
 	defer m.mapOverallMutex.Unlock()
 	for _, msg := range msgs {
@@ -135,7 +135,7 @@ func (m *ManaBuffer) SendMapOverall(ws *websocket.Conn) error {
 }
 
 // StoreMapOnline stores network mana map msg data.
-func (m *ManaBuffer) StoreMapOnline(msgs ...*manaNetworkListMsgData) {
+func (m *ManaBuffer) StoreMapOnline(msgs ...*ManaNetworkListMsgData) {
 	m.mapOnlineMutex.Lock()
 	defer m.mapOnlineMutex.Unlock()
 	for _, msg := range msgs {

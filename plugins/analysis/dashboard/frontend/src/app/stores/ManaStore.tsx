@@ -1,62 +1,17 @@
 import {action, computed, observable} from 'mobx';
-import {registerHandler, WSMsgType} from "../misc/WS";
 import * as React from "react";
 import {Col, ListGroupItem, OverlayTrigger, Popover, Row} from "react-bootstrap";
-import Plus from "../../assets/plus.svg";
-import Minus from "../../assets/minus.svg";
-import {displayManaUnit} from "../utils";
-
-class ManaMsg {
-    nodeID: string;
-    access: number;
-    consensus: number;
-    // in s?
-    time: number;
-}
-
-class Node {
-    shortNodeID: string;
-    nodeID: string;
-    mana: number;
-}
-
-class NetworkManaMsg {
-    manaType: string;
-    totalMana: number;
-    nodes: Array<Node>;
-}
-
-export class AllowedPledgeIDsMsg {
-    accessFilter: PledgeIDFilter;
-    consensusFilter: PledgeIDFilter;
-}
-
-export class PledgeIDFilter {
-    enabled: boolean;
-    allowedNodeIDs: Array<AllowedNodeStr>;
-}
-
-export class AllowedNodeStr {
-    shortID: string;
-    fullID: string;
-}
-
-class PledgeMsg {
-    manaType: string;
-    nodeID: string;
-    time: number;
-    txID: string;
-    bm1: number;
-    bm2: number;
-}
-
-class RevokeMsg {
-    manaType: string;
-    nodeID: string;
-    time: number;
-    txID: string;
-    bm1: number;
-}
+import {WSMsgTypeDashboard} from "../models/ws/WSMsgTypeDashboard";
+import {IManaMessage} from "../models/mana/IManaMessage";
+import {INetworkManaMessage} from "../models/mana/INetworkManaMessage";
+import {INode} from "../models/mana/INode";
+import {IPledgeMessage} from "../models/mana/IPledgeMessage";
+import {IRevokeMessage} from "../models/mana/IRevokeMessage";
+import {displayManaUnit} from "../../../../../../dashboard/frontend/src/app/utils";
+import Plus from "../../../../../../../plugins/dashboard/frontend/src/assets/plus.svg"
+import Minus from "../../../../../../../plugins/dashboard/frontend/src/assets/minus.svg"
+import {connectDashboardWebSocket, registerHandler} from "../services/WSmana";
+import {autopeeringStore} from "../../main";
 
 class ManaEvent {
     nodeID: string;
@@ -104,37 +59,35 @@ export class ManaStore {
     // first is accessm second consensus
     @observable prevManaValues: Array<number> = [0,0];
     // list of richest access mana nodes in  network, sorted in descending order
-    @observable accessNetworkRichest: Array<Node> = [];
+    @observable accessNetworkRichest: Array<INode> = [];
     @observable totalAccessNetwork: number = 0.0;
     // list of richest active access mana nodes in the network, sorted in descending order
-    @observable accessActiveRichest: Array<Node> = [];
+    @observable accessActiveRichest: Array<INode> = [];
     @observable totalAccessActive: number = 0.0;
     // list of richest consensus mana nodes in their network, sorted in descending order
-    @observable consensusNetworkRichest: Array<Node> = [];
+    @observable consensusNetworkRichest: Array<INode> = [];
     @observable totalConsensusNetwork: number = 0.0;
     // list of richest active consensus mana nodes in their network, sorted in descending order
-    @observable consensusActiveRichest: Array<Node> = [];
+    @observable consensusActiveRichest: Array<INode> = [];
     @observable totalConsensusActive: number = 0.0;
 
     @observable public searchNode = "";
     @observable public searchTxID = "";
 
-    @observable public allowedPledgeIDs: AllowedPledgeIDsMsg;
-
     @observable accessEvents: Array<ManaEvent> = [];
 
     @observable consensusEvents: Array<ManaEvent> = [];
+    @observable public dashboardWebsocketConnected: boolean = false;
+    @observable public manaDashboardAddress: string
 
     ownID: string;
 
     constructor() {
         this.manaValues = [];
-        registerHandler(WSMsgType.Mana, this.addNewManaValue);
-        registerHandler(WSMsgType.ManaMapOverall, this.updateNetworkRichest);
-        registerHandler(WSMsgType.ManaMapOnline, this.updateActiveRichest);
-        registerHandler(WSMsgType.ManaAllowedPledge, this.updateAllowedPledgeIDs);
-        registerHandler(WSMsgType.ManaPledge, this.addNewPledge);
-        registerHandler(WSMsgType.ManaRevoke, this.addNewRevoke);
+        registerHandler(WSMsgTypeDashboard.ManaMapOverall, this.updateNetworkRichest);
+        registerHandler(WSMsgTypeDashboard.ManaMapOnline, this.updateActiveRichest);
+        registerHandler(WSMsgTypeDashboard.ManaPledge, this.addNewPledge);
+        registerHandler(WSMsgTypeDashboard.ManaRevoke, this.addNewRevoke);
     };
 
     @action
@@ -148,7 +101,7 @@ export class ManaStore {
     }
 
     @action
-    addNewManaValue = (manaMsg: ManaMsg) =>  {
+    addNewManaValue = (manaMsg: IManaMessage) =>  {
         this.ownID = this.ownID? this.ownID : manaMsg.nodeID;
         if (this.manaValues.length === maxStoredManaValues) {
             // shift if we already have enough values
@@ -162,7 +115,7 @@ export class ManaStore {
     }
 
     @action
-    updateNetworkRichest = (msg: NetworkManaMsg) => {
+    updateNetworkRichest = (msg: INetworkManaMessage) => {
         switch (msg.manaType) {
             case "Access":
                 this.totalAccessNetwork = msg.totalMana;
@@ -173,10 +126,21 @@ export class ManaStore {
                 this.consensusNetworkRichest = msg.nodes;
                 break;
         }
+        //TODO: show access or consensus mana
+        this.accessActiveRichest.forEach(node => {
+            let per = this.accessPercentage(node)
+            autopeeringStore.updateSizeBasedOnMana(node.shortNodeID, per)
+        })
+        this.addNewManaValue({
+            nodeID: "",
+            access: this.totalAccessNetwork,
+            consensus: this.totalConsensusNetwork,
+            time: new Date().getTime() * 1000
+        })
     }
 
     @action
-    updateActiveRichest = (msg: NetworkManaMsg) => {
+    updateActiveRichest = (msg: INetworkManaMessage) => {
         switch (msg.manaType) {
             case "Access":
                 this.totalAccessActive = msg.totalMana;
@@ -190,12 +154,7 @@ export class ManaStore {
     };
 
     @action
-    updateAllowedPledgeIDs = (msg: AllowedPledgeIDsMsg) => {
-        this.allowedPledgeIDs = msg;
-    }
-
-    @action
-    addNewPledge = (msg: PledgeMsg) => {
+    addNewPledge = (msg: IPledgeMessage) => {
         switch (msg.manaType) {
             case "Access":
                 this.handleNewPledgeEvent(this.accessEvents, msg);
@@ -206,7 +165,33 @@ export class ManaStore {
         }
     }
 
-    handleNewPledgeEvent = (store: Array<ManaEvent>, msg: PledgeMsg) => {
+
+    @action
+    public updateDashboardWebsocketConnect(connected: boolean): void {
+        this.dashboardWebsocketConnected = connected
+    }
+
+    reconnect() {
+        this.updateDashboardWebsocketConnect(false)
+        setTimeout(() => {
+            this.connect();
+        }, 5000);
+    }
+
+    public connect(): void {
+        connectDashboardWebSocket(this.manaDashboardAddress,
+            () => this.updateDashboardWebsocketConnect(true),
+            () => this.reconnect(),
+            () => this.updateDashboardWebsocketConnect(false));
+    }
+
+    @action
+    public setManaDashboardAddress(address: string): void {
+        this.manaDashboardAddress = address
+        this.connect()
+    }
+
+    handleNewPledgeEvent = (store: Array<ManaEvent>, msg: IPledgeMessage) => {
         if (store.length === maxEventsStored) {
             store.shift()
         }
@@ -221,7 +206,7 @@ export class ManaStore {
     }
 
     @action
-    addNewRevoke = (msg: RevokeMsg) => {
+    addNewRevoke = (msg: IRevokeMessage) => {
         switch (msg.manaType) {
             case "Access":
                 this.handleNewRevokeEvent(this.accessEvents, msg);
@@ -232,7 +217,7 @@ export class ManaStore {
         }
     }
 
-    handleNewRevokeEvent = (store: Array<ManaEvent>, msg: RevokeMsg) => {
+    handleNewRevokeEvent = (store: Array<ManaEvent>, msg: IRevokeMessage) => {
         if (store.length === maxEventsStored) {
             store.shift()
         }
@@ -245,12 +230,12 @@ export class ManaStore {
         store.push(newData)
     }
 
-    nodeList = (leaderBoard: Array<Node>, manaSum: number) => {
+    nodeList = (leaderBoard: Array<INode>, manaSum: number) => {
         if (leaderBoard === null || undefined) {
             return []
         }
         let feed = new Array()
-        let pushToFeed = (node: Node, i: number) => {
+        let pushToFeed = (node: INode, i: number) => {
             feed.push(
                 <tr
                     key={node.shortNodeID}
@@ -275,7 +260,7 @@ export class ManaStore {
                 </tr>
             );
         };
-        let callback = (node: Node, i: number) => {
+        let callback = (node: INode, i: number) => {
             if (this.passesNodeFilter(node.shortNodeID)){
                 pushToFeed(node, i);
             }
@@ -352,22 +337,8 @@ export class ManaStore {
         return histInput
     }
 
-    @computed
-    get accessPercentile() {
-        let per = 0.0;
-        // find id
-        if (this.accessNetworkRichest !== undefined && this.accessNetworkRichest !== null) {
-            const isOwnID = (element) => element.shortNodeID === this.ownID;
-            let index = this.accessNetworkRichest.findIndex(isOwnID);
-            switch (index) {
-                case -1:
-                    break;
-                default:
-                    per = ((this.accessNetworkRichest.length - (index + 1)) / this.accessNetworkRichest.length) * 100;
-                    break;
-            }
-        }
-        return per
+    private accessPercentage(ownNode: INode): number{
+        return (ownNode.mana/this.totalAccessNetwork) * 100;
     }
 
     @computed
