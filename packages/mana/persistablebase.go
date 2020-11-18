@@ -6,21 +6,20 @@ import (
 	"math"
 	"time"
 
-	"github.com/iotaledger/hive.go/stringify"
-
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
+	"github.com/iotaledger/hive.go/stringify"
 )
 
 // PersistableBaseMana represents a base mana vector that can be persisted.
 type PersistableBaseMana struct {
 	objectstorage.StorableObjectFlags
-	ManaType       Type
-	BaseValue      float64
-	EffectiveValue float64
-	LastUpdated    time.Time
-	NodeID         identity.ID
+	ManaType        Type
+	BaseValues      []float64
+	EffectiveValues []float64
+	LastUpdated     time.Time
+	NodeID          identity.ID
 
 	bytes []byte
 }
@@ -29,8 +28,8 @@ type PersistableBaseMana struct {
 func (persistableBaseMana *PersistableBaseMana) String() string {
 	return stringify.Struct("PersistableBaseMana",
 		stringify.StructField("ManaType", fmt.Sprint(persistableBaseMana.ManaType)),
-		stringify.StructField("BaseValue", fmt.Sprint(persistableBaseMana.BaseValue)),
-		stringify.StructField("EffectiveValue", fmt.Sprint(persistableBaseMana.EffectiveValue)),
+		stringify.StructField("BaseValues", fmt.Sprint(persistableBaseMana.BaseValues)),
+		stringify.StructField("EffectiveValues", fmt.Sprint(persistableBaseMana.EffectiveValues)),
 		stringify.StructField("LastUpdated", fmt.Sprint(persistableBaseMana.LastUpdated)),
 		stringify.StructField("NodeID", persistableBaseMana.NodeID.String()),
 	)
@@ -46,8 +45,14 @@ func (persistableBaseMana *PersistableBaseMana) Bytes() []byte {
 	// create marshal helper
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteInt64(int64(persistableBaseMana.ManaType))
-	marshalUtil.WriteUint64(math.Float64bits(persistableBaseMana.BaseValue))
-	marshalUtil.WriteUint64(math.Float64bits(persistableBaseMana.EffectiveValue))
+	marshalUtil.WriteUint16(uint16(len(persistableBaseMana.BaseValues)))
+	for _, baseValue := range persistableBaseMana.BaseValues {
+		marshalUtil.WriteUint64(math.Float64bits(baseValue))
+	}
+	marshalUtil.WriteUint16(uint16(len(persistableBaseMana.EffectiveValues)))
+	for _, effectiveValue := range persistableBaseMana.EffectiveValues {
+		marshalUtil.WriteUint64(math.Float64bits(effectiveValue))
+	}
 	marshalUtil.WriteTime(persistableBaseMana.LastUpdated)
 	marshalUtil.WriteBytes(persistableBaseMana.NodeID.Bytes())
 
@@ -87,17 +92,31 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (result *PersistableBaseMana, e
 	}
 	result.ManaType = Type(manaType)
 
-	baseMana1, err := marshalUtil.ReadUint64()
+	baseValuesLength, err := marshalUtil.ReadUint16()
 	if err != nil {
 		return
 	}
-	result.BaseValue = math.Float64frombits(baseMana1)
+	result.BaseValues = make([]float64, 0, baseValuesLength)
+	for i := 0; i < int(baseValuesLength); i++ {
+		baseMana, err := marshalUtil.ReadUint64()
+		if err != nil {
+			return result, err
+		}
+		result.BaseValues = append(result.BaseValues, math.Float64frombits(baseMana))
+	}
 
-	effBaseMana1, err := marshalUtil.ReadUint64()
+	effectiveValuesLength, err := marshalUtil.ReadUint16()
 	if err != nil {
-		return
+		return result, err
 	}
-	result.EffectiveValue = math.Float64frombits(effBaseMana1)
+	result.EffectiveValues = make([]float64, 0, effectiveValuesLength)
+	for i := 0; i < int(effectiveValuesLength); i++ {
+		effBaseMana, err := marshalUtil.ReadUint64()
+		if err != nil {
+			return result, err
+		}
+		result.BaseValues = append(result.BaseValues, math.Float64frombits(effBaseMana))
+	}
 
 	lastUpdated, err := marshalUtil.ReadTime()
 	if err != nil {
