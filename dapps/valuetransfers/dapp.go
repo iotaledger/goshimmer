@@ -144,7 +144,7 @@ func configure(_ *node.Plugin) {
 	log.Infof("avg. network delay configured to %d seconds", cfgAvgNetworkDelay)
 	fcob = consensus.NewFCOB(_tangle, time.Duration(cfgAvgNetworkDelay)*time.Second)
 	fcob.Events.Vote.Attach(events.NewClosure(func(id string, initOpn vote.Opinion) {
-		if err := voter.Vote(id, initOpn); err != nil {
+		if err := voter.Vote(id, vote.ConflictType, initOpn); err != nil {
 			log.Warnf("FPC vote: %s", err)
 		}
 	}))

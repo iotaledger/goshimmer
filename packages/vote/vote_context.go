@@ -1,17 +1,28 @@
 package vote
 
 // NewContext creates a new vote context.
-func NewContext(id string, initOpn Opinion) *Context {
-	voteCtx := &Context{ID: id, Liked: likedInit}
+func NewContext(id string, objectType ObjectType, initOpn Opinion) *Context {
+	voteCtx := &Context{ID: id, Type: objectType, Liked: likedInit}
 	voteCtx.AddOpinion(initOpn)
 	return voteCtx
 }
 
 const likedInit = -1
 
+// The object type of a voting (e.g., conflict or timestamp)
+type ObjectType uint8
+
+const (
+	// Defines an object type conflict.
+	ConflictType = iota
+	// Defines an object type timestamp.
+	TimestampType
+)
+
 // Context is the context of votes from multiple rounds about a given item.
 type Context struct {
-	ID string
+	ID   string
+	Type ObjectType
 	// The percentage of OpinionGivers who liked this item on the last query.
 	Liked float64
 	// The number of voting rounds performed.

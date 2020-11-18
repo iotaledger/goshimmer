@@ -90,14 +90,26 @@ func (v *View) TimestampOpinion(id tangle.MessageID) Opinions {
 	return v.Timestamps[id]
 }
 
-func (v *View) Query(ctx context.Context, ids []string) (vote.Opinions, error) {
+func (v *View) Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (vote.Opinions, error) {
 	answer := vote.Opinions{}
-	for _, id := range ids {
-		txID, err := transaction.IDFromBase58(id)
+	for _, id := range conflictIDs {
+		ID, err := transaction.IDFromBase58(id)
 		if err != nil {
 			return answer, err
 		}
-		o := v.ConflictOpinion(txID)
+		o := v.ConflictOpinion(ID)
+		opinion := vote.Unknown
+		if len(o) > 0 {
+			opinion = o.Last().Value
+		}
+		answer = append(answer, opinion)
+	}
+	for _, id := range timestampIDs {
+		ID, err := tangle.NewMessageID(id)
+		if err != nil {
+			return answer, err
+		}
+		o := v.TimestampOpinion(ID)
 		opinion := vote.Unknown
 		if len(o) > 0 {
 			opinion = o.Last().Value

@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/prng"
@@ -24,7 +25,6 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	flag "github.com/spf13/pflag"
 	"google.golang.org/grpc"
-	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -181,7 +181,7 @@ type PeerOpinionGiver struct {
 }
 
 // Query queries another node for its opinion.
-func (pog *PeerOpinionGiver) Query(ctx context.Context, ids []string) (vote.Opinions, error) {
+func (pog *PeerOpinionGiver) Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (vote.Opinions, error) {
 	fpcServicePort := pog.p.Services().Get(service.FPCKey).Port()
 	fpcAddr := net.JoinHostPort(pog.p.IP().String(), strconv.Itoa(fpcServicePort))
 
@@ -196,12 +196,12 @@ func (pog *PeerOpinionGiver) Query(ctx context.Context, ids []string) (vote.Opin
 	defer conn.Close()
 
 	client := votenet.NewVoterQueryClient(conn)
-	query := &votenet.QueryRequest{Id: ids}
+	query := &votenet.QueryRequest{ConflictIDs: conflictIDs, TimestampIDs: timestampIDs}
 	reply, err := client.Opinion(ctx, query)
 	if err != nil {
 		metrics.Events().QueryReplyError.Trigger(&metrics.QueryReplyErrorEvent{
 			ID:           pog.p.ID().String(),
-			OpinionCount: len(ids),
+			OpinionCount: len(conflictIDs) + len(timestampIDs),
 		})
 		return nil, fmt.Errorf("unable to query opinions: %w", err)
 	}

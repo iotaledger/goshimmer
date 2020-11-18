@@ -4,11 +4,11 @@ import (
 	"context"
 	"net"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/hive.go/events"
 	"google.golang.org/grpc"
-	"google.golang.org/protobuf/proto"
 )
 
 // OpinionRetriever retrieves the opinion for the given ID.
@@ -42,9 +42,9 @@ type VoterServer struct {
 // Opinion replies the query request with an opinion and triggers the events.
 func (vs *VoterServer) Opinion(ctx context.Context, req *QueryRequest) (*QueryReply, error) {
 	reply := &QueryReply{
-		Opinion: make([]int32, len(req.Id)),
+		Opinion: make([]int32, len(req.ConflictIDs)+len(req.TimestampIDs)),
 	}
-	for i, id := range req.Id {
+	for i, id := range req.ConflictIDs {
 		// check whether there's an ongoing vote
 		opinion, err := vs.voter.IntermediateOpinion(id)
 		if err == nil {
@@ -52,6 +52,15 @@ func (vs *VoterServer) Opinion(ctx context.Context, req *QueryRequest) (*QueryRe
 			continue
 		}
 		reply.Opinion[i] = int32(vs.opnRetriever(id))
+	}
+	for i, id := range req.TimestampIDs {
+		// check whether there's an ongoing vote
+		opinion, err := vs.voter.IntermediateOpinion(id)
+		if err == nil {
+			reply.Opinion[i+len(req.ConflictIDs)] = int32(opinion)
+			continue
+		}
+		reply.Opinion[i+len(req.ConflictIDs)] = int32(vs.opnRetriever(id))
 	}
 
 	if vs.netRxEvent != nil {
@@ -61,7 +70,7 @@ func (vs *VoterServer) Opinion(ctx context.Context, req *QueryRequest) (*QueryRe
 		vs.netTxEvent.Trigger(uint64(proto.Size(reply)))
 	}
 	if vs.queryReceivedEvent != nil {
-		vs.queryReceivedEvent.Trigger(&metrics.QueryReceivedEvent{OpinionCount: len(req.Id)})
+		vs.queryReceivedEvent.Trigger(&metrics.QueryReceivedEvent{OpinionCount: len(req.ConflictIDs) + len(req.TimestampIDs)})
 	}
 
 	return reply, nil

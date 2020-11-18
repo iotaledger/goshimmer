@@ -8,7 +8,7 @@ import (
 type OpinionGiver interface {
 	// Query queries the OpinionGiver for its opinions on the given IDs.
 	// The passed in context can be used to signal cancellation of the query.
-	Query(ctx context.Context, ids []string) (Opinions, error)
+	Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (Opinions, error)
 	// ID returns the ID of the opinion giver.
 	ID() string
 }
