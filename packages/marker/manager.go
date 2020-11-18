@@ -119,16 +119,12 @@ func (m *Manager) NormalizeMarkers(markers Markers) (normalizedMarkersByRank *Ma
 	return
 }
 
-// InheritMarkers takes the result of the NormalizeMarkers method and determines the resulting markers that should be
-// inherited to the a node in the DAG. It automatically creates new Sequences and Markers if necessary and returns two
-// additional flags that indicate if either a new Sequence and or a new Marker where created.
-func (m *Manager) InheritMarkers(normalizedMarkers *MarkersByRank, normalizedSequences SequenceIDs, newSequenceAlias ...SequenceAlias) (inheritedMarkers Markers, newSequence bool, newMarker bool) {
+// InheritPastMarkers takes the result of the NormalizeMarkers method and determines the resulting markers that should
+// be inherited to the a node in the DAG. It automatically creates new Sequences and Markers if necessary and returns
+// two additional flags that indicate if either a new Sequence and or a new Marker where created.
+func (m *Manager) InheritPastMarkers(normalizedMarkers *MarkersByRank, normalizedSequences SequenceIDs, increaseMarkerCallback IncreaseMarkerCallback, newSequenceAlias ...SequenceAlias) (inheritedMarkers Markers, newSequence bool, newMarker bool) {
 	referencedMarkers, _ := normalizedMarkers.Markers()
 	rank := normalizedMarkers.HighestRank()
-
-	if len(normalizedSequences) == 0 {
-		normalizedSequences[SequenceID(0)] = types.Void
-	}
 
 	cachedSequence, newSequence := m.fetchSequence(normalizedSequences, referencedMarkers, rank, newSequenceAlias...)
 	if newSequence {
@@ -141,11 +137,15 @@ func (m *Manager) InheritMarkers(normalizedMarkers *MarkersByRank, normalizedSeq
 
 	if len(normalizedSequences) == 1 {
 		cachedSequence.Consume(func(sequence *Sequence) {
-			if sequence.HighestIndex() == referencedMarkers[sequence.id] {
+			if sequence.HighestIndex() == referencedMarkers[sequence.id] && increaseMarkerCallback(sequence.id, referencedMarkers[sequence.id]) {
 				newIndex, increased := sequence.IncreaseHighestIndex(referencedMarkers[sequence.id])
 				if increased {
 					if len(referencedMarkers) > 1 {
 						delete(referencedMarkers, sequence.id)
+
+						fmt.Println(sequence.parentReferences)
+						fmt.Println(referencedMarkers)
+
 						sequence.parentReferences.AddReferences(referencedMarkers, newIndex)
 					}
 
@@ -222,6 +222,20 @@ func (m *Manager) Shutdown() {
 // fetchSequence is an internal utility function that retrieves or creates the Sequence that represents the given
 // parameters and returns it.
 func (m *Manager) fetchSequence(parentSequences SequenceIDs, referencedMarkers Markers, rank uint64, newSequenceAlias ...SequenceAlias) (cachedSequence *CachedSequence, isNew bool) {
+	switch len(parentSequences) {
+	case 1:
+		for sequenceID := range parentSequences {
+			cachedSequence = m.sequence(sequenceID)
+			return
+		}
+	}
+
+	if len(parentSequences) == 0 {
+		parentSequences = map[SequenceID]types.Empty{
+			0: types.Void,
+		}
+	}
+
 	sequenceAlias := parentSequences.Alias()
 	if len(newSequenceAlias) >= 1 {
 		sequenceAlias = sequenceAlias.Merge(newSequenceAlias[0])

@@ -304,7 +304,7 @@ func (s SequenceIDs) Alias() (aggregatedSequencesID SequenceAlias) {
 	sort.Slice(sequenceIDsSlice, func(i, j int) bool { return sequenceIDsSlice[i] < sequenceIDsSlice[j] })
 
 	marshalUtil := marshalutil.New(marshalutil.Uint64Size * len(s))
-	for sequenceID := range s {
+	for _, sequenceID := range sequenceIDsSlice {
 		marshalUtil.WriteUint64(uint64(sequenceID))
 	}
 	aggregatedSequencesID = blake2b.Sum256(marshalUtil.Bytes())

@@ -93,7 +93,8 @@ func (p ParentReferences) AddReferences(referencedMarkers Markers, referencingIn
 	for referencedSequenceID, referencedIndex := range referencedMarkers {
 		thresholdMap, exists := p[referencedSequenceID]
 		if !exists {
-			panic(fmt.Sprintf("tried to update referenced Marker of unknown parent Sequence: %s", referencedSequenceID))
+			thresholdMap = thresholdmap.New(thresholdmap.LowerThresholdMode)
+			p[referencedSequenceID] = thresholdMap
 		}
 
 		thresholdMap.Set(uint64(referencingIndex), uint64(referencedIndex))
