@@ -7,18 +7,17 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/vote"
-	"github.com/iotaledger/hive.go/identity"
 )
 
 // Registry holds the opinions of all the nodes.
 type Registry struct {
-	NodesView map[identity.ID]*View
+	NodesView map[string]*View
 	mu        sync.Mutex
 }
 
 // View holds the node's opinion about conflicts and timestamps.
 type View struct {
-	NodeID     identity.ID
+	NodeID     string
 	Conflicts  map[transaction.ID]Opinions
 	cMutex     sync.RWMutex
 	Timestamps map[tangle.MessageID]Opinions
@@ -28,12 +27,12 @@ type View struct {
 // NewRegistry returns a new registry.
 func NewRegistry() *Registry {
 	return &Registry{
-		NodesView: make(map[identity.ID]*View),
+		NodesView: make(map[string]*View),
 	}
 }
 
-// NodeRegistry returns the view of the given node.
-func (r *Registry) NodeRegistry(id identity.ID) *View {
+// NodeRegistry returns the view of the given node, and adds a new view if not present.
+func (r *Registry) NodeRegistry(id string) *View {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -77,7 +76,7 @@ func (v *View) AddTimestamp(t Timestamp) {
 // ConflictOpinion returns the opinion history of a given transaction ID.
 func (v *View) ConflictOpinion(id transaction.ID) Opinions {
 	v.cMutex.RLock()
-	defer v.cMutex.Unlock()
+	defer v.cMutex.RUnlock()
 
 	if _, ok := v.Conflicts[id]; !ok {
 		return Opinions{}
@@ -89,7 +88,7 @@ func (v *View) ConflictOpinion(id transaction.ID) Opinions {
 // TimestampOpinion returns the opinion history of a given message ID.
 func (v *View) TimestampOpinion(id tangle.MessageID) Opinions {
 	v.tMutex.RLock()
-	defer v.tMutex.Unlock()
+	defer v.tMutex.RUnlock()
 
 	if _, ok := v.Timestamps[id]; !ok {
 		return Opinions{}
@@ -130,5 +129,5 @@ func (v *View) Query(ctx context.Context, conflictIDs []string, timestampIDs []s
 
 // ID returns the nodeID of the given view.
 func (v *View) ID() string {
-	return v.NodeID.String()
+	return v.NodeID
 }
