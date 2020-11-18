@@ -23,7 +23,7 @@ type Conflict struct {
 // Conflicts is a slice of Conflict.
 type Conflicts []Conflict
 
-// Bytes returns the conflict statment encoded as bytes.
+// Bytes returns the conflict statement encoded as bytes.
 func (c Conflict) Bytes() (bytes []byte) {
 	bytes = make([]byte, ConflictLength)
 
@@ -36,7 +36,7 @@ func (c Conflict) Bytes() (bytes []byte) {
 	return bytes
 }
 
-// Bytes returns the conflicts statments encoded as bytes.
+// Bytes returns the conflicts statements encoded as bytes.
 func (c Conflicts) Bytes() (bytes []byte) {
 	bytes = make([]byte, ConflictLength*len(c))
 

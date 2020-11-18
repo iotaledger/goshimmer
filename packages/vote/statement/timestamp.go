@@ -23,7 +23,7 @@ type Timestamp struct {
 // Timestamps is a slice of Timestamp.
 type Timestamps []Timestamp
 
-// Bytes returns the timestamp statment encoded as bytes.
+// Bytes returns the timestamp statement encoded as bytes.
 func (t Timestamp) Bytes() (bytes []byte) {
 	bytes = make([]byte, TimestampLength)
 
@@ -36,7 +36,7 @@ func (t Timestamp) Bytes() (bytes []byte) {
 	return bytes
 }
 
-// Bytes returns the timestamps statments encoded as bytes.
+// Bytes returns the timestamps statements encoded as bytes.
 func (t Timestamps) Bytes() (bytes []byte) {
 	bytes = make([]byte, TimestampLength*len(t))
 

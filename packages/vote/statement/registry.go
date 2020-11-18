@@ -10,11 +10,13 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 )
 
+// Registry holds the opinions of all the nodes.
 type Registry struct {
 	NodesView map[identity.ID]*View
 	mu        sync.Mutex
 }
 
+// View holds the node's opinion about conflicts and timestamps.
 type View struct {
 	NodeID     identity.ID
 	Conflicts  map[transaction.ID]Opinions
@@ -23,12 +25,14 @@ type View struct {
 	tMutex     sync.RWMutex
 }
 
+// NewRegistry returns a new registry.
 func NewRegistry() *Registry {
 	return &Registry{
 		NodesView: make(map[identity.ID]*View),
 	}
 }
 
+// NodeRegistry returns the view of the given node.
 func (r *Registry) NodeRegistry(id identity.ID) *View {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -44,6 +48,7 @@ func (r *Registry) NodeRegistry(id identity.ID) *View {
 	return r.NodesView[id]
 }
 
+// AddConflict appends the given conflict to the given view.
 func (v *View) AddConflict(c Conflict) {
 	v.cMutex.Lock()
 	defer v.cMutex.Unlock()
@@ -56,6 +61,7 @@ func (v *View) AddConflict(c Conflict) {
 	v.Conflicts[c.ID] = append(v.Conflicts[c.ID], c.Opinion)
 }
 
+// AddTimestamp appends the given timestamp to the given view.
 func (v *View) AddTimestamp(t Timestamp) {
 	v.tMutex.Lock()
 	defer v.tMutex.Unlock()
@@ -68,6 +74,7 @@ func (v *View) AddTimestamp(t Timestamp) {
 	v.Timestamps[t.ID] = append(v.Timestamps[t.ID], t.Opinion)
 }
 
+// ConflictOpinion returns the opinion history of a given transaction ID.
 func (v *View) ConflictOpinion(id transaction.ID) Opinions {
 	v.cMutex.RLock()
 	defer v.cMutex.Unlock()
@@ -79,6 +86,7 @@ func (v *View) ConflictOpinion(id transaction.ID) Opinions {
 	return v.Conflicts[id]
 }
 
+// TimestampOpinion returns the opinion history of a given message ID.
 func (v *View) TimestampOpinion(id tangle.MessageID) Opinions {
 	v.tMutex.RLock()
 	defer v.tMutex.Unlock()
@@ -90,6 +98,7 @@ func (v *View) TimestampOpinion(id tangle.MessageID) Opinions {
 	return v.Timestamps[id]
 }
 
+// Query retrievs the opinions about the given conflicts and timestamps.
 func (v *View) Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (vote.Opinions, error) {
 	answer := vote.Opinions{}
 	for _, id := range conflictIDs {
@@ -119,6 +128,7 @@ func (v *View) Query(ctx context.Context, conflictIDs []string, timestampIDs []s
 	return answer, nil
 }
 
+// ID returns the nodeID of the given view.
 func (v *View) ID() string {
 	return v.NodeID.String()
 }
