@@ -3,11 +3,11 @@ package mana
 import (
 	"time"
 
-	"golang.org/x/xerrors"
-
 	"github.com/iotaledger/hive.go/identity"
+	"golang.org/x/xerrors"
 )
 
+// BaseManaVector is an interface for vectors that store base mana values of nodes in the network.
 type BaseManaVector interface {
 	// Type returns the type of the base mana vector (access/consensus).
 	Type() Type
@@ -34,7 +34,7 @@ type BaseManaVector interface {
 	// ToPersistables converts the BaseManaVector to a list of persistable mana objects.
 	ToPersistables() []*PersistableBaseMana
 	// FromPersistable fills the BaseManaVector from persistable mana objects.
-	FromPersistable(*PersistableBaseMana)
+	FromPersistable(*PersistableBaseMana) error
 }
 
 // NewBaseManaVector creates and returns a new base mana vector for the specified type.
@@ -49,6 +49,32 @@ func NewBaseManaVector(vectorType Type) (BaseManaVector, error) {
 			vector: make(map[identity.ID]*ConsensusBaseMana),
 		}, nil
 	default:
-		return nil, xerrors.Errorf("error while creating base mana vector with type %d: %w", vectorType, ErrUnknownType)
+		return nil, xerrors.Errorf("error while creating base mana vector with type %d: %w", vectorType, ErrUnknownManaType)
+	}
+}
+
+// NewResearchBaseManaVector creates a base mana vector for research purposes.
+func NewResearchBaseManaVector(vectorType Type, targetMana Type, weight float64) (BaseManaVector, error) {
+	if targetMana != AccessMana && targetMana != ConsensusMana {
+		return nil, xerrors.Errorf(
+			"targetMana must be either %s or %s, but it is %s: %w",
+			AccessMana.String(),
+			ConsensusMana.String(),
+			targetMana.String(),
+			ErrInvalidTargetManaType,
+		)
+	}
+	switch vectorType {
+	case WeightedMana:
+		vec := &WeightedBaseManaVector{
+			vector: make(map[identity.ID]*WeightedBaseMana),
+			target: targetMana,
+		}
+		if err := vec.SetWeight(weight); err != nil {
+			return nil, xerrors.Errorf("error while creating base mana vector with weight %f: %w", weight, err)
+		}
+		return vec, nil
+	default:
+		return nil, xerrors.Errorf("error while creating base mana vector with type %d: %w", vectorType, ErrUnknownManaType)
 	}
 }
