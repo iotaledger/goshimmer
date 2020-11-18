@@ -14,10 +14,15 @@ func TestPersistableBaseMana_Bytes(t *testing.T) {
 	p := newPersistableMana()
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteInt64(int64(p.ManaType))
-	marshalUtil.WriteUint64(math.Float64bits(p.BaseMana1))
-	marshalUtil.WriteUint64(math.Float64bits(p.EffectiveBaseMana1))
-	marshalUtil.WriteUint64(math.Float64bits(p.BaseMana2))
-	marshalUtil.WriteUint64(math.Float64bits(p.EffectiveBaseMana2))
+	marshalUtil.WriteUint16(uint16(len(p.BaseValues)))
+	for _, val := range p.BaseValues {
+		marshalUtil.WriteUint64(math.Float64bits(val))
+	}
+	marshalUtil.WriteUint16(uint16(len(p.EffectiveValues)))
+	for _, val := range p.EffectiveValues {
+		marshalUtil.WriteUint64(math.Float64bits(val))
+	}
+
 	marshalUtil.WriteTime(p.LastUpdated)
 	marshalUtil.WriteBytes(p.NodeID.Bytes())
 
@@ -60,12 +65,10 @@ func TestFromStorageKey(t *testing.T) {
 
 func newPersistableMana() *PersistableBaseMana {
 	return &PersistableBaseMana{
-		ManaType:           ConsensusMana,
-		BaseMana1:          1,
-		EffectiveBaseMana1: 1,
-		BaseMana2:          1,
-		EffectiveBaseMana2: 1,
-		LastUpdated:        time.Now(),
-		NodeID:             identity.ID{},
+		ManaType:        ConsensusMana,
+		BaseValues:      []float64{1, 1},
+		EffectiveValues: []float64{1, 1},
+		LastUpdated:     time.Now(),
+		NodeID:          identity.ID{},
 	}
 }
