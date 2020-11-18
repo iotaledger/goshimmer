@@ -3,9 +3,8 @@ package mana
 import (
 	"testing"
 
-	"github.com/mr-tron/base58"
-
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/assert"
 )
 
