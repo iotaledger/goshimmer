@@ -146,7 +146,7 @@ func ConsensusManaMapBM2() mana.NodeMap {
 //region Functions for periodically updating internal metrics.
 
 func measureManaBM1() {
-	tmp := manaPlugin.GetAllManaMaps(mana.OnlyMana1)
+	tmp := manaPlugin.GetAllManaMaps()
 	accessLockBM1.Lock()
 	defer accessLockBM1.Unlock()
 	accessMapBM1 = tmp[mana.AccessMana]
@@ -160,7 +160,7 @@ func measureManaBM1() {
 }
 
 func measureManaBM2() {
-	tmp := manaPlugin.GetAllManaMaps(mana.OnlyMana2)
+	tmp := manaPlugin.GetAllManaMaps()
 	accessLockBM2.Lock()
 	defer accessLockBM2.Unlock()
 	accessMapBM2 = tmp[mana.AccessMana]
