@@ -39,7 +39,7 @@ func (a *AccessBaseMana) updateEBM2(n time.Duration) {
 	}
 }
 
-func (a *AccessBaseMana) revoke(amount float64, t time.Time) error {
+func (a *AccessBaseMana) revoke(float64, time.Time) error {
 	panic("access mana cannot be revoked")
 }
 
@@ -81,14 +81,17 @@ func (a *AccessBaseMana) pledge(tx *TxInfo) (pledged float64) {
 	return
 }
 
+// BaseValue returns the base mana value (BM2).
 func (a *AccessBaseMana) BaseValue() float64 {
 	return a.BaseMana2
 }
 
+// EffectiveValue returns the effective base mana value (EBM2).
 func (a *AccessBaseMana) EffectiveValue() float64 {
 	return a.EffectiveBaseMana2
 }
 
+// LastUpdate returns the last update time.
 func (a *AccessBaseMana) LastUpdate() time.Time {
 	return a.LastUpdated
 }

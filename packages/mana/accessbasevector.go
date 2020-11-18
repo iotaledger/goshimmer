@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/identity"
+	"golang.org/x/xerrors"
 )
 
 // AccessBaseManaVector represents a base mana vector
@@ -166,11 +167,11 @@ func (a *AccessBaseManaVector) ToPersistables() []*PersistableBaseMana {
 	var result []*PersistableBaseMana
 	for nodeID, bm := range a.vector {
 		pbm := &PersistableBaseMana{
-			ManaType:       a.Type(),
-			BaseValue:      bm.BaseValue(),
-			EffectiveValue: bm.EffectiveBaseMana2,
-			LastUpdated:    bm.LastUpdated,
-			NodeID:         nodeID,
+			ManaType:        a.Type(),
+			BaseValues:      []float64{bm.BaseValue()},
+			EffectiveValues: []float64{bm.EffectiveValue()},
+			LastUpdated:     bm.LastUpdated,
+			NodeID:          nodeID,
 		}
 		result = append(result, pbm)
 	}
@@ -178,14 +179,27 @@ func (a *AccessBaseManaVector) ToPersistables() []*PersistableBaseMana {
 }
 
 // FromPersistable fills the AccessBaseManaVector from persistable mana objects.
-func (a *AccessBaseManaVector) FromPersistable(p *PersistableBaseMana) {
+func (a *AccessBaseManaVector) FromPersistable(p *PersistableBaseMana) (err error) {
+	if p.ManaType != AccessMana {
+		err = xerrors.Errorf("persistable mana object has type %s instead of %s", p.ManaType.String(), AccessMana.String())
+		return
+	}
+	if len(p.BaseValues) != 1 {
+		err = xerrors.Errorf("persistable mana object has %d base values instead of 1", len(p.BaseValues))
+		return
+	}
+	if len(p.EffectiveValues) != 1 {
+		err = xerrors.Errorf("persistable mana object has %d effective values instead of 1", len(p.EffectiveValues))
+		return
+	}
 	a.Lock()
 	defer a.Unlock()
 	a.vector[p.NodeID] = &AccessBaseMana{
-		BaseMana2:          p.BaseValue,
-		EffectiveBaseMana2: p.EffectiveValue,
+		BaseMana2:          p.BaseValues[0],
+		EffectiveBaseMana2: p.EffectiveValues[0],
 		LastUpdated:        p.LastUpdated,
 	}
+	return
 }
 
 var _ BaseManaVector = &AccessBaseManaVector{}
