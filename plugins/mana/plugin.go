@@ -224,10 +224,8 @@ func GetNeighborsMana(manaType mana.Type) (mana.NodeMap, error) {
 	neighbors := gossip.Manager().AllNeighbors()
 	res := make(mana.NodeMap)
 	for _, n := range neighbors {
-		value, err := baseManaVectors[manaType].GetMana(n.ID())
-		if err != nil {
-			return nil, err
-		}
+		// in case of error, value is 0.0
+		value, _ := baseManaVectors[manaType].GetMana(n.ID())
 		res[n.ID()] = value
 	}
 	return res, nil
