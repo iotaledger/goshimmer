@@ -28,7 +28,7 @@ func (o Opinions) Finalized(l int) bool {
 	}
 	sort.Sort(o)
 	target := o[len(o)-1].Value
-	for i := len(o) - 2; i >= l; l-- {
+	for i := len(o) - 2; i >= l; i-- {
 		if o[i].Value != target {
 			return false
 		}
