@@ -20,7 +20,7 @@ type OpinionGiver struct {
 }
 
 // Query retrievs the opinions about the given conflicts and timestamps.
-func (o OpinionGiver) Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (opinions vote.Opinions, err error) {
+func (o *OpinionGiver) Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (opinions vote.Opinions, err error) {
 	for i := 0; i < waitForStatement; i++ {
 		opinions, err = o.view.Query(ctx, conflictIDs, timestampIDs)
 		if err == nil {
@@ -35,6 +35,11 @@ func (o OpinionGiver) Query(ctx context.Context, conflictIDs []string, timestamp
 	}
 
 	return nil, err
+}
+
+// ID returns a string representation of the identifier of the underlying Peer.
+func (o *OpinionGiver) ID() string {
+	return o.pog.ID()
 }
 
 func makeStatement(roundStats *vote.RoundStats) {
