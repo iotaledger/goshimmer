@@ -122,15 +122,16 @@ func (m *Manager) NormalizeMarkers(markers Markers) (normalizedMarkersByRank *Ma
 // InheritPastMarkers takes the result of the NormalizeMarkers method and determines the resulting markers that should
 // be inherited to the a node in the DAG. It automatically creates new Sequences and Markers if necessary and returns
 // two additional flags that indicate if either a new Sequence and or a new Marker where created.
-func (m *Manager) InheritPastMarkers(normalizedMarkers *MarkersByRank, normalizedSequences SequenceIDs, increaseMarkerCallback IncreaseMarkerCallback, newSequenceAlias ...SequenceAlias) (inheritedMarkers Markers, newSequence bool, newMarker bool) {
+func (m *Manager) InheritPastMarkers(mergedPastMarkers Markers, increaseMarkerCallback IncreaseMarkerCallback, newSequenceAlias ...SequenceAlias) (inheritedMarkers Markers, newSequence bool, futureMarkerToPropagate *Marker) {
+	normalizedMarkers, normalizedSequences := m.NormalizeMarkers(mergedPastMarkers)
 	referencedMarkers, _ := normalizedMarkers.Markers()
 	rank := normalizedMarkers.HighestRank()
 
 	cachedSequence, newSequence := m.fetchSequence(normalizedSequences, referencedMarkers, rank, newSequenceAlias...)
 	if newSequence {
 		cachedSequence.Consume(func(sequence *Sequence) {
-			inheritedMarkers = NewMarkers(&Marker{sequenceID: sequence.id, index: sequence.lowestIndex})
-			newMarker = true
+			futureMarkerToPropagate = &Marker{sequenceID: sequence.id, index: sequence.lowestIndex}
+			inheritedMarkers = NewMarkers(futureMarkerToPropagate)
 		})
 		return
 	}
@@ -143,14 +144,11 @@ func (m *Manager) InheritPastMarkers(normalizedMarkers *MarkersByRank, normalize
 					if len(referencedMarkers) > 1 {
 						delete(referencedMarkers, sequence.id)
 
-						fmt.Println(sequence.parentReferences)
-						fmt.Println(referencedMarkers)
-
 						sequence.parentReferences.AddReferences(referencedMarkers, newIndex)
 					}
 
-					inheritedMarkers = NewMarkers(&Marker{sequenceID: sequence.id, index: newIndex})
-					newMarker = true
+					futureMarkerToPropagate = &Marker{sequenceID: sequence.id, index: newIndex}
+					inheritedMarkers = NewMarkers(futureMarkerToPropagate)
 					return
 				}
 			}
@@ -162,6 +160,22 @@ func (m *Manager) InheritPastMarkers(normalizedMarkers *MarkersByRank, normalize
 
 	cachedSequence.Release()
 	inheritedMarkers = referencedMarkers
+
+	return
+}
+
+func (m *Manager) InheritFutureMarkers(futureMarkers Markers, markerToInherit *Marker, messageIsMarker bool) (newFutureMarkers Markers, futureMarkersUpdated bool, inheritFutureMarkerFurther bool) {
+	existingIndex, indexExists := futureMarkers[markerToInherit.sequenceID]
+
+	futureMarkersUpdated = !indexExists || existingIndex > markerToInherit.index
+	if futureMarkersUpdated {
+		newFutureMarkers = NewMarkers(markerToInherit)
+		for sequenceID, index := range futureMarkers {
+			newFutureMarkers[sequenceID] = index
+		}
+	}
+
+	inheritFutureMarkerFurther = futureMarkersUpdated && !messageIsMarker
 
 	return
 }

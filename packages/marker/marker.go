@@ -192,6 +192,12 @@ func (m Markers) Set(sequenceID SequenceID, index Index) (updated bool, added bo
 	return
 }
 
+func (m Markers) Merge(markers Markers) {
+	for sequenceID, index := range markers {
+		m.Set(sequenceID, index)
+	}
+}
+
 // LowestIndex returns the the lowest Index of all Markers in the collection.
 func (m Markers) LowestIndex() (lowestIndex Index) {
 	lowestIndex = 1<<64 - 1
