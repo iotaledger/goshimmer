@@ -133,7 +133,7 @@ func websocketRoute(c echo.Context) error {
 				break
 			}
 			if err := ws.SetWriteDeadline(time.Now().Add(webSocketWriteTimeout)); err != nil {
-				break
+				return nil
 			}
 		case <-shutdownSignal:
 			return nil
@@ -141,7 +141,7 @@ func websocketRoute(c echo.Context) error {
 			_, msg, err := ws.ReadMessage()
 			if err != nil {
 				// silent
-				break
+				return nil
 			}
 			mg := wsmsg{}
 			if err := json.Unmarshal(msg, &mg); err != nil {
@@ -152,7 +152,6 @@ func websocketRoute(c echo.Context) error {
 				f(mg.Data)
 			} else {
 				log.Errorf("no handler for message type %d", msg[0])
-				break
 			}
 		}
 

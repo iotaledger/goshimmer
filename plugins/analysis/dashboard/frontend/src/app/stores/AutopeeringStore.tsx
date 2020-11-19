@@ -22,7 +22,7 @@ const VERTEX_COLOR_IN_NEIGHBOR = "0x1c8d7f";
 const VERTEX_COLOR_OUT_NEIGHBOR = "0x336db5";
 const VERTEX_SIZE = 14;
 const VERTEX_SIZE_ACTIVE = 24;
-const VERTEX_SIZE_CONNECTED = 18;
+const VERTEX_SIZE_CONNECTED = 5;
 const statusWebSocketPath = "/ws";
 
 export const shortenedIDCharCount = 8;
@@ -603,17 +603,23 @@ export class AutopeeringStore {
 
         // Highlight selected node
         if (this.selectedNode) {
-            this.updateNodeUiColor(this.selectedNode, VERTEX_COLOR_ACTIVE, VERTEX_SIZE_ACTIVE);
+            const node = this.graphics.getNodeUI(this.selectedNode)
+            const currentSize = node ? node.size : 0
+            this.updateNodeUiColor(this.selectedNode, VERTEX_COLOR_ACTIVE,  currentSize + VERTEX_SIZE_ACTIVE);
 
             if (this.selectedNodeInNeighbors) {
                 for (const inNeighborID of this.selectedNodeInNeighbors) {
-                    this.updateNodeUiColor(inNeighborID, VERTEX_COLOR_IN_NEIGHBOR, VERTEX_SIZE_CONNECTED);
+                    const neighbor = this.graphics.getNodeUI(inNeighborID)
+                    const neighborCurrentSize = neighbor ? neighbor.size : 0
+                    this.updateNodeUiColor(inNeighborID, VERTEX_COLOR_IN_NEIGHBOR, neighborCurrentSize + VERTEX_SIZE_CONNECTED);
                     this.updateLinkUiColor(inNeighborID, this.selectedNode, EDGE_COLOR_INCOMING);
                 }
             }
             if (this.selectedNodeOutNeighbors) {
                 for (const outNeighborID of this.selectedNodeOutNeighbors) {
-                    this.updateNodeUiColor(outNeighborID, VERTEX_COLOR_OUT_NEIGHBOR, VERTEX_SIZE_CONNECTED);
+                    const neighbor = this.graphics.getNodeUI(outNeighborID)
+                    const neighborCurrentSize = neighbor ? neighbor.size : 0
+                    this.updateNodeUiColor(outNeighborID, VERTEX_COLOR_OUT_NEIGHBOR, neighborCurrentSize + VERTEX_SIZE_CONNECTED);
                     this.updateLinkUiColor(this.selectedNode, outNeighborID, EDGE_COLOR_OUTGOING);
                 }
             }
@@ -639,12 +645,16 @@ export class AutopeeringStore {
 
         // Remove highlighting of selected node
         if (this.selectedNode) {
-            this.updateNodeUiColor(this.selectedNode, VERTEX_COLOR_DEFAULT, VERTEX_SIZE);
+            const node = this.graphics.getNodeUI(this.selectedNode)
+            const currentSize = node ? node.size : 0
+            this.updateNodeUiColor(this.selectedNode, VERTEX_COLOR_DEFAULT, currentSize - VERTEX_SIZE_ACTIVE);
 
             if (this.selectedNodeInNeighbors) {
                 for (const inNeighborID of this.selectedNodeInNeighbors) {
                     // Remove highlighting of neighbor
-                    this.updateNodeUiColor(inNeighborID, VERTEX_COLOR_DEFAULT, VERTEX_SIZE);
+                    const neighbor = this.graphics.getNodeUI(inNeighborID)
+                    const neighborCurrentSize = neighbor ? neighbor.size : 0
+                    this.updateNodeUiColor(inNeighborID, VERTEX_COLOR_DEFAULT, neighborCurrentSize - VERTEX_SIZE_CONNECTED);
                     // Remove highlighting of link
                     this.updateLinkUiColor(inNeighborID, this.selectedNode, edgeColor);
                 }
@@ -652,7 +662,9 @@ export class AutopeeringStore {
             if (this.selectedNodeOutNeighbors) {
                 for (const outNeighborID of this.selectedNodeOutNeighbors) {
                     // Remove highlighting of neighbor
-                    this.updateNodeUiColor(outNeighborID, VERTEX_COLOR_DEFAULT, VERTEX_SIZE);
+                    const neighbor = this.graphics.getNodeUI(outNeighborID)
+                    const neighborCurrentSize = neighbor ? neighbor.size : 0
+                    this.updateNodeUiColor(outNeighborID, VERTEX_COLOR_DEFAULT, neighborCurrentSize - VERTEX_SIZE_CONNECTED);
                     // Remove highlighting of link
                     this.updateLinkUiColor(this.selectedNode, outNeighborID, edgeColor);
                 }

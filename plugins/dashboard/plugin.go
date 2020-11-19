@@ -170,7 +170,7 @@ const (
 	MsgTypeManaRevoke
 	// MsgManaDashboardAddress is the socket address of the dashboard to stream mana from.
 	MsgManaDashboardAddress
-	// MsgManaDashboardAddress defines a request to get the socket address of the dashboard to stream mana from.
+	// MsgRequestManaDashboardAddress defines a request to get the socket address of the dashboard to stream mana from.
 	MsgRequestManaDashboardAddress
 )
 

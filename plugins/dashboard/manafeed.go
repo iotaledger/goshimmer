@@ -220,6 +220,7 @@ func sendAllowedManaPledge(ws *websocket.Conn) error {
 //endregion
 
 //region Websocket message data structs
+// ManaValueMsgData defines the mana of a node.
 type ManaValueMsgData struct {
 	NodeID    string  `json:"nodeID"`
 	Access    float64 `json:"access"`
@@ -227,22 +228,26 @@ type ManaValueMsgData struct {
 	Time      int64   `json:"time"`
 }
 
+// ManaNetworkListMsgData defines the overall mana in the network.
 type ManaNetworkListMsgData struct {
 	ManaType  string         `json:"manaType"`
 	TotalMana float64        `json:"totalMana"`
 	Nodes     []mana.NodeStr `json:"nodes"`
 }
 
+// AllowedPledgeIDsMsgData defines the access and consensus pledgeIDs filters.
 type AllowedPledgeIDsMsgData struct {
 	Access    PledgeIDFilter `json:"accessFilter"`
 	Consensus PledgeIDFilter `json:"consensusFilter"`
 }
 
+// PledgeIDFilter defines a pledgeID filter.
 type PledgeIDFilter struct {
 	Enabled        bool             `json:"enabled"`
 	AllowedNodeIDs []AllowedNodeStr `json:"allowedNodeIDs"`
 }
 
+// AllowedNodeStr defines an allowed nodeID in its short and full form.
 type AllowedNodeStr struct {
 	ShortID string `json:"shortID"`
 	FullID  string `json:"fullID"`
