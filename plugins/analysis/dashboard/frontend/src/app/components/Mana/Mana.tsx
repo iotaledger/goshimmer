@@ -25,13 +25,13 @@ export default class Mana extends React.Component<Props, any> {
                     <Col>
                         <ManaGauge
                             data={manaStore.manaValues.length === 0 ? [0.0, 0.0] :[manaStore.manaValues[manaStore.manaValues.length -1][1], manaStore.prevManaValues[0]]}
-                            title={"Access Mana"}
+                            title={"Total Access Mana in Network"}
                         />
                     </Col>
                     <Col>
                         <ManaGauge
                             data={manaStore.manaValues.length === 0 ? [0.0, 0.0] :[manaStore.manaValues[manaStore.manaValues.length -1][2], manaStore.prevManaValues[1]]}
-                            title={"Consensus Mana"}
+                            title={"Total Consensus Mana in Network"}
                         />
                     </Col>
                 </Row>
