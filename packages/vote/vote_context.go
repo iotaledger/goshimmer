@@ -13,9 +13,9 @@ const likedInit = -1
 type ObjectType uint8
 
 const (
-	// Defines an object type conflict.
+	// ConflictType defines an object type conflict.
 	ConflictType = iota
-	// Defines an object type timestamp.
+	// TimestampType defines an object type timestamp.
 	TimestampType
 )
 

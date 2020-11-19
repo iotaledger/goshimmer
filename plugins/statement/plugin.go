@@ -68,13 +68,9 @@ func configure(_ *node.Plugin) {
 
 func run(_ *node.Plugin) {
 	if err := daemon.BackgroundWorker("Statement", func(shutdownSignal <-chan struct{}) {
-
-		for {
-			select {
-
-			case <-shutdownSignal:
-				return
-			}
+		select {
+		case <-shutdownSignal:
+			return
 		}
 	}, shutdown.PriorityFPC); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
