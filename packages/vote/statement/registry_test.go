@@ -10,7 +10,6 @@ import (
 )
 
 func TestRegistry(t *testing.T) {
-
 	r := NewRegistry()
 
 	v := r.NodeRegistry("A")
@@ -33,4 +32,5 @@ func TestRegistry(t *testing.T) {
 	v.AddTimestamp(Timestamp{tA, Opinion{vote.Like, 1}})
 	o := v.TimestampOpinion(tA)
 	assert.Equal(t, 1, len(o))
+	assert.Equal(t, false, o.Finalized(2))
 }
