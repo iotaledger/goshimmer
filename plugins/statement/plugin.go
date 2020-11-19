@@ -6,6 +6,7 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/vote/statement"
+	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
@@ -32,16 +33,18 @@ func init() {
 
 var (
 	// plugin is the plugin instance of the statement plugin.
-	plugin   *node.Plugin
-	once     sync.Once
-	log      *logger.Logger
-	registry *statement.Registry
+	plugin           *node.Plugin
+	once             sync.Once
+	log              *logger.Logger
+	registry         *statement.Registry
+	waitForStatement int
 )
 
 // Plugin gets the plugin instance.
 func Plugin() *node.Plugin {
 	once.Do(func() {
 		plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
+		waitForStatement = config.Node().Int(CfgWaitForStatement)
 	})
 	return plugin
 }

@@ -1,6 +1,10 @@
 package statement
 
 import (
+	"context"
+	"time"
+
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/vote"
@@ -8,6 +12,30 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/issuer"
 	"github.com/iotaledger/hive.go/identity"
 )
+
+// OpinionGiver is a wrapper for both statements and peers.
+type OpinionGiver struct {
+	view *statement.View
+	pog  *valuetransfers.PeerOpinionGiver
+}
+
+// Query retrievs the opinions about the given conflicts and timestamps.
+func (o OpinionGiver) Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (opinions vote.Opinions, err error) {
+	for i := 0; i < waitForStatement; i++ {
+		opinions, err = o.view.Query(ctx, conflictIDs, timestampIDs)
+		if err == nil {
+			return opinions, nil
+		}
+		time.Sleep(time.Second)
+	}
+
+	opinions, err = o.pog.Query(ctx, conflictIDs, timestampIDs)
+	if err == nil {
+		return opinions, nil
+	}
+
+	return nil, err
+}
 
 func makeStatement(roundStats *vote.RoundStats) {
 	// TODO: add check for Mana threshold
