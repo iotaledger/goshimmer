@@ -98,7 +98,8 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (result *PersistableBaseMana, e
 	}
 	result.BaseValues = make([]float64, 0, baseValuesLength)
 	for i := 0; i < int(baseValuesLength); i++ {
-		baseMana, err := marshalUtil.ReadUint64()
+		var baseMana uint64
+		baseMana, err = marshalUtil.ReadUint64()
 		if err != nil {
 			return result, err
 		}
@@ -111,11 +112,12 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (result *PersistableBaseMana, e
 	}
 	result.EffectiveValues = make([]float64, 0, effectiveValuesLength)
 	for i := 0; i < int(effectiveValuesLength); i++ {
-		effBaseMana, err := marshalUtil.ReadUint64()
+		var effBaseMana uint64
+		effBaseMana, err = marshalUtil.ReadUint64()
 		if err != nil {
 			return result, err
 		}
-		result.BaseValues = append(result.BaseValues, math.Float64frombits(effBaseMana))
+		result.EffectiveValues = append(result.EffectiveValues, math.Float64frombits(effBaseMana))
 	}
 
 	lastUpdated, err := marshalUtil.ReadTime()

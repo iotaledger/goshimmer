@@ -168,7 +168,10 @@ func readStoredManaVectors() {
 		storages[vectorType].ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 			cachedPbm := &mana.CachedPersistableBaseMana{CachedObject: cachedObject}
 			cachedPbm.Consume(func(p *mana.PersistableBaseMana) {
-				baseManaVectors[vectorType].FromPersistable(p)
+				err := baseManaVectors[vectorType].FromPersistable(p)
+				if err != nil {
+					log.Errorf("error while restoring %s mana vector: %w", vectorType.String(), err)
+				}
 			})
 			return true
 		})
