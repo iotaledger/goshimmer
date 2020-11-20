@@ -37,7 +37,7 @@ func TestManager(t *testing.T) {
 		}
 	}
 
-	for messageID, expectedParentMarkers := range map[string]Markers{
+	for messageID, expectedParentMarkers := range map[string]*Markers{
 		"msg0":  NewMarkers(&Marker{sequenceID: 0, index: 1}),
 		"msg1":  NewMarkers(),
 		"msg2":  NewMarkers(),
@@ -58,7 +58,7 @@ func TestManager(t *testing.T) {
 		assert.Equal(t, expectedParentMarkers, messageDB[messageID].markers.PastMarkers, messageID+" has unexpected past Markers")
 	}
 
-	for messageID, expectedFutureMarkers := range map[string]Markers{
+	for messageID, expectedFutureMarkers := range map[string]*Markers{
 		"msg0":  NewMarkers(&Marker{sequenceID: 0, index: 2}, &Marker{sequenceID: 4, index: 2}),
 		"msg1":  NewMarkers(&Marker{sequenceID: 0, index: 2}, &Marker{sequenceID: 4, index: 2}),
 		"msg2":  NewMarkers(&Marker{sequenceID: 0, index: 2}),
@@ -129,7 +129,7 @@ type message struct {
 	forceNewMarker           bool
 	parents                  []string
 	optionalNewSequenceAlias []SequenceAlias
-	markers                  *MessageMarkers
+	markers                  *MarkersPair
 }
 
 func newMessage(id string, forceNewMarker bool, parents []string, optionalNewSequenceID ...string) *message {
@@ -143,7 +143,7 @@ func newMessage(id string, forceNewMarker bool, parents []string, optionalNewSeq
 		forceNewMarker:           forceNewMarker,
 		optionalNewSequenceAlias: optionalNewSequenceAlias,
 		parents:                  parents,
-		markers: &MessageMarkers{
+		markers: &MarkersPair{
 			PastMarkers:   NewMarkers(),
 			FutureMarkers: NewMarkers(),
 		},

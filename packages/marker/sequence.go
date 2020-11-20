@@ -30,7 +30,7 @@ type Sequence struct {
 }
 
 // NewSequence creates a new Sequence.
-func NewSequence(id SequenceID, referencedMarkers Markers, rank uint64) *Sequence {
+func NewSequence(id SequenceID, referencedMarkers *Markers, rank uint64) *Sequence {
 	initialIndex := referencedMarkers.HighestIndex() + 1
 
 	return &Sequence{
@@ -102,7 +102,7 @@ func (s *Sequence) ParentSequences() SequenceIDs {
 }
 
 // HighestReferencedParentMarkers returns a list of highest index markers in different marker sequence of parent sequences.
-func (s *Sequence) HighestReferencedParentMarkers(index Index) Markers {
+func (s *Sequence) HighestReferencedParentMarkers(index Index) *Markers {
 	return s.parentReferences.HighestReferencedMarkers(index)
 }
 

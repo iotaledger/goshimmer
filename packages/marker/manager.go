@@ -51,12 +51,14 @@ func NewManager(store kvstore.KVStore) *Manager {
 // MergeMarkers takes multiple Markers and merges them into a single set of Markers by using the higher Index in case
 // of ambiguous Indexes per SequenceID. It can be used to combine multiple Markers of multiple parents into a single
 // object before handing it in to the other methods of the Manager.
-func (m *Manager) MergeMarkers(markersToMerge ...Markers) (mergedMarkers Markers) {
+func (m *Manager) MergeMarkers(markersToMerge ...*Markers) (mergedMarkers *Markers) {
 	mergedMarkers = NewMarkers()
 	for _, markers := range markersToMerge {
-		for sequenceID, index := range markers {
+		markers.ForEach(func(sequenceID SequenceID, index Index) bool {
 			mergedMarkers.Set(sequenceID, index)
-		}
+
+			return true
+		})
 	}
 
 	return
@@ -66,15 +68,17 @@ func (m *Manager) MergeMarkers(markersToMerge ...Markers) (mergedMarkers Markers
 // same set (the remaining Markers are the "most special" Markers that reference all Markers in the set grouped by the
 // rank of their corresponding Sequence). In addition, the method returns all SequenceIDs of the Markers that were not
 // referenced by any of the Markers (the tips of the Sequence DAG).
-func (m *Manager) NormalizeMarkers(markers Markers) (normalizedMarkersByRank *MarkersByRank, normalizedSequences SequenceIDs) {
+func (m *Manager) NormalizeMarkers(markers *Markers) (normalizedMarkersByRank *MarkersByRank, normalizedSequences SequenceIDs) {
 	rankOfSequencesCache := make(map[SequenceID]uint64)
 
 	normalizedMarkersByRank = NewMarkersByRank()
 	normalizedSequences = make(SequenceIDs)
-	for sequenceID, index := range markers {
+	markers.ForEach(func(sequenceID SequenceID, index Index) bool {
 		normalizedSequences[sequenceID] = types.Void
 		normalizedMarkersByRank.Add(m.rankOfSequence(sequenceID, rankOfSequencesCache), sequenceID, index)
-	}
+
+		return true
+	})
 	markersToIterate := normalizedMarkersByRank.Clone()
 
 	for i := markersToIterate.HighestRank() + 1; i > normalizedMarkersByRank.LowestRank(); i-- {
@@ -84,13 +88,13 @@ func (m *Manager) NormalizeMarkers(markers Markers) (normalizedMarkersByRank *Ma
 			continue
 		}
 
-		for sequenceID, index := range markersByRank {
+		if !markersByRank.forEach(func(sequenceID SequenceID, index Index) bool {
 			if currentRank <= normalizedMarkersByRank.LowestRank() {
-				return
+				return false
 			}
 
 			if !m.sequence(sequenceID).Consume(func(sequence *Sequence) {
-				for referencedSequenceID, referencedIndex := range sequence.HighestReferencedParentMarkers(index) {
+				sequence.HighestReferencedParentMarkers(index).ForEach(func(referencedSequenceID SequenceID, referencedIndex Index) bool {
 					delete(normalizedSequences, referencedSequenceID)
 
 					rankOfReferencedSequence := m.rankOfSequence(referencedSequenceID, rankOfSequencesCache)
@@ -103,16 +107,22 @@ func (m *Manager) NormalizeMarkers(markers Markers) (normalizedMarkersByRank *Ma
 							}
 						}
 
-						continue
+						return true
 					}
 
 					if rankOfReferencedSequence > normalizedMarkersByRank.LowestRank() {
 						markersToIterate.Add(rankOfReferencedSequence, referencedSequenceID, referencedIndex)
 					}
-				}
+
+					return true
+				})
 			}) {
 				panic(fmt.Sprintf("failed to load Sequence with %s", sequenceID))
 			}
+
+			return true
+		}) {
+			return
 		}
 	}
 
@@ -122,7 +132,7 @@ func (m *Manager) NormalizeMarkers(markers Markers) (normalizedMarkersByRank *Ma
 // InheritPastMarkers takes the result of the NormalizeMarkers method and determines the resulting markers that should
 // be inherited to the a node in the DAG. It automatically creates new Sequences and Markers if necessary and returns
 // two additional flags that indicate if either a new Sequence and or a new Marker where created.
-func (m *Manager) InheritPastMarkers(mergedPastMarkers Markers, increaseMarkerCallback IncreaseMarkerCallback, newSequenceAlias ...SequenceAlias) (inheritedMarkers Markers, newSequence bool, futureMarkerToPropagate *Marker) {
+func (m *Manager) InheritPastMarkers(mergedPastMarkers *Markers, increaseMarkerCallback IncreaseMarkerCallback, newSequenceAlias ...SequenceAlias) (inheritedMarkers *Markers, newSequence bool, futureMarkerToPropagate *Marker) {
 	normalizedMarkers, normalizedSequences := m.NormalizeMarkers(mergedPastMarkers)
 	referencedMarkers, _ := normalizedMarkers.Markers()
 	rank := normalizedMarkers.HighestRank()
@@ -138,11 +148,13 @@ func (m *Manager) InheritPastMarkers(mergedPastMarkers Markers, increaseMarkerCa
 
 	if len(normalizedSequences) == 1 {
 		cachedSequence.Consume(func(sequence *Sequence) {
-			if sequence.HighestIndex() == referencedMarkers[sequence.id] && increaseMarkerCallback(sequence.id, referencedMarkers[sequence.id]) {
-				newIndex, increased := sequence.IncreaseHighestIndex(referencedMarkers[sequence.id])
-				if increased {
-					if len(referencedMarkers) > 1 {
-						delete(referencedMarkers, sequence.id)
+			currentIndex, _ := referencedMarkers.Get(sequence.id)
+
+			if sequence.HighestIndex() == currentIndex && increaseMarkerCallback(sequence.id, currentIndex) {
+
+				if newIndex, increased := sequence.IncreaseHighestIndex(currentIndex); increased {
+					if referencedMarkers.Size() > 1 {
+						referencedMarkers.Delete(sequence.id)
 
 						sequence.parentReferences.AddReferences(referencedMarkers, newIndex)
 					}
@@ -164,15 +176,17 @@ func (m *Manager) InheritPastMarkers(mergedPastMarkers Markers, increaseMarkerCa
 	return
 }
 
-func (m *Manager) InheritFutureMarkers(futureMarkers Markers, markerToInherit *Marker, messageIsMarker bool) (newFutureMarkers Markers, futureMarkersUpdated bool, inheritFutureMarkerFurther bool) {
-	existingIndex, indexExists := futureMarkers[markerToInherit.sequenceID]
+func (m *Manager) InheritFutureMarkers(futureMarkers *Markers, markerToInherit *Marker, messageIsMarker bool) (newFutureMarkers *Markers, futureMarkersUpdated bool, inheritFutureMarkerFurther bool) {
+	existingIndex, indexExists := futureMarkers.Get(markerToInherit.sequenceID)
 
 	futureMarkersUpdated = !indexExists || existingIndex > markerToInherit.index
 	if futureMarkersUpdated {
 		newFutureMarkers = NewMarkers(markerToInherit)
-		for sequenceID, index := range futureMarkers {
-			newFutureMarkers[sequenceID] = index
-		}
+		futureMarkers.ForEach(func(sequenceID SequenceID, index Index) bool {
+			newFutureMarkers.set(sequenceID, index)
+
+			return true
+		})
 	}
 
 	inheritFutureMarkerFurther = futureMarkersUpdated && !messageIsMarker
@@ -181,7 +195,7 @@ func (m *Manager) InheritFutureMarkers(futureMarkers Markers, markerToInherit *M
 }
 
 // CheckReference checks if the markers given by the first parameter are referenced by the
-func (m *Manager) CheckReference(olderPastMarkers Markers, olderFutureMarkers Markers, laterPastMarkers Markers, markers Markers, referencedByMarkers Markers) (referenced bool) {
+func (m *Manager) CheckReference(olderPastMarkers *Markers, olderFutureMarkers *Markers, laterPastMarkers *Markers, markers *Markers, referencedByMarkers *Markers) (referenced bool) {
 	if olderPastMarkers.LowestIndex() > laterPastMarkers.HighestIndex() {
 		return false
 	}
@@ -189,9 +203,11 @@ func (m *Manager) CheckReference(olderPastMarkers Markers, olderFutureMarkers Ma
 	rankOfSequencesCache := make(map[SequenceID]uint64)
 
 	referencedByMarkersByRank := NewMarkersByRank()
-	for sequenceID, index := range referencedByMarkers {
+	referencedByMarkers.ForEach(func(sequenceID SequenceID, index Index) bool {
 		referencedByMarkersByRank.Add(m.rankOfSequence(sequenceID, rankOfSequencesCache), sequenceID, index)
-	}
+
+		return true
+	})
 
 	for i := referencedByMarkersByRank.HighestRank() + 1; true; i-- {
 		currentRank := i - 1
@@ -200,21 +216,27 @@ func (m *Manager) CheckReference(olderPastMarkers Markers, olderFutureMarkers Ma
 			continue
 		}
 
-		for sequenceID, index := range markersByRank {
+		if !markersByRank.forEach(func(sequenceID SequenceID, index Index) bool {
 			if !m.sequence(sequenceID).Consume(func(sequence *Sequence) {
-				for referencedSequenceID, referencedIndex := range sequence.HighestReferencedParentMarkers(index) {
-					if index, exists := markers[referencedSequenceID]; exists && index <= referencedIndex {
+				sequence.HighestReferencedParentMarkers(index).ForEach(func(referencedSequenceID SequenceID, referencedIndex Index) bool {
+					if index, exists := markers.Get(referencedSequenceID); exists && index <= referencedIndex {
 						referenced = true
-						return
+						return false
 					}
-				}
+
+					return true
+				})
 			}) {
 				panic(fmt.Sprintf("failed to load Sequence with %s", sequenceID))
 			}
 
 			if referenced {
-				return
+				return false
 			}
+
+			return true
+		}) {
+			return
 		}
 	}
 
@@ -235,7 +257,7 @@ func (m *Manager) Shutdown() {
 
 // fetchSequence is an internal utility function that retrieves or creates the Sequence that represents the given
 // parameters and returns it.
-func (m *Manager) fetchSequence(parentSequences SequenceIDs, referencedMarkers Markers, rank uint64, newSequenceAlias ...SequenceAlias) (cachedSequence *CachedSequence, isNew bool) {
+func (m *Manager) fetchSequence(parentSequences SequenceIDs, referencedMarkers *Markers, rank uint64, newSequenceAlias ...SequenceAlias) (cachedSequence *CachedSequence, isNew bool) {
 	switch len(parentSequences) {
 	case 1:
 		for sequenceID := range parentSequences {

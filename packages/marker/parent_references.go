@@ -19,16 +19,18 @@ import (
 type ParentReferences map[SequenceID]*thresholdmap.ThresholdMap
 
 // NewParentReferences creates a new set of ParentReferences.
-func NewParentReferences(referencedMarkers Markers) (parentReferences ParentReferences) {
+func NewParentReferences(referencedMarkers *Markers) (parentReferences ParentReferences) {
 	parentReferences = make(ParentReferences)
 
 	initialSequenceIndex := referencedMarkers.HighestIndex() + 1
-	for sequenceID, index := range referencedMarkers {
+	referencedMarkers.ForEach(func(sequenceID SequenceID, index Index) bool {
 		thresholdMap := thresholdmap.New(thresholdmap.LowerThresholdMode)
 
 		thresholdMap.Set(uint64(initialSequenceIndex), uint64(index))
 		parentReferences[sequenceID] = thresholdMap
-	}
+
+		return true
+	})
 
 	return
 }
@@ -89,8 +91,8 @@ func ParentReferencesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (pare
 }
 
 // AddReferences add referenced markers to the ParentReferences.
-func (p ParentReferences) AddReferences(referencedMarkers Markers, referencingIndex Index) {
-	for referencedSequenceID, referencedIndex := range referencedMarkers {
+func (p ParentReferences) AddReferences(referencedMarkers *Markers, referencingIndex Index) {
+	referencedMarkers.ForEach(func(referencedSequenceID SequenceID, referencedIndex Index) bool {
 		thresholdMap, exists := p[referencedSequenceID]
 		if !exists {
 			thresholdMap = thresholdmap.New(thresholdmap.LowerThresholdMode)
@@ -98,7 +100,9 @@ func (p ParentReferences) AddReferences(referencedMarkers Markers, referencingIn
 		}
 
 		thresholdMap.Set(uint64(referencingIndex), uint64(referencedIndex))
-	}
+
+		return true
+	})
 }
 
 // HighestReferencedMarker returns a marker with the highest index of a specific marker sequence.
@@ -120,14 +124,14 @@ func (p ParentReferences) HighestReferencedMarker(sequenceID SequenceID, referen
 }
 
 // HighestReferencedMarkers returns a list of highest index markers in different marker sequence.
-func (p ParentReferences) HighestReferencedMarkers(index Index) (highestReferencedMarkers Markers) {
-	highestReferencedMarkers = make(Markers)
+func (p ParentReferences) HighestReferencedMarkers(index Index) (highestReferencedMarkers *Markers) {
+	highestReferencedMarkers = NewMarkers()
 	for sequenceID, thresholdMap := range p {
 		referencedIndex, exists := thresholdMap.Get(uint64(index))
 		if !exists {
 			panic(fmt.Sprintf("%s is smaller than the lowest known Index", index))
 		}
-		highestReferencedMarkers[sequenceID] = Index(referencedIndex.(uint64))
+		highestReferencedMarkers.set(sequenceID, Index(referencedIndex.(uint64)))
 	}
 
 	return

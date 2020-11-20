@@ -2,6 +2,7 @@ package marker
 
 import (
 	"strconv"
+	"sync"
 
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -125,10 +126,13 @@ func (m *Marker) String() string {
 // region Markers //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Markers represents a collection of Markers that can contain exactly one Index per SequenceID.
-type Markers map[SequenceID]Index
+type Markers struct {
+	markers      map[SequenceID]Index
+	markersMutex sync.RWMutex
+}
 
 // MarkersFromBytes unmarshals a collection of Markers from a sequence of bytes.
-func MarkersFromBytes(markersBytes []byte) (markers Markers, consumedBytes int, err error) {
+func MarkersFromBytes(markersBytes []byte) (markers *Markers, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(markersBytes)
 	if markers, err = MarkersFromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse Markers from MarshalUtil: %w", err)
@@ -140,14 +144,16 @@ func MarkersFromBytes(markersBytes []byte) (markers Markers, consumedBytes int, 
 }
 
 // MarkersFromMarshalUtil unmarshals a collection of Markers using a MarshalUtil (for easier unmarshaling).
-func MarkersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (markers Markers, err error) {
+func MarkersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (markers *Markers, err error) {
 	markersCount, err := marshalUtil.ReadUint32()
 	if err != nil {
 		err = xerrors.Errorf("failed to parse Markers count (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
-	markers = make(Markers, markersCount)
+	markers = &Markers{
+		markers: make(map[SequenceID]Index),
+	}
 	for i := 0; i < int(markersCount); i++ {
 		sequenceID, sequenceIDErr := SequenceIDFromMarshalUtil(marshalUtil)
 		if sequenceIDErr != nil {
@@ -159,83 +165,157 @@ func MarkersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (markers Marke
 			err = xerrors.Errorf("failed to parse Index from MarshalUtil: %w", indexErr)
 			return
 		}
-		markers[sequenceID] = index
+		markers.set(sequenceID, index)
 	}
 
 	return
 }
 
 // NewMarkers creates a new collection of Markers from the given parameters.
-func NewMarkers(optionalMarkers ...*Marker) (markers Markers) {
-	markers = make(Markers)
+func NewMarkers(optionalMarkers ...*Marker) (markers *Markers) {
+	markers = &Markers{
+		markers: make(map[SequenceID]Index),
+	}
+
 	for _, marker := range optionalMarkers {
-		markers.Set(marker.sequenceID, marker.index)
+		markers.set(marker.sequenceID, marker.index)
 	}
 
 	return
 }
 
+// ForEach is a thread-safe iterator that calls the iterator function for each of the found Markers. The iteration is
+// aborted if the iterator function returns false. The method returns false if the iteration was aborted.
+func (m *Markers) ForEach(iterator func(sequenceID SequenceID, index Index) bool) (success bool) {
+	m.markersMutex.RLock()
+	defer m.markersMutex.RUnlock()
+
+	success = m.forEach(iterator)
+
+	return
+}
+
+func (m *Markers) forEach(iterator func(sequenceID SequenceID, index Index) bool) (success bool) {
+	success = true
+	for sequenceID, index := range m.markers {
+		if success = iterator(sequenceID, index); success {
+			return
+		}
+	}
+
+	return
+}
+
+func (m *Markers) Get(sequenceID SequenceID) (index Index, exists bool) {
+	m.markersMutex.RLock()
+	defer m.markersMutex.RUnlock()
+
+	index, exists = m.markers[sequenceID]
+	return
+}
+
 // Set adds a new Marker to the collection and updates the Index of an existing entry if it is higher than a possible
 // previously stored one. The method returns two boolean flags that indicate if an entry was updated and added.
-func (m Markers) Set(sequenceID SequenceID, index Index) (updated bool, added bool) {
-	if existingIndex, indexAlreadyStored := m[sequenceID]; indexAlreadyStored {
+func (m *Markers) Set(sequenceID SequenceID, index Index) (updated bool, added bool) {
+	m.markersMutex.Lock()
+	defer m.markersMutex.Unlock()
+
+	updated, added = m.set(sequenceID, index)
+
+	return
+}
+
+func (m *Markers) set(sequenceID SequenceID, index Index) (updated bool, added bool) {
+	if existingIndex, indexAlreadyStored := m.markers[sequenceID]; indexAlreadyStored {
 		if updated = index > existingIndex; updated {
-			m[sequenceID] = index
+			m.markers[sequenceID] = index
 		}
 		return
 	}
 
-	m[sequenceID] = index
+	m.markers[sequenceID] = index
 	updated = true
 	added = true
 
 	return
 }
 
-func (m Markers) Merge(markers Markers) {
-	for sequenceID, index := range markers {
+func (m *Markers) Delete(sequenceID SequenceID) (existed bool) {
+	m.markersMutex.Lock()
+	defer m.markersMutex.Unlock()
+
+	_, existed = m.markers[sequenceID]
+	delete(m.markers, sequenceID)
+
+	return
+}
+
+func (m *Markers) Size() int {
+	m.markersMutex.RLock()
+	defer m.markersMutex.RUnlock()
+
+	return len(m.markers)
+}
+
+func (m *Markers) Merge(markers *Markers) {
+	markers.ForEach(func(sequenceID SequenceID, index Index) bool {
 		m.Set(sequenceID, index)
-	}
+
+		return true
+	})
 }
 
 // LowestIndex returns the the lowest Index of all Markers in the collection.
-func (m Markers) LowestIndex() (lowestIndex Index) {
+func (m *Markers) LowestIndex() (lowestIndex Index) {
 	lowestIndex = 1<<64 - 1
-	for _, index := range m {
+	m.ForEach(func(sequenceID SequenceID, index Index) bool {
 		if index < lowestIndex {
 			lowestIndex = index
 		}
-	}
+
+		return true
+	})
 
 	return
 }
 
 // HighestIndex returns the the highest Index of all Markers in the collection.
-func (m Markers) HighestIndex() (highestIndex Index) {
-	for _, index := range m {
+func (m *Markers) HighestIndex() (highestIndex Index) {
+	m.ForEach(func(sequenceID SequenceID, index Index) bool {
 		if index > highestIndex {
 			highestIndex = index
 		}
-	}
+
+		return true
+	})
 
 	return
 }
 
 // Clone create a copy of the Markers.
-func (m Markers) Clone() (clone Markers) {
-	clone = make(Markers)
-	for sequenceID, index := range m {
-		clone[sequenceID] = index
+func (m *Markers) Clone() (clone *Markers) {
+	clonedMap := make(map[SequenceID]Index)
+	m.ForEach(func(sequenceID SequenceID, index Index) bool {
+		clonedMap[sequenceID] = index
+
+		return true
+	})
+
+	clone = &Markers{
+		markers: clonedMap,
 	}
 
 	return
 }
 
 // Bytes returns the Markers in serialized byte form.
-func (m Markers) Bytes() []byte {
+func (m *Markers) Bytes() []byte {
+	m.markersMutex.RLock()
+	defer m.markersMutex.RLock()
+
 	marshalUtil := marshalutil.New()
-	marshalUtil.WriteUint32(uint32(len(m)))
-	for sequenceID, index := range m {
+	marshalUtil.WriteUint32(uint32(len(m.markers)))
+	for sequenceID, index := range m.markers {
 		marshalUtil.Write(sequenceID)
 		marshalUtil.Write(index)
 	}
@@ -244,11 +324,13 @@ func (m Markers) Bytes() []byte {
 }
 
 // String returns a human readable version of the Markers.
-func (m Markers) String() string {
+func (m *Markers) String() string {
 	structBuilder := stringify.StructBuilder("Markers")
-	for sequenceID, index := range m {
+	m.ForEach(func(sequenceID SequenceID, index Index) bool {
 		structBuilder.AddField(stringify.StructField(sequenceID.String(), index))
-	}
+
+		return true
+	})
 
 	return structBuilder.String()
 }
@@ -259,7 +341,7 @@ func (m Markers) String() string {
 
 // MarkersByRank is a collection of Markers that groups them by the rank of their Sequence.
 type MarkersByRank struct {
-	markersByRank map[uint64]Markers
+	markersByRank map[uint64]*Markers
 	lowestRank    uint64
 	highestRank   uint64
 	size          uint64
@@ -268,7 +350,7 @@ type MarkersByRank struct {
 // NewMarkersByRank creates a new collection of Markers grouped by the rank of their Sequence.
 func NewMarkersByRank() *MarkersByRank {
 	return &MarkersByRank{
-		markersByRank: make(map[uint64]Markers),
+		markersByRank: make(map[uint64]*Markers),
 		lowestRank:    1<<64 - 1,
 		highestRank:   0,
 		size:          0,
@@ -278,7 +360,7 @@ func NewMarkersByRank() *MarkersByRank {
 // Add adds a new Marker to the collection and returns if the marker was updated
 func (m *MarkersByRank) Add(rank uint64, sequenceID SequenceID, index Index) (updated bool, added bool) {
 	if _, exists := m.markersByRank[rank]; !exists {
-		m.markersByRank[rank] = make(Markers)
+		m.markersByRank[rank] = NewMarkers()
 
 		if rank > m.highestRank {
 			m.highestRank = rank
@@ -299,19 +381,21 @@ func (m *MarkersByRank) Add(rank uint64, sequenceID SequenceID, index Index) (up
 // Markers flattens the collection and returns a normal Markers collection by removing the rank information. The
 // optionalRank parameter allows to optionally filter the collection by rank and only return the Markers of the given
 // rank. The method additionally returns an exists flag that indicates if the returned Markers are not empty.
-func (m *MarkersByRank) Markers(optionalRank ...uint64) (markers Markers, exists bool) {
+func (m *MarkersByRank) Markers(optionalRank ...uint64) (markers *Markers, exists bool) {
 	if len(optionalRank) >= 1 {
 		markers, exists = m.markersByRank[optionalRank[0]]
 		return
 	}
 
-	markers = make(Markers)
+	markers = NewMarkers()
 	for _, markersOfRank := range m.markersByRank {
-		for sequenceID, index := range markersOfRank {
-			markers[sequenceID] = index
-		}
+		markersOfRank.ForEach(func(sequenceID SequenceID, index Index) bool {
+			markers.markers[sequenceID] = index
+
+			return true
+		})
 	}
-	exists = len(markers) >= 1
+	exists = len(markers.markers) >= 1
 
 	return
 }
@@ -324,7 +408,7 @@ func (m *MarkersByRank) Index(rank uint64, sequenceID SequenceID) (index Index, 
 		return
 	}
 
-	index, exists = uniqueMarkers[sequenceID]
+	index, exists = uniqueMarkers.Get(sequenceID)
 
 	return
 }
@@ -333,12 +417,10 @@ func (m *MarkersByRank) Index(rank uint64, sequenceID SequenceID) (index Index, 
 // collection.
 func (m *MarkersByRank) Delete(rank uint64, sequenceID SequenceID) (deleted bool) {
 	if sequences, sequencesExist := m.markersByRank[rank]; sequencesExist {
-		if _, indexExists := sequences[sequenceID]; indexExists {
-			delete(sequences, sequenceID)
+		if deleted = sequences.Delete(sequenceID); deleted {
 			m.size--
-			deleted = true
 
-			if len(sequences) == 0 {
+			if sequences.Size() == 0 {
 				delete(m.markersByRank, rank)
 
 				if rank == m.lowestRank {
@@ -388,7 +470,7 @@ func (m *MarkersByRank) Size() uint64 {
 
 // Clone returns a copy of the MarkersByRank.
 func (m *MarkersByRank) Clone() *MarkersByRank {
-	markersByRank := make(map[uint64]Markers)
+	markersByRank := make(map[uint64]*Markers)
 	for rank, uniqueMarkers := range m.markersByRank {
 		markersByRank[rank] = uniqueMarkers.Clone()
 	}
@@ -419,12 +501,12 @@ func (m *MarkersByRank) String() string {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region MessageMarkers ///////////////////////////////////////////////////////////////////////////////////////////////
+// region MarkersPair ///////////////////////////////////////////////////////////////////////////////////////////////
 
-type MessageMarkers struct {
+type MarkersPair struct {
 	IsPastMarker  bool
-	PastMarkers   Markers
-	FutureMarkers Markers
+	PastMarkers   *Markers
+	FutureMarkers *Markers
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
