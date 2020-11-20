@@ -165,7 +165,7 @@ func MarkersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (markers *Mark
 			err = xerrors.Errorf("failed to parse Index from MarshalUtil: %w", indexErr)
 			return
 		}
-		markers.set(sequenceID, index)
+		markers.Set(sequenceID, index)
 	}
 
 	return
@@ -178,7 +178,7 @@ func NewMarkers(optionalMarkers ...*Marker) (markers *Markers) {
 	}
 
 	for _, marker := range optionalMarkers {
-		markers.set(marker.sequenceID, marker.index)
+		markers.Set(marker.sequenceID, marker.index)
 	}
 
 	return
@@ -190,15 +190,9 @@ func (m *Markers) ForEach(iterator func(sequenceID SequenceID, index Index) bool
 	m.markersMutex.RLock()
 	defer m.markersMutex.RUnlock()
 
-	success = m.forEach(iterator)
-
-	return
-}
-
-func (m *Markers) forEach(iterator func(sequenceID SequenceID, index Index) bool) (success bool) {
 	success = true
 	for sequenceID, index := range m.markers {
-		if success = iterator(sequenceID, index); success {
+		if success = iterator(sequenceID, index); !success {
 			return
 		}
 	}
@@ -220,12 +214,6 @@ func (m *Markers) Set(sequenceID SequenceID, index Index) (updated bool, added b
 	m.markersMutex.Lock()
 	defer m.markersMutex.Unlock()
 
-	updated, added = m.set(sequenceID, index)
-
-	return
-}
-
-func (m *Markers) set(sequenceID SequenceID, index Index) (updated bool, added bool) {
 	if existingIndex, indexAlreadyStored := m.markers[sequenceID]; indexAlreadyStored {
 		if updated = index > existingIndex; updated {
 			m.markers[sequenceID] = index
@@ -268,7 +256,7 @@ func (m *Markers) Merge(markers *Markers) {
 // LowestIndex returns the the lowest Index of all Markers in the collection.
 func (m *Markers) LowestIndex() (lowestIndex Index) {
 	lowestIndex = 1<<64 - 1
-	m.ForEach(func(sequenceID SequenceID, index Index) bool {
+	m.ForEach(func(_ SequenceID, index Index) bool {
 		if index < lowestIndex {
 			lowestIndex = index
 		}
@@ -281,7 +269,7 @@ func (m *Markers) LowestIndex() (lowestIndex Index) {
 
 // HighestIndex returns the the highest Index of all Markers in the collection.
 func (m *Markers) HighestIndex() (highestIndex Index) {
-	m.ForEach(func(sequenceID SequenceID, index Index) bool {
+	m.ForEach(func(_ SequenceID, index Index) bool {
 		if index > highestIndex {
 			highestIndex = index
 		}
@@ -311,7 +299,7 @@ func (m *Markers) Clone() (clone *Markers) {
 // Bytes returns the Markers in serialized byte form.
 func (m *Markers) Bytes() []byte {
 	m.markersMutex.RLock()
-	defer m.markersMutex.RLock()
+	defer m.markersMutex.RUnlock()
 
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteUint32(uint32(len(m.markers)))
@@ -395,7 +383,7 @@ func (m *MarkersByRank) Markers(optionalRank ...uint64) (markers *Markers, exist
 			return true
 		})
 	}
-	exists = len(markers.markers) >= 1
+	exists = markers.Size() >= 1
 
 	return
 }

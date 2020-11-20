@@ -88,7 +88,7 @@ func (m *Manager) NormalizeMarkers(markers *Markers) (normalizedMarkersByRank *M
 			continue
 		}
 
-		if !markersByRank.forEach(func(sequenceID SequenceID, index Index) bool {
+		if !markersByRank.ForEach(func(sequenceID SequenceID, index Index) bool {
 			if currentRank <= normalizedMarkersByRank.LowestRank() {
 				return false
 			}
@@ -183,7 +183,7 @@ func (m *Manager) InheritFutureMarkers(futureMarkers *Markers, markerToInherit *
 	if futureMarkersUpdated {
 		newFutureMarkers = NewMarkers(markerToInherit)
 		futureMarkers.ForEach(func(sequenceID SequenceID, index Index) bool {
-			newFutureMarkers.set(sequenceID, index)
+			newFutureMarkers.Set(sequenceID, index)
 
 			return true
 		})
@@ -216,7 +216,7 @@ func (m *Manager) CheckReference(olderPastMarkers *Markers, olderFutureMarkers *
 			continue
 		}
 
-		if !markersByRank.forEach(func(sequenceID SequenceID, index Index) bool {
+		if !markersByRank.ForEach(func(sequenceID SequenceID, index Index) bool {
 			if !m.sequence(sequenceID).Consume(func(sequence *Sequence) {
 				sequence.HighestReferencedParentMarkers(index).ForEach(func(referencedSequenceID SequenceID, referencedIndex Index) bool {
 					if index, exists := markers.Get(referencedSequenceID); exists && index <= referencedIndex {

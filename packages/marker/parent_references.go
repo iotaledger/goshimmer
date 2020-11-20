@@ -131,7 +131,7 @@ func (p ParentReferences) HighestReferencedMarkers(index Index) (highestReferenc
 		if !exists {
 			panic(fmt.Sprintf("%s is smaller than the lowest known Index", index))
 		}
-		highestReferencedMarkers.set(sequenceID, Index(referencedIndex.(uint64)))
+		highestReferencedMarkers.Set(sequenceID, Index(referencedIndex.(uint64)))
 	}
 
 	return
