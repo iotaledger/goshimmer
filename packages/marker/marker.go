@@ -165,7 +165,7 @@ func MarkersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (markers *Mark
 			err = xerrors.Errorf("failed to parse Index from MarshalUtil: %w", indexErr)
 			return
 		}
-		markers.Set(sequenceID, index)
+		markers.markers[sequenceID] = index
 	}
 
 	return
@@ -176,7 +176,6 @@ func NewMarkers(optionalMarkers ...*Marker) (markers *Markers) {
 	markers = &Markers{
 		markers: make(map[SequenceID]Index),
 	}
-
 	for _, marker := range optionalMarkers {
 		markers.Set(marker.sequenceID, marker.index)
 	}
@@ -184,22 +183,7 @@ func NewMarkers(optionalMarkers ...*Marker) (markers *Markers) {
 	return
 }
 
-// ForEach is a thread-safe iterator that calls the iterator function for each of the found Markers. The iteration is
-// aborted if the iterator function returns false. The method returns false if the iteration was aborted.
-func (m *Markers) ForEach(iterator func(sequenceID SequenceID, index Index) bool) (success bool) {
-	m.markersMutex.RLock()
-	defer m.markersMutex.RUnlock()
-
-	success = true
-	for sequenceID, index := range m.markers {
-		if success = iterator(sequenceID, index); !success {
-			return
-		}
-	}
-
-	return
-}
-
+// Get returns the Index of the Marker with the given Sequence and a flag that indicates if the Marker exists.
 func (m *Markers) Get(sequenceID SequenceID) (index Index, exists bool) {
 	m.markersMutex.RLock()
 	defer m.markersMutex.RUnlock()
@@ -228,6 +212,8 @@ func (m *Markers) Set(sequenceID SequenceID, index Index) (updated bool, added b
 	return
 }
 
+// Delete removes the Marker with the given SequenceID from the collection and returns a boolean flag that indicates if
+// the element existed.
 func (m *Markers) Delete(sequenceID SequenceID) (existed bool) {
 	m.markersMutex.Lock()
 	defer m.markersMutex.Unlock()
@@ -238,6 +224,22 @@ func (m *Markers) Delete(sequenceID SequenceID) (existed bool) {
 	return
 }
 
+// ForEach calls the iterator for each of the contained Markers. The iteration is aborted if the iterator returns false. The method returns false if the iteration was aborted.
+func (m *Markers) ForEach(iterator func(sequenceID SequenceID, index Index) bool) (success bool) {
+	m.markersMutex.RLock()
+	defer m.markersMutex.RUnlock()
+
+	success = true
+	for sequenceID, index := range m.markers {
+		if success = iterator(sequenceID, index); !success {
+			return
+		}
+	}
+
+	return
+}
+
+// Size returns the amount of Markers in the collection.
 func (m *Markers) Size() int {
 	m.markersMutex.RLock()
 	defer m.markersMutex.RUnlock()
@@ -245,6 +247,8 @@ func (m *Markers) Size() int {
 	return len(m.markers)
 }
 
+// Merge takes the given Markers and adds them to the collection (overwriting Markers with a lower Index if there are
+// existing Markers with the same SequenceID).
 func (m *Markers) Merge(markers *Markers) {
 	markers.ForEach(func(sequenceID SequenceID, index Index) bool {
 		m.Set(sequenceID, index)
@@ -280,7 +284,7 @@ func (m *Markers) HighestIndex() (highestIndex Index) {
 	return
 }
 
-// Clone create a copy of the Markers.
+// Clone creates a copy of the Markers.
 func (m *Markers) Clone() (clone *Markers) {
 	clonedMap := make(map[SequenceID]Index)
 	m.ForEach(func(sequenceID SequenceID, index Index) bool {
@@ -329,10 +333,11 @@ func (m *Markers) String() string {
 
 // MarkersByRank is a collection of Markers that groups them by the rank of their Sequence.
 type MarkersByRank struct {
-	markersByRank map[uint64]*Markers
-	lowestRank    uint64
-	highestRank   uint64
-	size          uint64
+	markersByRank      map[uint64]*Markers
+	markersByRankMutex sync.RWMutex
+	lowestRank         uint64
+	highestRank        uint64
+	size               uint64
 }
 
 // NewMarkersByRank creates a new collection of Markers grouped by the rank of their Sequence.
@@ -347,6 +352,9 @@ func NewMarkersByRank() *MarkersByRank {
 
 // Add adds a new Marker to the collection and returns if the marker was updated
 func (m *MarkersByRank) Add(rank uint64, sequenceID SequenceID, index Index) (updated bool, added bool) {
+	m.markersByRankMutex.Lock()
+	defer m.markersByRankMutex.Unlock()
+
 	if _, exists := m.markersByRank[rank]; !exists {
 		m.markersByRank[rank] = NewMarkers()
 
@@ -370,6 +378,9 @@ func (m *MarkersByRank) Add(rank uint64, sequenceID SequenceID, index Index) (up
 // optionalRank parameter allows to optionally filter the collection by rank and only return the Markers of the given
 // rank. The method additionally returns an exists flag that indicates if the returned Markers are not empty.
 func (m *MarkersByRank) Markers(optionalRank ...uint64) (markers *Markers, exists bool) {
+	m.markersByRankMutex.RLock()
+	defer m.markersByRankMutex.RUnlock()
+
 	if len(optionalRank) >= 1 {
 		markers, exists = m.markersByRank[optionalRank[0]]
 		return
@@ -391,6 +402,9 @@ func (m *MarkersByRank) Markers(optionalRank ...uint64) (markers *Markers, exist
 // Index returns the Index of the Marker given by the rank and its SequenceID and a flag that indicates if the Marker
 // exists in the collection.
 func (m *MarkersByRank) Index(rank uint64, sequenceID SequenceID) (index Index, exists bool) {
+	m.markersByRankMutex.RLock()
+	defer m.markersByRankMutex.RUnlock()
+
 	uniqueMarkers, exists := m.markersByRank[rank]
 	if !exists {
 		return
@@ -404,6 +418,9 @@ func (m *MarkersByRank) Index(rank uint64, sequenceID SequenceID) (index Index, 
 // Delete removes the given Marker from the collection and returns a flag that indicates if the Marker existed in the
 // collection.
 func (m *MarkersByRank) Delete(rank uint64, sequenceID SequenceID) (deleted bool) {
+	m.markersByRankMutex.Lock()
+	defer m.markersByRankMutex.Unlock()
+
 	if sequences, sequencesExist := m.markersByRank[rank]; sequencesExist {
 		if deleted = sequences.Delete(sequenceID); deleted {
 			m.size--
@@ -443,21 +460,33 @@ func (m *MarkersByRank) Delete(rank uint64, sequenceID SequenceID) (deleted bool
 
 // LowestRank returns the lowest rank that has Markers.
 func (m *MarkersByRank) LowestRank() uint64 {
+	m.markersByRankMutex.RLock()
+	defer m.markersByRankMutex.RUnlock()
+
 	return m.lowestRank
 }
 
 // HighestRank returns the highest rank that has Markers.
 func (m *MarkersByRank) HighestRank() uint64 {
+	m.markersByRankMutex.RLock()
+	defer m.markersByRankMutex.RUnlock()
+
 	return m.highestRank
 }
 
 // Size returns the amount of Markers in the collection.
 func (m *MarkersByRank) Size() uint64 {
+	m.markersByRankMutex.RLock()
+	defer m.markersByRankMutex.RUnlock()
+
 	return m.size
 }
 
 // Clone returns a copy of the MarkersByRank.
 func (m *MarkersByRank) Clone() *MarkersByRank {
+	m.markersByRankMutex.RLock()
+	defer m.markersByRankMutex.RUnlock()
+
 	markersByRank := make(map[uint64]*Markers)
 	for rank, uniqueMarkers := range m.markersByRank {
 		markersByRank[rank] = uniqueMarkers.Clone()
@@ -473,6 +502,9 @@ func (m *MarkersByRank) Clone() *MarkersByRank {
 
 // String returns a human readable version of the MarkersByRank.
 func (m *MarkersByRank) String() string {
+	m.markersByRankMutex.RLock()
+	defer m.markersByRankMutex.RUnlock()
+
 	structBuilder := stringify.StructBuilder("MarkersByRank")
 	if m.highestRank == 0 {
 		return structBuilder.String()

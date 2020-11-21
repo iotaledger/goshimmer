@@ -48,22 +48,6 @@ func NewManager(store kvstore.KVStore) *Manager {
 	}
 }
 
-// MergeMarkers takes multiple Markers and merges them into a single set of Markers by using the higher Index in case
-// of ambiguous Indexes per SequenceID. It can be used to combine multiple Markers of multiple parents into a single
-// object before handing it in to the other methods of the Manager.
-func (m *Manager) MergeMarkers(markersToMerge ...*Markers) (mergedMarkers *Markers) {
-	mergedMarkers = NewMarkers()
-	for _, markers := range markersToMerge {
-		markers.ForEach(func(sequenceID SequenceID, index Index) bool {
-			mergedMarkers.Set(sequenceID, index)
-
-			return true
-		})
-	}
-
-	return
-}
-
 // NormalizeMarkers takes a set of Markers and removes each Marker that is already referenced by another Marker in the
 // same set (the remaining Markers are the "most special" Markers that reference all Markers in the set grouped by the
 // rank of their corresponding Sequence). In addition, the method returns all SequenceIDs of the Markers that were not
@@ -151,7 +135,6 @@ func (m *Manager) InheritPastMarkers(mergedPastMarkers *Markers, increaseMarkerC
 			currentIndex, _ := referencedMarkers.Get(sequence.id)
 
 			if sequence.HighestIndex() == currentIndex && increaseMarkerCallback(sequence.id, currentIndex) {
-
 				if newIndex, increased := sequence.IncreaseHighestIndex(currentIndex); increased {
 					if referencedMarkers.Size() > 1 {
 						referencedMarkers.Delete(sequence.id)
@@ -177,19 +160,57 @@ func (m *Manager) InheritPastMarkers(mergedPastMarkers *Markers, increaseMarkerC
 }
 
 func (m *Manager) InheritFutureMarkers(futureMarkers *Markers, markerToInherit *Marker, messageIsMarker bool) (newFutureMarkers *Markers, futureMarkersUpdated bool, inheritFutureMarkerFurther bool) {
-	existingIndex, indexExists := futureMarkers.Get(markerToInherit.sequenceID)
+	rankCache := make(map[SequenceID]uint64)
+	candidatesByRank := NewMarkersByRank()
 
-	futureMarkersUpdated = !indexExists || existingIndex > markerToInherit.index
-	if futureMarkersUpdated {
-		newFutureMarkers = NewMarkers(markerToInherit)
-		futureMarkers.ForEach(func(sequenceID SequenceID, index Index) bool {
-			newFutureMarkers.Set(sequenceID, index)
+	continueScanningForPotentialReferences := func(sequenceID SequenceID, index Index) bool {
+		if existingIndex, sequenceExists := futureMarkers.Get(sequenceID); sequenceExists {
+			return existingIndex > index
+		}
 
-			return true
+		m.sequence(sequenceID).Consume(func(sequence *Sequence) {
+			sequence.HighestReferencedParentMarkers(index).ForEach(func(referencedSequenceID SequenceID, referencedIndex Index) bool {
+				candidatesByRank.Add(m.rankOfSequence(referencedSequenceID, rankCache), referencedSequenceID, referencedIndex)
+
+				return true
+			})
 		})
+
+		return true
 	}
 
-	inheritFutureMarkerFurther = futureMarkersUpdated && !messageIsMarker
+	if !continueScanningForPotentialReferences(markerToInherit.sequenceID, markerToInherit.index) {
+		return
+	}
+
+	rankOfLowestSequence := uint64(1<<64 - 1)
+	futureMarkers.ForEach(func(sequenceID SequenceID, index Index) bool {
+		if rankOfSequence := m.rankOfSequence(sequenceID, rankCache); rankOfSequence < rankOfLowestSequence {
+			rankOfLowestSequence = rankOfSequence
+		}
+
+		return true
+	})
+
+	for rank := candidatesByRank.HighestRank() + 1; rank > rankOfLowestSequence; rank-- {
+		markersByRank, rankExists := candidatesByRank.Markers(rank - 1)
+		if !rankExists {
+			continue
+		}
+
+		if !markersByRank.ForEach(continueScanningForPotentialReferences) {
+			return
+		}
+	}
+
+	newFutureMarkers = NewMarkers(markerToInherit)
+	futureMarkers.ForEach(func(sequenceID SequenceID, index Index) bool {
+		newFutureMarkers.Set(sequenceID, index)
+
+		return true
+	})
+	futureMarkersUpdated = true
+	inheritFutureMarkerFurther = !messageIsMarker
 
 	return
 }

@@ -22,7 +22,7 @@ func TestManager(t *testing.T) {
 		newMessage("msg9", false, []string{"msg5", "msg6"}),
 		newMessage("msg10", false, []string{"msg7", "msg9"}),
 		newMessage("msg11", true, []string{"msg8"}),
-		newMessage("msg12", true, []string{"msg6", "msg10", "msg11"}),
+		newMessage("msg12", true, []string{"msg2", "msg6", "msg10", "msg11"}),
 		newMessage("msg13", false, nil, "newSequence2"),
 		newMessage("msg14", false, []string{"msg13"}),
 		newMessage("msg15", false, []string{"msg3", "msg14"}),
