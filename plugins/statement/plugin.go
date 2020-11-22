@@ -49,6 +49,7 @@ func Plugin() *node.Plugin {
 	return plugin
 }
 
+// Registry returns the registry.
 func Registry() *statement.Registry {
 	return registry
 }
@@ -71,10 +72,7 @@ func configure(_ *node.Plugin) {
 
 func run(_ *node.Plugin) {
 	if err := daemon.BackgroundWorker("Statement", func(shutdownSignal <-chan struct{}) {
-		select {
-		case <-shutdownSignal:
-			return
-		}
+		<-shutdownSignal
 	}, shutdown.PriorityFPC); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
