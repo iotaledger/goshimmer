@@ -19,7 +19,7 @@ const (
 	CfgAllowedConsensusFilterEnabled = "mana.allowedConsensusFilterEnabled"
 	// CfgManaEnableResearchVectors determines if research mana vector should be used or not. To use the Mana Research
 	// Grafana Dashboard, this should be set to true.
-	CfgManaEnableResearchVectors = "mana.EnableResearchVectors"
+	CfgManaEnableResearchVectors = "mana.enableResearchVectors"
 )
 
 func init() {

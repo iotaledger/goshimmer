@@ -12,7 +12,7 @@ const (
 	WeightedMana
 	// ResearchAccess is a special type of WeightedMana, that targets access pledges.
 	ResearchAccess
-	// ResearchConsensus is a special type of WeightedMana, that targets access pledges.
+	// ResearchConsensus is a special type of WeightedMana, that targets consensus pledges.
 	ResearchConsensus
 )
 
