@@ -149,7 +149,7 @@ func sendManaMapOnline() {
 		Type: MsgTypeManaMapOnline,
 		Data: accessPayload,
 	})
-	consensusManaList, err := manaPlugin.GetOnlineNodes(mana.AccessMana)
+	consensusManaList, err := manaPlugin.GetOnlineNodes(mana.ConsensusMana)
 	if err != nil {
 		log.Errorf("failed to get list of online consensus mana nodes: %w ", err)
 	}

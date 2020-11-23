@@ -10,54 +10,69 @@ import (
 )
 
 func TestUpdateBM2(t *testing.T) {
-	bm1 := AccessBaseMana{}
-	bm2 := AccessBaseMana{}
+	t.Run("CASE: Zero values", func(t *testing.T) {
+		bm := AccessBaseMana{}
 
-	// 0 initial values, timely update should not change anything
-	bm1.updateBM2(time.Hour)
-	assert.Equal(t, 0.0, bm1.BaseMana2)
+		// 0 initial values, timely update should not change anything
+		bm.updateBM2(time.Hour)
+		assert.Equal(t, 0.0, bm.BaseMana2)
+	})
 
-	// pledge BM2 at t = o
-	bm1.BaseMana2 = 1.0
-	bm1.updateBM2(time.Hour * 6)
-	assert.InDelta(t, 0.5, bm1.BaseMana2, delta)
+	t.Run("CASE: Batch update", func(t *testing.T) {
+		bm := AccessBaseMana{}
 
-	// pledge BM2 at t = o
-	bm2.BaseMana2 = 1.0
-	// with emaCoeff1 = 0.00003209, half value should be reached within 6 hours
-	for i := 0; i < 6; i++ {
-		bm2.updateBM2(time.Hour)
-	}
-	assert.InDelta(t, 0.5, bm2.BaseMana2, delta)
+		// pledge BM2 at t = o
+		bm.BaseMana2 = 1.0
+		bm.updateBM2(time.Hour * 6)
+		assert.InDelta(t, 0.5, bm.BaseMana2, delta)
+	})
+
+	t.Run("CASE: Incremental update", func(t *testing.T) {
+		bm := AccessBaseMana{}
+
+		// pledge BM2 at t = o
+		bm.BaseMana2 = 1.0
+		// with emaCoeff1 = 0.00003209, half value should be reached within 6 hours
+		for i := 0; i < 6; i++ {
+			bm.updateBM2(time.Hour)
+		}
+		assert.InDelta(t, 0.5, bm.BaseMana2, delta)
+	})
 }
 
 func TestUpdateEBM2CoeffEqual(t *testing.T) {
-	bm1 := AccessBaseMana{}
-	bm2 := AccessBaseMana{}
+	t.Run("CASE: Zero values", func(t *testing.T) {
+		bm := AccessBaseMana{}
 
-	// 0 initial values, timely update should not change anything
-	bm1.updateEBM2(time.Hour)
-	assert.Equal(t, 0.0, bm1.EffectiveBaseMana2)
+		// 0 initial values, timely update should not change anything
+		bm.updateEBM2(time.Hour)
+		assert.Equal(t, 0.0, bm.EffectiveBaseMana2)
+	})
 
-	// first, let's calculate once on a 6 hour span
-	// pledge BM2 at t = o
-	bm1.BaseMana2 = 1.0
-	// updateEBM2 relies on an update baseMana2 value
-	bm1.updateBM2(time.Hour * 6)
-	bm1.updateEBM2(time.Hour * 6)
+	t.Run("CASE: Batch and incremental update", func(t *testing.T) {
+		bmBatch := AccessBaseMana{}
 
-	// second, let's calculate the same but every hour
-	// pledge BM2 at t = o
-	bm2.BaseMana2 = 1.0
-	// with emaCoeff1 = 0.00003209, half value should be reached within 6 hours
-	for i := 0; i < 6; i++ {
+		// first, let's calculate once on a 6 hour span
+		// pledge BM2 at t = o
+		bmBatch.BaseMana2 = 1.0
 		// updateEBM2 relies on an update baseMana2 value
-		bm2.updateBM2(time.Hour)
-		bm2.updateEBM2(time.Hour)
-	}
+		bmBatch.updateBM2(time.Hour * 6)
+		bmBatch.updateEBM2(time.Hour * 6)
 
-	// compare results of the two calculations
-	assert.Equal(t, true, math.Abs(bm1.EffectiveBaseMana2-bm2.EffectiveBaseMana2) < delta)
+		bmInc := AccessBaseMana{}
+		// second, let's calculate the same but every hour
+		// pledge BM2 at t = o
+		bmInc.BaseMana2 = 1.0
+		// with emaCoeff1 = 0.00003209, half value should be reached within 6 hours
+		for i := 0; i < 6; i++ {
+			// updateEBM2 relies on an update baseMana2 value
+			bmInc.updateBM2(time.Hour)
+			bmInc.updateEBM2(time.Hour)
+		}
+
+		// compare results of the two calculations
+		assert.Equal(t, true, math.Abs(bmBatch.EffectiveBaseMana2-bmInc.EffectiveBaseMana2) < delta)
+	})
 }
 
 func TestUpdateTimeInPast_Access(t *testing.T) {

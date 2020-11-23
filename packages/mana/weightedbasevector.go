@@ -37,7 +37,7 @@ func (w *WeightedBaseManaVector) Size() int {
 
 // SetWeight sets the weight for the while vector.
 func (w *WeightedBaseManaVector) SetWeight(weight float64) error {
-	if weight < 0.0 || weight > 1.0 {
+	if weight < OnlyMana2 || weight > OnlyMana1 {
 		return xerrors.Errorf("error while setting weight to %f: %w", weight, ErrInvalidWeightParameter)
 	}
 	w.weight = weight
