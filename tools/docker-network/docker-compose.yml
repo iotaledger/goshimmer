@@ -48,6 +48,7 @@ services:
       --syncbeacon.broadcastInterval=5
       --syncbeacon.startSynced=true
       --metrics.manaResearch=true
+      --mana.EnableResearchVectors=true
     volumes:
       - ./config.docker.json:/tmp/config.json:ro
       - goshimmer-cache:/go
