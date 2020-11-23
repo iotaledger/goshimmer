@@ -171,7 +171,7 @@ func run(_ *node.Plugin) {
 }
 
 func readStoredManaVectors() {
-	for vectorType, _ := range baseManaVectors {
+	for vectorType := range baseManaVectors {
 		storages[vectorType].ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 			cachedPbm := &mana.CachedPersistableBaseMana{CachedObject: cachedObject}
 			cachedPbm.Consume(func(p *mana.PersistableBaseMana) {
