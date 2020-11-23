@@ -10,7 +10,7 @@ import (
 	"golang.org/x/xerrors"
 )
 
-// WeightedBaseManaVector represents a base mana vector
+// WeightedBaseManaVector represents a base mana vector.
 type WeightedBaseManaVector struct {
 	vector map[identity.ID]*WeightedBaseMana
 	weight float64

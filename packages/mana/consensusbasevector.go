@@ -10,7 +10,7 @@ import (
 	"golang.org/x/xerrors"
 )
 
-// ConsensusBaseManaVector represents a base mana vector
+// ConsensusBaseManaVector represents a base mana vector.
 type ConsensusBaseManaVector struct {
 	vector map[identity.ID]*ConsensusBaseMana
 	sync.RWMutex

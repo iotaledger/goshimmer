@@ -9,7 +9,7 @@ import (
 	"golang.org/x/xerrors"
 )
 
-// AccessBaseManaVector represents a base mana vector
+// AccessBaseManaVector represents a base mana vector.
 type AccessBaseManaVector struct {
 	vector map[identity.ID]*AccessBaseMana
 	sync.RWMutex
@@ -84,7 +84,7 @@ func (a *AccessBaseManaVector) UpdateAll(t time.Time) error {
 	return nil
 }
 
-// GetMana returns combination of Effective Base Mana 1 & 2 weighted as 50-50.
+// GetMana returns Effective Base Mana 2.
 func (a *AccessBaseManaVector) GetMana(nodeID identity.ID) (float64, error) {
 	a.Lock()
 	defer a.Unlock()

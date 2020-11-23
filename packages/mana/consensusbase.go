@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// ConsensusBaseMana holds information about the  access base mana values of a single node.
+// ConsensusBaseMana holds information about the consensus base mana values of a single node.
 type ConsensusBaseMana struct {
 	BaseMana1          float64
 	EffectiveBaseMana1 float64
