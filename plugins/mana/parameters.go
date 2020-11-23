@@ -17,6 +17,9 @@ const (
 	CfgAllowedConsensusPledge = "mana.allowedConsensusPledge"
 	// CfgAllowedConsensusFilterEnabled defines if consensus mana pledge filter is enabled.
 	CfgAllowedConsensusFilterEnabled = "mana.allowedConsensusFilterEnabled"
+	// CfgManaEnableResearchVectors determines if research mana vector should be used or not. To use the Mana Research
+	// Grafana Dashboard, this should be set to true.
+	CfgManaEnableResearchVectors = "mana.EnableResearchVectors"
 )
 
 func init() {
@@ -27,4 +30,5 @@ func init() {
 	flag.StringSlice(CfgAllowedConsensusPledge, nil, "list of nodes that consensus mana is allowed to be pledge to")
 	flag.Bool(CfgAllowedAccessFilterEnabled, false, "if filtering on access mana pledge nodes is enabled")
 	flag.Bool(CfgAllowedConsensusFilterEnabled, false, "if filtering on consensus mana pledge nodes is enabled")
+	flag.Bool(CfgManaEnableResearchVectors, false, "enable mana research vectors")
 }

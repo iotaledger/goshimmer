@@ -10,6 +10,10 @@ const (
 	ConsensusMana
 	// WeightedMana is a weighted combination of Mana 1 (consensus) and Mana 2 (access) for research purposes.
 	WeightedMana
+	// ResearchAccess is a special type of WeightedMana, that targets access pledges.
+	ResearchAccess
+	// ResearchConsensus is a special type of WeightedMana, that targets access pledges.
+	ResearchConsensus
 )
 
 // String returns a string representation of the type of mana.

@@ -59,6 +59,10 @@ func configure(*node.Plugin) {
 	baseManaVectors = make(map[mana.Type]mana.BaseManaVector)
 	baseManaVectors[mana.AccessMana], _ = mana.NewBaseManaVector(mana.AccessMana)
 	baseManaVectors[mana.ConsensusMana], _ = mana.NewBaseManaVector(mana.ConsensusMana)
+	if config.Node().GetBool(CfgManaEnableResearchVectors) {
+		baseManaVectors[mana.ResearchAccess], _ = mana.NewResearchBaseManaVector(mana.WeightedMana, mana.AccessMana, mana.Mixed)
+		baseManaVectors[mana.ResearchConsensus], _ = mana.NewResearchBaseManaVector(mana.WeightedMana, mana.ConsensusMana, mana.Mixed)
+	}
 
 	// configure storage for each vector type
 	storages = make(map[mana.Type]*objectstorage.ObjectStorage)
@@ -66,6 +70,10 @@ func configure(*node.Plugin) {
 	osFactory = objectstorage.NewFactory(store, storageprefix.Mana)
 	storages[mana.AccessMana] = osFactory.New(storageprefix.ManaAccess, mana.FromObjectStorage)
 	storages[mana.ConsensusMana] = osFactory.New(storageprefix.ManaConsensus, mana.FromObjectStorage)
+	if config.Node().GetBool(CfgManaEnableResearchVectors) {
+		storages[mana.ResearchAccess] = osFactory.New(storageprefix.ManaAccessResearch, mana.FromObjectStorage)
+		storages[mana.ResearchConsensus] = osFactory.New(storageprefix.ManaConsensusResearch, mana.FromObjectStorage)
+	}
 
 	err := verifyPledgeNodes()
 	if err != nil {
@@ -163,8 +171,7 @@ func run(_ *node.Plugin) {
 }
 
 func readStoredManaVectors() {
-	vectorTypes := []mana.Type{mana.AccessMana, mana.ConsensusMana}
-	for _, vectorType := range vectorTypes {
+	for vectorType, _ := range baseManaVectors {
 		storages[vectorType].ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 			cachedPbm := &mana.CachedPersistableBaseMana{CachedObject: cachedObject}
 			cachedPbm.Consume(func(p *mana.PersistableBaseMana) {
