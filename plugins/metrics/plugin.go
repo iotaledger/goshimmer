@@ -106,8 +106,8 @@ func run(_ *node.Plugin) {
 		if err := daemon.BackgroundWorker("Metrics Research Mana Updater", func(shutdownSignal <-chan struct{}) {
 			defer log.Infof("Stopping Metrics Research Mana Updater ... done")
 			timeutil.Ticker(func() {
-				measureManaBM1()
-				measureManaBM2()
+				measureAccessResearchMana()
+				measureConsensusResearchMana()
 			}, time.Second*time.Duration(config.Node().GetUint(CfgManaUpdateInterval)), shutdownSignal)
 
 			log.Infof("Stopping Metrics Research Mana Updater ...")

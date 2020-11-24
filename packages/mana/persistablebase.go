@@ -6,23 +6,20 @@ import (
 	"math"
 	"time"
 
-	"github.com/iotaledger/hive.go/stringify"
-
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
+	"github.com/iotaledger/hive.go/stringify"
 )
 
 // PersistableBaseMana represents a base mana vector that can be persisted.
 type PersistableBaseMana struct {
 	objectstorage.StorableObjectFlags
-	ManaType           Type
-	BaseMana1          float64
-	EffectiveBaseMana1 float64
-	BaseMana2          float64
-	EffectiveBaseMana2 float64
-	LastUpdated        time.Time
-	NodeID             identity.ID
+	ManaType        Type
+	BaseValues      []float64
+	EffectiveValues []float64
+	LastUpdated     time.Time
+	NodeID          identity.ID
 
 	bytes []byte
 }
@@ -31,10 +28,8 @@ type PersistableBaseMana struct {
 func (persistableBaseMana *PersistableBaseMana) String() string {
 	return stringify.Struct("PersistableBaseMana",
 		stringify.StructField("ManaType", fmt.Sprint(persistableBaseMana.ManaType)),
-		stringify.StructField("BaseMana1", fmt.Sprint(persistableBaseMana.BaseMana1)),
-		stringify.StructField("EffectiveBaseMana1", fmt.Sprint(persistableBaseMana.EffectiveBaseMana1)),
-		stringify.StructField("BaseMana2", fmt.Sprint(persistableBaseMana.BaseMana2)),
-		stringify.StructField("EffectiveBaseMana2", fmt.Sprint(persistableBaseMana.EffectiveBaseMana2)),
+		stringify.StructField("BaseValues", fmt.Sprint(persistableBaseMana.BaseValues)),
+		stringify.StructField("EffectiveValues", fmt.Sprint(persistableBaseMana.EffectiveValues)),
 		stringify.StructField("LastUpdated", fmt.Sprint(persistableBaseMana.LastUpdated)),
 		stringify.StructField("NodeID", persistableBaseMana.NodeID.String()),
 	)
@@ -50,10 +45,14 @@ func (persistableBaseMana *PersistableBaseMana) Bytes() []byte {
 	// create marshal helper
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteInt64(int64(persistableBaseMana.ManaType))
-	marshalUtil.WriteUint64(math.Float64bits(persistableBaseMana.BaseMana1))
-	marshalUtil.WriteUint64(math.Float64bits(persistableBaseMana.EffectiveBaseMana1))
-	marshalUtil.WriteUint64(math.Float64bits(persistableBaseMana.BaseMana2))
-	marshalUtil.WriteUint64(math.Float64bits(persistableBaseMana.EffectiveBaseMana2))
+	marshalUtil.WriteUint16(uint16(len(persistableBaseMana.BaseValues)))
+	for _, baseValue := range persistableBaseMana.BaseValues {
+		marshalUtil.WriteUint64(math.Float64bits(baseValue))
+	}
+	marshalUtil.WriteUint16(uint16(len(persistableBaseMana.EffectiveValues)))
+	for _, effectiveValue := range persistableBaseMana.EffectiveValues {
+		marshalUtil.WriteUint64(math.Float64bits(effectiveValue))
+	}
 	marshalUtil.WriteTime(persistableBaseMana.LastUpdated)
 	marshalUtil.WriteBytes(persistableBaseMana.NodeID.Bytes())
 
@@ -93,29 +92,33 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (result *PersistableBaseMana, e
 	}
 	result.ManaType = Type(manaType)
 
-	baseMana1, err := marshalUtil.ReadUint64()
+	baseValuesLength, err := marshalUtil.ReadUint16()
 	if err != nil {
 		return
 	}
-	result.BaseMana1 = math.Float64frombits(baseMana1)
+	result.BaseValues = make([]float64, 0, baseValuesLength)
+	for i := 0; i < int(baseValuesLength); i++ {
+		var baseMana uint64
+		baseMana, err = marshalUtil.ReadUint64()
+		if err != nil {
+			return result, err
+		}
+		result.BaseValues = append(result.BaseValues, math.Float64frombits(baseMana))
+	}
 
-	effBaseMana1, err := marshalUtil.ReadUint64()
+	effectiveValuesLength, err := marshalUtil.ReadUint16()
 	if err != nil {
-		return
+		return result, err
 	}
-	result.EffectiveBaseMana1 = math.Float64frombits(effBaseMana1)
-
-	baseMana2, err := marshalUtil.ReadUint64()
-	if err != nil {
-		return
+	result.EffectiveValues = make([]float64, 0, effectiveValuesLength)
+	for i := 0; i < int(effectiveValuesLength); i++ {
+		var effBaseMana uint64
+		effBaseMana, err = marshalUtil.ReadUint64()
+		if err != nil {
+			return result, err
+		}
+		result.EffectiveValues = append(result.EffectiveValues, math.Float64frombits(effBaseMana))
 	}
-	result.BaseMana2 = math.Float64frombits(baseMana2)
-
-	effBaseMana2, err := marshalUtil.ReadUint64()
-	if err != nil {
-		return
-	}
-	result.EffectiveBaseMana2 = math.Float64frombits(effBaseMana2)
 
 	lastUpdated, err := marshalUtil.ReadTime()
 	if err != nil {

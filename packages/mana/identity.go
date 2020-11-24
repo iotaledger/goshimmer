@@ -3,9 +3,8 @@ package mana
 import (
 	"fmt"
 
-	"github.com/iotaledger/hive.go/marshalutil"
-
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/mr-tron/base58"
 )
 

@@ -8,6 +8,12 @@ const (
 	AccessMana Type = iota
 	// ConsensusMana is mana associated with consensus weights in the network.
 	ConsensusMana
+	// WeightedMana is a weighted combination of Mana 1 (consensus) and Mana 2 (access) for research purposes.
+	WeightedMana
+	// ResearchAccess is a special type of WeightedMana, that targets access pledges.
+	ResearchAccess
+	// ResearchConsensus is a special type of WeightedMana, that targets consensus pledges.
+	ResearchConsensus
 )
 
 // String returns a string representation of the type of mana.
@@ -17,6 +23,8 @@ func (t Type) String() string {
 		return "Access"
 	case ConsensusMana:
 		return "Consensus"
+	case WeightedMana:
+		return "Weighted"
 	default:
 		return "Unknown"
 	}
@@ -29,6 +37,8 @@ func TypeFromString(stringType string) (Type, error) {
 		return AccessMana, nil
 	case "Consensus":
 		return ConsensusMana, nil
+	case "Weighted":
+		return WeightedMana, nil
 	default:
 		return 999, ErrUnknownManaType
 	}

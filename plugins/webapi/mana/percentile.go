@@ -25,7 +25,7 @@ func getPercentileHandler(c echo.Context) error {
 	if ID == emptyID {
 		ID = local.GetInstance().ID()
 	}
-	access, err := manaPlugin.GetManaMap(mana.AccessMana, mana.Mixed)
+	access, err := manaPlugin.GetManaMap(mana.AccessMana)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, GetPercentileResponse{Error: err.Error()})
 	}
@@ -33,7 +33,7 @@ func getPercentileHandler(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, GetPercentileResponse{Error: err.Error()})
 	}
-	consensus, err := manaPlugin.GetManaMap(mana.ConsensusMana, mana.Mixed)
+	consensus, err := manaPlugin.GetManaMap(mana.ConsensusMana)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, GetPercentileResponse{Error: err.Error()})
 	}

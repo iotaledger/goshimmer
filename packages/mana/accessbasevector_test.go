@@ -74,30 +74,27 @@ func randNodeID() identity.ID {
 	return identity.GenerateIdentity().ID()
 }
 
-func TestNewBaseManaVector(t *testing.T) {
-	bmvAccess := NewBaseManaVector(AccessMana)
-	assert.Equal(t, AccessMana, bmvAccess.vectorType)
-	assert.Equal(t, map[identity.ID]*BaseMana{}, bmvAccess.vector)
-
-	bmvCons := NewBaseManaVector(ConsensusMana)
-	assert.Equal(t, ConsensusMana, bmvCons.vectorType)
-	assert.Equal(t, map[identity.ID]*BaseMana{}, bmvCons.vector)
+func TestNewBaseManaVector_Access(t *testing.T) {
+	bmvAccess, err := NewBaseManaVector(AccessMana)
+	assert.NoError(t, err)
+	assert.Equal(t, AccessMana, bmvAccess.Type())
+	assert.Equal(t, map[identity.ID]*AccessBaseMana{}, bmvAccess.(*AccessBaseManaVector).vector)
 }
 
-func TestBaseManaVector_Type(t *testing.T) {
-	bmv := NewBaseManaVector(AccessMana)
+func TestAccessBaseManaVector_Type(t *testing.T) {
+	bmv, err := NewBaseManaVector(AccessMana)
+	assert.NoError(t, err)
 	vectorType := bmv.Type()
 	assert.Equal(t, AccessMana, vectorType)
 }
 
-func TestBaseManaVector_Size(t *testing.T) {
-	bmv := NewBaseManaVector(AccessMana)
+func TestAccessBaseManaVector_Size(t *testing.T) {
+	bmv, err := NewBaseManaVector(AccessMana)
+	assert.NoError(t, err)
 	assert.Equal(t, 0, bmv.Size())
 
 	for i := 0; i < 10; i++ {
-		bmv.SetMana(randNodeID(), &BaseMana{
-			BaseMana1:          float64(i),
-			EffectiveBaseMana1: float64(i),
+		bmv.SetMana(randNodeID(), &AccessBaseMana{
 			BaseMana2:          float64(i),
 			EffectiveBaseMana2: float64(i),
 			LastUpdated:        baseTime,
@@ -106,7 +103,24 @@ func TestBaseManaVector_Size(t *testing.T) {
 	assert.Equal(t, 10, bmv.Size())
 }
 
-func TestBaseManaVector_BookMana(t *testing.T) {
+func TestAccessBaseManaVector_Has(t *testing.T) {
+	bmv, err := NewBaseManaVector(AccessMana)
+	assert.NoError(t, err)
+	randID := randNodeID()
+
+	has := bmv.Has(randID)
+	assert.False(t, has)
+
+	bmv.SetMana(randID, &AccessBaseMana{
+		BaseMana2:          0,
+		EffectiveBaseMana2: 0,
+		LastUpdated:        time.Time{},
+	})
+	has = bmv.Has(randID)
+	assert.True(t, has)
+}
+
+func TestAccessBaseManaVector_Book(t *testing.T) {
 	// hold information about which events triggered
 	var (
 		updateEvents []*UpdatedEvent
@@ -125,28 +139,25 @@ func TestBaseManaVector_BookMana(t *testing.T) {
 		pledgeEvents = append(pledgeEvents, ev)
 	}))
 
-	// let's use an Access Base Mana Vector
-	bmv := NewBaseManaVector(AccessMana)
+	bmv, err := NewBaseManaVector(AccessMana)
+	assert.NoError(t, err)
 
 	// init vector to inputTime with pledged beforeBookingAmount
-	bmv.SetMana(inputPledgeID1, &BaseMana{
-		BaseMana1:   beforeBookingAmount[inputPledgeID1],
+	bmv.SetMana(inputPledgeID1, &AccessBaseMana{
 		BaseMana2:   beforeBookingAmount[inputPledgeID1],
 		LastUpdated: inputTime,
 	})
-	bmv.SetMana(inputPledgeID2, &BaseMana{
-		BaseMana1:   beforeBookingAmount[inputPledgeID2],
+	bmv.SetMana(inputPledgeID2, &AccessBaseMana{
 		BaseMana2:   beforeBookingAmount[inputPledgeID2],
 		LastUpdated: inputTime,
 	})
-	bmv.SetMana(inputPledgeID3, &BaseMana{
-		BaseMana1:   beforeBookingAmount[inputPledgeID3],
+	bmv.SetMana(inputPledgeID3, &AccessBaseMana{
 		BaseMana2:   beforeBookingAmount[inputPledgeID3],
 		LastUpdated: inputTime,
 	})
 
 	// update to txTime - 6 hours. Effective base manas should converge to their asymptote.
-	err := bmv.UpdateAll(baseTime)
+	err = bmv.UpdateAll(baseTime)
 	assert.NoError(t, err)
 	updatedNodeIds := map[identity.ID]interface{}{
 		inputPledgeID1: 0,
@@ -157,12 +168,10 @@ func TestBaseManaVector_BookMana(t *testing.T) {
 		// has the right type
 		assert.Equal(t, AccessMana, ev.ManaType)
 		// has the right update time
-		assert.Equal(t, baseTime, ev.NewMana.LastUpdated)
+		assert.Equal(t, baseTime, ev.NewMana.LastUpdate())
 		// base mana values are expected
-		assert.Equal(t, beforeBookingAmount[ev.NodeID], ev.NewMana.BaseMana1)
-		assert.InDelta(t, beforeBookingAmount[ev.NodeID], ev.NewMana.EffectiveBaseMana1, delta)
-		assert.InDelta(t, 0, ev.NewMana.BaseMana2, delta)
-		assert.InDelta(t, 0, ev.NewMana.EffectiveBaseMana2, delta)
+		assert.InDelta(t, 0, ev.NewMana.BaseValue(), delta)
+		assert.InDelta(t, 0, ev.NewMana.EffectiveValue(), delta)
 		// update triggered for expected nodes
 		assert.Contains(t, updatedNodeIds, ev.NodeID)
 		// remove this one from the list of expected to make sure it was only called once
@@ -170,14 +179,12 @@ func TestBaseManaVector_BookMana(t *testing.T) {
 	}
 	assert.Empty(t, updatedNodeIds)
 	// check the same for the content of the vector
-	bmv.ForEach(func(ID identity.ID, bm *BaseMana) bool {
+	bmv.ForEach(func(ID identity.ID, bm BaseMana) bool {
 		// has the right update time
-		assert.Equal(t, baseTime, bm.LastUpdated)
+		assert.Equal(t, baseTime, bm.LastUpdate())
 		// base mana values are expected
-		assert.Equal(t, beforeBookingAmount[ID], bm.BaseMana1)
-		assert.InDelta(t, beforeBookingAmount[ID], bm.EffectiveBaseMana1, delta)
-		assert.InDelta(t, 0, bm.BaseMana2, delta)
-		assert.InDelta(t, 0, bm.EffectiveBaseMana2, delta)
+		assert.InDelta(t, 0, bm.BaseValue(), delta)
+		assert.InDelta(t, 0, bm.EffectiveValue(), delta)
 		return true
 	})
 	// update event triggered 3 times for the 3 nodes
@@ -188,46 +195,36 @@ func TestBaseManaVector_BookMana(t *testing.T) {
 	updateEvents = []*UpdatedEvent{}
 
 	// book mana with txInfo at txTime (baseTime + 6 hours)
-	bmv.BookMana(txInfo)
+	bmv.Book(txInfo)
 
 	// expected nodeIDs to be called with each event
 	updatedNodeIds = map[identity.ID]interface{}{
-		txPledgeID:     0,
-		inputPledgeID1: 0,
-		inputPledgeID2: 0,
-		inputPledgeID3: 0,
+		txPledgeID: 0,
 	}
 	pledgedNodeIds := map[identity.ID]interface{}{
 		txPledgeID: 0,
 	}
-	revokedNodeIds := map[identity.ID]interface{}{
-		inputPledgeID1: 0,
-		inputPledgeID2: 0,
-		inputPledgeID3: 0,
-	}
+	revokedNodeIds := map[identity.ID]interface{}{}
 
-	// update triggered for the 3 nodes that mana was revoked from, and once for the pledged
-	assert.Equal(t, 4, len(updateEvents))
+	// update triggered and once for the pledged
+	assert.Equal(t, 1, len(updateEvents))
 	assert.Equal(t, 1, len(pledgeEvents))
-	assert.Equal(t, 3, len(revokeEvents))
+	assert.Equal(t, 0, len(revokeEvents))
 
 	for _, ev := range updateEvents {
 		// has the right type
 		assert.Equal(t, AccessMana, ev.ManaType)
 		// has the right update time
-		assert.Equal(t, txTime, ev.NewMana.LastUpdated)
+		assert.Equal(t, txTime, ev.NewMana.LastUpdate())
 		// base mana values are expected
-		assert.Equal(t, afterBookingAmount[ev.NodeID], ev.NewMana.BaseMana1)
-		assert.InDelta(t, beforeBookingAmount[ev.NodeID], ev.NewMana.EffectiveBaseMana1, delta)
-		assert.InDelta(t, afterBookingAmount[ev.NodeID], ev.NewMana.BaseMana2, delta)
-		assert.InDelta(t, 0, ev.NewMana.EffectiveBaseMana2, delta)
+		assert.InDelta(t, afterBookingAmount[ev.NodeID], ev.NewMana.BaseValue(), delta)
+		assert.InDelta(t, 0, ev.NewMana.EffectiveValue(), delta)
 		assert.Contains(t, updatedNodeIds, ev.NodeID)
 		delete(updatedNodeIds, ev.NodeID)
 	}
 	assert.Empty(t, updatedNodeIds)
 	for _, ev := range pledgeEvents {
-		assert.Equal(t, afterBookingAmount[ev.NodeID], ev.AmountBM1)
-		assert.InDelta(t, afterBookingAmount[ev.NodeID], ev.AmountBM2, delta)
+		assert.InDelta(t, afterBookingAmount[ev.NodeID], ev.Amount, delta)
 		assert.Equal(t, txTime, ev.Time)
 		assert.Equal(t, txInfo.TransactionID, ev.TransactionID)
 		assert.Equal(t, AccessMana, ev.ManaType)
@@ -236,7 +233,7 @@ func TestBaseManaVector_BookMana(t *testing.T) {
 	}
 	assert.Empty(t, pledgedNodeIds)
 	for _, ev := range revokeEvents {
-		assert.Equal(t, beforeBookingAmount[ev.NodeID], ev.AmountBM1)
+		assert.Equal(t, beforeBookingAmount[ev.NodeID], ev.Amount)
 		assert.Equal(t, txTime, ev.Time)
 		assert.Equal(t, txInfo.TransactionID, ev.TransactionID)
 		assert.Equal(t, AccessMana, ev.ManaType)
@@ -261,17 +258,14 @@ func TestBaseManaVector_BookMana(t *testing.T) {
 
 	for _, ev := range updateEvents {
 		// has the right update time
-		assert.Equal(t, updateTime, ev.NewMana.LastUpdated)
+		assert.Equal(t, updateTime, ev.NewMana.LastUpdate())
 		// base mana values are expected
-		assert.Equal(t, afterBookingAmount[ev.NodeID], ev.NewMana.BaseMana1)
 		if ev.NodeID == txPledgeID {
-			assert.InDelta(t, afterBookingAmount[ev.NodeID]/2, ev.NewMana.EffectiveBaseMana1, delta)
-			assert.InDelta(t, afterBookingAmount[ev.NodeID]/2, ev.NewMana.BaseMana2, delta)
-			assert.InDelta(t, 3.465731, ev.NewMana.EffectiveBaseMana2, delta)
+			assert.InDelta(t, afterBookingAmount[ev.NodeID]/2, ev.NewMana.BaseValue(), delta)
+			assert.InDelta(t, 3.465731, ev.NewMana.EffectiveValue(), delta)
 		} else {
-			assert.InDelta(t, beforeBookingAmount[ev.NodeID]/2, ev.NewMana.EffectiveBaseMana1, delta)
-			assert.InDelta(t, 1.0, 1+ev.NewMana.BaseMana2, delta)
-			assert.InDelta(t, 1.0, 1+ev.NewMana.EffectiveBaseMana2, delta)
+			assert.InDelta(t, 1.0, 1+ev.NewMana.BaseValue(), delta)
+			assert.InDelta(t, 1.0, 1+ev.NewMana.EffectiveValue(), delta)
 		}
 		assert.Contains(t, updatedNodeIds, ev.NodeID)
 		delete(updatedNodeIds, ev.NodeID)
@@ -279,50 +273,24 @@ func TestBaseManaVector_BookMana(t *testing.T) {
 	assert.Empty(t, updatedNodeIds)
 
 	// check the same for the content of the vector
-	bmv.ForEach(func(ID identity.ID, bm *BaseMana) bool {
+	bmv.ForEach(func(ID identity.ID, bm BaseMana) bool {
 		// has the right update time
-		assert.Equal(t, updateTime, bm.LastUpdated)
+		assert.Equal(t, updateTime, bm.LastUpdate())
 		// base mana values are expected
-		assert.Equal(t, afterBookingAmount[ID], bm.BaseMana1)
 		if ID == txPledgeID {
-			assert.InDelta(t, afterBookingAmount[ID]/2, bm.EffectiveBaseMana1, delta)
-			assert.InDelta(t, afterBookingAmount[ID]/2, bm.BaseMana2, delta)
-			assert.InDelta(t, 3.465731, bm.EffectiveBaseMana2, delta)
+			assert.InDelta(t, afterBookingAmount[ID]/2, bm.BaseValue(), delta)
+			assert.InDelta(t, 3.465731, bm.EffectiveValue(), delta)
 		} else {
-			assert.InDelta(t, beforeBookingAmount[ID]/2, bm.EffectiveBaseMana1, delta)
-			assert.InDelta(t, 1.0, 1+bm.BaseMana2, delta)
-			assert.InDelta(t, 1.0, 1+bm.EffectiveBaseMana2, delta)
+			assert.InDelta(t, 1.0, 1+bm.BaseValue(), delta)
+			assert.InDelta(t, 1.0, 1+bm.EffectiveValue(), delta)
 		}
 		return true
 	})
 }
 
-func TestBaseManaVector_BookManaPanic(t *testing.T) {
-	// let's use an Access Base Mana Vector
-	bmv := NewBaseManaVector(AccessMana)
-	// init vector to inputTime with pledged beforeBookingAmount
-	bmv.SetMana(inputPledgeID1, &BaseMana{
-		BaseMana1:   beforeBookingAmount[inputPledgeID1],
-		BaseMana2:   beforeBookingAmount[inputPledgeID1],
-		LastUpdated: inputTime,
-	})
-	bmv.SetMana(inputPledgeID2, &BaseMana{
-		BaseMana1:   beforeBookingAmount[inputPledgeID2],
-		BaseMana2:   beforeBookingAmount[inputPledgeID2],
-		LastUpdated: inputTime,
-	})
-	bmv.SetMana(inputPledgeID3, &BaseMana{
-		// BM1 will be negative when revoking
-		BaseMana1:   0,
-		BaseMana2:   beforeBookingAmount[inputPledgeID3],
-		LastUpdated: inputTime,
-	})
-	assert.Panics(t, func() { bmv.BookMana(txInfo) })
-}
-
-func TestBaseManaVector_Update(t *testing.T) {
-	// let's use an Access Base Mana Vector
-	bmv := NewBaseManaVector(AccessMana)
+func TestAccessBaseManaVector_Update(t *testing.T) {
+	bmv, err := NewBaseManaVector(AccessMana)
+	assert.NoError(t, err)
 
 	// hold information about which events triggered
 	var updateEvents []*UpdatedEvent
@@ -334,34 +302,30 @@ func TestBaseManaVector_Update(t *testing.T) {
 
 	randID := randNodeID()
 	// init vector to baseTime
-	bmv.SetMana(randID, &BaseMana{
-		BaseMana1:   10.0,
+	bmv.SetMana(randID, &AccessBaseMana{
 		BaseMana2:   10.0,
 		LastUpdated: baseTime,
 	})
 	updateTime := baseTime.Add(time.Hour * 6)
-	err := bmv.Update(randID, updateTime)
+	err = bmv.Update(randID, updateTime)
 
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(updateEvents))
 	ev := updateEvents[0]
 	assert.Equal(t, randID, ev.NodeID)
 	assert.Equal(t, AccessMana, ev.ManaType)
-	assert.Equal(t, BaseMana{
-		BaseMana1:   10.0,
+	assert.Equal(t, &AccessBaseMana{
 		BaseMana2:   10.0,
 		LastUpdated: baseTime},
 		ev.OldMana)
-	assert.Equal(t, 10.0, ev.NewMana.BaseMana1)
-	assert.InDelta(t, 5, ev.NewMana.EffectiveBaseMana1, delta)
-	assert.InDelta(t, 5, ev.NewMana.BaseMana2, delta)
-	assert.InDelta(t, 3.465731, ev.NewMana.EffectiveBaseMana2, delta)
-	assert.Equal(t, updateTime, ev.NewMana.LastUpdated)
+	assert.InDelta(t, 5, ev.NewMana.BaseValue(), delta)
+	assert.InDelta(t, 3.465731, ev.NewMana.EffectiveValue(), delta)
+	assert.Equal(t, updateTime, ev.NewMana.LastUpdate())
 }
 
-func TestBaseManaVector_UpdateError(t *testing.T) {
-	// let's use an Access Base Mana Vector
-	bmv := NewBaseManaVector(AccessMana)
+func TestAccessBaseManaVector_UpdateError(t *testing.T) {
+	bmv, err := NewBaseManaVector(AccessMana)
+	assert.NoError(t, err)
 
 	// hold information about which events triggered
 	var updateEvents []*UpdatedEvent
@@ -375,15 +339,14 @@ func TestBaseManaVector_UpdateError(t *testing.T) {
 	updateTime := baseTime.Add(time.Hour * 6)
 
 	// vector is empty ,but we want to update a non existing ID in it
-	err := bmv.Update(randID, updateTime)
+	err = bmv.Update(randID, updateTime)
 	assert.Error(t, err)
 	assert.Equal(t, ErrNodeNotFoundInBaseManaVector, err)
 	// no event triggered
 	assert.Empty(t, updateEvents)
 
 	// init vector to baseTime
-	bmv.SetMana(randID, &BaseMana{
-		BaseMana1:   10.0,
+	bmv.SetMana(randID, &AccessBaseMana{
 		BaseMana2:   10.0,
 		LastUpdated: updateTime,
 	})
@@ -393,9 +356,9 @@ func TestBaseManaVector_UpdateError(t *testing.T) {
 	assert.Equal(t, ErrAlreadyUpdated, err)
 }
 
-func TestBaseManaVector_UpdateAll(t *testing.T) {
-	// let's use an Access Base Mana Vector
-	bmv := NewBaseManaVector(AccessMana)
+func TestAccessBaseManaVector_UpdateAll(t *testing.T) {
+	bmv, err := NewBaseManaVector(AccessMana)
+	assert.NoError(t, err)
 
 	// hold information about which events triggered
 	var updateEvents []*UpdatedEvent
@@ -412,21 +375,21 @@ func TestBaseManaVector_UpdateAll(t *testing.T) {
 	}
 
 	// init vector (values are not important)
-	bmv.SetMana(inputPledgeID1, &BaseMana{
+	bmv.SetMana(inputPledgeID1, &AccessBaseMana{
 		LastUpdated: baseTime,
 	})
-	bmv.SetMana(inputPledgeID2, &BaseMana{
+	bmv.SetMana(inputPledgeID2, &AccessBaseMana{
 		LastUpdated: baseTime,
 	})
-	bmv.SetMana(inputPledgeID3, &BaseMana{
+	bmv.SetMana(inputPledgeID3, &AccessBaseMana{
 		LastUpdated: baseTime,
 	})
 
 	updateTime := baseTime.Add(time.Hour)
-	err := bmv.UpdateAll(updateTime)
+	err = bmv.UpdateAll(updateTime)
 	assert.NoError(t, err)
 
-	for _, mana := range bmv.vector {
+	for _, mana := range bmv.(*AccessBaseManaVector).vector {
 		assert.Equal(t, updateTime, mana.LastUpdated)
 	}
 
@@ -438,78 +401,65 @@ func TestBaseManaVector_UpdateAll(t *testing.T) {
 	assert.Empty(t, updatedNodeIds)
 }
 
-func TestBaseManaVector_GetMana(t *testing.T) {
-	// let's use an Access Base Mana Vector
-	bmv := NewBaseManaVector(AccessMana)
+func TestAccessBaseManaVector_GetMana(t *testing.T) {
+	bmv, err := NewBaseManaVector(AccessMana)
+	assert.NoError(t, err)
 	randID := randNodeID()
-	mana, err := bmv.GetMana(randID, 0.5)
+	mana, err := bmv.GetMana(randID)
 	assert.Equal(t, 0.0, mana)
 	assert.Error(t, err)
 
-	bmv.SetMana(randID, &BaseMana{})
-	mana, err = bmv.GetMana(randID, -0.5)
+	bmv.SetMana(randID, &AccessBaseMana{})
+	mana, err = bmv.GetMana(randID)
 	assert.Equal(t, 0.0, mana)
-	assert.Error(t, err)
-	assert.Equal(t, ErrInvalidWeightParameter, err)
-	mana, err = bmv.GetMana(randID, 1.5)
-	assert.Equal(t, 0.0, mana)
-	assert.Error(t, err)
-	assert.Equal(t, ErrInvalidWeightParameter, err)
+	assert.NoError(t, err)
 
-	bmv.SetMana(randID, &BaseMana{
-		BaseMana1:          10.0,
-		EffectiveBaseMana1: 10.0,
+	bmv.SetMana(randID, &AccessBaseMana{
 		BaseMana2:          1.0,
 		EffectiveBaseMana2: 1.0,
 		LastUpdated:        time.Now(),
 	})
 
-	mana, err = bmv.GetMana(randID, 0.5)
-	assert.NoError(t, err)
-	assert.InDelta(t, 5.5, mana, delta)
-	mana, err = bmv.GetMana(randID, 1)
-	assert.NoError(t, err)
-	assert.InDelta(t, 10.0, mana, delta)
-	mana, err = bmv.GetMana(randID, 0)
+	mana, err = bmv.GetMana(randID)
 	assert.NoError(t, err)
 	assert.InDelta(t, 1.0, mana, delta)
 }
 
-func TestBaseManaVector_ForEach(t *testing.T) {
-	// let's use an Access Base Mana Vector
-	bmv := NewBaseManaVector(AccessMana)
+func TestAccessBaseManaVector_ForEach(t *testing.T) {
+	bmv, err := NewBaseManaVector(AccessMana)
+	assert.NoError(t, err)
 
 	for i := 0; i < 10000; i++ {
-		bmv.SetMana(randNodeID(), &BaseMana{BaseMana1: 1.0})
+		bmv.SetMana(randNodeID(), &AccessBaseMana{BaseMana2: 1.0})
 	}
 
 	// fore each should iterate over all elements
 	sum := 0.0
-	bmv.ForEach(func(ID identity.ID, bm *BaseMana) bool {
-		sum += bm.BaseMana1
+	bmv.ForEach(func(ID identity.ID, bm BaseMana) bool {
+		sum += bm.BaseValue()
 		return true
 	})
 	assert.Equal(t, 10000.0, sum)
 
 	// for each should stop if false is returned from callback
 	sum = 0.0
-	bmv.ForEach(func(ID identity.ID, bm *BaseMana) bool {
+	bmv.ForEach(func(ID identity.ID, bm BaseMana) bool {
 		if sum >= 5000.0 {
 			return false
 		}
-		sum += bm.BaseMana1
+		sum += bm.BaseValue()
 		return true
 	})
 
 	assert.Equal(t, 5000.0, sum)
 }
 
-func TestBaseManaVector_GetManaMap(t *testing.T) {
-	// let's use an Access Base Mana Vector
-	bmv := NewBaseManaVector(AccessMana)
+func TestAccessBaseManaVector_GetManaMap(t *testing.T) {
+	bmv, err := NewBaseManaVector(AccessMana)
+	assert.NoError(t, err)
 
 	// empty vector returns empty map
-	manaMap, err := bmv.GetManaMap(Mixed)
+	manaMap, err := bmv.GetManaMap()
 	assert.NoError(t, err)
 	assert.Empty(t, manaMap)
 
@@ -518,9 +468,7 @@ func TestBaseManaVector_GetManaMap(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		id := randNodeID()
-		bmv.SetMana(id, &BaseMana{
-			BaseMana1:          10.0,
-			EffectiveBaseMana1: 10.0,
+		bmv.SetMana(id, &AccessBaseMana{
 			BaseMana2:          1.0,
 			EffectiveBaseMana2: 1.0,
 			LastUpdated:        now,
@@ -528,20 +476,20 @@ func TestBaseManaVector_GetManaMap(t *testing.T) {
 		nodeIDs[id] = 0
 	}
 
-	manaMap, err = bmv.GetManaMap(Mixed)
+	manaMap, err = bmv.GetManaMap()
 	assert.NoError(t, err)
 	assert.Equal(t, 100, len(manaMap))
 	for nodeID, mana := range manaMap {
-		assert.InDelta(t, 5.5, mana, delta)
+		assert.InDelta(t, 1.0, mana, delta)
 		assert.Contains(t, nodeIDs, nodeID)
 		delete(nodeIDs, nodeID)
 	}
 	assert.Empty(t, nodeIDs)
 }
 
-func TestBaseManaVector_GetHighestManaNodes(t *testing.T) {
-	// let's use an Access Base Mana Vector
-	bmv := NewBaseManaVector(AccessMana)
+func TestAccessBaseManaVector_GetHighestManaNodes(t *testing.T) {
+	bmv, err := NewBaseManaVector(AccessMana)
+	assert.NoError(t, err)
 
 	var nodeIDs = make([]identity.ID, 10)
 
@@ -549,9 +497,7 @@ func TestBaseManaVector_GetHighestManaNodes(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		nodeIDs[i] = randNodeID()
-		bmv.SetMana(nodeIDs[i], &BaseMana{
-			BaseMana1:          float64(i),
-			EffectiveBaseMana1: float64(i),
+		bmv.SetMana(nodeIDs[i], &AccessBaseMana{
 			BaseMana2:          float64(i),
 			EffectiveBaseMana2: float64(i),
 			LastUpdated:        baseTime,
@@ -559,14 +505,14 @@ func TestBaseManaVector_GetHighestManaNodes(t *testing.T) {
 	}
 
 	// requesting the top mana holder
-	result, err := bmv.GetHighestManaNodes(1, Mixed)
+	result, err := bmv.GetHighestManaNodes(1)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(result))
 	assert.Equal(t, nodeIDs[9], result[0].ID)
 	assert.InDelta(t, 9.0, result[0].Mana, delta)
 
 	// requesting top 3 mana holders
-	result, err = bmv.GetHighestManaNodes(3, Mixed)
+	result, err = bmv.GetHighestManaNodes(3)
 	assert.NoError(t, err)
 	assert.Equal(t, 3, len(result))
 	assert.InDelta(t, 9.0, result[0].Mana, delta)
@@ -579,7 +525,7 @@ func TestBaseManaVector_GetHighestManaNodes(t *testing.T) {
 	}
 
 	// requesting more, than there currently are in the vector
-	result, err = bmv.GetHighestManaNodes(20, Mixed)
+	result, err = bmv.GetHighestManaNodes(20)
 	assert.NoError(t, err)
 	assert.Equal(t, 10, len(result))
 	for index, value := range result {
@@ -587,39 +533,167 @@ func TestBaseManaVector_GetHighestManaNodes(t *testing.T) {
 	}
 }
 
-func TestBaseManaVector_SetMana(t *testing.T) {
-	// let's use an Access Base Mana Vector
-	bmv := NewBaseManaVector(AccessMana)
+func TestAccessBaseManaVector_SetMana(t *testing.T) {
+	bmv, err := NewBaseManaVector(AccessMana)
+	assert.NoError(t, err)
 	var nodeIDs = make([]identity.ID, 10)
 	for i := 0; i < 10; i++ {
 		nodeIDs[i] = randNodeID()
-		bmv.SetMana(nodeIDs[i], &BaseMana{
-			BaseMana1:          float64(i),
-			EffectiveBaseMana1: float64(i),
+		bmv.SetMana(nodeIDs[i], &AccessBaseMana{
 			BaseMana2:          float64(i),
 			EffectiveBaseMana2: float64(i),
 			LastUpdated:        baseTime,
 		})
 	}
 	for i := 0; i < 10; i++ {
-		assert.Equal(t, BaseMana{
-			BaseMana1:          float64(i),
-			EffectiveBaseMana1: float64(i),
+		assert.Equal(t, &AccessBaseMana{
 			BaseMana2:          float64(i),
 			EffectiveBaseMana2: float64(i),
 			LastUpdated:        baseTime,
-		}, *bmv.vector[nodeIDs[i]])
+		}, bmv.(*AccessBaseManaVector).vector[nodeIDs[i]])
 	}
 }
 
-func TestNodeMap_GetPercentile(t *testing.T) {
-	nodes := make(NodeMap)
-	nodes[identity.GenerateIdentity().ID()] = 1
-	nodes[identity.GenerateIdentity().ID()] = 2
-	nodes[identity.GenerateIdentity().ID()] = 3
-	checkID := identity.GenerateIdentity().ID()
-	nodes[checkID] = 4
-	percentile, err := nodes.GetPercentile(checkID)
+func TestAccessBaseManaVector_ToPersistables(t *testing.T) {
+	bmv, err := NewBaseManaVector(AccessMana)
 	assert.NoError(t, err)
-	assert.Equal(t, 75.0, percentile)
+	id1 := randNodeID()
+	id2 := randNodeID()
+	data := map[identity.ID]float64{
+		id1: 1,
+		id2: 10,
+	}
+	bmv.SetMana(id1, &AccessBaseMana{
+		BaseMana2:          data[id1],
+		EffectiveBaseMana2: data[id1],
+		LastUpdated:        baseTime,
+	})
+	bmv.SetMana(id2, &AccessBaseMana{
+		BaseMana2:          data[id2],
+		EffectiveBaseMana2: data[id2],
+		LastUpdated:        baseTime,
+	})
+
+	persistables := bmv.ToPersistables()
+
+	assert.Equal(t, 2, len(persistables))
+	for _, p := range persistables {
+		assert.Equal(t, p.ManaType, AccessMana)
+		assert.Equal(t, p.LastUpdated, baseTime)
+		assert.Equal(t, 1, len(p.BaseValues))
+		assert.Equal(t, 1, len(p.EffectiveValues))
+		assert.Equal(t, data[p.NodeID], p.BaseValues[0])
+		assert.Equal(t, data[p.NodeID], p.EffectiveValues[0])
+		delete(data, p.NodeID)
+	}
+	assert.Equal(t, 0, len(data))
+}
+
+func TestAccessBaseManaVector_FromPersistable(t *testing.T) {
+	t.Run("CASE: Happy path", func(t *testing.T) {
+		id := randNodeID()
+		p := &PersistableBaseMana{
+			ManaType:        AccessMana,
+			BaseValues:      []float64{10},
+			EffectiveValues: []float64{100},
+			LastUpdated:     baseTime,
+			NodeID:          id,
+		}
+
+		bmv, err := NewBaseManaVector(AccessMana)
+		assert.NoError(t, err)
+		assert.False(t, bmv.Has(id))
+		err = bmv.FromPersistable(p)
+		assert.NoError(t, err)
+		assert.True(t, bmv.Has(id))
+		assert.Equal(t, 1, bmv.Size())
+		bmValue := bmv.(*AccessBaseManaVector).vector[id]
+		assert.Equal(t, 10.0, bmValue.BaseValue())
+		assert.Equal(t, 100.0, bmValue.EffectiveValue())
+		assert.Equal(t, baseTime, bmValue.LastUpdate())
+	})
+
+	t.Run("CASE: Wrong type", func(t *testing.T) {
+		p := &PersistableBaseMana{
+			ManaType:        ConsensusMana,
+			BaseValues:      []float64{0},
+			EffectiveValues: []float64{0},
+			LastUpdated:     baseTime,
+			NodeID:          randNodeID(),
+		}
+
+		bmv, err := NewBaseManaVector(AccessMana)
+		assert.NoError(t, err)
+
+		err = bmv.FromPersistable(p)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "has type Consensus instead of Access")
+	})
+
+	t.Run("CASE: Wrong number of base values", func(t *testing.T) {
+		p := &PersistableBaseMana{
+			ManaType:        AccessMana,
+			BaseValues:      []float64{0, 0},
+			EffectiveValues: []float64{0},
+			LastUpdated:     baseTime,
+			NodeID:          randNodeID(),
+		}
+
+		bmv, err := NewBaseManaVector(AccessMana)
+		assert.NoError(t, err)
+
+		err = bmv.FromPersistable(p)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "has 2 base values instead of 1")
+	})
+
+	t.Run("CASE: Wrong number of effective values", func(t *testing.T) {
+		p := &PersistableBaseMana{
+			ManaType:        AccessMana,
+			BaseValues:      []float64{0},
+			EffectiveValues: []float64{0, 0},
+			LastUpdated:     baseTime,
+			NodeID:          randNodeID(),
+		}
+
+		bmv, err := NewBaseManaVector(AccessMana)
+		assert.NoError(t, err)
+
+		err = bmv.FromPersistable(p)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "has 2 effective values instead of 1")
+	})
+}
+
+func TestAccessBaseManaVector_ToAndFromPersistable(t *testing.T) {
+	bmv, err := NewBaseManaVector(AccessMana)
+	assert.NoError(t, err)
+	id1 := randNodeID()
+	id2 := randNodeID()
+	data := map[identity.ID]float64{
+		id1: 1,
+		id2: 10,
+	}
+	bmv.SetMana(id1, &AccessBaseMana{
+		BaseMana2:          data[id1],
+		EffectiveBaseMana2: data[id1],
+		LastUpdated:        baseTime,
+	})
+	bmv.SetMana(id2, &AccessBaseMana{
+		BaseMana2:          data[id2],
+		EffectiveBaseMana2: data[id2],
+		LastUpdated:        baseTime,
+	})
+
+	persistables := bmv.ToPersistables()
+
+	var restoredBmv BaseManaVector
+	restoredBmv, err = NewBaseManaVector(AccessMana)
+	assert.NoError(t, err)
+
+	for _, p := range persistables {
+		err = restoredBmv.FromPersistable(p)
+		assert.NoError(t, err)
+	}
+	assert.Equal(t, bmv.(*AccessBaseManaVector).vector, restoredBmv.(*AccessBaseManaVector).vector)
 }

@@ -16,4 +16,8 @@ const (
 	ManaAccess
 	// ManaConsensus defines the storage prefix for consensus mana.
 	ManaConsensus
+	// ManaAccessResearch defines the storage prefix for access research mana.
+	ManaAccessResearch
+	// ManaConsensusResearch defines the storage prefix for consensus research mana.
+	ManaConsensusResearch
 )

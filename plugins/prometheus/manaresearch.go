@@ -7,9 +7,9 @@ import (
 
 var (
 	accessManaMapResearch       *prometheus.GaugeVec
-	accessPercentileResearch    *prometheus.GaugeVec
+	accessPercentileResearch    prometheus.Gauge
 	consensusManaMapResearch    *prometheus.GaugeVec
-	consensusPercentileResearch *prometheus.GaugeVec
+	consensusPercentileResearch prometheus.Gauge
 )
 
 func registerManaResearchMetrics() {
@@ -20,16 +20,12 @@ func registerManaResearchMetrics() {
 		},
 		[]string{
 			"nodeID",
-			"method",
 		})
 
-	accessPercentileResearch = prometheus.NewGaugeVec(
+	accessPercentileResearch = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "mana_research_access_percentile",
 			Help: "Top percentile node belongs to in terms of access mana.",
-		},
-		[]string{
-			"method",
 		})
 
 	consensusManaMapResearch = prometheus.NewGaugeVec(
@@ -39,16 +35,12 @@ func registerManaResearchMetrics() {
 		},
 		[]string{
 			"nodeID",
-			"method",
 		})
 
-	consensusPercentileResearch = prometheus.NewGaugeVec(
+	consensusPercentileResearch = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "mana_research_consensus_percentile",
 			Help: "Top percentile node belongs to in terms of consensus mana.",
-		},
-		[]string{
-			"method",
 		})
 
 	registry.MustRegister(accessManaMapResearch)
@@ -60,20 +52,13 @@ func registerManaResearchMetrics() {
 }
 
 func collectManaResearchMetrics() {
-	for nodeID, value := range metrics.AccessManaMapBM1() {
-		accessManaMapResearch.WithLabelValues(nodeID.String(), "bm1").Set(value)
+	for nodeID, value := range metrics.AccessResearchManaMap() {
+		accessManaMapResearch.WithLabelValues(nodeID.String()).Set(value)
 	}
-	for nodeID, value := range metrics.AccessManaMapBM2() {
-		accessManaMapResearch.WithLabelValues(nodeID.String(), "bm2").Set(value)
+	accessPercentileResearch.Set(metrics.AccessResearchPercentile())
+
+	for nodeID, value := range metrics.ConsensusResearchManaMap() {
+		consensusManaMapResearch.WithLabelValues(nodeID.String()).Set(value)
 	}
-	accessPercentileResearch.WithLabelValues("bm1").Set(metrics.AccessPercentileBM1())
-	accessPercentileResearch.WithLabelValues("bm2").Set(metrics.AccessPercentileBM2())
-	for nodeID, value := range metrics.ConsensusManaMapBM1() {
-		consensusManaMapResearch.WithLabelValues(nodeID.String(), "bm1").Set(value)
-	}
-	for nodeID, value := range metrics.ConsensusManaMapBM2() {
-		consensusManaMapResearch.WithLabelValues(nodeID.String(), "bm2").Set(value)
-	}
-	consensusPercentileResearch.WithLabelValues("bm1").Set(metrics.ConsensusPercentileBM1())
-	consensusPercentileResearch.WithLabelValues("bm2").Set(metrics.ConsensusPercentileBM2())
+	consensusPercentileResearch.Set(metrics.ConsensusResearchPercentile())
 }

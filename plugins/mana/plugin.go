@@ -38,7 +38,7 @@ var (
 	plugin             *node.Plugin
 	once               sync.Once
 	log                *logger.Logger
-	baseManaVectors    map[mana.Type]*mana.BaseManaVector
+	baseManaVectors    map[mana.Type]mana.BaseManaVector
 	osFactory          *objectstorage.Factory
 	storages           map[mana.Type]*objectstorage.ObjectStorage
 	allowedPledgeNodes map[mana.Type]AllowedPledge
@@ -56,9 +56,13 @@ func configure(*node.Plugin) {
 	log = logger.NewLogger(PluginName)
 
 	allowedPledgeNodes = make(map[mana.Type]AllowedPledge)
-	baseManaVectors = make(map[mana.Type]*mana.BaseManaVector)
-	baseManaVectors[mana.AccessMana] = mana.NewBaseManaVector(mana.AccessMana)
-	baseManaVectors[mana.ConsensusMana] = mana.NewBaseManaVector(mana.ConsensusMana)
+	baseManaVectors = make(map[mana.Type]mana.BaseManaVector)
+	baseManaVectors[mana.AccessMana], _ = mana.NewBaseManaVector(mana.AccessMana)
+	baseManaVectors[mana.ConsensusMana], _ = mana.NewBaseManaVector(mana.ConsensusMana)
+	if config.Node().GetBool(CfgManaEnableResearchVectors) {
+		baseManaVectors[mana.ResearchAccess], _ = mana.NewResearchBaseManaVector(mana.WeightedMana, mana.AccessMana, mana.Mixed)
+		baseManaVectors[mana.ResearchConsensus], _ = mana.NewResearchBaseManaVector(mana.WeightedMana, mana.ConsensusMana, mana.Mixed)
+	}
 
 	// configure storage for each vector type
 	storages = make(map[mana.Type]*objectstorage.ObjectStorage)
@@ -66,6 +70,10 @@ func configure(*node.Plugin) {
 	osFactory = objectstorage.NewFactory(store, storageprefix.Mana)
 	storages[mana.AccessMana] = osFactory.New(storageprefix.ManaAccess, mana.FromObjectStorage)
 	storages[mana.ConsensusMana] = osFactory.New(storageprefix.ManaConsensus, mana.FromObjectStorage)
+	if config.Node().GetBool(CfgManaEnableResearchVectors) {
+		storages[mana.ResearchAccess] = osFactory.New(storageprefix.ManaAccessResearch, mana.FromObjectStorage)
+		storages[mana.ResearchConsensus] = osFactory.New(storageprefix.ManaConsensusResearch, mana.FromObjectStorage)
+	}
 
 	err := verifyPledgeNodes()
 	if err != nil {
@@ -138,7 +146,7 @@ func configureEvents() {
 		})
 		// book in all mana vectors.
 		for _, baseManaVector := range baseManaVectors {
-			baseManaVector.BookMana(txInfo)
+			baseManaVector.Book(txInfo)
 		}
 	}))
 }
@@ -163,12 +171,14 @@ func run(_ *node.Plugin) {
 }
 
 func readStoredManaVectors() {
-	vectorTypes := []mana.Type{mana.AccessMana, mana.ConsensusMana}
-	for _, vectorType := range vectorTypes {
+	for vectorType := range baseManaVectors {
 		storages[vectorType].ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 			cachedPbm := &mana.CachedPersistableBaseMana{CachedObject: cachedObject}
 			cachedPbm.Consume(func(p *mana.PersistableBaseMana) {
-				baseManaVectors[vectorType].FromPersitable(p)
+				err := baseManaVectors[vectorType].FromPersistable(p)
+				if err != nil {
+					log.Errorf("error while restoring %s mana vector: %w", vectorType.String(), err)
+				}
 			})
 			return true
 		})
@@ -199,59 +209,57 @@ func pruneStorages() {
 // GetHighestManaNodes returns the n highest type mana nodes in descending order.
 // It also updates the mana values for each node.
 // If n is zero, it returns all nodes.
-func GetHighestManaNodes(manaType mana.Type, n uint, mode float64) ([]mana.Node, error) {
+func GetHighestManaNodes(manaType mana.Type, n uint) ([]mana.Node, error) {
 	bmv := baseManaVectors[manaType]
-	return bmv.GetHighestManaNodes(n, mode)
+	return bmv.GetHighestManaNodes(n)
 }
 
-// GetManaMap return type mana perception of the node.
-func GetManaMap(manaType mana.Type, mode float64) (mana.NodeMap, error) {
-	return baseManaVectors[manaType].GetManaMap(mode)
+// GetManaMap returns type mana perception of the node.
+func GetManaMap(manaType mana.Type) (mana.NodeMap, error) {
+	return baseManaVectors[manaType].GetManaMap()
 }
 
 // GetAccessMana returns the access mana of the node specified.
-func GetAccessMana(nodeID identity.ID, mode float64) (float64, error) {
-	return baseManaVectors[mana.AccessMana].GetMana(nodeID, mode)
+func GetAccessMana(nodeID identity.ID) (float64, error) {
+	return baseManaVectors[mana.AccessMana].GetMana(nodeID)
 }
 
 // GetConsensusMana returns the consensus mana of the node specified.
-func GetConsensusMana(nodeID identity.ID, mode float64) (float64, error) {
-	return baseManaVectors[mana.ConsensusMana].GetMana(nodeID, mode)
+func GetConsensusMana(nodeID identity.ID) (float64, error) {
+	return baseManaVectors[mana.ConsensusMana].GetMana(nodeID)
 }
 
 // GetNeighborsMana returns the type mana of the nodes neighbors
-func GetNeighborsMana(manaType mana.Type, mode float64) (mana.NodeMap, error) {
+func GetNeighborsMana(manaType mana.Type) (mana.NodeMap, error) {
 	neighbors := gossip.Manager().AllNeighbors()
 	res := make(mana.NodeMap)
 	for _, n := range neighbors {
-		value, err := baseManaVectors[manaType].GetMana(n.ID(), mode)
-		if err != nil {
-			return nil, err
-		}
+		// in case of error, value is 0.0
+		value, _ := baseManaVectors[manaType].GetMana(n.ID())
 		res[n.ID()] = value
 	}
 	return res, nil
 }
 
 // GetAllManaMaps returns the full mana maps for comparison with the perception of other nodes.
-func GetAllManaMaps(mode float64) map[mana.Type]mana.NodeMap {
+func GetAllManaMaps() map[mana.Type]mana.NodeMap {
 	res := make(map[mana.Type]mana.NodeMap)
 	for manaType := range baseManaVectors {
-		res[manaType], _ = GetManaMap(manaType, mode)
+		res[manaType], _ = GetManaMap(manaType)
 	}
 	return res
 }
 
 // OverrideMana sets the nodes mana to a specific value.
 // It can be useful for debugging, setting faucet mana, initialization, etc.. Triggers ManaUpdated
-func OverrideMana(manaType mana.Type, nodeID identity.ID, bm *mana.BaseMana) {
+func OverrideMana(manaType mana.Type, nodeID identity.ID, bm *mana.AccessBaseMana) {
 	baseManaVectors[manaType].SetMana(nodeID, bm)
 }
 
 //GetWeightedRandomNodes returns a weighted random selection of n nodes.
-func GetWeightedRandomNodes(n uint, manaType mana.Type, mode float64) mana.NodeMap {
+func GetWeightedRandomNodes(n uint, manaType mana.Type) mana.NodeMap {
 	rand.Seed(time.Now().UTC().UnixNano())
-	manaMap, _ := GetManaMap(manaType, mode)
+	manaMap, _ := GetManaMap(manaType)
 	var choices []mana.RandChoice
 	for nodeID, manaValue := range manaMap {
 		choices = append(choices, mana.RandChoice{
@@ -276,7 +284,7 @@ func GetAllowedPledgeNodes(manaType mana.Type) AllowedPledge {
 
 // GetOnlineNodes gets the list of currently known (and verified) peers in the network, and their respective mana values.
 // Sorted in descending order based on mana.
-func GetOnlineNodes(manaType mana.Type, mode float64) ([]mana.Node, error) {
+func GetOnlineNodes(manaType mana.Type) ([]mana.Node, error) {
 	knownPeers := autopeering.Discovery().GetVerifiedPeers()
 	// consider ourselves as a peer in the network too
 	knownPeers = append(knownPeers, local.GetInstance().Peer)
@@ -285,7 +293,7 @@ func GetOnlineNodes(manaType mana.Type, mode float64) ([]mana.Node, error) {
 		if !baseManaVectors[manaType].Has(peer.ID()) {
 			onlineNodesMana = append(onlineNodesMana, mana.Node{ID: peer.ID(), Mana: 0})
 		} else {
-			peerMana, err := baseManaVectors[manaType].GetMana(peer.ID(), mode)
+			peerMana, err := baseManaVectors[manaType].GetMana(peer.ID())
 			if err != nil {
 				return nil, err
 			}

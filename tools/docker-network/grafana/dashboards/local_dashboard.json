@@ -17,7 +17,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": 2,
-  "iteration": 1602685111444,
+  "iteration": 1605627449977,
   "links": [],
   "panels": [
     {
@@ -326,12 +326,14 @@
       "targets": [
         {
           "expr": "mana_average_neighbors_access",
+          "instant": false,
           "interval": "",
           "legendFormat": "Access",
           "refId": "A"
         },
         {
           "expr": "mana_average_neighbors_consensus",
+          "instant": false,
           "interval": "",
           "legendFormat": "Consensus",
           "refId": "B"
@@ -1276,15 +1278,9 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "mana_average_access_pledge{type=\"bm1\"}",
-          "interval": "",
-          "legendFormat": "$NodeID (BM1)",
-          "refId": "A"
-        },
-        {
           "expr": "mana_average_access_pledge{type=\"bm2\"}",
           "interval": "",
-          "legendFormat": "$NodeID (BM2)",
+          "legendFormat": "{{nodeID}}",
           "refId": "B"
         }
       ],
@@ -1377,14 +1373,8 @@
         {
           "expr": "mana_average_consensus_pledge{type=\"bm1\"}",
           "interval": "",
-          "legendFormat": "$NodeID (BM1)",
+          "legendFormat": "{{nodeID}}",
           "refId": "A"
-        },
-        {
-          "expr": "mana_average_consensus_pledge{type=\"bm2\"}",
-          "interval": "",
-          "legendFormat": "$NodeID (BM2)",
-          "refId": "B"
         }
       ],
       "thresholds": [],
@@ -4314,5 +4304,5 @@
   "timezone": "",
   "title": "GoShimmer Local Metrics",
   "uid": "kjOQZ2ZMk",
-  "version": 49
+  "version": 57
 }

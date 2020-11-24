@@ -25,11 +25,11 @@ func getManaHandler(c echo.Context) error {
 	if ID == emptyID {
 		ID = local.GetInstance().ID()
 	}
-	accessMana, err := manaPlugin.GetAccessMana(ID, mana.Mixed)
+	accessMana, err := manaPlugin.GetAccessMana(ID)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, GetManaResponse{Error: err.Error()})
 	}
-	consensusMana, err := manaPlugin.GetConsensusMana(ID, mana.Mixed)
+	consensusMana, err := manaPlugin.GetConsensusMana(ID)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, GetManaResponse{Error: err.Error()})
 	}

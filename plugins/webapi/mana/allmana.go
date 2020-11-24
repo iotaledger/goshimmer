@@ -10,13 +10,13 @@ import (
 
 // getAllManaHandler handles the request.
 func getAllManaHandler(c echo.Context) error {
-	access, err := manaPlugin.GetManaMap(mana.AccessMana, mana.Mixed)
+	access, err := manaPlugin.GetManaMap(mana.AccessMana)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, GetAllManaResponse{
 			Error: err.Error(),
 		})
 	}
-	consensus, err := manaPlugin.GetManaMap(mana.ConsensusMana, mana.Mixed)
+	consensus, err := manaPlugin.GetManaMap(mana.ConsensusMana)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, GetAllManaResponse{
 			Error: err.Error(),
