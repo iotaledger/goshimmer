@@ -126,12 +126,23 @@ func (s *Sequence) HighestIndex() Index {
 
 // IncreaseHighestIndex increases the highest Index of the Sequence if the referenced Index is pointing at the highest
 // Index. It returns the new highest Index and a boolean flag that indicates if the value was increased.
-func (s *Sequence) IncreaseHighestIndex(referencedIndex Index) (index Index, increased bool) {
+func (s *Sequence) IncreaseHighestIndex(referencedMarkers *Markers) (index Index, increased bool) {
 	s.highestIndexMutex.Lock()
 	defer s.highestIndexMutex.Unlock()
 
-	if increased = referencedIndex == s.highestIndex; increased {
-		s.highestIndex++
+	referencedSequenceIndex, referencedSequenceIndexExists := referencedMarkers.Get(s.id)
+	if !referencedSequenceIndexExists {
+		panic("tried to increase Index of wrong Sequence")
+	}
+
+	if increased = referencedSequenceIndex == s.highestIndex; increased {
+		s.highestIndex = referencedMarkers.HighestIndex() + 1
+
+		if referencedMarkers.Size() > 1 {
+			referencedMarkers.Delete(s.id)
+
+			s.parentReferences.AddReferences(referencedMarkers, s.highestIndex)
+		}
 	}
 	index = s.highestIndex
 

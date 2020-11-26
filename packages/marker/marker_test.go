@@ -31,6 +31,16 @@ func TestMarkers(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, len(marshaledMarkers), consumedBytes)
 	assert.Equal(t, markers, unmarshaledMarkers)
+	assert.Equal(t, Index(3), markers.HighestIndex())
+	assert.Equal(t, Index(1), markers.LowestIndex())
+
+	markers.Delete(1337)
+	assert.Equal(t, Index(2), markers.LowestIndex())
+	assert.Equal(t, Index(3), markers.HighestIndex())
+
+	markers.Delete(1339)
+	assert.Equal(t, Index(2), markers.LowestIndex())
+	assert.Equal(t, Index(2), markers.HighestIndex())
 }
 
 func TestMarkersByRank(t *testing.T) {

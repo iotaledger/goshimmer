@@ -128,6 +128,8 @@ func (m *Marker) String() string {
 // Markers represents a collection of Markers that can contain exactly one Index per SequenceID.
 type Markers struct {
 	markers      map[SequenceID]Index
+	highestIndex Index
+	lowestIndex  Index
 	markersMutex sync.RWMutex
 }
 
@@ -165,7 +167,7 @@ func MarkersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (markers *Mark
 			err = xerrors.Errorf("failed to parse Index from MarshalUtil: %w", indexErr)
 			return
 		}
-		markers.markers[sequenceID] = index
+		markers.Set(sequenceID, index)
 	}
 
 	return
@@ -178,6 +180,18 @@ func NewMarkers(optionalMarkers ...*Marker) (markers *Markers) {
 	}
 	for _, marker := range optionalMarkers {
 		markers.Set(marker.sequenceID, marker.index)
+	}
+
+	return
+}
+
+func (m *Markers) FirstMarker() (firstMarker *Marker) {
+	m.markersMutex.RLock()
+	defer m.markersMutex.RUnlock()
+
+	for sequenceID, index := range m.markers {
+		firstMarker = &Marker{sequenceID: sequenceID, index: index}
+		return
 	}
 
 	return
@@ -198,11 +212,29 @@ func (m *Markers) Set(sequenceID SequenceID, index Index) (updated bool, added b
 	m.markersMutex.Lock()
 	defer m.markersMutex.Unlock()
 
+	if index > m.highestIndex {
+		m.highestIndex = index
+	}
+
 	if existingIndex, indexAlreadyStored := m.markers[sequenceID]; indexAlreadyStored {
 		if updated = index > existingIndex; updated {
 			m.markers[sequenceID] = index
+
+			if index == m.lowestIndex {
+				m.lowestIndex = 0
+				for _, scannedIndex := range m.markers {
+					if scannedIndex < m.lowestIndex || m.lowestIndex == 0 {
+						m.lowestIndex = scannedIndex
+					}
+				}
+			}
 		}
+
 		return
+	}
+
+	if index < m.lowestIndex || m.lowestIndex == 0 {
+		m.lowestIndex = index
 	}
 
 	m.markers[sequenceID] = index
@@ -218,8 +250,29 @@ func (m *Markers) Delete(sequenceID SequenceID) (existed bool) {
 	m.markersMutex.Lock()
 	defer m.markersMutex.Unlock()
 
-	_, existed = m.markers[sequenceID]
+	existingIndex, existed := m.markers[sequenceID]
 	delete(m.markers, sequenceID)
+	if existed {
+		lowestIndexDeleted := existingIndex == m.lowestIndex
+		if lowestIndexDeleted {
+			m.lowestIndex = 0
+		}
+		highestIndexDeleted := existingIndex == m.highestIndex
+		if highestIndexDeleted {
+			m.highestIndex = 0
+		}
+
+		if lowestIndexDeleted || highestIndexDeleted {
+			for _, scannedIndex := range m.markers {
+				if scannedIndex < m.lowestIndex || m.lowestIndex == 0 {
+					m.lowestIndex = scannedIndex
+				}
+				if scannedIndex > m.highestIndex {
+					m.highestIndex = scannedIndex
+				}
+			}
+		}
+	}
 
 	return
 }
@@ -259,27 +312,20 @@ func (m *Markers) Merge(markers *Markers) {
 
 // LowestIndex returns the the lowest Index of all Markers in the collection.
 func (m *Markers) LowestIndex() (lowestIndex Index) {
-	lowestIndex = 1<<64 - 1
-	m.ForEach(func(_ SequenceID, index Index) bool {
-		if index < lowestIndex {
-			lowestIndex = index
-		}
+	m.markersMutex.RLock()
+	defer m.markersMutex.RUnlock()
 
-		return true
-	})
+	lowestIndex = m.lowestIndex
 
 	return
 }
 
 // HighestIndex returns the the highest Index of all Markers in the collection.
 func (m *Markers) HighestIndex() (highestIndex Index) {
-	m.ForEach(func(_ SequenceID, index Index) bool {
-		if index > highestIndex {
-			highestIndex = index
-		}
+	m.markersMutex.RLock()
+	defer m.markersMutex.RUnlock()
 
-		return true
-	})
+	highestIndex = m.highestIndex
 
 	return
 }
@@ -294,7 +340,9 @@ func (m *Markers) Clone() (clone *Markers) {
 	})
 
 	clone = &Markers{
-		markers: clonedMap,
+		markers:      clonedMap,
+		lowestIndex:  m.lowestIndex,
+		highestIndex: m.highestIndex,
 	}
 
 	return
@@ -323,6 +371,8 @@ func (m *Markers) String() string {
 
 		return true
 	})
+	structBuilder.AddField(stringify.StructField("lowestIndex", m.LowestIndex()))
+	structBuilder.AddField(stringify.StructField("highestIndex", m.HighestIndex()))
 
 	return structBuilder.String()
 }
@@ -389,7 +439,7 @@ func (m *MarkersByRank) Markers(optionalRank ...uint64) (markers *Markers, exist
 	markers = NewMarkers()
 	for _, markersOfRank := range m.markersByRank {
 		markersOfRank.ForEach(func(sequenceID SequenceID, index Index) bool {
-			markers.markers[sequenceID] = index
+			markers.Set(sequenceID, index)
 
 			return true
 		})
