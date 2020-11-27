@@ -13,7 +13,6 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -143,28 +142,6 @@ func configure(_ *node.Plugin) {
 	cfgAvgNetworkDelay := config.Node().Int(CfgValueLayerFCOBAverageNetworkDelay)
 	log.Infof("avg. network delay configured to %d seconds", cfgAvgNetworkDelay)
 	fcob = consensus.NewFCOB(_tangle, time.Duration(cfgAvgNetworkDelay)*time.Second)
-	fcob.Events.Vote.Attach(events.NewClosure(func(id string, initOpn vote.Opinion) {
-		if err := voter.Vote(id, vote.ConflictType, initOpn); err != nil {
-			log.Warnf("FPC vote: %s", err)
-		}
-	}))
-	fcob.Events.Error.Attach(events.NewClosure(func(err error) {
-		log.Errorf("FCOB error: %s", err)
-	}))
-
-	// configure FPC + link to consensus
-	configureFPC()
-	voter.Events().Finalized.Attach(events.NewClosure(fcob.ProcessVoteResult))
-	voter.Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
-		if ev.Ctx.Type == vote.ConflictType {
-			log.Infof("FPC finalized for transaction with id '%s' - final opinion: '%s'", ev.ID, ev.Opinion)
-		}
-	}))
-	voter.Events().Failed.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
-		if ev.Ctx.Type == vote.ConflictType {
-			log.Warnf("FPC failed for transaction with id '%s' - last opinion: '%s'", ev.ID, ev.Opinion)
-		}
-	}))
 
 	// register SignatureFilter in Parser
 	messagelayer.MessageParser().AddMessageFilter(valuetangle.NewSignatureFilter())
@@ -182,8 +159,6 @@ func run(*node.Plugin) {
 	}, shutdown.PriorityTangle); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
-
-	runFPC()
 }
 
 func onReceiveMessageFromMessageLayer(cachedMessageEvent *tangle.CachedMessageEvent) {

@@ -11,8 +11,8 @@ import (
 
 // Registry holds the opinions of all the nodes.
 type Registry struct {
-	NodesView map[string]*View
-	mu        sync.Mutex
+	nodesView map[string]*View
+	mu        sync.RWMutex
 }
 
 // View holds the node's opinion about conflicts and timestamps.
@@ -27,24 +27,37 @@ type View struct {
 // NewRegistry returns a new registry.
 func NewRegistry() *Registry {
 	return &Registry{
-		NodesView: make(map[string]*View),
+		nodesView: make(map[string]*View),
 	}
 }
 
-// NodeRegistry returns the view of the given node, and adds a new view if not present.
-func (r *Registry) NodeRegistry(id string) *View {
+// NodeView returns the view of the given node, and adds a new view if not present.
+func (r *Registry) NodeView(id string) *View {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if _, ok := r.NodesView[id]; !ok {
-		r.NodesView[id] = &View{
+	if _, ok := r.nodesView[id]; !ok {
+		r.nodesView[id] = &View{
 			NodeID:     id,
 			Conflicts:  make(map[transaction.ID]Opinions),
 			Timestamps: make(map[tangle.MessageID]Opinions),
 		}
 	}
 
-	return r.NodesView[id]
+	return r.nodesView[id]
+}
+
+// NodesView returns a slice of the views of all nodes.
+func (r *Registry) NodesView() []*View {
+	views := make([]*View, 0)
+
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, v := range r.nodesView {
+		views = append(views, v)
+	}
+
+	return views
 }
 
 // AddConflict appends the given conflict to the given view.

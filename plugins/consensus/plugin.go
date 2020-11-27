@@ -1,35 +1,32 @@
-package valuetransfers
+package consensus
 
 import (
-	"context"
-	"fmt"
 	"net"
 	"strconv"
 	"sync"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/prng"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/packages/vote/fpc"
 	votenet "github.com/iotaledger/goshimmer/packages/vote/net"
-	"github.com/iotaledger/goshimmer/plugins/autopeering"
+	"github.com/iotaledger/goshimmer/packages/vote/statement"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/config"
-	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/node"
 	flag "github.com/spf13/pflag"
-	"google.golang.org/grpc"
 )
 
 const (
-	// FpcPluginName contains the human readable name of the plugin.
-	FpcPluginName = "FPC"
+	// ConsensusPluginName contains the human readable name of the plugin.
+	ConsensusPluginName = "Consensus"
 
 	// CfgFPCQuerySampleSize defines how many nodes will be queried each round.
 	CfgFPCQuerySampleSize = "fpc.querySampleSize"
@@ -39,44 +36,61 @@ const (
 
 	// CfgFPCBindAddress defines on which address the FPC service should listen.
 	CfgFPCBindAddress = "fpc.bindAddress"
+
+	// CfgWaitForStatement is the time in seconds for which the node wait for receiveing the new statement.
+	CfgWaitForStatement = "statement.waitForStatement"
+
+	// CfgManaThreshold defines the Mana threshold to accept/write a statement.
+	CfgManaThreshold = "statement.manaThreshold"
 )
 
 func init() {
 	flag.Int(CfgFPCQuerySampleSize, 21, "Size of the voting quorum (k)")
 	flag.Int(CfgFPCRoundInterval, 5, "FPC round interval [s]")
 	flag.String(CfgFPCBindAddress, "0.0.0.0:10895", "the bind address on which the FPC vote server binds to")
+	flag.Int(CfgWaitForStatement, 5, "the time in seconds for which the node wait for receiveing the new statement")
+	flag.Float64(CfgManaThreshold, 1., "Mana threshold to accept/write a statement")
 }
 
 var (
+	// plugin is the plugin instance of the statement plugin.
+	plugin               *node.Plugin
+	once                 sync.Once
 	voter                *fpc.FPC
 	voterOnce            sync.Once
 	voterServer          *votenet.VoterServer
 	roundIntervalSeconds int64 = 5
+	log                  *logger.Logger
+	registry             *statement.Registry
+	waitForStatement     int
 )
+
+func configure(_ *node.Plugin) {
+	log = logger.NewLogger(ConsensusPluginName)
+	configureFPC()
+}
+
+func run(_ *node.Plugin) {
+	runFPC()
+}
 
 // Voter returns the DRNGRoundBasedVoter instance used by the FPC plugin.
 func Voter() vote.DRNGRoundBasedVoter {
 	voterOnce.Do(func() {
-		// create a function which gets OpinionGivers
-		opinionGiverFunc := func() (givers []vote.OpinionGiver, err error) {
-			opinionGivers := make([]vote.OpinionGiver, 0)
-			for _, p := range autopeering.Discovery().GetVerifiedPeers() {
-				fpcService := p.Services().Get(service.FPCKey)
-				if fpcService == nil {
-					continue
-				}
-				// TODO: maybe cache the PeerOpinionGiver instead of creating a new one every time
-				opinionGivers = append(opinionGivers, &PeerOpinionGiver{p: p})
-			}
-			return opinionGivers, nil
-		}
-		voter = fpc.New(opinionGiverFunc)
+		plugin = node.NewPlugin(ConsensusPluginName, node.Disabled, configure, run)
+		voter = fpc.New(OpinionGiverFunc)
+		waitForStatement = config.Node().Int(CfgWaitForStatement)
 	})
 	return voter
 }
 
+// Registry returns the registry.
+func Registry() *statement.Registry {
+	return registry
+}
+
 func configureFPC() {
-	log = logger.NewLogger(FpcPluginName)
+
 	lPeer := local.GetInstance()
 
 	bindAddr := config.Node().String(CfgFPCBindAddress)
@@ -93,10 +107,42 @@ func configureFPC() {
 		log.Fatalf("could not update services: %v", err)
 	}
 
+	registry = statement.NewRegistry()
+
 	Voter().Events().RoundExecuted.Attach(events.NewClosure(func(roundStats *vote.RoundStats) {
 		peersQueried := len(roundStats.QueriedOpinions)
 		voteContextsCount := len(roundStats.ActiveVoteContexts)
 		log.Debugf("executed round with rand %0.4f for %d vote contexts on %d peers, took %v", roundStats.RandUsed, voteContextsCount, peersQueried, roundStats.Duration)
+	}))
+
+	// TODO: check that finalized opinions are also included
+	Voter().Events().RoundExecuted.Attach(events.NewClosure(makeStatement))
+
+	// subscribe to message-layer
+	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(readStatement))
+
+	valuetransfers.FCOB().Events.Vote.Attach(events.NewClosure(func(id string, initOpn vote.Opinion) {
+		if err := voter.Vote(id, vote.ConflictType, initOpn); err != nil {
+			log.Warnf("FPC vote: %s", err)
+		}
+	}))
+	valuetransfers.FCOB().Events.Error.Attach(events.NewClosure(func(err error) {
+		log.Errorf("FCOB error: %s", err)
+	}))
+
+	// configure FPC + link to consensus
+	configureFPC()
+	// MOVE ALL of THIS in the consensus
+	Voter().Events().Finalized.Attach(events.NewClosure(valuetransfers.FCOB().ProcessVoteResult))
+	voter.Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
+		if ev.Ctx.Type == vote.ConflictType {
+			log.Infof("FPC finalized for transaction with id '%s' - final opinion: '%s'", ev.ID, ev.Opinion)
+		}
+	}))
+	Voter().Events().Failed.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
+		if ev.Ctx.Type == vote.ConflictType {
+			log.Warnf("FPC failed for transaction with id '%s' - last opinion: '%s'", ev.ID, ev.Opinion)
+		}
 	}))
 }
 
@@ -105,34 +151,7 @@ func runFPC() {
 	if err := daemon.BackgroundWorker(ServerWorkerName, func(shutdownSignal <-chan struct{}) {
 		stopped := make(chan struct{})
 		bindAddr := config.Node().String(CfgFPCBindAddress)
-		voterServer = votenet.New(Voter(), func(id string, objectType vote.ObjectType) vote.Opinion {
-			switch objectType {
-			case vote.TimestampType:
-				// TODO: implement
-				return vote.Like
-			default: // conflict type
-				branchID, err := branchmanager.BranchIDFromBase58(id)
-				if err != nil {
-					log.Errorf("received invalid vote request for branch '%s'", id)
-
-					return vote.Unknown
-				}
-
-				cachedBranch := _tangle.BranchManager().Branch(branchID)
-				defer cachedBranch.Release()
-
-				branch := cachedBranch.Unwrap()
-				if branch == nil {
-					return vote.Unknown
-				}
-
-				if !branch.Preferred() {
-					return vote.Dislike
-				}
-
-				return vote.Like
-			}
-		}, bindAddr,
+		voterServer = votenet.New(Voter(), OpinionRetriever, bindAddr,
 			metrics.Events().FPCInboundBytes,
 			metrics.Events().FPCOutboundBytes,
 			metrics.Events().QueryReceived,
@@ -179,52 +198,4 @@ func runFPC() {
 	}, shutdown.PriorityFPC); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
-}
-
-// PeerOpinionGiver implements the OpinionGiver interface based on a peer.
-type PeerOpinionGiver struct {
-	p *peer.Peer
-}
-
-// Query queries another node for its opinion.
-func (pog *PeerOpinionGiver) Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (vote.Opinions, error) {
-	fpcServicePort := pog.p.Services().Get(service.FPCKey).Port()
-	fpcAddr := net.JoinHostPort(pog.p.IP().String(), strconv.Itoa(fpcServicePort))
-
-	var opts []grpc.DialOption
-	opts = append(opts, grpc.WithInsecure())
-
-	// connect to the FPC service
-	conn, err := grpc.Dial(fpcAddr, opts...)
-	if err != nil {
-		return nil, fmt.Errorf("unable to connect to FPC service: %w", err)
-	}
-	defer conn.Close()
-
-	client := votenet.NewVoterQueryClient(conn)
-	query := &votenet.QueryRequest{ConflictIDs: conflictIDs, TimestampIDs: timestampIDs}
-	reply, err := client.Opinion(ctx, query)
-	if err != nil {
-		metrics.Events().QueryReplyError.Trigger(&metrics.QueryReplyErrorEvent{
-			ID:           pog.p.ID().String(),
-			OpinionCount: len(conflictIDs) + len(timestampIDs),
-		})
-		return nil, fmt.Errorf("unable to query opinions: %w", err)
-	}
-
-	metrics.Events().FPCInboundBytes.Trigger(uint64(proto.Size(reply)))
-	metrics.Events().FPCOutboundBytes.Trigger(uint64(proto.Size(query)))
-
-	// convert int32s in reply to opinions
-	opinions := make(vote.Opinions, len(reply.Opinion))
-	for i, intOpn := range reply.Opinion {
-		opinions[i] = vote.ConvertInt32Opinion(intOpn)
-	}
-
-	return opinions, nil
-}
-
-// ID returns a string representation of the identifier of the underlying Peer.
-func (pog *PeerOpinionGiver) ID() string {
-	return pog.p.ID().String()
 }

@@ -12,7 +12,7 @@ import (
 func TestRegistry(t *testing.T) {
 	r := NewRegistry()
 
-	v := r.NodeRegistry("A")
+	v := r.NodeView("A")
 	assert.Equal(t, "A", v.ID())
 
 	txA := transaction.RandomID()
