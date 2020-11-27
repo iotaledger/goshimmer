@@ -26,13 +26,13 @@ type Manager struct {
 }
 
 // NewManager is the constructor of the Manager that takes a KVStore to persist its state.
-func NewManager(store kvstore.KVStore) *Manager {
+func NewManager(store kvstore.KVStore) (manager *Manager) {
 	storedSequenceIDCounter, err := store.Get(kvstore.Key("sequenceIDCounter"))
 	if err != nil && !errors.Is(err, kvstore.ErrKeyNotFound) {
 		panic(err)
 	}
 
-	var sequenceIDCounter SequenceID
+	sequenceIDCounter := SequenceID(1)
 	if storedSequenceIDCounter != nil {
 		sequenceIDCounter, _, err = SequenceIDFromBytes(storedSequenceIDCounter)
 		if err != nil {
@@ -40,12 +40,18 @@ func NewManager(store kvstore.KVStore) *Manager {
 		}
 	}
 
-	return &Manager{
+	manager = &Manager{
 		store:              store,
 		sequenceStore:      objectstorage.NewFactory(store, database.PrefixMessageLayer).New(tangle.PrefixMarkerSequence, SequenceFromObjectStorage),
 		sequenceAliasStore: objectstorage.NewFactory(store, database.PrefixMessageLayer).New(tangle.PrefixSequenceAlias, SequenceFromObjectStorage),
 		sequenceIDCounter:  sequenceIDCounter,
 	}
+
+	if cachedSequence, stored := manager.sequenceStore.StoreIfAbsent(NewSequence(SequenceID(0), NewMarkers(), 0)); stored {
+		cachedSequence.Release()
+	}
+
+	return
 }
 
 // InheritPastMarkers takes the result of the normalizeMarkers method and determines the resulting markers that should
@@ -57,8 +63,12 @@ func (m *Manager) InheritPastMarkers(mergedPastMarkers *Markers, increaseMarkerC
 	rank := normalizedMarkers.HighestRank()
 
 	if len(normalizedSequences) == 0 {
+		referencedMarkers = NewMarkers(&Marker{sequenceID: 0, index: 0})
 		normalizedSequences = map[SequenceID]types.Empty{
 			0: types.Void,
+		}
+		if len(newSequenceAlias) == 0 {
+			newSequenceAlias = []SequenceAlias{NewSequenceAlias([]byte("MAIN_SEQUENCE"))}
 		}
 	}
 
@@ -371,17 +381,10 @@ func (m *Manager) markersReferenceMarkers(laterMarkers *Markers, earlierMarkers 
 // fetchSequence is an internal utility function that retrieves or creates the Sequence that represents the given
 // parameters and returns it.
 func (m *Manager) fetchSequence(parentSequences SequenceIDs, referencedMarkers *Markers, rank uint64, newSequenceAlias ...SequenceAlias) (cachedSequence *CachedSequence, isNew bool) {
-	switch len(parentSequences) {
-	case 1:
+	if len(parentSequences) == 1 && len(newSequenceAlias) == 0 {
 		for sequenceID := range parentSequences {
 			cachedSequence = m.sequence(sequenceID)
 			return
-		}
-	}
-
-	if len(parentSequences) == 0 {
-		parentSequences = map[SequenceID]types.Empty{
-			0: types.Void,
 		}
 	}
 
