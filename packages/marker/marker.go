@@ -574,6 +574,7 @@ func (m *MarkersByRank) String() string {
 // region MarkersPair ///////////////////////////////////////////////////////////////////////////////////////////////
 
 type MarkersPair struct {
+	Rank          uint64
 	IsPastMarker  bool
 	PastMarkers   *Markers
 	FutureMarkers *Markers
