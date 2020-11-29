@@ -34,6 +34,9 @@ const (
 	// CfgFPCRoundInterval defines how long a round lasts (in seconds)
 	CfgFPCRoundInterval = "fpc.roundInterval"
 
+	// CfgFPCReply defines if the FPC service should listen.
+	CfgFPCListen = "fpc.listen"
+
 	// CfgFPCBindAddress defines on which address the FPC service should listen.
 	CfgFPCBindAddress = "fpc.bindAddress"
 
@@ -45,8 +48,9 @@ const (
 )
 
 func init() {
+	flag.Bool(CfgFPCListen, true, "if the FPC service should listen")
 	flag.Int(CfgFPCQuerySampleSize, 21, "Size of the voting quorum (k)")
-	flag.Int(CfgFPCRoundInterval, 5, "FPC round interval [s]")
+	flag.Int64(CfgFPCRoundInterval, 10, "FPC round interval [s]")
 	flag.String(CfgFPCBindAddress, "0.0.0.0:10895", "the bind address on which the FPC vote server binds to")
 	flag.Int(CfgWaitForStatement, 5, "the time in seconds for which the node wait for receiveing the new statement")
 	flag.Float64(CfgManaThreshold, 1., "Mana threshold to accept/write a statement")
@@ -59,15 +63,41 @@ var (
 	voter                *fpc.FPC
 	voterOnce            sync.Once
 	voterServer          *votenet.VoterServer
-	roundIntervalSeconds int64 = 5
+	roundIntervalSeconds int64
 	log                  *logger.Logger
 	registry             *statement.Registry
+	registryOnce         sync.Once
 	waitForStatement     int
+	listen               bool
 )
+
+// Plugin returns the consensus plugin.
+func Plugin() *node.Plugin {
+	once.Do(func() {
+		plugin = node.NewPlugin(ConsensusPluginName, node.Enabled, configure, run)
+	})
+	return plugin
+}
 
 func configure(_ *node.Plugin) {
 	log = logger.NewLogger(ConsensusPluginName)
+	roundIntervalSeconds = config.Node().Int64(CfgFPCRoundInterval)
+	waitForStatement = config.Node().Int(CfgWaitForStatement)
+	listen = config.Node().Bool(CfgFPCListen)
+
+	valuetransfers.FCOB().Events.Vote.Attach(events.NewClosure(func(id string, initOpn vote.Opinion) {
+		if err := Voter().Vote(id, vote.ConflictType, initOpn); err != nil {
+			log.Warnf("FPC vote: %s", err)
+		}
+	}))
+	valuetransfers.FCOB().Events.Error.Attach(events.NewClosure(func(err error) {
+		log.Errorf("FCOB error: %s", err)
+	}))
+
 	configureFPC()
+
+	// subscribe to message-layer
+	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(readStatement))
 }
 
 func run(_ *node.Plugin) {
@@ -77,105 +107,95 @@ func run(_ *node.Plugin) {
 // Voter returns the DRNGRoundBasedVoter instance used by the FPC plugin.
 func Voter() vote.DRNGRoundBasedVoter {
 	voterOnce.Do(func() {
-		plugin = node.NewPlugin(ConsensusPluginName, node.Disabled, configure, run)
 		voter = fpc.New(OpinionGiverFunc)
-		waitForStatement = config.Node().Int(CfgWaitForStatement)
 	})
 	return voter
 }
 
 // Registry returns the registry.
 func Registry() *statement.Registry {
+	registryOnce.Do(func() {
+		registry = statement.NewRegistry()
+	})
 	return registry
 }
 
 func configureFPC() {
+	if listen {
+		lPeer := local.GetInstance()
+		bindAddr := config.Node().String(CfgFPCBindAddress)
+		_, portStr, err := net.SplitHostPort(bindAddr)
+		if err != nil {
+			log.Fatalf("FPC bind address '%s' is invalid: %s", bindAddr, err)
+		}
+		port, err := strconv.Atoi(portStr)
+		if err != nil {
+			log.Fatalf("FPC bind address '%s' is invalid: %s", bindAddr, err)
+		}
 
-	lPeer := local.GetInstance()
-
-	bindAddr := config.Node().String(CfgFPCBindAddress)
-	_, portStr, err := net.SplitHostPort(bindAddr)
-	if err != nil {
-		log.Fatalf("FPC bind address '%s' is invalid: %s", bindAddr, err)
+		if err := lPeer.UpdateService(service.FPCKey, "tcp", port); err != nil {
+			log.Fatalf("could not update services: %v", err)
+		}
 	}
-	port, err := strconv.Atoi(portStr)
-	if err != nil {
-		log.Fatalf("FPC bind address '%s' is invalid: %s", bindAddr, err)
-	}
-
-	if err := lPeer.UpdateService(service.FPCKey, "tcp", port); err != nil {
-		log.Fatalf("could not update services: %v", err)
-	}
-
-	registry = statement.NewRegistry()
-
-	Voter().Events().RoundExecuted.Attach(events.NewClosure(func(roundStats *vote.RoundStats) {
-		peersQueried := len(roundStats.QueriedOpinions)
-		voteContextsCount := len(roundStats.ActiveVoteContexts)
-		log.Debugf("executed round with rand %0.4f for %d vote contexts on %d peers, took %v", roundStats.RandUsed, voteContextsCount, peersQueried, roundStats.Duration)
-	}))
 
 	// TODO: check that finalized opinions are also included
-	Voter().Events().RoundExecuted.Attach(events.NewClosure(makeStatement))
+	//Voter().Events().RoundExecuted.Attach(events.NewClosure(makeStatement))
 
-	// subscribe to message-layer
-	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(readStatement))
-
-	valuetransfers.FCOB().Events.Vote.Attach(events.NewClosure(func(id string, initOpn vote.Opinion) {
-		if err := voter.Vote(id, vote.ConflictType, initOpn); err != nil {
-			log.Warnf("FPC vote: %s", err)
-		}
-	}))
-	valuetransfers.FCOB().Events.Error.Attach(events.NewClosure(func(err error) {
-		log.Errorf("FCOB error: %s", err)
+	Voter().Events().RoundExecuted.Attach(events.NewClosure(func(roundStats *vote.RoundStats) {
+		makeStatement(roundStats)
+		peersQueried := len(roundStats.QueriedOpinions)
+		voteContextsCount := len(roundStats.ActiveVoteContexts)
+		log.Infof("executed round with rand %0.4f for %d vote contexts on %d peers, took %v", roundStats.RandUsed, voteContextsCount, peersQueried, roundStats.Duration)
 	}))
 
-	// configure FPC + link to consensus
-	configureFPC()
-	// MOVE ALL of THIS in the consensus
 	Voter().Events().Finalized.Attach(events.NewClosure(valuetransfers.FCOB().ProcessVoteResult))
-	voter.Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
+	Voter().Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
 		if ev.Ctx.Type == vote.ConflictType {
 			log.Infof("FPC finalized for transaction with id '%s' - final opinion: '%s'", ev.ID, ev.Opinion)
 		}
 	}))
+
 	Voter().Events().Failed.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
 		if ev.Ctx.Type == vote.ConflictType {
 			log.Warnf("FPC failed for transaction with id '%s' - last opinion: '%s'", ev.ID, ev.Opinion)
 		}
 	}))
+
 }
 
 func runFPC() {
 	const ServerWorkerName = "FPCVoterServer"
-	if err := daemon.BackgroundWorker(ServerWorkerName, func(shutdownSignal <-chan struct{}) {
-		stopped := make(chan struct{})
-		bindAddr := config.Node().String(CfgFPCBindAddress)
-		voterServer = votenet.New(Voter(), OpinionRetriever, bindAddr,
-			metrics.Events().FPCInboundBytes,
-			metrics.Events().FPCOutboundBytes,
-			metrics.Events().QueryReceived,
-		)
 
-		go func() {
-			log.Infof("%s started, bind-address=%s", ServerWorkerName, bindAddr)
-			if err := voterServer.Run(); err != nil {
-				log.Errorf("Error serving: %s", err)
+	if listen {
+		if err := daemon.BackgroundWorker(ServerWorkerName, func(shutdownSignal <-chan struct{}) {
+			stopped := make(chan struct{})
+			bindAddr := config.Node().String(CfgFPCBindAddress)
+			voterServer = votenet.New(Voter(), OpinionRetriever, bindAddr,
+				metrics.Events().FPCInboundBytes,
+				metrics.Events().FPCOutboundBytes,
+				metrics.Events().QueryReceived,
+			)
+
+			go func() {
+				log.Infof("%s started, bind-address=%s", ServerWorkerName, bindAddr)
+				if err := voterServer.Run(); err != nil {
+					log.Errorf("Error serving: %s", err)
+				}
+				close(stopped)
+			}()
+
+			// stop if we are shutting down or the server could not be started
+			select {
+			case <-shutdownSignal:
+			case <-stopped:
 			}
-			close(stopped)
-		}()
 
-		// stop if we are shutting down or the server could not be started
-		select {
-		case <-shutdownSignal:
-		case <-stopped:
+			log.Infof("Stopping %s ...", ServerWorkerName)
+			voterServer.Shutdown()
+			log.Infof("Stopping %s ... done", ServerWorkerName)
+		}, shutdown.PriorityFPC); err != nil {
+			log.Panicf("Failed to start as daemon: %s", err)
 		}
-
-		log.Infof("Stopping %s ...", ServerWorkerName)
-		voterServer.Shutdown()
-		log.Infof("Stopping %s ... done", ServerWorkerName)
-	}, shutdown.PriorityFPC); err != nil {
-		log.Panicf("Failed to start as daemon: %s", err)
 	}
 
 	if err := daemon.BackgroundWorker("FPCRoundsInitiator", func(shutdownSignal <-chan struct{}) {

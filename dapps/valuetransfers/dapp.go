@@ -56,7 +56,8 @@ var (
 	tangleOnce sync.Once
 
 	// fcob contains the fcob consensus logic.
-	fcob *consensus.FCOB
+	fcob     *consensus.FCOB
+	fcobOnce sync.Once
 
 	// ledgerState represents the ledger state, that keeps track of the liked branches and offers an API to access funds.
 	ledgerState *valuetangle.LedgerState
@@ -91,6 +92,12 @@ func Tangle() *valuetangle.Tangle {
 // FCOB gets the fcob instance.
 // fcob contains the fcob consensus logic.
 func FCOB() *consensus.FCOB {
+	fcobOnce.Do(func() {
+		// configure FCOB consensus rules
+		cfgAvgNetworkDelay := config.Node().Int(CfgValueLayerFCOBAverageNetworkDelay)
+		log.Infof("avg. network delay configured to %d seconds", cfgAvgNetworkDelay)
+		fcob = consensus.NewFCOB(_tangle, time.Duration(cfgAvgNetworkDelay)*time.Second)
+	})
 	return fcob
 }
 
@@ -137,11 +144,6 @@ func configure(_ *node.Plugin) {
 		cachedPayloadEvent.PayloadMetadata.Release()
 		cachedPayloadEvent.Payload.Consume(tipManager.AddTip)
 	}))
-
-	// configure FCOB consensus rules
-	cfgAvgNetworkDelay := config.Node().Int(CfgValueLayerFCOBAverageNetworkDelay)
-	log.Infof("avg. network delay configured to %d seconds", cfgAvgNetworkDelay)
-	fcob = consensus.NewFCOB(_tangle, time.Duration(cfgAvgNetworkDelay)*time.Second)
 
 	// register SignatureFilter in Parser
 	messagelayer.MessageParser().AddMessageFilter(valuetangle.NewSignatureFilter())

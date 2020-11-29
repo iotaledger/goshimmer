@@ -23,6 +23,12 @@ func dummyPayload() *Payload {
 	return NewPayload(conflicts, timestamps)
 }
 
+func emptyPayload() *Payload {
+	conflicts := []Conflict{}
+	timestamps := []Timestamp{}
+	return NewPayload(conflicts, timestamps)
+}
+
 func TestPayloadFromMarshalUtil(t *testing.T) {
 	payload := dummyPayload()
 	bytes := payload.Bytes()
@@ -33,6 +39,22 @@ func TestPayloadFromMarshalUtil(t *testing.T) {
 
 	require.Equal(t, uint32(2), parsedPayload.ConflictsLen)
 	require.Equal(t, uint32(2), parsedPayload.TimestampsLen)
+	require.Equal(t, payload.Conflicts, parsedPayload.Conflicts)
+	require.Equal(t, payload.Timestamps, parsedPayload.Timestamps)
+
+	fmt.Println(parsedPayload)
+}
+
+func TestEmptyPayloadFromMarshalUtil(t *testing.T) {
+	payload := emptyPayload()
+	bytes := payload.Bytes()
+
+	marshalUtil := marshalutil.New(bytes)
+	parsedPayload, err := PayloadFromMarshalUtil(marshalUtil)
+	require.NoError(t, err)
+
+	require.Equal(t, uint32(0), parsedPayload.ConflictsLen)
+	require.Equal(t, uint32(0), parsedPayload.TimestampsLen)
 	require.Equal(t, payload.Conflicts, parsedPayload.Conflicts)
 	require.Equal(t, payload.Timestamps, parsedPayload.Timestamps)
 

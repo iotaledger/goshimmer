@@ -93,7 +93,7 @@ func FromBytes(bytes []byte) (result *Payload, consumedBytes int, err error) {
 		return
 	}
 
-	consumedBytes = marshalUtil.ReadOffset()
+	consumedBytes = marshalUtil.ReadOffset() - 8
 	if uint32(consumedBytes)+result.TimestampsLen*TimestampLength > length {
 		err = fmt.Errorf("failed to parse statement payload: number of timestamps overflowing: %w", err)
 		return
@@ -142,8 +142,8 @@ func (p *Payload) Bytes() (bytes []byte) {
 	marshalUtil := marshalutil.New()
 
 	// marshal the payload specific information
-	marshalUtil.WriteUint32(uint32(len(p.Conflicts)*ConflictLength + len(p.Timestamps)*TimestampLength + 8 + 8))
-	marshalUtil.WriteBytes(PayloadType.Bytes())
+	marshalUtil.WriteUint32(uint32(len(p.Conflicts)*ConflictLength + len(p.Timestamps)*TimestampLength + 8))
+	marshalUtil.WriteBytes(Type.Bytes())
 	marshalUtil.WriteUint32(p.ConflictsLen)
 	marshalUtil.WriteBytes(p.Conflicts.Bytes())
 	marshalUtil.WriteUint32(p.TimestampsLen)
@@ -165,8 +165,8 @@ func (p *Payload) String() string {
 
 // region Payload implementation ///////////////////////////////////////////////////////////////////////////////////////
 
-// PayloadType defines the type of the statement payload.
-var PayloadType = payload.NewType(333, ObjectName, func(data []byte) (payload payload.Payload, err error) {
+// Type defines the type of the statement payload.
+var Type = payload.NewType(3, ObjectName, func(data []byte) (payload payload.Payload, err error) {
 	payload, _, err = FromBytes(data)
 
 	return
@@ -174,7 +174,7 @@ var PayloadType = payload.NewType(333, ObjectName, func(data []byte) (payload pa
 
 // Type returns the type of the statement payload.
 func (p *Payload) Type() payload.Type {
-	return PayloadType
+	return Type
 }
 
 // Marshal marshals the statement payload into bytes.

@@ -21,6 +21,7 @@ func makeStatement(roundStats *vote.RoundStats) {
 			ID, err := tangle.NewMessageID(id)
 			if err != nil {
 				// TODO
+				break
 			}
 			timestamps = append(timestamps, statement.Timestamp{
 				ID: ID,
@@ -32,6 +33,7 @@ func makeStatement(roundStats *vote.RoundStats) {
 			ID, err := transaction.IDFromBase58(id)
 			if err != nil {
 				// TODO
+				break
 			}
 			conflicts = append(conflicts, statement.Conflict{
 				ID: ID,
@@ -40,6 +42,7 @@ func makeStatement(roundStats *vote.RoundStats) {
 					Round: uint8(v.Rounds)}},
 			)
 		default:
+			break
 		}
 	}
 
@@ -48,53 +51,48 @@ func makeStatement(roundStats *vote.RoundStats) {
 
 // broadcastStatement broadcasts a statement via communication layer.
 func broadcastStatement(conflicts statement.Conflicts, timestamps statement.Timestamps) {
-
-	statementPayload := statement.NewPayload(conflicts, timestamps)
-	msg, err := issuer.IssuePayload(statementPayload)
+	msg, err := issuer.IssuePayload(statement.NewPayload(conflicts, timestamps))
 
 	if err != nil {
-		log.Warnf("error issuing statement: %w", err)
+		log.Warnf("error issuing statement: %s", err)
 		return
 	}
 
-	log.Debugf("issued statement %s", msg.ID())
+	log.Infof("issued statement %s", msg.ID())
 }
 
-func readStatement(cachedMessageEvent *tangle.CachedMessageEvent) {
-	defer cachedMessageEvent.Message.Release()
-	defer cachedMessageEvent.MessageMetadata.Release()
+func readStatement(cachedMsgEvent *tangle.CachedMessageEvent) {
+	cachedMsgEvent.MessageMetadata.Release()
+	cachedMsgEvent.Message.Consume(func(msg *tangle.Message) {
+		messagePayload := msg.Payload()
 
-	solidMessage := cachedMessageEvent.Message.Unwrap()
-	if solidMessage == nil {
-		log.Debug("failed to unpack solid message from message layer")
+		log.Info(messagePayload.Type())
 
-		return
-	}
+		if messagePayload.Type() != statement.Type {
+			return
+		}
 
-	messagePayload := solidMessage.Payload()
-	if messagePayload.Type() != statement.PayloadType {
-		return
-	}
+		statementPayload, ok := messagePayload.(*statement.Payload)
+		if !ok {
+			log.Debug("could not cast payload to statement object")
+			return
+		}
 
-	statementPayload, ok := messagePayload.(*statement.Payload)
-	if !ok {
-		log.Debug("could not cast payload to statement payload")
+		log.Info(statementPayload)
 
-		return
-	}
+		// TODO: check if the Mana threshold of the issuer is ok
 
-	// TODO: check if the Mana threshold of the issuer is ok
+		// TODO: check reduced version VS full
+		issuerID := identity.NewID(msg.IssuerPublicKey()).String()
 
-	// TODO: check reduced version VS full
-	issuerID := identity.NewID(solidMessage.IssuerPublicKey()).String()
+		issuerRegistry := Registry().NodeView(issuerID)
 
-	issuerRegistry := Registry().NodeView(issuerID)
+		for _, conflict := range statementPayload.Conflicts {
+			issuerRegistry.AddConflict(conflict)
+		}
 
-	for _, conflict := range statementPayload.Conflicts {
-		issuerRegistry.AddConflict(conflict)
-	}
-
-	for _, timestamp := range statementPayload.Timestamps {
-		issuerRegistry.AddTimestamp(timestamp)
-	}
+		for _, timestamp := range statementPayload.Timestamps {
+			issuerRegistry.AddTimestamp(timestamp)
+		}
+	})
 }

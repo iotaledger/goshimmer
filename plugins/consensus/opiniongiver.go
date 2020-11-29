@@ -137,6 +137,7 @@ func (pog *PeerOpinionGiver) ID() string {
 	return pog.p.ID().String()
 }
 
+// OpinionRetriever returns the current opinion of the given id.
 func OpinionRetriever(id string, objectType vote.ObjectType) vote.Opinion {
 	switch objectType {
 	case vote.TimestampType:
