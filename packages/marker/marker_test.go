@@ -8,7 +8,7 @@ import (
 )
 
 func TestMarker(t *testing.T) {
-	marker := New(SequenceID(1337), Index(1))
+	marker := &Marker{SequenceID(1337), Index(1)}
 	assert.Equal(t, SequenceID(1337), marker.SequenceID())
 	assert.Equal(t, Index(1), marker.Index())
 

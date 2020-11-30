@@ -137,18 +137,16 @@ func (m *Manager) UpdateStructureDetails(structureDetailsToUpdate *StructureDeta
 	return
 }
 
-// IsInPastCone checks if the earlier node is directly or indirectly referenced by the later node.
-func (m *Manager) IsInPastCone(earlierStructureDetails *StructureDetails, laterStructureDetails *StructureDetails) (nodeReferenced TriBool) {
+// IsInPastCone checks if the earlier node is directly or indirectly referenced by the later node in the DAG.
+func (m *Manager) IsInPastCone(earlierStructureDetails *StructureDetails, laterStructureDetails *StructureDetails) (isInPastCone TriBool) {
 	if earlierStructureDetails.Rank >= laterStructureDetails.Rank {
 		return False
 	}
 
-	// fast check: if earlier Markers have larger highest Indexes they can't be in the past cone
 	if earlierStructureDetails.PastMarkers.HighestIndex() > laterStructureDetails.PastMarkers.HighestIndex() {
 		return False
 	}
 
-	// fast check: if earlier Marker is a past Marker and the later ones reference it we can return early
 	if earlierStructureDetails.IsPastMarker {
 		earlierMarker := earlierStructureDetails.PastMarkers.FirstMarker()
 		if earlierMarker == nil {
@@ -174,18 +172,14 @@ func (m *Manager) IsInPastCone(earlierStructureDetails *StructureDetails, laterS
 			panic("failed to retrieve Marker")
 		}
 
-		// if the earlier Marker inherited an Index of the same Sequence that is higher than the later we return false
 		if earlierIndex, sequenceExists := earlierStructureDetails.PastMarkers.Get(laterMarker.sequenceID); sequenceExists && earlierIndex >= laterMarker.index {
 			return False
 		}
 
-		// if the earlier Markers are referenced by a Marker of the same Sequence that is larger, we are not in the past cone
 		if earlierFutureIndex, earlierFutureIndexExists := earlierStructureDetails.FutureMarkers.Get(laterMarker.sequenceID); earlierFutureIndexExists && earlierFutureIndex > laterMarker.index {
 			return False
 		}
 
-		// if the earlier Markers were referenced by the same or a higher future Marker we are not in the past cone
-		// (otherwise we would be the future marker)
 		if !laterStructureDetails.FutureMarkers.ForEach(func(sequenceID SequenceID, laterIndex Index) bool {
 			earlierIndex, similarSequenceExists := earlierStructureDetails.FutureMarkers.Get(sequenceID)
 			return !similarSequenceExists || earlierIndex < laterIndex
@@ -198,11 +192,7 @@ func (m *Manager) IsInPastCone(earlierStructureDetails *StructureDetails, laterS
 		}
 	}
 
-	// if the highest Indexes of both past Markers are the same ...
 	if earlierStructureDetails.PastMarkers.HighestIndex() == laterStructureDetails.PastMarkers.HighestIndex() {
-		// ... then the later Markers should contain exact copies of all of the highest earlier Markers because parent
-		// Markers get inherited and if they would have been captured by a new Marker in between then the highest
-		// Indexes would no longer be the same
 		if !earlierStructureDetails.PastMarkers.ForEach(func(sequenceID SequenceID, earlierIndex Index) bool {
 			if earlierIndex == earlierStructureDetails.PastMarkers.HighestIndex() {
 				laterIndex, sequenceExists := laterStructureDetails.PastMarkers.Get(sequenceID)
@@ -215,7 +205,6 @@ func (m *Manager) IsInPastCone(earlierStructureDetails *StructureDetails, laterS
 		}
 	}
 
-	// detailed check: earlier marker is referenced by something that the later one references
 	if m.markersReferenceMarkers(laterStructureDetails.PastMarkers, earlierStructureDetails.FutureMarkers, false) {
 		return True
 	}
@@ -224,7 +213,6 @@ func (m *Manager) IsInPastCone(earlierStructureDetails *StructureDetails, laterS
 		return False
 	}
 
-	// detailed check: the
 	if m.markersReferenceMarkers(earlierStructureDetails.FutureMarkers, laterStructureDetails.PastMarkers, true) {
 		return Maybe
 	}
@@ -232,7 +220,7 @@ func (m *Manager) IsInPastCone(earlierStructureDetails *StructureDetails, laterS
 	return False
 }
 
-// Shutdown is the function that shuts down the Manager and persists its state.
+// Shutdown shuts down the Manager and persists its state.
 func (m *Manager) Shutdown() {
 	m.shutdownOnce.Do(func() {
 		if err := m.store.Set(kvstore.Key("sequenceIDCounter"), m.sequenceIDCounter.Bytes()); err != nil {
@@ -273,7 +261,7 @@ func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkersByRank *M
 				return false
 			}
 
-			if !m.sequence(sequenceID).Consume(func(sequence *Sequence) {
+			if !(&CachedSequence{CachedObject: m.sequenceStore.Load(sequenceID.Bytes())}).Consume(func(sequence *Sequence) {
 				sequence.HighestReferencedParentMarkers(index).ForEach(func(referencedSequenceID SequenceID, referencedIndex Index) bool {
 					delete(normalizedSequences, referencedSequenceID)
 
@@ -309,14 +297,16 @@ func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkersByRank *M
 	return
 }
 
-func (m *Manager) markersReferenceMarkersOfSameSequence(laterMarkers *Markers, earlierMarkers *Markers, requireBiggerMarkers bool) (sameSequenceFound bool, referenceValid bool) {
+// markersReferenceMarkersOfSameSequence is an internal utility function that determines if a the given markers
+// reference each other as part of the same Sequence.
+func (m *Manager) markersReferenceMarkersOfSameSequence(laterMarkers *Markers, earlierMarkers *Markers, requireBiggerMarkers bool) (sameSequenceFound bool, referenceFound bool) {
 	laterMarkers.ForEach(func(sequenceID SequenceID, laterIndex Index) bool {
 		var earlierIndex Index
 		if earlierIndex, sameSequenceFound = earlierMarkers.Get(sequenceID); sameSequenceFound {
 			if requireBiggerMarkers {
-				referenceValid = earlierIndex < laterIndex
+				referenceFound = earlierIndex < laterIndex
 			} else {
-				referenceValid = earlierIndex <= laterIndex
+				referenceFound = earlierIndex <= laterIndex
 			}
 
 			return false
@@ -328,12 +318,15 @@ func (m *Manager) markersReferenceMarkersOfSameSequence(laterMarkers *Markers, e
 	return
 }
 
+// markersReferenceMarkers returns true if the later Markers reference the earlier Markers. The Markers have to be
+// different (i.e. at least one Index higher) if requireBiggerMarkers is true.
 func (m *Manager) markersReferenceMarkers(laterMarkers *Markers, earlierMarkers *Markers, requireBiggerMarkers bool) (result bool) {
 	rankCache := make(map[SequenceID]uint64)
 	futureMarkersByRank := NewMarkersByRank()
 
 	continueScanningForPotentialReferences := func(laterMarkers *Markers, requireBiggerMarkers bool) bool {
-		// don't abort scanning but don't execute additional checks (we can never find matching markers anymore)
+		// don't abort scanning but don't execute additional checks in our current path (we can not find matching
+		// markers anymore)
 		if requireBiggerMarkers && earlierMarkers.LowestIndex() >= laterMarkers.HighestIndex() {
 			return true
 		}
@@ -349,7 +342,7 @@ func (m *Manager) markersReferenceMarkers(laterMarkers *Markers, earlierMarkers 
 
 		// queue parents for additional checks
 		laterMarkers.ForEach(func(sequenceID SequenceID, index Index) bool {
-			m.sequence(sequenceID).Consume(func(sequence *Sequence) {
+			(&CachedSequence{CachedObject: m.sequenceStore.Load(sequenceID.Bytes())}).Consume(func(sequence *Sequence) {
 				sequence.HighestReferencedParentMarkers(index).ForEach(func(referencedSequenceID SequenceID, referencedIndex Index) bool {
 					futureMarkersByRank.Add(m.rankOfSequence(referencedSequenceID, rankCache), referencedSequenceID, referencedIndex)
 					return true
@@ -393,7 +386,7 @@ func (m *Manager) markersReferenceMarkers(laterMarkers *Markers, earlierMarkers 
 func (m *Manager) fetchSequence(parentSequences SequenceIDs, referencedMarkers *Markers, rank uint64, newSequenceAlias ...SequenceAlias) (cachedSequence *CachedSequence, isNew bool) {
 	if len(parentSequences) == 1 && len(newSequenceAlias) == 0 {
 		for sequenceID := range parentSequences {
-			cachedSequence = m.sequence(sequenceID)
+			cachedSequence = &CachedSequence{CachedObject: m.sequenceStore.Load(sequenceID.Bytes())}
 			return
 		}
 	}
@@ -423,15 +416,10 @@ func (m *Manager) fetchSequence(parentSequences SequenceIDs, referencedMarkers *
 	}
 
 	cachedSequenceAliasMapping.Consume(func(aggregatedSequencesIDMapping *SequenceAliasMapping) {
-		cachedSequence = m.sequence(aggregatedSequencesIDMapping.SequenceID())
+		cachedSequence = &CachedSequence{CachedObject: m.sequenceStore.Load(aggregatedSequencesIDMapping.SequenceID().Bytes())}
 	})
 
 	return
-}
-
-// sequence is an internal utility function that loads the given Sequence from the store.
-func (m *Manager) sequence(sequenceID SequenceID) *CachedSequence {
-	return &CachedSequence{CachedObject: m.sequenceStore.Load(sequenceID.Bytes())}
 }
 
 // rankOfSequence is an internal utility function that returns the rank of the given Sequence.
@@ -440,7 +428,7 @@ func (m *Manager) rankOfSequence(sequenceID SequenceID, ranksCache map[SequenceI
 		return rank
 	}
 
-	if !m.sequence(sequenceID).Consume(func(sequence *Sequence) {
+	if !(&CachedSequence{CachedObject: m.sequenceStore.Load(sequenceID.Bytes())}).Consume(func(sequence *Sequence) {
 		ranksCache[sequenceID] = sequence.rank
 	}) {
 		panic(fmt.Sprintf("failed to load Sequence with %s", sequenceID))

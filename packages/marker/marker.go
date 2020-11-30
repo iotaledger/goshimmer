@@ -12,18 +12,10 @@ import (
 
 // region Marker ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Marker represents a point in a Sequence that is identifier by an ever increasing Index.
+// Marker represents a point in a Sequence that is identified by an ever increasing Index.
 type Marker struct {
 	sequenceID SequenceID
 	index      Index
-}
-
-// New is the constructor of a Marker.
-func New(sequenceID SequenceID, index Index) *Marker {
-	return &Marker{
-		sequenceID: sequenceID,
-		index:      index,
-	}
 }
 
 // FromBytes unmarshals a Marker from a sequence of bytes.
@@ -53,17 +45,17 @@ func FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (marker *Marker, err 
 }
 
 // SequenceID returns the identifier of the Sequence of the Marker.
-func (m *Marker) SequenceID() SequenceID {
+func (m *Marker) SequenceID() (sequenceID SequenceID) {
 	return m.sequenceID
 }
 
 // Index returns the ever increasing number of the Marker in a Sequence.
-func (m *Marker) Index() Index {
+func (m *Marker) Index() (index Index) {
 	return m.index
 }
 
 // Bytes returns a marshaled version of the Marker.
-func (m *Marker) Bytes() []byte {
+func (m *Marker) Bytes() (marshaledMarker []byte) {
 	return marshalutil.New(marshalutil.Uint64Size + marshalutil.Uint64Size).
 		Write(m.sequenceID).
 		Write(m.index).
@@ -71,7 +63,7 @@ func (m *Marker) Bytes() []byte {
 }
 
 // String returns a human readable version of the Marker.
-func (m *Marker) String() string {
+func (m *Marker) String() (humanReadableMarker string) {
 	return stringify.Struct("Marker",
 		stringify.StructField("sequenceID", m.SequenceID()),
 		stringify.StructField("index", m.Index()),
@@ -142,6 +134,8 @@ func NewMarkers(optionalMarkers ...*Marker) (markers *Markers) {
 	return
 }
 
+// FirstMarker returns the first Marker in the collection. It can for example be used to retrieve the new Marker that
+// was assigned when increasing the Index of a Sequence.
 func (m *Markers) FirstMarker() (firstMarker *Marker) {
 	m.markersMutex.RLock()
 	defer m.markersMutex.RUnlock()
