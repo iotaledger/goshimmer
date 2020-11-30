@@ -89,11 +89,11 @@ func registerWSClient() (uint64, *wsclient) {
 func removeWsClient(clientID uint64) {
 	wsClientsMu.RLock()
 	wsClient := wsClients[clientID]
-	close(wsClient.channel)
 	close(wsClient.exit)
 	wsClientsMu.RUnlock()
 
 	wsClientsMu.Lock()
+	close(wsClient.channel)
 	defer wsClientsMu.Unlock()
 	delete(wsClients, clientID)
 }
