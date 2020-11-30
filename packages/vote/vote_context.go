@@ -9,7 +9,7 @@ func NewContext(id string, objectType ObjectType, initOpn Opinion) *Context {
 
 const likedInit = -1
 
-// The object type of a voting (e.g., conflict or timestamp)
+// ObjectType is the object type of a voting (e.g., conflict or timestamp)
 type ObjectType uint8
 
 const (
