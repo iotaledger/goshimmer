@@ -2,10 +2,10 @@ package database
 
 import (
 	"fmt"
+	"os"
 	"runtime"
-    "os"
 
-    pebbledb "github.com/cockroachdb/pebble"
+	pebbledb "github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/bloom"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/kvstore/pebble"
