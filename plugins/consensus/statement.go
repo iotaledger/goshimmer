@@ -42,7 +42,6 @@ func makeStatement(roundStats *vote.RoundStats) {
 					Round: uint8(v.Rounds)}},
 			)
 		default:
-			break
 		}
 	}
 

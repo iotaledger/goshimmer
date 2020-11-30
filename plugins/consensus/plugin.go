@@ -34,7 +34,7 @@ const (
 	// CfgFPCRoundInterval defines how long a round lasts (in seconds)
 	CfgFPCRoundInterval = "fpc.roundInterval"
 
-	// CfgFPCReply defines if the FPC service should listen.
+	// CfgFPCListen defines if the FPC service should listen.
 	CfgFPCListen = "fpc.listen"
 
 	// CfgFPCBindAddress defines on which address the FPC service should listen.
