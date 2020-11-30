@@ -43,7 +43,7 @@ var (
 	// ParaSyncBeaconOnEveryNode defines whether all nodes should be sync beacons.
 	ParaSyncBeaconOnEveryNode = false
 	// ParaFPCRoundInterval defines how long a round lasts (in seconds)
-	ParaFPCRoundInterval = int64(5)
+	ParaFPCRoundInterval int64 = 5
 	// ParaWaitForStatement is the time in seconds for which the node wait for receiveing the new statement.
 	ParaWaitForStatement = 3
 	// ParaFPCListen defines on which address the FPC service should listen.
