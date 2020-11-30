@@ -87,7 +87,6 @@ func configure(_ *node.Plugin) {
 	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
 
 	clockEnabled = !node.IsSkipped(clockPlugin.Plugin())
-	log.Infof("Clock enabled: %v", clockEnabled)
 }
 
 func onReceiveMessageFromMessageLayer(cachedMessageEvent *tangle.CachedMessageEvent) {
