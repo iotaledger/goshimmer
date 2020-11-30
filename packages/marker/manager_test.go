@@ -117,13 +117,13 @@ func messageReferencesMessage(laterMessage *message, earlierMessage *message, me
 
 func inheritPastMarkers(message *message, manager *Manager, messageDB map[string]*message) (pastMarkerToPropagate *Marker) {
 	// merge past Markers of referenced parents
-	pastMarkers := make([]*MarkersPair, len(message.parents))
+	pastMarkers := make([]*StructureDetails, len(message.parents))
 	for i, parentID := range message.parents {
 		pastMarkers[i] = messageDB[parentID].markers
 	}
 
 	// inherit new past Markers
-	message.markers, _ = manager.InheritMarkersPair(pastMarkers, increaseIndex(message), message.optionalNewSequenceAlias...)
+	message.markers, _ = manager.InheritStructureDetails(pastMarkers, increaseIndex(message), message.optionalNewSequenceAlias...)
 	if message.markers.IsPastMarker {
 		pastMarkerToPropagate = message.markers.PastMarkers.FirstMarker()
 	}
@@ -136,12 +136,7 @@ func distributeNewFutureMarkerToPastCone(futureMarker *Marker, messageParents []
 	for _, parentID := range messageParents {
 		parentMessage := messageDB[parentID]
 
-		newFutureMarkers, futureMarkersUpdated, inheritFutureMarkerFurther := manager.InheritFutureMarkers(parentMessage.markers.FutureMarkers, futureMarker, parentMessage.markers.IsPastMarker)
-		if futureMarkersUpdated {
-			parentMessage.markers.FutureMarkers = newFutureMarkers
-		}
-
-		if inheritFutureMarkerFurther {
+		if _, inheritFutureMarkerFurther := manager.UpdateStructureDetails(parentMessage.markers, futureMarker); inheritFutureMarkerFurther {
 			nextMessageParents = append(nextMessageParents, parentMessage.parents...)
 		}
 	}
@@ -165,7 +160,7 @@ type message struct {
 	forceNewMarker           bool
 	parents                  []string
 	optionalNewSequenceAlias []SequenceAlias
-	markers                  *MarkersPair
+	markers                  *StructureDetails
 }
 
 func newMessage(id string, forceNewMarker bool, parents []string, optionalNewSequenceID ...string) *message {
@@ -179,7 +174,7 @@ func newMessage(id string, forceNewMarker bool, parents []string, optionalNewSeq
 		forceNewMarker:           forceNewMarker,
 		optionalNewSequenceAlias: optionalNewSequenceAlias,
 		parents:                  parents,
-		markers: &MarkersPair{
+		markers: &StructureDetails{
 			PastMarkers:   NewMarkers(),
 			FutureMarkers: NewMarkers(),
 		},
@@ -194,7 +189,7 @@ func (m *message) String() string {
 	)
 }
 
-func increaseIndex(message *message) IncreaseMarkerCallback {
+func increaseIndex(message *message) IncreaseIndexCallback {
 	return func(sequenceID SequenceID, currentHighestIndex Index) bool {
 		return message.forceNewMarker
 	}

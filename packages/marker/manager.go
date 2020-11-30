@@ -54,24 +54,24 @@ func NewManager(store kvstore.KVStore) (manager *Manager) {
 	return
 }
 
-// InheritMarkersPair takes the result of the normalizeMarkers method and determines the resulting markers that should
-// be inherited to the a node in the DAG. It automatically creates new Sequences and Markers if necessary and returns
-// two additional flags that indicate if either a new Sequence and or a new Marker where created.
-func (m *Manager) InheritMarkersPair(referencedMarkersPairs []*MarkersPair, increaseMarkerCallback IncreaseMarkerCallback, newSequenceAlias ...SequenceAlias) (inheritedMarkersPair *MarkersPair, newSequence bool) {
-	inheritedMarkersPair = &MarkersPair{
+// InheritStructureDetails takes the StructureDetails of the referenced parents and return the new StructureDetails of
+// the node that wqs just added to the DAG. It automatically creates new Sequences and Markers if necessary and returns
+// an additional flag that indicate if a new Sequence was created.
+func (m *Manager) InheritStructureDetails(referencedStructureDetails []*StructureDetails, increaseMarkerCallback IncreaseIndexCallback, newSequenceAlias ...SequenceAlias) (inheritedStructureDetails *StructureDetails, newSequenceCreated bool) {
+	inheritedStructureDetails = &StructureDetails{
 		Rank:          0,
 		IsPastMarker:  false,
 		FutureMarkers: NewMarkers(),
 	}
 
 	mergedPastMarkers := NewMarkers()
-	for _, referencedMarkerPair := range referencedMarkersPairs {
+	for _, referencedMarkerPair := range referencedStructureDetails {
 		mergedPastMarkers.Merge(referencedMarkerPair.PastMarkers)
-		if referencedMarkerPair.Rank > inheritedMarkersPair.Rank {
-			inheritedMarkersPair.Rank = referencedMarkerPair.Rank
+		if referencedMarkerPair.Rank > inheritedStructureDetails.Rank {
+			inheritedStructureDetails.Rank = referencedMarkerPair.Rank
 		}
 	}
-	inheritedMarkersPair.Rank++
+	inheritedStructureDetails.Rank++
 
 	normalizedMarkers, normalizedSequences := m.normalizeMarkers(mergedPastMarkers)
 	referencedMarkers, _ := normalizedMarkers.Markers()
@@ -87,11 +87,11 @@ func (m *Manager) InheritMarkersPair(referencedMarkersPairs []*MarkersPair, incr
 		}
 	}
 
-	cachedSequence, newSequence := m.fetchSequence(normalizedSequences, referencedMarkers, rank, newSequenceAlias...)
-	if newSequence {
+	cachedSequence, newSequenceCreated := m.fetchSequence(normalizedSequences, referencedMarkers, rank, newSequenceAlias...)
+	if newSequenceCreated {
 		cachedSequence.Consume(func(sequence *Sequence) {
-			inheritedMarkersPair.IsPastMarker = true
-			inheritedMarkersPair.PastMarkers = NewMarkers(&Marker{sequenceID: sequence.id, index: sequence.lowestIndex})
+			inheritedStructureDetails.IsPastMarker = true
+			inheritedStructureDetails.PastMarkers = NewMarkers(&Marker{sequenceID: sequence.id, index: sequence.lowestIndex})
 		})
 		return
 	}
@@ -102,59 +102,60 @@ func (m *Manager) InheritMarkersPair(referencedMarkersPairs []*MarkersPair, incr
 
 			if sequence.HighestIndex() == currentIndex && increaseMarkerCallback(sequence.id, currentIndex) {
 				if newIndex, increased := sequence.IncreaseHighestIndex(referencedMarkers); increased {
-					inheritedMarkersPair.IsPastMarker = true
-					inheritedMarkersPair.PastMarkers = NewMarkers(&Marker{sequenceID: sequence.id, index: newIndex})
+					inheritedStructureDetails.IsPastMarker = true
+					inheritedStructureDetails.PastMarkers = NewMarkers(&Marker{sequenceID: sequence.id, index: newIndex})
 					return
 				}
 			}
 
-			inheritedMarkersPair.PastMarkers = referencedMarkers
+			inheritedStructureDetails.PastMarkers = referencedMarkers
 		})
 		return
 	}
 
 	cachedSequence.Release()
-	inheritedMarkersPair.PastMarkers = referencedMarkers
+	inheritedStructureDetails.PastMarkers = referencedMarkers
 
 	return
 }
 
-func (m *Manager) InheritFutureMarkers(futureMarkers *Markers, markerToInherit *Marker, messageIsMarker bool) (newFutureMarkers *Markers, futureMarkersUpdated bool, inheritFutureMarkerFurther bool) {
-	if m.markersReferenceMarkers(NewMarkers(markerToInherit), futureMarkers, false) {
+// UpdateStructureDetails updates the StructureDetails of an existing node in the DAG by propagating new Markers of its
+// children into its future Markers. It returns two boolean flags that indicate if the future Markers were updated and
+// if the new Marker should also be propagated further to the parents of the given node.
+func (m *Manager) UpdateStructureDetails(structureDetailsToUpdate *StructureDetails, markerToInherit *Marker) (futureMarkersUpdated bool, inheritFutureMarkerFurther bool) {
+	structureDetailsToUpdate.futureMarkersUpdateMutex.Lock()
+	defer structureDetailsToUpdate.futureMarkersUpdateMutex.Unlock()
+
+	if m.markersReferenceMarkers(NewMarkers(markerToInherit), structureDetailsToUpdate.FutureMarkers, false) {
 		return
 	}
 
-	newFutureMarkers = NewMarkers(markerToInherit)
-	futureMarkers.ForEach(func(sequenceID SequenceID, index Index) bool {
-		newFutureMarkers.Set(sequenceID, index)
-
-		return true
-	})
+	structureDetailsToUpdate.FutureMarkers.Set(markerToInherit.sequenceID, markerToInherit.index)
 	futureMarkersUpdated = true
-	inheritFutureMarkerFurther = !messageIsMarker
+	inheritFutureMarkerFurther = !structureDetailsToUpdate.IsPastMarker
 
 	return
 }
 
-// IsInPastCone checks if the earlier Markers are directly or indirectly referenced by the later Markers.
-func (m *Manager) IsInPastCone(earlierMarkers *MarkersPair, laterMarkers *MarkersPair) (referenced TriBool) {
-	if earlierMarkers.Rank >= laterMarkers.Rank {
+// IsInPastCone checks if the earlier node is directly or indirectly referenced by the later node.
+func (m *Manager) IsInPastCone(earlierStructureDetails *StructureDetails, laterStructureDetails *StructureDetails) (nodeReferenced TriBool) {
+	if earlierStructureDetails.Rank >= laterStructureDetails.Rank {
 		return False
 	}
 
 	// fast check: if earlier Markers have larger highest Indexes they can't be in the past cone
-	if earlierMarkers.PastMarkers.HighestIndex() > laterMarkers.PastMarkers.HighestIndex() {
+	if earlierStructureDetails.PastMarkers.HighestIndex() > laterStructureDetails.PastMarkers.HighestIndex() {
 		return False
 	}
 
 	// fast check: if earlier Marker is a past Marker and the later ones reference it we can return early
-	if earlierMarkers.IsPastMarker {
-		earlierMarker := earlierMarkers.PastMarkers.FirstMarker()
+	if earlierStructureDetails.IsPastMarker {
+		earlierMarker := earlierStructureDetails.PastMarkers.FirstMarker()
 		if earlierMarker == nil {
 			panic("failed to retrieve Marker")
 		}
 
-		if laterIndex, sequenceExists := laterMarkers.PastMarkers.Get(earlierMarker.sequenceID); sequenceExists {
+		if laterIndex, sequenceExists := laterStructureDetails.PastMarkers.Get(earlierMarker.sequenceID); sequenceExists {
 			if laterIndex >= earlierMarker.index {
 				return True
 			}
@@ -162,49 +163,49 @@ func (m *Manager) IsInPastCone(earlierMarkers *MarkersPair, laterMarkers *Marker
 			return False
 		}
 
-		if laterMarkers.PastMarkers.HighestIndex() <= earlierMarker.index {
+		if laterStructureDetails.PastMarkers.HighestIndex() <= earlierMarker.index {
 			return False
 		}
 	}
 
-	if laterMarkers.IsPastMarker {
-		laterMarker := laterMarkers.PastMarkers.FirstMarker()
+	if laterStructureDetails.IsPastMarker {
+		laterMarker := laterStructureDetails.PastMarkers.FirstMarker()
 		if laterMarker == nil {
 			panic("failed to retrieve Marker")
 		}
 
 		// if the earlier Marker inherited an Index of the same Sequence that is higher than the later we return false
-		if earlierIndex, sequenceExists := earlierMarkers.PastMarkers.Get(laterMarker.sequenceID); sequenceExists && earlierIndex >= laterMarker.index {
+		if earlierIndex, sequenceExists := earlierStructureDetails.PastMarkers.Get(laterMarker.sequenceID); sequenceExists && earlierIndex >= laterMarker.index {
 			return False
 		}
 
 		// if the earlier Markers are referenced by a Marker of the same Sequence that is larger, we are not in the past cone
-		if earlierFutureIndex, earlierFutureIndexExists := earlierMarkers.FutureMarkers.Get(laterMarker.sequenceID); earlierFutureIndexExists && earlierFutureIndex > laterMarker.index {
+		if earlierFutureIndex, earlierFutureIndexExists := earlierStructureDetails.FutureMarkers.Get(laterMarker.sequenceID); earlierFutureIndexExists && earlierFutureIndex > laterMarker.index {
 			return False
 		}
 
 		// if the earlier Markers were referenced by the same or a higher future Marker we are not in the past cone
 		// (otherwise we would be the future marker)
-		if !laterMarkers.FutureMarkers.ForEach(func(sequenceID SequenceID, laterIndex Index) bool {
-			earlierIndex, similarSequenceExists := earlierMarkers.FutureMarkers.Get(sequenceID)
+		if !laterStructureDetails.FutureMarkers.ForEach(func(sequenceID SequenceID, laterIndex Index) bool {
+			earlierIndex, similarSequenceExists := earlierStructureDetails.FutureMarkers.Get(sequenceID)
 			return !similarSequenceExists || earlierIndex < laterIndex
 		}) {
 			return False
 		}
 
-		if earlierMarkers.PastMarkers.HighestIndex() >= laterMarker.index {
+		if earlierStructureDetails.PastMarkers.HighestIndex() >= laterMarker.index {
 			return False
 		}
 	}
 
 	// if the highest Indexes of both past Markers are the same ...
-	if earlierMarkers.PastMarkers.HighestIndex() == laterMarkers.PastMarkers.HighestIndex() {
+	if earlierStructureDetails.PastMarkers.HighestIndex() == laterStructureDetails.PastMarkers.HighestIndex() {
 		// ... then the later Markers should contain exact copies of all of the highest earlier Markers because parent
 		// Markers get inherited and if they would have been captured by a new Marker in between then the highest
 		// Indexes would no longer be the same
-		if !earlierMarkers.PastMarkers.ForEach(func(sequenceID SequenceID, earlierIndex Index) bool {
-			if earlierIndex == earlierMarkers.PastMarkers.HighestIndex() {
-				laterIndex, sequenceExists := laterMarkers.PastMarkers.Get(sequenceID)
+		if !earlierStructureDetails.PastMarkers.ForEach(func(sequenceID SequenceID, earlierIndex Index) bool {
+			if earlierIndex == earlierStructureDetails.PastMarkers.HighestIndex() {
+				laterIndex, sequenceExists := laterStructureDetails.PastMarkers.Get(sequenceID)
 				return sequenceExists && laterIndex == earlierIndex
 			}
 
@@ -215,16 +216,16 @@ func (m *Manager) IsInPastCone(earlierMarkers *MarkersPair, laterMarkers *Marker
 	}
 
 	// detailed check: earlier marker is referenced by something that the later one references
-	if m.markersReferenceMarkers(laterMarkers.PastMarkers, earlierMarkers.FutureMarkers, false) {
+	if m.markersReferenceMarkers(laterStructureDetails.PastMarkers, earlierStructureDetails.FutureMarkers, false) {
 		return True
 	}
 
-	if !m.markersReferenceMarkers(laterMarkers.PastMarkers, earlierMarkers.PastMarkers, false) {
+	if !m.markersReferenceMarkers(laterStructureDetails.PastMarkers, earlierStructureDetails.PastMarkers, false) {
 		return False
 	}
 
 	// detailed check: the
-	if m.markersReferenceMarkers(earlierMarkers.FutureMarkers, laterMarkers.PastMarkers, true) {
+	if m.markersReferenceMarkers(earlierStructureDetails.FutureMarkers, laterStructureDetails.PastMarkers, true) {
 		return Maybe
 	}
 
