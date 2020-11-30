@@ -42,6 +42,12 @@ var (
 	ParaPoWFaucetDifficulty = 2
 	// ParaSyncBeaconOnEveryNode defines whether all nodes should be sync beacons.
 	ParaSyncBeaconOnEveryNode = false
+	// ParaFPCRoundInterval defines how long a round lasts (in seconds)
+	ParaFPCRoundInterval = int64(5)
+	// ParaWaitForStatement is the time in seconds for which the node wait for receiveing the new statement.
+	ParaWaitForStatement = 3
+	// ParaFPCListen defines on which address the FPC service should listen.
+	ParaFPCListen = false
 )
 
 var (
@@ -71,6 +77,10 @@ type GoShimmerConfig struct {
 	SyncBeaconFollowNodes       string
 	SyncBeaconBroadcastInterval int
 	SyncBeaconMaxTimeOfflineSec int
+
+	FPCRoundInterval int64
+	WaitForStatement int
+	FPCListen        bool
 }
 
 // NetworkConfig defines the config of a GoShimmer Docker network.

@@ -57,27 +57,21 @@ func broadcastStatement(conflicts statement.Conflicts, timestamps statement.Time
 		return
 	}
 
-	log.Infof("issued statement %s", msg.ID())
+	log.Debugf("issued statement %s", msg.ID())
 }
 
 func readStatement(cachedMsgEvent *tangle.CachedMessageEvent) {
 	cachedMsgEvent.MessageMetadata.Release()
 	cachedMsgEvent.Message.Consume(func(msg *tangle.Message) {
 		messagePayload := msg.Payload()
-
-		log.Info(messagePayload.Type())
-
 		if messagePayload.Type() != statement.Type {
 			return
 		}
-
 		statementPayload, ok := messagePayload.(*statement.Payload)
 		if !ok {
 			log.Debug("could not cast payload to statement object")
 			return
 		}
-
-		log.Info(statementPayload)
 
 		// TODO: check if the Mana threshold of the issuer is ok
 

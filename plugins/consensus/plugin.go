@@ -138,9 +138,6 @@ func configureFPC() {
 		}
 	}
 
-	// TODO: check that finalized opinions are also included
-	//Voter().Events().RoundExecuted.Attach(events.NewClosure(makeStatement))
-
 	Voter().Events().RoundExecuted.Attach(events.NewClosure(func(roundStats *vote.RoundStats) {
 		makeStatement(roundStats)
 		peersQueried := len(roundStats.QueriedOpinions)
