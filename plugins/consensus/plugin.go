@@ -85,8 +85,6 @@ func configure(_ *node.Plugin) {
 	waitForStatement = config.Node().Int(CfgWaitForStatement)
 	listen = config.Node().Bool(CfgFPCListen)
 
-	configureFPC()
-
 	// subscribe to FCOB events
 	valuetransfers.FCOB().Events.Vote.Attach(events.NewClosure(func(id string, initOpn vote.Opinion) {
 		if err := Voter().Vote(id, vote.ConflictType, initOpn); err != nil {
@@ -96,6 +94,8 @@ func configure(_ *node.Plugin) {
 	valuetransfers.FCOB().Events.Error.Attach(events.NewClosure(func(err error) {
 		log.Errorf("FCOB error: %s", err)
 	}))
+
+	configureFPC()
 
 	// subscribe to message-layer
 	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(readStatement))
