@@ -8,8 +8,6 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	votenet "github.com/iotaledger/goshimmer/packages/vote/net"
@@ -17,18 +15,21 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
+	"github.com/iotaledger/hive.go/identity"
 	"google.golang.org/grpc"
 )
 
+// region OpinionGivers /////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // OpinionGiver is a wrapper for both statements and peers.
 type OpinionGiver struct {
-	id   string
+	id   identity.ID
 	view *statement.View
 	pog  *PeerOpinionGiver
 }
 
 // OpinionGivers is a map of OpinionGiver.
-type OpinionGivers map[string]OpinionGiver
+type OpinionGivers map[identity.ID]OpinionGiver
 
 // Query retrievs the opinions about the given conflicts and timestamps.
 func (o *OpinionGiver) Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (opinions vote.Opinions, err error) {
@@ -40,22 +41,17 @@ func (o *OpinionGiver) Query(ctx context.Context, conflictIDs []string, timestam
 		time.Sleep(time.Second)
 	}
 
-	opinions, err = o.pog.Query(ctx, conflictIDs, timestampIDs)
-	if err != nil {
-		return nil, err
-	}
-
-	return opinions, nil
+	return o.pog.Query(ctx, conflictIDs, timestampIDs)
 }
 
-// ID returns a string representation of the identifier of the underlying Peer.
-func (o *OpinionGiver) ID() string {
+// ID returns the identifier of the underlying Peer.
+func (o *OpinionGiver) ID() identity.ID {
 	return o.id
 }
 
 // OpinionGiverFunc returns a slice of opinion givers.
 func OpinionGiverFunc() (givers []vote.OpinionGiver, err error) {
-	opinionGiversMap := make(map[string]*OpinionGiver)
+	opinionGiversMap := make(map[identity.ID]*OpinionGiver)
 	opinionGivers := make([]vote.OpinionGiver, 0)
 
 	for _, v := range Registry().NodesView() {
@@ -70,12 +66,12 @@ func OpinionGiverFunc() (givers []vote.OpinionGiver, err error) {
 		if fpcService == nil {
 			continue
 		}
-		if _, ok := opinionGiversMap[p.ID().String()]; !ok {
-			opinionGiversMap[p.ID().String()] = &OpinionGiver{
-				id: p.ID().String(),
+		if _, ok := opinionGiversMap[p.ID()]; !ok {
+			opinionGiversMap[p.ID()] = &OpinionGiver{
+				id: p.ID(),
 			}
 		}
-		opinionGiversMap[p.ID().String()].pog = &PeerOpinionGiver{p: p}
+		opinionGiversMap[p.ID()].pog = &PeerOpinionGiver{p: p}
 	}
 
 	for _, v := range opinionGiversMap {
@@ -89,6 +85,10 @@ func OpinionGiverFunc() (givers []vote.OpinionGiver, err error) {
 	return opinionGivers, nil
 }
 
+// endregion /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region PeerOpinionGiver /////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // PeerOpinionGiver implements the OpinionGiver interface based on a peer.
 type PeerOpinionGiver struct {
 	p *peer.Peer
@@ -96,14 +96,11 @@ type PeerOpinionGiver struct {
 
 // Query queries another node for its opinion.
 func (pog *PeerOpinionGiver) Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (vote.Opinions, error) {
-	fpcServicePort := pog.p.Services().Get(service.FPCKey).Port()
-	fpcAddr := net.JoinHostPort(pog.p.IP().String(), strconv.Itoa(fpcServicePort))
-
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithInsecure())
 
 	// connect to the FPC service
-	conn, err := grpc.Dial(fpcAddr, opts...)
+	conn, err := grpc.Dial(pog.Address(), opts...)
 	if err != nil {
 		return nil, fmt.Errorf("unable to connect to FPC service: %w", err)
 	}
@@ -132,37 +129,15 @@ func (pog *PeerOpinionGiver) Query(ctx context.Context, conflictIDs []string, ti
 	return opinions, nil
 }
 
-// ID returns a string representation of the identifier of the underlying Peer.
-func (pog *PeerOpinionGiver) ID() string {
-	return pog.p.ID().String()
+// ID returns the identifier of the underlying Peer.
+func (pog *PeerOpinionGiver) ID() identity.ID {
+	return pog.p.ID()
 }
 
-// OpinionRetriever returns the current opinion of the given id.
-func OpinionRetriever(id string, objectType vote.ObjectType) vote.Opinion {
-	switch objectType {
-	case vote.TimestampType:
-		// TODO: implement
-		return vote.Like
-	default: // conflict type
-		branchID, err := branchmanager.BranchIDFromBase58(id)
-		if err != nil {
-			log.Errorf("received invalid vote request for branch '%s'", id)
-
-			return vote.Unknown
-		}
-
-		cachedBranch := valuetransfers.Tangle().BranchManager().Branch(branchID)
-		defer cachedBranch.Release()
-
-		branch := cachedBranch.Unwrap()
-		if branch == nil {
-			return vote.Unknown
-		}
-
-		if !branch.Preferred() {
-			return vote.Dislike
-		}
-
-		return vote.Like
-	}
+// Address returns the FPC address of the underlying Peer.
+func (pog *PeerOpinionGiver) Address() string {
+	fpcServicePort := pog.p.Services().Get(service.FPCKey).Port()
+	return net.JoinHostPort(pog.p.IP().String(), strconv.Itoa(fpcServicePort))
 }
+
+// endregion /////////////////////////////////////////////////////////////////////////////////////////////////////

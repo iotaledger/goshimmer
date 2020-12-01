@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func dummyPayload() *Payload {
+func dummyPayload() *Statement {
 	conflicts := []Conflict{
 		{transaction.RandomID(), Opinion{vote.Like, 1}},
 		{transaction.RandomID(), Opinion{vote.Like, 2}},
@@ -20,13 +20,13 @@ func dummyPayload() *Payload {
 		{tangle.EmptyMessageID, Opinion{vote.Like, 1}},
 		{tangle.EmptyMessageID, Opinion{vote.Dislike, 2}},
 	}
-	return NewPayload(conflicts, timestamps)
+	return NewStatement(conflicts, timestamps)
 }
 
-func emptyPayload() *Payload {
+func emptyPayload() *Statement {
 	conflicts := []Conflict{}
 	timestamps := []Timestamp{}
-	return NewPayload(conflicts, timestamps)
+	return NewStatement(conflicts, timestamps)
 }
 
 func TestPayloadFromMarshalUtil(t *testing.T) {
@@ -34,11 +34,11 @@ func TestPayloadFromMarshalUtil(t *testing.T) {
 	bytes := payload.Bytes()
 
 	marshalUtil := marshalutil.New(bytes)
-	parsedPayload, err := PayloadFromMarshalUtil(marshalUtil)
+	parsedPayload, err := StatementFromMarshalUtil(marshalUtil)
 	require.NoError(t, err)
 
-	require.Equal(t, uint32(2), parsedPayload.ConflictsLen)
-	require.Equal(t, uint32(2), parsedPayload.TimestampsLen)
+	require.EqualValues(t, 2, parsedPayload.ConflictsCount)
+	require.EqualValues(t, 2, parsedPayload.TimestampsCount)
 	require.Equal(t, payload.Conflicts, parsedPayload.Conflicts)
 	require.Equal(t, payload.Timestamps, parsedPayload.Timestamps)
 
@@ -50,11 +50,11 @@ func TestEmptyPayloadFromMarshalUtil(t *testing.T) {
 	bytes := payload.Bytes()
 
 	marshalUtil := marshalutil.New(bytes)
-	parsedPayload, err := PayloadFromMarshalUtil(marshalUtil)
+	parsedPayload, err := StatementFromMarshalUtil(marshalUtil)
 	require.NoError(t, err)
 
-	require.Equal(t, uint32(0), parsedPayload.ConflictsLen)
-	require.Equal(t, uint32(0), parsedPayload.TimestampsLen)
+	require.EqualValues(t, 0, parsedPayload.ConflictsCount)
+	require.EqualValues(t, 0, parsedPayload.TimestampsCount)
 	require.Equal(t, payload.Conflicts, parsedPayload.Conflicts)
 	require.Equal(t, payload.Timestamps, parsedPayload.Timestamps)
 

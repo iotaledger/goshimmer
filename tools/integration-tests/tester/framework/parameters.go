@@ -46,7 +46,7 @@ var (
 	ParaFPCRoundInterval int64 = 5
 	// ParaWaitForStatement is the time in seconds for which the node wait for receiveing the new statement.
 	ParaWaitForStatement = 3
-	// ParaFPCListen defines on which address the FPC service should listen.
+	// ParaFPCListen defines if the FPC service should listen.
 	ParaFPCListen = false
 )
 

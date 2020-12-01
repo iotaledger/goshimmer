@@ -50,7 +50,7 @@ func makeStatement(roundStats *vote.RoundStats) {
 
 // broadcastStatement broadcasts a statement via communication layer.
 func broadcastStatement(conflicts statement.Conflicts, timestamps statement.Timestamps) {
-	msg, err := issuer.IssuePayload(statement.NewPayload(conflicts, timestamps))
+	msg, err := issuer.IssuePayload(statement.NewStatement(conflicts, timestamps))
 
 	if err != nil {
 		log.Warnf("error issuing statement: %s", err)
@@ -64,10 +64,10 @@ func readStatement(cachedMsgEvent *tangle.CachedMessageEvent) {
 	cachedMsgEvent.MessageMetadata.Release()
 	cachedMsgEvent.Message.Consume(func(msg *tangle.Message) {
 		messagePayload := msg.Payload()
-		if messagePayload.Type() != statement.Type {
+		if messagePayload.Type() != statement.StatementType {
 			return
 		}
-		statementPayload, ok := messagePayload.(*statement.Payload)
+		statementPayload, ok := messagePayload.(*statement.Statement)
 		if !ok {
 			log.Debug("could not cast payload to statement object")
 			return
@@ -75,17 +75,12 @@ func readStatement(cachedMsgEvent *tangle.CachedMessageEvent) {
 
 		// TODO: check if the Mana threshold of the issuer is ok
 
-		// TODO: check reduced version VS full
-		issuerID := identity.NewID(msg.IssuerPublicKey()).String()
+		issuerID := identity.NewID(msg.IssuerPublicKey())
 
 		issuerRegistry := Registry().NodeView(issuerID)
 
-		for _, conflict := range statementPayload.Conflicts {
-			issuerRegistry.AddConflict(conflict)
-		}
+		issuerRegistry.AddConflicts(statementPayload.Conflicts)
 
-		for _, timestamp := range statementPayload.Timestamps {
-			issuerRegistry.AddTimestamp(timestamp)
-		}
+		issuerRegistry.AddTimestamps(statementPayload.Timestamps)
 	})
 }

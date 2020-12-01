@@ -73,11 +73,8 @@ services:
       - ./config.docker.json:/tmp/config.json:ro
       - goshimmer-cache:/go
       - ../integration-tests/assets:/tmp/assets
-    # expose:
-    #   - "8080/tcp" # web API (within Docker network)
-    ports:
-     - "127.0.0.1:8090:8080/tcp" # web API # - "8080/tcp" # web API (within Docker network)
-     - "127.0.0.1:8091:8081/tcp" # web API # - "8080/tcp" # web API (within Docker network)
+    expose:
+      - "8080/tcp" # web API (within Docker network)
     depends_on:
       - entry_node
 

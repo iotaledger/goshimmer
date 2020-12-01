@@ -2,17 +2,21 @@ package statement
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/packages/vote"
+	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/stringify"
 	"golang.org/x/xerrors"
 )
 
 const (
 	// ConflictLength defines the Conflict length in bytes.
-	ConflictLength = transaction.IDLength + 2
+	ConflictLength = transaction.IDLength + OpinionLenght
 )
+
+// region Conflict /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Conflict holds the conflicting transaction ID and its opinion.
 type Conflict struct {
@@ -20,21 +24,75 @@ type Conflict struct {
 	Opinion
 }
 
-// Conflicts is a slice of Conflict.
-type Conflicts []Conflict
-
 // Bytes returns the conflict statement encoded as bytes.
 func (c Conflict) Bytes() (bytes []byte) {
 	bytes = make([]byte, ConflictLength)
 
-	// initialize helper
-	marshalUtil := marshalutil.New(bytes)
-	marshalUtil.WriteBytes(c.ID.Bytes())
-	marshalUtil.WriteByte(byte(c.Opinion.Value))
-	marshalUtil.WriteUint8(c.Opinion.Round)
-
-	return bytes
+	return marshalutil.New(bytes).
+		Write(c.ID).
+		Write(c.Opinion).
+		Bytes()
 }
+
+// ConflictFromBytes parses a conflict statement from a byte slice.
+func ConflictFromBytes(bytes []byte) (conflict Conflict, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(bytes)
+	if conflict, err = ConflictFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse Conflict from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// ConflictFromMarshalUtil is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
+func ConflictFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflict Conflict, err error) {
+	readStartOffset := marshalUtil.ReadOffset()
+
+	conflict = Conflict{}
+	bytesID, err := marshalUtil.ReadBytes(int(transaction.IDLength))
+	if err != nil {
+		err = xerrors.Errorf("failed to parse ID from conflict: %w", err)
+		return
+	}
+	conflict.ID, _, err = transaction.IDFromBytes(bytesID)
+	if err != nil {
+		err = xerrors.Errorf("failed to parse ID from bytes: %w", err)
+		return
+	}
+
+	conflict.Opinion, err = OpinionFromMarshalUtil(marshalUtil)
+	if err != nil {
+		err = xerrors.Errorf("failed to parse opinion from conflict: %w", err)
+		return
+	}
+
+	// return the number of bytes we processed
+	parsedBytes := marshalUtil.ReadOffset() - readStartOffset
+	if parsedBytes != ConflictLength {
+		err = xerrors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, ConflictLength, cerrors.ErrParseBytesFailed)
+		return
+	}
+
+	return
+}
+
+// String returns a human readable version of the Conflict.
+func (c Conflict) String() string {
+	structBuilder := stringify.StructBuilder("Conflict:")
+	structBuilder.AddField(stringify.StructField("ID", c.ID.String()))
+	structBuilder.AddField(stringify.StructField("Opinion", c.Opinion))
+
+	return structBuilder.String()
+}
+
+// endregion /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Conflicts /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Conflicts is a slice of Conflict.
+type Conflicts []Conflict
 
 // Bytes returns the conflicts statements encoded as bytes.
 func (c Conflicts) Bytes() (bytes []byte) {
@@ -44,79 +102,61 @@ func (c Conflicts) Bytes() (bytes []byte) {
 	marshalUtil := marshalutil.New(bytes)
 
 	for _, conflict := range c {
-		marshalUtil.WriteBytes(conflict.ID.Bytes())
-		marshalUtil.WriteByte(byte(conflict.Opinion.Value))
-		marshalUtil.WriteUint8(conflict.Opinion.Round)
+		marshalUtil.Write(conflict)
 	}
 
 	return bytes
 }
 
-// ConflictFromBytes parses a conflict statement from a byte slice.
-func ConflictFromBytes(bytes []byte) (result Conflict, consumedBytes int, err error) {
-	// initialize helper
-	marshalUtil := marshalutil.New(bytes)
+// String returns a human readable version of the Conflicts.
+func (c Conflicts) String() string {
+	structBuilder := stringify.StructBuilder("Conflicts")
+	for i, conflict := range c {
+		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), conflict))
+	}
 
-	// read information that are required to identify the Conflict
-	result = Conflict{}
-	bytesID, err := marshalUtil.ReadBytes(int(transaction.IDLength))
-	if err != nil {
-		err = xerrors.Errorf("failed to parse ID from conflict: %w", err)
-		return
-	}
-	result.ID, _, err = transaction.IDFromBytes(bytesID)
-	if err != nil {
-		err = xerrors.Errorf("failed to parse ID from bytes: %w", err)
-		return
-	}
-	opinionByte, e := marshalUtil.ReadByte()
-	if e != nil {
-		err = xerrors.Errorf("failed to parse opinion from conflict: %w", e)
-		return
-	}
-	result.Opinion.Value = vote.Opinion(opinionByte)
-
-	if result.Opinion.Round, err = marshalUtil.ReadUint8(); err != nil {
-		err = xerrors.Errorf("failed to parse round from conflict: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
+	return structBuilder.String()
 }
 
 // ConflictsFromBytes parses a slice of conflict statements from a byte slice.
-func ConflictsFromBytes(bytes []byte, n int) (result Conflicts, consumedBytes int, err error) {
-	if len(bytes)/ConflictLength < n {
+func ConflictsFromBytes(bytes []byte, n uint32) (conflicts Conflicts, consumedBytes int, err error) {
+	if len(bytes)/ConflictLength < int(n) {
 		err = xerrors.Errorf("not enough bytes to parse %d conflicts", n)
 		return
 	}
 
-	// initialize helper
 	marshalUtil := marshalutil.New(bytes)
-
-	result = Conflicts{}
-	for i := 0; i < n; i++ {
-		next, e := marshalUtil.ReadBytes(ConflictLength)
-		if e != nil {
-			err = xerrors.Errorf("failed to read bytes while parsing conflict from conflicts: %w", e)
-			return
-		}
-		conflict, _, e := ConflictFromBytes(next)
-		if e != nil {
-			err = xerrors.Errorf("failed to parse conflict from conflicts: %w", e)
-			return
-		}
-		result = append(result, conflict)
+	if conflicts, err = ConflictsFromMarshalUtil(marshalUtil, n); err != nil {
+		err = xerrors.Errorf("failed to parse Conflicts from MarshalUtil: %w", err)
+		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
-func (c Conflicts) String() (result string) {
-	for _, conflict := range c {
-		result += fmt.Sprintln(conflict.ID, conflict.Opinion)
+// ConflictsFromMarshalUtil is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
+func ConflictsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil, n uint32) (conflicts Conflicts, err error) {
+	readStartOffset := marshalUtil.ReadOffset()
+
+	conflicts = Conflicts{}
+	for i := 0; i < int(n); i++ {
+		conflict, e := ConflictFromMarshalUtil(marshalUtil)
+		if e != nil {
+			err = fmt.Errorf("failed to parse conflict from marshalutil: %w", e)
+			return
+		}
+		conflicts = append(conflicts, conflict)
 	}
-	return result
+
+	// return the number of bytes we processed
+	parsedBytes := marshalUtil.ReadOffset() - readStartOffset
+	if parsedBytes != int(ConflictLength*n) {
+		err = xerrors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, ConflictLength*n, cerrors.ErrParseBytesFailed)
+		return
+	}
+
+	return
 }
+
+// endregion /////////////////////////////////////////////////////////////////////////////////////////////////////

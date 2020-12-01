@@ -6,14 +6,14 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/vote"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestRegistry(t *testing.T) {
 	r := NewRegistry()
 
-	v := r.NodeView("A")
-	assert.Equal(t, "A", v.ID())
+	v := r.NodeView(identity.GenerateIdentity().ID())
 
 	txA := transaction.RandomID()
 	txB := transaction.RandomID()
