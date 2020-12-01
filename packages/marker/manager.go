@@ -15,7 +15,8 @@ import (
 
 const (
 	// PrefixSequence defines the storage prefix for the Sequence.
-	PrefixMarkerSequence byte = iota
+	PrefixSequence byte = iota
+
 	// PrefixSequenceAliasMapping defines the storage prefix for the SequenceAliasMapping.
 	PrefixSequenceAliasMapping
 )
@@ -48,7 +49,7 @@ func NewManager(store kvstore.KVStore) (manager *Manager) {
 
 	manager = &Manager{
 		store:                     store,
-		sequenceStore:             objectstorage.NewFactory(store, database.PrefixMarker).New(PrefixMarkerSequence, SequenceFromObjectStorage),
+		sequenceStore:             objectstorage.NewFactory(store, database.PrefixMarker).New(PrefixSequence, SequenceFromObjectStorage),
 		sequenceAliasMappingStore: objectstorage.NewFactory(store, database.PrefixMarker).New(PrefixSequenceAliasMapping, SequenceAliasMappingFromObjectStorage),
 		sequenceIDCounter:         sequenceIDCounter,
 	}
