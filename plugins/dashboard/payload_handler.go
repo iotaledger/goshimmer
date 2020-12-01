@@ -6,6 +6,7 @@ import (
 	valuepayload "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+	"github.com/iotaledger/goshimmer/packages/vote/statement"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 	syncbeaconpayload "github.com/iotaledger/goshimmer/plugins/syncbeacon/payload"
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -56,6 +57,30 @@ type ValuePayload struct {
 	Data      []byte          `json:"data"`
 }
 
+// StatementPayload is a JSON serializable statement payload.
+type StatementPayload struct {
+	Conflicts  []Conflict  `json:"conflicts"`
+	Timestamps []Timestamp `json:"timestamps"`
+}
+
+// Conflict is a JSON serializable conflict.
+type Conflict struct {
+	ID      string `json:"tx_id"`
+	Opinion `json:"opinion"`
+}
+
+// Timestamp is a JSON serializable Timestamp.
+type Timestamp struct {
+	ID      string `json:"msg_id"`
+	Opinion `json:"opinion"`
+}
+
+// Opinion is a JSON serializable opinion.
+type Opinion struct {
+	Value string `json:"value"`
+	Round uint8  `json:"round"`
+}
+
 // InputContent contains the inputs of a transaction
 type InputContent struct {
 	Address string `json:"address"`
@@ -83,6 +108,10 @@ func ProcessPayload(p payload.Payload) interface{} {
 			ContentTitle: "GenericDataPayload",
 			Content:      p.(*payload.GenericDataPayload).Blob(),
 		}
+	case valuepayload.Type:
+		return processValuePayload(p)
+	case statement.Type:
+		return processStatementPayload(p)
 	case faucet.Type:
 		// faucet payload
 		return BasicStringPayload{
@@ -95,8 +124,6 @@ func ProcessPayload(p payload.Payload) interface{} {
 	case syncbeaconpayload.Type:
 		// sync beacon payload
 		return processSyncBeaconPayload(p)
-	case valuepayload.Type:
-		return processValuePayload(p)
 	default:
 		// unknown payload
 		return BasicPayload{
@@ -195,4 +222,30 @@ func processValuePayload(p payload.Payload) (vp ValuePayload) {
 		Output:    outputs,
 		Data:      v.Transaction().GetDataPayload(),
 	}
+}
+
+func processStatementPayload(p payload.Payload) (sp StatementPayload) {
+	tmp := p.(*statement.Payload)
+
+	for _, c := range tmp.Conflicts {
+		sc := Conflict{
+			ID: c.ID.String(),
+			Opinion: Opinion{
+				Value: c.Value.String(),
+				Round: c.Round,
+			},
+		}
+		sp.Conflicts = append(sp.Conflicts, sc)
+	}
+	for _, t := range tmp.Timestamps {
+		st := Timestamp{
+			ID: t.ID.String(),
+			Opinion: Opinion{
+				Value: t.Value.String(),
+				Round: t.Round,
+			},
+		}
+		sp.Timestamps = append(sp.Timestamps, st)
+	}
+	return
 }
