@@ -50,7 +50,7 @@ func makeStatement(roundStats *vote.RoundStats) {
 
 // broadcastStatement broadcasts a statement via communication layer.
 func broadcastStatement(conflicts statement.Conflicts, timestamps statement.Timestamps) {
-	msg, err := issuer.IssuePayload(statement.NewStatement(conflicts, timestamps))
+	msg, err := issuer.IssuePayload(statement.New(conflicts, timestamps))
 
 	if err != nil {
 		log.Warnf("error issuing statement: %s", err)

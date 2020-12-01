@@ -24,6 +24,7 @@ type Opinion struct {
 	Round uint8
 }
 
+// Bytes returns a marshaled version of the opinion.
 func (o Opinion) Bytes() (bytes []byte) {
 	bytes = make([]byte, OpinionLenght)
 

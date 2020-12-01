@@ -20,13 +20,13 @@ func dummyPayload() *Statement {
 		{tangle.EmptyMessageID, Opinion{vote.Like, 1}},
 		{tangle.EmptyMessageID, Opinion{vote.Dislike, 2}},
 	}
-	return NewStatement(conflicts, timestamps)
+	return New(conflicts, timestamps)
 }
 
 func emptyPayload() *Statement {
 	conflicts := []Conflict{}
 	timestamps := []Timestamp{}
-	return NewStatement(conflicts, timestamps)
+	return New(conflicts, timestamps)
 }
 
 func TestPayloadFromMarshalUtil(t *testing.T) {
@@ -34,7 +34,7 @@ func TestPayloadFromMarshalUtil(t *testing.T) {
 	bytes := payload.Bytes()
 
 	marshalUtil := marshalutil.New(bytes)
-	parsedPayload, err := StatementFromMarshalUtil(marshalUtil)
+	parsedPayload, err := Parse(marshalUtil)
 	require.NoError(t, err)
 
 	require.EqualValues(t, 2, parsedPayload.ConflictsCount)
@@ -50,7 +50,7 @@ func TestEmptyPayloadFromMarshalUtil(t *testing.T) {
 	bytes := payload.Bytes()
 
 	marshalUtil := marshalutil.New(bytes)
-	parsedPayload, err := StatementFromMarshalUtil(marshalUtil)
+	parsedPayload, err := Parse(marshalUtil)
 	require.NoError(t, err)
 
 	require.EqualValues(t, 0, parsedPayload.ConflictsCount)

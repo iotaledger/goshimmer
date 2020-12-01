@@ -23,7 +23,7 @@ var StatementType payload.Type
 func init() {
 	// Type defines the type of the statement payload.
 	StatementType = payload.NewType(3, ObjectName, func(data []byte) (payload payload.Payload, err error) {
-		payload, _, err = StatementFromBytes(data)
+		payload, _, err = FromBytes(data)
 		return
 	})
 }
@@ -39,8 +39,8 @@ type Statement struct {
 	bytesMutex sync.RWMutex
 }
 
-// NewStatement creates a new Statement payload.
-func NewStatement(conflicts Conflicts, timestamps Timestamps) *Statement {
+// New creates a new Statement payload.
+func New(conflicts Conflicts, timestamps Timestamps) *Statement {
 	return &Statement{
 		ConflictsCount:  uint32(len(conflicts)),
 		Conflicts:       conflicts,
@@ -49,10 +49,10 @@ func NewStatement(conflicts Conflicts, timestamps Timestamps) *Statement {
 	}
 }
 
-// StatementFromBytes unmarshals a Statement Payload from a sequence of bytes.
-func StatementFromBytes(bytes []byte) (statement *Statement, consumedBytes int, err error) {
+// FromBytes unmarshals a Statement Payload from a sequence of bytes.
+func FromBytes(bytes []byte) (statement *Statement, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	if statement, err = StatementFromMarshalUtil(marshalUtil); err != nil {
+	if statement, err = Parse(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse Statement Payload from MarshalUtil: %w", err)
 		return
 	}
@@ -64,7 +64,8 @@ func StatementFromBytes(bytes []byte) (statement *Statement, consumedBytes int, 
 	return
 }
 
-func StatementFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (statement *Statement, err error) {
+// Parse unmarshals a statement using the given marshalUtil (for easier marshaling/unmarshaling).
+func Parse(marshalUtil *marshalutil.MarshalUtil) (statement *Statement, err error) {
 	readStartOffset := marshalUtil.ReadOffset()
 
 	// read information that are required to identify the payload from the outside
@@ -178,7 +179,7 @@ func (s *Statement) String() string {
 // region Payload implementation ///////////////////////////////////////////////////////////////////////////////////////
 
 // Type returns the type of the statement payload.
-func (_ *Statement) Type() payload.Type {
+func (*Statement) Type() payload.Type {
 	return StatementType
 }
 
