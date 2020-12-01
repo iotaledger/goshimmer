@@ -7,6 +7,8 @@ const (
 	PrefixHealth
 	// PrefixMessageLayer defines the storage prefix for the message layer.
 	PrefixMessageLayer
+	// PrefixMarker defines the storage prefix for the markers used to optimize structural checks in the tangle.
+	PrefixMarker
 	// PrefixValueTransfers defines the storage prefix for value transfer.
 	PrefixValueTransfers
 )

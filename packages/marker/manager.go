@@ -6,13 +6,19 @@ import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/types"
 )
 
 // region Manager //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+const (
+	// PrefixSequence defines the storage prefix for the Sequence.
+	PrefixMarkerSequence byte = iota
+	// PrefixMessageMetadata defines the storage prefix for message metadata.
+	PrefixSequenceAlias
+)
 
 // Manager is the managing entity for the Marker related business logic. It is stateful and automatically stores its
 // state in an underlying KVStore.
@@ -42,8 +48,8 @@ func NewManager(store kvstore.KVStore) (manager *Manager) {
 
 	manager = &Manager{
 		store:              store,
-		sequenceStore:      objectstorage.NewFactory(store, database.PrefixMessageLayer).New(tangle.PrefixMarkerSequence, SequenceFromObjectStorage),
-		sequenceAliasStore: objectstorage.NewFactory(store, database.PrefixMessageLayer).New(tangle.PrefixSequenceAlias, SequenceFromObjectStorage),
+		sequenceStore:      objectstorage.NewFactory(store, database.PrefixMarker).New(PrefixMarkerSequence, SequenceFromObjectStorage),
+		sequenceAliasStore: objectstorage.NewFactory(store, database.PrefixMarker).New(PrefixSequenceAlias, SequenceFromObjectStorage),
 		sequenceIDCounter:  sequenceIDCounter,
 	}
 
