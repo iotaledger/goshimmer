@@ -16,19 +16,19 @@ import (
 const (
 	// PrefixSequence defines the storage prefix for the Sequence.
 	PrefixMarkerSequence byte = iota
-	// PrefixMessageMetadata defines the storage prefix for message metadata.
-	PrefixSequenceAlias
+	// PrefixSequenceAliasMapping defines the storage prefix for the SequenceAliasMapping.
+	PrefixSequenceAliasMapping
 )
 
 // Manager is the managing entity for the Marker related business logic. It is stateful and automatically stores its
 // state in an underlying KVStore.
 type Manager struct {
-	store                  kvstore.KVStore
-	sequenceStore          *objectstorage.ObjectStorage
-	sequenceAliasStore     *objectstorage.ObjectStorage
-	sequenceIDCounter      SequenceID
-	sequenceIDCounterMutex sync.Mutex
-	shutdownOnce           sync.Once
+	store                     kvstore.KVStore
+	sequenceStore             *objectstorage.ObjectStorage
+	sequenceAliasMappingStore *objectstorage.ObjectStorage
+	sequenceIDCounter         SequenceID
+	sequenceIDCounterMutex    sync.Mutex
+	shutdownOnce              sync.Once
 }
 
 // NewManager is the constructor of the Manager that takes a KVStore to persist its state.
@@ -47,10 +47,10 @@ func NewManager(store kvstore.KVStore) (manager *Manager) {
 	}
 
 	manager = &Manager{
-		store:              store,
-		sequenceStore:      objectstorage.NewFactory(store, database.PrefixMarker).New(PrefixMarkerSequence, SequenceFromObjectStorage),
-		sequenceAliasStore: objectstorage.NewFactory(store, database.PrefixMarker).New(PrefixSequenceAlias, SequenceFromObjectStorage),
-		sequenceIDCounter:  sequenceIDCounter,
+		store:                     store,
+		sequenceStore:             objectstorage.NewFactory(store, database.PrefixMarker).New(PrefixMarkerSequence, SequenceFromObjectStorage),
+		sequenceAliasMappingStore: objectstorage.NewFactory(store, database.PrefixMarker).New(PrefixSequenceAliasMapping, SequenceAliasMappingFromObjectStorage),
+		sequenceIDCounter:         sequenceIDCounter,
 	}
 
 	if cachedSequence, stored := manager.sequenceStore.StoreIfAbsent(NewSequence(SequenceID(0), NewMarkers(), 0)); stored {
@@ -234,7 +234,7 @@ func (m *Manager) Shutdown() {
 		}
 
 		m.sequenceStore.Shutdown()
-		m.sequenceAliasStore.Shutdown()
+		m.sequenceAliasMappingStore.Shutdown()
 	})
 }
 
@@ -402,7 +402,7 @@ func (m *Manager) fetchSequence(parentSequences SequenceIDs, referencedMarkers *
 		sequenceAlias = sequenceAlias.Merge(newSequenceAlias[0])
 	}
 
-	cachedSequenceAliasMapping := &CachedSequenceAliasMapping{CachedObject: m.sequenceAliasStore.ComputeIfAbsent(sequenceAlias.Bytes(), func(key []byte) objectstorage.StorableObject {
+	cachedSequenceAliasMapping := &CachedSequenceAliasMapping{CachedObject: m.sequenceAliasMappingStore.ComputeIfAbsent(sequenceAlias.Bytes(), func(key []byte) objectstorage.StorableObject {
 		m.sequenceIDCounterMutex.Lock()
 		sequence := NewSequence(m.sequenceIDCounter, referencedMarkers, rank+1)
 		m.sequenceIDCounter++
