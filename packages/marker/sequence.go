@@ -20,7 +20,7 @@ import (
 // Sequence represents a marker sequence.
 type Sequence struct {
 	id                SequenceID
-	parentReferences  ParentReferences
+	parentReferences  *ParentReferences
 	rank              uint64
 	lowestIndex       Index
 	highestIndex      Index

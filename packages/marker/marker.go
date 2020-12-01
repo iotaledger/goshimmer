@@ -134,6 +134,19 @@ func NewMarkers(optionalMarkers ...*Marker) (markers *Markers) {
 	return
 }
 
+// SequenceIDs returns the SequenceIDs that are having Markers in this collection.
+func (m *Markers) SequenceIDs() SequenceIDs {
+	m.markersMutex.RLock()
+	defer m.markersMutex.RUnlock()
+
+	sequenceIDs := make([]SequenceID, 0, len(m.markers))
+	for sequenceID := range m.markers {
+		sequenceIDs = append(sequenceIDs, sequenceID)
+	}
+
+	return NewSequenceIDs(sequenceIDs...)
+}
+
 // FirstMarker returns the first Marker in the collection. It can for example be used to retrieve the new Marker that
 // was assigned when increasing the Index of a Sequence.
 func (m *Markers) FirstMarker() (firstMarker *Marker) {
