@@ -6,7 +6,7 @@ import { IConnectNodesMessage } from "../models/messages/IConnectNodesMessage";
 import { IDisconnectNodesMessage } from "../models/messages/IDisconnectNodesMessage";
 import { IRemoveNodeMessage } from "../models/messages/IRemoveNodeMessage";
 import { WSMsgType } from "../models/ws/wsMsgType";
-import {connectWebSocket, registerHandler, sendMessage} from "../services/WS";
+import {connectWebSocket, registerHandler} from "../services/WS";
 import { buildCircleNodeShader } from "../utils/circleNodeShader";
 import { parseColor } from "../utils/colorHelper";
 import {Neighbors} from "../models/Neighbors";
@@ -103,9 +103,6 @@ export class AutopeeringStore {
     @action
     public updateWebSocketConnected(connected: boolean): void {
         this.websocketConnected = connected;
-        sendMessage({
-            type: WSMsgType.MsgReqManaDashboardAddress
-        })
     }
 
     @action
