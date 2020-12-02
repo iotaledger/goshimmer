@@ -7,7 +7,7 @@ docker build -t iotaledger/goshimmer ../../.
 
 echo "Pull additional Docker images"
 docker pull angelocapossele/drand:1.1.3
-docker pull gaiaadm/pumba:0.7.6
+docker pull gaiaadm/pumba:0.7.2
 docker pull gaiadocker/iproute2:latest
 
 echo "Run integration tests"
