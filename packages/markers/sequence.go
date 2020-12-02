@@ -81,7 +81,7 @@ func SequenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequence *Se
 	return
 }
 
-// SequenceFromObjectStorage restores an Sequence that was stored in the ObjectStorage.
+// SequenceFromObjectStorage restores an Sequence that was stored in the object storage.
 func SequenceFromObjectStorage(key []byte, data []byte) (sequence objectstorage.StorableObject, err error) {
 	if sequence, _, err = SequenceFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
 		err = xerrors.Errorf("failed to parse Sequence from bytes: %w", err)
@@ -167,7 +167,7 @@ func (s *Sequence) ObjectStorageKey() []byte {
 }
 
 // ObjectStorageValue marshals the Sequence into a sequence of bytes. The ID is not serialized here as it is only used as
-// a key in the ObjectStorage.
+// a key in the object storage.
 func (s *Sequence) ObjectStorageValue() []byte {
 	return marshalutil.New().
 		Write(s.parentReferences).
@@ -184,7 +184,7 @@ var _ objectstorage.StorableObject = &Sequence{}
 
 // region CachedSequence ///////////////////////////////////////////////////////////////////////////////////////////////
 
-// CachedSequence is a wrapper for the generic CachedObject returned by the objectstorage that
+// CachedSequence is a wrapper for the generic CachedObject returned by the object storage that
 // overrides the accessor methods with a type-casted one.
 type CachedSequence struct {
 	objectstorage.CachedObject
@@ -467,7 +467,7 @@ func SequenceAliasMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (
 	return
 }
 
-// SequenceAliasMappingFromObjectStorage restores a SequenceAlias that was stored in the ObjectStorage.
+// SequenceAliasMappingFromObjectStorage restores a SequenceAlias that was stored in the object storage.
 func SequenceAliasMappingFromObjectStorage(key []byte, data []byte) (mapping objectstorage.StorableObject, err error) {
 	if mapping, _, err = SequenceAliasMappingFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
 		err = xerrors.Errorf("failed to parse SequenceAliasMapping from bytes: %w", err)
@@ -504,7 +504,7 @@ func (a *SequenceAliasMapping) ObjectStorageKey() (objectStorageKey []byte) {
 }
 
 // ObjectStorageValue marshals the Transaction into a sequence of bytes. The ID is not serialized here as it is only
-// used as a key in the ObjectStorage.
+// used as a key in the object storage.
 func (a *SequenceAliasMapping) ObjectStorageValue() (objectStorageValue []byte) {
 	return a.sequenceID.Bytes()
 }
@@ -516,7 +516,7 @@ var _ objectstorage.StorableObject = &SequenceAliasMapping{}
 
 // region CachedSequenceAliasMapping ///////////////////////////////////////////////////////////////////////////////////
 
-// CachedSequenceAliasMapping is a wrapper for the generic CachedObject returned by the objectstorage that overrides the
+// CachedSequenceAliasMapping is a wrapper for the generic CachedObject returned by the object storage that overrides the
 // accessor methods with a type-casted one.
 type CachedSequenceAliasMapping struct {
 	objectstorage.CachedObject

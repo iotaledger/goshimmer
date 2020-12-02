@@ -7,10 +7,10 @@ import (
 )
 
 const (
-	// PrefixSequence defines the storage prefix for the Sequence.
+	// PrefixSequence defines the storage prefix for the Sequence object storage.
 	PrefixSequence byte = iota
 
-	// PrefixSequenceAliasMapping defines the storage prefix for the SequenceAliasMapping.
+	// PrefixSequenceAliasMapping defines the storage prefix for the SequenceAliasMapping object storage.
 	PrefixSequenceAliasMapping
 )
 
