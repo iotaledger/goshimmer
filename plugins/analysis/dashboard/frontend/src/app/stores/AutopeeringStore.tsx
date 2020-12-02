@@ -11,12 +11,13 @@ import { buildCircleNodeShader } from "../utils/circleNodeShader";
 import { parseColor } from "../utils/colorHelper";
 import {Neighbors} from "../models/Neighbors";
 import {manaStore} from "../../main";
+import tinycolor from "tinycolor2";
 
 const EDGE_COLOR_DEFAULT = "#ff7d6cff";
 const EDGE_COLOR_HIDE = "#ff7d6c40";
 const EDGE_COLOR_OUTGOING = "#336db5ff";
 const EDGE_COLOR_INCOMING = "#1c8d7fff";
-const VERTEX_COLOR_DEFAULT = "0xa8d0e6";
+const VERTEX_COLOR_DEFAULT = "0x" + tinycolor("hsl(180, 100%, 50%)").toHex();
 const VERTEX_COLOR_ACTIVE = "0xcb4b16";
 const VERTEX_COLOR_IN_NEIGHBOR = "0x1c8d7f";
 const VERTEX_COLOR_OUT_NEIGHBOR = "0x336db5";
