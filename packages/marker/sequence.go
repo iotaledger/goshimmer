@@ -17,7 +17,7 @@ import (
 
 // region Sequence /////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Sequence represents a marker sequence.
+// Sequence represents a set of ever increasing Indexes that are encapsulating a certain part of the DAG.
 type Sequence struct {
 	id                SequenceID
 	parentReferences  *ParentReferences
@@ -29,7 +29,7 @@ type Sequence struct {
 	objectstorage.StorableObjectFlags
 }
 
-// NewSequence creates a new Sequence.
+// NewSequence creates a new Sequence from the given details.
 func NewSequence(id SequenceID, referencedMarkers *Markers, rank uint64) *Sequence {
 	initialIndex := referencedMarkers.HighestIndex() + 1
 

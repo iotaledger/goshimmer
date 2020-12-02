@@ -13,14 +13,6 @@ import (
 
 // region Manager //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-const (
-	// PrefixSequence defines the storage prefix for the Sequence.
-	PrefixSequence byte = iota
-
-	// PrefixSequenceAliasMapping defines the storage prefix for the SequenceAliasMapping.
-	PrefixSequenceAliasMapping
-)
-
 // Manager is the managing entity for the Marker related business logic. It is stateful and automatically stores its
 // state in an underlying KVStore.
 type Manager struct {
@@ -34,23 +26,20 @@ type Manager struct {
 
 // NewManager is the constructor of the Manager that takes a KVStore to persist its state.
 func NewManager(store kvstore.KVStore) (manager *Manager) {
-	storedSequenceIDCounter, err := store.Get(kvstore.Key("sequenceIDCounter"))
-	if err != nil && !errors.Is(err, kvstore.ErrKeyNotFound) {
-		panic(err)
-	}
-
 	sequenceIDCounter := SequenceID(1)
-	if storedSequenceIDCounter != nil {
-		sequenceIDCounter, _, err = SequenceIDFromBytes(storedSequenceIDCounter)
-		if err != nil {
+	if storedSequenceIDCounter, err := store.Get(kvstore.Key("sequenceIDCounter")); err != nil && !errors.Is(err, kvstore.ErrKeyNotFound) {
+		panic(err)
+	} else if storedSequenceIDCounter != nil {
+		if sequenceIDCounter, _, err = SequenceIDFromBytes(storedSequenceIDCounter); err != nil {
 			panic(err)
 		}
 	}
 
+	osFactory := objectstorage.NewFactory(store, database.PrefixMarker)
 	manager = &Manager{
 		store:                     store,
-		sequenceStore:             objectstorage.NewFactory(store, database.PrefixMarker).New(PrefixSequence, SequenceFromObjectStorage),
-		sequenceAliasMappingStore: objectstorage.NewFactory(store, database.PrefixMarker).New(PrefixSequenceAliasMapping, SequenceAliasMappingFromObjectStorage),
+		sequenceStore:             osFactory.New(PrefixSequence, SequenceFromObjectStorage, objectStorageOptions...),
+		sequenceAliasMappingStore: osFactory.New(PrefixSequenceAliasMapping, SequenceAliasMappingFromObjectStorage, objectStorageOptions...),
 		sequenceIDCounter:         sequenceIDCounter,
 	}
 
