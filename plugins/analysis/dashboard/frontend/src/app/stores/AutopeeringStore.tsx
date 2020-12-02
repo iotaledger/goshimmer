@@ -54,10 +54,18 @@ export class AutopeeringStore {
     public selectedNodeOutNeighbors?: Set<string>;
 
     @observable
+    public manaColoringActive: boolean;
+
+    @observable
     public readonly  versions: ObservableSet = new ObservableSet()
 
     @observable
     public readonly nodes: ObservableMap<string,ObservableSet<string>>  = new ObservableMap<string,ObservableSet<string>>();
+
+    // keeps a log of what color a node should have, updated based on mana
+    // maps shortNodeID -> color string
+    @observable
+    public nodeManaColors: ObservableMap<string,string> = new ObservableMap<string,string>();
 
     @observable
     public readonly connections: ObservableMap<string,ObservableSet<string>> = new ObservableMap<string,ObservableSet<string>>();
@@ -74,7 +82,10 @@ export class AutopeeringStore {
 
     private renderer: Viva.Graph.View.IRenderer;
 
+    private colorBrokerID;
+
     constructor() {
+        this.manaColoringActive = false;
         registerHandler(WSMsgType.addNode, msg => this.onAddNode(msg));
         registerHandler(WSMsgType.removeNode, msg => this.onRemoveNode(msg));
         registerHandler(WSMsgType.connectNodes, msg => this.onConnectNodes(msg));
@@ -131,8 +142,33 @@ export class AutopeeringStore {
             // no need to reset colors as the graph will be disposed anyway
             this.clearNodeSelection(false);
             this.selectedNetworkVersion = autoSelectedVersion;
-            this.stop();
-            this.start();
+            if (this.graphics) {
+                this.stop();
+                this.start();
+            }
+        }
+    }
+
+    @action
+    handleManaColoringChange = (checked: boolean) => {
+        if (checked) {
+            if (this.manaColoringActive) {
+                // button says turn it on. but it is already on
+                return;
+            } else {
+                // button says turn it on, it was off
+                this.manaColoringActive = checked;
+                this.updateNodeColoring();
+            }
+        } else {
+            if (this.manaColoringActive) {
+                // button says turn it off and it is on
+                this.manaColoringActive = checked;
+                this.disableNodeColoring();
+            } else {
+                // button says turn it off, it was off
+                return;
+            }
         }
     }
 
@@ -433,10 +469,17 @@ export class AutopeeringStore {
         this.renderer.run();
         // draw graph if we have data collected
         this.initialDrawGraph(this.selectedNetworkVersion);
+
+        // color nodes based on mana
+        this.updateNodeColoring();
+        this.colorBrokerID = setInterval(() => {
+            this.updateNodeColoring();
+        }, 5000)
     }
 
     // dispose only graph, but keep the data
     public stop(): void {
+        clearInterval(this.colorBrokerID);
         this.renderer.dispose();
         this.graph = undefined;
     }
@@ -551,19 +594,52 @@ export class AutopeeringStore {
             nodeUI.color = color;
             nodeUI.size = size;
         }
+        this.renderer.rerender();
     }
 
     @action
-    public updateSizeBasedOnMana(nodeId: string, percentage: number): void {
-        if(!this.graphics){
-            return
+    updateNodeColoring = () => {
+        if (!this.manaColoringActive || this.selectionActive || !this.graphics){
+            return;
         }
-        const nodeUI = this.graphics.getNodeUI(nodeId)
-        if(!nodeUI){
-            return
-        }
+         this.nodeManaColors.forEach((color, nodeID) => {
+             let nodeUI = this.graphics.getNodeUI(nodeID)
+             if (!nodeUI) {
+                 // node is not part of the current view
+                 return;
+             }
+             nodeUI.color = color;
+         })
+        this.renderer.rerender();
+    }
 
-        this.updateNodeUiColor(nodeId, nodeUI.color, VERTEX_SIZE + (percentage / 2))
+    @action
+    disableNodeColoring = () => {
+        if (!this.graphics){
+            return;
+        }
+        this.nodeManaColors.forEach((color, nodeID) => {
+            let nodeUI = this.graphics.getNodeUI(nodeID)
+            if (!nodeUI) {
+                // node is not part of the current view
+                return;
+            }
+            nodeUI.color = VERTEX_COLOR_DEFAULT;
+        })
+        this.renderer.rerender();
+    }
+
+    @action
+    public updateColorBasedOnMana(nodeId: string, mana: number): void {
+        // pick a color based on mana value
+        let colorMana = this.getColorFromMana(mana);
+        this.nodeManaColors.set(nodeId, colorMana)
+    }
+
+    getColorFromMana = (mana:number) => {
+        let hue = 180.0 * ( 1.0 - mana/1000000000.0);
+        let c = tinycolor(({ h: hue, s: 1, l: .5 }));
+        return "0x" + c.toHex();
     }
 
     // updates color of a link (edge) in the graph
@@ -571,7 +647,7 @@ export class AutopeeringStore {
         if (this.graph) {
             const con = this.graph.getLink(idA, idB);
 
-            if (con !== undefined) {
+            if (con) {
                 const linkUI = this.graphics.getLinkUI(con.id);
                 if (linkUI !== undefined) {
                     linkUI.color = parseColor(color);
@@ -637,20 +713,32 @@ export class AutopeeringStore {
 
         // Remove highlighting of selected node
         if (this.selectedNode) {
-            this.updateNodeUiColor(this.selectedNode, VERTEX_COLOR_DEFAULT, VERTEX_SIZE);
+            let prevColor = this.nodeManaColors.get(this.selectedNode);
+            if (!prevColor || !this.manaColoringActive){
+                prevColor = VERTEX_COLOR_DEFAULT;
+            }
+            this.updateNodeUiColor(this.selectedNode, prevColor, VERTEX_SIZE);
 
             if (this.selectedNodeInNeighbors) {
                 for (const inNeighborID of this.selectedNodeInNeighbors) {
+                    let prevColor = this.nodeManaColors.get(inNeighborID);
+                    if (!prevColor || !this.manaColoringActive){
+                        prevColor = VERTEX_COLOR_DEFAULT;
+                    }
                     // Remove highlighting of neighbor
-                    this.updateNodeUiColor(inNeighborID, VERTEX_COLOR_DEFAULT, VERTEX_SIZE);
+                    this.updateNodeUiColor(inNeighborID, prevColor, VERTEX_SIZE);
                     // Remove highlighting of link
                     this.updateLinkUiColor(inNeighborID, this.selectedNode, edgeColor);
                 }
             }
             if (this.selectedNodeOutNeighbors) {
                 for (const outNeighborID of this.selectedNodeOutNeighbors) {
+                    let prevColor = this.nodeManaColors.get(outNeighborID);
+                    if (!prevColor || !this.manaColoringActive){
+                        prevColor = VERTEX_COLOR_DEFAULT;
+                    }
                     // Remove highlighting of neighbor
-                    this.updateNodeUiColor(outNeighborID, VERTEX_COLOR_DEFAULT, VERTEX_SIZE);
+                    this.updateNodeUiColor(outNeighborID, prevColor, VERTEX_SIZE);
                     // Remove highlighting of link
                     this.updateLinkUiColor(this.selectedNode, outNeighborID, edgeColor);
                 }
@@ -668,5 +756,6 @@ export class AutopeeringStore {
 
         this.graph.endUpdate();
         this.renderer.rerender();
+        this.updateNodeColoring();
     }
 }

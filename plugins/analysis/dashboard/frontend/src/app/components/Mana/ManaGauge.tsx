@@ -1,22 +1,19 @@
 import {observer} from "mobx-react";
 import * as React from "react";
 import Card from "react-bootstrap/Card";
-import UpArrow from "../../../../../../../dashboard/frontend/src/assets/up.svg";
-import DownArrow from  "../../../../../../../dashboard/frontend/src/assets/down.svg";
 import {Col, Container, Row} from "react-bootstrap";
 import {displayManaUnit} from "../../../../../../../dashboard/frontend/src/app/utils/";
 
 
 interface Props {
     title: string;
-    data: Array<number>;
+    value: number;
 }
 
 @observer
 export default class ManaGauge extends React.Component<Props, any> {
     render() {
-        const currentValue = this.props.data[0];
-        const prevValue = this.props.data[1];
+        const currentValue = this.props.value;
         return (
             <Card>
                 <Card.Body>
@@ -27,7 +24,7 @@ export default class ManaGauge extends React.Component<Props, any> {
                                     {this.props.title}
                                 </Col>
                                 <Col>
-                                    <b>{displayManaUnit(currentValue)} {displayChangeIcon(currentValue, prevValue)}</b>
+                                    <b>{displayManaUnit(currentValue)}</b>
                                 </Col>
                             </Row>
                         </Container>
@@ -35,16 +32,6 @@ export default class ManaGauge extends React.Component<Props, any> {
                 </Card.Body>
             </Card>
         );
-    }
-}
-
-export function displayChangeIcon(cur: number, prev: number) {
-    if (cur === prev) {return []}
-    if (cur > prev)
-    {
-        return <img src={UpArrow} alt="Up Arrow" width={'20px'}/>
-    } else {
-        return <img src={DownArrow} alt="Down Arrow" width={'20px'} />
     }
 }
 

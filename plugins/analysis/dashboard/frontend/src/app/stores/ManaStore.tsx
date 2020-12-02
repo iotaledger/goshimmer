@@ -2,7 +2,6 @@ import {action, computed, observable} from 'mobx';
 import * as React from "react";
 import {Col, ListGroupItem, OverlayTrigger, Popover, Row} from "react-bootstrap";
 import {WSMsgTypeDashboard} from "../models/ws/WSMsgTypeDashboard";
-import {IManaMessage} from "../models/mana/IManaMessage";
 import {INetworkManaMessage} from "../models/mana/INetworkManaMessage";
 import {INode} from "../models/mana/INode";
 import {IPledgeMessage} from "../models/mana/IPledgeMessage";
@@ -26,22 +25,20 @@ class ManaEvent {
 }
 
 class PledgeEvent extends ManaEvent{
-    bm1: number;
-    bm2: number;
+    amount: number;
 
-    constructor(nodeID: string, time: Date, txID: string, bm1: number, bm2: number) {
+    constructor(nodeID: string, time: Date, txID: string, amount: number) {
         super(nodeID, time, txID);
-        this.bm1 = bm1;
-        this.bm2 = bm2;
+        this.amount = amount;
     }
 }
 
 class RevokeEvent extends ManaEvent{
-    bm1: number;
+    amount: number;
 
-    constructor(nodeID: string, time: Date,  txID: string, bm1: number) {
+    constructor(nodeID: string, time: Date,  txID: string, amount: number) {
         super(nodeID, time, txID);
-        this.bm1 = bm1;
+        this.amount = amount;
     }
 }
 
@@ -54,10 +51,11 @@ const maxStoredManaValues = 1000;
 const maxEventsStored = 1000;
 
 export class ManaStore {
-    // mana values
-    @observable manaValues: Array<any> = [];
-    // first is accessm second consensus
-    @observable prevManaValues: Array<number> = [0,0];
+    // mana values (total network)
+    @observable accessValues: Array<any> = [];
+
+    @observable consensusValues: Array<any> = [];
+
     // list of richest access mana nodes in  network, sorted in descending order
     @observable accessNetworkRichest: Array<INode> = [];
     @observable totalAccessNetwork: number = 0.0;
@@ -83,7 +81,8 @@ export class ManaStore {
     ownID: string;
 
     constructor() {
-        this.manaValues = [];
+        this.accessValues = [];
+        this.consensusValues = [];
         registerHandler(WSMsgTypeDashboard.ManaMapOverall, this.updateNetworkRichest);
         registerHandler(WSMsgTypeDashboard.ManaMapOnline, this.updateActiveRichest);
         registerHandler(WSMsgTypeDashboard.ManaPledge, this.addNewPledge);
@@ -91,84 +90,14 @@ export class ManaStore {
     };
 
     @action
-    updateNodeSearch(searchNode: string): void {
-        this.searchNode = searchNode.trim();
-    }
-
-    @action
-    updateTxSearch(searchTxID: string): void {
-        this.searchTxID = searchTxID.trim();
-    }
-
-    @action
-    addNewManaValue = (manaMsg: IManaMessage) =>  {
-        this.ownID = this.ownID? this.ownID : manaMsg.nodeID;
-        if (this.manaValues.length === maxStoredManaValues) {
-            // shift if we already have enough values
-            this.manaValues.shift();
-        }
-        let newManaData = [new Date(manaMsg.time*1000), manaMsg.access, manaMsg.consensus];
-        if (this.manaValues.length > 0){
-            this.prevManaValues = [this.manaValues[this.manaValues.length -1][1] , this.manaValues[this.manaValues.length -1][2]]
-        }
-        this.manaValues.push(newManaData);
-    }
-
-    @action
-    updateNetworkRichest = (msg: INetworkManaMessage) => {
-        switch (msg.manaType) {
-            case "Access":
-                this.totalAccessNetwork = msg.totalMana;
-                this.accessNetworkRichest = msg.nodes;
-                break;
-            case "Consensus":
-                this.totalConsensusNetwork = msg.totalMana;
-                this.consensusNetworkRichest = msg.nodes;
-                break;
-        }
-        //TODO: show access or consensus mana
-        this.accessActiveRichest.forEach(node => {
-            let per = this.accessPercentage(node)
-            autopeeringStore.updateSizeBasedOnMana(node.shortNodeID, per)
-        })
-        this.addNewManaValue({
-            nodeID: "",
-            access: this.totalAccessNetwork,
-            consensus: this.totalConsensusNetwork,
-            time: new Date().getTime() * 1000
-        })
-    }
-
-    @action
-    updateActiveRichest = (msg: INetworkManaMessage) => {
-        switch (msg.manaType) {
-            case "Access":
-                this.totalAccessActive = msg.totalMana;
-                this.accessActiveRichest = msg.nodes;
-                break;
-            case "Consensus":
-                this.totalConsensusActive = msg.totalMana;
-                this.consensusActiveRichest = msg.nodes;
-                break;
-        }
-    };
-
-    @action
-    addNewPledge = (msg: IPledgeMessage) => {
-        switch (msg.manaType) {
-            case "Access":
-                this.handleNewPledgeEvent(this.accessEvents, msg);
-                break;
-            case "Consensus":
-                this.handleNewPledgeEvent(this.consensusEvents, msg);
-                break;
-        }
-    }
-
-
-    @action
     public updateDashboardWebsocketConnect(connected: boolean): void {
         this.dashboardWebsocketConnected = connected
+    }
+
+    @action
+    public setManaDashboardAddress(address: string): void {
+        this.manaDashboardAddress = address
+        this.connect()
     }
 
     reconnect() {
@@ -186,10 +115,92 @@ export class ManaStore {
     }
 
     @action
-    public setManaDashboardAddress(address: string): void {
-        this.manaDashboardAddress = address
-        this.connect()
+    updateNodeSearch(searchNode: string): void {
+        this.searchNode = searchNode.trim();
     }
+
+    @action
+    updateTxSearch(searchTxID: string): void {
+        this.searchTxID = searchTxID.trim();
+    }
+
+    @action
+    addAccessValue = (val: number) => {
+        if (this.accessValues.length === maxStoredManaValues) {
+            // shift if we already have enough values
+            this.accessValues.shift();
+        }
+        let newManaData = [new Date(), val];
+        this.accessValues.push(newManaData);
+    }
+
+    @action
+    addConsensusValue = (val: number) => {
+        if (this.consensusValues.length === maxStoredManaValues) {
+            // shift if we already have enough values
+            this.consensusValues.shift();
+        }
+        let newManaData = [new Date(), val];
+        this.consensusValues.push(newManaData);
+    }
+
+    @action
+    updateNetworkRichest = (msg: INetworkManaMessage) => {
+        switch (msg.manaType) {
+            case "Access":
+                this.totalAccessNetwork = msg.totalMana;
+                this.accessNetworkRichest = msg.nodes;
+                this.addAccessValue(this.totalAccessNetwork)
+                break;
+            case "Consensus":
+                this.totalConsensusNetwork = msg.totalMana;
+                this.consensusNetworkRichest = msg.nodes;
+                this.addConsensusValue(this.totalConsensusNetwork);
+                break;
+        }
+    }
+
+    @action
+    updateActiveRichest = (msg: INetworkManaMessage) => {
+        switch (msg.manaType) {
+            case "Access":
+                this.totalAccessActive = msg.totalMana;
+                this.accessActiveRichest = msg.nodes;
+                break;
+            case "Consensus":
+                this.totalConsensusActive = msg.totalMana;
+                this.consensusActiveRichest = msg.nodes;
+                //TODO: show access or consensus mana
+                this.consensusActiveRichest.forEach(node => {
+                    autopeeringStore.updateColorBasedOnMana(node.shortNodeID, node.mana)
+                })
+                break;
+        }
+    };
+
+    @action
+    getActiveCMana = (nodeID: string) => {
+        let node = this.consensusActiveRichest.find(e => e.shortNodeID === nodeID);
+        if (node) {
+            return displayManaUnit(node.mana);
+        }
+        return "0 m"
+
+    }
+
+    @action
+    addNewPledge = (msg: IPledgeMessage) => {
+        switch (msg.manaType) {
+            case "Access":
+                this.handleNewPledgeEvent(this.accessEvents, msg);
+                break;
+            case "Consensus":
+                this.handleNewPledgeEvent(this.consensusEvents, msg);
+                break;
+        }
+    }
+
+
 
     handleNewPledgeEvent = (store: Array<ManaEvent>, msg: IPledgeMessage) => {
         if (store.length === maxEventsStored) {
@@ -199,8 +210,7 @@ export class ManaStore {
             msg.nodeID,
             new Date(msg.time*1000),
             msg.txID,
-            msg.bm1,
-            msg.bm2
+            msg.amount
         )
         store.push(newData)
     }
@@ -225,7 +235,7 @@ export class ManaStore {
             msg.nodeID,
             new Date(msg.time*1000),
             msg.txID,
-            msg.bm1
+            msg.amount
         )
         store.push(newData)
     }
@@ -337,9 +347,9 @@ export class ManaStore {
         return histInput
     }
 
-    private accessPercentage(ownNode: INode): number{
-        return (ownNode.mana/this.totalAccessNetwork) * 100;
-    }
+    // private accessPercentage(ownNode: INode): number{
+    //     return (ownNode.mana/this.totalAccessNetwork) * 100;
+    // }
 
     @computed
     get consensusPercentile() {
@@ -390,8 +400,7 @@ export class ManaStore {
                         <Popover id={ev.nodeID + index.toString()}>
                             <Popover.Title as="h3">Mana Pledged</Popover.Title>
                             <Popover.Content>
-                                <div>Base Mana 1: <strong>+{displayManaUnit(ev.bm1)}</strong></div>
-                                <div>Base Mana 2: <strong>+{displayManaUnit(ev.bm2)}</strong></div>
+                                <div>Amount: <strong>+{displayManaUnit(ev.amount)}</strong></div>
                                 <div>With Transaction: <strong><a onClick={() => navigator.clipboard.writeText(ev.txID)}>{ev.txID}</a></strong></div>
                                 <div>To NodeID:  <strong>{ev.nodeID}</strong></div>
                                 <div>Time of Pledge:  <strong>{ev.time.toLocaleTimeString()}</strong></div>
@@ -430,7 +439,7 @@ export class ManaStore {
                         <Popover id={ev.nodeID + index.toString()}>
                             <Popover.Title as="h3">Mana Revoked</Popover.Title>
                             <Popover.Content>
-                                <div>Base Mana 1: <strong>-{displayManaUnit(ev.bm1)}</strong></div>
+                                <div>Amount: <strong>-{displayManaUnit(ev.amount)}</strong></div>
                                 <div>With Transaction: <strong><a onClick={() => navigator.clipboard.writeText(ev.txID)}>{ev.txID}</a></strong></div>
                                 <div>From NodeID:  <strong>{ev.nodeID}</strong></div>
                                 <div>Time of Revoke:  <strong>{ev.time.toLocaleTimeString()}</strong></div>

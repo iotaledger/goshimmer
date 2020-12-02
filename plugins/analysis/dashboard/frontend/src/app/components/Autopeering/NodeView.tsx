@@ -6,6 +6,7 @@ import "./NodeView.scss";
 import { AutopeeringProps } from "./AutopeeringProps";
 
 @inject("autopeeringStore")
+@inject("manaStore")
 @observer
 export class NodeView extends React.Component<AutopeeringProps, unknown> {
     public render(): ReactNode {
@@ -15,6 +16,13 @@ export class NodeView extends React.Component<AutopeeringProps, unknown> {
                     <h3>
                         Node {this.props.autopeeringStore.selectedNode}
                     </h3>
+                    {
+                        this.props.autopeeringStore.manaColoringActive &&
+                        <h3>
+                            Active Cons. Mana: {this.props.manaStore.getActiveCMana(this.props.autopeeringStore.selectedNode)}
+                        </h3>
+                    }
+
                 </div>
                 <div className="row margin-t-s">
                     <div className="col">
