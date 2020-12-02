@@ -89,7 +89,7 @@ func (v *View) AddConflicts(conflicts Conflicts) {
 	for _, c := range conflicts {
 		if _, ok := v.Conflicts[c.ID]; !ok {
 			v.Conflicts[c.ID] = Opinions{c.Opinion}
-			return
+			continue
 		}
 
 		v.Conflicts[c.ID] = append(v.Conflicts[c.ID], c.Opinion)
@@ -117,7 +117,7 @@ func (v *View) AddTimestamps(timestamps Timestamps) {
 	for _, t := range timestamps {
 		if _, ok := v.Timestamps[t.ID]; !ok {
 			v.Timestamps[t.ID] = Opinions{t.Opinion}
-			return
+			continue
 		}
 
 		v.Timestamps[t.ID] = append(v.Timestamps[t.ID], t.Opinion)
