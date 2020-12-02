@@ -5,6 +5,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/packages/vote/statement"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
 	"github.com/iotaledger/hive.go/identity"
 )
@@ -76,6 +77,10 @@ func readStatement(cachedMsgEvent *tangle.CachedMessageEvent) {
 		// TODO: check if the Mana threshold of the issuer is ok
 
 		issuerID := identity.NewID(msg.IssuerPublicKey())
+		// Skip ourselves
+		if issuerID == local.GetInstance().ID() {
+			return
+		}
 
 		issuerRegistry := Registry().NodeView(issuerID)
 

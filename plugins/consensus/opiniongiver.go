@@ -96,6 +96,10 @@ type PeerOpinionGiver struct {
 
 // Query queries another node for its opinion.
 func (pog *PeerOpinionGiver) Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (vote.Opinions, error) {
+	if pog == nil {
+		return nil, fmt.Errorf("unable to query opinions, PeerOpinionGiver is nil")
+	}
+
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithInsecure())
 

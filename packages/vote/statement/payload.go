@@ -156,7 +156,7 @@ func (s *Statement) Bytes() (bytes []byte) {
 	}
 
 	conflictsCount := marshalutil.New().WriteUint32(s.ConflictsCount)
-	timestampsCount := marshalutil.New().WriteUint32(s.ConflictsCount)
+	timestampsCount := marshalutil.New().WriteUint32(s.TimestampsCount)
 
 	payloadBytes := byteutils.ConcatBytes(StatementType.Bytes(), conflictsCount.Bytes(), s.Conflicts.Bytes(), timestampsCount.Bytes(), s.Timestamps.Bytes())
 	payloadBytesLength := len(payloadBytes) - marshalutil.Uint32Size
