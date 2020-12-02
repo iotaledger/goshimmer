@@ -184,7 +184,7 @@ func (d *DockerContainer) CreatePumba(name string, containerName string, targetI
 	cmd = append(cmd, slice...)
 
 	containerConfig := &container.Config{
-		Image: "gaiaadm/pumba:0.7.2",
+		Image: "gaiaadm/pumba:0.7.6",
 		Cmd:   cmd,
 	}
 
