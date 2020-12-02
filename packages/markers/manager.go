@@ -1,4 +1,4 @@
-package marker
+package markers
 
 import (
 	"errors"
@@ -35,7 +35,7 @@ func NewManager(store kvstore.KVStore) (newManager *Manager) {
 		}
 	}
 
-	osFactory := objectstorage.NewFactory(store, database.PrefixMarker)
+	osFactory := objectstorage.NewFactory(store, database.PrefixMarkers)
 	newManager = &Manager{
 		store:                     store,
 		sequenceStore:             osFactory.New(PrefixSequence, SequenceFromObjectStorage, objectStorageOptions...),

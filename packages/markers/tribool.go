@@ -1,4 +1,4 @@
-package marker
+package markers
 
 const (
 	// False represents the equivalent of the boolean false value.

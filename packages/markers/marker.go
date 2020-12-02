@@ -1,4 +1,4 @@
-package marker
+package markers
 
 import (
 	"strconv"
@@ -18,10 +18,10 @@ type Marker struct {
 	index      Index
 }
 
-// FromBytes unmarshals a Marker from a sequence of bytes.
-func FromBytes(markerBytes []byte) (marker *Marker, consumedBytes int, err error) {
+// MarkerFromBytes unmarshals a Marker from a sequence of bytes.
+func MarkerFromBytes(markerBytes []byte) (marker *Marker, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(markerBytes)
-	if marker, err = FromMarshalUtil(marshalUtil); err != nil {
+	if marker, err = MarkerFromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse Marker from MarshalUtil: %w", err)
 		return
 	}
@@ -29,8 +29,8 @@ func FromBytes(markerBytes []byte) (marker *Marker, consumedBytes int, err error
 	return
 }
 
-// FromMarshalUtil unmarshals a Marker using a MarshalUtil (for easier unmarshaling).
-func FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (marker *Marker, err error) {
+// MarkerFromMarshalUtil unmarshals a Marker using a MarshalUtil (for easier unmarshaling).
+func MarkerFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (marker *Marker, err error) {
 	marker = &Marker{}
 	if marker.sequenceID, err = SequenceIDFromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
@@ -82,10 +82,10 @@ type Markers struct {
 	markersMutex sync.RWMutex
 }
 
-// MarkersFromBytes unmarshals a collection of Markers from a sequence of bytes.
-func MarkersFromBytes(markersBytes []byte) (markers *Markers, consumedBytes int, err error) {
+// FromBytes unmarshals a collection of Markers from a sequence of bytes.
+func FromBytes(markersBytes []byte) (markers *Markers, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(markersBytes)
-	if markers, err = MarkersFromMarshalUtil(marshalUtil); err != nil {
+	if markers, err = FromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse Markers from MarshalUtil: %w", err)
 		return
 	}
@@ -94,8 +94,8 @@ func MarkersFromBytes(markersBytes []byte) (markers *Markers, consumedBytes int,
 	return
 }
 
-// MarkersFromMarshalUtil unmarshals a collection of Markers using a MarshalUtil (for easier unmarshaling).
-func MarkersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (markers *Markers, err error) {
+// FromMarshalUtil unmarshals a collection of Markers using a MarshalUtil (for easier unmarshaling).
+func FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (markers *Markers, err error) {
 	markersCount, err := marshalUtil.ReadUint32()
 	if err != nil {
 		err = xerrors.Errorf("failed to parse Markers count (%v): %w", err, cerrors.ErrParseBytesFailed)

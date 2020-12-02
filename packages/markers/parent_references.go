@@ -1,4 +1,4 @@
-package marker
+package markers
 
 import (
 	"fmt"

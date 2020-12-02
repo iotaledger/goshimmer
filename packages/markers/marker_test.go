@@ -1,4 +1,4 @@
-package marker
+package markers
 
 import (
 	"testing"
@@ -13,7 +13,7 @@ func TestMarker(t *testing.T) {
 	assert.Equal(t, Index(1), marker.Index())
 
 	marshaledMarker := marker.Bytes()
-	unmarshaledMarker, consumedBytes, err := FromBytes(marshaledMarker)
+	unmarshaledMarker, consumedBytes, err := MarkerFromBytes(marshaledMarker)
 	require.NoError(t, err)
 	assert.Equal(t, len(marshaledMarker), consumedBytes)
 	assert.Equal(t, marker, unmarshaledMarker)
@@ -27,7 +27,7 @@ func TestMarkers(t *testing.T) {
 	)
 
 	marshaledMarkers := markers.Bytes()
-	unmarshaledMarkers, consumedBytes, err := MarkersFromBytes(marshaledMarkers)
+	unmarshaledMarkers, consumedBytes, err := FromBytes(marshaledMarkers)
 	require.NoError(t, err)
 	assert.Equal(t, len(marshaledMarkers), consumedBytes)
 	assert.Equal(t, markers, unmarshaledMarkers)

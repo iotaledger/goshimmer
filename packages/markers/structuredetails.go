@@ -1,4 +1,4 @@
-package marker
+package markers
 
 import (
 	"sync"
@@ -44,11 +44,11 @@ func StructureDetailsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (mark
 		err = xerrors.Errorf("failed to parse IsPastMarker (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	if markersPair.PastMarkers, err = MarkersFromMarshalUtil(marshalUtil); err != nil {
+	if markersPair.PastMarkers, err = FromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse PastMarkers from MarshalUtil: %w", err)
 		return
 	}
-	if markersPair.FutureMarkers, err = MarkersFromMarshalUtil(marshalUtil); err != nil {
+	if markersPair.FutureMarkers, err = FromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse FutureMarkers from MarshalUtil: %w", err)
 		return
 	}
