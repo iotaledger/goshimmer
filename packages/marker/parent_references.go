@@ -16,7 +16,7 @@ import (
 // region ParentReferences /////////////////////////////////////////////////////////////////////////////////////////////
 
 // ParentReferences models the relationship between Sequences by providing a way to encode which Marker references which
-// other Markers of the corresponding parent Sequences.
+// other Markers of other Sequences.
 type ParentReferences struct {
 	parentSequences SequenceIDs
 	references      map[SequenceID]*thresholdmap.ThresholdMap
@@ -24,8 +24,8 @@ type ParentReferences struct {
 }
 
 // NewParentReferences creates a new set of ParentReferences.
-func NewParentReferences(referencedMarkers *Markers) (parentReferences *ParentReferences) {
-	parentReferences = &ParentReferences{
+func NewParentReferences(referencedMarkers *Markers) (newParentReferences *ParentReferences) {
+	newParentReferences = &ParentReferences{
 		parentSequences: referencedMarkers.SequenceIDs(),
 		references:      make(map[SequenceID]*thresholdmap.ThresholdMap),
 	}
@@ -35,7 +35,7 @@ func NewParentReferences(referencedMarkers *Markers) (parentReferences *ParentRe
 		thresholdMap := thresholdmap.New(thresholdmap.LowerThresholdMode)
 
 		thresholdMap.Set(uint64(initialSequenceIndex), uint64(index))
-		parentReferences.references[sequenceID] = thresholdMap
+		newParentReferences.references[sequenceID] = thresholdMap
 
 		return true
 	})
@@ -55,7 +55,7 @@ func ParentReferencesFromBytes(parentReferencesBytes []byte) (parentReferences *
 	return
 }
 
-// ParentReferencesFromMarshalUtil is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
+// ParentReferencesFromMarshalUtil unmarshals a ParentReferences object using a MarshalUtil (for easier unmarshaling).
 func ParentReferencesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (parentReferences *ParentReferences, err error) {
 	parentReferences = &ParentReferences{
 		references: make(map[SequenceID]*thresholdmap.ThresholdMap),
@@ -104,12 +104,12 @@ func ParentReferencesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (pare
 	return
 }
 
-// ParentSequences returns the parent Sequences of the current ParentReferences instance.
-func (p *ParentReferences) ParentSequences() SequenceIDs {
+// ParentSequences returns the parent Sequences of the ParentReferences.
+func (p *ParentReferences) ParentSequences() (parentSequences SequenceIDs) {
 	return p.parentSequences
 }
 
-// AddReferences add referenced markers to the ParentReferences.
+// AddReferences adds referenced Markers to the ParentReferences.
 func (p *ParentReferences) AddReferences(referencedMarkers *Markers, referencingIndex Index) {
 	p.referencesMutex.Lock()
 	defer p.referencesMutex.Unlock()
@@ -127,7 +127,7 @@ func (p *ParentReferences) AddReferences(referencedMarkers *Markers, referencing
 	})
 }
 
-// HighestReferencedMarker returns a marker with the highest index of a specific marker sequence.
+// HighestReferencedMarker returns the referenced Marker with the highest Index of a given Sequence.
 func (p *ParentReferences) HighestReferencedMarker(sequenceID SequenceID, referencingIndex Index) (highestReferencedMarker *Marker) {
 	p.referencesMutex.RLock()
 	defer p.referencesMutex.RUnlock()
@@ -148,7 +148,7 @@ func (p *ParentReferences) HighestReferencedMarker(sequenceID SequenceID, refere
 	}
 }
 
-// HighestReferencedMarkers returns a list of highest index markers in different marker sequence.
+// HighestReferencedMarkers returns a collection of Markers that were referenced by the given Index.
 func (p *ParentReferences) HighestReferencedMarkers(index Index) (highestReferencedMarkers *Markers) {
 	p.referencesMutex.RLock()
 	defer p.referencesMutex.RUnlock()
@@ -165,21 +165,21 @@ func (p *ParentReferences) HighestReferencedMarkers(index Index) (highestReferen
 	return
 }
 
-// SequenceIDs returns the IDs of the marker sequence of ParentReferences.
-func (p *ParentReferences) SequenceIDs() SequenceIDs {
+// SequenceIDs returns the SequenceIDs of all referenced Sequences (and not just the parents in the Sequence DAG).
+func (p *ParentReferences) SequenceIDs() (sequenceIDs SequenceIDs) {
 	p.referencesMutex.RLock()
 	defer p.referencesMutex.RUnlock()
 
-	sequenceIDs := make([]SequenceID, 0, len(p.references))
+	sequenceIDsSlice := make([]SequenceID, 0, len(p.references))
 	for sequenceID := range p.references {
-		sequenceIDs = append(sequenceIDs, sequenceID)
+		sequenceIDsSlice = append(sequenceIDsSlice, sequenceID)
 	}
 
-	return NewSequenceIDs(sequenceIDs...)
+	return NewSequenceIDs(sequenceIDsSlice...)
 }
 
-// Bytes returns the ParentReferences in serialized byte form.
-func (p *ParentReferences) Bytes() []byte {
+// Bytes returns a marshaled version of the ParentReferences.
+func (p *ParentReferences) Bytes() (marshaledParentReferences []byte) {
 	p.referencesMutex.RLock()
 	defer p.referencesMutex.RUnlock()
 
@@ -200,8 +200,8 @@ func (p *ParentReferences) Bytes() []byte {
 	return marshalUtil.Bytes()
 }
 
-// String returns the base58 encode of the ParentReferences.
-func (p *ParentReferences) String() string {
+// String returns a human readable version of the ParentReferences.
+func (p *ParentReferences) String() (humanReadableParentReferences string) {
 	p.referencesMutex.RLock()
 	defer p.referencesMutex.RUnlock()
 
@@ -242,6 +242,7 @@ func (p *ParentReferences) String() string {
 	}
 
 	return stringify.Struct("ParentReferences",
+		stringify.StructField("parentSequences", p.ParentSequences()),
 		stringify.StructField("referencedSequenceIDs", p.SequenceIDs()),
 		stringify.StructField("referencedMarkers", referencedMarkers),
 	)

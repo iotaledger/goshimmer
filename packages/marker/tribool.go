@@ -17,7 +17,7 @@ const (
 type TriBool uint8
 
 // String returns a human readable version of the TriBool.
-func (t TriBool) String() string {
+func (t TriBool) String() (humanReadableTriBool string) {
 	switch t {
 	case 0:
 		return "false"

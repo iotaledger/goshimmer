@@ -44,7 +44,7 @@ func TestMarkers(t *testing.T) {
 }
 
 func TestMarkersByRank(t *testing.T) {
-	markersByRank := NewMarkersByRank()
+	markersByRank := newMarkersByRank()
 
 	updated, added := markersByRank.Add(10, 7, 8)
 	assert.True(t, updated)

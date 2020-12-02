@@ -14,6 +14,7 @@ const (
 	PrefixSequenceAliasMapping
 )
 
+// objectStorageOptions contains a list of default settings for the object storage.
 var objectStorageOptions = []objectstorage.Option{
 	objectstorage.CacheTime(60 * time.Second),
 }
