@@ -4,11 +4,11 @@ import (
 	"context"
 	"net"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/hive.go/events"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 )
 
 // OpinionRetriever retrieves the opinion for the given ID and object type.
@@ -37,6 +37,7 @@ type VoterServer struct {
 	netRxEvent         *events.Event
 	netTxEvent         *events.Event
 	queryReceivedEvent *events.Event
+	UnimplementedVoterQueryServer
 }
 
 // Opinion replies the query request with an opinion and triggers the events.
