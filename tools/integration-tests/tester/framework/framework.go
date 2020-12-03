@@ -163,6 +163,7 @@ func (f *Framework) CreateNetworkWithPartitions(name string, peers, partitions, 
 			FPCRoundInterval: ParaFPCRoundInterval,
 			WaitForStatement: ParaWaitForStatement,
 			FPCListen:        ParaFPCListen,
+			WriteStatement:   ParaWriteStatement,
 		}
 		if _, err = network.CreatePeer(config); err != nil {
 			return nil, err
