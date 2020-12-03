@@ -81,6 +81,9 @@ func Plugin() *node.Plugin {
 
 func configure(_ *node.Plugin) {
 	log = logger.NewLogger(ConsensusPluginName)
+
+	configureRemoteLogger()
+
 	roundIntervalSeconds = config.Node().Int64(CfgFPCRoundInterval)
 	waitForStatement = config.Node().Int(CfgWaitForStatement)
 	listen = config.Node().Bool(CfgFPCListen)
