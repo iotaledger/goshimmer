@@ -87,11 +87,14 @@ func registerWSClient() (uint64, *wsclient) {
 
 // removes the websocket client with the given id.
 func removeWsClient(clientID uint64) {
+	wsClientsMu.RLock()
+	wsClient := wsClients[clientID]
+	close(wsClient.exit)
+	wsClientsMu.RUnlock()
+
 	wsClientsMu.Lock()
 	defer wsClientsMu.Unlock()
-	wsClient := wsClients[clientID]
 	delete(wsClients, clientID)
-	close(wsClient.exit)
 	close(wsClient.channel)
 }
 
