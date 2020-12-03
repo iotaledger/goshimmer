@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/cerrors"
 	"github.com/iotaledger/hive.go/byteutils"
+	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
@@ -65,7 +65,7 @@ func (o OutputType) String() string {
 // region OutputID /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // OutputIDLength contains the amount of bytes that a marshaled version of the OutputID contains.
-const OutputIDLength = TransactionIDLength + marshalutil.UINT16_SIZE
+const OutputIDLength = TransactionIDLength + marshalutil.Uint16Size
 
 // OutputID is the data type that represents the identifier of an Output (which consists of a TransactionID and the
 // index of the Output in the Transaction that created it).

@@ -1,8 +1,8 @@
 package ledgerstate
 
 import (
-	"github.com/iotaledger/goshimmer/packages/cerrors"
 	"github.com/iotaledger/hive.go/byteutils"
+	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"

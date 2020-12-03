@@ -50,10 +50,10 @@ func Server() *echo.Echo {
 		}))
 
 		// if enabled, configure basic-auth
-		if config.Node().GetBool(CfgBasicAuthEnabled) {
+		if config.Node().Bool(CfgBasicAuthEnabled) {
 			server.Use(middleware.BasicAuth(func(username, password string, c echo.Context) (bool, error) {
-				if username == config.Node().GetString(CfgBasicAuthUsername) &&
-					password == config.Node().GetString(CfgBasicAuthPassword) {
+				if username == config.Node().String(CfgBasicAuthUsername) &&
+					password == config.Node().String(CfgBasicAuthPassword) {
 					return true, nil
 				}
 				return false, nil
@@ -120,9 +120,9 @@ func worker(shutdownSignal <-chan struct{}) {
 	defer log.Infof("Stopping %s ... done", PluginName)
 
 	stopped := make(chan struct{})
-	bindAddr := config.Node().GetString(CfgBindAddress)
+	bindAddr := config.Node().String(CfgBindAddress)
 	go func() {
-		log.Infof("%s started, bind-address=%s, basic-auth=%v", PluginName, bindAddr, config.Node().GetBool(CfgBasicAuthEnabled))
+		log.Infof("%s started, bind-address=%s, basic-auth=%v", PluginName, bindAddr, config.Node().Bool(CfgBasicAuthEnabled))
 		if err := server.Start(bindAddr); err != nil {
 			if !errors.Is(err, http.ErrServerClosed) {
 				log.Errorf("Error serving: %s", err)

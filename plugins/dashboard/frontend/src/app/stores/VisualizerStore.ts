@@ -5,8 +5,8 @@ import {default as Viva} from 'vivagraphjs';
 
 export class Vertex {
     id: string;
-    parent1_id: string;
-    parent2_id: string;
+    strongParentIDs: Array<string>;
+    weakParentIDs: Array<string>;
     is_solid: boolean;
     is_tip: boolean;
 }
@@ -99,8 +99,8 @@ export class VisualizerStore {
             }
             // update parent1 and parent2 ids since we might be dealing
             // with a vertex obj only created from a tip info
-            existing.parent1_id = vert.parent1_id;
-            existing.parent2_id = vert.parent2_id;
+            existing.strongParentIDs = vert.strongParentIDs;
+            existing.weakParentIDs = vert.weakParentIDs;
             vert = existing
         } else {
             if (vert.is_solid) {
@@ -109,16 +109,24 @@ export class VisualizerStore {
             this.verticesIncomingOrder.push(vert.id);
             this.checkLimit();
 
-            //clear parent1 and parent2 tip state
-            let parent1Vert = this.vertices.get(vert.parent1_id)
-            let parent2Vert = this.vertices.get(vert.parent2_id)
-            if(parent1Vert) {
-                parent1Vert.is_tip = false
-                this.vertices.set(parent1Vert.id, parent1Vert)
+            if (vert.strongParentIDs) {
+                // clear tip status of strong and weak parents
+                vert.strongParentIDs.forEach((value, index) => {
+                    let strongParentVert = this.vertices.get(value);
+                    if (strongParentVert) {
+                        strongParentVert.is_tip = false;
+                        this.vertices.set(strongParentVert.id, strongParentVert)
+                    }
+                });
             }
-            if(parent2Vert){
-                parent2Vert.is_tip = false
-                this.vertices.set(parent2Vert.id, parent2Vert)
+            if (vert.weakParentIDs) {
+                vert.weakParentIDs.forEach((value, index) => {
+                    let weakParentVert = this.vertices.get(value);
+                    if (weakParentVert) {
+                        weakParentVert.is_tip = false;
+                        this.vertices.set(weakParentVert.id, weakParentVert)
+                    }
+                });
             }
         }
 
@@ -163,8 +171,12 @@ export class VisualizerStore {
             if (vert.is_tip) {
                 this.tips_count--;
             }
-            this.deleteApproveeLink(vert.parent1_id);
-            this.deleteApproveeLink(vert.parent2_id);
+            vert.strongParentIDs.forEach((value) => {
+                this.deleteApproveeLink(value)
+            })
+            vert.weakParentIDs.forEach((value) => {
+                this.deleteApproveeLink(value)
+            })
         }
     }
 
@@ -200,19 +212,27 @@ export class VisualizerStore {
         } else {
             node = this.graph.addNode(vert.id, vert);
         }
-        if (vert.parent1_id && (!node.links || !node.links.some(link => link.fromId === vert.parent1_id))) {
-            this.graph.addLink(vert.parent1_id, vert.id);
+
+        if (vert.strongParentIDs) {
+            vert.strongParentIDs.forEach((value) => {
+                // if value is valid AND (links is empty OR there is no between parent and children)
+                if ( value && ((!node.links || !node.links.some(link => link.fromId === value)))){
+                    this.graph.addLink(value, vert.id);
+                }
+            })
         }
-        if (vert.parent1_id === vert.parent2_id) {
-            return;
-        }
-        if (vert.parent2_id && (!node.links || !node.links.some(link => link.fromId === vert.parent2_id))) {
-            this.graph.addLink(vert.parent2_id, vert.id);
+        if (vert.weakParentIDs){
+            vert.weakParentIDs.forEach((value) => {
+                // if value is valid AND (links is empty OR there is no between parent and children)
+                if ( value && ((!node.links || !node.links.some(link => link.fromId === value)))){
+                    this.graph.addLink(value, vert.id);
+                }
+            })
         }
     }
 
     colorForVertexState = (vert: Vertex) => {
-        if (!vert || (!vert.parent1_id && !vert.parent2_id)) return "#b58900";
+        if (!vert || (!vert.strongParentIDs && !vert.weakParentIDs)) return "#b58900";
         if (vert.is_tip) {
             return "#cb4b16";
         }

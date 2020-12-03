@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"sort"
 
-	"github.com/iotaledger/goshimmer/packages/cerrors"
+	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/orderedmap"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"

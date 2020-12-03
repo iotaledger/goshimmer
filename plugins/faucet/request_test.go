@@ -25,8 +25,8 @@ func ExampleRequest() {
 
 	// 2. build actual message
 	tx := tangle.NewMessage(
-		tangle.EmptyMessageID,
-		tangle.EmptyMessageID,
+		[]tangle.MessageID{tangle.EmptyMessageID},
+		[]tangle.MessageID{},
 		time.Now(),
 		local.PublicKey(),
 		0,

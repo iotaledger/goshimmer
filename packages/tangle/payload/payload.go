@@ -3,13 +3,16 @@ package payload
 import (
 	"fmt"
 
-	"github.com/iotaledger/goshimmer/packages/cerrors"
+	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"golang.org/x/xerrors"
 )
 
 // MaxSize defines the maximum allowed size of a marshaled Payload (in bytes).
-const MaxSize = 65288
+// MaxPayloadSize = MaxMessageSize -
+//                    (version(1) + parentsCount(1) + parentsType(1) + maxParents(8) * 32 + issuerPK(32) +
+//                    issuanceTime(8) + seqNum(8) + nonce(8) + signature(64) = MaxMessageSize - 379 bytes = 65157
+const MaxSize = 65157
 
 // Payload represents the generic interface for an object that can be embedded in Messages of the Tangle.
 type Payload interface {
@@ -60,7 +63,7 @@ func FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (payload Payload, err
 		return
 	}
 
-	marshalUtil.ReadSeek(-marshalutil.UINT32_SIZE * 2)
+	marshalUtil.ReadSeek(-marshalutil.Uint32Size * 2)
 	payloadBytes, err := marshalUtil.ReadBytes(int(payloadSize) + 8)
 	if err != nil {
 		err = xerrors.Errorf("failed to unmarshal payload bytes (%v): %w", err, cerrors.ErrParseBytesFailed)

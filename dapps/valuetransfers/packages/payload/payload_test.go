@@ -46,11 +46,8 @@ func ExamplePayload() {
 
 	// 3. build actual transaction (the base layer creates this and wraps the ontology provided payload)
 	tx := tangle.NewMessage(
-		// parent1 in "network tangle" ontology (filled by tipSelector)
-		tangle.EmptyMessageID,
-
-		// parent2 in "network tangle" ontology (filled by tipSelector)
-		tangle.EmptyMessageID,
+		[]tangle.MessageID{tangle.EmptyMessageID},
+		[]tangle.MessageID{},
 
 		// the time when the transaction was created
 		time.Now(),

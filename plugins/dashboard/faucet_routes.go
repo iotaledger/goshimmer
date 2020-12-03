@@ -39,7 +39,7 @@ var fundingReqMu = sync.Mutex{}
 func sendFaucetReq(addr address.Address) (res *ReqMsg, err error) {
 	fundingReqMu.Lock()
 	defer fundingReqMu.Unlock()
-	faucetPayload, err := faucet.NewRequest(addr, config.Node().GetInt(faucet.CfgFaucetPoWDifficulty))
+	faucetPayload, err := faucet.NewRequest(addr, config.Node().Int(faucet.CfgFaucetPoWDifficulty))
 	if err != nil {
 		return nil, err
 	}

@@ -305,7 +305,7 @@ func (payloadMetadata *PayloadMetadata) Update(other objectstorage.StorableObjec
 
 // ObjectStorageValue is required to match the encoding.BinaryMarshaler interface.
 func (payloadMetadata *PayloadMetadata) ObjectStorageValue() []byte {
-	return marshalutil.New(marshalutil.TIME_SIZE + 4*marshalutil.BOOL_SIZE).
+	return marshalutil.New(marshalutil.TimeSize + 4*marshalutil.BoolSize).
 		WriteTime(payloadMetadata.SolidificationTime()).
 		WriteBool(payloadMetadata.IsSolid()).
 		WriteBool(payloadMetadata.Liked()).

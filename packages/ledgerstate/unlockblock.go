@@ -3,8 +3,8 @@ package ledgerstate
 import (
 	"strconv"
 
-	"github.com/iotaledger/goshimmer/packages/cerrors"
 	"github.com/iotaledger/hive.go/byteutils"
+	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/typeutils"
@@ -356,7 +356,7 @@ func (r *ReferenceUnlockBlock) Type() UnlockBlockType {
 
 // Bytes returns a marshaled version of the UnlockBlock.
 func (r *ReferenceUnlockBlock) Bytes() []byte {
-	return marshalutil.New(1 + marshalutil.UINT16_SIZE).
+	return marshalutil.New(1 + marshalutil.Uint16Size).
 		WriteByte(byte(ReferenceUnlockBlockType)).
 		WriteUint16(r.referencedIndex).
 		Bytes()

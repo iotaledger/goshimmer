@@ -20,7 +20,7 @@ var (
 
 // A TipSelector selects two tips, parent2 and parent1, for a new message to attach to.
 type TipSelector interface {
-	Tips() (parent1 MessageID, parent2 MessageID)
+	Tips(count int) (parents []MessageID)
 }
 
 // A Worker performs the PoW for the provided message in serialized byte form.
@@ -83,12 +83,16 @@ func (f *MessageFactory) IssuePayload(p payload.Payload) (*Message, error) {
 		return nil, err
 	}
 
-	parent1ID, parent2ID := f.selector.Tips()
+	// TODO: change hardcoded amount of parents
+	strongParents := f.selector.Tips(2)
+	// TODO: approval switch: select weak parents
+	weakParents := make([]MessageID, 0)
+
 	issuingTime := time.Now()
 	issuerPublicKey := f.localIdentity.PublicKey()
 
 	// do the PoW
-	nonce, err := f.doPOW(parent1ID, parent2ID, issuingTime, issuerPublicKey, sequenceNumber, p)
+	nonce, err := f.doPOW(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p)
 	if err != nil {
 		err = fmt.Errorf("pow failed: %w", err)
 		f.Events.Error.Trigger(err)
@@ -96,11 +100,11 @@ func (f *MessageFactory) IssuePayload(p payload.Payload) (*Message, error) {
 	}
 
 	// create the signature
-	signature := f.sign(parent1ID, parent2ID, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
+	signature := f.sign(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
 
 	msg := NewMessage(
-		parent1ID,
-		parent2ID,
+		strongParents,
+		weakParents,
 		issuingTime,
 		issuerPublicKey,
 		sequenceNumber,
@@ -119,18 +123,18 @@ func (f *MessageFactory) Shutdown() {
 	}
 }
 
-func (f *MessageFactory) doPOW(parent1ID MessageID, parent2ID MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload payload.Payload) (uint64, error) {
+func (f *MessageFactory) doPOW(strongParents []MessageID, weakParents []MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload payload.Payload) (uint64, error) {
 	// create a dummy message to simplify marshaling
-	dummy := NewMessage(parent1ID, parent2ID, issuingTime, key, seq, payload, 0, ed25519.EmptySignature).Bytes()
+	dummy := NewMessage(strongParents, weakParents, issuingTime, key, seq, payload, 0, ed25519.EmptySignature).Bytes()
 
 	f.workerMutex.RLock()
 	defer f.workerMutex.RUnlock()
 	return f.worker.DoPOW(dummy)
 }
 
-func (f *MessageFactory) sign(parent1ID MessageID, parent2ID MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload payload.Payload, nonce uint64) ed25519.Signature {
+func (f *MessageFactory) sign(strongParents []MessageID, weakParents []MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload payload.Payload, nonce uint64) ed25519.Signature {
 	// create a dummy message to simplify marshaling
-	dummy := NewMessage(parent1ID, parent2ID, issuingTime, key, seq, payload, nonce, ed25519.EmptySignature)
+	dummy := NewMessage(strongParents, weakParents, issuingTime, key, seq, payload, nonce, ed25519.EmptySignature)
 	dummyBytes := dummy.Bytes()
 
 	contentLength := len(dummyBytes) - len(dummy.Signature())
@@ -138,11 +142,11 @@ func (f *MessageFactory) sign(parent1ID MessageID, parent2ID MessageID, issuingT
 }
 
 // The TipSelectorFunc type is an adapter to allow the use of ordinary functions as tip selectors.
-type TipSelectorFunc func() (MessageID, MessageID)
+type TipSelectorFunc func(count int) (parents []MessageID)
 
 // Tips calls f().
-func (f TipSelectorFunc) Tips() (MessageID, MessageID) {
-	return f()
+func (f TipSelectorFunc) Tips(count int) (parents []MessageID) {
+	return f(count)
 }
 
 // The WorkerFunc type is an adapter to allow the use of ordinary functions as a PoW performer.

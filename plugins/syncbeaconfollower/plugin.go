@@ -129,10 +129,10 @@ func OverwriteSyncedState(syncedOverwrite bool) {
 func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 
-	pubKeys := config.Node().GetStringSlice(CfgSyncBeaconFollowNodes)
-	beaconMaxTimeOfflineSec = float64(config.Node().GetInt(CfgSyncBeaconMaxTimeOfflineSec))
-	beaconMaxTimeWindowSec = float64(config.Node().GetInt(CfgSyncBeaconMaxTimeWindowSec))
-	syncPercentage = config.Node().GetFloat64(CfgSyncBeaconSyncPercentage)
+	pubKeys := config.Node().Strings(CfgSyncBeaconFollowNodes)
+	beaconMaxTimeOfflineSec = float64(config.Node().Int(CfgSyncBeaconMaxTimeOfflineSec))
+	beaconMaxTimeWindowSec = float64(config.Node().Int(CfgSyncBeaconMaxTimeWindowSec))
+	syncPercentage = config.Node().Float64(CfgSyncBeaconSyncPercentage)
 	if syncPercentage < 0.5 || syncPercentage > 1.0 {
 		log.Warnf("invalid syncPercentage: %f, syncPercentage has to be in [0.5, 1.0] interval", syncPercentage)
 		// set it to default
@@ -251,7 +251,7 @@ func cleanupFollowNodes() {
 
 func run(_ *node.Plugin) {
 	if err := daemon.BackgroundWorker("Sync-Beacon-Cleanup", func(shutdownSignal <-chan struct{}) {
-		ticker := time.NewTicker(config.Node().GetDuration(CfgSyncBeaconCleanupInterval) * time.Second)
+		ticker := time.NewTicker(config.Node().Duration(CfgSyncBeaconCleanupInterval) * time.Second)
 		defer ticker.Stop()
 		for {
 			select {

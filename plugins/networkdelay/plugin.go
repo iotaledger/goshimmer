@@ -4,16 +4,20 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	clockPlugin "github.com/iotaledger/goshimmer/plugins/clock"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
+	"github.com/iotaledger/goshimmer/plugins/syncbeaconfollower"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/mr-tron/base58"
+	flag "github.com/spf13/pflag"
 )
 
 const (
@@ -39,7 +43,14 @@ var (
 	myID            string
 	myPublicKey     ed25519.PublicKey
 	originPublicKey ed25519.PublicKey
+
+	// clockEnabled defines if the clock plugin is enabled.
+	clockEnabled bool
 )
+
+func init() {
+	flag.String(CfgNetworkDelayOriginPublicKey, "9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd", "default issuer node public key")
+}
 
 // App gets the plugin instance.
 func App() *node.Plugin {
@@ -61,7 +72,7 @@ func configure(_ *node.Plugin) {
 	}
 
 	// get origin public key from config
-	bytes, err := base58.Decode(config.Node().GetString(CfgNetworkDelayOriginPublicKey))
+	bytes, err := base58.Decode(config.Node().String(CfgNetworkDelayOriginPublicKey))
 	if err != nil {
 		log.Fatalf("could not parse %s config entry as base58. %v", CfgNetworkDelayOriginPublicKey, err)
 	}
@@ -74,6 +85,8 @@ func configure(_ *node.Plugin) {
 
 	// subscribe to message-layer
 	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
+
+	clockEnabled = !node.IsSkipped(clockPlugin.Plugin())
 }
 
 func onReceiveMessageFromMessageLayer(cachedMessageEvent *tangle.CachedMessageEvent) {
@@ -105,7 +118,7 @@ func onReceiveMessageFromMessageLayer(cachedMessageEvent *tangle.CachedMessageEv
 		return
 	}
 
-	now := time.Now().UnixNano()
+	now := clock.SyncedTime().UnixNano()
 
 	// abort if message was sent more than 1min ago
 	// this should only happen due to a node resyncing
@@ -124,6 +137,8 @@ func sendToRemoteLog(networkDelayObject *Object, receiveTime int64) {
 		SentTime:    networkDelayObject.sentTime,
 		ReceiveTime: receiveTime,
 		Delta:       receiveTime - networkDelayObject.sentTime,
+		Clock:       clockEnabled,
+		Sync:        syncbeaconfollower.Synced(),
 		Type:        remoteLogType,
 	}
 	_ = remoteLogger.Send(m)
@@ -135,5 +150,7 @@ type networkDelay struct {
 	SentTime    int64  `json:"sentTime"`
 	ReceiveTime int64  `json:"receiveTime"`
 	Delta       int64  `json:"delta"`
+	Clock       bool   `json:"clock"`
+	Sync        bool   `json:"sync"`
 	Type        string `json:"type"`
 }

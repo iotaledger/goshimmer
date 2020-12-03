@@ -38,37 +38,37 @@ func (t *MessageTipSelector) AddTip(msg *Message) {
 		t.Events.TipAdded.Trigger(messageID)
 	}
 
-	parent1MessageID := msg.Parent1ID()
-	if _, deleted := t.tips.Delete(parent1MessageID); deleted {
-		t.Events.TipRemoved.Trigger(parent1MessageID)
-	}
-
-	parent2MessageID := msg.Parent2ID()
-	if _, deleted := t.tips.Delete(parent2MessageID); deleted {
-		t.Events.TipRemoved.Trigger(parent2MessageID)
-	}
+	msg.ForEachStrongParent(func(parent MessageID) {
+		if _, deleted := t.tips.Delete(parent); deleted {
+			t.Events.TipRemoved.Trigger(parent)
+		}
+	})
 }
 
-// Tips returns two tips.
-func (t *MessageTipSelector) Tips() (parent1MessageID, parent2MessageID MessageID) {
-	tip := t.tips.RandomEntry()
-	if tip == nil {
-		parent1MessageID = EmptyMessageID
-		parent2MessageID = EmptyMessageID
+// Tips returns count number of tips, maximum MaxParentsCount.
+func (t *MessageTipSelector) Tips(count int) (parents []MessageID) {
+	if count > MaxParentsCount {
+		count = MaxParentsCount
+	}
+	if count < MinParentsCount {
+		count = MinParentsCount
+	}
+	parents = make([]MessageID, 0, count)
 
+	tips := t.tips.RandomUniqueEntries(count)
+	// count is not valid
+	if tips == nil {
+		parents = append(parents, EmptyMessageID)
 		return
 	}
-
-	parent2MessageID = tip.(MessageID)
-
-	if t.tips.Size() == 1 {
-		parent1MessageID = parent2MessageID
+	// count is valid, but there simply are no tips
+	if len(tips) == 0 {
+		parents = append(parents, EmptyMessageID)
 		return
 	}
-
-	parent1MessageID = t.tips.RandomEntry().(MessageID)
-	for parent1MessageID == parent2MessageID && t.tips.Size() > 1 {
-		parent1MessageID = t.tips.RandomEntry().(MessageID)
+	// at least one tip is returned
+	for _, tip := range tips {
+		parents = append(parents, tip.(MessageID))
 	}
 
 	return
