@@ -26,15 +26,10 @@ type Opinion struct {
 
 // Bytes returns a marshaled version of the opinion.
 func (o Opinion) Bytes() (bytes []byte) {
-	bytes = make([]byte, OpinionLength)
-
-	// initialize helper
-	marshalUtil := marshalutil.New(bytes)
-
-	marshalUtil.WriteByte(byte(o.Value))
-	marshalUtil.WriteUint8(o.Round)
-
-	return bytes
+	return marshalutil.New(OpinionLength).
+		WriteByte(byte(o.Value)).
+		WriteUint8(o.Round).
+		Bytes()
 }
 
 // OpinionFromBytes parses an opinion from a byte slice.
