@@ -35,7 +35,7 @@ func DefaultParameters() *Parameters {
 		FinalizationThreshold:               10,
 		CoolingOffPeriod:                    0,
 		MaxRoundsPerVoteContext:             100,
-		QueryTimeout:                        1500 * time.Millisecond,
+		QueryTimeout:                        6500 * time.Millisecond,
 	}
 }
 

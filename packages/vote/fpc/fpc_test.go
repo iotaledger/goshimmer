@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/packages/vote/fpc"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -54,9 +55,9 @@ func TestVoteContext_LastOpinion(t *testing.T) {
 
 func TestFPCPreventSameIDMultipleTimes(t *testing.T) {
 	voter := fpc.New(nil)
-	assert.NoError(t, voter.Vote("a", vote.Like))
+	assert.NoError(t, voter.Vote("a", vote.ConflictType, vote.Like))
 	// can't add the same item twice
-	assert.True(t, errors.Is(voter.Vote("a", vote.Like), fpc.ErrVoteAlreadyOngoing))
+	assert.True(t, errors.Is(voter.Vote("a", vote.ConflictType, vote.Like), fpc.ErrVoteAlreadyOngoing))
 }
 
 type opiniongivermock struct {
@@ -64,11 +65,11 @@ type opiniongivermock struct {
 	roundIndex    int
 }
 
-func (ogm *opiniongivermock) ID() string {
-	return ""
+func (ogm *opiniongivermock) ID() identity.ID {
+	return identity.GenerateIdentity().ID()
 }
 
-func (ogm *opiniongivermock) Query(_ context.Context, _ []string) (vote.Opinions, error) {
+func (ogm *opiniongivermock) Query(_ context.Context, _ []string, _ []string) (vote.Opinions, error) {
 	if ogm.roundIndex >= len(ogm.roundsReplies) {
 		return ogm.roundsReplies[len(ogm.roundsReplies)-1], nil
 	}
@@ -99,7 +100,7 @@ func TestFPCFinalizedEvent(t *testing.T) {
 	voter.Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
 		finalizedOpinion = &ev.Opinion
 	}))
-	assert.NoError(t, voter.Vote(id, vote.Like))
+	assert.NoError(t, voter.Vote(id, vote.ConflictType, vote.Like))
 
 	// do 5 rounds of FPC -> 5 because the last one finalizes the vote
 	for i := 0; i < 5; i++ {
@@ -132,7 +133,7 @@ func TestFPCFailedEvent(t *testing.T) {
 	voter.Events().Failed.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
 		failedOpinion = &ev.Opinion
 	}))
-	assert.NoError(t, voter.Vote(id, vote.Like))
+	assert.NoError(t, voter.Vote(id, vote.ConflictType, vote.Like))
 
 	for i := 0; i < 4; i++ {
 		assert.NoError(t, voter.Round(0.5))
@@ -174,7 +175,7 @@ func TestFPCVotingMultipleOpinionGivers(t *testing.T) {
 			finalOpinion = &ev.Opinion
 		}))
 
-		assert.NoError(t, voter.Vote(test.id, test.initOpinion))
+		assert.NoError(t, voter.Vote(test.id, vote.ConflictType, test.initOpinion))
 
 		var roundsDone int
 		for finalOpinion == nil {

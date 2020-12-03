@@ -11,9 +11,9 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// OpinionRetriever retrieves the opinion for the given ID.
+// OpinionRetriever retrieves the opinion for the given ID and object type.
 // If there's no opinion, the function should return Unknown.
-type OpinionRetriever func(id string) vote.Opinion
+type OpinionRetriever func(id string, objectType vote.ObjectType) vote.Opinion
 
 // New creates a new VoterServer.
 func New(voter vote.Voter, opnRetriever OpinionRetriever, bindAddr string, netRxEvent, netTxEvent, queryReceivedEvent *events.Event) *VoterServer {
@@ -37,21 +37,31 @@ type VoterServer struct {
 	netRxEvent         *events.Event
 	netTxEvent         *events.Event
 	queryReceivedEvent *events.Event
+	UnimplementedVoterQueryServer
 }
 
 // Opinion replies the query request with an opinion and triggers the events.
 func (vs *VoterServer) Opinion(ctx context.Context, req *QueryRequest) (*QueryReply, error) {
 	reply := &QueryReply{
-		Opinion: make([]int32, len(req.Id)),
+		Opinion: make([]int32, len(req.ConflictIDs)+len(req.TimestampIDs)),
 	}
-	for i, id := range req.Id {
+	for i, id := range req.ConflictIDs {
 		// check whether there's an ongoing vote
 		opinion, err := vs.voter.IntermediateOpinion(id)
 		if err == nil {
 			reply.Opinion[i] = int32(opinion)
 			continue
 		}
-		reply.Opinion[i] = int32(vs.opnRetriever(id))
+		reply.Opinion[i] = int32(vs.opnRetriever(id, vote.ConflictType))
+	}
+	for i, id := range req.TimestampIDs {
+		// check whether there's an ongoing vote
+		opinion, err := vs.voter.IntermediateOpinion(id)
+		if err == nil {
+			reply.Opinion[i+len(req.ConflictIDs)] = int32(opinion)
+			continue
+		}
+		reply.Opinion[i+len(req.ConflictIDs)] = int32(vs.opnRetriever(id, vote.TimestampType))
 	}
 
 	if vs.netRxEvent != nil {
@@ -61,7 +71,7 @@ func (vs *VoterServer) Opinion(ctx context.Context, req *QueryRequest) (*QueryRe
 		vs.netTxEvent.Trigger(uint64(proto.Size(reply)))
 	}
 	if vs.queryReceivedEvent != nil {
-		vs.queryReceivedEvent.Trigger(&metrics.QueryReceivedEvent{OpinionCount: len(req.Id)})
+		vs.queryReceivedEvent.Trigger(&metrics.QueryReceivedEvent{OpinionCount: len(req.ConflictIDs) + len(req.TimestampIDs)})
 	}
 
 	return reply, nil
