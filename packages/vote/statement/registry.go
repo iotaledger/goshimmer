@@ -3,6 +3,7 @@ package statement
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -33,8 +34,8 @@ func (r *Registry) NodeView(id identity.ID) *View {
 	if _, ok := r.nodesView[id]; !ok {
 		r.nodesView[id] = &View{
 			NodeID:     id,
-			Conflicts:  make(map[transaction.ID]Opinions),
-			Timestamps: make(map[tangle.MessageID]Opinions),
+			Conflicts:  make(map[transaction.ID]Entry),
+			Timestamps: make(map[tangle.MessageID]Entry),
 		}
 	}
 
@@ -55,6 +56,44 @@ func (r *Registry) NodesView() []*View {
 	return views
 }
 
+// Clean deletes all the entries older than the given duration d.
+func (r *Registry) Clean(d time.Duration) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	now := time.Now()
+
+	for _, v := range r.nodesView {
+		v.cMutex.Lock()
+		// loop over the conflicts
+		for id, c := range v.Conflicts {
+			if c.Timestamp.Add(d).Before(now) {
+				delete(v.Conflicts, id)
+			}
+		}
+		v.cMutex.Unlock()
+
+		v.tMutex.Lock()
+		// loop over the timestamps
+		for id, t := range v.Timestamps {
+			if t.Timestamp.Add(d).Before(now) {
+				delete(v.Timestamps, id)
+			}
+		}
+		v.tMutex.Unlock()
+	}
+}
+
+// endregion /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Entry /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Entry defines the entry of a registry.
+type Entry struct {
+	Opinions
+	Timestamp time.Time
+}
+
 // endregion /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region View /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -62,9 +101,9 @@ func (r *Registry) NodesView() []*View {
 // View holds the node's opinion about conflicts and timestamps.
 type View struct {
 	NodeID     identity.ID
-	Conflicts  map[transaction.ID]Opinions
+	Conflicts  map[transaction.ID]Entry
 	cMutex     sync.RWMutex
-	Timestamps map[tangle.MessageID]Opinions
+	Timestamps map[tangle.MessageID]Entry
 	tMutex     sync.RWMutex
 }
 
@@ -74,11 +113,16 @@ func (v *View) AddConflict(c Conflict) {
 	defer v.cMutex.Unlock()
 
 	if _, ok := v.Conflicts[c.ID]; !ok {
-		v.Conflicts[c.ID] = Opinions{c.Opinion}
+		v.Conflicts[c.ID] = Entry{
+			Opinions:  Opinions{c.Opinion},
+			Timestamp: time.Now(),
+		}
 		return
 	}
 
-	v.Conflicts[c.ID] = append(v.Conflicts[c.ID], c.Opinion)
+	entry := v.Conflicts[c.ID]
+	entry.Opinions = append(entry.Opinions, c.Opinion)
+	v.Conflicts[c.ID] = entry
 }
 
 // AddConflicts appends the given conflicts to the given view.
@@ -88,11 +132,16 @@ func (v *View) AddConflicts(conflicts Conflicts) {
 
 	for _, c := range conflicts {
 		if _, ok := v.Conflicts[c.ID]; !ok {
-			v.Conflicts[c.ID] = Opinions{c.Opinion}
+			v.Conflicts[c.ID] = Entry{
+				Opinions:  Opinions{c.Opinion},
+				Timestamp: time.Now(),
+			}
 			continue
 		}
 
-		v.Conflicts[c.ID] = append(v.Conflicts[c.ID], c.Opinion)
+		entry := v.Conflicts[c.ID]
+		entry.Opinions = append(entry.Opinions, c.Opinion)
+		v.Conflicts[c.ID] = entry
 	}
 }
 
@@ -102,11 +151,16 @@ func (v *View) AddTimestamp(t Timestamp) {
 	defer v.tMutex.Unlock()
 
 	if _, ok := v.Timestamps[t.ID]; !ok {
-		v.Timestamps[t.ID] = Opinions{t.Opinion}
+		v.Timestamps[t.ID] = Entry{
+			Opinions:  Opinions{t.Opinion},
+			Timestamp: time.Now(),
+		}
 		return
 	}
 
-	v.Timestamps[t.ID] = append(v.Timestamps[t.ID], t.Opinion)
+	entry := v.Timestamps[t.ID]
+	entry.Opinions = append(entry.Opinions, t.Opinion)
+	v.Timestamps[t.ID] = entry
 }
 
 // AddTimestamps appends the given timestamps to the given view.
@@ -116,11 +170,16 @@ func (v *View) AddTimestamps(timestamps Timestamps) {
 
 	for _, t := range timestamps {
 		if _, ok := v.Timestamps[t.ID]; !ok {
-			v.Timestamps[t.ID] = Opinions{t.Opinion}
+			v.Timestamps[t.ID] = Entry{
+				Opinions:  Opinions{t.Opinion},
+				Timestamp: time.Now(),
+			}
 			continue
 		}
 
-		v.Timestamps[t.ID] = append(v.Timestamps[t.ID], t.Opinion)
+		entry := v.Timestamps[t.ID]
+		entry.Opinions = append(entry.Opinions, t.Opinion)
+		v.Timestamps[t.ID] = entry
 	}
 }
 
@@ -133,7 +192,7 @@ func (v *View) ConflictOpinion(id transaction.ID) Opinions {
 		return Opinions{}
 	}
 
-	return v.Conflicts[id]
+	return v.Conflicts[id].Opinions
 }
 
 // TimestampOpinion returns the opinion history of a given message ID.
@@ -145,7 +204,7 @@ func (v *View) TimestampOpinion(id tangle.MessageID) Opinions {
 		return Opinions{}
 	}
 
-	return v.Timestamps[id]
+	return v.Timestamps[id].Opinions
 }
 
 // Query retrievs the opinions about the given conflicts and timestamps.

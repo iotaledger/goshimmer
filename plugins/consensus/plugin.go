@@ -4,6 +4,7 @@ import (
 	"net"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/packages/metrics"
@@ -209,6 +210,24 @@ func runFPC() {
 				if err := voter.Round(r); err != nil {
 					log.Warnf("unable to execute FPC round: %s", err)
 				}
+			case <-shutdownSignal:
+				break exit
+			}
+		}
+	}, shutdown.PriorityFPC); err != nil {
+		log.Panicf("Failed to start as daemon: %s", err)
+	}
+
+	if err := daemon.BackgroundWorker("StatementCleaner", func(shutdownSignal <-chan struct{}) {
+		log.Infof("Started Statement Cleaner")
+		defer log.Infof("Stopped Statement Cleaner")
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+	exit:
+		for {
+			select {
+			case <-ticker.C:
+				Registry().Clean(5 * time.Minute)
 			case <-shutdownSignal:
 				break exit
 			}
