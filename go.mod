@@ -12,7 +12,7 @@ require (
 	github.com/go-ole/go-ole v1.2.4 // indirect
 	github.com/golang/protobuf v1.4.3
 	github.com/gorilla/websocket v1.4.2
-	github.com/iotaledger/hive.go v0.0.0-20201130124921-93fbff1c0b91
+	github.com/iotaledger/hive.go v0.0.0-20201203083102-37a180bc2ff2
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0
 	github.com/magiconair/properties v1.8.1
