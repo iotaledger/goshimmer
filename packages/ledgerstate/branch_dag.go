@@ -1,12 +1,35 @@
 package ledgerstate
 
+import (
+	"github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/hive.go/cerrors"
+	"github.com/iotaledger/hive.go/datastructure/set"
+	"github.com/iotaledger/hive.go/kvstore"
+	"github.com/iotaledger/hive.go/objectstorage"
+	"github.com/iotaledger/hive.go/types"
+	"golang.org/x/xerrors"
+)
+
 type BranchDAG struct {
+	branchStorage *objectstorage.ObjectStorage
 }
 
-/*
+func NewBranchDAG(store kvstore.KVStore) (newBranchDAG *BranchDAG) {
+	osFactory := objectstorage.NewFactory(store, database.PrefixLedgerState)
+	newBranchDAG = &BranchDAG{
+		branchStorage: osFactory.New(PrefixBranchStorage, BranchFromObjectStorage, objectStorageOptions...),
+	}
+
+	return
+}
+
+func (b *BranchDAG) Branch(branchID BranchID) *CachedBranch {
+	return &CachedBranch{CachedObject: b.branchStorage.Load(branchID.Bytes())}
+}
+
 // ConflictBranches returns a unique list of conflict branches that the given branches represent.
 // It resolves the aggregated branches to their corresponding conflict branches.
-func (branchManager *BranchManager) ConflictBranches(branches ...MappedValue) (conflictBranches BranchIDs, err error) {
+func (b *BranchDAG) ConflictBranches(branches ...BranchID) (conflictBranches BranchIDs, err error) {
 	// initialize return variable
 	conflictBranches = make(BranchIDs)
 
@@ -14,26 +37,22 @@ func (branchManager *BranchManager) ConflictBranches(branches ...MappedValue) (c
 	seenBranches := set.New()
 	for _, branchID := range branches {
 		// abort if branch was processed already
-		if !seenBranches.AddMapping(branchID) {
+		if !seenBranches.Add(branchID) {
 			continue
 		}
 
 		// process branch or abort if it can not be found
-		if !branchManager.ConflictBranch(branchID).Consume(func(branch *ConflictBranch) {
-			// abort if the branch is not an aggregated branch
-			if !branch.IsAggregated() {
+		if !b.Branch(branchID).Consume(func(branch Branch) {
+			switch branch.Type() {
+			case ConflictBranchType:
 				conflictBranches[branch.ID()] = types.Void
-
-				return
-			}
-
-			// otherwise collect its parents
-			for _, parentBranchID := range branch.Parents() {
-				conflictBranches[parentBranchID] = types.Void
+			case AggregatedBranchType:
+				for parentBranchID := range branch.Parents() {
+					conflictBranches[parentBranchID] = types.Void
+				}
 			}
 		}) {
-			err = fmt.Errorf("error loading branch %v: %w", branchID, ErrBranchNotFound)
-
+			err = xerrors.Errorf("failed to load branch with %s: %w", branchID, cerrors.ErrFatal)
 			return
 		}
 	}
@@ -41,6 +60,7 @@ func (branchManager *BranchManager) ConflictBranches(branches ...MappedValue) (c
 	return
 }
 
+/*
 // NormalizeBranches checks if the branches are conflicting and removes superfluous ancestors.
 func (branchManager *BranchManager) NormalizeBranches(branches ...MappedValue) (normalizedBranches BranchIDs, err error) {
 	// retrieve conflict branches and abort if we either faced an error or are done

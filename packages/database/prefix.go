@@ -9,4 +9,6 @@ const (
 	PrefixMessageLayer
 	// PrefixValueTransfers defines the storage prefix for value transfer.
 	PrefixValueTransfers
+	// PrefixLedgerState defines the storage prefix for the ledgerstate package.
+	PrefixLedgerState
 )
