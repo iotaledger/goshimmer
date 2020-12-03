@@ -23,6 +23,46 @@ func NewBranchDAG(store kvstore.KVStore) (newBranchDAG *BranchDAG) {
 	return
 }
 
+func (b *BranchDAG) RegisterConflict(conflictingTransactionID TransactionID, conflictingInputs []OutputID, parentBranches BranchIDs) (cachedBranch *CachedBranch, newBranchCreated bool) {
+	// convert transaction models into branch models
+	branchID := NewBranchID(conflictingTransactionID)
+	conflictIDsSlice := make([]ConflictID, len(conflictingInputs))
+	for i, conflictingInput := range conflictingInputs {
+		conflictIDsSlice[i] = NewConflictID(conflictingInput)
+	}
+	conflictIDs := NewConflictIDs(conflictIDsSlice...)
+
+	// create or load the branch
+	cachedBranch = &CachedBranch{
+		CachedObject: b.branchStorage.ComputeIfAbsent(branchID.Bytes(),
+			func(key []byte) objectstorage.StorableObject {
+				newBranch := NewConflictBranch(branchID, parentBranches, conflictIDs)
+				newBranch.Persist()
+				newBranch.SetModified()
+
+				newBranchCreated = true
+
+				return newBranch
+			},
+		),
+	}
+
+	// create the referenced entities and references
+	cachedBranch.Retain().Consume(func(branch Branch) {
+		// store references from the parent branches to this new child branch (only once when the branch is created
+		// since updating the parents happens through ElevateConflictBranch and is only valid for conflict Branches)
+		if newBranchCreated {
+			for _, parentBranchID := range parentBranches {
+				if cachedChildBranch, stored := b.childBranchStorage.StoreIfAbsent(NewChildBranch(parentBranchID, branchID)); stored {
+					cachedChildBranch.Release()
+				}
+			}
+		}
+	})
+
+	return
+}
+
 func (b *BranchDAG) Branch(branchID BranchID) *CachedBranch {
 	return &CachedBranch{CachedObject: b.branchStorage.Load(branchID.Bytes())}
 }

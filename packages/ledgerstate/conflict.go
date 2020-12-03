@@ -92,9 +92,9 @@ func (c ConflictID) String() string {
 type ConflictIDs map[ConflictID]types.Empty
 
 // NewConflictIDs creates a new collection of ConflictIDs from the given list of ConflictIDs.
-func NewConflictIDs(branches ...ConflictID) (conflictIDs ConflictIDs) {
+func NewConflictIDs(optionalConflictIDs ...ConflictID) (conflictIDs ConflictIDs) {
 	conflictIDs = make(ConflictIDs)
-	for _, conflictID := range branches {
+	for _, conflictID := range optionalConflictIDs {
 		conflictIDs[conflictID] = types.Void
 	}
 
