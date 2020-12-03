@@ -1,13 +1,10 @@
 package consensus
 
 import (
-	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/packages/vote/statement"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	clockplugin "github.com/iotaledger/goshimmer/plugins/clock"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
 	"github.com/iotaledger/goshimmer/plugins/syncbeaconfollower"
-	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/node"
 )
 
@@ -31,11 +28,11 @@ func configureRemoteLogger() {
 	clockEnabled = !node.IsSkipped(clockplugin.Plugin())
 }
 
-func sendToRemoteLog(statement *statement.Statement, msgID *tangle.MessageID, issuerID identity.ID, issuedTime, arrivalTime, solidTime int64) {
+func sendToRemoteLog(msgID, issuerID string, issuedTime, arrivalTime, solidTime int64) {
 	m := statementLog{
 		NodeID:       myID,
-		MsgID:        msgID.String(),
-		IssuerID:     issuerID.String(),
+		MsgID:        msgID,
+		IssuerID:     issuerID,
 		IssuedTime:   issuedTime,
 		ArrivalTime:  arrivalTime,
 		SolidTime:    solidTime,
