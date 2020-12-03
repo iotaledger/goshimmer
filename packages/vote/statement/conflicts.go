@@ -13,7 +13,7 @@ import (
 
 const (
 	// ConflictLength defines the Conflict length in bytes.
-	ConflictLength = transaction.IDLength + OpinionLenght
+	ConflictLength = transaction.IDLength + OpinionLength
 )
 
 // region Conflict /////////////////////////////////////////////////////////////////////////////////////////////////////

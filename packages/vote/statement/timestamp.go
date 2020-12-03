@@ -13,7 +13,7 @@ import (
 
 const (
 	// TimestampLength defines the Timestamp length in bytes.
-	TimestampLength = tangle.MessageIDLength + OpinionLenght
+	TimestampLength = tangle.MessageIDLength + OpinionLength
 )
 
 // region Timestamp /////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	// OpinionLenght defines the opinion length in bytes.
-	OpinionLenght = 2
+	// OpinionLength defines the opinion length in bytes.
+	OpinionLength = 2
 )
 
 // region Opinion /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -26,7 +26,7 @@ type Opinion struct {
 
 // Bytes returns a marshaled version of the opinion.
 func (o Opinion) Bytes() (bytes []byte) {
-	bytes = make([]byte, OpinionLenght)
+	bytes = make([]byte, OpinionLength)
 
 	// initialize helper
 	marshalUtil := marshalutil.New(bytes)
@@ -68,8 +68,8 @@ func OpinionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result Opinio
 	}
 	// return the number of bytes we processed
 	parsedBytes := marshalUtil.ReadOffset() - readStartOffset
-	if parsedBytes != OpinionLenght {
-		err = xerrors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, OpinionLenght, cerrors.ErrParseBytesFailed)
+	if parsedBytes != OpinionLength {
+		err = xerrors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, OpinionLength, cerrors.ErrParseBytesFailed)
 		return
 	}
 
