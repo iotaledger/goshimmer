@@ -2,6 +2,8 @@ package vote
 
 import (
 	"context"
+
+	"github.com/iotaledger/hive.go/identity"
 )
 
 // OpinionGiver gives opinions about the given IDs.
@@ -10,7 +12,7 @@ type OpinionGiver interface {
 	// The passed in context can be used to signal cancellation of the query.
 	Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (Opinions, error)
 	// ID returns the ID of the opinion giver.
-	ID() string
+	ID() identity.ID
 }
 
 // QueriedOpinions represents queried opinions from a given opinion giver.

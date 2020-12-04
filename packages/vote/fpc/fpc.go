@@ -240,7 +240,7 @@ func (f *FPC) queryOpinions() ([]vote.QueriedOpinions, error) {
 			}
 
 			queriedOpinions := vote.QueriedOpinions{
-				OpinionGiverID: opinionGiverToQuery.ID(),
+				OpinionGiverID: opinionGiverToQuery.ID().String(),
 				Opinions:       make(map[string]vote.Opinion),
 				TimesCounted:   selectedCount,
 			}

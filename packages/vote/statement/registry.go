@@ -7,32 +7,26 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/vote"
+	"github.com/iotaledger/hive.go/identity"
 )
+
+// region Registry /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Registry holds the opinions of all the nodes.
 type Registry struct {
-	nodesView map[string]*View
+	nodesView map[identity.ID]*View
 	mu        sync.RWMutex
-}
-
-// View holds the node's opinion about conflicts and timestamps.
-type View struct {
-	NodeID     string
-	Conflicts  map[transaction.ID]Opinions
-	cMutex     sync.RWMutex
-	Timestamps map[tangle.MessageID]Opinions
-	tMutex     sync.RWMutex
 }
 
 // NewRegistry returns a new registry.
 func NewRegistry() *Registry {
 	return &Registry{
-		nodesView: make(map[string]*View),
+		nodesView: make(map[identity.ID]*View),
 	}
 }
 
 // NodeView returns the view of the given node, and adds a new view if not present.
-func (r *Registry) NodeView(id string) *View {
+func (r *Registry) NodeView(id identity.ID) *View {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -49,15 +43,29 @@ func (r *Registry) NodeView(id string) *View {
 
 // NodesView returns a slice of the views of all nodes.
 func (r *Registry) NodesView() []*View {
-	views := make([]*View, 0)
-
 	r.mu.RLock()
 	defer r.mu.RUnlock()
+
+	views := make([]*View, 0, len(r.nodesView))
+
 	for _, v := range r.nodesView {
 		views = append(views, v)
 	}
 
 	return views
+}
+
+// endregion /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region View /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// View holds the node's opinion about conflicts and timestamps.
+type View struct {
+	NodeID     identity.ID
+	Conflicts  map[transaction.ID]Opinions
+	cMutex     sync.RWMutex
+	Timestamps map[tangle.MessageID]Opinions
+	tMutex     sync.RWMutex
 }
 
 // AddConflict appends the given conflict to the given view.
@@ -73,6 +81,21 @@ func (v *View) AddConflict(c Conflict) {
 	v.Conflicts[c.ID] = append(v.Conflicts[c.ID], c.Opinion)
 }
 
+// AddConflicts appends the given conflicts to the given view.
+func (v *View) AddConflicts(conflicts Conflicts) {
+	v.cMutex.Lock()
+	defer v.cMutex.Unlock()
+
+	for _, c := range conflicts {
+		if _, ok := v.Conflicts[c.ID]; !ok {
+			v.Conflicts[c.ID] = Opinions{c.Opinion}
+			continue
+		}
+
+		v.Conflicts[c.ID] = append(v.Conflicts[c.ID], c.Opinion)
+	}
+}
+
 // AddTimestamp appends the given timestamp to the given view.
 func (v *View) AddTimestamp(t Timestamp) {
 	v.tMutex.Lock()
@@ -84,6 +107,21 @@ func (v *View) AddTimestamp(t Timestamp) {
 	}
 
 	v.Timestamps[t.ID] = append(v.Timestamps[t.ID], t.Opinion)
+}
+
+// AddTimestamps appends the given timestamps to the given view.
+func (v *View) AddTimestamps(timestamps Timestamps) {
+	v.tMutex.Lock()
+	defer v.tMutex.Unlock()
+
+	for _, t := range timestamps {
+		if _, ok := v.Timestamps[t.ID]; !ok {
+			v.Timestamps[t.ID] = Opinions{t.Opinion}
+			continue
+		}
+
+		v.Timestamps[t.ID] = append(v.Timestamps[t.ID], t.Opinion)
+	}
 }
 
 // ConflictOpinion returns the opinion history of a given transaction ID.
@@ -141,6 +179,8 @@ func (v *View) Query(ctx context.Context, conflictIDs []string, timestampIDs []s
 }
 
 // ID returns the nodeID of the given view.
-func (v *View) ID() string {
+func (v *View) ID() identity.ID {
 	return v.NodeID
 }
+
+// endregion /////////////////////////////////////////////////////////////////////////////////////////////////////

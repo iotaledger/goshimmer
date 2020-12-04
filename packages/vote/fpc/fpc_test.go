@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/packages/vote/fpc"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -64,8 +65,8 @@ type opiniongivermock struct {
 	roundIndex    int
 }
 
-func (ogm *opiniongivermock) ID() string {
-	return ""
+func (ogm *opiniongivermock) ID() identity.ID {
+	return identity.GenerateIdentity().ID()
 }
 
 func (ogm *opiniongivermock) Query(_ context.Context, _ []string, _ []string) (vote.Opinions, error) {
