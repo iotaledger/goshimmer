@@ -415,7 +415,7 @@ func ConflictMemberFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (confli
 // object storage. It is used by the object storage, to create new instances of this entity.
 func ConflictMemberFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
 	if result, _, err = ConflictMemberFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = xerrors.Errorf("failed to parse Branch from bytes: %w", err)
+		err = xerrors.Errorf("failed to parse ConflictMember from bytes: %w", err)
 		return
 	}
 
