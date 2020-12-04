@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/netutil"
@@ -55,7 +56,7 @@ func NewNeighbor(peer *peer.Peer, conn net.Conn, log *logger.Logger) *Neighbor {
 		log:                   log,
 		queue:                 make(chan []byte, neighborQueueSize),
 		closing:               make(chan struct{}),
-		connectionEstablished: time.Now(),
+		connectionEstablished: clock.SyncedTime(),
 	}
 }
 

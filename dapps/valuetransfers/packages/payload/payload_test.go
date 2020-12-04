@@ -3,7 +3,6 @@ package payload
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/stretchr/testify/assert"
@@ -12,6 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
@@ -50,7 +50,7 @@ func ExamplePayload() {
 		[]tangle.MessageID{},
 
 		// the time when the transaction was created
-		time.Now(),
+		clock.SyncedTime(),
 
 		// public key of the issuer
 		ed25519.PublicKey{},

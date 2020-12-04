@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/hive.go/events"
 )
@@ -25,7 +26,7 @@ func New(opinionGiverFunc vote.OpinionGiverFunc, paras ...*Parameters) *FPC {
 	f := &FPC{
 		opinionGiverFunc: opinionGiverFunc,
 		paras:            DefaultParameters(),
-		opinionGiverRng:  rand.New(rand.NewSource(time.Now().UnixNano())),
+		opinionGiverRng:  rand.New(rand.NewSource(clock.SyncedTime().UnixNano())),
 		ctxs:             make(map[string]*vote.Context),
 		queue:            list.New(),
 		queueSet:         make(map[string]struct{}),
@@ -100,7 +101,7 @@ func (f *FPC) Events() vote.Events {
 // Round enqueues new items, sets opinions on active vote contexts, finalizes them and then
 // queries for opinions.
 func (f *FPC) Round(rand float64) error {
-	start := time.Now()
+	start := clock.SyncedTime()
 	// enqueue new voting contexts
 	f.enqueue()
 	// we can only form opinions when the last round was actually executed successfully

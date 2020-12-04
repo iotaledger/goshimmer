@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
@@ -21,7 +22,7 @@ type MissingMessage struct {
 func NewMissingMessage(messageID MessageID) *MissingMessage {
 	return &MissingMessage{
 		messageID:    messageID,
-		missingSince: time.Now(),
+		missingSince: clock.SyncedTime(),
 	}
 }
 
