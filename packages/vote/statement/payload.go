@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
@@ -155,14 +154,19 @@ func (s *Statement) Bytes() (bytes []byte) {
 		return
 	}
 
-	conflictsCount := marshalutil.New().WriteUint32(s.ConflictsCount)
-	timestampsCount := marshalutil.New().WriteUint32(s.TimestampsCount)
+	payloadBytes := marshalutil.New().
+		WriteUint32(s.ConflictsCount).
+		Write(s.Conflicts).
+		WriteUint32(s.TimestampsCount).
+		Write(s.Timestamps).
+		Bytes()
 
-	payloadBytes := byteutils.ConcatBytes(StatementType.Bytes(), conflictsCount.Bytes(), s.Conflicts.Bytes(), timestampsCount.Bytes(), s.Timestamps.Bytes())
-	payloadBytesLength := len(payloadBytes) - marshalutil.Uint32Size
+	payloadBytesLength := len(payloadBytes)
 
-	return marshalutil.New(marshalutil.Uint32Size + payloadBytesLength).
+	// add uint32 for length and type
+	return marshalutil.New(2*marshalutil.Uint32Size + payloadBytesLength).
 		WriteUint32(uint32(payloadBytesLength)).
+		Write(StatementType).
 		WriteBytes(payloadBytes).
 		Bytes()
 }

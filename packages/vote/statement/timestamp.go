@@ -13,7 +13,7 @@ import (
 
 const (
 	// TimestampLength defines the Timestamp length in bytes.
-	TimestampLength = tangle.MessageIDLength + OpinionLenght
+	TimestampLength = tangle.MessageIDLength + OpinionLength
 )
 
 // region Timestamp /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -26,9 +26,7 @@ type Timestamp struct {
 
 // Bytes returns the timestamp statement encoded as bytes.
 func (t Timestamp) Bytes() (bytes []byte) {
-	bytes = make([]byte, TimestampLength)
-
-	return marshalutil.New(bytes).
+	return marshalutil.New(TimestampLength).
 		Write(t.ID).
 		Write(t.Opinion).
 		Bytes()
@@ -96,16 +94,14 @@ type Timestamps []Timestamp
 
 // Bytes returns the timestamps statements encoded as bytes.
 func (t Timestamps) Bytes() (bytes []byte) {
-	bytes = make([]byte, TimestampLength*len(t))
-
 	// initialize helper
-	marshalUtil := marshalutil.New(bytes)
+	marshalUtil := marshalutil.New(TimestampLength * len(t))
 
 	for _, timestamp := range t {
 		marshalUtil.Write(timestamp)
 	}
 
-	return bytes
+	return marshalUtil.Bytes()
 }
 
 // TimestampsFromBytes parses a slice of timestamp statements from a byte slice.
@@ -141,8 +137,8 @@ func TimestampsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil, n uint32) (
 
 	// return the number of bytes we processed
 	parsedBytes := marshalUtil.ReadOffset() - readStartOffset
-	if parsedBytes != int(ConflictLength*n) {
-		err = xerrors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, ConflictLength*n, cerrors.ErrParseBytesFailed)
+	if parsedBytes != int(TimestampLength*n) {
+		err = xerrors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, TimestampLength*n, cerrors.ErrParseBytesFailed)
 		return
 	}
 
