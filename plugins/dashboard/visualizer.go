@@ -17,10 +17,10 @@ var (
 
 // vertex defines a vertex in a DAG.
 type vertex struct {
-	ID        string `json:"id"`
-	Parent1ID string `json:"parent1_id"`
-	Parent2ID string `json:"parent2_id"`
-	IsSolid   bool   `json:"is_solid"`
+	ID              string   `json:"id"`
+	StrongParentIDs []string `json:"strongParentIDs"`
+	WeakParentIDs   []string `json:"weakParentIDs"`
+	IsSolid         bool     `json:"is_solid"`
 }
 
 // tipinfo holds information about whether a given message is a tip or not.
@@ -52,10 +52,10 @@ func sendVertex(cachedMessage *tangle.CachedMessage, cachedMessageMetadata *tang
 		return
 	}
 	broadcastWsMessage(&wsmsg{MsgTypeVertex, &vertex{
-		ID:        msg.ID().String(),
-		Parent1ID: msg.Parent1ID().String(),
-		Parent2ID: msg.Parent2ID().String(),
-		IsSolid:   cachedMessageMetadata.Unwrap().IsSolid(),
+		ID:              msg.ID().String(),
+		StrongParentIDs: msg.StrongParents().ToStrings(),
+		WeakParentIDs:   msg.WeakParents().ToStrings(),
+		IsSolid:         cachedMessageMetadata.Unwrap().IsSolid(),
 	}}, true)
 }
 

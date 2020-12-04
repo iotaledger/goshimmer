@@ -28,10 +28,10 @@ type ExplorerMessage struct {
 	IssuerPublicKey string `json:"issuer_public_key"`
 	// The signature of the message.
 	Signature string `json:"signature"`
-	// Parent1MessageId is the Parent1 ID of the message.
-	Parent1MessageID string `json:"parent1_message_id"`
-	// Parent2MessageId is the Parent2 ID of the message.
-	Parent2MessageID string `json:"parent2_message_id"`
+	// StrongParents are the strong parents (references) of the message.
+	StrongParents []string `json:"strongParents"`
+	// WeakParents are the weak parents (references) of the message.
+	WeakParents []string `json:"weakParents"`
 	// Solid defines the solid status of the message.
 	Solid bool `json:"solid"`
 	// PayloadType defines the type of the payload.
@@ -52,8 +52,8 @@ func createExplorerMessage(msg *tangle.Message) (*ExplorerMessage, error) {
 		IssuerPublicKey:         msg.IssuerPublicKey().String(),
 		Signature:               msg.Signature().String(),
 		SequenceNumber:          msg.SequenceNumber(),
-		Parent1MessageID:        msg.Parent1ID().String(),
-		Parent2MessageID:        msg.Parent2ID().String(),
+		StrongParents:           msg.StrongParents().ToStrings(),
+		WeakParents:             msg.WeakParents().ToStrings(),
 		Solid:                   cachedMessageMetadata.Unwrap().IsSolid(),
 		PayloadType:             uint32(msg.Payload().Type()),
 		Payload:                 ProcessPayload(msg.Payload()),

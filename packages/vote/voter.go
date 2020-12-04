@@ -15,7 +15,7 @@ var (
 // Voter votes on hashes.
 type Voter interface {
 	// Vote submits the given ID for voting with its initial Opinion.
-	Vote(id string, initOpn Opinion) error
+	Vote(id string, objectType ObjectType, initOpn Opinion) error
 	// IntermediateOpinion gets intermediate Opinion about the given ID.
 	IntermediateOpinion(id string) (Opinion, error)
 	// Events returns the Events instance of the given Voter.

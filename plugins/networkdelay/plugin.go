@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	clockPlugin "github.com/iotaledger/goshimmer/plugins/clock"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
@@ -16,6 +17,7 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/mr-tron/base58"
+	flag "github.com/spf13/pflag"
 )
 
 const (
@@ -45,6 +47,10 @@ var (
 	// clockEnabled defines if the clock plugin is enabled.
 	clockEnabled bool
 )
+
+func init() {
+	flag.String(CfgNetworkDelayOriginPublicKey, "9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd", "default issuer node public key")
+}
 
 // App gets the plugin instance.
 func App() *node.Plugin {
@@ -80,7 +86,7 @@ func configure(_ *node.Plugin) {
 	// subscribe to message-layer
 	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
 
-	clockEnabled = node.EnabledPlugins[node.GetPluginIdentifier("Clock")]
+	clockEnabled = !node.IsSkipped(clockPlugin.Plugin())
 }
 
 func onReceiveMessageFromMessageLayer(cachedMessageEvent *tangle.CachedMessageEvent) {

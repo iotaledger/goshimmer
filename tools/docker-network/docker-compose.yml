@@ -4,7 +4,7 @@ services:
  
   entry_node:
     container_name: entry_node
-    image: golang:1.14.4
+    image: golang:1.15.5
     stop_grace_period: 1m
     entrypoint: /go/bin/main
     command: >
@@ -22,7 +22,7 @@ services:
       --prometheus.bindAddress=0.0.0.0:9312
       --prometheus.processMetrics=false
       --node.enablePlugins=analysis-server,analysis-dashboard,prometheus
-      --node.disablePlugins=portcheck,clock,dashboard,analysis-client,gossip,drng,issuer,syncbeaconfollower,messagelayer,pow,valuetransfers,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
+      --node.disablePlugins=portcheck,clock,dashboard,analysis-client,gossip,drng,issuer,syncbeaconfollower,messagelayer,pow,valuetransfers,consensus,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
     volumes:
       - ./config.docker.json:/tmp/config.json:ro
       - goshimmer-cache:/go
@@ -34,7 +34,7 @@ services:
 
   peer_master:
     container_name: peer_master
-    image: golang:1.14.4
+    image: golang:1.15.5
     stop_grace_period: 1m
     entrypoint: /go/bin/main
     command: >
@@ -59,7 +59,7 @@ services:
       - entry_node
 
   peer_replica:
-    image: golang:1.14.4
+    image: golang:1.15.5
     stop_grace_period: 1m
     entrypoint: /go/bin/main
     command: >

@@ -196,7 +196,7 @@ jobs:
       - name: Pull additional Docker images
         run: |
           docker pull angelocapossele/drand:1.1.3
-          docker pull gaiaadm/pumba:latest
+          docker pull gaiaadm/pumba:0.7.2
           docker pull gaiadocker/iproute2:latest
 
       - name: Run integration tests
@@ -230,7 +230,7 @@ jobs:
       - name: Pull additional Docker images
         run: |
           docker pull angelocapossele/drand:1.1.3
-          docker pull gaiaadm/pumba:latest
+          docker pull gaiaadm/pumba:0.7.2
           docker pull gaiadocker/iproute2:latest
 
       - name: Run integration tests
@@ -264,7 +264,7 @@ jobs:
       - name: Pull additional Docker images
         run: |
           docker pull angelocapossele/drand:1.1.3
-          docker pull gaiaadm/pumba:latest
+          docker pull gaiaadm/pumba:0.7.2
           docker pull gaiadocker/iproute2:latest
 
       - name: Run integration tests

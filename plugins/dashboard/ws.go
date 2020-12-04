@@ -23,7 +23,7 @@ var (
 	webSocketWriteTimeout = time.Duration(3) * time.Second
 
 	// clients
-	wsClientsMu    sync.Mutex
+	wsClientsMu    sync.RWMutex
 	wsClients      = make(map[uint64]*wsclient)
 	nextWsClientID uint64
 
@@ -77,7 +77,7 @@ func registerWSClient() (uint64, *wsclient) {
 	defer wsClientsMu.Unlock()
 	clientID := nextWsClientID
 	wsClient := &wsclient{
-		channel: make(chan interface{}, 500),
+		channel: make(chan interface{}, 2000),
 		exit:    make(chan struct{}),
 	}
 	wsClients[clientID] = wsClient
@@ -87,18 +87,21 @@ func registerWSClient() (uint64, *wsclient) {
 
 // removes the websocket client with the given id.
 func removeWsClient(clientID uint64) {
-	wsClientsMu.Lock()
-	defer wsClientsMu.Unlock()
+	wsClientsMu.RLock()
 	wsClient := wsClients[clientID]
 	close(wsClient.exit)
-	close(wsClient.channel)
+	wsClientsMu.RUnlock()
+
+	wsClientsMu.Lock()
+	defer wsClientsMu.Unlock()
 	delete(wsClients, clientID)
+	close(wsClient.channel)
 }
 
 // broadcasts the given message to all connected websocket clients.
 func broadcastWsMessage(msg interface{}, dontDrop ...bool) {
-	wsClientsMu.Lock()
-	defer wsClientsMu.Unlock()
+	wsClientsMu.RLock()
+	defer wsClientsMu.RUnlock()
 	for _, wsClient := range wsClients {
 		if len(dontDrop) > 0 {
 			select {
