@@ -16,6 +16,7 @@ const (
 	// PrefixConflictStorage defines the storage prefix for the Conflict object storage.
 	PrefixConflictStorage
 
+	// PrefixConflictMemberStorage defines the storage prefix for the ConflictMember object storage.
 	PrefixConflictMemberStorage
 )
 
