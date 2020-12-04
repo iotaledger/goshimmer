@@ -1035,7 +1035,7 @@ func ChildBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (childBran
 // object storage. It is used by the object storage, to create new instances of this entity.
 func ChildBranchFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
 	if result, _, err = ChildBranchFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = xerrors.Errorf("failed to parse Branch from bytes: %w", err)
+		err = xerrors.Errorf("failed to parse ChildBranch from bytes: %w", err)
 		return
 	}
 

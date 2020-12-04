@@ -1,6 +1,9 @@
 package ledgerstate
 
 import (
+	"fmt"
+	"sync"
+
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/set"
@@ -14,16 +17,21 @@ import (
 // the Branches which represents containers for the different perceptions about the ledger state that exist in the
 // tangle.
 type BranchDAG struct {
-	branchStorage      *objectstorage.ObjectStorage
-	childBranchStorage *objectstorage.ObjectStorage
+	branchStorage         *objectstorage.ObjectStorage
+	childBranchStorage    *objectstorage.ObjectStorage
+	conflictStorage       *objectstorage.ObjectStorage
+	conflictMemberStorage *objectstorage.ObjectStorage
+	shutdownOnce          sync.Once
 }
 
 // NewBranchDAG returns a new BranchDAG instance that stores its state in the given KVStore.
 func NewBranchDAG(store kvstore.KVStore) (newBranchDAG *BranchDAG) {
 	osFactory := objectstorage.NewFactory(store, database.PrefixLedgerState)
 	newBranchDAG = &BranchDAG{
-		branchStorage:      osFactory.New(PrefixBranchStorage, BranchFromObjectStorage, branchStorageOptions...),
-		childBranchStorage: osFactory.New(PrefixChildBranchStorage, ChildBranchFromObjectStorage, childBranchStorageOptions...),
+		branchStorage:         osFactory.New(PrefixBranchStorage, BranchFromObjectStorage, branchStorageOptions...),
+		childBranchStorage:    osFactory.New(PrefixChildBranchStorage, ChildBranchFromObjectStorage, childBranchStorageOptions...),
+		conflictStorage:       osFactory.New(PrefixConflictStorage, ConflictFromObjectStorage, conflictStorageOptions...),
+		conflictMemberStorage: osFactory.New(PrefixConflictMemberStorage, ConflictMemberFromObjectStorage, conflictMemberStorageOptions...),
 	}
 
 	return
@@ -54,19 +62,39 @@ func (b *BranchDAG) ConflictBranch(conflictingTransactionID TransactionID, confl
 			},
 		),
 	}
+	branch := cachedBranch.Unwrap()
+	if branch == nil {
+		panic(fmt.Sprintf("failed to load branch with %s", branchID))
+	}
 
-	// create the referenced entities and references
-	cachedBranch.Retain().Consume(func(branch Branch) {
-		// store references from the parent branches to this new child branch (only once when the branch is created
-		// since updating the parents happens through ElevateConflictBranch and is only valid for conflict Branches)
-		if newBranchCreated {
-			for parentBranchID := range parentBranches {
-				if cachedChildBranch, stored := b.childBranchStorage.StoreIfAbsent(NewChildBranch(parentBranchID, branchID)); stored {
-					cachedChildBranch.Release()
-				}
+	// type cast to ConflictBranch
+	conflictBranch, typeCastOK := branch.(*ConflictBranch)
+	if !typeCastOK {
+		panic(fmt.Sprintf("failed to type cast Branch with %s to ConflictBranch", branchID))
+	}
+
+	// register references
+	switch true {
+	case newBranchCreated:
+		// store child references
+		for parentBranchID := range parentBranches {
+			if cachedChildBranch, stored := b.childBranchStorage.StoreIfAbsent(NewChildBranch(parentBranchID, branchID)); stored {
+				cachedChildBranch.Release()
 			}
 		}
-	})
+
+		// store ConflictMember references
+		for conflictID := range conflictIDs {
+			b.registerConflictMember(conflictID, branchID)
+		}
+	default:
+		// store new ConflictMember references
+		for conflictID := range conflictIDs {
+			if conflictBranch.AddConflict(conflictID) {
+				b.registerConflictMember(conflictID, branchID)
+			}
+		}
+	}
 
 	return
 }
@@ -107,6 +135,32 @@ func (b *BranchDAG) ConflictBranches(branches ...BranchID) (conflictBranches Bra
 	}
 
 	return
+}
+
+// Shutdown shuts down the BranchDAG and persists its state.
+func (b *BranchDAG) Shutdown() {
+	b.shutdownOnce.Do(func() {
+		b.branchStorage.Shutdown()
+		b.childBranchStorage.Shutdown()
+	})
+}
+
+// registerConflictMember is an internal utility function that creates the ConflictMember references of a Branch belong
+// to a given Conflict. It automatically creates the Conflict if it doesn't exist, yet.
+func (b *BranchDAG) registerConflictMember(conflictID ConflictID, branchID BranchID) {
+	(&CachedConflict{CachedObject: b.conflictStorage.ComputeIfAbsent(conflictID.Bytes(), func(key []byte) objectstorage.StorableObject {
+		newConflict := NewConflict(conflictID)
+		newConflict.Persist()
+		newConflict.SetModified()
+
+		return newConflict
+	})}).Consume(func(conflict *Conflict) {
+		if cachedConflictMember, stored := b.conflictMemberStorage.StoreIfAbsent(NewConflictMember(conflictID, branchID)); stored {
+			conflict.IncreaseMemberCount()
+
+			cachedConflictMember.Release()
+		}
+	})
 }
 
 /*

@@ -384,6 +384,44 @@ func NewConflictMember(conflictID ConflictID, branchID BranchID) *ConflictMember
 	}
 }
 
+// ConflictMemberFromBytes unmarshals a ConflictMember from a sequence of bytes.
+func ConflictMemberFromBytes(bytes []byte) (conflictMember *ConflictMember, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(bytes)
+	if conflictMember, err = ConflictMemberFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse ConflictMember from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// ConflictMemberFromMarshalUtil unmarshals an ConflictMember using a MarshalUtil (for easier unmarshaling).
+func ConflictMemberFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictMember *ConflictMember, err error) {
+	conflictMember = &ConflictMember{}
+	if conflictMember.conflictID, err = ConflictIDFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse ConflictID from MarshalUtil: %w", err)
+		return
+	}
+	if conflictMember.branchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse BranchID: %w", err)
+		return
+	}
+
+	return
+}
+
+// ConflictMemberFromObjectStorage is a factory method that creates a new ConflictMember instance from a storage key of the
+// object storage. It is used by the object storage, to create new instances of this entity.
+func ConflictMemberFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
+	if result, _, err = ConflictMemberFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
+		err = xerrors.Errorf("failed to parse Branch from bytes: %w", err)
+		return
+	}
+
+	return
+}
+
 // ConflictID returns the identifier of the Conflict that this ConflictMember belongs to.
 func (c *ConflictMember) ConflictID() ConflictID {
 	return c.conflictID
