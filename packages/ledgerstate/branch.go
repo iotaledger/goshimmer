@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
@@ -277,7 +278,7 @@ type Branch interface {
 	// String returns a human readable version of the Branch.
 	String() string
 
-	// StorableObject enables the Branch to be stored in the ObjectStorage.
+	// StorableObject enables the Branch to be stored in the object storage.
 	objectstorage.StorableObject
 }
 
@@ -320,7 +321,7 @@ func BranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branch Branch,
 	return
 }
 
-// BranchFromObjectStorage restores a Branch that was stored in the ObjectStorage.
+// BranchFromObjectStorage restores a Branch that was stored in the object storage.
 func BranchFromObjectStorage(_ []byte, data []byte) (branch objectstorage.StorableObject, err error) {
 	if branch, _, err = BranchFromBytes(data); err != nil {
 		err = xerrors.Errorf("failed to parse Branch from bytes: %w", err)
@@ -672,7 +673,7 @@ func (c *ConflictBranch) ObjectStorageKey() []byte {
 }
 
 // ObjectStorageValue marshals the ConflictBranch into a sequence of bytes that are used as the value part in the
-// ObjectStorage.
+// object storage.
 func (c *ConflictBranch) ObjectStorageValue() []byte {
 	return marshalutil.New().
 		WriteByte(byte(c.Type())).
@@ -961,7 +962,7 @@ func (a *AggregatedBranch) ObjectStorageKey() []byte {
 }
 
 // ObjectStorageValue marshals the AggregatedBranch into a sequence of bytes that are used as the value part in the
-// ObjectStorage.
+// object storage.
 func (a *AggregatedBranch) ObjectStorageValue() []byte {
 	return marshalutil.New().
 		WriteByte(byte(a.Type())).
@@ -977,5 +978,114 @@ func (a *AggregatedBranch) ObjectStorageValue() []byte {
 
 // code contract (make sure the struct implements all required methods)
 var _ Branch = &AggregatedBranch{}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region ChildBranch //////////////////////////////////////////////////////////////////////////////////////////////////
+
+// ChildBranchKeyPartition defines the partition of the storage key of the ChildBranch model.
+var ChildBranchKeyPartition = objectstorage.PartitionKey(BranchIDLength, BranchIDLength)
+
+// ChildBranch represents the relationship between a Branch and its children. Since a Branch can have a potentially
+// unbounded amount of child Branches, we store this as a separate k/v pair instead of a marshaled list of children
+// inside the Branch.
+type ChildBranch struct {
+	parentBranchID BranchID
+	childBranchID  BranchID
+
+	objectstorage.StorableObjectFlags
+}
+
+// NewChildBranch is the constructor of the ChildBranch reference.
+func NewChildBranch(parentBranchID BranchID, childBranchID BranchID) *ChildBranch {
+	return &ChildBranch{
+		parentBranchID: parentBranchID,
+		childBranchID:  childBranchID,
+	}
+}
+
+// ChildBranchFromBytes unmarshals a ChildBranch from a sequence of bytes.
+func ChildBranchFromBytes(bytes []byte) (childBranch *ChildBranch, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(bytes)
+	if childBranch, err = ChildBranchFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse ChildBranch from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// ChildBranchFromMarshalUtil unmarshals an ChildBranch using a MarshalUtil (for easier unmarshaling).
+func ChildBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (childBranch *ChildBranch, err error) {
+	childBranch = &ChildBranch{}
+	if childBranch.parentBranchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse parent BranchID from MarshalUtil: %w", err)
+		return
+	}
+	if childBranch.childBranchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse child BranchID: %w", err)
+		return
+	}
+
+	return
+}
+
+// ChildBranchFromObjectStorage is a factory method that creates a new ChildBranch instance from a storage key of the
+// object storage. It is used by the object storage, to create new instances of this entity.
+func ChildBranchFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
+	if result, _, err = ChildBranchFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
+		err = xerrors.Errorf("failed to parse Branch from bytes: %w", err)
+		return
+	}
+
+	return
+}
+
+// ParentBranchID returns the BranchID of the parent Branch in the BranchDAG.
+func (c *ChildBranch) ParentBranchID() (parentBranchID BranchID) {
+	return c.parentBranchID
+}
+
+// ChildBranchID returns the BranchID of the child Branch in the BranchDAG.
+func (c *ChildBranch) ChildBranchID() (childBranchID BranchID) {
+	return c.childBranchID
+}
+
+// Bytes returns a marshaled version of the ChildBranch.
+func (c *ChildBranch) Bytes() (marshaledChildBranch []byte) {
+	return c.ObjectStorageKey()
+}
+
+// String returns a human readable version of the ChildBranch.
+func (c *ChildBranch) String() (humanReadableChildBranch string) {
+	return stringify.Struct("ChildBranch",
+		stringify.StructField("parentBranchID", c.ParentBranchID()),
+		stringify.StructField("childBranchID", c.ChildBranchID()),
+	)
+}
+
+// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
+func (c *ChildBranch) Update(objectstorage.StorableObject) {
+	panic("updates disabled")
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (c *ChildBranch) ObjectStorageKey() (objectStorageKey []byte) {
+	return marshalutil.New(ConflictIDLength + BranchIDLength).
+		WriteBytes(c.parentBranchID.Bytes()).
+		WriteBytes(c.childBranchID.Bytes()).
+		Bytes()
+}
+
+// ObjectStorageValue marshals the AggregatedBranch into a sequence of bytes that are used as the value part in the
+// object storage.
+func (c *ChildBranch) ObjectStorageValue() (objectStorageValue []byte) {
+	return nil
+}
+
+// code contract (make sure the struct implements all required methods)
+var _ objectstorage.StorableObject = &ChildBranch{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
