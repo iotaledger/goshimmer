@@ -1,8 +1,6 @@
 package dashboard
 
 import (
-	"time"
-
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -26,17 +24,10 @@ func configureLiveFeed() {
 }
 
 func runLiveFeed() {
-	newMsgRateLimiter := time.NewTicker(time.Second / 10)
 	notifyNewMsg := events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
 		cachedMsgEvent.MessageMetadata.Release()
-
-		select {
-		case <-newMsgRateLimiter.C:
-			_, ok := liveFeedWorkerPool.TrySubmit(cachedMsgEvent.Message)
-			if !ok {
-				cachedMsgEvent.Message.Release()
-			}
-		default:
+		_, ok := liveFeedWorkerPool.TrySubmit(cachedMsgEvent.Message)
+		if !ok {
 			cachedMsgEvent.Message.Release()
 		}
 	})
