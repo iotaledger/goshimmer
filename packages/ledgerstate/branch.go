@@ -6,7 +6,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
@@ -1033,8 +1032,8 @@ func ChildBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (childBran
 
 // ChildBranchFromObjectStorage is a factory method that creates a new ChildBranch instance from a storage key of the
 // object storage. It is used by the object storage, to create new instances of this entity.
-func ChildBranchFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
-	if result, _, err = ChildBranchFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
+func ChildBranchFromObjectStorage(key []byte, _ []byte) (result objectstorage.StorableObject, err error) {
+	if result, _, err = ChildBranchFromBytes(key); err != nil {
 		err = xerrors.Errorf("failed to parse ChildBranch from bytes: %w", err)
 		return
 	}
