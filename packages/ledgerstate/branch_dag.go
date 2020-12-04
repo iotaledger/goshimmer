@@ -10,11 +10,15 @@ import (
 	"golang.org/x/xerrors"
 )
 
+// BranchDAG represents the DAG of Branches which contains the business logic to manage the creation and maintenance of
+// the Branches which represents containers for the different perceptions about the ledger state that exist in the
+// tangle.
 type BranchDAG struct {
 	branchStorage      *objectstorage.ObjectStorage
 	childBranchStorage *objectstorage.ObjectStorage
 }
 
+// NewBranchDAG returns a new BranchDAG instance that stores its state in the given KVStore.
 func NewBranchDAG(store kvstore.KVStore) (newBranchDAG *BranchDAG) {
 	osFactory := objectstorage.NewFactory(store, database.PrefixLedgerState)
 	newBranchDAG = &BranchDAG{
@@ -25,6 +29,8 @@ func NewBranchDAG(store kvstore.KVStore) (newBranchDAG *BranchDAG) {
 	return
 }
 
+// ConflictBranch fetches the ConflictBranch that corresponds to the given details. It automatically creates and updates
+// the ConflictBranch according to the new details if necessary.
 func (b *BranchDAG) ConflictBranch(conflictingTransactionID TransactionID, conflictingInputs []OutputID, parentBranches BranchIDs) (cachedBranch *CachedBranch, newBranchCreated bool) {
 	// convert transaction models into branch models
 	branchID := NewBranchID(conflictingTransactionID)
@@ -65,12 +71,13 @@ func (b *BranchDAG) ConflictBranch(conflictingTransactionID TransactionID, confl
 	return
 }
 
+// Branch retrieves the Branch with the given BranchID from the object storage.
 func (b *BranchDAG) Branch(branchID BranchID) *CachedBranch {
 	return &CachedBranch{CachedObject: b.branchStorage.Load(branchID.Bytes())}
 }
 
-// ConflictBranches returns a unique list of conflict branches that the given branches represent.
-// It resolves the aggregated branches to their corresponding conflict branches.
+// ConflictBranches returns a unique list of conflict branches that the given BranchIDs represent by resolving
+// AggregatedBranches to their corresponding ConflictBranches.
 func (b *BranchDAG) ConflictBranches(branches ...BranchID) (conflictBranches BranchIDs, err error) {
 	// initialize return variable
 	conflictBranches = make(BranchIDs)
