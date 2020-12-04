@@ -18,8 +18,8 @@ type BranchDAG struct {
 func NewBranchDAG(store kvstore.KVStore) (newBranchDAG *BranchDAG) {
 	osFactory := objectstorage.NewFactory(store, database.PrefixLedgerState)
 	newBranchDAG = &BranchDAG{
-		branchStorage:      osFactory.New(PrefixBranchStorage, BranchFromObjectStorage, objectStorageOptions...),
-		childBranchStorage: osFactory.New(PrefixChildBranchStorage, ChildBranchFromObjectStorage, objectStorageOptions...),
+		branchStorage:      osFactory.New(PrefixBranchStorage, BranchFromObjectStorage, branchStorageOptions...),
+		childBranchStorage: osFactory.New(PrefixChildBranchStorage, ChildBranchFromObjectStorage, childBranchStorageOptions...),
 	}
 
 	return
