@@ -51,6 +51,9 @@ func (n *DRNGNetwork) CreatePeer(c GoShimmerConfig, publicKey ed25519.PublicKey)
 	if config.SyncBeaconBroadcastInterval == 0 {
 		config.SyncBeaconBroadcastInterval = 5
 	}
+	if config.FPCRoundInterval == 0 {
+		config.FPCRoundInterval = 5
+	}
 
 	// create Docker container
 	container := NewDockerContainer(n.network.dockerClient)

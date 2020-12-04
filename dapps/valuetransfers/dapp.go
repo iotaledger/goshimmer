@@ -13,7 +13,6 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -57,7 +56,8 @@ var (
 	tangleOnce sync.Once
 
 	// fcob contains the fcob consensus logic.
-	fcob *consensus.FCOB
+	fcob     *consensus.FCOB
+	fcobOnce sync.Once
 
 	// ledgerState represents the ledger state, that keeps track of the liked branches and offers an API to access funds.
 	ledgerState *valuetangle.LedgerState
@@ -92,6 +92,12 @@ func Tangle() *valuetangle.Tangle {
 // FCOB gets the fcob instance.
 // fcob contains the fcob consensus logic.
 func FCOB() *consensus.FCOB {
+	fcobOnce.Do(func() {
+		// configure FCOB consensus rules
+		cfgAvgNetworkDelay := config.Node().Int(CfgValueLayerFCOBAverageNetworkDelay)
+		log.Infof("avg. network delay configured to %d seconds", cfgAvgNetworkDelay)
+		fcob = consensus.NewFCOB(_tangle, time.Duration(cfgAvgNetworkDelay)*time.Second)
+	})
 	return fcob
 }
 
@@ -139,29 +145,6 @@ func configure(_ *node.Plugin) {
 		cachedPayloadEvent.Payload.Consume(tipManager.AddTip)
 	}))
 
-	// configure FCOB consensus rules
-	cfgAvgNetworkDelay := config.Node().Int(CfgValueLayerFCOBAverageNetworkDelay)
-	log.Infof("avg. network delay configured to %d seconds", cfgAvgNetworkDelay)
-	fcob = consensus.NewFCOB(_tangle, time.Duration(cfgAvgNetworkDelay)*time.Second)
-	fcob.Events.Vote.Attach(events.NewClosure(func(id string, initOpn vote.Opinion) {
-		if err := voter.Vote(id, initOpn); err != nil {
-			log.Warnf("FPC vote: %s", err)
-		}
-	}))
-	fcob.Events.Error.Attach(events.NewClosure(func(err error) {
-		log.Errorf("FCOB error: %s", err)
-	}))
-
-	// configure FPC + link to consensus
-	configureFPC()
-	voter.Events().Finalized.Attach(events.NewClosure(fcob.ProcessVoteResult))
-	voter.Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
-		log.Infof("FPC finalized for transaction with id '%s' - final opinion: '%s'", ev.ID, ev.Opinion)
-	}))
-	voter.Events().Failed.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
-		log.Warnf("FPC failed for transaction with id '%s' - last opinion: '%s'", ev.ID, ev.Opinion)
-	}))
-
 	// register SignatureFilter in Parser
 	messagelayer.MessageParser().AddMessageFilter(valuetangle.NewSignatureFilter())
 
@@ -178,8 +161,6 @@ func run(*node.Plugin) {
 	}, shutdown.PriorityTangle); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
-
-	runFPC()
 }
 
 func onReceiveMessageFromMessageLayer(cachedMessageEvent *tangle.CachedMessageEvent) {

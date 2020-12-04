@@ -21,9 +21,11 @@ func handleRequest(c echo.Context) error {
 
 		messageSpammer.Shutdown()
 		messageSpammer.Start(request.MPM, time.Minute)
+		log.Infof("Started spamming messages with %d MPM", request.MPM)
 		return c.JSON(http.StatusOK, Response{Message: "started spamming messages"})
 	case "stop":
 		messageSpammer.Shutdown()
+		log.Info("Stopped spamming messages")
 		return c.JSON(http.StatusOK, Response{Message: "stopped spamming messages"})
 	default:
 		return c.JSON(http.StatusBadRequest, Response{Error: "invalid cmd in request"})
