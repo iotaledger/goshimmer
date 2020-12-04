@@ -114,6 +114,7 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 			fmt.Sprintf("--autopeering.entryNodes=%s@%s:14626", config.EntryNodePublicKey, config.EntryNodeHost),
 			fmt.Sprintf("--fpc.roundInterval=%d", config.FPCRoundInterval),
 			fmt.Sprintf("--fpc.listen=%v", config.FPCListen),
+			fmt.Sprintf("--statement.writeStatement=%v", config.WriteStatement),
 			fmt.Sprintf("--statement.waitForStatement=%d", config.WaitForStatement),
 			fmt.Sprintf("--drng.custom.instanceId=%d", config.DRNGInstance),
 			fmt.Sprintf("--drng.custom.threshold=%d", config.DRNGThreshold),
