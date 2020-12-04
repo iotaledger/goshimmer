@@ -43,23 +43,11 @@ func (x *QueryRequest) Reset() {
 	}
 }
 
-func (m *QueryRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_QueryRequest.Unmarshal(m, b)
-}
-func (m *QueryRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_QueryRequest.Marshal(b, m, deterministic)
-}
-func (m *QueryRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_QueryRequest.Merge(m, src)
-}
-func (m *QueryRequest) XXX_Size() int {
-	return xxx_messageInfo_QueryRequest.Size(m)
-}
-func (m *QueryRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_QueryRequest.DiscardUnknown(m)
+func (x *QueryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
 }
 
-var xxx_messageInfo_QueryRequest proto.InternalMessageInfo
+func (*QueryRequest) ProtoMessage() {}
 
 func (x *QueryRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_packages_vote_net_query_proto_msgTypes[0]
@@ -93,10 +81,11 @@ func (x *QueryRequest) GetTimestampIDs() []string {
 }
 
 type QueryReply struct {
-	Opinion              []int32  `protobuf:"varint,1,rep,packed,name=opinion,proto3" json:"opinion,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Opinion []int32 `protobuf:"varint,1,rep,packed,name=opinion,proto3" json:"opinion,omitempty"`
 }
 
 func (x *QueryReply) Reset() {
@@ -108,8 +97,8 @@ func (x *QueryReply) Reset() {
 	}
 }
 
-func (m *QueryReply) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_QueryReply.Unmarshal(m, b)
+func (x *QueryReply) String() string {
+	return protoimpl.X.MessageStringOf(x)
 }
 
 func (*QueryReply) ProtoMessage() {}
@@ -130,8 +119,12 @@ func (x *QueryReply) ProtoReflect() protoreflect.Message {
 func (*QueryReply) Descriptor() ([]byte, []int) {
 	return file_packages_vote_net_query_proto_rawDescGZIP(), []int{1}
 }
-func (m *QueryReply) XXX_Size() int {
-	return xxx_messageInfo_QueryReply.Size(m)
+
+func (x *QueryReply) GetOpinion() []int32 {
+	if x != nil {
+		return x.Opinion
+	}
+	return nil
 }
 
 var File_packages_vote_net_query_proto protoreflect.FileDescriptor

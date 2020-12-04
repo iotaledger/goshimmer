@@ -110,7 +110,7 @@ func ProcessPayload(p payload.Payload) interface{} {
 		}
 	case valuepayload.Type:
 		return processValuePayload(p)
-	case statement.Type:
+	case statement.StatementType:
 		return processStatementPayload(p)
 	case faucet.Type:
 		// faucet payload
@@ -225,7 +225,7 @@ func processValuePayload(p payload.Payload) (vp ValuePayload) {
 }
 
 func processStatementPayload(p payload.Payload) (sp StatementPayload) {
-	tmp := p.(*statement.Payload)
+	tmp := p.(*statement.Statement)
 
 	for _, c := range tmp.Conflicts {
 		sc := Conflict{
