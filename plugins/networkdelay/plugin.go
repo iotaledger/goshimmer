@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	clockPlugin "github.com/iotaledger/goshimmer/plugins/clock"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
@@ -85,7 +86,7 @@ func configure(_ *node.Plugin) {
 	// subscribe to message-layer
 	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
 
-	clockEnabled = node.EnabledPlugins[node.GetPluginIdentifier("Clock")]
+	clockEnabled = !node.IsSkipped(clockPlugin.Plugin())
 }
 
 func onReceiveMessageFromMessageLayer(cachedMessageEvent *tangle.CachedMessageEvent) {

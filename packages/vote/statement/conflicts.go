@@ -13,7 +13,7 @@ import (
 
 const (
 	// ConflictLength defines the Conflict length in bytes.
-	ConflictLength = transaction.IDLength + OpinionLenght
+	ConflictLength = transaction.IDLength + OpinionLength
 )
 
 // region Conflict /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -26,9 +26,7 @@ type Conflict struct {
 
 // Bytes returns the conflict statement encoded as bytes.
 func (c Conflict) Bytes() (bytes []byte) {
-	bytes = make([]byte, ConflictLength)
-
-	return marshalutil.New(bytes).
+	return marshalutil.New(ConflictLength).
 		Write(c.ID).
 		Write(c.Opinion).
 		Bytes()
@@ -96,16 +94,14 @@ type Conflicts []Conflict
 
 // Bytes returns the conflicts statements encoded as bytes.
 func (c Conflicts) Bytes() (bytes []byte) {
-	bytes = make([]byte, ConflictLength*len(c))
-
 	// initialize helper
-	marshalUtil := marshalutil.New(bytes)
+	marshalUtil := marshalutil.New(ConflictLength * len(c))
 
 	for _, conflict := range c {
 		marshalUtil.Write(conflict)
 	}
 
-	return bytes
+	return marshalUtil.Bytes()
 }
 
 // String returns a human readable version of the Conflicts.

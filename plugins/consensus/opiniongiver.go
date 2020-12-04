@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	votenet "github.com/iotaledger/goshimmer/packages/vote/net"
@@ -17,6 +16,7 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/identity"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 )
 
 // region OpinionGivers /////////////////////////////////////////////////////////////////////////////////////////////////////

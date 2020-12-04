@@ -37,6 +37,7 @@ type VoterServer struct {
 	netRxEvent         *events.Event
 	netTxEvent         *events.Event
 	queryReceivedEvent *events.Event
+	UnimplementedVoterQueryServer
 }
 
 // Opinion replies the query request with an opinion and triggers the events.
