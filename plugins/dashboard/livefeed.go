@@ -38,7 +38,6 @@ func runLiveFeed() {
 		<-shutdownSignal
 		log.Info("Stopping Dashboard[MsgUpdater] ...")
 		messagelayer.Tangle().Events.MessageAttached.Detach(notifyNewMsg)
-		newMsgRateLimiter.Stop()
 		liveFeedWorkerPool.Stop()
 		log.Info("Stopping Dashboard[MsgUpdater] ... done")
 	}, shutdown.PriorityDashboard); err != nil {
