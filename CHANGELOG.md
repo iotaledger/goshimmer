@@ -1,3 +1,39 @@
+# v0.3.1 - 2020-11-13
+* Refactor message structure according to the new Tangle RFC: 
+    * add support for multiple parents
+    * update local dashboard
+    * new unit tests
+    * max payload size changed to 65157 bytes
+* Add community-based entry node.
+* Add commit tag to version.
+* Add package for common sentinel errors.
+* Improve dashboard websocket management.
+* Integrate NTP-based clock to the network delay app.
+* Switch from packer to pkger to pack dashboard.
+* Switch from Viper to koanf as core library for configuration.
+* Fix Value Tangle tip selection management.
+* Fix mps query label in grafana.
+* Fix potential race condition within the clock package.
+* Upgrade to latest hive.go
+* Upgrade NodeJS dependencies of the dashboard.
+* **Breaking**: bumps network and database versions
+
+# v0.3.0 - 2020-10-12
+* Added multiple dRNG committees support: Pollen, X-Team and Custom.
+* Added clock synchronization plugin via NTP.
+* Added basic codeQL analysis pipeline for common vulnerability scanning.
+* Added basic HTTP authentication.
+* Changed payload layout to be more similar to the one specified for Chrysalis phase 2.
+* Improved rand-seed tool by writing its output to a file.
+* Improved the Docker network by making MongoDB, Grafana and Prometheus optional so that startup/shutdown times are low when not needed.
+* Upgraded to the latest hive.go.
+* Upgraded NodeJS dependencies of the dashboard.
+* Fixed several security issues.
+* Refactored the entire code base to make its package structure flat and more consistent with Hornet.
+* Moved data structures to hive.go 
+* Removed JWT authentication due to security issues of the package dgrijalva/jwt-go
+* **Breaking**: bumps network and database versions
+
 # v0.2.4 - 2020-09-03
 * Fixes race condition that was preventing the deletion of some entries from missing messages.
 * Improves the Tangle-BadgerDB interaction.

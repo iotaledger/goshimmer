@@ -67,7 +67,7 @@ func Selection() *selection.Protocol {
 // BindAddress returns the string form of the autopeering bind address.
 func BindAddress() string {
 	peering := local.GetInstance().Services().Get(service.PeeringKey)
-	host := config.Node().GetString(local.CfgBind)
+	host := config.Node().String(local.CfgBind)
 	port := strconv.Itoa(peering.Port())
 	return net.JoinHostPort(host, port)
 }
@@ -164,7 +164,7 @@ func start(shutdownSignal <-chan struct{}) {
 }
 
 func parseEntryNodes() (result []*peer.Peer, err error) {
-	for _, entryNodeDefinition := range config.Node().GetStringSlice(CfgEntryNodes) {
+	for _, entryNodeDefinition := range config.Node().Strings(CfgEntryNodes) {
 		if entryNodeDefinition == "" {
 			continue
 		}

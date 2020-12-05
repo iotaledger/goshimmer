@@ -1,6 +1,15 @@
 import {action, computed, observable} from 'mobx';
 import {registerHandler, WSMsgType} from "app/misc/WS";
-import {BasicPayload, DrngCbPayload, DrngPayload, DrngSubtype, PayloadType, ValuePayload, SyncBeaconPayload} from "app/misc/Payload";
+import {
+    BasicPayload,
+    DrngCbPayload,
+    DrngPayload,
+    DrngSubtype,
+    PayloadType,
+    ValuePayload,
+    SyncBeaconPayload,
+    getPayloadType
+} from "app/misc/Payload";
 import * as React from "react";
 import {Link} from 'react-router-dom';
 import {RouterStore} from "mobx-react-router";
@@ -14,8 +23,8 @@ export class Message {
     sequence_number: number;
     issuer_public_key: string;
     signature: string;
-    parent1_message_id: string;
-    parent2_message_id: string;
+    strongParents: Array<string>;
+    weakParents: Array<string>;
     solid: boolean;
     payload_type: number;
     payload: any;
@@ -54,6 +63,7 @@ class SearchResult {
 
 class MessageRef {
     id: string;
+    payload_type: number;
 }
 
 const liveFeedSize = 50;
@@ -231,11 +241,14 @@ export class ExplorerStore {
         for (let i = this.latest_messages.length - 1; i >= 0; i--) {
             let msg = this.latest_messages[i];
             feed.push(
-                <tr key={msg.id} style={{'display':'block'}}>
-                    <td style={{'display':'block'}}>
+                <tr key={msg.id}>
+                    <td>
                         <Link to={`/explorer/message/${msg.id}`}>
                             {msg.id.substr(0, 35)}
                         </Link>
+                    </td>
+                    <td>
+                        {getPayloadType(msg.payload_type)}
                     </td>
                 </tr>
             );

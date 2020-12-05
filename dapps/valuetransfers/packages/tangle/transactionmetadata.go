@@ -1,11 +1,14 @@
 package tangle
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
@@ -46,56 +49,70 @@ func NewTransactionMetadata(id transaction.ID) *TransactionMetadata {
 
 // TransactionMetadataFromBytes unmarshals a TransactionMetadata object from a sequence of bytes.
 // It either creates a new object or fills the optionally provided object with the parsed information.
-func TransactionMetadataFromBytes(bytes []byte, optionalTargetObject ...*TransactionMetadata) (result *TransactionMetadata, consumedBytes int, err error) {
+func TransactionMetadataFromBytes(bytes []byte) (result *TransactionMetadata, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = ParseTransactionMetadata(marshalUtil, optionalTargetObject...)
+	result, err = ParseTransactionMetadata(marshalUtil)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
-// TransactionMetadataFromStorageKey get's called when we restore TransactionMetadata from the storage.
+// TransactionMetadataFromObjectStorage get's called when we restore TransactionMetadata from the storage.
 // In contrast to other database models, it unmarshals some information from the key so we simply store the key before
 // it gets handed over to UnmarshalObjectStorageValue (by the ObjectStorage).
-func TransactionMetadataFromStorageKey(keyBytes []byte, optionalTargetObject ...*TransactionMetadata) (result *TransactionMetadata, consumedBytes int, err error) {
-	// determine the target object that will hold the unmarshaled information
-	switch len(optionalTargetObject) {
-	case 0:
-		result = &TransactionMetadata{}
-	case 1:
-		result = optionalTargetObject[0]
-	default:
-		panic("too many arguments in call to TransactionMetadataFromStorageKey")
-	}
-
-	// parse information
-	marshalUtil := marshalutil.New(keyBytes)
-	result.id, err = transaction.ParseID(marshalUtil)
+func TransactionMetadataFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
+	result, _, err = TransactionMetadataFromBytes(byteutils.ConcatBytes(key, data))
 	if err != nil {
-		return
+		err = fmt.Errorf("failed to parse transaction metadata from object storage: %w", err)
 	}
-	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
 // ParseTransactionMetadata is a wrapper for simplified unmarshaling of TransactionMetadata objects from a byte stream using the marshalUtil package.
-func ParseTransactionMetadata(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*TransactionMetadata) (result *TransactionMetadata, err error) {
-	parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
-		return TransactionMetadataFromStorageKey(data, optionalTargetObject...)
-	})
-	if parseErr != nil {
-		err = parseErr
+func ParseTransactionMetadata(marshalUtil *marshalutil.MarshalUtil) (result *TransactionMetadata, err error) {
+	result = &TransactionMetadata{}
 
+	if result.id, err = transaction.ParseID(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse transaction ID of transaction metadata: %w", err)
 		return
 	}
-
-	result = parsedObject.(*TransactionMetadata)
-	_, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
-		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
-
+	if result.branchID, err = branchmanager.ParseBranchID(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse branch ID of transaction metadata: %w", err)
 		return
-	})
+	}
+	if result.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
+		err = fmt.Errorf("failed to parse solidification time of transaction metadata: %w", err)
+		return
+	}
+	if result.finalizationTime, err = marshalUtil.ReadTime(); err != nil {
+		err = fmt.Errorf("failed to parse finalization time of transaction metadata: %w", err)
+		return
+	}
+	if result.solid, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse 'solid' of transaction metadata: %w", err)
+		return
+	}
+	if result.preferred, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse 'preferred' of transaction metadata: %w", err)
+		return
+	}
+	if result.finalized, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse 'finalized' of transaction metadata: %w", err)
+		return
+	}
+	if result.liked, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse 'liked' of transaction metadata: %w", err)
+		return
+	}
+	if result.confirmed, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse 'confirmed' of transaction metadata: %w", err)
+		return
+	}
+	if result.rejected, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse 'rejected' of transaction metadata: %w", err)
+		return
+	}
 
 	return
 }
@@ -163,7 +180,7 @@ func (transactionMetadata *TransactionMetadata) setSolid(solid bool) (modified b
 			transactionMetadata.solid = solid
 			if solid {
 				transactionMetadata.solidificationTimeMutex.Lock()
-				transactionMetadata.solidificationTime = time.Now()
+				transactionMetadata.solidificationTime = clock.SyncedTime()
 				transactionMetadata.solidificationTimeMutex.Unlock()
 			}
 
@@ -235,7 +252,7 @@ func (transactionMetadata *TransactionMetadata) setFinalized(finalized bool) (mo
 	transactionMetadata.finalized = finalized
 	transactionMetadata.SetModified()
 	if finalized {
-		transactionMetadata.finalizationTime = time.Now()
+		transactionMetadata.finalizationTime = clock.SyncedTime()
 	}
 	modified = true
 
@@ -364,17 +381,7 @@ func (transactionMetadata *TransactionMetadata) SolidificationTime() time.Time {
 
 // Bytes marshals the TransactionMetadata object into a sequence of bytes.
 func (transactionMetadata *TransactionMetadata) Bytes() []byte {
-	return marshalutil.New(branchmanager.BranchIDLength + 2*marshalutil.TIME_SIZE + 6*marshalutil.BOOL_SIZE).
-		WriteBytes(transactionMetadata.BranchID().Bytes()).
-		WriteTime(transactionMetadata.SolidificationTime()).
-		WriteTime(transactionMetadata.FinalizationTime()).
-		WriteBool(transactionMetadata.Solid()).
-		WriteBool(transactionMetadata.Preferred()).
-		WriteBool(transactionMetadata.Finalized()).
-		WriteBool(transactionMetadata.Liked()).
-		WriteBool(transactionMetadata.Confirmed()).
-		WriteBool(transactionMetadata.Rejected()).
-		Bytes()
+	return byteutils.ConcatBytes(transactionMetadata.ObjectStorageKey(), transactionMetadata.ObjectStorageValue())
 }
 
 // String creates a human readable version of the metadata (for debug purposes).
@@ -400,43 +407,17 @@ func (transactionMetadata *TransactionMetadata) Update(other objectstorage.Stora
 // ObjectStorageValue marshals the TransactionMetadata object into a sequence of bytes and matches the encoding.BinaryMarshaler
 // interface.
 func (transactionMetadata *TransactionMetadata) ObjectStorageValue() []byte {
-	return transactionMetadata.Bytes()
-}
-
-// UnmarshalObjectStorageValue restores the values of a TransactionMetadata object from a sequence of bytes and matches the
-// encoding.BinaryUnmarshaler interface.
-func (transactionMetadata *TransactionMetadata) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(data)
-	if transactionMetadata.branchID, err = branchmanager.ParseBranchID(marshalUtil); err != nil {
-		return
-	}
-	if transactionMetadata.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
-		return
-	}
-	if transactionMetadata.finalizationTime, err = marshalUtil.ReadTime(); err != nil {
-		return
-	}
-	if transactionMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
-		return
-	}
-	if transactionMetadata.preferred, err = marshalUtil.ReadBool(); err != nil {
-		return
-	}
-	if transactionMetadata.finalized, err = marshalUtil.ReadBool(); err != nil {
-		return
-	}
-	if transactionMetadata.liked, err = marshalUtil.ReadBool(); err != nil {
-		return
-	}
-	if transactionMetadata.confirmed, err = marshalUtil.ReadBool(); err != nil {
-		return
-	}
-	if transactionMetadata.rejected, err = marshalUtil.ReadBool(); err != nil {
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
+	return marshalutil.New(branchmanager.BranchIDLength + 2*marshalutil.TimeSize + 6*marshalutil.BoolSize).
+		WriteBytes(transactionMetadata.BranchID().Bytes()).
+		WriteTime(transactionMetadata.SolidificationTime()).
+		WriteTime(transactionMetadata.FinalizationTime()).
+		WriteBool(transactionMetadata.Solid()).
+		WriteBool(transactionMetadata.Preferred()).
+		WriteBool(transactionMetadata.Finalized()).
+		WriteBool(transactionMetadata.Liked()).
+		WriteBool(transactionMetadata.Confirmed()).
+		WriteBool(transactionMetadata.Rejected()).
+		Bytes()
 }
 
 // CachedTransactionMetadata is a wrapper for the object storage, that takes care of type casting the TransactionMetadata objects.

@@ -30,19 +30,60 @@ const (
 	contentTypeJSON = "application/json"
 )
 
-// NewGoShimmerAPI returns a new *GoShimmerAPI with the given baseURL and httpClient.
-func NewGoShimmerAPI(baseURL string, httpClient ...http.Client) *GoShimmerAPI {
-	if len(httpClient) > 0 {
-		return &GoShimmerAPI{baseURL: baseURL, httpClient: httpClient[0]}
+// Option is a function which sets the given option.
+type Option func(*GoShimmerAPI)
+
+// BasicAuth defines the basic-auth struct.
+type BasicAuth struct {
+	Enabled  bool   `json:"enabled,omitempty"`
+	Username string `json:"username,omitempty"`
+	Password string `json:"password,omitempty"`
+}
+
+// WithBasicAuth returns a new BasicAuth.
+func WithBasicAuth(username, password string) Option {
+	return func(g *GoShimmerAPI) {
+		g.basicAuth = BasicAuth{
+			Enabled:  true,
+			Username: username,
+			Password: password,
+		}
 	}
-	return &GoShimmerAPI{baseURL: baseURL}
+}
+
+// WithHTTPClient sets the http Client.
+func WithHTTPClient(c http.Client) Option {
+	return func(g *GoShimmerAPI) {
+		g.httpClient = c
+	}
+}
+
+// IsEnabled returns the enabled state of a given BasicAuth.
+func (b BasicAuth) IsEnabled() bool {
+	return b.Enabled
+}
+
+// Credentials returns the username and password of a given BasicAuth.
+func (b BasicAuth) Credentials() (username, password string) {
+	return b.Username, b.Password
+}
+
+// NewGoShimmerAPI returns a new *GoShimmerAPI with the given baseURL and options.
+func NewGoShimmerAPI(baseURL string, setters ...Option) *GoShimmerAPI {
+	g := &GoShimmerAPI{
+		baseURL: baseURL,
+	}
+	for _, setter := range setters {
+		setter(g)
+	}
+	return g
 }
 
 // GoShimmerAPI is an API wrapper over the web API of GoShimmer.
 type GoShimmerAPI struct {
-	httpClient http.Client
 	baseURL    string
-	jwt        string
+	httpClient http.Client
+	basicAuth  BasicAuth
 }
 
 type errorresponse struct {
@@ -107,9 +148,9 @@ func (api *GoShimmerAPI) do(method string, route string, reqObj interface{}, res
 		req.Header.Set("Content-Type", contentTypeJSON)
 	}
 
-	// add authorization header with JWT
-	if len(api.jwt) > 0 {
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", api.jwt))
+	// if enabled, add the basic-auth
+	if api.basicAuth.IsEnabled() {
+		req.SetBasicAuth(api.basicAuth.Credentials())
 	}
 
 	// make the request

@@ -1,7 +1,10 @@
 package payload
 
 import (
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
+	"fmt"
+
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 )
@@ -12,7 +15,11 @@ const (
 )
 
 // Type is the type of the syncbeacon payload.
-var Type = payload.Type(200)
+var Type = payload.NewType(200, ObjectName, func(data []byte) (payload payload.Payload, err error) {
+	payload, _, err = FromBytes(data)
+
+	return
+})
 
 // Payload represents the syncbeacon payload
 type Payload struct {
@@ -30,31 +37,25 @@ func NewSyncBeaconPayload(sentTime int64) *Payload {
 
 // FromBytes parses the marshaled version of a Payload into an object.
 // It either returns a new Payload or fills an optionally provided Payload with the parsed information.
-func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload, consumedBytes int, err error) {
-	// determine the target object that will hold the unmarshaled information
-	switch len(optionalTargetObject) {
-	case 0:
-		result = &Payload{}
-	case 1:
-		result = optionalTargetObject[0]
-	default:
-		panic("too many arguments in call to FromBytes")
-	}
-
+func FromBytes(bytes []byte) (result *Payload, consumedBytes int, err error) {
 	// initialize helper
 	marshalUtil := marshalutil.New(bytes)
 
 	// read data
-	result.payloadType, err = marshalUtil.ReadUint32()
-	if err != nil {
-		return
-	}
+	result = &Payload{}
 	_, err = marshalUtil.ReadUint32()
 	if err != nil {
+		err = fmt.Errorf("failed to parse payload size of syncbeacon payload: %w", err)
+		return
+	}
+	result.payloadType, err = payload.TypeFromMarshalUtil(marshalUtil)
+	if err != nil {
+		err = fmt.Errorf("failed to parse payload type of syncbeacon payload: %w", err)
 		return
 	}
 	result.sentTime, err = marshalUtil.ReadInt64()
 	if err != nil {
+		err = fmt.Errorf("failed to parse sent time of syncbeacon payload: %w", err)
 		return
 	}
 
@@ -78,22 +79,15 @@ func (p *Payload) SentTime() int64 {
 func (p *Payload) Bytes() []byte {
 	// initialize helper
 	marshalUtil := marshalutil.New()
-	objectLength := marshalutil.INT64_SIZE
+	objectLength := marshalutil.Int64Size
 
 	// marshal the p specific information
-	marshalUtil.WriteUint32(Type)
 	marshalUtil.WriteUint32(uint32(objectLength))
+	marshalUtil.WriteBytes(Type.Bytes())
 	marshalUtil.WriteInt64(p.sentTime)
 
 	// return result
 	return marshalUtil.Bytes()
-}
-
-// Unmarshal unmarshals a given slice of bytes and fills the object.
-func (p *Payload) Unmarshal(data []byte) (err error) {
-	_, _, err = FromBytes(data, p)
-
-	return
 }
 
 // String returns a human readable version of syncbeacon payload (for debug purposes).
@@ -105,13 +99,4 @@ func (p *Payload) String() string {
 // IsSyncBeaconPayload checks if the message is sync beacon payload.
 func IsSyncBeaconPayload(p *Payload) bool {
 	return p.Type() == Type
-}
-
-func init() {
-	payload.RegisterType(Type, ObjectName, func(data []byte) (payload payload.Payload, err error) {
-		payload = &Payload{}
-		err = payload.Unmarshal(data)
-
-		return
-	})
 }

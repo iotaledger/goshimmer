@@ -1,15 +1,18 @@
 package tangle
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
+	"github.com/iotaledger/goshimmer/packages/clock"
 )
 
 // PayloadMetadata is a container for the metadata of a value transfer payload.
@@ -42,54 +45,56 @@ func NewPayloadMetadata(payloadID payload.ID) *PayloadMetadata {
 
 // PayloadMetadataFromBytes unmarshals a container with the metadata of a value transfer payload from a sequence of bytes.
 // It either creates a new container or fills the optionally provided container with the parsed information.
-func PayloadMetadataFromBytes(bytes []byte, optionalTargetObject ...*PayloadMetadata) (result *PayloadMetadata, consumedBytes int, err error) {
+func PayloadMetadataFromBytes(bytes []byte) (result *PayloadMetadata, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = ParsePayloadMetadata(marshalUtil, optionalTargetObject...)
+	result, err = ParsePayloadMetadata(marshalUtil)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
 // ParsePayloadMetadata is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
-func ParsePayloadMetadata(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*PayloadMetadata) (result *PayloadMetadata, err error) {
-	parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
-		return PayloadMetadataFromStorageKey(data, optionalTargetObject...)
-	})
-	if parseErr != nil {
-		err = parseErr
-
+func ParsePayloadMetadata(marshalUtil *marshalutil.MarshalUtil) (result *PayloadMetadata, err error) {
+	result = &PayloadMetadata{}
+	if result.payloadID, err = payload.ParseID(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse payload id of payload metadata: %w", err)
 		return
 	}
-
-	result = parsedObject.(*PayloadMetadata)
-	_, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
-		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
-
+	if result.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
+		err = fmt.Errorf("failed to parse solidification time of payload metadata: %w", err)
 		return
-	})
+	}
+	if result.solid, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse 'solid' of payload metadata: %w", err)
+		return
+	}
+	if result.liked, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse 'liked' of payload metadata: %w", err)
+		return
+	}
+	if result.confirmed, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse 'confirmed' of payload metadata: %w", err)
+		return
+	}
+	if result.rejected, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse 'rejected' of payload metadata: %w", err)
+		return
+	}
+	if result.branchID, err = branchmanager.ParseBranchID(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse branch ID of payload metadata: %w", err)
+		return
+	}
 
 	return
 }
 
-// PayloadMetadataFromStorageKey gets called when we restore transaction metadata from the storage. The bytes and the content will be
+// PayloadMetadataFromObjectStorage gets called when we restore transaction metadata from the storage. The bytes and the content will be
 // unmarshaled by an external caller using the binary.ObjectStorageValue interface.
-func PayloadMetadataFromStorageKey(id []byte, optionalTargetObject ...*PayloadMetadata) (result *PayloadMetadata, consumedBytes int, err error) {
-	// determine the target object that will hold the unmarshaled information
-	switch len(optionalTargetObject) {
-	case 0:
-		result = &PayloadMetadata{}
-	case 1:
-		result = optionalTargetObject[0]
-	default:
-		panic("too many arguments in call to PayloadMetadataFromStorageKey")
+func PayloadMetadataFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
+	result, _, err = PayloadMetadataFromBytes(byteutils.ConcatBytes(key, data))
+	if err != nil {
+		err = fmt.Errorf("failed to parse payload metadata from object storage: %w", err)
 	}
-
-	// parse the properties that are stored in the key
-	marshalUtil := marshalutil.New(id)
-	if result.payloadID, err = payload.ParseID(marshalUtil); err != nil {
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
@@ -120,7 +125,7 @@ func (payloadMetadata *PayloadMetadata) setSolid(solid bool) (modified bool) {
 			payloadMetadata.solid = solid
 			if solid {
 				payloadMetadata.solidificationTimeMutex.Lock()
-				payloadMetadata.solidificationTime = time.Now()
+				payloadMetadata.solidificationTime = clock.SyncedTime()
 				payloadMetadata.solidificationTimeMutex.Unlock()
 			}
 
@@ -275,10 +280,7 @@ func (payloadMetadata *PayloadMetadata) setBranchID(branchID branchmanager.Branc
 
 // Bytes marshals the metadata into a sequence of bytes.
 func (payloadMetadata *PayloadMetadata) Bytes() []byte {
-	return marshalutil.New(payload.IDLength + marshalutil.TIME_SIZE + 2*marshalutil.BOOL_SIZE + branchmanager.BranchIDLength).
-		WriteBytes(payloadMetadata.ObjectStorageKey()).
-		WriteBytes(payloadMetadata.ObjectStorageValue()).
-		Bytes()
+	return byteutils.ConcatBytes(payloadMetadata.ObjectStorageKey(), payloadMetadata.ObjectStorageValue())
 }
 
 // String creates a human readable version of the metadata (for debug purposes).
@@ -304,7 +306,7 @@ func (payloadMetadata *PayloadMetadata) Update(other objectstorage.StorableObjec
 
 // ObjectStorageValue is required to match the encoding.BinaryMarshaler interface.
 func (payloadMetadata *PayloadMetadata) ObjectStorageValue() []byte {
-	return marshalutil.New(marshalutil.TIME_SIZE + 4*marshalutil.BOOL_SIZE).
+	return marshalutil.New(marshalutil.TimeSize + 4*marshalutil.BoolSize).
 		WriteTime(payloadMetadata.SolidificationTime()).
 		WriteBool(payloadMetadata.IsSolid()).
 		WriteBool(payloadMetadata.Liked()).
@@ -312,32 +314,6 @@ func (payloadMetadata *PayloadMetadata) ObjectStorageValue() []byte {
 		WriteBool(payloadMetadata.Rejected()).
 		WriteBytes(payloadMetadata.BranchID().Bytes()).
 		Bytes()
-}
-
-// UnmarshalObjectStorageValue is required to match the encoding.BinaryUnmarshaler interface.
-func (payloadMetadata *PayloadMetadata) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(data)
-	if payloadMetadata.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
-		return
-	}
-	if payloadMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
-		return
-	}
-	if payloadMetadata.liked, err = marshalUtil.ReadBool(); err != nil {
-		return
-	}
-	if payloadMetadata.confirmed, err = marshalUtil.ReadBool(); err != nil {
-		return
-	}
-	if payloadMetadata.rejected, err = marshalUtil.ReadBool(); err != nil {
-		return
-	}
-	if payloadMetadata.branchID, err = branchmanager.ParseBranchID(marshalUtil); err != nil {
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
 }
 
 // CachedPayloadMetadata is a wrapper for the object storage, that takes care of type casting the managed objects.

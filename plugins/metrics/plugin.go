@@ -6,14 +6,14 @@ import (
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	valuetangle "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/plugins/analysis/server"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/plugins/consensus"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/daemon"
@@ -48,21 +48,21 @@ func configure(_ *node.Plugin) {
 
 func run(_ *node.Plugin) {
 	log.Infof("Starting %s ...", PluginName)
-	if config.Node().GetBool(CfgMetricsLocal) {
+	if config.Node().Bool(CfgMetricsLocal) {
 		// initial measurement, since we have to know how many messages are there in the db
 		measureInitialDBStats()
 		registerLocalMetrics()
 	}
 
 	// Events from analysis server
-	if config.Node().GetBool(CfgMetricsGlobal) {
+	if config.Node().Bool(CfgMetricsGlobal) {
 		server.Events.MetricHeartbeat.Attach(onMetricHeartbeatReceived)
 	}
 
 	// create a background worker that update the metrics every second
 	if err := daemon.BackgroundWorker("Metrics Updater", func(shutdownSignal <-chan struct{}) {
 		defer log.Infof("Stopping Metrics Updater ... done")
-		if config.Node().GetBool(CfgMetricsLocal) {
+		if config.Node().Bool(CfgMetricsLocal) {
 			timeutil.Ticker(func() {
 				measureCPUUsage()
 				measureMemUsage()
@@ -78,7 +78,7 @@ func run(_ *node.Plugin) {
 				gossipCurrentTx.Store(uint64(g.BytesWritten))
 			}, 1*time.Second, shutdownSignal)
 		}
-		if config.Node().GetBool(CfgMetricsGlobal) {
+		if config.Node().Bool(CfgMetricsGlobal) {
 			timeutil.Ticker(calculateNetworkDiameter, 1*time.Minute, shutdownSignal)
 		}
 		log.Infof("Stopping Metrics Updater ...")
@@ -102,7 +102,7 @@ func registerLocalMetrics() {
 
 	}))
 
-	messagelayer.Tangle().Events.MessageRemoved.Attach(events.NewClosure(func(messageId message.ID) {
+	messagelayer.Tangle().Events.MessageRemoved.Attach(events.NewClosure(func(messageId tangle.MessageID) {
 		// MessageRemoved triggered when the message gets removed from database.
 		messageTotalCountDB.Dec()
 	}))
@@ -123,7 +123,7 @@ func registerLocalMetrics() {
 	}))
 
 	// fired when a message gets added to missing message storage
-	messagelayer.Tangle().Events.MessageMissing.Attach(events.NewClosure(func(messageId message.ID) {
+	messagelayer.Tangle().Events.MessageMissing.Attach(events.NewClosure(func(messageId tangle.MessageID) {
 		missingMessageCountDB.Inc()
 	}))
 
@@ -142,17 +142,17 @@ func registerLocalMetrics() {
 	}))
 
 	// FPC round executed
-	valuetransfers.Voter().Events().RoundExecuted.Attach(events.NewClosure(func(roundStats *vote.RoundStats) {
+	consensus.Voter().Events().RoundExecuted.Attach(events.NewClosure(func(roundStats *vote.RoundStats) {
 		processRoundStats(roundStats)
 	}))
 
 	// a conflict has been finalized
-	valuetransfers.Voter().Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
+	consensus.Voter().Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
 		processFinalized(ev.Ctx)
 	}))
 
 	// consensus failure in conflict resolution
-	valuetransfers.Voter().Events().Failed.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
+	consensus.Voter().Events().Failed.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
 		processFailed(ev.Ctx)
 	}))
 

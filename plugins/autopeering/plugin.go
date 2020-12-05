@@ -35,7 +35,7 @@ func Plugin() *node.Plugin {
 
 func configure(*node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	networkVersion = config.Node().GetUint32(CfgNetworkVersion)
+	networkVersion = uint32(config.Node().Int(CfgNetworkVersion))
 
 	configureEvents()
 }

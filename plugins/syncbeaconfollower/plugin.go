@@ -5,9 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	syncbeacon_payload "github.com/iotaledger/goshimmer/plugins/syncbeacon/payload"
@@ -43,7 +42,7 @@ const (
 
 // Status represents the status of a beacon node consisting of latest messageID, sentTime and sync status.
 type Status struct {
-	MsgID    message.ID
+	MsgID    tangle.MessageID
 	SentTime int64
 	Synced   bool
 }
@@ -130,10 +129,10 @@ func OverwriteSyncedState(syncedOverwrite bool) {
 func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 
-	pubKeys := config.Node().GetStringSlice(CfgSyncBeaconFollowNodes)
-	beaconMaxTimeOfflineSec = float64(config.Node().GetInt(CfgSyncBeaconMaxTimeOfflineSec))
-	beaconMaxTimeWindowSec = float64(config.Node().GetInt(CfgSyncBeaconMaxTimeWindowSec))
-	syncPercentage = config.Node().GetFloat64(CfgSyncBeaconSyncPercentage)
+	pubKeys := config.Node().Strings(CfgSyncBeaconFollowNodes)
+	beaconMaxTimeOfflineSec = float64(config.Node().Int(CfgSyncBeaconMaxTimeOfflineSec))
+	beaconMaxTimeWindowSec = float64(config.Node().Int(CfgSyncBeaconMaxTimeWindowSec))
+	syncPercentage = config.Node().Float64(CfgSyncBeaconSyncPercentage)
 	if syncPercentage < 0.5 || syncPercentage > 1.0 {
 		log.Warnf("invalid syncPercentage: %f, syncPercentage has to be in [0.5, 1.0] interval", syncPercentage)
 		// set it to default
@@ -156,7 +155,7 @@ func configure(_ *node.Plugin) {
 			continue
 		}
 		currentBeacons[pubKey] = &Status{
-			MsgID:    message.EmptyID,
+			MsgID:    tangle.EmptyMessageID,
 			Synced:   false,
 			SentTime: 0,
 		}
@@ -168,7 +167,7 @@ func configure(_ *node.Plugin) {
 
 	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
 		cachedMsgEvent.MessageMetadata.Release()
-		cachedMsgEvent.Message.Consume(func(msg *message.Message) {
+		cachedMsgEvent.Message.Consume(func(msg *tangle.Message) {
 			messagePayload := msg.Payload()
 			if messagePayload.Type() != syncbeacon_payload.Type {
 				return
@@ -201,7 +200,7 @@ func configure(_ *node.Plugin) {
 // handlePayload handles the received payload. It does the following checks:
 // The time that payload was sent is not greater than CfgSyncBeaconMaxTimeWindowSec. If the duration is longer than CfgSyncBeaconMaxTimeWindowSec, we consider that beacon to be out of sync till we receive a newer payload.
 // More than syncPercentage of followed nodes are also synced, the node is set to synced. Otherwise, its set as desynced.
-func handlePayload(syncBeaconPayload *syncbeacon_payload.Payload, issuerPublicKey ed25519.PublicKey, msgID message.ID) {
+func handlePayload(syncBeaconPayload *syncbeacon_payload.Payload, issuerPublicKey ed25519.PublicKey, msgID tangle.MessageID) {
 	synced := true
 	dur := time.Since(time.Unix(0, syncBeaconPayload.SentTime()))
 	if dur.Seconds() > beaconMaxTimeWindowSec {
@@ -240,7 +239,7 @@ func cleanupFollowNodes() {
 	mutex.Lock()
 	defer mutex.Unlock()
 	for publicKey, status := range currentBeacons {
-		if status.MsgID != message.EmptyID {
+		if status.MsgID != tangle.EmptyMessageID {
 			dur := time.Since(time.Unix(0, status.SentTime))
 			if dur.Seconds() > beaconMaxTimeOfflineSec {
 				currentBeacons[publicKey].Synced = false
@@ -252,7 +251,7 @@ func cleanupFollowNodes() {
 
 func run(_ *node.Plugin) {
 	if err := daemon.BackgroundWorker("Sync-Beacon-Cleanup", func(shutdownSignal <-chan struct{}) {
-		ticker := time.NewTicker(config.Node().GetDuration(CfgSyncBeaconCleanupInterval) * time.Second)
+		ticker := time.NewTicker(config.Node().Duration(CfgSyncBeaconCleanupInterval) * time.Second)
 		defer ticker.Stop()
 		for {
 			select {

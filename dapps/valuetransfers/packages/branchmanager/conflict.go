@@ -1,8 +1,10 @@
 package branchmanager
 
 import (
+	"fmt"
 	"sync"
 
+	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
@@ -26,54 +28,35 @@ func NewConflict(id ConflictID) *Conflict {
 }
 
 // ConflictFromBytes unmarshals a Conflict from a sequence of bytes.
-func ConflictFromBytes(bytes []byte, optionalTargetObject ...*Conflict) (result *Conflict, consumedBytes int, err error) {
+func ConflictFromBytes(bytes []byte) (result *Conflict, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = ParseConflict(marshalUtil, optionalTargetObject...)
+	result, err = ParseConflict(marshalUtil)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
-// ConflictFromStorageKey is a factory method that creates a new Conflict instance from a storage key of the
-// objectstorage. It is used by the objectstorage, to create new instances of this entity.
-func ConflictFromStorageKey(key []byte, optionalTargetObject ...*Conflict) (result *Conflict, consumedBytes int, err error) {
-	// determine the target object that will hold the unmarshaled information
-	switch len(optionalTargetObject) {
-	case 0:
-		result = &Conflict{}
-	case 1:
-		result = optionalTargetObject[0]
-	default:
-		panic("too many arguments in call to ConflictFromStorageKey")
-	}
-
-	// parse the properties that are stored in the key
-	marshalUtil := marshalutil.New(key)
-	if result.id, err = ParseConflictID(marshalUtil); err != nil {
+// ConflictFromObjectStorage is a factory method that creates a new Conflict instance from the ObjectStorage.
+func ConflictFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
+	if result, _, err = ConflictFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
 		return
 	}
-	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
 // ParseConflict unmarshals a Conflict using the given marshalUtil (for easier marshaling/unmarshaling).
-func ParseConflict(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Conflict) (result *Conflict, err error) {
-	parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
-		return ConflictFromStorageKey(data, optionalTargetObject...)
-	})
-	if parseErr != nil {
-		err = parseErr
+func ParseConflict(marshalUtil *marshalutil.MarshalUtil) (result *Conflict, err error) {
+	result = &Conflict{}
 
+	if result.id, err = ParseConflictID(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse conflict ID: %w", err)
 		return
 	}
-
-	result = parsedObject.(*Conflict)
-	_, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
-		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
-
+	if result.memberCount, err = marshalUtil.ReadUint32(); err != nil {
+		err = fmt.Errorf("failed to parse memberCount of conflict: %w", err)
 		return
-	})
+	}
 
 	return
 }
@@ -126,10 +109,7 @@ func (conflict *Conflict) DecreaseMemberCount(optionalDelta ...int) (newMemberCo
 
 // Bytes returns a marshaled version of this Conflict.
 func (conflict *Conflict) Bytes() []byte {
-	return marshalutil.New().
-		WriteBytes(conflict.ObjectStorageKey()).
-		WriteBytes(conflict.ObjectStorageValue()).
-		Bytes()
+	return byteutils.ConcatBytes(conflict.ObjectStorageKey(), conflict.ObjectStorageValue())
 }
 
 // String returns a human readable version of this Conflict (for debug purposes).
@@ -148,21 +128,9 @@ func (conflict *Conflict) ObjectStorageKey() []byte {
 // ObjectStorageValue returns the bytes that represent all remaining information (not stored in the key) of a marshaled
 // Branch.
 func (conflict *Conflict) ObjectStorageValue() []byte {
-	return marshalutil.New(marshalutil.UINT32_SIZE).
+	return marshalutil.New(marshalutil.Uint32Size).
 		WriteUint32(uint32(conflict.MemberCount())).
 		Bytes()
-}
-
-// UnmarshalObjectStorageValue unmarshals the bytes that are stored in the value of the objectstorage.
-func (conflict *Conflict) UnmarshalObjectStorageValue(valueBytes []byte) (consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(valueBytes)
-	conflict.memberCount, err = marshalUtil.ReadUint32()
-	if err != nil {
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
 }
 
 // Update is disabled but needs to be implemented to be compatible with the objectstorage.

@@ -9,7 +9,8 @@ service VoterQuery {
 }
 
 message QueryRequest {
-    repeated string id = 1;
+    repeated string conflictIDs = 1;
+    repeated string timestampIDs = 2;
 }
 
 message QueryReply {

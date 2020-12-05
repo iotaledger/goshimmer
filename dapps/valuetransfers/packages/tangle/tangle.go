@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/hive.go/async"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore"
@@ -18,7 +19,6 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
 )
 
 // Tangle represents the value tangle that consists out of value payloads.
@@ -43,20 +43,20 @@ type Tangle struct {
 
 // New is the constructor of a Tangle and creates a new Tangle object from the given details.
 func New(store kvstore.KVStore) (tangle *Tangle) {
-	osFactory := objectstorage.NewFactory(store, storageprefix.ValueTransfers)
+	osFactory := objectstorage.NewFactory(store, database.PrefixValueTransfers)
 
 	tangle = &Tangle{
 		branchManager: branchmanager.New(store),
 
-		payloadStorage:             osFactory.New(osPayload, osPayloadFactory, objectstorage.CacheTime(cacheTime)),
-		payloadMetadataStorage:     osFactory.New(osPayloadMetadata, osPayloadMetadataFactory, objectstorage.CacheTime(cacheTime)),
-		missingPayloadStorage:      osFactory.New(osMissingPayload, osMissingPayloadFactory, objectstorage.CacheTime(cacheTime)),
-		approverStorage:            osFactory.New(osApprover, osPayloadApproverFactory, objectstorage.CacheTime(cacheTime), objectstorage.PartitionKey(payload.IDLength, payload.IDLength), objectstorage.KeysOnly(true)),
-		transactionStorage:         osFactory.New(osTransaction, osTransactionFactory, objectstorage.CacheTime(cacheTime), osLeakDetectionOption),
-		transactionMetadataStorage: osFactory.New(osTransactionMetadata, osTransactionMetadataFactory, objectstorage.CacheTime(cacheTime), osLeakDetectionOption),
-		attachmentStorage:          osFactory.New(osAttachment, osAttachmentFactory, objectstorage.CacheTime(cacheTime), objectstorage.PartitionKey(transaction.IDLength, payload.IDLength), osLeakDetectionOption),
-		outputStorage:              osFactory.New(osOutput, osOutputFactory, OutputKeyPartitions, objectstorage.CacheTime(cacheTime), osLeakDetectionOption),
-		consumerStorage:            osFactory.New(osConsumer, osConsumerFactory, ConsumerPartitionKeys, objectstorage.CacheTime(cacheTime), osLeakDetectionOption),
+		payloadStorage:             osFactory.New(osPayload, payload.FromObjectStorage, objectstorage.CacheTime(cacheTime)),
+		payloadMetadataStorage:     osFactory.New(osPayloadMetadata, PayloadMetadataFromObjectStorage, objectstorage.CacheTime(cacheTime)),
+		missingPayloadStorage:      osFactory.New(osMissingPayload, MissingPayloadFromObjectStorage, objectstorage.CacheTime(cacheTime)),
+		approverStorage:            osFactory.New(osApprover, PayloadApproverFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.PartitionKey(payload.IDLength, payload.IDLength), objectstorage.KeysOnly(true)),
+		transactionStorage:         osFactory.New(osTransaction, transaction.FromObjectStorage, objectstorage.CacheTime(cacheTime), osLeakDetectionOption),
+		transactionMetadataStorage: osFactory.New(osTransactionMetadata, TransactionMetadataFromObjectStorage, objectstorage.CacheTime(cacheTime), osLeakDetectionOption),
+		attachmentStorage:          osFactory.New(osAttachment, AttachmentFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.PartitionKey(transaction.IDLength, payload.IDLength), osLeakDetectionOption),
+		outputStorage:              osFactory.New(osOutput, OutputFromObjectStorage, OutputKeyPartitions, objectstorage.CacheTime(cacheTime), osLeakDetectionOption),
+		consumerStorage:            osFactory.New(osConsumer, ConsumerFromObjectStorage, ConsumerPartitionKeys, objectstorage.CacheTime(cacheTime), osLeakDetectionOption),
 
 		Events: newEvents(),
 	}

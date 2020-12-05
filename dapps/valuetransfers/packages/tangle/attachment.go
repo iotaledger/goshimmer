@@ -1,8 +1,11 @@
 package tangle
 
 import (
+	"fmt"
+
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
@@ -15,8 +18,6 @@ type Attachment struct {
 
 	transactionID transaction.ID
 	payloadID     payload.ID
-
-	storageKey []byte
 }
 
 // NewAttachment creates an attachment object with the given information.
@@ -24,68 +25,41 @@ func NewAttachment(transactionID transaction.ID, payloadID payload.ID) *Attachme
 	return &Attachment{
 		transactionID: transactionID,
 		payloadID:     payloadID,
-
-		storageKey: marshalutil.New(AttachmentLength).
-			WriteBytes(transactionID.Bytes()).
-			WriteBytes(payloadID.Bytes()).
-			Bytes(),
 	}
 }
 
 // AttachmentFromBytes unmarshals an Attachment from a sequence of bytes - it either creates a new object or fills the
 // optionally provided one with the parsed information.
-func AttachmentFromBytes(bytes []byte, optionalTargetObject ...*Attachment) (result *Attachment, consumedBytes int, err error) {
+func AttachmentFromBytes(bytes []byte) (result *Attachment, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = ParseAttachment(marshalUtil, optionalTargetObject...)
+	result, err = ParseAttachment(marshalUtil)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
 // ParseAttachment is a wrapper for simplified unmarshaling of Attachments from a byte stream using the marshalUtil package.
-func ParseAttachment(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Attachment) (result *Attachment, err error) {
-	parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
-		return AttachmentFromStorageKey(data, optionalTargetObject...)
-	})
-	if parseErr != nil {
-		err = parseErr
-
+func ParseAttachment(marshalUtil *marshalutil.MarshalUtil) (result *Attachment, err error) {
+	result = &Attachment{}
+	if result.transactionID, err = transaction.ParseID(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse transaction ID in attachment: %w", err)
 		return
 	}
-
-	result = parsedObject.(*Attachment)
-	_, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
-		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
-
+	if result.payloadID, err = payload.ParseID(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse value payload ID in attachment: %w", err)
 		return
-	})
+	}
 
 	return
 }
 
-// AttachmentFromStorageKey gets called when we restore an Attachment from the storage - it parses the key bytes and
+// AttachmentFromObjectStorage gets called when we restore an Attachment from the storage - it parses the key bytes and
 // returns the new object.
-func AttachmentFromStorageKey(key []byte, optionalTargetObject ...*Attachment) (result *Attachment, consumedBytes int, err error) {
-	// determine the target object that will hold the unmarshaled information
-	switch len(optionalTargetObject) {
-	case 0:
-		result = &Attachment{}
-	case 1:
-		result = optionalTargetObject[0]
-	default:
-		panic("too many arguments in call to AttachmentFromStorageKey")
+func AttachmentFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
+	result, _, err = AttachmentFromBytes(byteutils.ConcatBytes(key, data))
+	if err != nil {
+		err = fmt.Errorf("failed to parse attachment from object storage: %w", err)
 	}
-
-	// parse the properties that are stored in the key
-	marshalUtil := marshalutil.New(key)
-	if result.transactionID, err = transaction.ParseID(marshalUtil); err != nil {
-		return
-	}
-	if result.payloadID, err = payload.ParseID(marshalUtil); err != nil {
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-	result.storageKey = marshalutil.New(key[:consumedBytes]).Bytes(true)
 
 	return
 }
@@ -115,18 +89,12 @@ func (attachment *Attachment) String() string {
 
 // ObjectStorageKey returns the key that is used to store the object in the database.
 func (attachment *Attachment) ObjectStorageKey() []byte {
-	return attachment.storageKey
+	return byteutils.ConcatBytes(attachment.transactionID.Bytes(), attachment.payloadID.Bytes())
 }
 
 // ObjectStorageValue marshals the "content part" of an Attachment to a sequence of bytes. Since all of the information
 // for this object are stored in its key, this method does nothing and is only required to conform with the interface.
 func (attachment *Attachment) ObjectStorageValue() (data []byte) {
-	return
-}
-
-// UnmarshalObjectStorageValue unmarshals the "content part" of an Attachment from a sequence of bytes. Since all of the information
-// for this object are stored in its key, this method does nothing and is only required to conform with the interface.
-func (attachment *Attachment) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
 	return
 }
 

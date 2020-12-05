@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
@@ -43,54 +44,71 @@ func NewBranch(id BranchID, parentBranches []BranchID) *Branch {
 	}
 }
 
-// BranchFromStorageKey is a factory method that creates a new Branch instance from a storage key of the objectstorage.
-// It is used by the objectstorage, to create new instances of this entity.
-func BranchFromStorageKey(key []byte, optionalTargetObject ...*Branch) (result *Branch, consumedBytes int, err error) {
-	// determine the target object that will hold the unmarshaled information
-	switch len(optionalTargetObject) {
-	case 0:
-		result = &Branch{}
-	case 1:
-		result = optionalTargetObject[0]
-	default:
-		panic("too many arguments in call to BranchFromStorageKey")
-	}
-
-	// parse information
-	marshalUtil := marshalutil.New(key)
-	result.id, err = ParseBranchID(marshalUtil)
-	if err != nil {
-		return
-	}
+// BranchFromBytes unmarshals a Branch from a sequence of bytes.
+func BranchFromBytes(bytes []byte) (result *Branch, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(bytes)
+	result, err = ParseBranch(marshalUtil)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
-// BranchFromBytes unmarshals a Branch from a sequence of bytes.
-func BranchFromBytes(bytes []byte, optionalTargetObject ...*Branch) (result *Branch, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	result, err = ParseBranch(marshalUtil, optionalTargetObject...)
-	consumedBytes = marshalUtil.ReadOffset()
+// BranchFromObjectStorage is a factory method that creates a new Branch instance from the ObjectStorage.
+func BranchFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
+	if result, _, err = BranchFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
+		err = fmt.Errorf("failed to unmarshal branch from bytes: %w", err)
+		return
+	}
 
 	return
 }
 
 // ParseBranch unmarshals a Branch using the given marshalUtil (for easier marshaling/unmarshaling).
-func ParseBranch(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Branch) (result *Branch, err error) {
-	parsedObject, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
-		return BranchFromStorageKey(data, optionalTargetObject...)
-	})
-	if err != nil {
+func ParseBranch(marshalUtil *marshalutil.MarshalUtil) (result *Branch, err error) {
+	result = &Branch{}
+
+	if result.id, err = ParseBranchID(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse branch ID: %w", err)
 		return
 	}
-
-	result = parsedObject.(*Branch)
-	_, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
-		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
-
+	result.preferred, err = marshalUtil.ReadBool()
+	if err != nil {
+		err = fmt.Errorf("failed to parse 'preferred' of the branch: %w", err)
 		return
-	})
+	}
+	result.liked, err = marshalUtil.ReadBool()
+	if err != nil {
+		err = fmt.Errorf("failed to parse 'liked' of the branch: %w", err)
+		return
+	}
+	result.finalized, err = marshalUtil.ReadBool()
+	if err != nil {
+		err = fmt.Errorf("failed to parse 'finalized' of the branch: %w", err)
+		return
+	}
+	result.confirmed, err = marshalUtil.ReadBool()
+	if err != nil {
+		err = fmt.Errorf("failed to parse 'confirmed' of the branch: %w", err)
+		return
+	}
+	result.rejected, err = marshalUtil.ReadBool()
+	if err != nil {
+		err = fmt.Errorf("failed to parse 'rejected' of the branch: %w", err)
+		return
+	}
+	parentBranchCount, err := marshalUtil.ReadUint32()
+	if err != nil {
+		err = fmt.Errorf("failed to parse parentBranchCount of the branch: %w", err)
+		return
+	}
+	result.parentBranches = make([]BranchID, parentBranchCount)
+	for i := uint32(0); i < parentBranchCount; i++ {
+		result.parentBranches[i], err = ParseBranchID(marshalUtil)
+		if err != nil {
+			err = fmt.Errorf("failed to parse ID of the parent branch: %w", err)
+			return
+		}
+	}
 
 	return
 }
@@ -389,7 +407,7 @@ func (branch *Branch) ObjectStorageValue() []byte {
 	parentBranches := branch.ParentBranches()
 	parentBranchCount := len(parentBranches)
 
-	marshalUtil := marshalutil.New(5*marshalutil.BOOL_SIZE + marshalutil.UINT32_SIZE + parentBranchCount*BranchIDLength)
+	marshalUtil := marshalutil.New(5*marshalutil.BoolSize + marshalutil.Uint32Size + parentBranchCount*BranchIDLength)
 	marshalUtil.WriteBool(branch.Preferred())
 	marshalUtil.WriteBool(branch.Liked())
 	marshalUtil.WriteBool(branch.Finalized())
@@ -401,45 +419,6 @@ func (branch *Branch) ObjectStorageValue() []byte {
 	}
 
 	return marshalUtil.Bytes()
-}
-
-// UnmarshalObjectStorageValue unmarshals the bytes that are stored in the value of the objectstorage.
-func (branch *Branch) UnmarshalObjectStorageValue(valueBytes []byte) (consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(valueBytes)
-	branch.preferred, err = marshalUtil.ReadBool()
-	if err != nil {
-		return
-	}
-	branch.liked, err = marshalUtil.ReadBool()
-	if err != nil {
-		return
-	}
-	branch.finalized, err = marshalUtil.ReadBool()
-	if err != nil {
-		return
-	}
-	branch.confirmed, err = marshalUtil.ReadBool()
-	if err != nil {
-		return
-	}
-	branch.rejected, err = marshalUtil.ReadBool()
-	if err != nil {
-		return
-	}
-	parentBranchCount, err := marshalUtil.ReadUint32()
-	if err != nil {
-		return
-	}
-	branch.parentBranches = make([]BranchID, parentBranchCount)
-	for i := uint32(0); i < parentBranchCount; i++ {
-		branch.parentBranches[i], err = ParseBranchID(marshalUtil)
-		if err != nil {
-			return
-		}
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
 }
 
 // CachedBranch is a wrapper for the generic CachedObject returned by the objectstorage, that overrides the accessor

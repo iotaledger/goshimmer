@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 
-	"github.com/gobuffalo/packr/v2"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/labstack/echo"
+	"github.com/markbates/pkger"
 )
 
 // ErrInvalidParameter defines the invalid parameter error.
@@ -23,12 +24,13 @@ var ErrNotFound = errors.New("not found")
 // ErrForbidden defines the forbidden error.
 var ErrForbidden = errors.New("forbidden")
 
-// holds dashboard assets
-var appBox = packr.New("Dashboard_App", "./frontend/build")
-var assetsBox = packr.New("Dashboard_Assets", "./frontend/src/assets")
+const (
+	app    = "/plugins/dashboard/frontend/build"
+	assets = "/plugins/dashboard/frontend/src/assets"
+)
 
 func indexRoute(e echo.Context) error {
-	if config.Node().GetBool(CfgDev) {
+	if config.Node().Bool(CfgDev) {
 		res, err := http.Get("http://127.0.0.1:9090/")
 		if err != nil {
 			return err
@@ -39,7 +41,14 @@ func indexRoute(e echo.Context) error {
 		}
 		return e.HTMLBlob(http.StatusOK, devIndexHTML)
 	}
-	indexHTML, err := appBox.Find("index.html")
+
+	index, err := pkger.Open(app + "/index.html")
+	if err != nil {
+		return err
+	}
+	defer index.Close()
+
+	indexHTML, err := ioutil.ReadAll(index)
 	if err != nil {
 		return err
 	}
@@ -48,18 +57,26 @@ func indexRoute(e echo.Context) error {
 
 func setupRoutes(e *echo.Echo) {
 
-	if config.Node().GetBool("dashboard.dev") {
+	if config.Node().Bool("dashboard.dev") {
 		e.Static("/assets", "./plugins/dashboard/frontend/src/assets")
 	} else {
 
-		// load assets from packr: either from within the binary or actual disk
-		for _, res := range appBox.List() {
-			e.GET("/app/"+res, echo.WrapHandler(http.StripPrefix("/app", http.FileServer(appBox))))
-		}
+		// load assets from pkger: either from within the binary or actual disk
+		pkger.Walk(app, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			e.GET("/app/"+info.Name(), echo.WrapHandler(http.StripPrefix("/app", http.FileServer(pkger.Dir(app)))))
+			return nil
+		})
 
-		for _, res := range assetsBox.List() {
-			e.GET("/assets/"+res, echo.WrapHandler(http.StripPrefix("/assets", http.FileServer(assetsBox))))
-		}
+		pkger.Walk(assets, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			e.GET("/assets/"+info.Name(), echo.WrapHandler(http.StripPrefix("/assets", http.FileServer(pkger.Dir(assets)))))
+			return nil
+		})
 	}
 
 	e.GET("/ws", websocketRoute)
@@ -74,7 +91,7 @@ func setupRoutes(e *echo.Echo) {
 	setupFaucetRoutes(apiRoutes)
 
 	e.HTTPErrorHandler = func(err error, c echo.Context) {
-		c.Logger().Error(err)
+		log.Warnf("Request failed: %s", err)
 
 		var statusCode int
 		var message string

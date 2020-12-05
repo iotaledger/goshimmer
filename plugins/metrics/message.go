@@ -3,8 +3,8 @@ package metrics
 import (
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 	"github.com/iotaledger/goshimmer/packages/metrics"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/syncutils"
 	"go.uber.org/atomic"
@@ -71,12 +71,12 @@ func MessageCountSinceStartPerPayload() map[payload.Type]uint64 {
 	defer messageCountPerPayloadMutex.RUnlock()
 
 	// copy the original map
-	copy := make(map[payload.Type]uint64)
+	clone := make(map[payload.Type]uint64)
 	for key, element := range messageCountPerPayload {
-		copy[key] = element
+		clone[key] = element
 	}
 
-	return copy
+	return clone
 }
 
 // MessageTips returns the actual number of tips in the message tangle.

@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/binary/drng/state"
+	drngpkg "github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/drng"
 	"github.com/iotaledger/hive.go/daemon"
@@ -18,6 +18,7 @@ var drngLiveFeedWorkerPool *workerpool.WorkerPool
 
 type drngMsg struct {
 	Instance      uint32 `json:"instance"`
+	Name          string `json:"name"`
 	DistributedPK string `json:"dpk"`
 	Round         uint64 `json:"round"`
 	Randomness    string `json:"randomness"`
@@ -26,14 +27,26 @@ type drngMsg struct {
 
 func configureDrngLiveFeed() {
 	drngLiveFeedWorkerPool = workerpool.New(func(task workerpool.Task) {
-		newRandomness := task.Param(0).(state.Randomness)
+		newRandomness := task.Param(0).(*drngpkg.State)
+
+		// assign the name of the instance based on its instanceID
+		var name string
+		switch newRandomness.Committee().InstanceID {
+		case drng.Pollen:
+			name = "Pollen"
+		case drng.XTeam:
+			name = "X-Team"
+		default:
+			name = "Custom"
+		}
 
 		broadcastWsMessage(&wsmsg{MsgTypeDrng, &drngMsg{
-			Instance:      drng.Instance().State.Committee().InstanceID,
-			DistributedPK: hex.EncodeToString(drng.Instance().State.Committee().DistributedPK),
-			Round:         newRandomness.Round,
-			Randomness:    hex.EncodeToString(newRandomness.Randomness[:32]),
-			Timestamp:     newRandomness.Timestamp.Format("2 Jan 2006 15:04:05")}})
+			Instance:      newRandomness.Committee().InstanceID,
+			Name:          name,
+			DistributedPK: hex.EncodeToString(newRandomness.Committee().DistributedPK),
+			Round:         newRandomness.Randomness().Round,
+			Randomness:    hex.EncodeToString(newRandomness.Randomness().Randomness[:32]),
+			Timestamp:     newRandomness.Randomness().Timestamp.Format("2 Jan 2006 15:04:05")}})
 
 		task.Return(nil)
 	}, workerpool.WorkerCount(drngLiveFeedWorkerCount), workerpool.QueueSize(drngLiveFeedWorkerQueueSize))
@@ -44,7 +57,7 @@ func runDrngLiveFeed() {
 		newMsgRateLimiter := time.NewTicker(time.Second / 10)
 		defer newMsgRateLimiter.Stop()
 
-		notifyNewRandomness := events.NewClosure(func(message state.Randomness) {
+		notifyNewRandomness := events.NewClosure(func(message *drngpkg.State) {
 			select {
 			case <-newMsgRateLimiter.C:
 				drngLiveFeedWorkerPool.TrySubmit(message)

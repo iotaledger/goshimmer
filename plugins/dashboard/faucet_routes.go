@@ -4,10 +4,9 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/dapps/faucet"
-	faucetpayload "github.com/iotaledger/goshimmer/dapps/faucet/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/plugins/faucet"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 
 	"github.com/labstack/echo"
@@ -40,7 +39,7 @@ var fundingReqMu = sync.Mutex{}
 func sendFaucetReq(addr address.Address) (res *ReqMsg, err error) {
 	fundingReqMu.Lock()
 	defer fundingReqMu.Unlock()
-	faucetPayload, err := faucetpayload.New(addr, config.Node().GetInt(faucet.CfgFaucetPoWDifficulty))
+	faucetPayload, err := faucet.NewRequest(addr, config.Node().Int(faucet.CfgFaucetPoWDifficulty))
 	if err != nil {
 		return nil, err
 	}

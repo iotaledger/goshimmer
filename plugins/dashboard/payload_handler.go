@@ -1,14 +1,13 @@
 package dashboard
 
 import (
-	faucetpayload "github.com/iotaledger/goshimmer/dapps/faucet/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	valuepayload "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
-	drngpayload "github.com/iotaledger/goshimmer/packages/binary/drng/payload"
-	drngheader "github.com/iotaledger/goshimmer/packages/binary/drng/payload/header"
-	cb "github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectivebeacon/payload"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
+	"github.com/iotaledger/goshimmer/packages/drng"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+	"github.com/iotaledger/goshimmer/packages/vote/statement"
+	"github.com/iotaledger/goshimmer/plugins/faucet"
 	syncbeaconpayload "github.com/iotaledger/goshimmer/plugins/syncbeacon/payload"
 	"github.com/iotaledger/hive.go/marshalutil"
 )
@@ -58,6 +57,30 @@ type ValuePayload struct {
 	Data      []byte          `json:"data"`
 }
 
+// StatementPayload is a JSON serializable statement payload.
+type StatementPayload struct {
+	Conflicts  []Conflict  `json:"conflicts"`
+	Timestamps []Timestamp `json:"timestamps"`
+}
+
+// Conflict is a JSON serializable conflict.
+type Conflict struct {
+	ID      string `json:"tx_id"`
+	Opinion `json:"opinion"`
+}
+
+// Timestamp is a JSON serializable Timestamp.
+type Timestamp struct {
+	ID      string `json:"msg_id"`
+	Opinion `json:"opinion"`
+}
+
+// Opinion is a JSON serializable opinion.
+type Opinion struct {
+	Value string `json:"value"`
+	Round uint8  `json:"round"`
+}
+
 // InputContent contains the inputs of a transaction
 type InputContent struct {
 	Address string `json:"address"`
@@ -79,26 +102,28 @@ type Balance struct {
 // payload type.
 func ProcessPayload(p payload.Payload) interface{} {
 	switch p.Type() {
-	case payload.DataType:
+	case payload.GenericDataPayloadType:
 		// data payload
 		return BasicPayload{
-			ContentTitle: "Data",
-			Content:      p.(*payload.Data).Data(),
+			ContentTitle: "GenericDataPayload",
+			Content:      p.(*payload.GenericDataPayload).Blob(),
 		}
-	case faucetpayload.Type:
+	case valuepayload.Type:
+		return processValuePayload(p)
+	case statement.StatementType:
+		return processStatementPayload(p)
+	case faucet.Type:
 		// faucet payload
 		return BasicStringPayload{
 			ContentTitle: "address",
-			Content:      p.(*faucetpayload.Payload).Address().String(),
+			Content:      p.(*faucet.Request).Address().String(),
 		}
-	case drngpayload.Type:
+	case drng.PayloadType:
 		// drng payload
 		return processDrngPayload(p)
 	case syncbeaconpayload.Type:
 		// sync beacon payload
 		return processSyncBeaconPayload(p)
-	case valuepayload.Type:
-		return processValuePayload(p)
 	default:
 		// unknown payload
 		return BasicPayload{
@@ -112,13 +137,13 @@ func ProcessPayload(p payload.Payload) interface{} {
 func processDrngPayload(p payload.Payload) (dp DrngPayload) {
 	var subpayload interface{}
 	marshalUtil := marshalutil.New(p.Bytes())
-	drngPayload, _ := drngpayload.Parse(marshalUtil)
+	drngPayload, _ := drng.PayloadFromMarshalUtil(marshalUtil)
 
 	switch drngPayload.Header.PayloadType {
-	case drngheader.TypeCollectiveBeacon:
+	case drng.TypeCollectiveBeacon:
 		// collective beacon
 		marshalUtil := marshalutil.New(p.Bytes())
-		cbp, _ := cb.Parse(marshalUtil)
+		cbp, _ := drng.CollectiveBeaconPayloadFromMarshalUtil(marshalUtil)
 		subpayload = DrngCollectiveBeaconPayload{
 			Round:   cbp.Round,
 			PrevSig: cbp.PrevSignature,
@@ -197,4 +222,30 @@ func processValuePayload(p payload.Payload) (vp ValuePayload) {
 		Output:    outputs,
 		Data:      v.Transaction().GetDataPayload(),
 	}
+}
+
+func processStatementPayload(p payload.Payload) (sp StatementPayload) {
+	tmp := p.(*statement.Statement)
+
+	for _, c := range tmp.Conflicts {
+		sc := Conflict{
+			ID: c.ID.String(),
+			Opinion: Opinion{
+				Value: c.Value.String(),
+				Round: c.Round,
+			},
+		}
+		sp.Conflicts = append(sp.Conflicts, sc)
+	}
+	for _, t := range tmp.Timestamps {
+		st := Timestamp{
+			ID: t.ID.String(),
+			Opinion: Opinion{
+				Value: t.Value.String(),
+				Round: t.Round,
+			},
+		}
+		sp.Timestamps = append(sp.Timestamps, st)
+	}
+	return
 }

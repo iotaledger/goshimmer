@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/config"
@@ -39,7 +39,7 @@ func createManager() {
 	log := logger.NewLogger(PluginName)
 
 	// announce the gossip service
-	gossipPort := config.Node().GetInt(CfgGossipPort)
+	gossipPort := config.Node().Int(CfgGossipPort)
 	if !netutil.IsValidPort(gossipPort) {
 		log.Fatalf("Invalid port number (%s): %d", CfgGossipPort, gossipPort)
 	}
@@ -60,7 +60,7 @@ func start(shutdownSignal <-chan struct{}) {
 	gossipEndpoint := lPeer.Services().Get(service.GossipKey)
 
 	// resolve the bind address
-	address := net.JoinHostPort(config.Node().GetString(local.CfgBind), strconv.Itoa(gossipEndpoint.Port()))
+	address := net.JoinHostPort(config.Node().String(local.CfgBind), strconv.Itoa(gossipEndpoint.Port()))
 	localAddr, err := net.ResolveTCPAddr(gossipEndpoint.Network(), address)
 	if err != nil {
 		log.Fatalf("Error resolving %s: %v", local.CfgBind, err)
@@ -91,7 +91,7 @@ func start(shutdownSignal <-chan struct{}) {
 }
 
 // loads the given message from the message layer and returns it or an error if not found.
-func loadMessage(msgID message.ID) ([]byte, error) {
+func loadMessage(msgID tangle.MessageID) ([]byte, error) {
 	cachedMessage := messagelayer.Tangle().Message(msgID)
 	defer cachedMessage.Release()
 	if !cachedMessage.Exists() {

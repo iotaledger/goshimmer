@@ -13,7 +13,8 @@
   },
   "autopeering": {
     "entryNodes": [
-      "2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@ressims.iota.cafe:15626"
+      "2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@ressims.iota.cafe:15626",
+      "5EDH4uY78EA6wrBkHHAVBWBMDt7EcksRq6pjzipoW15B@entrynode.alphanet.einfachiota.de:14656"
     ],
     "port": 14626
   },
@@ -38,10 +39,38 @@
     "inMemory": false
   },
   "drng": {
-    "instanceId": 1,
-    "threshold": 3,
-    "distributedPubKey": "",
-    "committeeMembers": []
+    "pollen": {
+      "instanceId": 1,
+      "threshold": 3,
+      "distributedPubKey": "",
+      "committeeMembers": [
+        "AheLpbhRs1XZsRF8t8VBwuyQh9mqPHXQvthV5rsHytDG",
+        "FZ28bSTidszUBn8TTCAT9X1nVMwFNnoYBmZ1xfafez2z",
+        "GT3UxryW4rA9RN9ojnMGmZgE2wP7psagQxgVdA4B9L1P",
+        "4pB5boPvvk2o5MbMySDhqsmC2CtUdXyotPPEpb7YQPD7",
+        "64wCsTZpmKjRVHtBKXiFojw7uw3GszumfvC4kHdWsHga"
+      ]
+    },
+    "xteam": {
+      "instanceId": 1339,
+      "threshold": 4,
+      "distributedPubKey": "",
+      "committeeMembers": [
+        "GUdTwLDb6t6vZ7X5XzEnjFNDEVPteU7tVQ9nzKLfPjdo",
+        "68vNzBFE9HpmWLb2x4599AUUQNuimuhwn3XahTZZYUHt",
+        "Dc9n3JxYecaX3gpxVnWb4jS3KVz1K1SgSK1KpV1dzqT1",
+        "75g6r4tqGZhrgpDYZyZxVje1Qo54ezFYkCw94ELTLhPs",
+        "CN1XLXLHT9hv7fy3qNhpgNMD6uoHFkHtaNNKyNVCKybf",
+        "7SmttyqrKMkLo5NPYaiFoHs8LE6s7oCoWCQaZhui8m16",
+        "CypSmrHpTe3WQmCw54KP91F5gTmrQEL7EmTX38YStFXx"
+      ]
+    },
+    "custom": {
+      "instanceId": 9999,
+      "threshold": 3,
+      "distributedPubKey": "",
+      "committeeMembers": []
+    }
   },
   "fpc": {
     "bindAddress": "0.0.0.0:10895"
@@ -91,12 +120,12 @@
     "bindAddress": "127.0.0.1:9311"
   },
   "webapi": {
-    "auth": {
-      "password": "goshimmer",
-      "privateKey": "",
-      "username": "goshimmer"
-    },
-    "bindAddress": "127.0.0.1:8080"
+    "bindAddress": "127.0.0.1:8080",
+    "basic_auth": {
+      "enabled": false,
+      "username": "goshimmer",
+      "password": "goshimmer"
+    }
   },
   "networkdelay": {
     "originPublicKey": "9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd"

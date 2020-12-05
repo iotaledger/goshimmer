@@ -3,14 +3,12 @@ package config
 import (
 	"fmt"
 	"os"
-	"strings"
 	"sync"
 
+	"github.com/iotaledger/hive.go/configuration"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/node"
-	"github.com/iotaledger/hive.go/parameter"
 	flag "github.com/spf13/pflag"
-	"github.com/spf13/viper"
 )
 
 // PluginName is the name of the config plugin.
@@ -22,12 +20,12 @@ var (
 	pluginOnce sync.Once
 
 	// flags
-	configName          = flag.StringP("config", "c", "config", "Filename of the config file without the file extension")
-	configDirPath       = flag.StringP("config-dir", "d", ".", "Path to the directory containing the config file")
+	defaultConfigName   = "config.json"
+	configFilePath      = flag.StringP("config", "c", defaultConfigName, "file path of the config file")
 	skipConfigAvailable = flag.Bool("skip-config", false, "Skip config file availability check")
 
 	// Node is viper
-	_node    *viper.Viper
+	_node    *configuration.Configuration
 	nodeOnce sync.Once
 )
 
@@ -45,9 +43,9 @@ func Plugin() *node.Plugin {
 }
 
 // Node gets the node.
-func Node() *viper.Viper {
+func Node() *configuration.Configuration {
 	nodeOnce.Do(func() {
-		_node = viper.New()
+		_node = configuration.New()
 	})
 	return _node
 }
@@ -72,34 +70,62 @@ func init() {
 	}))
 }
 
-// fetch fetches config values from a dir defined via CLI flag --config-dir (or the current working dir if not set).
+// fetch fetches config values from a configFilePath (or the current working dir if not set).
 //
 // It automatically reads in a single config file starting with "config" (can be changed via the --config CLI flag)
 // and ending with: .json, .toml, .yaml or .yml (in this sequence).
 func fetch(printConfig bool, ignoreSettingsAtPrint ...[]string) error {
-	// replace dots with underscores in env
-	dotReplacer := strings.NewReplacer(".", "_")
-	_node.SetEnvKeyReplacer(dotReplacer)
-	// read in ENV variables
-	// read in ENV variables
-	_node.AutomaticEnv()
-
 	flag.Parse()
-	err := parameter.LoadConfigFile(_node, *configDirPath, *configName, flag.CommandLine, *skipConfigAvailable)
-	if err != nil {
+
+	if err := _node.LoadFile(*configFilePath); err != nil {
+		if hasFlag(defaultConfigName) {
+			// if a file was explicitly specified, raise the error
+			fmt.Println("config error")
+			return err
+		}
+		fmt.Printf("No config file found via '%s'. Loading default settings.", *configFilePath)
+	}
+
+	if err := _node.LoadFlagSet(flag.CommandLine); err != nil {
+		return err
+	}
+
+	// read in ENV variables
+	// load the env vars after default values from flags were set (otherwise the env vars are not added because the keys don't exist)
+	if err := _node.LoadEnvironmentVars(""); err != nil {
+		return err
+	}
+
+	// load the flags again to overwrite env vars that were also set via command line
+	if err := _node.LoadFlagSet(flag.CommandLine); err != nil {
 		return err
 	}
 
 	if printConfig {
-		parameter.PrintConfig(_node, ignoreSettingsAtPrint...)
+		PrintConfig(ignoreSettingsAtPrint...)
 	}
 
-	for _, pluginName := range _node.GetStringSlice(node.CFG_DISABLE_PLUGINS) {
+	for _, pluginName := range _node.Strings(CfgDisablePlugins) {
 		node.DisabledPlugins[node.GetPluginIdentifier(pluginName)] = true
 	}
-	for _, pluginName := range _node.GetStringSlice(node.CFG_ENABLE_PLUGINS) {
+	for _, pluginName := range _node.Strings(CfgEnablePlugins) {
 		node.EnabledPlugins[node.GetPluginIdentifier(pluginName)] = true
 	}
 
 	return nil
+}
+
+// PrintConfig prints the config.
+func PrintConfig(ignoreSettingsAtPrint ...[]string) {
+	_node.Print(ignoreSettingsAtPrint...)
+}
+
+func hasFlag(name string) bool {
+	has := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == name {
+			has = true
+		}
+	})
+	return has
 }
