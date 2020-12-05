@@ -1,12 +1,14 @@
 package ledgerstate
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/set"
+	"github.com/iotaledger/hive.go/datastructure/stack"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/types"
@@ -37,22 +39,14 @@ func NewBranchDAG(store kvstore.KVStore) (newBranchDAG *BranchDAG) {
 	return
 }
 
-// ConflictBranch fetches the ConflictBranch that corresponds to the given details. It automatically creates and updates
-// the ConflictBranch according to the new details if necessary.
-func (b *BranchDAG) ConflictBranch(conflictingTransactionID TransactionID, conflictingInputs []OutputID, parentBranches BranchIDs) (cachedBranch *CachedBranch, newBranchCreated bool) {
-	// convert transaction models into branch models
-	branchID := NewBranchID(conflictingTransactionID)
-	conflictIDsSlice := make([]ConflictID, len(conflictingInputs))
-	for i, conflictingInput := range conflictingInputs {
-		conflictIDsSlice[i] = NewConflictID(conflictingInput)
-	}
-	conflictIDs := NewConflictIDs(conflictIDsSlice...)
-
+// ConflictBranch retrieves the ConflictBranch that corresponds to the given details. It automatically creates and
+// updates the ConflictBranch according to the new details if necessary.
+func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranches BranchIDs, conflicts ConflictIDs) (cachedBranch *CachedBranch, newBranchCreated bool) {
 	// create or load the branch
 	cachedBranch = &CachedBranch{
 		CachedObject: b.branchStorage.ComputeIfAbsent(branchID.Bytes(),
 			func(key []byte) objectstorage.StorableObject {
-				newBranch := NewConflictBranch(branchID, parentBranches, conflictIDs)
+				newBranch := NewConflictBranch(branchID, parentBranches, conflicts)
 				newBranch.Persist()
 				newBranch.SetModified()
 
@@ -67,10 +61,10 @@ func (b *BranchDAG) ConflictBranch(conflictingTransactionID TransactionID, confl
 		panic(fmt.Sprintf("failed to load branch with %s", branchID))
 	}
 
-	// type cast to ConflictBranch
+	// type cast to CreateConflictBranch
 	conflictBranch, typeCastOK := branch.(*ConflictBranch)
 	if !typeCastOK {
-		panic(fmt.Sprintf("failed to type cast Branch with %s to ConflictBranch", branchID))
+		panic(fmt.Sprintf("failed to type cast Branch with %s to CreateConflictBranch", branchID))
 	}
 
 	// register references
@@ -84,12 +78,12 @@ func (b *BranchDAG) ConflictBranch(conflictingTransactionID TransactionID, confl
 		}
 
 		// store ConflictMember references
-		for conflictID := range conflictIDs {
+		for conflictID := range conflicts {
 			b.registerConflictMember(conflictID, branchID)
 		}
 	default:
 		// store new ConflictMember references
-		for conflictID := range conflictIDs {
+		for conflictID := range conflicts {
 			if conflictBranch.AddConflict(conflictID) {
 				b.registerConflictMember(conflictID, branchID)
 			}
@@ -99,14 +93,24 @@ func (b *BranchDAG) ConflictBranch(conflictingTransactionID TransactionID, confl
 	return
 }
 
+func (b *BranchDAG) CreateAggregatedBranch(branchIDs ...BranchID) (cachedAggregatedBranch *CachedBranch, err error) {
+	referencedConflictBranches, err := b.ResolveConflictBranchIDs(branchIDs...)
+	if err != nil {
+		return
+	}
+
+	cachedAggregatedBranch = b.Branch(NewAggregatedBranch(referencedConflictBranches).ID())
+	return
+}
+
 // Branch retrieves the Branch with the given BranchID from the object storage.
-func (b *BranchDAG) Branch(branchID BranchID) *CachedBranch {
+func (b *BranchDAG) Branch(branchID BranchID) (cachedBranch *CachedBranch) {
 	return &CachedBranch{CachedObject: b.branchStorage.Load(branchID.Bytes())}
 }
 
-// ConflictBranches returns a unique list of conflict branches that the given BranchIDs represent by resolving
+// ResolveConflictBranchIDs returns the BranchIDs of the ConflictBranches that the given Branches represent by resolving
 // AggregatedBranches to their corresponding ConflictBranches.
-func (b *BranchDAG) ConflictBranches(branches ...BranchID) (conflictBranches BranchIDs, err error) {
+func (b *BranchDAG) ResolveConflictBranchIDs(branches ...BranchID) (conflictBranches BranchIDs, err error) {
 	// initialize return variable
 	conflictBranches = make(BranchIDs)
 
@@ -163,14 +167,12 @@ func (b *BranchDAG) registerConflictMember(conflictID ConflictID, branchID Branc
 	})
 }
 
-/*
 // NormalizeBranches checks if the branches are conflicting and removes superfluous ancestors.
-func (branchManager *BranchManager) NormalizeBranches(branches ...MappedValue) (normalizedBranches BranchIDs, err error) {
+func (b *BranchDAG) NormalizeBranches(branches ...BranchID) (normalizedBranches BranchIDs, err error) {
 	// retrieve conflict branches and abort if we either faced an error or are done
-	conflictBranches, err := branchManager.ConflictBranches(branches...)
+	conflictBranches, err := b.ResolveConflictBranchIDs(branches...)
 	if err != nil || len(conflictBranches) == 1 {
 		normalizedBranches = conflictBranches
-
 		return
 	}
 
@@ -185,23 +187,28 @@ func (branchManager *BranchManager) NormalizeBranches(branches ...MappedValue) (
 	parentsToCheck := stack.New()
 
 	// checks if branches are conflicting and queues parents to be checked
-	checkConflictsAndQueueParents := func(currentBranch *ConflictBranch) {
+	checkConflictsAndQueueParents := func(currentBranch Branch) {
+		currentConflictBranch, typeCastOK := currentBranch.(*ConflictBranch)
+		if !typeCastOK {
+			err = xerrors.Errorf("Branch with %s is not a ConflictBranch: %w", currentBranch.ID(), cerrors.ErrFatal)
+			return
+		}
+
 		// abort if branch was traversed already
-		if !traversedBranches.AddMapping(currentBranch.ID()) {
+		if !traversedBranches.Add(currentConflictBranch.ID()) {
 			return
 		}
 
 		// return error if conflict set was seen twice
-		for conflictSetID := range currentBranch.Conflicts() {
-			if !seenConflictSets.AddMapping(conflictSetID) {
+		for conflictSetID := range currentConflictBranch.Conflicts() {
+			if !seenConflictSets.Add(conflictSetID) {
 				err = errors.New("branches conflicting")
-
 				return
 			}
 		}
 
 		// queue parents to be checked when traversing ancestors
-		for _, parentBranchID := range currentBranch.Parents() {
+		for _, parentBranchID := range currentConflictBranch.Parents() {
 			parentsToCheck.Push(parentBranchID)
 		}
 
@@ -215,8 +222,8 @@ func (branchManager *BranchManager) NormalizeBranches(branches ...MappedValue) (
 		normalizedBranches[conflictBranchID] = types.Void
 
 		// check branch, queue parents and abort if we faced an error
-		if !branchManager.ConflictBranch(conflictBranchID).Consume(checkConflictsAndQueueParents) {
-			err = fmt.Errorf("error loading branch %v: %w", conflictBranchID, ErrBranchNotFound)
+		if !b.Branch(conflictBranchID).Consume(checkConflictsAndQueueParents) {
+			err = fmt.Errorf("error loading branch %v: %w", conflictBranchID, cerrors.ErrFatal)
 		}
 		if err != nil {
 			return
@@ -226,15 +233,17 @@ func (branchManager *BranchManager) NormalizeBranches(branches ...MappedValue) (
 	// remove ancestors from the candidates
 	for !parentsToCheck.IsEmpty() {
 		// retrieve parent branch ID from stack
-		parentBranchID := parentsToCheck.Pop().(MappedValue)
+		parentBranchID := parentsToCheck.Pop().(BranchID)
 
 		// remove ancestor from normalized candidates
 		delete(normalizedBranches, parentBranchID)
 
 		// check branch, queue parents and abort if we faced an error
-		if !branchManager.ConflictBranch(parentBranchID).Consume(checkConflictsAndQueueParents) {
-			err = fmt.Errorf("error loading branch %v: %w", parentBranchID, ErrBranchNotFound)
+		if !b.Branch(parentBranchID).Consume(checkConflictsAndQueueParents) {
+			err = fmt.Errorf("error loading branch %v: %w", parentBranchID, cerrors.ErrFatal)
 		}
+
+		// abort
 		if err != nil {
 			return
 		}
@@ -242,6 +251,9 @@ func (branchManager *BranchManager) NormalizeBranches(branches ...MappedValue) (
 
 	return
 }
+
+/*
+
 
 var utxoDAG *tangle.Tangle
 

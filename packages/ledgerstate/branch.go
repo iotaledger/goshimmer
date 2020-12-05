@@ -334,7 +334,7 @@ func BranchFromObjectStorage(_ []byte, data []byte) (branch objectstorage.Storab
 
 // region CachedBranch /////////////////////////////////////////////////////////////////////////////////////////////////
 
-// CachedBranch is a wrapper for the generic CachedObject returned by the objectstorage that overrides the accessor
+// CachedBranch is a wrapper for the generic CachedObject returned by the object storage that overrides the accessor
 // methods with a type-casted one.
 type CachedBranch struct {
 	objectstorage.CachedObject
@@ -368,11 +368,19 @@ func (c *CachedBranch) Consume(consumer func(branch Branch), forceRelease ...boo
 	}, forceRelease...)
 }
 
+// String returns a human readable version of the CachedBranch.
+func (c *CachedBranch) String() string {
+	return stringify.Struct("CachedBranch",
+		stringify.StructField("CachedObject", c.Unwrap()),
+	)
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region ConflictBranch ///////////////////////////////////////////////////////////////////////////////////////////////
 
-// ConflictBranch represents a container for Transactions and Outputs representing a certain perception of the ledger state.
+// ConflictBranch represents a container for Transactions and Outputs representing a certain perception of the ledger
+// state.
 type ConflictBranch struct {
 	id             BranchID
 	parents        BranchIDs
@@ -692,9 +700,10 @@ var _ Branch = &ConflictBranch{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region AggregatedBranch ///////////////////////////////////////////////////////////////////////////////////////////////
+// region AggregatedBranch /////////////////////////////////////////////////////////////////////////////////////////////
 
-// AggregatedBranch represents a container for Transactions and Outputs representing a certain perception of the ledger state.
+// AggregatedBranch represents a container for Transactions and Outputs representing a certain perception of the ledger
+// state.
 type AggregatedBranch struct {
 	id             BranchID
 	parents        BranchIDs
