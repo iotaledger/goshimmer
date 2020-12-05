@@ -16,7 +16,7 @@ var liveFeedWorkerPool *workerpool.WorkerPool
 func configureLiveFeed() {
 	liveFeedWorkerPool = workerpool.New(func(task workerpool.Task) {
 		task.Param(0).(*tangle.CachedMessage).Consume(func(message *tangle.Message) {
-			broadcastWsMessage(&wsmsg{MsgTypeMessage, &msg{message.ID().String(), 0}})
+			broadcastWsMessage(&wsmsg{MsgTypeMessage, &msg{message.ID().String(), 0, uint32(message.Payload().Type())}})
 		})
 
 		task.Return(nil)
