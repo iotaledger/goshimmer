@@ -36,17 +36,27 @@ func NewBranchDAG(store kvstore.KVStore) (newBranchDAG *BranchDAG) {
 		conflictMemberStorage: osFactory.New(PrefixConflictMemberStorage, ConflictMemberFromObjectStorage, conflictMemberStorageOptions...),
 	}
 
+	if cachedMasterBranch, stored := newBranchDAG.branchStorage.StoreIfAbsent(NewConflictBranch(NewBranchID(TransactionID{1}), nil, nil)); stored {
+		cachedMasterBranch.Release()
+	}
+
 	return
 }
 
 // ConflictBranch retrieves the ConflictBranch that corresponds to the given details. It automatically creates and
 // updates the ConflictBranch according to the new details if necessary.
-func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranches BranchIDs, conflicts ConflictIDs) (cachedBranch *CachedBranch, newBranchCreated bool) {
+func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs BranchIDs, conflictIDs ConflictIDs) (cachedBranch *CachedBranch, newBranchCreated bool) {
+	normalizedParentBranchIDs, err := b.NormalizeBranches(parentBranchIDs.Slice()...)
+	if err != nil {
+		panic(err)
+		return
+	}
+
 	// create or load the branch
 	cachedBranch = &CachedBranch{
 		CachedObject: b.branchStorage.ComputeIfAbsent(branchID.Bytes(),
 			func(key []byte) objectstorage.StorableObject {
-				newBranch := NewConflictBranch(branchID, parentBranches, conflicts)
+				newBranch := NewConflictBranch(branchID, normalizedParentBranchIDs, conflictIDs)
 				newBranch.Persist()
 				newBranch.SetModified()
 
@@ -71,19 +81,19 @@ func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranches Branc
 	switch true {
 	case newBranchCreated:
 		// store child references
-		for parentBranchID := range parentBranches {
+		for parentBranchID := range normalizedParentBranchIDs {
 			if cachedChildBranch, stored := b.childBranchStorage.StoreIfAbsent(NewChildBranch(parentBranchID, branchID)); stored {
 				cachedChildBranch.Release()
 			}
 		}
 
 		// store ConflictMember references
-		for conflictID := range conflicts {
+		for conflictID := range conflictIDs {
 			b.registerConflictMember(conflictID, branchID)
 		}
 	default:
 		// store new ConflictMember references
-		for conflictID := range conflicts {
+		for conflictID := range conflictIDs {
 			if conflictBranch.AddConflict(conflictID) {
 				b.registerConflictMember(conflictID, branchID)
 			}
