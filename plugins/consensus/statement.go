@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
 	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/objectstorage"
 )
 
 func makeStatement(roundStats *vote.RoundStats) {
@@ -63,13 +62,7 @@ func broadcastStatement(conflicts statement.Conflicts, timestamps statement.Time
 }
 
 func readStatement(cachedMsgEvent *tangle.CachedMessageEvent) {
-	var arrivalTime, solidTime int64
-
-	cachedMsgEvent.MessageMetadata.Consume((func(object objectstorage.StorableObject) {
-		msgMetaData := object.(*tangle.MessageMetadata)
-		arrivalTime = msgMetaData.ReceivedTime().UnixNano()
-		solidTime = msgMetaData.SolidificationTime().UnixNano()
-	}))
+	defer cachedMsgEvent.MessageMetadata.Release()
 
 	cachedMsgEvent.Message.Consume(func(msg *tangle.Message) {
 		messagePayload := msg.Payload()
@@ -96,12 +89,13 @@ func readStatement(cachedMsgEvent *tangle.CachedMessageEvent) {
 
 		issuerRegistry.AddTimestamps(statementPayload.Timestamps)
 
+		msgMetaData := cachedMsgEvent.MessageMetadata.Unwrap()
 		sendToRemoteLog(
 			msg.ID().String(),
 			issuerID.String(),
 			msg.IssuingTime().UnixNano(),
-			arrivalTime,
-			solidTime,
+			msgMetaData.ReceivedTime().UnixNano(),
+			msgMetaData.SolidificationTime().UnixNano(),
 		)
 	})
 }
