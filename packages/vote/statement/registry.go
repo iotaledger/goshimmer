@@ -58,12 +58,9 @@ func (r *Registry) NodesView() []*View {
 
 // Clean deletes all the entries older than the given duration d.
 func (r *Registry) Clean(d time.Duration) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	now := time.Now()
 
-	for _, v := range r.nodesView {
+	for _, v := range r.NodesView() {
 		v.cMutex.Lock()
 		// loop over the conflicts
 		for id, c := range v.Conflicts {
