@@ -2,6 +2,7 @@ export enum PayloadType {
     Data = 0,
     Value = 1,
     Faucet = 2,
+    Statement = 3,
     Drng = 111,
     SyncBeacon = 200,
 }
@@ -59,4 +60,44 @@ export class Balance {
 // Sync beacon payload
 export class SyncBeaconPayload {
     sent_time: number;
+}
+
+export class StatementPayload {
+    conflicts: Array<Conflict>;
+    timestamps: Array<Timestamp>;
+}
+
+export class Conflict {
+    tx_id: string;
+    opinion: Opinion;
+}
+
+export class Timestamp {
+    msg_id: string;
+    opinion: Opinion;
+}
+
+// @ts-ignore
+export class Opinion {
+    value: string;
+    round: number;
+}
+
+export function getPayloadType(p: number){
+    switch (p) {
+        case PayloadType.Data:
+            return "Data"
+        case PayloadType.Value:
+            return "Value"
+        case PayloadType.Statement:
+            return "Statement"
+        case PayloadType.Drng:
+            return "Drng"
+        case PayloadType.Faucet:
+            return "Faucet"
+        case PayloadType.SyncBeacon:
+            return "SyncBeacon"
+        default:
+            return "Unknown"
+    }
 }

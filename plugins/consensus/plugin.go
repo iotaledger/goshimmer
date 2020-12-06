@@ -52,10 +52,13 @@ const (
 
 	// CfgDeleteAfter defines the time [in minutes] after which older statements are deleted from the registry.
 	CfgDeleteAfter = "statement.deleteAfter"
+	// CfgWriteStatement defines if the node should write statements.
+	CfgWriteStatement = "statement.writeStatement"
 )
 
 func init() {
 	flag.Bool(CfgFPCListen, true, "if the FPC service should listen")
+	flag.Bool(CfgWriteStatement, false, "if the node should make statements")
 	flag.Int(CfgFPCQuerySampleSize, 21, "Size of the voting quorum (k)")
 	flag.Int64(CfgFPCRoundInterval, 10, "FPC round interval [s]")
 	flag.String(CfgFPCBindAddress, "0.0.0.0:10895", "the bind address on which the FPC vote server binds to")
@@ -80,6 +83,7 @@ var (
 	listen               bool
 	cleanInterval        int
 	deleteAfter          int
+	writeStatement       bool
 )
 
 // Plugin returns the consensus plugin.
@@ -92,11 +96,15 @@ func Plugin() *node.Plugin {
 
 func configure(_ *node.Plugin) {
 	log = logger.NewLogger(ConsensusPluginName)
+
+	configureRemoteLogger()
+
 	roundIntervalSeconds = config.Node().Int64(CfgFPCRoundInterval)
 	waitForStatement = config.Node().Int(CfgWaitForStatement)
 	listen = config.Node().Bool(CfgFPCListen)
 	cleanInterval = config.Node().Int(CfgCleanInterval)
 	deleteAfter = config.Node().Int(CfgDeleteAfter)
+	writeStatement = config.Node().Bool(CfgWriteStatement)
 
 	configureFPC()
 
@@ -153,7 +161,9 @@ func configureFPC() {
 	}
 
 	Voter().Events().RoundExecuted.Attach(events.NewClosure(func(roundStats *vote.RoundStats) {
-		makeStatement(roundStats)
+		if writeStatement {
+			makeStatement(roundStats)
+		}
 		peersQueried := len(roundStats.QueriedOpinions)
 		voteContextsCount := len(roundStats.ActiveVoteContexts)
 		log.Debugf("executed round with rand %0.4f for %d vote contexts on %d peers, took %v", roundStats.RandUsed, voteContextsCount, peersQueried, roundStats.Duration)

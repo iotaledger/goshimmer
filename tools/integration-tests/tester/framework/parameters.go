@@ -48,6 +48,8 @@ var (
 	ParaWaitForStatement = 3
 	// ParaFPCListen defines if the FPC service should listen.
 	ParaFPCListen = false
+	// ParaWriteStatement defines if the node should write statements.
+	ParaWriteStatement = true
 )
 
 var (
@@ -81,6 +83,7 @@ type GoShimmerConfig struct {
 	FPCRoundInterval int64
 	WaitForStatement int
 	FPCListen        bool
+	WriteStatement   bool
 }
 
 // NetworkConfig defines the config of a GoShimmer Docker network.

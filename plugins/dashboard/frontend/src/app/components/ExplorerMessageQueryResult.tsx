@@ -14,7 +14,8 @@ import {BasicPayload} from 'app/components/BasicPayload'
 import {DrngPayload} from 'app/components/DrngPayload'
 import {ValuePayload} from 'app/components/ValuePayload'
 import {SyncBeaconPayload} from 'app/components/SyncBeaconPayload'
-import {PayloadType} from 'app/misc/Payload'
+import {getPayloadType, PayloadType} from 'app/misc/Payload'
+import {StatementPayload} from "app/components/StatemenetPayload";
 
 interface Props {
     nodeStore?: NodeStore;
@@ -48,20 +49,7 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
     }
 
     getPayloadType() {
-        switch (this.props.explorerStore.msg.payload_type) {
-            case PayloadType.Data:
-                return "Data"
-            case PayloadType.Value:
-                return "Value"
-            case PayloadType.Drng:
-                return "Drng"
-            case PayloadType.Faucet:
-                return "Faucet"
-            case PayloadType.SyncBeacon:
-                return "SyncBeacon"
-            default:
-                return "Unknown"
-        }
+        return getPayloadType(this.props.explorerStore.msg.payload_type)
     }
 
     renderPayload() {
@@ -70,6 +58,8 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                 return <DrngPayload/>
             case PayloadType.Value:
                 return <ValuePayload/>
+            case PayloadType.Statement:
+                return <StatementPayload/>
             case PayloadType.Data:
                 return <BasicPayload/>
             case PayloadType.SyncBeacon:
