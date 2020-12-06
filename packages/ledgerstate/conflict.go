@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/iotaledger/hive.go/byteutils"
+	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
@@ -44,7 +45,7 @@ func ConflictIDFromBytes(bytes []byte) (conflictID ConflictID, consumedBytes int
 func ConflictIDFromBase58(base58String string) (conflictID ConflictID, err error) {
 	bytes, err := base58.Decode(base58String)
 	if err != nil {
-		err = xerrors.Errorf("error while decoding base58 encoded ConflictID (%v): %w", err, ErrBase58DecodeFailed)
+		err = xerrors.Errorf("error while decoding base58 encoded ConflictID (%v): %w", err, cerrors.ErrBase58DecodeFailed)
 		return
 	}
 
@@ -60,7 +61,7 @@ func ConflictIDFromBase58(base58String string) (conflictID ConflictID, err error
 func ConflictIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictID ConflictID, err error) {
 	conflictIDBytes, err := marshalUtil.ReadBytes(ConflictIDLength)
 	if err != nil {
-		err = xerrors.Errorf("failed to parse ConflictID (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse ConflictID (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	copy(conflictID[:], conflictIDBytes)
@@ -91,9 +92,9 @@ func (c ConflictID) String() string {
 type ConflictIDs map[ConflictID]types.Empty
 
 // NewConflictIDs creates a new collection of ConflictIDs from the given list of ConflictIDs.
-func NewConflictIDs(conflicts ...ConflictID) (conflictIDs ConflictIDs) {
+func NewConflictIDs(optionalConflictIDs ...ConflictID) (conflictIDs ConflictIDs) {
 	conflictIDs = make(ConflictIDs)
-	for _, conflictID := range conflicts {
+	for _, conflictID := range optionalConflictIDs {
 		conflictIDs[conflictID] = types.Void
 	}
 
@@ -116,7 +117,7 @@ func ConflictIDsFromBytes(bytes []byte) (conflictIDs ConflictIDs, consumedBytes 
 func ConflictIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictIDs ConflictIDs, err error) {
 	conflictIDsCount, err := marshalUtil.ReadUint64()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse count of ConflictIDs (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse count of ConflictIDs (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -221,7 +222,7 @@ func ConflictFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflict *Co
 	}
 	memberCount, err := marshalUtil.ReadUint64()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse member count (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse member count (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	conflict.memberCount = int(memberCount)

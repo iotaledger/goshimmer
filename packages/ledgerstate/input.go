@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/iotaledger/hive.go/byteutils"
+	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
@@ -66,7 +67,7 @@ func InputFromBytes(inputBytes []byte) (input Input, consumedBytes int, err erro
 func InputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (input Input, err error) {
 	inputType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse InputType (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse InputType (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	marshalUtil.ReadSeek(-1)
@@ -78,7 +79,7 @@ func InputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (input Input, er
 			return
 		}
 	default:
-		err = xerrors.Errorf("unsupported InputType (%X): %w", inputType, ErrParseBytesFailed)
+		err = xerrors.Errorf("unsupported InputType (%X): %w", inputType, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -146,7 +147,7 @@ func InputsFromBytes(inputBytes []byte) (inputs Inputs, consumedBytes int, err e
 func InputsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (inputs Inputs, err error) {
 	inputsCount, err := marshalUtil.ReadUint16()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse inputs count (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse inputs count (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -219,11 +220,11 @@ func NewUTXOInput(referencedOutputID OutputID) *UTXOInput {
 func UTXOInputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (input *UTXOInput, err error) {
 	inputType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse InputType (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse InputType (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if InputType(inputType) != UTXOInputType {
-		err = xerrors.Errorf("invalid InputType (%X): %w", inputType, ErrParseBytesFailed)
+		err = xerrors.Errorf("invalid InputType (%X): %w", inputType, cerrors.ErrParseBytesFailed)
 		return
 	}
 

@@ -1,7 +1,6 @@
 package ledgerstate
 
 import (
-	"errors"
 	"fmt"
 	"sync"
 
@@ -45,10 +44,10 @@ func NewBranchDAG(store kvstore.KVStore) (newBranchDAG *BranchDAG) {
 
 // ConflictBranch retrieves the ConflictBranch that corresponds to the given details. It automatically creates and
 // updates the ConflictBranch according to the new details if necessary.
-func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs BranchIDs, conflictIDs ConflictIDs) (cachedBranch *CachedBranch, newBranchCreated bool) {
+func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs BranchIDs, conflictIDs ConflictIDs) (cachedBranch *CachedBranch, newBranchCreated bool, err error) {
 	normalizedParentBranchIDs, err := b.NormalizeBranches(parentBranchIDs.Slice()...)
 	if err != nil {
-		panic(err)
+		err = xerrors.Errorf("failed to normalize parent Branches: %w", err)
 		return
 	}
 
@@ -68,13 +67,15 @@ func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs Bran
 	}
 	branch := cachedBranch.Unwrap()
 	if branch == nil {
-		panic(fmt.Sprintf("failed to load branch with %s", branchID))
+		err = xerrors.Errorf("failed to load Branch with %s: %w", branchID, cerrors.ErrFatal)
+		return
 	}
 
-	// type cast to CreateConflictBranch
+	// type cast to ConflictBranch
 	conflictBranch, typeCastOK := branch.(*ConflictBranch)
 	if !typeCastOK {
-		panic(fmt.Sprintf("failed to type cast Branch with %s to CreateConflictBranch", branchID))
+		err = xerrors.Errorf("failed to type cast Branch with %s to ConflictBranch: %w", branchID, cerrors.ErrFatal)
+		return
 	}
 
 	// register references
@@ -104,12 +105,16 @@ func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs Bran
 }
 
 func (b *BranchDAG) CreateAggregatedBranch(branchIDs ...BranchID) (cachedAggregatedBranch *CachedBranch, err error) {
-	referencedConflictBranches, err := b.ResolveConflictBranchIDs(branchIDs...)
+	normalizedBranches, err := b.NormalizeBranches(branchIDs...)
 	if err != nil {
+		err = xerrors.Errorf("failed to normalize Branches: %w", err)
 		return
 	}
 
-	cachedAggregatedBranch = b.Branch(NewAggregatedBranch(referencedConflictBranches).ID())
+	aggregatedBranch := NewAggregatedBranch(normalizedBranches)
+	cachedAggregatedBranch = &CachedBranch{CachedObject: b.branchStorage.ComputeIfAbsent(aggregatedBranch.ID().Bytes(), func(key []byte) objectstorage.StorableObject {
+		return aggregatedBranch
+	})}
 	return
 }
 
@@ -200,7 +205,7 @@ func (b *BranchDAG) NormalizeBranches(branches ...BranchID) (normalizedBranches 
 	checkConflictsAndQueueParents := func(currentBranch Branch) {
 		currentConflictBranch, typeCastOK := currentBranch.(*ConflictBranch)
 		if !typeCastOK {
-			err = xerrors.Errorf("Branch with %s is not a ConflictBranch: %w", currentBranch.ID(), cerrors.ErrFatal)
+			err = xerrors.Errorf("failed to type cast Branch with %s to ConflictBranch: %w", currentBranch.ID(), cerrors.ErrFatal)
 			return
 		}
 
@@ -212,7 +217,7 @@ func (b *BranchDAG) NormalizeBranches(branches ...BranchID) (normalizedBranches 
 		// return error if conflict set was seen twice
 		for conflictSetID := range currentConflictBranch.Conflicts() {
 			if !seenConflictSets.Add(conflictSetID) {
-				err = errors.New("branches conflicting")
+				err = xerrors.Errorf("combines Branches are conflicting: %w", ErrInvalidStateTransition)
 				return
 			}
 		}
@@ -221,8 +226,6 @@ func (b *BranchDAG) NormalizeBranches(branches ...BranchID) (normalizedBranches 
 		for _, parentBranchID := range currentConflictBranch.Parents() {
 			parentsToCheck.Push(parentBranchID)
 		}
-
-		return
 	}
 
 	// create normalized branch candidates (check their conflicts and queue parent checks)
