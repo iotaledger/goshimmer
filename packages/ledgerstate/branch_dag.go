@@ -1,7 +1,6 @@
 package ledgerstate
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/database"
@@ -42,10 +41,10 @@ func NewBranchDAG(store kvstore.KVStore) (newBranchDAG *BranchDAG) {
 	return
 }
 
-// ConflictBranch retrieves the ConflictBranch that corresponds to the given details. It automatically creates and
+// CreateConflictBranch retrieves the ConflictBranch that corresponds to the given details. It automatically creates and
 // updates the ConflictBranch according to the new details if necessary.
 func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs BranchIDs, conflictIDs ConflictIDs) (cachedBranch *CachedBranch, newBranchCreated bool, err error) {
-	normalizedParentBranchIDs, err := b.NormalizeBranches(parentBranchIDs.Slice()...)
+	normalizedParentBranchIDs, err := b.normalizeBranches(parentBranchIDs.Slice()...)
 	if err != nil {
 		err = xerrors.Errorf("failed to normalize parent Branches: %w", err)
 		return
@@ -105,7 +104,7 @@ func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs Bran
 }
 
 func (b *BranchDAG) CreateAggregatedBranch(branchIDs ...BranchID) (cachedAggregatedBranch *CachedBranch, err error) {
-	normalizedBranches, err := b.NormalizeBranches(branchIDs...)
+	normalizedBranches, err := b.normalizeBranches(branchIDs...)
 	if err != nil {
 		err = xerrors.Errorf("failed to normalize Branches: %w", err)
 		return
@@ -123,9 +122,17 @@ func (b *BranchDAG) Branch(branchID BranchID) (cachedBranch *CachedBranch) {
 	return &CachedBranch{CachedObject: b.branchStorage.Load(branchID.Bytes())}
 }
 
-// ResolveConflictBranchIDs returns the BranchIDs of the ConflictBranches that the given Branches represent by resolving
-// AggregatedBranches to their corresponding ConflictBranches.
-func (b *BranchDAG) ResolveConflictBranchIDs(branches ...BranchID) (conflictBranches BranchIDs, err error) {
+// Shutdown shuts down the BranchDAG and persists its state.
+func (b *BranchDAG) Shutdown() {
+	b.shutdownOnce.Do(func() {
+		b.branchStorage.Shutdown()
+		b.childBranchStorage.Shutdown()
+	})
+}
+
+// resolveConflictBranchIDs is an internal utility function that returns the BranchIDs of the ConflictBranches that the
+// given Branches represent by resolving AggregatedBranches to their corresponding ConflictBranches.
+func (b *BranchDAG) resolveConflictBranchIDs(branches ...BranchID) (conflictBranches BranchIDs, err error) {
 	// initialize return variable
 	conflictBranches = make(BranchIDs)
 
@@ -156,37 +163,19 @@ func (b *BranchDAG) ResolveConflictBranchIDs(branches ...BranchID) (conflictBran
 	return
 }
 
-// Shutdown shuts down the BranchDAG and persists its state.
-func (b *BranchDAG) Shutdown() {
-	b.shutdownOnce.Do(func() {
-		b.branchStorage.Shutdown()
-		b.childBranchStorage.Shutdown()
-	})
-}
+// normalizeBranches is an internal utility function that takes a list of BranchIDs and returns the the BranchIDS of the
+// most special ConflictBranches that the given BranchIDs represent. It returns an error if the Branches are conflicting
+// or any other unforeseen error occurred.
+func (b *BranchDAG) normalizeBranches(branches ...BranchID) (normalizedBranches BranchIDs, err error) {
+	// retrieve conflict branches and abort if we faced an error
+	conflictBranches, err := b.resolveConflictBranchIDs(branches...)
+	if err != nil {
+		err = xerrors.Errorf("failed to resolve ConflictBranchIDs: %w", err)
+		return
+	}
 
-// registerConflictMember is an internal utility function that creates the ConflictMember references of a Branch belong
-// to a given Conflict. It automatically creates the Conflict if it doesn't exist, yet.
-func (b *BranchDAG) registerConflictMember(conflictID ConflictID, branchID BranchID) {
-	(&CachedConflict{CachedObject: b.conflictStorage.ComputeIfAbsent(conflictID.Bytes(), func(key []byte) objectstorage.StorableObject {
-		newConflict := NewConflict(conflictID)
-		newConflict.Persist()
-		newConflict.SetModified()
-
-		return newConflict
-	})}).Consume(func(conflict *Conflict) {
-		if cachedConflictMember, stored := b.conflictMemberStorage.StoreIfAbsent(NewConflictMember(conflictID, branchID)); stored {
-			conflict.IncreaseMemberCount()
-
-			cachedConflictMember.Release()
-		}
-	})
-}
-
-// NormalizeBranches checks if the branches are conflicting and removes superfluous ancestors.
-func (b *BranchDAG) NormalizeBranches(branches ...BranchID) (normalizedBranches BranchIDs, err error) {
-	// retrieve conflict branches and abort if we either faced an error or are done
-	conflictBranches, err := b.ResolveConflictBranchIDs(branches...)
-	if err != nil || len(conflictBranches) == 1 {
+	// return if we are done
+	if len(conflictBranches) == 1 {
 		normalizedBranches = conflictBranches
 		return
 	}
@@ -217,7 +206,7 @@ func (b *BranchDAG) NormalizeBranches(branches ...BranchID) (normalizedBranches 
 		// return error if conflict set was seen twice
 		for conflictSetID := range currentConflictBranch.Conflicts() {
 			if !seenConflictSets.Add(conflictSetID) {
-				err = xerrors.Errorf("combines Branches are conflicting: %w", ErrInvalidStateTransition)
+				err = xerrors.Errorf("combined Branches are conflicting: %w", ErrInvalidStateTransition)
 				return
 			}
 		}
@@ -234,10 +223,13 @@ func (b *BranchDAG) NormalizeBranches(branches ...BranchID) (normalizedBranches 
 		// add branch to the candidates of normalized branches
 		normalizedBranches[conflictBranchID] = types.Void
 
-		// check branch, queue parents and abort if we faced an error
+		// check branch and queue parents
 		if !b.Branch(conflictBranchID).Consume(checkConflictsAndQueueParents) {
-			err = fmt.Errorf("error loading branch %v: %w", conflictBranchID, cerrors.ErrFatal)
+			err = xerrors.Errorf("failed to load branch with %s: %w", conflictBranchID, cerrors.ErrFatal)
+			return
 		}
+
+		// abort if we faced an error
 		if err != nil {
 			return
 		}
@@ -253,16 +245,35 @@ func (b *BranchDAG) NormalizeBranches(branches ...BranchID) (normalizedBranches 
 
 		// check branch, queue parents and abort if we faced an error
 		if !b.Branch(parentBranchID).Consume(checkConflictsAndQueueParents) {
-			err = fmt.Errorf("error loading branch %v: %w", parentBranchID, cerrors.ErrFatal)
+			err = xerrors.Errorf("failed to load branch with %s: %w", parentBranchID, cerrors.ErrFatal)
+			return
 		}
 
-		// abort
+		// abort if we faced an error
 		if err != nil {
 			return
 		}
 	}
 
 	return
+}
+
+// registerConflictMember is an internal utility function that creates the ConflictMember references of a Branch belong
+// to a given Conflict. It automatically creates the Conflict if it doesn't exist, yet.
+func (b *BranchDAG) registerConflictMember(conflictID ConflictID, branchID BranchID) {
+	(&CachedConflict{CachedObject: b.conflictStorage.ComputeIfAbsent(conflictID.Bytes(), func(key []byte) objectstorage.StorableObject {
+		newConflict := NewConflict(conflictID)
+		newConflict.Persist()
+		newConflict.SetModified()
+
+		return newConflict
+	})}).Consume(func(conflict *Conflict) {
+		if cachedConflictMember, stored := b.conflictMemberStorage.StoreIfAbsent(NewConflictMember(conflictID, branchID)); stored {
+			conflict.IncreaseMemberCount()
+
+			cachedConflictMember.Release()
+		}
+	})
 }
 
 /*
@@ -280,7 +291,7 @@ func (branchManager *BranchManager) InheritBranch(tx *transaction.Transaction) (
 		return true
 	})
 
-	normalizedBranches, err := branchManager.NormalizeBranches(consumedBranches...)
+	normalizedBranches, err := branchManager.normalizeBranches(consumedBranches...)
 	if err != nil {
 		return
 	}
