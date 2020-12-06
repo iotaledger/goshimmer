@@ -4,6 +4,7 @@ import (
 	"net"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/packages/metrics"
@@ -46,6 +47,11 @@ const (
 	// CfgManaThreshold defines the Mana threshold to accept/write a statement.
 	CfgManaThreshold = "statement.manaThreshold"
 
+	// CfgCleanInterval defines the time interval [in minutes] for cleaning the statement registry.
+	CfgCleanInterval = "statement.cleanInterval"
+
+	// CfgDeleteAfter defines the time [in minutes] after which older statements are deleted from the registry.
+	CfgDeleteAfter = "statement.deleteAfter"
 	// CfgWriteStatement defines if the node should write statements.
 	CfgWriteStatement = "statement.writeStatement"
 )
@@ -58,6 +64,8 @@ func init() {
 	flag.String(CfgFPCBindAddress, "0.0.0.0:10895", "the bind address on which the FPC vote server binds to")
 	flag.Int(CfgWaitForStatement, 5, "the time in seconds for which the node wait for receiveing the new statement")
 	flag.Float64(CfgManaThreshold, 1., "Mana threshold to accept/write a statement")
+	flag.Int(CfgCleanInterval, 5, "the time in minutes after which the node cleans the statement registry")
+	flag.Int(CfgDeleteAfter, 5, "the time in minutes after which older statements are deleted from the registry")
 }
 
 var (
@@ -73,6 +81,8 @@ var (
 	registryOnce         sync.Once
 	waitForStatement     int
 	listen               bool
+	cleanInterval        int
+	deleteAfter          int
 	writeStatement       bool
 )
 
@@ -92,6 +102,8 @@ func configure(_ *node.Plugin) {
 	roundIntervalSeconds = config.Node().Int64(CfgFPCRoundInterval)
 	waitForStatement = config.Node().Int(CfgWaitForStatement)
 	listen = config.Node().Bool(CfgFPCListen)
+	cleanInterval = config.Node().Int(CfgCleanInterval)
+	deleteAfter = config.Node().Int(CfgDeleteAfter)
 	writeStatement = config.Node().Bool(CfgWriteStatement)
 
 	configureFPC()
@@ -220,6 +232,24 @@ func runFPC() {
 				if err := voter.Round(r); err != nil {
 					log.Warnf("unable to execute FPC round: %s", err)
 				}
+			case <-shutdownSignal:
+				break exit
+			}
+		}
+	}, shutdown.PriorityFPC); err != nil {
+		log.Panicf("Failed to start as daemon: %s", err)
+	}
+
+	if err := daemon.BackgroundWorker("StatementCleaner", func(shutdownSignal <-chan struct{}) {
+		log.Infof("Started Statement Cleaner")
+		defer log.Infof("Stopped Statement Cleaner")
+		ticker := time.NewTicker(time.Duration(cleanInterval) * time.Minute)
+		defer ticker.Stop()
+	exit:
+		for {
+			select {
+			case <-ticker.C:
+				Registry().Clean(time.Duration(deleteAfter) * time.Minute)
 			case <-shutdownSignal:
 				break exit
 			}
