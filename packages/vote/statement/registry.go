@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/hive.go/identity"
@@ -58,7 +59,7 @@ func (r *Registry) NodesView() []*View {
 
 // Clean deletes all the entries older than the given duration d.
 func (r *Registry) Clean(d time.Duration) {
-	now := time.Now()
+	now := clock.SyncedTime()
 
 	for _, v := range r.NodesView() {
 		v.cMutex.Lock()
@@ -112,7 +113,7 @@ func (v *View) AddConflict(c Conflict) {
 	if _, ok := v.Conflicts[c.ID]; !ok {
 		v.Conflicts[c.ID] = Entry{
 			Opinions:  Opinions{c.Opinion},
-			Timestamp: time.Now(),
+			Timestamp: clock.SyncedTime(),
 		}
 		return
 	}
@@ -131,7 +132,7 @@ func (v *View) AddConflicts(conflicts Conflicts) {
 		if _, ok := v.Conflicts[c.ID]; !ok {
 			v.Conflicts[c.ID] = Entry{
 				Opinions:  Opinions{c.Opinion},
-				Timestamp: time.Now(),
+				Timestamp: clock.SyncedTime(),
 			}
 			continue
 		}
@@ -150,7 +151,7 @@ func (v *View) AddTimestamp(t Timestamp) {
 	if _, ok := v.Timestamps[t.ID]; !ok {
 		v.Timestamps[t.ID] = Entry{
 			Opinions:  Opinions{t.Opinion},
-			Timestamp: time.Now(),
+			Timestamp: clock.SyncedTime(),
 		}
 		return
 	}
@@ -169,7 +170,7 @@ func (v *View) AddTimestamps(timestamps Timestamps) {
 		if _, ok := v.Timestamps[t.ID]; !ok {
 			v.Timestamps[t.ID] = Entry{
 				Opinions:  Opinions{t.Opinion},
-				Timestamp: time.Now(),
+				Timestamp: clock.SyncedTime(),
 			}
 			continue
 		}
