@@ -1034,7 +1034,7 @@ func ChildBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (childBran
 		return
 	}
 	if childBranch.childBranchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse child BranchID: %w", err)
+		err = xerrors.Errorf("failed to parse child BranchID from MarshalUtil: %w", err)
 		return
 	}
 

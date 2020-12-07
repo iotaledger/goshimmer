@@ -12,7 +12,7 @@ func TestBranchDAG_ConflictBranches(t *testing.T) {
 	branchDAG := NewBranchDAG(mapdb.NewMapDB())
 	defer branchDAG.Shutdown()
 
-	conflictBranch, newBranchCreated, err := branchDAG.CreateConflictBranch(
+	conflictBranch, newBranchCreated, err := branchDAG.RetrieveConflictBranch(
 		NewBranchID(TransactionID{3}),
 		NewBranchIDs(
 			NewBranchID(TransactionID{1}),
@@ -26,7 +26,7 @@ func TestBranchDAG_ConflictBranches(t *testing.T) {
 	defer conflictBranch.Release()
 	fmt.Println(conflictBranch, newBranchCreated)
 
-	conflictBranch1, newBranchCreated1, err := branchDAG.CreateConflictBranch(
+	conflictBranch1, newBranchCreated1, err := branchDAG.RetrieveConflictBranch(
 		NewBranchID(TransactionID{3}),
 		NewBranchIDs(
 			NewBranchID(TransactionID{1}),

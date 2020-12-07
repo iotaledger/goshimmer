@@ -33,17 +33,14 @@ func NewBranchDAG(store kvstore.KVStore) (newBranchDAG *BranchDAG) {
 		conflictStorage:       osFactory.New(PrefixConflictStorage, ConflictFromObjectStorage, conflictStorageOptions...),
 		conflictMemberStorage: osFactory.New(PrefixConflictMemberStorage, ConflictMemberFromObjectStorage, conflictMemberStorageOptions...),
 	}
-
-	if cachedMasterBranch, stored := newBranchDAG.branchStorage.StoreIfAbsent(NewConflictBranch(NewBranchID(TransactionID{1}), nil, nil)); stored {
-		cachedMasterBranch.Release()
-	}
+	newBranchDAG.init()
 
 	return
 }
 
-// CreateConflictBranch retrieves the ConflictBranch that corresponds to the given details. It automatically creates and
-// updates the ConflictBranch according to the new details if necessary.
-func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs BranchIDs, conflictIDs ConflictIDs) (cachedBranch *CachedBranch, newBranchCreated bool, err error) {
+// RetrieveConflictBranch retrieves the ConflictBranch that corresponds to the given details. It automatically creates
+// and updates the ConflictBranch according to the new details if necessary.
+func (b *BranchDAG) RetrieveConflictBranch(branchID BranchID, parentBranchIDs BranchIDs, conflictIDs ConflictIDs) (cachedBranch *CachedBranch, newBranchCreated bool, err error) {
 	normalizedParentBranchIDs, err := b.normalizeBranches(parentBranchIDs)
 	if err != nil {
 		err = xerrors.Errorf("failed to normalize parent Branches: %w", err)
@@ -103,7 +100,9 @@ func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs Bran
 	return
 }
 
-func (b *BranchDAG) CreateAggregatedBranch(branchIDs BranchIDs) (cachedAggregatedBranch *CachedBranch, err error) {
+// RetrieveAggregatedBranch retrieves the AggregatedBranch that corresponds to the given BranchIDs. It automatically
+// creates the AggregatedBranch if it didn't exist, yet.
+func (b *BranchDAG) RetrieveAggregatedBranch(branchIDs BranchIDs) (cachedAggregatedBranch *CachedBranch, err error) {
 	normalizedBranches, err := b.normalizeBranches(branchIDs)
 	if err != nil {
 		err = xerrors.Errorf("failed to normalize Branches: %w", err)
@@ -151,11 +150,47 @@ func (b *BranchDAG) ConflictMembers(conflictID ConflictID) (cachedConflictMember
 	return
 }
 
+// Prune resets the database and deletes all objects (for testing or "node resets").
+func (b *BranchDAG) Prune() (err error) {
+	for _, storage := range []*objectstorage.ObjectStorage{
+		b.branchStorage,
+		b.childBranchStorage,
+		b.conflictStorage,
+		b.conflictMemberStorage,
+	} {
+		if err = storage.Prune(); err != nil {
+			err = xerrors.Errorf("failed to prune the object storage (%v): %w", err, cerrors.ErrFatal)
+			return
+		}
+	}
+
+	b.init()
+
+	return
+}
+
 // Shutdown shuts down the BranchDAG and persists its state.
 func (b *BranchDAG) Shutdown() {
 	b.shutdownOnce.Do(func() {
 		b.branchStorage.Shutdown()
 		b.childBranchStorage.Shutdown()
+		b.conflictStorage.Shutdown()
+		b.conflictMemberStorage.Shutdown()
+	})
+}
+
+// init is an internal utility function that initializes the BranchDAG by creating the root of the DAG (MasterBranch).
+func (b *BranchDAG) init() {
+	cachedMasterBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(NewBranchID(TransactionID{1}), nil, nil))
+	if !stored {
+		return
+	}
+
+	(&CachedBranch{CachedObject: cachedMasterBranch}).Consume(func(branch Branch) {
+		branch.SetPreferred(true)
+		branch.SetLiked(true)
+		branch.SetFinalized(true)
+		branch.SetConfirmed(true)
 	})
 }
 
