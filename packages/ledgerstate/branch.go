@@ -3,6 +3,7 @@ package ledgerstate
 import (
 	"bytes"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -53,13 +54,13 @@ func BranchIDFromBytes(bytes []byte) (branchID BranchID, consumedBytes int, err 
 
 // BranchIDFromBase58 creates a BranchID from a base58 encoded string.
 func BranchIDFromBase58(base58String string) (branchID BranchID, err error) {
-	bytes, err := base58.Decode(base58String)
+	decodedBytes, err := base58.Decode(base58String)
 	if err != nil {
 		err = xerrors.Errorf("error while decoding base58 encoded BranchID (%v): %w", err, cerrors.ErrBase58DecodeFailed)
 		return
 	}
 
-	if branchID, _, err = BranchIDFromBytes(bytes); err != nil {
+	if branchID, _, err = BranchIDFromBytes(decodedBytes); err != nil {
 		err = xerrors.Errorf("failed to parse BranchID from bytes: %w", err)
 		return
 	}
@@ -1096,5 +1097,108 @@ func (c *ChildBranch) ObjectStorageValue() (objectStorageValue []byte) {
 
 // code contract (make sure the struct implements all required methods)
 var _ objectstorage.StorableObject = &ChildBranch{}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region CachedChildBranch ////////////////////////////////////////////////////////////////////////////////////////////
+
+// CachedChildBranch is a wrapper for the generic CachedObject returned by the object storage that overrides the
+// accessor methods with a type-casted one.
+type CachedChildBranch struct {
+	objectstorage.CachedObject
+}
+
+// Retain marks the CachedObject to still be in use by the program.
+func (c *CachedChildBranch) Retain() *CachedChildBranch {
+	return &CachedChildBranch{c.CachedObject.Retain()}
+}
+
+// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
+func (c *CachedChildBranch) Unwrap() *ChildBranch {
+	untypedObject := c.Get()
+	if untypedObject == nil {
+		return nil
+	}
+
+	typedObject := untypedObject.(*ChildBranch)
+	if typedObject == nil || typedObject.IsDeleted() {
+		return nil
+	}
+
+	return typedObject
+}
+
+// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
+// exists). It automatically releases the object when the consumer finishes.
+func (c *CachedChildBranch) Consume(consumer func(childBranch *ChildBranch), forceRelease ...bool) (consumed bool) {
+	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*ChildBranch))
+	}, forceRelease...)
+}
+
+// String returns a human readable version of the CachedChildBranch.
+func (c *CachedChildBranch) String() string {
+	return stringify.Struct("CachedChildBranch",
+		stringify.StructField("CachedObject", c.Unwrap()),
+	)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region CachedChildBranches //////////////////////////////////////////////////////////////////////////////////////////
+
+// CachedChildBranches represents a collection of CachedChildBranch objects.
+type CachedChildBranches []*CachedChildBranch
+
+// Unwrap is the type-casted equivalent of Get. It returns a slice of unwrapped objects with the object being nil if it
+// does not exist.
+func (c CachedChildBranches) Unwrap() (unwrappedChildBranches []*ChildBranch) {
+	unwrappedChildBranches = make([]*ChildBranch, len(c))
+	for i, cachedChildBranch := range c {
+		untypedObject := cachedChildBranch.Get()
+		if untypedObject == nil {
+			continue
+		}
+
+		typedObject := untypedObject.(*ChildBranch)
+		if typedObject == nil || typedObject.IsDeleted() {
+			continue
+		}
+
+		unwrappedChildBranches[i] = typedObject
+	}
+
+	return
+}
+
+// Consume iterates over the CachedObjects, unwraps them and passes a type-casted version to the consumer (if the object
+// is not empty - it exists). It automatically releases the object when the consumer finishes. It returns true, if at
+// least one object was consumed.
+func (c CachedChildBranches) Consume(consumer func(childBranch *ChildBranch), forceRelease ...bool) (consumed bool) {
+	for _, cachedChildBranch := range c {
+		consumed = cachedChildBranch.Consume(func(output *ChildBranch) {
+			consumer(output)
+		}, forceRelease...) || consumed
+	}
+
+	return
+}
+
+// Release is a utility function that allows us to release all CachedObjects in the collection.
+func (c CachedChildBranches) Release(force ...bool) {
+	for _, cachedChildBranch := range c {
+		cachedChildBranch.Release(force...)
+	}
+}
+
+// String returns a human readable version of the CachedChildBranches.
+func (c CachedChildBranches) String() string {
+	structBuilder := stringify.StructBuilder("CachedChildBranches")
+	for i, cachedChildBranch := range c {
+		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), cachedChildBranch))
+	}
+
+	return structBuilder.String()
+}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

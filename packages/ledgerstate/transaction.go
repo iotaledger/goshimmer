@@ -303,7 +303,7 @@ var _ objectstorage.StorableObject = &Transaction{}
 
 // region CachedTransaction ////////////////////////////////////////////////////////////////////////////////////////////
 
-// CachedTransaction is a wrapper for the generic CachedObject returned by the objectstorage that overrides the
+// CachedTransaction is a wrapper for the generic CachedObject returned by the object storage that overrides the
 // accessor methods with a type-casted one.
 type CachedTransaction struct {
 	objectstorage.CachedObject
@@ -858,7 +858,7 @@ var _ objectstorage.StorableObject = &TransactionMetadata{}
 
 // region CachedTransactionMetadata ////////////////////////////////////////////////////////////////////////////////////
 
-// CachedTransactionMetadata is a wrapper for the generic CachedObject returned by the objectstorage that overrides the
+// CachedTransactionMetadata is a wrapper for the generic CachedObject returned by the object storage that overrides the
 // accessor methods with a type-casted one.
 type CachedTransactionMetadata struct {
 	objectstorage.CachedObject

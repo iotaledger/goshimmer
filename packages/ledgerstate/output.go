@@ -830,7 +830,7 @@ var _ Output = &SigLockedColoredOutput{}
 
 // region CachedOutput /////////////////////////////////////////////////////////////////////////////////////////////////
 
-// CachedOutput is a wrapper for the generic CachedObject returned by the objectstorage that overrides the accessor
+// CachedOutput is a wrapper for the generic CachedObject returned by the object storage that overrides the accessor
 // methods with a type-casted one.
 type CachedOutput struct {
 	objectstorage.CachedObject
@@ -1252,7 +1252,7 @@ var _ objectstorage.StorableObject = &OutputMetadata{}
 
 // region CachedOutputMetadata /////////////////////////////////////////////////////////////////////////////////////////
 
-// CachedOutputMetadata is a wrapper for the generic CachedObject returned by the objectstorage that overrides the
+// CachedOutputMetadata is a wrapper for the generic CachedObject returned by the object storage that overrides the
 // accessor methods with a type-casted one.
 type CachedOutputMetadata struct {
 	objectstorage.CachedObject
