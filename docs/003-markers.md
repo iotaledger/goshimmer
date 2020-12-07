@@ -254,7 +254,7 @@ We check the parent marker sequences of each candidate in order from high to low
 An example is **msg 10** in the figure, the PM candidates are $[0,2], [1,1], [2,3]$. $[2,3]$ is the first marker to check, since it has the highest rank. Then we find its parent marker sequences are $0$ and $1$, and perform futher $MI$ checks. And finally the PMs of **msg 10** is $[2,3]$ only, $[0,2], [1,1]$ are removed.
 
 This function returns the markers and marker sequences to inherit for a message.
-```
+```go
 // normalizeMarkers takes a set of Markers and removes each Marker that is already referenced by another Marker in the
 // same set (the remaining Markers are the "most special" Markers that reference all Markers in the set grouped by the
 // rank of their corresponding Sequence). In addition, the method returns all SequenceIDs of the Markers that were not
@@ -326,7 +326,7 @@ func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkersByRank *M
 By comparing the past and future markers of messages, we can easily tell if one is in another's past cone. The function returns a `TriBool` representing the three possible statuses: `True`, `False` and `Maybe`. If `Maybe` is returned, then we need to walk the Tangle.
 
 #### Algorithm
-```
+```go
 // IsInPastCone checks if the earlier Markers are directly or indirectly referenced by the later Markers.
 func (m *Manager) IsInPastCone(earlierMarkers *MarkersPair, laterMarkers *MarkersPair) (referenced TriBool) {
 	// fast check: if earlier Markers have larger highest Indexes they can't be in the past cone
