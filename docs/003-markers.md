@@ -1,19 +1,20 @@
-# Markers
+# Marker Spec
 ## Summary
-To know a message in the Tangle is orphaned or not, we introduce **grades of finality** to interpret the status of a message. However, the higher grades of finality is determined by the **approval weight**, which is the proportion of active consensus mana approving a given message.
+In order to know whether a message in the Tangle is orphaned or not, we introduce **grades of finality** to interpret the status of a message. The higher grade of finality is determined by the **approval weight**, which is the proportion of active consensus mana approving a given message.
 
-Computing the approaval weight of a given message needs to traverse the Tangle from the message to the tips and sum up the active consensus mana of all the messages in its future cone. And **marker** is a tool to efficiently estimate the approval weight of a message that reduces the portion of the Tangle we need to walk,  and finally results in the grade of finality.
+In order to compute the approval weight of a given message  we need to traverse the Tangle from the message to the tips and sum up the active consensus mana of all the messages in its future cone. A **marker** is a tool to efficiently estimate the approval weight of a message and that reduces the portion of the Tangle we need to walk, and which finally results in the grade of finality.
 
-**Note**: Markers is not a core module of the Coordicide project.
+**Note**: *Markers* is not a core module of the Coordicide project.
 
 ## Motivation
-Markers is a tool to infer knowledge about the structure of the Tangle in terms of:
+*Markers* is a tool to infer knowledge about the structure of the Tangle in terms of:
 + past/future cone membership;
 + approximate approval weight of any message;
 + tagging sections of the Tangle (e.g., branches) without having to traverse each message individually.
 
 ## Dependency
 Active Consensus Mana
+
 
 ## Detailed Design
 
@@ -26,7 +27,7 @@ Let's define the terms related to markers:
 * **past marker (PM):** A past marker of a message is the marker in its past cone. It is set to the newest past marker of its parents, that is the one that has the largest MI. The past marker of a marker is set to itself.
 
 ### The Marker Sequence
-Marker sequences are used to track the UTXO DAG branches, each branch corresponds to a marker sequence with a unique $MSI$. 
+Marker sequences are used to track the UTXO DAG branches, each branch corresponds to a marker sequence with a unique *`MSI`*, and the marker sequences form a DAG as well.
 
 #### Marker Sequence Structure
 
@@ -49,7 +50,7 @@ Marker sequences are used to track the UTXO DAG branches, each branch correspond
     <tr>
         <td>rank</td>
         <td>uint64</td>
-        <td>The rank of the marker sequence.</td>
+        <td>The rank of the marker sequence in the marker sequence DAG.</td>
     </tr>
     <tr>
         <td>highestIndex</td>
@@ -63,16 +64,17 @@ Marker sequences are used to track the UTXO DAG branches, each branch correspond
     </tr>
 </table>
 
+
 #### Create Marker Sequence
 A new marker sequence is created when:
-1. there's a conflict in UTXO branch.
+1. there's a conflict in a UTXO branch.
 2. the UTXO branches are aggregated.
 3. UTXO branches are merged.
 
 Each new marker sequence starts from a new marker.
 
 ### The Markers
-Markers are messages selected from the tip set periodically and assigned unique identifiers, in the form of $[MSI, MI]$. 
+Markers are messages selected from the tip set periodically and assigned unique identifiers, in the form of *`[MSI, MI]`*. 
 
 #### Marker Structure
 <table>
@@ -89,7 +91,7 @@ Markers are messages selected from the tip set periodically and assigned unique 
     <tr>
         <td>MarkerIndex</td>
         <td>uint64</td>
-        <td>The index of marker in the marker sequence.</td>
+        <td>The index of the marker in the marker sequence.</td>
     </tr>
 </table>
 
@@ -105,17 +107,18 @@ A new marker is created when:
         + Lower bound given by rank (e.g., how far you are in terms of steps) -> >= 10 or something
         + Upper bound given by the amount of messages referencing the previous one -> ~ 200 msgs
 2. A new marker sequence is created. 
-> to be confirmed here.
+> :mega: to be confirmed here.
  
-A new marker is selected from the tips set randomly, and selected from the weak tips set if there's no strong tip. A new pair of $[MSI, MI]$ is assigned to the new marker. 
-> to be confirmed here.
+A new marker is selected from the tips set randomly, and selected from the weak tips set if there's no strong tip. A new pair of *`[MSI, MI]`* is assigned to the new marker. 
+> :mega:  to be confirmed here.
 
-The $MSI$ is set following rules:
+
+The *`MSI`* is set according to the following rules:
 * Create a new MSI if it is the first marker of the new marker sequence.
 * Inherit the MSI from parents if it references the latest marker of the sequence and meets the requirement to set up a new marker.
 
-The $MI$ is set to $MI = 1+ max(referencedMI)$, which complies the rule:
-+ Marker indexes ($MIs$) are monotonically increasing such that $\forall x \in fc(y)$ => $MI_x > MI_y$, where $fc(y)$ is the future cone of $y$ and $x$ is any message in that future cone.
+The *`MI`* is set to *`MI = 1+ max(referencedMI)`*, which complies to the rule:
++ Marker indexes (*`MIs`*) are monotonically increasing such that *`\forall x \in fc(y)`* => *`MI_x > MI_y`*, where *`fc(y)`* is the future cone of *`y`* and *`x`* is any message in that future cone.
 
 ### Past Markers and Future Markers
 Each message keeps the marker information in two lists:
@@ -124,13 +127,8 @@ Each message keeps the marker information in two lists:
 
 PMs and FMs are used to determine whether a message is in the past cone of the other, and FMs also help us efficiently estimate the approval weight of a message.
 
-The figure below shows an example of applying markers to the Tangle with 1 marker sequence only:
-![](https://i.imgur.com/RluZWCJ.png)
-
-The yellow messages are markers with identifiers: $[0,1]$ and $[0,2]$. Both markers are in $MS$ $0$ with $MI$ $1$ and $2$ respectively.
-
 #### StructureDetails Structure
-StructureDetails is a structure that will be in message metadata containing marker information.
+StructureDetails is a structure that will be in the message metadata containing marker information.
 
 <table>
     <tr>
@@ -191,15 +189,20 @@ StructureDetails is a structure that will be in message metadata containing mark
 </table>
 
 ##### Past Markers
-PMs of a marker is the marker itself only.
-PMs of general messages is inherited from its **strong** parents, with 2 steps:
-1. keep the nearest markers (i.e., the marker with the biggest $MI$ ) of each marker sequence, 
+A PM of a marker is the marker itself only.
+A PM of general messages is inherited from its **strong** parents, with 2 steps:
+1. keep the nearest markers (i.e., the marker with the biggest *`MI`* ) of each marker sequence, 
 2. remove those that have been referenced by other markers in the same set. 
 
 ##### Future Markers
-FMs is empty at start and get updated when the new marker directly or indirectly references it. The FMs propagation ends if:
-1. the FMs of a message includes a previous marker of the same marker sequence;
-2. the message is the first message we saw in the different marker sequence, we update the FMs of that first message only.
+The FM is empty at start and gets updated when the new marker directly or indirectly references it. The FMs propagation ends if:
+1. the FM of a message includes a previous marker of the same marker sequence;
+2. the message is the first message we saw in the different marker sequence, we update the FM of that first message only.
+
+The figure below shows an example of applying markers to the Tangle with 1 marker sequence only:
+![](https://i.imgur.com/RluZWCJ.png)
+
+The yellow messages are markers with identifiers: *`[0,1]`* and *`[0,2]`*. Both markers are in *`MS`* *`0`* with *`MI`* *`1`* and *`2`* respectively.
 
 ### Markers and Approval Weight
 To approximate the approval weight of a message, we simply retrieve the approval weight of its FMs. Since the message is in the past cone of its FMs, the approval weight and the finality will be at least the same as its FMs. This will of course be a lower bound (which is the “safe” bound), but if the markers are set frequently enough, it should be a good approximation.
@@ -207,12 +210,12 @@ To approximate the approval weight of a message, we simply retrieve the approval
 ### Marker Management
 Messages can have markers from different marker sequences in PMs and FMs, the order and referenced relationship among marker sequences are important when it comes to inheriting the PMs from parents and other usages. Thus, we need to track these marker sequences.
 
-Here's an example of how markers should look in Tangle:
+Here is an example of how markers would look in the Tangle:
 
 ![](https://i.imgur.com/yi4E3Ik.png)
 
 #### Marker Sequences
-Whatever reason a marker sequence is created, we assign a new $MSI = 1+max(referenceMarkerSequences)$. To prevent assigning a new $MSI$ when combining same marker sequences again, we build parents-child relation in a map if a new marker sequence is created. 
+Whatever reason a marker sequence is created, we assign a new *`MSI = 1+max(referenceMarkerSequences)`*. To prevent assigning a new *`MSI`* when combining same marker sequences again, we build parents-child relation in a map if a new marker sequence is created. 
 
 #### Rank
 The rank of marker sequence graph is the number of sequences from the starting point to itself. The marker sequences in the figure above have rank:
@@ -251,7 +254,7 @@ The rank of marker sequence graph is the number of sequences from the starting p
 
 We check the parent marker sequences of each candidate in order from high to low rank, if the parent sequence is in the candidate list, it will be removed.
 
-An example is **msg 10** in the figure, the PM candidates are $[0,2], [1,1], [2,3]$. $[2,3]$ is the first marker to check, since it has the highest rank. Then we find its parent marker sequences are $0$ and $1$, and perform futher $MI$ checks. And finally the PMs of **msg 10** is $[2,3]$ only, $[0,2], [1,1]$ are removed.
+An example is **msg 10** in the figure, the PM candidates are *`[0,2], [1,1], [2,3]`*. *`[2,3]`* is the first marker to check, since it has the highest rank. Then we find its parent marker sequences are *`0`* and *`1`*, and perform futher *`MI`* checks. And finally the PMs of **msg 10** is *`[2,3]`* only, *`[0,2], [1,1]`* are removed.
 
 This function returns the markers and marker sequences to inherit for a message.
 ```go
@@ -431,9 +434,8 @@ func (m *Manager) IsInPastCone(earlierMarkers *MarkersPair, laterMarkers *Marker
 ```
 
 ### Markers Usages: Approval Weight Estimation
-The approval weight of every marker is easy to compute (and hence its finality too): to check the weight of marker $i$, the node looks at the tip list $X$, and computes the proportion of messages in $X$ whose MRRM is $i$ or greater.
-
 Store the approval weight
 * save the nodeID per marker, and do the union when we want the approval weight -> we don't want to count the mana twice
 * bitmask, we always have a fixed list of consensus mana of each epoch, we could use a bitmask to represent that.
-    * use epoch j-2 mana, if you're in epoch j 
+    * use epoch j-2 mana, if you're in epoch j
+
