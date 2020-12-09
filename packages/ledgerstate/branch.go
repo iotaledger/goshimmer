@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
@@ -217,6 +218,41 @@ const (
 	AggregatedBranchType
 )
 
+// BranchTypeFromBytes unmarshals a BranchType from a sequence of bytes.
+func BranchTypeFromBytes(branchTypeBytes []byte) (branchType BranchType, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(branchTypeBytes)
+	if branchType, err = BranchTypeFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse BranchType from MarshalUtil: %w", err)
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// BranchTypeFromMarshalUtil unmarshals a BranchType using a MarshalUtil (for easier unmarshaling).
+func BranchTypeFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchType BranchType, err error) {
+	branchTypeByte, err := marshalUtil.ReadByte()
+	if err != nil {
+		err = xerrors.Errorf("failed to read BranchType (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+
+	switch branchType = BranchType(branchTypeByte); branchType {
+	case ConflictBranchType:
+		return
+	case AggregatedBranchType:
+		return
+	default:
+		err = xerrors.Errorf("invalid BranchType (%X): %w", branchTypeByte, cerrors.ErrParseBytesFailed)
+		return
+	}
+}
+
+// Bytes returns a marshaled version of the BranchType.
+func (b BranchType) Bytes() []byte {
+	return []byte{byte(b)}
+}
+
 // String returns a human readable representation of the BranchType.
 func (b BranchType) String() string {
 	return [...]string{
@@ -342,6 +378,16 @@ type CachedBranch struct {
 	objectstorage.CachedObject
 }
 
+// ID returns the BranchID of the requested Branch.
+func (c *CachedBranch) ID() (branchID BranchID) {
+	branchID, _, err := BranchIDFromBytes(c.Key())
+	if err != nil {
+		panic(err)
+	}
+
+	return
+}
+
 // Retain marks the CachedObject to still be in use by the program.
 func (c *CachedBranch) Retain() *CachedBranch {
 	return &CachedBranch{c.CachedObject.Retain()}
@@ -360,6 +406,38 @@ func (c *CachedBranch) Unwrap() Branch {
 	}
 
 	return typedObject
+}
+
+// UnwrapConflictBranch is a more specialized Unwrap method that returns a ConflictBranch instead of the more generic interface.
+func (c *CachedBranch) UnwrapConflictBranch() (conflictBranch *ConflictBranch, err error) {
+	branch := c.Unwrap()
+	if branch == nil {
+		return
+	}
+
+	conflictBranch, typeCastOK := branch.(*ConflictBranch)
+	if !typeCastOK {
+		err = xerrors.Errorf("CachedBranch does not contain a ConflictBranch: %w", cerrors.ErrFatal)
+		return
+	}
+
+	return
+}
+
+// UnwrapAggregatedBranch is a more specialized Unwrap method that returns an AggregatedBranch instead of the more generic interface.
+func (c *CachedBranch) UnwrapAggregatedBranch() (aggregatedBranch *AggregatedBranch, err error) {
+	branch := c.Unwrap()
+	if branch == nil {
+		return
+	}
+
+	aggregatedBranch, typeCastOK := branch.(*AggregatedBranch)
+	if !typeCastOK {
+		err = xerrors.Errorf("CachedBranch does not contain an AggregatedBranch: %w", cerrors.ErrFatal)
+		return
+	}
+
+	return
 }
 
 // Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
@@ -1000,17 +1078,19 @@ var ChildBranchKeyPartition = objectstorage.PartitionKey(BranchIDLength, BranchI
 // unbounded amount of child Branches, we store this as a separate k/v pair instead of a marshaled list of children
 // inside the Branch.
 type ChildBranch struct {
-	parentBranchID BranchID
-	childBranchID  BranchID
+	parentBranchID  BranchID
+	childBranchID   BranchID
+	childBranchType BranchType
 
 	objectstorage.StorableObjectFlags
 }
 
 // NewChildBranch is the constructor of the ChildBranch reference.
-func NewChildBranch(parentBranchID BranchID, childBranchID BranchID) *ChildBranch {
+func NewChildBranch(parentBranchID BranchID, childBranchID BranchID, childBranchType BranchType) *ChildBranch {
 	return &ChildBranch{
-		parentBranchID: parentBranchID,
-		childBranchID:  childBranchID,
+		parentBranchID:  parentBranchID,
+		childBranchID:   childBranchID,
+		childBranchType: childBranchType,
 	}
 }
 
@@ -1035,6 +1115,10 @@ func ChildBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (childBran
 	}
 	if childBranch.childBranchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse child BranchID from MarshalUtil: %w", err)
+		return
+	}
+	if childBranch.childBranchType, err = BranchTypeFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse child BranchType from MarshalUtil: %w", err)
 		return
 	}
 
@@ -1062,9 +1146,14 @@ func (c *ChildBranch) ChildBranchID() (childBranchID BranchID) {
 	return c.childBranchID
 }
 
+// ChildBranchType returns the BranchType of the child Branch in the BranchDAG.
+func (c *ChildBranch) ChildBranchType() BranchType {
+	return c.childBranchType
+}
+
 // Bytes returns a marshaled version of the ChildBranch.
 func (c *ChildBranch) Bytes() (marshaledChildBranch []byte) {
-	return c.ObjectStorageKey()
+	return byteutils.ConcatBytes(c.ObjectStorageKey(), c.ObjectStorageValue())
 }
 
 // String returns a human readable version of the ChildBranch.
@@ -1072,6 +1161,7 @@ func (c *ChildBranch) String() (humanReadableChildBranch string) {
 	return stringify.Struct("ChildBranch",
 		stringify.StructField("parentBranchID", c.ParentBranchID()),
 		stringify.StructField("childBranchID", c.ChildBranchID()),
+		stringify.StructField("childBranchType", c.ChildBranchType()),
 	)
 }
 
@@ -1092,7 +1182,7 @@ func (c *ChildBranch) ObjectStorageKey() (objectStorageKey []byte) {
 // ObjectStorageValue marshals the AggregatedBranch into a sequence of bytes that are used as the value part in the
 // object storage.
 func (c *ChildBranch) ObjectStorageValue() (objectStorageValue []byte) {
-	return nil
+	return c.childBranchType.Bytes()
 }
 
 // code contract (make sure the struct implements all required methods)
