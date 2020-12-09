@@ -337,6 +337,13 @@ func (c *CachedTransaction) Consume(consumer func(cachedTransaction *Transaction
 	}, forceRelease...)
 }
 
+// String returns a human readable version of the CachedTransaction.
+func (c *CachedTransaction) String() string {
+	return stringify.Struct("CachedTransaction",
+		stringify.StructField("CachedObject", c.Unwrap()),
+	)
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region TransactionEssence ///////////////////////////////////////////////////////////////////////////////////////////
@@ -890,6 +897,13 @@ func (c *CachedTransactionMetadata) Consume(consumer func(cachedTransactionMetad
 	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*TransactionMetadata))
 	}, forceRelease...)
+}
+
+// String returns a human readable version of the CachedTransactionMetadata.
+func (c *CachedTransactionMetadata) String() string {
+	return stringify.Struct("CachedTransactionMetadata",
+		stringify.StructField("CachedObject", c.Unwrap()),
+	)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

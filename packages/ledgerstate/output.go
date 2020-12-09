@@ -864,6 +864,13 @@ func (c *CachedOutput) Consume(consumer func(output Output), forceRelease ...boo
 	}, forceRelease...)
 }
 
+// String returns a human readable version of the CachedOutput.
+func (c *CachedOutput) String() string {
+	return stringify.Struct("CachedOutput",
+		stringify.StructField("CachedObject", c.Unwrap()),
+	)
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region OutputMetadata ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -1284,6 +1291,13 @@ func (c *CachedOutputMetadata) Consume(consumer func(cachedOutputMetadata *Outpu
 	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*OutputMetadata))
 	}, forceRelease...)
+}
+
+// String returns a human readable version of the CachedOutputMetadata.
+func (c *CachedOutputMetadata) String() string {
+	return stringify.Struct("CachedOutputMetadata",
+		stringify.StructField("CachedObject", c.Unwrap()),
+	)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
