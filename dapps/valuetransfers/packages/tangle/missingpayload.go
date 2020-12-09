@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
-	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
@@ -24,7 +23,7 @@ type MissingPayload struct {
 func NewMissingPayload(payloadID payload.ID) *MissingPayload {
 	return &MissingPayload{
 		payloadID:    payloadID,
-		missingSince: clock.SyncedTime(),
+		missingSince: time.Now(),
 	}
 }
 
