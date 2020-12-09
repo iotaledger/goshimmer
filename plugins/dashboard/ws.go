@@ -89,13 +89,13 @@ func registerWSClient() (uint64, *wsclient) {
 func removeWsClient(clientID uint64) {
 	wsClientsMu.RLock()
 	wsClient := wsClients[clientID]
-	close(wsClient.channel)
 	close(wsClient.exit)
 	wsClientsMu.RUnlock()
 
 	wsClientsMu.Lock()
 	defer wsClientsMu.Unlock()
 	delete(wsClients, clientID)
+	close(wsClient.channel)
 }
 
 // broadcasts the given message to all connected websocket clients.

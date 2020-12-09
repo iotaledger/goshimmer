@@ -3,6 +3,8 @@ package prng
 import (
 	"math/rand"
 	"time"
+
+	"github.com/iotaledger/goshimmer/packages/clock"
 )
 
 // TimeSourceFunc is a function which gets an understanding of time in seconds resolution back.
@@ -15,7 +17,7 @@ func NewUnixTimestampPRNG(resolution int64, timeSourceFunc ...TimeSourceFunc) *U
 		c:              make(chan float64),
 		exit:           make(chan struct{}),
 		resolution:     resolution,
-		timeSourceFunc: func() int64 { return time.Now().Unix() },
+		timeSourceFunc: func() int64 { return clock.SyncedTime().Unix() },
 	}
 	if len(timeSourceFunc) > 0 {
 		utrng.timeSourceFunc = timeSourceFunc[0]

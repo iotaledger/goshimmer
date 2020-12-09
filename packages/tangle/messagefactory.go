@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
@@ -88,7 +89,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload) (*Message, error) {
 	// TODO: approval switch: select weak parents
 	weakParents := make([]MessageID, 0)
 
-	issuingTime := time.Now()
+	issuingTime := clock.SyncedTime()
 	issuerPublicKey := f.localIdentity.PublicKey()
 
 	// do the PoW

@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
@@ -65,7 +66,7 @@ func configure(_ *node.Plugin) {
 // broadcastSyncBeaconPayload broadcasts a sync beacon via communication layer.
 func broadcastSyncBeaconPayload() {
 
-	syncBeaconPayload := payload.NewSyncBeaconPayload(time.Now().UnixNano())
+	syncBeaconPayload := payload.NewSyncBeaconPayload(clock.SyncedTime().UnixNano())
 	msg, err := issuer.IssuePayload(syncBeaconPayload)
 
 	if err != nil {

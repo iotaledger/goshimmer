@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/cli"
 	"github.com/iotaledger/goshimmer/plugins/clock"
 	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/plugins/consensus"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/drng"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
@@ -37,15 +38,16 @@ var Core = node.Plugins(
 	database.Plugin(),
 	autopeering.Plugin(),
 	pow.Plugin(),
+	clock.Plugin(),
 	messagelayer.Plugin(),
 	gossip.Plugin(),
 	issuer.Plugin(),
-	metrics.Plugin(),
+	syncbeacon.Plugin(),
+	syncbeaconfollower.Plugin(),
 	drng.Plugin(),
 	faucet.Plugin(),
 	valuetransfers.App(),
-	syncbeacon.Plugin(),
-	syncbeaconfollower.Plugin(),
+	consensus.Plugin(),
+	metrics.Plugin(),
 	spammer.Plugin(),
-	clock.Plugin(),
 )

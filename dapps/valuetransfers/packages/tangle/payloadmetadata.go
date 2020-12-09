@@ -12,6 +12,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
+	"github.com/iotaledger/goshimmer/packages/clock"
 )
 
 // PayloadMetadata is a container for the metadata of a value transfer payload.
@@ -124,7 +125,7 @@ func (payloadMetadata *PayloadMetadata) setSolid(solid bool) (modified bool) {
 			payloadMetadata.solid = solid
 			if solid {
 				payloadMetadata.solidificationTimeMutex.Lock()
-				payloadMetadata.solidificationTime = time.Now()
+				payloadMetadata.solidificationTime = clock.SyncedTime()
 				payloadMetadata.solidificationTimeMutex.Unlock()
 			}
 

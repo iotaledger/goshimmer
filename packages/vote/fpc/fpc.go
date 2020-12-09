@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/hive.go/events"
 )
@@ -25,7 +26,7 @@ func New(opinionGiverFunc vote.OpinionGiverFunc, paras ...*Parameters) *FPC {
 	f := &FPC{
 		opinionGiverFunc: opinionGiverFunc,
 		paras:            DefaultParameters(),
-		opinionGiverRng:  rand.New(rand.NewSource(time.Now().UnixNano())),
+		opinionGiverRng:  rand.New(rand.NewSource(clock.SyncedTime().UnixNano())),
 		ctxs:             make(map[string]*vote.Context),
 		queue:            list.New(),
 		queueSet:         make(map[string]struct{}),
@@ -64,7 +65,7 @@ type FPC struct {
 }
 
 // Vote sets an initial opinion on the vote context and enqueues the vote context.
-func (f *FPC) Vote(id string, initOpn vote.Opinion) error {
+func (f *FPC) Vote(id string, objectType vote.ObjectType, initOpn vote.Opinion) error {
 	f.queueMu.Lock()
 	defer f.queueMu.Unlock()
 	f.ctxsMu.RLock()
@@ -75,7 +76,7 @@ func (f *FPC) Vote(id string, initOpn vote.Opinion) error {
 	if _, alreadyOngoing := f.ctxs[id]; alreadyOngoing {
 		return fmt.Errorf("%w: %s", ErrVoteAlreadyOngoing, id)
 	}
-	f.queue.PushBack(vote.NewContext(id, initOpn))
+	f.queue.PushBack(vote.NewContext(id, objectType, initOpn))
 	f.queueSet[id] = struct{}{}
 	return nil
 }
@@ -100,7 +101,7 @@ func (f *FPC) Events() vote.Events {
 // Round enqueues new items, sets opinions on active vote contexts, finalizes them and then
 // queries for opinions.
 func (f *FPC) Round(rand float64) error {
-	start := time.Now()
+	start := clock.SyncedTime()
 	// enqueue new voting contexts
 	f.enqueue()
 	// we can only form opinions when the last round was actually executed successfully
@@ -189,10 +190,10 @@ func (f *FPC) finalizeOpinions() {
 
 // queries the opinions of QuerySampleSize amount of OpinionGivers.
 func (f *FPC) queryOpinions() ([]vote.QueriedOpinions, error) {
-	ids := f.voteContextIDs()
+	conflictIDs, timestampIDs := f.voteContextIDs()
 
 	// nothing to vote on
-	if len(ids) == 0 {
+	if len(conflictIDs) == 0 && len(timestampIDs) == 0 {
 		return nil, nil
 	}
 
@@ -233,14 +234,14 @@ func (f *FPC) queryOpinions() ([]vote.QueriedOpinions, error) {
 			defer cancel()
 
 			// query
-			opinions, err := opinionGiverToQuery.Query(queryCtx, ids)
-			if err != nil || len(opinions) != len(ids) {
+			opinions, err := opinionGiverToQuery.Query(queryCtx, conflictIDs, timestampIDs)
+			if err != nil || len(opinions) != len(conflictIDs)+len(timestampIDs) {
 				// ignore opinions
 				return
 			}
 
 			queriedOpinions := vote.QueriedOpinions{
-				OpinionGiverID: opinionGiverToQuery.ID(),
+				OpinionGiverID: opinionGiverToQuery.ID().String(),
 				Opinions:       make(map[string]vote.Opinion),
 				TimesCounted:   selectedCount,
 			}
@@ -248,7 +249,20 @@ func (f *FPC) queryOpinions() ([]vote.QueriedOpinions, error) {
 			// add opinions to vote map
 			voteMapMu.Lock()
 			defer voteMapMu.Unlock()
-			for i, id := range ids {
+			for i, id := range conflictIDs {
+				votes, has := voteMap[id]
+				if !has {
+					votes = vote.Opinions{}
+				}
+				// reuse the opinion N times selected.
+				// note this is always at least 1.
+				for j := 0; j < selectedCount; j++ {
+					votes = append(votes, opinions[i])
+				}
+				queriedOpinions.Opinions[id] = opinions[i]
+				voteMap[id] = votes
+			}
+			for i, id := range timestampIDs {
 				votes, has := voteMap[id]
 				if !has {
 					votes = vote.Opinions{}
@@ -293,14 +307,16 @@ func (f *FPC) queryOpinions() ([]vote.QueriedOpinions, error) {
 	return allQueriedOpinions, nil
 }
 
-func (f *FPC) voteContextIDs() []string {
+func (f *FPC) voteContextIDs() (conflictIDs []string, timestampIDs []string) {
 	f.ctxsMu.RLock()
 	defer f.ctxsMu.RUnlock()
-	var i int
-	ids := make([]string, len(f.ctxs))
-	for id := range f.ctxs {
-		ids[i] = id
-		i++
+	for id, ctx := range f.ctxs {
+		switch ctx.Type {
+		case vote.ConflictType:
+			conflictIDs = append(conflictIDs, id)
+		case vote.TimestampType:
+			timestampIDs = append(timestampIDs, id)
+		}
 	}
-	return ids
+	return conflictIDs, timestampIDs
 }
