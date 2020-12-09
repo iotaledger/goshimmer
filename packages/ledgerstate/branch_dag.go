@@ -139,299 +139,6 @@ func (b *BranchDAG) SetBranchPreferred(branchID BranchID, preferred bool) (modif
 	return b.setBranchPreferred(b.Branch(branchID), preferred)
 }
 
-// setBranchPreferred sets the preferred flag of the given Branch. It returns true if the value has been updated or an
-// error if it failed.
-func (b *BranchDAG) setBranchPreferred(cachedBranch *CachedBranch, preferred bool) (modified bool, err error) {
-	defer cachedBranch.Release()
-	conflictBranch, err := cachedBranch.UnwrapConflictBranch()
-	if err != nil {
-		err = xerrors.Errorf("failed to load ConflictBranch with %s: %w", cachedBranch.ID(), cerrors.ErrFatal)
-		return
-	}
-
-	if !preferred {
-		if modified = conflictBranch.SetPreferred(false); modified {
-			b.Events.BranchUnpreferred.Trigger(NewBranchDAGEvent(cachedBranch))
-
-			if propagationErr := b.updateAggregatedChildBranchesPreferred(conflictBranch.ID(), false); propagationErr != nil {
-				err = xerrors.Errorf("failed to propagate preferred changes to AggregatedBranches: %w", propagationErr)
-				return
-			}
-
-			if propagationErr := b.propagateBranchLiked(conflictBranch.ID(), false); propagationErr != nil {
-				err = xerrors.Errorf("failed to propagate disliked flag to the future cone of Branch with %s: %w", conflictBranch.ID(), propagationErr)
-				return
-			}
-		}
-
-		return
-	}
-
-	// update all other branches to be not preferred
-	for conflictID := range conflictBranch.Conflicts() {
-		cachedConflictMembers := b.ConflictMembers(conflictID)
-		defer cachedConflictMembers.Release()
-
-		for _, cachedConflictMember := range cachedConflictMembers {
-			conflictMember := cachedConflictMember.Unwrap()
-			if conflictMember == nil {
-				err = xerrors.Errorf("failed to load ConflictMember of %s: %w", conflictID, cerrors.ErrFatal)
-				return
-			}
-
-			if conflictMember.BranchID() == conflictBranch.ID() {
-				continue
-			}
-
-			if _, err = b.setBranchPreferred(b.Branch(conflictMember.BranchID()), false); err != nil {
-				err = xerrors.Errorf("failed to propagate preferred changes to other ConflictMembers: %w", err)
-				return
-			}
-		}
-	}
-
-	// abort if the branch was not updated
-	if modified = conflictBranch.SetPreferred(true); !modified {
-		return
-	}
-
-	b.Events.BranchPreferred.Trigger(NewBranchDAGEvent(cachedBranch))
-
-	if err = b.updateAggregatedChildBranchesPreferred(conflictBranch.ID(), true); err != nil {
-		err = xerrors.Errorf("failed to propagate preferred changes to AggregatedBranches: %w", err)
-		return
-	}
-
-	if err = b.propagateBranchLiked(conflictBranch.ID(), true); err != nil {
-		err = xerrors.Errorf("failed to propagate liked changes:% w", err)
-		return
-	}
-
-	return
-}
-
-// propagateBranchLiked is an internal utility function that checks if the given Branch has become liked and propagates the
-// change of the liked flag to the Branch itself and to its children (if necessary).
-func (b *BranchDAG) propagateBranchLiked(branchID BranchID, liked bool) (err error) {
-	// initialize stack for iteration
-	branchStack := list.New()
-	branchStack.PushBack(branchID)
-
-	// iterate through stack
-ProcessBranchStack:
-	for branchStack.Len() >= 1 {
-		// retrieve first element from the stack
-		currentStackElement := branchStack.Front()
-		branchStack.Remove(currentStackElement)
-
-		// load Branch
-		currentCachedBranch := b.Branch(currentStackElement.Value.(BranchID))
-
-		// unwrap current CachedBranch
-		currentBranch := currentCachedBranch.Unwrap()
-		if currentBranch == nil {
-			currentCachedBranch.Release()
-			err = xerrors.Errorf("failed to load Branch with %s: %w", currentCachedBranch.ID(), cerrors.ErrFatal)
-			return
-		}
-
-		switch liked {
-		case true:
-			// abort if the current Branch is not preferred
-			if !currentBranch.Preferred() {
-				currentCachedBranch.Release()
-				continue
-			}
-
-			// abort if any parent Branch is not liked
-			for parentBranchID := range currentBranch.Parents() {
-				// load parent Branch
-				cachedParentBranch := b.Branch(parentBranchID)
-
-				// unwrap parent Branch
-				parentBranch := cachedParentBranch.Unwrap()
-				if parentBranch == nil {
-					currentCachedBranch.Release()
-					cachedParentBranch.Release()
-					err = xerrors.Errorf("failed to load parent Branch with %s: %w", parentBranchID, cerrors.ErrFatal)
-					return
-				}
-
-				// abort if parent Branch is not liked
-				if !parentBranch.Liked() {
-					currentCachedBranch.Release()
-					cachedParentBranch.Release()
-					continue ProcessBranchStack
-				}
-
-				// release parent CachedBranch
-				cachedParentBranch.Release()
-			}
-
-			// abort if the Branch is already liked
-			if !currentBranch.SetLiked(true) {
-				currentCachedBranch.Release()
-				continue
-			}
-
-			// trigger event
-			b.Events.BranchLiked.Trigger(NewBranchDAGEvent(currentCachedBranch))
-		case false:
-			// abort if the current Branch is disliked already
-			if !currentBranch.SetLiked(false) {
-				currentCachedBranch.Release()
-				continue
-			}
-
-			// trigger event
-			b.Events.BranchDisliked.Trigger(NewBranchDAGEvent(currentCachedBranch))
-		}
-
-		// iterate through ChildBranch references and queue found Branches for propagation
-		cachedChildBranchReferences := b.ChildBranches(currentBranch.ID())
-		for _, cachedChildBranchReference := range cachedChildBranchReferences {
-			// unwrap ChildBranch reference
-			childBranchReference := cachedChildBranchReference.Unwrap()
-			if childBranchReference == nil {
-				currentCachedBranch.Release()
-				cachedChildBranchReferences.Release()
-				err = xerrors.Errorf("failed to load ChildBranch reference: %w", cerrors.ErrFatal)
-				return
-			}
-
-			// queue child Branch for propagation
-			branchStack.PushBack(childBranchReference.ChildBranchID())
-		}
-		cachedChildBranchReferences.Release()
-
-		// release current CachedBranch
-		currentCachedBranch.Release()
-	}
-
-	return
-}
-
-// propagateBranchDisliked is an internal utility function that updates the disliked flag of the given Branch and
-// propagates the change to its future cone.
-func (b *BranchDAG) propagateBranchDisliked(branchID BranchID) (err error) {
-	// initialize stack for iteration
-	branchStack := list.New()
-	branchStack.PushBack(branchID)
-
-	// iterate through stack
-	for branchStack.Len() >= 1 {
-		// retrieve first element from the stack
-		currentStackElement := branchStack.Front()
-		branchStack.Remove(currentStackElement)
-
-		// load Branch
-		currentCachedBranch := b.Branch(currentStackElement.Value.(BranchID))
-
-		// unwrap current CachedBranch
-		currentBranch := currentCachedBranch.Unwrap()
-		if currentBranch == nil {
-			currentCachedBranch.Release()
-			err = xerrors.Errorf("failed to load Branch with %s: %w", currentCachedBranch.ID(), cerrors.ErrFatal)
-			return
-		}
-
-		// abort if the current Branch is disliked already
-		if !currentBranch.SetLiked(false) {
-			currentCachedBranch.Release()
-			continue
-		}
-
-		// trigger events
-		b.Events.BranchDisliked.Trigger(NewBranchDAGEvent(currentCachedBranch))
-
-		// iterate through ChildBranch references and queue found Branches for propagation
-		cachedChildBranchReferences := b.ChildBranches(currentBranch.ID())
-		for _, cachedChildBranchReference := range cachedChildBranchReferences {
-			// unwrap ChildBranch reference
-			childBranchReference := cachedChildBranchReference.Unwrap()
-			if childBranchReference == nil {
-				currentCachedBranch.Release()
-				cachedChildBranchReferences.Release()
-				err = xerrors.Errorf("failed to load ChildBranch reference: %w", cerrors.ErrFatal)
-				return
-			}
-
-			// queue child Branch for propagation
-			branchStack.PushBack(childBranchReference.ChildBranchID())
-		}
-		cachedChildBranchReferences.Release()
-
-		// release current CachedBranch
-		currentCachedBranch.Release()
-	}
-
-	return
-}
-
-// updateAggregatedChildBranchesPreferred updates the preferred flag of the AggregatedBranches that are direct children
-// of the Branch whose preferred flag was updated.
-func (b *BranchDAG) updateAggregatedChildBranchesPreferred(parentBranchID BranchID, parentPreferred bool) (err error) {
-	// initialize stack with aggregated children of the passed in parent Branch
-	branchStack := list.New()
-	b.ChildBranches(parentBranchID).Consume(func(childBranch *ChildBranch) {
-		if childBranch.ChildBranchType() == AggregatedBranchType {
-			branchStack.PushBack(childBranch.ChildBranchID())
-		}
-	})
-
-	// iterate through aggregated children and check if they need to be updated
-UpdateAggregatedBranches:
-	for branchStack.Len() >= 1 {
-		// retrieve current BranchID from stack
-		currentAggregatedBranchEntry := branchStack.Front()
-		branchStack.Remove(currentAggregatedBranchEntry)
-
-		// load AggregatedBranch
-		currentCachedAggregatedBranch := b.Branch(currentAggregatedBranchEntry.Value.(BranchID))
-		defer currentCachedAggregatedBranch.Release()
-		aggregatedBranch, aggregatedBranchErr := currentCachedAggregatedBranch.UnwrapAggregatedBranch()
-		if aggregatedBranchErr != nil {
-			err = xerrors.Errorf("failed to load AggregatedBranch with %s: %w", currentCachedAggregatedBranch.ID(), aggregatedBranchErr)
-			return
-		}
-		if aggregatedBranch == nil {
-			err = xerrors.Errorf("failed to load AggregatedBranch with %s: %w", currentCachedAggregatedBranch.ID(), cerrors.ErrFatal)
-			return
-		}
-
-		// execute changes if we set to unpreferred
-		if !parentPreferred {
-			if aggregatedBranch.SetPreferred(parentPreferred) {
-				b.Events.BranchUnpreferred.Trigger(NewBranchDAGEvent(currentCachedAggregatedBranch))
-			}
-			continue
-		}
-
-		// only continue if all parents are preferred
-		for aggregatedParentBranchID := range aggregatedBranch.Parents() {
-			cachedParentBranch := b.Branch(aggregatedParentBranchID)
-			defer cachedParentBranch.Release()
-
-			parentBranch := cachedParentBranch.Unwrap()
-			if parentBranch == nil {
-				err = xerrors.Errorf("failed to load parent Branch with %s: %w", aggregatedParentBranchID, cerrors.ErrFatal)
-				return
-			}
-
-			if !parentBranch.Preferred() {
-				continue UpdateAggregatedBranches
-			}
-		}
-
-		// execute changes if all of the previous tests passed
-		if aggregatedBranch.SetPreferred(true) {
-			b.Events.BranchPreferred.Trigger(NewBranchDAGEvent(currentCachedAggregatedBranch))
-		}
-	}
-
-	return
-}
-
 // Branch retrieves the Branch with the given BranchID from the object storage.
 func (b *BranchDAG) Branch(branchID BranchID) (cachedBranch *CachedBranch) {
 	return &CachedBranch{CachedObject: b.branchStorage.Load(branchID.Bytes())}
@@ -654,6 +361,275 @@ func (b *BranchDAG) registerConflictMember(conflictID ConflictID, branchID Branc
 			cachedConflictMember.Release()
 		}
 	})
+}
+
+// setBranchPreferred updates the preferred flag of the given Branch. It returns true if the value has been updated or
+// an error if it failed.
+func (b *BranchDAG) setBranchPreferred(cachedBranch *CachedBranch, preferred bool) (modified bool, err error) {
+	// release the CachedBranch when we are done
+	defer cachedBranch.Release()
+
+	// unwrap ConflictBranch
+	conflictBranch, err := cachedBranch.UnwrapConflictBranch()
+	if err != nil {
+		err = xerrors.Errorf("failed to load ConflictBranch with %s: %w", cachedBranch.ID(), cerrors.ErrFatal)
+		return
+	}
+
+	// execute case dependent logic
+	switch preferred {
+	case true:
+		// iterate through all Conflicts of the current Branch and set their ConflictMembers to be not preferred
+		for conflictID := range conflictBranch.Conflicts() {
+			// iterate through all ConflictMembers and set them to not preferred
+			cachedConflictMembers := b.ConflictMembers(conflictID)
+			for _, cachedConflictMember := range cachedConflictMembers {
+				// unwrap the ConflictMember
+				conflictMember := cachedConflictMember.Unwrap()
+				if conflictMember == nil {
+					cachedConflictMembers.Release()
+					err = xerrors.Errorf("failed to load ConflictMember of %s: %w", conflictID, cerrors.ErrFatal)
+					return
+				}
+
+				// skip the current Branch
+				if conflictMember.BranchID() == conflictBranch.ID() {
+					continue
+				}
+
+				// update the other ConflictMembers to be not preferred
+				if _, err = b.setBranchPreferred(b.Branch(conflictMember.BranchID()), false); err != nil {
+					cachedConflictMembers.Release()
+					err = xerrors.Errorf("failed to propagate preferred changes to other ConflictMembers: %w", err)
+					return
+				}
+			}
+			cachedConflictMembers.Release()
+		}
+
+		// abort if the branch was preferred already
+		if modified = conflictBranch.SetPreferred(true); !modified {
+			return
+		}
+
+		// trigger event
+		b.Events.BranchPreferred.Trigger(NewBranchDAGEvent(cachedBranch))
+
+		// update the preferred status of the future cone (it only affect the AggregatedBranches)
+		if err = b.updatePreferredStatusOfFutureCone(conflictBranch.ID(), true); err != nil {
+			err = xerrors.Errorf("failed to update preferred status of future cone of Branch with %s: %w", conflictBranch.ID(), err)
+			return
+		}
+
+		// update the liked status of the future cone (if necessary)
+		if err = b.updateLikedStatusOfFutureCone(conflictBranch.ID(), true); err != nil {
+			err = xerrors.Errorf("failed to update liked status of future cone of Branch with %s: %w", conflictBranch.ID(), err)
+			return
+		}
+	case false:
+		// set the branch to be not preferred
+		if modified = conflictBranch.SetPreferred(false); modified {
+			// trigger event
+			b.Events.BranchUnpreferred.Trigger(NewBranchDAGEvent(cachedBranch))
+
+			// update the preferred status of the future cone (it only affect the AggregatedBranches)
+			if propagationErr := b.updatePreferredStatusOfFutureCone(conflictBranch.ID(), false); propagationErr != nil {
+				err = xerrors.Errorf("failed to propagate preferred changes to AggregatedBranches: %w", propagationErr)
+				return
+			}
+
+			// update the liked status of the future cone (if necessary)
+			if propagationErr := b.updateLikedStatusOfFutureCone(conflictBranch.ID(), false); propagationErr != nil {
+				err = xerrors.Errorf("failed to update liked status of future cone of Branch with %s: %w", conflictBranch.ID(), propagationErr)
+				return
+			}
+		}
+	}
+
+	return
+}
+
+// updateLikedStatusOfFutureCone is an internal utility function that checks if the given Branch has become liked and
+// propagates the changes to the Branch itself and to its children (if necessary).
+func (b *BranchDAG) updateLikedStatusOfFutureCone(branchID BranchID, liked bool) (err error) {
+	// initialize stack for iteration
+	branchStack := list.New()
+	branchStack.PushBack(branchID)
+
+	// iterate through stack
+ProcessStack:
+	for branchStack.Len() >= 1 {
+		// retrieve first element from the stack
+		currentStackElement := branchStack.Front()
+		branchStack.Remove(currentStackElement)
+
+		// load Branch
+		currentCachedBranch := b.Branch(currentStackElement.Value.(BranchID))
+
+		// unwrap current CachedBranch
+		currentBranch := currentCachedBranch.Unwrap()
+		if currentBranch == nil {
+			currentCachedBranch.Release()
+			err = xerrors.Errorf("failed to load Branch with %s: %w", currentCachedBranch.ID(), cerrors.ErrFatal)
+			return
+		}
+
+		// execute case dependent logic
+		switch liked {
+		case true:
+			// abort if the current Branch is not preferred
+			if !currentBranch.Preferred() {
+				currentCachedBranch.Release()
+				continue
+			}
+
+			// abort if any parent Branch is not liked
+			for parentBranchID := range currentBranch.Parents() {
+				// load parent Branch
+				cachedParentBranch := b.Branch(parentBranchID)
+
+				// unwrap parent Branch
+				parentBranch := cachedParentBranch.Unwrap()
+				if parentBranch == nil {
+					currentCachedBranch.Release()
+					cachedParentBranch.Release()
+					err = xerrors.Errorf("failed to load parent Branch with %s: %w", parentBranchID, cerrors.ErrFatal)
+					return
+				}
+
+				// abort if parent Branch is not liked
+				if !parentBranch.Liked() {
+					currentCachedBranch.Release()
+					cachedParentBranch.Release()
+					continue ProcessStack
+				}
+
+				// release parent CachedBranch
+				cachedParentBranch.Release()
+			}
+
+			// abort if the Branch is already liked
+			if !currentBranch.SetLiked(true) {
+				currentCachedBranch.Release()
+				continue
+			}
+
+			// trigger event
+			b.Events.BranchLiked.Trigger(NewBranchDAGEvent(currentCachedBranch))
+		case false:
+			// abort if the current Branch is disliked already
+			if !currentBranch.SetLiked(false) {
+				currentCachedBranch.Release()
+				continue
+			}
+
+			// trigger event
+			b.Events.BranchDisliked.Trigger(NewBranchDAGEvent(currentCachedBranch))
+		}
+
+		// iterate through ChildBranch references and queue found Branches for propagation
+		cachedChildBranchReferences := b.ChildBranches(currentBranch.ID())
+		for _, cachedChildBranchReference := range cachedChildBranchReferences {
+			// unwrap ChildBranch reference
+			childBranchReference := cachedChildBranchReference.Unwrap()
+			if childBranchReference == nil {
+				currentCachedBranch.Release()
+				cachedChildBranchReferences.Release()
+				err = xerrors.Errorf("failed to load ChildBranch reference: %w", cerrors.ErrFatal)
+				return
+			}
+
+			// queue child Branch for propagation
+			branchStack.PushBack(childBranchReference.ChildBranchID())
+		}
+		cachedChildBranchReferences.Release()
+
+		// release current CachedBranch
+		currentCachedBranch.Release()
+	}
+
+	return
+}
+
+// updatePreferredStatusOfFutureCone updates the preferred flag of the AggregatedBranches that are direct children
+// of the Branch whose preferred flag was updated.
+func (b *BranchDAG) updatePreferredStatusOfFutureCone(branchID BranchID, preferred bool) (err error) {
+	// initialize stack with children of type AggregatedBranch of the passed in Branch (we only update the preferred
+	// status of AggregatedBranches as their status depends on their parents)
+	branchStack := list.New()
+	b.ChildBranches(branchID).Consume(func(childBranch *ChildBranch) {
+		if childBranch.ChildBranchType() == AggregatedBranchType {
+			branchStack.PushBack(childBranch.ChildBranchID())
+		}
+	})
+
+	// iterate through stack
+ProcessStack:
+	for branchStack.Len() >= 1 {
+		// retrieve first element from the stack
+		currentAggregatedBranchEntry := branchStack.Front()
+		branchStack.Remove(currentAggregatedBranchEntry)
+
+		// load Branch
+		currentCachedBranch := b.Branch(currentAggregatedBranchEntry.Value.(BranchID))
+
+		// unwrap current CachedBranch
+		currentBranch, typeErr := currentCachedBranch.UnwrapAggregatedBranch()
+		if typeErr != nil {
+			currentCachedBranch.Release()
+			err = xerrors.Errorf("failed to load AggregatedBranch with %s: %w", currentCachedBranch.ID(), typeErr)
+			return
+		}
+		if currentBranch == nil {
+			currentCachedBranch.Release()
+			err = xerrors.Errorf("failed to load AggregatedBranch with %s: %w", currentCachedBranch.ID(), cerrors.ErrFatal)
+			return
+		}
+
+		// execute case dependent logic
+		switch preferred {
+		case true:
+			// only continue if all parents are preferred
+			for aggregatedParentBranchID := range currentBranch.Parents() {
+				// load parent Branch
+				cachedParentBranch := b.Branch(aggregatedParentBranchID)
+
+				// unwrap parent Branch
+				parentBranch := cachedParentBranch.Unwrap()
+				if parentBranch == nil {
+					currentCachedBranch.Release()
+					cachedParentBranch.Release()
+					err = xerrors.Errorf("failed to load parent Branch with %s: %w", aggregatedParentBranchID, cerrors.ErrFatal)
+					return
+				}
+
+				// abort if the parent Branch is not preferred
+				if !parentBranch.Preferred() {
+					currentCachedBranch.Release()
+					cachedParentBranch.Release()
+					continue ProcessStack
+				}
+
+				// release parent CachedBranch
+				cachedParentBranch.Release()
+			}
+
+			// trigger event if the value was changed
+			if currentBranch.SetPreferred(true) {
+				b.Events.BranchPreferred.Trigger(NewBranchDAGEvent(currentCachedBranch))
+			}
+		case false:
+			// trigger event if the value was changed
+			if currentBranch.SetPreferred(false) {
+				b.Events.BranchUnpreferred.Trigger(NewBranchDAGEvent(currentCachedBranch))
+			}
+		}
+
+		// release current CachedBranch
+		currentCachedBranch.Release()
+	}
+
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
