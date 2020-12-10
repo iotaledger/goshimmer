@@ -67,7 +67,7 @@ func FromBytes(bytes []byte) (result *Payload, consumedBytes int, err error) {
 	}
 
 	// parse data
-	if result.Data, err = marshalUtil.ReadBytes(int(len - HeaderLength)); err != nil {
+	if result.Data, err = marshalUtil.ReadBytes(int(len - payload.TypeLength - HeaderLength)); err != nil {
 		err = fmt.Errorf("failed to parse data of drng payload: %w", err)
 		return
 	}
