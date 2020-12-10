@@ -1,3 +1,8 @@
+# v0.3.3 - 2020-12-10
+* Fix sync issue.
+* Fix pkger issue.
+* **Breaking**: bumps network and database versions
+
 # v0.3.2 - 2020-12-09
 * Switch from BadgerDB to Pebble.
 * Add FPC statements.

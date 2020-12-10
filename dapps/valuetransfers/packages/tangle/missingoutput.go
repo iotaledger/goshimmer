@@ -5,7 +5,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 )
@@ -25,7 +24,7 @@ type MissingOutput struct {
 func NewMissingOutput(outputID transaction.OutputID) *MissingOutput {
 	return &MissingOutput{
 		outputID:     outputID,
-		missingSince: clock.SyncedTime(),
+		missingSince: time.Now(),
 	}
 }
 
