@@ -165,7 +165,7 @@ func (s *Statement) Bytes() (bytes []byte) {
 
 	// add uint32 for length and type
 	return marshalutil.New(2*marshalutil.Uint32Size + payloadBytesLength).
-		WriteUint32(uint32(payloadBytesLength)).
+		WriteUint32(payload.TypeLength + uint32(payloadBytesLength)).
 		Write(StatementType).
 		WriteBytes(payloadBytes).
 		Bytes()

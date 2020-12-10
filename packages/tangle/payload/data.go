@@ -75,7 +75,7 @@ func (g *GenericDataPayload) Blob() []byte {
 // Bytes returns a marshaled version of the Payload.
 func (g *GenericDataPayload) Bytes() []byte {
 	return marshalutil.New().
-		WriteUint32(uint32(len(g.data))).
+		WriteUint32(TypeLength + uint32(len(g.data))).
 		WriteBytes(g.Type().Bytes()).
 		WriteBytes(g.Blob()).
 		Bytes()
