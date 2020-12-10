@@ -54,7 +54,7 @@ func GenericDataPayloadFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (ge
 		err = xerrors.Errorf("failed to parse Type from MarshalUtil: %w", err)
 		return
 	}
-	if genericDataPayload.data, err = marshalUtil.ReadBytes(int(payloadSize)); err != nil {
+	if genericDataPayload.data, err = marshalUtil.ReadBytes(int(payloadSize) - TypeLength); err != nil {
 		err = xerrors.Errorf("failed to parse data (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
