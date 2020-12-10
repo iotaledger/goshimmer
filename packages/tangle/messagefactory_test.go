@@ -8,8 +8,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
-	"time"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/events"
@@ -53,7 +53,7 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 		assert.NotEmpty(t, msg.StrongParents())
 
 		// time in range of 0.1 seconds
-		assert.InDelta(t, time.Now().UnixNano(), msg.IssuingTime().UnixNano(), 100000000)
+		assert.InDelta(t, clock.SyncedTime().UnixNano(), msg.IssuingTime().UnixNano(), 100000000)
 
 		// check payload
 		assert.Equal(t, p, msg.Payload())
@@ -79,7 +79,7 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 				assert.NotEmpty(t, msg.StrongParents())
 
 				// time in range of 0.1 seconds
-				assert.InDelta(t, time.Now().UnixNano(), msg.IssuingTime().UnixNano(), 100000000)
+				assert.InDelta(t, clock.SyncedTime().UnixNano(), msg.IssuingTime().UnixNano(), 100000000)
 
 				// check payload
 				assert.Equal(t, p, msg.Payload())

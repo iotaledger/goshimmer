@@ -36,6 +36,8 @@ func configureDrngLiveFeed() {
 			name = "Pollen"
 		case drng.XTeam:
 			name = "X-Team"
+		case drng.Community:
+			name = "Community"
 		default:
 			name = "Custom"
 		}

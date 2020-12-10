@@ -18,6 +18,9 @@ const (
 
 	// XTeam defines the instance ID of the X-Team drng committee.
 	XTeam = 1339
+
+	// Community defines the instance ID of the Community drng committee.
+	Community = 7438
 )
 
 var (

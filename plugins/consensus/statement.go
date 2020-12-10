@@ -62,7 +62,8 @@ func broadcastStatement(conflicts statement.Conflicts, timestamps statement.Time
 }
 
 func readStatement(cachedMsgEvent *tangle.CachedMessageEvent) {
-	cachedMsgEvent.MessageMetadata.Release()
+	defer cachedMsgEvent.MessageMetadata.Release()
+
 	cachedMsgEvent.Message.Consume(func(msg *tangle.Message) {
 		messagePayload := msg.Payload()
 		if messagePayload.Type() != statement.StatementType {
@@ -87,5 +88,14 @@ func readStatement(cachedMsgEvent *tangle.CachedMessageEvent) {
 		issuerRegistry.AddConflicts(statementPayload.Conflicts)
 
 		issuerRegistry.AddTimestamps(statementPayload.Timestamps)
+
+		msgMetaData := cachedMsgEvent.MessageMetadata.Unwrap()
+		sendToRemoteLog(
+			msg.ID().String(),
+			issuerID.String(),
+			msg.IssuingTime().UnixNano(),
+			msgMetaData.ReceivedTime().UnixNano(),
+			msgMetaData.SolidificationTime().UnixNano(),
+		)
 	})
 }

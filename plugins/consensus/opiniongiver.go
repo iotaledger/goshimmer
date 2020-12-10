@@ -67,8 +67,10 @@ func OpinionGiverFunc() (givers []vote.OpinionGiver, err error) {
 			continue
 		}
 		if _, ok := opinionGiversMap[p.ID()]; !ok {
+			v := Registry().NodeView(p.ID())
 			opinionGiversMap[p.ID()] = &OpinionGiver{
-				id: p.ID(),
+				id:   p.ID(),
+				view: v,
 			}
 		}
 		opinionGiversMap[p.ID()].pog = &PeerOpinionGiver{p: p}

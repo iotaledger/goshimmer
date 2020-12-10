@@ -2,8 +2,8 @@ package drng
 
 import (
 	"testing"
-	"time"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/stretchr/testify/require"
 )
@@ -36,7 +36,7 @@ func TestState(t *testing.T) {
 	require.Equal(t, *newCommittee, stateTest.Committee())
 
 	// randomness setters - getters
-	newRandomness := &Randomness{1, []byte{123}, time.Now()}
+	newRandomness := &Randomness{1, []byte{123}, clock.SyncedTime()}
 	stateTest.UpdateRandomness(newRandomness)
 	require.Equal(t, *newRandomness, stateTest.Randomness())
 }
@@ -44,7 +44,7 @@ func TestState(t *testing.T) {
 func TestFloat64(t *testing.T) {
 
 	max := []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
-	r := &Randomness{1, max, time.Now()}
+	r := &Randomness{1, max, clock.SyncedTime()}
 	stateTest := NewState(SetRandomness(r))
 	require.Equal(t, 0.9999999999999999, stateTest.Randomness().Float64())
 

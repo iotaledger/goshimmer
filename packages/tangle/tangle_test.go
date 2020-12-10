@@ -14,7 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/testutil"
-	"github.com/magiconair/properties/assert"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -90,17 +90,14 @@ func TestTangle_AttachMessage(t *testing.T) {
 }
 
 func TestTangle_MissingMessages(t *testing.T) {
-	// test parameters
-	messageCount := 200000
-	widthOfTheTangle := 2500
+	const (
+		messageCount = 20000
+		tangleWidth  = 250
+		attachDelay  = 5 * time.Millisecond
+	)
 
-	// variables required for the test
-	missingMessagesMap := make(map[MessageID]bool)
-	var missingMessagesMapMutex sync.Mutex
-	wg := sync.WaitGroup{}
-
-	// create badger store
-	badgerDB, err := testutil.BadgerDB(t)
+	// create pebble store
+	pebbleDB, err := testutil.PebbleDB(t)
 	require.NoError(t, err)
 
 	// map to keep track of the tips
@@ -109,28 +106,19 @@ func TestTangle_MissingMessages(t *testing.T) {
 
 	// setup the message factory
 	msgFactory := NewMessageFactory(
-		badgerDB,
+		pebbleDB,
 		[]byte("sequenceKey"),
 		identity.GenerateLocalIdentity(),
-		TipSelectorFunc(func(count int) (parents []MessageID) {
-			parents = make([]MessageID, 0, count)
-
-			tmp := tips.RandomUniqueEntries(count)
-			// count is not valid
-			if tmp == nil {
-				parents = append(parents, EmptyMessageID)
-				return
+		TipSelectorFunc(func(count int) []MessageID {
+			r := tips.RandomUniqueEntries(count)
+			if len(r) == 0 {
+				return []MessageID{EmptyMessageID}
 			}
-			// count is valid, but there simply are no tips
-			if len(tmp) == 0 {
-				parents = append(parents, EmptyMessageID)
-				return
+			parents := make([]MessageID, len(r))
+			for i := range r {
+				parents[i] = r[i].(MessageID)
 			}
-			// at least one tip is returned
-			for _, tip := range tmp {
-				parents = append(parents, tip.(MessageID))
-			}
-			return
+			return parents
 		}),
 	)
 	defer msgFactory.Shutdown()
@@ -142,7 +130,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 		require.NoError(t, err)
 
 		// remove a tip if the width of the tangle is reached
-		if tips.Size() >= widthOfTheTangle {
+		if tips.Size() >= tangleWidth {
 			index := rand.Intn(len(msg.StrongParents()))
 			tips.Delete(msg.StrongParents()[index])
 		}
@@ -155,95 +143,67 @@ func TestTangle_MissingMessages(t *testing.T) {
 	}
 
 	// create the tangle
-	tangle := New(badgerDB)
-	if err := tangle.Prune(); err != nil {
-		t.Error(err)
-
-		return
-	}
+	tangle := New(pebbleDB)
+	defer tangle.Shutdown()
+	require.NoError(t, tangle.Prune())
 
 	// generate the messages we want to solidify
-	preGeneratedMessages := make(map[MessageID]*Message)
+	messages := make(map[MessageID]*Message, messageCount)
 	for i := 0; i < messageCount; i++ {
 		msg := createNewMessage()
-
-		preGeneratedMessages[msg.ID()] = msg
+		messages[msg.ID()] = msg
 	}
 
-	fmt.Println("PRE-GENERATING MESSAGES: DONE")
+	// counter for the different stages
+	var (
+		attachedMessages int32
+		missingMessages  int32
+		solidMessages    int32
+	)
+	tangle.Events.MessageAttached.Attach(events.NewClosure(func(event *CachedMessageEvent) {
+		defer event.Message.Release()
+		defer event.MessageMetadata.Release()
 
-	var receivedTransactionsCounter int32
-	tangle.Events.MessageAttached.Attach(events.NewClosure(func(cachedMsgEvent *CachedMessageEvent) {
-		defer cachedMsgEvent.Message.Release()
-		defer cachedMsgEvent.MessageMetadata.Release()
-
-		newReceivedTransactionsCounterValue := atomic.AddInt32(&receivedTransactionsCounter, 1)
-		if newReceivedTransactionsCounterValue%1000 == 0 {
-			fmt.Println("RECEIVED MESSAGES: ", newReceivedTransactionsCounterValue)
-			go fmt.Println("MISSING MESSAGES:", len(tangle.MissingMessages()))
-		}
+		n := atomic.AddInt32(&attachedMessages, 1)
+		t.Logf("attached messages %d/%d", n, messageCount)
 	}))
 
 	// increase the counter when a missing message was detected
 	tangle.Events.MessageMissing.Attach(events.NewClosure(func(messageId MessageID) {
+		atomic.AddInt32(&missingMessages, 1)
+
 		// attach the message after it has been requested
 		go func() {
-			time.Sleep(50 * time.Millisecond)
-
-			tangle.AttachMessage(preGeneratedMessages[messageId])
+			time.Sleep(attachDelay)
+			tangle.AttachMessage(messages[messageId])
 		}()
-
-		missingMessagesMapMutex.Lock()
-		missingMessagesMap[messageId] = true
-		missingMessagesMapMutex.Unlock()
 	}))
 
 	// decrease the counter when a missing message was received
 	tangle.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMsgEvent *CachedMessageEvent) {
-		cachedMsgEvent.MessageMetadata.Release()
-		cachedMsgEvent.Message.Consume(func(msg *Message) {
-			missingMessagesMapMutex.Lock()
-			delete(missingMessagesMap, msg.ID())
-			missingMessagesMapMutex.Unlock()
-		})
+		defer cachedMsgEvent.Message.Release()
+		defer cachedMsgEvent.MessageMetadata.Release()
+
+		n := atomic.AddInt32(&missingMessages, -1)
+		t.Logf("missing messages %d", n)
 	}))
 
-	// mark the WaitGroup as done if all messages are solid
-	solidMessageCounter := int32(0)
 	tangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedMsgEvent *CachedMessageEvent) {
 		defer cachedMsgEvent.MessageMetadata.Release()
 		defer cachedMsgEvent.Message.Release()
 
-		// print progress status message
-		newSolidCounterValue := atomic.AddInt32(&solidMessageCounter, 1)
-		if newSolidCounterValue%1000 == 0 {
-			fmt.Println("SOLID MESSAGES: ", newSolidCounterValue)
-			go fmt.Println("MISSING MESSAGES:", len(tangle.MissingMessages()))
-		}
-
-		// mark WaitGroup as done when we are done solidifying everything
-		if newSolidCounterValue == int32(messageCount) {
-			fmt.Println("ALL MESSAGES SOLID")
-
-			wg.Done()
-		}
+		atomic.AddInt32(&solidMessages, 1)
 	}))
 
 	// issue tips to start solidification
-	wg.Add(1)
-	tips.ForEach(func(key interface{}, value interface{}) {
-		tangle.AttachMessage(preGeneratedMessages[key.(MessageID)])
-	})
+	tips.ForEach(func(key interface{}, _ interface{}) { tangle.AttachMessage(messages[key.(MessageID)]) })
 
 	// wait for all transactions to become solid
-	wg.Wait()
+	assert.Eventually(t, func() bool { return atomic.LoadInt32(&solidMessages) == messageCount }, 5*time.Minute, 100*time.Millisecond)
 
-	// make sure that all MessageMissing events also had a corresponding MissingMessageReceived event
-	assert.Equal(t, len(missingMessagesMap), 0)
-	assert.Equal(t, len(tangle.MissingMessages()), 0)
-
-	// shutdown the tangle
-	tangle.Shutdown()
+	assert.EqualValues(t, messageCount, atomic.LoadInt32(&solidMessages))
+	assert.EqualValues(t, messageCount, atomic.LoadInt32(&attachedMessages))
+	assert.EqualValues(t, 0, atomic.LoadInt32(&missingMessages))
 }
 
 func TestRetrieveAllTips(t *testing.T) {

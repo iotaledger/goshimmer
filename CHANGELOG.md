@@ -1,3 +1,14 @@
+# v0.3.2 - 2020-12-09
+* Switch from BadgerDB to Pebble.
+* Add FPC statements.
+* Add clock based time to message metadata.
+* Improve dashboard message live feed.
+* Improve spammer to evenly distribute issued messages within a minute.
+* Fix panic when writing on a closed channel in the dashboard web socket.
+* Upgrade Go to 1.15.5
+* Upgrade to latest hive.go
+* **Breaking**: bumps network and database versions
+
 # v0.3.1 - 2020-11-13
 * Refactor message structure according to the new Tangle RFC: 
     * add support for multiple parents
