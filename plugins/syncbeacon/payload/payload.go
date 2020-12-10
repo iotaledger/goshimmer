@@ -82,7 +82,7 @@ func (p *Payload) Bytes() []byte {
 	objectLength := marshalutil.Int64Size
 
 	// marshal the p specific information
-	marshalUtil.WriteUint32(uint32(objectLength))
+	marshalUtil.WriteUint32(payload.TypeLength + uint32(objectLength))
 	marshalUtil.WriteBytes(Type.Bytes())
 	marshalUtil.WriteInt64(p.sentTime)
 

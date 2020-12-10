@@ -137,8 +137,8 @@ func TimestampsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil, n uint32) (
 
 	// return the number of bytes we processed
 	parsedBytes := marshalUtil.ReadOffset() - readStartOffset
-	if parsedBytes != int(ConflictLength*n) {
-		err = xerrors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, ConflictLength*n, cerrors.ErrParseBytesFailed)
+	if parsedBytes != int(TimestampLength*n) {
+		err = xerrors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, TimestampLength*n, cerrors.ErrParseBytesFailed)
 		return
 	}
 

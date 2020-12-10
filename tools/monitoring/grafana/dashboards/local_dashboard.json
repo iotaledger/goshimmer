@@ -611,6 +611,12 @@
           "interval": "",
           "legendFormat": "Sync Beacons Per Second",
           "refId": "F"
+        },
+        {
+          "expr": "irate(tangle_messages_per_type_count{message_type=\"Statement(3)\"}[5m])",
+          "interval": "",
+          "legendFormat": "Statements Per Second",
+          "refId": "G"
         }
       ],
       "thresholds": [],

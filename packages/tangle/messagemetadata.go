@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
@@ -27,7 +28,7 @@ type MessageMetadata struct {
 func NewMessageMetadata(messageID MessageID) *MessageMetadata {
 	return &MessageMetadata{
 		messageID:    messageID,
-		receivedTime: time.Now(),
+		receivedTime: clock.SyncedTime(),
 	}
 }
 
@@ -100,7 +101,7 @@ func (m *MessageMetadata) SetSolid(solid bool) (modified bool) {
 			m.solid = solid
 			if solid {
 				m.solidificationTimeMutex.Lock()
-				m.solidificationTime = time.Now()
+				m.solidificationTime = clock.SyncedTime()
 				m.solidificationTimeMutex.Unlock()
 			}
 
