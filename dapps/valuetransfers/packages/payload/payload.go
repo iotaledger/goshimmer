@@ -223,8 +223,8 @@ func (p *Payload) ObjectStorageValue() (bytes []byte) {
 
 	// marshal fields
 	payloadLength := IDLength + IDLength + len(transferBytes)
-	marshalUtil := marshalutil.New(marshalutil.Uint32Size + marshalutil.Uint32Size + payloadLength)
-	marshalUtil.WriteUint32(uint32(payloadLength))
+	marshalUtil := marshalutil.New(marshalutil.Uint32Size + payload.TypeLength + payloadLength)
+	marshalUtil.WriteUint32(payload.TypeLength + uint32(payloadLength))
 	marshalUtil.WriteBytes(Type.Bytes())
 	marshalUtil.WriteBytes(p.parent1PayloadID.Bytes())
 	marshalUtil.WriteBytes(p.parent2PayloadID.Bytes())
