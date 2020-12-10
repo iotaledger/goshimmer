@@ -263,11 +263,14 @@ func (t *Tangle) isMessageSolid(msg *Message, msgMetadata *MessageMetadata) bool
 		return true
 	}
 
-	// as missing messages are requested in isMessageMarkedAsSolid, we want to prevent short-circuit evaluation
 	solid := true
 
 	msg.ForEachParent(func(parent Parent) {
-		solid = solid && t.isMessageMarkedAsSolid(parent.ID)
+		// as missing messages are requested in isMessageMarkedAsSolid,
+		// we want to prevent short-circuit evaluation, thus we need to use a tmp variable
+		// to avoid side effects from comparing directly to the function call.
+		tmp := t.isMessageMarkedAsSolid(parent.ID)
+		solid = solid && tmp
 	})
 
 	return solid
