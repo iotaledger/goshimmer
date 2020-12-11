@@ -1,3 +1,7 @@
+# v0.3.4 - 2020-12-11
+* Revert Pebble to Badger.
+* **Breaking**: bumps network and database versions
+
 # v0.3.3 - 2020-12-10
 * Fix sync issue.
 * Fix pkger issue.
