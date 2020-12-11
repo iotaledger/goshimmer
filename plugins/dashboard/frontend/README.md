@@ -18,7 +18,6 @@ We are using [pkger](https://github.com/markbates/pkger) to wrap all built front
 
 1. [Install `pkger`](https://github.com/markbates/pkger#installation) if not already done.
 2. Build Dashboard by running `yarn build` within the `frontend` directory.
-3. Change to the `plugins/dashboard` directory.
-4. Run `pkger -o /plugins/dashboard`.
-5. `plugins/dashboard/pkged.go` should have been modified.
-6. Done. Now you can build goShimmer and your Dashboard changes will be included within the binary.
+3. Run `pkger`.
+4. `pkged.go` under root directory of goShimmer should have been modified.
+5. Done. Now you can build goShimmer and your Dashboard changes will be included within the binary.
