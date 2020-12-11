@@ -17,7 +17,7 @@ var (
 	once   sync.Once
 
 	// AppVersion version number
-	AppVersion = "v0.3.3"
+	AppVersion = "v0.3.4"
 	// SimplifiedAppVersion is the version number without commit hash
 	SimplifiedAppVersion = simplifiedVersion(AppVersion)
 )
