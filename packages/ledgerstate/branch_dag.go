@@ -213,7 +213,7 @@ func (b *BranchDAG) init() {
 		branch.SetPreferred(true)
 		branch.SetLiked(true)
 		branch.SetFinalized(true)
-		branch.SetConfirmed(true)
+		branch.SetInclusionState(Confirmed)
 	})
 }
 
@@ -449,6 +449,170 @@ func (b *BranchDAG) setBranchPreferred(cachedBranch *CachedBranch, preferred boo
 	return
 }
 
+// setBranchFinalized updates the finalized flag of the given Branch. It returns true if the value has been updated or
+// an error if it failed.
+func (b *BranchDAG) setBranchFinalized(cachedBranch *CachedBranch, finalized bool) (modified bool, err error) {
+	// release CachedObject when we are done
+	defer cachedBranch.Release()
+
+	// unwrap ConflictBranch
+	conflictBranch, err := cachedBranch.UnwrapConflictBranch()
+	if err != nil {
+		err = xerrors.Errorf("failed to load ConflictBranch with %s: %w", cachedBranch.ID(), cerrors.ErrFatal)
+		return
+	}
+
+	// abort if the ConflictBranch was marked correctly already
+	if modified = conflictBranch.SetFinalized(finalized); !modified {
+		return
+	}
+
+	// execute case dependent logic
+	switch finalized {
+	case true:
+		// trigger event
+		b.Events.BranchFinalized.Trigger(NewBranchDAGEvent(cachedBranch))
+
+		// propagate finalized update to aggregated ChildBranches
+		if err = b.updateFinalizedStatusOfFutureCone(conflictBranch.ID(), true); err != nil {
+			err = xerrors.Errorf("failed to update finalized status of future cone of Branch with %s: %w", conflictBranch.ID(), err)
+			return
+		}
+
+		// execute case dependent logic
+		switch conflictBranch.Preferred() {
+		case true:
+			// iterate through all other Branches that belong to the same Conflict
+			for conflictID := range conflictBranch.Conflicts() {
+				b.ConflictMembers(conflictID).Consume(func(conflictMember *ConflictMember) {
+					// skip the branch which just got finalized
+					if conflictMember.BranchID() == conflictBranch.ID() {
+						return
+					}
+
+					// set other branches of same conflict to also be finalized (there can only be 1 preferred, finalized
+					// Branch in every Conflict)
+					_, err = b.setBranchFinalized(b.Branch(conflictMember.BranchID()), true)
+					if err != nil {
+						err = xerrors.Errorf("failed to set other Branches of the same Conflict to also be finalized: %w", cerrors.ErrFatal)
+						return
+					}
+				})
+			}
+
+			// update InclusionState of future cone
+			if err = b.updateInclusionStateOfFutureCone(conflictBranch.ID(), Confirmed); err != nil {
+				err = xerrors.Errorf("failed to update InclusionState of future cone of Branch with %s: %w", conflictBranch.ID(), err)
+				return
+			}
+		case false:
+			// update InclusionState of future cone
+			if err = b.updateInclusionStateOfFutureCone(conflictBranch.ID(), Rejected); err != nil {
+				err = xerrors.Errorf("failed to update InclusionState of future cone of Branch with %s: %w", conflictBranch.ID(), err)
+				return
+			}
+		}
+	case false:
+		// trigger event
+		b.Events.BranchUnfinalized.Trigger(NewBranchDAGEvent(cachedBranch))
+
+		// propagate finalized update to aggregated ChildBranches
+		if err = b.updateFinalizedStatusOfFutureCone(conflictBranch.ID(), false); err != nil {
+			err = xerrors.Errorf("failed to update finalized status of future cone of Branch with %s: %w", conflictBranch.ID(), err)
+			return
+		}
+
+		// update InclusionState of future cone
+		if err = b.updateInclusionStateOfFutureCone(conflictBranch.ID(), Pending); err != nil {
+			err = xerrors.Errorf("failed to update InclusionState of future cone of Branch with %s: %w", conflictBranch.ID(), err)
+			return
+		}
+	}
+
+	return
+}
+
+// updatePreferredStatusOfFutureCone updates the preferred flag of the AggregatedBranches that are direct children
+// of the Branch whose preferred flag was updated.
+func (b *BranchDAG) updatePreferredStatusOfFutureCone(branchID BranchID, preferred bool) (err error) {
+	// initialize stack with children of type AggregatedBranch of the passed in Branch (we only update the preferred
+	// status of AggregatedBranches as their status entirely depends on their parents)
+	branchStack := list.New()
+	b.ChildBranches(branchID).Consume(func(childBranch *ChildBranch) {
+		if childBranch.ChildBranchType() == AggregatedBranchType {
+			branchStack.PushBack(childBranch.ChildBranchID())
+		}
+	})
+
+	// iterate through stack
+ProcessStack:
+	for branchStack.Len() >= 1 {
+		// retrieve first element from the stack
+		currentEntry := branchStack.Front()
+		branchStack.Remove(currentEntry)
+
+		// load Branch
+		currentCachedBranch := b.Branch(currentEntry.Value.(BranchID))
+
+		// unwrap current CachedBranch
+		currentBranch, typeErr := currentCachedBranch.UnwrapAggregatedBranch()
+		if typeErr != nil {
+			currentCachedBranch.Release()
+			err = xerrors.Errorf("failed to load AggregatedBranch with %s: %w", currentCachedBranch.ID(), typeErr)
+			return
+		}
+		if currentBranch == nil {
+			currentCachedBranch.Release()
+			err = xerrors.Errorf("failed to load AggregatedBranch with %s: %w", currentCachedBranch.ID(), cerrors.ErrFatal)
+			return
+		}
+
+		// execute case dependent logic
+		switch preferred {
+		case true:
+			// only continue if all parents are preferred
+			for parentBranchID := range currentBranch.Parents() {
+				// load parent Branch
+				cachedParentBranch := b.Branch(parentBranchID)
+
+				// unwrap parent Branch
+				parentBranch := cachedParentBranch.Unwrap()
+				if parentBranch == nil {
+					currentCachedBranch.Release()
+					cachedParentBranch.Release()
+					err = xerrors.Errorf("failed to load parent Branch with %s: %w", parentBranchID, cerrors.ErrFatal)
+					return
+				}
+
+				// abort if the parent Branch is not preferred
+				if !parentBranch.Preferred() {
+					currentCachedBranch.Release()
+					cachedParentBranch.Release()
+					continue ProcessStack
+				}
+
+				// release parent CachedBranch
+				cachedParentBranch.Release()
+			}
+
+			// trigger event if the value was changed
+			if currentBranch.SetPreferred(true) {
+				b.Events.BranchPreferred.Trigger(NewBranchDAGEvent(currentCachedBranch))
+			}
+		case false:
+			// trigger event if the value was changed
+			if currentBranch.SetPreferred(false) {
+				b.Events.BranchUnpreferred.Trigger(NewBranchDAGEvent(currentCachedBranch))
+			}
+		}
+
+		// release current CachedBranch
+		currentCachedBranch.Release()
+	}
+
+	return
+}
+
 // updateLikedStatusOfFutureCone is an internal utility function that checks if the given Branch has become liked and
 // propagates the changes to the Branch itself and to its children (if necessary).
 func (b *BranchDAG) updateLikedStatusOfFutureCone(branchID BranchID, liked bool) (err error) {
@@ -551,11 +715,11 @@ ProcessStack:
 	return
 }
 
-// updatePreferredStatusOfFutureCone updates the preferred flag of the AggregatedBranches that are direct children
+// updateFinalizedStatusOfFutureCone updates the finalized flag of the AggregatedBranches that are direct children
 // of the Branch whose preferred flag was updated.
-func (b *BranchDAG) updatePreferredStatusOfFutureCone(branchID BranchID, preferred bool) (err error) {
-	// initialize stack with children of type AggregatedBranch of the passed in Branch (we only update the preferred
-	// status of AggregatedBranches as their status depends on their parents)
+func (b *BranchDAG) updateFinalizedStatusOfFutureCone(branchID BranchID, finalized bool) (err error) {
+	// initialize stack with children of type AggregatedBranch of the passed in Branch (we only update the finalized
+	// status of AggregatedBranches as their status entirely depends on their parents)
 	branchStack := list.New()
 	b.ChildBranches(branchID).Consume(func(childBranch *ChildBranch) {
 		if childBranch.ChildBranchType() == AggregatedBranchType {
@@ -567,11 +731,11 @@ func (b *BranchDAG) updatePreferredStatusOfFutureCone(branchID BranchID, preferr
 ProcessStack:
 	for branchStack.Len() >= 1 {
 		// retrieve first element from the stack
-		currentAggregatedBranchEntry := branchStack.Front()
-		branchStack.Remove(currentAggregatedBranchEntry)
+		currentEntry := branchStack.Front()
+		branchStack.Remove(currentEntry)
 
 		// load Branch
-		currentCachedBranch := b.Branch(currentAggregatedBranchEntry.Value.(BranchID))
+		currentCachedBranch := b.Branch(currentEntry.Value.(BranchID))
 
 		// unwrap current CachedBranch
 		currentBranch, typeErr := currentCachedBranch.UnwrapAggregatedBranch()
@@ -587,24 +751,24 @@ ProcessStack:
 		}
 
 		// execute case dependent logic
-		switch preferred {
+		switch finalized {
 		case true:
-			// only continue if all parents are preferred
-			for aggregatedParentBranchID := range currentBranch.Parents() {
+			// only continue if all parents are finalized
+			for parentBranchID := range currentBranch.Parents() {
 				// load parent Branch
-				cachedParentBranch := b.Branch(aggregatedParentBranchID)
+				cachedParentBranch := b.Branch(parentBranchID)
 
 				// unwrap parent Branch
 				parentBranch := cachedParentBranch.Unwrap()
 				if parentBranch == nil {
 					currentCachedBranch.Release()
 					cachedParentBranch.Release()
-					err = xerrors.Errorf("failed to load parent Branch with %s: %w", aggregatedParentBranchID, cerrors.ErrFatal)
+					err = xerrors.Errorf("failed to load parent Branch with %s: %w", parentBranchID, cerrors.ErrFatal)
 					return
 				}
 
-				// abort if the parent Branch is not preferred
-				if !parentBranch.Preferred() {
+				// abort if the parent Branch is not finalized
+				if !parentBranch.Finalized() {
 					currentCachedBranch.Release()
 					cachedParentBranch.Release()
 					continue ProcessStack
@@ -615,15 +779,126 @@ ProcessStack:
 			}
 
 			// trigger event if the value was changed
-			if currentBranch.SetPreferred(true) {
-				b.Events.BranchPreferred.Trigger(NewBranchDAGEvent(currentCachedBranch))
+			if currentBranch.SetFinalized(true) {
+				b.Events.BranchFinalized.Trigger(NewBranchDAGEvent(currentCachedBranch))
 			}
 		case false:
 			// trigger event if the value was changed
-			if currentBranch.SetPreferred(false) {
-				b.Events.BranchUnpreferred.Trigger(NewBranchDAGEvent(currentCachedBranch))
+			if currentBranch.SetFinalized(false) {
+				b.Events.BranchUnfinalized.Trigger(NewBranchDAGEvent(currentCachedBranch))
 			}
 		}
+
+		// release current CachedBranch
+		currentCachedBranch.Release()
+	}
+
+	return
+}
+
+// updateInclusionStateOfFutureCone is an internal utility function that checks if the given Branch has become
+// confirmed and propagates the changes to the Branch itself and to its children (if necessary).
+func (b *BranchDAG) updateInclusionStateOfFutureCone(branchID BranchID, inclusionState InclusionState) (err error) {
+	// initialize stack for iteration
+	branchStack := list.New()
+	branchStack.PushBack(branchID)
+
+	// iterate through stack
+ProcessStack:
+	for branchStack.Len() >= 1 {
+		// retrieve first element from the stack
+		currentStackElement := branchStack.Front()
+		branchStack.Remove(currentStackElement)
+
+		// load Branch
+		currentCachedBranch := b.Branch(currentStackElement.Value.(BranchID))
+
+		// unwrap current CachedBranch
+		currentBranch := currentCachedBranch.Unwrap()
+		if currentBranch == nil {
+			currentCachedBranch.Release()
+			err = xerrors.Errorf("failed to load Branch with %s: %w", currentCachedBranch.ID(), cerrors.ErrFatal)
+			return
+		}
+
+		// execute case dependent logic
+		switch inclusionState {
+		case Confirmed:
+			// abort if the current Branch is not preferred or not finalized
+			if !currentBranch.Preferred() || !currentBranch.Finalized() {
+				currentCachedBranch.Release()
+				continue
+			}
+
+			// abort if any parent Branch is not confirmed
+			for parentBranchID := range currentBranch.Parents() {
+				// load parent Branch
+				cachedParentBranch := b.Branch(parentBranchID)
+
+				// unwrap parent Branch
+				parentBranch := cachedParentBranch.Unwrap()
+				if parentBranch == nil {
+					currentCachedBranch.Release()
+					cachedParentBranch.Release()
+					err = xerrors.Errorf("failed to load parent Branch with %s: %w", parentBranchID, cerrors.ErrFatal)
+					return
+				}
+
+				// abort if parent Branch is not confirmed
+				if parentBranch.InclusionState() != Confirmed {
+					currentCachedBranch.Release()
+					cachedParentBranch.Release()
+					continue ProcessStack
+				}
+
+				// release parent CachedBranch
+				cachedParentBranch.Release()
+			}
+
+			// abort if the Branch is already confirmed
+			if !currentBranch.SetInclusionState(Confirmed) {
+				currentCachedBranch.Release()
+				continue
+			}
+
+			// trigger event
+			b.Events.BranchConfirmed.Trigger(NewBranchDAGEvent(currentCachedBranch))
+		case Rejected:
+			// abort if the current Branch is not confirmed already
+			if !currentBranch.SetInclusionState(Rejected) {
+				currentCachedBranch.Release()
+				continue
+			}
+
+			// trigger event
+			b.Events.BranchRejected.Trigger(NewBranchDAGEvent(currentCachedBranch))
+		case Pending:
+			// abort if the current Branch is not confirmed already
+			if !currentBranch.SetInclusionState(Pending) {
+				currentCachedBranch.Release()
+				continue
+			}
+
+			// trigger event
+			b.Events.BranchPending.Trigger(NewBranchDAGEvent(currentCachedBranch))
+		}
+
+		// iterate through ChildBranch references and queue found Branches for propagation
+		cachedChildBranchReferences := b.ChildBranches(currentBranch.ID())
+		for _, cachedChildBranchReference := range cachedChildBranchReferences {
+			// unwrap ChildBranch reference
+			childBranchReference := cachedChildBranchReference.Unwrap()
+			if childBranchReference == nil {
+				currentCachedBranch.Release()
+				cachedChildBranchReferences.Release()
+				err = xerrors.Errorf("failed to load ChildBranch reference: %w", cerrors.ErrFatal)
+				return
+			}
+
+			// queue child Branch for propagation
+			branchStack.PushBack(childBranchReference.ChildBranchID())
+		}
+		cachedChildBranchReferences.Release()
 
 		// release current CachedBranch
 		currentCachedBranch.Release()
@@ -654,11 +929,18 @@ type BranchDAGEvents struct {
 	// changes regarding its preferred state.
 	BranchFinalized *events.Event
 
+	// BranchUnfinalized gets triggered when a previously finalized Branch is marked as not finalized again (i.e. during
+	// a reorg).
+	BranchUnfinalized *events.Event
+
 	// BranchConfirmed gets triggered whenever a Branch becomes confirmed that was not confirmed before.
 	BranchConfirmed *events.Event
 
 	// BranchRejected gets triggered whenever a Branch becomes rejected that was not rejected before.
 	BranchRejected *events.Event
+
+	// BranchPending gets triggered whenever a Branch becomes pending that was not pending before (i.e. during a reorg).
+	BranchPending *events.Event
 }
 
 // NewBranchDAGEvents creates a container for all of the BranchDAG related events.

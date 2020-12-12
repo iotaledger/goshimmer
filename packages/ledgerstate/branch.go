@@ -233,7 +233,7 @@ func BranchTypeFromBytes(branchTypeBytes []byte) (branchType BranchType, consume
 func BranchTypeFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchType BranchType, err error) {
 	branchTypeByte, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = xerrors.Errorf("failed to read BranchType (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse BranchType (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -295,19 +295,13 @@ type Branch interface {
 	// SetFinalized sets the finalized property to the given value. It returns true if the value has been updated.
 	SetFinalized(finalized bool) (modified bool)
 
-	// Confirmed returns true if the decision that the Branch is liked has been finalized and all of its parents have
-	// been confirmed.
-	Confirmed() bool
+	// InclusionState returns the InclusionState of the Branch which encodes if the Branch has been included in the
+	// ledger state.
+	InclusionState() InclusionState
 
-	// SetConfirmed sets the confirmed property to the given value. It returns true if the value has been updated.
-	SetConfirmed(confirmed bool) (modified bool)
-
-	// Rejected returns true if either a decision that the Branch is not liked has been finalized or any of its
-	// parents are rejected.
-	Rejected() bool
-
-	// SetRejected sets the rejected property to the given value. It returns true if the value has been updated.
-	SetRejected(rejected bool) (modified bool)
+	// SetInclusionState sets the InclusionState of the Branch which encodes if the Branch has been included in the
+	// ledger state. It returns true if the value has been updated.
+	SetInclusionState(inclusionState InclusionState) (modified bool)
 
 	// Bytes returns a marshaled version of the Branch.
 	Bytes() []byte
@@ -462,21 +456,19 @@ func (c *CachedBranch) String() string {
 // ConflictBranch represents a container for Transactions and Outputs representing a certain perception of the ledger
 // state.
 type ConflictBranch struct {
-	id             BranchID
-	parents        BranchIDs
-	parentsMutex   sync.RWMutex
-	conflicts      ConflictIDs
-	conflictsMutex sync.RWMutex
-	preferred      bool
-	preferredMutex sync.RWMutex
-	liked          bool
-	likedMutex     sync.RWMutex
-	finalized      bool
-	finalizedMutex sync.RWMutex
-	confirmed      bool
-	confirmedMutex sync.RWMutex
-	rejected       bool
-	rejectedMutex  sync.RWMutex
+	id                  BranchID
+	parents             BranchIDs
+	parentsMutex        sync.RWMutex
+	conflicts           ConflictIDs
+	conflictsMutex      sync.RWMutex
+	preferred           bool
+	preferredMutex      sync.RWMutex
+	liked               bool
+	likedMutex          sync.RWMutex
+	finalized           bool
+	finalizedMutex      sync.RWMutex
+	inclusionState      InclusionState
+	inclusionStateMutex sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
@@ -539,12 +531,8 @@ func ConflictBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (confli
 		err = xerrors.Errorf("failed to parse finalized flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	if conflictBranch.confirmed, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse confirmed flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if conflictBranch.rejected, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse rejected flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+	if conflictBranch.inclusionState, err = InclusionStateFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse InclusionState from MarshalUtil: %w", err)
 		return
 	}
 
@@ -679,50 +667,26 @@ func (c *ConflictBranch) SetFinalized(finalized bool) (modified bool) {
 	return
 }
 
-// Confirmed returns true if the decision that the Branch is liked has been finalized and all of its parents have
-// been confirmed.
-func (c *ConflictBranch) Confirmed() bool {
-	c.confirmedMutex.RLock()
-	defer c.confirmedMutex.RUnlock()
+// InclusionState returns the InclusionState of the Branch which encodes if the Branch has been included in the
+// ledger state.
+func (c *ConflictBranch) InclusionState() (inclusionState InclusionState) {
+	c.inclusionStateMutex.RLock()
+	defer c.inclusionStateMutex.RUnlock()
 
-	return c.confirmed
+	return c.inclusionState
 }
 
-// SetConfirmed is the setter for the confirmed flag. It returns true if the value of the flag has been updated.
-func (c *ConflictBranch) SetConfirmed(confirmed bool) (modified bool) {
-	c.confirmedMutex.Lock()
-	defer c.confirmedMutex.Unlock()
+// SetInclusionState sets the InclusionState of the Branch which encodes if the Branch has been included in the
+// ledger state. It returns true if the value has been updated.
+func (c *ConflictBranch) SetInclusionState(inclusionState InclusionState) (modified bool) {
+	c.inclusionStateMutex.Lock()
+	defer c.inclusionStateMutex.Unlock()
 
-	if c.confirmed == confirmed {
+	if c.inclusionState == inclusionState {
 		return
 	}
 
-	c.confirmed = confirmed
-	c.SetModified()
-	modified = true
-
-	return
-}
-
-// Rejected returns true if either a decision that the Branch is not liked has been finalized or any of its
-// parents are rejected.
-func (c *ConflictBranch) Rejected() bool {
-	c.rejectedMutex.RLock()
-	defer c.rejectedMutex.RUnlock()
-
-	return c.confirmed
-}
-
-// SetRejected sets the rejected property to the given value. It returns true if the value has been updated.
-func (c *ConflictBranch) SetRejected(rejected bool) (modified bool) {
-	c.rejectedMutex.Lock()
-	defer c.rejectedMutex.Unlock()
-
-	if c.rejected == rejected {
-		return
-	}
-
-	c.rejected = rejected
+	c.inclusionState = inclusionState
 	c.SetModified()
 	modified = true
 
@@ -743,8 +707,7 @@ func (c *ConflictBranch) String() string {
 		stringify.StructField("preferred", c.Preferred()),
 		stringify.StructField("liked", c.Liked()),
 		stringify.StructField("finalized", c.Finalized()),
-		stringify.StructField("confirmed", c.Confirmed()),
-		stringify.StructField("rejected", c.Rejected()),
+		stringify.StructField("inclusionState", c.InclusionState()),
 	)
 }
 
@@ -770,8 +733,7 @@ func (c *ConflictBranch) ObjectStorageValue() []byte {
 		WriteBool(c.Preferred()).
 		WriteBool(c.Liked()).
 		WriteBool(c.Finalized()).
-		WriteBool(c.Confirmed()).
-		WriteBool(c.Rejected()).
+		Write(c.InclusionState()).
 		Bytes()
 }
 
@@ -785,19 +747,17 @@ var _ Branch = &ConflictBranch{}
 // AggregatedBranch represents a container for Transactions and Outputs representing a certain perception of the ledger
 // state.
 type AggregatedBranch struct {
-	id             BranchID
-	parents        BranchIDs
-	parentsMutex   sync.RWMutex
-	preferred      bool
-	preferredMutex sync.RWMutex
-	liked          bool
-	likedMutex     sync.RWMutex
-	finalized      bool
-	finalizedMutex sync.RWMutex
-	confirmed      bool
-	confirmedMutex sync.RWMutex
-	rejected       bool
-	rejectedMutex  sync.RWMutex
+	id                  BranchID
+	parents             BranchIDs
+	parentsMutex        sync.RWMutex
+	preferred           bool
+	preferredMutex      sync.RWMutex
+	liked               bool
+	likedMutex          sync.RWMutex
+	finalized           bool
+	finalizedMutex      sync.RWMutex
+	inclusionState      InclusionState
+	inclusionStateMutex sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
@@ -868,12 +828,8 @@ func AggregatedBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (aggr
 		err = xerrors.Errorf("failed to parse finalized flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	if aggregatedBranch.confirmed, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse confirmed flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if aggregatedBranch.rejected, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse rejected flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+	if aggregatedBranch.inclusionState, err = InclusionStateFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse InclusionState from MarshalUtil: %w", err)
 		return
 	}
 
@@ -970,50 +926,26 @@ func (a *AggregatedBranch) SetFinalized(finalized bool) (modified bool) {
 	return
 }
 
-// Confirmed returns true if the decision that the Branch is liked has been finalized and all of its parents have
-// been confirmed.
-func (a *AggregatedBranch) Confirmed() bool {
-	a.confirmedMutex.RLock()
-	defer a.confirmedMutex.RUnlock()
+// InclusionState returns the InclusionState of the Branch which encodes if the Branch has been included in the
+// ledger state.
+func (a *AggregatedBranch) InclusionState() (inclusionState InclusionState) {
+	a.inclusionStateMutex.RLock()
+	defer a.inclusionStateMutex.RUnlock()
 
-	return a.confirmed
+	return a.inclusionState
 }
 
-// SetConfirmed is the setter for the confirmed flag. It returns true if the value of the flag has been updated.
-func (a *AggregatedBranch) SetConfirmed(confirmed bool) (modified bool) {
-	a.confirmedMutex.Lock()
-	defer a.confirmedMutex.Unlock()
+// SetInclusionState sets the InclusionState of the Branch which encodes if the Branch has been included in the
+// ledger state. It returns true if the value has been updated.
+func (a *AggregatedBranch) SetInclusionState(inclusionState InclusionState) (modified bool) {
+	a.inclusionStateMutex.Lock()
+	defer a.inclusionStateMutex.Unlock()
 
-	if a.confirmed == confirmed {
+	if a.inclusionState == inclusionState {
 		return
 	}
 
-	a.confirmed = confirmed
-	a.SetModified()
-	modified = true
-
-	return
-}
-
-// Rejected returns true if either a decision that the Branch is not liked has been finalized or any of its
-// parents are rejected.
-func (a *AggregatedBranch) Rejected() bool {
-	a.rejectedMutex.RLock()
-	defer a.rejectedMutex.RUnlock()
-
-	return a.confirmed
-}
-
-// SetRejected sets the rejected property to the given value. It returns true if the value has been updated.
-func (a *AggregatedBranch) SetRejected(rejected bool) (modified bool) {
-	a.rejectedMutex.Lock()
-	defer a.rejectedMutex.Unlock()
-
-	if a.rejected == rejected {
-		return
-	}
-
-	a.rejected = rejected
+	a.inclusionState = inclusionState
 	a.SetModified()
 	modified = true
 
@@ -1033,8 +965,7 @@ func (a *AggregatedBranch) String() string {
 		stringify.StructField("preferred", a.Preferred()),
 		stringify.StructField("liked", a.Liked()),
 		stringify.StructField("finalized", a.Finalized()),
-		stringify.StructField("confirmed", a.Confirmed()),
-		stringify.StructField("rejected", a.Rejected()),
+		stringify.StructField("inclusionState", a.InclusionState()),
 	)
 }
 
@@ -1059,8 +990,7 @@ func (a *AggregatedBranch) ObjectStorageValue() []byte {
 		WriteBool(a.Preferred()).
 		WriteBool(a.Liked()).
 		WriteBool(a.Finalized()).
-		WriteBool(a.Confirmed()).
-		WriteBool(a.Rejected()).
+		Write(a.InclusionState()).
 		Bytes()
 }
 
