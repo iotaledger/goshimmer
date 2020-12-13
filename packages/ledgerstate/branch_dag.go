@@ -299,7 +299,7 @@ func (b *BranchDAG) normalizeBranches(branchIDs BranchIDs) (normalizedBranches B
 		}
 
 		// queue parents to be checked when traversing ancestors
-		for _, parentBranchID := range currentConflictBranch.Parents() {
+		for parentBranchID := range currentConflictBranch.Parents() {
 			parentsToCheck.Push(parentBranchID)
 		}
 	}
@@ -474,7 +474,7 @@ func (b *BranchDAG) setBranchFinalized(cachedBranch *CachedBranch, finalized boo
 		b.Events.BranchFinalized.Trigger(NewBranchDAGEvent(cachedBranch))
 
 		// propagate finalized update to aggregated ChildBranches
-		if err = b.updateFinalizedStatusOfFutureCone(conflictBranch.ID(), true); err != nil {
+		if err = b.updateFinalizedOfAggregatedBranches(conflictBranch.ID(), true); err != nil {
 			err = xerrors.Errorf("failed to update finalized status of future cone of Branch with %s: %w", conflictBranch.ID(), err)
 			return
 		}
@@ -501,13 +501,13 @@ func (b *BranchDAG) setBranchFinalized(cachedBranch *CachedBranch, finalized boo
 			}
 
 			// update InclusionState of future cone
-			if err = b.updateInclusionStateOfFutureCone(conflictBranch.ID(), Confirmed); err != nil {
+			if err = b.setInclusionState(conflictBranch.ID(), Confirmed); err != nil {
 				err = xerrors.Errorf("failed to update InclusionState of future cone of Branch with %s: %w", conflictBranch.ID(), err)
 				return
 			}
 		case false:
 			// update InclusionState of future cone
-			if err = b.updateInclusionStateOfFutureCone(conflictBranch.ID(), Rejected); err != nil {
+			if err = b.setInclusionState(conflictBranch.ID(), Rejected); err != nil {
 				err = xerrors.Errorf("failed to update InclusionState of future cone of Branch with %s: %w", conflictBranch.ID(), err)
 				return
 			}
@@ -517,13 +517,13 @@ func (b *BranchDAG) setBranchFinalized(cachedBranch *CachedBranch, finalized boo
 		b.Events.BranchUnfinalized.Trigger(NewBranchDAGEvent(cachedBranch))
 
 		// propagate finalized update to aggregated ChildBranches
-		if err = b.updateFinalizedStatusOfFutureCone(conflictBranch.ID(), false); err != nil {
+		if err = b.updateFinalizedOfAggregatedBranches(conflictBranch.ID(), false); err != nil {
 			err = xerrors.Errorf("failed to update finalized status of future cone of Branch with %s: %w", conflictBranch.ID(), err)
 			return
 		}
 
 		// update InclusionState of future cone
-		if err = b.updateInclusionStateOfFutureCone(conflictBranch.ID(), Pending); err != nil {
+		if err = b.setInclusionState(conflictBranch.ID(), Pending); err != nil {
 			err = xerrors.Errorf("failed to update InclusionState of future cone of Branch with %s: %w", conflictBranch.ID(), err)
 			return
 		}
@@ -715,11 +715,11 @@ ProcessStack:
 	return
 }
 
-// updateFinalizedStatusOfFutureCone updates the finalized flag of the AggregatedBranches that are direct children
-// of the Branch whose preferred flag was updated.
-func (b *BranchDAG) updateFinalizedStatusOfFutureCone(branchID BranchID, finalized bool) (err error) {
+// updateFinalizedOfAggregatedBranches updates the finalized state of the AggregatedBranches that are direct
+// children of the given Branch.
+func (b *BranchDAG) updateFinalizedOfAggregatedBranches(branchID BranchID, finalized bool) (err error) {
 	// initialize stack with children of type AggregatedBranch of the passed in Branch (we only update the finalized
-	// status of AggregatedBranches as their status entirely depends on their parents)
+	// state of AggregatedBranches as it entirely depends on their parents)
 	branchStack := list.New()
 	b.ChildBranches(branchID).Consume(func(childBranch *ChildBranch) {
 		if childBranch.ChildBranchType() == AggregatedBranchType {
@@ -796,9 +796,9 @@ ProcessStack:
 	return
 }
 
-// updateInclusionStateOfFutureCone is an internal utility function that checks if the given Branch has become
-// confirmed and propagates the changes to the Branch itself and to its children (if necessary).
-func (b *BranchDAG) updateInclusionStateOfFutureCone(branchID BranchID, inclusionState InclusionState) (err error) {
+// setInclusionState is an internal utility function that updates the InclusionState of the given Branch (and its future
+// cone) if it fulfills the conditions.
+func (b *BranchDAG) setInclusionState(branchID BranchID, inclusionState InclusionState) (err error) {
 	// initialize stack for iteration
 	branchStack := list.New()
 	branchStack.PushBack(branchID)
