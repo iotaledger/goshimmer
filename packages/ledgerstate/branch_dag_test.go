@@ -224,4 +224,114 @@ func TestBranchDAG_normalizeBranches(t *testing.T) {
 		normalizeBranches, err = branchDAG.normalizeBranches(NewBranchIDs(aggrBranch9.ID(), aggrBranch10.ID()))
 		assert.Error(t, err)
 	}
+
+	// branch 11, 12 are on the same level as 2 & 3 and 6 & 7 but are not part of either conflict set
+	cachedBranch11, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{11}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{3}))
+	defer cachedBranch11.Release()
+	branch11 := cachedBranch11.Unwrap()
+	assert.True(t, newBranchCreated)
+
+	cachedBranch12, newBrachCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{12}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{3}))
+	defer cachedBranch12.Release()
+	branch12 := cachedBranch12.Unwrap()
+	assert.True(t, newBranchCreated)
+
+	{
+		normalizeBranches, err := branchDAG.normalizeBranches(NewBranchIDs(MasterBranchID, branch11.ID()))
+		assert.NoError(t, err)
+		assert.Equal(t, NewBranchIDs(branch11.ID()), normalizeBranches)
+
+		normalizeBranches, err = branchDAG.normalizeBranches(NewBranchIDs(MasterBranchID, branch12.ID()))
+		assert.NoError(t, err)
+		assert.Equal(t, NewBranchIDs(branch12.ID()), normalizeBranches)
+
+		normalizeBranches, err = branchDAG.normalizeBranches(NewBranchIDs(branch11.ID(), branch12.ID()))
+		assert.Error(t, err)
+	}
+
+	// aggr. branch 13 out of branch 6 and 11
+	cachedAggrBranch13, newBranchCreated, aggrBranchErr := branchDAG.RetrieveAggregatedBranch(NewBranchIDs(branch6.ID(), branch11.ID()))
+	assert.NoError(t, aggrBranchErr)
+	defer cachedAggrBranch13.Release()
+	aggrBranch13 := cachedAggrBranch13.Unwrap()
+	assert.True(t, newBranchCreated)
+
+	{
+		normalizeBranches, err := branchDAG.normalizeBranches(NewBranchIDs(aggrBranch13.ID(), aggrBranch9.ID()))
+		assert.Error(t, err)
+
+		normalizeBranches, err = branchDAG.normalizeBranches(NewBranchIDs(aggrBranch13.ID(), aggrBranch8.ID()))
+		assert.NoError(t, err)
+		assert.Equal(t, NewBranchIDs(branch4.ID(), branch6.ID(), branch11.ID()), normalizeBranches)
+
+		normalizeBranches, err = branchDAG.normalizeBranches(NewBranchIDs(aggrBranch13.ID(), aggrBranch10.ID()))
+		assert.NoError(t, err)
+		assert.Equal(t, NewBranchIDs(branch3.ID(), branch6.ID(), branch11.ID()), normalizeBranches)
+	}
+
+	// aggr. branch 14 out of aggr. branch 10 and 13
+	cachedAggrBranch14, newBranchCreated, aggrBranchErr := branchDAG.RetrieveAggregatedBranch(NewBranchIDs(aggrBranch10.ID(), aggrBranch13.ID()))
+	assert.NoError(t, aggrBranchErr)
+	defer cachedAggrBranch14.Release()
+	aggrBranch14 := cachedAggrBranch14.Unwrap()
+	assert.True(t, newBranchCreated)
+
+	{
+		// aggr. branch 9 has parent branch 7 which conflicts with ancestor branch 6 of aggr. branch 14
+		_, err := branchDAG.normalizeBranches(NewBranchIDs(aggrBranch14.ID(), aggrBranch9.ID()))
+		assert.Error(t, err)
+
+		// aggr. branch has ancestor branch 2 which conflicts with ancestor branch 3 of aggr. branch 14
+		_, err = branchDAG.normalizeBranches(NewBranchIDs(aggrBranch14.ID(), aggrBranch8.ID()))
+		assert.Error(t, err)
+	}
+
+	// aggr. branch 15 out of branch 2, 7 and 12
+	cachedAggrBranch15, newBranchCreated, aggrBranchErr := branchDAG.RetrieveAggregatedBranch(NewBranchIDs(branch2.ID(), branch7.ID(), branch12.ID()))
+	assert.NoError(t, aggrBranchErr)
+	defer cachedAggrBranch15.Release()
+	aggrBranch15 := cachedAggrBranch15.Unwrap()
+	assert.True(t, newBranchCreated)
+
+	{
+		// aggr. branch 13 has parent branches 11 & 6 which conflicts which conflicts with ancestor branches 12 & 7 of aggr. branch 15
+		_, err := branchDAG.normalizeBranches(NewBranchIDs(aggrBranch15.ID(), aggrBranch13.ID()))
+		assert.Error(t, err)
+
+		// aggr. branch 10 has parent branches 3 & 6 which conflicts with ancestor branches 2 & 7 of aggr. branch 15
+		_, err = branchDAG.normalizeBranches(NewBranchIDs(aggrBranch15.ID(), aggrBranch10.ID()))
+		assert.Error(t, err)
+
+		// aggr. branch 8 has parent branch 6 which conflicts with ancestor branch 7 of aggr. branch 15
+		_, err = branchDAG.normalizeBranches(NewBranchIDs(aggrBranch15.ID(), aggrBranch8.ID()))
+		assert.Error(t, err)
+	}
+
+	// aggr. branch 16 out of aggr. branches 15 and 9
+	cachedAggrBranch16, newBranchCreated, aggrBranchErr := branchDAG.RetrieveAggregatedBranch(NewBranchIDs(aggrBranch15.ID(), aggrBranch9.ID()))
+	assert.NoError(t, aggrBranchErr)
+	defer cachedAggrBranch16.Release()
+	aggrBranch16 := cachedAggrBranch16.Unwrap()
+	assert.True(t, newBranchCreated)
+
+	{
+		// sanity check
+		normalizeBranches, err := branchDAG.normalizeBranches(NewBranchIDs(aggrBranch16.ID(), aggrBranch9.ID()))
+		assert.NoError(t, err)
+		assert.Equal(t, NewBranchIDs(branch5.ID(), branch7.ID(), branch12.ID()), normalizeBranches)
+
+		// sanity check
+		normalizeBranches, err = branchDAG.normalizeBranches(NewBranchIDs(aggrBranch16.ID(), branch7.ID()))
+		assert.NoError(t, err)
+		assert.Equal(t, NewBranchIDs(branch5.ID(), branch7.ID(), branch12.ID()), normalizeBranches)
+
+		normalizeBranches, err = branchDAG.normalizeBranches(NewBranchIDs(aggrBranch16.ID(), aggrBranch13.ID()))
+		assert.Error(t, err)
+
+		normalizeBranches, err = branchDAG.normalizeBranches(NewBranchIDs(aggrBranch16.ID(), aggrBranch14.ID()))
+		assert.Error(t, err)
+
+		normalizeBranches, err = branchDAG.normalizeBranches(NewBranchIDs(aggrBranch16.ID(), aggrBranch8.ID()))
+		assert.Error(t, err)
+	}
 }
