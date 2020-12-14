@@ -34,6 +34,7 @@ type BranchDAG struct {
 func NewBranchDAG(store kvstore.KVStore) (newBranchDAG *BranchDAG) {
 	osFactory := objectstorage.NewFactory(store, database.PrefixLedgerState)
 	newBranchDAG = &BranchDAG{
+		Events:                NewBranchDAGEvents(),
 		branchStorage:         osFactory.New(PrefixBranchStorage, BranchFromObjectStorage, branchStorageOptions...),
 		childBranchStorage:    osFactory.New(PrefixChildBranchStorage, ChildBranchFromObjectStorage, childBranchStorageOptions...),
 		conflictStorage:       osFactory.New(PrefixConflictStorage, ConflictFromObjectStorage, conflictStorageOptions...),
@@ -951,8 +952,10 @@ func NewBranchDAGEvents() *BranchDAGEvents {
 		BranchLiked:       events.NewEvent(branchEventCaller),
 		BranchDisliked:    events.NewEvent(branchEventCaller),
 		BranchFinalized:   events.NewEvent(branchEventCaller),
+		BranchUnfinalized: events.NewEvent(branchEventCaller),
 		BranchConfirmed:   events.NewEvent(branchEventCaller),
 		BranchRejected:    events.NewEvent(branchEventCaller),
+		BranchPending:     events.NewEvent(branchEventCaller),
 	}
 }
 

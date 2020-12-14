@@ -2,10 +2,13 @@ package ledgerstate
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -45,6 +48,7 @@ func TestBranchDAG_ConflictBranches(t *testing.T) {
 
 func TestBranchDAG_normalizeBranches(t *testing.T) {
 	branchDAG := NewBranchDAG(mapdb.NewMapDB())
+	defer branchDAG.Shutdown()
 
 	cachedBranch2, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{2}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
 	defer cachedBranch2.Release()
@@ -334,4 +338,224 @@ func TestBranchDAG_normalizeBranches(t *testing.T) {
 		normalizeBranches, err = branchDAG.normalizeBranches(NewBranchIDs(aggrBranch16.ID(), aggrBranch8.ID()))
 		assert.Error(t, err)
 	}
+}
+
+func TestBranchDAG_SetBranchPreferred(t *testing.T) {
+	branchDAG := NewBranchDAG(mapdb.NewMapDB())
+	defer branchDAG.Shutdown()
+
+	event := newEventMock(t, branchDAG)
+	defer event.DetachAll()
+
+	cachedBranch2, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{2}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
+	defer cachedBranch2.Release()
+	branch2 := cachedBranch2.Unwrap()
+	assert.True(t, newBranchCreated)
+
+	cachedBranch3, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{3}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
+	defer cachedBranch3.Release()
+	branch3 := cachedBranch3.Unwrap()
+	assert.True(t, newBranchCreated)
+
+	assert.False(t, branch2.Preferred(), "branch 2 should not be preferred")
+	assert.False(t, branch2.Liked(), "branch 2 should not be liked")
+	assert.False(t, branch3.Preferred(), "branch 3 should not be preferred")
+	assert.False(t, branch3.Liked(), "branch 3 should not be liked")
+
+	cachedBranch4, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{4}, NewBranchIDs(branch2.ID()), NewConflictIDs(ConflictID{1}))
+	defer cachedBranch4.Release()
+	branch4 := cachedBranch4.Unwrap()
+	assert.True(t, newBranchCreated)
+
+	cachedBranch5, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{5}, NewBranchIDs(branch2.ID()), NewConflictIDs(ConflictID{1}))
+	defer cachedBranch5.Release()
+	branch5 := cachedBranch5.Unwrap()
+	assert.True(t, newBranchCreated)
+
+	// lets assume branch 4 is preferred since its underlying transaction was longer
+	// solid than the avg. network delay before the conflicting transaction which created
+	// the conflict set was received
+
+	event.Expect("BranchPreferred", branch4)
+
+	modified, err := branchDAG.SetBranchPreferred(branch4.ID(), true)
+	assert.NoError(t, err)
+	assert.True(t, modified)
+
+	assert.True(t, branch4.Preferred(), "branch 4 should be preferred")
+	// is not liked because its parents aren't liked, respectively branch 2
+	assert.False(t, branch4.Liked(), "branch 4 should not be liked")
+	assert.False(t, branch5.Preferred(), "branch 5 should not be preferred")
+	assert.False(t, branch5.Liked(), "branch 5 should not be liked")
+
+	// now branch 2 becomes preferred via FPC, this causes branch 2 to be liked (since
+	// the master branch is liked) and its liked state propagates to branch 4 (but not branch 5)
+
+	event.Expect("BranchPreferred", branch2)
+	event.Expect("BranchLiked", branch2)
+	event.Expect("BranchLiked", branch4)
+
+	modified, err = branchDAG.SetBranchPreferred(branch2.ID(), true)
+	assert.NoError(t, err)
+	assert.True(t, modified)
+
+	assert.True(t, branch2.Liked(), "branch 2 should be liked")
+	assert.True(t, branch2.Preferred(), "branch 2 should be preferred")
+	assert.True(t, branch4.Liked(), "branch 4 should be liked")
+	assert.True(t, branch4.Preferred(), "branch 4 should still be preferred")
+	assert.False(t, branch5.Liked(), "branch 5 should not be liked")
+	assert.False(t, branch5.Preferred(), "branch 5 should not be preferred")
+
+	// now the network decides that branch 5 is preferred (via FPC), thus branch 4 should lose its
+	// preferred and liked state and branch 5 should instead become preferred and liked
+
+	event.Expect("BranchPreferred", branch5)
+	event.Expect("BranchLiked", branch5)
+	event.Expect("BranchUnpreferred", branch4)
+	event.Expect("BranchDisliked", branch4)
+
+	modified, err = branchDAG.SetBranchPreferred(branch5.ID(), true)
+	assert.NoError(t, err)
+	assert.True(t, modified)
+
+	// sanity check for branch 2 state
+	assert.True(t, branch2.Liked(), "branch 2 should be liked")
+	assert.True(t, branch2.Preferred(), "branch 2 should be preferred")
+
+	// check that branch 4 is disliked and not preferred
+	assert.False(t, branch4.Liked(), "branch 4 should be disliked")
+	assert.False(t, branch4.Preferred(), "branch 4 should not be preferred")
+	assert.True(t, branch5.Liked(), "branch 5 should be liked")
+	assert.True(t, branch5.Preferred(), "branch 5 should be preferred")
+
+	// check that all events have been triggered
+	event.AssertExpectations(t)
+}
+
+// eventMock is a wrapper around mock.Mock used to test the triggered events.
+type eventMock struct {
+	mock.Mock
+	expectedEvents int
+	calledEvents   int
+
+	attached []struct {
+		*events.Event
+		*events.Closure
+	}
+}
+
+func newEventMock(t *testing.T, mgr *BranchDAG) *eventMock {
+	e := &eventMock{}
+	e.Test(t)
+
+	// attach all events
+	e.attach(mgr.Events.BranchPreferred, e.BranchPreferred)
+	e.attach(mgr.Events.BranchUnpreferred, e.BranchUnpreferred)
+	e.attach(mgr.Events.BranchLiked, e.BranchLiked)
+	e.attach(mgr.Events.BranchDisliked, e.BranchDisliked)
+	e.attach(mgr.Events.BranchFinalized, e.BranchFinalized)
+	e.attach(mgr.Events.BranchUnfinalized, e.BranchUnfinalized)
+	e.attach(mgr.Events.BranchConfirmed, e.BranchConfirmed)
+	e.attach(mgr.Events.BranchRejected, e.BranchRejected)
+	e.attach(mgr.Events.BranchPending, e.BranchPending)
+
+	// assure that all available events are mocked
+	numEvents := reflect.ValueOf(mgr.Events).Elem().NumField()
+	assert.Equalf(t, len(e.attached), numEvents, "not all events in BranchManager.Events have been attached")
+
+	return e
+}
+
+// DetachAll detaches all attached event mocks.
+func (e *eventMock) DetachAll() {
+	for _, a := range e.attached {
+		a.Event.Detach(a.Closure)
+	}
+}
+
+// Expect starts a description of an expectation of the specified event being triggered.
+func (e *eventMock) Expect(eventName string, arguments ...interface{}) {
+	e.On(eventName, arguments...)
+	e.expectedEvents++
+}
+
+func (e *eventMock) attach(event *events.Event, f interface{}) {
+	closure := events.NewClosure(f)
+	event.Attach(closure)
+	e.attached = append(e.attached, struct {
+		*events.Event
+		*events.Closure
+	}{event, closure})
+}
+
+func (e *eventMock) AssertExpectations(t mock.TestingT) bool {
+	if e.calledEvents != e.expectedEvents {
+		t.Errorf("number of called events is not equal to number of expected events")
+		return false
+	}
+
+	return e.Mock.AssertExpectations(t)
+}
+
+func (e *eventMock) BranchPreferred(cachedBranch *BranchDAGEvent) {
+	defer cachedBranch.Release()
+	e.Called(cachedBranch.Branch.Unwrap())
+
+	e.calledEvents++
+}
+
+func (e *eventMock) BranchUnpreferred(cachedBranch *BranchDAGEvent) {
+	defer cachedBranch.Release()
+	e.Called(cachedBranch.Branch.Unwrap())
+
+	e.calledEvents++
+}
+
+func (e *eventMock) BranchLiked(cachedBranch *BranchDAGEvent) {
+	defer cachedBranch.Release()
+	e.Called(cachedBranch.Branch.Unwrap())
+
+	e.calledEvents++
+}
+
+func (e *eventMock) BranchDisliked(cachedBranch *BranchDAGEvent) {
+	defer cachedBranch.Release()
+	e.Called(cachedBranch.Branch.Unwrap())
+
+	e.calledEvents++
+}
+
+func (e *eventMock) BranchFinalized(cachedBranch *BranchDAGEvent) {
+	defer cachedBranch.Release()
+	e.Called(cachedBranch.Branch.Unwrap())
+
+	e.calledEvents++
+}
+
+func (e *eventMock) BranchUnfinalized(cachedBranch *BranchDAGEvent) {
+	defer cachedBranch.Release()
+	e.Called(cachedBranch.Branch.Unwrap())
+
+	e.calledEvents++
+}
+
+func (e *eventMock) BranchConfirmed(cachedBranch *BranchDAGEvent) {
+	defer cachedBranch.Release()
+	e.Called(cachedBranch.Branch.Unwrap())
+
+	e.calledEvents++
+}
+
+func (e *eventMock) BranchRejected(cachedBranch *BranchDAGEvent) {
+	defer cachedBranch.Release()
+	e.Called(cachedBranch.Branch.Unwrap())
+
+	e.calledEvents++
+}
+
+func (e *eventMock) BranchPending(cachedBranch *BranchDAGEvent) {
+	defer cachedBranch.Release()
+	e.Called(cachedBranch.Branch.Unwrap())
+
+	e.calledEvents++
 }
