@@ -120,6 +120,9 @@ func (b *BranchDAG) RetrieveAggregatedBranch(parentBranchIDs BranchIDs) (cachedA
 	cachedAggregatedBranch = &CachedBranch{CachedObject: b.branchStorage.ComputeIfAbsent(aggregatedBranch.ID().Bytes(), func(key []byte) objectstorage.StorableObject {
 		newBranchCreated = true
 
+		aggregatedBranch.Persist()
+		aggregatedBranch.SetModified()
+
 		return aggregatedBranch
 	})}
 
@@ -975,9 +978,9 @@ func NewBranchDAGEvent(branch *CachedBranch) (newBranchEvent *BranchDAGEvent) {
 
 // Retain marks all of the CachedObjects in the event to be retained for future use.
 func (b *BranchDAGEvent) Retain() *BranchDAGEvent {
-	b.Branch.Retain()
-
-	return b
+	return &BranchDAGEvent{
+		Branch: b.Branch.Retain(),
+	}
 }
 
 // Release marks all of the CachedObjects in the event as not used anymore.

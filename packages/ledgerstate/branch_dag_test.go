@@ -1,9 +1,9 @@
 package ledgerstate
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
@@ -16,7 +16,7 @@ func TestBranchDAG_ConflictBranches(t *testing.T) {
 	branchDAG := NewBranchDAG(mapdb.NewMapDB())
 	defer branchDAG.Shutdown()
 
-	conflictBranch, newBranchCreated, err := branchDAG.RetrieveConflictBranch(
+	conflictBranch, _, err := branchDAG.RetrieveConflictBranch(
 		NewBranchID(TransactionID{3}),
 		NewBranchIDs(
 			NewBranchID(TransactionID{1}),
@@ -28,9 +28,8 @@ func TestBranchDAG_ConflictBranches(t *testing.T) {
 	)
 	require.NoError(t, err)
 	defer conflictBranch.Release()
-	fmt.Println(conflictBranch, newBranchCreated)
 
-	conflictBranch1, newBranchCreated1, err := branchDAG.RetrieveConflictBranch(
+	conflictBranch1, _, err := branchDAG.RetrieveConflictBranch(
 		NewBranchID(TransactionID{3}),
 		NewBranchIDs(
 			NewBranchID(TransactionID{1}),
@@ -43,7 +42,6 @@ func TestBranchDAG_ConflictBranches(t *testing.T) {
 	)
 	require.NoError(t, err)
 	defer conflictBranch1.Release()
-	fmt.Println(conflictBranch1, newBranchCreated1)
 }
 
 func TestBranchDAG_normalizeBranches(t *testing.T) {
@@ -430,6 +428,168 @@ func TestBranchDAG_SetBranchPreferred(t *testing.T) {
 
 	// check that all events have been triggered
 	event.AssertExpectations(t)
+}
+
+func TestBranchDAG_SetBranchPreferred2(t *testing.T) {
+	branchDAG := NewBranchDAG(mapdb.NewMapDB())
+	defer branchDAG.Shutdown()
+
+	event := newEventMock(t, branchDAG)
+	defer event.DetachAll()
+
+	cachedBranch2, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{2}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
+	defer cachedBranch2.Release()
+	branch2 := cachedBranch2.Unwrap()
+	assert.True(t, newBranchCreated)
+
+	cachedBranch3, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{3}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
+	defer cachedBranch3.Release()
+	branch3 := cachedBranch3.Unwrap()
+	assert.True(t, newBranchCreated)
+
+	cachedBranch4, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{4}, NewBranchIDs(branch2.ID()), NewConflictIDs(ConflictID{1}))
+	defer cachedBranch4.Release()
+	branch4 := cachedBranch4.Unwrap()
+	assert.True(t, newBranchCreated)
+
+	cachedBranch5, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{5}, NewBranchIDs(branch2.ID()), NewConflictIDs(ConflictID{1}))
+	defer cachedBranch5.Release()
+	branch5 := cachedBranch5.Unwrap()
+	assert.True(t, newBranchCreated)
+
+	cachedBranch6, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{6}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2}))
+	defer cachedBranch6.Release()
+	branch6 := cachedBranch6.Unwrap()
+	assert.True(t, newBranchCreated)
+
+	cachedBranch7, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{7}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2}))
+	defer cachedBranch7.Release()
+	branch7 := cachedBranch7.Unwrap()
+	assert.True(t, newBranchCreated)
+
+	event.Expect("BranchPreferred", branch2)
+	event.Expect("BranchLiked", branch2)
+	event.Expect("BranchPreferred", branch6)
+	event.Expect("BranchLiked", branch6)
+
+	// assume branch 2 preferred since solid longer than avg. network delay
+	modified, err := branchDAG.SetBranchPreferred(branch2.ID(), true)
+	assert.NoError(t, err)
+	assert.True(t, modified)
+
+	// assume branch 6 preferred since solid longer than avg. network delay
+	modified, err = branchDAG.SetBranchPreferred(branch6.ID(), true)
+	assert.NoError(t, err)
+	assert.True(t, modified)
+
+	{
+		assert.True(t, branch2.Liked(), "branch 2 should be liked")
+		assert.True(t, branch2.Preferred(), "branch 2 should be preferred")
+		assert.False(t, branch3.Liked(), "branch 3 should not be liked")
+		assert.False(t, branch3.Preferred(), "branch 3 should not be preferred")
+		assert.False(t, branch4.Liked(), "branch 4 should not be liked")
+		assert.False(t, branch4.Preferred(), "branch 4 should not be preferred")
+		assert.False(t, branch5.Liked(), "branch 5 should not be liked")
+		assert.False(t, branch5.Preferred(), "branch 5 should not be preferred")
+		assert.True(t, branch6.Liked(), "branch 6 should be liked")
+		assert.True(t, branch6.Preferred(), "branch 6 should be preferred")
+		assert.False(t, branch7.Liked(), "branch 7 should not be liked")
+		assert.False(t, branch7.Preferred(), "branch 7 should not be preferred")
+	}
+
+	// throw some aggregated branches into the mix
+	cachedAggrBranch8, newBranchCreated, err := branchDAG.RetrieveAggregatedBranch(NewBranchIDs(branch4.ID(), branch6.ID()))
+	assert.NoError(t, err)
+	defer cachedAggrBranch8.Release()
+	aggrBranch8 := cachedAggrBranch8.Unwrap()
+	assert.True(t, newBranchCreated)
+
+	// should not be preferred because only 6 is is preferred but not 4
+	assert.False(t, aggrBranch8.Liked(), "aggr. branch 8 should not be liked")
+	assert.False(t, aggrBranch8.Preferred(), "aggr. branch 8 should not be preferred")
+
+	cachedAggrBranch9, newBranchCreated, err := branchDAG.RetrieveAggregatedBranch(NewBranchIDs(branch5.ID(), branch7.ID()))
+	assert.NoError(t, err)
+	defer cachedAggrBranch9.Release()
+	aggrBranch9 := cachedAggrBranch9.Unwrap()
+	assert.True(t, newBranchCreated)
+
+	// branch 5 and 7 are neither liked or preferred
+	assert.False(t, aggrBranch9.Liked(), "aggr. branch 9 should not be liked")
+	assert.False(t, aggrBranch9.Preferred(), "aggr. branch 9 should not be preferred")
+
+	// should not be preferred because only 6 is is preferred but not 3
+	cachedAggrBranch10, newBranchCreated, err := branchDAG.RetrieveAggregatedBranch(NewBranchIDs(branch3.ID(), branch6.ID()))
+	assert.NoError(t, err)
+	defer cachedAggrBranch10.Release()
+	aggrBranch10 := cachedAggrBranch10.Unwrap()
+	assert.True(t, newBranchCreated)
+
+	assert.False(t, aggrBranch10.Liked(), "aggr. branch 10 should not be liked")
+	assert.False(t, aggrBranch10.Preferred(), "aggr. branch 10 should not be preferred")
+
+	// spawn off conflict branch 11 and 12
+	cachedBranch11, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{11}, NewBranchIDs(aggrBranch8.ID()), NewConflictIDs(ConflictID{3}))
+	defer cachedBranch11.Release()
+	branch11 := cachedBranch11.Unwrap()
+	assert.True(t, newBranchCreated)
+
+	assert.False(t, branch11.Liked(), "aggr. branch 11 should not be liked")
+	assert.False(t, branch11.Preferred(), "aggr. branch 11 should not be preferred")
+
+	cachedBranch12, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{12}, NewBranchIDs(aggrBranch8.ID()), NewConflictIDs(ConflictID{3}))
+	defer cachedBranch12.Release()
+	branch12 := cachedBranch12.Unwrap()
+	assert.True(t, newBranchCreated)
+
+	assert.False(t, branch12.Liked(), "aggr. branch 12 should not be liked")
+	assert.False(t, branch12.Preferred(), "aggr. branch 12 should not be preferred")
+
+	cachedAggrBranch13, newBranchCreated, err := branchDAG.RetrieveAggregatedBranch(NewBranchIDs(branch4.ID(), branch12.ID()))
+	assert.NoError(t, err)
+	defer cachedAggrBranch13.Release()
+	aggrBranch13 := cachedAggrBranch13.Unwrap()
+	assert.True(t, newBranchCreated)
+
+	assert.False(t, aggrBranch13.Liked(), "aggr. branch 13 should not be liked")
+	assert.False(t, aggrBranch13.Preferred(), "aggr. branch 13 should not be preferred")
+
+	// now lets assume FPC finalized on branch 2, 6 and 4 to be preferred.
+	// branches 2 and 6 are already preferred but 4 is newly preferred. Branch 4 therefore
+	// should also become liked, since branch 2 of which it spawns off is liked too.
+
+	// simulate branch 3 being not preferred from FPC vote
+	// this does not trigger any events as branch 3 was never preferred
+	modified, err = branchDAG.SetBranchPreferred(branch3.ID(), false)
+	assert.NoError(t, err)
+	assert.False(t, modified)
+	// simulate branch 7 being not preferred from FPC vote
+	// this does not trigger any events as branch 7 was never preferred
+	modified, err = branchDAG.SetBranchPreferred(branch7.ID(), false)
+	assert.NoError(t, err)
+	assert.False(t, modified)
+
+	event.Expect("BranchPreferred", branch4)
+	event.Expect("BranchLiked", branch4)
+	event.Expect("BranchPreferred", aggrBranch8)
+	event.Expect("BranchLiked", aggrBranch8)
+
+	// simulate branch 4 being preferred by FPC vote
+	modified, err = branchDAG.SetBranchPreferred(branch4.ID(), true)
+	assert.NoError(t, err)
+	assert.True(t, modified)
+	assert.True(t, branch4.Liked(), "branch 4 should be liked")
+	assert.True(t, branch4.Preferred(), "branch 4 should be preferred")
+
+	// this should cause aggr. branch 8 to also be preferred and liked, since branch 6 and 4
+	// of which it spawns off are.
+	assert.True(t, aggrBranch8.Liked(), "aggr. branch 8 should be liked")
+	assert.True(t, aggrBranch8.Preferred(), "aggr. branch 8 should be preferred")
+
+	// check that all events have been triggered
+	event.AssertExpectations(t)
+
+	time.Sleep(5 * time.Second)
 }
 
 // eventMock is a wrapper around mock.Mock used to test the triggered events.
