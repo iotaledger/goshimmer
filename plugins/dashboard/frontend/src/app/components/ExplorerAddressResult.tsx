@@ -133,7 +133,7 @@ export class ExplorerAddressQueryResult extends React.Component<Props, any> {
         }
         return (
             <Container>
-                <h3>Address {addr !== null && <span>({addr.output_ids.length} Ouputs)</span>}</h3>
+                <h3>Address {addr !== null && <span>({addr.output_ids.length} Outputs)</span>}</h3>
                 <p>
                     {id} {' '}
                 </p>
