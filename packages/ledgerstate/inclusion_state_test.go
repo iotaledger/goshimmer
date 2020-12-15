@@ -22,7 +22,7 @@ func TestInclusionState_MarshalUnmarshal(t *testing.T) {
 	assert.Equal(t, 1, consumedBytes)
 	assert.Equal(t, Rejected, restored)
 
-	restored, consumedBytes, err = InclusionStateFromBytes(InclusionState(4).Bytes())
+	_, consumedBytes, err = InclusionStateFromBytes(InclusionState(4).Bytes())
 	assert.Error(t, err)
 	assert.Equal(t, 1, consumedBytes)
 }

@@ -143,6 +143,12 @@ func (b *BranchDAG) SetBranchPreferred(branchID BranchID, preferred bool) (modif
 	return b.setBranchPreferred(b.Branch(branchID), preferred)
 }
 
+// SetBranchFinalized sets the finalized flag of the given Branch. It returns true if the value has been updated or an
+// error if it failed.
+func (b *BranchDAG) SetBranchFinalized(branchID BranchID, finalized bool) (modified bool, err error) {
+	return b.setBranchFinalized(b.Branch(branchID), finalized)
+}
+
 // Branch retrieves the Branch with the given BranchID from the object storage.
 func (b *BranchDAG) Branch(branchID BranchID) (cachedBranch *CachedBranch) {
 	return &CachedBranch{CachedObject: b.branchStorage.Load(branchID.Bytes())}

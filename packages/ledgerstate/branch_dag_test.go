@@ -12,36 +12,45 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestBranchDAG_ConflictBranches(t *testing.T) {
+func TestBranchDAG_RetrieveConflictBranch(t *testing.T) {
 	branchDAG := NewBranchDAG(mapdb.NewMapDB())
 	defer branchDAG.Shutdown()
 
-	conflictBranch, _, err := branchDAG.RetrieveConflictBranch(
-		NewBranchID(TransactionID{3}),
-		NewBranchIDs(
-			NewBranchID(TransactionID{1}),
-		),
-		NewConflictIDs(
-			NewConflictID(NewOutputID(TransactionID{2}, 0)),
-			NewConflictID(NewOutputID(TransactionID{2}, 1)),
-		),
-	)
+	cachedConflictBranch1, newBranchCreated, err := branchDAG.RetrieveConflictBranch(BranchID{2}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}, ConflictID{1}))
 	require.NoError(t, err)
-	defer conflictBranch.Release()
+	defer cachedConflictBranch1.Release()
+	conflictBranch1, err := cachedConflictBranch1.UnwrapConflictBranch()
+	require.NoError(t, err)
+	assert.True(t, newBranchCreated)
+	assert.Equal(t, NewBranchIDs(MasterBranchID), conflictBranch1.Parents())
+	assert.Equal(t, ConflictBranchType, conflictBranch1.Type())
+	assert.False(t, conflictBranch1.Preferred())
+	assert.False(t, conflictBranch1.Liked())
+	assert.False(t, conflictBranch1.Finalized())
+	assert.Equal(t, Pending, conflictBranch1.InclusionState())
+	assert.Equal(t, NewConflictIDs(ConflictID{0}, ConflictID{1}), conflictBranch1.Conflicts())
 
-	conflictBranch1, _, err := branchDAG.RetrieveConflictBranch(
-		NewBranchID(TransactionID{3}),
-		NewBranchIDs(
-			NewBranchID(TransactionID{1}),
-		),
-		NewConflictIDs(
-			NewConflictID(NewOutputID(TransactionID{2}, 0)),
-			NewConflictID(NewOutputID(TransactionID{2}, 1)),
-			NewConflictID(NewOutputID(TransactionID{2}, 2)),
-		),
-	)
+	cachedConflictBranch2, _, err := branchDAG.RetrieveConflictBranch(BranchID{3}, NewBranchIDs(conflictBranch1.ID()), NewConflictIDs(ConflictID{0}, ConflictID{1}, ConflictID{2}))
 	require.NoError(t, err)
-	defer conflictBranch1.Release()
+	defer cachedConflictBranch2.Release()
+	conflictBranch2, err := cachedConflictBranch2.UnwrapConflictBranch()
+	require.NoError(t, err)
+	assert.True(t, newBranchCreated)
+	assert.Equal(t, NewBranchIDs(conflictBranch1.ID()), conflictBranch2.Parents())
+	assert.Equal(t, ConflictBranchType, conflictBranch2.Type())
+	assert.False(t, conflictBranch2.Preferred())
+	assert.False(t, conflictBranch2.Liked())
+	assert.False(t, conflictBranch2.Finalized())
+	assert.Equal(t, Pending, conflictBranch2.InclusionState())
+	assert.Equal(t, NewConflictIDs(ConflictID{0}, ConflictID{1}, ConflictID{2}), conflictBranch2.Conflicts())
+
+	cachedConflictBranch3, newBranchCreated, err := branchDAG.RetrieveConflictBranch(BranchID{2}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}, ConflictID{1}, ConflictID{2}))
+	require.NoError(t, err)
+	defer cachedConflictBranch3.Release()
+	conflictBranch3, err := cachedConflictBranch1.UnwrapConflictBranch()
+	require.NoError(t, err)
+	assert.False(t, newBranchCreated)
+	assert.Equal(t, NewConflictIDs(ConflictID{0}, ConflictID{1}, ConflictID{2}), conflictBranch3.Conflicts())
 }
 
 func TestBranchDAG_normalizeBranches(t *testing.T) {
@@ -67,7 +76,7 @@ func TestBranchDAG_normalizeBranches(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, normalizedBranches, NewBranchIDs(branch3.ID()))
 
-		normalizedBranches, err = branchDAG.normalizeBranches(NewBranchIDs(branch2.ID(), branch3.ID()))
+		_, err = branchDAG.normalizeBranches(NewBranchIDs(branch2.ID(), branch3.ID()))
 		assert.Error(t, err)
 	}
 
@@ -87,18 +96,18 @@ func TestBranchDAG_normalizeBranches(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, NewBranchIDs(branch4.ID()), normalizedBranches)
 
-		normalizedBranches, err = branchDAG.normalizeBranches(NewBranchIDs(branch3.ID(), branch4.ID()))
+		_, err = branchDAG.normalizeBranches(NewBranchIDs(branch3.ID(), branch4.ID()))
 		assert.Error(t, err)
 
 		normalizedBranches, err = branchDAG.normalizeBranches(NewBranchIDs(MasterBranchID, branch5.ID()))
 		assert.NoError(t, err)
 		assert.Equal(t, NewBranchIDs(branch5.ID()), normalizedBranches)
 
-		normalizedBranches, err = branchDAG.normalizeBranches(NewBranchIDs(branch3.ID(), branch5.ID()))
+		_, err = branchDAG.normalizeBranches(NewBranchIDs(branch3.ID(), branch5.ID()))
 		assert.Error(t, err)
 
 		// since both consume the same output
-		normalizedBranches, err = branchDAG.normalizeBranches(NewBranchIDs(branch4.ID(), branch5.ID()))
+		_, err = branchDAG.normalizeBranches(NewBranchIDs(branch4.ID(), branch5.ID()))
 		assert.Error(t, err)
 	}
 
@@ -114,40 +123,40 @@ func TestBranchDAG_normalizeBranches(t *testing.T) {
 	assert.True(t, newBranchCreated)
 
 	{
-		normalizeBranches, err := branchDAG.normalizeBranches(NewBranchIDs(branch2.ID(), branch6.ID()))
+		normalizedBranches, err := branchDAG.normalizeBranches(NewBranchIDs(branch2.ID(), branch6.ID()))
 		assert.NoError(t, err)
-		assert.Equal(t, NewBranchIDs(branch2.ID(), branch6.ID()), normalizeBranches)
+		assert.Equal(t, NewBranchIDs(branch2.ID(), branch6.ID()), normalizedBranches)
 
-		normalizeBranches, err = branchDAG.normalizeBranches(NewBranchIDs(branch3.ID(), branch6.ID()))
+		normalizedBranches, err = branchDAG.normalizeBranches(NewBranchIDs(branch3.ID(), branch6.ID()))
 		assert.NoError(t, err)
-		assert.Equal(t, NewBranchIDs(branch3.ID(), branch6.ID()), normalizeBranches)
+		assert.Equal(t, NewBranchIDs(branch3.ID(), branch6.ID()), normalizedBranches)
 
-		normalizeBranches, err = branchDAG.normalizeBranches(NewBranchIDs(branch2.ID(), branch7.ID()))
+		normalizedBranches, err = branchDAG.normalizeBranches(NewBranchIDs(branch2.ID(), branch7.ID()))
 		assert.NoError(t, err)
-		assert.Equal(t, NewBranchIDs(branch2.ID(), branch7.ID()), normalizeBranches)
+		assert.Equal(t, NewBranchIDs(branch2.ID(), branch7.ID()), normalizedBranches)
 
-		normalizeBranches, err = branchDAG.normalizeBranches(NewBranchIDs(branch3.ID(), branch7.ID()))
+		normalizedBranches, err = branchDAG.normalizeBranches(NewBranchIDs(branch3.ID(), branch7.ID()))
 		assert.NoError(t, err)
-		assert.Equal(t, NewBranchIDs(branch3.ID(), branch7.ID()), normalizeBranches)
+		assert.Equal(t, NewBranchIDs(branch3.ID(), branch7.ID()), normalizedBranches)
 
-		normalizeBranches, err = branchDAG.normalizeBranches(NewBranchIDs(branch6.ID(), branch7.ID()))
+		_, err = branchDAG.normalizeBranches(NewBranchIDs(branch6.ID(), branch7.ID()))
 		assert.Error(t, err)
 
-		normalizeBranches, err = branchDAG.normalizeBranches(NewBranchIDs(branch4.ID(), branch6.ID()))
+		normalizedBranches, err = branchDAG.normalizeBranches(NewBranchIDs(branch4.ID(), branch6.ID()))
 		assert.NoError(t, err)
-		assert.Equal(t, NewBranchIDs(branch4.ID(), branch6.ID()), normalizeBranches)
+		assert.Equal(t, NewBranchIDs(branch4.ID(), branch6.ID()), normalizedBranches)
 
-		normalizeBranches, err = branchDAG.normalizeBranches(NewBranchIDs(branch5.ID(), branch6.ID()))
+		normalizedBranches, err = branchDAG.normalizeBranches(NewBranchIDs(branch5.ID(), branch6.ID()))
 		assert.NoError(t, err)
-		assert.Equal(t, NewBranchIDs(branch5.ID(), branch6.ID()), normalizeBranches)
+		assert.Equal(t, NewBranchIDs(branch5.ID(), branch6.ID()), normalizedBranches)
 
-		normalizeBranches, err = branchDAG.normalizeBranches(NewBranchIDs(branch4.ID(), branch7.ID()))
+		normalizedBranches, err = branchDAG.normalizeBranches(NewBranchIDs(branch4.ID(), branch7.ID()))
 		assert.NoError(t, err)
-		assert.Equal(t, NewBranchIDs(branch4.ID(), branch7.ID()), normalizeBranches)
+		assert.Equal(t, NewBranchIDs(branch4.ID(), branch7.ID()), normalizedBranches)
 
-		normalizeBranches, err = branchDAG.normalizeBranches(NewBranchIDs(branch5.ID(), branch7.ID()))
+		normalizedBranches, err = branchDAG.normalizeBranches(NewBranchIDs(branch5.ID(), branch7.ID()))
 		assert.NoError(t, err)
-		assert.Equal(t, NewBranchIDs(branch5.ID(), branch7.ID()), normalizeBranches)
+		assert.Equal(t, NewBranchIDs(branch5.ID(), branch7.ID()), normalizedBranches)
 	}
 
 	// aggregated branch out of branch 4 (child of branch 2) and branch 6
@@ -158,24 +167,24 @@ func TestBranchDAG_normalizeBranches(t *testing.T) {
 	assert.True(t, newBranchCreated)
 
 	{
-		normalizeBranches, err := branchDAG.normalizeBranches(NewBranchIDs(aggrBranch8.ID(), MasterBranchID))
+		normalizedBranches, err := branchDAG.normalizeBranches(NewBranchIDs(aggrBranch8.ID(), MasterBranchID))
 		assert.NoError(t, err)
-		assert.Equal(t, NewBranchIDs(branch4.ID(), branch6.ID()), normalizeBranches)
+		assert.Equal(t, NewBranchIDs(branch4.ID(), branch6.ID()), normalizedBranches)
 
-		normalizeBranches, err = branchDAG.normalizeBranches(NewBranchIDs(aggrBranch8.ID(), branch2.ID()))
+		normalizedBranches, err = branchDAG.normalizeBranches(NewBranchIDs(aggrBranch8.ID(), branch2.ID()))
 		assert.NoError(t, err)
-		assert.Equal(t, NewBranchIDs(branch4.ID(), branch6.ID()), normalizeBranches)
+		assert.Equal(t, NewBranchIDs(branch4.ID(), branch6.ID()), normalizedBranches)
 
 		// conflicting since branch 2 and branch 3 are
-		normalizeBranches, err = branchDAG.normalizeBranches(NewBranchIDs(aggrBranch8.ID(), branch3.ID()))
+		_, err = branchDAG.normalizeBranches(NewBranchIDs(aggrBranch8.ID(), branch3.ID()))
 		assert.Error(t, err)
 
 		// conflicting since branch 4 and branch 5 are
-		normalizeBranches, err = branchDAG.normalizeBranches(NewBranchIDs(aggrBranch8.ID(), branch5.ID()))
+		_, err = branchDAG.normalizeBranches(NewBranchIDs(aggrBranch8.ID(), branch5.ID()))
 		assert.Error(t, err)
 
 		// conflicting since branch 6 and branch 7 are
-		normalizeBranches, err = branchDAG.normalizeBranches(NewBranchIDs(aggrBranch8.ID(), branch7.ID()))
+		_, err = branchDAG.normalizeBranches(NewBranchIDs(aggrBranch8.ID(), branch7.ID()))
 		assert.Error(t, err)
 	}
 
@@ -186,44 +195,44 @@ func TestBranchDAG_normalizeBranches(t *testing.T) {
 	assert.False(t, newBrachCreated)
 
 	// aggregated branch out of branch 5 (child of branch 2) and branch 7
-	cachedAggrBranch9, newBrachCreated, aggrBranchErr := branchDAG.RetrieveAggregatedBranch(NewBranchIDs(branch5.ID(), branch7.ID()))
+	cachedAggrBranch9, newBranchCreated, aggrBranchErr := branchDAG.RetrieveAggregatedBranch(NewBranchIDs(branch5.ID(), branch7.ID()))
 	assert.NoError(t, aggrBranchErr)
 	defer cachedAggrBranch9.Release()
 	aggrBranch9 := cachedAggrBranch9.Unwrap()
 	assert.True(t, newBranchCreated)
 
 	{
-		normalizeBranches, err := branchDAG.normalizeBranches(NewBranchIDs(aggrBranch9.ID(), MasterBranchID))
+		normalizedBranches, err := branchDAG.normalizeBranches(NewBranchIDs(aggrBranch9.ID(), MasterBranchID))
 		assert.NoError(t, err)
-		assert.Equal(t, NewBranchIDs(branch5.ID(), branch7.ID()), normalizeBranches)
+		assert.Equal(t, NewBranchIDs(branch5.ID(), branch7.ID()), normalizedBranches)
 
 		// aggr. branch 8 and 9 should be conflicting, since 4 & 5 and 6 & 7 are
-		normalizeBranches, err = branchDAG.normalizeBranches(NewBranchIDs(aggrBranch8.ID(), aggrBranch9.ID()))
+		_, err = branchDAG.normalizeBranches(NewBranchIDs(aggrBranch8.ID(), aggrBranch9.ID()))
 		assert.Error(t, err)
 
 		// conflicting since branch 3 & 2 are
-		normalizeBranches, err = branchDAG.normalizeBranches(NewBranchIDs(branch3.ID(), aggrBranch9.ID()))
+		_, err = branchDAG.normalizeBranches(NewBranchIDs(branch3.ID(), aggrBranch9.ID()))
 		assert.Error(t, err)
 	}
 
 	// aggregated branch out of branch 3 and branch 6
-	cachedAggrBranch10, newBrachCreated, aggrBranchErr := branchDAG.RetrieveAggregatedBranch(NewBranchIDs(branch3.ID(), branch6.ID()))
+	cachedAggrBranch10, newBranchCreated, aggrBranchErr := branchDAG.RetrieveAggregatedBranch(NewBranchIDs(branch3.ID(), branch6.ID()))
 	assert.NoError(t, aggrBranchErr)
 	defer cachedAggrBranch10.Release()
 	aggrBranch10 := cachedAggrBranch10.Unwrap()
 	assert.True(t, newBranchCreated)
 
 	{
-		normalizeBranches, err := branchDAG.normalizeBranches(NewBranchIDs(aggrBranch10.ID(), MasterBranchID))
+		normalizedBranches, err := branchDAG.normalizeBranches(NewBranchIDs(aggrBranch10.ID(), MasterBranchID))
 		assert.NoError(t, err)
-		assert.Equal(t, NewBranchIDs(branch3.ID(), branch6.ID()), normalizeBranches)
+		assert.Equal(t, NewBranchIDs(branch3.ID(), branch6.ID()), normalizedBranches)
 
 		// aggr. branch 8 and 10 should be conflicting, since 2 & 3 are
-		normalizeBranches, err = branchDAG.normalizeBranches(NewBranchIDs(aggrBranch8.ID(), aggrBranch10.ID()))
+		_, err = branchDAG.normalizeBranches(NewBranchIDs(aggrBranch8.ID(), aggrBranch10.ID()))
 		assert.Error(t, err)
 
 		// aggr. branch 9 and 10 should be conflicting, since 2 & 3 and 6 & 7 are
-		normalizeBranches, err = branchDAG.normalizeBranches(NewBranchIDs(aggrBranch9.ID(), aggrBranch10.ID()))
+		_, err = branchDAG.normalizeBranches(NewBranchIDs(aggrBranch9.ID(), aggrBranch10.ID()))
 		assert.Error(t, err)
 	}
 
@@ -233,21 +242,21 @@ func TestBranchDAG_normalizeBranches(t *testing.T) {
 	branch11 := cachedBranch11.Unwrap()
 	assert.True(t, newBranchCreated)
 
-	cachedBranch12, newBrachCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{12}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{3}))
+	cachedBranch12, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{12}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{3}))
 	defer cachedBranch12.Release()
 	branch12 := cachedBranch12.Unwrap()
 	assert.True(t, newBranchCreated)
 
 	{
-		normalizeBranches, err := branchDAG.normalizeBranches(NewBranchIDs(MasterBranchID, branch11.ID()))
+		normalizedBranches, err := branchDAG.normalizeBranches(NewBranchIDs(MasterBranchID, branch11.ID()))
 		assert.NoError(t, err)
-		assert.Equal(t, NewBranchIDs(branch11.ID()), normalizeBranches)
+		assert.Equal(t, NewBranchIDs(branch11.ID()), normalizedBranches)
 
-		normalizeBranches, err = branchDAG.normalizeBranches(NewBranchIDs(MasterBranchID, branch12.ID()))
+		normalizedBranches, err = branchDAG.normalizeBranches(NewBranchIDs(MasterBranchID, branch12.ID()))
 		assert.NoError(t, err)
-		assert.Equal(t, NewBranchIDs(branch12.ID()), normalizeBranches)
+		assert.Equal(t, NewBranchIDs(branch12.ID()), normalizedBranches)
 
-		normalizeBranches, err = branchDAG.normalizeBranches(NewBranchIDs(branch11.ID(), branch12.ID()))
+		_, err = branchDAG.normalizeBranches(NewBranchIDs(branch11.ID(), branch12.ID()))
 		assert.Error(t, err)
 	}
 
@@ -259,16 +268,16 @@ func TestBranchDAG_normalizeBranches(t *testing.T) {
 	assert.True(t, newBranchCreated)
 
 	{
-		normalizeBranches, err := branchDAG.normalizeBranches(NewBranchIDs(aggrBranch13.ID(), aggrBranch9.ID()))
+		_, err := branchDAG.normalizeBranches(NewBranchIDs(aggrBranch13.ID(), aggrBranch9.ID()))
 		assert.Error(t, err)
 
-		normalizeBranches, err = branchDAG.normalizeBranches(NewBranchIDs(aggrBranch13.ID(), aggrBranch8.ID()))
+		normalizedBranches, err := branchDAG.normalizeBranches(NewBranchIDs(aggrBranch13.ID(), aggrBranch8.ID()))
 		assert.NoError(t, err)
-		assert.Equal(t, NewBranchIDs(branch4.ID(), branch6.ID(), branch11.ID()), normalizeBranches)
+		assert.Equal(t, NewBranchIDs(branch4.ID(), branch6.ID(), branch11.ID()), normalizedBranches)
 
-		normalizeBranches, err = branchDAG.normalizeBranches(NewBranchIDs(aggrBranch13.ID(), aggrBranch10.ID()))
+		normalizedBranches, err = branchDAG.normalizeBranches(NewBranchIDs(aggrBranch13.ID(), aggrBranch10.ID()))
 		assert.NoError(t, err)
-		assert.Equal(t, NewBranchIDs(branch3.ID(), branch6.ID(), branch11.ID()), normalizeBranches)
+		assert.Equal(t, NewBranchIDs(branch3.ID(), branch6.ID(), branch11.ID()), normalizedBranches)
 	}
 
 	// aggr. branch 14 out of aggr. branch 10 and 13
@@ -318,22 +327,22 @@ func TestBranchDAG_normalizeBranches(t *testing.T) {
 
 	{
 		// sanity check
-		normalizeBranches, err := branchDAG.normalizeBranches(NewBranchIDs(aggrBranch16.ID(), aggrBranch9.ID()))
+		normalizedBranches, err := branchDAG.normalizeBranches(NewBranchIDs(aggrBranch16.ID(), aggrBranch9.ID()))
 		assert.NoError(t, err)
-		assert.Equal(t, NewBranchIDs(branch5.ID(), branch7.ID(), branch12.ID()), normalizeBranches)
+		assert.Equal(t, NewBranchIDs(branch5.ID(), branch7.ID(), branch12.ID()), normalizedBranches)
 
 		// sanity check
-		normalizeBranches, err = branchDAG.normalizeBranches(NewBranchIDs(aggrBranch16.ID(), branch7.ID()))
+		normalizedBranches, err = branchDAG.normalizeBranches(NewBranchIDs(aggrBranch16.ID(), branch7.ID()))
 		assert.NoError(t, err)
-		assert.Equal(t, NewBranchIDs(branch5.ID(), branch7.ID(), branch12.ID()), normalizeBranches)
+		assert.Equal(t, NewBranchIDs(branch5.ID(), branch7.ID(), branch12.ID()), normalizedBranches)
 
-		normalizeBranches, err = branchDAG.normalizeBranches(NewBranchIDs(aggrBranch16.ID(), aggrBranch13.ID()))
+		_, err = branchDAG.normalizeBranches(NewBranchIDs(aggrBranch16.ID(), aggrBranch13.ID()))
 		assert.Error(t, err)
 
-		normalizeBranches, err = branchDAG.normalizeBranches(NewBranchIDs(aggrBranch16.ID(), aggrBranch14.ID()))
+		_, err = branchDAG.normalizeBranches(NewBranchIDs(aggrBranch16.ID(), aggrBranch14.ID()))
 		assert.Error(t, err)
 
-		normalizeBranches, err = branchDAG.normalizeBranches(NewBranchIDs(aggrBranch16.ID(), aggrBranch8.ID()))
+		_, err = branchDAG.normalizeBranches(NewBranchIDs(aggrBranch16.ID(), aggrBranch8.ID()))
 		assert.Error(t, err)
 	}
 }
@@ -590,6 +599,47 @@ func TestBranchDAG_SetBranchPreferred2(t *testing.T) {
 	event.AssertExpectations(t)
 
 	time.Sleep(5 * time.Second)
+}
+
+func TestBranchDAG_ConflictMembers(t *testing.T) {
+	branchDAG := NewBranchDAG(mapdb.NewMapDB())
+	defer branchDAG.Shutdown()
+
+	// create initial branches
+	cachedBranch2, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{2}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
+	defer cachedBranch2.Release()
+	branch2 := cachedBranch2.Unwrap()
+	assert.True(t, newBranchCreated)
+	cachedBranch3, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{3}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
+	defer cachedBranch3.Release()
+	branch3 := cachedBranch3.Unwrap()
+	assert.True(t, newBranchCreated)
+
+	// assert conflict members
+	expectedConflictMembers := map[BranchID]struct{}{
+		branch2.ID(): {}, branch3.ID(): {},
+	}
+	actualConflictMembers := map[BranchID]struct{}{}
+	branchDAG.ConflictMembers(ConflictID{0}).Consume(func(conflictMember *ConflictMember) {
+		actualConflictMembers[conflictMember.BranchID()] = struct{}{}
+	})
+	assert.Equal(t, expectedConflictMembers, actualConflictMembers)
+
+	// add branch 4
+	cachedBranch4, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{4}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
+	defer cachedBranch4.Release()
+	branch4 := cachedBranch4.Unwrap()
+	assert.True(t, newBranchCreated)
+
+	// branch 4 should now also be part of the conflict set
+	expectedConflictMembers = map[BranchID]struct{}{
+		branch2.ID(): {}, branch3.ID(): {}, branch4.ID(): {},
+	}
+	actualConflictMembers = map[BranchID]struct{}{}
+	branchDAG.ConflictMembers(ConflictID{0}).Consume(func(conflictMember *ConflictMember) {
+		actualConflictMembers[conflictMember.BranchID()] = struct{}{}
+	})
+	assert.Equal(t, expectedConflictMembers, actualConflictMembers)
 }
 
 // eventMock is a wrapper around mock.Mock used to test the triggered events.
