@@ -87,7 +87,7 @@ func NewTransactionFromJSON(request SendTransactionByJSONRequest) (*transaction.
 		copy(inputs[i][:], b)
 	}
 
-	// prepare ouputs
+	// prepare outputs
 	outputs := make(map[address.Address][]*balance.Balance)
 	for _, output := range request.Outputs {
 		address, err := address.FromBase58(output.Address)
