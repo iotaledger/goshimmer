@@ -5,14 +5,14 @@ go 1.14
 require (
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
 	github.com/beevik/ntp v0.3.0
-	github.com/cockroachdb/pebble v0.0.0-20201130172119-f19faf8529d6
+	github.com/dgraph-io/badger/v2 v2.0.3
 	github.com/drand/drand v1.1.1
 	github.com/drand/kyber v1.1.2
 	github.com/gin-gonic/gin v1.6.3
 	github.com/go-ole/go-ole v1.2.4 // indirect
 	github.com/golang/protobuf v1.4.3
 	github.com/gorilla/websocket v1.4.2
-	github.com/iotaledger/hive.go v0.0.0-20201207224237-fbc0ad4a44eb
+	github.com/iotaledger/hive.go v0.0.0-20201215102448-a28d2a016112
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0
 	github.com/magiconair/properties v1.8.1

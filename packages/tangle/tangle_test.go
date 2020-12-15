@@ -96,8 +96,8 @@ func TestTangle_MissingMessages(t *testing.T) {
 		attachDelay  = 5 * time.Millisecond
 	)
 
-	// create pebble store
-	pebbleDB, err := testutil.PebbleDB(t)
+	// create badger store
+	badgerDB, err := testutil.BadgerDB(t)
 	require.NoError(t, err)
 
 	// map to keep track of the tips
@@ -106,7 +106,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 
 	// setup the message factory
 	msgFactory := NewMessageFactory(
-		pebbleDB,
+		badgerDB,
 		[]byte("sequenceKey"),
 		identity.GenerateLocalIdentity(),
 		TipSelectorFunc(func(count int) []MessageID {
@@ -143,7 +143,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 	}
 
 	// create the tangle
-	tangle := New(pebbleDB)
+	tangle := New(badgerDB)
 	defer tangle.Shutdown()
 	require.NoError(t, tangle.Prune())
 

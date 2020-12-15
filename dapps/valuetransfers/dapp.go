@@ -70,6 +70,8 @@ var (
 
 	valueObjectFactory     *valuetangle.ValueObjectFactory
 	valueObjectFactoryOnce sync.Once
+
+	receiveMessageClosure *events.Closure
 )
 
 // App gets the plugin instance.
@@ -149,14 +151,21 @@ func configure(_ *node.Plugin) {
 	messagelayer.MessageParser().AddMessageFilter(valuetangle.NewSignatureFilter())
 
 	// subscribe to message-layer
-	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
+	receiveMessageClosure = events.NewClosure(onReceiveMessageFromMessageLayer)
+	messagelayer.Tangle().Events.MessageSolid.Attach(receiveMessageClosure)
 }
 
 func run(*node.Plugin) {
 	if err := daemon.BackgroundWorker("ValueTangle", func(shutdownSignal <-chan struct{}) {
 		<-shutdownSignal
 		// TODO: make this better
-		time.Sleep(12 * time.Second)
+		// stop listening to stuff from the message tangle. By the time we are here, gossip and autopeering have already
+		// been shutdown, so no new incoming messages should appear.
+		messagelayer.Tangle().Events.MessageSolid.Detach(receiveMessageClosure)
+		// wait one network delay to be sure that all scheduled setPreferred are triggered in fcob. Otherwise, we would
+		// try to access an already shutdown objectstorage in fcob.
+		cfgAvgNetworkDelay := config.Node().Int(CfgValueLayerFCOBAverageNetworkDelay)
+		time.Sleep(time.Duration(cfgAvgNetworkDelay) * time.Second)
 		_tangle.Shutdown()
 	}, shutdown.PriorityTangle); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
