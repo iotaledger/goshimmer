@@ -1,9 +1,9 @@
 package ledgerstate
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
-	"time"
 
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
@@ -439,6 +439,247 @@ func TestBranchDAG_SetBranchPreferred(t *testing.T) {
 	event.AssertExpectations(t)
 }
 
+func TestBranchDAG_SetBranchLiked(t *testing.T) {
+	branchDAG := NewBranchDAG(mapdb.NewMapDB())
+	defer branchDAG.Shutdown()
+
+	event := newEventMock(t, branchDAG)
+	defer event.DetachAll()
+
+	cachedBranch2, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{2}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
+	defer cachedBranch2.Release()
+	branch2 := cachedBranch2.Unwrap()
+	event.RegisterDebugAlias(branch2.ID(), "branch2")
+	assert.True(t, newBranchCreated)
+	assert.False(t, branch2.Preferred())
+	assert.False(t, branch2.Finalized())
+	assert.False(t, branch2.Liked())
+	assert.Equal(t, Pending, branch2.InclusionState())
+
+	cachedBranch3, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{3}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
+	defer cachedBranch3.Release()
+	branch3 := cachedBranch3.Unwrap()
+	event.RegisterDebugAlias(branch3.ID(), "branch3")
+	assert.True(t, newBranchCreated)
+	assert.False(t, branch3.Preferred())
+	assert.False(t, branch3.Finalized())
+	assert.False(t, branch3.Liked())
+	assert.Equal(t, Pending, branch3.InclusionState())
+
+	cachedBranch4, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{4}, NewBranchIDs(branch2.ID()), NewConflictIDs(ConflictID{1}))
+	defer cachedBranch4.Release()
+	branch4 := cachedBranch4.Unwrap()
+	event.RegisterDebugAlias(branch4.ID(), "branch4")
+	assert.True(t, newBranchCreated)
+	assert.False(t, branch4.Preferred())
+	assert.False(t, branch4.Finalized())
+	assert.False(t, branch4.Liked())
+	assert.Equal(t, Pending, branch4.InclusionState())
+
+	cachedBranch5, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{5}, NewBranchIDs(branch2.ID()), NewConflictIDs(ConflictID{1}))
+	defer cachedBranch5.Release()
+	branch5 := cachedBranch5.Unwrap()
+	event.RegisterDebugAlias(branch5.ID(), "branch5")
+	assert.True(t, newBranchCreated)
+	assert.False(t, branch5.Preferred())
+	assert.False(t, branch5.Finalized())
+	assert.False(t, branch5.Liked())
+	assert.Equal(t, Pending, branch5.InclusionState())
+
+	cachedBranch6, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{6}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2}))
+	defer cachedBranch6.Release()
+	branch6 := cachedBranch6.Unwrap()
+	event.RegisterDebugAlias(branch6.ID(), "branch6")
+	assert.True(t, newBranchCreated)
+	assert.False(t, branch6.Preferred())
+	assert.False(t, branch6.Finalized())
+	assert.False(t, branch6.Liked())
+	assert.Equal(t, Pending, branch6.InclusionState())
+
+	cachedBranch7, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{7}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2}))
+	defer cachedBranch7.Release()
+	branch7 := cachedBranch7.Unwrap()
+	event.RegisterDebugAlias(branch7.ID(), "branch7")
+	assert.True(t, newBranchCreated)
+	assert.False(t, branch7.Preferred())
+	assert.False(t, branch7.Finalized())
+	assert.False(t, branch7.Liked())
+	assert.Equal(t, Pending, branch7.InclusionState())
+
+	cachedAggrBranch8, newBranchCreated, err := branchDAG.RetrieveAggregatedBranch(NewBranchIDs(branch4.ID(), branch6.ID()))
+	assert.NoError(t, err)
+	defer cachedAggrBranch8.Release()
+	aggrBranch8 := cachedAggrBranch8.Unwrap()
+	event.RegisterDebugAlias(aggrBranch8.ID(), "aggrBranch8")
+	assert.True(t, newBranchCreated)
+	assert.False(t, aggrBranch8.Preferred())
+	assert.False(t, aggrBranch8.Finalized())
+	assert.False(t, aggrBranch8.Liked())
+	assert.Equal(t, Pending, aggrBranch8.InclusionState())
+
+	cachedAggrBranch9, newBranchCreated, err := branchDAG.RetrieveAggregatedBranch(NewBranchIDs(branch5.ID(), branch7.ID()))
+	assert.NoError(t, err)
+	defer cachedAggrBranch9.Release()
+	aggrBranch9 := cachedAggrBranch9.Unwrap()
+	event.RegisterDebugAlias(aggrBranch9.ID(), "aggrBranch9")
+	assert.True(t, newBranchCreated)
+	assert.False(t, aggrBranch9.Preferred())
+	assert.False(t, aggrBranch9.Finalized())
+	assert.False(t, aggrBranch9.Liked())
+	assert.Equal(t, Pending, aggrBranch9.InclusionState())
+
+	// should not be preferred because only 6 is is preferred but not 3
+	cachedAggrBranch10, newBranchCreated, err := branchDAG.RetrieveAggregatedBranch(NewBranchIDs(branch3.ID(), branch6.ID()))
+	assert.NoError(t, err)
+	defer cachedAggrBranch10.Release()
+	aggrBranch10 := cachedAggrBranch10.Unwrap()
+	event.RegisterDebugAlias(aggrBranch10.ID(), "aggrBranch10")
+	assert.True(t, newBranchCreated)
+	assert.False(t, aggrBranch10.Preferred())
+	assert.False(t, aggrBranch10.Finalized())
+	assert.False(t, aggrBranch10.Liked())
+	assert.Equal(t, Pending, aggrBranch10.InclusionState())
+
+	cachedBranch11, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{11}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{3}))
+	defer cachedBranch11.Release()
+	branch11 := cachedBranch11.Unwrap()
+	event.RegisterDebugAlias(branch11.ID(), "branch11")
+	assert.True(t, newBranchCreated)
+	assert.False(t, branch11.Preferred())
+	assert.False(t, branch11.Finalized())
+	assert.False(t, branch11.Liked())
+	assert.Equal(t, Pending, branch11.InclusionState())
+
+	cachedBranch12, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{12}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{3}))
+	defer cachedBranch12.Release()
+	branch12 := cachedBranch12.Unwrap()
+	event.RegisterDebugAlias(branch12.ID(), "branch12")
+	assert.True(t, newBranchCreated)
+	assert.False(t, branch12.Preferred())
+	assert.False(t, branch12.Finalized())
+	assert.False(t, branch12.Liked())
+	assert.Equal(t, Pending, branch12.InclusionState())
+
+	cachedAggrBranch13, newBranchCreated, err := branchDAG.RetrieveAggregatedBranch(NewBranchIDs(branch6.ID(), branch11.ID()))
+	assert.NoError(t, err)
+	defer cachedAggrBranch13.Release()
+	aggrBranch13 := cachedAggrBranch13.Unwrap()
+	event.RegisterDebugAlias(aggrBranch13.ID(), "aggrBranch13")
+	assert.True(t, newBranchCreated)
+	assert.False(t, aggrBranch13.Preferred())
+	assert.False(t, aggrBranch13.Finalized())
+	assert.False(t, aggrBranch13.Liked())
+	assert.Equal(t, Pending, aggrBranch13.InclusionState())
+
+	cachedAggrBranch14, newBranchCreated, err := branchDAG.RetrieveAggregatedBranch(NewBranchIDs(aggrBranch10.ID(), aggrBranch13.ID()))
+	assert.NoError(t, err)
+	defer cachedAggrBranch14.Release()
+	aggrBranch14 := cachedAggrBranch14.Unwrap()
+	event.RegisterDebugAlias(aggrBranch14.ID(), "aggrBranch14")
+	assert.True(t, newBranchCreated)
+	assert.False(t, aggrBranch14.Preferred())
+	assert.False(t, aggrBranch14.Finalized())
+	assert.False(t, aggrBranch14.Liked())
+	assert.Equal(t, Pending, aggrBranch14.InclusionState())
+
+	cachedAggrBranch15, newBranchCreated, err := branchDAG.RetrieveAggregatedBranch(NewBranchIDs(branch2.ID(), branch7.ID(), branch12.ID()))
+	assert.NoError(t, err)
+	defer cachedAggrBranch15.Release()
+	aggrBranch15 := cachedAggrBranch15.Unwrap()
+	event.RegisterDebugAlias(aggrBranch15.ID(), "aggrBranch15")
+	assert.True(t, newBranchCreated)
+	assert.False(t, aggrBranch15.Preferred())
+	assert.False(t, aggrBranch15.Finalized())
+	assert.False(t, aggrBranch15.Liked())
+	assert.Equal(t, Pending, aggrBranch15.InclusionState())
+
+	cachedAggrBranch16, newBranchCreated, err := branchDAG.RetrieveAggregatedBranch(NewBranchIDs(aggrBranch9.ID(), aggrBranch15.ID()))
+	assert.NoError(t, err)
+	defer cachedAggrBranch16.Release()
+	aggrBranch16 := cachedAggrBranch16.Unwrap()
+	event.RegisterDebugAlias(aggrBranch16.ID(), "aggrBranch16")
+	assert.True(t, newBranchCreated)
+	assert.False(t, aggrBranch16.Preferred())
+	assert.False(t, aggrBranch16.Finalized())
+	assert.False(t, aggrBranch16.Liked())
+	assert.Equal(t, Pending, aggrBranch16.InclusionState())
+
+	event.Expect("BranchPreferred", branch2)
+	event.Expect("BranchPreferred", branch7)
+	event.Expect("BranchPreferred", branch12)
+	event.Expect("BranchLiked", branch2)
+	event.Expect("BranchLiked", branch7)
+	event.Expect("BranchLiked", branch12)
+	event.Expect("BranchPreferred", branch5)
+	event.Expect("BranchLiked", branch5)
+	event.Expect("BranchPreferred", aggrBranch9)
+	event.Expect("BranchPreferred", aggrBranch15)
+	event.Expect("BranchPreferred", aggrBranch16)
+	event.Expect("BranchLiked", aggrBranch9)
+	event.Expect("BranchLiked", aggrBranch15)
+	event.Expect("BranchLiked", aggrBranch16)
+
+	modified, err := branchDAG.SetBranchLiked(aggrBranch16.ID(), true)
+	assert.NoError(t, err)
+	assert.True(t, modified)
+
+	assert.True(t, branch2.Preferred())
+	assert.True(t, branch2.Liked())
+	assert.True(t, branch7.Preferred())
+	assert.True(t, branch7.Liked())
+	assert.True(t, branch12.Preferred())
+	assert.True(t, branch12.Liked())
+	assert.True(t, branch5.Preferred())
+	assert.True(t, branch5.Liked())
+	assert.True(t, aggrBranch9.Preferred())
+	assert.True(t, aggrBranch9.Liked())
+	assert.True(t, aggrBranch15.Preferred())
+	assert.True(t, aggrBranch15.Liked())
+	assert.True(t, aggrBranch16.Preferred())
+	assert.True(t, aggrBranch16.Liked())
+
+	event.Expect("BranchUnpreferred", branch5)
+	event.Expect("BranchUnpreferred", branch7)
+	event.Expect("BranchUnpreferred", aggrBranch9)
+	event.Expect("BranchUnpreferred", aggrBranch15)
+	event.Expect("BranchUnpreferred", aggrBranch16)
+	event.Expect("BranchDisliked", branch5)
+	event.Expect("BranchDisliked", branch7)
+	event.Expect("BranchDisliked", aggrBranch9)
+	event.Expect("BranchDisliked", aggrBranch15)
+	event.Expect("BranchDisliked", aggrBranch16)
+	event.Expect("BranchPreferred", branch4)
+	event.Expect("BranchLiked", branch4)
+	event.Expect("BranchPreferred", branch6)
+	event.Expect("BranchLiked", branch6)
+	event.Expect("BranchPreferred", aggrBranch8)
+	event.Expect("BranchLiked", aggrBranch8)
+
+	modified, err = branchDAG.SetBranchLiked(aggrBranch8.ID(), true)
+	assert.NoError(t, err)
+	assert.True(t, modified)
+
+	assert.False(t, branch7.Preferred())
+	assert.False(t, branch7.Liked())
+	assert.False(t, branch5.Preferred())
+	assert.False(t, branch5.Liked())
+	assert.False(t, aggrBranch9.Preferred())
+	assert.False(t, aggrBranch9.Liked())
+	assert.False(t, aggrBranch15.Preferred())
+	assert.False(t, aggrBranch15.Liked())
+	assert.False(t, aggrBranch16.Preferred())
+	assert.False(t, aggrBranch16.Liked())
+	assert.True(t, branch4.Preferred())
+	assert.True(t, branch4.Liked())
+	assert.True(t, branch6.Preferred())
+	assert.True(t, branch6.Liked())
+	assert.True(t, aggrBranch8.Preferred())
+	assert.True(t, aggrBranch8.Liked())
+
+	// check that all events have been triggered
+	event.AssertExpectations(t)
+}
+
 func TestBranchDAG_SetBranchPreferred2(t *testing.T) {
 	branchDAG := NewBranchDAG(mapdb.NewMapDB())
 	defer branchDAG.Shutdown()
@@ -597,8 +838,6 @@ func TestBranchDAG_SetBranchPreferred2(t *testing.T) {
 
 	// check that all events have been triggered
 	event.AssertExpectations(t)
-
-	time.Sleep(5 * time.Second)
 }
 
 func TestBranchDAG_ConflictMembers(t *testing.T) {
@@ -647,6 +886,7 @@ type eventMock struct {
 	mock.Mock
 	expectedEvents int
 	calledEvents   int
+	debugAlias     map[BranchID]string
 
 	attached []struct {
 		*events.Event
@@ -655,7 +895,9 @@ type eventMock struct {
 }
 
 func newEventMock(t *testing.T, mgr *BranchDAG) *eventMock {
-	e := &eventMock{}
+	e := &eventMock{
+		debugAlias: make(map[BranchID]string),
+	}
 	e.Test(t)
 
 	// attach all events
@@ -674,6 +916,10 @@ func newEventMock(t *testing.T, mgr *BranchDAG) *eventMock {
 	assert.Equalf(t, len(e.attached), numEvents, "not all events in BranchManager.Events have been attached")
 
 	return e
+}
+
+func (e *eventMock) RegisterDebugAlias(branchID BranchID, debugAlias string) {
+	e.debugAlias[branchID] = debugAlias
 }
 
 // DetachAll detaches all attached event mocks.
@@ -700,7 +946,7 @@ func (e *eventMock) attach(event *events.Event, f interface{}) {
 
 func (e *eventMock) AssertExpectations(t mock.TestingT) bool {
 	if e.calledEvents != e.expectedEvents {
-		t.Errorf("number of called events is not equal to number of expected events")
+		t.Errorf("number of called (%d) events is not equal to number of expected events (%d)", e.calledEvents, e.expectedEvents)
 		return false
 	}
 
@@ -711,12 +957,20 @@ func (e *eventMock) BranchPreferred(cachedBranch *BranchDAGEvent) {
 	defer cachedBranch.Release()
 	e.Called(cachedBranch.Branch.Unwrap())
 
+	if debugAlias, exists := e.debugAlias[cachedBranch.Branch.Unwrap().ID()]; exists {
+		fmt.Println("Called BranchPreferred(" + debugAlias + ")")
+	}
+
 	e.calledEvents++
 }
 
 func (e *eventMock) BranchUnpreferred(cachedBranch *BranchDAGEvent) {
 	defer cachedBranch.Release()
 	e.Called(cachedBranch.Branch.Unwrap())
+
+	if debugAlias, exists := e.debugAlias[cachedBranch.Branch.Unwrap().ID()]; exists {
+		fmt.Println("Called BranchUnpreferred(" + debugAlias + ")")
+	}
 
 	e.calledEvents++
 }
@@ -725,12 +979,20 @@ func (e *eventMock) BranchLiked(cachedBranch *BranchDAGEvent) {
 	defer cachedBranch.Release()
 	e.Called(cachedBranch.Branch.Unwrap())
 
+	if debugAlias, exists := e.debugAlias[cachedBranch.Branch.Unwrap().ID()]; exists {
+		fmt.Println("Called BranchLiked(" + debugAlias + ")")
+	}
+
 	e.calledEvents++
 }
 
 func (e *eventMock) BranchDisliked(cachedBranch *BranchDAGEvent) {
 	defer cachedBranch.Release()
 	e.Called(cachedBranch.Branch.Unwrap())
+
+	if debugAlias, exists := e.debugAlias[cachedBranch.Branch.Unwrap().ID()]; exists {
+		fmt.Println("Called BranchDisliked(" + debugAlias + ")")
+	}
 
 	e.calledEvents++
 }
@@ -739,12 +1001,20 @@ func (e *eventMock) BranchFinalized(cachedBranch *BranchDAGEvent) {
 	defer cachedBranch.Release()
 	e.Called(cachedBranch.Branch.Unwrap())
 
+	if debugAlias, exists := e.debugAlias[cachedBranch.Branch.Unwrap().ID()]; exists {
+		fmt.Println("Called BranchFinalized(" + debugAlias + ")")
+	}
+
 	e.calledEvents++
 }
 
 func (e *eventMock) BranchUnfinalized(cachedBranch *BranchDAGEvent) {
 	defer cachedBranch.Release()
 	e.Called(cachedBranch.Branch.Unwrap())
+
+	if debugAlias, exists := e.debugAlias[cachedBranch.Branch.Unwrap().ID()]; exists {
+		fmt.Println("Called BranchUnfinalized(" + debugAlias + ")")
+	}
 
 	e.calledEvents++
 }
@@ -753,6 +1023,10 @@ func (e *eventMock) BranchConfirmed(cachedBranch *BranchDAGEvent) {
 	defer cachedBranch.Release()
 	e.Called(cachedBranch.Branch.Unwrap())
 
+	if debugAlias, exists := e.debugAlias[cachedBranch.Branch.Unwrap().ID()]; exists {
+		fmt.Println("Called BranchConfirmed(" + debugAlias + ")")
+	}
+
 	e.calledEvents++
 }
 
@@ -760,12 +1034,20 @@ func (e *eventMock) BranchRejected(cachedBranch *BranchDAGEvent) {
 	defer cachedBranch.Release()
 	e.Called(cachedBranch.Branch.Unwrap())
 
+	if debugAlias, exists := e.debugAlias[cachedBranch.Branch.Unwrap().ID()]; exists {
+		fmt.Println("Called BranchRejected(" + debugAlias + ")")
+	}
+
 	e.calledEvents++
 }
 
 func (e *eventMock) BranchPending(cachedBranch *BranchDAGEvent) {
 	defer cachedBranch.Release()
 	e.Called(cachedBranch.Branch.Unwrap())
+
+	if debugAlias, exists := e.debugAlias[cachedBranch.Branch.Unwrap().ID()]; exists {
+		fmt.Println("Called BranchPending(" + debugAlias + ")")
+	}
 
 	e.calledEvents++
 }
