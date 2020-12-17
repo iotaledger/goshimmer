@@ -170,6 +170,4 @@ func addToHistory(msg *tangle.Message, solid bool) {
 	// add new msg
 	msgHistory = append(msgHistory, msg)
 	msgSolid[msg.ID().String()] = solid
-
-	return
 }
