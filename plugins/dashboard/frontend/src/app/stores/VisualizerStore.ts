@@ -108,26 +108,6 @@ export class VisualizerStore {
             }
             this.verticesIncomingOrder.push(vert.id);
             this.checkLimit();
-
-            if (vert.strongParentIDs) {
-                // clear tip status of strong and weak parents
-                vert.strongParentIDs.forEach((value, index) => {
-                    let strongParentVert = this.vertices.get(value);
-                    if (strongParentVert) {
-                        strongParentVert.is_tip = false;
-                        this.vertices.set(strongParentVert.id, strongParentVert)
-                    }
-                });
-            }
-            if (vert.weakParentIDs) {
-                vert.weakParentIDs.forEach((value, index) => {
-                    let weakParentVert = this.vertices.get(value);
-                    if (weakParentVert) {
-                        weakParentVert.is_tip = false;
-                        this.vertices.set(weakParentVert.id, weakParentVert)
-                    }
-                });
-            }
         }
 
         this.vertices.set(vert.id, vert);
