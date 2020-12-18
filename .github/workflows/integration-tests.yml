@@ -18,9 +18,6 @@ jobs:
       - name: Branch name 1
         run: echo running on branch1 ${{ github.head_ref }}
 
-      - name: Branch name 2
-        run: echo running on branch2 ${{ github.ref }}
-
       - name: Build GoShimmer image (from cache)
         run: |
           echo ${{ secrets.GITHUB_TOKEN }} | docker login docker.pkg.github.com -u $GITHUB_ACTOR --password-stdin
