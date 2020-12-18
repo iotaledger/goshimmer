@@ -8,6 +8,7 @@ jobs:
     name: autopeering
     env:
       TEST_NAME: autopeering
+      REMOTE_IMAGE: docker.pkg.github.com/$GITHUB_REPOSITORY/build-cache:${{ github.head_ref }}
     runs-on: ubuntu-latest
     steps:
 
@@ -23,9 +24,9 @@ jobs:
       - name: Build GoShimmer image (from cache)
         run: |
           echo ${{ secrets.GITHUB_TOKEN }} | docker login docker.pkg.github.com -u $GITHUB_ACTOR --password-stdin
-          docker pull docker.pkg.github.com/$GITHUB_REPOSITORY/build-cache || true
-          docker build . -t iotaledger/goshimmer --cache-from=docker.pkg.github.com/$GITHUB_REPOSITORY/build-cache
-          docker tag iotaledger/goshimmer docker.pkg.github.com/$GITHUB_REPOSITORY/build-cache && docker push docker.pkg.github.com/$GITHUB_REPOSITORY/build-cache || true
+          docker pull docker.pkg.github.com/$GITHUB_REPOSITORY/build-cache:${{ github.head_ref }} || true
+          docker build . -t iotaledger/goshimmer --cache-from=docker.pkg.github.com/$GITHUB_REPOSITORY/build-cache:${{ github.head_ref }}
+          docker tag iotaledger/goshimmer docker.pkg.github.com/$GITHUB_REPOSITORY/build-cache:${{ github.head_ref }} && docker push docker.pkg.github.com/$GITHUB_REPOSITORY/build-cache:${{ github.head_ref }} || true
 
 
       - name: Pull additional Docker images
