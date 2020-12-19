@@ -132,6 +132,11 @@ func (b *BranchDAG) RetrieveAggregatedBranch(parentBranchIDs BranchIDs) (cachedA
 				cachedChildBranch.Release()
 			}
 		}
+
+		if preferredErr := b.updatePreferredOfAggregatedBranch(cachedAggregatedBranch.Retain(), true); preferredErr != nil {
+			err = xerrors.Errorf("failed to update preferred flag of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), preferredErr)
+			return
+		}
 	}
 
 	return
@@ -571,14 +576,36 @@ func (b *BranchDAG) setBranchFinalized(cachedBranch *CachedBranch, finalized boo
 	defer cachedBranch.Release()
 
 	// unwrap ConflictBranch
-	conflictBranch, err := cachedBranch.UnwrapConflictBranch()
-	if err != nil {
+	branch := cachedBranch.Unwrap()
+	if branch == nil {
 		err = xerrors.Errorf("failed to load ConflictBranch with %s: %w", cachedBranch.ID(), cerrors.ErrFatal)
 		return
 	}
 
+	// process AggregatedBranches differently (they don't have their own "finalized flag" but depend on their parents).
+	if branch.Type() == AggregatedBranchType {
+		// unfinalizing an AggregatedBranch is too "unspecific" - we need to know which one of its parents caused the
+		// unfinalize
+		if !finalized {
+			err = xerrors.Errorf("Branch of type AggregatedBranchType can not be unfinalized (status depends on its parents): %w", cerrors.ErrFatal)
+			return
+		}
+
+		// iterate through parents and like them instead (the change will trickle through)
+		for parentBranchID := range branch.Parents() {
+			parentBranchModified, parentBranchErr := b.setBranchFinalized(b.Branch(parentBranchID), true)
+			if parentBranchErr != nil {
+				err = xerrors.Errorf("failed to set finalized status of parent Branch with %s: %w", parentBranchID, parentBranchErr)
+				return
+			}
+			modified = modified || parentBranchModified
+		}
+
+		return
+	}
+
 	// abort if the ConflictBranch was marked correctly already
-	if modified = conflictBranch.SetFinalized(finalized); !modified {
+	if modified = branch.SetFinalized(finalized); !modified {
 		return
 	}
 
@@ -589,19 +616,19 @@ func (b *BranchDAG) setBranchFinalized(cachedBranch *CachedBranch, finalized boo
 		b.Events.BranchFinalized.Trigger(NewBranchDAGEvent(cachedBranch))
 
 		// propagate finalized update to aggregated ChildBranches
-		if err = b.updateFinalizedOfAggregatedChildBranches(conflictBranch.ID(), true); err != nil {
-			err = xerrors.Errorf("failed to update finalized status of future cone of Branch with %s: %w", conflictBranch.ID(), err)
+		if err = b.updateFinalizedOfAggregatedChildBranches(branch.ID(), true); err != nil {
+			err = xerrors.Errorf("failed to update finalized status of future cone of Branch with %s: %w", branch.ID(), err)
 			return
 		}
 
 		// execute case dependent logic
-		switch conflictBranch.Preferred() {
+		switch branch.Preferred() {
 		case true:
 			// iterate through all other Branches that belong to the same Conflict
-			for conflictID := range conflictBranch.Conflicts() {
+			for conflictID := range branch.(*ConflictBranch).Conflicts() {
 				b.ConflictMembers(conflictID).Consume(func(conflictMember *ConflictMember) {
 					// skip the branch which just got finalized
-					if conflictMember.BranchID() == conflictBranch.ID() {
+					if conflictMember.BranchID() == branch.ID() {
 						return
 					}
 
@@ -616,14 +643,14 @@ func (b *BranchDAG) setBranchFinalized(cachedBranch *CachedBranch, finalized boo
 			}
 
 			// update InclusionState of future cone
-			if err = b.updateInclusionState(conflictBranch.ID(), Confirmed); err != nil {
-				err = xerrors.Errorf("failed to update InclusionState of future cone of Branch with %s: %w", conflictBranch.ID(), err)
+			if err = b.updateInclusionState(branch.ID(), Confirmed); err != nil {
+				err = xerrors.Errorf("failed to update InclusionState of future cone of Branch with %s: %w", branch.ID(), err)
 				return
 			}
 		case false:
 			// update InclusionState of future cone
-			if err = b.updateInclusionState(conflictBranch.ID(), Rejected); err != nil {
-				err = xerrors.Errorf("failed to update InclusionState of future cone of Branch with %s: %w", conflictBranch.ID(), err)
+			if err = b.updateInclusionState(branch.ID(), Rejected); err != nil {
+				err = xerrors.Errorf("failed to update InclusionState of future cone of Branch with %s: %w", branch.ID(), err)
 				return
 			}
 		}
@@ -632,14 +659,14 @@ func (b *BranchDAG) setBranchFinalized(cachedBranch *CachedBranch, finalized boo
 		b.Events.BranchUnfinalized.Trigger(NewBranchDAGEvent(cachedBranch))
 
 		// propagate finalized update to aggregated ChildBranches
-		if err = b.updateFinalizedOfAggregatedChildBranches(conflictBranch.ID(), false); err != nil {
-			err = xerrors.Errorf("failed to update finalized status of future cone of Branch with %s: %w", conflictBranch.ID(), err)
+		if err = b.updateFinalizedOfAggregatedChildBranches(branch.ID(), false); err != nil {
+			err = xerrors.Errorf("failed to update finalized status of future cone of Branch with %s: %w", branch.ID(), err)
 			return
 		}
 
 		// update InclusionState of future cone
-		if err = b.updateInclusionState(conflictBranch.ID(), Pending); err != nil {
-			err = xerrors.Errorf("failed to update InclusionState of future cone of Branch with %s: %w", conflictBranch.ID(), err)
+		if err = b.updateInclusionState(branch.ID(), Pending); err != nil {
+			err = xerrors.Errorf("failed to update InclusionState of future cone of Branch with %s: %w", branch.ID(), err)
 			return
 		}
 	}
@@ -660,69 +687,72 @@ func (b *BranchDAG) updatePreferredOfAggregatedChildBranches(branchID BranchID, 
 	})
 
 	// iterate through stack
-ProcessStack:
 	for branchStack.Len() >= 1 {
 		// retrieve first element from the stack
 		currentEntry := branchStack.Front()
 		branchStack.Remove(currentEntry)
 
-		// load Branch
-		currentCachedBranch := b.Branch(currentEntry.Value.(BranchID))
-
-		// unwrap current CachedBranch
-		currentBranch, typeErr := currentCachedBranch.UnwrapAggregatedBranch()
-		if typeErr != nil {
-			currentCachedBranch.Release()
-			err = xerrors.Errorf("failed to load AggregatedBranch with %s: %w", currentCachedBranch.ID(), typeErr)
+		if err = b.updatePreferredOfAggregatedBranch(b.Branch(currentEntry.Value.(BranchID)), preferred); err != nil {
+			err = xerrors.Errorf("failed to update preferred flag of AggregatedBranch with %s: %w", currentEntry.Value.(BranchID), err)
 			return
 		}
-		if currentBranch == nil {
-			currentCachedBranch.Release()
-			err = xerrors.Errorf("failed to load AggregatedBranch with %s: %w", currentCachedBranch.ID(), cerrors.ErrFatal)
-			return
-		}
+	}
 
-		// execute case dependent logic
-		switch preferred {
-		case true:
-			// only continue if all parents are preferred
-			for parentBranchID := range currentBranch.Parents() {
-				// load parent Branch
-				cachedParentBranch := b.Branch(parentBranchID)
+	return
+}
 
-				// unwrap parent Branch
-				parentBranch := cachedParentBranch.Unwrap()
-				if parentBranch == nil {
-					currentCachedBranch.Release()
-					cachedParentBranch.Release()
-					err = xerrors.Errorf("failed to load parent Branch with %s: %w", parentBranchID, cerrors.ErrFatal)
-					return
-				}
+func (b *BranchDAG) updatePreferredOfAggregatedBranch(currentCachedBranch *CachedBranch, preferred bool) (err error) {
+	// release current CachedBranch
+	defer currentCachedBranch.Release()
 
-				// abort if the parent Branch is not preferred
-				if !parentBranch.Preferred() {
-					currentCachedBranch.Release()
-					cachedParentBranch.Release()
-					continue ProcessStack
-				}
-
-				// release parent CachedBranch
-				cachedParentBranch.Release()
-			}
-
-			// trigger event if the value was changed
-			if currentBranch.SetPreferred(true) {
-				b.Events.BranchPreferred.Trigger(NewBranchDAGEvent(currentCachedBranch))
-			}
-		case false:
-			// trigger event if the value was changed
-			if currentBranch.SetPreferred(false) {
-				b.Events.BranchUnpreferred.Trigger(NewBranchDAGEvent(currentCachedBranch))
-			}
-		}
-
-		// release current CachedBranch
+	// unwrap current CachedBranch
+	currentBranch, typeErr := currentCachedBranch.UnwrapAggregatedBranch()
+	if typeErr != nil {
 		currentCachedBranch.Release()
+		err = xerrors.Errorf("failed to load AggregatedBranch with %s: %w", currentCachedBranch.ID(), typeErr)
+		return
+	}
+	if currentBranch == nil {
+		currentCachedBranch.Release()
+		err = xerrors.Errorf("failed to load AggregatedBranch with %s: %w", currentCachedBranch.ID(), cerrors.ErrFatal)
+		return
+	}
+
+	// execute case dependent logic
+	switch preferred {
+	case true:
+		// only continue if all parents are preferred
+		for parentBranchID := range currentBranch.Parents() {
+			// load parent Branch
+			cachedParentBranch := b.Branch(parentBranchID)
+
+			// unwrap parent Branch
+			parentBranch := cachedParentBranch.Unwrap()
+			if parentBranch == nil {
+				cachedParentBranch.Release()
+				err = xerrors.Errorf("failed to load parent Branch with %s: %w", parentBranchID, cerrors.ErrFatal)
+				return
+			}
+
+			// abort if the parent Branch is not preferred
+			if !parentBranch.Preferred() {
+				cachedParentBranch.Release()
+				return
+			}
+
+			// release parent CachedBranch
+			cachedParentBranch.Release()
+		}
+
+		// trigger event if the value was changed
+		if currentBranch.SetPreferred(true) {
+			b.Events.BranchPreferred.Trigger(NewBranchDAGEvent(currentCachedBranch))
+		}
+	case false:
+		// trigger event if the value was changed
+		if currentBranch.SetPreferred(false) {
+			b.Events.BranchUnpreferred.Trigger(NewBranchDAGEvent(currentCachedBranch))
+		}
 	}
 
 	return
