@@ -16,6 +16,10 @@ export class TipInfo {
     is_tip: boolean;
 }
 
+class history {
+    vertices: Array<Vertex>;
+}
+
 const vertexSize = 20;
 
 export class VisualizerStore {
@@ -24,7 +28,7 @@ export class VisualizerStore {
     @observable solid_count = 0;
     @observable tips_count = 0;
     verticesIncomingOrder = [];
-    collect: boolean = false;
+    draw: boolean = false;
     routerStore: RouterStore;
 
     // the currently selected vertex via hover
@@ -45,8 +49,22 @@ export class VisualizerStore {
 
     constructor(routerStore: RouterStore) {
         this.routerStore = routerStore;
+        this.fetchHistory();
         registerHandler(WSMsgType.Vertex, this.addVertex);
-        registerHandler(WSMsgType.TipInfo, this.addTipInfo);
+        registerHandler(WSMsgType.TipInfo, this.addTipInfo);     
+    }
+
+    fetchHistory = async () => {
+        try {
+            let res = await fetch(`/api/visualizer/history`);           
+            let history: history = await res.json();
+            history.vertices.forEach(v => {
+               this.addVertex(v); 
+            });
+        } catch (err) {
+            console.log("Fail to fetch history in visualizer", err);
+        }
+        return
     }
 
     @action
@@ -87,9 +105,7 @@ export class VisualizerStore {
     }
 
     @action
-    addVertex = (vert: Vertex) => {
-        if (!this.collect) return;
-
+    addVertex = (vert: Vertex) => {        
         let existing = this.vertices.get(vert.id);
         if (existing) {
             // can only go from unsolid to solid
@@ -108,35 +124,16 @@ export class VisualizerStore {
             }
             this.verticesIncomingOrder.push(vert.id);
             this.checkLimit();
-
-            if (vert.strongParentIDs) {
-                // clear tip status of strong and weak parents
-                vert.strongParentIDs.forEach((value, index) => {
-                    let strongParentVert = this.vertices.get(value);
-                    if (strongParentVert) {
-                        strongParentVert.is_tip = false;
-                        this.vertices.set(strongParentVert.id, strongParentVert)
-                    }
-                });
-            }
-            if (vert.weakParentIDs) {
-                vert.weakParentIDs.forEach((value, index) => {
-                    let weakParentVert = this.vertices.get(value);
-                    if (weakParentVert) {
-                        weakParentVert.is_tip = false;
-                        this.vertices.set(weakParentVert.id, weakParentVert)
-                    }
-                });
-            }
         }
 
         this.vertices.set(vert.id, vert);
-        this.drawVertex(vert);
+        if (this.draw) {
+            this.drawVertex(vert);
+        }
     };
 
     @action
     addTipInfo = (tipInfo: TipInfo) => {
-        if (!this.collect) return;
         let vert = this.vertices.get(tipInfo.id);
         if (!vert) {
             // create a new empty one for now
@@ -148,7 +145,9 @@ export class VisualizerStore {
         this.tips_count += tipInfo.is_tip ? 1 : vert.is_tip ? -1 : 0;
         vert.is_tip = tipInfo.is_tip;
         this.vertices.set(vert.id, vert);
-        this.drawVertex(vert);
+        if (this.draw) {
+            this.drawVertex(vert);
+        }
     };
 
     @action
@@ -161,7 +160,9 @@ export class VisualizerStore {
                 this.clearSelected();
             }
             this.vertices.delete(deleteId);
-            this.graph.removeNode(deleteId);
+            if (this.draw) {
+                this.graph.removeNode(deleteId);
+            }
             if (!vert) {
                 continue;
             }
@@ -198,7 +199,9 @@ export class VisualizerStore {
             }
             this.vertices.delete(approveeId);
         }
-        this.graph.removeNode(approveeId);
+        if (this.draw) {
+            this.graph.removeNode(approveeId);
+        }
     }
 
     drawVertex = (vert: Vertex) => {
@@ -243,7 +246,7 @@ export class VisualizerStore {
     }
 
     start = () => {
-        this.collect = true;
+        this.draw = true;
         this.graph = Viva.Graph.graph();
 
         let graphics: any = Viva.Graph.View.webglGraphics();
@@ -280,17 +283,18 @@ export class VisualizerStore {
         });
         this.graphics = graphics;
         this.renderer.run();
+
+        this.vertices.forEach((vertex) => {
+            this.drawVertex(vertex)
+        })
     }
 
     stop = () => {
-        this.collect = false;
+        this.draw = false;
         this.renderer.dispose();
         this.graph = null;
         this.paused = false;
         this.selected = null;
-        this.solid_count = 0;
-        this.tips_count = 0;
-        this.vertices.clear();
     }
 
     @action
