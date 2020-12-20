@@ -55,6 +55,8 @@ type Event interface {
 	Type() byte
 	// ToJSONSerializable returns a struct that can be serialized into JSON object.
 	ToJSONSerializable() interface{}
+	// ToPersistable returns an event that can be persisted.
+	ToPersistable() *PersistableEvent
 }
 
 // PledgedEvent is the struct that is passed along with triggering a Pledged event.
@@ -84,6 +86,43 @@ func (p *PledgedEvent) ToJSONSerializable() interface{} {
 		TxID:     p.TransactionID.String(),
 		Amount:   p.Amount,
 	}
+}
+
+// ToPersistable returns an event that can be persisted.
+func (p *PledgedEvent) ToPersistable() *PersistableEvent {
+	return &PersistableEvent{
+		Type:          p.Type(),
+		NodeID:        p.NodeID,
+		Amount:        p.Amount,
+		Time:          p.Time,
+		ManaType:      p.ManaType,
+		TransactionID: p.TransactionID,
+	}
+}
+
+// FromPersistableEvent parses a persistable event to a regular event.
+func FromPersistableEvent(p *PersistableEvent) (Event, error) {
+	if p.Type == EventTypePledge {
+		pledgeEvent := &PledgedEvent{
+			NodeID:        p.NodeID,
+			Amount:        p.Amount,
+			Time:          p.Time,
+			ManaType:      p.ManaType,
+			TransactionID: p.TransactionID,
+		}
+		return pledgeEvent, nil
+	}
+	if p.Type == EventTypePledge {
+		pledgeEvent := &RevokedEvent{
+			NodeID:        p.NodeID,
+			Amount:        p.Amount,
+			Time:          p.Time,
+			ManaType:      p.ManaType,
+			TransactionID: p.TransactionID,
+		}
+		return pledgeEvent, nil
+	}
+	return nil, ErrUnknownManaEvent
 }
 
 // Type returns the type of the event.
@@ -119,6 +158,18 @@ func (r *RevokedEvent) ToJSONSerializable() interface{} {
 		Time:     r.Time.Unix(),
 		TxID:     r.TransactionID.String(),
 		Amount:   r.Amount,
+	}
+}
+
+// ToPersistable returns an event that can be persisted.
+func (r *RevokedEvent) ToPersistable() *PersistableEvent {
+	return &PersistableEvent{
+		Type:          r.Type(),
+		NodeID:        r.NodeID,
+		Amount:        r.Amount,
+		Time:          r.Time,
+		ManaType:      r.ManaType,
+		TransactionID: r.TransactionID,
 	}
 }
 
@@ -168,6 +219,11 @@ func (u *UpdatedEvent) ToJSONSerializable() interface{} {
 			LastUpdated:       u.NewMana.LastUpdate().Unix(),
 		},
 	}
+}
+
+// ToPersistable converts the event to a persistable event.
+func (u *UpdatedEvent) ToPersistable() *PersistableEvent {
+	panic("cannot persist update event")
 }
 
 // Type returns the type of the event.

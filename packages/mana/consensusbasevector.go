@@ -36,6 +36,58 @@ func (c *ConsensusBaseManaVector) Has(nodeID identity.ID) bool {
 	return exists
 }
 
+// BuildPastBaseVector builds a consensus base mana vector from past events upto time `t`
+func (c *ConsensusBaseManaVector) BuildPastBaseVector(eventsLog []Event, t time.Time) (int, error) {
+	emptyID := identity.ID{}
+	c.vector = make(map[identity.ID]*ConsensusBaseMana)
+	var i int
+	for _, _ev := range eventsLog {
+		switch _ev.Type() {
+		case EventTypePledge:
+			ev := _ev.(*PledgedEvent)
+			if ev.Time.After(t) {
+				return i, nil
+			}
+			if ev.NodeID == emptyID {
+				continue
+			}
+			if _, exist := c.vector[ev.NodeID]; !exist {
+				c.vector[ev.NodeID] = &ConsensusBaseMana{}
+			}
+			c.vector[ev.NodeID].pledge(txInfoFromPledgeEvent(ev))
+		case EventTypeRevoke:
+			ev := _ev.(*RevokedEvent)
+			if ev.Time.After(t) {
+				return i, nil
+			}
+			if ev.NodeID == emptyID {
+				continue
+			}
+			if _, exist := c.vector[ev.NodeID]; !exist {
+				c.vector[ev.NodeID] = &ConsensusBaseMana{}
+			}
+			err := c.vector[ev.NodeID].revoke(ev.Amount, ev.Time)
+			if err != nil {
+				return i, err
+			}
+		}
+		i++
+	}
+	return i, nil
+}
+
+func txInfoFromPledgeEvent(ev *PledgedEvent) *TxInfo {
+	return &TxInfo{
+		TimeStamp:     ev.Time,
+		TransactionID: ev.TransactionID,
+		TotalBalance:  ev.Amount,
+		PledgeID: map[Type]identity.ID{
+			ConsensusMana: ev.NodeID,
+		},
+		InputInfos: []InputInfo{{Amount: ev.Amount}},
+	}
+}
+
 // Book books mana for a transaction.
 func (c *ConsensusBaseManaVector) Book(txInfo *TxInfo) {
 	c.Lock()

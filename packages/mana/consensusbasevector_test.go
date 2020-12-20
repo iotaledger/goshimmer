@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
@@ -652,4 +653,93 @@ func TestConsensusBaseManaVector_ToAndFromPersistable(t *testing.T) {
 		assert.NoError(t, err)
 	}
 	assert.Equal(t, bmv.(*ConsensusBaseManaVector).vector, restoredBmv.(*ConsensusBaseManaVector).vector)
+}
+
+func TestConsensusBaseManaVector_BuildPastBaseVector(t *testing.T) {
+	bmv, err := NewBaseManaVector(ConsensusMana)
+	assert.NoError(t, err)
+	var eventsLog []Event
+	emptyID := identity.ID{}
+
+	tx1Info := &TxInfo{
+		TimeStamp:     txTime,
+		TransactionID: transaction.RandomID(),
+		TotalBalance:  10.0,
+		PledgeID:      map[Type]identity.ID{ConsensusMana: inputPledgeID1},
+		InputInfos: []InputInfo{
+			{
+				TimeStamp: inputTime,
+				Amount:    10,
+				PledgeID:  map[Type]identity.ID{ConsensusMana: emptyID},
+			},
+		},
+	}
+
+	tx2Info := &TxInfo{
+		TimeStamp:     txTime,
+		TransactionID: transaction.RandomID(),
+		TotalBalance:  5.0,
+		PledgeID:      map[Type]identity.ID{ConsensusMana: inputPledgeID2},
+		InputInfos: []InputInfo{
+			{
+				TimeStamp: inputTime,
+				Amount:    5,
+				PledgeID:  map[Type]identity.ID{ConsensusMana: inputPledgeID1},
+			},
+		},
+	}
+
+	tx3Info := &TxInfo{
+		TimeStamp:     txTime,
+		TransactionID: transaction.RandomID(),
+		TotalBalance:  10.0,
+		PledgeID:      map[Type]identity.ID{ConsensusMana: inputPledgeID3},
+		InputInfos: []InputInfo{
+			{
+				TimeStamp: inputTime,
+				Amount:    5,
+				PledgeID:  map[Type]identity.ID{ConsensusMana: inputPledgeID1},
+			},
+			{
+				TimeStamp: inputTime,
+				Amount:    5,
+				PledgeID:  map[Type]identity.ID{ConsensusMana: inputPledgeID2},
+			},
+		},
+	}
+
+	Events().Revoked.Attach(events.NewClosure(func(ev *RevokedEvent) {
+		eventsLog = append(eventsLog, ev)
+	}))
+	Events().Pledged.Attach(events.NewClosure(func(ev *PledgedEvent) {
+		eventsLog = append(eventsLog, ev)
+	}))
+
+	bmv.Book(tx1Info)
+	bmv.Book(tx2Info)
+	bmv.Book(tx3Info)
+
+	_pastBmv, err := NewBaseManaVector(ConsensusMana)
+	assert.NoError(t, err)
+	pastBmv := _pastBmv.(*ConsensusBaseManaVector)
+	index, err := pastBmv.BuildPastBaseVector(eventsLog, txTime)
+	assert.NoError(t, err)
+	assert.Equal(t, len(eventsLog), index)
+
+	IDs := []identity.ID{inputPledgeID1, inputPledgeID2, inputPledgeID3}
+	current := map[identity.ID]*ConsensusBaseMana{}
+	past := map[identity.ID]*ConsensusBaseMana{}
+	bmv.ForEach(func(ID identity.ID, mana BaseMana) bool {
+		current[ID] = mana.(*ConsensusBaseMana)
+		return true
+	})
+	pastBmv.ForEach(func(ID identity.ID, mana BaseMana) bool {
+		past[ID] = mana.(*ConsensusBaseMana)
+		return true
+	})
+
+	assert.Equal(t, len(current), len(past))
+	for _, ID := range IDs {
+		assert.Equal(t, *current[ID], *past[ID])
+	}
 }

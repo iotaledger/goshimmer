@@ -20,4 +20,10 @@ const (
 	ManaAccessResearch
 	// ManaConsensusResearch defines the storage prefix for consensus research mana.
 	ManaConsensusResearch
+	// ManaLogsStorage defines the storage prefix for consensus events ogs.
+	ManaEventsStorage
+	// ManaConsensusPast defines the storage prefix for consensus mana in the past.
+	ManaConsensusPast
+	// ManaConsensusPastMetadata defines the storage prefix for consensus mana in the past metadata in the past.
+	ManaConsensusPastMetadata
 )
