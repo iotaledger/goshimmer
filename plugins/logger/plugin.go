@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
@@ -40,5 +41,8 @@ func init() {
 		if err := logger.InitGlobalLogger(config.Node()); err != nil {
 			panic(err)
 		}
+
+		// enable logging for the daemon
+		daemon.DebugEnabled(true)
 	}))
 }
