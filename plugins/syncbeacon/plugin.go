@@ -64,17 +64,23 @@ func configure(_ *node.Plugin) {
 }
 
 // broadcastSyncBeaconPayload broadcasts a sync beacon via communication layer.
-func broadcastSyncBeaconPayload() {
+func broadcastSyncBeaconPayload() (doneSignal chan struct{}) {
+	doneSignal = make(chan struct{}, 1)
+	go func() {
+		defer close(doneSignal)
 
-	syncBeaconPayload := payload.NewSyncBeaconPayload(clock.SyncedTime().UnixNano())
-	msg, err := issuer.IssuePayload(syncBeaconPayload)
+		syncBeaconPayload := payload.NewSyncBeaconPayload(clock.SyncedTime().UnixNano())
+		msg, err := issuer.IssuePayload(syncBeaconPayload)
 
-	if err != nil {
-		log.Warnf("error issuing sync beacon: %w", err)
-		return
-	}
+		if err != nil {
+			log.Warnf("error issuing sync beacon: %w", err)
+			return
+		}
 
-	log.Debugf("issued sync beacon %s", msg.ID())
+		log.Debugf("issued sync beacon %s", msg.ID())
+	}()
+
+	return
 }
 
 func run(_ *node.Plugin) {
@@ -83,10 +89,17 @@ func run(_ *node.Plugin) {
 		defer ticker.Stop()
 		for {
 			select {
-			case <-ticker.C:
-				broadcastSyncBeaconPayload()
 			case <-shutdownSignal:
 				return
+			case <-ticker.C:
+				doneSignal := broadcastSyncBeaconPayload()
+
+				select {
+				case <-shutdownSignal:
+					return
+				case <-doneSignal:
+					// continue with the next beacon
+				}
 			}
 		}
 	}, shutdown.PrioritySynchronization); err != nil {
