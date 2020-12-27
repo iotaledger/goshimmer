@@ -398,16 +398,46 @@ func GetPendingMana(value float64, n time.Duration) float64 {
 // GetPastConsensusManaVector builds a consensus base mana vector in the past.
 func GetPastConsensusManaVector(t time.Time) (*mana.ConsensusBaseManaVector, error) {
 	cbmvPast := &mana.ConsensusBaseManaVector{}
+	cachedObj := consensusBaseManaPastVectorMetadataStorage.Get([]byte(mana.ConsensusBaseManaPastVectorMetadataStorageKey))
+	cachedMetadata := &mana.CachedConsensusBasePastManaVectorMetadata{CachedObject: cachedObj}
+	defer cachedMetadata.Release()
+
+	if cachedMetadata.Exists() {
+		metadata := cachedMetadata.Unwrap()
+		if t.After(metadata.Timestamp) {
+			consensusBaseManaPastVectorStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+				cachedPbm := &mana.CachedPersistableBaseMana{CachedObject: cachedObject}
+				defer cachedPbm.Release()
+				p := cachedPbm.Unwrap()
+				err := cbmvPast.FromPersistable(p)
+				if err != nil {
+					log.Errorf("error while restoring %s mana vector from storage: %w", mana.ConsensusMana.String(), err)
+					cbmvPast = &mana.ConsensusBaseManaVector{}
+					return false
+				}
+				return true
+			})
+		}
+	}
+
 	var eventLogs []mana.Event
 	var readErr error
 	consensusEventsLogStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		cachedPe := &mana.CachedPersistableEvent{CachedObject: cachedObject}
-		var err error
 		pe := cachedPe.Unwrap()
 		defer cachedPe.Release()
 		if pe.Time.After(t) {
 			return false
 		}
+
+		// already consumed in stored base mana vector.
+		if cachedMetadata.Exists() && cbmvPast.Size() > 0 {
+			metadata := cachedMetadata.Unwrap()
+			if pe.Time.Before(metadata.Timestamp) {
+				return true
+			}
+		}
+
 		ev, err := mana.FromPersistableEvent(pe)
 		if err != nil {
 			readErr = err
@@ -437,10 +467,13 @@ func GetPastConsensusManaVector(t time.Time) (*mana.ConsensusBaseManaVector, err
 		Timestamp: t,
 		Index:     int64(index),
 	}
-	if err = consensusBaseManaPastVectorMetadataStorage.Prune(); err != nil {
-		return nil, err
+
+	if !cachedMetadata.Exists() {
+		consensusBaseManaPastVectorMetadataStorage.Store(metadata)
+	} else {
+		m := cachedMetadata.Unwrap()
+		m.Update(metadata)
 	}
-	consensusBaseManaPastVectorMetadataStorage.Store(metadata).Release()
 
 	// TODO: delete logs? what if we want to go further in the past
 	//consensusEventLogs = consensusEventLogs[0:consumedLogs]

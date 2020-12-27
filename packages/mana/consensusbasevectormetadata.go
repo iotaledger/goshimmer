@@ -1,11 +1,14 @@
 package mana
 
 import (
-	"strconv"
 	"time"
 
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
+)
+
+const (
+	ConsensusBaseManaPastVectorMetadataStorageKey = "consensusBaseManaVectorMetadata"
 )
 
 // ConsensusBasePastManaVectorMetadata holds metadata for the past consensus mana vector.
@@ -40,7 +43,7 @@ func (c *ConsensusBasePastManaVectorMetadata) Update(other objectstorage.Storabl
 
 // ObjectStorageKey returns the key of the metadata.
 func (c *ConsensusBasePastManaVectorMetadata) ObjectStorageKey() []byte {
-	return []byte(strconv.FormatInt(c.Index, 10))
+	return []byte(ConsensusBaseManaPastVectorMetadataStorageKey)
 }
 
 // ObjectStorageValue returns the bytes of the metadata.
@@ -71,6 +74,39 @@ func parseMetadata(marshalUtil *marshalutil.MarshalUtil) (result *ConsensusBaseP
 // FromMetadataObjectStorage unmsarshalls bytes into a metadata.
 func FromMetadataObjectStorage(_ []byte, data []byte) (result objectstorage.StorableObject, err error) {
 	return parseMetadata(marshalutil.New(data))
+}
+
+// CachedConsensusBasePastManaVectorMetadata represents cached persistable event.
+type CachedConsensusBasePastManaVectorMetadata struct {
+	objectstorage.CachedObject
+}
+
+// Retain marks this CachedConsensusBasePastManaVectorMetadata to still be in use by the program.
+func (c *CachedConsensusBasePastManaVectorMetadata) Retain() *CachedConsensusBasePastManaVectorMetadata {
+	return &CachedConsensusBasePastManaVectorMetadata{c.CachedObject.Retain()}
+}
+
+// Consume unwraps the CachedConsensusBasePastManaVectorMetadata and passes a type-casted version to the consumer (if the object is not empty - it
+// exists). It automatically releases the object when the consumer finishes.
+func (c *CachedConsensusBasePastManaVectorMetadata) Consume(consumer func(pbm *ConsensusBasePastManaVectorMetadata)) bool {
+	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*ConsensusBasePastManaVectorMetadata))
+	})
+}
+
+// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
+func (c *CachedConsensusBasePastManaVectorMetadata) Unwrap() *ConsensusBasePastManaVectorMetadata {
+	untypedPbm := c.Get()
+	if untypedPbm == nil {
+		return nil
+	}
+
+	typeCastedPbm := untypedPbm.(*ConsensusBasePastManaVectorMetadata)
+	if typeCastedPbm == nil || typeCastedPbm.IsDeleted() {
+		return nil
+	}
+
+	return typeCastedPbm
 }
 
 var _ objectstorage.StorableObject = &ConsensusBasePastManaVectorMetadata{}

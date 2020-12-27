@@ -39,7 +39,9 @@ func (c *ConsensusBaseManaVector) Has(nodeID identity.ID) bool {
 // BuildPastBaseVector builds a consensus base mana vector from past events upto time `t`
 func (c *ConsensusBaseManaVector) BuildPastBaseVector(eventsLog []Event, t time.Time) (int, error) {
 	emptyID := identity.ID{}
-	c.vector = make(map[identity.ID]*ConsensusBaseMana)
+	if len(c.vector) == 0 {
+		c.vector = make(map[identity.ID]*ConsensusBaseMana)
+	}
 	var i int
 	for _, _ev := range eventsLog {
 		switch _ev.Type() {
