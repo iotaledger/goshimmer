@@ -87,6 +87,8 @@ func startTipBroadcaster(shutdownSignal <-chan struct{}) {
 	defer tipSelector.Events.TipAdded.Detach(addClosure)
 
 	log.Infof("%s started: interval=%v", tipsBroadcasterName, tipsBroadcasterInterval)
+	// Do not wait for a graceful shutdown since not sending the last tips when shutting down is not a critical
+	// operation that later modules rely on and this might take a long time if there are network timeouts.
 	timeutil.NewTicker(broadcastNextOldestTip, tipsBroadcasterInterval, shutdownSignal).WaitForShutdown()
 	log.Infof("Stopping %s ...", tipsBroadcasterName)
 }
