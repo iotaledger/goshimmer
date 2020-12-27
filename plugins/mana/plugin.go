@@ -395,7 +395,7 @@ func GetPendingMana(value float64, n time.Duration) float64 {
 	return value * (1 - math.Pow(math.E, -mana.Decay*(n.Seconds())))
 }
 
-// GetPastConsensusManaVector builds a consensus base mana vector in the p  ast.
+// GetPastConsensusManaVector builds a consensus base mana vector in the past.
 func GetPastConsensusManaVector(t time.Time) (*mana.ConsensusBaseManaVector, error) {
 	cbmvPast := &mana.ConsensusBaseManaVector{}
 	var eventLogs []mana.Event
@@ -437,14 +437,10 @@ func GetPastConsensusManaVector(t time.Time) (*mana.ConsensusBaseManaVector, err
 		Timestamp: t,
 		Index:     int64(index),
 	}
-	cachedMetadata := consensusBaseManaPastVectorMetadataStorage.Get(metadata.ObjectStorageKey())
-	defer cachedMetadata.Release()
-	if !cachedMetadata.Exists() {
-		consensusBaseManaPastVectorMetadataStorage.Store(metadata)
-	} else {
-		m := cachedMetadata.Get().(*mana.ConsensusBasePastManaVectorMetadata)
-		m.Update(metadata)
+	if err = consensusBaseManaPastVectorMetadataStorage.Prune(); err != nil {
+		return nil, err
 	}
+	consensusBaseManaPastVectorMetadataStorage.Store(metadata).Release()
 
 	// TODO: delete logs? what if we want to go further in the past
 	//consensusEventLogs = consensusEventLogs[0:consumedLogs]
