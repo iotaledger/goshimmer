@@ -535,6 +535,77 @@ func TestBranchDAG_SetBranchLiked(t *testing.T) {
 	eventMock.AssertExpectations(t)
 }
 
+func TestBranchDAG_SetBranchFinalized(t *testing.T) {
+	branchDAG := NewBranchDAG(mapdb.NewMapDB())
+	err := branchDAG.Prune()
+	require.NoError(t, err)
+	defer branchDAG.Shutdown()
+
+	eventMock := newEventMock(t, branchDAG)
+	defer eventMock.DetachAll()
+
+	testBranchDAG, err := newTestBranchDAG(branchDAG)
+	require.NoError(t, err)
+	defer testBranchDAG.Release()
+	testBranchDAG.AssertInitialState(t)
+	testBranchDAG.RegisterDebugAliases(eventMock)
+
+	eventMock.Expect("BranchPreferred", testBranchDAG.branch2)
+	eventMock.Expect("BranchPreferred", testBranchDAG.branch7)
+	eventMock.Expect("BranchPreferred", testBranchDAG.branch12)
+	eventMock.Expect("BranchLiked", testBranchDAG.branch2)
+	eventMock.Expect("BranchLiked", testBranchDAG.branch7)
+	eventMock.Expect("BranchLiked", testBranchDAG.branch12)
+	eventMock.Expect("BranchPreferred", testBranchDAG.branch5)
+	eventMock.Expect("BranchLiked", testBranchDAG.branch5)
+	eventMock.Expect("BranchPreferred", testBranchDAG.branch9)
+	eventMock.Expect("BranchPreferred", testBranchDAG.branch15)
+	eventMock.Expect("BranchPreferred", testBranchDAG.branch16)
+	eventMock.Expect("BranchLiked", testBranchDAG.branch9)
+	eventMock.Expect("BranchLiked", testBranchDAG.branch15)
+	eventMock.Expect("BranchLiked", testBranchDAG.branch16)
+
+	modified, err := branchDAG.SetBranchLiked(testBranchDAG.branch16.ID(), true)
+	assert.NoError(t, err)
+	assert.True(t, modified)
+
+	assert.True(t, testBranchDAG.branch2.Preferred())
+	assert.True(t, testBranchDAG.branch2.Liked())
+	assert.True(t, testBranchDAG.branch7.Preferred())
+	assert.True(t, testBranchDAG.branch7.Liked())
+	assert.True(t, testBranchDAG.branch12.Preferred())
+	assert.True(t, testBranchDAG.branch12.Liked())
+	assert.True(t, testBranchDAG.branch5.Preferred())
+	assert.True(t, testBranchDAG.branch5.Liked())
+	assert.True(t, testBranchDAG.branch9.Preferred())
+	assert.True(t, testBranchDAG.branch9.Liked())
+	assert.True(t, testBranchDAG.branch15.Preferred())
+	assert.True(t, testBranchDAG.branch15.Liked())
+	assert.True(t, testBranchDAG.branch16.Preferred())
+	assert.True(t, testBranchDAG.branch16.Liked())
+
+	eventMock.Expect("BranchFinalized", testBranchDAG.branch4)
+	eventMock.Expect("BranchFinalized", testBranchDAG.branch5)
+	eventMock.Expect("BranchFinalized", testBranchDAG.branch6)
+	eventMock.Expect("BranchFinalized", testBranchDAG.branch7)
+	eventMock.Expect("BranchFinalized", testBranchDAG.branch8)
+	eventMock.Expect("BranchFinalized", testBranchDAG.branch9)
+	eventMock.Expect("BranchRejected", testBranchDAG.branch4)
+	eventMock.Expect("BranchRejected", testBranchDAG.branch6)
+	eventMock.Expect("BranchRejected", testBranchDAG.branch8)
+	eventMock.Expect("BranchRejected", testBranchDAG.branch10)
+	eventMock.Expect("BranchRejected", testBranchDAG.branch13)
+	eventMock.Expect("BranchRejected", testBranchDAG.branch14)
+	eventMock.Expect("BranchConfirmed", testBranchDAG.branch7)
+
+	modified, err = branchDAG.SetBranchFinalized(testBranchDAG.branch9.ID(), true)
+	assert.NoError(t, err)
+	assert.True(t, modified)
+
+	// check that all events have been triggered
+	eventMock.AssertExpectations(t)
+}
+
 func TestBranchDAG_SetBranchPreferred2(t *testing.T) {
 	branchDAG := NewBranchDAG(mapdb.NewMapDB())
 	err := branchDAG.Prune()
