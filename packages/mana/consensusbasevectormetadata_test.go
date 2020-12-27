@@ -1,7 +1,6 @@
 package mana
 
 import (
-	"strconv"
 	"testing"
 	"time"
 
@@ -20,7 +19,7 @@ func TestConsensusBasePastManaVectorMetadata_Bytes(t *testing.T) {
 
 func TestConsensusBasePastManaVectorMetadata_ObjectStorageKey(t *testing.T) {
 	c := &ConsensusBasePastManaVectorMetadata{}
-	key := []byte(strconv.FormatInt(c.Index, 10))
+	key := []byte(ConsensusBaseManaPastVectorMetadataStorageKey)
 	assert.Equal(t, key, c.ObjectStorageKey(), "should be equal")
 }
 
