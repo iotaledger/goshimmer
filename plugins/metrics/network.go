@@ -44,6 +44,12 @@ func AnalysisOutboundBytes() uint64 {
 	return analysisOutboundBytes.Load()
 }
 
+func measureGossipTraffic() {
+	g := gossipCurrentTraffic()
+	gossipCurrentRx.Store(g.BytesRead)
+	gossipCurrentTx.Store(g.BytesWritten)
+}
+
 type gossipTrafficMetric struct {
 	BytesRead    uint64
 	BytesWritten uint64
