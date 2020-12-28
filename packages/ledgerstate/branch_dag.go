@@ -511,6 +511,7 @@ func (b *BranchDAG) setBranchLiked(cachedBranch *CachedBranch, liked bool) (modi
 		// start with liking the parents (like propagates from past to present)
 		for parentBranchID := range branch.Parents() {
 			if _, err = b.setBranchLiked(b.Branch(parentBranchID), true); err != nil {
+				err = xerrors.Errorf("failed to set liked status of parent Branch with %s: %w", parentBranchID, err)
 				return
 			}
 		}
@@ -552,7 +553,7 @@ func (b *BranchDAG) setBranchLiked(cachedBranch *CachedBranch, liked bool) (modi
 		}
 	case false:
 		// abort if the Branch is already not preferred
-		if branch.SetPreferred(false) {
+		if !branch.SetPreferred(false) {
 			return
 		}
 
@@ -701,6 +702,8 @@ func (b *BranchDAG) updatePreferredOfAggregatedChildBranches(branchID BranchID, 
 	return
 }
 
+// updatePreferredOfAggregatedBranch is an internal utility function that updates the preferred status of a single
+// aggregated Branch.
 func (b *BranchDAG) updatePreferredOfAggregatedBranch(currentCachedBranch *CachedBranch, preferred bool) (err error) {
 	// release current CachedBranch
 	defer currentCachedBranch.Release()
