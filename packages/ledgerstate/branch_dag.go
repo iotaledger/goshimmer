@@ -18,8 +18,7 @@ import (
 // region BranchDAG ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // BranchDAG represents the DAG of Branches which contains the business logic to manage the creation and maintenance of
-// the Branches which represents containers for the different perceptions about the ledger state that exist in the
-// tangle.
+// the Branches which represents containers for the different perceptions of the ledger state that exist in the tangle.
 type BranchDAG struct {
 	// Events is a container for all of the BranchDAG related events.
 	Events                *BranchDAGEvents
