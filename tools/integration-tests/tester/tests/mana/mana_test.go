@@ -117,3 +117,59 @@ func TestAPI(t *testing.T) {
 	})
 	require.True(t, fail)
 }
+
+func TestEventPersistence(t *testing.T) {
+	n, err := f.CreateNetwork("mana_TestEventPersistence", 1, 0, framework.CreateNetworkConfig{Faucet: true, Mana: true})
+	require.NoError(t, err)
+	defer tests.ShutdownNetwork(t, n)
+
+	peers := n.Peers()
+
+	// wait for faucet to move funds and trigger events
+	time.Sleep(10 * time.Second)
+
+	err = peers[0].Stop()
+	require.NoError(t, err)
+	err = peers[0].Start()
+	require.NoError(t, err)
+
+	// wait for container to start
+	time.Sleep(10 * time.Second)
+
+	nodeIDStr := base58.Encode(peers[0].ID().Bytes())
+	res, err := peers[0].GetConsensusEventLogs([]string{nodeIDStr})
+	require.NoError(t, err)
+	logs, found := res.Logs[nodeIDStr]
+	require.True(t, found)
+	require.Greater(t, len(logs.Pledge), 0)
+}
+
+func TestConsensusManaInThePast(t *testing.T) {
+	n, err := f.CreateNetwork("mana_TestConsensusManaInThePast", 2, 1, framework.CreateNetworkConfig{Faucet: true, Mana: true})
+	require.NoError(t, err)
+	defer tests.ShutdownNetwork(t, n)
+
+	peers := n.Peers()
+
+	// wait for faucet to move funds and move mana
+	time.Sleep(5 * time.Second)
+
+	// send funds
+	tests.SendTransactionFromFaucet(t, peers[:], 100)
+	time.Sleep(10 * time.Second)
+	timeInPast1 := time.Now()
+	//manaInPast1, err := peers[0].GetAllMana()
+	//require.NoError(t, err)
+
+	// move more funds to update base mana vectors
+	tests.SendTransactionFromFaucet(t, peers[:], 50)
+	time.Sleep(10 * time.Second)
+
+	// calculate mana in past1. should equal mana at timeInPast1
+	res1, err := peers[0].GetPastConsensusManaVector(timeInPast1.Unix())
+	require.NoError(t, err)
+	//require.Equal(t, manaInPast1.Consensus, res1.Consensus)
+	for _, c := range res1.Consensus {
+		require.Greater(t, c.Mana, 0)
+	}
+}

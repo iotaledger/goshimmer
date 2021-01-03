@@ -112,15 +112,15 @@ func FromPersistableEvent(p *PersistableEvent) (Event, error) {
 		}
 		return pledgeEvent, nil
 	}
-	if p.Type == EventTypePledge {
-		pledgeEvent := &RevokedEvent{
+	if p.Type == EventTypeRevoke {
+		revokeEvent := &RevokedEvent{
 			NodeID:        p.NodeID,
 			Amount:        p.Amount,
 			Time:          p.Time,
 			ManaType:      p.ManaType,
 			TransactionID: p.TransactionID,
 		}
-		return pledgeEvent, nil
+		return revokeEvent, nil
 	}
 	return nil, ErrUnknownManaEvent
 }

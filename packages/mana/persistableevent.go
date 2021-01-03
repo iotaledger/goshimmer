@@ -47,7 +47,7 @@ func (p *PersistableEvent) Update(objectstorage.StorableObject) {
 
 // ObjectStorageKey returns the key of the persistable mana.
 func (p *PersistableEvent) ObjectStorageKey() []byte {
-	return []byte(p.TransactionID.String() + p.Time.String() + p.NodeID.String())
+	return p.Bytes()
 }
 
 // ObjectStorageValue returns the bytes of the event.

@@ -182,9 +182,10 @@ func run(_ *node.Plugin) {
 		readStoredManaVectors()
 		pruneStorages()
 		<-shutdownSignal
+		log.Info("stopping ", PluginName)
 		storeManaVectors()
 		shutdownStorages()
-	}, shutdown.PriorityTangle); err != nil {
+	}, shutdown.PriorityFPC); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
 }
@@ -395,9 +396,72 @@ func GetPendingMana(value float64, n time.Duration) float64 {
 	return value * (1 - math.Pow(math.E, -mana.Decay*(n.Seconds())))
 }
 
+// GetLoggedEvents gets the events logs for the node IDs specified. If none is specified, it returns the logs for all nodes.
+func GetLoggedEvents(IDs []identity.ID) (map[identity.ID]*EventsLogs, error) {
+	logs := make(map[identity.ID]*EventsLogs)
+	lookup := make(map[identity.ID]bool)
+	getAll := true
+
+	if len(IDs) > 0 {
+		getAll = false
+		for _, nodeID := range IDs {
+			lookup[nodeID] = true
+		}
+	}
+
+	var readErr error
+	consensusEventsLogStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		cachedPe := &mana.CachedPersistableEvent{CachedObject: cachedObject}
+		defer cachedPe.Release()
+		pbm := cachedPe.Unwrap()
+
+		if !getAll {
+			if !lookup[pbm.NodeID] {
+				return true
+			}
+		}
+
+		if _, found := logs[pbm.NodeID]; !found {
+			logs[pbm.NodeID] = &EventsLogs{}
+		}
+
+		ev, err := mana.FromPersistableEvent(pbm)
+		if err != nil {
+			readErr = err
+			return false
+		}
+
+		switch ev.Type() {
+		case mana.EventTypePledge:
+			logs[pbm.NodeID].Pledge = append(logs[pbm.NodeID].Pledge, ev.(*mana.PledgedEvent))
+		case mana.EventTypeRevoke:
+			logs[pbm.NodeID].Revoke = append(logs[pbm.NodeID].Revoke, ev.(*mana.RevokedEvent))
+		default:
+			readErr = mana.ErrUnknownManaEvent
+			return false
+		}
+		return true
+	})
+
+	return logs, readErr
+}
+
+// GetPastConsensusManaVectorMetadata gets the past consensus mana vector metadata.
+func GetPastConsensusManaVectorMetadata() mana.ConsensusBasePastManaVectorMetadata {
+	cachedObj := consensusBaseManaPastVectorMetadataStorage.Get([]byte(mana.ConsensusBaseManaPastVectorMetadataStorageKey))
+	cachedMetadata := &mana.CachedConsensusBasePastManaVectorMetadata{CachedObject: cachedObj}
+	defer cachedMetadata.Release()
+	metadata := cachedMetadata.Unwrap()
+	return *metadata
+}
+
 // GetPastConsensusManaVector builds a consensus base mana vector in the past.
 func GetPastConsensusManaVector(t time.Time) (*mana.ConsensusBaseManaVector, error) {
-	cbmvPast := &mana.ConsensusBaseManaVector{}
+	baseManaVector, err := mana.NewBaseManaVector(mana.ConsensusMana)
+	if err != nil {
+		return nil, err
+	}
+	cbmvPast := baseManaVector.(*mana.ConsensusBaseManaVector)
 	cachedObj := consensusBaseManaPastVectorMetadataStorage.Get([]byte(mana.ConsensusBaseManaPastVectorMetadataStorageKey))
 	cachedMetadata := &mana.CachedConsensusBasePastManaVectorMetadata{CachedObject: cachedObj}
 	defer cachedMetadata.Release()
@@ -412,7 +476,8 @@ func GetPastConsensusManaVector(t time.Time) (*mana.ConsensusBaseManaVector, err
 				err := cbmvPast.FromPersistable(p)
 				if err != nil {
 					log.Errorf("error while restoring %s mana vector from storage: %w", mana.ConsensusMana.String(), err)
-					cbmvPast = &mana.ConsensusBaseManaVector{}
+					baseManaVector, _ := mana.NewBaseManaVector(mana.ConsensusMana)
+					cbmvPast = baseManaVector.(*mana.ConsensusBaseManaVector)
 					return false
 				}
 				return true
@@ -424,10 +489,10 @@ func GetPastConsensusManaVector(t time.Time) (*mana.ConsensusBaseManaVector, err
 	var readErr error
 	consensusEventsLogStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		cachedPe := &mana.CachedPersistableEvent{CachedObject: cachedObject}
-		pe := cachedPe.Unwrap()
 		defer cachedPe.Release()
+		pe := cachedPe.Unwrap()
 		if pe.Time.After(t) {
-			return false
+			return true
 		}
 
 		// already consumed in stored base mana vector.
@@ -449,7 +514,34 @@ func GetPastConsensusManaVector(t time.Time) (*mana.ConsensusBaseManaVector, err
 	if readErr != nil {
 		return nil, readErr
 	}
-	index, err := cbmvPast.BuildPastBaseVector(eventLogs, t)
+	sort.Slice(eventLogs, func(i, j int) bool {
+		var timeI, timeJ time.Time
+		var typeI, _ byte
+		switch eventLogs[i].Type() {
+		case mana.EventTypePledge:
+			timeI = eventLogs[i].(*mana.PledgedEvent).Time
+			typeI = mana.EventTypePledge
+		case mana.EventTypeRevoke:
+			timeI = eventLogs[i].(*mana.RevokedEvent).Time
+			typeI = mana.EventTypeRevoke
+		}
+
+		switch eventLogs[j].Type() {
+		case mana.EventTypePledge:
+			timeJ = eventLogs[j].(*mana.PledgedEvent).Time
+			_ = mana.EventTypePledge
+		case mana.EventTypeRevoke:
+			timeJ = eventLogs[j].(*mana.RevokedEvent).Time
+			_ = mana.EventTypeRevoke
+		}
+
+		if !timeI.Equal(timeJ) {
+			return timeI.Before(timeJ)
+		}
+
+		return typeI == mana.EventTypeRevoke
+	})
+	consumed, err := cbmvPast.BuildPastBaseVector(eventLogs, t)
 	if err != nil {
 		return nil, err
 	}
@@ -462,14 +554,19 @@ func GetPastConsensusManaVector(t time.Time) (*mana.ConsensusBaseManaVector, err
 		consensusBaseManaPastVectorStorage.Store(p).Release()
 	}
 
+	err = cbmvPast.UpdateAll(t)
+	if err != nil {
+		return nil, err
+	}
+
 	//store the metadata
 	metadata := &mana.ConsensusBasePastManaVectorMetadata{
 		Timestamp: t,
-		Index:     int64(index),
+		Consumed:  int64(consumed),
 	}
 
 	if !cachedMetadata.Exists() {
-		consensusBaseManaPastVectorMetadataStorage.Store(metadata)
+		consensusBaseManaPastVectorMetadataStorage.Store(metadata).Release()
 	} else {
 		m := cachedMetadata.Unwrap()
 		m.Update(metadata)
@@ -484,4 +581,10 @@ func GetPastConsensusManaVector(t time.Time) (*mana.ConsensusBaseManaVector, err
 type AllowedPledge struct {
 	IsFilterEnabled bool
 	Allowed         set.Set
+}
+
+// EventsLogs represents the events logs.
+type EventsLogs struct {
+	Pledge []*mana.PledgedEvent `json:"pledge"`
+	Revoke []*mana.RevokedEvent `json:"revoke"`
 }

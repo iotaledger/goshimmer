@@ -8,14 +8,15 @@ import (
 )
 
 const (
+	// ConsensusBaseManaPastVectorMetadataStorageKey is the key to the consensus base vector metadata storage.
 	ConsensusBaseManaPastVectorMetadataStorageKey = "consensusBaseManaVectorMetadata"
 )
 
 // ConsensusBasePastManaVectorMetadata holds metadata for the past consensus mana vector.
 type ConsensusBasePastManaVectorMetadata struct {
 	objectstorage.StorableObjectFlags
-	Timestamp time.Time
-	Index     int64
+	Timestamp time.Time `json:"timestamp"`
+	Consumed  int64     `json:"consumed"`
 	bytes     []byte
 }
 
@@ -27,7 +28,7 @@ func (c *ConsensusBasePastManaVectorMetadata) Bytes() []byte {
 	// create marshal helper
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteTime(c.Timestamp)
-	marshalUtil.WriteInt64(c.Index)
+	marshalUtil.WriteInt64(c.Consumed)
 	c.bytes = marshalUtil.Bytes()
 	return c.bytes
 }
@@ -35,7 +36,7 @@ func (c *ConsensusBasePastManaVectorMetadata) Bytes() []byte {
 // Update updates the metadata in storage.
 func (c *ConsensusBasePastManaVectorMetadata) Update(other objectstorage.StorableObject) {
 	metadata := other.(*ConsensusBasePastManaVectorMetadata)
-	c.Index = metadata.Index
+	c.Consumed = metadata.Consumed
 	c.Timestamp = metadata.Timestamp
 	c.Persist()
 	c.SetModified()
@@ -64,7 +65,7 @@ func parseMetadata(marshalUtil *marshalutil.MarshalUtil) (result *ConsensusBaseP
 	consumedBytes := marshalUtil.ReadOffset()
 	result = &ConsensusBasePastManaVectorMetadata{
 		Timestamp: timestamp,
-		Index:     eventsIndex,
+		Consumed:  eventsIndex,
 	}
 	result.bytes = make([]byte, consumedBytes)
 	copy(result.bytes, marshalUtil.Bytes())

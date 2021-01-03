@@ -86,7 +86,15 @@ func txInfoFromPledgeEvent(ev *PledgedEvent) *TxInfo {
 		PledgeID: map[Type]identity.ID{
 			ConsensusMana: ev.NodeID,
 		},
-		InputInfos: []InputInfo{{Amount: ev.Amount}},
+		InputInfos: []InputInfo{
+			{
+				TimeStamp: ev.Time,
+				Amount:    ev.Amount,
+				PledgeID: map[Type]identity.ID{
+					ConsensusMana: ev.NodeID,
+				},
+			},
+		},
 	}
 }
 
