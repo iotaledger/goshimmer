@@ -34,9 +34,11 @@ type OpinionGivers map[identity.ID]OpinionGiver
 // Query retrievs the opinions about the given conflicts and timestamps.
 func (o *OpinionGiver) Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (opinions vote.Opinions, err error) {
 	for i := 0; i < waitForStatement; i++ {
-		opinions, err = o.view.Query(ctx, conflictIDs, timestampIDs)
-		if err == nil {
-			return opinions, nil
+		if o.view != nil {
+			opinions, err = o.view.Query(ctx, conflictIDs, timestampIDs)
+			if err == nil {
+				return opinions, nil
+			}
 		}
 		time.Sleep(time.Second)
 	}
@@ -67,21 +69,16 @@ func OpinionGiverFunc() (givers []vote.OpinionGiver, err error) {
 			continue
 		}
 		if _, ok := opinionGiversMap[p.ID()]; !ok {
-			v := Registry().NodeView(p.ID())
 			opinionGiversMap[p.ID()] = &OpinionGiver{
 				id:   p.ID(),
-				view: v,
+				view: nil,
 			}
 		}
 		opinionGiversMap[p.ID()].pog = &PeerOpinionGiver{p: p}
 	}
 
 	for _, v := range opinionGiversMap {
-		opinionGivers = append(opinionGivers, &OpinionGiver{
-			id:   v.id,
-			view: v.view,
-			pog:  v.pog,
-		})
+		opinionGivers = append(opinionGivers, v)
 	}
 
 	return opinionGivers, nil
