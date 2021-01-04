@@ -170,6 +170,6 @@ func TestConsensusManaInThePast(t *testing.T) {
 	require.NoError(t, err)
 	//require.Equal(t, manaInPast1.Consensus, res1.Consensus)
 	for _, c := range res1.Consensus {
-		require.Greater(t, c.Mana, 0)
+		require.Greater(t, c.Mana, 0.0)
 	}
 }
