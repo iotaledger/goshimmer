@@ -17,6 +17,7 @@ const EDGE_COLOR_DEFAULT = "#ff7d6cff";
 const EDGE_COLOR_HIDE = "#ff7d6c40";
 const EDGE_COLOR_OUTGOING = "#336db5ff";
 const EDGE_COLOR_INCOMING = "#1c8d7fff";
+// default vertex color is #00ffff
 const VERTEX_COLOR_DEFAULT = "0x" + tinycolor("hsl(180, 100%, 50%)").toHex();
 const VERTEX_COLOR_ACTIVE = "0xcb4b16";
 const VERTEX_COLOR_IN_NEIGHBOR = "0x1c8d7f";
