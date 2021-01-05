@@ -3,6 +3,5 @@ export interface IPledgeMessage {
     nodeID: string;
     time: number;
     txID: string;
-    bm1: number;
-    bm2: number;
+    amount: number;
 }

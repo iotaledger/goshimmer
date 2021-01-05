@@ -10,6 +10,11 @@
     overflow: hidden;
   }
 
+  .card--header{
+    display: flex;
+    justify-content: space-between;
+  }
+
   .col + .col {
     margin-left: 10px;
   }

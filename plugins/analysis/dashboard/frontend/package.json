@@ -45,6 +45,7 @@
   },
   "dependencies": {
     "bootstrap": "^4.3.1",
+    "bootstrap-switch-button-react": "^1.2.0",
     "classnames": "^2.2.6",
     "mobx": "^5.15.0",
     "mobx-react": "^6.2.2",
@@ -56,6 +57,7 @@
     "react-router": "5.2.0",
     "react-router-dom": "5.2.0",
     "react-transition-group": "^4.4.1",
+    "tinycolor2": "^1.4.2",
     "vivagraphjs": "^0.12.0"
   }
 }

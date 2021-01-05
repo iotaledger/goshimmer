@@ -2,7 +2,6 @@ package dashboard
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -213,14 +212,4 @@ func createDisconnectNodesCallback(ws *websocket.Conn) func(event *analysisserve
 			log.Error(err.Error())
 		}
 	}
-}
-
-func sendJSON(ws *websocket.Conn, msg *wsmsg) error {
-	if err := ws.WriteJSON(msg); err != nil {
-		return err
-	}
-	if err := ws.SetWriteDeadline(time.Now().Add(webSocketWriteTimeout)); err != nil {
-		return err
-	}
-	return nil
 }
