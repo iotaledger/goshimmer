@@ -45,6 +45,7 @@ var (
 	consensusBaseManaPastVectorStorage         *objectstorage.ObjectStorage
 	consensusEventsLogStorage                  *objectstorage.ObjectStorage
 	consensusBaseManaPastVectorMetadataStorage *objectstorage.ObjectStorage
+	onTransactionConfirmedClosure              *events.Closure
 )
 
 // Plugin gets the plugin instance.
@@ -57,6 +58,8 @@ func Plugin() *node.Plugin {
 
 func configure(*node.Plugin) {
 	log = logger.NewLogger(PluginName)
+
+	onTransactionConfirmedClosure = events.NewClosure(onTransactionConfirmed)
 
 	allowedPledgeNodes = make(map[mana.Type]AllowedPledge)
 	baseManaVectors = make(map[mana.Type]mana.BaseManaVector)
@@ -90,7 +93,7 @@ func configure(*node.Plugin) {
 }
 
 func configureEvents() {
-	valuetransfers.Tangle().Events.TransactionConfirmed.Attach(events.NewClosure(onTransactionConfirmed))
+	valuetransfers.Tangle().Events.TransactionConfirmed.Attach(onTransactionConfirmedClosure)
 	mana.Events().Pledged.Attach(events.NewClosure(logPledgeEvent))
 	mana.Events().Revoked.Attach(events.NewClosure(logRevokeEvent))
 }
@@ -183,9 +186,10 @@ func run(_ *node.Plugin) {
 		pruneStorages()
 		<-shutdownSignal
 		log.Info("stopping ", PluginName)
+		valuetransfers.Tangle().Events.TransactionConfirmed.Detach(onTransactionConfirmedClosure)
 		storeManaVectors()
 		shutdownStorages()
-	}, shutdown.PriorityFPC); err != nil {
+	}, shutdown.PriorityTangle); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
 }
@@ -409,7 +413,7 @@ func GetLoggedEvents(IDs []identity.ID) (map[identity.ID]*EventsLogs, error) {
 		}
 	}
 
-	var readErr error
+	var err error
 	consensusEventsLogStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		cachedPe := &mana.CachedPersistableEvent{CachedObject: cachedObject}
 		defer cachedPe.Release()
@@ -425,9 +429,9 @@ func GetLoggedEvents(IDs []identity.ID) (map[identity.ID]*EventsLogs, error) {
 			logs[pbm.NodeID] = &EventsLogs{}
 		}
 
-		ev, err := mana.FromPersistableEvent(pbm)
+		var ev mana.Event
+		ev, err = mana.FromPersistableEvent(pbm)
 		if err != nil {
-			readErr = err
 			return false
 		}
 
@@ -437,13 +441,13 @@ func GetLoggedEvents(IDs []identity.ID) (map[identity.ID]*EventsLogs, error) {
 		case mana.EventTypeRevoke:
 			logs[pbm.NodeID].Revoke = append(logs[pbm.NodeID].Revoke, ev.(*mana.RevokedEvent))
 		default:
-			readErr = mana.ErrUnknownManaEvent
+			err = mana.ErrUnknownManaEvent
 			return false
 		}
 		return true
 	})
 
-	return logs, readErr
+	return logs, err
 }
 
 // GetPastConsensusManaVectorMetadata gets the past consensus mana vector metadata.
@@ -473,7 +477,7 @@ func GetPastConsensusManaVector(t time.Time) (*mana.ConsensusBaseManaVector, err
 				cachedPbm := &mana.CachedPersistableBaseMana{CachedObject: cachedObject}
 				defer cachedPbm.Release()
 				p := cachedPbm.Unwrap()
-				err := cbmvPast.FromPersistable(p)
+				err = cbmvPast.FromPersistable(p)
 				if err != nil {
 					log.Errorf("error while restoring %s mana vector from storage: %w", mana.ConsensusMana.String(), err)
 					baseManaVector, _ := mana.NewBaseManaVector(mana.ConsensusMana)
@@ -486,7 +490,6 @@ func GetPastConsensusManaVector(t time.Time) (*mana.ConsensusBaseManaVector, err
 	}
 
 	var eventLogs []mana.Event
-	var readErr error
 	consensusEventsLogStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		cachedPe := &mana.CachedPersistableEvent{CachedObject: cachedObject}
 		defer cachedPe.Release()
@@ -503,16 +506,16 @@ func GetPastConsensusManaVector(t time.Time) (*mana.ConsensusBaseManaVector, err
 			}
 		}
 
-		ev, err := mana.FromPersistableEvent(pe)
+		var ev mana.Event
+		ev, err = mana.FromPersistableEvent(pe)
 		if err != nil {
-			readErr = err
 			return false
 		}
 		eventLogs = append(eventLogs, ev)
 		return true
 	})
-	if readErr != nil {
-		return nil, readErr
+	if err != nil {
+		return nil, err
 	}
 	sort.Slice(eventLogs, func(i, j int) bool {
 		var timeI, timeJ time.Time
