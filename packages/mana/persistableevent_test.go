@@ -28,7 +28,7 @@ func TestPersistableEvent_Bytes(t *testing.T) {
 
 func TestPersistableEvent_ObjectStorageKey(t *testing.T) {
 	ev := &PersistableEvent{}
-	key := []byte(ev.TransactionID.String() + ev.Time.String() + ev.NodeID.String())
+	key := ev.Bytes()
 	assert.Equal(t, key, ev.ObjectStorageKey(), "should be equal")
 }
 
