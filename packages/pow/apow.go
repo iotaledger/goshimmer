@@ -33,6 +33,11 @@ type MessagesWindow struct {
 	sync.RWMutex
 }
 
+// getDifficulty returns the adaptive pow difficulty.
+func (m *MessagesWindow) getDifficulty(t time.Time) int {
+	return BaseDifficulty + int(AdaptiveRate*float64(m.recentMessages(t)))
+}
+
 // head returns the index of the oldest message within the time window t-ApowWindow.
 // If no messages are within the given interval, it returns -1.
 func (m *MessagesWindow) head(t time.Time) int {
@@ -57,19 +62,22 @@ func (m *MessagesWindow) recentMessages(t time.Time) int {
 	}
 }
 
+func (m *MessagesWindow) update(msg MessageAge) {
+	head := m.head(msg.Timestamp)
+	switch head {
+	case -1:
+		m.internalSlice = messagesWindow{msg}
+	default:
+		m.internalSlice = append(m.internalSlice[head:], msg)
+	}
+}
+
 // Add adds a new messageAge and eventually cleans the messagesWindow from older elements.
 func (m *MessagesWindow) Add(messageAge MessageAge) {
 	m.Lock()
 	defer m.Unlock()
 
-	head := m.head(messageAge.Timestamp)
-	switch head {
-	case -1:
-		m.internalSlice = messagesWindow{messageAge}
-	default:
-		m.internalSlice = append(m.internalSlice[head:], messageAge)
-	}
-
+	m.update(messageAge)
 }
 
 // AdaptiveDifficulty returns the adaptive proof-of-work difficulty.
@@ -77,5 +85,18 @@ func (m *MessagesWindow) AdaptiveDifficulty(t time.Time) int {
 	m.RLock()
 	defer m.RUnlock()
 
-	return BaseDifficulty + int(AdaptiveRate*float64(m.recentMessages(t)))
+	return m.getDifficulty(t)
+}
+
+// CheckDifficulty atomically checks the correctness of the pow difficult and updates the messagesWindow.
+func (m *MessagesWindow) CheckDifficulty(msg MessageAge, d int) bool {
+	m.Lock()
+	defer m.Unlock()
+
+	if m.getDifficulty(msg.Timestamp) <= d {
+		m.update(msg)
+		return true
+	}
+
+	return false
 }
