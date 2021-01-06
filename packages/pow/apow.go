@@ -57,13 +57,13 @@ func (m *MessagesWindow) messagesBefore(t time.Time, upperbound int) int {
 	return count
 }
 
-// recentMessagesBefore returns the number of recent messages before the given time.
-func (m *MessagesWindow) recentMessagesBefore(t time.Time) int {
+// messagesBeforeTime returns the number of recent messages before the given time.
+func (m *MessagesWindow) messagesBeforeTime(t time.Time) int {
 	return m.messagesBefore(t, m.timePosition(t))
 }
 
-// recentMessages returns the number of recent messages before the given msg and its position within the MessagesWindow.
-func (m *MessagesWindow) recentMessages(msg MessageAge) (int, int) {
+// messagesBeforeMsg returns the number of recent messages before the given msg and its position within the MessagesWindow.
+func (m *MessagesWindow) messagesBeforeMsg(msg MessageAge) (int, int) {
 	p := m.lexicalPosition(msg)
 
 	return m.messagesBefore(msg.Timestamp, p), p
@@ -137,7 +137,7 @@ func (m *MessagesWindow) AdaptiveDifficulty(t time.Time) int {
 	m.RLock()
 	defer m.RUnlock()
 
-	return m.getDifficulty(m.recentMessagesBefore(t))
+	return m.getDifficulty(m.messagesBeforeTime(t))
 }
 
 // CheckDifficulty atomically checks the correctness of the pow difficult and updates the messagesWindow.
@@ -145,7 +145,7 @@ func (m *MessagesWindow) CheckDifficulty(msg MessageAge, d int) bool {
 	m.Lock()
 	defer m.Unlock()
 
-	recentMessages, p := m.recentMessages(msg)
+	recentMessages, p := m.messagesBeforeMsg(msg)
 
 	if m.getDifficulty(recentMessages) <= d {
 		m.insert(msg, p)
