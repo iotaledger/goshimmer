@@ -23,9 +23,15 @@ type MessageAge struct {
 
 type messagesWindow []MessageAge
 
-func (m messagesWindow) Len() int           { return len(m) }
-func (m messagesWindow) Less(i, j int) bool { return m[i].Timestamp.Before(m[j].Timestamp) }
-func (m messagesWindow) Swap(i, j int)      { m[i], m[j] = m[j], m[i] }
+func (m messagesWindow) Len() int { return len(m) }
+func (m messagesWindow) Less(i, j int) bool {
+	if m[i].Timestamp.Before(m[j].Timestamp) ||
+		(m[i].Timestamp.Equal(m[j].Timestamp) && m[i].ID < m[j].ID) { // lexicographical check
+		return true
+	}
+	return false
+}
+func (m messagesWindow) Swap(i, j int) { m[i], m[j] = m[j], m[i] }
 
 // MessagesWindow is a concurrent-safe slice of MessageAge.
 type MessagesWindow struct {
