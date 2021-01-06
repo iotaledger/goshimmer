@@ -46,11 +46,10 @@ func (m *MessagesWindow) getDifficulty(recentMessages int) int {
 	return BaseDifficulty + int(AdaptiveRate*float64(recentMessages))
 }
 
-// recentMessagesBefore returns the number of recent messages before the given time.
-func (m *MessagesWindow) recentMessagesBefore(t time.Time) int {
-	p := m.timePosition(t)
+// messagesBefore returns the number of recent messages before the given upperbound and the given time.
+func (m *MessagesWindow) messagesBefore(t time.Time, upperbound int) int {
 	count := 0
-	for i := 0; i < p; i++ {
+	for i := 0; i < upperbound; i++ {
 		if m.internalSlice[i].Timestamp.Add(time.Duration(ApowWindow) * time.Second).After(t) {
 			count++
 		}
@@ -58,16 +57,16 @@ func (m *MessagesWindow) recentMessagesBefore(t time.Time) int {
 	return count
 }
 
+// recentMessagesBefore returns the number of recent messages before the given time.
+func (m *MessagesWindow) recentMessagesBefore(t time.Time) int {
+	return m.messagesBefore(t, m.timePosition(t))
+}
+
 // recentMessages returns the number of recent messages before the given msg and its position within the MessagesWindow.
 func (m *MessagesWindow) recentMessages(msg MessageAge) (int, int) {
 	p := m.lexicalPosition(msg)
-	count := 0
-	for i := 0; i < p; i++ {
-		if m.internalSlice[i].Timestamp.Add(time.Duration(ApowWindow) * time.Second).After(msg.Timestamp) {
-			count++
-		}
-	}
-	return count, p
+
+	return m.messagesBefore(msg.Timestamp, p), p
 }
 
 // timePosition returns the position of the given timestamp within the MessagesWindow.
