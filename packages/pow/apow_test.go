@@ -1,6 +1,7 @@
 package pow
 
 import (
+	"log"
 	"testing"
 	"time"
 
@@ -12,7 +13,7 @@ func setDefaultParameters() {
 	ApowWindow = 5
 	AdaptiveRate = 1
 }
-func TestAPoW(t *testing.T) {
+func TestAPoWIssuance(t *testing.T) {
 	setDefaultParameters()
 
 	mw := MessagesWindow{}
@@ -76,4 +77,24 @@ func TestAPoWCheck(t *testing.T) {
 
 	// must delete all the previous messages and return 1
 	assert.Equal(t, 1, len(mw.internalSlice))
+}
+
+func TestAPoWNotInOrder(t *testing.T) {
+	setDefaultParameters()
+
+	mw := MessagesWindow{}
+
+	now := time.Now()
+
+	msg1 := MessageAge{"1", now}
+	msg2 := MessageAge{"2", now.Add(1 * time.Second)}
+	msg3 := MessageAge{"3", now.Add(2 * time.Second)}
+
+	log.Println(mw.getDifficulty(msg3.Timestamp))
+	assert.True(t, mw.CheckDifficulty(msg3, BaseDifficulty))
+	log.Println(mw.getDifficulty(msg1.Timestamp))
+	assert.True(t, mw.CheckDifficulty(msg1, BaseDifficulty))
+	log.Println(mw.getDifficulty(msg2.Timestamp))
+	assert.True(t, mw.CheckDifficulty(msg2, BaseDifficulty+1))
+
 }

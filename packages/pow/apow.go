@@ -21,17 +21,19 @@ type MessageAge struct {
 	Timestamp time.Time
 }
 
-type messagesWindow []MessageAge
-
-func (m messagesWindow) Len() int { return len(m) }
-func (m messagesWindow) Less(i, j int) bool {
-	if m[i].Timestamp.Before(m[j].Timestamp) ||
-		(m[i].Timestamp.Equal(m[j].Timestamp) && m[i].ID < m[j].ID) { // lexicographical check
+func (m MessageAge) less(j MessageAge) bool {
+	if m.Timestamp.Before(j.Timestamp) ||
+		(m.Timestamp.Equal(j.Timestamp) && m.ID < j.ID) { // lexicographical check
 		return true
 	}
 	return false
 }
-func (m messagesWindow) Swap(i, j int) { m[i], m[j] = m[j], m[i] }
+
+type messagesWindow []MessageAge
+
+func (m messagesWindow) Len() int           { return len(m) }
+func (m messagesWindow) Less(i, j int) bool { return m[i].less(m[j]) }
+func (m messagesWindow) Swap(i, j int)      { m[i], m[j] = m[j], m[i] }
 
 // MessagesWindow is a concurrent-safe slice of MessageAge.
 type MessagesWindow struct {
@@ -41,49 +43,81 @@ type MessagesWindow struct {
 
 // getDifficulty returns the adaptive pow difficulty.
 func (m *MessagesWindow) getDifficulty(t time.Time) int {
-	return BaseDifficulty + int(AdaptiveRate*float64(m.recentMessages(t)))
+	return BaseDifficulty + int(AdaptiveRate*float64(m.recentMessagesBefore(t)))
 }
 
-// head returns the index of the oldest message within the time window t-ApowWindow.
-// If no messages are within the given interval, it returns -1.
-func (m *MessagesWindow) head(t time.Time) int {
+// recentMessagesBefore returns the number of recent messages before the given msg.
+func (m *MessagesWindow) recentMessagesBefore(t time.Time) int {
+	count := 0
+	for i := 0; i < m.timePosition(t); i++ {
+		if m.internalSlice[i].Timestamp.Add(time.Duration(ApowWindow) * time.Second).After(t) {
+			count++
+		}
+	}
+	return count
+}
+
+// timePosition returns the position of the given timestamp within the MessagesWindow.
+func (m *MessagesWindow) timePosition(t time.Time) int {
 	sort.Sort(m.internalSlice)
 
 	for i, v := range m.internalSlice {
-		if v.Timestamp.Add(time.Duration(ApowWindow) * time.Second).After(t) {
+		if t.Before(v.Timestamp) {
 			return i
 		}
 	}
-	return -1
+	return len(m.internalSlice)
 }
 
-// recentMessages returns the number of the recent messsages within the time window t-ApowWindow.
-func (m *MessagesWindow) recentMessages(t time.Time) int {
-	head := m.head(t)
-	switch head {
-	case -1:
-		return 0
+// lexicalPosition returns the position of the given msg within the MessagesWindow.
+func (m *MessagesWindow) lexicalPosition(msg MessageAge) int {
+	sort.Sort(m.internalSlice)
+
+	for i, v := range m.internalSlice {
+		if msg.less(v) {
+			return i
+		}
+	}
+	return len(m.internalSlice)
+}
+
+// insert inserts the given msg at the given position.
+func (m *MessagesWindow) insert(msg MessageAge, position int) {
+	switch position {
+	case 0:
+		m.internalSlice = append(messagesWindow{msg}, m.internalSlice...)
+	case len(m.internalSlice):
+		m.internalSlice = append(m.internalSlice, msg)
 	default:
-		return len(m.internalSlice[head:])
+		m.internalSlice = append(m.internalSlice[:position], append(messagesWindow{msg}, m.internalSlice[position:]...)...)
 	}
 }
 
-func (m *MessagesWindow) update(msg MessageAge) {
-	head := m.head(msg.Timestamp)
-	switch head {
-	case -1:
-		m.internalSlice = messagesWindow{msg}
-	default:
-		m.internalSlice = append(m.internalSlice[head:], msg)
+// clean removes messages older than the ApowWindow.
+func (m *MessagesWindow) clean() {
+	l := m.internalSlice.Len()
+	if l == 1 {
+		return
+	}
+
+	last := m.internalSlice[l-1].Timestamp
+
+	var i int
+	for i = l - 1; i >= 0; i-- {
+		if m.internalSlice[i].Timestamp.Add(time.Duration(ApowWindow)*time.Second).Before(last) ||
+			m.internalSlice[i].Timestamp.Add(time.Duration(ApowWindow)*time.Second).Equal(last) {
+			m.internalSlice = m.internalSlice[i+1:]
+		}
 	}
 }
 
 // Add adds a new messageAge and eventually cleans the messagesWindow from older elements.
-func (m *MessagesWindow) Add(messageAge MessageAge) {
+func (m *MessagesWindow) Add(msg MessageAge) {
 	m.Lock()
 	defer m.Unlock()
 
-	m.update(messageAge)
+	m.insert(msg, m.lexicalPosition(msg))
+	m.clean()
 }
 
 // AdaptiveDifficulty returns the adaptive proof-of-work difficulty.
@@ -100,7 +134,8 @@ func (m *MessagesWindow) CheckDifficulty(msg MessageAge, d int) bool {
 	defer m.Unlock()
 
 	if m.getDifficulty(msg.Timestamp) <= d {
-		m.update(msg)
+		m.insert(msg, m.lexicalPosition(msg))
+		m.clean()
 		return true
 	}
 
