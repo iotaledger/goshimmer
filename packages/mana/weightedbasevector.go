@@ -83,7 +83,7 @@ func (w *WeightedBaseManaVector) Book(txInfo *TxInfo) {
 			panic(fmt.Sprintf("Revoking (%f) eff base mana 1 from node %s results in negative balance", inputInfo.Amount, pledgeNodeID.String()))
 		}
 		// trigger events
-		Events().Revoked.Trigger(&RevokedEvent{pledgeNodeID, inputInfo.Amount, txInfo.TimeStamp, w.Type(), txInfo.TransactionID})
+		Events().Revoked.Trigger(&RevokedEvent{pledgeNodeID, inputInfo.Amount, txInfo.TimeStamp, w.Type(), txInfo.TransactionID, inputInfo.InputID})
 		Events().Updated.Trigger(&UpdatedEvent{pledgeNodeID, &oldMana, w.vector[pledgeNodeID], w.Type()})
 	}
 	pledgeNodeID := txInfo.PledgeID[w.Target()]

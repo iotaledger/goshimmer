@@ -125,6 +125,8 @@ func onTransactionConfirmed(cachedTransactionEvent *tangle.CachedTransactionEven
 			var consensusManaNodeID identity.ID
 			// get output object from storage
 			cachedInput := valuetransfers.Tangle().TransactionOutput(inputID)
+
+			var _inputInfo mana.InputInfo
 			// process it to be able to build an InputInfo struct
 			cachedInput.Consume(func(input *tangle.Output) {
 				// first, sum balances of the input, calculate total amount as well for later
@@ -142,17 +144,18 @@ func onTransactionConfirmed(cachedTransactionEvent *tangle.CachedTransactionEven
 						consensusManaNodeID = inputTx.ConsensusManaNodeID()
 					}
 				})
-			})
 
-			// build InputInfo for this particular input in the transaction
-			_inputInfo := mana.InputInfo{
-				TimeStamp: inputTimestamp,
-				Amount:    amount,
-				PledgeID: map[mana.Type]identity.ID{
-					mana.AccessMana:    accessManaNodeID,
-					mana.ConsensusMana: consensusManaNodeID,
-				},
-			}
+				// build InputInfo for this particular input in the transaction
+				_inputInfo = mana.InputInfo{
+					TimeStamp: inputTimestamp,
+					Amount:    amount,
+					PledgeID: map[mana.Type]identity.ID{
+						mana.AccessMana:    accessManaNodeID,
+						mana.ConsensusMana: consensusManaNodeID,
+					},
+					InputID: input.ID(),
+				}
+			})
 
 			inputInfos = append(inputInfos, _inputInfo)
 			return true

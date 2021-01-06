@@ -119,6 +119,7 @@ func FromPersistableEvent(p *PersistableEvent) (Event, error) {
 			Time:          p.Time,
 			ManaType:      p.ManaType,
 			TransactionID: p.TransactionID,
+			InputID:       p.InputID,
 		}
 		return revokeEvent, nil
 	}
@@ -139,6 +140,7 @@ type RevokedEvent struct {
 	Time          time.Time
 	ManaType      Type // shall only be consensus for now
 	TransactionID transaction.ID
+	InputID       transaction.OutputID
 }
 
 // RevokedEventJSON is a JSON serializable form of a RevokedEvent.
@@ -148,6 +150,7 @@ type RevokedEventJSON struct {
 	Time     int64   `json:"time"`
 	TxID     string  `json:"txID"`
 	Amount   float64 `json:"amount"`
+	InputID  string  `json:"inputID"`
 }
 
 // ToJSONSerializable returns a struct that can be serialized into JSON object.
@@ -158,6 +161,7 @@ func (r *RevokedEvent) ToJSONSerializable() interface{} {
 		Time:     r.Time.Unix(),
 		TxID:     r.TransactionID.String(),
 		Amount:   r.Amount,
+		InputID:  r.InputID.String(),
 	}
 }
 
@@ -170,6 +174,7 @@ func (r *RevokedEvent) ToPersistable() *PersistableEvent {
 		Time:          r.Time,
 		ManaType:      r.ManaType,
 		TransactionID: r.TransactionID,
+		InputID:       r.InputID,
 	}
 }
 

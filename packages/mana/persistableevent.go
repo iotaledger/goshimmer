@@ -20,6 +20,7 @@ type PersistableEvent struct {
 	Time          time.Time
 	ManaType      Type // access or consensus
 	TransactionID transaction.ID
+	InputID       transaction.OutputID // for revoke event
 	bytes         []byte
 }
 
@@ -36,6 +37,7 @@ func (p *PersistableEvent) Bytes() []byte {
 	marshalUtil.WriteTime(p.Time)
 	marshalUtil.WriteBytes(p.TransactionID.Bytes())
 	marshalUtil.WriteUint64(math.Float64bits(p.Amount))
+	marshalUtil.WriteBytes(p.InputID.Bytes())
 	p.bytes = marshalUtil.Bytes()
 	return p.bytes
 }
@@ -88,6 +90,12 @@ func parseEvent(marshalUtil *marshalutil.MarshalUtil) (result *PersistableEvent,
 		return
 	}
 	amount := math.Float64frombits(_amount)
+	inputIDBytes, err := marshalUtil.ReadBytes(transaction.OutputIDLength)
+	if err != nil {
+		return
+	}
+	inputID := transaction.OutputID{}
+	copy(inputID[:], inputIDBytes)
 	consumedBytes := marshalUtil.ReadOffset()
 
 	result = &PersistableEvent{
@@ -97,6 +105,7 @@ func parseEvent(marshalUtil *marshalutil.MarshalUtil) (result *PersistableEvent,
 		Time:          eventTime,
 		ManaType:      Type(manaType),
 		TransactionID: txID,
+		InputID:       inputID,
 	}
 	result.bytes = make([]byte, consumedBytes)
 	copy(result.bytes, marshalUtil.Bytes())

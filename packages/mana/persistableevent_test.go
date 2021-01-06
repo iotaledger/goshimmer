@@ -21,6 +21,7 @@ func TestPersistableEvent_Bytes(t *testing.T) {
 	marshalUtil.WriteTime(ev.Time)
 	marshalUtil.WriteBytes(ev.TransactionID.Bytes())
 	marshalUtil.WriteUint64(math.Float64bits(ev.Amount))
+	marshalUtil.WriteBytes(ev.InputID.Bytes())
 
 	bytes := marshalUtil.Bytes()
 	assert.Equal(t, bytes, ev.Bytes(), "should be equal")
