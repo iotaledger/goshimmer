@@ -1,7 +1,6 @@
 package pow
 
 import (
-	"log"
 	"testing"
 	"time"
 
@@ -25,7 +24,7 @@ func TestAPoWIssuance(t *testing.T) {
 	// testing with empty MessagesWindow, must return Base difficulty
 	assert.Equal(t, BaseDifficulty, mw.AdaptiveDifficulty(msg1.Timestamp))
 
-	mw.Add(msg1)
+	mw.Append(msg1)
 	// must append msg1 and return 1
 	assert.Equal(t, 1, len(mw.internalSlice))
 
@@ -34,7 +33,7 @@ func TestAPoWIssuance(t *testing.T) {
 	// must return Base difficulty + 1
 	assert.Equal(t, BaseDifficulty+1, mw.AdaptiveDifficulty(msg2.Timestamp))
 
-	mw.Add(msg2)
+	mw.Append(msg2)
 	// must append msg2 and return 2
 	assert.Equal(t, 2, len(mw.internalSlice))
 
@@ -42,7 +41,7 @@ func TestAPoWIssuance(t *testing.T) {
 	// must return Base difficulty
 	assert.Equal(t, BaseDifficulty, mw.AdaptiveDifficulty(now.Add(6*time.Second)))
 
-	mw.Add(msg3)
+	mw.Append(msg3)
 	// must delete all the previous messages and return 1
 	assert.Equal(t, 1, len(mw.internalSlice))
 }
@@ -90,11 +89,7 @@ func TestAPoWNotInOrder(t *testing.T) {
 	msg2 := MessageAge{"2", now.Add(1 * time.Second)}
 	msg3 := MessageAge{"3", now.Add(2 * time.Second)}
 
-	log.Println(mw.getDifficulty(msg3.Timestamp))
 	assert.True(t, mw.CheckDifficulty(msg3, BaseDifficulty))
-	log.Println(mw.getDifficulty(msg1.Timestamp))
 	assert.True(t, mw.CheckDifficulty(msg1, BaseDifficulty))
-	log.Println(mw.getDifficulty(msg2.Timestamp))
 	assert.True(t, mw.CheckDifficulty(msg2, BaseDifficulty+1))
-
 }

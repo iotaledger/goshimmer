@@ -42,19 +42,32 @@ type MessagesWindow struct {
 }
 
 // getDifficulty returns the adaptive pow difficulty.
-func (m *MessagesWindow) getDifficulty(t time.Time) int {
-	return BaseDifficulty + int(AdaptiveRate*float64(m.recentMessagesBefore(t)))
+func (m *MessagesWindow) getDifficulty(recentMessages int) int {
+	return BaseDifficulty + int(AdaptiveRate*float64(recentMessages))
 }
 
-// recentMessagesBefore returns the number of recent messages before the given msg.
+// recentMessagesBefore returns the number of recent messages before the given time.
 func (m *MessagesWindow) recentMessagesBefore(t time.Time) int {
+	p := m.timePosition(t)
 	count := 0
-	for i := 0; i < m.timePosition(t); i++ {
+	for i := 0; i < p; i++ {
 		if m.internalSlice[i].Timestamp.Add(time.Duration(ApowWindow) * time.Second).After(t) {
 			count++
 		}
 	}
 	return count
+}
+
+// recentMessages returns the number of recent messages before the given msg and its position within the MessagesWindow.
+func (m *MessagesWindow) recentMessages(msg MessageAge) (int, int) {
+	p := m.lexicalPosition(msg)
+	count := 0
+	for i := 0; i < p; i++ {
+		if m.internalSlice[i].Timestamp.Add(time.Duration(ApowWindow) * time.Second).After(msg.Timestamp) {
+			count++
+		}
+	}
+	return count, p
 }
 
 // timePosition returns the position of the given timestamp within the MessagesWindow.
@@ -111,12 +124,12 @@ func (m *MessagesWindow) clean() {
 	}
 }
 
-// Add adds a new messageAge and eventually cleans the messagesWindow from older elements.
-func (m *MessagesWindow) Add(msg MessageAge) {
+// Append adds a new messageAge and eventually cleans the messagesWindow from older elements.
+func (m *MessagesWindow) Append(msg MessageAge) {
 	m.Lock()
 	defer m.Unlock()
 
-	m.insert(msg, m.lexicalPosition(msg))
+	m.internalSlice = append(m.internalSlice, msg)
 	m.clean()
 }
 
@@ -125,7 +138,7 @@ func (m *MessagesWindow) AdaptiveDifficulty(t time.Time) int {
 	m.RLock()
 	defer m.RUnlock()
 
-	return m.getDifficulty(t)
+	return m.getDifficulty(m.recentMessagesBefore(t))
 }
 
 // CheckDifficulty atomically checks the correctness of the pow difficult and updates the messagesWindow.
@@ -133,8 +146,10 @@ func (m *MessagesWindow) CheckDifficulty(msg MessageAge, d int) bool {
 	m.Lock()
 	defer m.Unlock()
 
-	if m.getDifficulty(msg.Timestamp) <= d {
-		m.insert(msg, m.lexicalPosition(msg))
+	recentMessages, p := m.recentMessages(msg)
+
+	if m.getDifficulty(recentMessages) <= d {
+		m.insert(msg, p)
 		m.clean()
 		return true
 	}
