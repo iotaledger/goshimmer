@@ -61,9 +61,10 @@ func run(_ *node.Plugin) {
 
 	// create a background worker that update the metrics every second
 	if err := daemon.BackgroundWorker("Metrics Updater", func(shutdownSignal <-chan struct{}) {
-		defer log.Infof("Stopping Metrics Updater ... done")
 		if config.Node().Bool(CfgMetricsLocal) {
-			timeutil.Ticker(func() {
+			// Do not block until the Ticker is shutdown because we might want to start multiple Tickers and we can
+			// safely ignore the last execution when shutting down.
+			timeutil.NewTicker(func() {
 				measureCPUUsage()
 				measureMemUsage()
 				measureSynced()
@@ -71,17 +72,18 @@ func run(_ *node.Plugin) {
 				measureValueTips()
 				measureReceivedMPS()
 				measureRequestQueueSize()
-
-				// gossip network traffic
-				g := gossipCurrentTraffic()
-				gossipCurrentRx.Store(uint64(g.BytesRead))
-				gossipCurrentTx.Store(uint64(g.BytesWritten))
+				measureGossipTraffic()
 			}, 1*time.Second, shutdownSignal)
 		}
+
 		if config.Node().Bool(CfgMetricsGlobal) {
-			timeutil.Ticker(calculateNetworkDiameter, 1*time.Minute, shutdownSignal)
+			// Do not block until the Ticker is shutdown because we might want to start multiple Tickers and we can
+			// safely ignore the last execution when shutting down.
+			timeutil.NewTicker(calculateNetworkDiameter, 1*time.Minute, shutdownSignal)
 		}
-		log.Infof("Stopping Metrics Updater ...")
+
+		// Wait before terminating so we get correct log messages from the daemon regarding the shutdown order.
+		<-shutdownSignal
 	}, shutdown.PriorityMetrics); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
