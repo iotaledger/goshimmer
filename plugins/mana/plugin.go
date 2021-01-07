@@ -29,8 +29,9 @@ import (
 
 // PluginName is the name of the mana plugin.
 const (
-	PluginName      = "Mana"
-	manaScaleFactor = 1000 // scale floating point mana to int
+	PluginName                  = "Mana"
+	manaScaleFactor             = 1000 // scale floating point mana to int
+	maxConsensusEventsInStorage = 108000
 )
 
 var (
@@ -101,11 +102,13 @@ func configureEvents() {
 func logPledgeEvent(ev *mana.PledgedEvent) {
 	if ev.ManaType == mana.ConsensusMana {
 		consensusEventsLogStorage.Store(ev.ToPersistable()).Release()
+		checkConsensusEventStorage()
 	}
 }
 func logRevokeEvent(ev *mana.RevokedEvent) {
 	if ev.ManaType == mana.ConsensusMana {
 		consensusEventsLogStorage.Store(ev.ToPersistable()).Release()
+		checkConsensusEventStorage()
 	}
 }
 
@@ -547,17 +550,9 @@ func GetPastConsensusManaVector(t time.Time) (*mana.ConsensusBaseManaVector, err
 
 		return typeI == mana.EventTypeRevoke
 	})
-	consumed, err := cbmvPast.BuildPastBaseVector(eventLogs, t)
+	err = cbmvPast.BuildPastBaseVector(eventLogs, t)
 	if err != nil {
 		return nil, err
-	}
-
-	// store the most recent bmv
-	if err = consensusBaseManaPastVectorStorage.Prune(); err != nil {
-		return nil, err
-	}
-	for _, p := range cbmvPast.ToPersistables() {
-		consensusBaseManaPastVectorStorage.Store(p).Release()
 	}
 
 	err = cbmvPast.UpdateAll(t)
@@ -565,11 +560,38 @@ func GetPastConsensusManaVector(t time.Time) (*mana.ConsensusBaseManaVector, err
 		return nil, err
 	}
 
+	return cbmvPast, err
+}
+
+func checkConsensusEventStorage() {
+	size := consensusEventsLogStorage.GetSize()
+	if size < maxConsensusEventsInStorage {
+		return
+	}
+	t := time.Now()
+	cbmvPast, err := GetPastConsensusManaVector(t)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+
+	// store cbmv
+	if err = consensusBaseManaPastVectorStorage.Prune(); err != nil {
+		log.Infof("error pruning consensus base mana vector storage: %s", err)
+		return
+	}
+	for _, p := range cbmvPast.ToPersistables() {
+		consensusBaseManaPastVectorStorage.Store(p).Release()
+	}
+
 	//store the metadata
 	metadata := &mana.ConsensusBasePastManaVectorMetadata{
 		Timestamp: t,
-		Consumed:  int64(consumed),
 	}
+
+	cachedObj := consensusBaseManaPastVectorMetadataStorage.Get([]byte(mana.ConsensusBaseManaPastVectorMetadataStorageKey))
+	cachedMetadata := &mana.CachedConsensusBasePastManaVectorMetadata{CachedObject: cachedObj}
+	defer cachedMetadata.Release()
 
 	if !cachedMetadata.Exists() {
 		consensusBaseManaPastVectorMetadataStorage.Store(metadata).Release()
@@ -578,9 +600,9 @@ func GetPastConsensusManaVector(t time.Time) (*mana.ConsensusBaseManaVector, err
 		m.Update(metadata)
 	}
 
-	// TODO: delete logs? what if we want to go further in the past
-	//consensusEventLogs = consensusEventLogs[0:consumedLogs]
-	return cbmvPast, err
+	// TODO: save events to external storage
+	err = consensusEventsLogStorage.Prune()
+	log.Infof("error pruning consensus events storage: %s", err)
 }
 
 // AllowedPledge represents the nodes that mana is allowed to be pledged to.

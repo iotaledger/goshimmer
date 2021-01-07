@@ -12,7 +12,6 @@ func TestConsensusBasePastManaVectorMetadata_Bytes(t *testing.T) {
 	c := &ConsensusBasePastManaVectorMetadata{}
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteTime(c.Timestamp)
-	marshalUtil.WriteInt64(c.Consumed)
 	bytes := marshalUtil.Bytes()
 	assert.Equal(t, bytes, c.Bytes(), "should be equal")
 }
@@ -34,18 +33,15 @@ func TestConsensusBasePastManaVectorMetadata_Update(t *testing.T) {
 	c := &ConsensusBasePastManaVectorMetadata{}
 	c1 := &ConsensusBasePastManaVectorMetadata{
 		Timestamp: timestamp,
-		Consumed:  10,
 	}
 	c.Update(c1)
 	assert.Equal(t, timestamp, c.Timestamp)
-	assert.Equal(t, int64(10), c.Consumed)
 }
 
 func TestFromMetadataObjectStorage(t *testing.T) {
 	timestamp := time.Now()
 	c := &ConsensusBasePastManaVectorMetadata{
 		Timestamp: timestamp,
-		Consumed:  10,
 	}
 	res, err := FromMetadataObjectStorage([]byte{}, c.Bytes())
 	assert.NoError(t, err)

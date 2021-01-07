@@ -37,18 +37,17 @@ func (c *ConsensusBaseManaVector) Has(nodeID identity.ID) bool {
 }
 
 // BuildPastBaseVector builds a consensus base mana vector from past events upto time `t`
-func (c *ConsensusBaseManaVector) BuildPastBaseVector(eventsLog []Event, t time.Time) (int, error) {
+func (c *ConsensusBaseManaVector) BuildPastBaseVector(eventsLog []Event, t time.Time) error {
 	emptyID := identity.ID{}
 	if len(c.vector) == 0 {
 		c.vector = make(map[identity.ID]*ConsensusBaseMana)
 	}
-	var i int
 	for _, _ev := range eventsLog {
 		switch _ev.Type() {
 		case EventTypePledge:
 			ev := _ev.(*PledgedEvent)
 			if ev.Time.After(t) {
-				return i, nil
+				return nil
 			}
 			if ev.NodeID == emptyID {
 				continue
@@ -60,7 +59,7 @@ func (c *ConsensusBaseManaVector) BuildPastBaseVector(eventsLog []Event, t time.
 		case EventTypeRevoke:
 			ev := _ev.(*RevokedEvent)
 			if ev.Time.After(t) {
-				return i, nil
+				return nil
 			}
 			if ev.NodeID == emptyID {
 				continue
@@ -70,12 +69,11 @@ func (c *ConsensusBaseManaVector) BuildPastBaseVector(eventsLog []Event, t time.
 			}
 			err := c.vector[ev.NodeID].revoke(ev.Amount, ev.Time)
 			if err != nil {
-				return i, err
+				return err
 			}
 		}
-		i++
 	}
-	return i, nil
+	return nil
 }
 
 func txInfoFromPledgeEvent(ev *PledgedEvent) *TxInfo {

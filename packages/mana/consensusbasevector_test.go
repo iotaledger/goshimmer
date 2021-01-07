@@ -722,9 +722,8 @@ func TestConsensusBaseManaVector_BuildPastBaseVector(t *testing.T) {
 	_pastBmv, err := NewBaseManaVector(ConsensusMana)
 	assert.NoError(t, err)
 	pastBmv := _pastBmv.(*ConsensusBaseManaVector)
-	index, err := pastBmv.BuildPastBaseVector(eventsLog, txTime)
+	err = pastBmv.BuildPastBaseVector(eventsLog, txTime)
 	assert.NoError(t, err)
-	assert.Equal(t, len(eventsLog), index)
 
 	IDs := []identity.ID{inputPledgeID1, inputPledgeID2, inputPledgeID3}
 	current := map[identity.ID]*ConsensusBaseMana{}
