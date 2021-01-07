@@ -1,8 +1,10 @@
 package mana
 
 import (
+	"encoding/csv"
 	"math"
 	"math/rand"
+	"os"
 	"sort"
 	"sync"
 	"time"
@@ -466,10 +468,10 @@ func GetPastConsensusManaVectorMetadata() mana.ConsensusBasePastManaVectorMetada
 }
 
 // GetPastConsensusManaVector builds a consensus base mana vector in the past.
-func GetPastConsensusManaVector(t time.Time) (*mana.ConsensusBaseManaVector, error) {
+func GetPastConsensusManaVector(t time.Time) (*mana.ConsensusBaseManaVector, []mana.Event, error) {
 	baseManaVector, err := mana.NewBaseManaVector(mana.ConsensusMana)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	cbmvPast := baseManaVector.(*mana.ConsensusBaseManaVector)
 	cachedObj := consensusBaseManaPastVectorMetadataStorage.Get([]byte(mana.ConsensusBaseManaPastVectorMetadataStorageKey))
@@ -521,7 +523,7 @@ func GetPastConsensusManaVector(t time.Time) (*mana.ConsensusBaseManaVector, err
 		return true
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	sort.Slice(eventLogs, func(i, j int) bool {
 		var timeI, timeJ time.Time
@@ -552,15 +554,15 @@ func GetPastConsensusManaVector(t time.Time) (*mana.ConsensusBaseManaVector, err
 	})
 	err = cbmvPast.BuildPastBaseVector(eventLogs, t)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	err = cbmvPast.UpdateAll(t)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return cbmvPast, err
+	return cbmvPast, eventLogs, nil
 }
 
 func checkConsensusEventStorage() {
@@ -569,7 +571,7 @@ func checkConsensusEventStorage() {
 		return
 	}
 	t := time.Now()
-	cbmvPast, err := GetPastConsensusManaVector(t)
+	cbmvPast, logs, err := GetPastConsensusManaVector(t)
 	if err != nil {
 		log.Error(err)
 		return
@@ -577,7 +579,7 @@ func checkConsensusEventStorage() {
 
 	// store cbmv
 	if err = consensusBaseManaPastVectorStorage.Prune(); err != nil {
-		log.Infof("error pruning consensus base mana vector storage: %s", err)
+		log.Errorf("error pruning consensus base mana vector storage: %w", err)
 		return
 	}
 	for _, p := range cbmvPast.ToPersistables() {
@@ -600,9 +602,49 @@ func checkConsensusEventStorage() {
 		m.Update(metadata)
 	}
 
-	// TODO: save events to external storage
+	err = writeEventsToCSV(logs)
+	if err != nil {
+		log.Infof("error writing events to csv: %w", err)
+		return
+	}
 	err = consensusEventsLogStorage.Prune()
-	log.Infof("error pruning consensus events storage: %s", err)
+	if err != nil {
+		log.Infof("error pruning consensus events storage: %w", err)
+	}
+}
+
+func writeEventsToCSV(evs []mana.Event) error {
+	if len(evs) == 0 {
+		return nil
+	}
+	path := config.Node().GetString(CfgConsensusEventsCSV)
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0660)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	w := csv.NewWriter(f)
+	defer w.Flush()
+
+	fi, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	if fi.Size() == 0 {
+		values := evs[0].ToPersistable().ToStringKeys()
+		if err := w.Write(values); err != nil {
+			log.Infof("error writing to csv: %w", err)
+		}
+	}
+
+	for _, e := range evs {
+		values := e.ToPersistable().ToStringValues()
+		if err := w.Write(values); err != nil {
+			log.Infof("error writing to csv: %w", err)
+		}
+	}
+
+	return nil
 }
 
 // AllowedPledge represents the nodes that mana is allowed to be pledged to.

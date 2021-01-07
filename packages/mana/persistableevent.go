@@ -3,6 +3,7 @@ package mana
 import (
 	"crypto/sha256"
 	"math"
+	"strconv"
 	"time"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
@@ -22,6 +23,23 @@ type PersistableEvent struct {
 	TransactionID transaction.ID
 	InputID       transaction.OutputID // for revoke event
 	bytes         []byte
+}
+
+// ToStringKeys returns the keys (properties) of the persistable event as a list of strings.
+func (p *PersistableEvent) ToStringKeys() []string {
+	return []string{"type", "nodeID", "amount", "time", "manaType", "transactionID", "inputID"}
+}
+
+// ToStringValues returns the persistableEvents values as a string array.
+func (p *PersistableEvent) ToStringValues() []string {
+	_type := strconv.Itoa(int(p.Type))
+	_nodeID := p.NodeID.String()
+	_amount := strconv.FormatFloat(p.Amount, 'g', -1, 64)
+	_time := strconv.FormatInt(p.Time.Unix(), 10)
+	_manaType := p.ManaType.String()
+	_txID := p.TransactionID.String()
+	_inputID := p.InputID.String()
+	return []string{_type, _nodeID, _amount, _time, _manaType, _txID, _inputID}
 }
 
 // Bytes marshals the persistable event into a sequence of bytes.

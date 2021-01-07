@@ -16,7 +16,7 @@ func getPastConsensusManaVectorHandler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, PendingResponse{Error: err.Error()})
 	}
 	timestamp := time.Unix(req.Timestamp, 0)
-	consensus, err := manaPlugin.GetPastConsensusManaVector(timestamp)
+	consensus, _, err := manaPlugin.GetPastConsensusManaVector(timestamp)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, PastConsensusManaVectorResponse{Error: err.Error()})
 	}
