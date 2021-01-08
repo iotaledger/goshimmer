@@ -123,7 +123,7 @@ func TestMessageFactory_POW(t *testing.T) {
 
 	worker := pow.New(crypto.BLAKE2b_512, 1)
 
-	msgFactory.SetWorker(WorkerFunc(func(msgBytes []byte) (uint64, error) {
+	msgFactory.SetWorker(WorkerFunc(func(msgBytes []byte, difficulty int) (uint64, error) {
 		content := msgBytes[:len(msgBytes)-ed25519.SignatureSize-8]
 		return worker.Mine(context.Background(), content, targetPOW)
 	}))
