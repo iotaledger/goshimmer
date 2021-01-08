@@ -108,14 +108,14 @@ func (m *MessagesWindow) insert(msg MessageAge, position int) {
 // clean removes messages older than the ApowWindow.
 func (m *MessagesWindow) clean() {
 	l := m.internalSlice.Len()
-	if l == 1 {
+	if l <= 1 {
 		return
 	}
 
 	last := m.internalSlice[l-1].Timestamp
 
 	var i int
-	for i = l - 1; i >= 0; i-- {
+	for i = l - 2; i >= 0; i-- {
 		if m.internalSlice[i].Timestamp.Add(time.Duration(ApowWindow)*time.Second).Before(last) ||
 			m.internalSlice[i].Timestamp.Add(time.Duration(ApowWindow)*time.Second).Equal(last) {
 			m.internalSlice = m.internalSlice[i+1:]
