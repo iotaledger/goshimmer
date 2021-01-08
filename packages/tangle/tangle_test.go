@@ -54,7 +54,7 @@ func TestTangle_StoreMessage(t *testing.T) {
 		cachedMsgEvent.MessageMetadata.Release()
 
 		cachedMsgEvent.Message.Consume(func(msg *Message) {
-			fmt.Println("ATTACHED:", msg.ID())
+			fmt.Println("STORED:", msg.ID())
 		})
 	}))
 
@@ -94,7 +94,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 	const (
 		messageCount = 20000
 		tangleWidth  = 250
-		attachDelay  = 5 * time.Millisecond
+		storeDelay   = 5 * time.Millisecond
 	)
 
 	// create badger store
@@ -157,25 +157,25 @@ func TestTangle_MissingMessages(t *testing.T) {
 
 	// counter for the different stages
 	var (
-		attachedMessages int32
-		missingMessages  int32
-		solidMessages    int32
+		storedMessages  int32
+		missingMessages int32
+		solidMessages   int32
 	)
 	tangle.MessageStore.Events.MessageStored.Attach(events.NewClosure(func(event *CachedMessageEvent) {
 		defer event.Message.Release()
 		defer event.MessageMetadata.Release()
 
-		n := atomic.AddInt32(&attachedMessages, 1)
-		t.Logf("attached messages %d/%d", n, messageCount)
+		n := atomic.AddInt32(&storedMessages, 1)
+		t.Logf("stored messages %d/%d", n, messageCount)
 	}))
 
 	// increase the counter when a missing message was detected
 	tangle.MessageStore.Events.MessageMissing.Attach(events.NewClosure(func(messageId MessageID) {
 		atomic.AddInt32(&missingMessages, 1)
 
-		// attach the message after it has been requested
+		// store the message after it has been requested
 		go func() {
-			time.Sleep(attachDelay)
+			time.Sleep(storeDelay)
 			tangle.StoreMessage(messages[messageId])
 		}()
 	}))
@@ -203,7 +203,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 	assert.Eventually(t, func() bool { return atomic.LoadInt32(&solidMessages) == messageCount }, 5*time.Minute, 100*time.Millisecond)
 
 	assert.EqualValues(t, messageCount, atomic.LoadInt32(&solidMessages))
-	assert.EqualValues(t, messageCount, atomic.LoadInt32(&attachedMessages))
+	assert.EqualValues(t, messageCount, atomic.LoadInt32(&storedMessages))
 	assert.EqualValues(t, 0, atomic.LoadInt32(&missingMessages))
 }
 
