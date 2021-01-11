@@ -5,6 +5,7 @@ import (
 	"crypto"
 	"errors"
 	"net"
+	"sync"
 	"testing"
 	"time"
 
@@ -141,6 +142,34 @@ func TestAPowFilter_Filter(t *testing.T) {
 	m.On("Accept", msg, testPeer)
 	filter.Filter(msg, testPeer)
 
+	m.AssertExpectations(t)
+}
+
+func TestAPowFilter_Parallel(t *testing.T) {
+	testDifficulty = 0
+	filter := NewPowFilter(testWorker, testDifficulty)
+	pow.ApowWindow = 5
+	pow.AdaptiveRate = 0.
+
+	// set callbacks
+	m := &callbackMock{}
+	filter.OnAccept(m.Accept)
+	filter.OnReject(m.Reject)
+
+	var wg sync.WaitGroup
+
+	for i := 0; i < 200; i++ {
+		wg.Add(1)
+		go func(i int) {
+			msg := newTestAPOWMessage(time.Now().Add(time.Duration(i) * time.Second))
+
+			m.On("Accept", msg, testPeer)
+			filter.Filter(msg, testPeer)
+			wg.Done()
+		}(i)
+	}
+
+	wg.Wait()
 	m.AssertExpectations(t)
 }
 

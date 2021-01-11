@@ -114,11 +114,11 @@ func (m *MessagesWindow) clean() {
 
 	last := m.internalSlice[l-1].Timestamp
 
-	var i int
-	for i = l - 2; i >= 0; i-- {
+	for i := l - 2; i >= 0; i-- {
 		if m.internalSlice[i].Timestamp.Add(time.Duration(ApowWindow)*time.Second).Before(last) ||
 			m.internalSlice[i].Timestamp.Add(time.Duration(ApowWindow)*time.Second).Equal(last) {
 			m.internalSlice = m.internalSlice[i+1:]
+			return
 		}
 	}
 }
@@ -134,8 +134,8 @@ func (m *MessagesWindow) Append(msg MessageAge) {
 
 // AdaptiveDifficulty returns the adaptive proof-of-work difficulty.
 func (m *MessagesWindow) AdaptiveDifficulty(t time.Time) int {
-	m.RLock()
-	defer m.RUnlock()
+	m.Lock()
+	defer m.Unlock()
 
 	return m.getDifficulty(m.messagesBeforeTime(t))
 }
