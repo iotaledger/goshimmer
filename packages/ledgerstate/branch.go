@@ -558,11 +558,11 @@ func (c *ConflictBranch) Parents() BranchIDs {
 }
 
 // SetParents updates the parents of the ConflictBranch.
-func (c *ConflictBranch) SetParents(parentBranches ...BranchID) (modified bool, err error) {
+func (c *ConflictBranch) SetParents(parentBranches BranchIDs) (modified bool) {
 	c.parentsMutex.Lock()
 	defer c.parentsMutex.Unlock()
 
-	c.parents = NewBranchIDs(parentBranches...)
+	c.parents = parentBranches
 	c.SetModified()
 	modified = true
 
@@ -1196,9 +1196,7 @@ func (c CachedChildBranches) Unwrap() (unwrappedChildBranches []*ChildBranch) {
 // least one object was consumed.
 func (c CachedChildBranches) Consume(consumer func(childBranch *ChildBranch), forceRelease ...bool) (consumed bool) {
 	for _, cachedChildBranch := range c {
-		consumed = cachedChildBranch.Consume(func(output *ChildBranch) {
-			consumer(output)
-		}, forceRelease...) || consumed
+		consumed = cachedChildBranch.Consume(consumer, forceRelease...) || consumed
 	}
 
 	return

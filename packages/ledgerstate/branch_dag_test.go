@@ -1,6 +1,7 @@
 package ledgerstate
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -904,6 +905,26 @@ func TestBranchDAG_ConflictMembers(t *testing.T) {
 		actualConflictMembers[conflictMember.BranchID()] = struct{}{}
 	})
 	assert.Equal(t, expectedConflictMembers, actualConflictMembers)
+}
+
+func TestBranchDAG_MergeToMaster(t *testing.T) {
+	branchDAG := NewBranchDAG(mapdb.NewMapDB())
+	err := branchDAG.Prune()
+	require.NoError(t, err)
+	defer branchDAG.Shutdown()
+
+	eventMock := newEventMock(t, branchDAG)
+	defer eventMock.DetachAll()
+
+	testBranchDAG, err := newTestBranchDAG(branchDAG)
+	require.NoError(t, err)
+	defer testBranchDAG.Release()
+	testBranchDAG.AssertInitialState(t)
+	testBranchDAG.RegisterDebugAliases(eventMock)
+
+	reorgDetails, err := branchDAG.MergeToMaster(testBranchDAG.branch2.ID())
+	assert.NoError(t, err)
+	fmt.Println(reorgDetails)
 }
 
 type testBranchDAG struct {
