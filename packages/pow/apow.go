@@ -155,3 +155,10 @@ func (m *MessagesWindow) CheckDifficulty(msg MessageAge, d int) bool {
 
 	return false
 }
+
+// Len returns the len of the internal slice.
+func (m *MessagesWindow) Len() int {
+	m.RLock()
+	defer m.RUnlock()
+	return m.internalSlice.Len()
+}

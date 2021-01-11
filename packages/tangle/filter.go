@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/bytesfilter"
+	"github.com/iotaledger/hive.go/identity"
 )
 
 var (
@@ -104,55 +105,78 @@ type PowFilter struct {
 	worker     *pow.Worker
 	difficulty int
 
+	nodesMessages      map[identity.ID]*pow.MessagesWindow
+	nodesMessagesMutex sync.Mutex
+
 	mu             sync.Mutex
-	acceptCallback func([]byte, *peer.Peer)
-	rejectCallback func([]byte, error, *peer.Peer)
+	acceptCallback func(*Message, *peer.Peer)
+	rejectCallback func(*Message, error, *peer.Peer)
 }
 
 // NewPowFilter creates a new PoW bytes filter.
 func NewPowFilter(worker *pow.Worker, difficulty int) *PowFilter {
+	pow.BaseDifficulty = difficulty
 	return &PowFilter{
-		worker:     worker,
-		difficulty: difficulty,
+		worker:        worker,
+		difficulty:    difficulty,
+		nodesMessages: make(map[identity.ID]*pow.MessagesWindow),
 	}
 }
 
 // Filter checks whether the given bytes pass the PoW validation and calls the corresponding callback.
-func (f *PowFilter) Filter(msgBytes []byte, p *peer.Peer) {
-	if err := f.validate(msgBytes); err != nil {
-		f.reject(msgBytes, err, p)
+func (f *PowFilter) Filter(msg *Message, p *peer.Peer) {
+	zeros, err := f.leadingZeros(msg)
+	if err != nil {
+		f.reject(msg, err, p)
 		return
 	}
-	f.accept(msgBytes, p)
+
+	f.nodesMessagesMutex.Lock()
+	if _, exist := f.nodesMessages[p.ID()]; !exist {
+		f.nodesMessages[p.ID()] = &pow.MessagesWindow{}
+	}
+	messagesWindow := f.nodesMessages[p.ID()]
+	f.nodesMessagesMutex.Unlock()
+
+	if !messagesWindow.CheckDifficulty(
+		pow.MessageAge{
+			ID:        msg.ID().String(),
+			Timestamp: msg.IssuingTime(),
+		}, zeros) {
+		f.reject(msg, ErrInvalidPOWDifficultly, p)
+		return
+	}
+
+	f.accept(msg, p)
 }
 
 // OnAccept registers the given callback as the acceptance function of the filter.
-func (f *PowFilter) OnAccept(callback func([]byte, *peer.Peer)) {
+func (f *PowFilter) OnAccept(callback func(*Message, *peer.Peer)) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.acceptCallback = callback
 }
 
 // OnReject registers the given callback as the rejection function of the filter.
-func (f *PowFilter) OnReject(callback func([]byte, error, *peer.Peer)) {
+func (f *PowFilter) OnReject(callback func(*Message, error, *peer.Peer)) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.rejectCallback = callback
 }
 
-func (f *PowFilter) accept(msgBytes []byte, p *peer.Peer) {
+func (f *PowFilter) accept(msg *Message, p *peer.Peer) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.acceptCallback != nil {
-		f.acceptCallback(msgBytes, p)
+		f.acceptCallback(msg, p)
 	}
 }
 
-func (f *PowFilter) reject(msgBytes []byte, err error, p *peer.Peer) {
+func (f *PowFilter) reject(msg *Message, err error, p *peer.Peer) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.rejectCallback != nil {
-		f.rejectCallback(msgBytes, err, p)
+		f.rejectCallback(msg, err, p)
 	}
 }
 
@@ -169,6 +193,18 @@ func (f *PowFilter) validate(msgBytes []byte) error {
 		return fmt.Errorf("%w: leading zeros %d for difficulty %d", ErrInvalidPOWDifficultly, zeros, f.difficulty)
 	}
 	return nil
+}
+
+func (f *PowFilter) leadingZeros(msg *Message) (int, error) {
+	zeros := 0
+	if msg == nil {
+		return zeros, ErrMessageTooSmall
+	}
+	content, err := powData(msg.Bytes())
+	if err != nil {
+		return zeros, err
+	}
+	return f.worker.LeadingZeros(content)
 }
 
 // powData returns the bytes over which PoW should be computed.

@@ -43,6 +43,8 @@ func Worker() *pow.Worker {
 		// load the parameters
 		difficulty = config.Node().Int(CfgPOWDifficulty)
 		pow.BaseDifficulty = difficulty
+		pow.ApowWindow = config.Node().Int(CfgPOWWindow)
+		pow.AdaptiveRate = config.Node().Float64(CfgPOWRate)
 		numWorkers = config.Node().Int(CfgPOWNumThreads)
 		timeout = config.Node().Duration(CfgPOWTimeout)
 		// create the worker
