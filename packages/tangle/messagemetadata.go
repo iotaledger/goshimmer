@@ -20,10 +20,12 @@ type MessageMetadata struct {
 	solid              bool
 	solidificationTime time.Time
 	booked             bool
+	eligible           bool
 
 	solidMutex              sync.RWMutex
 	solidificationTimeMutex sync.RWMutex
 	bookedMutex             sync.RWMutex
+	eligibleMutex           sync.RWMutex
 }
 
 // NewMessageMetadata creates a new MessageMetadata from the specified messageID.
@@ -61,6 +63,10 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 	}
 	if result.solid, err = marshalUtil.ReadBool(); err != nil {
 		err = fmt.Errorf("failed to parse 'solid' of message metadata: %w", err)
+		return
+	}
+	if result.eligible, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse 'eligible' of message metadata: %w", err)
 		return
 	}
 
@@ -137,6 +143,15 @@ func (m *MessageMetadata) IsBooked() (result bool) {
 	return
 }
 
+// IsEligible returns true if the message represented by this metadata is eligible. False otherwise.
+func (m *MessageMetadata) IsEligible() (result bool) {
+	m.eligibleMutex.RLock()
+	result = m.eligible
+	m.eligibleMutex.RUnlock()
+
+	return
+}
+
 // SetBooked sets the message associated with this metadata as booked.
 // It returns true if the booked status is modified. False otherwise.
 func (m *MessageMetadata) SetBooked(booked bool) (modified bool) {
@@ -154,6 +169,29 @@ func (m *MessageMetadata) SetBooked(booked bool) (modified bool) {
 
 	} else {
 		m.bookedMutex.RUnlock()
+	}
+
+	return
+}
+
+// SetEligible sets the message associated with this metadata as eligible.
+// It returns true if the eligible status is modified. False otherwise.
+func (m *MessageMetadata) SetEligible(eligible bool) (modified bool) {
+	m.eligibleMutex.RLock()
+	if m.eligible != eligible {
+		m.eligibleMutex.RUnlock()
+
+		m.eligibleMutex.Lock()
+		if m.eligible != eligible {
+			m.eligible = eligible
+			m.SetModified()
+
+			modified = true
+		}
+		m.eligibleMutex.Unlock()
+
+	} else {
+		m.eligibleMutex.RUnlock()
 	}
 
 	return
@@ -177,6 +215,7 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 		WriteTime(m.ReceivedTime()).
 		WriteTime(m.SolidificationTime()).
 		WriteBool(m.IsSolid()).
+		WriteBool(m.IsEligible()).
 		Bytes()
 }
 
