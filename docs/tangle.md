@@ -178,19 +178,19 @@ A message is syntactically valid if:
 4. At least 1 and at most 8 distinct parents are given, ordered ASC and at least `MIN_STRONG_PARENTS` are strong parents. 
 
 ### Semantic Validation
-Messages that do no pass the Semantic Validation are discarded. Only semantically valid messages continue in the data flow, i.e., pass to the eligibility check.
+Messages that do no pass the Semantic Validation are discarded. Only semantically valid messages continue in the data flow.
 
 A message is semantically valid if:
 - The Message PoW Hash contains at least the number of leading 0 defined as required by the adaptive PoW algo [TO DO: LINK TO THE APOW SPEC].
 - The signature from the issuing node is valid.
+- It passes parents age checks. Notice that this check must occur after the solidification (or at least part of it) of the message (TODO: link timestamp spec)
 
 ### Eligibility check
-If a message gets to this point (i.e., if a message passed the semantic validation), it will be scheduled, it will have its payload processed and will be added to the local Tangle of a node. Nevertheless, only eligible messages might become available for tip selection in the future. The eligibility of a message **does not** express any opinion about the attachment location of a message. It solely evaluates a message according to its timestamp. Notice that the eligibility of a message does not imply anything about the payload of the message; a message containing a disliked payload can still be eligible, even though this message will be never included in the weak/strong tip set. Thus, the TSA chooses from a subset of the eligible messages.
+If a message gets to this point, it will be scheduled, it will have its payload processed and will be added to the local Tangle of a node. [IS IT TRUE? DO WE HAVE TO REALLY CHECK THE PAYLOADS OF THE PARENTS OF A MESSAGE AND DISCARD IT IF INVALID?] Nevertheless, only eligible messages might become available for tip selection in the future. The eligibility of a message **does not** express any opinion about the attachment location of a message. It solely evaluates a message according to its timestamp. Notice that the eligibility of a message does not imply anything about the payload of the message; a message containing a disliked payload can still be eligible, even though this message will be never included in the weak/strong tip set. Thus, the TSA chooses from a subset of the eligible messages.
 
 A message is an eligible message if, after passing the syntactical and semantical validation:
 - It is solid
 - It has a level 2 or 3 good timestamp (TODO: link timestamp spec)
-- It passes parents age checks (TODO: link timestamp spec)
 - Its parents are eligible
 
 
