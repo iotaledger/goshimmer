@@ -15,6 +15,8 @@ type Events struct {
 	MessageUnsolidifiable *events.Event
 	// Fired when a message has been booked to the Tangle
 	MessageBooked *events.Event
+	// Fired when a message has been eligible.
+	MessageEligible *events.Event
 }
 
 // CachedMessageEvent represents the parameters of cachedMessageEvent
@@ -28,6 +30,7 @@ func newEvents() *Events {
 		MessageSolid:          events.NewEvent(cachedMessageEvent),
 		MessageUnsolidifiable: events.NewEvent(messageIDEvent),
 		MessageBooked:         events.NewEvent(cachedMessageEvent),
+		MessageEligible:       events.NewEvent(cachedMessageEvent),
 	}
 }
 

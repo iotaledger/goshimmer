@@ -9,10 +9,11 @@ const maxParentAge = 10 * time.Minute
 // CheckParentsEligibility checks if the parents are eligible and have valid timestamp(below max depth),
 // then set the eligible flag of the message.
 func (t *Tangle) CheckParentsEligibility(cachedMessage *CachedMessage, cachedMsgMetadata *CachedMessageMetadata) {
+	defer cachedMessage.Release()
+	defer cachedMsgMetadata.Release()
+
 	msg := cachedMessage.Unwrap()
 	msgMetadata := cachedMsgMetadata.Unwrap()
-	defer msg.Release()
-	defer msgMetadata.Release()
 	// abort if the msg or msgMetadata does not exist.
 	if msg == nil || msgMetadata == nil {
 		return
@@ -27,8 +28,13 @@ func (t *Tangle) CheckParentsEligibility(cachedMessage *CachedMessage, cachedMsg
 	// Second, check the below max depth
 	eligible = eligible && t.checkParentsBelowMaxDepth(msg)
 
-	// Lastly, set the eligible flag to the message
-	msgMetadata.SetEligible(eligible)
+	// Lastly, set the eligible flag and trigger event
+	if eligible && msgMetadata.SetEligible(eligible) {
+		t.Events.MessageEligible.Trigger(&CachedMessageEvent{
+			Message:         cachedMessage,
+			MessageMetadata: cachedMsgMetadata,
+		})
+	}
 }
 
 // checks whether the given message is solid and marks it as missing if it isn't known.
