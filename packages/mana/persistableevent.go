@@ -12,7 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/objectstorage"
 )
 
-// PersistableEvent is a persistable pledge event.
+// PersistableEvent is a persistable event.
 type PersistableEvent struct {
 	objectstorage.StorableObjectFlags
 	Type          byte // pledge or revoke
