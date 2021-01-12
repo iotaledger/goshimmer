@@ -922,8 +922,112 @@ func TestBranchDAG_MergeToMaster(t *testing.T) {
 	testBranchDAG.AssertInitialState(t)
 	testBranchDAG.RegisterDebugAliases(eventMock)
 
+	_, err = branchDAG.MergeToMaster(testBranchDAG.branch12.ID())
+	assert.Error(t, err)
+
+	eventMock.Expect("BranchPreferred", testBranchDAG.branch2)
+	eventMock.Expect("BranchLiked", testBranchDAG.branch2)
+	eventMock.Expect("BranchPreferred", testBranchDAG.branch7)
+	eventMock.Expect("BranchLiked", testBranchDAG.branch7)
+	eventMock.Expect("BranchPreferred", testBranchDAG.branch12)
+	eventMock.Expect("BranchLiked", testBranchDAG.branch12)
+	eventMock.Expect("BranchPreferred", testBranchDAG.branch15)
+	eventMock.Expect("BranchLiked", testBranchDAG.branch15)
+
+	modified, err := branchDAG.SetBranchLiked(testBranchDAG.branch15.ID(), true)
+	assert.True(t, modified)
+
+	eventMock.Expect("BranchFinalized", testBranchDAG.branch2)
+	eventMock.Expect("BranchFinalized", testBranchDAG.branch3)
+	eventMock.Expect("BranchFinalized", testBranchDAG.branch6)
+	eventMock.Expect("BranchFinalized", testBranchDAG.branch7)
+	eventMock.Expect("BranchFinalized", testBranchDAG.branch10)
+	eventMock.Expect("BranchFinalized", testBranchDAG.branch11)
+	eventMock.Expect("BranchFinalized", testBranchDAG.branch12)
+	eventMock.Expect("BranchFinalized", testBranchDAG.branch13)
+	eventMock.Expect("BranchFinalized", testBranchDAG.branch14)
+	eventMock.Expect("BranchFinalized", testBranchDAG.branch15)
+	eventMock.Expect("BranchRejected", testBranchDAG.branch3)
+	eventMock.Expect("BranchRejected", testBranchDAG.branch6)
+	eventMock.Expect("BranchRejected", testBranchDAG.branch8)
+	eventMock.Expect("BranchRejected", testBranchDAG.branch10)
+	eventMock.Expect("BranchRejected", testBranchDAG.branch11)
+	eventMock.Expect("BranchRejected", testBranchDAG.branch13)
+	eventMock.Expect("BranchRejected", testBranchDAG.branch14)
+	eventMock.Expect("BranchConfirmed", testBranchDAG.branch2)
+	eventMock.Expect("BranchConfirmed", testBranchDAG.branch7)
+	eventMock.Expect("BranchConfirmed", testBranchDAG.branch12)
+	eventMock.Expect("BranchConfirmed", testBranchDAG.branch15)
+
+	modified, err = branchDAG.SetBranchFinalized(testBranchDAG.branch15.ID(), true)
+	assert.True(t, modified)
+
+	eventMock.Expect("BranchPreferred", testBranchDAG.branch5)
+	eventMock.Expect("BranchLiked", testBranchDAG.branch5)
+	eventMock.Expect("BranchPreferred", testBranchDAG.branch9)
+	eventMock.Expect("BranchLiked", testBranchDAG.branch9)
+	eventMock.Expect("BranchPreferred", testBranchDAG.branch16)
+	eventMock.Expect("BranchLiked", testBranchDAG.branch16)
+
+	modified, err = branchDAG.SetBranchLiked(testBranchDAG.branch5.ID(), true)
+	assert.True(t, modified)
+
+	eventMock.Expect("BranchFinalized", testBranchDAG.branch4)
+	eventMock.Expect("BranchFinalized", testBranchDAG.branch5)
+	eventMock.Expect("BranchFinalized", testBranchDAG.branch8)
+	eventMock.Expect("BranchFinalized", testBranchDAG.branch9)
+	eventMock.Expect("BranchFinalized", testBranchDAG.branch16)
+	eventMock.Expect("BranchRejected", testBranchDAG.branch4)
+	eventMock.Expect("BranchRejected", testBranchDAG.branch8)
+	eventMock.Expect("BranchConfirmed", testBranchDAG.branch5)
+	eventMock.Expect("BranchConfirmed", testBranchDAG.branch9)
+	eventMock.Expect("BranchConfirmed", testBranchDAG.branch16)
+
+	modified, err = branchDAG.SetBranchFinalized(testBranchDAG.branch5.ID(), true)
+	assert.True(t, modified)
+
+	_, err = branchDAG.MergeToMaster(testBranchDAG.branch15.ID())
+	assert.Error(t, err)
+
+	_, err = branchDAG.MergeToMaster(testBranchDAG.branch5.ID())
+	assert.Error(t, err)
+
+	eventMock.DetachAll()
+
 	reorgDetails, err := branchDAG.MergeToMaster(testBranchDAG.branch2.ID())
 	assert.NoError(t, err)
+
+	for branchID := range reorgDetails.DeletedBranches {
+		fmt.Println("DELETED", eventMock.debugAlias[branchID])
+	}
+	for branchID, newBranchID := range reorgDetails.MovedBranches {
+		fmt.Println("MOVED", eventMock.debugAlias[branchID])
+
+		branchDAG.Branch(newBranchID).Consume(func(branch Branch) {
+			fmt.Println("NEW", branch)
+			for parentBranchID := range branch.Parents() {
+				fmt.Println("PARENT", eventMock.debugAlias[parentBranchID])
+			}
+		})
+	}
+	fmt.Println(reorgDetails)
+
+	reorgDetails, err = branchDAG.MergeToMaster(testBranchDAG.branch12.ID())
+	assert.NoError(t, err)
+
+	for branchID := range reorgDetails.DeletedBranches {
+		fmt.Println("DELETED", eventMock.debugAlias[branchID])
+	}
+	for branchID, newBranchID := range reorgDetails.MovedBranches {
+		fmt.Println("MOVED", eventMock.debugAlias[branchID])
+
+		branchDAG.Branch(newBranchID).Consume(func(branch Branch) {
+			fmt.Println("NEW", eventMock.debugAlias[newBranchID], branch)
+			for parentBranchID := range branch.Parents() {
+				fmt.Println("PARENT", eventMock.debugAlias[parentBranchID])
+			}
+		})
+	}
 	fmt.Println(reorgDetails)
 }
 
@@ -1103,15 +1207,15 @@ func (t *testBranchDAG) RegisterDebugAliases(eventMock *eventMock) {
 	eventMock.RegisterDebugAlias(t.branch5.ID(), "ConflictBranch(5)")
 	eventMock.RegisterDebugAlias(t.branch6.ID(), "ConflictBranch(6)")
 	eventMock.RegisterDebugAlias(t.branch7.ID(), "ConflictBranch(7)")
-	eventMock.RegisterDebugAlias(t.branch8.ID(), "ConflictBranch(8)")
-	eventMock.RegisterDebugAlias(t.branch9.ID(), "ConflictBranch(9)")
-	eventMock.RegisterDebugAlias(t.branch10.ID(), "ConflictBranch(10)")
+	eventMock.RegisterDebugAlias(t.branch8.ID(), "AggregatedBranch(8)")
+	eventMock.RegisterDebugAlias(t.branch9.ID(), "AggregatedBranch(9)")
+	eventMock.RegisterDebugAlias(t.branch10.ID(), "AggregatedBranch(10)")
 	eventMock.RegisterDebugAlias(t.branch11.ID(), "ConflictBranch(11)")
 	eventMock.RegisterDebugAlias(t.branch12.ID(), "ConflictBranch(12)")
-	eventMock.RegisterDebugAlias(t.branch13.ID(), "ConflictBranch(13)")
-	eventMock.RegisterDebugAlias(t.branch14.ID(), "ConflictBranch(14)")
-	eventMock.RegisterDebugAlias(t.branch15.ID(), "ConflictBranch(15)")
-	eventMock.RegisterDebugAlias(t.branch16.ID(), "ConflictBranch(16)")
+	eventMock.RegisterDebugAlias(t.branch13.ID(), "AggregatedBranch(13)")
+	eventMock.RegisterDebugAlias(t.branch14.ID(), "AggregatedBranch(14)")
+	eventMock.RegisterDebugAlias(t.branch15.ID(), "AggregatedBranch(15)")
+	eventMock.RegisterDebugAlias(t.branch16.ID(), "AggregatedBranch(16)")
 }
 
 func (t *testBranchDAG) Release(force ...bool) {

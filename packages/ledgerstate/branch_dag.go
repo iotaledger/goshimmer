@@ -192,7 +192,7 @@ func (b *BranchDAG) MergeToMaster(branchID BranchID) (reorgDetails *BranchDAGReo
 
 	// abort if the Branch is not Confirmed
 	if conflictBranch.InclusionState() != Confirmed {
-		err = xerrors.Errorf("tried to merge non-confirmed Branch with %s to Master: %w", branchID, err)
+		err = xerrors.Errorf("tried to merge non-confirmed Branch with %s to Master: %w", branchID, cerrors.ErrFatal)
 		return
 	}
 
@@ -252,7 +252,6 @@ func (b *BranchDAG) MergeToMaster(branchID BranchID) (reorgDetails *BranchDAGReo
 
 				for parentBranchID := range parentBranches {
 					b.childBranchStorage.Delete(byteutils.ConcatBytes(parentBranchID.Bytes(), childBranch.ID().Bytes()))
-					b.childBranchStorage.Store(NewChildBranch(parentBranchID, cachedNewAggregatedBranch.ID(), AggregatedBranchType))
 				}
 			}
 
@@ -263,10 +262,10 @@ func (b *BranchDAG) MergeToMaster(branchID BranchID) (reorgDetails *BranchDAGReo
 		case ConflictBranchType:
 			// load referenced ChildBranch
 			cachedChildBranch := b.Branch(childBranchReference.ChildBranchID())
-			childBranch, err := cachedChildBranch.UnwrapConflictBranch()
-			if err != nil {
+			childBranch, unwrapErr := cachedChildBranch.UnwrapConflictBranch()
+			if unwrapErr != nil {
 				cachedChildBranch.Release()
-				err = xerrors.Errorf("failed to load ConflictBranch with %s: %w", cachedChildBranch.ID(), err)
+				err = xerrors.Errorf("failed to load ConflictBranch with %s: %w", cachedChildBranch.ID(), unwrapErr)
 				return
 			}
 

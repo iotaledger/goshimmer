@@ -23,21 +23,25 @@ const (
 // branchStorageOptions contains a list of default settings for the Branch object storage.
 var branchStorageOptions = []objectstorage.Option{
 	objectstorage.CacheTime(60 * time.Second),
+	objectstorage.LeakDetectionEnabled(true),
 }
 
 // childBranchStorageOptions contains a list of default settings for the ChildBranch object storage.
 var childBranchStorageOptions = []objectstorage.Option{
 	ChildBranchKeyPartition,
 	objectstorage.CacheTime(60 * time.Second),
+	objectstorage.LeakDetectionEnabled(true),
 }
 
 // conflictStorageOptions contains a list of default settings for the Conflict object storage.
 var conflictStorageOptions = []objectstorage.Option{
 	objectstorage.CacheTime(60 * time.Second),
+	objectstorage.LeakDetectionEnabled(true),
 }
 
 // conflictMemberStorageOptions contains a list of default settings for the ConflictMember object storage.
 var conflictMemberStorageOptions = []objectstorage.Option{
 	ConflictMemberKeyPartition,
 	objectstorage.CacheTime(60 * time.Second),
+	objectstorage.LeakDetectionEnabled(true),
 }
