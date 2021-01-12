@@ -392,7 +392,7 @@ func TestBranchDAG_SetBranchPreferred(t *testing.T) {
 	// solid than the avg. network delay before the conflicting transaction which created
 	// the conflict set was received
 
-	event.Expect("BranchPreferred", branch4)
+	event.Expect("BranchPreferred", branch4.ID())
 
 	modified, err := branchDAG.SetBranchPreferred(branch4.ID(), true)
 	assert.NoError(t, err)
@@ -407,9 +407,9 @@ func TestBranchDAG_SetBranchPreferred(t *testing.T) {
 	// now branch 2 becomes preferred via FPC, this causes branch 2 to be liked (since
 	// the master branch is liked) and its liked state propagates to branch 4 (but not branch 5)
 
-	event.Expect("BranchPreferred", branch2)
-	event.Expect("BranchLiked", branch2)
-	event.Expect("BranchLiked", branch4)
+	event.Expect("BranchPreferred", branch2.ID())
+	event.Expect("BranchLiked", branch2.ID())
+	event.Expect("BranchLiked", branch4.ID())
 
 	modified, err = branchDAG.SetBranchPreferred(branch2.ID(), true)
 	assert.NoError(t, err)
@@ -425,10 +425,10 @@ func TestBranchDAG_SetBranchPreferred(t *testing.T) {
 	// now the network decides that branch 5 is preferred (via FPC), thus branch 4 should lose its
 	// preferred and liked state and branch 5 should instead become preferred and liked
 
-	event.Expect("BranchPreferred", branch5)
-	event.Expect("BranchLiked", branch5)
-	event.Expect("BranchUnpreferred", branch4)
-	event.Expect("BranchDisliked", branch4)
+	event.Expect("BranchPreferred", branch5.ID())
+	event.Expect("BranchLiked", branch5.ID())
+	event.Expect("BranchUnpreferred", branch4.ID())
+	event.Expect("BranchDisliked", branch4.ID())
 
 	modified, err = branchDAG.SetBranchPreferred(branch5.ID(), true)
 	assert.NoError(t, err)
@@ -464,20 +464,20 @@ func TestBranchDAG_SetBranchLiked(t *testing.T) {
 	testBranchDAG.RegisterDebugAliases(eventMock)
 
 	{
-		eventMock.Expect("BranchPreferred", testBranchDAG.branch2)
-		eventMock.Expect("BranchPreferred", testBranchDAG.branch7)
-		eventMock.Expect("BranchPreferred", testBranchDAG.branch12)
-		eventMock.Expect("BranchLiked", testBranchDAG.branch2)
-		eventMock.Expect("BranchLiked", testBranchDAG.branch7)
-		eventMock.Expect("BranchLiked", testBranchDAG.branch12)
-		eventMock.Expect("BranchPreferred", testBranchDAG.branch5)
-		eventMock.Expect("BranchLiked", testBranchDAG.branch5)
-		eventMock.Expect("BranchPreferred", testBranchDAG.branch9)
-		eventMock.Expect("BranchPreferred", testBranchDAG.branch15)
-		eventMock.Expect("BranchPreferred", testBranchDAG.branch16)
-		eventMock.Expect("BranchLiked", testBranchDAG.branch9)
-		eventMock.Expect("BranchLiked", testBranchDAG.branch15)
-		eventMock.Expect("BranchLiked", testBranchDAG.branch16)
+		eventMock.Expect("BranchPreferred", testBranchDAG.branch2.ID())
+		eventMock.Expect("BranchPreferred", testBranchDAG.branch7.ID())
+		eventMock.Expect("BranchPreferred", testBranchDAG.branch12.ID())
+		eventMock.Expect("BranchLiked", testBranchDAG.branch2.ID())
+		eventMock.Expect("BranchLiked", testBranchDAG.branch7.ID())
+		eventMock.Expect("BranchLiked", testBranchDAG.branch12.ID())
+		eventMock.Expect("BranchPreferred", testBranchDAG.branch5.ID())
+		eventMock.Expect("BranchLiked", testBranchDAG.branch5.ID())
+		eventMock.Expect("BranchPreferred", testBranchDAG.branch9.ID())
+		eventMock.Expect("BranchPreferred", testBranchDAG.branch15.ID())
+		eventMock.Expect("BranchPreferred", testBranchDAG.branch16.ID())
+		eventMock.Expect("BranchLiked", testBranchDAG.branch9.ID())
+		eventMock.Expect("BranchLiked", testBranchDAG.branch15.ID())
+		eventMock.Expect("BranchLiked", testBranchDAG.branch16.ID())
 
 		modified, err := branchDAG.SetBranchLiked(testBranchDAG.branch16.ID(), true)
 		assert.NoError(t, err)
@@ -500,22 +500,22 @@ func TestBranchDAG_SetBranchLiked(t *testing.T) {
 	}
 
 	{
-		eventMock.Expect("BranchUnpreferred", testBranchDAG.branch5)
-		eventMock.Expect("BranchUnpreferred", testBranchDAG.branch7)
-		eventMock.Expect("BranchUnpreferred", testBranchDAG.branch9)
-		eventMock.Expect("BranchUnpreferred", testBranchDAG.branch15)
-		eventMock.Expect("BranchUnpreferred", testBranchDAG.branch16)
-		eventMock.Expect("BranchDisliked", testBranchDAG.branch5)
-		eventMock.Expect("BranchDisliked", testBranchDAG.branch7)
-		eventMock.Expect("BranchDisliked", testBranchDAG.branch9)
-		eventMock.Expect("BranchDisliked", testBranchDAG.branch15)
-		eventMock.Expect("BranchDisliked", testBranchDAG.branch16)
-		eventMock.Expect("BranchPreferred", testBranchDAG.branch4)
-		eventMock.Expect("BranchLiked", testBranchDAG.branch4)
-		eventMock.Expect("BranchPreferred", testBranchDAG.branch6)
-		eventMock.Expect("BranchLiked", testBranchDAG.branch6)
-		eventMock.Expect("BranchPreferred", testBranchDAG.branch8)
-		eventMock.Expect("BranchLiked", testBranchDAG.branch8)
+		eventMock.Expect("BranchUnpreferred", testBranchDAG.branch5.ID())
+		eventMock.Expect("BranchUnpreferred", testBranchDAG.branch7.ID())
+		eventMock.Expect("BranchUnpreferred", testBranchDAG.branch9.ID())
+		eventMock.Expect("BranchUnpreferred", testBranchDAG.branch15.ID())
+		eventMock.Expect("BranchUnpreferred", testBranchDAG.branch16.ID())
+		eventMock.Expect("BranchDisliked", testBranchDAG.branch5.ID())
+		eventMock.Expect("BranchDisliked", testBranchDAG.branch7.ID())
+		eventMock.Expect("BranchDisliked", testBranchDAG.branch9.ID())
+		eventMock.Expect("BranchDisliked", testBranchDAG.branch15.ID())
+		eventMock.Expect("BranchDisliked", testBranchDAG.branch16.ID())
+		eventMock.Expect("BranchPreferred", testBranchDAG.branch4.ID())
+		eventMock.Expect("BranchLiked", testBranchDAG.branch4.ID())
+		eventMock.Expect("BranchPreferred", testBranchDAG.branch6.ID())
+		eventMock.Expect("BranchLiked", testBranchDAG.branch6.ID())
+		eventMock.Expect("BranchPreferred", testBranchDAG.branch8.ID())
+		eventMock.Expect("BranchLiked", testBranchDAG.branch8.ID())
 
 		modified, err := branchDAG.SetBranchLiked(testBranchDAG.branch8.ID(), true)
 		assert.NoError(t, err)
@@ -540,9 +540,9 @@ func TestBranchDAG_SetBranchLiked(t *testing.T) {
 	}
 
 	{
-		eventMock.Expect("BranchUnpreferred", testBranchDAG.branch6)
-		eventMock.Expect("BranchDisliked", testBranchDAG.branch6)
-		eventMock.Expect("BranchDisliked", testBranchDAG.branch8)
+		eventMock.Expect("BranchUnpreferred", testBranchDAG.branch6.ID())
+		eventMock.Expect("BranchDisliked", testBranchDAG.branch6.ID())
+		eventMock.Expect("BranchDisliked", testBranchDAG.branch8.ID())
 
 		modified, err := branchDAG.SetBranchLiked(testBranchDAG.branch6.ID(), false)
 		assert.NoError(t, err)
@@ -569,20 +569,20 @@ func TestBranchDAG_SetBranchFinalized(t *testing.T) {
 	testBranchDAG.RegisterDebugAliases(eventMock)
 
 	{
-		eventMock.Expect("BranchPreferred", testBranchDAG.branch2)
-		eventMock.Expect("BranchPreferred", testBranchDAG.branch7)
-		eventMock.Expect("BranchPreferred", testBranchDAG.branch12)
-		eventMock.Expect("BranchLiked", testBranchDAG.branch2)
-		eventMock.Expect("BranchLiked", testBranchDAG.branch7)
-		eventMock.Expect("BranchLiked", testBranchDAG.branch12)
-		eventMock.Expect("BranchPreferred", testBranchDAG.branch5)
-		eventMock.Expect("BranchLiked", testBranchDAG.branch5)
-		eventMock.Expect("BranchPreferred", testBranchDAG.branch9)
-		eventMock.Expect("BranchPreferred", testBranchDAG.branch15)
-		eventMock.Expect("BranchPreferred", testBranchDAG.branch16)
-		eventMock.Expect("BranchLiked", testBranchDAG.branch9)
-		eventMock.Expect("BranchLiked", testBranchDAG.branch15)
-		eventMock.Expect("BranchLiked", testBranchDAG.branch16)
+		eventMock.Expect("BranchPreferred", testBranchDAG.branch2.ID())
+		eventMock.Expect("BranchPreferred", testBranchDAG.branch7.ID())
+		eventMock.Expect("BranchPreferred", testBranchDAG.branch12.ID())
+		eventMock.Expect("BranchLiked", testBranchDAG.branch2.ID())
+		eventMock.Expect("BranchLiked", testBranchDAG.branch7.ID())
+		eventMock.Expect("BranchLiked", testBranchDAG.branch12.ID())
+		eventMock.Expect("BranchPreferred", testBranchDAG.branch5.ID())
+		eventMock.Expect("BranchLiked", testBranchDAG.branch5.ID())
+		eventMock.Expect("BranchPreferred", testBranchDAG.branch9.ID())
+		eventMock.Expect("BranchPreferred", testBranchDAG.branch15.ID())
+		eventMock.Expect("BranchPreferred", testBranchDAG.branch16.ID())
+		eventMock.Expect("BranchLiked", testBranchDAG.branch9.ID())
+		eventMock.Expect("BranchLiked", testBranchDAG.branch15.ID())
+		eventMock.Expect("BranchLiked", testBranchDAG.branch16.ID())
 
 		modified, err := branchDAG.SetBranchLiked(testBranchDAG.branch16.ID(), true)
 		assert.NoError(t, err)
@@ -605,19 +605,19 @@ func TestBranchDAG_SetBranchFinalized(t *testing.T) {
 	}
 
 	{
-		eventMock.Expect("BranchFinalized", testBranchDAG.branch4)
-		eventMock.Expect("BranchFinalized", testBranchDAG.branch5)
-		eventMock.Expect("BranchFinalized", testBranchDAG.branch6)
-		eventMock.Expect("BranchFinalized", testBranchDAG.branch7)
-		eventMock.Expect("BranchFinalized", testBranchDAG.branch8)
-		eventMock.Expect("BranchFinalized", testBranchDAG.branch9)
-		eventMock.Expect("BranchRejected", testBranchDAG.branch4)
-		eventMock.Expect("BranchRejected", testBranchDAG.branch6)
-		eventMock.Expect("BranchRejected", testBranchDAG.branch8)
-		eventMock.Expect("BranchRejected", testBranchDAG.branch10)
-		eventMock.Expect("BranchRejected", testBranchDAG.branch13)
-		eventMock.Expect("BranchRejected", testBranchDAG.branch14)
-		eventMock.Expect("BranchConfirmed", testBranchDAG.branch7)
+		eventMock.Expect("BranchFinalized", testBranchDAG.branch4.ID())
+		eventMock.Expect("BranchFinalized", testBranchDAG.branch5.ID())
+		eventMock.Expect("BranchFinalized", testBranchDAG.branch6.ID())
+		eventMock.Expect("BranchFinalized", testBranchDAG.branch7.ID())
+		eventMock.Expect("BranchFinalized", testBranchDAG.branch8.ID())
+		eventMock.Expect("BranchFinalized", testBranchDAG.branch9.ID())
+		eventMock.Expect("BranchRejected", testBranchDAG.branch4.ID())
+		eventMock.Expect("BranchRejected", testBranchDAG.branch6.ID())
+		eventMock.Expect("BranchRejected", testBranchDAG.branch8.ID())
+		eventMock.Expect("BranchRejected", testBranchDAG.branch10.ID())
+		eventMock.Expect("BranchRejected", testBranchDAG.branch13.ID())
+		eventMock.Expect("BranchRejected", testBranchDAG.branch14.ID())
+		eventMock.Expect("BranchConfirmed", testBranchDAG.branch7.ID())
 
 		modified, err := branchDAG.SetBranchFinalized(testBranchDAG.branch9.ID(), true)
 		assert.NoError(t, err)
@@ -639,13 +639,13 @@ func TestBranchDAG_SetBranchFinalized(t *testing.T) {
 	}
 
 	{
-		eventMock.Expect("BranchFinalized", testBranchDAG.branch2)
-		eventMock.Expect("BranchFinalized", testBranchDAG.branch3)
-		eventMock.Expect("BranchFinalized", testBranchDAG.branch10)
-		eventMock.Expect("BranchRejected", testBranchDAG.branch3)
-		eventMock.Expect("BranchConfirmed", testBranchDAG.branch2)
-		eventMock.Expect("BranchConfirmed", testBranchDAG.branch5)
-		eventMock.Expect("BranchConfirmed", testBranchDAG.branch9)
+		eventMock.Expect("BranchFinalized", testBranchDAG.branch2.ID())
+		eventMock.Expect("BranchFinalized", testBranchDAG.branch3.ID())
+		eventMock.Expect("BranchFinalized", testBranchDAG.branch10.ID())
+		eventMock.Expect("BranchRejected", testBranchDAG.branch3.ID())
+		eventMock.Expect("BranchConfirmed", testBranchDAG.branch2.ID())
+		eventMock.Expect("BranchConfirmed", testBranchDAG.branch5.ID())
+		eventMock.Expect("BranchConfirmed", testBranchDAG.branch9.ID())
 
 		modified, err := branchDAG.SetBranchFinalized(testBranchDAG.branch2.ID(), true)
 		assert.NoError(t, err)
@@ -661,12 +661,12 @@ func TestBranchDAG_SetBranchFinalized(t *testing.T) {
 	}
 
 	{
-		eventMock.Expect("BranchUnfinalized", testBranchDAG.branch2)
-		eventMock.Expect("BranchPending", testBranchDAG.branch2)
-		eventMock.Expect("BranchPending", testBranchDAG.branch4)
-		eventMock.Expect("BranchPending", testBranchDAG.branch5)
-		eventMock.Expect("BranchPending", testBranchDAG.branch8)
-		eventMock.Expect("BranchPending", testBranchDAG.branch9)
+		eventMock.Expect("BranchUnfinalized", testBranchDAG.branch2.ID())
+		eventMock.Expect("BranchPending", testBranchDAG.branch2.ID())
+		eventMock.Expect("BranchPending", testBranchDAG.branch4.ID())
+		eventMock.Expect("BranchPending", testBranchDAG.branch5.ID())
+		eventMock.Expect("BranchPending", testBranchDAG.branch8.ID())
+		eventMock.Expect("BranchPending", testBranchDAG.branch9.ID())
 
 		modified, err := branchDAG.SetBranchFinalized(testBranchDAG.branch2.ID(), false)
 		assert.NoError(t, err)
@@ -681,11 +681,11 @@ func TestBranchDAG_SetBranchFinalized(t *testing.T) {
 	}
 
 	{
-		eventMock.Expect("BranchUnfinalized", testBranchDAG.branch3)
-		eventMock.Expect("BranchUnfinalized", testBranchDAG.branch10)
-		eventMock.Expect("BranchPending", testBranchDAG.branch3)
-		eventMock.Expect("BranchPending", testBranchDAG.branch10)
-		eventMock.Expect("BranchPending", testBranchDAG.branch14)
+		eventMock.Expect("BranchUnfinalized", testBranchDAG.branch3.ID())
+		eventMock.Expect("BranchUnfinalized", testBranchDAG.branch10.ID())
+		eventMock.Expect("BranchPending", testBranchDAG.branch3.ID())
+		eventMock.Expect("BranchPending", testBranchDAG.branch10.ID())
+		eventMock.Expect("BranchPending", testBranchDAG.branch14.ID())
 
 		modified, err := branchDAG.SetBranchFinalized(testBranchDAG.branch3.ID(), false)
 		assert.NoError(t, err)
@@ -741,10 +741,10 @@ func TestBranchDAG_SetBranchPreferred2(t *testing.T) {
 	branch7 := cachedBranch7.Unwrap()
 	assert.True(t, newBranchCreated)
 
-	event.Expect("BranchPreferred", branch2)
-	event.Expect("BranchLiked", branch2)
-	event.Expect("BranchPreferred", branch6)
-	event.Expect("BranchLiked", branch6)
+	event.Expect("BranchPreferred", branch2.ID())
+	event.Expect("BranchLiked", branch2.ID())
+	event.Expect("BranchPreferred", branch6.ID())
+	event.Expect("BranchLiked", branch6.ID())
 
 	// assume branch 2 preferred since solid longer than avg. network delay
 	modified, err := branchDAG.SetBranchPreferred(branch2.ID(), true)
@@ -843,10 +843,10 @@ func TestBranchDAG_SetBranchPreferred2(t *testing.T) {
 	assert.NoError(t, err)
 	assert.False(t, modified)
 
-	event.Expect("BranchPreferred", branch4)
-	event.Expect("BranchLiked", branch4)
-	event.Expect("BranchPreferred", aggrBranch8)
-	event.Expect("BranchLiked", aggrBranch8)
+	event.Expect("BranchPreferred", branch4.ID())
+	event.Expect("BranchLiked", branch4.ID())
+	event.Expect("BranchPreferred", aggrBranch8.ID())
+	event.Expect("BranchLiked", aggrBranch8.ID())
 
 	// simulate branch 4 being preferred by FPC vote
 	modified, err = branchDAG.SetBranchPreferred(branch4.ID(), true)
@@ -925,63 +925,63 @@ func TestBranchDAG_MergeToMaster(t *testing.T) {
 	_, err = branchDAG.MergeToMaster(testBranchDAG.branch12.ID())
 	assert.Error(t, err)
 
-	eventMock.Expect("BranchPreferred", testBranchDAG.branch2)
-	eventMock.Expect("BranchLiked", testBranchDAG.branch2)
-	eventMock.Expect("BranchPreferred", testBranchDAG.branch7)
-	eventMock.Expect("BranchLiked", testBranchDAG.branch7)
-	eventMock.Expect("BranchPreferred", testBranchDAG.branch12)
-	eventMock.Expect("BranchLiked", testBranchDAG.branch12)
-	eventMock.Expect("BranchPreferred", testBranchDAG.branch15)
-	eventMock.Expect("BranchLiked", testBranchDAG.branch15)
+	eventMock.Expect("BranchPreferred", testBranchDAG.branch2.ID())
+	eventMock.Expect("BranchLiked", testBranchDAG.branch2.ID())
+	eventMock.Expect("BranchPreferred", testBranchDAG.branch7.ID())
+	eventMock.Expect("BranchLiked", testBranchDAG.branch7.ID())
+	eventMock.Expect("BranchPreferred", testBranchDAG.branch12.ID())
+	eventMock.Expect("BranchLiked", testBranchDAG.branch12.ID())
+	eventMock.Expect("BranchPreferred", testBranchDAG.branch15.ID())
+	eventMock.Expect("BranchLiked", testBranchDAG.branch15.ID())
 
 	modified, err := branchDAG.SetBranchLiked(testBranchDAG.branch15.ID(), true)
 	assert.True(t, modified)
 
-	eventMock.Expect("BranchFinalized", testBranchDAG.branch2)
-	eventMock.Expect("BranchFinalized", testBranchDAG.branch3)
-	eventMock.Expect("BranchFinalized", testBranchDAG.branch6)
-	eventMock.Expect("BranchFinalized", testBranchDAG.branch7)
-	eventMock.Expect("BranchFinalized", testBranchDAG.branch10)
-	eventMock.Expect("BranchFinalized", testBranchDAG.branch11)
-	eventMock.Expect("BranchFinalized", testBranchDAG.branch12)
-	eventMock.Expect("BranchFinalized", testBranchDAG.branch13)
-	eventMock.Expect("BranchFinalized", testBranchDAG.branch14)
-	eventMock.Expect("BranchFinalized", testBranchDAG.branch15)
-	eventMock.Expect("BranchRejected", testBranchDAG.branch3)
-	eventMock.Expect("BranchRejected", testBranchDAG.branch6)
-	eventMock.Expect("BranchRejected", testBranchDAG.branch8)
-	eventMock.Expect("BranchRejected", testBranchDAG.branch10)
-	eventMock.Expect("BranchRejected", testBranchDAG.branch11)
-	eventMock.Expect("BranchRejected", testBranchDAG.branch13)
-	eventMock.Expect("BranchRejected", testBranchDAG.branch14)
-	eventMock.Expect("BranchConfirmed", testBranchDAG.branch2)
-	eventMock.Expect("BranchConfirmed", testBranchDAG.branch7)
-	eventMock.Expect("BranchConfirmed", testBranchDAG.branch12)
-	eventMock.Expect("BranchConfirmed", testBranchDAG.branch15)
+	eventMock.Expect("BranchFinalized", testBranchDAG.branch2.ID())
+	eventMock.Expect("BranchFinalized", testBranchDAG.branch3.ID())
+	eventMock.Expect("BranchFinalized", testBranchDAG.branch6.ID())
+	eventMock.Expect("BranchFinalized", testBranchDAG.branch7.ID())
+	eventMock.Expect("BranchFinalized", testBranchDAG.branch10.ID())
+	eventMock.Expect("BranchFinalized", testBranchDAG.branch11.ID())
+	eventMock.Expect("BranchFinalized", testBranchDAG.branch12.ID())
+	eventMock.Expect("BranchFinalized", testBranchDAG.branch13.ID())
+	eventMock.Expect("BranchFinalized", testBranchDAG.branch14.ID())
+	eventMock.Expect("BranchFinalized", testBranchDAG.branch15.ID())
+	eventMock.Expect("BranchRejected", testBranchDAG.branch3.ID())
+	eventMock.Expect("BranchRejected", testBranchDAG.branch6.ID())
+	eventMock.Expect("BranchRejected", testBranchDAG.branch8.ID())
+	eventMock.Expect("BranchRejected", testBranchDAG.branch10.ID())
+	eventMock.Expect("BranchRejected", testBranchDAG.branch11.ID())
+	eventMock.Expect("BranchRejected", testBranchDAG.branch13.ID())
+	eventMock.Expect("BranchRejected", testBranchDAG.branch14.ID())
+	eventMock.Expect("BranchConfirmed", testBranchDAG.branch2.ID())
+	eventMock.Expect("BranchConfirmed", testBranchDAG.branch7.ID())
+	eventMock.Expect("BranchConfirmed", testBranchDAG.branch12.ID())
+	eventMock.Expect("BranchConfirmed", testBranchDAG.branch15.ID())
 
 	modified, err = branchDAG.SetBranchFinalized(testBranchDAG.branch15.ID(), true)
 	assert.True(t, modified)
 
-	eventMock.Expect("BranchPreferred", testBranchDAG.branch5)
-	eventMock.Expect("BranchLiked", testBranchDAG.branch5)
-	eventMock.Expect("BranchPreferred", testBranchDAG.branch9)
-	eventMock.Expect("BranchLiked", testBranchDAG.branch9)
-	eventMock.Expect("BranchPreferred", testBranchDAG.branch16)
-	eventMock.Expect("BranchLiked", testBranchDAG.branch16)
+	eventMock.Expect("BranchPreferred", testBranchDAG.branch5.ID())
+	eventMock.Expect("BranchLiked", testBranchDAG.branch5.ID())
+	eventMock.Expect("BranchPreferred", testBranchDAG.branch9.ID())
+	eventMock.Expect("BranchLiked", testBranchDAG.branch9.ID())
+	eventMock.Expect("BranchPreferred", testBranchDAG.branch16.ID())
+	eventMock.Expect("BranchLiked", testBranchDAG.branch16.ID())
 
 	modified, err = branchDAG.SetBranchLiked(testBranchDAG.branch5.ID(), true)
 	assert.True(t, modified)
 
-	eventMock.Expect("BranchFinalized", testBranchDAG.branch4)
-	eventMock.Expect("BranchFinalized", testBranchDAG.branch5)
-	eventMock.Expect("BranchFinalized", testBranchDAG.branch8)
-	eventMock.Expect("BranchFinalized", testBranchDAG.branch9)
-	eventMock.Expect("BranchFinalized", testBranchDAG.branch16)
-	eventMock.Expect("BranchRejected", testBranchDAG.branch4)
-	eventMock.Expect("BranchRejected", testBranchDAG.branch8)
-	eventMock.Expect("BranchConfirmed", testBranchDAG.branch5)
-	eventMock.Expect("BranchConfirmed", testBranchDAG.branch9)
-	eventMock.Expect("BranchConfirmed", testBranchDAG.branch16)
+	eventMock.Expect("BranchFinalized", testBranchDAG.branch4.ID())
+	eventMock.Expect("BranchFinalized", testBranchDAG.branch5.ID())
+	eventMock.Expect("BranchFinalized", testBranchDAG.branch8.ID())
+	eventMock.Expect("BranchFinalized", testBranchDAG.branch9.ID())
+	eventMock.Expect("BranchFinalized", testBranchDAG.branch16.ID())
+	eventMock.Expect("BranchRejected", testBranchDAG.branch4.ID())
+	eventMock.Expect("BranchRejected", testBranchDAG.branch8.ID())
+	eventMock.Expect("BranchConfirmed", testBranchDAG.branch5.ID())
+	eventMock.Expect("BranchConfirmed", testBranchDAG.branch9.ID())
+	eventMock.Expect("BranchConfirmed", testBranchDAG.branch16.ID())
 
 	modified, err = branchDAG.SetBranchFinalized(testBranchDAG.branch5.ID(), true)
 	assert.True(t, modified)
@@ -1313,7 +1313,7 @@ func (e *eventMock) BranchPreferred(cachedBranch *BranchDAGEvent) {
 	}
 
 	defer cachedBranch.Release()
-	e.Called(cachedBranch.Branch.Unwrap())
+	e.Called(cachedBranch.Branch.Unwrap().ID())
 
 	e.calledEvents++
 }
@@ -1324,7 +1324,7 @@ func (e *eventMock) BranchUnpreferred(cachedBranch *BranchDAGEvent) {
 	}
 
 	defer cachedBranch.Release()
-	e.Called(cachedBranch.Branch.Unwrap())
+	e.Called(cachedBranch.Branch.Unwrap().ID())
 
 	e.calledEvents++
 }
@@ -1335,7 +1335,7 @@ func (e *eventMock) BranchLiked(cachedBranch *BranchDAGEvent) {
 	}
 
 	defer cachedBranch.Release()
-	e.Called(cachedBranch.Branch.Unwrap())
+	e.Called(cachedBranch.Branch.Unwrap().ID())
 
 	e.calledEvents++
 }
@@ -1346,7 +1346,7 @@ func (e *eventMock) BranchDisliked(cachedBranch *BranchDAGEvent) {
 	}
 
 	defer cachedBranch.Release()
-	e.Called(cachedBranch.Branch.Unwrap())
+	e.Called(cachedBranch.Branch.Unwrap().ID())
 
 	e.calledEvents++
 }
@@ -1357,7 +1357,7 @@ func (e *eventMock) BranchFinalized(cachedBranch *BranchDAGEvent) {
 	}
 
 	defer cachedBranch.Release()
-	e.Called(cachedBranch.Branch.Unwrap())
+	e.Called(cachedBranch.Branch.Unwrap().ID())
 
 	e.calledEvents++
 }
@@ -1368,7 +1368,7 @@ func (e *eventMock) BranchUnfinalized(cachedBranch *BranchDAGEvent) {
 	}
 
 	defer cachedBranch.Release()
-	e.Called(cachedBranch.Branch.Unwrap())
+	e.Called(cachedBranch.Branch.Unwrap().ID())
 
 	e.calledEvents++
 }
@@ -1379,7 +1379,7 @@ func (e *eventMock) BranchConfirmed(cachedBranch *BranchDAGEvent) {
 	}
 
 	defer cachedBranch.Release()
-	e.Called(cachedBranch.Branch.Unwrap())
+	e.Called(cachedBranch.Branch.Unwrap().ID())
 
 	e.calledEvents++
 }
@@ -1390,7 +1390,7 @@ func (e *eventMock) BranchRejected(cachedBranch *BranchDAGEvent) {
 	}
 
 	defer cachedBranch.Release()
-	e.Called(cachedBranch.Branch.Unwrap())
+	e.Called(cachedBranch.Branch.Unwrap().ID())
 
 	e.calledEvents++
 }
@@ -1401,7 +1401,7 @@ func (e *eventMock) BranchPending(cachedBranch *BranchDAGEvent) {
 	}
 
 	defer cachedBranch.Release()
-	e.Called(cachedBranch.Branch.Unwrap())
+	e.Called(cachedBranch.Branch.Unwrap().ID())
 
 	e.calledEvents++
 }
