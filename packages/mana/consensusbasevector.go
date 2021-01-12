@@ -36,7 +36,8 @@ func (c *ConsensusBaseManaVector) Has(nodeID identity.ID) bool {
 	return exists
 }
 
-// BuildPastBaseVector builds a consensus base mana vector from past events upto time `t`
+// BuildPastBaseVector builds a consensus base mana vector from past events upto time `t`.
+// `eventLogs` is expected to be sorted chronologically.
 func (c *ConsensusBaseManaVector) BuildPastBaseVector(eventsLog []Event, t time.Time) error {
 	emptyID := identity.ID{}
 	if len(c.vector) == 0 {
