@@ -100,6 +100,11 @@ func configure(*node.Plugin) {
 		_tangle.SolidifyMessage(cachedMsgEvent.Message, cachedMsgEvent.MessageMetadata)
 	}))
 
+	// setup parents check
+	_tangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
+		_tangle.CheckParentsEligibility(cachedMsgEvent.Message, cachedMsgEvent.MessageMetadata)
+	}))
+
 	// Setup messageFactory (behavior + logging))
 	messageFactory = MessageFactory()
 	messageFactory.Events.MessageConstructed.Attach(events.NewClosure(_tangle.StoreMessage))
