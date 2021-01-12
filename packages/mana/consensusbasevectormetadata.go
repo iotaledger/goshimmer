@@ -69,7 +69,7 @@ func FromMetadataObjectStorage(_ []byte, data []byte) (result objectstorage.Stor
 	return parseMetadata(marshalutil.New(data))
 }
 
-// CachedConsensusBasePastManaVectorMetadata represents cached persistable event.
+// CachedConsensusBasePastManaVectorMetadata represents cached ConsensusBasePastVectorMetadata.
 type CachedConsensusBasePastManaVectorMetadata struct {
 	objectstorage.CachedObject
 }
