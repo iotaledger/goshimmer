@@ -159,7 +159,7 @@ BLAKE2b-256 hash of the byte contents of the message. It should be used by the n
     <tr>
         <td>Nonce</td>
         <td>uint64</td>
-        <td>The nonce which lets this message fulfill the Proof-of-Work requirement.</td>
+        <td>The nonce which lets this message fulfill the adaptive Proof-of-Work requirement.</td>
     </tr>
     <tr>
         <td>Signature (Ed25519)</td>
@@ -181,7 +181,7 @@ A message is syntactically valid if:
 Messages that do no pass the Semantic Validation are discarded. Only semantically valid messages continue in the data flow, i.e., pass to the eligibility check.
 
 A message is semantically valid if:
-- The Message PoW Hash contains at least the number of leading 0 the node defines as required.
+- The Message PoW Hash contains at least the number of leading 0 defined as required by the adaptive PoW algo [TO DO: LINK TO THE APOW SPEC].
 - The signature from the issuing node is valid.
 
 ### Eligibility check
