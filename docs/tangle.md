@@ -39,7 +39,7 @@
 ## Parameters
 - `MAX_MESSAGE_SIZE=64 KB` The maximum allowed message size.
 - `MAX_PAYLOAD_SIZE=65157 B` The maximum allowed payload size.
-- `MIN_STRONG_PARENTS=1` The minimum amount of strong parents a message needs to have.
+- `MIN_STRONG_PARENTS=1` The minimum amount of strong parents a message needs to reference.
 
 ## General concept
 ![Tangle](https://i.ibb.co/RyqbZzN/tangle.png)
@@ -47,8 +47,8 @@
 The Tangle is an immutable data structure that consists out of **messages** that **reference previous messages** via their crypthograpic hashes, creating a directed acyclic graph (DAG) of messages. Every participant in the network keeps track of its *local Tangle* and derives its *ledger state* from it. 
 
 ### Terminology
-- **Genesis**: The genesis message is used to bootstrap the Tangle. It is the first message and does not have parents. It is marked as solid.
-- **Past cone**: All messages that are directly or indirectly referenced by a message are called its past cone
+- **Genesis**: The genesis message is used to bootstrap the Tangle. It is the first message and does not have parents. It is marked as solid, eligible and liked with level of knowledge 3.
+- **Past cone**: All messages that are directly or indirectly referenced by a message are called its past cone.
 - **Future cone**: All messages that directly or indirectly reference a message are called its future cone.
 - **Solidity**: A message is marked as solid if its entire past cone until the Genesis (or the latest snapshot) is known.
 - **Parents**: A message directly references between 2-8 previous messages that we call its **parents**. A parent can be either **strong** or **weak** [TO DO: LINK TO THE APPROVAL SWITCH SPEC].
@@ -122,7 +122,7 @@ BLAKE2b-256 hash of the byte contents of the message. It should be used by the n
     <tr>
         <td>Payload length</td>
         <td>uint32</td>
-        <td>The length of the Payload. Since its type may be unknown to the node it must be declared in advance. 0 length means no payload will be attached.</td>
+        <td>The length of the Payload. Since its type may be unknown to the node, it must be declared in advance. 0 length means no payload will be attached.</td>
     </tr>
     <tr>
         <td colspan="1">
@@ -144,7 +144,7 @@ BLAKE2b-256 hash of the byte contents of the message. It should be used by the n
                         <td>Payload Type</td>
                         <td>uint32</td>
                         <td>
-                            The type of the payload. It will instruct the node how to parse the fields that follow. Types in the range of 0-127 are "core types" that all nodes are expected to know.
+                            The type of the payload. It will instruct the node how to parse the fields that follow. Types in the range of 0-127 are "core types", that all nodes are expected to know.
                         </td>
                     </tr>
                     <tr>
@@ -174,7 +174,7 @@ Messages that do no pass the Syntactical Validation are discarded. Only syntacti
 
 A message is syntactically valid if:
 1. The message length does not exceed `MAX_MESSAGE_SIZE` bytes.
-2. When we are done parsing the message, there is not any trailing bytes left that were not parsed.
+2. When we are done parsing the message, there are not any trailing bytes left that were not parsed.
 4. At least 1 and at most 8 distinct parents are given, ordered ASC and at least `MIN_STRONG_PARENTS` are strong parents. 
 
 ### Semantic Validation
@@ -185,7 +185,7 @@ A message is semantically valid if:
 - The signature from the issuing node is valid.
 
 ### Eligibility check
-If a message gets to this point (i.e., if a message passed the semantic validation), it will be scheduled, it will have its payload processed and will be added to the local Tangle of a node. Nevertheless, only eligible messages might become available for tip selection in the future. Eligibility of a message **does not** express any opinion about the attachment location of a message. It solely evaluates a message according to its timestamp. Notice that, the eligibility of a message does not imply anything about the payload of the message; a message containing a disliked payload can still be eligible, even though this message will be never included in the weak/strong tip set. Thus, the TSA chooses from a subset of the eligible messages.
+If a message gets to this point (i.e., if a message passed the semantic validation), it will be scheduled, it will have its payload processed and will be added to the local Tangle of a node. Nevertheless, only eligible messages might become available for tip selection in the future. The eligibility of a message **does not** express any opinion about the attachment location of a message. It solely evaluates a message according to its timestamp. Notice that the eligibility of a message does not imply anything about the payload of the message; a message containing a disliked payload can still be eligible, even though this message will be never included in the weak/strong tip set. Thus, the TSA chooses from a subset of the eligible messages.
 
 A message is an eligible message if, after passing the syntactical and semantical validation:
 - It is solid
@@ -236,49 +236,49 @@ Next to a message itself, a node needs to store additional data that describe it
 ## Payloads
 Payloads can contain arbitrary data up to `MAX_PAYLOAD_SIZE` that can be defined by the user and that allow to build additional protocols on top of the base protocol in the same way as TCP/IP allows to define additional protocols on top of its generic data segment.
 
-Payloads can recursively contain other payloads which enables the creation of higher level protocols based on the same concepts of layers as in traditional software and network architecture.
+Payloads can recursively contain other payloads, which enables the creation of higher level protocols based on the same concepts of layers, as in traditional software and network architecture.
 
 Payloads other than transactions are always liked with level of knowledge 3. 
 
 ### User-defined payloads
-A node can choose to interpret user-defined payloads by listenting to its specific **payload type** (possibly via third-party code/software). If a node does not know a certain **payload type** it is simply treated as arbitrary data.
+A node can choose to interpret user-defined payloads by listenting to its specific **payload type** (possibly via third-party code/software). If a node does not know a certain **payload type**, it simply treates it as arbitrary data.
 
 ### Core payloads
 The core protocol defines a number of payloads that every node needs to interpret and process in order to participate in the network.
 
-- **Transactions:** Value transfers that constitue the ledger state. 
+- **Transactions:** Value transfers that constitute the ledger state. 
 - **dRNG:** Messages that contain randomness or committee declarations.
-- **FPC:** Opinions on conflicts, mainly issued by high mana nodes.
+- **FPC:** Opinions on conflicts of transactions and timestamps of the messages, mainly issued by high mana nodes.
 
     
 ## Solidification
-A message is said to be **solid** on a node when all its parents are known to the node and also marked as solid.
+A message is said to be **solid** on a node when all its parents are known to this node and also marked as solid.
 
-If a node is missing a referenced message it is stored in the **solidification buffer** and not yet processed. A node can ask its neighbors for the missing message by sending a **solidification request** containing the message hash. This process can be recursively repeated until all of a message's past cone until the genesis (or snapshot) become solid which is known as **solidification**. In that way the Tangle enables even nodes joining the network at a point later in time to retrieve all of a message's history.
+If a node is missing a referenced message, it is stored in the **solidification buffer** and not yet processed. A node can ask its neighbors for the missing message by sending a **solidification request** containing the message hash. This process can be recursively repeated until all of a message's past cone until the genesis (or snapshot) become solid, which is known as **solidification**. In that way, the Tangle enables all nodes to retrieve all of a message's history, even the ones joining the network at a point later in time.
 
 ### Naive approach
 Approach:
 1. Send solidification request for message immediately to all neighbors
 2. If not received after `solidificationRetryInterval` seconds, send solidification request again. Repeat until received.
 
-This approach simply requests missing messages recursivley until all of them become solid. While easy to implement it has some drawbacks. Each  parent that needs to be requested adds another RTT and message complexity (solidification request * neighbors). 
+This approach simply requests missing messages recursively until all of them become solid. While easy to implement, it has some drawbacks. Each  parent that needs to be requested adds another RTT and message complexity (solidification request * neighbors). 
 
 Optimizations:
-- do not send solidification request immediately: messages can arrive out of order but should generally arrive within a small time window since other nodes only gossip messages on solidification
-- instead of asking for messages one by one a node could ask for messages of a certain timeframe (e.g. its local snapshot time until now)
-- send solidification request only to a subset of neighbors
+- do not send solidification requests immediately: messages can arrive out of order but should generally arrive within a small time window, since other nodes only gossip messages on solidification.
+- instead of asking for messages one by one, a node could ask for messages of a certain timeframe (e.g. its local snapshot time until now).
+- send solidification requests only to a subset of neighbors.
 
 ### Possible attacks
 A malicious node can send unsolidifiable messages to a node. A simple protection is to only repeat solidification requests `solidificationMaxRepeat` times before the message gets deleted from the node's solidification buffer. 
 
 
 ## Orphanage
-Messages that are considered to be not eligible are ignored during tip selection. This process of leaving undesired messages (or more in general, whenever a message is not being approved) behind is called **orphaning messages**. It is important that nodes share the same perception on which messages should be orphaned. 
+Messages that are not considered to be eligible are ignored during tip selection. This process of leaving undesired messages (or more in general, whenever a message is not being approved) behind is called **orphaning messages**. It is important that nodes share the same perception on which messages should be orphaned. 
 
-Orphaned messages can be safely deleted during snapshotting and are not visible to nodes that later join the network because they are not reachable when requesting the missing messages from the tips during solidification.
+Orphaned messages can be safely deleted during snapshotting and are not visible to nodes that later join the network, since they are not reachable when requesting the missing messages from the tips during solidification.
 
 ## Finality
-Users need to know whether their information will not be orphaned. However, finality is inherently probabilistic. For instance, consider the following scenario. An attacker can trivially maintain a chain of messages that do not approve any other message. At any given point in time, it is possible that all messages will be orphaned except this chain. This is incredibly unlikely, but yet still possible.
+Users need to know whether their information will not be orphaned. However, finality is inherently probabilistic. For instance, consider the following scenario: an attacker can trivially maintain a chain of messages that do not approve any other message. At any given point in time, it is possible that all messages will be orphaned except this chain. This is incredibly unlikely, but yet still possible.
 
 We introduce several grades of finality. The higher the grade of finality, the less likely it is to be orphaned.
 
