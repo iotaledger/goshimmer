@@ -44,15 +44,15 @@
 ## General concept
 ![Tangle](https://i.ibb.co/RyqbZzN/tangle.png)
 
-The Tangle is an immutable data structure that consists out of **messages** that **reference previous messages** via their crypthograpic hashes. Therefore creating a directed acyclic graph (DAG) of messages. Every participant in the network keeps track of its *local Tangle* and derives its *ledger state* from it. 
+The Tangle is an immutable data structure that consists out of **messages** that **reference previous messages** via their crypthograpic hashes, creating a directed acyclic graph (DAG) of messages. Every participant in the network keeps track of its *local Tangle* and derives its *ledger state* from it. 
 
 ### Terminology
 - **Genesis**: The genesis message is used to bootstrap the Tangle. It is the first message and does not have parents. It is marked as solid.
 - **Past cone**: All messages that are directly or indirectly referenced by a message are called its past cone
 - **Future cone**: All messages that directly or indirectly reference a message are called its future cone.
 - **Solidity**: A message is marked as solid if its entire past cone until the Genesis (or the latest snapshot) is known.
-- **Parents**: A message directly references between 2-8 previous messages that we call its **parents**. 
-- **Approvers**: Parents are approved by their referencing messages called **approvers**. It is thus a reverse mapping of parents. 
+- **Parents**: A message directly references between 2-8 previous messages that we call its **parents**. A parent can be either **strong** or **weak** [TO DO: LINK TO THE APPROVAL SWITCH SPEC].
+- **Approvers**: Parents are approved by their referencing messages called **approvers**. It is thus a reverse mapping of parents. As in the parents definition, an approver might be either **strong** or **weak**.
 
 ## Messages
 Messages are created and signed by nodes. Besides several fields of metadata they carry a **payload**. The maximum message size is `MAX_MESSAGE_SIZE`.
@@ -170,20 +170,31 @@ BLAKE2b-256 hash of the byte contents of the message. It should be used by the n
 
 
 ### Syntactical Validation
-1. The message length must not exceed `MAX_MESSAGE_SIZE` bytes.
-2. When we are done parsing the message there shouldn't be any trailing bytes left that were not parsed.
-4. At least 1 and maximum 8 distinct parents are given, ordered ASC and at least `MIN_STRONG_PARENTS` are strong parent. 
+Messages that do no pass the Syntactical Validation are discarded. Only syntactically valid messages continue in the data flow, i.e., pass to the Semantic Validation.
 
-### Semantic Validation / Eligibility
-Only eligible messages are processed by a node, added to its local Tangle and thus can become available as tips for tip selection. Eligibility of a message **does not** express any opinion about the attachment location of a message. It solely evaluates a message according to its timestamp.
+A message is syntactically valid if:
+1. The message length does not exceed `MAX_MESSAGE_SIZE` bytes.
+2. When we are done parsing the message, there is not any trailing bytes left that were not parsed.
+4. At least 1 and at most 8 distinct parents are given, ordered ASC and at least `MIN_STRONG_PARENTS` are strong parents. 
 
-A message is an eligible message if:
-- If the Message PoW Hash will contain at least the number of leading 0 the node defines as required.
--  Verify signature to be valid from issuing node.
+### Semantic Validation
+Messages that do no pass the Semantic Validation are discarded. Only semantically valid messages continue in the data flow, i.e., pass to the eligibility check.
+
+A message is semantically valid if:
+- The Message PoW Hash contains at least the number of leading 0 the node defines as required.
+- The signature from the issuing node is valid.
+
+### Eligibility check
+If a message gets to this point (i.e., if a message passed the semantic validation), it will be scheduled, it will have its payload processed and will be added to the local Tangle of a node. Nevertheless, only eligible messages might become available for tip selection in the future. Eligibility of a message **does not** express any opinion about the attachment location of a message. It solely evaluates a message according to its timestamp. Notice that, the eligibility of a message does not imply anything about the payload of the message; a message containing a disliked payload can still be eligible, even though this message will be never included in the weak/strong tip set. Thus, the TSA chooses from a subset of the eligible messages.
+
+A message is an eligible message if, after passing the syntactical and semantical validation:
 - It is solid
-- It has a good timestamp (TODO: link timestamp spec)
+- It has a level 2 or 3 good timestamp (TODO: link timestamp spec)
 - It passes parents age checks (TODO: link timestamp spec)
 - Its parents are eligible
+
+
+
 
 ### Metadata
 Next to a message itself, a node needs to store additional data that describe its local perception of this message and are not part of the Tangle.
@@ -217,7 +228,7 @@ Next to a message itself, a node needs to store additional data that describe it
     <tr>
         <td>eligible</td>
         <td>bool</td>
-        <td>Denotes whether a message is eligible, i.e., it is added to a node's local Tangle.</td>
+        <td>Denotes whether a message is eligible.</td>
     </tr>
 </table>
 
@@ -262,15 +273,15 @@ A malicious node can send unsolidifiable messages to a node. A simple protection
 
 
 ## Orphanage
-Messages that are considered to be invalid/not eligible are discarded and are consequently ignored during tip selection. This process of leaving undesired messages (or more in general, whenever a message is not being approved) behind is called **orphaning messages**. It is important that nodes share the same perception on which messages should be orphaned. 
+Messages that are considered to be not eligible are ignored during tip selection. This process of leaving undesired messages (or more in general, whenever a message is not being approved) behind is called **orphaning messages**. It is important that nodes share the same perception on which messages should be orphaned. 
 
 Orphaned messages can be safely deleted during snapshotting and are not visible to nodes that later join the network because they are not reachable when requesting the missing messages from the tips during solidification.
 
 ## Finality
-Users need to know when their information has been successfully added to the Tangle. In other words, they need to know when their information will not be orphaned. However, finality is inherently probabilistic. For instance, consider the following scenario. An attacker can trivially maintain a chain of messages that do not approve any other message. At any given point in time, it is possible that all messages will be orphaned except this chain. This is incredibly unlikely, but yet still possible.
+Users need to know whether their information will not be orphaned. However, finality is inherently probabilistic. For instance, consider the following scenario. An attacker can trivially maintain a chain of messages that do not approve any other message. At any given point in time, it is possible that all messages will be orphaned except this chain. This is incredibly unlikely, but yet still possible.
 
 We introduce several grades of finality. The higher the grade of finality, the less likely it is to be orphaned.
 
-- **Grade 1:** when it becomes eligible & its payload is like with level of knowledge >=2
+- **Grade 1:** when it becomes eligible & its payload is liked with level of knowledge >=2
 - **Grade 2:** when it reaches a given confidence level	> 5-10% active consensus mana
 - **Grade 3:** when it reaches an even bigger confidence level > 50% active consensus mana
