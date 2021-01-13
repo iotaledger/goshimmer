@@ -1,12 +1,12 @@
 package ledgerstate
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
+	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -823,7 +823,7 @@ func TestBranchDAG_SetBranchPreferred2(t *testing.T) {
 	assert.NoError(t, err)
 	defer cachedAggrBranch13.Release()
 	aggrBranch13 := cachedAggrBranch13.Unwrap()
-	assert.True(t, newBranchCreated)
+	assert.False(t, newBranchCreated)
 
 	assert.False(t, aggrBranch13.Liked(), "aggr. branch 13 should not be liked")
 	assert.False(t, aggrBranch13.Preferred(), "aggr. branch 13 should not be preferred")
@@ -992,43 +992,34 @@ func TestBranchDAG_MergeToMaster(t *testing.T) {
 	_, err = branchDAG.MergeToMaster(testBranchDAG.branch5.ID())
 	assert.Error(t, err)
 
-	eventMock.DetachAll()
+	aggregatedBranch7Plus12 := NewAggregatedBranch(NewBranchIDs(testBranchDAG.branch7.ID(), testBranchDAG.branch12.ID()))
+	eventMock.RegisterDebugAlias(aggregatedBranch7Plus12.ID(), "AggregatedBranch(7 + 12)")
+
+	eventMock.Expect("BranchPreferred", aggregatedBranch7Plus12.ID())
+	eventMock.Expect("BranchLiked", aggregatedBranch7Plus12.ID())
+	eventMock.Expect("BranchFinalized", aggregatedBranch7Plus12.ID())
+	eventMock.Expect("BranchConfirmed", aggregatedBranch7Plus12.ID())
 
 	reorgDetails, err := branchDAG.MergeToMaster(testBranchDAG.branch2.ID())
 	assert.NoError(t, err)
 
-	for branchID := range reorgDetails.DeletedBranches {
-		fmt.Println("DELETED", eventMock.debugAlias[branchID])
-	}
-	for branchID, newBranchID := range reorgDetails.MovedBranches {
-		fmt.Println("MOVED", eventMock.debugAlias[branchID])
-
-		branchDAG.Branch(newBranchID).Consume(func(branch Branch) {
-			fmt.Println("NEW", branch)
-			for parentBranchID := range branch.Parents() {
-				fmt.Println("PARENT", eventMock.debugAlias[parentBranchID])
-			}
-		})
-	}
-	fmt.Println(reorgDetails)
+	assert.Equal(t, map[BranchID]types.Empty{
+		testBranchDAG.branch2.ID(): types.Void,
+	}, reorgDetails.DeletedBranches)
+	assert.Equal(t, map[BranchID]BranchID{
+		testBranchDAG.branch15.ID(): NewAggregatedBranch(NewBranchIDs(testBranchDAG.branch7.ID(), testBranchDAG.branch12.ID())).ID(),
+	}, reorgDetails.MovedBranches)
 
 	reorgDetails, err = branchDAG.MergeToMaster(testBranchDAG.branch12.ID())
 	assert.NoError(t, err)
 
-	for branchID := range reorgDetails.DeletedBranches {
-		fmt.Println("DELETED", eventMock.debugAlias[branchID])
-	}
-	for branchID, newBranchID := range reorgDetails.MovedBranches {
-		fmt.Println("MOVED", eventMock.debugAlias[branchID])
-
-		branchDAG.Branch(newBranchID).Consume(func(branch Branch) {
-			fmt.Println("NEW", eventMock.debugAlias[newBranchID], branch)
-			for parentBranchID := range branch.Parents() {
-				fmt.Println("PARENT", eventMock.debugAlias[parentBranchID])
-			}
-		})
-	}
-	fmt.Println(reorgDetails)
+	assert.Equal(t, map[BranchID]types.Empty{
+		testBranchDAG.branch12.ID(): types.Void,
+	}, reorgDetails.DeletedBranches)
+	assert.Equal(t, map[BranchID]BranchID{
+		NewAggregatedBranch(NewBranchIDs(testBranchDAG.branch7.ID(), testBranchDAG.branch12.ID())).ID(): testBranchDAG.branch7.ID(),
+		testBranchDAG.branch16.ID(): testBranchDAG.branch9.ID(),
+	}, reorgDetails.MovedBranches)
 }
 
 type testBranchDAG struct {

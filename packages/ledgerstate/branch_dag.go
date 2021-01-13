@@ -126,6 +126,13 @@ func (b *BranchDAG) RetrieveAggregatedBranch(parentBranchIDs BranchIDs) (cachedA
 		return
 	}
 
+	if len(normalizedParentBranchIDs) == 1 {
+		for firstBranchID := range normalizedParentBranchIDs {
+			cachedAggregatedBranch = b.Branch(firstBranchID)
+			return
+		}
+	}
+
 	aggregatedBranch := NewAggregatedBranch(normalizedParentBranchIDs)
 	cachedAggregatedBranch = &CachedBranch{CachedObject: b.branchStorage.ComputeIfAbsent(aggregatedBranch.ID().Bytes(), func(key []byte) objectstorage.StorableObject {
 		newBranchCreated = true
@@ -143,14 +150,32 @@ func (b *BranchDAG) RetrieveAggregatedBranch(parentBranchIDs BranchIDs) (cachedA
 			}
 		}
 
-		if preferredErr := b.updatePreferredOfAggregatedBranch(cachedAggregatedBranch.Retain(), true); preferredErr != nil {
-			err = xerrors.Errorf("failed to update preferred flag of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), preferredErr)
+		for parentBranchID := range normalizedParentBranchIDs {
+			if !b.Branch(parentBranchID).Consume(func(parentBranch Branch) {
+				if preferredErr := b.updatePreferredOfAggregatedBranch(cachedAggregatedBranch.Retain(), parentBranch.Preferred()); preferredErr != nil {
+					err = xerrors.Errorf("failed to update preferred flag of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), preferredErr)
+					return
+				}
+				if _, likedErr := b.updateLikedStatus(cachedAggregatedBranch.ID(), parentBranch.Liked()); likedErr != nil {
+					err = xerrors.Errorf("failed to update preferred flag of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), likedErr)
+					return
+				}
+				if finalizedErr := b.updateFinalizedOfAggregatedBranch(cachedAggregatedBranch.Retain(), parentBranch.Finalized()); finalizedErr != nil {
+					err = xerrors.Errorf("failed to update finalized flag of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), finalizedErr)
+					return
+				}
+				if inclusionStateErr := b.updateInclusionState(aggregatedBranch.ID(), parentBranch.InclusionState()); inclusionStateErr != nil {
+					err = xerrors.Errorf("failed to update inclusion state of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), inclusionStateErr)
+					return
+				}
+			}) {
+				err = xerrors.Errorf("failed to load parent Branch with %s: %w", parentBranchID, cerrors.ErrFatal)
+			}
+
 			return
 		}
-		if finalizedErr := b.updateFinalizedOfAggregatedBranch(cachedAggregatedBranch.Retain(), true); finalizedErr != nil {
-			err = xerrors.Errorf("failed to update finalized flag of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), finalizedErr)
-			return
-		}
+
+		err = xerrors.Errorf("failed to load parent Branch: %w", cerrors.ErrFatal)
 	}
 
 	return
@@ -247,7 +272,7 @@ func (b *BranchDAG) MergeToMaster(branchID BranchID) (reorgDetails *BranchDAGReo
 			} else {
 				cachedNewAggregatedBranch, _, newAggregatedBranchErr := b.RetrieveAggregatedBranch(parentBranches)
 				if newAggregatedBranchErr != nil {
-					err = xerrors.Errorf("failed to retrieve AggregatedBranch: %w", err)
+					err = xerrors.Errorf("failed to retrieve AggregatedBranch: %w", newAggregatedBranchErr)
 					return
 				}
 				cachedNewAggregatedBranch.Release()
