@@ -27,10 +27,17 @@ func broadcastNetworkDelayObject(c echo.Context) error {
 
 	now := clock.SyncedTime().UnixNano()
 
-	msg, err := issuer.IssuePayload(NewObject(id, now))
+	obj := NewObject(id, now)
+
+	nowWithoutClock := time.Now()
+
+	msg, err := issuer.IssuePayload(obj)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
+
+	sendPoWInfo(obj, time.Since(nowWithoutClock))
+
 	return c.JSON(http.StatusOK, Response{ID: msg.ID().String()})
 }
 

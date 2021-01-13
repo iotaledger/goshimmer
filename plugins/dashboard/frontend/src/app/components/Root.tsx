@@ -90,6 +90,7 @@ export class Root extends React.Component<Props, any> {
                     <Route exact path="/drng" component={Drng}/>
                     <Route exact path="/explorer" component={Explorer}/>
                     <Route exact path="/visualizer" component={Visualizer}/>
+                    <Route exact path="/visualizer/history" component={Visualizer}/>
                     <Route exact path="/faucet" component={Faucet}/>
                     <Redirect to="/dashboard"/>
                 </Switch>

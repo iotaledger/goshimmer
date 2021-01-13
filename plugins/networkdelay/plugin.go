@@ -144,6 +144,20 @@ func sendToRemoteLog(networkDelayObject *Object, receiveTime int64) {
 	_ = remoteLogger.Send(m)
 }
 
+func sendPoWInfo(object *Object, powDelta time.Duration) {
+	m := networkDelay{
+		NodeID:      myID,
+		ID:          object.id.String(),
+		SentTime:    0,
+		ReceiveTime: 0,
+		Delta:       powDelta.Nanoseconds(),
+		Clock:       clockEnabled,
+		Sync:        syncbeaconfollower.Synced(),
+		Type:        remoteLogType,
+	}
+	_ = remoteLogger.Send(m)
+}
+
 type networkDelay struct {
 	NodeID      string `json:"nodeId"`
 	ID          string `json:"id"`
