@@ -1,7 +1,6 @@
 package tangle
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
@@ -36,7 +35,6 @@ type TimestampOpinion struct {
 // TimestampQuality returns the timestamp opinion based on the given times (e.g., arrival and current).
 func TimestampQuality(target, current time.Time) (timestampOpinion TimestampOpinion) {
 	diff := abs(current.Sub(target))
-	fmt.Println(abs(diff + TimestampWindow))
 
 	if diff >= TimestampWindow {
 		timestampOpinion.Value = opinion.Dislike
