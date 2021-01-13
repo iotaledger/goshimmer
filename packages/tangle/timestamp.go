@@ -36,31 +36,21 @@ type TimestampOpinion struct {
 func TimestampQuality(target, current time.Time) (timestampOpinion TimestampOpinion) {
 	diff := abs(current.Sub(target))
 
+	timestampOpinion.Value = opinion.Like
 	if diff >= TimestampWindow {
 		timestampOpinion.Value = opinion.Dislike
-
-		switch {
-		case abs(diff-TimestampWindow) < GratuitousNetworkDelay:
-			timestampOpinion.LoK = One
-		case abs(diff-TimestampWindow) < 2*GratuitousNetworkDelay:
-			timestampOpinion.LoK = Two
-		default:
-			timestampOpinion.LoK = Three
-		}
-		return
 	}
-	timestampOpinion.Value = opinion.Like
 
 	switch {
-	case diff < TimestampWindow-2*GratuitousNetworkDelay:
-		timestampOpinion.LoK = Three
-	case diff < TimestampWindow-GratuitousNetworkDelay:
+	case abs(diff-TimestampWindow) < GratuitousNetworkDelay:
+		timestampOpinion.LoK = One
+	case abs(diff-TimestampWindow) < 2*GratuitousNetworkDelay:
 		timestampOpinion.LoK = Two
 	default:
-		timestampOpinion.LoK = One
+		timestampOpinion.LoK = Three
 	}
 
-	return timestampOpinion
+	return
 }
 
 func abs(a time.Duration) time.Duration {
