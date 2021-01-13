@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
+	"github.com/mr-tron/base58"
 )
 
 // PersistableEvent is a persistable event.
@@ -33,7 +34,7 @@ func (p *PersistableEvent) ToStringKeys() []string {
 // ToStringValues returns the persistableEvents values as a string array.
 func (p *PersistableEvent) ToStringValues() []string {
 	_type := strconv.Itoa(int(p.Type))
-	_nodeID := p.NodeID.String()
+	_nodeID := base58.Encode(p.NodeID[:])
 	_amount := strconv.FormatFloat(p.Amount, 'g', -1, 64)
 	_time := strconv.FormatInt(p.Time.Unix(), 10)
 	_manaType := p.ManaType.String()

@@ -2,6 +2,7 @@ package mana
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/iotaledger/goshimmer/packages/mana"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
@@ -24,7 +25,16 @@ func getEventLogsHandler(c echo.Context) error {
 		}
 		nodeIDs = append(nodeIDs, _nodeID)
 	}
-	logs, err := manaPlugin.GetLoggedEvents(nodeIDs)
+	startTime := time.Unix(req.StartTime, 0)
+	endTime := time.Unix(req.EndTime, 0)
+	var epoch time.Time
+	if endTime == epoch {
+		endTime = time.Now()
+	}
+	if endTime.Before(startTime) {
+		return c.JSON(http.StatusBadRequest, GetEventLogsResponse{Error: "time interval mismatch. endTime cannot be before startTime"})
+	}
+	logs, err := manaPlugin.GetLoggedEvents(nodeIDs, startTime, endTime)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, GetEventLogsResponse{Error: err.Error()})
 	}
@@ -47,7 +57,11 @@ func getEventLogsHandler(c echo.Context) error {
 		res[base58.Encode(ID.Bytes())] = eventsJSON
 	}
 
-	return c.JSON(http.StatusOK, GetEventLogsResponse{Logs: res})
+	return c.JSON(http.StatusOK, GetEventLogsResponse{
+		Logs:      res,
+		StartTime: startTime.Unix(),
+		EndTime:   endTime.Unix(),
+	})
 }
 
 // EventLogsJSON is a events log in JSON.
@@ -58,11 +72,15 @@ type EventLogsJSON struct {
 
 // GetEventLogsRequest is the request.
 type GetEventLogsRequest struct {
-	NodeIDs []string `json:"nodeIDs"`
+	NodeIDs   []string `json:"nodeIDs"`
+	StartTime int64    `json:"startTime"`
+	EndTime   int64    `json:"endTime"`
 }
 
 // GetEventLogsResponse is the response.
 type GetEventLogsResponse struct {
-	Logs  map[string]*EventLogsJSON `json:"logs"`
-	Error string                    `json:"error,omitempty"`
+	Logs      map[string]*EventLogsJSON `json:"logs"`
+	Error     string                    `json:"error,omitempty"`
+	StartTime int64                     `json:"startTime"`
+	EndTime   int64                     `json:"endTime"`
 }

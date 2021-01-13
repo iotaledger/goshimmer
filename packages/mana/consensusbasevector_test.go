@@ -676,13 +676,13 @@ func TestConsensusBaseManaVector_BuildPastBaseVector(t *testing.T) {
 	}
 
 	tx2Info := &TxInfo{
-		TimeStamp:     txTime,
+		TimeStamp:     txTime.Add(1 * time.Hour),
 		TransactionID: transaction.RandomID(),
 		TotalBalance:  5.0,
 		PledgeID:      map[Type]identity.ID{ConsensusMana: inputPledgeID2},
 		InputInfos: []InputInfo{
 			{
-				TimeStamp: inputTime,
+				TimeStamp: txTime,
 				Amount:    5,
 				PledgeID:  map[Type]identity.ID{ConsensusMana: inputPledgeID1},
 			},
@@ -690,18 +690,18 @@ func TestConsensusBaseManaVector_BuildPastBaseVector(t *testing.T) {
 	}
 
 	tx3Info := &TxInfo{
-		TimeStamp:     txTime,
+		TimeStamp:     txTime.Add(2 * time.Hour),
 		TransactionID: transaction.RandomID(),
 		TotalBalance:  10.0,
 		PledgeID:      map[Type]identity.ID{ConsensusMana: inputPledgeID3},
 		InputInfos: []InputInfo{
 			{
-				TimeStamp: inputTime,
+				TimeStamp: txTime,
 				Amount:    5,
 				PledgeID:  map[Type]identity.ID{ConsensusMana: inputPledgeID1},
 			},
 			{
-				TimeStamp: inputTime,
+				TimeStamp: txTime.Add(1 * time.Hour),
 				Amount:    5,
 				PledgeID:  map[Type]identity.ID{ConsensusMana: inputPledgeID2},
 			},
@@ -715,6 +715,9 @@ func TestConsensusBaseManaVector_BuildPastBaseVector(t *testing.T) {
 		eventsLog = append(eventsLog, ev)
 	}))
 
+	eventsLogBackup := make([]Event, len(eventsLog))
+	copy(eventsLogBackup, eventsLog)
+
 	bmv.Book(tx1Info)
 	bmv.Book(tx2Info)
 	bmv.Book(tx3Info)
@@ -722,9 +725,12 @@ func TestConsensusBaseManaVector_BuildPastBaseVector(t *testing.T) {
 	_pastBmv, err := NewBaseManaVector(ConsensusMana)
 	assert.NoError(t, err)
 	pastBmv := _pastBmv.(*ConsensusBaseManaVector)
-	err = pastBmv.BuildPastBaseVector(eventsLog, txTime)
+	err = pastBmv.BuildPastBaseVector([]Event{}, txTime)
 	assert.NoError(t, err)
+	assert.Equal(t, 0, pastBmv.Size())
 
+	err = pastBmv.BuildPastBaseVector(eventsLog, txTime.Add(2*time.Hour))
+	assert.NoError(t, err)
 	IDs := []identity.ID{inputPledgeID1, inputPledgeID2, inputPledgeID3}
 	current := map[identity.ID]*ConsensusBaseMana{}
 	past := map[identity.ID]*ConsensusBaseMana{}
@@ -741,4 +747,34 @@ func TestConsensusBaseManaVector_BuildPastBaseVector(t *testing.T) {
 	for _, ID := range IDs {
 		assert.Equal(t, *current[ID], *past[ID])
 	}
+
+	// time that is too old
+	var epoch time.Time
+	_pastBmv, err = NewBaseManaVector(ConsensusMana)
+	assert.NoError(t, err)
+	pastBmv = _pastBmv.(*ConsensusBaseManaVector)
+	err = pastBmv.BuildPastBaseVector(eventsLog, epoch)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, pastBmv.Size())
+
+	// partially consume logs
+	_pastBmv, err = NewBaseManaVector(ConsensusMana)
+	assert.NoError(t, err)
+	pastBmv = _pastBmv.(*ConsensusBaseManaVector)
+	err = pastBmv.BuildPastBaseVector(eventsLog, txTime.Add(90*time.Minute))
+	assert.NoError(t, err)
+
+	past = map[identity.ID]*ConsensusBaseMana{}
+	pastBmv.ForEach(func(ID identity.ID, mana BaseMana) bool {
+		past[ID] = mana.(*ConsensusBaseMana)
+		return true
+	})
+
+	assert.Equal(t, 2, len(past))
+	_, ok := past[inputPledgeID3]
+	assert.False(t, ok)
+
+	// start from a revoke event
+	err = bmv.(*ConsensusBaseManaVector).BuildPastBaseVector(eventsLog[1:], txTime.Add(3*time.Hour))
+	assert.NotNil(t, err)
 }

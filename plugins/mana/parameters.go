@@ -20,8 +20,6 @@ const (
 	// CfgManaEnableResearchVectors determines if research mana vector should be used or not. To use the Mana Research
 	// Grafana Dashboard, this should be set to true.
 	CfgManaEnableResearchVectors = "mana.enableResearchVectors"
-	// CfgConsensusEventsCSV is the path to a csv file to storage consensus mana events.
-	CfgConsensusEventsCSV = "mana.consensusEventsCSV"
 )
 
 func init() {
@@ -33,5 +31,4 @@ func init() {
 	flag.Bool(CfgAllowedAccessFilterEnabled, false, "if filtering on access mana pledge nodes is enabled")
 	flag.Bool(CfgAllowedConsensusFilterEnabled, false, "if filtering on consensus mana pledge nodes is enabled")
 	flag.Bool(CfgManaEnableResearchVectors, false, "enable mana research vectors")
-	flag.String(CfgConsensusEventsCSV, "/tmp/consensusManaEvents.csv", "file to store consensus mana events")
 }

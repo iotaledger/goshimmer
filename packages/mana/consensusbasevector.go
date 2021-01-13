@@ -40,7 +40,7 @@ func (c *ConsensusBaseManaVector) Has(nodeID identity.ID) bool {
 // `eventLogs` is expected to be sorted chronologically.
 func (c *ConsensusBaseManaVector) BuildPastBaseVector(eventsLog []Event, t time.Time) error {
 	emptyID := identity.ID{}
-	if len(c.vector) == 0 {
+	if c.vector == nil {
 		c.vector = make(map[identity.ID]*ConsensusBaseMana)
 	}
 	for _, _ev := range eventsLog {

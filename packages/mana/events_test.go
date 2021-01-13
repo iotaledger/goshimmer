@@ -1,6 +1,8 @@
 package mana
 
 import (
+	"crypto/rand"
+	"crypto/sha256"
 	"testing"
 	"time"
 
@@ -78,7 +80,7 @@ func newPledgeEvent() *PledgedEvent {
 
 func newRevokeEvent() *RevokedEvent {
 	return &RevokedEvent{
-		NodeID:        identity.ID{},
+		NodeID:        randomNodeID(),
 		Amount:        100,
 		Time:          time.Now(),
 		ManaType:      ConsensusMana,
@@ -88,9 +90,16 @@ func newRevokeEvent() *RevokedEvent {
 
 func newUpdateEvent() *UpdatedEvent {
 	return &UpdatedEvent{
-		NodeID:   identity.ID{},
+		NodeID:   randomNodeID(),
 		OldMana:  &ConsensusBaseMana{},
 		NewMana:  &ConsensusBaseMana{},
 		ManaType: ConsensusMana,
 	}
+}
+
+func randomNodeID() (ID identity.ID) {
+	idBytes := make([]byte, sha256.Size)
+	_, _ = rand.Read(idBytes)
+	copy(ID[:], idBytes)
+	return
 }
