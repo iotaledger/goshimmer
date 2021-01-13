@@ -117,23 +117,23 @@ func (b *BranchDAG) RetrieveConflictBranch(branchID BranchID, parentBranchIDs Br
 	return
 }
 
-// RetrieveAggregatedBranch retrieves the AggregatedBranch that corresponds to the given BranchIDs. It automatically
-// creates the AggregatedBranch if it didn't exist, yet.
-func (b *BranchDAG) RetrieveAggregatedBranch(parentBranchIDs BranchIDs) (cachedAggregatedBranch *CachedBranch, newBranchCreated bool, err error) {
-	normalizedParentBranchIDs, err := b.normalizeBranches(parentBranchIDs)
+// AggregateBranches retrieves the AggregatedBranch that corresponds to the given BranchIDs. It automatically creates
+// the AggregatedBranch if it didn't exist, yet.
+func (b *BranchDAG) AggregateBranches(branchIDS BranchIDs) (cachedAggregatedBranch *CachedBranch, newBranchCreated bool, err error) {
+	normalizedBranchIDs, err := b.normalizeBranches(branchIDS)
 	if err != nil {
 		err = xerrors.Errorf("failed to normalize Branches: %w", err)
 		return
 	}
 
-	if len(normalizedParentBranchIDs) == 1 {
-		for firstBranchID := range normalizedParentBranchIDs {
+	if len(normalizedBranchIDs) == 1 {
+		for firstBranchID := range normalizedBranchIDs {
 			cachedAggregatedBranch = b.Branch(firstBranchID)
 			return
 		}
 	}
 
-	aggregatedBranch := NewAggregatedBranch(normalizedParentBranchIDs)
+	aggregatedBranch := NewAggregatedBranch(normalizedBranchIDs)
 	cachedAggregatedBranch = &CachedBranch{CachedObject: b.branchStorage.ComputeIfAbsent(aggregatedBranch.ID().Bytes(), func(key []byte) objectstorage.StorableObject {
 		newBranchCreated = true
 
@@ -144,32 +144,32 @@ func (b *BranchDAG) RetrieveAggregatedBranch(parentBranchIDs BranchIDs) (cachedA
 	})}
 
 	if newBranchCreated {
-		for parentBranchID := range normalizedParentBranchIDs {
+		for parentBranchID := range normalizedBranchIDs {
 			if cachedChildBranch, stored := b.childBranchStorage.StoreIfAbsent(NewChildBranch(parentBranchID, aggregatedBranch.ID(), AggregatedBranchType)); stored {
 				cachedChildBranch.Release()
 			}
 		}
 
-		for parentBranchID := range normalizedParentBranchIDs {
-			if !b.Branch(parentBranchID).Consume(func(parentBranch Branch) {
-				if preferredErr := b.updatePreferredOfAggregatedBranch(cachedAggregatedBranch.Retain(), parentBranch.Preferred()); preferredErr != nil {
+		for normalizedBranchID := range normalizedBranchIDs {
+			if !b.Branch(normalizedBranchID).Consume(func(normalizedBranch Branch) {
+				if preferredErr := b.updatePreferredOfAggregatedBranch(cachedAggregatedBranch.Retain(), normalizedBranch.Preferred()); preferredErr != nil {
 					err = xerrors.Errorf("failed to update preferred flag of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), preferredErr)
 					return
 				}
-				if _, likedErr := b.updateLikedStatus(cachedAggregatedBranch.ID(), parentBranch.Liked()); likedErr != nil {
+				if _, likedErr := b.updateLikedStatus(cachedAggregatedBranch.ID(), normalizedBranch.Liked()); likedErr != nil {
 					err = xerrors.Errorf("failed to update preferred flag of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), likedErr)
 					return
 				}
-				if finalizedErr := b.updateFinalizedOfAggregatedBranch(cachedAggregatedBranch.Retain(), parentBranch.Finalized()); finalizedErr != nil {
+				if finalizedErr := b.updateFinalizedOfAggregatedBranch(cachedAggregatedBranch.Retain(), normalizedBranch.Finalized()); finalizedErr != nil {
 					err = xerrors.Errorf("failed to update finalized flag of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), finalizedErr)
 					return
 				}
-				if inclusionStateErr := b.updateInclusionState(aggregatedBranch.ID(), parentBranch.InclusionState()); inclusionStateErr != nil {
+				if inclusionStateErr := b.updateInclusionState(aggregatedBranch.ID(), normalizedBranch.InclusionState()); inclusionStateErr != nil {
 					err = xerrors.Errorf("failed to update inclusion state of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), inclusionStateErr)
 					return
 				}
 			}) {
-				err = xerrors.Errorf("failed to load parent Branch with %s: %w", parentBranchID, cerrors.ErrFatal)
+				err = xerrors.Errorf("failed to load parent Branch with %s: %w", normalizedBranchID, cerrors.ErrFatal)
 			}
 
 			return
@@ -270,7 +270,7 @@ func (b *BranchDAG) MergeToMaster(branchID BranchID) (reorgDetails *BranchDAGReo
 					b.childBranchStorage.Delete(byteutils.ConcatBytes(parentBranchID.Bytes(), childBranch.ID().Bytes()))
 				}
 			} else {
-				cachedNewAggregatedBranch, _, newAggregatedBranchErr := b.RetrieveAggregatedBranch(parentBranches)
+				cachedNewAggregatedBranch, _, newAggregatedBranchErr := b.AggregateBranches(parentBranches)
 				if newAggregatedBranchErr != nil {
 					err = xerrors.Errorf("failed to retrieve AggregatedBranch: %w", newAggregatedBranchErr)
 					return
