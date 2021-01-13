@@ -19,7 +19,11 @@ type MessageMetadata struct {
 	receivedTime       time.Time
 	solid              bool
 	solidificationTime time.Time
+	timestampOpinion   TimestampOpinion
+	eligibile          bool
 
+	timestampOpinionMutex   sync.RWMutex
+	eligibleMutex           sync.RWMutex
 	solidMutex              sync.RWMutex
 	solidificationTimeMutex sync.RWMutex
 }
