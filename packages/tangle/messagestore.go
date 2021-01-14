@@ -64,7 +64,6 @@ func (m *MessageStore) StoreMessage(msg *Message) {
 		msgIsNew = true
 
 		// store the message metadata
-		messageID := msg.ID()
 		cachedMsgMetadataObject = m.messageMetadataStorage.Store(NewMessageMetadata(messageID))
 
 		msg.Persist()
