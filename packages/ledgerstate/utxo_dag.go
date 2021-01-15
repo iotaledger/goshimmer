@@ -35,7 +35,7 @@ func NewUTXODAG(store kvstore.KVStore, branchDAG *BranchDAG) (utxoDAG *UTXODAG) 
 	return
 }
 
-func (u *UTXODAG) BookTransaction(transaction *Transaction) (err error) {
+func (u *UTXODAG) BookTransaction(transaction *Transaction) (bookTransactionClosure func(), err error) {
 	cachedInputs := u.TransactionInputs(transaction)
 	defer cachedInputs.Release()
 	inputs := cachedInputs.Unwrap()
