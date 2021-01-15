@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -30,8 +31,17 @@ type UTXODAG struct {
 }
 
 func NewUTXODAG(store kvstore.KVStore, branchDAG *BranchDAG) (utxoDAG *UTXODAG) {
-	utxoDAG = &UTXODAG{}
-
+	osFactory := objectstorage.NewFactory(store, database.PrefixLedgerState)
+	utxoDAG = &UTXODAG{
+		Events:                      NewUTXODAGEvents(),
+		transactionStorage:          osFactory.New(PrefixTransactionStorage, TransactionFromObjectStorage, transactionStorageOptions...),
+		transactionMetadataStorage:  osFactory.New(PrefixTransactionMetadataStorage, TransactionMetadataFromObjectStorage, transactionMetadataStorageOptions...),
+		outputStorage:               osFactory.New(PrefixOutputStorage, OutputFromObjectStorage, outputStorageOptions...),
+		outputMetadataStorage:       osFactory.New(PrefixOutputMetadataStorage, OutputMetadataFromObjectStorage, outputMetadataStorageOptions...),
+		consumerStorage:             osFactory.New(PrefixConsumerStorage, ConsumerFromObjectStorage, consumerStorageOptions...),
+		addressOutputMappingStorage: osFactory.New(PrefixAddressOutputMappingStorage, AddressOutputMappingFromObjectStorage, addressOutputMappingStorageOptions...),
+		branchDAG:                   branchDAG,
+	}
 	return
 }
 
@@ -227,11 +237,23 @@ func (u *UTXODAG) BranchOfTransaction(transaction *Transaction) (branch BranchID
 type UTXODAGEvents struct {
 }
 
+func NewUTXODAGEvents() *UTXODAGEvents {
+	return &UTXODAGEvents{}
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region CachedOutputsOnAddresses /////////////////////////////////////////////////////////////////////////////////////
 
 type CachedOutputsOnAddresses struct {
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region AddressOutputMapping /////////////////////////////////////////////////////////////////////////////////////////
+
+func AddressOutputMappingFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
