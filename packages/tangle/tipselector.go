@@ -102,7 +102,7 @@ func (t *MessageTipSelector) getTips(count int) (parents []MessageID) {
 func (t *MessageTipSelector) TipCount() int {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
-	return t.TipCount()
+	return t.tipCount()
 }
 
 // tipCount the amount of current tips.
