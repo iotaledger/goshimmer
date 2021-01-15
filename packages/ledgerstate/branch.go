@@ -2,7 +2,6 @@ package ledgerstate
 
 import (
 	"bytes"
-	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -1098,8 +1097,7 @@ func (c *ChildBranch) String() (humanReadableChildBranch string) {
 
 // Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
 func (c *ChildBranch) Update(objectstorage.StorableObject) {
-	fmt.Println("PANIC UPDATE")
-	//panic("updates disabled")
+	panic("updates disabled")
 }
 
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the

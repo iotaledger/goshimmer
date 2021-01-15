@@ -873,6 +873,62 @@ func (c *CachedOutput) String() string {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// region CachedOutputs ////////////////////////////////////////////////////////////////////////////////////////////////
+
+// CachedOutputs represents a collection of CachedOutput objects.
+type CachedOutputs []*CachedOutput
+
+// Unwrap is the type-casted equivalent of Get. It returns a slice of unwrapped objects with the object being nil if it
+// does not exist.
+func (c CachedOutputs) Unwrap() (unwrappedOutputs []Output) {
+	unwrappedOutputs = make([]Output, len(c))
+	for i, cachedOutput := range c {
+		untypedObject := cachedOutput.Get()
+		if untypedObject == nil {
+			continue
+		}
+
+		typedObject := untypedObject.(Output)
+		if typedObject == nil || typedObject.IsDeleted() {
+			continue
+		}
+
+		unwrappedOutputs[i] = typedObject
+	}
+
+	return
+}
+
+// Consume iterates over the CachedObjects, unwraps them and passes a type-casted version to the consumer (if the object
+// is not empty - it exists). It automatically releases the object when the consumer finishes. It returns true, if at
+// least one object was consumed.
+func (c CachedOutputs) Consume(consumer func(output Output), forceRelease ...bool) (consumed bool) {
+	for _, cachedOutput := range c {
+		consumed = cachedOutput.Consume(consumer, forceRelease...) || consumed
+	}
+
+	return
+}
+
+// Release is a utility function that allows us to release all CachedObjects in the collection.
+func (c CachedOutputs) Release(force ...bool) {
+	for _, cachedOutput := range c {
+		cachedOutput.Release(force...)
+	}
+}
+
+// String returns a human readable version of the CachedOutputs.
+func (c CachedOutputs) String() string {
+	structBuilder := stringify.StructBuilder("CachedOutputs")
+	for i, cachedOutput := range c {
+		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), cachedOutput))
+	}
+
+	return structBuilder.String()
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // region OutputMetadata ///////////////////////////////////////////////////////////////////////////////////////////////
 
 // OutputMetadata contains additional Output information that are derived from the local perception of the node.
