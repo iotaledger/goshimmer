@@ -16,15 +16,6 @@ import (
 	"golang.org/x/xerrors"
 )
 
-// region BranchDAGReorgDetails ////////////////////////////////////////////////////////////////////////////////////////
-
-type BranchDAGReorgDetails struct {
-	DeletedBranches map[BranchID]types.Empty
-	MovedBranches map[BranchID]BranchID
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region BranchDAG ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // BranchDAG represents the DAG of Branches which contains the business logic to manage the creation and maintenance of
@@ -55,9 +46,9 @@ func NewBranchDAG(store kvstore.KVStore) (newBranchDAG *BranchDAG) {
 	return
 }
 
-// RetrieveConflictBranch retrieves the ConflictBranch that corresponds to the given details. It automatically creates
-// and updates the ConflictBranch according to the new details if necessary.
-func (b *BranchDAG) RetrieveConflictBranch(branchID BranchID, parentBranchIDs BranchIDs, conflictIDs ConflictIDs) (cachedConflictBranch *CachedBranch, newBranchCreated bool, err error) {
+// CreateConflictBranch retrieves the ConflictBranch that corresponds to the given details. It automatically creates and
+// updates the ConflictBranch according to the new details if necessary.
+func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs BranchIDs, conflictIDs ConflictIDs) (cachedConflictBranch *CachedBranch, newBranchCreated bool, err error) {
 	normalizedParentBranchIDs, err := b.normalizeBranches(parentBranchIDs)
 	if err != nil {
 		err = xerrors.Errorf("failed to normalize parent Branches: %w", err)
@@ -117,16 +108,23 @@ func (b *BranchDAG) RetrieveConflictBranch(branchID BranchID, parentBranchIDs Br
 	return
 }
 
-// RetrieveAggregatedBranch retrieves the AggregatedBranch that corresponds to the given BranchIDs. It automatically
-// creates the AggregatedBranch if it didn't exist, yet.
-func (b *BranchDAG) RetrieveAggregatedBranch(parentBranchIDs BranchIDs) (cachedAggregatedBranch *CachedBranch, newBranchCreated bool, err error) {
-	normalizedParentBranchIDs, err := b.normalizeBranches(parentBranchIDs)
+// AggregateBranches retrieves the AggregatedBranch that corresponds to the given BranchIDs. It automatically creates
+// the AggregatedBranch if it didn't exist, yet.
+func (b *BranchDAG) AggregateBranches(branchIDS BranchIDs) (cachedAggregatedBranch *CachedBranch, newBranchCreated bool, err error) {
+	normalizedBranchIDs, err := b.normalizeBranches(branchIDS)
 	if err != nil {
 		err = xerrors.Errorf("failed to normalize Branches: %w", err)
 		return
 	}
 
-	aggregatedBranch := NewAggregatedBranch(normalizedParentBranchIDs)
+	if len(normalizedBranchIDs) == 1 {
+		for firstBranchID := range normalizedBranchIDs {
+			cachedAggregatedBranch = b.Branch(firstBranchID)
+			return
+		}
+	}
+
+	aggregatedBranch := NewAggregatedBranch(normalizedBranchIDs)
 	cachedAggregatedBranch = &CachedBranch{CachedObject: b.branchStorage.ComputeIfAbsent(aggregatedBranch.ID().Bytes(), func(key []byte) objectstorage.StorableObject {
 		newBranchCreated = true
 
@@ -137,20 +135,38 @@ func (b *BranchDAG) RetrieveAggregatedBranch(parentBranchIDs BranchIDs) (cachedA
 	})}
 
 	if newBranchCreated {
-		for parentBranchID := range normalizedParentBranchIDs {
+		for parentBranchID := range normalizedBranchIDs {
 			if cachedChildBranch, stored := b.childBranchStorage.StoreIfAbsent(NewChildBranch(parentBranchID, aggregatedBranch.ID(), AggregatedBranchType)); stored {
 				cachedChildBranch.Release()
 			}
 		}
 
-		if preferredErr := b.updatePreferredOfAggregatedBranch(cachedAggregatedBranch.Retain(), true); preferredErr != nil {
-			err = xerrors.Errorf("failed to update preferred flag of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), preferredErr)
+		for normalizedBranchID := range normalizedBranchIDs {
+			if !b.Branch(normalizedBranchID).Consume(func(normalizedBranch Branch) {
+				if preferredErr := b.updatePreferredOfAggregatedBranch(cachedAggregatedBranch.Retain(), normalizedBranch.Preferred()); preferredErr != nil {
+					err = xerrors.Errorf("failed to update preferred flag of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), preferredErr)
+					return
+				}
+				if _, likedErr := b.updateLikedStatus(cachedAggregatedBranch.ID(), normalizedBranch.Liked()); likedErr != nil {
+					err = xerrors.Errorf("failed to update preferred flag of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), likedErr)
+					return
+				}
+				if finalizedErr := b.updateFinalizedOfAggregatedBranch(cachedAggregatedBranch.Retain(), normalizedBranch.Finalized()); finalizedErr != nil {
+					err = xerrors.Errorf("failed to update finalized flag of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), finalizedErr)
+					return
+				}
+				if inclusionStateErr := b.updateInclusionState(aggregatedBranch.ID(), normalizedBranch.InclusionState()); inclusionStateErr != nil {
+					err = xerrors.Errorf("failed to update inclusion state of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), inclusionStateErr)
+					return
+				}
+			}) {
+				err = xerrors.Errorf("failed to load parent Branch with %s: %w", normalizedBranchID, cerrors.ErrFatal)
+			}
+
 			return
 		}
-		if finalizedErr := b.updateFinalizedOfAggregatedBranch(cachedAggregatedBranch.Retain(), true); finalizedErr != nil {
-			err = xerrors.Errorf("failed to update finalized flag of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), finalizedErr)
-			return
-		}
+
+		err = xerrors.Errorf("failed to load parent Branch: %w", cerrors.ErrFatal)
 	}
 
 	return
@@ -174,11 +190,8 @@ func (b *BranchDAG) SetBranchFinalized(branchID BranchID, finalized bool) (modif
 	return b.setBranchFinalized(b.Branch(branchID), finalized)
 }
 
-func (b *BranchDAG) MergeToMaster(branchID BranchID) (reorgDetails *BranchDAGReorgDetails, err error) {
-	reorgDetails = &BranchDAGReorgDetails{
-		DeletedBranches: make(map[BranchID]types.Empty),
-		MovedBranches:   make(map[BranchID]BranchID),
-	}
+func (b *BranchDAG) MergeToMaster(branchID BranchID) (movedBranches map[BranchID]BranchID, err error) {
+	movedBranches = make(map[BranchID]BranchID)
 	
 	// load Branch
 	cachedBranch := b.Branch(branchID)
@@ -209,7 +222,7 @@ func (b *BranchDAG) MergeToMaster(branchID BranchID) (reorgDetails *BranchDAGReo
 
 	// remove merged Branch
 	conflictBranch.Delete()
-	reorgDetails.DeletedBranches[conflictBranch.ID()] = types.Void
+	movedBranches[conflictBranch.ID()] = MasterBranchID
 
 	// load ChildBranch references
 	cachedChildBranchReferences := b.ChildBranches(branchID)
@@ -240,19 +253,19 @@ func (b *BranchDAG) MergeToMaster(branchID BranchID) (reorgDetails *BranchDAGReo
 
 			if len(parentBranches) == 1 {
 				for parentBranchID := range parentBranches {
-					reorgDetails.MovedBranches[childBranch.ID()] = parentBranchID
+					movedBranches[childBranch.ID()] = parentBranchID
 
 					b.childBranchStorage.Delete(byteutils.ConcatBytes(parentBranchID.Bytes(), childBranch.ID().Bytes()))
 				}
 			} else {
-				cachedNewAggregatedBranch, _, newAggregatedBranchErr := b.RetrieveAggregatedBranch(parentBranches)
+				cachedNewAggregatedBranch, _, newAggregatedBranchErr := b.AggregateBranches(parentBranches)
 				if newAggregatedBranchErr != nil {
-					err = xerrors.Errorf("failed to retrieve AggregatedBranch: %w", err)
+					err = xerrors.Errorf("failed to retrieve AggregatedBranch: %w", newAggregatedBranchErr)
 					return
 				}
 				cachedNewAggregatedBranch.Release()
 
-				reorgDetails.MovedBranches[childBranch.ID()] = cachedNewAggregatedBranch.ID()
+				movedBranches[childBranch.ID()] = cachedNewAggregatedBranch.ID()
 
 				for parentBranchID := range parentBranches {
 					b.childBranchStorage.Delete(byteutils.ConcatBytes(parentBranchID.Bytes(), childBranch.ID().Bytes()))
