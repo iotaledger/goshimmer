@@ -1,6 +1,8 @@
 package tangle
 
 import (
+	"sync"
+
 	"github.com/iotaledger/hive.go/datastructure/randommap"
 )
 
@@ -8,6 +10,7 @@ import (
 type MessageTipSelector struct {
 	tips   *randommap.RandomMap
 	Events *MessageTipSelectorEvents
+	mutex  sync.RWMutex
 }
 
 // NewMessageTipSelector creates a new tip-selector.
@@ -26,6 +29,13 @@ func NewMessageTipSelector(tips ...MessageID) *MessageTipSelector {
 
 // Set adds the given messageIDs as tips.
 func (t *MessageTipSelector) Set(tips ...MessageID) {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+	t.set(tips...)
+}
+
+// set adds the given messageIDs as tips.
+func (t *MessageTipSelector) set(tips ...MessageID) {
 	for _, messageID := range tips {
 		t.tips.Set(messageID, messageID)
 	}
@@ -33,6 +43,13 @@ func (t *MessageTipSelector) Set(tips ...MessageID) {
 
 // AddTip adds the given message as a tip.
 func (t *MessageTipSelector) AddTip(msg *Message) {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+	t.addTip(msg)
+}
+
+// addTip adds the given message as a tip.
+func (t *MessageTipSelector) addTip(msg *Message) {
 	messageID := msg.ID()
 	if t.tips.Set(messageID, messageID) {
 		t.Events.TipAdded.Trigger(messageID)
@@ -47,6 +64,13 @@ func (t *MessageTipSelector) AddTip(msg *Message) {
 
 // Tips returns count number of tips, maximum MaxParentsCount.
 func (t *MessageTipSelector) Tips(count int) (parents []MessageID) {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+	return t.getTips(count)
+}
+
+// getTips returns count number of tips, maximum MaxParentsCount.
+func (t *MessageTipSelector) getTips(count int) (parents []MessageID) {
 	if count > MaxParentsCount {
 		count = MaxParentsCount
 	}
@@ -76,5 +100,12 @@ func (t *MessageTipSelector) Tips(count int) (parents []MessageID) {
 
 // TipCount the amount of current tips.
 func (t *MessageTipSelector) TipCount() int {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+	return t.TipCount()
+}
+
+// tipCount the amount of current tips.
+func (t *MessageTipSelector) tipCount() int {
 	return t.tips.Size()
 }
