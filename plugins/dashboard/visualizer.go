@@ -134,9 +134,10 @@ func runVisualizer() {
 func setupVisualizerRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/visualizer/history", func(c echo.Context) (err error) {
 		msgHistoryMutex.RLock()
+		defer msgHistoryMutex.RUnlock()
+
 		cpyHistory := make([]*tangle.Message, len(msgHistory))
 		copy(cpyHistory, msgHistory)
-		msgHistoryMutex.RUnlock()
 
 		var res []vertex
 		for _, msg := range cpyHistory {
