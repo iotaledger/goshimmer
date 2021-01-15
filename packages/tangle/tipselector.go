@@ -51,15 +51,17 @@ func (t *MessageTipSelector) AddTip(msg *Message) {
 // addTip adds the given message as a tip.
 func (t *MessageTipSelector) addTip(msg *Message) {
 	messageID := msg.ID()
-	if t.tips.Set(messageID, messageID) {
-		t.Events.TipAdded.Trigger(messageID)
-	}
+	updated := t.tips.Set(messageID, messageID)
 
 	msg.ForEachStrongParent(func(parent MessageID) {
 		if _, deleted := t.tips.Delete(parent); deleted {
 			t.Events.TipRemoved.Trigger(parent)
 		}
 	})
+
+	if updated {
+		t.Events.TipAdded.Trigger(messageID)
+	}
 }
 
 // Tips returns count number of tips, maximum MaxParentsCount.
