@@ -6,7 +6,6 @@ import (
 
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
-	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -18,7 +17,7 @@ func TestBranchDAG_RetrieveConflictBranch(t *testing.T) {
 	require.NoError(t, err)
 	defer branchDAG.Shutdown()
 
-	cachedConflictBranch2, newBranchCreated, err := branchDAG.RetrieveConflictBranch(BranchID{2}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}, ConflictID{1}))
+	cachedConflictBranch2, newBranchCreated, err := branchDAG.CreateConflictBranch(BranchID{2}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}, ConflictID{1}))
 	require.NoError(t, err)
 	defer cachedConflictBranch2.Release()
 	conflictBranch2, err := cachedConflictBranch2.UnwrapConflictBranch()
@@ -32,7 +31,7 @@ func TestBranchDAG_RetrieveConflictBranch(t *testing.T) {
 	assert.Equal(t, Pending, conflictBranch2.InclusionState())
 	assert.Equal(t, NewConflictIDs(ConflictID{0}, ConflictID{1}), conflictBranch2.Conflicts())
 
-	cachedConflictBranch3, _, err := branchDAG.RetrieveConflictBranch(BranchID{3}, NewBranchIDs(conflictBranch2.ID()), NewConflictIDs(ConflictID{0}, ConflictID{1}, ConflictID{2}))
+	cachedConflictBranch3, _, err := branchDAG.CreateConflictBranch(BranchID{3}, NewBranchIDs(conflictBranch2.ID()), NewConflictIDs(ConflictID{0}, ConflictID{1}, ConflictID{2}))
 	require.NoError(t, err)
 	defer cachedConflictBranch3.Release()
 	conflictBranch3, err := cachedConflictBranch3.UnwrapConflictBranch()
@@ -46,7 +45,7 @@ func TestBranchDAG_RetrieveConflictBranch(t *testing.T) {
 	assert.Equal(t, Pending, conflictBranch3.InclusionState())
 	assert.Equal(t, NewConflictIDs(ConflictID{0}, ConflictID{1}, ConflictID{2}), conflictBranch3.Conflicts())
 
-	cachedConflictBranch2, newBranchCreated, err = branchDAG.RetrieveConflictBranch(BranchID{2}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}, ConflictID{1}, ConflictID{2}))
+	cachedConflictBranch2, newBranchCreated, err = branchDAG.CreateConflictBranch(BranchID{2}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}, ConflictID{1}, ConflictID{2}))
 	require.NoError(t, err)
 	defer cachedConflictBranch2.Release()
 	conflictBranch2, err = cachedConflictBranch2.UnwrapConflictBranch()
@@ -54,7 +53,7 @@ func TestBranchDAG_RetrieveConflictBranch(t *testing.T) {
 	assert.False(t, newBranchCreated)
 	assert.Equal(t, NewConflictIDs(ConflictID{0}, ConflictID{1}, ConflictID{2}), conflictBranch2.Conflicts())
 
-	_, _, err = branchDAG.RetrieveConflictBranch(BranchID{4}, NewBranchIDs(cachedConflictBranch2.ID(), cachedConflictBranch3.ID()), NewConflictIDs(ConflictID{3}))
+	_, _, err = branchDAG.CreateConflictBranch(BranchID{4}, NewBranchIDs(cachedConflictBranch2.ID(), cachedConflictBranch3.ID()), NewConflictIDs(ConflictID{3}))
 	require.Error(t, err)
 }
 
@@ -64,12 +63,12 @@ func TestBranchDAG_normalizeBranches(t *testing.T) {
 	require.NoError(t, err)
 	defer branchDAG.Shutdown()
 
-	cachedBranch2, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{2}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
+	cachedBranch2, newBranchCreated, _ := branchDAG.CreateConflictBranch(BranchID{2}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
 	defer cachedBranch2.Release()
 	branch2 := cachedBranch2.Unwrap()
 	assert.True(t, newBranchCreated)
 
-	cachedBranch3, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{3}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
+	cachedBranch3, newBranchCreated, _ := branchDAG.CreateConflictBranch(BranchID{3}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
 	defer cachedBranch3.Release()
 	branch3 := cachedBranch3.Unwrap()
 	assert.True(t, newBranchCreated)
@@ -88,12 +87,12 @@ func TestBranchDAG_normalizeBranches(t *testing.T) {
 	}
 
 	// spawn of branch 4 and 5 from branch 2
-	cachedBranch4, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{4}, NewBranchIDs(branch2.ID()), NewConflictIDs(ConflictID{1}))
+	cachedBranch4, newBranchCreated, _ := branchDAG.CreateConflictBranch(BranchID{4}, NewBranchIDs(branch2.ID()), NewConflictIDs(ConflictID{1}))
 	defer cachedBranch4.Release()
 	branch4 := cachedBranch4.Unwrap()
 	assert.True(t, newBranchCreated)
 
-	cachedBranch5, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{5}, NewBranchIDs(branch2.ID()), NewConflictIDs(ConflictID{1}))
+	cachedBranch5, newBranchCreated, _ := branchDAG.CreateConflictBranch(BranchID{5}, NewBranchIDs(branch2.ID()), NewConflictIDs(ConflictID{1}))
 	defer cachedBranch5.Release()
 	branch5 := cachedBranch5.Unwrap()
 	assert.True(t, newBranchCreated)
@@ -119,12 +118,12 @@ func TestBranchDAG_normalizeBranches(t *testing.T) {
 	}
 
 	// branch 6, 7 are on the same level as 2 and 3 but are not part of that conflict set
-	cachedBranch6, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{6}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2}))
+	cachedBranch6, newBranchCreated, _ := branchDAG.CreateConflictBranch(BranchID{6}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2}))
 	defer cachedBranch6.Release()
 	branch6 := cachedBranch6.Unwrap()
 	assert.True(t, newBranchCreated)
 
-	cachedBranch7, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{7}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2}))
+	cachedBranch7, newBranchCreated, _ := branchDAG.CreateConflictBranch(BranchID{7}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2}))
 	defer cachedBranch7.Release()
 	branch7 := cachedBranch7.Unwrap()
 	assert.True(t, newBranchCreated)
@@ -244,12 +243,12 @@ func TestBranchDAG_normalizeBranches(t *testing.T) {
 	}
 
 	// branch 11, 12 are on the same level as 2 & 3 and 6 & 7 but are not part of either conflict set
-	cachedBranch11, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{11}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{3}))
+	cachedBranch11, newBranchCreated, _ := branchDAG.CreateConflictBranch(BranchID{11}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{3}))
 	defer cachedBranch11.Release()
 	branch11 := cachedBranch11.Unwrap()
 	assert.True(t, newBranchCreated)
 
-	cachedBranch12, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{12}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{3}))
+	cachedBranch12, newBranchCreated, _ := branchDAG.CreateConflictBranch(BranchID{12}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{3}))
 	defer cachedBranch12.Release()
 	branch12 := cachedBranch12.Unwrap()
 	assert.True(t, newBranchCreated)
@@ -363,12 +362,12 @@ func TestBranchDAG_SetBranchPreferred(t *testing.T) {
 	event := newEventMock(t, branchDAG)
 	defer event.DetachAll()
 
-	cachedBranch2, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{2}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
+	cachedBranch2, newBranchCreated, _ := branchDAG.CreateConflictBranch(BranchID{2}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
 	defer cachedBranch2.Release()
 	branch2 := cachedBranch2.Unwrap()
 	assert.True(t, newBranchCreated)
 
-	cachedBranch3, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{3}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
+	cachedBranch3, newBranchCreated, _ := branchDAG.CreateConflictBranch(BranchID{3}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
 	defer cachedBranch3.Release()
 	branch3 := cachedBranch3.Unwrap()
 	assert.True(t, newBranchCreated)
@@ -378,12 +377,12 @@ func TestBranchDAG_SetBranchPreferred(t *testing.T) {
 	assert.False(t, branch3.Preferred(), "branch 3 should not be preferred")
 	assert.False(t, branch3.Liked(), "branch 3 should not be liked")
 
-	cachedBranch4, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{4}, NewBranchIDs(branch2.ID()), NewConflictIDs(ConflictID{1}))
+	cachedBranch4, newBranchCreated, _ := branchDAG.CreateConflictBranch(BranchID{4}, NewBranchIDs(branch2.ID()), NewConflictIDs(ConflictID{1}))
 	defer cachedBranch4.Release()
 	branch4 := cachedBranch4.Unwrap()
 	assert.True(t, newBranchCreated)
 
-	cachedBranch5, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{5}, NewBranchIDs(branch2.ID()), NewConflictIDs(ConflictID{1}))
+	cachedBranch5, newBranchCreated, _ := branchDAG.CreateConflictBranch(BranchID{5}, NewBranchIDs(branch2.ID()), NewConflictIDs(ConflictID{1}))
 	defer cachedBranch5.Release()
 	branch5 := cachedBranch5.Unwrap()
 	assert.True(t, newBranchCreated)
@@ -711,32 +710,32 @@ func TestBranchDAG_SetBranchPreferred2(t *testing.T) {
 	event := newEventMock(t, branchDAG)
 	defer event.DetachAll()
 
-	cachedBranch2, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{2}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
+	cachedBranch2, newBranchCreated, _ := branchDAG.CreateConflictBranch(BranchID{2}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
 	defer cachedBranch2.Release()
 	branch2 := cachedBranch2.Unwrap()
 	assert.True(t, newBranchCreated)
 
-	cachedBranch3, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{3}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
+	cachedBranch3, newBranchCreated, _ := branchDAG.CreateConflictBranch(BranchID{3}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
 	defer cachedBranch3.Release()
 	branch3 := cachedBranch3.Unwrap()
 	assert.True(t, newBranchCreated)
 
-	cachedBranch4, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{4}, NewBranchIDs(branch2.ID()), NewConflictIDs(ConflictID{1}))
+	cachedBranch4, newBranchCreated, _ := branchDAG.CreateConflictBranch(BranchID{4}, NewBranchIDs(branch2.ID()), NewConflictIDs(ConflictID{1}))
 	defer cachedBranch4.Release()
 	branch4 := cachedBranch4.Unwrap()
 	assert.True(t, newBranchCreated)
 
-	cachedBranch5, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{5}, NewBranchIDs(branch2.ID()), NewConflictIDs(ConflictID{1}))
+	cachedBranch5, newBranchCreated, _ := branchDAG.CreateConflictBranch(BranchID{5}, NewBranchIDs(branch2.ID()), NewConflictIDs(ConflictID{1}))
 	defer cachedBranch5.Release()
 	branch5 := cachedBranch5.Unwrap()
 	assert.True(t, newBranchCreated)
 
-	cachedBranch6, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{6}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2}))
+	cachedBranch6, newBranchCreated, _ := branchDAG.CreateConflictBranch(BranchID{6}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2}))
 	defer cachedBranch6.Release()
 	branch6 := cachedBranch6.Unwrap()
 	assert.True(t, newBranchCreated)
 
-	cachedBranch7, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{7}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2}))
+	cachedBranch7, newBranchCreated, _ := branchDAG.CreateConflictBranch(BranchID{7}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2}))
 	defer cachedBranch7.Release()
 	branch7 := cachedBranch7.Unwrap()
 	assert.True(t, newBranchCreated)
@@ -803,7 +802,7 @@ func TestBranchDAG_SetBranchPreferred2(t *testing.T) {
 	assert.False(t, aggrBranch10.Preferred(), "aggr. branch 10 should not be preferred")
 
 	// spawn off conflict branch 11 and 12
-	cachedBranch11, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{11}, NewBranchIDs(aggrBranch8.ID()), NewConflictIDs(ConflictID{3}))
+	cachedBranch11, newBranchCreated, _ := branchDAG.CreateConflictBranch(BranchID{11}, NewBranchIDs(aggrBranch8.ID()), NewConflictIDs(ConflictID{3}))
 	defer cachedBranch11.Release()
 	branch11 := cachedBranch11.Unwrap()
 	assert.True(t, newBranchCreated)
@@ -811,7 +810,7 @@ func TestBranchDAG_SetBranchPreferred2(t *testing.T) {
 	assert.False(t, branch11.Liked(), "aggr. branch 11 should not be liked")
 	assert.False(t, branch11.Preferred(), "aggr. branch 11 should not be preferred")
 
-	cachedBranch12, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{12}, NewBranchIDs(aggrBranch8.ID()), NewConflictIDs(ConflictID{3}))
+	cachedBranch12, newBranchCreated, _ := branchDAG.CreateConflictBranch(BranchID{12}, NewBranchIDs(aggrBranch8.ID()), NewConflictIDs(ConflictID{3}))
 	defer cachedBranch12.Release()
 	branch12 := cachedBranch12.Unwrap()
 	assert.True(t, newBranchCreated)
@@ -871,11 +870,11 @@ func TestBranchDAG_ConflictMembers(t *testing.T) {
 	defer branchDAG.Shutdown()
 
 	// create initial branches
-	cachedBranch2, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{2}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
+	cachedBranch2, newBranchCreated, _ := branchDAG.CreateConflictBranch(BranchID{2}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
 	defer cachedBranch2.Release()
 	branch2 := cachedBranch2.Unwrap()
 	assert.True(t, newBranchCreated)
-	cachedBranch3, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{3}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
+	cachedBranch3, newBranchCreated, _ := branchDAG.CreateConflictBranch(BranchID{3}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
 	defer cachedBranch3.Release()
 	branch3 := cachedBranch3.Unwrap()
 	assert.True(t, newBranchCreated)
@@ -891,7 +890,7 @@ func TestBranchDAG_ConflictMembers(t *testing.T) {
 	assert.Equal(t, expectedConflictMembers, actualConflictMembers)
 
 	// add branch 4
-	cachedBranch4, newBranchCreated, _ := branchDAG.RetrieveConflictBranch(BranchID{4}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
+	cachedBranch4, newBranchCreated, _ := branchDAG.CreateConflictBranch(BranchID{4}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
 	defer cachedBranch4.Release()
 	branch4 := cachedBranch4.Unwrap()
 	assert.True(t, newBranchCreated)
@@ -1000,26 +999,25 @@ func TestBranchDAG_MergeToMaster(t *testing.T) {
 	eventMock.Expect("BranchFinalized", aggregatedBranch7Plus12.ID())
 	eventMock.Expect("BranchConfirmed", aggregatedBranch7Plus12.ID())
 
-	reorgDetails, err := branchDAG.MergeToMaster(testBranchDAG.branch2.ID())
+	movedBranches, err := branchDAG.MergeToMaster(testBranchDAG.branch2.ID())
 	assert.NoError(t, err)
 
-	assert.Equal(t, map[BranchID]types.Empty{
-		testBranchDAG.branch2.ID(): types.Void,
-	}, reorgDetails.DeletedBranches)
 	assert.Equal(t, map[BranchID]BranchID{
+		testBranchDAG.branch2.ID(): MasterBranchID,
 		testBranchDAG.branch15.ID(): NewAggregatedBranch(NewBranchIDs(testBranchDAG.branch7.ID(), testBranchDAG.branch12.ID())).ID(),
-	}, reorgDetails.MovedBranches)
+	}, movedBranches)
 
-	reorgDetails, err = branchDAG.MergeToMaster(testBranchDAG.branch12.ID())
+	movedBranches, err = branchDAG.MergeToMaster(testBranchDAG.branch12.ID())
 	assert.NoError(t, err)
 
-	assert.Equal(t, map[BranchID]types.Empty{
-		testBranchDAG.branch12.ID(): types.Void,
-	}, reorgDetails.DeletedBranches)
 	assert.Equal(t, map[BranchID]BranchID{
+		testBranchDAG.branch12.ID(): MasterBranchID,
 		NewAggregatedBranch(NewBranchIDs(testBranchDAG.branch7.ID(), testBranchDAG.branch12.ID())).ID(): testBranchDAG.branch7.ID(),
 		testBranchDAG.branch16.ID(): testBranchDAG.branch9.ID(),
-	}, reorgDetails.MovedBranches)
+	}, movedBranches)
+
+	_, _, err = branchDAG.AggregateBranches(NewBranchIDs(testBranchDAG.branch11.ID(), MasterBranchID))
+	assert.NoError(t, err)
 }
 
 type testBranchDAG struct {
@@ -1058,42 +1056,42 @@ type testBranchDAG struct {
 func newTestBranchDAG(branchDAG *BranchDAG) (result *testBranchDAG, err error) {
 	result = &testBranchDAG{}
 
-	if result.cachedBranch2, _, err = branchDAG.RetrieveConflictBranch(BranchID{2}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0})); err != nil {
+	if result.cachedBranch2, _, err = branchDAG.CreateConflictBranch(BranchID{2}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0})); err != nil {
 		return
 	}
 	if result.branch2, err = result.cachedBranch2.UnwrapConflictBranch(); err != nil {
 		return
 	}
 
-	if result.cachedBranch3, _, err = branchDAG.RetrieveConflictBranch(BranchID{3}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0})); err != nil {
+	if result.cachedBranch3, _, err = branchDAG.CreateConflictBranch(BranchID{3}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0})); err != nil {
 		return
 	}
 	if result.branch3, err = result.cachedBranch3.UnwrapConflictBranch(); err != nil {
 		return
 	}
 
-	if result.cachedBranch4, _, err = branchDAG.RetrieveConflictBranch(BranchID{4}, NewBranchIDs(result.branch2.ID()), NewConflictIDs(ConflictID{1})); err != nil {
+	if result.cachedBranch4, _, err = branchDAG.CreateConflictBranch(BranchID{4}, NewBranchIDs(result.branch2.ID()), NewConflictIDs(ConflictID{1})); err != nil {
 		return
 	}
 	if result.branch4, err = result.cachedBranch4.UnwrapConflictBranch(); err != nil {
 		return
 	}
 
-	if result.cachedBranch5, _, err = branchDAG.RetrieveConflictBranch(BranchID{5}, NewBranchIDs(result.branch2.ID()), NewConflictIDs(ConflictID{1})); err != nil {
+	if result.cachedBranch5, _, err = branchDAG.CreateConflictBranch(BranchID{5}, NewBranchIDs(result.branch2.ID()), NewConflictIDs(ConflictID{1})); err != nil {
 		return
 	}
 	if result.branch5, err = result.cachedBranch5.UnwrapConflictBranch(); err != nil {
 		return
 	}
 
-	if result.cachedBranch6, _, err = branchDAG.RetrieveConflictBranch(BranchID{6}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2})); err != nil {
+	if result.cachedBranch6, _, err = branchDAG.CreateConflictBranch(BranchID{6}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2})); err != nil {
 		return
 	}
 	if result.branch6, err = result.cachedBranch6.UnwrapConflictBranch(); err != nil {
 		return
 	}
 
-	if result.cachedBranch7, _, err = branchDAG.RetrieveConflictBranch(BranchID{7}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2})); err != nil {
+	if result.cachedBranch7, _, err = branchDAG.CreateConflictBranch(BranchID{7}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2})); err != nil {
 		return
 	}
 	if result.branch7, err = result.cachedBranch7.UnwrapConflictBranch(); err != nil {
@@ -1121,14 +1119,14 @@ func newTestBranchDAG(branchDAG *BranchDAG) (result *testBranchDAG, err error) {
 		return
 	}
 
-	if result.cachedBranch11, _, err = branchDAG.RetrieveConflictBranch(BranchID{11}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{3})); err != nil {
+	if result.cachedBranch11, _, err = branchDAG.CreateConflictBranch(BranchID{11}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{3})); err != nil {
 		return
 	}
 	if result.branch11, err = result.cachedBranch11.UnwrapConflictBranch(); err != nil {
 		return
 	}
 
-	if result.cachedBranch12, _, err = branchDAG.RetrieveConflictBranch(BranchID{12}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{3})); err != nil {
+	if result.cachedBranch12, _, err = branchDAG.CreateConflictBranch(BranchID{12}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{3})); err != nil {
 		return
 	}
 	if result.branch12, err = result.cachedBranch12.UnwrapConflictBranch(); err != nil {

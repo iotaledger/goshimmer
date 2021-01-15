@@ -16,15 +16,6 @@ import (
 	"golang.org/x/xerrors"
 )
 
-// region BranchDAGReorgDetails ////////////////////////////////////////////////////////////////////////////////////////
-
-type BranchDAGReorgDetails struct {
-	DeletedBranches map[BranchID]types.Empty
-	MovedBranches map[BranchID]BranchID
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region BranchDAG ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // BranchDAG represents the DAG of Branches which contains the business logic to manage the creation and maintenance of
@@ -55,9 +46,9 @@ func NewBranchDAG(store kvstore.KVStore) (newBranchDAG *BranchDAG) {
 	return
 }
 
-// RetrieveConflictBranch retrieves the ConflictBranch that corresponds to the given details. It automatically creates
-// and updates the ConflictBranch according to the new details if necessary.
-func (b *BranchDAG) RetrieveConflictBranch(branchID BranchID, parentBranchIDs BranchIDs, conflictIDs ConflictIDs) (cachedConflictBranch *CachedBranch, newBranchCreated bool, err error) {
+// CreateConflictBranch retrieves the ConflictBranch that corresponds to the given details. It automatically creates and
+// updates the ConflictBranch according to the new details if necessary.
+func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs BranchIDs, conflictIDs ConflictIDs) (cachedConflictBranch *CachedBranch, newBranchCreated bool, err error) {
 	normalizedParentBranchIDs, err := b.normalizeBranches(parentBranchIDs)
 	if err != nil {
 		err = xerrors.Errorf("failed to normalize parent Branches: %w", err)
@@ -199,11 +190,8 @@ func (b *BranchDAG) SetBranchFinalized(branchID BranchID, finalized bool) (modif
 	return b.setBranchFinalized(b.Branch(branchID), finalized)
 }
 
-func (b *BranchDAG) MergeToMaster(branchID BranchID) (reorgDetails *BranchDAGReorgDetails, err error) {
-	reorgDetails = &BranchDAGReorgDetails{
-		DeletedBranches: make(map[BranchID]types.Empty),
-		MovedBranches:   make(map[BranchID]BranchID),
-	}
+func (b *BranchDAG) MergeToMaster(branchID BranchID) (movedBranches map[BranchID]BranchID, err error) {
+	movedBranches = make(map[BranchID]BranchID)
 	
 	// load Branch
 	cachedBranch := b.Branch(branchID)
@@ -234,7 +222,7 @@ func (b *BranchDAG) MergeToMaster(branchID BranchID) (reorgDetails *BranchDAGReo
 
 	// remove merged Branch
 	conflictBranch.Delete()
-	reorgDetails.DeletedBranches[conflictBranch.ID()] = types.Void
+	movedBranches[conflictBranch.ID()] = MasterBranchID
 
 	// load ChildBranch references
 	cachedChildBranchReferences := b.ChildBranches(branchID)
@@ -265,7 +253,7 @@ func (b *BranchDAG) MergeToMaster(branchID BranchID) (reorgDetails *BranchDAGReo
 
 			if len(parentBranches) == 1 {
 				for parentBranchID := range parentBranches {
-					reorgDetails.MovedBranches[childBranch.ID()] = parentBranchID
+					movedBranches[childBranch.ID()] = parentBranchID
 
 					b.childBranchStorage.Delete(byteutils.ConcatBytes(parentBranchID.Bytes(), childBranch.ID().Bytes()))
 				}
@@ -277,7 +265,7 @@ func (b *BranchDAG) MergeToMaster(branchID BranchID) (reorgDetails *BranchDAGReo
 				}
 				cachedNewAggregatedBranch.Release()
 
-				reorgDetails.MovedBranches[childBranch.ID()] = cachedNewAggregatedBranch.ID()
+				movedBranches[childBranch.ID()] = cachedNewAggregatedBranch.ID()
 
 				for parentBranchID := range parentBranches {
 					b.childBranchStorage.Delete(byteutils.ConcatBytes(parentBranchID.Bytes(), childBranch.ID().Bytes()))
