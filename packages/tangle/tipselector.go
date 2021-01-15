@@ -51,15 +51,14 @@ func (t *MessageTipSelector) AddTip(msg *Message) {
 // addTip adds the given message as a tip.
 func (t *MessageTipSelector) addTip(msg *Message) {
 	messageID := msg.ID()
-	updated := t.tips.Set(messageID, messageID)
+	if t.tips.Set(messageID, messageID) {
 
-	msg.ForEachStrongParent(func(parent MessageID) {
-		if _, deleted := t.tips.Delete(parent); deleted {
-			t.Events.TipRemoved.Trigger(parent)
-		}
-	})
+		msg.ForEachStrongParent(func(parent MessageID) {
+			if _, deleted := t.tips.Delete(parent); deleted {
+				t.Events.TipRemoved.Trigger(parent)
+			}
+		})
 
-	if updated {
 		t.Events.TipAdded.Trigger(messageID)
 	}
 }
@@ -110,4 +109,18 @@ func (t *MessageTipSelector) TipCount() int {
 // tipCount the amount of current tips.
 func (t *MessageTipSelector) tipCount() int {
 	return t.tips.Size()
+}
+
+// AllTips return all the current tips.
+func (t *MessageTipSelector) AllTips() (tips []MessageID) {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+	return t.allTips()
+}
+
+func (t *MessageTipSelector) allTips() (tips []MessageID) {
+	for _, tip := range t.tips.Keys() {
+		tips = append(tips, tip.(MessageID))
+	}
+	return
 }
