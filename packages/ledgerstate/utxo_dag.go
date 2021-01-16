@@ -172,11 +172,11 @@ func (u *UTXODAG) inputsValid(inputs []Output) (valid bool) {
 }
 
 func (u *UTXODAG) Transaction(transactionID TransactionID) (cachedTransaction *CachedTransaction) {
-	return
+	return &CachedTransaction{CachedObject: u.transactionStorage.Load(transactionID.Bytes())}
 }
 
 func (u *UTXODAG) TransactionMetadata(transactionID TransactionID) (cachedTransactionMetadata *CachedTransactionMetadata) {
-	return
+	return &CachedTransactionMetadata{CachedObject: u.transactionMetadataStorage.Load(transactionID.Bytes())}
 }
 
 func (u *UTXODAG) TransactionInputs(transaction *Transaction) (cachedInputs CachedOutputs) {
@@ -194,14 +194,21 @@ func (u *UTXODAG) TransactionInputs(transaction *Transaction) (cachedInputs Cach
 }
 
 func (u *UTXODAG) Output(outputID OutputID) (cachedOutput *CachedOutput) {
-	return
+	return &CachedOutput{CachedObject: u.outputStorage.Load(outputID.Bytes())}
 }
 
 func (u *UTXODAG) OutputsOnAddress(address Address) (cachedOutputsOnAddresses *CachedOutputsOnAddresses) {
 	return
 }
 
-func (u *UTXODAG) Consumers(outputID OutputID) (consumers CachedConsumers) {
+func (u *UTXODAG) Consumers(outputID OutputID) (cachedConsumers CachedConsumers) {
+	cachedConsumers = make(CachedConsumers, 0)
+	u.consumerStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		cachedConsumers = append(cachedConsumers, &CachedConsumer{CachedObject: cachedObject})
+
+		return true
+	}, outputID.Bytes())
+
 	return
 }
 
