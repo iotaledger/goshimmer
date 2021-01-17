@@ -18,6 +18,8 @@ import (
 
 // region UTXODAG //////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// UTXODAG represents the DAG that is formed by Transactions consuming Inputs and creating Outputs. It forms the core of
+// the ledger state and keeps track of the balances and the different perceptions of potential conflicts.
 type UTXODAG struct {
 	Events *UTXODAGEvents
 
@@ -30,6 +32,7 @@ type UTXODAG struct {
 	branchDAG                   *BranchDAG
 }
 
+// NewUTXODAG create a new UTXODAG from the given details.
 func NewUTXODAG(store kvstore.KVStore, branchDAG *BranchDAG) (utxoDAG *UTXODAG) {
 	osFactory := objectstorage.NewFactory(store, database.PrefixLedgerState)
 	utxoDAG = &UTXODAG{
@@ -45,34 +48,84 @@ func NewUTXODAG(store kvstore.KVStore, branchDAG *BranchDAG) (utxoDAG *UTXODAG) 
 	return
 }
 
+// BookTransaction books a Transaction into the ledger state.
 func (u *UTXODAG) BookTransaction(transaction *Transaction) (bookTransactionClosure func(), err error) {
-	cachedInputs := u.TransactionInputs(transaction)
+	cachedInputs := u.transactionInputs(transaction)
 	defer cachedInputs.Release()
 	inputs := cachedInputs.Unwrap()
 
+	// perform cheap checks
 	if !u.inputsSolid(inputs) {
-		err = xerrors.Errorf("not all inputs of transaction are solid: %w", ErrTransactionNotSolid)
+		err = xerrors.Errorf("not all transactionInputs of transaction are solid: %w", ErrTransactionNotSolid)
 		return
 	}
-
 	if !u.transactionBalancesValid(inputs, transaction.Essence().Outputs()) {
 		err = xerrors.Errorf("sum of consumed and spent balances is not 0: %w", ErrTransactionInvalid)
 		return
 	}
-
 	if !u.unlockBlocksValid(inputs, transaction) {
-		err = xerrors.Errorf("spending of referenced inputs is not authorized: %w", ErrTransactionInvalid)
+		err = xerrors.Errorf("spending of referenced transactionInputs is not authorized: %w", ErrTransactionInvalid)
 		return
 	}
 
+	// check if transaction is attaching to something rejected
+	// TODO: IMPLEMENT
+
+	// perform more expensive checks
 	if !u.inputsValid(inputs) {
-		err = xerrors.Errorf("transaction spends invalid inputs: %w", ErrTransactionInvalid)
+		err = xerrors.Errorf("transaction spends invalid transactionInputs: %w", ErrTransactionInvalid)
 		return
+	}
+
+	// TODO: BOOK TRANSACTION
+
+	return
+}
+
+// Transaction retrieves the Transaction with the given TransactionID from the object storage.
+func (u *UTXODAG) Transaction(transactionID TransactionID) (cachedTransaction *CachedTransaction) {
+	return &CachedTransaction{CachedObject: u.transactionStorage.Load(transactionID.Bytes())}
+}
+
+// TransactionMetadata retrieves the TransactionMetadata with the given TransactionID from the object storage.
+func (u *UTXODAG) TransactionMetadata(transactionID TransactionID) (cachedTransactionMetadata *CachedTransactionMetadata) {
+	return &CachedTransactionMetadata{CachedObject: u.transactionMetadataStorage.Load(transactionID.Bytes())}
+}
+
+// Output retrieves the Output with the given OutputID from the object storage.
+func (u *UTXODAG) Output(outputID OutputID) (cachedOutput *CachedOutput) {
+	return &CachedOutput{CachedObject: u.outputStorage.Load(outputID.Bytes())}
+}
+
+// Consumers retrieves the Consumers of the given OutputID from the object storage.
+func (u *UTXODAG) Consumers(outputID OutputID) (cachedConsumers CachedConsumers) {
+	cachedConsumers = make(CachedConsumers, 0)
+	u.consumerStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		cachedConsumers = append(cachedConsumers, &CachedConsumer{CachedObject: cachedObject})
+
+		return true
+	}, outputID.Bytes())
+
+	return
+}
+
+// transactionInputs is an internal utility function that returns the Outputs that are used as Inputs by the given
+// Transaction.
+func (u *UTXODAG) transactionInputs(transaction *Transaction) (cachedInputs CachedOutputs) {
+	cachedInputs = make(CachedOutputs, 0)
+	for _, input := range transaction.Essence().Inputs() {
+		switch input.Type() {
+		case UTXOInputType:
+			cachedInputs = append(cachedInputs, u.Output(input.(*UTXOInput).ReferencedOutputID()))
+		default:
+			panic(fmt.Sprintf("unsupported InputType: %s", input.Type()))
+		}
 	}
 
 	return
 }
 
+// inputsSolid is an internal utility function that checks if all of the given Inputs exist.
 func (u *UTXODAG) inputsSolid(inputs []Output) (solid bool) {
 	for _, input := range inputs {
 		if typeutils.IsInterfaceNil(input) {
@@ -171,96 +224,213 @@ func (u *UTXODAG) inputsValid(inputs []Output) (valid bool) {
 	return true
 }
 
-func (u *UTXODAG) Transaction(transactionID TransactionID) (cachedTransaction *CachedTransaction) {
-	return &CachedTransaction{CachedObject: u.transactionStorage.Load(transactionID.Bytes())}
-}
-
-func (u *UTXODAG) TransactionMetadata(transactionID TransactionID) (cachedTransactionMetadata *CachedTransactionMetadata) {
-	return &CachedTransactionMetadata{CachedObject: u.transactionMetadataStorage.Load(transactionID.Bytes())}
-}
-
-func (u *UTXODAG) TransactionInputs(transaction *Transaction) (cachedInputs CachedOutputs) {
-	cachedInputs = make(CachedOutputs, 0)
-	for _, input := range transaction.Essence().Inputs() {
-		switch input.Type() {
-		case UTXOInputType:
-			cachedInputs = append(cachedInputs, u.Output(input.(*UTXOInput).ReferencedOutputID()))
-		default:
-			panic(fmt.Sprintf("unsupported InputType: %s", input.Type()))
-		}
-	}
-
-	return
-}
-
-func (u *UTXODAG) Output(outputID OutputID) (cachedOutput *CachedOutput) {
-	return &CachedOutput{CachedObject: u.outputStorage.Load(outputID.Bytes())}
-}
-
-func (u *UTXODAG) OutputsOnAddress(address Address) (cachedOutputsOnAddresses *CachedOutputsOnAddresses) {
-	return
-}
-
-func (u *UTXODAG) Consumers(outputID OutputID) (cachedConsumers CachedConsumers) {
-	cachedConsumers = make(CachedConsumers, 0)
-	u.consumerStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
-		cachedConsumers = append(cachedConsumers, &CachedConsumer{CachedObject: cachedObject})
-
-		return true
-	}, outputID.Bytes())
-
-	return
-}
-
-func (u *UTXODAG) SetTransactionPreferred(transactionID TransactionID, preferred bool) (modified bool, err error) {
-	return
-}
-
-func (u *UTXODAG) SetTransactionFinalized(transactionID TransactionID, finalized bool) (modified bool, err error) {
-	return
-}
-
-func (u *UTXODAG) IsSolid(transaction *Transaction) (solid bool, err error) {
-	return
-}
-
-func (u *UTXODAG) IsBalancesValid(transaction *Transaction) (valid bool, err error) {
-	// check sum of balances == 0
-
-	return
-}
-
-func (u *UTXODAG) BranchOfTransaction(transaction *Transaction) (branch BranchID, err error) {
-	// check that branches are not conflicting
-	// check that transaction does not use an input that was already spent in its past cone
-
-	return
-}
-
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region UTXODAGEvents ////////////////////////////////////////////////////////////////////////////////////////////////
 
+// UTXODAGEvents is a container for all of the UTXODAG related events.
 type UTXODAGEvents struct {
 }
 
+// NewUTXODAGEvents creates a container for all of the UTXODAG related events.
 func NewUTXODAGEvents() *UTXODAGEvents {
 	return &UTXODAGEvents{}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region CachedOutputsOnAddresses /////////////////////////////////////////////////////////////////////////////////////
+// region AddressOutputMapping /////////////////////////////////////////////////////////////////////////////////////////
 
-type CachedOutputsOnAddresses struct {
+// AddressOutputMapping represents a mapping between Addresses and their corresponding Outputs. Since an Address can have a
+// potentially unbounded amount of Outputs, we store this as a separate k/v pair instead of a marshaled
+// list of spending Transactions inside the Output.
+type AddressOutputMapping struct {
+	address  Address
+	outputID OutputID
+
+	objectstorage.StorableObjectFlags
+}
+
+// AddressOutputMappingFromBytes unmarshals a AddressOutputMapping from a sequence of bytes.
+func AddressOutputMappingFromBytes(bytes []byte) (addressOutputMapping *AddressOutputMapping, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(bytes)
+	if addressOutputMapping, err = AddressOutputMappingFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse AddressOutputMapping from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// AddressOutputMappingFromMarshalUtil unmarshals an AddressOutputMapping using a MarshalUtil (for easier unmarshaling).
+func AddressOutputMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (addressOutputMapping *AddressOutputMapping, err error) {
+	addressOutputMapping = &AddressOutputMapping{}
+	if addressOutputMapping.address, err = AddressFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse consumed Address from MarshalUtil: %w", err)
+		return
+	}
+	if addressOutputMapping.outputID, err = OutputIDFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse OutputID from MarshalUtil: %w", err)
+		return
+	}
+
+	return
+}
+
+// AddressOutputMappingFromObjectStorage is a factory method that creates a new AddressOutputMapping instance from a
+// storage key of the object storage. It is used by the object storage, to create new instances of this entity.
+func AddressOutputMappingFromObjectStorage(key []byte, _ []byte) (result objectstorage.StorableObject, err error) {
+	if result, _, err = AddressOutputMappingFromBytes(key); err != nil {
+		err = xerrors.Errorf("failed to parse AddressOutputMapping from bytes: %w", err)
+		return
+	}
+
+	return
+}
+
+// Address returns the Address of the AddressOutputMapping.
+func (a *AddressOutputMapping) Address() Address {
+	return a.address
+}
+
+// OutputID returns the OutputID of the AddressOutputMapping.
+func (a *AddressOutputMapping) OutputID() OutputID {
+	return a.outputID
+}
+
+// Bytes marshals the Consumer into a sequence of bytes.
+func (a *AddressOutputMapping) Bytes() []byte {
+	return a.ObjectStorageKey()
+}
+
+// String returns a human readable version of the Consumer.
+func (a *AddressOutputMapping) String() (humanReadableConsumer string) {
+	return stringify.Struct("AddressOutputMapping",
+		stringify.StructField("address", a.address),
+		stringify.StructField("outputID", a.outputID),
+	)
+}
+
+// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
+func (a *AddressOutputMapping) Update(other objectstorage.StorableObject) {
+	panic("updates disabled")
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (a *AddressOutputMapping) ObjectStorageKey() []byte {
+	return byteutils.ConcatBytes(a.address.Bytes(), a.outputID.Bytes())
+}
+
+// ObjectStorageValue marshals the Consumer into a sequence of bytes that are used as the value part in the object
+// storage.
+func (a *AddressOutputMapping) ObjectStorageValue() []byte {
+	panic("implement me")
+}
+
+// code contract (make sure the struct implements all required methods)
+var _ objectstorage.StorableObject = &AddressOutputMapping{}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region CachedAddressOutputMapping ///////////////////////////////////////////////////////////////////////////////////
+
+// CachedAddressOutputMapping is a wrapper for the generic CachedObject returned by the object storage that overrides
+// the accessor methods with a type-casted one.
+type CachedAddressOutputMapping struct {
+	objectstorage.CachedObject
+}
+
+// Retain marks the CachedObject to still be in use by the program.
+func (c *CachedAddressOutputMapping) Retain() *CachedAddressOutputMapping {
+	return &CachedAddressOutputMapping{c.CachedObject.Retain()}
+}
+
+// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
+func (c *CachedAddressOutputMapping) Unwrap() *AddressOutputMapping {
+	untypedObject := c.Get()
+	if untypedObject == nil {
+		return nil
+	}
+
+	typedObject := untypedObject.(*AddressOutputMapping)
+	if typedObject == nil || typedObject.IsDeleted() {
+		return nil
+	}
+
+	return typedObject
+}
+
+// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
+// exists). It automatically releases the object when the consumer finishes.
+func (c *CachedAddressOutputMapping) Consume(consumer func(addressOutputMapping *AddressOutputMapping), forceRelease ...bool) (consumed bool) {
+	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*AddressOutputMapping))
+	}, forceRelease...)
+}
+
+// String returns a human readable version of the CachedAddressOutputMapping.
+func (c *CachedAddressOutputMapping) String() string {
+	return stringify.Struct("CachedAddressOutputMapping",
+		stringify.StructField("CachedObject", c.Unwrap()),
+	)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region AddressOutputMapping /////////////////////////////////////////////////////////////////////////////////////////
+// region CachedAddressOutputMappings //////////////////////////////////////////////////////////////////////////////////
 
-func AddressOutputMappingFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
+// CachedAddressOutputMappings represents a collection of CachedAddressOutputMapping objects.
+type CachedAddressOutputMappings []*CachedAddressOutputMapping
+
+// Unwrap is the type-casted equivalent of Get. It returns a slice of unwrapped objects with the object being nil if it
+// does not exist.
+func (c CachedAddressOutputMappings) Unwrap() (unwrappedOutputs []*AddressOutputMapping) {
+	unwrappedOutputs = make([]*AddressOutputMapping, len(c))
+	for i, cachedAddressOutputMapping := range c {
+		untypedObject := cachedAddressOutputMapping.Get()
+		if untypedObject == nil {
+			continue
+		}
+
+		typedObject := untypedObject.(*AddressOutputMapping)
+		if typedObject == nil || typedObject.IsDeleted() {
+			continue
+		}
+
+		unwrappedOutputs[i] = typedObject
+	}
+
 	return
+}
+
+// Consume iterates over the CachedObjects, unwraps them and passes a type-casted version to the consumer (if the object
+// is not empty - it exists). It automatically releases the object when the consumer finishes. It returns true, if at
+// least one object was consumed.
+func (c CachedAddressOutputMappings) Consume(consumer func(addressOutputMapping *AddressOutputMapping), forceRelease ...bool) (consumed bool) {
+	for _, cachedAddressOutputMapping := range c {
+		consumed = cachedAddressOutputMapping.Consume(consumer, forceRelease...) || consumed
+	}
+
+	return
+}
+
+// Release is a utility function that allows us to release all CachedObjects in the collection.
+func (c CachedAddressOutputMappings) Release(force ...bool) {
+	for _, cachedAddressOutputMapping := range c {
+		cachedAddressOutputMapping.Release(force...)
+	}
+}
+
+// String returns a human readable version of the CachedAddressOutputMappings.
+func (c CachedAddressOutputMappings) String() string {
+	structBuilder := stringify.StructBuilder("CachedAddressOutputMappings")
+	for i, cachedAddressOutputMapping := range c {
+		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), cachedAddressOutputMapping))
+	}
+
+	return structBuilder.String()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

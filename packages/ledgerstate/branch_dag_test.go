@@ -1003,7 +1003,7 @@ func TestBranchDAG_MergeToMaster(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, map[BranchID]BranchID{
-		testBranchDAG.branch2.ID(): MasterBranchID,
+		testBranchDAG.branch2.ID():  MasterBranchID,
 		testBranchDAG.branch15.ID(): NewAggregatedBranch(NewBranchIDs(testBranchDAG.branch7.ID(), testBranchDAG.branch12.ID())).ID(),
 	}, movedBranches)
 
