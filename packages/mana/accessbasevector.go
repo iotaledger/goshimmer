@@ -97,7 +97,7 @@ func (a *AccessBaseManaVector) GetManaMap() (NodeMap, error) {
 	defer a.Unlock()
 	res := make(map[identity.ID]float64)
 	for ID := range a.vector {
-		mana, err := a.getMana(ID)
+		mana, err := a.getMana(ID, false)
 		if err != nil {
 			return nil, err
 		}
@@ -220,11 +220,13 @@ func (a *AccessBaseManaVector) update(nodeID identity.ID, t time.Time) error {
 }
 
 // getMana returns the current effective mana value. Not concurrency safe.
-func (a *AccessBaseManaVector) getMana(nodeID identity.ID) (float64, error) {
+func (a *AccessBaseManaVector) getMana(nodeID identity.ID, update ...bool) (float64, error) {
 	if _, exist := a.vector[nodeID]; !exist {
 		return 0.0, ErrNodeNotFoundInBaseManaVector
 	}
-	_ = a.update(nodeID, time.Now())
+	if len(update) == 0 || update[0] {
+		_ = a.update(nodeID, time.Now())
+	}
 	baseMana := a.vector[nodeID]
 	return baseMana.EffectiveValue(), nil
 }

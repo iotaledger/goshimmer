@@ -28,19 +28,20 @@ type PersistableEvent struct {
 
 // ToStringKeys returns the keys (properties) of the persistable event as a list of strings.
 func (p *PersistableEvent) ToStringKeys() []string {
-	return []string{"type", "nodeID", "amount", "time", "manaType", "transactionID", "inputID"}
+	return []string{"type", "nodeID", "fullNodeID", "amount", "time", "manaType", "transactionID", "inputID"}
 }
 
 // ToStringValues returns the persistableEvents values as a string array.
 func (p *PersistableEvent) ToStringValues() []string {
 	_type := strconv.Itoa(int(p.Type))
-	_nodeID := base58.Encode(p.NodeID[:])
+	_nodeID := p.NodeID.String()
+	_fullNodeID := base58.Encode(p.NodeID[:])
 	_amount := strconv.FormatFloat(p.Amount, 'g', -1, 64)
 	_time := strconv.FormatInt(p.Time.Unix(), 10)
 	_manaType := p.ManaType.String()
 	_txID := p.TransactionID.String()
 	_inputID := p.InputID.String()
-	return []string{_type, _nodeID, _amount, _time, _manaType, _txID, _inputID}
+	return []string{_type, _nodeID, _fullNodeID, _amount, _time, _manaType, _txID, _inputID}
 }
 
 // Bytes marshals the persistable event into a sequence of bytes.
@@ -51,7 +52,7 @@ func (p *PersistableEvent) Bytes() []byte {
 	// create marshal helper
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteByte(p.Type)
-	marshalUtil.WriteInt64(int64(p.ManaType))
+	marshalUtil.WriteByte(byte(p.ManaType))
 	marshalUtil.WriteBytes(p.NodeID.Bytes())
 	marshalUtil.WriteTime(p.Time)
 	marshalUtil.WriteBytes(p.TransactionID.Bytes())
@@ -82,7 +83,7 @@ func parseEvent(marshalUtil *marshalutil.MarshalUtil) (result *PersistableEvent,
 	if err != nil {
 		return
 	}
-	manaType, err := marshalUtil.ReadInt64()
+	manaType, err := marshalUtil.ReadByte()
 	if err != nil {
 		return
 	}

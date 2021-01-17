@@ -1,6 +1,7 @@
 package mana
 
 import (
+	"sort"
 	"sync"
 	"time"
 
@@ -57,6 +58,8 @@ type Event interface {
 	ToJSONSerializable() interface{}
 	// ToPersistable returns an event that can be persisted.
 	ToPersistable() *PersistableEvent
+	// Time returns the time of the event.
+	Timestamp() time.Time
 }
 
 // PledgedEvent is the struct that is passed along with triggering a Pledged event.
@@ -131,6 +134,11 @@ func (p *PledgedEvent) Type() byte {
 	return EventTypePledge
 }
 
+// Timestamp returns time the event was fired.
+func (p *PledgedEvent) Timestamp() time.Time {
+	return p.Time
+}
+
 var _ Event = &PledgedEvent{}
 
 // RevokedEvent is the struct that is passed along with triggering a Revoked event.
@@ -181,6 +189,11 @@ func (r *RevokedEvent) ToPersistable() *PersistableEvent {
 // Type returns the type of the event.
 func (r *RevokedEvent) Type() byte {
 	return EventTypeRevoke
+}
+
+// Timestamp returns time the event was fired.
+func (r *RevokedEvent) Timestamp() time.Time {
+	return r.Time
 }
 
 var _ Event = &RevokedEvent{}
@@ -236,7 +249,46 @@ func (u *UpdatedEvent) Type() byte {
 	return EventTypeUpdate
 }
 
+// Timestamp returns time the event was fired.
+func (u *UpdatedEvent) Timestamp() time.Time {
+	panic("not implemented")
+}
+
 var _ Event = &UpdatedEvent{}
+
+// EventSlice is a slice of events.
+type EventSlice []Event
+
+// Sort sorts a slice of events ASC by their timestamp with preference for RevokedEvent.
+func (e EventSlice) Sort() {
+	sort.Slice(e, func(i, j int) bool {
+		var timeI, timeJ time.Time
+		var typeI, _ byte
+		switch e[i].Type() {
+		case EventTypePledge:
+			timeI = e[i].(*PledgedEvent).Time
+			typeI = EventTypePledge
+		case EventTypeRevoke:
+			timeI = e[i].(*RevokedEvent).Time
+			typeI = EventTypeRevoke
+		}
+
+		switch e[j].Type() {
+		case EventTypePledge:
+			timeJ = e[j].(*PledgedEvent).Time
+			_ = EventTypePledge
+		case EventTypeRevoke:
+			timeJ = e[j].(*RevokedEvent).Time
+			_ = EventTypeRevoke
+		}
+
+		if !timeI.Equal(timeJ) {
+			return timeI.Before(timeJ)
+		}
+
+		return typeI == EventTypeRevoke
+	})
+}
 
 func pledgeEventCaller(handler interface{}, params ...interface{}) {
 	handler.(func(ev *PledgedEvent))(params[0].(*PledgedEvent))

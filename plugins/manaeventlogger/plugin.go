@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -30,6 +31,7 @@ var (
 	csvPath              string
 	mu                   sync.Mutex
 	csvMu                sync.Mutex
+	checkBufferInterval  time.Duration
 )
 
 // Plugin gets the plugin instance.
@@ -44,6 +46,7 @@ func configure(*node.Plugin) {
 	log = logger.NewLogger(PluginName)
 	eventsBufferSize = config.Node().GetInt(CfgBufferSize)
 	csvPath = config.Node().GetString(CfgCSV)
+	checkBufferInterval = config.Node().GetDuration(CfgCheckBufferIntervalSec) * time.Second
 	onPledgeEventClosure = events.NewClosure(logPledge)
 	onRevokeEventClosure = events.NewClosure(logRevoke)
 	configureEvents()
@@ -56,11 +59,9 @@ func configureEvents() {
 
 func logPledge(ev *mana.PledgedEvent) {
 	eventsBuffer = append(eventsBuffer, ev)
-	checkBuffer()
 }
 func logRevoke(ev *mana.RevokedEvent) {
 	eventsBuffer = append(eventsBuffer, ev)
-	checkBuffer()
 }
 
 func checkBuffer() {
@@ -116,10 +117,24 @@ func writeEventsToCSV(evs []mana.Event) error {
 
 func run(_ *node.Plugin) {
 	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
-		<-shutdownSignal
-		log.Info("stopping ", PluginName)
+		defer log.Infof("Stopping %s ... done", PluginName)
+		ticker := time.NewTicker(checkBufferInterval)
+		defer ticker.Stop()
+	L:
+		for {
+			select {
+			case <-shutdownSignal:
+				break L
+			case <-ticker.C:
+				checkBuffer()
+			}
+		}
+		log.Infof("stopping %s", PluginName)
 		mana.Events().Pledged.Detach(onPledgeEventClosure)
 		mana.Events().Pledged.Detach(onRevokeEventClosure)
+		if err := writeEventsToCSV(eventsBuffer); err != nil {
+			log.Infof("error writing events to csv: %w", err)
+		}
 	}, shutdown.PriorityTangle); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}

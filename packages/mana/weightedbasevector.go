@@ -144,7 +144,7 @@ func (w *WeightedBaseManaVector) GetManaMap() (NodeMap, error) {
 	defer w.Unlock()
 	res := make(map[identity.ID]float64)
 	for ID := range w.vector {
-		mana, err := w.getMana(ID)
+		mana, err := w.getMana(ID, false)
 		if err != nil {
 			return nil, err
 		}
@@ -307,11 +307,13 @@ func (w *WeightedBaseManaVector) update(nodeID identity.ID, t time.Time) error {
 }
 
 // getMana returns the current effective mana value. Not concurrency safe.
-func (w *WeightedBaseManaVector) getMana(nodeID identity.ID) (float64, error) {
+func (w *WeightedBaseManaVector) getMana(nodeID identity.ID, update ...bool) (float64, error) {
 	if _, exist := w.vector[nodeID]; !exist {
 		return 0.0, ErrNodeNotFoundInBaseManaVector
 	}
-	_ = w.update(nodeID, time.Now())
+	if len(update) == 0 || update[0] {
+		_ = w.update(nodeID, time.Now())
+	}
 	baseMana := w.vector[nodeID]
 	return baseMana.EffectiveValue(), nil
 }

@@ -187,7 +187,7 @@ func (c *ConsensusBaseManaVector) GetManaMap() (NodeMap, error) {
 	defer c.Unlock()
 	res := make(map[identity.ID]float64)
 	for ID := range c.vector {
-		mana, err := c.getMana(ID)
+		mana, err := c.getMana(ID, false)
 		if err != nil {
 			return nil, err
 		}
@@ -309,12 +309,14 @@ func (c *ConsensusBaseManaVector) update(nodeID identity.ID, t time.Time) error 
 	return nil
 }
 
-// getMana returns the Effective Base Mana 1
-func (c *ConsensusBaseManaVector) getMana(nodeID identity.ID) (float64, error) {
+// getMana returns the Effective Base Mana 1. Will update base mana by default.
+func (c *ConsensusBaseManaVector) getMana(nodeID identity.ID, update ...bool) (float64, error) {
 	if _, exist := c.vector[nodeID]; !exist {
 		return 0.0, ErrNodeNotFoundInBaseManaVector
 	}
-	_ = c.update(nodeID, time.Now())
+	if len(update) == 0 || update[0] {
+		_ = c.update(nodeID, time.Now())
+	}
 	baseMana := c.vector[nodeID]
 	return baseMana.EffectiveBaseMana1, nil
 }

@@ -715,9 +715,6 @@ func TestConsensusBaseManaVector_BuildPastBaseVector(t *testing.T) {
 		eventsLog = append(eventsLog, ev)
 	}))
 
-	eventsLogBackup := make([]Event, len(eventsLog))
-	copy(eventsLogBackup, eventsLog)
-
 	bmv.Book(tx1Info)
 	bmv.Book(tx2Info)
 	bmv.Book(tx3Info)
@@ -725,10 +722,13 @@ func TestConsensusBaseManaVector_BuildPastBaseVector(t *testing.T) {
 	_pastBmv, err := NewBaseManaVector(ConsensusMana)
 	assert.NoError(t, err)
 	pastBmv := _pastBmv.(*ConsensusBaseManaVector)
+
+	// Trying to build past vector from empty event set should result in empty vector.
 	err = pastBmv.BuildPastBaseVector([]Event{}, txTime)
 	assert.NoError(t, err)
 	assert.Equal(t, 0, pastBmv.Size())
 
+	// Build a vector from all events until latest tx, past and current vectors should be the
 	err = pastBmv.BuildPastBaseVector(eventsLog, txTime.Add(2*time.Hour))
 	assert.NoError(t, err)
 	IDs := []identity.ID{inputPledgeID1, inputPledgeID2, inputPledgeID3}
@@ -776,5 +776,5 @@ func TestConsensusBaseManaVector_BuildPastBaseVector(t *testing.T) {
 
 	// start from a revoke event
 	err = bmv.(*ConsensusBaseManaVector).BuildPastBaseVector(eventsLog[1:], txTime.Add(3*time.Hour))
-	assert.NotNil(t, err)
+	assert.NotNil(t, ErrBaseManaNegative)
 }

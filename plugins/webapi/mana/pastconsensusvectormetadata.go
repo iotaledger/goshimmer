@@ -11,7 +11,11 @@ import (
 // getPastConsensusVectorMetadataHandler handles the request.
 func getPastConsensusVectorMetadataHandler(c echo.Context) error {
 	metadata := manaPlugin.GetPastConsensusManaVectorMetadata()
-
+	if metadata == nil {
+		return c.JSON(http.StatusOK, PastConsensusVectorMetadataResponse{
+			Error: "Not Found",
+		})
+	}
 	return c.JSON(http.StatusOK, PastConsensusVectorMetadataResponse{
 		Metadata: metadata,
 	})
@@ -19,6 +23,6 @@ func getPastConsensusVectorMetadataHandler(c echo.Context) error {
 
 // PastConsensusVectorMetadataResponse is the response.
 type PastConsensusVectorMetadataResponse struct {
-	Metadata mana.ConsensusBasePastManaVectorMetadata `json:"metadata"`
-	Error    string                                   `json:"error,omitempty"`
+	Metadata *mana.ConsensusBasePastManaVectorMetadata `json:"metadata"`
+	Error    string                                    `json:"error,omitempty"`
 }

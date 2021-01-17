@@ -13,7 +13,7 @@ import (
 func TestPersistableBaseMana_Bytes(t *testing.T) {
 	p := newPersistableMana()
 	marshalUtil := marshalutil.New()
-	marshalUtil.WriteInt64(int64(p.ManaType))
+	marshalUtil.WriteByte(byte(p.ManaType))
 	marshalUtil.WriteUint16(uint16(len(p.BaseValues)))
 	for _, val := range p.BaseValues {
 		marshalUtil.WriteUint64(math.Float64bits(val))
