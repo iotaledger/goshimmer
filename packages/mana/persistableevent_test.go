@@ -16,7 +16,7 @@ func TestPersistableEvent_Bytes(t *testing.T) {
 	ev := &PersistableEvent{}
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteByte(ev.Type)
-	marshalUtil.WriteInt64(int64(ev.ManaType))
+	marshalUtil.WriteByte(byte(ev.ManaType))
 	marshalUtil.WriteBytes(ev.NodeID.Bytes())
 	marshalUtil.WriteTime(ev.Time)
 	marshalUtil.WriteBytes(ev.TransactionID.Bytes())
