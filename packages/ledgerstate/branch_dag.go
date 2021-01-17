@@ -302,10 +302,9 @@ func (b *BranchDAG) MergeToMaster(branchID BranchID) (movedBranches map[BranchID
 		childBranchReference.Delete()
 	}
 
-	// update ConflictMembers to be in conflict with master instead
+	// update ConflictMembers to not contain the merged Branch
 	for conflictID := range conflictBranch.Conflicts() {
 		b.unregisterConflictMember(conflictID, branchID)
-		b.registerConflictMember(conflictID, MasterBranchID)
 	}
 
 	return
