@@ -934,6 +934,7 @@ func TestBranchDAG_MergeToMaster(t *testing.T) {
 	eventMock.Expect("BranchLiked", testBranchDAG.branch15.ID())
 
 	modified, err := branchDAG.SetBranchLiked(testBranchDAG.branch15.ID(), true)
+	require.NoError(t, err)
 	assert.True(t, modified)
 
 	eventMock.Expect("BranchFinalized", testBranchDAG.branch2.ID())
@@ -959,6 +960,7 @@ func TestBranchDAG_MergeToMaster(t *testing.T) {
 	eventMock.Expect("BranchConfirmed", testBranchDAG.branch15.ID())
 
 	modified, err = branchDAG.SetBranchFinalized(testBranchDAG.branch15.ID(), true)
+	require.NoError(t, err)
 	assert.True(t, modified)
 
 	eventMock.Expect("BranchPreferred", testBranchDAG.branch5.ID())
@@ -969,6 +971,7 @@ func TestBranchDAG_MergeToMaster(t *testing.T) {
 	eventMock.Expect("BranchLiked", testBranchDAG.branch16.ID())
 
 	modified, err = branchDAG.SetBranchLiked(testBranchDAG.branch5.ID(), true)
+	require.NoError(t, err)
 	assert.True(t, modified)
 
 	eventMock.Expect("BranchFinalized", testBranchDAG.branch4.ID())
@@ -983,6 +986,7 @@ func TestBranchDAG_MergeToMaster(t *testing.T) {
 	eventMock.Expect("BranchConfirmed", testBranchDAG.branch16.ID())
 
 	modified, err = branchDAG.SetBranchFinalized(testBranchDAG.branch5.ID(), true)
+	require.NoError(t, err)
 	assert.True(t, modified)
 
 	_, err = branchDAG.MergeToMaster(testBranchDAG.branch15.ID())
@@ -1003,7 +1007,7 @@ func TestBranchDAG_MergeToMaster(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, map[BranchID]BranchID{
-		testBranchDAG.branch2.ID(): MasterBranchID,
+		testBranchDAG.branch2.ID():  MasterBranchID,
 		testBranchDAG.branch15.ID(): NewAggregatedBranch(NewBranchIDs(testBranchDAG.branch7.ID(), testBranchDAG.branch12.ID())).ID(),
 	}, movedBranches)
 

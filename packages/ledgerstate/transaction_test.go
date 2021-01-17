@@ -7,6 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var Color2 = Color{2}
+
 func TestTransaction_Complex(t *testing.T) {
 	// setup variables representing keys and outputs for the two parties that wants to trade tokens
 	party1KeyChain, party1SrcAddress, party1DestAddress, party1RemainderAddress := setupKeyChainAndAddresses(t)
@@ -18,7 +20,7 @@ func TestTransaction_Complex(t *testing.T) {
 	unspentOutputsDB := setupUnspentOutputsDB(map[Address]map[OutputID]map[Color]uint64{
 		party1SrcAddress: {
 			party1ControlledOutputID: {
-				Color{2}: 200,
+				Color2: 200,
 			},
 		},
 		party2SrcAddress: {
@@ -30,7 +32,7 @@ func TestTransaction_Complex(t *testing.T) {
 
 	// party1 prepares a TransactionEssence that party2 is supposed to complete for the exchange of tokens
 	sentParty1Essence := NewTransactionEssence(0,
-		// he consumes 200 tokens of Color{2}
+		// he consumes 200 tokens of Color2
 		NewInputs(unspentOutputsDB[party1ControlledOutputID].Input()),
 
 		NewOutputs(
@@ -38,7 +40,9 @@ func TestTransaction_Complex(t *testing.T) {
 			NewSigLockedSingleOutput(1337, party1DestAddress),
 
 			// he sends only 100 of the consumed tokens to the remainder leaving 100 unspent
-			NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{Color{2}: 100}), party1RemainderAddress),
+			NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{
+				Color2: 100,
+			}), party1RemainderAddress),
 		),
 	).Bytes()
 
@@ -50,9 +54,9 @@ func TestTransaction_Complex(t *testing.T) {
 	completedEssence := NewTransactionEssence(0,
 		NewInputs(append(receivedParty1Essence.Inputs(), unspentOutputsDB[party2ControlledOutputID].Input())...),
 		NewOutputs(append(receivedParty1Essence.Outputs(),
-			// he wants to receive 100 tokens of Color{2} on his destination address
+			// he wants to receive 100 tokens of Color2 on his destination address
 			NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{
-				Color{2}: 100,
+				Color2: 100,
 			}), party2DestAddress),
 
 			// he sends only 1000 of the 2337 consumed IOTA to the remainder (leaving 1337 unspent)

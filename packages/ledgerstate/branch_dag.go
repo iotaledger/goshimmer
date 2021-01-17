@@ -192,7 +192,7 @@ func (b *BranchDAG) SetBranchFinalized(branchID BranchID, finalized bool) (modif
 
 func (b *BranchDAG) MergeToMaster(branchID BranchID) (movedBranches map[BranchID]BranchID, err error) {
 	movedBranches = make(map[BranchID]BranchID)
-	
+
 	// load Branch
 	cachedBranch := b.Branch(branchID)
 	defer cachedBranch.Release()
