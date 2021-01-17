@@ -190,6 +190,8 @@ func (b *BranchDAG) SetBranchFinalized(branchID BranchID, finalized bool) (modif
 	return b.setBranchFinalized(b.Branch(branchID), finalized)
 }
 
+// MergeToMaster merges a confirmed Branch with the MasterBranch to clean up the BranchDAG. It reorganizes existing
+// ChildBranches by adjusting their parents accordingly.
 func (b *BranchDAG) MergeToMaster(branchID BranchID) (movedBranches map[BranchID]BranchID, err error) {
 	movedBranches = make(map[BranchID]BranchID)
 
