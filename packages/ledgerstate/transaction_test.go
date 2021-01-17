@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var Color2 = Color{2}
+var sampleColor = Color{2}
 
 func TestTransaction_Complex(t *testing.T) {
 	// setup variables representing keys and outputs for the two parties that wants to trade tokens
@@ -20,7 +20,7 @@ func TestTransaction_Complex(t *testing.T) {
 	unspentOutputsDB := setupUnspentOutputsDB(map[Address]map[OutputID]map[Color]uint64{
 		party1SrcAddress: {
 			party1ControlledOutputID: {
-				Color2: 200,
+				sampleColor: 200,
 			},
 		},
 		party2SrcAddress: {
@@ -41,7 +41,7 @@ func TestTransaction_Complex(t *testing.T) {
 
 			// he sends only 100 of the consumed tokens to the remainder leaving 100 unspent
 			NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{
-				Color2: 100,
+				sampleColor: 100,
 			}), party1RemainderAddress),
 		),
 	).Bytes()
@@ -56,7 +56,7 @@ func TestTransaction_Complex(t *testing.T) {
 		NewOutputs(append(receivedParty1Essence.Outputs(),
 			// he wants to receive 100 tokens of Color2 on his destination address
 			NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{
-				Color2: 100,
+				sampleColor: 100,
 			}), party2DestAddress),
 
 			// he sends only 1000 of the 2337 consumed IOTA to the remainder (leaving 1337 unspent)
