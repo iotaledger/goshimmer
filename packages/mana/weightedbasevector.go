@@ -139,12 +139,12 @@ func (w *WeightedBaseManaVector) GetMana(nodeID identity.ID) (float64, error) {
 }
 
 // GetManaMap returns mana perception of the node..
-func (w *WeightedBaseManaVector) GetManaMap() (NodeMap, error) {
+func (w *WeightedBaseManaVector) GetManaMap(update ...bool) (NodeMap, error) {
 	w.Lock()
 	defer w.Unlock()
 	res := make(map[identity.ID]float64)
 	for ID := range w.vector {
-		mana, err := w.getMana(ID, false)
+		mana, err := w.getMana(ID, update...)
 		if err != nil {
 			return nil, err
 		}

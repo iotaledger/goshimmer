@@ -182,12 +182,12 @@ func (c *ConsensusBaseManaVector) GetMana(nodeID identity.ID) (float64, error) {
 }
 
 // GetManaMap returns mana perception of the node.
-func (c *ConsensusBaseManaVector) GetManaMap() (NodeMap, error) {
+func (c *ConsensusBaseManaVector) GetManaMap(update ...bool) (NodeMap, error) {
 	c.Lock()
 	defer c.Unlock()
 	res := make(map[identity.ID]float64)
 	for ID := range c.vector {
-		mana, err := c.getMana(ID, false)
+		mana, err := c.getMana(ID, update...)
 		if err != nil {
 			return nil, err
 		}

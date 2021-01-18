@@ -20,7 +20,7 @@ func getPastConsensusManaVectorHandler(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, PastConsensusManaVectorResponse{Error: err.Error()})
 	}
-	manaMap, err := consensus.GetManaMap()
+	manaMap, err := consensus.GetManaMap(false)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, PastConsensusManaVectorResponse{Error: err.Error()})
 	}

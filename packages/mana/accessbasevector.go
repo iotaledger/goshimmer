@@ -92,12 +92,12 @@ func (a *AccessBaseManaVector) GetMana(nodeID identity.ID) (float64, error) {
 }
 
 // GetManaMap returns mana perception of the node..
-func (a *AccessBaseManaVector) GetManaMap() (NodeMap, error) {
+func (a *AccessBaseManaVector) GetManaMap(update ...bool) (NodeMap, error) {
 	a.Lock()
 	defer a.Unlock()
 	res := make(map[identity.ID]float64)
 	for ID := range a.vector {
-		mana, err := a.getMana(ID, false)
+		mana, err := a.getMana(ID, update...)
 		if err != nil {
 			return nil, err
 		}
