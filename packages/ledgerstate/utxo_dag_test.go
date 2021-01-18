@@ -1,6 +1,7 @@
 package ledgerstate
 
 import (
+	"log"
 	"math"
 	"testing"
 
@@ -46,4 +47,47 @@ func TestTransactionBalancesValid(t *testing.T) {
 	i2 = NewSigLockedSingleOutput(math.MaxUint64, addressSource)
 
 	assert.False(t, u.transactionBalancesValid(Outputs{i1, i2}, Outputs{o}))
+}
+
+func TestUnlockBlocksValid(t *testing.T) {
+	branchDAG := NewBranchDAG(mapdb.NewMapDB())
+	err := branchDAG.Prune()
+	require.NoError(t, err)
+	defer branchDAG.Shutdown()
+
+	u := NewUTXODAG(mapdb.NewMapDB(), branchDAG)
+
+	// generate ED25519 public key
+	keyPairA := ed25519.GenerateKeyPair()
+	addressA := NewED25519Address(keyPairA.PublicKey)
+	keyPairB := ed25519.GenerateKeyPair()
+	addressB := NewED25519Address(keyPairB.PublicKey)
+
+	o1 := NewSigLockedSingleOutput(100, addressA)
+
+	i1 := NewUTXOInput(o1.ID())
+	log.Println(i1)
+
+	o := NewSigLockedSingleOutput(200, addressB)
+
+	txEssence := NewTransactionEssence(0, NewInputs(i1), NewOutputs(o))
+
+	// testing valid signature
+	signA := NewED25519Signature(keyPairA.PublicKey, keyPairA.PrivateKey.Sign(txEssence.Bytes()))
+
+	unlockBlocks := []UnlockBlock{NewSignatureUnlockBlock(signA)}
+
+	tx := NewTransaction(txEssence, unlockBlocks)
+
+	assert.True(t, u.unlockBlocksValid(Outputs{o1}, tx))
+
+	// testing invalid signature
+	signB := NewED25519Signature(keyPairB.PublicKey, keyPairB.PrivateKey.Sign(txEssence.Bytes()))
+
+	unlockBlocks = []UnlockBlock{NewSignatureUnlockBlock(signB)}
+
+	tx = NewTransaction(txEssence, unlockBlocks)
+
+	assert.False(t, u.unlockBlocksValid(Outputs{o1}, tx))
+
 }
