@@ -95,12 +95,12 @@ func configure(*node.Plugin) {
 	_tangle = Tangle()
 
 	// setup solidification
-	// TODO: replace solidification with the timestamp check
 	_tangle.MessageStore.Events.MessageStored.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
 		_tangle.SolidifyMessage(cachedMsgEvent.Message, cachedMsgEvent.MessageMetadata)
 	}))
 
 	// setup parents check
+	// TODO: replace this with scheduler
 	_tangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
 		_tangle.CheckParentsEligibility(cachedMsgEvent.Message, cachedMsgEvent.MessageMetadata)
 	}))

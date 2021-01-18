@@ -2,7 +2,6 @@ package prometheus
 
 import (
 	"github.com/iotaledger/goshimmer/plugins/gossip"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -33,11 +32,6 @@ func collectWorkerpoolMetrics() {
 	).Set(float64(load))
 
 	name, load = gossip.Manager().MessageRequestWorkerPoolStatus()
-	workerpools.WithLabelValues(
-		name,
-	).Set(float64(load))
-
-	name, load = messagelayer.Tangle().SolidifierWorkerPoolStatus()
 	workerpools.WithLabelValues(
 		name,
 	).Set(float64(load))

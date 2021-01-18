@@ -17,6 +17,8 @@ type Events struct {
 	MessageBooked *events.Event
 	// Fired when a message has been eligible.
 	MessageEligible *events.Event
+	// Fired when a message is Invalid.
+	MessageInvalid *events.Event
 }
 
 // CachedMessageEvent represents the parameters of cachedMessageEvent
@@ -31,6 +33,7 @@ func newEvents() *Events {
 		MessageUnsolidifiable: events.NewEvent(messageIDEvent),
 		MessageBooked:         events.NewEvent(cachedMessageEvent),
 		MessageEligible:       events.NewEvent(cachedMessageEvent),
+		MessageInvalid:        events.NewEvent(cachedMessageEvent),
 	}
 }
 
