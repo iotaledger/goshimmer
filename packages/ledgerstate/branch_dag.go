@@ -190,9 +190,11 @@ func (b *BranchDAG) SetBranchFinalized(branchID BranchID, finalized bool) (modif
 	return b.setBranchFinalized(b.Branch(branchID), finalized)
 }
 
+// MergeToMaster merges a confirmed Branch with the MasterBranch to clean up the BranchDAG. It reorganizes existing
+// ChildBranches by adjusting their parents accordingly.
 func (b *BranchDAG) MergeToMaster(branchID BranchID) (movedBranches map[BranchID]BranchID, err error) {
 	movedBranches = make(map[BranchID]BranchID)
-	
+
 	// load Branch
 	cachedBranch := b.Branch(branchID)
 	defer cachedBranch.Release()
@@ -300,10 +302,9 @@ func (b *BranchDAG) MergeToMaster(branchID BranchID) (movedBranches map[BranchID
 		childBranchReference.Delete()
 	}
 
-	// update ConflictMembers to be in conflict with master instead
+	// update ConflictMembers to not contain the merged Branch
 	for conflictID := range conflictBranch.Conflicts() {
 		b.unregisterConflictMember(conflictID, branchID)
-		b.registerConflictMember(conflictID, MasterBranchID)
 	}
 
 	return
