@@ -2,6 +2,7 @@ package tangle
 
 import "time"
 
+// TableDescription holds the description of the First Approval analysis table.
 var TableDescription = []string{
 	"nodeID",
 	"MsgID",
@@ -22,8 +23,7 @@ var TableDescription = []string{
 	"BySolidMsgSolidTime",
 }
 
-var filePath string
-
+// MsgInfo holds the information of a message.
 type MsgInfo struct {
 	MsgID                string
 	MsgIssuerID          string
@@ -32,6 +32,7 @@ type MsgInfo struct {
 	MsgSolidTime         time.Time
 }
 
+// MsgApproval holds the information of the first approval by issucane, arrival and solid time.
 type MsgApproval struct {
 	NodeID                  string
 	Msg                     MsgInfo
@@ -40,6 +41,7 @@ type MsgApproval struct {
 	FirstApproverBySolid    MsgInfo
 }
 
-func (t *Tangle) ApprovalAnalysis(nodeID string, filePath string) error {
+// FirstApprovalAnalysis performs the first approval analysis and write the result into a csv.
+func (t *Tangle) FirstApprovalAnalysis(nodeID string, filePath string) error {
 	return nil
 }
