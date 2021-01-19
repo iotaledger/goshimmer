@@ -8,10 +8,12 @@ import (
 	"github.com/labstack/echo"
 )
 
+var filePath = "./approval-analysis.csv"
+
 // ApprovalHandler runs the approval analysis.
 func ApprovalHandler(c echo.Context) error {
 	res := &ApprovalResponse{}
-	res.Err = messagelayer.Tangle().FirstApprovalAnalysis(local.GetInstance().Identity.ID().String(), "")
+	res.Err = messagelayer.Tangle().FirstApprovalAnalysis(local.GetInstance().Identity.ID().String(), filePath)
 	if res.Err != nil {
 		c.JSON(http.StatusInternalServerError, res)
 	}

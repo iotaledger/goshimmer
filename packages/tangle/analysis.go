@@ -95,7 +95,14 @@ func (a BySolid) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 // This function is very heavy to compute especially when starting from the Genesis.
 // A better alternative for the future would be to keep this analysis updated as the Tangle grows.
 func (t *Tangle) FirstApprovalAnalysis(nodeID string, filePath string) error {
-	w := csv.NewWriter(os.Stdout)
+	// If the file doesn't exist, create it, or truncate the file
+	f, err := os.Create(filePath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	w := csv.NewWriter(f)
 
 	// write TableDescription
 	if err := w.Write(TableDescription); err != nil {
