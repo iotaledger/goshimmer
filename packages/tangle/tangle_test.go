@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/datastructure/randommap"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
@@ -40,6 +41,81 @@ func BenchmarkTangle_StoreMessage(b *testing.B) {
 	}
 
 	tangle.Shutdown()
+}
+
+func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
+	messageTangle := newTangle(mapdb.NewMapDB())
+	if err := messageTangle.Prune(); err != nil {
+		t.Error(err)
+
+		return
+	}
+
+	var (
+		storedMessages  int32
+		solidMessages   int32
+		invalidMessages int32
+	)
+
+	newOldParentsMessage := func(strongParents []MessageID) *Message {
+		return NewMessage(strongParents, []MessageID{}, time.Now().Add(15*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Old")), 0, ed25519.Signature{})
+	}
+	newYoungParentsMessage := func(strongParents []MessageID) *Message {
+		return NewMessage(strongParents, []MessageID{}, time.Now().Add(-15*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Young")), 0, ed25519.Signature{})
+	}
+	newValidMessage := func(strongParents []MessageID) *Message {
+		return NewMessage(strongParents, []MessageID{}, time.Now(), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Valid")), 0, ed25519.Signature{})
+	}
+
+	messageTangle.MessageStore.Events.MessageStored.Attach(events.NewClosure(func(cachedMsgEvent *CachedMessageEvent) {
+		cachedMsgEvent.MessageMetadata.Release()
+
+		cachedMsgEvent.Message.Consume(func(msg *Message) {
+			fmt.Println("STORED:", msg.ID())
+		})
+		atomic.AddInt32(&storedMessages, 1)
+	}))
+
+	messageTangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedMsgEvent *CachedMessageEvent) {
+		cachedMsgEvent.MessageMetadata.Release()
+
+		cachedMsgEvent.Message.Consume(func(msg *Message) {
+			fmt.Println("SOLID:", msg.ID())
+		})
+		atomic.AddInt32(&solidMessages, 1)
+	}))
+
+	messageTangle.Events.MessageInvalid.Attach(events.NewClosure(func(cachedMsgEvent *CachedMessageEvent) {
+		cachedMsgEvent.MessageMetadata.Release()
+
+		cachedMsgEvent.Message.Consume(func(msg *Message) {
+			fmt.Println("INVALID:", msg.ID())
+		})
+		atomic.AddInt32(&invalidMessages, 1)
+	}))
+
+	messageA := newTestDataMessage("some data")
+	messageB := newTestDataMessage("some data")
+	messageC := newValidMessage([]MessageID{messageA.ID(), messageB.ID()})
+	messageOldParents := newOldParentsMessage([]MessageID{messageA.ID(), messageB.ID()})
+	messageYoungParents := newYoungParentsMessage([]MessageID{messageA.ID(), messageB.ID()})
+
+	messageTangle.StoreMessage(messageA)
+	messageTangle.StoreMessage(messageB)
+
+	time.Sleep(7 * time.Second)
+
+	messageTangle.StoreMessage(messageC)
+	messageTangle.StoreMessage(messageOldParents)
+	messageTangle.StoreMessage(messageYoungParents)
+
+	// wait for all messages to become solid
+	assert.Eventually(t, func() bool { return atomic.LoadInt32(&storedMessages) == 5 }, 1*time.Minute, 100*time.Millisecond)
+
+	assert.EqualValues(t, 3, atomic.LoadInt32(&solidMessages))
+	assert.EqualValues(t, 2, atomic.LoadInt32(&invalidMessages))
+
+	messageTangle.Shutdown()
 }
 
 func TestTangle_StoreMessage(t *testing.T) {
