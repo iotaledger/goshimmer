@@ -95,23 +95,27 @@ func (t *Tangle) FirstApprovalAnalysis(nodeID string, filePath string) error {
 
 	return t.FutureCone(EmptyMessageID, func(msgID MessageID) error {
 		approverInfo, err := t.firstApprovers(msgID)
-		if err == nil {
-			msgApproval := MsgApproval{
-				NodeID:                  nodeID,
-				Msg:                     t.info(msgID),
-				FirstApproverByIssuance: approverInfo[byIssuance],
-				FirstApproverByArrival:  approverInfo[byArrival],
-				FirstApproverBySolid:    approverInfo[bySolid],
-			}
+		// firstApprovers returns an error when the msgID is a tip, thus
+		// we want to stop the computation but continue with the future cone iteration.
+		if err != nil {
+			return nil
+		}
 
-			// write msgApproval to file
-			if err := w.Write(msgApproval.toCSV()); err != nil {
-				return err
-			}
-			w.Flush()
-			if err := w.Error(); err != nil {
-				return err
-			}
+		msgApproval := MsgApproval{
+			NodeID:                  nodeID,
+			Msg:                     t.info(msgID),
+			FirstApproverByIssuance: approverInfo[byIssuance],
+			FirstApproverByArrival:  approverInfo[byArrival],
+			FirstApproverBySolid:    approverInfo[bySolid],
+		}
+
+		// write msgApproval to file
+		if err := w.Write(msgApproval.toCSV()); err != nil {
+			return err
+		}
+		w.Flush()
+		if err := w.Error(); err != nil {
+			return err
 		}
 		return nil
 	})
