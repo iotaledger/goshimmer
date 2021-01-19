@@ -112,9 +112,8 @@ func (t *Tangle) FirstApprovalAnalysis(nodeID string, filePath string) error {
 			if err := w.Error(); err != nil {
 				return err
 			}
-			return nil
 		}
-		return err
+		return nil
 	})
 }
 
