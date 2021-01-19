@@ -199,10 +199,12 @@ func (m MsgApproval) toCSV() (row []string) {
 }
 
 func (m MsgInfo) toCSV() (row []string) {
-	row = append(row, m.MsgID)
-	row = append(row, m.MsgIssuerID)
-	row = append(row, fmt.Sprint(m.MsgIssuanceTimestamp.UnixNano()))
-	row = append(row, fmt.Sprint(m.MsgArrivalTime.UnixNano()))
-	row = append(row, fmt.Sprint(m.MsgSolidTime.UnixNano()))
+	row = append(row, []string{
+		m.MsgID,
+		m.MsgIssuerID,
+		fmt.Sprint(m.MsgIssuanceTimestamp.UnixNano()),
+		fmt.Sprint(m.MsgArrivalTime.UnixNano()),
+		fmt.Sprint(m.MsgSolidTime.UnixNano())}...)
+
 	return
 }
