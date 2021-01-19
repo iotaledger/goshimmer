@@ -18,18 +18,22 @@ var TableDescription = []string{
 	"nodeID",
 	"MsgID",
 	"MsgIssuerID",
+	"MsgIssuanceTime",
 	"MsgArrivalTime",
 	"MsgSolidTime",
 	"ByIssuanceMsgID",
 	"ByIssuanceMsgIssuerID",
+	"ByIssuanceMsgIssuanceTime",
 	"ByIssuanceMsgArrivalTime",
 	"ByIssuanceMsgSolidTime",
 	"ByArrivalMsgID",
 	"ByArrivalMsgIssuerID",
+	"ByArrivalMsgIssuanceTime",
 	"ByArrivalMsgArrivalTime",
 	"ByArrivalMsgSolidTime",
 	"BySolidMsgID",
 	"BySolidMsgIssuerID",
+	"BySolidMsgIssuanceTime",
 	"BySolidMsgArrivalTime",
 	"BySolidMsgSolidTime",
 }
@@ -201,6 +205,7 @@ func (t *Tangle) info(msgID MessageID) MsgInfo {
 
 func (m MsgApproval) toCSV() (row []string) {
 	row = append(row, m.NodeID)
+	row = append(row, m.Msg.toCSV()...)
 	row = append(row, m.FirstApproverByIssuance.toCSV()...)
 	row = append(row, m.FirstApproverByArrival.toCSV()...)
 	row = append(row, m.FirstApproverBySolid.toCSV()...)
