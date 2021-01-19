@@ -88,6 +88,8 @@ func (a BySolid) Less(i, j int) bool {
 func (a BySolid) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 
 // FirstApprovalAnalysis performs the first approval analysis and write the result into a csv.
+// This function is very heavy to compute especially when starting from the Genesis.
+// A better alternative for the future would be to keep this analysis updated as the Tangle grows.
 func (t *Tangle) FirstApprovalAnalysis(nodeID string, filePath string) error {
 	w := csv.NewWriter(os.Stdout)
 
