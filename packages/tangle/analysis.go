@@ -60,6 +60,7 @@ const (
 	bySolid
 )
 
+// ByIssuance defines a slice of MsgInfo sortable by timestamp issuance.
 type ByIssuance []MsgInfo
 
 func (a ByIssuance) Len() int { return len(a) }
@@ -68,6 +69,7 @@ func (a ByIssuance) Less(i, j int) bool {
 }
 func (a ByIssuance) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 
+// ByArrival defines a slice of MsgInfo sortable by arrival time.
 type ByArrival []MsgInfo
 
 func (a ByArrival) Len() int { return len(a) }
@@ -76,6 +78,7 @@ func (a ByArrival) Less(i, j int) bool {
 }
 func (a ByArrival) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 
+// BySolid defines a slice of MsgInfo sortable by solid time.
 type BySolid []MsgInfo
 
 func (a BySolid) Len() int { return len(a) }
