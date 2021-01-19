@@ -27,7 +27,7 @@ func getEventLogsHandler(c echo.Context) error {
 	}
 	startTime := time.Unix(req.StartTime, 0)
 	endTime := time.Unix(req.EndTime, 0)
-	var epoch time.Time
+	epoch := time.Unix(0, 0)
 	if endTime == epoch {
 		endTime = time.Now()
 	}

@@ -776,5 +776,6 @@ func TestConsensusBaseManaVector_BuildPastBaseVector(t *testing.T) {
 
 	// start from a revoke event
 	err = bmv.(*ConsensusBaseManaVector).BuildPastBaseVector(eventsLog[1:], txTime.Add(3*time.Hour))
-	assert.NotNil(t, ErrBaseManaNegative)
+	assert.NotNil(t, err)
+	assert.Equal(t, ErrBaseManaNegative, err)
 }
