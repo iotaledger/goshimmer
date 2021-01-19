@@ -34,7 +34,7 @@ func getEventLogsHandler(c echo.Context) error {
 	if endTime.Before(startTime) {
 		return c.JSON(http.StatusBadRequest, GetEventLogsResponse{Error: "time interval mismatch. endTime cannot be before startTime"})
 	}
-	logs, err := manaPlugin.GetLoggedEvents(nodeIDs, startTime, endTime)
+	logs, err := manaPlugin.GetLoggedEvents(nodeIDs, startTime, endTime.Add(1*time.Second))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, GetEventLogsResponse{Error: err.Error()})
 	}
