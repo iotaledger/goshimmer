@@ -137,7 +137,7 @@ func (t *Tangle) FirstApprovalAnalysis(nodeID string, filePath string) error {
 	})
 }
 
-// Future cone iterates over the future cone of the given messageID and computes the given function.
+// FutureCone iterates over the future cone of the given messageID and computes the given function.
 func (t *Tangle) FutureCone(messageID MessageID, compute func(ID MessageID) error) error {
 	futureConeStack := list.New()
 	futureConeStack.PushBack(messageID)
