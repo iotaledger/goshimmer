@@ -9,7 +9,7 @@ import (
 
 const maxParentAge = 10 * time.Minute
 
-// worker that stores the message and calls the corresponding storage events.
+// SolidifyMessage starts solidify the given message.
 func (t *Tangle) SolidifyMessage(cachedMessage *CachedMessage, cachedMsgMetadata *CachedMessageMetadata) {
 	// check message solidity
 	t.checkMessageSolidityAndPropagate(cachedMessage, cachedMsgMetadata)
@@ -196,9 +196,8 @@ func (t *Tangle) isAgeOfParentValid(childTime time.Time, parentID MessageID) boo
 	return true
 }
 
+// CheckParentsEligibility checks if the parents are eligible, then set the eligible flag of the message.
 // TODO: Eligibility related functions will be moved elsewhere.
-// CheckParentsEligibility checks if the parents are eligible and have valid timestamp(below max depth),
-// then set the eligible flag of the message.
 func (t *Tangle) CheckParentsEligibility(cachedMessage *CachedMessage, cachedMsgMetadata *CachedMessageMetadata) {
 	defer cachedMessage.Release()
 	defer cachedMsgMetadata.Release()
