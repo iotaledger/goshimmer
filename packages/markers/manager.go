@@ -51,7 +51,7 @@ func NewManager(store kvstore.KVStore) (newManager *Manager) {
 }
 
 // InheritStructureDetails takes the StructureDetails of the referenced parents and returns new StructureDetails for the
-// node that was just added to the DAG. It automatically creates a new Sequence and Index if necessary and returns an
+// message that was just added to the DAG. It automatically creates a new Sequence and Index if necessary and returns an
 // additional flag that indicates if a new Sequence was created.
 func (m *Manager) InheritStructureDetails(referencedStructureDetails []*StructureDetails, increaseIndexCallback IncreaseIndexCallback, newSequenceAlias ...SequenceAlias) (inheritedStructureDetails *StructureDetails, newSequenceCreated bool) {
 	inheritedStructureDetails = &StructureDetails{
@@ -61,15 +61,18 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 	mergedPastMarkers := NewMarkers()
 	for _, referencedMarkerPair := range referencedStructureDetails {
 		mergedPastMarkers.Merge(referencedMarkerPair.PastMarkers)
+		// update highest rank
 		if referencedMarkerPair.Rank > inheritedStructureDetails.Rank {
 			inheritedStructureDetails.Rank = referencedMarkerPair.Rank
 		}
 	}
+	// rank for this message is set to highest rank of parents + 1
 	inheritedStructureDetails.Rank++
 
 	normalizedMarkers, normalizedSequences := m.normalizeMarkers(mergedPastMarkers)
 	rankOfReferencedSequences := normalizedMarkers.HighestRank()
 	referencedMarkers, referencedMarkersExist := normalizedMarkers.Markers()
+	// if this is the first marker create the genesis sequence and index
 	if !referencedMarkersExist {
 		referencedMarkers = NewMarkers(&Marker{sequenceID: 0, index: 0})
 		normalizedSequences = map[SequenceID]types.Empty{0: types.Void}
@@ -82,6 +85,7 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 	if newSequenceCreated {
 		cachedSequence.Consume(func(sequence *Sequence) {
 			inheritedStructureDetails.IsPastMarker = true
+			// sequence has just been created, so lowestIndex = highestIndex
 			inheritedStructureDetails.PastMarkers = NewMarkers(&Marker{sequenceID: sequence.id, index: sequence.lowestIndex})
 		})
 		return
