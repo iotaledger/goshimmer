@@ -167,7 +167,7 @@ func (t *Tangle) FutureCone(messageID MessageID, compute func(ID MessageID) erro
 }
 
 func (t *Tangle) firstApprovers(msgID MessageID) ([]MsgInfo, error) {
-	approversInfo := []MsgInfo{}
+	approversInfo := make([]MsgInfo, 0)
 
 	t.Approvers(msgID).Consume(func(approver *Approver) {
 		approversInfo = append(approversInfo, t.info(approver.ApproverMessageID()))
