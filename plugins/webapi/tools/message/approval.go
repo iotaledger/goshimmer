@@ -4,16 +4,18 @@ import (
 	"net/http"
 
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/labstack/echo"
 )
 
-var filePath = "./approval-analysis.csv"
+var fileName = "approval-analysis.csv"
 
 // ApprovalHandler runs the approval analysis.
 func ApprovalHandler(c echo.Context) error {
+	path := config.Node().String(CfgExportPath)
 	res := &ApprovalResponse{}
-	res.Err = messagelayer.Tangle().FirstApprovalAnalysis(local.GetInstance().Identity.ID().String(), filePath)
+	res.Err = messagelayer.Tangle().FirstApprovalAnalysis(local.GetInstance().Identity.ID().String(), path+fileName)
 	if res.Err != nil {
 		c.JSON(http.StatusInternalServerError, res)
 	}
