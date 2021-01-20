@@ -47,6 +47,8 @@ var (
 	consensusBaseManaPastVectorStorage         *objectstorage.ObjectStorage
 	consensusBaseManaPastVectorMetadataStorage *objectstorage.ObjectStorage
 	consensusEventsLogStorage                  *objectstorage.ObjectStorage
+	consensusEventsLogsStorageSize             int64
+	consensusEventsLogsStorageSizeMu           sync.Mutex
 	onTransactionConfirmedClosure              *events.Closure
 	onPledgeEventClosure                       *events.Closure
 	onRevokeEventClosure                       *events.Closure
@@ -87,6 +89,7 @@ func configure(*node.Plugin) {
 		storages[mana.ResearchConsensus] = osFactory.New(storageprefix.ManaConsensusResearch, mana.FromObjectStorage)
 	}
 	consensusEventsLogStorage = osFactory.New(storageprefix.ManaEventsStorage, mana.FromEventObjectStorage)
+	consensusEventsLogsStorageSize = getConsensusEventLogsStorageSize()
 	consensusBaseManaPastVectorStorage = osFactory.New(storageprefix.ManaConsensusPast, mana.FromObjectStorage)
 	consensusBaseManaPastVectorMetadataStorage = osFactory.New(storageprefix.ManaConsensusPastMetadata, mana.FromMetadataObjectStorage)
 
@@ -104,16 +107,22 @@ func configureEvents() {
 	mana.Events().Revoked.Attach(onRevokeEventClosure)
 }
 
+func incConsensusEventsLogsStorageSize() {
+	consensusEventsLogsStorageSizeMu.Lock()
+	defer consensusEventsLogsStorageSizeMu.Unlock()
+	consensusEventsLogsStorageSize++
+}
+
 func logPledgeEvent(ev *mana.PledgedEvent) {
 	if ev.ManaType == mana.ConsensusMana {
 		consensusEventsLogStorage.Store(ev.ToPersistable()).Release()
-		checkConsensusEventStorage()
+		incConsensusEventsLogsStorageSize()
 	}
 }
 func logRevokeEvent(ev *mana.RevokedEvent) {
 	if ev.ManaType == mana.ConsensusMana {
 		consensusEventsLogStorage.Store(ev.ToPersistable()).Release()
-		checkConsensusEventStorage()
+		incConsensusEventsLogsStorageSize()
 	}
 }
 
@@ -191,18 +200,29 @@ func run(_ *node.Plugin) {
 	ema1 := config.Node().GetFloat64(CfgEmaCoefficient1)
 	ema2 := config.Node().GetFloat64(CfgEmaCoefficient2)
 	dec := config.Node().GetFloat64(CfgDecay)
+	pruneInterval := config.Node().GetDuration(CfgPruneConsensusEventLogsInterval)
+	ticker := time.NewTicker(pruneInterval)
+	defer ticker.Stop()
+
 	mana.SetCoefficients(ema1, ema2, dec)
 	if err := daemon.BackgroundWorker("Mana", func(shutdownSignal <-chan struct{}) {
 		defer log.Infof("Stopping %s ... done", PluginName)
 		readStoredManaVectors()
 		pruneStorages()
-		<-shutdownSignal
-		log.Infof("Stopping %s ...", PluginName)
-		mana.Events().Pledged.Detach(onPledgeEventClosure)
-		mana.Events().Pledged.Detach(onRevokeEventClosure)
-		valuetransfers.Tangle().Events.TransactionConfirmed.Detach(onTransactionConfirmedClosure)
-		storeManaVectors()
-		shutdownStorages()
+		for {
+			select {
+			case <-shutdownSignal:
+				log.Infof("Stopping %s ...", PluginName)
+				mana.Events().Pledged.Detach(onPledgeEventClosure)
+				mana.Events().Pledged.Detach(onRevokeEventClosure)
+				valuetransfers.Tangle().Events.TransactionConfirmed.Detach(onTransactionConfirmedClosure)
+				storeManaVectors()
+				shutdownStorages()
+				return
+			case <-ticker.C:
+				pruneConsensusEventLogsStorage()
+			}
+		}
 	}, shutdown.PriorityTangle); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
@@ -556,9 +576,19 @@ func GetPastConsensusManaVector(t time.Time) (*mana.ConsensusBaseManaVector, []m
 	return cbmvPast, eventLogs, nil
 }
 
-func checkConsensusEventStorage() {
-	size := consensusEventsLogStorage.GetSize()
-	if size < maxConsensusEventsInStorage {
+func getConsensusEventLogsStorageSize() int64 {
+	var size int64
+	consensusEventsLogStorage.ForEachKeyOnly(func(key []byte) bool {
+		size++
+		return true
+	}, true)
+	return size
+}
+
+func pruneConsensusEventLogsStorage() {
+	consensusEventsLogsStorageSizeMu.Lock()
+	defer consensusEventsLogsStorageSizeMu.Unlock()
+	if consensusEventsLogsStorageSize < maxConsensusEventsInStorage {
 		return
 	}
 	cachedObj := consensusBaseManaPastVectorMetadataStorage.Get([]byte(mana.ConsensusBaseManaPastVectorMetadataStorageKey))
