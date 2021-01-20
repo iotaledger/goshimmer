@@ -95,7 +95,7 @@ func (t *Tangle) checkMessageSolidityAndPropagate(cachedMessage *CachedMessage, 
 		// check if the parents are solid
 		if t.isMessageSolid(currentMessage, currentMsgMetadata) {
 			// check parents age
-			valid := t.checkParentsBelowMaxDepth(currentMessage)
+			valid := t.checkParentsMaxDepth(currentMessage)
 			if !valid {
 				t.Events.MessageInvalid.Trigger(&CachedMessageEvent{
 					Message:         currentCachedMessage,
@@ -153,8 +153,8 @@ func (t *Tangle) deleteFutureCone(messageID MessageID) {
 	}
 }
 
-// checks whether the given message is solid and marks it as missing if it isn't known.
-func (t *Tangle) checkParentsBelowMaxDepth(msg *Message) bool {
+// checks whether the timestamp of parents of the given message is valid.
+func (t *Tangle) checkParentsMaxDepth(msg *Message) bool {
 	if msg == nil {
 		return false
 	}
@@ -167,8 +167,9 @@ func (t *Tangle) checkParentsBelowMaxDepth(msg *Message) bool {
 	return valid
 }
 
-// checks whether the timestamp of a given parent passes the below max depth check.
+// checks whether the timestamp of a given parent passes the max age check.
 func (t *Tangle) isAgeOfParentValid(childTime time.Time, parentID MessageID) bool {
+	// TODO: Improve this, otherwise any msg that approves genesis is always valid.
 	if parentID == EmptyMessageID {
 		return true
 	}

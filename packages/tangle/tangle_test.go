@@ -317,7 +317,6 @@ func newTangle(store kvstore.KVStore) *Tangle {
 
 	// Attach solidification
 	// TODO: the solidification will be attached to other event in the future refactoring
-	// MessageStored event will trigger timestamp check
 	tangle.MessageStore.Events.MessageStored.Attach(events.NewClosure(func(cachedMsgEvent *CachedMessageEvent) {
 		tangle.SolidifyMessage(cachedMsgEvent.Message, cachedMsgEvent.MessageMetadata)
 	}))
