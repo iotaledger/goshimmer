@@ -28,3 +28,30 @@ via `docker logs --follow CONTAINER` or all of them combined when running via:
 ```
 ./run.sh 5
 ```
+
+## How to use message approval check tool
+
+`get_approval_csv.sh` script helps you conveniently trigger the message approval checks on all nodes in the docker
+network, and gather their results in the `csv` folder.
+
+Once the network is up and running, execute the script:
+```
+$ ./get_approval_csv.sh
+```
+Example output:
+```
+Triggering approval analysis on peer_master and 20 replicas...
+Triggering approval analysis on peer_master and 20 replicas... DONE
+Copying csv files from peer_master and 20 replicas...
+Copying csv files from peer_master and 20 replicas... DONE
+Copied files are located at /home/{user}/repo/goshimmer/tools/docker-network/csv
+```
+The exported csv files are timestamped to the date of request.
+```
+csv
+├── 210120_16_34_14-docker-network_peer_replica_10.csv
+├── 210120_16_34_14-docker-network_peer_replica_11.csv
+├── 210120_16_34_14-docker-network_peer_replica_12.csv
+...
+```
+Note, that the record length of the files might differ, since the approval check execution time of the nodes might differ.
