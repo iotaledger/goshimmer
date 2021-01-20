@@ -69,6 +69,14 @@ func (u *UTXODAG) BookTransaction(transaction *Transaction) (bookTransactionClos
 	}
 
 	// check if transaction is attaching to something rejected
+	cachedInputsMetadata := u.transactionInputsMetadata(transaction)
+	defer cachedInputsMetadata.Release()
+	inputsMetadata := cachedInputsMetadata.Unwrap()
+
+	for _, inputMetadata := range inputsMetadata {
+		inputMetadata.BranchID()
+		inputMetadata.Rejected()
+	}
 	// TODO: IMPLEMENT
 
 	// perform more expensive checks
@@ -97,6 +105,11 @@ func (u *UTXODAG) Output(outputID OutputID) (cachedOutput *CachedOutput) {
 	return &CachedOutput{CachedObject: u.outputStorage.Load(outputID.Bytes())}
 }
 
+// OutputMetadata retrieves the OutputMetadata with the given OutputID from the object storage.
+func (u *UTXODAG) OutputMetadata(outputID OutputID) (cachedOutput *CachedOutputMetadata) {
+	return &CachedOutputMetadata{CachedObject: u.outputMetadataStorage.Load(outputID.Bytes())}
+}
+
 // Consumers retrieves the Consumers of the given OutputID from the object storage.
 func (u *UTXODAG) Consumers(outputID OutputID) (cachedConsumers CachedConsumers) {
 	cachedConsumers = make(CachedConsumers, 0)
@@ -119,6 +132,22 @@ func (u *UTXODAG) transactionInputs(transaction *Transaction) (cachedInputs Cach
 			cachedInputs = append(cachedInputs, u.Output(input.(*UTXOInput).ReferencedOutputID()))
 		default:
 			panic(fmt.Sprintf("unsupported InputType: %s", input.Type()))
+		}
+	}
+
+	return
+}
+
+// transactionInputsMetadata is an internal utility function that returns the Metadata of the Outputs that are used as
+// Inputs by the given Transaction.
+func (u *UTXODAG) transactionInputsMetadata(transaction *Transaction) (cachedInputsMetadata CachedOutputsMetadata) {
+	cachedInputsMetadata = make(CachedOutputsMetadata, 0)
+	for _, inputMetadata := range transaction.Essence().Inputs() {
+		switch inputMetadata.Type() {
+		case UTXOInputType:
+			cachedInputsMetadata = append(cachedInputsMetadata, u.OutputMetadata(inputMetadata.(*UTXOInput).ReferencedOutputID()))
+		default:
+			panic(fmt.Sprintf("unsupported InputType: %s", inputMetadata.Type()))
 		}
 	}
 

@@ -1357,3 +1357,59 @@ func (c *CachedOutputMetadata) String() string {
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region CachedOutputsMetadata ////////////////////////////////////////////////////////////////////////////////////////
+
+// CachedOutputsMetadata represents a collection of CachedOutputMetadata objects.
+type CachedOutputsMetadata []*CachedOutputMetadata
+
+// Unwrap is the type-casted equivalent of Get. It returns a slice of unwrapped objects with the object being nil if it
+// does not exist.
+func (c CachedOutputsMetadata) Unwrap() (unwrappedOutputs []*OutputMetadata) {
+	unwrappedOutputs = make([]*OutputMetadata, len(c))
+	for i, cachedOutputMetadata := range c {
+		untypedObject := cachedOutputMetadata.Get()
+		if untypedObject == nil {
+			continue
+		}
+
+		typedObject := untypedObject.(*OutputMetadata)
+		if typedObject == nil || typedObject.IsDeleted() {
+			continue
+		}
+
+		unwrappedOutputs[i] = typedObject
+	}
+
+	return
+}
+
+// Consume iterates over the CachedObjects, unwraps them and passes a type-casted version to the consumer (if the object
+// is not empty - it exists). It automatically releases the object when the consumer finishes. It returns true, if at
+// least one object was consumed.
+func (c CachedOutputsMetadata) Consume(consumer func(consumer *OutputMetadata), forceRelease ...bool) (consumed bool) {
+	for _, cachedOutputMetadata := range c {
+		consumed = cachedOutputMetadata.Consume(consumer, forceRelease...) || consumed
+	}
+
+	return
+}
+
+// Release is a utility function that allows us to release all CachedObjects in the collection.
+func (c CachedOutputsMetadata) Release(force ...bool) {
+	for _, cachedOutputMetadata := range c {
+		cachedOutputMetadata.Release(force...)
+	}
+}
+
+// String returns a human readable version of the CachedOutputsMetadata.
+func (c CachedOutputsMetadata) String() string {
+	structBuilder := stringify.StructBuilder("CachedOutputsMetadata")
+	for i, cachedOutputMetadata := range c {
+		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), cachedOutputMetadata))
+	}
+
+	return structBuilder.String()
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
