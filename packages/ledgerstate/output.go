@@ -949,10 +949,8 @@ type OutputMetadata struct {
 	likedMutex              sync.RWMutex
 	finalized               bool
 	finalizedMutex          sync.RWMutex
-	confirmed               bool
-	confirmedMutex          sync.RWMutex
-	rejected                bool
-	rejectedMutex           sync.RWMutex
+	inclusionState          InclusionState
+	inclusionStateMutex     sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
@@ -1017,12 +1015,8 @@ func OutputMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output
 		err = xerrors.Errorf("failed to parse finalized flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	if outputMetadata.confirmed, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse confirmed flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if outputMetadata.rejected, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse rejected flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+	if outputMetadata.inclusionState, err = InclusionStateFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to InclusionState from MarshalUtil: %w", err)
 		return
 	}
 
@@ -1210,48 +1204,25 @@ func (o *OutputMetadata) SetFinalized(finalized bool) (modified bool) {
 	return
 }
 
-// Confirmed returns true if the Output was marked as confirmed.
-func (o *OutputMetadata) Confirmed() bool {
-	o.confirmedMutex.RLock()
-	defer o.confirmedMutex.RUnlock()
+// InclusionState returns the InclusionState of the OutputMetadata which encodes if the Output has been included in the
+// ledger state.
+func (o *OutputMetadata) InclusionState() InclusionState {
+	o.inclusionStateMutex.RLock()
+	defer o.inclusionStateMutex.RUnlock()
 
-	return o.confirmed
+	return o.inclusionState
 }
 
-// SetConfirmed modifies the confirmed flag. It returns true if the value has been modified.
-func (o *OutputMetadata) SetConfirmed(confirmed bool) (modified bool) {
-	o.confirmedMutex.Lock()
-	defer o.confirmedMutex.Unlock()
+// SetInclusionState modifies the InclusionState. It returns true if the value has been modified.
+func (o *OutputMetadata) SetInclusionState(inclusionState InclusionState) (modified bool) {
+	o.inclusionStateMutex.Lock()
+	defer o.inclusionStateMutex.Unlock()
 
-	if o.confirmed == confirmed {
+	if o.inclusionState == inclusionState {
 		return
 	}
 
-	o.confirmed = confirmed
-	o.SetModified()
-	modified = true
-
-	return
-}
-
-// Rejected returns true if the Output was marked as rejected.
-func (o *OutputMetadata) Rejected() bool {
-	o.rejectedMutex.RLock()
-	defer o.rejectedMutex.RUnlock()
-
-	return o.rejected
-}
-
-// SetRejected modifies the rejected flag. It returns true if the value has been modified.
-func (o *OutputMetadata) SetRejected(rejected bool) (modified bool) {
-	o.rejectedMutex.Lock()
-	defer o.rejectedMutex.Unlock()
-
-	if o.rejected == rejected {
-		return
-	}
-
-	o.rejected = rejected
+	o.inclusionState = inclusionState
 	o.SetModified()
 	modified = true
 
@@ -1275,8 +1246,7 @@ func (o *OutputMetadata) String() string {
 		stringify.StructField("preferred", o.Preferred()),
 		stringify.StructField("liked", o.Liked()),
 		stringify.StructField("finalized", o.Finalized()),
-		stringify.StructField("confirmed", o.Confirmed()),
-		stringify.StructField("rejected", o.Rejected()),
+		stringify.StructField("inclusionState", o.InclusionState()),
 	)
 }
 
@@ -1295,16 +1265,15 @@ func (o *OutputMetadata) ObjectStorageKey() []byte {
 // used as a key in the ObjectStorage.
 func (o *OutputMetadata) ObjectStorageValue() []byte {
 	return marshalutil.New().
-		WriteBytes(o.BranchID().Bytes()).
+		Write(o.BranchID()).
 		WriteBool(o.Solid()).
 		WriteTime(o.SolidificationTime()).
 		WriteUint64(uint64(o.ConsumerCount())).
-		WriteBytes(o.FirstConsumer().Bytes()).
+		Write(o.FirstConsumer()).
 		WriteBool(o.Preferred()).
 		WriteBool(o.Liked()).
 		WriteBool(o.Finalized()).
-		WriteBool(o.Confirmed()).
-		WriteBool(o.Rejected()).
+		Write(o.InclusionState()).
 		Bytes()
 }
 

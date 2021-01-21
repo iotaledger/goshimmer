@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
+	"github.com/iotaledger/hive.go/syncutils"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/iotaledger/hive.go/typeutils"
 	"golang.org/x/xerrors"
@@ -48,6 +49,58 @@ func NewUTXODAG(store kvstore.KVStore, branchDAG *BranchDAG) (utxoDAG *UTXODAG) 
 	return
 }
 
+// inputsRejected checks if any of the inputs are rejected and returns the corresponding Branch that it finds.
+func (u *UTXODAG) inputsRejected(inputsMetadata []*OutputMetadata) (rejected bool, targetBranch BranchID) {
+	seenBranchIDs := make(map[BranchID]types.Empty)
+	for _, inputMetadata := range inputsMetadata {
+		branchID := inputMetadata.BranchID()
+		if _, branchIDSeen := seenBranchIDs[branchID]; branchIDSeen {
+			continue
+		}
+		seenBranchIDs[branchID] = types.Void
+
+		if branchID == InvalidBranchID {
+			targetBranch = branchID
+			rejected = true
+			return
+		}
+
+		if targetBranch != UndefinedBranchID {
+			cachedBranch := u.branchDAG.Branch(branchID)
+			branch := cachedBranch.Unwrap()
+			if branch == nil {
+				panic(fmt.Sprintf("failed to load Branch with %s", branchID))
+			}
+
+			if branch.InclusionState() == Rejected {
+				targetBranch = branchID
+				rejected = true
+				continue
+			}
+		}
+	}
+
+	return
+}
+
+func (u *UTXODAG) lazyBook(transaction *Transaction, targetBranch BranchID) {
+	for outputIndex, output := range transaction.Essence().Outputs() {
+		outputID := NewOutputID(transaction.ID(), uint16(outputIndex))
+
+		// create metadata
+		metadata := NewOutputMetadata(outputID)
+		metadata.SetBranchID(targetBranch)
+		metadata.SetSolid(true)
+		cachedOutputMetadata, stored := u.outputMetadataStorage.StoreIfAbsent(metadata)
+		if !stored {
+			return
+		}
+
+		// create output
+	}
+	return
+}
+
 // BookTransaction books a Transaction into the ledger state.
 func (u *UTXODAG) BookTransaction(transaction *Transaction) (bookTransactionClosure func(), err error) {
 	cachedInputs := u.transactionInputs(transaction)
@@ -68,15 +121,15 @@ func (u *UTXODAG) BookTransaction(transaction *Transaction) (bookTransactionClos
 		return
 	}
 
-	// check if transaction is attaching to something rejected
 	cachedInputsMetadata := u.transactionInputsMetadata(transaction)
 	defer cachedInputsMetadata.Release()
 	inputsMetadata := cachedInputsMetadata.Unwrap()
 
-	for _, inputMetadata := range inputsMetadata {
-		inputMetadata.BranchID()
-		inputMetadata.Rejected()
+	// check if transaction is attaching to something rejected
+	if rejected, targetBranch := u.inputsRejected(inputsMetadata); rejected {
+		u.lazyBook(transaction, targetBranch)
 	}
+
 	// TODO: IMPLEMENT
 
 	// perform more expensive checks
@@ -251,6 +304,19 @@ func (u *UTXODAG) inputsValid(inputs []Output) (valid bool) {
 	}
 
 	return true
+}
+
+// TODO: IMPLEMENT A GOOD SYNCHRONIZATION MECHANISM FOR THE UTXODAG
+func (u *UTXODAG) lockTransaction(transaction *Transaction) {
+	var lockBuilder syncutils.MultiMutexLockBuilder
+	for _, input := range transaction.Essence().Inputs() {
+		lockBuilder.AddLock(input.(*UTXOInput).ReferencedOutputID())
+	}
+	for outputIndex := range transaction.Essence().Outputs() {
+		lockBuilder.AddLock(NewOutputID(transaction.ID(), uint16(outputIndex)))
+	}
+	var mutex syncutils.RWMultiMutex
+	mutex.Lock(lockBuilder.Build()...)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
