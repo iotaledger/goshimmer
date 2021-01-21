@@ -41,9 +41,4 @@ func collectWorkerpoolMetrics() {
 	workerpools.WithLabelValues(
 		name,
 	).Set(float64(load))
-
-	name, load = messagelayer.Tangle().StoreMessageWorkerPoolStatus()
-	workerpools.WithLabelValues(
-		name,
-	).Set(float64(load))
 }

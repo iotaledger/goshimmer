@@ -93,18 +93,18 @@ func registerLocalMetrics() {
 	//// Events declared in other packages which we want to listen to here ////
 
 	// increase received MPS counter whenever we attached a message
-	messagelayer.Tangle().Events.MessageAttached.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
+	messagelayer.Tangle().MessageStore.Events.MessageStored.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
 		_payloadType := cachedMsgEvent.Message.Unwrap().Payload().Type()
 		cachedMsgEvent.Message.Release()
 		cachedMsgEvent.MessageMetadata.Release()
 		increaseReceivedMPSCounter()
 		increasePerPayloadCounter(_payloadType)
-		// MessageAttached is triggered in storeMessageWorker that saves the msg to database
+		// MessageStored is triggered in storeMessageWorker that saves the msg to database
 		messageTotalCountDB.Inc()
 
 	}))
 
-	messagelayer.Tangle().Events.MessageRemoved.Attach(events.NewClosure(func(messageId tangle.MessageID) {
+	messagelayer.Tangle().MessageStore.Events.MessageRemoved.Attach(events.NewClosure(func(messageId tangle.MessageID) {
 		// MessageRemoved triggered when the message gets removed from database.
 		messageTotalCountDB.Dec()
 	}))
@@ -125,12 +125,12 @@ func registerLocalMetrics() {
 	}))
 
 	// fired when a message gets added to missing message storage
-	messagelayer.Tangle().Events.MessageMissing.Attach(events.NewClosure(func(messageId tangle.MessageID) {
+	messagelayer.Tangle().MessageStore.Events.MessageMissing.Attach(events.NewClosure(func(messageId tangle.MessageID) {
 		missingMessageCountDB.Inc()
 	}))
 
 	// fired when a missing message was received and removed from missing message storage
-	messagelayer.Tangle().Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
+	messagelayer.Tangle().MessageStore.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
 		cachedMsgEvent.Message.Release()
 		cachedMsgEvent.MessageMetadata.Release()
 		missingMessageCountDB.Dec()

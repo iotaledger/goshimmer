@@ -19,9 +19,11 @@ type MessageMetadata struct {
 	receivedTime       time.Time
 	solid              bool
 	solidificationTime time.Time
+	booked             bool
 
 	solidMutex              sync.RWMutex
 	solidificationTimeMutex sync.RWMutex
+	bookedMutex             sync.RWMutex
 }
 
 // NewMessageMetadata creates a new MessageMetadata from the specified messageID.
@@ -124,6 +126,37 @@ func (m *MessageMetadata) SolidificationTime() time.Time {
 	defer m.solidificationTimeMutex.RUnlock()
 
 	return m.solidificationTime
+}
+
+// IsBooked returns true if the message represented by this metadata is booked. False otherwise.
+func (m *MessageMetadata) IsBooked() (result bool) {
+	m.bookedMutex.RLock()
+	result = m.booked
+	m.bookedMutex.RUnlock()
+
+	return
+}
+
+// SetBooked sets the message associated with this metadata as booked.
+// It returns true if the booked status is modified. False otherwise.
+func (m *MessageMetadata) SetBooked(booked bool) (modified bool) {
+	m.bookedMutex.RLock()
+	if m.booked != booked {
+		m.bookedMutex.RUnlock()
+
+		m.bookedMutex.Lock()
+		if m.booked != booked {
+			m.booked = booked
+			m.SetModified()
+			modified = true
+		}
+		m.bookedMutex.Unlock()
+
+	} else {
+		m.bookedMutex.RUnlock()
+	}
+
+	return
 }
 
 // Bytes returns a marshaled version of the whole MessageMetadata object.
