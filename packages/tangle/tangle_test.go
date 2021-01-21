@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -22,6 +23,7 @@ import (
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/testutil"
+	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -327,10 +329,14 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 		messageCount = 20000
 		tangleWidth  = 250
 		storeDelay   = 5 * time.Millisecond
+		networkDelay = 5 * time.Millisecond
 	)
 
 	var (
 		testWorker = pow.New(crypto.BLAKE2b_512, 2)
+		// same as gossip manager
+		messageWorkerCount     = runtime.GOMAXPROCS(0) * 4
+		messageWorkerQueueSize = 1000
 	)
 	// create badger store
 	badgerDB, err := testutil.BadgerDB(t)
@@ -393,6 +399,17 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 		return msg
 	}
 
+	// create inboxWP to act as the gossip layer
+	inboxWP := workerpool.New(func(task workerpool.Task) {
+
+		time.Sleep(networkDelay)
+		msgParser.Parse(task.Param(0).([]byte), task.Param(1).(*peer.Peer))
+
+		task.Return(nil)
+	}, workerpool.WorkerCount(messageWorkerCount), workerpool.QueueSize(messageWorkerQueueSize))
+	inboxWP.Start()
+	defer inboxWP.Stop()
+
 	// create the tangle
 	tangle := newTangle(badgerDB)
 	defer tangle.Shutdown()
@@ -449,11 +466,8 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 	tangle.MessageStore.Events.MessageMissing.Attach(events.NewClosure(func(messageId MessageID) {
 		atomic.AddInt32(&missingMessages, 1)
 
-		// store the message after it has been requested
-		go func() {
-			time.Sleep(storeDelay)
-			msgParser.Parse(messages[messageId].Bytes(), localPeer)
-		}()
+		// push the message into the gossip inboxWP
+		inboxWP.TrySubmit(messages[messageId].Bytes(), localPeer)
 	}))
 
 	// decrease the counter when a missing message was received
