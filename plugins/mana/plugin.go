@@ -5,7 +5,6 @@ import (
 	"math/rand"
 	"sort"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
@@ -26,6 +25,7 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/objectstorage"
+	"go.uber.org/atomic"
 )
 
 // PluginName is the name of the mana plugin.
@@ -35,9 +35,6 @@ const (
 	maxConsensusEventsInStorage = 108000
 	slidingEventsInterval       = 10800 //10% of maxConsensusEventsInStorage
 )
-
-// countUint32 is a uint32 counter.
-type countUint32 uint32
 
 var (
 	// plugin is the plugin instance of the mana plugin.
@@ -51,7 +48,7 @@ var (
 	consensusBaseManaPastVectorStorage         *objectstorage.ObjectStorage
 	consensusBaseManaPastVectorMetadataStorage *objectstorage.ObjectStorage
 	consensusEventsLogStorage                  *objectstorage.ObjectStorage
-	consensusEventsLogsStorageSize             countUint32
+	consensusEventsLogsStorageSize             atomic.Uint32
 	onTransactionConfirmedClosure              *events.Closure
 	onPledgeEventClosure                       *events.Closure
 	onRevokeEventClosure                       *events.Closure
@@ -92,7 +89,7 @@ func configure(*node.Plugin) {
 		storages[mana.ResearchConsensus] = osFactory.New(storageprefix.ManaConsensusResearch, mana.FromObjectStorage)
 	}
 	consensusEventsLogStorage = osFactory.New(storageprefix.ManaEventsStorage, mana.FromEventObjectStorage)
-	consensusEventsLogsStorageSize = getConsensusEventLogsStorageSize()
+	consensusEventsLogsStorageSize.Store(getConsensusEventLogsStorageSize())
 	consensusBaseManaPastVectorStorage = osFactory.New(storageprefix.ManaConsensusPast, mana.FromObjectStorage)
 	consensusBaseManaPastVectorMetadataStorage = osFactory.New(storageprefix.ManaConsensusPastMetadata, mana.FromMetadataObjectStorage)
 
@@ -110,36 +107,16 @@ func configureEvents() {
 	mana.Events().Revoked.Attach(onRevokeEventClosure)
 }
 
-func (c countUint32) inc(v ...uint32) uint32 {
-	delta := uint32(1)
-	if len(v) > 0 {
-		delta = v[0]
-	}
-	return atomic.AddUint32((*uint32)(&c), delta)
-}
-
-func (c countUint32) get() uint32 {
-	return atomic.LoadUint32((*uint32)(&c))
-}
-
-func (c countUint32) dec(v ...uint32) uint32 {
-	delta := uint32(1)
-	if len(v) > 0 {
-		delta = v[0]
-	}
-	return atomic.AddUint32((*uint32)(&c), ^delta-1)
-}
-
 func logPledgeEvent(ev *mana.PledgedEvent) {
 	if ev.ManaType == mana.ConsensusMana {
 		consensusEventsLogStorage.Store(ev.ToPersistable()).Release()
-		consensusEventsLogsStorageSize.inc()
+		consensusEventsLogsStorageSize.Inc()
 	}
 }
 func logRevokeEvent(ev *mana.RevokedEvent) {
 	if ev.ManaType == mana.ConsensusMana {
 		consensusEventsLogStorage.Store(ev.ToPersistable()).Release()
-		consensusEventsLogsStorageSize.inc()
+		consensusEventsLogsStorageSize.Inc()
 	}
 }
 
@@ -218,12 +195,12 @@ func run(_ *node.Plugin) {
 	ema2 := config.Node().GetFloat64(CfgEmaCoefficient2)
 	dec := config.Node().GetFloat64(CfgDecay)
 	pruneInterval := config.Node().GetDuration(CfgPruneConsensusEventLogsInterval)
-	ticker := time.NewTicker(pruneInterval)
-	defer ticker.Stop()
 
 	mana.SetCoefficients(ema1, ema2, dec)
 	if err := daemon.BackgroundWorker("Mana", func(shutdownSignal <-chan struct{}) {
 		defer log.Infof("Stopping %s ... done", PluginName)
+		ticker := time.NewTicker(pruneInterval)
+		defer ticker.Stop()
 		readStoredManaVectors()
 		pruneStorages()
 		for {
@@ -515,7 +492,7 @@ func GetLoggedEvents(IDs []identity.ID, startTime time.Time, endTime time.Time) 
 
 // GetPastConsensusManaVectorMetadata gets the past consensus mana vector metadata.
 func GetPastConsensusManaVectorMetadata() *mana.ConsensusBasePastManaVectorMetadata {
-	cachedObj := consensusBaseManaPastVectorMetadataStorage.Get([]byte(mana.ConsensusBaseManaPastVectorMetadataStorageKey))
+	cachedObj := consensusBaseManaPastVectorMetadataStorage.Load([]byte(mana.ConsensusBaseManaPastVectorMetadataStorageKey))
 	cachedMetadata := &mana.CachedConsensusBasePastManaVectorMetadata{CachedObject: cachedObj}
 	defer cachedMetadata.Release()
 	return cachedMetadata.Unwrap()
@@ -528,7 +505,7 @@ func GetPastConsensusManaVector(t time.Time) (*mana.ConsensusBaseManaVector, []m
 		return nil, nil, err
 	}
 	cbmvPast := baseManaVector.(*mana.ConsensusBaseManaVector)
-	cachedObj := consensusBaseManaPastVectorMetadataStorage.Get([]byte(mana.ConsensusBaseManaPastVectorMetadataStorageKey))
+	cachedObj := consensusBaseManaPastVectorMetadataStorage.Load([]byte(mana.ConsensusBaseManaPastVectorMetadataStorageKey))
 	cachedMetadata := &mana.CachedConsensusBasePastManaVectorMetadata{CachedObject: cachedObj}
 	defer cachedMetadata.Release()
 
@@ -593,17 +570,17 @@ func GetPastConsensusManaVector(t time.Time) (*mana.ConsensusBaseManaVector, []m
 	return cbmvPast, eventLogs, nil
 }
 
-func getConsensusEventLogsStorageSize() countUint32 {
+func getConsensusEventLogsStorageSize() uint32 {
 	var size uint32
 	consensusEventsLogStorage.ForEachKeyOnly(func(key []byte) bool {
 		size++
 		return true
 	}, true)
-	return countUint32(size)
+	return size
 }
 
 func pruneConsensusEventLogsStorage() {
-	if consensusEventsLogsStorageSize.get() < maxConsensusEventsInStorage {
+	if consensusEventsLogsStorageSize.Load() < maxConsensusEventsInStorage {
 		return
 	}
 	cachedObj := consensusBaseManaPastVectorMetadataStorage.Get([]byte(mana.ConsensusBaseManaPastVectorMetadataStorageKey))
@@ -698,7 +675,7 @@ func pruneConsensusEventLogsStorage() {
 		entriesToDelete = append(entriesToDelete, ev.ToPersistable().ObjectStorageKey())
 	}
 	consensusEventsLogStorage.DeleteEntriesFromStore(entriesToDelete)
-	consensusEventsLogsStorageSize.dec(uint32(len(entriesToDelete)))
+	consensusEventsLogsStorageSize.Sub(uint32(len(entriesToDelete)))
 }
 
 // AllowedPledge represents the nodes that mana is allowed to be pledged to.
