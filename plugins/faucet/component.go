@@ -15,6 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/datastructure/orderedmap"
 )
 
@@ -107,7 +108,7 @@ func (c *Component) SendFunds(msg *tangle.Message) (m *tangle.Message, txID stri
 	}
 
 	// attach to message layer
-	msg, err = issuer.IssuePayload(payload)
+	msg, err = issuer.IssuePayload(payload, messagelayer.Tangle())
 	if err != nil {
 		return nil, "", err
 	}

@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/labstack/echo"
 )
 
@@ -38,7 +39,7 @@ func sendTransactionHandler(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: err.Error()})
 	}
-	_, err = issuer.IssuePayload(payload)
+	_, err = issuer.IssuePayload(payload, messagelayer.Tangle())
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: err.Error()})
 	}
