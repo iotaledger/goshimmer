@@ -328,12 +328,11 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 
 		messageCount = 20000
 		tangleWidth  = 250
-		storeDelay   = 5 * time.Millisecond
 		networkDelay = 5 * time.Millisecond
 	)
 
 	var (
-		testWorker = pow.New(crypto.BLAKE2b_512, 2)
+		testWorker = pow.New(crypto.BLAKE2b_512, 1)
 		// same as gossip manager
 		messageWorkerCount     = runtime.GOMAXPROCS(0) * 4
 		messageWorkerQueueSize = 1000
@@ -487,7 +486,8 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 	}))
 
 	// issue tips to start solidification
-	tips.ForEach(func(key interface{}, _ interface{}) { msgParser.Parse(messages[key.(MessageID)].Bytes(), localPeer) })
+	//tips.ForEach(func(key interface{}, _ interface{}) { msgParser.Parse(messages[key.(MessageID)].Bytes(), localPeer) })
+	tips.ForEach(func(key interface{}, _ interface{}) { inboxWP.TrySubmit(messages[key.(MessageID)].Bytes(), localPeer) })
 
 	// wait for all transactions to become solid
 	assert.Eventually(t, func() bool { return atomic.LoadInt32(&solidMessages) == messageCount }, 5*time.Minute, 100*time.Millisecond)
