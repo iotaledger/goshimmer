@@ -167,7 +167,7 @@ func run(*node.Plugin) {
 		cfgAvgNetworkDelay := config.Node().Int(CfgValueLayerFCOBAverageNetworkDelay)
 		time.Sleep(time.Duration(cfgAvgNetworkDelay) * time.Second)
 		_tangle.Shutdown()
-	}, shutdown.PriorityTangle); err != nil {
+	}, shutdown.PriorityValueTangle); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
 }
