@@ -109,11 +109,11 @@ func (c *Component) SendFunds(msg *tangle.Message) (m *tangle.Message, txID stri
 
 	// attach to message layer
 	issueTransaction := func() (*tangle.Message, error) {
-		msg, err := issuer.IssuePayload(payload, messagelayer.Tangle())
-		if err != nil {
-			return nil, err
+		message, e := issuer.IssuePayload(payload, messagelayer.Tangle())
+		if e != nil {
+			return nil, e
 		}
-		return msg, nil
+		return message, nil
 	}
 
 	// block for a certain amount of time until we know that the transaction

@@ -42,9 +42,9 @@ func sendTransactionHandler(c echo.Context) error {
 	}
 
 	issueTransaction := func() (*tangle.Message, error) {
-		msg, err := issuer.IssuePayload(payload, messagelayer.Tangle())
-		if err != nil {
-			return nil, c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: err.Error()})
+		msg, e := issuer.IssuePayload(payload, messagelayer.Tangle())
+		if e != nil {
+			return nil, c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: e.Error()})
 		}
 		return msg, nil
 	}
