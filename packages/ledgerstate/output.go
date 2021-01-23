@@ -943,14 +943,8 @@ type OutputMetadata struct {
 	consumerCount           int
 	firstConsumer           TransactionID
 	consumerMutex           sync.RWMutex
-	preferred               bool
-	preferredMutex          sync.RWMutex
-	liked                   bool
-	likedMutex              sync.RWMutex
 	finalized               bool
 	finalizedMutex          sync.RWMutex
-	inclusionState          InclusionState
-	inclusionStateMutex     sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
@@ -1003,20 +997,8 @@ func OutputMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output
 		err = xerrors.Errorf("failed to parse first consumer: %w", err)
 		return
 	}
-	if outputMetadata.preferred, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse preferred flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if outputMetadata.liked, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse liked flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
 	if outputMetadata.finalized, err = marshalUtil.ReadBool(); err != nil {
 		err = xerrors.Errorf("failed to parse finalized flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if outputMetadata.inclusionState, err = InclusionStateFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to InclusionState from MarshalUtil: %w", err)
 		return
 	}
 
@@ -1132,97 +1114,25 @@ func (o *OutputMetadata) FirstConsumer() TransactionID {
 	return o.firstConsumer
 }
 
-// Preferred returns true if the Output belongs to a preferred transaction.
-func (o *OutputMetadata) Preferred() bool {
-	o.preferredMutex.RLock()
-	defer o.preferredMutex.RUnlock()
-
-	return o.preferred
-}
-
-// SetPreferred updates the preferred flag.
-func (o *OutputMetadata) SetPreferred(preferred bool) (modified bool) {
-	o.preferredMutex.Lock()
-	defer o.preferredMutex.Unlock()
-
-	if o.preferred == preferred {
-		return
-	}
-
-	o.preferred = preferred
-	o.SetModified()
-	modified = true
-
-	return
-}
-
-// Liked returns true if the Output was marked as liked.
-func (o *OutputMetadata) Liked() bool {
-	o.likedMutex.RLock()
-	defer o.likedMutex.RUnlock()
-
-	return o.liked
-}
-
-// SetLiked modifies the liked flag. It returns true if the value has been modified.
-func (o *OutputMetadata) SetLiked(liked bool) (modified bool) {
-	o.likedMutex.Lock()
-	defer o.likedMutex.Unlock()
-
-	if o.liked == liked {
-		return
-	}
-
-	o.liked = liked
-	o.SetModified()
-	modified = true
-
-	return
-}
-
-// Finalized returns true if the decision if the Output is preferred or not has been finalized by consensus already.
-func (o *OutputMetadata) Finalized() bool {
+// Finalized returns a boolean flag that indicates if the Transaction has been finalized regarding its decision of being
+// included in the ledger state.
+func (o *OutputMetadata) Finalized() (finalized bool) {
 	o.finalizedMutex.RLock()
 	defer o.finalizedMutex.RUnlock()
 
 	return o.finalized
 }
 
-// SetFinalized modifies the finalized flag. It returns true if the value has been modified.
+// SetFinalized updates the finalized flag of the Transaction. It returns true if the lazy booked flag was modified.
 func (o *OutputMetadata) SetFinalized(finalized bool) (modified bool) {
 	o.finalizedMutex.Lock()
-	defer o.finalizedMutex.Unlock()
+	defer o.finalizedMutex.Lock()
 
 	if o.finalized == finalized {
 		return
 	}
 
 	o.finalized = finalized
-	o.SetModified()
-	modified = true
-
-	return
-}
-
-// InclusionState returns the InclusionState of the OutputMetadata which encodes if the Output has been included in the
-// ledger state.
-func (o *OutputMetadata) InclusionState() InclusionState {
-	o.inclusionStateMutex.RLock()
-	defer o.inclusionStateMutex.RUnlock()
-
-	return o.inclusionState
-}
-
-// SetInclusionState modifies the InclusionState. It returns true if the value has been modified.
-func (o *OutputMetadata) SetInclusionState(inclusionState InclusionState) (modified bool) {
-	o.inclusionStateMutex.Lock()
-	defer o.inclusionStateMutex.Unlock()
-
-	if o.inclusionState == inclusionState {
-		return
-	}
-
-	o.inclusionState = inclusionState
 	o.SetModified()
 	modified = true
 
@@ -1243,10 +1153,7 @@ func (o *OutputMetadata) String() string {
 		stringify.StructField("solidificationTime", o.SolidificationTime()),
 		stringify.StructField("consumerCount", o.ConsumerCount()),
 		stringify.StructField("firstConsumer", o.FirstConsumer()),
-		stringify.StructField("preferred", o.Preferred()),
-		stringify.StructField("liked", o.Liked()),
 		stringify.StructField("finalized", o.Finalized()),
-		stringify.StructField("inclusionState", o.InclusionState()),
 	)
 }
 
@@ -1270,10 +1177,7 @@ func (o *OutputMetadata) ObjectStorageValue() []byte {
 		WriteTime(o.SolidificationTime()).
 		WriteUint64(uint64(o.ConsumerCount())).
 		Write(o.FirstConsumer()).
-		WriteBool(o.Preferred()).
-		WriteBool(o.Liked()).
 		WriteBool(o.Finalized()).
-		Write(o.InclusionState()).
 		Bytes()
 }
 

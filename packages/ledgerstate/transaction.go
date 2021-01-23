@@ -515,18 +515,10 @@ type TransactionMetadata struct {
 	solidMutex              sync.RWMutex
 	solidificationTime      time.Time
 	solidificationTimeMutex sync.RWMutex
-	preferred               bool
-	preferredMutex          sync.RWMutex
-	liked                   bool
-	likedMutex              sync.RWMutex
 	finalized               bool
 	finalizedMutex          sync.RWMutex
-	finalizationTime        time.Time
-	finalizationTimeMutex   sync.RWMutex
-	confirmed               bool
-	confirmedMutex          sync.RWMutex
-	rejected                bool
-	rejectedMutex           sync.RWMutex
+	lazyBooked              bool
+	lazyBookedMutex         sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
@@ -569,28 +561,12 @@ func TransactionMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (t
 		err = xerrors.Errorf("failed to parse solidification time (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	if transactionMetadata.preferred, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse preferred flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if transactionMetadata.liked, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse liked flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
 	if transactionMetadata.finalized, err = marshalUtil.ReadBool(); err != nil {
 		err = xerrors.Errorf("failed to parse finalized flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	if transactionMetadata.finalizationTime, err = marshalUtil.ReadTime(); err != nil {
-		err = xerrors.Errorf("failed to parse finalization time (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if transactionMetadata.confirmed, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse confirmed flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if transactionMetadata.rejected, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse rejected flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+	if transactionMetadata.lazyBooked, err = marshalUtil.ReadBool(); err != nil {
+		err = xerrors.Errorf("failed to parse lazy booked flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -675,76 +651,22 @@ func (t *TransactionMetadata) SolidificationTime() time.Time {
 	return t.solidificationTime
 }
 
-// Preferred returns true if the Transaction was marked as preferred.
-func (t *TransactionMetadata) Preferred() bool {
-	t.preferredMutex.RLock()
-	defer t.preferredMutex.RUnlock()
-
-	return t.preferred
-}
-
-// SetPreferred updates the preferred flag. It returns true if the value has been modified.
-func (t *TransactionMetadata) SetPreferred(preferred bool) (modified bool) {
-	t.preferredMutex.Lock()
-	defer t.preferredMutex.Unlock()
-
-	if t.preferred == preferred {
-		return
-	}
-
-	t.preferred = preferred
-	t.SetModified()
-	modified = true
-
-	return
-}
-
-// Liked returns true if the Transaction was marked as liked.
-func (t *TransactionMetadata) Liked() bool {
-	t.likedMutex.RLock()
-	defer t.likedMutex.RUnlock()
-
-	return t.liked
-}
-
-// SetLiked modifies the liked flag. It returns true if the value has been modified.
-func (t *TransactionMetadata) SetLiked(liked bool) (modified bool) {
-	t.likedMutex.Lock()
-	defer t.likedMutex.Unlock()
-
-	if t.liked == liked {
-		return
-	}
-
-	t.liked = liked
-	t.SetModified()
-	modified = true
-
-	return
-}
-
-// Finalized returns true if the decision if the Transaction is preferred or not has been finalized by consensus already.
-func (t *TransactionMetadata) Finalized() bool {
+// Finalized returns a boolean flag that indicates if the Transaction has been finalized regarding its decision of being
+// included in the ledger state.
+func (t *TransactionMetadata) Finalized() (finalized bool) {
 	t.finalizedMutex.RLock()
 	defer t.finalizedMutex.RUnlock()
 
 	return t.finalized
 }
 
-// SetFinalized updates the finalized flag of the Transaction. It returns true if the value has been modified and
-// updates the finalization time if the Transaction was marked as finalized.
+// SetFinalized updates the finalized flag of the Transaction. It returns true if the lazy booked flag was modified.
 func (t *TransactionMetadata) SetFinalized(finalized bool) (modified bool) {
 	t.finalizedMutex.Lock()
-	defer t.finalizedMutex.Unlock()
+	defer t.finalizedMutex.Lock()
 
 	if t.finalized == finalized {
 		return
-	}
-
-	if finalized {
-		t.finalizationTimeMutex.Lock()
-		t.finalizationTime = time.Now()
-		t.finalizationTimeMutex.Unlock()
 	}
 
 	t.finalized = finalized
@@ -754,56 +676,25 @@ func (t *TransactionMetadata) SetFinalized(finalized bool) (modified bool) {
 	return
 }
 
-// FinalizationTime returns the time when the Transaction was marked as finalized.
-func (t *TransactionMetadata) FinalizationTime() time.Time {
-	t.finalizationTimeMutex.RLock()
-	defer t.finalizationTimeMutex.RUnlock()
+// LazyBooked returns a boolean flag that indicates if the Transaction has been analyzed regarding the conflicting
+// status of its consumed Branches.
+func (t *TransactionMetadata) LazyBooked() (lazyBooked bool) {
+	t.lazyBookedMutex.RLock()
+	defer t.lazyBookedMutex.RUnlock()
 
-	return t.finalizationTime
+	return t.lazyBooked
 }
 
-// Confirmed returns true if the Transaction was marked as confirmed.
-func (t *TransactionMetadata) Confirmed() bool {
-	t.confirmedMutex.RLock()
-	defer t.confirmedMutex.RUnlock()
+// SetLazyBooked updates the lazy booked flag of the Output. It returns true if the lazy booked flag was modified.
+func (t *TransactionMetadata) SetLazyBooked(lazyBooked bool) (modified bool) {
+	t.lazyBookedMutex.Lock()
+	defer t.lazyBookedMutex.Lock()
 
-	return t.confirmed
-}
-
-// SetConfirmed modifies the confirmed flag. It returns true if the value has been modified.
-func (t *TransactionMetadata) SetConfirmed(confirmed bool) (modified bool) {
-	t.confirmedMutex.Lock()
-	defer t.confirmedMutex.Unlock()
-
-	if t.confirmed == confirmed {
+	if t.lazyBooked == lazyBooked {
 		return
 	}
 
-	t.confirmed = confirmed
-	t.SetModified()
-	modified = true
-
-	return
-}
-
-// Rejected returns true if the Transaction was marked as rejected.
-func (t *TransactionMetadata) Rejected() bool {
-	t.rejectedMutex.RLock()
-	defer t.rejectedMutex.RUnlock()
-
-	return t.rejected
-}
-
-// SetRejected modifies the rejected flag. It returns true if the value has been modified.
-func (t *TransactionMetadata) SetRejected(rejected bool) (modified bool) {
-	t.rejectedMutex.Lock()
-	defer t.rejectedMutex.Unlock()
-
-	if t.rejected == rejected {
-		return
-	}
-
-	t.rejected = rejected
+	t.lazyBooked = lazyBooked
 	t.SetModified()
 	modified = true
 
@@ -822,12 +713,8 @@ func (t *TransactionMetadata) String() string {
 		stringify.StructField("branchID", t.BranchID()),
 		stringify.StructField("solid", t.Solid()),
 		stringify.StructField("solidificationTime", t.SolidificationTime()),
-		stringify.StructField("preferred", t.Preferred()),
-		stringify.StructField("liked", t.Liked()),
 		stringify.StructField("finalized", t.Finalized()),
-		stringify.StructField("finalizationTime", t.FinalizationTime()),
-		stringify.StructField("confirmed", t.Confirmed()),
-		stringify.StructField("rejected", t.Rejected()),
+		stringify.StructField("lazyBooked", t.LazyBooked()),
 	)
 }
 
@@ -849,12 +736,8 @@ func (t *TransactionMetadata) ObjectStorageValue() []byte {
 		Write(t.BranchID()).
 		WriteBool(t.Solid()).
 		WriteTime(t.SolidificationTime()).
-		WriteBool(t.Preferred()).
-		WriteBool(t.Liked()).
 		WriteBool(t.Finalized()).
-		WriteTime(t.FinalizationTime()).
-		WriteBool(t.Confirmed()).
-		WriteBool(t.Rejected()).
+		WriteBool(t.LazyBooked()).
 		Bytes()
 }
 

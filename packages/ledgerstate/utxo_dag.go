@@ -7,6 +7,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/hive.go/byteutils"
+	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
@@ -83,26 +84,50 @@ func (u *UTXODAG) inputsRejected(inputsMetadata []*OutputMetadata) (rejected boo
 	return
 }
 
-func (u *UTXODAG) lazyBook(transaction *Transaction, targetBranch BranchID) {
+func (u *UTXODAG) lazyBookOutputs(transaction *Transaction, targetBranch BranchID) {
 	for outputIndex, output := range transaction.Essence().Outputs() {
-		outputID := NewOutputID(transaction.ID(), uint16(outputIndex))
+		// store Output
+		output.SetID(NewOutputID(transaction.ID(), uint16(outputIndex)))
+		u.outputStorage.Store(output)
 
-		// create metadata
-		metadata := NewOutputMetadata(outputID)
+		// store OutputMetadata
+		metadata := NewOutputMetadata(output.ID())
 		metadata.SetBranchID(targetBranch)
 		metadata.SetSolid(true)
-		cachedOutputMetadata, stored := u.outputMetadataStorage.StoreIfAbsent(metadata)
-		if !stored {
-			return
-		}
-
-		// create output
+		u.outputMetadataStorage.Store(metadata).Release()
 	}
+
+	return
+}
+
+// inputsSpentByConfirmedTransaction is an internal utility function that checks if any of the given inputs was spend by a confirmed transaction already.
+func (u *UTXODAG) inputsSpentByConfirmedTransaction(inputsMetadata []*OutputMetadata) (inputsSpentByConfirmedTransaction bool, err error) {
+	for _, inputMetadata := range inputsMetadata {
+		if inputMetadata.ConsumerCount() >= 1 {
+			cachedConsumers := u.Consumers(inputMetadata.ID())
+			consumers := cachedConsumers.Unwrap()
+			for _, consumer := range consumers {
+				inclusionState, inclusionStateErr := u.InclusionState(consumer.TransactionID())
+				if inclusionStateErr != nil {
+					err = xerrors.Errorf("failed to determine InclusionState of Transaction with %s: %w", consumer.TransactionID(), inclusionStateErr)
+					return
+				}
+
+				if inclusionState == Confirmed {
+					cachedConsumers.Release()
+					inputsSpentByConfirmedTransaction = true
+					return
+				}
+			}
+			cachedConsumers.Release()
+		}
+	}
+
 	return
 }
 
 // BookTransaction books a Transaction into the ledger state.
-func (u *UTXODAG) BookTransaction(transaction *Transaction) (bookTransactionClosure func(), err error) {
+func (u *UTXODAG) BookTransaction(transaction *Transaction) (err error) {
 	cachedInputs := u.transactionInputs(transaction)
 	defer cachedInputs.Release()
 	inputs := cachedInputs.Unwrap()
@@ -121,16 +146,37 @@ func (u *UTXODAG) BookTransaction(transaction *Transaction) (bookTransactionClos
 		return
 	}
 
+	// use TransactionMetadata as a synchronization mechanism to only book every Transaction once
+	transactionMetadata := NewTransactionMetadata(transaction.ID())
+	transactionMetadata.SetSolid(true)
+	cachedTransactionMetadata, stored := u.transactionMetadataStorage.StoreIfAbsent(transactionMetadata)
+	if !stored {
+		return
+	}
+	defer cachedTransactionMetadata.Release()
+	u.transactionStorage.Store(transaction).Release()
+
+	// retrieve the metadata of the Inputs
 	cachedInputsMetadata := u.transactionInputsMetadata(transaction)
 	defer cachedInputsMetadata.Release()
 	inputsMetadata := cachedInputsMetadata.Unwrap()
 
 	// check if transaction is attaching to something rejected
 	if rejected, targetBranch := u.inputsRejected(inputsMetadata); rejected {
-		u.lazyBook(transaction, targetBranch)
+		transactionMetadata.SetBranchID(targetBranch)
+		transactionMetadata.SetLazyBooked(true)
+
+		u.lazyBookOutputs(transaction, targetBranch)
 	}
 
-	// TODO: IMPLEMENT
+	// check if any Input was spent by a confirmed Transaction already
+	if inputsSpentByConfirmedTransaction, tmpErr := u.inputsSpentByConfirmedTransaction(inputsMetadata); tmpErr != nil {
+		err = xerrors.Errorf("failed to check if inputs were spent by confirmed transaction: %w", err)
+		return
+	} else if inputsSpentByConfirmedTransaction {
+		//u.branchDAG.CreateConflictBranch()
+		// TODO: CREATE BRANCH FOR TRANSACTION + SET TO REJECTED
+	}
 
 	// perform more expensive checks
 	if !u.inputsValid(inputs) {
@@ -140,6 +186,37 @@ func (u *UTXODAG) BookTransaction(transaction *Transaction) (bookTransactionClos
 
 	// TODO: BOOK TRANSACTION
 
+	return
+}
+
+func (u *UTXODAG) InclusionState(transactionID TransactionID) (inclusionState InclusionState, err error) {
+	cachedTransactionMetadata := u.TransactionMetadata(transactionID)
+	defer cachedTransactionMetadata.Release()
+	transactionMetadata := cachedTransactionMetadata.Unwrap()
+	if transactionMetadata == nil {
+		err = xerrors.Errorf("failed to load TransactionMetadata with %s: %w", transactionID, cerrors.ErrFatal)
+		return
+	}
+
+	cachedBranch := u.branchDAG.Branch(transactionMetadata.BranchID())
+	defer cachedBranch.Release()
+	branch := cachedBranch.Unwrap()
+	if branch == nil {
+		err = xerrors.Errorf("failed to load Branch with %s: %w", transactionMetadata.BranchID(), cerrors.ErrFatal)
+		return
+	}
+
+	if branch.InclusionState() != Confirmed {
+		inclusionState = branch.InclusionState()
+		return
+	}
+
+	if transactionMetadata.Finalized() {
+		inclusionState = Confirmed
+		return
+	}
+
+	inclusionState = Pending
 	return
 }
 
