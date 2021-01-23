@@ -375,7 +375,7 @@ func (b *BranchDAG) Shutdown() {
 
 // init is an internal utility function that initializes the BranchDAG by creating the root of the DAG (MasterBranch).
 func (b *BranchDAG) init() {
-	cachedMasterBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(NewBranchID(TransactionID{1}), nil, nil))
+	cachedMasterBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(MasterBranchID, nil, nil))
 	if !stored {
 		return
 	}
@@ -385,6 +385,18 @@ func (b *BranchDAG) init() {
 		branch.SetLiked(true)
 		branch.SetFinalized(true)
 		branch.SetInclusionState(Confirmed)
+	})
+
+	cachedRejectedBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(RejectedBranchID, nil, nil))
+	if !stored {
+		return
+	}
+
+	(&CachedBranch{CachedObject: cachedRejectedBranch}).Consume(func(branch Branch) {
+		branch.SetPreferred(false)
+		branch.SetLiked(false)
+		branch.SetFinalized(true)
+		branch.SetInclusionState(Rejected)
 	})
 }
 

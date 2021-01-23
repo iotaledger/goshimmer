@@ -27,6 +27,10 @@ var (
 
 	// MasterBranchID is the identifier of the MasterBranch (root of the ConflictBranch DAG).
 	MasterBranchID = BranchID{1}
+
+	// RejectedBranchID is the identifier for the RejectedBranch which contains the invalid Transactions and has the
+	// lazy booked ConflictBranches as its children.
+	RejectedBranchID = BranchID{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
 )
 
 // BranchIDLength contains the amount of bytes that a marshaled version of the BranchID contains.
