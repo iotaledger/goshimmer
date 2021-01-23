@@ -108,15 +108,19 @@ func (c *Component) SendFunds(msg *tangle.Message) (m *tangle.Message, txID stri
 	}
 
 	// attach to message layer
-	msg, err = issuer.IssuePayload(payload, messagelayer.Tangle())
-	if err != nil {
-		return nil, "", err
+	issueTransaction := func() (*tangle.Message, error) {
+		msg, err := issuer.IssuePayload(payload, messagelayer.Tangle())
+		if err != nil {
+			return nil, err
+		}
+		return msg, nil
 	}
 
 	// block for a certain amount of time until we know that the transaction
 	// actually got booked by this node itself
 	// TODO: replace with an actual more reactive way
-	if err := valuetransfers.AwaitTransactionToBeBooked(tx.ID(), c.maxTxBookedAwaitTime); err != nil {
+	msg, err = valuetransfers.AwaitTransactionToBeBooked(issueTransaction, tx.ID(), c.maxTxBookedAwaitTime)
+	if err != nil {
 		return nil, "", xerrors.Errorf("%w: tx %s", err, tx.ID().String())
 	}
 

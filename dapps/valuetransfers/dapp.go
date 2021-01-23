@@ -215,7 +215,14 @@ func ValueObjectFactory() *valuetangle.ValueObjectFactory {
 }
 
 // AwaitTransactionToBeBooked awaits maxAwait for the given transaction to get booked.
-func AwaitTransactionToBeBooked(txID transaction.ID, maxAwait time.Duration) error {
+func AwaitTransactionToBeBooked(f func() (*tangle.Message, error), txID transaction.ID, maxAwait time.Duration) (*tangle.Message, error) {
+	var err error
+	var msg *tangle.Message
+
+	go func(*tangle.Message, *error) {
+		msg, err = f()
+	}(msg, &err)
+
 	booked := make(chan struct{}, 1)
 	// exit is used to let the caller exit if for whatever
 	// reason the same transaction gets booked multiple times
@@ -236,8 +243,11 @@ func AwaitTransactionToBeBooked(txID transaction.ID, maxAwait time.Duration) err
 	defer Tangle().Events.TransactionBooked.Detach(closure)
 	select {
 	case <-time.After(maxAwait):
-		return ErrTransactionWasNotBookedInTime
+		if err != nil {
+			return nil, err
+		}
+		return nil, ErrTransactionWasNotBookedInTime
 	case <-booked:
-		return nil
+		return msg, nil
 	}
 }
