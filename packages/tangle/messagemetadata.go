@@ -22,14 +22,12 @@ type MessageMetadata struct {
 	timestampOpinion   TimestampOpinion
 	eligible           bool
 	booked             bool
-	eligible           bool
 
-	timestampOpinionMutex   sync.RWMutex
-	eligibleMutex           sync.RWMutex
 	solidMutex              sync.RWMutex
 	solidificationTimeMutex sync.RWMutex
-	bookedMutex             sync.RWMutex
+	timestampOpinionMutex   sync.RWMutex
 	eligibleMutex           sync.RWMutex
+	bookedMutex             sync.RWMutex
 }
 
 // NewMessageMetadata creates a new MessageMetadata from the specified messageID.
@@ -79,10 +77,6 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 	}
 	if result.booked, err = marshalUtil.ReadBool(); err != nil {
 		err = fmt.Errorf("failed to parse booked flag of message metadata: %w", err)
-		return
-	}
-	if result.eligible, err = marshalUtil.ReadBool(); err != nil {
-		err = fmt.Errorf("failed to parse 'eligible' of message metadata: %w", err)
 		return
 	}
 
@@ -213,6 +207,11 @@ func (m *MessageMetadata) SetTimestampOpinion(timestampOpinion TimestampOpinion)
 
 	} else {
 		m.timestampOpinionMutex.RUnlock()
+	}
+
+	return
+}
+
 // SetEligible sets the message associated with this metadata as eligible.
 // It returns true if the eligible status is modified. False otherwise.
 func (m *MessageMetadata) SetEligible(eligible bool) (modified bool) {
