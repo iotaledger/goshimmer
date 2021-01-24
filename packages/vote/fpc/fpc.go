@@ -102,7 +102,7 @@ func (f *FPC) Events() vote.Events {
 // Round enqueues new items, sets opinions on active vote contexts, finalizes them and then
 // queries for opinions.
 func (f *FPC) Round(rand float64) error {
-	start := clock.SyncedTime()
+	start := time.Now()
 	// enqueue new voting contexts
 	f.enqueue()
 	// we can only form opinions when the last round was actually executed successfully
