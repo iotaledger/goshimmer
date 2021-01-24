@@ -20,7 +20,7 @@ type MessageMetadata struct {
 	solid              bool
 	solidificationTime time.Time
 	timestampOpinion   TimestampOpinion
-	eligibile          bool
+	eligible           bool
 	booked             bool
 
 	timestampOpinionMutex   sync.RWMutex
@@ -64,7 +64,19 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 		return
 	}
 	if result.solid, err = marshalUtil.ReadBool(); err != nil {
-		err = fmt.Errorf("failed to parse 'solid' of message metadata: %w", err)
+		err = fmt.Errorf("failed to parse solid flag of message metadata: %w", err)
+		return
+	}
+	if result.timestampOpinion, err = TimestampOpinionFromMarshalUtil(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse timestampOpinion of message metadata: %w", err)
+		return
+	}
+	if result.eligible, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse eligble flag of message metadata: %w", err)
+		return
+	}
+	if result.booked, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse booked flag of message metadata: %w", err)
 		return
 	}
 
@@ -163,6 +175,34 @@ func (m *MessageMetadata) SetBooked(booked bool) (modified bool) {
 	return
 }
 
+func (m *MessageMetadata) TimestampOpinion() (timestampOpinion TimestampOpinion) {
+	m.timestampOpinionMutex.RLock()
+	defer m.timestampOpinionMutex.RUnlock()
+	return m.timestampOpinion
+}
+
+// SetTimestampOpinion sets the timestampOpinion flag.
+// It returns true if the timestampOpinion flag is modified. False otherwise.
+func (m *MessageMetadata) SetTimestampOpinion(timestampOpinion TimestampOpinion) (modified bool) {
+	m.timestampOpinionMutex.RLock()
+	if m.timestampOpinion != timestampOpinion {
+		m.timestampOpinionMutex.RUnlock()
+
+		m.timestampOpinionMutex.Lock()
+		if !m.timestampOpinion.Equal(timestampOpinion) {
+			m.timestampOpinion = timestampOpinion
+			m.SetModified()
+			modified = true
+		}
+		m.timestampOpinionMutex.Unlock()
+
+	} else {
+		m.timestampOpinionMutex.RUnlock()
+	}
+
+	return
+}
+
 // Bytes returns a marshaled version of the whole MessageMetadata object.
 func (m *MessageMetadata) Bytes() []byte {
 	return byteutils.ConcatBytes(m.ObjectStorageKey(), m.ObjectStorageValue())
@@ -181,6 +221,9 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 		WriteTime(m.ReceivedTime()).
 		WriteTime(m.SolidificationTime()).
 		WriteBool(m.IsSolid()).
+		WriteBytes(m.timestampOpinion.Bytes()).
+		WriteBool(m.eligible).
+		WriteBool(m.booked).
 		Bytes()
 }
 
