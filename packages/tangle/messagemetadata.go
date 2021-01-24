@@ -184,6 +184,7 @@ func (m *MessageMetadata) SetBooked(booked bool) (modified bool) {
 	return
 }
 
+// TimestampOpinion returns the timestampOpinion of the given message metadata.
 func (m *MessageMetadata) TimestampOpinion() (timestampOpinion TimestampOpinion) {
 	m.timestampOpinionMutex.RLock()
 	defer m.timestampOpinionMutex.RUnlock()
