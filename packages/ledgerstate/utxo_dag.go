@@ -60,7 +60,7 @@ func (u *UTXODAG) inputsRejected(inputsMetadata []*OutputMetadata) (rejected boo
 		}
 		seenBranchIDs[branchID] = types.Void
 
-		if branchID == InvalidBranchID {
+		if branchID == RejectedBranchID {
 			targetBranch = branchID
 			rejected = true
 			return
@@ -96,8 +96,6 @@ func (u *UTXODAG) lazyBookOutputs(transaction *Transaction, targetBranch BranchI
 		metadata.SetSolid(true)
 		u.outputMetadataStorage.Store(metadata).Release()
 	}
-
-	return
 }
 
 // inputsSpentByConfirmedTransaction is an internal utility function that checks if any of the given inputs was spend by a confirmed transaction already.
@@ -171,11 +169,28 @@ func (u *UTXODAG) BookTransaction(transaction *Transaction) (err error) {
 
 	// check if any Input was spent by a confirmed Transaction already
 	if inputsSpentByConfirmedTransaction, tmpErr := u.inputsSpentByConfirmedTransaction(inputsMetadata); tmpErr != nil {
-		err = xerrors.Errorf("failed to check if inputs were spent by confirmed transaction: %w", err)
+		err = xerrors.Errorf("failed to check if inputs were spent by confirmed Transaction: %w", err)
 		return
 	} else if inputsSpentByConfirmedTransaction {
-		//u.branchDAG.CreateConflictBranch()
-		// TODO: CREATE BRANCH FOR TRANSACTION + SET TO REJECTED
+		cachedConflictBranch, _, conflictBranchErr := u.branchDAG.CreateConflictBranch(NewBranchID(transaction.ID()), NewBranchIDs(RejectedBranchID), nil)
+		if conflictBranchErr != nil {
+			err = xerrors.Errorf("failed to create ConflictBranch for lazy booked Transaction with %s: %w", transaction.ID(), conflictBranchErr)
+			return
+		}
+		defer cachedConflictBranch.Release()
+
+		conflictBranch := cachedConflictBranch.Unwrap()
+		if conflictBranch == nil {
+			err = xerrors.Errorf("failed to unwrap ConflictBranch with %s: %w", cachedConflictBranch.ID(), cerrors.ErrFatal)
+			return
+		}
+		conflictBranch.SetLiked(false)
+		conflictBranch.SetFinalized(true)
+
+		transactionMetadata.SetBranchID(conflictBranch.ID())
+		transactionMetadata.SetLazyBooked(true)
+
+		u.lazyBookOutputs(transaction, conflictBranch.ID())
 	}
 
 	// perform more expensive checks
