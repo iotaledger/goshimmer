@@ -387,7 +387,7 @@ func (b *BranchDAG) init() {
 		branch.SetInclusionState(Confirmed)
 	})
 
-	cachedRejectedBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(RejectedBranchID, nil, nil))
+	cachedRejectedBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(InvalidBranchID, nil, nil))
 	if !stored {
 		return
 	}

@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
+	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
@@ -50,42 +51,46 @@ func NewUTXODAG(store kvstore.KVStore, branchDAG *BranchDAG) (utxoDAG *UTXODAG) 
 	return
 }
 
-// inputsRejected checks if any of the inputs are rejected and returns the corresponding Branch that it finds.
-func (u *UTXODAG) inputsRejected(inputsMetadata []*OutputMetadata) (rejected bool, targetBranch BranchID) {
-	seenBranchIDs := make(map[BranchID]types.Empty)
+// inputsInvalid checks if any of the Inputs is booked into the InvalidBranch.
+func (u *UTXODAG) inputsInvalid(inputsMetadata []*OutputMetadata) (invalid bool) {
 	for _, inputMetadata := range inputsMetadata {
-		branchID := inputMetadata.BranchID()
-		if _, branchIDSeen := seenBranchIDs[branchID]; branchIDSeen {
-			continue
-		}
-		seenBranchIDs[branchID] = types.Void
-
-		if branchID == RejectedBranchID {
-			targetBranch = branchID
-			rejected = true
+		if invalid = inputMetadata.BranchID() == InvalidBranchID; invalid {
 			return
-		}
-
-		if targetBranch != UndefinedBranchID {
-			cachedBranch := u.branchDAG.Branch(branchID)
-			branch := cachedBranch.Unwrap()
-			if branch == nil {
-				panic(fmt.Sprintf("failed to load Branch with %s", branchID))
-			}
-
-			if branch.InclusionState() == Rejected {
-				targetBranch = branchID
-				rejected = true
-				continue
-			}
 		}
 	}
 
 	return
 }
 
+// inputsRejected checks if any of the Inputs is booked into a rejected Branch.
+func (u *UTXODAG) inputsRejected(inputsMetadata []*OutputMetadata) (rejected bool, targetBranchID BranchID) {
+	seenBranchIDs := set.New()
+	for _, inputMetadata := range inputsMetadata {
+		if targetBranchID = inputMetadata.BranchID(); !seenBranchIDs.Add(targetBranchID) {
+			continue
+		}
+
+		cachedBranch := u.branchDAG.Branch(targetBranchID)
+		branch := cachedBranch.Unwrap()
+
+		if branch == nil {
+			cachedBranch.Release()
+			panic(fmt.Sprintf("failed to load Branch with %s", targetBranchID))
+		}
+
+		if rejected = branch.InclusionState() == Rejected; rejected {
+			cachedBranch.Release()
+			return
+		}
+
+		cachedBranch.Release()
+	}
+
+	return
+}
+
 func (u *UTXODAG) lazyBookConflictingTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata []*OutputMetadata) (err error) {
-	cachedConflictBranch, _, conflictBranchErr := u.branchDAG.CreateConflictBranch(NewBranchID(transaction.ID()), NewBranchIDs(RejectedBranchID), nil)
+	cachedConflictBranch, _, conflictBranchErr := u.branchDAG.CreateConflictBranch(NewBranchID(transaction.ID()), NewBranchIDs(LazyBookedConflictsBranchID), nil)
 	if conflictBranchErr != nil {
 		err = xerrors.Errorf("failed to create ConflictBranch for lazy booked Transaction with %s: %w", transaction.ID(), conflictBranchErr)
 		return
@@ -107,22 +112,42 @@ func (u *UTXODAG) lazyBookConflictingTransaction(transaction *Transaction, trans
 
 func (u *UTXODAG) lazyBookRejectedTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata []*OutputMetadata, targetBranchID BranchID) {
 	transactionMetadata.SetBranchID(targetBranchID)
+	transactionMetadata.SetSolid(true)
 	transactionMetadata.SetLazyBooked(true)
 
-	u.bookConsumers(inputsMetadata, transaction.ID())
-
-	u.lazyBookOutputs(transaction, targetBranchID)
+	u.bookConsumers(inputsMetadata, transaction.ID(), false)
+	u.bookOutputs(transaction, targetBranchID)
 }
 
-// TODO: RETURN WHICH INPUTS ARE CONFLICTING
-func (u *UTXODAG) bookConsumers(inputsMetadata []*OutputMetadata, transactionID TransactionID) {
+// bookInvalidTransaction books the given Transaction into the Branch identified by InvalidBranchID.
+func (u *UTXODAG) bookInvalidTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata []*OutputMetadata) {
+	transactionMetadata.SetBranchID(InvalidBranchID)
+	transactionMetadata.SetSolid(true)
+	transactionMetadata.SetFinalized(true)
+
+	u.bookConsumers(inputsMetadata, transaction.ID(), false)
+	u.bookOutputs(transaction, InvalidBranchID)
+}
+
+// bookConsumers creates the Consumers reference between an Output and its spending Transaction. It increases the
+// ConsumerCount if the Transaction is a valid spend.
+func (u *UTXODAG) bookConsumers(inputsMetadata []*OutputMetadata, transactionID TransactionID, valid bool) {
 	for _, inputMetadata := range inputsMetadata {
-		inputMetadata.RegisterConsumer(transactionID)
-		u.consumerStorage.Store(NewConsumer(inputMetadata.ID(), transactionID)).Release()
+		if valid {
+			inputMetadata.RegisterConsumer(transactionID)
+		}
+
+		var x TriBool
+
+		newConsumer := NewConsumer(inputMetadata.ID(), transactionID, valid)
+		cachedConsumer := u.consumerStorage.ComputeIfAbsent(newConsumer.ObjectStorageKey(), func(key []byte) objectstorage.StorableObject {
+			return newConsumer
+		})
+
 	}
 }
 
-func (u *UTXODAG) lazyBookOutputs(transaction *Transaction, targetBranch BranchID) {
+func (u *UTXODAG) bookOutputs(transaction *Transaction, targetBranch BranchID) {
 	for outputIndex, output := range transaction.Essence().Outputs() {
 		// store Output
 		output.SetID(NewOutputID(transaction.ID(), uint16(outputIndex)))
@@ -197,6 +222,11 @@ func (u *UTXODAG) BookTransaction(transaction *Transaction) (err error) {
 	defer cachedInputsMetadata.Release()
 	inputsMetadata := cachedInputsMetadata.Unwrap()
 
+	// check if Transaction is attaching to something invalid
+	if invalid := u.inputsInvalid(inputsMetadata); invalid {
+		u.bookInvalidTransaction(transaction, transactionMetadata, inputsMetadata)
+	}
+
 	// check if transaction is attaching to something rejected
 	if rejected, targetBranch := u.inputsRejected(inputsMetadata); rejected {
 		u.lazyBookRejectedTransaction(transaction, transactionMetadata, inputsMetadata, targetBranch)
@@ -210,13 +240,20 @@ func (u *UTXODAG) BookTransaction(transaction *Transaction) (err error) {
 		err = u.lazyBookConflictingTransaction(transaction, transactionMetadata, inputsMetadata)
 	}
 
-	// perform more expensive checks
-	if !u.inputsValid(inputs) {
-		err = xerrors.Errorf("transaction spends invalid transactionInputs: %w", ErrTransactionInvalid)
+	// mark transaction as "permanently rejected"
+	if !u.inputsPastConeValid(inputs, inputsMetadata) {
+		u.lazyBookRejectedTransaction(transaction, transactionMetadata, inputsMetadata, InvalidBranchID)
 		return
 	}
 
-	// TODO: BOOK TRANSACTION
+	consumedBranchesSlice := make([]BranchID, len(inputsMetadata))
+	for i, inputMetadata := range inputsMetadata {
+		consumedBranchesSlice[i] = inputMetadata.BranchID()
+		inputMetadata.ConsumerCount()
+	}
+	consumedBranches := NewBranchIDs(consumedBranchesSlice...)
+
+	u.branchDAG.AggregateBranches()
 
 	return
 }
@@ -368,15 +405,30 @@ func (u *UTXODAG) unlockBlocksValid(inputs []Output, transaction *Transaction) (
 	return true
 }
 
-func (u *UTXODAG) inputsValid(inputs []Output) (valid bool) {
+func (u *UTXODAG) outputsUnspent(inputsMetadata []*OutputMetadata) (outputsUnspent bool) {
+	for _, inputMetadata := range inputsMetadata {
+		if inputMetadata.ConsumerCount() != 0 {
+			return false
+		}
+	}
+
+	return true
+}
+
+// inputsPastConeValid is an internal utility function that checks if the given Inputs do not reference their own past
+// cone.
+func (u *UTXODAG) inputsPastConeValid(inputs []Output, inputsMetadata []*OutputMetadata) (pastConeValid bool) {
+	if u.outputsUnspent(inputsMetadata) {
+		pastConeValid = true
+		return
+	}
+
 	stack := list.New()
 	consumedInputIDs := make(map[OutputID]types.Empty)
 	for _, input := range inputs {
 		consumedInputIDs[input.ID()] = types.Void
 		stack.PushBack(input.ID())
 	}
-
-	// TODO: EVENTUALLY RETURN EARLY IF ALL INPUTS ARE UNSPENT (OPTIMIZTAION)
 
 	for stack.Len() > 0 {
 		firstElement := stack.Front()
@@ -647,15 +699,17 @@ func (c CachedAddressOutputMappings) String() string {
 type Consumer struct {
 	consumedInput OutputID
 	transactionID TransactionID
+	valid         bool
 
 	objectstorage.StorableObjectFlags
 }
 
 // NewConsumer creates a Consumer object from the given information.
-func NewConsumer(consumedInput OutputID, transactionID TransactionID) *Consumer {
+func NewConsumer(consumedInput OutputID, transactionID TransactionID, valid bool) *Consumer {
 	return &Consumer{
 		consumedInput: consumedInput,
 		transactionID: transactionID,
+		valid:         valid,
 	}
 }
 
@@ -682,14 +736,18 @@ func ConsumerFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (consumer *Co
 		err = xerrors.Errorf("failed to parse TransactionID from MarshalUtil: %w", err)
 		return
 	}
+	if consumer.valid, err = marshalUtil.ReadBool(); err != nil {
+		err = xerrors.Errorf("failed to parse valid flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
 
 	return
 }
 
 // ConsumerFromObjectStorage is a factory method that creates a new Consumer instance from a storage key of the
 // object storage. It is used by the object storage, to create new instances of this entity.
-func ConsumerFromObjectStorage(key []byte, _ []byte) (result objectstorage.StorableObject, err error) {
-	if result, _, err = ConsumerFromBytes(key); err != nil {
+func ConsumerFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
+	if result, _, err = ConsumerFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
 		err = xerrors.Errorf("failed to parse Consumer from bytes: %w", err)
 		return
 	}
@@ -707,9 +765,14 @@ func (c *Consumer) TransactionID() TransactionID {
 	return c.transactionID
 }
 
+// Valid returns a flag that indicates if the spending Transaction is valid or not.
+func (c *Consumer) Valid() (valid bool) {
+	return c.valid
+}
+
 // Bytes marshals the Consumer into a sequence of bytes.
 func (c *Consumer) Bytes() []byte {
-	return c.ObjectStorageKey()
+	return byteutils.ConcatBytes(c.ObjectStorageKey(), c.ObjectStorageValue())
 }
 
 // String returns a human readable version of the Consumer.
@@ -734,7 +797,9 @@ func (c *Consumer) ObjectStorageKey() []byte {
 // ObjectStorageValue marshals the Consumer into a sequence of bytes that are used as the value part in the object
 // storage.
 func (c *Consumer) ObjectStorageValue() []byte {
-	panic("implement me")
+	return marshalutil.New(marshalutil.BoolSize).
+		WriteBool(c.valid).
+		Bytes()
 }
 
 // code contract (make sure the struct implements all required methods)
