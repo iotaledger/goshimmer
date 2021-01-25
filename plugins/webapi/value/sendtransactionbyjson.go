@@ -10,7 +10,9 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/labstack/echo"
@@ -64,12 +66,17 @@ func sendTransactionByJSONHandler(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, SendTransactionByJSONResponse{Error: err.Error()})
 	}
-	_, err = issuer.IssuePayload(payload)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, SendTransactionByJSONResponse{Error: err.Error()})
+
+	issueTransaction := func() (*tangle.Message, error) {
+		msg, e := issuer.IssuePayload(payload, messagelayer.Tangle())
+		if e != nil {
+			return nil, c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: e.Error()})
+		}
+		return msg, nil
 	}
 
-	if err := valuetransfers.AwaitTransactionToBeBooked(tx.ID(), maxBookedAwaitTime); err != nil {
+	_, err = valuetransfers.AwaitTransactionToBeBooked(issueTransaction, tx.ID(), maxBookedAwaitTime)
+	if err != nil {
 		return c.JSON(http.StatusBadRequest, SendTransactionByJSONResponse{Error: err.Error()})
 	}
 	return c.JSON(http.StatusOK, SendTransactionByJSONResponse{TransactionID: tx.ID().String()})

@@ -5,10 +5,10 @@ const (
 	PriorityDatabase = iota
 	// PriorityTangle defines the shutdown priority for the tangle.
 	PriorityTangle
+	// PriorityValueTangle defines the shutdown priority for the value tangle.
+	PriorityValueTangle
 	// PriorityFPC defines the shutdown priority for FPC.
 	PriorityFPC
-	// PriorityMissingMessagesMonitoring defines the shutdown priority for missing message monitor.
-	PriorityMissingMessagesMonitoring
 	// PriorityFaucet defines the shutdown priority for the faucet.
 	PriorityFaucet
 	// PriorityRemoteLog defines the shutdown priority for remote log.

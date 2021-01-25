@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/vote/statement"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/identity"
 )
 
@@ -51,7 +52,7 @@ func makeStatement(roundStats *vote.RoundStats) {
 
 // broadcastStatement broadcasts a statement via communication layer.
 func broadcastStatement(conflicts statement.Conflicts, timestamps statement.Timestamps) {
-	msg, err := issuer.IssuePayload(statement.New(conflicts, timestamps))
+	msg, err := issuer.IssuePayload(statement.New(conflicts, timestamps), messagelayer.Tangle())
 
 	if err != nil {
 		log.Warnf("error issuing statement: %s", err)
