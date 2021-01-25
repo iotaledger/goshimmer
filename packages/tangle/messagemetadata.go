@@ -79,10 +79,6 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 		err = fmt.Errorf("failed to parse booked flag of message metadata: %w", err)
 		return
 	}
-	if result.eligible, err = marshalUtil.ReadBool(); err != nil {
-		err = fmt.Errorf("failed to parse 'eligible' of message metadata: %w", err)
-		return
-	}
 
 	return
 }
