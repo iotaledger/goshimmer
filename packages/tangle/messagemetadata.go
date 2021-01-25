@@ -20,14 +20,14 @@ type MessageMetadata struct {
 	solid              bool
 	solidificationTime time.Time
 	timestampOpinion   TimestampOpinion
-	eligible           bool
 	booked             bool
+	eligible           bool
 
 	solidMutex              sync.RWMutex
 	solidificationTimeMutex sync.RWMutex
 	timestampOpinionMutex   sync.RWMutex
-	eligibleMutex           sync.RWMutex
 	bookedMutex             sync.RWMutex
+	eligibleMutex           sync.RWMutex
 }
 
 // NewMessageMetadata creates a new MessageMetadata from the specified messageID.
@@ -77,6 +77,10 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 	}
 	if result.booked, err = marshalUtil.ReadBool(); err != nil {
 		err = fmt.Errorf("failed to parse booked flag of message metadata: %w", err)
+		return
+	}
+	if result.eligible, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse 'eligible' of message metadata: %w", err)
 		return
 	}
 
