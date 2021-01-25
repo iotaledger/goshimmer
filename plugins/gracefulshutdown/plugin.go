@@ -3,7 +3,6 @@ package gracefulshutdown
 import (
 	"os"
 	"os/signal"
-	"runtime/pprof"
 	"sort"
 	"strings"
 	"sync"
@@ -60,7 +59,6 @@ func configure(*node.Plugin) {
 					log.Warnf("Received shutdown request - waiting (max %d seconds) to finish processing %s...", waitToKillTimeInSeconds-int(secondsSinceStart), processList)
 				} else {
 					log.Error("Background processes did not terminate in time! Forcing shutdown ...")
-					pprof.Lookup("goroutine").WriteTo(os.Stdout, 2)
 					os.Exit(1)
 				}
 			}
