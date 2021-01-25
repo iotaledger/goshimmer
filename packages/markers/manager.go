@@ -58,6 +58,7 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 		FutureMarkers: NewMarkers(),
 	}
 
+	// merge parent's pastMarkers
 	mergedPastMarkers := NewMarkers()
 	for _, referencedMarkerPair := range referencedStructureDetails {
 		mergedPastMarkers.Merge(referencedMarkerPair.PastMarkers)
@@ -234,6 +235,7 @@ func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkersByRank *m
 
 	normalizedMarkersByRank = newMarkersByRank()
 	normalizedSequences = make(SequenceIDs)
+	// group markers with same sequence rank
 	markers.ForEach(func(sequenceID SequenceID, index Index) bool {
 		normalizedSequences[sequenceID] = types.Void
 		normalizedMarkersByRank.Add(m.rankOfSequence(sequenceID, rankOfSequencesCache), sequenceID, index)
@@ -242,6 +244,7 @@ func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkersByRank *m
 	})
 	markersToIterate := normalizedMarkersByRank.Clone()
 
+	//iterate from highest sequence rank to lowest
 	for i := markersToIterate.HighestRank() + 1; i > normalizedMarkersByRank.LowestRank(); i-- {
 		currentRank := i - 1
 		markersByRank, rankExists := markersToIterate.Markers(currentRank)
@@ -249,20 +252,28 @@ func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkersByRank *m
 			continue
 		}
 
+		// for each marker from the current sequence rank check if we can remove a marker in normalizedMarkersByRank,
+		// and add the parent markers to markersToIterate if necessary
 		if !markersByRank.ForEach(func(sequenceID SequenceID, index Index) bool {
 			if currentRank <= normalizedMarkersByRank.LowestRank() {
 				return false
 			}
 
 			if !(&CachedSequence{CachedObject: m.sequenceStore.Load(sequenceID.Bytes())}).Consume(func(sequence *Sequence) {
+				// for each of the parentMarkers of this particular index
 				sequence.HighestReferencedParentMarkers(index).ForEach(func(referencedSequenceID SequenceID, referencedIndex Index) bool {
+					// of this marker delete the referenced sequences since they are no sequence tips anymore in the sequence DAG
 					delete(normalizedSequences, referencedSequenceID)
 
 					rankOfReferencedSequence := m.rankOfSequence(referencedSequenceID, rankOfSequencesCache)
+					// check whether there is a marker in normalizedMarkersByRank that is from the same sequence
 					if index, indexExists := normalizedMarkersByRank.Index(rankOfReferencedSequence, referencedSequenceID); indexExists {
 						if referencedIndex >= index {
+							// this referencedParentMarker is from the same sequence as a marker in the list but with higher index - hence remove the index from the Marker list
 							normalizedMarkersByRank.Delete(rankOfReferencedSequence, referencedSequenceID)
 
+							// if rankOfReferencedSequence is already the lowest rank of the original markers list,
+							// no need to add it since parents of the referencedMarker cannot delete any further elements from the list
 							if rankOfReferencedSequence > normalizedMarkersByRank.LowestRank() {
 								markersToIterate.Add(rankOfReferencedSequence, referencedSequenceID, referencedIndex)
 							}
@@ -271,6 +282,8 @@ func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkersByRank *m
 						return true
 					}
 
+					// if rankOfReferencedSequence is already the lowest rank of the original markers list,
+					// no need to add it since parents of the referencedMarker cannot delete any further elements from the list
 					if rankOfReferencedSequence > normalizedMarkersByRank.LowestRank() {
 						markersToIterate.Add(rankOfReferencedSequence, referencedSequenceID, referencedIndex)
 					}

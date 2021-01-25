@@ -115,15 +115,16 @@ func messageReferencesMessage(laterMessage *message, earlierMessage *message, me
 	return False
 }
 
+// inheritPastMarkers
 func inheritPastMarkers(message *message, manager *Manager, messageDB map[string]*message) (pastMarkerToPropagate *Marker) {
-	// merge past Markers of referenced parents
-	pastMarkers := make([]*StructureDetails, len(message.parents))
+	// create array that holds the structureDetails of the parents
+	parentMarkers := make([]*StructureDetails, len(message.parents))
 	for i, parentID := range message.parents {
-		pastMarkers[i] = messageDB[parentID].markers
+		parentMarkers[i] = messageDB[parentID].markers
 	}
 
-	// inherit new past Markers
-	message.markers, _ = manager.InheritStructureDetails(pastMarkers, increaseIndex(message), message.optionalNewSequenceAlias...)
+	// inherit newest past Markers
+	message.markers, _ = manager.InheritStructureDetails(parentMarkers, increaseIndex(message), message.optionalNewSequenceAlias...)
 	if message.markers.IsPastMarker {
 		pastMarkerToPropagate = message.markers.PastMarkers.FirstMarker()
 	}

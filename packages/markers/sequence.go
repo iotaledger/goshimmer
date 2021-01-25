@@ -211,7 +211,7 @@ func (c *CachedSequence) Unwrap() *Sequence {
 }
 
 // Consume unwraps the CachedObject and passes a type-casted version to the consumer. It automatically releases the
-// object when the consumer finishes and returns true of there was at least one object that was consumed.
+// object when the consumer finishes and returns true if there was at least one object that was consumed.
 func (c *CachedSequence) Consume(consumer func(sequence *Sequence), forceRelease ...bool) (consumed bool) {
 	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*Sequence))
