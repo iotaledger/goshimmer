@@ -37,4 +37,6 @@ type InputInfo struct {
 	Amount float64
 	// PledgeID is a map of mana types and the node to which the transaction that created the output pledges its mana type to.
 	PledgeID map[Type]identity.ID
+	// InputID is the input consumed.
+	InputID transaction.OutputID
 }

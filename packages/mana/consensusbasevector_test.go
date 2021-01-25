@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
@@ -652,4 +653,129 @@ func TestConsensusBaseManaVector_ToAndFromPersistable(t *testing.T) {
 		assert.NoError(t, err)
 	}
 	assert.Equal(t, bmv.(*ConsensusBaseManaVector).vector, restoredBmv.(*ConsensusBaseManaVector).vector)
+}
+
+func TestConsensusBaseManaVector_BuildPastBaseVector(t *testing.T) {
+	bmv, err := NewBaseManaVector(ConsensusMana)
+	assert.NoError(t, err)
+	var eventsLog []Event
+	emptyID := identity.ID{}
+
+	tx1Info := &TxInfo{
+		TimeStamp:     txTime,
+		TransactionID: transaction.RandomID(),
+		TotalBalance:  10.0,
+		PledgeID:      map[Type]identity.ID{ConsensusMana: inputPledgeID1},
+		InputInfos: []InputInfo{
+			{
+				TimeStamp: inputTime,
+				Amount:    10,
+				PledgeID:  map[Type]identity.ID{ConsensusMana: emptyID},
+			},
+		},
+	}
+
+	tx2Info := &TxInfo{
+		TimeStamp:     txTime.Add(1 * time.Hour),
+		TransactionID: transaction.RandomID(),
+		TotalBalance:  5.0,
+		PledgeID:      map[Type]identity.ID{ConsensusMana: inputPledgeID2},
+		InputInfos: []InputInfo{
+			{
+				TimeStamp: txTime,
+				Amount:    5,
+				PledgeID:  map[Type]identity.ID{ConsensusMana: inputPledgeID1},
+			},
+		},
+	}
+
+	tx3Info := &TxInfo{
+		TimeStamp:     txTime.Add(2 * time.Hour),
+		TransactionID: transaction.RandomID(),
+		TotalBalance:  10.0,
+		PledgeID:      map[Type]identity.ID{ConsensusMana: inputPledgeID3},
+		InputInfos: []InputInfo{
+			{
+				TimeStamp: txTime,
+				Amount:    5,
+				PledgeID:  map[Type]identity.ID{ConsensusMana: inputPledgeID1},
+			},
+			{
+				TimeStamp: txTime.Add(1 * time.Hour),
+				Amount:    5,
+				PledgeID:  map[Type]identity.ID{ConsensusMana: inputPledgeID2},
+			},
+		},
+	}
+
+	Events().Revoked.Attach(events.NewClosure(func(ev *RevokedEvent) {
+		eventsLog = append(eventsLog, ev)
+	}))
+	Events().Pledged.Attach(events.NewClosure(func(ev *PledgedEvent) {
+		eventsLog = append(eventsLog, ev)
+	}))
+
+	bmv.Book(tx1Info)
+	bmv.Book(tx2Info)
+	bmv.Book(tx3Info)
+
+	_pastBmv, err := NewBaseManaVector(ConsensusMana)
+	assert.NoError(t, err)
+	pastBmv := _pastBmv.(*ConsensusBaseManaVector)
+
+	// Trying to build past vector from empty event set should result in empty vector.
+	err = pastBmv.BuildPastBaseVector([]Event{}, txTime)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, pastBmv.Size())
+
+	// Build a vector from all events until latest tx, past and current vectors should be the
+	err = pastBmv.BuildPastBaseVector(eventsLog, txTime.Add(2*time.Hour))
+	assert.NoError(t, err)
+	IDs := []identity.ID{inputPledgeID1, inputPledgeID2, inputPledgeID3}
+	current := map[identity.ID]*ConsensusBaseMana{}
+	past := map[identity.ID]*ConsensusBaseMana{}
+	bmv.ForEach(func(ID identity.ID, mana BaseMana) bool {
+		current[ID] = mana.(*ConsensusBaseMana)
+		return true
+	})
+	pastBmv.ForEach(func(ID identity.ID, mana BaseMana) bool {
+		past[ID] = mana.(*ConsensusBaseMana)
+		return true
+	})
+
+	assert.Equal(t, len(current), len(past))
+	for _, ID := range IDs {
+		assert.Equal(t, *current[ID], *past[ID])
+	}
+
+	// time that is too old
+	var epoch time.Time
+	_pastBmv, err = NewBaseManaVector(ConsensusMana)
+	assert.NoError(t, err)
+	pastBmv = _pastBmv.(*ConsensusBaseManaVector)
+	err = pastBmv.BuildPastBaseVector(eventsLog, epoch)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, pastBmv.Size())
+
+	// partially consume logs
+	_pastBmv, err = NewBaseManaVector(ConsensusMana)
+	assert.NoError(t, err)
+	pastBmv = _pastBmv.(*ConsensusBaseManaVector)
+	err = pastBmv.BuildPastBaseVector(eventsLog, txTime.Add(90*time.Minute))
+	assert.NoError(t, err)
+
+	past = map[identity.ID]*ConsensusBaseMana{}
+	pastBmv.ForEach(func(ID identity.ID, mana BaseMana) bool {
+		past[ID] = mana.(*ConsensusBaseMana)
+		return true
+	})
+
+	assert.Equal(t, 2, len(past))
+	_, ok := past[inputPledgeID3]
+	assert.False(t, ok)
+
+	// start from a revoke event
+	err = bmv.(*ConsensusBaseManaVector).BuildPastBaseVector(eventsLog[1:], txTime.Add(3*time.Hour))
+	assert.NotNil(t, err)
+	assert.Equal(t, ErrBaseManaNegative, err)
 }

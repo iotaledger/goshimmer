@@ -83,7 +83,7 @@ func (w *WeightedBaseManaVector) Book(txInfo *TxInfo) {
 			panic(fmt.Sprintf("Revoking (%f) eff base mana 1 from node %s results in negative balance", inputInfo.Amount, pledgeNodeID.String()))
 		}
 		// trigger events
-		Events().Revoked.Trigger(&RevokedEvent{pledgeNodeID, inputInfo.Amount, txInfo.TimeStamp, w.Type(), txInfo.TransactionID})
+		Events().Revoked.Trigger(&RevokedEvent{pledgeNodeID, inputInfo.Amount, txInfo.TimeStamp, w.Type(), txInfo.TransactionID, inputInfo.InputID})
 		Events().Updated.Trigger(&UpdatedEvent{pledgeNodeID, &oldMana, w.vector[pledgeNodeID], w.Type()})
 	}
 	pledgeNodeID := txInfo.PledgeID[w.Target()]
@@ -139,12 +139,12 @@ func (w *WeightedBaseManaVector) GetMana(nodeID identity.ID) (float64, error) {
 }
 
 // GetManaMap returns mana perception of the node..
-func (w *WeightedBaseManaVector) GetManaMap() (NodeMap, error) {
+func (w *WeightedBaseManaVector) GetManaMap(update ...bool) (NodeMap, error) {
 	w.Lock()
 	defer w.Unlock()
 	res := make(map[identity.ID]float64)
 	for ID := range w.vector {
-		mana, err := w.getMana(ID)
+		mana, err := w.getMana(ID, update...)
 		if err != nil {
 			return nil, err
 		}
@@ -307,11 +307,13 @@ func (w *WeightedBaseManaVector) update(nodeID identity.ID, t time.Time) error {
 }
 
 // getMana returns the current effective mana value. Not concurrency safe.
-func (w *WeightedBaseManaVector) getMana(nodeID identity.ID) (float64, error) {
+func (w *WeightedBaseManaVector) getMana(nodeID identity.ID, update ...bool) (float64, error) {
 	if _, exist := w.vector[nodeID]; !exist {
 		return 0.0, ErrNodeNotFoundInBaseManaVector
 	}
-	_ = w.update(nodeID, time.Now())
+	if len(update) == 0 || update[0] {
+		_ = w.update(nodeID, time.Now())
+	}
 	baseMana := w.vector[nodeID]
 	return baseMana.EffectiveValue(), nil
 }

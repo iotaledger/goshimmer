@@ -17,4 +17,6 @@ var (
 	ErrInvalidWeightParameter = errors.New("invalid weight parameter, outside of [0,1]")
 	// ErrInvalidTargetManaType is returned if a research base mana vector can't handle the target mana type.
 	ErrInvalidTargetManaType = errors.New("invalid target mana type")
+	// ErrUnknownManaEvent is returned if mana event type could not be identified.
+	ErrUnknownManaEvent = errors.New("unknown mana event")
 )
