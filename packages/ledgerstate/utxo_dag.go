@@ -4,6 +4,7 @@ import (
 	"container/list"
 	"fmt"
 	"strconv"
+	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/hive.go/byteutils"
@@ -115,7 +116,7 @@ func (u *UTXODAG) lazyBookRejectedTransaction(transaction *Transaction, transact
 	transactionMetadata.SetSolid(true)
 	transactionMetadata.SetLazyBooked(true)
 
-	u.bookConsumers(inputsMetadata, transaction.ID(), false)
+	u.bookConsumers(inputsMetadata, transaction.ID(), types.Maybe)
 	u.bookOutputs(transaction, targetBranchID)
 }
 
@@ -125,24 +126,48 @@ func (u *UTXODAG) bookInvalidTransaction(transaction *Transaction, transactionMe
 	transactionMetadata.SetSolid(true)
 	transactionMetadata.SetFinalized(true)
 
-	u.bookConsumers(inputsMetadata, transaction.ID(), false)
+	u.bookConsumers(inputsMetadata, transaction.ID(), types.False)
 	u.bookOutputs(transaction, InvalidBranchID)
+}
+
+func (u *UTXODAG) bookNonConflictingTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata []*OutputMetadata, consumedBranchIDs BranchIDs) (err error) {
+	cachedAggregatedBranch, _, err := u.branchDAG.AggregateBranches(consumedBranchIDs)
+	if err != nil {
+		if !xerrors.Is(err, ErrInvalidStateTransition) {
+			err = xerrors.Errorf("failed to aggregate Branches when booking Transaction with %s: %w", transaction.ID(), err)
+			return
+		}
+
+		u.bookInvalidTransaction(transaction, transactionMetadata, inputsMetadata)
+		return
+	}
+	defer cachedAggregatedBranch.Release()
+
+	transactionMetadata.SetBranchID(cachedAggregatedBranch.ID())
+	transactionMetadata.SetSolid(true)
+
+	u.bookConsumers(inputsMetadata, transaction.ID(), types.True)
+	u.bookOutputs(transaction, cachedAggregatedBranch.ID())
+
+	return
 }
 
 // bookConsumers creates the Consumers reference between an Output and its spending Transaction. It increases the
 // ConsumerCount if the Transaction is a valid spend.
-func (u *UTXODAG) bookConsumers(inputsMetadata []*OutputMetadata, transactionID TransactionID, valid bool) {
+func (u *UTXODAG) bookConsumers(inputsMetadata []*OutputMetadata, transactionID TransactionID, valid types.TriBool) {
 	for _, inputMetadata := range inputsMetadata {
-		if valid {
+		if valid == types.True {
 			inputMetadata.RegisterConsumer(transactionID)
 		}
 
-		var x TriBool
-
 		newConsumer := NewConsumer(inputMetadata.ID(), transactionID, valid)
-		cachedConsumer := u.consumerStorage.ComputeIfAbsent(newConsumer.ObjectStorageKey(), func(key []byte) objectstorage.StorableObject {
+		if !(&CachedConsumer{CachedObject: u.consumerStorage.ComputeIfAbsent(newConsumer.ObjectStorageKey(), func(key []byte) objectstorage.StorableObject {
 			return newConsumer
-		})
+		})}).Consume(func(consumer *Consumer) {
+			consumer.SetValid(valid)
+		}) {
+			panic("failed to update valid flag of Consumer")
+		}
 
 	}
 }
@@ -170,6 +195,7 @@ func (u *UTXODAG) inputsSpentByConfirmedTransaction(inputsMetadata []*OutputMeta
 			for _, consumer := range consumers {
 				inclusionState, inclusionStateErr := u.InclusionState(consumer.TransactionID())
 				if inclusionStateErr != nil {
+					cachedConsumers.Release()
 					err = xerrors.Errorf("failed to determine InclusionState of Transaction with %s: %w", consumer.TransactionID(), inclusionStateErr)
 					return
 				}
@@ -183,6 +209,21 @@ func (u *UTXODAG) inputsSpentByConfirmedTransaction(inputsMetadata []*OutputMeta
 			cachedConsumers.Release()
 		}
 	}
+
+	return
+}
+
+func (u *UTXODAG) branchesOfInputsConflicting(inputsMetadata []*OutputMetadata) (conflictingInputs []ConflictID, consumedBranchIDs BranchIDs) {
+	conflictingInputs = make([]ConflictID, 0)
+	consumedBranchesSlice := make([]BranchID, len(inputsMetadata))
+	for i, inputMetadata := range inputsMetadata {
+		consumedBranchesSlice[i] = inputMetadata.BranchID()
+
+		if inputMetadata.ConsumerCount() >= 1 {
+			conflictingInputs = append(conflictingInputs, NewConflictID(inputMetadata.ID()))
+		}
+	}
+	consumedBranchIDs = NewBranchIDs(consumedBranchesSlice...)
 
 	return
 }
@@ -242,18 +283,20 @@ func (u *UTXODAG) BookTransaction(transaction *Transaction) (err error) {
 
 	// mark transaction as "permanently rejected"
 	if !u.inputsPastConeValid(inputs, inputsMetadata) {
-		u.lazyBookRejectedTransaction(transaction, transactionMetadata, inputsMetadata, InvalidBranchID)
+		u.bookInvalidTransaction(transaction, transactionMetadata, inputsMetadata)
 		return
 	}
 
-	consumedBranchesSlice := make([]BranchID, len(inputsMetadata))
-	for i, inputMetadata := range inputsMetadata {
-		consumedBranchesSlice[i] = inputMetadata.BranchID()
-		inputMetadata.ConsumerCount()
+	conflictingInputs, consumedBranchIDs := u.branchesOfInputsConflicting(inputsMetadata)
+	if len(conflictingInputs) >= 1 {
+		conflictIDs := NewConflictIDs(conflictingInputs...)
+		// book into ConflictBranch + Fork existing consumers
 	}
-	consumedBranches := NewBranchIDs(consumedBranchesSlice...)
 
-	u.branchDAG.AggregateBranches()
+	if err = u.bookNonConflictingTransaction(transaction, transactionMetadata, inputsMetadata, consumedBranchIDs); err != nil {
+		err = xerrors.Errorf("failed to book non-conflicting Transaction with %s: %w", transaction.ID(), err)
+		return
+	}
 
 	return
 }
@@ -699,13 +742,14 @@ func (c CachedAddressOutputMappings) String() string {
 type Consumer struct {
 	consumedInput OutputID
 	transactionID TransactionID
-	valid         bool
+	validMutex    sync.RWMutex
+	valid         types.TriBool
 
 	objectstorage.StorableObjectFlags
 }
 
 // NewConsumer creates a Consumer object from the given information.
-func NewConsumer(consumedInput OutputID, transactionID TransactionID, valid bool) *Consumer {
+func NewConsumer(consumedInput OutputID, transactionID TransactionID, valid types.TriBool) *Consumer {
 	return &Consumer{
 		consumedInput: consumedInput,
 		transactionID: transactionID,
@@ -736,7 +780,7 @@ func ConsumerFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (consumer *Co
 		err = xerrors.Errorf("failed to parse TransactionID from MarshalUtil: %w", err)
 		return
 	}
-	if consumer.valid, err = marshalUtil.ReadBool(); err != nil {
+	if consumer.valid, err = types.TriBoolFromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse valid flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
@@ -766,8 +810,27 @@ func (c *Consumer) TransactionID() TransactionID {
 }
 
 // Valid returns a flag that indicates if the spending Transaction is valid or not.
-func (c *Consumer) Valid() (valid bool) {
+func (c *Consumer) Valid() (valid types.TriBool) {
+	c.validMutex.RLock()
+	defer c.validMutex.RUnlock()
+
 	return c.valid
+}
+
+// SetValid updates the valid flag of the Consumer and returns true if the value was changed.
+func (c *Consumer) SetValid(valid types.TriBool) (updated bool) {
+	c.validMutex.Lock()
+	defer c.validMutex.Unlock()
+
+	if valid == c.valid {
+		return
+	}
+
+	c.valid = valid
+	c.SetModified()
+	updated = true
+
+	return
 }
 
 // Bytes marshals the Consumer into a sequence of bytes.
@@ -798,7 +861,7 @@ func (c *Consumer) ObjectStorageKey() []byte {
 // storage.
 func (c *Consumer) ObjectStorageValue() []byte {
 	return marshalutil.New(marshalutil.BoolSize).
-		WriteBool(c.valid).
+		Write(c.Valid()).
 		Bytes()
 }
 
