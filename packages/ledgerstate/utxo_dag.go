@@ -84,6 +84,44 @@ func (u *UTXODAG) inputsRejected(inputsMetadata []*OutputMetadata) (rejected boo
 	return
 }
 
+func (u *UTXODAG) lazyBookConflictingTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata []*OutputMetadata) (err error) {
+	cachedConflictBranch, _, conflictBranchErr := u.branchDAG.CreateConflictBranch(NewBranchID(transaction.ID()), NewBranchIDs(RejectedBranchID), nil)
+	if conflictBranchErr != nil {
+		err = xerrors.Errorf("failed to create ConflictBranch for lazy booked Transaction with %s: %w", transaction.ID(), conflictBranchErr)
+		return
+	}
+	defer cachedConflictBranch.Release()
+
+	conflictBranch := cachedConflictBranch.Unwrap()
+	if conflictBranch == nil {
+		err = xerrors.Errorf("failed to unwrap ConflictBranch with %s: %w", cachedConflictBranch.ID(), cerrors.ErrFatal)
+		return
+	}
+	conflictBranch.SetLiked(false)
+	conflictBranch.SetFinalized(true)
+
+	u.lazyBookRejectedTransaction(transaction, transactionMetadata, inputsMetadata, conflictBranch.ID())
+
+	return
+}
+
+func (u *UTXODAG) lazyBookRejectedTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata []*OutputMetadata, targetBranchID BranchID) {
+	transactionMetadata.SetBranchID(targetBranchID)
+	transactionMetadata.SetLazyBooked(true)
+
+	u.bookConsumers(inputsMetadata, transaction.ID())
+
+	u.lazyBookOutputs(transaction, targetBranchID)
+}
+
+// TODO: RETURN WHICH INPUTS ARE CONFLICTING
+func (u *UTXODAG) bookConsumers(inputsMetadata []*OutputMetadata, transactionID TransactionID) {
+	for _, inputMetadata := range inputsMetadata {
+		inputMetadata.RegisterConsumer(transactionID)
+		u.consumerStorage.Store(NewConsumer(inputMetadata.ID(), transactionID)).Release()
+	}
+}
+
 func (u *UTXODAG) lazyBookOutputs(transaction *Transaction, targetBranch BranchID) {
 	for outputIndex, output := range transaction.Essence().Outputs() {
 		// store Output
@@ -161,10 +199,7 @@ func (u *UTXODAG) BookTransaction(transaction *Transaction) (err error) {
 
 	// check if transaction is attaching to something rejected
 	if rejected, targetBranch := u.inputsRejected(inputsMetadata); rejected {
-		transactionMetadata.SetBranchID(targetBranch)
-		transactionMetadata.SetLazyBooked(true)
-
-		u.lazyBookOutputs(transaction, targetBranch)
+		u.lazyBookRejectedTransaction(transaction, transactionMetadata, inputsMetadata, targetBranch)
 	}
 
 	// check if any Input was spent by a confirmed Transaction already
@@ -172,25 +207,7 @@ func (u *UTXODAG) BookTransaction(transaction *Transaction) (err error) {
 		err = xerrors.Errorf("failed to check if inputs were spent by confirmed Transaction: %w", err)
 		return
 	} else if inputsSpentByConfirmedTransaction {
-		cachedConflictBranch, _, conflictBranchErr := u.branchDAG.CreateConflictBranch(NewBranchID(transaction.ID()), NewBranchIDs(RejectedBranchID), nil)
-		if conflictBranchErr != nil {
-			err = xerrors.Errorf("failed to create ConflictBranch for lazy booked Transaction with %s: %w", transaction.ID(), conflictBranchErr)
-			return
-		}
-		defer cachedConflictBranch.Release()
-
-		conflictBranch := cachedConflictBranch.Unwrap()
-		if conflictBranch == nil {
-			err = xerrors.Errorf("failed to unwrap ConflictBranch with %s: %w", cachedConflictBranch.ID(), cerrors.ErrFatal)
-			return
-		}
-		conflictBranch.SetLiked(false)
-		conflictBranch.SetFinalized(true)
-
-		transactionMetadata.SetBranchID(conflictBranch.ID())
-		transactionMetadata.SetLazyBooked(true)
-
-		u.lazyBookOutputs(transaction, conflictBranch.ID())
+		err = u.lazyBookConflictingTransaction(transaction, transactionMetadata, inputsMetadata)
 	}
 
 	// perform more expensive checks
