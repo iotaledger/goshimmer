@@ -130,15 +130,10 @@ func (u *UTXODAG) bookInvalidTransaction(transaction *Transaction, transactionMe
 	u.bookOutputs(transaction, InvalidBranchID)
 }
 
-func (u *UTXODAG) bookNonConflictingTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata []*OutputMetadata, consumedBranchIDs BranchIDs) (err error) {
-	cachedAggregatedBranch, _, err := u.branchDAG.AggregateBranches(consumedBranchIDs)
+func (u *UTXODAG) bookNonConflictingTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata []*OutputMetadata, normalizedBranchIDs BranchIDs) (err error) {
+	cachedAggregatedBranch, _, err := u.branchDAG.aggregateNormalizedBranches(normalizedBranchIDs)
 	if err != nil {
-		if !xerrors.Is(err, ErrInvalidStateTransition) {
-			err = xerrors.Errorf("failed to aggregate Branches when booking Transaction with %s: %w", transaction.ID(), err)
-			return
-		}
-
-		u.bookInvalidTransaction(transaction, transactionMetadata, inputsMetadata)
+		err = xerrors.Errorf("failed to aggregate Branches when booking Transaction with %s: %w", transaction.ID(), err)
 		return
 	}
 	defer cachedAggregatedBranch.Release()
@@ -213,17 +208,28 @@ func (u *UTXODAG) inputsSpentByConfirmedTransaction(inputsMetadata []*OutputMeta
 	return
 }
 
-func (u *UTXODAG) branchesOfInputsConflicting(inputsMetadata []*OutputMetadata) (conflictingInputs []ConflictID, consumedBranchIDs BranchIDs) {
+func (u *UTXODAG) determineBookingDetails(inputsMetadata []*OutputMetadata) (branchesOfInputsConflicting bool, normalizedBranchIDs BranchIDs, conflictingInputs []ConflictID, err error) {
 	conflictingInputs = make([]ConflictID, 0)
-	consumedBranchesSlice := make([]BranchID, len(inputsMetadata))
+	consumedBranches := make([]BranchID, len(inputsMetadata))
 	for i, inputMetadata := range inputsMetadata {
-		consumedBranchesSlice[i] = inputMetadata.BranchID()
+		consumedBranches[i] = inputMetadata.BranchID()
 
 		if inputMetadata.ConsumerCount() >= 1 {
 			conflictingInputs = append(conflictingInputs, NewConflictID(inputMetadata.ID()))
 		}
 	}
-	consumedBranchIDs = NewBranchIDs(consumedBranchesSlice...)
+
+	normalizedBranchIDs, err = u.branchDAG.normalizeBranches(NewBranchIDs(consumedBranches...))
+	if err != nil {
+		if xerrors.Is(err, ErrInvalidStateTransition) {
+			branchesOfInputsConflicting = true
+			err = nil
+			return
+		}
+
+		err = xerrors.Errorf("failed to normalize branches: %w", cerrors.ErrFatal)
+		return
+	}
 
 	return
 }
@@ -287,13 +293,25 @@ func (u *UTXODAG) BookTransaction(transaction *Transaction) (err error) {
 		return
 	}
 
-	conflictingInputs, consumedBranchIDs := u.branchesOfInputsConflicting(inputsMetadata)
+	// determine the booking details before we book
+	branchesOfInputsConflicting, normalizedBranchIDs, conflictingInputs, err := u.determineBookingDetails(inputsMetadata)
+	if err != nil {
+		err = xerrors.Errorf("failed to determine book details of Transaction with %s: %w", transaction.ID(), err)
+		return
+	}
+
+	// are branches of inputs conflicting
+	if branchesOfInputsConflicting {
+		u.bookInvalidTransaction(transaction, transactionMetadata, inputsMetadata)
+		return
+	}
+
 	if len(conflictingInputs) >= 1 {
 		conflictIDs := NewConflictIDs(conflictingInputs...)
 		// book into ConflictBranch + Fork existing consumers
 	}
 
-	if err = u.bookNonConflictingTransaction(transaction, transactionMetadata, inputsMetadata, consumedBranchIDs); err != nil {
+	if err = u.bookNonConflictingTransaction(transaction, transactionMetadata, inputsMetadata, normalizedBranchIDs); err != nil {
 		err = xerrors.Errorf("failed to book non-conflicting Transaction with %s: %w", transaction.ID(), err)
 		return
 	}
