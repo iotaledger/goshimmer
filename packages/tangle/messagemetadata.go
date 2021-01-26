@@ -19,11 +19,13 @@ type MessageMetadata struct {
 	receivedTime       time.Time
 	solid              bool
 	solidificationTime time.Time
+	timestampOpinion   TimestampOpinion
 	booked             bool
 	eligible           bool
 
 	solidMutex              sync.RWMutex
 	solidificationTimeMutex sync.RWMutex
+	timestampOpinionMutex   sync.RWMutex
 	bookedMutex             sync.RWMutex
 	eligibleMutex           sync.RWMutex
 }
@@ -62,11 +64,19 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 		return
 	}
 	if result.solid, err = marshalUtil.ReadBool(); err != nil {
-		err = fmt.Errorf("failed to parse 'solid' of message metadata: %w", err)
+		err = fmt.Errorf("failed to parse solid flag of message metadata: %w", err)
+		return
+	}
+	if result.timestampOpinion, err = TimestampOpinionFromMarshalUtil(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse timestampOpinion of message metadata: %w", err)
 		return
 	}
 	if result.eligible, err = marshalUtil.ReadBool(); err != nil {
-		err = fmt.Errorf("failed to parse 'eligible' of message metadata: %w", err)
+		err = fmt.Errorf("failed to parse eligble flag of message metadata: %w", err)
+		return
+	}
+	if result.booked, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse booked flag of message metadata: %w", err)
 		return
 	}
 
@@ -174,6 +184,35 @@ func (m *MessageMetadata) SetBooked(booked bool) (modified bool) {
 	return
 }
 
+// TimestampOpinion returns the timestampOpinion of the given message metadata.
+func (m *MessageMetadata) TimestampOpinion() (timestampOpinion TimestampOpinion) {
+	m.timestampOpinionMutex.RLock()
+	defer m.timestampOpinionMutex.RUnlock()
+	return m.timestampOpinion
+}
+
+// SetTimestampOpinion sets the timestampOpinion flag.
+// It returns true if the timestampOpinion flag is modified. False otherwise.
+func (m *MessageMetadata) SetTimestampOpinion(timestampOpinion TimestampOpinion) (modified bool) {
+	m.timestampOpinionMutex.RLock()
+	if !m.timestampOpinion.Equal(timestampOpinion) {
+		m.timestampOpinionMutex.RUnlock()
+
+		m.timestampOpinionMutex.Lock()
+		if !m.timestampOpinion.Equal(timestampOpinion) {
+			m.timestampOpinion = timestampOpinion
+			m.SetModified()
+			modified = true
+		}
+		m.timestampOpinionMutex.Unlock()
+
+	} else {
+		m.timestampOpinionMutex.RUnlock()
+	}
+
+	return
+}
+
 // SetEligible sets the message associated with this metadata as eligible.
 // It returns true if the eligible status is modified. False otherwise.
 func (m *MessageMetadata) SetEligible(eligible bool) (modified bool) {
@@ -215,7 +254,9 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 		WriteTime(m.ReceivedTime()).
 		WriteTime(m.SolidificationTime()).
 		WriteBool(m.IsSolid()).
+		WriteBytes(m.TimestampOpinion().Bytes()).
 		WriteBool(m.IsEligible()).
+		WriteBool(m.IsBooked()).
 		Bytes()
 }
 

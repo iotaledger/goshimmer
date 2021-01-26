@@ -219,9 +219,9 @@ func AwaitTransactionToBeBooked(f func() (*tangle.Message, error), txID transact
 	var err error
 	var msg *tangle.Message
 
-	go func(*tangle.Message, *error) {
+	go func(*tangle.Message, error) {
 		msg, err = f()
-	}(msg, &err)
+	}(msg, err)
 
 	booked := make(chan struct{}, 1)
 	// exit is used to let the caller exit if for whatever
