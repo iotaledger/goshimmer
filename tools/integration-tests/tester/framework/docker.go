@@ -111,6 +111,7 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 				return fmt.Sprintf("--faucet.seed=%s", genesisSeedBase58)
 			}(),
 			fmt.Sprintf("--faucet.tokensPerRequest=%d", ParaFaucetTokensPerRequest),
+			fmt.Sprintf("--faucet.preparedOutputsCounts=%d", config.FaucetPreparedOutputsCount),
 			fmt.Sprintf("--valueLayer.snapshot.file=%s", config.SnapshotFilePath),
 			"--webapi.bindAddress=0.0.0.0:8080",
 			fmt.Sprintf("--autopeering.seed=base58:%s", config.Seed),

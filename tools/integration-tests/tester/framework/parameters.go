@@ -66,7 +66,8 @@ type GoShimmerConfig struct {
 	DRNGInstance  int
 	DRNGThreshold int
 
-	Faucet bool
+	Faucet                     bool
+	FaucetPreparedOutputsCount int
 
 	SyncBeacon                  bool
 	SyncBeaconFollower          bool

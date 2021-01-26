@@ -10,30 +10,39 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestMoveAllFunds checks that the faucet moves all funds to its next address on startup.
-func TestMoveAllFunds(t *testing.T) {
+// Tests that the faucet splits genesis funds to CfgFaucetPreparedOutputsCount outputs.
+func TestPrepareGenesis(t *testing.T) {
 	prevPoWDiff := framework.ParaPoWDifficulty
 	framework.ParaPoWDifficulty = 0
 	defer func() {
 		framework.ParaPoWDifficulty = prevPoWDiff
 	}()
-	n, err := f.CreateNetwork("faucet_TestMoveAllFunds", 1, 0, framework.CreateNetworkConfig{Faucet: true})
+	n, err := f.CreateNetwork("faucet_testPrepareGenesis", 0, 0, framework.CreateNetworkConfig{Faucet: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
-	// wait for faucet to send initial tx.
-	time.Sleep(5 * time.Second)
-
-	facuetPeer := n.Peers()[0]
-	addr1 := facuetPeer.Seed.Address(0).String()
-	unspentOutputs1, err := facuetPeer.GetUnspentOutputs([]string{addr1})
+	faucet, err := n.CreatePeer(framework.GoShimmerConfig{
+		Faucet:                     true,
+		Mana:                       true,
+		FaucetPreparedOutputsCount: 10,
+		SyncBeacon:                 true,
+	})
 	require.NoError(t, err)
-	assert.Equal(t, 0, len(unspentOutputs1.UnspentOutputs[0].OutputIDs))
+	time.Sleep(10 * time.Second)
 
 	const genesisBalance = int64(1000000000)
-	addr2 := facuetPeer.Seed.Address(1).String()
-	unspentOutputs2, err := facuetPeer.GetUnspentOutputs([]string{addr2})
+	var totalSplit int64
+	var i uint64
+	for i = 1; i <= 10; i++ {
+		addr := faucet.Seed.Address(i).String()
+		outputs, err := faucet.GetUnspentOutputs([]string{addr})
+		require.NoError(t, err)
+		assert.Equal(t, framework.ParaFaucetTokensPerRequest, outputs.UnspentOutputs[0].OutputIDs[0].Balances[0].Value)
+		totalSplit += framework.ParaFaucetTokensPerRequest
+	}
+	balance := genesisBalance - totalSplit
+	addr := faucet.Seed.Address(i).String()
+	outputs, err := faucet.GetUnspentOutputs([]string{addr})
 	require.NoError(t, err)
-	assert.Equal(t, genesisBalance, unspentOutputs2.UnspentOutputs[0].OutputIDs[0].Balances[0].Value)
-
+	assert.Equal(t, balance, outputs.UnspentOutputs[0].OutputIDs[0].Balances[0].Value)
 }
