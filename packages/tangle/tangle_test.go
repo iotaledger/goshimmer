@@ -389,7 +389,7 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 
 		// issue the payload
 		if invalidTS {
-			msg, err = msgFactory.IssueInvalidTsPayload(payload.NewGenericDataPayload([]byte("0")))
+			msg, err = msgFactory.issueInvalidTsPayload(payload.NewGenericDataPayload([]byte("0")))
 		} else {
 			msg, err = msgFactory.IssuePayload(payload.NewGenericDataPayload([]byte("0")))
 		}
@@ -534,7 +534,7 @@ func newTangle(store kvstore.KVStore) *Tangle {
 }
 
 // IssueInvalidTsPayload creates a new message including sequence number and tip selection and returns it.
-func (f *MessageFactory) IssueInvalidTsPayload(p payload.Payload, t ...*Tangle) (*Message, error) {
+func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, t ...*Tangle) (*Message, error) {
 	payloadLen := len(p.Bytes())
 	if payloadLen > payload.MaxSize {
 		err := fmt.Errorf("maximum payload size of %d bytes exceeded", payloadLen)
