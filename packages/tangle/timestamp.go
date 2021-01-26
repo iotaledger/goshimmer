@@ -9,7 +9,7 @@ import (
 	"golang.org/x/xerrors"
 )
 
-// LevelOfKnowledge defines the Leve lOf Knowledge type.
+// LevelOfKnowledge defines the Level Of Knowledge type.
 type LevelOfKnowledge = uint8
 
 // The different levels of knowledge.

@@ -195,7 +195,7 @@ func (m *MessageMetadata) TimestampOpinion() (timestampOpinion TimestampOpinion)
 // It returns true if the timestampOpinion flag is modified. False otherwise.
 func (m *MessageMetadata) SetTimestampOpinion(timestampOpinion TimestampOpinion) (modified bool) {
 	m.timestampOpinionMutex.RLock()
-	if m.timestampOpinion != timestampOpinion {
+	if !m.timestampOpinion.Equal(timestampOpinion) {
 		m.timestampOpinionMutex.RUnlock()
 
 		m.timestampOpinionMutex.Lock()
