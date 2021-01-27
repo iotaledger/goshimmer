@@ -326,13 +326,15 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 		testPort    = 8000
 		targetPOW   = 2
 
-		messageCount = 20000
-		tangleWidth  = 250
-		networkDelay = 5 * time.Millisecond
+		solidMsgCount   = 20000
+		invalidMsgCount = 10
+		tangleWidth     = 250
+		networkDelay    = 5 * time.Millisecond
 	)
 
 	var (
-		testWorker = pow.New(crypto.BLAKE2b_512, 1)
+		totalMsgCount = solidMsgCount + invalidMsgCount
+		testWorker    = pow.New(crypto.BLAKE2b_512, 1)
 		// same as gossip manager
 		messageWorkerCount     = runtime.GOMAXPROCS(0) * 4
 		messageWorkerQueueSize = 1000
@@ -372,7 +374,8 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 			return parents
 		}),
 	)
-	//msgFactory.SetWorker(tangle.WorkerFunc(DoPOW))
+
+	// PoW workers
 	msgFactory.SetWorker(WorkerFunc(func(msgBytes []byte) (uint64, error) {
 		content := msgBytes[:len(msgBytes)-ed25519.SignatureSize-8]
 		return testWorker.Mine(context.Background(), content, targetPOW)
@@ -380,9 +383,16 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 	defer msgFactory.Shutdown()
 
 	// create a helper function that creates the messages
-	createNewMessage := func() *Message {
+	createNewMessage := func(invalidTS bool) *Message {
+		var msg *Message
+		var err error
+
 		// issue the payload
-		msg, err := msgFactory.IssuePayload(payload.NewGenericDataPayload([]byte("0")))
+		if invalidTS {
+			msg, err = msgFactory.issueInvalidTsPayload(payload.NewGenericDataPayload([]byte("0")))
+		} else {
+			msg, err = msgFactory.IssuePayload(payload.NewGenericDataPayload([]byte("0")))
+		}
 		require.NoError(t, err)
 
 		// remove a tip if the width of the tangle is reached
@@ -392,8 +402,10 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 		}
 
 		// add current message as a tip
-		tips.Set(msg.ID(), msg.ID())
-
+		// only valid message will be in the tip set
+		if !invalidTS {
+			tips.Set(msg.ID(), msg.ID())
+		}
 		// return the constructed message
 		return msg
 	}
@@ -415,10 +427,17 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 	require.NoError(t, tangle.Prune())
 
 	// generate the messages we want to solidify
-	messages := make(map[MessageID]*Message, messageCount)
-	for i := 0; i < messageCount; i++ {
-		msg := createNewMessage()
+	messages := make(map[MessageID]*Message, solidMsgCount)
+	for i := 0; i < solidMsgCount; i++ {
+		msg := createNewMessage(false)
 		messages[msg.ID()] = msg
+	}
+
+	// generate the invalid timestamp messages
+	invalidmsgs := make(map[MessageID]*Message, invalidMsgCount)
+	for i := 0; i < invalidMsgCount; i++ {
+		msg := createNewMessage(true)
+		invalidmsgs[msg.ID()] = msg
 	}
 
 	// counter for the different stages
@@ -434,23 +453,33 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 	// filter rejected events
 	msgParser.Events.MessageRejected.Attach(events.NewClosure(func(msgRejectedEvent *MessageRejectedEvent, _ error) {
 		n := atomic.AddInt32(&rejectedMessages, 1)
-		t.Logf("rejected by message filter messages %d/%d", n, messageCount)
+		t.Logf("rejected by message filter messages %d/%d", n, totalMsgCount)
 	}))
 
 	msgParser.Events.MessageParsed.Attach(events.NewClosure(func(msgParsedEvent *MessageParsedEvent) {
 		n := atomic.AddInt32(&parsedMessages, 1)
-		t.Logf("parsed messages %d/%d", n, messageCount)
+		t.Logf("parsed messages %d/%d", n, totalMsgCount)
 
 		tangle.StoreMessage(msgParsedEvent.Message)
 	}))
 
 	// message invalid events
+	invalidSeen := make(map[MessageID]bool)
 	tangle.Events.MessageInvalid.Attach(events.NewClosure(func(cachedMsgEvent *CachedMessageEvent) {
-		cachedMsgEvent.MessageMetadata.Release()
-		cachedMsgEvent.Message.Release()
+		defer cachedMsgEvent.MessageMetadata.Release()
+		defer cachedMsgEvent.Message.Release()
+
+		msg := cachedMsgEvent.Message.Unwrap()
+		_, ok := invalidSeen[msg.ID()]
+		if ok {
+			// avoid increasing the counter for seen invalid messages
+			// this check can be removed when message store cleaner is implemented.
+			return
+		}
+		invalidSeen[msg.ID()] = true
 
 		n := atomic.AddInt32(&invalidMessages, 1)
-		t.Logf("invalid messages %d/%d", n, messageCount)
+		t.Logf("invalid messages %d/%d", n, totalMsgCount)
 	}))
 
 	tangle.MessageStore.Events.MessageStored.Attach(events.NewClosure(func(event *CachedMessageEvent) {
@@ -458,7 +487,7 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 		defer event.MessageMetadata.Release()
 
 		n := atomic.AddInt32(&storedMessages, 1)
-		t.Logf("stored messages %d/%d", n, messageCount)
+		t.Logf("stored messages %d/%d", n, totalMsgCount)
 	}))
 
 	// increase the counter when a missing message was detected
@@ -486,15 +515,19 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 	}))
 
 	// issue tips to start solidification
-	//tips.ForEach(func(key interface{}, _ interface{}) { msgParser.Parse(messages[key.(MessageID)].Bytes(), localPeer) })
 	tips.ForEach(func(key interface{}, _ interface{}) { inboxWP.TrySubmit(messages[key.(MessageID)].Bytes(), localPeer) })
+	// incoming invalid messages
+	for _, msg := range invalidmsgs {
+		inboxWP.TrySubmit(msg.Bytes(), localPeer)
+	}
 
 	// wait for all transactions to become solid
-	assert.Eventually(t, func() bool { return atomic.LoadInt32(&solidMessages) == messageCount }, 5*time.Minute, 100*time.Millisecond)
+	assert.Eventually(t, func() bool { return atomic.LoadInt32(&solidMessages) == solidMsgCount }, 5*time.Minute, 100*time.Millisecond)
 
-	assert.EqualValues(t, messageCount, atomic.LoadInt32(&solidMessages))
-	assert.EqualValues(t, messageCount, atomic.LoadInt32(&storedMessages))
-	assert.EqualValues(t, messageCount, atomic.LoadInt32(&parsedMessages))
+	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&solidMessages))
+	assert.EqualValues(t, totalMsgCount, atomic.LoadInt32(&storedMessages))
+	assert.EqualValues(t, totalMsgCount, atomic.LoadInt32(&parsedMessages))
+	assert.EqualValues(t, invalidMsgCount, atomic.LoadInt32(&invalidMessages))
 	assert.EqualValues(t, 0, atomic.LoadInt32(&missingMessages))
 }
 
@@ -508,4 +541,51 @@ func newTangle(store kvstore.KVStore) *Tangle {
 	}))
 
 	return tangle
+}
+
+// IssueInvalidTsPayload creates a new message including sequence number and tip selection and returns it.
+func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, t ...*Tangle) (*Message, error) {
+	payloadLen := len(p.Bytes())
+	if payloadLen > payload.MaxSize {
+		err := fmt.Errorf("maximum payload size of %d bytes exceeded", payloadLen)
+		f.Events.Error.Trigger(err)
+		return nil, err
+	}
+
+	f.issuanceMutex.Lock()
+	defer f.issuanceMutex.Unlock()
+	sequenceNumber, err := f.sequence.Next()
+	if err != nil {
+		err = fmt.Errorf("could not create sequence number: %w", err)
+		f.Events.Error.Trigger(err)
+		return nil, err
+	}
+
+	strongParents := f.selector.Tips(2)
+	weakParents := make([]MessageID, 0)
+	issuingTime := time.Now().Add(15 * time.Minute)
+	issuerPublicKey := f.localIdentity.PublicKey()
+
+	// do the PoW
+	nonce, err := f.doPOW(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p)
+	if err != nil {
+		err = fmt.Errorf("pow failed: %w", err)
+		f.Events.Error.Trigger(err)
+		return nil, err
+	}
+
+	// create the signature
+	signature := f.sign(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
+
+	msg := NewMessage(
+		strongParents,
+		weakParents,
+		issuingTime,
+		issuerPublicKey,
+		sequenceNumber,
+		p,
+		nonce,
+		signature,
+	)
+	return msg, nil
 }
