@@ -10,6 +10,55 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestInputsInRejectedBranch(t *testing.T) {
+	branchDAG, utxoDAG := setupDependencies(t)
+	defer branchDAG.Shutdown()
+	wallets := createWallets(2)
+	input := generateOutput(utxoDAG, wallets[0].address)
+	tx, _ := makeSimpleTransaction(utxoDAG, wallets[0], wallets[1], input, true)
+	cachedRejectedBranch, _ := branchDAG.branchStorage.StoreIfAbsent(NewConflictBranch(NewBranchID(tx.ID()), nil, nil))
+
+	(&CachedBranch{CachedObject: cachedRejectedBranch}).Consume(func(branch Branch) {
+		branch.SetPreferred(false)
+		branch.SetLiked(false)
+		branch.SetFinalized(true)
+		branch.SetInclusionState(Rejected)
+	})
+
+	outputsMetadata := []*OutputMetadata{
+		{
+			branchID: MasterBranchID,
+		},
+		{
+			branchID: NewBranchID(tx.ID()),
+		},
+	}
+
+	rejected, rejectedBranch := utxoDAG.inputsInRejectedBranch(outputsMetadata)
+	assert.True(t, rejected)
+	assert.Equal(t, NewBranchID(tx.ID()), rejectedBranch)
+
+	rejected, rejectedBranch = utxoDAG.inputsInRejectedBranch(outputsMetadata[:1])
+	assert.False(t, rejected)
+	assert.Equal(t, MasterBranchID, rejectedBranch)
+}
+
+func TestInputsInInvalidBranch(t *testing.T) {
+	branchDAG, utxoDAG := setupDependencies(t)
+	defer branchDAG.Shutdown()
+
+	outputsMetadata := []*OutputMetadata{
+		{
+			branchID: InvalidBranchID,
+		},
+		{
+			branchID: MasterBranchID,
+		},
+	}
+
+	assert.True(t, utxoDAG.inputsInInvalidBranch(outputsMetadata))
+	assert.False(t, utxoDAG.inputsInInvalidBranch(outputsMetadata[1:]))
+}
 func TestTransactionInputs(t *testing.T) {
 	branchDAG, utxoDAG := setupDependencies(t)
 	defer branchDAG.Shutdown()
@@ -27,7 +76,7 @@ func TestTransactionInputs(t *testing.T) {
 	cachedInputs.Release(true)
 
 	// testing when not storing the inputs
-	tx, output = makeSimpleTransaction(utxoDAG, wallets[1], wallets[0], output, false)
+	tx, _ = makeSimpleTransaction(utxoDAG, wallets[1], wallets[0], output, false)
 	cachedInputs = utxoDAG.transactionInputs(tx)
 	inputs = cachedInputs.Unwrap()
 
@@ -53,7 +102,7 @@ func TestInputsSolid(t *testing.T) {
 	cachedInputs.Release()
 
 	// testing when not storing the inputs
-	tx, output = makeSimpleTransaction(utxoDAG, wallets[1], wallets[0], output, false)
+	tx, _ = makeSimpleTransaction(utxoDAG, wallets[1], wallets[0], output, false)
 	cachedInputs = utxoDAG.transactionInputs(tx)
 	inputs = cachedInputs.Unwrap()
 
