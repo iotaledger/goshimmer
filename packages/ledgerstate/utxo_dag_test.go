@@ -10,6 +10,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestOutputsUnspent(t *testing.T) {
+	branchDAG, utxoDAG := setupDependencies(t)
+	defer branchDAG.Shutdown()
+
+	outputsMetadata := []*OutputMetadata{
+		{
+			consumerCount: 0,
+		},
+		{
+			consumerCount: 1,
+		},
+	}
+
+	assert.False(t, utxoDAG.outputsUnspent(outputsMetadata))
+	assert.True(t, utxoDAG.outputsUnspent(outputsMetadata[:1]))
+}
+
 func TestInputsInRejectedBranch(t *testing.T) {
 	branchDAG, utxoDAG := setupDependencies(t)
 	defer branchDAG.Shutdown()
