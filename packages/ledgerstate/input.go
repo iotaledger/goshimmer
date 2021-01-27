@@ -125,7 +125,7 @@ func NewInputs(optionalInputs ...Input) (inputs Inputs) {
 		}{input, marshaledInput})
 	}
 
-	// sort transactionInputs
+	// sort inputs
 	sort.Slice(sortedInputs, func(i, j int) bool {
 		return bytes.Compare(sortedInputs[i].inputSerialized, sortedInputs[j].inputSerialized) < 0
 	})
@@ -155,7 +155,7 @@ func InputsFromBytes(inputBytes []byte) (inputs Inputs, consumedBytes int, err e
 func InputsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (inputs Inputs, err error) {
 	inputsCount, err := marshalUtil.ReadUint16()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse transactionInputs count (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse inputs count (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 

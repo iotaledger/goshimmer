@@ -59,7 +59,7 @@ func TestInputsInInvalidBranch(t *testing.T) {
 	assert.True(t, utxoDAG.inputsInInvalidBranch(outputsMetadata))
 	assert.False(t, utxoDAG.inputsInInvalidBranch(outputsMetadata[1:]))
 }
-func TestTransactionInputs(t *testing.T) {
+func TestConsumedOutputs(t *testing.T) {
 	branchDAG, utxoDAG := setupDependencies(t)
 	defer branchDAG.Shutdown()
 
@@ -68,7 +68,7 @@ func TestTransactionInputs(t *testing.T) {
 
 	// testing when storing the inputs
 	tx, output := makeSimpleTransaction(utxoDAG, wallets[0], wallets[1], input, true)
-	cachedInputs := utxoDAG.transactionInputs(tx)
+	cachedInputs := utxoDAG.consumedOutputs(tx)
 	inputs := cachedInputs.Unwrap()
 
 	assert.Equal(t, input, inputs[0])
@@ -77,7 +77,7 @@ func TestTransactionInputs(t *testing.T) {
 
 	// testing when not storing the inputs
 	tx, _ = makeSimpleTransaction(utxoDAG, wallets[1], wallets[0], output, false)
-	cachedInputs = utxoDAG.transactionInputs(tx)
+	cachedInputs = utxoDAG.consumedOutputs(tx)
 	inputs = cachedInputs.Unwrap()
 
 	assert.Equal(t, nil, inputs[0])
@@ -94,7 +94,7 @@ func TestInputsSolid(t *testing.T) {
 
 	// testing when storing the inputs
 	tx, output := makeSimpleTransaction(utxoDAG, wallets[0], wallets[1], input, true)
-	cachedInputs := utxoDAG.transactionInputs(tx)
+	cachedInputs := utxoDAG.consumedOutputs(tx)
 	inputs := cachedInputs.Unwrap()
 
 	assert.True(t, utxoDAG.inputsSolid(inputs))
@@ -103,7 +103,7 @@ func TestInputsSolid(t *testing.T) {
 
 	// testing when not storing the inputs
 	tx, _ = makeSimpleTransaction(utxoDAG, wallets[1], wallets[0], output, false)
-	cachedInputs = utxoDAG.transactionInputs(tx)
+	cachedInputs = utxoDAG.consumedOutputs(tx)
 	inputs = cachedInputs.Unwrap()
 
 	assert.False(t, utxoDAG.inputsSolid(inputs))

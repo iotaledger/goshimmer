@@ -1191,6 +1191,7 @@ var _ objectstorage.StorableObject = &OutputMetadata{}
 // OutputsMetadata represents a list of OutputMetadata objects.
 type OutputsMetadata []*OutputMetadata
 
+// OutputIDs returns the OutputIDs of the Outputs in the list.
 func (o OutputsMetadata) OutputIDs() (outputIDs []OutputID) {
 	outputIDs = make([]OutputID, len(o))
 	for i, outputMetadata := range o {
@@ -1200,7 +1201,7 @@ func (o OutputsMetadata) OutputIDs() (outputIDs []OutputID) {
 	return
 }
 
-// ConflictIDs turns the list of OutputMetadata objects into their corresponding ConflictIDs.
+// ConflictIDs returns the ConflictIDs that are the equivalent of the OutputIDs in the list.
 func (o OutputsMetadata) ConflictIDs() (conflictIDs ConflictIDs) {
 	conflictIDsSlice := make([]ConflictID, len(o))
 	for i, input := range o {
@@ -1235,9 +1236,11 @@ func (o OutputsMetadata) String() string {
 
 // region OutputsMetadataByID //////////////////////////////////////////////////////////////////////////////////////////
 
-// OutputsByID represents a map of Outputs where every Output is stored with its corresponding OutputID as the key.
+// OutputsMetadataByID represents a map of OutputMetadatas where every OutputMetadata is stored with its corresponding
+// OutputID as the key.
 type OutputsMetadataByID map[OutputID]*OutputMetadata
 
+// IDs returns the OutputIDs that are used as keys in the collection.
 func (o OutputsMetadataByID) IDs() (outputIDs []OutputID) {
 	outputIDs = make([]OutputID, 0, len(o))
 	for outputID := range o {
