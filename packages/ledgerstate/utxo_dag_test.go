@@ -11,217 +11,167 @@ import (
 )
 
 func TestTransactionInputs(t *testing.T) {
-	store := mapdb.NewMapDB()
-	branchDAG := NewBranchDAG(store)
-	err := branchDAG.Prune()
-	require.NoError(t, err)
+	branchDAG, utxoDAG := setupDependencies(t)
 	defer branchDAG.Shutdown()
 
-	u := NewUTXODAG(store, branchDAG)
-
-	// generate ED25519 public key
-	keyPairA := ed25519.GenerateKeyPair()
-	addressA := NewED25519Address(keyPairA.PublicKey)
-	keyPairB := ed25519.GenerateKeyPair()
-	addressB := NewED25519Address(keyPairB.PublicKey)
-
-	o1 := NewSigLockedSingleOutput(100, addressA)
-	o1ID := NewOutputID(GenesisTransactionID, 1)
-	o1.SetID(o1ID)
-	u.outputStorage.StoreIfAbsent(o1)
-
-	i1 := NewUTXOInput(o1.ID())
-
-	o := NewSigLockedSingleOutput(200, addressB)
-
-	txEssence := NewTransactionEssence(0, NewInputs(i1), NewOutputs(o))
-
-	signA := NewED25519Signature(keyPairA.PublicKey, keyPairA.PrivateKey.Sign(txEssence.Bytes()))
-
-	unlockBlocks := []UnlockBlock{NewSignatureUnlockBlock(signA)}
-
-	tx := NewTransaction(txEssence, unlockBlocks)
-
-	o1.SetID(NewOutputID(tx.ID(), 0))
+	wallets := createWallets(2)
+	input := generateOutput(utxoDAG, wallets[0].address)
 
 	// testing when storing the inputs
-	u.outputStorage.StoreIfAbsent(o1)
-
-	cachedInputs := u.transactionInputs(tx)
-
-	defer cachedInputs.Release()
+	tx, output := makeSimpleTransaction(utxoDAG, wallets[0], wallets[1], input, true)
+	cachedInputs := utxoDAG.transactionInputs(tx)
 	inputs := cachedInputs.Unwrap()
 
-	assert.Equal(t, o1, inputs[0])
+	assert.Equal(t, input, inputs[0])
 
-	o2 := NewSigLockedSingleOutput(200, addressA)
-	i2 := NewUTXOInput(o.ID())
-
-	txEssence2 := NewTransactionEssence(0, NewInputs(i2), NewOutputs(o2))
-
-	signB := NewED25519Signature(keyPairB.PublicKey, keyPairB.PrivateKey.Sign(txEssence2.Bytes()))
-
-	unlockBlocks = []UnlockBlock{NewSignatureUnlockBlock(signB)}
-
-	tx2 := NewTransaction(txEssence2, unlockBlocks)
-
-	o2.SetID(NewOutputID(tx2.ID(), 0))
+	cachedInputs.Release(true)
 
 	// testing when not storing the inputs
+	tx, output = makeSimpleTransaction(utxoDAG, wallets[1], wallets[0], output, false)
+	cachedInputs = utxoDAG.transactionInputs(tx)
+	inputs = cachedInputs.Unwrap()
 
-	cachedInputs2 := u.transactionInputs(tx2)
+	assert.Equal(t, nil, inputs[0])
 
-	defer cachedInputs2.Release()
-	inputs2 := cachedInputs2.Unwrap()
-
-	assert.Equal(t, nil, inputs2[0])
+	cachedInputs.Release(true)
 }
 
 func TestInputsSolid(t *testing.T) {
-	store := mapdb.NewMapDB()
-	branchDAG := NewBranchDAG(store)
-	err := branchDAG.Prune()
-	require.NoError(t, err)
+	branchDAG, utxoDAG := setupDependencies(t)
 	defer branchDAG.Shutdown()
 
-	u := NewUTXODAG(store, branchDAG)
-
-	// generate ED25519 public key
-	keyPairA := ed25519.GenerateKeyPair()
-	addressA := NewED25519Address(keyPairA.PublicKey)
-	keyPairB := ed25519.GenerateKeyPair()
-	addressB := NewED25519Address(keyPairB.PublicKey)
-
-	o1 := NewSigLockedSingleOutput(100, addressA)
-	o1ID := NewOutputID(GenesisTransactionID, 1)
-	o1.SetID(o1ID)
-	u.outputStorage.StoreIfAbsent(o1)
-
-	i1 := NewUTXOInput(o1.ID())
-
-	o := NewSigLockedSingleOutput(200, addressB)
-
-	txEssence := NewTransactionEssence(0, NewInputs(i1), NewOutputs(o))
-
-	signA := NewED25519Signature(keyPairA.PublicKey, keyPairA.PrivateKey.Sign(txEssence.Bytes()))
-
-	unlockBlocks := []UnlockBlock{NewSignatureUnlockBlock(signA)}
-
-	tx := NewTransaction(txEssence, unlockBlocks)
-
-	o1.SetID(NewOutputID(tx.ID(), 0))
+	wallets := createWallets(2)
+	input := generateOutput(utxoDAG, wallets[0].address)
 
 	// testing when storing the inputs
-	u.outputStorage.StoreIfAbsent(o1)
-
-	cachedInputs := u.transactionInputs(tx)
-
-	defer cachedInputs.Release()
+	tx, output := makeSimpleTransaction(utxoDAG, wallets[0], wallets[1], input, true)
+	cachedInputs := utxoDAG.transactionInputs(tx)
 	inputs := cachedInputs.Unwrap()
 
-	assert.True(t, u.inputsSolid(inputs))
+	assert.True(t, utxoDAG.inputsSolid(inputs))
 
-	o2 := NewSigLockedSingleOutput(200, addressA)
-	i2 := NewUTXOInput(o.ID())
-
-	txEssence2 := NewTransactionEssence(0, NewInputs(i2), NewOutputs(o2))
-
-	signB := NewED25519Signature(keyPairB.PublicKey, keyPairB.PrivateKey.Sign(txEssence2.Bytes()))
-
-	unlockBlocks = []UnlockBlock{NewSignatureUnlockBlock(signB)}
-
-	tx2 := NewTransaction(txEssence2, unlockBlocks)
-
-	o2.SetID(NewOutputID(tx2.ID(), 0))
+	cachedInputs.Release()
 
 	// testing when not storing the inputs
+	tx, output = makeSimpleTransaction(utxoDAG, wallets[1], wallets[0], output, false)
+	cachedInputs = utxoDAG.transactionInputs(tx)
+	inputs = cachedInputs.Unwrap()
 
-	cachedInputs2 := u.transactionInputs(tx2)
+	assert.False(t, utxoDAG.inputsSolid(inputs))
 
-	defer cachedInputs2.Release()
-	inputs2 := cachedInputs2.Unwrap()
-
-	assert.False(t, u.inputsSolid(inputs2))
+	cachedInputs.Release()
 }
 
 func TestTransactionBalancesValid(t *testing.T) {
-	store := mapdb.NewMapDB()
-	branchDAG := NewBranchDAG(store)
-	err := branchDAG.Prune()
-	require.NoError(t, err)
+	branchDAG, utxoDAG := setupDependencies(t)
 	defer branchDAG.Shutdown()
 
-	u := NewUTXODAG(store, branchDAG)
+	wallets := createWallets(2)
 
-	// generate ED25519 public key
-	keyPairSource := ed25519.GenerateKeyPair()
-	addressSource := NewED25519Address(keyPairSource.PublicKey)
-	keyPairDest := ed25519.GenerateKeyPair()
-	addressDest := NewED25519Address(keyPairDest.PublicKey)
-
-	i1 := NewSigLockedSingleOutput(100, addressSource)
-	i2 := NewSigLockedSingleOutput(100, addressSource)
+	i1 := NewSigLockedSingleOutput(100, wallets[0].address)
+	i2 := NewSigLockedSingleOutput(100, wallets[0].address)
 
 	// testing happy case
-	o := NewSigLockedSingleOutput(200, addressDest)
+	o := NewSigLockedSingleOutput(200, wallets[1].address)
 
-	assert.True(t, u.transactionBalancesValid(Outputs{i1, i2}, Outputs{o}))
+	assert.True(t, utxoDAG.transactionBalancesValid(Outputs{i1, i2}, Outputs{o}))
 
 	// testing creating 1 iota out of thin air
-	i2 = NewSigLockedSingleOutput(99, addressSource)
+	i2 = NewSigLockedSingleOutput(99, wallets[0].address)
 
-	assert.False(t, u.transactionBalancesValid(Outputs{i1, i2}, Outputs{o}))
+	assert.False(t, utxoDAG.transactionBalancesValid(Outputs{i1, i2}, Outputs{o}))
 
 	// testing burning 1 iota
-	i2 = NewSigLockedSingleOutput(101, addressSource)
+	i2 = NewSigLockedSingleOutput(101, wallets[0].address)
 
-	assert.False(t, u.transactionBalancesValid(Outputs{i1, i2}, Outputs{o}))
+	assert.False(t, utxoDAG.transactionBalancesValid(Outputs{i1, i2}, Outputs{o}))
 
 	// testing unit64 overflow
-	i2 = NewSigLockedSingleOutput(math.MaxUint64, addressSource)
+	i2 = NewSigLockedSingleOutput(math.MaxUint64, wallets[0].address)
 
-	assert.False(t, u.transactionBalancesValid(Outputs{i1, i2}, Outputs{o}))
+	assert.False(t, utxoDAG.transactionBalancesValid(Outputs{i1, i2}, Outputs{o}))
 }
 
 func TestUnlockBlocksValid(t *testing.T) {
+	branchDAG, utxoDAG := setupDependencies(t)
+	defer branchDAG.Shutdown()
+
+	wallets := createWallets(2)
+
+	input := generateOutput(utxoDAG, wallets[0].address)
+
+	// testing valid signature
+	tx, _ := makeSimpleTransaction(utxoDAG, wallets[0], wallets[1], input, true)
+	assert.True(t, utxoDAG.unlockBlocksValid(Outputs{input}, tx))
+
+	// testing invalid signature
+	tx, _ = makeSimpleTransaction(utxoDAG, wallets[1], wallets[0], input, true)
+	assert.False(t, utxoDAG.unlockBlocksValid(Outputs{input}, tx))
+
+}
+
+func setupDependencies(t *testing.T) (*BranchDAG, *UTXODAG) {
 	store := mapdb.NewMapDB()
 	branchDAG := NewBranchDAG(store)
 	err := branchDAG.Prune()
 	require.NoError(t, err)
-	defer branchDAG.Shutdown()
 
-	u := NewUTXODAG(store, branchDAG)
+	return branchDAG, NewUTXODAG(store, branchDAG)
+}
 
-	// generate ED25519 public key
-	keyPairA := ed25519.GenerateKeyPair()
-	addressA := NewED25519Address(keyPairA.PublicKey)
-	keyPairB := ed25519.GenerateKeyPair()
-	addressB := NewED25519Address(keyPairB.PublicKey)
+type wallet struct {
+	keyPair ed25519.KeyPair
+	address *ED25519Address
+}
 
-	o1 := NewSigLockedSingleOutput(100, addressA)
+func (w wallet) privateKey() ed25519.PrivateKey {
+	return w.keyPair.PrivateKey
+}
 
-	i1 := NewUTXOInput(o1.ID())
+func (w wallet) publicKey() ed25519.PublicKey {
+	return w.keyPair.PublicKey
+}
 
-	o := NewSigLockedSingleOutput(200, addressB)
+func createWallets(n int) []wallet {
+	wallets := make([]wallet, 2)
+	for i := 0; i < n; i++ {
+		kp := ed25519.GenerateKeyPair()
+		wallets[i] = wallet{
+			kp,
+			NewED25519Address(kp.PublicKey),
+		}
+	}
+	return wallets
+}
 
-	txEssence := NewTransactionEssence(0, NewInputs(i1), NewOutputs(o))
+func (w wallet) sign(txEssence *TransactionEssence) *ED25519Signature {
+	return NewED25519Signature(w.publicKey(), ed25519.Signature(w.privateKey().Sign(txEssence.Bytes())))
+}
 
-	// testing valid signature
-	signA := NewED25519Signature(keyPairA.PublicKey, keyPairA.PrivateKey.Sign(txEssence.Bytes()))
+func (w wallet) unlockBlocks(txEssence *TransactionEssence) []UnlockBlock {
+	return []UnlockBlock{NewSignatureUnlockBlock(w.sign(txEssence))}
+}
 
-	unlockBlocks := []UnlockBlock{NewSignatureUnlockBlock(signA)}
+func generateOutput(utxoDAG *UTXODAG, address Address) *SigLockedSingleOutput {
+	output := NewSigLockedSingleOutput(100, address)
+	output.SetID(NewOutputID(GenesisTransactionID, 1))
+	utxoDAG.outputStorage.StoreIfAbsent(output)
+	return output
+}
 
-	tx := NewTransaction(txEssence, unlockBlocks)
+func makeSimpleTransaction(utxoDAG *UTXODAG, a, b wallet, outputToSpend *SigLockedSingleOutput, store bool) (*Transaction, *SigLockedSingleOutput) {
+	input := NewUTXOInput(outputToSpend.ID())
+	output := NewSigLockedSingleOutput(100, b.address)
 
-	assert.True(t, u.unlockBlocksValid(Outputs{o1}, tx))
+	txEssence := NewTransactionEssence(0, NewInputs(input), NewOutputs(output))
 
-	// testing invalid signature
-	signB := NewED25519Signature(keyPairB.PublicKey, keyPairB.PrivateKey.Sign(txEssence.Bytes()))
+	tx := NewTransaction(txEssence, a.unlockBlocks(txEssence))
 
-	unlockBlocks = []UnlockBlock{NewSignatureUnlockBlock(signB)}
+	outputToSpend.SetID(NewOutputID(tx.ID(), 0))
 
-	tx = NewTransaction(txEssence, unlockBlocks)
+	if store {
+		utxoDAG.outputStorage.StoreIfAbsent(outputToSpend)
+	}
 
-	assert.False(t, u.unlockBlocksValid(Outputs{o1}, tx))
-
+	return tx, output
 }
