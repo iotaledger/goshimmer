@@ -40,6 +40,8 @@ var (
 	ParaWaitToKill = 60
 	// ParaPoWFaucetDifficulty defines the PoW difficulty for faucet payloads.
 	ParaPoWFaucetDifficulty = 2
+	// ParaFaucetPreparedOutputsCount defines the number of outputs the faucet should prepare.
+	ParaFaucetPreparedOutputsCount = 10
 	// ParaSyncBeaconOnEveryNode defines whether all nodes should be sync beacons.
 	ParaSyncBeaconOnEveryNode = false
 	// ParaManaOnEveryNode defines whether all nodes should have mana enabled.
@@ -66,8 +68,7 @@ type GoShimmerConfig struct {
 	DRNGInstance  int
 	DRNGThreshold int
 
-	Faucet                     bool
-	FaucetPreparedOutputsCount int
+	Faucet bool
 
 	SyncBeacon                  bool
 	SyncBeaconFollower          bool

@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Tests that the faucet splits genesis funds to CfgFaucetPreparedOutputsCount outputs.
+// TestPrepareGenesis tests that the faucet splits genesis funds to CfgFaucetPreparedOutputsCount outputs.
 func TestPrepareGenesis(t *testing.T) {
 	prevPoWDiff := framework.ParaPoWDifficulty
 	framework.ParaPoWDifficulty = 0
@@ -22,10 +22,9 @@ func TestPrepareGenesis(t *testing.T) {
 	defer tests.ShutdownNetwork(t, n)
 
 	faucet, err := n.CreatePeer(framework.GoShimmerConfig{
-		Faucet:                     true,
-		Mana:                       true,
-		FaucetPreparedOutputsCount: 10,
-		SyncBeacon:                 true,
+		Faucet:     true,
+		Mana:       true,
+		SyncBeacon: true,
 	})
 	require.NoError(t, err)
 	time.Sleep(10 * time.Second)

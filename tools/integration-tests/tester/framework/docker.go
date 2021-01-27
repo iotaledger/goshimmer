@@ -86,6 +86,7 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 			fmt.Sprintf("--node.disablePlugins=%s", config.DisabledPlugins),
 			fmt.Sprintf("--pow.difficulty=%d", ParaPoWDifficulty),
 			fmt.Sprintf("--faucet.powDifficulty=%d", ParaPoWFaucetDifficulty),
+			fmt.Sprintf("--faucet.preparedOutputsCounts=%d", ParaFaucetPreparedOutputsCount),
 			fmt.Sprintf("--gracefulshutdown.waitToKillTime=%d", ParaWaitToKill),
 			fmt.Sprintf("--node.enablePlugins=%s", func() string {
 				var plugins []string
@@ -111,7 +112,6 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 				return fmt.Sprintf("--faucet.seed=%s", genesisSeedBase58)
 			}(),
 			fmt.Sprintf("--faucet.tokensPerRequest=%d", ParaFaucetTokensPerRequest),
-			fmt.Sprintf("--faucet.preparedOutputsCounts=%d", config.FaucetPreparedOutputsCount),
 			fmt.Sprintf("--valueLayer.snapshot.file=%s", config.SnapshotFilePath),
 			"--webapi.bindAddress=0.0.0.0:8080",
 			fmt.Sprintf("--autopeering.seed=base58:%s", config.Seed),
