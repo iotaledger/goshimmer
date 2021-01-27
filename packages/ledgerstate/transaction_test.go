@@ -141,7 +141,7 @@ func addressFromInput(input Input, outputsByID OutputsByID) Address {
 	}
 }
 
-// signTransaction is a utility function that iterates through a transactions transactionInputs and signs the addresses that are
+// signTransaction is a utility function that iterates through a transactions consumedOutputs and signs the addresses that are
 // part of the signers key chain.
 func signTransaction(transaction *Transaction, unspentOutputsDB OutputsByID, keyChain map[Address]ed25519.KeyPair) {
 	essenceBytesToSign := transaction.Essence().Bytes()
