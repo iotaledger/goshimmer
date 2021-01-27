@@ -331,7 +331,7 @@ func (c *CachedTransaction) Unwrap() *Transaction {
 
 // Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
 // exists). It automatically releases the object when the consumer finishes.
-func (c *CachedTransaction) Consume(consumer func(cachedTransaction *Transaction), forceRelease ...bool) (consumed bool) {
+func (c *CachedTransaction) Consume(consumer func(transaction *Transaction), forceRelease ...bool) (consumed bool) {
 	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*Transaction))
 	}, forceRelease...)
@@ -776,7 +776,7 @@ func (c *CachedTransactionMetadata) Unwrap() *TransactionMetadata {
 
 // Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
 // exists). It automatically releases the object when the consumer finishes.
-func (c *CachedTransactionMetadata) Consume(consumer func(cachedTransactionMetadata *TransactionMetadata), forceRelease ...bool) (consumed bool) {
+func (c *CachedTransactionMetadata) Consume(consumer func(transactionMetadata *TransactionMetadata), forceRelease ...bool) (consumed bool) {
 	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*TransactionMetadata))
 	}, forceRelease...)

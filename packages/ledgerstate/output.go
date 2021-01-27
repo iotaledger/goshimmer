@@ -264,7 +264,7 @@ func OutputFromObjectStorage(key []byte, data []byte) (output objectstorage.Stor
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region Outputs ///////////////////////////////////////////////////////////////////////////////////////////////////////
+// region Outputs //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Outputs represents a list of Outputs that can be used in a Transaction.
 type Outputs []Output
@@ -657,7 +657,7 @@ var _ Output = &SigLockedSingleOutput{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region SigLockedColoredOutput ////////////////////////////////////////////////////////////////////////////////////////
+// region SigLockedColoredOutput ///////////////////////////////////////////////////////////////////////////////////////
 
 // SigLockedColoredOutput is an Output that holds colored balances and that can be unlocked by providing a signature for
 // an Address.
@@ -1186,6 +1186,102 @@ var _ objectstorage.StorableObject = &OutputMetadata{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// region OutputsMetadata //////////////////////////////////////////////////////////////////////////////////////////////
+
+// OutputsMetadata represents a list of OutputMetadata objects.
+type OutputsMetadata []*OutputMetadata
+
+func (o OutputsMetadata) OutputIDs() (outputIDs []OutputID) {
+	outputIDs = make([]OutputID, len(o))
+	for i, outputMetadata := range o {
+		outputIDs[i] = outputMetadata.ID()
+	}
+
+	return
+}
+
+// ConflictIDs turns the list of OutputMetadata objects into their corresponding ConflictIDs.
+func (o OutputsMetadata) ConflictIDs() (conflictIDs ConflictIDs) {
+	conflictIDsSlice := make([]ConflictID, len(o))
+	for i, input := range o {
+		conflictIDsSlice[i] = NewConflictID(input.ID())
+	}
+	conflictIDs = NewConflictIDs(conflictIDsSlice...)
+
+	return
+}
+
+// ByID returns a map of OutputsMetadata where the key is the OutputID.
+func (o OutputsMetadata) ByID() (outputsMetadataByID OutputsMetadataByID) {
+	outputsMetadataByID = make(OutputsMetadataByID)
+	for _, outputMetadata := range o {
+		outputsMetadataByID[outputMetadata.ID()] = outputMetadata
+	}
+
+	return
+}
+
+// String returns a human readable version of the OutputsMetadata.
+func (o OutputsMetadata) String() string {
+	structBuilder := stringify.StructBuilder("OutputsMetadata")
+	for i, outputMetadata := range o {
+		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), outputMetadata))
+	}
+
+	return structBuilder.String()
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region OutputsMetadataByID //////////////////////////////////////////////////////////////////////////////////////////
+
+// OutputsByID represents a map of Outputs where every Output is stored with its corresponding OutputID as the key.
+type OutputsMetadataByID map[OutputID]*OutputMetadata
+
+func (o OutputsMetadataByID) IDs() (outputIDs []OutputID) {
+	outputIDs = make([]OutputID, 0, len(o))
+	for outputID := range o {
+		outputIDs = append(outputIDs, outputID)
+	}
+
+	return
+}
+
+// ConflictIDs turns the list of OutputMetadata objects into their corresponding ConflictIDs.
+func (o OutputsMetadataByID) ConflictIDs() (conflictIDs ConflictIDs) {
+	conflictIDsSlice := make([]ConflictID, 0, len(o))
+	for inputID := range o {
+		conflictIDsSlice = append(conflictIDsSlice, NewConflictID(inputID))
+	}
+	conflictIDs = NewConflictIDs(conflictIDsSlice...)
+
+	return
+}
+
+// Filter returns the OutputsMetadataByID that are sharing a set membership with the given Inputs.
+func (o OutputsMetadataByID) Filter(outputIDsToInclude []OutputID) (intersectionOfInputs OutputsMetadataByID) {
+	intersectionOfInputs = make(OutputsMetadataByID)
+	for _, outputID := range outputIDsToInclude {
+		if output, exists := o[outputID]; exists {
+			intersectionOfInputs[outputID] = output
+		}
+	}
+
+	return
+}
+
+// String returns a human readable version of the OutputsMetadataByID.
+func (o OutputsMetadataByID) String() string {
+	structBuilder := stringify.StructBuilder("OutputsMetadataByID")
+	for id, output := range o {
+		structBuilder.AddField(stringify.StructField(id.String(), output))
+	}
+
+	return structBuilder.String()
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // region CachedOutputMetadata /////////////////////////////////////////////////////////////////////////////////////////
 
 // CachedOutputMetadata is a wrapper for the generic CachedObject returned by the object storage that overrides the
@@ -1216,7 +1312,7 @@ func (c *CachedOutputMetadata) Unwrap() *OutputMetadata {
 
 // Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
 // exists). It automatically releases the object when the consumer finishes.
-func (c *CachedOutputMetadata) Consume(consumer func(cachedOutputMetadata *OutputMetadata), forceRelease ...bool) (consumed bool) {
+func (c *CachedOutputMetadata) Consume(consumer func(outputMetadata *OutputMetadata), forceRelease ...bool) (consumed bool) {
 	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*OutputMetadata))
 	}, forceRelease...)
