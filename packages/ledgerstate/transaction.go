@@ -435,7 +435,7 @@ func (t *TransactionEssence) Bytes() []byte {
 func (t *TransactionEssence) String() string {
 	return stringify.Struct("TransactionEssence",
 		stringify.StructField("version", t.version),
-		stringify.StructField("consumedOutputs", t.inputs),
+		stringify.StructField("inputs", t.inputs),
 		stringify.StructField("outputs", t.outputs),
 		stringify.StructField("payload", t.payload),
 	)
