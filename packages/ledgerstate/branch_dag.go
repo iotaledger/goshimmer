@@ -59,6 +59,48 @@ func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs Bran
 	return
 }
 
+// UpdateConflictBranchParents changes the parents of a ConflictBranch by also updating the references of the
+// ChildBranches.
+func (b *BranchDAG) UpdateConflictBranchParents(conflictBranchID BranchID, newParentBranchIDs BranchIDs) (err error) {
+	cachedConflictBranch := b.Branch(conflictBranchID)
+	defer cachedConflictBranch.Release()
+
+	conflictBranch, err := cachedConflictBranch.UnwrapConflictBranch()
+	if err != nil {
+		err = xerrors.Errorf("failed to unwrap ConflictBranch: %w", err)
+		return
+	}
+	if conflictBranch == nil {
+		err = xerrors.Errorf("failed to unwrap ConflictBranch: %w", cerrors.ErrFatal)
+		return
+	}
+
+	newParentBranchIDs, err = b.normalizeBranches(newParentBranchIDs)
+	if err != nil {
+		err = xerrors.Errorf("failed to normalize new parent BranchIDs: %w", err)
+		return
+	}
+
+	oldParentBranchIDs := conflictBranch.Parents()
+	for oldParentBranchID := range oldParentBranchIDs {
+		if _, exists := newParentBranchIDs[conflictBranchID]; !exists {
+			b.childBranchStorage.Delete(NewChildBranch(oldParentBranchID, conflictBranchID, ConflictBranchType).ObjectStorageKey())
+		}
+	}
+
+	for newParentBranchID := range newParentBranchIDs {
+		if _, exists := oldParentBranchIDs[newParentBranchID]; !exists {
+			if cachedChildBranch, stored := b.childBranchStorage.StoreIfAbsent(NewChildBranch(newParentBranchID, conflictBranchID, ConflictBranchType)); stored {
+				cachedChildBranch.Release()
+			}
+		}
+	}
+
+	conflictBranch.SetParents(newParentBranchIDs)
+
+	return
+}
+
 // AggregateBranches retrieves the AggregatedBranch that corresponds to the given BranchIDs. It automatically creates
 // the AggregatedBranch if it didn't exist, yet.
 func (b *BranchDAG) AggregateBranches(branchIDS BranchIDs) (cachedAggregatedBranch *CachedBranch, newBranchCreated bool, err error) {
