@@ -693,11 +693,11 @@ func cleanupManaVectors() {
 			switch vecType {
 			case mana.ConsensusMana:
 				if baseMana.EffectiveValue() < minEffectiveMana && baseMana.BaseValue() == 0 {
-					toRemove[mana.ConsensusMana] = append(toRemove[mana.ConsensusMana], id)
+					toRemove[vecType] = append(toRemove[vecType], id)
 				}
 			case mana.AccessMana:
 				if baseMana.EffectiveValue() < minEffectiveMana && baseMana.BaseValue() < minBaseMana1 {
-					toRemove[mana.ConsensusMana] = append(toRemove[mana.ConsensusMana], id)
+					toRemove[vecType] = append(toRemove[vecType], id)
 				}
 			}
 			return true
