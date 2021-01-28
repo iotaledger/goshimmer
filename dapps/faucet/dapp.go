@@ -2,6 +2,7 @@ package faucet
 
 import (
 	"crypto"
+	"errors"
 	"runtime"
 	"sync"
 	"time"
@@ -110,15 +111,16 @@ func configure(*node.Plugin) {
 	fundingWorkerPool = workerpool.New(func(task workerpool.Task) {
 		msg := task.Param(0).(*message.Message)
 		addr := msg.Payload().(*faucetpayload.Payload).Address()
-		msg, txID, err, perr := Faucet().SendFunds(msg)
+		msg, txID, err := Faucet().SendFunds(msg)
 		if err != nil {
-			log.Warnf("couldn't fulfill funding request to %s: %s", addr, err)
+			if errors.Is(err, faucet.ErrPrepareFaucet) {
+				log.Warn(err.Error())
+			} else {
+				log.Warnf("couldn't fulfill funding request to %s: %s", addr, err)
+			}
 			return
 		}
 		log.Infof("sent funds to address %s via tx %s and msg %s", addr, txID, msg.ID().String())
-		if perr != nil {
-			log.Warnf("couldn't prepare faucet outputs: %s", err)
-		}
 	}, workerpool.WorkerCount(fundingWorkerCount), workerpool.QueueSize(fundingWorkerQueueSize))
 
 	configureEvents()

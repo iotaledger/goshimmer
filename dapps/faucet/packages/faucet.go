@@ -27,6 +27,8 @@ var (
 	ErrFundingTxNotBookedInTime = errors.New("funding transaction didn't get booked in time")
 	// ErrAddressIsBlacklisted is returned if a funding can't be processed since the address is blacklisted.
 	ErrAddressIsBlacklisted = errors.New("can't fund address as it is blacklisted")
+	// ErrPrepareFaucet is returned if the faucet cannot prepare outputs.
+	ErrPrepareFaucet = errors.New("can't prepare faucet outputs")
 )
 
 // New creates a new faucet using the given seed and tokensPerRequest config.
@@ -77,7 +79,7 @@ func (f *Faucet) addAddressToBlacklist(addr address.Address) {
 }
 
 // SendFunds sends IOTA tokens to the address from faucet request.
-func (f *Faucet) SendFunds(msg *message.Message) (m *message.Message, txID string, err error, perr error) {
+func (f *Faucet) SendFunds(msg *message.Message) (m *message.Message, txID string, err error) {
 	// ensure that only one request is being processed any given time
 	f.Lock()
 	defer f.Unlock()
@@ -86,7 +88,7 @@ func (f *Faucet) SendFunds(msg *message.Message) (m *message.Message, txID strin
 	nodeID := identity.NewID(msg.IssuerPublicKey())
 
 	if f.IsAddressBlacklisted(addr) {
-		return nil, "", ErrAddressIsBlacklisted, nil
+		return nil, "", ErrAddressIsBlacklisted
 	}
 
 	// get the output ids for the inputs and remainder balance
@@ -118,13 +120,13 @@ func (f *Faucet) SendFunds(msg *message.Message) (m *message.Message, txID strin
 	// prepare value payload with value factory
 	payload, err := valuetransfers.ValueObjectFactory().IssueTransaction(tx)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to issue transaction: %w", err), nil
+		return nil, "", fmt.Errorf("failed to issue transaction: %w", err)
 	}
 
 	// attach to message layer
 	msg, err = issuer.IssuePayload(payload)
 	if err != nil {
-		return nil, "", err, nil
+		return nil, "", err
 	}
 
 	// last used address index
@@ -139,13 +141,15 @@ func (f *Faucet) SendFunds(msg *message.Message) (m *message.Message, txID strin
 	// actually got booked by this node itself
 	// TODO: replace with an actual more reactive way
 	if err := valuetransfers.AwaitTransactionToBeBooked(tx.ID(), f.maxTxBookedAwaitTime); err != nil {
-		return nil, "", fmt.Errorf("%w: tx %s", err, tx.ID().String()), nil
+		return nil, "", fmt.Errorf("%w: tx %s", err, tx.ID().String())
 	}
 
-	_, perr = f.prepareMoreOutputs(lastUsedAddressIndex)
-
+	_, err = f.prepareMoreOutputs(lastUsedAddressIndex)
+	if err != nil {
+		err = fmt.Errorf("%w: %s", ErrPrepareFaucet, err.Error())
+	}
 	f.addAddressToBlacklist(addr)
-	return msg, tx.ID().String(), nil, perr
+	return msg, tx.ID().String(), err
 }
 
 // PrepareGenesisOutput splits genesis output to CfgFaucetPreparedOutputsCount number of outputs.
