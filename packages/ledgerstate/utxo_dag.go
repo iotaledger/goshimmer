@@ -358,27 +358,20 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 // after introducing a new ConflictBranch.
 func (u *UTXODAG) propagateBranchUpdates(transactionID TransactionID) (updatedOutputs []OutputID) {
 	if !u.TransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
-		if !u.branchDAG.Branch(transactionMetadata.BranchID()).Consume(func(branch Branch) {
-			switch typeCastedBranch := branch.(type) {
-			case *AggregatedBranch:
-				cachedAggregatedBranch, _, err := u.branchDAG.AggregateBranches(u.consumedBranchIDs(transactionID))
-				if err != nil {
-					panic(err)
-				}
-				defer cachedAggregatedBranch.Release()
-
-				updatedOutputs = u.updateBranchOfTransaction(transactionID, cachedAggregatedBranch.ID())
-			case *ConflictBranch:
-				newParentBranches, err := u.branchDAG.normalizeBranches(u.consumedBranchIDs(transactionID))
-				if err != nil {
-					panic(fmt.Errorf("failed to normalize consumed Branches of Transaction with %s: %w", transactionID, err))
-				}
-
-				typeCastedBranch.SetParents(newParentBranches)
+		if transactionMetadata.BranchID() == NewBranchID(transactionID) {
+			if err := u.branchDAG.UpdateConflictBranchParents(transactionMetadata.BranchID(), u.consumedBranchIDs(transactionID)); err != nil {
+				panic(fmt.Errorf("failed to update ConflictBranch with %s: %w", transactionMetadata.BranchID(), err))
 			}
-		}) {
-			panic(fmt.Errorf("failed to load Branch with %s of Transaction with %s", transactionMetadata.BranchID(), transactionID))
+			return
 		}
+
+		cachedAggregatedBranch, _, err := u.branchDAG.AggregateBranches(u.consumedBranchIDs(transactionID))
+		if err != nil {
+			panic(err)
+		}
+		defer cachedAggregatedBranch.Release()
+
+		updatedOutputs = u.updateBranchOfTransaction(transactionID, cachedAggregatedBranch.ID())
 	}) {
 		panic(fmt.Errorf("failed to load TransactionMetadata of Transaction with %s", transactionID))
 	}
