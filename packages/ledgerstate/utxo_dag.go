@@ -348,23 +348,40 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 			}
 		}
 
-		u.walkFutureCone(outputIds, u.aggregateConsumedBranches, types.True)
+		u.walkFutureCone(outputIds, u.propagateBranchUpdates, types.True)
 	}) {
 		panic(fmt.Errorf("failed to load TransactionMetadata of Transaction with %s", transactionID))
 	}
 }
 
-// aggregateConsumedBranches is an internal utility function that aggregated the Branches of the Inputs that a
-// Transaction consumed and then books the Transaction into that Branch. It is used by the fork logic to propagate
-// changes in the perception of the BranchDAG after introducing a new ConflictBranch.
-func (u *UTXODAG) aggregateConsumedBranches(transactionID TransactionID) (updatedOutputs []OutputID) {
-	cachedAggregatedBranch, _, err := u.branchDAG.AggregateBranches(u.consumedBranchIDs(transactionID))
-	if err != nil {
-		panic(err)
-	}
-	defer cachedAggregatedBranch.Release()
+// propagateBranchUpdates is an internal utility function that propagates changes in the perception of the BranchDAG
+// after introducing a new ConflictBranch.
+func (u *UTXODAG) propagateBranchUpdates(transactionID TransactionID) (updatedOutputs []OutputID) {
+	if !u.TransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
+		if !u.branchDAG.Branch(transactionMetadata.BranchID()).Consume(func(branch Branch) {
+			switch typeCastedBranch := branch.(type) {
+			case *AggregatedBranch:
+				cachedAggregatedBranch, _, err := u.branchDAG.AggregateBranches(u.consumedBranchIDs(transactionID))
+				if err != nil {
+					panic(err)
+				}
+				defer cachedAggregatedBranch.Release()
 
-	updatedOutputs = u.updateBranchOfTransaction(transactionID, cachedAggregatedBranch.ID())
+				updatedOutputs = u.updateBranchOfTransaction(transactionID, cachedAggregatedBranch.ID())
+			case *ConflictBranch:
+				newParentBranches, err := u.branchDAG.normalizeBranches(u.consumedBranchIDs(transactionID))
+				if err != nil {
+					panic(fmt.Errorf("failed to normalize consumed Branches of Transaction with %s: %w", transactionID, err))
+				}
+
+				typeCastedBranch.SetParents(newParentBranches)
+			}
+		}) {
+			panic(fmt.Errorf("failed to load Branch with %s of Transaction with %s", transactionMetadata.BranchID(), transactionID))
+		}
+	}) {
+		panic(fmt.Errorf("failed to load TransactionMetadata of Transaction with %s", transactionID))
+	}
 
 	return
 }
