@@ -90,6 +90,7 @@ var outputMetadataStorageOptions = []objectstorage.Option{
 
 // consumerStorageOptions contains a list of default settings for the OutputMetadata object storage.
 var consumerStorageOptions = []objectstorage.Option{
+	ConsumerPartitionKeys,
 	objectstorage.CacheTime(60 * time.Second),
 	objectstorage.LeakDetectionEnabled(true),
 }
