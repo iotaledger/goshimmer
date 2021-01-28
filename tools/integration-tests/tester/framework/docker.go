@@ -148,7 +148,7 @@ func (d *DockerContainer) CreateDrandMember(name string, goShimmerAPI string, le
 	}
 	env = append(env, "GOSHIMMER=http://"+goShimmerAPI)
 	containerConfig := &container.Config{
-		Image: "angelocapossele/drng:payloadfix",
+		Image: "angelocapossele/drand:v1.1.4",
 		ExposedPorts: nat.PortSet{
 			nat.Port("8000/tcp"): {},
 		},
