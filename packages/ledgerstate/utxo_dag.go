@@ -53,7 +53,7 @@ func NewUTXODAG(store kvstore.KVStore, branchDAG *BranchDAG) (utxoDAG *UTXODAG) 
 }
 
 // BookTransaction books a Transaction into the ledger state.
-func (u *UTXODAG) BookTransaction(transaction *Transaction) (err error) {
+func (u *UTXODAG) BookTransaction(transaction *Transaction) (targetBranch BranchID, err error) {
 	cachedInputs := u.consumedOutputs(transaction)
 	defer cachedInputs.Release()
 	inputs := cachedInputs.Unwrap()
@@ -75,11 +75,24 @@ func (u *UTXODAG) BookTransaction(transaction *Transaction) (err error) {
 	// store TransactionMetadata
 	transactionMetadata := NewTransactionMetadata(transaction.ID())
 	transactionMetadata.SetSolid(true)
-	cachedTransactionMetadata, stored := u.transactionMetadataStorage.StoreIfAbsent(transactionMetadata)
-	if !stored {
+	newTransaction := false
+	cachedTransactionMetadata := &CachedTransactionMetadata{CachedObject: u.transactionMetadataStorage.ComputeIfAbsent(transaction.ID().Bytes(), func(key []byte) objectstorage.StorableObject {
+		newTransaction = true
+
+		transactionMetadata.Persist()
+		transactionMetadata.SetModified()
+
+		return transactionMetadata
+	})}
+	if !newTransaction {
+		if !cachedTransactionMetadata.Consume(func(transactionMetadata *TransactionMetadata) {
+			targetBranch = transactionMetadata.BranchID()
+		}) {
+			err = xerrors.Errorf("failed to load TransactionMetadata with %s: %w", transaction.ID(), cerrors.ErrFatal)
+		}
 		return
 	}
-	cachedTransactionMetadata.Release()
+	defer cachedTransactionMetadata.Release()
 
 	// store Transaction
 	u.transactionStorage.Store(transaction).Release()
@@ -92,12 +105,14 @@ func (u *UTXODAG) BookTransaction(transaction *Transaction) (err error) {
 	// check if Transaction is attaching to something invalid
 	if u.inputsInInvalidBranch(inputsMetadata) {
 		u.bookInvalidTransaction(transaction, transactionMetadata, inputsMetadata)
+		targetBranch = InvalidBranchID
 		return
 	}
 
 	// check if transaction is attaching to something rejected
-	if rejected, targetBranch := u.inputsInRejectedBranch(inputsMetadata); rejected {
-		u.bookRejectedTransaction(transaction, transactionMetadata, inputsMetadata, targetBranch)
+	if rejected, rejectedBranch := u.inputsInRejectedBranch(inputsMetadata); rejected {
+		u.bookRejectedTransaction(transaction, transactionMetadata, inputsMetadata, rejectedBranch)
+		targetBranch = rejectedBranch
 		return
 	}
 
@@ -106,13 +121,14 @@ func (u *UTXODAG) BookTransaction(transaction *Transaction) (err error) {
 		err = xerrors.Errorf("failed to check if inputs were spent by confirmed Transaction: %w", err)
 		return
 	} else if inputsSpentByConfirmedTransaction {
-		err = u.bookRejectedConflictingTransaction(transaction, transactionMetadata, inputsMetadata)
+		targetBranch, err = u.bookRejectedConflictingTransaction(transaction, transactionMetadata, inputsMetadata)
 		return
 	}
 
 	// mark transaction as "permanently rejected"
 	if !u.consumedOutputsPastConeValid(inputs, inputsMetadata) {
 		u.bookInvalidTransaction(transaction, transactionMetadata, inputsMetadata)
+		targetBranch = InvalidBranchID
 		return
 	}
 
@@ -126,14 +142,15 @@ func (u *UTXODAG) BookTransaction(transaction *Transaction) (err error) {
 	// are branches of inputs conflicting
 	if branchesOfInputsConflicting {
 		u.bookInvalidTransaction(transaction, transactionMetadata, inputsMetadata)
+		targetBranch = InvalidBranchID
 		return
 	}
 
 	switch len(conflictingInputs) {
 	case 0:
-		u.bookNonConflictingTransaction(transaction, transactionMetadata, inputsMetadata, normalizedBranchIDs)
+		targetBranch = u.bookNonConflictingTransaction(transaction, transactionMetadata, inputsMetadata, normalizedBranchIDs)
 	default:
-		u.bookConflictingTransaction(transaction, transactionMetadata, inputsMetadata, normalizedBranchIDs, conflictingInputs.ByID())
+		targetBranch = u.bookConflictingTransaction(transaction, transactionMetadata, inputsMetadata, normalizedBranchIDs, conflictingInputs.ByID())
 	}
 
 	return
@@ -230,7 +247,7 @@ func (u *UTXODAG) bookRejectedTransaction(transaction *Transaction, transactionM
 
 // bookRejectedConflictingTransaction is an internal utility function that "lazy" books the given Transaction into its
 // own ConflictBranch which is immediately rejected and only kept in the DAG for possible reorgs.
-func (u *UTXODAG) bookRejectedConflictingTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata OutputsMetadata) (err error) {
+func (u *UTXODAG) bookRejectedConflictingTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata OutputsMetadata) (targetBranch BranchID, err error) {
 	cachedConflictBranch, _, conflictBranchErr := u.branchDAG.CreateConflictBranch(NewBranchID(transaction.ID()), NewBranchIDs(LazyBookedConflictsBranchID), nil)
 	if conflictBranchErr != nil {
 		err = xerrors.Errorf("failed to create ConflictBranch for lazy booked Transaction with %s: %w", transaction.ID(), conflictBranchErr)
@@ -238,10 +255,12 @@ func (u *UTXODAG) bookRejectedConflictingTransaction(transaction *Transaction, t
 	}
 
 	if !cachedConflictBranch.Consume(func(branch Branch) {
+		targetBranch = branch.ID()
+
 		branch.SetLiked(false)
 		branch.SetFinalized(true)
 
-		u.bookRejectedTransaction(transaction, transactionMetadata, inputsMetadata, branch.ID())
+		u.bookRejectedTransaction(transaction, transactionMetadata, inputsMetadata, targetBranch)
 	}) {
 		err = xerrors.Errorf("failed to load ConflictBranch with %s: %w", cachedConflictBranch.ID(), cerrors.ErrFatal)
 	}
@@ -251,26 +270,30 @@ func (u *UTXODAG) bookRejectedConflictingTransaction(transaction *Transaction, t
 
 // bookNonConflictingTransaction is an internal utility function that books the Transaction into the Branch that is
 // determined by aggregating the Branches of the consumed Inputs.
-func (u *UTXODAG) bookNonConflictingTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata OutputsMetadata, normalizedBranchIDs BranchIDs) {
+func (u *UTXODAG) bookNonConflictingTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata OutputsMetadata, normalizedBranchIDs BranchIDs) (targetBranch BranchID) {
 	cachedAggregatedBranch, _, err := u.branchDAG.aggregateNormalizedBranches(normalizedBranchIDs)
 	if err != nil {
 		panic(fmt.Errorf("failed to aggregate Branches when booking Transaction with %s: %w", transaction.ID(), err))
 	}
 
 	if !cachedAggregatedBranch.Consume(func(branch Branch) {
-		transactionMetadata.SetBranchID(branch.ID())
+		targetBranch = branch.ID()
+
+		transactionMetadata.SetBranchID(targetBranch)
 		transactionMetadata.SetSolid(true)
 		u.bookConsumers(inputsMetadata, transaction.ID(), types.True)
-		u.bookOutputs(transaction, branch.ID())
+		u.bookOutputs(transaction, targetBranch)
 	}) {
 		panic(fmt.Errorf("failed to load AggregatedBranch with %s", cachedAggregatedBranch.ID()))
 	}
+
+	return
 }
 
 // bookConflictingTransaction is an internal utility function that books a Transaction that uses Inputs that have
 // already been spent by another Transaction. It create a new ConflictBranch for the new Transaction and "forks" the
 // existing consumers of the conflicting Inputs.
-func (u *UTXODAG) bookConflictingTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata OutputsMetadata, normalizedBranchIDs BranchIDs, conflictingInputs OutputsMetadataByID) {
+func (u *UTXODAG) bookConflictingTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata OutputsMetadata, normalizedBranchIDs BranchIDs, conflictingInputs OutputsMetadataByID) (targetBranch BranchID) {
 	// fork existing consumers
 	u.walkFutureCone(conflictingInputs.IDs(), func(transactionID TransactionID) (nextOutputsToVisit []OutputID) {
 		u.forkConsumer(transactionID, conflictingInputs)
@@ -279,20 +302,23 @@ func (u *UTXODAG) bookConflictingTransaction(transaction *Transaction, transacti
 	}, types.True)
 
 	// create new ConflictBranch
-	cachedConflictBranch, _, err := u.branchDAG.createConflictBranchFromNormalizedParentBranchIDs(NewBranchID(transaction.ID()), normalizedBranchIDs, conflictingInputs.ConflictIDs())
+	targetBranch = NewBranchID(transaction.ID())
+	cachedConflictBranch, _, err := u.branchDAG.createConflictBranchFromNormalizedParentBranchIDs(targetBranch, normalizedBranchIDs, conflictingInputs.ConflictIDs())
 	if err != nil {
 		panic(fmt.Errorf("failed to create ConflictBranch when booking Transaction with %s: %w", transaction.ID(), err))
 	}
 
 	// book Transaction into new ConflictBranch
 	if !cachedConflictBranch.Consume(func(branch Branch) {
-		transactionMetadata.SetBranchID(branch.ID())
+		transactionMetadata.SetBranchID(targetBranch)
 		transactionMetadata.SetSolid(true)
 		u.bookConsumers(inputsMetadata, transaction.ID(), types.True)
-		u.bookOutputs(transaction, branch.ID())
+		u.bookOutputs(transaction, targetBranch)
 	}) {
 		panic(fmt.Errorf("failed to load ConflictBranch with %s", cachedConflictBranch.ID()))
 	}
+
+	return
 }
 
 // forkConsumer is an internal utility function that creates a ConflictBranch for a Transaction that has not been
@@ -375,6 +401,9 @@ func (u *UTXODAG) bookConsumers(inputsMetadata OutputsMetadata, transactionID Tr
 
 		newConsumer := NewConsumer(inputMetadata.ID(), transactionID, valid)
 		if !(&CachedConsumer{CachedObject: u.consumerStorage.ComputeIfAbsent(newConsumer.ObjectStorageKey(), func(key []byte) objectstorage.StorableObject {
+			newConsumer.Persist()
+			newConsumer.SetModified()
+
 			return newConsumer
 		})}).Consume(func(consumer *Consumer) {
 			consumer.SetValid(valid)
