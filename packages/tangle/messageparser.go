@@ -33,10 +33,14 @@ func NewMessageParser() (result *MessageParser) {
 	return
 }
 
-// Parse parses the given message bytes.
-func (p *MessageParser) Parse(messageBytes []byte, peer *peer.Peer) {
+// Setup defines the flow of the parser.
+func (p *MessageParser) Setup() {
 	p.setupBytesFilterDataFlow()
 	p.setupMessageFilterDataFlow()
+}
+
+// Parse parses the given message bytes.
+func (p *MessageParser) Parse(messageBytes []byte, peer *peer.Peer) {
 	p.bytesFilters[0].Filter(messageBytes, peer)
 }
 
