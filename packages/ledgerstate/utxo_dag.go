@@ -248,15 +248,14 @@ func (u *UTXODAG) bookRejectedTransaction(transaction *Transaction, transactionM
 // bookRejectedConflictingTransaction is an internal utility function that "lazy" books the given Transaction into its
 // own ConflictBranch which is immediately rejected and only kept in the DAG for possible reorgs.
 func (u *UTXODAG) bookRejectedConflictingTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata OutputsMetadata) (targetBranch BranchID, err error) {
-	cachedConflictBranch, _, conflictBranchErr := u.branchDAG.CreateConflictBranch(NewBranchID(transaction.ID()), NewBranchIDs(LazyBookedConflictsBranchID), nil)
+	targetBranch = NewBranchID(transaction.ID())
+	cachedConflictBranch, _, conflictBranchErr := u.branchDAG.CreateConflictBranch(targetBranch, NewBranchIDs(LazyBookedConflictsBranchID), nil)
 	if conflictBranchErr != nil {
 		err = xerrors.Errorf("failed to create ConflictBranch for lazy booked Transaction with %s: %w", transaction.ID(), conflictBranchErr)
 		return
 	}
 
 	if !cachedConflictBranch.Consume(func(branch Branch) {
-		targetBranch = branch.ID()
-
 		branch.SetLiked(false)
 		branch.SetFinalized(true)
 
