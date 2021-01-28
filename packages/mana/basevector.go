@@ -36,6 +36,8 @@ type BaseManaVector interface {
 	ToPersistables() []*PersistableBaseMana
 	// FromPersistable fills the BaseManaVector from persistable mana objects.
 	FromPersistable(*PersistableBaseMana) error
+	// Remove removes the nodes from the vector.
+	Remove([]identity.ID)
 }
 
 // NewBaseManaVector creates and returns a new base mana vector for the specified type.

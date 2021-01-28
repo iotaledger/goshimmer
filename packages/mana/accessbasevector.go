@@ -202,6 +202,13 @@ func (a *AccessBaseManaVector) FromPersistable(p *PersistableBaseMana) (err erro
 	return
 }
 
+// Remove removes the nodes from the vector.
+func (a *AccessBaseManaVector) Remove(IDs []identity.ID) {
+	for _, ID := range IDs {
+		delete(a.vector, ID)
+	}
+}
+
 var _ BaseManaVector = &AccessBaseManaVector{}
 
 //// Region Internal methods ////

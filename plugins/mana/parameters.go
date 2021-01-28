@@ -26,6 +26,8 @@ const (
 	CfgManaEnableResearchVectors = "mana.enableResearchVectors"
 	// CfgPruneConsensusEventLogsInterval defines the interval to check and prune consensus event logs storage.
 	CfgPruneConsensusEventLogsInterval = "mana.pruneConsensusEventLogsInterval"
+	// CfgVectorsCleanupIntervalHours defines the interval to clean empty mana nodes from the base mana vectors.
+	CfgVectorsCleanupIntervalHours = "mana.vectorsCleanupIntervalHours"
 )
 
 func init() {
@@ -38,4 +40,5 @@ func init() {
 	flag.Bool(CfgAllowedConsensusFilterEnabled, false, "if filtering on consensus mana pledge nodes is enabled")
 	flag.Bool(CfgManaEnableResearchVectors, false, "enable mana research vectors")
 	flag.Duration(CfgPruneConsensusEventLogsInterval, 5*time.Minute, "interval to check and prune consensus event storage")
+	flag.Duration(CfgVectorsCleanupIntervalHours, 1*time.Hour, "interval to cleanup empty mana nodes from the mana vectors")
 }

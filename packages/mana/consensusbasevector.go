@@ -292,6 +292,13 @@ func (c *ConsensusBaseManaVector) FromPersistable(p *PersistableBaseMana) (err e
 	return
 }
 
+// Remove removes the nodes from the vector.
+func (c *ConsensusBaseManaVector) Remove(IDs []identity.ID) {
+	for _, ID := range IDs {
+		delete(c.vector, ID)
+	}
+}
+
 var _ BaseManaVector = &ConsensusBaseManaVector{}
 
 //// Region Internal methods ////
