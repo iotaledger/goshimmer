@@ -464,19 +464,11 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 	}))
 
 	// message invalid events
-	invalidSeen := make(map[MessageID]bool)
 	tangle.Events.MessageInvalid.Attach(events.NewClosure(func(cachedMsgEvent *CachedMessageEvent) {
-		defer cachedMsgEvent.MessageMetadata.Release()
-		defer cachedMsgEvent.Message.Release()
-
-		msg := cachedMsgEvent.Message.Unwrap()
-		_, ok := invalidSeen[msg.ID()]
-		if ok {
-			// avoid increasing the counter for seen invalid messages
-			// this check can be removed when message store cleaner is implemented.
-			return
-		}
-		invalidSeen[msg.ID()] = true
+		cachedMsgEvent.MessageMetadata.Release()
+		cachedMsgEvent.Message.Consume(func(msg *Message) {
+			tangle.DeleteMessage(msg.ID())
+		})
 
 		n := atomic.AddInt32(&invalidMessages, 1)
 		t.Logf("invalid messages %d/%d", n, totalMsgCount)
