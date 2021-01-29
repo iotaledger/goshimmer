@@ -99,7 +99,6 @@ func TestBookRejectedConflictingTransaction(t *testing.T) {
 		assert.True(t, txMetadata.Solid())
 		assert.True(t, txMetadata.LazyBooked())
 	})
-
 }
 
 func TestBookNonConflictingTransaction(t *testing.T) {
@@ -134,6 +133,61 @@ func TestBookNonConflictingTransaction(t *testing.T) {
 
 	// check that the inputs are marked as spent
 	assert.False(t, utxoDAG.outputsUnspent(inputsMetadata))
+}
+
+func TestBookConflictingTransaction(t *testing.T) {
+	branchDAG, utxoDAG := setupDependencies(t)
+	defer branchDAG.Shutdown()
+
+	wallets := createWallets(2)
+	input := generateOutput(utxoDAG, wallets[0].address)
+	tx1, _ := singleInputTransaction(utxoDAG, wallets[0], wallets[0], input, false)
+
+	cachedTxMetadata := utxoDAG.TransactionMetadata(tx1.ID())
+	defer cachedTxMetadata.Release()
+	txMetadata := cachedTxMetadata.Unwrap()
+
+	inputsMetadata := OutputsMetadata{}
+	utxoDAG.transactionInputsMetadata(tx1).Consume(func(metadata *OutputMetadata) {
+		inputsMetadata = append(inputsMetadata, metadata)
+	})
+
+	utxoDAG.bookNonConflictingTransaction(tx1, txMetadata, inputsMetadata, BranchIDs{MasterBranchID: types.Void})
+
+	// double spend
+	tx2, _ := singleInputTransaction(utxoDAG, wallets[0], wallets[1], input, false)
+
+	cachedTxMetadata2 := utxoDAG.TransactionMetadata(tx2.ID())
+	defer cachedTxMetadata2.Release()
+	txMetadata2 := cachedTxMetadata2.Unwrap()
+
+	inputsMetadata2 := OutputsMetadata{}
+	utxoDAG.transactionInputsMetadata(tx2).Consume(func(metadata *OutputMetadata) {
+		inputsMetadata2 = append(inputsMetadata2, metadata)
+	})
+
+	// determine the booking details before we book
+	branchesOfInputsConflicting, normalizedBranchIDs, conflictingInputs, err := utxoDAG.determineBookingDetails(inputsMetadata2)
+	assert.False(t, branchesOfInputsConflicting)
+
+	targetBranch2 := utxoDAG.bookConflictingTransaction(tx2, txMetadata2, inputsMetadata2, normalizedBranchIDs, conflictingInputs.ByID())
+
+	utxoDAG.branchDAG.Branch(txMetadata2.BranchID()).Consume(func(branch Branch) {
+		assert.Equal(t, targetBranch2, txMetadata2.BranchID())
+		assert.True(t, txMetadata2.Solid())
+	})
+
+	inclusionState, err := utxoDAG.InclusionState(tx1.ID())
+	require.NoError(t, err)
+	assert.Equal(t, InclusionState(Pending), inclusionState)
+
+	inclusionState, err = utxoDAG.InclusionState(tx2.ID())
+	require.NoError(t, err)
+	assert.Equal(t, InclusionState(Pending), inclusionState)
+
+	// check that the inputs are marked as spent
+	assert.False(t, utxoDAG.outputsUnspent(inputsMetadata))
+	assert.False(t, utxoDAG.outputsUnspent(inputsMetadata2))
 }
 
 func TestInclusionState(t *testing.T) {
