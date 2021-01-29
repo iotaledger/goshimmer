@@ -70,6 +70,38 @@ func TestBookRejectedTransaction(t *testing.T) {
 	assert.True(t, utxoDAG.outputsUnspent(inputsMetadata))
 }
 
+func TestBookRejectedConflictingTransaction(t *testing.T) {
+	branchDAG, utxoDAG := setupDependencies(t)
+	defer branchDAG.Shutdown()
+
+	wallets := createWallets(2)
+	input := generateOutput(utxoDAG, wallets[0].address)
+	singleInputTransaction(utxoDAG, wallets[0], wallets[0], input, true)
+
+	// double spend
+	tx, _ := singleInputTransaction(utxoDAG, wallets[0], wallets[1], input, false)
+
+	cachedTxMetadata := utxoDAG.TransactionMetadata(tx.ID())
+	defer cachedTxMetadata.Release()
+	txMetadata := cachedTxMetadata.Unwrap()
+
+	inputsMetadata := OutputsMetadata{}
+	utxoDAG.transactionInputsMetadata(tx).Consume(func(metadata *OutputMetadata) {
+		inputsMetadata = append(inputsMetadata, metadata)
+	})
+
+	_, err := utxoDAG.bookRejectedConflictingTransaction(tx, txMetadata, inputsMetadata)
+	require.NoError(t, err)
+
+	utxoDAG.branchDAG.Branch(txMetadata.BranchID()).Consume(func(branch Branch) {
+		assert.False(t, branch.Liked())
+		assert.True(t, branch.Finalized())
+		assert.True(t, txMetadata.Solid())
+		assert.True(t, txMetadata.LazyBooked())
+	})
+
+}
+
 func TestInclusionState(t *testing.T) {
 
 	{
@@ -98,19 +130,18 @@ func TestInclusionState(t *testing.T) {
 		assert.Equal(t, InclusionState(Pending), inclusionState)
 	}
 
-	// TODO: what should the InvalidBranchID returns in this case?
-	// {
-	// 	branchDAG, utxoDAG := setupDependencies(t)
-	// 	defer branchDAG.Shutdown()
+	{
+		branchDAG, utxoDAG := setupDependencies(t)
+		defer branchDAG.Shutdown()
 
-	// 	wallets := createWallets(1)
-	// 	inputs := generateOutputs(utxoDAG, wallets[0].address, BranchIDs{InvalidBranchID: types.Void})
-	// 	tx, _ := multipleInputsTransaction(utxoDAG, wallets[0], wallets[0], inputs, false)
+		wallets := createWallets(1)
+		inputs := generateOutputs(utxoDAG, wallets[0].address, BranchIDs{InvalidBranchID: types.Void})
+		tx, _ := multipleInputsTransaction(utxoDAG, wallets[0], wallets[0], inputs, false)
 
-	// 	inclusionState, err := utxoDAG.InclusionState(tx.ID())
-	// 	require.NoError(t, err)
-	// 	assert.Equal(t, InclusionState(Rejected), inclusionState)
-	// }
+		inclusionState, err := utxoDAG.InclusionState(tx.ID())
+		require.NoError(t, err)
+		assert.Equal(t, InclusionState(Rejected), inclusionState)
+	}
 }
 
 func TestConsumedBranchIDs(t *testing.T) {
@@ -432,6 +463,7 @@ func singleInputTransaction(utxoDAG *UTXODAG, a, b wallet, outputToSpend *SigLoc
 	transactionMetadata := NewTransactionMetadata(tx.ID())
 	transactionMetadata.SetSolid(true)
 	transactionMetadata.SetBranchID(MasterBranchID)
+
 	if finalized {
 		transactionMetadata.SetFinalized(true)
 	}
@@ -450,8 +482,12 @@ func singleInputTransaction(utxoDAG *UTXODAG, a, b wallet, outputToSpend *SigLoc
 
 func multipleInputsTransaction(utxoDAG *UTXODAG, a, b wallet, outputsToSpend []*SigLockedSingleOutput, finalized bool) (*Transaction, *SigLockedSingleOutput) {
 	inputs := make(Inputs, len(outputsToSpend))
+	branchIDs := make(BranchIDs, len(outputsToSpend))
 	for i, outputToSpend := range outputsToSpend {
 		inputs[i] = NewUTXOInput(outputToSpend.ID())
+		utxoDAG.OutputMetadata(outputToSpend.ID()).Consume(func(outputMetadata *OutputMetadata) {
+			branchIDs[outputMetadata.BranchID()] = types.Void
+		})
 	}
 
 	output := NewSigLockedSingleOutput(100, b.address)
@@ -462,10 +498,18 @@ func multipleInputsTransaction(utxoDAG *UTXODAG, a, b wallet, outputsToSpend []*
 
 	output.SetID(NewOutputID(tx.ID(), 0))
 
+	// store aggreagated branch
+	normalizedBranchIDs, _ := utxoDAG.branchDAG.normalizeBranches(branchIDs)
+	cachedAggregatedBranch, _, _ := utxoDAG.branchDAG.aggregateNormalizedBranches(normalizedBranchIDs)
+	branchID := BranchID{}
+	cachedAggregatedBranch.Consume(func(branch Branch) {
+		branchID = branch.ID()
+	})
+
 	// store TransactionMetadata
 	transactionMetadata := NewTransactionMetadata(tx.ID())
 	transactionMetadata.SetSolid(true)
-	transactionMetadata.SetBranchID(MasterBranchID)
+	transactionMetadata.SetBranchID(branchID)
 	if finalized {
 		transactionMetadata.SetFinalized(true)
 	}
