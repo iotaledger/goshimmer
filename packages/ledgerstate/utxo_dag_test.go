@@ -102,6 +102,40 @@ func TestBookRejectedConflictingTransaction(t *testing.T) {
 
 }
 
+func TestBookNonConflictingTransaction(t *testing.T) {
+	branchDAG, utxoDAG := setupDependencies(t)
+	defer branchDAG.Shutdown()
+
+	wallets := createWallets(2)
+	input := generateOutput(utxoDAG, wallets[0].address)
+	tx, _ := singleInputTransaction(utxoDAG, wallets[0], wallets[0], input, false)
+
+	cachedTxMetadata := utxoDAG.TransactionMetadata(tx.ID())
+	defer cachedTxMetadata.Release()
+	txMetadata := cachedTxMetadata.Unwrap()
+
+	inputsMetadata := OutputsMetadata{}
+	utxoDAG.transactionInputsMetadata(tx).Consume(func(metadata *OutputMetadata) {
+		inputsMetadata = append(inputsMetadata, metadata)
+	})
+
+	targetBranch := utxoDAG.bookNonConflictingTransaction(tx, txMetadata, inputsMetadata, BranchIDs{MasterBranchID: types.Void})
+
+	assert.Equal(t, MasterBranchID, targetBranch)
+
+	utxoDAG.branchDAG.Branch(txMetadata.BranchID()).Consume(func(branch Branch) {
+		assert.Equal(t, MasterBranchID, txMetadata.BranchID())
+		assert.True(t, txMetadata.Solid())
+	})
+
+	inclusionState, err := utxoDAG.InclusionState(tx.ID())
+	require.NoError(t, err)
+	assert.Equal(t, InclusionState(Pending), inclusionState)
+
+	// check that the inputs are marked as spent
+	assert.False(t, utxoDAG.outputsUnspent(inputsMetadata))
+}
+
 func TestInclusionState(t *testing.T) {
 
 	{
