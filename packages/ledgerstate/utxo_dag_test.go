@@ -170,6 +170,7 @@ func TestBookConflictingTransaction(t *testing.T) {
 
 	// determine the booking details before we book
 	branchesOfInputsConflicting, normalizedBranchIDs, conflictingInputs, err := utxoDAG.determineBookingDetails(inputsMetadata2)
+	require.NoError(t, err)
 	assert.False(t, branchesOfInputsConflicting)
 
 	targetBranch2 := utxoDAG.bookConflictingTransaction(tx2, txMetadata2, inputsMetadata2, normalizedBranchIDs, conflictingInputs.ByID())
