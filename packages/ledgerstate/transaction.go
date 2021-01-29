@@ -688,7 +688,7 @@ func (t *TransactionMetadata) LazyBooked() (lazyBooked bool) {
 // SetLazyBooked updates the lazy booked flag of the Output. It returns true if the lazy booked flag was modified.
 func (t *TransactionMetadata) SetLazyBooked(lazyBooked bool) (modified bool) {
 	t.lazyBookedMutex.Lock()
-	defer t.lazyBookedMutex.Lock()
+	defer t.lazyBookedMutex.Unlock()
 
 	if t.lazyBooked == lazyBooked {
 		return
