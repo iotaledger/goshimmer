@@ -154,6 +154,8 @@ func TestBookConflictingTransaction(t *testing.T) {
 
 	utxoDAG.bookNonConflictingTransaction(tx1, txMetadata, inputsMetadata, BranchIDs{MasterBranchID: types.Void})
 
+	assert.Equal(t, MasterBranchID, txMetadata.BranchID())
+
 	// double spend
 	tx2, _ := singleInputTransaction(utxoDAG, wallets[0], wallets[1], input, false)
 
@@ -176,6 +178,8 @@ func TestBookConflictingTransaction(t *testing.T) {
 		assert.Equal(t, targetBranch2, txMetadata2.BranchID())
 		assert.True(t, txMetadata2.Solid())
 	})
+
+	assert.NotEqual(t, MasterBranchID, txMetadata.BranchID())
 
 	inclusionState, err := utxoDAG.InclusionState(tx1.ID())
 	require.NoError(t, err)
