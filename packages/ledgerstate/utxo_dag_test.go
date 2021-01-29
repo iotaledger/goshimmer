@@ -12,6 +12,107 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestBookInvalidTransaction(t *testing.T) {
+	branchDAG, utxoDAG := setupDependencies(t)
+	defer branchDAG.Shutdown()
+
+	wallets := createWallets(1)
+	input := generateOutput(utxoDAG, wallets[0].address)
+	tx, _ := singleInputTransaction(utxoDAG, wallets[0], wallets[0], input, false)
+
+	cachedTxMetadata := utxoDAG.TransactionMetadata(tx.ID())
+	defer cachedTxMetadata.Release()
+	txMetadata := cachedTxMetadata.Unwrap()
+
+	inputsMetadata := OutputsMetadata{}
+	utxoDAG.transactionInputsMetadata(tx).Consume(func(metadata *OutputMetadata) {
+		inputsMetadata = append(inputsMetadata, metadata)
+	})
+
+	utxoDAG.bookInvalidTransaction(tx, txMetadata, inputsMetadata)
+
+	assert.Equal(t, InvalidBranchID, txMetadata.branchID)
+	assert.True(t, txMetadata.Solid())
+	assert.True(t, txMetadata.Finalized())
+
+	// check that the inputs are still marked as unspent
+	assert.True(t, utxoDAG.outputsUnspent(inputsMetadata))
+}
+
+func TestBookRejectedTransaction(t *testing.T) {
+	branchDAG, utxoDAG := setupDependencies(t)
+	defer branchDAG.Shutdown()
+
+	wallets := createWallets(1)
+	input := generateOutput(utxoDAG, wallets[0].address)
+	tx, _ := singleInputTransaction(utxoDAG, wallets[0], wallets[0], input, false)
+
+	rejectedBranch := NewConflictBranch(BranchID(tx.ID()), nil, nil)
+	rejectedBranch.SetFinalized(true)
+	utxoDAG.branchDAG.branchStorage.Store(rejectedBranch).Release()
+
+	cachedTxMetadata := utxoDAG.TransactionMetadata(tx.ID())
+	defer cachedTxMetadata.Release()
+	txMetadata := cachedTxMetadata.Unwrap()
+
+	inputsMetadata := OutputsMetadata{}
+	utxoDAG.transactionInputsMetadata(tx).Consume(func(metadata *OutputMetadata) {
+		inputsMetadata = append(inputsMetadata, metadata)
+	})
+
+	utxoDAG.bookRejectedTransaction(tx, txMetadata, inputsMetadata, rejectedBranch.ID())
+
+	assert.Equal(t, rejectedBranch.ID(), txMetadata.branchID)
+	assert.True(t, txMetadata.Solid())
+	assert.True(t, txMetadata.LazyBooked())
+
+	// check that the inputs are still marked as unspent
+	assert.True(t, utxoDAG.outputsUnspent(inputsMetadata))
+}
+
+func TestInclusionState(t *testing.T) {
+
+	{
+		branchDAG, utxoDAG := setupDependencies(t)
+		defer branchDAG.Shutdown()
+
+		wallets := createWallets(1)
+		input := generateOutput(utxoDAG, wallets[0].address)
+		tx, _ := singleInputTransaction(utxoDAG, wallets[0], wallets[0], input, true)
+
+		inclusionState, err := utxoDAG.InclusionState(tx.ID())
+		require.NoError(t, err)
+		assert.Equal(t, InclusionState(Confirmed), inclusionState)
+	}
+
+	{
+		branchDAG, utxoDAG := setupDependencies(t)
+		defer branchDAG.Shutdown()
+
+		wallets := createWallets(1)
+		input := generateOutput(utxoDAG, wallets[0].address)
+		tx, _ := singleInputTransaction(utxoDAG, wallets[0], wallets[0], input, false)
+
+		inclusionState, err := utxoDAG.InclusionState(tx.ID())
+		require.NoError(t, err)
+		assert.Equal(t, InclusionState(Pending), inclusionState)
+	}
+
+	// TODO: what should the InvalidBranchID returns in this case?
+	// {
+	// 	branchDAG, utxoDAG := setupDependencies(t)
+	// 	defer branchDAG.Shutdown()
+
+	// 	wallets := createWallets(1)
+	// 	inputs := generateOutputs(utxoDAG, wallets[0].address, BranchIDs{InvalidBranchID: types.Void})
+	// 	tx, _ := multipleInputsTransaction(utxoDAG, wallets[0], wallets[0], inputs, false)
+
+	// 	inclusionState, err := utxoDAG.InclusionState(tx.ID())
+	// 	require.NoError(t, err)
+	// 	assert.Equal(t, InclusionState(Rejected), inclusionState)
+	// }
+}
+
 func TestConsumedBranchIDs(t *testing.T) {
 	branchDAG, utxoDAG := setupDependencies(t)
 	defer branchDAG.Shutdown()
