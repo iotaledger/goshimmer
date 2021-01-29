@@ -12,6 +12,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestBookTransaction(t *testing.T) {
+	branchDAG, utxoDAG := setupDependencies(t)
+	defer branchDAG.Shutdown()
+
+	wallets := createWallets(1)
+	input := generateOutput(utxoDAG, wallets[0].address)
+
+	tx := buildTransaction(utxoDAG, wallets[0], wallets[0], []*SigLockedSingleOutput{input})
+	targetBranch, err := utxoDAG.BookTransaction(tx)
+	require.NoError(t, err)
+	assert.Equal(t, MasterBranchID, targetBranch)
+}
+
 func TestBookInvalidTransaction(t *testing.T) {
 	branchDAG, utxoDAG := setupDependencies(t)
 	defer branchDAG.Shutdown()
@@ -617,4 +630,21 @@ func multipleInputsTransaction(utxoDAG *UTXODAG, a, b wallet, outputsToSpend []*
 	utxoDAG.transactionStorage.Store(tx).Release()
 
 	return tx, output
+}
+
+func buildTransaction(utxoDAG *UTXODAG, a, b wallet, outputsToSpend []*SigLockedSingleOutput) *Transaction {
+	inputs := make(Inputs, len(outputsToSpend))
+	for i, outputToSpend := range outputsToSpend {
+		inputs[i] = NewUTXOInput(outputToSpend.ID())
+	}
+
+	output := NewSigLockedSingleOutput(100, b.address)
+
+	txEssence := NewTransactionEssence(0, inputs, NewOutputs(output))
+
+	tx := NewTransaction(txEssence, a.unlockBlocks(txEssence))
+
+	// output.SetID(NewOutputID(tx.ID(), 0))
+
+	return tx
 }
