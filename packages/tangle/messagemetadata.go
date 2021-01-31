@@ -1,14 +1,17 @@
 package tangle
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/hive.go/byteutils"
+	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
+	"github.com/iotaledger/hive.go/stringify"
+	"golang.org/x/xerrors"
 )
 
 // MessageMetadata defines the metadata for a message.
@@ -19,9 +22,11 @@ type MessageMetadata struct {
 	receivedTime       time.Time
 	solid              bool
 	solidificationTime time.Time
+	structureDetails   *markers.StructureDetails
 
 	solidMutex              sync.RWMutex
 	solidificationTimeMutex sync.RWMutex
+	structureDetailsMutex   sync.RWMutex
 }
 
 // NewMessageMetadata creates a new MessageMetadata from the specified messageID.
@@ -46,20 +51,32 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 	result = &MessageMetadata{}
 
 	if result.messageID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
-		err = fmt.Errorf("failed to parse message ID of message metadata: %w", err)
+		err = xerrors.Errorf("failed to parse message ID of message metadata: %w", err)
 		return
 	}
 	if result.receivedTime, err = marshalUtil.ReadTime(); err != nil {
-		err = fmt.Errorf("failed to parse received time of message metadata: %w", err)
+		err = xerrors.Errorf("failed to parse received time of message metadata (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if result.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
-		err = fmt.Errorf("failed to parse solidification time of message metadata: %w", err)
+		err = xerrors.Errorf("failed to parse solidification time of message metadata (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if result.solid, err = marshalUtil.ReadBool(); err != nil {
-		err = fmt.Errorf("failed to parse 'solid' of message metadata: %w", err)
+		err = xerrors.Errorf("failed to parse 'solid' of message metadata (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
+	}
+	// determine if message metadata has structureDetails set and parse
+	var hasStructureDetails bool
+	if hasStructureDetails, err = marshalUtil.ReadBool(); err != nil {
+		err = xerrors.Errorf("failed to parse 'hasStructureDetails' of message metadata (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	if hasStructureDetails {
+		if result.structureDetails, err = markers.StructureDetailsFromMarshalUtil(marshalUtil); err != nil {
+			err = xerrors.Errorf("failed to parse 'structureDetails' from MarshalUtil: %w", err)
+			return
+		}
 	}
 
 	return
@@ -68,7 +85,7 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 // MessageMetadataFromObjectStorage restores a MessageMetadata object from the ObjectStorage.
 func MessageMetadataFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
 	if result, _, err = MessageMetadataFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = fmt.Errorf("failed to parse message metadata from object storage: %w", err)
+		err = xerrors.Errorf("failed to parse message metadata from object storage: %w", err)
 		return
 	}
 
@@ -126,6 +143,29 @@ func (m *MessageMetadata) SolidificationTime() time.Time {
 	return m.solidificationTime
 }
 
+// SetStructureDetails sets the structureDetails of the message.
+func (m *MessageMetadata) SetStructureDetails(structureDetails *markers.StructureDetails) (modified bool) {
+	m.structureDetailsMutex.Lock()
+	defer m.structureDetailsMutex.Unlock()
+
+	if m.structureDetails != nil {
+		return false
+	}
+
+	m.structureDetails = structureDetails
+
+	m.SetModified()
+	return true
+}
+
+// StructureDetails returns the structureDetails of the message.
+func (m *MessageMetadata) StructureDetails() *markers.StructureDetails {
+	m.structureDetailsMutex.RLock()
+	defer m.structureDetailsMutex.RUnlock()
+
+	return m.structureDetails
+}
+
 // Bytes returns a marshaled version of the whole MessageMetadata object.
 func (m *MessageMetadata) Bytes() []byte {
 	return byteutils.ConcatBytes(m.ObjectStorageKey(), m.ObjectStorageValue())
@@ -140,10 +180,19 @@ func (m *MessageMetadata) ObjectStorageKey() []byte {
 // ObjectStorageValue returns the value of the stored message metadata object.
 // This includes the receivedTime, solidificationTime and solid status.
 func (m *MessageMetadata) ObjectStorageValue() []byte {
+	// TODO: we need to verify that it cannot lead to read/write loss if we're still using structureDetails somewhere
+	m.structureDetailsMutex.Lock()
+	defer m.structureDetailsMutex.Unlock()
+	structureDetailsBytes := []byte{0}
+	if m.structureDetails != nil {
+		structureDetailsBytes = byteutils.ConcatBytes([]byte{1}, m.structureDetails.Bytes())
+	}
+
 	return marshalutil.New().
 		WriteTime(m.ReceivedTime()).
 		WriteTime(m.SolidificationTime()).
 		WriteBool(m.IsSolid()).
+		WriteBytes(structureDetailsBytes).
 		Bytes()
 }
 
@@ -151,6 +200,17 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 // This should never happen and will panic if attempted.
 func (m *MessageMetadata) Update(other objectstorage.StorableObject) {
 	panic("updates disabled")
+}
+
+// String returns a human readable version of the MessageMetadata.
+func (m *MessageMetadata) String() string {
+	return stringify.Struct("MessageMetadata",
+		stringify.StructField("ID", m.messageID),
+		stringify.StructField("ReceivedTime", m.ReceivedTime()),
+		stringify.StructField("IsSolid", m.IsSolid()),
+		stringify.StructField("SolidificationTime", m.SolidificationTime()),
+		stringify.StructField("StructureDetails", m.StructureDetails()),
+	)
 }
 
 var _ objectstorage.StorableObject = &MessageMetadata{}
