@@ -358,6 +358,7 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 // after introducing a new ConflictBranch.
 func (u *UTXODAG) propagateBranchUpdates(transactionID TransactionID) (updatedOutputs []OutputID) {
 	if !u.TransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
+		// if the BranchID is the TransactionID we have a ConflictBranch
 		if transactionMetadata.BranchID() == NewBranchID(transactionID) {
 			if err := u.branchDAG.UpdateConflictBranchParents(transactionMetadata.BranchID(), u.consumedBranchIDs(transactionID)); err != nil {
 				panic(fmt.Errorf("failed to update ConflictBranch with %s: %w", transactionMetadata.BranchID(), err))
