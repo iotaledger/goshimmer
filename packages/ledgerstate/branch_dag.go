@@ -340,6 +340,18 @@ func (b *BranchDAG) init() {
 		branch.SetFinalized(true)
 		branch.SetInclusionState(Rejected)
 	})
+
+	cachedLazyBookedConflictsBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(LazyBookedConflictsBranchID, nil, nil))
+	if !stored {
+		return
+	}
+
+	(&CachedBranch{CachedObject: cachedLazyBookedConflictsBranch}).Consume(func(branch Branch) {
+		branch.SetPreferred(false)
+		branch.SetLiked(false)
+		branch.SetFinalized(true)
+		branch.SetInclusionState(Rejected)
+	})
 }
 
 // resolveConflictBranchIDs is an internal utility function that returns the BranchIDs of the ConflictBranches that the

@@ -977,6 +977,9 @@ func (c CachedAddressOutputMappings) String() string {
 
 // region Consumer /////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// ConsumerPartitionKeys defines the "layout" of the key. This enables prefix iterations in the objectstorage.
+var ConsumerPartitionKeys = objectstorage.PartitionKey([]int{OutputIDLength, TransactionIDLength}...)
+
 // Consumer represents the relationship between an Output and its spending Transactions. Since an Output can have a
 // potentially unbounded amount of spending Transactions, we store this as a separate k/v pair instead of a marshaled
 // list of spending Transactions inside the Output.
