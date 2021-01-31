@@ -133,14 +133,6 @@ func configure(*node.Plugin) {
 		cachedMsgEvent.Message.Consume(tipSelector.AddTip)
 	}))
 
-	// setup messageStore cleaner
-	_tangle.Events.MessageInvalid.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
-		cachedMsgEvent.MessageMetadata.Release()
-		cachedMsgEvent.Message.Consume(func(msg *tangle.Message) {
-			_tangle.DeleteMessage(msg.ID())
-		})
-	}))
-
 	MessageRequester().Events.MissingMessageAppeared.Attach(events.NewClosure(func(missingMessageAppeared *tangle.MissingMessageAppearedEvent) {
 		_tangle.DeleteMissingMessage(missingMessageAppeared.ID)
 	}))

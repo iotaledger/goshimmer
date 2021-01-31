@@ -22,12 +22,14 @@ type MessageMetadata struct {
 	timestampOpinion   TimestampOpinion
 	booked             bool
 	eligible           bool
+	invalid            bool
 
 	solidMutex              sync.RWMutex
 	solidificationTimeMutex sync.RWMutex
 	timestampOpinionMutex   sync.RWMutex
 	bookedMutex             sync.RWMutex
 	eligibleMutex           sync.RWMutex
+	invalidMutex            sync.RWMutex
 }
 
 // NewMessageMetadata creates a new MessageMetadata from the specified messageID.
@@ -77,6 +79,10 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 	}
 	if result.booked, err = marshalUtil.ReadBool(); err != nil {
 		err = fmt.Errorf("failed to parse booked flag of message metadata: %w", err)
+		return
+	}
+	if result.invalid, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse invalid flag of message metadata: %w", err)
 		return
 	}
 
@@ -236,6 +242,38 @@ func (m *MessageMetadata) SetEligible(eligible bool) (modified bool) {
 	return
 }
 
+// IsInvalid returns true if the message represented by this metadata is invalid. False otherwise.
+func (m *MessageMetadata) IsInvalid() (result bool) {
+	m.invalidMutex.RLock()
+	result = m.invalid
+	m.invalidMutex.RUnlock()
+
+	return
+}
+
+// SetInvalid sets the message associated with this metadata as invalid.
+// It returns true if the invalid status is modified. False otherwise.
+func (m *MessageMetadata) SetInvalid(invalid bool) (modified bool) {
+	m.invalidMutex.RLock()
+	if m.invalid != invalid {
+		m.invalidMutex.RUnlock()
+
+		m.invalidMutex.Lock()
+		if m.invalid != invalid {
+			m.invalid = invalid
+			m.SetModified()
+
+			modified = true
+		}
+		m.invalidMutex.Unlock()
+
+	} else {
+		m.invalidMutex.RUnlock()
+	}
+
+	return
+}
+
 // Bytes returns a marshaled version of the whole MessageMetadata object.
 func (m *MessageMetadata) Bytes() []byte {
 	return byteutils.ConcatBytes(m.ObjectStorageKey(), m.ObjectStorageValue())
@@ -257,6 +295,7 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 		WriteBytes(m.TimestampOpinion().Bytes()).
 		WriteBool(m.IsEligible()).
 		WriteBool(m.IsBooked()).
+		WriteBool(m.IsInvalid()).
 		Bytes()
 }
 
