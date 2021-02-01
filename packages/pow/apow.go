@@ -115,8 +115,7 @@ func (m *MessagesWindow) clean() {
 	last := m.internalSlice[l-1].Timestamp
 
 	for i := l - 2; i >= 0; i-- {
-		if m.internalSlice[i].Timestamp.Add(time.Duration(ApowWindow)*time.Second).Before(last) ||
-			m.internalSlice[i].Timestamp.Add(time.Duration(ApowWindow)*time.Second).Equal(last) {
+		if !m.internalSlice[i].Timestamp.Add(time.Duration(ApowWindow) * time.Second).After(last) {
 			m.internalSlice = m.internalSlice[i+1:]
 			return
 		}

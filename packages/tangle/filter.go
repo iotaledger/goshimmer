@@ -115,7 +115,6 @@ type PowFilter struct {
 
 // NewPowFilter creates a new PoW bytes filter.
 func NewPowFilter(worker *pow.Worker, difficulty int) *PowFilter {
-	pow.BaseDifficulty = difficulty
 	return &PowFilter{
 		worker:        worker,
 		difficulty:    difficulty,

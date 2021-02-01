@@ -87,6 +87,7 @@ func TestPowFilter_Filter(t *testing.T) {
 
 func TestAPowFilter_Filter(t *testing.T) {
 	filter := NewPowFilter(testWorker, testDifficulty)
+	pow.BaseDifficulty = testDifficulty
 	pow.ApowWindow = testWindow
 	pow.AdaptiveRate = testRate
 
@@ -148,6 +149,7 @@ func TestAPowFilter_Filter(t *testing.T) {
 func TestAPowFilter_Parallel(t *testing.T) {
 	testDifficulty = 0
 	filter := NewPowFilter(testWorker, testDifficulty)
+	pow.BaseDifficulty = testDifficulty
 	pow.ApowWindow = 5
 	pow.AdaptiveRate = 0.
 
