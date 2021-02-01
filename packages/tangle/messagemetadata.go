@@ -220,7 +220,7 @@ func (m *MessageMetadata) SetEligible(eligible bool) (modified bool) {
 	m.eligibleMutex.Lock()
 	defer m.eligibleMutex.Unlock()
 
-	if m.eligble == eligible {
+	if m.eligible == eligible {
 		return false
 	}
 
