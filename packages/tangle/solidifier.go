@@ -94,12 +94,15 @@ func (t *Tangle) checkMessageSolidityAndPropagate(cachedMessage *CachedMessage, 
 
 		// check if the parents are solid
 		if t.isMessageSolid(currentMessage, currentMsgMetadata) {
-			// check parents age
-			valid := t.checkParentsMaxDepth(currentMessage)
+			// check if parents are valid and parents age
+			valid := t.isParentsValid(currentMessage) && t.checkParentsMaxDepth(currentMessage)
 			if !valid {
-				t.Events.MessageInvalid.Trigger(&CachedMessageEvent{
-					Message:         currentCachedMessage,
-					MessageMetadata: currentCachedMsgMetadata})
+				// set the message invalid, trigger MessageInvalid event only if the msg is first set to invalid
+				if currentMsgMetadata.SetInvalid(true) {
+					t.Events.MessageInvalid.Trigger(&CachedMessageEvent{
+						Message:         currentCachedMessage,
+						MessageMetadata: currentCachedMsgMetadata})
+				}
 				currentCachedMessage.Release()
 				currentCachedMsgMetadata.Release()
 				continue
@@ -195,6 +198,39 @@ func (t *Tangle) isAgeOfParentValid(childTime time.Time, parentID MessageID) boo
 	}
 
 	return true
+}
+
+// checks whether parents of the given message are valid.
+func (t *Tangle) isParentsValid(msg *Message) bool {
+	if msg == nil || msg.IsDeleted() {
+		return false
+	}
+
+	valid := true
+	msg.ForEachParent(func(parent Parent) {
+		valid = valid && t.isMessageValid(parent.ID)
+	})
+
+	return valid
+}
+
+// checks whether the given message is valid.
+func (t *Tangle) isMessageValid(messageID MessageID) bool {
+	if messageID == EmptyMessageID {
+		return true
+	}
+
+	// retrieve the CachedMessageMetadata
+	cachedMsgMetadata := t.MessageMetadata(messageID)
+	defer cachedMsgMetadata.Release()
+
+	// return false if the message metadata does not exist
+	msgMetadata := cachedMsgMetadata.Unwrap()
+	if msgMetadata == nil {
+		return false
+	}
+
+	return !msgMetadata.IsInvalid()
 }
 
 // CheckParentsEligibility checks if the parents are eligible, then set the eligible flag of the message.

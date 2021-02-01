@@ -22,12 +22,14 @@ type MessageMetadata struct {
 	timestampOpinion   TimestampOpinion
 	booked             bool
 	eligible           bool
+	invalid            bool
 
 	solidMutex              sync.RWMutex
 	solidificationTimeMutex sync.RWMutex
 	timestampOpinionMutex   sync.RWMutex
 	bookedMutex             sync.RWMutex
 	eligibleMutex           sync.RWMutex
+	invalidMutex            sync.RWMutex
 }
 
 // NewMessageMetadata creates a new MessageMetadata from the specified messageID.
@@ -79,6 +81,10 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 		err = fmt.Errorf("failed to parse booked flag of message metadata: %w", err)
 		return
 	}
+	if result.invalid, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse invalid flag of message metadata: %w", err)
+		return
+	}
 
 	return
 }
@@ -101,8 +107,8 @@ func (m *MessageMetadata) ReceivedTime() time.Time {
 // IsSolid returns true if the message represented by this metadata is solid. False otherwise.
 func (m *MessageMetadata) IsSolid() (result bool) {
 	m.solidMutex.RLock()
+	defer m.solidMutex.RUnlock()
 	result = m.solid
-	m.solidMutex.RUnlock()
 
 	return
 }
@@ -147,8 +153,8 @@ func (m *MessageMetadata) SolidificationTime() time.Time {
 // IsBooked returns true if the message represented by this metadata is booked. False otherwise.
 func (m *MessageMetadata) IsBooked() (result bool) {
 	m.bookedMutex.RLock()
+	defer m.bookedMutex.RUnlock()
 	result = m.booked
-	m.bookedMutex.RUnlock()
 
 	return
 }
@@ -156,8 +162,8 @@ func (m *MessageMetadata) IsBooked() (result bool) {
 // IsEligible returns true if the message represented by this metadata is eligible. False otherwise.
 func (m *MessageMetadata) IsEligible() (result bool) {
 	m.eligibleMutex.RLock()
+	defer m.eligibleMutex.RUnlock()
 	result = m.eligible
-	m.eligibleMutex.RUnlock()
 
 	return
 }
@@ -165,21 +171,16 @@ func (m *MessageMetadata) IsEligible() (result bool) {
 // SetBooked sets the message associated with this metadata as booked.
 // It returns true if the booked status is modified. False otherwise.
 func (m *MessageMetadata) SetBooked(booked bool) (modified bool) {
-	m.bookedMutex.RLock()
-	if m.booked != booked {
-		m.bookedMutex.RUnlock()
+	m.bookedMutex.Lock()
+	defer m.bookedMutex.Unlock()
 
-		m.bookedMutex.Lock()
-		if m.booked != booked {
-			m.booked = booked
-			m.SetModified()
-			modified = true
-		}
-		m.bookedMutex.Unlock()
-
-	} else {
-		m.bookedMutex.RUnlock()
+	if m.booked == booked {
+		return false
 	}
+
+	m.booked = booked
+	m.SetModified()
+	modified = true
 
 	return
 }
@@ -216,22 +217,42 @@ func (m *MessageMetadata) SetTimestampOpinion(timestampOpinion TimestampOpinion)
 // SetEligible sets the message associated with this metadata as eligible.
 // It returns true if the eligible status is modified. False otherwise.
 func (m *MessageMetadata) SetEligible(eligible bool) (modified bool) {
-	m.eligibleMutex.RLock()
-	if m.eligible != eligible {
-		m.eligibleMutex.RUnlock()
+	m.eligibleMutex.Lock()
+	defer m.eligibleMutex.Unlock()
 
-		m.eligibleMutex.Lock()
-		if m.eligible != eligible {
-			m.eligible = eligible
-			m.SetModified()
-
-			modified = true
-		}
-		m.eligibleMutex.Unlock()
-
-	} else {
-		m.eligibleMutex.RUnlock()
+	if m.eligible == eligible {
+		return false
 	}
+
+	m.eligible = eligible
+	m.SetModified()
+	modified = true
+
+	return
+}
+
+// IsInvalid returns true if the message represented by this metadata is invalid. False otherwise.
+func (m *MessageMetadata) IsInvalid() (result bool) {
+	m.invalidMutex.RLock()
+	defer m.invalidMutex.RUnlock()
+	result = m.invalid
+
+	return
+}
+
+// SetInvalid sets the message associated with this metadata as invalid.
+// It returns true if the invalid status is modified. False otherwise.
+func (m *MessageMetadata) SetInvalid(invalid bool) (modified bool) {
+	m.invalidMutex.Lock()
+	defer m.invalidMutex.Unlock()
+
+	if m.invalid == invalid {
+		return false
+	}
+
+	m.invalid = invalid
+	m.SetModified()
+	modified = true
 
 	return
 }
@@ -257,6 +278,7 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 		WriteBytes(m.TimestampOpinion().Bytes()).
 		WriteBool(m.IsEligible()).
 		WriteBool(m.IsBooked()).
+		WriteBool(m.IsInvalid()).
 		Bytes()
 }
 
