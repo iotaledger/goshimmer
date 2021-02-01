@@ -139,6 +139,7 @@ func configure(*node.Plugin) {
 }
 
 func run(*node.Plugin) {
+	messageParser.Setup()
 	if err := daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
 		<-shutdownSignal
 		messageFactory.Shutdown()

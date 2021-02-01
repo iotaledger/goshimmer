@@ -356,6 +356,7 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 	// setup the message parser
 	msgParser := NewMessageParser()
 	msgParser.AddBytesFilter(NewPowFilter(testWorker, targetPOW))
+	msgParser.Setup()
 
 	// setup the message factory
 	msgFactory := NewMessageFactory(
