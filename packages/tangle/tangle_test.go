@@ -355,7 +355,7 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 
 	// setup the message parser
 	msgParser := NewMessageParser()
-	msgParser.AddBytesFilter(NewPowFilter(testWorker, targetPOW))
+	msgParser.AddMessageFilter(NewPowFilter(testWorker, targetPOW))
 	msgParser.Setup()
 
 	// setup the message factory
@@ -377,7 +377,7 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 	)
 
 	// PoW workers
-	msgFactory.SetWorker(WorkerFunc(func(msgBytes []byte) (uint64, error) {
+	msgFactory.SetWorker(WorkerFunc(func(msgBytes []byte, targetPOW int) (uint64, error) {
 		content := msgBytes[:len(msgBytes)-ed25519.SignatureSize-8]
 		return testWorker.Mine(context.Background(), content, targetPOW)
 	}))
@@ -559,8 +559,11 @@ func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, t ...*Tangle) 
 	issuingTime := time.Now().Add(15 * time.Minute)
 	issuerPublicKey := f.localIdentity.PublicKey()
 
+	// Calculate the current difficulty for this msg.
+	currentDifficulty := f.mw.AdaptiveDifficulty(issuingTime)
+
 	// do the PoW
-	nonce, err := f.doPOW(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p)
+	nonce, err := f.doPOW(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p, currentDifficulty)
 	if err != nil {
 		err = fmt.Errorf("pow failed: %w", err)
 		f.Events.Error.Trigger(err)

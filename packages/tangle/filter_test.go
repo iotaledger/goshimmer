@@ -46,45 +46,6 @@ func newTestPeer(name string) *peer.Peer {
 	return peer.NewPeer(identity.New(key), testIP, newTestServiceRecord())
 }
 
-func TestPowFilter_Filter(t *testing.T) {
-	filter := NewPowFilter(testWorker, testDifficulty)
-
-	// set callbacks
-	m := &callbackMock{}
-	filter.OnAccept(m.Accept)
-	filter.OnReject(m.Reject)
-
-	t.Run("reject small message", func(t *testing.T) {
-		m.On("Reject", mock.Anything, mock.MatchedBy(func(err error) bool { return errors.Is(err, ErrMessageTooSmall) }), testPeer)
-		filter.Filter(nil, testPeer)
-	})
-
-	msg := newTestNonceMessage(0)
-	msgBytes := msg.Bytes()
-
-	t.Run("reject invalid nonce", func(t *testing.T) {
-		m.On("Reject", msg, mock.MatchedBy(func(err error) bool { return errors.Is(err, ErrInvalidPOWDifficultly) }), testPeer)
-		filter.Filter(msg, testPeer)
-	})
-
-	nonce, err := testWorker.Mine(context.Background(), msgBytes[:len(msgBytes)-len(msg.Signature())-pow.NonceBytes], testDifficulty)
-	require.NoError(t, err)
-
-	msgPOW := newTestNonceMessage(nonce)
-	msgPOWBytes := msgPOW.Bytes()
-
-	t.Run("accept valid nonce", func(t *testing.T) {
-		zeroes, err := testWorker.LeadingZeros(msgPOWBytes[:len(msgPOWBytes)-len(msgPOW.Signature())])
-		require.NoError(t, err)
-		require.GreaterOrEqual(t, zeroes, testDifficulty)
-
-		m.On("Accept", msgPOW, testPeer)
-		filter.Filter(msgPOW, testPeer)
-	})
-
-	m.AssertExpectations(t)
-}
-
 func TestAPowFilter_Filter(t *testing.T) {
 	filter := NewPowFilter(testWorker, testDifficulty)
 	pow.BaseDifficulty = testDifficulty
