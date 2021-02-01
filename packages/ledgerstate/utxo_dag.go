@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/set"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
@@ -328,6 +327,7 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 		if txMetadata.BranchID() == conflictBranchID {
 			return
 		}
+
 		conflictBranchParents := NewBranchIDs(txMetadata.BranchID())
 		conflictIDs := conflictingInputs.Filter(u.consumedOutputIDsOfTransaction(transactionID)).ConflictIDs()
 
@@ -705,11 +705,16 @@ func (u *UTXODAG) walkFutureCone(entryPoints []OutputID, callback func(transacti
 		stack.PushBack(outputID)
 	}
 
+	seenTransactions := set.New()
 	for stack.Len() > 0 {
 		firstElement := stack.Front()
 		stack.Remove(firstElement)
 
 		u.Consumers(firstElement.Value.(OutputID)).Consume(func(consumer *Consumer) {
+			if !seenTransactions.Add(consumer.TransactionID()) {
+				return
+			}
+
 			if len(optionalValidFlagFilter) >= 1 && consumer.Valid() != optionalValidFlagFilter[0] {
 				return
 			}
@@ -762,19 +767,11 @@ func (u *UTXODAG) lockTransaction(transaction *Transaction) {
 // region UTXODAGEvents ////////////////////////////////////////////////////////////////////////////////////////////////
 
 // UTXODAGEvents is a container for all of the UTXODAG related events.
-type UTXODAGEvents struct {
-	TransactionNotSolid *events.Event
-}
+type UTXODAGEvents struct{}
 
 // NewUTXODAGEvents creates a container for all of the UTXODAG related events.
 func NewUTXODAGEvents() *UTXODAGEvents {
-	return &UTXODAGEvents{
-		TransactionNotSolid: events.NewEvent(transactionEventCaller),
-	}
-}
-
-func transactionEventCaller(handler interface{}, params ...interface{}) {
-	handler.(func(*Transaction))(params[0].(*Transaction))
+	return &UTXODAGEvents{}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
