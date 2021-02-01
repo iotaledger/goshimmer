@@ -6,7 +6,7 @@ echo "Build GoShimmer image"
 docker build -t iotaledger/goshimmer ../../.
 
 echo "Pull additional Docker images"
-docker pull angelocapossele/drand:1.1.3
+docker pull angelocapossele/drand:v1.1.4
 docker pull gaiaadm/pumba:0.7.2
 docker pull gaiadocker/iproute2:latest
 
