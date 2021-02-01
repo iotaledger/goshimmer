@@ -202,7 +202,7 @@ func (t *Tangle) isAgeOfParentValid(childTime time.Time, parentID MessageID) boo
 
 // checks whether parents of the given message are valid.
 func (t *Tangle) isParentsValid(msg *Message) bool {
-	if msg == nil {
+	if msg == nil || msg.IsDeleted() {
 		return false
 	}
 
@@ -214,7 +214,7 @@ func (t *Tangle) isParentsValid(msg *Message) bool {
 	return valid
 }
 
-// checks whether parent is valid.
+// checks whether the given message is valid.
 func (t *Tangle) isMessageValid(messageID MessageID) bool {
 	if messageID == EmptyMessageID {
 		return true
