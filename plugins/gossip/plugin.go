@@ -31,7 +31,7 @@ var (
 	ageThreshold            time.Duration
 	tipsBroadcasterInterval time.Duration
 
-	requestedMsgs map[tangle.MessageID]types.Empty
+	requestedMsgs     map[tangle.MessageID]types.Empty
 	requestedMsgMutex sync.Mutex
 )
 
@@ -143,7 +143,7 @@ func configureMessageLayer() {
 		}
 
 		msg := cachedMsgEvent.Message.Unwrap()
-		
+
 		// do not gossip requested messages
 		requestedMsgMutex.Lock()
 		if _, exist := requestedMsgs[msg.ID()]; exist {
