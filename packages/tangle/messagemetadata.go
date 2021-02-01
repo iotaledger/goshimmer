@@ -107,8 +107,8 @@ func (m *MessageMetadata) ReceivedTime() time.Time {
 // IsSolid returns true if the message represented by this metadata is solid. False otherwise.
 func (m *MessageMetadata) IsSolid() (result bool) {
 	m.solidMutex.RLock()
+	defer m.solidMutex.RUnlock()
 	result = m.solid
-	m.solidMutex.RUnlock()
 
 	return
 }
@@ -153,8 +153,8 @@ func (m *MessageMetadata) SolidificationTime() time.Time {
 // IsBooked returns true if the message represented by this metadata is booked. False otherwise.
 func (m *MessageMetadata) IsBooked() (result bool) {
 	m.bookedMutex.RLock()
+	defer m.bookedMutex.RUnlock()
 	result = m.booked
-	m.bookedMutex.RUnlock()
 
 	return
 }
@@ -162,8 +162,8 @@ func (m *MessageMetadata) IsBooked() (result bool) {
 // IsEligible returns true if the message represented by this metadata is eligible. False otherwise.
 func (m *MessageMetadata) IsEligible() (result bool) {
 	m.eligibleMutex.RLock()
+	defer m.eligibleMutex.RUnlock()
 	result = m.eligible
-	m.eligibleMutex.RUnlock()
 
 	return
 }
@@ -234,8 +234,8 @@ func (m *MessageMetadata) SetEligible(eligible bool) (modified bool) {
 // IsInvalid returns true if the message represented by this metadata is invalid. False otherwise.
 func (m *MessageMetadata) IsInvalid() (result bool) {
 	m.invalidMutex.RLock()
+	defer m.invalidMutex.RUnlock()
 	result = m.invalid
-	m.invalidMutex.RUnlock()
 
 	return
 }
