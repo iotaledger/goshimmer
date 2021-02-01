@@ -21,12 +21,12 @@ var (
 // Plugin gets the plugin instance.
 func Plugin() *node.Plugin {
 	once.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Enabled, run)
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure)
 	})
 	return plugin
 }
 
-func run(*node.Plugin) {
+func configure(*node.Plugin) {
 	// assure that the logger is available
 	log := logger.NewLogger(PluginName)
 

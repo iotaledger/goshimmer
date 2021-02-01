@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/packages/vote"
+	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/hive.go/identity"
 )
 
@@ -206,15 +206,15 @@ func (v *View) TimestampOpinion(id tangle.MessageID) Opinions {
 }
 
 // Query retrievs the opinions about the given conflicts and timestamps.
-func (v *View) Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (vote.Opinions, error) {
-	answer := vote.Opinions{}
+func (v *View) Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (opinion.Opinions, error) {
+	answer := opinion.Opinions{}
 	for _, id := range conflictIDs {
 		ID, err := transaction.IDFromBase58(id)
 		if err != nil {
 			return answer, err
 		}
 		o := v.ConflictOpinion(ID)
-		opinion := vote.Unknown
+		opinion := opinion.Unknown
 		if len(o) > 0 {
 			opinion = o.Last().Value
 		}
@@ -226,7 +226,7 @@ func (v *View) Query(ctx context.Context, conflictIDs []string, timestampIDs []s
 			return answer, err
 		}
 		o := v.TimestampOpinion(ID)
-		opinion := vote.Unknown
+		opinion := opinion.Unknown
 		if len(o) > 0 {
 			opinion = o.Last().Value
 		}

@@ -112,6 +112,8 @@ func newSyncMessageParser(messageFilters ...tangle.MessageFilter) (tester *syncM
 		messageParser.AddMessageFilter(messageFilter)
 	}
 
+	messageParser.Setup()
+
 	// create wrapped result
 	tester = &syncMessageParser{
 		messageParser: messageParser,

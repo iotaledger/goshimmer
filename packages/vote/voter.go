@@ -4,6 +4,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/hive.go/events"
 )
 
@@ -15,9 +16,9 @@ var (
 // Voter votes on hashes.
 type Voter interface {
 	// Vote submits the given ID for voting with its initial Opinion.
-	Vote(id string, objectType ObjectType, initOpn Opinion) error
+	Vote(id string, objectType ObjectType, initOpn opinion.Opinion) error
 	// IntermediateOpinion gets intermediate Opinion about the given ID.
-	IntermediateOpinion(id string) (Opinion, error)
+	IntermediateOpinion(id string) (opinion.Opinion, error)
 	// Events returns the Events instance of the given Voter.
 	Events() Events
 }
@@ -54,7 +55,7 @@ type RoundStats struct {
 	// Create a copy of this map if you need to modify any of its elements.
 	ActiveVoteContexts map[string]*Context `json:"active_vote_contexts"`
 	// The opinions which were queried during the round per opinion giver.
-	QueriedOpinions []QueriedOpinions `json:"queried_opinions"`
+	QueriedOpinions []opinion.QueriedOpinions `json:"queried_opinions"`
 }
 
 // OpinionEvent is the struct containing data to be passed around with Finalized and Failed events.
@@ -62,7 +63,7 @@ type OpinionEvent struct {
 	// ID is the of the conflict.
 	ID string
 	// Opinion is an opinion about a conflict.
-	Opinion Opinion
+	Opinion opinion.Opinion
 	// Ctx contains all relevant infos regarding the conflict.
 	Ctx Context
 }

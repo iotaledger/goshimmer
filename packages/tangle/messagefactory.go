@@ -69,7 +69,7 @@ func (f *MessageFactory) SetWorker(worker Worker) {
 // IssuePayload creates a new message including sequence number and tip selection and returns it.
 // It also triggers the MessageConstructed event once it's done, which is for example used by the plugins to listen for
 // messages that shall be attached to the tangle.
-func (f *MessageFactory) IssuePayload(p payload.Payload) (*Message, error) {
+func (f *MessageFactory) IssuePayload(p payload.Payload, t ...*Tangle) (*Message, error) {
 	payloadLen := len(p.Bytes())
 	if payloadLen > payload.MaxSize {
 		err := fmt.Errorf("maximum payload size of %d bytes exceeded", payloadLen)
@@ -92,6 +92,19 @@ func (f *MessageFactory) IssuePayload(p payload.Payload) (*Message, error) {
 	weakParents := make([]MessageID, 0)
 
 	issuingTime := clock.SyncedTime()
+
+	// due to the ParentAge check we must ensure that we set the right issuing time.
+	if t != nil {
+		for _, parent := range strongParents {
+			t[0].Message(parent).Consume(func(msg *Message) {
+				if msg.ID() != EmptyMessageID && !msg.IssuingTime().Before(issuingTime) {
+					time.Sleep(msg.IssuingTime().Sub(issuingTime) + 1*time.Nanosecond)
+					issuingTime = clock.SyncedTime()
+				}
+			})
+		}
+	}
+
 	issuerPublicKey := f.localIdentity.PublicKey()
 
 	// Calculate the current difficulty for this msg.
