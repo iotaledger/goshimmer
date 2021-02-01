@@ -3,8 +3,10 @@ package ledgerstate
 import (
 	"math"
 	"testing"
+	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/types"
@@ -666,7 +668,7 @@ func singleInputTransaction(utxoDAG *UTXODAG, a, b wallet, outputToSpend *SigLoc
 	input := NewUTXOInput(outputToSpend.ID())
 	output := NewSigLockedSingleOutput(100, b.address)
 
-	txEssence := NewTransactionEssence(0, NewInputs(input), NewOutputs(output))
+	txEssence := NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, NewInputs(input), NewOutputs(output))
 
 	tx := NewTransaction(txEssence, a.unlockBlocks(txEssence))
 
@@ -705,7 +707,7 @@ func multipleInputsTransaction(utxoDAG *UTXODAG, a, b wallet, outputsToSpend []*
 
 	output := NewSigLockedSingleOutput(100, b.address)
 
-	txEssence := NewTransactionEssence(0, inputs, NewOutputs(output))
+	txEssence := NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, inputs, NewOutputs(output))
 
 	tx := NewTransaction(txEssence, a.unlockBlocks(txEssence))
 
@@ -755,7 +757,7 @@ func buildTransaction(utxoDAG *UTXODAG, a, b wallet, outputsToSpend []*SigLocked
 
 	output := NewSigLockedSingleOutput(sum, b.address)
 
-	txEssence := NewTransactionEssence(0, inputs, NewOutputs(output))
+	txEssence := NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, inputs, NewOutputs(output))
 
 	tx := NewTransaction(txEssence, a.unlockBlocks(txEssence))
 

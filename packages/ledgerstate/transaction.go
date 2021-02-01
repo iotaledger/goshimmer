@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
@@ -351,17 +352,33 @@ func (c *CachedTransaction) String() string {
 // TransactionEssence contains the transfer related information of the Transaction (without the unlocking details).
 type TransactionEssence struct {
 	version TransactionEssenceVersion
-	inputs  Inputs
-	outputs Outputs
-	payload payload.Payload
+	// timestamp is the timestamp of the transaction.
+	timestamp time.Time
+	// accessPledgeID is the nodeID to which access mana of the transaction is pledged.
+	accessPledgeID identity.ID
+	// consensusPledgeID is the nodeID to which consensus mana of the transaction is pledged.
+	consensusPledgeID identity.ID
+	inputs            Inputs
+	outputs           Outputs
+	payload           payload.Payload
 }
 
 // NewTransactionEssence creates a new TransactionEssence from the given details.
-func NewTransactionEssence(version TransactionEssenceVersion, inputs Inputs, outputs Outputs) *TransactionEssence {
+func NewTransactionEssence(
+	version TransactionEssenceVersion,
+	timestamp time.Time,
+	accessPledgeID identity.ID,
+	consensusPledgeID identity.ID,
+	inputs Inputs,
+	outputs Outputs,
+) *TransactionEssence {
 	return &TransactionEssence{
-		version: version,
-		inputs:  inputs,
-		outputs: outputs,
+		version:           version,
+		timestamp:         timestamp,
+		accessPledgeID:    accessPledgeID,
+		consensusPledgeID: consensusPledgeID,
+		inputs:            inputs,
+		outputs:           outputs,
 	}
 }
 
@@ -384,6 +401,27 @@ func TransactionEssenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (tr
 		err = xerrors.Errorf("failed to parse TransactionEssenceVersion from MarshalUtil: %w", err)
 		return
 	}
+	// unmarshal timestamp
+	if transactionEssence.timestamp, err = marshalUtil.ReadTime(); err != nil {
+		err = xerrors.Errorf("failed to parse Transaction timestamp from MarshalUtil: %w", err)
+		return
+	}
+	// unmarshal accessPledgeID
+	var accessPledgeIDBytes []byte
+	if accessPledgeIDBytes, err = marshalUtil.ReadBytes(len(identity.ID{})); err != nil {
+		err = xerrors.Errorf("failed to parse accessPledgeID from MarshalUtil: %w", err)
+		return
+	}
+	copy(transactionEssence.accessPledgeID[:], accessPledgeIDBytes)
+
+	// unmarshal consensusPledgeIDBytes
+	var consensusPledgeIDBytes []byte
+	if consensusPledgeIDBytes, err = marshalUtil.ReadBytes(len(identity.ID{})); err != nil {
+		err = xerrors.Errorf("failed to parse consensusPledgeID from MarshalUtil: %w", err)
+		return
+	}
+	copy(transactionEssence.consensusPledgeID[:], consensusPledgeIDBytes)
+
 	if transactionEssence.inputs, err = InputsFromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse Inputs from MarshalUtil: %w", err)
 		return
@@ -398,6 +436,21 @@ func TransactionEssenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (tr
 	}
 
 	return
+}
+
+// Timestamp returns the timestamp of the TransactionEssence.
+func (t *TransactionEssence) Timestamp() time.Time {
+	return t.timestamp
+}
+
+// AccessPledgeID returns the access mana pledge nodeID of the TransactionEssence.
+func (t *TransactionEssence) AccessPledgeID() identity.ID {
+	return t.accessPledgeID
+}
+
+// ConsensusPledgeID returns the consensus mana pledge nodeID of the TransactionEssence.
+func (t *TransactionEssence) ConsensusPledgeID() identity.ID {
+	return t.consensusPledgeID
 }
 
 // Inputs returns the Inputs of the TransactionEssence.
@@ -419,6 +472,9 @@ func (t *TransactionEssence) Payload() payload.Payload {
 func (t *TransactionEssence) Bytes() []byte {
 	marshalUtil := marshalutil.New().
 		Write(t.version).
+		WriteTime(t.timestamp).
+		Write(t.accessPledgeID).
+		Write(t.consensusPledgeID).
 		Write(t.inputs).
 		Write(t.outputs)
 
@@ -435,6 +491,9 @@ func (t *TransactionEssence) Bytes() []byte {
 func (t *TransactionEssence) String() string {
 	return stringify.Struct("TransactionEssence",
 		stringify.StructField("version", t.version),
+		stringify.StructField("timestamp", t.timestamp),
+		stringify.StructField("accessPledgeID", t.accessPledgeID),
+		stringify.StructField("consensusPledgeID", t.consensusPledgeID),
 		stringify.StructField("inputs", t.inputs),
 		stringify.StructField("outputs", t.outputs),
 		stringify.StructField("payload", t.payload),
