@@ -16,7 +16,6 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-	"github.com/iotaledger/hive.go/types"
 )
 
 // PluginName is the name of the gossip plugin.
@@ -31,8 +30,7 @@ var (
 	ageThreshold            time.Duration
 	tipsBroadcasterInterval time.Duration
 
-	requestedMsgs     map[tangle.MessageID]types.Empty
-	requestedMsgMutex sync.Mutex
+	requestedMsgs *requestedMessages
 )
 
 // Plugin gets the plugin instance.
@@ -47,7 +45,7 @@ func configure(*node.Plugin) {
 	log = logger.NewLogger(PluginName)
 	ageThreshold = config.Node().Duration(CfgGossipAgeThreshold)
 	tipsBroadcasterInterval = config.Node().Duration(CfgGossipTipsBroadcastInterval)
-	requestedMsgs = make(map[tangle.MessageID]types.Empty)
+	requestedMsgs = newRequestedMessages()
 
 	configureLogging()
 	configureMessageLayer()
@@ -145,12 +143,9 @@ func configureMessageLayer() {
 		msg := cachedMsgEvent.Message.Unwrap()
 
 		// do not gossip requested messages
-		requestedMsgMutex.Lock()
-		if _, exist := requestedMsgs[msg.ID()]; exist {
-			delete(requestedMsgs, msg.ID())
+		if requested := requestedMsgs.delete(msg.ID()); requested {
 			return
 		}
-		requestedMsgMutex.Unlock()
 
 		mgr.SendMessage(msg.Bytes())
 	}))
@@ -163,20 +158,16 @@ func configureMessageLayer() {
 	messagelayer.Tangle().MessageStore.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
 		cachedMsgEvent.MessageMetadata.Release()
 		cachedMsgEvent.Message.Consume(func(msg *tangle.Message) {
-			requestedMsgMutex.Lock()
-			requestedMsgs[msg.ID()] = types.Void
-			requestedMsgMutex.Unlock()
+			requestedMsgs.append(msg.ID())
 		})
 	}))
 
-	// delete the message from requestedMsg if it's invalid, otherwise it will always be in the list but never get removed in some cases.
+	// delete the message from requestedMsgs if it's invalid, otherwise it will always be in the list and never get removed in some cases.
 	messagelayer.Tangle().Events.MessageInvalid.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
 		cachedMsgEvent.MessageMetadata.Release()
 
 		cachedMsgEvent.Message.Consume(func(msg *tangle.Message) {
-			requestedMsgMutex.Lock()
-			delete(requestedMsgs, msg.ID())
-			requestedMsgMutex.Unlock()
+			requestedMsgs.delete(msg.ID())
 		})
 	}))
 }
