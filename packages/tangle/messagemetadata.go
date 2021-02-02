@@ -195,23 +195,16 @@ func (m *MessageMetadata) TimestampOpinion() (timestampOpinion TimestampOpinion)
 // SetTimestampOpinion sets the timestampOpinion flag.
 // It returns true if the timestampOpinion flag is modified. False otherwise.
 func (m *MessageMetadata) SetTimestampOpinion(timestampOpinion TimestampOpinion) (modified bool) {
-	m.timestampOpinionMutex.RLock()
-	if !m.timestampOpinion.Equal(timestampOpinion) {
-		m.timestampOpinionMutex.RUnlock()
+	m.timestampOpinionMutex.Lock()
+	defer m.timestampOpinionMutex.Unlock()
 
-		m.timestampOpinionMutex.Lock()
-		if !m.timestampOpinion.Equal(timestampOpinion) {
-			m.timestampOpinion = timestampOpinion
-			m.SetModified()
-			modified = true
-		}
-		m.timestampOpinionMutex.Unlock()
-
-	} else {
-		m.timestampOpinionMutex.RUnlock()
+	if m.timestampOpinion.Equal(timestampOpinion) {
+		return false
 	}
 
-	return
+	m.timestampOpinion = timestampOpinion
+	m.SetModified()
+	return true
 }
 
 // SetEligible sets the message associated with this metadata as eligible.
