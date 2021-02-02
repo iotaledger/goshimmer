@@ -303,7 +303,7 @@ var _ objectstorage.StorableObject = &Transaction{}
 
 // region CachedTransaction ////////////////////////////////////////////////////////////////////////////////////////////
 
-// CachedTransaction is a wrapper for the generic CachedObject returned by the objectstorage that overrides the
+// CachedTransaction is a wrapper for the generic CachedObject returned by the object storage that overrides the
 // accessor methods with a type-casted one.
 type CachedTransaction struct {
 	objectstorage.CachedObject
@@ -335,6 +335,13 @@ func (c *CachedTransaction) Consume(consumer func(cachedTransaction *Transaction
 	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*Transaction))
 	}, forceRelease...)
+}
+
+// String returns a human readable version of the CachedTransaction.
+func (c *CachedTransaction) String() string {
+	return stringify.Struct("CachedTransaction",
+		stringify.StructField("CachedObject", c.Unwrap()),
+	)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -858,7 +865,7 @@ var _ objectstorage.StorableObject = &TransactionMetadata{}
 
 // region CachedTransactionMetadata ////////////////////////////////////////////////////////////////////////////////////
 
-// CachedTransactionMetadata is a wrapper for the generic CachedObject returned by the objectstorage that overrides the
+// CachedTransactionMetadata is a wrapper for the generic CachedObject returned by the object storage that overrides the
 // accessor methods with a type-casted one.
 type CachedTransactionMetadata struct {
 	objectstorage.CachedObject
@@ -890,6 +897,13 @@ func (c *CachedTransactionMetadata) Consume(consumer func(cachedTransactionMetad
 	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*TransactionMetadata))
 	}, forceRelease...)
+}
+
+// String returns a human readable version of the CachedTransactionMetadata.
+func (c *CachedTransactionMetadata) String() string {
+	return stringify.Struct("CachedTransactionMetadata",
+		stringify.StructField("CachedObject", c.Unwrap()),
+	)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

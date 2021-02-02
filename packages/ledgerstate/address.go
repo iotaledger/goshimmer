@@ -2,6 +2,7 @@ package ledgerstate
 
 import (
 	"github.com/iotaledger/hive.go/byteutils"
+	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
@@ -71,7 +72,7 @@ func AddressFromBytes(bytes []byte) (address Address, consumedBytes int, err err
 func AddressFromBase58EncodedString(base58String string) (address Address, err error) {
 	bytes, err := base58.Decode(base58String)
 	if err != nil {
-		err = xerrors.Errorf("error while decoding base58 encoded Address (%v): %w", err, ErrBase58DecodeFailed)
+		err = xerrors.Errorf("error while decoding base58 encoded Address (%v): %w", err, cerrors.ErrBase58DecodeFailed)
 		return
 	}
 
@@ -87,7 +88,7 @@ func AddressFromBase58EncodedString(base58String string) (address Address, err e
 func AddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address Address, err error) {
 	addressType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse AddressType (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse AddressType (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	marshalUtil.ReadSeek(-1)
@@ -98,7 +99,7 @@ func AddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address Addre
 	case BLSAddressType:
 		return BLSAddressFromMarshalUtil(marshalUtil)
 	default:
-		err = xerrors.Errorf("unsupported address type (%X): %w", addressType, ErrParseBytesFailed)
+		err = xerrors.Errorf("unsupported address type (%X): %w", addressType, cerrors.ErrParseBytesFailed)
 		return
 	}
 }
@@ -137,7 +138,7 @@ func ED25519AddressFromBytes(bytes []byte) (address *ED25519Address, consumedByt
 func ED25519AddressFromBase58EncodedString(base58String string) (address *ED25519Address, err error) {
 	bytes, err := base58.Decode(base58String)
 	if err != nil {
-		err = xerrors.Errorf("error while decoding base58 encoded ED25519Address (%v): %w", err, ErrBase58DecodeFailed)
+		err = xerrors.Errorf("error while decoding base58 encoded ED25519Address (%v): %w", err, cerrors.ErrBase58DecodeFailed)
 		return
 	}
 
@@ -153,17 +154,17 @@ func ED25519AddressFromBase58EncodedString(base58String string) (address *ED2551
 func ED25519AddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address *ED25519Address, err error) {
 	addressType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse AddressType (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse AddressType (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if AddressType(addressType) != ED25519AddressType {
-		err = xerrors.Errorf("invalid AddressType (%X): %w", addressType, ErrParseBytesFailed)
+		err = xerrors.Errorf("invalid AddressType (%X): %w", addressType, cerrors.ErrParseBytesFailed)
 		return
 	}
 
 	address = &ED25519Address{}
 	if address.digest, err = marshalUtil.ReadBytes(32); err != nil {
-		err = xerrors.Errorf("error parsing digest (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("error parsing digest (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -244,7 +245,7 @@ func BLSAddressFromBytes(bytes []byte) (address *BLSAddress, consumedBytes int, 
 func BLSAddressFromBase58EncodedString(base58String string) (address *BLSAddress, err error) {
 	bytes, err := base58.Decode(base58String)
 	if err != nil {
-		err = xerrors.Errorf("error while decoding base58 encoded BLSAddress (%v): %w", err, ErrBase58DecodeFailed)
+		err = xerrors.Errorf("error while decoding base58 encoded BLSAddress (%v): %w", err, cerrors.ErrBase58DecodeFailed)
 		return
 	}
 
@@ -260,17 +261,17 @@ func BLSAddressFromBase58EncodedString(base58String string) (address *BLSAddress
 func BLSAddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address *BLSAddress, err error) {
 	addressType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = xerrors.Errorf("error parsing AddressType (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("error parsing AddressType (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if AddressType(addressType) != BLSAddressType {
-		err = xerrors.Errorf("invalid AddressType (%X): %w", addressType, ErrParseBytesFailed)
+		err = xerrors.Errorf("invalid AddressType (%X): %w", addressType, cerrors.ErrParseBytesFailed)
 		return
 	}
 
 	address = &BLSAddress{}
 	if address.digest, err = marshalUtil.ReadBytes(32); err != nil {
-		err = xerrors.Errorf("error parsing digest (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("error parsing digest (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 

@@ -2,10 +2,14 @@ package ledgerstate
 
 import (
 	"bytes"
+	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 
+	"github.com/iotaledger/hive.go/byteutils"
+	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
@@ -23,6 +27,10 @@ var (
 
 	// MasterBranchID is the identifier of the MasterBranch (root of the ConflictBranch DAG).
 	MasterBranchID = BranchID{1}
+
+	// RejectedBranchID is the identifier for the RejectedBranch which contains the invalid Transactions and has the
+	// lazy booked ConflictBranches as its children.
+	RejectedBranchID = BranchID{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
 )
 
 // BranchIDLength contains the amount of bytes that a marshaled version of the BranchID contains.
@@ -52,13 +60,13 @@ func BranchIDFromBytes(bytes []byte) (branchID BranchID, consumedBytes int, err 
 
 // BranchIDFromBase58 creates a BranchID from a base58 encoded string.
 func BranchIDFromBase58(base58String string) (branchID BranchID, err error) {
-	bytes, err := base58.Decode(base58String)
+	decodedBytes, err := base58.Decode(base58String)
 	if err != nil {
-		err = xerrors.Errorf("error while decoding base58 encoded BranchID (%v): %w", err, ErrBase58DecodeFailed)
+		err = xerrors.Errorf("error while decoding base58 encoded BranchID (%v): %w", err, cerrors.ErrBase58DecodeFailed)
 		return
 	}
 
-	if branchID, _, err = BranchIDFromBytes(bytes); err != nil {
+	if branchID, _, err = BranchIDFromBytes(decodedBytes); err != nil {
 		err = xerrors.Errorf("failed to parse BranchID from bytes: %w", err)
 		return
 	}
@@ -70,7 +78,7 @@ func BranchIDFromBase58(base58String string) (branchID BranchID, err error) {
 func BranchIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchID BranchID, err error) {
 	branchIDBytes, err := marshalUtil.ReadBytes(BranchIDLength)
 	if err != nil {
-		err = xerrors.Errorf("failed to parse BranchID (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse BranchID (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	copy(branchID[:], branchIDBytes)
@@ -133,7 +141,7 @@ func BranchIDsFromBytes(bytes []byte) (branchIDs BranchIDs, consumedBytes int, e
 func BranchIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchIDs BranchIDs, err error) {
 	branchIDsCount, err := marshalUtil.ReadUint64()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse BranchIDs count (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse BranchIDs count (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -215,6 +223,41 @@ const (
 	AggregatedBranchType
 )
 
+// BranchTypeFromBytes unmarshals a BranchType from a sequence of bytes.
+func BranchTypeFromBytes(branchTypeBytes []byte) (branchType BranchType, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(branchTypeBytes)
+	if branchType, err = BranchTypeFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse BranchType from MarshalUtil: %w", err)
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// BranchTypeFromMarshalUtil unmarshals a BranchType using a MarshalUtil (for easier unmarshaling).
+func BranchTypeFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchType BranchType, err error) {
+	branchTypeByte, err := marshalUtil.ReadByte()
+	if err != nil {
+		err = xerrors.Errorf("failed to parse BranchType (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+
+	switch branchType = BranchType(branchTypeByte); branchType {
+	case ConflictBranchType:
+		return
+	case AggregatedBranchType:
+		return
+	default:
+		err = xerrors.Errorf("invalid BranchType (%X): %w", branchTypeByte, cerrors.ErrParseBytesFailed)
+		return
+	}
+}
+
+// Bytes returns a marshaled version of the BranchType.
+func (b BranchType) Bytes() []byte {
+	return []byte{byte(b)}
+}
+
 // String returns a human readable representation of the BranchType.
 func (b BranchType) String() string {
 	return [...]string{
@@ -239,37 +282,32 @@ type Branch interface {
 	// Parents returns the BranchIDs of the Branches parents in the BranchDAG.
 	Parents() BranchIDs
 
-	// Preferred returns true if the branch is "liked within it's scope" (ignoring monotonicity).
-	Preferred() bool
-
-	// SetPreferred sets the preferred property to the given value. It returns true if the value has been updated.
-	SetPreferred(preferred bool) (modified bool)
-
-	// Liked returns true if the branch is liked (taking monotonicity in account - i.e. all parents are also liked).
+	// Liked returns true if the branch is "liked within it's scope" (ignoring monotonicity).
 	Liked() bool
 
 	// SetLiked sets the liked property to the given value. It returns true if the value has been updated.
 	SetLiked(liked bool) (modified bool)
 
-	// Finalized returns true if the decision whether it is preferred has been finalized.
+	// MonotonicallyLiked returns true if the branch is monotonically liked (all parents are also liked).
+	MonotonicallyLiked() bool
+
+	// SetMonotonicallyLiked sets the monotonically liked property to the given value. It returns true if the value has
+	// been updated.
+	SetMonotonicallyLiked(monotonicallyLiked bool) (modified bool)
+
+	// Finalized returns true if the decision whether it is liked has been finalized.
 	Finalized() bool
 
 	// SetFinalized sets the finalized property to the given value. It returns true if the value has been updated.
 	SetFinalized(finalized bool) (modified bool)
 
-	// Confirmed returns true if the decision that the Branch is liked has been finalized and all of its parents have
-	// been confirmed.
-	Confirmed() bool
+	// InclusionState returns the InclusionState of the Branch which encodes if the Branch has been included in the
+	// ledger state.
+	InclusionState() InclusionState
 
-	// SetConfirmed sets the confirmed property to the given value. It returns true if the value has been updated.
-	SetConfirmed(confirmed bool) (modified bool)
-
-	// Rejected returns true if either a decision that the Branch is not liked has been finalized or any of its
-	// parents are rejected.
-	Rejected() bool
-
-	// SetRejected sets the rejected property to the given value. It returns true if the value has been updated.
-	SetRejected(rejected bool) (modified bool)
+	// SetInclusionState sets the InclusionState of the Branch which encodes if the Branch has been included in the
+	// ledger state. It returns true if the value has been updated.
+	SetInclusionState(inclusionState InclusionState) (modified bool)
 
 	// Bytes returns a marshaled version of the Branch.
 	Bytes() []byte
@@ -277,7 +315,7 @@ type Branch interface {
 	// String returns a human readable version of the Branch.
 	String() string
 
-	// StorableObject enables the Branch to be stored in the ObjectStorage.
+	// StorableObject enables the Branch to be stored in the object storage.
 	objectstorage.StorableObject
 }
 
@@ -296,7 +334,7 @@ func BranchFromBytes(bytes []byte) (branch Branch, consumedBytes int, err error)
 func BranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branch Branch, err error) {
 	branchType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse BranchType (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse BranchType (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	marshalUtil.ReadSeek(-1)
@@ -313,14 +351,14 @@ func BranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branch Branch,
 			return
 		}
 	default:
-		err = xerrors.Errorf("unsupported BranchType (%X): %w", branchType, ErrParseBytesFailed)
+		err = xerrors.Errorf("unsupported BranchType (%X): %w", branchType, cerrors.ErrParseBytesFailed)
 		return
 	}
 
 	return
 }
 
-// BranchFromObjectStorage restores a Branch that was stored in the ObjectStorage.
+// BranchFromObjectStorage restores a Branch that was stored in the object storage.
 func BranchFromObjectStorage(_ []byte, data []byte) (branch objectstorage.StorableObject, err error) {
 	if branch, _, err = BranchFromBytes(data); err != nil {
 		err = xerrors.Errorf("failed to parse Branch from bytes: %w", err)
@@ -334,10 +372,20 @@ func BranchFromObjectStorage(_ []byte, data []byte) (branch objectstorage.Storab
 
 // region CachedBranch /////////////////////////////////////////////////////////////////////////////////////////////////
 
-// CachedBranch is a wrapper for the generic CachedObject returned by the objectstorage that overrides the accessor
+// CachedBranch is a wrapper for the generic CachedObject returned by the object storage that overrides the accessor
 // methods with a type-casted one.
 type CachedBranch struct {
 	objectstorage.CachedObject
+}
+
+// ID returns the BranchID of the requested Branch.
+func (c *CachedBranch) ID() (branchID BranchID) {
+	branchID, _, err := BranchIDFromBytes(c.Key())
+	if err != nil {
+		panic(err)
+	}
+
+	return
 }
 
 // Retain marks the CachedObject to still be in use by the program.
@@ -360,6 +408,38 @@ func (c *CachedBranch) Unwrap() Branch {
 	return typedObject
 }
 
+// UnwrapConflictBranch is a more specialized Unwrap method that returns a ConflictBranch instead of the more generic interface.
+func (c *CachedBranch) UnwrapConflictBranch() (conflictBranch *ConflictBranch, err error) {
+	branch := c.Unwrap()
+	if branch == nil {
+		return
+	}
+
+	conflictBranch, typeCastOK := branch.(*ConflictBranch)
+	if !typeCastOK {
+		err = xerrors.Errorf("CachedBranch does not contain a ConflictBranch: %w", cerrors.ErrFatal)
+		return
+	}
+
+	return
+}
+
+// UnwrapAggregatedBranch is a more specialized Unwrap method that returns an AggregatedBranch instead of the more generic interface.
+func (c *CachedBranch) UnwrapAggregatedBranch() (aggregatedBranch *AggregatedBranch, err error) {
+	branch := c.Unwrap()
+	if branch == nil {
+		return
+	}
+
+	aggregatedBranch, typeCastOK := branch.(*AggregatedBranch)
+	if !typeCastOK {
+		err = xerrors.Errorf("CachedBranch does not contain an AggregatedBranch: %w", cerrors.ErrFatal)
+		return
+	}
+
+	return
+}
+
 // Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
 // exists). It automatically releases the object when the consumer finishes.
 func (c *CachedBranch) Consume(consumer func(branch Branch), forceRelease ...bool) (consumed bool) {
@@ -368,27 +448,33 @@ func (c *CachedBranch) Consume(consumer func(branch Branch), forceRelease ...boo
 	}, forceRelease...)
 }
 
+// String returns a human readable version of the CachedBranch.
+func (c *CachedBranch) String() string {
+	return stringify.Struct("CachedBranch",
+		stringify.StructField("CachedObject", c.Unwrap()),
+	)
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region ConflictBranch ///////////////////////////////////////////////////////////////////////////////////////////////
 
-// ConflictBranch represents a container for Transactions and Outputs representing a certain perception of the ledger state.
+// ConflictBranch represents a container for Transactions and Outputs representing a certain perception of the ledger
+// state.
 type ConflictBranch struct {
-	id             BranchID
-	parents        BranchIDs
-	parentsMutex   sync.RWMutex
-	conflicts      ConflictIDs
-	conflictsMutex sync.RWMutex
-	preferred      bool
-	preferredMutex sync.RWMutex
-	liked          bool
-	likedMutex     sync.RWMutex
-	finalized      bool
-	finalizedMutex sync.RWMutex
-	confirmed      bool
-	confirmedMutex sync.RWMutex
-	rejected       bool
-	rejectedMutex  sync.RWMutex
+	id                      BranchID
+	parents                 BranchIDs
+	parentsMutex            sync.RWMutex
+	conflicts               ConflictIDs
+	conflictsMutex          sync.RWMutex
+	liked                   bool
+	likedMutex              sync.RWMutex
+	monotonicallyLiked      bool
+	monotonicallyLikedMutex sync.RWMutex
+	finalized               bool
+	finalizedMutex          sync.RWMutex
+	inclusionState          InclusionState
+	inclusionStateMutex     sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
@@ -418,11 +504,11 @@ func ConflictBranchFromBytes(bytes []byte) (conflictBranch *ConflictBranch, cons
 func ConflictBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictBranch *ConflictBranch, err error) {
 	branchType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse BranchType (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse BranchType (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if BranchType(branchType) != ConflictBranchType {
-		err = xerrors.Errorf("invalid BranchType (%X): %w", branchType, ErrParseBytesFailed)
+		err = xerrors.Errorf("invalid BranchType (%X): %w", branchType, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -439,24 +525,20 @@ func ConflictBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (confli
 		err = xerrors.Errorf("failed to parse conflicts: %w", err)
 		return
 	}
-	if conflictBranch.preferred, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse preferred flag (%v): %w", err, ErrParseBytesFailed)
+	if conflictBranch.liked, err = marshalUtil.ReadBool(); err != nil {
+		err = xerrors.Errorf("failed to parse liked flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	if conflictBranch.liked, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse liked flag (%v): %w", err, ErrParseBytesFailed)
+	if conflictBranch.monotonicallyLiked, err = marshalUtil.ReadBool(); err != nil {
+		err = xerrors.Errorf("failed to parse monotonicallyLiked flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if conflictBranch.finalized, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse finalized flag (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse finalized flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	if conflictBranch.confirmed, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse confirmed flag (%v): %w", err, ErrParseBytesFailed)
-		return
-	}
-	if conflictBranch.rejected, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse rejected flag (%v): %w", err, ErrParseBytesFailed)
+	if conflictBranch.inclusionState, err = InclusionStateFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse InclusionState from MarshalUtil: %w", err)
 		return
 	}
 
@@ -482,11 +564,11 @@ func (c *ConflictBranch) Parents() BranchIDs {
 }
 
 // SetParents updates the parents of the ConflictBranch.
-func (c *ConflictBranch) SetParents(parentBranches ...BranchID) (modified bool, err error) {
+func (c *ConflictBranch) SetParents(parentBranches BranchIDs) (modified bool) {
 	c.parentsMutex.Lock()
 	defer c.parentsMutex.Unlock()
 
-	c.parents = NewBranchIDs(parentBranches...)
+	c.parents = parentBranches
 	c.SetModified()
 	modified = true
 
@@ -519,31 +601,7 @@ func (c *ConflictBranch) AddConflict(conflictID ConflictID) (added bool) {
 	return
 }
 
-// Preferred returns true if the branch is "liked within it's scope" (ignoring monotonicity).
-func (c *ConflictBranch) Preferred() bool {
-	c.preferredMutex.RLock()
-	defer c.preferredMutex.RUnlock()
-
-	return c.preferred
-}
-
-// SetPreferred sets the preferred property to the given value. It returns true if the value has been updated.
-func (c *ConflictBranch) SetPreferred(preferred bool) (modified bool) {
-	c.preferredMutex.Lock()
-	defer c.preferredMutex.Unlock()
-
-	if c.preferred == preferred {
-		return
-	}
-
-	c.preferred = preferred
-	c.SetModified()
-	modified = true
-
-	return
-}
-
-// Liked returns true if the branch is liked (taking monotonicity in account - i.e. all parents are also liked).
+// Liked returns true if the branch is "liked within it's scope" (ignoring monotonicity).
 func (c *ConflictBranch) Liked() bool {
 	c.likedMutex.RLock()
 	defer c.likedMutex.RUnlock()
@@ -567,7 +625,32 @@ func (c *ConflictBranch) SetLiked(liked bool) (modified bool) {
 	return
 }
 
-// Finalized returns true if the decision whether it is preferred has been finalized.
+// MonotonicallyLiked returns true if the branch is monotonically liked (all parents are also liked).
+func (c *ConflictBranch) MonotonicallyLiked() bool {
+	c.monotonicallyLikedMutex.RLock()
+	defer c.monotonicallyLikedMutex.RUnlock()
+
+	return c.monotonicallyLiked
+}
+
+// SetMonotonicallyLiked sets the monotonically liked property to the given value. It returns true if the value has been
+// updated.
+func (c *ConflictBranch) SetMonotonicallyLiked(monotonicallyLiked bool) (modified bool) {
+	c.monotonicallyLikedMutex.Lock()
+	defer c.monotonicallyLikedMutex.Unlock()
+
+	if c.monotonicallyLiked == monotonicallyLiked {
+		return
+	}
+
+	c.monotonicallyLiked = monotonicallyLiked
+	c.SetModified()
+	modified = true
+
+	return
+}
+
+// Finalized returns true if the decision whether it is liked has been finalized.
 func (c *ConflictBranch) Finalized() bool {
 	c.finalizedMutex.RLock()
 	defer c.finalizedMutex.RUnlock()
@@ -591,50 +674,26 @@ func (c *ConflictBranch) SetFinalized(finalized bool) (modified bool) {
 	return
 }
 
-// Confirmed returns true if the decision that the Branch is liked has been finalized and all of its parents have
-// been confirmed.
-func (c *ConflictBranch) Confirmed() bool {
-	c.confirmedMutex.RLock()
-	defer c.confirmedMutex.RUnlock()
+// InclusionState returns the InclusionState of the Branch which encodes if the Branch has been included in the
+// ledger state.
+func (c *ConflictBranch) InclusionState() (inclusionState InclusionState) {
+	c.inclusionStateMutex.RLock()
+	defer c.inclusionStateMutex.RUnlock()
 
-	return c.confirmed
+	return c.inclusionState
 }
 
-// SetConfirmed is the setter for the confirmed flag. It returns true if the value of the flag has been updated.
-func (c *ConflictBranch) SetConfirmed(confirmed bool) (modified bool) {
-	c.confirmedMutex.Lock()
-	defer c.confirmedMutex.Unlock()
+// SetInclusionState sets the InclusionState of the Branch which encodes if the Branch has been included in the
+// ledger state. It returns true if the value has been updated.
+func (c *ConflictBranch) SetInclusionState(inclusionState InclusionState) (modified bool) {
+	c.inclusionStateMutex.Lock()
+	defer c.inclusionStateMutex.Unlock()
 
-	if c.confirmed == confirmed {
+	if c.inclusionState == inclusionState {
 		return
 	}
 
-	c.confirmed = confirmed
-	c.SetModified()
-	modified = true
-
-	return
-}
-
-// Rejected returns true if either a decision that the Branch is not liked has been finalized or any of its
-// parents are rejected.
-func (c *ConflictBranch) Rejected() bool {
-	c.rejectedMutex.RLock()
-	defer c.rejectedMutex.RUnlock()
-
-	return c.confirmed
-}
-
-// SetRejected sets the rejected property to the given value. It returns true if the value has been updated.
-func (c *ConflictBranch) SetRejected(rejected bool) (modified bool) {
-	c.rejectedMutex.Lock()
-	defer c.rejectedMutex.Unlock()
-
-	if c.rejected == rejected {
-		return
-	}
-
-	c.rejected = rejected
+	c.inclusionState = inclusionState
 	c.SetModified()
 	modified = true
 
@@ -652,11 +711,10 @@ func (c *ConflictBranch) String() string {
 		stringify.StructField("id", c.ID()),
 		stringify.StructField("parents", c.Parents()),
 		stringify.StructField("conflicts", c.Conflicts()),
-		stringify.StructField("preferred", c.Preferred()),
 		stringify.StructField("liked", c.Liked()),
+		stringify.StructField("monotonicallyLiked", c.MonotonicallyLiked()),
 		stringify.StructField("finalized", c.Finalized()),
-		stringify.StructField("confirmed", c.Confirmed()),
-		stringify.StructField("rejected", c.Rejected()),
+		stringify.StructField("inclusionState", c.InclusionState()),
 	)
 }
 
@@ -672,18 +730,17 @@ func (c *ConflictBranch) ObjectStorageKey() []byte {
 }
 
 // ObjectStorageValue marshals the ConflictBranch into a sequence of bytes that are used as the value part in the
-// ObjectStorage.
+// object storage.
 func (c *ConflictBranch) ObjectStorageValue() []byte {
 	return marshalutil.New().
 		WriteByte(byte(c.Type())).
 		WriteBytes(c.ID().Bytes()).
 		WriteBytes(c.Parents().Bytes()).
 		WriteBytes(c.Conflicts().Bytes()).
-		WriteBool(c.Preferred()).
 		WriteBool(c.Liked()).
+		WriteBool(c.MonotonicallyLiked()).
 		WriteBool(c.Finalized()).
-		WriteBool(c.Confirmed()).
-		WriteBool(c.Rejected()).
+		Write(c.InclusionState()).
 		Bytes()
 }
 
@@ -692,23 +749,22 @@ var _ Branch = &ConflictBranch{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region AggregatedBranch ///////////////////////////////////////////////////////////////////////////////////////////////
+// region AggregatedBranch /////////////////////////////////////////////////////////////////////////////////////////////
 
-// AggregatedBranch represents a container for Transactions and Outputs representing a certain perception of the ledger state.
+// AggregatedBranch represents a container for Transactions and Outputs representing a certain perception of the ledger
+// state.
 type AggregatedBranch struct {
-	id             BranchID
-	parents        BranchIDs
-	parentsMutex   sync.RWMutex
-	preferred      bool
-	preferredMutex sync.RWMutex
-	liked          bool
-	likedMutex     sync.RWMutex
-	finalized      bool
-	finalizedMutex sync.RWMutex
-	confirmed      bool
-	confirmedMutex sync.RWMutex
-	rejected       bool
-	rejectedMutex  sync.RWMutex
+	id                      BranchID
+	parents                 BranchIDs
+	parentsMutex            sync.RWMutex
+	liked                   bool
+	likedMutex              sync.RWMutex
+	monotonicallyLiked      bool
+	monotonicallyLikedMutex sync.RWMutex
+	finalized               bool
+	finalizedMutex          sync.RWMutex
+	inclusionState          InclusionState
+	inclusionStateMutex     sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
@@ -750,11 +806,11 @@ func AggregatedBranchFromBytes(bytes []byte) (aggregatedBranch *AggregatedBranch
 func AggregatedBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (aggregatedBranch *AggregatedBranch, err error) {
 	branchType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse BranchType (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse BranchType (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if BranchType(branchType) != AggregatedBranchType {
-		err = xerrors.Errorf("invalid BranchType (%X): %w", branchType, ErrParseBytesFailed)
+		err = xerrors.Errorf("invalid BranchType (%X): %w", branchType, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -767,24 +823,20 @@ func AggregatedBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (aggr
 		err = xerrors.Errorf("failed to parse parents: %w", err)
 		return
 	}
-	if aggregatedBranch.preferred, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse preferred flag (%v): %w", err, ErrParseBytesFailed)
+	if aggregatedBranch.liked, err = marshalUtil.ReadBool(); err != nil {
+		err = xerrors.Errorf("failed to parse liked flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	if aggregatedBranch.liked, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse liked flag (%v): %w", err, ErrParseBytesFailed)
+	if aggregatedBranch.monotonicallyLiked, err = marshalUtil.ReadBool(); err != nil {
+		err = xerrors.Errorf("failed to parse monotonicallyLiked flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if aggregatedBranch.finalized, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse finalized flag (%v): %w", err, ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse finalized flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	if aggregatedBranch.confirmed, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse confirmed flag (%v): %w", err, ErrParseBytesFailed)
-		return
-	}
-	if aggregatedBranch.rejected, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse rejected flag (%v): %w", err, ErrParseBytesFailed)
+	if aggregatedBranch.inclusionState, err = InclusionStateFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse InclusionState from MarshalUtil: %w", err)
 		return
 	}
 
@@ -809,31 +861,7 @@ func (a *AggregatedBranch) Parents() BranchIDs {
 	return a.parents
 }
 
-// Preferred returns true if the branch is "liked within it's scope" (ignoring monotonicity).
-func (a *AggregatedBranch) Preferred() bool {
-	a.preferredMutex.RLock()
-	defer a.preferredMutex.RUnlock()
-
-	return a.preferred
-}
-
-// SetPreferred sets the preferred property to the given value. It returns true if the value has been updated.
-func (a *AggregatedBranch) SetPreferred(preferred bool) (modified bool) {
-	a.preferredMutex.Lock()
-	defer a.preferredMutex.Unlock()
-
-	if a.preferred == preferred {
-		return
-	}
-
-	a.preferred = preferred
-	a.SetModified()
-	modified = true
-
-	return
-}
-
-// Liked returns true if the branch is liked (taking monotonicity in account - i.e. all parents are also liked).
+// Liked returns true if the branch is "liked within it's scope" (ignoring monotonicity).
 func (a *AggregatedBranch) Liked() bool {
 	a.likedMutex.RLock()
 	defer a.likedMutex.RUnlock()
@@ -857,7 +885,32 @@ func (a *AggregatedBranch) SetLiked(liked bool) (modified bool) {
 	return
 }
 
-// Finalized returns true if the decision whether it is preferred has been finalized.
+// MonotonicallyLiked returns true if the branch is monotonically liked (all parents are also liked).
+func (a *AggregatedBranch) MonotonicallyLiked() bool {
+	a.monotonicallyLikedMutex.RLock()
+	defer a.monotonicallyLikedMutex.RUnlock()
+
+	return a.monotonicallyLiked
+}
+
+// SetMonotonicallyLiked sets the monotonically liked property to the given value. It returns true if the value has been
+// updated.
+func (a *AggregatedBranch) SetMonotonicallyLiked(monotonicallyLiked bool) (modified bool) {
+	a.monotonicallyLikedMutex.Lock()
+	defer a.monotonicallyLikedMutex.Unlock()
+
+	if a.monotonicallyLiked == monotonicallyLiked {
+		return
+	}
+
+	a.monotonicallyLiked = monotonicallyLiked
+	a.SetModified()
+	modified = true
+
+	return
+}
+
+// Finalized returns true if the decision whether it is liked has been finalized.
 func (a *AggregatedBranch) Finalized() bool {
 	a.finalizedMutex.RLock()
 	defer a.finalizedMutex.RUnlock()
@@ -881,50 +934,26 @@ func (a *AggregatedBranch) SetFinalized(finalized bool) (modified bool) {
 	return
 }
 
-// Confirmed returns true if the decision that the Branch is liked has been finalized and all of its parents have
-// been confirmed.
-func (a *AggregatedBranch) Confirmed() bool {
-	a.confirmedMutex.RLock()
-	defer a.confirmedMutex.RUnlock()
+// InclusionState returns the InclusionState of the Branch which encodes if the Branch has been included in the
+// ledger state.
+func (a *AggregatedBranch) InclusionState() (inclusionState InclusionState) {
+	a.inclusionStateMutex.RLock()
+	defer a.inclusionStateMutex.RUnlock()
 
-	return a.confirmed
+	return a.inclusionState
 }
 
-// SetConfirmed is the setter for the confirmed flag. It returns true if the value of the flag has been updated.
-func (a *AggregatedBranch) SetConfirmed(confirmed bool) (modified bool) {
-	a.confirmedMutex.Lock()
-	defer a.confirmedMutex.Unlock()
+// SetInclusionState sets the InclusionState of the Branch which encodes if the Branch has been included in the
+// ledger state. It returns true if the value has been updated.
+func (a *AggregatedBranch) SetInclusionState(inclusionState InclusionState) (modified bool) {
+	a.inclusionStateMutex.Lock()
+	defer a.inclusionStateMutex.Unlock()
 
-	if a.confirmed == confirmed {
+	if a.inclusionState == inclusionState {
 		return
 	}
 
-	a.confirmed = confirmed
-	a.SetModified()
-	modified = true
-
-	return
-}
-
-// Rejected returns true if either a decision that the Branch is not liked has been finalized or any of its
-// parents are rejected.
-func (a *AggregatedBranch) Rejected() bool {
-	a.rejectedMutex.RLock()
-	defer a.rejectedMutex.RUnlock()
-
-	return a.confirmed
-}
-
-// SetRejected sets the rejected property to the given value. It returns true if the value has been updated.
-func (a *AggregatedBranch) SetRejected(rejected bool) (modified bool) {
-	a.rejectedMutex.Lock()
-	defer a.rejectedMutex.Unlock()
-
-	if a.rejected == rejected {
-		return
-	}
-
-	a.rejected = rejected
+	a.inclusionState = inclusionState
 	a.SetModified()
 	modified = true
 
@@ -941,11 +970,10 @@ func (a *AggregatedBranch) String() string {
 	return stringify.Struct("AggregatedBranch",
 		stringify.StructField("id", a.ID()),
 		stringify.StructField("parents", a.Parents()),
-		stringify.StructField("preferred", a.Preferred()),
 		stringify.StructField("liked", a.Liked()),
+		stringify.StructField("monotonicallyLiked", a.MonotonicallyLiked()),
 		stringify.StructField("finalized", a.Finalized()),
-		stringify.StructField("confirmed", a.Confirmed()),
-		stringify.StructField("rejected", a.Rejected()),
+		stringify.StructField("inclusionState", a.InclusionState()),
 	)
 }
 
@@ -961,21 +989,243 @@ func (a *AggregatedBranch) ObjectStorageKey() []byte {
 }
 
 // ObjectStorageValue marshals the AggregatedBranch into a sequence of bytes that are used as the value part in the
-// ObjectStorage.
+// object storage.
 func (a *AggregatedBranch) ObjectStorageValue() []byte {
 	return marshalutil.New().
 		WriteByte(byte(a.Type())).
 		WriteBytes(a.ID().Bytes()).
 		WriteBytes(a.Parents().Bytes()).
-		WriteBool(a.Preferred()).
 		WriteBool(a.Liked()).
+		WriteBool(a.MonotonicallyLiked()).
 		WriteBool(a.Finalized()).
-		WriteBool(a.Confirmed()).
-		WriteBool(a.Rejected()).
+		Write(a.InclusionState()).
 		Bytes()
 }
 
 // code contract (make sure the struct implements all required methods)
 var _ Branch = &AggregatedBranch{}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region ChildBranch //////////////////////////////////////////////////////////////////////////////////////////////////
+
+// ChildBranchKeyPartition defines the partition of the storage key of the ChildBranch model.
+var ChildBranchKeyPartition = objectstorage.PartitionKey(BranchIDLength, BranchIDLength)
+
+// ChildBranch represents the relationship between a Branch and its children. Since a Branch can have a potentially
+// unbounded amount of child Branches, we store this as a separate k/v pair instead of a marshaled list of children
+// inside the Branch.
+type ChildBranch struct {
+	parentBranchID  BranchID
+	childBranchID   BranchID
+	childBranchType BranchType
+
+	objectstorage.StorableObjectFlags
+}
+
+// NewChildBranch is the constructor of the ChildBranch reference.
+func NewChildBranch(parentBranchID BranchID, childBranchID BranchID, childBranchType BranchType) *ChildBranch {
+	return &ChildBranch{
+		parentBranchID:  parentBranchID,
+		childBranchID:   childBranchID,
+		childBranchType: childBranchType,
+	}
+}
+
+// ChildBranchFromBytes unmarshals a ChildBranch from a sequence of bytes.
+func ChildBranchFromBytes(bytes []byte) (childBranch *ChildBranch, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(bytes)
+	if childBranch, err = ChildBranchFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse ChildBranch from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// ChildBranchFromMarshalUtil unmarshals an ChildBranch using a MarshalUtil (for easier unmarshaling).
+func ChildBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (childBranch *ChildBranch, err error) {
+	childBranch = &ChildBranch{}
+	if childBranch.parentBranchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse parent BranchID from MarshalUtil: %w", err)
+		return
+	}
+	if childBranch.childBranchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse child BranchID from MarshalUtil: %w", err)
+		return
+	}
+	if childBranch.childBranchType, err = BranchTypeFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse child BranchType from MarshalUtil: %w", err)
+		return
+	}
+
+	return
+}
+
+// ChildBranchFromObjectStorage is a factory method that creates a new ChildBranch instance from a storage key of the
+// object storage. It is used by the object storage, to create new instances of this entity.
+func ChildBranchFromObjectStorage(key []byte, _ []byte) (result objectstorage.StorableObject, err error) {
+	if result, _, err = ChildBranchFromBytes(key); err != nil {
+		err = xerrors.Errorf("failed to parse ChildBranch from bytes: %w", err)
+		return
+	}
+
+	return
+}
+
+// ParentBranchID returns the BranchID of the parent Branch in the BranchDAG.
+func (c *ChildBranch) ParentBranchID() (parentBranchID BranchID) {
+	return c.parentBranchID
+}
+
+// ChildBranchID returns the BranchID of the child Branch in the BranchDAG.
+func (c *ChildBranch) ChildBranchID() (childBranchID BranchID) {
+	return c.childBranchID
+}
+
+// ChildBranchType returns the BranchType of the child Branch in the BranchDAG.
+func (c *ChildBranch) ChildBranchType() BranchType {
+	return c.childBranchType
+}
+
+// Bytes returns a marshaled version of the ChildBranch.
+func (c *ChildBranch) Bytes() (marshaledChildBranch []byte) {
+	return byteutils.ConcatBytes(c.ObjectStorageKey(), c.ObjectStorageValue())
+}
+
+// String returns a human readable version of the ChildBranch.
+func (c *ChildBranch) String() (humanReadableChildBranch string) {
+	return stringify.Struct("ChildBranch",
+		stringify.StructField("parentBranchID", c.ParentBranchID()),
+		stringify.StructField("childBranchID", c.ChildBranchID()),
+		stringify.StructField("childBranchType", c.ChildBranchType()),
+	)
+}
+
+// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
+func (c *ChildBranch) Update(objectstorage.StorableObject) {
+	fmt.Println("PANIC UPDATE")
+	//panic("updates disabled")
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (c *ChildBranch) ObjectStorageKey() (objectStorageKey []byte) {
+	return marshalutil.New(ConflictIDLength + BranchIDLength).
+		WriteBytes(c.parentBranchID.Bytes()).
+		WriteBytes(c.childBranchID.Bytes()).
+		Bytes()
+}
+
+// ObjectStorageValue marshals the AggregatedBranch into a sequence of bytes that are used as the value part in the
+// object storage.
+func (c *ChildBranch) ObjectStorageValue() (objectStorageValue []byte) {
+	return c.childBranchType.Bytes()
+}
+
+// code contract (make sure the struct implements all required methods)
+var _ objectstorage.StorableObject = &ChildBranch{}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region CachedChildBranch ////////////////////////////////////////////////////////////////////////////////////////////
+
+// CachedChildBranch is a wrapper for the generic CachedObject returned by the object storage that overrides the
+// accessor methods with a type-casted one.
+type CachedChildBranch struct {
+	objectstorage.CachedObject
+}
+
+// Retain marks the CachedObject to still be in use by the program.
+func (c *CachedChildBranch) Retain() *CachedChildBranch {
+	return &CachedChildBranch{c.CachedObject.Retain()}
+}
+
+// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
+func (c *CachedChildBranch) Unwrap() *ChildBranch {
+	untypedObject := c.Get()
+	if untypedObject == nil {
+		return nil
+	}
+
+	typedObject := untypedObject.(*ChildBranch)
+	if typedObject == nil || typedObject.IsDeleted() {
+		return nil
+	}
+
+	return typedObject
+}
+
+// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
+// exists). It automatically releases the object when the consumer finishes.
+func (c *CachedChildBranch) Consume(consumer func(childBranch *ChildBranch), forceRelease ...bool) (consumed bool) {
+	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*ChildBranch))
+	}, forceRelease...)
+}
+
+// String returns a human readable version of the CachedChildBranch.
+func (c *CachedChildBranch) String() string {
+	return stringify.Struct("CachedChildBranch",
+		stringify.StructField("CachedObject", c.Unwrap()),
+	)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region CachedChildBranches //////////////////////////////////////////////////////////////////////////////////////////
+
+// CachedChildBranches represents a collection of CachedChildBranch objects.
+type CachedChildBranches []*CachedChildBranch
+
+// Unwrap is the type-casted equivalent of Get. It returns a slice of unwrapped objects with the object being nil if it
+// does not exist.
+func (c CachedChildBranches) Unwrap() (unwrappedChildBranches []*ChildBranch) {
+	unwrappedChildBranches = make([]*ChildBranch, len(c))
+	for i, cachedChildBranch := range c {
+		untypedObject := cachedChildBranch.Get()
+		if untypedObject == nil {
+			continue
+		}
+
+		typedObject := untypedObject.(*ChildBranch)
+		if typedObject == nil || typedObject.IsDeleted() {
+			continue
+		}
+
+		unwrappedChildBranches[i] = typedObject
+	}
+
+	return
+}
+
+// Consume iterates over the CachedObjects, unwraps them and passes a type-casted version to the consumer (if the object
+// is not empty - it exists). It automatically releases the object when the consumer finishes. It returns true, if at
+// least one object was consumed.
+func (c CachedChildBranches) Consume(consumer func(childBranch *ChildBranch), forceRelease ...bool) (consumed bool) {
+	for _, cachedChildBranch := range c {
+		consumed = cachedChildBranch.Consume(consumer, forceRelease...) || consumed
+	}
+
+	return
+}
+
+// Release is a utility function that allows us to release all CachedObjects in the collection.
+func (c CachedChildBranches) Release(force ...bool) {
+	for _, cachedChildBranch := range c {
+		cachedChildBranch.Release(force...)
+	}
+}
+
+// String returns a human readable version of the CachedChildBranches.
+func (c CachedChildBranches) String() string {
+	structBuilder := stringify.StructBuilder("CachedChildBranches")
+	for i, cachedChildBranch := range c {
+		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), cachedChildBranch))
+	}
+
+	return structBuilder.String()
+}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

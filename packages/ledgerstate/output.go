@@ -830,7 +830,7 @@ var _ Output = &SigLockedColoredOutput{}
 
 // region CachedOutput /////////////////////////////////////////////////////////////////////////////////////////////////
 
-// CachedOutput is a wrapper for the generic CachedObject returned by the objectstorage that overrides the accessor
+// CachedOutput is a wrapper for the generic CachedObject returned by the object storage that overrides the accessor
 // methods with a type-casted one.
 type CachedOutput struct {
 	objectstorage.CachedObject
@@ -862,6 +862,13 @@ func (c *CachedOutput) Consume(consumer func(output Output), forceRelease ...boo
 	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(Output))
 	}, forceRelease...)
+}
+
+// String returns a human readable version of the CachedOutput.
+func (c *CachedOutput) String() string {
+	return stringify.Struct("CachedOutput",
+		stringify.StructField("CachedObject", c.Unwrap()),
+	)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1252,7 +1259,7 @@ var _ objectstorage.StorableObject = &OutputMetadata{}
 
 // region CachedOutputMetadata /////////////////////////////////////////////////////////////////////////////////////////
 
-// CachedOutputMetadata is a wrapper for the generic CachedObject returned by the objectstorage that overrides the
+// CachedOutputMetadata is a wrapper for the generic CachedObject returned by the object storage that overrides the
 // accessor methods with a type-casted one.
 type CachedOutputMetadata struct {
 	objectstorage.CachedObject
@@ -1284,6 +1291,13 @@ func (c *CachedOutputMetadata) Consume(consumer func(cachedOutputMetadata *Outpu
 	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*OutputMetadata))
 	}, forceRelease...)
+}
+
+// String returns a human readable version of the CachedOutputMetadata.
+func (c *CachedOutputMetadata) String() string {
+	return stringify.Struct("CachedOutputMetadata",
+		stringify.StructField("CachedObject", c.Unwrap()),
+	)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
