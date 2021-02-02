@@ -2,7 +2,6 @@ package ledgerstate
 
 import (
 	"bytes"
-	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -28,9 +27,11 @@ var (
 	// MasterBranchID is the identifier of the MasterBranch (root of the ConflictBranch DAG).
 	MasterBranchID = BranchID{1}
 
-	// RejectedBranchID is the identifier for the RejectedBranch which contains the invalid Transactions and has the
-	// lazy booked ConflictBranches as its children.
-	RejectedBranchID = BranchID{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
+	// LazyBookedConflictsBranchID is the identifier of the Branch that is the root of all lazy booked ConflictBranches.
+	LazyBookedConflictsBranchID = BranchID{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 254}
+
+	// InvalidBranchID is the identifier of the Branch that contains the invalid Transactions.
+	InvalidBranchID = BranchID{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
 )
 
 // BranchIDLength contains the amount of bytes that a marshaled version of the BranchID contains.
@@ -1105,8 +1106,7 @@ func (c *ChildBranch) String() (humanReadableChildBranch string) {
 
 // Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
 func (c *ChildBranch) Update(objectstorage.StorableObject) {
-	fmt.Println("PANIC UPDATE")
-	//panic("updates disabled")
+	panic("updates disabled")
 }
 
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the

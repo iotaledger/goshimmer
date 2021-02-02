@@ -264,7 +264,7 @@ func OutputFromObjectStorage(key []byte, data []byte) (output objectstorage.Stor
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region Outputs ///////////////////////////////////////////////////////////////////////////////////////////////////////
+// region Outputs //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Outputs represents a list of Outputs that can be used in a Transaction.
 type Outputs []Output
@@ -657,7 +657,7 @@ var _ Output = &SigLockedSingleOutput{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region SigLockedColoredOutput ////////////////////////////////////////////////////////////////////////////////////////
+// region SigLockedColoredOutput ///////////////////////////////////////////////////////////////////////////////////////
 
 // SigLockedColoredOutput is an Output that holds colored balances and that can be unlocked by providing a signature for
 // an Address.
@@ -873,6 +873,62 @@ func (c *CachedOutput) String() string {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// region CachedOutputs ////////////////////////////////////////////////////////////////////////////////////////////////
+
+// CachedOutputs represents a collection of CachedOutput objects.
+type CachedOutputs []*CachedOutput
+
+// Unwrap is the type-casted equivalent of Get. It returns a slice of unwrapped objects with the object being nil if it
+// does not exist.
+func (c CachedOutputs) Unwrap() (unwrappedOutputs []Output) {
+	unwrappedOutputs = make([]Output, len(c))
+	for i, cachedOutput := range c {
+		untypedObject := cachedOutput.Get()
+		if untypedObject == nil {
+			continue
+		}
+
+		typedObject := untypedObject.(Output)
+		if typedObject == nil || typedObject.IsDeleted() {
+			continue
+		}
+
+		unwrappedOutputs[i] = typedObject
+	}
+
+	return
+}
+
+// Consume iterates over the CachedObjects, unwraps them and passes a type-casted version to the consumer (if the object
+// is not empty - it exists). It automatically releases the object when the consumer finishes. It returns true, if at
+// least one object was consumed.
+func (c CachedOutputs) Consume(consumer func(output Output), forceRelease ...bool) (consumed bool) {
+	for _, cachedOutput := range c {
+		consumed = cachedOutput.Consume(consumer, forceRelease...) || consumed
+	}
+
+	return
+}
+
+// Release is a utility function that allows us to release all CachedObjects in the collection.
+func (c CachedOutputs) Release(force ...bool) {
+	for _, cachedOutput := range c {
+		cachedOutput.Release(force...)
+	}
+}
+
+// String returns a human readable version of the CachedOutputs.
+func (c CachedOutputs) String() string {
+	structBuilder := stringify.StructBuilder("CachedOutputs")
+	for i, cachedOutput := range c {
+		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), cachedOutput))
+	}
+
+	return structBuilder.String()
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // region OutputMetadata ///////////////////////////////////////////////////////////////////////////////////////////////
 
 // OutputMetadata contains additional Output information that are derived from the local perception of the node.
@@ -887,16 +943,8 @@ type OutputMetadata struct {
 	consumerCount           int
 	firstConsumer           TransactionID
 	consumerMutex           sync.RWMutex
-	preferred               bool
-	preferredMutex          sync.RWMutex
-	liked                   bool
-	likedMutex              sync.RWMutex
 	finalized               bool
 	finalizedMutex          sync.RWMutex
-	confirmed               bool
-	confirmedMutex          sync.RWMutex
-	rejected                bool
-	rejectedMutex           sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
@@ -949,24 +997,8 @@ func OutputMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output
 		err = xerrors.Errorf("failed to parse first consumer: %w", err)
 		return
 	}
-	if outputMetadata.preferred, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse preferred flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if outputMetadata.liked, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse liked flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
 	if outputMetadata.finalized, err = marshalUtil.ReadBool(); err != nil {
 		err = xerrors.Errorf("failed to parse finalized flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if outputMetadata.confirmed, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse confirmed flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if outputMetadata.rejected, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse rejected flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -1082,120 +1114,25 @@ func (o *OutputMetadata) FirstConsumer() TransactionID {
 	return o.firstConsumer
 }
 
-// Preferred returns true if the Output belongs to a preferred transaction.
-func (o *OutputMetadata) Preferred() bool {
-	o.preferredMutex.RLock()
-	defer o.preferredMutex.RUnlock()
-
-	return o.preferred
-}
-
-// SetPreferred updates the preferred flag.
-func (o *OutputMetadata) SetPreferred(preferred bool) (modified bool) {
-	o.preferredMutex.Lock()
-	defer o.preferredMutex.Unlock()
-
-	if o.preferred == preferred {
-		return
-	}
-
-	o.preferred = preferred
-	o.SetModified()
-	modified = true
-
-	return
-}
-
-// Liked returns true if the Output was marked as liked.
-func (o *OutputMetadata) Liked() bool {
-	o.likedMutex.RLock()
-	defer o.likedMutex.RUnlock()
-
-	return o.liked
-}
-
-// SetLiked modifies the liked flag. It returns true if the value has been modified.
-func (o *OutputMetadata) SetLiked(liked bool) (modified bool) {
-	o.likedMutex.Lock()
-	defer o.likedMutex.Unlock()
-
-	if o.liked == liked {
-		return
-	}
-
-	o.liked = liked
-	o.SetModified()
-	modified = true
-
-	return
-}
-
-// Finalized returns true if the decision if the Output is preferred or not has been finalized by consensus already.
-func (o *OutputMetadata) Finalized() bool {
+// Finalized returns a boolean flag that indicates if the Transaction has been finalized regarding its decision of being
+// included in the ledger state.
+func (o *OutputMetadata) Finalized() (finalized bool) {
 	o.finalizedMutex.RLock()
 	defer o.finalizedMutex.RUnlock()
 
 	return o.finalized
 }
 
-// SetFinalized modifies the finalized flag. It returns true if the value has been modified.
+// SetFinalized updates the finalized flag of the Transaction. It returns true if the lazy booked flag was modified.
 func (o *OutputMetadata) SetFinalized(finalized bool) (modified bool) {
 	o.finalizedMutex.Lock()
-	defer o.finalizedMutex.Unlock()
+	defer o.finalizedMutex.Lock()
 
 	if o.finalized == finalized {
 		return
 	}
 
 	o.finalized = finalized
-	o.SetModified()
-	modified = true
-
-	return
-}
-
-// Confirmed returns true if the Output was marked as confirmed.
-func (o *OutputMetadata) Confirmed() bool {
-	o.confirmedMutex.RLock()
-	defer o.confirmedMutex.RUnlock()
-
-	return o.confirmed
-}
-
-// SetConfirmed modifies the confirmed flag. It returns true if the value has been modified.
-func (o *OutputMetadata) SetConfirmed(confirmed bool) (modified bool) {
-	o.confirmedMutex.Lock()
-	defer o.confirmedMutex.Unlock()
-
-	if o.confirmed == confirmed {
-		return
-	}
-
-	o.confirmed = confirmed
-	o.SetModified()
-	modified = true
-
-	return
-}
-
-// Rejected returns true if the Output was marked as rejected.
-func (o *OutputMetadata) Rejected() bool {
-	o.rejectedMutex.RLock()
-	defer o.rejectedMutex.RUnlock()
-
-	return o.rejected
-}
-
-// SetRejected modifies the rejected flag. It returns true if the value has been modified.
-func (o *OutputMetadata) SetRejected(rejected bool) (modified bool) {
-	o.rejectedMutex.Lock()
-	defer o.rejectedMutex.Unlock()
-
-	if o.rejected == rejected {
-		return
-	}
-
-	o.rejected = rejected
 	o.SetModified()
 	modified = true
 
@@ -1216,11 +1153,7 @@ func (o *OutputMetadata) String() string {
 		stringify.StructField("solidificationTime", o.SolidificationTime()),
 		stringify.StructField("consumerCount", o.ConsumerCount()),
 		stringify.StructField("firstConsumer", o.FirstConsumer()),
-		stringify.StructField("preferred", o.Preferred()),
-		stringify.StructField("liked", o.Liked()),
 		stringify.StructField("finalized", o.Finalized()),
-		stringify.StructField("confirmed", o.Confirmed()),
-		stringify.StructField("rejected", o.Rejected()),
 	)
 }
 
@@ -1239,21 +1172,116 @@ func (o *OutputMetadata) ObjectStorageKey() []byte {
 // used as a key in the ObjectStorage.
 func (o *OutputMetadata) ObjectStorageValue() []byte {
 	return marshalutil.New().
-		WriteBytes(o.BranchID().Bytes()).
+		Write(o.BranchID()).
 		WriteBool(o.Solid()).
 		WriteTime(o.SolidificationTime()).
 		WriteUint64(uint64(o.ConsumerCount())).
-		WriteBytes(o.FirstConsumer().Bytes()).
-		WriteBool(o.Preferred()).
-		WriteBool(o.Liked()).
+		Write(o.FirstConsumer()).
 		WriteBool(o.Finalized()).
-		WriteBool(o.Confirmed()).
-		WriteBool(o.Rejected()).
 		Bytes()
 }
 
 // code contract (make sure the type implements all required methods)
 var _ objectstorage.StorableObject = &OutputMetadata{}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region OutputsMetadata //////////////////////////////////////////////////////////////////////////////////////////////
+
+// OutputsMetadata represents a list of OutputMetadata objects.
+type OutputsMetadata []*OutputMetadata
+
+// OutputIDs returns the OutputIDs of the Outputs in the list.
+func (o OutputsMetadata) OutputIDs() (outputIDs []OutputID) {
+	outputIDs = make([]OutputID, len(o))
+	for i, outputMetadata := range o {
+		outputIDs[i] = outputMetadata.ID()
+	}
+
+	return
+}
+
+// ConflictIDs returns the ConflictIDs that are the equivalent of the OutputIDs in the list.
+func (o OutputsMetadata) ConflictIDs() (conflictIDs ConflictIDs) {
+	conflictIDsSlice := make([]ConflictID, len(o))
+	for i, input := range o {
+		conflictIDsSlice[i] = NewConflictID(input.ID())
+	}
+	conflictIDs = NewConflictIDs(conflictIDsSlice...)
+
+	return
+}
+
+// ByID returns a map of OutputsMetadata where the key is the OutputID.
+func (o OutputsMetadata) ByID() (outputsMetadataByID OutputsMetadataByID) {
+	outputsMetadataByID = make(OutputsMetadataByID)
+	for _, outputMetadata := range o {
+		outputsMetadataByID[outputMetadata.ID()] = outputMetadata
+	}
+
+	return
+}
+
+// String returns a human readable version of the OutputsMetadata.
+func (o OutputsMetadata) String() string {
+	structBuilder := stringify.StructBuilder("OutputsMetadata")
+	for i, outputMetadata := range o {
+		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), outputMetadata))
+	}
+
+	return structBuilder.String()
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region OutputsMetadataByID //////////////////////////////////////////////////////////////////////////////////////////
+
+// OutputsMetadataByID represents a map of OutputMetadatas where every OutputMetadata is stored with its corresponding
+// OutputID as the key.
+type OutputsMetadataByID map[OutputID]*OutputMetadata
+
+// IDs returns the OutputIDs that are used as keys in the collection.
+func (o OutputsMetadataByID) IDs() (outputIDs []OutputID) {
+	outputIDs = make([]OutputID, 0, len(o))
+	for outputID := range o {
+		outputIDs = append(outputIDs, outputID)
+	}
+
+	return
+}
+
+// ConflictIDs turns the list of OutputMetadata objects into their corresponding ConflictIDs.
+func (o OutputsMetadataByID) ConflictIDs() (conflictIDs ConflictIDs) {
+	conflictIDsSlice := make([]ConflictID, 0, len(o))
+	for inputID := range o {
+		conflictIDsSlice = append(conflictIDsSlice, NewConflictID(inputID))
+	}
+	conflictIDs = NewConflictIDs(conflictIDsSlice...)
+
+	return
+}
+
+// Filter returns the OutputsMetadataByID that are sharing a set membership with the given Inputs.
+func (o OutputsMetadataByID) Filter(outputIDsToInclude []OutputID) (intersectionOfInputs OutputsMetadataByID) {
+	intersectionOfInputs = make(OutputsMetadataByID)
+	for _, outputID := range outputIDsToInclude {
+		if output, exists := o[outputID]; exists {
+			intersectionOfInputs[outputID] = output
+		}
+	}
+
+	return
+}
+
+// String returns a human readable version of the OutputsMetadataByID.
+func (o OutputsMetadataByID) String() string {
+	structBuilder := stringify.StructBuilder("OutputsMetadataByID")
+	for id, output := range o {
+		structBuilder.AddField(stringify.StructField(id.String(), output))
+	}
+
+	return structBuilder.String()
+}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1287,7 +1315,7 @@ func (c *CachedOutputMetadata) Unwrap() *OutputMetadata {
 
 // Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
 // exists). It automatically releases the object when the consumer finishes.
-func (c *CachedOutputMetadata) Consume(consumer func(cachedOutputMetadata *OutputMetadata), forceRelease ...bool) (consumed bool) {
+func (c *CachedOutputMetadata) Consume(consumer func(outputMetadata *OutputMetadata), forceRelease ...bool) (consumed bool) {
 	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*OutputMetadata))
 	}, forceRelease...)
@@ -1298,6 +1326,62 @@ func (c *CachedOutputMetadata) String() string {
 	return stringify.Struct("CachedOutputMetadata",
 		stringify.StructField("CachedObject", c.Unwrap()),
 	)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region CachedOutputsMetadata ////////////////////////////////////////////////////////////////////////////////////////
+
+// CachedOutputsMetadata represents a collection of CachedOutputMetadata objects.
+type CachedOutputsMetadata []*CachedOutputMetadata
+
+// Unwrap is the type-casted equivalent of Get. It returns a slice of unwrapped objects with the object being nil if it
+// does not exist.
+func (c CachedOutputsMetadata) Unwrap() (unwrappedOutputs []*OutputMetadata) {
+	unwrappedOutputs = make([]*OutputMetadata, len(c))
+	for i, cachedOutputMetadata := range c {
+		untypedObject := cachedOutputMetadata.Get()
+		if untypedObject == nil {
+			continue
+		}
+
+		typedObject := untypedObject.(*OutputMetadata)
+		if typedObject == nil || typedObject.IsDeleted() {
+			continue
+		}
+
+		unwrappedOutputs[i] = typedObject
+	}
+
+	return
+}
+
+// Consume iterates over the CachedObjects, unwraps them and passes a type-casted version to the consumer (if the object
+// is not empty - it exists). It automatically releases the object when the consumer finishes. It returns true, if at
+// least one object was consumed.
+func (c CachedOutputsMetadata) Consume(consumer func(consumer *OutputMetadata), forceRelease ...bool) (consumed bool) {
+	for _, cachedOutputMetadata := range c {
+		consumed = cachedOutputMetadata.Consume(consumer, forceRelease...) || consumed
+	}
+
+	return
+}
+
+// Release is a utility function that allows us to release all CachedObjects in the collection.
+func (c CachedOutputsMetadata) Release(force ...bool) {
+	for _, cachedOutputMetadata := range c {
+		cachedOutputMetadata.Release(force...)
+	}
+}
+
+// String returns a human readable version of the CachedOutputsMetadata.
+func (c CachedOutputsMetadata) String() string {
+	structBuilder := stringify.StructBuilder("CachedOutputsMetadata")
+	for i, cachedOutputMetadata := range c {
+		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), cachedOutputMetadata))
+	}
+
+	return structBuilder.String()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
@@ -331,7 +332,7 @@ func (c *CachedTransaction) Unwrap() *Transaction {
 
 // Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
 // exists). It automatically releases the object when the consumer finishes.
-func (c *CachedTransaction) Consume(consumer func(cachedTransaction *Transaction), forceRelease ...bool) (consumed bool) {
+func (c *CachedTransaction) Consume(consumer func(transaction *Transaction), forceRelease ...bool) (consumed bool) {
 	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*Transaction))
 	}, forceRelease...)
@@ -351,17 +352,33 @@ func (c *CachedTransaction) String() string {
 // TransactionEssence contains the transfer related information of the Transaction (without the unlocking details).
 type TransactionEssence struct {
 	version TransactionEssenceVersion
-	inputs  Inputs
-	outputs Outputs
-	payload payload.Payload
+	// timestamp is the timestamp of the transaction.
+	timestamp time.Time
+	// accessPledgeID is the nodeID to which access mana of the transaction is pledged.
+	accessPledgeID identity.ID
+	// consensusPledgeID is the nodeID to which consensus mana of the transaction is pledged.
+	consensusPledgeID identity.ID
+	inputs            Inputs
+	outputs           Outputs
+	payload           payload.Payload
 }
 
 // NewTransactionEssence creates a new TransactionEssence from the given details.
-func NewTransactionEssence(version TransactionEssenceVersion, inputs Inputs, outputs Outputs) *TransactionEssence {
+func NewTransactionEssence(
+	version TransactionEssenceVersion,
+	timestamp time.Time,
+	accessPledgeID identity.ID,
+	consensusPledgeID identity.ID,
+	inputs Inputs,
+	outputs Outputs,
+) *TransactionEssence {
 	return &TransactionEssence{
-		version: version,
-		inputs:  inputs,
-		outputs: outputs,
+		version:           version,
+		timestamp:         timestamp,
+		accessPledgeID:    accessPledgeID,
+		consensusPledgeID: consensusPledgeID,
+		inputs:            inputs,
+		outputs:           outputs,
 	}
 }
 
@@ -384,6 +401,27 @@ func TransactionEssenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (tr
 		err = xerrors.Errorf("failed to parse TransactionEssenceVersion from MarshalUtil: %w", err)
 		return
 	}
+	// unmarshal timestamp
+	if transactionEssence.timestamp, err = marshalUtil.ReadTime(); err != nil {
+		err = xerrors.Errorf("failed to parse Transaction timestamp from MarshalUtil: %w", err)
+		return
+	}
+	// unmarshal accessPledgeID
+	var accessPledgeIDBytes []byte
+	if accessPledgeIDBytes, err = marshalUtil.ReadBytes(len(identity.ID{})); err != nil {
+		err = xerrors.Errorf("failed to parse accessPledgeID from MarshalUtil: %w", err)
+		return
+	}
+	copy(transactionEssence.accessPledgeID[:], accessPledgeIDBytes)
+
+	// unmarshal consensusPledgeIDBytes
+	var consensusPledgeIDBytes []byte
+	if consensusPledgeIDBytes, err = marshalUtil.ReadBytes(len(identity.ID{})); err != nil {
+		err = xerrors.Errorf("failed to parse consensusPledgeID from MarshalUtil: %w", err)
+		return
+	}
+	copy(transactionEssence.consensusPledgeID[:], consensusPledgeIDBytes)
+
 	if transactionEssence.inputs, err = InputsFromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse Inputs from MarshalUtil: %w", err)
 		return
@@ -398,6 +436,21 @@ func TransactionEssenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (tr
 	}
 
 	return
+}
+
+// Timestamp returns the timestamp of the TransactionEssence.
+func (t *TransactionEssence) Timestamp() time.Time {
+	return t.timestamp
+}
+
+// AccessPledgeID returns the access mana pledge nodeID of the TransactionEssence.
+func (t *TransactionEssence) AccessPledgeID() identity.ID {
+	return t.accessPledgeID
+}
+
+// ConsensusPledgeID returns the consensus mana pledge nodeID of the TransactionEssence.
+func (t *TransactionEssence) ConsensusPledgeID() identity.ID {
+	return t.consensusPledgeID
 }
 
 // Inputs returns the Inputs of the TransactionEssence.
@@ -419,6 +472,9 @@ func (t *TransactionEssence) Payload() payload.Payload {
 func (t *TransactionEssence) Bytes() []byte {
 	marshalUtil := marshalutil.New().
 		Write(t.version).
+		WriteTime(t.timestamp).
+		Write(t.accessPledgeID).
+		Write(t.consensusPledgeID).
 		Write(t.inputs).
 		Write(t.outputs)
 
@@ -435,6 +491,9 @@ func (t *TransactionEssence) Bytes() []byte {
 func (t *TransactionEssence) String() string {
 	return stringify.Struct("TransactionEssence",
 		stringify.StructField("version", t.version),
+		stringify.StructField("timestamp", t.timestamp),
+		stringify.StructField("accessPledgeID", t.accessPledgeID),
+		stringify.StructField("consensusPledgeID", t.consensusPledgeID),
 		stringify.StructField("inputs", t.inputs),
 		stringify.StructField("outputs", t.outputs),
 		stringify.StructField("payload", t.payload),
@@ -515,18 +574,10 @@ type TransactionMetadata struct {
 	solidMutex              sync.RWMutex
 	solidificationTime      time.Time
 	solidificationTimeMutex sync.RWMutex
-	preferred               bool
-	preferredMutex          sync.RWMutex
-	liked                   bool
-	likedMutex              sync.RWMutex
 	finalized               bool
 	finalizedMutex          sync.RWMutex
-	finalizationTime        time.Time
-	finalizationTimeMutex   sync.RWMutex
-	confirmed               bool
-	confirmedMutex          sync.RWMutex
-	rejected                bool
-	rejectedMutex           sync.RWMutex
+	lazyBooked              bool
+	lazyBookedMutex         sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
@@ -569,28 +620,12 @@ func TransactionMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (t
 		err = xerrors.Errorf("failed to parse solidification time (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	if transactionMetadata.preferred, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse preferred flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if transactionMetadata.liked, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse liked flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
 	if transactionMetadata.finalized, err = marshalUtil.ReadBool(); err != nil {
 		err = xerrors.Errorf("failed to parse finalized flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	if transactionMetadata.finalizationTime, err = marshalUtil.ReadTime(); err != nil {
-		err = xerrors.Errorf("failed to parse finalization time (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if transactionMetadata.confirmed, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse confirmed flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if transactionMetadata.rejected, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse rejected flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+	if transactionMetadata.lazyBooked, err = marshalUtil.ReadBool(); err != nil {
+		err = xerrors.Errorf("failed to parse lazy booked flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -675,76 +710,22 @@ func (t *TransactionMetadata) SolidificationTime() time.Time {
 	return t.solidificationTime
 }
 
-// Preferred returns true if the Transaction was marked as preferred.
-func (t *TransactionMetadata) Preferred() bool {
-	t.preferredMutex.RLock()
-	defer t.preferredMutex.RUnlock()
-
-	return t.preferred
-}
-
-// SetPreferred updates the preferred flag. It returns true if the value has been modified.
-func (t *TransactionMetadata) SetPreferred(preferred bool) (modified bool) {
-	t.preferredMutex.Lock()
-	defer t.preferredMutex.Unlock()
-
-	if t.preferred == preferred {
-		return
-	}
-
-	t.preferred = preferred
-	t.SetModified()
-	modified = true
-
-	return
-}
-
-// Liked returns true if the Transaction was marked as liked.
-func (t *TransactionMetadata) Liked() bool {
-	t.likedMutex.RLock()
-	defer t.likedMutex.RUnlock()
-
-	return t.liked
-}
-
-// SetLiked modifies the liked flag. It returns true if the value has been modified.
-func (t *TransactionMetadata) SetLiked(liked bool) (modified bool) {
-	t.likedMutex.Lock()
-	defer t.likedMutex.Unlock()
-
-	if t.liked == liked {
-		return
-	}
-
-	t.liked = liked
-	t.SetModified()
-	modified = true
-
-	return
-}
-
-// Finalized returns true if the decision if the Transaction is preferred or not has been finalized by consensus already.
-func (t *TransactionMetadata) Finalized() bool {
+// Finalized returns a boolean flag that indicates if the Transaction has been finalized regarding its decision of being
+// included in the ledger state.
+func (t *TransactionMetadata) Finalized() (finalized bool) {
 	t.finalizedMutex.RLock()
 	defer t.finalizedMutex.RUnlock()
 
 	return t.finalized
 }
 
-// SetFinalized updates the finalized flag of the Transaction. It returns true if the value has been modified and
-// updates the finalization time if the Transaction was marked as finalized.
+// SetFinalized updates the finalized flag of the Transaction. It returns true if the value was modified.
 func (t *TransactionMetadata) SetFinalized(finalized bool) (modified bool) {
 	t.finalizedMutex.Lock()
 	defer t.finalizedMutex.Unlock()
 
 	if t.finalized == finalized {
 		return
-	}
-
-	if finalized {
-		t.finalizationTimeMutex.Lock()
-		t.finalizationTime = time.Now()
-		t.finalizationTimeMutex.Unlock()
 	}
 
 	t.finalized = finalized
@@ -754,56 +735,25 @@ func (t *TransactionMetadata) SetFinalized(finalized bool) (modified bool) {
 	return
 }
 
-// FinalizationTime returns the time when the Transaction was marked as finalized.
-func (t *TransactionMetadata) FinalizationTime() time.Time {
-	t.finalizationTimeMutex.RLock()
-	defer t.finalizationTimeMutex.RUnlock()
+// LazyBooked returns a boolean flag that indicates if the Transaction has been analyzed regarding the conflicting
+// status of its consumed Branches.
+func (t *TransactionMetadata) LazyBooked() (lazyBooked bool) {
+	t.lazyBookedMutex.RLock()
+	defer t.lazyBookedMutex.RUnlock()
 
-	return t.finalizationTime
+	return t.lazyBooked
 }
 
-// Confirmed returns true if the Transaction was marked as confirmed.
-func (t *TransactionMetadata) Confirmed() bool {
-	t.confirmedMutex.RLock()
-	defer t.confirmedMutex.RUnlock()
+// SetLazyBooked updates the lazy booked flag of the Output. It returns true if the value was modified.
+func (t *TransactionMetadata) SetLazyBooked(lazyBooked bool) (modified bool) {
+	t.lazyBookedMutex.Lock()
+	defer t.lazyBookedMutex.Unlock()
 
-	return t.confirmed
-}
-
-// SetConfirmed modifies the confirmed flag. It returns true if the value has been modified.
-func (t *TransactionMetadata) SetConfirmed(confirmed bool) (modified bool) {
-	t.confirmedMutex.Lock()
-	defer t.confirmedMutex.Unlock()
-
-	if t.confirmed == confirmed {
+	if t.lazyBooked == lazyBooked {
 		return
 	}
 
-	t.confirmed = confirmed
-	t.SetModified()
-	modified = true
-
-	return
-}
-
-// Rejected returns true if the Transaction was marked as rejected.
-func (t *TransactionMetadata) Rejected() bool {
-	t.rejectedMutex.RLock()
-	defer t.rejectedMutex.RUnlock()
-
-	return t.rejected
-}
-
-// SetRejected modifies the rejected flag. It returns true if the value has been modified.
-func (t *TransactionMetadata) SetRejected(rejected bool) (modified bool) {
-	t.rejectedMutex.Lock()
-	defer t.rejectedMutex.Unlock()
-
-	if t.rejected == rejected {
-		return
-	}
-
-	t.rejected = rejected
+	t.lazyBooked = lazyBooked
 	t.SetModified()
 	modified = true
 
@@ -822,12 +772,8 @@ func (t *TransactionMetadata) String() string {
 		stringify.StructField("branchID", t.BranchID()),
 		stringify.StructField("solid", t.Solid()),
 		stringify.StructField("solidificationTime", t.SolidificationTime()),
-		stringify.StructField("preferred", t.Preferred()),
-		stringify.StructField("liked", t.Liked()),
 		stringify.StructField("finalized", t.Finalized()),
-		stringify.StructField("finalizationTime", t.FinalizationTime()),
-		stringify.StructField("confirmed", t.Confirmed()),
-		stringify.StructField("rejected", t.Rejected()),
+		stringify.StructField("lazyBooked", t.LazyBooked()),
 	)
 }
 
@@ -849,12 +795,8 @@ func (t *TransactionMetadata) ObjectStorageValue() []byte {
 		Write(t.BranchID()).
 		WriteBool(t.Solid()).
 		WriteTime(t.SolidificationTime()).
-		WriteBool(t.Preferred()).
-		WriteBool(t.Liked()).
 		WriteBool(t.Finalized()).
-		WriteTime(t.FinalizationTime()).
-		WriteBool(t.Confirmed()).
-		WriteBool(t.Rejected()).
+		WriteBool(t.LazyBooked()).
 		Bytes()
 }
 
@@ -893,7 +835,7 @@ func (c *CachedTransactionMetadata) Unwrap() *TransactionMetadata {
 
 // Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
 // exists). It automatically releases the object when the consumer finishes.
-func (c *CachedTransactionMetadata) Consume(consumer func(cachedTransactionMetadata *TransactionMetadata), forceRelease ...bool) (consumed bool) {
+func (c *CachedTransactionMetadata) Consume(consumer func(transactionMetadata *TransactionMetadata), forceRelease ...bool) (consumed bool) {
 	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*TransactionMetadata))
 	}, forceRelease...)

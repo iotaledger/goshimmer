@@ -327,9 +327,19 @@ func (b *BranchDAG) init() {
 		})
 	}
 
-	cachedRejectedBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(RejectedBranchID, nil, nil))
+	cachedRejectedBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(InvalidBranchID, nil, nil))
 	if stored {
 		(&CachedBranch{CachedObject: cachedRejectedBranch}).Consume(func(branch Branch) {
+			branch.SetLiked(false)
+			branch.SetMonotonicallyLiked(false)
+			branch.SetFinalized(true)
+			branch.SetInclusionState(Rejected)
+		})
+	}
+
+	cachedLazyBookedConflictsBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(LazyBookedConflictsBranchID, nil, nil))
+	if stored {
+		(&CachedBranch{CachedObject: cachedLazyBookedConflictsBranch}).Consume(func(branch Branch) {
 			branch.SetLiked(false)
 			branch.SetMonotonicallyLiked(false)
 			branch.SetFinalized(true)

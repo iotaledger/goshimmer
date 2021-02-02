@@ -2,6 +2,7 @@ package ledgerstate
 
 import (
 	"bytes"
+	"fmt"
 	"sort"
 	"strconv"
 
@@ -24,11 +25,18 @@ const (
 // InputType represents the type of an Input.
 type InputType uint8
 
+// InputTypeNames contains the names of the existing InputTypes.
+var InputTypeNames = [...]string{
+	"UTXOInputType",
+}
+
 // String returns a human readable representation of the InputType.
 func (i InputType) String() string {
-	return [...]string{
-		"UTXOInputType",
-	}[i]
+	if i > InputType(len(InputTypeNames)-1) {
+		return fmt.Sprintf("InputType(%X)", uint8(i))
+	}
+
+	return InputTypeNames[i]
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

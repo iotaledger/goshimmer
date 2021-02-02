@@ -2,8 +2,10 @@ package ledgerstate
 
 import (
 	"testing"
+	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/require"
 )
 
@@ -31,7 +33,7 @@ func TestTransaction_Complex(t *testing.T) {
 	})
 
 	// party1 prepares a TransactionEssence that party2 is supposed to complete for the exchange of tokens
-	sentParty1Essence := NewTransactionEssence(0,
+	sentParty1Essence := NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{},
 		// he consumes 200 tokens of Color2
 		NewInputs(unspentOutputsDB[party1ControlledOutputID].Input()),
 
@@ -52,6 +54,9 @@ func TestTransaction_Complex(t *testing.T) {
 
 	// party2 completes the prepared TransactionEssence by adding his Inputs and his Outputs
 	completedEssence := NewTransactionEssence(0,
+		receivedParty1Essence.Timestamp(),
+		receivedParty1Essence.AccessPledgeID(),
+		receivedParty1Essence.ConsensusPledgeID(),
 		NewInputs(append(receivedParty1Essence.Inputs(), unspentOutputsDB[party2ControlledOutputID].Input())...),
 		NewOutputs(append(receivedParty1Essence.Outputs(),
 			// he wants to receive 100 tokens of Color2 on his destination address
