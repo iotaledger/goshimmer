@@ -21,6 +21,7 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	flag "github.com/spf13/pflag"
+	"golang.org/x/xerrors"
 )
 
 const (
@@ -216,13 +217,7 @@ func ValueObjectFactory() *valuetangle.ValueObjectFactory {
 
 // AwaitTransactionToBeBooked awaits maxAwait for the given transaction to get booked.
 func AwaitTransactionToBeBooked(f func() (*tangle.Message, error), txID transaction.ID, maxAwait time.Duration) (*tangle.Message, error) {
-	var err error
-	var msg *tangle.Message
-
-	go func(*tangle.Message, error) {
-		msg, err = f()
-	}(msg, err)
-
+	// first subscribe to the transaction booked event
 	booked := make(chan struct{}, 1)
 	// exit is used to let the caller exit if for whatever
 	// reason the same transaction gets booked multiple times
@@ -241,13 +236,34 @@ func AwaitTransactionToBeBooked(f func() (*tangle.Message, error), txID transact
 	})
 	Tangle().Events.TransactionBooked.Attach(closure)
 	defer Tangle().Events.TransactionBooked.Detach(closure)
+
+	// then issue the message with the tx
+
+	// channel to receive the result of issuance
+	issueResult := make(chan struct {
+		msg *tangle.Message
+		err error
+	}, 1)
+
+	go func() {
+		msg, err := f()
+		issueResult <- struct {
+			msg *tangle.Message
+			err error
+		}{msg: msg, err: err}
+	}()
+
+	// wait on issuance
+	result := <-issueResult
+
+	if result.err != nil || result.msg == nil {
+		return nil, xerrors.Errorf("Failed to issue transaction %s: %w", txID.String(), result.err)
+	}
+
 	select {
 	case <-time.After(maxAwait):
-		if err != nil {
-			return nil, err
-		}
 		return nil, ErrTransactionWasNotBookedInTime
 	case <-booked:
-		return msg, nil
+		return result.msg, nil
 	}
 }
