@@ -25,8 +25,8 @@ func TestBranchDAG_RetrieveConflictBranch(t *testing.T) {
 	assert.True(t, newBranchCreated)
 	assert.Equal(t, NewBranchIDs(MasterBranchID), conflictBranch2.Parents())
 	assert.Equal(t, ConflictBranchType, conflictBranch2.Type())
-	assert.False(t, conflictBranch2.Preferred())
 	assert.False(t, conflictBranch2.Liked())
+	assert.False(t, conflictBranch2.MonotonicallyLiked())
 	assert.False(t, conflictBranch2.Finalized())
 	assert.Equal(t, Pending, conflictBranch2.InclusionState())
 	assert.Equal(t, NewConflictIDs(ConflictID{0}, ConflictID{1}), conflictBranch2.Conflicts())
@@ -39,8 +39,8 @@ func TestBranchDAG_RetrieveConflictBranch(t *testing.T) {
 	assert.True(t, newBranchCreated)
 	assert.Equal(t, NewBranchIDs(conflictBranch2.ID()), conflictBranch3.Parents())
 	assert.Equal(t, ConflictBranchType, conflictBranch3.Type())
-	assert.False(t, conflictBranch3.Preferred())
 	assert.False(t, conflictBranch3.Liked())
+	assert.False(t, conflictBranch3.MonotonicallyLiked())
 	assert.False(t, conflictBranch3.Finalized())
 	assert.Equal(t, Pending, conflictBranch3.InclusionState())
 	assert.Equal(t, NewConflictIDs(ConflictID{0}, ConflictID{1}, ConflictID{2}), conflictBranch3.Conflicts())
@@ -353,7 +353,7 @@ func TestBranchDAG_normalizeBranches(t *testing.T) {
 	}
 }
 
-func TestBranchDAG_SetBranchPreferred(t *testing.T) {
+func TestBranchDAG_SetBranchLiked(t *testing.T) {
 	branchDAG := NewBranchDAG(mapdb.NewMapDB())
 	err := branchDAG.Prune()
 	require.NoError(t, err)
@@ -372,10 +372,10 @@ func TestBranchDAG_SetBranchPreferred(t *testing.T) {
 	branch3 := cachedBranch3.Unwrap()
 	assert.True(t, newBranchCreated)
 
-	assert.False(t, branch2.Preferred(), "branch 2 should not be preferred")
 	assert.False(t, branch2.Liked(), "branch 2 should not be liked")
-	assert.False(t, branch3.Preferred(), "branch 3 should not be preferred")
+	assert.False(t, branch2.MonotonicallyLiked(), "branch 2 should not be monotonically liked")
 	assert.False(t, branch3.Liked(), "branch 3 should not be liked")
+	assert.False(t, branch3.MonotonicallyLiked(), "branch 3 should not be monotonically liked")
 
 	cachedBranch4, newBranchCreated, _ := branchDAG.CreateConflictBranch(BranchID{4}, NewBranchIDs(branch2.ID()), NewConflictIDs(ConflictID{1}))
 	defer cachedBranch4.Release()
@@ -387,67 +387,68 @@ func TestBranchDAG_SetBranchPreferred(t *testing.T) {
 	branch5 := cachedBranch5.Unwrap()
 	assert.True(t, newBranchCreated)
 
-	// lets assume branch 4 is preferred since its underlying transaction was longer
+	// lets assume branch 4 is liked since its underlying transaction was longer
 	// solid than the avg. network delay before the conflicting transaction which created
 	// the conflict set was received
 
-	event.Expect("BranchPreferred", branch4.ID())
-
-	modified, err := branchDAG.SetBranchPreferred(branch4.ID(), true)
-	require.NoError(t, err)
-	assert.True(t, modified)
-
-	assert.True(t, branch4.Preferred(), "branch 4 should be preferred")
-	// is not liked because its parents aren't liked, respectively branch 2
-	assert.False(t, branch4.Liked(), "branch 4 should not be liked")
-	assert.False(t, branch5.Preferred(), "branch 5 should not be preferred")
-	assert.False(t, branch5.Liked(), "branch 5 should not be liked")
-
-	// now branch 2 becomes preferred via FPC, this causes branch 2 to be liked (since
-	// the master branch is liked) and its liked state propagates to branch 4 (but not branch 5)
-
-	event.Expect("BranchPreferred", branch2.ID())
-	event.Expect("BranchLiked", branch2.ID())
 	event.Expect("BranchLiked", branch4.ID())
 
-	modified, err = branchDAG.SetBranchPreferred(branch2.ID(), true)
+	modified, err := branchDAG.SetBranchLiked(branch4.ID(), true)
 	require.NoError(t, err)
 	assert.True(t, modified)
 
-	assert.True(t, branch2.Liked(), "branch 2 should be liked")
-	assert.True(t, branch2.Preferred(), "branch 2 should be preferred")
 	assert.True(t, branch4.Liked(), "branch 4 should be liked")
-	assert.True(t, branch4.Preferred(), "branch 4 should still be preferred")
+	// is not liked because its parents aren't liked, respectively branch 2
+	assert.False(t, branch4.MonotonicallyLiked(), "branch 4 should not be monotonically liked")
 	assert.False(t, branch5.Liked(), "branch 5 should not be liked")
-	assert.False(t, branch5.Preferred(), "branch 5 should not be preferred")
+	assert.False(t, branch5.MonotonicallyLiked(), "branch 5 should not be monotonically liked")
 
-	// now the network decides that branch 5 is preferred (via FPC), thus branch 4 should lose its
-	// preferred and liked state and branch 5 should instead become preferred and liked
+	// now branch 2 becomes liked via FPC, this causes branch 2 to be monotonically liked (since
+	// the master branch is monotonically liked) and its monotonically liked state propagates to branch 4 (but not
+	// branch 5)
 
-	event.Expect("BranchPreferred", branch5.ID())
+	event.Expect("BranchLiked", branch2.ID())
+	event.Expect("BranchMonotonicallyLiked", branch2.ID())
+	event.Expect("BranchMonotonicallyLiked", branch4.ID())
+
+	modified, err = branchDAG.SetBranchLiked(branch2.ID(), true)
+	require.NoError(t, err)
+	assert.True(t, modified)
+
+	assert.True(t, branch2.MonotonicallyLiked(), "branch 2 should be monotonically liked")
+	assert.True(t, branch2.Liked(), "branch 2 should be liked")
+	assert.True(t, branch4.MonotonicallyLiked(), "branch 4 should be monotonically liked")
+	assert.True(t, branch4.Liked(), "branch 4 should still be liked")
+	assert.False(t, branch5.MonotonicallyLiked(), "branch 5 should not be monotonically liked")
+	assert.False(t, branch5.Liked(), "branch 5 should not be liked")
+
+	// now the network decides that branch 5 is liked (via FPC), thus branch 4 should lose its
+	// liked and monotonically liked state and branch 5 should instead become liked and monotonically liked
+
 	event.Expect("BranchLiked", branch5.ID())
-	event.Expect("BranchUnpreferred", branch4.ID())
+	event.Expect("BranchMonotonicallyLiked", branch5.ID())
 	event.Expect("BranchDisliked", branch4.ID())
+	event.Expect("BranchMonotonicallyDisliked", branch4.ID())
 
-	modified, err = branchDAG.SetBranchPreferred(branch5.ID(), true)
+	modified, err = branchDAG.SetBranchLiked(branch5.ID(), true)
 	require.NoError(t, err)
 	assert.True(t, modified)
 
 	// sanity check for branch 2 state
+	assert.True(t, branch2.MonotonicallyLiked(), "branch 2 should be monotonically liked")
 	assert.True(t, branch2.Liked(), "branch 2 should be liked")
-	assert.True(t, branch2.Preferred(), "branch 2 should be preferred")
 
-	// check that branch 4 is disliked and not preferred
-	assert.False(t, branch4.Liked(), "branch 4 should be disliked")
-	assert.False(t, branch4.Preferred(), "branch 4 should not be preferred")
+	// check that branch 4 is disliked and not liked
+	assert.False(t, branch4.MonotonicallyLiked(), "branch 4 should be monotonically disliked")
+	assert.False(t, branch4.Liked(), "branch 4 should not be liked")
+	assert.True(t, branch5.MonotonicallyLiked(), "branch 5 should be monotonically liked")
 	assert.True(t, branch5.Liked(), "branch 5 should be liked")
-	assert.True(t, branch5.Preferred(), "branch 5 should be preferred")
 
 	// check that all events have been triggered
 	event.AssertExpectations(t)
 }
 
-func TestBranchDAG_SetBranchLiked(t *testing.T) {
+func TestBranchDAG_SetBranchMonotonicallyLiked(t *testing.T) {
 	branchDAG := NewBranchDAG(mapdb.NewMapDB())
 	err := branchDAG.Prune()
 	require.NoError(t, err)
@@ -463,87 +464,87 @@ func TestBranchDAG_SetBranchLiked(t *testing.T) {
 	testBranchDAG.RegisterDebugAliases(eventMock)
 
 	{
-		eventMock.Expect("BranchPreferred", testBranchDAG.branch2.ID())
-		eventMock.Expect("BranchPreferred", testBranchDAG.branch7.ID())
-		eventMock.Expect("BranchPreferred", testBranchDAG.branch12.ID())
 		eventMock.Expect("BranchLiked", testBranchDAG.branch2.ID())
 		eventMock.Expect("BranchLiked", testBranchDAG.branch7.ID())
 		eventMock.Expect("BranchLiked", testBranchDAG.branch12.ID())
-		eventMock.Expect("BranchPreferred", testBranchDAG.branch5.ID())
+		eventMock.Expect("BranchMonotonicallyLiked", testBranchDAG.branch2.ID())
+		eventMock.Expect("BranchMonotonicallyLiked", testBranchDAG.branch7.ID())
+		eventMock.Expect("BranchMonotonicallyLiked", testBranchDAG.branch12.ID())
 		eventMock.Expect("BranchLiked", testBranchDAG.branch5.ID())
-		eventMock.Expect("BranchPreferred", testBranchDAG.branch9.ID())
-		eventMock.Expect("BranchPreferred", testBranchDAG.branch15.ID())
-		eventMock.Expect("BranchPreferred", testBranchDAG.branch16.ID())
+		eventMock.Expect("BranchMonotonicallyLiked", testBranchDAG.branch5.ID())
 		eventMock.Expect("BranchLiked", testBranchDAG.branch9.ID())
 		eventMock.Expect("BranchLiked", testBranchDAG.branch15.ID())
 		eventMock.Expect("BranchLiked", testBranchDAG.branch16.ID())
+		eventMock.Expect("BranchMonotonicallyLiked", testBranchDAG.branch9.ID())
+		eventMock.Expect("BranchMonotonicallyLiked", testBranchDAG.branch15.ID())
+		eventMock.Expect("BranchMonotonicallyLiked", testBranchDAG.branch16.ID())
 
-		modified, err := branchDAG.SetBranchLiked(testBranchDAG.branch16.ID(), true)
+		modified, err := branchDAG.SetBranchMonotonicallyLiked(testBranchDAG.branch16.ID(), true)
 		require.NoError(t, err)
 		assert.True(t, modified)
 
-		assert.True(t, testBranchDAG.branch2.Preferred())
 		assert.True(t, testBranchDAG.branch2.Liked())
-		assert.True(t, testBranchDAG.branch7.Preferred())
+		assert.True(t, testBranchDAG.branch2.MonotonicallyLiked())
 		assert.True(t, testBranchDAG.branch7.Liked())
-		assert.True(t, testBranchDAG.branch12.Preferred())
+		assert.True(t, testBranchDAG.branch7.MonotonicallyLiked())
 		assert.True(t, testBranchDAG.branch12.Liked())
-		assert.True(t, testBranchDAG.branch5.Preferred())
+		assert.True(t, testBranchDAG.branch12.MonotonicallyLiked())
 		assert.True(t, testBranchDAG.branch5.Liked())
-		assert.True(t, testBranchDAG.branch9.Preferred())
+		assert.True(t, testBranchDAG.branch5.MonotonicallyLiked())
 		assert.True(t, testBranchDAG.branch9.Liked())
-		assert.True(t, testBranchDAG.branch15.Preferred())
+		assert.True(t, testBranchDAG.branch9.MonotonicallyLiked())
 		assert.True(t, testBranchDAG.branch15.Liked())
-		assert.True(t, testBranchDAG.branch16.Preferred())
+		assert.True(t, testBranchDAG.branch15.MonotonicallyLiked())
 		assert.True(t, testBranchDAG.branch16.Liked())
+		assert.True(t, testBranchDAG.branch16.MonotonicallyLiked())
 	}
 
 	{
-		eventMock.Expect("BranchUnpreferred", testBranchDAG.branch5.ID())
-		eventMock.Expect("BranchUnpreferred", testBranchDAG.branch7.ID())
-		eventMock.Expect("BranchUnpreferred", testBranchDAG.branch9.ID())
-		eventMock.Expect("BranchUnpreferred", testBranchDAG.branch15.ID())
-		eventMock.Expect("BranchUnpreferred", testBranchDAG.branch16.ID())
 		eventMock.Expect("BranchDisliked", testBranchDAG.branch5.ID())
 		eventMock.Expect("BranchDisliked", testBranchDAG.branch7.ID())
 		eventMock.Expect("BranchDisliked", testBranchDAG.branch9.ID())
 		eventMock.Expect("BranchDisliked", testBranchDAG.branch15.ID())
 		eventMock.Expect("BranchDisliked", testBranchDAG.branch16.ID())
-		eventMock.Expect("BranchPreferred", testBranchDAG.branch4.ID())
+		eventMock.Expect("BranchMonotonicallyDisliked", testBranchDAG.branch5.ID())
+		eventMock.Expect("BranchMonotonicallyDisliked", testBranchDAG.branch7.ID())
+		eventMock.Expect("BranchMonotonicallyDisliked", testBranchDAG.branch9.ID())
+		eventMock.Expect("BranchMonotonicallyDisliked", testBranchDAG.branch15.ID())
+		eventMock.Expect("BranchMonotonicallyDisliked", testBranchDAG.branch16.ID())
 		eventMock.Expect("BranchLiked", testBranchDAG.branch4.ID())
-		eventMock.Expect("BranchPreferred", testBranchDAG.branch6.ID())
+		eventMock.Expect("BranchMonotonicallyLiked", testBranchDAG.branch4.ID())
 		eventMock.Expect("BranchLiked", testBranchDAG.branch6.ID())
-		eventMock.Expect("BranchPreferred", testBranchDAG.branch8.ID())
+		eventMock.Expect("BranchMonotonicallyLiked", testBranchDAG.branch6.ID())
 		eventMock.Expect("BranchLiked", testBranchDAG.branch8.ID())
+		eventMock.Expect("BranchMonotonicallyLiked", testBranchDAG.branch8.ID())
 
-		modified, err := branchDAG.SetBranchLiked(testBranchDAG.branch8.ID(), true)
+		modified, err := branchDAG.SetBranchMonotonicallyLiked(testBranchDAG.branch8.ID(), true)
 		require.NoError(t, err)
 		assert.True(t, modified)
 
-		assert.False(t, testBranchDAG.branch7.Preferred())
 		assert.False(t, testBranchDAG.branch7.Liked())
-		assert.False(t, testBranchDAG.branch5.Preferred())
+		assert.False(t, testBranchDAG.branch7.MonotonicallyLiked())
 		assert.False(t, testBranchDAG.branch5.Liked())
-		assert.False(t, testBranchDAG.branch9.Preferred())
+		assert.False(t, testBranchDAG.branch5.MonotonicallyLiked())
 		assert.False(t, testBranchDAG.branch9.Liked())
-		assert.False(t, testBranchDAG.branch15.Preferred())
+		assert.False(t, testBranchDAG.branch9.MonotonicallyLiked())
 		assert.False(t, testBranchDAG.branch15.Liked())
-		assert.False(t, testBranchDAG.branch16.Preferred())
+		assert.False(t, testBranchDAG.branch15.MonotonicallyLiked())
 		assert.False(t, testBranchDAG.branch16.Liked())
-		assert.True(t, testBranchDAG.branch4.Preferred())
+		assert.False(t, testBranchDAG.branch16.MonotonicallyLiked())
 		assert.True(t, testBranchDAG.branch4.Liked())
-		assert.True(t, testBranchDAG.branch6.Preferred())
+		assert.True(t, testBranchDAG.branch4.MonotonicallyLiked())
 		assert.True(t, testBranchDAG.branch6.Liked())
-		assert.True(t, testBranchDAG.branch8.Preferred())
+		assert.True(t, testBranchDAG.branch6.MonotonicallyLiked())
 		assert.True(t, testBranchDAG.branch8.Liked())
+		assert.True(t, testBranchDAG.branch8.MonotonicallyLiked())
 	}
 
 	{
-		eventMock.Expect("BranchUnpreferred", testBranchDAG.branch6.ID())
 		eventMock.Expect("BranchDisliked", testBranchDAG.branch6.ID())
-		eventMock.Expect("BranchDisliked", testBranchDAG.branch8.ID())
+		eventMock.Expect("BranchMonotonicallyDisliked", testBranchDAG.branch6.ID())
+		eventMock.Expect("BranchMonotonicallyDisliked", testBranchDAG.branch8.ID())
 
-		modified, err := branchDAG.SetBranchLiked(testBranchDAG.branch6.ID(), false)
+		modified, err := branchDAG.SetBranchMonotonicallyLiked(testBranchDAG.branch6.ID(), false)
 		require.NoError(t, err)
 		assert.True(t, modified)
 	}
@@ -568,39 +569,39 @@ func TestBranchDAG_SetBranchFinalized(t *testing.T) {
 	testBranchDAG.RegisterDebugAliases(eventMock)
 
 	{
-		eventMock.Expect("BranchPreferred", testBranchDAG.branch2.ID())
-		eventMock.Expect("BranchPreferred", testBranchDAG.branch7.ID())
-		eventMock.Expect("BranchPreferred", testBranchDAG.branch12.ID())
 		eventMock.Expect("BranchLiked", testBranchDAG.branch2.ID())
 		eventMock.Expect("BranchLiked", testBranchDAG.branch7.ID())
 		eventMock.Expect("BranchLiked", testBranchDAG.branch12.ID())
-		eventMock.Expect("BranchPreferred", testBranchDAG.branch5.ID())
+		eventMock.Expect("BranchMonotonicallyLiked", testBranchDAG.branch2.ID())
+		eventMock.Expect("BranchMonotonicallyLiked", testBranchDAG.branch7.ID())
+		eventMock.Expect("BranchMonotonicallyLiked", testBranchDAG.branch12.ID())
 		eventMock.Expect("BranchLiked", testBranchDAG.branch5.ID())
-		eventMock.Expect("BranchPreferred", testBranchDAG.branch9.ID())
-		eventMock.Expect("BranchPreferred", testBranchDAG.branch15.ID())
-		eventMock.Expect("BranchPreferred", testBranchDAG.branch16.ID())
+		eventMock.Expect("BranchMonotonicallyLiked", testBranchDAG.branch5.ID())
 		eventMock.Expect("BranchLiked", testBranchDAG.branch9.ID())
 		eventMock.Expect("BranchLiked", testBranchDAG.branch15.ID())
 		eventMock.Expect("BranchLiked", testBranchDAG.branch16.ID())
+		eventMock.Expect("BranchMonotonicallyLiked", testBranchDAG.branch9.ID())
+		eventMock.Expect("BranchMonotonicallyLiked", testBranchDAG.branch15.ID())
+		eventMock.Expect("BranchMonotonicallyLiked", testBranchDAG.branch16.ID())
 
-		modified, err := branchDAG.SetBranchLiked(testBranchDAG.branch16.ID(), true)
+		modified, err := branchDAG.SetBranchMonotonicallyLiked(testBranchDAG.branch16.ID(), true)
 		require.NoError(t, err)
 		assert.True(t, modified)
 
-		assert.True(t, testBranchDAG.branch2.Preferred())
 		assert.True(t, testBranchDAG.branch2.Liked())
-		assert.True(t, testBranchDAG.branch7.Preferred())
+		assert.True(t, testBranchDAG.branch2.MonotonicallyLiked())
 		assert.True(t, testBranchDAG.branch7.Liked())
-		assert.True(t, testBranchDAG.branch12.Preferred())
+		assert.True(t, testBranchDAG.branch7.MonotonicallyLiked())
 		assert.True(t, testBranchDAG.branch12.Liked())
-		assert.True(t, testBranchDAG.branch5.Preferred())
+		assert.True(t, testBranchDAG.branch12.MonotonicallyLiked())
 		assert.True(t, testBranchDAG.branch5.Liked())
-		assert.True(t, testBranchDAG.branch9.Preferred())
+		assert.True(t, testBranchDAG.branch5.MonotonicallyLiked())
 		assert.True(t, testBranchDAG.branch9.Liked())
-		assert.True(t, testBranchDAG.branch15.Preferred())
+		assert.True(t, testBranchDAG.branch9.MonotonicallyLiked())
 		assert.True(t, testBranchDAG.branch15.Liked())
-		assert.True(t, testBranchDAG.branch16.Preferred())
+		assert.True(t, testBranchDAG.branch15.MonotonicallyLiked())
 		assert.True(t, testBranchDAG.branch16.Liked())
+		assert.True(t, testBranchDAG.branch16.MonotonicallyLiked())
 	}
 
 	{
@@ -701,7 +702,7 @@ func TestBranchDAG_SetBranchFinalized(t *testing.T) {
 	eventMock.AssertExpectations(t)
 }
 
-func TestBranchDAG_SetBranchPreferred2(t *testing.T) {
+func TestBranchDAG_SetBranchLiked2(t *testing.T) {
 	branchDAG := NewBranchDAG(mapdb.NewMapDB())
 	err := branchDAG.Prune()
 	require.NoError(t, err)
@@ -740,34 +741,34 @@ func TestBranchDAG_SetBranchPreferred2(t *testing.T) {
 	branch7 := cachedBranch7.Unwrap()
 	assert.True(t, newBranchCreated)
 
-	event.Expect("BranchPreferred", branch2.ID())
 	event.Expect("BranchLiked", branch2.ID())
-	event.Expect("BranchPreferred", branch6.ID())
+	event.Expect("BranchMonotonicallyLiked", branch2.ID())
 	event.Expect("BranchLiked", branch6.ID())
+	event.Expect("BranchMonotonicallyLiked", branch6.ID())
 
-	// assume branch 2 preferred since solid longer than avg. network delay
-	modified, err := branchDAG.SetBranchPreferred(branch2.ID(), true)
+	// assume branch 2 liked since solid longer than avg. network delay
+	modified, err := branchDAG.SetBranchLiked(branch2.ID(), true)
 	require.NoError(t, err)
 	assert.True(t, modified)
 
-	// assume branch 6 preferred since solid longer than avg. network delay
-	modified, err = branchDAG.SetBranchPreferred(branch6.ID(), true)
+	// assume branch 6 liked since solid longer than avg. network delay
+	modified, err = branchDAG.SetBranchLiked(branch6.ID(), true)
 	require.NoError(t, err)
 	assert.True(t, modified)
 
 	{
+		assert.True(t, branch2.MonotonicallyLiked(), "branch 2 should be monotonically liked")
 		assert.True(t, branch2.Liked(), "branch 2 should be liked")
-		assert.True(t, branch2.Preferred(), "branch 2 should be preferred")
-		assert.False(t, branch3.Liked(), "branch 3 should not be liked")
-		assert.False(t, branch3.Preferred(), "branch 3 should not be preferred")
-		assert.False(t, branch4.Liked(), "branch 4 should not be liked")
-		assert.False(t, branch4.Preferred(), "branch 4 should not be preferred")
-		assert.False(t, branch5.Liked(), "branch 5 should not be liked")
-		assert.False(t, branch5.Preferred(), "branch 5 should not be preferred")
-		assert.True(t, branch6.Liked(), "branch 6 should be liked")
-		assert.True(t, branch6.Preferred(), "branch 6 should be preferred")
+		assert.False(t, branch3.MonotonicallyLiked(), "branch 3 should not be monotonically liked")
+		assert.False(t, branch3.Liked(), "branch 3 should not be likedliked")
+		assert.False(t, branch4.MonotonicallyLiked(), "branch 4 should not be monotonically liked")
+		assert.False(t, branch4.Liked(), "branch 4 should not be likedliked")
+		assert.False(t, branch5.MonotonicallyLiked(), "branch 5 should not be monotonically liked")
+		assert.False(t, branch5.Liked(), "branch 5 should not be likedliked")
+		assert.True(t, branch6.MonotonicallyLiked(), "branch 6 should be monotonically liked")
+		assert.True(t, branch6.Liked(), "branch 6 should be likedliked")
+		assert.False(t, branch7.MonotonicallyLiked(), "branch 7 should not be monotonically liked")
 		assert.False(t, branch7.Liked(), "branch 7 should not be liked")
-		assert.False(t, branch7.Preferred(), "branch 7 should not be preferred")
 	}
 
 	// throw some aggregated branches into the mix
@@ -777,9 +778,9 @@ func TestBranchDAG_SetBranchPreferred2(t *testing.T) {
 	aggrBranch8 := cachedAggrBranch8.Unwrap()
 	assert.True(t, newBranchCreated)
 
-	// should not be preferred because only 6 is is preferred but not 4
+	// should not be liked because only 6 is liked but not 4
+	assert.False(t, aggrBranch8.MonotonicallyLiked(), "aggr. branch 8 should not be monotonically liked")
 	assert.False(t, aggrBranch8.Liked(), "aggr. branch 8 should not be liked")
-	assert.False(t, aggrBranch8.Preferred(), "aggr. branch 8 should not be preferred")
 
 	cachedAggrBranch9, newBranchCreated, err := branchDAG.AggregateBranches(NewBranchIDs(branch5.ID(), branch7.ID()))
 	require.NoError(t, err)
@@ -787,19 +788,19 @@ func TestBranchDAG_SetBranchPreferred2(t *testing.T) {
 	aggrBranch9 := cachedAggrBranch9.Unwrap()
 	assert.True(t, newBranchCreated)
 
-	// branch 5 and 7 are neither liked or preferred
+	// branch 5 and 7 are neither liked or liked
+	assert.False(t, aggrBranch9.MonotonicallyLiked(), "aggr. branch 9 should not be monotonically liked")
 	assert.False(t, aggrBranch9.Liked(), "aggr. branch 9 should not be liked")
-	assert.False(t, aggrBranch9.Preferred(), "aggr. branch 9 should not be preferred")
 
-	// should not be preferred because only 6 is is preferred but not 3
+	// should not be liked because only 6 is is liked but not 3
 	cachedAggrBranch10, newBranchCreated, err := branchDAG.AggregateBranches(NewBranchIDs(branch3.ID(), branch6.ID()))
 	require.NoError(t, err)
 	defer cachedAggrBranch10.Release()
 	aggrBranch10 := cachedAggrBranch10.Unwrap()
 	assert.True(t, newBranchCreated)
 
+	assert.False(t, aggrBranch10.MonotonicallyLiked(), "aggr. branch 10 should not be monotonically liked")
 	assert.False(t, aggrBranch10.Liked(), "aggr. branch 10 should not be liked")
-	assert.False(t, aggrBranch10.Preferred(), "aggr. branch 10 should not be preferred")
 
 	// spawn off conflict branch 11 and 12
 	cachedBranch11, newBranchCreated, _ := branchDAG.CreateConflictBranch(BranchID{11}, NewBranchIDs(aggrBranch8.ID()), NewConflictIDs(ConflictID{3}))
@@ -807,16 +808,16 @@ func TestBranchDAG_SetBranchPreferred2(t *testing.T) {
 	branch11 := cachedBranch11.Unwrap()
 	assert.True(t, newBranchCreated)
 
+	assert.False(t, branch11.MonotonicallyLiked(), "aggr. branch 11 should not be monotonically liked")
 	assert.False(t, branch11.Liked(), "aggr. branch 11 should not be liked")
-	assert.False(t, branch11.Preferred(), "aggr. branch 11 should not be preferred")
 
 	cachedBranch12, newBranchCreated, _ := branchDAG.CreateConflictBranch(BranchID{12}, NewBranchIDs(aggrBranch8.ID()), NewConflictIDs(ConflictID{3}))
 	defer cachedBranch12.Release()
 	branch12 := cachedBranch12.Unwrap()
 	assert.True(t, newBranchCreated)
 
+	assert.False(t, branch12.MonotonicallyLiked(), "aggr. branch 12 should not be monotonically liked")
 	assert.False(t, branch12.Liked(), "aggr. branch 12 should not be liked")
-	assert.False(t, branch12.Preferred(), "aggr. branch 12 should not be preferred")
 
 	cachedAggrBranch13, newBranchCreated, err := branchDAG.AggregateBranches(NewBranchIDs(branch4.ID(), branch12.ID()))
 	require.NoError(t, err)
@@ -824,40 +825,40 @@ func TestBranchDAG_SetBranchPreferred2(t *testing.T) {
 	aggrBranch13 := cachedAggrBranch13.Unwrap()
 	assert.False(t, newBranchCreated)
 
+	assert.False(t, aggrBranch13.MonotonicallyLiked(), "aggr. branch 13 should not be monotonically liked")
 	assert.False(t, aggrBranch13.Liked(), "aggr. branch 13 should not be liked")
-	assert.False(t, aggrBranch13.Preferred(), "aggr. branch 13 should not be preferred")
 
-	// now lets assume FPC finalized on branch 2, 6 and 4 to be preferred.
-	// branches 2 and 6 are already preferred but 4 is newly preferred. Branch 4 therefore
+	// now lets assume FPC finalized on branch 2, 6 and 4 to be liked.
+	// branches 2 and 6 are already liked but 4 is newly liked. Branch 4 therefore
 	// should also become liked, since branch 2 of which it spawns off is liked too.
 
-	// simulate branch 3 being not preferred from FPC vote
-	// this does not trigger any events as branch 3 was never preferred
-	modified, err = branchDAG.SetBranchPreferred(branch3.ID(), false)
+	// simulate branch 3 being not liked from FPC vote
+	// this does not trigger any events as branch 3 was never liked
+	modified, err = branchDAG.SetBranchLiked(branch3.ID(), false)
 	require.NoError(t, err)
 	assert.False(t, modified)
-	// simulate branch 7 being not preferred from FPC vote
-	// this does not trigger any events as branch 7 was never preferred
-	modified, err = branchDAG.SetBranchPreferred(branch7.ID(), false)
+	// simulate branch 7 being not liked from FPC vote
+	// this does not trigger any events as branch 7 was never liked
+	modified, err = branchDAG.SetBranchLiked(branch7.ID(), false)
 	require.NoError(t, err)
 	assert.False(t, modified)
 
-	event.Expect("BranchPreferred", branch4.ID())
 	event.Expect("BranchLiked", branch4.ID())
-	event.Expect("BranchPreferred", aggrBranch8.ID())
+	event.Expect("BranchMonotonicallyLiked", branch4.ID())
 	event.Expect("BranchLiked", aggrBranch8.ID())
+	event.Expect("BranchMonotonicallyLiked", aggrBranch8.ID())
 
-	// simulate branch 4 being preferred by FPC vote
-	modified, err = branchDAG.SetBranchPreferred(branch4.ID(), true)
+	// simulate branch 4 being liked by FPC vote
+	modified, err = branchDAG.SetBranchLiked(branch4.ID(), true)
 	require.NoError(t, err)
 	assert.True(t, modified)
+	assert.True(t, branch4.MonotonicallyLiked(), "branch 4 should be monotonically liked")
 	assert.True(t, branch4.Liked(), "branch 4 should be liked")
-	assert.True(t, branch4.Preferred(), "branch 4 should be preferred")
 
-	// this should cause aggr. branch 8 to also be preferred and liked, since branch 6 and 4
+	// this should cause aggr. branch 8 to also be liked and monotonically liked, since branch 6 and 4
 	// of which it spawns off are.
+	assert.True(t, aggrBranch8.MonotonicallyLiked(), "aggr. branch 8 should be monotonically liked")
 	assert.True(t, aggrBranch8.Liked(), "aggr. branch 8 should be liked")
-	assert.True(t, aggrBranch8.Preferred(), "aggr. branch 8 should be preferred")
 
 	// check that all events have been triggered
 	event.AssertExpectations(t)
@@ -924,16 +925,16 @@ func TestBranchDAG_MergeToMaster(t *testing.T) {
 	_, err = branchDAG.MergeToMaster(testBranchDAG.branch12.ID())
 	require.Error(t, err)
 
-	eventMock.Expect("BranchPreferred", testBranchDAG.branch2.ID())
 	eventMock.Expect("BranchLiked", testBranchDAG.branch2.ID())
-	eventMock.Expect("BranchPreferred", testBranchDAG.branch7.ID())
+	eventMock.Expect("BranchMonotonicallyLiked", testBranchDAG.branch2.ID())
 	eventMock.Expect("BranchLiked", testBranchDAG.branch7.ID())
-	eventMock.Expect("BranchPreferred", testBranchDAG.branch12.ID())
+	eventMock.Expect("BranchMonotonicallyLiked", testBranchDAG.branch7.ID())
 	eventMock.Expect("BranchLiked", testBranchDAG.branch12.ID())
-	eventMock.Expect("BranchPreferred", testBranchDAG.branch15.ID())
+	eventMock.Expect("BranchMonotonicallyLiked", testBranchDAG.branch12.ID())
 	eventMock.Expect("BranchLiked", testBranchDAG.branch15.ID())
+	eventMock.Expect("BranchMonotonicallyLiked", testBranchDAG.branch15.ID())
 
-	modified, err := branchDAG.SetBranchLiked(testBranchDAG.branch15.ID(), true)
+	modified, err := branchDAG.SetBranchMonotonicallyLiked(testBranchDAG.branch15.ID(), true)
 	require.NoError(t, err)
 	assert.True(t, modified)
 
@@ -963,14 +964,14 @@ func TestBranchDAG_MergeToMaster(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, modified)
 
-	eventMock.Expect("BranchPreferred", testBranchDAG.branch5.ID())
 	eventMock.Expect("BranchLiked", testBranchDAG.branch5.ID())
-	eventMock.Expect("BranchPreferred", testBranchDAG.branch9.ID())
+	eventMock.Expect("BranchMonotonicallyLiked", testBranchDAG.branch5.ID())
 	eventMock.Expect("BranchLiked", testBranchDAG.branch9.ID())
-	eventMock.Expect("BranchPreferred", testBranchDAG.branch16.ID())
+	eventMock.Expect("BranchMonotonicallyLiked", testBranchDAG.branch9.ID())
 	eventMock.Expect("BranchLiked", testBranchDAG.branch16.ID())
+	eventMock.Expect("BranchMonotonicallyLiked", testBranchDAG.branch16.ID())
 
-	modified, err = branchDAG.SetBranchLiked(testBranchDAG.branch5.ID(), true)
+	modified, err = branchDAG.SetBranchMonotonicallyLiked(testBranchDAG.branch5.ID(), true)
 	require.NoError(t, err)
 	assert.True(t, modified)
 
@@ -998,8 +999,8 @@ func TestBranchDAG_MergeToMaster(t *testing.T) {
 	aggregatedBranch7Plus12 := NewAggregatedBranch(NewBranchIDs(testBranchDAG.branch7.ID(), testBranchDAG.branch12.ID()))
 	eventMock.RegisterDebugAlias(aggregatedBranch7Plus12.ID(), "AggregatedBranch(7 + 12)")
 
-	eventMock.Expect("BranchPreferred", aggregatedBranch7Plus12.ID())
 	eventMock.Expect("BranchLiked", aggregatedBranch7Plus12.ID())
+	eventMock.Expect("BranchMonotonicallyLiked", aggregatedBranch7Plus12.ID())
 	eventMock.Expect("BranchFinalized", aggregatedBranch7Plus12.ID())
 	eventMock.Expect("BranchConfirmed", aggregatedBranch7Plus12.ID())
 
@@ -1187,9 +1188,9 @@ func (t *testBranchDAG) AssertInitialState(testingT *testing.T) {
 		t.branch15,
 		t.branch16,
 	} {
-		assert.False(testingT, branch.Preferred())
-		assert.False(testingT, branch.Finalized())
 		assert.False(testingT, branch.Liked())
+		assert.False(testingT, branch.Finalized())
+		assert.False(testingT, branch.MonotonicallyLiked())
 		assert.Equal(testingT, Pending, branch.InclusionState())
 	}
 }
@@ -1251,10 +1252,10 @@ func newEventMock(t *testing.T, mgr *BranchDAG) *eventMock {
 	e.Test(t)
 
 	// attach all events
-	e.attach(mgr.Events.BranchPreferred, e.BranchPreferred)
-	e.attach(mgr.Events.BranchUnpreferred, e.BranchUnpreferred)
 	e.attach(mgr.Events.BranchLiked, e.BranchLiked)
 	e.attach(mgr.Events.BranchDisliked, e.BranchDisliked)
+	e.attach(mgr.Events.BranchMonotonicallyLiked, e.BranchMonotonicallyLiked)
+	e.attach(mgr.Events.BranchMonotonicallyDisliked, e.BranchMonotonicallyDisliked)
 	e.attach(mgr.Events.BranchFinalized, e.BranchFinalized)
 	e.attach(mgr.Events.BranchUnfinalized, e.BranchUnfinalized)
 	e.attach(mgr.Events.BranchConfirmed, e.BranchConfirmed)
@@ -1301,28 +1302,6 @@ func (e *eventMock) AssertExpectations(t mock.TestingT) bool {
 	return e.Mock.AssertExpectations(t)
 }
 
-func (e *eventMock) BranchPreferred(cachedBranch *BranchDAGEvent) {
-	if debugAlias, exists := e.debugAlias[cachedBranch.Branch.Unwrap().ID()]; exists {
-		e.test.Logf("EVENT TRIGGERED:\tBranchPreferred(%s)", debugAlias)
-	}
-
-	defer cachedBranch.Release()
-	e.Called(cachedBranch.Branch.Unwrap().ID())
-
-	e.calledEvents++
-}
-
-func (e *eventMock) BranchUnpreferred(cachedBranch *BranchDAGEvent) {
-	if debugAlias, exists := e.debugAlias[cachedBranch.Branch.Unwrap().ID()]; exists {
-		e.test.Logf("EVENT TRIGGERED:\tBranchUnpreferred(%s)", debugAlias)
-	}
-
-	defer cachedBranch.Release()
-	e.Called(cachedBranch.Branch.Unwrap().ID())
-
-	e.calledEvents++
-}
-
 func (e *eventMock) BranchLiked(cachedBranch *BranchDAGEvent) {
 	if debugAlias, exists := e.debugAlias[cachedBranch.Branch.Unwrap().ID()]; exists {
 		e.test.Logf("EVENT TRIGGERED:\tBranchLiked(%s)", debugAlias)
@@ -1337,6 +1316,28 @@ func (e *eventMock) BranchLiked(cachedBranch *BranchDAGEvent) {
 func (e *eventMock) BranchDisliked(cachedBranch *BranchDAGEvent) {
 	if debugAlias, exists := e.debugAlias[cachedBranch.Branch.Unwrap().ID()]; exists {
 		e.test.Logf("EVENT TRIGGERED:\tBranchDisliked(%s)", debugAlias)
+	}
+
+	defer cachedBranch.Release()
+	e.Called(cachedBranch.Branch.Unwrap().ID())
+
+	e.calledEvents++
+}
+
+func (e *eventMock) BranchMonotonicallyLiked(cachedBranch *BranchDAGEvent) {
+	if debugAlias, exists := e.debugAlias[cachedBranch.Branch.Unwrap().ID()]; exists {
+		e.test.Logf("EVENT TRIGGERED:\tBranchMonotonicallyLiked(%s)", debugAlias)
+	}
+
+	defer cachedBranch.Release()
+	e.Called(cachedBranch.Branch.Unwrap().ID())
+
+	e.calledEvents++
+}
+
+func (e *eventMock) BranchMonotonicallyDisliked(cachedBranch *BranchDAGEvent) {
+	if debugAlias, exists := e.debugAlias[cachedBranch.Branch.Unwrap().ID()]; exists {
+		e.test.Logf("EVENT TRIGGERED:\tBranchMonotonicallyDisliked(%s)", debugAlias)
 	}
 
 	defer cachedBranch.Release()
