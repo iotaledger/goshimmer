@@ -71,3 +71,49 @@ func (m *Manager) deriveOpinion(transactionID ledgerstate.TransactionID) (opinio
 
 	return
 }
+
+func deriveOpinion(targetTime time.Time, conflictSet ConflictSet) (opinion *Opinion) {
+	if conflictSet.hasDecidedLike() {
+		opinion = &Opinion{
+			Timestamp:        targetTime,
+			Liked:            false,
+			LevelOfKnowledge: Two,
+		}
+		return
+	}
+
+	anchor := conflictSet.anchor()
+	if anchor == nil {
+		opinion = &Opinion{
+			Timestamp:        targetTime,
+			LevelOfKnowledge: Pending,
+		}
+		return
+	}
+
+	if targetTime.Before(anchor.Timestamp.Add(LocallyFinalizedThreshold)) {
+		opinion = &Opinion{
+			Timestamp:        targetTime,
+			Liked:            false,
+			LevelOfKnowledge: One,
+		}
+		return
+	}
+
+	if targetTime.After(anchor.Timestamp.Add(LocallyFinalizedThreshold)) {
+		lok := Two
+
+		if conflictSet.hasAllDecidedDislike() {
+			lok = One
+		}
+
+		opinion = &Opinion{
+			Timestamp:        targetTime,
+			Liked:            false,
+			LevelOfKnowledge: lok,
+		}
+		return
+	}
+
+	return
+}

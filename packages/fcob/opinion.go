@@ -1,6 +1,8 @@
 package fcob
 
 import (
+	"time"
+
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -13,8 +15,11 @@ type LevelOfKnowledge = uint8
 
 // The different levels of knowledge.
 const (
+	// Pending implies that the opinion is not formed yet.
+	Pending LevelOfKnowledge = iota
+
 	// One implies that voting is required.
-	One LevelOfKnowledge = iota + 1
+	One
 
 	// Two implies that we have finalized our opinion but we can still reply to eventual queries.
 	Two
@@ -27,6 +32,7 @@ const (
 
 type Opinion struct {
 	transactionID    ledgerstate.TransactionID
+	Timestamp        time.Time
 	Liked            bool
 	LevelOfKnowledge LevelOfKnowledge
 
@@ -47,6 +53,7 @@ func (o *Opinion) ObjectStorageKey() []byte {
 
 func (o *Opinion) ObjectStorageValue() []byte {
 	return marshalutil.New().
+		WriteTime(o.Timestamp).
 		WriteBool(o.Liked).
 		WriteUint8(o.LevelOfKnowledge).
 		Bytes()
@@ -98,6 +105,41 @@ func (c *CachedOpinion) String() string {
 	return stringify.Struct("CachedOpinion",
 		stringify.StructField("CachedObject", c.Unwrap()),
 	)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region ConflictSet //////////////////////////////////////////////////////////////////////////////////////////////////
+
+type ConflictSet []*Opinion
+
+func (c ConflictSet) hasDecidedLike() bool {
+	for _, opinion := range c {
+		if opinion.Liked && opinion.LevelOfKnowledge > One {
+			return true
+		}
+	}
+	return false
+}
+
+func (c ConflictSet) hasAllDecidedDislike() bool {
+	for _, opinion := range c {
+		if opinion.Liked || opinion.LevelOfKnowledge < Two {
+			return false
+		}
+	}
+	return true
+}
+
+func (c ConflictSet) anchor() (opinion *Opinion) {
+	mostRecentTimestamp := time.Time{}
+	for _, o := range c {
+		if o.LevelOfKnowledge <= One && o.Timestamp.After(mostRecentTimestamp) {
+			mostRecentTimestamp = o.Timestamp
+			opinion = o
+		}
+	}
+	return opinion
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

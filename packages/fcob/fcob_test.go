@@ -1,38 +1,24 @@
 package fcob
 
-import "testing"
+import (
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+)
 
 func TestFCoB(t *testing.T) {
-	//
-	// opinion := f.deriveOpinion(targetTxID)
+	now := time.Now()
+	conflictSet := ConflictSet{&Opinion{
+		Timestamp:        now,
+		Liked:            false,
+		LevelOfKnowledge: Pending,
+	}}
 
-	// A B C
-	// For each conflicting transaction
-	// Solidification/Arrival time
-	// Opinion value
-	// LoK
-
-	// if in the conflict set there is at least one (LIKE with LoK > 1) {
-	//  opinion.Value = dislike
-	//  opinion.LoK = 2
-	//  return
-	// }
-
-	// anchor := the oldest (in terms of solidificationTime) consumer with LoK == 1 || pending
-	// if anchor == nil {
-	//  opinion.Value = pending
-	//  opinion.LoK = 1
-	// return
-	// }
-	// if targetTx.SolidifcationTime.Before(anchor.SolidifcationTime + 10s)
-	//  opinion.Value = dislike
-	//  opinion.LoK = 1
-
-	// if it is a unlocking locked whatever, then Lok 1
-	// if targetTx.SolidifcationTime.After(anchor.SolidifcationTime + 10s)
-	//  opinion.Value = dislike
-	//  opinion.LoK = 2
-
-	// }
-
+	opinion := deriveOpinion(now.Add(1*time.Second), conflictSet)
+	assert.Equal(t, &Opinion{
+		Timestamp:        now.Add(1 * time.Second),
+		Liked:            false,
+		LevelOfKnowledge: One,
+	}, opinion)
 }
