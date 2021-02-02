@@ -33,10 +33,7 @@ func TestTransaction_Complex(t *testing.T) {
 	})
 
 	// party1 prepares a TransactionEssence that party2 is supposed to complete for the exchange of tokens
-	sentParty1Essence := NewTransactionEssence(0,
-		time.Now(),
-		identity.ID{},
-		identity.ID{},
+	sentParty1Essence := NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{},
 		// he consumes 200 tokens of Color2
 		NewInputs(unspentOutputsDB[party1ControlledOutputID].Input()),
 

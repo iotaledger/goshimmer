@@ -571,8 +571,8 @@ func TestInputsInRejectedBranch(t *testing.T) {
 	cachedRejectedBranch, _ := branchDAG.branchStorage.StoreIfAbsent(NewConflictBranch(NewBranchID(tx.ID()), nil, nil))
 
 	(&CachedBranch{CachedObject: cachedRejectedBranch}).Consume(func(branch Branch) {
-		branch.SetPreferred(false)
 		branch.SetLiked(false)
+		branch.SetMonotonicallyLiked(false)
 		branch.SetFinalized(true)
 		branch.SetInclusionState(Rejected)
 	})

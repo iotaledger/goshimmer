@@ -59,8 +59,8 @@ func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs Bran
 	return
 }
 
-// UpdateConflictBranchParents changes the parents of a ConflictBranch by also updating the references of the
-// ChildBranches.
+// UpdateConflictBranchParents changes the parents of a ConflictBranch (also updating the references of the
+// ChildBranches).
 func (b *BranchDAG) UpdateConflictBranchParents(conflictBranchID BranchID, newParentBranchIDs BranchIDs) (err error) {
 	cachedConflictBranch := b.Branch(conflictBranchID)
 	defer cachedConflictBranch.Release()
@@ -114,16 +114,16 @@ func (b *BranchDAG) AggregateBranches(branchIDS BranchIDs) (cachedAggregatedBran
 	return
 }
 
-// SetBranchPreferred sets the preferred flag of the given Branch. It returns true if the value has been updated or an
-// error if it failed.
-func (b *BranchDAG) SetBranchPreferred(branchID BranchID, preferred bool) (modified bool, err error) {
-	return b.setBranchPreferred(b.Branch(branchID), preferred)
-}
-
-// SetBranchLiked sets the liked flag of the given Branch. It returns true of the value has been updated or an error if
+// SetBranchLiked sets the liked flag of the given Branch. It returns true if the value has been updated or an error if
 // it failed.
 func (b *BranchDAG) SetBranchLiked(branchID BranchID, liked bool) (modified bool, err error) {
 	return b.setBranchLiked(b.Branch(branchID), liked)
+}
+
+// SetBranchMonotonicallyLiked sets the monotonically liked flag of the given Branch. It returns true if the value has
+// been updated or an error if failed.
+func (b *BranchDAG) SetBranchMonotonicallyLiked(branchID BranchID, monotonicallyLiked bool) (modified bool, err error) {
+	return b.setBranchMonotonicallyLiked(b.Branch(branchID), monotonicallyLiked)
 }
 
 // SetBranchFinalized sets the finalized flag of the given Branch. It returns true if the value has been updated or an
@@ -318,40 +318,34 @@ func (b *BranchDAG) Shutdown() {
 // init is an internal utility function that initializes the BranchDAG by creating the root of the DAG (MasterBranch).
 func (b *BranchDAG) init() {
 	cachedMasterBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(MasterBranchID, nil, nil))
-	if !stored {
-		return
+	if stored {
+		(&CachedBranch{CachedObject: cachedMasterBranch}).Consume(func(branch Branch) {
+			branch.SetLiked(true)
+			branch.SetMonotonicallyLiked(true)
+			branch.SetFinalized(true)
+			branch.SetInclusionState(Confirmed)
+		})
 	}
-
-	(&CachedBranch{CachedObject: cachedMasterBranch}).Consume(func(branch Branch) {
-		branch.SetPreferred(true)
-		branch.SetLiked(true)
-		branch.SetFinalized(true)
-		branch.SetInclusionState(Confirmed)
-	})
 
 	cachedRejectedBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(InvalidBranchID, nil, nil))
-	if !stored {
-		return
+	if stored {
+		(&CachedBranch{CachedObject: cachedRejectedBranch}).Consume(func(branch Branch) {
+			branch.SetLiked(false)
+			branch.SetMonotonicallyLiked(false)
+			branch.SetFinalized(true)
+			branch.SetInclusionState(Rejected)
+		})
 	}
-
-	(&CachedBranch{CachedObject: cachedRejectedBranch}).Consume(func(branch Branch) {
-		branch.SetPreferred(false)
-		branch.SetLiked(false)
-		branch.SetFinalized(true)
-		branch.SetInclusionState(Rejected)
-	})
 
 	cachedLazyBookedConflictsBranch, stored := b.branchStorage.StoreIfAbsent(NewConflictBranch(LazyBookedConflictsBranchID, nil, nil))
-	if !stored {
-		return
+	if stored {
+		(&CachedBranch{CachedObject: cachedLazyBookedConflictsBranch}).Consume(func(branch Branch) {
+			branch.SetLiked(false)
+			branch.SetMonotonicallyLiked(false)
+			branch.SetFinalized(true)
+			branch.SetInclusionState(Rejected)
+		})
 	}
-
-	(&CachedBranch{CachedObject: cachedLazyBookedConflictsBranch}).Consume(func(branch Branch) {
-		branch.SetPreferred(false)
-		branch.SetLiked(false)
-		branch.SetFinalized(true)
-		branch.SetInclusionState(Rejected)
-	})
 }
 
 // resolveConflictBranchIDs is an internal utility function that returns the BranchIDs of the ConflictBranches that the
@@ -568,12 +562,12 @@ func (b *BranchDAG) aggregateNormalizedBranches(normalizedBranchIDs BranchIDs) (
 
 		for normalizedBranchID := range normalizedBranchIDs {
 			if !b.Branch(normalizedBranchID).Consume(func(normalizedBranch Branch) {
-				if preferredErr := b.updatePreferredOfAggregatedBranch(cachedAggregatedBranch.Retain(), normalizedBranch.Preferred()); preferredErr != nil {
-					err = xerrors.Errorf("failed to update preferred flag of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), preferredErr)
+				if likedErr := b.updateLikedOfAggregatedBranch(cachedAggregatedBranch.Retain(), normalizedBranch.Liked()); likedErr != nil {
+					err = xerrors.Errorf("failed to update liked flag of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), likedErr)
 					return
 				}
-				if _, likedErr := b.updateLikedStatus(cachedAggregatedBranch.ID(), normalizedBranch.Liked()); likedErr != nil {
-					err = xerrors.Errorf("failed to update preferred flag of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), likedErr)
+				if _, monotonicallyLikedErr := b.updateMonotonicallyLikedStatus(cachedAggregatedBranch.ID(), normalizedBranch.MonotonicallyLiked()); monotonicallyLikedErr != nil {
+					err = xerrors.Errorf("failed to update monotonically liked flag of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), monotonicallyLikedErr)
 					return
 				}
 				if finalizedErr := b.updateFinalizedOfAggregatedBranch(cachedAggregatedBranch.Retain(), normalizedBranch.Finalized()); finalizedErr != nil {
@@ -631,9 +625,9 @@ func (b *BranchDAG) registerConflictMember(conflictID ConflictID, branchID Branc
 	})
 }
 
-// setBranchPreferred updates the preferred flag of the given Branch. It returns true if the value has been updated or
-// an error if it failed.
-func (b *BranchDAG) setBranchPreferred(cachedBranch *CachedBranch, preferred bool) (modified bool, err error) {
+// setBranchLiked updates the liked flag of the given Branch. It returns true if the value has been updated or an error
+// if it failed.
+func (b *BranchDAG) setBranchLiked(cachedBranch *CachedBranch, liked bool) (modified bool, err error) {
 	// release the CachedBranch when we are done
 	defer cachedBranch.Release()
 
@@ -645,11 +639,11 @@ func (b *BranchDAG) setBranchPreferred(cachedBranch *CachedBranch, preferred boo
 	}
 
 	// execute case dependent logic
-	switch preferred {
+	switch liked {
 	case true:
-		// iterate through all Conflicts of the current Branch and set their ConflictMembers to be not preferred
+		// iterate through all Conflicts of the current Branch and set their ConflictMembers to be not liked
 		for conflictID := range conflictBranch.Conflicts() {
-			// iterate through all ConflictMembers and set them to not preferred
+			// iterate through all ConflictMembers and set them to not liked
 			cachedConflictMembers := b.ConflictMembers(conflictID)
 			for _, cachedConflictMember := range cachedConflictMembers {
 				// unwrap the ConflictMember
@@ -665,49 +659,49 @@ func (b *BranchDAG) setBranchPreferred(cachedBranch *CachedBranch, preferred boo
 					continue
 				}
 
-				// update the other ConflictMembers to be not preferred
-				if _, err = b.setBranchPreferred(b.Branch(conflictMember.BranchID()), false); err != nil {
+				// update the other ConflictMembers to be not liked
+				if _, err = b.setBranchLiked(b.Branch(conflictMember.BranchID()), false); err != nil {
 					cachedConflictMembers.Release()
-					err = xerrors.Errorf("failed to propagate preferred changes to other ConflictMembers: %w", err)
+					err = xerrors.Errorf("failed to propagate liked changes to other ConflictMembers: %w", err)
 					return
 				}
 			}
 			cachedConflictMembers.Release()
 		}
 
-		// abort if the branch was preferred already
-		if modified = conflictBranch.SetPreferred(true); !modified {
+		// abort if the branch was liked already
+		if modified = conflictBranch.SetLiked(true); !modified {
 			return
 		}
 
 		// trigger event
-		b.Events.BranchPreferred.Trigger(NewBranchDAGEvent(cachedBranch))
+		b.Events.BranchLiked.Trigger(NewBranchDAGEvent(cachedBranch))
 
-		// update the preferred status of the future cone (it only effects the AggregatedBranches)
-		if err = b.updatePreferredOfAggregatedChildBranches(conflictBranch.ID(), true); err != nil {
-			err = xerrors.Errorf("failed to update preferred status of future cone of Branch with %s: %w", conflictBranch.ID(), err)
+		// update the liked status of the future cone (it only effects the AggregatedBranches)
+		if err = b.updateLikedOfAggregatedChildBranches(conflictBranch.ID(), true); err != nil {
+			err = xerrors.Errorf("failed to update liked status of future cone of Branch with %s: %w", conflictBranch.ID(), err)
 			return
 		}
 
 		// update the liked status of the future cone (if necessary)
-		if _, err = b.updateLikedStatus(conflictBranch.ID(), true); err != nil {
+		if _, err = b.updateMonotonicallyLikedStatus(conflictBranch.ID(), true); err != nil {
 			err = xerrors.Errorf("failed to update liked status of future cone of Branch with %s: %w", conflictBranch.ID(), err)
 			return
 		}
 	case false:
-		// set the branch to be not preferred
-		if modified = conflictBranch.SetPreferred(false); modified {
+		// set the branch to be not liked
+		if modified = conflictBranch.SetLiked(false); modified {
 			// trigger event
-			b.Events.BranchUnpreferred.Trigger(NewBranchDAGEvent(cachedBranch))
+			b.Events.BranchDisliked.Trigger(NewBranchDAGEvent(cachedBranch))
 
-			// update the preferred status of the future cone (it only affect the AggregatedBranches)
-			if propagationErr := b.updatePreferredOfAggregatedChildBranches(conflictBranch.ID(), false); propagationErr != nil {
-				err = xerrors.Errorf("failed to propagate preferred changes to AggregatedBranches: %w", propagationErr)
+			// update the liked status of the future cone (it only affect the AggregatedBranches)
+			if propagationErr := b.updateLikedOfAggregatedChildBranches(conflictBranch.ID(), false); propagationErr != nil {
+				err = xerrors.Errorf("failed to propagate liked changes to AggregatedBranches: %w", propagationErr)
 				return
 			}
 
 			// update the liked status of the future cone (if necessary)
-			if _, propagationErr := b.updateLikedStatus(conflictBranch.ID(), false); propagationErr != nil {
+			if _, propagationErr := b.updateMonotonicallyLikedStatus(conflictBranch.ID(), false); propagationErr != nil {
 				err = xerrors.Errorf("failed to update liked status of future cone of Branch with %s: %w", conflictBranch.ID(), propagationErr)
 				return
 			}
@@ -717,9 +711,9 @@ func (b *BranchDAG) setBranchPreferred(cachedBranch *CachedBranch, preferred boo
 	return
 }
 
-// setBranchLiked is an internal utility function that updates the liked status of a Branch. Since a Branch can only be
+// setBranchMonotonicallyLiked is an internal utility function that updates the liked status of a Branch. Since a Branch can only be
 // liked if its parents are also liked, we automatically update them as well.
-func (b *BranchDAG) setBranchLiked(cachedBranch *CachedBranch, liked bool) (modified bool, err error) {
+func (b *BranchDAG) setBranchMonotonicallyLiked(cachedBranch *CachedBranch, liked bool) (modified bool, err error) {
 	// release the CachedBranch when we are done
 	defer cachedBranch.Release()
 
@@ -741,7 +735,7 @@ func (b *BranchDAG) setBranchLiked(cachedBranch *CachedBranch, liked bool) (modi
 
 		// iterate through parents and like them instead (the change will trickle through)
 		for parentBranchID := range branch.Parents() {
-			parentBranchModified, parentBranchErr := b.setBranchLiked(b.Branch(parentBranchID), true)
+			parentBranchModified, parentBranchErr := b.setBranchMonotonicallyLiked(b.Branch(parentBranchID), true)
 			if parentBranchErr != nil {
 				err = xerrors.Errorf("failed to set liked status of parent Branch with %s: %w", parentBranchID, parentBranchErr)
 				return
@@ -757,14 +751,14 @@ func (b *BranchDAG) setBranchLiked(cachedBranch *CachedBranch, liked bool) (modi
 	case true:
 		// start with liking the parents (like propagates from past to present)
 		for parentBranchID := range branch.Parents() {
-			if _, err = b.setBranchLiked(b.Branch(parentBranchID), true); err != nil {
+			if _, err = b.setBranchMonotonicallyLiked(b.Branch(parentBranchID), true); err != nil {
 				err = xerrors.Errorf("failed to set liked status of parent Branch with %s: %w", parentBranchID, err)
 				return
 			}
 		}
 
-		// set all conflict members to be not preferred (and consequently also not liked) - there can only be one
-		// preferred Branch per Conflict
+		// set all conflict members to be not liked (and consequently also not liked) - there can only be one
+		// liked Branch per Conflict
 		for conflictID := range branch.(*ConflictBranch).Conflicts() {
 			b.ConflictMembers(conflictID).Consume(func(conflictMember *ConflictMember) {
 				// skip the current Branch
@@ -772,43 +766,43 @@ func (b *BranchDAG) setBranchLiked(cachedBranch *CachedBranch, liked bool) (modi
 					return
 				}
 
-				// set other ConflictMembers to not be preferred anymore - there can only be one preferred Branch per
+				// set other ConflictMembers to not be liked anymore - there can only be one liked Branch per
 				// Conflict
-				_, err = b.setBranchPreferred(b.Branch(conflictMember.BranchID()), false)
+				_, err = b.setBranchLiked(b.Branch(conflictMember.BranchID()), false)
 				if err != nil {
-					err = xerrors.Errorf("failed to update preferred status of parent Branch with %s: %w", conflictMember.BranchID(), err)
+					err = xerrors.Errorf("failed to update liked status of parent Branch with %s: %w", conflictMember.BranchID(), err)
 					return
 				}
 			})
 		}
 
 		// trigger event if we changed the flag
-		if branch.SetPreferred(true) {
-			b.Events.BranchPreferred.Trigger(NewBranchDAGEvent(cachedBranch))
+		if branch.SetLiked(true) {
+			b.Events.BranchLiked.Trigger(NewBranchDAGEvent(cachedBranch))
 		}
 
-		// update the preferred status of the future cone (it only effects the AggregatedBranches)
-		if err = b.updatePreferredOfAggregatedChildBranches(branch.ID(), true); err != nil {
-			err = xerrors.Errorf("failed to update preferred status of future cone of Branch with %s: %w", branch.ID(), err)
+		// update the liked status of the future cone (it only effects the AggregatedBranches)
+		if err = b.updateLikedOfAggregatedChildBranches(branch.ID(), true); err != nil {
+			err = xerrors.Errorf("failed to update liked status of future cone of Branch with %s: %w", branch.ID(), err)
 			return
 		}
 
 		// update the liked status and determine the modified flag
-		if modified, err = b.updateLikedStatus(branch.ID(), true); err != nil {
+		if modified, err = b.updateMonotonicallyLikedStatus(branch.ID(), true); err != nil {
 			err = xerrors.Errorf("failed to update liked status of Branch with %s: %w", branch.ID(), err)
 			return
 		}
 	case false:
-		// abort if the Branch is already not preferred
-		if !branch.SetPreferred(false) {
+		// abort if the Branch is already not liked
+		if !branch.SetLiked(false) {
 			return
 		}
 
 		// trigger event
-		b.Events.BranchUnpreferred.Trigger(NewBranchDAGEvent(cachedBranch))
+		b.Events.BranchDisliked.Trigger(NewBranchDAGEvent(cachedBranch))
 
 		// update the like status and set the modified flag
-		if modified, err = b.updateLikedStatus(branch.ID(), false); err != nil {
+		if modified, err = b.updateMonotonicallyLikedStatus(branch.ID(), false); err != nil {
 			err = xerrors.Errorf("failed to update liked status of future cone of Branch with %s: %w", branch.ID(), err)
 			return
 		}
@@ -870,7 +864,7 @@ func (b *BranchDAG) setBranchFinalized(cachedBranch *CachedBranch, finalized boo
 		}
 
 		// execute case dependent logic
-		switch branch.Preferred() {
+		switch branch.Liked() {
 		case true:
 			// iterate through all other Branches that belong to the same Conflict
 			for conflictID := range branch.(*ConflictBranch).Conflicts() {
@@ -880,7 +874,7 @@ func (b *BranchDAG) setBranchFinalized(cachedBranch *CachedBranch, finalized boo
 						return
 					}
 
-					// set other branches of same conflict to also be finalized (there can only be 1 preferred, finalized
+					// set other branches of same conflict to also be finalized (there can only be 1 liked, finalized
 					// Branch in every Conflict)
 					_, err = b.setBranchFinalized(b.Branch(conflictMember.BranchID()), true)
 					if err != nil {
@@ -922,10 +916,10 @@ func (b *BranchDAG) setBranchFinalized(cachedBranch *CachedBranch, finalized boo
 	return
 }
 
-// updatePreferredOfAggregatedChildBranches updates the preferred flag of the AggregatedBranches that are direct children
-// of the Branch whose preferred flag was updated.
-func (b *BranchDAG) updatePreferredOfAggregatedChildBranches(branchID BranchID, preferred bool) (err error) {
-	// initialize stack with children of type AggregatedBranch of the passed in Branch (we only update the preferred
+// updateLikedOfAggregatedChildBranches updates the liked flag of the AggregatedBranches that are direct children
+// of the Branch whose liked flag was updated.
+func (b *BranchDAG) updateLikedOfAggregatedChildBranches(branchID BranchID, liked bool) (err error) {
+	// initialize stack with children of type AggregatedBranch of the passed in Branch (we only update the liked
 	// status of AggregatedBranches as their status entirely depends on their parents)
 	branchStack := list.New()
 	b.ChildBranches(branchID).Consume(func(childBranch *ChildBranch) {
@@ -940,8 +934,8 @@ func (b *BranchDAG) updatePreferredOfAggregatedChildBranches(branchID BranchID, 
 		currentEntry := branchStack.Front()
 		branchStack.Remove(currentEntry)
 
-		if err = b.updatePreferredOfAggregatedBranch(b.Branch(currentEntry.Value.(BranchID)), preferred); err != nil {
-			err = xerrors.Errorf("failed to update preferred flag of AggregatedBranch with %s: %w", currentEntry.Value.(BranchID), err)
+		if err = b.updateLikedOfAggregatedBranch(b.Branch(currentEntry.Value.(BranchID)), liked); err != nil {
+			err = xerrors.Errorf("failed to update liked flag of AggregatedBranch with %s: %w", currentEntry.Value.(BranchID), err)
 			return
 		}
 	}
@@ -949,9 +943,9 @@ func (b *BranchDAG) updatePreferredOfAggregatedChildBranches(branchID BranchID, 
 	return
 }
 
-// updatePreferredOfAggregatedBranch is an internal utility function that updates the preferred status of a single
+// updateLikedOfAggregatedBranch is an internal utility function that updates the liked status of a single
 // AggregatedBranch.
-func (b *BranchDAG) updatePreferredOfAggregatedBranch(currentCachedBranch *CachedBranch, preferred bool) (err error) {
+func (b *BranchDAG) updateLikedOfAggregatedBranch(currentCachedBranch *CachedBranch, liked bool) (err error) {
 	// release current CachedBranch
 	defer currentCachedBranch.Release()
 
@@ -967,9 +961,9 @@ func (b *BranchDAG) updatePreferredOfAggregatedBranch(currentCachedBranch *Cache
 	}
 
 	// execute case dependent logic
-	switch preferred {
+	switch liked {
 	case true:
-		// only continue if all parents are preferred
+		// only continue if all parents are liked
 		for parentBranchID := range currentBranch.Parents() {
 			// load parent Branch
 			cachedParentBranch := b.Branch(parentBranchID)
@@ -982,8 +976,8 @@ func (b *BranchDAG) updatePreferredOfAggregatedBranch(currentCachedBranch *Cache
 				return
 			}
 
-			// abort if the parent Branch is not preferred
-			if !parentBranch.Preferred() {
+			// abort if the parent Branch is not liked
+			if !parentBranch.Liked() {
 				cachedParentBranch.Release()
 				return
 			}
@@ -993,13 +987,13 @@ func (b *BranchDAG) updatePreferredOfAggregatedBranch(currentCachedBranch *Cache
 		}
 
 		// trigger event if the value was changed
-		if currentBranch.SetPreferred(true) {
-			b.Events.BranchPreferred.Trigger(NewBranchDAGEvent(currentCachedBranch))
+		if currentBranch.SetLiked(true) {
+			b.Events.BranchLiked.Trigger(NewBranchDAGEvent(currentCachedBranch))
 		}
 	case false:
 		// trigger event if the value was changed
-		if currentBranch.SetPreferred(false) {
-			b.Events.BranchUnpreferred.Trigger(NewBranchDAGEvent(currentCachedBranch))
+		if currentBranch.SetLiked(false) {
+			b.Events.BranchDisliked.Trigger(NewBranchDAGEvent(currentCachedBranch))
 		}
 	}
 
@@ -1090,9 +1084,9 @@ func (b *BranchDAG) updateFinalizedOfAggregatedBranch(currentCachedBranch *Cache
 	return
 }
 
-// updateLikedStatus is an internal utility function that updates the liked status of the given Branch (and its future
-// cone) if it fulfills the conditions.
-func (b *BranchDAG) updateLikedStatus(branchID BranchID, liked bool) (modified bool, err error) {
+// updateMonotonicallyLikedStatus is an internal utility function that updates the monotonically liked status of the
+// given Branch (and its future cone) if it fulfills the conditions.
+func (b *BranchDAG) updateMonotonicallyLikedStatus(branchID BranchID, monotonicallyLiked bool) (modified bool, err error) {
 	// initialize stack for iteration
 	branchStack := list.New()
 	branchStack.PushBack(branchID)
@@ -1117,10 +1111,10 @@ ProcessStack:
 		}
 
 		// execute case dependent logic
-		switch liked {
+		switch monotonicallyLiked {
 		case true:
-			// abort if the current Branch is not preferred
-			if !currentBranch.Preferred() {
+			// abort if the current Branch is not liked
+			if !currentBranch.Liked() {
 				currentCachedBranch.Release()
 				continue
 			}
@@ -1140,7 +1134,7 @@ ProcessStack:
 				}
 
 				// abort if parent Branch is not liked
-				if !parentBranch.Liked() {
+				if !parentBranch.MonotonicallyLiked() {
 					currentCachedBranch.Release()
 					cachedParentBranch.Release()
 					continue ProcessStack
@@ -1151,7 +1145,7 @@ ProcessStack:
 			}
 
 			// abort if the Branch is already liked
-			if !currentBranch.SetLiked(true) {
+			if !currentBranch.SetMonotonicallyLiked(true) {
 				currentCachedBranch.Release()
 				continue
 			}
@@ -1163,10 +1157,10 @@ ProcessStack:
 			}
 
 			// trigger event
-			b.Events.BranchLiked.Trigger(NewBranchDAGEvent(currentCachedBranch))
+			b.Events.BranchMonotonicallyLiked.Trigger(NewBranchDAGEvent(currentCachedBranch))
 		case false:
 			// abort if the current Branch is disliked already
-			if !currentBranch.SetLiked(false) {
+			if !currentBranch.SetMonotonicallyLiked(false) {
 				currentCachedBranch.Release()
 				continue
 			}
@@ -1178,7 +1172,7 @@ ProcessStack:
 			}
 
 			// trigger event
-			b.Events.BranchDisliked.Trigger(NewBranchDAGEvent(currentCachedBranch))
+			b.Events.BranchMonotonicallyDisliked.Trigger(NewBranchDAGEvent(currentCachedBranch))
 		}
 
 		// iterate through ChildBranch references and queue found Branches for propagation
@@ -1233,8 +1227,8 @@ ProcessStack:
 		// execute case dependent logic
 		switch inclusionState {
 		case Confirmed:
-			// abort if the current Branch is not preferred or not finalized
-			if !currentBranch.Preferred() || !currentBranch.Finalized() {
+			// abort if the current Branch is not liked or not finalized
+			if !currentBranch.Liked() || !currentBranch.Finalized() {
 				currentCachedBranch.Release()
 				continue
 			}
@@ -1322,20 +1316,22 @@ ProcessStack:
 
 // BranchDAGEvents is a container for all of the BranchDAG related events.
 type BranchDAGEvents struct {
-	// BranchPreferred gets triggered whenever a Branch becomes preferred that was not preferred before.
-	BranchPreferred *events.Event
-
-	// BranchUnpreferred gets triggered whenever a Branch becomes unpreferred that was preferred before.
-	BranchUnpreferred *events.Event
-
 	// BranchLiked gets triggered whenever a Branch becomes liked that was not liked before.
 	BranchLiked *events.Event
 
-	// BranchLiked gets triggered whenever a Branch becomes preferred that was not preferred before.
+	// BranchDisliked gets triggered whenever a Branch becomes disliked that was liked before.
 	BranchDisliked *events.Event
 
+	// BranchMonotonicallyLiked gets triggered whenever a Branch becomes monotonically liked that was not monotonically
+	// liked before.
+	BranchMonotonicallyLiked *events.Event
+
+	// BranchMonotonicallyDisliked gets triggered whenever a Branch becomes monotonically disliked that was
+	// monotonically liked before.
+	BranchMonotonicallyDisliked *events.Event
+
 	// BranchFinalized gets triggered when a decision on a Branch is finalized and there will be no further state
-	// changes regarding its preferred state.
+	// changes regarding its liked state.
 	BranchFinalized *events.Event
 
 	// BranchUnfinalized gets triggered when a previously finalized Branch is marked as not finalized again (i.e. during
@@ -1355,15 +1351,15 @@ type BranchDAGEvents struct {
 // NewBranchDAGEvents creates a container for all of the BranchDAG related events.
 func NewBranchDAGEvents() *BranchDAGEvents {
 	return &BranchDAGEvents{
-		BranchPreferred:   events.NewEvent(branchEventCaller),
-		BranchUnpreferred: events.NewEvent(branchEventCaller),
-		BranchLiked:       events.NewEvent(branchEventCaller),
-		BranchDisliked:    events.NewEvent(branchEventCaller),
-		BranchFinalized:   events.NewEvent(branchEventCaller),
-		BranchUnfinalized: events.NewEvent(branchEventCaller),
-		BranchConfirmed:   events.NewEvent(branchEventCaller),
-		BranchRejected:    events.NewEvent(branchEventCaller),
-		BranchPending:     events.NewEvent(branchEventCaller),
+		BranchLiked:                 events.NewEvent(branchEventCaller),
+		BranchDisliked:              events.NewEvent(branchEventCaller),
+		BranchMonotonicallyLiked:    events.NewEvent(branchEventCaller),
+		BranchMonotonicallyDisliked: events.NewEvent(branchEventCaller),
+		BranchFinalized:             events.NewEvent(branchEventCaller),
+		BranchUnfinalized:           events.NewEvent(branchEventCaller),
+		BranchConfirmed:             events.NewEvent(branchEventCaller),
+		BranchRejected:              events.NewEvent(branchEventCaller),
+		BranchPending:               events.NewEvent(branchEventCaller),
 	}
 }
 
