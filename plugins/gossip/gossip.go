@@ -120,8 +120,6 @@ func (r *requestedMessages) append(msgID tangle.MessageID) {
 	defer r.Unlock()
 
 	r.msgs[msgID] = types.Void
-
-	return
 }
 
 func (r *requestedMessages) delete(msgID tangle.MessageID) (deleted bool) {
