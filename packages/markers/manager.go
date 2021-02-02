@@ -120,12 +120,14 @@ func (m *Manager) UpdateStructureDetails(structureDetailsToUpdate *StructureDeta
 	structureDetailsToUpdate.futureMarkersUpdateMutex.Lock()
 	defer structureDetailsToUpdate.futureMarkersUpdateMutex.Unlock()
 
+	// abort if future markers of structureDetailsToUpdate reference markerToInherit
 	if m.markersReferenceMarkers(NewMarkers(markerToInherit), structureDetailsToUpdate.FutureMarkers, false) {
 		return
 	}
 
 	structureDetailsToUpdate.FutureMarkers.Set(markerToInherit.sequenceID, markerToInherit.index)
 	futureMarkersUpdated = true
+	// stop propagating further if structureDetailsToUpadate is a marker
 	inheritFutureMarkerFurther = !structureDetailsToUpdate.IsPastMarker
 
 	return
