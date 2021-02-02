@@ -719,7 +719,7 @@ func (t *TransactionMetadata) Finalized() (finalized bool) {
 	return t.finalized
 }
 
-// SetFinalized updates the finalized flag of the Transaction. It returns true if the lazy booked flag was modified.
+// SetFinalized updates the finalized flag of the Transaction. It returns true if the value was modified.
 func (t *TransactionMetadata) SetFinalized(finalized bool) (modified bool) {
 	t.finalizedMutex.Lock()
 	defer t.finalizedMutex.Unlock()
@@ -744,7 +744,7 @@ func (t *TransactionMetadata) LazyBooked() (lazyBooked bool) {
 	return t.lazyBooked
 }
 
-// SetLazyBooked updates the lazy booked flag of the Output. It returns true if the lazy booked flag was modified.
+// SetLazyBooked updates the lazy booked flag of the Output. It returns true if the value was modified.
 func (t *TransactionMetadata) SetLazyBooked(lazyBooked bool) (modified bool) {
 	t.lazyBookedMutex.Lock()
 	defer t.lazyBookedMutex.Unlock()

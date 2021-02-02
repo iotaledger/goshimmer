@@ -256,7 +256,9 @@ func (u *UTXODAG) bookRejectedConflictingTransaction(transaction *Transaction, t
 
 	if !cachedConflictBranch.Consume(func(branch Branch) {
 		branch.SetLiked(false)
+		branch.SetMonotonicallyLiked(false)
 		branch.SetFinalized(true)
+		branch.SetInclusionState(Rejected)
 
 		u.bookRejectedTransaction(transaction, transactionMetadata, inputsMetadata, targetBranch)
 	}) {
