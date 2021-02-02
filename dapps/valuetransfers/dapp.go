@@ -21,6 +21,7 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	flag "github.com/spf13/pflag"
+	"golang.org/x/xerrors"
 )
 
 const (
@@ -167,7 +168,7 @@ func run(*node.Plugin) {
 		cfgAvgNetworkDelay := config.Node().Int(CfgValueLayerFCOBAverageNetworkDelay)
 		time.Sleep(time.Duration(cfgAvgNetworkDelay) * time.Second)
 		_tangle.Shutdown()
-	}, shutdown.PriorityTangle); err != nil {
+	}, shutdown.PriorityValueTangle); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
 }
@@ -215,7 +216,8 @@ func ValueObjectFactory() *valuetangle.ValueObjectFactory {
 }
 
 // AwaitTransactionToBeBooked awaits maxAwait for the given transaction to get booked.
-func AwaitTransactionToBeBooked(txID transaction.ID, maxAwait time.Duration) error {
+func AwaitTransactionToBeBooked(f func() (*tangle.Message, error), txID transaction.ID, maxAwait time.Duration) (*tangle.Message, error) {
+	// first subscribe to the transaction booked event
 	booked := make(chan struct{}, 1)
 	// exit is used to let the caller exit if for whatever
 	// reason the same transaction gets booked multiple times
@@ -234,10 +236,34 @@ func AwaitTransactionToBeBooked(txID transaction.ID, maxAwait time.Duration) err
 	})
 	Tangle().Events.TransactionBooked.Attach(closure)
 	defer Tangle().Events.TransactionBooked.Detach(closure)
+
+	// then issue the message with the tx
+
+	// channel to receive the result of issuance
+	issueResult := make(chan struct {
+		msg *tangle.Message
+		err error
+	}, 1)
+
+	go func() {
+		msg, err := f()
+		issueResult <- struct {
+			msg *tangle.Message
+			err error
+		}{msg: msg, err: err}
+	}()
+
+	// wait on issuance
+	result := <-issueResult
+
+	if result.err != nil || result.msg == nil {
+		return nil, xerrors.Errorf("Failed to issue transaction %s: %w", txID.String(), result.err)
+	}
+
 	select {
 	case <-time.After(maxAwait):
-		return ErrTransactionWasNotBookedInTime
+		return nil, ErrTransactionWasNotBookedInTime
 	case <-booked:
-		return nil
+		return result.msg, nil
 	}
 }
