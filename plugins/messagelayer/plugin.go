@@ -94,9 +94,20 @@ func configure(*node.Plugin) {
 	tipSelector = TipSelector()
 	_tangle = Tangle()
 
+	// setup solidification
+	_tangle.MessageStore.Events.MessageStored.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
+		_tangle.SolidifyMessage(cachedMsgEvent.Message, cachedMsgEvent.MessageMetadata)
+	}))
+
+	// setup parents check
+	// TODO: replace this with scheduler
+	_tangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
+		_tangle.CheckParentsEligibility(cachedMsgEvent.Message, cachedMsgEvent.MessageMetadata)
+	}))
+
 	// Setup messageFactory (behavior + logging))
 	messageFactory = MessageFactory()
-	messageFactory.Events.MessageConstructed.Attach(events.NewClosure(_tangle.AttachMessage))
+	messageFactory.Events.MessageConstructed.Attach(events.NewClosure(_tangle.StoreMessage))
 	messageFactory.Events.Error.Attach(events.NewClosure(func(err error) {
 		log.Errorf("internal error in message factory: %v", err)
 	}))
@@ -104,12 +115,12 @@ func configure(*node.Plugin) {
 	// setup messageParser
 	messageParser.Events.MessageParsed.Attach(events.NewClosure(func(msgParsedEvent *tangle.MessageParsedEvent) {
 		// TODO: ADD PEER
-		_tangle.AttachMessage(msgParsedEvent.Message)
+		_tangle.StoreMessage(msgParsedEvent.Message)
 	}))
 
 	// setup messageRequester
-	_tangle.Events.MessageMissing.Attach(events.NewClosure(messageRequester.StartRequest))
-	_tangle.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
+	_tangle.MessageStore.Events.MessageMissing.Attach(events.NewClosure(messageRequester.StartRequest))
+	_tangle.MessageStore.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
 		cachedMsgEvent.MessageMetadata.Release()
 		cachedMsgEvent.Message.Consume(func(msg *tangle.Message) {
 			messageRequester.StopRequest(msg.ID())
@@ -128,6 +139,7 @@ func configure(*node.Plugin) {
 }
 
 func run(*node.Plugin) {
+	messageParser.Setup()
 	if err := daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
 		<-shutdownSignal
 		messageFactory.Shutdown()

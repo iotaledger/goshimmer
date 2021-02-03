@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/vote"
+	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/hive.go/protocol/message"
 	"github.com/iotaledger/hive.go/protocol/tlv"
@@ -25,15 +26,15 @@ func dummyFPCHeartbeat() *FPCHeartbeat {
 					ID:       "one",
 					Liked:    1.,
 					Rounds:   3,
-					Opinions: []vote.Opinion{vote.Dislike, vote.Like, vote.Dislike},
+					Opinions: []opinion.Opinion{opinion.Dislike, opinion.Like, opinion.Dislike},
 				}},
-			QueriedOpinions: []vote.QueriedOpinions{{
+			QueriedOpinions: []opinion.QueriedOpinions{{
 				OpinionGiverID: "nodeA",
-				Opinions:       map[string]vote.Opinion{"one": vote.Like, "two": vote.Dislike},
+				Opinions:       map[string]opinion.Opinion{"one": opinion.Like, "two": opinion.Dislike},
 				TimesCounted:   2,
 			}},
 		},
-		Finalized: map[string]vote.Opinion{"one": vote.Like, "two": vote.Dislike},
+		Finalized: map[string]opinion.Opinion{"one": opinion.Like, "two": opinion.Dislike},
 	}
 }
 

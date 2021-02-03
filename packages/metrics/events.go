@@ -1,7 +1,7 @@
 package metrics
 
 import (
-	"github.com/iotaledger/goshimmer/packages/vote"
+	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/hive.go/events"
 )
 
@@ -55,9 +55,9 @@ type AnalysisFPCFinalizedEvent struct {
 	// Rounds defines the number of rounds performed to finalize.
 	Rounds int
 	// Opinions contains the opinion of each round.
-	Opinions []vote.Opinion
+	Opinions []opinion.Opinion
 	// Outcome defines the outcome of the FPC voting.
-	Outcome vote.Opinion
+	Outcome opinion.Opinion
 }
 
 func queryReceivedEventCaller(handler interface{}, params ...interface{}) {

@@ -35,6 +35,10 @@ func findByIDHandler(c echo.Context) error {
 
 		if !msgObject.Exists() || !msgMetadataObject.Exists() {
 			result = append(result, Message{})
+
+			msgObject.Release()
+			msgMetadataObject.Release()
+
 			continue
 		}
 

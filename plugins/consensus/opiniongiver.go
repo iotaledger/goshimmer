@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/metrics"
-	"github.com/iotaledger/goshimmer/packages/vote"
 	votenet "github.com/iotaledger/goshimmer/packages/vote/net"
+	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/goshimmer/packages/vote/statement"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/hive.go/autopeering/peer"
@@ -32,11 +32,13 @@ type OpinionGiver struct {
 type OpinionGivers map[identity.ID]OpinionGiver
 
 // Query retrievs the opinions about the given conflicts and timestamps.
-func (o *OpinionGiver) Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (opinions vote.Opinions, err error) {
+func (o *OpinionGiver) Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (opinions opinion.Opinions, err error) {
 	for i := 0; i < waitForStatement; i++ {
-		opinions, err = o.view.Query(ctx, conflictIDs, timestampIDs)
-		if err == nil {
-			return opinions, nil
+		if o.view != nil {
+			opinions, err = o.view.Query(ctx, conflictIDs, timestampIDs)
+			if err == nil {
+				return opinions, nil
+			}
 		}
 		time.Sleep(time.Second)
 	}
@@ -50,9 +52,9 @@ func (o *OpinionGiver) ID() identity.ID {
 }
 
 // OpinionGiverFunc returns a slice of opinion givers.
-func OpinionGiverFunc() (givers []vote.OpinionGiver, err error) {
+func OpinionGiverFunc() (givers []opinion.OpinionGiver, err error) {
 	opinionGiversMap := make(map[identity.ID]*OpinionGiver)
-	opinionGivers := make([]vote.OpinionGiver, 0)
+	opinionGivers := make([]opinion.OpinionGiver, 0)
 
 	for _, v := range Registry().NodesView() {
 		opinionGiversMap[v.ID()] = &OpinionGiver{
@@ -67,21 +69,16 @@ func OpinionGiverFunc() (givers []vote.OpinionGiver, err error) {
 			continue
 		}
 		if _, ok := opinionGiversMap[p.ID()]; !ok {
-			v := Registry().NodeView(p.ID())
 			opinionGiversMap[p.ID()] = &OpinionGiver{
 				id:   p.ID(),
-				view: v,
+				view: nil,
 			}
 		}
 		opinionGiversMap[p.ID()].pog = &PeerOpinionGiver{p: p}
 	}
 
 	for _, v := range opinionGiversMap {
-		opinionGivers = append(opinionGivers, &OpinionGiver{
-			id:   v.id,
-			view: v.view,
-			pog:  v.pog,
-		})
+		opinionGivers = append(opinionGivers, v)
 	}
 
 	return opinionGivers, nil
@@ -97,7 +94,7 @@ type PeerOpinionGiver struct {
 }
 
 // Query queries another node for its opinion.
-func (pog *PeerOpinionGiver) Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (vote.Opinions, error) {
+func (pog *PeerOpinionGiver) Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (opinion.Opinions, error) {
 	if pog == nil {
 		return nil, fmt.Errorf("unable to query opinions, PeerOpinionGiver is nil")
 	}
@@ -127,9 +124,9 @@ func (pog *PeerOpinionGiver) Query(ctx context.Context, conflictIDs []string, ti
 	metrics.Events().FPCOutboundBytes.Trigger(uint64(proto.Size(query)))
 
 	// convert int32s in reply to opinions
-	opinions := make(vote.Opinions, len(reply.Opinion))
+	opinions := make(opinion.Opinions, len(reply.Opinion))
 	for i, intOpn := range reply.Opinion {
-		opinions[i] = vote.ConvertInt32Opinion(intOpn)
+		opinions[i] = opinion.ConvertInt32Opinion(intOpn)
 	}
 
 	return opinions, nil

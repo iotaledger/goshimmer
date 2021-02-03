@@ -1,3 +1,15 @@
+# v0.3.5 - 2021-01-13
+* Fix consensus statement bug
+* Fix deadlock in RandomMap
+* Fix several shutdown related issues
+* Load old messages in visualizer
+* Fix wrong Tips count in visualizer
+* Fix dashboard typos
+* Improve integration tests
+* Improve network delay analysis
+* Update hive.go
+* Update JS dependencies
+* **Breaking**: bumps network and database versions
 # v0.3.4 - 2020-12-11
 * Revert Pebble to Badger.
 * **Breaking**: bumps network and database versions

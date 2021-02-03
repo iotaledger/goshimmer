@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/vote"
+	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 	analysisserver "github.com/iotaledger/goshimmer/plugins/analysis/server"
 	"github.com/stretchr/testify/require"
@@ -27,7 +28,7 @@ func TestCreateFPCUpdate(t *testing.T) {
 					ID:       "one",
 					Liked:    1.,
 					Rounds:   3,
-					Opinions: []vote.Opinion{vote.Dislike, vote.Like, vote.Dislike},
+					Opinions: []opinion.Opinion{opinion.Dislike, opinion.Like, opinion.Dislike},
 				}},
 		},
 	}

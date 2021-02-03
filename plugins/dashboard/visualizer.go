@@ -113,8 +113,8 @@ func runVisualizer() {
 	})
 
 	if err := daemon.BackgroundWorker("Dashboard[Visualizer]", func(shutdownSignal <-chan struct{}) {
-		messagelayer.Tangle().Events.MessageAttached.Attach(notifyNewMsg)
-		defer messagelayer.Tangle().Events.MessageAttached.Detach(notifyNewMsg)
+		messagelayer.Tangle().MessageStore.Events.MessageStored.Attach(notifyNewMsg)
+		defer messagelayer.Tangle().MessageStore.Events.MessageStored.Detach(notifyNewMsg)
 		messagelayer.Tangle().Events.MessageSolid.Attach(notifyNewMsg)
 		defer messagelayer.Tangle().Events.MessageSolid.Detach(notifyNewMsg)
 		messagelayer.TipSelector().Events.TipAdded.Attach(notifyNewTip)
@@ -134,9 +134,10 @@ func runVisualizer() {
 func setupVisualizerRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/visualizer/history", func(c echo.Context) (err error) {
 		msgHistoryMutex.RLock()
+		defer msgHistoryMutex.RUnlock()
+
 		cpyHistory := make([]*tangle.Message, len(msgHistory))
 		copy(cpyHistory, msgHistory)
-		msgHistoryMutex.RUnlock()
 
 		var res []vertex
 		for _, msg := range cpyHistory {
