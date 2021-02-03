@@ -392,6 +392,11 @@ func (m *Message) Version() uint8 {
 	return m.version
 }
 
+// Parents returns a slice of all parents of the Message.
+func (m *Message) Parents() (parents MessageIDs) {
+	return append(append([]MessageID{}, m.strongParents...), m.weakParents...)
+}
+
 // StrongParents returns a slice of all strong parents of the message.
 func (m *Message) StrongParents() MessageIDs {
 	return m.strongParents

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/types"
 )
 
@@ -201,8 +200,7 @@ func (t *Tangle) info(msgID MessageID) MsgInfo {
 		msgInfo.MsgIssuerID = identity.NewID(msg.IssuerPublicKey()).String()
 	})
 
-	t.MessageMetadata(msgID).Consume(func(object objectstorage.StorableObject) {
-		msgMetadata := object.(*MessageMetadata)
+	t.MessageMetadata(msgID).Consume(func(msgMetadata *MessageMetadata) {
 		msgInfo.MsgArrivalTime = msgMetadata.ReceivedTime()
 		msgInfo.MsgSolidTime = msgMetadata.SolidificationTime()
 	}, false)

@@ -2,6 +2,7 @@ package ledgerstate
 
 import (
 	"container/list"
+	"fmt"
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/database"
@@ -283,6 +284,25 @@ func (b *BranchDAG) ConflictMembers(conflictID ConflictID) (cachedConflictMember
 		return true
 	}, conflictID.Bytes())
 
+	return
+}
+
+// BranchIDsContainRejectedBranchID is an utility function that checks if the given BranchIDs contain a Rejected
+// BranchId and returns it.
+func (b *BranchDAG) BranchIDsContainRejectedBranchID(branchIDs BranchIDs) (rejected bool, rejectedBranchID BranchID) {
+	for rejectedBranch := range branchIDs {
+		if !b.Branch(rejectedBranch).Consume(func(branch Branch) {
+			rejected = branch.InclusionState() == Rejected
+		}) {
+			panic(fmt.Sprintf("failed to load Branch with %s", rejectedBranch))
+		}
+
+		if rejected {
+			return
+		}
+	}
+
+	rejectedBranchID = UndefinedBranchID
 	return
 }
 
