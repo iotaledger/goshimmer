@@ -184,7 +184,7 @@ func (p *Payload) String() string {
 // region Payload implementation ///////////////////////////////////////////////////////////////////////////////////////
 
 // Type represents the identifier which addresses the value Payload type.
-var Type = payload.NewType(1, ObjectName, func(data []byte) (payload payload.Payload, err error) {
+var Type = payload.NewType(4, ObjectName, func(data []byte) (payload payload.Payload, err error) {
 	payload, _, err = FromBytes(data)
 
 	return
