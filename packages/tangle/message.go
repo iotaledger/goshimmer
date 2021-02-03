@@ -424,14 +424,14 @@ func (m *Message) ForEachParent(consumer func(parent Parent)) {
 }
 
 // ForEachStrongParent executes a consumer func for each strong parent.
-func (m *Message) ForEachStrongParent(consumer func(parent MessageID)) {
+func (m *Message) ForEachStrongParent(consumer func(parentMessageID MessageID)) {
 	for _, parentID := range m.strongParents {
 		consumer(parentID)
 	}
 }
 
 // ForEachWeakParent executes a consumer func for each weak parent.
-func (m *Message) ForEachWeakParent(consumer func(parent MessageID)) {
+func (m *Message) ForEachWeakParent(consumer func(parentMessageID MessageID)) {
 	for _, parentID := range m.weakParents {
 		consumer(parentID)
 	}

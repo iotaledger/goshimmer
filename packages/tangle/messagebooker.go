@@ -73,8 +73,50 @@ func (m *MessageBooker) bookMessageContainingData(message *Message, messageMetad
 
 // bookMessageContainingTransaction is an internal utility function that books a Message containing a Transaction.
 func (m *MessageBooker) bookMessageContainingTransaction(message *Message, messageMetadata *MessageMetadata, transaction *ledgerstate.Transaction) {
-	// past cone check
+	message.Parents()
 
+	for referencedTransactionID := range m.referencedTransactionIDs(transaction) {
+		for _, referencedMessageID := range m.Attachments(referencedTransactionID) {
+			m.messageStore.MessageMetadata(referencedMessageID).Consume(func(messageMetadata *MessageMetadata) {
+
+			})
+		}
+	}
+
+	//m.markersManager.IsInPastCone()
+
+	// past cone check
+	consumedTransactions := make(map[ledgerstate.TransactionID]types.Empty)
+	for _, input := range transaction.Essence().Inputs() {
+		consumedTransactions[input.(*ledgerstate.UTXOInput).ReferencedOutputID().TransactionID()] = types.Void
+	}
+}
+
+/*
+func (m *MessageBooker) IsInPastCone(earlierMessage MessageID, laterMessage MessageID) bool {
+	if m.IsInStrongPastCone(earlierMessage, laterMessage) {
+		return true
+	}
+
+	m.messageStore.Approvers()
+}
+
+func (m *MessageBooker) IsInStrongPastCone(earlierMessage MessageID, laterMessage MessageID) bool {
+
+}
+*/
+
+func (m *MessageBooker) referencedTransactionIDs(transaction *ledgerstate.Transaction) (transactionIDs map[ledgerstate.TransactionID]types.Empty) {
+	transactionIDs = make(map[ledgerstate.TransactionID]types.Empty)
+	for _, input := range transaction.Essence().Inputs() {
+		transactionIDs[input.(*ledgerstate.UTXOInput).ReferencedOutputID().TransactionID()] = types.Void
+	}
+
+	return
+}
+
+func (m *MessageBooker) Attachments(transactionID ledgerstate.TransactionID) (attachments MessageIDs) {
+	return
 }
 
 func (m *MessageBooker) determineTargetBranch(branchIDsOfStrongParents ledgerstate.BranchIDs) (targetBranch ledgerstate.BranchID, err error) {
@@ -108,7 +150,7 @@ func (m *MessageBooker) inheritStructureDetails(message *Message, branchID ledge
 	structureDetails, _ = m.markersManager.InheritStructureDetails(parentsStructureDetails, m.newMarkerIndexStrategy, markers.NewSequenceAlias(branchID.Bytes()))
 
 	if structureDetails.IsPastMarker {
-		m.WalkPastCone(message.Parents(), m.propagatePastMarkerToFutureMarkers(structureDetails.PastMarkers.FirstMarker()))
+		m.WalkPastCone(message.StrongParents(), m.propagatePastMarkerToFutureMarkers(structureDetails.PastMarkers.FirstMarker()))
 	}
 
 	return
@@ -120,7 +162,7 @@ func (m *MessageBooker) propagatePastMarkerToFutureMarkers(pastMarkerToInherit *
 			_, inheritFurther := m.markersManager.UpdateStructureDetails(messageMetadata.StructureDetails(), pastMarkerToInherit)
 			if inheritFurther {
 				m.messageStore.Message(messageID).Consume(func(message *Message) {
-					nextMessagesToVisit = message.Parents()
+					nextMessagesToVisit = message.StrongParents()
 				})
 			}
 		})

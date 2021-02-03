@@ -12,10 +12,13 @@ import (
 const (
 	// PrefixMessage defines the storage prefix for message.
 	PrefixMessage byte = iota
+
 	// PrefixMessageMetadata defines the storage prefix for message metadata.
 	PrefixMessageMetadata
+
 	// PrefixApprovers defines the storage prefix for approvers.
 	PrefixApprovers
+
 	// PrefixMissingMessage defines the storage prefix for missing message.
 	PrefixMissingMessage
 
@@ -44,7 +47,7 @@ func NewMessageStore(store kvstore.KVStore) (result *MessageStore) {
 		shutdown:               make(chan struct{}),
 		messageStorage:         osFactory.New(PrefixMessage, MessageFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 		messageMetadataStorage: osFactory.New(PrefixMessageMetadata, MessageMetadataFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
-		approverStorage:        osFactory.New(PrefixApprovers, ApproverFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.PartitionKey(MessageIDLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false)),
+		approverStorage:        osFactory.New(PrefixApprovers, ApproverFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.PartitionKey(ApproverTypeLength, MessageIDLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false)),
 		missingMessageStorage:  osFactory.New(PrefixMissingMessage, MissingMessageFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 
 		Events: newMessageStoreEvents(),
@@ -74,8 +77,11 @@ func (m *MessageStore) StoreMessage(msg *Message) {
 
 	// TODO: approval switch: we probably need to introduce approver types
 	// store approvers
-	msg.ForEachStrongParent(func(parent MessageID) {
-		m.approverStorage.Store(NewApprover(parent, messageID)).Release()
+	msg.ForEachStrongParent(func(parentMessageID MessageID) {
+		m.approverStorage.Store(NewApprover(StrongApprover, parentMessageID, messageID)).Release()
+	})
+	msg.ForEachWeakParent(func(parentMessageID MessageID) {
+		m.approverStorage.Store(NewApprover(WeakApprover, parentMessageID, messageID)).Release()
 	})
 
 	// trigger events
