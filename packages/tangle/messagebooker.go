@@ -125,7 +125,7 @@ func (m *MessageBooker) determineTargetBranch(branchIDsOfStrongParents ledgersta
 		return
 	}
 
-	branchIDsContainRejectedBranch, targetBranch := m.branchDAG.BranchIDsContainRejectedBranchID(branchIDsOfStrongParents)
+	branchIDsContainRejectedBranch, targetBranch := m.branchDAG.BranchIDsContainRejectedBranch(branchIDsOfStrongParents)
 	if branchIDsContainRejectedBranch {
 		return
 	}

@@ -287,9 +287,9 @@ func (b *BranchDAG) ConflictMembers(conflictID ConflictID) (cachedConflictMember
 	return
 }
 
-// BranchIDsContainRejectedBranchID is an utility function that checks if the given BranchIDs contain a Rejected
-// BranchId and returns it.
-func (b *BranchDAG) BranchIDsContainRejectedBranchID(branchIDs BranchIDs) (rejected bool, rejectedBranchID BranchID) {
+// BranchIDsContainRejectedBranch is an utility function that checks if the given BranchIDs contain a Rejected
+// Branch. It returns the BranchID of the first Rejected Branch that it finds.
+func (b *BranchDAG) BranchIDsContainRejectedBranch(branchIDs BranchIDs) (rejected bool, rejectedBranchID BranchID) {
 	for rejectedBranch := range branchIDs {
 		if !b.Branch(rejectedBranch).Consume(func(branch Branch) {
 			rejected = branch.InclusionState() == Rejected
