@@ -147,28 +147,6 @@ func (c ConflictSet) hasDecidedLike() bool {
 	return false
 }
 
-// hasAllDecidedDislike returns true if the conflict set contains only DISLIKE with LoK >= 2.
-func (c ConflictSet) hasAllDecidedDislike() bool {
-	for _, opinion := range c {
-		if opinion.Liked || opinion.LevelOfKnowledge < Two {
-			return false
-		}
-	}
-	return true
-}
-
-// // anchor returns the most recent opinion with LoK <= 1.
-// func (c ConflictSet) anchor() (opinion *Opinion) {
-// 	mostRecentTimestamp := time.Time{}
-// 	for _, o := range c {
-// 		if o.LevelOfKnowledge <= One && o.Timestamp.After(mostRecentTimestamp) {
-// 			mostRecentTimestamp = o.Timestamp
-// 			opinion = o
-// 		}
-// 	}
-// 	return opinion
-// }
-
 // anchor returns the oldest opinion with LoK <= 1.
 func (c ConflictSet) anchor() (opinion *Opinion) {
 	oldestTimestamp := time.Unix(1<<63-62135596801, 999999999)

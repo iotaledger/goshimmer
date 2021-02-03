@@ -9,10 +9,10 @@ import (
 	"github.com/iotaledger/hive.go/objectstorage"
 )
 
-const (
-	LikedThreshold = 3 * time.Second
+var (
+	LikedThreshold = 5 * time.Second
 
-	LocallyFinalizedThreshold = 6 * time.Second
+	LocallyFinalizedThreshold = 10 * time.Second
 )
 
 type Manager struct {
@@ -91,29 +91,10 @@ func deriveOpinion(targetTime time.Time, conflictSet ConflictSet) (opinion *Opin
 		return
 	}
 
-	if targetTime.Before(anchor.Timestamp.Add(LocallyFinalizedThreshold)) {
-		opinion = &Opinion{
-			Timestamp:        targetTime,
-			Liked:            false,
-			LevelOfKnowledge: One,
-		}
-		return
+	opinion = &Opinion{
+		Timestamp:        targetTime,
+		Liked:            false,
+		LevelOfKnowledge: One,
 	}
-
-	if targetTime.After(anchor.Timestamp.Add(LocallyFinalizedThreshold)) {
-		lok := Two
-
-		if conflictSet.hasAllDecidedDislike() {
-			lok = One
-		}
-
-		opinion = &Opinion{
-			Timestamp:        targetTime,
-			Liked:            false,
-			LevelOfKnowledge: lok,
-		}
-		return
-	}
-
 	return
 }
