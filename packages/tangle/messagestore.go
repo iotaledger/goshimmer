@@ -55,28 +55,22 @@ func NewMessageStore(store kvstore.KVStore) (result *MessageStore) {
 
 // StoreMessage stores a new message to the message store.
 func (m *MessageStore) StoreMessage(msg *Message) {
-	var msgIsNew bool
-	var cachedMsgMetadataObject objectstorage.CachedObject
+	// retrieve MessageID
 	messageID := msg.ID()
 
-	// store message
-	cachedMsg := m.messageStorage.ComputeIfAbsent(msg.ObjectStorageKey(), func(key []byte) objectstorage.StorableObject {
-		msgIsNew = true
-
-		// store the message metadata
-		cachedMsgMetadataObject = m.messageMetadataStorage.Store(NewMessageMetadata(messageID))
-
-		msg.Persist()
-		msg.SetModified()
-		return msg
-	})
-	if !msgIsNew {
-		cachedMsg.Release()
+	// store Messages only once by using the existence of the Metadata as a guard
+	storedMetadata, stored := m.messageMetadataStorage.StoreIfAbsent(NewMessageMetadata(messageID))
+	if !stored {
 		return
 	}
 
-	cachedMessage := &CachedMessage{CachedObject: cachedMsg}
-	cachedMsgMetadata := &CachedMessageMetadata{CachedObject: cachedMsgMetadataObject}
+	// create typed version of the stored MessageMetadata
+	cachedMsgMetadata := &CachedMessageMetadata{CachedObject: storedMetadata}
+	defer cachedMsgMetadata.Release()
+
+	// store Message
+	cachedMessage := &CachedMessage{CachedObject: m.messageStorage.Store(msg)}
+	defer cachedMessage.Release()
 
 	// TODO: approval switch: we probably need to introduce approver types
 	// store approvers
@@ -88,16 +82,15 @@ func (m *MessageStore) StoreMessage(msg *Message) {
 	if m.missingMessageStorage.DeleteIfPresent(messageID[:]) {
 		m.Events.MissingMessageReceived.Trigger(&CachedMessageEvent{
 			Message:         cachedMessage,
-			MessageMetadata: cachedMsgMetadata})
+			MessageMetadata: cachedMsgMetadata,
+		})
 	}
 
 	// messages are stored, trigger MessageStored event to move on next check
 	m.Events.MessageStored.Trigger(&CachedMessageEvent{
 		Message:         cachedMessage,
-		MessageMetadata: cachedMsgMetadata})
-
-	cachedMessage.Release()
-	cachedMsgMetadata.Release()
+		MessageMetadata: cachedMsgMetadata,
+	})
 }
 
 // Message retrieves a message from the message store.
