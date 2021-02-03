@@ -125,14 +125,23 @@ func (m *MessageStore) StoreIfMissingMessageMetadata(messageID MessageID) *Cache
 	})}
 }
 
-// Approvers retrieves the approvers of a message from the storage.
-func (m *MessageStore) Approvers(messageID MessageID) CachedApprovers {
-	approvers := make(CachedApprovers, 0)
+// Approvers retrieves the Approvers of a Message from the object storage. It is possible to provide an optional
+// ApproverType to only return the corresponding Approvers.
+func (m *MessageStore) Approvers(messageID MessageID, optionalApproverType ...ApproverType) (cachedApprovers CachedApprovers) {
+	var iterationPrefix []byte
+	if len(optionalApproverType) >= 1 {
+		iterationPrefix = byteutils.ConcatBytes(messageID.Bytes(), optionalApproverType[0].Bytes())
+	} else {
+		iterationPrefix = messageID.Bytes()
+	}
+
+	cachedApprovers = make(CachedApprovers, 0)
 	m.approverStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
-		approvers = append(approvers, &CachedApprover{CachedObject: cachedObject})
+		cachedApprovers = append(cachedApprovers, &CachedApprover{CachedObject: cachedObject})
 		return true
-	}, messageID[:])
-	return approvers
+	}, iterationPrefix)
+
+	return
 }
 
 // MissingMessages return the ids of messages in missingMessageStorage
