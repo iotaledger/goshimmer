@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
@@ -23,10 +24,12 @@ type MessageMetadata struct {
 	solid              bool
 	solidificationTime time.Time
 	structureDetails   *markers.StructureDetails
+	branchID           ledgerstate.BranchID
 
 	solidMutex              sync.RWMutex
 	solidificationTimeMutex sync.RWMutex
 	structureDetailsMutex   sync.RWMutex
+	branchIDMutex           sync.RWMutex
 }
 
 // NewMessageMetadata creates a new MessageMetadata from the specified messageID.
@@ -77,6 +80,10 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 			err = xerrors.Errorf("failed to parse 'structureDetails' from MarshalUtil: %w", err)
 			return
 		}
+	}
+	if result.branchID, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse branch ID of message metadata: %w", err)
+		return
 	}
 
 	return
@@ -166,6 +173,26 @@ func (m *MessageMetadata) StructureDetails() *markers.StructureDetails {
 	return m.structureDetails
 }
 
+// SetBranchID sets the branch ID of the message.
+func (m *MessageMetadata) SetBranchID(ID ledgerstate.BranchID) (modified bool) {
+	m.branchIDMutex.Lock()
+	defer m.branchIDMutex.Unlock()
+	if m.branchID == ID {
+		return
+	}
+	m.branchID = ID
+	m.SetModified(true)
+	modified = true
+	return
+}
+
+// BranchID returns the branch ID of the message.
+func (m *MessageMetadata) BranchID() ledgerstate.BranchID {
+	m.branchIDMutex.RLock()
+	defer m.branchIDMutex.RUnlock()
+	return m.branchID
+}
+
 // Bytes returns a marshaled version of the whole MessageMetadata object.
 func (m *MessageMetadata) Bytes() []byte {
 	return byteutils.ConcatBytes(m.ObjectStorageKey(), m.ObjectStorageValue())
@@ -193,6 +220,7 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 		WriteTime(m.SolidificationTime()).
 		WriteBool(m.IsSolid()).
 		WriteBytes(structureDetailsBytes).
+		WriteBytes(m.branchID.Bytes()).
 		Bytes()
 }
 
@@ -210,6 +238,7 @@ func (m *MessageMetadata) String() string {
 		stringify.StructField("IsSolid", m.IsSolid()),
 		stringify.StructField("SolidificationTime", m.SolidificationTime()),
 		stringify.StructField("StructureDetails", m.StructureDetails()),
+		stringify.StructField("branchID", m.branchID),
 	)
 }
 

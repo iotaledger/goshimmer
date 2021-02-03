@@ -3,6 +3,9 @@ package messagelayer
 import (
 	"sync"
 
+	"github.com/iotaledger/goshimmer/packages/markers"
+	"github.com/iotaledger/goshimmer/plugins/config"
+
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
@@ -93,6 +96,10 @@ func configure(*node.Plugin) {
 	messageRequester = MessageRequester()
 	tipSelector = TipSelector()
 	_tangle = Tangle()
+
+	markerManager = markers.NewManager(database.Store())
+	messageCountInterval = config.Node().Int(CfgMessageCountInterval)
+	// TODO: attach messageBookedEvent to
 
 	// Setup messageFactory (behavior + logging))
 	messageFactory = MessageFactory()
