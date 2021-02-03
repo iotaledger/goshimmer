@@ -92,19 +92,62 @@ func (m *MessageBooker) bookMessageContainingTransaction(message *Message, messa
 	}
 }
 
-/*
 func (m *MessageBooker) IsInPastCone(earlierMessage MessageID, laterMessage MessageID) bool {
 	if m.IsInStrongPastCone(earlierMessage, laterMessage) {
 		return true
 	}
 
-	m.messageStore.Approvers()
+	cachedWeakApprovers := m.messageStore.Approvers(earlierMessage, WeakApprover)
+	defer cachedWeakApprovers.Release()
+
+	for _, weakApprover := range cachedWeakApprovers.Unwrap() {
+		if weakApprover == nil {
+			continue
+		}
+
+		if m.IsInStrongPastCone(weakApprover.ApproverMessageID(), laterMessage) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (m *MessageBooker) IsInStrongPastCone(earlierMessage MessageID, laterMessage MessageID) bool {
+	cachedEarlierMessageMetadata := m.messageStore.MessageMetadata(earlierMessage)
+	defer cachedEarlierMessageMetadata.Release()
 
+	earlierMessageMetadata := cachedEarlierMessageMetadata.Unwrap()
+	if earlierMessageMetadata == nil {
+		return false
+	}
+	earlierMessageStructureDetails := earlierMessageMetadata.StructureDetails()
+	if earlierMessageStructureDetails == nil {
+		return false
+	}
+
+	cachedLaterMessageMetadata := m.messageStore.MessageMetadata(laterMessage)
+	defer cachedLaterMessageMetadata.Release()
+
+	laterMessageMetadata := cachedLaterMessageMetadata.Unwrap()
+	if laterMessageMetadata == nil {
+		return false
+	}
+	laterMessageStructureDetails := laterMessageMetadata.StructureDetails()
+	if laterMessageStructureDetails == nil {
+		return false
+	}
+
+	switch m.markersManager.IsInPastCone(earlierMessageStructureDetails, laterMessageStructureDetails) {
+	case markers.True:
+		return true
+	case markers.False:
+		return false
+	default:
+		// TODO: WALK
+		return false
+	}
 }
-*/
 
 func (m *MessageBooker) referencedTransactionIDs(transaction *ledgerstate.Transaction) (transactionIDs map[ledgerstate.TransactionID]types.Empty) {
 	transactionIDs = make(map[ledgerstate.TransactionID]types.Empty)

@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -217,10 +218,10 @@ func (c *CachedApprover) Unwrap() *Approver {
 // Consume consumes the cachedApprover.
 // It releases the object when the callback is done.
 // It returns true if the callback was called.
-func (c *CachedApprover) Consume(consumer func(approver *Approver)) (consumed bool) {
+func (c *CachedApprover) Consume(consumer func(approver *Approver), forceRelease ...bool) (consumed bool) {
 	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*Approver))
-	})
+	}, forceRelease...)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -230,15 +231,53 @@ func (c *CachedApprover) Consume(consumer func(approver *Approver)) (consumed bo
 // CachedApprovers defines a slice of *CachedApprover.
 type CachedApprovers []*CachedApprover
 
-// Consume calls *CachedApprover.Consume on element in the list.
-func (c CachedApprovers) Consume(consumer func(approver *Approver)) (consumed bool) {
-	for _, cachedApprover := range c {
-		consumed = cachedApprover.Consume(func(approver *Approver) {
-			consumer(approver)
-		}) || consumed
+// Unwrap is the type-casted equivalent of Get. It returns a slice of unwrapped objects with the object being nil if it
+// does not exist.
+func (c CachedApprovers) Unwrap() (unwrappedApprovers []*Approver) {
+	unwrappedApprovers = make([]*Approver, len(c))
+	for i, cachedApprover := range c {
+		untypedObject := cachedApprover.Get()
+		if untypedObject == nil {
+			continue
+		}
+
+		typedObject := untypedObject.(*Approver)
+		if typedObject == nil || typedObject.IsDeleted() {
+			continue
+		}
+
+		unwrappedApprovers[i] = typedObject
 	}
 
 	return
+}
+
+// Consume iterates over the CachedObjects, unwraps them and passes a type-casted version to the consumer (if the object
+// is not empty - it exists). It automatically releases the object when the consumer finishes. It returns true, if at
+// least one object was consumed.
+func (c CachedApprovers) Consume(consumer func(approver *Approver), forceRelease ...bool) (consumed bool) {
+	for _, cachedApprover := range c {
+		consumed = cachedApprover.Consume(consumer, forceRelease...) || consumed
+	}
+
+	return
+}
+
+// Release is a utility function that allows us to release all CachedObjects in the collection.
+func (c CachedApprovers) Release(force ...bool) {
+	for _, cachedApprover := range c {
+		cachedApprover.Release(force...)
+	}
+}
+
+// String returns a human readable version of the CachedApprovers.
+func (c CachedApprovers) String() string {
+	structBuilder := stringify.StructBuilder("CachedApprovers")
+	for i, cachedApprover := range c {
+		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), cachedApprover))
+	}
+
+	return structBuilder.String()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
