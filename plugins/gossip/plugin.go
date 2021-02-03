@@ -29,6 +29,8 @@ var (
 	log                     *logger.Logger
 	ageThreshold            time.Duration
 	tipsBroadcasterInterval time.Duration
+
+	requestedMsgs *requestedMessages
 )
 
 // Plugin gets the plugin instance.
@@ -43,6 +45,7 @@ func configure(*node.Plugin) {
 	log = logger.NewLogger(PluginName)
 	ageThreshold = config.Node().Duration(CfgGossipAgeThreshold)
 	tipsBroadcasterInterval = config.Node().Duration(CfgGossipTipsBroadcastInterval)
+	requestedMsgs = newRequestedMessages()
 
 	configureLogging()
 	configureMessageLayer()
@@ -138,11 +141,33 @@ func configureMessageLayer() {
 		}
 
 		msg := cachedMsgEvent.Message.Unwrap()
+
+		// do not gossip requested messages
+		if requested := requestedMsgs.delete(msg.ID()); requested {
+			return
+		}
+
 		mgr.SendMessage(msg.Bytes())
 	}))
 
 	// request missing messages
 	messagelayer.MessageRequester().Events.SendRequest.Attach(events.NewClosure(func(sendRequest *tangle.SendRequestEvent) {
 		mgr.RequestMessage(sendRequest.ID[:])
+	}))
+
+	messagelayer.Tangle().MessageStore.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
+		cachedMsgEvent.MessageMetadata.Release()
+		cachedMsgEvent.Message.Consume(func(msg *tangle.Message) {
+			requestedMsgs.append(msg.ID())
+		})
+	}))
+
+	// delete the message from requestedMsgs if it's invalid, otherwise it will always be in the list and never get removed in some cases.
+	messagelayer.Tangle().Events.MessageInvalid.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
+		cachedMsgEvent.MessageMetadata.Release()
+
+		cachedMsgEvent.Message.Consume(func(msg *tangle.Message) {
+			requestedMsgs.delete(msg.ID())
+		})
 	}))
 }

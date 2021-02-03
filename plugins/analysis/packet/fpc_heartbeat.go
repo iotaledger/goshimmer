@@ -7,6 +7,7 @@ import (
 	"errors"
 
 	"github.com/iotaledger/goshimmer/packages/vote"
+	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/hive.go/protocol/message"
 	"github.com/iotaledger/hive.go/protocol/tlv"
@@ -29,7 +30,7 @@ type FPCHeartbeat struct {
 	// RoundStats contains stats about an FPC round.
 	RoundStats vote.RoundStats
 	// Finalized contains the finalized conflicts within the last FPC round.
-	Finalized map[string]vote.Opinion
+	Finalized map[string]opinion.Opinion
 }
 
 // FPCHeartbeatMessageDefinition gets the fpcHeartbeatMessageDefinition.
