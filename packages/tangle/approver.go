@@ -110,16 +110,16 @@ func ApproverFromBytes(bytes []byte) (result *Approver, consumedBytes int, err e
 // ApproverFromMarshalUtil parses a new approver from the given marshal util.
 func ApproverFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Approver, err error) {
 	result = &Approver{}
-	if result.approverType, err = ApproverTypeFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse ApproverType from MarshalUtil: %w", err)
-		return
-	}
 	if result.referencedMessageID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse referenced MessageID from MarshalUtil: %w", err)
 		return
 	}
+	if result.approverType, err = ApproverTypeFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse ApproverType from MarshalUtil: %w", err)
+		return
+	}
 	if result.approverMessageID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse MessageID from MarshalUtil: %w", err)
+		err = xerrors.Errorf("failed to parse approver MessageID from MarshalUtil: %w", err)
 		return
 	}
 
@@ -168,8 +168,8 @@ func (a *Approver) String() string {
 // This includes the referencedMessageID and the approverMessageID.
 func (a *Approver) ObjectStorageKey() []byte {
 	return marshalutil.New().
-		Write(a.approverType).
 		Write(a.referencedMessageID).
+		Write(a.approverType).
 		Write(a.approverMessageID).
 		Bytes()
 }
@@ -222,6 +222,10 @@ func (c *CachedApprover) Consume(consumer func(approver *Approver)) (consumed bo
 		consumer(object.(*Approver))
 	})
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region CachedApprovers //////////////////////////////////////////////////////////////////////////////////////////////
 
 // CachedApprovers defines a slice of *CachedApprover.
 type CachedApprovers []*CachedApprover
