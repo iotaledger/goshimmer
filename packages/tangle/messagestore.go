@@ -55,22 +55,22 @@ func NewMessageStore(store kvstore.KVStore) (result *MessageStore) {
 
 // StoreMessage stores a new message to the message store.
 func (m *MessageStore) StoreMessage(msg *Message) {
-	// store messages only once
-	storedMessage, stored := m.messageStorage.StoreIfAbsent(msg)
+	// retrieve MessageID
+	messageID := msg.ID()
+
+	// store Messages only once by using the existence of the Metadata as a guard
+	storedMetadata, stored := m.messageMetadataStorage.StoreIfAbsent(NewMessageMetadata(messageID))
 	if !stored {
 		return
 	}
 
-	// retrieve MessageID
-	messageID := msg.ID()
-
-	// create typed version of the stored Message
-	cachedMessage := &CachedMessage{CachedObject: storedMessage}
-	defer cachedMessage.Release()
-
-	// store MessageMetadata
-	cachedMsgMetadata := &CachedMessageMetadata{CachedObject: m.messageMetadataStorage.Store(NewMessageMetadata(messageID))}
+	// create typed version of the stored MessageMetadata
+	cachedMsgMetadata := &CachedMessageMetadata{CachedObject: storedMetadata}
 	defer cachedMsgMetadata.Release()
+
+	// store Message
+	cachedMessage := &CachedMessage{CachedObject: m.messageStorage.Store(msg)}
+	defer cachedMessage.Release()
 
 	// TODO: approval switch: we probably need to introduce approver types
 	// store approvers

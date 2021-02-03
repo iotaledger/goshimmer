@@ -67,7 +67,6 @@ func (t *Tangle) isMessageSolid(msg *Message, msgMetadata *MessageMetadata) bool
 // builds up a stack from the given message and tries to solidify into the present.
 // missing messages which are needed for a message to become solid are marked as missing.
 func (t *Tangle) checkMessageSolidityAndPropagate(cachedMessage *CachedMessage, cachedMsgMetadata *CachedMessageMetadata) {
-
 	popElementsFromStack := func(stack *list.List) (*CachedMessage, *CachedMessageMetadata) {
 		currentSolidificationEntry := stack.Front()
 		currentCachedMsg := currentSolidificationEntry.Value.([2]interface{})[0]
