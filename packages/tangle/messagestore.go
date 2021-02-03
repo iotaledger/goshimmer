@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/objectstorage"
 )
@@ -150,10 +151,11 @@ func (m *MessageStore) MissingMessages() (ids []MessageID) {
 // message as an approver.
 func (m *MessageStore) DeleteMessage(messageID MessageID) {
 	m.Message(messageID).Consume(func(currentMsg *Message) {
-
-		// TODO: reconsider behavior with approval switch
-		currentMsg.ForEachParent(func(parent Parent) {
-			m.deleteApprover(parent.ID, messageID)
+		currentMsg.ForEachStrongParent(func(parentMessageID MessageID) {
+			m.deleteStrongApprover(parentMessageID, messageID)
+		})
+		currentMsg.ForEachWeakParent(func(parentMessageID MessageID) {
+			m.deleteWeakApprover(parentMessageID, messageID)
 		})
 
 		m.messageMetadataStorage.Delete(messageID[:])
@@ -168,12 +170,14 @@ func (m *MessageStore) DeleteMissingMessage(messageID MessageID) {
 	m.missingMessageStorage.Delete(messageID[:])
 }
 
-// deleteApprover deletes a message from the approverStorage.
-func (m *MessageStore) deleteApprover(approvedMessageID MessageID, approvingMessage MessageID) {
-	idToDelete := make([]byte, MessageIDLength+MessageIDLength)
-	copy(idToDelete[:MessageIDLength], approvedMessageID[:])
-	copy(idToDelete[MessageIDLength:], approvingMessage[:])
-	m.approverStorage.Delete(idToDelete)
+// deleteStrongApprover deletes an Approver from the object storage that was created by a strong parent.
+func (m *MessageStore) deleteStrongApprover(approvedMessageID MessageID, approvingMessage MessageID) {
+	m.approverStorage.Delete(byteutils.ConcatBytes(approvedMessageID.Bytes(), StrongApprover.Bytes(), approvingMessage.Bytes()))
+}
+
+// deleteWeakApprover deletes an Approver from the object storage that was created by a weak parent.
+func (m *MessageStore) deleteWeakApprover(approvedMessageID MessageID, approvingMessage MessageID) {
+	m.approverStorage.Delete(byteutils.ConcatBytes(approvedMessageID.Bytes(), WeakApprover.Bytes(), approvingMessage.Bytes()))
 }
 
 // Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).

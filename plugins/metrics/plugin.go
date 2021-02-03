@@ -20,7 +20,6 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/timeutil"
 )
 
@@ -115,8 +114,7 @@ func registerLocalMetrics() {
 		solidTimeMutex.Lock()
 		defer solidTimeMutex.Unlock()
 		// Consume should release cachedMessageMetadata
-		cachedMsgEvent.MessageMetadata.Consume(func(object objectstorage.StorableObject) {
-			msgMetaData := object.(*tangle.MessageMetadata)
+		cachedMsgEvent.MessageMetadata.Consume(func(msgMetaData *tangle.MessageMetadata) {
 			if msgMetaData.IsSolid() {
 				messageSolidCountDBInc.Inc()
 				sumSolidificationTime += msgMetaData.SolidificationTime().Sub(msgMetaData.ReceivedTime())
