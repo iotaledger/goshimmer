@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/iotaledger/hive.go/events"
@@ -117,11 +118,13 @@ func (s *Solidifier) isAgeOfParentValid(childTime time.Time, parentID MessageID)
 	s.tangle.Storage.Message(parentID).Consume(func(parent *Message) {
 		// check the parent is not too young
 		if !parent.IssuingTime().Before(childTime) {
+			fmt.Println("HERE")
 			return
 		}
 
 		// check the parent is not too old
 		if childTime.Sub(parent.IssuingTime()) > maxParentAge {
+			fmt.Println("HERE1")
 			return
 		}
 

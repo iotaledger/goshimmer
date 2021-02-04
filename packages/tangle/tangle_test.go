@@ -58,11 +58,7 @@ func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
 		return
 	}
 
-	var (
-		storedMessages  int32
-		solidMessages   int32
-		invalidMessages int32
-	)
+	var storedMessages, solidMessages, invalidMessages int32
 
 	newOldParentsMessage := func(strongParents []MessageID) *Message {
 		return NewMessage(strongParents, []MessageID{}, time.Now().Add(15*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Old")), 0, ed25519.Signature{})
@@ -74,9 +70,11 @@ func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
 		return NewMessage(strongParents, []MessageID{}, time.Now(), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Valid")), 0, ed25519.Signature{})
 	}
 
+	var wg sync.WaitGroup
 	messageTangle.Storage.Events.MessageStored.Attach(events.NewClosure(func(messageID MessageID) {
 		fmt.Println("STORED:", messageID)
 		atomic.AddInt32(&storedMessages, 1)
+		wg.Done()
 	}))
 
 	messageTangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(messageID MessageID) {
@@ -90,23 +88,22 @@ func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
 	}))
 
 	messageA := newTestDataMessage("some data")
-	messageB := newTestDataMessage("some data")
+	messageB := newTestDataMessage("some data1")
 	messageC := newValidMessage([]MessageID{messageA.ID(), messageB.ID()})
 	messageOldParents := newOldParentsMessage([]MessageID{messageA.ID(), messageB.ID()})
 	messageYoungParents := newYoungParentsMessage([]MessageID{messageA.ID(), messageB.ID()})
 
+	wg.Add(5)
 	messageTangle.Storage.StoreMessage(messageA)
 	messageTangle.Storage.StoreMessage(messageB)
-
-	time.Sleep(7 * time.Second)
-
 	messageTangle.Storage.StoreMessage(messageC)
 	messageTangle.Storage.StoreMessage(messageOldParents)
 	messageTangle.Storage.StoreMessage(messageYoungParents)
 
 	// wait for all messages to become solid
-	assert.Eventually(t, func() bool { return atomic.LoadInt32(&storedMessages) == 5 }, 1*time.Minute, 100*time.Millisecond)
+	wg.Wait()
 
+	assert.EqualValues(t, 5, atomic.LoadInt32(&storedMessages))
 	assert.EqualValues(t, 3, atomic.LoadInt32(&solidMessages))
 	assert.EqualValues(t, 2, atomic.LoadInt32(&invalidMessages))
 
