@@ -7,7 +7,6 @@ import (
 	"math/rand"
 	"net"
 	"runtime"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -186,11 +185,9 @@ func TestTangle_MissingMessages(t *testing.T) {
 	defer msgFactory.Shutdown()
 
 	// create a helper function that creates the messages
-	counter := 0
 	createNewMessage := func() *Message {
-		counter++
 		// issue the payload
-		msg, err := msgFactory.IssuePayload(payload.NewGenericDataPayload([]byte(strconv.Itoa(counter))))
+		msg, err := msgFactory.IssuePayload(payload.NewGenericDataPayload([]byte("")))
 		require.NoError(t, err)
 
 		// remove a tip if the width of the tangle is reached
@@ -356,17 +353,15 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 	defer msgFactory.Shutdown()
 
 	// create a helper function that creates the messages
-	counter := 0
 	createNewMessage := func(invalidTS bool) *Message {
-		counter++
 		var msg *Message
 		var err error
 
 		// issue the payload
 		if invalidTS {
-			msg, err = msgFactory.issueInvalidTsPayload(payload.NewGenericDataPayload([]byte(strconv.Itoa(counter))))
+			msg, err = msgFactory.issueInvalidTsPayload(payload.NewGenericDataPayload([]byte("")))
 		} else {
-			msg, err = msgFactory.IssuePayload(payload.NewGenericDataPayload([]byte(strconv.Itoa(counter))))
+			msg, err = msgFactory.IssuePayload(payload.NewGenericDataPayload([]byte("")))
 		}
 		require.NoError(t, err)
 

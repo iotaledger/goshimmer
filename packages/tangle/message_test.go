@@ -26,7 +26,10 @@ import (
 
 func randomBytes(size uint) []byte {
 	buffer := make([]byte, size)
-	_, _ = rand.Read(buffer)
+	_, err := rand.Read(buffer)
+	if err != nil {
+		panic(err)
+	}
 	return buffer
 }
 
