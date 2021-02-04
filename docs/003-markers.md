@@ -200,7 +200,7 @@ When a new sequence is created we check the parent marker' sequences with the fu
 An example is **msg 10** in the figure, $[0,2], [1,1], [2,3]$ are PMs to be considered to inherit. $[2,3]$ is the first marker to check, since it has the highest sequence rank. We select the parent sequences of $[2,3]$, which are $0$ and $1$, and the referenced PMs therein. Next any PMs that are already referenced can be removed. This results in that the PMs of **msg 10** is $[2,3]$ only.
 
 In the following we show an implementation of  `normalizeMarkers()`, which returns the markers and sequences that will be inherited from a message.
-```go=
+```go
 // normalizeMarkers takes a set of Markers and removes each Marker that is already referenced by another Marker in the
 // same set (the remaining Markers are the "most special" Markers that reference all Markers in the set grouped by the
 // rank of their corresponding Sequence). In addition, the method returns all SequenceIDs of the Markers that were not
@@ -283,7 +283,7 @@ func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkersByRank *m
 By comparing the past and future markers of messages, we can easily tell if one is in another's past cone. The function returns a `TriBool` representing the three possible statuses: `True`, `False` and `Maybe`. If `Maybe` is returned, then we need to walk the Tangle.
 
 #### Algorithm
-```go=
+```go
 // IsInPastCone checks if the earlier Markers are directly or indirectly referenced by the later Markers.
 func (m *Manager) IsInPastCone(earlierMarkers *MarkersPair, laterMarkers *MarkersPair) (referenced TriBool) {
 	// fast check: if earlier Markers have larger highest Indexes they can't be in the past cone
