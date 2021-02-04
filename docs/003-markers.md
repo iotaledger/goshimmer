@@ -116,8 +116,8 @@ A new marker is selected from the strong tips set randomly, and selected from th
 
 
 The $SI$ is set according to the following rules:
-* Create a new SI if it is the first marker of the new sequence.
-* Inherit the SI from parents if it references the latest marker of the sequence and meets the requirement to set up a new marker.
+* Inherit the SI from parents if the new marker references the latest marker of a sequence and meets the requirement to set up a new marker without initiating a new MS.
+* Create a new SI if it is the first marker of a new sequence.
 
 The $MI$ is set to $MI = 1+ max(referencedMI)$, which complies to the rule:
 + Marker indexes ($MIs$) are monotonically increasing such that $\forall x \in fc(y)$ => $MI_x > MI_y$, where $fc(y)$ is the future cone of $y$ and $x$ is any message in that future cone.
@@ -162,12 +162,12 @@ StructureDetails is a structure that will be in the message metadata containing 
 
 ##### Past Markers
 * The PM list of a marker contains the marker itself only.
-* The PM list of general messages is inherited from its **strong** parents, with 2 steps:
-    1. keep the nearest markers (i.e., the marker with the biggest $MI$ ) of each sequence, 
-    2. remove those that have been referenced by other markers in the same set. 
+* The PM list of non-marker messages is inherited from its **strong** parents, with 2 steps:
+    1. for a given sequence select only the nearest marker (i.e. the markers with the highest MI). Thus for every sequence from the parents there will be exactly one marker.
+    2. remove those that have been referenced by other markers from this set. 
 
 ##### Future Markers
-The FM list of a message is empty at start and gets updated when the new marker directly or indirectly references it. In other words, the new created marker will be propagated to the FM list of its pastcone, and this propagation ends if:
+The FM list of a message is empty at start and gets updated when a new marker directly or indirectly references it. The propagation of a FM to its past cone (i.e. the update of the `FutureMarkers` field in the encountered messages) does not continue beyond a message if:
 1. the FM list of a message includes a previous marker of the same sequence;
 2. the message is the marker in the different sequence, we update the FM list of that marker only.
 
@@ -184,14 +184,13 @@ To approximate the approval weight of a message, we simply retrieve the approval
 Messages can have markers from different sequences in PM list and FM list, the order and referenced relationship among sequences are important for example when it comes to inheriting the PM list from parents. Thus, we need to track these sequences.
 
 Here is an example of how the markers and sequences structures would look in the Tangle:
+The purple colored messages are markers.
 
 ![](https://i.imgur.com/GENej3O.png)
 
 
-
-
 #### Sequences
-Whatever reason a sequence is created, we assign a new $SI = 1+max(referenceSequences)$. To prevent assigning a new $SI$ when combining same sequences again, we build parents-child relation in a map if a new sequence is created. 
+For whatever reason a sequence is created, we assign a new $SI = 1+max(referenceSequencesIdentifiers)$. To prevent assigning a new $SI$ when combining same sequences again, we build parents-child relation in a map if a new sequence is created. 
 
 #### Sequence Rank
 The rank of a sequence graph is the number of sequences from the starting point to itself. The sequence ranks are shown in the figure above.
