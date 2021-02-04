@@ -92,12 +92,12 @@ func (m *MessageBooker) bookMessageContainingTransaction(message *Message, messa
 	}
 }
 
-func (m *MessageBooker) IsInPastCone(earlierMessage MessageID, laterMessage MessageID) bool {
-	if m.IsInStrongPastCone(earlierMessage, laterMessage) {
+func (m *MessageBooker) IsInPastCone(earlierMessageID MessageID, laterMessageID MessageID) bool {
+	if m.IsInStrongPastCone(earlierMessageID, laterMessageID) {
 		return true
 	}
 
-	cachedWeakApprovers := m.messageStore.Approvers(earlierMessage, WeakApprover)
+	cachedWeakApprovers := m.messageStore.Approvers(earlierMessageID, WeakApprover)
 	defer cachedWeakApprovers.Release()
 
 	for _, weakApprover := range cachedWeakApprovers.Unwrap() {
@@ -105,7 +105,7 @@ func (m *MessageBooker) IsInPastCone(earlierMessage MessageID, laterMessage Mess
 			continue
 		}
 
-		if m.IsInStrongPastCone(weakApprover.ApproverMessageID(), laterMessage) {
+		if m.IsInStrongPastCone(weakApprover.ApproverMessageID(), laterMessageID) {
 			return true
 		}
 	}
@@ -113,40 +113,65 @@ func (m *MessageBooker) IsInPastCone(earlierMessage MessageID, laterMessage Mess
 	return false
 }
 
-func (m *MessageBooker) IsInStrongPastCone(earlierMessage MessageID, laterMessage MessageID) bool {
-	cachedEarlierMessageMetadata := m.messageStore.MessageMetadata(earlierMessage)
-	defer cachedEarlierMessageMetadata.Release()
-
-	earlierMessageMetadata := cachedEarlierMessageMetadata.Unwrap()
-	if earlierMessageMetadata == nil {
-		return false
-	}
-	earlierMessageStructureDetails := earlierMessageMetadata.StructureDetails()
-	if earlierMessageStructureDetails == nil {
-		return false
-	}
-
-	cachedLaterMessageMetadata := m.messageStore.MessageMetadata(laterMessage)
-	defer cachedLaterMessageMetadata.Release()
-
-	laterMessageMetadata := cachedLaterMessageMetadata.Unwrap()
-	if laterMessageMetadata == nil {
-		return false
-	}
-	laterMessageStructureDetails := laterMessageMetadata.StructureDetails()
-	if laterMessageStructureDetails == nil {
-		return false
-	}
-
-	switch m.markersManager.IsInPastCone(earlierMessageStructureDetails, laterMessageStructureDetails) {
-	case markers.True:
+func (m *MessageBooker) IsInStrongPastCone(earlierMessageID MessageID, laterMessageID MessageID) bool {
+	// return early if the MessageIDs are the same
+	if earlierMessageID == laterMessageID {
 		return true
-	case markers.False:
+	}
+
+	// retrieve the StructureDetails of both messages
+	var earlierMessageStructureDetails, laterMessageStructureDetails *markers.StructureDetails
+	m.messageStore.MessageMetadata(earlierMessageID).Consume(func(messageMetadata *MessageMetadata) {
+		earlierMessageStructureDetails = messageMetadata.StructureDetails()
+	})
+	m.messageStore.MessageMetadata(laterMessageID).Consume(func(messageMetadata *MessageMetadata) {
+		laterMessageStructureDetails = messageMetadata.StructureDetails()
+	})
+
+	// return false if one of the StructureDetails could not be retrieved (one of the messages was removed already / not
+	// booked yet)
+	if earlierMessageStructureDetails == nil || laterMessageStructureDetails == nil {
+		return false
+	}
+
+	// perform past cone check
+	switch m.markersManager.IsInPastCone(earlierMessageStructureDetails, laterMessageStructureDetails) {
+	case types.True:
+		return true
+	case types.False:
 		return false
 	default:
-		// TODO: WALK
-		return false
+		return m.isInStrongPastConeWalk(earlierMessageID, laterMessageID)
 	}
+}
+
+func (m *MessageBooker) isInStrongPastConeWalk(earlierMessageID MessageID, laterMessageID MessageID) bool {
+	stack := list.New()
+	m.messageStore.Approvers(earlierMessageID, StrongApprover).Consume(func(approver *Approver) {
+		stack.PushBack(approver.ApproverMessageID())
+	})
+
+	for stack.Len() > 0 {
+		firstElement := stack.Front()
+		stack.Remove(firstElement)
+
+		currentMessageID := firstElement.Value.(MessageID)
+		if currentMessageID == laterMessageID {
+			return true
+		}
+
+		m.messageStore.MessageMetadata(currentMessageID).Consume(func(messageMetadata *MessageMetadata) {
+			if structureDetails := messageMetadata.StructureDetails(); structureDetails != nil {
+				if !structureDetails.IsPastMarker {
+					m.messageStore.Approvers(earlierMessageID, StrongApprover).Consume(func(approver *Approver) {
+						stack.PushBack(approver.ApproverMessageID())
+					})
+				}
+			}
+		})
+	}
+
+	return false
 }
 
 func (m *MessageBooker) referencedTransactionIDs(transaction *ledgerstate.Transaction) (transactionIDs map[ledgerstate.TransactionID]types.Empty) {
