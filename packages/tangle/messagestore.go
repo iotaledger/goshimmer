@@ -60,9 +60,9 @@ func NewMessageStore(tangle *Tangle, store kvstore.KVStore) (result *MessageStor
 }
 
 // StoreMessage stores a new message to the message store.
-func (m *MessageStore) StoreMessage(msg *Message) {
+func (m *MessageStore) StoreMessage(message *Message) {
 	// retrieve MessageID
-	messageID := msg.ID()
+	messageID := message.ID()
 
 	// store Messages only once by using the existence of the Metadata as a guard
 	storedMetadata, stored := m.messageMetadataStorage.StoreIfAbsent(NewMessageMetadata(messageID))
@@ -75,15 +75,15 @@ func (m *MessageStore) StoreMessage(msg *Message) {
 	defer cachedMsgMetadata.Release()
 
 	// store Message
-	cachedMessage := &CachedMessage{CachedObject: m.messageStorage.Store(msg)}
+	cachedMessage := &CachedMessage{CachedObject: m.messageStorage.Store(message)}
 	defer cachedMessage.Release()
 
 	// TODO: approval switch: we probably need to introduce approver types
 	// store approvers
-	msg.ForEachStrongParent(func(parentMessageID MessageID) {
+	message.ForEachStrongParent(func(parentMessageID MessageID) {
 		m.approverStorage.Store(NewApprover(StrongApprover, parentMessageID, messageID)).Release()
 	})
-	msg.ForEachWeakParent(func(parentMessageID MessageID) {
+	message.ForEachWeakParent(func(parentMessageID MessageID) {
 		m.approverStorage.Store(NewApprover(WeakApprover, parentMessageID, messageID)).Release()
 	})
 
@@ -96,10 +96,7 @@ func (m *MessageStore) StoreMessage(msg *Message) {
 	}
 
 	// messages are stored, trigger MessageStored event to move on next check
-	m.Events.MessageStored.Trigger(&CachedMessageEvent{
-		Message:         cachedMessage,
-		MessageMetadata: cachedMsgMetadata,
-	})
+	m.Events.MessageStored.Trigger(message.ID())
 }
 
 // Message retrieves a message from the message store.

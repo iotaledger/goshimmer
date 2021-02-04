@@ -47,7 +47,7 @@ type MessageStoreEvents struct {
 
 func newMessageStoreEvents() *MessageStoreEvents {
 	return &MessageStoreEvents{
-		MessageStored:          events.NewEvent(cachedMessageEvent),
+		MessageStored:          events.NewEvent(messageIDEventHandler),
 		MessageRemoved:         events.NewEvent(messageIDEventHandler),
 		MissingMessageReceived: events.NewEvent(cachedMessageEvent),
 		MessageMissing:         events.NewEvent(messageIDEventHandler),

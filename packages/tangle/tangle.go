@@ -3,6 +3,7 @@ package tangle
 import (
 	"container/list"
 
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore"
 )
 
@@ -22,8 +23,13 @@ func New(store kvstore.KVStore) (tangle *Tangle) {
 	tangle = &Tangle{
 		Events: newEvents(),
 	}
+
+	// initialize components
 	tangle.Solidifier = NewSolidifier(tangle)
 	tangle.Storage = NewMessageStore(tangle, store)
+
+	// initialize behavior
+	tangle.Storage.Events.MessageStored.Attach(events.NewClosure(tangle.Solidifier.Solidify))
 
 	return
 }
@@ -32,7 +38,7 @@ func New(store kvstore.KVStore) (tangle *Tangle) {
 // the given entry points. The callback should return the MessageIDs to be visited next.
 func (t *Tangle) WalkMessageIDs(callback func(messageID MessageID) (nextMessageIDsToVisit MessageIDs), entryPoints ...MessageID) {
 	if len(entryPoints) == 0 {
-		panic("you need to provide at least 1 entry point")
+		panic("you need to provide at least one entry point")
 	}
 
 	stack := list.New()
@@ -67,4 +73,9 @@ func (t *Tangle) WalkMessages(callback func(message *Message, messageMetadata *M
 // Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
 func (t *Tangle) Shutdown() {
 	t.Storage.Shutdown()
+}
+
+// Prune resets the database and deletes all stored objects (good for testing or "node resets").
+func (t *Tangle) Prune() (err error) {
+	return t.Storage.Prune()
 }

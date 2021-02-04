@@ -14,7 +14,7 @@ type OldTangle struct {
 	Events *Events
 }
 
-// Old creates a old Tangle.
+// Old creates an old Tangle.
 func Old(store kvstore.KVStore) (result *OldTangle) {
 	//result = &OldTangle{
 	//	MessageStore: NewMessageStore(store),

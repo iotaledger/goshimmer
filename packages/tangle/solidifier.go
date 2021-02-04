@@ -13,6 +13,7 @@ const maxParentAge = 30 * time.Minute
 
 // Solidifier is the Tangle's component that solidifies messages.
 type Solidifier struct {
+	// Events contains the Solidifier related events.
 	Events *SolidifierEvents
 
 	tangle *Tangle
@@ -21,10 +22,10 @@ type Solidifier struct {
 // NewSolidifier is the constructor of Solidifier.
 func NewSolidifier(tangle *Tangle) (solidifier *Solidifier) {
 	solidifier = &Solidifier{
-		tangle: tangle,
 		Events: &SolidifierEvents{
 			MessageSolid: events.NewEvent(messageIDEventHandler),
 		},
+		tangle: tangle,
 	}
 
 	return
