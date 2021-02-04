@@ -28,7 +28,7 @@ var (
 	msgReqOnce       sync.Once
 	tipSelector      *tangle.MessageTipSelector
 	tipSelectorOnce  sync.Once
-	_tangle          *tangle.Tangle
+	_tangle          *tangle.OldTangle
 	tangleOnce       sync.Once
 	messageFactory   *tangle.MessageFactory
 	msgFactoryOnce   sync.Once
@@ -60,7 +60,7 @@ func TipSelector() *tangle.MessageTipSelector {
 }
 
 // Tangle gets the tangle instance.
-func Tangle() *tangle.Tangle {
+func Tangle() *tangle.OldTangle {
 	tangleOnce.Do(func() {
 		store := database.Store()
 		_tangle = tangle.New(store)

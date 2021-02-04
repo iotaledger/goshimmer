@@ -1,29 +1,49 @@
 package tangle
 
 import (
-	"github.com/iotaledger/hive.go/kvstore"
+	"container/list"
 )
 
-// Tangle represents the base layer of messages.
 type Tangle struct {
-	*MessageStore
-
-	Events *Events
+	Parser         *MessageParser
+	Storage        *MessageStore
+	Solidifier     *Solidifier
+	Booker         *MessageBooker
+	Requester      *MessageRequester
+	MessageFactory *MessageFactory
 }
 
-// New creates a new Tangle.
-func New(store kvstore.KVStore) (result *Tangle) {
-	result = &Tangle{
-		MessageStore: NewMessageStore(store),
-		Events:       newEvents(),
-	}
+func NewTangle() (tangle *Tangle) {
+	tangle = &Tangle{}
+	tangle.Solidifier = NewSolidifier(tangle)
 
 	return
 }
 
-// Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
-func (t *Tangle) Shutdown() *Tangle {
-	t.MessageStore.Shutdown()
+func (t *Tangle) WalkMessageIDs(callback func(messageID MessageID) MessageIDs, entryPoints ...MessageID) {
+	stack := list.New()
+	for _, messageID := range entryPoints {
+		stack.PushBack(messageID)
+	}
 
-	return t
+	for stack.Len() > 0 {
+		firstElement := stack.Front()
+		stack.Remove(firstElement)
+
+		for _, nextMessageID := range callback(firstElement.Value.(MessageID)) {
+			stack.PushBack(nextMessageID)
+		}
+	}
+}
+
+func (t *Tangle) WalkMessages(callback func(message *Message, messageMetadata *MessageMetadata) MessageIDs, entryPoints ...MessageID) {
+	t.WalkMessageIDs(func(messageID MessageID) (nextMessagesToVisit MessageIDs) {
+		t.Storage.Message(messageID).Consume(func(message *Message) {
+			t.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+				nextMessagesToVisit = callback(message, messageMetadata)
+			})
+		})
+
+		return
+	}, entryPoints...)
 }

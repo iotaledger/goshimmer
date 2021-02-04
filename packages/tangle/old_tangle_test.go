@@ -524,7 +524,7 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 	assert.EqualValues(t, 0, atomic.LoadInt32(&missingMessages))
 }
 
-func newTangle(store kvstore.KVStore) *Tangle {
+func newTangle(store kvstore.KVStore) *OldTangle {
 	tangle := New(store)
 
 	// Attach solidification
@@ -537,7 +537,7 @@ func newTangle(store kvstore.KVStore) *Tangle {
 }
 
 // IssueInvalidTsPayload creates a new message including sequence number and tip selection and returns it.
-func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, t ...*Tangle) (*Message, error) {
+func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, t ...*OldTangle) (*Message, error) {
 	payloadLen := len(p.Bytes())
 	if payloadLen > payload.MaxSize {
 		err := fmt.Errorf("maximum payload size of %d bytes exceeded", payloadLen)

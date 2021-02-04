@@ -571,7 +571,7 @@ func (c *CachedMessage) Retain() *CachedMessage {
 
 // Consume consumes the cached object and releases it when the callback is done.
 // It returns true if the callback was called.
-func (c *CachedMessage) Consume(consumer func(msg *Message)) bool {
+func (c *CachedMessage) Consume(consumer func(message *Message)) bool {
 	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*Message))
 	})

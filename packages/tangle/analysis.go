@@ -93,7 +93,7 @@ func (a BySolid) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 // FirstApprovalAnalysis performs the first approval analysis and write the result into a csv.
 // This function is very heavy to compute especially when starting from the Genesis.
 // A better alternative for the future would be to keep this analysis updated as the Tangle grows.
-func (t *Tangle) FirstApprovalAnalysis(nodeID string, filePath string) error {
+func (t *OldTangle) FirstApprovalAnalysis(nodeID string, filePath string) error {
 	// If the file doesn't exist, create it, or truncate the file
 	f, err := os.Create(filePath)
 	if err != nil {
@@ -137,7 +137,7 @@ func (t *Tangle) FirstApprovalAnalysis(nodeID string, filePath string) error {
 }
 
 // FutureCone iterates over the future cone of the given messageID and computes the given function.
-func (t *Tangle) FutureCone(messageID MessageID, compute func(ID MessageID) error) error {
+func (t *OldTangle) FutureCone(messageID MessageID, compute func(ID MessageID) error) error {
 	futureConeStack := list.New()
 	futureConeStack.PushBack(messageID)
 
@@ -165,7 +165,7 @@ func (t *Tangle) FutureCone(messageID MessageID, compute func(ID MessageID) erro
 	return nil
 }
 
-func (t *Tangle) firstApprovers(msgID MessageID) ([]MsgInfo, error) {
+func (t *OldTangle) firstApprovers(msgID MessageID) ([]MsgInfo, error) {
 	approversInfo := make([]MsgInfo, 0)
 
 	t.Approvers(msgID).Consume(func(approver *Approver) {
@@ -190,7 +190,7 @@ func (t *Tangle) firstApprovers(msgID MessageID) ([]MsgInfo, error) {
 	return result, nil
 }
 
-func (t *Tangle) info(msgID MessageID) MsgInfo {
+func (t *OldTangle) info(msgID MessageID) MsgInfo {
 	msgInfo := MsgInfo{
 		MsgID: msgID.String(),
 	}

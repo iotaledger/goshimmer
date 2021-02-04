@@ -9,14 +9,67 @@ import (
 
 const maxParentAge = 10 * time.Minute
 
-// SolidifyMessage starts solidify the given message.
-func (t *Tangle) SolidifyMessage(cachedMessage *CachedMessage, cachedMsgMetadata *CachedMessageMetadata) {
-	// check message solidity
-	t.checkMessageSolidityAndPropagate(cachedMessage, cachedMsgMetadata)
+type Solidifier struct {
+	tangle *Tangle
+}
+
+func NewSolidifier(tangle *Tangle) (solidifier *Solidifier) {
+	solidifier = &Solidifier{
+		tangle: tangle,
+	}
+
+	return
+}
+
+// Solidify solidifies the given Message.
+func (s *Solidifier) Solidify(messageID MessageID) {
+	s.tangle.WalkMessages(s.checkMessageSolidity, messageID)
+}
+
+// checkMessageSolidity checks if the given Message is solid and eventually queues its Approvers to also be checked.
+func (s *Solidifier) checkMessageSolidity(message *Message, messageMetadata *MessageMetadata) (nextMessagesToCheck MessageIDs) {
+	if s.isMessageSolid(message, messageMetadata) {
+		if !s.isParentsValid(message) || !s.checkParentsMaxDepth(message) {
+			if messageMetadata.SetInvalid(true) {
+				s.tangle.Events.MessageInvalid.Trigger(message.ID())
+			}
+			return
+		}
+
+		if messageMetadata.SetSolid(true) {
+			s.tangle.Events.MessageSolid.Trigger(message.ID())
+
+			s.tangle.Storage.Approvers(message.ID()).Consume(func(approver *Approver) {
+				nextMessagesToCheck = append(nextMessagesToCheck, approver.ApproverMessageID())
+			})
+		}
+	}
+
+	return
+}
+
+// isMessageSolid checks if the given Message is solid.
+func (s *Solidifier) isMessageSolid(message *Message, messageMetadata *MessageMetadata) (solid bool) {
+	if message == nil || message.IsDeleted() || messageMetadata == nil || messageMetadata.IsDeleted() {
+		return false
+	}
+
+	if messageMetadata.IsSolid() {
+		return true
+	}
+
+	solid = true
+	message.ForEachParent(func(parent Parent) {
+		// as missing messages are requested in isMessageMarkedAsSolid, we need to be aware of short-circuit evaluation
+		// rules, thus we need to evaluate isMessageMarkedAsSolid !!first!!
+		solid = s.isMessageMarkedAsSolid(parent.ID) && solid
+	})
+
+	return
 }
 
 // checks whether the given message is solid and marks it as missing if it isn't known.
-func (t *Tangle) isMessageMarkedAsSolid(messageID MessageID) bool {
+func (s *Solidifier) isMessageMarkedAsSolid(messageID MessageID) bool {
 	// return true if the message is the Genesis
 	if messageID == EmptyMessageID {
 		return true
@@ -36,102 +89,15 @@ func (t *Tangle) isMessageMarkedAsSolid(messageID MessageID) bool {
 	return msgMetadata.IsSolid()
 }
 
-// checks whether the given message is solid by examining whether its parent1 and
-// parent2 messages are solid.
-func (t *Tangle) isMessageSolid(msg *Message, msgMetadata *MessageMetadata) bool {
-	if msg == nil || msg.IsDeleted() {
-		return false
-	}
-
-	if msgMetadata == nil || msgMetadata.IsDeleted() {
-		return false
-	}
-
-	if msgMetadata.IsSolid() {
-		return true
-	}
-
-	solid := true
-
-	msg.ForEachParent(func(parent Parent) {
-		// as missing messages are requested in isMessageMarkedAsSolid,
-		// we want to prevent short-circuit evaluation, thus we need to use a tmp variable
-		// to avoid side effects from comparing directly to the function call.
-		tmp := t.isMessageMarkedAsSolid(parent.ID)
-		solid = solid && tmp
-	})
-
-	return solid
-}
-
 // builds up a stack from the given message and tries to solidify into the present.
 // missing messages which are needed for a message to become solid are marked as missing.
-func (t *Tangle) checkMessageSolidityAndPropagate(cachedMessage *CachedMessage, cachedMsgMetadata *CachedMessageMetadata) {
-	popElementsFromStack := func(stack *list.List) (*CachedMessage, *CachedMessageMetadata) {
-		currentSolidificationEntry := stack.Front()
-		currentCachedMsg := currentSolidificationEntry.Value.([2]interface{})[0]
-		currentCachedMsgMetadata := currentSolidificationEntry.Value.([2]interface{})[1]
-		stack.Remove(currentSolidificationEntry)
-		return currentCachedMsg.(*CachedMessage), currentCachedMsgMetadata.(*CachedMessageMetadata)
-	}
+func (t *OldTangle) checkMessageSolidityAndPropagate(cachedMessage *CachedMessage, cachedMsgMetadata *CachedMessageMetadata) {
 
-	// initialize the stack
-	solidificationStack := list.New()
-	solidificationStack.PushBack([2]interface{}{cachedMessage, cachedMsgMetadata})
-
-	// processed messages that are supposed to be checked for solidity recursively
-	for solidificationStack.Len() > 0 {
-		currentCachedMessage, currentCachedMsgMetadata := popElementsFromStack(solidificationStack)
-
-		currentMessage := currentCachedMessage.Unwrap()
-		currentMsgMetadata := currentCachedMsgMetadata.Unwrap()
-		if currentMessage == nil || currentMsgMetadata == nil {
-			currentCachedMessage.Release()
-			currentCachedMsgMetadata.Release()
-			continue
-		}
-
-		// check if the parents are solid
-		if t.isMessageSolid(currentMessage, currentMsgMetadata) {
-			// check if parents are valid and parents age
-			valid := t.isParentsValid(currentMessage) && t.checkParentsMaxDepth(currentMessage)
-			if !valid {
-				// set the message invalid, trigger MessageInvalid event only if the msg is first set to invalid
-				if currentMsgMetadata.SetInvalid(true) {
-					t.Events.MessageInvalid.Trigger(&CachedMessageEvent{
-						Message:         currentCachedMessage,
-						MessageMetadata: currentCachedMsgMetadata})
-				}
-				currentCachedMessage.Release()
-				currentCachedMsgMetadata.Release()
-				continue
-			}
-
-			// set the message solid
-			if currentMsgMetadata.SetSolid(true) {
-				t.Events.MessageSolid.Trigger(&CachedMessageEvent{
-					Message:         currentCachedMessage,
-					MessageMetadata: currentCachedMsgMetadata})
-
-				// auto. push approvers of the newly solid message to propagate solidification
-				t.Approvers(currentMessage.ID()).Consume(func(approver *Approver) {
-					approverMessageID := approver.ApproverMessageID()
-					solidificationStack.PushBack([2]interface{}{
-						t.Message(approverMessageID),
-						t.MessageMetadata(approverMessageID),
-					})
-				})
-			}
-		}
-
-		currentCachedMessage.Release()
-		currentCachedMsgMetadata.Release()
-	}
 }
 
 // deletes a message and its future cone of messages/approvers.
 // nolint
-func (t *Tangle) deleteFutureCone(messageID MessageID) {
+func (t *OldTangle) deleteFutureCone(messageID MessageID) {
 	cleanupStack := list.New()
 	cleanupStack.PushBack(messageID)
 
@@ -156,7 +122,7 @@ func (t *Tangle) deleteFutureCone(messageID MessageID) {
 }
 
 // checks whether the timestamp of parents of the given message is valid.
-func (t *Tangle) checkParentsMaxDepth(msg *Message) bool {
+func (t *OldTangle) checkParentsMaxDepth(msg *Message) bool {
 	if msg == nil {
 		return false
 	}
@@ -170,7 +136,7 @@ func (t *Tangle) checkParentsMaxDepth(msg *Message) bool {
 }
 
 // checks whether the timestamp of a given parent passes the max age check.
-func (t *Tangle) isAgeOfParentValid(childTime time.Time, parentID MessageID) bool {
+func (t *OldTangle) isAgeOfParentValid(childTime time.Time, parentID MessageID) bool {
 	// TODO: Improve this, otherwise any msg that approves genesis is always valid.
 	if parentID == EmptyMessageID {
 		return true
@@ -200,7 +166,7 @@ func (t *Tangle) isAgeOfParentValid(childTime time.Time, parentID MessageID) boo
 }
 
 // checks whether parents of the given message are valid.
-func (t *Tangle) isParentsValid(msg *Message) bool {
+func (t *OldTangle) isParentsValid(msg *Message) bool {
 	if msg == nil || msg.IsDeleted() {
 		return false
 	}
@@ -214,7 +180,7 @@ func (t *Tangle) isParentsValid(msg *Message) bool {
 }
 
 // checks whether the given message is valid.
-func (t *Tangle) isMessageValid(messageID MessageID) bool {
+func (t *OldTangle) isMessageValid(messageID MessageID) bool {
 	if messageID == EmptyMessageID {
 		return true
 	}
@@ -234,7 +200,7 @@ func (t *Tangle) isMessageValid(messageID MessageID) bool {
 
 // CheckParentsEligibility checks if the parents are eligible, then set the eligible flag of the message.
 // TODO: Eligibility related functions will be moved elsewhere.
-func (t *Tangle) CheckParentsEligibility(cachedMessage *CachedMessage, cachedMsgMetadata *CachedMessageMetadata) {
+func (t *OldTangle) CheckParentsEligibility(cachedMessage *CachedMessage, cachedMsgMetadata *CachedMessageMetadata) {
 	defer cachedMessage.Release()
 	defer cachedMsgMetadata.Release()
 
@@ -261,7 +227,7 @@ func (t *Tangle) CheckParentsEligibility(cachedMessage *CachedMessage, cachedMsg
 }
 
 // checks whether the given message is solid and marks it as missing if it isn't known.
-func (t *Tangle) isMessageEligible(messageID MessageID) bool {
+func (t *OldTangle) isMessageEligible(messageID MessageID) bool {
 	// return true if the message is the Genesis
 	if messageID == EmptyMessageID {
 		return true
