@@ -312,8 +312,7 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 		messageWorkerQueueSize = 1000
 	)
 	// create badger store
-	badgerDB, err := testutil.BadgerDB(t)
-	require.NoError(t, err)
+	badgerDB := mapdb.NewMapDB()
 
 	// map to keep track of the tips
 	tips := randommap.New()
@@ -437,11 +436,8 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 	}))
 
 	// message invalid events
-	tangle.Events.MessageInvalid.Attach(events.NewClosure(func(cachedMsgEvent *CachedMessageEvent) {
-		cachedMsgEvent.MessageMetadata.Release()
-		cachedMsgEvent.Message.Consume(func(msg *Message) {
-			tangle.Storage.DeleteMessage(msg.ID())
-		})
+	tangle.Events.MessageInvalid.Attach(events.NewClosure(func(messageID MessageID) {
+		tangle.Storage.DeleteMessage(messageID)
 
 		n := atomic.AddInt32(&invalidMessages, 1)
 		t.Logf("invalid messages %d/%d", n, totalMsgCount)
@@ -470,7 +466,8 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 	}))
 
 	tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(MessageID) {
-		atomic.AddInt32(&solidMessages, 1)
+		n := atomic.AddInt32(&solidMessages, 1)
+		t.Logf("solid messages %d/%d", n, totalMsgCount)
 	}))
 
 	// issue tips to start solidification
@@ -510,7 +507,7 @@ func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, t ...*Tangle) 
 
 	strongParents := f.selector.Tips(2)
 	weakParents := make([]MessageID, 0)
-	issuingTime := time.Now().Add(15 * time.Minute)
+	issuingTime := time.Now().Add(35 * time.Minute)
 	issuerPublicKey := f.localIdentity.PublicKey()
 
 	// do the PoW
