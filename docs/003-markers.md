@@ -23,8 +23,8 @@ Let's define the terms related to markers:
 * **Sequence Identifier (SI):** A Sequence Identifier is the unique identifier of a Sequence.
 * **Marker Index (MI):** A Marker Index is the marker rank in the marker DAG. Throughout the code the marker rank will be called index. 
 * **marker:** A marker is a pair of numbers: SI and MI associated to a given message. Markers carrying the same SI belong to the same Sequence.
-* **future marker (FM):** A future marker of a message is the nearest marker in its future cone; this field is updated when the new marker is generated. The future marker has to be the same branch as the message.
-* **past marker (PM):** A past marker of a message is the marker in its past cone. It is set to the newest past marker of its parents, that is the one that has the largest MI. The past marker of a marker is set to itself.
+* **future marker (FM):** A future marker of a message is the first marker in its future cone from different sequences; this field in the message metadata is updated when the new marker is generated in the future, following the rules defined in (#future-markers).
+* **past marker (PM):** A past marker of a message is a marker in its past cone. For a given sequence it is set to the newest past marker of its parents, that is the one that has the largest MI. The past marker of a marker is set to itself.
 * **sequence rank:** The rank of a sequence will be simply called rank throughout this code. Bear in mind that for clarity the marker rank is called index.
 
 
@@ -123,7 +123,7 @@ The $MI$ is set to $MI = 1+ max(referencedMI)$, which complies to the rule:
 + Marker indexes ($MIs$) are monotonically increasing such that $\forall x \in fc(y)$ => $MI_x > MI_y$, where $fc(y)$ is the future cone of $y$ and $x$ is any message in that future cone.
 
 ### Past Markers and Future Markers
-Each message keeps the marker information in two lists:
+Each message keeps its associated marker information in two lists:
 * past markers 
 * future markers 
 
@@ -173,6 +173,7 @@ The FM list of a message is empty at start and gets updated when the new marker 
 
 The figure below shows an example of applying markers to the Tangle with 1 sequence only. The yellow messages are markers with identifiers: $[0,1]$ and $[0,2]$. Both markers are in Sequence $0$ with $MI$ $1$ and $2$ respectively.
 
+For a more complete but complex example, including multiple sequences refer to the next figure.
 ![](https://i.imgur.com/RluZWCJ.png)
 
 
