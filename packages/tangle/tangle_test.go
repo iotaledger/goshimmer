@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"net"
 	"runtime"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -185,9 +186,11 @@ func TestTangle_MissingMessages(t *testing.T) {
 	defer msgFactory.Shutdown()
 
 	// create a helper function that creates the messages
+	counter := 0
 	createNewMessage := func() *Message {
+		counter++
 		// issue the payload
-		msg, err := msgFactory.IssuePayload(payload.NewGenericDataPayload([]byte("0")))
+		msg, err := msgFactory.IssuePayload(payload.NewGenericDataPayload([]byte(strconv.Itoa(counter))))
 		require.NoError(t, err)
 
 		// remove a tip if the width of the tangle is reached
@@ -247,7 +250,8 @@ func TestTangle_MissingMessages(t *testing.T) {
 	}))
 
 	tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(MessageID) {
-		atomic.AddInt32(&solidMessages, 1)
+		n := atomic.AddInt32(&solidMessages, 1)
+		t.Logf("solid messages %d/%d", n, messageCount)
 	}))
 
 	// issue tips to start solidification
