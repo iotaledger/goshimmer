@@ -62,10 +62,10 @@ func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
 	var storedMessages, solidMessages, invalidMessages int32
 
 	newOldParentsMessage := func(strongParents []MessageID) *Message {
-		return NewMessage(strongParents, []MessageID{}, time.Now().Add(15*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Old")), 0, ed25519.Signature{})
+		return NewMessage(strongParents, []MessageID{}, time.Now().Add(maxParentAge+5*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Old")), 0, ed25519.Signature{})
 	}
 	newYoungParentsMessage := func(strongParents []MessageID) *Message {
-		return NewMessage(strongParents, []MessageID{}, time.Now().Add(-15*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Young")), 0, ed25519.Signature{})
+		return NewMessage(strongParents, []MessageID{}, time.Now().Add(-maxParentAge-5*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Young")), 0, ed25519.Signature{})
 	}
 	newValidMessage := func(strongParents []MessageID) *Message {
 		return NewMessage(strongParents, []MessageID{}, time.Now(), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Valid")), 0, ed25519.Signature{})
@@ -312,7 +312,8 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 		messageWorkerQueueSize = 1000
 	)
 	// create badger store
-	badgerDB := mapdb.NewMapDB()
+	badgerDB, err := testutil.BadgerDB(t)
+	require.NoError(t, err)
 
 	// map to keep track of the tips
 	tips := randommap.New()
@@ -355,15 +356,17 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 	defer msgFactory.Shutdown()
 
 	// create a helper function that creates the messages
+	counter := 0
 	createNewMessage := func(invalidTS bool) *Message {
+		counter++
 		var msg *Message
 		var err error
 
 		// issue the payload
 		if invalidTS {
-			msg, err = msgFactory.issueInvalidTsPayload(payload.NewGenericDataPayload([]byte("0")))
+			msg, err = msgFactory.issueInvalidTsPayload(payload.NewGenericDataPayload([]byte(strconv.Itoa(counter))))
 		} else {
-			msg, err = msgFactory.IssuePayload(payload.NewGenericDataPayload([]byte("0")))
+			msg, err = msgFactory.IssuePayload(payload.NewGenericDataPayload([]byte(strconv.Itoa(counter))))
 		}
 		require.NoError(t, err)
 
@@ -471,7 +474,9 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 	}))
 
 	// issue tips to start solidification
-	tips.ForEach(func(key interface{}, _ interface{}) { inboxWP.TrySubmit(messages[key.(MessageID)].Bytes(), localPeer) })
+	tips.ForEach(func(key interface{}, _ interface{}) {
+		inboxWP.TrySubmit(messages[key.(MessageID)].Bytes(), localPeer)
+	})
 	// incoming invalid messages
 	for _, msg := range invalidmsgs {
 		inboxWP.TrySubmit(msg.Bytes(), localPeer)
@@ -507,7 +512,7 @@ func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, t ...*Tangle) 
 
 	strongParents := f.selector.Tips(2)
 	weakParents := make([]MessageID, 0)
-	issuingTime := time.Now().Add(35 * time.Minute)
+	issuingTime := time.Now().Add(maxParentAge + 5*time.Minute)
 	issuerPublicKey := f.localIdentity.PublicKey()
 
 	// do the PoW
