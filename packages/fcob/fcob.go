@@ -5,6 +5,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/timedexecutor"
@@ -14,6 +16,8 @@ var (
 	LikedThreshold = 5 * time.Second
 
 	LocallyFinalizedThreshold = 10 * time.Second
+
+	onMessageBooked = events.NewClosure(func(cachedMessageEvent *tangle.CachedMessageEvent) {})
 )
 
 type Manager struct {
@@ -24,6 +28,8 @@ type Manager struct {
 	likedThresholdExecutor *timedexecutor.TimedExecutor
 
 	locallyFinalizedExecutor *timedexecutor.TimedExecutor
+
+	events Events
 }
 
 func NewManager(store kvstore.KVStore, utxoDAG *ledgerstate.UTXODAG, branchDAG *ledgerstate.BranchDAG) (manager *Manager) {
@@ -32,6 +38,9 @@ func NewManager(store kvstore.KVStore, utxoDAG *ledgerstate.UTXODAG, branchDAG *
 		branchDAG:                branchDAG,
 		likedThresholdExecutor:   timedexecutor.New(1),
 		locallyFinalizedExecutor: timedexecutor.New(1),
+		events: Events{
+			PayloadOpinionFormed: events.NewEvent(payloadOpinionCaller),
+		},
 	}
 
 	return
@@ -40,9 +49,11 @@ func NewManager(store kvstore.KVStore, utxoDAG *ledgerstate.UTXODAG, branchDAG *
 func (m *Manager) flow(transactionID ledgerstate.TransactionID) {
 
 	// if the opinion for this transactionID is already present,
-	// it's a reattachment and thus, we use the same opinion.
+	// it's a reattachment and thus, we re-use the same opinion.
 	if opinion := m.Opinion(transactionID); opinion != nil {
-		// trigger PayloadOpinionFormedEvent
+		if opinion.LevelOfKnowledge > One {
+			// trigger PayloadOpinionFormedEvent
+		}
 		return
 	}
 
@@ -94,6 +105,7 @@ func (m *Manager) flow(transactionID ledgerstate.TransactionID) {
 		}
 		m.opinionStorage.Store(opinion).Release()
 
+		// Wait LocallyFinalizedThreshold
 		m.locallyFinalizedExecutor.ExecuteAt(func() {
 			if m.isConflicting(transactionID) {
 				// trigger voting?

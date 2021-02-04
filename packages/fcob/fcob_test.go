@@ -10,7 +10,7 @@ import (
 func TestDeriveOpinion(t *testing.T) {
 	now := time.Now()
 
-	// {t0, pending} -> {t1, Dislike, One}
+	// A{t0, pending} -> B{t-t0 < c, Dislike, One}
 	{
 		conflictSet := ConflictSet{&Opinion{
 			Timestamp:        now,
@@ -26,7 +26,7 @@ func TestDeriveOpinion(t *testing.T) {
 		}, opinion)
 	}
 
-	// {t0, Like, One} -> {t1, Dislike, One}
+	// A{t0, Like, One} -> B{c < t-t0 < c + d, Dislike, One}
 	{
 		{
 			conflictSet := ConflictSet{&Opinion{
@@ -44,7 +44,7 @@ func TestDeriveOpinion(t *testing.T) {
 		}
 	}
 
-	// {t0, Like, Two} -> {t1, Dislike, Two}
+	// {t0, Like, Two} -> {t-t0 > c + d, Dislike, Two}
 	{
 		{
 			conflictSet := ConflictSet{&Opinion{
@@ -62,10 +62,14 @@ func TestDeriveOpinion(t *testing.T) {
 		}
 	}
 
-	// {t0, Dislike, Two} -> {t1, Dislike, Pending}
+	// A{t0, Dislike, Two}, B{t1, Dislike, Two} -> {t-t0 >> c + d, Dislike, Pending}
 	{
 		{
 			conflictSet := ConflictSet{&Opinion{
+				Timestamp:        now,
+				Liked:            false,
+				LevelOfKnowledge: Two,
+			}, &Opinion{
 				Timestamp:        now,
 				Liked:            false,
 				LevelOfKnowledge: Two,
@@ -80,25 +84,8 @@ func TestDeriveOpinion(t *testing.T) {
 		}
 	}
 
-	// {t0, Dislike, One} -> {t1, Dislike, One}
-	{
-		{
-			conflictSet := ConflictSet{&Opinion{
-				Timestamp:        now,
-				Liked:            false,
-				LevelOfKnowledge: One,
-			}}
-
-			opinion := deriveOpinion(now.Add(1*time.Second), conflictSet)
-			assert.Equal(t, &Opinion{
-				Timestamp:        now.Add(1 * time.Second),
-				Liked:            false,
-				LevelOfKnowledge: One,
-			}, opinion)
-		}
-	}
-
-	//  {t0, Dislike, One}, {t1, Dislike, One} -> {t10, Dislike, one}
+	// * double check this case
+	//  {t0, Dislike, One}, {t1, Dislike, One} -> {t-t0 > 0, Dislike, one}
 	{
 		{
 			conflictSet := ConflictSet{&Opinion{
@@ -120,7 +107,8 @@ func TestDeriveOpinion(t *testing.T) {
 		}
 	}
 
-	//  {t0, Like, One}, {t1, Dislike, One} -> {t10, Dislike, one}
+	// * double check this case
+	//  {t0, Like, One}, {t1, Dislike, One} -> {t - t0 > c, Dislike, one}
 	{
 		{
 			conflictSet := ConflictSet{&Opinion{
