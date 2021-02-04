@@ -28,7 +28,7 @@ var (
 	msgReqOnce       sync.Once
 	tipSelector      *tangle.MessageTipSelector
 	tipSelectorOnce  sync.Once
-	_tangle          *tangle.OldTangle
+	tangleInstance   *tangle.Tangle
 	tangleOnce       sync.Once
 	messageFactory   *tangle.MessageFactory
 	msgFactoryOnce   sync.Once
@@ -60,12 +60,12 @@ func TipSelector() *tangle.MessageTipSelector {
 }
 
 // Tangle gets the tangle instance.
-func Tangle() *tangle.OldTangle {
+func Tangle() *tangle.Tangle {
 	tangleOnce.Do(func() {
 		store := database.Store()
-		_tangle = tangle.New(store)
+		tangleInstance = tangle.New(store)
 	})
-	return _tangle
+	return tangleInstance
 }
 
 // MessageFactory gets the messageFactory instance.
@@ -80,7 +80,7 @@ func MessageFactory() *tangle.MessageFactory {
 func MessageRequester() *tangle.MessageRequester {
 	msgReqOnce.Do(func() {
 		// load all missing messages on start up
-		messageRequester = tangle.NewMessageRequester(Tangle().MissingMessages())
+		messageRequester = tangle.NewMessageRequester(Tangle().Storage.MissingMessages())
 	})
 	return messageRequester
 }
@@ -92,22 +92,19 @@ func configure(*node.Plugin) {
 	messageParser = MessageParser()
 	messageRequester = MessageRequester()
 	tipSelector = TipSelector()
-	_tangle = Tangle()
+	tangleInstance = Tangle()
 
 	// setup solidification
-	_tangle.MessageStore.Events.MessageStored.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
-		_tangle.SolidifyMessage(cachedMsgEvent.Message, cachedMsgEvent.MessageMetadata)
-	}))
-
-	// setup parents check
-	// TODO: replace this with scheduler
-	_tangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
-		_tangle.CheckParentsEligibility(cachedMsgEvent.Message, cachedMsgEvent.MessageMetadata)
+	tangleInstance.Storage.Events.MessageStored.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
+		cachedMsgEvent.MessageMetadata.Release()
+		cachedMsgEvent.Message.Consume(func(message *tangle.Message) {
+			tangleInstance.Solidifier.Solidify(message.ID())
+		})
 	}))
 
 	// Setup messageFactory (behavior + logging))
 	messageFactory = MessageFactory()
-	messageFactory.Events.MessageConstructed.Attach(events.NewClosure(_tangle.StoreMessage))
+	messageFactory.Events.MessageConstructed.Attach(events.NewClosure(tangleInstance.Storage.StoreMessage))
 	messageFactory.Events.Error.Attach(events.NewClosure(func(err error) {
 		log.Errorf("internal error in message factory: %v", err)
 	}))
@@ -115,12 +112,12 @@ func configure(*node.Plugin) {
 	// setup messageParser
 	messageParser.Events.MessageParsed.Attach(events.NewClosure(func(msgParsedEvent *tangle.MessageParsedEvent) {
 		// TODO: ADD PEER
-		_tangle.StoreMessage(msgParsedEvent.Message)
+		tangleInstance.Storage.StoreMessage(msgParsedEvent.Message)
 	}))
 
 	// setup messageRequester
-	_tangle.MessageStore.Events.MessageMissing.Attach(events.NewClosure(messageRequester.StartRequest))
-	_tangle.MessageStore.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
+	tangleInstance.Storage.Events.MessageMissing.Attach(events.NewClosure(messageRequester.StartRequest))
+	tangleInstance.Storage.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
 		cachedMsgEvent.MessageMetadata.Release()
 		cachedMsgEvent.Message.Consume(func(msg *tangle.Message) {
 			messageRequester.StopRequest(msg.ID())
@@ -128,13 +125,13 @@ func configure(*node.Plugin) {
 	}))
 
 	// setup tipSelector
-	_tangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
+	tangleInstance.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
 		cachedMsgEvent.MessageMetadata.Release()
 		cachedMsgEvent.Message.Consume(tipSelector.AddTip)
 	}))
 
 	MessageRequester().Events.MissingMessageAppeared.Attach(events.NewClosure(func(missingMessageAppeared *tangle.MissingMessageAppearedEvent) {
-		_tangle.DeleteMissingMessage(missingMessageAppeared.ID)
+		tangleInstance.Storage.DeleteMissingMessage(missingMessageAppeared.ID)
 	}))
 }
 
@@ -143,7 +140,7 @@ func run(*node.Plugin) {
 	if err := daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
 		<-shutdownSignal
 		messageFactory.Shutdown()
-		_tangle.Shutdown()
+		tangleInstance.Shutdown()
 	}, shutdown.PriorityTangle); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
