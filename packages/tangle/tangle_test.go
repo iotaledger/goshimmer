@@ -61,10 +61,10 @@ func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
 	var storedMessages, solidMessages, invalidMessages int32
 
 	newOldParentsMessage := func(strongParents []MessageID) *Message {
-		return NewMessage(strongParents, []MessageID{}, time.Now().Add(maxParentAge+5*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Old")), 0, ed25519.Signature{})
+		return NewMessage(strongParents, []MessageID{}, time.Now().Add(maxParentsTimeDifference+5*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Old")), 0, ed25519.Signature{})
 	}
 	newYoungParentsMessage := func(strongParents []MessageID) *Message {
-		return NewMessage(strongParents, []MessageID{}, time.Now().Add(-maxParentAge-5*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Young")), 0, ed25519.Signature{})
+		return NewMessage(strongParents, []MessageID{}, time.Now().Add(-maxParentsTimeDifference-5*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Young")), 0, ed25519.Signature{})
 	}
 	newValidMessage := func(strongParents []MessageID) *Message {
 		return NewMessage(strongParents, []MessageID{}, time.Now(), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Valid")), 0, ed25519.Signature{})
@@ -504,7 +504,7 @@ func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, t ...*Tangle) 
 
 	strongParents := f.selector.Tips(2)
 	weakParents := make([]MessageID, 0)
-	issuingTime := time.Now().Add(maxParentAge + 5*time.Minute)
+	issuingTime := time.Now().Add(maxParentsTimeDifference + 5*time.Minute)
 	issuerPublicKey := f.localIdentity.PublicKey()
 
 	// do the PoW
