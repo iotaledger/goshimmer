@@ -24,15 +24,6 @@ type CachedMessageEvent struct {
 	MessageMetadata *CachedMessageMetadata
 }
 
-func newEvents() *Events {
-	return &Events{
-		MessageUnsolidifiable: events.NewEvent(messageIDEventHandler),
-		MessageBooked:         events.NewEvent(cachedMessageEvent),
-		MessageEligible:       events.NewEvent(cachedMessageEvent),
-		MessageInvalid:        events.NewEvent(messageIDEventHandler),
-	}
-}
-
 // MessageStoreEvents represents events happening on the message store.
 type MessageStoreEvents struct {
 	// Fired when a message has been stored.

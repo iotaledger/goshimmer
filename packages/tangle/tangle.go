@@ -10,7 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/kvstore"
 )
 
-// Tangle is a data structure that contains messages issued by nodes taking part in a P2P network.
+// Tangle is the central data structure of the IOTA protocol.
 type Tangle struct {
 	Parser         *MessageParser
 	Storage        *MessageStore
@@ -26,19 +26,24 @@ type Tangle struct {
 // NewTangle is the constructor for the Tangle.
 func New(store kvstore.KVStore) (tangle *Tangle) {
 	tangle = &Tangle{
-		Events: newEvents(),
+		Events: &Events{
+			MessageUnsolidifiable: events.NewEvent(messageIDEventHandler),
+			MessageBooked:         events.NewEvent(cachedMessageEvent),
+			MessageEligible:       events.NewEvent(cachedMessageEvent),
+			MessageInvalid:        events.NewEvent(messageIDEventHandler),
+		},
 	}
 
-	// initialize components
+	// create components
 	tangle.Parser = NewMessageParser()
 	tangle.Solidifier = NewSolidifier(tangle)
 	tangle.Storage = NewMessageStore(tangle, store)
 
-	// initialize behavior
-	tangle.Storage.Events.MessageStored.Attach(events.NewClosure(tangle.Solidifier.Solidify))
+	// setup data flow
 	tangle.Parser.Events.MessageParsed.Attach(events.NewClosure(func(msgParsedEvent *MessageParsedEvent) {
 		tangle.Storage.StoreMessage(msgParsedEvent.Message)
 	}))
+	tangle.Storage.Events.MessageStored.Attach(events.NewClosure(tangle.Solidifier.Solidify))
 
 	return
 }
@@ -46,6 +51,7 @@ func New(store kvstore.KVStore) (tangle *Tangle) {
 // ProcessGossipMessage is used to feed new Messages from the gossip layer into the Tangle.
 func (t *Tangle) ProcessGossipMessage(messageBytes []byte, peer *peer.Peer) {
 	t.setupParserOnce.Do(t.Parser.Setup)
+
 	t.Parser.Parse(messageBytes, peer)
 }
 
@@ -94,12 +100,12 @@ func (t *Tangle) WalkMessages(callback func(message *Message, messageMetadata *M
 	}, entryPoints, revisit...)
 }
 
-// Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
-func (t *Tangle) Shutdown() {
-	t.Storage.Shutdown()
-}
-
 // Prune resets the database and deletes all stored objects (good for testing or "node resets").
 func (t *Tangle) Prune() (err error) {
 	return t.Storage.Prune()
+}
+
+// Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
+func (t *Tangle) Shutdown() {
+	t.Storage.Shutdown()
 }
