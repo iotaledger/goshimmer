@@ -94,9 +94,6 @@ func configure(*node.Plugin) {
 	tipSelector = TipSelector()
 	tangleInstance = Tangle()
 
-	// setup solidification
-	tangleInstance.Storage.Events.MessageStored.Attach(events.NewClosure(tangleInstance.Solidifier.Solidify))
-
 	// Setup messageFactory (behavior + logging))
 	messageFactory = MessageFactory()
 	messageFactory.Events.MessageConstructed.Attach(events.NewClosure(tangleInstance.Storage.StoreMessage))
