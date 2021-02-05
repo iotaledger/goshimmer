@@ -35,6 +35,15 @@ func StructureDetailsFromBytes(markersBytes []byte) (markersPair *StructureDetai
 
 // StructureDetailsFromMarshalUtil unmarshals a StructureDetails using a MarshalUtil (for easier unmarshaling).
 func StructureDetailsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (markersPair *StructureDetails, err error) {
+	detailsExist, err := marshalUtil.ReadBool()
+	if err != nil {
+		err = xerrors.Errorf("failed to parse exists flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	if !detailsExist {
+		return
+	}
+
 	markersPair = &StructureDetails{}
 	if markersPair.Rank, err = marshalUtil.ReadUint64(); err != nil {
 		err = xerrors.Errorf("failed to parse Rank (%v): %w", err, cerrors.ErrParseBytesFailed)
@@ -68,7 +77,12 @@ func (m *StructureDetails) Clone() (clone *StructureDetails) {
 
 // Bytes returns a marshaled version of the StructureDetails.
 func (m *StructureDetails) Bytes() (marshaledStructureDetails []byte) {
+	if m == nil {
+		return marshalutil.New(marshalutil.BoolSize).WriteBool(false).Bytes()
+	}
+
 	return marshalutil.New().
+		WriteBool(true).
 		WriteUint64(m.Rank).
 		WriteBool(m.IsPastMarker).
 		Write(m.PastMarkers).

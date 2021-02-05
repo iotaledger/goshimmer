@@ -46,10 +46,9 @@ type history struct {
 
 func configureVisualizer() {
 	visualizerWorkerPool = workerpool.New(func(task workerpool.Task) {
-
 		switch x := task.Param(0).(type) {
-		case *tangle.CachedMessage:
-			sendVertex(x, task.Param(1).(*tangle.CachedMessageMetadata))
+		case *tangle.Message:
+			sendVertex(x, task.Param(1).(*tangle.MessageMetadata))
 		case tangle.MessageID:
 			sendTipInfo(x, task.Param(1).(bool))
 		}
@@ -62,19 +61,12 @@ func configureVisualizer() {
 	msgHistory = make([]*tangle.Message, 0, maxMsgHistorySize)
 }
 
-func sendVertex(cachedMessage *tangle.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
-	defer cachedMessage.Release()
-	defer cachedMessageMetadata.Release()
-
-	msg := cachedMessage.Unwrap()
-	if msg == nil {
-		return
-	}
+func sendVertex(msg *tangle.Message, messageMetadata *tangle.MessageMetadata) {
 	broadcastWsMessage(&wsmsg{MsgTypeVertex, &vertex{
 		ID:              msg.ID().String(),
 		StrongParentIDs: msg.StrongParents().ToStrings(),
 		WeakParentIDs:   msg.WeakParents().ToStrings(),
-		IsSolid:         cachedMessageMetadata.Unwrap().IsSolid(),
+		IsSolid:         messageMetadata.IsSolid(),
 	}}, true)
 }
 
@@ -86,22 +78,14 @@ func sendTipInfo(messageID tangle.MessageID, isTip bool) {
 }
 
 func runVisualizer() {
-	notifyNewMsg := events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
-		defer cachedMsgEvent.Message.Release()
-		defer cachedMsgEvent.MessageMetadata.Release()
+	notifyNewMsg := events.NewClosure(func(messageID tangle.MessageID) {
+		messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
+			messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
+				addToHistory(message, messageMetadata.IsSolid())
 
-		// manage message history
-		msg := cachedMsgEvent.Message.Unwrap()
-		if msg == nil {
-			return
-		}
-		addToHistory(msg, cachedMsgEvent.MessageMetadata.Unwrap().IsSolid())
-
-		_, ok := visualizerWorkerPool.TrySubmit(cachedMsgEvent.Message.Retain(), cachedMsgEvent.MessageMetadata.Retain())
-		if !ok {
-			cachedMsgEvent.Message.Release()
-			cachedMsgEvent.MessageMetadata.Release()
-		}
+				visualizerWorkerPool.TrySubmit(message, messageMetadata)
+			})
+		})
 	})
 
 	notifyNewTip := events.NewClosure(func(messageId tangle.MessageID) {
@@ -113,10 +97,10 @@ func runVisualizer() {
 	})
 
 	if err := daemon.BackgroundWorker("Dashboard[Visualizer]", func(shutdownSignal <-chan struct{}) {
-		messagelayer.Tangle().MessageStore.Events.MessageStored.Attach(notifyNewMsg)
-		defer messagelayer.Tangle().MessageStore.Events.MessageStored.Detach(notifyNewMsg)
-		messagelayer.Tangle().Events.MessageSolid.Attach(notifyNewMsg)
-		defer messagelayer.Tangle().Events.MessageSolid.Detach(notifyNewMsg)
+		messagelayer.Tangle().Storage.Events.MessageStored.Attach(notifyNewMsg)
+		defer messagelayer.Tangle().Storage.Events.MessageStored.Detach(notifyNewMsg)
+		messagelayer.Tangle().Solidifier.Events.MessageSolid.Attach(notifyNewMsg)
+		defer messagelayer.Tangle().Solidifier.Events.MessageSolid.Detach(notifyNewMsg)
 		messagelayer.TipSelector().Events.TipAdded.Attach(notifyNewTip)
 		defer messagelayer.TipSelector().Events.TipAdded.Detach(notifyNewTip)
 		messagelayer.TipSelector().Events.TipRemoved.Attach(notifyDeletedTip)

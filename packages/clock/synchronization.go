@@ -34,5 +34,6 @@ func FetchTimeOffset(host string) error {
 func SyncedTime() time.Time {
 	offsetMutex.RLock()
 	defer offsetMutex.RUnlock()
+
 	return time.Now().Add(offset)
 }

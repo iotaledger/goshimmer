@@ -130,24 +130,21 @@ func configureMessageLayer() {
 	}))
 
 	// configure flow of outgoing messages (gossip on solidification)
-	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
-		defer cachedMsgEvent.Message.Release()
-		defer cachedMsgEvent.MessageMetadata.Release()
+	messagelayer.Tangle().Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
+			messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
+				if time.Since(messageMetadata.ReceivedTime()) > ageThreshold {
+					return
+				}
 
-		// only broadcast new message shortly after they have been received
-		metadata := cachedMsgEvent.MessageMetadata.Unwrap()
-		if time.Since(metadata.ReceivedTime()) > ageThreshold {
-			return
-		}
+				// do not gossip requested messages
+				if requested := requestedMsgs.delete(messageID); requested {
+					return
+				}
 
-		msg := cachedMsgEvent.Message.Unwrap()
-
-		// do not gossip requested messages
-		if requested := requestedMsgs.delete(msg.ID()); requested {
-			return
-		}
-
-		mgr.SendMessage(msg.Bytes())
+				mgr.SendMessage(message.Bytes())
+			})
+		})
 	}))
 
 	// request missing messages
@@ -155,7 +152,7 @@ func configureMessageLayer() {
 		mgr.RequestMessage(sendRequest.ID[:])
 	}))
 
-	messagelayer.Tangle().MessageStore.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
+	messagelayer.Tangle().Storage.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
 		cachedMsgEvent.MessageMetadata.Release()
 		cachedMsgEvent.Message.Consume(func(msg *tangle.Message) {
 			requestedMsgs.append(msg.ID())
