@@ -7,9 +7,6 @@ import (
 
 // Events represents events happening on the base layer Tangle.
 type Events struct {
-	// Fired when a message has been solid, i.e. its past cone
-	// is known and in the database.
-	MessageSolid *events.Event
 	// Fired when a message was missing for too long and is
 	// therefore considered to be unsolidifiable.
 	MessageUnsolidifiable *events.Event
@@ -27,16 +24,6 @@ type CachedMessageEvent struct {
 	MessageMetadata *CachedMessageMetadata
 }
 
-func newEvents() *Events {
-	return &Events{
-		MessageSolid:          events.NewEvent(cachedMessageEvent),
-		MessageUnsolidifiable: events.NewEvent(messageIDEvent),
-		MessageBooked:         events.NewEvent(cachedMessageEvent),
-		MessageEligible:       events.NewEvent(cachedMessageEvent),
-		MessageInvalid:        events.NewEvent(cachedMessageEvent),
-	}
-}
-
 // MessageStoreEvents represents events happening on the message store.
 type MessageStoreEvents struct {
 	// Fired when a message has been stored.
@@ -51,10 +38,10 @@ type MessageStoreEvents struct {
 
 func newMessageStoreEvents() *MessageStoreEvents {
 	return &MessageStoreEvents{
-		MessageStored:          events.NewEvent(cachedMessageEvent),
-		MessageRemoved:         events.NewEvent(messageIDEvent),
+		MessageStored:          events.NewEvent(messageIDEventHandler),
+		MessageRemoved:         events.NewEvent(messageIDEventHandler),
 		MissingMessageReceived: events.NewEvent(cachedMessageEvent),
-		MessageMissing:         events.NewEvent(messageIDEvent),
+		MessageMissing:         events.NewEvent(messageIDEventHandler),
 	}
 }
 
@@ -68,8 +55,8 @@ type MessageTipSelectorEvents struct {
 
 func newMessageTipSelectorEvents() *MessageTipSelectorEvents {
 	return &MessageTipSelectorEvents{
-		TipAdded:   events.NewEvent(messageIDEvent),
-		TipRemoved: events.NewEvent(messageIDEvent),
+		TipAdded:   events.NewEvent(messageIDEventHandler),
+		TipRemoved: events.NewEvent(messageIDEventHandler),
 	}
 }
 
@@ -173,7 +160,7 @@ func messageConstructedEvent(handler interface{}, params ...interface{}) {
 	handler.(func(*Message))(params[0].(*Message))
 }
 
-func messageIDEvent(handler interface{}, params ...interface{}) {
+func messageIDEventHandler(handler interface{}, params ...interface{}) {
 	handler.(func(MessageID))(params[0].(MessageID))
 }
 

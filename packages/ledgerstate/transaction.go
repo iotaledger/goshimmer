@@ -27,7 +27,7 @@ var TransactionType payload.Type
 
 // init defers the initialization of the TransactionType to not have an initialization loop.
 func init() {
-	TransactionType = payload.NewType(1, "TransactionType", func(data []byte) (payload.Payload, error) {
+	TransactionType = payload.NewType(1337, "TransactionType", func(data []byte) (payload.Payload, error) {
 		return TransactionFromMarshalUtil(marshalutil.New(data))
 	})
 }

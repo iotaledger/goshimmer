@@ -94,7 +94,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, t ...*Tangle) (*Message
 	// due to the ParentAge check we must ensure that we set the right issuing time.
 	if t != nil {
 		for _, parent := range strongParents {
-			t[0].Message(parent).Consume(func(msg *Message) {
+			t[0].Storage.Message(parent).Consume(func(msg *Message) {
 				if msg.ID() != EmptyMessageID && !msg.IssuingTime().Before(issuingTime) {
 					time.Sleep(msg.IssuingTime().Sub(issuingTime) + 1*time.Nanosecond)
 					issuingTime = clock.SyncedTime()

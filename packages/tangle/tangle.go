@@ -1,29 +1,111 @@
 package tangle
 
 import (
+	"container/list"
+	"sync"
+
+	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/datastructure/set"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore"
 )
 
-// Tangle represents the base layer of messages.
+// Tangle is the central data structure of the IOTA protocol.
 type Tangle struct {
-	*MessageStore
+	Parser         *MessageParser
+	Storage        *MessageStore
+	Solidifier     *Solidifier
+	Booker         *MessageBooker
+	Requester      *MessageRequester
+	MessageFactory *MessageFactory
+	Events         *Events
 
-	Events *Events
+	setupParserOnce sync.Once
 }
 
-// New creates a new Tangle.
-func New(store kvstore.KVStore) (result *Tangle) {
-	result = &Tangle{
-		MessageStore: NewMessageStore(store),
-		Events:       newEvents(),
+// NewTangle is the constructor for the Tangle.
+func New(store kvstore.KVStore) (tangle *Tangle) {
+	tangle = &Tangle{
+		Events: &Events{
+			MessageUnsolidifiable: events.NewEvent(messageIDEventHandler),
+			MessageBooked:         events.NewEvent(cachedMessageEvent),
+			MessageEligible:       events.NewEvent(cachedMessageEvent),
+			MessageInvalid:        events.NewEvent(messageIDEventHandler),
+		},
 	}
+
+	// create components
+	tangle.Parser = NewMessageParser()
+	tangle.Solidifier = NewSolidifier(tangle)
+	tangle.Storage = NewMessageStore(tangle, store)
+
+	// setup data flow
+	tangle.Parser.Events.MessageParsed.Attach(events.NewClosure(func(msgParsedEvent *MessageParsedEvent) {
+		tangle.Storage.StoreMessage(msgParsedEvent.Message)
+	}))
+	tangle.Storage.Events.MessageStored.Attach(events.NewClosure(tangle.Solidifier.Solidify))
 
 	return
 }
 
-// Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
-func (t *Tangle) Shutdown() *Tangle {
-	t.MessageStore.Shutdown()
+// ProcessGossipMessage is used to feed new Messages from the gossip layer into the Tangle.
+func (t *Tangle) ProcessGossipMessage(messageBytes []byte, peer *peer.Peer) {
+	t.setupParserOnce.Do(t.Parser.Setup)
 
-	return t
+	t.Parser.Parse(messageBytes, peer)
+}
+
+// WalkMessageIDs is a generic Tangle walker that executes a custom callback for every visited MessageID, starting from
+// the given entry points. The callback should return the MessageIDs to be visited next. It accepts an optional boolean
+// parameter which can be set to true if a Message should be visited more than once following different paths.
+func (t *Tangle) WalkMessageIDs(callback func(messageID MessageID) (nextMessageIDsToVisit MessageIDs), entryPoints MessageIDs, revisit ...bool) {
+	if len(entryPoints) == 0 {
+		panic("you need to provide at least one entry point")
+	}
+
+	stack := list.New()
+	for _, messageID := range entryPoints {
+		stack.PushBack(messageID)
+	}
+
+	processedMessageIDs := set.New()
+	for stack.Len() > 0 {
+		firstElement := stack.Front()
+		stack.Remove(firstElement)
+
+		messageID := firstElement.Value.(MessageID)
+		if (len(revisit) == 0 || !revisit[0]) && !processedMessageIDs.Add(messageID) {
+			continue
+		}
+
+		for _, nextMessageID := range callback(messageID) {
+			stack.PushBack(nextMessageID)
+		}
+	}
+}
+
+// WalkMessages is generic Tangle walker that executes a custom callback for every visited Message and MessageMetadata,
+// starting from the given entry points. The callback should return the MessageIDs to be visited next. It accepts an
+// optional boolean parameter which can be set to true if a Message should be visited more than once following different
+// paths.
+func (t *Tangle) WalkMessages(callback func(message *Message, messageMetadata *MessageMetadata) MessageIDs, entryPoints MessageIDs, revisit ...bool) {
+	t.WalkMessageIDs(func(messageID MessageID) (nextMessageIDsToVisit MessageIDs) {
+		t.Storage.Message(messageID).Consume(func(message *Message) {
+			t.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+				nextMessageIDsToVisit = callback(message, messageMetadata)
+			})
+		})
+
+		return
+	}, entryPoints, revisit...)
+}
+
+// Prune resets the database and deletes all stored objects (good for testing or "node resets").
+func (t *Tangle) Prune() (err error) {
+	return t.Storage.Prune()
+}
+
+// Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
+func (t *Tangle) Shutdown() {
+	t.Storage.Shutdown()
 }

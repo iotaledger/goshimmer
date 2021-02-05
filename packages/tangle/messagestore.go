@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/objectstorage"
 )
@@ -12,10 +13,13 @@ import (
 const (
 	// PrefixMessage defines the storage prefix for message.
 	PrefixMessage byte = iota
+
 	// PrefixMessageMetadata defines the storage prefix for message metadata.
 	PrefixMessageMetadata
+
 	// PrefixApprovers defines the storage prefix for approvers.
 	PrefixApprovers
+
 	// PrefixMissingMessage defines the storage prefix for missing message.
 	PrefixMissingMessage
 
@@ -27,6 +31,7 @@ const (
 
 // MessageStore represents the storage of messages.
 type MessageStore struct {
+	tangle                 *Tangle
 	messageStorage         *objectstorage.ObjectStorage
 	messageMetadataStorage *objectstorage.ObjectStorage
 	approverStorage        *objectstorage.ObjectStorage
@@ -37,14 +42,15 @@ type MessageStore struct {
 }
 
 // NewMessageStore creates a new MessageStore.
-func NewMessageStore(store kvstore.KVStore) (result *MessageStore) {
+func NewMessageStore(tangle *Tangle, store kvstore.KVStore) (result *MessageStore) {
 	osFactory := objectstorage.NewFactory(store, database.PrefixMessageLayer)
 
 	result = &MessageStore{
+		tangle:                 tangle,
 		shutdown:               make(chan struct{}),
 		messageStorage:         osFactory.New(PrefixMessage, MessageFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 		messageMetadataStorage: osFactory.New(PrefixMessageMetadata, MessageMetadataFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
-		approverStorage:        osFactory.New(PrefixApprovers, ApproverFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.PartitionKey(MessageIDLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false)),
+		approverStorage:        osFactory.New(PrefixApprovers, ApproverFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.PartitionKey(MessageIDLength, ApproverTypeLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false)),
 		missingMessageStorage:  osFactory.New(PrefixMissingMessage, MissingMessageFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 
 		Events: newMessageStoreEvents(),
@@ -54,9 +60,9 @@ func NewMessageStore(store kvstore.KVStore) (result *MessageStore) {
 }
 
 // StoreMessage stores a new message to the message store.
-func (m *MessageStore) StoreMessage(msg *Message) {
+func (m *MessageStore) StoreMessage(message *Message) {
 	// retrieve MessageID
-	messageID := msg.ID()
+	messageID := message.ID()
 
 	// store Messages only once by using the existence of the Metadata as a guard
 	storedMetadata, stored := m.messageMetadataStorage.StoreIfAbsent(NewMessageMetadata(messageID))
@@ -69,13 +75,16 @@ func (m *MessageStore) StoreMessage(msg *Message) {
 	defer cachedMsgMetadata.Release()
 
 	// store Message
-	cachedMessage := &CachedMessage{CachedObject: m.messageStorage.Store(msg)}
+	cachedMessage := &CachedMessage{CachedObject: m.messageStorage.Store(message)}
 	defer cachedMessage.Release()
 
 	// TODO: approval switch: we probably need to introduce approver types
 	// store approvers
-	msg.ForEachStrongParent(func(parent MessageID) {
-		m.approverStorage.Store(NewApprover(parent, messageID)).Release()
+	message.ForEachStrongParent(func(parentMessageID MessageID) {
+		m.approverStorage.Store(NewApprover(StrongApprover, parentMessageID, messageID)).Release()
+	})
+	message.ForEachWeakParent(func(parentMessageID MessageID) {
+		m.approverStorage.Store(NewApprover(WeakApprover, parentMessageID, messageID)).Release()
 	})
 
 	// trigger events
@@ -87,10 +96,7 @@ func (m *MessageStore) StoreMessage(msg *Message) {
 	}
 
 	// messages are stored, trigger MessageStored event to move on next check
-	m.Events.MessageStored.Trigger(&CachedMessageEvent{
-		Message:         cachedMessage,
-		MessageMetadata: cachedMsgMetadata,
-	})
+	m.Events.MessageStored.Trigger(message.ID())
 }
 
 // Message retrieves a message from the message store.
@@ -118,14 +124,23 @@ func (m *MessageStore) StoreIfMissingMessageMetadata(messageID MessageID) *Cache
 	})}
 }
 
-// Approvers retrieves the approvers of a message from the storage.
-func (m *MessageStore) Approvers(messageID MessageID) CachedApprovers {
-	approvers := make(CachedApprovers, 0)
+// Approvers retrieves the Approvers of a Message from the object storage. It is possible to provide an optional
+// ApproverType to only return the corresponding Approvers.
+func (m *MessageStore) Approvers(messageID MessageID, optionalApproverType ...ApproverType) (cachedApprovers CachedApprovers) {
+	var iterationPrefix []byte
+	if len(optionalApproverType) >= 1 {
+		iterationPrefix = byteutils.ConcatBytes(messageID.Bytes(), optionalApproverType[0].Bytes())
+	} else {
+		iterationPrefix = messageID.Bytes()
+	}
+
+	cachedApprovers = make(CachedApprovers, 0)
 	m.approverStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
-		approvers = append(approvers, &CachedApprover{CachedObject: cachedObject})
+		cachedApprovers = append(cachedApprovers, &CachedApprover{CachedObject: cachedObject})
 		return true
-	}, messageID[:])
-	return approvers
+	}, iterationPrefix)
+
+	return
 }
 
 // MissingMessages return the ids of messages in missingMessageStorage
@@ -144,10 +159,11 @@ func (m *MessageStore) MissingMessages() (ids []MessageID) {
 // message as an approver.
 func (m *MessageStore) DeleteMessage(messageID MessageID) {
 	m.Message(messageID).Consume(func(currentMsg *Message) {
-
-		// TODO: reconsider behavior with approval switch
-		currentMsg.ForEachParent(func(parent Parent) {
-			m.deleteApprover(parent.ID, messageID)
+		currentMsg.ForEachStrongParent(func(parentMessageID MessageID) {
+			m.deleteStrongApprover(parentMessageID, messageID)
+		})
+		currentMsg.ForEachWeakParent(func(parentMessageID MessageID) {
+			m.deleteWeakApprover(parentMessageID, messageID)
 		})
 
 		m.messageMetadataStorage.Delete(messageID[:])
@@ -162,12 +178,14 @@ func (m *MessageStore) DeleteMissingMessage(messageID MessageID) {
 	m.missingMessageStorage.Delete(messageID[:])
 }
 
-// deleteApprover deletes a message from the approverStorage.
-func (m *MessageStore) deleteApprover(approvedMessageID MessageID, approvingMessage MessageID) {
-	idToDelete := make([]byte, MessageIDLength+MessageIDLength)
-	copy(idToDelete[:MessageIDLength], approvedMessageID[:])
-	copy(idToDelete[MessageIDLength:], approvingMessage[:])
-	m.approverStorage.Delete(idToDelete)
+// deleteStrongApprover deletes an Approver from the object storage that was created by a strong parent.
+func (m *MessageStore) deleteStrongApprover(approvedMessageID MessageID, approvingMessage MessageID) {
+	m.approverStorage.Delete(byteutils.ConcatBytes(approvedMessageID.Bytes(), StrongApprover.Bytes(), approvingMessage.Bytes()))
+}
+
+// deleteWeakApprover deletes an Approver from the object storage that was created by a weak parent.
+func (m *MessageStore) deleteWeakApprover(approvedMessageID MessageID, approvingMessage MessageID) {
+	m.approverStorage.Delete(byteutils.ConcatBytes(approvedMessageID.Bytes(), WeakApprover.Bytes(), approvingMessage.Bytes()))
 }
 
 // Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).

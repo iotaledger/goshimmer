@@ -6,9 +6,12 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
+	"golang.org/x/xerrors"
 )
 
 // MessageMetadata defines the metadata for a message.
@@ -19,6 +22,8 @@ type MessageMetadata struct {
 	receivedTime       time.Time
 	solid              bool
 	solidificationTime time.Time
+	structureDetails   *markers.StructureDetails
+	branchID           ledgerstate.BranchID
 	timestampOpinion   TimestampOpinion
 	booked             bool
 	eligible           bool
@@ -26,6 +31,8 @@ type MessageMetadata struct {
 
 	solidMutex              sync.RWMutex
 	solidificationTimeMutex sync.RWMutex
+	structureDetailsMutex   sync.RWMutex
+	branchIDMutex           sync.RWMutex
 	timestampOpinionMutex   sync.RWMutex
 	bookedMutex             sync.RWMutex
 	eligibleMutex           sync.RWMutex
@@ -67,6 +74,14 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 	}
 	if result.solid, err = marshalUtil.ReadBool(); err != nil {
 		err = fmt.Errorf("failed to parse solid flag of message metadata: %w", err)
+		return
+	}
+	if result.structureDetails, err = markers.StructureDetailsFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse StructureDetails from MarshalUtil: %w", err)
+		return
+	}
+	if result.branchID, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
 		return
 	}
 	if result.timestampOpinion, err = TimestampOpinionFromMarshalUtil(marshalUtil); err != nil {
@@ -148,6 +163,49 @@ func (m *MessageMetadata) SolidificationTime() time.Time {
 	defer m.solidificationTimeMutex.RUnlock()
 
 	return m.solidificationTime
+}
+
+// SetStructureDetails sets the structureDetails of the message.
+func (m *MessageMetadata) SetStructureDetails(structureDetails *markers.StructureDetails) (modified bool) {
+	m.structureDetailsMutex.Lock()
+	defer m.structureDetailsMutex.Unlock()
+
+	if m.structureDetails != nil {
+		return false
+	}
+
+	m.structureDetails = structureDetails
+
+	m.SetModified()
+	return true
+}
+
+// StructureDetails returns the structureDetails of the message.
+func (m *MessageMetadata) StructureDetails() *markers.StructureDetails {
+	m.structureDetailsMutex.RLock()
+	defer m.structureDetailsMutex.RUnlock()
+
+	return m.structureDetails
+}
+
+// SetBranchID sets the branch ID of the message.
+func (m *MessageMetadata) SetBranchID(ID ledgerstate.BranchID) (modified bool) {
+	m.branchIDMutex.Lock()
+	defer m.branchIDMutex.Unlock()
+	if m.branchID == ID {
+		return
+	}
+	m.branchID = ID
+	m.SetModified(true)
+	modified = true
+	return
+}
+
+// BranchID returns the branch ID of the message.
+func (m *MessageMetadata) BranchID() ledgerstate.BranchID {
+	m.branchIDMutex.RLock()
+	defer m.branchIDMutex.RUnlock()
+	return m.branchID
 }
 
 // IsBooked returns true if the message represented by this metadata is booked. False otherwise.
@@ -268,6 +326,8 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 		WriteTime(m.ReceivedTime()).
 		WriteTime(m.SolidificationTime()).
 		WriteBool(m.IsSolid()).
+		Write(m.StructureDetails()).
+		Write(m.BranchID()).
 		WriteBytes(m.TimestampOpinion().Bytes()).
 		WriteBool(m.IsEligible()).
 		WriteBool(m.IsBooked()).
@@ -288,6 +348,16 @@ type CachedMessageMetadata struct {
 	objectstorage.CachedObject
 }
 
+// ID returns the MessageID of the CachedMessageMetadata.
+func (c *CachedMessageMetadata) ID() (messageID MessageID) {
+	messageID, _, err := MessageIDFromBytes(c.Key())
+	if err != nil {
+		panic(err)
+	}
+
+	return
+}
+
 // Retain registers a new consumer for the cached message metadata.
 func (c *CachedMessageMetadata) Retain() *CachedMessageMetadata {
 	return &CachedMessageMetadata{c.CachedObject.Retain()}
@@ -305,4 +375,12 @@ func (c *CachedMessageMetadata) Unwrap() *MessageMetadata {
 		return nil
 	}
 	return typedObject
+}
+
+// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
+// exists). It automatically releases the object when the consumer finishes.
+func (c *CachedMessageMetadata) Consume(consumer func(messageMetadata *MessageMetadata), forceRelease ...bool) (consumed bool) {
+	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*MessageMetadata))
+	}, forceRelease...)
 }

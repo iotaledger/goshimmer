@@ -160,6 +160,17 @@ func BranchIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchIDs B
 	return
 }
 
+// Contains checks if the given target BranchID is part of the BranchIDs.
+func (b BranchIDs) Contains(targetBranchID BranchID) (contains bool) {
+	for branchID := range b {
+		if contains = branchID == targetBranchID; contains {
+			return
+		}
+	}
+
+	return
+}
+
 // Slice creates a slice of BranchIDs from the collection.
 func (b BranchIDs) Slice() (list []BranchID) {
 	list = make([]BranchID, len(b))

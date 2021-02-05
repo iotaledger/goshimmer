@@ -392,6 +392,11 @@ func (m *Message) Version() uint8 {
 	return m.version
 }
 
+// Parents returns a slice of all parents of the Message.
+func (m *Message) Parents() (parents MessageIDs) {
+	return append(append([]MessageID{}, m.strongParents...), m.weakParents...)
+}
+
 // StrongParents returns a slice of all strong parents of the message.
 func (m *Message) StrongParents() MessageIDs {
 	return m.strongParents
@@ -419,14 +424,14 @@ func (m *Message) ForEachParent(consumer func(parent Parent)) {
 }
 
 // ForEachStrongParent executes a consumer func for each strong parent.
-func (m *Message) ForEachStrongParent(consumer func(parent MessageID)) {
+func (m *Message) ForEachStrongParent(consumer func(parentMessageID MessageID)) {
 	for _, parentID := range m.strongParents {
 		consumer(parentID)
 	}
 }
 
 // ForEachWeakParent executes a consumer func for each weak parent.
-func (m *Message) ForEachWeakParent(consumer func(parent MessageID)) {
+func (m *Message) ForEachWeakParent(consumer func(parentMessageID MessageID)) {
 	for _, parentID := range m.weakParents {
 		consumer(parentID)
 	}
@@ -566,7 +571,7 @@ func (c *CachedMessage) Retain() *CachedMessage {
 
 // Consume consumes the cached object and releases it when the callback is done.
 // It returns true if the callback was called.
-func (c *CachedMessage) Consume(consumer func(msg *Message)) bool {
+func (c *CachedMessage) Consume(consumer func(message *Message)) bool {
 	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*Message))
 	})

@@ -20,7 +20,6 @@ import (
 	"github.com/iotaledger/hive.go/datastructure/randommap"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/testutil"
 	"github.com/iotaledger/hive.go/workerpool"
@@ -29,7 +28,7 @@ import (
 )
 
 func BenchmarkTangle_StoreMessage(b *testing.B) {
-	tangle := newTangle(mapdb.NewMapDB())
+	tangle := New(mapdb.NewMapDB())
 	if err := tangle.Prune(); err != nil {
 		b.Error(err)
 
@@ -45,81 +44,66 @@ func BenchmarkTangle_StoreMessage(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		tangle.StoreMessage(messageBytes[i])
+		tangle.Storage.StoreMessage(messageBytes[i])
 	}
 
 	tangle.Shutdown()
 }
 
 func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
-	messageTangle := newTangle(mapdb.NewMapDB())
+	messageTangle := New(mapdb.NewMapDB())
 	if err := messageTangle.Prune(); err != nil {
 		t.Error(err)
 
 		return
 	}
 
-	var (
-		storedMessages  int32
-		solidMessages   int32
-		invalidMessages int32
-	)
+	var storedMessages, solidMessages, invalidMessages int32
 
 	newOldParentsMessage := func(strongParents []MessageID) *Message {
-		return NewMessage(strongParents, []MessageID{}, time.Now().Add(15*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Old")), 0, ed25519.Signature{})
+		return NewMessage(strongParents, []MessageID{}, time.Now().Add(maxParentsTimeDifference+5*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Old")), 0, ed25519.Signature{})
 	}
 	newYoungParentsMessage := func(strongParents []MessageID) *Message {
-		return NewMessage(strongParents, []MessageID{}, time.Now().Add(-15*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Young")), 0, ed25519.Signature{})
+		return NewMessage(strongParents, []MessageID{}, time.Now().Add(-maxParentsTimeDifference-5*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Young")), 0, ed25519.Signature{})
 	}
 	newValidMessage := func(strongParents []MessageID) *Message {
 		return NewMessage(strongParents, []MessageID{}, time.Now(), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Valid")), 0, ed25519.Signature{})
 	}
 
-	messageTangle.MessageStore.Events.MessageStored.Attach(events.NewClosure(func(cachedMsgEvent *CachedMessageEvent) {
-		cachedMsgEvent.MessageMetadata.Release()
-
-		cachedMsgEvent.Message.Consume(func(msg *Message) {
-			fmt.Println("STORED:", msg.ID())
-		})
+	var wg sync.WaitGroup
+	messageTangle.Storage.Events.MessageStored.Attach(events.NewClosure(func(messageID MessageID) {
+		fmt.Println("STORED:", messageID)
 		atomic.AddInt32(&storedMessages, 1)
+		wg.Done()
 	}))
 
-	messageTangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedMsgEvent *CachedMessageEvent) {
-		cachedMsgEvent.MessageMetadata.Release()
-
-		cachedMsgEvent.Message.Consume(func(msg *Message) {
-			fmt.Println("SOLID:", msg.ID())
-		})
+	messageTangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(messageID MessageID) {
+		fmt.Println("SOLID:", messageID)
 		atomic.AddInt32(&solidMessages, 1)
 	}))
 
-	messageTangle.Events.MessageInvalid.Attach(events.NewClosure(func(cachedMsgEvent *CachedMessageEvent) {
-		cachedMsgEvent.MessageMetadata.Release()
-
-		cachedMsgEvent.Message.Consume(func(msg *Message) {
-			fmt.Println("INVALID:", msg.ID())
-		})
+	messageTangle.Events.MessageInvalid.Attach(events.NewClosure(func(messageID MessageID) {
+		fmt.Println("INVALID:", messageID)
 		atomic.AddInt32(&invalidMessages, 1)
 	}))
 
 	messageA := newTestDataMessage("some data")
-	messageB := newTestDataMessage("some data")
+	messageB := newTestDataMessage("some data1")
 	messageC := newValidMessage([]MessageID{messageA.ID(), messageB.ID()})
 	messageOldParents := newOldParentsMessage([]MessageID{messageA.ID(), messageB.ID()})
 	messageYoungParents := newYoungParentsMessage([]MessageID{messageA.ID(), messageB.ID()})
 
-	messageTangle.StoreMessage(messageA)
-	messageTangle.StoreMessage(messageB)
-
-	time.Sleep(7 * time.Second)
-
-	messageTangle.StoreMessage(messageC)
-	messageTangle.StoreMessage(messageOldParents)
-	messageTangle.StoreMessage(messageYoungParents)
+	wg.Add(5)
+	messageTangle.Storage.StoreMessage(messageA)
+	messageTangle.Storage.StoreMessage(messageB)
+	messageTangle.Storage.StoreMessage(messageC)
+	messageTangle.Storage.StoreMessage(messageOldParents)
+	messageTangle.Storage.StoreMessage(messageYoungParents)
 
 	// wait for all messages to become solid
-	assert.Eventually(t, func() bool { return atomic.LoadInt32(&storedMessages) == 5 }, 1*time.Minute, 100*time.Millisecond)
+	wg.Wait()
 
+	assert.EqualValues(t, 5, atomic.LoadInt32(&storedMessages))
 	assert.EqualValues(t, 3, atomic.LoadInt32(&solidMessages))
 	assert.EqualValues(t, 2, atomic.LoadInt32(&invalidMessages))
 
@@ -127,49 +111,41 @@ func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
 }
 
 func TestTangle_StoreMessage(t *testing.T) {
-	messageTangle := newTangle(mapdb.NewMapDB())
+	messageTangle := New(mapdb.NewMapDB())
 	if err := messageTangle.Prune(); err != nil {
 		t.Error(err)
 
 		return
 	}
 
-	messageTangle.MessageStore.Events.MessageStored.Attach(events.NewClosure(func(cachedMsgEvent *CachedMessageEvent) {
-		cachedMsgEvent.MessageMetadata.Release()
-
-		cachedMsgEvent.Message.Consume(func(msg *Message) {
-			fmt.Println("STORED:", msg.ID())
-		})
+	messageTangle.Storage.Events.MessageStored.Attach(events.NewClosure(func(messageID MessageID) {
+		fmt.Println("STORED:", messageID)
 	}))
 
-	messageTangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedMsgEvent *CachedMessageEvent) {
-		cachedMsgEvent.MessageMetadata.Release()
-
-		cachedMsgEvent.Message.Consume(func(msg *Message) {
-			fmt.Println("SOLID:", msg.ID())
-		})
+	messageTangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(messageID MessageID) {
+		fmt.Println("SOLID:", messageID)
 	}))
 
 	messageTangle.Events.MessageUnsolidifiable.Attach(events.NewClosure(func(messageId MessageID) {
 		fmt.Println("UNSOLIDIFIABLE:", messageId)
 	}))
 
-	messageTangle.MessageStore.Events.MessageMissing.Attach(events.NewClosure(func(messageId MessageID) {
+	messageTangle.Storage.Events.MessageMissing.Attach(events.NewClosure(func(messageId MessageID) {
 		fmt.Println("MISSING:", messageId)
 	}))
 
-	messageTangle.MessageStore.Events.MessageRemoved.Attach(events.NewClosure(func(messageId MessageID) {
+	messageTangle.Storage.Events.MessageRemoved.Attach(events.NewClosure(func(messageId MessageID) {
 		fmt.Println("REMOVED:", messageId)
 	}))
 
 	newMessageOne := newTestDataMessage("some data")
 	newMessageTwo := newTestDataMessage("some other data")
 
-	messageTangle.StoreMessage(newMessageTwo)
+	messageTangle.Storage.StoreMessage(newMessageTwo)
 
 	time.Sleep(7 * time.Second)
 
-	messageTangle.StoreMessage(newMessageOne)
+	messageTangle.Storage.StoreMessage(newMessageOne)
 
 	messageTangle.Shutdown()
 }
@@ -211,7 +187,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 	// create a helper function that creates the messages
 	createNewMessage := func() *Message {
 		// issue the payload
-		msg, err := msgFactory.IssuePayload(payload.NewGenericDataPayload([]byte("0")))
+		msg, err := msgFactory.IssuePayload(payload.NewGenericDataPayload([]byte("")))
 		require.NoError(t, err)
 
 		// remove a tip if the width of the tangle is reached
@@ -228,7 +204,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 	}
 
 	// create the tangle
-	tangle := newTangle(badgerDB)
+	tangle := New(badgerDB)
 	defer tangle.Shutdown()
 	require.NoError(t, tangle.Prune())
 
@@ -245,27 +221,24 @@ func TestTangle_MissingMessages(t *testing.T) {
 		missingMessages int32
 		solidMessages   int32
 	)
-	tangle.MessageStore.Events.MessageStored.Attach(events.NewClosure(func(event *CachedMessageEvent) {
-		defer event.Message.Release()
-		defer event.MessageMetadata.Release()
-
+	tangle.Storage.Events.MessageStored.Attach(events.NewClosure(func(MessageID) {
 		n := atomic.AddInt32(&storedMessages, 1)
 		t.Logf("stored messages %d/%d", n, messageCount)
 	}))
 
 	// increase the counter when a missing message was detected
-	tangle.MessageStore.Events.MessageMissing.Attach(events.NewClosure(func(messageId MessageID) {
+	tangle.Storage.Events.MessageMissing.Attach(events.NewClosure(func(messageId MessageID) {
 		atomic.AddInt32(&missingMessages, 1)
 
 		// store the message after it has been requested
 		go func() {
 			time.Sleep(storeDelay)
-			tangle.StoreMessage(messages[messageId])
+			tangle.Storage.StoreMessage(messages[messageId])
 		}()
 	}))
 
 	// decrease the counter when a missing message was received
-	tangle.MessageStore.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMsgEvent *CachedMessageEvent) {
+	tangle.Storage.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMsgEvent *CachedMessageEvent) {
 		defer cachedMsgEvent.Message.Release()
 		defer cachedMsgEvent.MessageMetadata.Release()
 
@@ -273,15 +246,13 @@ func TestTangle_MissingMessages(t *testing.T) {
 		t.Logf("missing messages %d", n)
 	}))
 
-	tangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedMsgEvent *CachedMessageEvent) {
-		defer cachedMsgEvent.MessageMetadata.Release()
-		defer cachedMsgEvent.Message.Release()
-
-		atomic.AddInt32(&solidMessages, 1)
+	tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(MessageID) {
+		n := atomic.AddInt32(&solidMessages, 1)
+		t.Logf("solid messages %d/%d", n, messageCount)
 	}))
 
 	// issue tips to start solidification
-	tips.ForEach(func(key interface{}, _ interface{}) { tangle.StoreMessage(messages[key.(MessageID)]) })
+	tips.ForEach(func(key interface{}, _ interface{}) { tangle.Storage.StoreMessage(messages[key.(MessageID)]) })
 
 	// wait for all transactions to become solid
 	assert.Eventually(t, func() bool { return atomic.LoadInt32(&solidMessages) == messageCount }, 5*time.Minute, 100*time.Millisecond)
@@ -292,7 +263,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 }
 
 func TestRetrieveAllTips(t *testing.T) {
-	messageTangle := newTangle(mapdb.NewMapDB())
+	messageTangle := New(mapdb.NewMapDB())
 
 	messageA := newTestParentsDataMessage("A", []MessageID{EmptyMessageID}, []MessageID{EmptyMessageID})
 	messageB := newTestParentsDataMessage("B", []MessageID{messageA.ID()}, []MessageID{EmptyMessageID})
@@ -300,20 +271,18 @@ func TestRetrieveAllTips(t *testing.T) {
 
 	var wg sync.WaitGroup
 
-	messageTangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedMsgEvent *CachedMessageEvent) {
-		cachedMsgEvent.Message.Release()
-		cachedMsgEvent.MessageMetadata.Release()
+	messageTangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(MessageID) {
 		wg.Done()
 	}))
 
 	wg.Add(3)
-	messageTangle.StoreMessage(messageA)
-	messageTangle.StoreMessage(messageB)
-	messageTangle.StoreMessage(messageC)
+	messageTangle.Storage.StoreMessage(messageA)
+	messageTangle.Storage.StoreMessage(messageB)
+	messageTangle.Storage.StoreMessage(messageC)
 
 	wg.Wait()
 
-	allTips := messageTangle.RetrieveAllTips()
+	allTips := messageTangle.Storage.RetrieveAllTips()
 
 	assert.Equal(t, 2, len(allTips))
 
@@ -353,11 +322,6 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 	localIdentity := identity.GenerateLocalIdentity()
 	localPeer := peer.NewPeer(localIdentity.Identity, net.IPv4zero, services)
 
-	// setup the message parser
-	msgParser := NewMessageParser()
-	msgParser.AddBytesFilter(NewPowFilter(testWorker, targetPOW))
-	msgParser.Setup()
-
 	// setup the message factory
 	msgFactory := NewMessageFactory(
 		badgerDB,
@@ -390,9 +354,9 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 
 		// issue the payload
 		if invalidTS {
-			msg, err = msgFactory.issueInvalidTsPayload(payload.NewGenericDataPayload([]byte("0")))
+			msg, err = msgFactory.issueInvalidTsPayload(payload.NewGenericDataPayload([]byte("")))
 		} else {
-			msg, err = msgFactory.IssuePayload(payload.NewGenericDataPayload([]byte("0")))
+			msg, err = msgFactory.IssuePayload(payload.NewGenericDataPayload([]byte("")))
 		}
 		require.NoError(t, err)
 
@@ -411,21 +375,23 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 		return msg
 	}
 
+	// create the tangle
+	tangle := New(badgerDB)
+	defer tangle.Shutdown()
+	require.NoError(t, tangle.Prune())
+
+	// setup the message parser
+	tangle.Parser.AddBytesFilter(NewPowFilter(testWorker, targetPOW))
+
 	// create inboxWP to act as the gossip layer
 	inboxWP := workerpool.New(func(task workerpool.Task) {
-
 		time.Sleep(networkDelay)
-		msgParser.Parse(task.Param(0).([]byte), task.Param(1).(*peer.Peer))
+		tangle.ProcessGossipMessage(task.Param(0).([]byte), task.Param(1).(*peer.Peer))
 
 		task.Return(nil)
 	}, workerpool.WorkerCount(messageWorkerCount), workerpool.QueueSize(messageWorkerQueueSize))
 	inboxWP.Start()
 	defer inboxWP.Stop()
-
-	// create the tangle
-	tangle := newTangle(badgerDB)
-	defer tangle.Shutdown()
-	require.NoError(t, tangle.Prune())
 
 	// generate the messages we want to solidify
 	messages := make(map[MessageID]*Message, solidMsgCount)
@@ -452,39 +418,33 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 	)
 
 	// filter rejected events
-	msgParser.Events.MessageRejected.Attach(events.NewClosure(func(msgRejectedEvent *MessageRejectedEvent, _ error) {
+	tangle.Parser.Events.MessageRejected.Attach(events.NewClosure(func(msgRejectedEvent *MessageRejectedEvent, _ error) {
 		n := atomic.AddInt32(&rejectedMessages, 1)
 		t.Logf("rejected by message filter messages %d/%d", n, totalMsgCount)
 	}))
 
-	msgParser.Events.MessageParsed.Attach(events.NewClosure(func(msgParsedEvent *MessageParsedEvent) {
+	tangle.Parser.Events.MessageParsed.Attach(events.NewClosure(func(msgParsedEvent *MessageParsedEvent) {
 		n := atomic.AddInt32(&parsedMessages, 1)
 		t.Logf("parsed messages %d/%d", n, totalMsgCount)
 
-		tangle.StoreMessage(msgParsedEvent.Message)
+		tangle.Storage.StoreMessage(msgParsedEvent.Message)
 	}))
 
 	// message invalid events
-	tangle.Events.MessageInvalid.Attach(events.NewClosure(func(cachedMsgEvent *CachedMessageEvent) {
-		cachedMsgEvent.MessageMetadata.Release()
-		cachedMsgEvent.Message.Consume(func(msg *Message) {
-			tangle.DeleteMessage(msg.ID())
-		})
+	tangle.Events.MessageInvalid.Attach(events.NewClosure(func(messageID MessageID) {
+		tangle.Storage.DeleteMessage(messageID)
 
 		n := atomic.AddInt32(&invalidMessages, 1)
 		t.Logf("invalid messages %d/%d", n, totalMsgCount)
 	}))
 
-	tangle.MessageStore.Events.MessageStored.Attach(events.NewClosure(func(event *CachedMessageEvent) {
-		defer event.Message.Release()
-		defer event.MessageMetadata.Release()
-
+	tangle.Storage.Events.MessageStored.Attach(events.NewClosure(func(MessageID) {
 		n := atomic.AddInt32(&storedMessages, 1)
 		t.Logf("stored messages %d/%d", n, totalMsgCount)
 	}))
 
 	// increase the counter when a missing message was detected
-	tangle.MessageStore.Events.MessageMissing.Attach(events.NewClosure(func(messageId MessageID) {
+	tangle.Storage.Events.MessageMissing.Attach(events.NewClosure(func(messageId MessageID) {
 		atomic.AddInt32(&missingMessages, 1)
 
 		// push the message into the gossip inboxWP
@@ -492,7 +452,7 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 	}))
 
 	// decrease the counter when a missing message was received
-	tangle.MessageStore.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMsgEvent *CachedMessageEvent) {
+	tangle.Storage.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMsgEvent *CachedMessageEvent) {
 		defer cachedMsgEvent.Message.Release()
 		defer cachedMsgEvent.MessageMetadata.Release()
 
@@ -500,15 +460,15 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 		t.Logf("missing messages %d", n)
 	}))
 
-	tangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedMsgEvent *CachedMessageEvent) {
-		defer cachedMsgEvent.MessageMetadata.Release()
-		defer cachedMsgEvent.Message.Release()
-
-		atomic.AddInt32(&solidMessages, 1)
+	tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(MessageID) {
+		n := atomic.AddInt32(&solidMessages, 1)
+		t.Logf("solid messages %d/%d", n, totalMsgCount)
 	}))
 
 	// issue tips to start solidification
-	tips.ForEach(func(key interface{}, _ interface{}) { inboxWP.TrySubmit(messages[key.(MessageID)].Bytes(), localPeer) })
+	tips.ForEach(func(key interface{}, _ interface{}) {
+		inboxWP.TrySubmit(messages[key.(MessageID)].Bytes(), localPeer)
+	})
 	// incoming invalid messages
 	for _, msg := range invalidmsgs {
 		inboxWP.TrySubmit(msg.Bytes(), localPeer)
@@ -522,18 +482,6 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 	assert.EqualValues(t, totalMsgCount, atomic.LoadInt32(&parsedMessages))
 	assert.EqualValues(t, invalidMsgCount, atomic.LoadInt32(&invalidMessages))
 	assert.EqualValues(t, 0, atomic.LoadInt32(&missingMessages))
-}
-
-func newTangle(store kvstore.KVStore) *Tangle {
-	tangle := New(store)
-
-	// Attach solidification
-	// TODO: the solidification will be attached to other event in the future refactoring
-	tangle.MessageStore.Events.MessageStored.Attach(events.NewClosure(func(cachedMsgEvent *CachedMessageEvent) {
-		tangle.SolidifyMessage(cachedMsgEvent.Message, cachedMsgEvent.MessageMetadata)
-	}))
-
-	return tangle
 }
 
 // IssueInvalidTsPayload creates a new message including sequence number and tip selection and returns it.
@@ -556,7 +504,7 @@ func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, t ...*Tangle) 
 
 	strongParents := f.selector.Tips(2)
 	weakParents := make([]MessageID, 0)
-	issuingTime := time.Now().Add(15 * time.Minute)
+	issuingTime := time.Now().Add(maxParentsTimeDifference + 5*time.Minute)
 	issuerPublicKey := f.localIdentity.PublicKey()
 
 	// do the PoW

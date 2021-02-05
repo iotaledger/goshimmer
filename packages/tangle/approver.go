@@ -2,24 +2,98 @@ package tangle
 
 import (
 	"fmt"
+	"strconv"
 
+	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
+	"golang.org/x/xerrors"
 )
+
+// region ApproverType /////////////////////////////////////////////////////////////////////////////////////////////////
+
+const (
+	// StrongApprover is the ApproverType that represents references formed by strong parents.
+	StrongApprover ApproverType = iota
+
+	// WeakApprover is the ApproverType that represents references formed by weak parents.
+	WeakApprover
+)
+
+// ApproverTypeLength contains the amount of bytes that a marshaled version of the ApproverType contains.
+const ApproverTypeLength = 1
+
+// ApproverType is a type that represents the different kind of reverse mapping that we have for references formed by
+// strong and weak parents.
+type ApproverType uint8
+
+// ApproverTypeFromBytes unmarshals an ApproverType from a sequence of bytes.
+func ApproverTypeFromBytes(bytes []byte) (approverType ApproverType, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(bytes)
+	if approverType, err = ApproverTypeFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse ApproverType from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// ApproverTypeFromMarshalUtil unmarshals an ApproverType using a MarshalUtil (for easier unmarshaling).
+func ApproverTypeFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (approverType ApproverType, err error) {
+	untypedApproverType, err := marshalUtil.ReadUint8()
+	if err != nil {
+		err = xerrors.Errorf("failed to parse ApproverType (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	if approverType = ApproverType(untypedApproverType); approverType != StrongApprover && approverType != WeakApprover {
+		err = xerrors.Errorf("invalid ApproverType(%X): %w", approverType, cerrors.ErrParseBytesFailed)
+		return
+	}
+
+	return
+}
+
+// Bytes returns a marshaled version of the ApproverType.
+func (a ApproverType) Bytes() []byte {
+	return []byte{byte(a)}
+}
+
+// String returns a human readable version of the ApproverType.
+func (a ApproverType) String() string {
+	switch a {
+	case StrongApprover:
+		return "ApproverType(StrongApprover)"
+	case WeakApprover:
+		return "ApproverType(WeakApprover)"
+	default:
+		return fmt.Sprintf("ApproverType(%X)", uint8(a))
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Approver /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Approver is an approver of a given referenced message.
 type Approver struct {
-	objectstorage.StorableObjectFlags
+	// approverType defines if the reference was create by a strong or a weak parent reference.
+	approverType ApproverType
+
 	// the message which got referenced by the approver message.
 	referencedMessageID MessageID
+
 	// the message which approved/referenced the given referenced message.
 	approverMessageID MessageID
+
+	objectstorage.StorableObjectFlags
 }
 
 // NewApprover creates a new approver relation to the given approved/referenced message.
-func NewApprover(referencedMessageID MessageID, approverMessageID MessageID) *Approver {
+func NewApprover(approverType ApproverType, referencedMessageID MessageID, approverMessageID MessageID) *Approver {
 	approver := &Approver{
+		approverType:        approverType,
 		referencedMessageID: referencedMessageID,
 		approverMessageID:   approverMessageID,
 	}
@@ -37,13 +111,16 @@ func ApproverFromBytes(bytes []byte) (result *Approver, consumedBytes int, err e
 // ApproverFromMarshalUtil parses a new approver from the given marshal util.
 func ApproverFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Approver, err error) {
 	result = &Approver{}
-
 	if result.referencedMessageID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
-		err = fmt.Errorf("failed to parse referenced message ID of approver: %w", err)
+		err = xerrors.Errorf("failed to parse referenced MessageID from MarshalUtil: %w", err)
+		return
+	}
+	if result.approverType, err = ApproverTypeFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse ApproverType from MarshalUtil: %w", err)
 		return
 	}
 	if result.approverMessageID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
-		err = fmt.Errorf("failed to parse approver message ID of approver: %w", err)
+		err = xerrors.Errorf("failed to parse approver MessageID from MarshalUtil: %w", err)
 		return
 	}
 
@@ -52,12 +129,17 @@ func ApproverFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Appr
 
 // ApproverFromObjectStorage is the factory method for Approvers stored in the ObjectStorage.
 func ApproverFromObjectStorage(key []byte, _ []byte) (result objectstorage.StorableObject, err error) {
-	result, _, err = ApproverFromBytes(key)
-	if err != nil {
-		err = fmt.Errorf("failed to parse approver from object storage: %w", err)
+	if result, _, err = ApproverFromBytes(key); err != nil {
+		err = xerrors.Errorf("failed to parse Approver from bytes: %w", err)
+		return
 	}
 
 	return
+}
+
+// Type returns the type of the Approver reference.
+func (a *Approver) Type() ApproverType {
+	return a.approverType
 }
 
 // ReferencedMessageID returns the ID of the message which is referenced by the approver.
@@ -87,8 +169,9 @@ func (a *Approver) String() string {
 // This includes the referencedMessageID and the approverMessageID.
 func (a *Approver) ObjectStorageKey() []byte {
 	return marshalutil.New().
-		WriteBytes(a.referencedMessageID.Bytes()).
-		WriteBytes(a.approverMessageID.Bytes()).
+		Write(a.referencedMessageID).
+		Write(a.approverType).
+		Write(a.approverMessageID).
 		Bytes()
 }
 
@@ -105,6 +188,10 @@ func (a *Approver) Update(other objectstorage.StorableObject) {
 
 // interface contract (allow the compiler to check if the implementation has all of the required methods).
 var _ objectstorage.StorableObject = &Approver{}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region CachedApprover ///////////////////////////////////////////////////////////////////////////////////////////////
 
 // CachedApprover is a wrapper for a stored cached object representing an approver.
 type CachedApprover struct {
@@ -131,22 +218,66 @@ func (c *CachedApprover) Unwrap() *Approver {
 // Consume consumes the cachedApprover.
 // It releases the object when the callback is done.
 // It returns true if the callback was called.
-func (c *CachedApprover) Consume(consumer func(approver *Approver)) (consumed bool) {
+func (c *CachedApprover) Consume(consumer func(approver *Approver), forceRelease ...bool) (consumed bool) {
 	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*Approver))
-	})
+	}, forceRelease...)
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region CachedApprovers //////////////////////////////////////////////////////////////////////////////////////////////
 
 // CachedApprovers defines a slice of *CachedApprover.
 type CachedApprovers []*CachedApprover
 
-// Consume calls *CachedApprover.Consume on element in the list.
-func (c CachedApprovers) Consume(consumer func(approver *Approver)) (consumed bool) {
-	for _, cachedApprover := range c {
-		consumed = cachedApprover.Consume(func(approver *Approver) {
-			consumer(approver)
-		}) || consumed
+// Unwrap is the type-casted equivalent of Get. It returns a slice of unwrapped objects with the object being nil if it
+// does not exist.
+func (c CachedApprovers) Unwrap() (unwrappedApprovers []*Approver) {
+	unwrappedApprovers = make([]*Approver, len(c))
+	for i, cachedApprover := range c {
+		untypedObject := cachedApprover.Get()
+		if untypedObject == nil {
+			continue
+		}
+
+		typedObject := untypedObject.(*Approver)
+		if typedObject == nil || typedObject.IsDeleted() {
+			continue
+		}
+
+		unwrappedApprovers[i] = typedObject
 	}
 
 	return
 }
+
+// Consume iterates over the CachedObjects, unwraps them and passes a type-casted version to the consumer (if the object
+// is not empty - it exists). It automatically releases the object when the consumer finishes. It returns true, if at
+// least one object was consumed.
+func (c CachedApprovers) Consume(consumer func(approver *Approver), forceRelease ...bool) (consumed bool) {
+	for _, cachedApprover := range c {
+		consumed = cachedApprover.Consume(consumer, forceRelease...) || consumed
+	}
+
+	return
+}
+
+// Release is a utility function that allows us to release all CachedObjects in the collection.
+func (c CachedApprovers) Release(force ...bool) {
+	for _, cachedApprover := range c {
+		cachedApprover.Release(force...)
+	}
+}
+
+// String returns a human readable version of the CachedApprovers.
+func (c CachedApprovers) String() string {
+	structBuilder := stringify.StructBuilder("CachedApprovers")
+	for i, cachedApprover := range c {
+		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), cachedApprover))
+	}
+
+	return structBuilder.String()
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

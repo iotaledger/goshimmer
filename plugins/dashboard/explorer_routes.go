@@ -42,7 +42,7 @@ type ExplorerMessage struct {
 
 func createExplorerMessage(msg *tangle.Message) (*ExplorerMessage, error) {
 	messageID := msg.ID()
-	cachedMessageMetadata := messagelayer.Tangle().MessageMetadata(messageID)
+	cachedMessageMetadata := messagelayer.Tangle().Storage.MessageMetadata(messageID)
 	defer cachedMessageMetadata.Release()
 	messageMetadata := cachedMessageMetadata.Unwrap()
 	t := &ExplorerMessage{
@@ -145,7 +145,7 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 }
 
 func findMessage(messageID tangle.MessageID) (explorerMsg *ExplorerMessage, err error) {
-	if !messagelayer.Tangle().Message(messageID).Consume(func(msg *tangle.Message) {
+	if !messagelayer.Tangle().Storage.Message(messageID).Consume(func(msg *tangle.Message) {
 		explorerMsg, err = createExplorerMessage(msg)
 	}) {
 		err = fmt.Errorf("%w: message %s", ErrNotFound, messageID.String())

@@ -5,6 +5,7 @@ import (
 
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/stringify"
+	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -86,33 +87,33 @@ func TestManager(t *testing.T) {
 		for _, laterMessage := range messageDB {
 			if earlierMessage != laterMessage {
 				switch messageReferencesMessage(laterMessage, earlierMessage, messageDB) {
-				case True:
+				case types.True:
 					referencesResult := manager.IsInPastCone(earlierMessage.markers, laterMessage.markers)
-					assert.True(t, referencesResult == True || referencesResult == Maybe, earlierMessage.id+" should be in past cone of "+laterMessage.id)
-				case False:
+					assert.True(t, referencesResult == types.True || referencesResult == types.Maybe, earlierMessage.id+" should be in past cone of "+laterMessage.id)
+				case types.False:
 					referencesResult := manager.IsInPastCone(earlierMessage.markers, laterMessage.markers)
-					assert.True(t, referencesResult == False || referencesResult == Maybe, earlierMessage.id+" shouldn't be in past cone of "+laterMessage.id)
+					assert.True(t, referencesResult == types.False || referencesResult == types.Maybe, earlierMessage.id+" shouldn't be in past cone of "+laterMessage.id)
 				}
 			}
 		}
 	}
 }
 
-func messageReferencesMessage(laterMessage *message, earlierMessage *message, messageDB map[string]*message) TriBool {
+func messageReferencesMessage(laterMessage *message, earlierMessage *message, messageDB map[string]*message) types.TriBool {
 	for _, parentID := range laterMessage.parents {
 		if parentID == earlierMessage.id {
-			return True
+			return types.True
 		}
 
 		switch messageReferencesMessage(messageDB[parentID], earlierMessage, messageDB) {
-		case True:
-			return True
-		case Maybe:
-			return Maybe
+		case types.True:
+			return types.True
+		case types.Maybe:
+			return types.Maybe
 		}
 	}
 
-	return False
+	return types.False
 }
 
 func inheritPastMarkers(message *message, manager *Manager, messageDB map[string]*message) (pastMarkerToPropagate *Marker) {
