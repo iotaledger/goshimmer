@@ -110,7 +110,7 @@ func (m *Booker) referencedTransactionIDs(transaction *ledgerstate.Transaction) 
 }
 
 // Attachments retrieves the attachments of a transaction.
-func (m *MessageBooker) Attachments(transactionID ledgerstate.TransactionID) (attachments MessageIDs) {
+func (m *Booker) Attachments(transactionID ledgerstate.TransactionID) (attachments MessageIDs) {
 	return m.messageStore.AttachmentMessageIDs(transactionID)
 }
 
