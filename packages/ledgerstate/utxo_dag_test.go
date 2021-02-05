@@ -637,7 +637,7 @@ func TestConsumedOutputs(t *testing.T) {
 	cachedInputs.Release(true)
 }
 
-func TestInputsSolid(t *testing.T) {
+func TestAllOutputsExist(t *testing.T) {
 	branchDAG, utxoDAG := setupDependencies(t)
 	defer branchDAG.Shutdown()
 
@@ -649,7 +649,7 @@ func TestInputsSolid(t *testing.T) {
 	cachedInputs := utxoDAG.consumedOutputs(tx)
 	inputs := cachedInputs.Unwrap()
 
-	assert.True(t, utxoDAG.inputsSolid(inputs))
+	assert.True(t, utxoDAG.allOutputsExist(inputs))
 
 	cachedInputs.Release()
 
@@ -658,7 +658,7 @@ func TestInputsSolid(t *testing.T) {
 	cachedInputs = utxoDAG.consumedOutputs(tx)
 	inputs = cachedInputs.Unwrap()
 
-	assert.False(t, utxoDAG.inputsSolid(inputs))
+	assert.False(t, utxoDAG.allOutputsExist(inputs))
 
 	cachedInputs.Release()
 }

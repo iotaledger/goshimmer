@@ -1,6 +1,8 @@
 package tangle
 
 import (
+	"fmt"
+
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/types"
@@ -86,12 +88,14 @@ func (u *Utils) WalkMessageAndMetadata(callback func(message *Message, messageMe
 
 // region structural checks ////////////////////////////////////////////////////////////////////////////////////////////
 
-func (u *Utils) IsInPastCone(earlierMessageID MessageID, laterMessageID MessageID) bool {
-	if u.IsInStrongPastCone(earlierMessageID, laterMessageID) {
+// MessageApprovedBy checks if the Message given by approvedMessageID is directly or indirectly approved by the
+// Message given by approvingMessageID.
+func (u *Utils) MessageApprovedBy(approvedMessageID MessageID, approvingMessageID MessageID) (approved bool) {
+	if u.MessageStronglyApprovedBy(approvedMessageID, approvingMessageID) {
 		return true
 	}
 
-	cachedWeakApprovers := u.tangle.Storage.Approvers(earlierMessageID, WeakApprover)
+	cachedWeakApprovers := u.tangle.Storage.Approvers(approvedMessageID, WeakApprover)
 	defer cachedWeakApprovers.Release()
 
 	for _, weakApprover := range cachedWeakApprovers.Unwrap() {
@@ -99,7 +103,7 @@ func (u *Utils) IsInPastCone(earlierMessageID MessageID, laterMessageID MessageI
 			continue
 		}
 
-		if u.IsInStrongPastCone(weakApprover.ApproverMessageID(), laterMessageID) {
+		if u.MessageStronglyApprovedBy(weakApprover.ApproverMessageID(), approvingMessageID) {
 			return true
 		}
 	}
@@ -107,37 +111,38 @@ func (u *Utils) IsInPastCone(earlierMessageID MessageID, laterMessageID MessageI
 	return false
 }
 
-func (u *Utils) IsInStrongPastCone(earlierMessageID MessageID, laterMessageID MessageID) (isInStrongPastCone bool) {
-	// return early if the MessageIDs are the same
-	if earlierMessageID == laterMessageID {
+// MessageStronglyApprovedBy checks if the Message given by approvedMessageID is directly or indirectly approved by the
+// Message given by approvingMessageID (ignoring weak parents as a potential last reference).
+func (u *Utils) MessageStronglyApprovedBy(approvedMessageID MessageID, approvingMessageID MessageID) (stronglyApproved bool) {
+	if approvedMessageID == approvingMessageID {
 		return true
 	}
 
-	// retrieve the StructureDetails of both messages
-	var earlierMessageStructureDetails, laterMessageStructureDetails *markers.StructureDetails
-	u.tangle.Storage.MessageMetadata(earlierMessageID).Consume(func(messageMetadata *MessageMetadata) {
-		earlierMessageStructureDetails = messageMetadata.StructureDetails()
+	var approvedMessageStructureDetails *markers.StructureDetails
+	u.tangle.Storage.MessageMetadata(approvedMessageID).Consume(func(messageMetadata *MessageMetadata) {
+		approvedMessageStructureDetails = messageMetadata.StructureDetails()
 	})
-	u.tangle.Storage.MessageMetadata(laterMessageID).Consume(func(messageMetadata *MessageMetadata) {
-		laterMessageStructureDetails = messageMetadata.StructureDetails()
-	})
-
-	// return false if one of the StructureDetails could not be retrieved (one of the messages was removed already / not
-	// booked yet)
-	if earlierMessageStructureDetails == nil || laterMessageStructureDetails == nil {
-		return false
+	if approvedMessageStructureDetails == nil {
+		panic(fmt.Sprintf("tried to check approval of non-booked Message with %s", approvedMessageID))
 	}
 
-	// perform past cone check
-	switch u.tangle.MarkersManager.IsInPastCone(earlierMessageStructureDetails, laterMessageStructureDetails) {
+	var approvingMessageStructureDetails *markers.StructureDetails
+	u.tangle.Storage.MessageMetadata(approvingMessageID).Consume(func(messageMetadata *MessageMetadata) {
+		approvingMessageStructureDetails = messageMetadata.StructureDetails()
+	})
+	if approvingMessageStructureDetails == nil {
+		panic(fmt.Sprintf("tried to check approval of non-booked Message with %s", approvingMessageID))
+	}
+
+	switch u.tangle.MarkersManager.IsInPastCone(approvedMessageStructureDetails, approvingMessageStructureDetails) {
 	case types.True:
-		isInStrongPastCone = true
+		stronglyApproved = true
 	case types.False:
-		isInStrongPastCone = false
+		stronglyApproved = false
 	case types.Maybe:
 		u.WalkMessageID(func(messageID MessageID, walker *walker.Walker) {
-			if messageID == laterMessageID {
-				isInStrongPastCone = true
+			if messageID == approvingMessageID {
+				stronglyApproved = true
 				walker.StopWalk()
 				return
 			}
@@ -149,7 +154,7 @@ func (u *Utils) IsInStrongPastCone(earlierMessageID MessageID, laterMessageID Me
 					}
 				}
 			})
-		}, u.ApprovingMessageIDs(earlierMessageID, StrongApprover))
+		}, u.ApprovingMessageIDs(approvedMessageID, StrongApprover))
 	}
 
 	return

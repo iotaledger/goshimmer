@@ -51,25 +51,35 @@ func NewUTXODAG(store kvstore.KVStore, branchDAG *BranchDAG) (utxoDAG *UTXODAG) 
 	return
 }
 
-// BookTransaction books a Transaction into the ledger state.
-func (u *UTXODAG) BookTransaction(transaction *Transaction) (targetBranch BranchID, err error) {
-	cachedInputs := u.consumedOutputs(transaction)
-	defer cachedInputs.Release()
-	inputs := cachedInputs.Unwrap()
+// CheckTransaction contains fast checks that always have to be performed before booking the Transaction.
+func (u *UTXODAG) CheckTransaction(transaction *Transaction) (valid bool, err error) {
+	cachedConsumedOutputs := u.consumedOutputs(transaction)
+	defer cachedConsumedOutputs.Release()
+	consumedOutputs := cachedConsumedOutputs.Unwrap()
 
 	// perform cheap checks
-	if !u.inputsSolid(inputs) {
+	if !u.allOutputsExist(consumedOutputs) {
 		err = xerrors.Errorf("not all consumedOutputs of transaction are solid: %w", ErrTransactionNotSolid)
 		return
 	}
-	if !u.transactionBalancesValid(inputs, transaction.Essence().Outputs()) {
+	if !u.transactionBalancesValid(consumedOutputs, transaction.Essence().Outputs()) {
 		err = xerrors.Errorf("sum of consumed and spent balances is not 0: %w", ErrTransactionInvalid)
 		return
 	}
-	if !u.unlockBlocksValid(inputs, transaction) {
+	if !u.unlockBlocksValid(consumedOutputs, transaction) {
 		err = xerrors.Errorf("spending of referenced consumedOutputs is not authorized: %w", ErrTransactionInvalid)
 		return
 	}
+
+	valid = true
+	return
+}
+
+// BookTransaction books a Transaction into the ledger state.
+func (u *UTXODAG) BookTransaction(transaction *Transaction) (targetBranch BranchID, err error) {
+	cachedConsumedOutputs := u.consumedOutputs(transaction)
+	defer cachedConsumedOutputs.Release()
+	consumedOutputs := cachedConsumedOutputs.Unwrap()
 
 	// store TransactionMetadata
 	transactionMetadata := NewTransactionMetadata(transaction.ID())
@@ -125,7 +135,7 @@ func (u *UTXODAG) BookTransaction(transaction *Transaction) (targetBranch Branch
 	}
 
 	// mark transaction as "permanently rejected"
-	if !u.consumedOutputsPastConeValid(inputs, inputsMetadata) {
+	if !u.consumedOutputsPastConeValid(consumedOutputs, inputsMetadata) {
 		u.bookInvalidTransaction(transaction, transactionMetadata, inputsMetadata)
 		targetBranch = InvalidBranchID
 		return
@@ -483,8 +493,8 @@ func (u *UTXODAG) consumedOutputs(transaction *Transaction) (cachedInputs Cached
 	return
 }
 
-// inputsSolid is an internal utility function that checks if all of the given Inputs exist.
-func (u *UTXODAG) inputsSolid(inputs Outputs) (solid bool) {
+// allOutputsExist is an internal utility function that checks if all of the given Inputs exist.
+func (u *UTXODAG) allOutputsExist(inputs Outputs) (solid bool) {
 	for _, input := range inputs {
 		if typeutils.IsInterfaceNil(input) {
 			return false

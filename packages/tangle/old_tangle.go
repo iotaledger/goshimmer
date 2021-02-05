@@ -24,13 +24,6 @@ func Old(store kvstore.KVStore) (result *OldTangle) {
 	return
 }
 
-// Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
-func (t *OldTangle) Shutdown() *OldTangle {
-	t.MessageStore.Shutdown()
-
-	return t
-}
-
 // deletes a message and its future cone of messages/approvers.
 // nolint
 func (t *OldTangle) deleteFutureCone(messageID MessageID) {

@@ -19,13 +19,14 @@ type Tangle struct {
 	Requester      *MessageRequester
 	MessageFactory *MessageFactory
 	MarkersManager *MarkersManager
+	LedgerState    *LedgerState
 	Utils          *Utils
 	Events         *Events
 
 	setupParserOnce sync.Once
 }
 
-// NewTangle is the constructor for the Tangle.
+// New is the constructor for the Tangle.
 func New(store kvstore.KVStore) (tangle *Tangle) {
 	tangle = &Tangle{
 		Events: &Events{
@@ -38,6 +39,7 @@ func New(store kvstore.KVStore) (tangle *Tangle) {
 	tangle.Parser = NewMessageParser()
 	tangle.Solidifier = NewSolidifier(tangle)
 	tangle.Storage = NewMessageStore(tangle, store)
+	tangle.LedgerState = NewLedgerState(tangle)
 	tangle.MarkersManager = NewMarkersManager(tangle)
 	tangle.Utils = NewUtils(tangle)
 
