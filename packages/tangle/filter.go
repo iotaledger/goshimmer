@@ -245,13 +245,13 @@ func (f *RecentlySeenBytesFilter) getRejectCallback() (result func(bytes []byte,
 	return
 }
 
-// NewMessageContainingTransactionFilter creates a new messageContainingTransaction filter.
-func NewMessageContainingTransactionFilter() *MessageContainingTransactionFilter {
-	return &MessageContainingTransactionFilter{}
+// NewTransactionFilter creates a new transaction filter.
+func NewTransactionFilter() *TransactionFilter {
+	return &TransactionFilter{}
 }
 
-// MessageContainingTransactionFilter filters messages based on their timestamps and transaction timestamp.
-type MessageContainingTransactionFilter struct {
+// TransactionFilter filters messages based on their timestamps and transaction timestamp.
+type TransactionFilter struct {
 	onAcceptCallback func(msg *Message, peer *peer.Peer)
 	onRejectCallback func(msg *Message, err error, peer *peer.Peer)
 
@@ -260,13 +260,17 @@ type MessageContainingTransactionFilter struct {
 }
 
 // Filter compares the timestamps between the message and it's transaction payload and calls the corresponding callback.
-func (f *MessageContainingTransactionFilter) Filter(msg *Message, peer *peer.Peer) {
+func (f *TransactionFilter) Filter(msg *Message, peer *peer.Peer) {
 	if payload := msg.Payload(); payload.Type() == ledgerstate.TransactionType {
-		transaction := payload.(*ledgerstate.Transaction)
-		if isMessageAndTransactionTimestampsValid(transaction, msg) {
-			f.getAcceptCallback()(msg, peer)
+		transaction, _, err := ledgerstate.TransactionFromBytes(payload.Bytes())
+		if err != nil {
+			f.getRejectCallback()(msg, err, peer)
+			return
 		}
-		f.getRejectCallback()(msg, ErrInvalidMessageAndTransactionTimestamp, peer)
+		if !isMessageAndTransactionTimestampsValid(transaction, msg) {
+			f.getRejectCallback()(msg, ErrInvalidMessageAndTransactionTimestamp, peer)
+			return
+		}
 	}
 	f.getAcceptCallback()(msg, peer)
 }
@@ -278,27 +282,27 @@ func isMessageAndTransactionTimestampsValid(transaction *ledgerstate.Transaction
 }
 
 // OnAccept registers the given callback as the acceptance function of the filter.
-func (f *MessageContainingTransactionFilter) OnAccept(callback func(msg *Message, peer *peer.Peer)) {
+func (f *TransactionFilter) OnAccept(callback func(msg *Message, peer *peer.Peer)) {
 	f.onAcceptCallbackMutex.Lock()
 	defer f.onAcceptCallbackMutex.Unlock()
 	f.onAcceptCallback = callback
 }
 
 // OnReject registers the given callback as the rejection function of the filter.
-func (f *MessageContainingTransactionFilter) OnReject(callback func(msg *Message, err error, peer *peer.Peer)) {
+func (f *TransactionFilter) OnReject(callback func(msg *Message, err error, peer *peer.Peer)) {
 	f.onRejectCallbackMutex.Lock()
 	defer f.onRejectCallbackMutex.Unlock()
 	f.onRejectCallback = callback
 }
 
-func (f *MessageContainingTransactionFilter) getAcceptCallback() (result func(msg *Message, peer *peer.Peer)) {
+func (f *TransactionFilter) getAcceptCallback() (result func(msg *Message, peer *peer.Peer)) {
 	f.onAcceptCallbackMutex.RLock()
 	result = f.onAcceptCallback
 	f.onAcceptCallbackMutex.RUnlock()
 	return
 }
 
-func (f *MessageContainingTransactionFilter) getRejectCallback() (result func(msg *Message, err error, peer *peer.Peer)) {
+func (f *TransactionFilter) getRejectCallback() (result func(msg *Message, err error, peer *peer.Peer)) {
 	f.onRejectCallbackMutex.RLock()
 	result = f.onRejectCallback
 	f.onRejectCallbackMutex.RUnlock()
