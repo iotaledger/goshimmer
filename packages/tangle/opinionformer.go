@@ -3,7 +3,6 @@ package tangle
 import (
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore"
@@ -37,7 +36,7 @@ var (
 	onMessageBooked = events.NewClosure(func(cachedMessageEvent *CachedMessageEvent) {})
 )
 
-type Manager struct {
+type OpinionFormer struct {
 	tangle         *Tangle
 	opinionStorage *objectstorage.ObjectStorage
 
@@ -48,8 +47,8 @@ type Manager struct {
 	events OpinionFormenrEvents
 }
 
-func NewManager(store kvstore.KVStore, tangle *Tangle) (manager *Manager) {
-	manager = &Manager{
+func NewOpinionFormer(store kvstore.KVStore, tangle *Tangle) (opinionFormer *OpinionFormer) {
+	opinionFormer = &OpinionFormer{
 		tangle:                   tangle,
 		likedThresholdExecutor:   timedexecutor.New(1),
 		locallyFinalizedExecutor: timedexecutor.New(1),
@@ -61,11 +60,11 @@ func NewManager(store kvstore.KVStore, tangle *Tangle) (manager *Manager) {
 	return
 }
 
-func (m *Manager) flow(transactionID ledgerstate.TransactionID) {
+func (o *OpinionFormer) run(transactionID ledgerstate.TransactionID) {
 
 	// if the opinion for this transactionID is already present,
 	// it's a reattachment and thus, we re-use the same opinion.
-	if opinion := m.Opinion(transactionID); opinion != nil {
+	if opinion := o.Opinion(transactionID); opinion != nil {
 		if opinion.LevelOfKnowledge() > One {
 			// trigger PayloadOpinionFormedEvent
 		}
@@ -75,15 +74,15 @@ func (m *Manager) flow(transactionID ledgerstate.TransactionID) {
 	var opinion *Opinion
 	var timestamp time.Time
 
-	m.tangle.Booker.utxoDAG.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+	o.tangle.Booker.utxoDAG.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 		timestamp = transactionMetadata.SolidificationTime()
 	})
 
-	if m.isConflicting(transactionID) {
-		opinion = deriveOpinion(timestamp, m.Opinions(m.conflictSet(transactionID)))
+	if o.isConflicting(transactionID) {
+		opinion = deriveOpinion(timestamp, o.Opinions(o.conflictSet(transactionID)))
 		if opinion != nil {
 			opinion.transactionID = transactionID
-			m.opinionStorage.Store(opinion).Release()
+			o.opinionStorage.Store(opinion).Release()
 			if opinion.LevelOfKnowledge() == One {
 				//trigger voting for this transactionID
 			}
@@ -97,11 +96,11 @@ func (m *Manager) flow(transactionID ledgerstate.TransactionID) {
 		timestamp:        timestamp,
 		levelOfKnowledge: Pending,
 	}
-	m.opinionStorage.Store(opinion).Release()
+	o.opinionStorage.Store(opinion).Release()
 
 	// Wait LikedThreshold
-	m.likedThresholdExecutor.ExecuteAt(func() {
-		if m.isConflicting(transactionID) {
+	o.likedThresholdExecutor.ExecuteAt(func() {
+		if o.isConflicting(transactionID) {
 			opinion.SetLevelOfKnowledge(One)
 			//trigger voting for this transactionID
 		}
@@ -110,8 +109,8 @@ func (m *Manager) flow(transactionID ledgerstate.TransactionID) {
 		opinion.SetLevelOfKnowledge(One)
 
 		// Wait LocallyFinalizedThreshold
-		m.locallyFinalizedExecutor.ExecuteAt(func() {
-			if m.isConflicting(transactionID) {
+		o.locallyFinalizedExecutor.ExecuteAt(func() {
+			if o.isConflicting(transactionID) {
 				// trigger voting?
 			}
 
@@ -123,30 +122,30 @@ func (m *Manager) flow(transactionID ledgerstate.TransactionID) {
 
 }
 
-func (m *Manager) Opinions(conflictSet []ledgerstate.TransactionID) (opinions []*Opinion) {
+func (o *OpinionFormer) Opinions(conflictSet []ledgerstate.TransactionID) (opinions []*Opinion) {
 	opinions = make([]*Opinion, len(conflictSet))
 	for i, conflictID := range conflictSet {
-		opinions[i] = m.Opinion(conflictID)
+		opinions[i] = o.Opinion(conflictID)
 	}
 	return
 }
 
-func (m *Manager) isConflicting(transactionID ledgerstate.TransactionID) bool {
-	cachedTransactionMetadata := m.tangle.Booker.utxoDAG.TransactionMetadata(transactionID)
+func (o *OpinionFormer) isConflicting(transactionID ledgerstate.TransactionID) bool {
+	cachedTransactionMetadata := o.tangle.Booker.utxoDAG.TransactionMetadata(transactionID)
 	defer cachedTransactionMetadata.Release()
 
 	transactionMetadata := cachedTransactionMetadata.Unwrap()
 	return transactionMetadata.BranchID() == ledgerstate.NewBranchID(transactionID)
 }
 
-func (m *Manager) conflictSet(transactionID ledgerstate.TransactionID) (conflictSet []ledgerstate.TransactionID) {
+func (o *OpinionFormer) conflictSet(transactionID ledgerstate.TransactionID) (conflictSet []ledgerstate.TransactionID) {
 	conflictIDs := make(ledgerstate.ConflictIDs)
-	m.tangle.Booker.branchDAG.Branch(ledgerstate.NewBranchID(transactionID)).Consume(func(branch ledgerstate.Branch) {
+	o.tangle.Booker.branchDAG.Branch(ledgerstate.NewBranchID(transactionID)).Consume(func(branch ledgerstate.Branch) {
 		conflictIDs = branch.(*ledgerstate.ConflictBranch).Conflicts()
 	})
 
 	for conflictID := range conflictIDs {
-		m.tangle.Booker.branchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
+		o.tangle.Booker.branchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
 			conflictSet = append(conflictSet, ledgerstate.TransactionID(conflictMember.BranchID()))
 		})
 	}
@@ -154,51 +153,9 @@ func (m *Manager) conflictSet(transactionID ledgerstate.TransactionID) (conflict
 	return
 }
 
-func (m *Manager) Opinion(transactionID ledgerstate.TransactionID) (opinion *Opinion) {
-	(&CachedOpinion{CachedObject: m.opinionStorage.Load(transactionID.Bytes())}).Consume(func(storedOpinion *Opinion) {
+func (o *OpinionFormer) Opinion(transactionID ledgerstate.TransactionID) (opinion *Opinion) {
+	(&CachedOpinion{CachedObject: o.opinionStorage.Load(transactionID.Bytes())}).Consume(func(storedOpinion *Opinion) {
 		opinion = storedOpinion
-	})
-
-	return
-}
-
-// func (m *Manager) Opinion(transactionID ledgerstate.TransactionID) (opinion *Opinion) {
-// 	(&CachedOpinion{CachedObject: m.opinionStorage.ComputeIfAbsent(transactionID.Bytes(), func(key []byte) objectstorage.StorableObject {
-// 		return m.deriveOpinion(transactionID)
-// 	})}).Consume(func(storedOpinion *Opinion) {
-// 		opinion = storedOpinion
-// 	})
-
-// 	return
-// }
-
-func (m *Manager) deriveOpinion(transactionID ledgerstate.TransactionID) (opinion *Opinion) {
-	m.tangle.Booker.utxoDAG.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-		if transactionMetadata.Finalized() {
-			opinion = &Opinion{
-				liked:            true,
-				levelOfKnowledge: Three,
-			}
-			return
-		}
-
-		if transactionMetadata.BranchID() != ledgerstate.NewBranchID(transactionID) {
-			if transactionMetadata.SolidificationTime().Add(LocallyFinalizedThreshold).Before(clock.SyncedTime()) {
-				opinion = &Opinion{
-					liked:            true,
-					levelOfKnowledge: Two,
-				}
-				return
-			}
-
-			if transactionMetadata.SolidificationTime().Add(LikedThreshold).Before(clock.SyncedTime()) {
-				opinion = &Opinion{
-					liked:            true,
-					levelOfKnowledge: One,
-				}
-				return
-			}
-		}
 	})
 
 	return
