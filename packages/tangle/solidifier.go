@@ -28,6 +28,7 @@ func NewSolidifier(tangle *Tangle) (solidifier *Solidifier) {
 		Events: &SolidifierEvents{
 			MessageSolid: events.NewEvent(messageIDEventHandler),
 		},
+
 		tangle: tangle,
 	}
 
@@ -45,11 +46,10 @@ func (s *Solidifier) checkMessageSolidity(message *Message, messageMetadata *Mes
 		return
 	}
 
-	if !s.isParentsValid(message) {
+	if !s.areParentsValid(message) {
 		if !messageMetadata.SetInvalid(true) {
 			return
 		}
-
 		s.tangle.Events.MessageInvalid.Trigger(message.ID())
 		return
 	}
@@ -57,7 +57,6 @@ func (s *Solidifier) checkMessageSolidity(message *Message, messageMetadata *Mes
 	if !messageMetadata.SetSolid(true) {
 		return
 	}
-
 	s.Events.MessageSolid.Trigger(message.ID())
 
 	s.tangle.Storage.Approvers(message.ID()).Consume(func(approver *Approver) {
@@ -100,12 +99,8 @@ func (s *Solidifier) isMessageMarkedAsSolid(messageID MessageID) (solid bool) {
 	return
 }
 
-// isParentsValid checks whether the parents of the given message are valid.
-func (s *Solidifier) isParentsValid(message *Message) (valid bool) {
-	if message == nil || message.IsDeleted() {
-		return false
-	}
-
+// areParentsValid checks whether the parents of the given message are valid.
+func (s *Solidifier) areParentsValid(message *Message) (valid bool) {
 	valid = true
 	message.ForEachParent(func(parent Parent) {
 		valid = valid && s.isParentValid(parent.ID, message.IssuingTime())
