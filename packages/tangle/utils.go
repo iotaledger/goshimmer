@@ -4,7 +4,7 @@ import (
 	"container/list"
 
 	"github.com/iotaledger/goshimmer/packages/markers"
-	"github.com/iotaledger/hive.go/datastructure/set"
+	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/types"
 )
 
@@ -28,12 +28,12 @@ func NewUtils(tangle *Tangle) (utils *Utils) {
 // WalkMessageID is a generic Tangle walker that executes a custom callback for every visited MessageID, starting from
 // the given entry points. The callback should return the MessageIDs to be visited next. It accepts an optional boolean
 // parameter which can be set to true if a Message should be visited more than once following different paths.
-func (u *Utils) WalkMessageID(callback func(messageID MessageID, walker *Walker), entryPoints MessageIDs, revisitElements ...bool) {
+func (u *Utils) WalkMessageID(callback func(messageID MessageID, walker *walker.Walker), entryPoints MessageIDs, revisitElements ...bool) {
 	if len(entryPoints) == 0 {
 		panic("you need to provide at least one entry point")
 	}
 
-	walk := NewWalker(revisitElements...)
+	walk := walker.New(revisitElements...)
 	for _, messageID := range entryPoints {
 		walk.Push(messageID)
 	}
@@ -46,8 +46,8 @@ func (u *Utils) WalkMessageID(callback func(messageID MessageID, walker *Walker)
 // WalkMessage is generic Tangle walker that executes a custom callback for every visited Message, starting from the
 // given entry points. The callback should return the MessageIDs to be visited next. It accepts an optional boolean
 // parameter which can be set to true if a Message should be visited more than once following different paths.
-func (u *Utils) WalkMessage(callback func(message *Message, walker *Walker), entryPoints MessageIDs, revisitElements ...bool) {
-	u.WalkMessageID(func(messageID MessageID, walker *Walker) {
+func (u *Utils) WalkMessage(callback func(message *Message, walker *walker.Walker), entryPoints MessageIDs, revisitElements ...bool) {
+	u.WalkMessageID(func(messageID MessageID, walker *walker.Walker) {
 		u.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 			callback(message, walker)
 		})
@@ -57,8 +57,8 @@ func (u *Utils) WalkMessage(callback func(message *Message, walker *Walker), ent
 // WalkMessageMetadata is generic Tangle walker that executes a custom callback for every visited MessageMetadata, starting
 // from the given entry points. The callback should return the MessageIDs to be visited next. It accepts an optional
 // boolean parameter which can be set to true if a Message should be visited more than once following different paths.
-func (u *Utils) WalkMessageMetadata(callback func(messageMetadata *MessageMetadata, walker *Walker), entryPoints MessageIDs, revisitElements ...bool) {
-	u.WalkMessageID(func(messageID MessageID, walker *Walker) {
+func (u *Utils) WalkMessageMetadata(callback func(messageMetadata *MessageMetadata, walker *walker.Walker), entryPoints MessageIDs, revisitElements ...bool) {
+	u.WalkMessageID(func(messageID MessageID, walker *walker.Walker) {
 		u.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 			callback(messageMetadata, walker)
 		})
@@ -69,8 +69,8 @@ func (u *Utils) WalkMessageMetadata(callback func(messageMetadata *MessageMetada
 // starting from the given entry points. The callback should return the MessageIDs to be visited next. It accepts an
 // optional boolean parameter which can be set to true if a Message should be visited more than once following different
 // paths.
-func (u *Utils) WalkMessageAndMetadata(callback func(message *Message, messageMetadata *MessageMetadata, walker *Walker), entryPoints MessageIDs, revisitElements ...bool) {
-	u.WalkMessageID(func(messageID MessageID, walker *Walker) {
+func (u *Utils) WalkMessageAndMetadata(callback func(message *Message, messageMetadata *MessageMetadata, walker *walker.Walker), entryPoints MessageIDs, revisitElements ...bool) {
+	u.WalkMessageID(func(messageID MessageID, walker *walker.Walker) {
 		u.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 			u.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 				callback(message, messageMetadata, walker)
@@ -132,7 +132,7 @@ func (u *Utils) IsInStrongPastCone(earlierMessageID MessageID, laterMessageID Me
 	case types.False:
 		isInStrongPastCone = false
 	case types.Maybe:
-		u.WalkMessageID(func(messageID MessageID, walker *Walker) {
+		u.WalkMessageID(func(messageID MessageID, walker *walker.Walker) {
 			if messageID == laterMessageID {
 				isInStrongPastCone = true
 				walker.StopWalk()
@@ -193,58 +193,5 @@ func (u *Utils) isInStrongPastConeWalk(earlierMessageID MessageID, laterMessageI
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region Walker /////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-type Walker struct {
-	stack        *list.List
-	seenElements set.Set
-	walkStopped  bool
-}
-
-func NewWalker(revisitElements ...bool) (walker *Walker) {
-	walker = &Walker{
-		stack: list.New(),
-	}
-
-	if len(revisitElements) == 0 || !revisitElements[0] {
-		walker.seenElements = set.New()
-	}
-
-	return
-}
-
-func (w *Walker) HasNext() bool {
-	return w.stack.Len() > 0 && !w.walkStopped
-}
-
-func (w *Walker) Next() (nextElement interface{}) {
-	currentEntry := w.stack.Front()
-	w.stack.Remove(currentEntry)
-
-	return currentEntry.Value
-}
-
-func (w *Walker) Push(nextElement interface{}) {
-	if w.seenElements != nil && !w.seenElements.Add(nextElement) {
-		return
-	}
-
-	w.stack.PushBack(nextElement)
-}
-
-func (w *Walker) StopWalk() {
-	w.walkStopped = true
-}
-
-func (w *Walker) WalkStopped() bool {
-	return w.walkStopped
-}
-
-func (w *Walker) Reset() {
-	w.stack.Init()
-}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

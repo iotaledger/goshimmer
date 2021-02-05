@@ -5,6 +5,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
+	"github.com/iotaledger/hive.go/datastructure/walker"
 )
 
 type MarkersManager struct {
@@ -30,8 +31,8 @@ func (m *MarkersManager) inheritStructureDetails(message *Message, branchID ledg
 	return
 }
 
-func (m *MarkersManager) propagatePastMarkerToFutureMarkers(pastMarkerToInherit *markers.Marker) func(messageMetadata *MessageMetadata, walker *Walker) {
-	return func(messageMetadata *MessageMetadata, walker *Walker) {
+func (m *MarkersManager) propagatePastMarkerToFutureMarkers(pastMarkerToInherit *markers.Marker) func(messageMetadata *MessageMetadata, walker *walker.Walker) {
+	return func(messageMetadata *MessageMetadata, walker *walker.Walker) {
 		_, inheritFurther := m.UpdateStructureDetails(messageMetadata.StructureDetails(), pastMarkerToInherit)
 		if inheritFurther {
 			m.tangle.Storage.Message(messageMetadata.ID()).Consume(func(message *Message) {
