@@ -36,7 +36,8 @@ func New(store kvstore.KVStore) (tangle *Tangle) {
 }
 
 // WalkMessageIDs is a generic Tangle walker that executes a custom callback for every visited MessageID, starting from
-// the given entry points. The callback should return the MessageIDs to be visited next.
+// the given entry points. The callback should return the MessageIDs to be visited next. It accepts an optional boolean
+// parameter which can be set to true if Messages are allowed to be visited more than once through different paths.
 func (t *Tangle) WalkMessageIDs(callback func(messageID MessageID) (nextMessageIDsToVisit MessageIDs), entryPoints MessageIDs, revisit ...bool) {
 	if len(entryPoints) == 0 {
 		panic("you need to provide at least one entry point")
@@ -64,7 +65,9 @@ func (t *Tangle) WalkMessageIDs(callback func(messageID MessageID) (nextMessageI
 }
 
 // WalkMessages is generic Tangle walker that executes a custom callback for every visited Message and MessageMetadata,
-// starting from the given entry points. The callback should return the MessageIDs to be visited next.
+// starting from the given entry points. The callback should return the MessageIDs to be visited next. It accepts an
+// optional boolean parameter which can be set to true if Messages are allowed to be visited more than once through
+// different paths.
 func (t *Tangle) WalkMessages(callback func(message *Message, messageMetadata *MessageMetadata) MessageIDs, entryPoints MessageIDs, revisit ...bool) {
 	t.WalkMessageIDs(func(messageID MessageID) (nextMessageIDsToVisit MessageIDs) {
 		t.Storage.Message(messageID).Consume(func(message *Message) {
