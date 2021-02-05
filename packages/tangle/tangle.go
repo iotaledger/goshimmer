@@ -15,9 +15,10 @@ type Tangle struct {
 	Parser         *MessageParser
 	Storage        *MessageStore
 	Solidifier     *Solidifier
-	Booker         *MessageBooker
+	Booker         *Booker
 	Requester      *MessageRequester
 	MessageFactory *MessageFactory
+	MarkersManager *MarkersManager
 	Utils          *Utils
 	Events         *Events
 
@@ -28,7 +29,6 @@ type Tangle struct {
 func New(store kvstore.KVStore) (tangle *Tangle) {
 	tangle = &Tangle{
 		Events: &Events{
-			MessageBooked:   events.NewEvent(cachedMessageEvent),
 			MessageEligible: events.NewEvent(cachedMessageEvent),
 			MessageInvalid:  events.NewEvent(messageIDEventHandler),
 		},
@@ -38,6 +38,7 @@ func New(store kvstore.KVStore) (tangle *Tangle) {
 	tangle.Parser = NewMessageParser()
 	tangle.Solidifier = NewSolidifier(tangle)
 	tangle.Storage = NewMessageStore(tangle, store)
+	tangle.MarkersManager = NewMarkersManager(tangle)
 	tangle.Utils = NewUtils(tangle)
 
 	// setup data flow
@@ -74,9 +75,6 @@ func (t *Tangle) Shutdown() {
 type Events struct {
 	// MessageInvalid is triggered when a Message is detected to be objectively invalid.
 	MessageInvalid *events.Event
-
-	// Fired when a message has been booked to the Tangle
-	MessageBooked *events.Event
 
 	// Fired when a message has been eligible.
 	MessageEligible *events.Event

@@ -114,6 +114,11 @@ func MessageMetadataFromObjectStorage(key []byte, data []byte) (result objectsto
 	return
 }
 
+// ID returns the MessageID of the Message that this MessageMetadata object belongs to.
+func (m *MessageMetadata) ID() MessageID {
+	return m.messageID
+}
+
 // ReceivedTime returns the time when the message was received.
 func (m *MessageMetadata) ReceivedTime() time.Time {
 	return m.receivedTime
