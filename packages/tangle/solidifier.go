@@ -6,9 +6,10 @@ import (
 	"github.com/iotaledger/hive.go/events"
 )
 
+// maxParentsTimeDifference defines the smallest allowed time difference between a child Message and its parents.
 const minParentsTimeDifference = 0 * time.Second
 
-// maxParentsTimeDifference defines the cut-off condition for the maximum age of parent messages.
+// maxParentsTimeDifference defines the biggest allowed time difference between a child Message and its parents.
 const maxParentsTimeDifference = 30 * time.Minute
 
 // region Solidifier ///////////////////////////////////////////////////////////////////////////////////////////////////
