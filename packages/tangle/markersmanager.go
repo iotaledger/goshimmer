@@ -21,8 +21,8 @@ func NewMarkersManager(tangle *Tangle) *MarkersManager {
 	}
 }
 
-func (m *MarkersManager) inheritStructureDetails(message *Message, branchID ledgerstate.BranchID, parentsStructureDetails []*markers.StructureDetails) (structureDetails *markers.StructureDetails) {
-	structureDetails, _ = m.InheritStructureDetails(parentsStructureDetails, m.newMarkerIndexStrategy, markers.NewSequenceAlias(branchID.Bytes()))
+func (m *MarkersManager) InheritStructureDetails(message *Message, branchID ledgerstate.BranchID, parentsStructureDetails []*markers.StructureDetails) (structureDetails *markers.StructureDetails) {
+	structureDetails, _ = m.Manager.InheritStructureDetails(parentsStructureDetails, m.newMarkerIndexStrategy, markers.NewSequenceAlias(branchID.Bytes()))
 
 	if structureDetails.IsPastMarker {
 		m.tangle.Utils.WalkMessageMetadata(m.propagatePastMarkerToFutureMarkers(structureDetails.PastMarkers.FirstMarker()), message.StrongParents())

@@ -1,8 +1,6 @@
 package tangle
 
 import (
-	"container/list"
-
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/types"
@@ -141,14 +139,12 @@ func (u *Utils) IsInStrongPastCone(earlierMessageID MessageID, laterMessageID Me
 
 			u.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 				if structureDetails := messageMetadata.StructureDetails(); structureDetails != nil && !structureDetails.IsPastMarker {
-					u.tangle.Storage.Approvers(earlierMessageID, StrongApprover).Consume(func(approver *Approver) {
-						walker.Push(approver.ApproverMessageID())
-					})
+					for _, approvingMessageID := range u.tangle.Utils.ApprovingMessageIDs(messageID, StrongApprover) {
+						walker.Push(approvingMessageID)
+					}
 				}
 			})
 		}, u.ApprovingMessageIDs(earlierMessageID, StrongApprover))
-
-		return u.isInStrongPastConeWalk(earlierMessageID, laterMessageID)
 	}
 
 	return
@@ -161,35 +157,6 @@ func (u *Utils) ApprovingMessageIDs(messageID MessageID, optionalApproverType ..
 	})
 
 	return
-}
-
-func (u *Utils) isInStrongPastConeWalk(earlierMessageID MessageID, laterMessageID MessageID) bool {
-	stack := list.New()
-	u.tangle.Storage.Approvers(earlierMessageID, StrongApprover).Consume(func(approver *Approver) {
-		stack.PushBack(approver.ApproverMessageID())
-	})
-
-	for stack.Len() > 0 {
-		firstElement := stack.Front()
-		stack.Remove(firstElement)
-
-		currentMessageID := firstElement.Value.(MessageID)
-		if currentMessageID == laterMessageID {
-			return true
-		}
-
-		u.tangle.Storage.MessageMetadata(currentMessageID).Consume(func(messageMetadata *MessageMetadata) {
-			if structureDetails := messageMetadata.StructureDetails(); structureDetails != nil {
-				if !structureDetails.IsPastMarker {
-					u.tangle.Storage.Approvers(earlierMessageID, StrongApprover).Consume(func(approver *Approver) {
-						stack.PushBack(approver.ApproverMessageID())
-					})
-				}
-			}
-		})
-	}
-
-	return false
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

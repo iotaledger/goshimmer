@@ -1,11 +1,9 @@
 package tangle
 
 import (
-	"container/list"
 	"fmt"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/types"
 	"golang.org/x/xerrors"
@@ -18,10 +16,9 @@ import (
 type Booker struct {
 	Events *BookerEvents
 
-	tangle         *Tangle
-	markersManager *markers.Manager
-	branchDAG      *ledgerstate.BranchDAG
-	utxoDAG        *ledgerstate.UTXODAG
+	tangle    *Tangle
+	branchDAG *ledgerstate.BranchDAG
+	utxoDAG   *ledgerstate.UTXODAG
 }
 
 // NewMessageBooker is the constructor of a Booker.
@@ -72,7 +69,7 @@ func (m *Booker) bookMessageContainingData(message *Message, messageMetadata *Me
 	}
 
 	messageMetadata.SetBranchID(targetBranch)
-	messageMetadata.SetStructureDetails(m.tangle.MarkersManager.inheritStructureDetails(message, targetBranch, m.tangle.MarkersManager.structureDetailsOfStrongParents(message)))
+	messageMetadata.SetStructureDetails(m.tangle.MarkersManager.InheritStructureDetails(message, targetBranch, m.tangle.MarkersManager.structureDetailsOfStrongParents(message)))
 	messageMetadata.SetBooked(true)
 
 	return
@@ -139,22 +136,6 @@ func (m *Booker) determineTargetBranch(branchIDsOfStrongParents ledgerstate.Bran
 
 	targetBranch = cachedAggregatedBranch.ID()
 	return
-}
-
-func (m *Booker) WalkPastCone(entryPoints MessageIDs, callback func(messageID MessageID) MessageIDs) {
-	stack := list.New()
-	for messageID := range entryPoints {
-		stack.PushBack(messageID)
-	}
-
-	for stack.Len() >= 1 {
-		firstElement := stack.Front()
-		stack.Remove(firstElement)
-
-		for nextMessageID := range callback(firstElement.Value.(MessageID)) {
-			stack.PushBack(nextMessageID)
-		}
-	}
 }
 
 // branchIDsOfStrongParents is an internal utility function that returns the BranchIDs of the strong parents of the
