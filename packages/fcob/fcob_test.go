@@ -13,16 +13,16 @@ func TestDeriveOpinion(t *testing.T) {
 	// A{t0, pending} -> B{t-t0 < c, Dislike, One}
 	{
 		conflictSet := ConflictSet{&Opinion{
-			Timestamp:        now,
-			Liked:            false,
-			LevelOfKnowledge: Pending,
+			timestamp:        now,
+			liked:            false,
+			levelOfKnowledge: Pending,
 		}}
 
 		opinion := deriveOpinion(now.Add(1*time.Second), conflictSet)
 		assert.Equal(t, &Opinion{
-			Timestamp:        now.Add(1 * time.Second),
-			Liked:            false,
-			LevelOfKnowledge: One,
+			timestamp:        now.Add(1 * time.Second),
+			liked:            false,
+			levelOfKnowledge: One,
 		}, opinion)
 	}
 
@@ -30,16 +30,16 @@ func TestDeriveOpinion(t *testing.T) {
 	{
 		{
 			conflictSet := ConflictSet{&Opinion{
-				Timestamp:        now,
-				Liked:            true,
-				LevelOfKnowledge: One,
+				timestamp:        now,
+				liked:            true,
+				levelOfKnowledge: One,
 			}}
 
 			opinion := deriveOpinion(now.Add(1*time.Second), conflictSet)
 			assert.Equal(t, &Opinion{
-				Timestamp:        now.Add(1 * time.Second),
-				Liked:            false,
-				LevelOfKnowledge: One,
+				timestamp:        now.Add(1 * time.Second),
+				liked:            false,
+				levelOfKnowledge: One,
 			}, opinion)
 		}
 	}
@@ -48,16 +48,16 @@ func TestDeriveOpinion(t *testing.T) {
 	{
 		{
 			conflictSet := ConflictSet{&Opinion{
-				Timestamp:        now,
-				Liked:            true,
-				LevelOfKnowledge: Two,
+				timestamp:        now,
+				liked:            true,
+				levelOfKnowledge: Two,
 			}}
 
 			opinion := deriveOpinion(now.Add(1*time.Second), conflictSet)
 			assert.Equal(t, &Opinion{
-				Timestamp:        now.Add(1 * time.Second),
-				Liked:            false,
-				LevelOfKnowledge: Two,
+				timestamp:        now.Add(1 * time.Second),
+				liked:            false,
+				levelOfKnowledge: Two,
 			}, opinion)
 		}
 	}
@@ -66,20 +66,20 @@ func TestDeriveOpinion(t *testing.T) {
 	{
 		{
 			conflictSet := ConflictSet{&Opinion{
-				Timestamp:        now,
-				Liked:            false,
-				LevelOfKnowledge: Two,
+				timestamp:        now,
+				liked:            false,
+				levelOfKnowledge: Two,
 			}, &Opinion{
-				Timestamp:        now,
-				Liked:            false,
-				LevelOfKnowledge: Two,
+				timestamp:        now,
+				liked:            false,
+				levelOfKnowledge: Two,
 			}}
 
 			opinion := deriveOpinion(now.Add(1*time.Second), conflictSet)
 			assert.Equal(t, &Opinion{
-				Timestamp:        now.Add(1 * time.Second),
-				Liked:            false,
-				LevelOfKnowledge: Pending,
+				timestamp:        now.Add(1 * time.Second),
+				liked:            false,
+				levelOfKnowledge: Pending,
 			}, opinion)
 		}
 	}
@@ -89,20 +89,20 @@ func TestDeriveOpinion(t *testing.T) {
 	{
 		{
 			conflictSet := ConflictSet{&Opinion{
-				Timestamp:        now,
-				Liked:            false,
-				LevelOfKnowledge: One,
+				timestamp:        now,
+				liked:            false,
+				levelOfKnowledge: One,
 			}, &Opinion{
-				Timestamp:        now.Add(1 * time.Second),
-				Liked:            false,
-				LevelOfKnowledge: One,
+				timestamp:        now.Add(1 * time.Second),
+				liked:            false,
+				levelOfKnowledge: One,
 			}}
 
 			opinion := deriveOpinion(now.Add(10*time.Second), conflictSet)
 			assert.Equal(t, &Opinion{
-				Timestamp:        now.Add(10 * time.Second),
-				Liked:            false,
-				LevelOfKnowledge: One,
+				timestamp:        now.Add(10 * time.Second),
+				liked:            false,
+				levelOfKnowledge: One,
 			}, opinion)
 		}
 	}
@@ -112,20 +112,20 @@ func TestDeriveOpinion(t *testing.T) {
 	{
 		{
 			conflictSet := ConflictSet{&Opinion{
-				Timestamp:        now,
-				Liked:            true,
-				LevelOfKnowledge: One,
+				timestamp:        now,
+				liked:            true,
+				levelOfKnowledge: One,
 			}, &Opinion{
-				Timestamp:        now.Add(1 * time.Second),
-				Liked:            false,
-				LevelOfKnowledge: One,
+				timestamp:        now.Add(1 * time.Second),
+				liked:            false,
+				levelOfKnowledge: One,
 			}}
 
 			opinion := deriveOpinion(now.Add(10*time.Second), conflictSet)
 			assert.Equal(t, &Opinion{
-				Timestamp:        now.Add(10 * time.Second),
-				Liked:            false,
-				LevelOfKnowledge: One,
+				timestamp:        now.Add(10 * time.Second),
+				liked:            false,
+				levelOfKnowledge: One,
 			}, opinion)
 		}
 	}
@@ -134,20 +134,20 @@ func TestDeriveOpinion(t *testing.T) {
 	{
 		{
 			conflictSet := ConflictSet{&Opinion{
-				Timestamp:        now,
-				Liked:            false,
-				LevelOfKnowledge: Two,
+				timestamp:        now,
+				liked:            false,
+				levelOfKnowledge: Two,
 			}, &Opinion{
-				Timestamp:        now.Add(1 * time.Second),
-				Liked:            true,
-				LevelOfKnowledge: One,
+				timestamp:        now.Add(1 * time.Second),
+				liked:            true,
+				levelOfKnowledge: One,
 			}}
 
 			opinion := deriveOpinion(now.Add(6*time.Second), conflictSet)
 			assert.Equal(t, &Opinion{
-				Timestamp:        now.Add(6 * time.Second),
-				Liked:            false,
-				LevelOfKnowledge: One,
+				timestamp:        now.Add(6 * time.Second),
+				liked:            false,
+				levelOfKnowledge: One,
 			}, opinion)
 		}
 	}
@@ -156,20 +156,20 @@ func TestDeriveOpinion(t *testing.T) {
 	{
 		{
 			conflictSet := ConflictSet{&Opinion{
-				Timestamp:        now,
-				Liked:            false,
-				LevelOfKnowledge: Two,
+				timestamp:        now,
+				liked:            false,
+				levelOfKnowledge: Two,
 			}, &Opinion{
-				Timestamp:        now.Add(1 * time.Second),
-				Liked:            false,
-				LevelOfKnowledge: One,
+				timestamp:        now.Add(1 * time.Second),
+				liked:            false,
+				levelOfKnowledge: One,
 			}}
 
 			opinion := deriveOpinion(now.Add(6*time.Second), conflictSet)
 			assert.Equal(t, &Opinion{
-				Timestamp:        now.Add(6 * time.Second),
-				Liked:            false,
-				LevelOfKnowledge: One,
+				timestamp:        now.Add(6 * time.Second),
+				liked:            false,
+				levelOfKnowledge: One,
 			}, opinion)
 		}
 	}

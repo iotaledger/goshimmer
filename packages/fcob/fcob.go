@@ -51,7 +51,7 @@ func (m *Manager) flow(transactionID ledgerstate.TransactionID) {
 	// if the opinion for this transactionID is already present,
 	// it's a reattachment and thus, we re-use the same opinion.
 	if opinion := m.Opinion(transactionID); opinion != nil {
-		if opinion.LevelOfKnowledge > One {
+		if opinion.LevelOfKnowledge() > One {
 			// trigger PayloadOpinionFormedEvent
 		}
 		return
@@ -69,7 +69,7 @@ func (m *Manager) flow(transactionID ledgerstate.TransactionID) {
 		if opinion != nil {
 			opinion.transactionID = transactionID
 			m.opinionStorage.Store(opinion).Release()
-			if opinion.LevelOfKnowledge == One {
+			if opinion.LevelOfKnowledge() == One {
 				//trigger voting for this transactionID
 			}
 		}
@@ -79,30 +79,21 @@ func (m *Manager) flow(transactionID ledgerstate.TransactionID) {
 
 	opinion = &Opinion{
 		transactionID:    transactionID,
-		Timestamp:        timestamp,
-		LevelOfKnowledge: Pending,
+		timestamp:        timestamp,
+		levelOfKnowledge: Pending,
 	}
 	m.opinionStorage.Store(opinion).Release()
 
 	// Wait LikedThreshold
 	m.likedThresholdExecutor.ExecuteAt(func() {
 		if m.isConflicting(transactionID) {
-			opinion = &Opinion{
-				transactionID:    transactionID,
-				Timestamp:        timestamp,
-				Liked:            false,
-				LevelOfKnowledge: One,
-			}
+			opinion.SetLevelOfKnowledge(One)
 			m.opinionStorage.Store(opinion).Release()
 			//trigger voting for this transactionID
 		}
 
-		opinion = &Opinion{
-			transactionID:    transactionID,
-			Timestamp:        timestamp,
-			Liked:            true,
-			LevelOfKnowledge: One,
-		}
+		opinion.SetLiked(true)
+		opinion.SetLevelOfKnowledge(One)
 		m.opinionStorage.Store(opinion).Release()
 
 		// Wait LocallyFinalizedThreshold
@@ -111,12 +102,8 @@ func (m *Manager) flow(transactionID ledgerstate.TransactionID) {
 				// trigger voting?
 			}
 
-			opinion = &Opinion{
-				transactionID:    transactionID,
-				Timestamp:        timestamp,
-				Liked:            true,
-				LevelOfKnowledge: Two,
-			}
+			opinion.SetLiked(true)
+			opinion.SetLevelOfKnowledge(Two)
 			m.opinionStorage.Store(opinion).Release()
 		}, timestamp.Add(LocallyFinalizedThreshold))
 
@@ -177,8 +164,8 @@ func (m *Manager) deriveOpinion(transactionID ledgerstate.TransactionID) (opinio
 	m.utxoDAG.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 		if transactionMetadata.Finalized() {
 			opinion = &Opinion{
-				Liked:            true,
-				LevelOfKnowledge: Three,
+				liked:            true,
+				levelOfKnowledge: Three,
 			}
 			return
 		}
@@ -186,16 +173,16 @@ func (m *Manager) deriveOpinion(transactionID ledgerstate.TransactionID) (opinio
 		if transactionMetadata.BranchID() != ledgerstate.NewBranchID(transactionID) {
 			if transactionMetadata.SolidificationTime().Add(LocallyFinalizedThreshold).Before(clock.SyncedTime()) {
 				opinion = &Opinion{
-					Liked:            true,
-					LevelOfKnowledge: Two,
+					liked:            true,
+					levelOfKnowledge: Two,
 				}
 				return
 			}
 
 			if transactionMetadata.SolidificationTime().Add(LikedThreshold).Before(clock.SyncedTime()) {
 				opinion = &Opinion{
-					Liked:            true,
-					LevelOfKnowledge: One,
+					liked:            true,
+					levelOfKnowledge: One,
 				}
 				return
 			}
@@ -208,9 +195,9 @@ func (m *Manager) deriveOpinion(transactionID ledgerstate.TransactionID) (opinio
 func deriveOpinion(targetTime time.Time, conflictSet ConflictSet) (opinion *Opinion) {
 	if conflictSet.hasDecidedLike() {
 		opinion = &Opinion{
-			Timestamp:        targetTime,
-			Liked:            false,
-			LevelOfKnowledge: Two,
+			timestamp:        targetTime,
+			liked:            false,
+			levelOfKnowledge: Two,
 		}
 		return
 	}
@@ -218,16 +205,16 @@ func deriveOpinion(targetTime time.Time, conflictSet ConflictSet) (opinion *Opin
 	anchor := conflictSet.anchor()
 	if anchor == nil {
 		opinion = &Opinion{
-			Timestamp:        targetTime,
-			LevelOfKnowledge: Pending,
+			timestamp:        targetTime,
+			levelOfKnowledge: Pending,
 		}
 		return
 	}
 
 	opinion = &Opinion{
-		Timestamp:        targetTime,
-		Liked:            false,
-		LevelOfKnowledge: One,
+		timestamp:        targetTime,
+		liked:            false,
+		levelOfKnowledge: One,
 	}
 	return
 }

@@ -1,6 +1,7 @@
 package fcob
 
 import (
+	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -32,18 +33,65 @@ const (
 
 // Opinion defines the FCoB opinion about a transaction.
 type Opinion struct {
+	objectstorage.StorableObjectFlags
+
+	// the transactionID associated to this opinion.
 	transactionID ledgerstate.TransactionID
 
-	// Timestamp is the arrrival/solidification time.
-	Timestamp time.Time
+	// timestamp is the arrrival/solidification time.
+	timestamp time.Time
 
-	// Liked is the opinion value.
-	Liked bool
+	// liked is the opinion value.
+	liked bool
 
-	// LevelOfKnowledge is the degree of certainty of the associated opinion.
-	LevelOfKnowledge LevelOfKnowledge
+	// levelOfKnowledge is the degree of certainty of the associated opinion.
+	levelOfKnowledge LevelOfKnowledge
 
-	objectstorage.StorableObjectFlags
+	timestampMutex        sync.RWMutex
+	likedMutex            sync.RWMutex
+	levelOfKnowledgeMutex sync.RWMutex
+}
+
+// Timestamp returns the opinion's timestamp.
+func (o *Opinion) Timestamp() time.Time {
+	o.timestampMutex.RLock()
+	defer o.timestampMutex.RUnlock()
+	return o.timestamp
+}
+
+// SetTimestamp sets the opinion's timestamp.
+func (o *Opinion) SetTimestamp(t time.Time) {
+	o.timestampMutex.Lock()
+	defer o.timestampMutex.Unlock()
+	o.timestamp = t
+}
+
+// Liked returns the opinion's liked.
+func (o *Opinion) Liked() bool {
+	o.likedMutex.RLock()
+	defer o.likedMutex.RUnlock()
+	return o.liked
+}
+
+// SetLiked sets the opinion's liked.
+func (o *Opinion) SetLiked(l bool) {
+	o.likedMutex.Lock()
+	defer o.likedMutex.Unlock()
+	o.liked = l
+}
+
+// LevelOfKnowledge returns the opinion's LevelOfKnowledge.
+func (o *Opinion) LevelOfKnowledge() LevelOfKnowledge {
+	o.levelOfKnowledgeMutex.RLock()
+	defer o.levelOfKnowledgeMutex.RUnlock()
+	return o.LevelOfKnowledge()
+}
+
+// SetLevelOfKnowledge sets the opinion's LevelOfKnowledge.
+func (o *Opinion) SetLevelOfKnowledge(lok LevelOfKnowledge) {
+	o.levelOfKnowledgeMutex.Lock()
+	defer o.levelOfKnowledgeMutex.Unlock()
+	o.levelOfKnowledge = lok
 }
 
 // Bytes marshals the Opinion into a sequence of bytes.
@@ -76,9 +124,9 @@ func (o *Opinion) ObjectStorageKey() []byte {
 // only used as a key in the ObjectStorage.
 func (o *Opinion) ObjectStorageValue() []byte {
 	return marshalutil.New().
-		WriteTime(o.Timestamp).
-		WriteBool(o.Liked).
-		WriteUint8(o.LevelOfKnowledge).
+		WriteTime(o.Timestamp()).
+		WriteBool(o.Liked()).
+		WriteUint8(o.LevelOfKnowledge()).
 		Bytes()
 }
 
@@ -140,7 +188,7 @@ type ConflictSet []*Opinion
 // hasDecidedLike returns true if the conflict set contains at least one LIKE with LoK >= 2.
 func (c ConflictSet) hasDecidedLike() bool {
 	for _, opinion := range c {
-		if opinion.Liked && opinion.LevelOfKnowledge > One {
+		if opinion.Liked() && opinion.LevelOfKnowledge() > One {
 			return true
 		}
 	}
@@ -151,8 +199,8 @@ func (c ConflictSet) hasDecidedLike() bool {
 func (c ConflictSet) anchor() (opinion *Opinion) {
 	oldestTimestamp := time.Unix(1<<63-62135596801, 999999999)
 	for _, o := range c {
-		if o.LevelOfKnowledge <= One && o.Timestamp.Before(oldestTimestamp) {
-			oldestTimestamp = o.Timestamp
+		if o.LevelOfKnowledge() <= One && o.Timestamp().Before(oldestTimestamp) {
+			oldestTimestamp = o.Timestamp()
 			opinion = o
 		}
 	}
