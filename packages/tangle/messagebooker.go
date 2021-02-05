@@ -83,6 +83,8 @@ func (m *MessageBooker) bookMessageContainingTransaction(message *Message, messa
 		}
 	}
 
+	// store attachment
+
 	//m.markersManager.IsInPastCone()
 
 	// past cone check
@@ -183,7 +185,12 @@ func (m *MessageBooker) referencedTransactionIDs(transaction *ledgerstate.Transa
 	return
 }
 
+// Attachments retrieves the attachments of a transaction.
 func (m *MessageBooker) Attachments(transactionID ledgerstate.TransactionID) (attachments MessageIDs) {
+	cachedAttachments := m.messageStore.Attachments(transactionID)
+	cachedAttachments.Consume(func(attachment *Attachment) {
+		attachments = append(attachments, attachment.MessageID())
+	})
 	return
 }
 

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/objectstorage"
@@ -23,6 +24,9 @@ const (
 	// PrefixMissingMessage defines the storage prefix for missing message.
 	PrefixMissingMessage
 
+	// PrefixAttachments defines the storage prefix for attachments.
+	PrefixAttachments
+
 	cacheTime = 20 * time.Second
 
 	// DBSequenceNumber defines the db sequence number.
@@ -36,6 +40,7 @@ type MessageStore struct {
 	messageMetadataStorage *objectstorage.ObjectStorage
 	approverStorage        *objectstorage.ObjectStorage
 	missingMessageStorage  *objectstorage.ObjectStorage
+	attachmentStorage      *objectstorage.ObjectStorage
 
 	Events   *MessageStoreEvents
 	shutdown chan struct{}
@@ -52,6 +57,7 @@ func NewMessageStore(tangle *Tangle, store kvstore.KVStore) (result *MessageStor
 		messageMetadataStorage: osFactory.New(PrefixMessageMetadata, MessageMetadataFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 		approverStorage:        osFactory.New(PrefixApprovers, ApproverFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.PartitionKey(MessageIDLength, ApproverTypeLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false)),
 		missingMessageStorage:  osFactory.New(PrefixMissingMessage, MissingMessageFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		attachmentStorage:      osFactory.New(PrefixAttachments, AttachmentFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.PartitionKey(ledgerstate.TransactionIDLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false)),
 
 		Events: newMessageStoreEvents(),
 	}
@@ -155,6 +161,25 @@ func (m *MessageStore) MissingMessages() (ids []MessageID) {
 	return
 }
 
+// StoreAttachment stores a new attachment if not already stored.
+func (m *MessageStore) StoreAttachment(transactionID ledgerstate.TransactionID, messageID MessageID) (cachedAttachment *CachedAttachment, stored bool) {
+	attachment, stored := m.attachmentStorage.StoreIfAbsent(NewAttachment(transactionID, messageID))
+	if !stored {
+		return
+	}
+	cachedAttachment = &CachedAttachment{CachedObject: attachment}
+	return
+}
+
+// Attachments retrieves the attachment of a transaction in attachmentStorage.
+func (m *MessageStore) Attachments(transactionID ledgerstate.TransactionID) (cachedAttachments CachedAttachments) {
+	m.attachmentStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		cachedAttachments = append(cachedAttachments, &CachedAttachment{CachedObject: cachedObject})
+		return true
+	}, transactionID.Bytes())
+	return
+}
+
 // DeleteMessage deletes a message and its association to approvees by un-marking the given
 // message as an approver.
 func (m *MessageStore) DeleteMessage(messageID MessageID) {
@@ -194,6 +219,7 @@ func (m *MessageStore) Shutdown() {
 	m.messageMetadataStorage.Shutdown()
 	m.approverStorage.Shutdown()
 	m.missingMessageStorage.Shutdown()
+	m.attachmentStorage.Shutdown()
 
 	close(m.shutdown)
 }
@@ -205,6 +231,7 @@ func (m *MessageStore) Prune() error {
 		m.messageMetadataStorage,
 		m.approverStorage,
 		m.missingMessageStorage,
+		m.attachmentStorage,
 	} {
 		if err := storage.Prune(); err != nil {
 			err = fmt.Errorf("failed to prune storage: %w", err)
