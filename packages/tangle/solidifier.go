@@ -46,7 +46,7 @@ func (s *Solidifier) checkMessageSolidity(message *Message, messageMetadata *Mes
 		return
 	}
 
-	if !s.areParentsValid(message) {
+	if !s.areParentMessagesValid(message) {
 		if !messageMetadata.SetInvalid(true) {
 			return
 		}
@@ -99,18 +99,18 @@ func (s *Solidifier) isMessageMarkedAsSolid(messageID MessageID) (solid bool) {
 	return
 }
 
-// areParentsValid checks whether the parents of the given message are valid.
-func (s *Solidifier) areParentsValid(message *Message) (valid bool) {
+// areParentMessagesValid checks whether the parents of the given Message are valid.
+func (s *Solidifier) areParentMessagesValid(message *Message) (valid bool) {
 	valid = true
 	message.ForEachParent(func(parent Parent) {
-		valid = valid && s.isParentValid(parent.ID, message.IssuingTime())
+		valid = valid && s.isParentMessageValid(parent.ID, message.IssuingTime())
 	})
 
 	return
 }
 
-// isParentValid checks whether the given parent is valid.
-func (s *Solidifier) isParentValid(parentMessageID MessageID, childMessageIssuingTime time.Time) (valid bool) {
+// isParentMessageValid checks whether the given parent Message is valid.
+func (s *Solidifier) isParentMessageValid(parentMessageID MessageID, childMessageIssuingTime time.Time) (valid bool) {
 	if parentMessageID == EmptyMessageID {
 		return true
 	}
