@@ -82,7 +82,7 @@ func (m *Booker) bookMessageContainingTransaction(message *Message, messageMetad
 	message.Parents()
 
 	for referencedTransactionID := range m.referencedTransactionIDs(transaction) {
-		for _, referencedMessageID := range m.Attachments(referencedTransactionID) {
+		for _, referencedMessageID := range m.tangle.Storage.AttachmentMessageIDs(referencedTransactionID) {
 			m.tangle.Storage.MessageMetadata(referencedMessageID).Consume(func(messageMetadata *MessageMetadata) {
 
 			})
@@ -107,11 +107,6 @@ func (m *Booker) referencedTransactionIDs(transaction *ledgerstate.Transaction) 
 	}
 
 	return
-}
-
-// Attachments retrieves the attachments of a transaction.
-func (m *Booker) Attachments(transactionID ledgerstate.TransactionID) (attachments MessageIDs) {
-	return m.tangle.Storage.AttachmentMessageIDs(transactionID)
 }
 
 func (m *Booker) determineTargetBranch(branchIDsOfStrongParents ledgerstate.BranchIDs) (targetBranch ledgerstate.BranchID, err error) {

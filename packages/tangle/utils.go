@@ -24,26 +24,28 @@ func NewUtils(tangle *Tangle) (utils *Utils) {
 // region walkers //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // WalkMessageID is a generic Tangle walker that executes a custom callback for every visited MessageID, starting from
-// the given entry points. The callback should return the MessageIDs to be visited next. It accepts an optional boolean
-// parameter which can be set to true if a Message should be visited more than once following different paths.
+// the given entry points. It accepts an optional boolean parameter which can be set to true if a Message should be
+// visited more than once following different paths. The callback receives a Walker object as the last parameter which
+// can be used to control the behavior of the walk similar to how a "Context" is used in some parts of the stdlib.
 func (u *Utils) WalkMessageID(callback func(messageID MessageID, walker *walker.Walker), entryPoints MessageIDs, revisitElements ...bool) {
 	if len(entryPoints) == 0 {
 		panic("you need to provide at least one entry point")
 	}
 
-	walk := walker.New(revisitElements...)
+	messageIDWalker := walker.New(revisitElements...)
 	for _, messageID := range entryPoints {
-		walk.Push(messageID)
+		messageIDWalker.Push(messageID)
 	}
 
-	for walk.HasNext() {
-		callback(walk.Next().(MessageID), walk)
+	for messageIDWalker.HasNext() {
+		callback(messageIDWalker.Next().(MessageID), messageIDWalker)
 	}
 }
 
-// WalkMessage is generic Tangle walker that executes a custom callback for every visited Message, starting from the
-// given entry points. The callback should return the MessageIDs to be visited next. It accepts an optional boolean
-// parameter which can be set to true if a Message should be visited more than once following different paths.
+// WalkMessage is a generic Tangle walker that executes a custom callback for every visited Message, starting from
+// the given entry points. It accepts an optional boolean parameter which can be set to true if a Message should be
+// visited more than once following different paths. The callback receives a Walker object as the last parameter which
+// can be used to control the behavior of the walk similar to how a "Context" is used in some parts of the stdlib.
 func (u *Utils) WalkMessage(callback func(message *Message, walker *walker.Walker), entryPoints MessageIDs, revisitElements ...bool) {
 	u.WalkMessageID(func(messageID MessageID, walker *walker.Walker) {
 		u.tangle.Storage.Message(messageID).Consume(func(message *Message) {
@@ -52,9 +54,11 @@ func (u *Utils) WalkMessage(callback func(message *Message, walker *walker.Walke
 	}, entryPoints, revisitElements...)
 }
 
-// WalkMessageMetadata is generic Tangle walker that executes a custom callback for every visited MessageMetadata, starting
-// from the given entry points. The callback should return the MessageIDs to be visited next. It accepts an optional
-// boolean parameter which can be set to true if a Message should be visited more than once following different paths.
+// WalkMessageMetadata is a generic Tangle walker that executes a custom callback for every visited MessageMetadata,
+// starting from the given entry points. It accepts an optional boolean parameter which can be set to true if a Message
+// should be visited more than once following different paths. The callback receives a Walker object as the last
+// parameter which can be used to control the behavior of the walk similar to how a "Context" is used in some parts of
+// the stdlib.
 func (u *Utils) WalkMessageMetadata(callback func(messageMetadata *MessageMetadata, walker *walker.Walker), entryPoints MessageIDs, revisitElements ...bool) {
 	u.WalkMessageID(func(messageID MessageID, walker *walker.Walker) {
 		u.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
@@ -63,10 +67,11 @@ func (u *Utils) WalkMessageMetadata(callback func(messageMetadata *MessageMetada
 	}, entryPoints, revisitElements...)
 }
 
-// WalkMessageAndMetadata is generic Tangle walker that executes a custom callback for every visited Message and MessageMetadata,
-// starting from the given entry points. The callback should return the MessageIDs to be visited next. It accepts an
-// optional boolean parameter which can be set to true if a Message should be visited more than once following different
-// paths.
+// WalkMessageAndMetadata is a generic Tangle walker that executes a custom callback for every visited Message and
+// MessageMetadata, starting from the given entry points. It accepts an optional boolean parameter which can be set to
+// true if a Message should be visited more than once following different paths. The callback receives a Walker object
+// as the last parameter which can be used to control the behavior of the walk similar to how a "Context" is used in
+// some parts of the stdlib.
 func (u *Utils) WalkMessageAndMetadata(callback func(message *Message, messageMetadata *MessageMetadata, walker *walker.Walker), entryPoints MessageIDs, revisitElements ...bool) {
 	u.WalkMessageID(func(messageID MessageID, walker *walker.Walker) {
 		u.tangle.Storage.Message(messageID).Consume(func(message *Message) {
