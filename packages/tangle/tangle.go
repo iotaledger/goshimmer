@@ -2,7 +2,9 @@ package tangle
 
 import (
 	"container/list"
+	"sync"
 
+	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore"
@@ -17,6 +19,8 @@ type Tangle struct {
 	Requester      *MessageRequester
 	MessageFactory *MessageFactory
 	Events         *Events
+
+	setupParserOnce sync.Once
 }
 
 // NewTangle is the constructor for the Tangle.
@@ -32,8 +36,17 @@ func New(store kvstore.KVStore) (tangle *Tangle) {
 
 	// initialize behavior
 	tangle.Storage.Events.MessageStored.Attach(events.NewClosure(tangle.Solidifier.Solidify))
+	tangle.Parser.Events.MessageParsed.Attach(events.NewClosure(func(msgParsedEvent *MessageParsedEvent) {
+		tangle.Storage.StoreMessage(msgParsedEvent.Message)
+	}))
 
 	return
+}
+
+// ProcessGossipMessage is used to feed new Messages from the gossip layer into the Tangle.
+func (t *Tangle) ProcessGossipMessage(messageBytes []byte, peer *peer.Peer) {
+	t.setupParserOnce.Do(t.Parser.Setup)
+	t.Parser.Parse(messageBytes, peer)
 }
 
 // WalkMessageIDs is a generic Tangle walker that executes a custom callback for every visited MessageID, starting from

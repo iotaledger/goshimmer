@@ -322,11 +322,6 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 	localIdentity := identity.GenerateLocalIdentity()
 	localPeer := peer.NewPeer(localIdentity.Identity, net.IPv4zero, services)
 
-	// setup the message parser
-	msgParser := NewMessageParser()
-	msgParser.AddBytesFilter(NewPowFilter(testWorker, targetPOW))
-	msgParser.Setup()
-
 	// setup the message factory
 	msgFactory := NewMessageFactory(
 		badgerDB,
@@ -380,21 +375,23 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 		return msg
 	}
 
+	// create the tangle
+	tangle := New(badgerDB)
+	defer tangle.Shutdown()
+	require.NoError(t, tangle.Prune())
+
+	// setup the message parser
+	tangle.Parser.AddBytesFilter(NewPowFilter(testWorker, targetPOW))
+
 	// create inboxWP to act as the gossip layer
 	inboxWP := workerpool.New(func(task workerpool.Task) {
-
 		time.Sleep(networkDelay)
-		msgParser.Parse(task.Param(0).([]byte), task.Param(1).(*peer.Peer))
+		tangle.ProcessGossipMessage(task.Param(0).([]byte), task.Param(1).(*peer.Peer))
 
 		task.Return(nil)
 	}, workerpool.WorkerCount(messageWorkerCount), workerpool.QueueSize(messageWorkerQueueSize))
 	inboxWP.Start()
 	defer inboxWP.Stop()
-
-	// create the tangle
-	tangle := New(badgerDB)
-	defer tangle.Shutdown()
-	require.NoError(t, tangle.Prune())
 
 	// generate the messages we want to solidify
 	messages := make(map[MessageID]*Message, solidMsgCount)
@@ -421,12 +418,12 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 	)
 
 	// filter rejected events
-	msgParser.Events.MessageRejected.Attach(events.NewClosure(func(msgRejectedEvent *MessageRejectedEvent, _ error) {
+	tangle.Parser.Events.MessageRejected.Attach(events.NewClosure(func(msgRejectedEvent *MessageRejectedEvent, _ error) {
 		n := atomic.AddInt32(&rejectedMessages, 1)
 		t.Logf("rejected by message filter messages %d/%d", n, totalMsgCount)
 	}))
 
-	msgParser.Events.MessageParsed.Attach(events.NewClosure(func(msgParsedEvent *MessageParsedEvent) {
+	tangle.Parser.Events.MessageParsed.Attach(events.NewClosure(func(msgParsedEvent *MessageParsedEvent) {
 		n := atomic.AddInt32(&parsedMessages, 1)
 		t.Logf("parsed messages %d/%d", n, totalMsgCount)
 

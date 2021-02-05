@@ -126,7 +126,7 @@ func configureMessageLayer() {
 
 	// configure flow of incoming messages
 	mgr.Events().MessageReceived.Attach(events.NewClosure(func(event *gossip.MessageReceivedEvent) {
-		messagelayer.Tangle().Parser.Parse(event.Data, event.Peer)
+		messagelayer.Tangle().ProcessGossipMessage(event.Data, event.Peer)
 	}))
 
 	// configure flow of outgoing messages (gossip on solidification)

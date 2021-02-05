@@ -22,8 +22,6 @@ var (
 	// plugin is the plugin instance of the message layer plugin.
 	plugin           *node.Plugin
 	pluginOnce       sync.Once
-	messageParser    *tangle.MessageParser
-	msgParserOnce    sync.Once
 	messageRequester *tangle.MessageRequester
 	msgReqOnce       sync.Once
 	tipSelector      *tangle.MessageTipSelector
@@ -92,12 +90,6 @@ func configure(*node.Plugin) {
 		log.Errorf("internal error in message factory: %v", err)
 	}))
 
-	// setup messageParser
-	messageParser.Events.MessageParsed.Attach(events.NewClosure(func(msgParsedEvent *tangle.MessageParsedEvent) {
-		// TODO: ADD PEER
-		tangleInstance.Storage.StoreMessage(msgParsedEvent.Message)
-	}))
-
 	// setup messageRequester
 	tangleInstance.Storage.Events.MessageMissing.Attach(events.NewClosure(messageRequester.StartRequest))
 	tangleInstance.Storage.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
@@ -118,7 +110,6 @@ func configure(*node.Plugin) {
 }
 
 func run(*node.Plugin) {
-	messageParser.Setup()
 	if err := daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
 		<-shutdownSignal
 		messageFactory.Shutdown()
