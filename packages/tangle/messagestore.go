@@ -180,6 +180,14 @@ func (m *MessageStore) Attachments(transactionID ledgerstate.TransactionID) (cac
 	return
 }
 
+// AttachmentMessageIDs returns the messageIDs of the transaction in attachmentStorage.
+func (m *MessageStore) AttachmentMessageIDs(transactionID ledgerstate.TransactionID) (messageIDs MessageIDs) {
+	m.Attachments(transactionID).Consume(func(attachment *Attachment) {
+		messageIDs = append(messageIDs, attachment.MessageID())
+	})
+	return
+}
+
 // DeleteMessage deletes a message and its association to approvees by un-marking the given
 // message as an approver.
 func (m *MessageStore) DeleteMessage(messageID MessageID) {

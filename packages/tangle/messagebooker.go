@@ -187,11 +187,7 @@ func (m *MessageBooker) referencedTransactionIDs(transaction *ledgerstate.Transa
 
 // Attachments retrieves the attachments of a transaction.
 func (m *MessageBooker) Attachments(transactionID ledgerstate.TransactionID) (attachments MessageIDs) {
-	cachedAttachments := m.messageStore.Attachments(transactionID)
-	cachedAttachments.Consume(func(attachment *Attachment) {
-		attachments = append(attachments, attachment.MessageID())
-	})
-	return
+	return m.messageStore.AttachmentMessageIDs(transactionID)
 }
 
 func (m *MessageBooker) determineTargetBranch(branchIDsOfStrongParents ledgerstate.BranchIDs) (targetBranch ledgerstate.BranchID, err error) {

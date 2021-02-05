@@ -1,13 +1,12 @@
 package tangle
 
 import (
-	"fmt"
-
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
+	"golang.org/x/xerrors"
 )
 
 // Attachment stores the information which transaction was attached by which message. We need this to be able to perform
@@ -41,11 +40,11 @@ func AttachmentFromBytes(bytes []byte) (result *Attachment, consumedBytes int, e
 func ParseAttachment(marshalUtil *marshalutil.MarshalUtil) (result *Attachment, err error) {
 	result = &Attachment{}
 	if result.transactionID, err = ledgerstate.TransactionIDFromMarshalUtil(marshalUtil); err != nil {
-		err = fmt.Errorf("failed to parse transaction ID in attachment: %w", err)
+		err = xerrors.Errorf("failed to parse transaction ID in attachment: %w", err)
 		return
 	}
 	if result.messageID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
-		err = fmt.Errorf("failed to parse message ID in attachment: %w", err)
+		err = xerrors.Errorf("failed to parse message ID in attachment: %w", err)
 		return
 	}
 
@@ -54,51 +53,51 @@ func ParseAttachment(marshalUtil *marshalutil.MarshalUtil) (result *Attachment, 
 
 // AttachmentFromObjectStorage gets called when we restore an Attachment from the storage - it parses the key bytes and
 // returns the new object.
-func AttachmentFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
-	result, _, err = AttachmentFromBytes(byteutils.ConcatBytes(key, data))
+func AttachmentFromObjectStorage(key []byte, _ []byte) (result objectstorage.StorableObject, err error) {
+	result, _, err = AttachmentFromBytes(key)
 	if err != nil {
-		err = fmt.Errorf("failed to parse attachment from object storage: %w", err)
+		err = xerrors.Errorf("failed to parse attachment from object storage: %w", err)
 	}
 
 	return
 }
 
 // TransactionID returns the transactionID of this Attachment.
-func (attachment *Attachment) TransactionID() ledgerstate.TransactionID {
-	return attachment.transactionID
+func (a *Attachment) TransactionID() ledgerstate.TransactionID {
+	return a.transactionID
 }
 
 // MessageID returns the messageID of this Attachment.
-func (attachment *Attachment) MessageID() MessageID {
-	return attachment.messageID
+func (a *Attachment) MessageID() MessageID {
+	return a.messageID
 }
 
 // Bytes marshals the Attachment into a sequence of bytes.
-func (attachment *Attachment) Bytes() []byte {
-	return attachment.ObjectStorageKey()
+func (a *Attachment) Bytes() []byte {
+	return a.ObjectStorageKey()
 }
 
 // String returns a human readable version of the Attachment.
-func (attachment *Attachment) String() string {
+func (a *Attachment) String() string {
 	return stringify.Struct("Attachment",
-		stringify.StructField("transactionId", attachment.TransactionID()),
-		stringify.StructField("messageID", attachment.MessageID()),
+		stringify.StructField("transactionId", a.TransactionID()),
+		stringify.StructField("messageID", a.MessageID()),
 	)
 }
 
 // ObjectStorageKey returns the key that is used to store the object in the database.
-func (attachment *Attachment) ObjectStorageKey() []byte {
-	return byteutils.ConcatBytes(attachment.transactionID.Bytes(), attachment.MessageID().Bytes())
+func (a *Attachment) ObjectStorageKey() []byte {
+	return byteutils.ConcatBytes(a.transactionID.Bytes(), a.MessageID().Bytes())
 }
 
 // ObjectStorageValue marshals the "content part" of an Attachment to a sequence of bytes. Since all of the information
 // for this object are stored in its key, this method does nothing and is only required to conform with the interface.
-func (attachment *Attachment) ObjectStorageValue() (data []byte) {
+func (a *Attachment) ObjectStorageValue() (data []byte) {
 	return
 }
 
 // Update is disabled - updates are supposed to happen through the setters (if existing).
-func (attachment *Attachment) Update(other objectstorage.StorableObject) {
+func (a *Attachment) Update(other objectstorage.StorableObject) {
 	panic("update forbidden")
 }
 
