@@ -37,7 +37,7 @@ func New(store kvstore.KVStore) (tangle *Tangle) {
 
 // WalkMessageIDs is a generic Tangle walker that executes a custom callback for every visited MessageID, starting from
 // the given entry points. The callback should return the MessageIDs to be visited next.
-func (t *Tangle) WalkMessageIDs(callback func(messageID MessageID) (nextMessageIDsToVisit MessageIDs), entryPoints ...MessageID) {
+func (t *Tangle) WalkMessageIDs(callback func(messageID MessageID) (nextMessageIDsToVisit MessageIDs), entryPoints MessageIDs, revisit ...bool) {
 	if len(entryPoints) == 0 {
 		panic("you need to provide at least one entry point")
 	}
@@ -53,7 +53,7 @@ func (t *Tangle) WalkMessageIDs(callback func(messageID MessageID) (nextMessageI
 		stack.Remove(firstElement)
 
 		messageID := firstElement.Value.(MessageID)
-		if !processedMessageIDs.Add(messageID) {
+		if (len(revisit) == 0 || !revisit[0]) && !processedMessageIDs.Add(messageID) {
 			continue
 		}
 
@@ -65,7 +65,7 @@ func (t *Tangle) WalkMessageIDs(callback func(messageID MessageID) (nextMessageI
 
 // WalkMessages is generic Tangle walker that executes a custom callback for every visited Message and MessageMetadata,
 // starting from the given entry points. The callback should return the MessageIDs to be visited next.
-func (t *Tangle) WalkMessages(callback func(message *Message, messageMetadata *MessageMetadata) MessageIDs, entryPoints ...MessageID) {
+func (t *Tangle) WalkMessages(callback func(message *Message, messageMetadata *MessageMetadata) MessageIDs, entryPoints MessageIDs, revisit ...bool) {
 	t.WalkMessageIDs(func(messageID MessageID) (nextMessageIDsToVisit MessageIDs) {
 		t.Storage.Message(messageID).Consume(func(message *Message) {
 			t.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
@@ -74,7 +74,7 @@ func (t *Tangle) WalkMessages(callback func(message *Message, messageMetadata *M
 		})
 
 		return
-	}, entryPoints...)
+	}, entryPoints, revisit...)
 }
 
 // Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).

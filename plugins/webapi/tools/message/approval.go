@@ -22,7 +22,7 @@ var fileName = "approval-analysis.csv"
 func ApprovalHandler(c echo.Context) error {
 	path := config.Node().String(CfgExportPath)
 	res := &ApprovalResponse{}
-	res.Err = FirstApprovalAnalysis(local.GetInstance().Identity.ID().String(), path+fileName)
+	res.Err = firstApprovalAnalysis(local.GetInstance().Identity.ID().String(), path+fileName)
 	if res.Err != nil {
 		c.JSON(http.StatusInternalServerError, res)
 	}
@@ -36,7 +36,7 @@ type ApprovalResponse struct {
 
 // region Analysis code implementation /////////////////////////////////////////////////////////////////////////////////
 
-func FirstApprovalAnalysis(nodeID string, filePath string) (err error) {
+func firstApprovalAnalysis(nodeID string, filePath string) (err error) {
 	// If the file doesn't exist, create it, or truncate the file
 	f, err := os.Create(filePath)
 	if err != nil {
@@ -81,7 +81,7 @@ func FirstApprovalAnalysis(nodeID string, filePath string) (err error) {
 		})
 
 		return
-	}, tangle.EmptyMessageID)
+	}, tangle.MessageIDs{tangle.EmptyMessageID})
 
 	return
 }
