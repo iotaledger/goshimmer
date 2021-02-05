@@ -3,6 +3,7 @@ package tangle
 import (
 	"container/list"
 
+	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore"
 )
@@ -46,11 +47,17 @@ func (t *Tangle) WalkMessageIDs(callback func(messageID MessageID) (nextMessageI
 		stack.PushBack(messageID)
 	}
 
+	processedMessageIDs := set.New()
 	for stack.Len() > 0 {
 		firstElement := stack.Front()
 		stack.Remove(firstElement)
 
-		for _, nextMessageID := range callback(firstElement.Value.(MessageID)) {
+		messageID := firstElement.Value.(MessageID)
+		if !processedMessageIDs.Add(messageID) {
+			continue
+		}
+
+		for _, nextMessageID := range callback(messageID) {
 			stack.PushBack(nextMessageID)
 		}
 	}

@@ -125,9 +125,8 @@ func configure(*node.Plugin) {
 	}))
 
 	// setup tipSelector
-	tangleInstance.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
-		cachedMsgEvent.MessageMetadata.Release()
-		cachedMsgEvent.Message.Consume(tipSelector.AddTip)
+	tangleInstance.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		Tangle().Storage.Message(messageID).Consume(tipSelector.AddTip)
 	}))
 
 	MessageRequester().Events.MissingMessageAppeared.Attach(events.NewClosure(func(missingMessageAppeared *tangle.MissingMessageAppearedEvent) {
