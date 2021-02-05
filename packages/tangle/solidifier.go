@@ -45,7 +45,7 @@ func (s *Solidifier) checkMessageSolidity(message *Message, messageMetadata *Mes
 		return
 	}
 
-	if !s.isParentsValid(message) || !s.checkParentsAge(message) {
+	if !s.isParentsValid(message) {
 		if !messageMetadata.SetInvalid(true) {
 			return
 		}
@@ -100,37 +100,7 @@ func (s *Solidifier) isMessageMarkedAsSolid(messageID MessageID) (solid bool) {
 	return
 }
 
-// checkParentsAge checks whether the timestamp of each parent of the given message is valid.
-func (s *Solidifier) checkParentsAge(message *Message) (valid bool) {
-	if message == nil {
-		return
-	}
-
-	valid = true
-	message.ForEachParent(func(parent Parent) {
-		valid = valid && s.isAgeOfParentValid(message.IssuingTime(), parent.ID)
-	})
-
-	return
-}
-
-// isAgeOfParentValid checks whether the timestamp of a given parent passes the max-age check.
-func (s *Solidifier) isAgeOfParentValid(childMessageIssuingTime time.Time, parentID MessageID) (valid bool) {
-	// TODO: Improve this, otherwise any msg that approves genesis is always valid.
-	if parentID == EmptyMessageID {
-		return true
-	}
-
-	s.tangle.Storage.Message(parentID).Consume(func(parentMessage *Message) {
-		timeDifference := childMessageIssuingTime.Sub(parentMessage.IssuingTime())
-
-		valid = timeDifference >= minParentsTimeDifference && timeDifference <= maxParentsTimeDifference
-	})
-
-	return
-}
-
-// isParentsValid checks whether parents of the given message are valid.
+// isParentsValid checks whether the parents of the given message are valid.
 func (s *Solidifier) isParentsValid(message *Message) (valid bool) {
 	if message == nil || message.IsDeleted() {
 		return false
@@ -138,20 +108,26 @@ func (s *Solidifier) isParentsValid(message *Message) (valid bool) {
 
 	valid = true
 	message.ForEachParent(func(parent Parent) {
-		valid = valid && s.isMessageValid(parent.ID)
+		valid = valid && s.isParentValid(parent.ID, message.IssuingTime())
 	})
 
 	return
 }
 
-// isMessageValid checks whether the given message is valid.
-func (s *Solidifier) isMessageValid(messageID MessageID) (valid bool) {
-	if messageID == EmptyMessageID {
+// isParentValid checks whether the given parent is valid.
+func (s *Solidifier) isParentValid(parentMessageID MessageID, childMessageIssuingTime time.Time) (valid bool) {
+	if parentMessageID == EmptyMessageID {
 		return true
 	}
 
-	s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-		valid = !messageMetadata.IsInvalid()
+	s.tangle.Storage.Message(parentMessageID).Consume(func(parentMessage *Message) {
+		timeDifference := childMessageIssuingTime.Sub(parentMessage.IssuingTime())
+
+		valid = timeDifference >= minParentsTimeDifference && timeDifference <= maxParentsTimeDifference
+	})
+
+	s.tangle.Storage.MessageMetadata(parentMessageID).Consume(func(messageMetadata *MessageMetadata) {
+		valid = valid && !messageMetadata.IsInvalid()
 	})
 
 	return
