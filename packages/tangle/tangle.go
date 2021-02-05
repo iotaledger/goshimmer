@@ -1,14 +1,14 @@
 package tangle
 
 import (
-	"container/list"
 	"sync"
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore"
 )
+
+// region Tangle ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Tangle is the central data structure of the IOTA protocol.
 type Tangle struct {
@@ -18,6 +18,7 @@ type Tangle struct {
 	Booker         *MessageBooker
 	Requester      *MessageRequester
 	MessageFactory *MessageFactory
+	Utils          *Utils
 	Events         *Events
 
 	setupParserOnce sync.Once
@@ -27,10 +28,9 @@ type Tangle struct {
 func New(store kvstore.KVStore) (tangle *Tangle) {
 	tangle = &Tangle{
 		Events: &Events{
-			MessageUnsolidifiable: events.NewEvent(messageIDEventHandler),
-			MessageBooked:         events.NewEvent(cachedMessageEvent),
-			MessageEligible:       events.NewEvent(cachedMessageEvent),
-			MessageInvalid:        events.NewEvent(messageIDEventHandler),
+			MessageBooked:   events.NewEvent(cachedMessageEvent),
+			MessageEligible: events.NewEvent(cachedMessageEvent),
+			MessageInvalid:  events.NewEvent(messageIDEventHandler),
 		},
 	}
 
@@ -38,6 +38,7 @@ func New(store kvstore.KVStore) (tangle *Tangle) {
 	tangle.Parser = NewMessageParser()
 	tangle.Solidifier = NewSolidifier(tangle)
 	tangle.Storage = NewMessageStore(tangle, store)
+	tangle.Utils = NewUtils(tangle)
 
 	// setup data flow
 	tangle.Parser.Events.MessageParsed.Attach(events.NewClosure(func(msgParsedEvent *MessageParsedEvent) {
@@ -55,51 +56,6 @@ func (t *Tangle) ProcessGossipMessage(messageBytes []byte, peer *peer.Peer) {
 	t.Parser.Parse(messageBytes, peer)
 }
 
-// WalkMessageIDs is a generic Tangle walker that executes a custom callback for every visited MessageID, starting from
-// the given entry points. The callback should return the MessageIDs to be visited next. It accepts an optional boolean
-// parameter which can be set to true if a Message should be visited more than once following different paths.
-func (t *Tangle) WalkMessageIDs(callback func(messageID MessageID) (nextMessageIDsToVisit MessageIDs), entryPoints MessageIDs, revisit ...bool) {
-	if len(entryPoints) == 0 {
-		panic("you need to provide at least one entry point")
-	}
-
-	stack := list.New()
-	for _, messageID := range entryPoints {
-		stack.PushBack(messageID)
-	}
-
-	processedMessageIDs := set.New()
-	for stack.Len() > 0 {
-		firstElement := stack.Front()
-		stack.Remove(firstElement)
-
-		messageID := firstElement.Value.(MessageID)
-		if (len(revisit) == 0 || !revisit[0]) && !processedMessageIDs.Add(messageID) {
-			continue
-		}
-
-		for _, nextMessageID := range callback(messageID) {
-			stack.PushBack(nextMessageID)
-		}
-	}
-}
-
-// WalkMessages is generic Tangle walker that executes a custom callback for every visited Message and MessageMetadata,
-// starting from the given entry points. The callback should return the MessageIDs to be visited next. It accepts an
-// optional boolean parameter which can be set to true if a Message should be visited more than once following different
-// paths.
-func (t *Tangle) WalkMessages(callback func(message *Message, messageMetadata *MessageMetadata) MessageIDs, entryPoints MessageIDs, revisit ...bool) {
-	t.WalkMessageIDs(func(messageID MessageID) (nextMessageIDsToVisit MessageIDs) {
-		t.Storage.Message(messageID).Consume(func(message *Message) {
-			t.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-				nextMessageIDsToVisit = callback(message, messageMetadata)
-			})
-		})
-
-		return
-	}, entryPoints, revisit...)
-}
-
 // Prune resets the database and deletes all stored objects (good for testing or "node resets").
 func (t *Tangle) Prune() (err error) {
 	return t.Storage.Prune()
@@ -109,3 +65,28 @@ func (t *Tangle) Prune() (err error) {
 func (t *Tangle) Shutdown() {
 	t.Storage.Shutdown()
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Events ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Events represents events happening in the Tangle.
+type Events struct {
+	// MessageInvalid is triggered when a Message is detected to be objectively invalid.
+	MessageInvalid *events.Event
+
+	// Fired when a message has been booked to the Tangle
+	MessageBooked *events.Event
+
+	// Fired when a message has been eligible.
+	MessageEligible *events.Event
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type options struct {
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

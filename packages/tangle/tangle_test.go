@@ -126,10 +126,6 @@ func TestTangle_StoreMessage(t *testing.T) {
 		fmt.Println("SOLID:", messageID)
 	}))
 
-	messageTangle.Events.MessageUnsolidifiable.Attach(events.NewClosure(func(messageId MessageID) {
-		fmt.Println("UNSOLIDIFIABLE:", messageId)
-	}))
-
 	messageTangle.Storage.Events.MessageMissing.Attach(events.NewClosure(func(messageId MessageID) {
 		fmt.Println("MISSING:", messageId)
 	}))

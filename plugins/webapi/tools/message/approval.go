@@ -51,7 +51,7 @@ func firstApprovalAnalysis(nodeID string, filePath string) (err error) {
 		return err
 	}
 
-	messagelayer.Tangle().WalkMessageIDs(func(msgID tangle.MessageID) (nextMessageIDsToVisit tangle.MessageIDs) {
+	messagelayer.Tangle().Utils.WalkMessageIDs(func(msgID tangle.MessageID) (nextMessageIDsToVisit tangle.MessageIDs) {
 		approverInfo, err := firstApprovers(msgID)
 		// firstApprovers returns an error when the msgID is a tip, thus
 		// we want to stop the computation but continue with the future cone iteration.

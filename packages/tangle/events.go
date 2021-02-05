@@ -5,19 +5,6 @@ import (
 	"github.com/iotaledger/hive.go/events"
 )
 
-// Events represents events happening on the base layer Tangle.
-type Events struct {
-	// Fired when a message was missing for too long and is
-	// therefore considered to be unsolidifiable.
-	MessageUnsolidifiable *events.Event
-	// Fired when a message has been booked to the Tangle
-	MessageBooked *events.Event
-	// Fired when a message has been eligible.
-	MessageEligible *events.Event
-	// Fired when a message is Invalid.
-	MessageInvalid *events.Event
-}
-
 // CachedMessageEvent represents the parameters of cachedMessageEvent
 type CachedMessageEvent struct {
 	Message         *CachedMessage

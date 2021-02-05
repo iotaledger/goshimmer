@@ -37,7 +37,7 @@ func NewSolidifier(tangle *Tangle) (solidifier *Solidifier) {
 
 // Solidify solidifies the given Message.
 func (s *Solidifier) Solidify(messageID MessageID) {
-	s.tangle.WalkMessages(s.checkMessageSolidity, MessageIDs{messageID}, true)
+	s.tangle.Utils.WalkMessages(s.checkMessageSolidity, MessageIDs{messageID}, true)
 }
 
 // checkMessageSolidity checks if the given Message is solid and eventually queues its Approvers to also be checked.
