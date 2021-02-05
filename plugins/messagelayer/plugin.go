@@ -95,12 +95,7 @@ func configure(*node.Plugin) {
 	tangleInstance = Tangle()
 
 	// setup solidification
-	tangleInstance.Storage.Events.MessageStored.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
-		cachedMsgEvent.MessageMetadata.Release()
-		cachedMsgEvent.Message.Consume(func(message *tangle.Message) {
-			tangleInstance.Solidifier.Solidify(message.ID())
-		})
-	}))
+	tangleInstance.Storage.Events.MessageStored.Attach(events.NewClosure(tangleInstance.Solidifier.Solidify))
 
 	// Setup messageFactory (behavior + logging))
 	messageFactory = MessageFactory()
