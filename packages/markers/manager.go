@@ -149,7 +149,9 @@ func (m *Manager) IsInPastCone(earlierStructureDetails *StructureDetails, laterS
 			panic("failed to retrieve Marker")
 		}
 
-		if laterIndex, sequenceExists := laterStructureDetails.PastMarkers.Get(earlierMarker.sequenceID); sequenceExists {
+		// If laterStructureDetails has a past marker in the same sequence of the earlier with a higher index
+		// the earlier one is in its past cone.
+		if laterIndex, sequenceExists := laterStructureDetails.PastMarkers.Get(earlierMarker.sequenceID); sequenceExists {	
 			if laterIndex >= earlierMarker.index {
 				return True
 			}
@@ -157,6 +159,7 @@ func (m *Manager) IsInPastCone(earlierStructureDetails *StructureDetails, laterS
 			return False
 		}
 
+		// If laterStructureDetails has no past marker in the same sequence of the earlier
 		if laterStructureDetails.PastMarkers.HighestIndex() <= earlierMarker.index {
 			return False
 		}
