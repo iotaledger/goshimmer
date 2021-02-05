@@ -22,7 +22,7 @@ type Solidifier struct {
 	tangle *Tangle
 }
 
-// NewSolidifier is the constructor of Solidifier.
+// NewSolidifier is the constructor of the Solidifier.
 func NewSolidifier(tangle *Tangle) (solidifier *Solidifier) {
 	solidifier = &Solidifier{
 		Events: &SolidifierEvents{
