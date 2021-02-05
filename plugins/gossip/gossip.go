@@ -93,7 +93,7 @@ func start(shutdownSignal <-chan struct{}) {
 
 // loads the given message from the message layer and returns it or an error if not found.
 func loadMessage(msgID tangle.MessageID) ([]byte, error) {
-	cachedMessage := messagelayer.Tangle().Message(msgID)
+	cachedMessage := messagelayer.Tangle().Storage.Message(msgID)
 	defer cachedMessage.Release()
 	if !cachedMessage.Exists() {
 		return nil, ErrMessageNotFound

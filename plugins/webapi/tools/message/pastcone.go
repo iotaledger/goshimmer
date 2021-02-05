@@ -39,8 +39,8 @@ func PastconeHandler(c echo.Context) error {
 		stack.Remove(currentMsgElement)
 
 		// ask node if it has it
-		msgObject := messagelayer.Tangle().Message(currentMsgID)
-		msgMetadataObject := messagelayer.Tangle().MessageMetadata(currentMsgID)
+		msgObject := messagelayer.Tangle().Storage.Message(currentMsgID)
+		msgMetadataObject := messagelayer.Tangle().Storage.MessageMetadata(currentMsgID)
 
 		if !msgObject.Exists() || !msgMetadataObject.Exists() {
 			return c.JSON(http.StatusOK, PastconeResponse{Exist: false, PastConeSize: checkedMessageCount, Error: fmt.Sprintf("couldn't find %s message on node", currentMsgID)})

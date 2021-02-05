@@ -56,7 +56,7 @@ func configure(_ *node.Plugin) {
 
 	if config.Node().Bool(CfgSyncBeaconStartSynced) {
 		log.Infof("Retrieving all the tips")
-		messagelayer.TipSelector().Set(messagelayer.Tangle().RetrieveAllTips()...)
+		messagelayer.TipSelector().Set(messagelayer.Tangle().Storage.RetrieveAllTips()...)
 
 		syncbeaconfollower.OverwriteSyncedState(true)
 		log.Infof("overwriting synced state to 'true'")

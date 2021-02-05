@@ -10,7 +10,7 @@ import (
 // MissingHandler process missing requests.
 func MissingHandler(c echo.Context) error {
 	res := &MissingResponse{}
-	missingIDs := messagelayer.Tangle().MissingMessages()
+	missingIDs := messagelayer.Tangle().Storage.MissingMessages()
 	for _, msg := range missingIDs {
 		res.IDs = append(res.IDs, msg.String())
 	}

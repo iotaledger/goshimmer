@@ -153,7 +153,7 @@ func configure(_ *node.Plugin) {
 
 	// subscribe to message-layer
 	receiveMessageClosure = events.NewClosure(onReceiveMessageFromMessageLayer)
-	messagelayer.Tangle().Events.MessageSolid.Attach(receiveMessageClosure)
+	messagelayer.Tangle().Solidifier.Events.MessageSolid.Attach(receiveMessageClosure)
 }
 
 func run(*node.Plugin) {
@@ -162,7 +162,7 @@ func run(*node.Plugin) {
 		// TODO: make this better
 		// stop listening to stuff from the message tangle. By the time we are here, gossip and autopeering have already
 		// been shutdown, so no new incoming messages should appear.
-		messagelayer.Tangle().Events.MessageSolid.Detach(receiveMessageClosure)
+		messagelayer.Tangle().Solidifier.Events.MessageSolid.Detach(receiveMessageClosure)
 		// wait one network delay to be sure that all scheduled setPreferred are triggered in fcob. Otherwise, we would
 		// try to access an already shutdown objectstorage in fcob.
 		cfgAvgNetworkDelay := config.Node().Int(CfgValueLayerFCOBAverageNetworkDelay)
@@ -173,30 +173,22 @@ func run(*node.Plugin) {
 	}
 }
 
-func onReceiveMessageFromMessageLayer(cachedMessageEvent *tangle.CachedMessageEvent) {
-	defer cachedMessageEvent.Message.Release()
-	defer cachedMessageEvent.MessageMetadata.Release()
+func onReceiveMessageFromMessageLayer(messageID tangle.MessageID) {
+	messagelayer.Tangle().Storage.Message(messageID).Consume(func(solidMessage *tangle.Message) {
+		messagePayload := solidMessage.Payload()
+		if messagePayload.Type() != valuepayload.Type {
+			return
+		}
 
-	solidMessage := cachedMessageEvent.Message.Unwrap()
-	if solidMessage == nil {
-		log.Debug("failed to unpack solid message from message layer")
+		valuePayload, ok := messagePayload.(*valuepayload.Payload)
+		if !ok {
+			log.Debug("could not cast payload to value payload")
 
-		return
-	}
+			return
+		}
 
-	messagePayload := solidMessage.Payload()
-	if messagePayload.Type() != valuepayload.Type {
-		return
-	}
-
-	valuePayload, ok := messagePayload.(*valuepayload.Payload)
-	if !ok {
-		log.Debug("could not cast payload to value payload")
-
-		return
-	}
-
-	_tangle.AttachPayload(valuePayload)
+		_tangle.AttachPayload(valuePayload)
+	})
 }
 
 // TipManager returns the TipManager singleton.

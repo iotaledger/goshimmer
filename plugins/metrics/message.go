@@ -161,7 +161,7 @@ func measureRequestQueueSize() {
 }
 
 func measureInitialDBStats() {
-	solid, total, avgSolidTime, missing := messagelayer.Tangle().DBStats()
+	solid, total, avgSolidTime, missing := messagelayer.Tangle().Storage.DBStats()
 	initialMessageSolidCountDB = uint64(solid)
 	initialMessageTotalCountDB = uint64(total)
 	initialSumSolidificationTime = avgSolidTime * float64(solid)
