@@ -9,8 +9,15 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func newMessageStore() *MessageStore {
+	tangle := &Tangle{
+		Events: newEvents(),
+	}
+	store := mapdb.NewMapDB()
+	return NewMessageStore(tangle, store)
+}
 func TestMessageStore_StoreAttachment(t *testing.T) {
-	msgStore := NewMessageStore(mapdb.NewMapDB())
+	msgStore := newMessageStore()
 	defer msgStore.Shutdown()
 
 	transactionID, err := ledgerstate.TransactionIDFromRandomness()
@@ -28,7 +35,7 @@ func TestMessageStore_StoreAttachment(t *testing.T) {
 }
 
 func TestMessageStore_Attachments(t *testing.T) {
-	msgStore := NewMessageStore(mapdb.NewMapDB())
+	msgStore := newMessageStore()
 	defer msgStore.Shutdown()
 
 	attachments := make(map[ledgerstate.TransactionID]int)
