@@ -1,44 +1,59 @@
-package fcob
+package tangle
 
 import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/timedexecutor"
 )
 
+// Events defines all the events related to the opinion manager.
+type OpinionFormenrEvents struct {
+	// Fired when an opinion of a payload is formed.
+	PayloadOpinionFormed *events.Event
+}
+
+// PayloadOpinionFormedEvent holds data about a PayloadOpinionFormed event.
+type PayloadOpinionFormedEvent struct {
+	// The messageID of the message containing the payload.
+	MessageID MessageID
+	// The opinion of the payload.
+	Opinion *Opinion
+}
+
+func payloadOpinionCaller(handler interface{}, params ...interface{}) {
+	handler.(func(*PayloadOpinionFormedEvent))(params[0].(*PayloadOpinionFormedEvent))
+}
+
 var (
 	LikedThreshold = 5 * time.Second
 
 	LocallyFinalizedThreshold = 10 * time.Second
 
-	onMessageBooked = events.NewClosure(func(cachedMessageEvent *tangle.CachedMessageEvent) {})
+	onMessageBooked = events.NewClosure(func(cachedMessageEvent *CachedMessageEvent) {})
 )
 
 type Manager struct {
-	utxoDAG        *ledgerstate.UTXODAG
-	branchDAG      *ledgerstate.BranchDAG
+	tangle         *Tangle
 	opinionStorage *objectstorage.ObjectStorage
 
 	likedThresholdExecutor *timedexecutor.TimedExecutor
 
 	locallyFinalizedExecutor *timedexecutor.TimedExecutor
 
-	events Events
+	events OpinionFormenrEvents
 }
 
-func NewManager(store kvstore.KVStore, utxoDAG *ledgerstate.UTXODAG, branchDAG *ledgerstate.BranchDAG) (manager *Manager) {
+func NewManager(store kvstore.KVStore, tangle *Tangle) (manager *Manager) {
 	manager = &Manager{
-		utxoDAG:                  utxoDAG,
-		branchDAG:                branchDAG,
+		tangle:                   tangle,
 		likedThresholdExecutor:   timedexecutor.New(1),
 		locallyFinalizedExecutor: timedexecutor.New(1),
-		events: Events{
+		events: OpinionFormenrEvents{
 			PayloadOpinionFormed: events.NewEvent(payloadOpinionCaller),
 		},
 	}
@@ -60,7 +75,7 @@ func (m *Manager) flow(transactionID ledgerstate.TransactionID) {
 	var opinion *Opinion
 	var timestamp time.Time
 
-	m.utxoDAG.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+	m.tangle.Booker.utxoDAG.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 		timestamp = transactionMetadata.SolidificationTime()
 	})
 
@@ -88,13 +103,11 @@ func (m *Manager) flow(transactionID ledgerstate.TransactionID) {
 	m.likedThresholdExecutor.ExecuteAt(func() {
 		if m.isConflicting(transactionID) {
 			opinion.SetLevelOfKnowledge(One)
-			m.opinionStorage.Store(opinion).Release()
 			//trigger voting for this transactionID
 		}
 
 		opinion.SetLiked(true)
 		opinion.SetLevelOfKnowledge(One)
-		m.opinionStorage.Store(opinion).Release()
 
 		// Wait LocallyFinalizedThreshold
 		m.locallyFinalizedExecutor.ExecuteAt(func() {
@@ -104,7 +117,6 @@ func (m *Manager) flow(transactionID ledgerstate.TransactionID) {
 
 			opinion.SetLiked(true)
 			opinion.SetLevelOfKnowledge(Two)
-			m.opinionStorage.Store(opinion).Release()
 		}, timestamp.Add(LocallyFinalizedThreshold))
 
 	}, timestamp.Add(LikedThreshold))
@@ -120,7 +132,7 @@ func (m *Manager) Opinions(conflictSet []ledgerstate.TransactionID) (opinions []
 }
 
 func (m *Manager) isConflicting(transactionID ledgerstate.TransactionID) bool {
-	cachedTransactionMetadata := m.utxoDAG.TransactionMetadata(transactionID)
+	cachedTransactionMetadata := m.tangle.Booker.utxoDAG.TransactionMetadata(transactionID)
 	defer cachedTransactionMetadata.Release()
 
 	transactionMetadata := cachedTransactionMetadata.Unwrap()
@@ -129,12 +141,12 @@ func (m *Manager) isConflicting(transactionID ledgerstate.TransactionID) bool {
 
 func (m *Manager) conflictSet(transactionID ledgerstate.TransactionID) (conflictSet []ledgerstate.TransactionID) {
 	conflictIDs := make(ledgerstate.ConflictIDs)
-	m.branchDAG.Branch(ledgerstate.NewBranchID(transactionID)).Consume(func(branch ledgerstate.Branch) {
+	m.tangle.Booker.branchDAG.Branch(ledgerstate.NewBranchID(transactionID)).Consume(func(branch ledgerstate.Branch) {
 		conflictIDs = branch.(*ledgerstate.ConflictBranch).Conflicts()
 	})
 
 	for conflictID := range conflictIDs {
-		m.branchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
+		m.tangle.Booker.branchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
 			conflictSet = append(conflictSet, ledgerstate.TransactionID(conflictMember.BranchID()))
 		})
 	}
@@ -161,7 +173,7 @@ func (m *Manager) Opinion(transactionID ledgerstate.TransactionID) (opinion *Opi
 // }
 
 func (m *Manager) deriveOpinion(transactionID ledgerstate.TransactionID) (opinion *Opinion) {
-	m.utxoDAG.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+	m.tangle.Booker.utxoDAG.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 		if transactionMetadata.Finalized() {
 			opinion = &Opinion{
 				liked:            true,

@@ -1,4 +1,4 @@
-package fcob
+package tangle
 
 import (
 	"sync"
