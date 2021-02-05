@@ -43,14 +43,6 @@ func Plugin() *node.Plugin {
 	return plugin
 }
 
-// MessageParser gets the messageParser instance.
-func MessageParser() *tangle.MessageParser {
-	msgParserOnce.Do(func() {
-		messageParser = tangle.NewMessageParser()
-	})
-	return messageParser
-}
-
 // TipSelector gets the tipSelector instance.
 func TipSelector() *tangle.MessageTipSelector {
 	tipSelectorOnce.Do(func() {
@@ -89,7 +81,6 @@ func configure(*node.Plugin) {
 	log = logger.NewLogger(PluginName)
 
 	// create instances
-	messageParser = MessageParser()
 	messageRequester = MessageRequester()
 	tipSelector = TipSelector()
 	tangleInstance = Tangle()

@@ -26,6 +26,7 @@ func New(store kvstore.KVStore) (tangle *Tangle) {
 	}
 
 	// initialize components
+	tangle.Parser = NewMessageParser()
 	tangle.Solidifier = NewSolidifier(tangle)
 	tangle.Storage = NewMessageStore(tangle, store)
 
