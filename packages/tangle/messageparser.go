@@ -30,6 +30,7 @@ func NewMessageParser() (result *MessageParser) {
 	// add builtin filters
 	result.AddBytesFilter(NewRecentlySeenBytesFilter())
 	result.AddMessageFilter(NewMessageSignatureFilter())
+	result.AddMessageFilter(NewMessageContainingTransactionFilter())
 	return
 }
 
