@@ -19,8 +19,6 @@ type MessageStoreEvents struct {
 	MessageRemoved *events.Event
 	// Fired when a message which was previously marked as missing was received.
 	MissingMessageReceived *events.Event
-	// Fired when a message is missing which is needed to solidify a given approver message.
-	MessageMissing *events.Event
 }
 
 func newMessageStoreEvents() *MessageStoreEvents {
@@ -28,7 +26,6 @@ func newMessageStoreEvents() *MessageStoreEvents {
 		MessageStored:          events.NewEvent(messageIDEventHandler),
 		MessageRemoved:         events.NewEvent(messageIDEventHandler),
 		MissingMessageReceived: events.NewEvent(cachedMessageEvent),
-		MessageMissing:         events.NewEvent(messageIDEventHandler),
 	}
 }
 

@@ -12,13 +12,13 @@ const (
 	maxRequestThreshold = 500
 )
 
-// Options holds options for a message requester.
-type Options struct {
+// MessageRequesterOptions holds options for a message requester.
+type MessageRequesterOptions struct {
 	retryInterval time.Duration
 }
 
-func newOptions(optionalOptions []Option) *Options {
-	result := &Options{
+func newMessageRequesterOptions(optionalOptions []MessageRequesterOption) *MessageRequesterOptions {
+	result := &MessageRequesterOptions{
 		retryInterval: 10 * time.Second,
 	}
 
@@ -29,12 +29,12 @@ func newOptions(optionalOptions []Option) *Options {
 	return result
 }
 
-// Option is a function which inits an option.
-type Option func(*Options)
+// MessageRequesterOption is a function which inits an option.
+type MessageRequesterOption func(*MessageRequesterOptions)
 
 // RetryInterval creates an option which sets the retry interval to the given value.
-func RetryInterval(interval time.Duration) Option {
-	return func(args *Options) {
+func RetryInterval(interval time.Duration) MessageRequesterOption {
+	return func(args *MessageRequesterOptions) {
 		args.retryInterval = interval
 	}
 }
@@ -42,7 +42,7 @@ func RetryInterval(interval time.Duration) Option {
 // MessageRequester takes care of requesting messages.
 type MessageRequester struct {
 	scheduledRequests map[MessageID]*time.Timer
-	options           *Options
+	options           *MessageRequesterOptions
 	Events            *MessageRequesterEvents
 
 	scheduledRequestsMutex sync.RWMutex
@@ -52,10 +52,10 @@ type MessageRequester struct {
 type MessageExistsFunc func(messageId MessageID) bool
 
 // NewMessageRequester creates a new message requester.
-func NewMessageRequester(missingMessages []MessageID, optionalOptions ...Option) *MessageRequester {
+func NewMessageRequester(missingMessages []MessageID, optionalOptions ...MessageRequesterOption) *MessageRequester {
 	requester := &MessageRequester{
 		scheduledRequests: make(map[MessageID]*time.Timer),
-		options:           newOptions(optionalOptions),
+		options:           newMessageRequesterOptions(optionalOptions),
 		Events:            newMessageRequesterEvents(),
 	}
 

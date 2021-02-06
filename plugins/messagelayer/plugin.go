@@ -91,7 +91,7 @@ func configure(*node.Plugin) {
 	}))
 
 	// setup messageRequester
-	tangleInstance.Storage.Events.MessageMissing.Attach(events.NewClosure(messageRequester.StartRequest))
+	tangleInstance.Solidifier.Events.MessageMissing.Attach(events.NewClosure(messageRequester.StartRequest))
 	tangleInstance.Storage.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
 		cachedMsgEvent.MessageMetadata.Release()
 		cachedMsgEvent.Message.Consume(func(msg *tangle.Message) {

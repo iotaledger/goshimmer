@@ -57,9 +57,9 @@ func (m *Booker) Book(messageID MessageID) (err error) {
 				combinedBranches = combinedBranches.Add(targetBranch)
 			}
 
-			inheritedBranch, err := m.tangle.LedgerState.InheritBranch(combinedBranches)
-			if err != nil {
-				err = xerrors.Errorf("failed to inherit Branch when booking Message with %s: %w", message.ID(), err)
+			inheritedBranch, inheritErr := m.tangle.LedgerState.InheritBranch(combinedBranches)
+			if inheritErr != nil {
+				err = xerrors.Errorf("failed to inherit Branch when booking Message with %s: %w", message.ID(), inheritErr)
 				return
 			}
 

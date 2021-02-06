@@ -126,7 +126,7 @@ func TestTangle_StoreMessage(t *testing.T) {
 		fmt.Println("SOLID:", messageID)
 	}))
 
-	messageTangle.Storage.Events.MessageMissing.Attach(events.NewClosure(func(messageId MessageID) {
+	messageTangle.Solidifier.Events.MessageMissing.Attach(events.NewClosure(func(messageId MessageID) {
 		fmt.Println("MISSING:", messageId)
 	}))
 
@@ -223,7 +223,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 	}))
 
 	// increase the counter when a missing message was detected
-	tangle.Storage.Events.MessageMissing.Attach(events.NewClosure(func(messageId MessageID) {
+	tangle.Solidifier.Events.MessageMissing.Attach(events.NewClosure(func(messageId MessageID) {
 		atomic.AddInt32(&missingMessages, 1)
 
 		// store the message after it has been requested
@@ -440,7 +440,7 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 	}))
 
 	// increase the counter when a missing message was detected
-	tangle.Storage.Events.MessageMissing.Attach(events.NewClosure(func(messageId MessageID) {
+	tangle.Solidifier.Events.MessageMissing.Attach(events.NewClosure(func(messageId MessageID) {
 		atomic.AddInt32(&missingMessages, 1)
 
 		// push the message into the gossip inboxWP

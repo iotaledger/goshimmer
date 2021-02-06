@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/types"
 )
 
-// Tangle represents the base layer of messages.
+// OldTangle represents the base layer of messages.
 type OldTangle struct {
 	*MessageStore
 

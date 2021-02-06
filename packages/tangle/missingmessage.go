@@ -7,7 +7,10 @@ import (
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
+	"github.com/iotaledger/hive.go/stringify"
 )
+
+// region MissingMessage ///////////////////////////////////////////////////////////////////////////////////////////////
 
 // MissingMessage represents a missing message.
 type MissingMessage struct {
@@ -97,3 +100,60 @@ func (m *MissingMessage) ObjectStorageValue() (result []byte) {
 
 	return
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region CachedMissingMessage /////////////////////////////////////////////////////////////////////////////////////////
+
+// CachedMissingMessage is a wrapper for the generic CachedObject returned by the object storage that overrides the
+// accessor methods with a type-casted one.
+type CachedMissingMessage struct {
+	objectstorage.CachedObject
+}
+
+// ID returns the MissingMessageID of the requested MissingMessage.
+func (c *CachedMissingMessage) ID() (id MessageID) {
+	id, _, err := MessageIDFromBytes(c.Key())
+	if err != nil {
+		panic(err)
+	}
+
+	return
+}
+
+// Retain marks the CachedObject to still be in use by the program.
+func (c *CachedMissingMessage) Retain() *CachedMissingMessage {
+	return &CachedMissingMessage{c.CachedObject.Retain()}
+}
+
+// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
+func (c *CachedMissingMessage) Unwrap() *MissingMessage {
+	untypedObject := c.Get()
+	if untypedObject == nil {
+		return nil
+	}
+
+	typedObject := untypedObject.(*MissingMessage)
+	if typedObject == nil || typedObject.IsDeleted() {
+		return nil
+	}
+
+	return typedObject
+}
+
+// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
+// exists). It automatically releases the object when the consumer finishes.
+func (c *CachedMissingMessage) Consume(consumer func(missingMessage *MissingMessage), forceRelease ...bool) (consumed bool) {
+	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*MissingMessage))
+	}, forceRelease...)
+}
+
+// String returns a human readable version of the CachedMissingMessage.
+func (c *CachedMissingMessage) String() string {
+	return stringify.Struct("CachedMissingMessage",
+		stringify.StructField("CachedObject", c.Unwrap()),
+	)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

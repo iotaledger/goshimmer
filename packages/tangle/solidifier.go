@@ -27,7 +27,8 @@ type Solidifier struct {
 func NewSolidifier(tangle *Tangle) (solidifier *Solidifier) {
 	solidifier = &Solidifier{
 		Events: &SolidifierEvents{
-			MessageSolid: events.NewEvent(messageIDEventHandler),
+			MessageSolid:   events.NewEvent(messageIDEventHandler),
+			MessageMissing: events.NewEvent(messageIDEventHandler),
 		},
 
 		tangle: tangle,
@@ -91,7 +92,17 @@ func (s *Solidifier) isMessageMarkedAsSolid(messageID MessageID) (solid bool) {
 		return true
 	}
 
-	s.tangle.Storage.StoreIfMissingMessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+	s.tangle.Storage.MessageMetadata(messageID, func() *MessageMetadata {
+		if cachedMissingMessage, stored := s.tangle.Storage.StoreMissingMessage(NewMissingMessage(messageID)); stored {
+			cachedMissingMessage.Consume(func(missingMessage *MissingMessage) {
+				s.Events.MessageMissing.Trigger(messageID)
+			})
+		}
+
+		// do not initialize the metadata here, we execute this in the optional ComputeIfAbsent callback to be secure
+		// from race conditions
+		return nil
+	}).Consume(func(messageMetadata *MessageMetadata) {
 		solid = messageMetadata.IsSolid()
 	})
 
@@ -135,6 +146,9 @@ func (s *Solidifier) isParentMessageValid(parentMessageID MessageID, childMessag
 type SolidifierEvents struct {
 	// MessageSolid is triggered when a message becomes solid, i.e. its past cone is known and solid.
 	MessageSolid *events.Event
+
+	// MessageMissing is triggered when a message references an unknown parent Message.
+	MessageMissing *events.Event
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

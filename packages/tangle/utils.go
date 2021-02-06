@@ -160,6 +160,8 @@ func (u *Utils) MessageStronglyApprovedBy(approvedMessageID MessageID, approving
 	return
 }
 
+// ApprovingMessageIDs returns the MessageIDs that approve a given Message. It accepts an optional ApproverType to
+// filter the Approvers.
 func (u *Utils) ApprovingMessageIDs(messageID MessageID, optionalApproverType ...ApproverType) (approvingMessageIDs MessageIDs) {
 	approvingMessageIDs = make(MessageIDs, 0)
 	u.tangle.Storage.Approvers(messageID, optionalApproverType...).Consume(func(approver *Approver) {

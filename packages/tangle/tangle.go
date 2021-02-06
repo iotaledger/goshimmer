@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"sync"
+	"time"
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/events"
@@ -86,7 +87,21 @@ type Events struct {
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-type options struct {
+type Option func(*Tangle)
+
+type Options struct {
+}
+
+func PoW(interval time.Duration) MessageRequesterOption {
+	return func(args *MessageRequesterOptions) {
+		args.retryInterval = interval
+	}
+}
+
+func PoWDifficulty(difficulty int) Option {
+	return func(tangle *Tangle) {
+
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

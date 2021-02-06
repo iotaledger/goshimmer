@@ -110,24 +110,15 @@ func (m *MessageStore) Message(messageID MessageID) *CachedMessage {
 	return &CachedMessage{CachedObject: m.messageStorage.Load(messageID[:])}
 }
 
-// MessageMetadata retrieves the metadata of a message from the storage.
-func (m *MessageStore) MessageMetadata(messageID MessageID) *CachedMessageMetadata {
+// MessageMetadata retrieves the MessageMetadata with the given MessageID.
+func (m *MessageStore) MessageMetadata(messageID MessageID, optionalComputeIfAbsentCallback ...func() *MessageMetadata) *CachedMessageMetadata {
+	if len(optionalComputeIfAbsentCallback) >= 1 {
+		return &CachedMessageMetadata{m.messageMetadataStorage.ComputeIfAbsent(messageID.Bytes(), func(key []byte) objectstorage.StorableObject {
+			return optionalComputeIfAbsentCallback[0]()
+		})}
+	}
+
 	return &CachedMessageMetadata{CachedObject: m.messageMetadataStorage.Load(messageID[:])}
-}
-
-// StoreIfMissingMessageMetadata retrieves the CachedMessageMetadata and mark it as missing if it doesn't exist
-func (m *MessageStore) StoreIfMissingMessageMetadata(messageID MessageID) *CachedMessageMetadata {
-	return &CachedMessageMetadata{m.messageMetadataStorage.ComputeIfAbsent(messageID.Bytes(), func(key []byte) objectstorage.StorableObject {
-		// store the missing message and trigger events
-		if cachedMissingMessage, stored := m.missingMessageStorage.StoreIfAbsent(NewMissingMessage(messageID)); stored {
-			cachedMissingMessage.Consume(func(object objectstorage.StorableObject) {
-				m.Events.MessageMissing.Trigger(messageID)
-			})
-		}
-
-		// do not initialize the metadata here, we execute this in ComputeIfAbsent to be secure from race conditions
-		return nil
-	})}
 }
 
 // Approvers retrieves the Approvers of a Message from the object storage. It is possible to provide an optional
@@ -145,6 +136,13 @@ func (m *MessageStore) Approvers(messageID MessageID, optionalApproverType ...Ap
 		cachedApprovers = append(cachedApprovers, &CachedApprover{CachedObject: cachedObject})
 		return true
 	}, iterationPrefix)
+
+	return
+}
+
+func (m *MessageStore) StoreMissingMessage(missingMessage *MissingMessage) (cachedMissingMessage *CachedMissingMessage, stored bool) {
+	cachedObject, stored := m.missingMessageStorage.StoreIfAbsent(missingMessage)
+	cachedMissingMessage = &CachedMissingMessage{CachedObject: cachedObject}
 
 	return
 }
