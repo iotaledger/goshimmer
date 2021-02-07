@@ -199,9 +199,7 @@ func (t *TimeMessageQueue) Start() {
 			case <-t.close:
 				return
 			case <-t.timer.C:
-				t.Lock()
-				msg = t.list.pop()
-				t.Unlock()
+				msg = t.Pop()
 				if msg != nil {
 					t.C <- msg
 				}
@@ -223,21 +221,33 @@ func (t *TimeMessageQueue) Add(message *messageToSchedule) {
 	t.Lock()
 	defer t.Unlock()
 
-	if len(t.list) > 0 && message.issuingTime.Before(t.list[0].issuingTime) {
+	if (t.list.insert(message)) == 0 {
 		t.timer.Stop()
+		t.timer.Reset(time.Until(message.issuingTime))
+	}
+}
+
+// Pop returns the first message to schedule.
+func (t *TimeMessageQueue) Pop() (message *messageToSchedule) {
+	t.Lock()
+	defer t.Unlock()
+
+	if len(t.list) > 1 {
+		t.timer.Reset(time.Until(t.list[1].issuingTime))
 	}
 
-	t.list.insert(message)
-
-	t.timer.Reset(time.Until(message.issuingTime))
+	return t.list.pop()
 }
 
 // region TimeMessageQueue /////////////////////////////////////////////////////////////////////////////////////////////
 
 type timeIssuanceSortedList []*messageToSchedule
 
-func (t *timeIssuanceSortedList) insert(message *messageToSchedule) {
-	position := -1
+func (t *timeIssuanceSortedList) insert(message *messageToSchedule) (position int) {
+	position = -1
+	if len(*t) == 0 {
+		position = 0
+	}
 	for i, m := range *t {
 		if message.issuingTime.Before(m.issuingTime) {
 			position = i
@@ -252,6 +262,7 @@ func (t *timeIssuanceSortedList) insert(message *messageToSchedule) {
 	default:
 		*t = append((*t)[:position], append(timeIssuanceSortedList{message}, (*t)[position:]...)...)
 	}
+	return
 }
 
 func (t *timeIssuanceSortedList) pop() (message *messageToSchedule) {
