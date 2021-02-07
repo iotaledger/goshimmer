@@ -18,26 +18,53 @@ var (
 type Dependencies map[MessageID][]*Message
 
 type Scheduler struct {
+	Events           *SchedulerEvents
+	onMessageSolid   *events.Closure
+	onMessageBooked  *events.Closure
 	tangle           *Tangle
 	inbox            chan *Message
 	timeBasedBuffer  *TimeMessageQueue
 	dependenciesMap  Dependencies
+	messagesBooked   chan MessageID
 	outboxWorkerPool async.WorkerPool
+	close            chan interface{}
 }
 
 func NewScheduler(tangle *Tangle) (scheduler *Scheduler) {
 	scheduler = &Scheduler{
+		Events: &SchedulerEvents{
+			MessageScheduled: events.NewEvent(messageIDEventHandler),
+		},
 		tangle:          tangle,
 		inbox:           make(chan *Message, capacity),
 		timeBasedBuffer: NewTimeMessageQueue(capacity),
 		dependenciesMap: make(Dependencies),
+		messagesBooked:  make(chan MessageID, capacity),
 	}
 	scheduler.outboxWorkerPool.Tune(numWorkers)
+
+	// setup scheduler flow
+	scheduler.onMessageSolid = events.NewClosure(func(messageID MessageID) {
+		scheduler.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+			scheduler.inbox <- message
+		})
+	})
+	scheduler.tangle.Solidifier.Events.MessageSolid.Attach(scheduler.onMessageSolid)
+
+	scheduler.onMessageBooked = events.NewClosure(func(messageID MessageID) {
+		scheduler.messagesBooked <- messageID
+	})
+	scheduler.tangle.Events.MessageBooked.Attach(scheduler.onMessageBooked)
+
 	return
 }
 
 func (s *Scheduler) Close() {
+	close(s.close)
 	close(s.inbox)
+	s.tangle.Solidifier.Events.MessageSolid.Detach(s.onMessageSolid)
+	s.tangle.Events.MessageBooked.Detach(s.onMessageBooked)
+
 	s.outboxWorkerPool.ShutdownGracefully()
 	s.timeBasedBuffer.Stop()
 }
@@ -46,11 +73,13 @@ func (s *Scheduler) Run() {
 	s.timeBasedBuffer.Start()
 	for {
 		select {
+
 		case message := <-s.inbox:
 			s.timeBasedBuffer.Add(message)
+
 		case message := <-s.timeBasedBuffer.C:
 			deps := s.dependencies(message)
-			if len(deps) != 0 {
+			if len(deps) > 0 {
 				for _, parent := range deps {
 					if _, exist := s.dependenciesMap[parent]; !exist {
 						s.dependenciesMap[parent] = make([]*Message, 0)
@@ -59,7 +88,18 @@ func (s *Scheduler) Run() {
 				}
 				break
 			}
-			s.outboxWorkerPool.Submit()
+			s.schedule(message.ID())
+
+		case messageID := <-s.messagesBooked:
+			for _, child := range s.dependenciesMap[messageID] {
+				if s.isReady(child) {
+					s.schedule(child.ID())
+				}
+			}
+			delete(s.dependenciesMap, messageID)
+
+		case <-s.close:
+			return
 		}
 	}
 }
@@ -149,6 +189,10 @@ func (t timeIssuanceSortedList) String() (s string) {
 	return
 }
 
+func (s *Scheduler) isReady(message *Message) (ready bool) {
+	return len(s.dependencies(message)) == 0
+}
+
 func (s *Scheduler) dependencies(message *Message) (dependencies MessageIDs) {
 	message.ForEachParent(func(parent Parent) {
 		s.tangle.Storage.MessageMetadata(parent.ID).Consume(func(parentMetadata *MessageMetadata) {
@@ -158,6 +202,12 @@ func (s *Scheduler) dependencies(message *Message) (dependencies MessageIDs) {
 		})
 	})
 	return dependencies
+}
+
+func (s *Scheduler) schedule(messageID MessageID) {
+	s.outboxWorkerPool.Submit(func() {
+		s.Events.MessageScheduled.Trigger(messageID)
+	})
 }
 
 // region SchedulerEvents /////////////////////////////////////////////////////////////////////////////////////////////
