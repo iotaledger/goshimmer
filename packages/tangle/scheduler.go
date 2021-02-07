@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/hive.go/async"
 	"github.com/iotaledger/hive.go/events"
 )
@@ -15,31 +16,42 @@ var (
 	numWorkers = runtime.NumCPU() * 4
 )
 
-type Dependencies map[MessageID][]*Message
+// SchedulerParentPriorityMap maps parentIDs with their children messages.
+type SchedulerParentPriorityMap map[MessageID][]*messageToSchedule
 
+type messageToSchedule struct {
+	message   *Message
+	scheduled bool
+}
+
+// Scheduler implements the scheduler.
 type Scheduler struct {
-	Events           *SchedulerEvents
-	onMessageSolid   *events.Closure
-	onMessageBooked  *events.Closure
-	tangle           *Tangle
+	Events *SchedulerEvents
+
+	onMessageSolid  *events.Closure
+	onMessageBooked *events.Closure
+	tangle          *Tangle
+
 	inbox            chan *Message
-	timeBasedBuffer  *TimeMessageQueue
-	dependenciesMap  Dependencies
+	timeQueue        *TimeMessageQueue
+	parentsMap       SchedulerParentPriorityMap
 	messagesBooked   chan MessageID
 	outboxWorkerPool async.WorkerPool
 	close            chan interface{}
 }
 
+// NewScheduler returns a new Scheduler.
 func NewScheduler(tangle *Tangle) (scheduler *Scheduler) {
 	scheduler = &Scheduler{
 		Events: &SchedulerEvents{
 			MessageScheduled: events.NewEvent(messageIDEventHandler),
 		},
-		tangle:          tangle,
-		inbox:           make(chan *Message, capacity),
-		timeBasedBuffer: NewTimeMessageQueue(capacity),
-		dependenciesMap: make(Dependencies),
-		messagesBooked:  make(chan MessageID, capacity),
+		tangle:         tangle,
+		inbox:          make(chan *Message, capacity),
+		timeQueue:      NewTimeMessageQueue(capacity),
+		parentsMap:     make(SchedulerParentPriorityMap),
+		messagesBooked: make(chan MessageID, capacity),
+		close:          make(chan interface{}),
 	}
 	scheduler.outboxWorkerPool.Tune(numWorkers)
 
@@ -59,66 +71,111 @@ func NewScheduler(tangle *Tangle) (scheduler *Scheduler) {
 	return
 }
 
-func (s *Scheduler) Close() {
+// Start starts the scheduler.
+func (s *Scheduler) Start() {
+	go func() {
+		s.timeQueue.Start()
+		for {
+			select {
+
+			case message := <-s.inbox:
+				if message != nil && message.IssuingTime().After(clock.SyncedTime()) {
+					s.timeQueue.Add(message)
+					break
+				}
+				s.trySchedule(message)
+
+			case message := <-s.timeQueue.C:
+				s.trySchedule(message)
+
+			case messageID := <-s.messagesBooked:
+				for _, child := range s.parentsMap[messageID] {
+					if s.messageReady(child.message) && !child.scheduled {
+						child.scheduled = true
+						s.schedule(child.message.ID())
+					}
+				}
+				delete(s.parentsMap, messageID)
+
+			case <-s.close:
+				return
+			}
+		}
+	}()
+}
+
+// Stop stops the scheduler and terminates its goroutines and timers.
+func (s *Scheduler) Stop() {
 	close(s.close)
 	close(s.inbox)
 	s.tangle.Solidifier.Events.MessageSolid.Detach(s.onMessageSolid)
 	s.tangle.Events.MessageBooked.Detach(s.onMessageBooked)
 
 	s.outboxWorkerPool.ShutdownGracefully()
-	s.timeBasedBuffer.Stop()
+	s.timeQueue.Stop()
 }
 
-func (s *Scheduler) Run() {
-	s.timeBasedBuffer.Start()
-	for {
-		select {
+func (s *Scheduler) schedule(messageID MessageID) {
+	s.outboxWorkerPool.Submit(func() {
+		s.Events.MessageScheduled.Trigger(messageID)
+	})
+}
 
-		case message := <-s.inbox:
-			s.timeBasedBuffer.Add(message)
-
-		case message := <-s.timeBasedBuffer.C:
-			deps := s.dependencies(message)
-			if len(deps) > 0 {
-				for _, parent := range deps {
-					if _, exist := s.dependenciesMap[parent]; !exist {
-						s.dependenciesMap[parent] = make([]*Message, 0)
-					}
-					s.dependenciesMap[parent] = append(s.dependenciesMap[parent], message)
-				}
-				break
-			}
-			s.schedule(message.ID())
-
-		case messageID := <-s.messagesBooked:
-			for _, child := range s.dependenciesMap[messageID] {
-				if s.isReady(child) {
-					s.schedule(child.ID())
-				}
-			}
-			delete(s.dependenciesMap, messageID)
-
-		case <-s.close:
-			return
-		}
+func (s *Scheduler) trySchedule(message *Message) {
+	if message == nil {
+		return
 	}
+
+	parents := s.priorities(message)
+	if len(parents) > 0 {
+		for _, parent := range parents {
+			if _, exist := s.parentsMap[parent]; !exist {
+				s.parentsMap[parent] = make([]*messageToSchedule, 0)
+			}
+			s.parentsMap[parent] = append(s.parentsMap[parent], &messageToSchedule{message: message})
+		}
+		return
+	}
+	s.schedule(message.ID())
 }
 
-type timeIssuanceSortedList []*Message
+func (s *Scheduler) messageReady(message *Message) (ready bool) {
+	return len(s.priorities(message)) == 0
+}
+
+func (s *Scheduler) priorities(message *Message) (parents MessageIDs) {
+	message.ForEachParent(func(parent Parent) {
+		s.tangle.Storage.MessageMetadata(parent.ID).Consume(func(messageMetadata *MessageMetadata) {
+			if !messageMetadata.IsBooked() {
+				parents = append(parents, parent.ID)
+			}
+		})
+
+	})
+	return parents
+}
+
+// region TimeMessageQueue /////////////////////////////////////////////////////////////////////////////////////////////
+
+// TimeMessageQueue is a time-based ordered queue.
 type TimeMessageQueue struct {
 	timeIssuanceSortedList
 	sync.Mutex
 	C     chan *Message
-	timer time.Timer
+	timer *time.Timer
 	close chan interface{}
 }
 
+// NewTimeMessageQueue returns a new TimeMessageQueue.
 func NewTimeMessageQueue(capacity int) *TimeMessageQueue {
 	return &TimeMessageQueue{
-		C: make(chan *Message, capacity),
+		timer: time.NewTimer(0),
+		C:     make(chan *Message, capacity),
+		close: make(chan interface{}),
 	}
 }
 
+// Start starts the TimeMessageQueue.
 func (t *TimeMessageQueue) Start() {
 	go func() {
 		var msg *Message
@@ -128,12 +185,21 @@ func (t *TimeMessageQueue) Start() {
 				return
 			case <-t.timer.C:
 				msg, t.timeIssuanceSortedList = t.timeIssuanceSortedList.pop()
-				t.C <- msg
+				if msg != nil {
+					t.C <- msg
+				}
 			}
 		}
 	}()
 }
 
+// Stop stops the TimeMessageQueue.
+func (t *TimeMessageQueue) Stop() {
+	t.timer.Stop()
+	close(t.close)
+}
+
+// Add adds a message to the TimeMessageQueue.
 func (t *TimeMessageQueue) Add(message *Message) {
 	t.Lock()
 	defer t.Unlock()
@@ -147,10 +213,9 @@ func (t *TimeMessageQueue) Add(message *Message) {
 	t.timer.Reset(time.Until(message.IssuingTime()))
 }
 
-func (t *TimeMessageQueue) Stop() {
-	t.timer.Stop()
-	close(t.close)
-}
+// region TimeMessageQueue /////////////////////////////////////////////////////////////////////////////////////////////
+
+type timeIssuanceSortedList []*Message
 
 func (t timeIssuanceSortedList) insert(message *Message) (list timeIssuanceSortedList) {
 	position := -1
@@ -189,26 +254,9 @@ func (t timeIssuanceSortedList) String() (s string) {
 	return
 }
 
-func (s *Scheduler) isReady(message *Message) (ready bool) {
-	return len(s.dependencies(message)) == 0
-}
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func (s *Scheduler) dependencies(message *Message) (dependencies MessageIDs) {
-	message.ForEachParent(func(parent Parent) {
-		s.tangle.Storage.MessageMetadata(parent.ID).Consume(func(parentMetadata *MessageMetadata) {
-			if !parentMetadata.IsBooked() {
-				dependencies = append(dependencies, parent.ID)
-			}
-		})
-	})
-	return dependencies
-}
-
-func (s *Scheduler) schedule(messageID MessageID) {
-	s.outboxWorkerPool.Submit(func() {
-		s.Events.MessageScheduled.Trigger(messageID)
-	})
-}
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region SchedulerEvents /////////////////////////////////////////////////////////////////////////////////////////////
 

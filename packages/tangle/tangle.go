@@ -13,6 +13,7 @@ type Tangle struct {
 	Parser         *MessageParser
 	Storage        *MessageStore
 	Solidifier     *Solidifier
+	Scheduler      *Scheduler
 	Booker         *MessageBooker
 	Requester      *MessageRequester
 	MessageFactory *MessageFactory
@@ -28,6 +29,7 @@ func New(store kvstore.KVStore) (tangle *Tangle) {
 	// initialize components
 	tangle.Solidifier = NewSolidifier(tangle)
 	tangle.Storage = NewMessageStore(tangle, store)
+	tangle.Scheduler = NewScheduler(tangle)
 
 	// initialize behavior
 	tangle.Storage.Events.MessageStored.Attach(events.NewClosure(tangle.Solidifier.Solidify))
