@@ -156,7 +156,7 @@ func measureReceivedMPS() {
 }
 
 func measureRequestQueueSize() {
-	size := int64(messagelayer.MessageRequester().RequestQueueSize())
+	size := int64(messagelayer.Tangle().Requester.RequestQueueSize())
 	requestQueueSize.Store(size)
 }
 

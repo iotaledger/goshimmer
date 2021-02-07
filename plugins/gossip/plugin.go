@@ -148,7 +148,7 @@ func configureMessageLayer() {
 	}))
 
 	// request missing messages
-	messagelayer.MessageRequester().Events.SendRequest.Attach(events.NewClosure(func(sendRequest *tangle.SendRequestEvent) {
+	messagelayer.Tangle().Requester.Events.SendRequest.Attach(events.NewClosure(func(sendRequest *tangle.SendRequestEvent) {
 		mgr.RequestMessage(sendRequest.ID[:])
 	}))
 
