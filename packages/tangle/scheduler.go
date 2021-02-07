@@ -85,6 +85,8 @@ func (s *Scheduler) start() {
 		for {
 			select {
 
+			// read message from the inbox, add them to the timeQueue if their timestamp
+			// is in the future or schedule it if its parents have been booked already.
 			case message := <-s.inbox:
 				if message != nil && message.issuingTime.After(clock.SyncedTime()) {
 					s.timeQueue.Add(message)
@@ -92,9 +94,11 @@ func (s *Scheduler) start() {
 				}
 				s.trySchedule(message)
 
+			// try to schedule messsage that have been waiting and are now current.
 			case message := <-s.timeQueue.C:
 				s.trySchedule(message)
 
+			// schedule messages that were waiting for of their parents to be booked.
 			case messageID := <-s.messagesBooked:
 				for _, child := range s.parentsMap[messageID] {
 					if s.messageReady(child) && !child.scheduled {
@@ -133,24 +137,27 @@ func (s *Scheduler) trySchedule(message *messageToSchedule) {
 		return
 	}
 
-	parents := s.priorities(message)
-	if len(parents) > 0 {
-		for _, parent := range parents {
-			if _, exist := s.parentsMap[parent]; !exist {
-				s.parentsMap[parent] = make([]*messageToSchedule, 0)
-			}
-			s.parentsMap[parent] = append(s.parentsMap[parent], message)
-		}
+	// schedule if all the parents have been booked already.
+	parentsToBook := s.parentsToBook(message)
+	if len(parentsToBook) == 0 {
+		s.schedule(message.ID)
 		return
 	}
-	s.schedule(message.ID)
+
+	// append the message to the unbooked parent(s) queue(s).
+	for _, parent := range parentsToBook {
+		if _, exist := s.parentsMap[parent]; !exist {
+			s.parentsMap[parent] = make([]*messageToSchedule, 0)
+		}
+		s.parentsMap[parent] = append(s.parentsMap[parent], message)
+	}
 }
 
 func (s *Scheduler) messageReady(message *messageToSchedule) (ready bool) {
-	return len(s.priorities(message)) == 0
+	return len(s.parentsToBook(message)) == 0
 }
 
-func (s *Scheduler) priorities(message *messageToSchedule) (parents MessageIDs) {
+func (s *Scheduler) parentsToBook(message *messageToSchedule) (parents MessageIDs) {
 	for _, parentID := range message.parents {
 		s.tangle.Storage.MessageMetadata(parentID).Consume(func(messageMetadata *MessageMetadata) {
 			if !messageMetadata.IsBooked() {
