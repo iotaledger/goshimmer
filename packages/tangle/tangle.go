@@ -61,7 +61,7 @@ func New(store kvstore.KVStore, options ...Option) (tangle *Tangle) {
 	tangle.Storage.Events.MessageStored.Attach(events.NewClosure(tangle.Solidifier.Solidify))
 	tangle.MessageFactory.Events.MessageConstructed.Attach(events.NewClosure(tangle.Storage.StoreMessage))
 	tangle.MessageFactory.Events.Error.Attach(events.NewClosure(func(err error) {
-		tangle.Events.Error.Trigger(xerrors.Errorf("error in message factory: %w", err))
+		tangle.Events.Error.Trigger(xerrors.Errorf("error in MessageFactory: %w", err))
 	}))
 
 	return
