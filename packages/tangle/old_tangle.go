@@ -9,7 +9,7 @@ import (
 
 // OldTangle represents the base layer of messages.
 type OldTangle struct {
-	*MessageStore
+	*Storage
 
 	Events *Events
 }
@@ -17,7 +17,7 @@ type OldTangle struct {
 // Old creates an old Tangle.
 func Old(store kvstore.KVStore) (result *OldTangle) {
 	//result = &OldTangle{
-	//	MessageStore: NewMessageStore(store),
+	//	Storage: NewStorage(store),
 	//	Events:       newEvents(),
 	//}
 

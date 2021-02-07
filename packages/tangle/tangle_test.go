@@ -28,7 +28,7 @@ import (
 )
 
 func BenchmarkTangle_StoreMessage(b *testing.B) {
-	tangle := New(mapdb.NewMapDB())
+	tangle := New(mapdb.NewMapDB(), identity.GenerateLocalIdentity())
 	if err := tangle.Prune(); err != nil {
 		b.Error(err)
 
@@ -51,7 +51,7 @@ func BenchmarkTangle_StoreMessage(b *testing.B) {
 }
 
 func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
-	messageTangle := New(mapdb.NewMapDB())
+	messageTangle := New(mapdb.NewMapDB(), identity.GenerateLocalIdentity())
 	if err := messageTangle.Prune(); err != nil {
 		t.Error(err)
 
@@ -111,7 +111,7 @@ func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
 }
 
 func TestTangle_StoreMessage(t *testing.T) {
-	messageTangle := New(mapdb.NewMapDB())
+	messageTangle := New(mapdb.NewMapDB(), identity.GenerateLocalIdentity())
 	if err := messageTangle.Prune(); err != nil {
 		t.Error(err)
 
@@ -200,7 +200,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 	}
 
 	// create the tangle
-	tangle := New(badgerDB)
+	tangle := New(badgerDB, identity.GenerateLocalIdentity())
 	defer tangle.Shutdown()
 	require.NoError(t, tangle.Prune())
 
@@ -259,7 +259,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 }
 
 func TestRetrieveAllTips(t *testing.T) {
-	messageTangle := New(mapdb.NewMapDB())
+	messageTangle := New(mapdb.NewMapDB(), identity.GenerateLocalIdentity())
 
 	messageA := newTestParentsDataMessage("A", []MessageID{EmptyMessageID}, []MessageID{EmptyMessageID})
 	messageB := newTestParentsDataMessage("B", []MessageID{messageA.ID()}, []MessageID{EmptyMessageID})
@@ -372,7 +372,7 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 	}
 
 	// create the tangle
-	tangle := New(badgerDB)
+	tangle := New(badgerDB, identity.GenerateLocalIdentity())
 	defer tangle.Shutdown()
 	require.NoError(t, tangle.Prune())
 

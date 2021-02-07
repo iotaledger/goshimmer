@@ -28,8 +28,6 @@ var (
 	tipSelectorOnce  sync.Once
 	tangleInstance   *tangle.Tangle
 	tangleOnce       sync.Once
-	messageFactory   *tangle.MessageFactory
-	msgFactoryOnce   sync.Once
 	log              *logger.Logger
 )
 
@@ -52,18 +50,9 @@ func TipSelector() *tangle.MessageTipSelector {
 // Tangle gets the tangle instance.
 func Tangle() *tangle.Tangle {
 	tangleOnce.Do(func() {
-		store := database.Store()
-		tangleInstance = tangle.New(store)
+		tangleInstance = tangle.New(database.Store(), local.GetInstance().LocalIdentity())
 	})
 	return tangleInstance
-}
-
-// MessageFactory gets the messageFactory instance.
-func MessageFactory() *tangle.MessageFactory {
-	msgFactoryOnce.Do(func() {
-		messageFactory = tangle.NewMessageFactory(database.Store(), []byte(tangle.DBSequenceNumber), local.GetInstance().LocalIdentity(), TipSelector())
-	})
-	return messageFactory
 }
 
 // MessageRequester gets the messageRequester instance.
@@ -82,13 +71,6 @@ func configure(*node.Plugin) {
 	messageRequester = MessageRequester()
 	tipSelector = TipSelector()
 	tangleInstance = Tangle()
-
-	// Setup messageFactory (behavior + logging))
-	messageFactory = MessageFactory()
-	messageFactory.Events.MessageConstructed.Attach(events.NewClosure(tangleInstance.Storage.StoreMessage))
-	messageFactory.Events.Error.Attach(events.NewClosure(func(err error) {
-		log.Errorf("internal error in message factory: %v", err)
-	}))
 
 	// setup messageRequester
 	tangleInstance.Solidifier.Events.MessageMissing.Attach(events.NewClosure(messageRequester.StartRequest))
@@ -112,7 +94,6 @@ func configure(*node.Plugin) {
 func run(*node.Plugin) {
 	if err := daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
 		<-shutdownSignal
-		messageFactory.Shutdown()
 		tangleInstance.Shutdown()
 	}, shutdown.PriorityTangle); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)

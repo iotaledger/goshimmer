@@ -33,8 +33,8 @@ const (
 	DBSequenceNumber = "seq"
 )
 
-// MessageStore represents the storage of messages.
-type MessageStore struct {
+// Storage represents the storage of messages.
+type Storage struct {
 	tangle                 *Tangle
 	messageStorage         *objectstorage.ObjectStorage
 	messageMetadataStorage *objectstorage.ObjectStorage
@@ -46,11 +46,11 @@ type MessageStore struct {
 	shutdown chan struct{}
 }
 
-// NewMessageStore creates a new MessageStore.
-func NewMessageStore(tangle *Tangle, store kvstore.KVStore) (result *MessageStore) {
+// NewStorage creates a new Storage.
+func NewStorage(tangle *Tangle, store kvstore.KVStore) (result *Storage) {
 	osFactory := objectstorage.NewFactory(store, database.PrefixMessageLayer)
 
-	result = &MessageStore{
+	result = &Storage{
 		tangle:                 tangle,
 		shutdown:               make(chan struct{}),
 		messageStorage:         osFactory.New(PrefixMessage, MessageFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
@@ -66,7 +66,7 @@ func NewMessageStore(tangle *Tangle, store kvstore.KVStore) (result *MessageStor
 }
 
 // StoreMessage stores a new message to the message store.
-func (m *MessageStore) StoreMessage(message *Message) {
+func (m *Storage) StoreMessage(message *Message) {
 	// retrieve MessageID
 	messageID := message.ID()
 
@@ -106,12 +106,12 @@ func (m *MessageStore) StoreMessage(message *Message) {
 }
 
 // Message retrieves a message from the message store.
-func (m *MessageStore) Message(messageID MessageID) *CachedMessage {
+func (m *Storage) Message(messageID MessageID) *CachedMessage {
 	return &CachedMessage{CachedObject: m.messageStorage.Load(messageID[:])}
 }
 
 // MessageMetadata retrieves the MessageMetadata with the given MessageID.
-func (m *MessageStore) MessageMetadata(messageID MessageID, optionalComputeIfAbsentCallback ...func() *MessageMetadata) *CachedMessageMetadata {
+func (m *Storage) MessageMetadata(messageID MessageID, optionalComputeIfAbsentCallback ...func() *MessageMetadata) *CachedMessageMetadata {
 	if len(optionalComputeIfAbsentCallback) >= 1 {
 		return &CachedMessageMetadata{m.messageMetadataStorage.ComputeIfAbsent(messageID.Bytes(), func(key []byte) objectstorage.StorableObject {
 			return optionalComputeIfAbsentCallback[0]()
@@ -123,7 +123,7 @@ func (m *MessageStore) MessageMetadata(messageID MessageID, optionalComputeIfAbs
 
 // Approvers retrieves the Approvers of a Message from the object storage. It is possible to provide an optional
 // ApproverType to only return the corresponding Approvers.
-func (m *MessageStore) Approvers(messageID MessageID, optionalApproverType ...ApproverType) (cachedApprovers CachedApprovers) {
+func (m *Storage) Approvers(messageID MessageID, optionalApproverType ...ApproverType) (cachedApprovers CachedApprovers) {
 	var iterationPrefix []byte
 	if len(optionalApproverType) >= 1 {
 		iterationPrefix = byteutils.ConcatBytes(messageID.Bytes(), optionalApproverType[0].Bytes())
@@ -140,7 +140,7 @@ func (m *MessageStore) Approvers(messageID MessageID, optionalApproverType ...Ap
 	return
 }
 
-func (m *MessageStore) StoreMissingMessage(missingMessage *MissingMessage) (cachedMissingMessage *CachedMissingMessage, stored bool) {
+func (m *Storage) StoreMissingMessage(missingMessage *MissingMessage) (cachedMissingMessage *CachedMissingMessage, stored bool) {
 	cachedObject, stored := m.missingMessageStorage.StoreIfAbsent(missingMessage)
 	cachedMissingMessage = &CachedMissingMessage{CachedObject: cachedObject}
 
@@ -148,7 +148,7 @@ func (m *MessageStore) StoreMissingMessage(missingMessage *MissingMessage) (cach
 }
 
 // MissingMessages return the ids of messages in missingMessageStorage
-func (m *MessageStore) MissingMessages() (ids []MessageID) {
+func (m *Storage) MissingMessages() (ids []MessageID) {
 	m.missingMessageStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		cachedObject.Consume(func(object objectstorage.StorableObject) {
 			ids = append(ids, object.(*MissingMessage).messageID)
@@ -160,7 +160,7 @@ func (m *MessageStore) MissingMessages() (ids []MessageID) {
 }
 
 // StoreAttachment stores a new attachment if not already stored.
-func (m *MessageStore) StoreAttachment(transactionID ledgerstate.TransactionID, messageID MessageID) (cachedAttachment *CachedAttachment, stored bool) {
+func (m *Storage) StoreAttachment(transactionID ledgerstate.TransactionID, messageID MessageID) (cachedAttachment *CachedAttachment, stored bool) {
 	attachment, stored := m.attachmentStorage.StoreIfAbsent(NewAttachment(transactionID, messageID))
 	if !stored {
 		return
@@ -170,7 +170,7 @@ func (m *MessageStore) StoreAttachment(transactionID ledgerstate.TransactionID, 
 }
 
 // Attachments retrieves the attachment of a transaction in attachmentStorage.
-func (m *MessageStore) Attachments(transactionID ledgerstate.TransactionID) (cachedAttachments CachedAttachments) {
+func (m *Storage) Attachments(transactionID ledgerstate.TransactionID) (cachedAttachments CachedAttachments) {
 	m.attachmentStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		cachedAttachments = append(cachedAttachments, &CachedAttachment{CachedObject: cachedObject})
 		return true
@@ -179,7 +179,7 @@ func (m *MessageStore) Attachments(transactionID ledgerstate.TransactionID) (cac
 }
 
 // AttachmentMessageIDs returns the messageIDs of the transaction in attachmentStorage.
-func (m *MessageStore) AttachmentMessageIDs(transactionID ledgerstate.TransactionID) (messageIDs MessageIDs) {
+func (m *Storage) AttachmentMessageIDs(transactionID ledgerstate.TransactionID) (messageIDs MessageIDs) {
 	m.Attachments(transactionID).Consume(func(attachment *Attachment) {
 		messageIDs = append(messageIDs, attachment.MessageID())
 	})
@@ -188,7 +188,7 @@ func (m *MessageStore) AttachmentMessageIDs(transactionID ledgerstate.Transactio
 
 // DeleteMessage deletes a message and its association to approvees by un-marking the given
 // message as an approver.
-func (m *MessageStore) DeleteMessage(messageID MessageID) {
+func (m *Storage) DeleteMessage(messageID MessageID) {
 	m.Message(messageID).Consume(func(currentMsg *Message) {
 		currentMsg.ForEachStrongParent(func(parentMessageID MessageID) {
 			m.deleteStrongApprover(parentMessageID, messageID)
@@ -205,22 +205,22 @@ func (m *MessageStore) DeleteMessage(messageID MessageID) {
 }
 
 // DeleteMissingMessage deletes a message from the missingMessageStorage.
-func (m *MessageStore) DeleteMissingMessage(messageID MessageID) {
+func (m *Storage) DeleteMissingMessage(messageID MessageID) {
 	m.missingMessageStorage.Delete(messageID[:])
 }
 
 // deleteStrongApprover deletes an Approver from the object storage that was created by a strong parent.
-func (m *MessageStore) deleteStrongApprover(approvedMessageID MessageID, approvingMessage MessageID) {
+func (m *Storage) deleteStrongApprover(approvedMessageID MessageID, approvingMessage MessageID) {
 	m.approverStorage.Delete(byteutils.ConcatBytes(approvedMessageID.Bytes(), StrongApprover.Bytes(), approvingMessage.Bytes()))
 }
 
 // deleteWeakApprover deletes an Approver from the object storage that was created by a weak parent.
-func (m *MessageStore) deleteWeakApprover(approvedMessageID MessageID, approvingMessage MessageID) {
+func (m *Storage) deleteWeakApprover(approvedMessageID MessageID, approvingMessage MessageID) {
 	m.approverStorage.Delete(byteutils.ConcatBytes(approvedMessageID.Bytes(), WeakApprover.Bytes(), approvingMessage.Bytes()))
 }
 
 // Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
-func (m *MessageStore) Shutdown() {
+func (m *Storage) Shutdown() {
 	m.messageStorage.Shutdown()
 	m.messageMetadataStorage.Shutdown()
 	m.approverStorage.Shutdown()
@@ -231,7 +231,7 @@ func (m *MessageStore) Shutdown() {
 }
 
 // Prune resets the database and deletes all objects (good for testing or "node resets").
-func (m *MessageStore) Prune() error {
+func (m *Storage) Prune() error {
 	for _, storage := range []*objectstorage.ObjectStorage{
 		m.messageStorage,
 		m.messageMetadataStorage,
@@ -251,7 +251,7 @@ func (m *MessageStore) Prune() error {
 // DBStats returns the number of solid messages and total number of messages in the database (messageMetadataStorage,
 // that should contain the messages as messageStorage), the number of messages in missingMessageStorage, furthermore
 // the average time it takes to solidify messages.
-func (m *MessageStore) DBStats() (solidCount int, messageCount int, avgSolidificationTime float64, missingMessageCount int) {
+func (m *Storage) DBStats() (solidCount int, messageCount int, avgSolidificationTime float64, missingMessageCount int) {
 	var sumSolidificationTime time.Duration
 	m.messageMetadataStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		cachedObject.Consume(func(object objectstorage.StorableObject) {
@@ -280,7 +280,7 @@ func (m *MessageStore) DBStats() (solidCount int, messageCount int, avgSolidific
 // RetrieveAllTips returns the tips (i.e., solid messages that are not part of the approvers list).
 // It iterates over the messageMetadataStorage, thus only use this method if necessary.
 // TODO: improve this function.
-func (m *MessageStore) RetrieveAllTips() (tips []MessageID) {
+func (m *Storage) RetrieveAllTips() (tips []MessageID) {
 	m.messageMetadataStorage.ForEach(func(key []byte, cachedMessage objectstorage.CachedObject) bool {
 		cachedMessage.Consume(func(object objectstorage.StorableObject) {
 			messageMetadata := object.(*MessageMetadata)

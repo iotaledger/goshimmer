@@ -5,12 +5,13 @@ import (
 	"testing"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestMessageStore_StoreAttachment(t *testing.T) {
-	tangle := New(mapdb.NewMapDB())
+func TestStorage_StoreAttachment(t *testing.T) {
+	tangle := New(mapdb.NewMapDB(), identity.GenerateLocalIdentity())
 	defer tangle.Shutdown()
 
 	transactionID, err := ledgerstate.TransactionIDFromRandomness()
@@ -27,8 +28,8 @@ func TestMessageStore_StoreAttachment(t *testing.T) {
 	assert.Nil(t, cachedAttachment)
 }
 
-func TestMessageStore_Attachments(t *testing.T) {
-	tangle := New(mapdb.NewMapDB())
+func TestStorage_Attachments(t *testing.T) {
+	tangle := New(mapdb.NewMapDB(), identity.GenerateLocalIdentity())
 	defer tangle.Shutdown()
 
 	attachments := make(map[ledgerstate.TransactionID]int)
