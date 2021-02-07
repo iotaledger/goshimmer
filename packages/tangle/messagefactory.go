@@ -19,7 +19,7 @@ var (
 	ZeroWorker = WorkerFunc(func([]byte) (uint64, error) { return 0, nil })
 )
 
-// A TipSelector selects two tips, parent2 and parent1, for a emptyTangle message to attach to.
+// A TipSelector selects two tips, parent2 and parent1, for a new message to attach to.
 type TipSelector interface {
 	Tips(count int) (parents []MessageID)
 }
@@ -29,7 +29,7 @@ type Worker interface {
 	DoPOW([]byte) (nonce uint64, err error)
 }
 
-// MessageFactory acts as a factory to create emptyTangle messages.
+// MessageFactory acts as a factory to create new messages.
 type MessageFactory struct {
 	Events        *MessageFactoryEvents
 	sequence      *kvstore.Sequence
@@ -41,7 +41,7 @@ type MessageFactory struct {
 	issuanceMutex sync.Mutex
 }
 
-// NewMessageFactory creates a emptyTangle message factory.
+// NewMessageFactory creates a new message factory.
 func NewMessageFactory(store kvstore.KVStore, sequenceKey []byte, localIdentity *identity.LocalIdentity, selector TipSelector) *MessageFactory {
 	sequence, err := kvstore.NewSequence(store, sequenceKey, storeSequenceInterval)
 	if err != nil {
@@ -64,7 +64,7 @@ func (f *MessageFactory) SetWorker(worker Worker) {
 	f.worker = worker
 }
 
-// IssuePayload creates a emptyTangle message including sequence number and tip selection and returns it.
+// IssuePayload creates a new message including sequence number and tip selection and returns it.
 // It also triggers the MessageConstructed event once it's done, which is for example used by the plugins to listen for
 // messages that shall be attached to the tangle.
 func (f *MessageFactory) IssuePayload(p payload.Payload, t ...*Tangle) (*Message, error) {

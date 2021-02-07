@@ -74,7 +74,7 @@ func New(store kvstore.KVStore, options ...Option) (tangle *Tangle) {
 	return
 }
 
-// emptyTangle creates an unconfigured Tangle, without its data flow being setup. It can, for example, be used for testing.
+// emptyTangle creates an un-configured Tangle without a configured data flow.
 func emptyTangle() (tangle *Tangle) {
 	tangle = &Tangle{
 		Options: DefaultOptions(),
@@ -88,7 +88,7 @@ func emptyTangle() (tangle *Tangle) {
 	return
 }
 
-// ProcessGossipMessage is used to feed emptyTangle Messages from the gossip layer into the Tangle.
+// ProcessGossipMessage is used to feed new Messages from the gossip layer into the Tangle.
 func (t *Tangle) ProcessGossipMessage(messageBytes []byte, peer *peer.Peer) {
 	t.setupParserOnce.Do(t.Parser.Setup)
 
@@ -100,7 +100,7 @@ func (t *Tangle) Prune() (err error) {
 	return t.Storage.Prune()
 }
 
-// Shutdown marks the tangle as stopped, so it will not accept any emptyTangle messages (waits for all backgroundTasks to finish).
+// Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
 func (t *Tangle) Shutdown() {
 	t.MessageFactory.Shutdown()
 	t.Storage.Shutdown()

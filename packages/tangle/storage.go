@@ -45,7 +45,7 @@ type Storage struct {
 	shutdown chan struct{}
 }
 
-// NewStorage creates a emptyTangle Storage.
+// NewStorage creates a new Storage.
 func NewStorage(store kvstore.KVStore) (result *Storage) {
 	osFactory := objectstorage.NewFactory(store, database.PrefixMessageLayer)
 
@@ -63,7 +63,7 @@ func NewStorage(store kvstore.KVStore) (result *Storage) {
 	return
 }
 
-// StoreMessage stores a emptyTangle message to the message store.
+// StoreMessage stores a new message to the message store.
 func (m *Storage) StoreMessage(message *Message) {
 	// retrieve MessageID
 	messageID := message.ID()
@@ -157,7 +157,7 @@ func (m *Storage) MissingMessages() (ids []MessageID) {
 	return
 }
 
-// StoreAttachment stores a emptyTangle attachment if not already stored.
+// StoreAttachment stores a new attachment if not already stored.
 func (m *Storage) StoreAttachment(transactionID ledgerstate.TransactionID, messageID MessageID) (cachedAttachment *CachedAttachment, stored bool) {
 	attachment, stored := m.attachmentStorage.StoreIfAbsent(NewAttachment(transactionID, messageID))
 	if !stored {
@@ -217,7 +217,7 @@ func (m *Storage) deleteWeakApprover(approvedMessageID MessageID, approvingMessa
 	m.approverStorage.Delete(byteutils.ConcatBytes(approvedMessageID.Bytes(), WeakApprover.Bytes(), approvingMessage.Bytes()))
 }
 
-// Shutdown marks the tangle as stopped, so it will not accept any emptyTangle messages (waits for all backgroundTasks to finish).
+// Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
 func (m *Storage) Shutdown() {
 	m.messageStorage.Shutdown()
 	m.messageMetadataStorage.Shutdown()

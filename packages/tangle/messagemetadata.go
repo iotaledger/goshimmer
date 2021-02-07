@@ -39,7 +39,7 @@ type MessageMetadata struct {
 	invalidMutex            sync.RWMutex
 }
 
-// NewMessageMetadata creates a emptyTangle MessageMetadata from the specified messageID.
+// NewMessageMetadata creates a new MessageMetadata from the specified messageID.
 func NewMessageMetadata(messageID MessageID) *MessageMetadata {
 	return &MessageMetadata{
 		messageID:    messageID,
@@ -363,7 +363,7 @@ func (c *CachedMessageMetadata) ID() (messageID MessageID) {
 	return
 }
 
-// Retain registers a emptyTangle consumer for the cached message metadata.
+// Retain registers a new consumer for the cached message metadata.
 func (c *CachedMessageMetadata) Retain() *CachedMessageMetadata {
 	return &CachedMessageMetadata{c.CachedObject.Retain()}
 }

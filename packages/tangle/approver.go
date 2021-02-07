@@ -90,7 +90,7 @@ type Approver struct {
 	objectstorage.StorableObjectFlags
 }
 
-// NewApprover creates a emptyTangle approver relation to the given approved/referenced message.
+// NewApprover creates a new approver relation to the given approved/referenced message.
 func NewApprover(approverType ApproverType, referencedMessageID MessageID, approverMessageID MessageID) *Approver {
 	approver := &Approver{
 		approverType:        approverType,
@@ -108,7 +108,7 @@ func ApproverFromBytes(bytes []byte) (result *Approver, consumedBytes int, err e
 	return
 }
 
-// ApproverFromMarshalUtil parses a emptyTangle approver from the given marshal util.
+// ApproverFromMarshalUtil parses a new approver from the given marshal util.
 func ApproverFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Approver, err error) {
 	result = &Approver{}
 	if result.referencedMessageID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
