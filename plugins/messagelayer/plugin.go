@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 )
@@ -47,11 +48,9 @@ func Tangle() *tangle.Tangle {
 }
 
 func configure(*node.Plugin) {
-	// initialize logger
 	log = logger.NewLogger(PluginName)
 
-	// initialize Tangle instance
-	Tangle()
+	Tangle().Events.Error.Attach(events.NewClosure(log.Error))
 }
 
 func run(*node.Plugin) {
