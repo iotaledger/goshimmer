@@ -66,20 +66,24 @@ func TestScheduler(t *testing.T) {
 	wg.Wait()
 	testScheduler.Stop()
 
+	// messageID-string mapping for debugging.
+	IDMap := map[MessageID]string{
+		messages["A"].ID(): "A",
+		messages["B"].ID(): "B",
+		messages["C"].ID(): "C",
+		messages["D"].ID(): "D",
+	}
+
 	// assert that messages A and B are scheduled before D, and D before C
-	assert.Eventually(t, func() bool { return assert.Equal(t, expectedOrder[:], scheduledOrder[2:]) }, 10*time.Second, 100*time.Millisecond)
-
-	// decomment for debugging.
-	// IDMap := map[MessageID]string{
-	// 	messages["A"].ID(): "A",
-	// 	messages["B"].ID(): "B",
-	// 	messages["C"].ID(): "C",
-	// 	messages["D"].ID(): "D",
-	// }
-
-	// for _, msgID := range scheduledOrder {
-	// 	t.Log(IDMap[msgID])
-	// }
+	assert.Eventually(t, func() bool {
+		equal := assert.Equal(t, expectedOrder[:], scheduledOrder[2:])
+		if !equal {
+			for _, msgID := range scheduledOrder {
+				t.Log(IDMap[msgID])
+			}
+		}
+		return equal
+	}, 10*time.Second, 100*time.Millisecond)
 }
 
 func TestTimeIssuanceSortedList(t *testing.T) {
