@@ -128,11 +128,12 @@ func (s *Scheduler) trySchedule(message *Message) {
 
 	parents := s.priorities(message)
 	if len(parents) > 0 {
+		child := &messageToSchedule{message: message}
 		for _, parent := range parents {
 			if _, exist := s.parentsMap[parent]; !exist {
 				s.parentsMap[parent] = make([]*messageToSchedule, 0)
 			}
-			s.parentsMap[parent] = append(s.parentsMap[parent], &messageToSchedule{message: message})
+			s.parentsMap[parent] = append(s.parentsMap[parent], child)
 		}
 		return
 	}

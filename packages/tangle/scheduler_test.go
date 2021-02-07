@@ -10,6 +10,7 @@ import (
 )
 
 func TestScheduler(t *testing.T) {
+	// create Scheduler dependencies
 	tangle := &Tangle{
 		Events: newEvents(),
 	}
@@ -17,26 +18,40 @@ func TestScheduler(t *testing.T) {
 	tangle.Solidifier = NewSolidifier(tangle)
 	tangle.Events.MessageBooked = events.NewEvent(messageIDEventHandler)
 
+	// create and start the Scheduler
 	testScheduler := NewScheduler(tangle)
-
 	testScheduler.Start()
 
-	var wg sync.WaitGroup
-
-	messages := map[string]*Message{
-		"A": newTestDataMessage("A"),
-		"B": newTestDataMessage("B"),
-	}
+	// testing desired scheduled order: A - B - D - C  (B - A - D - C is equivalent)
+	messages := make(map[string]*Message)
+	messages["A"] = newTestDataMessage("A")
+	messages["B"] = newTestDataMessage("B")
+	// set C to have a timestamp in the future
 	messages["C"] = newTestParentsDataWithTimestamp("C", []MessageID{messages["A"].ID(), messages["B"].ID()}, []MessageID{}, time.Now().Add(1*time.Second))
 	messages["D"] = newTestParentsDataWithTimestamp("D", []MessageID{messages["A"].ID(), messages["B"].ID()}, []MessageID{}, time.Now())
 
+	// The order of A and B cannot be guaranteed and it does not matter.
+	expectedOrder := []MessageID{messages["D"].ID(), messages["C"].ID()}
+	scheduledOrder := []MessageID{}
+
+	// store messages bypassing the messageStored event
 	for _, message := range messages {
-		tangle.Storage.StoreMessage(message)
+		func() {
+			storedMetadata, stored := tangle.Storage.messageMetadataStorage.StoreIfAbsent(NewMessageMetadata(message.ID()))
+			if !stored {
+				return
+			}
+			storedMetadata.Release()
+			tangle.Storage.messageStorage.Store(message).Release()
+		}()
 	}
 
+	var wg sync.WaitGroup
+
+	// Bypass the Booker
 	testScheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
 		wg.Done()
-		t.Log("Message Booked: ", messageID)
+		scheduledOrder = append(scheduledOrder, messageID)
 		tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetBooked(true)
 			tangle.Events.MessageBooked.Trigger(messageID)
@@ -44,6 +59,7 @@ func TestScheduler(t *testing.T) {
 	}))
 
 	wg.Add(4)
+	// Trigger solid events not in order
 	tangle.Solidifier.Events.MessageSolid.Trigger(messages["A"].ID())
 	tangle.Solidifier.Events.MessageSolid.Trigger(messages["C"].ID())
 	tangle.Solidifier.Events.MessageSolid.Trigger(messages["D"].ID())
@@ -52,6 +68,20 @@ func TestScheduler(t *testing.T) {
 	wg.Wait()
 	testScheduler.Stop()
 
+	// assert that messages A and B are scheduled before D, and D before C
+	assert.Equal(t, expectedOrder[:], scheduledOrder[2:])
+
+	// decomment for debugging.
+	// IDMap := map[MessageID]string{
+	// 	messages["A"].ID(): "A",
+	// 	messages["B"].ID(): "B",
+	// 	messages["C"].ID(): "C",
+	// 	messages["D"].ID(): "D",
+	// }
+
+	// for _, msgID := range scheduledOrder {
+	// 	t.Log(IDMap[msgID])
+	// }
 }
 
 func TestTimeIssuanceSortedList(t *testing.T) {
