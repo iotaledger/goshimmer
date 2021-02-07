@@ -27,7 +27,7 @@ func TestScheduler(t *testing.T) {
 	messages["A"] = newTestDataMessage("A")
 	messages["B"] = newTestDataMessage("B")
 	// set C to have a timestamp in the future
-	messages["C"] = newTestParentsDataWithTimestamp("C", []MessageID{messages["A"].ID(), messages["B"].ID()}, []MessageID{}, time.Now().Add(1*time.Second))
+	messages["C"] = newTestParentsDataWithTimestamp("C", []MessageID{messages["A"].ID(), messages["B"].ID()}, []MessageID{}, time.Now().Add(5*time.Second))
 	messages["D"] = newTestParentsDataWithTimestamp("D", []MessageID{messages["A"].ID(), messages["B"].ID()}, []MessageID{}, time.Now())
 
 	// The order of A and B cannot be guaranteed and it does not matter.
@@ -75,15 +75,13 @@ func TestScheduler(t *testing.T) {
 	}
 
 	// assert that messages A and B are scheduled before D, and D before C
-	assert.Eventually(t, func() bool {
-		equal := assert.Equal(t, expectedOrder[:], scheduledOrder[2:])
-		if !equal {
-			for _, msgID := range scheduledOrder {
-				t.Log(IDMap[msgID])
-			}
+	equal := assert.Equal(t, expectedOrder[:], scheduledOrder[2:])
+	if !equal {
+		for _, msgID := range scheduledOrder {
+			t.Log(IDMap[msgID])
 		}
-		return equal
-	}, 10*time.Second, 100*time.Millisecond)
+	}
+
 }
 
 func TestTimeIssuanceSortedList(t *testing.T) {
