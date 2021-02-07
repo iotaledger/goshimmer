@@ -1,14 +1,11 @@
 package metrics
 
 import (
-	"sync"
 	"testing"
 
 	valuepayload "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/packages/drng"
-	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/magiconair/properties/assert"
 )
 
@@ -27,16 +24,4 @@ func TestMessageCountPerPayload(t *testing.T) {
 	}
 	assert.Equal(t, MessageTotalCountSinceStart(), (uint64)(15))
 	assert.Equal(t, MessageCountSinceStartPerPayload(), map[payload.Type]uint64{valuepayload.Type: 10, drng.PayloadType: 5})
-}
-
-func TestMessageTips(t *testing.T) {
-	var wg sync.WaitGroup
-	metrics.Events().MessageTips.Attach(events.NewClosure(func(tips uint64) {
-		messageTips.Store(tips)
-		wg.Done()
-	}))
-	wg.Add(1)
-	measureMessageTips()
-	wg.Wait()
-	assert.Equal(t, MessageTips(), (uint64)(0))
 }
