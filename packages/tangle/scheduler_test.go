@@ -36,14 +36,12 @@ func TestScheduler(t *testing.T) {
 
 	// store messages bypassing the messageStored event
 	for _, message := range messages {
-		func() {
-			storedMetadata, stored := tangle.Storage.messageMetadataStorage.StoreIfAbsent(NewMessageMetadata(message.ID()))
-			if !stored {
-				return
-			}
-			storedMetadata.Release()
-			tangle.Storage.messageStorage.Store(message).Release()
-		}()
+		storedMetadata, stored := tangle.Storage.messageMetadataStorage.StoreIfAbsent(NewMessageMetadata(message.ID()))
+		if !stored {
+			return
+		}
+		storedMetadata.Release()
+		tangle.Storage.messageStorage.Store(message).Release()
 	}
 
 	var wg sync.WaitGroup
@@ -69,7 +67,7 @@ func TestScheduler(t *testing.T) {
 	testScheduler.Stop()
 
 	// assert that messages A and B are scheduled before D, and D before C
-	assert.Equal(t, expectedOrder[:], scheduledOrder[2:])
+	assert.Eventually(t, func() bool { return assert.Equal(t, expectedOrder[:], scheduledOrder[2:]) }, 10*time.Second, 100*time.Millisecond)
 
 	// decomment for debugging.
 	// IDMap := map[MessageID]string{
