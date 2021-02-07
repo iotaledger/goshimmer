@@ -33,6 +33,7 @@ func TestScheduler(t *testing.T) {
 	// The order of A and B cannot be guaranteed and it does not matter.
 	expectedOrder := []MessageID{messages["D"].ID(), messages["C"].ID()}
 	scheduledOrder := []MessageID{}
+	var scheduledOrderMutex sync.Mutex
 
 	// store messages bypassing the messageStored event
 	for _, message := range messages {
@@ -49,7 +50,9 @@ func TestScheduler(t *testing.T) {
 	// Bypass the Booker
 	testScheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
 		wg.Done()
+		scheduledOrderMutex.Lock()
 		scheduledOrder = append(scheduledOrder, messageID)
+		scheduledOrderMutex.Unlock()
 		tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetBooked(true)
 			tangle.Events.MessageBooked.Trigger(messageID)
@@ -89,21 +92,21 @@ func TestScheduler(t *testing.T) {
 func TestTimeIssuanceSortedList(t *testing.T) {
 	now := time.Now()
 	list := timeIssuanceSortedList{
-		&Message{issuingTime: now},
-		&Message{issuingTime: now.Add(1 * time.Second)},
-		&Message{issuingTime: now.Add(3 * time.Second)},
+		&messageToSchedule{issuingTime: now},
+		&messageToSchedule{issuingTime: now.Add(1 * time.Second)},
+		&messageToSchedule{issuingTime: now.Add(3 * time.Second)},
 	}
 
-	before := &Message{issuingTime: now.Add(-1 * time.Second)}
-	list = list.insert(before)
+	before := &messageToSchedule{issuingTime: now.Add(-1 * time.Second)}
+	list.insert(before)
 	assert.Equal(t, before, list[0])
 
-	after := &Message{issuingTime: now.Add(5 * time.Second)}
-	list = list.insert(after)
+	after := &messageToSchedule{issuingTime: now.Add(5 * time.Second)}
+	list.insert(after)
 	assert.Equal(t, after, list[len(list)-1])
 
-	between := &Message{issuingTime: now.Add(2 * time.Second)}
-	list = list.insert(between)
+	between := &messageToSchedule{issuingTime: now.Add(2 * time.Second)}
+	list.insert(between)
 	assert.Equal(t, between, list[3])
 
 }
