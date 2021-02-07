@@ -26,7 +26,7 @@ func NewAttachment(transactionID ledgerstate.TransactionID, messageID MessageID)
 	}
 }
 
-// AttachmentFromBytes unmarshals an Attachment from a sequence of bytes - it either creates a new object or fills the
+// AttachmentFromBytes unmarshals an Attachment from a sequence of bytes - it either creates a emptyTangle object or fills the
 // optionally provided one with the parsed information.
 func AttachmentFromBytes(bytes []byte) (result *Attachment, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
@@ -52,7 +52,7 @@ func ParseAttachment(marshalUtil *marshalutil.MarshalUtil) (result *Attachment, 
 }
 
 // AttachmentFromObjectStorage gets called when we restore an Attachment from the storage - it parses the key bytes and
-// returns the new object.
+// returns the emptyTangle object.
 func AttachmentFromObjectStorage(key []byte, _ []byte) (result objectstorage.StorableObject, err error) {
 	result, _, err = AttachmentFromBytes(key)
 	if err != nil {

@@ -19,7 +19,7 @@ type MessageParser struct {
 	messageFiltersMutex    sync.Mutex
 }
 
-// NewMessageParser creates a new message parser.
+// NewMessageParser creates a emptyTangle message parser.
 func NewMessageParser() (result *MessageParser) {
 	result = &MessageParser{
 		bytesFilters:   make([]BytesFilter, 0),
@@ -52,7 +52,7 @@ func (p *MessageParser) AddBytesFilter(filter BytesFilter) {
 	p.byteFiltersModified.Set()
 }
 
-// AddMessageFilter adds a new message filter to the parser.
+// AddMessageFilter adds a emptyTangle message filter to the parser.
 func (p *MessageParser) AddMessageFilter(filter MessageFilter) {
 	p.messageFiltersMutex.Lock()
 	p.messageFilters = append(p.messageFilters, filter)

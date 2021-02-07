@@ -32,8 +32,7 @@ type Tangle struct {
 
 // New is the constructor for the Tangle.
 func New(store kvstore.KVStore, options ...Option) (tangle *Tangle) {
-	tangle = new()
-
+	tangle = emptyTangle()
 	for _, option := range options {
 		option(tangle.Options)
 	}
@@ -42,6 +41,7 @@ func New(store kvstore.KVStore, options ...Option) (tangle *Tangle) {
 	tangle.Parser = NewMessageParser()
 	tangle.Solidifier = NewSolidifier(tangle)
 	tangle.Storage = NewStorage(store)
+	tangle.Requester = NewMessageRequester(tangle.Storage.MissingMessages())
 	tangle.TipManager = NewMessageTipSelector()
 	tangle.MessageFactory = NewMessageFactory(store, []byte(DBSequenceNumber), tangle.Options.Identity, tangle.TipManager)
 	tangle.LedgerState = NewLedgerState(tangle)
@@ -60,12 +60,22 @@ func New(store kvstore.KVStore, options ...Option) (tangle *Tangle) {
 	tangle.MessageFactory.Events.Error.Attach(events.NewClosure(func(err error) {
 		tangle.Events.Error.Trigger(xerrors.Errorf("error in MessageFactory: %w", err))
 	}))
+	tangle.Solidifier.Events.MessageMissing.Attach(events.NewClosure(tangle.Requester.StartRequest))
+	tangle.Storage.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMessageEvent *CachedMessageEvent) {
+		cachedMessageEvent.MessageMetadata.Release()
+		cachedMessageEvent.Message.Consume(func(message *Message) {
+			tangle.Requester.StopRequest(message.ID())
+		})
+	}))
+	tangle.Requester.Events.MissingMessageAppeared.Attach(events.NewClosure(func(missingMessageAppeared *MissingMessageAppearedEvent) {
+		tangle.Storage.DeleteMissingMessage(missingMessageAppeared.ID)
+	}))
 
 	return
 }
 
-// new creates an unconfigured Tangle, without its data flow being setup. It can, for example, be used for testing.
-func new() (tangle *Tangle) {
+// emptyTangle creates an unconfigured Tangle, without its data flow being setup. It can, for example, be used for testing.
+func emptyTangle() (tangle *Tangle) {
 	tangle = &Tangle{
 		Options: DefaultOptions(),
 		Events: &Events{
@@ -78,7 +88,7 @@ func new() (tangle *Tangle) {
 	return
 }
 
-// ProcessGossipMessage is used to feed new Messages from the gossip layer into the Tangle.
+// ProcessGossipMessage is used to feed emptyTangle Messages from the gossip layer into the Tangle.
 func (t *Tangle) ProcessGossipMessage(messageBytes []byte, peer *peer.Peer) {
 	t.setupParserOnce.Do(t.Parser.Setup)
 
@@ -90,7 +100,7 @@ func (t *Tangle) Prune() (err error) {
 	return t.Storage.Prune()
 }
 
-// Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
+// Shutdown marks the tangle as stopped, so it will not accept any emptyTangle messages (waits for all backgroundTasks to finish).
 func (t *Tangle) Shutdown() {
 	t.MessageFactory.Shutdown()
 	t.Storage.Shutdown()

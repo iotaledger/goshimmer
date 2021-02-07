@@ -10,7 +10,7 @@ type MessageTipSelector struct {
 	Events *MessageTipSelectorEvents
 }
 
-// NewMessageTipSelector creates a new tip-selector.
+// NewMessageTipSelector creates a emptyTangle tip-selector.
 func NewMessageTipSelector(tips ...MessageID) *MessageTipSelector {
 	tipSelector := &MessageTipSelector{
 		tips:   randommap.New(),

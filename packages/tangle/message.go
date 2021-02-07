@@ -60,7 +60,7 @@ type Parent struct {
 // EmptyMessageID is an empty id.
 var EmptyMessageID = MessageID{}
 
-// NewMessageID creates a new message id.
+// NewMessageID creates a emptyTangle message id.
 func NewMessageID(base58EncodedString string) (result MessageID, err error) {
 	msgIDBytes, err := base58.Decode(base58EncodedString)
 	if err != nil {
@@ -165,7 +165,7 @@ type Message struct {
 	bytesMutex sync.RWMutex
 }
 
-// NewMessage creates a new message with the details provided by the issuer.
+// NewMessage creates a emptyTangle message with the details provided by the issuer.
 func NewMessage(strongParents []MessageID, weakParents []MessageID, issuingTime time.Time, issuerPublicKey ed25519.PublicKey, sequenceNumber uint64, payload payload.Payload, nonce uint64, signature ed25519.Signature) (result *Message) {
 	// remove duplicates, sort in ASC
 	sortedStrongParents := sortParents(strongParents)
@@ -194,7 +194,7 @@ func NewMessage(strongParents []MessageID, weakParents []MessageID, issuingTime 
 	}
 }
 
-// filters and sorts given parents and returns a new slice with sorted parents
+// filters and sorts given parents and returns a emptyTangle slice with sorted parents
 func sortParents(parents []MessageID) (sorted []MessageID) {
 	seen := make(map[MessageID]types.Empty)
 	sorted = make([]MessageID, 0, len(parents))
@@ -564,7 +564,7 @@ type CachedMessage struct {
 	objectstorage.CachedObject
 }
 
-// Retain registers a new consumer for the cached message.
+// Retain registers a emptyTangle consumer for the cached message.
 func (c *CachedMessage) Retain() *CachedMessage {
 	return &CachedMessage{c.CachedObject.Retain()}
 }

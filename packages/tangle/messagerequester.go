@@ -51,7 +51,7 @@ type MessageRequester struct {
 // MessageExistsFunc is a function that tells if a message exists.
 type MessageExistsFunc func(messageId MessageID) bool
 
-// NewMessageRequester creates a new message requester.
+// NewMessageRequester creates a emptyTangle message requester.
 func NewMessageRequester(missingMessages []MessageID, optionalOptions ...MessageRequesterOption) *MessageRequester {
 	requester := &MessageRequester{
 		scheduledRequests: make(map[MessageID]*time.Timer),

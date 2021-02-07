@@ -56,7 +56,7 @@ type MessageSignatureFilter struct {
 	onRejectCallbackMutex sync.RWMutex
 }
 
-// NewMessageSignatureFilter creates a new message signature filter.
+// NewMessageSignatureFilter creates a emptyTangle message signature filter.
 func NewMessageSignatureFilter() *MessageSignatureFilter {
 	return &MessageSignatureFilter{}
 }
@@ -109,7 +109,7 @@ type PowFilter struct {
 	rejectCallback func([]byte, error, *peer.Peer)
 }
 
-// NewPowFilter creates a new PoW bytes filter.
+// NewPowFilter creates a emptyTangle PoW bytes filter.
 func NewPowFilter(worker *pow.Worker, difficulty int) *PowFilter {
 	return &PowFilter{
 		worker:     worker,
@@ -190,7 +190,7 @@ type RecentlySeenBytesFilter struct {
 	onRejectCallbackMutex sync.RWMutex
 }
 
-// NewRecentlySeenBytesFilter creates a new recently seen bytes filter.
+// NewRecentlySeenBytesFilter creates a emptyTangle recently seen bytes filter.
 func NewRecentlySeenBytesFilter() *RecentlySeenBytesFilter {
 	return &RecentlySeenBytesFilter{
 		bytesFilter: bytesfilter.New(100000),

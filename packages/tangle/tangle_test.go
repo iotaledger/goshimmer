@@ -480,7 +480,7 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 	assert.EqualValues(t, 0, atomic.LoadInt32(&missingMessages))
 }
 
-// IssueInvalidTsPayload creates a new message including sequence number and tip selection and returns it.
+// IssueInvalidTsPayload creates a emptyTangle message including sequence number and tip selection and returns it.
 func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, t ...*Tangle) (*Message, error) {
 	payloadLen := len(p.Bytes())
 	if payloadLen > payload.MaxSize {

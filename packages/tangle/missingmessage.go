@@ -20,7 +20,7 @@ type MissingMessage struct {
 	missingSince time.Time
 }
 
-// NewMissingMessage creates new missing message with the specified messageID.
+// NewMissingMessage creates emptyTangle missing message with the specified messageID.
 func NewMissingMessage(messageID MessageID) *MissingMessage {
 	return &MissingMessage{
 		messageID:    messageID,
