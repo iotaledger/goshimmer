@@ -32,14 +32,7 @@ type Tangle struct {
 
 // New is the constructor for the Tangle.
 func New(store kvstore.KVStore, options ...Option) (tangle *Tangle) {
-	tangle = &Tangle{
-		Options: DefaultOptions(),
-		Events: &Events{
-			MessageEligible: events.NewEvent(cachedMessageEvent),
-			MessageInvalid:  events.NewEvent(messageIDEventHandler),
-			Error:           events.NewEvent(events.ErrorCaller),
-		},
-	}
+	tangle = new()
 
 	for _, option := range options {
 		option(tangle.Options)
@@ -67,6 +60,20 @@ func New(store kvstore.KVStore, options ...Option) (tangle *Tangle) {
 	tangle.MessageFactory.Events.Error.Attach(events.NewClosure(func(err error) {
 		tangle.Events.Error.Trigger(xerrors.Errorf("error in MessageFactory: %w", err))
 	}))
+
+	return
+}
+
+// new creates an unconfigured Tangle, without its data flow being setup. It can, for example, be used for testing.
+func new() (tangle *Tangle) {
+	tangle = &Tangle{
+		Options: DefaultOptions(),
+		Events: &Events{
+			MessageEligible: events.NewEvent(cachedMessageEvent),
+			MessageInvalid:  events.NewEvent(messageIDEventHandler),
+			Error:           events.NewEvent(events.ErrorCaller),
+		},
+	}
 
 	return
 }
