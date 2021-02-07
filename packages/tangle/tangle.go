@@ -30,6 +30,7 @@ func New(store kvstore.KVStore) (tangle *Tangle) {
 	tangle.Solidifier = NewSolidifier(tangle)
 	tangle.Storage = NewMessageStore(tangle, store)
 	tangle.Scheduler = NewScheduler(tangle)
+	tangle.Scheduler.Start()
 
 	// initialize behavior
 	tangle.Storage.Events.MessageStored.Attach(events.NewClosure(tangle.Solidifier.Solidify))
@@ -84,6 +85,7 @@ func (t *Tangle) WalkMessages(callback func(message *Message, messageMetadata *M
 
 // Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
 func (t *Tangle) Shutdown() {
+	t.Scheduler.Stop()
 	t.Storage.Shutdown()
 }
 
