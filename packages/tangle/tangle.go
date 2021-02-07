@@ -49,6 +49,7 @@ func New(store kvstore.KVStore, options ...Option) (tangle *Tangle) {
 	tangle.Parser = NewMessageParser()
 	tangle.Solidifier = NewSolidifier(tangle)
 	tangle.Storage = NewStorage(store)
+	tangle.TipManager = NewMessageTipSelector()
 	tangle.MessageFactory = NewMessageFactory(store, []byte(DBSequenceNumber), tangle.Options.Identity, tangle.TipManager)
 	tangle.LedgerState = NewLedgerState(tangle)
 	tangle.MarkersManager = NewMarkersManager(tangle)
@@ -59,6 +60,9 @@ func New(store kvstore.KVStore, options ...Option) (tangle *Tangle) {
 		tangle.Storage.StoreMessage(msgParsedEvent.Message)
 	}))
 	tangle.Storage.Events.MessageStored.Attach(events.NewClosure(tangle.Solidifier.Solidify))
+	tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(messageID MessageID) {
+		tangle.Storage.Message(messageID).Consume(tangle.TipManager.AddTip)
+	}))
 	tangle.MessageFactory.Events.MessageConstructed.Attach(events.NewClosure(tangle.Storage.StoreMessage))
 	tangle.MessageFactory.Events.Error.Attach(events.NewClosure(func(err error) {
 		tangle.Events.Error.Trigger(xerrors.Errorf("error in MessageFactory: %w", err))

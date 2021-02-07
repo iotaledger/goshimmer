@@ -24,8 +24,6 @@ var (
 	pluginOnce       sync.Once
 	messageRequester *tangle.MessageRequester
 	msgReqOnce       sync.Once
-	tipSelector      *tangle.MessageTipSelector
-	tipSelectorOnce  sync.Once
 	tangleInstance   *tangle.Tangle
 	tangleOnce       sync.Once
 	log              *logger.Logger
@@ -37,14 +35,6 @@ func Plugin() *node.Plugin {
 		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 	})
 	return plugin
-}
-
-// TipSelector gets the tipSelector instance.
-func TipSelector() *tangle.MessageTipSelector {
-	tipSelectorOnce.Do(func() {
-		tipSelector = tangle.NewMessageTipSelector()
-	})
-	return tipSelector
 }
 
 // Tangle gets the tangle instance.
@@ -72,7 +62,6 @@ func configure(*node.Plugin) {
 
 	// create instances
 	messageRequester = MessageRequester()
-	tipSelector = TipSelector()
 	tangleInstance = Tangle()
 
 	// setup messageRequester
@@ -82,11 +71,6 @@ func configure(*node.Plugin) {
 		cachedMsgEvent.Message.Consume(func(msg *tangle.Message) {
 			messageRequester.StopRequest(msg.ID())
 		})
-	}))
-
-	// setup tipSelector
-	tangleInstance.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		Tangle().Storage.Message(messageID).Consume(tipSelector.AddTip)
 	}))
 
 	MessageRequester().Events.MissingMessageAppeared.Attach(events.NewClosure(func(missingMessageAppeared *tangle.MissingMessageAppearedEvent) {

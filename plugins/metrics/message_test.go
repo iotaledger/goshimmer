@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/magiconair/properties/assert"
 )
@@ -32,8 +31,6 @@ func TestMessageCountPerPayload(t *testing.T) {
 
 func TestMessageTips(t *testing.T) {
 	var wg sync.WaitGroup
-	// messagelayer TipSelector not configured here, so to avoid nil pointer panic, we instantiate it
-	messagelayer.TipSelector()
 	metrics.Events().MessageTips.Attach(events.NewClosure(func(tips uint64) {
 		messageTips.Store(tips)
 		wg.Done()
