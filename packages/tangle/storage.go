@@ -35,7 +35,6 @@ const (
 
 // Storage represents the storage of messages.
 type Storage struct {
-	tangle                 *Tangle
 	messageStorage         *objectstorage.ObjectStorage
 	messageMetadataStorage *objectstorage.ObjectStorage
 	approverStorage        *objectstorage.ObjectStorage
@@ -47,11 +46,10 @@ type Storage struct {
 }
 
 // NewStorage creates a new Storage.
-func NewStorage(tangle *Tangle, store kvstore.KVStore) (result *Storage) {
+func NewStorage(store kvstore.KVStore) (result *Storage) {
 	osFactory := objectstorage.NewFactory(store, database.PrefixMessageLayer)
 
 	result = &Storage{
-		tangle:                 tangle,
 		shutdown:               make(chan struct{}),
 		messageStorage:         osFactory.New(PrefixMessage, MessageFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 		messageMetadataStorage: osFactory.New(PrefixMessageMetadata, MessageMetadataFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),

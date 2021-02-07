@@ -50,7 +50,10 @@ func TipSelector() *tangle.MessageTipSelector {
 // Tangle gets the tangle instance.
 func Tangle() *tangle.Tangle {
 	tangleOnce.Do(func() {
-		tangleInstance = tangle.New(database.Store(), local.GetInstance().LocalIdentity())
+		tangleInstance = tangle.New(
+			database.Store(),
+			tangle.Identity(local.GetInstance().LocalIdentity()),
+		)
 	})
 	return tangleInstance
 }

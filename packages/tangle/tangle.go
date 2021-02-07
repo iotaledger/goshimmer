@@ -2,7 +2,6 @@ package tangle
 
 import (
 	"sync"
-	"time"
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/events"
@@ -25,14 +24,16 @@ type Tangle struct {
 	MarkersManager *MarkersManager
 	LedgerState    *LedgerState
 	Utils          *Utils
+	Options        *Options
 	Events         *Events
 
 	setupParserOnce sync.Once
 }
 
 // New is the constructor for the Tangle.
-func New(store kvstore.KVStore, localIdentity *identity.LocalIdentity) (tangle *Tangle) {
+func New(store kvstore.KVStore, options ...Option) (tangle *Tangle) {
 	tangle = &Tangle{
+		Options: DefaultOptions(),
 		Events: &Events{
 			MessageEligible: events.NewEvent(cachedMessageEvent),
 			MessageInvalid:  events.NewEvent(messageIDEventHandler),
@@ -40,11 +41,15 @@ func New(store kvstore.KVStore, localIdentity *identity.LocalIdentity) (tangle *
 		},
 	}
 
+	for _, option := range options {
+		option(tangle.Options)
+	}
+
 	// create components
 	tangle.Parser = NewMessageParser()
 	tangle.Solidifier = NewSolidifier(tangle)
-	tangle.Storage = NewStorage(tangle, store)
-	tangle.MessageFactory = NewMessageFactory(store, []byte(DBSequenceNumber), localIdentity, tangle.TipManager)
+	tangle.Storage = NewStorage(store)
+	tangle.MessageFactory = NewMessageFactory(store, []byte(DBSequenceNumber), tangle.Options.Identity, tangle.TipManager)
 	tangle.LedgerState = NewLedgerState(tangle)
 	tangle.MarkersManager = NewMarkersManager(tangle)
 	tangle.Utils = NewUtils(tangle)
@@ -100,20 +105,21 @@ type Events struct {
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-type Option func(*Tangle)
+type Option func(*Options)
 
 type Options struct {
+	Identity *identity.LocalIdentity
 }
 
-func PoW(interval time.Duration) MessageRequesterOption {
-	return func(args *MessageRequesterOptions) {
-		args.retryInterval = interval
+func DefaultOptions() *Options {
+	return &Options{
+		Identity: identity.GenerateLocalIdentity(),
 	}
 }
 
-func PoWDifficulty(difficulty int) Option {
-	return func(tangle *Tangle) {
-
+func Identity(identity *identity.LocalIdentity) Option {
+	return func(args *Options) {
+		args.Identity = identity
 	}
 }
 
