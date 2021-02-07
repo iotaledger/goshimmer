@@ -30,7 +30,6 @@ func New(store kvstore.KVStore) (tangle *Tangle) {
 	tangle.Solidifier = NewSolidifier(tangle)
 	tangle.Storage = NewMessageStore(tangle, store)
 	tangle.Scheduler = NewScheduler(tangle)
-	tangle.Scheduler.Start()
 
 	// initialize behavior
 	tangle.Storage.Events.MessageStored.Attach(events.NewClosure(tangle.Solidifier.Solidify))

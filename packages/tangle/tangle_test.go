@@ -289,7 +289,7 @@ func TestRetrieveAllTips(t *testing.T) {
 	messageTangle.Shutdown()
 }
 
-func TestTangle_FilterStoreSolidify(t *testing.T) {
+func TestTangle_Flow(t *testing.T) {
 	const (
 		testNetwork = "udp"
 		testPort    = 8000
@@ -412,12 +412,13 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 
 	// counter for the different stages
 	var (
-		parsedMessages   int32
-		storedMessages   int32
-		missingMessages  int32
-		solidMessages    int32
-		invalidMessages  int32
-		rejectedMessages int32
+		parsedMessages    int32
+		storedMessages    int32
+		missingMessages   int32
+		solidMessages     int32
+		scheduledMessages int32
+		invalidMessages   int32
+		rejectedMessages  int32
 	)
 
 	// filter rejected events
@@ -468,6 +469,17 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 		t.Logf("solid messages %d/%d", n, totalMsgCount)
 	}))
 
+	tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
+		// Bypassing the messageBooked event
+		tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+			messageMetadata.SetBooked(true)
+			tangle.Events.MessageBooked.Trigger(messageID)
+		})
+
+		n := atomic.AddInt32(&scheduledMessages, 1)
+		t.Logf("scheduled messages %d/%d", n, totalMsgCount)
+	}))
+
 	// issue tips to start solidification
 	tips.ForEach(func(key interface{}, _ interface{}) {
 		inboxWP.TrySubmit(messages[key.(MessageID)].Bytes(), localPeer)
@@ -478,9 +490,10 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 	}
 
 	// wait for all transactions to become solid
-	assert.Eventually(t, func() bool { return atomic.LoadInt32(&solidMessages) == solidMsgCount }, 5*time.Minute, 100*time.Millisecond)
+	assert.Eventually(t, func() bool { return atomic.LoadInt32(&scheduledMessages) == solidMsgCount }, 5*time.Minute, 100*time.Millisecond)
 
 	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&solidMessages))
+	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&scheduledMessages))
 	assert.EqualValues(t, totalMsgCount, atomic.LoadInt32(&storedMessages))
 	assert.EqualValues(t, totalMsgCount, atomic.LoadInt32(&parsedMessages))
 	assert.EqualValues(t, invalidMsgCount, atomic.LoadInt32(&invalidMessages))

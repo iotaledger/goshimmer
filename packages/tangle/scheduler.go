@@ -68,11 +68,13 @@ func NewScheduler(tangle *Tangle) (scheduler *Scheduler) {
 	})
 	scheduler.tangle.Events.MessageBooked.Attach(scheduler.onMessageBooked)
 
+	scheduler.start()
+
 	return
 }
 
-// Start starts the scheduler.
-func (s *Scheduler) Start() {
+// start starts the scheduler.
+func (s *Scheduler) start() {
 	go func() {
 		s.timeQueue.Start()
 		for {
@@ -239,7 +241,7 @@ func (t timeIssuanceSortedList) insert(message *Message) (list timeIssuanceSorte
 
 func (t timeIssuanceSortedList) pop() (message *Message, list timeIssuanceSortedList) {
 	if len(t) == 0 {
-		return
+		return nil, t
 	}
 
 	message = t[0]

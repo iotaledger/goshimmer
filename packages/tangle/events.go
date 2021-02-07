@@ -27,7 +27,7 @@ type CachedMessageEvent struct {
 func newEvents() *Events {
 	return &Events{
 		MessageUnsolidifiable: events.NewEvent(messageIDEventHandler),
-		MessageBooked:         events.NewEvent(cachedMessageEvent),
+		MessageBooked:         events.NewEvent(messageIDEventHandler),
 		MessageEligible:       events.NewEvent(cachedMessageEvent),
 		MessageInvalid:        events.NewEvent(messageIDEventHandler),
 	}

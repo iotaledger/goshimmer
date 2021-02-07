@@ -20,7 +20,6 @@ func TestScheduler(t *testing.T) {
 
 	// create and start the Scheduler
 	testScheduler := NewScheduler(tangle)
-	testScheduler.Start()
 
 	// testing desired scheduled order: A - B - D - C  (B - A - D - C is equivalent)
 	messages := make(map[string]*Message)
