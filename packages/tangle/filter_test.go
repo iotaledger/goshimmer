@@ -53,7 +53,7 @@ func Test_isMessageAndTransactionTimestampsValid(t *testing.T) {
 		msg.issuingTime = tx.Essence().Timestamp().Add(1 * time.Second)
 		assert.True(t, isMessageAndTransactionTimestampsValid(tx, msg))
 	})
-	t.Run("older timestamp but older  han max", func(t *testing.T) {
+	t.Run("older timestamp but older than max", func(t *testing.T) {
 		tx := newTransaction(time.Now())
 		msg.issuingTime = tx.Essence().Timestamp().Add(MaxReattachmentTimeMin).Add(1 * time.Millisecond)
 		assert.False(t, isMessageAndTransactionTimestampsValid(tx, msg))
