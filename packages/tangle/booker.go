@@ -161,7 +161,7 @@ func NewMarkersManager(tangle *Tangle) *MarkersManager {
 // InheritStructureDetails returns the structure Details of a Message that are derived from the StructureDetails of its
 // strong parents.
 func (m *MarkersManager) InheritStructureDetails(message *Message, branchID ledgerstate.BranchID) (structureDetails *markers.StructureDetails) {
-	structureDetails, _ = m.Manager.InheritStructureDetails(m.tangle.MarkersManager.structureDetailsOfStrongParents(message), m.newMarkerIndexStrategy, markers.NewSequenceAlias(branchID.Bytes()))
+	structureDetails, _ = m.Manager.InheritStructureDetails(m.structureDetailsOfStrongParents(message), m.newMarkerIndexStrategy, markers.NewSequenceAlias(branchID.Bytes()))
 
 	if structureDetails.IsPastMarker {
 		m.tangle.Utils.WalkMessageMetadata(m.propagatePastMarkerToFutureMarkers(structureDetails.PastMarkers.FirstMarker()), message.StrongParents())

@@ -134,7 +134,7 @@ func (u *Utils) MessageStronglyApprovedBy(approvedMessageID MessageID, approving
 		panic(fmt.Sprintf("tried to check approval of non-booked Message with %s", approvingMessageID))
 	}
 
-	switch u.tangle.MarkersManager.IsInPastCone(approvedMessageStructureDetails, approvingMessageStructureDetails) {
+	switch u.tangle.Booker.MarkersManager.IsInPastCone(approvedMessageStructureDetails, approvingMessageStructureDetails) {
 	case types.True:
 		stronglyApproved = true
 	case types.False:

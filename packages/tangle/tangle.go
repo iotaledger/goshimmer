@@ -22,7 +22,6 @@ type Tangle struct {
 	TipManager     *MessageTipSelector
 	Requester      *MessageRequester
 	MessageFactory *MessageFactory
-	MarkersManager *MarkersManager
 	LedgerState    *LedgerState
 	Utils          *Utils
 	Options        *Options
@@ -46,7 +45,6 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.TipManager = NewMessageTipSelector()
 	tangle.MessageFactory = NewMessageFactory(tangle.Options.Store, []byte(DBSequenceNumber), tangle.Options.Identity, tangle.TipManager)
 	tangle.LedgerState = NewLedgerState(tangle)
-	tangle.MarkersManager = NewMarkersManager(tangle)
 	tangle.Utils = NewUtils(tangle)
 
 	// setup data flow
