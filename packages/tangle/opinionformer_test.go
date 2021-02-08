@@ -12,14 +12,15 @@ func TestDeriveOpinion(t *testing.T) {
 
 	// A{t0, pending} -> B{t-t0 < c, Dislike, One}
 	{
-		conflictSet := ConflictSet{&Opinion{
-			timestamp:        now,
-			liked:            false,
-			levelOfKnowledge: Pending,
-		}}
+		conflictSet := ConflictSet{
+			OpinionEssence{
+				timestamp:        now,
+				liked:            false,
+				levelOfKnowledge: Pending,
+			}}
 
 		opinion := deriveOpinion(now.Add(1*time.Second), conflictSet)
-		assert.Equal(t, &Opinion{
+		assert.Equal(t, OpinionEssence{
 			timestamp:        now.Add(1 * time.Second),
 			liked:            false,
 			levelOfKnowledge: One,
@@ -29,14 +30,15 @@ func TestDeriveOpinion(t *testing.T) {
 	// A{t0, Like, One} -> B{c < t-t0 < c + d, Dislike, One}
 	{
 		{
-			conflictSet := ConflictSet{&Opinion{
-				timestamp:        now,
-				liked:            true,
-				levelOfKnowledge: One,
-			}}
+			conflictSet := ConflictSet{
+				OpinionEssence{
+					timestamp:        now,
+					liked:            true,
+					levelOfKnowledge: One,
+				}}
 
 			opinion := deriveOpinion(now.Add(1*time.Second), conflictSet)
-			assert.Equal(t, &Opinion{
+			assert.Equal(t, OpinionEssence{
 				timestamp:        now.Add(1 * time.Second),
 				liked:            false,
 				levelOfKnowledge: One,
@@ -47,14 +49,15 @@ func TestDeriveOpinion(t *testing.T) {
 	// {t0, Like, Two} -> {t-t0 > c + d, Dislike, Two}
 	{
 		{
-			conflictSet := ConflictSet{&Opinion{
-				timestamp:        now,
-				liked:            true,
-				levelOfKnowledge: Two,
-			}}
+			conflictSet := ConflictSet{
+				OpinionEssence{
+					timestamp:        now,
+					liked:            true,
+					levelOfKnowledge: Two,
+				}}
 
 			opinion := deriveOpinion(now.Add(1*time.Second), conflictSet)
-			assert.Equal(t, &Opinion{
+			assert.Equal(t, OpinionEssence{
 				timestamp:        now.Add(1 * time.Second),
 				liked:            false,
 				levelOfKnowledge: Two,
@@ -65,18 +68,19 @@ func TestDeriveOpinion(t *testing.T) {
 	// A{t0, Dislike, Two}, B{t1, Dislike, Two} -> {t-t0 >> c + d, Dislike, Pending}
 	{
 		{
-			conflictSet := ConflictSet{&Opinion{
-				timestamp:        now,
-				liked:            false,
-				levelOfKnowledge: Two,
-			}, &Opinion{
-				timestamp:        now,
-				liked:            false,
-				levelOfKnowledge: Two,
-			}}
+			conflictSet := ConflictSet{
+				OpinionEssence{
+					timestamp:        now,
+					liked:            false,
+					levelOfKnowledge: Two,
+				}, OpinionEssence{
+					timestamp:        now,
+					liked:            false,
+					levelOfKnowledge: Two,
+				}}
 
 			opinion := deriveOpinion(now.Add(1*time.Second), conflictSet)
-			assert.Equal(t, &Opinion{
+			assert.Equal(t, OpinionEssence{
 				timestamp:        now.Add(1 * time.Second),
 				liked:            false,
 				levelOfKnowledge: Pending,
@@ -88,18 +92,19 @@ func TestDeriveOpinion(t *testing.T) {
 	//  {t0, Dislike, One}, {t1, Dislike, One} -> {t-t0 > 0, Dislike, one}
 	{
 		{
-			conflictSet := ConflictSet{&Opinion{
-				timestamp:        now,
-				liked:            false,
-				levelOfKnowledge: One,
-			}, &Opinion{
-				timestamp:        now.Add(1 * time.Second),
-				liked:            false,
-				levelOfKnowledge: One,
-			}}
+			conflictSet := ConflictSet{
+				OpinionEssence{
+					timestamp:        now,
+					liked:            false,
+					levelOfKnowledge: One,
+				}, OpinionEssence{
+					timestamp:        now.Add(1 * time.Second),
+					liked:            false,
+					levelOfKnowledge: One,
+				}}
 
 			opinion := deriveOpinion(now.Add(10*time.Second), conflictSet)
-			assert.Equal(t, &Opinion{
+			assert.Equal(t, OpinionEssence{
 				timestamp:        now.Add(10 * time.Second),
 				liked:            false,
 				levelOfKnowledge: One,
@@ -111,18 +116,19 @@ func TestDeriveOpinion(t *testing.T) {
 	//  {t0, Like, One}, {t1, Dislike, One} -> {t - t0 > c, Dislike, one}
 	{
 		{
-			conflictSet := ConflictSet{&Opinion{
-				timestamp:        now,
-				liked:            true,
-				levelOfKnowledge: One,
-			}, &Opinion{
-				timestamp:        now.Add(1 * time.Second),
-				liked:            false,
-				levelOfKnowledge: One,
-			}}
+			conflictSet := ConflictSet{
+				OpinionEssence{
+					timestamp:        now,
+					liked:            true,
+					levelOfKnowledge: One,
+				}, OpinionEssence{
+					timestamp:        now.Add(1 * time.Second),
+					liked:            false,
+					levelOfKnowledge: One,
+				}}
 
 			opinion := deriveOpinion(now.Add(10*time.Second), conflictSet)
-			assert.Equal(t, &Opinion{
+			assert.Equal(t, OpinionEssence{
 				timestamp:        now.Add(10 * time.Second),
 				liked:            false,
 				levelOfKnowledge: One,
@@ -133,18 +139,19 @@ func TestDeriveOpinion(t *testing.T) {
 	//  {t0, Dislike, Two}, {t1, Like, One} -> {t10, Dislike, one}
 	{
 		{
-			conflictSet := ConflictSet{&Opinion{
-				timestamp:        now,
-				liked:            false,
-				levelOfKnowledge: Two,
-			}, &Opinion{
-				timestamp:        now.Add(1 * time.Second),
-				liked:            true,
-				levelOfKnowledge: One,
-			}}
+			conflictSet := ConflictSet{
+				OpinionEssence{
+					timestamp:        now,
+					liked:            false,
+					levelOfKnowledge: Two,
+				}, OpinionEssence{
+					timestamp:        now.Add(1 * time.Second),
+					liked:            true,
+					levelOfKnowledge: One,
+				}}
 
 			opinion := deriveOpinion(now.Add(6*time.Second), conflictSet)
-			assert.Equal(t, &Opinion{
+			assert.Equal(t, OpinionEssence{
 				timestamp:        now.Add(6 * time.Second),
 				liked:            false,
 				levelOfKnowledge: One,
@@ -155,18 +162,19 @@ func TestDeriveOpinion(t *testing.T) {
 	//  {t0, Dislike, Two}, {t1, Dislike, One} -> {t10, Dislike, one}
 	{
 		{
-			conflictSet := ConflictSet{&Opinion{
-				timestamp:        now,
-				liked:            false,
-				levelOfKnowledge: Two,
-			}, &Opinion{
-				timestamp:        now.Add(1 * time.Second),
-				liked:            false,
-				levelOfKnowledge: One,
-			}}
+			conflictSet := ConflictSet{
+				OpinionEssence{
+					timestamp:        now,
+					liked:            false,
+					levelOfKnowledge: Two,
+				}, OpinionEssence{
+					timestamp:        now.Add(1 * time.Second),
+					liked:            false,
+					levelOfKnowledge: One,
+				}}
 
 			opinion := deriveOpinion(now.Add(6*time.Second), conflictSet)
-			assert.Equal(t, &Opinion{
+			assert.Equal(t, OpinionEssence{
 				timestamp:        now.Add(6 * time.Second),
 				liked:            false,
 				levelOfKnowledge: One,

@@ -31,13 +31,8 @@ const (
 
 // region Opinion //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Opinion defines the FCoB opinion about a transaction.
-type Opinion struct {
-	objectstorage.StorableObjectFlags
-
-	// the transactionID associated to this opinion.
-	transactionID ledgerstate.TransactionID
-
+// OpinionEssence contains the essence of an opinion (timestamp, liked, level of knowledge).
+type OpinionEssence struct {
 	// timestamp is the arrrival/solidification time.
 	timestamp time.Time
 
@@ -46,6 +41,17 @@ type Opinion struct {
 
 	// levelOfKnowledge is the degree of certainty of the associated opinion.
 	levelOfKnowledge LevelOfKnowledge
+}
+
+// Opinion defines the FCoB opinion about a transaction.
+type Opinion struct {
+	objectstorage.StorableObjectFlags
+
+	// the transactionID associated to this opinion.
+	transactionID ledgerstate.TransactionID
+
+	// the essence associated to this opinion.
+	OpinionEssence
 
 	timestampMutex        sync.RWMutex
 	likedMutex            sync.RWMutex
@@ -183,12 +189,12 @@ func (c *CachedOpinion) String() string {
 // region ConflictSet //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ConflictSet is a list of Opinion.
-type ConflictSet []*Opinion
+type ConflictSet []OpinionEssence
 
 // hasDecidedLike returns true if the conflict set contains at least one LIKE with LoK >= 2.
 func (c ConflictSet) hasDecidedLike() bool {
 	for _, opinion := range c {
-		if opinion.Liked() && opinion.LevelOfKnowledge() > One {
+		if opinion.liked && opinion.levelOfKnowledge > One {
 			return true
 		}
 	}
@@ -196,12 +202,16 @@ func (c ConflictSet) hasDecidedLike() bool {
 }
 
 // anchor returns the oldest opinion with LoK <= 1.
-func (c ConflictSet) anchor() (opinion *Opinion) {
+func (c ConflictSet) anchor() (opinion *OpinionEssence) {
 	oldestTimestamp := time.Unix(1<<63-62135596801, 999999999)
 	for _, o := range c {
-		if o.LevelOfKnowledge() <= One && o.Timestamp().Before(oldestTimestamp) {
-			oldestTimestamp = o.Timestamp()
-			opinion = o
+		if o.levelOfKnowledge <= One && o.timestamp.Before(oldestTimestamp) {
+			oldestTimestamp = o.timestamp
+			opinion = &OpinionEssence{
+				timestamp:        o.timestamp,
+				liked:            o.liked,
+				levelOfKnowledge: o.levelOfKnowledge,
+			}
 		}
 	}
 	return opinion

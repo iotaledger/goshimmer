@@ -4,6 +4,8 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/vote"
+	FPCOpinion "github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/objectstorage"
@@ -11,21 +13,34 @@ import (
 )
 
 // Events defines all the events related to the opinion manager.
-type OpinionFormenrEvents struct {
+type OpinionFormerEvents struct {
 	// Fired when an opinion of a payload is formed.
 	PayloadOpinionFormed *events.Event
+
+	// Fired when an opinion of a message is formed.
+	MessageOpinionFormed *events.Event
+
+	// Error gets called when FCOB faces an error.
+	Error *events.Event
+
+	// Vote gets called when FCOB needs to vote.
+	Vote *events.Event
 }
 
-// PayloadOpinionFormedEvent holds data about a PayloadOpinionFormed event.
-type PayloadOpinionFormedEvent struct {
+func voteEvent(handler interface{}, params ...interface{}) {
+	handler.(func(id string, initOpn FPCOpinion.Opinion))(params[0].(string), params[1].(FPCOpinion.Opinion))
+}
+
+// OpinionFormedEvent holds data about a Payload/MessageOpinionFormed event.
+type OpinionFormedEvent struct {
 	// The messageID of the message containing the payload.
 	MessageID MessageID
 	// The opinion of the payload.
-	Opinion *Opinion
+	Opinion bool
 }
 
 func payloadOpinionCaller(handler interface{}, params ...interface{}) {
-	handler.(func(*PayloadOpinionFormedEvent))(params[0].(*PayloadOpinionFormedEvent))
+	handler.(func(*OpinionFormedEvent))(params[0].(*OpinionFormedEvent))
 }
 
 var (
@@ -37,14 +52,14 @@ var (
 )
 
 type OpinionFormer struct {
+	Events OpinionFormerEvents
+
 	tangle         *Tangle
 	opinionStorage *objectstorage.ObjectStorage
 
 	likedThresholdExecutor *timedexecutor.TimedExecutor
 
 	locallyFinalizedExecutor *timedexecutor.TimedExecutor
-
-	events OpinionFormenrEvents
 }
 
 func NewOpinionFormer(store kvstore.KVStore, tangle *Tangle) (opinionFormer *OpinionFormer) {
@@ -52,78 +67,131 @@ func NewOpinionFormer(store kvstore.KVStore, tangle *Tangle) (opinionFormer *Opi
 		tangle:                   tangle,
 		likedThresholdExecutor:   timedexecutor.New(1),
 		locallyFinalizedExecutor: timedexecutor.New(1),
-		events: OpinionFormenrEvents{
+		Events: OpinionFormerEvents{
 			PayloadOpinionFormed: events.NewEvent(payloadOpinionCaller),
+			MessageOpinionFormed: events.NewEvent(messageIDEventHandler),
+			Error:                events.NewEvent(events.ErrorCaller),
+			Vote:                 events.NewEvent(voteEvent),
 		},
 	}
 
 	return
 }
 
-func (o *OpinionFormer) run(transactionID ledgerstate.TransactionID) {
+func (o *OpinionFormer) Setup() {
+	o.tangle.Events.MessageBooked.Attach(events.NewClosure(o.onMessageBooked))
+}
 
+func (o *OpinionFormer) onPayloadOpinionFormed(ev *OpinionFormedEvent) {
+	o.tangle.Storage.MessageMetadata(ev.MessageID).Consume(func(messageMetadata *MessageMetadata) {
+		if messageMetadata.TimestampOpinion().LoK > One {
+			o.Events.MessageOpinionFormed.Trigger(ev.MessageID)
+		}
+	})
+}
+
+func (o *OpinionFormer) onMessageBooked(messageID MessageID) {
+	o.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+		if payload := message.Payload(); payload.Type() == ledgerstate.TransactionType {
+			transactionID := payload.(*ledgerstate.Transaction).ID()
+			o.onTransactionBooked(transactionID, messageID)
+		}
+	})
+}
+
+func (o *OpinionFormer) onTransactionBooked(transactionID ledgerstate.TransactionID, messageID MessageID) {
 	// if the opinion for this transactionID is already present,
 	// it's a reattachment and thus, we re-use the same opinion.
-	if opinion := o.Opinion(transactionID); opinion != nil {
+	o.CachedOpinion(transactionID).Consume(func(opinion *Opinion) {
 		if opinion.LevelOfKnowledge() > One {
-			// trigger PayloadOpinionFormedEvent
+			// trigger PayloadOpinionFormed event
+			o.Events.PayloadOpinionFormed.Trigger(&OpinionFormedEvent{messageID, opinion.liked})
 		}
 		return
+	})
+
+	opinion := &Opinion{
+		transactionID: transactionID,
 	}
-
-	var opinion *Opinion
 	var timestamp time.Time
-
 	o.tangle.Booker.utxoDAG.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 		timestamp = transactionMetadata.SolidificationTime()
 	})
 
 	if o.isConflicting(transactionID) {
-		opinion = deriveOpinion(timestamp, o.Opinions(o.conflictSet(transactionID)))
-		if opinion != nil {
-			opinion.transactionID = transactionID
-			o.opinionStorage.Store(opinion).Release()
-			if opinion.LevelOfKnowledge() == One {
-				//trigger voting for this transactionID
-			}
+		opinion.OpinionEssence = deriveOpinion(timestamp, o.Opinions(o.conflictSet(transactionID)))
+
+		cachedOpinion := o.opinionStorage.Store(opinion)
+		defer cachedOpinion.Release()
+
+		if opinion.LevelOfKnowledge() == One {
+			//trigger voting for this transactionID
+			o.Events.Vote.Trigger(transactionID.String(), opinion.liked) // TODO: fix opinion type
 		}
 
 		return
 	}
 
-	opinion = &Opinion{
-		transactionID:    transactionID,
+	opinion.OpinionEssence = OpinionEssence{
 		timestamp:        timestamp,
 		levelOfKnowledge: Pending,
 	}
-	o.opinionStorage.Store(opinion).Release()
+	cachedOpinion := o.opinionStorage.Store(opinion)
+	defer cachedOpinion.Release()
 
 	// Wait LikedThreshold
 	o.likedThresholdExecutor.ExecuteAt(func() {
-		if o.isConflicting(transactionID) {
+		o.CachedOpinion(transactionID).Consume(func(opinion *Opinion) {
 			opinion.SetLevelOfKnowledge(One)
-			//trigger voting for this transactionID
-		}
-
-		opinion.SetLiked(true)
-		opinion.SetLevelOfKnowledge(One)
+			if o.isConflicting(transactionID) {
+				opinion.SetLiked(false)
+				//trigger voting for this transactionID
+				o.Events.Vote.Trigger(transactionID.String(), FPCOpinion.Dislike)
+				return
+			}
+			opinion.SetLiked(true)
+		})
 
 		// Wait LocallyFinalizedThreshold
 		o.locallyFinalizedExecutor.ExecuteAt(func() {
-			if o.isConflicting(transactionID) {
-				// trigger voting?
-			}
-
-			opinion.SetLiked(true)
-			opinion.SetLevelOfKnowledge(Two)
+			o.CachedOpinion(transactionID).Consume(func(opinion *Opinion) {
+				opinion.SetLiked(true)
+				if o.isConflicting(transactionID) {
+					//trigger voting for this transactionID
+					o.Events.Vote.Trigger(transactionID.String(), FPCOpinion.Like)
+					return
+				}
+				opinion.SetLevelOfKnowledge(Two)
+				// trigger OpinionPayloadFormed
+				o.Events.PayloadOpinionFormed.Trigger(&OpinionFormedEvent{messageID, opinion.liked})
+			})
 		}, timestamp.Add(LocallyFinalizedThreshold))
-
 	}, timestamp.Add(LikedThreshold))
-
 }
 
-func (o *OpinionFormer) Opinions(conflictSet []ledgerstate.TransactionID) (opinions []*Opinion) {
-	opinions = make([]*Opinion, len(conflictSet))
+// ProcessVoteResult allows an external voter to hand in the results of the voting process.
+func (o *OpinionFormer) ProcessVoteResult(ev *vote.OpinionEvent) {
+	if ev.Ctx.Type == vote.ConflictType {
+		transactionID, err := ledgerstate.TransactionIDFromBase58(ev.ID)
+		if err != nil {
+			o.Events.Error.Trigger(err)
+
+			return
+		}
+
+		// TODO: Check monotonicity and consistency among the conflict set.
+
+		o.CachedOpinion(transactionID).Consume(func(opinion *Opinion) {
+			opinion.SetLiked(ev.Opinion == FPCOpinion.Like)
+			opinion.SetLevelOfKnowledge(Two)
+			// trigger PayloadOpinionFormed event
+			// o.Events.PayloadOpinionFormed.Trigger(&OpinionFormedEvent{messageID, opinion.liked})
+		})
+	}
+}
+
+func (o *OpinionFormer) Opinions(conflictSet []ledgerstate.TransactionID) (opinions []OpinionEssence) {
+	opinions = make([]OpinionEssence, len(conflictSet))
 	for i, conflictID := range conflictSet {
 		opinions[i] = o.Opinion(conflictID)
 	}
@@ -153,17 +221,22 @@ func (o *OpinionFormer) conflictSet(transactionID ledgerstate.TransactionID) (co
 	return
 }
 
-func (o *OpinionFormer) Opinion(transactionID ledgerstate.TransactionID) (opinion *Opinion) {
+func (o *OpinionFormer) Opinion(transactionID ledgerstate.TransactionID) (opinion OpinionEssence) {
 	(&CachedOpinion{CachedObject: o.opinionStorage.Load(transactionID.Bytes())}).Consume(func(storedOpinion *Opinion) {
-		opinion = storedOpinion
+		opinion = storedOpinion.OpinionEssence
 	})
 
 	return
 }
 
-func deriveOpinion(targetTime time.Time, conflictSet ConflictSet) (opinion *Opinion) {
+func (o *OpinionFormer) CachedOpinion(transactionID ledgerstate.TransactionID) (cachedOpinion *CachedOpinion) {
+	cachedOpinion = &CachedOpinion{CachedObject: o.opinionStorage.Load(transactionID.Bytes())}
+	return
+}
+
+func deriveOpinion(targetTime time.Time, conflictSet ConflictSet) (opinion OpinionEssence) {
 	if conflictSet.hasDecidedLike() {
-		opinion = &Opinion{
+		opinion = OpinionEssence{
 			timestamp:        targetTime,
 			liked:            false,
 			levelOfKnowledge: Two,
@@ -173,14 +246,14 @@ func deriveOpinion(targetTime time.Time, conflictSet ConflictSet) (opinion *Opin
 
 	anchor := conflictSet.anchor()
 	if anchor == nil {
-		opinion = &Opinion{
+		opinion = OpinionEssence{
 			timestamp:        targetTime,
 			levelOfKnowledge: Pending,
 		}
 		return
 	}
 
-	opinion = &Opinion{
+	opinion = OpinionEssence{
 		timestamp:        targetTime,
 		liked:            false,
 		levelOfKnowledge: One,
