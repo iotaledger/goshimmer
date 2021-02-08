@@ -42,7 +42,7 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.Storage = NewStorage(tangle)
 	tangle.Solidifier = NewSolidifier(tangle)
 	tangle.Requester = NewMessageRequester(tangle)
-	tangle.TipManager = NewMessageTipSelector()
+	tangle.TipManager = NewMessageTipSelector(tangle)
 	tangle.MessageFactory = NewMessageFactory(tangle.Options.Store, []byte(DBSequenceNumber), tangle.Options.Identity, tangle.TipManager)
 	tangle.LedgerState = NewLedgerState(tangle)
 	tangle.Utils = NewUtils(tangle)
@@ -51,10 +51,7 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.Storage.Setup()
 	tangle.Solidifier.Setup()
 	tangle.Requester.Setup()
-
-	tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(messageID MessageID) {
-		tangle.Storage.Message(messageID).Consume(tangle.TipManager.AddTip)
-	}))
+	tangle.TipManager.Setup()
 
 	tangle.MessageFactory.Events.Error.Attach(events.NewClosure(func(err error) {
 		tangle.Events.Error.Trigger(xerrors.Errorf("error in MessageFactory: %w", err))

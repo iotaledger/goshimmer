@@ -25,7 +25,7 @@ func TestSignatureFilter(t *testing.T) {
 
 	// create helper instances
 	seed := newSeed()
-	messageFactory := tangle.NewMessageFactory(mapdb.NewMapDB(), []byte("sequenceKey"), identity.GenerateLocalIdentity(), tangle.NewMessageTipSelector())
+	messageFactory := tangle.NewMessageFactory(mapdb.NewMapDB(), []byte("sequenceKey"), identity.GenerateLocalIdentity(), tangle.NewMessageTipSelector(tangle.New()))
 
 	// 1. test value message without signatures
 	{
