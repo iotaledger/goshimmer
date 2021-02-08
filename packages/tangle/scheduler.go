@@ -16,9 +16,10 @@ var (
 )
 
 // SchedulerParentPriorityMap maps parentIDs with their children messages.
-type SchedulerParentPriorityMap map[MessageID][]*messageToSchedule
+type SchedulerParentPriorityMap map[MessageID][]*MessageToSchedule
 
-type messageToSchedule struct {
+// MessageToSchedule contains the relevant information to schedule a message.
+type MessageToSchedule struct {
 	ID          MessageID
 	parents     []MessageID
 	issuingTime time.Time
@@ -33,7 +34,7 @@ type Scheduler struct {
 	onMessageBooked *events.Closure
 	tangle          *Tangle
 
-	inbox            chan *messageToSchedule
+	inbox            chan *MessageToSchedule
 	timeQueue        *TimeMessageQueue
 	parentsMap       SchedulerParentPriorityMap
 	messagesBooked   chan MessageID
@@ -48,7 +49,7 @@ func NewScheduler(tangle *Tangle) (scheduler *Scheduler) {
 			MessageScheduled: events.NewEvent(messageIDEventHandler),
 		},
 		tangle:         tangle,
-		inbox:          make(chan *messageToSchedule, capacity),
+		inbox:          make(chan *MessageToSchedule, capacity),
 		timeQueue:      NewTimeMessageQueue(capacity),
 		parentsMap:     make(SchedulerParentPriorityMap),
 		messagesBooked: make(chan MessageID, capacity),
@@ -59,7 +60,7 @@ func NewScheduler(tangle *Tangle) (scheduler *Scheduler) {
 	// setup scheduler flow
 	scheduler.onMessageSolid = events.NewClosure(func(messageID MessageID) {
 		scheduler.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-			scheduler.inbox <- &messageToSchedule{
+			scheduler.inbox <- &MessageToSchedule{
 				ID:          messageID,
 				issuingTime: message.IssuingTime(),
 				parents:     message.Parents()}
@@ -131,7 +132,7 @@ func (s *Scheduler) schedule(messageID MessageID) {
 	})
 }
 
-func (s *Scheduler) trySchedule(message *messageToSchedule) {
+func (s *Scheduler) trySchedule(message *MessageToSchedule) {
 	if message == nil {
 		return
 	}
@@ -146,17 +147,17 @@ func (s *Scheduler) trySchedule(message *messageToSchedule) {
 	// append the message to the unbooked parent(s) queue(s).
 	for _, parent := range parentsToBook {
 		if _, exist := s.parentsMap[parent]; !exist {
-			s.parentsMap[parent] = make([]*messageToSchedule, 0)
+			s.parentsMap[parent] = make([]*MessageToSchedule, 0)
 		}
 		s.parentsMap[parent] = append(s.parentsMap[parent], message)
 	}
 }
 
-func (s *Scheduler) messageReady(message *messageToSchedule) (ready bool) {
+func (s *Scheduler) messageReady(message *MessageToSchedule) (ready bool) {
 	return len(s.parentsToBook(message)) == 0
 }
 
-func (s *Scheduler) parentsToBook(message *messageToSchedule) (parents MessageIDs) {
+func (s *Scheduler) parentsToBook(message *MessageToSchedule) (parents MessageIDs) {
 	for _, parentID := range message.parents {
 		s.tangle.Storage.MessageMetadata(parentID).Consume(func(messageMetadata *MessageMetadata) {
 			if !messageMetadata.IsBooked() {
@@ -173,8 +174,8 @@ func (s *Scheduler) parentsToBook(message *messageToSchedule) (parents MessageID
 // TimeMessageQueue is a time-based ordered queue.
 type TimeMessageQueue struct {
 	list    timeIssuanceSortedList
-	C       chan *messageToSchedule
-	addChan chan *messageToSchedule
+	C       chan *MessageToSchedule
+	addChan chan *MessageToSchedule
 	timer   *time.Timer
 	close   chan interface{}
 }
@@ -184,8 +185,8 @@ func NewTimeMessageQueue(capacity int) *TimeMessageQueue {
 	return &TimeMessageQueue{
 		list:    make(timeIssuanceSortedList, 0),
 		timer:   time.NewTimer(0),
-		addChan: make(chan *messageToSchedule, capacity),
-		C:       make(chan *messageToSchedule, capacity),
+		addChan: make(chan *MessageToSchedule, capacity),
+		C:       make(chan *MessageToSchedule, capacity),
 		close:   make(chan interface{}),
 	}
 }
@@ -194,7 +195,7 @@ func NewTimeMessageQueue(capacity int) *TimeMessageQueue {
 func (t *TimeMessageQueue) Start() {
 	go func() {
 		<-t.timer.C // ignore first timeout
-		var msg *messageToSchedule
+		var msg *MessageToSchedule
 		for {
 			select {
 			case <-t.close:
@@ -217,13 +218,13 @@ func (t *TimeMessageQueue) Stop() {
 	close(t.close)
 }
 
-// add adds a message to the TimeMessageQueue.
-func (t *TimeMessageQueue) Add(message *messageToSchedule) {
+// Add adds a message to the TimeMessageQueue.
+func (t *TimeMessageQueue) Add(message *MessageToSchedule) {
 	t.addChan <- message
 }
 
 // add adds a message to the TimeMessageQueue.
-func (t *TimeMessageQueue) add(message *messageToSchedule) {
+func (t *TimeMessageQueue) add(message *MessageToSchedule) {
 	if (t.list.insert(message)) == 0 {
 		t.timer.Stop()
 		t.timer.Reset(time.Until(message.issuingTime))
@@ -231,7 +232,7 @@ func (t *TimeMessageQueue) add(message *messageToSchedule) {
 }
 
 // Pop returns the first message to schedule.
-func (t *TimeMessageQueue) Pop() (message *messageToSchedule) {
+func (t *TimeMessageQueue) Pop() (message *MessageToSchedule) {
 	if len(t.list) > 1 {
 		t.timer.Reset(time.Until(t.list[1].issuingTime))
 	}
@@ -239,11 +240,11 @@ func (t *TimeMessageQueue) Pop() (message *messageToSchedule) {
 	return t.list.pop()
 }
 
-// region TimeMessageQueue /////////////////////////////////////////////////////////////////////////////////////////////
+// region timeIssuanceSortedList /////////////////////////////////////////////////////////////////////////////////////////////
 
-type timeIssuanceSortedList []*messageToSchedule
+type timeIssuanceSortedList []*MessageToSchedule
 
-func (t *timeIssuanceSortedList) insert(message *messageToSchedule) (position int) {
+func (t *timeIssuanceSortedList) insert(message *MessageToSchedule) (position int) {
 	position = -1
 	if len(*t) == 0 {
 		position = 0
@@ -265,7 +266,7 @@ func (t *timeIssuanceSortedList) insert(message *messageToSchedule) (position in
 	return
 }
 
-func (t *timeIssuanceSortedList) pop() (message *messageToSchedule) {
+func (t *timeIssuanceSortedList) pop() (message *MessageToSchedule) {
 	if len(*t) == 0 {
 		return nil
 	}

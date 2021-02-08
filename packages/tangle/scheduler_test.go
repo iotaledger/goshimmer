@@ -28,9 +28,8 @@ func TestScheduler(t *testing.T) {
 	// set C to have a timestamp in the future
 	messages["C"] = newTestParentsDataWithTimestamp("C", []MessageID{messages["A"].ID(), messages["B"].ID()}, []MessageID{}, time.Now().Add(5*time.Second))
 	messages["D"] = newTestParentsDataWithTimestamp("D", []MessageID{messages["A"].ID(), messages["B"].ID()}, []MessageID{}, time.Now())
+	messages["E"] = newTestParentsDataWithTimestamp("E", []MessageID{messages["A"].ID(), messages["B"].ID()}, []MessageID{}, time.Now().Add(3*time.Second))
 
-	// The order of A and B cannot be guaranteed and it does not matter.
-	expectedOrder := []MessageID{messages["D"].ID(), messages["C"].ID()}
 	scheduledOrder := []MessageID{}
 	var scheduledOrderMutex sync.Mutex
 
@@ -61,12 +60,13 @@ func TestScheduler(t *testing.T) {
 		})
 	}))
 
-	wg.Add(4)
+	wg.Add(5)
 	// Trigger solid events not in order
 	tangle.Solidifier.Events.MessageSolid.Trigger(messages["A"].ID())
 	tangle.Solidifier.Events.MessageSolid.Trigger(messages["C"].ID())
 	tangle.Solidifier.Events.MessageSolid.Trigger(messages["D"].ID())
 	tangle.Solidifier.Events.MessageSolid.Trigger(messages["B"].ID())
+	tangle.Solidifier.Events.MessageSolid.Trigger(messages["E"].ID())
 
 	wg.Wait()
 	testScheduler.Stop()
@@ -77,9 +77,13 @@ func TestScheduler(t *testing.T) {
 		messages["B"].ID(): "B",
 		messages["C"].ID(): "C",
 		messages["D"].ID(): "D",
+		messages["E"].ID(): "E",
 	}
 
-	// assert that messages A and B are scheduled before D, and D before C
+	// The order of A and B cannot be guaranteed and it does not matter.
+	expectedOrder := []MessageID{messages["D"].ID(), messages["E"].ID(), messages["C"].ID()}
+
+	// assert that messages A and B are scheduled before D, and D before E, and E before C
 	equal := assert.Equal(t, expectedOrder[:], scheduledOrder[2:])
 	if !equal {
 		for _, msgID := range scheduledOrder {
@@ -91,20 +95,20 @@ func TestScheduler(t *testing.T) {
 func TestTimeIssuanceSortedList(t *testing.T) {
 	now := time.Now()
 	list := timeIssuanceSortedList{
-		&messageToSchedule{issuingTime: now},
-		&messageToSchedule{issuingTime: now.Add(1 * time.Second)},
-		&messageToSchedule{issuingTime: now.Add(3 * time.Second)},
+		&MessageToSchedule{issuingTime: now},
+		&MessageToSchedule{issuingTime: now.Add(1 * time.Second)},
+		&MessageToSchedule{issuingTime: now.Add(3 * time.Second)},
 	}
 
-	before := &messageToSchedule{issuingTime: now.Add(-1 * time.Second)}
+	before := &MessageToSchedule{issuingTime: now.Add(-1 * time.Second)}
 	list.insert(before)
 	assert.Equal(t, before, list[0])
 
-	after := &messageToSchedule{issuingTime: now.Add(5 * time.Second)}
+	after := &MessageToSchedule{issuingTime: now.Add(5 * time.Second)}
 	list.insert(after)
 	assert.Equal(t, after, list[len(list)-1])
 
-	between := &messageToSchedule{issuingTime: now.Add(2 * time.Second)}
+	between := &MessageToSchedule{issuingTime: now.Add(2 * time.Second)}
 	list.insert(between)
 	assert.Equal(t, between, list[3])
 
