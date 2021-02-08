@@ -3,6 +3,8 @@ package tangle
 import (
 	"sync"
 	"time"
+
+	"github.com/iotaledger/hive.go/events"
 )
 
 const (
@@ -41,6 +43,7 @@ func RetryInterval(interval time.Duration) MessageRequesterOption {
 
 // MessageRequester takes care of requesting messages.
 type MessageRequester struct {
+	tangle            *Tangle
 	scheduledRequests map[MessageID]*time.Timer
 	options           *MessageRequesterOptions
 	Events            *MessageRequesterEvents
@@ -52,8 +55,9 @@ type MessageRequester struct {
 type MessageExistsFunc func(messageId MessageID) bool
 
 // NewMessageRequester creates a new message requester.
-func NewMessageRequester(missingMessages []MessageID, optionalOptions ...MessageRequesterOption) *MessageRequester {
+func NewMessageRequester(tangle *Tangle, optionalOptions ...MessageRequesterOption) *MessageRequester {
 	requester := &MessageRequester{
+		tangle:            tangle,
 		scheduledRequests: make(map[MessageID]*time.Timer),
 		options:           newMessageRequesterOptions(optionalOptions),
 		Events:            newMessageRequesterEvents(),
@@ -63,11 +67,22 @@ func NewMessageRequester(missingMessages []MessageID, optionalOptions ...Message
 	requester.scheduledRequestsMutex.Lock()
 	defer requester.scheduledRequestsMutex.Unlock()
 
-	for _, id := range missingMessages {
+	for _, id := range tangle.Storage.MissingMessages() {
 		requester.scheduledRequests[id] = time.AfterFunc(requester.options.retryInterval, requester.createReRequest(id, 0))
 	}
 
 	return requester
+}
+
+// Setup sets up the behavior of the component by making it attach to the relevant events of other components.
+func (r *MessageRequester) Setup() {
+	r.tangle.Solidifier.Events.MessageMissing.Attach(events.NewClosure(r.StartRequest))
+	r.tangle.Storage.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMessageEvent *CachedMessageEvent) {
+		cachedMessageEvent.MessageMetadata.Release()
+		cachedMessageEvent.Message.Consume(func(message *Message) {
+			r.StopRequest(message.ID())
+		})
+	}))
 }
 
 // StartRequest initiates a regular triggering of the StartRequest event until it has been stopped using StopRequest.

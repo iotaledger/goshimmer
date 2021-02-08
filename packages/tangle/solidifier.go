@@ -37,6 +37,11 @@ func NewSolidifier(tangle *Tangle) (solidifier *Solidifier) {
 	return
 }
 
+// Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
+func (s *Solidifier) Setup() {
+	s.tangle.Storage.Events.MessageStored.Attach(events.NewClosure(s.Solidify))
+}
+
 // Solidify solidifies the given Message.
 func (s *Solidifier) Solidify(messageID MessageID) {
 	s.tangle.Utils.WalkMessageAndMetadata(s.checkMessageSolidity, MessageIDs{messageID}, true)
