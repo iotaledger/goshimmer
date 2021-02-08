@@ -278,7 +278,7 @@ func (f *TransactionFilter) Filter(msg *Message, peer *peer.Peer) {
 func isMessageAndTransactionTimestampsValid(transaction *ledgerstate.Transaction, message *Message) bool {
 	transactionTimestamp := transaction.Essence().Timestamp()
 	messageTimestamp := message.IssuingTime()
-	return transactionTimestamp.Before(messageTimestamp) && transactionTimestamp.Sub(messageTimestamp) <= MaxReattachmentTimeMin
+	return messageTimestamp.Sub(transactionTimestamp).Milliseconds() >= 0 && messageTimestamp.Sub(transactionTimestamp) <= MaxReattachmentTimeMin
 }
 
 // OnAccept registers the given callback as the acceptance function of the filter.
