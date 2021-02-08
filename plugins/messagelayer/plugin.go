@@ -50,7 +50,9 @@ func Tangle() *tangle.Tangle {
 func configure(*node.Plugin) {
 	log = logger.NewLogger(PluginName)
 
-	Tangle().Events.Error.Attach(events.NewClosure(log.Error))
+	Tangle().Events.Error.Attach(events.NewClosure(func(err error) {
+		log.Error(err)
+	}))
 }
 
 func run(*node.Plugin) {
