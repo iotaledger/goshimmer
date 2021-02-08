@@ -39,7 +39,7 @@ func Plugin() *node.Plugin {
 func Tangle() *tangle.Tangle {
 	tangleOnce.Do(func() {
 		tangleInstance = tangle.New(
-			database.Store(),
+			tangle.Store(database.Store()),
 			tangle.Identity(local.GetInstance().LocalIdentity()),
 		)
 	})
