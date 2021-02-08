@@ -27,7 +27,8 @@ type Booker struct {
 	// Events is a dictionary for the Booker related Events.
 	Events *BookerEvents
 
-	tangle *Tangle
+	tangle                       *Tangle
+	markerBranchIDMappingManager *MarkerBranchIDMappingManager
 }
 
 // NewBooker is the constructor of a Booker.
@@ -36,7 +37,8 @@ func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 		Events: &BookerEvents{
 			MessageBooked: events.NewEvent(messageIDEventHandler),
 		},
-		tangle: tangle,
+		tangle:                       tangle,
+		markerBranchIDMappingManager: NewMarkerBranchIDMappingManager(tangle),
 	}
 
 	return
@@ -134,17 +136,38 @@ type BookerEvents struct {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region MarkerBranchMappingManager ///////////////////////////////////////////////////////////////////////////////////
+// region MarkerBranchIDMappingManager /////////////////////////////////////////////////////////////////////////////////
 
-type MarkerBranchMappingManager struct {
-	mappingStorage *objectstorage.ObjectStorage
+// MarkerBranchIDMappingManager is a data structure that enables the mapping of Markers to BranchIDs with binary search
+// efficiency (O(log(n)) where n is the amount of Markers that have a unique BranchID value).
+type MarkerBranchIDMappingManager struct {
+	tangle *Tangle
 }
 
-func (m *MarkerBranchMappingManager) BranchID(marker *markers.Marker) {
-	(m.mappingStorage.ComputeIfAbsent(marker.SequenceID().Bytes(), func(key []byte) objectstorage.StorableObject {
-		return NewMarkerIndexBranchIDMapping(marker.SequenceID())
-	})).Consume(func(object objectstorage.StorableObject) {
-		object.(*MarkerIndexBranchIDMapping).BranchID(marker.Index())
+// NewMarkerBranchIDMappingManager is the constructor for the MarkerBranchIDMappingManager.
+func NewMarkerBranchIDMappingManager(tangle *Tangle) (markerBranchIDMappingManager *MarkerBranchIDMappingManager) {
+	markerBranchIDMappingManager = &MarkerBranchIDMappingManager{
+		tangle: tangle,
+	}
+
+	return
+}
+
+// BranchID returns the BranchID that is associated with the given Marker.
+func (m *MarkerBranchIDMappingManager) BranchID(marker *markers.Marker) (branchID ledgerstate.BranchID) {
+	m.tangle.Storage.MarkerIndexBranchIDMapping(marker.SequenceID(), func(sequenceID markers.SequenceID) *MarkerIndexBranchIDMapping {
+		panic(fmt.Sprintf("tried to retrieve the BranchID of unknown marker.%s", sequenceID))
+	}).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
+		branchID = markerIndexBranchIDMapping.BranchID(marker.Index())
+	})
+
+	return
+}
+
+// SetBranchID associates a BranchID with the given Marker.
+func (m *MarkerBranchIDMappingManager) SetBranchID(marker *markers.Marker, branchID ledgerstate.BranchID) {
+	m.tangle.Storage.MarkerIndexBranchIDMapping(marker.SequenceID(), NewMarkerIndexBranchIDMapping).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
+		markerIndexBranchIDMapping.SetBranchID(marker.Index(), branchID)
 	})
 }
 
@@ -161,7 +184,7 @@ type MarkerIndexBranchIDMapping struct {
 	objectstorage.StorableObjectFlags
 }
 
-// NewMarkerIndexBranchIDMapping create a new MarkerIndexBranchIDMapping for the given SequenceID.
+// NewMarkerIndexBranchIDMapping creates a new MarkerIndexBranchIDMapping for the given SequenceID.
 func NewMarkerIndexBranchIDMapping(sequenceID markers.SequenceID) (markerBranchMapping *MarkerIndexBranchIDMapping) {
 	markerBranchMapping = &MarkerIndexBranchIDMapping{
 		sequenceID: sequenceID,
@@ -239,7 +262,7 @@ func (m *MarkerIndexBranchIDMapping) BranchID(markerIndex markers.Index) (branch
 
 	value, exists := m.mapping.Get(markerIndex)
 	if !exists {
-		panic("tried to retrieve the BranchID of an unknown Index")
+		panic(fmt.Sprintf("tried to retrieve the BranchID of unknown marker.%s", markerIndex))
 	}
 
 	return value.(ledgerstate.BranchID)
@@ -344,5 +367,50 @@ func markerIndexComparator(a, b interface{}) int {
 
 // code contract (make sure the type implements all required methods)
 var _ objectstorage.StorableObject = &MarkerIndexBranchIDMapping{}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region CachedMarkerIndexBranchIDMapping ////////////////////////////////////////////////////////////////////////////////////////////
+
+// CachedMarkerIndexBranchIDMapping is a wrapper for the generic CachedObject returned by the object storage that overrides the
+// accessor methods with a type-casted one.
+type CachedMarkerIndexBranchIDMapping struct {
+	objectstorage.CachedObject
+}
+
+// Retain marks the CachedObject to still be in use by the program.
+func (c *CachedMarkerIndexBranchIDMapping) Retain() *CachedMarkerIndexBranchIDMapping {
+	return &CachedMarkerIndexBranchIDMapping{c.CachedObject.Retain()}
+}
+
+// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
+func (c *CachedMarkerIndexBranchIDMapping) Unwrap() *MarkerIndexBranchIDMapping {
+	untypedObject := c.Get()
+	if untypedObject == nil {
+		return nil
+	}
+
+	typedObject := untypedObject.(*MarkerIndexBranchIDMapping)
+	if typedObject == nil || typedObject.IsDeleted() {
+		return nil
+	}
+
+	return typedObject
+}
+
+// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
+// exists). It automatically releases the object when the consumer finishes.
+func (c *CachedMarkerIndexBranchIDMapping) Consume(consumer func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping), forceRelease ...bool) (consumed bool) {
+	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*MarkerIndexBranchIDMapping))
+	}, forceRelease...)
+}
+
+// String returns a human readable version of the CachedMarkerIndexBranchIDMapping.
+func (c *CachedMarkerIndexBranchIDMapping) String() string {
+	return stringify.Struct("CachedMarkerIndexBranchIDMapping",
+		stringify.StructField("CachedObject", c.Unwrap()),
+	)
+}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

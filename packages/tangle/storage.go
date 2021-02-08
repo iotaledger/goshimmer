@@ -6,6 +6,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/objectstorage"
@@ -27,6 +28,9 @@ const (
 	// PrefixAttachments defines the storage prefix for attachments.
 	PrefixAttachments
 
+	// PrefixMarkerBranchIDMapping defines the storage prefix for the PrefixMarkerBranchIDMapping.
+	PrefixMarkerBranchIDMapping
+
 	cacheTime = 20 * time.Second
 
 	// DBSequenceNumber defines the db sequence number.
@@ -35,11 +39,12 @@ const (
 
 // Storage represents the storage of messages.
 type Storage struct {
-	messageStorage         *objectstorage.ObjectStorage
-	messageMetadataStorage *objectstorage.ObjectStorage
-	approverStorage        *objectstorage.ObjectStorage
-	missingMessageStorage  *objectstorage.ObjectStorage
-	attachmentStorage      *objectstorage.ObjectStorage
+	messageStorage                    *objectstorage.ObjectStorage
+	messageMetadataStorage            *objectstorage.ObjectStorage
+	approverStorage                   *objectstorage.ObjectStorage
+	missingMessageStorage             *objectstorage.ObjectStorage
+	attachmentStorage                 *objectstorage.ObjectStorage
+	markerIndexBranchIDMappingStorage *objectstorage.ObjectStorage
 
 	Events   *MessageStoreEvents
 	shutdown chan struct{}
@@ -50,12 +55,13 @@ func NewStorage(store kvstore.KVStore) (result *Storage) {
 	osFactory := objectstorage.NewFactory(store, database.PrefixMessageLayer)
 
 	result = &Storage{
-		shutdown:               make(chan struct{}),
-		messageStorage:         osFactory.New(PrefixMessage, MessageFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
-		messageMetadataStorage: osFactory.New(PrefixMessageMetadata, MessageMetadataFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
-		approverStorage:        osFactory.New(PrefixApprovers, ApproverFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.PartitionKey(MessageIDLength, ApproverTypeLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false)),
-		missingMessageStorage:  osFactory.New(PrefixMissingMessage, MissingMessageFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
-		attachmentStorage:      osFactory.New(PrefixAttachments, AttachmentFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.PartitionKey(ledgerstate.TransactionIDLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false)),
+		shutdown:                          make(chan struct{}),
+		messageStorage:                    osFactory.New(PrefixMessage, MessageFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		messageMetadataStorage:            osFactory.New(PrefixMessageMetadata, MessageMetadataFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		approverStorage:                   osFactory.New(PrefixApprovers, ApproverFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.PartitionKey(MessageIDLength, ApproverTypeLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false)),
+		missingMessageStorage:             osFactory.New(PrefixMissingMessage, MissingMessageFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		attachmentStorage:                 osFactory.New(PrefixAttachments, AttachmentFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.PartitionKey(ledgerstate.TransactionIDLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false)),
+		markerIndexBranchIDMappingStorage: osFactory.New(PrefixMarkerBranchIDMapping, MarkerIndexBranchIDMappingFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 
 		Events: newMessageStoreEvents(),
 	}
@@ -205,6 +211,16 @@ func (m *Storage) DeleteMessage(messageID MessageID) {
 // DeleteMissingMessage deletes a message from the missingMessageStorage.
 func (m *Storage) DeleteMissingMessage(messageID MessageID) {
 	m.missingMessageStorage.Delete(messageID[:])
+}
+
+func (m *Storage) MarkerIndexBranchIDMapping(sequenceID markers.SequenceID, optionalComputeIfAbsentCallback ...func(sequenceID markers.SequenceID) *MarkerIndexBranchIDMapping) *CachedMarkerIndexBranchIDMapping {
+	if len(optionalComputeIfAbsentCallback) >= 1 {
+		return &CachedMarkerIndexBranchIDMapping{m.messageMetadataStorage.ComputeIfAbsent(sequenceID.Bytes(), func(key []byte) objectstorage.StorableObject {
+			return optionalComputeIfAbsentCallback[0](sequenceID)
+		})}
+	}
+
+	return &CachedMarkerIndexBranchIDMapping{CachedObject: m.messageMetadataStorage.Load(sequenceID.Bytes())}
 }
 
 // deleteStrongApprover deletes an Approver from the object storage that was created by a strong parent.
