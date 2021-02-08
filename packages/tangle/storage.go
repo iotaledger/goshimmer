@@ -115,10 +115,10 @@ func (m *Storage) Message(messageID MessageID) *CachedMessage {
 }
 
 // MessageMetadata retrieves the MessageMetadata with the given MessageID.
-func (m *Storage) MessageMetadata(messageID MessageID, optionalComputeIfAbsentCallback ...func() *MessageMetadata) *CachedMessageMetadata {
-	if len(optionalComputeIfAbsentCallback) >= 1 {
+func (m *Storage) MessageMetadata(messageID MessageID, computeIfAbsentCallback ...func() *MessageMetadata) *CachedMessageMetadata {
+	if len(computeIfAbsentCallback) >= 1 {
 		return &CachedMessageMetadata{m.messageMetadataStorage.ComputeIfAbsent(messageID.Bytes(), func(key []byte) objectstorage.StorableObject {
-			return optionalComputeIfAbsentCallback[0]()
+			return computeIfAbsentCallback[0]()
 		})}
 	}
 
@@ -144,6 +144,7 @@ func (m *Storage) Approvers(messageID MessageID, optionalApproverType ...Approve
 	return
 }
 
+// StoreMissingMessage stores a new MissingMessage entry in the object storage.
 func (m *Storage) StoreMissingMessage(missingMessage *MissingMessage) (cachedMissingMessage *CachedMissingMessage, stored bool) {
 	cachedObject, stored := m.missingMessageStorage.StoreIfAbsent(missingMessage)
 	cachedMissingMessage = &CachedMissingMessage{CachedObject: cachedObject}
@@ -213,10 +214,13 @@ func (m *Storage) DeleteMissingMessage(messageID MessageID) {
 	m.missingMessageStorage.Delete(messageID[:])
 }
 
-func (m *Storage) MarkerIndexBranchIDMapping(sequenceID markers.SequenceID, optionalComputeIfAbsentCallback ...func(sequenceID markers.SequenceID) *MarkerIndexBranchIDMapping) *CachedMarkerIndexBranchIDMapping {
-	if len(optionalComputeIfAbsentCallback) >= 1 {
+// MarkerIndexBranchIDMapping retrieves the MarkerIndexBranchIDMapping for the given SequenceID. It accepts an optional
+// computeIfAbsent callback that can be used to dynamically create a MarkerIndexBranchIDMapping if it doesn't exist,
+// yet.
+func (m *Storage) MarkerIndexBranchIDMapping(sequenceID markers.SequenceID, computeIfAbsentCallback ...func(sequenceID markers.SequenceID) *MarkerIndexBranchIDMapping) *CachedMarkerIndexBranchIDMapping {
+	if len(computeIfAbsentCallback) >= 1 {
 		return &CachedMarkerIndexBranchIDMapping{m.messageMetadataStorage.ComputeIfAbsent(sequenceID.Bytes(), func(key []byte) objectstorage.StorableObject {
-			return optionalComputeIfAbsentCallback[0](sequenceID)
+			return computeIfAbsentCallback[0](sequenceID)
 		})}
 	}
 

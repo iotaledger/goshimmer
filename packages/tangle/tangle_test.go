@@ -20,7 +20,6 @@ import (
 	"github.com/iotaledger/hive.go/datastructure/randommap"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/testutil"
 	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/stretchr/testify/assert"
@@ -28,7 +27,7 @@ import (
 )
 
 func BenchmarkTangle_StoreMessage(b *testing.B) {
-	tangle := New(mapdb.NewMapDB())
+	tangle := New()
 	if err := tangle.Prune(); err != nil {
 		b.Error(err)
 
@@ -51,7 +50,7 @@ func BenchmarkTangle_StoreMessage(b *testing.B) {
 }
 
 func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
-	messageTangle := New(mapdb.NewMapDB())
+	messageTangle := New()
 	if err := messageTangle.Prune(); err != nil {
 		t.Error(err)
 
@@ -111,7 +110,7 @@ func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
 }
 
 func TestTangle_StoreMessage(t *testing.T) {
-	messageTangle := New(mapdb.NewMapDB())
+	messageTangle := New()
 	if err := messageTangle.Prune(); err != nil {
 		t.Error(err)
 
@@ -200,7 +199,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 	}
 
 	// create the tangle
-	tangle := New(badgerDB)
+	tangle := New(Store(badgerDB))
 	defer tangle.Shutdown()
 	require.NoError(t, tangle.Prune())
 
@@ -259,7 +258,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 }
 
 func TestRetrieveAllTips(t *testing.T) {
-	messageTangle := New(mapdb.NewMapDB())
+	messageTangle := New()
 
 	messageA := newTestParentsDataMessage("A", []MessageID{EmptyMessageID}, []MessageID{EmptyMessageID})
 	messageB := newTestParentsDataMessage("B", []MessageID{messageA.ID()}, []MessageID{EmptyMessageID})
@@ -372,7 +371,7 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 	}
 
 	// create the tangle
-	tangle := New(badgerDB)
+	tangle := New(Store(badgerDB))
 	defer tangle.Shutdown()
 	require.NoError(t, tangle.Prune())
 

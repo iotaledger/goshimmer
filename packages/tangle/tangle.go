@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
+	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"golang.org/x/xerrors"
 )
 
@@ -31,7 +32,7 @@ type Tangle struct {
 }
 
 // New is the constructor for the Tangle.
-func New(store kvstore.KVStore, options ...Option) (tangle *Tangle) {
+func New(options ...Option) (tangle *Tangle) {
 	tangle = emptyTangle()
 	for _, option := range options {
 		option(tangle.Options)
@@ -40,10 +41,10 @@ func New(store kvstore.KVStore, options ...Option) (tangle *Tangle) {
 	// create components
 	tangle.Parser = NewMessageParser()
 	tangle.Solidifier = NewSolidifier(tangle)
-	tangle.Storage = NewStorage(store)
+	tangle.Storage = NewStorage(tangle.Options.Store)
 	tangle.Requester = NewMessageRequester(tangle.Storage.MissingMessages())
 	tangle.TipManager = NewMessageTipSelector()
-	tangle.MessageFactory = NewMessageFactory(store, []byte(DBSequenceNumber), tangle.Options.Identity, tangle.TipManager)
+	tangle.MessageFactory = NewMessageFactory(tangle.Options.Store, []byte(DBSequenceNumber), tangle.Options.Identity, tangle.TipManager)
 	tangle.LedgerState = NewLedgerState(tangle)
 	tangle.MarkersManager = NewMarkersManager(tangle)
 	tangle.Utils = NewUtils(tangle)
@@ -77,7 +78,7 @@ func New(store kvstore.KVStore, options ...Option) (tangle *Tangle) {
 // emptyTangle creates an un-configured Tangle without a configured data flow.
 func emptyTangle() (tangle *Tangle) {
 	tangle = &Tangle{
-		Options: DefaultOptions(),
+		Options: defaultOptions(),
 		Events: &Events{
 			MessageEligible: events.NewEvent(cachedMessageEvent),
 			MessageInvalid:  events.NewEvent(messageIDEventHandler),
@@ -126,21 +127,35 @@ type Events struct {
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// Option represents the return type of optional parameters that can be handed into the constructor of the Tangle to
+// configure its behavior.
 type Option func(*Options)
 
+// Options is a container for all configurable parameters of the Tangle.
 type Options struct {
+	Store    kvstore.KVStore
 	Identity *identity.LocalIdentity
 }
 
-func DefaultOptions() *Options {
+// defaultOptions returns the default options that are used by the Tangle.
+func defaultOptions() *Options {
 	return &Options{
+		Store:    mapdb.NewMapDB(),
 		Identity: identity.GenerateLocalIdentity(),
 	}
 }
 
+// Store is an Option for the Tangle that allows to specify which storage layer is supposed to be used to persist data.
+func Store(store kvstore.KVStore) Option {
+	return func(options *Options) {
+		options.Store = store
+	}
+}
+
+// Identity is an Option for the Tangle that allows to specify the node identity which is used to issue Messages.
 func Identity(identity *identity.LocalIdentity) Option {
-	return func(args *Options) {
-		args.Identity = identity
+	return func(options *Options) {
+		options.Identity = identity
 	}
 }
 

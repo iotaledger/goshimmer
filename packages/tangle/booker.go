@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/thresholdmap"
+	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
@@ -28,7 +29,8 @@ type Booker struct {
 	Events *BookerEvents
 
 	tangle                       *Tangle
-	markerBranchIDMappingManager *MarkerBranchIDMappingManager
+	MarkersManager               *MarkersManager
+	MarkerBranchIDMappingManager *MarkerBranchIDMappingManager
 }
 
 // NewBooker is the constructor of a Booker.
@@ -38,7 +40,8 @@ func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 			MessageBooked: events.NewEvent(messageIDEventHandler),
 		},
 		tangle:                       tangle,
-		markerBranchIDMappingManager: NewMarkerBranchIDMappingManager(tangle),
+		MarkersManager:               NewMarkersManager(tangle),
+		MarkerBranchIDMappingManager: NewMarkerBranchIDMappingManager(tangle),
 	}
 
 	return
@@ -76,7 +79,7 @@ func (m *Booker) Book(messageID MessageID) (err error) {
 			}
 
 			messageMetadata.SetBranchID(inheritedBranch)
-			messageMetadata.SetStructureDetails(m.tangle.MarkersManager.InheritStructureDetails(message, inheritedBranch, m.tangle.MarkersManager.structureDetailsOfStrongParents(message)))
+			messageMetadata.SetStructureDetails(m.MarkersManager.InheritStructureDetails(message, inheritedBranch))
 			messageMetadata.SetBooked(true)
 
 			m.Events.MessageBooked.Trigger(message.ID())
@@ -132,6 +135,69 @@ func (m *Booker) branchIDsOfStrongParents(message *Message) (branchIDs ledgersta
 type BookerEvents struct {
 	// MessageBooked is triggered when a Message was booked (it's Branch and it's Payload's Branch where determined).
 	MessageBooked *events.Event
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region MarkersManager ///////////////////////////////////////////////////////////////////////////////////////////////
+
+// MarkersManager is a Tangle component that takes care of managing the Markers which are used to infer structural
+// information about the Tangle in an efficient way.
+type MarkersManager struct {
+	tangle                 *Tangle
+	newMarkerIndexStrategy markers.IncreaseIndexCallback
+
+	*markers.Manager
+}
+
+// NewMarkersManager is the constructor of the MarkersManager.
+func NewMarkersManager(tangle *Tangle) *MarkersManager {
+	return &MarkersManager{
+		tangle:  tangle,
+		Manager: markers.NewManager(tangle.Options.Store),
+	}
+}
+
+// InheritStructureDetails returns the structure Details of a Message that are derived from the StructureDetails of its
+// strong parents.
+func (m *MarkersManager) InheritStructureDetails(message *Message, branchID ledgerstate.BranchID) (structureDetails *markers.StructureDetails) {
+	structureDetails, _ = m.Manager.InheritStructureDetails(m.tangle.MarkersManager.structureDetailsOfStrongParents(message), m.newMarkerIndexStrategy, markers.NewSequenceAlias(branchID.Bytes()))
+
+	if structureDetails.IsPastMarker {
+		m.tangle.Utils.WalkMessageMetadata(m.propagatePastMarkerToFutureMarkers(structureDetails.PastMarkers.FirstMarker()), message.StrongParents())
+	}
+
+	return
+}
+
+// propagatePastMarkerToFutureMarkers updates the FutureMarkers of the strong parents of a given message when a new
+// PastMaster was assigned.
+func (m *MarkersManager) propagatePastMarkerToFutureMarkers(pastMarkerToInherit *markers.Marker) func(messageMetadata *MessageMetadata, walker *walker.Walker) {
+	return func(messageMetadata *MessageMetadata, walker *walker.Walker) {
+		_, inheritFurther := m.UpdateStructureDetails(messageMetadata.StructureDetails(), pastMarkerToInherit)
+		if inheritFurther {
+			m.tangle.Storage.Message(messageMetadata.ID()).Consume(func(message *Message) {
+				for _, strongParentMessageID := range message.StrongParents() {
+					walker.Push(strongParentMessageID)
+				}
+			})
+		}
+	}
+}
+
+// structureDetailsOfStrongParents is an internal utility function that returns a list of StructureDetails of all the
+// strong parents.
+func (m *MarkersManager) structureDetailsOfStrongParents(message *Message) (structureDetails []*markers.StructureDetails) {
+	structureDetails = make([]*markers.StructureDetails, 0)
+	message.ForEachStrongParent(func(parentMessageID MessageID) {
+		if !m.tangle.Storage.MessageMetadata(parentMessageID).Consume(func(messageMetadata *MessageMetadata) {
+			structureDetails = append(structureDetails, messageMetadata.StructureDetails())
+		}) {
+			panic(fmt.Errorf("failed to load MessageMetadata of Message with %s", parentMessageID))
+		}
+	})
+
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -370,10 +436,10 @@ var _ objectstorage.StorableObject = &MarkerIndexBranchIDMapping{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region CachedMarkerIndexBranchIDMapping ////////////////////////////////////////////////////////////////////////////////////////////
+// region CachedMarkerIndexBranchIDMapping /////////////////////////////////////////////////////////////////////////////
 
-// CachedMarkerIndexBranchIDMapping is a wrapper for the generic CachedObject returned by the object storage that overrides the
-// accessor methods with a type-casted one.
+// CachedMarkerIndexBranchIDMapping is a wrapper for the generic CachedObject returned by the object storage that
+// overrides the accessor methods with a type-casted one.
 type CachedMarkerIndexBranchIDMapping struct {
 	objectstorage.CachedObject
 }
