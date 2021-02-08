@@ -3,7 +3,6 @@ package tangle
 import (
 	"fmt"
 	"runtime"
-	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
@@ -173,31 +172,35 @@ func (s *Scheduler) parentsToBook(message *messageToSchedule) (parents MessageID
 
 // TimeMessageQueue is a time-based ordered queue.
 type TimeMessageQueue struct {
-	list timeIssuanceSortedList
-	sync.Mutex
-	C     chan *messageToSchedule
-	timer *time.Timer
-	close chan interface{}
+	list    timeIssuanceSortedList
+	C       chan *messageToSchedule
+	addChan chan *messageToSchedule
+	timer   *time.Timer
+	close   chan interface{}
 }
 
 // NewTimeMessageQueue returns a new TimeMessageQueue.
 func NewTimeMessageQueue(capacity int) *TimeMessageQueue {
 	return &TimeMessageQueue{
-		list:  make(timeIssuanceSortedList, 0),
-		timer: time.NewTimer(0),
-		C:     make(chan *messageToSchedule, capacity),
-		close: make(chan interface{}),
+		list:    make(timeIssuanceSortedList, 0),
+		timer:   time.NewTimer(0),
+		addChan: make(chan *messageToSchedule, capacity),
+		C:       make(chan *messageToSchedule, capacity),
+		close:   make(chan interface{}),
 	}
 }
 
 // Start starts the TimeMessageQueue.
 func (t *TimeMessageQueue) Start() {
 	go func() {
+		<-t.timer.C // ignore first timeout
 		var msg *messageToSchedule
 		for {
 			select {
 			case <-t.close:
 				return
+			case msg = <-t.addChan:
+				t.add(msg)
 			case <-t.timer.C:
 				msg = t.Pop()
 				if msg != nil {
@@ -210,17 +213,17 @@ func (t *TimeMessageQueue) Start() {
 
 // Stop stops the TimeMessageQueue.
 func (t *TimeMessageQueue) Stop() {
-	t.Lock()
-	defer t.Unlock()
 	t.timer.Stop()
 	close(t.close)
 }
 
-// Add adds a message to the TimeMessageQueue.
+// add adds a message to the TimeMessageQueue.
 func (t *TimeMessageQueue) Add(message *messageToSchedule) {
-	t.Lock()
-	defer t.Unlock()
+	t.addChan <- message
+}
 
+// add adds a message to the TimeMessageQueue.
+func (t *TimeMessageQueue) add(message *messageToSchedule) {
 	if (t.list.insert(message)) == 0 {
 		t.timer.Stop()
 		t.timer.Reset(time.Until(message.issuingTime))
@@ -229,9 +232,6 @@ func (t *TimeMessageQueue) Add(message *messageToSchedule) {
 
 // Pop returns the first message to schedule.
 func (t *TimeMessageQueue) Pop() (message *messageToSchedule) {
-	t.Lock()
-	defer t.Unlock()
-
 	if len(t.list) > 1 {
 		t.timer.Reset(time.Until(t.list[1].issuingTime))
 	}

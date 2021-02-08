@@ -26,7 +26,7 @@ func TestScheduler(t *testing.T) {
 	messages["A"] = newTestDataMessage("A")
 	messages["B"] = newTestDataMessage("B")
 	// set C to have a timestamp in the future
-	messages["C"] = newTestParentsDataWithTimestamp("C", []MessageID{messages["A"].ID(), messages["B"].ID()}, []MessageID{}, time.Now().Add(15*time.Second))
+	messages["C"] = newTestParentsDataWithTimestamp("C", []MessageID{messages["A"].ID(), messages["B"].ID()}, []MessageID{}, time.Now().Add(5*time.Second))
 	messages["D"] = newTestParentsDataWithTimestamp("D", []MessageID{messages["A"].ID(), messages["B"].ID()}, []MessageID{}, time.Now())
 
 	// The order of A and B cannot be guaranteed and it does not matter.
