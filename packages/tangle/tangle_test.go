@@ -28,6 +28,7 @@ import (
 
 func BenchmarkTangle_StoreMessage(b *testing.B) {
 	tangle := New()
+	defer tangle.Shutdown()
 	if err := tangle.Prune(); err != nil {
 		b.Error(err)
 
@@ -45,12 +46,11 @@ func BenchmarkTangle_StoreMessage(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		tangle.Storage.StoreMessage(messageBytes[i])
 	}
-
-	tangle.Shutdown()
 }
 
 func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
 	messageTangle := New()
+	defer messageTangle.Shutdown()
 	if err := messageTangle.Prune(); err != nil {
 		t.Error(err)
 
@@ -105,12 +105,11 @@ func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
 	assert.EqualValues(t, 5, atomic.LoadInt32(&storedMessages))
 	assert.EqualValues(t, 3, atomic.LoadInt32(&solidMessages))
 	assert.EqualValues(t, 2, atomic.LoadInt32(&invalidMessages))
-
-	messageTangle.Shutdown()
 }
 
 func TestTangle_StoreMessage(t *testing.T) {
 	messageTangle := New()
+	defer messageTangle.Shutdown()
 	if err := messageTangle.Prune(); err != nil {
 		t.Error(err)
 
@@ -141,8 +140,6 @@ func TestTangle_StoreMessage(t *testing.T) {
 	time.Sleep(7 * time.Second)
 
 	messageTangle.Storage.StoreMessage(newMessageOne)
-
-	messageTangle.Shutdown()
 }
 
 func TestTangle_MissingMessages(t *testing.T) {
@@ -200,6 +197,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 
 	// create the tangle
 	tangle := New(Store(badgerDB))
+	defer tangle.Shutdown()
 	require.NoError(t, tangle.Prune())
 
 	// generate the messages we want to solidify
@@ -246,16 +244,15 @@ func TestTangle_MissingMessages(t *testing.T) {
 
 	// wait for all transactions to become solid
 	assert.Eventually(t, func() bool { return atomic.LoadInt32(&solidMessages) == messageCount }, 5*time.Minute, 100*time.Millisecond)
-	assert.Eventually(t, func() bool { return atomic.LoadInt32(&missingMessages) == 0 }, 5*time.Minute, 100*time.Millisecond)
 
 	assert.EqualValues(t, messageCount, atomic.LoadInt32(&solidMessages))
 	assert.EqualValues(t, messageCount, atomic.LoadInt32(&storedMessages))
-
-	tangle.Shutdown()
+	assert.EqualValues(t, 0, atomic.LoadInt32(&missingMessages))
 }
 
 func TestRetrieveAllTips(t *testing.T) {
 	messageTangle := New()
+	defer messageTangle.Shutdown()
 
 	messageA := newTestParentsDataMessage("A", []MessageID{EmptyMessageID}, []MessageID{EmptyMessageID})
 	messageB := newTestParentsDataMessage("B", []MessageID{messageA.ID()}, []MessageID{EmptyMessageID})
@@ -277,8 +274,6 @@ func TestRetrieveAllTips(t *testing.T) {
 	allTips := messageTangle.Storage.RetrieveAllTips()
 
 	assert.Equal(t, 2, len(allTips))
-
-	messageTangle.Shutdown()
 }
 
 func TestTangle_FilterStoreSolidify(t *testing.T) {
