@@ -5,10 +5,17 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/bytesfilter"
+)
+
+const (
+	// MaxReattachmentTimeMin defines the max reattachment time.
+	MaxReattachmentTimeMin = 10 * time.Minute
 )
 
 var (
@@ -23,6 +30,9 @@ var (
 
 	// ErrReceivedDuplicateBytes is returned when duplicated bytes are rejected.
 	ErrReceivedDuplicateBytes = fmt.Errorf("received duplicate bytes")
+
+	// ErrInvalidMessageAndTransactionTimestamp is returned when the message its transaction timestamps are invalid.
+	ErrInvalidMessageAndTransactionTimestamp = fmt.Errorf("invalid message and transaction timestamp")
 )
 
 // BytesFilter filters based on byte slices and peers.
@@ -232,5 +242,69 @@ func (f *RecentlySeenBytesFilter) getRejectCallback() (result func(bytes []byte,
 	f.onRejectCallbackMutex.Lock()
 	result = f.onRejectCallback
 	f.onRejectCallbackMutex.Unlock()
+	return
+}
+
+// NewTransactionFilter creates a new transaction filter.
+func NewTransactionFilter() *TransactionFilter {
+	return &TransactionFilter{}
+}
+
+// TransactionFilter filters messages based on their timestamps and transaction timestamp.
+type TransactionFilter struct {
+	onAcceptCallback func(msg *Message, peer *peer.Peer)
+	onRejectCallback func(msg *Message, err error, peer *peer.Peer)
+
+	onAcceptCallbackMutex sync.RWMutex
+	onRejectCallbackMutex sync.RWMutex
+}
+
+// Filter compares the timestamps between the message and it's transaction payload and calls the corresponding callback.
+func (f *TransactionFilter) Filter(msg *Message, peer *peer.Peer) {
+	if payload := msg.Payload(); payload.Type() == ledgerstate.TransactionType {
+		transaction, _, err := ledgerstate.TransactionFromBytes(payload.Bytes())
+		if err != nil {
+			f.getRejectCallback()(msg, err, peer)
+			return
+		}
+		if !isMessageAndTransactionTimestampsValid(transaction, msg) {
+			f.getRejectCallback()(msg, ErrInvalidMessageAndTransactionTimestamp, peer)
+			return
+		}
+	}
+	f.getAcceptCallback()(msg, peer)
+}
+
+func isMessageAndTransactionTimestampsValid(transaction *ledgerstate.Transaction, message *Message) bool {
+	transactionTimestamp := transaction.Essence().Timestamp()
+	messageTimestamp := message.IssuingTime()
+	return messageTimestamp.Sub(transactionTimestamp).Milliseconds() >= 0 && messageTimestamp.Sub(transactionTimestamp) <= MaxReattachmentTimeMin
+}
+
+// OnAccept registers the given callback as the acceptance function of the filter.
+func (f *TransactionFilter) OnAccept(callback func(msg *Message, peer *peer.Peer)) {
+	f.onAcceptCallbackMutex.Lock()
+	defer f.onAcceptCallbackMutex.Unlock()
+	f.onAcceptCallback = callback
+}
+
+// OnReject registers the given callback as the rejection function of the filter.
+func (f *TransactionFilter) OnReject(callback func(msg *Message, err error, peer *peer.Peer)) {
+	f.onRejectCallbackMutex.Lock()
+	defer f.onRejectCallbackMutex.Unlock()
+	f.onRejectCallback = callback
+}
+
+func (f *TransactionFilter) getAcceptCallback() (result func(msg *Message, peer *peer.Peer)) {
+	f.onAcceptCallbackMutex.RLock()
+	result = f.onAcceptCallback
+	f.onAcceptCallbackMutex.RUnlock()
+	return
+}
+
+func (f *TransactionFilter) getRejectCallback() (result func(msg *Message, err error, peer *peer.Peer)) {
+	f.onRejectCallbackMutex.RLock()
+	result = f.onRejectCallback
+	f.onRejectCallbackMutex.RUnlock()
 	return
 }
