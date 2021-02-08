@@ -109,10 +109,7 @@ func (s *Storage) StoreMessage(message *Message) {
 
 	// trigger events
 	if s.missingMessageStorage.DeleteIfPresent(messageID[:]) {
-		s.Events.MissingMessageReceived.Trigger(&CachedMessageEvent{
-			Message:         cachedMessage,
-			MessageMetadata: cachedMsgMetadata,
-		})
+		s.tangle.Storage.Events.MissingMessageStored.Trigger(messageID)
 	}
 
 	// messages are stored, trigger MessageStored event to move on next check

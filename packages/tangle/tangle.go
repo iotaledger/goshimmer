@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
@@ -57,10 +58,6 @@ func New(options ...Option) (tangle *Tangle) {
 		tangle.Events.Error.Trigger(xerrors.Errorf("error in MessageFactory: %w", err))
 	}))
 
-	tangle.Requester.Events.MissingMessageAppeared.Attach(events.NewClosure(func(missingMessageAppeared *MissingMessageAppearedEvent) {
-		tangle.Storage.DeleteMissingMessage(missingMessageAppeared.ID)
-	}))
-
 	return
 }
 
@@ -92,6 +89,7 @@ func (t *Tangle) Prune() (err error) {
 
 // Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
 func (t *Tangle) Shutdown() {
+	fmt.Println("SHUTDOWN")
 	t.MessageFactory.Shutdown()
 	t.Storage.Shutdown()
 }

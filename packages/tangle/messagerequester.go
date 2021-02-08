@@ -41,6 +41,8 @@ func RetryInterval(interval time.Duration) MessageRequesterOption {
 	}
 }
 
+// region MessageRequester /////////////////////////////////////////////////////////////////////////////////////////////
+
 // MessageRequester takes care of requesting messages.
 type MessageRequester struct {
 	tangle            *Tangle
@@ -77,12 +79,7 @@ func NewMessageRequester(tangle *Tangle, optionalOptions ...MessageRequesterOpti
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (r *MessageRequester) Setup() {
 	r.tangle.Solidifier.Events.MessageMissing.Attach(events.NewClosure(r.StartRequest))
-	r.tangle.Storage.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMessageEvent *CachedMessageEvent) {
-		cachedMessageEvent.MessageMetadata.Release()
-		cachedMessageEvent.Message.Consume(func(message *Message) {
-			r.StopRequest(message.ID())
-		})
-	}))
+	r.tangle.Storage.Events.MissingMessageStored.Attach(events.NewClosure(r.StopRequest))
 }
 
 // StartRequest initiates a regular triggering of the StartRequest event until it has been stopped using StopRequest.
@@ -146,3 +143,15 @@ func (r *MessageRequester) RequestQueueSize() int {
 func (r *MessageRequester) createReRequest(msgID MessageID, count int) func() {
 	return func() { r.reRequest(msgID, count) }
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region MessageRequesterEvents ///////////////////////////////////////////////////////////////////////////////////////
+
+// MessageRequesterEvents represents events happening on a message requester.
+type MessageRequesterEvents struct {
+	// Fired when a request for a given message should be sent.
+	SendRequest *events.Event
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

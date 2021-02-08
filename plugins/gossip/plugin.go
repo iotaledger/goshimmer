@@ -152,19 +152,8 @@ func configureMessageLayer() {
 		mgr.RequestMessage(sendRequest.ID[:])
 	}))
 
-	messagelayer.Tangle().Storage.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
-		cachedMsgEvent.MessageMetadata.Release()
-		cachedMsgEvent.Message.Consume(func(msg *tangle.Message) {
-			requestedMsgs.append(msg.ID())
-		})
-	}))
+	messagelayer.Tangle().Storage.Events.MissingMessageStored.Attach(events.NewClosure(requestedMsgs.append))
 
 	// delete the message from requestedMsgs if it's invalid, otherwise it will always be in the list and never get removed in some cases.
-	messagelayer.Tangle().Events.MessageInvalid.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
-		cachedMsgEvent.MessageMetadata.Release()
-
-		cachedMsgEvent.Message.Consume(func(msg *tangle.Message) {
-			requestedMsgs.delete(msg.ID())
-		})
-	}))
+	messagelayer.Tangle().Events.MessageInvalid.Attach(events.NewClosure(requestedMsgs.delete))
 }

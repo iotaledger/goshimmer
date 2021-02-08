@@ -200,7 +200,6 @@ func TestTangle_MissingMessages(t *testing.T) {
 
 	// create the tangle
 	tangle := New(Store(badgerDB))
-	defer tangle.Shutdown()
 	require.NoError(t, tangle.Prune())
 
 	// generate the messages we want to solidify
@@ -224,7 +223,6 @@ func TestTangle_MissingMessages(t *testing.T) {
 	// increase the counter when a missing message was detected
 	tangle.Solidifier.Events.MessageMissing.Attach(events.NewClosure(func(messageId MessageID) {
 		atomic.AddInt32(&missingMessages, 1)
-
 		// store the message after it has been requested
 		go func() {
 			time.Sleep(storeDelay)
@@ -233,10 +231,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 	}))
 
 	// decrease the counter when a missing message was received
-	tangle.Storage.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMsgEvent *CachedMessageEvent) {
-		defer cachedMsgEvent.Message.Release()
-		defer cachedMsgEvent.MessageMetadata.Release()
-
+	tangle.Storage.Events.MissingMessageStored.Attach(events.NewClosure(func(MessageID) {
 		n := atomic.AddInt32(&missingMessages, -1)
 		t.Logf("missing messages %d", n)
 	}))
@@ -251,10 +246,12 @@ func TestTangle_MissingMessages(t *testing.T) {
 
 	// wait for all transactions to become solid
 	assert.Eventually(t, func() bool { return atomic.LoadInt32(&solidMessages) == messageCount }, 5*time.Minute, 100*time.Millisecond)
+	assert.Eventually(t, func() bool { return atomic.LoadInt32(&missingMessages) == 0 }, 5*time.Minute, 100*time.Millisecond)
 
 	assert.EqualValues(t, messageCount, atomic.LoadInt32(&solidMessages))
 	assert.EqualValues(t, messageCount, atomic.LoadInt32(&storedMessages))
-	assert.EqualValues(t, 0, atomic.LoadInt32(&missingMessages))
+
+	tangle.Shutdown()
 }
 
 func TestRetrieveAllTips(t *testing.T) {
@@ -447,10 +444,7 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 	}))
 
 	// decrease the counter when a missing message was received
-	tangle.Storage.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMsgEvent *CachedMessageEvent) {
-		defer cachedMsgEvent.Message.Release()
-		defer cachedMsgEvent.MessageMetadata.Release()
-
+	tangle.Storage.Events.MissingMessageStored.Attach(events.NewClosure(func(MessageID) {
 		n := atomic.AddInt32(&missingMessages, -1)
 		t.Logf("missing messages %d", n)
 	}))
