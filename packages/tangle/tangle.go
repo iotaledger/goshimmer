@@ -65,7 +65,7 @@ func emptyTangle() (tangle *Tangle) {
 	tangle = &Tangle{
 		Options: defaultOptions(),
 		Events: &Events{
-			MessageEligible: events.NewEvent(cachedMessageEvent),
+			MessageEligible: events.NewEvent(messageIDEventHandler),
 			MessageInvalid:  events.NewEvent(messageIDEventHandler),
 			Error:           events.NewEvent(events.ErrorCaller),
 		},

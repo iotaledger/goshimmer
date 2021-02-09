@@ -71,10 +71,7 @@ func (t *OldTangle) CheckParentsEligibility(cachedMessage *CachedMessage, cached
 
 	// Lastly, set the eligible flag and trigger event
 	if eligible && msgMetadata.SetEligible(eligible) {
-		t.Events.MessageEligible.Trigger(&CachedMessageEvent{
-			Message:         cachedMessage,
-			MessageMetadata: cachedMsgMetadata,
-		})
+		t.Events.MessageEligible.Trigger(msgMetadata.ID())
 	}
 }
 

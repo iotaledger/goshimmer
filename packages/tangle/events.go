@@ -5,12 +5,6 @@ import (
 	"github.com/iotaledger/hive.go/events"
 )
 
-// CachedMessageEvent represents the parameters of cachedMessageEvent
-type CachedMessageEvent struct {
-	Message         *CachedMessage
-	MessageMetadata *CachedMessageMetadata
-}
-
 // MessageStoreEvents represents events happening on the message store.
 type MessageStoreEvents struct {
 	// Fired when a message has been stored.
@@ -130,15 +124,4 @@ func messageConstructedEvent(handler interface{}, params ...interface{}) {
 
 func messageIDEventHandler(handler interface{}, params ...interface{}) {
 	handler.(func(MessageID))(params[0].(MessageID))
-}
-
-func cachedMessageEvent(handler interface{}, params ...interface{}) {
-	handler.(func(*CachedMessageEvent))(cachedMessageRetain(params[0].(*CachedMessageEvent)))
-}
-
-func cachedMessageRetain(object *CachedMessageEvent) *CachedMessageEvent {
-	return &CachedMessageEvent{
-		Message:         object.Message.Retain(),
-		MessageMetadata: object.MessageMetadata.Retain(),
-	}
 }
