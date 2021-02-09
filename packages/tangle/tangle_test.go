@@ -19,7 +19,6 @@ import (
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/datastructure/randommap"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/testutil"
 	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/stretchr/testify/assert"
@@ -50,6 +49,7 @@ func BenchmarkTangle_StoreMessage(b *testing.B) {
 
 func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
 	messageTangle := New()
+	messageTangle.Setup()
 	defer messageTangle.Shutdown()
 	if err := messageTangle.Prune(); err != nil {
 		t.Error(err)
@@ -153,15 +153,18 @@ func TestTangle_MissingMessages(t *testing.T) {
 	badgerDB, err := testutil.BadgerDB(t)
 	require.NoError(t, err)
 
+	// create the tangle
+	tangle := New(Store(badgerDB))
+	defer tangle.Shutdown()
+	require.NoError(t, tangle.Prune())
+
 	// map to keep track of the tips
 	tips := randommap.New()
 	tips.Set(EmptyMessageID, EmptyMessageID)
 
 	// setup the message factory
-	msgFactory := NewMessageFactory(
-		badgerDB,
-		[]byte("sequenceKey"),
-		identity.GenerateLocalIdentity(),
+	tangle.MessageFactory = NewMessageFactory(
+		tangle,
 		TipSelectorFunc(func(count int) []MessageID {
 			r := tips.RandomUniqueEntries(count)
 			if len(r) == 0 {
@@ -174,12 +177,11 @@ func TestTangle_MissingMessages(t *testing.T) {
 			return parents
 		}),
 	)
-	defer msgFactory.Shutdown()
 
 	// create a helper function that creates the messages
 	createNewMessage := func() *Message {
 		// issue the payload
-		msg, err := msgFactory.IssuePayload(payload.NewGenericDataPayload([]byte("")))
+		msg, err := tangle.MessageFactory.IssuePayload(payload.NewGenericDataPayload([]byte("")))
 		require.NoError(t, err)
 
 		// remove a tip if the width of the tangle is reached
@@ -195,17 +197,14 @@ func TestTangle_MissingMessages(t *testing.T) {
 		return msg
 	}
 
-	// create the tangle
-	tangle := New(Store(badgerDB))
-	defer tangle.Shutdown()
-	require.NoError(t, tangle.Prune())
-
 	// generate the messages we want to solidify
 	messages := make(map[MessageID]*Message, messageCount)
 	for i := 0; i < messageCount; i++ {
 		msg := createNewMessage()
 		messages[msg.ID()] = msg
 	}
+
+	tangle.Setup()
 
 	// counter for the different stages
 	var (
@@ -252,6 +251,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 
 func TestRetrieveAllTips(t *testing.T) {
 	messageTangle := New()
+	messageTangle.Setup()
 	defer messageTangle.Shutdown()
 
 	messageA := newTestParentsDataMessage("A", []MessageID{EmptyMessageID}, []MessageID{EmptyMessageID})
@@ -303,17 +303,20 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 	tips := randommap.New()
 	tips.Set(EmptyMessageID, EmptyMessageID)
 
+	// create the tangle
+	tangle := New(Store(badgerDB))
+	defer tangle.Shutdown()
+	require.NoError(t, tangle.Prune())
+
 	// create local peer
 	services := service.New()
 	services.Update(service.PeeringKey, testNetwork, testPort)
-	localIdentity := identity.GenerateLocalIdentity()
+	localIdentity := tangle.Options.Identity
 	localPeer := peer.NewPeer(localIdentity.Identity, net.IPv4zero, services)
 
 	// setup the message factory
-	msgFactory := NewMessageFactory(
-		badgerDB,
-		[]byte("sequenceKey"),
-		localIdentity,
+	tangle.MessageFactory = NewMessageFactory(
+		tangle,
 		TipSelectorFunc(func(count int) []MessageID {
 			r := tips.RandomUniqueEntries(count)
 			if len(r) == 0 {
@@ -328,11 +331,10 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 	)
 
 	// PoW workers
-	msgFactory.SetWorker(WorkerFunc(func(msgBytes []byte) (uint64, error) {
+	tangle.MessageFactory.SetWorker(WorkerFunc(func(msgBytes []byte) (uint64, error) {
 		content := msgBytes[:len(msgBytes)-ed25519.SignatureSize-8]
 		return testWorker.Mine(context.Background(), content, targetPOW)
 	}))
-	defer msgFactory.Shutdown()
 
 	// create a helper function that creates the messages
 	createNewMessage := func(invalidTS bool) *Message {
@@ -341,9 +343,9 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 
 		// issue the payload
 		if invalidTS {
-			msg, err = msgFactory.issueInvalidTsPayload(payload.NewGenericDataPayload([]byte("")))
+			msg, err = tangle.MessageFactory.issueInvalidTsPayload(payload.NewGenericDataPayload([]byte("")))
 		} else {
-			msg, err = msgFactory.IssuePayload(payload.NewGenericDataPayload([]byte("")))
+			msg, err = tangle.MessageFactory.IssuePayload(payload.NewGenericDataPayload([]byte("")))
 		}
 		require.NoError(t, err)
 
@@ -361,11 +363,6 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 		// return the constructed message
 		return msg
 	}
-
-	// create the tangle
-	tangle := New(Store(badgerDB))
-	defer tangle.Shutdown()
-	require.NoError(t, tangle.Prune())
 
 	// setup the message parser
 	tangle.Parser.AddBytesFilter(NewPowFilter(testWorker, targetPOW))
@@ -393,6 +390,9 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 		msg := createNewMessage(true)
 		invalidmsgs[msg.ID()] = msg
 	}
+
+	// setup data flow
+	tangle.Setup()
 
 	// counter for the different stages
 	var (

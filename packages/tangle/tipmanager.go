@@ -5,16 +5,16 @@ import (
 	"github.com/iotaledger/hive.go/events"
 )
 
-// MessageTipSelector manages a map of tips and emits events for their removal and addition.
-type MessageTipSelector struct {
+// TipManager manages a map of tips and emits events for their removal and addition.
+type TipManager struct {
 	tangle *Tangle
 	tips   *randommap.RandomMap
 	Events *MessageTipSelectorEvents
 }
 
-// NewMessageTipSelector creates a new tip-selector.
-func NewMessageTipSelector(tangle *Tangle, tips ...MessageID) *MessageTipSelector {
-	tipSelector := &MessageTipSelector{
+// NewTipManager creates a new tip-selector.
+func NewTipManager(tangle *Tangle, tips ...MessageID) *TipManager {
+	tipSelector := &TipManager{
 		tangle: tangle,
 		tips:   randommap.New(),
 		Events: newMessageTipSelectorEvents(),
@@ -28,21 +28,21 @@ func NewMessageTipSelector(tangle *Tangle, tips ...MessageID) *MessageTipSelecto
 }
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
-func (t *MessageTipSelector) Setup() {
+func (t *TipManager) Setup() {
 	t.tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(messageID MessageID) {
 		t.tangle.Storage.Message(messageID).Consume(t.AddTip)
 	}))
 }
 
 // Set adds the given messageIDs as tips.
-func (t *MessageTipSelector) Set(tips ...MessageID) {
+func (t *TipManager) Set(tips ...MessageID) {
 	for _, messageID := range tips {
 		t.tips.Set(messageID, messageID)
 	}
 }
 
 // AddTip adds the given message as a tip.
-func (t *MessageTipSelector) AddTip(msg *Message) {
+func (t *TipManager) AddTip(msg *Message) {
 	messageID := msg.ID()
 	if t.tips.Set(messageID, messageID) {
 		t.Events.TipAdded.Trigger(messageID)
@@ -56,7 +56,7 @@ func (t *MessageTipSelector) AddTip(msg *Message) {
 }
 
 // Tips returns count number of tips, maximum MaxParentsCount.
-func (t *MessageTipSelector) Tips(count int) (parents []MessageID) {
+func (t *TipManager) Tips(count int) (parents []MessageID) {
 	if count > MaxParentsCount {
 		count = MaxParentsCount
 	}
@@ -85,6 +85,6 @@ func (t *MessageTipSelector) Tips(count int) (parents []MessageID) {
 }
 
 // TipCount the amount of current tips.
-func (t *MessageTipSelector) TipCount() int {
+func (t *TipManager) TipCount() int {
 	return t.tips.Size()
 }

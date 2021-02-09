@@ -7,18 +7,18 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/async"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/stretchr/testify/require"
 
 	"github.com/panjf2000/ants/v2"
 )
 
 func BenchmarkVerifyDataMessages(b *testing.B) {
+	tangle := New()
+
 	var pool async.WorkerPool
 	pool.Tune(runtime.GOMAXPROCS(0))
 
-	factory := NewMessageFactory(mapdb.NewMapDB(), []byte(DBSequenceNumber), identity.GenerateLocalIdentity(), TipSelectorFunc(func(count int) []MessageID { return []MessageID{EmptyMessageID} }))
+	factory := NewMessageFactory(tangle, TipSelectorFunc(func(count int) []MessageID { return []MessageID{EmptyMessageID} }))
 
 	messages := make([][]byte, b.N)
 	for i := 0; i < b.N; i++ {
@@ -44,9 +44,11 @@ func BenchmarkVerifyDataMessages(b *testing.B) {
 }
 
 func BenchmarkVerifySignature(b *testing.B) {
+	tangle := New()
+
 	pool, _ := ants.NewPool(80, ants.WithNonblocking(false))
 
-	factory := NewMessageFactory(mapdb.NewMapDB(), []byte(DBSequenceNumber), identity.GenerateLocalIdentity(), TipSelectorFunc(func(count int) []MessageID { return []MessageID{EmptyMessageID} }))
+	factory := NewMessageFactory(tangle, TipSelectorFunc(func(count int) []MessageID { return []MessageID{EmptyMessageID} }))
 
 	messages := make([]*Message, b.N)
 	for i := 0; i < b.N; i++ {

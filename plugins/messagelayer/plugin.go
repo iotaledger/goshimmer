@@ -57,6 +57,7 @@ func configure(*node.Plugin) {
 
 func run(*node.Plugin) {
 	if err := daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
+		Tangle().Setup()
 		<-shutdownSignal
 		Tangle().Shutdown()
 	}, shutdown.PriorityTangle); err != nil {
