@@ -30,9 +30,7 @@ type MessageToSchedule struct {
 type Scheduler struct {
 	Events *SchedulerEvents
 
-	onMessageSolid  *events.Closure
-	onMessageBooked *events.Closure
-	tangle          *Tangle
+	tangle *Tangle
 
 	inbox            chan *MessageToSchedule
 	timeQueue        *TimeMessageQueue
@@ -57,25 +55,27 @@ func NewScheduler(tangle *Tangle) (scheduler *Scheduler) {
 	}
 	scheduler.outboxWorkerPool.Tune(numWorkers)
 
+	return
+}
+
+func (s *Scheduler) Setup() {
 	// setup scheduler flow
-	scheduler.onMessageSolid = events.NewClosure(func(messageID MessageID) {
-		scheduler.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-			scheduler.inbox <- &MessageToSchedule{
+	onMessageSolid := events.NewClosure(func(messageID MessageID) {
+		s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+			s.inbox <- &MessageToSchedule{
 				ID:          messageID,
 				issuingTime: message.IssuingTime(),
 				parents:     message.Parents()}
 		})
 	})
-	scheduler.tangle.Solidifier.Events.MessageSolid.Attach(scheduler.onMessageSolid)
+	s.tangle.Solidifier.Events.MessageSolid.Attach(onMessageSolid)
 
-	scheduler.onMessageBooked = events.NewClosure(func(messageID MessageID) {
-		scheduler.messagesBooked <- messageID
+	onMessageBooked := events.NewClosure(func(messageID MessageID) {
+		s.messagesBooked <- messageID
 	})
-	scheduler.tangle.Events.MessageBooked.Attach(scheduler.onMessageBooked)
+	s.tangle.Booker.Events.MessageBooked.Attach(onMessageBooked)
 
-	scheduler.start()
-
-	return
+	s.start()
 }
 
 // start starts the scheduler.
@@ -115,12 +115,10 @@ func (s *Scheduler) start() {
 	}()
 }
 
-// Stop stops the scheduler and terminates its goroutines and timers.
-func (s *Scheduler) Stop() {
+// Shutdown stops the scheduler and terminates its goroutines and timers.
+func (s *Scheduler) Shutdown() {
 	close(s.close)
 	close(s.inbox)
-	s.tangle.Solidifier.Events.MessageSolid.Detach(s.onMessageSolid)
-	s.tangle.Events.MessageBooked.Detach(s.onMessageBooked)
 
 	s.outboxWorkerPool.ShutdownGracefully()
 	s.timeQueue.Stop()

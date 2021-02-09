@@ -46,6 +46,7 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.Storage = NewStorage(tangle)
 	tangle.Solidifier = NewSolidifier(tangle)
 	tangle.Scheduler = NewScheduler(tangle)
+	tangle.Booker = NewBooker(tangle)
 	tangle.Requester = NewRequester(tangle)
 	tangle.TipManager = NewTipManager(tangle)
 	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager)
@@ -61,6 +62,7 @@ func (t *Tangle) Setup() {
 	t.Solidifier.Setup()
 	t.Requester.Setup()
 	t.TipManager.Setup()
+	t.Scheduler.Setup()
 
 	t.MessageFactory.Events.Error.Attach(events.NewClosure(func(err error) {
 		t.Events.Error.Trigger(xerrors.Errorf("error in MessageFactory: %w", err))
@@ -81,8 +83,8 @@ func (t *Tangle) Prune() (err error) {
 
 // Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
 func (t *Tangle) Shutdown() {
-	t.Scheduler.Stop()
 	t.MessageFactory.Shutdown()
+	t.Scheduler.Shutdown()
 	t.Storage.Shutdown()
 	t.Options.Store.Shutdown()
 }

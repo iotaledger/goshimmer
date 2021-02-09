@@ -12,14 +12,13 @@ import (
 
 func TestScheduler(t *testing.T) {
 	// create Scheduler dependencies
-	tangle := &Tangle{
-		Events: newEvents(),
-	}
-	tangle.Storage = newMessageStore()
-	tangle.Solidifier = NewSolidifier(tangle)
+	// create the tangle
+	tangle := New()
+	defer tangle.Shutdown()
 
-	// create and start the Scheduler
-	testScheduler := NewScheduler(tangle)
+	// start the Scheduler
+	testScheduler := tangle.Scheduler
+	testScheduler.Setup()
 
 	// testing desired scheduled order: A - B - D - C  (B - A - D - C is equivalent)
 	messages := make(map[string]*Message)
@@ -53,7 +52,7 @@ func TestScheduler(t *testing.T) {
 		scheduledOrderMutex.Unlock()
 		tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetBooked(true)
-			tangle.Events.MessageBooked.Trigger(messageID)
+			tangle.Booker.Events.MessageBooked.Trigger(messageID)
 		})
 		tangle.Storage.Message(messageID).Consume(func(message *Message) {
 			assert.True(t, !clock.SyncedTime().Before(message.IssuingTime()))
@@ -69,7 +68,6 @@ func TestScheduler(t *testing.T) {
 	tangle.Solidifier.Events.MessageSolid.Trigger(messages["E"].ID())
 
 	wg.Wait()
-	testScheduler.Stop()
 
 	// messageID-string mapping for debugging.
 	IDMap := map[MessageID]string{

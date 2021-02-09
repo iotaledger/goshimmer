@@ -454,7 +454,7 @@ func TestTangle_Flow(t *testing.T) {
 		// Bypassing the messageBooked event
 		tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetBooked(true)
-			tangle.Events.MessageBooked.Trigger(messageID)
+			tangle.Booker.Events.MessageBooked.Trigger(messageID)
 		})
 
 		n := atomic.AddInt32(&scheduledMessages, 1)
