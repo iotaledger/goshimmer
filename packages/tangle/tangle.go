@@ -32,38 +32,8 @@ type Tangle struct {
 
 // New is the constructor for the Tangle.
 func New(options ...Option) (tangle *Tangle) {
-	tangle = emptyTangle()
-	for _, option := range options {
-		option(tangle.Options)
-	}
-
-	// create components
-	tangle.Parser = NewMessageParser()
-	tangle.Storage = NewStorage(tangle)
-	tangle.Solidifier = NewSolidifier(tangle)
-	tangle.Requester = NewMessageRequester(tangle)
-	tangle.TipManager = NewMessageTipSelector(tangle)
-	tangle.MessageFactory = NewMessageFactory(tangle.Options.Store, []byte(DBSequenceNumber), tangle.Options.Identity, tangle.TipManager)
-	tangle.LedgerState = NewLedgerState(tangle)
-	tangle.Utils = NewUtils(tangle)
-
-	// setup data flow
-	tangle.Storage.Setup()
-	tangle.Solidifier.Setup()
-	tangle.Requester.Setup()
-	tangle.TipManager.Setup()
-
-	tangle.MessageFactory.Events.Error.Attach(events.NewClosure(func(err error) {
-		tangle.Events.Error.Trigger(xerrors.Errorf("error in MessageFactory: %w", err))
-	}))
-
-	return
-}
-
-// emptyTangle creates an un-configured Tangle without a configured data flow.
-func emptyTangle() (tangle *Tangle) {
 	tangle = &Tangle{
-		Options: defaultOptions(),
+		Options: buildOptions(options...),
 		Events: &Events{
 			MessageEligible: events.NewEvent(messageIDEventHandler),
 			MessageInvalid:  events.NewEvent(messageIDEventHandler),
@@ -71,7 +41,28 @@ func emptyTangle() (tangle *Tangle) {
 		},
 	}
 
+	tangle.Parser = NewMessageParser()
+	tangle.Storage = NewStorage(tangle)
+	tangle.Solidifier = NewSolidifier(tangle)
+	tangle.Requester = NewMessageRequester(tangle)
+	tangle.TipManager = NewMessageTipSelector(tangle)
+	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager)
+	tangle.LedgerState = NewLedgerState(tangle)
+	tangle.Utils = NewUtils(tangle)
+
 	return
+}
+
+// Setup sets up the data flow by connecting the different components (by calling their corresponding Setup method).
+func (t *Tangle) Setup() {
+	t.Storage.Setup()
+	t.Solidifier.Setup()
+	t.Requester.Setup()
+	t.TipManager.Setup()
+
+	t.MessageFactory.Events.Error.Attach(events.NewClosure(func(err error) {
+		t.Events.Error.Trigger(xerrors.Errorf("error in MessageFactory: %w", err))
+	}))
 }
 
 // ProcessGossipMessage is used to feed new Messages from the gossip layer into the Tangle.
@@ -122,12 +113,18 @@ type Options struct {
 	Identity *identity.LocalIdentity
 }
 
-// defaultOptions returns the default options that are used by the Tangle.
-func defaultOptions() *Options {
-	return &Options{
+// buildOptions generates the Options object use by the Tangle.
+func buildOptions(options ...Option) (builtOptions *Options) {
+	builtOptions = &Options{
 		Store:    mapdb.NewMapDB(),
 		Identity: identity.GenerateLocalIdentity(),
 	}
+
+	for _, option := range options {
+		option(builtOptions)
+	}
+
+	return
 }
 
 // Store is an Option for the Tangle that allows to specify which storage layer is supposed to be used to persist data.

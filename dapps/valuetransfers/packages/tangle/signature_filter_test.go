@@ -13,19 +13,19 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/stretchr/testify/require"
 )
 
 func TestSignatureFilter(t *testing.T) {
+	testTangle := tangle.New()
+	defer testTangle.Shutdown()
+
 	// create parser
 	messageParser := newSyncMessageParser(NewSignatureFilter())
 
 	// create helper instances
 	seed := newSeed()
-	messageFactory := tangle.NewMessageFactory(mapdb.NewMapDB(), []byte("sequenceKey"), identity.GenerateLocalIdentity(), tangle.NewMessageTipSelector(tangle.New()))
 
 	// 1. test value message without signatures
 	{
@@ -42,7 +42,7 @@ func TestSignatureFilter(t *testing.T) {
 		)
 
 		// parse message bytes
-		msg, err := messageFactory.IssuePayload(valuePayload.New(valuePayload.GenesisID, valuePayload.GenesisID, tx))
+		msg, err := testTangle.MessageFactory.IssuePayload(valuePayload.New(valuePayload.GenesisID, valuePayload.GenesisID, tx))
 		require.NoError(t, err)
 		accepted, _, _, err := messageParser.Parse(msg.Bytes(), &peer.Peer{})
 
@@ -68,7 +68,7 @@ func TestSignatureFilter(t *testing.T) {
 		tx.Sign(signaturescheme.ED25519(*seed.KeyPair(0)))
 
 		// parse message bytes
-		msg, err := messageFactory.IssuePayload(valuePayload.New(valuePayload.GenesisID, valuePayload.GenesisID, tx))
+		msg, err := testTangle.MessageFactory.IssuePayload(valuePayload.New(valuePayload.GenesisID, valuePayload.GenesisID, tx))
 		require.NoError(t, err)
 
 		accepted, _, _, err := messageParser.Parse(msg.Bytes(), &peer.Peer{})
@@ -92,7 +92,7 @@ func TestSignatureFilter(t *testing.T) {
 		require.NoError(t, err)
 
 		// parse message bytes
-		msg, err := messageFactory.IssuePayload(dataPayload)
+		msg, err := testTangle.MessageFactory.IssuePayload(dataPayload)
 		require.NoError(t, err)
 		accepted, _, _, err := messageParser.Parse(msg.Bytes(), &peer.Peer{})
 
