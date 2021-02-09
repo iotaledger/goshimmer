@@ -51,7 +51,7 @@ func NewUTXODAG(store kvstore.KVStore, branchDAG *BranchDAG) (utxoDAG *UTXODAG) 
 	return
 }
 
-// CheckTransaction contains fast checks that always have to be performed before booking the Transaction.
+// CheckTransaction contains fast checks that have to be performed before booking a Transaction.
 func (u *UTXODAG) CheckTransaction(transaction *Transaction) (valid bool, err error) {
 	cachedConsumedOutputs := u.consumedOutputs(transaction)
 	defer cachedConsumedOutputs.Release()
