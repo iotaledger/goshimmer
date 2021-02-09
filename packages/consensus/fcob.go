@@ -18,9 +18,6 @@ type FCoBEvents struct {
 	// Fired when an opinion of a payload is formed.
 	PayloadOpinionFormed *events.Event
 
-	// Fired when an opinion of a timestamp is formed.
-	TimestampOpinionFormed *events.Event
-
 	// Error gets called when FCOB faces an error.
 	Error *events.Event
 
@@ -32,10 +29,6 @@ func voteEvent(handler interface{}, params ...interface{}) {
 	handler.(func(id string, initOpn voter.Opinion))(params[0].(string), params[1].(voter.Opinion))
 }
 
-func messageIDEventHandler(handler interface{}, params ...interface{}) {
-	handler.(func(tangle.MessageID))(params[0].(tangle.MessageID))
-}
-
 // OpinionFormedEvent holds data about a Payload/MessageOpinionFormed event.
 type OpinionFormedEvent struct {
 	// The messageID of the message containing the payload.
@@ -44,16 +37,10 @@ type OpinionFormedEvent struct {
 	Opinion bool
 }
 
-func payloadOpinionCaller(handler interface{}, params ...interface{}) {
-	handler.(func(*OpinionFormedEvent))(params[0].(*OpinionFormedEvent))
-}
-
 var (
 	LikedThreshold = 5 * time.Second
 
 	LocallyFinalizedThreshold = 10 * time.Second
-
-	onMessageBooked = events.NewClosure(func(messageID tangle.MessageID) {})
 )
 
 type FCoB struct {
@@ -80,23 +67,12 @@ func NewFCoB(store kvstore.KVStore, tangle *tangle.Tangle) (fcob *FCoB) {
 	return
 }
 
-func (o *FCoB) Setup(payloadEvent, timestampEvent *events.Event) {
-	o.Events.PayloadOpinionFormed = payloadEvent
-	o.Events.TimestampOpinionFormed = timestampEvent
+func (f *FCoB) Setup(payloadEvent *events.Event) {
+	f.Events.PayloadOpinionFormed = payloadEvent
 }
 
-func (f *FCoB) OnMessageBooked(messageID tangle.MessageID) {
+func (f *FCoB) Evaluate(messageID tangle.MessageID) {
 	f.tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
-		// TODO: add timestamp quality evaluation.
-		// For now we set all timestamps as good.
-		f.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-			messageMetadata.SetTimestampOpinion(tangle.TimestampOpinion{
-				Value: voter.Like,
-				LoK:   Two,
-			})
-			f.Events.TimestampOpinionFormed.Trigger(messageID)
-		})
-
 		if payload := message.Payload(); payload.Type() == ledgerstate.TransactionType {
 			transactionID := payload.(*ledgerstate.Transaction).ID()
 			f.onTransactionBooked(transactionID, messageID)
@@ -115,6 +91,7 @@ func (f *FCoB) onTransactionBooked(transactionID ledgerstate.TransactionID, mess
 			// trigger PayloadOpinionFormed event
 			f.Events.PayloadOpinionFormed.Trigger(&OpinionFormedEvent{messageID, opinion.liked})
 		}
+		// TODO: if not we should wait for the original to be finished
 		return
 	})
 
@@ -125,6 +102,12 @@ func (f *FCoB) onTransactionBooked(transactionID ledgerstate.TransactionID, mess
 	f.tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 		timestamp = transactionMetadata.SolidificationTime()
 	})
+
+	// TODO: filter rejected or invalid branches
+	// you take the branch of the transaction
+	// you check its inclusionState (pending, rejected, confirmed)
+
+	// only filters rejected and invalid
 
 	if f.isConflicting(transactionID) {
 		opinion.OpinionEssence = deriveOpinion(timestamp, f.OpinionsEssence(f.conflictSet(transactionID)))

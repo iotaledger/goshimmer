@@ -3,13 +3,15 @@ package tangle
 import (
 	"sync"
 
+	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/types"
 )
 
+// Opinioner is the interface to describe the functionalities of an opinioner.
 type Opinioner interface {
-	OnMessageBooked(messageID MessageID)
-	SetupEvents(*events.Event, *events.Event)
+	Evaluate(messageID MessageID)
+	SetupEvent(*events.Event)
 }
 
 // Events defines all the events related to the opinion manager.
@@ -42,14 +44,16 @@ type OpinionFormer struct {
 	tangle  *Tangle
 	waiting *opinionWait
 
-	opinioner Opinioner
+	opinionPayloadManager   Opinioner
+	opinionTimestampManager Opinioner
 }
 
-func NewOpinionFormer(tangle *Tangle, opinioner Opinioner) (opinionFormer *OpinionFormer) {
+func NewOpinionFormer(tangle *Tangle, opinionPayloadManager, opinionTimestampManager Opinioner) (opinionFormer *OpinionFormer) {
 	opinionFormer = &OpinionFormer{
-		tangle:    tangle,
-		waiting:   &opinionWait{waitMap: make(map[MessageID]types.Empty)},
-		opinioner: opinioner,
+		tangle:                  tangle,
+		waiting:                 &opinionWait{waitMap: make(map[MessageID]types.Empty)},
+		opinionPayloadManager:   opinionPayloadManager,
+		opinionTimestampManager: opinionTimestampManager,
 		Events: OpinionFormerEvents{
 			PayloadOpinionFormed:   events.NewEvent(payloadOpinionCaller),
 			TimestampOpinionFormed: events.NewEvent(messageIDEventHandler),
@@ -61,22 +65,43 @@ func NewOpinionFormer(tangle *Tangle, opinioner Opinioner) (opinionFormer *Opini
 }
 
 func (o *OpinionFormer) Setup() {
-	o.opinioner.SetupEvents(o.Events.PayloadOpinionFormed, o.Events.TimestampOpinionFormed)
-	o.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(o.opinioner.OnMessageBooked))
+	o.opinionPayloadManager.SetupEvent(o.Events.PayloadOpinionFormed)
+	o.opinionTimestampManager.SetupEvent(o.Events.TimestampOpinionFormed)
+	o.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(o.opinionPayloadManager.Evaluate))
+	o.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(o.opinionTimestampManager.Evaluate))
+
 	o.Events.PayloadOpinionFormed.Attach(events.NewClosure(o.onPayloadOpinionFormed))
 	o.Events.TimestampOpinionFormed.Attach(events.NewClosure(o.onTimestampOpinionFormed))
 }
 
 func (o *OpinionFormer) onPayloadOpinionFormed(ev *OpinionFormedEvent) {
-	if o.waiting.done(ev.MessageID) {
+	// TODO: we should propagate according to monotonicity
+	// branch of the message
+	// if this guys was a conflict {
+	// o.tangle.LedgerState.branchDAG.SetBranchLiked()
+	// set branch Finalized
+	//}
+	// set the transaction finalized
+	if o.waiting.done(ev.MessageID) && o.eligible(ev.MessageID) {
 		o.Events.MessageOpinionFormed.Trigger(ev.MessageID)
 	}
 }
 
 func (o *OpinionFormer) onTimestampOpinionFormed(ev *OpinionFormedEvent) {
-	if o.waiting.done(ev.MessageID) {
+	if o.waiting.done(ev.MessageID) && o.eligible(ev.MessageID) {
 		o.Events.MessageOpinionFormed.Trigger(ev.MessageID)
 	}
+}
+
+func (o *OpinionFormer) eligible(messageID MessageID) (eligible bool) {
+	o.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		eligible = o.parentsEligibility(messageID) &&
+			messageMetadata.TimestampOpinion().Value == opinion.Like &&
+			messageMetadata.TimestampOpinion().LoK > One
+
+		messageMetadata.SetEligible(eligible)
+	})
+	return
 }
 
 type opinionWait struct {
@@ -93,5 +118,31 @@ func (o *opinionWait) done(messageID MessageID) (done bool) {
 	}
 	delete(o.waitMap, messageID)
 	done = true
+	return
+}
+
+// parentsEligibility checks if the parents are eligible.
+func (o *OpinionFormer) parentsEligibility(messageID MessageID) (eligible bool) {
+	o.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+		eligible = true
+		// check if all the parents are eligible
+		message.ForEachParent(func(parent Parent) {
+			eligible = eligible && o.isMessageEligible(parent.ID)
+		})
+	})
+	return
+}
+
+// isMessageEligible returns whether the given messageID is marked as aligible.
+func (o *OpinionFormer) isMessageEligible(messageID MessageID) (eligible bool) {
+	// return true if the message is the Genesis
+	if messageID == EmptyMessageID {
+		return true
+	}
+
+	o.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		eligible = messageMetadata.IsEligible()
+	})
+
 	return
 }
