@@ -67,6 +67,16 @@ func NewFCoB(store kvstore.KVStore, tangle *tangle.Tangle) (fcob *FCoB) {
 	return
 }
 
+func (f *FCoB) Opinion(messageID tangle.MessageID) (opinion bool) {
+	f.tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
+		if payload := message.Payload(); payload.Type() == ledgerstate.TransactionType {
+			transactionID := payload.(*ledgerstate.Transaction).ID()
+			opinion = f.OpinionEssence(transactionID).liked
+		}
+	})
+	return
+}
+
 func (f *FCoB) Setup(payloadEvent *events.Event) {
 	f.Events.PayloadOpinionFormed = payloadEvent
 }
@@ -87,11 +97,13 @@ func (f *FCoB) onTransactionBooked(transactionID ledgerstate.TransactionID, mess
 	// if the opinion for this transactionID is already present,
 	// it's a reattachment and thus, we re-use the same opinion.
 	f.CachedOpinion(transactionID).Consume(func(opinion *Opinion) {
+		// if the opinion has been already set by the opinion provider, re-use it
 		if opinion.LevelOfKnowledge() > One {
 			// trigger PayloadOpinionFormed event
 			f.Events.PayloadOpinionFormed.Trigger(&OpinionFormedEvent{messageID, opinion.liked})
 		}
-		// TODO: if not we should wait for the original to be finished
+		// otherwise the PayloadOpinionFormed will be triggerd by iterating over the Attachments
+		// either after FCOB or as a result of an FPC voting.
 		return
 	})
 
@@ -103,13 +115,18 @@ func (f *FCoB) onTransactionBooked(transactionID ledgerstate.TransactionID, mess
 		timestamp = transactionMetadata.SolidificationTime()
 	})
 
-	// TODO: filter rejected or invalid branches
-	// you take the branch of the transaction
-	// you check its inclusionState (pending, rejected, confirmed)
+	// filters both rejected and invalid branch
+	branchInclusionState := f.tangle.LedgerState.BranchInclusionState(f.tangle.LedgerState.BranchID(transactionID))
+	if branchInclusionState == ledgerstate.Rejected {
+		opinion.OpinionEssence = OpinionEssence{
+			timestamp:        timestamp,
+			levelOfKnowledge: Two,
+		}
+		f.opinionStorage.Store(opinion).Release()
+		return
+	}
 
-	// only filters rejected and invalid
-
-	if f.isConflicting(transactionID) {
+	if f.tangle.LedgerState.TransactionIsConflicting(transactionID) {
 		opinion.OpinionEssence = deriveOpinion(timestamp, f.OpinionsEssence(f.conflictSet(transactionID)))
 
 		cachedOpinion := f.opinionStorage.Store(opinion)
@@ -117,7 +134,11 @@ func (f *FCoB) onTransactionBooked(transactionID ledgerstate.TransactionID, mess
 
 		if opinion.LevelOfKnowledge() == One {
 			//trigger voting for this transactionID
-			f.Events.Vote.Trigger(transactionID.String(), opinion.liked) // TODO: fix opinion type
+			vote := voter.Dislike
+			if opinion.liked {
+				vote = voter.Like
+			}
+			f.Events.Vote.Trigger(transactionID.String(), vote) // TODO: fix opinion type
 		}
 
 		return
@@ -134,7 +155,7 @@ func (f *FCoB) onTransactionBooked(transactionID ledgerstate.TransactionID, mess
 	f.likedThresholdExecutor.ExecuteAt(func() {
 		f.CachedOpinion(transactionID).Consume(func(opinion *Opinion) {
 			opinion.SetLevelOfKnowledge(One)
-			if f.isConflicting(transactionID) {
+			if f.tangle.LedgerState.TransactionIsConflicting(transactionID) {
 				opinion.SetLiked(false)
 				//trigger voting for this transactionID
 				f.Events.Vote.Trigger(transactionID.String(), voter.Dislike)
@@ -147,14 +168,17 @@ func (f *FCoB) onTransactionBooked(transactionID ledgerstate.TransactionID, mess
 		f.locallyFinalizedExecutor.ExecuteAt(func() {
 			f.CachedOpinion(transactionID).Consume(func(opinion *Opinion) {
 				opinion.SetLiked(true)
-				if f.isConflicting(transactionID) {
+				if f.tangle.LedgerState.TransactionIsConflicting(transactionID) {
 					//trigger voting for this transactionID
 					f.Events.Vote.Trigger(transactionID.String(), voter.Like)
 					return
 				}
 				opinion.SetLevelOfKnowledge(Two)
 				// trigger OpinionPayloadFormed
-				f.Events.PayloadOpinionFormed.Trigger(&OpinionFormedEvent{messageID, opinion.liked})
+				messageIDs := f.tangle.Storage.AttachmentMessageIDs(transactionID)
+				for _, messageID := range messageIDs {
+					f.Events.PayloadOpinionFormed.Trigger(&OpinionFormedEvent{messageID, opinion.liked})
+				}
 			})
 		}, timestamp.Add(LocallyFinalizedThreshold))
 	}, timestamp.Add(LikedThreshold))
@@ -170,13 +194,14 @@ func (o *FCoB) ProcessVoteResult(ev *vote.OpinionEvent) {
 			return
 		}
 
-		// TODO: Check monotonicity and consistency among the conflict set.
-
 		o.CachedOpinion(transactionID).Consume(func(opinion *Opinion) {
 			opinion.SetLiked(ev.Opinion == voter.Like)
 			opinion.SetLevelOfKnowledge(Two)
 			// trigger PayloadOpinionFormed event
-			// o.Events.PayloadOpinionFormed.Trigger(&OpinionFormedEvent{messageID, opinion.liked})
+			messageIDs := o.tangle.Storage.AttachmentMessageIDs(transactionID)
+			for _, messageID := range messageIDs {
+				o.Events.PayloadOpinionFormed.Trigger(&OpinionFormedEvent{messageID, opinion.liked})
+			}
 		})
 	}
 }
@@ -187,14 +212,6 @@ func (o *FCoB) OpinionsEssence(conflictSet []ledgerstate.TransactionID) (opinion
 		opinions[i] = o.OpinionEssence(conflictID)
 	}
 	return
-}
-
-func (o *FCoB) isConflicting(transactionID ledgerstate.TransactionID) bool {
-	cachedTransactionMetadata := o.tangle.LedgerState.TransactionMetadata(transactionID)
-	defer cachedTransactionMetadata.Release()
-
-	transactionMetadata := cachedTransactionMetadata.Unwrap()
-	return transactionMetadata.BranchID() == ledgerstate.NewBranchID(transactionID)
 }
 
 func (o *FCoB) conflictSet(transactionID ledgerstate.TransactionID) (conflictSet []ledgerstate.TransactionID) {

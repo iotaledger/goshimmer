@@ -31,6 +31,10 @@ func (t *TimestampByDefault) Setup(timestampEvent *events.Event) {
 	t.Events.TimestampOpinionFormed = timestampEvent
 }
 
+func (t *TimestampByDefault) Opinion(messageID tangle.MessageID) (opinion bool) {
+	return true
+}
+
 func (t *TimestampByDefault) Evaluate(messageID tangle.MessageID) {
 	t.tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
 		t.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {

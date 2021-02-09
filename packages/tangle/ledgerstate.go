@@ -103,4 +103,32 @@ func (l *LedgerState) ConflictSet(transactionID ledgerstate.TransactionID) (conf
 	return
 }
 
+// TransactionInclusionState returns the InclusionState of the Transaction with the given TransactionID which can either be
+// Pending, Confirmed or Rejected.
+func (l *LedgerState) TransactionInclusionState(transactionID ledgerstate.TransactionID) (ledgerstate.InclusionState, error) {
+	return l.utxoDAG.InclusionState(transactionID)
+}
+
+// BranchInclusionState returns the InclusionState of the Branch with the given BranchID which can either be
+// Pending, Confirmed or Rejected.
+func (l *LedgerState) BranchInclusionState(branchID ledgerstate.BranchID) (inclusionState ledgerstate.InclusionState) {
+	l.branchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
+		inclusionState = branch.InclusionState()
+	})
+	return
+}
+
+// BranchID returns the branchID of the given transactionID.
+func (l *LedgerState) BranchID(transactionID ledgerstate.TransactionID) (branchID ledgerstate.BranchID) {
+	l.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+		branchID = transactionMetadata.BranchID()
+	})
+	return
+}
+
+// TransactionIsConflicting returns whether the given transaction is part of a conflict.
+func (l *LedgerState) TransactionIsConflicting(transactionID ledgerstate.TransactionID) bool {
+	return l.BranchID(transactionID) == ledgerstate.NewBranchID(transactionID)
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

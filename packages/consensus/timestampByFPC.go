@@ -42,3 +42,7 @@ func (t *TimestampByFPC) Setup(timestampEvent *events.Event) {
 func (t *TimestampByFPC) Evaluate(messageID tangle.MessageID) {
 	panic("Implement me")
 }
+
+func (t *TimestampByFPC) Opinion(messageID tangle.MessageID) (opinion bool) {
+	panic("Implement me")
+}
