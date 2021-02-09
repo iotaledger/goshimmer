@@ -82,4 +82,25 @@ func (l *LedgerState) BookTransaction(transaction *ledgerstate.Transaction, mess
 	return
 }
 
+// TransactionMetadata retrieves the TransactionMetadata with the given TransactionID from the object storage.
+func (l *LedgerState) TransactionMetadata(transactionID ledgerstate.TransactionID) (cachedTransactionMetadata *ledgerstate.CachedTransactionMetadata) {
+	return l.utxoDAG.TransactionMetadata(transactionID)
+}
+
+// ConflictSet returns the list of transactionIDs conflicting with the given transactionID.
+func (l *LedgerState) ConflictSet(transactionID ledgerstate.TransactionID) (conflictSet []ledgerstate.TransactionID) {
+	conflictIDs := make(ledgerstate.ConflictIDs)
+	l.branchDAG.Branch(ledgerstate.NewBranchID(transactionID)).Consume(func(branch ledgerstate.Branch) {
+		conflictIDs = branch.(*ledgerstate.ConflictBranch).Conflicts()
+	})
+
+	for conflictID := range conflictIDs {
+		l.branchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
+			conflictSet = append(conflictSet, ledgerstate.TransactionID(conflictMember.BranchID()))
+		})
+	}
+
+	return
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

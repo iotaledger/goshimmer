@@ -141,12 +141,12 @@ func (o *OpinionFormer) onTransactionBooked(transactionID ledgerstate.Transactio
 		transactionID: transactionID,
 	}
 	var timestamp time.Time
-	o.tangle.LedgerState.utxoDAG.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+	o.tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 		timestamp = transactionMetadata.SolidificationTime()
 	})
 
 	if o.isConflicting(transactionID) {
-		opinion.OpinionEssence = deriveOpinion(timestamp, o.Opinions(o.conflictSet(transactionID)))
+		opinion.OpinionEssence = deriveOpinion(timestamp, o.OpinionsEssence(o.conflictSet(transactionID)))
 
 		cachedOpinion := o.opinionStorage.Store(opinion)
 		defer cachedOpinion.Release()
@@ -217,16 +217,16 @@ func (o *OpinionFormer) ProcessVoteResult(ev *vote.OpinionEvent) {
 	}
 }
 
-func (o *OpinionFormer) Opinions(conflictSet []ledgerstate.TransactionID) (opinions []OpinionEssence) {
+func (o *OpinionFormer) OpinionsEssence(conflictSet []ledgerstate.TransactionID) (opinions []OpinionEssence) {
 	opinions = make([]OpinionEssence, len(conflictSet))
 	for i, conflictID := range conflictSet {
-		opinions[i] = o.Opinion(conflictID)
+		opinions[i] = o.OpinionEssence(conflictID)
 	}
 	return
 }
 
 func (o *OpinionFormer) isConflicting(transactionID ledgerstate.TransactionID) bool {
-	cachedTransactionMetadata := o.tangle.LedgerState.utxoDAG.TransactionMetadata(transactionID)
+	cachedTransactionMetadata := o.tangle.LedgerState.TransactionMetadata(transactionID)
 	defer cachedTransactionMetadata.Release()
 
 	transactionMetadata := cachedTransactionMetadata.Unwrap()
@@ -234,21 +234,10 @@ func (o *OpinionFormer) isConflicting(transactionID ledgerstate.TransactionID) b
 }
 
 func (o *OpinionFormer) conflictSet(transactionID ledgerstate.TransactionID) (conflictSet []ledgerstate.TransactionID) {
-	conflictIDs := make(ledgerstate.ConflictIDs)
-	o.tangle.LedgerState.branchDAG.Branch(ledgerstate.NewBranchID(transactionID)).Consume(func(branch ledgerstate.Branch) {
-		conflictIDs = branch.(*ledgerstate.ConflictBranch).Conflicts()
-	})
-
-	for conflictID := range conflictIDs {
-		o.tangle.LedgerState.branchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
-			conflictSet = append(conflictSet, ledgerstate.TransactionID(conflictMember.BranchID()))
-		})
-	}
-
-	return
+	return o.tangle.LedgerState.ConflictSet(transactionID)
 }
 
-func (o *OpinionFormer) Opinion(transactionID ledgerstate.TransactionID) (opinion OpinionEssence) {
+func (o *OpinionFormer) OpinionEssence(transactionID ledgerstate.TransactionID) (opinion OpinionEssence) {
 	(&CachedOpinion{CachedObject: o.opinionStorage.Load(transactionID.Bytes())}).Consume(func(storedOpinion *Opinion) {
 		opinion = storedOpinion.OpinionEssence
 	})
