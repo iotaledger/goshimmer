@@ -126,8 +126,8 @@ func (f *FCoB) onTransactionBooked(transactionID ledgerstate.TransactionID, mess
 		return
 	}
 
-	if f.tangle.LedgerState.TransactionIsConflicting(transactionID) {
-		opinion.OpinionEssence = deriveOpinion(timestamp, f.OpinionsEssence(f.conflictSet(transactionID)))
+	if f.tangle.LedgerState.TransactionConflicting(transactionID) {
+		opinion.OpinionEssence = deriveOpinion(timestamp, f.OpinionsEssence(f.tangle.LedgerState.ConflictSet(transactionID)))
 
 		cachedOpinion := f.opinionStorage.Store(opinion)
 		defer cachedOpinion.Release()
@@ -155,7 +155,7 @@ func (f *FCoB) onTransactionBooked(transactionID ledgerstate.TransactionID, mess
 	f.likedThresholdExecutor.ExecuteAt(func() {
 		f.CachedOpinion(transactionID).Consume(func(opinion *Opinion) {
 			opinion.SetLevelOfKnowledge(One)
-			if f.tangle.LedgerState.TransactionIsConflicting(transactionID) {
+			if f.tangle.LedgerState.TransactionConflicting(transactionID) {
 				opinion.SetLiked(false)
 				//trigger voting for this transactionID
 				f.Events.Vote.Trigger(transactionID.String(), voter.Dislike)
@@ -168,7 +168,7 @@ func (f *FCoB) onTransactionBooked(transactionID ledgerstate.TransactionID, mess
 		f.locallyFinalizedExecutor.ExecuteAt(func() {
 			f.CachedOpinion(transactionID).Consume(func(opinion *Opinion) {
 				opinion.SetLiked(true)
-				if f.tangle.LedgerState.TransactionIsConflicting(transactionID) {
+				if f.tangle.LedgerState.TransactionConflicting(transactionID) {
 					//trigger voting for this transactionID
 					f.Events.Vote.Trigger(transactionID.String(), voter.Like)
 					return
@@ -206,17 +206,17 @@ func (o *FCoB) ProcessVoteResult(ev *vote.OpinionEvent) {
 	}
 }
 
-func (o *FCoB) OpinionsEssence(conflictSet []ledgerstate.TransactionID) (opinions []OpinionEssence) {
-	opinions = make([]OpinionEssence, len(conflictSet))
-	for i, conflictID := range conflictSet {
-		opinions[i] = o.OpinionEssence(conflictID)
+func (o *FCoB) OpinionsEssence(conflictSet ledgerstate.TransactionIDs) (opinions []OpinionEssence) {
+	opinions = make([]OpinionEssence, 0)
+	for conflictID := range conflictSet {
+		opinions = append(opinions, o.OpinionEssence(conflictID))
 	}
 	return
 }
 
-func (o *FCoB) conflictSet(transactionID ledgerstate.TransactionID) (conflictSet []ledgerstate.TransactionID) {
-	return o.tangle.LedgerState.ConflictSet(transactionID)
-}
+// func (o *FCoB) conflictSet(transactionID ledgerstate.TransactionID) (conflictSet []ledgerstate.TransactionID) {
+// 	return o.tangle.LedgerState.ConflictSet(transactionID)
+// }
 
 func (o *FCoB) OpinionEssence(transactionID ledgerstate.TransactionID) (opinion OpinionEssence) {
 	(&CachedOpinion{CachedObject: o.opinionStorage.Load(transactionID.Bytes())}).Consume(func(storedOpinion *Opinion) {

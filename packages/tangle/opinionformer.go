@@ -102,7 +102,7 @@ func (o *OpinionFormer) onPayloadOpinionFormed(ev *OpinionFormedEvent) {
 	o.tangle.Storage.Message(ev.MessageID).Consume(func(message *Message) {
 		if payload := message.Payload(); payload.Type() == ledgerstate.TransactionType {
 			transactionID := payload.(*ledgerstate.Transaction).ID()
-			if o.tangle.LedgerState.TransactionIsConflicting(transactionID) {
+			if o.tangle.LedgerState.TransactionConflicting(transactionID) {
 				o.tangle.LedgerState.branchDAG.SetBranchLiked(o.tangle.LedgerState.BranchID(transactionID), ev.Opinion)
 				// TODO: move this to approval weight logic
 				o.tangle.LedgerState.branchDAG.SetBranchFinalized(o.tangle.LedgerState.BranchID(transactionID), true)

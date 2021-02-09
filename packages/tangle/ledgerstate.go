@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/hive.go/types"
 	"golang.org/x/xerrors"
 )
 
@@ -62,6 +63,16 @@ func (l *LedgerState) TransactionValid(transaction *ledgerstate.Transaction, mes
 	return
 }
 
+// TransactionConflicting returns whether the given transaction is part of a conflict.
+func (l *LedgerState) TransactionConflicting(transactionID ledgerstate.TransactionID) bool {
+	return l.BranchID(transactionID) == ledgerstate.NewBranchID(transactionID)
+}
+
+// TransactionMetadata retrieves the TransactionMetadata with the given TransactionID from the object storage.
+func (l *LedgerState) TransactionMetadata(transactionID ledgerstate.TransactionID) (cachedTransactionMetadata *ledgerstate.CachedTransactionMetadata) {
+	return l.utxoDAG.TransactionMetadata(transactionID)
+}
+
 // BookTransaction books the given Transaction into the underlying LedgerState and returns the target Branch and an
 // eventual error.
 func (l *LedgerState) BookTransaction(transaction *ledgerstate.Transaction, messageID MessageID) (targetBranch ledgerstate.BranchID, err error) {
@@ -82,21 +93,18 @@ func (l *LedgerState) BookTransaction(transaction *ledgerstate.Transaction, mess
 	return
 }
 
-// TransactionMetadata retrieves the TransactionMetadata with the given TransactionID from the object storage.
-func (l *LedgerState) TransactionMetadata(transactionID ledgerstate.TransactionID) (cachedTransactionMetadata *ledgerstate.CachedTransactionMetadata) {
-	return l.utxoDAG.TransactionMetadata(transactionID)
-}
-
 // ConflictSet returns the list of transactionIDs conflicting with the given transactionID.
-func (l *LedgerState) ConflictSet(transactionID ledgerstate.TransactionID) (conflictSet []ledgerstate.TransactionID) {
+func (l *LedgerState) ConflictSet(transactionID ledgerstate.TransactionID) (conflictSet ledgerstate.TransactionIDs) {
 	conflictIDs := make(ledgerstate.ConflictIDs)
+	conflictSet = make(ledgerstate.TransactionIDs)
+
 	l.branchDAG.Branch(ledgerstate.NewBranchID(transactionID)).Consume(func(branch ledgerstate.Branch) {
 		conflictIDs = branch.(*ledgerstate.ConflictBranch).Conflicts()
 	})
 
 	for conflictID := range conflictIDs {
 		l.branchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
-			conflictSet = append(conflictSet, ledgerstate.TransactionID(conflictMember.BranchID()))
+			conflictSet[ledgerstate.TransactionID(conflictMember.BranchID())] = types.Void
 		})
 	}
 
@@ -124,11 +132,6 @@ func (l *LedgerState) BranchID(transactionID ledgerstate.TransactionID) (branchI
 		branchID = transactionMetadata.BranchID()
 	})
 	return
-}
-
-// TransactionIsConflicting returns whether the given transaction is part of a conflict.
-func (l *LedgerState) TransactionIsConflicting(transactionID ledgerstate.TransactionID) bool {
-	return l.BranchID(transactionID) == ledgerstate.NewBranchID(transactionID)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
