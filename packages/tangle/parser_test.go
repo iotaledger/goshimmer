@@ -3,11 +3,11 @@ package tangle
 import (
 	"context"
 	"crypto"
+	"errors"
 	"strconv"
 	"testing"
 	"time"
 
-	"github.com/go-errors/errors"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
