@@ -1,91 +1,145 @@
 package tangle
 
 import (
-	"container/list"
+	"sync"
 
-	"github.com/iotaledger/hive.go/datastructure/set"
+	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
+	"github.com/iotaledger/hive.go/kvstore/mapdb"
+	"golang.org/x/xerrors"
 )
 
-// Tangle is a data structure that contains messages issued by nodes taking part in a P2P network.
+// region Tangle ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Tangle is the central data structure of the IOTA protocol.
 type Tangle struct {
-	Parser         *MessageParser
-	Storage        *MessageStore
+	Parser         *Parser
+	Storage        *Storage
 	Solidifier     *Solidifier
-	Booker         *MessageBooker
-	Requester      *MessageRequester
+	Booker         *Booker
+	TipManager     *TipManager
+	Requester      *Requester
 	MessageFactory *MessageFactory
+	LedgerState    *LedgerState
+	Utils          *Utils
+	Options        *Options
 	Events         *Events
+
+	setupParserOnce sync.Once
 }
 
-// NewTangle is the constructor for the Tangle.
-func New(store kvstore.KVStore) (tangle *Tangle) {
+// New is the constructor for the Tangle.
+func New(options ...Option) (tangle *Tangle) {
 	tangle = &Tangle{
-		Events: newEvents(),
+		Options: buildOptions(options...),
+		Events: &Events{
+			MessageEligible: events.NewEvent(messageIDEventHandler),
+			MessageInvalid:  events.NewEvent(messageIDEventHandler),
+			Error:           events.NewEvent(events.ErrorCaller),
+		},
 	}
 
-	// initialize components
+	tangle.Parser = NewParser()
+	tangle.Storage = NewStorage(tangle)
 	tangle.Solidifier = NewSolidifier(tangle)
-	tangle.Storage = NewMessageStore(tangle, store)
-
-	// initialize behavior
-	tangle.Storage.Events.MessageStored.Attach(events.NewClosure(tangle.Solidifier.Solidify))
+	tangle.Requester = NewRequester(tangle)
+	tangle.TipManager = NewTipManager(tangle)
+	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager)
+	tangle.LedgerState = NewLedgerState(tangle)
+	tangle.Utils = NewUtils(tangle)
 
 	return
 }
 
-// WalkMessageIDs is a generic Tangle walker that executes a custom callback for every visited MessageID, starting from
-// the given entry points. The callback should return the MessageIDs to be visited next. It accepts an optional boolean
-// parameter which can be set to true if a Message should be visited more than once following different paths.
-func (t *Tangle) WalkMessageIDs(callback func(messageID MessageID) (nextMessageIDsToVisit MessageIDs), entryPoints MessageIDs, revisit ...bool) {
-	if len(entryPoints) == 0 {
-		panic("you need to provide at least one entry point")
-	}
+// Setup sets up the data flow by connecting the different components (by calling their corresponding Setup method).
+func (t *Tangle) Setup() {
+	t.Storage.Setup()
+	t.Solidifier.Setup()
+	t.Requester.Setup()
+	t.TipManager.Setup()
 
-	stack := list.New()
-	for _, messageID := range entryPoints {
-		stack.PushBack(messageID)
-	}
-
-	processedMessageIDs := set.New()
-	for stack.Len() > 0 {
-		firstElement := stack.Front()
-		stack.Remove(firstElement)
-
-		messageID := firstElement.Value.(MessageID)
-		if (len(revisit) == 0 || !revisit[0]) && !processedMessageIDs.Add(messageID) {
-			continue
-		}
-
-		for _, nextMessageID := range callback(messageID) {
-			stack.PushBack(nextMessageID)
-		}
-	}
+	t.MessageFactory.Events.Error.Attach(events.NewClosure(func(err error) {
+		t.Events.Error.Trigger(xerrors.Errorf("error in MessageFactory: %w", err))
+	}))
 }
 
-// WalkMessages is generic Tangle walker that executes a custom callback for every visited Message and MessageMetadata,
-// starting from the given entry points. The callback should return the MessageIDs to be visited next. It accepts an
-// optional boolean parameter which can be set to true if a Message should be visited more than once following different
-// paths.
-func (t *Tangle) WalkMessages(callback func(message *Message, messageMetadata *MessageMetadata) MessageIDs, entryPoints MessageIDs, revisit ...bool) {
-	t.WalkMessageIDs(func(messageID MessageID) (nextMessageIDsToVisit MessageIDs) {
-		t.Storage.Message(messageID).Consume(func(message *Message) {
-			t.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-				nextMessageIDsToVisit = callback(message, messageMetadata)
-			})
-		})
+// ProcessGossipMessage is used to feed new Messages from the gossip layer into the Tangle.
+func (t *Tangle) ProcessGossipMessage(messageBytes []byte, peer *peer.Peer) {
+	t.setupParserOnce.Do(t.Parser.Setup)
 
-		return
-	}, entryPoints, revisit...)
-}
-
-// Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
-func (t *Tangle) Shutdown() {
-	t.Storage.Shutdown()
+	t.Parser.Parse(messageBytes, peer)
 }
 
 // Prune resets the database and deletes all stored objects (good for testing or "node resets").
 func (t *Tangle) Prune() (err error) {
 	return t.Storage.Prune()
 }
+
+// Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
+func (t *Tangle) Shutdown() {
+	t.MessageFactory.Shutdown()
+	t.Storage.Shutdown()
+	t.Options.Store.Shutdown()
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Events ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Events represents events happening in the Tangle.
+type Events struct {
+	// MessageInvalid is triggered when a Message is detected to be objectively invalid.
+	MessageInvalid *events.Event
+
+	// Fired when a message has been eligible.
+	MessageEligible *events.Event
+
+	// Error is triggered when the Tangle faces an error from which it can not recover.
+	Error *events.Event
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Option represents the return type of optional parameters that can be handed into the constructor of the Tangle to
+// configure its behavior.
+type Option func(*Options)
+
+// Options is a container for all configurable parameters of the Tangle.
+type Options struct {
+	Store    kvstore.KVStore
+	Identity *identity.LocalIdentity
+}
+
+// buildOptions generates the Options object use by the Tangle.
+func buildOptions(options ...Option) (builtOptions *Options) {
+	builtOptions = &Options{
+		Store:    mapdb.NewMapDB(),
+		Identity: identity.GenerateLocalIdentity(),
+	}
+
+	for _, option := range options {
+		option(builtOptions)
+	}
+
+	return
+}
+
+// Store is an Option for the Tangle that allows to specify which storage layer is supposed to be used to persist data.
+func Store(store kvstore.KVStore) Option {
+	return func(options *Options) {
+		options.Store = store
+	}
+}
+
+// Identity is an Option for the Tangle that allows to specify the node identity which is used to issue Messages.
+func Identity(identity *identity.LocalIdentity) Option {
+	return func(options *Options) {
+		options.Identity = identity
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

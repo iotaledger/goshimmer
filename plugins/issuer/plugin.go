@@ -37,7 +37,7 @@ func IssuePayload(payload payload.Payload, t ...*tangle.Tangle) (*tangle.Message
 		return nil, xerrors.Errorf("can't issue payload: %w", syncbeaconfollower.ErrNodeNotSynchronized)
 	}
 
-	msg, err := messagelayer.MessageFactory().IssuePayload(payload, messagelayer.Tangle())
+	msg, err := messagelayer.Tangle().MessageFactory.IssuePayload(payload, messagelayer.Tangle())
 	if err != nil {
 		return nil, err
 	}

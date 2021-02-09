@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto"
 	"errors"
+	"strconv"
 	"testing"
 	"time"
 
@@ -11,13 +12,54 @@ import (
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/labstack/gommon/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	_ "golang.org/x/crypto/blake2b" // required by crypto.BLAKE2b_512
 )
+
+func BenchmarkMessageParser_ParseBytesSame(b *testing.B) {
+	msgBytes := newTestDataMessage("Test").Bytes()
+	msgParser := NewParser()
+	msgParser.Setup()
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		msgParser.Parse(msgBytes, nil)
+	}
+}
+
+func BenchmarkMessageParser_ParseBytesDifferent(b *testing.B) {
+	messageBytes := make([][]byte, b.N)
+	for i := 0; i < b.N; i++ {
+		messageBytes[i] = newTestDataMessage("Test" + strconv.Itoa(i)).Bytes()
+	}
+
+	msgParser := NewParser()
+	msgParser.Setup()
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		msgParser.Parse(messageBytes[i], nil)
+	}
+}
+
+func TestMessageParser_ParseMessage(t *testing.T) {
+	msg := newTestDataMessage("Test")
+
+	msgParser := NewParser()
+	msgParser.Setup()
+	msgParser.Parse(msg.Bytes(), nil)
+
+	msgParser.Events.MessageParsed.Attach(events.NewClosure(func(msgParsedEvent *MessageParsedEvent) {
+		log.Infof("parsed message")
+	}))
+}
 
 var (
 	testPeer       *peer.Peer

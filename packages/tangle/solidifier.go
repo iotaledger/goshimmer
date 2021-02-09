@@ -3,11 +3,15 @@ package tangle
 import (
 	"time"
 
+	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
 )
 
-// maxParentAge defines the cut-off condition for the maximum age of parent messages.
-const maxParentAge = 30 * time.Minute
+// maxParentsTimeDifference defines the smallest allowed time difference between a child Message and its parents.
+const minParentsTimeDifference = 0 * time.Second
+
+// maxParentsTimeDifference defines the biggest allowed time difference between a child Message and its parents.
+const maxParentsTimeDifference = 30 * time.Minute
 
 // region Solidifier ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -19,43 +23,52 @@ type Solidifier struct {
 	tangle *Tangle
 }
 
-// NewSolidifier is the constructor of Solidifier.
+// NewSolidifier is the constructor of the Solidifier.
 func NewSolidifier(tangle *Tangle) (solidifier *Solidifier) {
 	solidifier = &Solidifier{
 		Events: &SolidifierEvents{
-			MessageSolid: events.NewEvent(messageIDEventHandler),
+			MessageSolid:   events.NewEvent(messageIDEventHandler),
+			MessageMissing: events.NewEvent(messageIDEventHandler),
 		},
+
 		tangle: tangle,
 	}
 
 	return
 }
 
+// Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
+func (s *Solidifier) Setup() {
+	s.tangle.Storage.Events.MessageStored.Attach(events.NewClosure(s.Solidify))
+}
+
 // Solidify solidifies the given Message.
 func (s *Solidifier) Solidify(messageID MessageID) {
-	s.tangle.WalkMessages(s.checkMessageSolidity, MessageIDs{messageID}, true)
+	s.tangle.Utils.WalkMessageAndMetadata(s.checkMessageSolidity, MessageIDs{messageID}, true)
 }
 
 // checkMessageSolidity checks if the given Message is solid and eventually queues its Approvers to also be checked.
-func (s *Solidifier) checkMessageSolidity(message *Message, messageMetadata *MessageMetadata) (nextMessagesToCheck MessageIDs) {
-	if s.isMessageSolid(message, messageMetadata) {
-		if !s.isParentsValid(message) || !s.checkParentsAge(message) {
-			if messageMetadata.SetInvalid(true) {
-				s.tangle.Events.MessageInvalid.Trigger(message.ID())
-			}
-			return
-		}
-
-		if messageMetadata.SetSolid(true) {
-			s.Events.MessageSolid.Trigger(message.ID())
-
-			s.tangle.Storage.Approvers(message.ID()).Consume(func(approver *Approver) {
-				nextMessagesToCheck = append(nextMessagesToCheck, approver.ApproverMessageID())
-			})
-		}
+func (s *Solidifier) checkMessageSolidity(message *Message, messageMetadata *MessageMetadata, walker *walker.Walker) {
+	if !s.isMessageSolid(message, messageMetadata) {
+		return
 	}
 
-	return
+	if !s.areParentMessagesValid(message) {
+		if !messageMetadata.SetInvalid(true) {
+			return
+		}
+		s.tangle.Events.MessageInvalid.Trigger(message.ID())
+		return
+	}
+
+	if !messageMetadata.SetSolid(true) {
+		return
+	}
+	s.Events.MessageSolid.Trigger(message.ID())
+
+	s.tangle.Storage.Approvers(message.ID()).Consume(func(approver *Approver) {
+		walker.Push(approver.ApproverMessageID())
+	})
 }
 
 // isMessageSolid checks if the given Message is solid.
@@ -80,79 +93,51 @@ func (s *Solidifier) isMessageSolid(message *Message, messageMetadata *MessageMe
 
 // isMessageMarkedAsSolid checks whether the given message is solid and marks it as missing if it isn't known.
 func (s *Solidifier) isMessageMarkedAsSolid(messageID MessageID) (solid bool) {
-	// return true if the message is the Genesis
 	if messageID == EmptyMessageID {
 		return true
 	}
 
-	// retrieve the CachedMessageMetadata and trigger the MessageMissing event if it doesn't exist
-	s.tangle.Storage.StoreIfMissingMessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+	s.tangle.Storage.MessageMetadata(messageID, func() *MessageMetadata {
+		if cachedMissingMessage, stored := s.tangle.Storage.StoreMissingMessage(NewMissingMessage(messageID)); stored {
+			cachedMissingMessage.Consume(func(missingMessage *MissingMessage) {
+				s.Events.MessageMissing.Trigger(messageID)
+			})
+		}
+
+		// do not initialize the metadata here, we execute this in the optional ComputeIfAbsent callback to be secure
+		// from race conditions
+		return nil
+	}).Consume(func(messageMetadata *MessageMetadata) {
 		solid = messageMetadata.IsSolid()
 	})
 
 	return
 }
 
-// checkParentsAge checks whether the timestamp of each parent of the given message is valid.
-func (s *Solidifier) checkParentsAge(message *Message) (valid bool) {
-	if message == nil {
-		return false
-	}
-
+// areParentMessagesValid checks whether the parents of the given Message are valid.
+func (s *Solidifier) areParentMessagesValid(message *Message) (valid bool) {
 	valid = true
 	message.ForEachParent(func(parent Parent) {
-		valid = valid && s.isAgeOfParentValid(message.IssuingTime(), parent.ID)
-	})
-
-	return valid
-}
-
-// isAgeOfParentValid checks whether the timestamp of a given parent passes the max-age check.
-func (s *Solidifier) isAgeOfParentValid(childTime time.Time, parentID MessageID) (valid bool) {
-	// TODO: Improve this, otherwise any msg that approves genesis is always valid.
-	if parentID == EmptyMessageID {
-		return true
-	}
-
-	s.tangle.Storage.Message(parentID).Consume(func(parent *Message) {
-		// check the parent is not too young
-		if parent.IssuingTime().After(childTime) {
-			return
-		}
-
-		// check the parent is not too old
-		if childTime.Sub(parent.IssuingTime()) > maxParentAge {
-			return
-		}
-
-		valid = true
+		valid = valid && s.isParentMessageValid(parent.ID, message.IssuingTime())
 	})
 
 	return
 }
 
-// isParentsValid checks whether parents of the given message are valid.
-func (s *Solidifier) isParentsValid(message *Message) (valid bool) {
-	if message == nil || message.IsDeleted() {
-		return false
-	}
-
-	valid = true
-	message.ForEachParent(func(parent Parent) {
-		valid = valid && s.isMessageValid(parent.ID)
-	})
-
-	return valid
-}
-
-// isMessageValid checks whether the given message is valid.
-func (s *Solidifier) isMessageValid(messageID MessageID) (valid bool) {
-	if messageID == EmptyMessageID {
+// isParentMessageValid checks whether the given parent Message is valid.
+func (s *Solidifier) isParentMessageValid(parentMessageID MessageID, childMessageIssuingTime time.Time) (valid bool) {
+	if parentMessageID == EmptyMessageID {
 		return true
 	}
 
-	s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-		valid = !messageMetadata.IsInvalid()
+	s.tangle.Storage.Message(parentMessageID).Consume(func(parentMessage *Message) {
+		timeDifference := childMessageIssuingTime.Sub(parentMessage.IssuingTime())
+
+		valid = timeDifference >= minParentsTimeDifference && timeDifference <= maxParentsTimeDifference
+	})
+
+	s.tangle.Storage.MessageMetadata(parentMessageID).Consume(func(messageMetadata *MessageMetadata) {
+		valid = valid && !messageMetadata.IsInvalid()
 	})
 
 	return
@@ -166,6 +151,9 @@ func (s *Solidifier) isMessageValid(messageID MessageID) (valid bool) {
 type SolidifierEvents struct {
 	// MessageSolid is triggered when a message becomes solid, i.e. its past cone is known and solid.
 	MessageSolid *events.Event
+
+	// MessageMissing is triggered when a message references an unknown parent Message.
+	MessageMissing *events.Event
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

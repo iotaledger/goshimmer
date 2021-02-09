@@ -6,9 +6,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestMessageTipSelector(t *testing.T) {
+func TestTipManager(t *testing.T) {
 	// create tip selector
-	tipSelector := NewMessageTipSelector()
+	tipSelector := NewTipManager(New())
 
 	// check if first tips point to genesis
 	parents := tipSelector.Tips(2)

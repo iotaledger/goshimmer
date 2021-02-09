@@ -40,6 +40,6 @@ func configure(*node.Plugin) {
 
 	log.Infof("%s started: difficult=%d", PluginName, difficulty)
 
-	messagelayer.MessageParser().AddBytesFilter(tangle.NewPowFilter(worker, difficulty))
-	messagelayer.MessageFactory().SetWorker(tangle.WorkerFunc(DoPOW))
+	messagelayer.Tangle().Parser.AddBytesFilter(tangle.NewPowFilter(worker, difficulty))
+	messagelayer.Tangle().MessageFactory.SetWorker(tangle.WorkerFunc(DoPOW))
 }

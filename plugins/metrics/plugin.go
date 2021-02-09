@@ -121,14 +121,12 @@ func registerLocalMetrics() {
 	}))
 
 	// fired when a message gets added to missing message storage
-	messagelayer.Tangle().Storage.Events.MessageMissing.Attach(events.NewClosure(func(messageId tangle.MessageID) {
+	messagelayer.Tangle().Solidifier.Events.MessageMissing.Attach(events.NewClosure(func(messageId tangle.MessageID) {
 		missingMessageCountDB.Inc()
 	}))
 
 	// fired when a missing message was received and removed from missing message storage
-	messagelayer.Tangle().Storage.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
-		cachedMsgEvent.Message.Release()
-		cachedMsgEvent.MessageMetadata.Release()
+	messagelayer.Tangle().Storage.Events.MissingMessageStored.Attach(events.NewClosure(func(tangle.MessageID) {
 		missingMessageCountDB.Dec()
 	}))
 

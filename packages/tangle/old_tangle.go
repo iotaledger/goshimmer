@@ -7,9 +7,9 @@ import (
 	"github.com/iotaledger/hive.go/types"
 )
 
-// Tangle represents the base layer of messages.
+// OldTangle represents the base layer of messages.
 type OldTangle struct {
-	*MessageStore
+	*Storage
 
 	Events *Events
 }
@@ -17,18 +17,11 @@ type OldTangle struct {
 // Old creates an old Tangle.
 func Old(store kvstore.KVStore) (result *OldTangle) {
 	//result = &OldTangle{
-	//	MessageStore: NewMessageStore(store),
+	//	Storage: NewStorage(store),
 	//	Events:       newEvents(),
 	//}
 
 	return
-}
-
-// Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
-func (t *OldTangle) Shutdown() *OldTangle {
-	t.MessageStore.Shutdown()
-
-	return t
 }
 
 // deletes a message and its future cone of messages/approvers.
@@ -78,10 +71,7 @@ func (t *OldTangle) CheckParentsEligibility(cachedMessage *CachedMessage, cached
 
 	// Lastly, set the eligible flag and trigger event
 	if eligible && msgMetadata.SetEligible(eligible) {
-		t.Events.MessageEligible.Trigger(&CachedMessageEvent{
-			Message:         cachedMessage,
-			MessageMetadata: cachedMsgMetadata,
-		})
+		t.Events.MessageEligible.Trigger(msgMetadata.ID())
 	}
 }
 

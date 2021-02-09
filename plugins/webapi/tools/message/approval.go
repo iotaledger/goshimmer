@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/labstack/echo"
 )
@@ -51,7 +52,7 @@ func firstApprovalAnalysis(nodeID string, filePath string) (err error) {
 		return err
 	}
 
-	messagelayer.Tangle().WalkMessageIDs(func(msgID tangle.MessageID) (nextMessageIDsToVisit tangle.MessageIDs) {
+	messagelayer.Tangle().Utils.WalkMessageID(func(msgID tangle.MessageID, walker *walker.Walker) {
 		approverInfo, err := firstApprovers(msgID)
 		// firstApprovers returns an error when the msgID is a tip, thus
 		// we want to stop the computation but continue with the future cone iteration.
@@ -77,10 +78,8 @@ func firstApprovalAnalysis(nodeID string, filePath string) (err error) {
 		}
 
 		messagelayer.Tangle().Storage.Approvers(msgID).Consume(func(approver *tangle.Approver) {
-			nextMessageIDsToVisit = append(nextMessageIDsToVisit, approver.ApproverMessageID())
+			walker.Push(approver.ApproverMessageID())
 		})
-
-		return
 	}, tangle.MessageIDs{tangle.EmptyMessageID})
 
 	return

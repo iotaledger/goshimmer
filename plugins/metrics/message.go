@@ -132,7 +132,7 @@ func increasePerPayloadCounter(p payload.Type) {
 }
 
 func measureMessageTips() {
-	metrics.Events().MessageTips.Trigger((uint64)(messagelayer.TipSelector().TipCount()))
+	metrics.Events().MessageTips.Trigger((uint64)(messagelayer.Tangle().TipManager.TipCount()))
 }
 
 // increases the received MPS counter
@@ -156,7 +156,7 @@ func measureReceivedMPS() {
 }
 
 func measureRequestQueueSize() {
-	size := int64(messagelayer.MessageRequester().RequestQueueSize())
+	size := int64(messagelayer.Tangle().Requester.RequestQueueSize())
 	requestQueueSize.Store(size)
 }
 
