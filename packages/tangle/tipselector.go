@@ -2,17 +2,20 @@ package tangle
 
 import (
 	"github.com/iotaledger/hive.go/datastructure/randommap"
+	"github.com/iotaledger/hive.go/events"
 )
 
 // MessageTipSelector manages a map of tips and emits events for their removal and addition.
 type MessageTipSelector struct {
+	tangle *Tangle
 	tips   *randommap.RandomMap
 	Events *MessageTipSelectorEvents
 }
 
 // NewMessageTipSelector creates a new tip-selector.
-func NewMessageTipSelector(tips ...MessageID) *MessageTipSelector {
+func NewMessageTipSelector(tangle *Tangle, tips ...MessageID) *MessageTipSelector {
 	tipSelector := &MessageTipSelector{
+		tangle: tangle,
 		tips:   randommap.New(),
 		Events: newMessageTipSelectorEvents(),
 	}
@@ -22,6 +25,13 @@ func NewMessageTipSelector(tips ...MessageID) *MessageTipSelector {
 	}
 
 	return tipSelector
+}
+
+// Setup sets up the behavior of the component by making it attach to the relevant events of other components.
+func (t *MessageTipSelector) Setup() {
+	t.tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(messageID MessageID) {
+		t.tangle.Storage.Message(messageID).Consume(t.AddTip)
+	}))
 }
 
 // Set adds the given messageIDs as tips.

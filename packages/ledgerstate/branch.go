@@ -160,6 +160,13 @@ func BranchIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchIDs B
 	return
 }
 
+// Add adds a BranchID to the collection and returns the collection to enable chaining.
+func (b BranchIDs) Add(branchID BranchID) BranchIDs {
+	b[branchID] = types.Void
+
+	return b
+}
+
 // Contains checks if the given target BranchID is part of the BranchIDs.
 func (b BranchIDs) Contains(targetBranchID BranchID) (contains bool) {
 	for branchID := range b {

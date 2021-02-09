@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
+	"github.com/iotaledger/hive.go/types"
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
@@ -106,6 +107,13 @@ func (i TransactionID) Base58() string {
 func (i TransactionID) String() string {
 	return "TransactionID(" + i.Base58() + ")"
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TransactionIDs ///////////////////////////////////////////////////////////////////////////////////////////////
+
+// TransactionIDs represents a collection of TransactionIDs.
+type TransactionIDs map[TransactionID]types.Empty
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -250,6 +258,16 @@ func (t *Transaction) Essence() *TransactionEssence {
 // UnlockBlocks returns the UnlockBlocks of the Transaction.
 func (t *Transaction) UnlockBlocks() UnlockBlocks {
 	return t.unlockBlocks
+}
+
+// ReferencedTransactionIDs returns a set of TransactionIDs whose Outputs were used as Inputs in this Transaction.
+func (t *Transaction) ReferencedTransactionIDs() (referencedTransactionIDs TransactionIDs) {
+	referencedTransactionIDs = make(TransactionIDs)
+	for _, input := range t.Essence().Inputs() {
+		referencedTransactionIDs[input.(*UTXOInput).ReferencedOutputID().TransactionID()] = types.Void
+	}
+
+	return
 }
 
 // Bytes returns a marshaled version of the Transaction.

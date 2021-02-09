@@ -8,7 +8,7 @@ import (
 
 func TestMessageTipSelector(t *testing.T) {
 	// create tip selector
-	tipSelector := NewMessageTipSelector()
+	tipSelector := NewMessageTipSelector(New())
 
 	// check if first tips point to genesis
 	parents := tipSelector.Tips(2)

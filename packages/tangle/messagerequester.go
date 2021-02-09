@@ -3,6 +3,8 @@ package tangle
 import (
 	"sync"
 	"time"
+
+	"github.com/iotaledger/hive.go/events"
 )
 
 const (
@@ -12,13 +14,13 @@ const (
 	maxRequestThreshold = 500
 )
 
-// Options holds options for a message requester.
-type Options struct {
+// MessageRequesterOptions holds options for a message requester.
+type MessageRequesterOptions struct {
 	retryInterval time.Duration
 }
 
-func newOptions(optionalOptions []Option) *Options {
-	result := &Options{
+func newMessageRequesterOptions(optionalOptions []MessageRequesterOption) *MessageRequesterOptions {
+	result := &MessageRequesterOptions{
 		retryInterval: 10 * time.Second,
 	}
 
@@ -29,20 +31,23 @@ func newOptions(optionalOptions []Option) *Options {
 	return result
 }
 
-// Option is a function which inits an option.
-type Option func(*Options)
+// MessageRequesterOption is a function which inits an option.
+type MessageRequesterOption func(*MessageRequesterOptions)
 
 // RetryInterval creates an option which sets the retry interval to the given value.
-func RetryInterval(interval time.Duration) Option {
-	return func(args *Options) {
+func RetryInterval(interval time.Duration) MessageRequesterOption {
+	return func(args *MessageRequesterOptions) {
 		args.retryInterval = interval
 	}
 }
 
+// region MessageRequester /////////////////////////////////////////////////////////////////////////////////////////////
+
 // MessageRequester takes care of requesting messages.
 type MessageRequester struct {
+	tangle            *Tangle
 	scheduledRequests map[MessageID]*time.Timer
-	options           *Options
+	options           *MessageRequesterOptions
 	Events            *MessageRequesterEvents
 
 	scheduledRequestsMutex sync.RWMutex
@@ -52,10 +57,11 @@ type MessageRequester struct {
 type MessageExistsFunc func(messageId MessageID) bool
 
 // NewMessageRequester creates a new message requester.
-func NewMessageRequester(missingMessages []MessageID, optionalOptions ...Option) *MessageRequester {
+func NewMessageRequester(tangle *Tangle, optionalOptions ...MessageRequesterOption) *MessageRequester {
 	requester := &MessageRequester{
+		tangle:            tangle,
 		scheduledRequests: make(map[MessageID]*time.Timer),
-		options:           newOptions(optionalOptions),
+		options:           newMessageRequesterOptions(optionalOptions),
 		Events:            newMessageRequesterEvents(),
 	}
 
@@ -63,11 +69,17 @@ func NewMessageRequester(missingMessages []MessageID, optionalOptions ...Option)
 	requester.scheduledRequestsMutex.Lock()
 	defer requester.scheduledRequestsMutex.Unlock()
 
-	for _, id := range missingMessages {
+	for _, id := range tangle.Storage.MissingMessages() {
 		requester.scheduledRequests[id] = time.AfterFunc(requester.options.retryInterval, requester.createReRequest(id, 0))
 	}
 
 	return requester
+}
+
+// Setup sets up the behavior of the component by making it attach to the relevant events of other components.
+func (r *MessageRequester) Setup() {
+	r.tangle.Solidifier.Events.MessageMissing.Attach(events.NewClosure(r.StartRequest))
+	r.tangle.Storage.Events.MissingMessageStored.Attach(events.NewClosure(r.StopRequest))
 }
 
 // StartRequest initiates a regular triggering of the StartRequest event until it has been stopped using StopRequest.
@@ -131,3 +143,15 @@ func (r *MessageRequester) RequestQueueSize() int {
 func (r *MessageRequester) createReRequest(msgID MessageID, count int) func() {
 	return func() { r.reRequest(msgID, count) }
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region MessageRequesterEvents ///////////////////////////////////////////////////////////////////////////////////////
+
+// MessageRequesterEvents represents events happening on a message requester.
+type MessageRequesterEvents struct {
+	// Fired when a request for a given message should be sent.
+	SendRequest *events.Event
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

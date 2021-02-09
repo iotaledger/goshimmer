@@ -20,7 +20,6 @@ import (
 	"github.com/iotaledger/hive.go/datastructure/randommap"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/testutil"
 	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/stretchr/testify/assert"
@@ -28,7 +27,8 @@ import (
 )
 
 func BenchmarkTangle_StoreMessage(b *testing.B) {
-	tangle := New(mapdb.NewMapDB())
+	tangle := New()
+	defer tangle.Shutdown()
 	if err := tangle.Prune(); err != nil {
 		b.Error(err)
 
@@ -46,12 +46,11 @@ func BenchmarkTangle_StoreMessage(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		tangle.Storage.StoreMessage(messageBytes[i])
 	}
-
-	tangle.Shutdown()
 }
 
 func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
-	messageTangle := New(mapdb.NewMapDB())
+	messageTangle := New()
+	defer messageTangle.Shutdown()
 	if err := messageTangle.Prune(); err != nil {
 		t.Error(err)
 
@@ -106,12 +105,11 @@ func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
 	assert.EqualValues(t, 5, atomic.LoadInt32(&storedMessages))
 	assert.EqualValues(t, 3, atomic.LoadInt32(&solidMessages))
 	assert.EqualValues(t, 2, atomic.LoadInt32(&invalidMessages))
-
-	messageTangle.Shutdown()
 }
 
 func TestTangle_StoreMessage(t *testing.T) {
-	messageTangle := New(mapdb.NewMapDB())
+	messageTangle := New()
+	defer messageTangle.Shutdown()
 	if err := messageTangle.Prune(); err != nil {
 		t.Error(err)
 
@@ -126,11 +124,7 @@ func TestTangle_StoreMessage(t *testing.T) {
 		fmt.Println("SOLID:", messageID)
 	}))
 
-	messageTangle.Events.MessageUnsolidifiable.Attach(events.NewClosure(func(messageId MessageID) {
-		fmt.Println("UNSOLIDIFIABLE:", messageId)
-	}))
-
-	messageTangle.Storage.Events.MessageMissing.Attach(events.NewClosure(func(messageId MessageID) {
+	messageTangle.Solidifier.Events.MessageMissing.Attach(events.NewClosure(func(messageId MessageID) {
 		fmt.Println("MISSING:", messageId)
 	}))
 
@@ -146,8 +140,6 @@ func TestTangle_StoreMessage(t *testing.T) {
 	time.Sleep(7 * time.Second)
 
 	messageTangle.Storage.StoreMessage(newMessageOne)
-
-	messageTangle.Shutdown()
 }
 
 func TestTangle_MissingMessages(t *testing.T) {
@@ -204,7 +196,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 	}
 
 	// create the tangle
-	tangle := New(badgerDB)
+	tangle := New(Store(badgerDB))
 	defer tangle.Shutdown()
 	require.NoError(t, tangle.Prune())
 
@@ -227,9 +219,8 @@ func TestTangle_MissingMessages(t *testing.T) {
 	}))
 
 	// increase the counter when a missing message was detected
-	tangle.Storage.Events.MessageMissing.Attach(events.NewClosure(func(messageId MessageID) {
+	tangle.Solidifier.Events.MessageMissing.Attach(events.NewClosure(func(messageId MessageID) {
 		atomic.AddInt32(&missingMessages, 1)
-
 		// store the message after it has been requested
 		go func() {
 			time.Sleep(storeDelay)
@@ -238,10 +229,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 	}))
 
 	// decrease the counter when a missing message was received
-	tangle.Storage.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMsgEvent *CachedMessageEvent) {
-		defer cachedMsgEvent.Message.Release()
-		defer cachedMsgEvent.MessageMetadata.Release()
-
+	tangle.Storage.Events.MissingMessageStored.Attach(events.NewClosure(func(MessageID) {
 		n := atomic.AddInt32(&missingMessages, -1)
 		t.Logf("missing messages %d", n)
 	}))
@@ -263,7 +251,8 @@ func TestTangle_MissingMessages(t *testing.T) {
 }
 
 func TestRetrieveAllTips(t *testing.T) {
-	messageTangle := New(mapdb.NewMapDB())
+	messageTangle := New()
+	defer messageTangle.Shutdown()
 
 	messageA := newTestParentsDataMessage("A", []MessageID{EmptyMessageID}, []MessageID{EmptyMessageID})
 	messageB := newTestParentsDataMessage("B", []MessageID{messageA.ID()}, []MessageID{EmptyMessageID})
@@ -285,8 +274,6 @@ func TestRetrieveAllTips(t *testing.T) {
 	allTips := messageTangle.Storage.RetrieveAllTips()
 
 	assert.Equal(t, 2, len(allTips))
-
-	messageTangle.Shutdown()
 }
 
 func TestTangle_FilterStoreSolidify(t *testing.T) {
@@ -376,7 +363,7 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 	}
 
 	// create the tangle
-	tangle := New(badgerDB)
+	tangle := New(Store(badgerDB))
 	defer tangle.Shutdown()
 	require.NoError(t, tangle.Prune())
 
@@ -444,7 +431,7 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 	}))
 
 	// increase the counter when a missing message was detected
-	tangle.Storage.Events.MessageMissing.Attach(events.NewClosure(func(messageId MessageID) {
+	tangle.Solidifier.Events.MessageMissing.Attach(events.NewClosure(func(messageId MessageID) {
 		atomic.AddInt32(&missingMessages, 1)
 
 		// push the message into the gossip inboxWP
@@ -452,10 +439,7 @@ func TestTangle_FilterStoreSolidify(t *testing.T) {
 	}))
 
 	// decrease the counter when a missing message was received
-	tangle.Storage.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMsgEvent *CachedMessageEvent) {
-		defer cachedMsgEvent.Message.Release()
-		defer cachedMsgEvent.MessageMetadata.Release()
-
+	tangle.Storage.Events.MissingMessageStored.Attach(events.NewClosure(func(MessageID) {
 		n := atomic.AddInt32(&missingMessages, -1)
 		t.Logf("missing messages %d", n)
 	}))

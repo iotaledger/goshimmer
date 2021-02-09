@@ -5,43 +5,23 @@ import (
 	"github.com/iotaledger/hive.go/events"
 )
 
-// Events represents events happening on the base layer Tangle.
-type Events struct {
-	// Fired when a message was missing for too long and is
-	// therefore considered to be unsolidifiable.
-	MessageUnsolidifiable *events.Event
-	// Fired when a message has been booked to the Tangle
-	MessageBooked *events.Event
-	// Fired when a message has been eligible.
-	MessageEligible *events.Event
-	// Fired when a message is Invalid.
-	MessageInvalid *events.Event
-}
-
-// CachedMessageEvent represents the parameters of cachedMessageEvent
-type CachedMessageEvent struct {
-	Message         *CachedMessage
-	MessageMetadata *CachedMessageMetadata
-}
-
 // MessageStoreEvents represents events happening on the message store.
 type MessageStoreEvents struct {
 	// Fired when a message has been stored.
 	MessageStored *events.Event
+
 	// Fired when a message was removed from storage.
 	MessageRemoved *events.Event
+
 	// Fired when a message which was previously marked as missing was received.
-	MissingMessageReceived *events.Event
-	// Fired when a message is missing which is needed to solidify a given approver message.
-	MessageMissing *events.Event
+	MissingMessageStored *events.Event
 }
 
 func newMessageStoreEvents() *MessageStoreEvents {
 	return &MessageStoreEvents{
-		MessageStored:          events.NewEvent(messageIDEventHandler),
-		MessageRemoved:         events.NewEvent(messageIDEventHandler),
-		MissingMessageReceived: events.NewEvent(cachedMessageEvent),
-		MessageMissing:         events.NewEvent(messageIDEventHandler),
+		MessageStored:        events.NewEvent(messageIDEventHandler),
+		MessageRemoved:       events.NewEvent(messageIDEventHandler),
+		MissingMessageStored: events.NewEvent(messageIDEventHandler),
 	}
 }
 
@@ -111,37 +91,19 @@ func newMessageParserEvents() *MessageParserEvents {
 	}
 }
 
-// MessageRequesterEvents represents events happening on a message requester.
-type MessageRequesterEvents struct {
-	// Fired when a request for a given message should be sent.
-	SendRequest *events.Event
-	// MissingMessageAppeared is triggered when a message is actually present in the node's db although it was still being requested.
-	MissingMessageAppeared *events.Event
-}
-
 // SendRequestEvent represents the parameters of sendRequestEvent
 type SendRequestEvent struct {
 	ID MessageID
 }
 
-// MissingMessageAppearedEvent represents the parameters of missingMessageAppearedEvent
-type MissingMessageAppearedEvent struct {
-	ID MessageID
-}
-
 func newMessageRequesterEvents() *MessageRequesterEvents {
 	return &MessageRequesterEvents{
-		SendRequest:            events.NewEvent(sendRequestEvent),
-		MissingMessageAppeared: events.NewEvent(missingMessageAppearedEvent),
+		SendRequest: events.NewEvent(sendRequestEvent),
 	}
 }
 
 func sendRequestEvent(handler interface{}, params ...interface{}) {
 	handler.(func(*SendRequestEvent))(params[0].(*SendRequestEvent))
-}
-
-func missingMessageAppearedEvent(handler interface{}, params ...interface{}) {
-	handler.(func(*MissingMessageAppearedEvent))(params[0].(*MissingMessageAppearedEvent))
 }
 
 func messageParsedEvent(handler interface{}, params ...interface{}) {
@@ -162,15 +124,4 @@ func messageConstructedEvent(handler interface{}, params ...interface{}) {
 
 func messageIDEventHandler(handler interface{}, params ...interface{}) {
 	handler.(func(MessageID))(params[0].(MessageID))
-}
-
-func cachedMessageEvent(handler interface{}, params ...interface{}) {
-	handler.(func(*CachedMessageEvent))(cachedMessageRetain(params[0].(*CachedMessageEvent)))
-}
-
-func cachedMessageRetain(object *CachedMessageEvent) *CachedMessageEvent {
-	return &CachedMessageEvent{
-		Message:         object.Message.Retain(),
-		MessageMetadata: object.MessageMetadata.Retain(),
-	}
 }
