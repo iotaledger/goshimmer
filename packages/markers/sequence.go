@@ -251,7 +251,7 @@ func SequenceIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequenceID
 
 // Bytes returns a marshaled version of the SequenceID.
 func (a SequenceID) Bytes() (marshaledSequenceID []byte) {
-	return marshalutil.New(marshalutil.Uint16Size).WriteUint64(uint64(a)).Bytes()
+	return marshalutil.New(marshalutil.Uint64Size).WriteUint64(uint64(a)).Bytes()
 }
 
 // String returns a human readable version of the SequenceID.

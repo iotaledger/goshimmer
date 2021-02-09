@@ -31,6 +31,7 @@ type Worker interface {
 
 // MessageFactory acts as a factory to create new messages.
 type MessageFactory struct {
+	tangle        *Tangle
 	Events        *MessageFactoryEvents
 	sequence      *kvstore.Sequence
 	localIdentity *identity.LocalIdentity
@@ -42,16 +43,17 @@ type MessageFactory struct {
 }
 
 // NewMessageFactory creates a new message factory.
-func NewMessageFactory(store kvstore.KVStore, sequenceKey []byte, localIdentity *identity.LocalIdentity, selector TipSelector) *MessageFactory {
-	sequence, err := kvstore.NewSequence(store, sequenceKey, storeSequenceInterval)
+func NewMessageFactory(tangle *Tangle, selector TipSelector) *MessageFactory {
+	sequence, err := kvstore.NewSequence(tangle.Options.Store, []byte(DBSequenceNumber), storeSequenceInterval)
 	if err != nil {
 		panic(fmt.Sprintf("could not create message sequence number: %v", err))
 	}
 
 	return &MessageFactory{
+		tangle:        tangle,
 		Events:        newMessageFactoryEvents(),
 		sequence:      sequence,
-		localIdentity: localIdentity,
+		localIdentity: tangle.Options.Identity,
 		selector:      selector,
 		worker:        ZeroWorker,
 	}

@@ -126,7 +126,7 @@ func configureMessageLayer() {
 
 	// configure flow of incoming messages
 	mgr.Events().MessageReceived.Attach(events.NewClosure(func(event *gossip.MessageReceivedEvent) {
-		messagelayer.MessageParser().Parse(event.Data, event.Peer)
+		messagelayer.Tangle().ProcessGossipMessage(event.Data, event.Peer)
 	}))
 
 	// configure flow of outgoing messages (gossip on solidification)
@@ -148,23 +148,12 @@ func configureMessageLayer() {
 	}))
 
 	// request missing messages
-	messagelayer.MessageRequester().Events.SendRequest.Attach(events.NewClosure(func(sendRequest *tangle.SendRequestEvent) {
+	messagelayer.Tangle().Requester.Events.SendRequest.Attach(events.NewClosure(func(sendRequest *tangle.SendRequestEvent) {
 		mgr.RequestMessage(sendRequest.ID[:])
 	}))
 
-	messagelayer.Tangle().Storage.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
-		cachedMsgEvent.MessageMetadata.Release()
-		cachedMsgEvent.Message.Consume(func(msg *tangle.Message) {
-			requestedMsgs.append(msg.ID())
-		})
-	}))
+	messagelayer.Tangle().Storage.Events.MissingMessageStored.Attach(events.NewClosure(requestedMsgs.append))
 
 	// delete the message from requestedMsgs if it's invalid, otherwise it will always be in the list and never get removed in some cases.
-	messagelayer.Tangle().Events.MessageInvalid.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
-		cachedMsgEvent.MessageMetadata.Release()
-
-		cachedMsgEvent.Message.Consume(func(msg *tangle.Message) {
-			requestedMsgs.delete(msg.ID())
-		})
-	}))
+	messagelayer.Tangle().Events.MessageInvalid.Attach(events.NewClosure(requestedMsgs.delete))
 }
