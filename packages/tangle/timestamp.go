@@ -9,24 +9,6 @@ import (
 	"golang.org/x/xerrors"
 )
 
-// LevelOfKnowledge defines the Level Of Knowledge type.
-type LevelOfKnowledge = uint8
-
-// The different levels of knowledge.
-const (
-	// Pending implies that the opinion is not formed yet.
-	Pending LevelOfKnowledge = iota
-
-	// One implies that voting is required.
-	One
-
-	// Two implies that we have locally finalized our opinion but we can still reply to eventual queries.
-	Two
-
-	// Three implies that we have locally finalized our opinion and we do not reply to eventual queries.
-	Three
-)
-
 var (
 	// TimestampWindow defines the time window for assessing the timestamp quality.
 	TimestampWindow time.Duration

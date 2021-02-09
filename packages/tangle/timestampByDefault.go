@@ -1,7 +1,6 @@
-package consensus
+package tangle
 
 import (
-	"github.com/iotaledger/goshimmer/packages/tangle"
 	voter "github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/hive.go/events"
 )
@@ -15,10 +14,10 @@ type TimestampByDefaultEvents struct {
 type TimestampByDefault struct {
 	Events *TimestampByDefaultEvents
 
-	tangle *tangle.Tangle
+	tangle *Tangle
 }
 
-func NewTimestampByDefault(tangle *tangle.Tangle) (timestampByDefault *TimestampByDefault) {
+func NewTimestampByDefault(tangle *Tangle) (timestampByDefault *TimestampByDefault) {
 	timestampByDefault = &TimestampByDefault{
 		tangle: tangle,
 		Events: &TimestampByDefaultEvents{},
@@ -31,14 +30,14 @@ func (t *TimestampByDefault) Setup(timestampEvent *events.Event) {
 	t.Events.TimestampOpinionFormed = timestampEvent
 }
 
-func (t *TimestampByDefault) Opinion(messageID tangle.MessageID) (opinion bool) {
+func (t *TimestampByDefault) Opinion(messageID MessageID) (opinion bool) {
 	return true
 }
 
-func (t *TimestampByDefault) Evaluate(messageID tangle.MessageID) {
-	t.tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
-		t.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-			messageMetadata.SetTimestampOpinion(tangle.TimestampOpinion{
+func (t *TimestampByDefault) Evaluate(messageID MessageID) {
+	t.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+		t.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+			messageMetadata.SetTimestampOpinion(TimestampOpinion{
 				Value: voter.Like,
 				LoK:   Two,
 			})

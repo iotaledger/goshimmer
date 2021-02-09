@@ -1,10 +1,9 @@
-package consensus
+package tangle
 
 import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	voter "github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/hive.go/events"
@@ -29,14 +28,6 @@ func voteEvent(handler interface{}, params ...interface{}) {
 	handler.(func(id string, initOpn voter.Opinion))(params[0].(string), params[1].(voter.Opinion))
 }
 
-// OpinionFormedEvent holds data about a Payload/MessageOpinionFormed event.
-type OpinionFormedEvent struct {
-	// The messageID of the message containing the payload.
-	MessageID tangle.MessageID
-	// The opinion of the payload.
-	Opinion bool
-}
-
 var (
 	LikedThreshold = 5 * time.Second
 
@@ -46,14 +37,14 @@ var (
 type FCoB struct {
 	Events *FCoBEvents
 
-	tangle *tangle.Tangle
+	tangle *Tangle
 
 	opinionStorage           *objectstorage.ObjectStorage
 	likedThresholdExecutor   *timedexecutor.TimedExecutor
 	locallyFinalizedExecutor *timedexecutor.TimedExecutor
 }
 
-func NewFCoB(store kvstore.KVStore, tangle *tangle.Tangle) (fcob *FCoB) {
+func NewFCoB(store kvstore.KVStore, tangle *Tangle) (fcob *FCoB) {
 	fcob = &FCoB{
 		tangle:                   tangle,
 		likedThresholdExecutor:   timedexecutor.New(1),
@@ -67,8 +58,16 @@ func NewFCoB(store kvstore.KVStore, tangle *tangle.Tangle) (fcob *FCoB) {
 	return
 }
 
-func (f *FCoB) Opinion(messageID tangle.MessageID) (opinion bool) {
-	f.tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
+func (f *FCoB) Vote() *events.Event {
+	return f.Events.Vote
+}
+
+func (f *FCoB) VoteError() *events.Event {
+	return f.Events.Error
+}
+
+func (f *FCoB) Opinion(messageID MessageID) (opinion bool) {
+	f.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		if payload := message.Payload(); payload.Type() == ledgerstate.TransactionType {
 			transactionID := payload.(*ledgerstate.Transaction).ID()
 			opinion = f.OpinionEssence(transactionID).liked
@@ -81,8 +80,8 @@ func (f *FCoB) Setup(payloadEvent *events.Event) {
 	f.Events.PayloadOpinionFormed = payloadEvent
 }
 
-func (f *FCoB) Evaluate(messageID tangle.MessageID) {
-	f.tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
+func (f *FCoB) Evaluate(messageID MessageID) {
+	f.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		if payload := message.Payload(); payload.Type() == ledgerstate.TransactionType {
 			transactionID := payload.(*ledgerstate.Transaction).ID()
 			f.onTransactionBooked(transactionID, messageID)
@@ -93,7 +92,7 @@ func (f *FCoB) Evaluate(messageID tangle.MessageID) {
 	})
 }
 
-func (f *FCoB) onTransactionBooked(transactionID ledgerstate.TransactionID, messageID tangle.MessageID) {
+func (f *FCoB) onTransactionBooked(transactionID ledgerstate.TransactionID, messageID MessageID) {
 	// if the opinion for this transactionID is already present,
 	// it's a reattachment and thus, we re-use the same opinion.
 	f.CachedOpinion(transactionID).Consume(func(opinion *Opinion) {
@@ -184,8 +183,8 @@ func (f *FCoB) onTransactionBooked(transactionID ledgerstate.TransactionID, mess
 	}, timestamp.Add(LikedThreshold))
 }
 
-// ProcessVoteResult allows an external voter to hand in the results of the voting process.
-func (o *FCoB) ProcessVoteResult(ev *vote.OpinionEvent) {
+// ProcessVote allows an external voter to hand in the results of the voting process.
+func (o *FCoB) ProcessVote(ev *vote.OpinionEvent) {
 	if ev.Ctx.Type == vote.ConflictType {
 		transactionID, err := ledgerstate.TransactionIDFromBase58(ev.ID)
 		if err != nil {

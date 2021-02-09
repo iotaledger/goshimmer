@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/types"
@@ -12,11 +13,22 @@ import (
 // OpinionProvider is the interface to describe the functionalities of an opinion provider:
 // Evaluate evaluates the opinion of the given messageID (payload / timestamp);
 // Opinion returns the opinion of the given messageID (payload / timestamp);
-// SetupEvent allows to wire the communication between the opinionProvider and the opinionFormer.
+// Setup allows to wire the communication between the opinionProvider and the opinionFormer.
 type OpinionProvider interface {
 	Evaluate(MessageID)
 	Opinion(MessageID) bool
-	SetupEvent(*events.Event)
+	Setup(*events.Event)
+}
+
+// OpinionVoterProvider is the interface to describe the functionalities of an opinion and voter provider:
+// Evaluate evaluates the opinion of the given messageID (payload / timestamp);
+// Opinion returns the opinion of the given messageID (payload / timestamp);
+// Setup allows to wire the communication between the opinionProvider and the opinionFormer.
+type OpinionVoterProvider interface {
+	OpinionProvider
+	Vote() *events.Event
+	VoteError() *events.Event
+	ProcessVote(*vote.OpinionEvent)
 }
 
 // Events defines all the events related to the opinion manager.
@@ -49,16 +61,16 @@ type OpinionFormer struct {
 	tangle  *Tangle
 	waiting *opinionWait
 
-	opinionPayloadProvider   OpinionProvider
-	opinionTimestampProvider OpinionProvider
+	payloadOpinionProvider   OpinionVoterProvider
+	TimestampOpinionProvider OpinionProvider
 }
 
-func NewOpinionFormer(tangle *Tangle, opinionPayloadManager, opinionTimestampManager OpinionProvider) (opinionFormer *OpinionFormer) {
+func NewOpinionFormer(tangle *Tangle, payloadOpinionVoterProvider OpinionVoterProvider, timestampOpinionProvider OpinionProvider) (opinionFormer *OpinionFormer) {
 	opinionFormer = &OpinionFormer{
 		tangle:                   tangle,
 		waiting:                  &opinionWait{waitMap: make(map[MessageID]types.Empty)},
-		opinionPayloadProvider:   opinionPayloadManager,
-		opinionTimestampProvider: opinionTimestampManager,
+		payloadOpinionProvider:   payloadOpinionVoterProvider,
+		TimestampOpinionProvider: timestampOpinionProvider,
 		Events: OpinionFormerEvents{
 			PayloadOpinionFormed:   events.NewEvent(payloadOpinionCaller),
 			TimestampOpinionFormed: events.NewEvent(messageIDEventHandler),
@@ -70,17 +82,17 @@ func NewOpinionFormer(tangle *Tangle, opinionPayloadManager, opinionTimestampMan
 }
 
 func (o *OpinionFormer) Setup() {
-	o.opinionPayloadProvider.SetupEvent(o.Events.PayloadOpinionFormed)
-	o.opinionTimestampProvider.SetupEvent(o.Events.TimestampOpinionFormed)
-	o.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(o.opinionPayloadProvider.Evaluate))
-	o.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(o.opinionTimestampProvider.Evaluate))
+	o.payloadOpinionProvider.Setup(o.Events.PayloadOpinionFormed)
+	o.TimestampOpinionProvider.Setup(o.Events.TimestampOpinionFormed)
+	o.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(o.payloadOpinionProvider.Evaluate))
+	o.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(o.TimestampOpinionProvider.Evaluate))
 
 	o.Events.PayloadOpinionFormed.Attach(events.NewClosure(o.onPayloadOpinionFormed))
 	o.Events.TimestampOpinionFormed.Attach(events.NewClosure(o.onTimestampOpinionFormed))
 }
 
 func (o *OpinionFormer) PayloadLiked(messageID MessageID) (liked bool) {
-	return o.opinionPayloadProvider.Opinion(messageID)
+	return o.payloadOpinionProvider.Opinion(messageID)
 }
 
 // isMessageEligible returns whether the given messageID is marked as aligible.

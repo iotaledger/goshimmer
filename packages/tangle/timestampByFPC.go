@@ -1,7 +1,6 @@
-package consensus
+package tangle
 
 import (
-	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/hive.go/events"
 )
 
@@ -20,10 +19,10 @@ type TimestampByFPCEvents struct {
 type TimestampByFPC struct {
 	Events *TimestampByFPCEvents
 
-	tangle *tangle.Tangle
+	tangle *Tangle
 }
 
-func NewTimestampByFPC(tangle *tangle.Tangle) (timestampByFPC *TimestampByFPC) {
+func NewTimestampByFPC(tangle *Tangle) (timestampByFPC *TimestampByFPC) {
 	timestampByFPC = &TimestampByFPC{
 		tangle: tangle,
 		Events: &TimestampByFPCEvents{
@@ -39,10 +38,10 @@ func (t *TimestampByFPC) Setup(timestampEvent *events.Event) {
 	t.Events.TimestampOpinionFormed = timestampEvent
 }
 
-func (t *TimestampByFPC) Evaluate(messageID tangle.MessageID) {
+func (t *TimestampByFPC) Evaluate(messageID MessageID) {
 	panic("Implement me")
 }
 
-func (t *TimestampByFPC) Opinion(messageID tangle.MessageID) (opinion bool) {
+func (t *TimestampByFPC) Opinion(messageID MessageID) (opinion bool) {
 	panic("Implement me")
 }
