@@ -58,6 +58,7 @@ func NewScheduler(tangle *Tangle) (scheduler *Scheduler) {
 	return
 }
 
+// Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (s *Scheduler) Setup() {
 	// setup scheduler flow
 	onMessageSolid := events.NewClosure(func(messageID MessageID) {
