@@ -53,19 +53,18 @@ var (
 
 	LocallyFinalizedThreshold = 10 * time.Second
 
-	onMessageBooked = events.NewClosure(func(cachedMessageEvent *CachedMessageEvent) {})
+	onMessageBooked = events.NewClosure(func(messageID MessageID) {})
 )
 
 type OpinionFormer struct {
 	Events OpinionFormerEvents
 
-	tangle         *Tangle
-	opinionStorage *objectstorage.ObjectStorage
-
+	tangle  *Tangle
 	waiting *opinionWait
 
-	likedThresholdExecutor *timedexecutor.TimedExecutor
-
+	// FCoB
+	opinionStorage           *objectstorage.ObjectStorage
+	likedThresholdExecutor   *timedexecutor.TimedExecutor
 	locallyFinalizedExecutor *timedexecutor.TimedExecutor
 }
 
@@ -88,7 +87,7 @@ func NewOpinionFormer(store kvstore.KVStore, tangle *Tangle) (opinionFormer *Opi
 }
 
 func (o *OpinionFormer) Setup() {
-	o.tangle.Events.MessageBooked.Attach(events.NewClosure(o.onMessageBooked))
+	o.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(o.onMessageBooked))
 	o.Events.PayloadOpinionFormed.Attach(events.NewClosure(o.onPayloadOpinionFormed))
 	o.Events.TimestampOpinionFormed.Attach(events.NewClosure(o.onTimestampOpinionFormed))
 }
@@ -142,7 +141,7 @@ func (o *OpinionFormer) onTransactionBooked(transactionID ledgerstate.Transactio
 		transactionID: transactionID,
 	}
 	var timestamp time.Time
-	o.tangle.Booker.utxoDAG.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+	o.tangle.LedgerState.utxoDAG.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 		timestamp = transactionMetadata.SolidificationTime()
 	})
 
@@ -227,7 +226,7 @@ func (o *OpinionFormer) Opinions(conflictSet []ledgerstate.TransactionID) (opini
 }
 
 func (o *OpinionFormer) isConflicting(transactionID ledgerstate.TransactionID) bool {
-	cachedTransactionMetadata := o.tangle.Booker.utxoDAG.TransactionMetadata(transactionID)
+	cachedTransactionMetadata := o.tangle.LedgerState.utxoDAG.TransactionMetadata(transactionID)
 	defer cachedTransactionMetadata.Release()
 
 	transactionMetadata := cachedTransactionMetadata.Unwrap()
@@ -236,12 +235,12 @@ func (o *OpinionFormer) isConflicting(transactionID ledgerstate.TransactionID) b
 
 func (o *OpinionFormer) conflictSet(transactionID ledgerstate.TransactionID) (conflictSet []ledgerstate.TransactionID) {
 	conflictIDs := make(ledgerstate.ConflictIDs)
-	o.tangle.Booker.branchDAG.Branch(ledgerstate.NewBranchID(transactionID)).Consume(func(branch ledgerstate.Branch) {
+	o.tangle.LedgerState.branchDAG.Branch(ledgerstate.NewBranchID(transactionID)).Consume(func(branch ledgerstate.Branch) {
 		conflictIDs = branch.(*ledgerstate.ConflictBranch).Conflicts()
 	})
 
 	for conflictID := range conflictIDs {
-		o.tangle.Booker.branchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
+		o.tangle.LedgerState.branchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
 			conflictSet = append(conflictSet, ledgerstate.TransactionID(conflictMember.BranchID()))
 		})
 	}
