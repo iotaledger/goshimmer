@@ -15,12 +15,12 @@ import (
 
 // Tangle is the central data structure of the IOTA protocol.
 type Tangle struct {
-	Parser         *MessageParser
+	Parser         *Parser
 	Storage        *Storage
 	Solidifier     *Solidifier
 	Booker         *Booker
-	TipManager     *MessageTipSelector
-	Requester      *MessageRequester
+	TipManager     *TipManager
+	Requester      *Requester
 	MessageFactory *MessageFactory
 	LedgerState    *LedgerState
 	Utils          *Utils
@@ -41,11 +41,11 @@ func New(options ...Option) (tangle *Tangle) {
 		},
 	}
 
-	tangle.Parser = NewMessageParser()
+	tangle.Parser = NewParser()
 	tangle.Storage = NewStorage(tangle)
 	tangle.Solidifier = NewSolidifier(tangle)
-	tangle.Requester = NewMessageRequester(tangle)
-	tangle.TipManager = NewMessageTipSelector(tangle)
+	tangle.Requester = NewRequester(tangle)
+	tangle.TipManager = NewTipManager(tangle)
 	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager)
 	tangle.LedgerState = NewLedgerState(tangle)
 	tangle.Utils = NewUtils(tangle)
@@ -81,6 +81,7 @@ func (t *Tangle) Prune() (err error) {
 func (t *Tangle) Shutdown() {
 	t.MessageFactory.Shutdown()
 	t.Storage.Shutdown()
+	t.Options.Store.Shutdown()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

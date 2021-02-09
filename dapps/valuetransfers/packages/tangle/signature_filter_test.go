@@ -103,11 +103,11 @@ func TestSignatureFilter(t *testing.T) {
 	}
 }
 
-// newSyncMessageParser creates a wrapped MessageParser that works synchronously by using a WaitGroup to wait for the
+// newSyncMessageParser creates a wrapped Parser that works synchronously by using a WaitGroup to wait for the
 // parse result.
 func newSyncMessageParser(messageFilters ...tangle.MessageFilter) (tester *syncMessageParser) {
-	// initialize MessageParser
-	messageParser := tangle.NewMessageParser()
+	// initialize Parser
+	messageParser := tangle.NewParser()
 	for _, messageFilter := range messageFilters {
 		messageParser.AddMessageFilter(messageFilter)
 	}
@@ -154,9 +154,9 @@ func newSyncMessageParser(messageFilters ...tangle.MessageFilter) (tester *syncM
 	return
 }
 
-// syncMessageParser is a wrapper for the MessageParser that allows to parse Messages synchronously.
+// syncMessageParser is a wrapper for the Parser that allows to parse Messages synchronously.
 type syncMessageParser struct {
-	messageParser *tangle.MessageParser
+	messageParser *tangle.Parser
 	result        *messageParserResult
 	wg            sync.WaitGroup
 }

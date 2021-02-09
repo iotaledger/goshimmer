@@ -5,26 +5,6 @@ import (
 	"github.com/iotaledger/hive.go/events"
 )
 
-// MessageStoreEvents represents events happening on the message store.
-type MessageStoreEvents struct {
-	// Fired when a message has been stored.
-	MessageStored *events.Event
-
-	// Fired when a message was removed from storage.
-	MessageRemoved *events.Event
-
-	// Fired when a message which was previously marked as missing was received.
-	MissingMessageStored *events.Event
-}
-
-func newMessageStoreEvents() *MessageStoreEvents {
-	return &MessageStoreEvents{
-		MessageStored:        events.NewEvent(messageIDEventHandler),
-		MessageRemoved:       events.NewEvent(messageIDEventHandler),
-		MissingMessageStored: events.NewEvent(messageIDEventHandler),
-	}
-}
-
 // MessageTipSelectorEvents represents event happening on the tip-selector.
 type MessageTipSelectorEvents struct {
 	// Fired when a tip is added.
