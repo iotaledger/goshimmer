@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -10,12 +11,16 @@ import (
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/timedexecutor"
+	"github.com/iotaledger/hive.go/types"
 )
 
 // Events defines all the events related to the opinion manager.
 type OpinionFormerEvents struct {
 	// Fired when an opinion of a payload is formed.
 	PayloadOpinionFormed *events.Event
+
+	// Fired when an opinion of a timestamp is formed.
+	TimestampOpinionFormed *events.Event
 
 	// Fired when an opinion of a message is formed.
 	MessageOpinionFormed *events.Event
@@ -57,6 +62,8 @@ type OpinionFormer struct {
 	tangle         *Tangle
 	opinionStorage *objectstorage.ObjectStorage
 
+	waiting *opinionWait
+
 	likedThresholdExecutor *timedexecutor.TimedExecutor
 
 	locallyFinalizedExecutor *timedexecutor.TimedExecutor
@@ -65,13 +72,15 @@ type OpinionFormer struct {
 func NewOpinionFormer(store kvstore.KVStore, tangle *Tangle) (opinionFormer *OpinionFormer) {
 	opinionFormer = &OpinionFormer{
 		tangle:                   tangle,
+		waiting:                  &opinionWait{waitMap: make(map[MessageID]types.Empty)},
 		likedThresholdExecutor:   timedexecutor.New(1),
 		locallyFinalizedExecutor: timedexecutor.New(1),
 		Events: OpinionFormerEvents{
-			PayloadOpinionFormed: events.NewEvent(payloadOpinionCaller),
-			MessageOpinionFormed: events.NewEvent(messageIDEventHandler),
-			Error:                events.NewEvent(events.ErrorCaller),
-			Vote:                 events.NewEvent(voteEvent),
+			PayloadOpinionFormed:   events.NewEvent(payloadOpinionCaller),
+			TimestampOpinionFormed: events.NewEvent(messageIDEventHandler),
+			MessageOpinionFormed:   events.NewEvent(messageIDEventHandler),
+			Error:                  events.NewEvent(events.ErrorCaller),
+			Vote:                   events.NewEvent(voteEvent),
 		},
 	}
 
@@ -80,22 +89,41 @@ func NewOpinionFormer(store kvstore.KVStore, tangle *Tangle) (opinionFormer *Opi
 
 func (o *OpinionFormer) Setup() {
 	o.tangle.Events.MessageBooked.Attach(events.NewClosure(o.onMessageBooked))
+	o.Events.PayloadOpinionFormed.Attach(events.NewClosure(o.onPayloadOpinionFormed))
+	o.Events.TimestampOpinionFormed.Attach(events.NewClosure(o.onTimestampOpinionFormed))
 }
 
 func (o *OpinionFormer) onPayloadOpinionFormed(ev *OpinionFormedEvent) {
-	o.tangle.Storage.MessageMetadata(ev.MessageID).Consume(func(messageMetadata *MessageMetadata) {
-		if messageMetadata.TimestampOpinion().LoK > One {
-			o.Events.MessageOpinionFormed.Trigger(ev.MessageID)
-		}
-	})
+	if o.waiting.done(ev.MessageID) {
+		o.Events.MessageOpinionFormed.Trigger(ev.MessageID)
+	}
+}
+
+func (o *OpinionFormer) onTimestampOpinionFormed(ev *OpinionFormedEvent) {
+	if o.waiting.done(ev.MessageID) {
+		o.Events.MessageOpinionFormed.Trigger(ev.MessageID)
+	}
 }
 
 func (o *OpinionFormer) onMessageBooked(messageID MessageID) {
 	o.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+		// TODO: add timestamp quality evaluation.
+		// For now we set all timestamps as good.
+		o.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+			messageMetadata.SetTimestampOpinion(TimestampOpinion{
+				Value: FPCOpinion.Like,
+				LoK:   Two,
+			})
+			o.Events.TimestampOpinionFormed.Trigger(messageID)
+		})
+
 		if payload := message.Payload(); payload.Type() == ledgerstate.TransactionType {
 			transactionID := payload.(*ledgerstate.Transaction).ID()
 			o.onTransactionBooked(transactionID, messageID)
+			return
 		}
+		// likes by default all non-value-transaction messages
+		o.Events.PayloadOpinionFormed.Trigger(&OpinionFormedEvent{messageID, true})
 	})
 }
 
@@ -258,5 +286,22 @@ func deriveOpinion(targetTime time.Time, conflictSet ConflictSet) (opinion Opini
 		liked:            false,
 		levelOfKnowledge: One,
 	}
+	return
+}
+
+type opinionWait struct {
+	waitMap map[MessageID]types.Empty
+	sync.Mutex
+}
+
+func (o *opinionWait) done(messageID MessageID) (done bool) {
+	o.Lock()
+	defer o.Unlock()
+	if _, exist := o.waitMap[messageID]; !exist {
+		o.waitMap[messageID] = types.Void
+		return
+	}
+	delete(o.waitMap, messageID)
+	done = true
 	return
 }
