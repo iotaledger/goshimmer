@@ -98,7 +98,7 @@ func (s *Scheduler) start() {
 			case message := <-s.timeQueue.C:
 				s.trySchedule(message)
 
-			// schedule messages that were waiting for of their parents to be booked.
+			// schedule messages that were waiting for their parents to be booked.
 			case messageID := <-s.messagesBooked:
 				for _, child := range s.parentsMap[messageID] {
 					if s.messageReady(child) && !child.scheduled {
