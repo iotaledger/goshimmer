@@ -18,9 +18,18 @@ type LedgerState struct {
 
 // NewLedgerState is the constructor of the LedgerState component.
 func NewLedgerState(tangle *Tangle) (ledgerState *LedgerState) {
+	branchDAG := ledgerstate.NewBranchDAG(tangle.Options.Store)
 	return &LedgerState{
-		tangle: tangle,
+		tangle:    tangle,
+		branchDAG: branchDAG,
+		utxoDAG:   ledgerstate.NewUTXODAG(tangle.Options.Store, branchDAG),
 	}
+}
+
+// Shutdown shuts down the LedgerState and persists its state.
+func (l *LedgerState) Shutdown() {
+	l.utxoDAG.Shutdown()
+	l.branchDAG.Shutdown()
 }
 
 // InheritBranch implements the inheritance rules for Branches in the Tangle. It returns a single inherited Branch
@@ -128,10 +137,15 @@ func (l *LedgerState) BranchInclusionState(branchID ledgerstate.BranchID) (inclu
 
 // BranchID returns the branchID of the given transactionID.
 func (l *LedgerState) BranchID(transactionID ledgerstate.TransactionID) (branchID ledgerstate.BranchID) {
-	l.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+	l.utxoDAG.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 		branchID = transactionMetadata.BranchID()
 	})
 	return
+}
+
+// LoadSnapshot creates a set of outputs in the UTXO-DAG, that are forming the genesis for future transactions.
+func (l *LedgerState) LoadSnapshot(snapshot map[ledgerstate.TransactionID]map[ledgerstate.Address]*ledgerstate.ColoredBalances) {
+	l.utxoDAG.LoadSnapshot(snapshot)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
