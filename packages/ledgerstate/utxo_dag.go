@@ -33,6 +33,7 @@ type UTXODAG struct {
 	consumerStorage             *objectstorage.ObjectStorage
 	addressOutputMappingStorage *objectstorage.ObjectStorage
 	branchDAG                   *BranchDAG
+	shutdownOnce                sync.Once
 }
 
 // NewUTXODAG create a new UTXODAG from the given details.
@@ -49,6 +50,18 @@ func NewUTXODAG(store kvstore.KVStore, branchDAG *BranchDAG) (utxoDAG *UTXODAG) 
 		branchDAG:                   branchDAG,
 	}
 	return
+}
+
+// Shutdown shuts down the UTXODAG and persists its state.
+func (u *UTXODAG) Shutdown() {
+	u.shutdownOnce.Do(func() {
+		u.transactionStorage.Shutdown()
+		u.transactionMetadataStorage.Shutdown()
+		u.outputStorage.Shutdown()
+		u.outputMetadataStorage.Shutdown()
+		u.consumerStorage.Shutdown()
+		u.addressOutputMappingStorage.Shutdown()
+	})
 }
 
 // CheckTransaction contains fast checks that have to be performed before booking a Transaction.
@@ -228,6 +241,39 @@ func (u *UTXODAG) Consumers(outputID OutputID) (cachedConsumers CachedConsumers)
 	}, outputID.Bytes())
 
 	return
+}
+
+// LoadSnapshot creates a set of outputs in the UTXO-DAG, that are forming the genesis for future transactions.
+func (u *UTXODAG) LoadSnapshot(snapshot map[TransactionID]map[Address]*ColoredBalances) {
+	index := uint16(0)
+	for transactionID, addressBalance := range snapshot {
+		for address, balance := range addressBalance {
+			output := NewSigLockedColoredOutput(balance, address)
+			output.SetID(NewOutputID(transactionID, index))
+			u.outputStorage.Store(output).Release()
+
+			// store OutputMetadata
+			metadata := NewOutputMetadata(output.ID())
+			metadata.SetBranchID(MasterBranchID)
+			metadata.SetSolid(true)
+			metadata.SetFinalized(true)
+			u.outputMetadataStorage.Store(metadata).Release()
+
+			index++
+		}
+
+		// store TransactionMetadata
+		transactionMetadata := NewTransactionMetadata(transactionID)
+		transactionMetadata.SetSolid(true)
+		transactionMetadata.SetBranchID(MasterBranchID)
+		transactionMetadata.SetFinalized(true)
+
+		(&CachedTransactionMetadata{CachedObject: u.transactionMetadataStorage.ComputeIfAbsent(transactionID.Bytes(), func(key []byte) objectstorage.StorableObject {
+			transactionMetadata.Persist()
+			transactionMetadata.SetModified()
+			return transactionMetadata
+		})}).Release()
+	}
 }
 
 // region booking functions ////////////////////////////////////////////////////////////////////////////////////////////
