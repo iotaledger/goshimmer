@@ -33,6 +33,7 @@ type UTXODAG struct {
 	consumerStorage             *objectstorage.ObjectStorage
 	addressOutputMappingStorage *objectstorage.ObjectStorage
 	branchDAG                   *BranchDAG
+	shutdownOnce                sync.Once
 }
 
 // NewUTXODAG create a new UTXODAG from the given details.
@@ -49,6 +50,18 @@ func NewUTXODAG(store kvstore.KVStore, branchDAG *BranchDAG) (utxoDAG *UTXODAG) 
 		branchDAG:                   branchDAG,
 	}
 	return
+}
+
+// Shutdown shuts down the UTXODAG and persists its state.
+func (u *UTXODAG) Shutdown() {
+	u.shutdownOnce.Do(func() {
+		u.transactionStorage.Shutdown()
+		u.transactionMetadataStorage.Shutdown()
+		u.outputStorage.Shutdown()
+		u.outputMetadataStorage.Shutdown()
+		u.consumerStorage.Shutdown()
+		u.addressOutputMappingStorage.Shutdown()
+	})
 }
 
 // CheckTransaction contains fast checks that have to be performed before booking a Transaction.

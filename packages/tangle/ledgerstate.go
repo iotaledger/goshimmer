@@ -26,6 +26,12 @@ func NewLedgerState(tangle *Tangle) (ledgerState *LedgerState) {
 	}
 }
 
+// Shutdown shuts down the LedgerState and persists its state.
+func (l *LedgerState) Shutdown() {
+	l.utxoDAG.Shutdown()
+	l.branchDAG.Shutdown()
+}
+
 // InheritBranch implements the inheritance rules for Branches in the Tangle. It returns a single inherited Branch
 // and automatically creates an AggregatedBranch if necessary.
 func (l *LedgerState) InheritBranch(referencedBranchIDs ledgerstate.BranchIDs) (inheritedBranch ledgerstate.BranchID, err error) {
