@@ -46,11 +46,11 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.Storage = NewStorage(tangle)
 	tangle.Solidifier = NewSolidifier(tangle)
 	tangle.Scheduler = NewScheduler(tangle)
+	tangle.LedgerState = NewLedgerState(tangle)
 	tangle.Booker = NewBooker(tangle)
 	tangle.Requester = NewRequester(tangle)
 	tangle.TipManager = NewTipManager(tangle)
 	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager)
-	tangle.LedgerState = NewLedgerState(tangle)
 	tangle.Utils = NewUtils(tangle)
 
 	return
@@ -84,6 +84,7 @@ func (t *Tangle) Prune() (err error) {
 // Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
 func (t *Tangle) Shutdown() {
 	t.MessageFactory.Shutdown()
+	t.Booker.Shutdown()
 	t.LedgerState.Shutdown()
 	t.Scheduler.Shutdown()
 	t.Storage.Shutdown()
