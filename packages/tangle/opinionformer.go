@@ -32,7 +32,7 @@ type OpinionVoterProvider interface {
 	ProcessVote(*vote.OpinionEvent)
 }
 
-// Events defines all the events related to the opinion manager.
+// OpinionFormerEvents defines all the events related to the opinion manager.
 type OpinionFormerEvents struct {
 	// Fired when an opinion of a payload is formed.
 	PayloadOpinionFormed *events.Event
@@ -95,6 +95,7 @@ func (o *OpinionFormer) Setup() {
 	o.Events.TimestampOpinionFormed.Attach(events.NewClosure(o.onTimestampOpinionFormed))
 }
 
+// Shutdown shuts down the component and persists its state.
 func (o *OpinionFormer) Shutdown() {
 	o.payloadOpinionProvider.Shutdown()
 	o.TimestampOpinionProvider.Shutdown()
@@ -159,7 +160,6 @@ func (o *OpinionFormer) setEligibility(messageID MessageID) {
 
 		messageMetadata.SetEligible(eligible)
 	})
-	return
 }
 
 // parentsEligibility checks if the parents are eligible.

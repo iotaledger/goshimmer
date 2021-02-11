@@ -102,6 +102,7 @@ func (f *FCoB) Evaluate(messageID MessageID) {
 func (f *FCoB) onTransactionBooked(transactionID ledgerstate.TransactionID, messageID MessageID) {
 	// if the opinion for this transactionID is already present,
 	// it's a reattachment and thus, we re-use the same opinion.
+	isReattachment := false
 	f.CachedOpinion(transactionID).Consume(func(opinion *Opinion) {
 		// if the opinion has been already set by the opinion provider, re-use it
 		if opinion.LevelOfKnowledge() > One {
@@ -110,8 +111,11 @@ func (f *FCoB) onTransactionBooked(transactionID ledgerstate.TransactionID, mess
 		}
 		// otherwise the PayloadOpinionFormed will be triggerd by iterating over the Attachments
 		// either after FCOB or as a result of an FPC voting.
-		return
+		isReattachment = true
 	})
+	if isReattachment {
+		return
+	}
 
 	opinion := &Opinion{
 		transactionID: transactionID,
@@ -215,8 +219,8 @@ func (o *FCoB) ProcessVote(ev *vote.OpinionEvent) {
 
 // OpinionEssence returns the OpinionEssence (i.e., a copy of the triple{timestamp, liked, levelOfKnowledge})
 // of given transactionID.
-func (o *FCoB) OpinionEssence(transactionID ledgerstate.TransactionID) (opinion OpinionEssence) {
-	(&CachedOpinion{CachedObject: o.opinionStorage.Load(transactionID.Bytes())}).Consume(func(storedOpinion *Opinion) {
+func (f *FCoB) OpinionEssence(transactionID ledgerstate.TransactionID) (opinion OpinionEssence) {
+	(&CachedOpinion{CachedObject: f.opinionStorage.Load(transactionID.Bytes())}).Consume(func(storedOpinion *Opinion) {
 		opinion = storedOpinion.OpinionEssence
 	})
 
@@ -225,17 +229,17 @@ func (o *FCoB) OpinionEssence(transactionID ledgerstate.TransactionID) (opinion 
 
 // OpinionsEssence returns a list of OpinionEssence (i.e., a copy of the triple{timestamp, liked, levelOfKnowledge})
 // of given conflicSet.
-func (o *FCoB) OpinionsEssence(conflictSet ledgerstate.TransactionIDs) (opinions []OpinionEssence) {
+func (f *FCoB) OpinionsEssence(conflictSet ledgerstate.TransactionIDs) (opinions []OpinionEssence) {
 	opinions = make([]OpinionEssence, 0)
 	for conflictID := range conflictSet {
-		opinions = append(opinions, o.OpinionEssence(conflictID))
+		opinions = append(opinions, f.OpinionEssence(conflictID))
 	}
 	return
 }
 
 // CachedOpinion returns the CachedOpinion of the given TransactionID.
-func (o *FCoB) CachedOpinion(transactionID ledgerstate.TransactionID) (cachedOpinion *CachedOpinion) {
-	cachedOpinion = &CachedOpinion{CachedObject: o.opinionStorage.Load(transactionID.Bytes())}
+func (f *FCoB) CachedOpinion(transactionID ledgerstate.TransactionID) (cachedOpinion *CachedOpinion) {
+	cachedOpinion = &CachedOpinion{CachedObject: f.opinionStorage.Load(transactionID.Bytes())}
 	return
 }
 
