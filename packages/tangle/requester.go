@@ -63,7 +63,9 @@ func NewRequester(tangle *Tangle, optionalOptions ...RequesterOption) *Requester
 		tangle:            tangle,
 		scheduledRequests: make(map[MessageID]*time.Timer),
 		options:           newRequesterOptions(optionalOptions),
-		Events:            newMessageRequesterEvents(),
+		Events: &MessageRequesterEvents{
+			SendRequest: events.NewEvent(sendRequestEventHandler),
+		},
 	}
 
 	// add requests for all missing messages
@@ -153,6 +155,19 @@ func (r *Requester) createReRequest(msgID MessageID, count int) func() {
 type MessageRequesterEvents struct {
 	// Fired when a request for a given message should be sent.
 	SendRequest *events.Event
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region SendRequestEvent /////////////////////////////////////////////////////////////////////////////////////////////
+
+// SendRequestEvent represents the parameters of sendRequestEventHandler
+type SendRequestEvent struct {
+	ID MessageID
+}
+
+func sendRequestEventHandler(handler interface{}, params ...interface{}) {
+	handler.(func(*SendRequestEvent))(params[0].(*SendRequestEvent))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
