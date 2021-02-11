@@ -8,31 +8,20 @@ import (
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
 )
 
 const storeSequenceInterval = 100
 
-var (
-	// ZeroWorker is a PoW worker that always returns 0 as the nonce.
-	ZeroWorker = WorkerFunc(func([]byte) (uint64, error) { return 0, nil })
-)
-
-// A TipSelector selects two tips, parent2 and parent1, for a new message to attach to.
-type TipSelector interface {
-	Tips(count int) (parents []MessageID)
-}
-
-// A Worker performs the PoW for the provided message in serialized byte form.
-type Worker interface {
-	DoPOW([]byte) (nonce uint64, err error)
-}
+// region MessageFactory ///////////////////////////////////////////////////////////////////////////////////////////////
 
 // MessageFactory acts as a factory to create new messages.
 type MessageFactory struct {
+	Events *MessageFactoryEvents
+
 	tangle        *Tangle
-	Events        *MessageFactoryEvents
 	sequence      *kvstore.Sequence
 	localIdentity *identity.LocalIdentity
 	selector      TipSelector
@@ -50,8 +39,12 @@ func NewMessageFactory(tangle *Tangle, selector TipSelector) *MessageFactory {
 	}
 
 	return &MessageFactory{
+		Events: &MessageFactoryEvents{
+			MessageConstructed: events.NewEvent(messageEventHandler),
+			Error:              events.NewEvent(events.ErrorCaller),
+		},
+
 		tangle:        tangle,
-		Events:        newMessageFactoryEvents(),
 		sequence:      sequence,
 		localIdentity: tangle.Options.Identity,
 		selector:      selector,
@@ -157,6 +150,36 @@ func (f *MessageFactory) sign(strongParents []MessageID, weakParents []MessageID
 	return f.localIdentity.Sign(dummyBytes[:contentLength])
 }
 
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region MessageFactoryEvents /////////////////////////////////////////////////////////////////////////////////////////
+
+// MessageFactoryEvents represents events happening on a message factory.
+type MessageFactoryEvents struct {
+	// Fired when a message is built including tips, sequence number and other metadata.
+	MessageConstructed *events.Event
+
+	// Fired when an error occurred.
+	Error *events.Event
+}
+
+func messageEventHandler(handler interface{}, params ...interface{}) {
+	handler.(func(*Message))(params[0].(*Message))
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TipSelector //////////////////////////////////////////////////////////////////////////////////////////////////
+
+// A TipSelector selects two tips, parent2 and parent1, for a new message to attach to.
+type TipSelector interface {
+	Tips(count int) (parents []MessageID)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TipSelectorFunc //////////////////////////////////////////////////////////////////////////////////////////////
+
 // The TipSelectorFunc type is an adapter to allow the use of ordinary functions as tip selectors.
 type TipSelectorFunc func(count int) (parents []MessageID)
 
@@ -165,6 +188,19 @@ func (f TipSelectorFunc) Tips(count int) (parents []MessageID) {
 	return f(count)
 }
 
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Worker ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// A Worker performs the PoW for the provided message in serialized byte form.
+type Worker interface {
+	DoPOW([]byte) (nonce uint64, err error)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region WorkerFunc ///////////////////////////////////////////////////////////////////////////////////////////////////
+
 // The WorkerFunc type is an adapter to allow the use of ordinary functions as a PoW performer.
 type WorkerFunc func([]byte) (uint64, error)
 
@@ -172,3 +208,12 @@ type WorkerFunc func([]byte) (uint64, error)
 func (f WorkerFunc) DoPOW(msg []byte) (uint64, error) {
 	return f(msg)
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region ZeroWorker ///////////////////////////////////////////////////////////////////////////////////////////////////
+
+// ZeroWorker is a PoW worker that always returns 0 as the nonce.
+var ZeroWorker = WorkerFunc(func([]byte) (uint64, error) { return 0, nil })
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

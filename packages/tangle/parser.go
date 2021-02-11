@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/bytesfilter"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/typeutils"
 )
 
@@ -25,7 +26,7 @@ const (
 type Parser struct {
 	bytesFilters   []BytesFilter
 	messageFilters []MessageFilter
-	Events         *MessageParserEvents
+	Events         *ParserEvents
 
 	byteFiltersModified    typeutils.AtomicBool
 	messageFiltersModified typeutils.AtomicBool
@@ -38,7 +39,11 @@ func NewParser() (result *Parser) {
 	result = &Parser{
 		bytesFilters:   make([]BytesFilter, 0),
 		messageFilters: make([]MessageFilter, 0),
-		Events:         newMessageParserEvents(),
+		Events: &ParserEvents{
+			MessageParsed:   events.NewEvent(messageParsedEventHandler),
+			BytesRejected:   events.NewEvent(bytesRejectedEventHandler),
+			MessageRejected: events.NewEvent(messageRejectedEventHandler),
+		},
 	}
 
 	// add builtin filters
@@ -142,6 +147,70 @@ func (p *Parser) parseMessage(bytes []byte, peer *peer.Peer) {
 	} else {
 		p.messageFilters[0].Filter(parsedMessage, peer)
 	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region ParserEvents /////////////////////////////////////////////////////////////////////////////////////////////////
+
+// ParserEvents represents events happening in the Parser.
+type ParserEvents struct {
+	// Fired when a message was parsed.
+	MessageParsed *events.Event
+
+	// Fired when submitted bytes are rejected by a filter.
+	BytesRejected *events.Event
+
+	// Fired when a message got rejected by a filter.
+	MessageRejected *events.Event
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region BytesRejectedEvent ///////////////////////////////////////////////////////////////////////////////////////////
+
+// BytesRejectedEvent holds the information provided by the BytesRejected event that gets triggered when the bytes of a
+// Message did not pass the parsing step.
+type BytesRejectedEvent struct {
+	Bytes []byte
+	Peer  *peer.Peer
+}
+
+func bytesRejectedEventHandler(handler interface{}, params ...interface{}) {
+	handler.(func(*BytesRejectedEvent, error))(params[0].(*BytesRejectedEvent), params[1].(error))
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region MessageRejectedEvent /////////////////////////////////////////////////////////////////////////////////////////
+
+// MessageRejectedEvent holds the information provided by the MessageRejected event that gets triggered when the Message
+// was detected to be invalid.
+type MessageRejectedEvent struct {
+	Message *Message
+	Peer    *peer.Peer
+}
+
+func messageRejectedEventHandler(handler interface{}, params ...interface{}) {
+	handler.(func(*MessageRejectedEvent, error))(params[0].(*MessageRejectedEvent), params[1].(error))
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region MessageParsedEvent ///////////////////////////////////////////////////////////////////////////////////////////
+
+// MessageParsedEvent holds the information provided by the MessageParsed event that gets triggered when a message was
+// fully parsed and syntactically validated.
+type MessageParsedEvent struct {
+	// Message contains the parsed Message.
+	Message *Message
+
+	// Peer contains the node that sent this Message to the node.
+	Peer *peer.Peer
+}
+
+func messageParsedEventHandler(handler interface{}, params ...interface{}) {
+	handler.(func(*MessageParsedEvent))(params[0].(*MessageParsedEvent))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -72,6 +72,16 @@ func (l *LedgerState) TransactionValid(transaction *ledgerstate.Transaction, mes
 	return
 }
 
+// TransactionConflicting returns whether the given transaction is part of a conflict.
+func (l *LedgerState) TransactionConflicting(transactionID ledgerstate.TransactionID) bool {
+	return l.BranchID(transactionID) == ledgerstate.NewBranchID(transactionID)
+}
+
+// TransactionMetadata retrieves the TransactionMetadata with the given TransactionID from the object storage.
+func (l *LedgerState) TransactionMetadata(transactionID ledgerstate.TransactionID) (cachedTransactionMetadata *ledgerstate.CachedTransactionMetadata) {
+	return l.utxoDAG.TransactionMetadata(transactionID)
+}
+
 // BookTransaction books the given Transaction into the underlying LedgerState and returns the target Branch and an
 // eventual error.
 func (l *LedgerState) BookTransaction(transaction *ledgerstate.Transaction, messageID MessageID) (targetBranch ledgerstate.BranchID, err error) {
@@ -136,6 +146,10 @@ func (l *LedgerState) BranchID(transactionID ledgerstate.TransactionID) (branchI
 // LoadSnapshot creates a set of outputs in the UTXO-DAG, that are forming the genesis for future transactions.
 func (l *LedgerState) LoadSnapshot(snapshot map[ledgerstate.TransactionID]map[ledgerstate.Address]*ledgerstate.ColoredBalances) {
 	l.utxoDAG.LoadSnapshot(snapshot)
+	attachment, _ := l.tangle.Storage.StoreAttachment(ledgerstate.GenesisTransactionID, EmptyMessageID)
+	if attachment != nil {
+		attachment.Release()
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
