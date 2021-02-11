@@ -486,7 +486,7 @@ func (u *UTXODAG) bookOutputs(transaction *Transaction, targetBranch BranchID) {
 	for outputIndex, output := range transaction.Essence().Outputs() {
 		// store Output
 		output.SetID(NewOutputID(transaction.ID(), uint16(outputIndex)))
-		u.outputStorage.Store(output)
+		u.outputStorage.Store(output).Release()
 
 		// store OutputMetadata
 		metadata := NewOutputMetadata(output.ID())

@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/timedexecutor"
+	"github.com/iotaledger/hive.go/timedqueue"
 )
 
 // FCoBEvents defines all the events related to FCoB.
@@ -62,8 +63,8 @@ func NewFCoB(store kvstore.KVStore, tangle *Tangle) (fcob *FCoB) {
 }
 
 func (f *FCoB) Shutdown() {
-	f.likedThresholdExecutor.Shutdown()
-	f.locallyFinalizedExecutor.Shutdown()
+	f.likedThresholdExecutor.Shutdown(timedqueue.CancelPendingElements)
+	f.locallyFinalizedExecutor.Shutdown(timedqueue.CancelPendingElements)
 	f.opinionStorage.Shutdown()
 }
 

@@ -68,15 +68,10 @@ func TestOpinionFormer(t *testing.T) {
 	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, ledgerstate.NewInputs(input), ledgerstate.NewOutputs(output))
 
 	tx := ledgerstate.NewTransaction(txEssence, wallets[0].unlockBlocks(txEssence))
-	fmt.Println("ReferencedTransactionIDs", tx.ReferencedTransactionIDs())
-
 	_, err := tangle.MessageFactory.IssuePayload(tx)
 	require.NoError(t, err)
 
-	// assert.True(t, tangle.LedgerState.TransactionValid(tx, msg.ID()))
-
-	// fmt.Println(tangle.Booker.allTransactionsApprovedByMessage(tx.ReferencedTransactionIDs(), msg.ID()))
-
 	wg.Wait()
 
+	fmt.Println("Waiting shhutdown..")
 }
