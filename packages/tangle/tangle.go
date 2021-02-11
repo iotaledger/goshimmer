@@ -56,7 +56,7 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.Utils = NewUtils(tangle)
 
 	tangle.PayloadOpinionProvider = NewFCoB(tangle.Options.Store, tangle)
-	tangle.TimestampOpinionProvider = NewTimestampByDefault(tangle)
+	tangle.TimestampOpinionProvider = NewTimestampLikedByDefault(tangle)
 	tangle.OpinionFormer = NewOpinionFormer(tangle, tangle.PayloadOpinionProvider, tangle.TimestampOpinionProvider)
 
 	return

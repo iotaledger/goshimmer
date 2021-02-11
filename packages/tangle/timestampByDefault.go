@@ -5,38 +5,41 @@ import (
 	"github.com/iotaledger/hive.go/events"
 )
 
-// TimestampByFPCEvents defines all the events related to FCoB.
-type TimestampByDefaultEvents struct {
-	// Fired when an opinion of a timestamp is formed.
-	TimestampOpinionFormed *events.Event
-}
+// region TimestampLikedByDefault //////////////////////////////////////////////////////////////////////////////////////
 
-type TimestampByDefault struct {
-	Events *TimestampByDefaultEvents
+// TimestampLikedByDefault is the opinion provider that likes all the timestamps.
+type TimestampLikedByDefault struct {
+	Events *TimestampLikedByDefaultEvents
 
 	tangle *Tangle
 }
 
-func NewTimestampByDefault(tangle *Tangle) (timestampByDefault *TimestampByDefault) {
-	timestampByDefault = &TimestampByDefault{
+// NewTimestampLikedByDefault returns a new instance of the TimestampLikedByDefault.
+func NewTimestampLikedByDefault(tangle *Tangle) (timestampByDefault *TimestampLikedByDefault) {
+	timestampByDefault = &TimestampLikedByDefault{
 		tangle: tangle,
-		Events: &TimestampByDefaultEvents{},
+		Events: &TimestampLikedByDefaultEvents{},
 	}
 
 	return
 }
 
-func (t *TimestampByDefault) Shutdown() {}
-
-func (t *TimestampByDefault) Setup(timestampEvent *events.Event) {
+// Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
+// It is required to satisfy the OpinionProvider interface.
+func (t *TimestampLikedByDefault) Setup(timestampEvent *events.Event) {
 	t.Events.TimestampOpinionFormed = timestampEvent
 }
 
-func (t *TimestampByDefault) Opinion(messageID MessageID) (opinion bool) {
+// Shutdown shuts down component and persists its state. It is required to satisfy the OpinionProvider interface.
+func (t *TimestampLikedByDefault) Shutdown() {}
+
+// Opinion returns the liked status of a given messageID.
+func (t *TimestampLikedByDefault) Opinion(messageID MessageID) (opinion bool) {
 	return true
 }
 
-func (t *TimestampByDefault) Evaluate(messageID MessageID) {
+// Evaluate evaluates the opinion of the given messageID.
+func (t *TimestampLikedByDefault) Evaluate(messageID MessageID) {
 	t.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		t.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetTimestampOpinion(TimestampOpinion{
@@ -47,3 +50,15 @@ func (t *TimestampByDefault) Evaluate(messageID MessageID) {
 		})
 	})
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TimestampLikedByDefaultEvents ////////////////////////////////////////////////////////////////////////////////
+
+// TimestampLikedByDefaultEvents defines all the events related to the TimestampLikedByDefault opinion provider.
+type TimestampLikedByDefaultEvents struct {
+	// Fired when an opinion of a timestamp is formed.
+	TimestampOpinionFormed *events.Event
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
