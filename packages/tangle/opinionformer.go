@@ -102,7 +102,13 @@ func (o *OpinionFormer) Shutdown() {
 
 // PayloadLiked returns the opinion of the given MessageID.
 func (o *OpinionFormer) PayloadLiked(messageID MessageID) (liked bool) {
-	return o.payloadOpinionProvider.Opinion(messageID)
+	liked = true
+	o.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+		if payload := message.Payload(); payload.Type() == ledgerstate.TransactionType {
+			liked = o.payloadOpinionProvider.Opinion(messageID)
+		}
+	})
+	return
 }
 
 // MessageEligible returns whether the given messageID is marked as aligible.

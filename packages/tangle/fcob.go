@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/database"
@@ -147,7 +148,7 @@ func (f *FCoB) onTransactionBooked(transactionID ledgerstate.TransactionID, mess
 			if opinion.liked {
 				vote = voter.Like
 			}
-			f.Events.Vote.Trigger(transactionID.String(), vote) // TODO: fix opinion type
+			f.Events.Vote.Trigger(transactionID.Base58(), vote)
 		}
 
 		return
@@ -167,7 +168,7 @@ func (f *FCoB) onTransactionBooked(transactionID ledgerstate.TransactionID, mess
 			if f.tangle.LedgerState.TransactionConflicting(transactionID) {
 				opinion.SetLiked(false)
 				//trigger voting for this transactionID
-				f.Events.Vote.Trigger(transactionID.String(), voter.Dislike)
+				f.Events.Vote.Trigger(transactionID.Base58(), voter.Dislike)
 				return
 			}
 			opinion.SetLiked(true)
@@ -179,7 +180,7 @@ func (f *FCoB) onTransactionBooked(transactionID ledgerstate.TransactionID, mess
 				opinion.SetLiked(true)
 				if f.tangle.LedgerState.TransactionConflicting(transactionID) {
 					//trigger voting for this transactionID
-					f.Events.Vote.Trigger(transactionID.String(), voter.Like)
+					f.Events.Vote.Trigger(transactionID.Base58(), voter.Like)
 					return
 				}
 				opinion.SetLevelOfKnowledge(Two)
@@ -198,6 +199,7 @@ func (o *FCoB) ProcessVote(ev *vote.OpinionEvent) {
 	if ev.Ctx.Type == vote.ConflictType {
 		transactionID, err := ledgerstate.TransactionIDFromBase58(ev.ID)
 		if err != nil {
+			fmt.Println("TransactionIDFromBase58 ERROR", transactionID)
 			o.Events.Error.Trigger(err)
 
 			return
@@ -222,10 +224,6 @@ func (o *FCoB) OpinionsEssence(conflictSet ledgerstate.TransactionIDs) (opinions
 	}
 	return
 }
-
-// func (o *FCoB) conflictSet(transactionID ledgerstate.TransactionID) (conflictSet []ledgerstate.TransactionID) {
-// 	return o.tangle.LedgerState.ConflictSet(transactionID)
-// }
 
 func (o *FCoB) OpinionEssence(transactionID ledgerstate.TransactionID) (opinion OpinionEssence) {
 	(&CachedOpinion{CachedObject: o.opinionStorage.Load(transactionID.Bytes())}).Consume(func(storedOpinion *Opinion) {
