@@ -90,6 +90,7 @@ func (t *Tangle) Prune() (err error) {
 func (t *Tangle) Shutdown() {
 	t.MessageFactory.Shutdown()
 	t.OpinionFormer.Shutdown()
+	t.Booker.Shutdown()
 	t.LedgerState.Shutdown()
 	t.Storage.Shutdown()
 	t.Options.Store.Shutdown()

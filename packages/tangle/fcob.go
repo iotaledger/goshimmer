@@ -15,28 +15,17 @@ import (
 	"github.com/iotaledger/hive.go/timedqueue"
 )
 
-// FCoBEvents defines all the events related to FCoB.
-type FCoBEvents struct {
-	// Fired when an opinion of a payload is formed.
-	PayloadOpinionFormed *events.Event
-
-	// Error gets called when FCOB faces an error.
-	Error *events.Event
-
-	// Vote gets called when FCOB needs to vote.
-	Vote *events.Event
-}
-
-func voteEvent(handler interface{}, params ...interface{}) {
-	handler.(func(id string, initOpn voter.Opinion))(params[0].(string), params[1].(voter.Opinion))
-}
+// region FCoB /////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 var (
+	// LikedThreshold is the first time thresshold of FCoB.
 	LikedThreshold = 5 * time.Second
 
+	// LocallyFinalizedThreshold is the second time thresshold of FCoB.
 	LocallyFinalizedThreshold = 10 * time.Second
 )
 
+// FCoB is the component implementing the Fast Consensus of Barcelona protocol.
 type FCoB struct {
 	Events *FCoBEvents
 
@@ -47,6 +36,7 @@ type FCoB struct {
 	locallyFinalizedExecutor *timedexecutor.TimedExecutor
 }
 
+// NewFCoB returns a new instance of FCoB.
 func NewFCoB(store kvstore.KVStore, tangle *Tangle) (fcob *FCoB) {
 	osFactory := objectstorage.NewFactory(store, database.PrefixFCoB)
 	fcob = &FCoB{
@@ -63,20 +53,29 @@ func NewFCoB(store kvstore.KVStore, tangle *Tangle) (fcob *FCoB) {
 	return
 }
 
+// Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
+func (f *FCoB) Setup(payloadEvent *events.Event) {
+	f.Events.PayloadOpinionFormed = payloadEvent
+}
+
+// Shutdown shuts down FCoB and persists its state.
 func (f *FCoB) Shutdown() {
 	f.likedThresholdExecutor.Shutdown(timedqueue.CancelPendingElements)
 	f.locallyFinalizedExecutor.Shutdown(timedqueue.CancelPendingElements)
 	f.opinionStorage.Shutdown()
 }
 
+// Vote trigger a voting request.
 func (f *FCoB) Vote() *events.Event {
 	return f.Events.Vote
 }
 
+// VoteError notify an error coming from the result of voting.
 func (f *FCoB) VoteError() *events.Event {
 	return f.Events.Error
 }
 
+// Opinion returns the liked status of a given messageID.
 func (f *FCoB) Opinion(messageID MessageID) (opinion bool) {
 	f.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		if payload := message.Payload(); payload.Type() == ledgerstate.TransactionType {
@@ -87,10 +86,7 @@ func (f *FCoB) Opinion(messageID MessageID) (opinion bool) {
 	return
 }
 
-func (f *FCoB) Setup(payloadEvent *events.Event) {
-	f.Events.PayloadOpinionFormed = payloadEvent
-}
-
+// Evaluate evaluates the opinion of the given messageID.
 func (f *FCoB) Evaluate(messageID MessageID) {
 	f.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		if payload := message.Payload(); payload.Type() == ledgerstate.TransactionType {
@@ -217,14 +213,8 @@ func (o *FCoB) ProcessVote(ev *vote.OpinionEvent) {
 	}
 }
 
-func (o *FCoB) OpinionsEssence(conflictSet ledgerstate.TransactionIDs) (opinions []OpinionEssence) {
-	opinions = make([]OpinionEssence, 0)
-	for conflictID := range conflictSet {
-		opinions = append(opinions, o.OpinionEssence(conflictID))
-	}
-	return
-}
-
+// OpinionEssence returns the OpinionEssence (i.e., a copy of the triple{timestamp, liked, levelOfKnowledge})
+// of given transactionID.
 func (o *FCoB) OpinionEssence(transactionID ledgerstate.TransactionID) (opinion OpinionEssence) {
 	(&CachedOpinion{CachedObject: o.opinionStorage.Load(transactionID.Bytes())}).Consume(func(storedOpinion *Opinion) {
 		opinion = storedOpinion.OpinionEssence
@@ -233,11 +223,23 @@ func (o *FCoB) OpinionEssence(transactionID ledgerstate.TransactionID) (opinion 
 	return
 }
 
+// OpinionsEssence returns a list of OpinionEssence (i.e., a copy of the triple{timestamp, liked, levelOfKnowledge})
+// of given conflicSet.
+func (o *FCoB) OpinionsEssence(conflictSet ledgerstate.TransactionIDs) (opinions []OpinionEssence) {
+	opinions = make([]OpinionEssence, 0)
+	for conflictID := range conflictSet {
+		opinions = append(opinions, o.OpinionEssence(conflictID))
+	}
+	return
+}
+
+// CachedOpinion returns the CachedOpinion of the given TransactionID.
 func (o *FCoB) CachedOpinion(transactionID ledgerstate.TransactionID) (cachedOpinion *CachedOpinion) {
 	cachedOpinion = &CachedOpinion{CachedObject: o.opinionStorage.Load(transactionID.Bytes())}
 	return
 }
 
+// deriveOpinion returns the initial opinion based on the given targetTime and conflictSet.
 func deriveOpinion(targetTime time.Time, conflictSet ConflictSet) (opinion OpinionEssence) {
 	if conflictSet.hasDecidedLike() {
 		opinion = OpinionEssence{
@@ -264,3 +266,25 @@ func deriveOpinion(targetTime time.Time, conflictSet ConflictSet) (opinion Opini
 	}
 	return
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region FCoBEvents /////////////////////////////////////////////////////////////////////////////////////////////
+
+// FCoBEvents defines all the events related to the Fast Consensus of Barcelona protocol.
+type FCoBEvents struct {
+	// Fired when an opinion of a payload is formed.
+	PayloadOpinionFormed *events.Event
+
+	// Error gets called when FCOB faces an error.
+	Error *events.Event
+
+	// Vote gets called when FCOB needs to vote.
+	Vote *events.Event
+}
+
+func voteEvent(handler interface{}, params ...interface{}) {
+	handler.(func(id string, initOpn voter.Opinion))(params[0].(string), params[1].(voter.Opinion))
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

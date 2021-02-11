@@ -47,6 +47,11 @@ func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 	return
 }
 
+// Shutdown shuts down the Booker and persists its state.
+func (m *Booker) Shutdown() {
+	m.MarkersManager.Shutdown()
+}
+
 // Book tries to book the given Message (and potentially its contained Transaction) into the LedgerState and the Tangle.
 // It fires a MessageBooked event if it succeeds.
 func (m *Booker) Book(messageID MessageID) (err error) {
