@@ -52,6 +52,7 @@ func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 func (m *Booker) Book(messageID MessageID) (err error) {
 	m.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		m.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+			var transactionID ledgerstate.TransactionID
 			combinedBranches := m.branchIDsOfStrongParents(message)
 			if payload := message.Payload(); payload != nil && payload.Type() == ledgerstate.TransactionType {
 				transaction := payload.(*ledgerstate.Transaction)
@@ -70,6 +71,8 @@ func (m *Booker) Book(messageID MessageID) (err error) {
 					return
 				}
 				combinedBranches = combinedBranches.Add(targetBranch)
+
+				transactionID = transaction.ID()
 			}
 
 			inheritedBranch, inheritErr := m.tangle.LedgerState.InheritBranch(combinedBranches)
@@ -81,6 +84,14 @@ func (m *Booker) Book(messageID MessageID) (err error) {
 			messageMetadata.SetBranchID(inheritedBranch)
 			messageMetadata.SetStructureDetails(m.MarkersManager.InheritStructureDetails(message, inheritedBranch))
 			messageMetadata.SetBooked(true)
+
+			// store attachment
+			if transactionID != ledgerstate.GenesisTransactionID {
+				attachment, stored := m.tangle.Storage.StoreAttachment(transactionID, message.ID())
+				if stored {
+					attachment.Release()
+				}
+			}
 
 			m.Events.MessageBooked.Trigger(message.ID())
 		})
@@ -117,7 +128,7 @@ func (m *Booker) transactionApprovedByMessage(transactionID ledgerstate.Transact
 func (m *Booker) branchIDsOfStrongParents(message *Message) (branchIDs ledgerstate.BranchIDs) {
 	branchIDs = make(ledgerstate.BranchIDs)
 	message.ForEachStrongParent(func(parentMessageID MessageID) {
-		if !m.tangle.Storage.MessageMetadata(parentMessageID).Consume(func(messageMetadata *MessageMetadata) {
+		if parentMessageID != EmptyMessageID && !m.tangle.Storage.MessageMetadata(parentMessageID).Consume(func(messageMetadata *MessageMetadata) {
 			branchIDs[messageMetadata.BranchID()] = types.Void
 		}) {
 			panic(fmt.Errorf("failed to load MessageMetadata with %s", parentMessageID))
@@ -190,7 +201,7 @@ func (m *MarkersManager) propagatePastMarkerToFutureMarkers(pastMarkerToInherit 
 func (m *MarkersManager) structureDetailsOfStrongParents(message *Message) (structureDetails []*markers.StructureDetails) {
 	structureDetails = make([]*markers.StructureDetails, 0)
 	message.ForEachStrongParent(func(parentMessageID MessageID) {
-		if !m.tangle.Storage.MessageMetadata(parentMessageID).Consume(func(messageMetadata *MessageMetadata) {
+		if parentMessageID != EmptyMessageID && !m.tangle.Storage.MessageMetadata(parentMessageID).Consume(func(messageMetadata *MessageMetadata) {
 			structureDetails = append(structureDetails, messageMetadata.StructureDetails())
 		}) {
 			panic(fmt.Errorf("failed to load MessageMetadata of Message with %s", parentMessageID))

@@ -18,6 +18,7 @@ type OpinionProvider interface {
 	Evaluate(MessageID)
 	Opinion(MessageID) bool
 	Setup(*events.Event)
+	Shutdown()
 }
 
 // OpinionVoterProvider is the interface to describe the functionalities of an opinion and voter provider:
@@ -55,6 +56,7 @@ func payloadOpinionCaller(handler interface{}, params ...interface{}) {
 	handler.(func(*OpinionFormedEvent))(params[0].(*OpinionFormedEvent))
 }
 
+// OpinionFormer is the component in charge of forming opinion about timestamps and payloads.
 type OpinionFormer struct {
 	Events OpinionFormerEvents
 
@@ -65,6 +67,7 @@ type OpinionFormer struct {
 	TimestampOpinionProvider OpinionProvider
 }
 
+// NewOpinionFormer returns a new OpinionFormer.
 func NewOpinionFormer(tangle *Tangle, payloadOpinionVoterProvider OpinionVoterProvider, timestampOpinionProvider OpinionProvider) (opinionFormer *OpinionFormer) {
 	opinionFormer = &OpinionFormer{
 		tangle:                   tangle,
@@ -81,6 +84,7 @@ func NewOpinionFormer(tangle *Tangle, payloadOpinionVoterProvider OpinionVoterPr
 	return
 }
 
+// Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (o *OpinionFormer) Setup() {
 	o.payloadOpinionProvider.Setup(o.Events.PayloadOpinionFormed)
 	o.TimestampOpinionProvider.Setup(o.Events.TimestampOpinionFormed)
@@ -91,11 +95,17 @@ func (o *OpinionFormer) Setup() {
 	o.Events.TimestampOpinionFormed.Attach(events.NewClosure(o.onTimestampOpinionFormed))
 }
 
+func (o *OpinionFormer) Shutdown() {
+	o.payloadOpinionProvider.Shutdown()
+	o.TimestampOpinionProvider.Shutdown()
+}
+
+// PayloadLiked returns the opinion of the given MessageID.
 func (o *OpinionFormer) PayloadLiked(messageID MessageID) (liked bool) {
 	return o.payloadOpinionProvider.Opinion(messageID)
 }
 
-// isMessageEligible returns whether the given messageID is marked as aligible.
+// MessageEligible returns whether the given messageID is marked as aligible.
 func (o *OpinionFormer) MessageEligible(messageID MessageID) (eligible bool) {
 	// return true if the message is the Genesis
 	if messageID == EmptyMessageID {
@@ -128,10 +138,10 @@ func (o *OpinionFormer) onPayloadOpinionFormed(ev *OpinionFormedEvent) {
 	}
 }
 
-func (o *OpinionFormer) onTimestampOpinionFormed(ev *OpinionFormedEvent) {
-	if o.waiting.done(ev.MessageID) {
-		o.setEligibility(ev.MessageID)
-		o.Events.MessageOpinionFormed.Trigger(ev.MessageID)
+func (o *OpinionFormer) onTimestampOpinionFormed(messageID MessageID) {
+	if o.waiting.done(messageID) {
+		o.setEligibility(messageID)
+		o.Events.MessageOpinionFormed.Trigger(messageID)
 	}
 }
 

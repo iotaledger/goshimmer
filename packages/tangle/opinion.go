@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
+	"golang.org/x/xerrors"
 )
 
 // LevelOfKnowledge defines the Level Of Knowledge type.
@@ -90,7 +92,7 @@ func (o *Opinion) SetLiked(l bool) {
 func (o *Opinion) LevelOfKnowledge() LevelOfKnowledge {
 	o.levelOfKnowledgeMutex.RLock()
 	defer o.levelOfKnowledgeMutex.RUnlock()
-	return o.LevelOfKnowledge()
+	return o.levelOfKnowledge
 }
 
 // SetLevelOfKnowledge sets the opinion's LevelOfKnowledge.
@@ -134,6 +136,50 @@ func (o *Opinion) ObjectStorageValue() []byte {
 		WriteBool(o.Liked()).
 		WriteUint8(o.LevelOfKnowledge()).
 		Bytes()
+}
+
+// OpinionFromMarshalUtil parses an opinion from the given marshal util.
+func OpinionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Opinion, err error) {
+	// parse information
+	result = &Opinion{}
+	if result.timestamp, err = marshalUtil.ReadTime(); err != nil {
+		err = xerrors.Errorf("failed to parse opinion timestamp from MarshalUtil: %w", err)
+		return
+	}
+
+	if result.liked, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse liked flag of the opinion: %w", err)
+		return
+	}
+	if result.levelOfKnowledge, err = marshalUtil.ReadUint8(); err != nil {
+		err = fmt.Errorf("failed to parse level of knowledge of the opinion: %w", err)
+		return
+	}
+
+	return
+}
+
+// OpinionFromObjectStorage restores an Opinion from the ObjectStorage.
+func OpinionFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
+	// parse the opinion
+	opinion, err := OpinionFromMarshalUtil(marshalutil.New(data))
+	if err != nil {
+		err = fmt.Errorf("failed to parse opinion from object storage: %w", err)
+		return
+	}
+
+	// parse the TransactionID from they key
+	id, err := ledgerstate.TransactionIDFromMarshalUtil(marshalutil.New(key))
+	if err != nil {
+		err = fmt.Errorf("failed to parse transaction ID from object storage: %w", err)
+		return
+	}
+	opinion.transactionID = id
+
+	// assign result
+	result = opinion
+
+	return
 }
 
 // code contract (make sure the struct implements all required methods)

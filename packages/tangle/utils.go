@@ -114,7 +114,7 @@ func (u *Utils) MessageApprovedBy(approvedMessageID MessageID, approvingMessageI
 // MessageStronglyApprovedBy checks if the Message given by approvedMessageID is directly or indirectly approved by the
 // Message given by approvingMessageID (ignoring weak parents as a potential last reference).
 func (u *Utils) MessageStronglyApprovedBy(approvedMessageID MessageID, approvingMessageID MessageID) (stronglyApproved bool) {
-	if approvedMessageID == approvingMessageID {
+	if approvedMessageID == approvingMessageID || approvedMessageID == EmptyMessageID {
 		return true
 	}
 

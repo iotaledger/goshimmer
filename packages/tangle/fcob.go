@@ -3,6 +3,7 @@ package tangle
 import (
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	voter "github.com/iotaledger/goshimmer/packages/vote/opinion"
@@ -29,9 +30,9 @@ func voteEvent(handler interface{}, params ...interface{}) {
 }
 
 var (
-	LikedThreshold = 5 * time.Second
+	LikedThreshold = 2 * time.Second
 
-	LocallyFinalizedThreshold = 10 * time.Second
+	LocallyFinalizedThreshold = 4 * time.Second
 )
 
 type FCoB struct {
@@ -45,8 +46,10 @@ type FCoB struct {
 }
 
 func NewFCoB(store kvstore.KVStore, tangle *Tangle) (fcob *FCoB) {
+	osFactory := objectstorage.NewFactory(store, database.PrefixFCoB)
 	fcob = &FCoB{
 		tangle:                   tangle,
+		opinionStorage:           osFactory.New(PrefixFCoB, OpinionFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 		likedThresholdExecutor:   timedexecutor.New(1),
 		locallyFinalizedExecutor: timedexecutor.New(1),
 		Events: &FCoBEvents{
@@ -56,6 +59,12 @@ func NewFCoB(store kvstore.KVStore, tangle *Tangle) (fcob *FCoB) {
 	}
 
 	return
+}
+
+func (f *FCoB) Shutdown() {
+	f.likedThresholdExecutor.Shutdown()
+	f.locallyFinalizedExecutor.Shutdown()
+	f.opinionStorage.Shutdown()
 }
 
 func (f *FCoB) Vote() *events.Event {

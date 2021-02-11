@@ -34,6 +34,8 @@ func NewTimestampByFPC(tangle *Tangle) (timestampByFPC *TimestampByFPC) {
 	return
 }
 
+func (t *TimestampByFPC) Shutdown() {}
+
 func (t *TimestampByFPC) Setup(timestampEvent *events.Event) {
 	t.Events.TimestampOpinionFormed = timestampEvent
 }

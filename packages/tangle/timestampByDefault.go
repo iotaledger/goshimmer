@@ -26,6 +26,8 @@ func NewTimestampByDefault(tangle *Tangle) (timestampByDefault *TimestampByDefau
 	return
 }
 
+func (t *TimestampByDefault) Shutdown() {}
+
 func (t *TimestampByDefault) Setup(timestampEvent *events.Event) {
 	t.Events.TimestampOpinionFormed = timestampEvent
 }
