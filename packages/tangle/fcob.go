@@ -31,9 +31,9 @@ func voteEvent(handler interface{}, params ...interface{}) {
 }
 
 var (
-	LikedThreshold = 2 * time.Second
+	LikedThreshold = 5 * time.Second
 
-	LocallyFinalizedThreshold = 4 * time.Second
+	LocallyFinalizedThreshold = 10 * time.Second
 )
 
 type FCoB struct {

@@ -20,6 +20,10 @@ func newTestParentsDataMessage(payloadString string, strongParents, weakParents 
 	return NewMessage(strongParents, weakParents, time.Now(), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
 }
 
+func newTestParentsPayloadMessage(payload payload.Payload, strongParents, weakParents []MessageID) *Message {
+	return NewMessage(strongParents, weakParents, time.Now(), ed25519.PublicKey{}, 0, payload, 0, ed25519.Signature{})
+}
+
 type wallet struct {
 	keyPair ed25519.KeyPair
 	address *ledgerstate.ED25519Address
