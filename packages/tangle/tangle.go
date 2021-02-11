@@ -57,9 +57,9 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager)
 	tangle.Utils = NewUtils(tangle)
 
-	tangle.PayloadOpinionProvider = NewFCoB(tangle.Options.Store, tangle)
-	tangle.TimestampOpinionProvider = NewTimestampLikedByDefault(tangle)
-	tangle.OpinionFormer = NewOpinionFormer(tangle, tangle.PayloadOpinionProvider, tangle.TimestampOpinionProvider)
+	// tangle.PayloadOpinionProvider = NewFCoB(tangle.Options.Store, tangle)
+	// tangle.TimestampOpinionProvider = NewTimestampLikedByDefault(tangle)
+	// tangle.OpinionFormer = NewOpinionFormer(tangle, tangle.PayloadOpinionProvider, tangle.TimestampOpinionProvider)
 
 	return
 }
@@ -71,9 +71,17 @@ func (t *Tangle) Setup() {
 	t.Requester.Setup()
 	t.TipManager.Setup()
 	t.Scheduler.Setup()
-	t.OpinionFormer.Setup()
+	// t.OpinionFormer.Setup()
 	t.MessageFactory.Events.Error.Attach(events.NewClosure(func(err error) {
 		t.Events.Error.Trigger(xerrors.Errorf("error in MessageFactory: %w", err))
+	}))
+
+	// Bypass the Booker
+	t.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
+		t.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+			messageMetadata.SetBooked(true)
+			t.Booker.Events.MessageBooked.Trigger(messageID)
+		})
 	}))
 }
 
@@ -92,7 +100,7 @@ func (t *Tangle) Prune() (err error) {
 // Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
 func (t *Tangle) Shutdown() {
 	t.MessageFactory.Shutdown()
-	t.OpinionFormer.Shutdown()
+	// t.OpinionFormer.Shutdown()
 	t.Booker.Shutdown()
 	t.LedgerState.Shutdown()
 	t.Scheduler.Shutdown()

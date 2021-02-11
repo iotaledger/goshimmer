@@ -49,6 +49,7 @@ func Tangle() *tangle.Tangle {
 
 func configure(*node.Plugin) {
 	log = logger.NewLogger(PluginName)
+	Tangle().Setup()
 
 	Tangle().Events.Error.Attach(events.NewClosure(func(err error) {
 		log.Error(err)
@@ -57,7 +58,6 @@ func configure(*node.Plugin) {
 
 func run(*node.Plugin) {
 	if err := daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
-		Tangle().Setup()
 		<-shutdownSignal
 		Tangle().Shutdown()
 	}, shutdown.PriorityTangle); err != nil {

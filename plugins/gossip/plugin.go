@@ -130,7 +130,7 @@ func configureMessageLayer() {
 	}))
 
 	// configure flow of outgoing messages (gossip on solidification)
-	messagelayer.Tangle().Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+	messagelayer.Tangle().Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
 			messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
 				if time.Since(messageMetadata.ReceivedTime()) > ageThreshold {

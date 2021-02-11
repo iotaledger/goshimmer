@@ -121,7 +121,7 @@ func run(*node.Plugin) {
 }
 
 func configureEvents() {
-	messagelayer.Tangle().Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+	messagelayer.Tangle().Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
 			if !IsFaucetReq(message) {
 				return

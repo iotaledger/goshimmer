@@ -153,7 +153,7 @@ func configure(_ *node.Plugin) {
 
 	// subscribe to message-layer
 	receiveMessageClosure = events.NewClosure(onReceiveMessageFromMessageLayer)
-	messagelayer.Tangle().Solidifier.Events.MessageSolid.Attach(receiveMessageClosure)
+	messagelayer.Tangle().Scheduler.Events.MessageScheduled.Attach(receiveMessageClosure)
 }
 
 func run(*node.Plugin) {
