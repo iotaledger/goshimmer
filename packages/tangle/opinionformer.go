@@ -10,25 +10,27 @@ import (
 	"github.com/iotaledger/hive.go/types"
 )
 
-// OpinionProvider is the interface to describe the functionalities of an opinion provider:
-// Evaluate evaluates the opinion of the given messageID (payload / timestamp);
-// Opinion returns the opinion of the given messageID (payload / timestamp);
-// Setup allows to wire the communication between the opinionProvider and the opinionFormer.
+// OpinionProvider is the interface to describe the functionalities of an opinion provider.
 type OpinionProvider interface {
+	// Evaluate evaluates the opinion of the given messageID (payload / timestamp).
 	Evaluate(MessageID)
+	// Opinion returns the opinion of the given messageID (payload / timestamp).
 	Opinion(MessageID) bool
+	// Setup allows to wire the communication between the opinionProvider and the opinionFormer.
 	Setup(*events.Event)
+	// Shutdown shuts down the OpinionProvider and persists its state.
 	Shutdown()
 }
 
-// OpinionVoterProvider is the interface to describe the functionalities of an opinion and voter provider:
-// Evaluate evaluates the opinion of the given messageID (payload / timestamp);
-// Opinion returns the opinion of the given messageID (payload / timestamp);
-// Setup allows to wire the communication between the opinionProvider and the opinionFormer.
+// OpinionVoterProvider is the interface to describe the functionalities of an opinion and voter provider.
 type OpinionVoterProvider interface {
+	// OpinionProvider is the interface to describe the functionalities of an opinion provider.
 	OpinionProvider
+	// Vote trigger a voting request.
 	Vote() *events.Event
+	// VoteError notify an error coming from the result of voting.
 	VoteError() *events.Event
+	// ProcessVote allows an external voter to hand in the results of the voting process.
 	ProcessVote(*vote.OpinionEvent)
 }
 
@@ -104,11 +106,14 @@ func (o *OpinionFormer) Shutdown() {
 // PayloadLiked returns the opinion of the given MessageID.
 func (o *OpinionFormer) PayloadLiked(messageID MessageID) (liked bool) {
 	liked = true
-	o.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		if payload := message.Payload(); payload.Type() == ledgerstate.TransactionType {
-			liked = o.payloadOpinionProvider.Opinion(messageID)
+	if !o.tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
+		liked = o.payloadOpinionProvider.Opinion(messageID)
+	}) {
+		if !o.tangle.Storage.Message(messageID).Consume(func(message *Message) {}) {
+			liked = false
 		}
-	})
+	}
+
 	return
 }
 
@@ -128,14 +133,11 @@ func (o *OpinionFormer) MessageEligible(messageID MessageID) (eligible bool) {
 
 func (o *OpinionFormer) onPayloadOpinionFormed(ev *OpinionFormedEvent) {
 	// set BranchLiked and BranchFinalized if this payload was a conflict
-	o.tangle.Storage.Message(ev.MessageID).Consume(func(message *Message) {
-		if payload := message.Payload(); payload.Type() == ledgerstate.TransactionType {
-			transactionID := payload.(*ledgerstate.Transaction).ID()
-			if o.tangle.LedgerState.TransactionConflicting(transactionID) {
-				o.tangle.LedgerState.branchDAG.SetBranchLiked(o.tangle.LedgerState.BranchID(transactionID), ev.Opinion)
-				// TODO: move this to approval weight logic
-				o.tangle.LedgerState.branchDAG.SetBranchFinalized(o.tangle.LedgerState.BranchID(transactionID), true)
-			}
+	o.tangle.Utils.ComputeIfTransaction(ev.MessageID, func(transactionID ledgerstate.TransactionID) {
+		if o.tangle.LedgerState.TransactionConflicting(transactionID) {
+			o.tangle.LedgerState.branchDAG.SetBranchLiked(o.tangle.LedgerState.BranchID(transactionID), ev.Opinion)
+			// TODO: move this to approval weight logic
+			o.tangle.LedgerState.branchDAG.SetBranchFinalized(o.tangle.LedgerState.BranchID(transactionID), true)
 		}
 	})
 
@@ -168,7 +170,9 @@ func (o *OpinionFormer) parentsEligibility(messageID MessageID) (eligible bool) 
 		eligible = true
 		// check if all the parents are eligible
 		message.ForEachParent(func(parent Parent) {
-			eligible = eligible && o.MessageEligible(parent.ID)
+			if eligible = eligible && o.MessageEligible(parent.ID); !eligible {
+				return
+			}
 		})
 	})
 	return

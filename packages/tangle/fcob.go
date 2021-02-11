@@ -1,7 +1,6 @@
 package tangle
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/database"
@@ -38,7 +37,7 @@ type FCoB struct {
 
 // NewFCoB returns a new instance of FCoB.
 func NewFCoB(store kvstore.KVStore, tangle *Tangle) (fcob *FCoB) {
-	osFactory := objectstorage.NewFactory(store, database.PrefixFCoB)
+	osFactory := objectstorage.NewFactory(store, database.PrefixMessageLayer)
 	fcob = &FCoB{
 		tangle:                   tangle,
 		opinionStorage:           osFactory.New(PrefixFCoB, OpinionFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
@@ -77,26 +76,21 @@ func (f *FCoB) VoteError() *events.Event {
 
 // Opinion returns the liked status of a given messageID.
 func (f *FCoB) Opinion(messageID MessageID) (opinion bool) {
-	f.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		if payload := message.Payload(); payload.Type() == ledgerstate.TransactionType {
-			transactionID := payload.(*ledgerstate.Transaction).ID()
-			opinion = f.OpinionEssence(transactionID).liked
-		}
+	f.tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
+		opinion = f.OpinionEssence(transactionID).liked
 	})
 	return
 }
 
 // Evaluate evaluates the opinion of the given messageID.
 func (f *FCoB) Evaluate(messageID MessageID) {
-	f.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		if payload := message.Payload(); payload.Type() == ledgerstate.TransactionType {
-			transactionID := payload.(*ledgerstate.Transaction).ID()
-			f.onTransactionBooked(transactionID, messageID)
-			return
-		}
-		// likes by default all non-value-transaction messages
-		f.Events.PayloadOpinionFormed.Trigger(&OpinionFormedEvent{messageID, true})
-	})
+	if f.tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
+		f.onTransactionBooked(transactionID, messageID)
+	}) {
+		return
+	}
+	// likes by default all non-value-transaction messages
+	f.Events.PayloadOpinionFormed.Trigger(&OpinionFormedEvent{messageID, true})
 }
 
 func (f *FCoB) onTransactionBooked(transactionID ledgerstate.TransactionID, messageID MessageID) {
@@ -195,23 +189,21 @@ func (f *FCoB) onTransactionBooked(transactionID ledgerstate.TransactionID, mess
 }
 
 // ProcessVote allows an external voter to hand in the results of the voting process.
-func (o *FCoB) ProcessVote(ev *vote.OpinionEvent) {
+func (f *FCoB) ProcessVote(ev *vote.OpinionEvent) {
 	if ev.Ctx.Type == vote.ConflictType {
 		transactionID, err := ledgerstate.TransactionIDFromBase58(ev.ID)
 		if err != nil {
-			fmt.Println("TransactionIDFromBase58 ERROR", transactionID)
-			o.Events.Error.Trigger(err)
-
+			f.Events.Error.Trigger(err)
 			return
 		}
 
-		o.CachedOpinion(transactionID).Consume(func(opinion *Opinion) {
+		f.CachedOpinion(transactionID).Consume(func(opinion *Opinion) {
 			opinion.SetLiked(ev.Opinion == voter.Like)
 			opinion.SetLevelOfKnowledge(Two)
 			// trigger PayloadOpinionFormed event
-			messageIDs := o.tangle.Storage.AttachmentMessageIDs(transactionID)
+			messageIDs := f.tangle.Storage.AttachmentMessageIDs(transactionID)
 			for _, messageID := range messageIDs {
-				o.Events.PayloadOpinionFormed.Trigger(&OpinionFormedEvent{messageID, opinion.liked})
+				f.Events.PayloadOpinionFormed.Trigger(&OpinionFormedEvent{messageID, opinion.liked})
 			}
 		})
 	}

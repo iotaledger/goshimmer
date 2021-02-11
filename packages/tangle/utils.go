@@ -3,6 +3,7 @@ package tangle
 import (
 	"fmt"
 
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/types"
@@ -172,5 +173,17 @@ func (u *Utils) ApprovingMessageIDs(messageID MessageID, optionalApproverType ..
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// ComputeIfTransaction computes the given callback if the given messageID contains a transaction.
+func (u *Utils) ComputeIfTransaction(messageID MessageID, compute func(ledgerstate.TransactionID)) (computed bool) {
+	u.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+		if payload := message.Payload(); payload.Type() == ledgerstate.TransactionType {
+			transactionID := payload.(*ledgerstate.Transaction).ID()
+			compute(transactionID)
+			computed = true
+		}
+	})
+	return
+}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

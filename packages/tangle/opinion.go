@@ -1,12 +1,12 @@
 package tangle
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/byteutils"
+	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
@@ -143,16 +143,16 @@ func OpinionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Opini
 	// parse information
 	result = &Opinion{}
 	if result.timestamp, err = marshalUtil.ReadTime(); err != nil {
-		err = xerrors.Errorf("failed to parse opinion timestamp from MarshalUtil: %w", err)
+		err = xerrors.Errorf("failed to parse opinion timestamp from MarshalUtil (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
 	if result.liked, err = marshalUtil.ReadBool(); err != nil {
-		err = fmt.Errorf("failed to parse liked flag of the opinion: %w", err)
+		err = xerrors.Errorf("failed to parse liked flag of the opinion (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if result.levelOfKnowledge, err = marshalUtil.ReadUint8(); err != nil {
-		err = fmt.Errorf("failed to parse level of knowledge of the opinion: %w", err)
+		err = xerrors.Errorf("failed to parse level of knowledge of the opinion (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -164,14 +164,14 @@ func OpinionFromObjectStorage(key []byte, data []byte) (result objectstorage.Sto
 	// parse the opinion
 	opinion, err := OpinionFromMarshalUtil(marshalutil.New(data))
 	if err != nil {
-		err = fmt.Errorf("failed to parse opinion from object storage: %w", err)
+		err = xerrors.Errorf("failed to parse opinion from object storage (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
 	// parse the TransactionID from they key
 	id, err := ledgerstate.TransactionIDFromMarshalUtil(marshalutil.New(key))
 	if err != nil {
-		err = fmt.Errorf("failed to parse transaction ID from object storage: %w", err)
+		err = xerrors.Errorf("failed to parse transaction ID from object storage (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	opinion.transactionID = id

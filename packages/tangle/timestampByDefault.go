@@ -40,14 +40,12 @@ func (t *TimestampLikedByDefault) Opinion(messageID MessageID) (opinion bool) {
 
 // Evaluate evaluates the opinion of the given messageID.
 func (t *TimestampLikedByDefault) Evaluate(messageID MessageID) {
-	t.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		t.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-			messageMetadata.SetTimestampOpinion(TimestampOpinion{
-				Value: voter.Like,
-				LoK:   Two,
-			})
-			t.Events.TimestampOpinionFormed.Trigger(messageID)
+	t.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		messageMetadata.SetTimestampOpinion(TimestampOpinion{
+			Value: voter.Like,
+			LoK:   Two,
 		})
+		t.Events.TimestampOpinionFormed.Trigger(messageID)
 	})
 }
 
