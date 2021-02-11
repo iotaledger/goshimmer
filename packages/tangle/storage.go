@@ -36,6 +36,9 @@ const (
 	// PrefixMarkerBranchIDMapping defines the storage prefix for the PrefixMarkerBranchIDMapping.
 	PrefixMarkerBranchIDMapping
 
+	// PrefixFCoB defines the storage prefix for FCoB.
+	PrefixFCoB
+
 	cacheTime = 20 * time.Second
 
 	// DBSequenceNumber defines the db sequence number.

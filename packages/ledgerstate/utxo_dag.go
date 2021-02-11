@@ -385,7 +385,6 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 		if txMetadata.BranchID() == conflictBranchID {
 			return
 		}
-
 		conflictBranchParents := NewBranchIDs(txMetadata.BranchID())
 		conflictIDs := conflictingInputs.Filter(u.consumedOutputIDsOfTransaction(transactionID)).ConflictIDs()
 
@@ -487,7 +486,7 @@ func (u *UTXODAG) bookOutputs(transaction *Transaction, targetBranch BranchID) {
 	for outputIndex, output := range transaction.Essence().Outputs() {
 		// store Output
 		output.SetID(NewOutputID(transaction.ID(), uint16(outputIndex)))
-		u.outputStorage.Store(output)
+		u.outputStorage.Store(output).Release()
 
 		// store OutputMetadata
 		metadata := NewOutputMetadata(output.ID())
