@@ -20,6 +20,10 @@ func newTestParentsDataMessage(payloadString string, strongParents, weakParents 
 	return NewMessage(strongParents, weakParents, time.Now(), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
 }
 
+func newTestParentsDataWithTimestamp(payloadString string, strongParents, weakParents []MessageID, timestamp time.Time) *Message {
+	return NewMessage(strongParents, weakParents, timestamp, ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+}
+
 func newTestParentsPayloadMessage(payload payload.Payload, strongParents, weakParents []MessageID) *Message {
 	return NewMessage(strongParents, weakParents, time.Now(), ed25519.PublicKey{}, 0, payload, 0, ed25519.Signature{})
 }

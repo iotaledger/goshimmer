@@ -18,6 +18,7 @@ type Tangle struct {
 	Parser         *Parser
 	Storage        *Storage
 	Solidifier     *Solidifier
+	Scheduler      *Scheduler
 	Booker         *Booker
 	TipManager     *TipManager
 	Requester      *Requester
@@ -48,11 +49,12 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.Parser = NewParser()
 	tangle.Storage = NewStorage(tangle)
 	tangle.Solidifier = NewSolidifier(tangle)
+	tangle.Scheduler = NewScheduler(tangle)
+	tangle.LedgerState = NewLedgerState(tangle)
+	tangle.Booker = NewBooker(tangle)
 	tangle.Requester = NewRequester(tangle)
 	tangle.TipManager = NewTipManager(tangle)
 	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager)
-	tangle.LedgerState = NewLedgerState(tangle)
-	tangle.Booker = NewBooker(tangle)
 	tangle.Utils = NewUtils(tangle)
 
 	tangle.PayloadOpinionProvider = NewFCoB(tangle.Options.Store, tangle)
@@ -68,6 +70,7 @@ func (t *Tangle) Setup() {
 	t.Solidifier.Setup()
 	t.Requester.Setup()
 	t.TipManager.Setup()
+	t.Scheduler.Setup()
 	t.OpinionFormer.Setup()
 	t.MessageFactory.Events.Error.Attach(events.NewClosure(func(err error) {
 		t.Events.Error.Trigger(xerrors.Errorf("error in MessageFactory: %w", err))
@@ -92,6 +95,7 @@ func (t *Tangle) Shutdown() {
 	t.OpinionFormer.Shutdown()
 	t.Booker.Shutdown()
 	t.LedgerState.Shutdown()
+	t.Scheduler.Shutdown()
 	t.Storage.Shutdown()
 	t.Options.Store.Shutdown()
 }
