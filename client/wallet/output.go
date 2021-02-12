@@ -1,16 +1,14 @@
 package wallet
 
 import (
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 // Output is a wallet specific representation of an output in the IOTA network.
 type Output struct {
-	Address        address.Address
-	TransactionID  transaction.ID
-	Balances       map[balance.Color]uint64
+	Address        ledgerstate.Address
+	TransactionID  ledgerstate.TransactionID
+	Balances       *ledgerstate.ColoredBalances
 	InclusionState InclusionState
 }
 

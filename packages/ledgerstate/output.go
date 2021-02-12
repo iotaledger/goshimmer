@@ -182,6 +182,9 @@ type Output interface {
 	// Balances returns the funds that are associated with the Output.
 	Balances() *ColoredBalances
 
+	// Address returns the address that is associated to the output.
+	Address() Address
+
 	// UnlockValid determines if the given Transaction and the corresponding UnlockBlock are allowed to spend the
 	// Output.
 	UnlockValid(tx *Transaction, unlockBlock UnlockBlock) (bool, error)

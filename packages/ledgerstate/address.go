@@ -21,6 +21,9 @@ const (
 	BLSAddressType
 )
 
+// AddressLength contains the length of an address (type length = 1, digest length = 32).
+const AddressLength = 33
+
 // AddressType represents the type of the Address (different types encode different signature schemes).
 type AddressType byte
 

@@ -1,8 +1,11 @@
 package messagelayer
 
 import (
+	"errors"
 	"sync"
+	"time"
 
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
@@ -11,11 +14,18 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+	"golang.org/x/xerrors"
 )
 
 const (
 	// PluginName defines the plugin name.
 	PluginName = "MessageLayer"
+)
+
+var (
+	// ErrMessageWasNotBookedInTime is returned if a message did not get booked
+	// within the defined await time.
+	ErrMessageWasNotBookedInTime = errors.New("message could not be booked in time")
 )
 
 var (
@@ -71,5 +81,59 @@ func run(*node.Plugin) {
 		Tangle().Shutdown()
 	}, shutdown.PriorityTangle); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
+	}
+}
+
+// AwaitMessageToBeBooked awaits maxAwait for the given message to get booked.
+func AwaitMessageToBeBooked(f func() (*tangle.Message, error), txID ledgerstate.TransactionID, maxAwait time.Duration) (*tangle.Message, error) {
+	// first subscribe to the transaction booked event
+	booked := make(chan struct{}, 1)
+	// exit is used to let the caller exit if for whatever
+	// reason the same transaction gets booked multiple times
+	exit := make(chan struct{})
+	defer close(exit)
+	closure := events.NewClosure(func(msgID tangle.MessageID) {
+		Tangle().Storage.Message(msgID).Consume(func(message *tangle.Message) {
+			tx := message.Payload().(*ledgerstate.Transaction)
+			if tx.ID() == txID {
+				return
+			}
+		})
+		select {
+		case booked <- struct{}{}:
+		case <-exit:
+		}
+	})
+	Tangle().Booker.Events.MessageBooked.Attach(closure)
+	defer Tangle().Booker.Events.MessageBooked.Detach(closure)
+
+	// then issue the message with the tx
+
+	// channel to receive the result of issuance
+	issueResult := make(chan struct {
+		msg *tangle.Message
+		err error
+	}, 1)
+
+	go func() {
+		msg, err := f()
+		issueResult <- struct {
+			msg *tangle.Message
+			err error
+		}{msg: msg, err: err}
+	}()
+
+	// wait on issuance
+	result := <-issueResult
+
+	if result.err != nil || result.msg == nil {
+		return nil, xerrors.Errorf("Failed to issue transaction %s: %w", txID.String(), result.err)
+	}
+
+	select {
+	case <-time.After(maxAwait):
+		return nil, ErrMessageWasNotBookedInTime
+	case <-booked:
+		return result.msg, nil
 	}
 }

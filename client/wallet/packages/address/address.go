@@ -1,13 +1,13 @@
 package address
 
 import (
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 // Address represents an address in a wallet. It extends the normal address type with an index number that was used to
 // generate the address from its seed.
 type Address struct {
-	address.Address
+	ledgerstate.Address
 	Index uint64
 }
 

@@ -320,7 +320,7 @@ func (tangle *Tangle) TransactionOutput(outputID transaction.OutputID) *CachedOu
 	return &CachedOutput{CachedObject: tangle.outputStorage.Load(outputID.Bytes())}
 }
 
-// OutputsOnAddress retrieves all the Outputs that are associated with an address.
+// OutputIDsOnAddress retrieves all the Outputs that are associated with an address.
 func (tangle *Tangle) OutputsOnAddress(address address.Address) (result CachedOutputs) {
 	result = make(CachedOutputs)
 	tangle.outputStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {

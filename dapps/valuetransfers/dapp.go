@@ -44,7 +44,7 @@ func init() {
 }
 
 var (
-	// ErrTransactionWasNotBookedInTime is returned if a transaction did not get booked
+	// ErrMessageWasNotBookedInTime is returned if a transaction did not get booked
 	// within the defined await time.
 	ErrTransactionWasNotBookedInTime = errors.New("transaction could not be booked in time")
 
@@ -207,7 +207,7 @@ func ValueObjectFactory() *valuetangle.ValueObjectFactory {
 	return valueObjectFactory
 }
 
-// AwaitTransactionToBeBooked awaits maxAwait for the given transaction to get booked.
+// AwaitMessageToBeBooked awaits maxAwait for the given transaction to get booked.
 func AwaitTransactionToBeBooked(f func() (*tangle.Message, error), txID transaction.ID, maxAwait time.Duration) (*tangle.Message, error) {
 	// first subscribe to the transaction booked event
 	booked := make(chan struct{}, 1)
