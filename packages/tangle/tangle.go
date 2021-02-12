@@ -57,10 +57,11 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager)
 	tangle.Utils = NewUtils(tangle)
 
-	tangle.PayloadOpinionProvider = NewFCoB(tangle.Options.Store, tangle)
-	tangle.TimestampOpinionProvider = NewTimestampLikedByDefault(tangle)
-	tangle.OpinionFormer = NewOpinionFormer(tangle, tangle.PayloadOpinionProvider, tangle.TimestampOpinionProvider)
-
+	if !tangle.Options.WithoutOpinionFormer {
+		tangle.PayloadOpinionProvider = NewFCoB(tangle.Options.Store, tangle)
+		tangle.TimestampOpinionProvider = NewTimestampLikedByDefault(tangle)
+		tangle.OpinionFormer = NewOpinionFormer(tangle, tangle.PayloadOpinionProvider, tangle.TimestampOpinionProvider)
+	}
 	return
 }
 
@@ -71,7 +72,10 @@ func (t *Tangle) Setup() {
 	t.Requester.Setup()
 	t.TipManager.Setup()
 	t.Scheduler.Setup()
-	t.OpinionFormer.Setup()
+	if !t.Options.WithoutOpinionFormer {
+		t.OpinionFormer.Setup()
+		return
+	}
 	t.MessageFactory.Events.Error.Attach(events.NewClosure(func(err error) {
 		t.Events.Error.Trigger(xerrors.Errorf("error in MessageFactory: %w", err))
 	}))
@@ -92,7 +96,9 @@ func (t *Tangle) Prune() (err error) {
 // Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
 func (t *Tangle) Shutdown() {
 	t.MessageFactory.Shutdown()
-	t.OpinionFormer.Shutdown()
+	if !t.Options.WithoutOpinionFormer {
+		t.OpinionFormer.Shutdown()
+	}
 	t.Booker.Shutdown()
 	t.LedgerState.Shutdown()
 	t.Scheduler.Shutdown()
@@ -130,8 +136,9 @@ type Option func(*Options)
 
 // Options is a container for all configurable parameters of the Tangle.
 type Options struct {
-	Store    kvstore.KVStore
-	Identity *identity.LocalIdentity
+	Store                kvstore.KVStore
+	Identity             *identity.LocalIdentity
+	WithoutOpinionFormer bool
 }
 
 // buildOptions generates the Options object use by the Tangle.
@@ -159,6 +166,13 @@ func Store(store kvstore.KVStore) Option {
 func Identity(identity *identity.LocalIdentity) Option {
 	return func(options *Options) {
 		options.Identity = identity
+	}
+}
+
+// WithoutOpinionFormer an Option for the Tangle that allows to diable the OpinionFormer component.
+func WithoutOpinionFormer(with bool) Option {
+	return func(options *Options) {
+		options.WithoutOpinionFormer = with
 	}
 }
 
