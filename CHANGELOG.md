@@ -12,7 +12,7 @@
 * Introduce invalid message flag
 * Merge the new data flow
 * Fix visualizer bug
-* Update hive.go with improved autopeering
+* Update hive.go
 * Update JS dependencies
 * **Breaking**: bumps network and database versions
 
