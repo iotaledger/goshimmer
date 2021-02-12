@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/set"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
@@ -39,7 +40,9 @@ type UTXODAG struct {
 func NewUTXODAG(store kvstore.KVStore, branchDAG *BranchDAG) (utxoDAG *UTXODAG) {
 	osFactory := objectstorage.NewFactory(store, database.PrefixLedgerState)
 	utxoDAG = &UTXODAG{
-		Events:                      NewUTXODAGEvents(),
+		Events: &UTXODAGEvents{
+			TransactionBranchIDUpdated: events.NewEvent(transactionIDEventHandler),
+		},
 		transactionStorage:          osFactory.New(PrefixTransactionStorage, TransactionFromObjectStorage, transactionStorageOptions...),
 		transactionMetadataStorage:  osFactory.New(PrefixTransactionMetadataStorage, TransactionMetadataFromObjectStorage, transactionMetadataStorageOptions...),
 		outputStorage:               osFactory.New(PrefixOutputStorage, OutputFromObjectStorage, outputStorageOptions...),
@@ -350,6 +353,7 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 		cachedConsumingConflictBranch.Release()
 
 		txMetadata.SetBranchID(conflictBranchID)
+		u.Events.TransactionBranchIDUpdated.Trigger(transactionID)
 
 		outputIds := u.createdOutputIDsOfTransaction(transactionID)
 		for _, outputID := range outputIds {
@@ -397,6 +401,8 @@ func (u *UTXODAG) propagateBranchUpdates(transactionID TransactionID) (updatedOu
 func (u *UTXODAG) updateBranchOfTransaction(transactionID TransactionID, branchID BranchID) (updatedOutputs []OutputID) {
 	if !u.TransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
 		if transactionMetadata.SetBranchID(branchID) {
+			u.Events.TransactionBranchIDUpdated.Trigger(transactionID)
+
 			updatedOutputs = u.createdOutputIDsOfTransaction(transactionID)
 			for _, outputID := range updatedOutputs {
 				if !u.OutputMetadata(outputID).Consume(func(outputMetadata *OutputMetadata) {
@@ -779,11 +785,13 @@ func (u *UTXODAG) lockTransaction(transaction *Transaction) {
 // region UTXODAGEvents ////////////////////////////////////////////////////////////////////////////////////////////////
 
 // UTXODAGEvents is a container for all of the UTXODAG related events.
-type UTXODAGEvents struct{}
+type UTXODAGEvents struct {
+	// TransactionBranchIDUpdated gets triggered when the BranchID of a Transaction is changed after the initial booking.
+	TransactionBranchIDUpdated *events.Event
+}
 
-// NewUTXODAGEvents creates a container for all of the UTXODAG related events.
-func NewUTXODAGEvents() *UTXODAGEvents {
-	return &UTXODAGEvents{}
+func transactionIDEventHandler(handler interface{}, params ...interface{}) {
+	handler.(func(TransactionID))(params[0].(TransactionID))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
