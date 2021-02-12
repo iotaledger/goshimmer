@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/packages/vote"
+	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/consensus"
 	"github.com/iotaledger/hive.go/daemon"
@@ -47,7 +47,7 @@ func Plugin() *node.Plugin {
 }
 
 func run(_ *node.Plugin) {
-	finalized = make(map[string]vote.Opinion)
+	finalized = make(map[string]opinion.Opinion)
 	log = logger.NewLogger(PluginName)
 	conn = NewConnector("tcp", config.Node().String(CfgServerAddress))
 

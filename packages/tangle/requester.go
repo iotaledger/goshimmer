@@ -3,22 +3,25 @@ package tangle
 import (
 	"sync"
 	"time"
+
+	"github.com/iotaledger/hive.go/events"
 )
 
 const (
 	// DefaultRetryInterval defines the Default Retry Interval of the message requester.
 	DefaultRetryInterval = 10 * time.Second
+
 	// the maximum amount of requests before we abort
 	maxRequestThreshold = 500
 )
 
-// Options holds options for a message requester.
-type Options struct {
+// RequesterOptions holds options for a message requester.
+type RequesterOptions struct {
 	retryInterval time.Duration
 }
 
-func newOptions(optionalOptions []Option) *Options {
-	result := &Options{
+func newRequesterOptions(optionalOptions []RequesterOption) *RequesterOptions {
+	result := &RequesterOptions{
 		retryInterval: 10 * time.Second,
 	}
 
@@ -29,20 +32,23 @@ func newOptions(optionalOptions []Option) *Options {
 	return result
 }
 
-// Option is a function which inits an option.
-type Option func(*Options)
+// RequesterOption is a function which inits an option.
+type RequesterOption func(*RequesterOptions)
 
 // RetryInterval creates an option which sets the retry interval to the given value.
-func RetryInterval(interval time.Duration) Option {
-	return func(args *Options) {
+func RetryInterval(interval time.Duration) RequesterOption {
+	return func(args *RequesterOptions) {
 		args.retryInterval = interval
 	}
 }
 
-// MessageRequester takes care of requesting messages.
-type MessageRequester struct {
+// region Requester /////////////////////////////////////////////////////////////////////////////////////////////
+
+// Requester takes care of requesting messages.
+type Requester struct {
+	tangle            *Tangle
 	scheduledRequests map[MessageID]*time.Timer
-	options           *Options
+	options           *RequesterOptions
 	Events            *MessageRequesterEvents
 
 	scheduledRequestsMutex sync.RWMutex
@@ -51,27 +57,36 @@ type MessageRequester struct {
 // MessageExistsFunc is a function that tells if a message exists.
 type MessageExistsFunc func(messageId MessageID) bool
 
-// NewMessageRequester creates a new message requester.
-func NewMessageRequester(missingMessages []MessageID, optionalOptions ...Option) *MessageRequester {
-	requester := &MessageRequester{
+// NewRequester creates a new message requester.
+func NewRequester(tangle *Tangle, optionalOptions ...RequesterOption) *Requester {
+	requester := &Requester{
+		tangle:            tangle,
 		scheduledRequests: make(map[MessageID]*time.Timer),
-		options:           newOptions(optionalOptions),
-		Events:            newMessageRequesterEvents(),
+		options:           newRequesterOptions(optionalOptions),
+		Events: &MessageRequesterEvents{
+			SendRequest: events.NewEvent(sendRequestEventHandler),
+		},
 	}
 
 	// add requests for all missing messages
 	requester.scheduledRequestsMutex.Lock()
 	defer requester.scheduledRequestsMutex.Unlock()
 
-	for _, id := range missingMessages {
+	for _, id := range tangle.Storage.MissingMessages() {
 		requester.scheduledRequests[id] = time.AfterFunc(requester.options.retryInterval, requester.createReRequest(id, 0))
 	}
 
 	return requester
 }
 
+// Setup sets up the behavior of the component by making it attach to the relevant events of other components.
+func (r *Requester) Setup() {
+	r.tangle.Solidifier.Events.MessageMissing.Attach(events.NewClosure(r.StartRequest))
+	r.tangle.Storage.Events.MissingMessageStored.Attach(events.NewClosure(r.StopRequest))
+}
+
 // StartRequest initiates a regular triggering of the StartRequest event until it has been stopped using StopRequest.
-func (r *MessageRequester) StartRequest(id MessageID) {
+func (r *Requester) StartRequest(id MessageID) {
 	r.scheduledRequestsMutex.Lock()
 
 	// ignore already scheduled requests
@@ -87,7 +102,7 @@ func (r *MessageRequester) StartRequest(id MessageID) {
 }
 
 // StopRequest stops requests for the given message to further happen.
-func (r *MessageRequester) StopRequest(id MessageID) {
+func (r *Requester) StopRequest(id MessageID) {
 	r.scheduledRequestsMutex.Lock()
 	defer r.scheduledRequestsMutex.Unlock()
 
@@ -97,7 +112,7 @@ func (r *MessageRequester) StopRequest(id MessageID) {
 	}
 }
 
-func (r *MessageRequester) reRequest(id MessageID, count int) {
+func (r *Requester) reRequest(id MessageID, count int) {
 	r.Events.SendRequest.Trigger(&SendRequestEvent{ID: id})
 
 	// as we schedule a request at most once per id we do not need to make the trigger and the re-schedule atomic
@@ -122,12 +137,37 @@ func (r *MessageRequester) reRequest(id MessageID, count int) {
 }
 
 // RequestQueueSize returns the number of scheduled message requests.
-func (r *MessageRequester) RequestQueueSize() int {
+func (r *Requester) RequestQueueSize() int {
 	r.scheduledRequestsMutex.RLock()
 	defer r.scheduledRequestsMutex.RUnlock()
 	return len(r.scheduledRequests)
 }
 
-func (r *MessageRequester) createReRequest(msgID MessageID, count int) func() {
+func (r *Requester) createReRequest(msgID MessageID, count int) func() {
 	return func() { r.reRequest(msgID, count) }
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region MessageRequesterEvents ///////////////////////////////////////////////////////////////////////////////////////
+
+// MessageRequesterEvents represents events happening on a message requester.
+type MessageRequesterEvents struct {
+	// Fired when a request for a given message should be sent.
+	SendRequest *events.Event
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region SendRequestEvent /////////////////////////////////////////////////////////////////////////////////////////////
+
+// SendRequestEvent represents the parameters of sendRequestEventHandler
+type SendRequestEvent struct {
+	ID MessageID
+}
+
+func sendRequestEventHandler(handler interface{}, params ...interface{}) {
+	handler.(func(*SendRequestEvent))(params[0].(*SendRequestEvent))
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

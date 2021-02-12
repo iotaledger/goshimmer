@@ -20,7 +20,6 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/timeutil"
 )
 
@@ -93,30 +92,27 @@ func registerLocalMetrics() {
 	//// Events declared in other packages which we want to listen to here ////
 
 	// increase received MPS counter whenever we attached a message
-	messagelayer.Tangle().Events.MessageAttached.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
-		_payloadType := cachedMsgEvent.Message.Unwrap().Payload().Type()
-		cachedMsgEvent.Message.Release()
-		cachedMsgEvent.MessageMetadata.Release()
-		increaseReceivedMPSCounter()
-		increasePerPayloadCounter(_payloadType)
-		// MessageAttached is triggered in storeMessageWorker that saves the msg to database
-		messageTotalCountDB.Inc()
-
+	messagelayer.Tangle().Storage.Events.MessageStored.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
+			increaseReceivedMPSCounter()
+			increasePerPayloadCounter(message.Payload().Type())
+			// MessageStored is triggered in storeMessageWorker that saves the msg to database
+			messageTotalCountDB.Inc()
+		})
 	}))
 
-	messagelayer.Tangle().Events.MessageRemoved.Attach(events.NewClosure(func(messageId tangle.MessageID) {
+	messagelayer.Tangle().Storage.Events.MessageRemoved.Attach(events.NewClosure(func(messageId tangle.MessageID) {
 		// MessageRemoved triggered when the message gets removed from database.
 		messageTotalCountDB.Dec()
 	}))
 
 	// messages can only become solid once, then they stay like that, hence no .Dec() part
-	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
-		cachedMsgEvent.Message.Release()
+	messagelayer.Tangle().Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		solidTimeMutex.Lock()
 		defer solidTimeMutex.Unlock()
+
 		// Consume should release cachedMessageMetadata
-		cachedMsgEvent.MessageMetadata.Consume(func(object objectstorage.StorableObject) {
-			msgMetaData := object.(*tangle.MessageMetadata)
+		messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(msgMetaData *tangle.MessageMetadata) {
 			if msgMetaData.IsSolid() {
 				messageSolidCountDBInc.Inc()
 				sumSolidificationTime += msgMetaData.SolidificationTime().Sub(msgMetaData.ReceivedTime())
@@ -125,14 +121,12 @@ func registerLocalMetrics() {
 	}))
 
 	// fired when a message gets added to missing message storage
-	messagelayer.Tangle().Events.MessageMissing.Attach(events.NewClosure(func(messageId tangle.MessageID) {
+	messagelayer.Tangle().Solidifier.Events.MessageMissing.Attach(events.NewClosure(func(messageId tangle.MessageID) {
 		missingMessageCountDB.Inc()
 	}))
 
 	// fired when a missing message was received and removed from missing message storage
-	messagelayer.Tangle().Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
-		cachedMsgEvent.Message.Release()
-		cachedMsgEvent.MessageMetadata.Release()
+	messagelayer.Tangle().Storage.Events.MissingMessageStored.Attach(events.NewClosure(func(tangle.MessageID) {
 		missingMessageCountDB.Dec()
 	}))
 

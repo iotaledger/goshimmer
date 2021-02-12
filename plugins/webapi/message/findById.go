@@ -30,11 +30,15 @@ func findByIDHandler(c echo.Context) error {
 			return c.JSON(http.StatusBadRequest, FindByIDResponse{Error: err.Error()})
 		}
 
-		msgObject := messagelayer.Tangle().Message(msgID)
-		msgMetadataObject := messagelayer.Tangle().MessageMetadata(msgID)
+		msgObject := messagelayer.Tangle().Storage.Message(msgID)
+		msgMetadataObject := messagelayer.Tangle().Storage.MessageMetadata(msgID)
 
 		if !msgObject.Exists() || !msgMetadataObject.Exists() {
 			result = append(result, Message{})
+
+			msgObject.Release()
+			msgMetadataObject.Release()
+
 			continue
 		}
 

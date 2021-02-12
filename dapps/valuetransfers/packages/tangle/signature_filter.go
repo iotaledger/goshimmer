@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/peer"
 )
 
-// SignatureFilter represents a filter for the MessageParser that filters out transactions with an invalid signature.
+// SignatureFilter represents a filter for the Parser that filters out transactions with an invalid signature.
 type SignatureFilter struct {
 	onAcceptCallback      func(message *tangle.Message, peer *peer.Peer)
 	onRejectCallback      func(message *tangle.Message, err error, peer *peer.Peer)

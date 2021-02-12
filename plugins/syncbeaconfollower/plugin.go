@@ -165,9 +165,8 @@ func configure(_ *node.Plugin) {
 		log.Panicf("Follow node list cannot be empty: %w", ErrMissingFollowNodes)
 	}
 
-	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
-		cachedMsgEvent.MessageMetadata.Release()
-		cachedMsgEvent.Message.Consume(func(msg *tangle.Message) {
+	messagelayer.Tangle().Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		messagelayer.Tangle().Storage.Message(messageID).Consume(func(msg *tangle.Message) {
 			messagePayload := msg.Payload()
 			if messagePayload.Type() != syncbeacon_payload.Type {
 				return

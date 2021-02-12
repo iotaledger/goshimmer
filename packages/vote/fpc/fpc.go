@@ -11,6 +11,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/vote"
+	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/hive.go/events"
 )
 
@@ -22,7 +23,7 @@ var (
 )
 
 // New creates a new FPC instance.
-func New(opinionGiverFunc vote.OpinionGiverFunc, paras ...*Parameters) *FPC {
+func New(opinionGiverFunc opinion.OpinionGiverFunc, paras ...*Parameters) *FPC {
 	f := &FPC{
 		opinionGiverFunc: opinionGiverFunc,
 		paras:            DefaultParameters(),
@@ -47,7 +48,7 @@ func New(opinionGiverFunc vote.OpinionGiverFunc, paras ...*Parameters) *FPC {
 // in order to finalize an Opinion.
 type FPC struct {
 	events           vote.Events
-	opinionGiverFunc vote.OpinionGiverFunc
+	opinionGiverFunc opinion.OpinionGiverFunc
 	// the lifo queue of newly enqueued items to vote on.
 	queue *list.List
 	// contains a set of currently queued items.
@@ -65,7 +66,7 @@ type FPC struct {
 }
 
 // Vote sets an initial opinion on the vote context and enqueues the vote context.
-func (f *FPC) Vote(id string, objectType vote.ObjectType, initOpn vote.Opinion) error {
+func (f *FPC) Vote(id string, objectType vote.ObjectType, initOpn opinion.Opinion) error {
 	f.queueMu.Lock()
 	defer f.queueMu.Unlock()
 	f.ctxsMu.RLock()
@@ -83,12 +84,12 @@ func (f *FPC) Vote(id string, objectType vote.ObjectType, initOpn vote.Opinion) 
 
 // IntermediateOpinion returns the last formed opinion.
 // If the vote is not found for the specified ID, it returns with error ErrVotingNotFound.
-func (f *FPC) IntermediateOpinion(id string) (vote.Opinion, error) {
+func (f *FPC) IntermediateOpinion(id string) (opinion.Opinion, error) {
 	f.ctxsMu.RLock()
 	defer f.ctxsMu.RUnlock()
 	voteCtx, has := f.ctxs[id]
 	if !has {
-		return vote.Unknown, fmt.Errorf("%w: %s", vote.ErrVotingNotFound, id)
+		return opinion.Unknown, fmt.Errorf("%w: %s", vote.ErrVotingNotFound, id)
 	}
 	return voteCtx.LastOpinion(), nil
 }
@@ -101,7 +102,7 @@ func (f *FPC) Events() vote.Events {
 // Round enqueues new items, sets opinions on active vote contexts, finalizes them and then
 // queries for opinions.
 func (f *FPC) Round(rand float64) error {
-	start := clock.SyncedTime()
+	start := time.Now()
 	// enqueue new voting contexts
 	f.enqueue()
 	// we can only form opinions when the last round was actually executed successfully
@@ -164,10 +165,10 @@ func (f *FPC) formOpinions(rand float64) {
 		}
 
 		if voteCtx.Liked >= RandUniformThreshold(rand, lowerThreshold, upperThreshold) {
-			voteCtx.AddOpinion(vote.Like)
+			voteCtx.AddOpinion(opinion.Like)
 			continue
 		}
-		voteCtx.AddOpinion(vote.Dislike)
+		voteCtx.AddOpinion(opinion.Dislike)
 	}
 }
 
@@ -189,7 +190,7 @@ func (f *FPC) finalizeOpinions() {
 }
 
 // queries the opinions of QuerySampleSize amount of OpinionGivers.
-func (f *FPC) queryOpinions() ([]vote.QueriedOpinions, error) {
+func (f *FPC) queryOpinions() ([]opinion.QueriedOpinions, error) {
 	conflictIDs, timestampIDs := f.voteContextIDs()
 
 	// nothing to vote on
@@ -210,7 +211,7 @@ func (f *FPC) queryOpinions() ([]vote.QueriedOpinions, error) {
 	// select a random subset of opinion givers to query.
 	// if the same opinion giver is selected multiple times, we query it only once
 	// but use its opinion N selected times.
-	opinionGiversToQuery := map[vote.OpinionGiver]int{}
+	opinionGiversToQuery := map[opinion.OpinionGiver]int{}
 	for i := 0; i < f.paras.QuerySampleSize; i++ {
 		selected := opinionGivers[f.opinionGiverRng.Intn(len(opinionGivers))]
 		opinionGiversToQuery[selected]++
@@ -218,16 +219,16 @@ func (f *FPC) queryOpinions() ([]vote.QueriedOpinions, error) {
 
 	// votes per id
 	var voteMapMu sync.Mutex
-	voteMap := map[string]vote.Opinions{}
+	voteMap := map[string]opinion.Opinions{}
 
 	// holds queried opinions
-	allQueriedOpinions := []vote.QueriedOpinions{}
+	allQueriedOpinions := []opinion.QueriedOpinions{}
 
 	// send queries
 	var wg sync.WaitGroup
 	for opinionGiverToQuery, selectedCount := range opinionGiversToQuery {
 		wg.Add(1)
-		go func(opinionGiverToQuery vote.OpinionGiver, selectedCount int) {
+		go func(opinionGiverToQuery opinion.OpinionGiver, selectedCount int) {
 			defer wg.Done()
 
 			queryCtx, cancel := context.WithTimeout(context.Background(), f.paras.QueryTimeout)
@@ -240,9 +241,9 @@ func (f *FPC) queryOpinions() ([]vote.QueriedOpinions, error) {
 				return
 			}
 
-			queriedOpinions := vote.QueriedOpinions{
+			queriedOpinions := opinion.QueriedOpinions{
 				OpinionGiverID: opinionGiverToQuery.ID().String(),
-				Opinions:       make(map[string]vote.Opinion),
+				Opinions:       make(map[string]opinion.Opinion),
 				TimesCounted:   selectedCount,
 			}
 
@@ -252,7 +253,7 @@ func (f *FPC) queryOpinions() ([]vote.QueriedOpinions, error) {
 			for i, id := range conflictIDs {
 				votes, has := voteMap[id]
 				if !has {
-					votes = vote.Opinions{}
+					votes = opinion.Opinions{}
 				}
 				// reuse the opinion N times selected.
 				// note this is always at least 1.
@@ -265,7 +266,7 @@ func (f *FPC) queryOpinions() ([]vote.QueriedOpinions, error) {
 			for i, id := range timestampIDs {
 				votes, has := voteMap[id]
 				if !has {
-					votes = vote.Opinions{}
+					votes = opinion.Opinions{}
 				}
 				// reuse the opinion N times selected.
 				// note this is always at least 1.
@@ -287,11 +288,11 @@ func (f *FPC) queryOpinions() ([]vote.QueriedOpinions, error) {
 		var likedSum float64
 		votedCount := float64(len(votes))
 
-		for _, opinion := range votes {
-			switch opinion {
-			case vote.Unknown:
+		for _, o := range votes {
+			switch o {
+			case opinion.Unknown:
 				votedCount--
-			case vote.Like:
+			case opinion.Like:
 				likedSum++
 			}
 		}

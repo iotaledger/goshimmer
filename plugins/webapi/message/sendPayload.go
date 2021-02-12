@@ -5,6 +5,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/labstack/echo"
 )
 
@@ -22,7 +23,7 @@ func sendPayloadHandler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, SendPayloadResponse{Error: err.Error()})
 	}
 
-	msg, err := issuer.IssuePayload(parsedPayload)
+	msg, err := issuer.IssuePayload(parsedPayload, messagelayer.Tangle())
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, SendPayloadResponse{Error: err.Error()})
 	}

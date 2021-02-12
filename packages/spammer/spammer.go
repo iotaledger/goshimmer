@@ -11,7 +11,7 @@ import (
 )
 
 // IssuePayloadFunc is a function which issues a payload.
-type IssuePayloadFunc = func(payload payload.Payload) (*tangle.Message, error)
+type IssuePayloadFunc = func(payload payload.Payload, t ...*tangle.Tangle) (*tangle.Message, error)
 
 // Spammer spams messages with a static data payload.
 type Spammer struct {

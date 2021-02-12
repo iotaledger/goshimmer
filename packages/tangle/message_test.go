@@ -15,8 +15,6 @@ import (
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/assert"
@@ -26,7 +24,10 @@ import (
 
 func randomBytes(size uint) []byte {
 	buffer := make([]byte, size)
-	_, _ = rand.Read(buffer)
+	_, err := rand.Read(buffer)
+	if err != nil {
+		panic(err)
+	}
 	return buffer
 }
 
@@ -187,10 +188,10 @@ func TestMessage_VerifySignature(t *testing.T) {
 }
 
 func TestMessage_MarshalUnmarshal(t *testing.T) {
-	msgFactory := NewMessageFactory(mapdb.NewMapDB(), []byte(DBSequenceNumber), identity.GenerateLocalIdentity(), NewMessageTipSelector())
-	defer msgFactory.Shutdown()
+	tangle := New()
+	defer tangle.Shutdown()
 
-	testMessage, err := msgFactory.IssuePayload(payload.NewGenericDataPayload([]byte("test")))
+	testMessage, err := tangle.MessageFactory.IssuePayload(payload.NewGenericDataPayload([]byte("test")))
 	require.NoError(t, err)
 	assert.Equal(t, true, testMessage.VerifySignature())
 

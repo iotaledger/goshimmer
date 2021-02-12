@@ -13,40 +13,38 @@ import (
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	_ "golang.org/x/crypto/blake2b"
 )
 
 const (
-	sequenceKey   = "seq"
 	targetPOW     = 10
 	totalMessages = 2000
 )
 
 func TestMessageFactory_BuildMessage(t *testing.T) {
-	msgFactory := NewMessageFactory(
-		mapdb.NewMapDB(),
-		[]byte(sequenceKey),
-		identity.GenerateLocalIdentity(),
+	tangle := New()
+	defer tangle.Shutdown()
+
+	tangle.MessageFactory = NewMessageFactory(
+		tangle,
 		TipSelectorFunc(func(count int) []MessageID { return []MessageID{EmptyMessageID} }),
 	)
-	defer msgFactory.Shutdown()
+	defer tangle.MessageFactory.Shutdown()
 
 	// keep track of sequence numbers
 	sequenceNumbers := sync.Map{}
 
 	// attach to event and count
 	countEvents := uint64(0)
-	msgFactory.Events.MessageConstructed.Attach(events.NewClosure(func(msg *Message) {
+	tangle.MessageFactory.Events.MessageConstructed.Attach(events.NewClosure(func(msg *Message) {
 		atomic.AddUint64(&countEvents, 1)
 	}))
 
 	t.Run("CheckProperties", func(t *testing.T) {
 		p := payload.NewGenericDataPayload([]byte("TestCheckProperties"))
-		msg, err := msgFactory.IssuePayload(p)
+		msg, err := tangle.MessageFactory.IssuePayload(p)
 		require.NoError(t, err)
 
 		// TODO: approval switch: make test case with weak parents
@@ -72,7 +70,7 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 				t.Parallel()
 
 				p := payload.NewGenericDataPayload([]byte("TestParallelCreation"))
-				msg, err := msgFactory.IssuePayload(p)
+				msg, err := tangle.MessageFactory.IssuePayload(p)
 				require.NoError(t, err)
 
 				// TODO: approval switch: make test case with weak parents
@@ -113,10 +111,11 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 }
 
 func TestMessageFactory_POW(t *testing.T) {
+	tangle := New()
+	defer tangle.Shutdown()
+
 	msgFactory := NewMessageFactory(
-		mapdb.NewMapDB(),
-		[]byte(sequenceKey),
-		identity.GenerateLocalIdentity(),
+		tangle,
 		TipSelectorFunc(func(count int) []MessageID { return []MessageID{EmptyMessageID} }),
 	)
 	defer msgFactory.Shutdown()
@@ -140,10 +139,11 @@ func TestMessageFactory_POW(t *testing.T) {
 }
 
 func TestWorkerFunc_PayloadSize(t *testing.T) {
+	testTangle := New()
+	defer testTangle.Shutdown()
+
 	msgFactory := NewMessageFactory(
-		mapdb.NewMapDB(),
-		[]byte(sequenceKey),
-		identity.GenerateLocalIdentity(),
+		testTangle,
 		TipSelectorFunc(func(count int) []MessageID {
 			return func() []MessageID {
 				result := make([]MessageID, 0, MaxParentsCount)

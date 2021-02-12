@@ -13,6 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/packages/vote/fpc"
 	votenet "github.com/iotaledger/goshimmer/packages/vote/net"
+	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/goshimmer/packages/vote/statement"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/config"
@@ -109,7 +110,7 @@ func configure(_ *node.Plugin) {
 	configureFPC()
 
 	// subscribe to FCOB events
-	valuetransfers.FCOB().Events.Vote.Attach(events.NewClosure(func(id string, initOpn vote.Opinion) {
+	valuetransfers.FCOB().Events.Vote.Attach(events.NewClosure(func(id string, initOpn opinion.Opinion) {
 		if err := Voter().Vote(id, vote.ConflictType, initOpn); err != nil {
 			log.Warnf("FPC vote: %s", err)
 		}
@@ -119,7 +120,7 @@ func configure(_ *node.Plugin) {
 	}))
 
 	// subscribe to message-layer
-	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(readStatement))
+	messagelayer.Tangle().Scheduler.Events.MessageScheduled.Attach(events.NewClosure(readStatement))
 }
 
 func run(_ *node.Plugin) {

@@ -6,6 +6,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/vote"
+	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/hive.go/events"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
@@ -13,7 +14,7 @@ import (
 
 // OpinionRetriever retrieves the opinion for the given ID and object type.
 // If there's no opinion, the function should return Unknown.
-type OpinionRetriever func(id string, objectType vote.ObjectType) vote.Opinion
+type OpinionRetriever func(id string, objectType vote.ObjectType) opinion.Opinion
 
 // New creates a new VoterServer.
 func New(voter vote.Voter, opnRetriever OpinionRetriever, bindAddr string, netRxEvent, netTxEvent, queryReceivedEvent *events.Event) *VoterServer {

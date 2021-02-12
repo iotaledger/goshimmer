@@ -56,7 +56,7 @@ func configure(_ *node.Plugin) {
 
 	if config.Node().Bool(CfgSyncBeaconStartSynced) {
 		log.Infof("Retrieving all the tips")
-		messagelayer.TipSelector().Set(messagelayer.Tangle().RetrieveAllTips()...)
+		messagelayer.Tangle().TipManager.Set(messagelayer.Tangle().Storage.RetrieveAllTips()...)
 
 		syncbeaconfollower.OverwriteSyncedState(true)
 		log.Infof("overwriting synced state to 'true'")
@@ -70,7 +70,7 @@ func broadcastSyncBeaconPayload() (doneSignal chan struct{}) {
 		defer close(doneSignal)
 
 		syncBeaconPayload := payload.NewSyncBeaconPayload(clock.SyncedTime().UnixNano())
-		msg, err := issuer.IssuePayload(syncBeaconPayload)
+		msg, err := issuer.IssuePayload(syncBeaconPayload, messagelayer.Tangle())
 
 		if err != nil {
 			log.Warnf("error issuing sync beacon: %w", err)

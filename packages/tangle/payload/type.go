@@ -10,6 +10,9 @@ import (
 	"golang.org/x/xerrors"
 )
 
+// TypeLength contains the amount of bytes of a marshaled Type.
+const TypeLength = marshalutil.Uint32Size
+
 // Type represents the Type of a payload.
 type Type uint32
 

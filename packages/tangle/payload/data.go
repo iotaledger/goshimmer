@@ -54,7 +54,7 @@ func GenericDataPayloadFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (ge
 		err = xerrors.Errorf("failed to parse Type from MarshalUtil: %w", err)
 		return
 	}
-	if genericDataPayload.data, err = marshalUtil.ReadBytes(int(payloadSize)); err != nil {
+	if genericDataPayload.data, err = marshalUtil.ReadBytes(int(payloadSize) - TypeLength); err != nil {
 		err = xerrors.Errorf("failed to parse data (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
@@ -75,7 +75,7 @@ func (g *GenericDataPayload) Blob() []byte {
 // Bytes returns a marshaled version of the Payload.
 func (g *GenericDataPayload) Bytes() []byte {
 	return marshalutil.New().
-		WriteUint32(uint32(len(g.data))).
+		WriteUint32(TypeLength + uint32(len(g.data))).
 		WriteBytes(g.Type().Bytes()).
 		WriteBytes(g.Blob()).
 		Bytes()

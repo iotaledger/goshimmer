@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/vote/statement"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/identity"
 )
 
@@ -51,7 +52,7 @@ func makeStatement(roundStats *vote.RoundStats) {
 
 // broadcastStatement broadcasts a statement via communication layer.
 func broadcastStatement(conflicts statement.Conflicts, timestamps statement.Timestamps) {
-	msg, err := issuer.IssuePayload(statement.New(conflicts, timestamps))
+	msg, err := issuer.IssuePayload(statement.New(conflicts, timestamps), messagelayer.Tangle())
 
 	if err != nil {
 		log.Warnf("error issuing statement: %s", err)
@@ -61,10 +62,8 @@ func broadcastStatement(conflicts statement.Conflicts, timestamps statement.Time
 	log.Debugf("issued statement %s", msg.ID())
 }
 
-func readStatement(cachedMsgEvent *tangle.CachedMessageEvent) {
-	defer cachedMsgEvent.MessageMetadata.Release()
-
-	cachedMsgEvent.Message.Consume(func(msg *tangle.Message) {
+func readStatement(messageID tangle.MessageID) {
+	messagelayer.Tangle().Storage.Message(messageID).Consume(func(msg *tangle.Message) {
 		messagePayload := msg.Payload()
 		if messagePayload.Type() != statement.StatementType {
 			return
@@ -89,13 +88,14 @@ func readStatement(cachedMsgEvent *tangle.CachedMessageEvent) {
 
 		issuerRegistry.AddTimestamps(statementPayload.Timestamps)
 
-		msgMetaData := cachedMsgEvent.MessageMetadata.Unwrap()
-		sendToRemoteLog(
-			msg.ID().String(),
-			issuerID.String(),
-			msg.IssuingTime().UnixNano(),
-			msgMetaData.ReceivedTime().UnixNano(),
-			msgMetaData.SolidificationTime().UnixNano(),
-		)
+		messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
+			sendToRemoteLog(
+				msg.ID().String(),
+				issuerID.String(),
+				msg.IssuingTime().UnixNano(),
+				messageMetadata.ReceivedTime().UnixNano(),
+				messageMetadata.SolidificationTime().UnixNano(),
+			)
+		})
 	})
 }

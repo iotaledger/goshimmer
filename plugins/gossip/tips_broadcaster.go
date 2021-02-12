@@ -80,7 +80,7 @@ func startTipBroadcaster(shutdownSignal <-chan struct{}) {
 	addClosure := events.NewClosure(tips.AddTip)
 
 	// attach the tip list to the TipSelector
-	tipSelector := messagelayer.TipSelector()
+	tipSelector := messagelayer.Tangle().TipManager
 	tipSelector.Events.TipRemoved.Attach(removeClosure)
 	defer tipSelector.Events.TipRemoved.Detach(removeClosure)
 	tipSelector.Events.TipAdded.Attach(addClosure)

@@ -32,12 +32,12 @@ func configure(_ *node.Plugin) {}
 
 // IssuePayload issues a payload to the message layer.
 // If the node is not synchronized an error is returned.
-func IssuePayload(payload payload.Payload) (*tangle.Message, error) {
+func IssuePayload(payload payload.Payload, t ...*tangle.Tangle) (*tangle.Message, error) {
 	if !syncbeaconfollower.Synced() {
 		return nil, xerrors.Errorf("can't issue payload: %w", syncbeaconfollower.ErrNodeNotSynchronized)
 	}
 
-	msg, err := messagelayer.MessageFactory().IssuePayload(payload)
+	msg, err := messagelayer.Tangle().MessageFactory.IssuePayload(payload, messagelayer.Tangle())
 	if err != nil {
 		return nil, err
 	}

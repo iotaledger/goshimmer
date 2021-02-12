@@ -5,6 +5,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/labstack/echo"
 	"github.com/labstack/gommon/log"
@@ -24,7 +25,7 @@ func collectiveBeaconHandler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, CollectiveBeaconResponse{Error: err.Error()})
 	}
 
-	msg, err := issuer.IssuePayload(parsedPayload)
+	msg, err := issuer.IssuePayload(parsedPayload, messagelayer.Tangle())
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, CollectiveBeaconResponse{Error: err.Error()})
 	}

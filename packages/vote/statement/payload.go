@@ -125,7 +125,7 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (statement *Statement, err erro
 
 	// return the number of bytes we processed
 	parsedBytes = marshalUtil.ReadOffset() - readStartOffset
-	if parsedBytes != int(payloadSize)+8 { //skip the payload size and type
+	if parsedBytes != int(payloadSize)+4 { //skip the payload size
 		err = xerrors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, payloadSize, cerrors.ErrParseBytesFailed)
 		return
 	}
@@ -165,7 +165,7 @@ func (s *Statement) Bytes() (bytes []byte) {
 
 	// add uint32 for length and type
 	return marshalutil.New(2*marshalutil.Uint32Size + payloadBytesLength).
-		WriteUint32(uint32(payloadBytesLength)).
+		WriteUint32(payload.TypeLength + uint32(payloadBytesLength)).
 		Write(StatementType).
 		WriteBytes(payloadBytes).
 		Bytes()

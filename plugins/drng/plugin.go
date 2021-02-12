@@ -44,10 +44,8 @@ func configureEvents() {
 		return
 	}
 
-	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
-		cachedMsgEvent.MessageMetadata.Release()
-
-		cachedMsgEvent.Message.Consume(func(msg *tangle.Message) {
+	messagelayer.Tangle().Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		messagelayer.Tangle().Storage.Message(messageID).Consume(func(msg *tangle.Message) {
 			if msg.Payload().Type() != drng.PayloadType {
 				return
 			}

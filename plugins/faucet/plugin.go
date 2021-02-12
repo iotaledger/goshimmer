@@ -121,40 +121,38 @@ func run(*node.Plugin) {
 }
 
 func configureEvents() {
-	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMessageEvent *tangle.CachedMessageEvent) {
-		defer cachedMessageEvent.Message.Release()
-		defer cachedMessageEvent.MessageMetadata.Release()
+	messagelayer.Tangle().Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
+			if !IsFaucetReq(message) {
+				return
+			}
 
-		msg := cachedMessageEvent.Message.Unwrap()
-		if msg == nil || !IsFaucetReq(msg) {
-			return
-		}
+			fundingRequest := message.Payload().(*Request)
+			addr := fundingRequest.Address()
+			if Faucet().IsAddressBlacklisted(addr) {
+				log.Debugf("can't fund address %s since it is blacklisted", addr)
+				return
+			}
 
-		fundingRequest := msg.Payload().(*Request)
-		addr := fundingRequest.Address()
-		if Faucet().IsAddressBlacklisted(addr) {
-			log.Debugf("can't fund address %s since it is blacklisted", addr)
-			return
-		}
+			// verify PoW
+			leadingZeroes, err := powVerifier.LeadingZeros(fundingRequest.Bytes())
+			if err != nil {
+				log.Warnf("couldn't verify PoW of funding request for address %s", addr)
+				return
+			}
+			targetPoWDifficulty := config.Node().Int(CfgFaucetPoWDifficulty)
+			if leadingZeroes < targetPoWDifficulty {
+				log.Debugf("funding request for address %s doesn't fulfill PoW requirement %d vs. %d", addr, targetPoWDifficulty, leadingZeroes)
+				return
+			}
 
-		// verify PoW
-		leadingZeroes, err := powVerifier.LeadingZeros(fundingRequest.Bytes())
-		if err != nil {
-			log.Warnf("couldn't verify PoW of funding request for address %s", addr)
-			return
-		}
-		targetPoWDifficulty := config.Node().Int(CfgFaucetPoWDifficulty)
-		if leadingZeroes < targetPoWDifficulty {
-			log.Debugf("funding request for address %s doesn't fulfill PoW requirement %d vs. %d", addr, targetPoWDifficulty, leadingZeroes)
-			return
-		}
-
-		// finally add it to the faucet to be processed
-		_, added := fundingWorkerPool.TrySubmit(msg)
-		if !added {
-			log.Info("dropped funding request for address %s as queue is full", addr)
-			return
-		}
-		log.Infof("enqueued funding request for address %s", addr)
+			// finally add it to the faucet to be processed
+			_, added := fundingWorkerPool.TrySubmit(message)
+			if !added {
+				log.Info("dropped funding request for address %s as queue is full", addr)
+				return
+			}
+			log.Infof("enqueued funding request for address %s", addr)
+		})
 	}))
 }

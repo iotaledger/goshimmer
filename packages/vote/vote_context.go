@@ -1,7 +1,9 @@
 package vote
 
+import "github.com/iotaledger/goshimmer/packages/vote/opinion"
+
 // NewContext creates a new vote context.
-func NewContext(id string, objectType ObjectType, initOpn Opinion) *Context {
+func NewContext(id string, objectType ObjectType, initOpn opinion.Opinion) *Context {
 	voteCtx := &Context{ID: id, Type: objectType, Liked: likedInit}
 	voteCtx.AddOpinion(initOpn)
 	return voteCtx
@@ -29,16 +31,16 @@ type Context struct {
 	Rounds int
 	// Append-only list of opinions formed after each round.
 	// the first opinion is the initial opinion when this vote context was created.
-	Opinions []Opinion
+	Opinions []opinion.Opinion
 }
 
 // AddOpinion adds the given opinion to this vote context.
-func (vc *Context) AddOpinion(opn Opinion) {
+func (vc *Context) AddOpinion(opn opinion.Opinion) {
 	vc.Opinions = append(vc.Opinions, opn)
 }
 
 // LastOpinion returns the last formed opinion.
-func (vc *Context) LastOpinion() Opinion {
+func (vc *Context) LastOpinion() opinion.Opinion {
 	return vc.Opinions[len(vc.Opinions)-1]
 }
 

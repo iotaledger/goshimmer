@@ -104,7 +104,7 @@ func (p *Request) Bytes() []byte {
 	marshalUtil := marshalutil.New()
 
 	// marshal the payload specific information
-	marshalUtil.WriteUint32(uint32(address.Length + pow.NonceBytes))
+	marshalUtil.WriteUint32(payload.TypeLength + uint32(address.Length+pow.NonceBytes))
 	marshalUtil.WriteBytes(p.Type().Bytes())
 	marshalUtil.WriteBytes(p.address.Bytes())
 	marshalUtil.WriteUint64(p.nonce)

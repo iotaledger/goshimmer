@@ -1,4 +1,4 @@
-package vote
+package opinion
 
 import (
 	"context"
