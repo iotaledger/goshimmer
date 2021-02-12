@@ -74,17 +74,10 @@ func (t *Tangle) Setup() {
 	t.Scheduler.Setup()
 	if !t.Options.WithoutOpinionFormer {
 		t.OpinionFormer.Setup()
+		return
 	}
 	t.MessageFactory.Events.Error.Attach(events.NewClosure(func(err error) {
 		t.Events.Error.Trigger(xerrors.Errorf("error in MessageFactory: %w", err))
-	}))
-
-	// Bypass the Booker
-	t.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
-		t.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-			messageMetadata.SetBooked(true)
-			t.Booker.Events.MessageBooked.Trigger(messageID)
-		})
 	}))
 }
 
