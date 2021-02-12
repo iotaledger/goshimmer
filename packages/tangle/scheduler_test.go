@@ -29,7 +29,7 @@ func TestScheduler(t *testing.T) {
 	messages["D"] = newTestParentsDataWithTimestamp("D", []MessageID{messages["A"].ID(), messages["B"].ID()}, []MessageID{}, time.Now())
 	messages["E"] = newTestParentsDataWithTimestamp("E", []MessageID{messages["A"].ID(), messages["B"].ID()}, []MessageID{}, time.Now().Add(3*time.Second))
 
-	scheduledOrder := []MessageID{}
+	scheduledOrder := make([]MessageID, 0)
 	var scheduledOrderMutex sync.Mutex
 
 	// store messages bypassing the messageStored event
@@ -46,7 +46,6 @@ func TestScheduler(t *testing.T) {
 
 	// Bypass the Booker
 	testScheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
-		wg.Done()
 		scheduledOrderMutex.Lock()
 		scheduledOrder = append(scheduledOrder, messageID)
 		scheduledOrderMutex.Unlock()
@@ -57,6 +56,7 @@ func TestScheduler(t *testing.T) {
 		tangle.Storage.Message(messageID).Consume(func(message *Message) {
 			assert.True(t, !clock.SyncedTime().Before(message.IssuingTime()))
 		})
+		wg.Done()
 	}))
 
 	wg.Add(5)
