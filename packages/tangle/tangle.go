@@ -57,7 +57,7 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager)
 	tangle.Utils = NewUtils(tangle)
 
-	if tangle.Options.WithOpinionFormer {
+	if !tangle.Options.WithoutOpinionFormer {
 		tangle.PayloadOpinionProvider = NewFCoB(tangle.Options.Store, tangle)
 		tangle.TimestampOpinionProvider = NewTimestampLikedByDefault(tangle)
 		tangle.OpinionFormer = NewOpinionFormer(tangle, tangle.PayloadOpinionProvider, tangle.TimestampOpinionProvider)
@@ -72,7 +72,7 @@ func (t *Tangle) Setup() {
 	t.Requester.Setup()
 	t.TipManager.Setup()
 	t.Scheduler.Setup()
-	if t.Options.WithOpinionFormer {
+	if !t.Options.WithoutOpinionFormer {
 		t.OpinionFormer.Setup()
 	}
 	t.MessageFactory.Events.Error.Attach(events.NewClosure(func(err error) {
@@ -103,7 +103,7 @@ func (t *Tangle) Prune() (err error) {
 // Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
 func (t *Tangle) Shutdown() {
 	t.MessageFactory.Shutdown()
-	if t.Options.WithOpinionFormer {
+	if !t.Options.WithoutOpinionFormer {
 		t.OpinionFormer.Shutdown()
 	}
 	t.Booker.Shutdown()
@@ -143,9 +143,9 @@ type Option func(*Options)
 
 // Options is a container for all configurable parameters of the Tangle.
 type Options struct {
-	Store             kvstore.KVStore
-	Identity          *identity.LocalIdentity
-	WithOpinionFormer bool
+	Store                kvstore.KVStore
+	Identity             *identity.LocalIdentity
+	WithoutOpinionFormer bool
 }
 
 // buildOptions generates the Options object use by the Tangle.
@@ -176,10 +176,10 @@ func Identity(identity *identity.LocalIdentity) Option {
 	}
 }
 
-// WithOpinionFormer an Option for the Tangle that allows to diable the OpinionFormer component.
-func WithOpinionFormer(with bool) Option {
+// WithoutOpinionFormer an Option for the Tangle that allows to diable the OpinionFormer component.
+func WithoutOpinionFormer(with bool) Option {
 	return func(options *Options) {
-		options.WithOpinionFormer = with
+		options.WithoutOpinionFormer = with
 	}
 }
 
