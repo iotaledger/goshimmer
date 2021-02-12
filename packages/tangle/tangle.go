@@ -72,6 +72,8 @@ func (t *Tangle) Setup() {
 	t.Requester.Setup()
 	t.TipManager.Setup()
 	t.Scheduler.Setup()
+
+	// Booker and LedgerState setup is left out until the old value tangle is in use.
 	if !t.Options.WithoutOpinionFormer {
 		t.OpinionFormer.Setup()
 		return
@@ -169,7 +171,7 @@ func Identity(identity *identity.LocalIdentity) Option {
 	}
 }
 
-// WithoutOpinionFormer an Option for the Tangle that allows to diable the OpinionFormer component.
+// WithoutOpinionFormer an Option for the Tangle that allows to disable the OpinionFormer component.
 func WithoutOpinionFormer(with bool) Option {
 	return func(options *Options) {
 		options.WithoutOpinionFormer = with
