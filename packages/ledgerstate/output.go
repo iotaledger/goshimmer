@@ -1126,7 +1126,7 @@ func (o *OutputMetadata) Finalized() (finalized bool) {
 // SetFinalized updates the finalized flag of the Transaction. It returns true if the lazy booked flag was modified.
 func (o *OutputMetadata) SetFinalized(finalized bool) (modified bool) {
 	o.finalizedMutex.Lock()
-	defer o.finalizedMutex.Lock()
+	defer o.finalizedMutex.Unlock()
 
 	if o.finalized == finalized {
 		return

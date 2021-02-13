@@ -3,6 +3,7 @@ package tangle
 import (
 	"fmt"
 
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/types"
@@ -114,7 +115,7 @@ func (u *Utils) MessageApprovedBy(approvedMessageID MessageID, approvingMessageI
 // MessageStronglyApprovedBy checks if the Message given by approvedMessageID is directly or indirectly approved by the
 // Message given by approvingMessageID (ignoring weak parents as a potential last reference).
 func (u *Utils) MessageStronglyApprovedBy(approvedMessageID MessageID, approvingMessageID MessageID) (stronglyApproved bool) {
-	if approvedMessageID == approvingMessageID {
+	if approvedMessageID == approvingMessageID || approvedMessageID == EmptyMessageID {
 		return true
 	}
 
@@ -172,5 +173,17 @@ func (u *Utils) ApprovingMessageIDs(messageID MessageID, optionalApproverType ..
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// ComputeIfTransaction computes the given callback if the given messageID contains a transaction.
+func (u *Utils) ComputeIfTransaction(messageID MessageID, compute func(ledgerstate.TransactionID)) (computed bool) {
+	u.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+		if payload := message.Payload(); payload.Type() == ledgerstate.TransactionType {
+			transactionID := payload.(*ledgerstate.Transaction).ID()
+			compute(transactionID)
+			computed = true
+		}
+	})
+	return
+}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

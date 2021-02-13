@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/hive.go/types"
 	"golang.org/x/xerrors"
 )
 
@@ -17,9 +18,18 @@ type LedgerState struct {
 
 // NewLedgerState is the constructor of the LedgerState component.
 func NewLedgerState(tangle *Tangle) (ledgerState *LedgerState) {
+	branchDAG := ledgerstate.NewBranchDAG(tangle.Options.Store)
 	return &LedgerState{
-		tangle: tangle,
+		tangle:    tangle,
+		branchDAG: branchDAG,
+		utxoDAG:   ledgerstate.NewUTXODAG(tangle.Options.Store, branchDAG),
 	}
+}
+
+// Shutdown shuts down the LedgerState and persists its state.
+func (l *LedgerState) Shutdown() {
+	l.utxoDAG.Shutdown()
+	l.branchDAG.Shutdown()
 }
 
 // InheritBranch implements the inheritance rules for Branches in the Tangle. It returns a single inherited Branch
@@ -62,6 +72,16 @@ func (l *LedgerState) TransactionValid(transaction *ledgerstate.Transaction, mes
 	return
 }
 
+// TransactionConflicting returns whether the given transaction is part of a conflict.
+func (l *LedgerState) TransactionConflicting(transactionID ledgerstate.TransactionID) bool {
+	return l.BranchID(transactionID) == ledgerstate.NewBranchID(transactionID)
+}
+
+// TransactionMetadata retrieves the TransactionMetadata with the given TransactionID from the object storage.
+func (l *LedgerState) TransactionMetadata(transactionID ledgerstate.TransactionID) (cachedTransactionMetadata *ledgerstate.CachedTransactionMetadata) {
+	return l.utxoDAG.TransactionMetadata(transactionID)
+}
+
 // BookTransaction books the given Transaction into the underlying LedgerState and returns the target Branch and an
 // eventual error.
 func (l *LedgerState) BookTransaction(transaction *ledgerstate.Transaction, messageID MessageID) (targetBranch ledgerstate.BranchID, err error) {
@@ -80,6 +100,56 @@ func (l *LedgerState) BookTransaction(transaction *ledgerstate.Transaction, mess
 	}
 
 	return
+}
+
+// ConflictSet returns the list of transactionIDs conflicting with the given transactionID.
+func (l *LedgerState) ConflictSet(transactionID ledgerstate.TransactionID) (conflictSet ledgerstate.TransactionIDs) {
+	conflictIDs := make(ledgerstate.ConflictIDs)
+	conflictSet = make(ledgerstate.TransactionIDs)
+
+	l.branchDAG.Branch(ledgerstate.NewBranchID(transactionID)).Consume(func(branch ledgerstate.Branch) {
+		conflictIDs = branch.(*ledgerstate.ConflictBranch).Conflicts()
+	})
+
+	for conflictID := range conflictIDs {
+		l.branchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
+			conflictSet[ledgerstate.TransactionID(conflictMember.BranchID())] = types.Void
+		})
+	}
+
+	return
+}
+
+// TransactionInclusionState returns the InclusionState of the Transaction with the given TransactionID which can either be
+// Pending, Confirmed or Rejected.
+func (l *LedgerState) TransactionInclusionState(transactionID ledgerstate.TransactionID) (ledgerstate.InclusionState, error) {
+	return l.utxoDAG.InclusionState(transactionID)
+}
+
+// BranchInclusionState returns the InclusionState of the Branch with the given BranchID which can either be
+// Pending, Confirmed or Rejected.
+func (l *LedgerState) BranchInclusionState(branchID ledgerstate.BranchID) (inclusionState ledgerstate.InclusionState) {
+	l.branchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
+		inclusionState = branch.InclusionState()
+	})
+	return
+}
+
+// BranchID returns the branchID of the given transactionID.
+func (l *LedgerState) BranchID(transactionID ledgerstate.TransactionID) (branchID ledgerstate.BranchID) {
+	l.utxoDAG.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+		branchID = transactionMetadata.BranchID()
+	})
+	return
+}
+
+// LoadSnapshot creates a set of outputs in the UTXO-DAG, that are forming the genesis for future transactions.
+func (l *LedgerState) LoadSnapshot(snapshot map[ledgerstate.TransactionID]map[ledgerstate.Address]*ledgerstate.ColoredBalances) {
+	l.utxoDAG.LoadSnapshot(snapshot)
+	attachment, _ := l.tangle.Storage.StoreAttachment(ledgerstate.GenesisTransactionID, EmptyMessageID)
+	if attachment != nil {
+		attachment.Release()
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

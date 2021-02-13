@@ -18,6 +18,7 @@ type Tangle struct {
 	Parser         *Parser
 	Storage        *Storage
 	Solidifier     *Solidifier
+	Scheduler      *Scheduler
 	Booker         *Booker
 	TipManager     *TipManager
 	Requester      *Requester
@@ -26,6 +27,10 @@ type Tangle struct {
 	Utils          *Utils
 	Options        *Options
 	Events         *Events
+
+	OpinionFormer            *OpinionFormer
+	PayloadOpinionProvider   OpinionVoterProvider
+	TimestampOpinionProvider OpinionProvider
 
 	setupParserOnce sync.Once
 }
@@ -44,12 +49,19 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.Parser = NewParser()
 	tangle.Storage = NewStorage(tangle)
 	tangle.Solidifier = NewSolidifier(tangle)
+	tangle.Scheduler = NewScheduler(tangle)
+	tangle.LedgerState = NewLedgerState(tangle)
+	tangle.Booker = NewBooker(tangle)
 	tangle.Requester = NewRequester(tangle)
 	tangle.TipManager = NewTipManager(tangle)
 	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager)
-	tangle.LedgerState = NewLedgerState(tangle)
 	tangle.Utils = NewUtils(tangle)
 
+	if !tangle.Options.WithoutOpinionFormer {
+		tangle.PayloadOpinionProvider = NewFCoB(tangle.Options.Store, tangle)
+		tangle.TimestampOpinionProvider = NewTimestampLikedByDefault(tangle)
+		tangle.OpinionFormer = NewOpinionFormer(tangle, tangle.PayloadOpinionProvider, tangle.TimestampOpinionProvider)
+	}
 	return
 }
 
@@ -59,7 +71,13 @@ func (t *Tangle) Setup() {
 	t.Solidifier.Setup()
 	t.Requester.Setup()
 	t.TipManager.Setup()
+	t.Scheduler.Setup()
 
+	// Booker and LedgerState setup is left out until the old value tangle is in use.
+	if !t.Options.WithoutOpinionFormer {
+		t.OpinionFormer.Setup()
+		return
+	}
 	t.MessageFactory.Events.Error.Attach(events.NewClosure(func(err error) {
 		t.Events.Error.Trigger(xerrors.Errorf("error in MessageFactory: %w", err))
 	}))
@@ -80,6 +98,12 @@ func (t *Tangle) Prune() (err error) {
 // Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
 func (t *Tangle) Shutdown() {
 	t.MessageFactory.Shutdown()
+	if !t.Options.WithoutOpinionFormer {
+		t.OpinionFormer.Shutdown()
+	}
+	t.Booker.Shutdown()
+	t.LedgerState.Shutdown()
+	t.Scheduler.Shutdown()
 	t.Storage.Shutdown()
 	t.Options.Store.Shutdown()
 }
@@ -100,6 +124,10 @@ type Events struct {
 	Error *events.Event
 }
 
+func messageIDEventHandler(handler interface{}, params ...interface{}) {
+	handler.(func(MessageID))(params[0].(MessageID))
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -110,8 +138,9 @@ type Option func(*Options)
 
 // Options is a container for all configurable parameters of the Tangle.
 type Options struct {
-	Store    kvstore.KVStore
-	Identity *identity.LocalIdentity
+	Store                kvstore.KVStore
+	Identity             *identity.LocalIdentity
+	WithoutOpinionFormer bool
 }
 
 // buildOptions generates the Options object use by the Tangle.
@@ -139,6 +168,13 @@ func Store(store kvstore.KVStore) Option {
 func Identity(identity *identity.LocalIdentity) Option {
 	return func(options *Options) {
 		options.Identity = identity
+	}
+}
+
+// WithoutOpinionFormer an Option for the Tangle that allows to disable the OpinionFormer component.
+func WithoutOpinionFormer(with bool) Option {
+	return func(options *Options) {
+		options.WithoutOpinionFormer = with
 	}
 }
 

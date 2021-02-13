@@ -1,3 +1,21 @@
+# v0.3.6 - 2021-02-12
+* Finalize Payload layout
+* Update dRNG with finalized payload layout
+* Add simple scheduler
+* Add message approval analysis API
+* Add core logic for timestamp voting (still disabled)
+* Refactor message parser
+* Refactor solidifier
+* Refactor Tangle events
+* Update entry node URL
+* Update gossip to not gossip requested messages
+* Introduce invalid message flag
+* Merge the new data flow
+* Fix visualizer bug
+* Update hive.go
+* Update JS dependencies
+* **Breaking**: bumps network and database versions
+
 # v0.3.5 - 2021-01-13
 * Fix consensus statement bug
 * Fix deadlock in RandomMap
@@ -10,6 +28,7 @@
 * Update hive.go
 * Update JS dependencies
 * **Breaking**: bumps network and database versions
+
 # v0.3.4 - 2020-12-11
 * Revert Pebble to Badger.
 * **Breaking**: bumps network and database versions
