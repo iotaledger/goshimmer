@@ -42,7 +42,7 @@ func (w wallet) publicKey() ed25519.PublicKey {
 }
 
 func createWallets(n int) []wallet {
-	wallets := make([]wallet, 2)
+	wallets := make([]wallet, n)
 	for i := 0; i < n; i++ {
 		kp := ed25519.GenerateKeyPair()
 		wallets[i] = wallet{

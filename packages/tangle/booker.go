@@ -8,6 +8,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
+	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/thresholdmap"
@@ -43,6 +44,25 @@ func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 		MarkersManager:               NewMarkersManager(tangle),
 		MarkerBranchIDMappingManager: NewMarkerBranchIDMappingManager(tangle),
 	}
+
+	genesisMetadata := &MessageMetadata{
+		messageID: EmptyMessageID,
+		solid:     true,
+		branchID:  ledgerstate.MasterBranchID,
+		structureDetails: &markers.StructureDetails{
+			Rank:          0,
+			IsPastMarker:  false,
+			PastMarkers:   markers.NewMarkers(),
+			FutureMarkers: markers.NewMarkers(),
+		},
+		timestampOpinion: TimestampOpinion{
+			Value: opinion.Like,
+			LoK:   Three,
+		},
+		booked:   true,
+		eligible: true,
+	}
+	tangle.Storage.messageMetadataStorage.Store(genesisMetadata).Release()
 
 	return
 }
@@ -121,7 +141,7 @@ func (m *Booker) allTransactionsApprovedByMessage(transactionIDs ledgerstate.Tra
 // indirectly approved by the given Message.
 func (m *Booker) transactionApprovedByMessage(transactionID ledgerstate.TransactionID, messageID MessageID) (approved bool) {
 	for _, attachmentMessageID := range m.tangle.Storage.AttachmentMessageIDs(transactionID) {
-		if m.tangle.Utils.MessageApprovedBy(attachmentMessageID, messageID) {
+		if m.tangle.Utils.MessageApprovedByStrongParents(attachmentMessageID, messageID) {
 			return true
 		}
 	}
@@ -169,8 +189,9 @@ type MarkersManager struct {
 // NewMarkersManager is the constructor of the MarkersManager.
 func NewMarkersManager(tangle *Tangle) *MarkersManager {
 	return &MarkersManager{
-		tangle:  tangle,
-		Manager: markers.NewManager(tangle.Options.Store),
+		tangle:                 tangle,
+		newMarkerIndexStrategy: func(sequenceID markers.SequenceID, currentHighestIndex markers.Index) bool { return true },
+		Manager:                markers.NewManager(tangle.Options.Store),
 	}
 }
 
@@ -206,7 +227,7 @@ func (m *MarkersManager) propagatePastMarkerToFutureMarkers(pastMarkerToInherit 
 func (m *MarkersManager) structureDetailsOfStrongParents(message *Message) (structureDetails []*markers.StructureDetails) {
 	structureDetails = make([]*markers.StructureDetails, 0)
 	message.ForEachStrongParent(func(parentMessageID MessageID) {
-		if parentMessageID != EmptyMessageID && !m.tangle.Storage.MessageMetadata(parentMessageID).Consume(func(messageMetadata *MessageMetadata) {
+		if !m.tangle.Storage.MessageMetadata(parentMessageID).Consume(func(messageMetadata *MessageMetadata) {
 			structureDetails = append(structureDetails, messageMetadata.StructureDetails())
 		}) {
 			panic(fmt.Errorf("failed to load MessageMetadata of Message with %s", parentMessageID))
