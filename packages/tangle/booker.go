@@ -91,10 +91,7 @@ func (b *Booker) UpdateMessagesBranch(transactionID ledgerstate.TransactionID) {
 	}
 	b.tangle.Utils.WalkMessageAndMetadata(func(message *Message, messageMetadata *MessageMetadata, walker *walker.Walker) {
 		branchIDs := b.branchIDsOfParents(message)
-		b.tangle.Storage.MessageMetadata(message.ID()).Consume(func(metadata *MessageMetadata) {
-			branchIDs.Add(metadata.BranchID())
-		})
-
+		branchIDs.Add(messageMetadata.BranchID())
 		inheritedBranch, inheritErr := b.tangle.LedgerState.InheritBranch(branchIDs)
 		if inheritErr != nil {
 			panic(xerrors.Errorf("failed to inherit Branch when booking Message with %s: %w", message.ID(), inheritErr))
