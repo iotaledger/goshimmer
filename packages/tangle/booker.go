@@ -68,8 +68,8 @@ func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 }
 
 // Shutdown shuts down the Booker and persists its state.
-func (m *Booker) Shutdown() {
-	m.MarkersManager.Shutdown()
+func (b *Booker) Shutdown() {
+	b.MarkersManager.Shutdown()
 }
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
@@ -77,6 +77,7 @@ func (b *Booker) Setup() {
 	b.tangle.LedgerState.utxoDAG.Events.TransactionBranchIDUpdated.Attach(events.NewClosure(b.UpdateMessagesBranch))
 }
 
+// UpdateMessagesBranch propagates the update of the message's branchID (and its future cone) in case on changes of it contained transction's branchID.
 func (b *Booker) UpdateMessagesBranch(transactionID ledgerstate.TransactionID) {
 	var transactionBranchID ledgerstate.BranchID
 	b.tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
