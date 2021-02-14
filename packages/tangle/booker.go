@@ -78,8 +78,23 @@ func (b *Booker) Setup() {
 }
 
 func (b *Booker) UpdateMessagesBranch(transactionID ledgerstate.TransactionID) {
+	var transactionBranchID ledgerstate.BranchID
+	b.tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+		transactionBranchID = transactionMetadata.BranchID()
+	})
+	attachmentIDs := b.tangle.Storage.AttachmentMessageIDs(transactionID)
+	for _, messageID := range attachmentIDs {
+		b.tangle.Storage.MessageMetadata(messageID).Consume(func(metadata *MessageMetadata) {
+			metadata.SetBranchID(transactionBranchID)
+		})
+	}
 	b.tangle.Utils.WalkMessageAndMetadata(func(message *Message, messageMetadata *MessageMetadata, walker *walker.Walker) {
-		inheritedBranch, inheritErr := b.tangle.LedgerState.InheritBranch(b.branchIDsOfParents(message))
+		branchIDs := b.branchIDsOfParents(message)
+		b.tangle.Storage.MessageMetadata(message.ID()).Consume(func(metadata *MessageMetadata) {
+			branchIDs.Add(metadata.BranchID())
+		})
+
+		inheritedBranch, inheritErr := b.tangle.LedgerState.InheritBranch(branchIDs)
 		if inheritErr != nil {
 			panic(xerrors.Errorf("failed to inherit Branch when booking Message with %s: %w", message.ID(), inheritErr))
 		}
@@ -89,7 +104,7 @@ func (b *Booker) UpdateMessagesBranch(transactionID ledgerstate.TransactionID) {
 				walker.Push(approvingMessageID)
 			}
 		}
-	}, b.tangle.Storage.AttachmentMessageIDs(transactionID), true)
+	}, attachmentIDs, true)
 }
 
 // Book tries to book the given Message (and potentially its contained Transaction) into the LedgerState and the Tangle.

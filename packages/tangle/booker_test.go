@@ -145,9 +145,9 @@ func TestScenario_1(t *testing.T) {
 
 	branches["red"] = ledgerstate.NewBranchID(transactions["3"].ID())
 
-	// msgBranchID, err = messageBranchID(tangle, messages["4"].ID())
-	// require.NoError(t, err)
-	// assert.Equal(t, branches["red"], msgBranchID)
+	msgBranchID, err = messageBranchID(tangle, messages["4"].ID())
+	require.NoError(t, err)
+	assert.Equal(t, branches["red"], msgBranchID)
 
 	txBranchID, err = transactionBranchID(tangle, transactions["3"].ID())
 	require.NoError(t, err)
