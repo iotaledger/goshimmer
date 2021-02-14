@@ -15,6 +15,7 @@ import (
 func TestScenario_1(t *testing.T) {
 	tangle := New(WithoutOpinionFormer(true))
 	defer tangle.Shutdown()
+	tangle.Booker.Setup()
 
 	wallets := make(map[string]wallet)
 	w := createWallets(9)
@@ -213,7 +214,7 @@ func TestBooker_transactionApprovedByMessage(t *testing.T) {
 	assert.True(t, _tangle.Booker.transactionApprovedByMessage(txA.ID(), msgB.ID()))
 }
 
-func TestBooker_branchIDsOfStrongParents(t *testing.T) {
+func TestBooker_branchIDsOfParents(t *testing.T) {
 	_tangle := New()
 	_tangle.Booker = NewBooker(_tangle)
 	defer _tangle.Shutdown()
@@ -241,7 +242,7 @@ func TestBooker_branchIDsOfStrongParents(t *testing.T) {
 
 	msg := newTestParentsDataMessage("msg", strongParents, []MessageID{weakParent.ID()})
 	_tangle.Storage.StoreMessage(msg)
-	branchIDs := _tangle.Booker.branchIDsOfStrongParents(msg)
+	branchIDs := _tangle.Booker.branchIDsOfParents(msg)
 
 	assert.Equal(t, nStrongParents, len(branchIDs.Slice()))
 	for _, branchID := range strongParentBranchIDs {
