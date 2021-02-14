@@ -21,7 +21,7 @@ func TestTipManager(t *testing.T) {
 	tipSelector.AddTip(message1)
 
 	// check if the tip shows up in the tip count
-	assert.Equal(t, 1, tipSelector.TipCount())
+	assert.Equal(t, 1, tipSelector.StrongTipCount())
 
 	// check if next tips point to our first message
 	parents2 := tipSelector.Tips(2)
@@ -33,7 +33,7 @@ func TestTipManager(t *testing.T) {
 	tipSelector.AddTip(message2)
 
 	// check if the tip shows up in the tip count
-	assert.Equal(t, 2, tipSelector.TipCount())
+	assert.Equal(t, 2, tipSelector.StrongTipCount())
 
 	// attach a message to our two tips
 	parents3 := tipSelector.Tips(2)
@@ -42,7 +42,7 @@ func TestTipManager(t *testing.T) {
 
 	// check if the tip shows replaces the current tips
 	parents4 := tipSelector.Tips(2)
-	assert.Equal(t, 1, tipSelector.TipCount())
+	assert.Equal(t, 1, tipSelector.StrongTipCount())
 	assert.Equal(t, 1, len(parents4))
 	assert.Contains(t, parents4, message3.ID())
 	assert.Contains(t, parents4, message3.ID())
