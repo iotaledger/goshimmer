@@ -79,30 +79,19 @@ func (b *Booker) Setup() {
 
 // UpdateMessagesBranch propagates the update of the message's branchID (and its future cone) in case on changes of it contained transction's branchID.
 func (b *Booker) UpdateMessagesBranch(transactionID ledgerstate.TransactionID) {
-	var transactionBranchID ledgerstate.BranchID
-	b.tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-		transactionBranchID = transactionMetadata.BranchID()
-	})
-	attachmentIDs := b.tangle.Storage.AttachmentMessageIDs(transactionID)
-	for _, messageID := range attachmentIDs {
-		b.tangle.Storage.MessageMetadata(messageID).Consume(func(metadata *MessageMetadata) {
-			metadata.SetBranchID(transactionBranchID)
-		})
-	}
 	b.tangle.Utils.WalkMessageAndMetadata(func(message *Message, messageMetadata *MessageMetadata, walker *walker.Walker) {
-		branchIDs := b.branchIDsOfParents(message)
-		branchIDs.Add(messageMetadata.BranchID())
-		inheritedBranch, inheritErr := b.tangle.LedgerState.InheritBranch(branchIDs)
-		if inheritErr != nil {
-			panic(xerrors.Errorf("failed to inherit Branch when booking Message with %s: %w", message.ID(), inheritErr))
-		}
-
-		if messageMetadata.SetBranchID(inheritedBranch) {
-			for _, approvingMessageID := range b.tangle.Utils.ApprovingMessageIDs(message.ID(), StrongApprover) {
-				walker.Push(approvingMessageID)
+		if messageMetadata.IsBooked() {
+			inheritedBranch, inheritErr := b.tangle.LedgerState.InheritBranch(b.branchIDsOfParents(message).Add(b.branchIDOfPayload(message)))
+			if inheritErr != nil {
+				panic(xerrors.Errorf("failed to inherit Branch when booking Message with %s: %w", message.ID(), inheritErr))
+			}
+			if messageMetadata.SetBranchID(inheritedBranch) {
+				for _, approvingMessageID := range b.tangle.Utils.ApprovingMessageIDs(message.ID(), StrongApprover) {
+					walker.Push(approvingMessageID)
+				}
 			}
 		}
-	}, attachmentIDs, true)
+	}, b.tangle.Storage.AttachmentMessageIDs(transactionID), true)
 }
 
 // Book tries to book the given Message (and potentially its contained Transaction) into the LedgerState and the Tangle.
@@ -155,6 +144,21 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 		})
 	})
 
+	return
+}
+
+func (b *Booker) branchIDOfPayload(message *Message) (branchIDOfPayload ledgerstate.BranchID) {
+	payload := message.Payload()
+	if payload == nil || payload.Type() != ledgerstate.TransactionType {
+		branchIDOfPayload = ledgerstate.MasterBranchID
+		return
+	}
+	transactionID := payload.(*ledgerstate.Transaction).ID()
+	if !b.tangle.LedgerState.utxoDAG.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+		branchIDOfPayload = transactionMetadata.BranchID()
+	}) {
+		panic(fmt.Sprintf("failed to load TransactionMetadata of %s: ", transactionID))
+	}
 	return
 }
 
