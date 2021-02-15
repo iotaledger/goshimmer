@@ -18,7 +18,7 @@ func TestScenario_1(t *testing.T) {
 
 	wallets := make(map[string]wallet)
 	walletsByAddress := make(map[ledgerstate.Address]wallet)
-	w := createWallets(9)
+	w := createWallets(10)
 	wallets["GENESIS"] = w[0]
 	wallets["A"] = w[1]
 	wallets["B"] = w[2]
@@ -28,6 +28,7 @@ func TestScenario_1(t *testing.T) {
 	wallets["F"] = w[6]
 	wallets["H"] = w[7]
 	wallets["I"] = w[8]
+	wallets["J"] = w[9]
 	for _, wallet := range wallets {
 		walletsByAddress[wallet.address] = wallet
 	}
@@ -166,7 +167,6 @@ func TestScenario_1(t *testing.T) {
 	inputs["F"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["4"].ID(), 0))
 	outputsByID[inputs["F"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["F"])[0]
 	outputs["H"] = ledgerstate.NewSigLockedSingleOutput(3, wallets["H"].address)
-	outputsByID[outputs["H"].ID()] = ledgerstate.NewOutputs(outputs["H"])[0]
 	transactions["5"] = makeTransaction(ledgerstate.NewInputs(inputs["E"], inputs["F"]), ledgerstate.NewOutputs(outputs["H"]), outputsByID, walletsByAddress)
 	messages["6"] = newTestParentsPayloadMessage(transactions["5"], []MessageID{messages["2"].ID(), messages["5"].ID()}, []MessageID{})
 	tangle.Storage.StoreMessage(messages["6"])
@@ -196,6 +196,42 @@ func TestScenario_1(t *testing.T) {
 	txBranchID, err = transactionBranchID(tangle, transactions["2"].ID())
 	require.NoError(t, err)
 	assert.Equal(t, branches["green"], txBranchID)
+
+	// Message 8
+	inputs["D"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["3"].ID(), 0))
+	outputsByID[inputs["D"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["D"])[0]
+	outputs["I"] = ledgerstate.NewSigLockedSingleOutput(2, wallets["I"].address)
+	transactions["6"] = makeTransaction(ledgerstate.NewInputs(inputs["F"], inputs["D"]), ledgerstate.NewOutputs(outputs["I"]), outputsByID, walletsByAddress)
+	messages["8"] = newTestParentsPayloadMessage(transactions["6"], []MessageID{messages["4"].ID(), messages["5"].ID()}, []MessageID{})
+	tangle.Storage.StoreMessage(messages["8"])
+
+	err = tangle.Booker.Book(messages["8"].ID())
+	require.NoError(t, err)
+
+	msgBranchID, err = messageBranchID(tangle, messages["8"].ID())
+	require.NoError(t, err)
+	assert.Equal(t, branches["grey"], msgBranchID)
+
+	txBranchID, err = transactionBranchID(tangle, transactions["6"].ID())
+	require.NoError(t, err)
+	assert.Equal(t, branches["grey"], txBranchID)
+
+	// Message 9
+	outputs["J"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["J"].address)
+	transactions["7"] = makeTransaction(ledgerstate.NewInputs(inputs["F"]), ledgerstate.NewOutputs(outputs["J"]), outputsByID, walletsByAddress)
+	messages["9"] = newTestParentsPayloadMessage(transactions["7"], []MessageID{messages["4"].ID(), messages["5"].ID()}, []MessageID{})
+	tangle.Storage.StoreMessage(messages["9"])
+
+	err = tangle.Booker.Book(messages["9"].ID())
+	require.NoError(t, err)
+
+	msgBranchID, err = messageBranchID(tangle, messages["9"].ID())
+	require.NoError(t, err)
+	assert.Equal(t, branches["grey"], msgBranchID)
+
+	// txBranchID, err = transactionBranchID(tangle, transactions["7"].ID())
+	// require.NoError(t, err)
+	// assert.Equal(t, branches["yellow"], txBranchID)
 }
 
 func TestMarkerIndexBranchMapping_String(t *testing.T) {
@@ -307,59 +343,4 @@ func randomTransaction() *ledgerstate.Transaction {
 	essence := ledgerstate.NewTransactionEssence(1, time.Now(), ID, ID, inputs, outputs)
 	var unlockBlocks ledgerstate.UnlockBlocks
 	return ledgerstate.NewTransaction(essence, unlockBlocks)
-}
-
-func messageBranchID(tangle *Tangle, messageID MessageID) (branchID ledgerstate.BranchID, err error) {
-	if !tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-		branchID = messageMetadata.BranchID()
-		// fmt.Println(messageID)
-		// fmt.Println(messageMetadata.StructureDetails())
-	}) {
-		return branchID, fmt.Errorf("missing message metadata")
-	}
-	return
-}
-
-func transactionBranchID(tangle *Tangle, transactionID ledgerstate.TransactionID) (branchID ledgerstate.BranchID, err error) {
-	if !tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(metadata *ledgerstate.TransactionMetadata) {
-		branchID = metadata.BranchID()
-	}) {
-		return branchID, fmt.Errorf("missing transaction metadata")
-	}
-	return
-}
-
-func makeTransaction(inputs ledgerstate.Inputs, outputs ledgerstate.Outputs, outputsByID map[ledgerstate.OutputID]ledgerstate.Output, walletsByAddress map[ledgerstate.Address]wallet, genesisWallet ...wallet) *ledgerstate.Transaction {
-	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, inputs, outputs)
-	unlockBlocks := make([]ledgerstate.UnlockBlock, len(txEssence.Inputs()))
-	for i, input := range txEssence.Inputs() {
-		wallet := wallet{}
-		if genesisWallet != nil {
-			wallet = genesisWallet[0]
-		} else {
-			wallet = walletsByAddress[addressFromInput(input, outputsByID)]
-		}
-		unlockBlocks[i] = ledgerstate.NewSignatureUnlockBlock(wallet.sign(txEssence))
-	}
-	return ledgerstate.NewTransaction(txEssence, unlockBlocks)
-}
-
-func selectIndex(transaction *ledgerstate.Transaction, w wallet) (index uint16) {
-	for i, output := range transaction.Essence().Outputs() {
-		if w.address == output.(*ledgerstate.SigLockedSingleOutput).Address() {
-			return uint16(i)
-		}
-	}
-	return
-}
-
-func sortWallets(outputs ledgerstate.Outputs, w []wallet) (wallets []wallet) {
-	for _, output := range outputs {
-		for _, wallet := range w {
-			if wallet.address == output.(*ledgerstate.SigLockedSingleOutput).Address() {
-				wallets = append(wallets, wallet)
-			}
-		}
-	}
-	return
 }

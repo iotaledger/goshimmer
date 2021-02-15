@@ -1,11 +1,13 @@
 package tangle
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/identity"
 )
 
 func newTestNonceMessage(nonce uint64) *Message {
@@ -91,4 +93,59 @@ func addressFromInput(input ledgerstate.Input, outputsByID ledgerstate.OutputsBy
 	default:
 		panic("unexpected Output type")
 	}
+}
+
+func messageBranchID(tangle *Tangle, messageID MessageID) (branchID ledgerstate.BranchID, err error) {
+	if !tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		branchID = messageMetadata.BranchID()
+		// fmt.Println(messageID)
+		// fmt.Println(messageMetadata.StructureDetails())
+	}) {
+		return branchID, fmt.Errorf("missing message metadata")
+	}
+	return
+}
+
+func transactionBranchID(tangle *Tangle, transactionID ledgerstate.TransactionID) (branchID ledgerstate.BranchID, err error) {
+	if !tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(metadata *ledgerstate.TransactionMetadata) {
+		branchID = metadata.BranchID()
+	}) {
+		return branchID, fmt.Errorf("missing transaction metadata")
+	}
+	return
+}
+
+func makeTransaction(inputs ledgerstate.Inputs, outputs ledgerstate.Outputs, outputsByID map[ledgerstate.OutputID]ledgerstate.Output, walletsByAddress map[ledgerstate.Address]wallet, genesisWallet ...wallet) *ledgerstate.Transaction {
+	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, inputs, outputs)
+	unlockBlocks := make([]ledgerstate.UnlockBlock, len(txEssence.Inputs()))
+	for i, input := range txEssence.Inputs() {
+		wallet := wallet{}
+		if genesisWallet != nil {
+			wallet = genesisWallet[0]
+		} else {
+			wallet = walletsByAddress[addressFromInput(input, outputsByID)]
+		}
+		unlockBlocks[i] = ledgerstate.NewSignatureUnlockBlock(wallet.sign(txEssence))
+	}
+	return ledgerstate.NewTransaction(txEssence, unlockBlocks)
+}
+
+func selectIndex(transaction *ledgerstate.Transaction, w wallet) (index uint16) {
+	for i, output := range transaction.Essence().Outputs() {
+		if w.address == output.(*ledgerstate.SigLockedSingleOutput).Address() {
+			return uint16(i)
+		}
+	}
+	return
+}
+
+func sortWallets(outputs ledgerstate.Outputs, w []wallet) (wallets []wallet) {
+	for _, output := range outputs {
+		for _, wallet := range w {
+			if wallet.address == output.(*ledgerstate.SigLockedSingleOutput).Address() {
+				wallets = append(wallets, wallet)
+			}
+		}
+	}
+	return
 }

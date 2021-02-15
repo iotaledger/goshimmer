@@ -75,17 +75,14 @@ func (u *UTXODAG) CheckTransaction(transaction *Transaction) (valid bool, err er
 
 	// perform cheap checks
 	if !u.allOutputsExist(consumedOutputs) {
-		fmt.Println("1")
 		err = xerrors.Errorf("not all consumedOutputs of transaction are solid: %w", ErrTransactionNotSolid)
 		return
 	}
 	if !u.transactionBalancesValid(consumedOutputs, transaction.Essence().Outputs()) {
-		fmt.Println("2")
 		err = xerrors.Errorf("sum of consumed and spent balances is not 0: %w", ErrTransactionInvalid)
 		return
 	}
 	if !u.unlockBlocksValid(consumedOutputs, transaction) {
-		fmt.Println("3")
 		err = xerrors.Errorf("spending of referenced consumedOutputs is not authorized: %w", ErrTransactionInvalid)
 		return
 	}
