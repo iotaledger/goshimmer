@@ -65,3 +65,30 @@ func (w wallet) unlockBlocks(txEssence *ledgerstate.TransactionEssence) []ledger
 	}
 	return unlockBlocks
 }
+
+// addressFromInput retrieves the Address belonging to an Input by looking it up in the outputs that we have created for
+// the tests.
+func addressFromInput(input ledgerstate.Input, outputsByID ledgerstate.OutputsByID) ledgerstate.Address {
+	typeCastedInput, ok := input.(*ledgerstate.UTXOInput)
+	if !ok {
+		panic("unexpected Input type")
+	}
+
+	switch referencedOutput := outputsByID[typeCastedInput.ReferencedOutputID()]; referencedOutput.Type() {
+	case ledgerstate.SigLockedSingleOutputType:
+		typeCastedOutput, ok := referencedOutput.(*ledgerstate.SigLockedSingleOutput)
+		if !ok {
+			panic("failed to type cast SigLockedSingleOutput")
+		}
+
+		return typeCastedOutput.Address()
+	case ledgerstate.SigLockedColoredOutputType:
+		typeCastedOutput, ok := referencedOutput.(*ledgerstate.SigLockedColoredOutput)
+		if !ok {
+			panic("failed to type cast SigLockedColoredOutput")
+		}
+		return typeCastedOutput.Address()
+	default:
+		panic("unexpected Output type")
+	}
+}
