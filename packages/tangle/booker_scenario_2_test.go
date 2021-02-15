@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -278,4 +279,11 @@ func TestScenario_2(t *testing.T) {
 	txBranchID, err = transactionBranchID(tangle, transactions["2"].ID())
 	require.NoError(t, err)
 	assert.Equal(t, branches["purple"], txBranchID)
+
+	for messageLabel, message := range messages {
+		fmt.Println("Message ", messageLabel)
+		tangle.Storage.MessageMetadata(message.ID()).Consume(func(metadata *MessageMetadata) {
+			fmt.Println(metadata.StructureDetails())
+		})
+	}
 }
