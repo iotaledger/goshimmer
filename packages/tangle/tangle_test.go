@@ -165,16 +165,16 @@ func TestTangle_MissingMessages(t *testing.T) {
 	// setup the message factory
 	tangle.MessageFactory = NewMessageFactory(
 		tangle,
-		TipSelectorFunc(func(count int) []MessageID {
-			r := tips.RandomUniqueEntries(count)
+		TipSelectorFunc(func(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs) {
+			r := tips.RandomUniqueEntries(countStrongParents)
 			if len(r) == 0 {
-				return []MessageID{EmptyMessageID}
+				return []MessageID{EmptyMessageID}, []MessageID{}
 			}
 			parents := make([]MessageID, len(r))
 			for i := range r {
 				parents[i] = r[i].(MessageID)
 			}
-			return parents
+			return parents, []MessageID{}
 		}),
 	)
 
@@ -317,16 +317,16 @@ func TestTangle_Flow(t *testing.T) {
 	// setup the message factory
 	tangle.MessageFactory = NewMessageFactory(
 		tangle,
-		TipSelectorFunc(func(count int) []MessageID {
-			r := tips.RandomUniqueEntries(count)
+		TipSelectorFunc(func(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs) {
+			r := tips.RandomUniqueEntries(countStrongParents)
 			if len(r) == 0 {
-				return []MessageID{EmptyMessageID}
+				return []MessageID{EmptyMessageID}, []MessageID{}
 			}
 			parents := make([]MessageID, len(r))
 			for i := range r {
 				parents[i] = r[i].(MessageID)
 			}
-			return parents
+			return parents, []MessageID{}
 		}),
 	)
 
@@ -499,8 +499,7 @@ func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, t ...*Tangle) 
 		return nil, err
 	}
 
-	strongParents := f.selector.Tips(2)
-	weakParents := make([]MessageID, 0)
+	strongParents, weakParents := f.selector.Tips(p, 2, 0)
 	issuingTime := time.Now().Add(maxParentsTimeDifference + 5*time.Minute)
 	issuerPublicKey := f.localIdentity.PublicKey()
 

@@ -173,7 +173,7 @@ func (t *TipManager) Tips(p payload.Payload, countStrongParents, countWeakParent
 	}
 
 	// select weak tips according to min(countWeakParents, MaxParentsCount-len(strongParents))
-	if MaxParentsCount-len(strongParents) < countWeakParents {
+	if countWeakParents+len(strongParents) < MaxParentsCount {
 		countWeakParents = MaxParentsCount - len(strongParents)
 	}
 	weakParents = t.selectWeakTips(countWeakParents)
@@ -212,7 +212,8 @@ func (t *TipManager) selectStrongTips(p payload.Payload, count int) (parents Mes
 				}
 			}
 		} else {
-			// TODO: what are we doing if we have more than 8?
+			// if there are more than 8 referenced transactions:
+			// for now we simply select as many parents as possible and hope all transactions will be covered
 			count = MaxParentsCount
 		}
 	}

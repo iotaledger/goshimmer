@@ -79,10 +79,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, t ...*Tangle) (*Message
 		return nil, err
 	}
 
-	// TODO: change hardcoded amount of parents
-	strongParents := f.selector.Tips(p, 2, 2)
-	// TODO: approval switch: select weak parents
-	weakParents := make([]MessageID, 0)
+	strongParents, weakParents := f.selector.Tips(p, 2, 2)
 
 	issuingTime := clock.SyncedTime()
 
@@ -173,7 +170,7 @@ func messageEventHandler(handler interface{}, params ...interface{}) {
 
 // A TipSelector selects two tips, parent2 and parent1, for a new message to attach to.
 type TipSelector interface {
-	Tips(p payload.Payload, countStrongParents, countWeakParents int) (parents []MessageID)
+	Tips(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -181,11 +178,11 @@ type TipSelector interface {
 // region TipSelectorFunc //////////////////////////////////////////////////////////////////////////////////////////////
 
 // The TipSelectorFunc type is an adapter to allow the use of ordinary functions as tip selectors.
-type TipSelectorFunc func(count int) (parents []MessageID)
+type TipSelectorFunc func(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs)
 
 // Tips calls f().
-func (f TipSelectorFunc) Tips(count int) (parents []MessageID) {
-	return f(count)
+func (f TipSelectorFunc) Tips(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs) {
+	return f(p, countStrongParents, countWeakParents)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
