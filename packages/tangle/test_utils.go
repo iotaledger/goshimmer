@@ -119,13 +119,13 @@ func makeTransaction(inputs ledgerstate.Inputs, outputs ledgerstate.Outputs, out
 	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, inputs, outputs)
 	unlockBlocks := make([]ledgerstate.UnlockBlock, len(txEssence.Inputs()))
 	for i, input := range txEssence.Inputs() {
-		wallet := wallet{}
+		w := wallet{}
 		if genesisWallet != nil {
-			wallet = genesisWallet[0]
+			w = genesisWallet[0]
 		} else {
-			wallet = walletsByAddress[addressFromInput(input, outputsByID)]
+			w = walletsByAddress[addressFromInput(input, outputsByID)]
 		}
-		unlockBlocks[i] = ledgerstate.NewSignatureUnlockBlock(wallet.sign(txEssence))
+		unlockBlocks[i] = ledgerstate.NewSignatureUnlockBlock(w.sign(txEssence))
 	}
 	return ledgerstate.NewTransaction(txEssence, unlockBlocks)
 }
@@ -134,17 +134,6 @@ func selectIndex(transaction *ledgerstate.Transaction, w wallet) (index uint16) 
 	for i, output := range transaction.Essence().Outputs() {
 		if w.address == output.(*ledgerstate.SigLockedSingleOutput).Address() {
 			return uint16(i)
-		}
-	}
-	return
-}
-
-func sortWallets(outputs ledgerstate.Outputs, w []wallet) (wallets []wallet) {
-	for _, output := range outputs {
-		for _, wallet := range w {
-			if wallet.address == output.(*ledgerstate.SigLockedSingleOutput).Address() {
-				wallets = append(wallets, wallet)
-			}
 		}
 	}
 	return
