@@ -4,11 +4,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-
 	"github.com/iotaledger/goshimmer/client/wallet"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
@@ -42,11 +39,9 @@ func main() {
 	log.Printf("-> output id (base58): %s", ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))
 	log.Printf("-> token amount: %d", genesisTokenAmount)
 
-	snapshot := tangle.Snapshot{
+	snapshot := ledgerstate.Snapshot{
 		ledgerstate.GenesisTransactionID: {
-			genesisAddress: {
-				balance.New(balance.ColorIOTA, genesisTokenAmount),
-			},
+			genesisAddress: ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: uint64(genesisTokenAmount)}),
 		},
 	}
 
