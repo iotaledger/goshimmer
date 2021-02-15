@@ -65,7 +65,7 @@ func (m *Booker) Book(messageID MessageID) (err error) {
 					return
 				}
 
-				if !m.allTransactionsApprovedByMessage(transaction.ReferencedTransactionIDs(), messageID) {
+				if !m.tangle.Utils.AllTransactionsApprovedByMessage(transaction.ReferencedTransactionIDs(), messageID) {
 					m.tangle.Events.MessageInvalid.Trigger(messageID)
 					return
 				}
@@ -103,30 +103,6 @@ func (m *Booker) Book(messageID MessageID) (err error) {
 	})
 
 	return
-}
-
-// allTransactionsApprovedByMessage checks if all Transactions were attached by at least one Message that was directly
-// or indirectly approved by the given Message.
-func (m *Booker) allTransactionsApprovedByMessage(transactionIDs ledgerstate.TransactionIDs, messageID MessageID) (approved bool) {
-	for transactionID := range transactionIDs {
-		if !m.transactionApprovedByMessage(transactionID, messageID) {
-			return false
-		}
-	}
-
-	return true
-}
-
-// transactionApprovedByMessage checks if the Transaction was attached by at least one Message that was directly or
-// indirectly approved by the given Message.
-func (m *Booker) transactionApprovedByMessage(transactionID ledgerstate.TransactionID, messageID MessageID) (approved bool) {
-	for _, attachmentMessageID := range m.tangle.Storage.AttachmentMessageIDs(transactionID) {
-		if m.tangle.Utils.MessageApprovedBy(attachmentMessageID, messageID) {
-			return true
-		}
-	}
-
-	return false
 }
 
 // branchIDsOfStrongParents returns the BranchIDs of the strong parents of the given Message.

@@ -80,7 +80,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, t ...*Tangle) (*Message
 	}
 
 	// TODO: change hardcoded amount of parents
-	strongParents := f.selector.Tips(2)
+	strongParents := f.selector.Tips(p, 2, 2)
 	// TODO: approval switch: select weak parents
 	weakParents := make([]MessageID, 0)
 
@@ -173,7 +173,7 @@ func messageEventHandler(handler interface{}, params ...interface{}) {
 
 // A TipSelector selects two tips, parent2 and parent1, for a new message to attach to.
 type TipSelector interface {
-	Tips(count int) (parents []MessageID)
+	Tips(p payload.Payload, countStrongParents, countWeakParents int) (parents []MessageID)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

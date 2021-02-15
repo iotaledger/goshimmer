@@ -3,7 +3,9 @@ package tangle
 import (
 	"fmt"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/datastructure/randommap"
 	"github.com/iotaledger/hive.go/events"
 )
@@ -144,24 +146,111 @@ func (t *TipManager) AddTip(message *Message) {
 }
 
 // Tips returns count number of tips, maximum MaxParentsCount.
-func (t *TipManager) Tips(count int) (parents []MessageID) {
-	if count > MaxParentsCount {
-		count = MaxParentsCount
+func (t *TipManager) Tips(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs) {
+	if countStrongParents > MaxParentsCount {
+		countStrongParents = MaxParentsCount
 	}
-	if count < MinParentsCount {
-		count = MinParentsCount
+	if countStrongParents < MinParentsCount {
+		countStrongParents = MinParentsCount
 	}
-	parents = make([]MessageID, 0, count)
 
-	tips := t.strongTips.RandomUniqueEntries(count)
-	// count is not valid
-	if tips == nil {
-		parents = append(parents, EmptyMessageID)
+	// select strong parents
+	strongParents = t.selectStrongTips(p, countStrongParents)
+	// if transaction, make sure that all inputs are in the past cone of the selected tips
+	if p != nil && p.Type() == ledgerstate.TransactionType {
+		transaction := p.(*ledgerstate.Transaction)
+
+		tries := 5
+		for !t.tangle.Utils.AllTransactionsApprovedByMessages(transaction.ReferencedTransactionIDs(), strongParents) {
+			if tries == 0 {
+				// TODO: return error
+				panic("not able to make sure that all inputs are in the past cone of selected tips")
+			}
+			tries--
+
+			strongParents = t.selectStrongTips(p, MaxParentsCount)
+		}
+	}
+
+	// select weak tips according to min(countWeakParents, MaxParentsCount-len(strongParents))
+	if MaxParentsCount-len(strongParents) < countWeakParents {
+		countWeakParents = MaxParentsCount - len(strongParents)
+	}
+	weakParents = t.selectWeakTips(countWeakParents)
+
+	return
+}
+
+// selectStrongTips returns a list of strong parents. In case of a transaction it references young enough attachments
+// of consumed transactions directly. Otherwise/additionally count tips are randomly selected.
+func (t *TipManager) selectStrongTips(p payload.Payload, count int) (parents MessageIDs) {
+	parents = make([]MessageID, 0, MaxParentsCount)
+
+	// if transaction: reference young parents directly
+	if p != nil && p.Type() == ledgerstate.TransactionType {
+		transaction := p.(*ledgerstate.Transaction)
+
+		referencedTransactionIDs := transaction.ReferencedTransactionIDs()
+		if len(referencedTransactionIDs) <= 8 {
+			for transactionID := range referencedTransactionIDs {
+				// only one attachment needs to be added
+				added := false
+
+				for _, attachmentMessageID := range t.tangle.Storage.AttachmentMessageIDs(transactionID) {
+					t.tangle.Storage.Message(attachmentMessageID).Consume(func(message *Message) {
+						// check if message is too old
+						timeDifference := clock.SyncedTime().Sub(message.IssuingTime())
+						if timeDifference <= maxParentsTimeDifference {
+							parents = append(parents, attachmentMessageID)
+							added = true
+						}
+					})
+
+					if added {
+						break
+					}
+				}
+			}
+		} else {
+			// TODO: what are we doing if we have more than 8?
+			count = MaxParentsCount
+		}
+	}
+
+	// nothing to do anymore
+	if len(parents) == MaxParentsCount {
 		return
 	}
-	// count is valid, but there simply are no tips
-	if len(tips) == 0 {
-		parents = append(parents, EmptyMessageID)
+
+	// select some current tips (depending on length of parents)
+	if MaxParentsCount-len(parents) < count {
+		count = MaxParentsCount - len(parents)
+	}
+
+	tips := t.strongTips.RandomUniqueEntries(count)
+	// count is invalid or there are no tips
+	if tips == nil || len(tips) == 0 {
+		// only add genesis if no tip was found and not previously referenced (in case of a transaction)
+		if len(parents) == 0 {
+			parents = append(parents, EmptyMessageID)
+		}
+		return
+	}
+	// at least one tip is returned
+	for _, tip := range tips {
+		parents = append(parents, tip.(MessageID))
+	}
+
+	return
+}
+
+// selectWeakTips returns a list of randomly selected weak parents.
+func (t *TipManager) selectWeakTips(count int) (parents MessageIDs) {
+	parents = make([]MessageID, 0, count)
+
+	tips := t.weakTips.RandomUniqueEntries(count)
+	// count is not valid or there simply are no tips
+	if tips == nil || len(tips) == 0 {
 		return
 	}
 	// at least one tip is returned
