@@ -2,7 +2,6 @@ package tangle
 
 import (
 	"fmt"
-	"runtime"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
@@ -12,7 +11,7 @@ import (
 
 var (
 	capacity   = 1000
-	numWorkers = runtime.NumCPU() * 4
+	numWorkers = 1
 )
 
 // SchedulerParentPriorityMap maps parentIDs with their children messages.
