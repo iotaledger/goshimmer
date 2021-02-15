@@ -155,5 +155,5 @@ func configureMessageLayer() {
 	messagelayer.Tangle().Storage.Events.MissingMessageStored.Attach(events.NewClosure(requestedMsgs.append))
 
 	// delete the message from requestedMsgs if it's invalid, otherwise it will always be in the list and never get removed in some cases.
-	messagelayer.Tangle().Events.MessageInvalid.Attach(events.NewClosure(requestedMsgs.delete))
+	messagelayer.Tangle().Events.MessageInvalid.Attach(events.NewClosure(func(messageID tangle.MessageID) { requestedMsgs.delete(messageID) }))
 }
