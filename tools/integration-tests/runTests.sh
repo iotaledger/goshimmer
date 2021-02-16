@@ -1,6 +1,6 @@
 #!/bin/bash
 
-TEST_NAMES='value'
+TEST_NAMES='message'
 
 echo "Build GoShimmer image"
 docker build -t iotaledger/goshimmer ../../.
