@@ -51,8 +51,8 @@ func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 		branchID:  ledgerstate.MasterBranchID,
 		structureDetails: &markers.StructureDetails{
 			Rank:          0,
-			IsPastMarker:  false,
-			PastMarkers:   markers.NewMarkers(),
+			IsPastMarker:  true,
+			PastMarkers:   markers.NewMarkers(&markers.Marker{}),
 			FutureMarkers: markers.NewMarkers(),
 		},
 		timestampOpinion: TimestampOpinion{
@@ -254,6 +254,8 @@ func NewMarkersManager(tangle *Tangle) *MarkersManager {
 // InheritStructureDetails returns the structure Details of a Message that are derived from the StructureDetails of its
 // strong parents.
 func (m *MarkersManager) InheritStructureDetails(message *Message, branchID ledgerstate.BranchID) (structureDetails *markers.StructureDetails) {
+	fmt.Println(branchID)
+	fmt.Println(m.structureDetailsOfStrongParents(message))
 	structureDetails, _ = m.Manager.InheritStructureDetails(m.structureDetailsOfStrongParents(message), m.newMarkerIndexStrategy, markers.NewSequenceAlias(branchID.Bytes()))
 
 	if structureDetails.IsPastMarker {

@@ -291,6 +291,9 @@ func (b *BranchDAG) ConflictMembers(conflictID ConflictID) (cachedConflictMember
 // Branch. It returns the BranchID of the first Rejected Branch that it finds.
 func (b *BranchDAG) BranchIDsContainRejectedBranch(branchIDs BranchIDs) (rejected bool, rejectedBranchID BranchID) {
 	for rejectedBranch := range branchIDs {
+		if rejectedBranch == UndefinedBranchID {
+			continue
+		}
 		if !b.Branch(rejectedBranch).Consume(func(branch Branch) {
 			rejected = branch.InclusionState() == Rejected
 		}) {
