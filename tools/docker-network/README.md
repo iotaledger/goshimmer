@@ -12,7 +12,7 @@ In the docker network run for example
 ./run.sh 5
 ```
 
-The command `./run.sh` spins up a GoShimmer network within Docker as schematically shown in the figure above. Additionally an integer input is required that defines the number of `peer_replicas`.
+The command `./run.sh` spins up a GoShimmer network within Docker as schematically shown in the figure above. The integer input defines the number of `peer_replicas` N.
 The peers can communicate freely within the Docker network 
 while the analysis and visualizer dashboard, as well as the `master_peer's` dashboard and web API are reachable from the host system on the respective ports.
 
