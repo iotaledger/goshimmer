@@ -173,7 +173,7 @@ func (t *TipManager) Tips(p payload.Payload, countStrongParents, countWeakParent
 	}
 
 	// select weak tips according to min(countWeakParents, MaxParentsCount-len(strongParents))
-	if countWeakParents+len(strongParents) < MaxParentsCount {
+	if countWeakParents+len(strongParents) > MaxParentsCount {
 		countWeakParents = MaxParentsCount - len(strongParents)
 	}
 	weakParents = t.selectWeakTips(countWeakParents)
@@ -224,13 +224,13 @@ func (t *TipManager) selectStrongTips(p payload.Payload, count int) (parents Mes
 	}
 
 	// select some current tips (depending on length of parents)
-	if MaxParentsCount-len(parents) < count {
+	if count+len(parents) > MaxParentsCount {
 		count = MaxParentsCount - len(parents)
 	}
 
 	tips := t.strongTips.RandomUniqueEntries(count)
 	// count is invalid or there are no tips
-	if tips == nil || len(tips) == 0 {
+	if len(tips) == 0 {
 		// only add genesis if no tip was found and not previously referenced (in case of a transaction)
 		if len(parents) == 0 {
 			parents = append(parents, EmptyMessageID)
@@ -251,7 +251,7 @@ func (t *TipManager) selectWeakTips(count int) (parents MessageIDs) {
 
 	tips := t.weakTips.RandomUniqueEntries(count)
 	// count is not valid or there simply are no tips
-	if tips == nil || len(tips) == 0 {
+	if len(tips) == 0 {
 		return
 	}
 	// at least one tip is returned
