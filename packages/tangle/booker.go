@@ -51,8 +51,8 @@ func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 		branchID:  ledgerstate.MasterBranchID,
 		structureDetails: &markers.StructureDetails{
 			Rank:          0,
-			IsPastMarker:  true,
-			PastMarkers:   markers.NewMarkers(&markers.Marker{}),
+			IsPastMarker:  false,
+			PastMarkers:   markers.NewMarkers(),
 			FutureMarkers: markers.NewMarkers(),
 		},
 		timestampOpinion: TimestampOpinion{
@@ -100,6 +100,7 @@ func (b *Booker) UpdateMessagesBranch(transactionID ledgerstate.TransactionID) {
 func (b *Booker) Book(messageID MessageID) (err error) {
 	b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+			sequenceAlias := make([]markers.SequenceAlias, 0)
 			var transactionID ledgerstate.TransactionID
 			combinedBranches := b.branchIDsOfParents(message)
 			if payload := message.Payload(); payload != nil && payload.Type() == ledgerstate.TransactionType {
@@ -119,6 +120,9 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 					return
 				}
 				combinedBranches = combinedBranches.Add(targetBranch)
+				if ledgerstate.NewBranchID(transaction.ID()) == targetBranch {
+					sequenceAlias = append(sequenceAlias, markers.NewSequenceAlias(targetBranch.Bytes()))
+				}
 
 				transactionID = transaction.ID()
 			}
@@ -130,7 +134,7 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 			}
 
 			messageMetadata.SetBranchID(inheritedBranch)
-			messageMetadata.SetStructureDetails(b.MarkersManager.InheritStructureDetails(message, inheritedBranch))
+			messageMetadata.SetStructureDetails(b.MarkersManager.InheritStructureDetails(message, sequenceAlias...))
 			messageMetadata.SetBooked(true)
 
 			// store attachment
@@ -253,10 +257,8 @@ func NewMarkersManager(tangle *Tangle) *MarkersManager {
 
 // InheritStructureDetails returns the structure Details of a Message that are derived from the StructureDetails of its
 // strong parents.
-func (m *MarkersManager) InheritStructureDetails(message *Message, branchID ledgerstate.BranchID) (structureDetails *markers.StructureDetails) {
-	fmt.Println(branchID)
-	fmt.Println(m.structureDetailsOfStrongParents(message))
-	structureDetails, _ = m.Manager.InheritStructureDetails(m.structureDetailsOfStrongParents(message), m.newMarkerIndexStrategy, markers.NewSequenceAlias(branchID.Bytes()))
+func (m *MarkersManager) InheritStructureDetails(message *Message, newSequenceAlias ...markers.SequenceAlias) (structureDetails *markers.StructureDetails) {
+	structureDetails, _ = m.Manager.InheritStructureDetails(m.structureDetailsOfStrongParents(message), m.newMarkerIndexStrategy, newSequenceAlias...)
 
 	if structureDetails.IsPastMarker {
 		m.tangle.Utils.WalkMessageMetadata(m.propagatePastMarkerToFutureMarkers(structureDetails.PastMarkers.FirstMarker()), message.StrongParents())

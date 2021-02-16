@@ -68,9 +68,6 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 	inheritedStructureDetails.Rank++
 
 	normalizedMarkers, normalizedSequences := m.normalizeMarkers(mergedPastMarkers)
-	fmt.Println("-------------------------------------")
-	fmt.Println(normalizedMarkers, normalizedSequences)
-	fmt.Println("-------------------------------------")
 	rankOfReferencedSequences := normalizedMarkers.HighestRank()
 	referencedMarkers, referencedMarkersExist := normalizedMarkers.Markers()
 	if !referencedMarkersExist {
