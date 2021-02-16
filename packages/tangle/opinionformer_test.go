@@ -87,7 +87,7 @@ func TestOpinionFormer_Scenario2(t *testing.T) {
 	// Message 5
 	outputs["F"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["F"].address)
 	transactions["4"] = makeTransaction(ledgerstate.NewInputs(inputs["A"]), ledgerstate.NewOutputs(outputs["F"]), outputsByID, walletsByAddress)
-	messages["5"] = newTestParentsPayloadMessage(transactions["4"], []MessageID{messages["1"].ID(), messages["2"].ID()}, []MessageID{})
+	messages["5"] = newTestParentsPayloadMessage(transactions["4"], []MessageID{messages["1"].ID()}, []MessageID{messages["2"].ID()})
 
 	// Message 6
 	inputs["E"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["2"].ID(), 0))
