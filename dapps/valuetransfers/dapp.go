@@ -24,6 +24,7 @@ import (
 	"golang.org/x/xerrors"
 )
 
+// TODO: refactor these to messagelayer
 const (
 	// PluginName contains the human readable name of the plugin.
 	PluginName = "ValueTransfers"
