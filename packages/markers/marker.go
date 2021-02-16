@@ -19,8 +19,8 @@ type Marker struct {
 }
 
 // NewMarker returns a new marker.
-func NewMarker(sequenceID SequenceID, index Index) Marker {
-	return Marker{sequenceID, index}
+func NewMarker(sequenceID SequenceID, index Index) *Marker {
+	return &Marker{sequenceID, index}
 }
 
 // MarkerFromBytes unmarshals a Marker from a sequence of bytes.

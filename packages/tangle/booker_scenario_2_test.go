@@ -1,10 +1,10 @@
 package tangle
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -68,11 +68,6 @@ func TestScenario_2(t *testing.T) {
 
 	require.NoError(t, err)
 
-	fmt.Println("Message 1")
-	tangle.Storage.MessageMetadata(messages["1"].ID()).Consume(func(metadata *MessageMetadata) {
-		fmt.Println(metadata.StructureDetails())
-	})
-
 	msgBranchID, err := messageBranchID(tangle, messages["1"].ID())
 	require.NoError(t, err)
 	assert.Equal(t, branches["green"], msgBranchID)
@@ -94,11 +89,6 @@ func TestScenario_2(t *testing.T) {
 	err = tangle.Booker.Book(messages["2"].ID())
 	require.NoError(t, err)
 
-	fmt.Println("Message 2")
-	tangle.Storage.MessageMetadata(messages["2"].ID()).Consume(func(metadata *MessageMetadata) {
-		fmt.Println(metadata.StructureDetails())
-	})
-
 	msgBranchID, err = messageBranchID(tangle, messages["2"].ID())
 	require.NoError(t, err)
 	assert.Equal(t, branches["green"], msgBranchID)
@@ -113,11 +103,6 @@ func TestScenario_2(t *testing.T) {
 
 	err = tangle.Booker.Book(messages["3"].ID())
 	require.NoError(t, err)
-
-	fmt.Println("Message 3")
-	tangle.Storage.MessageMetadata(messages["3"].ID()).Consume(func(metadata *MessageMetadata) {
-		fmt.Println(metadata.StructureDetails())
-	})
 
 	msgBranchID, err = messageBranchID(tangle, messages["3"].ID())
 	require.NoError(t, err)
@@ -138,11 +123,6 @@ func TestScenario_2(t *testing.T) {
 	err = tangle.Booker.Book(messages["4"].ID())
 	require.NoError(t, err)
 
-	fmt.Println("Message 4")
-	tangle.Storage.MessageMetadata(messages["4"].ID()).Consume(func(metadata *MessageMetadata) {
-		fmt.Println(metadata.StructureDetails())
-	})
-
 	msgBranchID, err = messageBranchID(tangle, messages["4"].ID())
 	require.NoError(t, err)
 	assert.Equal(t, branches["green"], msgBranchID)
@@ -159,11 +139,6 @@ func TestScenario_2(t *testing.T) {
 
 	err = tangle.Booker.Book(messages["5"].ID())
 	require.NoError(t, err)
-
-	fmt.Println("Message 5")
-	tangle.Storage.MessageMetadata(messages["5"].ID()).Consume(func(metadata *MessageMetadata) {
-		fmt.Println(metadata.StructureDetails())
-	})
 
 	branches["yellow"] = ledgerstate.NewBranchID(transactions["4"].ID())
 
@@ -198,11 +173,6 @@ func TestScenario_2(t *testing.T) {
 	err = tangle.Booker.Book(messages["6"].ID())
 	require.NoError(t, err)
 
-	fmt.Println("Message 6")
-	tangle.Storage.MessageMetadata(messages["6"].ID()).Consume(func(metadata *MessageMetadata) {
-		fmt.Println(metadata.StructureDetails())
-	})
-
 	msgBranchID, err = messageBranchID(tangle, messages["6"].ID())
 	require.NoError(t, err)
 	assert.Equal(t, branches["yellow"], msgBranchID)
@@ -219,11 +189,6 @@ func TestScenario_2(t *testing.T) {
 
 	err = tangle.Booker.Book(messages["7"].ID())
 	require.NoError(t, err)
-
-	fmt.Println("Message 7")
-	tangle.Storage.MessageMetadata(messages["7"].ID()).Consume(func(metadata *MessageMetadata) {
-		fmt.Println(metadata.StructureDetails())
-	})
 
 	branches["orange"] = ledgerstate.NewBranchID(transactions["6"].ID())
 	branches["purple"] = ledgerstate.NewBranchID(transactions["2"].ID())
@@ -279,11 +244,6 @@ func TestScenario_2(t *testing.T) {
 	err = tangle.Booker.Book(messages["8"].ID())
 	require.NoError(t, err)
 
-	fmt.Println("Message 8")
-	tangle.Storage.MessageMetadata(messages["8"].ID()).Consume(func(metadata *MessageMetadata) {
-		fmt.Println(metadata.StructureDetails())
-	})
-
 	msgBranchID, err = messageBranchID(tangle, messages["8"].ID())
 	require.NoError(t, err)
 	assert.Equal(t, branches["red+orange"], msgBranchID)
@@ -300,11 +260,6 @@ func TestScenario_2(t *testing.T) {
 
 	err = tangle.Booker.Book(messages["9"].ID())
 	require.NoError(t, err)
-
-	fmt.Println("Message 9")
-	tangle.Storage.MessageMetadata(messages["9"].ID()).Consume(func(metadata *MessageMetadata) {
-		fmt.Println(metadata.StructureDetails())
-	})
 
 	branches["blue"] = ledgerstate.NewBranchID(transactions["8"].ID())
 	branches["red+orange+blue"] = ledgerstate.NewAggregatedBranch(ledgerstate.NewBranchIDs(branches["red"], branches["orange"], branches["blue"])).ID()
@@ -325,10 +280,69 @@ func TestScenario_2(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, branches["purple"], txBranchID)
 
-	for messageLabel, message := range messages {
-		fmt.Println("Message ", messageLabel)
-		tangle.Storage.MessageMetadata(message.ID()).Consume(func(metadata *MessageMetadata) {
-			fmt.Println(metadata.StructureDetails())
-		})
+	////////// Markers //////////////
+	{
+		structureDetails := make(map[MessageID]*markers.StructureDetails)
+		structureDetails[messages["1"].ID()] = &markers.StructureDetails{
+			Rank:          1,
+			IsPastMarker:  true,
+			PastMarkers:   markers.NewMarkers(markers.NewMarker(1, 1)),
+			FutureMarkers: markers.NewMarkers(markers.NewMarker(1, 2), markers.NewMarker(3, 2)),
+		}
+		structureDetails[messages["2"].ID()] = &markers.StructureDetails{
+			Rank:          2,
+			IsPastMarker:  true,
+			PastMarkers:   markers.NewMarkers(markers.NewMarker(1, 2)),
+			FutureMarkers: markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(2, 3)),
+		}
+		structureDetails[messages["3"].ID()] = &markers.StructureDetails{
+			Rank:          3,
+			IsPastMarker:  true,
+			PastMarkers:   markers.NewMarkers(markers.NewMarker(1, 3)),
+			FutureMarkers: markers.NewMarkers(),
+		}
+		structureDetails[messages["4"].ID()] = &markers.StructureDetails{
+			Rank:          2,
+			IsPastMarker:  false,
+			PastMarkers:   markers.NewMarkers(markers.NewMarker(1, 1)),
+			FutureMarkers: markers.NewMarkers(markers.NewMarker(3, 2)),
+		}
+		structureDetails[messages["5"].ID()] = &markers.StructureDetails{
+			Rank:          3,
+			IsPastMarker:  true,
+			PastMarkers:   markers.NewMarkers(markers.NewMarker(2, 3)),
+			FutureMarkers: markers.NewMarkers(markers.NewMarker(2, 4)),
+		}
+		structureDetails[messages["6"].ID()] = &markers.StructureDetails{
+			Rank:          4,
+			IsPastMarker:  true,
+			PastMarkers:   markers.NewMarkers(markers.NewMarker(2, 4)),
+			FutureMarkers: markers.NewMarkers(),
+		}
+		structureDetails[messages["7"].ID()] = &markers.StructureDetails{
+			Rank:          3,
+			IsPastMarker:  true,
+			PastMarkers:   markers.NewMarkers(markers.NewMarker(3, 2)),
+			FutureMarkers: markers.NewMarkers(markers.NewMarker(3, 3), markers.NewMarker(4, 3)),
+		}
+		structureDetails[messages["8"].ID()] = &markers.StructureDetails{
+			Rank:          4,
+			IsPastMarker:  true,
+			PastMarkers:   markers.NewMarkers(markers.NewMarker(3, 3)),
+			FutureMarkers: markers.NewMarkers(),
+		}
+		structureDetails[messages["9"].ID()] = &markers.StructureDetails{
+			Rank:          4,
+			IsPastMarker:  true,
+			PastMarkers:   markers.NewMarkers(markers.NewMarker(4, 3)),
+			FutureMarkers: markers.NewMarkers(),
+		}
+
+		for _, message := range messages {
+			tangle.Storage.MessageMetadata(message.ID()).Consume(func(metadata *MessageMetadata) {
+				assert.Equal(t, structureDetails[message.ID()], metadata.StructureDetails())
+			})
+		}
 	}
+	/////////////////////////////////
 }
