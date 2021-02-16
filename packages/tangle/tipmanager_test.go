@@ -3,58 +3,15 @@ package tangle
 import (
 	"testing"
 
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
-
-func TestTipManager(t *testing.T) {
-	// create tip selector
-	//tipSelector := NewTipManager(New())
-	//
-	//// check if first tips point to genesis
-	//parents := tipSelector.Tips(2)
-	//// there has to be only one valid tip, the genesis message
-	//assert.Equal(t, 1, len(parents))
-	//assert.Equal(t, parents[0], EmptyMessageID)
-	//
-	//// create a message and attach it
-	//message1 := newTestParentsDataMessage("testmessage1", parents, []MessageID{})
-	//tipSelector.AddTip(message1)
-	//
-	//// check if the tip shows up in the tip count
-	//assert.Equal(t, 1, tipSelector.StrongTipCount())
-	//
-	//// check if next tips point to our first message
-	//parents2 := tipSelector.Tips(2)
-	//assert.Equal(t, 1, len(parents2))
-	//assert.Contains(t, parents2, message1.ID())
-	//
-	//// create a 2nd message and attach it
-	//message2 := newTestParentsDataMessage("testmessage2", []MessageID{EmptyMessageID}, []MessageID{EmptyMessageID})
-	//tipSelector.AddTip(message2)
-	//
-	//// check if the tip shows up in the tip count
-	//assert.Equal(t, 2, tipSelector.StrongTipCount())
-	//
-	//// attach a message to our two tips
-	//parents3 := tipSelector.Tips(2)
-	//message3 := newTestParentsDataMessage("testmessage3", parents3, []MessageID{})
-	//tipSelector.AddTip(message3)
-	//
-	//// check if the tip shows replaces the current tips
-	//parents4 := tipSelector.Tips(2)
-	//assert.Equal(t, 1, tipSelector.StrongTipCount())
-	//assert.Equal(t, 1, len(parents4))
-	//assert.Contains(t, parents4, message3.ID())
-	//assert.Contains(t, parents4, message3.ID())
-
-}
 
 func TestTipManager_AddTip(t *testing.T) {
 	tangle := New()
 	defer tangle.Shutdown()
 	tipManager := tangle.TipManager
-
-	//messages := make(map[string]*Message)
 
 	// not eligible messages -> nothing is added
 	{
@@ -69,6 +26,100 @@ func TestTipManager_AddTip(t *testing.T) {
 		assert.Equal(t, 0, tipManager.WeakTipCount())
 	}
 
-	// payload not liked -> nothing is added
+	// TODO: payload not liked -> nothing is added
+	{
+	}
 
+	// clean up
+	err := tangle.Prune()
+	require.NoError(t, err)
+
+	// set up scenario (images/tipmanager-add-tips.png)
+	messages := make(map[string]*Message)
+
+	// Message 1
+	{
+		messages["1"] = createAndStoreEligibleTestParentsDataMessageInMasterBranch(tangle, []MessageID{EmptyMessageID}, []MessageID{})
+		tipManager.AddTip(messages["1"])
+
+		assert.Equal(t, 1, tipManager.StrongTipCount())
+		assert.Equal(t, 0, tipManager.WeakTipCount())
+		assert.Contains(t, tipManager.strongTips.Keys(), messages["1"].ID())
+	}
+
+	// Message 2
+	{
+		messages["2"] = createAndStoreEligibleTestParentsDataMessageInMasterBranch(tangle, []MessageID{EmptyMessageID}, []MessageID{})
+		tipManager.AddTip(messages["2"])
+
+		assert.Equal(t, 2, tipManager.StrongTipCount())
+		assert.Equal(t, 0, tipManager.WeakTipCount())
+		assert.Contains(t, tipManager.strongTips.Keys(), messages["1"].ID(), messages["2"].ID())
+	}
+
+	// Message 3
+	{
+		messages["3"] = createAndStoreEligibleTestParentsDataMessageInMasterBranch(tangle, []MessageID{messages["1"].ID(), messages["2"].ID()}, []MessageID{})
+		tipManager.AddTip(messages["3"])
+
+		assert.Equal(t, 1, tipManager.StrongTipCount())
+		assert.Equal(t, 0, tipManager.WeakTipCount())
+		assert.Contains(t, tipManager.strongTips.Keys(), messages["3"].ID())
+	}
+
+	// Message 4
+	{
+		messages["4"] = createAndStoreEligibleTestParentsDataMessageInInvalidBranch(tangle, []MessageID{messages["2"].ID()}, []MessageID{messages["3"].ID()})
+		tipManager.AddTip(messages["4"])
+
+		assert.Equal(t, 1, tipManager.StrongTipCount())
+		assert.Equal(t, 1, tipManager.WeakTipCount())
+		assert.Contains(t, tipManager.strongTips.Keys(), messages["3"].ID())
+		assert.Contains(t, tipManager.weakTips.Keys(), messages["4"].ID())
+	}
+
+	// Message 5
+	{
+		messages["5"] = createAndStoreEligibleTestParentsDataMessageInInvalidBranch(tangle, []MessageID{messages["3"].ID(), messages["4"].ID()}, []MessageID{})
+		tipManager.AddTip(messages["5"])
+
+		assert.Equal(t, 1, tipManager.StrongTipCount())
+		assert.Equal(t, 2, tipManager.WeakTipCount())
+		assert.Contains(t, tipManager.strongTips.Keys(), messages["3"].ID())
+		assert.Contains(t, tipManager.weakTips.Keys(), messages["4"].ID(), messages["5"].ID())
+	}
+
+	// Message 6
+	{
+		messages["6"] = createAndStoreEligibleTestParentsDataMessageInMasterBranch(tangle, []MessageID{messages["3"].ID()}, []MessageID{messages["4"].ID(), messages["5"].ID()})
+		tipManager.AddTip(messages["6"])
+
+		assert.Equal(t, 1, tipManager.StrongTipCount())
+		assert.Equal(t, 0, tipManager.WeakTipCount())
+		assert.Contains(t, tipManager.strongTips.Keys(), messages["6"].ID())
+	}
+
+}
+
+func createAndStoreEligibleTestParentsDataMessageInMasterBranch(tangle *Tangle, strongParents, weakParents MessageIDs) (message *Message) {
+	message = newTestParentsDataMessage("testmessage", strongParents, weakParents)
+	tangle.Storage.StoreMessage(message)
+	message.setMessageMetadata(tangle, true, ledgerstate.MasterBranchID)
+
+	return
+}
+
+func createAndStoreEligibleTestParentsDataMessageInInvalidBranch(tangle *Tangle, strongParents, weakParents MessageIDs) (message *Message) {
+	message = newTestParentsDataMessage("testmessage", strongParents, weakParents)
+	tangle.Storage.StoreMessage(message)
+	message.setMessageMetadata(tangle, true, ledgerstate.InvalidBranchID)
+
+	return
+}
+
+func (m *Message) setMessageMetadata(tangle *Tangle, eligible bool, branchID ledgerstate.BranchID) {
+	tangle.Storage.MessageMetadata(m.ID()).Consume(func(messageMetadata *MessageMetadata) {
+		messageMetadata.SetEligible(eligible)
+		messageMetadata.SetBranchID(branchID)
+	})
 }
