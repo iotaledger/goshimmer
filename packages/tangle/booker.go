@@ -45,24 +45,7 @@ func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 		MarkerBranchIDMappingManager: NewMarkerBranchIDMappingManager(tangle),
 	}
 
-	genesisMetadata := &MessageMetadata{
-		messageID: EmptyMessageID,
-		solid:     true,
-		branchID:  ledgerstate.MasterBranchID,
-		structureDetails: &markers.StructureDetails{
-			Rank:          0,
-			IsPastMarker:  false,
-			PastMarkers:   markers.NewMarkers(),
-			FutureMarkers: markers.NewMarkers(),
-		},
-		timestampOpinion: TimestampOpinion{
-			Value: opinion.Like,
-			LoK:   Three,
-		},
-		booked:   true,
-		eligible: true,
-	}
-	tangle.Storage.messageMetadataStorage.Store(genesisMetadata).Release()
+	messageBooker.createGenesis()
 
 	return
 }
@@ -74,7 +57,12 @@ func (b *Booker) Shutdown() {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (b *Booker) Setup() {
-	b.tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) { b.Book(messageID) }))
+	b.tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
+		err := b.Book(messageID)
+		if err != nil {
+			b.tangle.Events.Error.Trigger(err)
+		}
+	}))
 	b.tangle.LedgerState.utxoDAG.Events.TransactionBranchIDUpdated.Attach(events.NewClosure(b.UpdateMessagesBranch))
 }
 
@@ -198,6 +186,9 @@ func (b *Booker) branchIDsOfParents(message *Message) (branchIDs ledgerstate.Bra
 	})
 
 	message.ForEachWeakParent(func(parentMessageID MessageID) {
+		if parentMessageID == EmptyMessageID {
+			return
+		}
 		if !b.tangle.Storage.Message(parentMessageID).Consume(func(message *Message) {
 			if payload := message.Payload(); payload != nil && payload.Type() == ledgerstate.TransactionType {
 				transactionID := payload.(*ledgerstate.Transaction).ID()
@@ -215,6 +206,27 @@ func (b *Booker) branchIDsOfParents(message *Message) (branchIDs ledgerstate.Bra
 	})
 
 	return
+}
+
+func (b *Booker) createGenesis() {
+	genesisMetadata := &MessageMetadata{
+		messageID: EmptyMessageID,
+		solid:     true,
+		branchID:  ledgerstate.MasterBranchID,
+		structureDetails: &markers.StructureDetails{
+			Rank:          0,
+			IsPastMarker:  false,
+			PastMarkers:   markers.NewMarkers(),
+			FutureMarkers: markers.NewMarkers(),
+		},
+		timestampOpinion: TimestampOpinion{
+			Value: opinion.Like,
+			LoK:   Three,
+		},
+		booked:   true,
+		eligible: true,
+	}
+	b.tangle.Storage.messageMetadataStorage.Store(genesisMetadata).Release()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
