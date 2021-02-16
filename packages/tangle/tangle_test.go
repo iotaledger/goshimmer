@@ -260,7 +260,7 @@ func TestRetrieveAllTips(t *testing.T) {
 
 	var wg sync.WaitGroup
 
-	messageTangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(MessageID) {
+	messageTangle.OpinionFormer.Events.MessageOpinionFormed.Attach(events.NewClosure(func(MessageID) {
 		wg.Done()
 	}))
 
