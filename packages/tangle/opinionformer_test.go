@@ -1,7 +1,6 @@
 package tangle
 
 import (
-	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -165,60 +164,32 @@ func TestOpinionFormer_Scenario2(t *testing.T) {
 		t.Log("Message scheduled:", messageID)
 	}))
 
-	var wg sync.WaitGroup
-
 	tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(func(messageID MessageID) {
-
 		t.Log("Message Booked:", messageID)
 	}))
 
-	// i := atomic.Int64{}
-	// i.Add(1)
-
+	var wg sync.WaitGroup
 	tangle.OpinionFormer.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID MessageID) {
 		t.Logf("MessageOpinionFormed for %s", messageID)
-		wg.Done()
 
-		// assert.True(t, tangle.OpinionFormer.MessageEligible(messageID))
-		// assert.Equal(t, payloadLiked[messageID], tangle.OpinionFormer.PayloadLiked(messageID))
+		assert.True(t, tangle.OpinionFormer.MessageEligible(messageID))
+		assert.Equal(t, payloadLiked[messageID], tangle.OpinionFormer.PayloadLiked(messageID))
 		t.Log("Payload Liked:", tangle.OpinionFormer.PayloadLiked(messageID))
+		wg.Done()
 	}))
 
 	wg.Add(9)
-	fmt.Println("---------------1---------------")
+
 	tangle.Storage.StoreMessage(messages["1"])
-
-	fmt.Println("---------------2---------------")
-
 	tangle.Storage.StoreMessage(messages["2"])
-
-	fmt.Println("---------------3---------------")
-
 	tangle.Storage.StoreMessage(messages["3"])
-
-	fmt.Println("---------------4---------------")
-
 	tangle.Storage.StoreMessage(messages["4"])
-
-	fmt.Println("---------------5---------------")
-
 	tangle.Storage.StoreMessage(messages["5"])
-
-	fmt.Println("----------------6--------------")
-
 	tangle.Storage.StoreMessage(messages["6"])
-
-	fmt.Println("---------------7---------------")
-
 	tangle.Storage.StoreMessage(messages["7"])
-
-	fmt.Println("---------------8---------------")
-
 	tangle.Storage.StoreMessage(messages["8"])
-
-	fmt.Println("---------------9---------------")
-
 	tangle.Storage.StoreMessage(messages["9"])
+
 	wg.Wait()
 }
 
