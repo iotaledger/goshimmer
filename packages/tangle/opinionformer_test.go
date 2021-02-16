@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -15,8 +16,8 @@ import (
 )
 
 func TestOpinionFormer_Scenario2(t *testing.T) {
-	LikedThreshold = 1 * time.Second
-	LocallyFinalizedThreshold = 1 * time.Second
+	LikedThreshold = 2 * time.Second
+	LocallyFinalizedThreshold = 2 * time.Second
 
 	tangle := New()
 	defer tangle.Shutdown()
@@ -164,33 +165,60 @@ func TestOpinionFormer_Scenario2(t *testing.T) {
 		t.Log("Message scheduled:", messageID)
 	}))
 
+	var wg sync.WaitGroup
+
 	tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(func(messageID MessageID) {
+
 		t.Log("Message Booked:", messageID)
 	}))
 
-	var wg sync.WaitGroup
-	i := 1
+	// i := atomic.Int64{}
+	// i.Add(1)
+
 	tangle.OpinionFormer.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID MessageID) {
-		t.Logf("%d MessageOpinionFormed for %s", i, messageID)
-		i++
+		t.Logf("MessageOpinionFormed for %s", messageID)
 		wg.Done()
+
 		// assert.True(t, tangle.OpinionFormer.MessageEligible(messageID))
 		// assert.Equal(t, payloadLiked[messageID], tangle.OpinionFormer.PayloadLiked(messageID))
 		t.Log("Payload Liked:", tangle.OpinionFormer.PayloadLiked(messageID))
 	}))
 
 	wg.Add(9)
-
+	fmt.Println("---------------1---------------")
 	tangle.Storage.StoreMessage(messages["1"])
-	tangle.Storage.StoreMessage(messages["2"])
-	tangle.Storage.StoreMessage(messages["3"])
-	tangle.Storage.StoreMessage(messages["4"])
-	tangle.Storage.StoreMessage(messages["5"])
-	tangle.Storage.StoreMessage(messages["6"])
-	tangle.Storage.StoreMessage(messages["7"])
-	tangle.Storage.StoreMessage(messages["8"])
-	tangle.Storage.StoreMessage(messages["9"])
 
+	fmt.Println("---------------2---------------")
+
+	tangle.Storage.StoreMessage(messages["2"])
+
+	fmt.Println("---------------3---------------")
+
+	tangle.Storage.StoreMessage(messages["3"])
+
+	fmt.Println("---------------4---------------")
+
+	tangle.Storage.StoreMessage(messages["4"])
+
+	fmt.Println("---------------5---------------")
+
+	tangle.Storage.StoreMessage(messages["5"])
+
+	fmt.Println("----------------6--------------")
+
+	tangle.Storage.StoreMessage(messages["6"])
+
+	fmt.Println("---------------7---------------")
+
+	tangle.Storage.StoreMessage(messages["7"])
+
+	fmt.Println("---------------8---------------")
+
+	tangle.Storage.StoreMessage(messages["8"])
+
+	fmt.Println("---------------9---------------")
+
+	tangle.Storage.StoreMessage(messages["9"])
 	wg.Wait()
 }
 

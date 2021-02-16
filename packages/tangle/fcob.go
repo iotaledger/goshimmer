@@ -124,9 +124,11 @@ func (f *FCoB) onTransactionBooked(transactionID ledgerstate.TransactionID, mess
 	if branchInclusionState == ledgerstate.Rejected {
 		opinion.OpinionEssence = OpinionEssence{
 			timestamp:        timestamp,
+			liked:            false,
 			levelOfKnowledge: Two,
 		}
 		f.opinionStorage.Store(opinion).Release()
+		f.Events.PayloadOpinionFormed.Trigger(&OpinionFormedEvent{messageID, opinion.liked})
 		return
 	}
 
@@ -143,6 +145,10 @@ func (f *FCoB) onTransactionBooked(transactionID ledgerstate.TransactionID, mess
 				vote = voter.Like
 			}
 			f.Events.Vote.Trigger(transactionID.Base58(), vote)
+		}
+
+		if opinion.LevelOfKnowledge() > One {
+			f.Events.PayloadOpinionFormed.Trigger(&OpinionFormedEvent{messageID, opinion.liked})
 		}
 
 		return

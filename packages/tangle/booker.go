@@ -101,7 +101,6 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 	b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 			sequenceAlias := make([]markers.SequenceAlias, 0)
-			var transactionID ledgerstate.TransactionID
 			combinedBranches := b.branchIDsOfParents(message)
 			if payload := message.Payload(); payload != nil && payload.Type() == ledgerstate.TransactionType {
 				transaction := payload.(*ledgerstate.Transaction)
@@ -124,12 +123,15 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 					sequenceAlias = append(sequenceAlias, markers.NewSequenceAlias(targetBranch.Bytes()))
 				}
 
-				transactionID = transaction.ID()
+				attachment, stored := b.tangle.Storage.StoreAttachment(transaction.ID(), messageID)
+				if stored {
+					attachment.Release()
+				}
 			}
 
 			inheritedBranch, inheritErr := b.tangle.LedgerState.InheritBranch(combinedBranches)
 			if inheritErr != nil {
-				err = xerrors.Errorf("failed to inherit Branch when booking Message with %s: %w", message.ID(), inheritErr)
+				err = xerrors.Errorf("failed to inherit Branch when booking Message with %s: %w", messageID, inheritErr)
 				return
 			}
 
@@ -137,15 +139,7 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 			messageMetadata.SetStructureDetails(b.MarkersManager.InheritStructureDetails(message, sequenceAlias...))
 			messageMetadata.SetBooked(true)
 
-			// store attachment
-			if transactionID != ledgerstate.GenesisTransactionID {
-				attachment, stored := b.tangle.Storage.StoreAttachment(transactionID, message.ID())
-				if stored {
-					attachment.Release()
-				}
-			}
-
-			b.Events.MessageBooked.Trigger(message.ID())
+			b.Events.MessageBooked.Trigger(messageID)
 		})
 	})
 
