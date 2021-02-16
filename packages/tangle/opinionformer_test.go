@@ -234,15 +234,6 @@ func TestOpinionFormer(t *testing.T) {
 
 	tangle.Setup()
 
-	tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(messageID MessageID) {
-		t.Log("Booking:", messageID)
-		err := tangle.Booker.Book(messageID)
-		if err != nil {
-			t.Log(err)
-		}
-	}))
-	var wg sync.WaitGroup
-
 	tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(func(messageID MessageID) {
 		t.Log("Message Booked:", messageID)
 	}))
@@ -251,12 +242,15 @@ func TestOpinionFormer(t *testing.T) {
 		t.Log("Invalid message:", messageID)
 	}))
 
+	var wg sync.WaitGroup
+
 	tangle.OpinionFormer.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID MessageID) {
 		t.Log("MessageOpinionFormed for ", messageID)
-		wg.Done()
+
 		assert.True(t, tangle.OpinionFormer.MessageEligible(messageID))
 		assert.Equal(t, payloadLiked[messageID], tangle.OpinionFormer.PayloadLiked(messageID))
 		t.Log("Payload Liked:", tangle.OpinionFormer.PayloadLiked(messageID))
+		wg.Done()
 	}))
 
 	tangle.OpinionFormer.payloadOpinionProvider.Vote().Attach(events.NewClosure(func(transactionID string, initialOpinion opinion.Opinion) {
