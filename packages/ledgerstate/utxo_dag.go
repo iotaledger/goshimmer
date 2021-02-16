@@ -276,6 +276,15 @@ func (u *UTXODAG) LoadSnapshot(snapshot map[TransactionID]map[Address]*ColoredBa
 	}
 }
 
+// AddressOutputMapping retrieves the outputs for the given address.
+func (u *UTXODAG) AddressOutputMapping(address Address) (cachedAddressOutputMappings CachedAddressOutputMappings) {
+	u.addressOutputMappingStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		cachedAddressOutputMappings = append(cachedAddressOutputMappings, &CachedAddressOutputMapping{cachedObject})
+		return true
+	}, address.Bytes())
+	return
+}
+
 // region booking functions ////////////////////////////////////////////////////////////////////////////////////////////
 
 // bookInvalidTransaction is an internal utility function that books the given Transaction into the Branch identified by
@@ -845,6 +854,14 @@ type AddressOutputMapping struct {
 	objectstorage.StorableObjectFlags
 }
 
+// NewAddressOutputMapping returns a new AddressOutputMapping.
+func NewAddressOutputMapping(address Address, outputID OutputID) *AddressOutputMapping {
+	return &AddressOutputMapping{
+		address:  address,
+		outputID: outputID,
+	}
+}
+
 // AddressOutputMappingFromBytes unmarshals a AddressOutputMapping from a sequence of bytes.
 func AddressOutputMappingFromBytes(bytes []byte) (addressOutputMapping *AddressOutputMapping, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
@@ -919,8 +936,8 @@ func (a *AddressOutputMapping) ObjectStorageKey() []byte {
 
 // ObjectStorageValue marshals the Consumer into a sequence of bytes that are used as the value part in the object
 // storage.
-func (a *AddressOutputMapping) ObjectStorageValue() []byte {
-	panic("implement me")
+func (a *AddressOutputMapping) ObjectStorageValue() (value []byte) {
+	return
 }
 
 // code contract (make sure the struct implements all required methods)

@@ -711,6 +711,22 @@ func TestUnlockBlocksValid(t *testing.T) {
 
 }
 
+func TestAddressOutputMapping(t *testing.T) {
+	branchDAG, utxoDAG := setupDependencies(t)
+	defer branchDAG.Shutdown()
+	defer utxoDAG.Shutdown()
+
+	kp := ed25519.GenerateKeyPair()
+	w := wallet{
+		kp,
+		NewED25519Address(kp.PublicKey),
+	}
+	utxoDAG.addressOutputMappingStorage.Store(NewAddressOutputMapping(w.address, EmptyOutputID)).Release()
+	res := utxoDAG.AddressOutputMapping(w.address)
+	res.Release()
+	assert.Equal(t, 1, len(res))
+}
+
 func setupDependencies(t *testing.T) (*BranchDAG, *UTXODAG) {
 	store := mapdb.NewMapDB()
 	branchDAG := NewBranchDAG(store)

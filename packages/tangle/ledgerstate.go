@@ -82,6 +82,11 @@ func (l *LedgerState) TransactionMetadata(transactionID ledgerstate.TransactionI
 	return l.utxoDAG.TransactionMetadata(transactionID)
 }
 
+// Transaction retrieves the Transaction with the given TransactionID from the object storage.
+func (l *LedgerState) Transaction(transactionID ledgerstate.TransactionID) *ledgerstate.CachedTransaction {
+	return l.utxoDAG.Transaction(transactionID)
+}
+
 // BookTransaction books the given Transaction into the underlying LedgerState and returns the target Branch and an
 // eventual error.
 func (l *LedgerState) BookTransaction(transaction *ledgerstate.Transaction, messageID MessageID) (targetBranch ledgerstate.BranchID, err error) {
@@ -143,6 +148,11 @@ func (l *LedgerState) BranchID(transactionID ledgerstate.TransactionID) (branchI
 	return
 }
 
+// Branch returns the branch with the given ID.
+func (l *LedgerState) Branch(branchID ledgerstate.BranchID) *ledgerstate.CachedBranch {
+	return l.branchDAG.Branch(branchID)
+}
+
 // LoadSnapshot creates a set of outputs in the UTXO-DAG, that are forming the genesis for future transactions.
 func (l *LedgerState) LoadSnapshot(snapshot map[ledgerstate.TransactionID]map[ledgerstate.Address]*ledgerstate.ColoredBalances) {
 	l.utxoDAG.LoadSnapshot(snapshot)
@@ -150,6 +160,25 @@ func (l *LedgerState) LoadSnapshot(snapshot map[ledgerstate.TransactionID]map[le
 	if attachment != nil {
 		attachment.Release()
 	}
+}
+
+// Output returns the Output with the given ID.
+func (l *LedgerState) Output(outputID ledgerstate.OutputID) *ledgerstate.CachedOutput {
+	return l.utxoDAG.Output(outputID)
+}
+
+// OutputMetadata returns the OutputMetadata with the given ID.
+func (l *LedgerState) OutputMetadata(outputID ledgerstate.OutputID) *ledgerstate.CachedOutputMetadata {
+	return l.utxoDAG.OutputMetadata(outputID)
+}
+
+// OutputIDsOnAddress retrieves all the OutputIDs that are associated with an address.
+func (l *LedgerState) OutputIDsOnAddress(address ledgerstate.Address) []ledgerstate.OutputID {
+	var outputIDs []ledgerstate.OutputID
+	l.utxoDAG.AddressOutputMapping(address).Consume(func(addressOutputMapping *ledgerstate.AddressOutputMapping) {
+		outputIDs = append(outputIDs, addressOutputMapping.OutputID())
+	})
+	return outputIDs
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

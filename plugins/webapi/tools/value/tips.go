@@ -3,31 +3,40 @@ package value
 import (
 	"net/http"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/labstack/echo"
 )
 
 // TipsHandler gets the value object info from the tips.
 func TipsHandler(c echo.Context) error {
-	result := make([]Object, valuetransfers.TipManager().Size())
-	for i, valueID := range valuetransfers.TipManager().AllTips() {
+	tipManager := messagelayer.Tangle().TipManager
+	var result []Object
+	for _, msgID := range tipManager.Tips(tipManager.TipCount()) {
 		var obj Object
-		valuetransfers.Tangle().PayloadMetadata(valueID).Consume(func(payloadMetadata *tangle.PayloadMetadata) {
-			obj.ID = payloadMetadata.PayloadID().String()
-			obj.Solid = payloadMetadata.IsSolid()
-			obj.Liked = payloadMetadata.Liked()
-			obj.Confirmed = payloadMetadata.Confirmed()
-			obj.Rejected = payloadMetadata.Rejected()
-			obj.BranchID = payloadMetadata.BranchID().String()
-		})
 
-		valuetransfers.Tangle().Payload(valueID).Consume(func(p *payload.Payload) {
-			obj.TransactionID = p.Transaction().ID().String()
-		})
+		cachedMessage := messagelayer.Tangle().Storage.Message(msgID)
+		message := cachedMessage.Unwrap()
+		cachedMessage.Release()
+		if message.Payload().Type() == ledgerstate.TransactionType {
+			tx := message.Payload().(*ledgerstate.Transaction)
+			inclusionState, err := messagelayer.Tangle().LedgerState.TransactionInclusionState(tx.ID())
+			if err != nil {
+				return c.JSON(http.StatusBadRequest, TipsResponse{Error: err.Error()})
+			}
+			messagelayer.Tangle().LedgerState.TransactionMetadata(tx.ID()).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+				obj.Solid = transactionMetadata.Solid()
+				obj.Finalized = transactionMetadata.Finalized()
+			})
 
-		result[i] = obj
+			obj.ID = tx.ID().String()
+			obj.InclusionState = inclusionState.String()
+			obj.BranchID = messagelayer.Tangle().LedgerState.BranchID(tx.ID()).String()
+			for _, parent := range message.Parents() {
+				obj.Parents = append(obj.Parents, parent.String())
+			}
+			result = append(result, obj)
+		}
 	}
 	return c.JSON(http.StatusOK, TipsResponse{ValueObjects: result})
 }

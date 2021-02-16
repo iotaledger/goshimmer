@@ -5,15 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
-
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	valueutils "github.com/iotaledger/goshimmer/plugins/webapi/value"
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -58,11 +56,11 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 
 	const genesisBalance = 1000000000
 	genesisSeed := walletseed.NewSeed(genesisSeedBytes)
-	genesisAddr := genesisSeed.Address(0).Address
-	genesisOutputID := transaction.NewOutputID(genesisAddr, transaction.GenesisID)
+	genesisOutputID := ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0)
+	input := ledgerstate.NewUTXOInput(genesisOutputID)
 
 	// issue transactions which spend the same genesis output in all partitions
-	conflictingTxs := make([]*transaction.Transaction, len(n.Partitions()))
+	conflictingTxs := make([]*ledgerstate.Transaction, len(n.Partitions()))
 	conflictingTxIDs := make([]string, len(n.Partitions()))
 	receiverSeeds := make([]*walletseed.Seed, len(n.Partitions()))
 	for i, partition := range n.Partitions() {
@@ -71,14 +69,14 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 		partitionReceiverSeed := walletseed.NewSeed()
 		destAddr := partitionReceiverSeed.Address(0).Address
 		receiverSeeds[i] = partitionReceiverSeed
-		tx := transaction.New(
-			transaction.NewInputs(genesisOutputID),
-			transaction.NewOutputs(map[address.Address][]*balance.Balance{
-				destAddr: {
-					{Value: genesisBalance, Color: balance.ColorIOTA},
-				},
-			}))
-		tx = tx.Sign(signaturescheme.ED25519(*genesisSeed.KeyPair(0)))
+		output := ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
+			ledgerstate.ColorIOTA: uint64(genesisBalance),
+		}), destAddr)
+		txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, ledgerstate.NewInputs(input), ledgerstate.NewOutputs(output))
+		kp := *genesisSeed.KeyPair(0)
+		sig := ledgerstate.NewED25519Signature(kp.PublicKey, ed25519.Signature(kp.PrivateKey.Sign(txEssence.Bytes())))
+		unlockBlock := ledgerstate.NewSignatureUnlockBlock(sig)
+		tx := ledgerstate.NewTransaction(txEssence, ledgerstate.UnlockBlocks{unlockBlock})
 		conflictingTxs[i] = tx
 
 		// issue the transaction on the first peer of the partition
