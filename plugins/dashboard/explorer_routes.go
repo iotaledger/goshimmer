@@ -183,21 +183,14 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 			})
 		})
 		var solidificationTime int64
-		if !messagelayer.Tangle().LedgerState.TransactionMetadata(transactionID).Consume(func(txMeta *ledgerstate.TransactionMetadata) {
+		messagelayer.Tangle().LedgerState.TransactionMetadata(transactionID).Consume(func(txMeta *ledgerstate.TransactionMetadata) {
 			inclusionState.Confirmed = branch.InclusionState() == ledgerstate.Confirmed
 			inclusionState.Liked = branch.Liked()
 			inclusionState.Rejected = branch.InclusionState() == ledgerstate.Rejected
 			inclusionState.Finalized = branch.Finalized()
 			inclusionState.Conflicting = messagelayer.Tangle().LedgerState.TransactionConflicting(transactionID)
 			solidificationTime = txMeta.SolidificationTime().Unix()
-		}) {
-			// // This is only for the genesis.
-			// inclusionState.Confirmed = output.Confirmed()
-			// inclusionState.Liked = output.Liked()
-			// inclusionState.Rejected = output.Rejected()
-			// inclusionState.Finalized = output.Finalized()
-			// inclusionState.Confirmed = output.Confirmed()
-		}
+		})
 
 		outputids = append(outputids, ExplorerOutput{
 			ID:                 output.ID().String(),
