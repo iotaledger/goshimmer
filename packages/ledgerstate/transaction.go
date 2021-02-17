@@ -823,6 +823,7 @@ var _ objectstorage.StorableObject = &TransactionMetadata{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// region CachedTransactionMetadata ////////////////////////////////////////////////////////////////////////////////////
 
 // CachedTransactionMetadata is a wrapper for the generic CachedObject returned by the object storage that overrides the
 // accessor methods with a type-casted one.
