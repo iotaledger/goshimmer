@@ -2,7 +2,6 @@ package tangle
 
 import (
 	"fmt"
-	"runtime"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
@@ -12,7 +11,7 @@ import (
 
 var (
 	capacity   = 1000
-	numWorkers = runtime.NumCPU() * 4
+	numWorkers = 1
 )
 
 // SchedulerParentPriorityMap maps parentIDs with their children messages.
@@ -60,23 +59,24 @@ func NewScheduler(tangle *Tangle) (scheduler *Scheduler) {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (s *Scheduler) Setup() {
-	// setup scheduler flow
-	onMessageSolid := events.NewClosure(func(messageID MessageID) {
-		s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-			s.inbox <- &MessageToSchedule{
-				ID:          messageID,
-				issuingTime: message.IssuingTime(),
-				parents:     message.Parents()}
-		})
-	})
-	s.tangle.Solidifier.Events.MessageSolid.Attach(onMessageSolid)
-
-	onMessageBooked := events.NewClosure(func(messageID MessageID) {
-		s.messagesBooked <- messageID
-	})
-	s.tangle.Booker.Events.MessageBooked.Attach(onMessageBooked)
+	s.tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(s.onMessageSolid))
+	s.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(s.onMessageBooked))
 
 	s.start()
+}
+
+func (s *Scheduler) onMessageSolid(messageID MessageID) {
+	s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+		s.inbox <- &MessageToSchedule{
+			ID:          messageID,
+			issuingTime: message.IssuingTime(),
+			parents:     message.Parents(),
+		}
+	})
+}
+
+func (s *Scheduler) onMessageBooked(messageID MessageID) {
+	s.messagesBooked <- messageID
 }
 
 // start starts the scheduler.

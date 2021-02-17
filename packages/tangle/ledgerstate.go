@@ -49,6 +49,7 @@ func (l *LedgerState) InheritBranch(referencedBranchIDs ledgerstate.BranchIDs) (
 	if err != nil {
 		if xerrors.Is(err, ledgerstate.ErrInvalidStateTransition) {
 			inheritedBranch = ledgerstate.InvalidBranchID
+			err = nil
 			return
 		}
 

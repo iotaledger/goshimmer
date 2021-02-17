@@ -8,6 +8,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
+	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/thresholdmap"
@@ -44,72 +45,115 @@ func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 		MarkerBranchIDMappingManager: NewMarkerBranchIDMappingManager(tangle),
 	}
 
+	messageBooker.createGenesis()
+
 	return
 }
 
 // Shutdown shuts down the Booker and persists its state.
-func (m *Booker) Shutdown() {
-	m.MarkersManager.Shutdown()
+func (b *Booker) Shutdown() {
+	b.MarkersManager.Shutdown()
+}
+
+// Setup sets up the behavior of the component by making it attach to the relevant events of other components.
+func (b *Booker) Setup() {
+	b.tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
+		err := b.Book(messageID)
+		if err != nil {
+			b.tangle.Events.Error.Trigger(err)
+		}
+	}))
+	b.tangle.LedgerState.utxoDAG.Events.TransactionBranchIDUpdated.Attach(events.NewClosure(b.UpdateMessagesBranch))
+}
+
+// UpdateMessagesBranch propagates the update of the message's branchID (and its future cone) in case on changes of it contained transction's branchID.
+func (b *Booker) UpdateMessagesBranch(transactionID ledgerstate.TransactionID) {
+	b.tangle.Utils.WalkMessageAndMetadata(func(message *Message, messageMetadata *MessageMetadata, walker *walker.Walker) {
+		if messageMetadata.IsBooked() {
+			inheritedBranch, inheritErr := b.tangle.LedgerState.InheritBranch(b.branchIDsOfParents(message).Add(b.branchIDOfPayload(message)))
+			if inheritErr != nil {
+				panic(xerrors.Errorf("failed to inherit Branch when booking Message with %s: %w", message.ID(), inheritErr))
+			}
+			if messageMetadata.SetBranchID(inheritedBranch) {
+				for _, approvingMessageID := range b.tangle.Utils.ApprovingMessageIDs(message.ID(), StrongApprover) {
+					walker.Push(approvingMessageID)
+				}
+			}
+		}
+	}, b.tangle.Storage.AttachmentMessageIDs(transactionID), true)
 }
 
 // Book tries to book the given Message (and potentially its contained Transaction) into the LedgerState and the Tangle.
 // It fires a MessageBooked event if it succeeds.
-func (m *Booker) Book(messageID MessageID) (err error) {
-	m.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		m.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-			var transactionID ledgerstate.TransactionID
-			combinedBranches := m.branchIDsOfStrongParents(message)
+func (b *Booker) Book(messageID MessageID) (err error) {
+	b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+		b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+			sequenceAlias := make([]markers.SequenceAlias, 0)
+			combinedBranches := b.branchIDsOfParents(message)
 			if payload := message.Payload(); payload != nil && payload.Type() == ledgerstate.TransactionType {
 				transaction := payload.(*ledgerstate.Transaction)
-				if !m.tangle.LedgerState.TransactionValid(transaction, messageID) {
+				if !b.tangle.LedgerState.TransactionValid(transaction, messageID) {
 					return
 				}
 
-				if !m.allTransactionsApprovedByMessage(transaction.ReferencedTransactionIDs(), messageID) {
-					m.tangle.Events.MessageInvalid.Trigger(messageID)
+				if !b.allTransactionsApprovedByMessage(transaction.ReferencedTransactionIDs(), messageID) {
+					b.tangle.Events.MessageInvalid.Trigger(messageID)
 					return
 				}
 
-				targetBranch, bookingErr := m.tangle.LedgerState.BookTransaction(transaction, messageID)
+				targetBranch, bookingErr := b.tangle.LedgerState.BookTransaction(transaction, messageID)
 				if bookingErr != nil {
 					err = xerrors.Errorf("failed to book Transaction of Message with %s: %w", messageID, err)
 					return
 				}
 				combinedBranches = combinedBranches.Add(targetBranch)
+				if ledgerstate.NewBranchID(transaction.ID()) == targetBranch {
+					sequenceAlias = append(sequenceAlias, markers.NewSequenceAlias(targetBranch.Bytes()))
+				}
 
-				transactionID = transaction.ID()
-			}
-
-			inheritedBranch, inheritErr := m.tangle.LedgerState.InheritBranch(combinedBranches)
-			if inheritErr != nil {
-				err = xerrors.Errorf("failed to inherit Branch when booking Message with %s: %w", message.ID(), inheritErr)
-				return
-			}
-
-			messageMetadata.SetBranchID(inheritedBranch)
-			messageMetadata.SetStructureDetails(m.MarkersManager.InheritStructureDetails(message, inheritedBranch))
-			messageMetadata.SetBooked(true)
-
-			// store attachment
-			if transactionID != ledgerstate.GenesisTransactionID {
-				attachment, stored := m.tangle.Storage.StoreAttachment(transactionID, message.ID())
+				attachment, stored := b.tangle.Storage.StoreAttachment(transaction.ID(), messageID)
 				if stored {
 					attachment.Release()
 				}
 			}
 
-			m.Events.MessageBooked.Trigger(message.ID())
+			inheritedBranch, inheritErr := b.tangle.LedgerState.InheritBranch(combinedBranches)
+			if inheritErr != nil {
+				err = xerrors.Errorf("failed to inherit Branch when booking Message with %s: %w", messageID, inheritErr)
+				return
+			}
+
+			messageMetadata.SetBranchID(inheritedBranch)
+			messageMetadata.SetStructureDetails(b.MarkersManager.InheritStructureDetails(message, sequenceAlias...))
+			messageMetadata.SetBooked(true)
+
+			b.Events.MessageBooked.Trigger(messageID)
 		})
 	})
 
 	return
 }
 
+func (b *Booker) branchIDOfPayload(message *Message) (branchIDOfPayload ledgerstate.BranchID) {
+	payload := message.Payload()
+	if payload == nil || payload.Type() != ledgerstate.TransactionType {
+		branchIDOfPayload = ledgerstate.MasterBranchID
+		return
+	}
+	transactionID := payload.(*ledgerstate.Transaction).ID()
+	if !b.tangle.LedgerState.utxoDAG.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+		branchIDOfPayload = transactionMetadata.BranchID()
+	}) {
+		panic(fmt.Sprintf("failed to load TransactionMetadata of %s: ", transactionID))
+	}
+	return
+}
+
 // allTransactionsApprovedByMessage checks if all Transactions were attached by at least one Message that was directly
 // or indirectly approved by the given Message.
-func (m *Booker) allTransactionsApprovedByMessage(transactionIDs ledgerstate.TransactionIDs, messageID MessageID) (approved bool) {
+func (b *Booker) allTransactionsApprovedByMessage(transactionIDs ledgerstate.TransactionIDs, messageID MessageID) (approved bool) {
 	for transactionID := range transactionIDs {
-		if !m.transactionApprovedByMessage(transactionID, messageID) {
+		if !b.transactionApprovedByMessage(transactionID, messageID) {
 			return false
 		}
 	}
@@ -119,9 +163,9 @@ func (m *Booker) allTransactionsApprovedByMessage(transactionIDs ledgerstate.Tra
 
 // transactionApprovedByMessage checks if the Transaction was attached by at least one Message that was directly or
 // indirectly approved by the given Message.
-func (m *Booker) transactionApprovedByMessage(transactionID ledgerstate.TransactionID, messageID MessageID) (approved bool) {
-	for _, attachmentMessageID := range m.tangle.Storage.AttachmentMessageIDs(transactionID) {
-		if m.tangle.Utils.MessageApprovedBy(attachmentMessageID, messageID) {
+func (b *Booker) transactionApprovedByMessage(transactionID ledgerstate.TransactionID, messageID MessageID) (approved bool) {
+	for _, attachmentMessageID := range b.tangle.Storage.AttachmentMessageIDs(transactionID) {
+		if b.tangle.Utils.MessageApprovedByStrongParents(attachmentMessageID, messageID) {
 			return true
 		}
 	}
@@ -129,18 +173,60 @@ func (m *Booker) transactionApprovedByMessage(transactionID ledgerstate.Transact
 	return false
 }
 
-// branchIDsOfStrongParents returns the BranchIDs of the strong parents of the given Message.
-func (m *Booker) branchIDsOfStrongParents(message *Message) (branchIDs ledgerstate.BranchIDs) {
+// branchIDsOfParents returns the BranchIDs of the parents of the given Message.
+func (b *Booker) branchIDsOfParents(message *Message) (branchIDs ledgerstate.BranchIDs) {
 	branchIDs = make(ledgerstate.BranchIDs)
+
 	message.ForEachStrongParent(func(parentMessageID MessageID) {
-		if parentMessageID != EmptyMessageID && !m.tangle.Storage.MessageMetadata(parentMessageID).Consume(func(messageMetadata *MessageMetadata) {
+		if !b.tangle.Storage.MessageMetadata(parentMessageID).Consume(func(messageMetadata *MessageMetadata) {
 			branchIDs[messageMetadata.BranchID()] = types.Void
 		}) {
 			panic(fmt.Errorf("failed to load MessageMetadata with %s", parentMessageID))
 		}
 	})
 
+	message.ForEachWeakParent(func(parentMessageID MessageID) {
+		if parentMessageID == EmptyMessageID {
+			return
+		}
+		if !b.tangle.Storage.Message(parentMessageID).Consume(func(message *Message) {
+			if payload := message.Payload(); payload != nil && payload.Type() == ledgerstate.TransactionType {
+				transactionID := payload.(*ledgerstate.Transaction).ID()
+
+				if !b.tangle.LedgerState.utxoDAG.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+					branchIDs[transactionMetadata.BranchID()] = types.Void
+				}) {
+					panic(fmt.Errorf("failed to load TransactionMetadata with %s", transactionID))
+				}
+			}
+
+		}) {
+			panic(fmt.Errorf("failed to load MessageMetadata with %s", parentMessageID))
+		}
+	})
+
 	return
+}
+
+func (b *Booker) createGenesis() {
+	genesisMetadata := &MessageMetadata{
+		messageID: EmptyMessageID,
+		solid:     true,
+		branchID:  ledgerstate.MasterBranchID,
+		structureDetails: &markers.StructureDetails{
+			Rank:          0,
+			IsPastMarker:  false,
+			PastMarkers:   markers.NewMarkers(),
+			FutureMarkers: markers.NewMarkers(),
+		},
+		timestampOpinion: TimestampOpinion{
+			Value: opinion.Like,
+			LoK:   Three,
+		},
+		booked:   true,
+		eligible: true,
+	}
+	b.tangle.Storage.messageMetadataStorage.Store(genesisMetadata).Release()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -169,15 +255,16 @@ type MarkersManager struct {
 // NewMarkersManager is the constructor of the MarkersManager.
 func NewMarkersManager(tangle *Tangle) *MarkersManager {
 	return &MarkersManager{
-		tangle:  tangle,
-		Manager: markers.NewManager(tangle.Options.Store),
+		tangle:                 tangle,
+		newMarkerIndexStrategy: func(sequenceID markers.SequenceID, currentHighestIndex markers.Index) bool { return true },
+		Manager:                markers.NewManager(tangle.Options.Store),
 	}
 }
 
 // InheritStructureDetails returns the structure Details of a Message that are derived from the StructureDetails of its
 // strong parents.
-func (m *MarkersManager) InheritStructureDetails(message *Message, branchID ledgerstate.BranchID) (structureDetails *markers.StructureDetails) {
-	structureDetails, _ = m.Manager.InheritStructureDetails(m.structureDetailsOfStrongParents(message), m.newMarkerIndexStrategy, markers.NewSequenceAlias(branchID.Bytes()))
+func (m *MarkersManager) InheritStructureDetails(message *Message, newSequenceAlias ...markers.SequenceAlias) (structureDetails *markers.StructureDetails) {
+	structureDetails, _ = m.Manager.InheritStructureDetails(m.structureDetailsOfStrongParents(message), m.newMarkerIndexStrategy, newSequenceAlias...)
 
 	if structureDetails.IsPastMarker {
 		m.tangle.Utils.WalkMessageMetadata(m.propagatePastMarkerToFutureMarkers(structureDetails.PastMarkers.FirstMarker()), message.StrongParents())
@@ -206,7 +293,7 @@ func (m *MarkersManager) propagatePastMarkerToFutureMarkers(pastMarkerToInherit 
 func (m *MarkersManager) structureDetailsOfStrongParents(message *Message) (structureDetails []*markers.StructureDetails) {
 	structureDetails = make([]*markers.StructureDetails, 0)
 	message.ForEachStrongParent(func(parentMessageID MessageID) {
-		if parentMessageID != EmptyMessageID && !m.tangle.Storage.MessageMetadata(parentMessageID).Consume(func(messageMetadata *MessageMetadata) {
+		if !m.tangle.Storage.MessageMetadata(parentMessageID).Consume(func(messageMetadata *MessageMetadata) {
 			structureDetails = append(structureDetails, messageMetadata.StructureDetails())
 		}) {
 			panic(fmt.Errorf("failed to load MessageMetadata of Message with %s", parentMessageID))
