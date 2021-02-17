@@ -71,6 +71,7 @@ func (t *Tangle) Setup() {
 	t.Solidifier.Setup()
 	t.Requester.Setup()
 	t.Scheduler.Setup()
+	t.Booker.Setup()
 
 	// Booker and LedgerState setup is left out until the old value tangle is in use.
 	if !t.Options.WithoutOpinionFormer {
