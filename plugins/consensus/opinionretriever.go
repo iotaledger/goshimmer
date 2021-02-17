@@ -1,10 +1,11 @@
 package consensus
 
 import (
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 // OpinionRetriever returns the current opinion of the given id.
@@ -14,22 +15,20 @@ func OpinionRetriever(id string, objectType vote.ObjectType) opinion.Opinion {
 		// TODO: implement
 		return opinion.Like
 	default: // conflict type
-		branchID, err := branchmanager.BranchIDFromBase58(id)
+		transactionID, err := ledgerstate.TransactionIDFromBase58(id)
 		if err != nil {
 			log.Errorf("received invalid vote request for branch '%s'", id)
 
 			return opinion.Unknown
 		}
 
-		cachedBranch := valuetransfers.Tangle().BranchManager().Branch(branchID)
-		defer cachedBranch.Release()
+		opinionEssence := messagelayer.Tangle().PayloadOpinionProvider.TransactionOpinionEssence(transactionID)
 
-		branch := cachedBranch.Unwrap()
-		if branch == nil {
+		if opinionEssence.LevelOfKnowledge() == tangle.Pending {
 			return opinion.Unknown
 		}
 
-		if !branch.Preferred() {
+		if !opinionEssence.Liked() {
 			return opinion.Dislike
 		}
 

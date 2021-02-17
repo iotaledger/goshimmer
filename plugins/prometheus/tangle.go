@@ -63,11 +63,6 @@ func registerTangleMetrics() {
 		Help: "number of value transactions (value payloads) seen",
 	})
 
-	valueTips = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "tangle_value_tips",
-		Help: "current number of tips in the value tangle",
-	})
-
 	messageRequestCount = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "tangle_message_request_queue_size",
 		Help: "current number requested messages by the message tangle",
@@ -82,7 +77,6 @@ func registerTangleMetrics() {
 	registry.MustRegister(messageMissingCountDB)
 	registry.MustRegister(messageRequestCount)
 	registry.MustRegister(transactionCounter)
-	registry.MustRegister(valueTips)
 
 	addCollect(collectTangleMetrics)
 }
@@ -99,6 +93,5 @@ func collectTangleMetrics() {
 	avgSolidificationTime.Set(metrics.AvgSolidificationTime())
 	messageMissingCountDB.Set(float64(metrics.MessageMissingCountDB()))
 	messageRequestCount.Set(float64(metrics.MessageRequestQueueSize()))
-	transactionCounter.Set(float64(metrics.ValueTransactionCounter()))
-	valueTips.Set(float64(metrics.ValueTips()))
+	// transactionCounter.Set(float64(metrics.ValueTransactionCounter()))
 }

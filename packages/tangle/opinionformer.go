@@ -32,6 +32,8 @@ type OpinionVoterProvider interface {
 	VoteError() *events.Event
 	// ProcessVote allows an external voter to hand in the results of the voting process.
 	ProcessVote(*vote.OpinionEvent)
+	// TransactionOpinionEssence returns the opinion essence of a given transactionID.
+	TransactionOpinionEssence(ledgerstate.TransactionID) OpinionEssence
 }
 
 // OpinionFormerEvents defines all the events related to the opinion manager.

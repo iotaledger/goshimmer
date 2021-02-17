@@ -61,6 +61,21 @@ type Opinion struct {
 }
 
 // Timestamp returns the opinion's timestamp.
+func (o OpinionEssence) Timestamp() time.Time {
+	return o.timestamp
+}
+
+// Liked returns the opinion's liked.
+func (o OpinionEssence) Liked() bool {
+	return o.liked
+}
+
+// LevelOfKnowledge returns the opinion's LevelOfKnowledge.
+func (o OpinionEssence) LevelOfKnowledge() LevelOfKnowledge {
+	return o.levelOfKnowledge
+}
+
+// Timestamp returns the opinion's timestamp.
 func (o *Opinion) Timestamp() time.Time {
 	o.timestampMutex.RLock()
 	defer o.timestampMutex.RUnlock()

@@ -82,6 +82,12 @@ func (f *FCoB) Opinion(messageID MessageID) (opinion bool) {
 	return
 }
 
+// TransactionOpinionEssence returns the opinion essence of a given transactionID.
+func (f *FCoB) TransactionOpinionEssence(transactionID ledgerstate.TransactionID) (opinion OpinionEssence) {
+	opinion = f.OpinionEssence(transactionID)
+	return
+}
+
 // Evaluate evaluates the opinion of the given messageID.
 func (f *FCoB) Evaluate(messageID MessageID) {
 	if f.tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {

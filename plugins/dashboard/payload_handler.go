@@ -1,10 +1,8 @@
 package dashboard
 
 import (
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
-	valuepayload "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/packages/drng"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/packages/vote/statement"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
@@ -108,7 +106,7 @@ func ProcessPayload(p payload.Payload) interface{} {
 			ContentTitle: "GenericDataPayload",
 			Content:      p.(*payload.GenericDataPayload).Blob(),
 		}
-	case valuepayload.Type:
+	case ledgerstate.TransactionType:
 		return processValuePayload(p)
 	case statement.StatementType:
 		return processStatementPayload(p)
@@ -178,50 +176,48 @@ func processSyncBeaconPayload(p payload.Payload) (dp SyncBeaconPayload) {
 
 // processValuePayload handles Value payload
 func processValuePayload(p payload.Payload) (vp ValuePayload) {
-	marshalUtil := marshalutil.New(p.Bytes())
-	v, _ := valuepayload.Parse(marshalUtil)
+	// marshalUtil := marshalutil.New(p.Bytes())
+	// v, _ := valuepayload.Parse(marshalUtil)
 
-	var inputs []InputContent
-	var outputs []OutputContent
+	// var inputs []InputContent
+	// var outputs []OutputContent
 
-	// TODO: retrieve balance
-	v.Transaction().Inputs().ForEachAddress(func(currentAddress address.Address) bool {
-		inputs = append(inputs, InputContent{Address: currentAddress.String()})
-		return true
-	})
+	// // TODO: retrieve balance
+	// v.Transaction().Inputs().ForEachAddress(func(currentAddress address.Address) bool {
+	// 	inputs = append(inputs, InputContent{Address: currentAddress.String()})
+	// 	return true
+	// })
 
-	// Get outputs address and balance
-	v.Transaction().Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
-		var b []Balance
-		for _, bal := range balances {
-			color := bal.Color.String()
-			if bal.Color == balance.ColorNew {
-				color = v.Transaction().ID().String()
-			}
+	// // Get outputs address and balance
+	// v.Transaction().Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
+	// 	var b []Balance
+	// 	for _, bal := range balances {
+	// 		color := bal.Color.String()
+	// 		if bal.Color == balance.ColorNew {
+	// 			color = v.Transaction().ID().String()
+	// 		}
 
-			b = append(b, Balance{
-				Value: bal.Value,
-				Color: color,
-			})
-		}
-		t := OutputContent{
-			Address:  address.String(),
-			Balances: b,
-		}
-		outputs = append(outputs, t)
+	// 		b = append(b, Balance{
+	// 			Value: bal.Value,
+	// 			Color: color,
+	// 		})
+	// 	}
+	// 	t := OutputContent{
+	// 		Address:  address.String(),
+	// 		Balances: b,
+	// 	}
+	// 	outputs = append(outputs, t)
 
-		return true
-	})
+	// 	return true
+	// })
 
-	return ValuePayload{
-		ID:        v.ID().String(),
-		Parent1ID: v.Parent1ID().String(),
-		Parent2ID: v.Parent2ID().String(),
-		TxID:      v.Transaction().ID().String(),
-		Input:     inputs,
-		Output:    outputs,
-		Data:      v.Transaction().GetDataPayload(),
-	}
+	// return ValuePayload{
+	// 	TxID:      v.Transaction().ID().String(),
+	// 	Input:     inputs,
+	// 	Output:    outputs,
+	// 	Data:      v.Transaction().GetDataPayload(),
+	// }
+	return ValuePayload{}
 }
 
 func processStatementPayload(p payload.Payload) (sp StatementPayload) {
