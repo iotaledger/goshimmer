@@ -1,10 +1,13 @@
 package tangle
 
 import (
+	"fmt"
 	"strconv"
 	"testing"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/vote"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -266,6 +269,157 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 	}
 }
 
+func TestTipManager_TransactionTips(t *testing.T) {
+	tangle := New()
+	defer tangle.Shutdown()
+	tipManager := tangle.TipManager
+
+	wallets := make(map[string]wallet)
+	walletsByAddress := make(map[ledgerstate.Address]wallet)
+	w := createWallets(26)
+	wallets["G1"] = w[0]
+	wallets["G2"] = w[1]
+	wallets["A"] = w[2]
+	wallets["B"] = w[3]
+	wallets["C"] = w[4]
+	wallets["D"] = w[5]
+	wallets["E"] = w[6]
+	wallets["F"] = w[7]
+	wallets["H"] = w[8]
+	wallets["I"] = w[9]
+	wallets["J"] = w[10]
+	wallets["K"] = w[11]
+	wallets["L"] = w[12]
+	wallets["M"] = w[13]
+	wallets["N"] = w[14]
+	wallets["O"] = w[15]
+	wallets["P"] = w[16]
+	wallets["Q"] = w[17]
+	wallets["R"] = w[18]
+	wallets["S"] = w[19]
+	wallets["T"] = w[20]
+	wallets["U"] = w[21]
+	wallets["V"] = w[22]
+	wallets["X"] = w[23]
+	wallets["Y"] = w[24]
+	wallets["Z"] = w[25]
+
+	for _, wallet := range wallets {
+		walletsByAddress[wallet.address] = wallet
+	}
+
+	g1Balance := ledgerstate.NewColoredBalances(
+		map[ledgerstate.Color]uint64{
+			ledgerstate.ColorIOTA: 5,
+		})
+	g2Balance := ledgerstate.NewColoredBalances(
+		map[ledgerstate.Color]uint64{
+			ledgerstate.ColorIOTA: 8,
+		})
+	snapshot := map[ledgerstate.TransactionID]map[ledgerstate.Address]*ledgerstate.ColoredBalances{
+		ledgerstate.GenesisTransactionID: {
+			wallets["G1"].address: g1Balance,
+			wallets["G2"].address: g2Balance,
+		},
+	}
+
+	tangle.LedgerState.LoadSnapshot(snapshot)
+
+	messages := make(map[string]*Message)
+	transactions := make(map[string]*ledgerstate.Transaction)
+	inputs := make(map[string]*ledgerstate.UTXOInput)
+	outputs := make(map[string]*ledgerstate.SigLockedSingleOutput)
+	outputsByID := make(map[ledgerstate.OutputID]ledgerstate.Output)
+
+	// mock the Tangle's PayloadOpinionProvider so that we can add transaction payloads without actually building opinions
+	mockOpinionProvider := &mockPayloadOpinionProvider{
+		payloadOpinionFunc: func(messageID MessageID) bool {
+			for _, msg := range messages {
+				if msg.ID() == messageID {
+					return true
+				}
+			}
+			return false
+		},
+	}
+	tangle.PayloadOpinionProvider = mockOpinionProvider
+	tangle.OpinionFormer.payloadOpinionProvider = mockOpinionProvider
+
+	// Message 1
+	{
+		inputs["G1"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))
+		outputs["A"] = ledgerstate.NewSigLockedSingleOutput(3, wallets["A"].address)
+		outputs["B"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["B"].address)
+		outputs["C"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["C"].address)
+
+		transactions["1"] = makeTransaction(ledgerstate.NewInputs(inputs["G1"]), ledgerstate.NewOutputs(outputs["A"], outputs["B"], outputs["C"]), outputsByID, walletsByAddress, wallets["G1"])
+		messages["1"] = newTestParentsPayloadMessage(transactions["1"], []MessageID{EmptyMessageID}, []MessageID{})
+
+		storeBookLikeMessage(t, tangle, messages["1"])
+
+		tipManager.AddTip(messages["1"])
+		assert.Equal(t, 1, tipManager.StrongTipCount())
+		assert.Equal(t, 0, tipManager.WeakTipCount())
+	}
+
+	// Message 2
+	{
+		inputs["G2"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 1))
+		outputs["D"] = ledgerstate.NewSigLockedSingleOutput(6, wallets["D"].address)
+		outputs["E"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["E"].address)
+		outputs["F"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["F"].address)
+
+		transactions["2"] = makeTransaction(ledgerstate.NewInputs(inputs["G2"]), ledgerstate.NewOutputs(outputs["D"], outputs["E"], outputs["F"]), outputsByID, walletsByAddress, wallets["G2"])
+		messages["2"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{EmptyMessageID}, []MessageID{})
+
+		storeBookLikeMessage(t, tangle, messages["2"])
+
+		tipManager.AddTip(messages["2"])
+		assert.Equal(t, 2, tipManager.StrongTipCount())
+		assert.Equal(t, 0, tipManager.WeakTipCount())
+	}
+
+	// Message 3
+	{
+		inputs["A"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["1"].ID(), selectIndex(transactions["1"], wallets["A"])))
+		outputsByID[inputs["A"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["A"])[0]
+		outputs["H"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["H"].address)
+		outputs["I"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["I"].address)
+		outputs["J"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["J"].address)
+
+		transactions["3"] = makeTransaction(ledgerstate.NewInputs(inputs["A"]), ledgerstate.NewOutputs(outputs["H"], outputs["I"], outputs["J"]), outputsByID, walletsByAddress)
+		messages["3"] = newTestParentsPayloadMessage(transactions["3"], []MessageID{messages["1"].ID(), EmptyMessageID}, []MessageID{})
+
+		storeBookLikeMessage(t, tangle, messages["3"])
+
+		tipManager.AddTip(messages["3"])
+		assert.Equal(t, 2, tipManager.StrongTipCount())
+		assert.Equal(t, 0, tipManager.WeakTipCount())
+	}
+
+}
+
+func storeBookLikeMessage(t *testing.T, tangle *Tangle, message *Message) {
+	// we need to store and book transactions so that we also have attachments of transactions available
+	tangle.Storage.StoreMessage(message)
+	// TODO: CheckTransaction should be removed here once the booker passes on errors
+	//_, err := tangle.LedgerState.utxoDAG.CheckTransaction(message.payload.(*ledgerstate.Transaction))
+	//require.NoError(t, err)
+	fmt.Println("Booking", message.ID())
+	err := tangle.Booker.Book(message.ID())
+	require.NoError(t, err)
+
+	tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
+		// make sure that everything was booked into master branch
+		require.True(t, messageMetadata.booked)
+		require.Equal(t, ledgerstate.MasterBranchID, messageMetadata.BranchID())
+
+		messageMetadata.SetEligible(true)
+
+		//fmt.Println(messageMetadata)
+	})
+}
+
 func createAndStoreEligibleTestParentsDataMessageInMasterBranch(tangle *Tangle, strongParents, weakParents MessageIDs) (message *Message) {
 	message = newTestParentsDataMessage("testmessage", strongParents, weakParents)
 	tangle.Storage.StoreMessage(message)
@@ -287,4 +441,33 @@ func (m *Message) setMessageMetadata(tangle *Tangle, eligible bool, branchID led
 		messageMetadata.SetEligible(eligible)
 		messageMetadata.SetBranchID(branchID)
 	})
+}
+
+type mockPayloadOpinionProvider struct {
+	payloadOpinionFunc func(messageID MessageID) bool
+}
+
+func (m *mockPayloadOpinionProvider) Evaluate(id MessageID) {
+	panic("implement me")
+}
+
+func (m *mockPayloadOpinionProvider) Opinion(id MessageID) bool {
+	return m.payloadOpinionFunc(id)
+}
+
+func (m *mockPayloadOpinionProvider) Setup(event *events.Event) {
+	panic("implement me")
+}
+
+func (m *mockPayloadOpinionProvider) Shutdown() {
+}
+
+func (m *mockPayloadOpinionProvider) Vote() *events.Event {
+	panic("implement me")
+}
+func (m *mockPayloadOpinionProvider) VoteError() *events.Event {
+	panic("implement me")
+}
+func (m *mockPayloadOpinionProvider) ProcessVote(*vote.OpinionEvent) {
+	panic("implement me")
 }
