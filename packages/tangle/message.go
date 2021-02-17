@@ -951,6 +951,22 @@ func (m *MessageMetadata) Update(other objectstorage.StorableObject) {
 	panic("updates disabled")
 }
 
+// String returns a human readable version of the MessageMetadata.
+func (m *MessageMetadata) String() string {
+	return stringify.Struct("MessageMetadata",
+		stringify.StructField("ID", m.messageID),
+		stringify.StructField("receivedTime", m.ReceivedTime()),
+		stringify.StructField("solid", m.IsSolid()),
+		stringify.StructField("solidificationTime", m.SolidificationTime()),
+		stringify.StructField("structureDetails", m.StructureDetails()),
+		stringify.StructField("branchID", m.BranchID()),
+		stringify.StructField("timestampOpinion", m.TimestampOpinion()),
+		stringify.StructField("booked", m.IsBooked()),
+		stringify.StructField("eligible", m.IsEligible()),
+		stringify.StructField("invalid", m.IsInvalid()),
+	)
+}
+
 var _ objectstorage.StorableObject = &MessageMetadata{}
 
 // CachedMessageMetadata is a wrapper for stored cached object that represents a message metadata.
