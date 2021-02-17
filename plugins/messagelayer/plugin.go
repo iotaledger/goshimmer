@@ -114,15 +114,21 @@ func AwaitMessageToBeBooked(f func() (*tangle.Message, error), txID ledgerstate.
 	// reason the same transaction gets booked multiple times
 	exit := make(chan struct{})
 	defer close(exit)
+
 	closure := events.NewClosure(func(msgID tangle.MessageID) {
+		match := false
 		Tangle().Storage.Message(msgID).Consume(func(message *tangle.Message) {
 			if message.Payload().Type() == ledgerstate.TransactionType {
 				tx := message.Payload().(*ledgerstate.Transaction)
 				if tx.ID() == txID {
+					match = true
 					return
 				}
 			}
 		})
+		if !match {
+			return
+		}
 		select {
 		case booked <- struct{}{}:
 		case <-exit:
