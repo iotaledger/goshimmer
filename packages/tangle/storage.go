@@ -212,6 +212,11 @@ func (s *Storage) AttachmentMessageIDs(transactionID ledgerstate.TransactionID) 
 	return
 }
 
+// IsTransactionAttachedByMessage checks whether Transaction with transactionID is attached by Message with messageID.
+func (s *Storage) IsTransactionAttachedByMessage(transactionID ledgerstate.TransactionID, messageID MessageID) (attached bool) {
+	return s.attachmentStorage.Contains(NewAttachment(transactionID, messageID).ObjectStorageKey())
+}
+
 // DeleteMessage deletes a message and its association to approvees by un-marking the given
 // message as an approver.
 func (s *Storage) DeleteMessage(messageID MessageID) {

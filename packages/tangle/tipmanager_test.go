@@ -276,7 +276,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 
 	wallets := make(map[string]wallet)
 	walletsByAddress := make(map[ledgerstate.Address]wallet)
-	w := createWallets(26)
+	w := createWallets(27)
 	wallets["G1"] = w[0]
 	wallets["G2"] = w[1]
 	wallets["A"] = w[2]
@@ -303,6 +303,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 	wallets["X"] = w[23]
 	wallets["Y"] = w[24]
 	wallets["Z"] = w[25]
+	wallets["OUT"] = w[25]
 
 	for _, wallet := range wallets {
 		walletsByAddress[wallet.address] = wallet
@@ -324,6 +325,18 @@ func TestTipManager_TransactionTips(t *testing.T) {
 	}
 
 	tangle.LedgerState.LoadSnapshot(snapshot)
+	// determine genesis index so that correct output can be referenced
+	var g1, g2 uint16
+	tangle.LedgerState.utxoDAG.Output(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0)).Consume(func(output ledgerstate.Output) {
+		balance, _ := output.Balances().Get(ledgerstate.ColorIOTA)
+		if balance == uint64(5) {
+			g1 = 0
+			g2 = 1
+		} else {
+			g1 = 1
+			g2 = 0
+		}
+	})
 
 	messages := make(map[string]*Message)
 	transactions := make(map[string]*ledgerstate.Transaction)
@@ -345,9 +358,12 @@ func TestTipManager_TransactionTips(t *testing.T) {
 	tangle.PayloadOpinionProvider = mockOpinionProvider
 	tangle.OpinionFormer.payloadOpinionProvider = mockOpinionProvider
 
+	// region prepare scenario /////////////////////////////////////////////////////////////////////////////////////////
+
 	// Message 1
 	{
-		inputs["G1"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))
+
+		inputs["G1"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, g1))
 		outputs["A"] = ledgerstate.NewSigLockedSingleOutput(3, wallets["A"].address)
 		outputs["B"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["B"].address)
 		outputs["C"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["C"].address)
@@ -364,7 +380,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 
 	// Message 2
 	{
-		inputs["G2"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 1))
+		inputs["G2"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, g2))
 		outputs["D"] = ledgerstate.NewSigLockedSingleOutput(6, wallets["D"].address)
 		outputs["E"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["E"].address)
 		outputs["F"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["F"].address)
@@ -397,15 +413,225 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		assert.Equal(t, 0, tipManager.WeakTipCount())
 	}
 
+	// Message 4
+	{
+		inputs["D"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["2"].ID(), selectIndex(transactions["2"], wallets["D"])))
+		outputsByID[inputs["D"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["D"])[0]
+		outputs["K"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["K"].address)
+		outputs["L"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["L"].address)
+		outputs["M"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["M"].address)
+		outputs["N"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["N"].address)
+		outputs["O"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["O"].address)
+		outputs["P"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["P"].address)
+
+		transactions["4"] = makeTransaction(
+			ledgerstate.NewInputs(inputs["D"]),
+			ledgerstate.NewOutputs(
+				outputs["K"],
+				outputs["L"],
+				outputs["M"],
+				outputs["N"],
+				outputs["O"],
+				outputs["P"],
+			),
+			outputsByID,
+			walletsByAddress,
+		)
+		messages["4"] = newTestParentsPayloadMessage(transactions["4"], []MessageID{messages["2"].ID(), EmptyMessageID}, []MessageID{})
+
+		storeBookLikeMessage(t, tangle, messages["4"])
+
+		tipManager.AddTip(messages["4"])
+		assert.Equal(t, 2, tipManager.StrongTipCount())
+		assert.Equal(t, 0, tipManager.WeakTipCount())
+	}
+
+	// Message 5
+	{
+		messages["5"] = newTestParentsDataMessage("data", []MessageID{messages["1"].ID(), EmptyMessageID}, []MessageID{})
+
+		storeBookLikeMessage(t, tangle, messages["5"])
+
+		tipManager.AddTip(messages["5"])
+		assert.Equal(t, 3, tipManager.StrongTipCount())
+		assert.Equal(t, 0, tipManager.WeakTipCount())
+	}
+
+	createScenarioMessageWith1Input1Output := func(messageStringID, transactionStringID, consumedTransactionStringID, inputStringID, outputStringID string, strongParents []MessageID) {
+		inputs[inputStringID] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions[consumedTransactionStringID].ID(), selectIndex(transactions[consumedTransactionStringID], wallets[inputStringID])))
+		outputsByID[inputs[inputStringID].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs[inputStringID])[0]
+		outputs[outputStringID] = ledgerstate.NewSigLockedSingleOutput(1, wallets[outputStringID].address)
+
+		transactions[transactionStringID] = makeTransaction(ledgerstate.NewInputs(inputs[inputStringID]), ledgerstate.NewOutputs(outputs[outputStringID]), outputsByID, walletsByAddress)
+		messages[messageStringID] = newTestParentsPayloadMessage(transactions[transactionStringID], strongParents, []MessageID{})
+
+		storeBookLikeMessage(t, tangle, messages[messageStringID])
+	}
+
+	// Message 6
+	{
+		createScenarioMessageWith1Input1Output("6", "5", "3", "H", "Q", []MessageID{messages["3"].ID(), messages["5"].ID()})
+		tipManager.AddTip(messages["6"])
+		assert.Equal(t, 2, tipManager.StrongTipCount())
+		assert.Equal(t, 0, tipManager.WeakTipCount())
+	}
+
+	// Message 7
+	{
+		createScenarioMessageWith1Input1Output("7", "6", "3", "I", "R", []MessageID{messages["3"].ID(), messages["5"].ID()})
+		tipManager.AddTip(messages["7"])
+		assert.Equal(t, 3, tipManager.StrongTipCount())
+		assert.Equal(t, 0, tipManager.WeakTipCount())
+	}
+
+	// Message 8
+	{
+		createScenarioMessageWith1Input1Output("8", "7", "3", "J", "S", []MessageID{messages["3"].ID(), messages["5"].ID()})
+		tipManager.AddTip(messages["8"])
+		assert.Equal(t, 4, tipManager.StrongTipCount())
+		assert.Equal(t, 0, tipManager.WeakTipCount())
+	}
+
+	// Message 9
+	{
+		createScenarioMessageWith1Input1Output("9", "8", "4", "K", "T", []MessageID{messages["4"].ID()})
+		tipManager.AddTip(messages["9"])
+		assert.Equal(t, 4, tipManager.StrongTipCount())
+		assert.Equal(t, 0, tipManager.WeakTipCount())
+	}
+
+	// Message 10
+	{
+		createScenarioMessageWith1Input1Output("10", "9", "4", "L", "U", []MessageID{messages["2"].ID(), messages["4"].ID()})
+		tipManager.AddTip(messages["10"])
+		assert.Equal(t, 5, tipManager.StrongTipCount())
+		assert.Equal(t, 0, tipManager.WeakTipCount())
+	}
+
+	// Message 11
+	{
+		createScenarioMessageWith1Input1Output("11", "10", "4", "M", "V", []MessageID{messages["2"].ID(), messages["4"].ID()})
+		tipManager.AddTip(messages["11"])
+		assert.Equal(t, 6, tipManager.StrongTipCount())
+		assert.Equal(t, 0, tipManager.WeakTipCount())
+	}
+
+	// Message 12
+	{
+		createScenarioMessageWith1Input1Output("12", "11", "4", "N", "X", []MessageID{messages["3"].ID(), messages["4"].ID()})
+		tipManager.AddTip(messages["12"])
+		assert.Equal(t, 7, tipManager.StrongTipCount())
+		assert.Equal(t, 0, tipManager.WeakTipCount())
+	}
+
+	// Message 13
+	{
+		createScenarioMessageWith1Input1Output("13", "12", "4", "O", "Y", []MessageID{messages["4"].ID()})
+		tipManager.AddTip(messages["13"])
+		assert.Equal(t, 8, tipManager.StrongTipCount())
+		assert.Equal(t, 0, tipManager.WeakTipCount())
+	}
+
+	// Message 14
+	{
+		createScenarioMessageWith1Input1Output("14", "13", "4", "P", "Z", []MessageID{messages["4"].ID()})
+		tipManager.AddTip(messages["14"])
+		assert.Equal(t, 9, tipManager.StrongTipCount())
+		assert.Equal(t, 0, tipManager.WeakTipCount())
+	}
+
+	// Message 15
+	{
+		messages["15"] = newTestParentsDataMessage("data", []MessageID{messages["10"].ID(), messages["11"].ID()}, []MessageID{})
+
+		storeBookLikeMessage(t, tangle, messages["15"])
+
+		tipManager.AddTip(messages["15"])
+		assert.Equal(t, 8, tipManager.StrongTipCount())
+		assert.Equal(t, 0, tipManager.WeakTipCount())
+	}
+
+	// Message 16
+	{
+		messages["16"] = newTestParentsDataMessage("data", []MessageID{messages["10"].ID(), messages["11"].ID(), messages["14"].ID()}, []MessageID{})
+
+		storeBookLikeMessage(t, tangle, messages["16"])
+
+		tipManager.AddTip(messages["16"])
+		assert.Equal(t, 8, tipManager.StrongTipCount())
+		assert.Equal(t, 0, tipManager.WeakTipCount())
+	}
+	// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+	// now we can finally start the actual tests
+	inputs["Q"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["5"].ID(), selectIndex(transactions["5"], wallets["Q"])))
+	outputsByID[inputs["Q"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["Q"])[0]
+	inputs["R"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["6"].ID(), selectIndex(transactions["6"], wallets["R"])))
+	outputsByID[inputs["R"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["R"])[0]
+	inputs["S"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["7"].ID(), selectIndex(transactions["7"], wallets["S"])))
+	outputsByID[inputs["S"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["S"])[0]
+	inputs["T"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["8"].ID(), selectIndex(transactions["8"], wallets["T"])))
+	outputsByID[inputs["T"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["T"])[0]
+	inputs["U"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["9"].ID(), selectIndex(transactions["9"], wallets["U"])))
+	outputsByID[inputs["U"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["U"])[0]
+	inputs["V"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["10"].ID(), selectIndex(transactions["10"], wallets["V"])))
+	outputsByID[inputs["V"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["V"])[0]
+	inputs["X"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["11"].ID(), selectIndex(transactions["11"], wallets["X"])))
+	outputsByID[inputs["X"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["X"])[0]
+	inputs["Y"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["12"].ID(), selectIndex(transactions["12"], wallets["Y"])))
+	outputsByID[inputs["Y"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["Y"])[0]
+
+	// Message 17
+	{
+		outputs["OUT"] = ledgerstate.NewSigLockedSingleOutput(8, wallets["OUT"].address)
+
+		transactions["14"] = makeTransaction(
+			ledgerstate.NewInputs(
+				inputs["Q"],
+				inputs["R"],
+				inputs["S"],
+				inputs["T"],
+				inputs["U"],
+				inputs["V"],
+				inputs["X"],
+				inputs["Y"],
+			),
+			ledgerstate.NewOutputs(
+				outputs["OUT"],
+			),
+			outputsByID,
+			walletsByAddress,
+		)
+
+		strongParents, weakParents := tipManager.Tips(transactions["14"], 2, 2)
+		assert.ElementsMatch(t, strongParents, []MessageID{
+			messages["6"].ID(),
+			messages["7"].ID(),
+			messages["8"].ID(),
+			messages["9"].ID(),
+			messages["10"].ID(),
+			messages["11"].ID(),
+			messages["12"].ID(),
+			messages["13"].ID(),
+		})
+		assert.Len(t, weakParents, 0)
+	}
+
 }
 
 func storeBookLikeMessage(t *testing.T, tangle *Tangle, message *Message) {
 	// we need to store and book transactions so that we also have attachments of transactions available
 	tangle.Storage.StoreMessage(message)
+	tangle.Storage.Message(message.ID()).Consume(func(message *Message) {
+		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
+			fmt.Println("Stored", messageMetadata.ID())
+		})
+	})
 	// TODO: CheckTransaction should be removed here once the booker passes on errors
-	//_, err := tangle.LedgerState.utxoDAG.CheckTransaction(message.payload.(*ledgerstate.Transaction))
-	//require.NoError(t, err)
-	fmt.Println("Booking", message.ID())
+	if message.payload.Type() == ledgerstate.TransactionType {
+		_, err := tangle.LedgerState.utxoDAG.CheckTransaction(message.payload.(*ledgerstate.Transaction))
+		require.NoError(t, err)
+	}
 	err := tangle.Booker.Book(message.ID())
 	require.NoError(t, err)
 
@@ -415,8 +641,6 @@ func storeBookLikeMessage(t *testing.T, tangle *Tangle, message *Message) {
 		require.Equal(t, ledgerstate.MasterBranchID, messageMetadata.BranchID())
 
 		messageMetadata.SetEligible(true)
-
-		//fmt.Println(messageMetadata)
 	})
 }
 

@@ -96,7 +96,7 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 					return
 				}
 
-				if !b.allTransactionsApprovedByMessage(transaction.ReferencedTransactionIDs(), messageID) {
+				if !b.tangle.Utils.AllTransactionsApprovedByMessage(transaction.ReferencedTransactionIDs(), messageID) {
 					b.tangle.Events.MessageInvalid.Trigger(messageID)
 					return
 				}
@@ -147,30 +147,6 @@ func (b *Booker) branchIDOfPayload(message *Message) (branchIDOfPayload ledgerst
 		panic(fmt.Sprintf("failed to load TransactionMetadata of %s: ", transactionID))
 	}
 	return
-}
-
-// allTransactionsApprovedByMessage checks if all Transactions were attached by at least one Message that was directly
-// or indirectly approved by the given Message.
-func (b *Booker) allTransactionsApprovedByMessage(transactionIDs ledgerstate.TransactionIDs, messageID MessageID) (approved bool) {
-	for transactionID := range transactionIDs {
-		if !b.transactionApprovedByMessage(transactionID, messageID) {
-			return false
-		}
-	}
-
-	return true
-}
-
-// transactionApprovedByMessage checks if the Transaction was attached by at least one Message that was directly or
-// indirectly approved by the given Message.
-func (b *Booker) transactionApprovedByMessage(transactionID ledgerstate.TransactionID, messageID MessageID) (approved bool) {
-	for _, attachmentMessageID := range b.tangle.Storage.AttachmentMessageIDs(transactionID) {
-		if b.tangle.Utils.MessageApprovedByStrongParents(attachmentMessageID, messageID) {
-			return true
-		}
-	}
-
-	return false
 }
 
 // branchIDsOfParents returns the BranchIDs of the parents of the given Message.
