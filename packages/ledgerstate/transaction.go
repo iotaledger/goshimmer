@@ -157,7 +157,7 @@ func TransactionFromBytes(bytes []byte) (transaction *Transaction, consumedBytes
 func TransactionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transaction *Transaction, err error) {
 	readStartOffset := marshalUtil.ReadOffset()
 
-	payloadSize, err := marshalUtil.ReadUint16()
+	payloadSize, err := marshalUtil.ReadUint32()
 	if err != nil {
 		err = xerrors.Errorf("failed to parse payload size from MarshalUtil (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
@@ -187,7 +187,7 @@ func TransactionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transacti
 	}
 
 	parsedBytes := marshalUtil.ReadOffset() - readStartOffset
-	if parsedBytes != int(payloadSize)+marshalutil.Uint16Size {
+	if parsedBytes != int(payloadSize)+marshalutil.Uint32Size {
 		err = xerrors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, payloadSize, cerrors.ErrParseBytesFailed)
 		return
 	}
@@ -274,14 +274,14 @@ func (t *Transaction) ReferencedTransactionIDs() (referencedTransactionIDs Trans
 func (t *Transaction) Bytes() []byte {
 	if t == nil {
 		// if the payload is nil (i.e. when used as an optional payload) we encode that by setting the length to 0.
-		return marshalutil.New(marshalutil.Uint16Size).WriteUint16(0).Bytes()
+		return marshalutil.New(marshalutil.Uint32Size).WriteUint32(0).Bytes()
 	}
 
 	payloadBytes := byteutils.ConcatBytes(TransactionType.Bytes(), t.essence.Bytes(), t.unlockBlocks.Bytes())
 	payloadBytesLength := len(payloadBytes)
 
-	return marshalutil.New(marshalutil.Uint16Size + payloadBytesLength).
-		WriteUint16(uint16(payloadBytesLength)).
+	return marshalutil.New(marshalutil.Uint32Size + payloadBytesLength).
+		WriteUint32(uint32(payloadBytesLength)).
 		WriteBytes(payloadBytes).
 		Bytes()
 }
