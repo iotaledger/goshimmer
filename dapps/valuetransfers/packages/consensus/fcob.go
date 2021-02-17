@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/goshimmer/packages/vote"
+	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 )
 
 // FCOB defines the "Fast Consensus of Barcelona" rules that are used to form the initial opinions of nodes. It uses a
@@ -42,19 +43,21 @@ func NewFCOB(tangle *tangle.Tangle, averageNetworkDelay time.Duration) (fcob *FC
 
 // ProcessVoteResult allows an external voter to hand in the results of the voting process.
 func (fcob *FCOB) ProcessVoteResult(ev *vote.OpinionEvent) {
-	transactionID, err := transaction.IDFromBase58(ev.ID)
-	if err != nil {
-		fcob.Events.Error.Trigger(err)
+	if ev.Ctx.Type == vote.ConflictType {
+		transactionID, err := transaction.IDFromBase58(ev.ID)
+		if err != nil {
+			fcob.Events.Error.Trigger(err)
 
-		return
-	}
+			return
+		}
 
-	if _, err := fcob.tangle.SetTransactionPreferred(transactionID, ev.Opinion == vote.Like); err != nil {
-		fcob.Events.Error.Trigger(err)
-	}
+		if _, err := fcob.tangle.SetTransactionPreferred(transactionID, ev.Opinion == opinion.Like); err != nil {
+			fcob.Events.Error.Trigger(err)
+		}
 
-	if _, err := fcob.tangle.SetTransactionFinalized(transactionID); err != nil {
-		fcob.Events.Error.Trigger(err)
+		if _, err := fcob.tangle.SetTransactionFinalized(transactionID); err != nil {
+			fcob.Events.Error.Trigger(err)
+		}
 	}
 }
 
@@ -70,7 +73,7 @@ func (fcob *FCOB) onTransactionBooked(cachedTransactionBookEvent *tangle.CachedT
 				return
 			}
 
-			fcob.Events.Vote.Trigger(transactionMetadata.BranchID().String(), vote.Dislike)
+			fcob.Events.Vote.Trigger(transactionMetadata.BranchID().String(), opinion.Dislike)
 
 			return
 		}
@@ -150,9 +153,9 @@ func (fcob *FCOB) onFork(forkEvent *tangle.ForkEvent) {
 
 	switch transactionMetadata.Preferred() {
 	case true:
-		fcob.Events.Vote.Trigger(transactionMetadata.ID().String(), vote.Like)
+		fcob.Events.Vote.Trigger(transactionMetadata.ID().String(), opinion.Like)
 	case false:
-		fcob.Events.Vote.Trigger(transactionMetadata.ID().String(), vote.Dislike)
+		fcob.Events.Vote.Trigger(transactionMetadata.ID().String(), opinion.Dislike)
 	}
 }
 
@@ -166,5 +169,5 @@ type FCOBEvents struct {
 }
 
 func voteEvent(handler interface{}, params ...interface{}) {
-	handler.(func(id string, initOpn vote.Opinion))(params[0].(string), params[1].(vote.Opinion))
+	handler.(func(id string, initOpn opinion.Opinion))(params[0].(string), params[1].(opinion.Opinion))
 }

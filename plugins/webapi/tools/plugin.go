@@ -32,6 +32,7 @@ func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 	webapi.Server().GET("tools/message/pastcone", message.PastconeHandler)
 	webapi.Server().GET("tools/message/missing", message.MissingHandler)
+	webapi.Server().GET("tools/message/approval", message.ApprovalHandler)
 	webapi.Server().GET("tools/value/tips", value.TipsHandler)
 	webapi.Server().GET("tools/value/objects", value.ObjectsHandler)
 }

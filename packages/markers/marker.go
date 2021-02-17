@@ -186,7 +186,7 @@ func (m *Markers) Set(sequenceID SequenceID, index Index) (updated bool, added b
 			m.markers[sequenceID] = index
 
 			// find new lowest index
-			if existingIndex == m.lowestIndex {
+			if index == m.lowestIndex {
 				m.lowestIndex = 0
 				for _, scannedIndex := range m.markers {
 					if scannedIndex < m.lowestIndex || m.lowestIndex == 0 {

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -41,5 +42,5 @@ func TestPayloadMetadata_SetSolid(t *testing.T) {
 	originalMetadata.setSolid(true)
 
 	assert.Equal(t, true, originalMetadata.IsSolid())
-	assert.Equal(t, time.Now().Round(time.Second), originalMetadata.SolidificationTime().Round(time.Second))
+	assert.Equal(t, clock.SyncedTime().Round(time.Second), originalMetadata.SolidificationTime().Round(time.Second))
 }

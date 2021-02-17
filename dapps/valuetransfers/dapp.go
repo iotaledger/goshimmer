@@ -13,7 +13,6 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -22,6 +21,7 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	flag "github.com/spf13/pflag"
+	"golang.org/x/xerrors"
 )
 
 const (
@@ -57,7 +57,8 @@ var (
 	tangleOnce sync.Once
 
 	// fcob contains the fcob consensus logic.
-	fcob *consensus.FCOB
+	fcob     *consensus.FCOB
+	fcobOnce sync.Once
 
 	// ledgerState represents the ledger state, that keeps track of the liked branches and offers an API to access funds.
 	ledgerState *valuetangle.LedgerState
@@ -70,6 +71,8 @@ var (
 
 	valueObjectFactory     *valuetangle.ValueObjectFactory
 	valueObjectFactoryOnce sync.Once
+
+	receiveMessageClosure *events.Closure
 )
 
 // App gets the plugin instance.
@@ -92,6 +95,12 @@ func Tangle() *valuetangle.Tangle {
 // FCOB gets the fcob instance.
 // fcob contains the fcob consensus logic.
 func FCOB() *consensus.FCOB {
+	fcobOnce.Do(func() {
+		// configure FCOB consensus rules
+		cfgAvgNetworkDelay := config.Node().Int(CfgValueLayerFCOBAverageNetworkDelay)
+		log.Infof("avg. network delay configured to %d seconds", cfgAvgNetworkDelay)
+		fcob = consensus.NewFCOB(_tangle, time.Duration(cfgAvgNetworkDelay)*time.Second)
+	})
 	return fcob
 }
 
@@ -134,82 +143,52 @@ func configure(_ *node.Plugin) {
 	tipManager = TipManager()
 	valueObjectFactory = ValueObjectFactory()
 
-	_tangle.Events.PayloadLiked.Attach(events.NewClosure(func(cachedPayloadEvent *valuetangle.CachedPayloadEvent) {
+	_tangle.Events.PayloadConfirmed.Attach(events.NewClosure(func(cachedPayloadEvent *valuetangle.CachedPayloadEvent) {
 		cachedPayloadEvent.PayloadMetadata.Release()
 		cachedPayloadEvent.Payload.Consume(tipManager.AddTip)
 	}))
-	_tangle.Events.PayloadDisliked.Attach(events.NewClosure(func(cachedPayloadEvent *valuetangle.CachedPayloadEvent) {
-		cachedPayloadEvent.PayloadMetadata.Release()
-		cachedPayloadEvent.Payload.Consume(tipManager.RemoveTip)
-	}))
-
-	// configure FCOB consensus rules
-	cfgAvgNetworkDelay := config.Node().Int(CfgValueLayerFCOBAverageNetworkDelay)
-	log.Infof("avg. network delay configured to %d seconds", cfgAvgNetworkDelay)
-	fcob = consensus.NewFCOB(_tangle, time.Duration(cfgAvgNetworkDelay)*time.Second)
-	fcob.Events.Vote.Attach(events.NewClosure(func(id string, initOpn vote.Opinion) {
-		if err := voter.Vote(id, initOpn); err != nil {
-			log.Warnf("FPC vote: %s", err)
-		}
-	}))
-	fcob.Events.Error.Attach(events.NewClosure(func(err error) {
-		log.Errorf("FCOB error: %s", err)
-	}))
-
-	// configure FPC + link to consensus
-	configureFPC()
-	voter.Events().Finalized.Attach(events.NewClosure(fcob.ProcessVoteResult))
-	voter.Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
-		log.Infof("FPC finalized for transaction with id '%s' - final opinion: '%s'", ev.ID, ev.Opinion)
-	}))
-	voter.Events().Failed.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
-		log.Warnf("FPC failed for transaction with id '%s' - last opinion: '%s'", ev.ID, ev.Opinion)
-	}))
 
 	// register SignatureFilter in Parser
-	messagelayer.MessageParser().AddMessageFilter(valuetangle.NewSignatureFilter())
+	messagelayer.Tangle().Parser.AddMessageFilter(valuetangle.NewSignatureFilter())
 
 	// subscribe to message-layer
-	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
+	receiveMessageClosure = events.NewClosure(onReceiveMessageFromMessageLayer)
+	messagelayer.Tangle().Scheduler.Events.MessageScheduled.Attach(receiveMessageClosure)
 }
 
 func run(*node.Plugin) {
 	if err := daemon.BackgroundWorker("ValueTangle", func(shutdownSignal <-chan struct{}) {
 		<-shutdownSignal
 		// TODO: make this better
-		time.Sleep(12 * time.Second)
+		// stop listening to stuff from the message tangle. By the time we are here, gossip and autopeering have already
+		// been shutdown, so no new incoming messages should appear.
+		messagelayer.Tangle().Solidifier.Events.MessageSolid.Detach(receiveMessageClosure)
+		// wait one network delay to be sure that all scheduled setPreferred are triggered in fcob. Otherwise, we would
+		// try to access an already shutdown objectstorage in fcob.
+		cfgAvgNetworkDelay := config.Node().Int(CfgValueLayerFCOBAverageNetworkDelay)
+		time.Sleep(time.Duration(cfgAvgNetworkDelay) * time.Second)
 		_tangle.Shutdown()
-	}, shutdown.PriorityTangle); err != nil {
+	}, shutdown.PriorityValueTangle); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
-
-	runFPC()
 }
 
-func onReceiveMessageFromMessageLayer(cachedMessageEvent *tangle.CachedMessageEvent) {
-	defer cachedMessageEvent.Message.Release()
-	defer cachedMessageEvent.MessageMetadata.Release()
+func onReceiveMessageFromMessageLayer(messageID tangle.MessageID) {
+	messagelayer.Tangle().Storage.Message(messageID).Consume(func(solidMessage *tangle.Message) {
+		messagePayload := solidMessage.Payload()
+		if messagePayload.Type() != valuepayload.Type {
+			return
+		}
 
-	solidMessage := cachedMessageEvent.Message.Unwrap()
-	if solidMessage == nil {
-		log.Debug("failed to unpack solid message from message layer")
+		valuePayload, ok := messagePayload.(*valuepayload.Payload)
+		if !ok {
+			log.Debug("could not cast payload to value payload")
 
-		return
-	}
+			return
+		}
 
-	messagePayload := solidMessage.Payload()
-	if messagePayload.Type() != valuepayload.Type {
-		return
-	}
-
-	valuePayload, ok := messagePayload.(*valuepayload.Payload)
-	if !ok {
-		log.Debug("could not cast payload to value payload")
-
-		return
-	}
-
-	_tangle.AttachPayload(valuePayload)
+		_tangle.AttachPayload(valuePayload)
+	})
 }
 
 // TipManager returns the TipManager singleton.
@@ -229,7 +208,8 @@ func ValueObjectFactory() *valuetangle.ValueObjectFactory {
 }
 
 // AwaitTransactionToBeBooked awaits maxAwait for the given transaction to get booked.
-func AwaitTransactionToBeBooked(txID transaction.ID, maxAwait time.Duration) error {
+func AwaitTransactionToBeBooked(f func() (*tangle.Message, error), txID transaction.ID, maxAwait time.Duration) (*tangle.Message, error) {
+	// first subscribe to the transaction booked event
 	booked := make(chan struct{}, 1)
 	// exit is used to let the caller exit if for whatever
 	// reason the same transaction gets booked multiple times
@@ -248,10 +228,34 @@ func AwaitTransactionToBeBooked(txID transaction.ID, maxAwait time.Duration) err
 	})
 	Tangle().Events.TransactionBooked.Attach(closure)
 	defer Tangle().Events.TransactionBooked.Detach(closure)
+
+	// then issue the message with the tx
+
+	// channel to receive the result of issuance
+	issueResult := make(chan struct {
+		msg *tangle.Message
+		err error
+	}, 1)
+
+	go func() {
+		msg, err := f()
+		issueResult <- struct {
+			msg *tangle.Message
+			err error
+		}{msg: msg, err: err}
+	}()
+
+	// wait on issuance
+	result := <-issueResult
+
+	if result.err != nil || result.msg == nil {
+		return nil, xerrors.Errorf("Failed to issue transaction %s: %w", txID.String(), result.err)
+	}
+
 	select {
 	case <-time.After(maxAwait):
-		return ErrTransactionWasNotBookedInTime
+		return nil, ErrTransactionWasNotBookedInTime
 	case <-booked:
-		return nil
+		return result.msg, nil
 	}
 }

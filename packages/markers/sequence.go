@@ -211,7 +211,7 @@ func (c *CachedSequence) Unwrap() *Sequence {
 }
 
 // Consume unwraps the CachedObject and passes a type-casted version to the consumer. It automatically releases the
-// object when the consumer finishes and returns true if there was at least one object that was consumed.
+// object when the consumer finishes and returns true of there was at least one object that was consumed.
 func (c *CachedSequence) Consume(consumer func(sequence *Sequence), forceRelease ...bool) (consumed bool) {
 	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*Sequence))
@@ -251,7 +251,7 @@ func SequenceIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequenceID
 
 // Bytes returns a marshaled version of the SequenceID.
 func (a SequenceID) Bytes() (marshaledSequenceID []byte) {
-	return marshalutil.New(marshalutil.Uint16Size).WriteUint64(uint64(a)).Bytes()
+	return marshalutil.New(marshalutil.Uint64Size).WriteUint64(uint64(a)).Bytes()
 }
 
 // String returns a human readable version of the SequenceID.

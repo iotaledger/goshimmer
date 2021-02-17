@@ -1,3 +1,74 @@
+# v0.3.6 - 2021-02-12
+* Finalize Payload layout
+* Update dRNG with finalized payload layout
+* Add simple scheduler
+* Add message approval analysis API
+* Add core logic for timestamp voting (still disabled)
+* Refactor message parser
+* Refactor solidifier
+* Refactor Tangle events
+* Update entry node URL
+* Update gossip to not gossip requested messages
+* Introduce invalid message flag
+* Merge the new data flow
+* Fix visualizer bug
+* Update hive.go
+* Update JS dependencies
+* **Breaking**: bumps network and database versions
+
+# v0.3.5 - 2021-01-13
+* Fix consensus statement bug
+* Fix deadlock in RandomMap
+* Fix several shutdown related issues
+* Load old messages in visualizer
+* Fix wrong Tips count in visualizer
+* Fix dashboard typos
+* Improve integration tests
+* Improve network delay analysis
+* Update hive.go
+* Update JS dependencies
+* **Breaking**: bumps network and database versions
+
+# v0.3.4 - 2020-12-11
+* Revert Pebble to Badger.
+* **Breaking**: bumps network and database versions
+
+# v0.3.3 - 2020-12-10
+* Fix sync issue.
+* Fix pkger issue.
+* **Breaking**: bumps network and database versions
+
+# v0.3.2 - 2020-12-09
+* Switch from BadgerDB to Pebble.
+* Add FPC statements.
+* Add clock based time to message metadata.
+* Improve dashboard message live feed.
+* Improve spammer to evenly distribute issued messages within a minute.
+* Fix panic when writing on a closed channel in the dashboard web socket.
+* Upgrade Go to 1.15.5
+* Upgrade to latest hive.go
+* **Breaking**: bumps network and database versions
+
+# v0.3.1 - 2020-11-13
+* Refactor message structure according to the new Tangle RFC: 
+    * add support for multiple parents
+    * update local dashboard
+    * new unit tests
+    * max payload size changed to 65157 bytes
+* Add community-based entry node.
+* Add commit tag to version.
+* Add package for common sentinel errors.
+* Improve dashboard websocket management.
+* Integrate NTP-based clock to the network delay app.
+* Switch from packer to pkger to pack dashboard.
+* Switch from Viper to koanf as core library for configuration.
+* Fix Value Tangle tip selection management.
+* Fix mps query label in grafana.
+* Fix potential race condition within the clock package.
+* Upgrade to latest hive.go
+* Upgrade NodeJS dependencies of the dashboard.
+* **Breaking**: bumps network and database versions
+
 # v0.3.0 - 2020-10-12
 * Added multiple dRNG committees support: Pollen, X-Team and Custom.
 * Added clock synchronization plugin via NTP.

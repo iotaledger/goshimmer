@@ -25,8 +25,8 @@ func TestIsFaucetReq(t *testing.T) {
 		return
 	}
 	faucetMsg := tangle.NewMessage(
-		tangle.EmptyMessageID,
-		tangle.EmptyMessageID,
+		[]tangle.MessageID{tangle.EmptyMessageID},
+		[]tangle.MessageID{},
 		time.Now(),
 		local.PublicKey(),
 		0,
@@ -36,8 +36,8 @@ func TestIsFaucetReq(t *testing.T) {
 	)
 
 	dataMsg := tangle.NewMessage(
-		tangle.EmptyMessageID,
-		tangle.EmptyMessageID,
+		[]tangle.MessageID{tangle.EmptyMessageID},
+		[]tangle.MessageID{},
 		time.Now(),
 		local.PublicKey(),
 		0,

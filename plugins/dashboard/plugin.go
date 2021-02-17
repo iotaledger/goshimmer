@@ -160,8 +160,9 @@ type wsmsg struct {
 }
 
 type msg struct {
-	ID    string `json:"id"`
-	Value int64  `json:"value"`
+	ID          string `json:"id"`
+	Value       int64  `json:"value"`
+	PayloadType uint32 `json:"payload_type"`
 }
 
 type nodestatus struct {

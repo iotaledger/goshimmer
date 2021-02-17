@@ -7,6 +7,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
@@ -179,7 +180,7 @@ func (transactionMetadata *TransactionMetadata) setSolid(solid bool) (modified b
 			transactionMetadata.solid = solid
 			if solid {
 				transactionMetadata.solidificationTimeMutex.Lock()
-				transactionMetadata.solidificationTime = time.Now()
+				transactionMetadata.solidificationTime = clock.SyncedTime()
 				transactionMetadata.solidificationTimeMutex.Unlock()
 			}
 
@@ -251,7 +252,7 @@ func (transactionMetadata *TransactionMetadata) setFinalized(finalized bool) (mo
 	transactionMetadata.finalized = finalized
 	transactionMetadata.SetModified()
 	if finalized {
-		transactionMetadata.finalizationTime = time.Now()
+		transactionMetadata.finalizationTime = clock.SyncedTime()
 	}
 	modified = true
 

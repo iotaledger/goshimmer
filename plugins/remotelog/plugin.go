@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
@@ -112,7 +113,7 @@ func sendLogMsg(level logger.Level, name string, msg string) {
 		level.CapitalString(),
 		name,
 		msg,
-		time.Now(),
+		clock.SyncedTime(),
 		remoteLogType,
 	}
 

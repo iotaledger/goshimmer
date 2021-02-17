@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	clockPlugin "github.com/iotaledger/goshimmer/plugins/clock"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
@@ -16,6 +17,7 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/mr-tron/base58"
+	flag "github.com/spf13/pflag"
 )
 
 const (
@@ -45,6 +47,10 @@ var (
 	// clockEnabled defines if the clock plugin is enabled.
 	clockEnabled bool
 )
+
+func init() {
+	flag.String(CfgNetworkDelayOriginPublicKey, "9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd", "default issuer node public key")
+}
 
 // App gets the plugin instance.
 func App() *node.Plugin {
@@ -78,50 +84,42 @@ func configure(_ *node.Plugin) {
 	configureWebAPI()
 
 	// subscribe to message-layer
-	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
+	messagelayer.Tangle().Scheduler.Events.MessageScheduled.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
 
-	clockEnabled = node.EnabledPlugins[node.GetPluginIdentifier("Clock")]
+	clockEnabled = !node.IsSkipped(clockPlugin.Plugin())
 }
 
-func onReceiveMessageFromMessageLayer(cachedMessageEvent *tangle.CachedMessageEvent) {
-	defer cachedMessageEvent.Message.Release()
-	defer cachedMessageEvent.MessageMetadata.Release()
+func onReceiveMessageFromMessageLayer(messageID tangle.MessageID) {
+	messagelayer.Tangle().Storage.Message(messageID).Consume(func(solidMessage *tangle.Message) {
+		messagePayload := solidMessage.Payload()
+		if messagePayload.Type() != Type {
+			return
+		}
 
-	solidMessage := cachedMessageEvent.Message.Unwrap()
-	if solidMessage == nil {
-		log.Debug("failed to unpack solid message from message layer")
+		// check for node identity
+		issuerPubKey := solidMessage.IssuerPublicKey()
+		if issuerPubKey != originPublicKey || issuerPubKey == myPublicKey {
+			return
+		}
 
-		return
-	}
+		networkDelayObject, ok := messagePayload.(*Object)
+		if !ok {
+			log.Info("could not cast payload to network delay object")
 
-	messagePayload := solidMessage.Payload()
-	if messagePayload.Type() != Type {
-		return
-	}
+			return
+		}
 
-	// check for node identity
-	issuerPubKey := solidMessage.IssuerPublicKey()
-	if issuerPubKey != originPublicKey || issuerPubKey == myPublicKey {
-		return
-	}
+		now := clock.SyncedTime().UnixNano()
 
-	networkDelayObject, ok := messagePayload.(*Object)
-	if !ok {
-		log.Info("could not cast payload to network delay object")
+		// abort if message was sent more than 1min ago
+		// this should only happen due to a node resyncing
+		if time.Duration(now-networkDelayObject.sentTime) > time.Minute {
+			log.Debugf("Received network delay message with >1min delay\n%s", networkDelayObject)
+			return
+		}
 
-		return
-	}
-
-	now := clock.SyncedTime().UnixNano()
-
-	// abort if message was sent more than 1min ago
-	// this should only happen due to a node resyncing
-	if time.Duration(now-networkDelayObject.sentTime) > time.Minute {
-		log.Debugf("Received network delay message with >1min delay\n%s", networkDelayObject)
-		return
-	}
-
-	sendToRemoteLog(networkDelayObject, now)
+		sendToRemoteLog(networkDelayObject, now)
+	})
 }
 
 func sendToRemoteLog(networkDelayObject *Object, receiveTime int64) {
@@ -131,6 +129,20 @@ func sendToRemoteLog(networkDelayObject *Object, receiveTime int64) {
 		SentTime:    networkDelayObject.sentTime,
 		ReceiveTime: receiveTime,
 		Delta:       receiveTime - networkDelayObject.sentTime,
+		Clock:       clockEnabled,
+		Sync:        syncbeaconfollower.Synced(),
+		Type:        remoteLogType,
+	}
+	_ = remoteLogger.Send(m)
+}
+
+func sendPoWInfo(object *Object, powDelta time.Duration) {
+	m := networkDelay{
+		NodeID:      myID,
+		ID:          object.id.String(),
+		SentTime:    0,
+		ReceiveTime: 0,
+		Delta:       powDelta.Nanoseconds(),
 		Clock:       clockEnabled,
 		Sync:        syncbeaconfollower.Synced(),
 		Type:        remoteLogType,

@@ -2,10 +2,14 @@ package ledgerstate
 
 import (
 	"testing"
+	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/require"
 )
+
+var sampleColor = Color{2}
 
 func TestTransaction_Complex(t *testing.T) {
 	// setup variables representing keys and outputs for the two parties that wants to trade tokens
@@ -18,7 +22,7 @@ func TestTransaction_Complex(t *testing.T) {
 	unspentOutputsDB := setupUnspentOutputsDB(map[Address]map[OutputID]map[Color]uint64{
 		party1SrcAddress: {
 			party1ControlledOutputID: {
-				Color{2}: 200,
+				sampleColor: 200,
 			},
 		},
 		party2SrcAddress: {
@@ -29,8 +33,8 @@ func TestTransaction_Complex(t *testing.T) {
 	})
 
 	// party1 prepares a TransactionEssence that party2 is supposed to complete for the exchange of tokens
-	sentParty1Essence := NewTransactionEssence(0,
-		// he consumes 200 tokens of Color{2}
+	sentParty1Essence := NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{},
+		// he consumes 200 tokens of Color2
 		NewInputs(unspentOutputsDB[party1ControlledOutputID].Input()),
 
 		NewOutputs(
@@ -38,7 +42,9 @@ func TestTransaction_Complex(t *testing.T) {
 			NewSigLockedSingleOutput(1337, party1DestAddress),
 
 			// he sends only 100 of the consumed tokens to the remainder leaving 100 unspent
-			NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{Color{2}: 100}), party1RemainderAddress),
+			NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{
+				sampleColor: 100,
+			}), party1RemainderAddress),
 		),
 	).Bytes()
 
@@ -48,11 +54,14 @@ func TestTransaction_Complex(t *testing.T) {
 
 	// party2 completes the prepared TransactionEssence by adding his Inputs and his Outputs
 	completedEssence := NewTransactionEssence(0,
+		receivedParty1Essence.Timestamp(),
+		receivedParty1Essence.AccessPledgeID(),
+		receivedParty1Essence.ConsensusPledgeID(),
 		NewInputs(append(receivedParty1Essence.Inputs(), unspentOutputsDB[party2ControlledOutputID].Input())...),
 		NewOutputs(append(receivedParty1Essence.Outputs(),
-			// he wants to receive 100 tokens of Color{2} on his destination address
+			// he wants to receive 100 tokens of Color2 on his destination address
 			NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{
-				Color{2}: 100,
+				sampleColor: 100,
 			}), party2DestAddress),
 
 			// he sends only 1000 of the 2337 consumed IOTA to the remainder (leaving 1337 unspent)

@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
@@ -218,7 +219,7 @@ func (output *Output) setSolid(solid bool) (modified bool) {
 			output.solid = solid
 			if solid {
 				output.solidificationTimeMutex.Lock()
-				output.solidificationTime = time.Now()
+				output.solidificationTime = clock.SyncedTime()
 				output.solidificationTimeMutex.Unlock()
 			}
 

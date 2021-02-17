@@ -39,8 +39,8 @@ func PastconeHandler(c echo.Context) error {
 		stack.Remove(currentMsgElement)
 
 		// ask node if it has it
-		msgObject := messagelayer.Tangle().Message(currentMsgID)
-		msgMetadataObject := messagelayer.Tangle().MessageMetadata(currentMsgID)
+		msgObject := messagelayer.Tangle().Storage.Message(currentMsgID)
+		msgMetadataObject := messagelayer.Tangle().Storage.MessageMetadata(currentMsgID)
 
 		if !msgObject.Exists() || !msgMetadataObject.Exists() {
 			return c.JSON(http.StatusOK, PastconeResponse{Exist: false, PastConeSize: checkedMessageCount, Error: fmt.Sprintf("couldn't find %s message on node", currentMsgID)})
@@ -48,26 +48,30 @@ func PastconeHandler(c echo.Context) error {
 
 		// get parent1 and parent2
 		msg := msgObject.Unwrap()
-		parent2ID := msg.Parent2ID()
-		parent1ID := msg.Parent1ID()
+
+		onlyGenesis := true
+		msg.ForEachParent(func(parent tangle.Parent) {
+			onlyGenesis = onlyGenesis && (parent.ID == tangle.EmptyMessageID)
+		})
+
+		if onlyGenesis {
+			// release objects
+			msgObject.Release()
+			msgMetadataObject.Release()
+			// msg only attaches to genesis
+			continue
+		} else {
+			msg.ForEachParent(func(parent tangle.Parent) {
+				if !submitted[parent.ID] && parent.ID != tangle.EmptyMessageID {
+					stack.PushBack(parent.ID)
+					submitted[parent.ID] = true
+				}
+			})
+		}
 
 		// release objects
 		msgObject.Release()
 		msgMetadataObject.Release()
-
-		if parent2ID == tangle.EmptyMessageID && msg.Parent1ID() == tangle.EmptyMessageID {
-			// msg only attaches to genesis
-			continue
-		} else {
-			if !submitted[parent2ID] && parent2ID != tangle.EmptyMessageID {
-				stack.PushBack(parent2ID)
-				submitted[parent2ID] = true
-			}
-			if !submitted[parent1ID] && parent1ID != tangle.EmptyMessageID {
-				stack.PushBack(parent1ID)
-				submitted[parent1ID] = true
-			}
-		}
 	}
 	return c.JSON(http.StatusOK, PastconeResponse{Exist: true, PastConeSize: checkedMessageCount})
 }

@@ -14,7 +14,8 @@ import {BasicPayload} from 'app/components/BasicPayload'
 import {DrngPayload} from 'app/components/DrngPayload'
 import {ValuePayload} from 'app/components/ValuePayload'
 import {SyncBeaconPayload} from 'app/components/SyncBeaconPayload'
-import {PayloadType} from 'app/misc/Payload'
+import {getPayloadType, PayloadType} from 'app/misc/Payload'
+import {StatementPayload} from "app/components/StatemenetPayload";
 
 interface Props {
     nodeStore?: NodeStore;
@@ -48,20 +49,7 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
     }
 
     getPayloadType() {
-        switch (this.props.explorerStore.msg.payload_type) {
-            case PayloadType.Data:
-                return "Data"
-            case PayloadType.Value:
-                return "Value"
-            case PayloadType.Drng:
-                return "Drng"
-            case PayloadType.Faucet:
-                return "Faucet"
-            case PayloadType.SyncBeacon:
-                return "SyncBeacon"
-            default:
-                return "Unknown"
-        }
+        return getPayloadType(this.props.explorerStore.msg.payload_type)
     }
 
     renderPayload() {
@@ -70,6 +58,8 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                 return <DrngPayload/>
             case PayloadType.Value:
                 return <ValuePayload/>
+            case PayloadType.Statement:
+                return <StatementPayload/>
             case PayloadType.Data:
                 return <BasicPayload/>
             case PayloadType.SyncBeacon:
@@ -159,22 +149,38 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                         <Row className={"mb-3"}>
                             <Col>
                                 <ListGroup>
-                                    <ListGroup.Item className="text-break">
-                                        Parent 1 Message ID: {' '}
-                                        <Link to={`/explorer/message/${msg.parent1_message_id}`}>
-                                            {msg.parent1_message_id}
-                                        </Link>
-                                    </ListGroup.Item>
+                                    {
+                                        msg.strongParents.map((value, index) => {
+                                            return (
+                                                <ListGroup.Item className="text-break">
+                                                    Strong Parent {index + 1}: {' '}
+                                                    <Link to={`/explorer/message/${msg.strongParents[index]}`}>
+                                                        {msg.strongParents[index]}
+                                                    </Link>
+                                                </ListGroup.Item>
+                                                )
+                                        })
+                                    }
                                 </ListGroup>
                             </Col>
+                        </Row>
+                        <Row>
                             <Col>
                                 <ListGroup>
-                                    <ListGroup.Item className="text-break">
-                                        Parent 2 Message ID: {' '}
-                                        <Link to={`/explorer/message/${msg.parent2_message_id}`}>
-                                            {msg.parent2_message_id}
-                                        </Link>
-                                    </ListGroup.Item>
+                                    <ListGroup>
+                                        {
+                                            msg.weakParents.map((value, index) => {
+                                                return (
+                                                    <ListGroup.Item className="text-break">
+                                                        Weak Parent {index + 1}: {' '}
+                                                        <Link to={`/explorer/message/${msg.weakParents[index]}`}>
+                                                            {msg.weakParents[index]}
+                                                        </Link>
+                                                    </ListGroup.Item>
+                                                )
+                                            })
+                                        }
+                                    </ListGroup>
                                 </ListGroup>
                             </Col>
                         </Row>

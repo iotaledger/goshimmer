@@ -1,4 +1,4 @@
-// Package database is a plugin that manages the badger database (e.g. garbage collection).
+// Package database is a plugin that manages the pebble database (e.g. garbage collection).
 package database
 
 import (

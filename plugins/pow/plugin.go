@@ -21,12 +21,12 @@ var (
 // Plugin gets the plugin instance.
 func Plugin() *node.Plugin {
 	once.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Enabled, run)
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure)
 	})
 	return plugin
 }
 
-func run(*node.Plugin) {
+func configure(*node.Plugin) {
 	// assure that the logger is available
 	log := logger.NewLogger(PluginName)
 
@@ -40,6 +40,6 @@ func run(*node.Plugin) {
 
 	log.Infof("%s started: difficult=%d", PluginName, difficulty)
 
-	messagelayer.MessageParser().AddBytesFilter(tangle.NewPowFilter(worker, difficulty))
-	messagelayer.MessageFactory().SetWorker(tangle.WorkerFunc(DoPOW))
+	messagelayer.Tangle().Parser.AddBytesFilter(tangle.NewPowFilter(worker, difficulty))
+	messagelayer.Tangle().MessageFactory.SetWorker(tangle.WorkerFunc(DoPOW))
 }

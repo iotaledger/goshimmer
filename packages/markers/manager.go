@@ -73,6 +73,7 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 	normalizedMarkers, normalizedSequences := m.normalizeMarkers(mergedPastMarkers)
 	rankOfReferencedSequences := normalizedMarkers.HighestRank()
 	referencedMarkers, referencedMarkersExist := normalizedMarkers.Markers()
+
 	// if this is the first marker create the genesis sequence and index
 	if !referencedMarkersExist {
 		referencedMarkers = NewMarkers(&Marker{sequenceID: 0, index: 0})
@@ -134,13 +135,13 @@ func (m *Manager) UpdateStructureDetails(structureDetailsToUpdate *StructureDeta
 }
 
 // IsInPastCone checks if the earlier node is directly or indirectly referenced by the later node in the DAG.
-func (m *Manager) IsInPastCone(earlierStructureDetails *StructureDetails, laterStructureDetails *StructureDetails) (isInPastCone TriBool) {
+func (m *Manager) IsInPastCone(earlierStructureDetails *StructureDetails, laterStructureDetails *StructureDetails) (isInPastCone types.TriBool) {
 	if earlierStructureDetails.Rank >= laterStructureDetails.Rank {
-		return False
+		return types.False
 	}
 
 	if earlierStructureDetails.PastMarkers.HighestIndex() > laterStructureDetails.PastMarkers.HighestIndex() {
-		return False
+		return types.False
 	}
 
 	if earlierStructureDetails.IsPastMarker {
@@ -153,16 +154,16 @@ func (m *Manager) IsInPastCone(earlierStructureDetails *StructureDetails, laterS
 		// the earlier one is in its past cone.
 		if laterIndex, sequenceExists := laterStructureDetails.PastMarkers.Get(earlierMarker.sequenceID); sequenceExists {	
 			if laterIndex >= earlierMarker.index {
-				return True
+				return types.True
 			}
 
-			return False
+			return types.False
 		}
 
 		// If laterStructureDetails has no past marker in the same sequence of the earlier,
 		// then just check the index
 		if laterStructureDetails.PastMarkers.HighestIndex() <= earlierMarker.index {
-			return False
+			return types.False
 		}
 	}
 
@@ -175,13 +176,13 @@ func (m *Manager) IsInPastCone(earlierStructureDetails *StructureDetails, laterS
 		// If earlierStructureDetails has a past marker in the same sequence of the later with a higher index or references the later,
 		// the earlier one is definitely not in its past cone.
 		if earlierIndex, sequenceExists := earlierStructureDetails.PastMarkers.Get(laterMarker.sequenceID); sequenceExists && earlierIndex >= laterMarker.index {
-			return False
+			return types.False
 		}
 
 		// If earlierStructureDetails has a future marker in the same sequence of the later with a higher index,
 		// the earlier one is definitely not in its past cone.
 		if earlierFutureIndex, earlierFutureIndexExists := earlierStructureDetails.FutureMarkers.Get(laterMarker.sequenceID); earlierFutureIndexExists && earlierFutureIndex > laterMarker.index {
-			return False
+			return types.False
 		}
 
 		// Iterate the future markers of laterStructureDetails and check if the earlier one has future markers in the same sequence,
@@ -190,11 +191,11 @@ func (m *Manager) IsInPastCone(earlierStructureDetails *StructureDetails, laterS
 			earlierIndex, similarSequenceExists := earlierStructureDetails.FutureMarkers.Get(sequenceID)
 			return !similarSequenceExists || earlierIndex < laterIndex
 		}) {
-			return False
+			return types.False
 		}
 
 		if earlierStructureDetails.PastMarkers.HighestIndex() >= laterMarker.index {
-			return False
+			return types.False
 		}
 	}
 
@@ -208,23 +209,23 @@ func (m *Manager) IsInPastCone(earlierStructureDetails *StructureDetails, laterS
 
 			return true
 		}) {
-			return False
+			return types.False
 		}
 	}
 
 	if m.markersReferenceMarkers(laterStructureDetails.PastMarkers, earlierStructureDetails.FutureMarkers, false) {
-		return True
+		return types.True
 	}
 
 	if !m.markersReferenceMarkers(laterStructureDetails.PastMarkers, earlierStructureDetails.PastMarkers, false) {
-		return False
+		return types.False
 	}
 
 	if m.markersReferenceMarkers(earlierStructureDetails.FutureMarkers, laterStructureDetails.PastMarkers, true) {
-		return Maybe
+		return types.Maybe
 	}
 
-	return False
+	return types.False
 }
 
 // Shutdown shuts down the Manager and persists its state.

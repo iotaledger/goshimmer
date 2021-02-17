@@ -112,6 +112,10 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 			"--webapi.bindAddress=0.0.0.0:8080",
 			fmt.Sprintf("--autopeering.seed=base58:%s", config.Seed),
 			fmt.Sprintf("--autopeering.entryNodes=%s@%s:14626", config.EntryNodePublicKey, config.EntryNodeHost),
+			fmt.Sprintf("--fpc.roundInterval=%d", config.FPCRoundInterval),
+			fmt.Sprintf("--fpc.listen=%v", config.FPCListen),
+			fmt.Sprintf("--statement.writeStatement=%v", config.WriteStatement),
+			fmt.Sprintf("--statement.waitForStatement=%d", config.WaitForStatement),
 			fmt.Sprintf("--drng.custom.instanceId=%d", config.DRNGInstance),
 			fmt.Sprintf("--drng.custom.threshold=%d", config.DRNGThreshold),
 			fmt.Sprintf("--drng.custom.committeeMembers=%s", config.DRNGCommittee),
@@ -144,7 +148,7 @@ func (d *DockerContainer) CreateDrandMember(name string, goShimmerAPI string, le
 	}
 	env = append(env, "GOSHIMMER=http://"+goShimmerAPI)
 	containerConfig := &container.Config{
-		Image: "angelocapossele/drand:1.1.3",
+		Image: "angelocapossele/drand:v1.1.4",
 		ExposedPorts: nat.PortSet{
 			nat.Port("8000/tcp"): {},
 		},
