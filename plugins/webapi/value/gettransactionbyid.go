@@ -44,7 +44,7 @@ func getTransactionByIDHandler(c echo.Context) error {
 		Transaction: txn,
 		InclusionState: InclusionState{
 			Confirmed:   txInclusionState == ledgerstate.Confirmed,
-			Conflicting: len(messagelayer.Tangle().LedgerState.ConflictSet(txID)) == 0,
+			Conflicting: messagelayer.Tangle().LedgerState.TransactionConflicting(txID),
 			Liked:       branch.Liked(),
 			Solid:       txMetadata.Solid(),
 			Rejected:    txInclusionState == ledgerstate.Rejected,

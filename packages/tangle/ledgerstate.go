@@ -181,4 +181,9 @@ func (l *LedgerState) OutputsOnAddress(address ledgerstate.Address) (cachedOutpu
 	return
 }
 
+// CheckTransaction contains fast checks that have to be performed before booking a Transaction.
+func (l *LedgerState) CheckTransaction(transaction *ledgerstate.Transaction) (valid bool, err error) {
+	return l.utxoDAG.CheckTransaction(transaction)
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -129,8 +129,8 @@ func configureMessageLayer() {
 		messagelayer.Tangle().ProcessGossipMessage(event.Data, event.Peer)
 	}))
 
-	// configure flow of outgoing messages (gossip on solidification)
-	messagelayer.Tangle().Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+	// configure flow of outgoing messages (gossip after booking)
+	messagelayer.Tangle().Booker.Events.MessageBooked.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
 			messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
 				if time.Since(messageMetadata.ReceivedTime()) > ageThreshold {

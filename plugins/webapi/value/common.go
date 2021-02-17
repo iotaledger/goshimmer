@@ -28,7 +28,7 @@ func ParseTransaction(t *ledgerstate.Transaction) (txn Transaction) {
 			return true
 		})
 		outputs = append(outputs, Output{
-			Address:  output.Address().String(),
+			Address:  output.Address().Base58(),
 			Balances: balances,
 		})
 	}

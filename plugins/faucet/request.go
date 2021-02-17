@@ -115,7 +115,7 @@ func (p *Request) Bytes() []byte {
 // String returns a human readable version of faucet Request payload (for debug purposes).
 func (p *Request) String() string {
 	return stringify.Struct("FaucetPayload",
-		stringify.StructField("address", p.Address().String()),
+		stringify.StructField("address", p.Address().Base58()),
 	)
 }
 
