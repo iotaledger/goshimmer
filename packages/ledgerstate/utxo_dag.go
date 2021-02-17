@@ -258,15 +258,23 @@ func (u *UTXODAG) LoadSnapshot(snapshot map[TransactionID]map[Address]*ColoredBa
 			fmt.Println("Balance: ", balance)
 			output := NewSigLockedColoredOutput(balance, address)
 			output.SetID(NewOutputID(transactionID, index))
-			u.outputStorage.Store(output).Release()
+			cachedOutput, stored := u.outputStorage.StoreIfAbsent(output)
+			if stored {
+				cachedOutput.Release()
+			}
+
 			//store addressOutputMapping
-			u.addressOutputMappingStorage.Store(NewAddressOutputMapping(address, output.ID())).Release()
+			u.StoreAddressOutputMapping(address, output.ID())
+
 			// store OutputMetadata
 			metadata := NewOutputMetadata(output.ID())
 			metadata.SetBranchID(MasterBranchID)
 			metadata.SetSolid(true)
 			metadata.SetFinalized(true)
-			u.outputMetadataStorage.Store(metadata).Release()
+			cachedMetadata, stored := u.outputMetadataStorage.StoreIfAbsent(metadata)
+			if stored {
+				cachedMetadata.Release()
+			}
 
 			index++
 		}
