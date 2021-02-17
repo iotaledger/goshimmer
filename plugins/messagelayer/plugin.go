@@ -77,14 +77,6 @@ func configure(*node.Plugin) {
 	log = logger.NewLogger(PluginName)
 	Tangle().Setup()
 
-	// Bypass the Booker
-	Tangle().Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-			messageMetadata.SetBooked(true)
-			Tangle().Booker.Events.MessageBooked.Trigger(messageID)
-		})
-	}))
-
 	Tangle().Events.Error.Attach(events.NewClosure(func(err error) {
 		log.Error(err)
 	}))
