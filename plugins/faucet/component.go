@@ -152,7 +152,7 @@ func (c *Component) collectUTXOsForFunding() (inputs ledgerstate.Inputs, addrsIn
 					val += int64(balance)
 					return true
 				})
-				addrsIndices[i] = append(addrsIndices[i], output.(*ledgerstate.SigLockedColoredOutput).Input())
+				addrsIndices[i] = append(addrsIndices[i], ledgerstate.NewUTXOInput(output.ID()))
 
 				// get unspent output ids and check if it's conflict
 				if val <= total {
@@ -161,7 +161,7 @@ func (c *Component) collectUTXOsForFunding() (inputs ledgerstate.Inputs, addrsIn
 					remainder = val - total
 					total = 0
 				}
-				inputs = append(inputs, output.(*ledgerstate.SigLockedColoredOutput).Input())
+				inputs = append(inputs, ledgerstate.NewUTXOInput(output.ID()))
 			})
 		})
 	}
