@@ -825,7 +825,10 @@ func (u *UTXODAG) consumedBranchIDs(transactionID TransactionID) (branchIDs Bran
 
 // StoreAddressOutputMapping stores the address-output mapping.
 func (u *UTXODAG) StoreAddressOutputMapping(address Address, outputID OutputID) {
-	u.addressOutputMappingStorage.Store(NewAddressOutputMapping(address, outputID)).Release()
+	result, stored := u.addressOutputMappingStorage.StoreIfAbsent(NewAddressOutputMapping(address, outputID))
+	if stored {
+		result.Release()
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
