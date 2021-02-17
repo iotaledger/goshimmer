@@ -124,9 +124,11 @@ func AwaitMessageToBeBooked(f func() (*tangle.Message, error), txID ledgerstate.
 	defer close(exit)
 	closure := events.NewClosure(func(msgID tangle.MessageID) {
 		Tangle().Storage.Message(msgID).Consume(func(message *tangle.Message) {
-			tx := message.Payload().(*ledgerstate.Transaction)
-			if tx.ID() == txID {
-				return
+			if message.Payload().Type() == ledgerstate.TransactionType {
+				tx := message.Payload().(*ledgerstate.Transaction)
+				if tx.ID() == txID {
+					return
+				}
 			}
 		})
 		select {
