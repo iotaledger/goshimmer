@@ -111,6 +111,10 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 					sequenceAlias = append(sequenceAlias, markers.NewSequenceAlias(targetBranch.Bytes()))
 				}
 
+				for _, output := range transaction.Essence().Outputs() {
+					b.tangle.LedgerState.utxoDAG.StoreAddressOutputMapping(output.Address(), output.ID())
+				}
+
 				attachment, stored := b.tangle.Storage.StoreAttachment(transaction.ID(), messageID)
 				if stored {
 					attachment.Release()

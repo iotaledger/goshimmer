@@ -823,6 +823,11 @@ func (u *UTXODAG) consumedBranchIDs(transactionID TransactionID) (branchIDs Bran
 	return
 }
 
+// StoreAddressOutputMapping stores the address-output mapping.
+func (u *UTXODAG) StoreAddressOutputMapping(address Address, outputID OutputID) {
+	u.addressOutputMappingStorage.Store(NewAddressOutputMapping(address, outputID)).Release()
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // TODO: IMPLEMENT A GOOD SYNCHRONIZATION MECHANISM FOR THE UTXODAG
