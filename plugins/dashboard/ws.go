@@ -48,7 +48,7 @@ func configureWebSocketWorkerPool() {
 		broadcastWsMessage(&wsmsg{MsgTypeMPSMetric, task.Param(0).(uint64)})
 		broadcastWsMessage(&wsmsg{MsgTypeNodeStatus, currentNodeStatus()})
 		broadcastWsMessage(&wsmsg{MsgTypeNeighborMetric, neighborMetrics()})
-		broadcastWsMessage(&wsmsg{MsgTypeTipsMetric, messagelayer.Tangle().TipManager.TipCount()})
+		broadcastWsMessage(&wsmsg{MsgTypeTipsMetric, messagelayer.Tangle().TipManager.StrongTipCount()})
 		task.Return(nil)
 	}, workerpool.WorkerCount(wsSendWorkerCount), workerpool.QueueSize(wsSendWorkerQueueSize))
 }
