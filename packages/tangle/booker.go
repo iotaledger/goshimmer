@@ -226,7 +226,9 @@ func (b *Booker) createGenesis() {
 		booked:   true,
 		eligible: true,
 	}
-	b.tangle.Storage.messageMetadataStorage.Store(genesisMetadata).Release()
+	b.tangle.Storage.MessageMetadata(EmptyMessageID, func() *MessageMetadata {
+		return genesisMetadata
+	}).Release()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
