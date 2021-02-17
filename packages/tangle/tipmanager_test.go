@@ -671,6 +671,10 @@ type mockPayloadOpinionProvider struct {
 	payloadOpinionFunc func(messageID MessageID) bool
 }
 
+func (m *mockPayloadOpinionProvider) TransactionOpinionEssence(id ledgerstate.TransactionID) OpinionEssence {
+	panic("implement me")
+}
+
 func (m *mockPayloadOpinionProvider) Evaluate(id MessageID) {
 	panic("implement me")
 }
