@@ -42,10 +42,7 @@ func TestTipManager_AddTip(t *testing.T) {
 		// mock the Tangle's PayloadOpinionProvider so that we can add payloads without actually building opinions
 		mockOpinionProvider := &mockPayloadOpinionProvider{
 			payloadOpinionFunc: func(messageID MessageID) bool {
-				if messageID == message.ID() {
-					return false
-				}
-				return true
+				return messageID == message.ID()
 			},
 		}
 		tangle.PayloadOpinionProvider = mockOpinionProvider
