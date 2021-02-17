@@ -101,9 +101,9 @@ func (u *Utils) AllTransactionsApprovedByMessage(transactionIDs ledgerstate.Tran
 	return true
 }
 
-// AllTransactionsApprovedByMessages checks if all Transactions were attached by at least one Message that was directly
+// AllTransactionsContainedOrApprovedByMessages checks if all Transactions were attached by at least one Message that was directly
 // or indirectly approved by the given Messages.
-func (u *Utils) AllTransactionsApprovedByMessages(transactionIDs ledgerstate.TransactionIDs, messageIDs MessageIDs) (approved bool) {
+func (u *Utils) AllTransactionsContainedOrApprovedByMessages(transactionIDs ledgerstate.TransactionIDs, messageIDs MessageIDs) (approved bool) {
 	// keep track of already approved transactions
 	approvedTransactions := make(map[ledgerstate.TransactionID]bool)
 	for transactionID := range transactionIDs {
