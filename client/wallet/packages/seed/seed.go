@@ -23,7 +23,7 @@ func NewSeed(optionalSeedBytes ...[]byte) *Seed {
 // Address returns an Address which can be used for receiving or sending funds.
 func (seed *Seed) Address(index uint64) walletaddr.Address {
 	return walletaddr.Address{
-		Address: ledgerstate.NewBLSAddress(seed.Seed.KeyPair(index).PublicKey.Bytes()),
+		Address: ledgerstate.NewED25519Address(seed.Seed.KeyPair(index).PublicKey),
 		Index:   index,
 	}
 }
