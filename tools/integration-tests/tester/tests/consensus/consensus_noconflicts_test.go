@@ -7,8 +7,8 @@ import (
 	"time"
 
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	valueutils "github.com/iotaledger/goshimmer/plugins/webapi/value"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -70,7 +70,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 	// wait for the transaction to be propagated through the network
 	// and it becoming preferred, finalized and confirmed
 	log.Println("waiting 2.5 avg. network delays")
-	time.Sleep(valuetransfers.DefaultAverageNetworkDelay*2 + valuetransfers.DefaultAverageNetworkDelay/2)
+	time.Sleep(messagelayer.DefaultAverageNetworkDelay*2 + messagelayer.DefaultAverageNetworkDelay/2)
 
 	// since we just issued a transaction spending the genesis output, there
 	// shouldn't be any UTXOs on the genesis address anymore
@@ -120,7 +120,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 
 	// wait again some network delays for the transactions to materialize
 	log.Println("waiting 2.5 avg. network delays")
-	time.Sleep(valuetransfers.DefaultAverageNetworkDelay*2 + valuetransfers.DefaultAverageNetworkDelay/2)
+	time.Sleep(messagelayer.DefaultAverageNetworkDelay*2 + messagelayer.DefaultAverageNetworkDelay/2)
 	log.Println("checking that first set of addresses contain no UTXOs")
 	tests.CheckAddressOutputsFullyConsumed(t, n.Peers(), firstReceiverAddresses)
 	log.Println("checking that the 2nd batch transactions are finalized/confirmed")

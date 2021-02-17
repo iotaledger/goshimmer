@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 	"github.com/stretchr/testify/require"
 )
@@ -26,7 +26,7 @@ func TestTransactionPersistence(t *testing.T) {
 	}
 
 	// wait for messages to be gossiped
-	time.Sleep(2 * valuetransfers.DefaultAverageNetworkDelay)
+	time.Sleep(2 * messagelayer.DefaultAverageNetworkDelay)
 
 	// check whether the first issued transaction is available on all nodes, and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
@@ -43,7 +43,7 @@ func TestTransactionPersistence(t *testing.T) {
 	}
 
 	// wait for messages to be gossiped
-	time.Sleep(2 * valuetransfers.DefaultAverageNetworkDelay)
+	time.Sleep(2 * messagelayer.DefaultAverageNetworkDelay)
 
 	// check whether all issued transactions are available on all nodes and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
@@ -94,7 +94,7 @@ func TestValueColoredPersistence(t *testing.T) {
 	}
 
 	// wait for messages to be gossiped
-	time.Sleep(2 * valuetransfers.DefaultAverageNetworkDelay)
+	time.Sleep(2 * messagelayer.DefaultAverageNetworkDelay)
 
 	// check whether the transactions are available on all nodes, and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
@@ -111,7 +111,7 @@ func TestValueColoredPersistence(t *testing.T) {
 	}
 
 	// wait for value messages to be gossiped
-	time.Sleep(2 * valuetransfers.DefaultAverageNetworkDelay)
+	time.Sleep(2 * messagelayer.DefaultAverageNetworkDelay)
 
 	// check whether all issued transactions are persistently available on all nodes, and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
