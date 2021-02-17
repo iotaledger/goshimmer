@@ -67,7 +67,6 @@ func Tangle() *tangle.Tangle {
 		tangleInstance = tangle.New(
 			tangle.Store(database.Store()),
 			tangle.Identity(local.GetInstance().LocalIdentity()),
-			tangle.WithoutOpinionFormer(true),
 		)
 	})
 

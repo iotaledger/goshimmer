@@ -88,14 +88,14 @@ func runVisualizer() {
 		})
 	})
 
-	notifyNewTip := events.NewClosure(func(tipEvent tangle.TipEvent) {
+	notifyNewTip := events.NewClosure(func(tipEvent *tangle.TipEvent) {
 		// TODO: handle weak tips
 		if tipEvent.TipType == tangle.StrongTip {
 			visualizerWorkerPool.TrySubmit(tipEvent.MessageID, true)
 		}
 	})
 
-	notifyDeletedTip := events.NewClosure(func(tipEvent tangle.TipEvent) {
+	notifyDeletedTip := events.NewClosure(func(tipEvent *tangle.TipEvent) {
 		// TODO: handle weak tips
 		if tipEvent.TipType == tangle.StrongTip {
 			visualizerWorkerPool.TrySubmit(tipEvent.MessageID, false)

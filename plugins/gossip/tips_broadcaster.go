@@ -77,13 +77,13 @@ func startTipBroadcaster(shutdownSignal <-chan struct{}) {
 	defer log.Infof("Stopping %s ... done", tipsBroadcasterName)
 
 	//removeClosure := events.NewClosure(tips.RemoveTip)
-	removeClosure := events.NewClosure(func(tipEvent tangle.TipEvent) {
+	removeClosure := events.NewClosure(func(tipEvent *tangle.TipEvent) {
 		// TODO: handle weak tips
 		if tipEvent.TipType == tangle.StrongTip {
 			tips.RemoveTip(tipEvent.MessageID)
 		}
 	})
-	addClosure := events.NewClosure(func(tipEvent tangle.TipEvent) {
+	addClosure := events.NewClosure(func(tipEvent *tangle.TipEvent) {
 		// TODO: handle weak tips
 		if tipEvent.TipType == tangle.StrongTip {
 			tips.AddTip(tipEvent.MessageID)
