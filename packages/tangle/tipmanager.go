@@ -8,6 +8,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/datastructure/randommap"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/types"
+	"golang.org/x/xerrors"
 )
 
 // region TipType //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -146,7 +148,7 @@ func (t *TipManager) AddTip(message *Message) {
 }
 
 // Tips returns count number of tips, maximum MaxParentsCount.
-func (t *TipManager) Tips(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs) {
+func (t *TipManager) Tips(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error) {
 	if countStrongParents > MaxParentsCount {
 		countStrongParents = MaxParentsCount
 	}
@@ -161,10 +163,10 @@ func (t *TipManager) Tips(p payload.Payload, countStrongParents, countWeakParent
 		transaction := p.(*ledgerstate.Transaction)
 
 		tries := 5
-		for !t.tangle.Utils.AllTransactionsApprovedByMessages(transaction.ReferencedTransactionIDs(), strongParents) {
+		for !t.tangle.Utils.AllTransactionsContainedOrApprovedByMessages(transaction.ReferencedTransactionIDs(), strongParents) {
 			if tries == 0 {
-				// TODO: return error
-				panic("not able to make sure that all inputs are in the past cone of selected tips")
+				err = xerrors.Errorf("not able to make sure that all inputs are in the past cone of selected tips")
+				return nil, nil, err
 			}
 			tries--
 
@@ -185,6 +187,7 @@ func (t *TipManager) Tips(p payload.Payload, countStrongParents, countWeakParent
 // of consumed transactions directly. Otherwise/additionally count tips are randomly selected.
 func (t *TipManager) selectStrongTips(p payload.Payload, count int) (parents MessageIDs) {
 	parents = make([]MessageID, 0, MaxParentsCount)
+	parentsMap := make(map[MessageID]types.Empty)
 
 	// if transaction: reference young parents directly
 	if p != nil && p.Type() == ledgerstate.TransactionType {
@@ -201,7 +204,10 @@ func (t *TipManager) selectStrongTips(p payload.Payload, count int) (parents Mes
 						// check if message is too old
 						timeDifference := clock.SyncedTime().Sub(message.IssuingTime())
 						if timeDifference <= maxParentsTimeDifference {
-							parents = append(parents, attachmentMessageID)
+							if _, ok := parentsMap[attachmentMessageID]; !ok {
+								parentsMap[attachmentMessageID] = types.Void
+								parents = append(parents, attachmentMessageID)
+							}
 							added = true
 						}
 					})
@@ -239,7 +245,11 @@ func (t *TipManager) selectStrongTips(p payload.Payload, count int) (parents Mes
 	}
 	// at least one tip is returned
 	for _, tip := range tips {
-		parents = append(parents, tip.(MessageID))
+		messageID := tip.(MessageID)
+		if _, ok := parentsMap[messageID]; !ok {
+			parentsMap[messageID] = types.Void
+			parents = append(parents, messageID)
+		}
 	}
 
 	return

@@ -165,16 +165,16 @@ func TestTangle_MissingMessages(t *testing.T) {
 	// setup the message factory
 	tangle.MessageFactory = NewMessageFactory(
 		tangle,
-		TipSelectorFunc(func(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs) {
+		TipSelectorFunc(func(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error) {
 			r := tips.RandomUniqueEntries(countStrongParents)
 			if len(r) == 0 {
-				return []MessageID{EmptyMessageID}, []MessageID{}
+				return []MessageID{EmptyMessageID}, []MessageID{}, nil
 			}
 			parents := make([]MessageID, len(r))
 			for i := range r {
 				parents[i] = r[i].(MessageID)
 			}
-			return parents, []MessageID{}
+			return parents, []MessageID{}, nil
 		}),
 	)
 
@@ -316,16 +316,16 @@ func TestTangle_Flow(t *testing.T) {
 	// setup the message factory
 	tangle.MessageFactory = NewMessageFactory(
 		tangle,
-		TipSelectorFunc(func(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs) {
+		TipSelectorFunc(func(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error) {
 			r := tips.RandomUniqueEntries(countStrongParents)
 			if len(r) == 0 {
-				return []MessageID{EmptyMessageID}, []MessageID{}
+				return []MessageID{EmptyMessageID}, []MessageID{}, nil
 			}
 			parents := make([]MessageID, len(r))
 			for i := range r {
 				parents[i] = r[i].(MessageID)
 			}
-			return parents, []MessageID{}
+			return parents, []MessageID{}, nil
 		}),
 	)
 
@@ -507,7 +507,13 @@ func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, t ...*Tangle) 
 		return nil, err
 	}
 
-	strongParents, weakParents := f.selector.Tips(p, 2, 0)
+	strongParents, weakParents, err := f.selector.Tips(p, 2, 0)
+	if err != nil {
+		err = fmt.Errorf("could not select tips: %w", err)
+		f.Events.Error.Trigger(err)
+		return nil, err
+	}
+
 	issuingTime := time.Now().Add(maxParentsTimeDifference + 5*time.Minute)
 	issuerPublicKey := f.localIdentity.PublicKey()
 
