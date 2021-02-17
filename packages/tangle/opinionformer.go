@@ -139,6 +139,9 @@ func (o *OpinionFormer) onPayloadOpinionFormed(ev *OpinionFormedEvent) {
 			o.tangle.LedgerState.branchDAG.SetBranchLiked(o.tangle.LedgerState.BranchID(transactionID), ev.Opinion)
 			// TODO: move this to approval weight logic
 			o.tangle.LedgerState.branchDAG.SetBranchFinalized(o.tangle.LedgerState.BranchID(transactionID), true)
+			o.tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+				transactionMetadata.SetFinalized(true)
+			})
 		}
 	})
 
