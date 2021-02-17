@@ -33,7 +33,7 @@ func (s Snapshot) WriteTo(writer io.Writer) (int64, error) {
 		}
 		bytesWritten += 8
 		for addr, balances := range addresses {
-			if err := binary.Write(writer, binary.LittleEndian, addr); err != nil {
+			if err := binary.Write(writer, binary.LittleEndian, addr.Bytes()); err != nil {
 				return bytesWritten, fmt.Errorf("unable to write address: %w", err)
 			}
 			bytesWritten += AddressLength
