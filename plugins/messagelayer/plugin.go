@@ -2,6 +2,7 @@ package messagelayer
 
 import (
 	"errors"
+	"os"
 	"sync"
 	"time"
 
@@ -9,17 +10,27 @@ import (
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+	flag "github.com/spf13/pflag"
 	"golang.org/x/xerrors"
 )
 
 const (
 	// PluginName defines the plugin name.
 	PluginName = "MessageLayer"
+	// DefaultAverageNetworkDelay contains the default average time it takes for a network to propagate through gossip.
+	DefaultAverageNetworkDelay = 5 * time.Second
+
+	// CfgMessageLayerSnapshotFile is the path to the snapshot file.
+	CfgMessageLayerSnapshotFile = "messageLayer.snapshot.file"
+
+	// CfgMessageLayerFCOBAverageNetworkDelay is the avg. network delay to use for FCoB rules
+	CfgMessageLayerFCOBAverageNetworkDelay = "messageLayer.fcob.averageNetworkDelay"
 )
 
 var (
@@ -27,6 +38,11 @@ var (
 	// within the defined await time.
 	ErrMessageWasNotBookedInTime = errors.New("message could not be booked in time")
 )
+
+func init() {
+	flag.String(CfgMessageLayerSnapshotFile, "./snapshot.bin", "the path to the snapshot file")
+	flag.Int(CfgMessageLayerFCOBAverageNetworkDelay, 5, "the avg. network delay to use for FCoB rules")
+}
 
 var (
 	// plugin is the plugin instance of the message layer plugin.
@@ -73,6 +89,21 @@ func configure(*node.Plugin) {
 	Tangle().Events.Error.Attach(events.NewClosure(func(err error) {
 		log.Error(err)
 	}))
+
+	// read snapshot file
+	snapshotFilePath := config.Node().String(CfgMessageLayerSnapshotFile)
+	if len(snapshotFilePath) != 0 {
+		snapshot := ledgerstate.Snapshot{}
+		f, err := os.Open(snapshotFilePath)
+		if err != nil {
+			log.Panic("can not open snapshot file:", err)
+		}
+		if _, err := snapshot.ReadFrom(f); err != nil {
+			log.Panic("could not read snapshot file:", err)
+		}
+		Tangle().LedgerState.LoadSnapshot(snapshot)
+		log.Infof("read snapshot from %s", snapshotFilePath)
+	}
 }
 
 func run(*node.Plugin) {

@@ -35,7 +35,7 @@ func (webConnector *WebConnector) ServerStatus() (status ServerStatus, err error
 
 // RequestFaucetFunds request some funds from the faucet for test purposes.
 func (webConnector *WebConnector) RequestFaucetFunds(addr walletaddr.Address) (err error) {
-	_, err = webConnector.client.SendFaucetRequest(addr.String())
+	_, err = webConnector.client.SendFaucetRequest(addr.Base58())
 
 	return
 }
@@ -46,8 +46,8 @@ func (webConnector WebConnector) UnspentOutputs(addresses ...walletaddr.Address)
 	addressReverseLookupTable := make(map[string]walletaddr.Address)
 	base58EncodedAddresses := make([]string, len(addresses))
 	for i, addr := range addresses {
-		base58EncodedAddresses[i] = addr.String()
-		addressReverseLookupTable[addr.String()] = addr
+		base58EncodedAddresses[i] = addr.Base58()
+		addressReverseLookupTable[addr.Base58()] = addr
 	}
 
 	// request unspent outputs

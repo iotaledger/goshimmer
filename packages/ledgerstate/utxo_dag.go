@@ -251,7 +251,8 @@ func (u *UTXODAG) LoadSnapshot(snapshot map[TransactionID]map[Address]*ColoredBa
 			output := NewSigLockedColoredOutput(balance, address)
 			output.SetID(NewOutputID(transactionID, index))
 			u.outputStorage.Store(output).Release()
-
+			//store addressOutputMapping
+			u.addressOutputMappingStorage.Store(NewAddressOutputMapping(address, output.ID())).Release()
 			// store OutputMetadata
 			metadata := NewOutputMetadata(output.ID())
 			metadata.SetBranchID(MasterBranchID)

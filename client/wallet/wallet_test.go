@@ -150,10 +150,10 @@ func (connector *mockConnector) RequestFaucetFunds(addr walletaddr.Address) (err
 		},
 	}
 
-	if _, addressExists := connector.outputs[addr.Address.String()]; !addressExists {
-		connector.outputs[addr.Address.String()] = make(map[ledgerstate.TransactionID]*Output)
+	if _, addressExists := connector.outputs[addr.Address.Base58()]; !addressExists {
+		connector.outputs[addr.Address.Base58()] = make(map[ledgerstate.TransactionID]*Output)
 	}
-	connector.outputs[addr.Address.String()][transactionID] = newOutput
+	connector.outputs[addr.Address.Base58()][transactionID] = newOutput
 
 	return
 }
@@ -208,11 +208,11 @@ func newMockConnector(outputs ...*Output) (connector *mockConnector) {
 	}
 
 	for _, output := range outputs {
-		if _, addressExists := connector.outputs[output.Address.String()]; !addressExists {
-			connector.outputs[output.Address.String()] = make(map[ledgerstate.TransactionID]*Output)
+		if _, addressExists := connector.outputs[output.Address.Base58()]; !addressExists {
+			connector.outputs[output.Address.Base58()] = make(map[ledgerstate.TransactionID]*Output)
 		}
 
-		connector.outputs[output.Address.String()][output.TransactionID] = output
+		connector.outputs[output.Address.Base58()][output.TransactionID] = output
 	}
 
 	return
@@ -221,7 +221,7 @@ func newMockConnector(outputs ...*Output) (connector *mockConnector) {
 func (connector *mockConnector) UnspentOutputs(addresses ...walletaddr.Address) (outputs map[walletaddr.Address]map[ledgerstate.TransactionID]*Output, err error) {
 	outputs = make(map[walletaddr.Address]map[ledgerstate.TransactionID]*Output)
 	for _, addr := range addresses {
-		for transactionID, output := range connector.outputs[addr.Address.String()] {
+		for transactionID, output := range connector.outputs[addr.Address.Base58()] {
 			if !output.InclusionState.Spent {
 				if _, outputsExist := outputs[addr]; !outputsExist {
 					outputs[addr] = make(map[ledgerstate.TransactionID]*Output)

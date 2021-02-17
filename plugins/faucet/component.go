@@ -141,31 +141,29 @@ func (c *Component) collectUTXOsForFunding() (inputs ledgerstate.Inputs, addrsIn
 	// get a list of address for inputs
 	for i = 0; total > 0; i++ {
 		addr := c.seed.Address(i).Address
-		outputIDs := messagelayer.Tangle().LedgerState.OutputIDsOnAddress(addr)
-		for _, outputID := range outputIDs {
-			messagelayer.Tangle().LedgerState.Output(outputID).Consume(func(output ledgerstate.Output) {
-				messagelayer.Tangle().LedgerState.OutputMetadata(outputID).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
-					if outputMetadata.ConsumerCount() > 0 || total == 0 {
-						return
-					}
-					var val int64
-					output.Balances().ForEach(func(_ ledgerstate.Color, balance uint64) bool {
-						val += int64(balance)
-						return true
-					})
-					addrsIndices[i] = append(addrsIndices[i], output.(*ledgerstate.SigLockedColoredOutput).Input())
-
-					// get unspent output ids and check if it's conflict
-					if val <= total {
-						total -= val
-					} else {
-						remainder = val - total
-						total = 0
-					}
-					inputs = append(inputs, output.(*ledgerstate.SigLockedColoredOutput).Input())
+		cachedOutputs := messagelayer.Tangle().LedgerState.OutputsOnAddress(addr)
+		cachedOutputs.Consume(func(output ledgerstate.Output) {
+			messagelayer.Tangle().LedgerState.OutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+				if outputMetadata.ConsumerCount() > 0 || total == 0 {
+					return
+				}
+				var val int64
+				output.Balances().ForEach(func(_ ledgerstate.Color, balance uint64) bool {
+					val += int64(balance)
+					return true
 				})
+				addrsIndices[i] = append(addrsIndices[i], output.(*ledgerstate.SigLockedColoredOutput).Input())
+
+				// get unspent output ids and check if it's conflict
+				if val <= total {
+					total -= val
+				} else {
+					remainder = val - total
+					total = 0
+				}
+				inputs = append(inputs, output.(*ledgerstate.SigLockedColoredOutput).Input())
 			})
-		}
+		})
 	}
 
 	return
@@ -176,8 +174,9 @@ func (c *Component) nextUnusedAddress() ledgerstate.Address {
 	var index uint64
 	for index = 0; ; index++ {
 		addr := c.seed.Address(index).Address
-		outputIDs := messagelayer.Tangle().LedgerState.OutputIDsOnAddress(addr)
-		if len(outputIDs) == 0 {
+		cachedOutputs := messagelayer.Tangle().LedgerState.OutputsOnAddress(addr)
+		cachedOutputs.Release()
+		if len(cachedOutputs.Unwrap()) == 0 {
 			return addr
 		}
 	}

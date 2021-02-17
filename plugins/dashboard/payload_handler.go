@@ -116,7 +116,7 @@ func ProcessPayload(p payload.Payload) interface{} {
 		// faucet payload
 		return BasicStringPayload{
 			ContentTitle: "address",
-			Content:      p.(*faucet.Request).Address().String(),
+			Content:      p.(*faucet.Request).Address().Base58(),
 		}
 	case drng.PayloadType:
 		// drng payload

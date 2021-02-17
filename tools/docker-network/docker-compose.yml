@@ -44,6 +44,7 @@ services:
       --node.enablePlugins=prometheus,spammer,faucet,syncbeacon,"webapi tools endpoint"
       --node.disablePlugins=syncbeaconfollower,clock
       --faucet.seed=7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih
+      --messageLayer.snapshot.file=/tmp/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin
       --valueLayer.snapshot.file=/tmp/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin
       --syncbeacon.broadcastInterval=5
       --syncbeacon.startSynced=true
@@ -68,6 +69,7 @@ services:
       --config=/tmp/config.json
       --database.directory=/tmp/mainnetdb
       --node.enablePlugins=bootstrap,"webapi tools endpoint"
+      --messageLayer.snapshot.file=/tmp/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin
       --valueLayer.snapshot.file=/tmp/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin
       --node.disablePlugins=portcheck,clock
       --syncbeaconfollower.followNodes=EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP

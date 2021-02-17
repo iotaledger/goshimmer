@@ -46,9 +46,9 @@ func TestConsensusNoConflicts(t *testing.T) {
 	for i := 0; i < depositCount; i++ {
 		addr := firstReceiver.Address(uint64(i)).Address
 		firstReceiverDepositAddrs[i] = addr
-		firstReceiverAddresses[i] = addr.String()
+		firstReceiverAddresses[i] = addr.Base58()
 		firstReceiverDepositOutputs[addr] = ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: deposit})
-		firstReceiverExpectedBalances[addr.String()] = map[ledgerstate.Color]int64{ledgerstate.ColorIOTA: deposit}
+		firstReceiverExpectedBalances[addr.Base58()] = map[ledgerstate.Color]int64{ledgerstate.ColorIOTA: deposit}
 	}
 
 	// issue transaction spending from the genesis output
@@ -75,7 +75,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 	// since we just issued a transaction spending the genesis output, there
 	// shouldn't be any UTXOs on the genesis address anymore
 	log.Println("checking that genesis has no UTXOs")
-	tests.CheckAddressOutputsFullyConsumed(t, n.Peers(), []string{genesisAddr.String()})
+	tests.CheckAddressOutputsFullyConsumed(t, n.Peers(), []string{genesisAddr.Base58()})
 
 	// since we waited 2.5 avg. network delays and there were no conflicting transactions,
 	// the transaction we just issued must be preferred, liked, finalized and confirmed
@@ -107,12 +107,12 @@ func TestConsensusNoConflicts(t *testing.T) {
 		sig := ledgerstate.NewED25519Signature(kp.PublicKey, ed25519.Signature(kp.PrivateKey.Sign(tx2Essence.Bytes())))
 		unlockBlock := ledgerstate.NewSignatureUnlockBlock(sig)
 		tx := ledgerstate.NewTransaction(tx1Essence, ledgerstate.UnlockBlocks{unlockBlock})
-		secondReceiverAddresses[i] = addr.String()
+		secondReceiverAddresses[i] = addr.Base58()
 		txID, err := n.Peers()[rand.Intn(len(n.Peers()))].SendTransaction(tx.Bytes())
 		require.NoError(t, err)
 
 		utilsTx := valueutils.ParseTransaction(tx)
-		secondReceiverExpectedBalances[addr.String()] = map[ledgerstate.Color]int64{ledgerstate.ColorIOTA: deposit}
+		secondReceiverExpectedBalances[addr.Base58()] = map[ledgerstate.Color]int64{ledgerstate.ColorIOTA: deposit}
 		secondReceiverExpectedTransactions[txID] = &tests.ExpectedTransaction{
 			Inputs: &utilsTx.Inputs, Outputs: &utilsTx.Outputs, Signature: &utilsTx.Signature,
 		}

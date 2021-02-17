@@ -157,7 +157,7 @@ func TransactionFromBytes(bytes []byte) (transaction *Transaction, consumedBytes
 func TransactionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transaction *Transaction, err error) {
 	readStartOffset := marshalUtil.ReadOffset()
 
-	payloadSize, err := marshalUtil.ReadUint32()
+	payloadSize, err := marshalUtil.ReadUint16()
 	if err != nil {
 		err = xerrors.Errorf("failed to parse payload size from MarshalUtil (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
@@ -187,7 +187,7 @@ func TransactionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transacti
 	}
 
 	parsedBytes := marshalUtil.ReadOffset() - readStartOffset
-	if parsedBytes != int(payloadSize)+marshalutil.Uint32Size {
+	if parsedBytes != int(payloadSize)+marshalutil.Uint16Size {
 		err = xerrors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, payloadSize, cerrors.ErrParseBytesFailed)
 		return
 	}

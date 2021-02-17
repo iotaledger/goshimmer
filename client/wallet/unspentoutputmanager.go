@@ -44,16 +44,16 @@ func (unspentOutputManager *UnspentOutputManager) Refresh(includeSpentAddresses 
 
 	for addr, unspentOutputs := range unspentOutputs {
 		for transactionID, output := range unspentOutputs {
-			if _, addressExists := unspentOutputManager.unspentOutputs[addr.String()]; !addressExists {
-				unspentOutputManager.unspentOutputs[addr.String()] = make(map[ledgerstate.TransactionID]*Output)
+			if _, addressExists := unspentOutputManager.unspentOutputs[addr.Base58()]; !addressExists {
+				unspentOutputManager.unspentOutputs[addr.Base58()] = make(map[ledgerstate.TransactionID]*Output)
 			}
 
 			// mark the output as spent if we already marked it as spent locally
-			if existingOutput, outputExists := unspentOutputManager.unspentOutputs[addr.String()][transactionID]; outputExists && existingOutput.InclusionState.Spent {
+			if existingOutput, outputExists := unspentOutputManager.unspentOutputs[addr.Base58()][transactionID]; outputExists && existingOutput.InclusionState.Spent {
 				output.InclusionState.Spent = true
 			}
 
-			unspentOutputManager.unspentOutputs[addr.String()][transactionID] = output
+			unspentOutputManager.unspentOutputs[addr.Base58()][transactionID] = output
 		}
 	}
 
@@ -73,7 +73,7 @@ func (unspentOutputManager *UnspentOutputManager) UnspentOutputs(addresses ...wa
 	// iterate through addresses and scan for unspent outputs
 	for _, addr := range addresses {
 		// skip the address if we have no outputs for it stored
-		unspentOutputsOnAddress, addressExistsInStoredOutputs := unspentOutputManager.unspentOutputs[addr.String()]
+		unspentOutputsOnAddress, addressExistsInStoredOutputs := unspentOutputManager.unspentOutputs[addr.Base58()]
 		if !addressExistsInStoredOutputs {
 			continue
 		}
@@ -99,10 +99,10 @@ func (unspentOutputManager *UnspentOutputManager) UnspentOutputs(addresses ...wa
 // MarkOutputSpent marks the output identified by the given parameters as spent.
 func (unspentOutputManager *UnspentOutputManager) MarkOutputSpent(addr walletaddr.Address, transactionID ledgerstate.TransactionID) {
 	// abort if we try to mark an unknown output as spent
-	if _, addressExists := unspentOutputManager.unspentOutputs[addr.String()]; !addressExists {
+	if _, addressExists := unspentOutputManager.unspentOutputs[addr.Base58()]; !addressExists {
 		return
 	}
-	output, outputExists := unspentOutputManager.unspentOutputs[addr.String()][transactionID]
+	output, outputExists := unspentOutputManager.unspentOutputs[addr.Base58()][transactionID]
 	if !outputExists {
 		return
 	}

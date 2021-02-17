@@ -10,7 +10,7 @@ import (
 
 // getTransactionByIDHandler gets the transaction by id.
 func getTransactionByIDHandler(c echo.Context) error {
-	txID, err := ledgerstate.TransactionIDFromBase58(c.QueryParam("txID"))
+	txID, err := ledgerstate.TransactionIDFromBase58(c.QueryParam("txnID"))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, GetTransactionByIDResponse{Error: err.Error()})
 	}

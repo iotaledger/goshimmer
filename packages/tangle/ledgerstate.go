@@ -172,13 +172,12 @@ func (l *LedgerState) OutputMetadata(outputID ledgerstate.OutputID) *ledgerstate
 	return l.utxoDAG.OutputMetadata(outputID)
 }
 
-// OutputIDsOnAddress retrieves all the OutputIDs that are associated with an address.
-func (l *LedgerState) OutputIDsOnAddress(address ledgerstate.Address) []ledgerstate.OutputID {
-	var outputIDs []ledgerstate.OutputID
+// OutputsOnAddress retrieves all the Outputs that are associated with an address.
+func (l *LedgerState) OutputsOnAddress(address ledgerstate.Address) (cachedOutputs ledgerstate.CachedOutputs) {
 	l.utxoDAG.AddressOutputMapping(address).Consume(func(addressOutputMapping *ledgerstate.AddressOutputMapping) {
-		outputIDs = append(outputIDs, addressOutputMapping.OutputID())
+		cachedOutputs = append(cachedOutputs, l.Output(addressOutputMapping.OutputID()))
 	})
-	return outputIDs
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
