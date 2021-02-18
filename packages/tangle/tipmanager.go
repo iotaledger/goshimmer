@@ -183,7 +183,7 @@ func (t *TipManager) Tips(p payload.Payload, countStrongParents, countWeakParent
 	return
 }
 
-// selectStrongTips returns a list of strong parents. In case of a transaction it references young enough attachments
+// selectStrongTips returns a list of strong parents. In case of a transaction, it references young enough attachments
 // of consumed transactions directly. Otherwise/additionally count tips are randomly selected.
 func (t *TipManager) selectStrongTips(p payload.Payload, count int) (parents MessageIDs) {
 	parents = make([]MessageID, 0, MaxParentsCount)

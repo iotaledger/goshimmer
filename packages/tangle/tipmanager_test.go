@@ -1,7 +1,6 @@
 package tangle
 
 import (
-	"fmt"
 	"strconv"
 	"testing"
 	"time"
@@ -82,7 +81,7 @@ func TestTipManager_AddTip(t *testing.T) {
 
 	// Message 3
 	{
-		messages["3"] = createAndStoreEligibleTestParentsDataMessageInMasterBranch(tangle, []MessageID{messages["1"].ID(), messages["2"].ID()}, []MessageID{})
+		messages["3"] = createAndStoreEligibleTestParentsDataMessageInMasterBranch(tangle, []MessageID{EmptyMessageID, messages["1"].ID(), messages["2"].ID()}, []MessageID{})
 		tipManager.AddTip(messages["3"])
 
 		assert.Equal(t, 1, tipManager.StrongTipCount())
@@ -274,7 +273,7 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 	}
 	// Tips(7,2) -> 7,1
 	{
-		strongParents, weakParents, err := tipManager.Tips(nil, 7, 1)
+		strongParents, weakParents, err := tipManager.Tips(nil, 7, 2)
 		assert.NoError(t, err)
 		assert.Len(t, strongParents, 7)
 		assert.Len(t, weakParents, 1)
@@ -337,7 +336,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 	wallets["X"] = w[23]
 	wallets["Y"] = w[24]
 	wallets["Z"] = w[25]
-	wallets["OUT"] = w[25]
+	wallets["OUT"] = w[26]
 
 	for _, wallet := range wallets {
 		walletsByAddress[wallet.address] = wallet
@@ -764,11 +763,6 @@ func TestTipManager_TransactionTips(t *testing.T) {
 func storeBookLikeMessage(t *testing.T, tangle *Tangle, message *Message) {
 	// we need to store and book transactions so that we also have attachments of transactions available
 	tangle.Storage.StoreMessage(message)
-	tangle.Storage.Message(message.ID()).Consume(func(message *Message) {
-		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
-			fmt.Println("Stored", messageMetadata.ID())
-		})
-	})
 	// TODO: CheckTransaction should be removed here once the booker passes on errors
 	if message.payload.Type() == ledgerstate.TransactionType {
 		_, err := tangle.LedgerState.utxoDAG.CheckTransaction(message.payload.(*ledgerstate.Transaction))

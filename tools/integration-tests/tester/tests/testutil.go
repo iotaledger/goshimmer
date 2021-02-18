@@ -13,8 +13,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	valueutils "github.com/iotaledger/goshimmer/plugins/webapi/value"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -257,38 +257,12 @@ func SendIotaTransaction(t *testing.T, from *framework.Peer, to *framework.Peer,
 	return false, txId
 }
 
-// SendColoredTransactionOnRandomPeer sends colored tokens on a random peer, saves the sent token amount to a map, and returns transaction IDs.
-func SendColoredTransactionOnRandomPeer(t *testing.T, peers []*framework.Peer, addrBalance map[string]map[ledgerstate.Color]int64, numMessages int) (txIds []string) {
-	counter := 0
-	for i := 0; i < numMessages; i++ {
-		from := rand.Intn(len(peers))
-		to := rand.Intn(len(peers))
-		fail, txId := SendColoredTransaction(t, peers[from], peers[to], addrBalance)
-		if fail {
-			i--
-			counter++
-			if counter >= maxRetry {
-				return
-			}
-			continue
-		}
-
-		// attach tx id
-		txIds = append(txIds, txId)
-
-		// let the transaction propagate
-		time.Sleep(3 * time.Second)
-	}
-
-	return
-}
-
-// SendColoredTransaction sends IOTA and colored tokens from and to a given peer and returns the fail flag and the transaction ID.
+// SendColoredTransaction sends IOTA and colored tokens from and to a given peer and returns the ok flag and transaction ID.
 // 1. Get the first unspent outputs of `from`
-// 2. Accumulate the token amount of the first unspent output
-// 3. Send 50 IOTA tokens + [accumalate token amount - 50] new minted tokens to `to`
-func SendColoredTransaction(t *testing.T, from *framework.Peer, to *framework.Peer, addrBalance map[string]map[ledgerstate.Color]int64) (fail bool, txId string) {
-	var sentValue int64 = 50
+// 2. Send 50 IOTA and 50 ColorMint to `to`
+func SendColoredTransaction(t *testing.T, from *framework.Peer, to *framework.Peer, addrBalance map[string]map[ledgerstate.Color]int64) (ok bool, txId string) {
+	var sentIOTAValue uint64 = 50
+	var sentMintValue uint64 = 50
 	var balanceList []coloredBalance
 	inputAddr := from.Seed.Address(0).Address
 	outputAddr := to.Seed.Address(0).Address
@@ -299,54 +273,33 @@ func SendColoredTransaction(t *testing.T, from *framework.Peer, to *framework.Pe
 
 	// abort if no unspent outputs
 	if len(resp.UnspentOutputs[0].OutputIDs) == 0 {
-		return true, ""
-	}
-
-	// calculate available token in the unspent output
-	var availableValue int64 = 0
-	for _, b := range resp.UnspentOutputs[0].OutputIDs[0].Balances {
-		availableValue += b.Value
-		balanceList = append(balanceList, coloredBalance{
-			Color:   getColorFromString(b.Color),
-			Balance: (-1) * b.Value,
-		})
-	}
-
-	// abort if not enough tokens
-	if availableValue < sentValue {
-		return true, ""
+		return false, ""
 	}
 
 	out, err := ledgerstate.OutputIDFromBase58(resp.UnspentOutputs[0].OutputIDs[0].ID)
 	require.NoErrorf(t, err, "invalid unspent outputs ID on %s", from.String())
 	input := ledgerstate.NewUTXOInput(out)
 
-	// prepare outputs
-	var outputs ledgerstate.Outputs
+	// prepare output
 	output := ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
-		ledgerstate.ColorIOTA: uint64(sentValue),
+		ledgerstate.ColorIOTA: sentIOTAValue,
+		ledgerstate.ColorMint: sentMintValue,
 	}), outputAddr)
-	balanceList = append(balanceList, coloredBalance{
-		Color:   ledgerstate.ColorIOTA,
-		Balance: sentValue,
-	})
-	outputs = append(outputs, output)
 
 	// set balances
-	if availableValue > sentValue {
-		output := ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
-			ledgerstate.ColorIOTA: uint64(availableValue - sentValue),
-		}), outputAddr)
-		balanceList = append(balanceList, coloredBalance{
-			Color:   ledgerstate.ColorIOTA,
-			Balance: availableValue - sentValue,
-		})
-		outputs = append(outputs, output)
-	}
-	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, ledgerstate.NewInputs(input), ledgerstate.NewOutputs(outputs...))
+	balanceList = append(balanceList, coloredBalance{
+		Color:   ledgerstate.ColorIOTA,
+		Balance: int64(sentIOTAValue),
+	})
+	balanceList = append(balanceList, coloredBalance{
+		Color:   ledgerstate.ColorMint,
+		Balance: int64(sentMintValue),
+	})
+
+	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, ledgerstate.NewInputs(input), ledgerstate.NewOutputs(output))
 
 	// sign transaction
-	sig := ledgerstate.NewED25519Signature(from.KeyPair(0).PublicKey, ed25519.Signature(from.KeyPair(0).PrivateKey.Sign(txEssence.Bytes())))
+	sig := ledgerstate.NewED25519Signature(from.KeyPair(0).PublicKey, from.KeyPair(0).PrivateKey.Sign(txEssence.Bytes()))
 	unlockBlock := ledgerstate.NewSignatureUnlockBlock(sig)
 	txn := ledgerstate.NewTransaction(txEssence, ledgerstate.UnlockBlocks{unlockBlock})
 
@@ -357,7 +310,7 @@ func SendColoredTransaction(t *testing.T, from *framework.Peer, to *framework.Pe
 	// update balance list
 	updateBalanceList(addrBalance, balanceList, inputAddr.Base58(), outputAddr.Base58(), txId)
 
-	return false, txId
+	return true, txId
 }
 
 // updateBalanceList updates the token amount map with given peers and balances.
@@ -409,10 +362,12 @@ func CheckBalances(t *testing.T, peers []*framework.Peer, addrBalance map[string
 			for _, unspents := range resp.UnspentOutputs[0].OutputIDs {
 				for _, respBalance := range unspents.Balances {
 					color := getColorFromString(respBalance.Color)
+					fmt.Println(color, respBalance.Color, respBalance.Value)
 					sum[color] += respBalance.Value
 				}
 			}
 
+			fmt.Println("Sum", sum)
 			// check balances
 			for color, value := range sum {
 				assert.Equal(t, b[color], value)
@@ -638,6 +593,13 @@ func ShutdownNetwork(t *testing.T, n Shutdowner) {
 type coloredBalance struct {
 	Color   ledgerstate.Color
 	Balance int64
+}
+
+func (b coloredBalance) String() string {
+	return stringify.Struct("coloredBalance",
+		stringify.StructField("Color", b.Color),
+		stringify.StructField("Balance", b.Balance),
+	)
 }
 
 func SelectIndex(transaction *ledgerstate.Transaction, address ledgerstate.Address) (index uint16) {
