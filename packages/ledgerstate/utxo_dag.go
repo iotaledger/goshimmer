@@ -528,7 +528,6 @@ func (u *UTXODAG) bookOutputs(transaction *Transaction, targetBranch BranchID) {
 		}
 
 		// store Output
-		output.SetID(outputID)
 		u.outputStorage.Store(output).Release()
 
 		// store OutputMetadata
