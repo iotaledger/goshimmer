@@ -14,6 +14,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var (
+	color1 = Color{1}
+	color2 = Color{2}
+)
+
 func TestExampleC(t *testing.T) {
 	branchDAG, utxoDAG := setupDependencies(t)
 	defer branchDAG.Shutdown()
@@ -673,14 +678,14 @@ func TestTransactionBalancesValid(t *testing.T) {
 
 	iColored1 := NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{
 		ColorIOTA: 1337,
-		Color{1}: 20,
-		Color{2}: 30,
+		color1:    20,
+		color2:    30,
 	}), wallets[0].address)
 
 	oColored1 := NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{
 		ColorIOTA: 1297,
-		Color{1}: 10,
-		Color{2}: 10,
+		color1:    10,
+		color2:    10,
 		ColorMint: 70,
 	}), wallets[1].address)
 
@@ -688,20 +693,20 @@ func TestTransactionBalancesValid(t *testing.T) {
 
 	iColored2 := NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{
 		ColorIOTA: 1337,
-		Color{1}: 20,
-		Color{2}: 30,
+		color1:    20,
+		color2:    30,
 	}), wallets[0].address)
 
 	oColored2 := NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{
 		ColorIOTA: 1367,
-		Color{1}: 10,
-		Color{2}: 10,
+		color1:    10,
+		color2:    10,
 	}), wallets[1].address)
 
 	assert.True(t, utxoDAG.transactionBalancesValid(Outputs{iColored2}, Outputs{oColored2}))
 
 	iColored3 := NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{
-		Color{1}: 1337,
+		color1: 1337,
 	}), wallets[0].address)
 
 	oColored3 := NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{
