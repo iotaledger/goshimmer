@@ -598,8 +598,7 @@ func (u *UTXODAG) transactionBalancesValid(inputs Outputs, outputs Outputs) (val
 	for _, output := range outputs {
 		output.Balances().ForEach(func(color Color, balance uint64) bool {
 			switch color {
-			case ColorIOTA:
-				fallthrough
+			case ColorIOTA:	fallthrough
 			case ColorMint:
 				recoloredCoins, valid = SafeAddUint64(recoloredCoins, balance)
 			default:
