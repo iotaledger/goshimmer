@@ -30,7 +30,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 	genesisSeedBytes, err := base58.Decode("7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih")
 	require.NoError(t, err, "couldn't decode genesis seed from base58 seed")
 
-	const genesisBalance = 1000000000
+	const genesisBalance = 1000000000000000
 	genesisSeed := walletseed.NewSeed(genesisSeedBytes)
 	genesisAddr := genesisSeed.Address(0).Address
 	genesisOutputID := ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0)
@@ -100,14 +100,15 @@ func TestConsensusNoConflicts(t *testing.T) {
 
 	for i := 0; i < depositCount; i++ {
 		addr := secondReceiverSeed.Address(uint64(i)).Address
-		input := ledgerstate.NewUTXOInput(tx1Essence.Outputs()[i].ID())
+		input := ledgerstate.NewUTXOInput(tx1Essence.Outputs()[int(tests.SelectIndex(tx, firstReceiver.Address(uint64(i))))].ID())
 		output := ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: deposit}), addr)
 		tx2Essence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, ledgerstate.NewInputs(input), ledgerstate.NewOutputs(output))
 		kp := *firstReceiver.KeyPair(uint64(i))
 		sig := ledgerstate.NewED25519Signature(kp.PublicKey, ed25519.Signature(kp.PrivateKey.Sign(tx2Essence.Bytes())))
 		unlockBlock := ledgerstate.NewSignatureUnlockBlock(sig)
-		tx := ledgerstate.NewTransaction(tx1Essence, ledgerstate.UnlockBlocks{unlockBlock})
+		tx := ledgerstate.NewTransaction(tx2Essence, ledgerstate.UnlockBlocks{unlockBlock})
 		secondReceiverAddresses[i] = addr.Base58()
+
 		txID, err := n.Peers()[rand.Intn(len(n.Peers()))].SendTransaction(tx.Bytes())
 		require.NoError(t, err)
 

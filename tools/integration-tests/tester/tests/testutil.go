@@ -639,3 +639,12 @@ type coloredBalance struct {
 	Color   ledgerstate.Color
 	Balance int64
 }
+
+func SelectIndex(transaction *ledgerstate.Transaction, address ledgerstate.Address) (index uint16) {
+	for i, output := range transaction.Essence().Outputs() {
+		if address.Base58() == output.(*ledgerstate.SigLockedColoredOutput).Address().Base58() {
+			return uint16(i)
+		}
+	}
+	return
+}
