@@ -18,6 +18,11 @@ type Marker struct {
 	index      Index
 }
 
+// NewMarker returns a new marker.
+func NewMarker(sequenceID SequenceID, index Index) *Marker {
+	return &Marker{sequenceID, index}
+}
+
 // MarkerFromBytes unmarshals a Marker from a sequence of bytes.
 func MarkerFromBytes(markerBytes []byte) (marker *Marker, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(markerBytes)

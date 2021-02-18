@@ -72,6 +72,7 @@ func (t *Tangle) Setup() {
 	t.Requester.Setup()
 	t.TipManager.Setup()
 	t.Scheduler.Setup()
+	t.Booker.Setup()
 
 	// Booker and LedgerState setup is left out until the old value tangle is in use.
 	if !t.Options.WithoutOpinionFormer {

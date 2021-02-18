@@ -112,6 +112,19 @@ func (u *Utils) MessageApprovedBy(approvedMessageID MessageID, approvingMessageI
 	return false
 }
 
+// MessageApprovedByStrongParents checks if the Message given by approvedMessageID is directly or indirectly approved by its strong parents.
+func (u *Utils) MessageApprovedByStrongParents(approvedMessageID MessageID, approvingMessageID MessageID) (approved bool) {
+	u.tangle.Storage.Message(approvingMessageID).Consume(func(message *Message) {
+		for _, parentID := range message.StrongParents() {
+			if u.MessageApprovedBy(approvedMessageID, parentID) {
+				approved = true
+				return
+			}
+		}
+	})
+	return
+}
+
 // MessageStronglyApprovedBy checks if the Message given by approvedMessageID is directly or indirectly approved by the
 // Message given by approvingMessageID (ignoring weak parents as a potential last reference).
 func (u *Utils) MessageStronglyApprovedBy(approvedMessageID MessageID, approvingMessageID MessageID) (stronglyApproved bool) {

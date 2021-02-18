@@ -290,11 +290,11 @@ func (b *BranchDAG) ConflictMembers(conflictID ConflictID) (cachedConflictMember
 // BranchIDsContainRejectedBranch is an utility function that checks if the given BranchIDs contain a Rejected
 // Branch. It returns the BranchID of the first Rejected Branch that it finds.
 func (b *BranchDAG) BranchIDsContainRejectedBranch(branchIDs BranchIDs) (rejected bool, rejectedBranchID BranchID) {
-	for rejectedBranch := range branchIDs {
-		if !b.Branch(rejectedBranch).Consume(func(branch Branch) {
+	for rejectedBranchID = range branchIDs {
+		if !b.Branch(rejectedBranchID).Consume(func(branch Branch) {
 			rejected = branch.InclusionState() == Rejected
 		}) {
-			panic(fmt.Sprintf("failed to load Branch with %s", rejectedBranch))
+			panic(fmt.Sprintf("failed to load Branch with %s", rejectedBranchID))
 		}
 
 		if rejected {
@@ -303,6 +303,7 @@ func (b *BranchDAG) BranchIDsContainRejectedBranch(branchIDs BranchIDs) (rejecte
 	}
 
 	rejectedBranchID = UndefinedBranchID
+
 	return
 }
 
