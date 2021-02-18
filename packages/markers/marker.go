@@ -185,10 +185,12 @@ func (m *Markers) Set(sequenceID SequenceID, index Index) (updated bool, added b
 		m.highestIndex = index
 	}
 
+	// if the sequence already exists in the set and the new index is higher than the old one then update
 	if existingIndex, indexAlreadyStored := m.markers[sequenceID]; indexAlreadyStored {
 		if updated = index > existingIndex; updated {
 			m.markers[sequenceID] = index
 
+			// find new lowest index
 			if index == m.lowestIndex {
 				m.lowestIndex = 0
 				for _, scannedIndex := range m.markers {
@@ -202,6 +204,7 @@ func (m *Markers) Set(sequenceID SequenceID, index Index) (updated bool, added b
 		return
 	}
 
+	// if this is a new sequence update lowestIndex
 	if index < m.lowestIndex || m.lowestIndex == 0 {
 		m.lowestIndex = index
 	}

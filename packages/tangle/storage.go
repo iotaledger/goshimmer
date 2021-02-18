@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
+	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/events"
@@ -62,10 +63,10 @@ type Storage struct {
 }
 
 // NewStorage creates a new Storage.
-func NewStorage(tangle *Tangle) (result *Storage) {
+func NewStorage(tangle *Tangle) (storage *Storage) {
 	osFactory := objectstorage.NewFactory(tangle.Options.Store, database.PrefixMessageLayer)
 
-	result = &Storage{
+	storage = &Storage{
 		tangle:                            tangle,
 		shutdown:                          make(chan struct{}),
 		messageStorage:                    osFactory.New(PrefixMessage, MessageFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
@@ -81,6 +82,8 @@ func NewStorage(tangle *Tangle) (result *Storage) {
 			MissingMessageStored: events.NewEvent(messageIDEventHandler),
 		},
 	}
+
+	storage.storeGenesis()
 
 	return
 }
@@ -251,6 +254,29 @@ func (s *Storage) MarkerIndexBranchIDMapping(sequenceID markers.SequenceID, comp
 	}
 
 	return &CachedMarkerIndexBranchIDMapping{CachedObject: s.messageMetadataStorage.Load(sequenceID.Bytes())}
+}
+
+func (s *Storage) storeGenesis() {
+	genesisMetadata := &MessageMetadata{
+		messageID: EmptyMessageID,
+		solid:     true,
+		branchID:  ledgerstate.MasterBranchID,
+		structureDetails: &markers.StructureDetails{
+			Rank:          0,
+			IsPastMarker:  false,
+			PastMarkers:   markers.NewMarkers(),
+			FutureMarkers: markers.NewMarkers(),
+		},
+		timestampOpinion: TimestampOpinion{
+			Value: opinion.Like,
+			LoK:   Three,
+		},
+		booked:   true,
+		eligible: true,
+	}
+	s.MessageMetadata(EmptyMessageID, func() *MessageMetadata {
+		return genesisMetadata
+	}).Release()
 }
 
 // deleteStrongApprover deletes an Approver from the object storage that was created by a strong parent.

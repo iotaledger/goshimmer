@@ -1,14 +1,22 @@
-# GoShimmer Network with Docker
+# Local Network with Docker
 
+We provide a tool at `tools/docker-network` with which a local test network can be set up locally with docker. 
+ 
 ![Docker network](../../images/docker-network.png)
 
-Running `./run.sh` spins up a GoShimmer network within Docker as schematically shown in the figure above.
-`N` defines the number of `peer_replicas` and can be specified when running the network.
-The peers can communicate freely within the Docker network 
-while the analysis dashboard, `master_peer's` dashboard and web API are reachable from the host system on the respective ports.
 
-The different containers (`entry_node`, `peer_master`, `peer_replica`) are based on the same config file 
-and separate config file and modified as necessary, respectively. 
+## How to use the tool
+
+In the docker network run for example
+```
+./run.sh 5
+```
+
+The command `./run.sh` spins up a GoShimmer network within Docker as schematically shown in the figure above. The integer input defines the number of `peer_replicas` N.
+The peers can communicate freely within the Docker network 
+while the analysis and visualizer dashboard, as well as the `master_peer's` dashboard and web API are reachable from the host system on the respective ports.
+
+The settings for the different containers (`entry_node`, `peer_master`, `peer_replica`) can be modified in `docker-compose.yml`. 
 
 ## How to use as development tool
 Using a standalone throwaway Docker network can be really helpful as a development tool. 
@@ -22,12 +30,11 @@ Reachable from the host system
 - `master_peer's` dashboard: http: http://localhost:8081
 - `master_peer's` web API: http: http://localhost:8080
 
-It is therefore possible to send messages to the local network via the `master_peer` and observe log messages either 
-via `docker logs --follow CONTAINER` or all of them combined when running via:
+It is therefore possible to send messages to the local network via the `master_peer`. Log messages of a specific containter can be followed via 
+```
+docker logs --follow CONTAINERNAME
+```
 
-```
-./run.sh 5
-```
 
 ## How to use message approval check tool
 
@@ -36,7 +43,7 @@ network, and gather their results in the `csv` folder.
 
 Once the network is up and running, execute the script:
 ```
-$ ./get_approval_csv.sh
+./get_approval_csv.sh
 ```
 Example output:
 ```
