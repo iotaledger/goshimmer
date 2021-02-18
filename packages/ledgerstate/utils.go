@@ -4,14 +4,14 @@ import (
 	"math"
 )
 
-func SafeAddUint64(a uint64, b uint64) (result uint64, overflow bool) {
-	overflow = math.MaxUint64 - a < b
+func SafeAddUint64(a uint64, b uint64) (result uint64, valid bool) {
+	valid = !(math.MaxUint64 - a < b)
 	result = a + b
 	return
 }
 
-func SafeSubUint64(a uint64, b uint64) (result uint64, overflow bool) {
-	overflow = b > a
+func SafeSubUint64(a uint64, b uint64) (result uint64, valid bool) {
+	valid = b <= a
 	result = a - b
 	return
 }

@@ -580,34 +580,14 @@ func (u *UTXODAG) allOutputsExist(inputs Outputs) (solid bool) {
 
 // transactionBalancesValid is an internal utility function that checks if the sum of the balance changes equals to 0.
 func (u *UTXODAG) transactionBalancesValid(inputs Outputs, outputs Outputs) (valid bool) {
-	valid = true
+	consumedCoins := make(map[Color]uint64)
+	recoloredCoins := uint64(0)
 
-	consumedColoredCoins := make(map[Color]uint64)
-	consumedUncoloredCoins := uint64(0)
-	mintedCoins := uint64(0)
-	createdUncoloredCoins := uint64(0)
-
-	// check inputs
 	for _, input := range inputs {
 		input.Balances().ForEach(func(color Color, balance uint64) bool {
-			switch color {
-			case ColorIOTA:
-				safeConsumedUncoloredCoins, overflow := SafeAddUint64(consumedUncoloredCoins, balance)
-				if overflow {
-					valid = false
-					return false
-				}
-				consumedUncoloredCoins = safeConsumedUncoloredCoins
-			default:
-				safeConsumedColors, overflow := SafeAddUint64(consumedColoredCoins[color], balance)
-				if overflow {
-					valid = false
-					return false
-				}
-				consumedColoredCoins[color] = safeConsumedColors
-			}
+			consumedCoins[color], valid = SafeAddUint64(consumedCoins[color], balance)
 
-			return true
+			return valid
 		})
 
 		if !valid {
@@ -615,34 +595,18 @@ func (u *UTXODAG) transactionBalancesValid(inputs Outputs, outputs Outputs) (val
 		}
 	}
 
-	// check outputs
 	for _, output := range outputs {
 		output.Balances().ForEach(func(color Color, balance uint64) bool {
 			switch color {
 			case ColorIOTA:
-				safeCreatedUncoloredCoins, overflow := SafeAddUint64(createdUncoloredCoins, balance)
-				if overflow {
-					valid = false
-					return false
-				}
-				createdUncoloredCoins = safeCreatedUncoloredCoins
+				fallthrough
 			case ColorMint:
-				safeMintedCoins, overflow := SafeAddUint64(mintedCoins, balance)
-				if overflow {
-					valid = false
-					return false
-				}
-				mintedCoins = safeMintedCoins
+				recoloredCoins, valid = SafeAddUint64(recoloredCoins, balance)
 			default:
-				safeConsumedColoredCoins, overflow := SafeSubUint64(consumedColoredCoins[color], balance)
-				if overflow {
-					valid = false
-					return false
-				}
-				consumedColoredCoins[color] = safeConsumedColoredCoins
+				consumedCoins[color], valid = SafeSubUint64(consumedCoins[color], balance)
 			}
 
-			return true
+			return valid
 		})
 
 		if !valid {
@@ -650,26 +614,14 @@ func (u *UTXODAG) transactionBalancesValid(inputs Outputs, outputs Outputs) (val
 		}
 	}
 
-	remainingColoredCoins := uint64(0)
-	for _, remainingCoinsOfColor := range consumedColoredCoins {
-		safeCoinsAvailableForModifiedColors, overflow := SafeAddUint64(remainingColoredCoins, remainingCoinsOfColor)
-		if overflow {
-			return false
+	unspentCoins := uint64(0)
+	for _, remainingBalance := range consumedCoins {
+		if unspentCoins, valid = SafeAddUint64(unspentCoins, remainingBalance); !valid {
+			return
 		}
-		remainingColoredCoins = safeCoinsAvailableForModifiedColors
 	}
 
-	coinsAvailableForRecoloring, overflow := SafeAddUint64(consumedUncoloredCoins, remainingColoredCoins)
-	if overflow {
-		return false
-	}
-
-	recoloredCoins, overflow := SafeAddUint64(mintedCoins, createdUncoloredCoins)
-	if overflow {
-		return false
-	}
-
-	return coinsAvailableForRecoloring == recoloredCoins
+	return unspentCoins == recoloredCoins
 }
 
 // unlockBlocksValid is an internal utility function that checks if the UnlockBlocks are matching the referenced Inputs.
