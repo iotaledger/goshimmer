@@ -118,6 +118,7 @@ func (u *Utils) MessageApprovedByStrongParents(approvedMessageID MessageID, appr
 		for _, parentID := range message.StrongParents() {
 			if u.MessageApprovedBy(approvedMessageID, parentID) {
 				approved = true
+				return
 			}
 		}
 	})
