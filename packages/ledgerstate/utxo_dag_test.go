@@ -669,6 +669,49 @@ func TestTransactionBalancesValid(t *testing.T) {
 
 	wallets := createWallets(2)
 
+	// region COLORED COINS TESTS //////////////////////////////////////////////////////////////////////////////////////
+
+	iColored1 := NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{
+		ColorIOTA: 1337,
+		Color{1}: 20,
+		Color{2}: 30,
+	}), wallets[0].address)
+
+	oColored1 := NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{
+		ColorIOTA: 1297,
+		Color{1}: 10,
+		Color{2}: 10,
+		ColorMint: 70,
+	}), wallets[1].address)
+
+	assert.True(t, utxoDAG.transactionBalancesValid(Outputs{iColored1}, Outputs{oColored1}))
+
+	iColored2 := NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{
+		ColorIOTA: 1337,
+		Color{1}: 20,
+		Color{2}: 30,
+	}), wallets[0].address)
+
+	oColored2 := NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{
+		ColorIOTA: 1367,
+		Color{1}: 10,
+		Color{2}: 10,
+	}), wallets[1].address)
+
+	assert.True(t, utxoDAG.transactionBalancesValid(Outputs{iColored2}, Outputs{oColored2}))
+
+	iColored3 := NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{
+		Color{1}: 1337,
+	}), wallets[0].address)
+
+	oColored3 := NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{
+		ColorMint: 1337,
+	}), wallets[1].address)
+
+	assert.True(t, utxoDAG.transactionBalancesValid(Outputs{iColored3}, Outputs{oColored3}))
+
+	// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
 	i1 := NewSigLockedSingleOutput(100, wallets[0].address)
 	i2 := NewSigLockedSingleOutput(100, wallets[0].address)
 
