@@ -130,15 +130,21 @@ type Transaction struct {
 }
 
 // NewTransaction creates a new Transaction from the given details.
-func NewTransaction(essence *TransactionEssence, unlockBlocks UnlockBlocks) *Transaction {
+func NewTransaction(essence *TransactionEssence, unlockBlocks UnlockBlocks) (transaction *Transaction) {
 	if len(unlockBlocks) != len(essence.Inputs()) {
 		panic(fmt.Sprintf("amount of UnlockBlocks (%d) does not match amount of Inputs (%d)", len(unlockBlocks), len(essence.inputs)))
 	}
 
-	return &Transaction{
+	transaction = &Transaction{
 		essence:      essence,
 		unlockBlocks: unlockBlocks,
 	}
+
+	for i, output := range essence.Outputs() {
+		output.SetID(NewOutputID(transaction.ID(), uint16(i)))
+	}
+
+	return transaction
 }
 
 // TransactionFromBytes unmarshals a Transaction from a sequence of bytes.

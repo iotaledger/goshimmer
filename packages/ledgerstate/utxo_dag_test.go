@@ -799,7 +799,7 @@ func (w wallet) publicKey() ed25519.PublicKey {
 }
 
 func createWallets(n int) []wallet {
-	wallets := make([]wallet, 2)
+	wallets := make([]wallet, n)
 	for i := 0; i < n; i++ {
 		kp := ed25519.GenerateKeyPair()
 		wallets[i] = wallet{
@@ -864,8 +864,6 @@ func singleInputTransaction(utxoDAG *UTXODAG, a, b wallet, outputToSpend *SigLoc
 
 	tx := NewTransaction(txEssence, a.unlockBlocks(txEssence))
 
-	output.SetID(NewOutputID(tx.ID(), 0))
-
 	// store TransactionMetadata
 	transactionMetadata := NewTransactionMetadata(tx.ID())
 	transactionMetadata.SetSolid(true)
@@ -902,8 +900,6 @@ func multipleInputsTransaction(utxoDAG *UTXODAG, a, b wallet, outputsToSpend []*
 	txEssence := NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, inputs, NewOutputs(output))
 
 	tx := NewTransaction(txEssence, a.unlockBlocks(txEssence))
-
-	output.SetID(NewOutputID(tx.ID(), 0))
 
 	// store aggreagated branch
 	normalizedBranchIDs, _ := utxoDAG.branchDAG.normalizeBranches(branchIDs)

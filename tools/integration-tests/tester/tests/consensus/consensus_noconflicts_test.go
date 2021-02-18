@@ -53,18 +53,18 @@ func TestConsensusNoConflicts(t *testing.T) {
 
 	// issue transaction spending from the genesis output
 	var outputs ledgerstate.Outputs
-	for addr, balances := range firstReceiverDepositOutputs {
-		outputs = append(outputs, ledgerstate.NewSigLockedColoredOutput(balances, addr))
+	for addr := range firstReceiverDepositOutputs {
+		outputs = append(outputs, ledgerstate.NewSigLockedSingleOutput(deposit, addr))
 	}
 	log.Printf("issuing transaction spending genesis to %d addresses", depositCount)
 	tx1Essence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, ledgerstate.NewInputs(input), ledgerstate.NewOutputs(outputs...))
 	kp := *genesisSeed.KeyPair(0)
 	sig := ledgerstate.NewED25519Signature(kp.PublicKey, ed25519.Signature(kp.PrivateKey.Sign(tx1Essence.Bytes())))
 	unlockBlock := ledgerstate.NewSignatureUnlockBlock(sig)
-	tx := ledgerstate.NewTransaction(tx1Essence, ledgerstate.UnlockBlocks{unlockBlock})
-	utilsTx := valueutils.ParseTransaction(tx)
+	tx1 := ledgerstate.NewTransaction(tx1Essence, ledgerstate.UnlockBlocks{unlockBlock})
+	utilsTx := valueutils.ParseTransaction(tx1)
 
-	txID, err := n.Peers()[0].SendTransaction(tx.Bytes())
+	txID, err := n.Peers()[0].SendTransaction(tx1.Bytes())
 	require.NoError(t, err)
 
 	// wait for the transaction to be propagated through the network
@@ -100,8 +100,8 @@ func TestConsensusNoConflicts(t *testing.T) {
 
 	for i := 0; i < depositCount; i++ {
 		addr := secondReceiverSeed.Address(uint64(i)).Address
-		input := ledgerstate.NewUTXOInput(tx1Essence.Outputs()[int(tests.SelectIndex(tx, firstReceiver.Address(uint64(i))))].ID())
-		output := ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: deposit}), addr)
+		input := ledgerstate.NewUTXOInput(tx1.Essence().Outputs()[int(tests.SelectIndex(tx1, firstReceiver.Address(uint64(i))))].ID())
+		output := ledgerstate.NewSigLockedSingleOutput(deposit, addr)
 		tx2Essence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, ledgerstate.NewInputs(input), ledgerstate.NewOutputs(output))
 		kp := *firstReceiver.KeyPair(uint64(i))
 		sig := ledgerstate.NewED25519Signature(kp.PublicKey, ed25519.Signature(kp.PrivateKey.Sign(tx2Essence.Bytes())))
@@ -113,6 +113,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 		require.NoError(t, err)
 
 		utilsTx := valueutils.ParseTransaction(tx)
+
 		secondReceiverExpectedBalances[addr.Base58()] = map[ledgerstate.Color]int64{ledgerstate.ColorIOTA: deposit}
 		secondReceiverExpectedTransactions[txID] = &tests.ExpectedTransaction{
 			Inputs: &utilsTx.Inputs, Outputs: &utilsTx.Outputs, Signature: &utilsTx.Signature,

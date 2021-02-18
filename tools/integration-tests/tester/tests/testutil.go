@@ -604,7 +604,7 @@ func (b coloredBalance) String() string {
 
 func SelectIndex(transaction *ledgerstate.Transaction, address ledgerstate.Address) (index uint16) {
 	for i, output := range transaction.Essence().Outputs() {
-		if address.Base58() == output.(*ledgerstate.SigLockedColoredOutput).Address().Base58() {
+		if address.Base58() == output.(*ledgerstate.SigLockedSingleOutput).Address().Base58() {
 			return uint16(i)
 		}
 	}
