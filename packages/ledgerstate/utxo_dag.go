@@ -581,8 +581,6 @@ func (u *UTXODAG) allOutputsExist(inputs Outputs) (solid bool) {
 // transactionBalancesValid is an internal utility function that checks if the sum of the balance changes equals to 0.
 func (u *UTXODAG) transactionBalancesValid(inputs Outputs, outputs Outputs) (valid bool) {
 	consumedCoins := make(map[Color]uint64)
-	recoloredCoins := uint64(0)
-
 	for _, input := range inputs {
 		input.Balances().ForEach(func(color Color, balance uint64) bool {
 			consumedCoins[color], valid = SafeAddUint64(consumedCoins[color], balance)
@@ -595,6 +593,7 @@ func (u *UTXODAG) transactionBalancesValid(inputs Outputs, outputs Outputs) (val
 		}
 	}
 
+	recoloredCoins := uint64(0)
 	for _, output := range outputs {
 		output.Balances().ForEach(func(color Color, balance uint64) bool {
 			switch color {
