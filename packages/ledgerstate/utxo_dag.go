@@ -17,7 +17,6 @@ import (
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/iotaledger/hive.go/typeutils"
-	"golang.org/x/crypto/blake2b"
 	"golang.org/x/xerrors"
 )
 
@@ -513,18 +512,10 @@ func (u *UTXODAG) bookConsumers(inputsMetadata OutputsMetadata, transactionID Tr
 
 // bookOutputs creates the Outputs and their corresponding OutputsMetadata in the object storage.
 func (u *UTXODAG) bookOutputs(transaction *Transaction, targetBranch BranchID) {
-	for outputIndex, output := range transaction.Essence().Outputs() {
-		// determine OutputID
-		outputID := NewOutputID(transaction.ID(), uint16(outputIndex))
-
+	for _, output := range transaction.Essence().Outputs() {
 		// replace ColorMint color with unique color based on OutputID
 		if output.Type() == SigLockedColoredOutputType {
-			coloredBalances := output.Balances().Map()
-			if mintedCoins, mintedCoinsExist := coloredBalances[ColorMint]; mintedCoinsExist {
-				delete(coloredBalances, ColorMint)
-				coloredBalances[Color(blake2b.Sum256(outputID.Bytes()))] = mintedCoins
-			}
-			output = NewSigLockedColoredOutput(NewColoredBalances(coloredBalances), output.Address())
+			output = output.(*SigLockedColoredOutput).UpdateMintingColor()
 		}
 
 		// store Output
