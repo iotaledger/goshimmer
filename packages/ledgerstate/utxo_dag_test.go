@@ -698,9 +698,10 @@ func TestTransactionBalancesValid(t *testing.T) {
 	}), wallets[0].address)
 
 	oColored2 := NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{
-		ColorIOTA: 1367,
+		ColorIOTA: 1357,
 		color1:    10,
 		color2:    10,
+		ColorMint: 10,
 	}), wallets[1].address)
 
 	assert.True(t, utxoDAG.transactionBalancesValid(Outputs{iColored2}, Outputs{oColored2}))
