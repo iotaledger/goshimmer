@@ -140,7 +140,7 @@ func (c *Component) collectUTXOsForFunding() (inputs ledgerstate.Inputs, addrsIn
 
 	// get a list of address for inputs
 	for i = 0; total > 0; i++ {
-		addr := c.seed.Address(i).Address
+		addr := c.seed.Address(i).Address()
 		cachedOutputs := messagelayer.Tangle().LedgerState.OutputsOnAddress(addr)
 		cachedOutputs.Consume(func(output ledgerstate.Output) {
 			messagelayer.Tangle().LedgerState.OutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
@@ -173,7 +173,7 @@ func (c *Component) collectUTXOsForFunding() (inputs ledgerstate.Inputs, addrsIn
 func (c *Component) nextUnusedAddress() ledgerstate.Address {
 	var index uint64
 	for index = 0; ; index++ {
-		addr := c.seed.Address(index).Address
+		addr := c.seed.Address(index).Address()
 		cachedOutputs := messagelayer.Tangle().LedgerState.OutputsOnAddress(addr)
 		cachedOutputs.Release()
 		if len(cachedOutputs.Unwrap()) == 0 {

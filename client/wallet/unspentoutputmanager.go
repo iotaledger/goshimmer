@@ -1,7 +1,7 @@
 package wallet
 
 import (
-	walletaddr "github.com/iotaledger/goshimmer/client/wallet/packages/address"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
@@ -11,7 +11,7 @@ import (
 type UnspentOutputManager struct {
 	addressManager *AddressManager
 	connector      Connector
-	unspentOutputs map[string]map[ledgerstate.TransactionID]*Output
+	unspentOutputs map[address.Address]map[ledgerstate.OutputID]*Output
 }
 
 // NewUnspentOutputManager creates a new UnspentOutputManager.
@@ -19,10 +19,12 @@ func NewUnspentOutputManager(addressManager *AddressManager, connector Connector
 	outputManager = &UnspentOutputManager{
 		addressManager: addressManager,
 		connector:      connector,
-		unspentOutputs: make(map[string]map[ledgerstate.TransactionID]*Output),
+		unspentOutputs: make(map[address.Address]map[ledgerstate.OutputID]*Output),
 	}
 
-	outputManager.Refresh(true)
+	if err := outputManager.Refresh(true); err != nil {
+		panic(err)
+	}
 
 	return
 }
@@ -30,7 +32,7 @@ func NewUnspentOutputManager(addressManager *AddressManager, connector Connector
 // Refresh retrieves the unspent outputs from the node. If includeSpentAddresses is set to true, then it also scans the
 // addresses from which we previously spent already.
 func (unspentOutputManager *UnspentOutputManager) Refresh(includeSpentAddresses ...bool) (err error) {
-	var addressesToRefresh []walletaddr.Address
+	var addressesToRefresh []address.Address
 	if len(includeSpentAddresses) >= 1 && includeSpentAddresses[0] {
 		addressesToRefresh = unspentOutputManager.addressManager.Addresses()
 	} else {
@@ -42,18 +44,18 @@ func (unspentOutputManager *UnspentOutputManager) Refresh(includeSpentAddresses 
 		return
 	}
 
-	for addr, unspentOutputs := range unspentOutputs {
-		for transactionID, output := range unspentOutputs {
-			if _, addressExists := unspentOutputManager.unspentOutputs[addr.Base58()]; !addressExists {
-				unspentOutputManager.unspentOutputs[addr.Base58()] = make(map[ledgerstate.TransactionID]*Output)
+	for outputAddress, unspentOutputs := range unspentOutputs {
+		for outputID, output := range unspentOutputs {
+			if _, addressExists := unspentOutputManager.unspentOutputs[outputAddress]; !addressExists {
+				unspentOutputManager.unspentOutputs[outputAddress] = make(map[ledgerstate.OutputID]*Output)
 			}
 
 			// mark the output as spent if we already marked it as spent locally
-			if existingOutput, outputExists := unspentOutputManager.unspentOutputs[addr.Base58()][transactionID]; outputExists && existingOutput.InclusionState.Spent {
+			if existingOutput, outputExists := unspentOutputManager.unspentOutputs[outputAddress][outputID]; outputExists && existingOutput.InclusionState.Spent {
 				output.InclusionState.Spent = true
 			}
 
-			unspentOutputManager.unspentOutputs[addr.Base58()][transactionID] = output
+			unspentOutputManager.unspentOutputs[outputAddress][outputID] = output
 		}
 	}
 
@@ -61,9 +63,9 @@ func (unspentOutputManager *UnspentOutputManager) Refresh(includeSpentAddresses 
 }
 
 // UnspentOutputs returns the outputs that have not been spent, yet.
-func (unspentOutputManager *UnspentOutputManager) UnspentOutputs(addresses ...walletaddr.Address) (unspentOutputs map[walletaddr.Address]map[ledgerstate.TransactionID]*Output) {
+func (unspentOutputManager *UnspentOutputManager) UnspentOutputs(addresses ...address.Address) (unspentOutputs map[address.Address]map[ledgerstate.OutputID]*Output) {
 	// prepare result
-	unspentOutputs = make(map[walletaddr.Address]map[ledgerstate.TransactionID]*Output)
+	unspentOutputs = make(map[address.Address]map[ledgerstate.OutputID]*Output)
 
 	// retrieve the list of addresses from the address manager if none was provided
 	if len(addresses) == 0 {
@@ -73,7 +75,7 @@ func (unspentOutputManager *UnspentOutputManager) UnspentOutputs(addresses ...wa
 	// iterate through addresses and scan for unspent outputs
 	for _, addr := range addresses {
 		// skip the address if we have no outputs for it stored
-		unspentOutputsOnAddress, addressExistsInStoredOutputs := unspentOutputManager.unspentOutputs[addr.Base58()]
+		unspentOutputsOnAddress, addressExistsInStoredOutputs := unspentOutputManager.unspentOutputs[addr]
 		if !addressExistsInStoredOutputs {
 			continue
 		}
@@ -87,7 +89,7 @@ func (unspentOutputManager *UnspentOutputManager) UnspentOutputs(addresses ...wa
 
 			// store unspent outputs in result
 			if _, addressExists := unspentOutputs[addr]; !addressExists {
-				unspentOutputs[addr] = make(map[ledgerstate.TransactionID]*Output)
+				unspentOutputs[addr] = make(map[ledgerstate.OutputID]*Output)
 			}
 			unspentOutputs[addr][transactionID] = output
 		}
@@ -97,12 +99,12 @@ func (unspentOutputManager *UnspentOutputManager) UnspentOutputs(addresses ...wa
 }
 
 // MarkOutputSpent marks the output identified by the given parameters as spent.
-func (unspentOutputManager *UnspentOutputManager) MarkOutputSpent(addr walletaddr.Address, transactionID ledgerstate.TransactionID) {
+func (unspentOutputManager *UnspentOutputManager) MarkOutputSpent(address address.Address, outputID ledgerstate.OutputID) {
 	// abort if we try to mark an unknown output as spent
-	if _, addressExists := unspentOutputManager.unspentOutputs[addr.Base58()]; !addressExists {
+	if _, addressExists := unspentOutputManager.unspentOutputs[address]; !addressExists {
 		return
 	}
-	output, outputExists := unspentOutputManager.unspentOutputs[addr.Base58()][transactionID]
+	output, outputExists := unspentOutputManager.unspentOutputs[address][outputID]
 	if !outputExists {
 		return
 	}

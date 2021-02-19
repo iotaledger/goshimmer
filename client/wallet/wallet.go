@@ -6,11 +6,10 @@ import (
 	"time"
 	"unsafe"
 
-	walletaddr "github.com/iotaledger/goshimmer/client/wallet/packages/address"
-	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/bitmask"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 )
@@ -42,7 +41,7 @@ func New(options ...Option) (wallet *Wallet) {
 
 	// initialize wallet with default address manager if we did not import a previous wallet
 	if wallet.addressManager == nil {
-		wallet.addressManager = NewAddressManager(walletseed.NewSeed(), 0, []bitmask.BitMask{})
+		wallet.addressManager = NewAddressManager(seed.NewSeed(), 0, []bitmask.BitMask{})
 	}
 
 	// initialize asset registry if none was provided in the options.
@@ -90,12 +89,25 @@ func (wallet *Wallet) SendFunds(options ...SendFundsOption) (tx *ledgerstate.Tra
 	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, inputs, outputs)
 	unlockBlocks := make([]ledgerstate.UnlockBlock, len(inputs))
 
-	outputIndex := 0
-	for addr := range consumedOutputs {
-		kp := *wallet.Seed().KeyPair(addr.Index)
-		unlockBlock := ledgerstate.NewSignatureUnlockBlock(ledgerstate.NewED25519Signature(kp.PublicKey, ed25519.Signature(kp.PrivateKey.Sign(txEssence.Bytes()))))
+	outputsByID := make(map[ledgerstate.OutputID]*Output)
+	for _, outputs := range consumedOutputs {
+		for outputID, output := range outputs {
+			outputsByID[outputID] = output
+		}
+	}
+
+	existingUnlockBlocks := make(map[address.Address]uint16)
+	for outputIndex, input := range inputs {
+		output := outputsByID[input.(*ledgerstate.UTXOInput).ReferencedOutputID()]
+		if unlockBlockIndex, unlockBlockExists := existingUnlockBlocks[output.Address]; unlockBlockExists {
+			unlockBlocks[outputIndex] = ledgerstate.NewReferenceUnlockBlock(unlockBlockIndex)
+			continue
+		}
+
+		keyPair := wallet.Seed().KeyPair(output.Address.Index)
+		unlockBlock := ledgerstate.NewSignatureUnlockBlock(ledgerstate.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(txEssence.Bytes())))
 		unlockBlocks[outputIndex] = unlockBlock
-		outputIndex++
+		existingUnlockBlocks[output.Address] = uint16(len(existingUnlockBlocks))
 	}
 
 	tx = ledgerstate.NewTransaction(txEssence, unlockBlocks)
@@ -135,7 +147,7 @@ func (wallet *Wallet) CreateAsset(asset Asset) (assetColor ledgerstate.Color, er
 	}
 
 	tx, err := wallet.SendFunds(
-		Destination(wallet.ReceiveAddress().Address, asset.Amount, ledgerstate.ColorMint),
+		Destination(wallet.ReceiveAddress(), asset.Amount, ledgerstate.ColorMint),
 	)
 	if err != nil {
 		return
@@ -157,22 +169,22 @@ func (wallet *Wallet) AssetRegistry() *AssetRegistry {
 }
 
 // ReceiveAddress returns the last receive address of the wallet.
-func (wallet *Wallet) ReceiveAddress() walletaddr.Address {
+func (wallet *Wallet) ReceiveAddress() address.Address {
 	return wallet.addressManager.LastUnspentAddress()
 }
 
 // NewReceiveAddress generates and returns a new unused receive address.
-func (wallet *Wallet) NewReceiveAddress() walletaddr.Address {
+func (wallet *Wallet) NewReceiveAddress() address.Address {
 	return wallet.addressManager.NewAddress()
 }
 
 // RemainderAddress returns the address that is used for the remainder of funds.
-func (wallet *Wallet) RemainderAddress() walletaddr.Address {
+func (wallet *Wallet) RemainderAddress() address.Address {
 	return wallet.addressManager.FirstUnspentAddress()
 }
 
 // UnspentOutputs returns the unspent outputs that are available for spending.
-func (wallet *Wallet) UnspentOutputs() map[walletaddr.Address]map[ledgerstate.TransactionID]*Output {
+func (wallet *Wallet) UnspentOutputs() map[address.Address]map[ledgerstate.OutputID]*Output {
 	return wallet.unspentOutputManager.UnspentOutputs()
 }
 
@@ -262,7 +274,7 @@ func (wallet *Wallet) Balance() (confirmedBalance map[ledgerstate.Color]uint64, 
 }
 
 // Seed returns the seed of this wallet that is used to generate all of the wallets addresses and private keys.
-func (wallet *Wallet) Seed() *walletseed.Seed {
+func (wallet *Wallet) Seed() *seed.Seed {
 	return wallet.addressManager.seed
 }
 
@@ -282,9 +294,9 @@ func (wallet *Wallet) ExportState() []byte {
 	return marshalUtil.Bytes()
 }
 
-func (wallet *Wallet) determineOutputsToConsume(sendFundsOptions *sendFundsOptions) (outputsToConsume map[walletaddr.Address]map[ledgerstate.TransactionID]*Output, err error) {
+func (wallet *Wallet) determineOutputsToConsume(sendFundsOptions *sendFundsOptions) (outputsToConsume map[address.Address]map[ledgerstate.OutputID]*Output, err error) {
 	// initialize return values
-	outputsToConsume = make(map[walletaddr.Address]map[ledgerstate.TransactionID]*Output)
+	outputsToConsume = make(map[address.Address]map[ledgerstate.OutputID]*Output)
 
 	// aggregate total amount of required funds, so we now what and how many funds we need
 	requiredFunds := make(map[ledgerstate.Color]uint64)
@@ -310,7 +322,7 @@ func (wallet *Wallet) determineOutputsToConsume(sendFundsOptions *sendFundsOptio
 		outputsFromAddressSpent := false
 
 		// scan the outputs on this address for required funds
-		for transactionID, output := range unspentOutputsOnAddress {
+		for outputID, output := range unspentOutputsOnAddress {
 			// keeps track if the output contains any usable funds
 			requiredColorFoundInOutput := false
 
@@ -332,9 +344,9 @@ func (wallet *Wallet) determineOutputsToConsume(sendFundsOptions *sendFundsOptio
 			if requiredColorFoundInOutput {
 				// store the output in the outputs to use for the transfer
 				if _, addressEntryExists := outputsToConsume[addr]; !addressEntryExists {
-					outputsToConsume[addr] = make(map[ledgerstate.TransactionID]*Output)
+					outputsToConsume[addr] = make(map[ledgerstate.OutputID]*Output)
 				}
-				outputsToConsume[addr][transactionID] = output
+				outputsToConsume[addr][outputID] = output
 
 				// mark address as spent
 				outputsFromAddressSpent = true
@@ -351,7 +363,7 @@ func (wallet *Wallet) determineOutputsToConsume(sendFundsOptions *sendFundsOptio
 	}
 
 	// update remainder address with default value (first unspent address) if none was provided
-	if sendFundsOptions.RemainderAddress.Address == walletaddr.AddressEmpty.Address {
+	if sendFundsOptions.RemainderAddress == address.AddressEmpty {
 		sendFundsOptions.RemainderAddress = wallet.RemainderAddress()
 	}
 	if _, remainderAddressInConsumedOutputs := outputsToConsume[sendFundsOptions.RemainderAddress]; remainderAddressInConsumedOutputs && !wallet.reusableAddress {
@@ -370,13 +382,13 @@ func (wallet *Wallet) determineOutputsToConsume(sendFundsOptions *sendFundsOptio
 	return
 }
 
-func (wallet *Wallet) buildInputs(outputsToUseAsInputs map[walletaddr.Address]map[ledgerstate.TransactionID]*Output) (inputs ledgerstate.Inputs, consumedFunds map[ledgerstate.Color]uint64) {
+func (wallet *Wallet) buildInputs(outputsToUseAsInputs map[address.Address]map[ledgerstate.OutputID]*Output) (inputs ledgerstate.Inputs, consumedFunds map[ledgerstate.Color]uint64) {
 	consumedInputs := make(ledgerstate.Inputs, 0)
 	consumedFunds = make(map[ledgerstate.Color]uint64)
 	for _, unspentOutputsOfAddress := range outputsToUseAsInputs {
 		var i = uint16(0)
-		for transactionID, output := range unspentOutputsOfAddress {
-			input := ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactionID, i))
+		for outputID, output := range unspentOutputsOfAddress {
+			input := ledgerstate.NewUTXOInput(outputID)
 			consumedInputs = append(consumedInputs, input)
 			i++
 			output.Balances.ForEach(func(color ledgerstate.Color, balance uint64) bool {
@@ -391,7 +403,7 @@ func (wallet *Wallet) buildInputs(outputsToUseAsInputs map[walletaddr.Address]ma
 
 func (wallet *Wallet) buildOutputs(sendFundsOptions *sendFundsOptions, consumedFunds map[ledgerstate.Color]uint64) (outputs ledgerstate.Outputs) {
 	// build outputs for destinations
-	outputsByColor := make(map[ledgerstate.Address]map[ledgerstate.Color]uint64)
+	outputsByColor := make(map[address.Address]map[ledgerstate.Color]uint64)
 	for walletAddress, coloredBalances := range sendFundsOptions.Destinations {
 		if _, addressExists := outputsByColor[walletAddress]; !addressExists {
 			outputsByColor[walletAddress] = make(map[ledgerstate.Color]uint64)
@@ -416,12 +428,12 @@ func (wallet *Wallet) buildOutputs(sendFundsOptions *sendFundsOptions, consumedF
 
 	// build outputs for remainder
 	if len(consumedFunds) != 0 {
-		if _, addressExists := outputsByColor[sendFundsOptions.RemainderAddress.Address]; !addressExists {
-			outputsByColor[sendFundsOptions.RemainderAddress.Address] = make(map[ledgerstate.Color]uint64)
+		if _, addressExists := outputsByColor[sendFundsOptions.RemainderAddress]; !addressExists {
+			outputsByColor[sendFundsOptions.RemainderAddress] = make(map[ledgerstate.Color]uint64)
 		}
 
 		for color, amount := range consumedFunds {
-			outputsByColor[sendFundsOptions.RemainderAddress.Address][color] += amount
+			outputsByColor[sendFundsOptions.RemainderAddress][color] += amount
 		}
 	}
 
@@ -429,7 +441,7 @@ func (wallet *Wallet) buildOutputs(sendFundsOptions *sendFundsOptions, consumedF
 	var outputsSlice []ledgerstate.Output
 	for addr, outputs := range outputsByColor {
 		coloredBalances := ledgerstate.NewColoredBalances(outputs)
-		output := ledgerstate.NewSigLockedColoredOutput(coloredBalances, addr)
+		output := ledgerstate.NewSigLockedColoredOutput(coloredBalances, addr.Address())
 		outputsSlice = append(outputsSlice, output)
 	}
 	outputs = ledgerstate.NewOutputs(outputsSlice...)

@@ -3,7 +3,7 @@ package wallet
 import (
 	"errors"
 
-	walletaddr "github.com/iotaledger/goshimmer/client/wallet/packages/address"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
@@ -11,7 +11,7 @@ import (
 type SendFundsOption func(*sendFundsOptions) error
 
 // Destination is an option for the SendFunds call that defines a destination for funds that are supposed to be moved.
-func Destination(addr ledgerstate.Address, amount uint64, optionalColor ...ledgerstate.Color) SendFundsOption {
+func Destination(addr address.Address, amount uint64, optionalColor ...ledgerstate.Color) SendFundsOption {
 	// determine optional output color
 	var outputColor ledgerstate.Color
 	switch len(optionalColor) {
@@ -32,7 +32,7 @@ func Destination(addr ledgerstate.Address, amount uint64, optionalColor ...ledge
 	return func(options *sendFundsOptions) error {
 		// initialize destinations property
 		if options.Destinations == nil {
-			options.Destinations = make(map[ledgerstate.Address]map[ledgerstate.Color]uint64)
+			options.Destinations = make(map[address.Address]map[ledgerstate.Color]uint64)
 		}
 
 		// initialize address specific destination
@@ -54,7 +54,7 @@ func Destination(addr ledgerstate.Address, amount uint64, optionalColor ...ledge
 
 // Remainder is an option for the SendsFunds call that allows us to specify the remainder address that is
 // supposed to be used in the corresponding transaction.
-func Remainder(addr walletaddr.Address) SendFundsOption {
+func Remainder(addr address.Address) SendFundsOption {
 	return func(options *sendFundsOptions) error {
 		options.RemainderAddress = addr
 
@@ -64,8 +64,8 @@ func Remainder(addr walletaddr.Address) SendFundsOption {
 
 // sendFundsOptions is a struct that is used to aggregate the optional parameters provided in the SendFunds call.
 type sendFundsOptions struct {
-	Destinations     map[ledgerstate.Address]map[ledgerstate.Color]uint64
-	RemainderAddress walletaddr.Address
+	Destinations     map[address.Address]map[ledgerstate.Color]uint64
+	RemainderAddress address.Address
 }
 
 // buildSendFundsOptions is a utility function that constructs the sendFundsOptions.
