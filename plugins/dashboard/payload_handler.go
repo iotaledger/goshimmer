@@ -234,9 +234,7 @@ func processTransactionPayload(p payload.Payload) (tp TransactionPayload) {
 
 	var dataPayloadString string
 	dataPayload := tx.Essence().Payload()
-	if dataPayload == nil {
-		dataPayloadString = "Empty"
-	} else {
+	if dataPayload != nil {
 		dataPayloadString = dataPayload.String()
 	}
 
