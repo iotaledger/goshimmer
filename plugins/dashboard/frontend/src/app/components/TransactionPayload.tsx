@@ -8,6 +8,7 @@ import {inject, observer} from "mobx-react";
 import {ExplorerStore} from "app/stores/ExplorerStore";
 import {IconContext} from "react-icons"
 import {FaChevronCircleRight} from "react-icons/fa"
+import * as dateformat from 'dateformat';
 
 interface Props {
     explorerStore?: ExplorerStore;
@@ -15,7 +16,14 @@ interface Props {
 
 interface OutputProps {
     address: string;
-    balances?: BalanceProps
+    outputID: string;
+    balances?: Array<BalanceProps>
+    index: number;
+}
+
+interface UnlockProps {
+    signature: string;
+    index: number;
 }
 
 interface BalanceProps {
@@ -25,7 +33,7 @@ interface BalanceProps {
 
 @inject("explorerStore")
 @observer
-export class ValuePayload extends React.Component<Props, any> {
+export class TransactionPayload extends React.Component<Props, any> {
 
     render() {
         let {payload} = this.props.explorerStore;
@@ -36,19 +44,16 @@ export class ValuePayload extends React.Component<Props, any> {
                 <Row className={"mb-3"}>
                     <Col>
                         <ListGroup>
-                            <ListGroup.Item>Parent 1: {payload.parent1_id} </ListGroup.Item>
-                        </ListGroup>
-                    </Col>
-                    <Col>
-                        <ListGroup>
-                            <ListGroup.Item>Parent 2: {payload.parent2_id} </ListGroup.Item>
+                            <ListGroup.Item>Transaction ID: {payload.tx_id} </ListGroup.Item>
                         </ListGroup>
                     </Col>
                 </Row>
                 <Row className={"mb-3"}>
                     <Col>
                         <ListGroup>
-                            <ListGroup.Item>Transaction ID: {payload.tx_id} </ListGroup.Item>
+                            <ListGroup.Item>Timestamp: {dateformat(new Date(payload.tx_essence.timestamp*1000).toLocaleString(), "dd.mm.yyyy HH:MM:s")} </ListGroup.Item>
+                            <ListGroup.Item>Access Pledge ID: {payload.tx_essence.access_pledge_id}</ListGroup.Item>
+                            <ListGroup.Item>Consensus Pledge ID: {payload.tx_essence.access_pledge_id}</ListGroup.Item>
                         </ListGroup>
                     </Col>
                 </Row>
@@ -60,8 +65,14 @@ export class ValuePayload extends React.Component<Props, any> {
                             borderBottom: "2px solid #eee"}}>Inputs:</div>
                         <React.Fragment>
                             {
-                                payload.inputs.map(input => (
-                                    <Inputs address={input.address} key={input.address}/>
+                                payload.tx_essence.inputs.map((input,index) => (
+                                    <Inputs
+                                        address={input.address}
+                                        outputID={input.output_id}
+                                        balances={input.balance}
+                                        index={index}
+                                        key={input.address}
+                                    />
                             ))}
                         </React.Fragment>
                     </Col>
@@ -80,26 +91,46 @@ export class ValuePayload extends React.Component<Props, any> {
                             borderBottom: "2px solid #eee"}}>Outputs:</div>
                         <React.Fragment>
                             {
-                                payload.outputs.map(output => (
-                                    output.balance.map(balance => (
-                                        <Outputs key={balance.value} 
-                                                 address={output.address}
-                                                 balances={balance} />
-                                    ))
+                                payload.tx_essence.outputs.map((output,index) => (
+                                    <Outputs
+                                        address={output.address}
+                                        outputID={output.output_id}
+                                        balances={output.balance}
+                                        index={index}
+                                        key={output.address}
+                                    />
                             ))}
                         </React.Fragment>
                     </Col>
                 </Row>
                 { 
-                    payload.data &&
+                    payload.tx_essence.data &&
                     <Row className={"mb-3"}>
                         <Col>
                             <ListGroup>
-                                <ListGroup.Item>Data: {payload.data} </ListGroup.Item>
+                                <ListGroup.Item>Data: {payload.tx_essence.data} </ListGroup.Item>
                             </ListGroup>
                         </Col>
                     </Row>
                 }
+                <Row className={"mb-3"}>
+                    <Col>
+                        <div style={{
+                            marginBottom: "20px",
+                            paddingBottom: "10px",
+                            borderBottom: "2px solid #eee"}}>Unlock Blocks:</div>
+                        <React.Fragment>
+                            {
+                                payload.unlock_blocks.map((block,index) => (
+                                    <UnlockBlock
+                                        signature={block}
+                                        index={index}
+                                        key={index}
+                                    />
+                                ))}
+                        </React.Fragment>
+                    </Col>
+                </Row>
             </React.Fragment>
         );
     }
@@ -110,11 +141,18 @@ class Inputs extends React.Component<OutputProps> {
         return (
             <Row className={"mb-3"}>
                 <Col>
-                    <div>
-                        <Link to={`/explorer/address/${this.props.address}`}>
-                            {this.props.address}
-                        </Link>
-                    </div>
+                    Index: <Badge variant={"primary"}>{this.props.index}</Badge>
+                    <ListGroup>
+                        <ListGroup.Item key={this.props.outputID}>OutputID: {this.props.outputID} </ListGroup.Item>
+                        <ListGroup.Item key={this.props.address}>Address: <Link to={`/explorer/address/${this.props.address}`}>{this.props.address}</Link>
+                        </ListGroup.Item>
+                        <ListGroup.Item key={'balances'}>
+                            Balances:
+                            <div>
+                                {this.props.balances.map( balance => (<div key={balance.color}><Badge variant="danger">{balance.value} {balance.color}</Badge></div>))}
+                            </div>
+                        </ListGroup.Item>
+                    </ListGroup>
                 </Col>
             </Row>
         );
@@ -126,16 +164,33 @@ class Outputs extends React.Component<OutputProps> {
         return (
             <Row className={"mb-3"}>
                 <Col>
-                    <div>
-                        <Link to={`/explorer/address/${this.props.address}`}>
-                            {this.props.address}
-                        </Link>
-                    </div>
-                    <div>
-                        <Badge variant="success">
-                             {this.props.balances.value}{' '}{this.props.balances.color}
-                        </Badge>
-                    </div>
+                    Index: <Badge variant={"primary"}>{this.props.index}</Badge>
+                    <ListGroup>
+                        <ListGroup.Item key={this.props.outputID}>OutputID: {this.props.outputID} </ListGroup.Item>
+                        <ListGroup.Item key={this.props.address}>Address: <Link to={`/explorer/address/${this.props.address}`}>{this.props.address}</Link>
+                        </ListGroup.Item>
+                        <ListGroup.Item key={'balances'}>
+                            Balances:
+                            <div>
+                                {this.props.balances.map( balance => (<div key={balance.color}><Badge variant="success">{balance.value} {balance.color}</Badge></div>))}
+                            </div>
+                        </ListGroup.Item>
+                    </ListGroup>
+                </Col>
+            </Row>
+        );
+    }
+}
+
+class UnlockBlock extends React.Component<UnlockProps> {
+    render() {
+        return (
+            <Row className={"mb-3"}>
+                <Col>
+                    Index: <Badge variant={"primary"}>{this.props.index}</Badge>
+                    <ListGroup>
+                        <ListGroup.Item key={this.props.index}>Signature: {this.props.signature}</ListGroup.Item>
+                    </ListGroup>
                 </Col>
             </Row>
         );

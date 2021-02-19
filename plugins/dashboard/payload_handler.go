@@ -55,7 +55,7 @@ type TransactionPayload struct {
 // Essence contains the transaction essence information.
 type Essence struct {
 	Version           uint8           `json:"version"`
-	Timestamp         int64           `json:"timestamp"`
+	Timestamp         int             `json:"timestamp"`
 	AccessPledgeID    string          `json:"access_pledge_id"`
 	ConsensusPledgeID string          `json:"cons_pledge_id"`
 	Inputs            []InputContent  `json:"inputs"`
@@ -244,7 +244,7 @@ func processTransactionPayload(p payload.Payload) (tp TransactionPayload) {
 		TxID: tx.ID().Base58(),
 		TransactionEssence: Essence{
 			Version:           uint8(tx.Essence().Version()),
-			Timestamp:         tx.Essence().Timestamp().Unix(),
+			Timestamp:         int(tx.Essence().Timestamp().Unix()),
 			AccessPledgeID:    tx.Essence().AccessPledgeID().String(),
 			ConsensusPledgeID: tx.Essence().ConsensusPledgeID().String(),
 			Inputs:            inputs,
