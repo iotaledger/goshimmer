@@ -583,7 +583,7 @@
           "refId": "A"
         },
         {
-          "expr": "irate(tangle_messages_per_type_count{message_type=\"value(1)\"}[5m])",
+          "expr": "irate(tangle_messages_per_type_count{message_type=\"TransactionType(1337)\"}[5m])",
           "interval": "",
           "legendFormat": "Transaction Per Second",
           "refId": "B"
