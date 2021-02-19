@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/iotaledger/goshimmer/client/wallet"
-	walletaddr "github.com/iotaledger/goshimmer/client/wallet/packages/address"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	flag "github.com/spf13/pflag"
@@ -36,8 +36,8 @@ func main() {
 
 	mockedConnector := newMockConnector(
 		&wallet.Output{
-			Address:       genesisSeed.Address(0).Address,
-			TransactionID: ledgerstate.GenesisTransactionID,
+			Address:  genesisSeed.Address(0),
+			OutputID: ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0),
 			Balances: ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
 				ledgerstate.ColorIOTA: 1000000000000000,
 			}),
@@ -49,7 +49,7 @@ func main() {
 	)
 
 	genesisWallet := wallet.New(wallet.GenericConnector(mockedConnector))
-	genesisAddress := genesisWallet.Seed().Address(0).Address
+	genesisAddress := genesisWallet.Seed().Address(0).Address()
 
 	log.Println("genesis:")
 	log.Printf("-> seed (base58): %s", genesisWallet.Seed().String())
@@ -76,16 +76,16 @@ func main() {
 	log.Printf("created %s, bye", snapshotFileName)
 }
 
-func (connector *mockConnector) UnspentOutputs(addresses ...walletaddr.Address) (outputs map[walletaddr.Address]map[ledgerstate.TransactionID]*wallet.Output, err error) {
-	outputs = make(map[walletaddr.Address]map[ledgerstate.TransactionID]*wallet.Output)
+func (connector *mockConnector) UnspentOutputs(addresses ...address.Address) (outputs map[address.Address]map[ledgerstate.OutputID]*wallet.Output, err error) {
+	outputs = make(map[address.Address]map[ledgerstate.OutputID]*wallet.Output)
 	for _, addr := range addresses {
-		for transactionID, output := range connector.outputs[addr.Address.Base58()] {
+		for outputID, output := range connector.outputs[addr] {
 			if !output.InclusionState.Spent {
 				if _, outputsExist := outputs[addr]; !outputsExist {
-					outputs[addr] = make(map[ledgerstate.TransactionID]*wallet.Output)
+					outputs[addr] = make(map[ledgerstate.OutputID]*wallet.Output)
 				}
 
-				outputs[addr][transactionID] = output
+				outputs[addr][outputID] = output
 			}
 		}
 	}
@@ -94,26 +94,26 @@ func (connector *mockConnector) UnspentOutputs(addresses ...walletaddr.Address) 
 }
 
 type mockConnector struct {
-	outputs map[string]map[ledgerstate.TransactionID]*wallet.Output
+	outputs map[address.Address]map[ledgerstate.OutputID]*wallet.Output
 }
 
 func newMockConnector(outputs ...*wallet.Output) (connector *mockConnector) {
 	connector = &mockConnector{
-		outputs: make(map[string]map[ledgerstate.TransactionID]*wallet.Output),
+		outputs: make(map[address.Address]map[ledgerstate.OutputID]*wallet.Output),
 	}
 
 	for _, output := range outputs {
-		if _, addressExists := connector.outputs[output.Address.Base58()]; !addressExists {
-			connector.outputs[output.Address.Base58()] = make(map[ledgerstate.TransactionID]*wallet.Output)
+		if _, addressExists := connector.outputs[output.Address]; !addressExists {
+			connector.outputs[output.Address] = make(map[ledgerstate.OutputID]*wallet.Output)
 		}
 
-		connector.outputs[output.Address.Base58()][output.TransactionID] = output
+		connector.outputs[output.Address][output.OutputID] = output
 	}
 
 	return
 }
 
-func (connector *mockConnector) RequestFaucetFunds(addr walletaddr.Address) (err error) {
+func (connector *mockConnector) RequestFaucetFunds(addr address.Address) (err error) {
 	// generate random transaction id
 
 	return

@@ -30,7 +30,7 @@ func main() {
 	mySeed := walletseed.NewSeed()
 	myAddr := mySeed.Address(0)
 
-	if _, err := clients[0].SendFaucetRequest(myAddr.Base58()); err != nil {
+	if _, err := clients[0].SendFaucetRequest(myAddr.Address().Base58()); err != nil {
 		fmt.Println(err)
 		return
 	}
@@ -40,7 +40,7 @@ func main() {
 	// wait for the funds
 	for i := 0; i < 10; i++ {
 		time.Sleep(5 * time.Second)
-		resp, err := clients[0].GetUnspentOutputs([]string{myAddr.Base58()})
+		resp, err := clients[0].GetUnspentOutputs([]string{myAddr.Address().Base58()})
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -91,7 +91,7 @@ func main() {
 
 			output := ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
 				ledgerstate.ColorIOTA: uint64(1337),
-			}), destAddr.Address)
+			}), destAddr.Address())
 			txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, ledgerstate.NewInputs(ledgerstate.NewUTXOInput(out)), ledgerstate.NewOutputs(output))
 			kp := *mySeed.KeyPair(0)
 			sig := ledgerstate.NewED25519Signature(kp.PublicKey, ed25519.Signature(kp.PrivateKey.Sign(txEssence.Bytes())))

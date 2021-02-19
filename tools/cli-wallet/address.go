@@ -55,12 +55,12 @@ func execAddressCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 
 	if *receivePtr {
 		fmt.Println()
-		fmt.Println("Latest Receive Address: " + cliWallet.ReceiveAddress().Base58())
+		fmt.Println("Latest Receive Address: " + cliWallet.ReceiveAddress().Address().Base58())
 	}
 
 	if *newReceiveAddressPtr {
 		fmt.Println()
-		fmt.Println("New Receive Address: " + cliWallet.NewReceiveAddress().Base58())
+		fmt.Println("New Receive Address: " + cliWallet.NewReceiveAddress().Address().Base58())
 	}
 
 	if *listPtr {

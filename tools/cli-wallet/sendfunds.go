@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 
 	"github.com/iotaledger/goshimmer/client/wallet"
@@ -39,6 +40,7 @@ func execSendFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	destinationAddress, err := ledgerstate.AddressFromBase58EncodedString(*addressPtr)
 	if err != nil {
 		printUsage(command, err.Error())
+		return
 	}
 
 	var color ledgerstate.Color
@@ -60,7 +62,9 @@ func execSendFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	}
 
 	_, err = cliWallet.SendFunds(
-		wallet.Destination(destinationAddress, uint64(*amountPtr), color),
+		wallet.Destination(address.Address{
+			AddressBytes: destinationAddress.Array(),
+		}, uint64(*amountPtr), color),
 	)
 	if err != nil {
 		printUsage(command, err.Error())

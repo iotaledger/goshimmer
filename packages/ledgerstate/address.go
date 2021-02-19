@@ -53,6 +53,9 @@ type Address interface {
 	// Bytes returns a marshaled version of the Address.
 	Bytes() []byte
 
+	// Array returns an array of bytes that contains the marshaled version of the Address.
+	Array() [AddressLength]byte
+
 	// Base58 returns a base58 encoded version of the Address.
 	Base58() string
 
@@ -199,6 +202,13 @@ func (e *ED25519Address) Bytes() []byte {
 	return byteutils.ConcatBytes([]byte{byte(ED25519AddressType)}, e.digest)
 }
 
+// Array returns an array of bytes that contains the marshaled version of the Address.
+func (e *ED25519Address) Array() (array [AddressLength]byte) {
+	copy(array[:], e.Bytes())
+
+	return
+}
+
 // Base58 returns a base58 encoded version of the address.
 func (e *ED25519Address) Base58() string {
 	return base58.Encode(e.Bytes())
@@ -304,6 +314,13 @@ func (b *BLSAddress) Clone() Address {
 // Bytes returns a marshaled version of the Address.
 func (b *BLSAddress) Bytes() []byte {
 	return byteutils.ConcatBytes([]byte{byte(BLSAddressType)}, b.digest)
+}
+
+// Array returns an array of bytes that contains the marshaled version of the Address.
+func (b *BLSAddress) Array() (array [AddressLength]byte) {
+	copy(array[:], b.Bytes())
+
+	return
 }
 
 // Base58 returns a base58 encoded version of the Address.
