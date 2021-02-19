@@ -14,6 +14,7 @@ require (
 	github.com/mr-tron/base58 v1.2.0
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/stretchr/testify v1.6.1
+	golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897
 )
 
 replace github.com/iotaledger/goshimmer => ../../..
