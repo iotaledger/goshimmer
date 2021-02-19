@@ -95,6 +95,10 @@ func configure(*node.Plugin) {
 		Tangle().LedgerState.LoadSnapshot(snapshot)
 		log.Infof("read snapshot from %s", snapshotFilePath)
 	}
+
+	avgNetworkDelay := config.Node().Int(CfgMessageLayerFCOBAverageNetworkDelay)
+	tangle.LikedThreshold = (time.Duration(avgNetworkDelay) * time.Second)
+	tangle.LocallyFinalizedThreshold = (time.Duration(avgNetworkDelay*2) * time.Second)
 }
 
 func run(*node.Plugin) {

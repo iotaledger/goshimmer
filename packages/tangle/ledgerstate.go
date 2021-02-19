@@ -64,8 +64,8 @@ func (l *LedgerState) InheritBranch(referencedBranchIDs ledgerstate.BranchIDs) (
 
 // TransactionValid performs some fast checks of the Transaction and triggers a MessageInvalid event if the checks do
 // not pass.
-func (l *LedgerState) TransactionValid(transaction *ledgerstate.Transaction, messageID MessageID) (valid bool) {
-	valid, err := l.utxoDAG.CheckTransaction(transaction)
+func (l *LedgerState) TransactionValid(transaction *ledgerstate.Transaction, messageID MessageID) (valid bool, err error) {
+	valid, err = l.utxoDAG.CheckTransaction(transaction)
 	if err != nil {
 		l.tangle.Events.MessageInvalid.Trigger(messageID)
 	}

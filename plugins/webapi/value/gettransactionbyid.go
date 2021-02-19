@@ -49,6 +49,7 @@ func getTransactionByIDHandler(c echo.Context) error {
 			Solid:       txMetadata.Solid(),
 			Rejected:    txInclusionState == ledgerstate.Rejected,
 			Finalized:   txMetadata.Finalized(),
+			Preferred:   false,
 		},
 	})
 }
