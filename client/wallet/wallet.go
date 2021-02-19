@@ -87,15 +87,9 @@ func (wallet *Wallet) SendFunds(options ...SendFundsOption) (tx *ledgerstate.Tra
 	inputs, consumedFunds := wallet.buildInputs(consumedOutputs)
 	outputs := wallet.buildOutputs(sendFundsOptions, consumedFunds)
 	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, inputs, outputs)
+	outputsByID := consumedOutputs.OutputsByID()
+
 	unlockBlocks := make([]ledgerstate.UnlockBlock, len(inputs))
-
-	outputsByID := make(map[ledgerstate.OutputID]*Output)
-	for _, outputs := range consumedOutputs {
-		for outputID, output := range outputs {
-			outputsByID[outputID] = output
-		}
-	}
-
 	existingUnlockBlocks := make(map[address.Address]uint16)
 	for outputIndex, input := range inputs {
 		output := outputsByID[input.(*ledgerstate.UTXOInput).ReferencedOutputID()]
@@ -294,9 +288,9 @@ func (wallet *Wallet) ExportState() []byte {
 	return marshalUtil.Bytes()
 }
 
-func (wallet *Wallet) determineOutputsToConsume(sendFundsOptions *sendFundsOptions) (outputsToConsume map[address.Address]map[ledgerstate.OutputID]*Output, err error) {
+func (wallet *Wallet) determineOutputsToConsume(sendFundsOptions *sendFundsOptions) (outputsToConsume OutputsByAddressAndOutputID, err error) {
 	// initialize return values
-	outputsToConsume = make(map[address.Address]map[ledgerstate.OutputID]*Output)
+	outputsToConsume = make(OutputsByAddressAndOutputID)
 
 	// aggregate total amount of required funds, so we now what and how many funds we need
 	requiredFunds := make(map[ledgerstate.Color]uint64)
