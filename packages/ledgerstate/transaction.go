@@ -466,6 +466,11 @@ func TransactionEssenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (tr
 	return
 }
 
+// Version returns the Version of the TransactionEssence.
+func (t *TransactionEssence) Version() TransactionEssenceVersion {
+	return t.version
+}
+
 // Timestamp returns the timestamp of the TransactionEssence.
 func (t *TransactionEssence) Timestamp() time.Time {
 	return t.timestamp
