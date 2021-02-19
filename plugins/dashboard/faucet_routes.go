@@ -4,7 +4,8 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -20,7 +21,7 @@ type ReqMsg struct {
 
 func setupFaucetRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/faucet/:hash", func(c echo.Context) (err error) {
-		addr, err := address.FromBase58(c.Param("hash"))
+		addr, err := ledgerstate.AddressFromBase58EncodedString(c.Param("hash"))
 		if err != nil {
 			return errors.Wrapf(ErrInvalidParameter, "faucet request address invalid: %s", addr)
 		}
@@ -36,7 +37,7 @@ func setupFaucetRoutes(routeGroup *echo.Group) {
 
 var fundingReqMu = sync.Mutex{}
 
-func sendFaucetReq(addr address.Address) (res *ReqMsg, err error) {
+func sendFaucetReq(addr ledgerstate.Address) (res *ReqMsg, err error) {
 	fundingReqMu.Lock()
 	defer fundingReqMu.Unlock()
 	faucetPayload, err := faucet.NewRequest(addr, config.Node().Int(faucet.CfgFaucetPoWDifficulty))

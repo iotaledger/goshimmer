@@ -6,8 +6,6 @@ const (
 	// PriorityTangle defines the shutdown priority for the tangle.
 	PriorityTangle
 	// PriorityValueTangle defines the shutdown priority for the value tangle.
-	PriorityValueTangle
-	// PriorityFPC defines the shutdown priority for FPC.
 	PriorityFPC
 	// PriorityFaucet defines the shutdown priority for the faucet.
 	PriorityFaucet

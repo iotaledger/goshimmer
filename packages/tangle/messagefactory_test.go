@@ -29,7 +29,9 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 
 	tangle.MessageFactory = NewMessageFactory(
 		tangle,
-		TipSelectorFunc(func(count int) []MessageID { return []MessageID{EmptyMessageID} }),
+		TipSelectorFunc(func(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error) {
+			return []MessageID{EmptyMessageID}, []MessageID{}, nil
+		}),
 	)
 	defer tangle.MessageFactory.Shutdown()
 
@@ -116,7 +118,9 @@ func TestMessageFactory_POW(t *testing.T) {
 
 	msgFactory := NewMessageFactory(
 		tangle,
-		TipSelectorFunc(func(count int) []MessageID { return []MessageID{EmptyMessageID} }),
+		TipSelectorFunc(func(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error) {
+			return []MessageID{EmptyMessageID}, []MessageID{}, nil
+		}),
 	)
 	defer msgFactory.Shutdown()
 
@@ -144,8 +148,8 @@ func TestWorkerFunc_PayloadSize(t *testing.T) {
 
 	msgFactory := NewMessageFactory(
 		testTangle,
-		TipSelectorFunc(func(count int) []MessageID {
-			return func() []MessageID {
+		TipSelectorFunc(func(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error) {
+			return func() ([]MessageID, []MessageID, error) {
 				result := make([]MessageID, 0, MaxParentsCount)
 				for i := 0; i < MaxParentsCount; i++ {
 					b := make([]byte, MessageIDLength)
@@ -153,7 +157,7 @@ func TestWorkerFunc_PayloadSize(t *testing.T) {
 					randID, _, _ := MessageIDFromBytes(b)
 					result = append(result, randID)
 				}
-				return result
+				return result, []MessageID{}, nil
 			}()
 		}),
 	)

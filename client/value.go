@@ -62,17 +62,17 @@ func (api *GoShimmerAPI) SendTransaction(txnBytes []byte) (string, error) {
 }
 
 // SendTransactionByJSON sends the transaction(JSON) to the Value Tangle and returns transaction ID.
-func (api *GoShimmerAPI) SendTransactionByJSON(txn webapi_value.SendTransactionByJSONRequest) (string, error) {
-	res := &webapi_value.SendTransactionByJSONResponse{}
-	if err := api.do(http.MethodPost, routeSendTxnByJSON,
-		&webapi_value.SendTransactionByJSONRequest{
-			Inputs:     txn.Inputs,
-			Outputs:    txn.Outputs,
-			Data:       txn.Data,
-			Signatures: txn.Signatures,
-		}, res); err != nil {
-		return "", err
-	}
-
-	return res.TransactionID, nil
-}
+//func (api *GoShimmerAPI) SendTransactionByJSON(txn webapi_value.SendTransactionByJSONRequest) (string, error) {
+//	res := &webapi_value.SendTransactionByJSONResponse{}
+//	if err := api.do(http.MethodPost, routeSendTxnByJSON,
+//		&webapi_value.SendTransactionByJSONRequest{
+//			Inputs:     txn.Inputs,
+//			Outputs:    txn.Outputs,
+//			Data:       txn.Data,
+//			Signatures: txn.Signatures,
+//		}, res); err != nil {
+//		return "", err
+//	}
+//
+//	return res.TransactionID, nil
+//}

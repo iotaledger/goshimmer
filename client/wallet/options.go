@@ -2,7 +2,7 @@ package wallet
 
 import (
 	"github.com/iotaledger/goshimmer/client"
-	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/hive.go/bitmask"
 )
 
@@ -17,7 +17,7 @@ func WebAPI(baseURL string, setters ...client.Option) Option {
 }
 
 // Import restores a wallet that has previously been created.
-func Import(seed *walletseed.Seed, lastAddressIndex uint64, spentAddresses []bitmask.BitMask, assetRegistry *AssetRegistry) Option {
+func Import(seed *seed.Seed, lastAddressIndex uint64, spentAddresses []bitmask.BitMask, assetRegistry *AssetRegistry) Option {
 	return func(wallet *Wallet) {
 		wallet.addressManager = NewAddressManager(seed, lastAddressIndex, spentAddresses)
 		wallet.assetRegistry = assetRegistry

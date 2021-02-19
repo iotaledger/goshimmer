@@ -98,5 +98,6 @@ var consumerStorageOptions = []objectstorage.Option{
 // addressOutputMappingStorageOptions contains a list of default settings for the AddressOutputMapping object storage.
 var addressOutputMappingStorageOptions = []objectstorage.Option{
 	objectstorage.CacheTime(60 * time.Second),
+	objectstorage.PartitionKey(AddressLength, OutputIDLength),
 	objectstorage.LeakDetectionEnabled(true),
 }

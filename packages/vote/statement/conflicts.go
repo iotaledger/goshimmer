@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
@@ -13,14 +13,14 @@ import (
 
 const (
 	// ConflictLength defines the Conflict length in bytes.
-	ConflictLength = transaction.IDLength + OpinionLength
+	ConflictLength = ledgerstate.TransactionIDLength + OpinionLength
 )
 
 // region Conflict /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Conflict holds the conflicting transaction ID and its opinion.
 type Conflict struct {
-	ID transaction.ID
+	ID ledgerstate.TransactionID
 	Opinion
 }
 
@@ -49,12 +49,12 @@ func ConflictFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflict Con
 	readStartOffset := marshalUtil.ReadOffset()
 
 	conflict = Conflict{}
-	bytesID, err := marshalUtil.ReadBytes(int(transaction.IDLength))
+	bytesID, err := marshalUtil.ReadBytes(int(ledgerstate.TransactionIDLength))
 	if err != nil {
 		err = xerrors.Errorf("failed to parse ID from conflict: %w", err)
 		return
 	}
-	conflict.ID, _, err = transaction.IDFromBytes(bytesID)
+	conflict.ID, _, err = ledgerstate.TransactionIDFromBytes(bytesID)
 	if err != nil {
 		err = xerrors.Errorf("failed to parse ID from bytes: %w", err)
 		return

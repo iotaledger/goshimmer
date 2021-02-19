@@ -215,6 +215,11 @@ func (s *Storage) AttachmentMessageIDs(transactionID ledgerstate.TransactionID) 
 	return
 }
 
+// IsTransactionAttachedByMessage checks whether Transaction with transactionID is attached by Message with messageID.
+func (s *Storage) IsTransactionAttachedByMessage(transactionID ledgerstate.TransactionID, messageID MessageID) (attached bool) {
+	return s.attachmentStorage.Contains(NewAttachment(transactionID, messageID).ObjectStorageKey())
+}
+
 // DeleteMessage deletes a message and its association to approvees by un-marking the given
 // message as an approver.
 func (s *Storage) DeleteMessage(messageID MessageID) {
@@ -252,26 +257,31 @@ func (s *Storage) MarkerIndexBranchIDMapping(sequenceID markers.SequenceID, comp
 }
 
 func (s *Storage) storeGenesis() {
-	genesisMetadata := &MessageMetadata{
-		messageID: EmptyMessageID,
-		solid:     true,
-		branchID:  ledgerstate.MasterBranchID,
-		structureDetails: &markers.StructureDetails{
-			Rank:          0,
-			IsPastMarker:  false,
-			PastMarkers:   markers.NewMarkers(),
-			FutureMarkers: markers.NewMarkers(),
-		},
-		timestampOpinion: TimestampOpinion{
-			Value: opinion.Like,
-			LoK:   Three,
-		},
-		booked:   true,
-		eligible: true,
-	}
 	s.MessageMetadata(EmptyMessageID, func() *MessageMetadata {
+		genesisMetadata := &MessageMetadata{
+			messageID: EmptyMessageID,
+			solid:     true,
+			branchID:  ledgerstate.MasterBranchID,
+			structureDetails: &markers.StructureDetails{
+				Rank:          0,
+				IsPastMarker:  false,
+				PastMarkers:   markers.NewMarkers(),
+				FutureMarkers: markers.NewMarkers(),
+			},
+			timestampOpinion: TimestampOpinion{
+				Value: opinion.Like,
+				LoK:   Three,
+			},
+			booked:   true,
+			eligible: true,
+		}
+
+		genesisMetadata.Persist()
+		genesisMetadata.SetModified()
+
 		return genesisMetadata
 	}).Release()
+
 }
 
 // deleteStrongApprover deletes an Approver from the object storage that was created by a strong parent.

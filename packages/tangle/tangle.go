@@ -70,13 +70,14 @@ func (t *Tangle) Setup() {
 	t.Storage.Setup()
 	t.Solidifier.Setup()
 	t.Requester.Setup()
-	t.TipManager.Setup()
 	t.Scheduler.Setup()
 	t.Booker.Setup()
 
 	// Booker and LedgerState setup is left out until the old value tangle is in use.
 	if !t.Options.WithoutOpinionFormer {
 		t.OpinionFormer.Setup()
+		// TipManager needs OpinionFormer to attach to event
+		t.TipManager.Setup()
 		return
 	}
 	t.MessageFactory.Events.Error.Attach(events.NewClosure(func(err error) {

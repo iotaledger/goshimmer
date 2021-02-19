@@ -8,11 +8,9 @@ import (
 
 	"github.com/iotaledger/goshimmer/client"
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
-	valuepayload "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/identity"
 )
 
 func main() {
@@ -32,7 +30,7 @@ func main() {
 	mySeed := walletseed.NewSeed()
 	myAddr := mySeed.Address(0)
 
-	if _, err := clients[0].SendFaucetRequest(myAddr.String()); err != nil {
+	if _, err := clients[0].SendFaucetRequest(myAddr.Address().Base58()); err != nil {
 		fmt.Println(err)
 		return
 	}
@@ -42,7 +40,7 @@ func main() {
 	// wait for the funds
 	for i := 0; i < 10; i++ {
 		time.Sleep(5 * time.Second)
-		resp, err := clients[0].GetUnspentOutputs([]string{myAddr.String()})
+		resp, err := clients[0].GetUnspentOutputs([]string{myAddr.Address().Base58()})
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -70,14 +68,14 @@ func main() {
 		return
 	}
 
-	out, err := transaction.OutputIDFromBase58(myOutputID)
+	out, err := ledgerstate.OutputIDFromBase58(myOutputID)
 	if err != nil {
 		fmt.Println("malformed OutputID")
 		return
 	}
 
 	// issue transactions which spend the same output
-	conflictingTxs := make([]*transaction.Transaction, 2)
+	conflictingTxs := make([]*ledgerstate.Transaction, 2)
 	conflictingMsgIDs := make([]string, 2)
 	receiverSeeds := make([]*walletseed.Seed, 2)
 
@@ -91,20 +89,21 @@ func main() {
 			receiverSeeds[i] = walletseed.NewSeed()
 			destAddr := receiverSeeds[i].Address(0)
 
-			tx := transaction.New(
-				transaction.NewInputs(out),
-				transaction.NewOutputs(map[address.Address][]*balance.Balance{
-					destAddr.Address: {
-						{Value: 1337, Color: balance.ColorIOTA},
-					},
-				}))
-			tx = tx.Sign(signaturescheme.ED25519(*mySeed.KeyPair(0)))
+			output := ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
+				ledgerstate.ColorIOTA: uint64(1337),
+			}), destAddr.Address())
+			txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, ledgerstate.NewInputs(ledgerstate.NewUTXOInput(out)), ledgerstate.NewOutputs(output))
+			kp := *mySeed.KeyPair(0)
+			sig := ledgerstate.NewED25519Signature(kp.PublicKey, ed25519.Signature(kp.PrivateKey.Sign(txEssence.Bytes())))
+			unlockBlock := ledgerstate.NewSignatureUnlockBlock(sig)
+			tx := ledgerstate.NewTransaction(txEssence, ledgerstate.UnlockBlocks{unlockBlock})
 			conflictingTxs[i] = tx
-
-			valueObject := valuepayload.New(valuepayload.GenesisID, valuepayload.GenesisID, tx)
+			//
+			//msg := tangle.NewMessage(tangle.MessageIDs{tangle.EmptyMessageID}, tangle.MessageIDs{tangle.EmptyMessageID}, )
+			//valueObject := valuepayload.New(valuepayload.GenesisID, valuepayload.GenesisID, tx)
 
 			// issue the tx
-			conflictingMsgIDs[i], err = clients[i].SendPayload(valueObject.Bytes())
+			conflictingMsgIDs[i], err = clients[i].SendPayload(tx.Bytes())
 			if err != nil {
 				fmt.Println(err)
 				return

@@ -249,18 +249,32 @@ func (u *UTXODAG) Consumers(outputID OutputID) (cachedConsumers CachedConsumers)
 // LoadSnapshot creates a set of outputs in the UTXO-DAG, that are forming the genesis for future transactions.
 func (u *UTXODAG) LoadSnapshot(snapshot map[TransactionID]map[Address]*ColoredBalances) {
 	index := uint16(0)
+	fmt.Println("Loading snapshot...")
 	for transactionID, addressBalance := range snapshot {
+		fmt.Println("TransactionID: ", transactionID.Base58())
 		for address, balance := range addressBalance {
+			fmt.Println("Address: ", address)
+			fmt.Println("Address Base58: ", address.Base58())
+			fmt.Println("Balance: ", balance)
 			output := NewSigLockedColoredOutput(balance, address)
 			output.SetID(NewOutputID(transactionID, index))
-			u.outputStorage.Store(output).Release()
+			cachedOutput, stored := u.outputStorage.StoreIfAbsent(output)
+			if stored {
+				cachedOutput.Release()
+			}
+
+			//store addressOutputMapping
+			u.StoreAddressOutputMapping(address, output.ID())
 
 			// store OutputMetadata
 			metadata := NewOutputMetadata(output.ID())
 			metadata.SetBranchID(MasterBranchID)
 			metadata.SetSolid(true)
 			metadata.SetFinalized(true)
-			u.outputMetadataStorage.Store(metadata).Release()
+			cachedMetadata, stored := u.outputMetadataStorage.StoreIfAbsent(metadata)
+			if stored {
+				cachedMetadata.Release()
+			}
 
 			index++
 		}
@@ -277,6 +291,15 @@ func (u *UTXODAG) LoadSnapshot(snapshot map[TransactionID]map[Address]*ColoredBa
 			return transactionMetadata
 		})}).Release()
 	}
+}
+
+// AddressOutputMapping retrieves the outputs for the given address.
+func (u *UTXODAG) AddressOutputMapping(address Address) (cachedAddressOutputMappings CachedAddressOutputMappings) {
+	u.addressOutputMappingStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		cachedAddressOutputMappings = append(cachedAddressOutputMappings, &CachedAddressOutputMapping{cachedObject})
+		return true
+	}, address.Bytes())
+	return
 }
 
 // region booking functions ////////////////////////////////////////////////////////////////////////////////////////////
@@ -489,9 +512,13 @@ func (u *UTXODAG) bookConsumers(inputsMetadata OutputsMetadata, transactionID Tr
 
 // bookOutputs creates the Outputs and their corresponding OutputsMetadata in the object storage.
 func (u *UTXODAG) bookOutputs(transaction *Transaction, targetBranch BranchID) {
-	for outputIndex, output := range transaction.Essence().Outputs() {
+	for _, output := range transaction.Essence().Outputs() {
+		// replace ColorMint color with unique color based on OutputID
+		if output.Type() == SigLockedColoredOutputType {
+			output = output.(*SigLockedColoredOutput).UpdateMintingColor()
+		}
+
 		// store Output
-		output.SetID(NewOutputID(transaction.ID(), uint16(outputIndex)))
 		u.outputStorage.Store(output).Release()
 
 		// store OutputMetadata
@@ -557,31 +584,47 @@ func (u *UTXODAG) allOutputsExist(inputs Outputs) (solid bool) {
 
 // transactionBalancesValid is an internal utility function that checks if the sum of the balance changes equals to 0.
 func (u *UTXODAG) transactionBalancesValid(inputs Outputs, outputs Outputs) (valid bool) {
-	// sum up the balances
-	consumedBalances := make(map[Color]uint64)
+	consumedCoins := make(map[Color]uint64)
 	for _, input := range inputs {
 		input.Balances().ForEach(func(color Color, balance uint64) bool {
-			consumedBalances[color] += balance
+			consumedCoins[color], valid = SafeAddUint64(consumedCoins[color], balance)
 
-			return true
+			return valid
 		})
-	}
-	for _, output := range outputs {
-		output.Balances().ForEach(func(color Color, balance uint64) bool {
-			consumedBalances[color] -= balance
 
-			return true
-		})
-	}
-
-	// check if the balances are all 0
-	for _, remainingBalance := range consumedBalances {
-		if remainingBalance != 0 {
-			return false
+		if !valid {
+			return
 		}
 	}
 
-	return true
+	recoloredCoins := uint64(0)
+	for _, output := range outputs {
+		output.Balances().ForEach(func(color Color, balance uint64) bool {
+			switch color {
+			case ColorIOTA:
+				fallthrough
+			case ColorMint:
+				recoloredCoins, valid = SafeAddUint64(recoloredCoins, balance)
+			default:
+				consumedCoins[color], valid = SafeSubUint64(consumedCoins[color], balance)
+			}
+
+			return valid
+		})
+
+		if !valid {
+			return
+		}
+	}
+
+	unspentCoins := uint64(0)
+	for _, remainingBalance := range consumedCoins {
+		if unspentCoins, valid = SafeAddUint64(unspentCoins, remainingBalance); !valid {
+			return
+		}
+	}
+
+	return unspentCoins == recoloredCoins
 }
 
 // unlockBlocksValid is an internal utility function that checks if the UnlockBlocks are matching the referenced Inputs.
@@ -808,6 +851,14 @@ func (u *UTXODAG) consumedBranchIDs(transactionID TransactionID) (branchIDs Bran
 	return
 }
 
+// StoreAddressOutputMapping stores the address-output mapping.
+func (u *UTXODAG) StoreAddressOutputMapping(address Address, outputID OutputID) {
+	result, stored := u.addressOutputMappingStorage.StoreIfAbsent(NewAddressOutputMapping(address, outputID))
+	if stored {
+		result.Release()
+	}
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // TODO: IMPLEMENT A GOOD SYNCHRONIZATION MECHANISM FOR THE UTXODAG
@@ -851,6 +902,14 @@ type AddressOutputMapping struct {
 	outputID OutputID
 
 	objectstorage.StorableObjectFlags
+}
+
+// NewAddressOutputMapping returns a new AddressOutputMapping.
+func NewAddressOutputMapping(address Address, outputID OutputID) *AddressOutputMapping {
+	return &AddressOutputMapping{
+		address:  address,
+		outputID: outputID,
+	}
 }
 
 // AddressOutputMappingFromBytes unmarshals a AddressOutputMapping from a sequence of bytes.
@@ -927,8 +986,8 @@ func (a *AddressOutputMapping) ObjectStorageKey() []byte {
 
 // ObjectStorageValue marshals the Consumer into a sequence of bytes that are used as the value part in the object
 // storage.
-func (a *AddressOutputMapping) ObjectStorageValue() []byte {
-	panic("implement me")
+func (a *AddressOutputMapping) ObjectStorageValue() (value []byte) {
+	return
 }
 
 // code contract (make sure the struct implements all required methods)

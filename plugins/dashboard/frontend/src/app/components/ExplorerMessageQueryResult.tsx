@@ -12,7 +12,7 @@ import * as dateformat from 'dateformat';
 import {Link} from 'react-router-dom';
 import {BasicPayload} from 'app/components/BasicPayload'
 import {DrngPayload} from 'app/components/DrngPayload'
-import {ValuePayload} from 'app/components/ValuePayload'
+import {TransactionPayload} from 'app/components/TransactionPayload'
 import {SyncBeaconPayload} from 'app/components/SyncBeaconPayload'
 import {getPayloadType, PayloadType} from 'app/misc/Payload'
 import {StatementPayload} from "app/components/StatemenetPayload";
@@ -56,8 +56,8 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
         switch (this.props.explorerStore.msg.payload_type) {
             case PayloadType.Drng:
                 return <DrngPayload/>
-            case PayloadType.Value:
-                return <ValuePayload/>
+            case PayloadType.Transaction:
+                return <TransactionPayload/>
             case PayloadType.Statement:
                 return <StatementPayload/>
             case PayloadType.Data:

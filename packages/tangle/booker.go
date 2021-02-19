@@ -89,12 +89,14 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 			combinedBranches := b.branchIDsOfParents(message)
 			if payload := message.Payload(); payload != nil && payload.Type() == ledgerstate.TransactionType {
 				transaction := payload.(*ledgerstate.Transaction)
-				if !b.tangle.LedgerState.TransactionValid(transaction, messageID) {
+				if valid, er := b.tangle.LedgerState.TransactionValid(transaction, messageID); !valid {
+					err = er
 					return
 				}
 
-				if !b.allTransactionsApprovedByMessage(transaction.ReferencedTransactionIDs(), messageID) {
+				if !b.tangle.Utils.AllTransactionsApprovedByMessage(transaction.ReferencedTransactionIDs(), messageID) {
 					b.tangle.Events.MessageInvalid.Trigger(messageID)
+					err = fmt.Errorf("message does not reference all the transaction's dependencies")
 					return
 				}
 
@@ -106,6 +108,10 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 				combinedBranches = combinedBranches.Add(targetBranch)
 				if ledgerstate.NewBranchID(transaction.ID()) == targetBranch {
 					sequenceAlias = append(sequenceAlias, markers.NewSequenceAlias(targetBranch.Bytes()))
+				}
+
+				for _, output := range transaction.Essence().Outputs() {
+					b.tangle.LedgerState.utxoDAG.StoreAddressOutputMapping(output.Address(), output.ID())
 				}
 
 				attachment, stored := b.tangle.Storage.StoreAttachment(transaction.ID(), messageID)
@@ -146,35 +152,15 @@ func (b *Booker) branchIDOfPayload(message *Message) (branchIDOfPayload ledgerst
 	return
 }
 
-// allTransactionsApprovedByMessage checks if all Transactions were attached by at least one Message that was directly
-// or indirectly approved by the given Message.
-func (b *Booker) allTransactionsApprovedByMessage(transactionIDs ledgerstate.TransactionIDs, messageID MessageID) (approved bool) {
-	for transactionID := range transactionIDs {
-		if !b.transactionApprovedByMessage(transactionID, messageID) {
-			return false
-		}
-	}
-
-	return true
-}
-
-// transactionApprovedByMessage checks if the Transaction was attached by at least one Message that was directly or
-// indirectly approved by the given Message.
-func (b *Booker) transactionApprovedByMessage(transactionID ledgerstate.TransactionID, messageID MessageID) (approved bool) {
-	for _, attachmentMessageID := range b.tangle.Storage.AttachmentMessageIDs(transactionID) {
-		if b.tangle.Utils.MessageApprovedByStrongParents(attachmentMessageID, messageID) {
-			return true
-		}
-	}
-
-	return false
-}
-
 // branchIDsOfParents returns the BranchIDs of the parents of the given Message.
 func (b *Booker) branchIDsOfParents(message *Message) (branchIDs ledgerstate.BranchIDs) {
 	branchIDs = make(ledgerstate.BranchIDs)
 
 	message.ForEachStrongParent(func(parentMessageID MessageID) {
+		if parentMessageID == EmptyMessageID {
+			return
+		}
+
 		if !b.tangle.Storage.MessageMetadata(parentMessageID).Consume(func(messageMetadata *MessageMetadata) {
 			branchIDs[messageMetadata.BranchID()] = types.Void
 		}) {

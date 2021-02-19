@@ -4,18 +4,17 @@ import (
 	"context"
 	"crypto"
 
-	"github.com/iotaledger/hive.go/cerrors"
-	"golang.org/x/xerrors"
-
-	// Only want to use init
-	_ "golang.org/x/crypto/blake2b"
-
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
+
+	// Only want to use init
+	_ "golang.org/x/crypto/blake2b"
+	"golang.org/x/xerrors"
 )
 
 const (
@@ -26,7 +25,7 @@ const (
 // Request represents a faucet request which contains an address for the faucet to send funds to.
 type Request struct {
 	payloadType payload.Type
-	address     address.Address
+	address     ledgerstate.Address
 	nonce       uint64
 }
 
@@ -35,7 +34,7 @@ var Type = payload.NewType(2, ObjectName, PayloadUnmarshaler)
 var powWorker = pow.New(crypto.BLAKE2b_512, 1)
 
 // NewRequest is the constructor of a Request and creates a new Request object from the given details.
-func NewRequest(addr address.Address, powTarget int) (*Request, error) {
+func NewRequest(addr ledgerstate.Address, powTarget int) (*Request, error) {
 	p := &Request{
 		payloadType: Type,
 		address:     addr,
@@ -67,12 +66,12 @@ func FromBytes(bytes []byte) (result *Request, consumedBytes int, err error) {
 		err = xerrors.Errorf("failed to parse Type from MarshalUtil: %w", err)
 		return
 	}
-	addr, err := marshalUtil.ReadBytes(address.Length)
+	addr, err := marshalUtil.ReadBytes(ledgerstate.AddressLength)
 	if err != nil {
 		err = xerrors.Errorf("failed to parse address of faucet request (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	result.address, _, err = address.FromBytes(addr)
+	result.address, _, err = ledgerstate.AddressFromBytes(addr)
 	if err != nil {
 		err = xerrors.Errorf("failed to unmarshal address of faucet request (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
@@ -94,7 +93,7 @@ func (p *Request) Type() payload.Type {
 }
 
 // Address returns the address of the faucet Request.
-func (p *Request) Address() address.Address {
+func (p *Request) Address() ledgerstate.Address {
 	return p.address
 }
 
@@ -104,7 +103,7 @@ func (p *Request) Bytes() []byte {
 	marshalUtil := marshalutil.New()
 
 	// marshal the payload specific information
-	marshalUtil.WriteUint32(payload.TypeLength + uint32(address.Length+pow.NonceBytes))
+	marshalUtil.WriteUint32(payload.TypeLength + uint32(ledgerstate.AddressLength+pow.NonceBytes))
 	marshalUtil.WriteBytes(p.Type().Bytes())
 	marshalUtil.WriteBytes(p.address.Bytes())
 	marshalUtil.WriteUint64(p.nonce)
@@ -116,7 +115,7 @@ func (p *Request) Bytes() []byte {
 // String returns a human readable version of faucet Request payload (for debug purposes).
 func (p *Request) String() string {
 	return stringify.Struct("FaucetPayload",
-		stringify.StructField("address", p.Address().String()),
+		stringify.StructField("address", p.Address().Base58()),
 	)
 }
 

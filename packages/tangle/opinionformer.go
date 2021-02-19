@@ -31,6 +31,8 @@ type OpinionVoterProvider interface {
 	VoteError() *events.Event
 	// ProcessVote allows an external voter to hand in the results of the voting process.
 	ProcessVote(*vote.OpinionEvent)
+	// TransactionOpinionEssence returns the opinion essence of a given transactionID.
+	TransactionOpinionEssence(ledgerstate.TransactionID) OpinionEssence
 }
 
 // OpinionFormerEvents defines all the events related to the opinion manager.
@@ -133,6 +135,9 @@ func (o *OpinionFormer) MessageEligible(messageID MessageID) (eligible bool) {
 func (o *OpinionFormer) onPayloadOpinionFormed(ev *OpinionFormedEvent) {
 	// set BranchLiked and BranchFinalized if this payload was a conflict
 	o.tangle.Utils.ComputeIfTransaction(ev.MessageID, func(transactionID ledgerstate.TransactionID) {
+		o.tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+			transactionMetadata.SetFinalized(true)
+		})
 		if o.tangle.LedgerState.TransactionConflicting(transactionID) {
 			o.tangle.LedgerState.branchDAG.SetBranchLiked(o.tangle.LedgerState.BranchID(transactionID), ev.Opinion)
 			// TODO: move this to approval weight logic

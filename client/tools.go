@@ -49,15 +49,6 @@ func (api *GoShimmerAPI) Missing() (*webapi_tools_message.MissingResponse, error
 
 // ------------------- Value layer -----------------------------
 
-// ValueTips returns the value objects info from the tips.
-func (api *GoShimmerAPI) ValueTips() (*webapi_tools_value.TipsResponse, error) {
-	res := &webapi_tools_value.TipsResponse{}
-	if err := api.do(http.MethodGet, routeValueTips, nil, res); err != nil {
-		return nil, err
-	}
-	return res, nil
-}
-
 // ValueObjects returns the list of value objects.
 func (api *GoShimmerAPI) ValueObjects() (*webapi_tools_value.ObjectsResponse, error) {
 	res := &webapi_tools_value.ObjectsResponse{}

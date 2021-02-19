@@ -4,8 +4,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
-	valuetangle "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -68,7 +66,6 @@ func run(_ *node.Plugin) {
 				measureMemUsage()
 				measureSynced()
 				measureMessageTips()
-				measureValueTips()
 				measureReceivedMPS()
 				measureRequestQueueSize()
 				measureGossipTraffic()
@@ -130,12 +127,12 @@ func registerLocalMetrics() {
 		missingMessageCountDB.Dec()
 	}))
 
-	// Value payload attached
-	valuetransfers.Tangle().Events.PayloadAttached.Attach(events.NewClosure(func(cachedPayloadEvent *valuetangle.CachedPayloadEvent) {
-		cachedPayloadEvent.Payload.Release()
-		cachedPayloadEvent.PayloadMetadata.Release()
-		valueTransactionCounter.Inc()
-	}))
+	// // Value payload attached
+	// valuetransfers.Tangle().Events.PayloadAttached.Attach(events.NewClosure(func(cachedPayloadEvent *valuetangle.CachedPayloadEvent) {
+	// 	cachedPayloadEvent.Payload.Release()
+	// 	cachedPayloadEvent.PayloadMetadata.Release()
+	// 	valueTransactionCounter.Inc()
+	// }))
 
 	// FPC round executed
 	consensus.Voter().Events().RoundExecuted.Attach(events.NewClosure(func(roundStats *vote.RoundStats) {
@@ -181,9 +178,6 @@ func registerLocalMetrics() {
 
 	metrics.Events().MessageTips.Attach(events.NewClosure(func(tipsCount uint64) {
 		messageTips.Store(tipsCount)
-	}))
-	metrics.Events().ValueTips.Attach(events.NewClosure(func(tipsCount uint64) {
-		valueTips.Store(tipsCount)
 	}))
 
 	metrics.Events().QueryReceived.Attach(events.NewClosure(func(ev *metrics.QueryReceivedEvent) {

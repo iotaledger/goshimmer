@@ -423,10 +423,15 @@ func (m *Manager) fetchSequence(parentSequences SequenceIDs, referencedMarkers *
 
 		cachedSequence = &CachedSequence{CachedObject: m.sequenceStore.Store(sequence)}
 
-		return &SequenceAliasMapping{
+		sequenceAliasMapping := &SequenceAliasMapping{
 			sequenceAlias: sequenceAlias,
 			sequenceID:    sequence.id,
 		}
+
+		sequenceAliasMapping.Persist()
+		sequenceAliasMapping.SetModified()
+
+		return sequenceAliasMapping
 	})}
 
 	if isNew = cachedSequence != nil; isNew {
