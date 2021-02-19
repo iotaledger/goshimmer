@@ -82,7 +82,7 @@ func SendFaucetRequestOnRandomPeer(t *testing.T, peers []*framework.Peer, numMes
 
 	for i := 0; i < numMessages; i++ {
 		peer := peers[rand.Intn(len(peers))]
-		addr := peer.Seed.Address(uint64(i)).Address
+		addr := peer.Seed.Address(uint64(i)).Address()
 		id, sent := SendFaucetRequest(t, peer, addr)
 		ids[id] = sent
 		addrBalance[addr.Base58()] = map[ledgerstate.Color]int64{
@@ -149,12 +149,12 @@ func SendTransactionFromFaucet(t *testing.T, peers []*framework.Peer, sentValue 
 	// initiate addrBalance map
 	addrBalance = make(map[string]map[ledgerstate.Color]int64)
 	for _, p := range peers {
-		addr := p.Seed.Address(0).Base58()
+		addr := p.Seed.Address(0).Address().Base58()
 		addrBalance[addr] = make(map[ledgerstate.Color]int64)
 	}
 
 	faucetPeer := peers[0]
-	faucetAddrStr := faucetPeer.Seed.Address(0).Base58()
+	faucetAddrStr := faucetPeer.Seed.Address(0).Address().Base58()
 
 	// get faucet balances
 	unspentOutputs, err := faucetPeer.GetUnspentOutputs([]string{faucetAddrStr})
@@ -203,8 +203,8 @@ func SendTransactionOnRandomPeer(t *testing.T, peers []*framework.Peer, addrBala
 // SendIotaTransaction sends sentValue amount of IOTA tokens and remainders from and to a given peer and returns the fail flag and the transaction ID.
 // Every peer sends and receives the transaction on the address of index 0.
 func SendIotaTransaction(t *testing.T, from *framework.Peer, to *framework.Peer, addrBalance map[string]map[ledgerstate.Color]int64, sentValue int64) (fail bool, txId string) {
-	inputAddr := from.Seed.Address(0).Address
-	outputAddr := to.Seed.Address(0).Address
+	inputAddr := from.Seed.Address(0).Address()
+	outputAddr := to.Seed.Address(0).Address()
 
 	// prepare inputs
 	resp, err := from.GetUnspentOutputs([]string{inputAddr.Base58()})
@@ -264,8 +264,8 @@ func SendColoredTransaction(t *testing.T, from *framework.Peer, to *framework.Pe
 	var sentIOTAValue uint64 = 50
 	var sentMintValue uint64 = 50
 	var balanceList []coloredBalance
-	inputAddr := from.Seed.Address(0).Address
-	outputAddr := to.Seed.Address(0).Address
+	inputAddr := from.Seed.Address(0).Address()
+	outputAddr := to.Seed.Address(0).Address()
 
 	// prepare inputs
 	resp, err := from.GetUnspentOutputs([]string{inputAddr.Base58()})
