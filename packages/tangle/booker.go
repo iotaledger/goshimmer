@@ -155,6 +155,10 @@ func (b *Booker) branchIDsOfParents(message *Message) (branchIDs ledgerstate.Bra
 	branchIDs = make(ledgerstate.BranchIDs)
 
 	message.ForEachStrongParent(func(parentMessageID MessageID) {
+		if parentMessageID == EmptyMessageID {
+			return
+		}
+
 		if !b.tangle.Storage.MessageMetadata(parentMessageID).Consume(func(messageMetadata *MessageMetadata) {
 			branchIDs[messageMetadata.BranchID()] = types.Void
 		}) {

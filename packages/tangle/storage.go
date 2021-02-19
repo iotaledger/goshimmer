@@ -275,8 +275,14 @@ func (s *Storage) storeGenesis() {
 		eligible: true,
 	}
 	s.MessageMetadata(EmptyMessageID, func() *MessageMetadata {
+		genesisMetadata.Persist()
+		genesisMetadata.SetModified()
 		return genesisMetadata
 	}).Release()
+
+	s.MessageMetadata(EmptyMessageID).Consume(func(m *MessageMetadata) {
+		fmt.Println(m)
+	})
 }
 
 // deleteStrongApprover deletes an Approver from the object storage that was created by a strong parent.
