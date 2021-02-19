@@ -5,12 +5,11 @@ import (
 	"testing"
 	"time"
 
-	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	valueutils "github.com/iotaledger/goshimmer/plugins/webapi/value"
+	"github.com/iotaledger/goshimmer/plugins/webapi/value"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58/base58"
 	"github.com/stretchr/testify/assert"
@@ -55,26 +54,26 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	require.NoError(t, err, "couldn't decode genesis seed from base58 seed")
 
 	const genesisBalance = 1000000000
-	genesisSeed := walletseed.NewSeed(genesisSeedBytes)
+	genesisSeed := seed.NewSeed(genesisSeedBytes)
 	genesisOutputID := ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0)
 	input := ledgerstate.NewUTXOInput(genesisOutputID)
 
 	// issue transactions which spend the same genesis output in all partitions
 	conflictingTxs := make([]*ledgerstate.Transaction, len(n.Partitions()))
 	conflictingTxIDs := make([]string, len(n.Partitions()))
-	receiverSeeds := make([]*walletseed.Seed, len(n.Partitions()))
+	receiverSeeds := make([]*seed.Seed, len(n.Partitions()))
 	for i, partition := range n.Partitions() {
 
 		// create a new receiver wallet for the given partition
-		partitionReceiverSeed := walletseed.NewSeed()
-		destAddr := partitionReceiverSeed.Address(0).Address
+		partitionReceiverSeed := seed.NewSeed()
+		destAddr := partitionReceiverSeed.Address(0).Address()
 		receiverSeeds[i] = partitionReceiverSeed
 		output := ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
 			ledgerstate.ColorIOTA: uint64(genesisBalance),
 		}), destAddr)
 		txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, ledgerstate.NewInputs(input), ledgerstate.NewOutputs(output))
 		kp := *genesisSeed.KeyPair(0)
-		sig := ledgerstate.NewED25519Signature(kp.PublicKey, ed25519.Signature(kp.PrivateKey.Sign(txEssence.Bytes())))
+		sig := ledgerstate.NewED25519Signature(kp.PublicKey, kp.PrivateKey.Sign(txEssence.Bytes()))
 		unlockBlock := ledgerstate.NewSignatureUnlockBlock(sig)
 		tx := ledgerstate.NewTransaction(txEssence, ledgerstate.UnlockBlocks{unlockBlock})
 		conflictingTxs[i] = tx
@@ -150,7 +149,7 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 
 	expectations := map[string]*tests.ExpectedTransaction{}
 	for _, conflictingTx := range conflictingTxs {
-		utilsTx := valueutils.ParseTransaction(conflictingTx)
+		utilsTx := value.ParseTransaction(conflictingTx)
 		expectations[conflictingTx.ID().String()] = &tests.ExpectedTransaction{
 			Inputs:    &utilsTx.Inputs,
 			Outputs:   &utilsTx.Outputs,

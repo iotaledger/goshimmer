@@ -6,12 +6,11 @@ import (
 	"testing"
 	"time"
 
-	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	valueutils "github.com/iotaledger/goshimmer/plugins/webapi/value"
+	"github.com/iotaledger/goshimmer/plugins/webapi/value"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58/base58"
 	"github.com/stretchr/testify/require"
@@ -31,12 +30,12 @@ func TestConsensusNoConflicts(t *testing.T) {
 	require.NoError(t, err, "couldn't decode genesis seed from base58 seed")
 
 	const genesisBalance = 1000000000000000
-	genesisSeed := walletseed.NewSeed(genesisSeedBytes)
-	genesisAddr := genesisSeed.Address(0).Address
+	genesisSeed := seed.NewSeed(genesisSeedBytes)
+	genesisAddr := genesisSeed.Address(0).Address()
 	genesisOutputID := ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0)
 	input := ledgerstate.NewUTXOInput(genesisOutputID)
 
-	firstReceiver := walletseed.NewSeed()
+	firstReceiver := seed.NewSeed()
 	const depositCount = 10
 	const deposit = genesisBalance / depositCount
 	firstReceiverAddresses := make([]string, depositCount)
@@ -44,7 +43,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 	firstReceiverDepositOutputs := make(map[ledgerstate.Address]*ledgerstate.ColoredBalances)
 	firstReceiverExpectedBalances := make(map[string]map[ledgerstate.Color]int64)
 	for i := 0; i < depositCount; i++ {
-		addr := firstReceiver.Address(uint64(i)).Address
+		addr := firstReceiver.Address(uint64(i)).Address()
 		firstReceiverDepositAddrs[i] = addr
 		firstReceiverAddresses[i] = addr.Base58()
 		firstReceiverDepositOutputs[addr] = ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: deposit})
@@ -59,10 +58,10 @@ func TestConsensusNoConflicts(t *testing.T) {
 	log.Printf("issuing transaction spending genesis to %d addresses", depositCount)
 	tx1Essence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, ledgerstate.NewInputs(input), ledgerstate.NewOutputs(outputs...))
 	kp := *genesisSeed.KeyPair(0)
-	sig := ledgerstate.NewED25519Signature(kp.PublicKey, ed25519.Signature(kp.PrivateKey.Sign(tx1Essence.Bytes())))
+	sig := ledgerstate.NewED25519Signature(kp.PublicKey, kp.PrivateKey.Sign(tx1Essence.Bytes()))
 	unlockBlock := ledgerstate.NewSignatureUnlockBlock(sig)
 	tx1 := ledgerstate.NewTransaction(tx1Essence, ledgerstate.UnlockBlocks{unlockBlock})
-	utilsTx := valueutils.ParseTransaction(tx1)
+	utilsTx := value.ParseTransaction(tx1)
 
 	txID, err := n.Peers()[0].SendTransaction(tx1.Bytes())
 	require.NoError(t, err)
@@ -93,18 +92,18 @@ func TestConsensusNoConflicts(t *testing.T) {
 	tests.CheckBalances(t, n.Peers(), firstReceiverExpectedBalances)
 
 	// issue transactions spending all the outputs which were just created from a random peer
-	secondReceiverSeed := walletseed.NewSeed()
+	secondReceiverSeed := seed.NewSeed()
 	secondReceiverAddresses := make([]string, depositCount)
 	secondReceiverExpectedBalances := map[string]map[ledgerstate.Color]int64{}
 	secondReceiverExpectedTransactions := map[string]*tests.ExpectedTransaction{}
 
 	for i := 0; i < depositCount; i++ {
-		addr := secondReceiverSeed.Address(uint64(i)).Address
-		input := ledgerstate.NewUTXOInput(tx1.Essence().Outputs()[int(tests.SelectIndex(tx1, firstReceiver.Address(uint64(i))))].ID())
+		addr := secondReceiverSeed.Address(uint64(i)).Address()
+		input := ledgerstate.NewUTXOInput(tx1.Essence().Outputs()[int(tests.SelectIndex(tx1, firstReceiver.Address(uint64(i)).Address()))].ID())
 		output := ledgerstate.NewSigLockedSingleOutput(deposit, addr)
 		tx2Essence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, ledgerstate.NewInputs(input), ledgerstate.NewOutputs(output))
 		kp := *firstReceiver.KeyPair(uint64(i))
-		sig := ledgerstate.NewED25519Signature(kp.PublicKey, ed25519.Signature(kp.PrivateKey.Sign(tx2Essence.Bytes())))
+		sig := ledgerstate.NewED25519Signature(kp.PublicKey, kp.PrivateKey.Sign(tx2Essence.Bytes()))
 		unlockBlock := ledgerstate.NewSignatureUnlockBlock(sig)
 		tx := ledgerstate.NewTransaction(tx2Essence, ledgerstate.UnlockBlocks{unlockBlock})
 		secondReceiverAddresses[i] = addr.Base58()
@@ -112,7 +111,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 		txID, err := n.Peers()[rand.Intn(len(n.Peers()))].SendTransaction(tx.Bytes())
 		require.NoError(t, err)
 
-		utilsTx := valueutils.ParseTransaction(tx)
+		utilsTx := value.ParseTransaction(tx)
 
 		secondReceiverExpectedBalances[addr.Base58()] = map[ledgerstate.Color]int64{ledgerstate.ColorIOTA: deposit}
 		secondReceiverExpectedTransactions[txID] = &tests.ExpectedTransaction{
