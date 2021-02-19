@@ -232,7 +232,15 @@ func processTransactionPayload(p payload.Payload) (tp TransactionPayload) {
 		stringifiedUnlockBlocks = append(stringifiedUnlockBlocks, unlockBlock.String())
 	}
 
-	return TransactionPayload{
+	var dataPayloadString string
+	dataPayload := tx.Essence().Payload()
+	if dataPayload == nil {
+		dataPayloadString = "Empty"
+	} else {
+		dataPayloadString = dataPayload.String()
+	}
+
+	tp = TransactionPayload{
 		TxID: tx.ID().Base58(),
 		TransactionEssence: Essence{
 			Version:           uint8(tx.Essence().Version()),
@@ -241,10 +249,11 @@ func processTransactionPayload(p payload.Payload) (tp TransactionPayload) {
 			ConsensusPledgeID: tx.Essence().ConsensusPledgeID().String(),
 			Inputs:            inputs,
 			Outputs:           outputs,
-			Data:              tx.Essence().Payload().String(),
+			Data:              dataPayloadString,
 		},
 		UnlockBlocks: stringifiedUnlockBlocks,
 	}
+	return
 }
 
 func processStatementPayload(p payload.Payload) (sp StatementPayload) {
