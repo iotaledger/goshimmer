@@ -18,6 +18,7 @@ import (
 	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/blake2b"
 )
 
 var (
@@ -261,8 +262,8 @@ func SendIotaTransaction(t *testing.T, from *framework.Peer, to *framework.Peer,
 // 1. Get the first unspent outputs of `from`
 // 2. Send 50 IOTA and 50 ColorMint to `to`
 func SendColoredTransaction(t *testing.T, from *framework.Peer, to *framework.Peer, addrBalance map[string]map[ledgerstate.Color]int64) (ok bool, txId string) {
-	var sentIOTAValue uint64 = 50
-	var sentMintValue uint64 = 50
+	var sentIOTAValue int64 = 50
+	var sentMintValue int64 = 50
 	var balanceList []coloredBalance
 	inputAddr := from.Seed.Address(0).Address()
 	outputAddr := to.Seed.Address(0).Address()
@@ -282,19 +283,9 @@ func SendColoredTransaction(t *testing.T, from *framework.Peer, to *framework.Pe
 
 	// prepare output
 	output := ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
-		ledgerstate.ColorIOTA: sentIOTAValue,
-		ledgerstate.ColorMint: sentMintValue,
+		ledgerstate.ColorIOTA: uint64(sentIOTAValue),
+		ledgerstate.ColorMint: uint64(sentMintValue),
 	}), outputAddr)
-
-	// set balances
-	balanceList = append(balanceList, coloredBalance{
-		Color:   ledgerstate.ColorIOTA,
-		Balance: int64(sentIOTAValue),
-	})
-	balanceList = append(balanceList, coloredBalance{
-		Color:   ledgerstate.ColorMint,
-		Balance: int64(sentMintValue),
-	})
 
 	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, ledgerstate.NewInputs(input), ledgerstate.NewOutputs(output))
 
@@ -303,20 +294,35 @@ func SendColoredTransaction(t *testing.T, from *framework.Peer, to *framework.Pe
 	unlockBlock := ledgerstate.NewSignatureUnlockBlock(sig)
 	txn := ledgerstate.NewTransaction(txEssence, ledgerstate.UnlockBlocks{unlockBlock})
 
+	// set expected balances for test, credit from inputAddr
+	balanceList = append(balanceList, coloredBalance{
+		Color:   ledgerstate.ColorIOTA,
+		Balance: -(sentIOTAValue + sentMintValue),
+	})
+	// set expected balances for test, debit to outputAddr
+	balanceList = append(balanceList, coloredBalance{
+		Color:   ledgerstate.ColorIOTA,
+		Balance: sentIOTAValue,
+	})
+	balanceList = append(balanceList, coloredBalance{
+		Color:   ledgerstate.ColorMint,
+		Balance: sentMintValue,
+	})
+
 	// send transaction
 	txId, err = from.SendTransaction(txn.Bytes())
 	require.NoErrorf(t, err, "could not send transaction on %s", from.String())
 
 	// update balance list
-	updateBalanceList(addrBalance, balanceList, inputAddr.Base58(), outputAddr.Base58(), txId)
+	updateBalanceList(addrBalance, balanceList, inputAddr.Base58(), outputAddr.Base58(), txn.Essence().Outputs()[0])
 
 	return true, txId
 }
 
 // updateBalanceList updates the token amount map with given peers and balances.
 // If the value of balance is negative, it is the balance to be deducted from peer from, else it is deposited to peer to.
-// If the color is ledgerstate.ColorMint, it should be recolored with txId.
-func updateBalanceList(addrBalance map[string]map[ledgerstate.Color]int64, balances []coloredBalance, from, to, txId string) {
+// If the color is ledgerstate.ColorMint, it is recolored / tokens are minted.
+func updateBalanceList(addrBalance map[string]map[ledgerstate.Color]int64, balances []coloredBalance, from, to string, output ledgerstate.Output) {
 	for _, b := range balances {
 		color := b.Color
 		value := b.Balance
@@ -327,10 +333,7 @@ func updateBalanceList(addrBalance map[string]map[ledgerstate.Color]int64, balan
 		}
 		// deposit
 		if color == ledgerstate.ColorMint {
-			color, err := ledgerstate.ColorFromBase58EncodedString(txId)
-			if err != nil {
-				return
-			}
+			color = blake2b.Sum256(output.ID().Bytes())
 			addrBalance[to][color] = value
 			continue
 		}
@@ -362,15 +365,12 @@ func CheckBalances(t *testing.T, peers []*framework.Peer, addrBalance map[string
 			for _, unspents := range resp.UnspentOutputs[0].OutputIDs {
 				for _, respBalance := range unspents.Balances {
 					color := getColorFromString(respBalance.Color)
-					fmt.Println(color, respBalance.Color, respBalance.Value)
 					sum[color] += respBalance.Value
 				}
 			}
-
-			fmt.Println("Sum", sum)
 			// check balances
 			for color, value := range sum {
-				assert.Equal(t, b[color], value)
+				assert.Equalf(t, b[color], value, "balance for color '%s' on address '%s' (peer='%s') does not match", color, addr, peer)
 			}
 		}
 	}
@@ -440,7 +440,7 @@ func CheckTransactions(t *testing.T, peers []*framework.Peer, transactionIDs map
 			// check that the peer sees itself as synchronized
 			info, err := peer.Info()
 			require.NoError(t, err)
-			require.True(t, info.Synced)
+			require.Truef(t, info.Synced, "peer '%s' not synced", peer)
 		}
 
 		for txId, expectedTransaction := range transactionIDs {
@@ -449,33 +449,33 @@ func CheckTransactions(t *testing.T, peers []*framework.Peer, transactionIDs map
 
 			// check inclusion state
 			if expectedInclusionState.Confirmed != nil {
-				assert.Equal(t, *expectedInclusionState.Confirmed, resp.InclusionState.Confirmed, "confirmed state doesn't match - %s", txId)
+				assert.Equal(t, *expectedInclusionState.Confirmed, resp.InclusionState.Confirmed, "confirmed state doesn't match - tx %s - peer '%s'", txId, peer)
 			}
 			if expectedInclusionState.Conflicting != nil {
-				assert.Equal(t, *expectedInclusionState.Conflicting, resp.InclusionState.Conflicting, "conflict state doesn't match - %s", txId)
+				assert.Equal(t, *expectedInclusionState.Conflicting, resp.InclusionState.Conflicting, "conflict state doesn't match - tx %s - peer '%s'", txId, peer)
 			}
 			if expectedInclusionState.Solid != nil {
-				assert.Equal(t, *expectedInclusionState.Solid, resp.InclusionState.Solid, "solid state doesn't match - %s", txId)
+				assert.Equal(t, *expectedInclusionState.Solid, resp.InclusionState.Solid, "solid state doesn't match - tx %s - peer '%s'", txId, peer)
 			}
 			if expectedInclusionState.Rejected != nil {
-				assert.Equal(t, *expectedInclusionState.Rejected, resp.InclusionState.Rejected, "rejected state doesn't match - %s", txId)
+				assert.Equal(t, *expectedInclusionState.Rejected, resp.InclusionState.Rejected, "rejected state doesn't match - tx %s - peer '%s'", txId, peer)
 			}
 			if expectedInclusionState.Liked != nil {
-				assert.Equal(t, *expectedInclusionState.Liked, resp.InclusionState.Liked, "liked state doesn't match - %s", txId)
+				assert.Equal(t, *expectedInclusionState.Liked, resp.InclusionState.Liked, "liked state doesn't match - tx %s - peer '%s'", txId, peer)
 			}
 			if expectedInclusionState.Preferred != nil {
-				assert.Equal(t, *expectedInclusionState.Preferred, resp.InclusionState.Preferred, "preferred state doesn't match - %s", txId)
+				assert.Equal(t, *expectedInclusionState.Preferred, resp.InclusionState.Preferred, "preferred state doesn't match - tx %s - peer '%s'", txId, peer)
 			}
 
 			if expectedTransaction != nil {
 				if expectedTransaction.Inputs != nil {
-					assert.Equal(t, *expectedTransaction.Inputs, resp.Transaction.Inputs, "inputs do not match - %s", txId)
+					assert.Equal(t, *expectedTransaction.Inputs, resp.Transaction.Inputs, "inputs do not match - tx %s - peer '%s'", txId, peer)
 				}
 				if expectedTransaction.Outputs != nil {
-					assert.Equal(t, *expectedTransaction.Outputs, resp.Transaction.Outputs, "outputs do not match - %s", txId)
+					assert.Equal(t, *expectedTransaction.Outputs, resp.Transaction.Outputs, "outputs do not match - tx %s - peer '%s'", txId, peer)
 				}
 				if expectedTransaction.Signature != nil {
-					assert.Equal(t, *expectedTransaction.Signature, resp.Transaction.Signature, "signatures do not match - %s", txId)
+					assert.Equal(t, *expectedTransaction.Signature, resp.Transaction.Signature, "signatures do not match - tx %s - peer '%s'", txId, peer)
 				}
 			}
 		}

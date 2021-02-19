@@ -89,12 +89,14 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 			combinedBranches := b.branchIDsOfParents(message)
 			if payload := message.Payload(); payload != nil && payload.Type() == ledgerstate.TransactionType {
 				transaction := payload.(*ledgerstate.Transaction)
-				if !b.tangle.LedgerState.TransactionValid(transaction, messageID) {
+				if valid, er := b.tangle.LedgerState.TransactionValid(transaction, messageID); !valid {
+					err = er
 					return
 				}
 
 				if !b.tangle.Utils.AllTransactionsApprovedByMessage(transaction.ReferencedTransactionIDs(), messageID) {
 					b.tangle.Events.MessageInvalid.Trigger(messageID)
+					err = fmt.Errorf("message does not reference all the transaction's dependencies")
 					return
 				}
 
@@ -155,6 +157,10 @@ func (b *Booker) branchIDsOfParents(message *Message) (branchIDs ledgerstate.Bra
 	branchIDs = make(ledgerstate.BranchIDs)
 
 	message.ForEachStrongParent(func(parentMessageID MessageID) {
+		if parentMessageID == EmptyMessageID {
+			return
+		}
+
 		if !b.tangle.Storage.MessageMetadata(parentMessageID).Consume(func(messageMetadata *MessageMetadata) {
 			branchIDs[messageMetadata.BranchID()] = types.Void
 		}) {
