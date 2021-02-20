@@ -63,6 +63,7 @@ type UnspentOutput struct {
 
 // Output consists an address and balances
 type Output struct {
+	Type     int8      `json:"type"`
 	Address  string    `json:"address"`
 	Balances []Balance `json:"balances"`
 }
