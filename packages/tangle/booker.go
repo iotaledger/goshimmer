@@ -208,8 +208,7 @@ type BookerEvents struct {
 // MarkersManager is a Tangle component that takes care of managing the Markers which are used to infer structural
 // information about the Tangle in an efficient way.
 type MarkersManager struct {
-	tangle                 *Tangle
-	newMarkerIndexStrategy markers.IncreaseIndexCallback
+	tangle *Tangle
 
 	*markers.Manager
 }
@@ -217,16 +216,15 @@ type MarkersManager struct {
 // NewMarkersManager is the constructor of the MarkersManager.
 func NewMarkersManager(tangle *Tangle) *MarkersManager {
 	return &MarkersManager{
-		tangle:                 tangle,
-		newMarkerIndexStrategy: func(sequenceID markers.SequenceID, currentHighestIndex markers.Index) bool { return true },
-		Manager:                markers.NewManager(tangle.Options.Store),
+		tangle:  tangle,
+		Manager: markers.NewManager(tangle.Options.Store),
 	}
 }
 
 // InheritStructureDetails returns the structure Details of a Message that are derived from the StructureDetails of its
 // strong parents.
 func (m *MarkersManager) InheritStructureDetails(message *Message, newSequenceAlias ...markers.SequenceAlias) (structureDetails *markers.StructureDetails) {
-	structureDetails, _ = m.Manager.InheritStructureDetails(m.structureDetailsOfStrongParents(message), m.newMarkerIndexStrategy, newSequenceAlias...)
+	structureDetails, _ = m.Manager.InheritStructureDetails(m.structureDetailsOfStrongParents(message), m.tangle.Options.IncreaseMarkersIndexCallback, newSequenceAlias...)
 
 	if structureDetails.IsPastMarker {
 		m.tangle.Utils.WalkMessageMetadata(m.propagatePastMarkerToFutureMarkers(structureDetails.PastMarkers.FirstMarker()), message.StrongParents())
@@ -263,6 +261,11 @@ func (m *MarkersManager) structureDetailsOfStrongParents(message *Message) (stru
 	})
 
 	return
+}
+
+// increaseMarkersIndexCallbackStrategy implements the default strategy for increasing marker Indexes in the Tangle.
+func increaseMarkersIndexCallbackStrategy(sequenceID markers.SequenceID, currentHighestIndex markers.Index) bool {
+	return true
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

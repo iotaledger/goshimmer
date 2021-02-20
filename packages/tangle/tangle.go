@@ -3,6 +3,7 @@ package tangle
 import (
 	"sync"
 
+	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
@@ -140,16 +141,18 @@ type Option func(*Options)
 
 // Options is a container for all configurable parameters of the Tangle.
 type Options struct {
-	Store                kvstore.KVStore
-	Identity             *identity.LocalIdentity
-	WithoutOpinionFormer bool
+	Store                        kvstore.KVStore
+	Identity                     *identity.LocalIdentity
+	WithoutOpinionFormer         bool
+	IncreaseMarkersIndexCallback markers.IncreaseIndexCallback
 }
 
 // buildOptions generates the Options object use by the Tangle.
 func buildOptions(options ...Option) (builtOptions *Options) {
 	builtOptions = &Options{
-		Store:    mapdb.NewMapDB(),
-		Identity: identity.GenerateLocalIdentity(),
+		Store:                        mapdb.NewMapDB(),
+		Identity:                     identity.GenerateLocalIdentity(),
+		IncreaseMarkersIndexCallback: increaseMarkersIndexCallbackStrategy,
 	}
 
 	for _, option := range options {
@@ -177,6 +180,14 @@ func Identity(identity *identity.LocalIdentity) Option {
 func WithoutOpinionFormer(with bool) Option {
 	return func(options *Options) {
 		options.WithoutOpinionFormer = with
+	}
+}
+
+// IncreaseMarkersIndexCallback is an Option for the Tangle that allows to change the strategy how new Markers are
+// assigned in the Tangle.
+func IncreaseMarkersIndexCallback(callback markers.IncreaseIndexCallback) Option {
+	return func(options *Options) {
+		options.IncreaseMarkersIndexCallback = callback
 	}
 }
 
