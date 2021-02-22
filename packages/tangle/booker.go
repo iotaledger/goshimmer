@@ -126,8 +126,15 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 				return
 			}
 
-			messageMetadata.SetBranchID(inheritedBranch)
-			messageMetadata.SetStructureDetails(b.MarkersManager.InheritStructureDetails(message, sequenceAlias...))
+			inheritedStructureDetails := b.MarkersManager.InheritStructureDetails(message, sequenceAlias...)
+			messageMetadata.SetStructureDetails(inheritedStructureDetails)
+
+			if !inheritedStructureDetails.IsPastMarker {
+				messageMetadata.SetBranchID(inheritedBranch)
+			} else {
+				b.MarkerBranchIDMappingManager.SetBranchID(inheritedStructureDetails.PastMarkers.FirstMarker(), inheritedBranch)
+			}
+
 			messageMetadata.SetBooked(true)
 
 			b.Events.MessageBooked.Trigger(messageID)
@@ -161,11 +168,7 @@ func (b *Booker) branchIDsOfParents(message *Message) (branchIDs ledgerstate.Bra
 			return
 		}
 
-		if !b.tangle.Storage.MessageMetadata(parentMessageID).Consume(func(messageMetadata *MessageMetadata) {
-			branchIDs[messageMetadata.BranchID()] = types.Void
-		}) {
-			panic(fmt.Errorf("failed to load MessageMetadata with %s", parentMessageID))
-		}
+		branchIDs[b.branchIDOfMessage(parentMessageID)] = types.Void
 	})
 
 	message.ForEachWeakParent(func(parentMessageID MessageID) {
@@ -187,6 +190,20 @@ func (b *Booker) branchIDsOfParents(message *Message) (branchIDs ledgerstate.Bra
 			panic(fmt.Errorf("failed to load MessageMetadata with %s", parentMessageID))
 		}
 	})
+
+	return
+}
+
+func (b *Booker) branchIDOfMessage(messageID MessageID) (branchID ledgerstate.BranchID) {
+	if !b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		if branchID = messageMetadata.BranchID(); branchID != ledgerstate.UndefinedBranchID {
+			return
+		}
+
+		branchID = b.MarkerBranchIDMappingManager.BranchID(messageMetadata.StructureDetails().PastMarkers.FirstMarker())
+	}) {
+		panic(fmt.Errorf("failed to load MessageMetadata with %s", messageID))
+	}
 
 	return
 }
