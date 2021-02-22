@@ -4,18 +4,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-
-	"github.com/iotaledger/hive.go/identity"
-
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"golang.org/x/xerrors"
-
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/datastructure/orderedmap"
+	"github.com/iotaledger/hive.go/identity"
+	"golang.org/x/xerrors"
 )
 
 // New creates a new faucet component using the given seed and tokensPerRequest config.
@@ -91,7 +89,7 @@ func (c *Component) SendFunds(msg *tangle.Message) (m *tangle.Message, txID stri
 		outputs = append(outputs, output)
 	}
 
-	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, ledgerstate.NewInputs(inputs...), ledgerstate.NewOutputs(outputs...))
+	txEssence := ledgerstate.NewTransactionEssence(0, clock.SyncedTime(), identity.ID{}, identity.ID{}, ledgerstate.NewInputs(inputs...), ledgerstate.NewOutputs(outputs...))
 
 	//  TODO: check this
 	unlockBlocks := make([]ledgerstate.UnlockBlock, len(txEssence.Inputs()))
