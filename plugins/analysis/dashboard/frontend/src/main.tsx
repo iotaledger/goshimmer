@@ -11,7 +11,7 @@ import ManaStore from "./app/stores/ManaStore";
 
 const fpcStore = new FPCStore();
 export const autopeeringStore = new AutopeeringStore();
-export const manaStore = new ManaStore()
+export const manaStore = new ManaStore();
 
 const stores = {
     "fpcStore": fpcStore,

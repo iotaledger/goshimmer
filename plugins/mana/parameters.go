@@ -1,6 +1,10 @@
 package mana
 
-import flag "github.com/spf13/pflag"
+import (
+	"time"
+
+	flag "github.com/spf13/pflag"
+)
 
 const (
 	// CfgEmaCoefficient1 defines the coefficient used for Effective Base Mana 1 (moving average) calculation.
@@ -20,6 +24,8 @@ const (
 	// CfgManaEnableResearchVectors determines if research mana vector should be used or not. To use the Mana Research
 	// Grafana Dashboard, this should be set to true.
 	CfgManaEnableResearchVectors = "mana.enableResearchVectors"
+	// CfgPruneConsensusEventLogsInterval defines the interval to check and prune consensus event logs storage.
+	CfgPruneConsensusEventLogsInterval = "mana.pruneConsensusEventLogsInterval"
 )
 
 func init() {
@@ -31,4 +37,5 @@ func init() {
 	flag.Bool(CfgAllowedAccessFilterEnabled, false, "if filtering on access mana pledge nodes is enabled")
 	flag.Bool(CfgAllowedConsensusFilterEnabled, false, "if filtering on consensus mana pledge nodes is enabled")
 	flag.Bool(CfgManaEnableResearchVectors, false, "enable mana research vectors")
+	flag.Duration(CfgPruneConsensusEventLogsInterval, 5*time.Minute, "interval to check and prune consensus event storage")
 }

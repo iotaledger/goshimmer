@@ -3,5 +3,5 @@ export interface IRevokeMessage {
     nodeID: string;
     time: number;
     txID: string;
-    bm1: number;
+    amount: number;
 }

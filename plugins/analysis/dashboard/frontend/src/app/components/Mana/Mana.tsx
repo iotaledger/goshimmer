@@ -24,14 +24,14 @@ export default class Mana extends React.Component<Props, any> {
                 <Row className={"mb-3 mt-3"}>
                     <Col>
                         <ManaGauge
-                            data={manaStore.manaValues.length === 0 ? [0.0, 0.0] :[manaStore.manaValues[manaStore.manaValues.length -1][1], manaStore.prevManaValues[0]]}
-                            title={"Access Mana"}
+                            value={manaStore.accessValues.length === 0 ? 0.0 : manaStore.accessValues[manaStore.accessValues.length -1][1]}
+                            title={"Total Access Mana In Network"}
                         />
                     </Col>
                     <Col>
                         <ManaGauge
-                            data={manaStore.manaValues.length === 0 ? [0.0, 0.0] :[manaStore.manaValues[manaStore.manaValues.length -1][2], manaStore.prevManaValues[1]]}
-                            title={"Consensus Mana"}
+                            value={manaStore.consensusValues.length === 0 ? 0.0 : manaStore.consensusValues[manaStore.consensusValues.length -1][1]}
+                            title={"Total Consensus Mana In Network"}
                         />
                     </Col>
                 </Row>

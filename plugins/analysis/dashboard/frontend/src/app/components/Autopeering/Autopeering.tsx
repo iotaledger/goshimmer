@@ -5,6 +5,8 @@ import React, { ReactNode } from "react";
 import "./Autopeering.scss";
 import { AutopeeringProps } from "./AutopeeringProps";
 import { NodeView } from "./NodeView";
+import BootstrapSwitchButton from 'bootstrap-switch-button-react'
+import ManaLegend from "../Mana/ManaLegend";
 
 @inject("autopeeringStore")
 @observer
@@ -86,7 +88,27 @@ export default class Autopeering extends React.Component<AutopeeringProps, unkno
                         }
                     </div>
                 </div>
-                <div className="visualizer" id="visualizer" />
+
+                <div className="visualizer" id="visualizer" >
+                    <div className="controls">
+                        Active Consensus Mana <BootstrapSwitchButton
+                        size="xs"
+                        onstyle="dark"
+                        checked={this.props.autopeeringStore.manaColoringActive}
+                        onlabel='On'
+                        offlabel='Off'
+                        onChange={(checked: boolean) => {
+                            this.props.autopeeringStore.handleManaColoringChange(checked);
+                        }}
+                    />
+                    </div>
+                    <div>
+                        {
+                            this.props.autopeeringStore.manaColoringActive &&
+                            <ManaLegend min={'0 m'} mid={"500 Mm"} max={"1 Gm"}/>
+                        }
+                    </div>
+                </div>
             </div>
         );
     }

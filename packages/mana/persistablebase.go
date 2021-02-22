@@ -44,7 +44,7 @@ func (persistableBaseMana *PersistableBaseMana) Bytes() []byte {
 	}
 	// create marshal helper
 	marshalUtil := marshalutil.New()
-	marshalUtil.WriteInt64(int64(persistableBaseMana.ManaType))
+	marshalUtil.WriteByte(byte(persistableBaseMana.ManaType))
 	marshalUtil.WriteUint16(uint16(len(persistableBaseMana.BaseValues)))
 	for _, baseValue := range persistableBaseMana.BaseValues {
 		marshalUtil.WriteUint64(math.Float64bits(baseValue))
@@ -86,7 +86,7 @@ func FromBytes(bytes []byte) (result *PersistableBaseMana, consumedBytes int, er
 // Parse unmarshals a persistableBaseMana using the given marshalUtil (for easier marshaling/unmarshaling).
 func Parse(marshalUtil *marshalutil.MarshalUtil) (result *PersistableBaseMana, err error) {
 	result = &PersistableBaseMana{}
-	manaType, err := marshalUtil.ReadInt64()
+	manaType, err := marshalUtil.ReadByte()
 	if err != nil {
 		return
 	}

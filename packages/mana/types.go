@@ -1,7 +1,7 @@
 package mana // Type defines if mana is access or consensus type of mana.
 
 // Type is the mana type.
-type Type int
+type Type byte
 
 const (
 	// AccessMana is mana associated with access to the network.
@@ -40,6 +40,6 @@ func TypeFromString(stringType string) (Type, error) {
 	case "Weighted":
 		return WeightedMana, nil
 	default:
-		return 999, ErrUnknownManaType
+		return 255, ErrUnknownManaType
 	}
 }

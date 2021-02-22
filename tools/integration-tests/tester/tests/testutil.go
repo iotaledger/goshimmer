@@ -176,7 +176,7 @@ func SendTransactionFromFaucet(t *testing.T, peers []*framework.Peer, sentValue 
 
 	// send funds to other peers
 	for i := 1; i < len(peers); i++ {
-		fail, txId := SendIotaTransaction(t, faucetPeer, peers[i], addrBalance, sentValue, TransactionConfig{FromAddressIndex: 1, ToAddressIndex: 0})
+		fail, txId := SendIotaTransaction(t, faucetPeer, peers[i], addrBalance, sentValue, TransactionConfig{FromAddressIndex: 1, ToAddressIndex: 0, AccessManaPledgeID: peers[i].ID(), ConsensusManaPledgeID: peers[i].ID()})
 		require.False(t, fail)
 		txIds = append(txIds, txId)
 

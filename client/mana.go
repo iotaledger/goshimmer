@@ -16,6 +16,8 @@ const (
 	routeGetNHighestAccessMana    = "mana/access/nhighest"
 	routeGetNHighestConsensusMana = "mana/consensus/nhighest"
 	routePending                  = "mana/pending"
+	routePastConsensusVector      = "mana/consensus/past"
+	routePastConsensusEventLogs   = "mana/consensus/logs"
 )
 
 // GetOwnMana returns the access and consensus mana of the node this api client is communicating with.
@@ -131,6 +133,35 @@ func (api *GoShimmerAPI) GetPending(outputID string) (*webapi_mana.PendingRespon
 	res := &webapi_mana.PendingResponse{}
 	if err := api.do(http.MethodGet, routePending,
 		&webapi_mana.PendingRequest{OutputID: outputID}, res); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+// GetPastConsensusManaVector returns the consensus base mana vector of a time in the past.
+func (api *GoShimmerAPI) GetPastConsensusManaVector(t int64) (*webapi_mana.PastConsensusManaVectorResponse, error) {
+	res := &webapi_mana.PastConsensusManaVectorResponse{}
+	if err := api.do(http.MethodGet, routePastConsensusVector,
+		&webapi_mana.PastConsensusManaVectorRequest{Timestamp: t}, res); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+// GetPastConsensusVectorMetadata returns the consensus base mana vector metadata of a time in the past.
+func (api *GoShimmerAPI) GetPastConsensusVectorMetadata() (*webapi_mana.PastConsensusVectorMetadataResponse, error) {
+	res := &webapi_mana.PastConsensusVectorMetadataResponse{}
+	if err := api.do(http.MethodGet, routePastConsensusVector, nil, res); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+// GetConsensusEventLogs returns the consensus event logs or the nodeIDs specified.
+func (api *GoShimmerAPI) GetConsensusEventLogs(nodeIDs []string) (*webapi_mana.GetEventLogsResponse, error) {
+	res := &webapi_mana.GetEventLogsResponse{}
+	if err := api.do(http.MethodGet, routePastConsensusEventLogs,
+		&webapi_mana.GetEventLogsRequest{NodeIDs: nodeIDs}, res); err != nil {
 		return nil, err
 	}
 	return res, nil

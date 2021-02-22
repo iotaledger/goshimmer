@@ -117,3 +117,34 @@ func TestAPI(t *testing.T) {
 	})
 	require.True(t, fail)
 }
+
+func TestConsensusManaInThePast(t *testing.T) {
+	n, err := f.CreateNetwork("mana_TestConsensusManaInThePast", 2, 1, framework.CreateNetworkConfig{Faucet: true, Mana: true})
+	require.NoError(t, err)
+	defer tests.ShutdownNetwork(t, n)
+
+	peers := n.Peers()
+
+	// wait for faucet to move funds and move mana
+	time.Sleep(5 * time.Second)
+
+	// send funds
+	tests.SendTransactionFromFaucet(t, peers[:], 100)
+	time.Sleep(10 * time.Second)
+	timeInPast := time.Now()
+
+	// so that we update mana vectors
+	_, _ = peers[0].GetAllMana()
+
+	// move more funds to update base mana vectors
+	tests.SendTransactionFromFaucet(t, peers[:], 50)
+	time.Sleep(10 * time.Second)
+
+	res1, err := peers[0].GetPastConsensusManaVector(timeInPast.Unix())
+	require.NoError(t, err)
+	for _, c := range res1.Consensus {
+		require.Greater(t, c.Mana, 0.0)
+	}
+
+	// TODO: do a more useful test. e.g compare mana now vs mana in timeInPast
+}

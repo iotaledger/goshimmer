@@ -2,6 +2,7 @@ package faucet
 
 import (
 	"crypto"
+	"errors"
 	"runtime"
 	"sync"
 	"time"
@@ -39,6 +40,8 @@ const (
 	// CfgFaucetBlacklistCapacity holds the maximum amount the address blacklist holds.
 	// An address for which a funding was done in the past is added to the blacklist and eventually is removed from it.
 	CfgFaucetBlacklistCapacity = "faucet.blacklistCapacity"
+	// CfgFaucetPreparedOutputsCount is the number of outputs the faucet prepares for requests.
+	CfgFaucetPreparedOutputsCount = "faucet.preparedOutputsCounts"
 )
 
 func init() {
@@ -47,6 +50,7 @@ func init() {
 	flag.Int(CfgFaucetMaxTransactionBookedAwaitTimeSeconds, 5, "the max amount of time for a funding transaction to become booked in the value layer")
 	flag.Int(CfgFaucetPoWDifficulty, 25, "defines the PoW difficulty for faucet payloads")
 	flag.Int(CfgFaucetBlacklistCapacity, 10000, "holds the maximum amount the address blacklist holds")
+	flag.Int(CfgFaucetPreparedOutputsCount, 100, "number of outputs the faucet prepares")
 }
 
 var (
@@ -60,6 +64,7 @@ var (
 	fundingWorkerPool      *workerpool.WorkerPool
 	fundingWorkerCount     = runtime.GOMAXPROCS(0)
 	fundingWorkerQueueSize = 500
+	preparedOutputsCount   int
 )
 
 // App returns the plugin instance of the faucet dApp.
@@ -90,7 +95,11 @@ func Faucet() *faucet.Faucet {
 			log.Fatalf("the max transaction booked await time must be more than 0")
 		}
 		blacklistCapacity := config.Node().GetInt(CfgFaucetBlacklistCapacity)
-		_faucet = faucet.New(seedBytes, tokensPerRequest, blacklistCapacity, time.Duration(maxTxBookedAwaitTime)*time.Second)
+		preparedOutputsCount = config.Node().GetInt(CfgFaucetPreparedOutputsCount)
+		if preparedOutputsCount <= 0 {
+			log.Fatalf("the number of faucet prepared outputs should be more than 0")
+		}
+		_faucet = faucet.New(seedBytes, tokensPerRequest, blacklistCapacity, time.Duration(maxTxBookedAwaitTime)*time.Second, preparedOutputsCount)
 	})
 	return _faucet
 }
@@ -104,7 +113,11 @@ func configure(*node.Plugin) {
 		addr := msg.Payload().(*faucetpayload.Payload).Address()
 		msg, txID, err := Faucet().SendFunds(msg)
 		if err != nil {
-			log.Warnf("couldn't fulfill funding request to %s: %s", addr, err)
+			if errors.Is(err, faucet.ErrPrepareFaucet) {
+				log.Warn(err.Error())
+			} else {
+				log.Warnf("couldn't fulfill funding request to %s: %s", addr, err)
+			}
 			return
 		}
 		log.Infof("sent funds to address %s via tx %s and msg %s", addr, txID, msg.ID().String())
@@ -117,7 +130,7 @@ func run(*node.Plugin) {
 	if err := daemon.BackgroundWorker("[Faucet]", func(shutdownSignal <-chan struct{}) {
 		fundingWorkerPool.Start()
 		defer fundingWorkerPool.Stop()
-		if _, err := Faucet().MoveAllFunds(); err != nil {
+		if _, err := Faucet().PrepareGenesisOutput(); err != nil {
 			log.Errorf("couldn't move all faucet funds: %s", err)
 		}
 

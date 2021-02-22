@@ -36,6 +36,67 @@ func (c *ConsensusBaseManaVector) Has(nodeID identity.ID) bool {
 	return exists
 }
 
+// BuildPastBaseVector builds a consensus base mana vector from past events upto time `t`.
+// `eventLogs` is expected to be sorted chronologically.
+func (c *ConsensusBaseManaVector) BuildPastBaseVector(eventsLog []Event, t time.Time) error {
+	emptyID := identity.ID{}
+	if c.vector == nil {
+		c.vector = make(map[identity.ID]*ConsensusBaseMana)
+	}
+	for _, _ev := range eventsLog {
+		switch _ev.Type() {
+		case EventTypePledge:
+			ev := _ev.(*PledgedEvent)
+			if ev.Time.After(t) {
+				return nil
+			}
+			if ev.NodeID == emptyID {
+				continue
+			}
+			if _, exist := c.vector[ev.NodeID]; !exist {
+				c.vector[ev.NodeID] = &ConsensusBaseMana{}
+			}
+			c.vector[ev.NodeID].pledge(txInfoFromPledgeEvent(ev))
+		case EventTypeRevoke:
+			ev := _ev.(*RevokedEvent)
+			if ev.Time.After(t) {
+				return nil
+			}
+			if ev.NodeID == emptyID {
+				continue
+			}
+			if _, exist := c.vector[ev.NodeID]; !exist {
+				c.vector[ev.NodeID] = &ConsensusBaseMana{}
+			}
+			err := c.vector[ev.NodeID].revoke(ev.Amount, ev.Time)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func txInfoFromPledgeEvent(ev *PledgedEvent) *TxInfo {
+	return &TxInfo{
+		TimeStamp:     ev.Time,
+		TransactionID: ev.TransactionID,
+		TotalBalance:  ev.Amount,
+		PledgeID: map[Type]identity.ID{
+			ConsensusMana: ev.NodeID,
+		},
+		InputInfos: []InputInfo{
+			{
+				TimeStamp: ev.Time,
+				Amount:    ev.Amount,
+				PledgeID: map[Type]identity.ID{
+					ConsensusMana: ev.NodeID,
+				},
+			},
+		},
+	}
+}
+
 // Book books mana for a transaction.
 func (c *ConsensusBaseManaVector) Book(txInfo *TxInfo) {
 	c.Lock()
@@ -64,7 +125,7 @@ func (c *ConsensusBaseManaVector) Book(txInfo *TxInfo) {
 			panic(fmt.Sprintf("Revoking (%f) eff base mana 1 from node %s results in negative balance", inputInfo.Amount, pledgeNodeID.String()))
 		}
 		// trigger events
-		Events().Revoked.Trigger(&RevokedEvent{pledgeNodeID, inputInfo.Amount, txInfo.TimeStamp, c.Type(), txInfo.TransactionID})
+		Events().Revoked.Trigger(&RevokedEvent{pledgeNodeID, inputInfo.Amount, txInfo.TimeStamp, c.Type(), txInfo.TransactionID, inputInfo.InputID})
 		Events().Updated.Trigger(&UpdatedEvent{pledgeNodeID, &oldMana, c.vector[pledgeNodeID], c.Type()})
 	}
 	// second, pledge mana to new nodes
@@ -121,12 +182,12 @@ func (c *ConsensusBaseManaVector) GetMana(nodeID identity.ID) (float64, error) {
 }
 
 // GetManaMap returns mana perception of the node.
-func (c *ConsensusBaseManaVector) GetManaMap() (NodeMap, error) {
+func (c *ConsensusBaseManaVector) GetManaMap(update ...bool) (NodeMap, error) {
 	c.Lock()
 	defer c.Unlock()
 	res := make(map[identity.ID]float64)
 	for ID := range c.vector {
-		mana, err := c.getMana(ID)
+		mana, err := c.getMana(ID, update...)
 		if err != nil {
 			return nil, err
 		}
@@ -248,12 +309,14 @@ func (c *ConsensusBaseManaVector) update(nodeID identity.ID, t time.Time) error 
 	return nil
 }
 
-// getMana returns the Effective Base Mana 1
-func (c *ConsensusBaseManaVector) getMana(nodeID identity.ID) (float64, error) {
+// getMana returns the Effective Base Mana 1. Will update base mana by default.
+func (c *ConsensusBaseManaVector) getMana(nodeID identity.ID, update ...bool) (float64, error) {
 	if _, exist := c.vector[nodeID]; !exist {
 		return 0.0, ErrNodeNotFoundInBaseManaVector
 	}
-	_ = c.update(nodeID, time.Now())
+	if len(update) == 0 || update[0] {
+		_ = c.update(nodeID, time.Now())
+	}
 	baseMana := c.vector[nodeID]
 	return baseMana.EffectiveBaseMana1, nil
 }

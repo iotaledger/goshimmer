@@ -24,7 +24,8 @@ type BaseManaVector interface {
 	// GetMana returns the mana value of a node with default weights.
 	GetMana(identity.ID) (float64, error)
 	// GetManaMap returns the map derived from the vector.
-	GetManaMap() (NodeMap, error)
+	// If update is true, updates the base mana values to the current time.
+	GetManaMap(update ...bool) (NodeMap, error)
 	// GetHighestManaNodes returns the n highest mana nodes in descending order.
 	GetHighestManaNodes(uint) ([]Node, error)
 	// SetMana sets the base mana for a node.
