@@ -27,16 +27,19 @@ var (
 	ErrFundingTxNotBookedInTime = errors.New("funding transaction didn't get booked in time")
 	// ErrAddressIsBlacklisted is returned if a funding can't be processed since the address is blacklisted.
 	ErrAddressIsBlacklisted = errors.New("can't fund address as it is blacklisted")
+	// ErrPrepareFaucet is returned if the faucet cannot prepare outputs.
+	ErrPrepareFaucet = errors.New("can't prepare faucet outputs")
 )
 
 // New creates a new faucet using the given seed and tokensPerRequest config.
-func New(seed []byte, tokensPerRequest int64, blacklistCapacity int, maxTxBookedAwaitTime time.Duration) *Faucet {
+func New(seed []byte, tokensPerRequest int64, blacklistCapacity int, maxTxBookedAwaitTime time.Duration, preparedOutputsCount int) *Faucet {
 	return &Faucet{
 		tokensPerRequest:     tokensPerRequest,
 		seed:                 walletseed.NewSeed(seed),
 		maxTxBookedAwaitTime: maxTxBookedAwaitTime,
 		blacklist:            orderedmap.New(),
 		blacklistCapacity:    blacklistCapacity,
+		preparedOutputsCount: preparedOutputsCount,
 	}
 }
 
@@ -52,6 +55,7 @@ type Faucet struct {
 	maxTxBookedAwaitTime time.Duration
 	blacklistCapacity    int
 	blacklist            *orderedmap.OrderedMap
+	preparedOutputsCount int
 }
 
 // IsAddressBlacklisted checks whether the given address is currently blacklisted.
@@ -125,6 +129,14 @@ func (f *Faucet) SendFunds(msg *message.Message) (m *message.Message, txID strin
 		return nil, "", err
 	}
 
+	// last used address index
+	lastUsedAddressIndex := uint64(0)
+	for k := range addrsIndices {
+		if k > lastUsedAddressIndex {
+			lastUsedAddressIndex = k
+		}
+	}
+
 	// block for a certain amount of time until we know that the transaction
 	// actually got booked by this node itself
 	// TODO: replace with an actual more reactive way
@@ -132,17 +144,20 @@ func (f *Faucet) SendFunds(msg *message.Message) (m *message.Message, txID strin
 		return nil, "", fmt.Errorf("%w: tx %s", err, tx.ID().String())
 	}
 
+	_, err = f.prepareMoreOutputs(lastUsedAddressIndex)
+	if err != nil {
+		err = fmt.Errorf("%w: %s", ErrPrepareFaucet, err.Error())
+	}
 	f.addAddressToBlacklist(addr)
-
-	return msg, tx.ID().String(), nil
+	return msg, tx.ID().String(), err
 }
 
-// MoveAllFunds moves all the faucets' funds from its first address to the next.
+// PrepareGenesisOutput splits genesis output to CfgFaucetPreparedOutputsCount number of outputs.
 // If this process has been done before, it'll not do it again.
-func (f *Faucet) MoveAllFunds() (msg *message.Message, err error) {
+func (f *Faucet) PrepareGenesisOutput() (msg *message.Message, err error) {
 	// get total funds
 	firstAddr := f.seed.Address(0).Address
-	var val int64
+	var faucetTotal int64
 	valuetransfers.Tangle().TransactionOutput(transaction.NewOutputID(firstAddr, transaction.GenesisID)).Consume(func(output *tangle.Output) {
 		// should only be done once
 		if output.ConsumerCount() > 0 {
@@ -151,33 +166,10 @@ func (f *Faucet) MoveAllFunds() (msg *message.Message, err error) {
 
 		// gather all balance
 		for _, coloredBalance := range output.Balances() {
-			val += coloredBalance.Value
+			faucetTotal += coloredBalance.Value
 		}
 
-		// send to next address
-		nextAddr := f.nextUnusedAddress()
-		tx := transaction.New(
-			transaction.NewInputs(output.ID()),
-			transaction.NewOutputs(map[address.Address][]*balance.Balance{
-				nextAddr: {
-					balance.New(balance.ColorIOTA, val),
-				},
-			}),
-			local.GetInstance().ID(),
-		)
-
-		tx.Sign(signaturescheme.ED25519(*f.seed.KeyPair(0)))
-		// prepare value payload with value factory
-		payload, err := valuetransfers.ValueObjectFactory().IssueTransaction(tx)
-		if err != nil {
-			return
-		}
-
-		// attach to message layer
-		msg, err = issuer.IssuePayload(payload)
-		if err != nil {
-			return
-		}
+		msg, err = f.splitOutput(output.ID(), 0, faucetTotal)
 	})
 	return
 }
@@ -218,9 +210,12 @@ func (f *Faucet) collectUTXOsForFunding() (outputIds []transaction.OutputID, add
 }
 
 // nextUnusedAddress generates an unused address from the faucet seed.
-func (f *Faucet) nextUnusedAddress() address.Address {
+func (f *Faucet) nextUnusedAddress(startIndex ...uint64) address.Address {
 	var index uint64
-	for index = 0; ; index++ {
+	if len(startIndex) > 0 {
+		index = startIndex[0]
+	}
+	for ; ; index++ {
 		addr := f.seed.Address(index).Address
 		cachedOutputs := valuetransfers.Tangle().OutputsOnAddress(addr)
 		if len(cachedOutputs) == 0 {
@@ -230,4 +225,79 @@ func (f *Faucet) nextUnusedAddress() address.Address {
 		}
 		cachedOutputs.Release()
 	}
+}
+
+// prepareMoreOutputs prepares more outputs on the faucet if most of the already prepared outputs have been consumed.
+func (f *Faucet) prepareMoreOutputs(lastUsedAddressIndex uint64) (msg *message.Message, err error) {
+	lastOne := int64(f.preparedOutputsCount) - (int64(lastUsedAddressIndex) % int64(f.preparedOutputsCount))
+	if lastOne != int64(f.preparedOutputsCount) {
+		return
+	}
+	var remainderOutputID transaction.OutputID
+	found := false
+	var remainder int64
+	var remainderAddressIndex uint64
+	// find remainder output
+	for i := lastUsedAddressIndex + 1; !found; i++ {
+		addr := f.seed.Address(i).Address
+		valuetransfers.Tangle().OutputsOnAddress(addr).Consume(func(output *tangle.Output) {
+			if output.ConsumerCount() > 0 {
+				return
+			}
+			var val int64
+			for _, coloredBalance := range output.Balances() {
+				val += coloredBalance.Value
+			}
+			// not a prepared output.
+			if val != f.tokensPerRequest {
+				remainderOutputID = output.ID()
+				remainderAddressIndex = i
+				found = true
+				remainder = val
+			}
+		})
+	}
+
+	return f.splitOutput(remainderOutputID, remainderAddressIndex, remainder)
+}
+
+// splitOutput splits the remainder into `f.preparedOutputsCount` outputs.
+func (f *Faucet) splitOutput(remainderOutputID transaction.OutputID, remainderAddressIndex uint64, remainder int64) (msg *message.Message, err error) {
+	if remainder < f.tokensPerRequest {
+		return
+	}
+	var totalPrepared int64
+	outputs := make(map[address.Address][]*balance.Balance)
+	addrIndex := remainderAddressIndex + 1
+	for i := 0; i < f.preparedOutputsCount; i++ {
+		if totalPrepared+f.tokensPerRequest > remainder {
+			break
+		}
+		nextAddr := f.nextUnusedAddress(addrIndex)
+		addrIndex++
+		outputs[nextAddr] = []*balance.Balance{balance.New(balance.ColorIOTA, f.tokensPerRequest)}
+		totalPrepared += f.tokensPerRequest
+	}
+
+	faucetBalance := remainder - totalPrepared
+	if faucetBalance > 0 {
+		nextAddr := f.nextUnusedAddress(addrIndex)
+		outputs[nextAddr] = []*balance.Balance{balance.New(balance.ColorIOTA, faucetBalance)}
+	}
+	tx := transaction.New(
+		transaction.NewInputs(remainderOutputID),
+		transaction.NewOutputs(outputs),
+		local.GetInstance().ID(),
+	)
+	tx.Sign(signaturescheme.ED25519(*f.seed.KeyPair(remainderAddressIndex)))
+	payload, err := valuetransfers.ValueObjectFactory().IssueTransaction(tx)
+	if err != nil {
+		return
+	}
+
+	msg, err = issuer.IssuePayload(payload)
+	if err != nil {
+		return
+	}
+	return
 }
