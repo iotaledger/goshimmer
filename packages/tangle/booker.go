@@ -195,6 +195,10 @@ func (b *Booker) branchIDsOfParents(message *Message) (branchIDs ledgerstate.Bra
 }
 
 func (b *Booker) branchIDOfMessage(messageID MessageID) (branchID ledgerstate.BranchID) {
+	if messageID == EmptyMessageID {
+		return ledgerstate.MasterBranchID
+	}
+
 	if !b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 		if branchID = messageMetadata.BranchID(); branchID != ledgerstate.UndefinedBranchID {
 			return
