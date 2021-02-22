@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 
@@ -8,6 +9,8 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/hive.go/bitmask"
+	"github.com/mr-tron/base58"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
@@ -15,12 +18,14 @@ import (
 const (
 	cfgGenesisTokenAmount   = "token-amount"
 	cfgSnapshotFileName     = "snapshot-file"
-	defaultSnapshotFileName = "./snapshot2.bin"
+	cfgSnapshotGenesisSeed  = "seed"
+	defaultSnapshotFileName = "./snapshot.bin"
 )
 
 func init() {
 	flag.Int(cfgGenesisTokenAmount, 1000000000000000, "the amount of tokens to add to the genesis output")
 	flag.String(cfgSnapshotFileName, defaultSnapshotFileName, "the name of the generated snapshot file")
+	flag.String(cfgSnapshotGenesisSeed, "", "the genesis seed")
 }
 
 func main() {
@@ -32,7 +37,15 @@ func main() {
 	snapshotFileName := viper.GetString(cfgSnapshotFileName)
 	log.Printf("creating snapshot %s...", snapshotFileName)
 
-	genesisSeed := seed.NewSeed()
+	seedStr := viper.GetString(cfgSnapshotGenesisSeed)
+	if seedStr == "" {
+		log.Fatal("Seed is required")
+	}
+	seedBytes, err := base58.Decode(seedStr)
+	if err != nil {
+		log.Fatal(fmt.Errorf("failed to decode base58 seed: %w", err))
+	}
+	genesisSeed := seed.NewSeed(seedBytes)
 
 	mockedConnector := newMockConnector(
 		&wallet.Output{
@@ -48,12 +61,12 @@ func main() {
 		},
 	)
 
-	genesisWallet := wallet.New(wallet.GenericConnector(mockedConnector))
+	genesisWallet := wallet.New(wallet.Import(genesisSeed, 1, []bitmask.BitMask{}, wallet.NewAssetRegistry()), wallet.GenericConnector(mockedConnector))
 	genesisAddress := genesisWallet.Seed().Address(0).Address()
 
 	log.Println("genesis:")
 	log.Printf("-> seed (base58): %s", genesisWallet.Seed().String())
-	log.Printf("-> output address (base58): %s", genesisAddress.String())
+	log.Printf("-> output address (base58): %s", genesisAddress.Base58())
 	log.Printf("-> output id (base58): %s", ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))
 	log.Printf("-> token amount: %d", genesisTokenAmount)
 
