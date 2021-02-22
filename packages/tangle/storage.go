@@ -248,12 +248,12 @@ func (s *Storage) DeleteMissingMessage(messageID MessageID) {
 // yet.
 func (s *Storage) MarkerIndexBranchIDMapping(sequenceID markers.SequenceID, computeIfAbsentCallback ...func(sequenceID markers.SequenceID) *MarkerIndexBranchIDMapping) *CachedMarkerIndexBranchIDMapping {
 	if len(computeIfAbsentCallback) >= 1 {
-		return &CachedMarkerIndexBranchIDMapping{s.messageMetadataStorage.ComputeIfAbsent(sequenceID.Bytes(), func(key []byte) objectstorage.StorableObject {
+		return &CachedMarkerIndexBranchIDMapping{s.markerIndexBranchIDMappingStorage.ComputeIfAbsent(sequenceID.Bytes(), func(key []byte) objectstorage.StorableObject {
 			return computeIfAbsentCallback[0](sequenceID)
 		})}
 	}
 
-	return &CachedMarkerIndexBranchIDMapping{CachedObject: s.messageMetadataStorage.Load(sequenceID.Bytes())}
+	return &CachedMarkerIndexBranchIDMapping{CachedObject: s.markerIndexBranchIDMappingStorage.Load(sequenceID.Bytes())}
 }
 
 func (s *Storage) storeGenesis() {
