@@ -31,7 +31,7 @@ var (
 	}
 	txInfo = &TxInfo{
 		TimeStamp:     txTime,
-		TransactionID: transaction.RandomID(),
+		TransactionID: randomTxID(),
 		TotalBalance:  10.0,
 		PledgeID: map[Type]identity.ID{
 			AccessMana:    txPledgeID,

@@ -3,6 +3,7 @@ package mana
 import (
 	"crypto/rand"
 	"crypto/sha256"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"testing"
 	"time"
 
@@ -73,7 +74,7 @@ func newPledgeEvent() *PledgedEvent {
 		Amount:        100,
 		Time:          time.Now(),
 		ManaType:      ConsensusMana,
-		TransactionID: transaction.RandomID(),
+		TransactionID: randomTxID(),
 	}
 }
 
@@ -83,7 +84,7 @@ func newRevokeEvent() *RevokedEvent {
 		Amount:        100,
 		Time:          time.Now(),
 		ManaType:      ConsensusMana,
-		TransactionID: transaction.RandomID(),
+		TransactionID: randomTxID(),
 	}
 }
 
@@ -100,5 +101,10 @@ func randomNodeID() (ID identity.ID) {
 	idBytes := make([]byte, sha256.Size)
 	_, _ = rand.Read(idBytes)
 	copy(ID[:], idBytes)
+	return
+}
+
+func randomTxID() (txID ledgerstate.TransactionID) {
+	txID, _ = ledgerstate.TransactionIDFromRandomness()
 	return
 }

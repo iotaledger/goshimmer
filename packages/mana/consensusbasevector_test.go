@@ -662,7 +662,7 @@ func TestConsensusBaseManaVector_BuildPastBaseVector(t *testing.T) {
 
 	tx1Info := &TxInfo{
 		TimeStamp:     txTime,
-		TransactionID: transaction.RandomID(),
+		TransactionID: randomTxID(),
 		TotalBalance:  10.0,
 		PledgeID:      map[Type]identity.ID{ConsensusMana: inputPledgeID1},
 		InputInfos: []InputInfo{
@@ -676,7 +676,7 @@ func TestConsensusBaseManaVector_BuildPastBaseVector(t *testing.T) {
 
 	tx2Info := &TxInfo{
 		TimeStamp:     txTime.Add(1 * time.Hour),
-		TransactionID: transaction.RandomID(),
+		TransactionID: randomTxID(),
 		TotalBalance:  5.0,
 		PledgeID:      map[Type]identity.ID{ConsensusMana: inputPledgeID2},
 		InputInfos: []InputInfo{
@@ -690,7 +690,7 @@ func TestConsensusBaseManaVector_BuildPastBaseVector(t *testing.T) {
 
 	tx3Info := &TxInfo{
 		TimeStamp:     txTime.Add(2 * time.Hour),
-		TransactionID: transaction.RandomID(),
+		TransactionID: randomTxID(),
 		TotalBalance:  10.0,
 		PledgeID:      map[Type]identity.ID{ConsensusMana: inputPledgeID3},
 		InputInfos: []InputInfo{

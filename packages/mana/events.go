@@ -1,6 +1,7 @@
 package mana
 
 import (
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"sort"
 	"sync"
 	"time"
@@ -67,7 +68,7 @@ type PledgedEvent struct {
 	Amount        float64
 	Time          time.Time
 	ManaType      Type // access or consensus
-	TransactionID transaction.ID
+	TransactionID ledgerstate.TransactionID
 }
 
 // PledgedEventJSON is a JSON serializable form of a PledgedEvent.
@@ -146,8 +147,8 @@ type RevokedEvent struct {
 	Amount        float64
 	Time          time.Time
 	ManaType      Type // shall only be consensus for now
-	TransactionID transaction.ID
-	InputID       transaction.OutputID
+	TransactionID ledgerstate.TransactionID
+	InputID       ledgerstate.OutputID
 }
 
 // RevokedEventJSON is a JSON serializable form of a RevokedEvent.

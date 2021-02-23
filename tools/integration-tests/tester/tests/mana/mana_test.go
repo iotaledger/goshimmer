@@ -3,7 +3,7 @@ package mana
 import (
 	"testing"
 	"time"
-	
+
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 	"github.com/mr-tron/base58"
