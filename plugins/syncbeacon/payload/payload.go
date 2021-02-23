@@ -1,7 +1,10 @@
 package payload
 
 import (
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
+	"fmt"
+
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 )
@@ -12,7 +15,11 @@ const (
 )
 
 // Type is the type of the syncbeacon payload.
-var Type = payload.Type(200)
+var Type = payload.NewType(200, ObjectName, func(data []byte) (payload payload.Payload, err error) {
+	payload, _, err = FromBytes(data)
+
+	return
+})
 
 // Payload represents the syncbeacon payload
 type Payload struct {
@@ -38,14 +45,17 @@ func FromBytes(bytes []byte) (result *Payload, consumedBytes int, err error) {
 	result = &Payload{}
 	_, err = marshalUtil.ReadUint32()
 	if err != nil {
+		err = fmt.Errorf("failed to parse payload size of syncbeacon payload: %w", err)
 		return
 	}
-	result.payloadType, err = marshalUtil.ReadUint32()
+	result.payloadType, err = payload.TypeFromMarshalUtil(marshalUtil)
 	if err != nil {
+		err = fmt.Errorf("failed to parse payload type of syncbeacon payload: %w", err)
 		return
 	}
 	result.sentTime, err = marshalUtil.ReadInt64()
 	if err != nil {
+		err = fmt.Errorf("failed to parse sent time of syncbeacon payload: %w", err)
 		return
 	}
 
@@ -69,11 +79,11 @@ func (p *Payload) SentTime() int64 {
 func (p *Payload) Bytes() []byte {
 	// initialize helper
 	marshalUtil := marshalutil.New()
-	objectLength := marshalutil.INT64_SIZE
+	objectLength := marshalutil.Int64Size
 
 	// marshal the p specific information
-	marshalUtil.WriteUint32(uint32(objectLength))
-	marshalUtil.WriteUint32(Type)
+	marshalUtil.WriteUint32(payload.TypeLength + uint32(objectLength))
+	marshalUtil.WriteBytes(Type.Bytes())
 	marshalUtil.WriteInt64(p.sentTime)
 
 	// return result
@@ -89,12 +99,4 @@ func (p *Payload) String() string {
 // IsSyncBeaconPayload checks if the message is sync beacon payload.
 func IsSyncBeaconPayload(p *Payload) bool {
 	return p.Type() == Type
-}
-
-func init() {
-	payload.RegisterType(Type, ObjectName, func(data []byte) (payload payload.Payload, err error) {
-		payload, _, err = FromBytes(data)
-
-		return
-	})
 }

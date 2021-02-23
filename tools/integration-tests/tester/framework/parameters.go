@@ -13,8 +13,8 @@ const (
 
 	logsDir = "/tmp/logs/"
 
-	disabledPluginsEntryNode = "portcheck,dashboard,analysis-client,profiling,gossip,drng,issuer,syncbeaconfollower,metrics,valuetransfers,messagelayer,pow,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint"
-	disabledPluginsPeer      = "portcheck,dashboard,analysis-client,profiling"
+	disabledPluginsEntryNode = "portcheck,dashboard,analysis-client,profiling,gossip,drng,issuer,syncbeaconfollower,metrics,valuetransfers,consensus,messagelayer,pow,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint,clock"
+	disabledPluginsPeer      = "portcheck,dashboard,analysis-client,profiling,clock"
 	snapshotFilePath         = "/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin"
 	dockerLogsPrefixLen      = 8
 
@@ -46,6 +46,14 @@ var (
 	ParaSyncBeaconOnEveryNode = false
 	// ParaManaOnEveryNode defines whether all nodes should have mana enabled.
 	ParaManaOnEveryNode = true
+	// ParaFPCRoundInterval defines how long a round lasts (in seconds)
+	ParaFPCRoundInterval int64 = 5
+	// ParaWaitForStatement is the time in seconds for which the node wait for receiveing the new statement.
+	ParaWaitForStatement = 3
+	// ParaFPCListen defines if the FPC service should listen.
+	ParaFPCListen = false
+	// ParaWriteStatement defines if the node should write statements.
+	ParaWriteStatement = true
 )
 
 var (
@@ -81,6 +89,11 @@ type GoShimmerConfig struct {
 	ManaAllowedConsensusFilterEnabled bool
 	ManaAllowedAccessPledge           []string
 	ManaAllowedConsensusPledge        []string
+
+	FPCRoundInterval int64
+	WaitForStatement int
+	FPCListen        bool
+	WriteStatement   bool
 }
 
 // NetworkConfig defines the config of a GoShimmer Docker network.

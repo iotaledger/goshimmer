@@ -5,6 +5,7 @@ import {RouterStore} from "mobx-react-router";
 
 export class DrngMessage {
     instance: number;
+    name: string;
     dpk: string;
     round: number; 
     randomness: string;
@@ -50,7 +51,10 @@ export class DrngStore {
             feed.push(
                 <tr key={msg.round}>
                     <td>
-                        {msg.instance}
+                        {msg.name}
+                    </td>
+                    <td>
+                        {msg.dpk.substring(0,4)+".."}
                     </td>
                     <td>
                         {msg.round}

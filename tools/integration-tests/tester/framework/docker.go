@@ -82,7 +82,7 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 		Cmd: strslice.StrSlice{
 			"--skip-config=true",
 			"--logger.level=debug",
-			fmt.Sprintf("--valueLayer.fcob.averageNetworkDelay=%d", ParaFCoBAverageNetworkDelay),
+			fmt.Sprintf("--messageLayer.fcob.averageNetworkDelay=%d", ParaFCoBAverageNetworkDelay),
 			fmt.Sprintf("--node.disablePlugins=%s", config.DisabledPlugins),
 			fmt.Sprintf("--pow.difficulty=%d", ParaPoWDifficulty),
 			fmt.Sprintf("--faucet.powDifficulty=%d", ParaPoWFaucetDifficulty),
@@ -112,14 +112,20 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 				return fmt.Sprintf("--faucet.seed=%s", genesisSeedBase58)
 			}(),
 			fmt.Sprintf("--faucet.tokensPerRequest=%d", ParaFaucetTokensPerRequest),
-			fmt.Sprintf("--valueLayer.snapshot.file=%s", config.SnapshotFilePath),
+			fmt.Sprintf("--messageLayer.snapshot.file=%s", config.SnapshotFilePath),
 			"--webapi.bindAddress=0.0.0.0:8080",
 			fmt.Sprintf("--autopeering.seed=base58:%s", config.Seed),
 			fmt.Sprintf("--autopeering.entryNodes=%s@%s:14626", config.EntryNodePublicKey, config.EntryNodeHost),
-			fmt.Sprintf("--drng.instanceId=%d", config.DRNGInstance),
-			fmt.Sprintf("--drng.threshold=%d", config.DRNGThreshold),
-			fmt.Sprintf("--drng.committeeMembers=%s", config.DRNGCommittee),
-			fmt.Sprintf("--drng.distributedPubKey=%s", config.DRNGDistKey),
+			fmt.Sprintf("--fpc.roundInterval=%d", config.FPCRoundInterval),
+			fmt.Sprintf("--fpc.listen=%v", config.FPCListen),
+			fmt.Sprintf("--statement.writeStatement=%v", config.WriteStatement),
+			fmt.Sprintf("--statement.waitForStatement=%d", config.WaitForStatement),
+			fmt.Sprintf("--drng.custom.instanceId=%d", config.DRNGInstance),
+			fmt.Sprintf("--drng.custom.threshold=%d", config.DRNGThreshold),
+			fmt.Sprintf("--drng.custom.committeeMembers=%s", config.DRNGCommittee),
+			fmt.Sprintf("--drng.custom.distributedPubKey=%s", config.DRNGDistKey),
+			fmt.Sprintf("--drng.xteam.committeeMembers="),
+			fmt.Sprintf("--drng.pollen.committeeMembers="),
 			fmt.Sprintf("--syncbeaconfollower.followNodes=%s", config.SyncBeaconFollowNodes),
 			fmt.Sprintf("--syncbeacon.broadcastInterval=%d", config.SyncBeaconBroadcastInterval),
 			"--syncbeacon.startSynced=true",
@@ -154,7 +160,7 @@ func (d *DockerContainer) CreateDrandMember(name string, goShimmerAPI string, le
 	}
 	env = append(env, "GOSHIMMER=http://"+goShimmerAPI)
 	containerConfig := &container.Config{
-		Image: "angelocapossele/drand:1.1.3",
+		Image: "angelocapossele/drand:v1.1.4",
 		ExposedPorts: nat.PortSet{
 			nat.Port("8000/tcp"): {},
 		},

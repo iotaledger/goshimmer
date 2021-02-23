@@ -67,7 +67,7 @@ func configure(_ *node.Plugin) {
 }
 
 func run(_ *node.Plugin) {
-	bindAddr := config.Node().GetString(CfgAnalysisServerBindAddress)
+	bindAddr := config.Node().String(CfgAnalysisServerBindAddress)
 	addr, portStr, err := net.SplitHostPort(bindAddr)
 	if err != nil {
 		log.Fatal("invalid bind address in %s: %s", CfgAnalysisServerBindAddress, err)
@@ -148,7 +148,7 @@ func processHeartbeatPacket(data []byte) {
 }
 
 // processHeartbeatPacket parses the serialized data into a FPC Heartbeat packet and triggers its event.
-// Note that the processFPCHeartbeatPacket function will return an error if the hb version field is different than banner.AppVersion,
+// Note that the processFPCHeartbeatPacket function will return an error if the hb version field is different than banner.SimplifiedAppVersion,
 // thus the hb will be discarded.
 func processFPCHeartbeatPacket(data []byte) {
 	hb, err := packet.ParseFPCHeartbeat(data)
@@ -162,7 +162,7 @@ func processFPCHeartbeatPacket(data []byte) {
 }
 
 // processMetricHeartbeatPacket parses the serialized data into a Metric Heartbeat packet and triggers its event.
-// Note that the ParseMetricHeartbeat function will return an error if the hb version field is different than banner.AppVersion,
+// Note that the ParseMetricHeartbeat function will return an error if the hb version field is different than banner.SimplifiedAppVersion,
 // thus the hb will be discarded.
 func processMetricHeartbeatPacket(data []byte) {
 	hb, err := packet.ParseMetricHeartbeat(data)

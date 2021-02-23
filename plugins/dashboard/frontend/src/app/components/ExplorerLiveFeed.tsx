@@ -27,13 +27,14 @@ export class ExplorerLiveFeed extends React.Component<Props, any> {
                             <Row className={"mb-3"}>
                                 <Col xs={12}>
                                     <h6>Messages</h6>
-                                    <Table>
+                                    <Table style={{'height':'500px', 'overflow':'scroll', 'display':'block'}}>
                                         <thead>
                                         <tr>
                                             <td>Id</td>
+                                            <td>Payload Type</td>
                                         </tr>
                                         </thead>
-                                        <tbody style={{'height':'300px', 'overflow':'scroll', 'display':'block'}}>
+                                        <tbody >
                                         {msgsLiveFeed}
                                         </tbody>
                                     </Table>

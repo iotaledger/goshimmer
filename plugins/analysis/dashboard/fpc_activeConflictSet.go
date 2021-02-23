@@ -3,6 +3,8 @@ package dashboard
 import (
 	"sync"
 	"time"
+
+	"github.com/iotaledger/goshimmer/packages/clock"
 )
 
 // activeConflictSet contains the set of the active conflicts, not yet finalized.
@@ -64,7 +66,7 @@ func (cr *activeConflictSet) update(ID string, c conflict) {
 	}
 
 	tmp := cr.conflictSet[ID]
-	tmp.Modified = time.Now()
+	tmp.Modified = clock.SyncedTime()
 	cr.conflictSet[ID] = tmp
 }
 

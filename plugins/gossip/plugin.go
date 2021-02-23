@@ -4,10 +4,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/messagerequester"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -30,6 +29,8 @@ var (
 	log                     *logger.Logger
 	ageThreshold            time.Duration
 	tipsBroadcasterInterval time.Duration
+
+	requestedMsgs *requestedMessages
 )
 
 // Plugin gets the plugin instance.
@@ -42,8 +43,9 @@ func Plugin() *node.Plugin {
 
 func configure(*node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	ageThreshold = config.Node().GetDuration(CfgGossipAgeThreshold)
-	tipsBroadcasterInterval = config.Node().GetDuration(CfgGossipTipsBroadcastInterval)
+	ageThreshold = config.Node().Duration(CfgGossipAgeThreshold)
+	tipsBroadcasterInterval = config.Node().Duration(CfgGossipTipsBroadcastInterval)
+	requestedMsgs = newRequestedMessages()
 
 	configureLogging()
 	configureMessageLayer()
@@ -124,26 +126,34 @@ func configureMessageLayer() {
 
 	// configure flow of incoming messages
 	mgr.Events().MessageReceived.Attach(events.NewClosure(func(event *gossip.MessageReceivedEvent) {
-		messagelayer.MessageParser().Parse(event.Data, event.Peer)
+		messagelayer.Tangle().ProcessGossipMessage(event.Data, event.Peer)
 	}))
 
-	// configure flow of outgoing messages (gossip on solidification)
-	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
-		defer cachedMsgEvent.Message.Release()
-		defer cachedMsgEvent.MessageMetadata.Release()
+	// configure flow of outgoing messages (gossip after booking)
+	messagelayer.Tangle().Booker.Events.MessageBooked.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
+			messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
+				if time.Since(messageMetadata.ReceivedTime()) > ageThreshold {
+					return
+				}
 
-		// only broadcast new message shortly after they have been received
-		metadata := cachedMsgEvent.MessageMetadata.Unwrap()
-		if time.Since(metadata.ReceivedTime()) > ageThreshold {
-			return
-		}
+				// do not gossip requested messages
+				if requested := requestedMsgs.delete(messageID); requested {
+					return
+				}
 
-		msg := cachedMsgEvent.Message.Unwrap()
-		mgr.SendMessage(msg.Bytes())
+				mgr.SendMessage(message.Bytes())
+			})
+		})
 	}))
 
 	// request missing messages
-	messagelayer.MessageRequester().Events.SendRequest.Attach(events.NewClosure(func(sendRequest *messagerequester.SendRequestEvent) {
+	messagelayer.Tangle().Requester.Events.SendRequest.Attach(events.NewClosure(func(sendRequest *tangle.SendRequestEvent) {
 		mgr.RequestMessage(sendRequest.ID[:])
 	}))
+
+	messagelayer.Tangle().Storage.Events.MissingMessageStored.Attach(events.NewClosure(requestedMsgs.append))
+
+	// delete the message from requestedMsgs if it's invalid, otherwise it will always be in the list and never get removed in some cases.
+	messagelayer.Tangle().Events.MessageInvalid.Attach(events.NewClosure(func(messageID tangle.MessageID) { requestedMsgs.delete(messageID) }))
 }

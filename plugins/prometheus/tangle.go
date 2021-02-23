@@ -1,7 +1,6 @@
 package prometheus
 
 import (
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -64,11 +63,6 @@ func registerTangleMetrics() {
 		Help: "number of value transactions (value payloads) seen",
 	})
 
-	valueTips = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "tangle_value_tips",
-		Help: "current number of tips in the value tangle",
-	})
-
 	messageRequestCount = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "tangle_message_request_queue_size",
 		Help: "current number requested messages by the message tangle",
@@ -83,7 +77,6 @@ func registerTangleMetrics() {
 	registry.MustRegister(messageMissingCountDB)
 	registry.MustRegister(messageRequestCount)
 	registry.MustRegister(transactionCounter)
-	registry.MustRegister(valueTips)
 
 	addCollect(collectTangleMetrics)
 }
@@ -92,7 +85,7 @@ func collectTangleMetrics() {
 	messageTips.Set(float64(metrics.MessageTips()))
 	msgCountPerPayload := metrics.MessageCountSinceStartPerPayload()
 	for payloadType, count := range msgCountPerPayload {
-		messagePerTypeCount.WithLabelValues(payload.Name(payloadType)).Set(float64(count))
+		messagePerTypeCount.WithLabelValues(payloadType.String()).Set(float64(count))
 	}
 	messageTotalCount.Set(float64(metrics.MessageTotalCountSinceStart()))
 	messageTotalCountDB.Set(float64(metrics.MessageTotalCountDB()))
@@ -100,6 +93,5 @@ func collectTangleMetrics() {
 	avgSolidificationTime.Set(metrics.AvgSolidificationTime())
 	messageMissingCountDB.Set(float64(metrics.MessageMissingCountDB()))
 	messageRequestCount.Set(float64(metrics.MessageRequestQueueSize()))
-	transactionCounter.Set(float64(metrics.ValueTransactionCounter()))
-	valueTips.Set(float64(metrics.ValueTips()))
+	// transactionCounter.Set(float64(metrics.ValueTransactionCounter()))
 }

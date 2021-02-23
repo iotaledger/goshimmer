@@ -3,8 +3,8 @@ package metrics
 import (
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 	"github.com/iotaledger/goshimmer/packages/metrics"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/syncutils"
 	"go.uber.org/atomic"
@@ -71,12 +71,12 @@ func MessageCountSinceStartPerPayload() map[payload.Type]uint64 {
 	defer messageCountPerPayloadMutex.RUnlock()
 
 	// copy the original map
-	copy := make(map[payload.Type]uint64)
+	clone := make(map[payload.Type]uint64)
 	for key, element := range messageCountPerPayload {
-		copy[key] = element
+		clone[key] = element
 	}
 
-	return copy
+	return clone
 }
 
 // MessageTips returns the actual number of tips in the message tangle.
@@ -132,7 +132,7 @@ func increasePerPayloadCounter(p payload.Type) {
 }
 
 func measureMessageTips() {
-	metrics.Events().MessageTips.Trigger((uint64)(messagelayer.TipSelector().TipCount()))
+	metrics.Events().MessageTips.Trigger((uint64)(messagelayer.Tangle().TipManager.StrongTipCount()))
 }
 
 // increases the received MPS counter
@@ -156,12 +156,12 @@ func measureReceivedMPS() {
 }
 
 func measureRequestQueueSize() {
-	size := int64(messagelayer.MessageRequester().RequestQueueSize())
+	size := int64(messagelayer.Tangle().Requester.RequestQueueSize())
 	requestQueueSize.Store(size)
 }
 
 func measureInitialDBStats() {
-	solid, total, avgSolidTime, missing := messagelayer.Tangle().DBStats()
+	solid, total, avgSolidTime, missing := messagelayer.Tangle().Storage.DBStats()
 	initialMessageSolidCountDB = uint64(solid)
 	initialMessageTotalCountDB = uint64(total)
 	initialSumSolidificationTime = avgSolidTime * float64(solid)

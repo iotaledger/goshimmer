@@ -4,15 +4,27 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"os"
+
+	"github.com/iotaledger/goshimmer/client"
 )
 
 // config type that defines the config structure
 type configuration struct {
-	WebAPI string
+	WebAPI    string           `json:"WebAPI,omitempty"`
+	BasicAuth client.BasicAuth `json:"basic_auth,omitempty"`
 }
 
 // internal variable that holds the config
 var config = configuration{}
+
+var configJSON = `{
+	"WebAPI": "http://127.0.0.1:8080",
+	"basic_auth": {
+	  "enabled": false,
+	  "username": "goshimmer",
+	  "password": "goshimmer"
+	}
+}`
 
 // load the config file
 func loadConfig() {
@@ -23,7 +35,7 @@ func loadConfig() {
 			panic(err)
 		}
 
-		if err = ioutil.WriteFile("config.json", []byte("{\n  \"WebAPI\": \"http://127.0.0.1:8080\"\n}"), 0644); err != nil {
+		if err = ioutil.WriteFile("config.json", []byte(configJSON), 0644); err != nil {
 			panic(err)
 		}
 		if file, err = os.Open("config.json"); err != nil {

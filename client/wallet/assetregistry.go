@@ -1,27 +1,27 @@
 package wallet
 
 import (
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/typeutils"
 )
 
 // AssetRegistry represents a registry for colored coins, that stores the relevant metadata in a dictionary.
 type AssetRegistry struct {
-	assets map[balance.Color]Asset
+	assets map[ledgerstate.Color]Asset
 }
 
 // NewAssetRegistry is the constructor for the AssetRegistry.
 func NewAssetRegistry() *AssetRegistry {
 	return &AssetRegistry{
-		make(map[balance.Color]Asset),
+		make(map[ledgerstate.Color]Asset),
 	}
 }
 
 // ParseAssetRegistry is a utility function that can be used to parse a marshaled version of the registry.
 func ParseAssetRegistry(marshalUtil *marshalutil.MarshalUtil) (assetRegistry *AssetRegistry, consumedBytes int, err error) {
 	assetRegistry = &AssetRegistry{
-		assets: make(map[balance.Color]Asset),
+		assets: make(map[ledgerstate.Color]Asset),
 	}
 
 	startingOffset := marshalUtil.ReadOffset()
@@ -34,13 +34,13 @@ func ParseAssetRegistry(marshalUtil *marshalutil.MarshalUtil) (assetRegistry *As
 	for i := uint64(0); i < assetCount; i++ {
 		asset := Asset{}
 
-		colorBytes, parseErr := marshalUtil.ReadBytes(balance.ColorLength)
+		colorBytes, parseErr := marshalUtil.ReadBytes(ledgerstate.ColorLength)
 		if parseErr != nil {
 			err = parseErr
 
 			return
 		}
-		color, _, parseErr := balance.ColorFromBytes(colorBytes)
+		color, _, parseErr := ledgerstate.ColorFromBytes(colorBytes)
 		if parseErr != nil {
 			err = parseErr
 
@@ -94,17 +94,17 @@ func ParseAssetRegistry(marshalUtil *marshalutil.MarshalUtil) (assetRegistry *As
 }
 
 // RegisterAsset registers an asset in the registry, so we can look up names and symbol of colored coins.
-func (assetRegistry *AssetRegistry) RegisterAsset(color balance.Color, asset Asset) {
+func (assetRegistry *AssetRegistry) RegisterAsset(color ledgerstate.Color, asset Asset) {
 	assetRegistry.assets[color] = asset
 }
 
 // Name returns the name of the given asset.
-func (assetRegistry *AssetRegistry) Name(color balance.Color) string {
+func (assetRegistry *AssetRegistry) Name(color ledgerstate.Color) string {
 	if asset, assetExists := assetRegistry.assets[color]; assetExists {
 		return asset.Name
 	}
 
-	if color == balance.ColorIOTA {
+	if color == ledgerstate.ColorIOTA {
 		return "IOTA"
 	}
 
@@ -112,12 +112,12 @@ func (assetRegistry *AssetRegistry) Name(color balance.Color) string {
 }
 
 // Symbol return the symbol of the token.
-func (assetRegistry *AssetRegistry) Symbol(color balance.Color) string {
+func (assetRegistry *AssetRegistry) Symbol(color ledgerstate.Color) string {
 	if asset, assetExists := assetRegistry.assets[color]; assetExists {
 		return asset.Symbol
 	}
 
-	if color == balance.ColorIOTA {
+	if color == ledgerstate.ColorIOTA {
 		return "I"
 	}
 
@@ -125,7 +125,7 @@ func (assetRegistry *AssetRegistry) Symbol(color balance.Color) string {
 }
 
 // Precision returns the amount of decimal places that this token uses.
-func (assetRegistry *AssetRegistry) Precision(color balance.Color) int {
+func (assetRegistry *AssetRegistry) Precision(color ledgerstate.Color) int {
 	if asset, assetExists := assetRegistry.assets[color]; assetExists {
 		return asset.Precision
 	}

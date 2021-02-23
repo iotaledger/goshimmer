@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/database/prefix"
+	databasePkg "github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/hive.go/autopeering/peer"
@@ -26,7 +26,7 @@ func configureLocal() *peer.Local {
 	log := logger.NewLogger("Local")
 
 	var peeringIP net.IP
-	if str := config.Node().GetString(CfgExternal); strings.ToLower(str) == "auto" {
+	if str := config.Node().String(CfgExternal); strings.ToLower(str) == "auto" {
 		// let the autopeering discover the IP
 		peeringIP = net.IPv4zero
 	} else {
@@ -39,7 +39,7 @@ func configureLocal() *peer.Local {
 		}
 	}
 
-	peeringPort := config.Node().GetInt(CfgPort)
+	peeringPort := config.Node().Int(CfgPort)
 	if 0 > peeringPort || peeringPort > 65535 {
 		log.Fatalf("Invalid port number (%s): %d", CfgPort, peeringPort)
 	}
@@ -50,7 +50,7 @@ func configureLocal() *peer.Local {
 
 	// set the private key from the seed provided in the config
 	var seed [][]byte
-	if str := config.Node().GetString(CfgSeed); str != "" {
+	if str := config.Node().String(CfgSeed); str != "" {
 		var bytes []byte
 		var err error
 
@@ -70,7 +70,7 @@ func configureLocal() *peer.Local {
 		}
 		seed = append(seed, bytes)
 	}
-	peerDB, err := peer.NewDB(database.StoreRealm([]byte{prefix.DBPrefixAutoPeering}))
+	peerDB, err := peer.NewDB(database.StoreRealm([]byte{databasePkg.PrefixAutoPeering}))
 	if err != nil {
 		log.Fatalf("Error creating peer DB: %s", err)
 	}

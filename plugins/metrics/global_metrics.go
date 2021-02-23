@@ -58,8 +58,8 @@ func NodesMetrics() map[string]NodeInfo {
 func calculateNetworkDiameter() {
 	diameter := 0
 	// TODO: send data for all available networkIDs, not just current
-	if analysisserver.Networks[banner.AppVersion] != nil {
-		g := analysisserver.Networks[banner.AppVersion].NetworkGraph()
+	if analysisserver.Networks[banner.SimplifiedAppVersion] != nil {
+		g := analysisserver.Networks[banner.SimplifiedAppVersion].NetworkGraph()
 		diameter = g.Diameter()
 	}
 	networkDiameter.Store(int32(diameter))

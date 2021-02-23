@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+
 	"github.com/iotaledger/goshimmer/client/wallet"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/mr-tron/base58"
 )
 
@@ -36,31 +37,34 @@ func execSendFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 		printUsage(command, "color must be set")
 	}
 
-	destinationAddress, err := address.FromBase58(*addressPtr)
+	destinationAddress, err := ledgerstate.AddressFromBase58EncodedString(*addressPtr)
 	if err != nil {
 		printUsage(command, err.Error())
+		return
 	}
 
-	var color balance.Color
+	var color ledgerstate.Color
 	switch *colorPtr {
 	case "IOTA":
-		color = balance.ColorIOTA
+		color = ledgerstate.ColorIOTA
 	case "NEW":
-		color = balance.ColorNew
+		color = ledgerstate.ColorMint
 	default:
 		colorBytes, parseErr := base58.Decode(*colorPtr)
 		if parseErr != nil {
 			printUsage(command, parseErr.Error())
 		}
 
-		color, _, parseErr = balance.ColorFromBytes(colorBytes)
+		color, _, parseErr = ledgerstate.ColorFromBytes(colorBytes)
 		if parseErr != nil {
 			printUsage(command, parseErr.Error())
 		}
 	}
 
 	_, err = cliWallet.SendFunds(
-		wallet.Destination(destinationAddress, uint64(*amountPtr), color),
+		wallet.Destination(address.Address{
+			AddressBytes: destinationAddress.Array(),
+		}, uint64(*amountPtr), color),
 	)
 	if err != nil {
 		printUsage(command, err.Error())

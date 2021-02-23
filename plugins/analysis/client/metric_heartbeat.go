@@ -35,7 +35,7 @@ func createMetricHeartbeat() *packet.MetricHeartbeat {
 	}
 
 	return &packet.MetricHeartbeat{
-		Version: banner.AppVersion,
+		Version: banner.SimplifiedAppVersion,
 		OwnID:   nodeID,
 		OS:      runtime.GOOS,
 		Arch:    runtime.GOARCH,

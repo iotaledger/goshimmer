@@ -5,14 +5,12 @@ import (
 	"testing"
 	"time"
 
-	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/plugins/webapi/value/utils"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/plugins/webapi/value"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -27,9 +25,9 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	backupFCoBAvgNetworkDelay := framework.ParaFCoBAverageNetworkDelay
 	backupBootstrapOnEveryNode := framework.ParaSyncBeaconOnEveryNode
 	backupParaWaitToKill := framework.ParaWaitToKill
-	framework.ParaFCoBAverageNetworkDelay = 90
+	framework.ParaFCoBAverageNetworkDelay = 60
 	framework.ParaSyncBeaconOnEveryNode = true
-	framework.ParaWaitToKill = 2 * framework.ParaFCoBAverageNetworkDelay
+	framework.ParaWaitToKill = 2*framework.ParaFCoBAverageNetworkDelay + 10
 
 	// reset framework paras
 	defer func() {
@@ -39,7 +37,7 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	}()
 
 	// create two partitions with their own peers
-	n, err := f.CreateNetworkWithPartitions("abc", 6, 2, 2, framework.CreateNetworkConfig{})
+	n, err := f.CreateNetworkWithPartitions("abc", 6, 2, 2)
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -55,29 +53,30 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	genesisSeedBytes, err := base58.Decode("7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih")
 	require.NoError(t, err, "couldn't decode genesis seed from base58 seed")
 
-	const genesisBalance = 1000000000
-	genesisSeed := walletseed.NewSeed(genesisSeedBytes)
-	genesisAddr := genesisSeed.Address(0).Address
-	genesisOutputID := transaction.NewOutputID(genesisAddr, transaction.GenesisID)
+	const genesisBalance = 1000000000000000
+	genesisSeed := seed.NewSeed(genesisSeedBytes)
+	genesisOutputID := ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0)
+	input := ledgerstate.NewUTXOInput(genesisOutputID)
 
 	// issue transactions which spend the same genesis output in all partitions
-	conflictingTxs := make([]*transaction.Transaction, len(n.Partitions()))
+	conflictingTxs := make([]*ledgerstate.Transaction, len(n.Partitions()))
 	conflictingTxIDs := make([]string, len(n.Partitions()))
-	receiverSeeds := make([]*walletseed.Seed, len(n.Partitions()))
+	receiverSeeds := make([]*seed.Seed, len(n.Partitions()))
+
 	for i, partition := range n.Partitions() {
 
 		// create a new receiver wallet for the given partition
-		partitionReceiverSeed := walletseed.NewSeed()
-		destAddr := partitionReceiverSeed.Address(0).Address
+		partitionReceiverSeed := seed.NewSeed()
+		destAddr := partitionReceiverSeed.Address(0).Address()
 		receiverSeeds[i] = partitionReceiverSeed
-		tx := transaction.New(
-			transaction.NewInputs(genesisOutputID),
-			transaction.NewOutputs(map[address.Address][]*balance.Balance{
-				destAddr: {
-					{Value: genesisBalance, Color: balance.ColorIOTA},
-				},
-			}))
-		tx = tx.Sign(signaturescheme.ED25519(*genesisSeed.KeyPair(0)))
+		output := ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
+			ledgerstate.ColorIOTA: uint64(genesisBalance),
+		}), destAddr)
+		txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, ledgerstate.NewInputs(input), ledgerstate.NewOutputs(output))
+		kp := genesisSeed.KeyPair(0)
+		sig := ledgerstate.NewED25519Signature(kp.PublicKey, kp.PrivateKey.Sign(txEssence.Bytes()))
+		unlockBlock := ledgerstate.NewSignatureUnlockBlock(sig)
+		tx := ledgerstate.NewTransaction(txEssence, ledgerstate.UnlockBlocks{unlockBlock})
 		conflictingTxs[i] = tx
 
 		// issue the transaction on the first peer of the partition
@@ -86,21 +85,6 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 		conflictingTxIDs[i] = txID
 		log.Printf("issued conflict transaction %s on partition %d on peer %s", txID, i, issuerPeer.ID().String())
 		assert.NoError(t, err)
-
-		// check that the transaction is actually available on all the peers of the partition
-		missing, err := tests.AwaitTransactionAvailability(partition.Peers(), []string{txID}, 15*time.Second)
-		if err != nil {
-			assert.NoError(t, err, "transactions should have been available in partition")
-			for p, missingOnPeer := range missing {
-				log.Printf("missing on peer %s:", p)
-				for missingTx := range missingOnPeer {
-					log.Println("tx id: ", missingTx)
-				}
-			}
-			return
-		}
-
-		require.NoError(t, err)
 	}
 
 	// sleep the avg. network delay so both partitions prefer their own first seen transaction
@@ -120,7 +104,6 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 			Solid:       tests.True(),
 			Rejected:    tests.False(),
 			Liked:       tests.True(),
-			Preferred:   tests.True(),
 		})
 	}
 
@@ -131,9 +114,12 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	err = n.WaitForAutopeering(4)
 	require.NoError(t, err)
 
-	// ensure message flow so that both partitions will get the conflicting tx
-	for _, p := range n.Peers() {
-		tests.SendDataMessage(t, p, []byte("DATA"), 10)
+	for _, conflict := range conflictingTxs {
+		// issue the reattachment on the first peer
+		issuerPeer := n.Peers()[0]
+		_, err := issuerPeer.SendPayload(conflict.Bytes())
+		log.Printf("issued reattachment conflict transaction %s on peer %s", conflict.ID(), issuerPeer.ID().String())
+		assert.NoError(t, err)
 	}
 
 	log.Println("waiting for transactions to be available on all peers...")
@@ -151,8 +137,8 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 
 	expectations := map[string]*tests.ExpectedTransaction{}
 	for _, conflictingTx := range conflictingTxs {
-		utilsTx := utils.ParseTransaction(conflictingTx)
-		expectations[conflictingTx.ID().String()] = &tests.ExpectedTransaction{
+		utilsTx := value.ParseTransaction(conflictingTx)
+		expectations[conflictingTx.ID().Base58()] = &tests.ExpectedTransaction{
 			Inputs:    &utilsTx.Inputs,
 			Outputs:   &utilsTx.Outputs,
 			Signature: &utilsTx.Signature,
@@ -170,7 +156,7 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	log.Println("waiting for voting/transaction finalization to be done on all peers...")
 	awaitFinalization := map[string]tests.ExpectedInclusionState{}
 	for _, conflictingTx := range conflictingTxs {
-		awaitFinalization[conflictingTx.ID().String()] = tests.ExpectedInclusionState{
+		awaitFinalization[conflictingTx.ID().Base58()] = tests.ExpectedInclusionState{
 			Finalized: tests.True(),
 		}
 	}
