@@ -1,14 +1,21 @@
-name: Develop
-'on':
+name: Develop Docker Image
+
+on:
   push:
     branches:
       - develop
+    paths-ignore:
+      - 'docs/**'
+
 jobs:
+
   docker:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+
+      - name: Checkout repository
         uses: actions/checkout@v2
+
       - name: Publish to Docker Hub
         uses: docker/build-push-action@92e71463491f2d026a477188b8ad3a0fdd9d672c
         with:

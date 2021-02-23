@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - develop
-    paths: 
+    paths:
       - 'docs/**'
 
 jobs:
@@ -12,7 +12,8 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out 
+
+      - name: Checkout repository
         uses: actions/checkout@v2
 
       - name: Setup mdBook
@@ -20,7 +21,7 @@ jobs:
         with:
           mdbook-version: 'latest'
 
-      - name: Run mdBook 
+      - name: Run mdBook
         run: mdbook build
 
       - name: Deploy to GitHub Pages
