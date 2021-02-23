@@ -74,7 +74,7 @@ type ExplorerOutput struct {
 	InclusionState     valueutils.InclusionState `json:"inclusion_state"`
 	SolidificationTime int64                     `json:"solidification_time"`
 	ConsumerCount      int                       `json:"consumer_count"`
-	PendingMana        float64              `json:"pending_mana"`
+	PendingMana        float64                   `json:"pending_mana"`
 }
 
 // SearchResult defines the struct of the SearchResult.

@@ -3,7 +3,6 @@ package mana
 import (
 	"net/http"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
 	"github.com/labstack/echo"
 )
