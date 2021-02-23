@@ -12,7 +12,6 @@ import (
 	"github.com/iotaledger/hive.go/crypto/bls"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58/base58"
 )
@@ -63,14 +62,13 @@ func sendTransactionByJSONHandler(c echo.Context) error {
 // NewTransactionFromJSON returns a new transaction from a given JSON request or an error.
 func NewTransactionFromJSON(request SendTransactionByJSONRequest) (*ledgerstate.Transaction, error) {
 	// prepare inputs
-	inputs := make(ledgerstate.Inputs, len(request.Inputs))
-	for i, input := range request.Inputs {
-		b, err := base58.Decode(input)
-		in, _, err := ledgerstate.InputFromBytes(b)
+	var inputs []ledgerstate.Input
+	for _, input := range request.Inputs {
+		in, err := ledgerstate.OutputIDFromBase58(input)
 		if err != nil {
 			return nil, ErrMalformedInputs
 		}
-		inputs[i] = in
+		inputs = append(inputs, ledgerstate.NewUTXOInput(in))
 	}
 
 	// prepare outputs
@@ -129,21 +127,12 @@ func NewTransactionFromJSON(request SendTransactionByJSONRequest) (*ledgerstate.
 				return nil, ErrMalformedPublicKey
 			}
 
-			signatureBytes, err := base58.Decode(signature.Signature)
-			if err != nil || len(signatureBytes) != ed25519.SignatureSize {
+			sig, err := ledgerstate.SignatureFromBase58EncodedString(signature.Signature)
+			if err != nil {
 				return nil, ErrMalformedSignature
 			}
 
-			marshalUtil := marshalutil.New()
-			marshalUtil.WriteByte(byte(ledgerstate.ED25519SignatureType))
-			marshalUtil.WriteBytes(pubKeyBytes[:])
-			marshalUtil.WriteBytes(signatureBytes[:])
-			sign, _, err := ledgerstate.ED25519SignatureFromBytes(marshalUtil.Bytes())
-			if err != nil {
-				return nil, ErrWrongSignature
-			}
-
-			unlockBlocks[i] = ledgerstate.NewSignatureUnlockBlock(sign)
+			unlockBlocks[i] = ledgerstate.NewSignatureUnlockBlock(sig)
 
 		case ledgerstate.BLSSignatureType:
 			pubKeyBytes, err := base58.Decode(signature.PublicKey)
@@ -151,21 +140,12 @@ func NewTransactionFromJSON(request SendTransactionByJSONRequest) (*ledgerstate.
 				return nil, ErrMalformedPublicKey
 			}
 
-			signatureBytes, err := base58.Decode(signature.Signature)
-			if err != nil || len(signatureBytes) != bls.SignatureSize {
+			sig, err := ledgerstate.SignatureFromBase58EncodedString(signature.Signature)
+			if err != nil {
 				return nil, ErrMalformedSignature
 			}
 
-			marshalUtil := marshalutil.New()
-			marshalUtil.WriteByte(byte(ledgerstate.BLSSignatureType))
-			marshalUtil.WriteBytes(pubKeyBytes[:])
-			marshalUtil.WriteBytes(signatureBytes[:])
-
-			sign, _, err := ledgerstate.BLSSignatureFromBytes(marshalUtil.Bytes())
-			if err != nil {
-				return nil, ErrWrongSignature
-			}
-			unlockBlocks[i] = ledgerstate.NewSignatureUnlockBlock(sign)
+			unlockBlocks[i] = ledgerstate.NewSignatureUnlockBlock(sig)
 
 		default:
 			return nil, ErrSignatureVersion
@@ -187,16 +167,12 @@ func NewTransactionFromJSON(request SendTransactionByJSONRequest) (*ledgerstate.
 // 		   "color": string
 // 	   }[];
 // 	 }[],
-// 	 "signatures": {
-// 		"version": number,
-// 		"publicKey": string,
-// 		"signature": string
-// 	   }[]
+// 	 "signatures": []string
 //  }
 type SendTransactionByJSONRequest struct {
-	Inputs     []string    `json:"inputs"`
-	Outputs    []Output    `json:"outputs"`
-	Signatures []Signature `json:"signatures"`
+	Inputs     []string `json:"inputs"`
+	Outputs    []Output `json:"outputs"`
+	Signatures []string `json:"signatures"`
 }
 
 // SendTransactionByJSONResponse is the HTTP response from sending transaction.
