@@ -9,30 +9,43 @@ import (
 )
 
 const (
-	cfgNodeURI = "node"
-	cfgMessage = "message"
+	cfgNodeURI = "nodeURIs"
+	cfgMPM     = "mpm"
+	cfgEnable  = "enable"
 )
 
 func init() {
-	flag.String(cfgNodeURI, "http://127.0.0.1:8080", "the URI of the node API")
-	flag.String(cfgMessage, "", "the URI of the node API")
+	flag.StringSlice(cfgNodeURI, []string{"http://127.0.0.1:8080"}, "the URI of the node APIs")
+	flag.Int(cfgMPM, 1000, "spam count in messages per minute (MPM)")
+	flag.Bool(cfgEnable, false, "enable/disable spammer")
 }
 
 func main() {
+	// example usage:
+	//   go run main.go --nodeURIs=http://127.0.0.1:8080 --mpm=600 --enable=true
 	flag.Parse()
 	if err := viper.BindPFlags(flag.CommandLine); err != nil {
 		panic(err)
 	}
-	goshimAPI := client.NewGoShimmerAPI(viper.GetString(cfgNodeURI))
-	messageBytes := []byte(viper.GetString(cfgMessage))
-	var issued, failed int
-	for {
-		fmt.Printf("issued %d, failed %d\r", issued, failed)
-		_, err := goshimAPI.Data(messageBytes)
+
+	mpm := viper.GetInt(cfgMPM)
+	if mpm <= 0 {
+		panic("invalid value for `mpm` [>0]")
+	}
+	enableSpammer := viper.GetBool(cfgEnable)
+
+	var apis = []*client.GoShimmerAPI{}
+	for _, api := range viper.GetStringSlice(cfgNodeURI) {
+		apis = append(apis, client.NewGoShimmerAPI(api))
+	}
+
+	for _, api := range apis {
+		resp, err := api.ToggleSpammer(enableSpammer, mpm)
 		if err != nil {
-			failed++
+			fmt.Println(err)
 			continue
 		}
-		issued++
+		fmt.Println(resp)
 	}
+
 }
