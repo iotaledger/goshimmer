@@ -121,8 +121,8 @@ func (s *Scheduler) Shutdown() {
 	close(s.close)
 	close(s.inbox)
 
-	s.outboxWorkerPool.ShutdownGracefully()
 	s.timeQueue.Stop()
+	s.outboxWorkerPool.ShutdownGracefully()
 }
 
 func (s *Scheduler) schedule(messageID MessageID) {

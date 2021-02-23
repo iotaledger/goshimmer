@@ -51,11 +51,6 @@ func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
 	messageTangle := New()
 	messageTangle.Setup()
 	defer messageTangle.Shutdown()
-	if err := messageTangle.Prune(); err != nil {
-		t.Error(err)
-
-		return
-	}
 
 	var storedMessages, solidMessages, invalidMessages int32
 

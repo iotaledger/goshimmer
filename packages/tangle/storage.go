@@ -320,6 +320,8 @@ func (s *Storage) Prune() error {
 		}
 	}
 
+	s.storeGenesis()
+
 	return nil
 }
 
