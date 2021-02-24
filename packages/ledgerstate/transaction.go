@@ -466,6 +466,11 @@ func TransactionEssenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (tr
 	return
 }
 
+// SetPayload set the optional Payload of the TransactionEssence.
+func (t *TransactionEssence) SetPayload(p payload.Payload) {
+	t.payload = p
+}
+
 // Version returns the Version of the TransactionEssence.
 func (t *TransactionEssence) Version() TransactionEssenceVersion {
 	return t.version

@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/crypto/bls"
@@ -19,10 +21,14 @@ import (
 var (
 	sendTxByJSONMu sync.Mutex
 
+	// ErrMalformedIdentityID defines a malformed identityID error.
+	ErrMalformedIdentityID = fmt.Errorf("malformed identityID")
 	// ErrMalformedInputs defines a malformed inputs error.
 	ErrMalformedInputs = fmt.Errorf("malformed inputs")
 	// ErrMalformedOutputs defines a malformed outputs error.
 	ErrMalformedOutputs = fmt.Errorf("malformed outputs")
+	// ErrMalformedData defines a malformed data error.
+	ErrMalformedData = fmt.Errorf("malformed data")
 	// ErrMalformedColor defines a malformed color error.
 	ErrMalformedColor = fmt.Errorf("malformed color")
 	// ErrMalformedPublicKey defines a malformed publicKey error.
@@ -51,12 +57,20 @@ func sendTransactionByJSONHandler(c echo.Context) error {
 	}
 
 	// send tx message
-	msg, err := issuer.IssuePayload(tx, messagelayer.Tangle())
+	issueTransaction := func() (*tangle.Message, error) {
+		msg, e := issuer.IssuePayload(tx, messagelayer.Tangle())
+		if e != nil {
+			return nil, c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: e.Error()})
+		}
+		return msg, nil
+	}
+
+	_, err = messagelayer.AwaitMessageToBeBooked(issueTransaction, tx.ID(), maxBookedAwaitTime)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, SendTransactionByJSONResponse{Error: err.Error()})
 	}
 
-	return c.JSON(http.StatusOK, SendTransactionByJSONResponse{TransactionID: tx.ID().String(), MessageID: msg.ID().String()})
+	return c.JSON(http.StatusOK, SendTransactionByJSONResponse{TransactionID: tx.ID().String()})
 }
 
 // NewTransactionFromJSON returns a new transaction from a given JSON request or an error.
@@ -106,15 +120,35 @@ func NewTransactionFromJSON(request SendTransactionByJSONRequest) (*ledgerstate.
 			return nil, ErrMalformedOutputs
 		}
 	}
+	pubKeyBytes, err := base58.Decode(signature.PublicKey)
+	if err != nil || len(pubKeyBytes) != ed25519.PublicKeySize {
+		return nil, ErrMalformedPublicKey
+	}
+	aManaPledgeID, err := identity.ParseID(request.AManaPledgeID)
+	if err != nil {
+		return nil, ErrMalformedIdentityID
+	}
+	cManaPledgeID, err := identity.ParseID(request.CManaPledgeID)
+	if err != nil {
+		return nil, ErrMalformedIdentityID
+	}
 
 	txEssence := ledgerstate.NewTransactionEssence(
 		0,
 		time.Now(),
-		identity.ID{},
-		identity.ID{},
+		aManaPledgeID,
+		cManaPledgeID,
 		ledgerstate.NewInputs(inputs...),
 		ledgerstate.NewOutputs(outputs...),
 	)
+
+	// add data payload
+	payload, _, err := payload.FromBytes(request.Payload)
+	if err != nil {
+		return nil, ErrMalformedData
+	}
+
+	txEssence.SetPayload(payload)
 
 	// add signatures
 	unlockBlocks := make([]ledgerstate.UnlockBlock, len(txEssence.Inputs()))
@@ -159,6 +193,8 @@ func NewTransactionFromJSON(request SendTransactionByJSONRequest) (*ledgerstate.
 // e.g.,
 // {
 // 	"inputs": string[],
+//  "a_mana_pledge": string,
+//  "c_mana_pledg": string,
 // 	"outputs": {
 //	   "type": number,
 // 	   "address": string,
@@ -167,17 +203,19 @@ func NewTransactionFromJSON(request SendTransactionByJSONRequest) (*ledgerstate.
 // 		   "color": string
 // 	   }[];
 // 	 }[],
-// 	 "signatures": []string
+// 	 "signature": []string
 //  }
 type SendTransactionByJSONRequest struct {
-	Inputs     []string `json:"inputs"`
-	Outputs    []Output `json:"outputs"`
-	Signatures []string `json:"signatures"`
+	Inputs        []string    `json:"inputs"`
+	Outputs       []Output    `json:"outputs"`
+	AManaPledgeID string      `json:"a_mana_pledg"`
+	CManaPledgeID string      `json:"c_mana_pledg"`
+	Signatures    []Signature `json:"signatures"`
+	Payload       []byte      `json:"payload"`
 }
 
 // SendTransactionByJSONResponse is the HTTP response from sending transaction.
 type SendTransactionByJSONResponse struct {
 	TransactionID string `json:"transaction_id,omitempty"`
-	MessageID     string `json:"message_id,omitempty"`
 	Error         string `json:"error,omitempty"`
 }
