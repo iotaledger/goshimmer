@@ -3,7 +3,6 @@ package tests
 import (
 	"errors"
 	"fmt"
-	"log"
 	"math/rand"
 	"sync"
 	"sync/atomic"
@@ -164,8 +163,8 @@ func SendTransactionFromFaucet(t *testing.T, peers []*framework.Peer, sentValue 
 	}
 
 	faucetPeer := peers[0]
-	faucetAddrStr := faucetPeer.Seed.Address(0).Address().Base58()
-
+	// faucet has moved all its funds to the next address
+	faucetAddrStr := faucetPeer.Seed.Address(1).Address().Base58()
 	// get faucet balances
 	unspentOutputs, err := faucetPeer.GetUnspentOutputs([]string{faucetAddrStr})
 	require.NoErrorf(t, err, "could not get unspent outputs on %s", faucetPeer.String())
@@ -173,7 +172,12 @@ func SendTransactionFromFaucet(t *testing.T, peers []*framework.Peer, sentValue 
 
 	// send funds to other peers
 	for i := 1; i < len(peers); i++ {
-		fail, txId := SendIotaTransaction(t, faucetPeer, peers[i], addrBalance, sentValue)
+		fail, txId := SendIotaTransaction(t, faucetPeer, peers[i], addrBalance, sentValue, TransactionConfig{
+			FromAddressIndex:      1,
+			ToAddressIndex:        0,
+			AccessManaPledgeID:    peers[i].ID(),
+			ConsensusManaPledgeID: peers[i].ID(),
+		})
 		require.False(t, fail)
 		txIds = append(txIds, txId)
 
@@ -190,7 +194,7 @@ func SendTransactionOnRandomPeer(t *testing.T, peers []*framework.Peer, addrBala
 	for i := 0; i < numMessages; i++ {
 		from := rand.Intn(len(peers))
 		to := rand.Intn(len(peers))
-		fail, txId := SendIotaTransaction(t, peers[from], peers[to], addrBalance, sentValue)
+		fail, txId := SendIotaTransaction(t, peers[from], peers[to], addrBalance, sentValue, TransactionConfig{})
 		if fail {
 			i--
 			counter++
@@ -212,9 +216,10 @@ func SendTransactionOnRandomPeer(t *testing.T, peers []*framework.Peer, addrBala
 
 // SendIotaTransaction sends sentValue amount of IOTA tokens and remainders from and to a given peer and returns the fail flag and the transaction ID.
 // Every peer sends and receives the transaction on the address of index 0.
-func SendIotaTransaction(t *testing.T, from *framework.Peer, to *framework.Peer, addrBalance map[string]map[ledgerstate.Color]int64, sentValue int64) (fail bool, txId string) {
-	inputAddr := from.Seed.Address(0).Address()
-	outputAddr := to.Seed.Address(0).Address()
+// Optionally, the nodes to pledge access and consensus mana can be specified.
+func SendIotaTransaction(t *testing.T, from *framework.Peer, to *framework.Peer, addrBalance map[string]map[ledgerstate.Color]int64, sentValue int64, txConfig TransactionConfig) (fail bool, txId string) {
+	inputAddr := from.Seed.Address(txConfig.FromAddressIndex).Address()
+	outputAddr := to.Seed.Address(txConfig.ToAddressIndex).Address()
 
 	// prepare inputs
 	resp, err := from.GetUnspentOutputs([]string{inputAddr.Base58()})
@@ -252,7 +257,7 @@ func SendIotaTransaction(t *testing.T, from *framework.Peer, to *framework.Peer,
 		}), inputAddr)
 		outputs = append(outputs, output)
 	}
-	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, ledgerstate.NewInputs(input), ledgerstate.NewOutputs(outputs...))
+	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), txConfig.AccessManaPledgeID, txConfig.ConsensusManaPledgeID, ledgerstate.NewInputs(input), ledgerstate.NewOutputs(outputs...))
 	sig := ledgerstate.NewED25519Signature(from.KeyPair(0).PublicKey, from.KeyPair(0).PrivateKey.Sign(txEssence.Bytes()))
 	unlockBlock := ledgerstate.NewSignatureUnlockBlock(sig)
 	txn := ledgerstate.NewTransaction(txEssence, ledgerstate.UnlockBlocks{unlockBlock})
