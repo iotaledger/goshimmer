@@ -630,6 +630,7 @@ type MessageMetadata struct {
 	structureDetails   *markers.StructureDetails
 	branchID           ledgerstate.BranchID
 	timestampOpinion   TimestampOpinion
+	scheduled          bool
 	booked             bool
 	eligible           bool
 	invalid            bool
@@ -639,6 +640,7 @@ type MessageMetadata struct {
 	structureDetailsMutex   sync.RWMutex
 	branchIDMutex           sync.RWMutex
 	timestampOpinionMutex   sync.RWMutex
+	scheduledMutex          sync.RWMutex
 	bookedMutex             sync.RWMutex
 	eligibleMutex           sync.RWMutex
 	invalidMutex            sync.RWMutex
@@ -818,15 +820,6 @@ func (m *MessageMetadata) BranchID() ledgerstate.BranchID {
 	return m.branchID
 }
 
-// IsBooked returns true if the message represented by this metadata is booked. False otherwise.
-func (m *MessageMetadata) IsBooked() (result bool) {
-	m.bookedMutex.RLock()
-	defer m.bookedMutex.RUnlock()
-	result = m.booked
-
-	return
-}
-
 // IsEligible returns true if the message represented by this metadata is eligible. False otherwise.
 func (m *MessageMetadata) IsEligible() (result bool) {
 	m.eligibleMutex.RLock()
@@ -851,6 +844,40 @@ func (m *MessageMetadata) SetBooked(booked bool) (modified bool) {
 	modified = true
 
 	return
+}
+
+// IsBooked returns true if the message represented by this metadata is booked. False otherwise.
+func (m *MessageMetadata) IsBooked() (result bool) {
+	m.bookedMutex.RLock()
+	defer m.bookedMutex.RUnlock()
+	result = m.booked
+
+	return
+}
+
+// SetScheduled sets the message associated with this metadata as scheduled.
+// It returns true if the scheduled status is modified. False otherwise.
+func (m *MessageMetadata) SetScheduled(scheduled bool) (modified bool) {
+	m.scheduledMutex.Lock()
+	defer m.scheduledMutex.Unlock()
+
+	if m.scheduled == scheduled {
+		return false
+	}
+
+	m.scheduled = scheduled
+	m.SetModified()
+	modified = true
+
+	return
+}
+
+// Scheduled returns true if the message represented by this metadata was scheduled. False otherwise.
+func (m *MessageMetadata) Scheduled() (result bool) {
+	m.scheduledMutex.RLock()
+	defer m.scheduledMutex.RUnlock()
+
+	return m.scheduled
 }
 
 // TimestampOpinion returns the timestampOpinion of the given message metadata.
