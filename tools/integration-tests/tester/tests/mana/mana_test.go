@@ -90,10 +90,10 @@ func TestAPI(t *testing.T) {
 	time.Sleep(10 * time.Second)
 
 	addrBalance := make(map[string]map[ledgerstate.Color]int64)
-	faucetAddrStr := faucet.Seed.Address(1).String()
+	faucetAddrStr := faucet.Seed.Address(1).Address().Base58()
 	addrBalance[faucetAddrStr] = make(map[ledgerstate.Color]int64)
-	addrBalance[allowedPeer.Address(0).String()] = make(map[ledgerstate.Color]int64)
-	addrBalance[disallowedPeer.Address(0).String()] = make(map[ledgerstate.Color]int64)
+	addrBalance[allowedPeer.Address(0).Address().Base58()] = make(map[ledgerstate.Color]int64)
+	addrBalance[disallowedPeer.Address(0).Address().Base58()] = make(map[ledgerstate.Color]int64)
 
 	// get faucet balances
 	unspentOutputs, err := faucet.GetUnspentOutputs([]string{faucetAddrStr})
