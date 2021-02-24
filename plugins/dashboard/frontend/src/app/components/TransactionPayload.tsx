@@ -8,7 +8,6 @@ import {inject, observer} from "mobx-react";
 import {ExplorerStore} from "app/stores/ExplorerStore";
 import {IconContext} from "react-icons"
 import {FaChevronCircleRight} from "react-icons/fa"
-import * as dateformat from 'dateformat';
 
 interface Props {
     explorerStore?: ExplorerStore;
