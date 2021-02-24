@@ -699,6 +699,10 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 		err = fmt.Errorf("failed to parse eligble flag of message metadata: %w", err)
 		return
 	}
+	if result.scheduled, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse scheduled flag of message metadata: %w", err)
+		return
+	}
 	if result.booked, err = marshalUtil.ReadBool(); err != nil {
 		err = fmt.Errorf("failed to parse booked flag of message metadata: %w", err)
 		return
@@ -967,6 +971,7 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 		Write(m.BranchID()).
 		WriteBytes(m.TimestampOpinion().Bytes()).
 		WriteBool(m.IsEligible()).
+		WriteBool(m.Scheduled()).
 		WriteBool(m.IsBooked()).
 		WriteBool(m.IsInvalid()).
 		Bytes()
@@ -988,6 +993,7 @@ func (m *MessageMetadata) String() string {
 		stringify.StructField("structureDetails", m.StructureDetails()),
 		stringify.StructField("branchID", m.BranchID()),
 		stringify.StructField("timestampOpinion", m.TimestampOpinion()),
+		stringify.StructField("scheduled", m.Scheduled()),
 		stringify.StructField("booked", m.IsBooked()),
 		stringify.StructField("eligible", m.IsEligible()),
 		stringify.StructField("invalid", m.IsInvalid()),
