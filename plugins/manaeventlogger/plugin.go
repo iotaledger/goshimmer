@@ -44,9 +44,9 @@ func Plugin() *node.Plugin {
 
 func configure(*node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	eventsBufferSize = config.Node().GetInt(CfgBufferSize)
-	csvPath = config.Node().GetString(CfgCSV)
-	checkBufferInterval = config.Node().GetDuration(CfgCheckBufferIntervalSec) * time.Second
+	eventsBufferSize = config.Node().Int(CfgBufferSize)
+	csvPath = config.Node().String(CfgCSV)
+	checkBufferInterval = config.Node().Duration(CfgCheckBufferIntervalSec) * time.Second
 	onPledgeEventClosure = events.NewClosure(logPledge)
 	onRevokeEventClosure = events.NewClosure(logRevoke)
 	configureEvents()

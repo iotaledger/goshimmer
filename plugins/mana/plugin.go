@@ -7,13 +7,17 @@ import (
 	"sync"
 	"time"
 
+	db_pkg "github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/events"
@@ -69,7 +73,7 @@ func configure(*node.Plugin) {
 	baseManaVectors = make(map[mana.Type]mana.BaseManaVector)
 	baseManaVectors[mana.AccessMana], _ = mana.NewBaseManaVector(mana.AccessMana)
 	baseManaVectors[mana.ConsensusMana], _ = mana.NewBaseManaVector(mana.ConsensusMana)
-	if config.Node().GetBool(CfgManaEnableResearchVectors) {
+	if config.Node().Bool(CfgManaEnableResearchVectors) {
 		baseManaVectors[mana.ResearchAccess], _ = mana.NewResearchBaseManaVector(mana.WeightedMana, mana.AccessMana, mana.Mixed)
 		baseManaVectors[mana.ResearchConsensus], _ = mana.NewResearchBaseManaVector(mana.WeightedMana, mana.ConsensusMana, mana.Mixed)
 	}
@@ -77,17 +81,17 @@ func configure(*node.Plugin) {
 	// configure storage for each vector type
 	storages = make(map[mana.Type]*objectstorage.ObjectStorage)
 	store := database.Store()
-	osFactory = objectstorage.NewFactory(store, storageprefix.Mana)
-	storages[mana.AccessMana] = osFactory.New(storageprefix.ManaAccess, mana.FromObjectStorage)
-	storages[mana.ConsensusMana] = osFactory.New(storageprefix.ManaConsensus, mana.FromObjectStorage)
-	if config.Node().GetBool(CfgManaEnableResearchVectors) {
-		storages[mana.ResearchAccess] = osFactory.New(storageprefix.ManaAccessResearch, mana.FromObjectStorage)
-		storages[mana.ResearchConsensus] = osFactory.New(storageprefix.ManaConsensusResearch, mana.FromObjectStorage)
+	osFactory = objectstorage.NewFactory(store, db_pkg.PrefixMana)
+	storages[mana.AccessMana] = osFactory.New(mana.PrefixAccess, mana.FromObjectStorage)
+	storages[mana.ConsensusMana] = osFactory.New(mana.PrefixConsensus, mana.FromObjectStorage)
+	if config.Node().Bool(CfgManaEnableResearchVectors) {
+		storages[mana.ResearchAccess] = osFactory.New(mana.PrefixAccessResearch, mana.FromObjectStorage)
+		storages[mana.ResearchConsensus] = osFactory.New(mana.PrefixConsensusResearch, mana.FromObjectStorage)
 	}
-	consensusEventsLogStorage = osFactory.New(storageprefix.ManaEventsStorage, mana.FromEventObjectStorage)
+	consensusEventsLogStorage = osFactory.New(mana.PrefixEventStorage, mana.FromEventObjectStorage)
 	consensusEventsLogsStorageSize.Store(getConsensusEventLogsStorageSize())
-	consensusBaseManaPastVectorStorage = osFactory.New(storageprefix.ManaConsensusPast, mana.FromObjectStorage)
-	consensusBaseManaPastVectorMetadataStorage = osFactory.New(storageprefix.ManaConsensusPastMetadata, mana.FromMetadataObjectStorage)
+	consensusBaseManaPastVectorStorage = osFactory.New(mana.PrefixConsensusPastVector, mana.FromObjectStorage)
+	consensusBaseManaPastVectorMetadataStorage = osFactory.New(mana.PrefixConsensusPastMetadata, mana.FromMetadataObjectStorage)
 
 	err := verifyPledgeNodes()
 	if err != nil {
@@ -98,7 +102,8 @@ func configure(*node.Plugin) {
 }
 
 func configureEvents() {
-	valuetransfers.Tangle().Events.TransactionConfirmed.Attach(onTransactionConfirmedClosure)
+	// until we have the proper event...
+	messagelayer.Tangle().Booker.Events.MessageBooked.Attach(onTransactionConfirmedClosure)
 	mana.Events().Pledged.Attach(onPledgeEventClosure)
 	mana.Events().Revoked.Attach(onRevokeEventClosure)
 }
@@ -116,69 +121,83 @@ func logRevokeEvent(ev *mana.RevokedEvent) {
 	}
 }
 
-func onTransactionConfirmed(cachedTransactionEvent *tangle.CachedTransactionEvent) {
-	cachedTransactionEvent.TransactionMetadata.Release()
+func onTransactionConfirmed(msgID tangle.MessageID) {
+	var tx *ledgerstate.Transaction
+	isTx := false
+	messagelayer.Tangle().Storage.Message(msgID).Consume(func(message *tangle.Message) {
+		if message.Payload().Type() != ledgerstate.TransactionType {
+			return
+		}
+		isTx = true
+		var err error
+		tx, _, err = ledgerstate.TransactionFromBytes(message.Payload().Bytes())
+		if err != nil {
+			isTx = false
+			log.Errorf("Message %s contains invalid transaction payload: %w", msgID.String(), err)
+			return
+		}
+	})
+	if !isTx {
+		return
+	}
+
 	// holds all info mana pkg needs for correct mana calculations from the transaction
 	var txInfo *mana.TxInfo
 	// process transaction object to build txInfo
-	cachedTransactionEvent.Transaction.Consume(func(tx *transaction.Transaction) {
-		var totalAmount float64
-		var inputInfos []mana.InputInfo
-		// iterate over all inputs within the transaction
-		tx.Inputs().ForEach(func(inputID transaction.OutputID) bool {
-			var amount float64
-			var inputTimestamp time.Time
-			var accessManaNodeID identity.ID
-			var consensusManaNodeID identity.ID
-			// get output object from storage
-			cachedInput := valuetransfers.Tangle().TransactionOutput(inputID)
+	var totalAmount float64
+	var inputInfos []mana.InputInfo
 
-			var _inputInfo mana.InputInfo
-			// process it to be able to build an InputInfo struct
-			cachedInput.Consume(func(input *tangle.Output) {
-				// first, sum balances of the input, calculate total amount as well for later
-				for _, inputBalance := range input.Balances() {
-					amount += float64(inputBalance.Value)
-					totalAmount += amount
-				}
-				// derive the transaction that created this input
-				cachedInputTx := valuetransfers.Tangle().Transaction(input.TransactionID())
-				// look into the transaction, we need timestamp and access & consensus pledge IDs
-				cachedInputTx.Consume(func(inputTx *transaction.Transaction) {
-					if inputTx != nil {
-						inputTimestamp = inputTx.Timestamp()
-						accessManaNodeID = inputTx.AccessManaNodeID()
-						consensusManaNodeID = inputTx.ConsensusManaNodeID()
-					}
-				})
+	// iterate over all inputs within the transaction
+	for _, input := range tx.Essence().Inputs() {
+		i := input.(*ledgerstate.UTXOInput)
 
-				// build InputInfo for this particular input in the transaction
-				_inputInfo = mana.InputInfo{
-					TimeStamp: inputTimestamp,
-					Amount:    amount,
-					PledgeID: map[mana.Type]identity.ID{
-						mana.AccessMana:    accessManaNodeID,
-						mana.ConsensusMana: consensusManaNodeID,
-					},
-					InputID: input.ID(),
+		var amount float64
+		var inputTimestamp time.Time
+		var accessManaNodeID identity.ID
+		var consensusManaNodeID identity.ID
+		var _inputInfo mana.InputInfo
+
+		messagelayer.Tangle().LedgerState.Output(i.ReferencedOutputID()).Consume(func(o ledgerstate.Output) {
+			// first, sum balances of the input, calculate total amount as well for later
+			o.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+				amount += float64(balance)
+				totalAmount += amount
+				return true
+			})
+			// derive the transaction that created this input
+			inputTxID := o.ID().TransactionID()
+			// look into the transaction, we need timestamp and access & consensus pledge IDs
+			messagelayer.Tangle().LedgerState.Transaction(inputTxID).Consume(func(transaction *ledgerstate.Transaction) {
+				if transaction != nil {
+					inputTimestamp = transaction.Essence().Timestamp()
+					accessManaNodeID = transaction.Essence().AccessPledgeID()
+					consensusManaNodeID = transaction.Essence().ConsensusPledgeID()
 				}
 			})
-
-			inputInfos = append(inputInfos, _inputInfo)
-			return true
+			// build InputInfo for this particular input in the transaction
+			_inputInfo = mana.InputInfo{
+				TimeStamp: inputTimestamp,
+				Amount:    amount,
+				PledgeID: map[mana.Type]identity.ID{
+					mana.AccessMana:    accessManaNodeID,
+					mana.ConsensusMana: consensusManaNodeID,
+				},
+				InputID: o.ID(),
+			}
 		})
+		inputInfos = append(inputInfos, _inputInfo)
+	}
 
-		txInfo = &mana.TxInfo{
-			TimeStamp:     tx.Timestamp(),
-			TransactionID: tx.ID(),
-			TotalBalance:  totalAmount,
-			PledgeID: map[mana.Type]identity.ID{
-				mana.AccessMana:    tx.AccessManaNodeID(),
-				mana.ConsensusMana: tx.ConsensusManaNodeID(),
-			},
-			InputInfos: inputInfos,
-		}
-	})
+	txInfo = &mana.TxInfo{
+		TimeStamp:     tx.Essence().Timestamp(),
+		TransactionID: tx.ID(),
+		TotalBalance:  totalAmount,
+		PledgeID: map[mana.Type]identity.ID{
+			mana.AccessMana:    tx.Essence().AccessPledgeID(),
+			mana.ConsensusMana: tx.Essence().ConsensusPledgeID(),
+		},
+		InputInfos: inputInfos,
+	}
 	// book in all mana vectors.
 	for _, baseManaVector := range baseManaVectors {
 		baseManaVector.Book(txInfo)
@@ -187,10 +206,10 @@ func onTransactionConfirmed(cachedTransactionEvent *tangle.CachedTransactionEven
 
 func run(_ *node.Plugin) {
 	// mana calculation coefficients can be set from config
-	ema1 := config.Node().GetFloat64(CfgEmaCoefficient1)
-	ema2 := config.Node().GetFloat64(CfgEmaCoefficient2)
-	dec := config.Node().GetFloat64(CfgDecay)
-	pruneInterval := config.Node().GetDuration(CfgPruneConsensusEventLogsInterval)
+	ema1 := config.Node().Float64(CfgEmaCoefficient1)
+	ema2 := config.Node().Float64(CfgEmaCoefficient2)
+	dec := config.Node().Float64(CfgDecay)
+	pruneInterval := config.Node().Duration(CfgPruneConsensusEventLogsInterval)
 
 	mana.SetCoefficients(ema1, ema2, dec)
 	if err := daemon.BackgroundWorker("Mana", func(shutdownSignal <-chan struct{}) {
@@ -205,7 +224,7 @@ func run(_ *node.Plugin) {
 				log.Infof("Stopping %s ...", PluginName)
 				mana.Events().Pledged.Detach(onPledgeEventClosure)
 				mana.Events().Pledged.Detach(onRevokeEventClosure)
-				valuetransfers.Tangle().Events.TransactionConfirmed.Detach(onTransactionConfirmedClosure)
+				messagelayer.Tangle().Booker.Events.MessageBooked.Detach(onTransactionConfirmedClosure)
 				storeManaVectors()
 				shutdownStorages()
 				return
@@ -361,17 +380,17 @@ func GetOnlineNodes(manaType mana.Type) ([]mana.Node, error) {
 
 func verifyPledgeNodes() error {
 	access := AllowedPledge{
-		IsFilterEnabled: config.Node().GetBool(CfgAllowedAccessFilterEnabled),
+		IsFilterEnabled: config.Node().Bool(CfgAllowedAccessFilterEnabled),
 	}
 	consensus := AllowedPledge{
-		IsFilterEnabled: config.Node().GetBool(CfgAllowedConsensusFilterEnabled),
+		IsFilterEnabled: config.Node().Bool(CfgAllowedConsensusFilterEnabled),
 	}
 
 	access.Allowed = set.New(false)
 	// own ID is allowed by default
 	access.Allowed.Add(local.GetInstance().ID())
 	if access.IsFilterEnabled {
-		for _, pubKey := range config.Node().GetStringSlice(CfgAllowedAccessPledge) {
+		for _, pubKey := range config.Node().Strings(CfgAllowedAccessPledge) {
 			ID, err := mana.IDFromStr(pubKey)
 			if err != nil {
 				return err
@@ -384,7 +403,7 @@ func verifyPledgeNodes() error {
 	// own ID is allowed by default
 	consensus.Allowed.Add(local.GetInstance().ID())
 	if consensus.IsFilterEnabled {
-		for _, pubKey := range config.Node().GetStringSlice(CfgAllowedConsensusPledge) {
+		for _, pubKey := range config.Node().Strings(CfgAllowedConsensusPledge) {
 			ID, err := mana.IDFromStr(pubKey)
 			if err != nil {
 				return err
@@ -399,24 +418,28 @@ func verifyPledgeNodes() error {
 }
 
 // PendingManaOnOutput predicts how much mana (bm2) will be pledged to a node if the output specified is spent.
-func PendingManaOnOutput(outputID transaction.OutputID) float64 {
-	cachedOutput := valuetransfers.Tangle().TransactionOutput(outputID)
-	defer cachedOutput.Release()
-	output := cachedOutput.Unwrap()
-	var value float64
-	for _, balance := range output.Balances() {
-		value += float64(balance.Value)
-	}
+func PendingManaOnOutput(outputID ledgerstate.OutputID) float64 {
+	cachedOutputMetadata := messagelayer.Tangle().LedgerState.OutputMetadata(outputID)
+	defer cachedOutputMetadata.Release()
+	outputMetadata := cachedOutputMetadata.Unwrap()
 
 	// spent output has 0 pending mana.
-	if output.ConsumerCount() > 0 {
+	if outputMetadata.ConsumerCount() > 0 {
 		return 0
 	}
 
-	cachedTx := valuetransfers.Tangle().Transaction(output.TransactionID())
+	var value float64
+	messagelayer.Tangle().LedgerState.Output(outputID).Consume(func(output ledgerstate.Output) {
+		output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+			value += float64(balance)
+			return true
+		})
+	})
+
+	cachedTx := messagelayer.Tangle().LedgerState.Transaction(outputID.TransactionID())
 	defer cachedTx.Release()
 	tx := cachedTx.Unwrap()
-	return GetPendingMana(value, time.Since(tx.Timestamp()))
+	return GetPendingMana(value, time.Since(tx.Essence().Timestamp()))
 }
 
 // GetPendingMana returns the mana pledged by spending a `value` output that sat for `n` duration.
