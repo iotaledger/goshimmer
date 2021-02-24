@@ -120,7 +120,7 @@ func NewTransactionFromJSON(request SendTransactionByJSONRequest) (*ledgerstate.
 			return nil, ErrMalformedOutputs
 		}
 	}
-	
+
 	aManaPledgeID, err := identity.ParseID(request.AManaPledgeID)
 	if err != nil {
 		return nil, ErrMalformedIdentityID
