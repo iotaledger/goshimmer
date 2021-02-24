@@ -145,6 +145,7 @@ type Options struct {
 	Identity                     *identity.LocalIdentity
 	WithoutOpinionFormer         bool
 	IncreaseMarkersIndexCallback markers.IncreaseIndexCallback
+	TangleWidth                  int
 }
 
 // buildOptions generates the Options object use by the Tangle.
@@ -188,6 +189,13 @@ func WithoutOpinionFormer(with bool) Option {
 func IncreaseMarkersIndexCallback(callback markers.IncreaseIndexCallback) Option {
 	return func(options *Options) {
 		options.IncreaseMarkersIndexCallback = callback
+	}
+}
+
+// TangleWidth is an Option for the Tangle that allows to change the strategy how Tips get removed.
+func TangleWidth(width int) Option {
+	return func(options *Options) {
+		options.TangleWidth = width
 	}
 }
 

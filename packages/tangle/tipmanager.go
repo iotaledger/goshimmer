@@ -118,6 +118,11 @@ func (t *TipManager) AddTip(message *Message) {
 				})
 			}
 
+			// skip removing tips if TangleWidth is enabled
+			if t.StrongTipCount()+t.WeakTipCount() <= t.tangle.Options.TangleWidth {
+				return
+			}
+
 			// a strong tip loses its tip status if it is referenced by a strong message via strong parent
 			message.ForEachStrongParent(func(parent MessageID) {
 				if _, deleted := t.strongTips.Delete(parent); deleted {
