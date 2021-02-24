@@ -111,7 +111,7 @@ func configure(*node.Plugin) {
 		msg, txID, err := Faucet().SendFunds(msg)
 		if err != nil {
 			log.Warnf("couldn't fulfill funding request to %s: %s", addr.Base58(), err)
-			if errors.Is(err, faucet.ErrPrepareFaucet) {
+			if errors.Is(err, ErrPrepareFaucet) {
 				log.Warn(err.Error())
 			} else {
 				log.Warnf("couldn't fulfill funding request to %s: %s", addr, err)
