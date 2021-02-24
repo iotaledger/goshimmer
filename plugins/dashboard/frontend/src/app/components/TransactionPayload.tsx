@@ -51,7 +51,7 @@ export class TransactionPayload extends React.Component<Props, any> {
                 <Row className={"mb-3"}>
                     <Col>
                         <ListGroup>
-                            <ListGroup.Item>Timestamp: {dateformat(new Date(payload.tx_essence.timestamp*1000).toLocaleString(), "dd.mm.yyyy HH:MM:s")} </ListGroup.Item>
+                            <ListGroup.Item>Timestamp: {new Date(payload.tx_essence.timestamp*1000).toLocaleString()} </ListGroup.Item>
                             <ListGroup.Item>Access Pledge ID: {payload.tx_essence.access_pledge_id}</ListGroup.Item>
                             <ListGroup.Item>Consensus Pledge ID: {payload.tx_essence.access_pledge_id}</ListGroup.Item>
                         </ListGroup>
