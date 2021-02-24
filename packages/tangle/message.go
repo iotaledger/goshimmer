@@ -695,16 +695,16 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 		err = fmt.Errorf("failed to parse timestampOpinion of message metadata: %w", err)
 		return
 	}
-	if result.eligible, err = marshalUtil.ReadBool(); err != nil {
-		err = fmt.Errorf("failed to parse eligble flag of message metadata: %w", err)
-		return
-	}
 	if result.scheduled, err = marshalUtil.ReadBool(); err != nil {
 		err = fmt.Errorf("failed to parse scheduled flag of message metadata: %w", err)
 		return
 	}
 	if result.booked, err = marshalUtil.ReadBool(); err != nil {
 		err = fmt.Errorf("failed to parse booked flag of message metadata: %w", err)
+		return
+	}
+	if result.eligible, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse eligble flag of message metadata: %w", err)
 		return
 	}
 	if result.invalid, err = marshalUtil.ReadBool(); err != nil {
@@ -833,6 +833,31 @@ func (m *MessageMetadata) IsEligible() (result bool) {
 	return
 }
 
+// SetScheduled sets the message associated with this metadata as scheduled.
+// It returns true if the scheduled status is modified. False otherwise.
+func (m *MessageMetadata) SetScheduled(scheduled bool) (modified bool) {
+	m.scheduledMutex.Lock()
+	defer m.scheduledMutex.Unlock()
+
+	if m.scheduled == scheduled {
+		return false
+	}
+
+	m.scheduled = scheduled
+	m.SetModified()
+	modified = true
+
+	return
+}
+
+// Scheduled returns true if the message represented by this metadata was scheduled. False otherwise.
+func (m *MessageMetadata) Scheduled() (result bool) {
+	m.scheduledMutex.RLock()
+	defer m.scheduledMutex.RUnlock()
+
+	return m.scheduled
+}
+
 // SetBooked sets the message associated with this metadata as booked.
 // It returns true if the booked status is modified. False otherwise.
 func (m *MessageMetadata) SetBooked(booked bool) (modified bool) {
@@ -857,31 +882,6 @@ func (m *MessageMetadata) IsBooked() (result bool) {
 	result = m.booked
 
 	return
-}
-
-// SetScheduled sets the message associated with this metadata as scheduled.
-// It returns true if the scheduled status is modified. False otherwise.
-func (m *MessageMetadata) SetScheduled(scheduled bool) (modified bool) {
-	m.scheduledMutex.Lock()
-	defer m.scheduledMutex.Unlock()
-
-	if m.scheduled == scheduled {
-		return false
-	}
-
-	m.scheduled = scheduled
-	m.SetModified()
-	modified = true
-
-	return
-}
-
-// Scheduled returns true if the message represented by this metadata was scheduled. False otherwise.
-func (m *MessageMetadata) Scheduled() (result bool) {
-	m.scheduledMutex.RLock()
-	defer m.scheduledMutex.RUnlock()
-
-	return m.scheduled
 }
 
 // TimestampOpinion returns the timestampOpinion of the given message metadata.
@@ -970,9 +970,9 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 		Write(m.StructureDetails()).
 		Write(m.BranchID()).
 		WriteBytes(m.TimestampOpinion().Bytes()).
-		WriteBool(m.IsEligible()).
 		WriteBool(m.Scheduled()).
 		WriteBool(m.IsBooked()).
+		WriteBool(m.IsEligible()).
 		WriteBool(m.IsInvalid()).
 		Bytes()
 }

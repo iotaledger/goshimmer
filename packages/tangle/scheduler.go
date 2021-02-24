@@ -77,7 +77,7 @@ func (s *Scheduler) run() {
 					s.Events.MessageScheduled.Trigger(scheduledMessageID)
 
 					s.tangle.Utils.WalkMessageAndMetadata(func(message *Message, messageMetadata *MessageMetadata, walker *walker.Walker) {
-						if !s.parentsBooked(message) {
+						if messageMetadata.IsInvalid() || !messageMetadata.IsSolid() || !s.parentsBooked(message) {
 							return
 						}
 
@@ -106,9 +106,11 @@ func (s *Scheduler) parentsBooked(message *Message) (parentsBooked bool) {
 			return
 		}
 
-		s.tangle.Storage.MessageMetadata(parent.ID).Consume(func(messageMetadata *MessageMetadata) {
+		if !s.tangle.Storage.MessageMetadata(parent.ID).Consume(func(messageMetadata *MessageMetadata) {
 			parentsBooked = messageMetadata.IsBooked()
-		})
+		}) {
+			parentsBooked = false
+		}
 	})
 
 	return
