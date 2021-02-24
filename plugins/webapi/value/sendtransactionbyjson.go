@@ -120,10 +120,7 @@ func NewTransactionFromJSON(request SendTransactionByJSONRequest) (*ledgerstate.
 			return nil, ErrMalformedOutputs
 		}
 	}
-	pubKeyBytes, err := base58.Decode(signature.PublicKey)
-	if err != nil || len(pubKeyBytes) != ed25519.PublicKeySize {
-		return nil, ErrMalformedPublicKey
-	}
+	
 	aManaPledgeID, err := identity.ParseID(request.AManaPledgeID)
 	if err != nil {
 		return nil, ErrMalformedIdentityID
