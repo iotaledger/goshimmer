@@ -18,11 +18,13 @@ const (
 type Scheduler struct {
 	Events *SchedulerEvents
 
-	tangle         *Tangle
-	outbox         chan MessageID
-	outboxWP       async.WorkerPool
-	shutdownSignal chan struct{}
-	shutdownOnce   sync.Once
+	tangle            *Tangle
+	outbox            chan MessageID
+	outboxWorkers     async.WorkerPool
+	outboxWorkersDone sync.WaitGroup
+	shutdownSignal    chan struct{}
+	runDone           sync.WaitGroup
+	shutdownOnce      sync.Once
 }
 
 func NewScheduler(tangle *Tangle) (scheduler *Scheduler) {
@@ -36,7 +38,7 @@ func NewScheduler(tangle *Tangle) (scheduler *Scheduler) {
 		shutdownSignal: make(chan struct{}),
 	}
 
-	scheduler.outboxWP.Tune(outboxWorkers)
+	scheduler.outboxWorkers.Tune(outboxWorkers)
 	scheduler.run()
 
 	return
@@ -64,16 +66,25 @@ func (s *Scheduler) Shutdown() {
 	s.shutdownOnce.Do(func() {
 		close(s.shutdownSignal)
 	})
+
+	s.runDone.Wait()
+	s.outboxWorkersDone.Wait()
 }
 
 func (s *Scheduler) run() {
+	s.runDone.Add(1)
 	go func() {
+		defer s.runDone.Done()
+
 		for {
 			select {
 			case <-s.shutdownSignal:
 				return
 			case scheduledMessageID := <-s.outbox:
-				s.outboxWP.Submit(func() {
+				s.outboxWorkersDone.Add(1)
+				s.outboxWorkers.Submit(func() {
+					defer s.outboxWorkersDone.Done()
+
 					s.Events.MessageScheduled.Trigger(scheduledMessageID)
 
 					s.tangle.Utils.WalkMessageAndMetadata(func(message *Message, messageMetadata *MessageMetadata, walker *walker.Walker) {
@@ -98,11 +109,7 @@ func (s *Scheduler) run() {
 func (s *Scheduler) parentsBooked(message *Message) (parentsBooked bool) {
 	parentsBooked = true
 	message.ForEachParent(func(parent Parent) {
-		if !parentsBooked {
-			return
-		}
-
-		if parent.ID == EmptyMessageID {
+		if !parentsBooked || parent.ID == EmptyMessageID {
 			return
 		}
 
