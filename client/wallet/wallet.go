@@ -11,7 +11,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/hive.go/bitmask"
-	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 )
 
@@ -108,7 +107,7 @@ func (wallet *Wallet) SendFunds(options ...SendFundsOption) (tx *ledgerstate.Tra
 	// build transaction
 	inputs, consumedFunds := wallet.buildInputs(consumedOutputs)
 	outputs := wallet.buildOutputs(sendFundsOptions, consumedFunds)
-	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, inputs, outputs)
+	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), accessPledgeNodeID, consensusPledgeNodeID, inputs, outputs)
 	outputsByID := consumedOutputs.OutputsByID()
 
 	unlockBlocks := make([]ledgerstate.UnlockBlock, len(inputs))

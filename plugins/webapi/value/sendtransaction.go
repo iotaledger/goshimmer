@@ -41,7 +41,7 @@ func sendTransactionHandler(c echo.Context) error {
 	allowedAccessMana := manaPlugin.GetAllowedPledgeNodes(mana.AccessMana)
 	if allowedAccessMana.IsFilterEnabled {
 		if !allowedAccessMana.Allowed.Has(tx.Essence().AccessPledgeID()) {
-			return c.JSON(http.StatusBadRequest, Response{
+			return c.JSON(http.StatusBadRequest, SendTransactionResponse{
 				Error: fmt.Errorf("not allowed to pledge access mana to %s: %w", tx.Essence().AccessPledgeID().String(), ErrNotAllowedToPledgeManaToNode).Error(),
 			})
 		}
@@ -49,7 +49,7 @@ func sendTransactionHandler(c echo.Context) error {
 	allowedConsensusMana := manaPlugin.GetAllowedPledgeNodes(mana.ConsensusMana)
 	if allowedConsensusMana.IsFilterEnabled {
 		if !allowedConsensusMana.Allowed.Has(tx.Essence().ConsensusPledgeID()) {
-			return c.JSON(http.StatusBadRequest, Response{
+			return c.JSON(http.StatusBadRequest, SendTransactionResponse{
 				Error: fmt.Errorf("not allowed to pledge consensus mana to %s: %w", tx.Essence().ConsensusPledgeID().String(), ErrNotAllowedToPledgeManaToNode).Error(),
 			})
 		}

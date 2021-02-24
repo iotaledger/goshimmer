@@ -18,7 +18,7 @@ func allowedManaPledgeHandler(c echo.Context) error {
 		accessNodes = append(accessNodes, base58.Encode(element.(identity.ID).Bytes()))
 	})
 	if len(accessNodes) == 0 {
-		return c.JSON(http.StatusNotFound, Response{Error: "No access mana pledge IDs are accepted"})
+		return c.JSON(http.StatusNotFound, AllowedManaPledgeResponse{Error: "No access mana pledge IDs are accepted"})
 	}
 
 	consensus := manaPlugin.GetAllowedPledgeNodes(mana.ConsensusMana)
@@ -27,10 +27,10 @@ func allowedManaPledgeHandler(c echo.Context) error {
 		consensusNodes = append(consensusNodes, base58.Encode(element.(identity.ID).Bytes()))
 	})
 	if len(consensusNodes) == 0 {
-		return c.JSON(http.StatusNotFound, Response{Error: "No consensus mana pledge IDs are accepted"})
+		return c.JSON(http.StatusNotFound, AllowedManaPledgeResponse{Error: "No consensus mana pledge IDs are accepted"})
 	}
 
-	return c.JSON(http.StatusOK, Response{
+	return c.JSON(http.StatusOK, AllowedManaPledgeResponse{
 		Access: AllowedPledge{
 			IsFilterEnabled: access.IsFilterEnabled,
 			Allowed:         accessNodes,
@@ -42,8 +42,8 @@ func allowedManaPledgeHandler(c echo.Context) error {
 	})
 }
 
-// Response is the http response.
-type Response struct {
+// AllowedManaPledgeResponse is the http response.
+type AllowedManaPledgeResponse struct {
 	Access    AllowedPledge `json:"accessMana"`
 	Consensus AllowedPledge `json:"consensusMana"`
 	Error     string        `json:"error,omitempty"`

@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	webapi_value "github.com/iotaledger/goshimmer/plugins/webapi/value"
-	webapi_allowedmanapledge "github.com/iotaledger/goshimmer/plugins/webapi/value/allowedmanapledge"
 )
 
 const (
@@ -80,8 +79,8 @@ func (api *GoShimmerAPI) SendTransaction(txnBytes []byte) (string, error) {
 //}
 
 // GetAllowedManaPledgeNodeIDs returns the list of allowed mana pledge IDs.
-func (api *GoShimmerAPI) GetAllowedManaPledgeNodeIDs() (*webapi_allowedmanapledge.Response, error) {
-	res := &webapi_allowedmanapledge.Response{}
+func (api *GoShimmerAPI) GetAllowedManaPledgeNodeIDs() (*webapi_value.AllowedManaPledgeResponse, error) {
+	res := &webapi_value.AllowedManaPledgeResponse{}
 	if err := api.do(http.MethodGet, routeAllowedPledgeNodeIDs, nil, res); err != nil {
 		return nil, err
 	}

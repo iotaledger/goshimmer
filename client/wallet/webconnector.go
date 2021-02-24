@@ -4,6 +4,7 @@ import (
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/mana"
 )
 
 // WebConnector implements a connector that uses the web API to connect to a node to implement the required functions

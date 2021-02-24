@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/client/wallet"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 func execPendingMana(command *flag.FlagSet, cliWallet *wallet.Wallet) {
@@ -26,13 +27,14 @@ func execPendingMana(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	unspentOutputs := cliWallet.UnspentOutputs()
 	for addr, v := range unspentOutputs {
 		fmt.Printf("Address: %s\n", addr.String())
-		for _, output := range v {
+		for ID, output := range v {
 			var total float64
-			for _, balance := range output.Balances {
+			output.Balances.ForEach(func(color ledgerstate.Color, balance uint64) bool {
 				total += float64(balance)
-			}
+				return true
+			})
 			pendingMana := getPendingMana(total, time.Since(output.Metadata.Timestamp), status.ManaDecay)
-			fmt.Printf("\tOutputID: %s - Pending Mana: %f\n", output.ID.String(), pendingMana)
+			fmt.Printf("\tOutputID: %s - Pending Mana: %f\n", ID.Base58(), pendingMana)
 		}
 	}
 	fmt.Println()
