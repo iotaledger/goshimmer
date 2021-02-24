@@ -92,7 +92,8 @@ func (c *Component) SendFunds(msg *tangle.Message) (m *tangle.Message, txID stri
 		outputs = append(outputs, output)
 	}
 
-	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, ledgerstate.NewInputs(inputs...), ledgerstate.NewOutputs(outputs...))
+	nodeID := identity.NewID(msg.IssuerPublicKey())
+	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), nodeID, nodeID, ledgerstate.NewInputs(inputs...), ledgerstate.NewOutputs(outputs...))
 
 	//  TODO: check this
 	unlockBlocks := make([]ledgerstate.UnlockBlock, len(txEssence.Inputs()))
