@@ -311,8 +311,8 @@ func (c *Component) splitOutput(remainderOutputID ledgerstate.OutputID, remainde
 		time.Now(),
 		local.GetInstance().ID(),
 		local.GetInstance().ID(),
-		inputs,
-		outputs,
+		ledgerstate.NewInputs(inputs...),
+		ledgerstate.NewOutputs(outputs...),
 	)
 
 	unlockBlocks := make([]ledgerstate.UnlockBlock, len(essence.Inputs()))

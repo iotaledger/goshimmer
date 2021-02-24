@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	// PluginName is the name of the faucet dApp.
+	// PluginName is the name of the faucet plugin.
 	PluginName = "Faucet"
 
 	// CfgFaucetSeed defines the base58 encoded seed the faucet uses.
@@ -42,7 +42,7 @@ const (
 )
 
 func init() {
-	flag.String(CfgFaucetSeed, "", "the base58 encoded seed of the faucet, must be defined if this dApp is enabled")
+	flag.String(CfgFaucetSeed, "", "the base58 encoded seed of the faucet, must be defined if this faucet is enabled")
 	flag.Int(CfgFaucetTokensPerRequest, 1337, "the amount of tokens the faucet should send for each request")
 	flag.Int(CfgFaucetMaxTransactionBookedAwaitTimeSeconds, 5, "the max amount of time for a funding transaction to become booked in the value layer")
 	flag.Int(CfgFaucetPoWDifficulty, 25, "defines the PoW difficulty for faucet payloads")
@@ -64,7 +64,7 @@ var (
 	preparedOutputsCount   int
 )
 
-// Plugin returns the plugin instance of the faucet dApp.
+// Plugin returns the plugin instance of the faucet plugin.
 func Plugin() *node.Plugin {
 	pluginOnce.Do(func() {
 		plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
@@ -72,12 +72,12 @@ func Plugin() *node.Plugin {
 	return plugin
 }
 
-// Faucet gets the faucet component instance the faucet dApp has initialized.
+// Faucet gets the faucet component instance the faucet plugin has initialized.
 func Faucet() *Component {
 	faucetOnce.Do(func() {
 		base58Seed := config.Node().String(CfgFaucetSeed)
 		if len(base58Seed) == 0 {
-			log.Fatal("a seed must be defined when enabling the faucet dApp")
+			log.Fatal("a seed must be defined when enabling the faucet plugin")
 		}
 		seedBytes, err := base58.Decode(base58Seed)
 		if err != nil {
