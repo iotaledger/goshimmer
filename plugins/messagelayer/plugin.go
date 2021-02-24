@@ -31,6 +31,9 @@ const (
 
 	// CfgMessageLayerFCOBAverageNetworkDelay is the avg. network delay to use for FCoB rules
 	CfgMessageLayerFCOBAverageNetworkDelay = "messageLayer.fcob.averageNetworkDelay"
+
+	// CfgTangleWidth is the width of the Tangle.
+	CfgTangleWidth = "messageLayer.tangleWidth"
 )
 
 var (
@@ -42,6 +45,7 @@ var (
 func init() {
 	flag.String(CfgMessageLayerSnapshotFile, "./snapshot.bin", "the path to the snapshot file")
 	flag.Int(CfgMessageLayerFCOBAverageNetworkDelay, 5, "the avg. network delay to use for FCoB rules")
+	flag.Int(CfgTangleWidth, 0, "the width of the Tangle")
 }
 
 var (
@@ -67,6 +71,7 @@ func Tangle() *tangle.Tangle {
 		tangleInstance = tangle.New(
 			tangle.Store(database.Store()),
 			tangle.Identity(local.GetInstance().LocalIdentity()),
+			tangle.TangleWidth(config.Node().Int(CfgTangleWidth)),
 		)
 	})
 
