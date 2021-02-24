@@ -3,6 +3,7 @@ package mana
 import (
 	"net/http"
 
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
 	"github.com/labstack/echo"
 )
@@ -13,7 +14,7 @@ func getPendingHandler(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, PendingResponse{Error: err.Error()})
 	}
-	outputID, err := transaction.OutputIDFromBase58(req.OutputID)
+	outputID, err := ledgerstate.OutputIDFromBase58(req.OutputID)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, PendingResponse{Error: err.Error()})
 	}

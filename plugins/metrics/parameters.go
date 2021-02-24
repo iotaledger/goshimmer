@@ -18,6 +18,6 @@ const (
 func init() {
 	flag.Bool(CfgMetricsLocal, true, "include local metrics")
 	flag.Bool(CfgMetricsGlobal, false, "include global metrics")
-	flag.Uint(CfgManaUpdateInterval, 30, "mana metrics update interval")
+	flag.Int(CfgManaUpdateInterval, 30, "mana metrics update interval")
 	flag.Bool(CfgMetricsManaResearch, false, "include research mana metrics")
 }

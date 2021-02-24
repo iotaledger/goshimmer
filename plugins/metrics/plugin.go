@@ -90,23 +90,23 @@ func run(_ *node.Plugin) {
 	// create a background worker that updates the mana metrics
 	if err := daemon.BackgroundWorker("Metrics Mana Updater", func(shutdownSignal <-chan struct{}) {
 		defer log.Infof("Stopping Metrics Mana Updater ... done")
-		timeutil.Ticker(func() {
+		timeutil.NewTicker(func() {
 			measureMana()
-		}, time.Second*time.Duration(config.Node().GetUint(CfgManaUpdateInterval)), shutdownSignal)
+		}, time.Second*time.Duration(config.Node().Int(CfgManaUpdateInterval)), shutdownSignal)
 
 		log.Infof("Stopping Metrics Mana Updater ...")
 	}, shutdown.PriorityMetrics); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
 
-	if config.Node().GetBool(CfgMetricsManaResearch) {
+	if config.Node().Bool(CfgMetricsManaResearch) {
 		// create a background worker that updates the research mana metrics
 		if err := daemon.BackgroundWorker("Metrics Research Mana Updater", func(shutdownSignal <-chan struct{}) {
 			defer log.Infof("Stopping Metrics Research Mana Updater ... done")
-			timeutil.Ticker(func() {
+			timeutil.NewTicker(func() {
 				measureAccessResearchMana()
 				measureConsensusResearchMana()
-			}, time.Second*time.Duration(config.Node().GetUint(CfgManaUpdateInterval)), shutdownSignal)
+			}, time.Second*time.Duration(config.Node().Int(CfgManaUpdateInterval)), shutdownSignal)
 
 			log.Infof("Stopping Metrics Research Mana Updater ...")
 		}, shutdown.PriorityMetrics); err != nil {

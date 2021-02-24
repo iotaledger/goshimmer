@@ -68,7 +68,7 @@ func configure(plugin *node.Plugin) {
 		registerClientsMetrics()
 	}
 
-	if config.Node().GetBool(metrics.CfgMetricsManaResearch) {
+	if config.Node().Bool(metrics.CfgMetricsManaResearch) {
 		registerManaResearchMetrics()
 	}
 }
