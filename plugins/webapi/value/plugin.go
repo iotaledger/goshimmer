@@ -3,8 +3,6 @@ package value
 import (
 	"sync"
 
-	"github.com/iotaledger/goshimmer/plugins/webapi/value/allowedmanapledge"
-
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/node"
 )
@@ -32,5 +30,5 @@ func configure(_ *node.Plugin) {
 	webapi.Server().POST("value/sendTransaction", sendTransactionHandler)
 	//webapi.Server().POST("value/sendTransactionByJson", sendTransactionByJSONHandler)
 	webapi.Server().GET("value/transactionByID", getTransactionByIDHandler)
-	webapi.Server().GET("value/allowedManaPledge", allowedmanapledge.Handler)
+	webapi.Server().GET("value/allowedManaPledge", allowedManaPledgeHandler)
 }

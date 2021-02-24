@@ -1,17 +1,25 @@
 package value
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
+	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/labstack/echo"
 )
 
-var sendTxMu sync.Mutex
+var (
+	sendTxMu sync.Mutex
+	// ErrNotAllowedToPledgeManaToNode defines an unsupported node to pledge mana to.
+	ErrNotAllowedToPledgeManaToNode = errors.New("not allowed to pledge mana to node")
+)
 
 // sendTransactionHandler sends a transaction.
 func sendTransactionHandler(c echo.Context) error {
@@ -27,6 +35,24 @@ func sendTransactionHandler(c echo.Context) error {
 	tx, _, err := ledgerstate.TransactionFromBytes(request.TransactionBytes)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: err.Error()})
+	}
+
+	// validate allowed mana pledge nodes.
+	allowedAccessMana := manaPlugin.GetAllowedPledgeNodes(mana.AccessMana)
+	if allowedAccessMana.IsFilterEnabled {
+		if !allowedAccessMana.Allowed.Has(tx.Essence().AccessPledgeID()) {
+			return c.JSON(http.StatusBadRequest, Response{
+				Error: fmt.Errorf("not allowed to pledge access mana to %s: %w", tx.Essence().AccessPledgeID().String(), ErrNotAllowedToPledgeManaToNode).Error(),
+			})
+		}
+	}
+	allowedConsensusMana := manaPlugin.GetAllowedPledgeNodes(mana.ConsensusMana)
+	if allowedConsensusMana.IsFilterEnabled {
+		if !allowedConsensusMana.Allowed.Has(tx.Essence().ConsensusPledgeID()) {
+			return c.JSON(http.StatusBadRequest, Response{
+				Error: fmt.Errorf("not allowed to pledge consensus mana to %s: %w", tx.Essence().ConsensusPledgeID().String(), ErrNotAllowedToPledgeManaToNode).Error(),
+			})
+		}
 	}
 
 	issueTransaction := func() (*tangle.Message, error) {

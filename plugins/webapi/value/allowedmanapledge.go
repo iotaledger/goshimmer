@@ -1,4 +1,4 @@
-package allowedmanapledge
+package value
 
 import (
 	"net/http"
@@ -11,7 +11,7 @@ import (
 )
 
 // Handler handles the request.
-func Handler(c echo.Context) error {
+func allowedManaPledgeHandler(c echo.Context) error {
 	access := manaPlugin.GetAllowedPledgeNodes(mana.AccessMana)
 	var accessNodes []string
 	access.Allowed.ForEach(func(element interface{}) {
