@@ -3,6 +3,8 @@ name: Develop
   push:
     branches:
       - develop
+    paths-ignore:
+      - 'docs/**'
 jobs:
   docker:
     runs-on: ubuntu-latest

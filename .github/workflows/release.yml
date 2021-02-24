@@ -3,6 +3,8 @@ name: Release
   release:
     types:
       - published
+    paths-ignore:
+      - 'docs/**'
 jobs:
   goreleaser:
     name: GoReleaser
