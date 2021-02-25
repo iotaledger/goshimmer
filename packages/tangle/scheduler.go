@@ -23,6 +23,7 @@ type Scheduler struct {
 	shutdownOnce   sync.Once
 }
 
+// NewScheduler returns a new scheduler.
 func NewScheduler(tangle *Tangle) (scheduler *Scheduler) {
 	scheduler = &Scheduler{
 		Events: &SchedulerEvents{
@@ -38,14 +39,17 @@ func NewScheduler(tangle *Tangle) (scheduler *Scheduler) {
 	return
 }
 
+// Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (s *Scheduler) Setup() {
 	s.tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(s.Schedule))
 }
 
+// Schedule schedules the given messageID.
 func (s *Scheduler) Schedule(messageID MessageID) {
 	s.inbox <- messageID
 }
 
+// Shutdown shuts down the Scheduler and persists its state.
 func (s *Scheduler) Shutdown() {
 	s.shutdownOnce.Do(func() {
 		close(s.shutdownSignal)
