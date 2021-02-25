@@ -15,12 +15,11 @@ const (
 type Scheduler struct {
 	Events *SchedulerEvents
 
-	tangle            *Tangle
-	inbox             chan MessageID
-	outboxWorkersDone sync.WaitGroup
-	shutdownSignal    chan struct{}
-	runDone           sync.WaitGroup
-	shutdownOnce      sync.Once
+	tangle         *Tangle
+	inbox          chan MessageID
+	shutdownSignal chan struct{}
+	shutdown       sync.WaitGroup
+	shutdownOnce   sync.Once
 }
 
 func NewScheduler(tangle *Tangle) (scheduler *Scheduler) {
@@ -51,14 +50,13 @@ func (s *Scheduler) Shutdown() {
 		close(s.shutdownSignal)
 	})
 
-	s.runDone.Wait()
-	s.outboxWorkersDone.Wait()
+	s.shutdown.Wait()
 }
 
 func (s *Scheduler) run() {
-	s.runDone.Add(1)
+	s.shutdown.Add(1)
 	go func() {
-		defer s.runDone.Done()
+		defer s.shutdown.Done()
 
 		for {
 			select {
@@ -69,7 +67,11 @@ func (s *Scheduler) run() {
 					continue
 				}
 
-				s.Events.MessageScheduled.Trigger(messageID)
+				s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+					if messageMetadata.SetScheduled(true) {
+						s.Events.MessageScheduled.Trigger(messageID)
+					}
+				})
 			}
 		}
 	}()
