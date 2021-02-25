@@ -84,7 +84,7 @@ var (
 	// protect map from concurrent read/write.
 	messageCountPerPayloadMutex syncutils.RWMutex
 
-	// Number of messages per componenet (store, scheduler, booker) type since start of the node.
+	// Number of messages per component (store, scheduler, booker) type since start of the node.
 	messageCountPerComponent = make(map[ComponentType]uint64)
 
 	// protect map from concurrent read/write.
