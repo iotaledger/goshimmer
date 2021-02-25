@@ -86,7 +86,7 @@ func (p *PledgedEvent) ToJSONSerializable() interface{} {
 		ManaType: p.ManaType.String(),
 		NodeID:   p.NodeID.String(),
 		Time:     p.Time.Unix(),
-		TxID:     p.TransactionID.String(),
+		TxID:     p.TransactionID.Base58(),
 		Amount:   p.Amount,
 	}
 }
@@ -167,9 +167,9 @@ func (r *RevokedEvent) ToJSONSerializable() interface{} {
 		ManaType: r.ManaType.String(),
 		NodeID:   r.NodeID.String(),
 		Time:     r.Time.Unix(),
-		TxID:     r.TransactionID.String(),
+		TxID:     r.TransactionID.Base58(),
 		Amount:   r.Amount,
-		InputID:  r.InputID.String(),
+		InputID:  r.InputID.Base58(),
 	}
 }
 
