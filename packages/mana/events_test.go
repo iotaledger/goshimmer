@@ -33,7 +33,7 @@ func TestRevokeEvent_ToJSONSerializable(t *testing.T) {
 	assert.Equal(t, r.Amount, rj.Amount)
 	assert.Equal(t, r.Time.Unix(), rj.Time)
 	assert.Equal(t, r.ManaType.String(), rj.ManaType)
-	assert.Equal(t, r.TransactionID.String(), rj.TxID)
+	assert.Equal(t, r.TransactionID.Base58(), rj.TxID)
 }
 
 func TestPledgedEvent_ToPersistable(t *testing.T) {
@@ -58,7 +58,7 @@ func TestPledgedEvent_ToJSONSerializable(t *testing.T) {
 	assert.Equal(t, p.Amount, pj.Amount)
 	assert.Equal(t, p.Time.Unix(), pj.Time)
 	assert.Equal(t, p.ManaType.String(), pj.ManaType)
-	assert.Equal(t, p.TransactionID.String(), pj.TxID)
+	assert.Equal(t, p.TransactionID.Base58(), pj.TxID)
 }
 
 func TestUpdatedEvent_ToPersistable(t *testing.T) {
