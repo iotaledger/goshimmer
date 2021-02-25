@@ -3,14 +3,11 @@ package tangle
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/async"
-	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
 )
 
 const (
-	outboxCapacity = 1024
-	outboxWorkers  = 1
+	inboxCapacity = 1024
 )
 
 // region Scheduler ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -19,8 +16,7 @@ type Scheduler struct {
 	Events *SchedulerEvents
 
 	tangle            *Tangle
-	outbox            chan MessageID
-	outboxWorkers     async.WorkerPool
+	inbox             chan MessageID
 	outboxWorkersDone sync.WaitGroup
 	shutdownSignal    chan struct{}
 	runDone           sync.WaitGroup
@@ -34,11 +30,9 @@ func NewScheduler(tangle *Tangle) (scheduler *Scheduler) {
 		},
 
 		tangle:         tangle,
-		outbox:         make(chan MessageID, outboxCapacity),
+		inbox:          make(chan MessageID, inboxCapacity),
 		shutdownSignal: make(chan struct{}),
 	}
-
-	scheduler.outboxWorkers.Tune(outboxWorkers)
 	scheduler.run()
 
 	return
@@ -49,17 +43,7 @@ func (s *Scheduler) Setup() {
 }
 
 func (s *Scheduler) Schedule(messageID MessageID) {
-	s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		if !s.parentsBooked(message) {
-			return
-		}
-
-		s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-			if messageMetadata.SetScheduled(true) {
-				s.outbox <- messageID
-			}
-		})
-	})
+	s.inbox <- messageID
 }
 
 func (s *Scheduler) Shutdown() {
@@ -80,44 +64,32 @@ func (s *Scheduler) run() {
 			select {
 			case <-s.shutdownSignal:
 				return
-			case scheduledMessageID := <-s.outbox:
-				s.outboxWorkersDone.Add(1)
-				s.outboxWorkers.Submit(func() {
-					defer s.outboxWorkersDone.Done()
+			case messageID := <-s.inbox:
+				if !s.parentsBooked(messageID) {
+					continue
+				}
 
-					s.Events.MessageScheduled.Trigger(scheduledMessageID)
-
-					s.tangle.Utils.WalkMessageAndMetadata(func(message *Message, messageMetadata *MessageMetadata, walker *walker.Walker) {
-						if messageMetadata.IsInvalid() || !messageMetadata.IsSolid() || !s.parentsBooked(message) {
-							return
-						}
-
-						if messageMetadata.SetScheduled(true) {
-							s.Events.MessageScheduled.Trigger(message.ID())
-
-							for _, childMessageID := range s.tangle.Utils.ApprovingMessageIDs(message.ID()) {
-								walker.Push(childMessageID)
-							}
-						}
-					}, s.tangle.Utils.ApprovingMessageIDs(scheduledMessageID), true)
-				})
+				s.Events.MessageScheduled.Trigger(messageID)
 			}
 		}
 	}()
 }
 
-func (s *Scheduler) parentsBooked(message *Message) (parentsBooked bool) {
-	parentsBooked = true
-	message.ForEachParent(func(parent Parent) {
-		if !parentsBooked || parent.ID == EmptyMessageID {
-			return
-		}
+func (s *Scheduler) parentsBooked(messageID MessageID) (parentsBooked bool) {
+	s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+		parentsBooked = true
+		message.ForEachParent(func(parent Parent) {
+			if !parentsBooked || parent.ID == EmptyMessageID {
+				return
+			}
 
-		if !s.tangle.Storage.MessageMetadata(parent.ID).Consume(func(messageMetadata *MessageMetadata) {
-			parentsBooked = messageMetadata.IsBooked()
-		}) {
-			parentsBooked = false
-		}
+			if !s.tangle.Storage.MessageMetadata(parent.ID).Consume(func(messageMetadata *MessageMetadata) {
+				parentsBooked = messageMetadata.IsBooked()
+			}) {
+				parentsBooked = false
+			}
+		})
+
 	})
 
 	return
