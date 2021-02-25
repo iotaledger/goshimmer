@@ -204,7 +204,9 @@ func TestTangle_MissingMessages(t *testing.T) {
 		messages[msg.ID()] = msg
 	}
 
-	tangle.Setup()
+	// manually set up Tangle flow as far as we need it
+	tangle.Storage.Setup()
+	tangle.Solidifier.Setup()
 
 	// counter for the different stages
 	var (
