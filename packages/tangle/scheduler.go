@@ -3,6 +3,7 @@ package tangle
 import (
 	"sync"
 
+	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/events"
 )
 
@@ -16,11 +17,13 @@ const (
 type Scheduler struct {
 	Events *SchedulerEvents
 
-	tangle         *Tangle
-	inbox          chan MessageID
-	shutdownSignal chan struct{}
-	shutdown       sync.WaitGroup
-	shutdownOnce   sync.Once
+	tangle                 *Tangle
+	inbox                  chan MessageID
+	shutdownSignal         chan struct{}
+	scheduledMessages      set.Set
+	allMessagesScheduledWG sync.WaitGroup
+	shutdown               sync.WaitGroup
+	shutdownOnce           sync.Once
 }
 
 func NewScheduler(tangle *Tangle) (scheduler *Scheduler) {
@@ -29,9 +32,10 @@ func NewScheduler(tangle *Tangle) (scheduler *Scheduler) {
 			MessageScheduled: events.NewEvent(messageIDEventHandler),
 		},
 
-		tangle:         tangle,
-		inbox:          make(chan MessageID, inboxCapacity),
-		shutdownSignal: make(chan struct{}),
+		tangle:            tangle,
+		inbox:             make(chan MessageID, inboxCapacity),
+		shutdownSignal:    make(chan struct{}),
+		scheduledMessages: set.New(true),
 	}
 	scheduler.run()
 
@@ -40,6 +44,18 @@ func NewScheduler(tangle *Tangle) (scheduler *Scheduler) {
 
 func (s *Scheduler) Setup() {
 	s.tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(s.Schedule))
+
+	s.tangle.OpinionFormer.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID MessageID) {
+		if s.scheduledMessages.Delete(messageID) {
+			s.allMessagesScheduledWG.Done()
+		}
+	}))
+
+	s.tangle.Events.MessageInvalid.Attach(events.NewClosure(func(messageID MessageID) {
+		if s.scheduledMessages.Delete(messageID) {
+			s.allMessagesScheduledWG.Done()
+		}
+	}))
 }
 
 func (s *Scheduler) Schedule(messageID MessageID) {
@@ -52,6 +68,7 @@ func (s *Scheduler) Shutdown() {
 	})
 
 	s.shutdown.Wait()
+	s.allMessagesScheduledWG.Wait()
 }
 
 func (s *Scheduler) run() {
@@ -79,6 +96,9 @@ func (s *Scheduler) scheduleMessage(messageID MessageID) {
 
 	s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 		if messageMetadata.SetScheduled(true) {
+			if s.scheduledMessages.Add(messageID) {
+				s.allMessagesScheduledWG.Add(1)
+			}
 			s.Events.MessageScheduled.Trigger(messageID)
 		}
 	})
