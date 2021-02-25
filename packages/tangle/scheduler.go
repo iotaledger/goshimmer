@@ -12,6 +12,7 @@ const (
 
 // region Scheduler ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// Scheduler is a Tangle component that takes care of scheduling the messages that shall be booked.
 type Scheduler struct {
 	Events *SchedulerEvents
 
@@ -60,21 +61,27 @@ func (s *Scheduler) run() {
 
 		for {
 			select {
-			case <-s.shutdownSignal:
-				return
 			case messageID := <-s.inbox:
-				if !s.parentsBooked(messageID) {
-					continue
+				s.scheduleMessage(messageID)
+			case <-s.shutdownSignal:
+				if len(s.inbox) == 0 {
+					return
 				}
-
-				s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-					if messageMetadata.SetScheduled(true) {
-						s.Events.MessageScheduled.Trigger(messageID)
-					}
-				})
 			}
 		}
 	}()
+}
+
+func (s *Scheduler) scheduleMessage(messageID MessageID) {
+	if !s.parentsBooked(messageID) {
+		return
+	}
+
+	s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		if messageMetadata.SetScheduled(true) {
+			s.Events.MessageScheduled.Trigger(messageID)
+		}
+	})
 }
 
 func (s *Scheduler) parentsBooked(messageID MessageID) (parentsBooked bool) {
