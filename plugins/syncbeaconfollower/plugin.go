@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/config"
@@ -201,7 +202,7 @@ func configure(_ *node.Plugin) {
 // More than syncPercentage of followed nodes are also synced, the node is set to synced. Otherwise, its set as desynced.
 func handlePayload(syncBeaconPayload *syncbeacon_payload.Payload, issuerPublicKey ed25519.PublicKey, msgID tangle.MessageID) {
 	synced := true
-	dur := time.Since(time.Unix(0, syncBeaconPayload.SentTime()))
+	dur := clock.Since(time.Unix(0, syncBeaconPayload.SentTime()))
 	if dur.Seconds() > beaconMaxTimeWindowSec {
 		log.Debugf("sync beacon %s, received from %s is too old.", msgID, issuerPublicKey)
 		synced = false
@@ -239,7 +240,7 @@ func cleanupFollowNodes() {
 	defer mutex.Unlock()
 	for publicKey, status := range currentBeacons {
 		if status.MsgID != tangle.EmptyMessageID {
-			dur := time.Since(time.Unix(0, status.SentTime))
+			dur := clock.Since(time.Unix(0, status.SentTime))
 			if dur.Seconds() > beaconMaxTimeOfflineSec {
 				currentBeacons[publicKey].Synced = false
 			}
