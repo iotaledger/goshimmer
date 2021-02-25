@@ -119,7 +119,7 @@ func configure(_ *node.Plugin) {
 	}))
 
 	// subscribe to message-layer
-	messagelayer.Tangle().OpinionFormer.Events.MessageOpinionFormed.Attach(events.NewClosure(readStatement))
+	messagelayer.Tangle().Solidifier.Events.MessageSolid.Attach(events.NewClosure(readStatement))
 }
 
 func run(_ *node.Plugin) {
