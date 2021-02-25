@@ -6,9 +6,7 @@ require (
 	github.com/DataDog/zstd v1.4.8 // indirect
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
 	github.com/beevik/ntp v0.3.0
-	github.com/cockroachdb/errors v1.8.2 // indirect
-	github.com/cockroachdb/pebble v0.0.0-20210222213630-560af6e14c3c
-	github.com/cockroachdb/redact v1.0.9 // indirect
+	github.com/dgraph-io/badger/v2 v2.0.3
 	github.com/drand/drand v1.1.1
 	github.com/drand/kyber v1.1.2
 	github.com/gin-gonic/gin v1.6.3
