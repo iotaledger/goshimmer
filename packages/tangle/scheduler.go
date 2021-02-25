@@ -19,9 +19,9 @@ type Scheduler struct {
 
 	tangle                 *Tangle
 	inbox                  chan MessageID
-	shutdownSignal         chan struct{}
 	scheduledMessages      set.Set
 	allMessagesScheduledWG sync.WaitGroup
+	shutdownSignal         chan struct{}
 	shutdown               sync.WaitGroup
 	shutdownOnce           sync.Once
 }
