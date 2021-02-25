@@ -10,7 +10,7 @@ import (
 	"go.uber.org/atomic"
 )
 
-// Defines the component for the different MPS metrics.
+// ComponentType defines the component for the different MPS metrics.
 type ComponentType byte
 
 const (
