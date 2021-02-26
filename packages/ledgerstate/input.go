@@ -54,6 +54,9 @@ type Input interface {
 	// String returns a human readable version of the Input.
 	String() string
 
+	// Base58 returns the base58 encoded input.
+	Base58() string
+
 	// Compare offers a comparator for Inputs which returns -1 if other Input is bigger, 1 if it is smaller and 0 if they
 	// are the same.
 	Compare(other Input) int
@@ -258,6 +261,11 @@ func (u *UTXOInput) ReferencedOutputID() OutputID {
 // Bytes returns a marshaled version of the Input.
 func (u *UTXOInput) Bytes() []byte {
 	return byteutils.ConcatBytes([]byte{byte(UTXOInputType)}, u.referencedOutputID.Bytes())
+}
+
+// Base58 returns the base58 encoded referenced output ID of this input.
+func (u *UTXOInput) Base58() string {
+	return u.referencedOutputID.Base58()
 }
 
 // Compare offers a comparator for Inputs which returns -1 if other Input is bigger, 1 if it is smaller and 0 if they
