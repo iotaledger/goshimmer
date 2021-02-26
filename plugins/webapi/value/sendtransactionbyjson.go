@@ -105,6 +105,8 @@ func NewTransactionFromJSON(request SendTransactionByJSONRequest) (*ledgerstate.
 				var color ledgerstate.Color
 				if b.Color == "IOTA" {
 					color = ledgerstate.ColorIOTA
+				} else if b.Color == "MINT" {
+					color = ledgerstate.ColorMint
 				} else {
 					color, err = ledgerstate.ColorFromBase58EncodedString(b.Color)
 					if err != nil {
