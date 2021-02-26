@@ -15,7 +15,7 @@
 * Update client-lib
 * Update wallet
 * Update web-API
-* Update Grafana dashboard tp show MPS for entire data-flow
+* Update Grafana dashboard to show MPS for entire data-flow
 * Update to latest hive.go
 * Refactor integration tests
 * Refactor transaction validity check
