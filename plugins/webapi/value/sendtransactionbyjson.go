@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
@@ -56,6 +57,16 @@ func sendTransactionByJSONHandler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, SendTransactionByJSONResponse{Error: err.Error()})
 	}
 
+	// check if transaction is too old
+	if tx.Essence().Timestamp().Before(clock.SyncedTime().Add(-tangle.MaxReattachmentTimeMin)) {
+		return c.JSON(http.StatusBadRequest, SendTransactionByJSONResponse{Error: fmt.Sprintf("transaction timestamp is older than MaxReattachmentTime (%s) and cannot be issued", tangle.MaxReattachmentTimeMin)})
+	}
+
+	// if transaction is in the future we wait until the time arrives
+	if tx.Essence().Timestamp().After(clock.SyncedTime()) {
+		time.Sleep(tx.Essence().Timestamp().Sub(clock.SyncedTime()) + 1*time.Nanosecond)
+	}
+
 	// send tx message
 	issueTransaction := func() (*tangle.Message, error) {
 		msg, e := issuer.IssuePayload(tx, messagelayer.Tangle())
@@ -70,7 +81,7 @@ func sendTransactionByJSONHandler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, SendTransactionByJSONResponse{Error: err.Error()})
 	}
 
-	return c.JSON(http.StatusOK, SendTransactionByJSONResponse{TransactionID: tx.ID().String()})
+	return c.JSON(http.StatusOK, SendTransactionByJSONResponse{TransactionID: tx.ID().Base58()})
 }
 
 // NewTransactionFromJSON returns a new transaction from a given JSON request or an error.
