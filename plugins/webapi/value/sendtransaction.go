@@ -1,9 +1,12 @@
 package value
 
 import (
+	"fmt"
 	"net/http"
 	"sync"
+	"time"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
@@ -27,6 +30,16 @@ func sendTransactionHandler(c echo.Context) error {
 	tx, _, err := ledgerstate.TransactionFromBytes(request.TransactionBytes)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: err.Error()})
+	}
+
+	// check if transaction is too old
+	if tx.Essence().Timestamp().Before(clock.SyncedTime().Add(-tangle.MaxReattachmentTimeMin)) {
+		return c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: fmt.Sprintf("transaction timestamp is older than MaxReattachmentTime (%s) and cannot be issued", tangle.MaxReattachmentTimeMin)})
+	}
+
+	// if transaction is in the future we wait until the time arrives
+	if tx.Essence().Timestamp().After(clock.SyncedTime()) {
+		time.Sleep(tx.Essence().Timestamp().Sub(clock.SyncedTime()) + 1*time.Nanosecond)
 	}
 
 	issueTransaction := func() (*tangle.Message, error) {
