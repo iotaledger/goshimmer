@@ -2,7 +2,6 @@ package value
 
 import (
 	"encoding/hex"
-	"fmt"
 	"testing"
 	"time"
 
