@@ -218,6 +218,7 @@ func (e *ED25519Address) Base58() string {
 func (e *ED25519Address) String() string {
 	return stringify.Struct("ED25519Address",
 		stringify.StructField("Digest", e.Digest()),
+		stringify.StructField("Base58", e.Base58()),
 	)
 }
 
@@ -332,6 +333,7 @@ func (b *BLSAddress) Base58() string {
 func (b *BLSAddress) String() string {
 	return stringify.Struct("BLSAddress",
 		stringify.StructField("Digest", b.Digest()),
+		stringify.StructField("Base58", b.Base58()),
 	)
 }
 
