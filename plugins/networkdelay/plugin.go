@@ -84,7 +84,7 @@ func configure(_ *node.Plugin) {
 	configureWebAPI()
 
 	// subscribe to message-layer
-	messagelayer.Tangle().Scheduler.Events.MessageScheduled.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
+	messagelayer.Tangle().OpinionFormer.Events.MessageOpinionFormed.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
 
 	clockEnabled = !node.IsSkipped(clockPlugin.Plugin())
 }

@@ -104,9 +104,9 @@ func (t *Tangle) Shutdown() {
 	if !t.Options.WithoutOpinionFormer {
 		t.OpinionFormer.Shutdown()
 	}
+	t.Scheduler.Shutdown()
 	t.Booker.Shutdown()
 	t.LedgerState.Shutdown()
-	t.Scheduler.Shutdown()
 	t.Storage.Shutdown()
 	t.Options.Store.Shutdown()
 }
