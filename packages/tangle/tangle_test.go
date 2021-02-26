@@ -461,7 +461,7 @@ func TestTangle_Flow(t *testing.T) {
 	}))
 
 	// data messages should not trigger this event
-	tangle.OpinionFormer.Events.TransactionOpinionFormed.Attach(events.NewClosure(func(messageID MessageID) {
+	tangle.OpinionFormer.Events.TransactionConfirmed.Attach(events.NewClosure(func(messageID MessageID) {
 		n := atomic.AddInt32(&opinionFormedTransactions, 1)
 		t.Logf("opinion formed transaction %d/%d", n, totalMsgCount)
 	}))

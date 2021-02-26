@@ -46,8 +46,8 @@ type OpinionFormerEvents struct {
 	// Fired when an opinion of a message is formed.
 	MessageOpinionFormed *events.Event
 
-	// Fired when an opinion of a message is formed.
-	TransactionOpinionFormed *events.Event
+	// Fired when a transaction gets confirmed.
+	TransactionConfirmed *events.Event
 }
 
 // OpinionFormedEvent holds data about a Payload/MessageOpinionFormed event.
@@ -81,10 +81,10 @@ func NewOpinionFormer(tangle *Tangle, payloadOpinionVoterProvider OpinionVoterPr
 		payloadOpinionProvider:   payloadOpinionVoterProvider,
 		TimestampOpinionProvider: timestampOpinionProvider,
 		Events: OpinionFormerEvents{
-			PayloadOpinionFormed:     events.NewEvent(payloadOpinionCaller),
-			TimestampOpinionFormed:   events.NewEvent(messageIDEventHandler),
-			MessageOpinionFormed:     events.NewEvent(messageIDEventHandler),
-			TransactionOpinionFormed: events.NewEvent(messageIDEventHandler),
+			PayloadOpinionFormed:   events.NewEvent(payloadOpinionCaller),
+			TimestampOpinionFormed: events.NewEvent(messageIDEventHandler),
+			MessageOpinionFormed:   events.NewEvent(messageIDEventHandler),
+			TransactionConfirmed:   events.NewEvent(messageIDEventHandler),
 		},
 	}
 
@@ -137,10 +137,9 @@ func (o *OpinionFormer) MessageEligible(messageID MessageID) (eligible bool) {
 }
 
 func (o *OpinionFormer) onPayloadOpinionFormed(ev *OpinionFormedEvent) {
-	isTx := false
+	isTxConfirmed := false
 	// set BranchLiked and BranchFinalized if this payload was a conflict
 	o.tangle.Utils.ComputeIfTransaction(ev.MessageID, func(transactionID ledgerstate.TransactionID) {
-		isTx = true
 		o.tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 			transactionMetadata.SetFinalized(true)
 		})
@@ -148,14 +147,15 @@ func (o *OpinionFormer) onPayloadOpinionFormed(ev *OpinionFormedEvent) {
 			o.tangle.LedgerState.branchDAG.SetBranchLiked(o.tangle.LedgerState.BranchID(transactionID), ev.Opinion)
 			// TODO: move this to approval weight logic
 			o.tangle.LedgerState.branchDAG.SetBranchFinalized(o.tangle.LedgerState.BranchID(transactionID), true)
+			isTxConfirmed = ev.Opinion
 		}
 	})
 
 	if o.waiting.done(ev.MessageID, payloadOpinion) {
 		o.setEligibility(ev.MessageID)
 		// trigger TransactionOpinionFormed if the message contains a transaction
-		if isTx {
-			o.Events.TransactionOpinionFormed.Trigger(ev.MessageID)
+		if isTxConfirmed {
+			o.Events.TransactionConfirmed.Trigger(ev.MessageID)
 		}
 		o.Events.MessageOpinionFormed.Trigger(ev.MessageID)
 	}
