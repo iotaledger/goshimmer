@@ -2,6 +2,7 @@ package value
 
 import (
 	"encoding/hex"
+	"fmt"
 	"testing"
 	"time"
 
@@ -17,15 +18,21 @@ import (
 func TestNewTransactionFromJSON(t *testing.T) {
 	mySeed := walletseed.NewSeed()
 	myOutputID := "2ZU8TNkVVGKmbFqifhejufMqpaKcSMAUvGadW4igVXB87rP"
+	tokenColorStr := "E113QN5qZbTEvqwtGxeEmTZdBCsCbb6waYK9WDCse3Aw"
+
 	out, err := ledgerstate.OutputIDFromBase58(myOutputID)
+	require.NoError(t, err)
+	tokenColor, err := ledgerstate.ColorFromBase58EncodedString(tokenColorStr)
 	require.NoError(t, err)
 
 	// create a new receiver wallet for the given conflict
 	receiverSeeds := walletseed.NewSeed()
 	destAddr := receiverSeeds.Address(0)
 
-	output := ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
-		ledgerstate.ColorIOTA: uint64(100),
+	output1 := ledgerstate.NewSigLockedSingleOutput(uint64(100), destAddr.Address())
+	output2 := ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
+		tokenColor:            uint64(100),
+		ledgerstate.ColorMint: uint64(100),
 	}), destAddr.Address())
 
 	// nodeID to pledge mana
@@ -33,7 +40,7 @@ func TestNewTransactionFromJSON(t *testing.T) {
 	pledgeID := make([]byte, hex.EncodedLen(len(pledge.Bytes())))
 	_ = hex.Encode(pledgeID, pledge.Bytes())
 
-	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), pledge, pledge, ledgerstate.NewInputs(ledgerstate.NewUTXOInput(out)), ledgerstate.NewOutputs(output))
+	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), pledge, pledge, ledgerstate.NewInputs(ledgerstate.NewUTXOInput(out)), ledgerstate.NewOutputs(output1, output2))
 	// create data payload
 	dataPayload := payload.NewGenericDataPayload([]byte("some data"))
 	txEssence.SetPayload(dataPayload)
@@ -48,16 +55,33 @@ func TestNewTransactionFromJSON(t *testing.T) {
 	tx := ledgerstate.NewTransaction(txEssence, ledgerstate.UnlockBlocks{unlockBlock})
 
 	// output JSON object
-	outputObj := Output{
-		Type:    int8(output.Type()),
-		Address: output.Address().Base58(),
-		Balances: []Balance{
-			{
-				Value: 100,
-				Color: "IOTA",
+	outputsObj := []Output{
+		{
+			Type:    int8(output1.Type()),
+			Address: output1.Address().Base58(),
+			Balances: []Balance{
+				{
+					Value: 100,
+					Color: "IOTA",
+				},
+			},
+		},
+		{
+			Type:    int8(output2.Type()),
+			Address: output2.Address().Base58(),
+			Balances: []Balance{
+				{
+					Value: 100,
+					Color: "MINT",
+				},
+				{
+					Value: 100,
+					Color: tokenColorStr,
+				},
 			},
 		},
 	}
+
 	// signature JSON object
 	sigObj := Signature{
 		Version:   byte(ledgerstate.ED25519SignatureType),
@@ -67,7 +91,7 @@ func TestNewTransactionFromJSON(t *testing.T) {
 
 	req := SendTransactionByJSONRequest{
 		Inputs:        []string{myOutputID},
-		Outputs:       []Output{outputObj},
+		Outputs:       outputsObj,
 		Signatures:    []Signature{sigObj},
 		AManaPledgeID: string(pledgeID),
 		CManaPledgeID: string(pledgeID),
