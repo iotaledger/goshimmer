@@ -18,7 +18,9 @@ func BenchmarkVerifyDataMessages(b *testing.B) {
 	var pool async.WorkerPool
 	pool.Tune(runtime.GOMAXPROCS(0))
 
-	factory := NewMessageFactory(tangle, TipSelectorFunc(func(count int) []MessageID { return []MessageID{EmptyMessageID} }))
+	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error) {
+		return []MessageID{EmptyMessageID}, []MessageID{}, nil
+	}))
 
 	messages := make([][]byte, b.N)
 	for i := 0; i < b.N; i++ {
@@ -48,7 +50,9 @@ func BenchmarkVerifySignature(b *testing.B) {
 
 	pool, _ := ants.NewPool(80, ants.WithNonblocking(false))
 
-	factory := NewMessageFactory(tangle, TipSelectorFunc(func(count int) []MessageID { return []MessageID{EmptyMessageID} }))
+	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error) {
+		return []MessageID{EmptyMessageID}, []MessageID{}, nil
+	}))
 
 	messages := make([]*Message, b.N)
 	for i := 0; i < b.N; i++ {

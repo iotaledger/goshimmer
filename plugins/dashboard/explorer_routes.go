@@ -4,9 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
-	valuetangle "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	valueutils "github.com/iotaledger/goshimmer/plugins/webapi/value"
@@ -119,7 +117,7 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 
 		switch len(searchInByte) {
 
-		case address.Length:
+		case ledgerstate.AddressLength:
 			addr, err := findAddress(search)
 			if err == nil {
 				result.Address = addr
@@ -156,7 +154,7 @@ func findMessage(messageID tangle.MessageID) (explorerMsg *ExplorerMessage, err 
 
 func findAddress(strAddress string) (*ExplorerAddress, error) {
 
-	address, err := address.FromBase58(strAddress)
+	address, err := ledgerstate.AddressFromBase58EncodedString(strAddress)
 	if err != nil {
 		return nil, fmt.Errorf("%w: address %s", ErrNotFound, strAddress)
 	}
@@ -165,45 +163,44 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 	inclusionState := valueutils.InclusionState{}
 
 	// get outputids by address
-	for id, cachedOutput := range valuetransfers.Tangle().OutputsOnAddress(address) {
-
-		cachedOutput.Consume(func(output *valuetangle.Output) {
-
-			// iterate balances
-			var b []valueutils.Balance
-			for _, balance := range output.Balances() {
-				b = append(b, valueutils.Balance{
-					Value: balance.Value,
-					Color: balance.Color.String(),
-				})
-			}
-			var solidificationTime int64
-			if !valuetransfers.Tangle().TransactionMetadata(output.TransactionID()).Consume(func(txMeta *valuetangle.TransactionMetadata) {
-				inclusionState.Confirmed = txMeta.Confirmed()
-				inclusionState.Liked = txMeta.Liked()
-				inclusionState.Rejected = txMeta.Rejected()
-				inclusionState.Finalized = txMeta.Finalized()
-				inclusionState.Conflicting = txMeta.Conflicting()
-				inclusionState.Confirmed = txMeta.Confirmed()
-				solidificationTime = txMeta.SolidificationTime().Unix()
-			}) {
-				// This is only for the genesis.
-				inclusionState.Confirmed = output.Confirmed()
-				inclusionState.Liked = output.Liked()
-				inclusionState.Rejected = output.Rejected()
-				inclusionState.Finalized = output.Finalized()
-				inclusionState.Confirmed = output.Confirmed()
-			}
-
-			outputids = append(outputids, ExplorerOutput{
-				ID:                 id.String(),
-				Balances:           b,
-				InclusionState:     inclusionState,
-				ConsumerCount:      output.ConsumerCount(),
-				SolidificationTime: solidificationTime,
+	messagelayer.Tangle().LedgerState.OutputsOnAddress(address).Consume(func(output ledgerstate.Output) {
+		// iterate balances
+		var b []valueutils.Balance
+		output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+			b = append(b, valueutils.Balance{
+				Value: int64(balance),
+				Color: color.String(),
+			})
+			return true
+		})
+		transactionID := output.ID().TransactionID()
+		txInclusionState, _ := messagelayer.Tangle().LedgerState.TransactionInclusionState(transactionID)
+		var consumerCount int
+		var branch ledgerstate.Branch
+		messagelayer.Tangle().LedgerState.OutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+			consumerCount = outputMetadata.ConsumerCount()
+			messagelayer.Tangle().LedgerState.Branch(outputMetadata.BranchID()).Consume(func(b ledgerstate.Branch) {
+				branch = b
 			})
 		})
-	}
+		var solidificationTime int64
+		messagelayer.Tangle().LedgerState.TransactionMetadata(transactionID).Consume(func(txMeta *ledgerstate.TransactionMetadata) {
+			inclusionState.Confirmed = txInclusionState == ledgerstate.Confirmed
+			inclusionState.Liked = branch.Liked()
+			inclusionState.Rejected = txInclusionState == ledgerstate.Rejected
+			inclusionState.Finalized = txMeta.Finalized()
+			inclusionState.Conflicting = messagelayer.Tangle().LedgerState.TransactionConflicting(transactionID)
+			solidificationTime = txMeta.SolidificationTime().Unix()
+		})
+
+		outputids = append(outputids, ExplorerOutput{
+			ID:                 output.ID().String(),
+			Balances:           b,
+			InclusionState:     inclusionState,
+			ConsumerCount:      consumerCount,
+			SolidificationTime: solidificationTime,
+		})
+	})
 
 	if len(outputids) == 0 {
 		return nil, fmt.Errorf("%w: address %s", ErrNotFound, strAddress)

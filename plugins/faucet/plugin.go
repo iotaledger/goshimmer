@@ -101,10 +101,10 @@ func configure(*node.Plugin) {
 		addr := msg.Payload().(*Request).Address()
 		msg, txID, err := Faucet().SendFunds(msg)
 		if err != nil {
-			log.Warnf("couldn't fulfill funding request to %s: %s", addr, err)
+			log.Warnf("couldn't fulfill funding request to %s: %s", addr.Base58(), err)
 			return
 		}
-		log.Infof("sent funds to address %s via tx %s and msg %s", addr, txID, msg.ID().String())
+		log.Infof("sent funds to address %s via tx %s and msg %s", addr.Base58(), txID, msg.ID().String())
 	}, workerpool.WorkerCount(fundingWorkerCount), workerpool.QueueSize(fundingWorkerQueueSize))
 
 	configureEvents()
@@ -121,7 +121,7 @@ func run(*node.Plugin) {
 }
 
 func configureEvents() {
-	messagelayer.Tangle().Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+	messagelayer.Tangle().OpinionFormer.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
 			if !IsFaucetReq(message) {
 				return
@@ -149,10 +149,10 @@ func configureEvents() {
 			// finally add it to the faucet to be processed
 			_, added := fundingWorkerPool.TrySubmit(message)
 			if !added {
-				log.Info("dropped funding request for address %s as queue is full", addr)
+				log.Info("dropped funding request for address %s as queue is full", addr.Base58())
 				return
 			}
-			log.Infof("enqueued funding request for address %s", addr)
+			log.Infof("enqueued funding request for address %s", addr.Base58())
 		})
 	}))
 }

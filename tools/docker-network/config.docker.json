@@ -71,5 +71,8 @@
       "password": "goshimmer"
     },
     "bindAddress": "0.0.0.0:8080"
+  },
+  "faucet": {
+    "powDifficulty": 2
   }
 }

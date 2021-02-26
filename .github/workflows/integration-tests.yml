@@ -1,6 +1,9 @@
 name: Integration tests
 
-on: pull_request
+on:
+  pull_request:
+    paths-ignore:
+      - 'docs/**'
 
 jobs:
 
@@ -11,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-      - name: Check out code
+      - name: Checkout repository
         uses: actions/checkout@v2
 
       - name: Build GoShimmer image
@@ -46,7 +49,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-      - name: Check out code
+      - name: Checkout repository
         uses: actions/checkout@v2
 
       - name: Build GoShimmer image
@@ -80,7 +83,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-      - name: Check out code
+      - name: Checkout repository
         uses: actions/checkout@v2
 
       - name: Build GoShimmer image
@@ -115,7 +118,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-      - name: Check out code
+      - name: Checkout repository
         uses: actions/checkout@v2
 
       - name: Build GoShimmer image
@@ -151,7 +154,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-      - name: Check out code
+      - name: Checkout repository
         uses: actions/checkout@v2
 
       - name: Build GoShimmer image
@@ -187,7 +190,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-      - name: Check out code
+      - name: Checkout repository
         uses: actions/checkout@v2
 
       - name: Build GoShimmer image
@@ -221,7 +224,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-      - name: Check out code
+      - name: Checkout repository
         uses: actions/checkout@v2
 
       - name: Build GoShimmer image
@@ -255,7 +258,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-      - name: Check out code
+      - name: Checkout repository
         uses: actions/checkout@v2
 
       - name: Build GoShimmer image

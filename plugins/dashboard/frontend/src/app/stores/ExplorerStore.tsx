@@ -6,7 +6,7 @@ import {
     DrngPayload,
     DrngSubtype,
     PayloadType,
-    ValuePayload,
+    TransactionPayload,
     SyncBeaconPayload,
     getPayloadType
 } from "app/misc/Payload";
@@ -197,8 +197,8 @@ export class ExplorerStore {
                     this.subpayload = this.payload.drngpayload as BasicPayload
                 }
                 break;
-            case PayloadType.Value:
-                this.payload = msg.payload as ValuePayload
+            case PayloadType.Transaction:
+                this.payload = msg.payload as TransactionPayload
                 break;
             case PayloadType.Data:
                 this.payload = msg.payload as BasicPayload

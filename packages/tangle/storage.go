@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
+	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/events"
@@ -39,7 +40,7 @@ const (
 	// PrefixFCoB defines the storage prefix for FCoB.
 	PrefixFCoB
 
-	cacheTime = 20 * time.Second
+	cacheTime = 2 * time.Second
 
 	// DBSequenceNumber defines the db sequence number.
 	DBSequenceNumber = "seq"
@@ -62,10 +63,10 @@ type Storage struct {
 }
 
 // NewStorage creates a new Storage.
-func NewStorage(tangle *Tangle) (result *Storage) {
+func NewStorage(tangle *Tangle) (storage *Storage) {
 	osFactory := objectstorage.NewFactory(tangle.Options.Store, database.PrefixMessageLayer)
 
-	result = &Storage{
+	storage = &Storage{
 		tangle:                            tangle,
 		shutdown:                          make(chan struct{}),
 		messageStorage:                    osFactory.New(PrefixMessage, MessageFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
@@ -81,6 +82,8 @@ func NewStorage(tangle *Tangle) (result *Storage) {
 			MissingMessageStored: events.NewEvent(messageIDEventHandler),
 		},
 	}
+
+	storage.storeGenesis()
 
 	return
 }
@@ -212,6 +215,11 @@ func (s *Storage) AttachmentMessageIDs(transactionID ledgerstate.TransactionID) 
 	return
 }
 
+// IsTransactionAttachedByMessage checks whether Transaction with transactionID is attached by Message with messageID.
+func (s *Storage) IsTransactionAttachedByMessage(transactionID ledgerstate.TransactionID, messageID MessageID) (attached bool) {
+	return s.attachmentStorage.Contains(NewAttachment(transactionID, messageID).ObjectStorageKey())
+}
+
 // DeleteMessage deletes a message and its association to approvees by un-marking the given
 // message as an approver.
 func (s *Storage) DeleteMessage(messageID MessageID) {
@@ -240,12 +248,40 @@ func (s *Storage) DeleteMissingMessage(messageID MessageID) {
 // yet.
 func (s *Storage) MarkerIndexBranchIDMapping(sequenceID markers.SequenceID, computeIfAbsentCallback ...func(sequenceID markers.SequenceID) *MarkerIndexBranchIDMapping) *CachedMarkerIndexBranchIDMapping {
 	if len(computeIfAbsentCallback) >= 1 {
-		return &CachedMarkerIndexBranchIDMapping{s.messageMetadataStorage.ComputeIfAbsent(sequenceID.Bytes(), func(key []byte) objectstorage.StorableObject {
+		return &CachedMarkerIndexBranchIDMapping{s.markerIndexBranchIDMappingStorage.ComputeIfAbsent(sequenceID.Bytes(), func(key []byte) objectstorage.StorableObject {
 			return computeIfAbsentCallback[0](sequenceID)
 		})}
 	}
 
-	return &CachedMarkerIndexBranchIDMapping{CachedObject: s.messageMetadataStorage.Load(sequenceID.Bytes())}
+	return &CachedMarkerIndexBranchIDMapping{CachedObject: s.markerIndexBranchIDMappingStorage.Load(sequenceID.Bytes())}
+}
+
+func (s *Storage) storeGenesis() {
+	s.MessageMetadata(EmptyMessageID, func() *MessageMetadata {
+		genesisMetadata := &MessageMetadata{
+			messageID: EmptyMessageID,
+			solid:     true,
+			branchID:  ledgerstate.MasterBranchID,
+			structureDetails: &markers.StructureDetails{
+				Rank:          0,
+				IsPastMarker:  false,
+				PastMarkers:   markers.NewMarkers(),
+				FutureMarkers: markers.NewMarkers(),
+			},
+			timestampOpinion: TimestampOpinion{
+				Value: opinion.Like,
+				LoK:   Three,
+			},
+			booked:   true,
+			eligible: true,
+		}
+
+		genesisMetadata.Persist()
+		genesisMetadata.SetModified()
+
+		return genesisMetadata
+	}).Release()
+
 }
 
 // deleteStrongApprover deletes an Approver from the object storage that was created by a strong parent.
@@ -265,6 +301,7 @@ func (s *Storage) Shutdown() {
 	s.approverStorage.Shutdown()
 	s.missingMessageStorage.Shutdown()
 	s.attachmentStorage.Shutdown()
+	s.markerIndexBranchIDMappingStorage.Shutdown()
 
 	close(s.shutdown)
 }
@@ -277,12 +314,15 @@ func (s *Storage) Prune() error {
 		s.approverStorage,
 		s.missingMessageStorage,
 		s.attachmentStorage,
+		s.markerIndexBranchIDMappingStorage,
 	} {
 		if err := storage.Prune(); err != nil {
 			err = fmt.Errorf("failed to prune storage: %w", err)
 			return err
 		}
 	}
+
+	s.storeGenesis()
 
 	return nil
 }

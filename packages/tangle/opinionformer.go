@@ -7,7 +7,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/types"
 )
 
 // OpinionProvider is the interface to describe the functionalities of an opinion provider.
@@ -32,6 +31,8 @@ type OpinionVoterProvider interface {
 	VoteError() *events.Event
 	// ProcessVote allows an external voter to hand in the results of the voting process.
 	ProcessVote(*vote.OpinionEvent)
+	// TransactionOpinionEssence returns the opinion essence of a given transactionID.
+	TransactionOpinionEssence(ledgerstate.TransactionID) OpinionEssence
 }
 
 // OpinionFormerEvents defines all the events related to the opinion manager.
@@ -44,6 +45,9 @@ type OpinionFormerEvents struct {
 
 	// Fired when an opinion of a message is formed.
 	MessageOpinionFormed *events.Event
+
+	// Fired when a transaction gets confirmed.
+	TransactionConfirmed *events.Event
 }
 
 // OpinionFormedEvent holds data about a Payload/MessageOpinionFormed event.
@@ -73,13 +77,14 @@ type OpinionFormer struct {
 func NewOpinionFormer(tangle *Tangle, payloadOpinionVoterProvider OpinionVoterProvider, timestampOpinionProvider OpinionProvider) (opinionFormer *OpinionFormer) {
 	opinionFormer = &OpinionFormer{
 		tangle:                   tangle,
-		waiting:                  &opinionWait{waitMap: make(map[MessageID]types.Empty)},
+		waiting:                  &opinionWait{waitMap: make(map[MessageID]*waitStruct)},
 		payloadOpinionProvider:   payloadOpinionVoterProvider,
 		TimestampOpinionProvider: timestampOpinionProvider,
 		Events: OpinionFormerEvents{
 			PayloadOpinionFormed:   events.NewEvent(payloadOpinionCaller),
 			TimestampOpinionFormed: events.NewEvent(messageIDEventHandler),
 			MessageOpinionFormed:   events.NewEvent(messageIDEventHandler),
+			TransactionConfirmed:   events.NewEvent(messageIDEventHandler),
 		},
 	}
 
@@ -132,24 +137,33 @@ func (o *OpinionFormer) MessageEligible(messageID MessageID) (eligible bool) {
 }
 
 func (o *OpinionFormer) onPayloadOpinionFormed(ev *OpinionFormedEvent) {
+	isTxConfirmed := false
 	// set BranchLiked and BranchFinalized if this payload was a conflict
 	o.tangle.Utils.ComputeIfTransaction(ev.MessageID, func(transactionID ledgerstate.TransactionID) {
+		o.tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+			transactionMetadata.SetFinalized(true)
+		})
 		if o.tangle.LedgerState.TransactionConflicting(transactionID) {
 			o.tangle.LedgerState.branchDAG.SetBranchLiked(o.tangle.LedgerState.BranchID(transactionID), ev.Opinion)
 			// TODO: move this to approval weight logic
 			o.tangle.LedgerState.branchDAG.SetBranchFinalized(o.tangle.LedgerState.BranchID(transactionID), true)
+			isTxConfirmed = ev.Opinion
 		}
 	})
 
-	if o.waiting.done(ev.MessageID) {
+	if o.waiting.done(ev.MessageID, payloadOpinion) {
 		o.setEligibility(ev.MessageID)
+		// trigger TransactionOpinionFormed if the message contains a transaction
+		if isTxConfirmed {
+			o.Events.TransactionConfirmed.Trigger(ev.MessageID)
+		}
 		o.Events.MessageOpinionFormed.Trigger(ev.MessageID)
 	}
 }
 
 func (o *OpinionFormer) onTimestampOpinionFormed(messageID MessageID) {
-	if o.waiting.done(messageID) {
-		o.setEligibility(messageID)
+	o.setEligibility(messageID)
+	if o.waiting.done(messageID, timestampOpinion) {
 		o.Events.MessageOpinionFormed.Trigger(messageID)
 	}
 }
@@ -178,19 +192,46 @@ func (o *OpinionFormer) parentsEligibility(messageID MessageID) (eligible bool) 
 	return
 }
 
+type callerType uint8
+
+const (
+	payloadOpinion callerType = iota
+	timestampOpinion
+)
+
+type waitStruct struct {
+	payloadCaller   bool
+	timestampCaller bool
+}
+
+func (w *waitStruct) update(caller callerType) {
+	switch caller {
+	case payloadOpinion:
+		w.payloadCaller = true
+	default:
+		w.timestampCaller = true
+	}
+}
+
+func (w *waitStruct) ready() (ready bool) {
+	return w.payloadCaller && w.timestampCaller
+}
+
 type opinionWait struct {
-	waitMap map[MessageID]types.Empty
+	waitMap map[MessageID]*waitStruct
 	sync.Mutex
 }
 
-func (o *opinionWait) done(messageID MessageID) (done bool) {
+func (o *opinionWait) done(messageID MessageID, caller callerType) (done bool) {
 	o.Lock()
 	defer o.Unlock()
 	if _, exist := o.waitMap[messageID]; !exist {
-		o.waitMap[messageID] = types.Void
-		return
+		o.waitMap[messageID] = &waitStruct{}
 	}
-	delete(o.waitMap, messageID)
-	done = true
+	o.waitMap[messageID].update(caller)
+	if o.waitMap[messageID].ready() {
+		delete(o.waitMap, messageID)
+		done = true
+	}
 	return
 }

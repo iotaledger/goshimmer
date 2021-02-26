@@ -130,15 +130,21 @@ type Transaction struct {
 }
 
 // NewTransaction creates a new Transaction from the given details.
-func NewTransaction(essence *TransactionEssence, unlockBlocks UnlockBlocks) *Transaction {
+func NewTransaction(essence *TransactionEssence, unlockBlocks UnlockBlocks) (transaction *Transaction) {
 	if len(unlockBlocks) != len(essence.Inputs()) {
 		panic(fmt.Sprintf("amount of UnlockBlocks (%d) does not match amount of Inputs (%d)", len(unlockBlocks), len(essence.inputs)))
 	}
 
-	return &Transaction{
+	transaction = &Transaction{
 		essence:      essence,
 		unlockBlocks: unlockBlocks,
 	}
+
+	for i, output := range essence.Outputs() {
+		output.SetID(NewOutputID(transaction.ID(), uint16(i)))
+	}
+
+	return
 }
 
 // TransactionFromBytes unmarshals a Transaction from a sequence of bytes.
@@ -195,6 +201,10 @@ func TransactionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transacti
 	if len(transaction.unlockBlocks) != len(transaction.essence.Inputs()) {
 		err = xerrors.Errorf("amount of UnlockBlocks (%d) does not match amount of Inputs (%d): %w", len(transaction.unlockBlocks), len(transaction.essence.inputs), cerrors.ErrParseBytesFailed)
 		return
+	}
+
+	for i, output := range transaction.essence.Outputs() {
+		output.SetID(NewOutputID(transaction.ID(), uint16(i)))
 	}
 
 	return
@@ -274,14 +284,14 @@ func (t *Transaction) ReferencedTransactionIDs() (referencedTransactionIDs Trans
 func (t *Transaction) Bytes() []byte {
 	if t == nil {
 		// if the payload is nil (i.e. when used as an optional payload) we encode that by setting the length to 0.
-		return marshalutil.New(marshalutil.Uint16Size).WriteUint16(0).Bytes()
+		return marshalutil.New(marshalutil.Uint32Size).WriteUint32(0).Bytes()
 	}
 
 	payloadBytes := byteutils.ConcatBytes(TransactionType.Bytes(), t.essence.Bytes(), t.unlockBlocks.Bytes())
 	payloadBytesLength := len(payloadBytes)
 
-	return marshalutil.New(marshalutil.Uint16Size + payloadBytesLength).
-		WriteUint16(uint16(payloadBytesLength)).
+	return marshalutil.New(marshalutil.Uint32Size + payloadBytesLength).
+		WriteUint32(uint32(payloadBytesLength)).
 		WriteBytes(payloadBytes).
 		Bytes()
 }
@@ -454,6 +464,16 @@ func TransactionEssenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (tr
 	}
 
 	return
+}
+
+// SetPayload set the optional Payload of the TransactionEssence.
+func (t *TransactionEssence) SetPayload(p payload.Payload) {
+	t.payload = p
+}
+
+// Version returns the Version of the TransactionEssence.
+func (t *TransactionEssence) Version() TransactionEssenceVersion {
+	return t.version
 }
 
 // Timestamp returns the timestamp of the TransactionEssence.

@@ -1,11 +1,13 @@
 package value
 
 import (
+	"fmt"
 	"net/http"
 	"sync"
+	"time"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -24,36 +26,52 @@ func sendTransactionHandler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: err.Error()})
 	}
 
-	// prepare transaction
-	tx, _, err := transaction.FromBytes(request.TransactionBytes)
+	// parse tx
+	tx, _, err := ledgerstate.TransactionFromBytes(request.TransactionBytes)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: err.Error()})
 	}
 
-	err = valuetransfers.Tangle().ValidateTransactionToAttach(tx)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: err.Error()})
+	// check balances validity
+	consumedOutputs := make(ledgerstate.Outputs, len(tx.Essence().Inputs()))
+	for i, consumedOutputID := range tx.Essence().Inputs() {
+		referencedOutputID := consumedOutputID.(*ledgerstate.UTXOInput).ReferencedOutputID()
+		messagelayer.Tangle().LedgerState.Output(referencedOutputID).Consume(func(output ledgerstate.Output) {
+			consumedOutputs[i] = output
+		})
+	}
+	if !ledgerstate.TransactionBalancesValid(consumedOutputs, tx.Essence().Outputs()) {
+		return c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: "sum of consumed and spent balances is not 0"})
 	}
 
-	// Prepare value payload and send the message to tangle
-	payload, err := valuetransfers.ValueObjectFactory().IssueTransaction(tx)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: err.Error()})
+	// check unlock blocks validity
+	if !ledgerstate.UnlockBlocksValid(consumedOutputs, tx) {
+		return c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: "spending of referenced consumedOutputs is not authorized"})
+	}
+
+	// check if transaction is too old
+	if tx.Essence().Timestamp().Before(clock.SyncedTime().Add(-tangle.MaxReattachmentTimeMin)) {
+		return c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: fmt.Sprintf("transaction timestamp is older than MaxReattachmentTime (%s) and cannot be issued", tangle.MaxReattachmentTimeMin)})
+	}
+
+	// if transaction is in the future we wait until the time arrives
+	if tx.Essence().Timestamp().After(clock.SyncedTime()) {
+		time.Sleep(tx.Essence().Timestamp().Sub(clock.SyncedTime()) + 1*time.Nanosecond)
 	}
 
 	issueTransaction := func() (*tangle.Message, error) {
-		msg, e := issuer.IssuePayload(payload, messagelayer.Tangle())
+		msg, e := issuer.IssuePayload(tx, messagelayer.Tangle())
 		if e != nil {
 			return nil, c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: e.Error()})
 		}
 		return msg, nil
 	}
 
-	_, err = valuetransfers.AwaitTransactionToBeBooked(issueTransaction, tx.ID(), maxBookedAwaitTime)
+	_, err = messagelayer.AwaitMessageToBeBooked(issueTransaction, tx.ID(), maxBookedAwaitTime)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: err.Error()})
 	}
-	return c.JSON(http.StatusOK, SendTransactionResponse{TransactionID: tx.ID().String()})
+	return c.JSON(http.StatusOK, SendTransactionResponse{TransactionID: tx.ID().Base58()})
 }
 
 // SendTransactionRequest holds the transaction object(bytes) to send.

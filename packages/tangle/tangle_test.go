@@ -150,11 +150,11 @@ func TestTangle_MissingMessages(t *testing.T) {
 	)
 
 	// create badger store
-	badgerDB, err := testutil.BadgerDB(t)
+	badger, err := testutil.BadgerDB(t)
 	require.NoError(t, err)
 
 	// create the tangle
-	tangle := New(Store(badgerDB))
+	tangle := New(Store(badger), WithoutOpinionFormer(true))
 	defer tangle.Shutdown()
 	require.NoError(t, tangle.Prune())
 
@@ -165,16 +165,16 @@ func TestTangle_MissingMessages(t *testing.T) {
 	// setup the message factory
 	tangle.MessageFactory = NewMessageFactory(
 		tangle,
-		TipSelectorFunc(func(count int) []MessageID {
-			r := tips.RandomUniqueEntries(count)
+		TipSelectorFunc(func(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error) {
+			r := tips.RandomUniqueEntries(countStrongParents)
 			if len(r) == 0 {
-				return []MessageID{EmptyMessageID}
+				return []MessageID{EmptyMessageID}, []MessageID{}, nil
 			}
 			parents := make([]MessageID, len(r))
 			for i := range r {
 				parents[i] = r[i].(MessageID)
 			}
-			return parents
+			return parents, []MessageID{}, nil
 		}),
 	)
 
@@ -204,7 +204,9 @@ func TestTangle_MissingMessages(t *testing.T) {
 		messages[msg.ID()] = msg
 	}
 
-	tangle.Setup()
+	// manually set up Tangle flow as far as we need it
+	tangle.Storage.Setup()
+	tangle.Solidifier.Setup()
 
 	// counter for the different stages
 	var (
@@ -260,7 +262,7 @@ func TestRetrieveAllTips(t *testing.T) {
 
 	var wg sync.WaitGroup
 
-	messageTangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(MessageID) {
+	messageTangle.OpinionFormer.Events.MessageOpinionFormed.Attach(events.NewClosure(func(MessageID) {
 		wg.Done()
 	}))
 
@@ -296,7 +298,7 @@ func TestTangle_Flow(t *testing.T) {
 		messageWorkerQueueSize = 1000
 	)
 	// create badger store
-	badgerDB, err := testutil.BadgerDB(t)
+	badger, err := testutil.BadgerDB(t)
 	require.NoError(t, err)
 
 	// map to keep track of the tips
@@ -304,9 +306,8 @@ func TestTangle_Flow(t *testing.T) {
 	tips.Set(EmptyMessageID, EmptyMessageID)
 
 	// create the tangle
-	tangle := New(Store(badgerDB))
+	tangle := New(Store(badger))
 	defer tangle.Shutdown()
-	require.NoError(t, tangle.Prune())
 
 	// create local peer
 	services := service.New()
@@ -317,16 +318,16 @@ func TestTangle_Flow(t *testing.T) {
 	// setup the message factory
 	tangle.MessageFactory = NewMessageFactory(
 		tangle,
-		TipSelectorFunc(func(count int) []MessageID {
-			r := tips.RandomUniqueEntries(count)
+		TipSelectorFunc(func(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error) {
+			r := tips.RandomUniqueEntries(countStrongParents)
 			if len(r) == 0 {
-				return []MessageID{EmptyMessageID}
+				return []MessageID{EmptyMessageID}, []MessageID{}, nil
 			}
 			parents := make([]MessageID, len(r))
 			for i := range r {
 				parents[i] = r[i].(MessageID)
 			}
-			return parents
+			return parents, []MessageID{}, nil
 		}),
 	)
 
@@ -391,18 +392,18 @@ func TestTangle_Flow(t *testing.T) {
 		invalidmsgs[msg.ID()] = msg
 	}
 
-	// setup data flow
-	tangle.Setup()
-
 	// counter for the different stages
 	var (
-		parsedMessages    int32
-		storedMessages    int32
-		missingMessages   int32
-		solidMessages     int32
-		scheduledMessages int32
-		invalidMessages   int32
-		rejectedMessages  int32
+		parsedMessages            int32
+		storedMessages            int32
+		missingMessages           int32
+		solidMessages             int32
+		scheduledMessages         int32
+		bookedMessages            int32
+		opinionFormedMessages     int32
+		opinionFormedTransactions int32
+		invalidMessages           int32
+		rejectedMessages          int32
 	)
 
 	// filter rejected events
@@ -414,14 +415,10 @@ func TestTangle_Flow(t *testing.T) {
 	tangle.Parser.Events.MessageParsed.Attach(events.NewClosure(func(msgParsedEvent *MessageParsedEvent) {
 		n := atomic.AddInt32(&parsedMessages, 1)
 		t.Logf("parsed messages %d/%d", n, totalMsgCount)
-
-		tangle.Storage.StoreMessage(msgParsedEvent.Message)
 	}))
 
 	// message invalid events
 	tangle.Events.MessageInvalid.Attach(events.NewClosure(func(messageID MessageID) {
-		tangle.Storage.DeleteMessage(messageID)
-
 		n := atomic.AddInt32(&invalidMessages, 1)
 		t.Logf("invalid messages %d/%d", n, totalMsgCount)
 	}))
@@ -451,18 +448,38 @@ func TestTangle_Flow(t *testing.T) {
 	}))
 
 	tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
-		// Bypassing the messageBooked event
-		tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-			messageMetadata.SetBooked(true)
-			tangle.Booker.Events.MessageBooked.Trigger(messageID)
-		})
-
 		n := atomic.AddInt32(&scheduledMessages, 1)
 		t.Logf("scheduled messages %d/%d", n, totalMsgCount)
 	}))
 
+	tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(func(messageID MessageID) {
+		n := atomic.AddInt32(&bookedMessages, 1)
+		t.Logf("booked messages %d/%d", n, totalMsgCount)
+	}))
+
+	tangle.OpinionFormer.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID MessageID) {
+		n := atomic.AddInt32(&opinionFormedMessages, 1)
+		t.Logf("opinion formed messages %d/%d", n, totalMsgCount)
+	}))
+
+	// data messages should not trigger this event
+	tangle.OpinionFormer.Events.TransactionConfirmed.Attach(events.NewClosure(func(messageID MessageID) {
+		n := atomic.AddInt32(&opinionFormedTransactions, 1)
+		t.Logf("opinion formed transaction %d/%d", n, totalMsgCount)
+	}))
+
+	tangle.Events.Error.Attach(events.NewClosure(func(err error) {
+		t.Logf("Error %s", err)
+	}))
+
+	// setup data flow
+	tangle.Setup()
+
 	// issue tips to start solidification
 	tips.ForEach(func(key interface{}, _ interface{}) {
+		if key.(MessageID) == EmptyMessageID {
+			return
+		}
 		inboxWP.TrySubmit(messages[key.(MessageID)].Bytes(), localPeer)
 	})
 	// incoming invalid messages
@@ -470,14 +487,15 @@ func TestTangle_Flow(t *testing.T) {
 		inboxWP.TrySubmit(msg.Bytes(), localPeer)
 	}
 
-	// wait for all transactions to become solid
-	assert.Eventually(t, func() bool { return atomic.LoadInt32(&scheduledMessages) == solidMsgCount }, 5*time.Minute, 100*time.Millisecond)
+	// wait for all messages to have a formed opinion
+	assert.Eventually(t, func() bool { return atomic.LoadInt32(&opinionFormedMessages) == solidMsgCount }, 5*time.Minute, 100*time.Millisecond)
 
 	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&solidMessages))
 	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&scheduledMessages))
 	assert.EqualValues(t, totalMsgCount, atomic.LoadInt32(&storedMessages))
 	assert.EqualValues(t, totalMsgCount, atomic.LoadInt32(&parsedMessages))
 	assert.EqualValues(t, invalidMsgCount, atomic.LoadInt32(&invalidMessages))
+	assert.EqualValues(t, 0, atomic.LoadInt32(&opinionFormedTransactions))
 	assert.EqualValues(t, 0, atomic.LoadInt32(&missingMessages))
 }
 
@@ -499,8 +517,13 @@ func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, t ...*Tangle) 
 		return nil, err
 	}
 
-	strongParents := f.selector.Tips(2)
-	weakParents := make([]MessageID, 0)
+	strongParents, weakParents, err := f.selector.Tips(p, 2, 0)
+	if err != nil {
+		err = fmt.Errorf("could not select tips: %w", err)
+		f.Events.Error.Trigger(err)
+		return nil, err
+	}
+
 	issuingTime := time.Now().Add(maxParentsTimeDifference + 5*time.Minute)
 	issuerPublicKey := f.localIdentity.PublicKey()
 

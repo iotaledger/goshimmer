@@ -1,13 +1,12 @@
 package dashboard
 
 import (
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
-	valuepayload "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/packages/drng"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/packages/vote/statement"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	syncbeaconpayload "github.com/iotaledger/goshimmer/plugins/syncbeacon/payload"
 	"github.com/iotaledger/hive.go/marshalutil"
 )
@@ -46,15 +45,22 @@ type DrngCollectiveBeaconPayload struct {
 	Dpk     []byte `json:"dpk"`
 }
 
-// ValuePayload contains the transaction information
-type ValuePayload struct {
-	ID        string          `json:"payload_id"`
-	Parent1ID string          `json:"parent1_id"`
-	Parent2ID string          `json:"parent2_id"`
-	TxID      string          `json:"tx_id"`
-	Input     []InputContent  `json:"inputs"`
-	Output    []OutputContent `json:"outputs"`
-	Data      []byte          `json:"data"`
+// TransactionPayload contains the transaction information.
+type TransactionPayload struct {
+	TxID               string   `json:"tx_id"`
+	TransactionEssence Essence  `json:"tx_essence"`
+	UnlockBlocks       []string `json:"unlock_blocks"`
+}
+
+// Essence contains the transaction essence information.
+type Essence struct {
+	Version           uint8           `json:"version"`
+	Timestamp         int             `json:"timestamp"`
+	AccessPledgeID    string          `json:"access_pledge_id"`
+	ConsensusPledgeID string          `json:"cons_pledge_id"`
+	Inputs            []InputContent  `json:"inputs"`
+	Outputs           []OutputContent `json:"outputs"`
+	Data              string          `json:"data"`
 }
 
 // StatementPayload is a JSON serializable statement payload.
@@ -83,18 +89,21 @@ type Opinion struct {
 
 // InputContent contains the inputs of a transaction
 type InputContent struct {
-	Address string `json:"address"`
+	OutputID string    `json:"output_id"`
+	Address  string    `json:"address"`
+	Balances []Balance `json:"balance"`
 }
 
 // OutputContent contains the outputs of a transaction
 type OutputContent struct {
+	OutputID string    `json:"output_id"`
 	Address  string    `json:"address"`
 	Balances []Balance `json:"balance"`
 }
 
 // Balance contains the amount of specific color token
 type Balance struct {
-	Value int64  `json:"value"`
+	Value uint64 `json:"value"`
 	Color string `json:"color"`
 }
 
@@ -108,15 +117,15 @@ func ProcessPayload(p payload.Payload) interface{} {
 			ContentTitle: "GenericDataPayload",
 			Content:      p.(*payload.GenericDataPayload).Blob(),
 		}
-	case valuepayload.Type:
-		return processValuePayload(p)
+	case ledgerstate.TransactionType:
+		return processTransactionPayload(p)
 	case statement.StatementType:
 		return processStatementPayload(p)
 	case faucet.Type:
 		// faucet payload
 		return BasicStringPayload{
 			ContentTitle: "address",
-			Content:      p.(*faucet.Request).Address().String(),
+			Content:      p.(*faucet.Request).Address().Base58(),
 		}
 	case drng.PayloadType:
 		// drng payload
@@ -176,52 +185,73 @@ func processSyncBeaconPayload(p payload.Payload) (dp SyncBeaconPayload) {
 	}
 }
 
-// processValuePayload handles Value payload
-func processValuePayload(p payload.Payload) (vp ValuePayload) {
-	marshalUtil := marshalutil.New(p.Bytes())
-	v, _ := valuepayload.Parse(marshalUtil)
+// processTransactionPayload handles Value payload
+func processTransactionPayload(p payload.Payload) (tp TransactionPayload) {
+	tx, _, err := ledgerstate.TransactionFromBytes(p.Bytes())
+	if err != nil {
+		return
+	}
 
 	var inputs []InputContent
 	var outputs []OutputContent
+	var stringifiedUnlockBlocks []string
 
-	// TODO: retrieve balance
-	v.Transaction().Inputs().ForEachAddress(func(currentAddress address.Address) bool {
-		inputs = append(inputs, InputContent{Address: currentAddress.String()})
-		return true
-	})
-
-	// Get outputs address and balance
-	v.Transaction().Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
-		var b []Balance
-		for _, bal := range balances {
-			color := bal.Color.String()
-			if bal.Color == balance.ColorNew {
-				color = v.Transaction().ID().String()
-			}
-
-			b = append(b, Balance{
-				Value: bal.Value,
-				Color: color,
+	// fill in inputs
+	for _, input := range tx.Essence().Inputs() {
+		if input.Type() == ledgerstate.UTXOInputType {
+			utxoInput := input.(*ledgerstate.UTXOInput)
+			refOutputID := utxoInput.ReferencedOutputID()
+			_ = messagelayer.Tangle().LedgerState.Output(refOutputID).Consume(func(o ledgerstate.Output) {
+				content := InputContent{
+					OutputID: o.ID().Base58(),
+					Address:  o.Address().Base58(),
+				}
+				o.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+					content.Balances = append(content.Balances, Balance{Color: color.String(), Value: balance})
+					return true
+				})
+				inputs = append(inputs, content)
 			})
 		}
-		t := OutputContent{
-			Address:  address.String(),
-			Balances: b,
-		}
-		outputs = append(outputs, t)
-
-		return true
-	})
-
-	return ValuePayload{
-		ID:        v.ID().String(),
-		Parent1ID: v.Parent1ID().String(),
-		Parent2ID: v.Parent2ID().String(),
-		TxID:      v.Transaction().ID().String(),
-		Input:     inputs,
-		Output:    outputs,
-		Data:      v.Transaction().GetDataPayload(),
 	}
+
+	// fill in outputs
+	for _, output := range tx.Essence().Outputs() {
+		content := OutputContent{
+			OutputID: output.ID().Base58(),
+			Address:  output.Address().Base58(),
+		}
+		output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+			content.Balances = append(content.Balances, Balance{Color: color.String(), Value: balance})
+			return true
+		})
+		outputs = append(outputs, content)
+	}
+
+	for _, unlockBlock := range tx.UnlockBlocks() {
+		stringifiedUnlockBlocks = append(stringifiedUnlockBlocks, unlockBlock.String())
+	}
+
+	var dataPayloadString string
+	dataPayload := tx.Essence().Payload()
+	if dataPayload != nil {
+		dataPayloadString = dataPayload.String()
+	}
+
+	tp = TransactionPayload{
+		TxID: tx.ID().Base58(),
+		TransactionEssence: Essence{
+			Version:           uint8(tx.Essence().Version()),
+			Timestamp:         int(tx.Essence().Timestamp().Unix()),
+			AccessPledgeID:    tx.Essence().AccessPledgeID().String(),
+			ConsensusPledgeID: tx.Essence().ConsensusPledgeID().String(),
+			Inputs:            inputs,
+			Outputs:           outputs,
+			Data:              dataPayloadString,
+		},
+		UnlockBlocks: stringifiedUnlockBlocks,
+	}
+	return
 }
 
 func processStatementPayload(p payload.Payload) (sp StatementPayload) {

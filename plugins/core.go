@@ -1,7 +1,6 @@
 package plugins
 
 import (
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/cli"
@@ -46,7 +45,6 @@ var Core = node.Plugins(
 	syncbeaconfollower.Plugin(),
 	drng.Plugin(),
 	faucet.Plugin(),
-	valuetransfers.App(),
 	consensus.Plugin(),
 	metrics.Plugin(),
 	spammer.Plugin(),

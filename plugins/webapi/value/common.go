@@ -3,46 +3,40 @@ package value
 import (
 	"time"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 var maxBookedAwaitTime = 5 * time.Second
 
 // ParseTransaction handle transaction json object.
-func ParseTransaction(t *transaction.Transaction) (txn Transaction) {
+func ParseTransaction(t *ledgerstate.Transaction) (txn Transaction) {
 	var inputs []string
 	var outputs []Output
 	// process inputs
-	t.Inputs().ForEachAddress(func(currentAddress address.Address) bool {
-		inputs = append(inputs, currentAddress.String())
-		return true
-	})
+	for _, input := range t.Essence().Inputs() {
+		inputs = append(inputs, input.Base58())
+	}
 
-	// process outputs: address + balance
-	t.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
-		var b []Balance
-		for _, balance := range balances {
-			b = append(b, Balance{
-				Value: balance.Value,
-				Color: balance.Color.String(),
+	// process outputs
+	for _, output := range t.Essence().Outputs() {
+		var balances []Balance
+		output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+			balances = append(balances, Balance{
+				Value: int64(balance),
+				Color: color.String(),
 			})
-		}
-		t := Output{
-			Address:  address.String(),
-			Balances: b,
-		}
-		outputs = append(outputs, t)
-
-		return true
-	})
-
+			return true
+		})
+		outputs = append(outputs, Output{
+			Address:  output.Address().Base58(),
+			Balances: balances,
+		})
+	}
 	return Transaction{
 		Inputs:      inputs,
 		Outputs:     outputs,
-		Signature:   t.SignatureBytes(),
-		DataPayload: t.GetDataPayload(),
+		Signature:   t.UnlockBlocks().Bytes(),
+		DataPayload: t.Essence().Bytes(),
 	}
 }
 
@@ -69,6 +63,7 @@ type UnspentOutput struct {
 
 // Output consists an address and balances
 type Output struct {
+	Type     int8      `json:"type"`
 	Address  string    `json:"address"`
 	Balances []Balance `json:"balances"`
 }

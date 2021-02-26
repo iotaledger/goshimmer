@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
+	"golang.org/x/xerrors"
 )
 
 const storeSequenceInterval = 100
@@ -74,15 +75,17 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, t ...*Tangle) (*Message
 	defer f.issuanceMutex.Unlock()
 	sequenceNumber, err := f.sequence.Next()
 	if err != nil {
-		err = fmt.Errorf("could not create sequence number: %w", err)
+		err = xerrors.Errorf("could not create sequence number: %w", err)
 		f.Events.Error.Trigger(err)
 		return nil, err
 	}
 
-	// TODO: change hardcoded amount of parents
-	strongParents := f.selector.Tips(2)
-	// TODO: approval switch: select weak parents
-	weakParents := make([]MessageID, 0)
+	strongParents, weakParents, err := f.selector.Tips(p, 2, 2)
+	if err != nil {
+		err = xerrors.Errorf("tips could not be selected: %w", err)
+		f.Events.Error.Trigger(err)
+		return nil, err
+	}
 
 	issuingTime := clock.SyncedTime()
 
@@ -103,7 +106,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, t ...*Tangle) (*Message
 	// do the PoW
 	nonce, err := f.doPOW(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p)
 	if err != nil {
-		err = fmt.Errorf("pow failed: %w", err)
+		err = xerrors.Errorf("pow failed: %w", err)
 		f.Events.Error.Trigger(err)
 		return nil, err
 	}
@@ -173,7 +176,7 @@ func messageEventHandler(handler interface{}, params ...interface{}) {
 
 // A TipSelector selects two tips, parent2 and parent1, for a new message to attach to.
 type TipSelector interface {
-	Tips(count int) (parents []MessageID)
+	Tips(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -181,11 +184,11 @@ type TipSelector interface {
 // region TipSelectorFunc //////////////////////////////////////////////////////////////////////////////////////////////
 
 // The TipSelectorFunc type is an adapter to allow the use of ordinary functions as tip selectors.
-type TipSelectorFunc func(count int) (parents []MessageID)
+type TipSelectorFunc func(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error)
 
 // Tips calls f().
-func (f TipSelectorFunc) Tips(count int) (parents []MessageID) {
-	return f(count)
+func (f TipSelectorFunc) Tips(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error) {
+	return f(p, countStrongParents, countWeakParents)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

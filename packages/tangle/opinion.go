@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -14,7 +15,7 @@ import (
 )
 
 // LevelOfKnowledge defines the Level Of Knowledge type.
-type LevelOfKnowledge = uint8
+type LevelOfKnowledge uint8
 
 // The different levels of knowledge.
 const (
@@ -30,6 +31,22 @@ const (
 	// Three implies that we have locally finalized our opinion and we do not reply to eventual queries.
 	Three
 )
+
+// String returns a human readable version of LevelOfKnowledge.
+func (l LevelOfKnowledge) String() string {
+	switch l {
+	case Pending:
+		return "LevelOfKnowledge(Pending)"
+	case One:
+		return "LevelOfKnowledge(One)"
+	case Two:
+		return "LevelOfKnowledge(Two)"
+	case Three:
+		return "LevelOfKnowledge(Three)"
+	default:
+		return fmt.Sprintf("LevelOfKnowledge(%X)", uint8(l))
+	}
+}
 
 // region Opinion //////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -58,6 +75,21 @@ type Opinion struct {
 	timestampMutex        sync.RWMutex
 	likedMutex            sync.RWMutex
 	levelOfKnowledgeMutex sync.RWMutex
+}
+
+// Timestamp returns the opinion's timestamp.
+func (o OpinionEssence) Timestamp() time.Time {
+	return o.timestamp
+}
+
+// Liked returns the opinion's liked.
+func (o OpinionEssence) Liked() bool {
+	return o.liked
+}
+
+// LevelOfKnowledge returns the opinion's LevelOfKnowledge.
+func (o OpinionEssence) LevelOfKnowledge() LevelOfKnowledge {
+	return o.levelOfKnowledge
 }
 
 // Timestamp returns the opinion's timestamp.
@@ -134,7 +166,7 @@ func (o *Opinion) ObjectStorageValue() []byte {
 	return marshalutil.New().
 		WriteTime(o.Timestamp()).
 		WriteBool(o.Liked()).
-		WriteUint8(o.LevelOfKnowledge()).
+		WriteUint8(uint8(o.LevelOfKnowledge())).
 		Bytes()
 }
 
@@ -151,10 +183,13 @@ func OpinionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Opini
 		err = xerrors.Errorf("failed to parse liked flag of the opinion (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	if result.levelOfKnowledge, err = marshalUtil.ReadUint8(); err != nil {
+
+	levelOfKnowledgeUint8, err := marshalUtil.ReadUint8()
+	if err != nil {
 		err = xerrors.Errorf("failed to parse level of knowledge of the opinion (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
+	result.levelOfKnowledge = LevelOfKnowledge(levelOfKnowledgeUint8)
 
 	return
 }

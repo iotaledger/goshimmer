@@ -3,6 +3,7 @@ package tangle
 import (
 	"sync"
 
+	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
@@ -70,12 +71,14 @@ func (t *Tangle) Setup() {
 	t.Storage.Setup()
 	t.Solidifier.Setup()
 	t.Requester.Setup()
-	t.TipManager.Setup()
 	t.Scheduler.Setup()
+	t.Booker.Setup()
 
 	// Booker and LedgerState setup is left out until the old value tangle is in use.
 	if !t.Options.WithoutOpinionFormer {
 		t.OpinionFormer.Setup()
+		// TipManager needs OpinionFormer to attach to event
+		t.TipManager.Setup()
 		return
 	}
 	t.MessageFactory.Events.Error.Attach(events.NewClosure(func(err error) {
@@ -101,9 +104,9 @@ func (t *Tangle) Shutdown() {
 	if !t.Options.WithoutOpinionFormer {
 		t.OpinionFormer.Shutdown()
 	}
+	t.Scheduler.Shutdown()
 	t.Booker.Shutdown()
 	t.LedgerState.Shutdown()
-	t.Scheduler.Shutdown()
 	t.Storage.Shutdown()
 	t.Options.Store.Shutdown()
 }
@@ -138,16 +141,19 @@ type Option func(*Options)
 
 // Options is a container for all configurable parameters of the Tangle.
 type Options struct {
-	Store                kvstore.KVStore
-	Identity             *identity.LocalIdentity
-	WithoutOpinionFormer bool
+	Store                        kvstore.KVStore
+	Identity                     *identity.LocalIdentity
+	WithoutOpinionFormer         bool
+	IncreaseMarkersIndexCallback markers.IncreaseIndexCallback
+	TangleWidth                  int
 }
 
 // buildOptions generates the Options object use by the Tangle.
 func buildOptions(options ...Option) (builtOptions *Options) {
 	builtOptions = &Options{
-		Store:    mapdb.NewMapDB(),
-		Identity: identity.GenerateLocalIdentity(),
+		Store:                        mapdb.NewMapDB(),
+		Identity:                     identity.GenerateLocalIdentity(),
+		IncreaseMarkersIndexCallback: increaseMarkersIndexCallbackStrategy,
 	}
 
 	for _, option := range options {
@@ -175,6 +181,21 @@ func Identity(identity *identity.LocalIdentity) Option {
 func WithoutOpinionFormer(with bool) Option {
 	return func(options *Options) {
 		options.WithoutOpinionFormer = with
+	}
+}
+
+// IncreaseMarkersIndexCallback is an Option for the Tangle that allows to change the strategy how new Markers are
+// assigned in the Tangle.
+func IncreaseMarkersIndexCallback(callback markers.IncreaseIndexCallback) Option {
+	return func(options *Options) {
+		options.IncreaseMarkersIndexCallback = callback
+	}
+}
+
+// TangleWidth is an Option for the Tangle that allows to change the strategy how Tips get removed.
+func TangleWidth(width int) Option {
+	return func(options *Options) {
+		options.TangleWidth = width
 	}
 }
 

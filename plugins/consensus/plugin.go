@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/prng"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -110,17 +109,17 @@ func configure(_ *node.Plugin) {
 	configureFPC()
 
 	// subscribe to FCOB events
-	valuetransfers.FCOB().Events.Vote.Attach(events.NewClosure(func(id string, initOpn opinion.Opinion) {
+	messagelayer.Tangle().PayloadOpinionProvider.Vote().Attach(events.NewClosure(func(id string, initOpn opinion.Opinion) {
 		if err := Voter().Vote(id, vote.ConflictType, initOpn); err != nil {
 			log.Warnf("FPC vote: %s", err)
 		}
 	}))
-	valuetransfers.FCOB().Events.Error.Attach(events.NewClosure(func(err error) {
+	messagelayer.Tangle().PayloadOpinionProvider.VoteError().Attach(events.NewClosure(func(err error) {
 		log.Errorf("FCOB error: %s", err)
 	}))
 
 	// subscribe to message-layer
-	messagelayer.Tangle().Scheduler.Events.MessageScheduled.Attach(events.NewClosure(readStatement))
+	messagelayer.Tangle().OpinionFormer.Events.MessageOpinionFormed.Attach(events.NewClosure(readStatement))
 }
 
 func run(_ *node.Plugin) {
@@ -170,7 +169,7 @@ func configureFPC() {
 		log.Debugf("executed round with rand %0.4f for %d vote contexts on %d peers, took %v", roundStats.RandUsed, voteContextsCount, peersQueried, roundStats.Duration)
 	}))
 
-	Voter().Events().Finalized.Attach(events.NewClosure(valuetransfers.FCOB().ProcessVoteResult))
+	Voter().Events().Finalized.Attach(events.NewClosure(messagelayer.Tangle().PayloadOpinionProvider.ProcessVote))
 	Voter().Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
 		if ev.Ctx.Type == vote.ConflictType {
 			log.Infof("FPC finalized for transaction with id '%s' - final opinion: '%s'", ev.ID, ev.Opinion)

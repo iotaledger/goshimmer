@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/set"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
@@ -40,7 +41,9 @@ type UTXODAG struct {
 func NewUTXODAG(store kvstore.KVStore, branchDAG *BranchDAG) (utxoDAG *UTXODAG) {
 	osFactory := objectstorage.NewFactory(store, database.PrefixLedgerState)
 	utxoDAG = &UTXODAG{
-		Events:                      NewUTXODAGEvents(),
+		Events: &UTXODAGEvents{
+			TransactionBranchIDUpdated: events.NewEvent(transactionIDEventHandler),
+		},
 		transactionStorage:          osFactory.New(PrefixTransactionStorage, TransactionFromObjectStorage, transactionStorageOptions...),
 		transactionMetadataStorage:  osFactory.New(PrefixTransactionMetadataStorage, TransactionMetadataFromObjectStorage, transactionMetadataStorageOptions...),
 		outputStorage:               osFactory.New(PrefixOutputStorage, OutputFromObjectStorage, outputStorageOptions...),
@@ -75,11 +78,11 @@ func (u *UTXODAG) CheckTransaction(transaction *Transaction) (valid bool, err er
 		err = xerrors.Errorf("not all consumedOutputs of transaction are solid: %w", ErrTransactionNotSolid)
 		return
 	}
-	if !u.transactionBalancesValid(consumedOutputs, transaction.Essence().Outputs()) {
+	if !TransactionBalancesValid(consumedOutputs, transaction.Essence().Outputs()) {
 		err = xerrors.Errorf("sum of consumed and spent balances is not 0: %w", ErrTransactionInvalid)
 		return
 	}
-	if !u.unlockBlocksValid(consumedOutputs, transaction) {
+	if !UnlockBlocksValid(consumedOutputs, transaction) {
 		err = xerrors.Errorf("spending of referenced consumedOutputs is not authorized: %w", ErrTransactionInvalid)
 		return
 	}
@@ -246,18 +249,32 @@ func (u *UTXODAG) Consumers(outputID OutputID) (cachedConsumers CachedConsumers)
 // LoadSnapshot creates a set of outputs in the UTXO-DAG, that are forming the genesis for future transactions.
 func (u *UTXODAG) LoadSnapshot(snapshot map[TransactionID]map[Address]*ColoredBalances) {
 	index := uint16(0)
+	fmt.Println("Loading snapshot...")
 	for transactionID, addressBalance := range snapshot {
+		fmt.Println("TransactionID: ", transactionID.Base58())
 		for address, balance := range addressBalance {
+			fmt.Println("Address: ", address)
+			fmt.Println("Address Base58: ", address.Base58())
+			fmt.Println("Balance: ", balance)
 			output := NewSigLockedColoredOutput(balance, address)
 			output.SetID(NewOutputID(transactionID, index))
-			u.outputStorage.Store(output).Release()
+			cachedOutput, stored := u.outputStorage.StoreIfAbsent(output)
+			if stored {
+				cachedOutput.Release()
+			}
+
+			//store addressOutputMapping
+			u.StoreAddressOutputMapping(address, output.ID())
 
 			// store OutputMetadata
 			metadata := NewOutputMetadata(output.ID())
 			metadata.SetBranchID(MasterBranchID)
 			metadata.SetSolid(true)
 			metadata.SetFinalized(true)
-			u.outputMetadataStorage.Store(metadata).Release()
+			cachedMetadata, stored := u.outputMetadataStorage.StoreIfAbsent(metadata)
+			if stored {
+				cachedMetadata.Release()
+			}
 
 			index++
 		}
@@ -274,6 +291,15 @@ func (u *UTXODAG) LoadSnapshot(snapshot map[TransactionID]map[Address]*ColoredBa
 			return transactionMetadata
 		})}).Release()
 	}
+}
+
+// AddressOutputMapping retrieves the outputs for the given address.
+func (u *UTXODAG) AddressOutputMapping(address Address) (cachedAddressOutputMappings CachedAddressOutputMappings) {
+	u.addressOutputMappingStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		cachedAddressOutputMappings = append(cachedAddressOutputMappings, &CachedAddressOutputMapping{cachedObject})
+		return true
+	}, address.Bytes())
+	return
 }
 
 // region booking functions ////////////////////////////////////////////////////////////////////////////////////////////
@@ -395,6 +421,7 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 		cachedConsumingConflictBranch.Release()
 
 		txMetadata.SetBranchID(conflictBranchID)
+		u.Events.TransactionBranchIDUpdated.Trigger(transactionID)
 
 		outputIds := u.createdOutputIDsOfTransaction(transactionID)
 		for _, outputID := range outputIds {
@@ -442,6 +469,8 @@ func (u *UTXODAG) propagateBranchUpdates(transactionID TransactionID) (updatedOu
 func (u *UTXODAG) updateBranchOfTransaction(transactionID TransactionID, branchID BranchID) (updatedOutputs []OutputID) {
 	if !u.TransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
 		if transactionMetadata.SetBranchID(branchID) {
+			u.Events.TransactionBranchIDUpdated.Trigger(transactionID)
+
 			updatedOutputs = u.createdOutputIDsOfTransaction(transactionID)
 			for _, outputID := range updatedOutputs {
 				if !u.OutputMetadata(outputID).Consume(func(outputMetadata *OutputMetadata) {
@@ -483,9 +512,13 @@ func (u *UTXODAG) bookConsumers(inputsMetadata OutputsMetadata, transactionID Tr
 
 // bookOutputs creates the Outputs and their corresponding OutputsMetadata in the object storage.
 func (u *UTXODAG) bookOutputs(transaction *Transaction, targetBranch BranchID) {
-	for outputIndex, output := range transaction.Essence().Outputs() {
+	for _, output := range transaction.Essence().Outputs() {
+		// replace ColorMint color with unique color based on OutputID
+		if output.Type() == SigLockedColoredOutputType {
+			output = output.(*SigLockedColoredOutput).UpdateMintingColor()
+		}
+
 		// store Output
-		output.SetID(NewOutputID(transaction.ID(), uint16(outputIndex)))
 		u.outputStorage.Store(output).Release()
 
 		// store OutputMetadata
@@ -549,37 +582,53 @@ func (u *UTXODAG) allOutputsExist(inputs Outputs) (solid bool) {
 	return true
 }
 
-// transactionBalancesValid is an internal utility function that checks if the sum of the balance changes equals to 0.
-func (u *UTXODAG) transactionBalancesValid(inputs Outputs, outputs Outputs) (valid bool) {
-	// sum up the balances
-	consumedBalances := make(map[Color]uint64)
+// TransactionBalancesValid is an internal utility function that checks if the sum of the balance changes equals to 0.
+func TransactionBalancesValid(inputs Outputs, outputs Outputs) (valid bool) {
+	consumedCoins := make(map[Color]uint64)
 	for _, input := range inputs {
 		input.Balances().ForEach(func(color Color, balance uint64) bool {
-			consumedBalances[color] += balance
+			consumedCoins[color], valid = SafeAddUint64(consumedCoins[color], balance)
 
-			return true
+			return valid
 		})
-	}
-	for _, output := range outputs {
-		output.Balances().ForEach(func(color Color, balance uint64) bool {
-			consumedBalances[color] -= balance
 
-			return true
-		})
-	}
-
-	// check if the balances are all 0
-	for _, remainingBalance := range consumedBalances {
-		if remainingBalance != 0 {
-			return false
+		if !valid {
+			return
 		}
 	}
 
-	return true
+	recoloredCoins := uint64(0)
+	for _, output := range outputs {
+		output.Balances().ForEach(func(color Color, balance uint64) bool {
+			switch color {
+			case ColorIOTA:
+				fallthrough
+			case ColorMint:
+				recoloredCoins, valid = SafeAddUint64(recoloredCoins, balance)
+			default:
+				consumedCoins[color], valid = SafeSubUint64(consumedCoins[color], balance)
+			}
+
+			return valid
+		})
+
+		if !valid {
+			return
+		}
+	}
+
+	unspentCoins := uint64(0)
+	for _, remainingBalance := range consumedCoins {
+		if unspentCoins, valid = SafeAddUint64(unspentCoins, remainingBalance); !valid {
+			return
+		}
+	}
+
+	return unspentCoins == recoloredCoins
 }
 
-// unlockBlocksValid is an internal utility function that checks if the UnlockBlocks are matching the referenced Inputs.
-func (u *UTXODAG) unlockBlocksValid(inputs Outputs, transaction *Transaction) (valid bool) {
+// UnlockBlocksValid is an internal utility function that checks if the UnlockBlocks are matching the referenced Inputs.
+func UnlockBlocksValid(inputs Outputs, transaction *Transaction) (valid bool) {
 	unlockBlocks := transaction.UnlockBlocks()
 	for i, input := range inputs {
 		unlockValid, unlockErr := input.UnlockValid(transaction, unlockBlocks[i])
@@ -802,6 +851,14 @@ func (u *UTXODAG) consumedBranchIDs(transactionID TransactionID) (branchIDs Bran
 	return
 }
 
+// StoreAddressOutputMapping stores the address-output mapping.
+func (u *UTXODAG) StoreAddressOutputMapping(address Address, outputID OutputID) {
+	result, stored := u.addressOutputMappingStorage.StoreIfAbsent(NewAddressOutputMapping(address, outputID))
+	if stored {
+		result.Release()
+	}
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // TODO: IMPLEMENT A GOOD SYNCHRONIZATION MECHANISM FOR THE UTXODAG
@@ -824,11 +881,13 @@ func (u *UTXODAG) lockTransaction(transaction *Transaction) {
 // region UTXODAGEvents ////////////////////////////////////////////////////////////////////////////////////////////////
 
 // UTXODAGEvents is a container for all of the UTXODAG related events.
-type UTXODAGEvents struct{}
+type UTXODAGEvents struct {
+	// TransactionBranchIDUpdated gets triggered when the BranchID of a Transaction is changed after the initial booking.
+	TransactionBranchIDUpdated *events.Event
+}
 
-// NewUTXODAGEvents creates a container for all of the UTXODAG related events.
-func NewUTXODAGEvents() *UTXODAGEvents {
-	return &UTXODAGEvents{}
+func transactionIDEventHandler(handler interface{}, params ...interface{}) {
+	handler.(func(TransactionID))(params[0].(TransactionID))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -843,6 +902,14 @@ type AddressOutputMapping struct {
 	outputID OutputID
 
 	objectstorage.StorableObjectFlags
+}
+
+// NewAddressOutputMapping returns a new AddressOutputMapping.
+func NewAddressOutputMapping(address Address, outputID OutputID) *AddressOutputMapping {
+	return &AddressOutputMapping{
+		address:  address,
+		outputID: outputID,
+	}
 }
 
 // AddressOutputMappingFromBytes unmarshals a AddressOutputMapping from a sequence of bytes.
@@ -919,8 +986,8 @@ func (a *AddressOutputMapping) ObjectStorageKey() []byte {
 
 // ObjectStorageValue marshals the Consumer into a sequence of bytes that are used as the value part in the object
 // storage.
-func (a *AddressOutputMapping) ObjectStorageValue() []byte {
-	panic("implement me")
+func (a *AddressOutputMapping) ObjectStorageValue() (value []byte) {
+	return
 }
 
 // code contract (make sure the struct implements all required methods)

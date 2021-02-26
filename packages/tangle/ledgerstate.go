@@ -49,6 +49,7 @@ func (l *LedgerState) InheritBranch(referencedBranchIDs ledgerstate.BranchIDs) (
 	if err != nil {
 		if xerrors.Is(err, ledgerstate.ErrInvalidStateTransition) {
 			inheritedBranch = ledgerstate.InvalidBranchID
+			err = nil
 			return
 		}
 
@@ -63,8 +64,8 @@ func (l *LedgerState) InheritBranch(referencedBranchIDs ledgerstate.BranchIDs) (
 
 // TransactionValid performs some fast checks of the Transaction and triggers a MessageInvalid event if the checks do
 // not pass.
-func (l *LedgerState) TransactionValid(transaction *ledgerstate.Transaction, messageID MessageID) (valid bool) {
-	valid, err := l.utxoDAG.CheckTransaction(transaction)
+func (l *LedgerState) TransactionValid(transaction *ledgerstate.Transaction, messageID MessageID) (valid bool, err error) {
+	valid, err = l.utxoDAG.CheckTransaction(transaction)
 	if err != nil {
 		l.tangle.Events.MessageInvalid.Trigger(messageID)
 	}
@@ -80,6 +81,11 @@ func (l *LedgerState) TransactionConflicting(transactionID ledgerstate.Transacti
 // TransactionMetadata retrieves the TransactionMetadata with the given TransactionID from the object storage.
 func (l *LedgerState) TransactionMetadata(transactionID ledgerstate.TransactionID) (cachedTransactionMetadata *ledgerstate.CachedTransactionMetadata) {
 	return l.utxoDAG.TransactionMetadata(transactionID)
+}
+
+// Transaction retrieves the Transaction with the given TransactionID from the object storage.
+func (l *LedgerState) Transaction(transactionID ledgerstate.TransactionID) *ledgerstate.CachedTransaction {
+	return l.utxoDAG.Transaction(transactionID)
 }
 
 // BookTransaction books the given Transaction into the underlying LedgerState and returns the target Branch and an
@@ -143,6 +149,11 @@ func (l *LedgerState) BranchID(transactionID ledgerstate.TransactionID) (branchI
 	return
 }
 
+// Branch returns the branch with the given ID.
+func (l *LedgerState) Branch(branchID ledgerstate.BranchID) *ledgerstate.CachedBranch {
+	return l.branchDAG.Branch(branchID)
+}
+
 // LoadSnapshot creates a set of outputs in the UTXO-DAG, that are forming the genesis for future transactions.
 func (l *LedgerState) LoadSnapshot(snapshot map[ledgerstate.TransactionID]map[ledgerstate.Address]*ledgerstate.ColoredBalances) {
 	l.utxoDAG.LoadSnapshot(snapshot)
@@ -150,6 +161,29 @@ func (l *LedgerState) LoadSnapshot(snapshot map[ledgerstate.TransactionID]map[le
 	if attachment != nil {
 		attachment.Release()
 	}
+}
+
+// Output returns the Output with the given ID.
+func (l *LedgerState) Output(outputID ledgerstate.OutputID) *ledgerstate.CachedOutput {
+	return l.utxoDAG.Output(outputID)
+}
+
+// OutputMetadata returns the OutputMetadata with the given ID.
+func (l *LedgerState) OutputMetadata(outputID ledgerstate.OutputID) *ledgerstate.CachedOutputMetadata {
+	return l.utxoDAG.OutputMetadata(outputID)
+}
+
+// OutputsOnAddress retrieves all the Outputs that are associated with an address.
+func (l *LedgerState) OutputsOnAddress(address ledgerstate.Address) (cachedOutputs ledgerstate.CachedOutputs) {
+	l.utxoDAG.AddressOutputMapping(address).Consume(func(addressOutputMapping *ledgerstate.AddressOutputMapping) {
+		cachedOutputs = append(cachedOutputs, l.Output(addressOutputMapping.OutputID()))
+	})
+	return
+}
+
+// CheckTransaction contains fast checks that have to be performed before booking a Transaction.
+func (l *LedgerState) CheckTransaction(transaction *ledgerstate.Transaction) (valid bool, err error) {
+	return l.utxoDAG.CheckTransaction(transaction)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/hive.go/identity"
@@ -35,7 +35,7 @@ func (r *Registry) NodeView(id identity.ID) *View {
 	if _, ok := r.nodesView[id]; !ok {
 		r.nodesView[id] = &View{
 			NodeID:     id,
-			Conflicts:  make(map[transaction.ID]Entry),
+			Conflicts:  make(map[ledgerstate.TransactionID]Entry),
 			Timestamps: make(map[tangle.MessageID]Entry),
 		}
 	}
@@ -99,7 +99,7 @@ type Entry struct {
 // View holds the node's opinion about conflicts and timestamps.
 type View struct {
 	NodeID     identity.ID
-	Conflicts  map[transaction.ID]Entry
+	Conflicts  map[ledgerstate.TransactionID]Entry
 	cMutex     sync.RWMutex
 	Timestamps map[tangle.MessageID]Entry
 	tMutex     sync.RWMutex
@@ -182,7 +182,7 @@ func (v *View) AddTimestamps(timestamps Timestamps) {
 }
 
 // ConflictOpinion returns the opinion history of a given transaction ID.
-func (v *View) ConflictOpinion(id transaction.ID) Opinions {
+func (v *View) ConflictOpinion(id ledgerstate.TransactionID) Opinions {
 	v.cMutex.RLock()
 	defer v.cMutex.RUnlock()
 
@@ -209,7 +209,7 @@ func (v *View) TimestampOpinion(id tangle.MessageID) Opinions {
 func (v *View) Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (opinion.Opinions, error) {
 	answer := opinion.Opinions{}
 	for _, id := range conflictIDs {
-		ID, err := transaction.IDFromBase58(id)
+		ID, err := ledgerstate.TransactionIDFromBase58(id)
 		if err != nil {
 			return answer, err
 		}

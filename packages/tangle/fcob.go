@@ -82,6 +82,12 @@ func (f *FCoB) Opinion(messageID MessageID) (opinion bool) {
 	return
 }
 
+// TransactionOpinionEssence returns the opinion essence of a given transactionID.
+func (f *FCoB) TransactionOpinionEssence(transactionID ledgerstate.TransactionID) (opinion OpinionEssence) {
+	opinion = f.OpinionEssence(transactionID)
+	return
+}
+
 // Evaluate evaluates the opinion of the given messageID.
 func (f *FCoB) Evaluate(messageID MessageID) {
 	if f.tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
@@ -124,9 +130,11 @@ func (f *FCoB) onTransactionBooked(transactionID ledgerstate.TransactionID, mess
 	if branchInclusionState == ledgerstate.Rejected {
 		opinion.OpinionEssence = OpinionEssence{
 			timestamp:        timestamp,
+			liked:            false,
 			levelOfKnowledge: Two,
 		}
 		f.opinionStorage.Store(opinion).Release()
+		f.Events.PayloadOpinionFormed.Trigger(&OpinionFormedEvent{messageID, opinion.liked})
 		return
 	}
 
@@ -143,6 +151,10 @@ func (f *FCoB) onTransactionBooked(transactionID ledgerstate.TransactionID, mess
 				vote = voter.Like
 			}
 			f.Events.Vote.Trigger(transactionID.Base58(), vote)
+		}
+
+		if opinion.LevelOfKnowledge() > One {
+			f.Events.PayloadOpinionFormed.Trigger(&OpinionFormedEvent{messageID, opinion.liked})
 		}
 
 		return

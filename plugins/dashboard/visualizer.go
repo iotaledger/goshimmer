@@ -88,12 +88,18 @@ func runVisualizer() {
 		})
 	})
 
-	notifyNewTip := events.NewClosure(func(messageId tangle.MessageID) {
-		visualizerWorkerPool.TrySubmit(messageId, true)
+	notifyNewTip := events.NewClosure(func(tipEvent *tangle.TipEvent) {
+		// TODO: handle weak tips
+		if tipEvent.TipType == tangle.StrongTip {
+			visualizerWorkerPool.TrySubmit(tipEvent.MessageID, true)
+		}
 	})
 
-	notifyDeletedTip := events.NewClosure(func(messageId tangle.MessageID) {
-		visualizerWorkerPool.TrySubmit(messageId, false)
+	notifyDeletedTip := events.NewClosure(func(tipEvent *tangle.TipEvent) {
+		// TODO: handle weak tips
+		if tipEvent.TipType == tangle.StrongTip {
+			visualizerWorkerPool.TrySubmit(tipEvent.MessageID, false)
+		}
 	})
 
 	if err := daemon.BackgroundWorker("Dashboard[Visualizer]", func(shutdownSignal <-chan struct{}) {

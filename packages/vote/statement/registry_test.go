@@ -3,11 +3,12 @@ package statement
 import (
 	"testing"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRegistry(t *testing.T) {
@@ -15,8 +16,10 @@ func TestRegistry(t *testing.T) {
 
 	v := r.NodeView(identity.GenerateIdentity().ID())
 
-	txA := transaction.RandomID()
-	txB := transaction.RandomID()
+	txA, err := ledgerstate.TransactionIDFromRandomness()
+	require.NoError(t, err)
+	txB, err := ledgerstate.TransactionIDFromRandomness()
+	require.NoError(t, err)
 
 	tA := tangle.EmptyMessageID
 

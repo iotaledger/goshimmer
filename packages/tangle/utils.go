@@ -32,7 +32,7 @@ func NewUtils(tangle *Tangle) (utils *Utils) {
 // can be used to control the behavior of the walk similar to how a "Context" is used in some parts of the stdlib.
 func (u *Utils) WalkMessageID(callback func(messageID MessageID, walker *walker.Walker), entryPoints MessageIDs, revisitElements ...bool) {
 	if len(entryPoints) == 0 {
-		panic("you need to provide at least one entry point")
+		return
 	}
 
 	messageIDWalker := walker.New(revisitElements...)
@@ -89,6 +89,71 @@ func (u *Utils) WalkMessageAndMetadata(callback func(message *Message, messageMe
 
 // region structural checks ////////////////////////////////////////////////////////////////////////////////////////////
 
+// AllTransactionsApprovedByMessage checks if all Transactions were attached by at least one Message that was directly
+// or indirectly approved by the given Message.
+func (u *Utils) AllTransactionsApprovedByMessage(transactionIDs ledgerstate.TransactionIDs, messageID MessageID) (approved bool) {
+	for transactionID := range transactionIDs {
+		if !u.TransactionApprovedByMessage(transactionID, messageID) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// AllTransactionsContainedOrApprovedByMessages checks if all Transactions were attached by at least one Message that was directly
+// or indirectly approved by the given Messages.
+func (u *Utils) AllTransactionsContainedOrApprovedByMessages(transactionIDs ledgerstate.TransactionIDs, messageIDs MessageIDs) (approved bool) {
+	// keep track of already approved transactions
+	approvedTransactions := make(map[ledgerstate.TransactionID]bool)
+	for transactionID := range transactionIDs {
+		approvedTransactions[transactionID] = false
+	}
+
+	// check if transactions are contained in messages
+	for _, messageID := range messageIDs {
+		for transactionID := range transactionIDs {
+			// no need to check if it's already contained in another message
+			if approvedTransactions[transactionID] {
+				continue
+			}
+
+			approvedTransactions[transactionID] = u.tangle.Storage.IsTransactionAttachedByMessage(transactionID, messageID)
+		}
+	}
+
+	for _, messageID := range messageIDs {
+		for transactionID := range transactionIDs {
+			// no need to check if it's already approved by another message
+			if approvedTransactions[transactionID] {
+				continue
+			}
+
+			//fmt.Println("Checking with message", messageID)
+			approvedTransactions[transactionID] = u.TransactionApprovedByMessage(transactionID, messageID)
+		}
+	}
+
+	for transactionID := range approvedTransactions {
+		if !approvedTransactions[transactionID] {
+			return false
+		}
+	}
+	return true
+}
+
+// TransactionApprovedByMessage checks if the Transaction was attached by at least one Message that was directly or
+// indirectly approved by the given Message.
+func (u *Utils) TransactionApprovedByMessage(transactionID ledgerstate.TransactionID, messageID MessageID) (approved bool) {
+	for _, attachmentMessageID := range u.tangle.Storage.AttachmentMessageIDs(transactionID) {
+		if u.tangle.Utils.MessageApprovedByStrongParents(attachmentMessageID, messageID) {
+			return true
+		}
+	}
+
+	return false
+}
+
 // MessageApprovedBy checks if the Message given by approvedMessageID is directly or indirectly approved by the
 // Message given by approvingMessageID.
 func (u *Utils) MessageApprovedBy(approvedMessageID MessageID, approvingMessageID MessageID) (approved bool) {
@@ -110,6 +175,19 @@ func (u *Utils) MessageApprovedBy(approvedMessageID MessageID, approvingMessageI
 	}
 
 	return false
+}
+
+// MessageApprovedByStrongParents checks if the Message given by approvedMessageID is directly or indirectly approved by its strong parents.
+func (u *Utils) MessageApprovedByStrongParents(approvedMessageID MessageID, approvingMessageID MessageID) (approved bool) {
+	u.tangle.Storage.Message(approvingMessageID).Consume(func(message *Message) {
+		for _, parentID := range message.StrongParents() {
+			if u.MessageApprovedBy(approvedMessageID, parentID) {
+				approved = true
+				return
+			}
+		}
+	})
+	return
 }
 
 // MessageStronglyApprovedBy checks if the Message given by approvedMessageID is directly or indirectly approved by the
