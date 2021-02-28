@@ -14,7 +14,7 @@ export default class ManaLeaderboard extends React.Component<Props, any> {
         return (
             <Card>
                 <Card.Body style={{'overflow': 'auto', 'height':'300px', fontSize: '0.8rem',}}>
-                    <Card.Title>{this.props.title}</Card.Title>
+                    <Card.Title>{this.props.title} <i style={{fontSize: '0.8rem', marginLeft: '3px'}}>zero mana nodes are excluded</i></Card.Title>
                     <Table>
                         <thead>
                         <tr>

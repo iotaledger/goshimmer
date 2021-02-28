@@ -355,21 +355,21 @@ func GetAllowedPledgeNodes(manaType mana.Type) AllowedPledge {
 }
 
 // GetOnlineNodes gets the list of currently known (and verified) peers in the network, and their respective mana values.
-// Sorted in descending order based on mana.
+// Sorted in descending order based on mana. Zero mana nodes are excluded.
 func GetOnlineNodes(manaType mana.Type) ([]mana.Node, error) {
 	knownPeers := autopeering.Discovery().GetVerifiedPeers()
 	// consider ourselves as a peer in the network too
 	knownPeers = append(knownPeers, local.GetInstance().Peer)
 	onlineNodesMana := make([]mana.Node, 0)
 	for _, peer := range knownPeers {
-		if !baseManaVectors[manaType].Has(peer.ID()) {
-			onlineNodesMana = append(onlineNodesMana, mana.Node{ID: peer.ID(), Mana: 0})
-		} else {
+		if baseManaVectors[manaType].Has(peer.ID()) {
 			peerMana, err := baseManaVectors[manaType].GetMana(peer.ID())
 			if err != nil {
 				return nil, err
 			}
-			onlineNodesMana = append(onlineNodesMana, mana.Node{ID: peer.ID(), Mana: peerMana})
+			if peerMana > 0 {
+				onlineNodesMana = append(onlineNodesMana, mana.Node{ID: peer.ID(), Mana: peerMana})
+			}
 		}
 	}
 	sort.Slice(onlineNodesMana, func(i, j int) bool {
