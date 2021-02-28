@@ -669,7 +669,7 @@ func TestAllOutputsExist(t *testing.T) {
 }
 
 func TestTransactionBalancesValid(t *testing.T) {
-	branchDAG, utxoDAG := setupDependencies(t)
+	branchDAG, _ := setupDependencies(t)
 	defer branchDAG.Shutdown()
 
 	wallets := createWallets(2)
@@ -689,7 +689,7 @@ func TestTransactionBalancesValid(t *testing.T) {
 		ColorMint: 70,
 	}), wallets[1].address)
 
-	assert.True(t, utxoDAG.transactionBalancesValid(Outputs{iColored1}, Outputs{oColored1}))
+	assert.True(t, TransactionBalancesValid(Outputs{iColored1}, Outputs{oColored1}))
 
 	iColored2 := NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{
 		ColorIOTA: 1337,
@@ -704,7 +704,7 @@ func TestTransactionBalancesValid(t *testing.T) {
 		ColorMint: 10,
 	}), wallets[1].address)
 
-	assert.True(t, utxoDAG.transactionBalancesValid(Outputs{iColored2}, Outputs{oColored2}))
+	assert.True(t, TransactionBalancesValid(Outputs{iColored2}, Outputs{oColored2}))
 
 	iColored3 := NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{
 		color1: 1337,
@@ -714,7 +714,7 @@ func TestTransactionBalancesValid(t *testing.T) {
 		ColorMint: 1337,
 	}), wallets[1].address)
 
-	assert.True(t, utxoDAG.transactionBalancesValid(Outputs{iColored3}, Outputs{oColored3}))
+	assert.True(t, TransactionBalancesValid(Outputs{iColored3}, Outputs{oColored3}))
 
 	// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -724,22 +724,22 @@ func TestTransactionBalancesValid(t *testing.T) {
 	// testing happy case
 	o := NewSigLockedSingleOutput(200, wallets[1].address)
 
-	assert.True(t, utxoDAG.transactionBalancesValid(Outputs{i1, i2}, Outputs{o}))
+	assert.True(t, TransactionBalancesValid(Outputs{i1, i2}, Outputs{o}))
 
 	// testing creating 1 iota out of thin air
 	i2 = NewSigLockedSingleOutput(99, wallets[0].address)
 
-	assert.False(t, utxoDAG.transactionBalancesValid(Outputs{i1, i2}, Outputs{o}))
+	assert.False(t, TransactionBalancesValid(Outputs{i1, i2}, Outputs{o}))
 
 	// testing burning 1 iota
 	i2 = NewSigLockedSingleOutput(101, wallets[0].address)
 
-	assert.False(t, utxoDAG.transactionBalancesValid(Outputs{i1, i2}, Outputs{o}))
+	assert.False(t, TransactionBalancesValid(Outputs{i1, i2}, Outputs{o}))
 
 	// testing unit64 overflow
 	i2 = NewSigLockedSingleOutput(math.MaxUint64, wallets[0].address)
 
-	assert.False(t, utxoDAG.transactionBalancesValid(Outputs{i1, i2}, Outputs{o}))
+	assert.False(t, TransactionBalancesValid(Outputs{i1, i2}, Outputs{o}))
 }
 
 func TestUnlockBlocksValid(t *testing.T) {
@@ -752,11 +752,11 @@ func TestUnlockBlocksValid(t *testing.T) {
 
 	// testing valid signature
 	tx, _ := singleInputTransaction(utxoDAG, wallets[0], wallets[1], input, true)
-	assert.True(t, utxoDAG.unlockBlocksValid(Outputs{input}, tx))
+	assert.True(t, UnlockBlocksValid(Outputs{input}, tx))
 
 	// testing invalid signature
 	tx, _ = singleInputTransaction(utxoDAG, wallets[1], wallets[0], input, true)
-	assert.False(t, utxoDAG.unlockBlocksValid(Outputs{input}, tx))
+	assert.False(t, UnlockBlocksValid(Outputs{input}, tx))
 
 }
 

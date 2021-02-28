@@ -44,7 +44,7 @@ func configureEvents() {
 		return
 	}
 
-	messagelayer.Tangle().Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+	messagelayer.Tangle().OpinionFormer.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		messagelayer.Tangle().Storage.Message(messageID).Consume(func(msg *tangle.Message) {
 			if msg.Payload().Type() != drng.PayloadType {
 				return

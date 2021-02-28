@@ -32,7 +32,7 @@ func NewUtils(tangle *Tangle) (utils *Utils) {
 // can be used to control the behavior of the walk similar to how a "Context" is used in some parts of the stdlib.
 func (u *Utils) WalkMessageID(callback func(messageID MessageID, walker *walker.Walker), entryPoints MessageIDs, revisitElements ...bool) {
 	if len(entryPoints) == 0 {
-		panic("you need to provide at least one entry point")
+		return
 	}
 
 	messageIDWalker := walker.New(revisitElements...)

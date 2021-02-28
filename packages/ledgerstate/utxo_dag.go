@@ -78,11 +78,11 @@ func (u *UTXODAG) CheckTransaction(transaction *Transaction) (valid bool, err er
 		err = xerrors.Errorf("not all consumedOutputs of transaction are solid: %w", ErrTransactionNotSolid)
 		return
 	}
-	if !u.transactionBalancesValid(consumedOutputs, transaction.Essence().Outputs()) {
+	if !TransactionBalancesValid(consumedOutputs, transaction.Essence().Outputs()) {
 		err = xerrors.Errorf("sum of consumed and spent balances is not 0: %w", ErrTransactionInvalid)
 		return
 	}
-	if !u.unlockBlocksValid(consumedOutputs, transaction) {
+	if !UnlockBlocksValid(consumedOutputs, transaction) {
 		err = xerrors.Errorf("spending of referenced consumedOutputs is not authorized: %w", ErrTransactionInvalid)
 		return
 	}
@@ -582,8 +582,8 @@ func (u *UTXODAG) allOutputsExist(inputs Outputs) (solid bool) {
 	return true
 }
 
-// transactionBalancesValid is an internal utility function that checks if the sum of the balance changes equals to 0.
-func (u *UTXODAG) transactionBalancesValid(inputs Outputs, outputs Outputs) (valid bool) {
+// TransactionBalancesValid is an internal utility function that checks if the sum of the balance changes equals to 0.
+func TransactionBalancesValid(inputs Outputs, outputs Outputs) (valid bool) {
 	consumedCoins := make(map[Color]uint64)
 	for _, input := range inputs {
 		input.Balances().ForEach(func(color Color, balance uint64) bool {
@@ -627,8 +627,8 @@ func (u *UTXODAG) transactionBalancesValid(inputs Outputs, outputs Outputs) (val
 	return unspentCoins == recoloredCoins
 }
 
-// unlockBlocksValid is an internal utility function that checks if the UnlockBlocks are matching the referenced Inputs.
-func (u *UTXODAG) unlockBlocksValid(inputs Outputs, transaction *Transaction) (valid bool) {
+// UnlockBlocksValid is an internal utility function that checks if the UnlockBlocks are matching the referenced Inputs.
+func UnlockBlocksValid(inputs Outputs, transaction *Transaction) (valid bool) {
 	unlockBlocks := transaction.UnlockBlocks()
 	for i, input := range inputs {
 		unlockValid, unlockErr := input.UnlockValid(transaction, unlockBlocks[i])

@@ -40,7 +40,7 @@ const (
 	// PrefixFCoB defines the storage prefix for FCoB.
 	PrefixFCoB
 
-	cacheTime = 20 * time.Second
+	cacheTime = 2 * time.Second
 
 	// DBSequenceNumber defines the db sequence number.
 	DBSequenceNumber = "seq"
@@ -301,6 +301,7 @@ func (s *Storage) Shutdown() {
 	s.approverStorage.Shutdown()
 	s.missingMessageStorage.Shutdown()
 	s.attachmentStorage.Shutdown()
+	s.markerIndexBranchIDMappingStorage.Shutdown()
 
 	close(s.shutdown)
 }
@@ -313,6 +314,7 @@ func (s *Storage) Prune() error {
 		s.approverStorage,
 		s.missingMessageStorage,
 		s.attachmentStorage,
+		s.markerIndexBranchIDMappingStorage,
 	} {
 		if err := storage.Prune(); err != nil {
 			err = fmt.Errorf("failed to prune storage: %w", err)
