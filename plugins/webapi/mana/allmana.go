@@ -2,6 +2,7 @@ package mana
 
 import (
 	"net/http"
+	"sort"
 
 	"github.com/iotaledger/goshimmer/packages/mana"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
@@ -16,15 +17,23 @@ func getAllManaHandler(c echo.Context) error {
 			Error: err.Error(),
 		})
 	}
+	accessList := access.ToNodeStrList()
+	sort.Slice(accessList[:], func(i, j int) bool {
+		return accessList[i].Mana > accessList[j].Mana
+	})
 	consensus, err := manaPlugin.GetManaMap(mana.ConsensusMana)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, GetAllManaResponse{
 			Error: err.Error(),
 		})
 	}
+	consensusList := consensus.ToNodeStrList()
+	sort.Slice(consensusList[:], func(i, j int) bool {
+		return consensusList[i].Mana > consensusList[j].Mana
+	})
 	return c.JSON(http.StatusOK, GetAllManaResponse{
-		Access:    access.ToNodeStrList(),
-		Consensus: consensus.ToNodeStrList(),
+		Access:    accessList,
+		Consensus: consensusList,
 	})
 }
 
