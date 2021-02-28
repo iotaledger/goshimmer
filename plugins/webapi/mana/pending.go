@@ -21,7 +21,7 @@ func getPendingHandler(c echo.Context) error {
 	pending := manaPlugin.PendingManaOnOutput(outputID)
 	return c.JSON(http.StatusOK, PendingResponse{
 		Mana:     pending,
-		OutputID: outputID.String(),
+		OutputID: outputID.Base58(),
 	})
 }
 
