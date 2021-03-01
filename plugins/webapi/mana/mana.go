@@ -40,9 +40,9 @@ func getManaHandler(c echo.Context) error {
 		ShortNodeID:        ID.String(),
 		NodeID:             base58.Encode(ID.Bytes()),
 		Access:             accessMana,
-		AccessTimestamp:    tAccess,
+		AccessTimestamp:    tAccess.Unix(),
 		Consensus:          consensusMana,
-		ConsensusTimestamp: tConsensus,
+		ConsensusTimestamp: tConsensus.Unix(),
 	})
 }
 
@@ -53,11 +53,11 @@ type GetManaRequest struct {
 
 // GetManaResponse defines the response for get mana.
 type GetManaResponse struct {
-	Error              string    `json:"error,omitempty"`
-	ShortNodeID        string    `json:"shortNodeID"`
-	NodeID             string    `json:"nodeID"`
-	Access             float64   `json:"access"`
-	AccessTimestamp    time.Time `json:"accessTimestamp"`
-	Consensus          float64   `json:"consensus"`
-	ConsensusTimestamp time.Time `json:"consensusTimestamp"`
+	Error              string  `json:"error,omitempty"`
+	ShortNodeID        string  `json:"shortNodeID"`
+	NodeID             string  `json:"nodeID"`
+	Access             float64 `json:"access"`
+	AccessTimestamp    int64   `json:"accessTimestamp"`
+	Consensus          float64 `json:"consensus"`
+	ConsensusTimestamp int64   `json:"consensusTimestamp"`
 }

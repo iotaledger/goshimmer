@@ -3,7 +3,6 @@ package mana
 import (
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/iotaledger/goshimmer/packages/mana"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
@@ -36,7 +35,7 @@ func nHighestHandler(c echo.Context, manaType mana.Type) error {
 	}
 	return c.JSON(http.StatusOK, GetNHighestResponse{
 		Nodes:     res,
-		Timestamp: t,
+		Timestamp: t.Unix(),
 	})
 }
 
@@ -44,5 +43,5 @@ func nHighestHandler(c echo.Context, manaType mana.Type) error {
 type GetNHighestResponse struct {
 	Error     string         `json:"error,omitempty"`
 	Nodes     []mana.NodeStr `json:"nodes,omitempty"`
-	Timestamp time.Time      `json:"timestamp"`
+	Timestamp int64          `json:"timestamp"`
 }

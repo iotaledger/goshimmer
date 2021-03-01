@@ -27,7 +27,7 @@ func getPastConsensusManaVectorHandler(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, PastConsensusManaVectorResponse{
 		Consensus: manaMap.ToNodeStrList(),
-		TimeStamp: timestamp,
+		TimeStamp: timestamp.Unix(),
 	})
 }
 
@@ -40,5 +40,5 @@ type PastConsensusManaVectorRequest struct {
 type PastConsensusManaVectorResponse struct {
 	Consensus []mana.NodeStr `json:"consensus"`
 	Error     string         `json:"error,omitempty"`
-	TimeStamp time.Time      `json:"timestamp"`
+	TimeStamp int64          `json:"timestamp"`
 }

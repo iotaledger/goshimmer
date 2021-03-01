@@ -34,18 +34,18 @@ func getAllManaHandler(c echo.Context) error {
 		return consensusList[i].Mana > consensusList[j].Mana
 	})
 	return c.JSON(http.StatusOK, GetAllManaResponse{
-		Access:    accessList,
-		AccessTimestamp: tAccess,
-		Consensus: consensusList,
-		ConsensusTimestamp: tConsensus,
+		Access:             accessList,
+		AccessTimestamp:    tAccess.Unix(),
+		Consensus:          consensusList,
+		ConsensusTimestamp: tConsensus.Unix(),
 	})
 }
 
 // GetAllManaResponse is the request to a getAllManaHandler request.
 type GetAllManaResponse struct {
-	Access    []mana.NodeStr `json:"access"`
-	AccessTimestamp time.Time `json:"accessTimestamp"`
-	Consensus []mana.NodeStr `json:"consensus"`
-	ConsensusTimestamp time.Time `json:"consensusTimestamp"`
-	Error     string         `json:"error,omitempty"`
+	Access             []mana.NodeStr `json:"access"`
+	AccessTimestamp    int64          `json:"accessTimestamp"`
+	Consensus          []mana.NodeStr `json:"consensus"`
+	ConsensusTimestamp int64          `json:"consensusTimestamp"`
+	Error              string         `json:"error,omitempty"`
 }

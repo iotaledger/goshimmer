@@ -187,7 +187,8 @@ func (c *ConsensusBaseManaVector) GetManaMap(timestamp ...time.Time) (res NodeMa
 	defer c.Unlock()
 	res = make(map[identity.ID]float64)
 	for ID := range c.vector {
-		mana, t, err := c.getMana(ID, timestamp...)
+		var mana float64
+		mana, t, err = c.getMana(ID, timestamp...)
 		if err != nil {
 			return nil, t, err
 		}

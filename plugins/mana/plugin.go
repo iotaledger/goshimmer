@@ -363,7 +363,8 @@ func GetOnlineNodes(manaType mana.Type) (onlineNodesMana []mana.Node, t time.Tim
 	onlineNodesMana = make([]mana.Node, 0)
 	for _, peer := range knownPeers {
 		if baseManaVectors[manaType].Has(peer.ID()) {
-			peerMana, t, err := baseManaVectors[manaType].GetMana(peer.ID())
+			var peerMana float64
+			peerMana, t, err = baseManaVectors[manaType].GetMana(peer.ID())
 			if err != nil {
 				return nil, t, err
 			}
