@@ -43,14 +43,14 @@ type Component struct {
 
 // IsAddressBlacklisted checks whether the given address is currently blacklisted.
 func (c *Component) IsAddressBlacklisted(addr ledgerstate.Address) bool {
-	_, blacklisted := c.blacklist.Get(addr)
+	_, blacklisted := c.blacklist.Get(addr.Base58())
 	return blacklisted
 }
 
 // adds the given address to the blacklist and removes the oldest blacklist entry
 // if it would go over capacity.
 func (c *Component) addAddressToBlacklist(addr ledgerstate.Address) {
-	c.blacklist.Set(addr, true)
+	c.blacklist.Set(addr.Base58(), true)
 	if c.blacklist.Size() > c.blacklistCapacity {
 		var headKey interface{}
 		c.blacklist.ForEach(func(key, value interface{}) bool {
