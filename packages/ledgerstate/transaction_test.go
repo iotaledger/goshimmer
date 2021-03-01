@@ -6,10 +6,24 @@ import (
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 var sampleColor = Color{2}
+
+func TestTransaction_Bytes(t *testing.T) {
+	branchDAG, utxoDAG := setupDependencies(t)
+	defer branchDAG.Shutdown()
+
+	wallets := createWallets(2)
+	input := generateOutput(utxoDAG, wallets[0].address, 0)
+	tx, _ := singleInputTransaction(utxoDAG, wallets[0], wallets[1], input, false)
+	bytes := tx.Bytes()
+	_tx, _, err := TransactionFromBytes(bytes)
+	assert.NoError(t, err)
+	assert.Equal(t, tx.ID(), _tx.ID())
+}
 
 func TestTransaction_Complex(t *testing.T) {
 	// setup variables representing keys and outputs for the two parties that wants to trade tokens

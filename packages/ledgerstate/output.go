@@ -17,6 +17,7 @@ import (
 	"github.com/iotaledger/hive.go/types"
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/mr-tron/base58"
+	"golang.org/x/crypto/blake2b"
 	"golang.org/x/xerrors"
 )
 
@@ -181,6 +182,9 @@ type Output interface {
 
 	// Balances returns the funds that are associated with the Output.
 	Balances() *ColoredBalances
+
+	// Address returns the address that is associated to the output.
+	Address() Address
 
 	// UnlockValid determines if the given Transaction and the corresponding UnlockBlock are allowed to spend the
 	// Output.
@@ -780,6 +784,20 @@ func (s *SigLockedColoredOutput) Clone() Output {
 		balances: s.balances.Clone(),
 		address:  s.address.Clone(),
 	}
+}
+
+// UpdateMintingColor replaces the ColorMint in the balances of the Output with the hash of the OutputID. It returns a
+// copy of the original Output with the modified balances.
+func (s *SigLockedColoredOutput) UpdateMintingColor() (updatedOutput *SigLockedColoredOutput) {
+	coloredBalances := s.Balances().Map()
+	if mintedCoins, mintedCoinsExist := coloredBalances[ColorMint]; mintedCoinsExist {
+		delete(coloredBalances, ColorMint)
+		coloredBalances[Color(blake2b.Sum256(s.ID().Bytes()))] = mintedCoins
+	}
+	updatedOutput = NewSigLockedColoredOutput(NewColoredBalances(coloredBalances), s.Address())
+	updatedOutput.SetID(s.ID())
+
+	return
 }
 
 // Bytes returns a marshaled version of the Output.

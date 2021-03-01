@@ -4,17 +4,17 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"time"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/hive.go/crypto/bls"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58/base58"
 )
@@ -22,6 +22,8 @@ import (
 var (
 	sendTxByJSONMu sync.Mutex
 
+	// ErrMalformedIdentityID defines a malformed identityID error.
+	ErrMalformedIdentityID = fmt.Errorf("malformed identityID")
 	// ErrMalformedInputs defines a malformed inputs error.
 	ErrMalformedInputs = fmt.Errorf("malformed inputs")
 	// ErrMalformedOutputs defines a malformed outputs error.
@@ -55,167 +57,188 @@ func sendTransactionByJSONHandler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, SendTransactionByJSONResponse{Error: err.Error()})
 	}
 
-	// validate transaction
-	err = valuetransfers.Tangle().ValidateTransactionToAttach(tx)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, SendTransactionByJSONResponse{Error: err.Error()})
+	// check balances validity
+	consumedOutputs := make(ledgerstate.Outputs, len(tx.Essence().Inputs()))
+	for i, consumedOutputID := range tx.Essence().Inputs() {
+		referencedOutputID := consumedOutputID.(*ledgerstate.UTXOInput).ReferencedOutputID()
+		messagelayer.Tangle().LedgerState.Output(referencedOutputID).Consume(func(output ledgerstate.Output) {
+			consumedOutputs[i] = output
+		})
+	}
+	if !ledgerstate.TransactionBalancesValid(consumedOutputs, tx.Essence().Outputs()) {
+		return c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: "sum of consumed and spent balances is not 0"})
 	}
 
-	// Prepare value payload and send the message to tangle
-	payload, err := valuetransfers.ValueObjectFactory().IssueTransaction(tx)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, SendTransactionByJSONResponse{Error: err.Error()})
+	// check unlock blocks validity
+	if !ledgerstate.UnlockBlocksValid(consumedOutputs, tx) {
+		return c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: "spending of referenced consumedOutputs is not authorized"})
 	}
 
+	// check if transaction is too old
+	if tx.Essence().Timestamp().Before(clock.SyncedTime().Add(-tangle.MaxReattachmentTimeMin)) {
+		return c.JSON(http.StatusBadRequest, SendTransactionByJSONResponse{Error: fmt.Sprintf("transaction timestamp is older than MaxReattachmentTime (%s) and cannot be issued", tangle.MaxReattachmentTimeMin)})
+	}
+
+	// if transaction is in the future we wait until the time arrives
+	if tx.Essence().Timestamp().After(clock.SyncedTime()) {
+		time.Sleep(tx.Essence().Timestamp().Sub(clock.SyncedTime()) + 1*time.Nanosecond)
+	}
+
+	// send tx message
 	issueTransaction := func() (*tangle.Message, error) {
-		msg, e := issuer.IssuePayload(payload, messagelayer.Tangle())
+		msg, e := issuer.IssuePayload(tx, messagelayer.Tangle())
 		if e != nil {
 			return nil, c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: e.Error()})
 		}
 		return msg, nil
 	}
 
-	_, err = valuetransfers.AwaitTransactionToBeBooked(issueTransaction, tx.ID(), maxBookedAwaitTime)
+	_, err = messagelayer.AwaitMessageToBeBooked(issueTransaction, tx.ID(), maxBookedAwaitTime)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, SendTransactionByJSONResponse{Error: err.Error()})
 	}
-	return c.JSON(http.StatusOK, SendTransactionByJSONResponse{TransactionID: tx.ID().String()})
+
+	return c.JSON(http.StatusOK, SendTransactionByJSONResponse{TransactionID: tx.ID().Base58()})
 }
 
 // NewTransactionFromJSON returns a new transaction from a given JSON request or an error.
-func NewTransactionFromJSON(request SendTransactionByJSONRequest) (*transaction.Transaction, error) {
+func NewTransactionFromJSON(request SendTransactionByJSONRequest) (*ledgerstate.Transaction, error) {
 	// prepare inputs
-	inputs := make([]transaction.OutputID, len(request.Inputs))
-	for i, input := range request.Inputs {
-		b, err := base58.Decode(input)
-		if err != nil || len(b) != transaction.OutputIDLength {
+	var inputs []ledgerstate.Input
+	for _, input := range request.Inputs {
+		in, err := ledgerstate.OutputIDFromBase58(input)
+		if err != nil {
 			return nil, ErrMalformedInputs
 		}
-		copy(inputs[i][:], b)
+		inputs = append(inputs, ledgerstate.NewUTXOInput(in))
 	}
 
 	// prepare outputs
-	outputs := make(map[address.Address][]*balance.Balance)
+	outputs := []ledgerstate.Output{}
 	for _, output := range request.Outputs {
-		address, err := address.FromBase58(output.Address)
+		outputType := ledgerstate.OutputType(output.Type)
+		address, err := ledgerstate.AddressFromBase58EncodedString(output.Address)
 		if err != nil {
 			return nil, ErrMalformedOutputs
 		}
 
-		balances := []*balance.Balance{}
-		for _, b := range output.Balances {
-			var color balance.Color
-			if b.Color == "IOTA" {
-				color = balance.ColorIOTA
-			} else {
-				colorBytes, err := base58.Decode(b.Color)
-				if err != nil || len(colorBytes) != balance.ColorLength {
-					return nil, ErrMalformedColor
-				}
-				copy(color[:], colorBytes)
-			}
-			balances = append(balances, &balance.Balance{
-				Value: b.Value,
-				Color: color,
-			})
-		}
+		switch outputType {
+		case ledgerstate.SigLockedSingleOutputType:
+			o := ledgerstate.NewSigLockedSingleOutput(uint64(output.Balances[0].Value), address)
+			outputs = append(outputs, o)
 
-		outputs[address] = balances
+		case ledgerstate.SigLockedColoredOutputType:
+			balances := make(map[ledgerstate.Color]uint64)
+			for _, b := range output.Balances {
+				var color ledgerstate.Color
+				if b.Color == "IOTA" {
+					color = ledgerstate.ColorIOTA
+				} else if b.Color == "MINT" {
+					color = ledgerstate.ColorMint
+				} else {
+					color, err = ledgerstate.ColorFromBase58EncodedString(b.Color)
+					if err != nil {
+						return nil, ErrMalformedColor
+					}
+				}
+				balances[color] += uint64(b.Value)
+			}
+			o := ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(balances), address)
+			outputs = append(outputs, o)
+
+		default:
+			return nil, ErrMalformedOutputs
+		}
 	}
 
-	// prepare transaction
-	tx := transaction.New(transaction.NewInputs(inputs...), transaction.NewOutputs(outputs))
+	aManaPledgeID, err := identity.ParseID(request.AManaPledgeID)
+	if err != nil {
+		return nil, ErrMalformedIdentityID
+	}
+	cManaPledgeID, err := identity.ParseID(request.CManaPledgeID)
+	if err != nil {
+		return nil, ErrMalformedIdentityID
+	}
+
+	txEssence := ledgerstate.NewTransactionEssence(
+		0,
+		time.Now(),
+		aManaPledgeID,
+		cManaPledgeID,
+		ledgerstate.NewInputs(inputs...),
+		ledgerstate.NewOutputs(outputs...),
+	)
 
 	// add data payload
-	if request.Data != nil {
-		tx.SetDataPayload(request.Data)
+	payload, _, err := payload.FromBytes(request.Payload)
+	if err != nil {
+		return nil, ErrMalformedData
 	}
 
-	// add signatures
-	for _, signature := range request.Signatures {
-		switch signature.Version {
+	txEssence.SetPayload(payload)
 
-		case address.VersionED25519:
+	// add signatures
+	unlockBlocks := make([]ledgerstate.UnlockBlock, len(txEssence.Inputs()))
+	for i, signature := range request.Signatures {
+		switch ledgerstate.SignatureType(signature.Version) {
+
+		case ledgerstate.ED25519SignatureType:
 			pubKeyBytes, err := base58.Decode(signature.PublicKey)
 			if err != nil || len(pubKeyBytes) != ed25519.PublicKeySize {
 				return nil, ErrMalformedPublicKey
 			}
 
-			signatureBytes, err := base58.Decode(signature.Signature)
-			if err != nil || len(signatureBytes) != ed25519.SignatureSize {
+			sig, err := ledgerstate.SignatureFromBase58EncodedString(signature.Signature)
+			if err != nil {
 				return nil, ErrMalformedSignature
 			}
 
-			marshalUtil := marshalutil.New(1 + ed25519.PublicKeySize + ed25519.SignatureSize)
-			marshalUtil.WriteByte(address.VersionED25519)
-			marshalUtil.WriteBytes(pubKeyBytes[:])
-			marshalUtil.WriteBytes(signatureBytes[:])
+			unlockBlocks[i] = ledgerstate.NewSignatureUnlockBlock(sig)
 
-			sign, _, err := signaturescheme.Ed25519SignatureFromBytes(marshalUtil.Bytes())
-			if err != nil {
-				return nil, ErrWrongSignature
-			}
-			err = tx.PutSignature(sign)
-			if err != nil {
-				return nil, ErrWrongSignature
-			}
-
-		case address.VersionBLS:
+		case ledgerstate.BLSSignatureType:
 			pubKeyBytes, err := base58.Decode(signature.PublicKey)
-			if err != nil || len(pubKeyBytes) != signaturescheme.BLSPublicKeySize {
+			if err != nil || len(pubKeyBytes) != bls.PublicKeySize {
 				return nil, ErrMalformedPublicKey
 			}
 
-			signatureBytes, err := base58.Decode(signature.Signature)
-			if err != nil || len(signatureBytes) != signaturescheme.BLSSignatureSize {
+			sig, err := ledgerstate.SignatureFromBase58EncodedString(signature.Signature)
+			if err != nil {
 				return nil, ErrMalformedSignature
 			}
 
-			marshalUtil := marshalutil.New(signaturescheme.BLSFullSignatureSize)
-			marshalUtil.WriteByte(address.VersionBLS)
-			marshalUtil.WriteBytes(pubKeyBytes[:])
-			marshalUtil.WriteBytes(signatureBytes[:])
-
-			sign, _, err := signaturescheme.BLSSignatureFromBytes(marshalUtil.Bytes())
-			if err != nil {
-				return nil, ErrWrongSignature
-			}
-			err = tx.PutSignature(sign)
-			if err != nil {
-				return nil, ErrWrongSignature
-			}
+			unlockBlocks[i] = ledgerstate.NewSignatureUnlockBlock(sig)
 
 		default:
 			return nil, ErrSignatureVersion
 		}
 	}
 
-	return tx, nil
+	return ledgerstate.NewTransaction(txEssence, unlockBlocks), nil
 }
 
 // SendTransactionByJSONRequest holds the transaction object(json) to send.
 // e.g.,
 // {
 // 	"inputs": string[],
+//  "a_mana_pledge": string,
+//  "c_mana_pledg": string,
 // 	"outputs": {
+//	   "type": number,
 // 	   "address": string,
 // 	   "balances": {
 // 		   "value": number,
 // 		   "color": string
 // 	   }[];
 // 	 }[],
-// 	 "data": []byte,
-// 	 "signatures": {
-// 		"version": number,
-// 		"publicKey": string,
-// 		"signature": string
-// 	   }[]
+// 	 "signature": []string
 //  }
 type SendTransactionByJSONRequest struct {
-	Inputs     []string    `json:"inputs"`
-	Outputs    []Output    `json:"outputs"`
-	Data       []byte      `json:"data,omitempty"`
-	Signatures []Signature `json:"signatures"`
+	Inputs        []string    `json:"inputs"`
+	Outputs       []Output    `json:"outputs"`
+	AManaPledgeID string      `json:"a_mana_pledg"`
+	CManaPledgeID string      `json:"c_mana_pledg"`
+	Signatures    []Signature `json:"signatures"`
+	Payload       []byte      `json:"payload"`
 }
 
 // SendTransactionByJSONResponse is the HTTP response from sending transaction.

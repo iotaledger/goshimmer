@@ -6,14 +6,12 @@ import (
 	"testing"
 	"time"
 
-	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	valueutils "github.com/iotaledger/goshimmer/plugins/webapi/value"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/webapi/value"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58/base58"
 	"github.com/stretchr/testify/require"
 )
@@ -31,44 +29,52 @@ func TestConsensusNoConflicts(t *testing.T) {
 	genesisSeedBytes, err := base58.Decode("7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih")
 	require.NoError(t, err, "couldn't decode genesis seed from base58 seed")
 
-	const genesisBalance = 1000000000
-	genesisSeed := walletseed.NewSeed(genesisSeedBytes)
-	genesisAddr := genesisSeed.Address(0).Address
-	genesisOutputID := transaction.NewOutputID(genesisAddr, transaction.GenesisID)
+	const genesisBalance = 1000000000000000
+	genesisSeed := seed.NewSeed(genesisSeedBytes)
+	genesisAddr := genesisSeed.Address(0).Address()
+	genesisOutputID := ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0)
+	input := ledgerstate.NewUTXOInput(genesisOutputID)
 
-	firstReceiver := walletseed.NewSeed()
+	firstReceiver := seed.NewSeed()
 	const depositCount = 10
 	const deposit = genesisBalance / depositCount
 	firstReceiverAddresses := make([]string, depositCount)
-	firstReceiverDepositAddrs := make([]address.Address, depositCount)
-	firstReceiverDepositOutputs := map[address.Address][]*balance.Balance{}
-	firstReceiverExpectedBalances := map[string]map[balance.Color]int64{}
+	firstReceiverDepositAddrs := make([]ledgerstate.Address, depositCount)
+	firstReceiverDepositOutputs := make(map[ledgerstate.Address]*ledgerstate.ColoredBalances)
+	firstReceiverExpectedBalances := make(map[string]map[ledgerstate.Color]int64)
 	for i := 0; i < depositCount; i++ {
-		addr := firstReceiver.Address(uint64(i)).Address
+		addr := firstReceiver.Address(uint64(i)).Address()
 		firstReceiverDepositAddrs[i] = addr
-		firstReceiverAddresses[i] = addr.String()
-		firstReceiverDepositOutputs[addr] = []*balance.Balance{{Value: deposit, Color: balance.ColorIOTA}}
-		firstReceiverExpectedBalances[addr.String()] = map[balance.Color]int64{balance.ColorIOTA: deposit}
+		firstReceiverAddresses[i] = addr.Base58()
+		firstReceiverDepositOutputs[addr] = ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: deposit})
+		firstReceiverExpectedBalances[addr.Base58()] = map[ledgerstate.Color]int64{ledgerstate.ColorIOTA: deposit}
 	}
 
 	// issue transaction spending from the genesis output
+	var outputs ledgerstate.Outputs
+	for addr := range firstReceiverDepositOutputs {
+		outputs = append(outputs, ledgerstate.NewSigLockedSingleOutput(deposit, addr))
+	}
 	log.Printf("issuing transaction spending genesis to %d addresses", depositCount)
-	tx := transaction.New(transaction.NewInputs(genesisOutputID), transaction.NewOutputs(firstReceiverDepositOutputs))
-	tx = tx.Sign(signaturescheme.ED25519(*genesisSeed.KeyPair(0)))
-	utilsTx := valueutils.ParseTransaction(tx)
+	tx1Essence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, ledgerstate.NewInputs(input), ledgerstate.NewOutputs(outputs...))
+	kp := *genesisSeed.KeyPair(0)
+	sig := ledgerstate.NewED25519Signature(kp.PublicKey, kp.PrivateKey.Sign(tx1Essence.Bytes()))
+	unlockBlock := ledgerstate.NewSignatureUnlockBlock(sig)
+	tx1 := ledgerstate.NewTransaction(tx1Essence, ledgerstate.UnlockBlocks{unlockBlock})
+	utilsTx := value.ParseTransaction(tx1)
 
-	txID, err := n.Peers()[0].SendTransaction(tx.Bytes())
+	txID, err := n.Peers()[0].SendTransaction(tx1.Bytes())
 	require.NoError(t, err)
 
 	// wait for the transaction to be propagated through the network
 	// and it becoming preferred, finalized and confirmed
 	log.Println("waiting 2.5 avg. network delays")
-	time.Sleep(valuetransfers.DefaultAverageNetworkDelay*2 + valuetransfers.DefaultAverageNetworkDelay/2)
+	time.Sleep(messagelayer.DefaultAverageNetworkDelay*2 + messagelayer.DefaultAverageNetworkDelay/2)
 
 	// since we just issued a transaction spending the genesis output, there
 	// shouldn't be any UTXOs on the genesis address anymore
 	log.Println("checking that genesis has no UTXOs")
-	tests.CheckAddressOutputsFullyConsumed(t, n.Peers(), []string{genesisAddr.String()})
+	tests.CheckAddressOutputsFullyConsumed(t, n.Peers(), []string{genesisAddr.Base58()})
 
 	// since we waited 2.5 avg. network delays and there were no conflicting transactions,
 	// the transaction we just issued must be preferred, liked, finalized and confirmed
@@ -86,25 +92,28 @@ func TestConsensusNoConflicts(t *testing.T) {
 	tests.CheckBalances(t, n.Peers(), firstReceiverExpectedBalances)
 
 	// issue transactions spending all the outputs which were just created from a random peer
-	secondReceiverSeed := walletseed.NewSeed()
+	secondReceiverSeed := seed.NewSeed()
 	secondReceiverAddresses := make([]string, depositCount)
-	secondReceiverExpectedBalances := map[string]map[balance.Color]int64{}
+	secondReceiverExpectedBalances := map[string]map[ledgerstate.Color]int64{}
 	secondReceiverExpectedTransactions := map[string]*tests.ExpectedTransaction{}
+
 	for i := 0; i < depositCount; i++ {
-		addr := secondReceiverSeed.Address(uint64(i)).Address
-		tx := transaction.New(
-			transaction.NewInputs(transaction.NewOutputID(firstReceiver.Address(uint64(i)).Address, tx.ID())),
-			transaction.NewOutputs(map[address.Address][]*balance.Balance{
-				addr: {{Value: deposit, Color: balance.ColorIOTA}},
-			}),
-		)
-		secondReceiverAddresses[i] = addr.String()
-		tx = tx.Sign(signaturescheme.ED25519(*firstReceiver.KeyPair(uint64(i))))
+		addr := secondReceiverSeed.Address(uint64(i)).Address()
+		input := ledgerstate.NewUTXOInput(tx1.Essence().Outputs()[int(tests.SelectIndex(tx1, firstReceiver.Address(uint64(i)).Address()))].ID())
+		output := ledgerstate.NewSigLockedSingleOutput(deposit, addr)
+		tx2Essence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, ledgerstate.NewInputs(input), ledgerstate.NewOutputs(output))
+		kp := *firstReceiver.KeyPair(uint64(i))
+		sig := ledgerstate.NewED25519Signature(kp.PublicKey, kp.PrivateKey.Sign(tx2Essence.Bytes()))
+		unlockBlock := ledgerstate.NewSignatureUnlockBlock(sig)
+		tx := ledgerstate.NewTransaction(tx2Essence, ledgerstate.UnlockBlocks{unlockBlock})
+		secondReceiverAddresses[i] = addr.Base58()
+
 		txID, err := n.Peers()[rand.Intn(len(n.Peers()))].SendTransaction(tx.Bytes())
 		require.NoError(t, err)
 
-		utilsTx := valueutils.ParseTransaction(tx)
-		secondReceiverExpectedBalances[addr.String()] = map[balance.Color]int64{balance.ColorIOTA: deposit}
+		utilsTx := value.ParseTransaction(tx)
+
+		secondReceiverExpectedBalances[addr.Base58()] = map[ledgerstate.Color]int64{ledgerstate.ColorIOTA: deposit}
 		secondReceiverExpectedTransactions[txID] = &tests.ExpectedTransaction{
 			Inputs: &utilsTx.Inputs, Outputs: &utilsTx.Outputs, Signature: &utilsTx.Signature,
 		}
@@ -112,7 +121,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 
 	// wait again some network delays for the transactions to materialize
 	log.Println("waiting 2.5 avg. network delays")
-	time.Sleep(valuetransfers.DefaultAverageNetworkDelay*2 + valuetransfers.DefaultAverageNetworkDelay/2)
+	time.Sleep(messagelayer.DefaultAverageNetworkDelay*2 + messagelayer.DefaultAverageNetworkDelay/2)
 	log.Println("checking that first set of addresses contain no UTXOs")
 	tests.CheckAddressOutputsFullyConsumed(t, n.Peers(), firstReceiverAddresses)
 	log.Println("checking that the 2nd batch transactions are finalized/confirmed")

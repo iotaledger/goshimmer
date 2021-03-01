@@ -630,6 +630,7 @@ type MessageMetadata struct {
 	structureDetails   *markers.StructureDetails
 	branchID           ledgerstate.BranchID
 	timestampOpinion   TimestampOpinion
+	scheduled          bool
 	booked             bool
 	eligible           bool
 	invalid            bool
@@ -639,6 +640,7 @@ type MessageMetadata struct {
 	structureDetailsMutex   sync.RWMutex
 	branchIDMutex           sync.RWMutex
 	timestampOpinionMutex   sync.RWMutex
+	scheduledMutex          sync.RWMutex
 	bookedMutex             sync.RWMutex
 	eligibleMutex           sync.RWMutex
 	invalidMutex            sync.RWMutex
@@ -693,12 +695,16 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 		err = fmt.Errorf("failed to parse timestampOpinion of message metadata: %w", err)
 		return
 	}
-	if result.eligible, err = marshalUtil.ReadBool(); err != nil {
-		err = fmt.Errorf("failed to parse eligble flag of message metadata: %w", err)
+	if result.scheduled, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse scheduled flag of message metadata: %w", err)
 		return
 	}
 	if result.booked, err = marshalUtil.ReadBool(); err != nil {
 		err = fmt.Errorf("failed to parse booked flag of message metadata: %w", err)
+		return
+	}
+	if result.eligible, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse eligble flag of message metadata: %w", err)
 		return
 	}
 	if result.invalid, err = marshalUtil.ReadBool(); err != nil {
@@ -818,15 +824,6 @@ func (m *MessageMetadata) BranchID() ledgerstate.BranchID {
 	return m.branchID
 }
 
-// IsBooked returns true if the message represented by this metadata is booked. False otherwise.
-func (m *MessageMetadata) IsBooked() (result bool) {
-	m.bookedMutex.RLock()
-	defer m.bookedMutex.RUnlock()
-	result = m.booked
-
-	return
-}
-
 // IsEligible returns true if the message represented by this metadata is eligible. False otherwise.
 func (m *MessageMetadata) IsEligible() (result bool) {
 	m.eligibleMutex.RLock()
@@ -834,6 +831,31 @@ func (m *MessageMetadata) IsEligible() (result bool) {
 	result = m.eligible
 
 	return
+}
+
+// SetScheduled sets the message associated with this metadata as scheduled.
+// It returns true if the scheduled status is modified. False otherwise.
+func (m *MessageMetadata) SetScheduled(scheduled bool) (modified bool) {
+	m.scheduledMutex.Lock()
+	defer m.scheduledMutex.Unlock()
+
+	if m.scheduled == scheduled {
+		return false
+	}
+
+	m.scheduled = scheduled
+	m.SetModified()
+	modified = true
+
+	return
+}
+
+// Scheduled returns true if the message represented by this metadata was scheduled. False otherwise.
+func (m *MessageMetadata) Scheduled() (result bool) {
+	m.scheduledMutex.RLock()
+	defer m.scheduledMutex.RUnlock()
+
+	return m.scheduled
 }
 
 // SetBooked sets the message associated with this metadata as booked.
@@ -849,6 +871,15 @@ func (m *MessageMetadata) SetBooked(booked bool) (modified bool) {
 	m.booked = booked
 	m.SetModified()
 	modified = true
+
+	return
+}
+
+// IsBooked returns true if the message represented by this metadata is booked. False otherwise.
+func (m *MessageMetadata) IsBooked() (result bool) {
+	m.bookedMutex.RLock()
+	defer m.bookedMutex.RUnlock()
+	result = m.booked
 
 	return
 }
@@ -939,8 +970,9 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 		Write(m.StructureDetails()).
 		Write(m.BranchID()).
 		WriteBytes(m.TimestampOpinion().Bytes()).
-		WriteBool(m.IsEligible()).
+		WriteBool(m.Scheduled()).
 		WriteBool(m.IsBooked()).
+		WriteBool(m.IsEligible()).
 		WriteBool(m.IsInvalid()).
 		Bytes()
 }
@@ -949,6 +981,23 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 // This should never happen and will panic if attempted.
 func (m *MessageMetadata) Update(other objectstorage.StorableObject) {
 	panic("updates disabled")
+}
+
+// String returns a human readable version of the MessageMetadata.
+func (m *MessageMetadata) String() string {
+	return stringify.Struct("MessageMetadata",
+		stringify.StructField("ID", m.messageID),
+		stringify.StructField("receivedTime", m.ReceivedTime()),
+		stringify.StructField("solid", m.IsSolid()),
+		stringify.StructField("solidificationTime", m.SolidificationTime()),
+		stringify.StructField("structureDetails", m.StructureDetails()),
+		stringify.StructField("branchID", m.BranchID()),
+		stringify.StructField("timestampOpinion", m.TimestampOpinion()),
+		stringify.StructField("scheduled", m.Scheduled()),
+		stringify.StructField("booked", m.IsBooked()),
+		stringify.StructField("eligible", m.IsEligible()),
+		stringify.StructField("invalid", m.IsInvalid()),
+	)
 }
 
 var _ objectstorage.StorableObject = &MessageMetadata{}

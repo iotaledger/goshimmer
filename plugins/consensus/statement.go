@@ -1,7 +1,7 @@
 package consensus
 
 import (
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/packages/vote/statement"
@@ -20,25 +20,25 @@ func makeStatement(roundStats *vote.RoundStats) {
 	for id, v := range roundStats.ActiveVoteContexts {
 		switch v.Type {
 		case vote.TimestampType:
-			ID, err := tangle.NewMessageID(id)
+			messageID, err := tangle.NewMessageID(id)
 			if err != nil {
 				// TODO
 				break
 			}
 			timestamps = append(timestamps, statement.Timestamp{
-				ID: ID,
+				ID: messageID,
 				Opinion: statement.Opinion{
 					Value: v.LastOpinion(),
 					Round: uint8(v.Rounds)}},
 			)
 		case vote.ConflictType:
-			ID, err := transaction.IDFromBase58(id)
+			messageID, err := ledgerstate.TransactionIDFromBase58(id)
 			if err != nil {
 				// TODO
 				break
 			}
 			conflicts = append(conflicts, statement.Conflict{
-				ID: ID,
+				ID: messageID,
 				Opinion: statement.Opinion{
 					Value: v.LastOpinion(),
 					Round: uint8(v.Rounds)}},

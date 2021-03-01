@@ -1,0 +1,10 @@
+[book]
+authors = ["Dr-Electron"]
+language = "en"
+multilingual = false
+src = "docs"
+title = "IOTA GoShimmer"
+
+[output.html]
+git-repository-url = "https://github.com/iotaledger/goshimmer"
+git-repository-icon = "fa-github"

@@ -8,31 +8,21 @@ import (
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
+	"golang.org/x/xerrors"
 )
 
 const storeSequenceInterval = 100
 
-var (
-	// ZeroWorker is a PoW worker that always returns 0 as the nonce.
-	ZeroWorker = WorkerFunc(func([]byte) (uint64, error) { return 0, nil })
-)
-
-// A TipSelector selects two tips, parent2 and parent1, for a new message to attach to.
-type TipSelector interface {
-	Tips(count int) (parents []MessageID)
-}
-
-// A Worker performs the PoW for the provided message in serialized byte form.
-type Worker interface {
-	DoPOW([]byte) (nonce uint64, err error)
-}
+// region MessageFactory ///////////////////////////////////////////////////////////////////////////////////////////////
 
 // MessageFactory acts as a factory to create new messages.
 type MessageFactory struct {
+	Events *MessageFactoryEvents
+
 	tangle        *Tangle
-	Events        *MessageFactoryEvents
 	sequence      *kvstore.Sequence
 	localIdentity *identity.LocalIdentity
 	selector      TipSelector
@@ -50,8 +40,12 @@ func NewMessageFactory(tangle *Tangle, selector TipSelector) *MessageFactory {
 	}
 
 	return &MessageFactory{
+		Events: &MessageFactoryEvents{
+			MessageConstructed: events.NewEvent(messageEventHandler),
+			Error:              events.NewEvent(events.ErrorCaller),
+		},
+
 		tangle:        tangle,
-		Events:        newMessageFactoryEvents(),
 		sequence:      sequence,
 		localIdentity: tangle.Options.Identity,
 		selector:      selector,
@@ -81,15 +75,17 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, t ...*Tangle) (*Message
 	defer f.issuanceMutex.Unlock()
 	sequenceNumber, err := f.sequence.Next()
 	if err != nil {
-		err = fmt.Errorf("could not create sequence number: %w", err)
+		err = xerrors.Errorf("could not create sequence number: %w", err)
 		f.Events.Error.Trigger(err)
 		return nil, err
 	}
 
-	// TODO: change hardcoded amount of parents
-	strongParents := f.selector.Tips(2)
-	// TODO: approval switch: select weak parents
-	weakParents := make([]MessageID, 0)
+	strongParents, weakParents, err := f.selector.Tips(p, 2, 2)
+	if err != nil {
+		err = xerrors.Errorf("tips could not be selected: %w", err)
+		f.Events.Error.Trigger(err)
+		return nil, err
+	}
 
 	issuingTime := clock.SyncedTime()
 
@@ -110,7 +106,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, t ...*Tangle) (*Message
 	// do the PoW
 	nonce, err := f.doPOW(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p)
 	if err != nil {
-		err = fmt.Errorf("pow failed: %w", err)
+		err = xerrors.Errorf("pow failed: %w", err)
 		f.Events.Error.Trigger(err)
 		return nil, err
 	}
@@ -157,13 +153,56 @@ func (f *MessageFactory) sign(strongParents []MessageID, weakParents []MessageID
 	return f.localIdentity.Sign(dummyBytes[:contentLength])
 }
 
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region MessageFactoryEvents /////////////////////////////////////////////////////////////////////////////////////////
+
+// MessageFactoryEvents represents events happening on a message factory.
+type MessageFactoryEvents struct {
+	// Fired when a message is built including tips, sequence number and other metadata.
+	MessageConstructed *events.Event
+
+	// Fired when an error occurred.
+	Error *events.Event
+}
+
+func messageEventHandler(handler interface{}, params ...interface{}) {
+	handler.(func(*Message))(params[0].(*Message))
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TipSelector //////////////////////////////////////////////////////////////////////////////////////////////////
+
+// A TipSelector selects two tips, parent2 and parent1, for a new message to attach to.
+type TipSelector interface {
+	Tips(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TipSelectorFunc //////////////////////////////////////////////////////////////////////////////////////////////
+
 // The TipSelectorFunc type is an adapter to allow the use of ordinary functions as tip selectors.
-type TipSelectorFunc func(count int) (parents []MessageID)
+type TipSelectorFunc func(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error)
 
 // Tips calls f().
-func (f TipSelectorFunc) Tips(count int) (parents []MessageID) {
-	return f(count)
+func (f TipSelectorFunc) Tips(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error) {
+	return f(p, countStrongParents, countWeakParents)
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Worker ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// A Worker performs the PoW for the provided message in serialized byte form.
+type Worker interface {
+	DoPOW([]byte) (nonce uint64, err error)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region WorkerFunc ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // The WorkerFunc type is an adapter to allow the use of ordinary functions as a PoW performer.
 type WorkerFunc func([]byte) (uint64, error)
@@ -172,3 +211,12 @@ type WorkerFunc func([]byte) (uint64, error)
 func (f WorkerFunc) DoPOW(msg []byte) (uint64, error) {
 	return f(msg)
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region ZeroWorker ///////////////////////////////////////////////////////////////////////////////////////////////////
+
+// ZeroWorker is a PoW worker that always returns 0 as the nonce.
+var ZeroWorker = WorkerFunc(func([]byte) (uint64, error) { return 0, nil })
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

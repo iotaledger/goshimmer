@@ -1,89 +1,110 @@
 package value
 
 import (
+	"encoding/hex"
 	"testing"
+	"time"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/mr-tron/base58/base58"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestNewTransactionFromJSON(t *testing.T) {
-	// generate ed25519 keypair
-	keyPair1 := ed25519.GenerateKeyPair()
-	sigScheme1 := signaturescheme.ED25519(keyPair1)
-	// generate BLS keypair
-	sigScheme2 := signaturescheme.RandBLS()
-	addr1 := sigScheme1.Address()
-	addr2 := sigScheme2.Address()
-	// create first input
-	o1 := transaction.NewOutputID(addr1, transaction.RandomID())
-	// create second input
-	o2 := transaction.NewOutputID(addr2, transaction.RandomID())
-	inputs := transaction.NewInputs(o1, o2)
-	bal := balance.New(balance.ColorIOTA, 1)
-	outputs := transaction.NewOutputs(map[address.Address][]*balance.Balance{address.Random(): {bal}})
-	tx := transaction.New(inputs, outputs)
-	tx.SetDataPayload([]byte("TEST"))
-	// sign with ed25519
-	tx.Sign(sigScheme1)
-	// sign with BLS
-	tx.Sign(sigScheme2)
+	mySeed := walletseed.NewSeed()
+	myOutputID := "2ZU8TNkVVGKmbFqifhejufMqpaKcSMAUvGadW4igVXB87rP"
+	tokenColorStr := "E113QN5qZbTEvqwtGxeEmTZdBCsCbb6waYK9WDCse3Aw"
 
-	// Parse inputs to base58
-	inputsBase58 := []string{}
-	inputs.ForEach(func(outputId transaction.OutputID) bool {
-		inputsBase58 = append(inputsBase58, base58.Encode(outputId.Bytes()))
-		return true
-	})
-
-	// Parse outputs to base58
-	outputsBase58 := []Output{}
-	outputs.ForEach(func(address address.Address, balances []*balance.Balance) bool {
-		var b []Balance
-		for _, balance := range balances {
-			b = append(b, Balance{
-				Value: balance.Value,
-				Color: balance.Color.String(),
-			})
-		}
-		t := Output{
-			Address:  address.String(),
-			Balances: b,
-		}
-		outputsBase58 = append(outputsBase58, t)
-
-		return true
-	})
-
-	// Parse signatures to base58
-	signaturesBase58 := []Signature{}
-	for _, signature := range tx.Signatures() {
-		signaturesBase58 = append(signaturesBase58, Signature{
-			Version:   signature.Bytes()[0],
-			PublicKey: base58.Encode(signature.Bytes()[1 : signature.PublicKeySize()+1]),
-			Signature: base58.Encode(signature.Bytes()[1+signature.PublicKeySize():]),
-		})
-	}
-
-	// create tx JSON
-	jsonRequest := SendTransactionByJSONRequest{
-		Inputs:     inputsBase58,
-		Outputs:    outputsBase58,
-		Data:       []byte("TEST"),
-		Signatures: signaturesBase58,
-	}
-	txFromJSON, err := NewTransactionFromJSON(jsonRequest)
+	out, err := ledgerstate.OutputIDFromBase58(myOutputID)
+	require.NoError(t, err)
+	tokenColor, err := ledgerstate.ColorFromBase58EncodedString(tokenColorStr)
 	require.NoError(t, err)
 
-	// compare signatures
-	assert.Equal(t, tx.SignatureBytes(), txFromJSON.SignatureBytes())
+	// create a new receiver wallet for the given conflict
+	receiverSeeds := walletseed.NewSeed()
+	destAddr := receiverSeeds.Address(0)
 
-	// conmpare transactions
-	assert.Equal(t, tx, txFromJSON)
+	output1 := ledgerstate.NewSigLockedSingleOutput(uint64(100), destAddr.Address())
+	output2 := ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
+		tokenColor:            uint64(100),
+		ledgerstate.ColorMint: uint64(100),
+	}), destAddr.Address())
+
+	// nodeID to pledge mana
+	pledge, _ := identity.RandomID()
+	pledgeID := make([]byte, hex.EncodedLen(len(pledge.Bytes())))
+	_ = hex.Encode(pledgeID, pledge.Bytes())
+
+	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), pledge, pledge, ledgerstate.NewInputs(ledgerstate.NewUTXOInput(out)), ledgerstate.NewOutputs(output1, output2))
+	// create data payload
+	dataPayload := payload.NewGenericDataPayload([]byte("some data"))
+	txEssence.SetPayload(dataPayload)
+
+	// sign transaction
+	kp := *mySeed.KeyPair(0)
+	sig := ledgerstate.NewED25519Signature(kp.PublicKey, ed25519.Signature(kp.PrivateKey.Sign(txEssence.Bytes())))
+
+	// create unlockBlock
+	unlockBlock := ledgerstate.NewSignatureUnlockBlock(sig)
+	// create tx
+	tx := ledgerstate.NewTransaction(txEssence, ledgerstate.UnlockBlocks{unlockBlock})
+
+	// output JSON object
+	outputsObj := []Output{
+		{
+			Type:    int8(output1.Type()),
+			Address: output1.Address().Base58(),
+			Balances: []Balance{
+				{
+					Value: 100,
+					Color: "IOTA",
+				},
+			},
+		},
+		{
+			Type:    int8(output2.Type()),
+			Address: output2.Address().Base58(),
+			Balances: []Balance{
+				{
+					Value: 100,
+					Color: "MINT",
+				},
+				{
+					Value: 100,
+					Color: tokenColorStr,
+				},
+			},
+		},
+	}
+
+	// signature JSON object
+	sigObj := Signature{
+		Version:   byte(ledgerstate.ED25519SignatureType),
+		PublicKey: kp.PublicKey.String(),
+		Signature: sig.Base58(),
+	}
+
+	req := SendTransactionByJSONRequest{
+		Inputs:        []string{myOutputID},
+		Outputs:       outputsObj,
+		Signatures:    []Signature{sigObj},
+		AManaPledgeID: string(pledgeID),
+		CManaPledgeID: string(pledgeID),
+		Payload:       dataPayload.Bytes(),
+	}
+
+	txFromJSON, err := NewTransactionFromJSON(req)
+	require.NoError(t, err)
+
+	assert.Equal(t, tx.ReferencedTransactionIDs(), txFromJSON.ReferencedTransactionIDs())
+	assert.Equal(t, tx.UnlockBlocks()[0].Bytes(), txFromJSON.UnlockBlocks()[0].Bytes())
+	assert.Equal(t, tx.Essence().AccessPledgeID(), txFromJSON.Essence().AccessPledgeID())
+	assert.Equal(t, tx.Essence().ConsensusPledgeID(), txFromJSON.Essence().ConsensusPledgeID())
+	assert.Equal(t, tx.Essence().Payload(), txFromJSON.Essence().Payload())
+	assert.Equal(t, tx.Essence().Inputs(), txFromJSON.Essence().Inputs())
+	assert.Equal(t, tx.Essence().Outputs().Bytes(), txFromJSON.Essence().Outputs().Bytes())
 }

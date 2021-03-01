@@ -51,25 +51,30 @@ func NewManager(store kvstore.KVStore) (newManager *Manager) {
 }
 
 // InheritStructureDetails takes the StructureDetails of the referenced parents and returns new StructureDetails for the
-// node that was just added to the DAG. It automatically creates a new Sequence and Index if necessary and returns an
+// message that was just added to the DAG. It automatically creates a new Sequence and Index if necessary and returns an
 // additional flag that indicates if a new Sequence was created.
 func (m *Manager) InheritStructureDetails(referencedStructureDetails []*StructureDetails, increaseIndexCallback IncreaseIndexCallback, newSequenceAlias ...SequenceAlias) (inheritedStructureDetails *StructureDetails, newSequenceCreated bool) {
 	inheritedStructureDetails = &StructureDetails{
 		FutureMarkers: NewMarkers(),
 	}
 
+	// merge parent's pastMarkers
 	mergedPastMarkers := NewMarkers()
 	for _, referencedMarkerPair := range referencedStructureDetails {
 		mergedPastMarkers.Merge(referencedMarkerPair.PastMarkers)
+		// update highest rank
 		if referencedMarkerPair.Rank > inheritedStructureDetails.Rank {
 			inheritedStructureDetails.Rank = referencedMarkerPair.Rank
 		}
 	}
+	// rank for this message is set to highest rank of parents + 1
 	inheritedStructureDetails.Rank++
 
 	normalizedMarkers, normalizedSequences := m.normalizeMarkers(mergedPastMarkers)
 	rankOfReferencedSequences := normalizedMarkers.HighestRank()
 	referencedMarkers, referencedMarkersExist := normalizedMarkers.Markers()
+
+	// if this is the first marker create the genesis sequence and index
 	if !referencedMarkersExist {
 		referencedMarkers = NewMarkers(&Marker{sequenceID: 0, index: 0})
 		normalizedSequences = map[SequenceID]types.Empty{0: types.Void}
@@ -82,6 +87,7 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 	if newSequenceCreated {
 		cachedSequence.Consume(func(sequence *Sequence) {
 			inheritedStructureDetails.IsPastMarker = true
+			// sequence has just been created, so lowestIndex = highestIndex
 			inheritedStructureDetails.PastMarkers = NewMarkers(&Marker{sequenceID: sequence.id, index: sequence.lowestIndex})
 		})
 		return
@@ -115,12 +121,14 @@ func (m *Manager) UpdateStructureDetails(structureDetailsToUpdate *StructureDeta
 	structureDetailsToUpdate.futureMarkersUpdateMutex.Lock()
 	defer structureDetailsToUpdate.futureMarkersUpdateMutex.Unlock()
 
+	// abort if future markers of structureDetailsToUpdate reference markerToInherit
 	if m.markersReferenceMarkers(NewMarkers(markerToInherit), structureDetailsToUpdate.FutureMarkers, false) {
 		return
 	}
 
 	structureDetailsToUpdate.FutureMarkers.Set(markerToInherit.sequenceID, markerToInherit.index)
 	futureMarkersUpdated = true
+	// stop propagating further if structureDetailsToUpadate is a marker
 	inheritFutureMarkerFurther = !structureDetailsToUpdate.IsPastMarker
 
 	return
@@ -142,6 +150,8 @@ func (m *Manager) IsInPastCone(earlierStructureDetails *StructureDetails, laterS
 			panic("failed to retrieve Marker")
 		}
 
+		// If laterStructureDetails has a past marker in the same sequence of the earlier with a higher index
+		// the earlier one is in its past cone.
 		if laterIndex, sequenceExists := laterStructureDetails.PastMarkers.Get(earlierMarker.sequenceID); sequenceExists {
 			if laterIndex >= earlierMarker.index {
 				return types.True
@@ -150,6 +160,8 @@ func (m *Manager) IsInPastCone(earlierStructureDetails *StructureDetails, laterS
 			return types.False
 		}
 
+		// If laterStructureDetails has no past marker in the same sequence of the earlier,
+		// then just check the index
 		if laterStructureDetails.PastMarkers.HighestIndex() <= earlierMarker.index {
 			return types.False
 		}
@@ -161,14 +173,20 @@ func (m *Manager) IsInPastCone(earlierStructureDetails *StructureDetails, laterS
 			panic("failed to retrieve Marker")
 		}
 
+		// If earlierStructureDetails has a past marker in the same sequence of the later with a higher index or references the later,
+		// the earlier one is definitely not in its past cone.
 		if earlierIndex, sequenceExists := earlierStructureDetails.PastMarkers.Get(laterMarker.sequenceID); sequenceExists && earlierIndex >= laterMarker.index {
 			return types.False
 		}
 
+		// If earlierStructureDetails has a future marker in the same sequence of the later with a higher index,
+		// the earlier one is definitely not in its past cone.
 		if earlierFutureIndex, earlierFutureIndexExists := earlierStructureDetails.FutureMarkers.Get(laterMarker.sequenceID); earlierFutureIndexExists && earlierFutureIndex > laterMarker.index {
 			return types.False
 		}
 
+		// Iterate the future markers of laterStructureDetails and check if the earlier one has future markers in the same sequence,
+		// if yes, then make sure the index is smaller than the one of laterStructureDetails.
 		if !laterStructureDetails.FutureMarkers.ForEach(func(sequenceID SequenceID, laterIndex Index) bool {
 			earlierIndex, similarSequenceExists := earlierStructureDetails.FutureMarkers.Get(sequenceID)
 			return !similarSequenceExists || earlierIndex < laterIndex
@@ -181,6 +199,7 @@ func (m *Manager) IsInPastCone(earlierStructureDetails *StructureDetails, laterS
 		}
 	}
 
+	// If the two messages has the same past marker, then the earlier one is not in the later one's past cone.
 	if earlierStructureDetails.PastMarkers.HighestIndex() == laterStructureDetails.PastMarkers.HighestIndex() {
 		if !earlierStructureDetails.PastMarkers.ForEach(func(sequenceID SequenceID, earlierIndex Index) bool {
 			if earlierIndex == earlierStructureDetails.PastMarkers.HighestIndex() {
@@ -230,6 +249,7 @@ func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkersByRank *m
 
 	normalizedMarkersByRank = newMarkersByRank()
 	normalizedSequences = make(SequenceIDs)
+	// group markers with same sequence rank
 	markers.ForEach(func(sequenceID SequenceID, index Index) bool {
 		normalizedSequences[sequenceID] = types.Void
 		normalizedMarkersByRank.Add(m.rankOfSequence(sequenceID, rankOfSequencesCache), sequenceID, index)
@@ -238,6 +258,7 @@ func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkersByRank *m
 	})
 	markersToIterate := normalizedMarkersByRank.Clone()
 
+	//iterate from highest sequence rank to lowest
 	for i := markersToIterate.HighestRank() + 1; i > normalizedMarkersByRank.LowestRank(); i-- {
 		currentRank := i - 1
 		markersByRank, rankExists := markersToIterate.Markers(currentRank)
@@ -245,20 +266,28 @@ func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkersByRank *m
 			continue
 		}
 
+		// for each marker from the current sequence rank check if we can remove a marker in normalizedMarkersByRank,
+		// and add the parent markers to markersToIterate if necessary
 		if !markersByRank.ForEach(func(sequenceID SequenceID, index Index) bool {
 			if currentRank <= normalizedMarkersByRank.LowestRank() {
 				return false
 			}
 
 			if !(&CachedSequence{CachedObject: m.sequenceStore.Load(sequenceID.Bytes())}).Consume(func(sequence *Sequence) {
+				// for each of the parentMarkers of this particular index
 				sequence.HighestReferencedParentMarkers(index).ForEach(func(referencedSequenceID SequenceID, referencedIndex Index) bool {
+					// of this marker delete the referenced sequences since they are no sequence tips anymore in the sequence DAG
 					delete(normalizedSequences, referencedSequenceID)
 
 					rankOfReferencedSequence := m.rankOfSequence(referencedSequenceID, rankOfSequencesCache)
+					// check whether there is a marker in normalizedMarkersByRank that is from the same sequence
 					if index, indexExists := normalizedMarkersByRank.Index(rankOfReferencedSequence, referencedSequenceID); indexExists {
 						if referencedIndex >= index {
+							// this referencedParentMarker is from the same sequence as a marker in the list but with higher index - hence remove the index from the Marker list
 							normalizedMarkersByRank.Delete(rankOfReferencedSequence, referencedSequenceID)
 
+							// if rankOfReferencedSequence is already the lowest rank of the original markers list,
+							// no need to add it since parents of the referencedMarker cannot delete any further elements from the list
 							if rankOfReferencedSequence > normalizedMarkersByRank.LowestRank() {
 								markersToIterate.Add(rankOfReferencedSequence, referencedSequenceID, referencedIndex)
 							}
@@ -267,6 +296,8 @@ func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkersByRank *m
 						return true
 					}
 
+					// if rankOfReferencedSequence is already the lowest rank of the original markers list,
+					// no need to add it since parents of the referencedMarker cannot delete any further elements from the list
 					if rankOfReferencedSequence > normalizedMarkersByRank.LowestRank() {
 						markersToIterate.Add(rankOfReferencedSequence, referencedSequenceID, referencedIndex)
 					}
@@ -392,10 +423,15 @@ func (m *Manager) fetchSequence(parentSequences SequenceIDs, referencedMarkers *
 
 		cachedSequence = &CachedSequence{CachedObject: m.sequenceStore.Store(sequence)}
 
-		return &SequenceAliasMapping{
+		sequenceAliasMapping := &SequenceAliasMapping{
 			sequenceAlias: sequenceAlias,
 			sequenceID:    sequence.id,
 		}
+
+		sequenceAliasMapping.Persist()
+		sequenceAliasMapping.SetModified()
+
+		return sequenceAliasMapping
 	})}
 
 	if isNew = cachedSequence != nil; isNew {

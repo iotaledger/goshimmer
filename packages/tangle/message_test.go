@@ -11,10 +11,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/assert"
@@ -185,6 +187,24 @@ func TestMessage_VerifySignature(t *testing.T) {
 
 	signed := NewMessage([]MessageID{EmptyMessageID}, []MessageID{}, time.Time{}, keyPair.PublicKey, 0, pl, 0, signature)
 	assert.True(t, signed.VerifySignature())
+}
+
+func TestMessage_UnmarshalTransaction(t *testing.T) {
+	tangle := New()
+	defer tangle.Shutdown()
+
+	testMessage := NewMessage(randomParents(1),
+		randomParents(1),
+		time.Now(),
+		ed25519.PublicKey{},
+		0,
+		randomTransaction(),
+		0,
+		ed25519.Signature{})
+
+	restoredMessage, _, err := MessageFromBytes(testMessage.Bytes())
+	assert.NoError(t, err)
+	assert.Equal(t, testMessage.ID(), restoredMessage.ID())
 }
 
 func TestMessage_MarshalUnmarshal(t *testing.T) {
@@ -1034,4 +1054,40 @@ func TestMessage_ForEachWeakParent(t *testing.T) {
 
 		assert.Equal(t, sortedWeakParents, resultParents)
 	})
+}
+
+func randomTransaction() *ledgerstate.Transaction {
+	ID, _ := identity.RandomID()
+	input := ledgerstate.NewUTXOInput(ledgerstate.EmptyOutputID)
+	var outputs ledgerstate.Outputs
+	seed := ed25519.NewSeed()
+	w := wl{
+		keyPair: *seed.KeyPair(0),
+		address: ledgerstate.NewED25519Address(seed.KeyPair(0).PublicKey),
+	}
+	output := ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
+		ledgerstate.ColorIOTA: uint64(100),
+	}), w.address)
+	outputs = append(outputs, output)
+	essence := ledgerstate.NewTransactionEssence(1, time.Now(), ID, ID, ledgerstate.NewInputs(input), outputs)
+
+	unlockBlock := ledgerstate.NewSignatureUnlockBlock(w.sign(essence))
+
+	return ledgerstate.NewTransaction(essence, ledgerstate.UnlockBlocks{unlockBlock})
+}
+
+type wl struct {
+	keyPair ed25519.KeyPair
+	address *ledgerstate.ED25519Address
+}
+
+func (w wl) privateKey() ed25519.PrivateKey {
+	return w.keyPair.PrivateKey
+}
+
+func (w wl) publicKey() ed25519.PublicKey {
+	return w.keyPair.PublicKey
+}
+func (w wl) sign(txEssence *ledgerstate.TransactionEssence) *ledgerstate.ED25519Signature {
+	return ledgerstate.NewED25519Signature(w.publicKey(), ed25519.Signature(w.privateKey().Sign(txEssence.Bytes())))
 }

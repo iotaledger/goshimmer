@@ -4,17 +4,21 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/stretchr/testify/require"
 )
 
-func dummyPayload() *Statement {
+func dummyPayload(t *testing.T) *Statement {
+	txA, err := ledgerstate.TransactionIDFromRandomness()
+	require.NoError(t, err)
+	txB, err := ledgerstate.TransactionIDFromRandomness()
+	require.NoError(t, err)
 	conflicts := []Conflict{
-		{transaction.RandomID(), Opinion{opinion.Like, 1}},
-		{transaction.RandomID(), Opinion{opinion.Like, 2}},
+		{txA, Opinion{opinion.Like, 1}},
+		{txB, Opinion{opinion.Like, 2}},
 	}
 	timestamps := []Timestamp{
 		{tangle.EmptyMessageID, Opinion{opinion.Like, 1}},
@@ -30,7 +34,7 @@ func emptyPayload() *Statement {
 }
 
 func TestPayloadFromMarshalUtil(t *testing.T) {
-	payload := dummyPayload()
+	payload := dummyPayload(t)
 	bytes := payload.Bytes()
 
 	marshalUtil := marshalutil.New(bytes)
@@ -62,6 +66,6 @@ func TestEmptyPayloadFromMarshalUtil(t *testing.T) {
 }
 
 func TestString(t *testing.T) {
-	payload := dummyPayload()
+	payload := dummyPayload(t)
 	_ = payload.String()
 }

@@ -6,20 +6,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/stringify"
 	"golang.org/x/xerrors"
-)
-
-// LevelOfKnowledge defines the Level Of Knowledge type.
-type LevelOfKnowledge = uint8
-
-// The different levels of knowledge.
-const (
-	// One implies that voting is required.
-	One LevelOfKnowledge = iota + 1
-	// Two implies that we have finalized our opinion but we can still reply to eventual queries.
-	Two
-	// Three implies that we have finalized our opinion and we do not reply to eventual queries.
-	Three
 )
 
 var (
@@ -49,6 +37,14 @@ func (t TimestampOpinion) Bytes() (bytes []byte) {
 		Bytes()
 }
 
+// String returns a human readable version of the TimestampOpinion.
+func (t TimestampOpinion) String() string {
+	return stringify.Struct("TimestampOpinion",
+		stringify.StructField("Value", t.Value),
+		stringify.StructField("LoK", t.LoK),
+	)
+}
+
 // TimestampOpinionFromBytes parses a TimestampOpinion from a byte slice.
 func TimestampOpinionFromBytes(bytes []byte) (timestampOpinion TimestampOpinion, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
@@ -74,10 +70,13 @@ func TimestampOpinionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resu
 	}
 	result.Value = opinion.Opinion(opinionByte)
 
-	if result.LoK, err = marshalUtil.ReadUint8(); err != nil {
+	loKUint8, err := marshalUtil.ReadUint8()
+	if err != nil {
 		err = xerrors.Errorf("failed to parse Level of Knowledge from bytes: %w", err)
 		return
 	}
+	result.LoK = LevelOfKnowledge(loKUint8)
+
 	// return the number of bytes we processed
 	parsedBytes := marshalUtil.ReadOffset() - readStartOffset
 	if parsedBytes != TimestampOpinionLength {

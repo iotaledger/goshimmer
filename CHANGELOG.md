@@ -1,3 +1,54 @@
+# v0.4.0 - 2021-02-26
+* Remove the value Tangle
+* Add approval switch
+* Add Markers integration
+* Add new message booker
+* Add new ledger state
+* Add new opinion former
+* Add new Tip manager
+* Add new flow unit tests
+* Add remote spammer tool
+* Add sendTransaction timestamp validity check
+* Add clock Since method
+* Add docs actions
+* Add Tangle width debug tool option
+* Update client-lib
+* Update wallet
+* Update web-API
+* Update Grafana dashboard to show MPS for entire data-flow
+* Update to latest hive.go
+* Refactor integration tests
+* Refactor transaction validity check
+* Refactor cli-wallet
+* Refactor sendTransactionByJson API
+* Refactor inclusion state
+* Refactor TransactionConfirmed event
+* Refactor transaction visualization in the local dashboard
+* Refactor scheduler
+* Refactor snapshot script
+* Fix clock time usage
+* Fix wrong handler in the MessageInvalidEvent
+* Decrease cache time
+* **Breaking**: bumps network and database versions
+
+# v0.3.6 - 2021-02-12
+* Finalize Payload layout
+* Update dRNG with finalized payload layout
+* Add simple scheduler
+* Add message approval analysis API
+* Add core logic for timestamp voting (still disabled)
+* Refactor message parser
+* Refactor solidifier
+* Refactor Tangle events
+* Update entry node URL
+* Update gossip to not gossip requested messages
+* Introduce invalid message flag
+* Merge the new data flow
+* Fix visualizer bug
+* Update hive.go
+* Update JS dependencies
+* **Breaking**: bumps network and database versions
+
 # v0.3.5 - 2021-01-13
 * Fix consensus statement bug
 * Fix deadlock in RandomMap
@@ -10,6 +61,7 @@
 * Update hive.go
 * Update JS dependencies
 * **Breaking**: bumps network and database versions
+
 # v0.3.4 - 2020-12-11
 * Revert Pebble to Badger.
 * **Breaking**: bumps network and database versions
