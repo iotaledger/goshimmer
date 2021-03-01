@@ -176,6 +176,7 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 			return true
 		})
 		transactionID := output.ID().TransactionID()
+		txInclusionState, _ := messagelayer.Tangle().LedgerState.TransactionInclusionState(transactionID)
 		var consumerCount int
 		var branch ledgerstate.Branch
 		messagelayer.Tangle().LedgerState.OutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
@@ -186,10 +187,10 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 		})
 		var solidificationTime int64
 		messagelayer.Tangle().LedgerState.TransactionMetadata(transactionID).Consume(func(txMeta *ledgerstate.TransactionMetadata) {
-			inclusionState.Confirmed = branch.InclusionState() == ledgerstate.Confirmed
+			inclusionState.Confirmed = txInclusionState == ledgerstate.Confirmed
 			inclusionState.Liked = branch.Liked()
-			inclusionState.Rejected = branch.InclusionState() == ledgerstate.Rejected
-			inclusionState.Finalized = branch.Finalized()
+			inclusionState.Rejected = txInclusionState == ledgerstate.Rejected
+			inclusionState.Finalized = txMeta.Finalized()
 			inclusionState.Conflicting = messagelayer.Tangle().LedgerState.TransactionConflicting(transactionID)
 			solidificationTime = txMeta.SolidificationTime().Unix()
 		})

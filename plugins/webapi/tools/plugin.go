@@ -34,4 +34,5 @@ func configure(_ *node.Plugin) {
 	webapi.Server().GET("tools/message/missing", message.MissingHandler)
 	webapi.Server().GET("tools/message/approval", message.ApprovalHandler)
 	webapi.Server().GET("tools/value/objects", value.ObjectsHandler)
+	webapi.Server().GET("tools/message/orphanage", message.OrphanageHandler)
 }

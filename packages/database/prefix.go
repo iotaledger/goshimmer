@@ -7,14 +7,11 @@ const (
 	// PrefixHealth defines the prefix of the health db.
 	PrefixHealth
 
-	// PrefixMessageLayer defines the storage prefix for the message layer.
-	PrefixMessageLayer
+	// PrefixTangle defines the storage prefix for the tangle.
+	PrefixTangle
 
 	// PrefixMarkers defines the storage prefix for the markers used to optimize structural checks in the tangle.
 	PrefixMarkers
-
-	// PrefixValueTransfers defines the storage prefix for value transfer.
-	PrefixValueTransfers
 
 	// PrefixLedgerState defines the storage prefix for the ledgerstate package.
 	PrefixLedgerState

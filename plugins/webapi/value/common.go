@@ -14,7 +14,7 @@ func ParseTransaction(t *ledgerstate.Transaction) (txn Transaction) {
 	var outputs []Output
 	// process inputs
 	for _, input := range t.Essence().Inputs() {
-		inputs = append(inputs, input.String())
+		inputs = append(inputs, input.Base58())
 	}
 
 	// process outputs
@@ -69,6 +69,7 @@ type UnspentOutput struct {
 
 // Output consists an address and balances
 type Output struct {
+	Type     int8      `json:"type"`
 	Address  string    `json:"address"`
 	Balances []Balance `json:"balances"`
 }

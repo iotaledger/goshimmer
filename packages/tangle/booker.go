@@ -94,7 +94,7 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 					return
 				}
 
-				if !b.tangle.Utils.AllTransactionsApprovedByMessage(transaction.ReferencedTransactionIDs(), messageID) {
+				if !b.tangle.Utils.AllTransactionsApprovedByMessages(transaction.ReferencedTransactionIDs(), messageID) {
 					b.tangle.Events.MessageInvalid.Trigger(messageID)
 					err = fmt.Errorf("message does not reference all the transaction's dependencies")
 					return

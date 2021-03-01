@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"golang.org/x/crypto/blake2b"
 )
 
 // Wallet represents a simple cryptocurrency wallet for the IOTA tangle. It contains the logic to manage the movement of
@@ -168,12 +169,25 @@ func (wallet *Wallet) CreateAsset(asset Asset) (assetColor ledgerstate.Color, er
 		return
 	}
 
-	assetColor, _, err = ledgerstate.ColorFromBytes(tx.ID().Bytes())
+	// this only works if there is only one MINT output in the transaction
+	assetColor = ledgerstate.ColorIOTA
+	for _, output := range tx.Essence().Outputs() {
+		output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+			if color == ledgerstate.ColorMint {
+				digest := blake2b.Sum256(output.ID().Bytes())
+				assetColor, _, err = ledgerstate.ColorFromBytes(digest[:])
+			}
+			return true
+		})
+	}
+
 	if err != nil {
 		return
 	}
 
-	wallet.assetRegistry.RegisterAsset(assetColor, asset)
+	if assetColor != ledgerstate.ColorIOTA {
+		wallet.assetRegistry.RegisterAsset(assetColor, asset)
+	}
 
 	return
 }

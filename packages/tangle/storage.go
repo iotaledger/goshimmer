@@ -40,7 +40,7 @@ const (
 	// PrefixFCoB defines the storage prefix for FCoB.
 	PrefixFCoB
 
-	cacheTime = 20 * time.Second
+	cacheTime = 2 * time.Second
 
 	// DBSequenceNumber defines the db sequence number.
 	DBSequenceNumber = "seq"
@@ -64,7 +64,7 @@ type Storage struct {
 
 // NewStorage creates a new Storage.
 func NewStorage(tangle *Tangle) (storage *Storage) {
-	osFactory := objectstorage.NewFactory(tangle.Options.Store, database.PrefixMessageLayer)
+	osFactory := objectstorage.NewFactory(tangle.Options.Store, database.PrefixTangle)
 
 	storage = &Storage{
 		tangle:                            tangle,
@@ -248,12 +248,12 @@ func (s *Storage) DeleteMissingMessage(messageID MessageID) {
 // yet.
 func (s *Storage) MarkerIndexBranchIDMapping(sequenceID markers.SequenceID, computeIfAbsentCallback ...func(sequenceID markers.SequenceID) *MarkerIndexBranchIDMapping) *CachedMarkerIndexBranchIDMapping {
 	if len(computeIfAbsentCallback) >= 1 {
-		return &CachedMarkerIndexBranchIDMapping{s.messageMetadataStorage.ComputeIfAbsent(sequenceID.Bytes(), func(key []byte) objectstorage.StorableObject {
+		return &CachedMarkerIndexBranchIDMapping{s.markerIndexBranchIDMappingStorage.ComputeIfAbsent(sequenceID.Bytes(), func(key []byte) objectstorage.StorableObject {
 			return computeIfAbsentCallback[0](sequenceID)
 		})}
 	}
 
-	return &CachedMarkerIndexBranchIDMapping{CachedObject: s.messageMetadataStorage.Load(sequenceID.Bytes())}
+	return &CachedMarkerIndexBranchIDMapping{CachedObject: s.markerIndexBranchIDMappingStorage.Load(sequenceID.Bytes())}
 }
 
 func (s *Storage) storeGenesis() {
@@ -301,6 +301,7 @@ func (s *Storage) Shutdown() {
 	s.approverStorage.Shutdown()
 	s.missingMessageStorage.Shutdown()
 	s.attachmentStorage.Shutdown()
+	s.markerIndexBranchIDMappingStorage.Shutdown()
 
 	close(s.shutdown)
 }
@@ -313,12 +314,15 @@ func (s *Storage) Prune() error {
 		s.approverStorage,
 		s.missingMessageStorage,
 		s.attachmentStorage,
+		s.markerIndexBranchIDMappingStorage,
 	} {
 		if err := storage.Prune(); err != nil {
 			err = fmt.Errorf("failed to prune storage: %w", err)
 			return err
 		}
 	}
+
+	s.storeGenesis()
 
 	return nil
 }

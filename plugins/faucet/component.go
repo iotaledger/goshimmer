@@ -1,11 +1,11 @@
 package faucet
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
@@ -93,7 +93,7 @@ func (c *Component) SendFunds(msg *tangle.Message) (m *tangle.Message, txID stri
 	}
 
 	nodeID := identity.NewID(msg.IssuerPublicKey())
-	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), nodeID, nodeID, ledgerstate.NewInputs(inputs...), ledgerstate.NewOutputs(outputs...))
+	txEssence := ledgerstate.NewTransactionEssence(0, clock.SyncedTime(), nodeID, nodeID, ledgerstate.NewInputs(inputs...), ledgerstate.NewOutputs(outputs...))
 
 	//  TODO: check this
 	unlockBlocks := make([]ledgerstate.UnlockBlock, len(txEssence.Inputs()))
@@ -138,7 +138,7 @@ func (c *Component) SendFunds(msg *tangle.Message) (m *tangle.Message, txID stri
 
 	_, err = c.prepareMoreOutputs(lastUsedAddressIndex)
 	if err != nil {
-		err = fmt.Errorf("%w: %s", ErrPrepareFaucet, err.Error())
+		err = xerrors.Errorf("%w: %s", ErrPrepareFaucet, err.Error())
 	}
 	c.addAddressToBlacklist(addr)
 

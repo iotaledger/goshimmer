@@ -150,11 +150,11 @@ func TestTangle_MissingMessages(t *testing.T) {
 	)
 
 	// create badger store
-	badgerDB, err := testutil.BadgerDB(t)
+	badger, err := testutil.BadgerDB(t)
 	require.NoError(t, err)
 
 	// create the tangle
-	tangle := New(Store(badgerDB), WithoutOpinionFormer(true))
+	tangle := New(Store(badger), WithoutOpinionFormer(true))
 	defer tangle.Shutdown()
 	require.NoError(t, tangle.Prune())
 
@@ -204,7 +204,9 @@ func TestTangle_MissingMessages(t *testing.T) {
 		messages[msg.ID()] = msg
 	}
 
-	tangle.Setup()
+	// manually set up Tangle flow as far as we need it
+	tangle.Storage.Setup()
+	tangle.Solidifier.Setup()
 
 	// counter for the different stages
 	var (
@@ -296,7 +298,7 @@ func TestTangle_Flow(t *testing.T) {
 		messageWorkerQueueSize = 1000
 	)
 	// create badger store
-	badgerDB, err := testutil.BadgerDB(t)
+	badger, err := testutil.BadgerDB(t)
 	require.NoError(t, err)
 
 	// map to keep track of the tips
@@ -304,7 +306,7 @@ func TestTangle_Flow(t *testing.T) {
 	tips.Set(EmptyMessageID, EmptyMessageID)
 
 	// create the tangle
-	tangle := New(Store(badgerDB))
+	tangle := New(Store(badger))
 	defer tangle.Shutdown()
 
 	// create local peer
@@ -392,15 +394,16 @@ func TestTangle_Flow(t *testing.T) {
 
 	// counter for the different stages
 	var (
-		parsedMessages        int32
-		storedMessages        int32
-		missingMessages       int32
-		solidMessages         int32
-		scheduledMessages     int32
-		bookedMessages        int32
-		opinionFormedMessages int32
-		invalidMessages       int32
-		rejectedMessages      int32
+		parsedMessages            int32
+		storedMessages            int32
+		missingMessages           int32
+		solidMessages             int32
+		scheduledMessages         int32
+		bookedMessages            int32
+		opinionFormedMessages     int32
+		opinionFormedTransactions int32
+		invalidMessages           int32
+		rejectedMessages          int32
 	)
 
 	// filter rejected events
@@ -459,6 +462,12 @@ func TestTangle_Flow(t *testing.T) {
 		t.Logf("opinion formed messages %d/%d", n, totalMsgCount)
 	}))
 
+	// data messages should not trigger this event
+	tangle.OpinionFormer.Events.TransactionConfirmed.Attach(events.NewClosure(func(messageID MessageID) {
+		n := atomic.AddInt32(&opinionFormedTransactions, 1)
+		t.Logf("opinion formed transaction %d/%d", n, totalMsgCount)
+	}))
+
 	tangle.Events.Error.Attach(events.NewClosure(func(err error) {
 		t.Logf("Error %s", err)
 	}))
@@ -486,6 +495,7 @@ func TestTangle_Flow(t *testing.T) {
 	assert.EqualValues(t, totalMsgCount, atomic.LoadInt32(&storedMessages))
 	assert.EqualValues(t, totalMsgCount, atomic.LoadInt32(&parsedMessages))
 	assert.EqualValues(t, invalidMsgCount, atomic.LoadInt32(&invalidMessages))
+	assert.EqualValues(t, 0, atomic.LoadInt32(&opinionFormedTransactions))
 	assert.EqualValues(t, 0, atomic.LoadInt32(&missingMessages))
 }
 

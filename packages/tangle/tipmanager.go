@@ -118,6 +118,11 @@ func (t *TipManager) AddTip(message *Message) {
 				})
 			}
 
+			// skip removing tips if TangleWidth is enabled
+			if t.StrongTipCount()+t.WeakTipCount() <= t.tangle.Options.TangleWidth {
+				return
+			}
+
 			// a strong tip loses its tip status if it is referenced by a strong message via strong parent
 			message.ForEachStrongParent(func(parent MessageID) {
 				if _, deleted := t.strongTips.Delete(parent); deleted {
@@ -163,7 +168,7 @@ func (t *TipManager) Tips(p payload.Payload, countStrongParents, countWeakParent
 		transaction := p.(*ledgerstate.Transaction)
 
 		tries := 5
-		for !t.tangle.Utils.AllTransactionsContainedOrApprovedByMessages(transaction.ReferencedTransactionIDs(), strongParents) {
+		for !t.tangle.Utils.AllTransactionsApprovedByMessages(transaction.ReferencedTransactionIDs(), strongParents...) {
 			if tries == 0 {
 				err = xerrors.Errorf("not able to make sure that all inputs are in the past cone of selected tips")
 				return nil, nil, err

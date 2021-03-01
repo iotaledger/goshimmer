@@ -115,6 +115,16 @@ func (i TransactionID) String() string {
 // TransactionIDs represents a collection of TransactionIDs.
 type TransactionIDs map[TransactionID]types.Empty
 
+// Clone returns a copy of the collection of TransactionIDs.
+func (t TransactionIDs) Clone() (transactionIDs TransactionIDs) {
+	transactionIDs = make(TransactionIDs)
+	for transactionID := range t {
+		transactionIDs[transactionID] = types.Void
+	}
+
+	return
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Transaction //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -464,6 +474,11 @@ func TransactionEssenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (tr
 	}
 
 	return
+}
+
+// SetPayload set the optional Payload of the TransactionEssence.
+func (t *TransactionEssence) SetPayload(p payload.Payload) {
+	t.payload = p
 }
 
 // Version returns the Version of the TransactionEssence.
