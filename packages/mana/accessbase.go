@@ -25,10 +25,29 @@ func (a *AccessBaseMana) update(t time.Time) error {
 }
 
 func (a *AccessBaseMana) updateBM2(n time.Duration) {
+	// zero value doesn't need to be updated
+	if a.BaseMana2 == 0 {
+		return
+	}
+	// close to zero value is considered zero, stop future updates
+	if a.BaseMana2 < DeltaStopUpdate {
+		a.BaseMana2 = 0
+		return
+	}
 	a.BaseMana2 = a.BaseMana2 * math.Pow(math.E, -Decay*n.Seconds())
 }
 
 func (a *AccessBaseMana) updateEBM2(n time.Duration) {
+	// zero value doesn't need to be updated
+	if a.BaseMana2 == 0 && a.EffectiveBaseMana2 == 0 {
+		return
+	}
+	// close to zero value is considered zero, stop future updates
+	if a.BaseMana2 == 0 && a.EffectiveBaseMana2 < DeltaStopUpdate {
+		a.EffectiveBaseMana2 = 0
+		return
+	}
+
 	if emaCoeff2 != Decay {
 		a.EffectiveBaseMana2 = math.Pow(math.E, -emaCoeff2*n.Seconds())*a.EffectiveBaseMana2 +
 			(math.Pow(math.E, -Decay*n.Seconds())-math.Pow(math.E, -emaCoeff2*n.Seconds()))/

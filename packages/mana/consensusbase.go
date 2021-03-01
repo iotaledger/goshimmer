@@ -24,6 +24,16 @@ func (c *ConsensusBaseMana) update(t time.Time) error {
 }
 
 func (c *ConsensusBaseMana) updateEBM1(n time.Duration) {
+	// base and effective value is the same, no need to update.
+	if c.BaseMana1 == c.EffectiveBaseMana1 {
+		return
+	}
+	// they are not the same, but close. Stop the future updates.
+	if math.Abs(c.BaseMana1-c.EffectiveBaseMana1) < DeltaStopUpdate {
+		c.EffectiveBaseMana1 = c.BaseMana1
+		return
+	}
+	// normal update
 	c.EffectiveBaseMana1 = math.Pow(math.E, -emaCoeff1*n.Seconds())*c.EffectiveBaseMana1 +
 		(1-math.Pow(math.E, -emaCoeff1*n.Seconds()))*c.BaseMana1
 }
