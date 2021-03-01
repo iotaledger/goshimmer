@@ -39,8 +39,8 @@ func (p *PersistableEvent) ToStringValues() []string {
 	_amount := strconv.FormatFloat(p.Amount, 'g', -1, 64)
 	_time := strconv.FormatInt(p.Time.Unix(), 10)
 	_manaType := p.ManaType.String()
-	_txID := p.TransactionID.String()
-	_inputID := p.InputID.String()
+	_txID := p.TransactionID.Base58()
+	_inputID := p.InputID.Base58()
 	return []string{_type, _nodeID, _fullNodeID, _amount, _time, _manaType, _txID, _inputID}
 }
 
