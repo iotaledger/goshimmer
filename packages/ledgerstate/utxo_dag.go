@@ -582,64 +582,6 @@ func (u *UTXODAG) allOutputsExist(inputs Outputs) (solid bool) {
 	return true
 }
 
-// TransactionBalancesValid is an internal utility function that checks if the sum of the balance changes equals to 0.
-func TransactionBalancesValid(inputs Outputs, outputs Outputs) (valid bool) {
-	consumedCoins := make(map[Color]uint64)
-	for _, input := range inputs {
-		input.Balances().ForEach(func(color Color, balance uint64) bool {
-			consumedCoins[color], valid = SafeAddUint64(consumedCoins[color], balance)
-
-			return valid
-		})
-
-		if !valid {
-			return
-		}
-	}
-
-	recoloredCoins := uint64(0)
-	for _, output := range outputs {
-		output.Balances().ForEach(func(color Color, balance uint64) bool {
-			switch color {
-			case ColorIOTA:
-				fallthrough
-			case ColorMint:
-				recoloredCoins, valid = SafeAddUint64(recoloredCoins, balance)
-			default:
-				consumedCoins[color], valid = SafeSubUint64(consumedCoins[color], balance)
-			}
-
-			return valid
-		})
-
-		if !valid {
-			return
-		}
-	}
-
-	unspentCoins := uint64(0)
-	for _, remainingBalance := range consumedCoins {
-		if unspentCoins, valid = SafeAddUint64(unspentCoins, remainingBalance); !valid {
-			return
-		}
-	}
-
-	return unspentCoins == recoloredCoins
-}
-
-// UnlockBlocksValid is an internal utility function that checks if the UnlockBlocks are matching the referenced Inputs.
-func UnlockBlocksValid(inputs Outputs, transaction *Transaction) (valid bool) {
-	unlockBlocks := transaction.UnlockBlocks()
-	for i, input := range inputs {
-		unlockValid, unlockErr := input.UnlockValid(transaction, unlockBlocks[i])
-		if !unlockValid || unlockErr != nil {
-			return false
-		}
-	}
-
-	return true
-}
-
 // transactionInputsMetadata is an internal utility function that returns the Metadata of the Outputs that are used as
 // Inputs by the given Transaction.
 func (u *UTXODAG) transactionInputsMetadata(transaction *Transaction) (cachedInputsMetadata CachedOutputsMetadata) {
