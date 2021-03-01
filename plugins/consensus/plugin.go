@@ -6,9 +6,11 @@ import (
 	"sync"
 	"time"
 
+	fpcConsensus "github.com/iotaledger/goshimmer/packages/consensus/fpc"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/prng"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/packages/vote/fpc"
 	votenet "github.com/iotaledger/goshimmer/packages/vote/net"
@@ -71,6 +73,7 @@ func init() {
 var (
 	// plugin is the plugin instance of the statement plugin.
 	plugin               *node.Plugin
+	fpcconsensus         *fpcConsensus.Consensus
 	once                 sync.Once
 	voter                *fpc.FPC
 	voterOnce            sync.Once
@@ -99,6 +102,7 @@ func configure(_ *node.Plugin) {
 
 	configureRemoteLogger()
 
+	fpcconsensus = fpcConsensus.New(tangle.NewFCoB(messagelayer.Tangle().Options.Store, messagelayer.Tangle()), tangle.NewTimestampLikedByDefault(messagelayer.Tangle()))
 	roundIntervalSeconds = config.Node().Int64(CfgFPCRoundInterval)
 	waitForStatement = config.Node().Int(CfgWaitForStatement)
 	listen = config.Node().Bool(CfgFPCListen)
@@ -109,17 +113,17 @@ func configure(_ *node.Plugin) {
 	configureFPC()
 
 	// subscribe to FCOB events
-	messagelayer.Tangle().PayloadOpinionProvider.Vote().Attach(events.NewClosure(func(id string, initOpn opinion.Opinion) {
+	fpcconsensus.PayloadOpinionProvider.Vote().Attach(events.NewClosure(func(id string, initOpn opinion.Opinion) {
 		if err := Voter().Vote(id, vote.ConflictType, initOpn); err != nil {
 			log.Warnf("FPC vote: %s", err)
 		}
 	}))
-	messagelayer.Tangle().PayloadOpinionProvider.VoteError().Attach(events.NewClosure(func(err error) {
+	fpcconsensus.PayloadOpinionProvider.VoteError().Attach(events.NewClosure(func(err error) {
 		log.Errorf("FCOB error: %s", err)
 	}))
 
 	// subscribe to message-layer
-	messagelayer.Tangle().OpinionFormer.Events.MessageOpinionFormed.Attach(events.NewClosure(readStatement))
+	messagelayer.Tangle().OpinionManager.Events.MessageOpinionFormed.Attach(events.NewClosure(readStatement))
 }
 
 func run(_ *node.Plugin) {
@@ -169,7 +173,7 @@ func configureFPC() {
 		log.Debugf("executed round with rand %0.4f for %d vote contexts on %d peers, took %v", roundStats.RandUsed, voteContextsCount, peersQueried, roundStats.Duration)
 	}))
 
-	Voter().Events().Finalized.Attach(events.NewClosure(messagelayer.Tangle().PayloadOpinionProvider.ProcessVote))
+	Voter().Events().Finalized.Attach(events.NewClosure(fpcconsensus.PayloadOpinionProvider.ProcessVote))
 	Voter().Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
 		if ev.Ctx.Type == vote.ConflictType {
 			log.Infof("FPC finalized for transaction with id '%s' - final opinion: '%s'", ev.ID, ev.Opinion)

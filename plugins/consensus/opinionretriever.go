@@ -5,7 +5,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 // OpinionRetriever returns the current opinion of the given id.
@@ -22,7 +21,7 @@ func OpinionRetriever(id string, objectType vote.ObjectType) opinion.Opinion {
 			return opinion.Unknown
 		}
 
-		opinionEssence := messagelayer.Tangle().PayloadOpinionProvider.TransactionOpinionEssence(transactionID)
+		opinionEssence := fpcconsensus.PayloadOpinionProvider.TransactionOpinionEssence(transactionID)
 
 		if opinionEssence.LevelOfKnowledge() == tangle.Pending {
 			return opinion.Unknown

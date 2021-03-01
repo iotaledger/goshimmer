@@ -127,7 +127,7 @@ func TestOpinionFormer_Scenario2(t *testing.T) {
 	transactionLiked[transactions["6"].ID()] = true
 	transactionLiked[transactions["8"].ID()] = false
 
-	tangle.OpinionFormer.payloadOpinionProvider.Vote().Attach(events.NewClosure(func(transactionID string, initialOpinion opinion.Opinion) {
+	tangle.OpinionManager.payloadOpinionProvider.Vote().Attach(events.NewClosure(func(transactionID string, initialOpinion opinion.Opinion) {
 		t.Log("Voting requested for:", transactionID)
 		txID, err := ledgerstate.TransactionIDFromBase58(transactionID)
 		require.NoError(t, err)
@@ -135,13 +135,13 @@ func TestOpinionFormer_Scenario2(t *testing.T) {
 		if transactionLiked[txID] {
 			o = opinion.Like
 		}
-		tangle.OpinionFormer.payloadOpinionProvider.ProcessVote(&vote.OpinionEvent{
+		tangle.OpinionManager.payloadOpinionProvider.ProcessVote(&vote.OpinionEvent{
 			ID:      transactionID,
 			Opinion: o,
 			Ctx:     vote.Context{Type: vote.ConflictType}})
 	}))
 
-	tangle.OpinionFormer.payloadOpinionProvider.VoteError().Attach(events.NewClosure(func(err error) {
+	tangle.OpinionManager.payloadOpinionProvider.VoteError().Attach(events.NewClosure(func(err error) {
 		t.Log("VoteError", err)
 	}))
 
@@ -169,12 +169,12 @@ func TestOpinionFormer_Scenario2(t *testing.T) {
 	}))
 
 	var wg sync.WaitGroup
-	tangle.OpinionFormer.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID MessageID) {
+	tangle.OpinionManager.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID MessageID) {
 		t.Logf("MessageOpinionFormed for %s", messageID)
 
-		assert.True(t, tangle.OpinionFormer.MessageEligible(messageID))
-		assert.Equal(t, payloadLiked[messageID], tangle.OpinionFormer.PayloadLiked(messageID))
-		t.Log("Payload Liked:", tangle.OpinionFormer.PayloadLiked(messageID))
+		assert.True(t, tangle.OpinionManager.MessageEligible(messageID))
+		assert.Equal(t, payloadLiked[messageID], tangle.OpinionManager.PayloadLiked(messageID))
+		t.Log("Payload Liked:", tangle.OpinionManager.PayloadLiked(messageID))
 		wg.Done()
 	}))
 
@@ -244,24 +244,24 @@ func TestOpinionFormer(t *testing.T) {
 
 	var wg sync.WaitGroup
 
-	tangle.OpinionFormer.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID MessageID) {
+	tangle.OpinionManager.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID MessageID) {
 		t.Log("MessageOpinionFormed for ", messageID)
 
-		assert.True(t, tangle.OpinionFormer.MessageEligible(messageID))
-		assert.Equal(t, payloadLiked[messageID], tangle.OpinionFormer.PayloadLiked(messageID))
-		t.Log("Payload Liked:", tangle.OpinionFormer.PayloadLiked(messageID))
+		assert.True(t, tangle.OpinionManager.MessageEligible(messageID))
+		assert.Equal(t, payloadLiked[messageID], tangle.OpinionManager.PayloadLiked(messageID))
+		t.Log("Payload Liked:", tangle.OpinionManager.PayloadLiked(messageID))
 		wg.Done()
 	}))
 
-	tangle.OpinionFormer.payloadOpinionProvider.Vote().Attach(events.NewClosure(func(transactionID string, initialOpinion opinion.Opinion) {
+	tangle.OpinionManager.payloadOpinionProvider.Vote().Attach(events.NewClosure(func(transactionID string, initialOpinion opinion.Opinion) {
 		t.Log("Voting requested for:", transactionID)
-		tangle.OpinionFormer.payloadOpinionProvider.ProcessVote(&vote.OpinionEvent{
+		tangle.OpinionManager.payloadOpinionProvider.ProcessVote(&vote.OpinionEvent{
 			ID:      transactionID,
 			Opinion: opinion.Dislike,
 			Ctx:     vote.Context{Type: vote.ConflictType}})
 	}))
 
-	tangle.OpinionFormer.payloadOpinionProvider.VoteError().Attach(events.NewClosure(func(err error) {
+	tangle.OpinionManager.payloadOpinionProvider.VoteError().Attach(events.NewClosure(func(err error) {
 		t.Log("VoteError", err)
 	}))
 

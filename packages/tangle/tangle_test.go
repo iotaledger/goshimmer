@@ -262,7 +262,7 @@ func TestRetrieveAllTips(t *testing.T) {
 
 	var wg sync.WaitGroup
 
-	messageTangle.OpinionFormer.Events.MessageOpinionFormed.Attach(events.NewClosure(func(MessageID) {
+	messageTangle.OpinionManager.Events.MessageOpinionFormed.Attach(events.NewClosure(func(MessageID) {
 		wg.Done()
 	}))
 
@@ -457,13 +457,13 @@ func TestTangle_Flow(t *testing.T) {
 		t.Logf("booked messages %d/%d", n, totalMsgCount)
 	}))
 
-	tangle.OpinionFormer.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID MessageID) {
+	tangle.OpinionManager.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID MessageID) {
 		n := atomic.AddInt32(&opinionFormedMessages, 1)
 		t.Logf("opinion formed messages %d/%d", n, totalMsgCount)
 	}))
 
 	// data messages should not trigger this event
-	tangle.OpinionFormer.Events.TransactionConfirmed.Attach(events.NewClosure(func(messageID MessageID) {
+	tangle.OpinionManager.Events.TransactionConfirmed.Attach(events.NewClosure(func(messageID MessageID) {
 		n := atomic.AddInt32(&opinionFormedTransactions, 1)
 		t.Logf("opinion formed transaction %d/%d", n, totalMsgCount)
 	}))

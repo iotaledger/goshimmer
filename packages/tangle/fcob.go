@@ -24,7 +24,7 @@ var (
 	LocallyFinalizedThreshold = 10 * time.Second
 )
 
-// FCoB is the component implementing the Fast Consensus of Barcelona protocol.
+// FCoB is the component implementing the Fast ConsensusProvider of Barcelona protocol.
 type FCoB struct {
 	Events *FCoBEvents
 
@@ -279,7 +279,7 @@ func deriveOpinion(targetTime time.Time, conflictSet ConflictSet) (opinion Opini
 
 // region FCoBEvents /////////////////////////////////////////////////////////////////////////////////////////////
 
-// FCoBEvents defines all the events related to the Fast Consensus of Barcelona protocol.
+// FCoBEvents defines all the events related to the Fast ConsensusProvider of Barcelona protocol.
 type FCoBEvents struct {
 	// Fired when an opinion of a payload is formed.
 	PayloadOpinionFormed *events.Event

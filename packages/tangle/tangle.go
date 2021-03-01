@@ -21,6 +21,7 @@ type Tangle struct {
 	Solidifier     *Solidifier
 	Scheduler      *Scheduler
 	Booker         *Booker
+	OpinionManager *OpinionManager
 	TipManager     *TipManager
 	Requester      *Requester
 	MessageFactory *MessageFactory
@@ -28,10 +29,6 @@ type Tangle struct {
 	Utils          *Utils
 	Options        *Options
 	Events         *Events
-
-	OpinionFormer            *OpinionFormer
-	PayloadOpinionProvider   OpinionVoterProvider
-	TimestampOpinionProvider OpinionProvider
 
 	setupParserOnce sync.Once
 }
@@ -53,16 +50,12 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.Scheduler = NewScheduler(tangle)
 	tangle.LedgerState = NewLedgerState(tangle)
 	tangle.Booker = NewBooker(tangle)
+	tangle.OpinionManager = NewOpinionManager(tangle, tangle.Options.ConsensusProvider)
 	tangle.Requester = NewRequester(tangle)
 	tangle.TipManager = NewTipManager(tangle)
 	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager)
 	tangle.Utils = NewUtils(tangle)
 
-	if !tangle.Options.WithoutOpinionFormer {
-		tangle.PayloadOpinionProvider = NewFCoB(tangle.Options.Store, tangle)
-		tangle.TimestampOpinionProvider = NewTimestampLikedByDefault(tangle)
-		tangle.OpinionFormer = NewOpinionFormer(tangle, tangle.PayloadOpinionProvider, tangle.TimestampOpinionProvider)
-	}
 	return
 }
 
@@ -76,8 +69,8 @@ func (t *Tangle) Setup() {
 
 	// Booker and LedgerState setup is left out until the old value tangle is in use.
 	if !t.Options.WithoutOpinionFormer {
-		t.OpinionFormer.Setup()
-		// TipManager needs OpinionFormer to attach to event
+		t.OpinionManager.Setup()
+		// TipManager needs OpinionManager to attach to event
 		t.TipManager.Setup()
 		return
 	}
@@ -101,12 +94,10 @@ func (t *Tangle) Prune() (err error) {
 // Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
 func (t *Tangle) Shutdown() {
 	t.MessageFactory.Shutdown()
-	if !t.Options.WithoutOpinionFormer {
-		t.OpinionFormer.Shutdown()
-	}
 	t.Scheduler.Shutdown()
 	t.Booker.Shutdown()
 	t.LedgerState.Shutdown()
+	t.OpinionManager.Shutdown()
 	t.Storage.Shutdown()
 	t.Options.Store.Shutdown()
 }
@@ -146,6 +137,7 @@ type Options struct {
 	WithoutOpinionFormer         bool
 	IncreaseMarkersIndexCallback markers.IncreaseIndexCallback
 	TangleWidth                  int
+	ConsensusProvider            ConsensusProvider
 }
 
 // buildOptions generates the Options object use by the Tangle.
@@ -177,10 +169,17 @@ func Identity(identity *identity.LocalIdentity) Option {
 	}
 }
 
-// WithoutOpinionFormer an Option for the Tangle that allows to disable the OpinionFormer component.
+// WithoutOpinionFormer an Option for the Tangle that allows to disable the OpinionManager component.
 func WithoutOpinionFormer(with bool) Option {
 	return func(options *Options) {
 		options.WithoutOpinionFormer = with
+	}
+}
+
+// Consensus is an Option for the Tangle that allows to define the consensus mechanism that is used by the Tangle.
+func Consensus(consensusProvider ConsensusProvider) Option {
+	return func(options *Options) {
+		options.ConsensusProvider = consensusProvider
 	}
 }
 

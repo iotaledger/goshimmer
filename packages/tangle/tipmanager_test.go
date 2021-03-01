@@ -45,7 +45,7 @@ func TestTipManager_AddTip(t *testing.T) {
 			},
 		}
 		tangle.PayloadOpinionProvider = mockOpinionProvider
-		tangle.OpinionFormer.payloadOpinionProvider = mockOpinionProvider
+		tangle.OpinionManager.payloadOpinionProvider = mockOpinionProvider
 
 		tipManager.AddTip(message)
 		assert.Equal(t, 0, tipManager.StrongTipCount())
@@ -389,7 +389,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		},
 	}
 	tangle.PayloadOpinionProvider = mockOpinionProvider
-	tangle.OpinionFormer.payloadOpinionProvider = mockOpinionProvider
+	tangle.OpinionManager.payloadOpinionProvider = mockOpinionProvider
 
 	// region prepare scenario /////////////////////////////////////////////////////////////////////////////////////////
 
