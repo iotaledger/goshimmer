@@ -237,7 +237,10 @@ func (m *MarkersManager) InheritStructureDetails(message *Message, newSequenceAl
 // PastMaster was assigned.
 func (m *MarkersManager) propagatePastMarkerToFutureMarkers(pastMarkerToInherit *markers.Marker) func(messageMetadata *MessageMetadata, walker *walker.Walker) {
 	return func(messageMetadata *MessageMetadata, walker *walker.Walker) {
-		_, inheritFurther := m.UpdateStructureDetails(messageMetadata.StructureDetails(), pastMarkerToInherit)
+		updated, inheritFurther := m.UpdateStructureDetails(messageMetadata.StructureDetails(), pastMarkerToInherit)
+		if updated {
+			messageMetadata.SetModified(true)
+		}
 		if inheritFurther {
 			m.tangle.Storage.Message(messageMetadata.ID()).Consume(func(message *Message) {
 				for _, strongParentMessageID := range message.StrongParents() {
