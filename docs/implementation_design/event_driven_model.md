@@ -1,69 +1,72 @@
 # Event driven model
 
-Describe how event driven works (pub-sub) and link to some external articles, nicely looking images etc. to visualize
-the concept.
-
 Event driven model is popular approach often used for example in GUI applications, where a program is waiting for some external event to take place (e.g. mouse click) in order to perform some action.
-
-In case of GoShimmer there is no GUI, however applies this approach to architecture as it's really flexible and is used to handle communication with other nodes and other internal parts. 
-In GoShimmer some those events are e.g. arrival of new tangle message, peering request or plugin start. 
-When an event occurs, an event handler (a function) is executed and properly handles the 
-
-Each event can accept different set of parameters and is handled by multiple different callbacks.
-An event is triggered by event producer after a change of state of the program occurs. 
-Callbacks in GoShimmer are functions that accept set of parameters in order to perform some action after event 
-
+In case of GoShimmer there is no GUI, however it applies this architecture approach as it's really flexible and is used to handle communication with other nodes and other internal parts. 
+In GoShimmer some those events can be e.g. arrival of new tangle message, peering request or plugin start. 
+When an event is triggered, an event handler (or a collection of handlers) is executed and state of the application is updated as necessary.
+ 
 ## Glossary:
 
 At first let's define some terms used further to avoid misunderstandings:
 
-* Event - represents the type of event (e.g. new message or peering request) as well as set of handlers and trigger functions. Each type of event is separately defined. 
-  That means that events are independent of each other - each event has its own set of handlers and is triggered separately.
+* Event - represents the type of event (e.g. new message or peering request) as well as set of handlers and trigger functions. Each type of event is separately defined 
+  which means that events are independent of each other - each event has its own set of handlers and is triggered separately.
 
-* Event handler (callback) - is a function that is executed when an event of given type occurs. Event handler can accept multiple arguments (e.g. message ID) so that it can perform appropriate actions.
-Every handler must accept the same set of parameters (does it?). Each event has different set of handlers (there can be multiple handlers) that are executed when event is triggered.
+* Event handler (callback) - is a function that is executed when an event of given type occurs. Event handler can accept multiple arguments (e.g. message ID or plugin) so that it can perform appropriate actions.
+  Every handler must accept the same set of parameters. Each event has different set of handlers (there can be multiple handlers) that are executed when event is triggered.
 
-* Trigger - is a method that triggers execution of event handlers. All handler parameters are passed to trigger method.
+* Trigger - is a method that triggers execution of event handlers with given parameter values.
 
 
 ## Creating new event with custom callbacks
 
-In order to create new event and its handler:
+Below are the steps that show the example code necessary to create a custom event, attach a handler and trigger the event. 
 
-1. Create new event stream using `events.NewEvent(handlerCaller)` function:
-
+1. Create function that will call event handlers (handler caller). This function is necessary in order to simplify calling handlers. 
+   Each event has only one handler, which means that all handlers must share the same interface.
+   Callers for all events must also share the same interface - the first argument represents handler function that will be called represented by generic argument.
+   Further arguments represent parameters that will be passed to handler during execution. Below are example callers that accept one and two parameters respectively. 
+   More arguments can be passed in similar manner. 
+   
 ```go
-events: Events{
-ConnectionFailed: events.NewEvent(peerAndErrorCaller),
-NeighborAdded:    events.NewEvent(neighborCaller),
-NeighborRemoved:  events.NewEvent(neighborCaller),
-MessageReceived:  events.NewEvent(messageReceived),
-},
-```
+func sigleArgCaller(handler interface{}, params ...interface{}) {
+    handler.(func (*Plugin))(params[0].(*Plugin))
+}
 
-1. Create function that will call event handler.
-
-```go
-func pluginCaller(handler interface{}, params ...interface{}) {
-handler.(func (*Plugin))(params[0].(*Plugin))
+func twoArgsCaller(handler interface{}, params ...interface{}) {
+    handler.(func(*peer.Peer, error))(params[0].(*peer.Peer), params[1].(error))
 }
 ```
 
-1. Now the event stream is created and we can append some listeners (callbacks) (describe what is closure and what it
-   does). One can attach multiple callbacks. Do all events must receive the same set of params?
+`handler.(func (*Plugin))(params[0].(*Plugin))` - this code seems a little complicated, so to make things simpler we will divide into smaller parts and explain each:
+
+* `handler.(func (*Plugin))` (A) - this part does type casting of handler onto type of desired function - in this case it's function that accepts `*Plugin` as its only parameters.
+* `params[0].(*Plugin)` (B)- similarly to previous part, first element of parameter slice is type-casted onto `*Plugin` type, so that it matches handler function interface.
+* `handler.(func (*Plugin))(params[0].(*Plugin))` - the whole expression calls the type-casted handler function with type-casted parameter value. We can also write this as `A(B)` to make things simpler.
+
+
+2. Next, a new event object needs to be created. We pass handler caller as an argument, which is saved inside the object to be called when event is triggered.
 
 ```go
-    nbr.Events.Close.Attach(events.NewClosure(func () {
-// assure that the neighbor is removed and notify
-_ = m.DropNeighbor(peer.ID())
-m.events.NeighborRemoved.Trigger(nbr)
+import "github.com/iotaledger/hive.go/events"
+
+NewEvent := events.NewEvent(sigleArgCaller)
+```
+
+3. After creating the event, handlers (or callbacks) can be attached to it. An event can have multiple callbacks, however they all need to share the same interface. 
+   One thing to note, is that functions are not passed directly - first they are wrapped into a `events.Closure` object like in the example below. 
+
+```go
+NewEvent.Attach(events.NewClosure(func () {
+    
+    _ = m.DropNeighbor(peer.ID())
+    m.events.NeighborRemoved.Trigger(nbr)
 }))
 ```
 
-1. In order to trigger event with some parameters we need to run Trigger method on the event stream object with some
-   parameters:
+4. In order to trigger event with some parameters we need to run `.Trigger` method on the event object with parameters that handler functions will receive:
 
 ```go
-messageID MessageID
-b.tangle.Events.MessageInvalid.Trigger(messageID)
+somePlugin Plugin
+NewEvent.Trigger(&somePlugin)
 ```
