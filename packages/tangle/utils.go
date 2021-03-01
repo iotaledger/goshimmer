@@ -110,18 +110,6 @@ func (u *Utils) AllTransactionsContainedOrApprovedByMessages(transactionIDs ledg
 		approvedTransactions[transactionID] = false
 	}
 
-	// check if transactions are contained in messages
-	for _, messageID := range messageIDs {
-		for transactionID := range transactionIDs {
-			// no need to check if it's already contained in another message
-			if approvedTransactions[transactionID] {
-				continue
-			}
-
-			approvedTransactions[transactionID] = u.tangle.Storage.IsTransactionAttachedByMessage(transactionID, messageID)
-		}
-	}
-
 	for _, messageID := range messageIDs {
 		for transactionID := range transactionIDs {
 			// no need to check if it's already approved by another message
@@ -179,6 +167,9 @@ func (u *Utils) MessageApprovedBy(approvedMessageID MessageID, approvingMessageI
 
 // MessageApprovedByStrongParents checks if the Message given by approvedMessageID is directly or indirectly approved by its strong parents.
 func (u *Utils) MessageApprovedByStrongParents(approvedMessageID MessageID, approvingMessageID MessageID) (approved bool) {
+	if approvedMessageID == approvingMessageID {
+		return true
+	}
 	u.tangle.Storage.Message(approvingMessageID).Consume(func(message *Message) {
 		for _, parentID := range message.StrongParents() {
 			if u.MessageApprovedBy(approvedMessageID, parentID) {
