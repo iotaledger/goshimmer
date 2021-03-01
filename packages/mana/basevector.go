@@ -22,12 +22,11 @@ type BaseManaVector interface {
 	// UpdateAll updates all entries in the base mana vector wrt to time.
 	UpdateAll(time.Time) error
 	// GetMana returns the mana value of a node with default weights.
-	GetMana(identity.ID) (float64, error)
+	GetMana(identity.ID, ...time.Time) (float64, time.Time, error)
 	// GetManaMap returns the map derived from the vector.
-	// If update is true, updates the base mana values to the current time.
-	GetManaMap(update ...bool) (NodeMap, error)
+	GetManaMap(...time.Time) (NodeMap, time.Time, error)
 	// GetHighestManaNodes returns the n highest mana nodes in descending order.
-	GetHighestManaNodes(uint) ([]Node, error)
+	GetHighestManaNodes(uint) ([]Node, time.Time, error)
 	// SetMana sets the base mana for a node.
 	SetMana(identity.ID, BaseMana)
 	// ForEach executes a callback function for each entry in the vector.

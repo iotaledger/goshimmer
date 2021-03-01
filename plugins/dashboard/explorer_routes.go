@@ -194,7 +194,7 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 			solidificationTime = txMeta.SolidificationTime().Unix()
 		})
 
-		pendingMana := mana.PendingManaOnOutput(output.ID())
+		pendingMana, _ := mana.PendingManaOnOutput(output.ID())
 		outputids = append(outputids, ExplorerOutput{
 			ID:                 output.ID().String(),
 			Balances:           b,

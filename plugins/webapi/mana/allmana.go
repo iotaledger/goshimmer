@@ -3,6 +3,7 @@ package mana
 import (
 	"net/http"
 	"sort"
+	"time"
 
 	"github.com/iotaledger/goshimmer/packages/mana"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
@@ -11,7 +12,8 @@ import (
 
 // getAllManaHandler handles the request.
 func getAllManaHandler(c echo.Context) error {
-	access, err := manaPlugin.GetManaMap(mana.AccessMana)
+	t := time.Now()
+	access, tAccess, err := manaPlugin.GetManaMap(mana.AccessMana, t)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, GetAllManaResponse{
 			Error: err.Error(),
@@ -21,7 +23,7 @@ func getAllManaHandler(c echo.Context) error {
 	sort.Slice(accessList[:], func(i, j int) bool {
 		return accessList[i].Mana > accessList[j].Mana
 	})
-	consensus, err := manaPlugin.GetManaMap(mana.ConsensusMana)
+	consensus, tConsensus, err := manaPlugin.GetManaMap(mana.ConsensusMana, t)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, GetAllManaResponse{
 			Error: err.Error(),
@@ -33,13 +35,17 @@ func getAllManaHandler(c echo.Context) error {
 	})
 	return c.JSON(http.StatusOK, GetAllManaResponse{
 		Access:    accessList,
+		AccessTimestamp: tAccess,
 		Consensus: consensusList,
+		ConsensusTimestamp: tConsensus,
 	})
 }
 
 // GetAllManaResponse is the request to a getAllManaHandler request.
 type GetAllManaResponse struct {
 	Access    []mana.NodeStr `json:"access"`
+	AccessTimestamp time.Time `json:"accessTimestamp"`
 	Consensus []mana.NodeStr `json:"consensus"`
+	ConsensusTimestamp time.Time `json:"consensusTimestamp"`
 	Error     string         `json:"error,omitempty"`
 }

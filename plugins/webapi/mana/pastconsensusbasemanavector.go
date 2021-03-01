@@ -20,14 +20,14 @@ func getPastConsensusManaVectorHandler(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, PastConsensusManaVectorResponse{Error: err.Error()})
 	}
-	manaMap, err := consensus.GetManaMap(false)
+	manaMap, _, err := consensus.GetManaMap(timestamp)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, PastConsensusManaVectorResponse{Error: err.Error()})
 	}
 
 	return c.JSON(http.StatusOK, PastConsensusManaVectorResponse{
 		Consensus: manaMap.ToNodeStrList(),
-		TimeStamp: req.Timestamp,
+		TimeStamp: timestamp,
 	})
 }
 
@@ -40,5 +40,5 @@ type PastConsensusManaVectorRequest struct {
 type PastConsensusManaVectorResponse struct {
 	Consensus []mana.NodeStr `json:"consensus"`
 	Error     string         `json:"error,omitempty"`
-	TimeStamp int64          `json:"timestamp"`
+	TimeStamp time.Time      `json:"timestamp"`
 }

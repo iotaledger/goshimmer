@@ -85,38 +85,39 @@ func (a *AccessBaseManaVector) UpdateAll(t time.Time) error {
 }
 
 // GetMana returns Effective Base Mana 2.
-func (a *AccessBaseManaVector) GetMana(nodeID identity.ID) (float64, error) {
+func (a *AccessBaseManaVector) GetMana(nodeID identity.ID, t ...time.Time) (float64, time.Time, error) {
 	a.Lock()
 	defer a.Unlock()
-	return a.getMana(nodeID)
+	return a.getMana(nodeID, t...)
 }
 
 // GetManaMap returns mana perception of the node..
-func (a *AccessBaseManaVector) GetManaMap(update ...bool) (NodeMap, error) {
+func (a *AccessBaseManaVector) GetManaMap(timestamp ...time.Time) (res NodeMap, t time.Time, err error) {
 	a.Lock()
 	defer a.Unlock()
-	res := make(map[identity.ID]float64)
+	res = make(map[identity.ID]float64)
 	for ID := range a.vector {
-		mana, err := a.getMana(ID, update...)
+		var mana float64
+		mana, t, err = a.getMana(ID, timestamp...)
 		if err != nil {
-			return nil, err
+			return
 		}
 		res[ID] = mana
 	}
-	return res, nil
+	return
 }
 
 // GetHighestManaNodes returns the n highest mana nodes in descending order.
 // It also updates the mana values for each node.
 // If n is zero, it returns all nodes.
-func (a *AccessBaseManaVector) GetHighestManaNodes(n uint) ([]Node, error) {
-	var res []Node
-	err := func() error {
+func (a *AccessBaseManaVector) GetHighestManaNodes(n uint) (res []Node, t time.Time, err error) {
+	err = func() error {
 		// don't lock the vector after this func returns
 		a.Lock()
 		defer a.Unlock()
 		for ID := range a.vector {
-			mana, err := a.getMana(ID)
+			var mana float64
+			mana, t, err = a.getMana(ID)
 			if err != nil {
 				return err
 			}
@@ -128,7 +129,7 @@ func (a *AccessBaseManaVector) GetHighestManaNodes(n uint) ([]Node, error) {
 		return nil
 	}()
 	if err != nil {
-		return nil, err
+		return nil, t, err
 	}
 
 	sort.Slice(res[:], func(i, j int) bool {
@@ -136,9 +137,10 @@ func (a *AccessBaseManaVector) GetHighestManaNodes(n uint) ([]Node, error) {
 	})
 
 	if n == 0 || int(n) >= len(res) {
-		return res[:], nil
+		return
 	}
-	return res[:n], nil
+	res = res[:n]
+	return
 }
 
 // SetMana sets the base mana for a node.
@@ -220,13 +222,18 @@ func (a *AccessBaseManaVector) update(nodeID identity.ID, t time.Time) error {
 }
 
 // getMana returns the current effective mana value. Not concurrency safe.
-func (a *AccessBaseManaVector) getMana(nodeID identity.ID, update ...bool) (float64, error) {
+func (a *AccessBaseManaVector) getMana(nodeID identity.ID, updateTime ...time.Time) (float64, time.Time, error) {
+	t := time.Now()
 	if _, exist := a.vector[nodeID]; !exist {
-		return 0.0, ErrNodeNotFoundInBaseManaVector
+		return 0.0, t, ErrNodeNotFoundInBaseManaVector
 	}
-	if len(update) == 0 || update[0] {
-		_ = a.update(nodeID, time.Now())
+	if len(updateTime) > 0 {
+		if updateTime[0].Before(t) {
+			t = updateTime[0]
+		}
 	}
+	_ = a.update(nodeID, t)
+
 	baseMana := a.vector[nodeID]
-	return baseMana.EffectiveValue(), nil
+	return baseMana.EffectiveValue(), t, nil
 }

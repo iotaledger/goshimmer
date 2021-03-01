@@ -2,6 +2,7 @@ package mana
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/iotaledger/goshimmer/packages/mana"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
@@ -19,7 +20,7 @@ func getOnlineConsensusHandler(c echo.Context) error {
 
 // getOnlineHandler handles the request.
 func getOnlineHandler(c echo.Context, manaType mana.Type) error {
-	onlinePeersMana, err := manaPlugin.GetOnlineNodes(manaType)
+	onlinePeersMana, t, err := manaPlugin.GetOnlineNodes(manaType)
 	if err != nil {
 		return c.JSON(http.StatusNotFound, GetOnlineResponse{Error: err.Error()})
 	}
@@ -33,13 +34,17 @@ func getOnlineHandler(c echo.Context, manaType mana.Type) error {
 		})
 	}
 
-	return c.JSON(http.StatusOK, GetOnlineResponse{Online: resp})
+	return c.JSON(http.StatusOK, GetOnlineResponse{
+		Online:    resp,
+		Timestamp: t,
+	})
 }
 
 // GetOnlineResponse is the response to an online mana request.
 type GetOnlineResponse struct {
-	Online []OnlineNodeStr `json:"online"`
-	Error  string          `json:"error,omitempty"`
+	Online    []OnlineNodeStr `json:"online"`
+	Error     string          `json:"error,omitempty"`
+	Timestamp time.Time       `json:"timestamp"`
 }
 
 // OnlineNodeStr holds information about online rank, nodeID and mana,

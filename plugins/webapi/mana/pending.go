@@ -2,6 +2,7 @@ package mana
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
@@ -18,10 +19,11 @@ func getPendingHandler(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, PendingResponse{Error: err.Error()})
 	}
-	pending := manaPlugin.PendingManaOnOutput(outputID)
+	pending, t := manaPlugin.PendingManaOnOutput(outputID)
 	return c.JSON(http.StatusOK, PendingResponse{
-		Mana:     pending,
-		OutputID: outputID.Base58(),
+		Mana:      pending,
+		OutputID:  outputID.Base58(),
+		Timestamp: t,
 	})
 }
 
@@ -32,7 +34,8 @@ type PendingRequest struct {
 
 // PendingResponse is the pending mana response.
 type PendingResponse struct {
-	Mana     float64 `json:"mana"`
-	OutputID string  `json:"outputID"`
-	Error    string  `json:"error,omitempty"`
+	Mana      float64   `json:"mana"`
+	OutputID  string    `json:"outputID"`
+	Error     string    `json:"error,omitempty"`
+	Timestamp time.Time `json:"timestamp"`
 }

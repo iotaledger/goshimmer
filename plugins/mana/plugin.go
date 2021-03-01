@@ -281,43 +281,43 @@ func shutdownStorages() {
 // GetHighestManaNodes returns the n highest type mana nodes in descending order.
 // It also updates the mana values for each node.
 // If n is zero, it returns all nodes.
-func GetHighestManaNodes(manaType mana.Type, n uint) ([]mana.Node, error) {
+func GetHighestManaNodes(manaType mana.Type, n uint) ([]mana.Node, time.Time, error) {
 	bmv := baseManaVectors[manaType]
 	return bmv.GetHighestManaNodes(n)
 }
 
 // GetManaMap returns type mana perception of the node.
-func GetManaMap(manaType mana.Type) (mana.NodeMap, error) {
-	return baseManaVectors[manaType].GetManaMap()
+func GetManaMap(manaType mana.Type, timestamp ...time.Time) (mana.NodeMap, time.Time, error) {
+	return baseManaVectors[manaType].GetManaMap(timestamp...)
 }
 
 // GetAccessMana returns the access mana of the node specified.
-func GetAccessMana(nodeID identity.ID) (float64, error) {
-	return baseManaVectors[mana.AccessMana].GetMana(nodeID)
+func GetAccessMana(nodeID identity.ID, t ...time.Time) (float64, time.Time, error) {
+	return baseManaVectors[mana.AccessMana].GetMana(nodeID, t...)
 }
 
 // GetConsensusMana returns the consensus mana of the node specified.
-func GetConsensusMana(nodeID identity.ID) (float64, error) {
-	return baseManaVectors[mana.ConsensusMana].GetMana(nodeID)
+func GetConsensusMana(nodeID identity.ID, t ...time.Time) (float64, time.Time, error) {
+	return baseManaVectors[mana.ConsensusMana].GetMana(nodeID, t...)
 }
 
 // GetNeighborsMana returns the type mana of the nodes neighbors
-func GetNeighborsMana(manaType mana.Type) (mana.NodeMap, error) {
+func GetNeighborsMana(manaType mana.Type, t ...time.Time) (mana.NodeMap, error) {
 	neighbors := gossip.Manager().AllNeighbors()
 	res := make(mana.NodeMap)
 	for _, n := range neighbors {
 		// in case of error, value is 0.0
-		value, _ := baseManaVectors[manaType].GetMana(n.ID())
+		value, _, _ := baseManaVectors[manaType].GetMana(n.ID(), t...)
 		res[n.ID()] = value
 	}
 	return res, nil
 }
 
 // GetAllManaMaps returns the full mana maps for comparison with the perception of other nodes.
-func GetAllManaMaps() map[mana.Type]mana.NodeMap {
+func GetAllManaMaps(t ...time.Time) map[mana.Type]mana.NodeMap {
 	res := make(map[mana.Type]mana.NodeMap)
 	for manaType := range baseManaVectors {
-		res[manaType], _ = GetManaMap(manaType)
+		res[manaType], _, _ = GetManaMap(manaType, t...)
 	}
 	return res
 }
@@ -331,7 +331,7 @@ func OverrideMana(manaType mana.Type, nodeID identity.ID, bm *mana.AccessBaseMan
 //GetWeightedRandomNodes returns a weighted random selection of n nodes.
 func GetWeightedRandomNodes(n uint, manaType mana.Type) mana.NodeMap {
 	rand.Seed(time.Now().UTC().UnixNano())
-	manaMap, _ := GetManaMap(manaType)
+	manaMap, _, _ := GetManaMap(manaType)
 	var choices []mana.RandChoice
 	for nodeID, manaValue := range manaMap {
 		choices = append(choices, mana.RandChoice{
@@ -356,16 +356,16 @@ func GetAllowedPledgeNodes(manaType mana.Type) AllowedPledge {
 
 // GetOnlineNodes gets the list of currently known (and verified) peers in the network, and their respective mana values.
 // Sorted in descending order based on mana. Zero mana nodes are excluded.
-func GetOnlineNodes(manaType mana.Type) ([]mana.Node, error) {
+func GetOnlineNodes(manaType mana.Type) (onlineNodesMana []mana.Node, t time.Time, err error) {
 	knownPeers := autopeering.Discovery().GetVerifiedPeers()
 	// consider ourselves as a peer in the network too
 	knownPeers = append(knownPeers, local.GetInstance().Peer)
-	onlineNodesMana := make([]mana.Node, 0)
+	onlineNodesMana = make([]mana.Node, 0)
 	for _, peer := range knownPeers {
 		if baseManaVectors[manaType].Has(peer.ID()) {
-			peerMana, err := baseManaVectors[manaType].GetMana(peer.ID())
+			peerMana, t, err := baseManaVectors[manaType].GetMana(peer.ID())
 			if err != nil {
-				return nil, err
+				return nil, t, err
 			}
 			if peerMana > 0 {
 				onlineNodesMana = append(onlineNodesMana, mana.Node{ID: peer.ID(), Mana: peerMana})
@@ -375,7 +375,7 @@ func GetOnlineNodes(manaType mana.Type) ([]mana.Node, error) {
 	sort.Slice(onlineNodesMana, func(i, j int) bool {
 		return onlineNodesMana[i].Mana > onlineNodesMana[j].Mana
 	})
-	return onlineNodesMana, nil
+	return
 }
 
 func verifyPledgeNodes() error {
@@ -418,14 +418,14 @@ func verifyPledgeNodes() error {
 }
 
 // PendingManaOnOutput predicts how much mana (bm2) will be pledged to a node if the output specified is spent.
-func PendingManaOnOutput(outputID ledgerstate.OutputID) float64 {
+func PendingManaOnOutput(outputID ledgerstate.OutputID) (float64, time.Time) {
 	cachedOutputMetadata := messagelayer.Tangle().LedgerState.OutputMetadata(outputID)
 	defer cachedOutputMetadata.Release()
 	outputMetadata := cachedOutputMetadata.Unwrap()
 
 	// spent output has 0 pending mana.
 	if outputMetadata.ConsumerCount() > 0 {
-		return 0
+		return 0, time.Time{}
 	}
 
 	var value float64
@@ -439,7 +439,8 @@ func PendingManaOnOutput(outputID ledgerstate.OutputID) float64 {
 	cachedTx := messagelayer.Tangle().LedgerState.Transaction(outputID.TransactionID())
 	defer cachedTx.Release()
 	tx := cachedTx.Unwrap()
-	return GetPendingMana(value, time.Since(tx.Essence().Timestamp()))
+	txTimestamp := tx.Essence().Timestamp()
+	return GetPendingMana(value, time.Since(txTimestamp)), txTimestamp
 }
 
 // GetPendingMana returns the mana pledged by spending a `value` output that sat for `n` duration.
