@@ -17,7 +17,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": 2,
-  "iteration": 1605627449977,
+  "iteration": 1614614363623,
   "links": [],
   "panels": [
     {
@@ -73,9 +73,10 @@
           "fields": "",
           "values": false
         },
+        "text": {},
         "textMode": "value_and_name"
       },
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "targets": [
         {
           "expr": "mana_access{nodeID=\"$NodeID\"}",
@@ -137,9 +138,10 @@
           "fields": "",
           "values": false
         },
+        "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "targets": [
         {
           "expr": "mana_access_percentile",
@@ -198,9 +200,10 @@
           "fields": "",
           "values": false
         },
+        "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "targets": [
         {
           "expr": "avg(mana_access)",
@@ -259,9 +262,10 @@
           "fields": "",
           "values": false
         },
+        "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "targets": [
         {
           "expr": "stddev(mana_access)",
@@ -320,9 +324,10 @@
           "fields": "",
           "values": false
         },
+        "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "targets": [
         {
           "expr": "mana_average_neighbors_access",
@@ -380,8 +385,11 @@
       "lines": true,
       "linewidth": 1,
       "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
       "percentage": false,
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -481,8 +489,11 @@
       "lines": false,
       "linewidth": 1,
       "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
       "percentage": false,
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -580,8 +591,11 @@
       "lines": false,
       "linewidth": 1,
       "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
       "percentage": false,
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -679,8 +693,11 @@
       "lines": true,
       "linewidth": 2,
       "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
       "percentage": false,
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -776,8 +793,11 @@
       "lines": true,
       "linewidth": 2,
       "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
       "percentage": false,
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -846,8 +866,7 @@
       "description": "Allocation of access mana of nodes in the network.",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
-          "unit": "short"
+          "custom": {}
         },
         "overrides": []
       },
@@ -924,8 +943,11 @@
       "lines": true,
       "linewidth": 2,
       "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
       "percentage": false,
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -1021,8 +1043,11 @@
       "lines": true,
       "linewidth": 2,
       "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
       "percentage": false,
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -1091,8 +1116,7 @@
       "description": "Allocation of consensus mana of nodes in the network.",
       "fieldConfig": {
         "defaults": {
-          "custom": {},
-          "unit": "short"
+          "custom": {}
         },
         "overrides": []
       },
@@ -1168,8 +1192,11 @@
       "lines": true,
       "linewidth": 1,
       "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
       "percentage": false,
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -1267,8 +1294,11 @@
       "lines": true,
       "linewidth": 1,
       "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
       "percentage": false,
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -1360,8 +1390,11 @@
       "lines": true,
       "linewidth": 1,
       "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
       "percentage": false,
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -1472,9 +1505,10 @@
           "fields": "/^version$/",
           "values": false
         },
+        "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "targets": [
         {
           "expr": "iota_info_app",
@@ -1532,9 +1566,10 @@
           "fields": "/^nodeID$/",
           "values": false
         },
+        "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "targets": [
         {
           "expr": "iota_info_app",
@@ -1593,9 +1628,10 @@
           "fields": "",
           "values": false
         },
+        "text": {},
         "textMode": "value"
       },
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "targets": [
         {
           "expr": "time() - process_start_time_seconds",
@@ -1667,9 +1703,10 @@
           "fields": "",
           "values": false
         },
+        "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "targets": [
         {
           "expr": "sync",
@@ -1727,9 +1764,10 @@
           "fields": "",
           "values": false
         },
+        "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "targets": [
         {
           "expr": "irate(tangle_message_total_count[5m])",
@@ -1786,9 +1824,10 @@
           "fields": "",
           "values": false
         },
+        "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "targets": [
         {
           "expr": "process_cpu_usage",
@@ -1841,9 +1880,10 @@
           "fields": "",
           "values": false
         },
+        "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "targets": [
         {
           "expr": "process_mem_usage_bytes/1024/1024",
@@ -1900,9 +1940,10 @@
           "fields": "",
           "values": false
         },
+        "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "targets": [
         {
           "expr": "db_size_bytes/1024/1024",
@@ -1964,8 +2005,11 @@
       "lines": true,
       "linewidth": 1,
       "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
       "percentage": false,
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -2073,10 +2117,228 @@
       "fill": 1,
       "fillGradient": 0,
       "gridPos": {
-        "h": 8,
+        "h": 11,
         "w": 13,
         "x": 11,
         "y": 49
+      },
+      "hiddenSeries": false,
+      "id": 111,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "7.4.3",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "irate(tangle_messages_per_component_count{component=\"Store\"}[5m])",
+          "interval": "",
+          "legendFormat": "Store MPS",
+          "refId": "A"
+        },
+        {
+          "expr": "irate(tangle_messages_per_component_count{component=\"Solidifier\"}[5m])",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "Solidifier MPS",
+          "refId": "B"
+        },
+        {
+          "expr": "irate(tangle_messages_per_component_count{component=\"Scheduler\"}[5m])",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "Scheduler MPS",
+          "refId": "C"
+        },
+        {
+          "expr": "irate(tangle_messages_per_component_count{component=\"Booker\"}[5m])",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "Booker MPS",
+          "refId": "D"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Message Per Second Per Component",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "MPS",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": "0",
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "description": "Shows tips in message and value layer.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 10,
+        "w": 11,
+        "x": 0,
+        "y": 60
+      },
+      "hiddenSeries": false,
+      "id": 52,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "7.4.3",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "tangle_message_tips_count",
+          "interval": "",
+          "legendFormat": "Message Layer Tips",
+          "refId": "A"
+        },
+        {
+          "expr": "tangle_value_tips",
+          "interval": "",
+          "legendFormat": "Value Layer Tips",
+          "refId": "B"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Tips",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 8,
+        "w": 13,
+        "x": 11,
+        "y": 60
       },
       "hiddenSeries": false,
       "id": 4,
@@ -2092,8 +2354,11 @@
       "lines": false,
       "linewidth": 1,
       "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
       "percentage": false,
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "pointradius": 0.5,
       "points": true,
       "renderer": "flot",
@@ -2190,7 +2455,7 @@
         "h": 4,
         "w": 3,
         "x": 11,
-        "y": 57
+        "y": 68
       },
       "id": 6,
       "options": {
@@ -2205,9 +2470,10 @@
           "fields": "",
           "values": false
         },
+        "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "targets": [
         {
           "expr": "autopeering_neighbor_connections_count - autopeering_neighbor_drop_count",
@@ -2245,7 +2511,7 @@
         "h": 4,
         "w": 4,
         "x": 14,
-        "y": 57
+        "y": 68
       },
       "id": 2,
       "options": {
@@ -2260,9 +2526,10 @@
           "fields": "",
           "values": false
         },
+        "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "targets": [
         {
           "expr": "autopeering_avg_neighbor_connection_lifetime",
@@ -2303,7 +2570,7 @@
         "h": 4,
         "w": 3,
         "x": 18,
-        "y": 57
+        "y": 68
       },
       "id": 8,
       "options": {
@@ -2318,9 +2585,10 @@
           "fields": "",
           "values": false
         },
+        "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "targets": [
         {
           "expr": "autopeering_neighbor_connections_count",
@@ -2361,7 +2629,7 @@
         "h": 4,
         "w": 3,
         "x": 21,
-        "y": 57
+        "y": 68
       },
       "id": 10,
       "options": {
@@ -2376,9 +2644,10 @@
           "fields": "",
           "values": false
         },
+        "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "targets": [
         {
           "expr": "autopeering_neighbor_drop_count",
@@ -2398,7 +2667,7 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": "Prometheus",
-      "description": "Shows tips in message and value layer.",
+      "description": "Number of messages in missingMessageStore. These are the message the node knows it doesn't have and tries to requests them.",
       "fieldConfig": {
         "defaults": {
           "custom": {}
@@ -2408,13 +2677,13 @@
       "fill": 1,
       "fillGradient": 0,
       "gridPos": {
-        "h": 10,
+        "h": 8,
         "w": 11,
         "x": 0,
-        "y": 60
+        "y": 70
       },
       "hiddenSeries": false,
-      "id": 52,
+      "id": 77,
       "legend": {
         "avg": false,
         "current": false,
@@ -2427,8 +2696,11 @@
       "lines": true,
       "linewidth": 1,
       "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
       "percentage": false,
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -2438,23 +2710,17 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "tangle_message_tips_count",
+          "expr": "tangle_message_missing_count_db",
           "interval": "",
-          "legendFormat": "Message Layer Tips",
+          "legendFormat": "Missing Messages",
           "refId": "A"
-        },
-        {
-          "expr": "tangle_value_tips",
-          "interval": "",
-          "legendFormat": "Value Layer Tips",
-          "refId": "B"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Tips",
+      "title": "Missing Messages",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -2509,7 +2775,7 @@
         "h": 9,
         "w": 7,
         "x": 11,
-        "y": 61
+        "y": 72
       },
       "hiddenSeries": false,
       "id": 16,
@@ -2525,8 +2791,11 @@
       "lines": true,
       "linewidth": 1,
       "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
       "percentage": false,
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -2601,7 +2870,7 @@
         "h": 9,
         "w": 6,
         "x": 18,
-        "y": 61
+        "y": 72
       },
       "hiddenSeries": false,
       "id": 18,
@@ -2617,8 +2886,11 @@
       "lines": true,
       "linewidth": 1,
       "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
       "percentage": false,
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -2681,7 +2953,7 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": "Prometheus",
-      "description": "Number of messages in missingMessageStore. These are the message the node knows it doesn't have and tries to requests them.",
+      "description": "Number of messages currently requested by the message tangle.",
       "fieldConfig": {
         "defaults": {
           "custom": {}
@@ -2694,10 +2966,10 @@
         "h": 8,
         "w": 11,
         "x": 0,
-        "y": 70
+        "y": 78
       },
       "hiddenSeries": false,
-      "id": 77,
+      "id": 69,
       "legend": {
         "avg": false,
         "current": false,
@@ -2710,8 +2982,11 @@
       "lines": true,
       "linewidth": 1,
       "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
       "percentage": false,
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -2721,9 +2996,9 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "tangle_message_missing_count_db",
+          "expr": "tangle_message_request_queue_size",
           "interval": "",
-          "legendFormat": "Missing Messages",
+          "legendFormat": "Message Request Queue Size",
           "refId": "A"
         }
       ],
@@ -2731,7 +3006,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Missing Messages",
+      "title": "Message Request Queue Size",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -2751,7 +3026,7 @@
           "label": null,
           "logBase": 1,
           "max": null,
-          "min": null,
+          "min": "0",
           "show": true
         },
         {
@@ -2759,8 +3034,8 @@
           "label": null,
           "logBase": 1,
           "max": null,
-          "min": null,
-          "show": true
+          "min": "0",
+          "show": false
         }
       ],
       "yaxis": {
@@ -2787,7 +3062,7 @@
         "h": 16,
         "w": 13,
         "x": 11,
-        "y": 70
+        "y": 81
       },
       "hiddenSeries": false,
       "id": 73,
@@ -2805,8 +3080,11 @@
       "lines": true,
       "linewidth": 1,
       "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
       "percentage": false,
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -2881,99 +3159,6 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": "Prometheus",
-      "description": "Number of messages currently requested by the message tangle.",
-      "fieldConfig": {
-        "defaults": {
-          "custom": {}
-        },
-        "overrides": []
-      },
-      "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 8,
-        "w": 11,
-        "x": 0,
-        "y": 78
-      },
-      "hiddenSeries": false,
-      "id": 69,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "nullPointMode": "null",
-      "percentage": false,
-      "pluginVersion": "7.1.1",
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "expr": "tangle_message_request_queue_size",
-          "interval": "",
-          "legendFormat": "Message Request Queue Size",
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Message Request Queue Size",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": "0",
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": "0",
-          "show": false
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
           "custom": {}
@@ -3003,7 +3188,7 @@
       "linewidth": 1,
       "nullPointMode": "null",
       "percentage": false,
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -3097,6 +3282,252 @@
       }
     },
     {
+      "datasource": null,
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 0,
+        "y": 96
+      },
+      "id": 61,
+      "options": {
+        "content": "\n# Total Network Traffic\n\n\nSince the start of the node.\n",
+        "mode": "markdown"
+      },
+      "pluginVersion": "7.4.3",
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "",
+      "type": "text"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "decbytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 2,
+        "x": 3,
+        "y": 96
+      },
+      "id": 67,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "7.4.3",
+      "targets": [
+        {
+          "expr": "traffic_gossip_outbound_bytes",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Gossip TX",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "decbytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 2,
+        "x": 5,
+        "y": 96
+      },
+      "id": 66,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "7.4.3",
+      "targets": [
+        {
+          "expr": "traffic_gossip_inbound_bytes",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Gossip RX",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "decbytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 2,
+        "x": 7,
+        "y": 96
+      },
+      "id": 63,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "7.4.3",
+      "targets": [
+        {
+          "expr": "traffic_autopeering_outbound_bytes",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Autopeering TX",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "decbytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 2,
+        "x": 9,
+        "y": 96
+      },
+      "id": 62,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "7.4.3",
+      "targets": [
+        {
+          "expr": "traffic_autopeering_inbound_bytes",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Autopeering RX",
+      "type": "stat"
+    },
+    {
       "aliasColors": {},
       "bars": false,
       "dashLength": 10,
@@ -3115,7 +3546,7 @@
         "h": 10,
         "w": 11,
         "x": 11,
-        "y": 86
+        "y": 97
       },
       "hiddenSeries": false,
       "id": 75,
@@ -3132,7 +3563,7 @@
       "linewidth": 1,
       "nullPointMode": "null",
       "percentage": false,
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -3190,250 +3621,6 @@
       }
     },
     {
-      "content": "\n# Total Network Traffic\n\n\nSince the start of the node.\n",
-      "datasource": null,
-      "description": "",
-      "fieldConfig": {
-        "defaults": {
-          "custom": {}
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 3,
-        "x": 0,
-        "y": 96
-      },
-      "id": 61,
-      "mode": "markdown",
-      "options": {
-        "content": "\n# Total Network Traffic\n\n\nSince the start of the node.\n",
-        "mode": "markdown"
-      },
-      "pluginVersion": "7.1.0",
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "",
-      "type": "text"
-    },
-    {
-      "datasource": "Prometheus",
-      "fieldConfig": {
-        "defaults": {
-          "custom": {},
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "decbytes"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 2,
-        "w": 2,
-        "x": 3,
-        "y": 96
-      },
-      "id": 67,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "pluginVersion": "7.1.1",
-      "targets": [
-        {
-          "expr": "traffic_gossip_outbound_bytes",
-          "interval": "",
-          "legendFormat": "",
-          "refId": "A"
-        }
-      ],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "Gossip TX",
-      "type": "stat"
-    },
-    {
-      "datasource": "Prometheus",
-      "fieldConfig": {
-        "defaults": {
-          "custom": {},
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "decbytes"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 2,
-        "w": 2,
-        "x": 5,
-        "y": 96
-      },
-      "id": 66,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "pluginVersion": "7.1.1",
-      "targets": [
-        {
-          "expr": "traffic_gossip_inbound_bytes",
-          "interval": "",
-          "legendFormat": "",
-          "refId": "A"
-        }
-      ],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "Gossip RX",
-      "type": "stat"
-    },
-    {
-      "datasource": "Prometheus",
-      "fieldConfig": {
-        "defaults": {
-          "custom": {},
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "decbytes"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 2,
-        "w": 2,
-        "x": 7,
-        "y": 96
-      },
-      "id": 63,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "pluginVersion": "7.1.1",
-      "targets": [
-        {
-          "expr": "traffic_autopeering_outbound_bytes",
-          "interval": "",
-          "legendFormat": "",
-          "refId": "A"
-        }
-      ],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "Autopeering TX",
-      "type": "stat"
-    },
-    {
-      "datasource": "Prometheus",
-      "fieldConfig": {
-        "defaults": {
-          "custom": {},
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "decbytes"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 2,
-        "w": 2,
-        "x": 9,
-        "y": 96
-      },
-      "id": 62,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "pluginVersion": "7.1.1",
-      "targets": [
-        {
-          "expr": "traffic_autopeering_inbound_bytes",
-          "interval": "",
-          "legendFormat": "",
-          "refId": "A"
-        }
-      ],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "Autopeering RX",
-      "type": "stat"
-    },
-    {
       "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
@@ -3471,9 +3658,10 @@
           "fields": "",
           "values": false
         },
+        "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "targets": [
         {
           "expr": "traffic_fpc_inbound_bytes",
@@ -3525,9 +3713,10 @@
           "fields": "",
           "values": false
         },
+        "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "targets": [
         {
           "expr": "traffic_fpc_outbound_bytes",
@@ -3579,9 +3768,10 @@
           "fields": "",
           "values": false
         },
+        "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "targets": [
         {
           "expr": "traffic_analysis_outbound_bytes",
@@ -3602,7 +3792,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 100
+        "y": 107
       },
       "id": 34,
       "panels": [],
@@ -3627,7 +3817,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 101
+        "y": 108
       },
       "hiddenSeries": false,
       "id": 36,
@@ -3644,7 +3834,7 @@
       "linewidth": 1,
       "nullPointMode": "null",
       "percentage": false,
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -3728,7 +3918,7 @@
         "h": 8,
         "w": 4,
         "x": 12,
-        "y": 101
+        "y": 108
       },
       "id": 38,
       "options": {
@@ -3743,9 +3933,10 @@
           "fields": "",
           "values": false
         },
+        "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "targets": [
         {
           "expr": "fpc_avg_rounds_to_finalize",
@@ -3786,7 +3977,7 @@
         "h": 8,
         "w": 3,
         "x": 16,
-        "y": 101
+        "y": 108
       },
       "id": 42,
       "options": {
@@ -3801,9 +3992,10 @@
           "fields": "",
           "values": false
         },
+        "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "targets": [
         {
           "expr": "fpc_finalized_conflicts",
@@ -3844,7 +4036,7 @@
         "h": 8,
         "w": 3,
         "x": 19,
-        "y": 101
+        "y": 108
       },
       "id": 40,
       "options": {
@@ -3859,9 +4051,10 @@
           "fields": "",
           "values": false
         },
+        "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "targets": [
         {
           "expr": "fpc_failed_conflicts",
@@ -3894,7 +4087,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 109
+        "y": 116
       },
       "hiddenSeries": false,
       "id": 44,
@@ -3911,7 +4104,7 @@
       "linewidth": 1,
       "nullPointMode": "null",
       "percentage": false,
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -3986,7 +4179,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 109
+        "y": 116
       },
       "hiddenSeries": false,
       "id": 50,
@@ -4003,7 +4196,7 @@
       "linewidth": 1,
       "nullPointMode": "null",
       "percentage": false,
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -4079,7 +4272,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 117
+        "y": 124
       },
       "hiddenSeries": false,
       "id": 49,
@@ -4096,7 +4289,7 @@
       "linewidth": 1,
       "nullPointMode": "null",
       "percentage": false,
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -4171,7 +4364,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 117
+        "y": 124
       },
       "hiddenSeries": false,
       "id": 46,
@@ -4188,7 +4381,7 @@
       "linewidth": 1,
       "nullPointMode": "null",
       "percentage": false,
-      "pluginVersion": "7.1.1",
+      "pluginVersion": "7.4.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -4250,7 +4443,7 @@
     }
   ],
   "refresh": "5s",
-  "schemaVersion": 26,
+  "schemaVersion": 27,
   "style": "dark",
   "tags": [],
   "templating": {
@@ -4264,6 +4457,8 @@
         },
         "datasource": "Prometheus",
         "definition": "label_values(iota_info_app, nodeID)",
+        "description": null,
+        "error": null,
         "hide": 0,
         "includeAll": false,
         "label": "Node Identity",
@@ -4310,5 +4505,5 @@
   "timezone": "",
   "title": "GoShimmer Local Metrics",
   "uid": "kjOQZ2ZMk",
-  "version": 57
+  "version": 8
 }
