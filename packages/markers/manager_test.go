@@ -31,7 +31,8 @@ func TestManager(t *testing.T) {
 	}
 
 	messageDB := makeMessageDB(testMessages...)
-	manager := NewManager(mapdb.NewMapDB())
+	db := mapdb.NewMapDB()
+	manager := NewManager(db)
 
 	for _, message := range testMessages {
 		if futureMarkerToPropagate := inheritPastMarkers(message, manager, messageDB); futureMarkerToPropagate != nil {

@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -10,28 +11,34 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 )
 
+var sequenceNumber uint64
+
+func nextSequenceNumber() uint64 {
+	return atomic.AddUint64(&sequenceNumber, 1) - 1
+}
+
 func newTestNonceMessage(nonce uint64) *Message {
 	return NewMessage([]MessageID{EmptyMessageID}, []MessageID{}, time.Time{}, ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("test")), nonce, ed25519.Signature{})
 }
 
 func newTestDataMessage(payloadString string) *Message {
-	return NewMessage([]MessageID{EmptyMessageID}, []MessageID{}, time.Now(), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+	return NewMessage([]MessageID{EmptyMessageID}, []MessageID{}, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
 }
 
 func newTestParentsDataMessage(payloadString string, strongParents, weakParents []MessageID) *Message {
-	return NewMessage(strongParents, weakParents, time.Now(), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+	return NewMessage(strongParents, weakParents, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
 }
 
 func newTestParentsDataWithTimestamp(payloadString string, strongParents, weakParents []MessageID, timestamp time.Time) *Message {
-	return NewMessage(strongParents, weakParents, timestamp, ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+	return NewMessage(strongParents, weakParents, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
 }
 
 func newTestParentsPayloadMessage(payload payload.Payload, strongParents, weakParents []MessageID) *Message {
-	return NewMessage(strongParents, weakParents, time.Now(), ed25519.PublicKey{}, 0, payload, 0, ed25519.Signature{})
+	return NewMessage(strongParents, weakParents, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload, 0, ed25519.Signature{})
 }
 
 func newTestParentsPayloadWithTimestamp(payload payload.Payload, strongParents, weakParents []MessageID, timestamp time.Time) *Message {
-	return NewMessage(strongParents, weakParents, timestamp, ed25519.PublicKey{}, 0, payload, 0, ed25519.Signature{})
+	return NewMessage(strongParents, weakParents, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), payload, 0, ed25519.Signature{})
 }
 
 type wallet struct {
