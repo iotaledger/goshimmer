@@ -306,6 +306,7 @@ func TestTangle_Flow(t *testing.T) {
 	tips.Set(EmptyMessageID, EmptyMessageID)
 
 	// create the tangle
+	cacheTime = 0
 	tangle := New(Store(badger))
 	defer tangle.Shutdown()
 

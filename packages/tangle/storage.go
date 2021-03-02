@@ -40,10 +40,12 @@ const (
 	// PrefixFCoB defines the storage prefix for FCoB.
 	PrefixFCoB
 
-	cacheTime = 2 * time.Second
-
 	// DBSequenceNumber defines the db sequence number.
 	DBSequenceNumber = "seq"
+)
+
+var (
+	cacheTime = 2 * time.Second
 )
 
 // region Storage //////////////////////////////////////////////////////////////////////////////////////////////////////
