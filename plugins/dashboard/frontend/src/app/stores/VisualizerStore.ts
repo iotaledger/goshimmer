@@ -220,7 +220,11 @@ export class VisualizerStore {
             vert.strongParentIDs.forEach((value) => {
                 // if value is valid AND (links is empty OR there is no between parent and children)
                 if ( value && ((!node.links || !node.links.some(link => link.fromId === value)))){
-                    this.graph.addLink(value, vert.id);
+                    // draw the link only when the parent exists
+                    let existing = this.graph.getNode(value);
+                    if (existing) {
+                        this.graph.addLink(value, vert.id);
+                    }
                 }
             })
         }
@@ -228,7 +232,11 @@ export class VisualizerStore {
             vert.weakParentIDs.forEach((value) => {
                 // if value is valid AND (links is empty OR there is no between parent and children)
                 if ( value && ((!node.links || !node.links.some(link => link.fromId === value)))){
-                    this.graph.addLink(value, vert.id);
+                    // draw the link only when the parent exists
+                    let existing = this.graph.getNode(value);
+                    if (existing) {
+                        this.graph.addLink(value, vert.id);
+                    }
                 }
             })
         }
