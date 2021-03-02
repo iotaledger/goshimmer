@@ -19,10 +19,11 @@ var (
 	visualizerWorkerQueueSize = 500
 	visualizerWorkerPool      *workerpool.WorkerPool
 
-	msgHistoryMutex   sync.RWMutex
-	msgSolid          map[string]bool
-	msgHistory        []*tangle.Message
-	maxMsgHistorySize = 1000
+	msgHistoryMutex    sync.RWMutex
+	msgSolid           map[string]bool
+	msgHistory         []*tangle.Message
+	maxMsgHistorySize  = 1000
+	numHistoryToRemove = 100
 )
 
 // vertex defines a vertex in a DAG.
@@ -153,10 +154,10 @@ func addToHistory(msg *tangle.Message, solid bool) {
 
 	// remove 100 old msgs if the slice is full
 	if len(msgHistory) >= maxMsgHistorySize {
-		for i := 0; i < 100; i++ {
+		for i := 0; i < numHistoryToRemove; i++ {
 			delete(msgSolid, msgHistory[i].ID().String())
 		}
-		msgHistory = append(msgHistory[:0], msgHistory[100:maxMsgHistorySize]...)
+		msgHistory = append(msgHistory[:0], msgHistory[numHistoryToRemove:maxMsgHistorySize]...)
 	}
 	// add new msg
 	msgHistory = append(msgHistory, msg)
