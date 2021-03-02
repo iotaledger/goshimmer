@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/mr-tron/base58/base58"
 )
 
@@ -13,23 +12,12 @@ var maxBookedAwaitTime = 5 * time.Second
 // ParseTransaction handle transaction json object.
 func ParseTransaction(tx *ledgerstate.Transaction) (txn Transaction) {
 	// process inputs
-	inputs := []Output{}
-	messagelayer.Tangle().LedgerState.ConsumedOutputs(tx).Consume(func(output ledgerstate.Output) {
-		balances := []Balance{}
-		output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
-			balances = append(balances, Balance{
-				Color: color.String(),
-				Value: int64(balance),
-			})
-			return true
-		})
-
-		inputs = append(inputs, Output{
-			Type:     output.Type(),
-			Address:  output.Address().Base58(),
-			Balances: balances,
-		})
-	})
+	inputs := make([]Input, len(tx.Essence().Inputs()))
+	for i, input := range tx.Essence().Inputs() {
+		inputs[i] = Input{
+			ConsumedOutputID: input.Base58(),
+		}
+	}
 
 	// process outputs
 	outputs := make([]Output, len(tx.Essence().Outputs()))
@@ -109,7 +97,7 @@ type Transaction struct {
 	Timestamp         int64                                 `json:"timestamp"`
 	AccessPledgeID    string                                `json:"accessPledgeID"`
 	ConsensusPledgeID string                                `json:"consensusPledgeID"`
-	Inputs            []Output                              `json:"inputs"`
+	Inputs            []Input                               `json:"inputs"`
 	Outputs           []Output                              `json:"outputs"`
 	UnlockBlocks      []UnlockBlock                         `json:"unlockBlocks"`
 	DataPayload       []byte                                `json:"dataPayload"`
@@ -126,6 +114,11 @@ type OutputID struct {
 type UnspentOutput struct {
 	Address   string     `json:"address"`
 	OutputIDs []OutputID `json:"output_ids"`
+}
+
+// Input holds the consumedOutputID
+type Input struct {
+	ConsumedOutputID string `json:"consumedOutputID"`
 }
 
 // Output consists an address and balances

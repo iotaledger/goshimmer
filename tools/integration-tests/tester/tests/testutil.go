@@ -424,7 +424,7 @@ func False() *bool {
 // All fields are optional.
 type ExpectedTransaction struct {
 	// The optional input IDs to check against.
-	Inputs *[]valueutils.Output
+	Inputs *[]valueutils.Input
 	// The optional outputs to check against.
 	Outputs *[]valueutils.Output
 	// The optional unlock blocks to check against.
