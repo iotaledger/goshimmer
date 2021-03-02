@@ -139,9 +139,9 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	for _, conflictingTx := range conflictingTxs {
 		utilsTx := value.ParseTransaction(conflictingTx)
 		expectations[conflictingTx.ID().Base58()] = &tests.ExpectedTransaction{
-			Inputs:    &utilsTx.Inputs,
-			Outputs:   &utilsTx.Outputs,
-			Signature: &utilsTx.Signature,
+			Inputs:       &utilsTx.Inputs,
+			Outputs:      &utilsTx.Outputs,
+			UnlockBlocks: &utilsTx.UnlockBlocks,
 		}
 	}
 

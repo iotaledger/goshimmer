@@ -180,7 +180,7 @@ func NewTransactionFromJSON(request SendTransactionByJSONRequest) (*ledgerstate.
 	// add signatures
 	unlockBlocks := make([]ledgerstate.UnlockBlock, len(txEssence.Inputs()))
 	for i, signature := range request.Signatures {
-		switch ledgerstate.SignatureType(signature.Version) {
+		switch ledgerstate.SignatureType(signature.Type) {
 
 		case ledgerstate.ED25519SignatureType:
 			pubKeyBytes, err := base58.Decode(signature.PublicKey)
@@ -233,12 +233,12 @@ func NewTransactionFromJSON(request SendTransactionByJSONRequest) (*ledgerstate.
 // 	 "signature": []string
 //  }
 type SendTransactionByJSONRequest struct {
-	Inputs        []string    `json:"inputs"`
-	Outputs       []Output    `json:"outputs"`
-	AManaPledgeID string      `json:"a_mana_pledg"`
-	CManaPledgeID string      `json:"c_mana_pledg"`
-	Signatures    []Signature `json:"signatures"`
-	Payload       []byte      `json:"payload"`
+	Inputs        []string      `json:"inputs"`
+	Outputs       []Output      `json:"outputs"`
+	AManaPledgeID string        `json:"a_mana_pledg"`
+	CManaPledgeID string        `json:"c_mana_pledg"`
+	Signatures    []UnlockBlock `json:"signatures"`
+	Payload       []byte        `json:"payload"`
 }
 
 // SendTransactionByJSONResponse is the HTTP response from sending transaction.

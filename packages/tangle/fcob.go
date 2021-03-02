@@ -37,7 +37,7 @@ type FCoB struct {
 
 // NewFCoB returns a new instance of FCoB.
 func NewFCoB(store kvstore.KVStore, tangle *Tangle) (fcob *FCoB) {
-	osFactory := objectstorage.NewFactory(store, database.PrefixMessageLayer)
+	osFactory := objectstorage.NewFactory(store, database.PrefixTangle)
 	fcob = &FCoB{
 		tangle:                   tangle,
 		opinionStorage:           osFactory.New(PrefixFCoB, OpinionFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),

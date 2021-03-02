@@ -168,7 +168,7 @@ func (t *TipManager) Tips(p payload.Payload, countStrongParents, countWeakParent
 		transaction := p.(*ledgerstate.Transaction)
 
 		tries := 5
-		for !t.tangle.Utils.AllTransactionsContainedOrApprovedByMessages(transaction.ReferencedTransactionIDs(), strongParents) {
+		for !t.tangle.Utils.AllTransactionsApprovedByMessages(transaction.ReferencedTransactionIDs(), strongParents...) {
 			if tries == 0 {
 				err = xerrors.Errorf("not able to make sure that all inputs are in the past cone of selected tips")
 				return nil, nil, err
