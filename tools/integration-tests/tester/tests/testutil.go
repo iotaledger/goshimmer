@@ -424,11 +424,11 @@ func False() *bool {
 // All fields are optional.
 type ExpectedTransaction struct {
 	// The optional input IDs to check against.
-	Inputs *[]string
+	Inputs *[]valueutils.Input
 	// The optional outputs to check against.
 	Outputs *[]valueutils.Output
-	// The optional signature to check against.
-	Signature *[]byte
+	// The optional unlock blocks to check against.
+	UnlockBlocks *[]valueutils.UnlockBlock
 }
 
 // CheckTransactions performs checks to make sure that all peers have received all transactions.
@@ -474,8 +474,8 @@ func CheckTransactions(t *testing.T, peers []*framework.Peer, transactionIDs map
 				if expectedTransaction.Outputs != nil {
 					assert.Equal(t, *expectedTransaction.Outputs, resp.Transaction.Outputs, "outputs do not match - tx %s - peer '%s'", txId, peer)
 				}
-				if expectedTransaction.Signature != nil {
-					assert.Equal(t, *expectedTransaction.Signature, resp.Transaction.Signature, "signatures do not match - tx %s - peer '%s'", txId, peer)
+				if expectedTransaction.UnlockBlocks != nil {
+					assert.Equal(t, *expectedTransaction.UnlockBlocks, resp.Transaction.UnlockBlocks, "signatures do not match - tx %s - peer '%s'", txId, peer)
 				}
 			}
 		}

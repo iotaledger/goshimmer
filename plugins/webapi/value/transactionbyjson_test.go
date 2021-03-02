@@ -56,7 +56,7 @@ func TestNewTransactionFromJSON(t *testing.T) {
 	// output JSON object
 	outputsObj := []Output{
 		{
-			Type:    int8(output1.Type()),
+			Type:    output1.Type(),
 			Address: output1.Address().Base58(),
 			Balances: []Balance{
 				{
@@ -66,7 +66,7 @@ func TestNewTransactionFromJSON(t *testing.T) {
 			},
 		},
 		{
-			Type:    int8(output2.Type()),
+			Type:    output2.Type(),
 			Address: output2.Address().Base58(),
 			Balances: []Balance{
 				{
@@ -82,16 +82,17 @@ func TestNewTransactionFromJSON(t *testing.T) {
 	}
 
 	// signature JSON object
-	sigObj := Signature{
-		Version:   byte(ledgerstate.ED25519SignatureType),
-		PublicKey: kp.PublicKey.String(),
-		Signature: sig.Base58(),
+	sigObj := UnlockBlock{
+		Type:          ledgerstate.SignatureUnlockBlockType,
+		SignatureType: ledgerstate.ED25519SignatureType,
+		PublicKey:     kp.PublicKey.String(),
+		Signature:     sig.Base58(),
 	}
 
 	req := SendTransactionByJSONRequest{
 		Inputs:        []string{myOutputID},
 		Outputs:       outputsObj,
-		Signatures:    []Signature{sigObj},
+		Signatures:    []UnlockBlock{sigObj},
 		AManaPledgeID: string(pledgeID),
 		CManaPledgeID: string(pledgeID),
 		Payload:       dataPayload.Bytes(),
