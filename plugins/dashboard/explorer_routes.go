@@ -168,7 +168,7 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 		var b []valueutils.Balance
 		output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
 			b = append(b, valueutils.Balance{
-				Value: balance,
+				Value: int64(balance),
 				Color: color.String(),
 			})
 			return true

@@ -21,7 +21,7 @@ func ParseTransaction(tx *ledgerstate.Transaction) (txn Transaction) {
 			output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
 				balances = append(balances, Balance{
 					Color: color.String(),
-					Value: balance,
+					Value: int64(balance),
 				})
 				return true
 			})
@@ -41,7 +41,7 @@ func ParseTransaction(tx *ledgerstate.Transaction) (txn Transaction) {
 		output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
 			balances = append(balances, Balance{
 				Color: color.String(),
-				Value: balance,
+				Value: int64(balance),
 			})
 			return true
 		})
@@ -141,7 +141,7 @@ type Output struct {
 // Balance holds the value and the color of token
 type Balance struct {
 	Color string `json:"color"`
-	Value uint64 `json:"value"`
+	Value int64  `json:"value"`
 }
 
 // InclusionState represents the different states of an OutputID

@@ -36,7 +36,7 @@ func unspentOutputsHandler(c echo.Context) error {
 					var b []Balance
 					output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
 						b = append(b, Balance{
-							Value: balance,
+							Value: int64(balance),
 							Color: color.String(),
 						})
 						return true
