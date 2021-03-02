@@ -13,26 +13,23 @@ var maxBookedAwaitTime = 5 * time.Second
 // ParseTransaction handle transaction json object.
 func ParseTransaction(tx *ledgerstate.Transaction) (txn Transaction) {
 	// process inputs
-	inputs := make([]Output, len(tx.Essence().Inputs()))
-	for i, consumedOutputID := range tx.Essence().Inputs() {
-		referencedOutputID := consumedOutputID.(*ledgerstate.UTXOInput).ReferencedOutputID()
-		messagelayer.Tangle().LedgerState.Output(referencedOutputID).Consume(func(output ledgerstate.Output) {
-			balances := []Balance{}
-			output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
-				balances = append(balances, Balance{
-					Color: color.String(),
-					Value: int64(balance),
-				})
-				return true
+	inputs := []Output{}
+	messagelayer.Tangle().LedgerState.ConsumedOutputs(tx).Consume(func(output ledgerstate.Output) {
+		balances := []Balance{}
+		output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+			balances = append(balances, Balance{
+				Color: color.String(),
+				Value: int64(balance),
 			})
-
-			inputs[i] = Output{
-				Type:     output.Type(),
-				Address:  output.Address().Base58(),
-				Balances: balances,
-			}
+			return true
 		})
-	}
+
+		inputs = append(inputs, Output{
+			Type:     output.Type(),
+			Address:  output.Address().Base58(),
+			Balances: balances,
+		})
+	})
 
 	// process outputs
 	outputs := make([]Output, len(tx.Essence().Outputs()))

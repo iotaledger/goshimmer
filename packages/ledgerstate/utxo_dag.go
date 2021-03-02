@@ -69,7 +69,7 @@ func (u *UTXODAG) Shutdown() {
 
 // CheckTransaction contains fast checks that have to be performed before booking a Transaction.
 func (u *UTXODAG) CheckTransaction(transaction *Transaction) (valid bool, err error) {
-	cachedConsumedOutputs := u.consumedOutputs(transaction)
+	cachedConsumedOutputs := u.ConsumedOutputs(transaction)
 	defer cachedConsumedOutputs.Release()
 	consumedOutputs := cachedConsumedOutputs.Unwrap()
 
@@ -93,7 +93,7 @@ func (u *UTXODAG) CheckTransaction(transaction *Transaction) (valid bool, err er
 
 // BookTransaction books a Transaction into the ledger state.
 func (u *UTXODAG) BookTransaction(transaction *Transaction) (targetBranch BranchID, err error) {
-	cachedConsumedOutputs := u.consumedOutputs(transaction)
+	cachedConsumedOutputs := u.ConsumedOutputs(transaction)
 	defer cachedConsumedOutputs.Release()
 	consumedOutputs := cachedConsumedOutputs.Unwrap()
 
@@ -561,8 +561,8 @@ func (u *UTXODAG) determineBookingDetails(inputsMetadata OutputsMetadata) (branc
 
 // region private utility functions ////////////////////////////////////////////////////////////////////////////////////
 
-// consumedOutputs is an internal utility function that returns the consumed Outputs of the given Transaction.
-func (u *UTXODAG) consumedOutputs(transaction *Transaction) (cachedInputs CachedOutputs) {
+// ConsumedOutputs returns the consumed (cached)Outputs of the given Transaction.
+func (u *UTXODAG) ConsumedOutputs(transaction *Transaction) (cachedInputs CachedOutputs) {
 	cachedInputs = make(CachedOutputs, 0)
 	for _, input := range transaction.Essence().Inputs() {
 		cachedInputs = append(cachedInputs, u.Output(input.(*UTXOInput).ReferencedOutputID()))
