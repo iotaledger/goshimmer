@@ -91,12 +91,12 @@ var (
 // Plugin returns the consensus plugin.
 func Plugin() *node.Plugin {
 	once.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+		plugin = node.NewPlugin(PluginName, node.Enabled, configureConsensus, run)
 	})
 	return plugin
 }
 
-func configure(_ *node.Plugin) {
+func configureConsensus(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 
 	configureRemoteLogger()
