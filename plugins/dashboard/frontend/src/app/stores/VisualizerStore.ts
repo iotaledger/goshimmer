@@ -284,11 +284,17 @@ export class VisualizerStore {
         let events = Viva.Graph.webglInputEvents(graphics, this.graph);
 
         events.mouseEnter((node) => {
-            this.clearSelected();
+            this.clearSelected(true);
             this.updateSelected(node.data);
         }).mouseLeave((node) => {
-            this.clearSelected();
+            this.clearSelected(false);
         });
+
+        events.click((node) => {
+            this.clearSelected(true);
+            this.updateSelected(node.data, true);
+        });
+
         this.graphics = graphics;
         this.renderer.run();
 
@@ -351,12 +357,13 @@ export class VisualizerStore {
     }
 
     @action
-    clearSelected = () => {
-        this.selected_approvers_count = 0;
-        this.selected_approvees_count = 0;
-        if (this.selected_via_click || !this.selected) {
+    clearSelected = (force_clear?: boolean) => {
+        if (!this.selected || (this.selected_via_click && !force_clear)) {
             return;
         }
+        
+        this.selected_approvers_count = 0;
+        this.selected_approvees_count = 0;
 
         // clear link highlight
         let node = this.graph.getNode(this.selected.id);
@@ -390,6 +397,7 @@ export class VisualizerStore {
         );
 
         this.selected = null;
+        this.selected_via_click = false;
     }
 
 }
