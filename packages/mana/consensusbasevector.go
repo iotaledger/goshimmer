@@ -182,19 +182,17 @@ func (c *ConsensusBaseManaVector) GetMana(nodeID identity.ID, t ...time.Time) (f
 }
 
 // GetManaMap returns mana perception of the node.
-func (c *ConsensusBaseManaVector) GetManaMap(timestamp ...time.Time) (res NodeMap, t time.Time, err error) {
+func (c *ConsensusBaseManaVector) GetManaMap(optionalUpdateTime ...time.Time) (res NodeMap, t time.Time, err error) {
 	c.Lock()
 	defer c.Unlock()
-	updateAt := time.Now()
-	if len(timestamp) > 0 {
-		if timestamp[0].Before(t) {
-			t = timestamp[0]
-		}
+	t = time.Now()
+	if len(optionalUpdateTime) > 0 {
+		t = optionalUpdateTime[0]
 	}
 	res = make(map[identity.ID]float64)
 	for ID := range c.vector {
 		var mana float64
-		mana, t, err = c.getMana(ID, updateAt)
+		mana, _, err = c.getMana(ID, t)
 		if err != nil {
 			return nil, t, err
 		}
@@ -211,10 +209,10 @@ func (c *ConsensusBaseManaVector) GetHighestManaNodes(n uint) (res []Node, t tim
 		// don't lock the vector after this func returns
 		c.Lock()
 		defer c.Unlock()
-		updateAt := time.Now()
+		t = time.Now()
 		for ID := range c.vector {
 			var mana float64
-			mana, t, err = c.getMana(ID, updateAt)
+			mana, _, err = c.getMana(ID, t)
 			if err != nil {
 				return err
 			}
