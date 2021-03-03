@@ -280,7 +280,7 @@ func SendIotaTransaction(t *testing.T, from *framework.Peer, to *framework.Peer,
 // SendColoredTransaction sends IOTA and colored tokens from and to a given peer and returns the ok flag and transaction ID.
 // 1. Get the first unspent outputs of `from`
 // 2. Send 50 IOTA and 50 ColorMint to `to`
-func SendColoredTransaction(t *testing.T, from *framework.Peer, to *framework.Peer, addrBalance map[string]map[ledgerstate.Color]int64, txConfig TransactionConfig) (ok bool, txId string) {
+func SendColoredTransaction(t *testing.T, from *framework.Peer, to *framework.Peer, addrBalance map[string]map[ledgerstate.Color]int64, txConfig TransactionConfig) (fail bool, txId string) {
 	var sentIOTAValue int64 = 50
 	var sentMintValue int64 = 50
 	var balanceList []coloredBalance
@@ -330,12 +330,15 @@ func SendColoredTransaction(t *testing.T, from *framework.Peer, to *framework.Pe
 
 	// send transaction
 	txId, err = from.SendTransaction(txn.Bytes())
-	require.NoErrorf(t, err, "could not send transaction on %s", from.String())
+	if err != nil {
+		fmt.Println(fmt.Errorf("could not send transaction on %s: %w", from.String(), err).Error())
+		return true, ""
+	}
 
 	// update balance list
 	updateBalanceList(addrBalance, balanceList, inputAddr.Base58(), outputAddr.Base58(), txn.Essence().Outputs()[0])
 
-	return true, txId
+	return false, txId
 }
 
 // updateBalanceList updates the token amount map with given peers and balances.

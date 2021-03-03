@@ -107,8 +107,8 @@ func TestValueColoredPersistence(t *testing.T) {
 
 	// send funds to node 2
 	for _, peer := range n.Peers()[1:] {
-		ok, txId := tests.SendColoredTransaction(t, peer, n.Peers()[0], addrBalance, tests.TransactionConfig{})
-		require.True(t, ok)
+		fail, txId := tests.SendColoredTransaction(t, peer, n.Peers()[0], addrBalance, tests.TransactionConfig{})
+		require.False(t, fail)
 		txIds[txId] = nil
 	}
 	// wait for value messages to be gossiped
