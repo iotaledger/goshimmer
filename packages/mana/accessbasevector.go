@@ -85,10 +85,10 @@ func (a *AccessBaseManaVector) UpdateAll(t time.Time) error {
 }
 
 // GetMana returns Effective Base Mana 2.
-func (a *AccessBaseManaVector) GetMana(nodeID identity.ID, t ...time.Time) (float64, time.Time, error) {
+func (a *AccessBaseManaVector) GetMana(nodeID identity.ID, optionalUpdateTime ...time.Time) (float64, time.Time, error) {
 	a.Lock()
 	defer a.Unlock()
-	return a.getMana(nodeID, t...)
+	return a.getMana(nodeID, optionalUpdateTime...)
 }
 
 // GetManaMap returns mana perception of the node..

@@ -175,10 +175,10 @@ func (c *ConsensusBaseManaVector) UpdateAll(t time.Time) error {
 }
 
 // GetMana returns the Effective Base Mana.
-func (c *ConsensusBaseManaVector) GetMana(nodeID identity.ID, t ...time.Time) (float64, time.Time, error) {
+func (c *ConsensusBaseManaVector) GetMana(nodeID identity.ID, optionalUpdateTime ...time.Time) (float64, time.Time, error) {
 	c.Lock()
 	defer c.Unlock()
-	return c.getMana(nodeID, t...)
+	return c.getMana(nodeID, optionalUpdateTime...)
 }
 
 // GetManaMap returns mana perception of the node.
@@ -317,15 +317,13 @@ func (c *ConsensusBaseManaVector) update(nodeID identity.ID, t time.Time) error 
 }
 
 // getMana returns the Effective Base Mana 1. Will update base mana by default.
-func (c *ConsensusBaseManaVector) getMana(nodeID identity.ID, updateTime ...time.Time) (float64, time.Time, error) {
+func (c *ConsensusBaseManaVector) getMana(nodeID identity.ID, optionalUpdateTime ...time.Time) (float64, time.Time, error) {
 	t := time.Now()
 	if _, exist := c.vector[nodeID]; !exist {
 		return 0.0, t, ErrNodeNotFoundInBaseManaVector
 	}
-	if len(updateTime) > 0 {
-		if updateTime[0].Before(t) {
-			t = updateTime[0]
-		}
+	if len(optionalUpdateTime) > 0 {
+		t = optionalUpdateTime[0]
 	}
 	_ = c.update(nodeID, t)
 

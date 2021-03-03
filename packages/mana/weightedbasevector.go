@@ -132,10 +132,10 @@ func (w *WeightedBaseManaVector) UpdateAll(t time.Time) error {
 }
 
 // GetMana returns combination of Effective Base Mana 1 & 2 weighted as 50-50.
-func (w *WeightedBaseManaVector) GetMana(nodeID identity.ID, t ...time.Time) (float64, time.Time, error) {
+func (w *WeightedBaseManaVector) GetMana(nodeID identity.ID, optionalUpdateTime ...time.Time) (float64, time.Time, error) {
 	w.Lock()
 	defer w.Unlock()
-	return w.getMana(nodeID, t...)
+	return w.getMana(nodeID, optionalUpdateTime...)
 }
 
 // GetManaMap returns mana perception of the node..
@@ -314,15 +314,13 @@ func (w *WeightedBaseManaVector) update(nodeID identity.ID, t time.Time) error {
 }
 
 // getMana returns the current effective mana value. Not concurrency safe.
-func (w *WeightedBaseManaVector) getMana(nodeID identity.ID, updateTime ...time.Time) (float64, time.Time, error) {
+func (w *WeightedBaseManaVector) getMana(nodeID identity.ID, optionalUpdateTime ...time.Time) (float64, time.Time, error) {
 	t := time.Now()
 	if _, exist := w.vector[nodeID]; !exist {
 		return 0.0, t, ErrNodeNotFoundInBaseManaVector
 	}
-	if len(updateTime) > 0 {
-		if updateTime[0].Before(t) {
-			t = updateTime[0]
-		}
+	if len(optionalUpdateTime) > 0 {
+		t = optionalUpdateTime[0]
 	}
 	_ = w.update(nodeID, t)
 
