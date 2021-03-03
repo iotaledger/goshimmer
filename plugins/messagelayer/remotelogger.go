@@ -38,7 +38,7 @@ func sendToRemoteLog(msgID, issuerID string, issuedTime, arrivalTime, solidTime 
 		DeltaArrival: arrivalTime - issuedTime,
 		DeltaSolid:   solidTime - issuedTime,
 		Clock:        clockEnabled,
-		Sync:         Synced(),
+		Sync:         Tangle().Synced(),
 		Type:         remoteLogType,
 	}
 	_ = remoteLogger.Send(m)

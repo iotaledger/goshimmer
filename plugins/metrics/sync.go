@@ -11,7 +11,7 @@ var (
 )
 
 func measureSynced() {
-	s := messagelayer.Synced()
+	s := messagelayer.Tangle().Synced()
 	metrics.Events().Synced.Trigger(s)
 }
 

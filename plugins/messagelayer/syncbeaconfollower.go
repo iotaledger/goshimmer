@@ -17,7 +17,6 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"github.com/mr-tron/base58"
 	flag "github.com/spf13/pflag"
-	"go.uber.org/atomic"
 )
 
 const (
@@ -61,8 +60,6 @@ var (
 	beaconMaxTimeOfflineSec float64
 	beaconMaxTimeWindowSec  float64
 	syncPercentage          float64
-	// tells whether the node is synced or not.
-	synced atomic.Bool
 
 	// ErrMissingFollowNodes is returned if the node starts with no follow nodes list
 	ErrMissingFollowNodes = errors.New("follow nodes list is required")
@@ -70,14 +67,6 @@ var (
 	// the node is not synchronized.
 	ErrNodeNotSynchronized = errors.New("node is not synchronized")
 )
-
-// Synced tells whether the node is in a state we consider synchronized, meaning
-// it has the relevant past and present message data. The synchronized state is
-// defined by following a certain set of sync beacon nodes where for each of these
-// beacons a message needs to become solid within bounded time.
-func Synced() bool {
-	return synced.Load()
-}
 
 // SyncStatus returns the detailed status per beacon node.
 func SyncStatus() (bool, map[ed25519.PublicKey]Status) {
@@ -93,22 +82,7 @@ func SyncStatus() (bool, map[ed25519.PublicKey]Status) {
 		}
 	}
 
-	return Synced(), beacons
-}
-
-// MarkSynced marks the node as synced.
-func MarkSynced() {
-	synced.Store(true)
-}
-
-// MarkDesynced marks the node as desynced.
-func MarkDesynced() {
-	synced.Store(false)
-}
-
-// OverwriteSyncedState overwrites the synced state with the given value.
-func OverwriteSyncedState(syncedOverwrite bool) {
-	synced.Store(syncedOverwrite)
+	return Tangle().Synced(), beacons
 }
 
 // configure plugin
@@ -216,7 +190,7 @@ func updateSynced() {
 		globalSynced = beaconNodesSyncedCount/float64(len(currentBeacons)) >= syncPercentage
 	}
 
-	OverwriteSyncedState(globalSynced)
+	Tangle().SetSynced(globalSynced)
 }
 
 // cleanupFollowNodes cleans up offline nodes by setting their sync status to false after a configurable time window.

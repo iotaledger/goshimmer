@@ -43,7 +43,7 @@ func getHealthz(c echo.Context) error {
 // IsNodeHealthy returns whether the node is synced, has active neighbors.
 func IsNodeHealthy() bool {
 	// Synced
-	if !messagelayer.Synced() {
+	if !messagelayer.Tangle().Synced() {
 		return false
 	}
 

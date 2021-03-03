@@ -56,7 +56,7 @@ func configure(_ *node.Plugin) {
 		log.Infof("Retrieving all the tips")
 		messagelayer.Tangle().TipManager.Set(messagelayer.Tangle().Storage.RetrieveAllTips()...)
 
-		messagelayer.OverwriteSyncedState(true)
+		messagelayer.Tangle().SetSynced(true)
 		log.Infof("overwriting synced state to 'true'")
 	}
 }
