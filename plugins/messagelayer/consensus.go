@@ -1,4 +1,4 @@
-package consensus
+package messagelayer
 
 import (
 	"net"
@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/prng"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -17,19 +16,14 @@ import (
 	"github.com/iotaledger/goshimmer/packages/vote/statement"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/config"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	flag "github.com/spf13/pflag"
 )
 
 const (
-	// PluginName contains the human readable name of the plugin.
-	PluginName = "Consensus"
-
 	// CfgFPCQuerySampleSize defines how many nodes will be queried each round.
 	CfgFPCQuerySampleSize = "fpc.querySampleSize"
 
@@ -70,15 +64,10 @@ func init() {
 }
 
 var (
-	// plugin is the plugin instance of the statement plugin.
-	plugin               *node.Plugin
-	consensusProvider    *fcob.ConsensusProvider
-	once                 sync.Once
 	voter                *fpc.FPC
 	voterOnce            sync.Once
 	voterServer          *votenet.VoterServer
 	roundIntervalSeconds int64
-	log                  *logger.Logger
 	registry             *statement.Registry
 	registryOnce         sync.Once
 	waitForStatement     int
@@ -88,20 +77,9 @@ var (
 	writeStatement       bool
 )
 
-// Plugin returns the consensus plugin.
-func Plugin() *node.Plugin {
-	once.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Enabled, configureConsensus, run)
-	})
-	return plugin
-}
-
 func configureConsensus(_ *node.Plugin) {
-	log = logger.NewLogger(PluginName)
-
 	configureRemoteLogger()
 
-	consensusProvider = fcob.NewConsensusProvider()
 	roundIntervalSeconds = config.Node().Int64(CfgFPCRoundInterval)
 	waitForStatement = config.Node().Int(CfgWaitForStatement)
 	listen = config.Node().Bool(CfgFPCListen)
@@ -112,21 +90,17 @@ func configureConsensus(_ *node.Plugin) {
 	configureFPC()
 
 	// subscribe to FCOB events
-	consensusProvider.PayloadOpinionProvider.Vote().Attach(events.NewClosure(func(id string, initOpn opinion.Opinion) {
+	Consensus().PayloadOpinionProvider.Vote().Attach(events.NewClosure(func(id string, initOpn opinion.Opinion) {
 		if err := Voter().Vote(id, vote.ConflictType, initOpn); err != nil {
 			log.Warnf("FPC vote: %s", err)
 		}
 	}))
-	consensusProvider.PayloadOpinionProvider.VoteError().Attach(events.NewClosure(func(err error) {
+	Consensus().PayloadOpinionProvider.VoteError().Attach(events.NewClosure(func(err error) {
 		log.Errorf("FCOB error: %s", err)
 	}))
 
 	// subscribe to message-layer
-	messagelayer.Tangle().OpinionManager.Events.MessageOpinionFormed.Attach(events.NewClosure(readStatement))
-}
-
-func run(_ *node.Plugin) {
-	runFPC()
+	Tangle().OpinionManager.Events.MessageOpinionFormed.Attach(events.NewClosure(readStatement))
 }
 
 // Voter returns the DRNGRoundBasedVoter instance used by the FPC plugin.
@@ -172,7 +146,7 @@ func configureFPC() {
 		log.Debugf("executed round with rand %0.4f for %d vote contexts on %d peers, took %v", roundStats.RandUsed, voteContextsCount, peersQueried, roundStats.Duration)
 	}))
 
-	Voter().Events().Finalized.Attach(events.NewClosure(consensusProvider.PayloadOpinionProvider.ProcessVote))
+	Voter().Events().Finalized.Attach(events.NewClosure(Consensus().PayloadOpinionProvider.ProcessVote))
 	Voter().Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
 		if ev.Ctx.Type == vote.ConflictType {
 			log.Infof("FPC finalized for transaction with id '%s' - final opinion: '%s'", ev.ID, ev.Opinion)

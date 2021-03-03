@@ -11,7 +11,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
-	"github.com/iotaledger/goshimmer/plugins/syncbeaconfollower"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
@@ -130,7 +129,7 @@ func sendToRemoteLog(networkDelayObject *Object, receiveTime int64) {
 		ReceiveTime: receiveTime,
 		Delta:       receiveTime - networkDelayObject.sentTime,
 		Clock:       clockEnabled,
-		Sync:        syncbeaconfollower.Synced(),
+		Sync:        messagelayer.Synced(),
 		Type:        remoteLogType,
 	}
 	_ = remoteLogger.Send(m)
@@ -144,7 +143,7 @@ func sendPoWInfo(object *Object, powDelta time.Duration) {
 		ReceiveTime: 0,
 		Delta:       powDelta.Nanoseconds(),
 		Clock:       clockEnabled,
-		Sync:        syncbeaconfollower.Synced(),
+		Sync:        messagelayer.Synced(),
 		Type:        remoteLogType,
 	}
 	_ = remoteLogger.Send(m)

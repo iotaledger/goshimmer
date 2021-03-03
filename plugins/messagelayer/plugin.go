@@ -17,7 +17,6 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-	flag "github.com/spf13/pflag"
 	"golang.org/x/xerrors"
 )
 
@@ -43,19 +42,12 @@ var (
 	ErrMessageWasNotBookedInTime = errors.New("message could not be booked in time")
 )
 
-func init() {
-	flag.String(CfgMessageLayerSnapshotFile, "./snapshot.bin", "the path to the snapshot file")
-	flag.Int(CfgMessageLayerFCOBAverageNetworkDelay, 5, "the avg. network delay to use for FCoB rules")
-	flag.Int(CfgTangleWidth, 0, "the width of the Tangle")
-}
+// region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 var (
-	// plugin is the plugin instance of the message layer plugin.
-	plugin         *node.Plugin
-	pluginOnce     sync.Once
-	tangleInstance *tangle.Tangle
-	tangleOnce     sync.Once
-	log            *logger.Logger
+	plugin     *node.Plugin
+	pluginOnce sync.Once
+	log        *logger.Logger
 )
 
 // Plugin gets the plugin instance.
@@ -63,25 +55,12 @@ func Plugin() *node.Plugin {
 	pluginOnce.Do(func() {
 		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 	})
+
 	return plugin
-}
-
-// Tangle gets the tangle instance.
-func Tangle() *tangle.Tangle {
-	tangleOnce.Do(func() {
-		tangleInstance = tangle.New(
-			tangle.Store(database.Store()),
-			tangle.Identity(local.GetInstance().LocalIdentity()),
-			tangle.TangleWidth(config.Node().Int(CfgTangleWidth)),
-		)
-	})
-
-	return tangleInstance
 }
 
 func configure(*node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	Tangle().Setup()
 
 	Tangle().Events.Error.Attach(events.NewClosure(func(err error) {
 		log.Error(err)
@@ -105,6 +84,9 @@ func configure(*node.Plugin) {
 	avgNetworkDelay := config.Node().Int(CfgMessageLayerFCOBAverageNetworkDelay)
 	fcob.LikedThreshold = time.Duration(avgNetworkDelay) * time.Second
 	fcob.LocallyFinalizedThreshold = time.Duration(avgNetworkDelay*2) * time.Second
+
+	configureConsensus(plugin)
+	configureSyncBeaconFollower(plugin)
 }
 
 func run(*node.Plugin) {
@@ -114,7 +96,54 @@ func run(*node.Plugin) {
 	}, shutdown.PriorityTangle); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
+
+	runFPC()
+	runSyncBeaconFollower()
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Tangle ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+var (
+	tangleInstance *tangle.Tangle
+	tangleOnce     sync.Once
+)
+
+// Tangle gets the tangle instance.
+func Tangle() *tangle.Tangle {
+	tangleOnce.Do(func() {
+		tangleInstance = tangle.New(
+			tangle.Store(database.Store()),
+			tangle.Identity(local.GetInstance().LocalIdentity()),
+			tangle.TangleWidth(config.Node().Int(CfgTangleWidth)),
+			tangle.Consensus(Consensus()),
+		)
+
+		tangleInstance.Setup()
+	})
+
+	return tangleInstance
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Consensus ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+var (
+	consensus     *fcob.ConsensusProvider
+	consensusOnce sync.Once
+)
+
+func Consensus() *fcob.ConsensusProvider {
+	consensusOnce.Do(func() {
+		consensus = fcob.NewConsensusProvider()
+	})
+
+	return consensus
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // AwaitMessageToBeBooked awaits maxAwait for the given message to get booked.
 func AwaitMessageToBeBooked(f func() (*tangle.Message, error), txID ledgerstate.TransactionID, maxAwait time.Duration) (*tangle.Message, error) {

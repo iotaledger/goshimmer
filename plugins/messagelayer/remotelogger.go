@@ -1,10 +1,9 @@
-package consensus
+package messagelayer
 
 import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	clockplugin "github.com/iotaledger/goshimmer/plugins/clock"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
-	"github.com/iotaledger/goshimmer/plugins/syncbeaconfollower"
 	"github.com/iotaledger/hive.go/node"
 )
 
@@ -39,7 +38,7 @@ func sendToRemoteLog(msgID, issuerID string, issuedTime, arrivalTime, solidTime 
 		DeltaArrival: arrivalTime - issuedTime,
 		DeltaSolid:   solidTime - issuedTime,
 		Clock:        clockEnabled,
-		Sync:         syncbeaconfollower.Synced(),
+		Sync:         Synced(),
 		Type:         remoteLogType,
 	}
 	_ = remoteLogger.Send(m)

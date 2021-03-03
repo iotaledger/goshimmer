@@ -1,4 +1,4 @@
-package syncbeaconfollower
+package messagelayer
 
 import (
 	"errors"
@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/config"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	syncbeacon_payload "github.com/iotaledger/goshimmer/plugins/syncbeacon/payload"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/daemon"
@@ -22,9 +21,6 @@ import (
 )
 
 const (
-	// PluginName is the plugin name of the sync beacon plugin.
-	PluginName = "SyncBeaconFollower"
-
 	// CfgSyncBeaconFollowNodes defines the list of nodes this node should follow to determine its sync status.
 	CfgSyncBeaconFollowNodes = "syncbeaconfollower.followNodes"
 
@@ -59,9 +55,6 @@ func init() {
 
 var (
 	// plugin is the plugin instance of the sync beacon plugin.
-	plugin                  *node.Plugin
-	once                    sync.Once
-	log                     *logger.Logger
 	currentBeacons          map[ed25519.PublicKey]*Status
 	currentBeaconPubKeys    map[ed25519.PublicKey]string
 	mutex                   sync.RWMutex
@@ -77,14 +70,6 @@ var (
 	// the node is not synchronized.
 	ErrNodeNotSynchronized = errors.New("node is not synchronized")
 )
-
-// Plugin gets the plugin instance.
-func Plugin() *node.Plugin {
-	once.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
-	})
-	return plugin
-}
 
 // Synced tells whether the node is in a state we consider synchronized, meaning
 // it has the relevant past and present message data. The synchronized state is
@@ -127,7 +112,7 @@ func OverwriteSyncedState(syncedOverwrite bool) {
 }
 
 // configure plugin
-func configure(_ *node.Plugin) {
+func configureSyncBeaconFollower(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 
 	pubKeys := config.Node().Strings(CfgSyncBeaconFollowNodes)
@@ -166,8 +151,8 @@ func configure(_ *node.Plugin) {
 		log.Panicf("Follow node list cannot be empty: %w", ErrMissingFollowNodes)
 	}
 
-	messagelayer.Tangle().Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		messagelayer.Tangle().Storage.Message(messageID).Consume(func(msg *tangle.Message) {
+	Tangle().Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		Tangle().Storage.Message(messageID).Consume(func(msg *tangle.Message) {
 			messagePayload := msg.Payload()
 			if messagePayload.Type() != syncbeacon_payload.Type {
 				return
@@ -249,7 +234,7 @@ func cleanupFollowNodes() {
 	updateSynced()
 }
 
-func run(_ *node.Plugin) {
+func runSyncBeaconFollower() {
 	if err := daemon.BackgroundWorker("Sync-Beacon-Cleanup", func(shutdownSignal <-chan struct{}) {
 		ticker := time.NewTicker(config.Node().Duration(CfgSyncBeaconCleanupInterval) * time.Second)
 		defer ticker.Stop()

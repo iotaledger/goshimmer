@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/issuer"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/datastructure/orderedmap"
@@ -109,7 +108,7 @@ func (c *Component) SendFunds(msg *tangle.Message) (m *tangle.Message, txID stri
 
 	// attach to message layer
 	issueTransaction := func() (*tangle.Message, error) {
-		message, e := issuer.IssuePayload(tx, messagelayer.Tangle())
+		message, e := messagelayer.Tangle().IssuePayload(tx)
 		if e != nil {
 			return nil, e
 		}

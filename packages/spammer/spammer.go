@@ -6,12 +6,12 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	"github.com/iotaledger/goshimmer/plugins/syncbeaconfollower"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"golang.org/x/xerrors"
 )
 
 // IssuePayloadFunc is a function which issues a payload.
-type IssuePayloadFunc = func(payload payload.Payload, t ...*tangle.Tangle) (*tangle.Message, error)
+type IssuePayloadFunc = func(payload payload.Payload) (*tangle.Message, error)
 
 // Spammer spams messages with a static data payload.
 type Spammer struct {
@@ -48,7 +48,7 @@ func (spammer *Spammer) run(rate int, timeUnit time.Duration, processID int64) {
 
 		// we don't care about errors or the actual issued message
 		_, err := spammer.issuePayloadFunc(payload.NewGenericDataPayload([]byte("SPAM")))
-		if xerrors.Is(err, syncbeaconfollower.ErrNodeNotSynchronized) {
+		if xerrors.Is(err, messagelayer.ErrNodeNotSynchronized) {
 			// can't issue msg because node not in sync
 			return
 		}

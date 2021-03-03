@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/markers"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
@@ -31,6 +32,8 @@ type Tangle struct {
 	Events         *Events
 
 	setupParserOnce sync.Once
+	syncedMutex     sync.RWMutex
+	synced          bool
 }
 
 // New is the constructor for the Tangle.
@@ -99,6 +102,40 @@ func (t *Tangle) ProcessGossipMessage(messageBytes []byte, peer *peer.Peer) {
 	t.setupParserOnce.Do(t.Parser.Setup)
 
 	t.Parser.Parse(messageBytes, peer)
+}
+
+// IssuePayload allows to attach a payload (i.e. a Transaction) to the Tangle.
+func (t *Tangle) IssuePayload(payload payload.Payload) (message *Message, err error) {
+	if !t.Synced() {
+		err = xerrors.Errorf("can't issue payload: %w", ErrNotSynced)
+		return
+	}
+
+	return t.MessageFactory.IssuePayload(payload)
+}
+
+// Synced returns a boolean value that indicates if the node is fully synced and the Tangle has solidified all messages
+// until the genesis.
+func (t *Tangle) Synced() (synced bool) {
+	t.syncedMutex.RLock()
+	defer t.syncedMutex.RUnlock()
+
+	return t.synced
+}
+
+// SetSynced allows to set a boolean value that indicates if the Tangle has solidified all messages until the genesis.
+func (t *Tangle) SetSynced(synced bool) (modified bool) {
+	t.syncedMutex.Lock()
+	defer t.syncedMutex.Unlock()
+
+	if t.synced == synced {
+		return
+	}
+
+	t.synced = synced
+	modified = true
+
+	return
 }
 
 // Prune resets the database and deletes all stored objects (good for testing or "node resets").
