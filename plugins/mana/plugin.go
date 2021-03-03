@@ -287,37 +287,37 @@ func GetHighestManaNodes(manaType mana.Type, n uint) ([]mana.Node, time.Time, er
 }
 
 // GetManaMap returns type mana perception of the node.
-func GetManaMap(manaType mana.Type, timestamp ...time.Time) (mana.NodeMap, time.Time, error) {
-	return baseManaVectors[manaType].GetManaMap(timestamp...)
+func GetManaMap(manaType mana.Type, optionalUpdateTime ...time.Time) (mana.NodeMap, time.Time, error) {
+	return baseManaVectors[manaType].GetManaMap(optionalUpdateTime...)
 }
 
 // GetAccessMana returns the access mana of the node specified.
-func GetAccessMana(nodeID identity.ID, t ...time.Time) (float64, time.Time, error) {
-	return baseManaVectors[mana.AccessMana].GetMana(nodeID, t...)
+func GetAccessMana(nodeID identity.ID, optionalUpdateTime ...time.Time) (float64, time.Time, error) {
+	return baseManaVectors[mana.AccessMana].GetMana(nodeID, optionalUpdateTime...)
 }
 
 // GetConsensusMana returns the consensus mana of the node specified.
-func GetConsensusMana(nodeID identity.ID, t ...time.Time) (float64, time.Time, error) {
-	return baseManaVectors[mana.ConsensusMana].GetMana(nodeID, t...)
+func GetConsensusMana(nodeID identity.ID, optionalUpdateTime ...time.Time) (float64, time.Time, error) {
+	return baseManaVectors[mana.ConsensusMana].GetMana(nodeID, optionalUpdateTime...)
 }
 
 // GetNeighborsMana returns the type mana of the nodes neighbors
-func GetNeighborsMana(manaType mana.Type, t ...time.Time) (mana.NodeMap, error) {
+func GetNeighborsMana(manaType mana.Type, optionalUpdateTime ...time.Time) (mana.NodeMap, error) {
 	neighbors := gossip.Manager().AllNeighbors()
 	res := make(mana.NodeMap)
 	for _, n := range neighbors {
 		// in case of error, value is 0.0
-		value, _, _ := baseManaVectors[manaType].GetMana(n.ID(), t...)
+		value, _, _ := baseManaVectors[manaType].GetMana(n.ID(), optionalUpdateTime...)
 		res[n.ID()] = value
 	}
 	return res, nil
 }
 
 // GetAllManaMaps returns the full mana maps for comparison with the perception of other nodes.
-func GetAllManaMaps(t ...time.Time) map[mana.Type]mana.NodeMap {
+func GetAllManaMaps(optionalUpdateTime ...time.Time) map[mana.Type]mana.NodeMap {
 	res := make(map[mana.Type]mana.NodeMap)
 	for manaType := range baseManaVectors {
-		res[manaType], _, _ = GetManaMap(manaType, t...)
+		res[manaType], _, _ = GetManaMap(manaType, optionalUpdateTime...)
 	}
 	return res
 }

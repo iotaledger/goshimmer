@@ -85,20 +85,24 @@ func (a *AccessBaseManaVector) UpdateAll(t time.Time) error {
 }
 
 // GetMana returns Effective Base Mana 2.
-func (a *AccessBaseManaVector) GetMana(nodeID identity.ID, t ...time.Time) (float64, time.Time, error) {
+func (a *AccessBaseManaVector) GetMana(nodeID identity.ID, optionalUpdateTime ...time.Time) (float64, time.Time, error) {
 	a.Lock()
 	defer a.Unlock()
-	return a.getMana(nodeID, t...)
+	return a.getMana(nodeID, optionalUpdateTime...)
 }
 
 // GetManaMap returns mana perception of the node..
-func (a *AccessBaseManaVector) GetManaMap(timestamp ...time.Time) (res NodeMap, t time.Time, err error) {
+func (a *AccessBaseManaVector) GetManaMap(optionalUpdateTime ...time.Time) (res NodeMap, t time.Time, err error) {
 	a.Lock()
 	defer a.Unlock()
+	t = time.Now()
+	if len(optionalUpdateTime) > 0 {
+		t = optionalUpdateTime[0]
+	}
 	res = make(map[identity.ID]float64)
 	for ID := range a.vector {
 		var mana float64
-		mana, t, err = a.getMana(ID, timestamp...)
+		mana, _, err = a.getMana(ID, t)
 		if err != nil {
 			return
 		}
@@ -115,9 +119,10 @@ func (a *AccessBaseManaVector) GetHighestManaNodes(n uint) (res []Node, t time.T
 		// don't lock the vector after this func returns
 		a.Lock()
 		defer a.Unlock()
+		t = time.Now()
 		for ID := range a.vector {
 			var mana float64
-			mana, t, err = a.getMana(ID)
+			mana, _, err = a.getMana(ID, t)
 			if err != nil {
 				return err
 			}
@@ -222,15 +227,13 @@ func (a *AccessBaseManaVector) update(nodeID identity.ID, t time.Time) error {
 }
 
 // getMana returns the current effective mana value. Not concurrency safe.
-func (a *AccessBaseManaVector) getMana(nodeID identity.ID, updateTime ...time.Time) (float64, time.Time, error) {
+func (a *AccessBaseManaVector) getMana(nodeID identity.ID, optionalUpdateTime ...time.Time) (float64, time.Time, error) {
 	t := time.Now()
 	if _, exist := a.vector[nodeID]; !exist {
 		return 0.0, t, ErrNodeNotFoundInBaseManaVector
 	}
-	if len(updateTime) > 0 {
-		if updateTime[0].Before(t) {
-			t = updateTime[0]
-		}
+	if len(optionalUpdateTime) > 0 {
+		t = optionalUpdateTime[0]
 	}
 	_ = a.update(nodeID, t)
 
