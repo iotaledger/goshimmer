@@ -68,6 +68,7 @@ func (f *ConsensusProvider) onPayloadOpinionFormed(ev *OpinionFormedEvent) {
 	isTxConfirmed := false
 	// set BranchLiked and BranchFinalized if this payload was a conflict
 	f.tangle.Utils.ComputeIfTransaction(ev.MessageID, func(transactionID ledgerstate.TransactionID) {
+		isTxConfirmed = ev.Opinion
 		f.tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 			transactionMetadata.SetFinalized(true)
 		})
