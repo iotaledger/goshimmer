@@ -22,14 +22,15 @@ At first let's define some terms used further to avoid misunderstandings:
 
 Below are the steps that show the example code necessary to create a custom event, attach a handler and trigger the event. 
 
-1. Create function that will call event handlers (handler caller). This function is necessary in order to simplify calling handlers. 
-   Each event has only one handler, which means that all handlers must share the same interface.
+1. Create a function that will call event handlers (handler caller) for a specific event. 
+   Each event has only one handler caller. It that all handlers for the event must share the same interface, because the caller will pass a fixed set of arguments of specific types to handler function. 
+   It's not possible to pass different number of arguments or types to handler function. 
    Callers for all events must also share the same interface - the first argument represents handler function that will be called represented by generic argument.
    Further arguments represent parameters that will be passed to handler during execution. Below are example callers that accept one and two parameters respectively. 
    More arguments can be passed in similar manner. 
    
 ```go
-func sigleArgCaller(handler interface{}, params ...interface{}) {
+func singleArgCaller(handler interface{}, params ...interface{}) {
     handler.(func (*Plugin))(params[0].(*Plugin))
 }
 
@@ -44,23 +45,23 @@ func twoArgsCaller(handler interface{}, params ...interface{}) {
 * `params[0].(*Plugin)` (B)- similarly to previous part, first element of parameter slice is type-casted onto `*Plugin` type, so that it matches handler function interface.
 * `handler.(func (*Plugin))(params[0].(*Plugin))` - the whole expression calls the type-casted handler function with type-casted parameter value. We can also write this as `A(B)` to make things simpler.
 
+The above explanation also allows better understand why all handlers must share the same interface - handler caller passes fixed number of parameters and does type-casting of arguments onto specific types.
+
 
 2. Next, a new event object needs to be created. We pass handler caller as an argument, which is saved inside the object to be called when event is triggered.
 
 ```go
 import "github.com/iotaledger/hive.go/events"
 
-NewEvent := events.NewEvent(sigleArgCaller)
+ThisEvent := events.NewEvent(sigleArgCaller)
 ```
 
 3. After creating the event, handlers (or callbacks) can be attached to it. An event can have multiple callbacks, however they all need to share the same interface. 
    One thing to note, is that functions are not passed directly - first they are wrapped into a `events.Closure` object like in the example below. 
 
 ```go
-NewEvent.Attach(events.NewClosure(func () {
-    
-    _ = m.DropNeighbor(peer.ID())
-    m.events.NeighborRemoved.Trigger(nbr)
+ThisEvent.Attach(events.NewClosure(func (arg *Plugin) {
+    // do something
 }))
 ```
 
@@ -68,5 +69,5 @@ NewEvent.Attach(events.NewClosure(func () {
 
 ```go
 somePlugin Plugin
-NewEvent.Trigger(&somePlugin)
+ThisEvent.Trigger(&somePlugin)
 ```
