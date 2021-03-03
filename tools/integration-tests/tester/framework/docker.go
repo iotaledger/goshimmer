@@ -141,7 +141,7 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 				return strings.Join(config.ManaAllowedAccessPledge[:], ",")
 			}()),
 			fmt.Sprintf("--mana.allowedConsensusPledge=%s", func() string {
-				return strings.Join(config.ManaAllowedAccessPledge[:], ",")
+				return strings.Join(config.ManaAllowedConsensusPledge[:], ",")
 			}()),
 		},
 	}
