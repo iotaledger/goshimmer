@@ -64,7 +64,7 @@ type Storage struct {
 
 // NewStorage creates a new Storage.
 func NewStorage(tangle *Tangle) (storage *Storage) {
-	osFactory := objectstorage.NewFactory(tangle.Options.Store, database.PrefixMessageLayer)
+	osFactory := objectstorage.NewFactory(tangle.Options.Store, database.PrefixTangle)
 
 	storage = &Storage{
 		tangle:                            tangle,
