@@ -32,21 +32,9 @@ func sendTransactionHandler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: err.Error()})
 	}
 
-	// check balances validity
-	consumedOutputs := make(ledgerstate.Outputs, len(tx.Essence().Inputs()))
-	for i, consumedOutputID := range tx.Essence().Inputs() {
-		referencedOutputID := consumedOutputID.(*ledgerstate.UTXOInput).ReferencedOutputID()
-		messagelayer.Tangle().LedgerState.Output(referencedOutputID).Consume(func(output ledgerstate.Output) {
-			consumedOutputs[i] = output
-		})
-	}
-	if !ledgerstate.TransactionBalancesValid(consumedOutputs, tx.Essence().Outputs()) {
-		return c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: "sum of consumed and spent balances is not 0"})
-	}
-
-	// check unlock blocks validity
-	if !ledgerstate.UnlockBlocksValid(consumedOutputs, tx) {
-		return c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: "spending of referenced consumedOutputs is not authorized"})
+	// check transaction validity
+	if valid, err := messagelayer.Tangle().LedgerState.CheckTransaction(tx); !valid {
+		return c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: err.Error()})
 	}
 
 	// check if transaction is too old

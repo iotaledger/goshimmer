@@ -186,4 +186,9 @@ func (l *LedgerState) CheckTransaction(transaction *ledgerstate.Transaction) (va
 	return l.utxoDAG.CheckTransaction(transaction)
 }
 
+// ConsumedOutputs returns the consumed (cached)Outputs of the given Transaction.
+func (l *LedgerState) ConsumedOutputs(transaction *ledgerstate.Transaction) (cachedInputs ledgerstate.CachedOutputs) {
+	return l.utxoDAG.ConsumedOutputs(transaction)
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
