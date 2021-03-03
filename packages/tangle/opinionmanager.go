@@ -31,6 +31,9 @@ func NewOpinionManager(tangle *Tangle) (opinionFormer *OpinionManager) {
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (o *OpinionManager) Setup() {
 	if o.tangle.Options.ConsensusProvider == nil {
+		o.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(func(messageID MessageID) {
+			o.Events.MessageOpinionFormed.Trigger(messageID)
+		}))
 		return
 	}
 
@@ -66,11 +69,6 @@ func (o *OpinionManager) PayloadLiked(messageID MessageID) (liked bool) {
 
 // MessageEligible returns whether the given messageID is marked as eligible.
 func (o *OpinionManager) MessageEligible(messageID MessageID) (eligible bool) {
-	if o.tangle.Options.ConsensusProvider == nil {
-		return
-	}
-
-	// return true if the message is the Genesis
 	if messageID == EmptyMessageID {
 		return true
 	}
