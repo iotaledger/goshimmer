@@ -67,10 +67,10 @@ func TestAPI(t *testing.T) {
 		peers[i] = peer
 	}
 
-	allowedPeer := peers[0]
-	allowedID := base58.Encode(allowedPeer.Identity.ID().Bytes())
-	disallowedPeer := peers[1]
-	disallowedID := base58.Encode(disallowedPeer.Identity.ID().Bytes())
+	accessPeer := peers[0]
+	accessPeerID := base58.Encode(accessPeer.Identity.ID().Bytes())
+	consensusPeer := peers[1]
+	consensusPeerID := base58.Encode(consensusPeer.Identity.ID().Bytes())
 
 	// faucet
 	faucet, err := n.CreatePeer(framework.GoShimmerConfig{
@@ -78,8 +78,8 @@ func TestAPI(t *testing.T) {
 		Mana:                              true,
 		ManaAllowedAccessFilterEnabled:    true,
 		ManaAllowedConsensusFilterEnabled: true,
-		ManaAllowedAccessPledge:           []string{allowedID},
-		ManaAllowedConsensusPledge:        []string{disallowedID},
+		ManaAllowedAccessPledge:           []string{accessPeerID},
+		ManaAllowedConsensusPledge:        []string{consensusPeerID},
 		SyncBeacon:                        true,
 	})
 
@@ -92,8 +92,8 @@ func TestAPI(t *testing.T) {
 	addrBalance := make(map[string]map[ledgerstate.Color]int64)
 	faucetAddrStr := faucet.Seed.Address(1).Address().Base58()
 	addrBalance[faucetAddrStr] = make(map[ledgerstate.Color]int64)
-	addrBalance[allowedPeer.Address(0).Address().Base58()] = make(map[ledgerstate.Color]int64)
-	addrBalance[disallowedPeer.Address(0).Address().Base58()] = make(map[ledgerstate.Color]int64)
+	addrBalance[accessPeer.Address(0).Address().Base58()] = make(map[ledgerstate.Color]int64)
+	addrBalance[consensusPeer.Address(0).Address().Base58()] = make(map[ledgerstate.Color]int64)
 
 	// get faucet balances
 	unspentOutputs, err := faucet.GetUnspentOutputs([]string{faucetAddrStr})
@@ -101,20 +101,29 @@ func TestAPI(t *testing.T) {
 	addrBalance[faucetAddrStr][ledgerstate.ColorIOTA] = unspentOutputs.UnspentOutputs[0].OutputIDs[0].Balances[0].Value
 
 	// pledge mana to allowed pledge
-	fail, _ := tests.SendIotaTransaction(t, faucet, allowedPeer, addrBalance, 100, tests.TransactionConfig{
+	fail, _ := tests.SendIotaTransaction(t, faucet, accessPeer, addrBalance, 100, tests.TransactionConfig{
 		FromAddressIndex:      1,
 		ToAddressIndex:        0,
-		AccessManaPledgeID:    allowedPeer.Identity.ID(),
-		ConsensusManaPledgeID: allowedPeer.Identity.ID(),
+		AccessManaPledgeID:    accessPeer.Identity.ID(),
+		ConsensusManaPledgeID: consensusPeer.Identity.ID(),
 	})
 	require.False(t, fail)
 
 	// pledge mana to disallowed pledge
-	fail, _ = tests.SendIotaTransaction(t, faucet, disallowedPeer, addrBalance, 100, tests.TransactionConfig{
+	fail, _ = tests.SendIotaTransaction(t, faucet, consensusPeer, addrBalance, 100, tests.TransactionConfig{
 		FromAddressIndex:      2,
 		ToAddressIndex:        0,
-		AccessManaPledgeID:    disallowedPeer.Identity.ID(),
-		ConsensusManaPledgeID: disallowedPeer.Identity.ID(),
+		AccessManaPledgeID:    accessPeer.Identity.ID(),
+		ConsensusManaPledgeID: accessPeer.Identity.ID(),
+	})
+	require.True(t, fail)
+
+	// pledge mana to disallowed pledge
+	fail, _ = tests.SendIotaTransaction(t, faucet, consensusPeer, addrBalance, 100, tests.TransactionConfig{
+		FromAddressIndex:      2,
+		ToAddressIndex:        0,
+		AccessManaPledgeID:    consensusPeer.Identity.ID(),
+		ConsensusManaPledgeID: consensusPeer.Identity.ID(),
 	})
 	require.True(t, fail)
 }

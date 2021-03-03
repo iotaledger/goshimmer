@@ -163,17 +163,19 @@ func SendTransactionFromFaucet(t *testing.T, peers []*framework.Peer, sentValue 
 	}
 
 	faucetPeer := peers[0]
-	// faucet has moved all its funds to the next address
-	faucetAddrStr := faucetPeer.Seed.Address(1).Address().Base58()
-	// get faucet balances
-	unspentOutputs, err := faucetPeer.GetUnspentOutputs([]string{faucetAddrStr})
-	require.NoErrorf(t, err, "could not get unspent outputs on %s", faucetPeer.String())
-	addrBalance[faucetAddrStr][ledgerstate.ColorIOTA] = unspentOutputs.UnspentOutputs[0].OutputIDs[0].Balances[0].Value
+	var i uint64
+	// faucet has split genesis output into n bits of 1337 each and remainder on n + 1
+	for i = 1; i < uint64(len(peers)); i++ {
+		faucetAddrStr := faucetPeer.Seed.Address(i).Address().Base58()
+		addrBalance[faucetAddrStr] = make(map[ledgerstate.Color]int64)
+		// get faucet balances
+		unspentOutputs, err := faucetPeer.GetUnspentOutputs([]string{faucetAddrStr})
+		require.NoErrorf(t, err, "could not get unspent outputs on %s", faucetPeer.String())
+		addrBalance[faucetAddrStr][ledgerstate.ColorIOTA] = unspentOutputs.UnspentOutputs[0].OutputIDs[0].Balances[0].Value
 
-	// send funds to other peers
-	for i := 1; i < len(peers); i++ {
+		// send funds to other peers
 		fail, txId := SendIotaTransaction(t, faucetPeer, peers[i], addrBalance, sentValue, TransactionConfig{
-			FromAddressIndex:      1,
+			FromAddressIndex:      i,
 			ToAddressIndex:        0,
 			AccessManaPledgeID:    peers[i].ID(),
 			ConsensusManaPledgeID: peers[i].ID(),
@@ -258,13 +260,16 @@ func SendIotaTransaction(t *testing.T, from *framework.Peer, to *framework.Peer,
 		outputs = append(outputs, output)
 	}
 	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), txConfig.AccessManaPledgeID, txConfig.ConsensusManaPledgeID, ledgerstate.NewInputs(input), ledgerstate.NewOutputs(outputs...))
-	sig := ledgerstate.NewED25519Signature(from.KeyPair(0).PublicKey, from.KeyPair(0).PrivateKey.Sign(txEssence.Bytes()))
+	sig := ledgerstate.NewED25519Signature(from.KeyPair(txConfig.FromAddressIndex).PublicKey, from.KeyPair(txConfig.FromAddressIndex).PrivateKey.Sign(txEssence.Bytes()))
 	unlockBlock := ledgerstate.NewSignatureUnlockBlock(sig)
 	txn := ledgerstate.NewTransaction(txEssence, ledgerstate.UnlockBlocks{unlockBlock})
 
 	// send transaction
 	txId, err = from.SendTransaction(txn.Bytes())
-	require.NoErrorf(t, err, "could not send transaction on %s", from.String())
+	if err != nil {
+		fmt.Println(fmt.Errorf("could not send transaction on %s: %w", from.String(), err).Error())
+		return true, ""
+	}
 
 	addrBalance[inputAddr.Base58()][ledgerstate.ColorIOTA] -= sentValue
 	addrBalance[outputAddr.Base58()][ledgerstate.ColorIOTA] += sentValue
@@ -275,12 +280,12 @@ func SendIotaTransaction(t *testing.T, from *framework.Peer, to *framework.Peer,
 // SendColoredTransaction sends IOTA and colored tokens from and to a given peer and returns the ok flag and transaction ID.
 // 1. Get the first unspent outputs of `from`
 // 2. Send 50 IOTA and 50 ColorMint to `to`
-func SendColoredTransaction(t *testing.T, from *framework.Peer, to *framework.Peer, addrBalance map[string]map[ledgerstate.Color]int64) (ok bool, txId string) {
+func SendColoredTransaction(t *testing.T, from *framework.Peer, to *framework.Peer, addrBalance map[string]map[ledgerstate.Color]int64, txConfig TransactionConfig) (fail bool, txId string) {
 	var sentIOTAValue int64 = 50
 	var sentMintValue int64 = 50
 	var balanceList []coloredBalance
-	inputAddr := from.Seed.Address(0).Address()
-	outputAddr := to.Seed.Address(0).Address()
+	inputAddr := from.Seed.Address(txConfig.FromAddressIndex).Address()
+	outputAddr := to.Seed.Address(txConfig.ToAddressIndex).Address()
 
 	// prepare inputs
 	resp, err := from.GetUnspentOutputs([]string{inputAddr.Base58()})
@@ -304,7 +309,7 @@ func SendColoredTransaction(t *testing.T, from *framework.Peer, to *framework.Pe
 	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, ledgerstate.NewInputs(input), ledgerstate.NewOutputs(output))
 
 	// sign transaction
-	sig := ledgerstate.NewED25519Signature(from.KeyPair(0).PublicKey, from.KeyPair(0).PrivateKey.Sign(txEssence.Bytes()))
+	sig := ledgerstate.NewED25519Signature(from.KeyPair(txConfig.FromAddressIndex).PublicKey, from.KeyPair(txConfig.FromAddressIndex).PrivateKey.Sign(txEssence.Bytes()))
 	unlockBlock := ledgerstate.NewSignatureUnlockBlock(sig)
 	txn := ledgerstate.NewTransaction(txEssence, ledgerstate.UnlockBlocks{unlockBlock})
 
@@ -325,12 +330,15 @@ func SendColoredTransaction(t *testing.T, from *framework.Peer, to *framework.Pe
 
 	// send transaction
 	txId, err = from.SendTransaction(txn.Bytes())
-	require.NoErrorf(t, err, "could not send transaction on %s", from.String())
+	if err != nil {
+		fmt.Println(fmt.Errorf("could not send transaction on %s: %w", from.String(), err).Error())
+		return true, ""
+	}
 
 	// update balance list
 	updateBalanceList(addrBalance, balanceList, inputAddr.Base58(), outputAddr.Base58(), txn.Essence().Outputs()[0])
 
-	return true, txId
+	return false, txId
 }
 
 // updateBalanceList updates the token amount map with given peers and balances.
