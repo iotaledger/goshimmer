@@ -1,20 +1,31 @@
-package tangle
+package fcob
 
 import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	voter "github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/timedexecutor"
 	"github.com/iotaledger/hive.go/timedqueue"
 )
 
 // region FCoB /////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+const (
+	// PrefixOpinion defines the storage prefix for the opinion storage.
+	PrefixOpinion byte = iota
+
+	// PrefixTimestampOpinion defines the storage prefix for the timestamp opinion storage.
+	PrefixTimestampOpinion
+
+	// cacheTime defines the duration that the object storage caches objects.
+	cacheTime = 2 * time.Second
+)
 
 var (
 	// LikedThreshold is the first time thresshold of FCoB.
@@ -28,19 +39,21 @@ var (
 type FCoB struct {
 	Events *FCoBEvents
 
-	tangle *Tangle
+	tangle *tangle.Tangle
 
 	opinionStorage           *objectstorage.ObjectStorage
+	timestampOpinionStorage  *objectstorage.ObjectStorage
 	likedThresholdExecutor   *timedexecutor.TimedExecutor
 	locallyFinalizedExecutor *timedexecutor.TimedExecutor
 }
 
 // NewFCoB returns a new instance of FCoB.
-func NewFCoB(store kvstore.KVStore, tangle *Tangle) (fcob *FCoB) {
-	osFactory := objectstorage.NewFactory(store, database.PrefixTangle)
+func NewFCoB(tangle *tangle.Tangle) (fcob *FCoB) {
+	osFactory := objectstorage.NewFactory(tangle.Options.Store, database.PrefixFCOB)
 	fcob = &FCoB{
 		tangle:                   tangle,
-		opinionStorage:           osFactory.New(PrefixFCoB, OpinionFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		opinionStorage:           osFactory.New(PrefixOpinion, OpinionFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		timestampOpinionStorage:  osFactory.New(PrefixTimestampOpinion, TimestampOpinionFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 		likedThresholdExecutor:   timedexecutor.New(1),
 		locallyFinalizedExecutor: timedexecutor.New(1),
 		Events: &FCoBEvents{
@@ -75,7 +88,7 @@ func (f *FCoB) VoteError() *events.Event {
 }
 
 // Opinion returns the liked status of a given messageID.
-func (f *FCoB) Opinion(messageID MessageID) (opinion bool) {
+func (f *FCoB) Opinion(messageID tangle.MessageID) (opinion bool) {
 	f.tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
 		opinion = f.OpinionEssence(transactionID).liked
 	})
@@ -89,7 +102,7 @@ func (f *FCoB) TransactionOpinionEssence(transactionID ledgerstate.TransactionID
 }
 
 // Evaluate evaluates the opinion of the given messageID.
-func (f *FCoB) Evaluate(messageID MessageID) {
+func (f *FCoB) Evaluate(messageID tangle.MessageID) {
 	if f.tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
 		f.onTransactionBooked(transactionID, messageID)
 	}) {
@@ -99,7 +112,7 @@ func (f *FCoB) Evaluate(messageID MessageID) {
 	f.Events.PayloadOpinionFormed.Trigger(&OpinionFormedEvent{messageID, true})
 }
 
-func (f *FCoB) onTransactionBooked(transactionID ledgerstate.TransactionID, messageID MessageID) {
+func (f *FCoB) onTransactionBooked(transactionID ledgerstate.TransactionID, messageID tangle.MessageID) {
 	// if the opinion for this transactionID is already present,
 	// it's a reattachment and thus, we re-use the same opinion.
 	isReattachment := false
@@ -219,6 +232,49 @@ func (f *FCoB) ProcessVote(ev *vote.OpinionEvent) {
 			}
 		})
 	}
+}
+
+// TimestampOpinion returns the timestampOpinion of the given message metadata.
+func (f *FCoB) TimestampOpinion(messageID tangle.MessageID) (timestampOpinion *TimestampOpinion) {
+	(&CachedTimestampOpinion{CachedObject: f.timestampOpinionStorage.Load(messageID.Bytes())}).Consume(func(opinion *TimestampOpinion) {
+		timestampOpinion = opinion
+	})
+
+	return
+}
+
+// SetTimestampOpinion sets the timestampOpinion flag.
+// It returns true if the timestampOpinion flag is modified. False otherwise.
+func (f *FCoB) StoreTimestampOpinion(timestampOpinion *TimestampOpinion) (modified bool) {
+	cachedTimestampOpinion := &CachedTimestampOpinion{CachedObject: f.timestampOpinionStorage.ComputeIfAbsent(timestampOpinion.MessageID.Bytes(), func(key []byte) objectstorage.StorableObject {
+		timestampOpinion.SetModified()
+		timestampOpinion.Persist()
+		modified = true
+
+		return timestampOpinion
+	})}
+
+	if modified {
+		cachedTimestampOpinion.Release()
+		return
+	}
+
+	cachedTimestampOpinion.Consume(func(loadedTimestampOpinion *TimestampOpinion) {
+		if loadedTimestampOpinion.Equals(timestampOpinion) {
+			return
+		}
+
+		loadedTimestampOpinion.LoK = timestampOpinion.LoK
+		loadedTimestampOpinion.Value = timestampOpinion.Value
+
+		timestampOpinion.SetModified()
+		timestampOpinion.Persist()
+		modified = true
+
+		return
+	})
+
+	return
 }
 
 // OpinionEssence returns the OpinionEssence (i.e., a copy of the triple{timestamp, liked, levelOfKnowledge})

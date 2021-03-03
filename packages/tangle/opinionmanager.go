@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/events"
 )
 
@@ -10,22 +11,18 @@ import (
 type OpinionManager struct {
 	Events OpinionFormerEvents
 
-	tangle    *Tangle
-	consensus ConsensusProvider
+	tangle *Tangle
 }
 
 // NewOpinionManager returns a new OpinionManager.
-func NewOpinionManager(tangle *Tangle, consensus ConsensusProvider) (opinionFormer *OpinionManager) {
+func NewOpinionManager(tangle *Tangle) (opinionFormer *OpinionManager) {
 	opinionFormer = &OpinionManager{
 		Events: OpinionFormerEvents{
-			PayloadOpinionFormed:   events.NewEvent(payloadOpinionCaller),
-			TimestampOpinionFormed: events.NewEvent(messageIDEventHandler),
-			MessageOpinionFormed:   events.NewEvent(messageIDEventHandler),
-			TransactionConfirmed:   events.NewEvent(messageIDEventHandler),
+			MessageOpinionFormed: events.NewEvent(MessageIDEventHandler),
+			TransactionConfirmed: events.NewEvent(MessageIDEventHandler),
 		},
 
-		tangle:    tangle,
-		consensus: consensus,
+		tangle: tangle,
 	}
 
 	return
@@ -33,34 +30,43 @@ func NewOpinionManager(tangle *Tangle, consensus ConsensusProvider) (opinionForm
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (o *OpinionManager) Setup() {
-	if o == nil {
+	if o.tangle.Options.ConsensusProvider == nil {
 		return
 	}
 
-	o.consensus.Setup(o.tangle)
+	o.tangle.Options.ConsensusProvider.Setup()
 }
 
 // Shutdown shuts down the component and persists its state.
 func (o *OpinionManager) Shutdown() {
-	if o == nil {
+	if o.tangle.Options.ConsensusProvider == nil {
 		return
 	}
 
-	o.consensus.Shutdown()
+	o.tangle.Options.ConsensusProvider.Shutdown()
 }
 
 // PayloadLiked returns the opinion of the given MessageID.
 func (o *OpinionManager) PayloadLiked(messageID MessageID) (liked bool) {
-	if o == nil {
-		return
-	}
+	o.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+		if message.Payload().Type() != ledgerstate.TransactionType {
+			liked = true
+			return
+		}
 
-	return o.consensus.PayloadLiked(messageID)
+		if o.tangle.Options.ConsensusProvider == nil {
+			return
+		}
+
+		liked = o.tangle.Options.ConsensusProvider.PayloadLiked(messageID)
+	})
+
+	return
 }
 
 // MessageEligible returns whether the given messageID is marked as eligible.
 func (o *OpinionManager) MessageEligible(messageID MessageID) (eligible bool) {
-	if o == nil {
+	if o.tangle.Options.ConsensusProvider == nil {
 		return
 	}
 
@@ -82,12 +88,6 @@ func (o *OpinionManager) MessageEligible(messageID MessageID) (eligible bool) {
 
 // OpinionFormerEvents defines all the events related to the opinion manager.
 type OpinionFormerEvents struct {
-	// Fired when an opinion of a payload is formed.
-	PayloadOpinionFormed *events.Event
-
-	// Fired when an opinion of a timestamp is formed.
-	TimestampOpinionFormed *events.Event
-
 	// Fired when an opinion of a message is formed.
 	MessageOpinionFormed *events.Event
 
@@ -95,25 +95,13 @@ type OpinionFormerEvents struct {
 	TransactionConfirmed *events.Event
 }
 
-// OpinionFormedEvent holds data about a Payload/MessageOpinionFormed event.
-type OpinionFormedEvent struct {
-	// The messageID of the message containing the payload.
-	MessageID MessageID
-	// The opinion of the payload.
-	Opinion bool
-}
-
-func payloadOpinionCaller(handler interface{}, params ...interface{}) {
-	handler.(func(*OpinionFormedEvent))(params[0].(*OpinionFormedEvent))
-}
-
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region ConsensusProvider ////////////////////////////////////////////////////////////////////////////////////////////
 
 type ConsensusProvider interface {
-	Setup(tangle *Tangle)
-	EvaluateMessage(messageID MessageID)
+	Init(tangle *Tangle)
+	Setup()
 	PayloadLiked(messageID MessageID) (liked bool)
 	Shutdown()
 }

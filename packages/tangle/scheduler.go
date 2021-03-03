@@ -30,7 +30,7 @@ type Scheduler struct {
 func NewScheduler(tangle *Tangle) (scheduler *Scheduler) {
 	scheduler = &Scheduler{
 		Events: &SchedulerEvents{
-			MessageScheduled: events.NewEvent(messageIDEventHandler),
+			MessageScheduled: events.NewEvent(MessageIDEventHandler),
 		},
 
 		tangle:            tangle,

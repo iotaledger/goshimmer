@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -102,8 +103,8 @@ func configure(*node.Plugin) {
 	}
 
 	avgNetworkDelay := config.Node().Int(CfgMessageLayerFCOBAverageNetworkDelay)
-	tangle.LikedThreshold = (time.Duration(avgNetworkDelay) * time.Second)
-	tangle.LocallyFinalizedThreshold = (time.Duration(avgNetworkDelay*2) * time.Second)
+	fcob.LikedThreshold = time.Duration(avgNetworkDelay) * time.Second
+	fcob.LocallyFinalizedThreshold = time.Duration(avgNetworkDelay*2) * time.Second
 }
 
 func run(*node.Plugin) {

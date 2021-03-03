@@ -6,8 +6,6 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/vote"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -39,13 +37,11 @@ func TestTipManager_AddTip(t *testing.T) {
 		})
 
 		// mock the Tangle's PayloadOpinionProvider so that we can add payloads without actually building opinions
-		mockOpinionProvider := &mockPayloadOpinionProvider{
-			payloadOpinionFunc: func(messageID MessageID) bool {
+		tangle.Options.ConsensusProvider = &mockConsensusProvider{
+			func(messageID MessageID) bool {
 				return messageID == message.ID()
 			},
 		}
-		tangle.PayloadOpinionProvider = mockOpinionProvider
-		tangle.OpinionManager.payloadOpinionProvider = mockOpinionProvider
 
 		tipManager.AddTip(message)
 		assert.Equal(t, 0, tipManager.StrongTipCount())
@@ -378,8 +374,8 @@ func TestTipManager_TransactionTips(t *testing.T) {
 	outputsByID := make(map[ledgerstate.OutputID]ledgerstate.Output)
 
 	// mock the Tangle's PayloadOpinionProvider so that we can add transaction payloads without actually building opinions
-	mockOpinionProvider := &mockPayloadOpinionProvider{
-		payloadOpinionFunc: func(messageID MessageID) bool {
+	tangle.Options.ConsensusProvider = &mockConsensusProvider{
+		func(messageID MessageID) bool {
 			for _, msg := range messages {
 				if msg.ID() == messageID {
 					return true
@@ -388,8 +384,6 @@ func TestTipManager_TransactionTips(t *testing.T) {
 			return false
 		},
 	}
-	tangle.PayloadOpinionProvider = mockOpinionProvider
-	tangle.OpinionManager.payloadOpinionProvider = mockOpinionProvider
 
 	// region prepare scenario /////////////////////////////////////////////////////////////////////////////////////////
 
@@ -803,35 +797,16 @@ func (m *Message) setMessageMetadata(tangle *Tangle, eligible bool, branchID led
 	})
 }
 
-type mockPayloadOpinionProvider struct {
-	payloadOpinionFunc func(messageID MessageID) bool
+type mockConsensusProvider struct {
+	opinionLikedFnc func(messageID MessageID) bool
 }
 
-func (m *mockPayloadOpinionProvider) TransactionOpinionEssence(id ledgerstate.TransactionID) OpinionEssence {
-	panic("implement me")
+func (m *mockConsensusProvider) Init(*Tangle) {}
+
+func (m *mockConsensusProvider) Setup() {}
+
+func (m *mockConsensusProvider) PayloadLiked(messageID MessageID) (liked bool) {
+	return m.opinionLikedFnc(messageID)
 }
 
-func (m *mockPayloadOpinionProvider) Evaluate(id MessageID) {
-	panic("implement me")
-}
-
-func (m *mockPayloadOpinionProvider) Opinion(id MessageID) bool {
-	return m.payloadOpinionFunc(id)
-}
-
-func (m *mockPayloadOpinionProvider) Setup(event *events.Event) {
-	panic("implement me")
-}
-
-func (m *mockPayloadOpinionProvider) Shutdown() {
-}
-
-func (m *mockPayloadOpinionProvider) Vote() *events.Event {
-	panic("implement me")
-}
-func (m *mockPayloadOpinionProvider) VoteError() *events.Event {
-	panic("implement me")
-}
-func (m *mockPayloadOpinionProvider) ProcessVote(*vote.OpinionEvent) {
-	panic("implement me")
-}
+func (m *mockConsensusProvider) Shutdown() {}

@@ -1,8 +1,8 @@
 package consensus
 
 import (
+	fpcConsensus "github.com/iotaledger/goshimmer/packages/consensus/fcob"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 )
@@ -21,9 +21,9 @@ func OpinionRetriever(id string, objectType vote.ObjectType) opinion.Opinion {
 			return opinion.Unknown
 		}
 
-		opinionEssence := fpcconsensus.PayloadOpinionProvider.TransactionOpinionEssence(transactionID)
+		opinionEssence := consensusProvider.PayloadOpinionProvider.TransactionOpinionEssence(transactionID)
 
-		if opinionEssence.LevelOfKnowledge() == tangle.Pending {
+		if opinionEssence.LevelOfKnowledge() == fpcConsensus.Pending {
 			return opinion.Unknown
 		}
 

@@ -10,7 +10,7 @@ import (
 )
 
 func TestScenario_2(t *testing.T) {
-	tangle := New(WithoutOpinionFormer(true))
+	tangle := New()
 	defer tangle.Shutdown()
 	tangle.Booker.Setup()
 

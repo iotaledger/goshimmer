@@ -16,6 +16,7 @@ import (
 
 // Tangle is the central data structure of the IOTA protocol.
 type Tangle struct {
+	Options        *Options
 	Parser         *Parser
 	Storage        *Storage
 	Solidifier     *Solidifier
@@ -27,7 +28,6 @@ type Tangle struct {
 	MessageFactory *MessageFactory
 	LedgerState    *LedgerState
 	Utils          *Utils
-	Options        *Options
 	Events         *Events
 
 	setupParserOnce sync.Once
@@ -36,13 +36,14 @@ type Tangle struct {
 // New is the constructor for the Tangle.
 func New(options ...Option) (tangle *Tangle) {
 	tangle = &Tangle{
-		Options: buildOptions(options...),
 		Events: &Events{
-			MessageEligible: events.NewEvent(messageIDEventHandler),
-			MessageInvalid:  events.NewEvent(messageIDEventHandler),
+			MessageEligible: events.NewEvent(MessageIDEventHandler),
+			MessageInvalid:  events.NewEvent(MessageIDEventHandler),
 			Error:           events.NewEvent(events.ErrorCaller),
 		},
 	}
+
+	tangle.Configure(options...)
 
 	tangle.Parser = NewParser()
 	tangle.Storage = NewStorage(tangle)
@@ -50,13 +51,32 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.Scheduler = NewScheduler(tangle)
 	tangle.LedgerState = NewLedgerState(tangle)
 	tangle.Booker = NewBooker(tangle)
-	tangle.OpinionManager = NewOpinionManager(tangle, tangle.Options.ConsensusProvider)
+	tangle.OpinionManager = NewOpinionManager(tangle)
 	tangle.Requester = NewRequester(tangle)
 	tangle.TipManager = NewTipManager(tangle)
 	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager)
 	tangle.Utils = NewUtils(tangle)
 
 	return
+}
+
+// Configure modifies the configuration of the Tangle.
+func (t *Tangle) Configure(options ...Option) {
+	if t.Options == nil {
+		t.Options = &Options{
+			Store:                        mapdb.NewMapDB(),
+			Identity:                     identity.GenerateLocalIdentity(),
+			IncreaseMarkersIndexCallback: increaseMarkersIndexCallbackStrategy,
+		}
+	}
+
+	for _, option := range options {
+		option(t.Options)
+	}
+
+	if t.Options.ConsensusProvider != nil {
+		t.Options.ConsensusProvider.Init(t)
+	}
 }
 
 // Setup sets up the data flow by connecting the different components (by calling their corresponding Setup method).
@@ -66,14 +86,9 @@ func (t *Tangle) Setup() {
 	t.Requester.Setup()
 	t.Scheduler.Setup()
 	t.Booker.Setup()
+	t.OpinionManager.Setup()
+	t.TipManager.Setup()
 
-	// Booker and LedgerState setup is left out until the old value tangle is in use.
-	if !t.Options.WithoutOpinionFormer {
-		t.OpinionManager.Setup()
-		// TipManager needs OpinionManager to attach to event
-		t.TipManager.Setup()
-		return
-	}
 	t.MessageFactory.Events.Error.Attach(events.NewClosure(func(err error) {
 		t.Events.Error.Trigger(xerrors.Errorf("error in MessageFactory: %w", err))
 	}))
@@ -118,7 +133,7 @@ type Events struct {
 	Error *events.Event
 }
 
-func messageIDEventHandler(handler interface{}, params ...interface{}) {
+func MessageIDEventHandler(handler interface{}, params ...interface{}) {
 	handler.(func(MessageID))(params[0].(MessageID))
 }
 
@@ -134,25 +149,9 @@ type Option func(*Options)
 type Options struct {
 	Store                        kvstore.KVStore
 	Identity                     *identity.LocalIdentity
-	WithoutOpinionFormer         bool
 	IncreaseMarkersIndexCallback markers.IncreaseIndexCallback
 	TangleWidth                  int
 	ConsensusProvider            ConsensusProvider
-}
-
-// buildOptions generates the Options object use by the Tangle.
-func buildOptions(options ...Option) (builtOptions *Options) {
-	builtOptions = &Options{
-		Store:                        mapdb.NewMapDB(),
-		Identity:                     identity.GenerateLocalIdentity(),
-		IncreaseMarkersIndexCallback: increaseMarkersIndexCallbackStrategy,
-	}
-
-	for _, option := range options {
-		option(builtOptions)
-	}
-
-	return
 }
 
 // Store is an Option for the Tangle that allows to specify which storage layer is supposed to be used to persist data.
@@ -166,13 +165,6 @@ func Store(store kvstore.KVStore) Option {
 func Identity(identity *identity.LocalIdentity) Option {
 	return func(options *Options) {
 		options.Identity = identity
-	}
-}
-
-// WithoutOpinionFormer an Option for the Tangle that allows to disable the OpinionManager component.
-func WithoutOpinionFormer(with bool) Option {
-	return func(options *Options) {
-		options.WithoutOpinionFormer = with
 	}
 }
 

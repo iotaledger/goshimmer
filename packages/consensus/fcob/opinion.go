@@ -1,4 +1,4 @@
-package tangle
+package fcob
 
 import (
 	"fmt"
@@ -6,8 +6,10 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
@@ -296,6 +298,32 @@ func (c ConflictSet) anchor() (opinion *OpinionEssence) {
 		}
 	}
 	return opinion
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Events ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type Events struct {
+	PayloadOpinionFormed   *events.Event
+	TimestampOpinionFormed *events.Event
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region OpinionFormedEvent ///////////////////////////////////////////////////////////////////////////////////////////
+
+// OpinionFormedEvent holds data about a Payload/MessageOpinionFormed event.
+type OpinionFormedEvent struct {
+	// The messageID of the message containing the payload.
+	MessageID tangle.MessageID
+
+	// The opinion of the payload.
+	Opinion bool
+}
+
+func payloadOpinionCaller(handler interface{}, params ...interface{}) {
+	handler.(func(*OpinionFormedEvent))(params[0].(*OpinionFormedEvent))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

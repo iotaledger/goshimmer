@@ -100,6 +100,7 @@ func (t *TipManager) AddTip(message *Message) {
 	}
 
 	if !t.tangle.OpinionManager.PayloadLiked(messageID) {
+		fmt.Println("ABORT HERE")
 		return
 	}
 

@@ -6,11 +6,10 @@ import (
 	"sync"
 	"time"
 
-	fpcConsensus "github.com/iotaledger/goshimmer/packages/consensus/fpc"
+	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/prng"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/packages/vote/fpc"
 	votenet "github.com/iotaledger/goshimmer/packages/vote/net"
@@ -28,8 +27,8 @@ import (
 )
 
 const (
-	// ConsensusPluginName contains the human readable name of the plugin.
-	ConsensusPluginName = "Consensus"
+	// PluginName contains the human readable name of the plugin.
+	PluginName = "Consensus"
 
 	// CfgFPCQuerySampleSize defines how many nodes will be queried each round.
 	CfgFPCQuerySampleSize = "fpc.querySampleSize"
@@ -43,7 +42,7 @@ const (
 	// CfgFPCBindAddress defines on which address the FPC service should listen.
 	CfgFPCBindAddress = "fpc.bindAddress"
 
-	// CfgWaitForStatement is the time in seconds for which the node wait for receiveing the new statement.
+	// CfgWaitForStatement is the time in seconds for which the node wait for receiving the new statement.
 	CfgWaitForStatement = "statement.waitForStatement"
 
 	// CfgManaThreshold defines the Mana threshold to accept/write a statement.
@@ -64,7 +63,7 @@ func init() {
 	flag.Int(CfgFPCQuerySampleSize, 21, "Size of the voting quorum (k)")
 	flag.Int64(CfgFPCRoundInterval, 10, "FPC round interval [s]")
 	flag.String(CfgFPCBindAddress, "0.0.0.0:10895", "the bind address on which the FPC vote server binds to")
-	flag.Int(CfgWaitForStatement, 5, "the time in seconds for which the node wait for receiveing the new statement")
+	flag.Int(CfgWaitForStatement, 5, "the time in seconds for which the node wait for receiving the new statement")
 	flag.Float64(CfgManaThreshold, 1., "Mana threshold to accept/write a statement")
 	flag.Int(CfgCleanInterval, 5, "the time in minutes after which the node cleans the statement registry")
 	flag.Int(CfgDeleteAfter, 5, "the time in minutes after which older statements are deleted from the registry")
@@ -73,7 +72,7 @@ func init() {
 var (
 	// plugin is the plugin instance of the statement plugin.
 	plugin               *node.Plugin
-	fpcconsensus         *fpcConsensus.Consensus
+	consensusProvider    *fcob.ConsensusProvider
 	once                 sync.Once
 	voter                *fpc.FPC
 	voterOnce            sync.Once
@@ -92,17 +91,17 @@ var (
 // Plugin returns the consensus plugin.
 func Plugin() *node.Plugin {
 	once.Do(func() {
-		plugin = node.NewPlugin(ConsensusPluginName, node.Enabled, configure, run)
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 	})
 	return plugin
 }
 
 func configure(_ *node.Plugin) {
-	log = logger.NewLogger(ConsensusPluginName)
+	log = logger.NewLogger(PluginName)
 
 	configureRemoteLogger()
 
-	fpcconsensus = fpcConsensus.New(tangle.NewFCoB(messagelayer.Tangle().Options.Store, messagelayer.Tangle()), tangle.NewTimestampLikedByDefault(messagelayer.Tangle()))
+	consensusProvider = fcob.NewConsensusProvider()
 	roundIntervalSeconds = config.Node().Int64(CfgFPCRoundInterval)
 	waitForStatement = config.Node().Int(CfgWaitForStatement)
 	listen = config.Node().Bool(CfgFPCListen)
@@ -113,12 +112,12 @@ func configure(_ *node.Plugin) {
 	configureFPC()
 
 	// subscribe to FCOB events
-	fpcconsensus.PayloadOpinionProvider.Vote().Attach(events.NewClosure(func(id string, initOpn opinion.Opinion) {
+	consensusProvider.PayloadOpinionProvider.Vote().Attach(events.NewClosure(func(id string, initOpn opinion.Opinion) {
 		if err := Voter().Vote(id, vote.ConflictType, initOpn); err != nil {
 			log.Warnf("FPC vote: %s", err)
 		}
 	}))
-	fpcconsensus.PayloadOpinionProvider.VoteError().Attach(events.NewClosure(func(err error) {
+	consensusProvider.PayloadOpinionProvider.VoteError().Attach(events.NewClosure(func(err error) {
 		log.Errorf("FCOB error: %s", err)
 	}))
 
@@ -173,7 +172,7 @@ func configureFPC() {
 		log.Debugf("executed round with rand %0.4f for %d vote contexts on %d peers, took %v", roundStats.RandUsed, voteContextsCount, peersQueried, roundStats.Duration)
 	}))
 
-	Voter().Events().Finalized.Attach(events.NewClosure(fpcconsensus.PayloadOpinionProvider.ProcessVote))
+	Voter().Events().Finalized.Attach(events.NewClosure(consensusProvider.PayloadOpinionProvider.ProcessVote))
 	Voter().Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
 		if ev.Ctx.Type == vote.ConflictType {
 			log.Infof("FPC finalized for transaction with id '%s' - final opinion: '%s'", ev.ID, ev.Opinion)
