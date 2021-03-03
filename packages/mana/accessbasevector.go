@@ -95,10 +95,16 @@ func (a *AccessBaseManaVector) GetMana(nodeID identity.ID, t ...time.Time) (floa
 func (a *AccessBaseManaVector) GetManaMap(timestamp ...time.Time) (res NodeMap, t time.Time, err error) {
 	a.Lock()
 	defer a.Unlock()
+	updateAt := time.Now()
+	if len(timestamp) > 0 {
+		if timestamp[0].Before(t) {
+			t = timestamp[0]
+		}
+	}
 	res = make(map[identity.ID]float64)
 	for ID := range a.vector {
 		var mana float64
-		mana, t, err = a.getMana(ID, timestamp...)
+		mana, t, err = a.getMana(ID, updateAt)
 		if err != nil {
 			return
 		}
@@ -115,9 +121,10 @@ func (a *AccessBaseManaVector) GetHighestManaNodes(n uint) (res []Node, t time.T
 		// don't lock the vector after this func returns
 		a.Lock()
 		defer a.Unlock()
+		updateAt := time.Now()
 		for ID := range a.vector {
 			var mana float64
-			mana, t, err = a.getMana(ID)
+			mana, t, err = a.getMana(ID, updateAt)
 			if err != nil {
 				return err
 			}

@@ -185,10 +185,16 @@ func (c *ConsensusBaseManaVector) GetMana(nodeID identity.ID, t ...time.Time) (f
 func (c *ConsensusBaseManaVector) GetManaMap(timestamp ...time.Time) (res NodeMap, t time.Time, err error) {
 	c.Lock()
 	defer c.Unlock()
+	updateAt := time.Now()
+	if len(timestamp) > 0 {
+		if timestamp[0].Before(t) {
+			t = timestamp[0]
+		}
+	}
 	res = make(map[identity.ID]float64)
 	for ID := range c.vector {
 		var mana float64
-		mana, t, err = c.getMana(ID, timestamp...)
+		mana, t, err = c.getMana(ID, updateAt)
 		if err != nil {
 			return nil, t, err
 		}
@@ -205,9 +211,10 @@ func (c *ConsensusBaseManaVector) GetHighestManaNodes(n uint) (res []Node, t tim
 		// don't lock the vector after this func returns
 		c.Lock()
 		defer c.Unlock()
+		updateAt := time.Now()
 		for ID := range c.vector {
 			var mana float64
-			mana, t, err = c.getMana(ID)
+			mana, t, err = c.getMana(ID, updateAt)
 			if err != nil {
 				return err
 			}

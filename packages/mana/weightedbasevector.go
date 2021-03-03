@@ -142,10 +142,16 @@ func (w *WeightedBaseManaVector) GetMana(nodeID identity.ID, t ...time.Time) (fl
 func (w *WeightedBaseManaVector) GetManaMap(timestamp ...time.Time) (res NodeMap, t time.Time, err error) {
 	w.Lock()
 	defer w.Unlock()
+	updateAt := time.Now()
+	if len(timestamp) > 0 {
+		if timestamp[0].Before(t) {
+			t = timestamp[0]
+		}
+	}
 	res = make(map[identity.ID]float64)
 	for ID := range w.vector {
 		var mana float64
-		mana, t, err = w.getMana(ID, timestamp...)
+		mana, t, err = w.getMana(ID, updateAt)
 		if err != nil {
 			return nil, t, err
 		}
@@ -162,9 +168,10 @@ func (w *WeightedBaseManaVector) GetHighestManaNodes(n uint) (res []Node, t time
 		// don't lock the vector after this func returns
 		w.Lock()
 		defer w.Unlock()
+		updateAt := time.Now()
 		for ID := range w.vector {
 			var mana float64
-			mana, t, err = w.getMana(ID)
+			mana, t, err = w.getMana(ID, updateAt)
 			if err != nil {
 				return err
 			}
