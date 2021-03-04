@@ -21,7 +21,7 @@ func OpinionRetriever(id string, objectType vote.ObjectType) opinion.Opinion {
 			return opinion.Unknown
 		}
 
-		opinionEssence := Consensus().PayloadOpinionProvider.TransactionOpinionEssence(transactionID)
+		opinionEssence := Consensus().TransactionOpinionEssence(transactionID)
 
 		if opinionEssence.LevelOfKnowledge() == fpcConsensus.Pending {
 			return opinion.Unknown
