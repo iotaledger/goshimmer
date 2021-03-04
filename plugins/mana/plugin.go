@@ -103,7 +103,7 @@ func configure(*node.Plugin) {
 
 func configureEvents() {
 	// until we have the proper event...
-	messagelayer.Tangle().Booker.Events.MessageBooked.Attach(onTransactionConfirmedClosure)
+	messagelayer.Tangle().OpinionFormer.Events.TransactionConfirmed.Attach(onTransactionConfirmedClosure)
 	mana.Events().Pledged.Attach(onPledgeEventClosure)
 	mana.Events().Revoked.Attach(onRevokeEventClosure)
 }
