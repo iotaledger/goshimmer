@@ -1,11 +1,11 @@
 package mana
 
 import (
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"sort"
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 )
