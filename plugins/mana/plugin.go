@@ -268,11 +268,10 @@ func pruneStorages() {
 }
 
 func shutdownStorages() {
-	// TODO: causes plugin to hang
-
-	//for vectorType := range baseManaVectors {
-	//	storages[vectorType].Shutdown()
-	//}
+	// TODO: does it still cause the plugin to hang?
+	for vectorType := range baseManaVectors {
+		storages[vectorType].Shutdown()
+	}
 	consensusEventsLogStorage.Shutdown()
 	consensusBaseManaPastVectorStorage.Shutdown()
 	consensusBaseManaPastVectorMetadataStorage.Shutdown()
