@@ -1,6 +1,6 @@
 package messagelayer
 
-import "flag"
+import flag "github.com/spf13/pflag"
 
 func init() {
 	flag.String(CfgMessageLayerSnapshotFile, "./snapshot.bin", "the path to the snapshot file")
