@@ -4,14 +4,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	voter "github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/timedexecutor"
 	"github.com/iotaledger/hive.go/timedqueue"
 )
@@ -42,8 +40,7 @@ type ConsensusMechanism struct {
 	Events *Events
 
 	tangle                   *tangle.Tangle
-	opinionStorage           *objectstorage.ObjectStorage
-	timestampOpinionStorage  *objectstorage.ObjectStorage
+	storage                  *Storage
 	likedThresholdExecutor   *timedexecutor.TimedExecutor
 	locallyFinalizedExecutor *timedexecutor.TimedExecutor
 	waiting                  *opinionWait
@@ -65,10 +62,7 @@ func NewConsensusMechanism() *ConsensusMechanism {
 
 func (f *ConsensusMechanism) Init(tangle *tangle.Tangle) {
 	f.tangle = tangle
-
-	osFactory := objectstorage.NewFactory(tangle.Options.Store, database.PrefixFCOB)
-	f.opinionStorage = osFactory.New(PrefixOpinion, OpinionFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false))
-	f.timestampOpinionStorage = osFactory.New(PrefixTimestampOpinion, TimestampOpinionFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false))
+	f.storage = NewStorage(tangle.Options.Store)
 }
 
 func (f *ConsensusMechanism) Setup() {
@@ -90,7 +84,7 @@ func (f *ConsensusMechanism) Evaluate(messageID tangle.MessageID) {
 }
 
 func (f *ConsensusMechanism) EvaluateTimestamp(messageID tangle.MessageID) {
-	f.StoreTimestampOpinion(&TimestampOpinion{
+	f.storage.StoreTimestampOpinion(&TimestampOpinion{
 		MessageID: messageID,
 		Value:     voter.Like,
 		LoK:       Two,
@@ -112,7 +106,7 @@ func (f *ConsensusMechanism) ProcessVote(ev *vote.OpinionEvent) {
 			return
 		}
 
-		f.CachedOpinion(transactionID).Consume(func(opinion *Opinion) {
+		f.storage.CachedOpinion(transactionID).Consume(func(opinion *Opinion) {
 			opinion.SetLiked(ev.Opinion == voter.Like)
 			opinion.SetLevelOfKnowledge(Two)
 			// trigger PayloadOpinionFormed event
@@ -131,72 +125,20 @@ func (f *ConsensusMechanism) PayloadLiked(messageID tangle.MessageID) (liked boo
 func (f *ConsensusMechanism) Shutdown() {
 	f.likedThresholdExecutor.Shutdown(timedqueue.CancelPendingElements)
 	f.locallyFinalizedExecutor.Shutdown(timedqueue.CancelPendingElements)
-	f.opinionStorage.Shutdown()
-	f.timestampOpinionStorage.Shutdown()
+	f.storage.Shutdown()
 }
 
 // Opinion returns the liked status of a given messageID.
 func (f *ConsensusMechanism) Opinion(messageID tangle.MessageID) (opinion bool) {
 	f.tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
-		opinion = f.OpinionEssence(transactionID).liked
+		opinion = f.storage.OpinionEssence(transactionID).liked
 	})
 	return
 }
 
 // TransactionOpinionEssence returns the opinion essence of a given transactionID.
 func (f *ConsensusMechanism) TransactionOpinionEssence(transactionID ledgerstate.TransactionID) (opinion OpinionEssence) {
-	opinion = f.OpinionEssence(transactionID)
-	return
-}
-
-// TimestampOpinion returns the timestampOpinion of the given message metadata.
-func (f *ConsensusMechanism) TimestampOpinion(messageID tangle.MessageID) (timestampOpinion *TimestampOpinion) {
-	(&CachedTimestampOpinion{CachedObject: f.timestampOpinionStorage.Load(messageID.Bytes())}).Consume(func(opinion *TimestampOpinion) {
-		timestampOpinion = opinion
-	})
-
-	return
-}
-
-// SetTimestampOpinion sets the timestampOpinion flag.
-// It returns true if the timestampOpinion flag is modified. False otherwise.
-func (f *ConsensusMechanism) StoreTimestampOpinion(timestampOpinion *TimestampOpinion) (modified bool) {
-	cachedTimestampOpinion := &CachedTimestampOpinion{CachedObject: f.timestampOpinionStorage.ComputeIfAbsent(timestampOpinion.MessageID.Bytes(), func(key []byte) objectstorage.StorableObject {
-		timestampOpinion.SetModified()
-		timestampOpinion.Persist()
-		modified = true
-
-		return timestampOpinion
-	})}
-
-	if modified {
-		cachedTimestampOpinion.Release()
-		return
-	}
-
-	cachedTimestampOpinion.Consume(func(loadedTimestampOpinion *TimestampOpinion) {
-		if loadedTimestampOpinion.Equals(timestampOpinion) {
-			return
-		}
-
-		loadedTimestampOpinion.LoK = timestampOpinion.LoK
-		loadedTimestampOpinion.Value = timestampOpinion.Value
-
-		timestampOpinion.SetModified()
-		timestampOpinion.Persist()
-		modified = true
-	})
-
-	return
-}
-
-// OpinionEssence returns the OpinionEssence (i.e., a copy of the triple{timestamp, liked, levelOfKnowledge})
-// of given transactionID.
-func (f *ConsensusMechanism) OpinionEssence(transactionID ledgerstate.TransactionID) (opinion OpinionEssence) {
-	(&CachedOpinion{CachedObject: f.opinionStorage.Load(transactionID.Bytes())}).Consume(func(storedOpinion *Opinion) {
-		opinion = storedOpinion.OpinionEssence
-	})
-
+	opinion = f.storage.OpinionEssence(transactionID)
 	return
 }
 
@@ -205,14 +147,8 @@ func (f *ConsensusMechanism) OpinionEssence(transactionID ledgerstate.Transactio
 func (f *ConsensusMechanism) OpinionsEssence(conflictSet ledgerstate.TransactionIDs) (opinions []OpinionEssence) {
 	opinions = make([]OpinionEssence, 0)
 	for conflictID := range conflictSet {
-		opinions = append(opinions, f.OpinionEssence(conflictID))
+		opinions = append(opinions, f.storage.OpinionEssence(conflictID))
 	}
-	return
-}
-
-// CachedOpinion returns the CachedOpinion of the given TransactionID.
-func (f *ConsensusMechanism) CachedOpinion(transactionID ledgerstate.TransactionID) (cachedOpinion *CachedOpinion) {
-	cachedOpinion = &CachedOpinion{CachedObject: f.opinionStorage.Load(transactionID.Bytes())}
 	return
 }
 
@@ -220,7 +156,7 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 	// if the opinion for this transactionID is already present,
 	// it's a reattachment and thus, we re-use the same opinion.
 	isReattachment := false
-	f.CachedOpinion(transactionID).Consume(func(opinion *Opinion) {
+	f.storage.CachedOpinion(transactionID).Consume(func(opinion *Opinion) {
 		// if the opinion has been already set by the opinion provider, re-use it
 		if opinion.LevelOfKnowledge() > One {
 			// trigger PayloadOpinionFormed event
@@ -250,7 +186,7 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 			liked:            false,
 			levelOfKnowledge: Two,
 		}
-		f.opinionStorage.Store(opinion).Release()
+		f.storage.opinionStorage.Store(opinion).Release()
 		f.Events.PayloadOpinionFormed.Trigger(&OpinionFormedEvent{messageID, opinion.liked})
 		return
 	}
@@ -258,7 +194,7 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 	if f.tangle.LedgerState.TransactionConflicting(transactionID) {
 		opinion.OpinionEssence = deriveOpinion(timestamp, f.OpinionsEssence(f.tangle.LedgerState.ConflictSet(transactionID)))
 
-		cachedOpinion := f.opinionStorage.Store(opinion)
+		cachedOpinion := f.storage.opinionStorage.Store(opinion)
 		defer cachedOpinion.Release()
 
 		if opinion.LevelOfKnowledge() == One {
@@ -281,12 +217,12 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 		timestamp:        timestamp,
 		levelOfKnowledge: Pending,
 	}
-	cachedOpinion := f.opinionStorage.Store(opinion)
+	cachedOpinion := f.storage.opinionStorage.Store(opinion)
 	defer cachedOpinion.Release()
 
 	// Wait LikedThreshold
 	f.likedThresholdExecutor.ExecuteAt(func() {
-		f.CachedOpinion(transactionID).Consume(func(opinion *Opinion) {
+		f.storage.CachedOpinion(transactionID).Consume(func(opinion *Opinion) {
 			opinion.SetLevelOfKnowledge(One)
 			if f.tangle.LedgerState.TransactionConflicting(transactionID) {
 				opinion.SetLiked(false)
@@ -299,7 +235,7 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 
 		// Wait LocallyFinalizedThreshold
 		f.locallyFinalizedExecutor.ExecuteAt(func() {
-			f.CachedOpinion(transactionID).Consume(func(opinion *Opinion) {
+			f.storage.CachedOpinion(transactionID).Consume(func(opinion *Opinion) {
 				opinion.SetLiked(true)
 				if f.tangle.LedgerState.TransactionConflicting(transactionID) {
 					//trigger voting for this transactionID
@@ -345,7 +281,7 @@ func (f *ConsensusMechanism) onPayloadOpinionFormed(ev *OpinionFormedEvent) {
 
 func (f *ConsensusMechanism) setEligibility(messageID tangle.MessageID) {
 	f.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-		timestampOpinion := f.TimestampOpinion(messageID)
+		timestampOpinion := f.storage.TimestampOpinion(messageID)
 
 		messageMetadata.SetEligible(
 			timestampOpinion != nil && timestampOpinion.Value == opinion.Like && timestampOpinion.LoK > One && f.parentsEligibility(messageID),
