@@ -132,20 +132,24 @@ func (w *WeightedBaseManaVector) UpdateAll(t time.Time) error {
 }
 
 // GetMana returns combination of Effective Base Mana 1 & 2 weighted as 50-50.
-func (w *WeightedBaseManaVector) GetMana(nodeID identity.ID, t ...time.Time) (float64, time.Time, error) {
+func (w *WeightedBaseManaVector) GetMana(nodeID identity.ID, optionalUpdateTime ...time.Time) (float64, time.Time, error) {
 	w.Lock()
 	defer w.Unlock()
-	return w.getMana(nodeID, t...)
+	return w.getMana(nodeID, optionalUpdateTime...)
 }
 
 // GetManaMap returns mana perception of the node..
-func (w *WeightedBaseManaVector) GetManaMap(timestamp ...time.Time) (res NodeMap, t time.Time, err error) {
+func (w *WeightedBaseManaVector) GetManaMap(optionalUpdateTime ...time.Time) (res NodeMap, t time.Time, err error) {
 	w.Lock()
 	defer w.Unlock()
+	t = time.Now()
+	if len(optionalUpdateTime) > 0 {
+		t = optionalUpdateTime[0]
+	}
 	res = make(map[identity.ID]float64)
 	for ID := range w.vector {
 		var mana float64
-		mana, t, err = w.getMana(ID, timestamp...)
+		mana, _, err = w.getMana(ID, t)
 		if err != nil {
 			return nil, t, err
 		}
@@ -162,9 +166,10 @@ func (w *WeightedBaseManaVector) GetHighestManaNodes(n uint) (res []Node, t time
 		// don't lock the vector after this func returns
 		w.Lock()
 		defer w.Unlock()
+		t = time.Now()
 		for ID := range w.vector {
 			var mana float64
-			mana, t, err = w.getMana(ID)
+			mana, _, err = w.getMana(ID, t)
 			if err != nil {
 				return err
 			}
@@ -309,15 +314,13 @@ func (w *WeightedBaseManaVector) update(nodeID identity.ID, t time.Time) error {
 }
 
 // getMana returns the current effective mana value. Not concurrency safe.
-func (w *WeightedBaseManaVector) getMana(nodeID identity.ID, updateTime ...time.Time) (float64, time.Time, error) {
+func (w *WeightedBaseManaVector) getMana(nodeID identity.ID, optionalUpdateTime ...time.Time) (float64, time.Time, error) {
 	t := time.Now()
 	if _, exist := w.vector[nodeID]; !exist {
 		return 0.0, t, ErrNodeNotFoundInBaseManaVector
 	}
-	if len(updateTime) > 0 {
-		if updateTime[0].Before(t) {
-			t = updateTime[0]
-		}
+	if len(optionalUpdateTime) > 0 {
+		t = optionalUpdateTime[0]
 	}
 	_ = w.update(nodeID, t)
 

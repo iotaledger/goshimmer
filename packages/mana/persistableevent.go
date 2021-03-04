@@ -2,11 +2,11 @@ package mana
 
 import (
 	"crypto/sha256"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"math"
 	"strconv"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"

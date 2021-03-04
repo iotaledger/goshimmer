@@ -10,7 +10,7 @@ const (
 	// Mixed takes both EBM1 and EBM2 into account (50-50) when getting the mana values.
 	Mixed float64 = 0.5
 
-	// DeltaStopUpdates stops the update of the effective mana value if it is in the delta interval of the the base mana
+	// DeltaStopUpdate stops the update of the effective mana value if it is in the delta interval of the the base mana
 	// value. Base mana can only be an integer, and effective mana tends to this integer value over time if there are no
 	// pledges or revokes.
 	// It is used primarily for consensus mana, since for access mana, base mana changes wrt to time. The updates for

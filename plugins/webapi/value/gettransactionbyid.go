@@ -41,6 +41,13 @@ func getTransactionByIDHandler(c echo.Context) error {
 	branch := cachedBranch.Unwrap()
 
 	return c.JSON(http.StatusOK, GetTransactionByIDResponse{
+		TransactionMetadata: TransactionMetadata{
+			BranchID:           branch.ID().String(),
+			Solid:              txMetadata.Solid(),
+			SolidificationTime: txMetadata.SolidificationTime().Unix(),
+			Finalized:          txMetadata.Finalized(),
+			LazyBooked:         txMetadata.LazyBooked(),
+		},
 		Transaction: txn,
 		InclusionState: InclusionState{
 			Confirmed:   txInclusionState == ledgerstate.Confirmed,
@@ -56,7 +63,8 @@ func getTransactionByIDHandler(c echo.Context) error {
 
 // GetTransactionByIDResponse is the HTTP response from retrieving transaction.
 type GetTransactionByIDResponse struct {
-	Transaction    Transaction    `json:"transaction,omitempty"`
-	InclusionState InclusionState `json:"inclusion_state,omitempty"`
-	Error          string         `json:"error,omitempty"`
+	TransactionMetadata TransactionMetadata `json:"transactionMetadata"`
+	Transaction         Transaction         `json:"transaction"`
+	InclusionState      InclusionState      `json:"inclusion_state"`
+	Error               string              `json:"error,omitempty"`
 }

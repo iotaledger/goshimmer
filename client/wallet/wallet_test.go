@@ -58,11 +58,21 @@ func TestWallet_SendFunds(t *testing.T) {
 		{
 			name: "validTransfer",
 			parameters: []SendFundsOption{
-				Destination(receiverSeed.Address(0), 1200),
+				Destination(receiverSeed.Address(0), 1999),
 			},
 			validator: func(t *testing.T, tx *ledgerstate.Transaction, err error) {
 				assert.False(t, tx == nil, "there should be a transaction created")
 				assert.Nil(t, err)
+				assert.True(t, ledgerstate.UnlockBlocksValid(ledgerstate.NewOutputs(
+					ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
+						ledgerstate.ColorIOTA: 1337,
+						{3}:                   1338,
+					}), senderSeed.Address(0).Address()).SetID(ledgerstate.NewOutputID(ledgerstate.TransactionID{3}, 0)),
+					ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
+						ledgerstate.ColorIOTA: 663,
+						{4}:                   1338,
+					}), senderSeed.Address(0).Address()).SetID(ledgerstate.NewOutputID(ledgerstate.TransactionID{3}, 0)),
+				), tx))
 			},
 		},
 
@@ -112,7 +122,7 @@ func TestWallet_SendFunds(t *testing.T) {
 
 			// create our test wallet
 			wallet := New(
-				Import(senderSeed, 1, []bitmask.BitMask{}, NewAssetRegistry()),
+				Import(senderSeed, 2, []bitmask.BitMask{}, NewAssetRegistry()),
 				GenericConnector(mockedConnector),
 			)
 

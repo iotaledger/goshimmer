@@ -101,12 +101,12 @@ func (t *Tangle) Prune() (err error) {
 // Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
 func (t *Tangle) Shutdown() {
 	t.MessageFactory.Shutdown()
-	if !t.Options.WithoutOpinionFormer {
-		t.OpinionFormer.Shutdown()
-	}
 	t.Scheduler.Shutdown()
 	t.Booker.Shutdown()
 	t.LedgerState.Shutdown()
+	if !t.Options.WithoutOpinionFormer {
+		t.OpinionFormer.Shutdown()
+	}
 	t.Storage.Shutdown()
 	t.Options.Store.Shutdown()
 }

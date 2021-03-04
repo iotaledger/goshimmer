@@ -79,12 +79,12 @@ func sendManaValue() {
 	access, _, err := manaPlugin.GetAccessMana(ownID)
 	// if node not found, returned value is 0.0
 	if err != nil && err != mana.ErrNodeNotFoundInBaseManaVector {
-		log.Errorf("failed to get own access mana: %w ", err)
+		log.Errorf("failed to get own access mana: %s ", err.Error())
 	}
 	consensus, _, err := manaPlugin.GetConsensusMana(ownID)
 	// if node not found, returned value is 0.0
 	if err != nil && err != mana.ErrNodeNotFoundInBaseManaVector {
-		log.Errorf("failed to get own consensus mana: %w ", err)
+		log.Errorf("failed to get own consensus mana: %s ", err.Error())
 	}
 	msgData := &ManaValueMsgData{
 		NodeID:    ownID.String(),
@@ -102,7 +102,7 @@ func sendManaValue() {
 func sendManaMapOverall() {
 	accessManaList, _, err := manaPlugin.GetHighestManaNodes(mana.AccessMana, 0)
 	if err != nil {
-		log.Errorf("failed to get list of n highest access mana nodes: %w ", err)
+		log.Errorf("failed to get list of n highest access mana nodes: %s ", err.Error())
 	}
 	accessPayload := &ManaNetworkListMsgData{ManaType: mana.AccessMana.String()}
 	totalAccessMana := 0.0
@@ -117,7 +117,7 @@ func sendManaMapOverall() {
 	})
 	consensusManaList, _, err := manaPlugin.GetHighestManaNodes(mana.ConsensusMana, 0)
 	if err != nil {
-		log.Errorf("failed to get list of n highest consensus mana nodes: %w ", err)
+		log.Errorf("failed to get list of n highest consensus mana nodes: %s ", err.Error())
 	}
 	consensusPayload := &ManaNetworkListMsgData{ManaType: mana.ConsensusMana.String()}
 	totalConsensusMana := 0.0
@@ -136,7 +136,7 @@ func sendManaMapOverall() {
 func sendManaMapOnline() {
 	accessManaList, _, err := manaPlugin.GetOnlineNodes(mana.AccessMana)
 	if err != nil {
-		log.Errorf("failed to get list of online access mana nodes: %w ", err)
+		log.Errorf("failed to get list of online access mana nodes: %s", err.Error())
 	}
 	accessPayload := &ManaNetworkListMsgData{ManaType: mana.AccessMana.String()}
 	totalAccessMana := 0.0
@@ -151,7 +151,7 @@ func sendManaMapOnline() {
 	})
 	consensusManaList, _, err := manaPlugin.GetOnlineNodes(mana.ConsensusMana)
 	if err != nil {
-		log.Errorf("failed to get list of online consensus mana nodes: %w ", err)
+		log.Errorf("failed to get list of online consensus mana nodes: %s ", err.Error())
 	}
 	consensusPayload := &ManaNetworkListMsgData{ManaType: mana.ConsensusMana.String()}
 	totalConsensusMana := 0.0
@@ -220,6 +220,8 @@ func sendAllowedManaPledge(ws *websocket.Conn) error {
 //endregion
 
 //region Websocket message data structs
+
+// ManaValueMsgData contains mana values for a particular node.
 type ManaValueMsgData struct {
 	NodeID    string  `json:"nodeID"`
 	Access    float64 `json:"access"`
@@ -227,22 +229,26 @@ type ManaValueMsgData struct {
 	Time      int64   `json:"time"`
 }
 
+// ManaNetworkListMsgData contains a list of mana values for nodes in the network.
 type ManaNetworkListMsgData struct {
 	ManaType  string         `json:"manaType"`
 	TotalMana float64        `json:"totalMana"`
 	Nodes     []mana.NodeStr `json:"nodes"`
 }
 
+// AllowedPledgeIDsMsgData contains information on the allowed pledge ID configuration of the node.
 type AllowedPledgeIDsMsgData struct {
 	Access    PledgeIDFilter `json:"accessFilter"`
 	Consensus PledgeIDFilter `json:"consensusFilter"`
 }
 
+// PledgeIDFilter defines if the filter is enabled, and what nodeIDs are allowed.
 type PledgeIDFilter struct {
 	Enabled        bool             `json:"enabled"`
 	AllowedNodeIDs []AllowedNodeStr `json:"allowedNodeIDs"`
 }
 
+// AllowedNodeStr contains the short and full nodeIDs of a node.
 type AllowedNodeStr struct {
 	ShortID string `json:"shortID"`
 	FullID  string `json:"fullID"`
