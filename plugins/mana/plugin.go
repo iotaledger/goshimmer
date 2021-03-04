@@ -224,7 +224,7 @@ func run(_ *node.Plugin) {
 				log.Infof("Stopping %s ...", PluginName)
 				mana.Events().Pledged.Detach(onPledgeEventClosure)
 				mana.Events().Pledged.Detach(onRevokeEventClosure)
-				messagelayer.Tangle().Booker.Events.MessageBooked.Detach(onTransactionConfirmedClosure)
+				messagelayer.Tangle().OpinionFormer.Events.TransactionConfirmed.Detach(onTransactionConfirmedClosure)
 				storeManaVectors()
 				shutdownStorages()
 				return
@@ -232,7 +232,7 @@ func run(_ *node.Plugin) {
 				pruneConsensusEventLogsStorage()
 			}
 		}
-	}, shutdown.PriorityTangle); err != nil {
+	}, shutdown.PriorityMana); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
 }
