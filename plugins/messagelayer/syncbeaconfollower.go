@@ -63,9 +63,6 @@ var (
 
 	// ErrMissingFollowNodes is returned if the node starts with no follow nodes list
 	ErrMissingFollowNodes = errors.New("follow nodes list is required")
-	// ErrNodeNotSynchronized is returned when an operation can't be executed because
-	// the node is not synchronized.
-	ErrNodeNotSynchronized = errors.New("node is not synchronized")
 )
 
 // SyncStatus returns the detailed status per beacon node.

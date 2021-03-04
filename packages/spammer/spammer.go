@@ -6,7 +6,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"golang.org/x/xerrors"
 )
 
@@ -48,7 +47,7 @@ func (spammer *Spammer) run(rate int, timeUnit time.Duration, processID int64) {
 
 		// we don't care about errors or the actual issued message
 		_, err := spammer.issuePayloadFunc(payload.NewGenericDataPayload([]byte("SPAM")))
-		if xerrors.Is(err, messagelayer.ErrNodeNotSynchronized) {
+		if xerrors.Is(err, tangle.ErrNotSynced) {
 			// can't issue msg because node not in sync
 			return
 		}
