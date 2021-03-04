@@ -3,10 +3,10 @@ package mana
 import (
 	"crypto/rand"
 	"crypto/sha256"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 )

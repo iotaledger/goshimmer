@@ -122,15 +122,15 @@ func SignatureFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (signature S
 
 // ED25519Signature represents a Signature created with the ed25519 signature scheme.
 type ED25519Signature struct {
-	publicKey ed25519.PublicKey
-	signature ed25519.Signature
+	PublicKey ed25519.PublicKey
+	Signature ed25519.Signature
 }
 
 // NewED25519Signature is the constructor of an ED25519Signature.
 func NewED25519Signature(publicKey ed25519.PublicKey, signature ed25519.Signature) *ED25519Signature {
 	return &ED25519Signature{
-		publicKey: publicKey,
-		signature: signature,
+		PublicKey: publicKey,
+		Signature: signature,
 	}
 }
 
@@ -175,11 +175,11 @@ func ED25519SignatureFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sign
 	}
 
 	signature = &ED25519Signature{}
-	if signature.publicKey, err = ed25519.ParsePublicKey(marshalUtil); err != nil {
+	if signature.PublicKey, err = ed25519.ParsePublicKey(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse public key (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	if signature.signature, err = ed25519.ParseSignature(marshalUtil); err != nil {
+	if signature.Signature, err = ed25519.ParseSignature(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse signature (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
@@ -193,7 +193,7 @@ func (e *ED25519Signature) Type() SignatureType {
 
 // SignatureValid returns true if the Signature signs the given data.
 func (e *ED25519Signature) SignatureValid(data []byte) bool {
-	return e.publicKey.VerifySignature(data, e.signature)
+	return e.PublicKey.VerifySignature(data, e.Signature)
 }
 
 // AddressSignatureValid returns true if the Signature signs the given Address.
@@ -202,7 +202,7 @@ func (e *ED25519Signature) AddressSignatureValid(address Address, data []byte) b
 		return false
 	}
 
-	hashedPublicKey := blake2b.Sum256(e.publicKey.Bytes())
+	hashedPublicKey := blake2b.Sum256(e.PublicKey.Bytes())
 	if !bytes.Equal(hashedPublicKey[:], address.Digest()) {
 		return false
 	}
@@ -212,7 +212,7 @@ func (e *ED25519Signature) AddressSignatureValid(address Address, data []byte) b
 
 // Bytes returns a marshaled version of the Signature.
 func (e *ED25519Signature) Bytes() []byte {
-	return byteutils.ConcatBytes([]byte{byte(ED25519SignatureType)}, e.publicKey.Bytes(), e.signature.Bytes())
+	return byteutils.ConcatBytes([]byte{byte(ED25519SignatureType)}, e.PublicKey.Bytes(), e.Signature.Bytes())
 }
 
 // Base58 returns a base58 encoded version of the Signature.
@@ -223,8 +223,8 @@ func (e *ED25519Signature) Base58() string {
 // String returns a human readable version of the Signature.
 func (e *ED25519Signature) String() string {
 	return stringify.Struct("ED25519Signature",
-		stringify.StructField("publicKey", e.publicKey),
-		stringify.StructField("signature", e.signature),
+		stringify.StructField("publicKey", e.PublicKey),
+		stringify.StructField("signature", e.Signature),
 	)
 }
 
@@ -237,13 +237,13 @@ var _ Signature = &ED25519Signature{}
 
 // BLSSignature represents a Signature created with the BLS signature scheme.
 type BLSSignature struct {
-	signature bls.SignatureWithPublicKey
+	Signature bls.SignatureWithPublicKey
 }
 
 // NewBLSSignature is the constructor of a BLSSignature.
 func NewBLSSignature(signature bls.SignatureWithPublicKey) *BLSSignature {
 	return &BLSSignature{
-		signature: signature,
+		Signature: signature,
 	}
 }
 
@@ -288,7 +288,7 @@ func BLSSignatureFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (signatur
 	}
 
 	signature = &BLSSignature{}
-	if signature.signature, err = bls.SignatureWithPublicKeyFromMarshalUtil(marshalUtil); err != nil {
+	if signature.Signature, err = bls.SignatureWithPublicKeyFromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse SignatureWithPublicKey from MarshalUtil (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
@@ -303,7 +303,7 @@ func (b *BLSSignature) Type() SignatureType {
 
 // SignatureValid returns true if the Signature signs the given data.
 func (b *BLSSignature) SignatureValid(data []byte) bool {
-	return b.signature.IsValid(data)
+	return b.Signature.IsValid(data)
 }
 
 // AddressSignatureValid returns true if the Signature signs the given Address.
@@ -312,7 +312,7 @@ func (b *BLSSignature) AddressSignatureValid(address Address, data []byte) bool 
 		return false
 	}
 
-	hashedPublicKey := blake2b.Sum256(b.signature.PublicKey.Bytes())
+	hashedPublicKey := blake2b.Sum256(b.Signature.PublicKey.Bytes())
 	if !bytes.Equal(hashedPublicKey[:], address.Digest()) {
 		return false
 	}
@@ -322,7 +322,7 @@ func (b *BLSSignature) AddressSignatureValid(address Address, data []byte) bool 
 
 // Bytes returns a marshaled version of the Signature.
 func (b *BLSSignature) Bytes() []byte {
-	return byteutils.ConcatBytes([]byte{byte(BLSSignatureType)}, b.signature.Bytes())
+	return byteutils.ConcatBytes([]byte{byte(BLSSignatureType)}, b.Signature.Bytes())
 }
 
 // Base58 returns a base58 encoded version of the Signature.
@@ -333,8 +333,8 @@ func (b *BLSSignature) Base58() string {
 // String returns a human readable version of the Signature.
 func (b *BLSSignature) String() string {
 	return stringify.Struct("BLSSignature",
-		stringify.StructField("publicKey", b.signature.PublicKey),
-		stringify.StructField("signature", b.signature.Signature),
+		stringify.StructField("publicKey", b.Signature.PublicKey),
+		stringify.StructField("signature", b.Signature.Signature),
 	)
 }
 

@@ -1,3 +1,15 @@
+# v0.4.1 - 2021-03-02
+* Add orphanage analysis tool
+* Add documentation web-api
+* Simplify past-cone checks
+* Improve message findByID API
+* Improve value transactionByID API
+* Fix saving markers in message metadata
+* Fix issue with ReferenceUnlockBlocks
+* Fix Faucet address blacklist
+* Fix some visualizer glitches
+* **Breaking**: bumps network and database versions
+
 # v0.4.0 - 2021-02-26
 * Remove the value Tangle
 * Add approval switch

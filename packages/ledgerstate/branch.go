@@ -102,6 +102,10 @@ func (b BranchID) String() string {
 	switch b {
 	case UndefinedBranchID:
 		return "BranchID(UndefinedBranchID)"
+	case LazyBookedConflictsBranchID:
+		return "BranchID(LazyBookedConflictsBranchID)"
+	case InvalidBranchID:
+		return "BranchID(InvalidBranchID)"
 	case MasterBranchID:
 		return "BranchID(MasterBranchID)"
 	default:

@@ -69,7 +69,7 @@ func (u *UTXODAG) Shutdown() {
 
 // CheckTransaction contains fast checks that have to be performed before booking a Transaction.
 func (u *UTXODAG) CheckTransaction(transaction *Transaction) (valid bool, err error) {
-	cachedConsumedOutputs := u.consumedOutputs(transaction)
+	cachedConsumedOutputs := u.ConsumedOutputs(transaction)
 	defer cachedConsumedOutputs.Release()
 	consumedOutputs := cachedConsumedOutputs.Unwrap()
 
@@ -93,7 +93,7 @@ func (u *UTXODAG) CheckTransaction(transaction *Transaction) (valid bool, err er
 
 // BookTransaction books a Transaction into the ledger state.
 func (u *UTXODAG) BookTransaction(transaction *Transaction) (targetBranch BranchID, err error) {
-	cachedConsumedOutputs := u.consumedOutputs(transaction)
+	cachedConsumedOutputs := u.ConsumedOutputs(transaction)
 	defer cachedConsumedOutputs.Release()
 	consumedOutputs := cachedConsumedOutputs.Unwrap()
 
@@ -561,8 +561,8 @@ func (u *UTXODAG) determineBookingDetails(inputsMetadata OutputsMetadata) (branc
 
 // region private utility functions ////////////////////////////////////////////////////////////////////////////////////
 
-// consumedOutputs is an internal utility function that returns the consumed Outputs of the given Transaction.
-func (u *UTXODAG) consumedOutputs(transaction *Transaction) (cachedInputs CachedOutputs) {
+// ConsumedOutputs returns the consumed (cached)Outputs of the given Transaction.
+func (u *UTXODAG) ConsumedOutputs(transaction *Transaction) (cachedInputs CachedOutputs) {
 	cachedInputs = make(CachedOutputs, 0)
 	for _, input := range transaction.Essence().Inputs() {
 		cachedInputs = append(cachedInputs, u.Output(input.(*UTXOInput).ReferencedOutputID()))
@@ -575,64 +575,6 @@ func (u *UTXODAG) consumedOutputs(transaction *Transaction) (cachedInputs Cached
 func (u *UTXODAG) allOutputsExist(inputs Outputs) (solid bool) {
 	for _, input := range inputs {
 		if typeutils.IsInterfaceNil(input) {
-			return false
-		}
-	}
-
-	return true
-}
-
-// TransactionBalancesValid is an internal utility function that checks if the sum of the balance changes equals to 0.
-func TransactionBalancesValid(inputs Outputs, outputs Outputs) (valid bool) {
-	consumedCoins := make(map[Color]uint64)
-	for _, input := range inputs {
-		input.Balances().ForEach(func(color Color, balance uint64) bool {
-			consumedCoins[color], valid = SafeAddUint64(consumedCoins[color], balance)
-
-			return valid
-		})
-
-		if !valid {
-			return
-		}
-	}
-
-	recoloredCoins := uint64(0)
-	for _, output := range outputs {
-		output.Balances().ForEach(func(color Color, balance uint64) bool {
-			switch color {
-			case ColorIOTA:
-				fallthrough
-			case ColorMint:
-				recoloredCoins, valid = SafeAddUint64(recoloredCoins, balance)
-			default:
-				consumedCoins[color], valid = SafeSubUint64(consumedCoins[color], balance)
-			}
-
-			return valid
-		})
-
-		if !valid {
-			return
-		}
-	}
-
-	unspentCoins := uint64(0)
-	for _, remainingBalance := range consumedCoins {
-		if unspentCoins, valid = SafeAddUint64(unspentCoins, remainingBalance); !valid {
-			return
-		}
-	}
-
-	return unspentCoins == recoloredCoins
-}
-
-// UnlockBlocksValid is an internal utility function that checks if the UnlockBlocks are matching the referenced Inputs.
-func UnlockBlocksValid(inputs Outputs, transaction *Transaction) (valid bool) {
-	unlockBlocks := transaction.UnlockBlocks()
-	for i, input := range inputs {
-		unlockValid, unlockErr := input.UnlockValid(transaction, unlockBlocks[i])
-		if !unlockValid || unlockErr != nil {
 			return false
 		}
 	}

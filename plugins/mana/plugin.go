@@ -103,7 +103,7 @@ func configure(*node.Plugin) {
 
 func configureEvents() {
 	// until we have the proper event...
-	messagelayer.Tangle().Booker.Events.MessageBooked.Attach(onTransactionConfirmedClosure)
+	messagelayer.Tangle().OpinionFormer.Events.TransactionConfirmed.Attach(onTransactionConfirmedClosure)
 	mana.Events().Pledged.Attach(onPledgeEventClosure)
 	mana.Events().Revoked.Attach(onRevokeEventClosure)
 }
@@ -268,11 +268,10 @@ func pruneStorages() {
 }
 
 func shutdownStorages() {
-	// TODO: causes plugin to hang
-
-	//for vectorType := range baseManaVectors {
-	//	storages[vectorType].Shutdown()
-	//}
+	// TODO: does it still cause the plugin to hang?
+	for vectorType := range baseManaVectors {
+		storages[vectorType].Shutdown()
+	}
 	consensusEventsLogStorage.Shutdown()
 	consensusBaseManaPastVectorStorage.Shutdown()
 	consensusBaseManaPastVectorMetadataStorage.Shutdown()
