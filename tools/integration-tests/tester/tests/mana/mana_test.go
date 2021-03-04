@@ -1,14 +1,15 @@
 package mana
 
 import (
+	"math"
 	"testing"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 	"github.com/mr-tron/base58"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -50,7 +51,7 @@ func TestManaPersistence(t *testing.T) {
 	require.Greater(t, manaAfter.Consensus, 0.0)
 }
 
-func TestAPI(t *testing.T) {
+func TestPledgeFilter(t *testing.T) {
 	numPeers := 2
 	n, err := f.CreateNetwork("mana_TestAPI", 0, 0, framework.CreateNetworkConfig{})
 	require.NoError(t, err)
@@ -157,4 +158,53 @@ func TestConsensusManaInThePast(t *testing.T) {
 	}
 
 	// TODO: do a more useful test. e.g compare mana now vs mana in timeInPast
+}
+
+func TestApis(t *testing.T) {
+	prevParaManaOnEveryNode := framework.ParaManaOnEveryNode
+	framework.ParaManaOnEveryNode = true
+	defer func() {
+		framework.ParaManaOnEveryNode = prevParaManaOnEveryNode
+	}()
+	n, err := f.CreateNetwork("mana_TestAPI", 3, 2, framework.CreateNetworkConfig{Faucet: true, Mana: true})
+	require.NoError(t, err)
+	defer tests.ShutdownNetwork(t, n)
+
+	peers := n.Peers()
+
+	// Test /mana
+	resp, err := peers[0].GoShimmerAPI.GetManaFullNodeID(base58.Encode(peers[0].ID().Bytes()))
+	assert.NoError(t, err)
+	assert.Equal(t, base58.Encode(peers[0].ID().Bytes()), resp.NodeID)
+	assert.Greater(t, resp.Access, 0.0)
+	assert.Greater(t, resp.Consensus, 0.0)
+
+	// Test /mana/all
+	resp2, err := peers[0].GoShimmerAPI.GetAllMana()
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(resp2.Access))
+	assert.Greater(t, resp2.Access[0].Mana, 0.0)
+
+	// Test /mana/access/nhighest and /mana/consensus/nhighest
+
+	// send funds to node 1
+	tests.SendTransactionFromFaucet(t, peers[:2], 1337)
+	time.Sleep(2 * time.Second)
+	resp3, err := peers[0].GoShimmerAPI.GetNHighestAccessMana(len(peers))
+	assert.NoError(t, err)
+	resp4, err := peers[0].GoShimmerAPI.GetNHighestConsensusMana(len(peers))
+	assert.NoError(t, err)
+	assert.Equal(t, 2, len(resp3.Nodes))
+	assert.Equal(t, 2, len(resp4.Nodes))
+	for i := 0; i < 2; i++ {
+		assert.Equal(t, base58.Encode(peers[i].ID().Bytes()), resp3.Nodes[i].NodeID)
+		assert.Equal(t, base58.Encode(peers[i].ID().Bytes()), resp4.Nodes[i].NodeID)
+	}
+
+	// Test /mana/percentile
+	resp5, err := peers[0].GoShimmerAPI.GetManaPercentile(base58.Encode(peers[0].ID().Bytes()))
+	assert.NoError(t, err)
+	assert.Equal(t, base58.Encode(peers[0].ID().Bytes()), resp5.NodeID)
+	assert.Equal(t, 50.0, math.Round(resp5.Access*100)/100)
+	assert.Equal(t, 50.0, math.Round(resp5.Consensus*100)/100)
 }
