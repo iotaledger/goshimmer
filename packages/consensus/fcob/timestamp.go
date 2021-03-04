@@ -1,7 +1,6 @@
 package fcob
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -26,7 +25,7 @@ var (
 
 const (
 	// TimestampOpinionLength defines the length of a TimestampOpinion object (1 byte of opinion, 1 byte of LoK).
-	TimestampOpinionLength = 2
+	TimestampOpinionLength = tangle.MessageIDLength + 2
 )
 
 // TimestampOpinion contains the value of a timestamp opinion as well as its level of knowledge.
@@ -87,7 +86,7 @@ func TimestampOpinionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resu
 // TimestampOpinionFromObjectStorage restores a TimestampOpinion from the object storage.
 func TimestampOpinionFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
 	if result, _, err = TimestampOpinionFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = fmt.Errorf("failed to parse TimestampOpinion from object storage: %w", err)
+		err = xerrors.Errorf("failed to parse TimestampOpinion from bytes: %w", err)
 		return
 	}
 
@@ -122,7 +121,7 @@ func (t *TimestampOpinion) ObjectStorageKey() []byte {
 }
 
 func (t *TimestampOpinion) ObjectStorageValue() []byte {
-	return marshalutil.New(TimestampOpinionLength).
+	return marshalutil.New(2).
 		WriteByte(byte(t.Value)).
 		WriteUint8(uint8(t.LoK)).
 		Bytes()
