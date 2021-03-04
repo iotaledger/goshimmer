@@ -136,13 +136,13 @@ func Tangle() *tangle.Tangle {
 // region Consensus ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 var (
-	consensus     *fcob.ConsensusProvider
+	consensus     *fcob.ConsensusMechanism
 	consensusOnce sync.Once
 )
 
-func Consensus() *fcob.ConsensusProvider {
+func Consensus() *fcob.ConsensusMechanism {
 	consensusOnce.Do(func() {
-		consensus = fcob.NewConsensusProvider()
+		consensus = fcob.NewConsensusMechanism()
 	})
 
 	return consensus

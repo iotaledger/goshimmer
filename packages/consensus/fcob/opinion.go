@@ -7,6 +7,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
+	voter "github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/events"
@@ -305,8 +306,17 @@ func (c ConflictSet) anchor() (opinion *OpinionEssence) {
 // region Events ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Events struct {
+	// Error gets called when FCOB faces an error.
+	Error *events.Event
+
+	// Vote gets called when FCOB needs to vote.
+	Vote                   *events.Event
 	PayloadOpinionFormed   *events.Event
 	TimestampOpinionFormed *events.Event
+}
+
+func voteEvent(handler interface{}, params ...interface{}) {
+	handler.(func(id string, initOpn voter.Opinion))(params[0].(string), params[1].(voter.Opinion))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
