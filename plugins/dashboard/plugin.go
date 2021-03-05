@@ -152,6 +152,8 @@ const (
 	MsgTypeVertex
 	// MsgTypeTipInfo defines a tip info message.
 	MsgTypeTipInfo
+	// MsgTypeMsgOpinionFormed defines a tip info message.
+	MsgTypeMsgOpinionFormed
 )
 
 type wsmsg struct {
