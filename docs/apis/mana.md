@@ -1,6 +1,6 @@
 # Mana API Methods
 
-The mana APIs are consisted of `GET` methods, for people to retrieve the amount of access/consensus mana of nodes and outputs, as well as the event logs.   
+The mana APIs provide methods for people to retrieve the amount of access/consensus mana of nodes and outputs, as well as the event logs.   
 
 
 ## `/mana`
