@@ -120,8 +120,8 @@ func runVisualizer() {
 	if err := daemon.BackgroundWorker("Dashboard[Visualizer]", func(shutdownSignal <-chan struct{}) {
 		messagelayer.Tangle().Storage.Events.MessageStored.Attach(notifyNewMsg)
 		defer messagelayer.Tangle().Storage.Events.MessageStored.Detach(notifyNewMsg)
-		messagelayer.Tangle().OpinionFormer.Events.MessageOpinionFormed.Attach(notifyNewMsg)
-		defer messagelayer.Tangle().OpinionFormer.Events.MessageOpinionFormed.Detach(notifyNewMsg)
+		messagelayer.Tangle().OpinionManager.Events.MessageOpinionFormed.Attach(notifyNewMsg)
+		defer messagelayer.Tangle().OpinionManager.Events.MessageOpinionFormed.Detach(notifyNewMsg)
 		messagelayer.Tangle().TipManager.Events.TipAdded.Attach(notifyNewTip)
 		defer messagelayer.Tangle().TipManager.Events.TipAdded.Detach(notifyNewTip)
 		messagelayer.Tangle().TipManager.Events.TipRemoved.Attach(notifyDeletedTip)
