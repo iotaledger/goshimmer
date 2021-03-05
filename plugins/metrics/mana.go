@@ -162,7 +162,7 @@ func addPledge(event *mana.PledgedEvent) {
 }
 
 func measureMana() {
-	tmp := manaPlugin.GetAllManaMaps()
+	tmp, _ := manaPlugin.GetAllManaMaps()
 	accessLock.Lock()
 	defer accessLock.Unlock()
 	accessMap = tmp[mana.AccessMana]

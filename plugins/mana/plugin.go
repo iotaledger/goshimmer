@@ -18,6 +18,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/syncbeaconfollower"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/events"
@@ -52,6 +53,7 @@ var (
 	onTransactionConfirmedClosure              *events.Closure
 	onPledgeEventClosure                       *events.Closure
 	onRevokeEventClosure                       *events.Closure
+	debuggingEnabled                           bool
 )
 
 // Plugin gets the plugin instance.
@@ -97,6 +99,8 @@ func configure(*node.Plugin) {
 	if err != nil {
 		log.Panic(err.Error())
 	}
+
+	debuggingEnabled = config.Node().Bool(CfgDebuggingEnabled)
 
 	configureEvents()
 }
@@ -286,27 +290,42 @@ func shutdownStorages() {
 // It also updates the mana values for each node.
 // If n is zero, it returns all nodes.
 func GetHighestManaNodes(manaType mana.Type, n uint) ([]mana.Node, time.Time, error) {
+	if !QueryAllowed() {
+		return []mana.Node{}, time.Now(), ErrQueryNotAllowed
+	}
 	bmv := baseManaVectors[manaType]
 	return bmv.GetHighestManaNodes(n)
 }
 
 // GetManaMap returns type mana perception of the node.
 func GetManaMap(manaType mana.Type, optionalUpdateTime ...time.Time) (mana.NodeMap, time.Time, error) {
+	if !QueryAllowed() {
+		return mana.NodeMap{}, time.Now(), ErrQueryNotAllowed
+	}
 	return baseManaVectors[manaType].GetManaMap(optionalUpdateTime...)
 }
 
 // GetAccessMana returns the access mana of the node specified.
 func GetAccessMana(nodeID identity.ID, optionalUpdateTime ...time.Time) (float64, time.Time, error) {
+	if !QueryAllowed() {
+		return 0, time.Now(), ErrQueryNotAllowed
+	}
 	return baseManaVectors[mana.AccessMana].GetMana(nodeID, optionalUpdateTime...)
 }
 
 // GetConsensusMana returns the consensus mana of the node specified.
 func GetConsensusMana(nodeID identity.ID, optionalUpdateTime ...time.Time) (float64, time.Time, error) {
+	if !QueryAllowed() {
+		return 0, time.Now(), ErrQueryNotAllowed
+	}
 	return baseManaVectors[mana.ConsensusMana].GetMana(nodeID, optionalUpdateTime...)
 }
 
 // GetNeighborsMana returns the type mana of the nodes neighbors
 func GetNeighborsMana(manaType mana.Type, optionalUpdateTime ...time.Time) (mana.NodeMap, error) {
+	if !QueryAllowed() {
+		return mana.NodeMap{}, ErrQueryNotAllowed
+	}
 	neighbors := gossip.Manager().AllNeighbors()
 	res := make(mana.NodeMap)
 	for _, n := range neighbors {
@@ -318,12 +337,15 @@ func GetNeighborsMana(manaType mana.Type, optionalUpdateTime ...time.Time) (mana
 }
 
 // GetAllManaMaps returns the full mana maps for comparison with the perception of other nodes.
-func GetAllManaMaps(optionalUpdateTime ...time.Time) map[mana.Type]mana.NodeMap {
+func GetAllManaMaps(optionalUpdateTime ...time.Time) (map[mana.Type]mana.NodeMap, error) {
+	if !QueryAllowed() {
+		return make(map[mana.Type]mana.NodeMap), ErrQueryNotAllowed
+	}
 	res := make(map[mana.Type]mana.NodeMap)
 	for manaType := range baseManaVectors {
 		res[manaType], _, _ = GetManaMap(manaType, optionalUpdateTime...)
 	}
-	return res
+	return res, nil
 }
 
 // OverrideMana sets the nodes mana to a specific value.
@@ -333,7 +355,10 @@ func OverrideMana(manaType mana.Type, nodeID identity.ID, bm *mana.AccessBaseMan
 }
 
 //GetWeightedRandomNodes returns a weighted random selection of n nodes.
-func GetWeightedRandomNodes(n uint, manaType mana.Type) mana.NodeMap {
+func GetWeightedRandomNodes(n uint, manaType mana.Type) (mana.NodeMap, error) {
+	if !QueryAllowed() {
+		return mana.NodeMap{}, ErrQueryNotAllowed
+	}
 	rand.Seed(time.Now().UTC().UnixNano())
 	manaMap, _, _ := GetManaMap(manaType)
 	var choices []mana.RandChoice
@@ -350,7 +375,7 @@ func GetWeightedRandomNodes(n uint, manaType mana.Type) mana.NodeMap {
 		ID := nodeID.(identity.ID)
 		res[ID] = manaMap[ID]
 	}
-	return res
+	return res, nil
 }
 
 // GetAllowedPledgeNodes returns the list of nodes that type mana is allowed to be pledged to.
@@ -361,6 +386,9 @@ func GetAllowedPledgeNodes(manaType mana.Type) AllowedPledge {
 // GetOnlineNodes gets the list of currently known (and verified) peers in the network, and their respective mana values.
 // Sorted in descending order based on mana. Zero mana nodes are excluded.
 func GetOnlineNodes(manaType mana.Type) (onlineNodesMana []mana.Node, t time.Time, err error) {
+	if !QueryAllowed() {
+		return []mana.Node{}, time.Now(), ErrQueryNotAllowed
+	}
 	knownPeers := autopeering.Discovery().GetVerifiedPeers()
 	// consider ourselves as a peer in the network too
 	knownPeers = append(knownPeers, local.GetInstance().Peer)
@@ -724,4 +752,11 @@ type AllowedPledge struct {
 type EventsLogs struct {
 	Pledge []*mana.PledgedEvent `json:"pledge"`
 	Revoke []*mana.RevokedEvent `json:"revoke"`
+}
+
+// QueryAllowed returns if the mana plugin answers queries or not.
+func QueryAllowed() (allowed bool) {
+	// if debugging enabled, reply to the query
+	// if debugging is not allowed, only reply when in sync
+	return syncbeaconfollower.Synced() || debuggingEnabled
 }
