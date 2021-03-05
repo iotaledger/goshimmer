@@ -28,6 +28,10 @@ export class Mana extends React.Component<Props, any> {
         const {searchNode, searchTxID} = this.props.manaStore;
         return (
             <Container>
+                {
+                    !nodeStore.status.synced &&
+                    <Badge variant="danger">WARNING: Node not in sync, displayed mana values might be outdated!</Badge>
+                }
                 <Row className={"mb-3"}>
                     <Col>
                         <ManaGauge

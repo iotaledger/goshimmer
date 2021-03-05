@@ -26,6 +26,8 @@ const (
 	CfgManaEnableResearchVectors = "mana.enableResearchVectors"
 	// CfgPruneConsensusEventLogsInterval defines the interval to check and prune consensus event logs storage.
 	CfgPruneConsensusEventLogsInterval = "mana.pruneConsensusEventLogsInterval"
+	// CfgDebuggingEnabled defines if the mana plugin responds to queries while not being in sync or not.
+	CfgDebuggingEnabled = "mana.debuggingEnabled"
 )
 
 func init() {
@@ -38,4 +40,5 @@ func init() {
 	flag.Bool(CfgAllowedConsensusFilterEnabled, false, "if filtering on consensus mana pledge nodes is enabled")
 	flag.Bool(CfgManaEnableResearchVectors, false, "enable mana research vectors")
 	flag.Duration(CfgPruneConsensusEventLogsInterval, 5*time.Minute, "interval to check and prune consensus event storage")
+	flag.Bool(CfgDebuggingEnabled, false, "if mana plugin responds to queries while not in sync")
 }
