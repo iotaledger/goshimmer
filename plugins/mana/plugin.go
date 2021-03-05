@@ -18,7 +18,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/goshimmer/plugins/syncbeaconfollower"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/events"
@@ -107,7 +106,7 @@ func configure(*node.Plugin) {
 
 func configureEvents() {
 	// until we have the proper event...
-	messagelayer.Tangle().OpinionFormer.Events.TransactionConfirmed.Attach(onTransactionConfirmedClosure)
+	messagelayer.Tangle().ConsensusManager.Events.TransactionConfirmed.Attach(onTransactionConfirmedClosure)
 	mana.Events().Pledged.Attach(onPledgeEventClosure)
 	mana.Events().Revoked.Attach(onRevokeEventClosure)
 }
@@ -231,7 +230,7 @@ func run(_ *node.Plugin) {
 				log.Infof("Stopping %s ...", PluginName)
 				mana.Events().Pledged.Detach(onPledgeEventClosure)
 				mana.Events().Pledged.Detach(onRevokeEventClosure)
-				messagelayer.Tangle().OpinionFormer.Events.TransactionConfirmed.Detach(onTransactionConfirmedClosure)
+				messagelayer.Tangle().ConsensusManager.Events.TransactionConfirmed.Detach(onTransactionConfirmedClosure)
 				storeManaVectors()
 				shutdownStorages()
 				return
@@ -758,5 +757,5 @@ type EventsLogs struct {
 func QueryAllowed() (allowed bool) {
 	// if debugging enabled, reply to the query
 	// if debugging is not allowed, only reply when in sync
-	return syncbeaconfollower.Synced() || debuggingEnabled
+	return messagelayer.Tangle().Synced() || debuggingEnabled
 }
