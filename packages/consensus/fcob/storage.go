@@ -199,14 +199,19 @@ func (t *TimestampOpinion) String() string {
 	)
 }
 
+// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
 func (t *TimestampOpinion) Update(other objectstorage.StorableObject) {
 	panic("updates disabled")
 }
 
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
 func (t *TimestampOpinion) ObjectStorageKey() []byte {
 	return t.MessageID.Bytes()
 }
 
+// ObjectStorageValue marshals the ConflictBranch into a sequence of bytes that are used as the value part in the
+// object storage.
 func (t *TimestampOpinion) ObjectStorageValue() []byte {
 	return marshalutil.New(2).
 		WriteByte(byte(t.Value)).

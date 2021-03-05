@@ -40,7 +40,7 @@ func NewConsensusMechanism() *ConsensusMechanism {
 	return &ConsensusMechanism{
 		Events: &ConsensusMechanismEvents{
 			Error: events.NewEvent(events.ErrorCaller),
-			Vote:  events.NewEvent(voteEvent),
+			Vote:  events.NewEvent(voteEventHandler),
 		},
 		likedThresholdExecutor:   timedexecutor.New(1),
 		locallyFinalizedExecutor: timedexecutor.New(1),
@@ -295,6 +295,7 @@ func (f *ConsensusMechanism) parentsEligibility(messageID tangle.MessageID) (eli
 
 // region ConsensusMechanismEvents /////////////////////////////////////////////////////////////////////////////////////
 
+// ConsensusMechanismEvents represents events triggered by the ConsensusMechanism.
 type ConsensusMechanismEvents struct {
 	// Error gets called when FCOB faces an error.
 	Error *events.Event
@@ -303,7 +304,7 @@ type ConsensusMechanismEvents struct {
 	Vote *events.Event
 }
 
-func voteEvent(handler interface{}, params ...interface{}) {
+func voteEventHandler(handler interface{}, params ...interface{}) {
 	handler.(func(id string, initOpn voter.Opinion))(params[0].(string), params[1].(voter.Opinion))
 }
 
