@@ -106,7 +106,7 @@ func (f *ConsensusMechanism) ProcessVote(ev *vote.OpinionEvent) {
 			return
 		}
 
-		f.storage.CachedOpinion(transactionID).Consume(func(opinion *Opinion) {
+		f.storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
 			opinion.SetLiked(ev.Opinion == voter.Like)
 			opinion.SetLevelOfKnowledge(Two)
 			// trigger PayloadOpinionFormed event
@@ -156,7 +156,7 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 	// if the opinion for this transactionID is already present,
 	// it's a reattachment and thus, we re-use the same opinion.
 	isReattachment := false
-	f.storage.CachedOpinion(transactionID).Consume(func(opinion *Opinion) {
+	f.storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
 		// if the opinion has been already set by the opinion provider, re-use it
 		if opinion.LevelOfKnowledge() > One {
 			// trigger PayloadOpinionFormed event
@@ -222,7 +222,7 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 
 	// Wait LikedThreshold
 	f.likedThresholdExecutor.ExecuteAt(func() {
-		f.storage.CachedOpinion(transactionID).Consume(func(opinion *Opinion) {
+		f.storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
 			opinion.SetLevelOfKnowledge(One)
 			if f.tangle.LedgerState.TransactionConflicting(transactionID) {
 				opinion.SetLiked(false)
@@ -235,7 +235,7 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 
 		// Wait LocallyFinalizedThreshold
 		f.locallyFinalizedExecutor.ExecuteAt(func() {
-			f.storage.CachedOpinion(transactionID).Consume(func(opinion *Opinion) {
+			f.storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
 				opinion.SetLiked(true)
 				if f.tangle.LedgerState.TransactionConflicting(transactionID) {
 					//trigger voting for this transactionID

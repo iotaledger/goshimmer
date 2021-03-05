@@ -67,8 +67,6 @@ type OpinionEssence struct {
 
 // Opinion defines the FCoB opinion about a transaction.
 type Opinion struct {
-	objectstorage.StorableObjectFlags
-
 	// the transactionID associated to this opinion.
 	transactionID ledgerstate.TransactionID
 
@@ -78,6 +76,8 @@ type Opinion struct {
 	timestampMutex        sync.RWMutex
 	likedMutex            sync.RWMutex
 	levelOfKnowledgeMutex sync.RWMutex
+
+	objectstorage.StorableObjectFlags
 }
 
 // Timestamp returns the opinion's timestamp.
