@@ -72,7 +72,7 @@ func (f *ConsensusMechanism) Evaluate(messageID tangle.MessageID) {
 	f.onPayloadOpinionFormed(messageID, true)
 }
 
-// EvaluateTimestamp evaluates the Message regarding its timestamp.
+// EvaluateTimestamp evaluates the honesty of the timestamp of the given Message.
 func (f *ConsensusMechanism) EvaluateTimestamp(messageID tangle.MessageID) {
 	f.storage.StoreTimestampOpinion(&TimestampOpinion{
 		MessageID: messageID,

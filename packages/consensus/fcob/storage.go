@@ -54,8 +54,7 @@ func (s *Storage) TimestampOpinion(messageID tangle.MessageID) (cachedTimestampO
 	return &CachedTimestampOpinion{CachedObject: s.timestampOpinionStorage.Load(messageID.Bytes())}
 }
 
-// SetTimestampOpinion sets the timestampOpinion flag.
-// It returns true if the timestampOpinion flag is modified. False otherwise.
+// StoreTimestampOpinion stores the TimestampOpinion in the object storage. It returns true if it was stored or updated.
 func (s *Storage) StoreTimestampOpinion(timestampOpinion *TimestampOpinion) (modified bool) {
 	cachedTimestampOpinion := &CachedTimestampOpinion{CachedObject: s.timestampOpinionStorage.ComputeIfAbsent(timestampOpinion.MessageID.Bytes(), func(key []byte) objectstorage.StorableObject {
 		timestampOpinion.SetModified()
@@ -86,6 +85,7 @@ func (s *Storage) StoreTimestampOpinion(timestampOpinion *TimestampOpinion) (mod
 	return
 }
 
+// Shutdown shuts down the Storage and causes its content to be persisted to the disk.
 func (s *Storage) Shutdown() {
 	s.opinionStorage.Shutdown()
 	s.timestampOpinionStorage.Shutdown()
