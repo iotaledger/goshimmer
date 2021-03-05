@@ -353,6 +353,7 @@ for _, m := accessMana.Online {
 ## `/mana/access/nhighest`
 
 You can get the N highest access mana holders in the network, sorted in descending order.
+If N=0, all nodes that have access mana are returned sorted.
 
 ### Parameters
 | | |
