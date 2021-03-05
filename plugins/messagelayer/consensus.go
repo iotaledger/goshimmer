@@ -100,7 +100,7 @@ func configureConsensus(_ *node.Plugin) {
 	}))
 
 	// subscribe to message-layer
-	Tangle().OpinionManager.Events.MessageOpinionFormed.Attach(events.NewClosure(readStatement))
+	Tangle().ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(readStatement))
 }
 
 // Voter returns the DRNGRoundBasedVoter instance used by the FPC plugin.

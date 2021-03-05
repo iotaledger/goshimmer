@@ -175,12 +175,12 @@ func TestOpinionFormer_Scenario2(t *testing.T) {
 	}))
 
 	var wg sync.WaitGroup
-	testTangle.OpinionManager.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+	testTangle.ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		t.Logf("MessageOpinionFormed for %s", messageID)
 
-		assert.True(t, testTangle.OpinionManager.MessageEligible(messageID))
-		assert.Equal(t, payloadLiked[messageID], testTangle.OpinionManager.PayloadLiked(messageID))
-		t.Log("Payload Liked:", testTangle.OpinionManager.PayloadLiked(messageID))
+		assert.True(t, testTangle.ConsensusManager.MessageEligible(messageID))
+		assert.Equal(t, payloadLiked[messageID], testTangle.ConsensusManager.PayloadLiked(messageID))
+		t.Log("Payload Liked:", testTangle.ConsensusManager.PayloadLiked(messageID))
 		wg.Done()
 	}))
 
@@ -252,12 +252,12 @@ func TestOpinionFormer(t *testing.T) {
 
 	var wg sync.WaitGroup
 
-	testTangle.OpinionManager.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+	testTangle.ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		t.Log("MessageOpinionFormed for ", messageID)
 
-		assert.True(t, testTangle.OpinionManager.MessageEligible(messageID))
-		assert.Equal(t, payloadLiked[messageID], testTangle.OpinionManager.PayloadLiked(messageID))
-		t.Log("Payload Liked:", testTangle.OpinionManager.PayloadLiked(messageID))
+		assert.True(t, testTangle.ConsensusManager.MessageEligible(messageID))
+		assert.Equal(t, payloadLiked[messageID], testTangle.ConsensusManager.PayloadLiked(messageID))
+		t.Log("Payload Liked:", testTangle.ConsensusManager.PayloadLiked(messageID))
 		wg.Done()
 	}))
 

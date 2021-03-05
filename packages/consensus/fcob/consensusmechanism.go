@@ -99,7 +99,7 @@ func (f *ConsensusMechanism) EvaluateTimestamp(messageID tangle.MessageID) {
 	f.setEligibility(messageID)
 
 	if f.waiting.done(messageID, timestampOpinion) {
-		f.tangle.OpinionManager.Events.MessageOpinionFormed.Trigger(messageID)
+		f.tangle.ConsensusManager.Events.MessageOpinionFormed.Trigger(messageID)
 	}
 }
 
@@ -262,9 +262,9 @@ func (f *ConsensusMechanism) onPayloadOpinionFormed(messageID tangle.MessageID, 
 		f.setEligibility(messageID)
 		// trigger TransactionOpinionFormed if the message contains a transaction
 		if isTxConfirmed {
-			f.tangle.OpinionManager.Events.TransactionConfirmed.Trigger(messageID)
+			f.tangle.ConsensusManager.Events.TransactionConfirmed.Trigger(messageID)
 		}
-		f.tangle.OpinionManager.Events.MessageOpinionFormed.Trigger(messageID)
+		f.tangle.ConsensusManager.Events.MessageOpinionFormed.Trigger(messageID)
 	}
 }
 
@@ -284,7 +284,7 @@ func (f *ConsensusMechanism) parentsEligibility(messageID tangle.MessageID) (eli
 		eligible = true
 		// check if all the parents are eligible
 		message.ForEachParent(func(parent tangle.Parent) {
-			if eligible = eligible && f.tangle.OpinionManager.MessageEligible(parent.ID); !eligible {
+			if eligible = eligible && f.tangle.ConsensusManager.MessageEligible(parent.ID); !eligible {
 				return
 			}
 		})

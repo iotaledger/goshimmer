@@ -17,19 +17,19 @@ import (
 
 // Tangle is the central data structure of the IOTA protocol.
 type Tangle struct {
-	Options        *Options
-	Parser         *Parser
-	Storage        *Storage
-	Solidifier     *Solidifier
-	Scheduler      *Scheduler
-	Booker         *Booker
-	OpinionManager *OpinionManager
-	TipManager     *TipManager
-	Requester      *Requester
-	MessageFactory *MessageFactory
-	LedgerState    *LedgerState
-	Utils          *Utils
-	Events         *Events
+	Options          *Options
+	Parser           *Parser
+	Storage          *Storage
+	Solidifier       *Solidifier
+	Scheduler        *Scheduler
+	Booker           *Booker
+	ConsensusManager *ConsensusManager
+	TipManager       *TipManager
+	Requester        *Requester
+	MessageFactory   *MessageFactory
+	LedgerState      *LedgerState
+	Utils            *Utils
+	Events           *Events
 
 	setupParserOnce sync.Once
 	syncedMutex     sync.RWMutex
@@ -54,7 +54,7 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.Scheduler = NewScheduler(tangle)
 	tangle.LedgerState = NewLedgerState(tangle)
 	tangle.Booker = NewBooker(tangle)
-	tangle.OpinionManager = NewOpinionManager(tangle)
+	tangle.ConsensusManager = NewConsensusManager(tangle)
 	tangle.Requester = NewRequester(tangle)
 	tangle.TipManager = NewTipManager(tangle)
 	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager)
@@ -77,8 +77,8 @@ func (t *Tangle) Configure(options ...Option) {
 		option(t.Options)
 	}
 
-	if t.Options.ConsensusProvider != nil {
-		t.Options.ConsensusProvider.Init(t)
+	if t.Options.ConsensusMechanism != nil {
+		t.Options.ConsensusMechanism.Init(t)
 	}
 }
 
@@ -89,7 +89,7 @@ func (t *Tangle) Setup() {
 	t.Requester.Setup()
 	t.Scheduler.Setup()
 	t.Booker.Setup()
-	t.OpinionManager.Setup()
+	t.ConsensusManager.Setup()
 	t.TipManager.Setup()
 
 	t.MessageFactory.Events.Error.Attach(events.NewClosure(func(err error) {
@@ -149,7 +149,7 @@ func (t *Tangle) Shutdown() {
 	t.Scheduler.Shutdown()
 	t.Booker.Shutdown()
 	t.LedgerState.Shutdown()
-	t.OpinionManager.Shutdown()
+	t.ConsensusManager.Shutdown()
 	t.Storage.Shutdown()
 	t.Options.Store.Shutdown()
 }
@@ -189,7 +189,7 @@ type Options struct {
 	Identity                     *identity.LocalIdentity
 	IncreaseMarkersIndexCallback markers.IncreaseIndexCallback
 	TangleWidth                  int
-	ConsensusProvider            ConsensusMechanism
+	ConsensusMechanism           ConsensusMechanism
 }
 
 // Store is an Option for the Tangle that allows to specify which storage layer is supposed to be used to persist data.
@@ -209,7 +209,7 @@ func Identity(identity *identity.LocalIdentity) Option {
 // Consensus is an Option for the Tangle that allows to define the consensus mechanism that is used by the Tangle.
 func Consensus(consensusProvider ConsensusMechanism) Option {
 	return func(options *Options) {
-		options.ConsensusProvider = consensusProvider
+		options.ConsensusMechanism = consensusProvider
 	}
 }
 

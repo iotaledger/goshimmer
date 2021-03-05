@@ -47,7 +47,7 @@ func NewScheduler(tangle *Tangle) (scheduler *Scheduler) {
 func (s *Scheduler) Setup() {
 	s.tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(s.Schedule))
 
-	s.tangle.OpinionManager.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID MessageID) {
+	s.tangle.ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID MessageID) {
 		if s.scheduledMessages.Delete(messageID) {
 			s.allMessagesScheduledWG.Done()
 		}

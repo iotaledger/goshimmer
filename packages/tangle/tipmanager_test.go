@@ -37,7 +37,7 @@ func TestTipManager_AddTip(t *testing.T) {
 		})
 
 		// mock the Tangle's PayloadOpinionProvider so that we can add payloads without actually building opinions
-		tangle.Options.ConsensusProvider = &mockConsensusProvider{
+		tangle.Options.ConsensusMechanism = &mockConsensusProvider{
 			func(transactionID ledgerstate.TransactionID) bool {
 				if message.Payload().Type() == ledgerstate.TransactionType {
 					if transactionID == message.Payload().(*ledgerstate.Transaction).ID() {
@@ -380,7 +380,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 	outputsByID := make(map[ledgerstate.OutputID]ledgerstate.Output)
 
 	// mock the Tangle's PayloadOpinionProvider so that we can add transaction payloads without actually building opinions
-	tangle.Options.ConsensusProvider = &mockConsensusProvider{
+	tangle.Options.ConsensusMechanism = &mockConsensusProvider{
 		func(transactionID ledgerstate.TransactionID) bool {
 			for _, msg := range messages {
 				if msg.Payload().Type() == ledgerstate.TransactionType {

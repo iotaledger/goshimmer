@@ -32,7 +32,7 @@ func TestScheduler(t *testing.T) {
 	tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
 		tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetBooked(true)
-			tangle.OpinionManager.Events.MessageOpinionFormed.Trigger(messageID)
+			tangle.ConsensusManager.Events.MessageOpinionFormed.Trigger(messageID)
 		})
 	}))
 
