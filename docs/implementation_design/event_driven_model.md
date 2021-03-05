@@ -53,7 +53,7 @@ The above explanation also allows a better understanding of why all handlers mus
 ```go
 import "github.com/iotaledger/hive.go/events"
 
-ThisEvent := events.NewEvent(sigleArgCaller)
+ThisEvent := events.NewEvent(singleArgCaller)
 ```
 
 3. After creating the event, handlers (or callbacks) can be attached to it. An event can have multiple callbacks, however they all need to share the same interface. 
