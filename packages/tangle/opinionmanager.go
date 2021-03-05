@@ -18,8 +18,8 @@ type OpinionManager struct {
 func NewOpinionManager(tangle *Tangle) (opinionFormer *OpinionManager) {
 	opinionFormer = &OpinionManager{
 		Events: OpinionFormerEvents{
-			MessageOpinionFormed: events.NewEvent(MessageIDEventHandler),
-			TransactionConfirmed: events.NewEvent(MessageIDEventHandler),
+			MessageOpinionFormed: events.NewEvent(MessageIDCaller),
+			TransactionConfirmed: events.NewEvent(MessageIDCaller),
 		},
 
 		tangle: tangle,
@@ -61,7 +61,7 @@ func (o *OpinionManager) PayloadLiked(messageID MessageID) (liked bool) {
 			return
 		}
 
-		liked = o.tangle.Options.ConsensusProvider.PayloadLiked(messageID)
+		liked = o.tangle.Options.ConsensusProvider.TransactionLiked(message.Payload().(*ledgerstate.Transaction).ID())
 	})
 
 	return
@@ -95,12 +95,20 @@ type OpinionFormerEvents struct {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region ConsensusProvider ////////////////////////////////////////////////////////////////////////////////////////////
+// region ConsensusMechanism ///////////////////////////////////////////////////////////////////////////////////////////
 
-type ConsensusProvider interface {
+// ConsensusMechanism is a generic interface allowing the Tangle to use different methods to reach consensus.
+type ConsensusMechanism interface {
+	// Init initializes the ConsensusMechanism by making the Tangle object available that is using it.
 	Init(tangle *Tangle)
+
+	// Setup sets up the behavior of the ConsensusMechanism by making it attach to the relevant events in the Tangle.
 	Setup()
-	PayloadLiked(messageID MessageID) (liked bool)
+
+	// TransactionLiked returns a boolean value indicating whether the given Transaction is liked.
+	TransactionLiked(transactionID ledgerstate.TransactionID) (liked bool)
+
+	// Shutdown shuts down the ConsensusMechanism and persists its state.
 	Shutdown()
 }
 

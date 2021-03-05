@@ -37,7 +37,7 @@ type Booker struct {
 func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 	messageBooker = &Booker{
 		Events: &BookerEvents{
-			MessageBooked: events.NewEvent(MessageIDEventHandler),
+			MessageBooked: events.NewEvent(MessageIDCaller),
 		},
 		tangle:                       tangle,
 		MarkersManager:               NewMarkersManager(tangle),

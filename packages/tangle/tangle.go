@@ -40,8 +40,8 @@ type Tangle struct {
 func New(options ...Option) (tangle *Tangle) {
 	tangle = &Tangle{
 		Events: &Events{
-			MessageEligible: events.NewEvent(MessageIDEventHandler),
-			MessageInvalid:  events.NewEvent(MessageIDEventHandler),
+			MessageEligible: events.NewEvent(MessageIDCaller),
+			MessageInvalid:  events.NewEvent(MessageIDCaller),
 			Error:           events.NewEvent(events.ErrorCaller),
 		},
 	}
@@ -170,7 +170,8 @@ type Events struct {
 	Error *events.Event
 }
 
-func MessageIDEventHandler(handler interface{}, params ...interface{}) {
+// MessageIDCaller is the caller function for events that hand over a MessageID.
+func MessageIDCaller(handler interface{}, params ...interface{}) {
 	handler.(func(MessageID))(params[0].(MessageID))
 }
 
@@ -188,7 +189,7 @@ type Options struct {
 	Identity                     *identity.LocalIdentity
 	IncreaseMarkersIndexCallback markers.IncreaseIndexCallback
 	TangleWidth                  int
-	ConsensusProvider            ConsensusProvider
+	ConsensusProvider            ConsensusMechanism
 }
 
 // Store is an Option for the Tangle that allows to specify which storage layer is supposed to be used to persist data.
@@ -206,7 +207,7 @@ func Identity(identity *identity.LocalIdentity) Option {
 }
 
 // Consensus is an Option for the Tangle that allows to define the consensus mechanism that is used by the Tangle.
-func Consensus(consensusProvider ConsensusProvider) Option {
+func Consensus(consensusProvider ConsensusMechanism) Option {
 	return func(options *Options) {
 		options.ConsensusProvider = consensusProvider
 	}

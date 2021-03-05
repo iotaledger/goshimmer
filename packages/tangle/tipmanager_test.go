@@ -38,8 +38,14 @@ func TestTipManager_AddTip(t *testing.T) {
 
 		// mock the Tangle's PayloadOpinionProvider so that we can add payloads without actually building opinions
 		tangle.Options.ConsensusProvider = &mockConsensusProvider{
-			func(messageID MessageID) bool {
-				return messageID == message.ID()
+			func(transactionID ledgerstate.TransactionID) bool {
+				if message.Payload().Type() == ledgerstate.TransactionType {
+					if transactionID == message.Payload().(*ledgerstate.Transaction).ID() {
+						return true
+					}
+				}
+
+				return false
 			},
 		}
 
@@ -375,10 +381,12 @@ func TestTipManager_TransactionTips(t *testing.T) {
 
 	// mock the Tangle's PayloadOpinionProvider so that we can add transaction payloads without actually building opinions
 	tangle.Options.ConsensusProvider = &mockConsensusProvider{
-		func(messageID MessageID) bool {
+		func(transactionID ledgerstate.TransactionID) bool {
 			for _, msg := range messages {
-				if msg.ID() == messageID {
-					return true
+				if msg.Payload().Type() == ledgerstate.TransactionType {
+					if transactionID == msg.Payload().(*ledgerstate.Transaction).ID() {
+						return true
+					}
 				}
 			}
 			return false
@@ -798,15 +806,15 @@ func (m *Message) setMessageMetadata(tangle *Tangle, eligible bool, branchID led
 }
 
 type mockConsensusProvider struct {
-	opinionLikedFnc func(messageID MessageID) bool
+	opinionLikedFnc func(transactionID ledgerstate.TransactionID) bool
 }
 
 func (m *mockConsensusProvider) Init(*Tangle) {}
 
 func (m *mockConsensusProvider) Setup() {}
 
-func (m *mockConsensusProvider) PayloadLiked(messageID MessageID) (liked bool) {
-	return m.opinionLikedFnc(messageID)
+func (m *mockConsensusProvider) TransactionLiked(transactionID ledgerstate.TransactionID) (liked bool) {
+	return m.opinionLikedFnc(transactionID)
 }
 
 func (m *mockConsensusProvider) Shutdown() {}

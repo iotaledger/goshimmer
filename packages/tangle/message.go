@@ -638,7 +638,6 @@ type MessageMetadata struct {
 	solidificationTimeMutex sync.RWMutex
 	structureDetailsMutex   sync.RWMutex
 	branchIDMutex           sync.RWMutex
-	timestampOpinionMutex   sync.RWMutex
 	scheduledMutex          sync.RWMutex
 	bookedMutex             sync.RWMutex
 	eligibleMutex           sync.RWMutex

@@ -48,16 +48,32 @@ func NewConsensusMechanism() *ConsensusMechanism {
 	}
 }
 
-// Init initializes the consensus mechanism by making the Tangle object available that is using it.
+// Init initializes the ConsensusMechanism by making the Tangle object available that is using it.
 func (f *ConsensusMechanism) Init(tangle *tangle.Tangle) {
 	f.tangle = tangle
 	f.storage = NewStorage(tangle.Options.Store)
 }
 
-// Setup sets up the behavior of the component by making it attach to the relevant events of other Tangle components.
+// Setup sets up the behavior of the ConsensusMechanism by making it attach to the relevant events in the Tangle.
 func (f *ConsensusMechanism) Setup() {
 	f.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(f.Evaluate))
 	f.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(f.EvaluateTimestamp))
+}
+
+// TransactionLiked returns a boolean value indicating whether the given Transaction is liked.
+func (f *ConsensusMechanism) TransactionLiked(transactionID ledgerstate.TransactionID) (liked bool) {
+	f.storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
+		liked = opinion.OpinionEssence.liked
+	})
+
+	return
+}
+
+// Shutdown shuts down the ConsensusMechanism and persists its state.
+func (f *ConsensusMechanism) Shutdown() {
+	f.likedThresholdExecutor.Shutdown(timedqueue.CancelPendingElements)
+	f.locallyFinalizedExecutor.Shutdown(timedqueue.CancelPendingElements)
+	f.storage.Shutdown()
 }
 
 // Evaluate evaluates the opinion of the given messageID.
@@ -108,27 +124,10 @@ func (f *ConsensusMechanism) ProcessVote(ev *vote.OpinionEvent) {
 	}
 }
 
-func (f *ConsensusMechanism) PayloadLiked(messageID tangle.MessageID) (liked bool) {
-	return f.Opinion(messageID)
-}
-
-func (f *ConsensusMechanism) Shutdown() {
-	f.likedThresholdExecutor.Shutdown(timedqueue.CancelPendingElements)
-	f.locallyFinalizedExecutor.Shutdown(timedqueue.CancelPendingElements)
-	f.storage.Shutdown()
-}
-
-// Opinion returns the liked status of a given messageID.
-func (f *ConsensusMechanism) Opinion(messageID tangle.MessageID) (opinion bool) {
-	f.tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
-		opinion = f.storage.OpinionEssence(transactionID).liked
-	})
-	return
-}
-
 // TransactionOpinionEssence returns the opinion essence of a given transactionID.
 func (f *ConsensusMechanism) TransactionOpinionEssence(transactionID ledgerstate.TransactionID) (opinion OpinionEssence) {
 	opinion = f.storage.OpinionEssence(transactionID)
+
 	return
 }
 

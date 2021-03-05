@@ -73,9 +73,9 @@ func NewStorage(tangle *Tangle) (storage *Storage) {
 		markerIndexBranchIDMappingStorage: osFactory.New(PrefixMarkerBranchIDMapping, MarkerIndexBranchIDMappingFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 
 		Events: &StorageEvents{
-			MessageStored:        events.NewEvent(MessageIDEventHandler),
-			MessageRemoved:       events.NewEvent(MessageIDEventHandler),
-			MissingMessageStored: events.NewEvent(MessageIDEventHandler),
+			MessageStored:        events.NewEvent(MessageIDCaller),
+			MessageRemoved:       events.NewEvent(MessageIDCaller),
+			MissingMessageStored: events.NewEvent(MessageIDCaller),
 		},
 	}
 
