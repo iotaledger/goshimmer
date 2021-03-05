@@ -34,6 +34,8 @@ const (
 	manaScaleFactor             = 1000 // scale floating point mana to int
 	maxConsensusEventsInStorage = 108000
 	slidingEventsInterval       = 10800 //10% of maxConsensusEventsInStorage
+	minEffectiveMana            = 0.001
+	minBaseMana1                = 0.001
 )
 
 var (
@@ -210,12 +212,15 @@ func run(_ *node.Plugin) {
 	ema2 := config.Node().Float64(CfgEmaCoefficient2)
 	dec := config.Node().Float64(CfgDecay)
 	pruneInterval := config.Node().Duration(CfgPruneConsensusEventLogsInterval)
+	vectorsCleanUpIntervalHours := config.Node().Duration(CfgVectorsCleanupIntervalHours)
 
 	mana.SetCoefficients(ema1, ema2, dec)
 	if err := daemon.BackgroundWorker("Mana", func(shutdownSignal <-chan struct{}) {
 		defer log.Infof("Stopping %s ... done", PluginName)
 		ticker := time.NewTicker(pruneInterval)
 		defer ticker.Stop()
+		cleanupTicker := time.NewTicker(vectorsCleanUpIntervalHours)
+		defer cleanupTicker.Stop()
 		readStoredManaVectors()
 		pruneStorages()
 		for {
@@ -230,6 +235,8 @@ func run(_ *node.Plugin) {
 				return
 			case <-ticker.C:
 				pruneConsensusEventLogsStorage()
+			case <-cleanupTicker.C:
+				cleanupManaVectors()
 			}
 		}
 	}, shutdown.PriorityMana); err != nil {
@@ -696,6 +703,29 @@ func pruneConsensusEventLogsStorage() {
 	}
 	consensusEventsLogStorage.DeleteEntriesFromStore(entriesToDelete)
 	consensusEventsLogsStorageSize.Sub(uint32(len(entriesToDelete)))
+}
+
+func cleanupManaVectors() {
+	toRemove := make(map[mana.Type][]identity.ID)
+	types := []mana.Type{mana.AccessMana, mana.ConsensusMana}
+	for _, vecType := range types {
+		baseManaVectors[vecType].ForEach(func(id identity.ID, baseMana mana.BaseMana) bool {
+			switch vecType {
+			case mana.ConsensusMana:
+				if baseMana.EffectiveValue() < minEffectiveMana && baseMana.BaseValue() == 0 {
+					toRemove[vecType] = append(toRemove[vecType], id)
+				}
+			case mana.AccessMana:
+				if baseMana.EffectiveValue() < minEffectiveMana && baseMana.BaseValue() < minBaseMana1 {
+					toRemove[vecType] = append(toRemove[vecType], id)
+				}
+			}
+			return true
+		})
+	}
+	for _, vecType := range types {
+		baseManaVectors[vecType].Remove(toRemove[vecType])
+	}
 }
 
 // AllowedPledge represents the nodes that mana is allowed to be pledged to.

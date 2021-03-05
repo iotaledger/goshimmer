@@ -301,6 +301,8 @@ func (c *ConsensusBaseManaVector) FromPersistable(p *PersistableBaseMana) (err e
 
 // Remove removes the nodes from the vector.
 func (c *ConsensusBaseManaVector) Remove(IDs []identity.ID) {
+	c.Lock()
+	defer c.Unlock()
 	for _, ID := range IDs {
 		delete(c.vector, ID)
 	}
