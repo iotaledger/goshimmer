@@ -213,14 +213,14 @@ func run(_ *node.Plugin) {
 	ema2 := config.Node().Float64(CfgEmaCoefficient2)
 	dec := config.Node().Float64(CfgDecay)
 	pruneInterval := config.Node().Duration(CfgPruneConsensusEventLogsInterval)
-	vectorsCleanUpIntervalHours := config.Node().Duration(CfgVectorsCleanupIntervalHours)
+	vectorsCleanUpInterval := config.Node().Duration(CfgVectorsCleanupInterval)
 
 	mana.SetCoefficients(ema1, ema2, dec)
 	if err := daemon.BackgroundWorker("Mana", func(shutdownSignal <-chan struct{}) {
 		defer log.Infof("Stopping %s ... done", PluginName)
 		ticker := time.NewTicker(pruneInterval)
 		defer ticker.Stop()
-		cleanupTicker := time.NewTicker(vectorsCleanUpIntervalHours)
+		cleanupTicker := time.NewTicker(vectorsCleanUpInterval)
 		defer cleanupTicker.Stop()
 		readStoredManaVectors()
 		pruneStorages()

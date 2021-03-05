@@ -135,7 +135,7 @@ func run(_ *node.Plugin) {
 		if err := writeEventsToCSV(eventsBuffer); err != nil {
 			log.Infof("error writing events to csv: %w", err)
 		}
-	}, shutdown.PriorityTangle); err != nil {
+	}, shutdown.PriorityMana); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
 }
