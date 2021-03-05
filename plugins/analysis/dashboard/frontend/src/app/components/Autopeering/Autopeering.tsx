@@ -105,7 +105,7 @@ export default class Autopeering extends React.Component<AutopeeringProps, unkno
                     <div>
                         {
                             this.props.autopeeringStore.manaColoringActive &&
-                            <ManaLegend min={'0 m'} mid={"500 Mm"} max={"1 Gm"}/>
+                            <ManaLegend min={'0 m'} mid={"500 Tm"} max={"1 Pm"}/>
                         }
                     </div>
                 </div>

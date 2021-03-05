@@ -3,6 +3,7 @@ package prometheus
 import (
 	"context"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -16,11 +17,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-// TODO: mana metrics export to prometheus
+// PluginName is the name of the prometheus plugin.
+const PluginName = "Prometheus"
 
 // Plugin Prometheus
 var (
-	Plugin = node.NewPlugin("Prometheus", node.Disabled, configure, run)
+	plugin *node.Plugin
+	once   sync.Once
 	log    *logger.Logger
 
 	server   *http.Server
@@ -28,21 +31,29 @@ var (
 	collects []func()
 )
 
+// Plugin gets the plugin instance.
+func Plugin() *node.Plugin {
+	once.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
+	})
+	return plugin
+}
+
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(plugin.Name)
 
-	if config.Node().GetBool(CfgPrometheusWorkerpoolMetrics) {
+	if config.Node().Bool(CfgPrometheusWorkerpoolMetrics) {
 		registerWorkerpoolMetrics()
 	}
 
-	if config.Node().GetBool(CfgPrometheusGoMetrics) {
+	if config.Node().Bool(CfgPrometheusGoMetrics) {
 		registry.MustRegister(prometheus.NewGoCollector())
 	}
-	if config.Node().GetBool(CfgPrometheusProcessMetrics) {
+	if config.Node().Bool(CfgPrometheusProcessMetrics) {
 		registry.MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
 	}
 
-	if config.Node().GetBool(metrics.CfgMetricsLocal) {
+	if config.Node().Bool(metrics.CfgMetricsLocal) {
 		registerAutopeeringMetrics()
 		registerDBMetrics()
 		registerFPCMetrics()
@@ -53,11 +64,11 @@ func configure(plugin *node.Plugin) {
 		registerManaMetrics()
 	}
 
-	if config.Node().GetBool(metrics.CfgMetricsGlobal) {
+	if config.Node().Bool(metrics.CfgMetricsGlobal) {
 		registerClientsMetrics()
 	}
 
-	if config.Node().GetBool(metrics.CfgMetricsManaResearch) {
+	if config.Node().Bool(metrics.CfgMetricsManaResearch) {
 		registerManaResearchMetrics()
 	}
 }
@@ -84,13 +95,13 @@ func run(plugin *node.Plugin) {
 					EnableOpenMetrics: true,
 				},
 			)
-			if config.Node().GetBool(CfgPrometheusPromhttpMetrics) {
+			if config.Node().Bool(CfgPrometheusPromhttpMetrics) {
 				handler = promhttp.InstrumentMetricHandler(registry, handler)
 			}
 			handler.ServeHTTP(c.Writer, c.Request)
 		})
 
-		bindAddr := config.Node().GetString(CfgPrometheusBindAddress)
+		bindAddr := config.Node().String(CfgPrometheusBindAddress)
 		server = &http.Server{Addr: bindAddr, Handler: engine}
 
 		go func() {

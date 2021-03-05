@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"sort"
 	goSync "sync"
+	"time"
 
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
@@ -104,11 +105,14 @@ func getInfo(c echo.Context) error {
 		})
 	}
 
-	accessMana, _ := manaPlugin.GetAccessMana(local.GetInstance().ID())
-	consensusMana, _ := manaPlugin.GetConsensusMana(local.GetInstance().ID())
+	t := time.Now()
+	accessMana, tAccess, _ := manaPlugin.GetAccessMana(local.GetInstance().ID(), t)
+	consensusMana, tConsensus, _ := manaPlugin.GetConsensusMana(local.GetInstance().ID(), t)
 	nodeMana := Mana{
-		Access:    accessMana,
-		Consensus: consensusMana,
+		Access:             accessMana,
+		AccessTimestamp:    tAccess,
+		Consensus:          consensusMana,
+		ConsensusTimestamp: tConsensus,
 	}
 
 	return c.JSON(http.StatusOK, Response{
@@ -170,6 +174,8 @@ type Beacon struct {
 
 // Mana contains the different mana values of the node.
 type Mana struct {
-	Access    float64 `json:"access"`
-	Consensus float64 `json:"consensus"`
+	Access             float64   `json:"access"`
+	AccessTimestamp    time.Time `json:"accessTimestamp"`
+	Consensus          float64   `json:"consensus"`
+	ConsensusTimestamp time.Time `json:"consensusTimestamp"`
 }

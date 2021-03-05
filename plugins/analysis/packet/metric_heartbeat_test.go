@@ -45,7 +45,7 @@ func TestMetricHeartbeat(t *testing.T) {
 	_, err = ParseMetricHeartbeat(packet)
 	require.Error(t, err)
 
-	hb.Version = banner.AppVersion
+	hb.Version = banner.SimplifiedAppVersion
 	packet, err = hb.Bytes()
 	require.NoError(t, err)
 

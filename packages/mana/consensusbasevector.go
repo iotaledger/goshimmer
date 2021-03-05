@@ -175,38 +175,44 @@ func (c *ConsensusBaseManaVector) UpdateAll(t time.Time) error {
 }
 
 // GetMana returns the Effective Base Mana.
-func (c *ConsensusBaseManaVector) GetMana(nodeID identity.ID) (float64, error) {
+func (c *ConsensusBaseManaVector) GetMana(nodeID identity.ID, optionalUpdateTime ...time.Time) (float64, time.Time, error) {
 	c.Lock()
 	defer c.Unlock()
-	return c.getMana(nodeID)
+	return c.getMana(nodeID, optionalUpdateTime...)
 }
 
 // GetManaMap returns mana perception of the node.
-func (c *ConsensusBaseManaVector) GetManaMap(update ...bool) (NodeMap, error) {
+func (c *ConsensusBaseManaVector) GetManaMap(optionalUpdateTime ...time.Time) (res NodeMap, t time.Time, err error) {
 	c.Lock()
 	defer c.Unlock()
-	res := make(map[identity.ID]float64)
+	t = time.Now()
+	if len(optionalUpdateTime) > 0 {
+		t = optionalUpdateTime[0]
+	}
+	res = make(map[identity.ID]float64)
 	for ID := range c.vector {
-		mana, err := c.getMana(ID, update...)
+		var mana float64
+		mana, _, err = c.getMana(ID, t)
 		if err != nil {
-			return nil, err
+			return nil, t, err
 		}
 		res[ID] = mana
 	}
-	return res, nil
+	return
 }
 
 // GetHighestManaNodes return the n highest mana nodes in descending order.
 // It also updates the mana values for each node.
 // If n is zero, it returns all nodes.
-func (c *ConsensusBaseManaVector) GetHighestManaNodes(n uint) ([]Node, error) {
-	var res []Node
-	err := func() error {
+func (c *ConsensusBaseManaVector) GetHighestManaNodes(n uint) (res []Node, t time.Time, err error) {
+	err = func() error {
 		// don't lock the vector after this func returns
 		c.Lock()
 		defer c.Unlock()
+		t = time.Now()
 		for ID := range c.vector {
-			mana, err := c.getMana(ID)
+			var mana float64
+			mana, _, err = c.getMana(ID, t)
 			if err != nil {
 				return err
 			}
@@ -218,7 +224,7 @@ func (c *ConsensusBaseManaVector) GetHighestManaNodes(n uint) ([]Node, error) {
 		return nil
 	}()
 	if err != nil {
-		return nil, err
+		return nil, t, err
 	}
 
 	sort.Slice(res[:], func(i, j int) bool {
@@ -226,9 +232,10 @@ func (c *ConsensusBaseManaVector) GetHighestManaNodes(n uint) ([]Node, error) {
 	})
 
 	if n == 0 || int(n) >= len(res) {
-		return res[:], nil
+		return
 	}
-	return res[:n], nil
+	res = res[:n]
+	return
 }
 
 // SetMana sets the base mana for a node.
@@ -317,13 +324,16 @@ func (c *ConsensusBaseManaVector) update(nodeID identity.ID, t time.Time) error 
 }
 
 // getMana returns the Effective Base Mana 1. Will update base mana by default.
-func (c *ConsensusBaseManaVector) getMana(nodeID identity.ID, update ...bool) (float64, error) {
+func (c *ConsensusBaseManaVector) getMana(nodeID identity.ID, optionalUpdateTime ...time.Time) (float64, time.Time, error) {
+	t := time.Now()
 	if _, exist := c.vector[nodeID]; !exist {
-		return 0.0, ErrNodeNotFoundInBaseManaVector
+		return 0.0, t, ErrNodeNotFoundInBaseManaVector
 	}
-	if len(update) == 0 || update[0] {
-		_ = c.update(nodeID, time.Now())
+	if len(optionalUpdateTime) > 0 {
+		t = optionalUpdateTime[0]
 	}
+	_ = c.update(nodeID, t)
+
 	baseMana := c.vector[nodeID]
-	return baseMana.EffectiveBaseMana1, nil
+	return baseMana.EffectiveBaseMana1, t, nil
 }

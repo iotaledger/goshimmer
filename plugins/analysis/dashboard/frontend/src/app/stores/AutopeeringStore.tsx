@@ -638,7 +638,7 @@ export class AutopeeringStore {
     }
 
     getColorFromMana = (mana:number) => {
-        let hue = 180.0 * ( 1.0 - mana/1000000000.0);
+        let hue = 180.0 * ( 1.0 - mana/1000000000000000.0);
         let c = tinycolor(({ h: hue, s: 1, l: .5 }));
         return "0x" + c.toHex();
     }

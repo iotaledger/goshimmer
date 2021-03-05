@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 	"github.com/stretchr/testify/require"
@@ -30,13 +30,13 @@ func TestFaucetPersistence(t *testing.T) {
 	ids, addrBalance := tests.SendFaucetRequestOnRandomPeer(t, peers[1:], 10)
 
 	// wait for messages to be gossiped
-	time.Sleep(2 * valuetransfers.DefaultAverageNetworkDelay)
+	time.Sleep(2 * messagelayer.DefaultAverageNetworkDelay)
 
 	// check whether all issued messages are available on all nodes
 	tests.CheckForMessageIds(t, n.Peers(), ids, true)
 
 	// wait for transactions to be gossiped
-	time.Sleep(2 * valuetransfers.DefaultAverageNetworkDelay)
+	time.Sleep(2 * messagelayer.DefaultAverageNetworkDelay)
 
 	// check ledger state
 	tests.CheckBalances(t, peers[1:], addrBalance)

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 )
@@ -33,7 +33,7 @@ func TestRevokeEvent_ToJSONSerializable(t *testing.T) {
 	assert.Equal(t, r.Amount, rj.Amount)
 	assert.Equal(t, r.Time.Unix(), rj.Time)
 	assert.Equal(t, r.ManaType.String(), rj.ManaType)
-	assert.Equal(t, r.TransactionID.String(), rj.TxID)
+	assert.Equal(t, r.TransactionID.Base58(), rj.TxID)
 }
 
 func TestPledgedEvent_ToPersistable(t *testing.T) {
@@ -58,7 +58,7 @@ func TestPledgedEvent_ToJSONSerializable(t *testing.T) {
 	assert.Equal(t, p.Amount, pj.Amount)
 	assert.Equal(t, p.Time.Unix(), pj.Time)
 	assert.Equal(t, p.ManaType.String(), pj.ManaType)
-	assert.Equal(t, p.TransactionID.String(), pj.TxID)
+	assert.Equal(t, p.TransactionID.Base58(), pj.TxID)
 }
 
 func TestUpdatedEvent_ToPersistable(t *testing.T) {
@@ -74,7 +74,7 @@ func newPledgeEvent() *PledgedEvent {
 		Amount:        100,
 		Time:          time.Now(),
 		ManaType:      ConsensusMana,
-		TransactionID: transaction.RandomID(),
+		TransactionID: randomTxID(),
 	}
 }
 
@@ -84,7 +84,7 @@ func newRevokeEvent() *RevokedEvent {
 		Amount:        100,
 		Time:          time.Now(),
 		ManaType:      ConsensusMana,
-		TransactionID: transaction.RandomID(),
+		TransactionID: randomTxID(),
 	}
 }
 
@@ -101,5 +101,10 @@ func randomNodeID() (ID identity.ID) {
 	idBytes := make([]byte, sha256.Size)
 	_, _ = rand.Read(idBytes)
 	copy(ID[:], idBytes)
+	return
+}
+
+func randomTxID() (txID ledgerstate.TransactionID) {
+	txID, _ = ledgerstate.TransactionIDFromRandomness()
 	return
 }

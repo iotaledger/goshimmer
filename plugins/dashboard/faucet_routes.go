@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/dapps/faucet"
-	faucetpayload "github.com/iotaledger/goshimmer/dapps/faucet/packages/payload"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+
 	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/plugins/faucet"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 
 	"github.com/labstack/echo"
@@ -21,7 +21,7 @@ type ReqMsg struct {
 
 func setupFaucetRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/faucet/:hash", func(c echo.Context) (err error) {
-		addr, err := address.FromBase58(c.Param("hash"))
+		addr, err := ledgerstate.AddressFromBase58EncodedString(c.Param("hash"))
 		if err != nil {
 			return errors.Wrapf(ErrInvalidParameter, "faucet request address invalid: %s", addr)
 		}
@@ -37,14 +37,14 @@ func setupFaucetRoutes(routeGroup *echo.Group) {
 
 var fundingReqMu = sync.Mutex{}
 
-func sendFaucetReq(addr address.Address) (res *ReqMsg, err error) {
+func sendFaucetReq(addr ledgerstate.Address) (res *ReqMsg, err error) {
 	fundingReqMu.Lock()
 	defer fundingReqMu.Unlock()
-	faucetPayload, err := faucetpayload.New(addr, config.Node().GetInt(faucet.CfgFaucetPoWDifficulty))
+	faucetPayload, err := faucet.NewRequest(addr, config.Node().Int(faucet.CfgFaucetPoWDifficulty))
 	if err != nil {
 		return nil, err
 	}
-	msg, err := messagelayer.MessageFactory().IssuePayload(faucetPayload)
+	msg, err := messagelayer.Tangle().MessageFactory.IssuePayload(faucetPayload, messagelayer.Tangle())
 	if err != nil {
 		return nil, errors.Wrapf(ErrInternalError, "Failed to send faucet request: %s", err.Error())
 	}

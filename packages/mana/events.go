@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 )
@@ -68,7 +68,7 @@ type PledgedEvent struct {
 	Amount        float64
 	Time          time.Time
 	ManaType      Type // access or consensus
-	TransactionID transaction.ID
+	TransactionID ledgerstate.TransactionID
 }
 
 // PledgedEventJSON is a JSON serializable form of a PledgedEvent.
@@ -86,7 +86,7 @@ func (p *PledgedEvent) ToJSONSerializable() interface{} {
 		ManaType: p.ManaType.String(),
 		NodeID:   p.NodeID.String(),
 		Time:     p.Time.Unix(),
-		TxID:     p.TransactionID.String(),
+		TxID:     p.TransactionID.Base58(),
 		Amount:   p.Amount,
 	}
 }
@@ -147,8 +147,8 @@ type RevokedEvent struct {
 	Amount        float64
 	Time          time.Time
 	ManaType      Type // shall only be consensus for now
-	TransactionID transaction.ID
-	InputID       transaction.OutputID
+	TransactionID ledgerstate.TransactionID
+	InputID       ledgerstate.OutputID
 }
 
 // RevokedEventJSON is a JSON serializable form of a RevokedEvent.
@@ -167,9 +167,9 @@ func (r *RevokedEvent) ToJSONSerializable() interface{} {
 		ManaType: r.ManaType.String(),
 		NodeID:   r.NodeID.String(),
 		Time:     r.Time.Unix(),
-		TxID:     r.TransactionID.String(),
+		TxID:     r.TransactionID.Base58(),
 		Amount:   r.Amount,
-		InputID:  r.InputID.String(),
+		InputID:  r.InputID.Base58(),
 	}
 }
 

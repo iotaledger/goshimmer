@@ -1,11 +1,11 @@
 package mana
 
 import (
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"math"
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -53,7 +53,7 @@ func TestFromEventObjectStorage(t *testing.T) {
 		Amount:        100,
 		Time:          time.Now(),
 		ManaType:      ConsensusMana,
-		TransactionID: transaction.ID{},
+		TransactionID: ledgerstate.TransactionID{},
 	}
 	res, err := FromEventObjectStorage([]byte{}, ev.Bytes())
 	ev1 := res.(*PersistableEvent)

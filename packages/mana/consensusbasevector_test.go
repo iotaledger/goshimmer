@@ -4,7 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
@@ -362,12 +361,12 @@ func TestConsensusBaseManaVector_GetMana(t *testing.T) {
 	bmv, err := NewBaseManaVector(ConsensusMana)
 	assert.NoError(t, err)
 	randID := randNodeID()
-	mana, err := bmv.GetMana(randID)
+	mana, _, err := bmv.GetMana(randID)
 	assert.Equal(t, 0.0, mana)
 	assert.Error(t, err)
 
 	bmv.SetMana(randID, &ConsensusBaseMana{})
-	mana, err = bmv.GetMana(randID)
+	mana, _, err = bmv.GetMana(randID)
 	assert.NoError(t, err)
 	assert.Equal(t, 0.0, mana)
 
@@ -377,7 +376,7 @@ func TestConsensusBaseManaVector_GetMana(t *testing.T) {
 		LastUpdated:        time.Now(),
 	})
 
-	mana, err = bmv.GetMana(randID)
+	mana, _, err = bmv.GetMana(randID)
 	assert.NoError(t, err)
 	assert.InDelta(t, 10.0, mana, delta)
 }
@@ -416,7 +415,7 @@ func TestConsensusBaseManaVector_GetManaMap(t *testing.T) {
 	assert.NoError(t, err)
 
 	// empty vector returns empty map
-	manaMap, err := bmv.GetManaMap()
+	manaMap, _, err := bmv.GetManaMap()
 	assert.NoError(t, err)
 	assert.Empty(t, manaMap)
 
@@ -433,7 +432,7 @@ func TestConsensusBaseManaVector_GetManaMap(t *testing.T) {
 		nodeIDs[id] = 0
 	}
 
-	manaMap, err = bmv.GetManaMap()
+	manaMap, _, err = bmv.GetManaMap()
 	assert.NoError(t, err)
 	assert.Equal(t, 100, len(manaMap))
 	for nodeID, mana := range manaMap {
@@ -462,14 +461,14 @@ func TestConsensusBaseManaVector_GetHighestManaNodes(t *testing.T) {
 	}
 
 	// requesting the top mana holder
-	result, err := bmv.GetHighestManaNodes(1)
+	result, _, err := bmv.GetHighestManaNodes(1)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(result))
 	assert.Equal(t, nodeIDs[9], result[0].ID)
 	assert.InDelta(t, 9.0, result[0].Mana, delta)
 
 	// requesting top 3 mana holders
-	result, err = bmv.GetHighestManaNodes(3)
+	result, _, err = bmv.GetHighestManaNodes(3)
 	assert.NoError(t, err)
 	assert.Equal(t, 3, len(result))
 	assert.InDelta(t, 9.0, result[0].Mana, delta)
@@ -482,7 +481,7 @@ func TestConsensusBaseManaVector_GetHighestManaNodes(t *testing.T) {
 	}
 
 	// requesting more, than there currently are in the vector
-	result, err = bmv.GetHighestManaNodes(20)
+	result, _, err = bmv.GetHighestManaNodes(20)
 	assert.NoError(t, err)
 	assert.Equal(t, 10, len(result))
 	for index, value := range result {
@@ -663,7 +662,7 @@ func TestConsensusBaseManaVector_BuildPastBaseVector(t *testing.T) {
 
 	tx1Info := &TxInfo{
 		TimeStamp:     txTime,
-		TransactionID: transaction.RandomID(),
+		TransactionID: randomTxID(),
 		TotalBalance:  10.0,
 		PledgeID:      map[Type]identity.ID{ConsensusMana: inputPledgeID1},
 		InputInfos: []InputInfo{
@@ -677,7 +676,7 @@ func TestConsensusBaseManaVector_BuildPastBaseVector(t *testing.T) {
 
 	tx2Info := &TxInfo{
 		TimeStamp:     txTime.Add(1 * time.Hour),
-		TransactionID: transaction.RandomID(),
+		TransactionID: randomTxID(),
 		TotalBalance:  5.0,
 		PledgeID:      map[Type]identity.ID{ConsensusMana: inputPledgeID2},
 		InputInfos: []InputInfo{
@@ -691,7 +690,7 @@ func TestConsensusBaseManaVector_BuildPastBaseVector(t *testing.T) {
 
 	tx3Info := &TxInfo{
 		TimeStamp:     txTime.Add(2 * time.Hour),
-		TransactionID: transaction.RandomID(),
+		TransactionID: randomTxID(),
 		TotalBalance:  10.0,
 		PledgeID:      map[Type]identity.ID{ConsensusMana: inputPledgeID3},
 		InputInfos: []InputInfo{

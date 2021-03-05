@@ -188,7 +188,7 @@ export class NodeStore {
 
     unregisterHandlers = () => {
         unregisterHandler(WSMsgType.Status);
-        registerHandler(WSMsgType.MPSMetrics, this.updateLastMPSMetric);
+        unregisterHandler(WSMsgType.MPSMetrics);
         unregisterHandler(WSMsgType.NeighborStats);
         unregisterHandler(WSMsgType.TipsMetrics);
         this.updateCollecting(false);

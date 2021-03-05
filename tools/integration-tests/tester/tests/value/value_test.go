@@ -4,9 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
-
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 	"github.com/stretchr/testify/require"
 )
@@ -28,7 +27,7 @@ func TestTransactionPersistence(t *testing.T) {
 	}
 
 	// wait for messages to be gossiped
-	time.Sleep(2 * valuetransfers.DefaultAverageNetworkDelay)
+	time.Sleep(2 * messagelayer.DefaultAverageNetworkDelay)
 
 	// check whether the first issued transaction is available on all nodes, and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
@@ -45,7 +44,7 @@ func TestTransactionPersistence(t *testing.T) {
 	}
 
 	// wait for messages to be gossiped
-	time.Sleep(2 * valuetransfers.DefaultAverageNetworkDelay)
+	time.Sleep(2 * messagelayer.DefaultAverageNetworkDelay)
 
 	// check whether all issued transactions are available on all nodes and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
@@ -96,7 +95,7 @@ func TestValueColoredPersistence(t *testing.T) {
 	}
 
 	// wait for messages to be gossiped
-	time.Sleep(2 * valuetransfers.DefaultAverageNetworkDelay)
+	time.Sleep(3 * messagelayer.DefaultAverageNetworkDelay)
 
 	// check whether the transactions are available on all nodes, and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
@@ -106,14 +105,14 @@ func TestValueColoredPersistence(t *testing.T) {
 	// check ledger state
 	tests.CheckBalances(t, n.Peers(), addrBalance)
 
-	// send funds around
-	randomTxIds := tests.SendColoredTransactionOnRandomPeer(t, n.Peers(), addrBalance, 10)
-	for _, randomTxId := range randomTxIds {
-		txIds[randomTxId] = nil
+	// send funds to node 2
+	for _, peer := range n.Peers()[1:] {
+		fail, txId := tests.SendColoredTransaction(t, peer, n.Peers()[0], addrBalance, tests.TransactionConfig{})
+		require.False(t, fail)
+		txIds[txId] = nil
 	}
-
 	// wait for value messages to be gossiped
-	time.Sleep(2 * valuetransfers.DefaultAverageNetworkDelay)
+	time.Sleep(3 * messagelayer.DefaultAverageNetworkDelay)
 
 	// check whether all issued transactions are persistently available on all nodes, and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{

@@ -19,7 +19,7 @@ func getOnlineConsensusHandler(c echo.Context) error {
 
 // getOnlineHandler handles the request.
 func getOnlineHandler(c echo.Context, manaType mana.Type) error {
-	onlinePeersMana, err := manaPlugin.GetOnlineNodes(manaType)
+	onlinePeersMana, t, err := manaPlugin.GetOnlineNodes(manaType)
 	if err != nil {
 		return c.JSON(http.StatusNotFound, GetOnlineResponse{Error: err.Error()})
 	}
@@ -33,13 +33,17 @@ func getOnlineHandler(c echo.Context, manaType mana.Type) error {
 		})
 	}
 
-	return c.JSON(http.StatusOK, GetOnlineResponse{Online: resp})
+	return c.JSON(http.StatusOK, GetOnlineResponse{
+		Online:    resp,
+		Timestamp: t.Unix(),
+	})
 }
 
 // GetOnlineResponse is the response to an online mana request.
 type GetOnlineResponse struct {
-	Online []OnlineNodeStr `json:"online"`
-	Error  string          `json:"error,omitempty"`
+	Online    []OnlineNodeStr `json:"online"`
+	Error     string          `json:"error,omitempty"`
+	Timestamp int64           `json:"timestamp"`
 }
 
 // OnlineNodeStr holds information about online rank, nodeID and mana,

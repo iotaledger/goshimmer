@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"unsafe"
 
+	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/client/wallet"
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/hive.go/bitmask"
@@ -26,8 +27,14 @@ func loadWallet() *wallet.Wallet {
 		panic(err)
 	}
 
+	// configure basic-auth
+	options := []client.Option{}
+	if config.BasicAuth.IsEnabled() {
+		options = append(options, client.WithBasicAuth(config.BasicAuth.Credentials()))
+	}
+
 	return wallet.New(
-		wallet.WebAPI(config.WebAPI),
+		wallet.WebAPI(config.WebAPI, options...),
 		wallet.Import(seed, lastAddressIndex, spentAddresses, assetRegistry),
 	)
 }

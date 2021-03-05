@@ -1,12 +1,9 @@
 package wallet
 
 import (
-	"net/http"
-
 	"github.com/iotaledger/goshimmer/client"
-	walletaddr "github.com/iotaledger/goshimmer/client/wallet/packages/address"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 )
 
@@ -17,9 +14,9 @@ type WebConnector struct {
 }
 
 // NewWebConnector is the constructor for the WebConnector.
-func NewWebConnector(baseURL string, httpClient ...http.Client) *WebConnector {
+func NewWebConnector(baseURL string, setters ...client.Option) *WebConnector {
 	return &WebConnector{
-		client: client.NewGoShimmerAPI(baseURL, httpClient...),
+		client: client.NewGoShimmerAPI(baseURL, setters...),
 	}
 }
 
@@ -39,20 +36,20 @@ func (webConnector *WebConnector) ServerStatus() (status ServerStatus, err error
 }
 
 // RequestFaucetFunds request some funds from the faucet for test purposes.
-func (webConnector *WebConnector) RequestFaucetFunds(addr walletaddr.Address) (err error) {
-	_, err = webConnector.client.SendFaucetRequest(addr.String())
+func (webConnector *WebConnector) RequestFaucetFunds(addr address.Address) (err error) {
+	_, err = webConnector.client.SendFaucetRequest(addr.Address().Base58())
 
 	return
 }
 
 // UnspentOutputs returns the outputs of transactions on the given addresses that have not been spent yet.
-func (webConnector WebConnector) UnspentOutputs(addresses ...walletaddr.Address) (unspentOutputs map[walletaddr.Address]map[transaction.ID]*Output, err error) {
+func (webConnector WebConnector) UnspentOutputs(addresses ...address.Address) (unspentOutputs map[address.Address]map[ledgerstate.OutputID]*Output, err error) {
 	// build reverse lookup table + arguments for client call
-	addressReverseLookupTable := make(map[string]walletaddr.Address)
+	addressReverseLookupTable := make(map[string]address.Address)
 	base58EncodedAddresses := make([]string, len(addresses))
 	for i, addr := range addresses {
-		base58EncodedAddresses[i] = addr.String()
-		addressReverseLookupTable[addr.String()] = addr
+		base58EncodedAddresses[i] = addr.Address().Base58()
+		addressReverseLookupTable[addr.Address().Base58()] = addr
 	}
 
 	// request unspent outputs
@@ -62,7 +59,7 @@ func (webConnector WebConnector) UnspentOutputs(addresses ...walletaddr.Address)
 	}
 
 	// build result
-	unspentOutputs = make(map[walletaddr.Address]map[transaction.ID]*Output)
+	unspentOutputs = make(map[address.Address]map[ledgerstate.OutputID]*Output)
 	for _, unspentOutput := range response.UnspentOutputs {
 		// lookup wallet address from raw address
 		addr, addressRequested := addressReverseLookupTable[unspentOutput.Address]
@@ -73,7 +70,7 @@ func (webConnector WebConnector) UnspentOutputs(addresses ...walletaddr.Address)
 		// iterate through outputs
 		for _, output := range unspentOutput.OutputIDs {
 			// parse output id
-			outputID, parseErr := transaction.OutputIDFromBase58(output.ID)
+			outputID, parseErr := ledgerstate.OutputIDFromBase58(output.ID)
 			if parseErr != nil {
 				err = parseErr
 
@@ -81,18 +78,18 @@ func (webConnector WebConnector) UnspentOutputs(addresses ...walletaddr.Address)
 			}
 
 			// build balances map
-			balancesByColor := make(map[balance.Color]uint64)
+			balancesByColor := make(map[ledgerstate.Color]uint64)
 			for _, bal := range output.Balances {
 				color := colorFromString(bal.Color)
 				balancesByColor[color] += uint64(bal.Value)
 			}
+			balances := ledgerstate.NewColoredBalances(balancesByColor)
 
 			// build output
 			walletOutput := &Output{
-				ID:            outputID,
-				Address:       addr.Address,
-				TransactionID: outputID.TransactionID(),
-				Balances:      balancesByColor,
+				Address:  addr,
+				OutputID: outputID,
+				Balances: balances,
 				InclusionState: InclusionState{
 					Liked:       output.InclusionState.Liked,
 					Confirmed:   output.InclusionState.Confirmed,
@@ -107,9 +104,9 @@ func (webConnector WebConnector) UnspentOutputs(addresses ...walletaddr.Address)
 
 			// store output in result
 			if _, addressExists := unspentOutputs[addr]; !addressExists {
-				unspentOutputs[addr] = make(map[transaction.ID]*Output)
+				unspentOutputs[addr] = make(map[ledgerstate.OutputID]*Output)
 			}
-			unspentOutputs[addr][walletOutput.TransactionID] = walletOutput
+			unspentOutputs[addr][walletOutput.OutputID] = walletOutput
 		}
 	}
 
@@ -117,7 +114,7 @@ func (webConnector WebConnector) UnspentOutputs(addresses ...walletaddr.Address)
 }
 
 // SendTransaction sends a new transaction to the network.
-func (webConnector WebConnector) SendTransaction(tx *transaction.Transaction) (err error) {
+func (webConnector WebConnector) SendTransaction(tx *ledgerstate.Transaction) (err error) {
 	_, err = webConnector.client.SendTransaction(tx.Bytes())
 
 	return
@@ -138,12 +135,12 @@ func (webConnector WebConnector) GetAllowedPledgeIDs() (pledgeIDMap map[mana.Typ
 }
 
 // colorFromString is an internal utility method that parses the given string into a Color.
-func colorFromString(colorStr string) (color balance.Color) {
+func colorFromString(colorStr string) (color ledgerstate.Color) {
 	if colorStr == "IOTA" {
-		color = balance.ColorIOTA
+		color = ledgerstate.ColorIOTA
 	} else {
-		t, _ := transaction.IDFromBase58(colorStr)
-		color, _, _ = balance.ColorFromBytes(t.Bytes())
+		t, _ := ledgerstate.TransactionIDFromBase58(colorStr)
+		color, _, _ = ledgerstate.ColorFromBytes(t.Bytes())
 	}
 	return
 }

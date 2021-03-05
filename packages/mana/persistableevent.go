@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
@@ -21,8 +21,8 @@ type PersistableEvent struct {
 	Amount        float64
 	Time          time.Time
 	ManaType      Type // access or consensus
-	TransactionID transaction.ID
-	InputID       transaction.OutputID // for revoke event
+	TransactionID ledgerstate.TransactionID
+	InputID       ledgerstate.OutputID // for revoke event
 	bytes         []byte
 }
 
@@ -39,8 +39,8 @@ func (p *PersistableEvent) ToStringValues() []string {
 	_amount := strconv.FormatFloat(p.Amount, 'g', -1, 64)
 	_time := strconv.FormatInt(p.Time.Unix(), 10)
 	_manaType := p.ManaType.String()
-	_txID := p.TransactionID.String()
-	_inputID := p.InputID.String()
+	_txID := p.TransactionID.Base58()
+	_inputID := p.InputID.Base58()
 	return []string{_type, _nodeID, _fullNodeID, _amount, _time, _manaType, _txID, _inputID}
 }
 
@@ -98,11 +98,11 @@ func parseEvent(marshalUtil *marshalutil.MarshalUtil) (result *PersistableEvent,
 	if err != nil {
 		return
 	}
-	txIDBytes, err := marshalUtil.ReadBytes(transaction.IDLength)
+	txIDBytes, err := marshalUtil.ReadBytes(ledgerstate.TransactionIDLength)
 	if err != nil {
 		return
 	}
-	txID := transaction.ID{}
+	txID := ledgerstate.TransactionID{}
 	copy(txID[:], txIDBytes)
 
 	_amount, err := marshalUtil.ReadUint64()
@@ -110,11 +110,11 @@ func parseEvent(marshalUtil *marshalutil.MarshalUtil) (result *PersistableEvent,
 		return
 	}
 	amount := math.Float64frombits(_amount)
-	inputIDBytes, err := marshalUtil.ReadBytes(transaction.OutputIDLength)
+	inputIDBytes, err := marshalUtil.ReadBytes(ledgerstate.OutputIDLength)
 	if err != nil {
 		return
 	}
-	inputID := transaction.OutputID{}
+	inputID := ledgerstate.OutputID{}
 	copy(inputID[:], inputIDBytes)
 	consumedBytes := marshalUtil.ReadOffset()
 

@@ -60,7 +60,7 @@ func ParseMetricHeartbeat(data []byte) (*MetricHeartbeat, error) {
 		return nil, err
 	}
 
-	if hb.Version != banner.AppVersion {
+	if hb.Version != banner.SimplifiedAppVersion {
 		return nil, ErrInvalidMetricHeartbeatVersion
 	}
 

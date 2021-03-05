@@ -7,7 +7,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/packages/vote"
+	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 	analysis "github.com/iotaledger/goshimmer/plugins/analysis/server"
 	"github.com/iotaledger/goshimmer/plugins/config"
@@ -41,7 +41,7 @@ type FPCUpdate struct {
 
 func configureFPCLiveFeed() {
 
-	if config.Node().GetBool(CfgMongoDBEnabled) {
+	if config.Node().Bool(CfgMongoDBEnabled) {
 		mongoDB()
 	}
 
@@ -51,7 +51,7 @@ func configureFPCLiveFeed() {
 		task.Return(nil)
 	}, workerpool.WorkerCount(fpcLiveFeedWorkerCount), workerpool.QueueSize(fpcLiveFeedWorkerQueueSize))
 
-	if config.Node().GetBool(CfgMongoDBEnabled) {
+	if config.Node().Bool(CfgMongoDBEnabled) {
 		fpcStoreFinalizedWorkerPool = workerpool.New(func(task workerpool.Task) {
 			storeFinalizedVoteContext(task.Param(0).(FPCRecords))
 			task.Return(nil)
@@ -69,7 +69,7 @@ func runFPCLiveFeed() {
 		fpcLiveFeedWorkerPool.Start()
 		defer fpcLiveFeedWorkerPool.Stop()
 
-		if config.Node().GetBool(CfgMongoDBEnabled) {
+		if config.Node().Bool(CfgMongoDBEnabled) {
 			fpcStoreFinalizedWorkerPool.Start()
 			defer fpcStoreFinalizedWorkerPool.Stop()
 		}
@@ -103,7 +103,7 @@ func createFPCUpdate(hb *packet.FPCHeartbeat) *FPCUpdate {
 		newVoteContext := voteContext{
 			NodeID:   nodeID,
 			Rounds:   context.Rounds,
-			Opinions: vote.ConvertOpinionsToInts32(context.Opinions),
+			Opinions: opinion.ConvertOpinionsToInts32(context.Opinions),
 		}
 
 		conflicts[ID] = newConflict()
@@ -127,7 +127,7 @@ func createFPCUpdate(hb *packet.FPCHeartbeat) *FPCUpdate {
 			continue
 		}
 		conflictDetail := conflictOverview.NodesView[nodeID]
-		conflictDetail.Outcome = vote.ConvertOpinionToInt32(finalOpinion)
+		conflictDetail.Outcome = opinion.ConvertOpinionToInt32(finalOpinion)
 		conflicts[ID] = newConflict()
 		conflicts[ID].NodesView[nodeID] = conflictDetail
 		activeConflicts.update(ID, conflicts[ID])
@@ -145,12 +145,12 @@ func createFPCUpdate(hb *packet.FPCHeartbeat) *FPCUpdate {
 			ConflictID: ID,
 			NodeID:     conflictDetail.NodeID,
 			Rounds:     conflictDetail.Rounds,
-			Opinions:   vote.ConvertInts32ToOpinions(conflictDetail.Opinions),
-			Outcome:    vote.ConvertInt32Opinion(conflictDetail.Outcome),
+			Opinions:   opinion.ConvertInts32ToOpinions(conflictDetail.Opinions),
+			Outcome:    opinion.ConvertInt32Opinion(conflictDetail.Outcome),
 		})
 	}
 
-	if config.Node().GetBool(CfgMongoDBEnabled) {
+	if config.Node().Bool(CfgMongoDBEnabled) {
 		fpcStoreFinalizedWorkerPool.TrySubmit(finalizedConflicts)
 	}
 

@@ -1,13 +1,15 @@
 package mana
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 	"github.com/mr-tron/base58"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -49,7 +51,7 @@ func TestManaPersistence(t *testing.T) {
 	require.Greater(t, manaAfter.Consensus, 0.0)
 }
 
-func TestAPI(t *testing.T) {
+func TestPledgeFilter(t *testing.T) {
 	numPeers := 2
 	n, err := f.CreateNetwork("mana_TestAPI", 0, 0, framework.CreateNetworkConfig{})
 	require.NoError(t, err)
@@ -66,10 +68,10 @@ func TestAPI(t *testing.T) {
 		peers[i] = peer
 	}
 
-	allowedPeer := peers[0]
-	allowedID := base58.Encode(allowedPeer.Identity.ID().Bytes())
-	disallowedPeer := peers[1]
-	disallowedID := base58.Encode(disallowedPeer.Identity.ID().Bytes())
+	accessPeer := peers[0]
+	accessPeerID := base58.Encode(accessPeer.Identity.ID().Bytes())
+	consensusPeer := peers[1]
+	consensusPeerID := base58.Encode(consensusPeer.Identity.ID().Bytes())
 
 	// faucet
 	faucet, err := n.CreatePeer(framework.GoShimmerConfig{
@@ -77,8 +79,8 @@ func TestAPI(t *testing.T) {
 		Mana:                              true,
 		ManaAllowedAccessFilterEnabled:    true,
 		ManaAllowedConsensusFilterEnabled: true,
-		ManaAllowedAccessPledge:           []string{allowedID},
-		ManaAllowedConsensusPledge:        []string{disallowedID},
+		ManaAllowedAccessPledge:           []string{accessPeerID},
+		ManaAllowedConsensusPledge:        []string{consensusPeerID},
 		SyncBeacon:                        true,
 	})
 
@@ -88,32 +90,41 @@ func TestAPI(t *testing.T) {
 
 	time.Sleep(10 * time.Second)
 
-	addrBalance := make(map[string]map[balance.Color]int64)
-	faucetAddrStr := faucet.Seed.Address(1).String()
-	addrBalance[faucetAddrStr] = make(map[balance.Color]int64)
-	addrBalance[allowedPeer.Address(0).String()] = make(map[balance.Color]int64)
-	addrBalance[disallowedPeer.Address(0).String()] = make(map[balance.Color]int64)
+	addrBalance := make(map[string]map[ledgerstate.Color]int64)
+	faucetAddrStr := faucet.Seed.Address(1).Address().Base58()
+	addrBalance[faucetAddrStr] = make(map[ledgerstate.Color]int64)
+	addrBalance[accessPeer.Address(0).Address().Base58()] = make(map[ledgerstate.Color]int64)
+	addrBalance[consensusPeer.Address(0).Address().Base58()] = make(map[ledgerstate.Color]int64)
 
 	// get faucet balances
 	unspentOutputs, err := faucet.GetUnspentOutputs([]string{faucetAddrStr})
 	require.NoErrorf(t, err, "could not get unspent outputs on %s", faucet.String())
-	addrBalance[faucetAddrStr][balance.ColorIOTA] = unspentOutputs.UnspentOutputs[0].OutputIDs[0].Balances[0].Value
+	addrBalance[faucetAddrStr][ledgerstate.ColorIOTA] = unspentOutputs.UnspentOutputs[0].OutputIDs[0].Balances[0].Value
 
 	// pledge mana to allowed pledge
-	fail, _ := tests.SendIotaTransaction(t, faucet, allowedPeer, addrBalance, 100, tests.TransactionConfig{
+	fail, _ := tests.SendIotaTransaction(t, faucet, accessPeer, addrBalance, 100, tests.TransactionConfig{
 		FromAddressIndex:      1,
 		ToAddressIndex:        0,
-		AccessManaPledgeID:    allowedPeer.Identity.ID(),
-		ConsensusManaPledgeID: allowedPeer.Identity.ID(),
+		AccessManaPledgeID:    accessPeer.Identity.ID(),
+		ConsensusManaPledgeID: consensusPeer.Identity.ID(),
 	})
 	require.False(t, fail)
 
 	// pledge mana to disallowed pledge
-	fail, _ = tests.SendIotaTransaction(t, faucet, disallowedPeer, addrBalance, 100, tests.TransactionConfig{
+	fail, _ = tests.SendIotaTransaction(t, faucet, consensusPeer, addrBalance, 100, tests.TransactionConfig{
 		FromAddressIndex:      2,
 		ToAddressIndex:        0,
-		AccessManaPledgeID:    disallowedPeer.Identity.ID(),
-		ConsensusManaPledgeID: disallowedPeer.Identity.ID(),
+		AccessManaPledgeID:    accessPeer.Identity.ID(),
+		ConsensusManaPledgeID: accessPeer.Identity.ID(),
+	})
+	require.True(t, fail)
+
+	// pledge mana to disallowed pledge
+	fail, _ = tests.SendIotaTransaction(t, faucet, consensusPeer, addrBalance, 100, tests.TransactionConfig{
+		FromAddressIndex:      2,
+		ToAddressIndex:        0,
+		AccessManaPledgeID:    consensusPeer.Identity.ID(),
+		ConsensusManaPledgeID: consensusPeer.Identity.ID(),
 	})
 	require.True(t, fail)
 }
@@ -147,4 +158,143 @@ func TestConsensusManaInThePast(t *testing.T) {
 	}
 
 	// TODO: do a more useful test. e.g compare mana now vs mana in timeInPast
+}
+
+func TestApis(t *testing.T) {
+	prevParaManaOnEveryNode := framework.ParaManaOnEveryNode
+	framework.ParaManaOnEveryNode = true
+	defer func() {
+		framework.ParaManaOnEveryNode = prevParaManaOnEveryNode
+	}()
+	n, err := f.CreateNetwork("mana_TestAPI", 4, 3, framework.CreateNetworkConfig{Faucet: true, Mana: true})
+	require.NoError(t, err)
+	defer tests.ShutdownNetwork(t, n)
+
+	peers := n.Peers()
+	for _, p := range peers {
+		fmt.Printf("peer id: %s, short id: %s\n", base58.Encode(p.ID().Bytes()), p.ID().String())
+	}
+
+	// Test /mana
+	resp, err := peers[0].GoShimmerAPI.GetManaFullNodeID(base58.Encode(peers[0].ID().Bytes()))
+	require.NoError(t, err)
+	assert.Equal(t, base58.Encode(peers[0].ID().Bytes()), resp.NodeID)
+	assert.Greater(t, resp.Access, 0.0)
+	assert.Greater(t, resp.Consensus, 0.0)
+
+	// Test /mana/all
+	resp2, err := peers[0].GoShimmerAPI.GetAllMana()
+	require.NoError(t, err)
+	assert.Equal(t, 1, len(resp2.Access))
+	assert.Greater(t, resp2.Access[0].Mana, 0.0)
+
+	// Test /mana/access/nhighest and /mana/consensus/nhighest
+	// send funds to node 1
+	_, err = peers[1].SendFaucetRequest(peers[1].Seed.Address(0).Address().Base58())
+	require.NoError(t, err)
+	// send funds to node 2
+	_, err = peers[2].SendFaucetRequest(peers[2].Seed.Address(0).Address().Base58())
+	require.NoError(t, err)
+	time.Sleep(12 * time.Second)
+
+	require.NoError(t, err)
+	allManaResp, err := peers[0].GoShimmerAPI.GetAllMana()
+	require.NoError(t, err)
+	fmt.Println("all mana")
+	for _, m := range allManaResp.Access {
+		fmt.Println("nodeid: ", m.NodeID, " mana: ", m.Mana)
+	}
+	timestampPast := allManaResp.ConsensusTimestamp
+	resp3, err := peers[0].GoShimmerAPI.GetNHighestAccessMana(len(peers))
+	require.NoError(t, err)
+	resp4, err := peers[0].GoShimmerAPI.GetNHighestConsensusMana(len(peers))
+	require.NoError(t, err)
+	require.Equal(t, 3, len(resp3.Nodes))
+	require.Equal(t, 3, len(resp4.Nodes))
+	for i := 0; i < 3; i++ {
+		assert.Equal(t, base58.Encode(peers[i].ID().Bytes()), resp3.Nodes[i].NodeID)
+		assert.Equal(t, base58.Encode(peers[i].ID().Bytes()), resp4.Nodes[i].NodeID)
+	}
+
+	// Test /mana/percentile
+	resp5, err := peers[0].GoShimmerAPI.GetManaPercentile(base58.Encode(peers[0].ID().Bytes()))
+	require.NoError(t, err)
+	assert.Equal(t, base58.Encode(peers[0].ID().Bytes()), resp5.NodeID)
+	assert.InDelta(t, 66.66, resp5.Access, 0.01)
+	assert.InDelta(t, 66.66, resp5.Consensus, 0.01)
+
+	// Test /mana/online/access
+	resp6, err := peers[0].GoShimmerAPI.GetOnlineAccessMana()
+	require.NoError(t, err)
+	resp7, err := peers[0].GoShimmerAPI.GetOnlineConsensusMana()
+	require.NoError(t, err)
+	require.Equal(t, 3, len(resp6.Online))
+	fmt.Println("online nodes mana")
+	for _, r := range resp6.Online {
+		fmt.Println("node - ", r.ShortID, " -- mana: ", r.Mana)
+	}
+	assert.Equal(t, base58.Encode(peers[0].ID().Bytes()), resp6.Online[0].ID)
+	assert.Equal(t, base58.Encode(peers[1].ID().Bytes()), resp6.Online[1].ID)
+	assert.Equal(t, base58.Encode(peers[2].ID().Bytes()), resp6.Online[2].ID)
+	assert.Equal(t, base58.Encode(peers[0].ID().Bytes()), resp7.Online[0].ID)
+	assert.Equal(t, base58.Encode(peers[1].ID().Bytes()), resp7.Online[1].ID)
+	assert.Equal(t, base58.Encode(peers[2].ID().Bytes()), resp7.Online[2].ID)
+
+	// Test /mana/pending
+	unspentOutputs, err := peers[1].GetUnspentOutputs([]string{peers[1].Seed.Address(0).Address().Base58()})
+	require.NoError(t, err)
+	outputID := unspentOutputs.UnspentOutputs[0].OutputIDs[0].ID
+	resp8, err := peers[1].GetPending(outputID)
+	require.NoError(t, err)
+	assert.Equal(t, outputID, resp8.OutputID)
+	fmt.Println("pending mana: ", resp8.Mana)
+	assert.Greater(t, resp8.Mana, 0.0)
+
+	// Test/mana/consensus/past
+	// send funds to node 3 to trigger more consensus events.
+	time.Sleep(5 * time.Second) // we wait a bit to not overlap with timestampPast
+	_, err = peers[3].SendFaucetRequest(peers[3].Seed.Address(0).Address().Base58())
+	require.NoError(t, err)
+	time.Sleep(12 * time.Second)
+	resp9, err := peers[0].GoShimmerAPI.GetPastConsensusManaVector(timestampPast)
+	require.NoError(t, err)
+	assert.Equal(t, 3, len(resp9.Consensus)) //excluding node 3
+	m := make(map[string]float64)
+	for _, c := range resp9.Consensus {
+		m[c.ShortNodeID] = c.Mana
+	}
+	// node 3 shouldn't have mana from way back at `timestampPast`
+	for _, p := range peers[:3] {
+		mana, ok := m[p.ID().String()]
+		assert.True(t, ok)
+		assert.Greater(t, mana, 0.0)
+	}
+
+	// Test /mana/consensus/logs
+	resp10, err := peers[0].GoShimmerAPI.GetConsensusEventLogs([]string{})
+	require.NoError(t, err)
+	fmt.Println("consensus mana evnet logs")
+	for n, l := range resp10.Logs {
+		fmt.Println("node: ", n, " pledge logs: ", len(l.Pledge), " revoke logs: ", len(l.Revoke))
+	}
+	for i := 0; i < len(peers); i++ {
+		logs, ok := resp10.Logs[base58.Encode(peers[i].ID().Bytes())]
+		require.True(t, ok)
+		if i == 0 {
+			assert.Equal(t, 1, len(logs.Pledge))
+			assert.Equal(t, 3, len(logs.Revoke))
+		} else {
+			assert.Equal(t, 1, len(logs.Pledge))
+			assert.Equal(t, 0, len(logs.Revoke))
+		}
+	}
+
+	// Test /mana/consensus/pastmetadata
+	err = peers[0].Stop()
+	require.NoError(t, err)
+	err = peers[0].Start()
+	require.NoError(t, err)
+	time.Sleep(3 * time.Second)
+	_, err = peers[0].GoShimmerAPI.GetPastConsensusVectorMetadata()
+	require.NoError(t, err)
 }

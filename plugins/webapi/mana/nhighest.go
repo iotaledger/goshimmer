@@ -25,7 +25,7 @@ func nHighestHandler(c echo.Context, manaType mana.Type) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, GetNHighestResponse{Error: err.Error()})
 	}
-	highestNodes, err := manaPlugin.GetHighestManaNodes(manaType, uint(number))
+	highestNodes, t, err := manaPlugin.GetHighestManaNodes(manaType, uint(number))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, GetNHighestResponse{Error: err.Error()})
 	}
@@ -34,12 +34,14 @@ func nHighestHandler(c echo.Context, manaType mana.Type) error {
 		res = append(res, n.ToNodeStr())
 	}
 	return c.JSON(http.StatusOK, GetNHighestResponse{
-		Nodes: res,
+		Nodes:     res,
+		Timestamp: t.Unix(),
 	})
 }
 
 // GetNHighestResponse holds info about nodes and their mana values.
 type GetNHighestResponse struct {
-	Error string         `json:"error,omitempty"`
-	Nodes []mana.NodeStr `json:"nodes,omitempty"`
+	Error     string         `json:"error,omitempty"`
+	Nodes     []mana.NodeStr `json:"nodes,omitempty"`
+	Timestamp int64          `json:"timestamp"`
 }

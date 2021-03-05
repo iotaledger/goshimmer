@@ -4,7 +4,7 @@ import (
 	"strconv"
 
 	metricspkg "github.com/iotaledger/goshimmer/packages/metrics"
-	"github.com/iotaledger/goshimmer/packages/vote"
+	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	analysisserver "github.com/iotaledger/goshimmer/plugins/analysis/server"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
@@ -182,8 +182,8 @@ func collectNodesInfo() {
 	}
 
 	// TODO: send data for all available networkIDs, not just current
-	if analysisserver.Networks[banner.AppVersion] != nil {
-		for nodeID, neighborCount := range analysisserver.Networks[banner.AppVersion].NumOfNeighbors() {
+	if analysisserver.Networks[banner.SimplifiedAppVersion] != nil {
+		for nodeID, neighborCount := range analysisserver.Networks[banner.SimplifiedAppVersion].NumOfNeighbors() {
 			nodesNeighborCount.WithLabelValues(nodeID, "in").Set(float64(neighborCount.Inbound))
 			nodesNeighborCount.WithLabelValues(nodeID, "out").Set(float64(neighborCount.Outbound))
 		}
@@ -193,8 +193,8 @@ func collectNodesInfo() {
 
 }
 
-func opinionToString(opinion vote.Opinion) string {
-	if opinion == vote.Like {
+func opinionToString(o opinion.Opinion) string {
+	if o == opinion.Like {
 		return like
 	}
 	return dislike

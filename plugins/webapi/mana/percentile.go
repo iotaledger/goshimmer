@@ -2,6 +2,7 @@ package mana
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
@@ -25,7 +26,8 @@ func getPercentileHandler(c echo.Context) error {
 	if ID == emptyID {
 		ID = local.GetInstance().ID()
 	}
-	access, err := manaPlugin.GetManaMap(mana.AccessMana)
+	t := time.Now()
+	access, tAccess, err := manaPlugin.GetManaMap(mana.AccessMana, t)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, GetPercentileResponse{Error: err.Error()})
 	}
@@ -33,7 +35,7 @@ func getPercentileHandler(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, GetPercentileResponse{Error: err.Error()})
 	}
-	consensus, err := manaPlugin.GetManaMap(mana.ConsensusMana)
+	consensus, tConsensus, err := manaPlugin.GetManaMap(mana.ConsensusMana, t)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, GetPercentileResponse{Error: err.Error()})
 	}
@@ -42,10 +44,12 @@ func getPercentileHandler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, GetPercentileResponse{Error: err.Error()})
 	}
 	return c.JSON(http.StatusOK, GetPercentileResponse{
-		ShortNodeID: ID.String(),
-		NodeID:      base58.Encode(ID.Bytes()),
-		Access:      accessPercentile,
-		Consensus:   consensusPercentile,
+		ShortNodeID:        ID.String(),
+		NodeID:             base58.Encode(ID.Bytes()),
+		Access:             accessPercentile,
+		AccessTimestamp:    tAccess.Unix(),
+		Consensus:          consensusPercentile,
+		ConsensusTimestamp: tConsensus.Unix(),
 	})
 }
 
@@ -56,9 +60,11 @@ type GetPercentileRequest struct {
 
 // GetPercentileResponse holds info about the mana percentile(s) of a node.
 type GetPercentileResponse struct {
-	Error       string  `json:"error,omitempty"`
-	ShortNodeID string  `json:"shortNodeID"`
-	NodeID      string  `json:"nodeID"`
-	Access      float64 `json:"access"`
-	Consensus   float64 `json:"consensus"`
+	Error              string  `json:"error,omitempty"`
+	ShortNodeID        string  `json:"shortNodeID"`
+	NodeID             string  `json:"nodeID"`
+	Access             float64 `json:"access"`
+	AccessTimestamp    int64   `json:"accessTimestamp"`
+	Consensus          float64 `json:"consensus"`
+	ConsensusTimestamp int64   `json:"consensusTimestamp"`
 }

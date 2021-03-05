@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
@@ -64,7 +65,7 @@ func init() {
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 
-	if config.Node().GetBool(CfgDisableEvents) {
+	if config.Node().Bool(CfgDisableEvents) {
 		log.Fatalf("%s in config.json needs to be false so that events can be captured!", CfgDisableEvents)
 		return
 	}
@@ -112,7 +113,7 @@ func sendLogMsg(level logger.Level, name string, msg string) {
 		level.CapitalString(),
 		name,
 		msg,
-		time.Now(),
+		clock.SyncedTime(),
 		remoteLogType,
 	}
 
@@ -160,7 +161,7 @@ func getGitDir() string {
 // RemoteLogger represents a connection to our remote log server.
 func RemoteLogger() *RemoteLoggerConn {
 	remoteLoggerOnce.Do(func() {
-		r, err := newRemoteLoggerConn(config.Node().GetString(CfgLoggerRemotelogServerAddress))
+		r, err := newRemoteLoggerConn(config.Node().String(CfgLoggerRemotelogServerAddress))
 		if err != nil {
 			log.Fatal(err)
 			return

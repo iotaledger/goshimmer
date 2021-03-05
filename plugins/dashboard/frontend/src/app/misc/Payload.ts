@@ -1,7 +1,8 @@
 export enum PayloadType {
     Data = 0,
-    Value = 1,
+    Transaction = 1337,
     Faucet = 2,
+    Statement = 3,
     Drng = 111,
     SyncBeacon = 200,
 }
@@ -31,22 +32,31 @@ export class DrngCbPayload {
     dpk: string;
 }
 
-// Value payload
-export class ValuePayload {
-    payload_id: string;
-    parent1_id: string;
-    parent2_id: string;
+// Transaction payload
+export class TransactionPayload {
     tx_id: string;
-    inputs: Array<Inputs>;
-    outputs: Array<Outputs>;
+    tx_essence: TransactionEssence;
+    unlock_blocks: Array<string>;
+}
+
+export class TransactionEssence {
+    version: number;
+    timestamp: number;
+    access_pledge_id: string;
+    cons_pledge_id: string;
+    inputs: Array<Input>;
+    outputs: Array<Output>;
     data: string;
 }
 
-export class Inputs {
+export class Input {
+    output_id: string;
     address: string;
+    balance: Array<Balance>;
 }
 
-export class Outputs {
+export class Output {
+    output_id: string;
     address: string;
     balance: Array<Balance>;
 }
@@ -59,4 +69,44 @@ export class Balance {
 // Sync beacon payload
 export class SyncBeaconPayload {
     sent_time: number;
+}
+
+export class StatementPayload {
+    conflicts: Array<Conflict>;
+    timestamps: Array<Timestamp>;
+}
+
+export class Conflict {
+    tx_id: string;
+    opinion: Opinion;
+}
+
+export class Timestamp {
+    msg_id: string;
+    opinion: Opinion;
+}
+
+// @ts-ignore
+export class Opinion {
+    value: string;
+    round: number;
+}
+
+export function getPayloadType(p: number){
+    switch (p) {
+        case PayloadType.Data:
+            return "Data"
+        case PayloadType.Transaction:
+            return "Transaction"
+        case PayloadType.Statement:
+            return "Statement"
+        case PayloadType.Drng:
+            return "Drng"
+        case PayloadType.Faucet:
+            return "Faucet"
+        case PayloadType.SyncBeacon:
+            return "SyncBeacon"
+        default:
+            return "Unknown"
+    }
 }

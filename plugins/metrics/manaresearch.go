@@ -88,7 +88,7 @@ func ConsensusResearchManaMap() mana.NodeMap {
 func measureAccessResearchMana() {
 	accessResearchLock.Lock()
 	defer accessResearchLock.Unlock()
-	accessResearchMap, _ = manaPlugin.GetManaMap(mana.ResearchAccess)
+	accessResearchMap, _, _ = manaPlugin.GetManaMap(mana.ResearchAccess)
 	aPer, _ := accessResearchMap.GetPercentile(local.GetInstance().ID())
 	accessResearchPercentile.Store(aPer)
 }
@@ -96,7 +96,7 @@ func measureAccessResearchMana() {
 func measureConsensusResearchMana() {
 	consensusResearchLock.Lock()
 	defer consensusResearchLock.Unlock()
-	consensusResearchMap, _ = manaPlugin.GetManaMap(mana.ResearchConsensus)
+	consensusResearchMap, _, _ = manaPlugin.GetManaMap(mana.ResearchConsensus)
 	aPer, _ := consensusResearchMap.GetPercentile(local.GetInstance().ID())
 	consensusResearchPercentile.Store(aPer)
 }

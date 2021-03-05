@@ -1,3 +1,135 @@
+# v0.4.1 - 2021-03-02
+* Add orphanage analysis tool
+* Add documentation web-api
+* Simplify past-cone checks
+* Improve message findByID API
+* Improve value transactionByID API
+* Fix saving markers in message metadata
+* Fix issue with ReferenceUnlockBlocks
+* Fix Faucet address blacklist
+* Fix some visualizer glitches
+* **Breaking**: bumps network and database versions
+
+# v0.4.0 - 2021-02-26
+* Remove the value Tangle
+* Add approval switch
+* Add Markers integration
+* Add new message booker
+* Add new ledger state
+* Add new opinion former
+* Add new Tip manager
+* Add new flow unit tests
+* Add remote spammer tool
+* Add sendTransaction timestamp validity check
+* Add clock Since method
+* Add docs actions
+* Add Tangle width debug tool option
+* Update client-lib
+* Update wallet
+* Update web-API
+* Update Grafana dashboard to show MPS for entire data-flow
+* Update to latest hive.go
+* Refactor integration tests
+* Refactor transaction validity check
+* Refactor cli-wallet
+* Refactor sendTransactionByJson API
+* Refactor inclusion state
+* Refactor TransactionConfirmed event
+* Refactor transaction visualization in the local dashboard
+* Refactor scheduler
+* Refactor snapshot script
+* Fix clock time usage
+* Fix wrong handler in the MessageInvalidEvent
+* Decrease cache time
+* **Breaking**: bumps network and database versions
+
+# v0.3.6 - 2021-02-12
+* Finalize Payload layout
+* Update dRNG with finalized payload layout
+* Add simple scheduler
+* Add message approval analysis API
+* Add core logic for timestamp voting (still disabled)
+* Refactor message parser
+* Refactor solidifier
+* Refactor Tangle events
+* Update entry node URL
+* Update gossip to not gossip requested messages
+* Introduce invalid message flag
+* Merge the new data flow
+* Fix visualizer bug
+* Update hive.go
+* Update JS dependencies
+* **Breaking**: bumps network and database versions
+
+# v0.3.5 - 2021-01-13
+* Fix consensus statement bug
+* Fix deadlock in RandomMap
+* Fix several shutdown related issues
+* Load old messages in visualizer
+* Fix wrong Tips count in visualizer
+* Fix dashboard typos
+* Improve integration tests
+* Improve network delay analysis
+* Update hive.go
+* Update JS dependencies
+* **Breaking**: bumps network and database versions
+
+# v0.3.4 - 2020-12-11
+* Revert Pebble to Badger.
+* **Breaking**: bumps network and database versions
+
+# v0.3.3 - 2020-12-10
+* Fix sync issue.
+* Fix pkger issue.
+* **Breaking**: bumps network and database versions
+
+# v0.3.2 - 2020-12-09
+* Switch from BadgerDB to Pebble.
+* Add FPC statements.
+* Add clock based time to message metadata.
+* Improve dashboard message live feed.
+* Improve spammer to evenly distribute issued messages within a minute.
+* Fix panic when writing on a closed channel in the dashboard web socket.
+* Upgrade Go to 1.15.5
+* Upgrade to latest hive.go
+* **Breaking**: bumps network and database versions
+
+# v0.3.1 - 2020-11-13
+* Refactor message structure according to the new Tangle RFC: 
+    * add support for multiple parents
+    * update local dashboard
+    * new unit tests
+    * max payload size changed to 65157 bytes
+* Add community-based entry node.
+* Add commit tag to version.
+* Add package for common sentinel errors.
+* Improve dashboard websocket management.
+* Integrate NTP-based clock to the network delay app.
+* Switch from packer to pkger to pack dashboard.
+* Switch from Viper to koanf as core library for configuration.
+* Fix Value Tangle tip selection management.
+* Fix mps query label in grafana.
+* Fix potential race condition within the clock package.
+* Upgrade to latest hive.go
+* Upgrade NodeJS dependencies of the dashboard.
+* **Breaking**: bumps network and database versions
+
+# v0.3.0 - 2020-10-12
+* Added multiple dRNG committees support: Pollen, X-Team and Custom.
+* Added clock synchronization plugin via NTP.
+* Added basic codeQL analysis pipeline for common vulnerability scanning.
+* Added basic HTTP authentication.
+* Changed payload layout to be more similar to the one specified for Chrysalis phase 2.
+* Improved rand-seed tool by writing its output to a file.
+* Improved the Docker network by making MongoDB, Grafana and Prometheus optional so that startup/shutdown times are low when not needed.
+* Upgraded to the latest hive.go.
+* Upgraded NodeJS dependencies of the dashboard.
+* Fixed several security issues.
+* Refactored the entire code base to make its package structure flat and more consistent with Hornet.
+* Moved data structures to hive.go 
+* Removed JWT authentication due to security issues of the package dgrijalva/jwt-go
+* **Breaking**: bumps network and database versions
+
 # v0.2.4 - 2020-09-03
 * Fixes race condition that was preventing the deletion of some entries from missing messages.
 * Improves the Tangle-BadgerDB interaction.

@@ -1,4 +1,4 @@
-// Package database is a plugin that manages the badger database (e.g. garbage collection).
+// Package database is a plugin that manages the pebble database (e.g. garbage collection).
 package database
 
 import (
@@ -53,10 +53,10 @@ func createStore() {
 	log = logger.NewLogger(PluginName)
 
 	var err error
-	if config.Node().GetBool(CfgDatabaseInMemory) {
+	if config.Node().Bool(CfgDatabaseInMemory) {
 		db, err = database.NewMemDB()
 	} else {
-		dbDir := config.Node().GetString(CfgDatabaseDir)
+		dbDir := config.Node().String(CfgDatabaseDir)
 		db, err = database.NewDB(dbDir)
 	}
 	if err != nil {
@@ -78,7 +78,7 @@ func configure(_ *node.Plugin) {
 		log.Fatalf("Failed to check database version: %s", err)
 	}
 
-	if str := config.Node().GetString(CfgDatabaseDirty); str != "" {
+	if str := config.Node().String(CfgDatabaseDirty); str != "" {
 		val, err := strconv.ParseBool(str)
 		if err != nil {
 			log.Warnf("Invalid %s: %s", CfgDatabaseDirty, err)

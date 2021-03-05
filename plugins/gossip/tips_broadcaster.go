@@ -4,7 +4,7 @@ import (
 	"container/list"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/timeutil"
@@ -15,17 +15,17 @@ const (
 	tipsBroadcasterName = PluginName + "[TipsBroadcaster]"
 )
 
-var tips = tiplist{dict: make(map[message.ID]*list.Element)}
+var tips = tiplist{dict: make(map[tangle.MessageID]*list.Element)}
 
 type tiplist struct {
 	mu sync.Mutex
 
-	dict     map[message.ID]*list.Element
+	dict     map[tangle.MessageID]*list.Element
 	list     list.List
 	iterator *list.Element
 }
 
-func (s *tiplist) AddTip(id message.ID) {
+func (s *tiplist) AddTip(id tangle.MessageID) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -39,7 +39,7 @@ func (s *tiplist) AddTip(id message.ID) {
 	}
 }
 
-func (s *tiplist) RemoveTip(id message.ID) {
+func (s *tiplist) RemoveTip(id tangle.MessageID) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -54,14 +54,14 @@ func (s *tiplist) RemoveTip(id message.ID) {
 	}
 }
 
-func (s *tiplist) Next() message.ID {
+func (s *tiplist) Next() tangle.MessageID {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if s.iterator == nil {
-		return message.EmptyID
+		return tangle.EmptyMessageID
 	}
-	id := s.iterator.Value.(message.ID)
+	id := s.iterator.Value.(tangle.MessageID)
 	s.next(s.iterator)
 	return id
 }
@@ -76,32 +76,45 @@ func (s *tiplist) next(elem *list.Element) {
 func startTipBroadcaster(shutdownSignal <-chan struct{}) {
 	defer log.Infof("Stopping %s ... done", tipsBroadcasterName)
 
-	removeClosure := events.NewClosure(tips.RemoveTip)
-	addClosure := events.NewClosure(tips.AddTip)
+	//removeClosure := events.NewClosure(tips.RemoveTip)
+	removeClosure := events.NewClosure(func(tipEvent *tangle.TipEvent) {
+		// TODO: handle weak tips
+		if tipEvent.TipType == tangle.StrongTip {
+			tips.RemoveTip(tipEvent.MessageID)
+		}
+	})
+	addClosure := events.NewClosure(func(tipEvent *tangle.TipEvent) {
+		// TODO: handle weak tips
+		if tipEvent.TipType == tangle.StrongTip {
+			tips.AddTip(tipEvent.MessageID)
+		}
+	})
 
 	// attach the tip list to the TipSelector
-	tipSelector := messagelayer.TipSelector()
+	tipSelector := messagelayer.Tangle().TipManager
 	tipSelector.Events.TipRemoved.Attach(removeClosure)
 	defer tipSelector.Events.TipRemoved.Detach(removeClosure)
 	tipSelector.Events.TipAdded.Attach(addClosure)
 	defer tipSelector.Events.TipAdded.Detach(addClosure)
 
 	log.Infof("%s started: interval=%v", tipsBroadcasterName, tipsBroadcasterInterval)
-	timeutil.Ticker(broadcastNextOldestTip, tipsBroadcasterInterval, shutdownSignal)
+	// Do not wait for a graceful shutdown since not sending the last tips when shutting down is not a critical
+	// operation that later modules rely on and this might take a long time if there are network timeouts.
+	timeutil.NewTicker(broadcastNextOldestTip, tipsBroadcasterInterval, shutdownSignal).WaitForShutdown()
 	log.Infof("Stopping %s ...", tipsBroadcasterName)
 }
 
 // broadcasts the next oldest tip from the tip pool to all connected neighbors.
 func broadcastNextOldestTip() {
 	msgID := tips.Next()
-	if msgID == message.EmptyID {
+	if msgID == tangle.EmptyMessageID {
 		return
 	}
 	broadcastMessage(msgID)
 }
 
 // broadcasts the given message to all neighbors if it exists.
-func broadcastMessage(msgID message.ID) {
+func broadcastMessage(msgID tangle.MessageID) {
 	msgBytes, err := loadMessage(msgID)
 	if err != nil {
 		return
