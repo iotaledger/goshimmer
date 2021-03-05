@@ -1,7 +1,7 @@
 package messagelayer
 
 import (
-	fpcConsensus "github.com/iotaledger/goshimmer/packages/consensus/fcob"
+	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
@@ -21,9 +21,9 @@ func OpinionRetriever(id string, objectType vote.ObjectType) opinion.Opinion {
 			return opinion.Unknown
 		}
 
-		opinionEssence := Consensus().TransactionOpinionEssence(transactionID)
+		opinionEssence := ConsensusMechanism().TransactionOpinionEssence(transactionID)
 
-		if opinionEssence.LevelOfKnowledge() == fpcConsensus.Pending {
+		if opinionEssence.LevelOfKnowledge() == fcob.Pending {
 			return opinion.Unknown
 		}
 

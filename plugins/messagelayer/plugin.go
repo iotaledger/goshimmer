@@ -122,7 +122,7 @@ func Tangle() *tangle.Tangle {
 			tangle.Store(database.Store()),
 			tangle.Identity(local.GetInstance().LocalIdentity()),
 			tangle.TangleWidth(config.Node().Int(CfgTangleWidth)),
-			tangle.Consensus(Consensus()),
+			tangle.Consensus(ConsensusMechanism()),
 		)
 
 		tangleInstance.Setup()
@@ -133,19 +133,20 @@ func Tangle() *tangle.Tangle {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region Consensus ////////////////////////////////////////////////////////////////////////////////////////////////////
+// region ConsensusMechanism ///////////////////////////////////////////////////////////////////////////////////////////
 
 var (
-	consensus     *fcob.ConsensusMechanism
-	consensusOnce sync.Once
+	consensusMechanism     *fcob.ConsensusMechanism
+	consensusMechanismOnce sync.Once
 )
 
-func Consensus() *fcob.ConsensusMechanism {
-	consensusOnce.Do(func() {
-		consensus = fcob.NewConsensusMechanism()
+// ConsensusMechanism return the FcoB ConsensusMechanism used by the Tangle.
+func ConsensusMechanism() *fcob.ConsensusMechanism {
+	consensusMechanismOnce.Do(func() {
+		consensusMechanism = fcob.NewConsensusMechanism()
 	})
 
-	return consensus
+	return consensusMechanism
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
