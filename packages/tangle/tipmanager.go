@@ -100,7 +100,6 @@ func (t *TipManager) AddTip(message *Message) {
 	}
 
 	if !t.tangle.ConsensusManager.PayloadLiked(messageID) {
-		fmt.Println("ABORT HERE")
 		return
 	}
 
