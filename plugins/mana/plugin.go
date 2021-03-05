@@ -214,12 +214,15 @@ func run(_ *node.Plugin) {
 	ema2 := config.Node().Float64(CfgEmaCoefficient2)
 	dec := config.Node().Float64(CfgDecay)
 	pruneInterval := config.Node().Duration(CfgPruneConsensusEventLogsInterval)
+	vectorsCleanUpIntervalHours := config.Node().Duration(CfgVectorsCleanupIntervalHours)
 
 	mana.SetCoefficients(ema1, ema2, dec)
 	if err := daemon.BackgroundWorker("Mana", func(shutdownSignal <-chan struct{}) {
 		defer log.Infof("Stopping %s ... done", PluginName)
 		ticker := time.NewTicker(pruneInterval)
 		defer ticker.Stop()
+		cleanupTicker := time.NewTicker(vectorsCleanUpIntervalHours)
+		defer cleanupTicker.Stop()
 		readStoredManaVectors()
 		pruneStorages()
 		for {
@@ -234,6 +237,8 @@ func run(_ *node.Plugin) {
 				return
 			case <-ticker.C:
 				pruneConsensusEventLogsStorage()
+			case <-cleanupTicker.C:
+				cleanupManaVectors()
 			}
 		}
 	}, shutdown.PriorityMana); err != nil {
@@ -724,6 +729,17 @@ func pruneConsensusEventLogsStorage() {
 	}
 	consensusEventsLogStorage.DeleteEntriesFromStore(entriesToDelete)
 	consensusEventsLogsStorageSize.Sub(uint32(len(entriesToDelete)))
+}
+
+func cleanupManaVectors() {
+	vectorTypes := []mana.Type{mana.AccessMana, mana.ConsensusMana}
+	if config.Node().Bool(CfgManaEnableResearchVectors) {
+		vectorTypes = append(vectorTypes, mana.ResearchAccess)
+		vectorTypes = append(vectorTypes, mana.ResearchConsensus)
+	}
+	for _, vecType := range vectorTypes {
+		baseManaVectors[vecType].RemoveZeroNodes()
+	}
 }
 
 // AllowedPledge represents the nodes that mana is allowed to be pledged to.

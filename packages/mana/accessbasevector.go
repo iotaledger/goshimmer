@@ -209,6 +209,17 @@ func (a *AccessBaseManaVector) FromPersistable(p *PersistableBaseMana) (err erro
 	return
 }
 
+// RemoveZeroNodes removes the zero mana nodes from the vector.
+func (a *AccessBaseManaVector) RemoveZeroNodes() {
+	a.Lock()
+	defer a.Unlock()
+	for nodeID, baseMana := range a.vector {
+		if baseMana.EffectiveValue() < MinEffectiveMana && baseMana.BaseValue() < MinBaseMana {
+			delete(a.vector, nodeID)
+		}
+	}
+}
+
 var _ BaseManaVector = &AccessBaseManaVector{}
 
 //// Region Internal methods ////

@@ -284,6 +284,17 @@ func (w *WeightedBaseManaVector) FromPersistable(p *PersistableBaseMana) (err er
 	return
 }
 
+// RemoveZeroNodes removes the zero mana nodes from the vector.
+func (w *WeightedBaseManaVector) RemoveZeroNodes() {
+	w.Lock()
+	defer w.Unlock()
+	for nodeID, baseMana := range w.vector {
+		if baseMana.EffectiveValue() < MinEffectiveMana && baseMana.BaseValue() < MinBaseMana {
+			delete(w.vector, nodeID)
+		}
+	}
+}
+
 var _ BaseManaVector = &WeightedBaseManaVector{}
 
 //// Region Internal methods ////
