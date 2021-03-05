@@ -286,7 +286,12 @@ func (w *WeightedBaseManaVector) FromPersistable(p *PersistableBaseMana) (err er
 
 // Remove removes the nodes from the vector.
 func (w *WeightedBaseManaVector) Remove(IDs []identity.ID) {
-	// not implemented.
+	w.Lock()
+	defer w.Unlock()
+
+	for _, ID := range IDs {
+		delete(w.vector, ID)
+	}
 }
 
 var _ BaseManaVector = &WeightedBaseManaVector{}
