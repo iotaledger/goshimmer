@@ -15,10 +15,10 @@ import (
 )
 
 var (
-	// LikedThreshold is the first time thresshold of FCoB.
+	// LikedThreshold is the first time threshold of FCoB.
 	LikedThreshold = 5 * time.Second
 
-	// LocallyFinalizedThreshold is the second time thresshold of FCoB.
+	// LocallyFinalizedThreshold is the second time threshold of FCoB.
 	LocallyFinalizedThreshold = 10 * time.Second
 )
 
@@ -131,7 +131,7 @@ func (f *ConsensusMechanism) TransactionOpinionEssence(transactionID ledgerstate
 }
 
 // OpinionsEssence returns a list of OpinionEssence (i.e., a copy of the triple{timestamp, liked, levelOfKnowledge})
-// of given conflicSet.
+// of given conflictSet.
 func (f *ConsensusMechanism) OpinionsEssence(conflictSet ledgerstate.TransactionIDs) (opinions []OpinionEssence) {
 	opinions = make([]OpinionEssence, 0)
 	for conflictID := range conflictSet {
@@ -150,7 +150,7 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 			// trigger PayloadOpinionFormed event
 			f.onPayloadOpinionFormed(messageID, opinion.liked)
 		}
-		// otherwise the PayloadOpinionFormed will be triggerd by iterating over the Attachments
+		// otherwise the PayloadOpinionFormed will be triggered by iterating over the Attachments
 		// either after FCOB or as a result of an FPC voting.
 		isReattachment = true
 	})
@@ -158,7 +158,7 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 		return
 	}
 
-	opinion := &Opinion{
+	newOpinion := &Opinion{
 		transactionID: transactionID,
 	}
 	var timestamp time.Time
@@ -169,43 +169,43 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 	// filters both rejected and invalid branch
 	branchInclusionState := f.tangle.LedgerState.BranchInclusionState(f.tangle.LedgerState.BranchID(transactionID))
 	if branchInclusionState == ledgerstate.Rejected {
-		opinion.OpinionEssence = OpinionEssence{
+		newOpinion.OpinionEssence = OpinionEssence{
 			timestamp:        timestamp,
 			liked:            false,
 			levelOfKnowledge: Two,
 		}
-		f.storage.opinionStorage.Store(opinion).Release()
-		f.onPayloadOpinionFormed(messageID, opinion.liked)
+		f.storage.opinionStorage.Store(newOpinion).Release()
+		f.onPayloadOpinionFormed(messageID, newOpinion.liked)
 		return
 	}
 
 	if f.tangle.LedgerState.TransactionConflicting(transactionID) {
-		opinion.OpinionEssence = deriveOpinion(timestamp, f.OpinionsEssence(f.tangle.LedgerState.ConflictSet(transactionID)))
+		newOpinion.OpinionEssence = deriveOpinion(timestamp, f.OpinionsEssence(f.tangle.LedgerState.ConflictSet(transactionID)))
 
-		cachedOpinion := f.storage.opinionStorage.Store(opinion)
+		cachedOpinion := f.storage.opinionStorage.Store(newOpinion)
 		defer cachedOpinion.Release()
 
-		if opinion.LevelOfKnowledge() == One {
-			//trigger voting for this transactionID
-			vote := voter.Dislike
-			if opinion.liked {
-				vote = voter.Like
+		if newOpinion.LevelOfKnowledge() == One {
+			// trigger voting for this transactionID
+			liked := voter.Dislike
+			if newOpinion.liked {
+				liked = voter.Like
 			}
-			f.Events.Vote.Trigger(transactionID.Base58(), vote)
+			f.Events.Vote.Trigger(transactionID.Base58(), liked)
 		}
 
-		if opinion.LevelOfKnowledge() > One {
-			f.onPayloadOpinionFormed(messageID, opinion.liked)
+		if newOpinion.LevelOfKnowledge() > One {
+			f.onPayloadOpinionFormed(messageID, newOpinion.liked)
 		}
 
 		return
 	}
 
-	opinion.OpinionEssence = OpinionEssence{
+	newOpinion.OpinionEssence = OpinionEssence{
 		timestamp:        timestamp,
 		levelOfKnowledge: Pending,
 	}
-	cachedOpinion := f.storage.opinionStorage.Store(opinion)
+	cachedOpinion := f.storage.opinionStorage.Store(newOpinion)
 	defer cachedOpinion.Release()
 
 	// Wait LikedThreshold
@@ -214,7 +214,7 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 			opinion.SetLevelOfKnowledge(One)
 			if f.tangle.LedgerState.TransactionConflicting(transactionID) {
 				opinion.SetLiked(false)
-				//trigger voting for this transactionID
+				// trigger voting for this transactionID
 				f.Events.Vote.Trigger(transactionID.Base58(), voter.Dislike)
 				return
 			}
@@ -226,7 +226,7 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 			f.storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
 				opinion.SetLiked(true)
 				if f.tangle.LedgerState.TransactionConflicting(transactionID) {
-					//trigger voting for this transactionID
+					// trigger voting for this transactionID
 					f.Events.Vote.Trigger(transactionID.Base58(), voter.Like)
 					return
 				}
@@ -250,9 +250,9 @@ func (f *ConsensusMechanism) onPayloadOpinionFormed(messageID tangle.MessageID, 
 			transactionMetadata.SetFinalized(true)
 		})
 		if f.tangle.LedgerState.TransactionConflicting(transactionID) {
-			f.tangle.LedgerState.BranchDAG.SetBranchLiked(f.tangle.LedgerState.BranchID(transactionID), liked)
+			_, _ = f.tangle.LedgerState.BranchDAG.SetBranchLiked(f.tangle.LedgerState.BranchID(transactionID), liked)
 			// TODO: move this to approval weight logic
-			f.tangle.LedgerState.BranchDAG.SetBranchFinalized(f.tangle.LedgerState.BranchID(transactionID), true)
+			_, _ = f.tangle.LedgerState.BranchDAG.SetBranchFinalized(f.tangle.LedgerState.BranchID(transactionID), true)
 			isTxConfirmed = liked
 		}
 	})
@@ -309,7 +309,7 @@ func voteEvent(handler interface{}, params ...interface{}) {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region otherstuff ///////////////////////////////////////////////////////////////////////////////////////////////////
+// region utility functions ////////////////////////////////////////////////////////////////////////////////////////////
 
 // deriveOpinion returns the initial opinion based on the given targetTime and conflictSet.
 func deriveOpinion(targetTime time.Time, conflictSet ConflictSet) (opinion OpinionEssence) {
