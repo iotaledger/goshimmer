@@ -84,8 +84,6 @@ func configure(*node.Plugin) {
 	avgNetworkDelay := config.Node().Int(CfgMessageLayerFCOBAverageNetworkDelay)
 	fcob.LikedThreshold = time.Duration(avgNetworkDelay) * time.Second
 	fcob.LocallyFinalizedThreshold = time.Duration(avgNetworkDelay*2) * time.Second
-
-	configureConsensus(plugin)
 }
 
 func run(*node.Plugin) {
@@ -95,8 +93,6 @@ func run(*node.Plugin) {
 	}, shutdown.PriorityTangle); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
-
-	runFPC()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -41,6 +41,7 @@ var Core = node.Plugins(
 	messagelayer.SyncBeaconFollowerPlugin(),
 	drng.Plugin(),
 	faucet.Plugin(),
+	messagelayer.ConsensusPlugin(),
 	metrics.Plugin(),
 	spammer.Plugin(),
 )
