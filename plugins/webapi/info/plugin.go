@@ -16,6 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
+	"github.com/mr-tron/base58/base58"
 )
 
 // PluginName is the name of the web API info endpoint plugin.
@@ -120,7 +121,8 @@ func getInfo(c echo.Context) error {
 		NetworkVersion:          autopeering.NetworkVersion(),
 		Synced:                  synced,
 		Beacons:                 beaconsStatus,
-		IdentityID:              local.GetInstance().Identity.ID().String(),
+		IdentityID:              base58.Encode(local.GetInstance().Identity.ID().Bytes()),
+		IdentityIDShort:         local.GetInstance().Identity.ID().String(),
 		PublicKey:               local.GetInstance().PublicKey().String(),
 		MessageRequestQueueSize: int(metrics.MessageRequestQueueSize()),
 		SolidMessageCount:       int(metrics.MessageSolidCountDB()),
@@ -142,8 +144,10 @@ type Response struct {
 	Synced bool `json:"synced"`
 	// sync beacons status
 	Beacons []Beacon `json:"beacons"`
-	// identity ID of the node encoded in base58 and truncated to its first 8 bytes
+	// identity ID of the node encoded in base58
 	IdentityID string `json:"identityID,omitempty"`
+	// identity ID of the node encoded in base58 and truncated to its first 8 bytes
+	IdentityIDShort string `json:"identityIDShort,omitempty"`
 	// public key of the node encoded in base58
 	PublicKey string `json:"publicKey,omitempty"`
 	// MessageRequestQueueSize is the number of messages a node is trying to request from neighbors.
