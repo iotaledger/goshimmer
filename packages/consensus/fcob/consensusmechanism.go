@@ -49,10 +49,8 @@ type ConsensusMechanism struct {
 func NewConsensusMechanism() *ConsensusMechanism {
 	return &ConsensusMechanism{
 		Events: &Events{
-			Error:                  events.NewEvent(events.ErrorCaller),
-			Vote:                   events.NewEvent(voteEvent),
-			PayloadOpinionFormed:   events.NewEvent(payloadOpinionCaller),
-			TimestampOpinionFormed: events.NewEvent(tangle.MessageIDEventHandler),
+			Error: events.NewEvent(events.ErrorCaller),
+			Vote:  events.NewEvent(voteEvent),
 		},
 		likedThresholdExecutor:   timedexecutor.New(1),
 		locallyFinalizedExecutor: timedexecutor.New(1),
@@ -68,8 +66,6 @@ func (f *ConsensusMechanism) Init(tangle *tangle.Tangle) {
 func (f *ConsensusMechanism) Setup() {
 	f.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(f.Evaluate))
 	f.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(f.EvaluateTimestamp))
-
-	f.Events.PayloadOpinionFormed.Attach(events.NewClosure(f.onPayloadOpinionFormed))
 }
 
 // Evaluate evaluates the opinion of the given messageID.
@@ -79,8 +75,9 @@ func (f *ConsensusMechanism) Evaluate(messageID tangle.MessageID) {
 	}) {
 		return
 	}
+
 	// likes by default all non-value-transaction messages
-	f.Events.PayloadOpinionFormed.Trigger(&OpinionFormedEvent{messageID, true})
+	f.onPayloadOpinionFormed(messageID, true)
 }
 
 func (f *ConsensusMechanism) EvaluateTimestamp(messageID tangle.MessageID) {
@@ -112,7 +109,7 @@ func (f *ConsensusMechanism) ProcessVote(ev *vote.OpinionEvent) {
 			// trigger PayloadOpinionFormed event
 			messageIDs := f.tangle.Storage.AttachmentMessageIDs(transactionID)
 			for _, messageID := range messageIDs {
-				f.Events.PayloadOpinionFormed.Trigger(&OpinionFormedEvent{messageID, opinion.liked})
+				f.onPayloadOpinionFormed(messageID, opinion.liked)
 			}
 		})
 	}
@@ -160,7 +157,7 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 		// if the opinion has been already set by the opinion provider, re-use it
 		if opinion.LevelOfKnowledge() > One {
 			// trigger PayloadOpinionFormed event
-			f.Events.PayloadOpinionFormed.Trigger(&OpinionFormedEvent{messageID, opinion.liked})
+			f.onPayloadOpinionFormed(messageID, opinion.liked)
 		}
 		// otherwise the PayloadOpinionFormed will be triggerd by iterating over the Attachments
 		// either after FCOB or as a result of an FPC voting.
@@ -187,7 +184,7 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 			levelOfKnowledge: Two,
 		}
 		f.storage.opinionStorage.Store(opinion).Release()
-		f.Events.PayloadOpinionFormed.Trigger(&OpinionFormedEvent{messageID, opinion.liked})
+		f.onPayloadOpinionFormed(messageID, opinion.liked)
 		return
 	}
 
@@ -207,7 +204,7 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 		}
 
 		if opinion.LevelOfKnowledge() > One {
-			f.Events.PayloadOpinionFormed.Trigger(&OpinionFormedEvent{messageID, opinion.liked})
+			f.onPayloadOpinionFormed(messageID, opinion.liked)
 		}
 
 		return
@@ -246,36 +243,36 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 				// trigger OpinionPayloadFormed
 				messageIDs := f.tangle.Storage.AttachmentMessageIDs(transactionID)
 				for _, messageID := range messageIDs {
-					f.Events.PayloadOpinionFormed.Trigger(&OpinionFormedEvent{messageID, opinion.liked})
+					f.onPayloadOpinionFormed(messageID, opinion.liked)
 				}
 			})
 		}, timestamp.Add(LocallyFinalizedThreshold))
 	}, timestamp.Add(LikedThreshold))
 }
 
-func (f *ConsensusMechanism) onPayloadOpinionFormed(ev *OpinionFormedEvent) {
+func (f *ConsensusMechanism) onPayloadOpinionFormed(messageID tangle.MessageID, liked bool) {
 	isTxConfirmed := false
 	// set BranchLiked and BranchFinalized if this payload was a conflict
-	f.tangle.Utils.ComputeIfTransaction(ev.MessageID, func(transactionID ledgerstate.TransactionID) {
-		isTxConfirmed = ev.Opinion
+	f.tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
+		isTxConfirmed = liked
 		f.tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 			transactionMetadata.SetFinalized(true)
 		})
 		if f.tangle.LedgerState.TransactionConflicting(transactionID) {
-			f.tangle.LedgerState.BranchDAG.SetBranchLiked(f.tangle.LedgerState.BranchID(transactionID), ev.Opinion)
+			f.tangle.LedgerState.BranchDAG.SetBranchLiked(f.tangle.LedgerState.BranchID(transactionID), liked)
 			// TODO: move this to approval weight logic
 			f.tangle.LedgerState.BranchDAG.SetBranchFinalized(f.tangle.LedgerState.BranchID(transactionID), true)
-			isTxConfirmed = ev.Opinion
+			isTxConfirmed = liked
 		}
 	})
 
-	if f.waiting.done(ev.MessageID, payloadOpinion) {
-		f.setEligibility(ev.MessageID)
+	if f.waiting.done(messageID, payloadOpinion) {
+		f.setEligibility(messageID)
 		// trigger TransactionOpinionFormed if the message contains a transaction
 		if isTxConfirmed {
-			f.tangle.OpinionManager.Events.TransactionConfirmed.Trigger(ev.MessageID)
+			f.tangle.OpinionManager.Events.TransactionConfirmed.Trigger(messageID)
 		}
-		f.tangle.OpinionManager.Events.MessageOpinionFormed.Trigger(ev.MessageID)
+		f.tangle.OpinionManager.Events.MessageOpinionFormed.Trigger(messageID)
 	}
 }
 
@@ -301,6 +298,22 @@ func (f *ConsensusMechanism) parentsEligibility(messageID tangle.MessageID) (eli
 		})
 	})
 	return
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Events ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type Events struct {
+	// Error gets called when FCOB faces an error.
+	Error *events.Event
+
+	// Vote gets called when FCOB needs to vote.
+	Vote *events.Event
+}
+
+func voteEvent(handler interface{}, params ...interface{}) {
+	handler.(func(id string, initOpn voter.Opinion))(params[0].(string), params[1].(voter.Opinion))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
