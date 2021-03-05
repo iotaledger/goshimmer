@@ -29,6 +29,8 @@ import (
 	"github.com/labstack/echo/middleware"
 )
 
+// TODO: mana visualization + metrics
+
 // PluginName is the name of the dashboard plugin.
 const PluginName = "Dashboard"
 
@@ -57,6 +59,7 @@ func configure(plugin *node.Plugin) {
 	configureLiveFeed()
 	configureDrngLiveFeed()
 	configureVisualizer()
+	configureManaFeed()
 	configureServer()
 }
 
@@ -86,6 +89,7 @@ func run(*node.Plugin) {
 	runLiveFeed()
 	// run the visualizer vertex feed
 	runVisualizer()
+	runManaFeed()
 	// run dRNG live feed if dRNG plugin is enabled
 	if !node.IsSkipped(drng.Plugin()) {
 		runDrngLiveFeed()
@@ -152,6 +156,20 @@ const (
 	MsgTypeVertex
 	// MsgTypeTipInfo defines a tip info message.
 	MsgTypeTipInfo
+	// MsgTypeManaValue defines a mana value message.
+	MsgTypeManaValue
+	// MsgTypeManaMapOverall defines a message containing overall mana map.
+	MsgTypeManaMapOverall
+	// MsgTypeManaMapOnline defines a message containing online mana map.
+	MsgTypeManaMapOnline
+	// MsgTypeManaAllowedPledge defines a message containing a list of allowed mana pledge nodeIDs.
+	MsgTypeManaAllowedPledge
+	// MsgTypeManaPledge defines a message that is sent when mana was pledged to the node.
+	MsgTypeManaPledge
+	// MsgTypeManaRevoke defines a message that is sent when mana was revoked from a node.
+	MsgTypeManaRevoke
+	// MsgManaDashboardAddress is the socket address of the dashboard to stream mana from.
+	MsgManaDashboardAddress
 	// MsgTypeMsgOpinionFormed defines a tip info message.
 	MsgTypeMsgOpinionFormed
 )

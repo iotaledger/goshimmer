@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -19,6 +20,8 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/timeutil"
 )
+
+// TODO: implement mana metrics
 
 // PluginName is the name of the metrics plugin.
 const PluginName = "Metrics"
@@ -81,6 +84,33 @@ func run(_ *node.Plugin) {
 		<-shutdownSignal
 	}, shutdown.PriorityMetrics); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
+	}
+
+	// create a background worker that updates the mana metrics
+	if err := daemon.BackgroundWorker("Metrics Mana Updater", func(shutdownSignal <-chan struct{}) {
+		defer log.Infof("Stopping Metrics Mana Updater ... done")
+		timeutil.NewTicker(func() {
+			measureMana()
+		}, time.Second*time.Duration(config.Node().Int(CfgManaUpdateInterval)), shutdownSignal)
+
+		log.Infof("Stopping Metrics Mana Updater ...")
+	}, shutdown.PriorityMetrics); err != nil {
+		log.Panicf("Failed to start as daemon: %s", err)
+	}
+
+	if config.Node().Bool(CfgMetricsManaResearch) {
+		// create a background worker that updates the research mana metrics
+		if err := daemon.BackgroundWorker("Metrics Research Mana Updater", func(shutdownSignal <-chan struct{}) {
+			defer log.Infof("Stopping Metrics Research Mana Updater ... done")
+			timeutil.NewTicker(func() {
+				measureAccessResearchMana()
+				measureConsensusResearchMana()
+			}, time.Second*time.Duration(config.Node().Int(CfgManaUpdateInterval)), shutdownSignal)
+
+			log.Infof("Stopping Metrics Research Mana Updater ...")
+		}, shutdown.PriorityMetrics); err != nil {
+			log.Panicf("Failed to start as daemon: %s", err)
+		}
 	}
 }
 
@@ -194,5 +224,10 @@ func registerLocalMetrics() {
 	}))
 	metrics.Events().QueryReplyError.Attach(events.NewClosure(func(ev *metrics.QueryReplyErrorEvent) {
 		processQueryReplyError(ev)
+	}))
+
+	// mana pledge events
+	mana.Events().Pledged.Attach(events.NewClosure(func(ev *mana.PledgedEvent) {
+		addPledge(ev)
 	}))
 }

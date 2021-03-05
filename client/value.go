@@ -8,11 +8,12 @@ import (
 )
 
 const (
-	routeAttachments    = "value/attachments"
-	routeGetTxnByID     = "value/transactionByID"
-	routeSendTxn        = "value/sendTransaction"
-	routeSendTxnByJSON  = "value/sendTransactionByJson"
-	routeUnspentOutputs = "value/unspentOutputs"
+	routeAttachments          = "value/attachments"
+	routeGetTxnByID           = "value/transactionByID"
+	routeSendTxn              = "value/sendTransaction"
+	routeSendTxnByJSON        = "value/sendTransactionByJson"
+	routeUnspentOutputs       = "value/unspentOutputs"
+	routeAllowedPledgeNodeIDs = "value/allowedManaPledge"
 )
 
 // GetAttachments gets the attachments of a transaction ID
@@ -77,4 +78,14 @@ func (api *GoShimmerAPI) SendTransactionByJSON(txn webapi_value.SendTransactionB
 	}
 
 	return res.TransactionID, nil
+}
+
+// GetAllowedManaPledgeNodeIDs returns the list of allowed mana pledge IDs.
+func (api *GoShimmerAPI) GetAllowedManaPledgeNodeIDs() (*webapi_value.AllowedManaPledgeResponse, error) {
+	res := &webapi_value.AllowedManaPledgeResponse{}
+	if err := api.do(http.MethodGet, routeAllowedPledgeNodeIDs, nil, res); err != nil {
+		return nil, err
+	}
+
+	return res, nil
 }

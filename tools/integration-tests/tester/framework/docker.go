@@ -86,6 +86,7 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 			fmt.Sprintf("--node.disablePlugins=%s", config.DisabledPlugins),
 			fmt.Sprintf("--pow.difficulty=%d", ParaPoWDifficulty),
 			fmt.Sprintf("--faucet.powDifficulty=%d", ParaPoWFaucetDifficulty),
+			fmt.Sprintf("--faucet.preparedOutputsCounts=%d", ParaFaucetPreparedOutputsCount),
 			fmt.Sprintf("--gracefulshutdown.waitToKillTime=%d", ParaWaitToKill),
 			fmt.Sprintf("--node.enablePlugins=%s", func() string {
 				var plugins []string
@@ -97,6 +98,9 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 				}
 				if config.SyncBeaconFollower {
 					plugins = append(plugins, "SyncBeaconFollower")
+				}
+				if config.Mana {
+					plugins = append(plugins, "Mana")
 				}
 				return strings.Join(plugins[:], ",")
 			}()),
@@ -131,6 +135,14 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 				}
 				return fmt.Sprintf("--syncbeaconfollower.maxTimeOffline=%d", config.SyncBeaconMaxTimeOfflineSec)
 			}(),
+			fmt.Sprintf("--mana.allowedAccessFilterEnabled=%t", config.ManaAllowedAccessFilterEnabled),
+			fmt.Sprintf("--mana.allowedConsensusFilterEnabled=%t", config.ManaAllowedConsensusFilterEnabled),
+			fmt.Sprintf("--mana.allowedAccessPledge=%s", func() string {
+				return strings.Join(config.ManaAllowedAccessPledge[:], ",")
+			}()),
+			fmt.Sprintf("--mana.allowedConsensusPledge=%s", func() string {
+				return strings.Join(config.ManaAllowedConsensusPledge[:], ",")
+			}()),
 		},
 	}
 

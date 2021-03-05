@@ -3,6 +3,7 @@ package address
 import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/stringify"
+	"github.com/mr-tron/base58"
 )
 
 // Address represents an address in a wallet. It extends the normal address type with an index number that was used to
@@ -20,6 +21,11 @@ func (a Address) Address() (ledgerStateAddress ledgerstate.Address) {
 	}
 
 	return
+}
+
+// Base58 returns the base58 encoded address.
+func (a Address) Base58() string {
+	return base58.Encode(a.AddressBytes[:])
 }
 
 func (a Address) String() string {

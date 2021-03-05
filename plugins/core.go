@@ -12,6 +12,8 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/gracefulshutdown"
 	"github.com/iotaledger/goshimmer/plugins/logger"
+	"github.com/iotaledger/goshimmer/plugins/mana"
+	"github.com/iotaledger/goshimmer/plugins/manaeventlogger"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/goshimmer/plugins/portcheck"
@@ -44,4 +46,6 @@ var Core = node.Plugins(
 	messagelayer.ConsensusPlugin(),
 	metrics.Plugin(),
 	spammer.Plugin(),
+	mana.Plugin(),
+	manaeventlogger.Plugin(),
 )

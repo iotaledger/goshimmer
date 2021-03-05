@@ -37,7 +37,7 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	}()
 
 	// create two partitions with their own peers
-	n, err := f.CreateNetworkWithPartitions("abc", 6, 2, 2)
+	n, err := f.CreateNetworkWithPartitions("abc", 6, 2, 2, framework.CreateNetworkConfig{})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 

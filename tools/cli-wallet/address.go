@@ -76,7 +76,7 @@ func execAddressCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 
 		addressPrinted := false
 		for _, addr := range cliWallet.AddressManager().Addresses() {
-			_, _ = fmt.Fprintf(w, "%d\t%s\t%t\n", addr.Index, addr.String(), cliWallet.AddressManager().IsAddressSpent(addr.Index))
+			_, _ = fmt.Fprintf(w, "%d\t%s\t%t\n", addr.Index, addr.Base58(), cliWallet.AddressManager().IsAddressSpent(addr.Index))
 
 			addressPrinted = true
 		}
@@ -122,7 +122,7 @@ func execAddressCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 
 		addressPrinted := false
 		for _, addr := range cliWallet.AddressManager().SpentAddresses() {
-			_, _ = fmt.Fprintf(w, "%d\t%s\t%t\n", addr.Index, addr.String(), cliWallet.AddressManager().IsAddressSpent(addr.Index))
+			_, _ = fmt.Fprintf(w, "%d\t%s\t%t\n", addr.Index, addr.Base58(), cliWallet.AddressManager().IsAddressSpent(addr.Index))
 
 			addressPrinted = true
 		}

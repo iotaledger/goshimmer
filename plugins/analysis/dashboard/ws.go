@@ -7,6 +7,8 @@ import (
 
 	"github.com/gorilla/websocket"
 	analysisserver "github.com/iotaledger/goshimmer/plugins/analysis/server"
+	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/plugins/dashboard"
 	"github.com/labstack/echo"
 )
 
@@ -100,6 +102,16 @@ func websocketRoute(c echo.Context) error {
 	clientID, wsClient := registerWSClient()
 	defer removeWsClient(clientID)
 
+	// send mana dashboard address info
+	manaDashboardHostAddress := config.Node().String(CfgManaDashboardAddress)
+	err = sendJSON(ws, &wsmsg{
+		Type: dashboard.MsgManaDashboardAddress,
+		Data: manaDashboardHostAddress,
+	})
+	if err != nil {
+		return err
+	}
+
 	// replay autopeering events from the past upon connecting a new client
 	analysisserver.ReplayAutopeeringEvents(createAutopeeringEventHandlers(ws))
 
@@ -108,12 +120,20 @@ func websocketRoute(c echo.Context) error {
 
 	for {
 		msg := <-wsClient.channel
-		if err := ws.WriteJSON(msg); err != nil {
+		if err := sendJSON(ws, msg); err != nil {
+			// silent
 			break
 		}
-		if err := ws.SetWriteDeadline(time.Now().Add(webSocketWriteTimeout)); err != nil {
-			break
-		}
+	}
+	return nil
+}
+
+func sendJSON(ws *websocket.Conn, msg interface{}) error {
+	if err := ws.WriteJSON(msg); err != nil {
+		return err
+	}
+	if err := ws.SetWriteDeadline(time.Now().Add(webSocketWriteTimeout)); err != nil {
+		return err
 	}
 	return nil
 }

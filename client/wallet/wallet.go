@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -70,6 +71,11 @@ func (wallet *Wallet) ServerStatus() (status ServerStatus, err error) {
 	return wallet.connector.(*WebConnector).ServerStatus()
 }
 
+// AllowedPledgeNodeIDs retrieves the allowed pledge node IDs.
+func (wallet *Wallet) AllowedPledgeNodeIDs() (res map[mana.Type][]string, err error) {
+	return wallet.connector.(*WebConnector).GetAllowedPledgeIDs()
+}
+
 // SendFunds issues a payment of the given amount to the given address.
 func (wallet *Wallet) SendFunds(options ...SendFundsOption) (tx *ledgerstate.Transaction, err error) {
 	// build options from the parameters
@@ -84,10 +90,35 @@ func (wallet *Wallet) SendFunds(options ...SendFundsOption) (tx *ledgerstate.Tra
 		return
 	}
 
+	// determine pledge IDs
+	allowedPledgeNodeIDs, err := wallet.connector.GetAllowedPledgeIDs()
+	if err != nil {
+		return
+	}
+	var accessPledgeNodeID identity.ID
+	if sendFundsOptions.AccessManaPledgeID == "" {
+		accessPledgeNodeID, err = mana.IDFromStr(allowedPledgeNodeIDs[mana.AccessMana][0])
+	} else {
+		accessPledgeNodeID, err = mana.IDFromStr(sendFundsOptions.AccessManaPledgeID)
+	}
+	if err != nil {
+		return
+	}
+
+	var consensusPledgeNodeID identity.ID
+	if sendFundsOptions.ConsensusManaPledgeID == "" {
+		consensusPledgeNodeID, err = mana.IDFromStr(allowedPledgeNodeIDs[mana.AccessMana][0])
+	} else {
+		consensusPledgeNodeID, err = mana.IDFromStr(sendFundsOptions.ConsensusManaPledgeID)
+	}
+	if err != nil {
+		return
+	}
+
 	// build transaction
 	inputs, consumedFunds := wallet.buildInputs(consumedOutputs)
 	outputs := wallet.buildOutputs(sendFundsOptions, consumedFunds)
-	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, inputs, outputs)
+	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), accessPledgeNodeID, consensusPledgeNodeID, inputs, outputs)
 	outputsByID := consumedOutputs.OutputsByID()
 
 	unlockBlocks := make([]ledgerstate.UnlockBlock, len(inputs))

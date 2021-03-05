@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-
-	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/mr-tron/base58"
 )
 
@@ -17,6 +16,8 @@ func execSendFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	addressPtr := command.String("dest-addr", "", "destination address for the transfer")
 	amountPtr := command.Int64("amount", 0, "the amount of tokens that are supposed to be sent")
 	colorPtr := command.String("color", "IOTA", "color of the tokens to transfer (optional)")
+	accessManaPledgeIDPtr := command.String("access-mana-id", "", "node ID to pledge access mana to")
+	consensusManaPledgeIDPtr := command.String("consensus-mana-id", "", "node ID to pledge consensus mana to")
 
 	err := command.Parse(os.Args[2:])
 	if err != nil {
@@ -65,6 +66,8 @@ func execSendFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 		wallet.Destination(address.Address{
 			AddressBytes: destinationAddress.Array(),
 		}, uint64(*amountPtr), color),
+		wallet.AccessManaPledgeID(*accessManaPledgeIDPtr),
+		wallet.ConsensusManaPledgeID(*consensusManaPledgeIDPtr),
 	)
 	if err != nil {
 		printUsage(command, err.Error())

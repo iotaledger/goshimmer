@@ -1,6 +1,8 @@
 package wallet
 
 import (
+	"time"
+
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/stringify"
@@ -14,6 +16,7 @@ type Output struct {
 	OutputID       ledgerstate.OutputID
 	Balances       *ledgerstate.ColoredBalances
 	InclusionState InclusionState
+	Metadata       OutputMetadata
 }
 
 // String returns a human-readable representation of the Output.
@@ -37,6 +40,12 @@ type InclusionState struct {
 	Rejected    bool
 	Conflicting bool
 	Spent       bool
+}
+
+// OutputMetadata is metadata about the output.
+type OutputMetadata struct {
+	// Timestamp is the timestamp of the tx that created the output.
+	Timestamp time.Time
 }
 
 // String returns a human-readable representation of the InclusionState.
