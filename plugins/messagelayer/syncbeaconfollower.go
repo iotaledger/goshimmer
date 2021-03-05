@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	// PluginName is the plugin name of the sync beacon plugin.
+	// SyncBeaconFollowerPluginName is the plugin name of the sync beacon follower plugin.
 	SyncBeaconFollowerPluginName = "SyncBeaconFollower"
 
 	// CfgSyncBeaconFollowNodes defines the list of nodes this node should follow to determine its sync status.
@@ -96,7 +96,7 @@ func SyncStatus() (bool, map[ed25519.PublicKey]Status) {
 }
 
 // configure plugin
-func configureSyncBeaconFollower(_ *node.Plugin) {
+func configureSyncBeaconFollower(*node.Plugin) {
 	log = logger.NewLogger(PluginName)
 
 	pubKeys := config.Node().Strings(CfgSyncBeaconFollowNodes)
