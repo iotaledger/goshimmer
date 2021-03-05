@@ -252,12 +252,13 @@ func TestApis(t *testing.T) {
 
 	// Test/mana/consensus/past
 	// send funds to node 3 to trigger more consensus events.
+	time.Sleep(5 * time.Second) // we wait a bit to not overlap with timestampPast
 	_, err = peers[3].SendFaucetRequest(peers[3].Seed.Address(0).Address().Base58())
 	require.NoError(t, err)
 	time.Sleep(12 * time.Second)
 	resp9, err := peers[0].GoShimmerAPI.GetPastConsensusManaVector(timestampPast)
 	require.NoError(t, err)
-	assert.Equal(t, 4, len(resp9.Consensus))
+	assert.Equal(t, 3, len(resp9.Consensus)) //excluding node 3
 	m := make(map[string]float64)
 	for _, c := range resp9.Consensus {
 		m[c.ShortNodeID] = c.Mana
