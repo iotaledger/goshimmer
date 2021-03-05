@@ -59,6 +59,7 @@ var (
 	// plugin is the plugin instance of the sync beacon plugin.
 	syncBeaconFollowerPlugin     *node.Plugin
 	syncBeaconFollowerPluginOnce sync.Once
+	syncBeaconFollowerLog        *logger.Logger
 	currentBeacons               map[ed25519.PublicKey]*Status
 	currentBeaconPubKeys         map[ed25519.PublicKey]string
 	mutex                        sync.RWMutex
@@ -97,16 +98,16 @@ func SyncStatus() (bool, map[ed25519.PublicKey]Status) {
 
 // configure plugin
 func configureSyncBeaconFollower(*node.Plugin) {
-	log = logger.NewLogger(PluginName)
+	syncBeaconFollowerLog = logger.NewLogger(SyncBeaconFollowerPluginName)
 
 	pubKeys := config.Node().Strings(CfgSyncBeaconFollowNodes)
 	beaconMaxTimeOfflineSec = float64(config.Node().Int(CfgSyncBeaconMaxTimeOfflineSec))
 	beaconMaxTimeWindowSec = float64(config.Node().Int(CfgSyncBeaconMaxTimeWindowSec))
 	syncPercentage = config.Node().Float64(CfgSyncBeaconSyncPercentage)
 	if syncPercentage < 0.5 || syncPercentage > 1.0 {
-		log.Warnf("invalid syncPercentage: %f, syncPercentage has to be in [0.5, 1.0] interval", syncPercentage)
+		syncBeaconFollowerLog.Warnf("invalid syncPercentage: %f, syncPercentage has to be in [0.5, 1.0] interval", syncPercentage)
 		// set it to default
-		log.Warnf("setting syncPercentage to default value of 0.5")
+		syncBeaconFollowerLog.Warnf("setting syncPercentage to default value of 0.5")
 		syncPercentage = 0.5
 	}
 
@@ -116,12 +117,12 @@ func configureSyncBeaconFollower(*node.Plugin) {
 	for _, str := range pubKeys {
 		bytes, err := base58.Decode(str)
 		if err != nil {
-			log.Warnf("error decoding public key: %w", err)
+			syncBeaconFollowerLog.Warnf("error decoding public key: %w", err)
 			continue
 		}
 		pubKey, _, err := ed25519.PublicKeyFromBytes(bytes)
 		if err != nil {
-			log.Warnf("%s is not a valid public key: %w", err)
+			syncBeaconFollowerLog.Warnf("%s is not a valid public key: %w", err)
 			continue
 		}
 		currentBeacons[pubKey] = &Status{
@@ -132,7 +133,7 @@ func configureSyncBeaconFollower(*node.Plugin) {
 		currentBeaconPubKeys[pubKey] = str
 	}
 	if len(currentBeaconPubKeys) == 0 {
-		log.Panicf("Follow node list cannot be empty: %w", ErrMissingFollowNodes)
+		syncBeaconFollowerLog.Panicf("Follow node list cannot be empty: %w", ErrMissingFollowNodes)
 	}
 
 	Tangle().Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID tangle.MessageID) {
@@ -144,7 +145,7 @@ func configureSyncBeaconFollower(*node.Plugin) {
 
 			payload, ok := messagePayload.(*syncbeacon_payload.Payload)
 			if !ok {
-				log.Debug("could not cast payload to sync beacon object")
+				syncBeaconFollowerLog.Debug("could not cast payload to sync beacon object")
 				return
 			}
 
@@ -173,7 +174,7 @@ func handlePayload(syncBeaconPayload *syncbeacon_payload.Payload, issuerPublicKe
 	synced := true
 	dur := clock.Since(time.Unix(0, syncBeaconPayload.SentTime()))
 	if dur.Seconds() > beaconMaxTimeWindowSec {
-		log.Debugf("sync beacon %s, received from %s is too old.", msgID, issuerPublicKey)
+		syncBeaconFollowerLog.Debugf("sync beacon %s, received from %s is too old.", msgID, issuerPublicKey)
 		synced = false
 	}
 
@@ -231,6 +232,6 @@ func runSyncBeaconFollower(*node.Plugin) {
 			}
 		}
 	}, shutdown.PrioritySynchronization); err != nil {
-		log.Panicf("Failed to start as daemon: %s", err)
+		syncBeaconFollowerLog.Panicf("Failed to start as daemon: %s", err)
 	}
 }
