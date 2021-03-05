@@ -13,7 +13,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/database"
-	"github.com/iotaledger/goshimmer/plugins/syncbeaconfollower"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
@@ -87,9 +86,6 @@ func configure(*node.Plugin) {
 	fcob.LocallyFinalizedThreshold = time.Duration(avgNetworkDelay*2) * time.Second
 
 	configureConsensus(plugin)
-	if !node.IsSkipped(syncbeaconfollower.Plugin()) {
-		configureSyncBeaconFollower(plugin)
-	}
 }
 
 func run(*node.Plugin) {
@@ -101,9 +97,6 @@ func run(*node.Plugin) {
 	}
 
 	runFPC()
-	if !node.IsSkipped(syncbeaconfollower.Plugin()) {
-		runSyncBeaconFollower()
-	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

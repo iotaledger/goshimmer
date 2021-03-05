@@ -19,7 +19,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/profiling"
 	"github.com/iotaledger/goshimmer/plugins/spammer"
 	"github.com/iotaledger/goshimmer/plugins/syncbeacon"
-	"github.com/iotaledger/goshimmer/plugins/syncbeaconfollower"
 	"github.com/iotaledger/hive.go/node"
 )
 
@@ -39,8 +38,7 @@ var Core = node.Plugins(
 	messagelayer.Plugin(),
 	gossip.Plugin(),
 	syncbeacon.Plugin(),
-	syncbeaconfollower.Plugin(),
-	messagelayer.Plugin(),
+	messagelayer.SyncBeaconFollowerPlugin(),
 	drng.Plugin(),
 	faucet.Plugin(),
 	metrics.Plugin(),

@@ -20,6 +20,9 @@ import (
 )
 
 const (
+	// PluginName is the plugin name of the sync beacon plugin.
+	SyncBeaconFollowerPluginName = "SyncBeaconFollower"
+
 	// CfgSyncBeaconFollowNodes defines the list of nodes this node should follow to determine its sync status.
 	CfgSyncBeaconFollowNodes = "syncbeaconfollower.followNodes"
 
@@ -54,16 +57,26 @@ func init() {
 
 var (
 	// plugin is the plugin instance of the sync beacon plugin.
-	currentBeacons          map[ed25519.PublicKey]*Status
-	currentBeaconPubKeys    map[ed25519.PublicKey]string
-	mutex                   sync.RWMutex
-	beaconMaxTimeOfflineSec float64
-	beaconMaxTimeWindowSec  float64
-	syncPercentage          float64
+	syncBeaconFollowerPlugin     *node.Plugin
+	syncBeaconFollowerPluginOnce sync.Once
+	currentBeacons               map[ed25519.PublicKey]*Status
+	currentBeaconPubKeys         map[ed25519.PublicKey]string
+	mutex                        sync.RWMutex
+	beaconMaxTimeOfflineSec      float64
+	beaconMaxTimeWindowSec       float64
+	syncPercentage               float64
 
 	// ErrMissingFollowNodes is returned if the node starts with no follow nodes list
 	ErrMissingFollowNodes = errors.New("follow nodes list is required")
 )
+
+// SyncBeaconFollowerPlugin gets the plugin instance.
+func SyncBeaconFollowerPlugin() *node.Plugin {
+	syncBeaconFollowerPluginOnce.Do(func() {
+		syncBeaconFollowerPlugin = node.NewPlugin(SyncBeaconFollowerPluginName, node.Enabled, configureSyncBeaconFollower, runSyncBeaconFollower)
+	})
+	return syncBeaconFollowerPlugin
+}
 
 // SyncStatus returns the detailed status per beacon node.
 func SyncStatus() (bool, map[ed25519.PublicKey]Status) {
@@ -205,7 +218,7 @@ func cleanupFollowNodes() {
 	updateSynced()
 }
 
-func runSyncBeaconFollower() {
+func runSyncBeaconFollower(*node.Plugin) {
 	if err := daemon.BackgroundWorker("Sync-Beacon-Cleanup", func(shutdownSignal <-chan struct{}) {
 		ticker := time.NewTicker(config.Node().Duration(CfgSyncBeaconCleanupInterval) * time.Second)
 		defer ticker.Stop()
