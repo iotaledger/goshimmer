@@ -35,7 +35,7 @@ type ConsensusMechanism struct {
 	waiting                  *opinionWait
 }
 
-// NewConsensusMechanism is the constructor for the FCoB consensus.
+// NewConsensusMechanism is the constructor for the FCoB consensus mechanism.
 func NewConsensusMechanism() *ConsensusMechanism {
 	return &ConsensusMechanism{
 		Events: &ConsensusMechanismEvents{
@@ -48,12 +48,13 @@ func NewConsensusMechanism() *ConsensusMechanism {
 	}
 }
 
-// Init initializes
+// Init initializes the consensus mechanism by making the Tangle object available that is using it.
 func (f *ConsensusMechanism) Init(tangle *tangle.Tangle) {
 	f.tangle = tangle
 	f.storage = NewStorage(tangle.Options.Store)
 }
 
+// Setup sets up the behavior of the component by making it attach to the relevant events of other Tangle components.
 func (f *ConsensusMechanism) Setup() {
 	f.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(f.Evaluate))
 	f.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(f.EvaluateTimestamp))
@@ -71,6 +72,7 @@ func (f *ConsensusMechanism) Evaluate(messageID tangle.MessageID) {
 	f.onPayloadOpinionFormed(messageID, true)
 }
 
+// EvaluateTimestamp evaluates the Message regarding its timestamp.
 func (f *ConsensusMechanism) EvaluateTimestamp(messageID tangle.MessageID) {
 	f.storage.StoreTimestampOpinion(&TimestampOpinion{
 		MessageID: messageID,
