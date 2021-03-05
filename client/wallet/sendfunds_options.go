@@ -62,10 +62,28 @@ func Remainder(addr address.Address) SendFundsOption {
 	}
 }
 
+// AccessManaPledgeID is an option for SendFunds call that defines the nodeID to pledge access mana to.
+func AccessManaPledgeID(nodeID string) SendFundsOption {
+	return func(options *sendFundsOptions) error {
+		options.AccessManaPledgeID = nodeID
+		return nil
+	}
+}
+
+// ConsensusManaPledgeID is an option for SendFunds call that defines the nodeID to pledge consensus mana to.
+func ConsensusManaPledgeID(nodeID string) SendFundsOption {
+	return func(options *sendFundsOptions) error {
+		options.ConsensusManaPledgeID = nodeID
+		return nil
+	}
+}
+
 // sendFundsOptions is a struct that is used to aggregate the optional parameters provided in the SendFunds call.
 type sendFundsOptions struct {
-	Destinations     map[address.Address]map[ledgerstate.Color]uint64
-	RemainderAddress address.Address
+	Destinations          map[address.Address]map[ledgerstate.Color]uint64
+	RemainderAddress      address.Address
+	AccessManaPledgeID    string
+	ConsensusManaPledgeID string
 }
 
 // buildSendFundsOptions is a utility function that constructs the sendFundsOptions.

@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/hive.go/bitmask"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"golang.org/x/crypto/blake2b"
 )
@@ -94,13 +95,22 @@ func (wallet *Wallet) SendFunds(options ...SendFundsOption) (tx *ledgerstate.Tra
 	if err != nil {
 		return
 	}
-	// take the first in the list (node's own ID is always returned)
-	// TODO: extend this to choose from the list
-	accessPledgeNodeID, err := mana.IDFromStr(allowedPledgeNodeIDs[mana.AccessMana][0])
+	var accessPledgeNodeID identity.ID
+	if sendFundsOptions.AccessManaPledgeID == "" {
+		accessPledgeNodeID, err = mana.IDFromStr(allowedPledgeNodeIDs[mana.AccessMana][0])
+	} else {
+		accessPledgeNodeID, err = mana.IDFromStr(sendFundsOptions.AccessManaPledgeID)
+	}
 	if err != nil {
 		return
 	}
-	consensusPledgeNodeID, err := mana.IDFromStr(allowedPledgeNodeIDs[mana.ConsensusMana][0])
+
+	var consensusPledgeNodeID identity.ID
+	if sendFundsOptions.ConsensusManaPledgeID == "" {
+		consensusPledgeNodeID, err = mana.IDFromStr(allowedPledgeNodeIDs[mana.AccessMana][0])
+	} else {
+		consensusPledgeNodeID, err = mana.IDFromStr(sendFundsOptions.ConsensusManaPledgeID)
+	}
 	if err != nil {
 		return
 	}
