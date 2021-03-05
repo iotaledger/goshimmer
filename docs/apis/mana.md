@@ -9,12 +9,11 @@ Get the access and consensus mana of the node.
 
 ### Parameters
 
-| | |
-|-|-|
-| **Parameter**  | `node ID`          |
-| **Required or Optional**   | Optional      |
-| **Description**   | full node ID      |
-| **Type**      | string      |
+| **Parameter**            | `node ID`      |
+|--------------------------|----------------|
+| **Required or Optional** | optional       |
+| **Description**          | full node ID   |
+| **Type**                 | string         |
 
 
 #### **Note**
