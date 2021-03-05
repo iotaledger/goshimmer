@@ -18,12 +18,14 @@ import (
 
 // region Storage //////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// Storage is a component of the ConsensusMechanism that encapsulates the storage related methods.
 type Storage struct {
 	store                   kvstore.KVStore
 	opinionStorage          *objectstorage.ObjectStorage
 	timestampOpinionStorage *objectstorage.ObjectStorage
 }
 
+// NewStorage is the constructor for a Storage.
 func NewStorage(store kvstore.KVStore) (storage *Storage) {
 	osFactory := objectstorage.NewFactory(store, database.PrefixFCOB)
 
