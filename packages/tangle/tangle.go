@@ -207,9 +207,9 @@ func Identity(identity *identity.LocalIdentity) Option {
 }
 
 // Consensus is an Option for the Tangle that allows to define the consensus mechanism that is used by the Tangle.
-func Consensus(consensusProvider ConsensusMechanism) Option {
+func Consensus(consensusMechanism ConsensusMechanism) Option {
 	return func(options *Options) {
-		options.ConsensusMechanism = consensusProvider
+		options.ConsensusMechanism = consensusMechanism
 	}
 }
 
