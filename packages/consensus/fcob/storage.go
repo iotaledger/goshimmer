@@ -1,6 +1,8 @@
 package fcob
 
 import (
+	"time"
+
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -92,6 +94,21 @@ func (s *Storage) Shutdown() {
 	s.opinionStorage.Shutdown()
 	s.timestampOpinionStorage.Shutdown()
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Object Storage Parameters ////////////////////////////////////////////////////////////////////////////////////
+
+const (
+	// PrefixOpinion defines the storage prefix for the opinion storage.
+	PrefixOpinion byte = iota
+
+	// PrefixTimestampOpinion defines the storage prefix for the timestamp opinion storage.
+	PrefixTimestampOpinion
+
+	// cacheTime defines the duration that the object storage caches objects.
+	cacheTime = 2 * time.Second
+)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

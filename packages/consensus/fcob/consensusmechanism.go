@@ -14,17 +14,6 @@ import (
 	"github.com/iotaledger/hive.go/timedqueue"
 )
 
-const (
-	// PrefixOpinion defines the storage prefix for the opinion storage.
-	PrefixOpinion byte = iota
-
-	// PrefixTimestampOpinion defines the storage prefix for the timestamp opinion storage.
-	PrefixTimestampOpinion
-
-	// cacheTime defines the duration that the object storage caches objects.
-	cacheTime = 2 * time.Second
-)
-
 var (
 	// LikedThreshold is the first time thresshold of FCoB.
 	LikedThreshold = 5 * time.Second
@@ -35,7 +24,7 @@ var (
 
 // region ConsensusMechanism ///////////////////////////////////////////////////////////////////////////////////////////
 
-// ConsensusMechanism represents the FPC
+// ConsensusMechanism represents the FCoB consensus that can be used as a ConsensusMechanism in the Tangle.
 type ConsensusMechanism struct {
 	Events *Events
 
@@ -46,6 +35,7 @@ type ConsensusMechanism struct {
 	waiting                  *opinionWait
 }
 
+// NewConsensusMechanism is the constructor for the FCoB consensus.
 func NewConsensusMechanism() *ConsensusMechanism {
 	return &ConsensusMechanism{
 		Events: &Events{
@@ -58,6 +48,7 @@ func NewConsensusMechanism() *ConsensusMechanism {
 	}
 }
 
+// Init initializes
 func (f *ConsensusMechanism) Init(tangle *tangle.Tangle) {
 	f.tangle = tangle
 	f.storage = NewStorage(tangle.Options.Store)
