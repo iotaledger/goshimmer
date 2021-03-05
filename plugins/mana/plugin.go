@@ -34,8 +34,6 @@ const (
 	manaScaleFactor             = 1000 // scale floating point mana to int
 	maxConsensusEventsInStorage = 108000
 	slidingEventsInterval       = 10800 //10% of maxConsensusEventsInStorage
-	minEffectiveMana            = 0.001
-	minBaseMana1                = 0.001
 )
 
 var (
@@ -706,25 +704,13 @@ func pruneConsensusEventLogsStorage() {
 }
 
 func cleanupManaVectors() {
-	toRemove := make(map[mana.Type][]identity.ID)
-	types := []mana.Type{mana.AccessMana, mana.ConsensusMana}
-	for _, vecType := range types {
-		baseManaVectors[vecType].ForEach(func(id identity.ID, baseMana mana.BaseMana) bool {
-			switch vecType {
-			case mana.ConsensusMana:
-				if baseMana.EffectiveValue() < minEffectiveMana && baseMana.BaseValue() == 0 {
-					toRemove[vecType] = append(toRemove[vecType], id)
-				}
-			case mana.AccessMana:
-				if baseMana.EffectiveValue() < minEffectiveMana && baseMana.BaseValue() < minBaseMana1 {
-					toRemove[vecType] = append(toRemove[vecType], id)
-				}
-			}
-			return true
-		})
+	vectorTypes := []mana.Type{mana.AccessMana, mana.ConsensusMana}
+	if config.Node().Bool(CfgManaEnableResearchVectors) {
+		vectorTypes = append(vectorTypes, mana.ResearchAccess)
+		vectorTypes = append(vectorTypes, mana.ResearchConsensus)
 	}
-	for _, vecType := range types {
-		baseManaVectors[vecType].Remove(toRemove[vecType])
+	for _, vecType := range vectorTypes {
+		baseManaVectors[vecType].RemoveZeroNodes()
 	}
 }
 

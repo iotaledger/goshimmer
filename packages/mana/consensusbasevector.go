@@ -299,12 +299,14 @@ func (c *ConsensusBaseManaVector) FromPersistable(p *PersistableBaseMana) (err e
 	return
 }
 
-// Remove removes the nodes from the vector.
-func (c *ConsensusBaseManaVector) Remove(IDs []identity.ID) {
+// RemoveZeroNodes removes the zero mana nodes from the vector.
+func (c *ConsensusBaseManaVector) RemoveZeroNodes() {
 	c.Lock()
 	defer c.Unlock()
-	for _, ID := range IDs {
-		delete(c.vector, ID)
+	for nodeID, baseMana := range c.vector {
+		if baseMana.EffectiveValue() < MinEffectiveMana && baseMana.BaseValue() == 0 {
+			delete(c.vector, nodeID)
+		}
 	}
 }
 
