@@ -37,7 +37,7 @@ type Booker struct {
 func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 	messageBooker = &Booker{
 		Events: &BookerEvents{
-			MessageBooked: events.NewEvent(messageIDEventHandler),
+			MessageBooked: events.NewEvent(MessageIDCaller),
 		},
 		tangle:                       tangle,
 		MarkersManager:               NewMarkersManager(tangle),
@@ -267,7 +267,7 @@ func (m *MarkersManager) structureDetailsOfStrongParents(message *Message) (stru
 }
 
 // increaseMarkersIndexCallbackStrategy implements the default strategy for increasing marker Indexes in the Tangle.
-func increaseMarkersIndexCallbackStrategy(sequenceID markers.SequenceID, currentHighestIndex markers.Index) bool {
+func increaseMarkersIndexCallbackStrategy(markers.SequenceID, markers.Index) bool {
 	return true
 }
 

@@ -57,11 +57,7 @@ func findByIDHandler(c echo.Context) error {
 					PastMarkers:   newMarkers(msgMetadata.StructureDetails().PastMarkers),
 					FutureMarkers: newMarkers(msgMetadata.StructureDetails().FutureMarkers),
 				},
-				BranchID: msgMetadata.BranchID().String(),
-				TimestampOpinion: TimestampOpinion{
-					Value: uint8(msgMetadata.TimestampOpinion().Value),
-					LoK:   msgMetadata.TimestampOpinion().LoK,
-				},
+				BranchID:  msgMetadata.BranchID().String(),
 				Scheduled: msgMetadata.Scheduled(),
 				Booked:    msgMetadata.IsBooked(),
 				Eligible:  msgMetadata.IsEligible(),
@@ -118,7 +114,6 @@ type Metadata struct {
 	SolidificationTime int64            `json:"solidificationTime"`
 	StructureDetails   StructureDetails `json:"structureDetails"`
 	BranchID           string           `json:"branchID"`
-	TimestampOpinion   TimestampOpinion `json:"timestampOpinion"`
 	Scheduled          bool             `json:"scheduled"`
 	Booked             bool             `json:"booked"`
 	Eligible           bool             `json:"eligible"`
@@ -150,10 +145,4 @@ func newMarkers(m *markers.Markers) (newMarkers Markers) {
 	newMarkers.HighestIndex = m.HighestIndex()
 	newMarkers.LowestIndex = m.LowestIndex()
 	return
-}
-
-// TimestampOpinion contains the value of a timestamp opinion as well as its level of knowledge.
-type TimestampOpinion struct {
-	Value uint8                   `json:"value"`
-	LoK   tangle.LevelOfKnowledge `json:"lok"`
 }

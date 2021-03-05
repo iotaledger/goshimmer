@@ -629,7 +629,6 @@ type MessageMetadata struct {
 	solidificationTime time.Time
 	structureDetails   *markers.StructureDetails
 	branchID           ledgerstate.BranchID
-	timestampOpinion   TimestampOpinion
 	scheduled          bool
 	booked             bool
 	eligible           bool
@@ -639,7 +638,6 @@ type MessageMetadata struct {
 	solidificationTimeMutex sync.RWMutex
 	structureDetailsMutex   sync.RWMutex
 	branchIDMutex           sync.RWMutex
-	timestampOpinionMutex   sync.RWMutex
 	scheduledMutex          sync.RWMutex
 	bookedMutex             sync.RWMutex
 	eligibleMutex           sync.RWMutex
@@ -689,10 +687,6 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 	}
 	if result.branchID, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
-		return
-	}
-	if result.timestampOpinion, err = TimestampOpinionFromMarshalUtil(marshalUtil); err != nil {
-		err = fmt.Errorf("failed to parse timestampOpinion of message metadata: %w", err)
 		return
 	}
 	if result.scheduled, err = marshalUtil.ReadBool(); err != nil {
@@ -884,28 +878,6 @@ func (m *MessageMetadata) IsBooked() (result bool) {
 	return
 }
 
-// TimestampOpinion returns the timestampOpinion of the given message metadata.
-func (m *MessageMetadata) TimestampOpinion() (timestampOpinion TimestampOpinion) {
-	m.timestampOpinionMutex.RLock()
-	defer m.timestampOpinionMutex.RUnlock()
-	return m.timestampOpinion
-}
-
-// SetTimestampOpinion sets the timestampOpinion flag.
-// It returns true if the timestampOpinion flag is modified. False otherwise.
-func (m *MessageMetadata) SetTimestampOpinion(timestampOpinion TimestampOpinion) (modified bool) {
-	m.timestampOpinionMutex.Lock()
-	defer m.timestampOpinionMutex.Unlock()
-
-	if m.timestampOpinion.Equal(timestampOpinion) {
-		return false
-	}
-
-	m.timestampOpinion = timestampOpinion
-	m.SetModified()
-	return true
-}
-
 // SetEligible sets the message associated with this metadata as eligible.
 // It returns true if the eligible status is modified. False otherwise.
 func (m *MessageMetadata) SetEligible(eligible bool) (modified bool) {
@@ -969,7 +941,6 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 		WriteBool(m.IsSolid()).
 		Write(m.StructureDetails()).
 		Write(m.BranchID()).
-		WriteBytes(m.TimestampOpinion().Bytes()).
 		WriteBool(m.Scheduled()).
 		WriteBool(m.IsBooked()).
 		WriteBool(m.IsEligible()).
@@ -979,7 +950,7 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 
 // Update updates the message metadata.
 // This should never happen and will panic if attempted.
-func (m *MessageMetadata) Update(other objectstorage.StorableObject) {
+func (m *MessageMetadata) Update(objectstorage.StorableObject) {
 	panic("updates disabled")
 }
 
@@ -992,7 +963,6 @@ func (m *MessageMetadata) String() string {
 		stringify.StructField("solidificationTime", m.SolidificationTime()),
 		stringify.StructField("structureDetails", m.StructureDetails()),
 		stringify.StructField("branchID", m.BranchID()),
-		stringify.StructField("timestampOpinion", m.TimestampOpinion()),
 		stringify.StructField("scheduled", m.Scheduled()),
 		stringify.StructField("booked", m.IsBooked()),
 		stringify.StructField("eligible", m.IsEligible()),

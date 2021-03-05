@@ -11,7 +11,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/issuer"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/labstack/echo"
@@ -73,7 +72,7 @@ func sendTransactionHandler(c echo.Context) error {
 	}
 
 	issueTransaction := func() (*tangle.Message, error) {
-		msg, e := issuer.IssuePayload(tx, messagelayer.Tangle())
+		msg, e := messagelayer.Tangle().IssuePayload(tx)
 		if e != nil {
 			return nil, c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: e.Error()})
 		}

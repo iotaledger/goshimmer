@@ -70,15 +70,6 @@ func (w wallet) sign(txEssence *ledgerstate.TransactionEssence) *ledgerstate.ED2
 	return ledgerstate.NewED25519Signature(w.publicKey(), ed25519.Signature(w.privateKey().Sign(txEssence.Bytes())))
 }
 
-func (w wallet) unlockBlocks(txEssence *ledgerstate.TransactionEssence) []ledgerstate.UnlockBlock {
-	unlockBlock := ledgerstate.NewSignatureUnlockBlock(w.sign(txEssence))
-	unlockBlocks := make([]ledgerstate.UnlockBlock, len(txEssence.Inputs()))
-	for i := range txEssence.Inputs() {
-		unlockBlocks[i] = unlockBlock
-	}
-	return unlockBlocks
-}
-
 // addressFromInput retrieves the Address belonging to an Input by looking it up in the outputs that we have created for
 // the tests.
 func addressFromInput(input ledgerstate.Input, outputsByID ledgerstate.OutputsByID) ledgerstate.Address {

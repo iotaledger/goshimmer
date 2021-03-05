@@ -17,8 +17,8 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/drng"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
-	"github.com/iotaledger/goshimmer/plugins/syncbeaconfollower"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/daemon"
@@ -267,8 +267,8 @@ func currentNodeStatus() *nodestatus {
 	status.Version = banner.AppVersion
 	status.Uptime = time.Since(nodeStartAt).Milliseconds()
 
-	var beacons map[ed25519.PublicKey]syncbeaconfollower.Status
-	status.Synced, beacons = syncbeaconfollower.SyncStatus()
+	var beacons map[ed25519.PublicKey]messagelayer.Status
+	status.Synced, beacons = messagelayer.SyncStatus()
 
 	for publicKey, s := range beacons {
 		status.Beacons[publicKey.String()] = Beacon{

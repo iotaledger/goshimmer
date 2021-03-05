@@ -1,4 +1,4 @@
-package consensus
+package messagelayer
 
 import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -6,8 +6,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/packages/vote/statement"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/issuer"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/identity"
 )
 
@@ -52,7 +50,7 @@ func makeStatement(roundStats *vote.RoundStats) {
 
 // broadcastStatement broadcasts a statement via communication layer.
 func broadcastStatement(conflicts statement.Conflicts, timestamps statement.Timestamps) {
-	msg, err := issuer.IssuePayload(statement.New(conflicts, timestamps), messagelayer.Tangle())
+	msg, err := Tangle().IssuePayload(statement.New(conflicts, timestamps))
 
 	if err != nil {
 		log.Warnf("error issuing statement: %s", err)
@@ -63,7 +61,7 @@ func broadcastStatement(conflicts statement.Conflicts, timestamps statement.Time
 }
 
 func readStatement(messageID tangle.MessageID) {
-	messagelayer.Tangle().Storage.Message(messageID).Consume(func(msg *tangle.Message) {
+	Tangle().Storage.Message(messageID).Consume(func(msg *tangle.Message) {
 		messagePayload := msg.Payload()
 		if messagePayload.Type() != statement.StatementType {
 			return
@@ -88,7 +86,7 @@ func readStatement(messageID tangle.MessageID) {
 
 		issuerRegistry.AddTimestamps(statementPayload.Timestamps)
 
-		messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
+		Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
 			sendToRemoteLog(
 				msg.ID().String(),
 				issuerID.String(),
