@@ -480,7 +480,7 @@ for _, m := consensusMana.Nodes {
 
 ## `/mana/pending`
 
-You can get the mana (bm2) that will be pledged by a given output.
+Get the amount of base access mana that would be pledged if the given output was spent.
 
 ### Parameters
 | | |
