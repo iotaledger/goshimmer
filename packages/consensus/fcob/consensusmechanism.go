@@ -26,7 +26,7 @@ var (
 
 // ConsensusMechanism represents the FCoB consensus that can be used as a ConsensusMechanism in the Tangle.
 type ConsensusMechanism struct {
-	Events *Events
+	Events *ConsensusMechanismEvents
 
 	tangle                   *tangle.Tangle
 	storage                  *Storage
@@ -38,7 +38,7 @@ type ConsensusMechanism struct {
 // NewConsensusMechanism is the constructor for the FCoB consensus.
 func NewConsensusMechanism() *ConsensusMechanism {
 	return &ConsensusMechanism{
-		Events: &Events{
+		Events: &ConsensusMechanismEvents{
 			Error: events.NewEvent(events.ErrorCaller),
 			Vote:  events.NewEvent(voteEvent),
 		},
@@ -293,9 +293,9 @@ func (f *ConsensusMechanism) parentsEligibility(messageID tangle.MessageID) (eli
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region Events ///////////////////////////////////////////////////////////////////////////////////////////////////////
+// region ConsensusMechanismEvents /////////////////////////////////////////////////////////////////////////////////////
 
-type Events struct {
+type ConsensusMechanismEvents struct {
 	// Error gets called when FCOB faces an error.
 	Error *events.Event
 
