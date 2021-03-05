@@ -7,8 +7,9 @@ export class Vertex {
     id: string;
     strongParentIDs: Array<string>;
     weakParentIDs: Array<string>;
-    is_solid: boolean;
     is_tip: boolean;
+    is_confirmed: boolean;
+    is_tx: boolean;
 }
 
 export class TipInfo {
@@ -25,7 +26,7 @@ const vertexSize = 20;
 export class VisualizerStore {
     @observable vertices = new ObservableMap<string, Vertex>();
     @observable verticesLimit = 1500;
-    @observable solid_count = 0;
+    @observable confirmed_count = 0;
     @observable tips_count = 0;
     verticesIncomingOrder = [];
     draw: boolean = false;
@@ -51,7 +52,7 @@ export class VisualizerStore {
         this.routerStore = routerStore;
         this.fetchHistory();
         registerHandler(WSMsgType.Vertex, this.addVertex);
-        registerHandler(WSMsgType.TipInfo, this.addTipInfo);     
+        registerHandler(WSMsgType.TipInfo, this.addTipInfo); 
     }
 
     fetchHistory = async () => {
@@ -108,19 +109,18 @@ export class VisualizerStore {
     addVertex = (vert: Vertex) => {        
         let existing = this.vertices.get(vert.id);
         if (existing) {
-            // can only go from unsolid to solid
-            if (!existing.is_solid && vert.is_solid) {
-                existing.is_solid = true;
-                this.solid_count++;
+            if (!existing.is_confirmed && vert.is_confirmed) {
+                existing.is_confirmed = true;
+                this.confirmed_count++;
             }
             // update parent1 and parent2 ids since we might be dealing
             // with a vertex obj only created from a tip info
             existing.strongParentIDs = vert.strongParentIDs;
             existing.weakParentIDs = vert.weakParentIDs;
-            vert = existing
+            vert = existing;
         } else {
-            if (vert.is_solid) {
-                this.solid_count++;
+            if (vert.is_confirmed) {
+                this.confirmed_count++;
             }
             this.verticesIncomingOrder.push(vert.id);
             this.checkLimit();
@@ -166,8 +166,8 @@ export class VisualizerStore {
             if (!vert) {
                 continue;
             }
-            if (vert.is_solid) {
-                this.solid_count--;
+            if (vert.is_confirmed) {
+                this.confirmed_count--;
             }
             if (vert.is_tip) {
                 this.tips_count--;
@@ -191,8 +191,8 @@ export class VisualizerStore {
             if (this.selected && approveeId === this.selected.id) {
                 this.clearSelected();
             }
-            if (approvee.is_solid) {
-                this.solid_count--;
+            if (approvee.is_confirmed) {
+                this.confirmed_count--;
             }
             if (approvee.is_tip) {
                 this.tips_count--;
@@ -247,10 +247,14 @@ export class VisualizerStore {
         if (vert.is_tip) {
             return "#cb4b16";
         }
-        if (vert.is_solid) {
-            return "#6c71c4";
+        if (vert.is_tx && vert.is_confirmed) {
+            return "#fad02c";
         }
-        return "#2aa198";
+        // non-tx message confirmed
+        if (vert.is_confirmed) {
+            return "#6c71c4"
+        }
+        return "#b9b7bd";
     }
 
     start = () => {
@@ -284,11 +288,17 @@ export class VisualizerStore {
         let events = Viva.Graph.webglInputEvents(graphics, this.graph);
 
         events.mouseEnter((node) => {
-            this.clearSelected();
+            this.clearSelected(true);
             this.updateSelected(node.data);
         }).mouseLeave((node) => {
-            this.clearSelected();
+            this.clearSelected(false);
         });
+
+        events.click((node) => {
+            this.clearSelected(true);
+            this.updateSelected(node.data, true);
+        });
+
         this.graphics = graphics;
         this.renderer.run();
 
@@ -351,12 +361,13 @@ export class VisualizerStore {
     }
 
     @action
-    clearSelected = () => {
-        this.selected_approvers_count = 0;
-        this.selected_approvees_count = 0;
-        if (this.selected_via_click || !this.selected) {
+    clearSelected = (force_clear?: boolean) => {
+        if (!this.selected || (this.selected_via_click && !force_clear)) {
             return;
         }
+
+        this.selected_approvers_count = 0;
+        this.selected_approvees_count = 0;
 
         // clear link highlight
         let node = this.graph.getNode(this.selected.id);
@@ -390,6 +401,7 @@ export class VisualizerStore {
         );
 
         this.selected = null;
+        this.selected_via_click = false;
     }
 
 }

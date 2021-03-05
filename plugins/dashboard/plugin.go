@@ -170,6 +170,8 @@ const (
 	MsgTypeManaRevoke
 	// MsgManaDashboardAddress is the socket address of the dashboard to stream mana from.
 	MsgManaDashboardAddress
+	// MsgTypeMsgOpinionFormed defines a tip info message.
+	MsgTypeMsgOpinionFormed
 )
 
 type wsmsg struct {
