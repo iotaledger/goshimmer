@@ -525,7 +525,7 @@ fmt.Println("the timestamp of the output (decay duration)", res.Timestamp)
 ### Results
 |Return field | Type | Description|
 |:-----|:------|:------|
-| `mana`   | float64 | The amount of mana to be pledged.     |
+| `mana`   | float64 | The amount of access base mana to be pledged.     |
 | `outputID`  | string | The output ID of the request.     |
 | `timestamp` | int64 | The timestamp of mana updates.  |
 
