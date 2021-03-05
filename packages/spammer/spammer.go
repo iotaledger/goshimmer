@@ -1,6 +1,7 @@
 package spammer
 
 import (
+	"math/rand"
 	"sync/atomic"
 	"time"
 
@@ -26,9 +27,10 @@ func New(issuePayloadFunc IssuePayloadFunc) *Spammer {
 	}
 }
 
-// Start starts the spammer to spam with the given messages per time unit.
-func (spammer *Spammer) Start(rate int, timeUnit time.Duration) {
-	go spammer.run(rate, timeUnit, atomic.AddInt64(&spammer.processID, 1))
+// Start starts the spammer to spam with the given messages per time unit,
+// according to a inter message issuing function (IMIF)
+func (spammer *Spammer) Start(rate int, timeUnit time.Duration, imif string) {
+	go spammer.run(rate, timeUnit, atomic.AddInt64(&spammer.processID, 1), imif)
 }
 
 // Shutdown shuts down the spammer.
@@ -36,12 +38,13 @@ func (spammer *Spammer) Shutdown() {
 	atomic.AddInt64(&spammer.processID, 1)
 }
 
-func (spammer *Spammer) run(rate int, timeUnit time.Duration, processID int64) {
-	// emit messages every msgInterval interval
+func (spammer *Spammer) run(rate int, timeUnit time.Duration, processID int64, imif string) {
+	// emit messages every msgInterval interval, when IMIF is other than exponential
 	msgInterval := time.Duration(timeUnit.Nanoseconds() / int64(rate))
-	start := time.Now()
 
 	for {
+		start := time.Now()
+
 		if atomic.LoadInt64(&spammer.processID) != processID {
 			return
 		}
@@ -54,11 +57,16 @@ func (spammer *Spammer) run(rate int, timeUnit time.Duration, processID int64) {
 		}
 
 		currentInterval := time.Since(start)
+
+		if imif == "exponential" {
+			// emit messages by intervals whose random length is exponentially distributed
+			msgInterval = time.Duration(float64(timeUnit.Nanoseconds()) * rand.ExpFloat64() / float64(rate))
+		}
+
 		if currentInterval < msgInterval {
 			//there is still time, sleep until msgInterval
 			time.Sleep(msgInterval - currentInterval)
 		}
 		// when currentInterval > msgInterval, the node can't issue msgs as fast as requested, will do as fast as it can
-		start = time.Now()
 	}
 }
