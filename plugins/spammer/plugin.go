@@ -5,7 +5,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/spammer"
-	"github.com/iotaledger/goshimmer/plugins/issuer"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
@@ -34,7 +34,7 @@ func Plugin() *node.Plugin {
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	messageSpammer = spammer.New(issuer.IssuePayload)
+	messageSpammer = spammer.New(messagelayer.Tangle().IssuePayload)
 	webapi.Server().GET("spammer", handleRequest)
 }
 

@@ -30,7 +30,7 @@ type Scheduler struct {
 func NewScheduler(tangle *Tangle) (scheduler *Scheduler) {
 	scheduler = &Scheduler{
 		Events: &SchedulerEvents{
-			MessageScheduled: events.NewEvent(messageIDEventHandler),
+			MessageScheduled: events.NewEvent(MessageIDCaller),
 		},
 
 		tangle:            tangle,
@@ -47,7 +47,7 @@ func NewScheduler(tangle *Tangle) (scheduler *Scheduler) {
 func (s *Scheduler) Setup() {
 	s.tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(s.Schedule))
 
-	s.tangle.OpinionFormer.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID MessageID) {
+	s.tangle.ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID MessageID) {
 		if s.scheduledMessages.Delete(messageID) {
 			s.allMessagesScheduledWG.Done()
 		}

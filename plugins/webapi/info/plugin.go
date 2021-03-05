@@ -8,8 +8,8 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
-	"github.com/iotaledger/goshimmer/plugins/syncbeaconfollower"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
@@ -91,7 +91,7 @@ func getInfo(c echo.Context) error {
 	sort.Strings(enabledPlugins)
 	sort.Strings(disabledPlugins)
 
-	synced, beacons := syncbeaconfollower.SyncStatus()
+	synced, beacons := messagelayer.SyncStatus()
 	var beaconsStatus []Beacon
 	for publicKey, s := range beacons {
 		beaconsStatus = append(beaconsStatus, Beacon{

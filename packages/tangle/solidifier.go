@@ -27,8 +27,8 @@ type Solidifier struct {
 func NewSolidifier(tangle *Tangle) (solidifier *Solidifier) {
 	solidifier = &Solidifier{
 		Events: &SolidifierEvents{
-			MessageSolid:   events.NewEvent(messageIDEventHandler),
-			MessageMissing: events.NewEvent(messageIDEventHandler),
+			MessageSolid:   events.NewEvent(MessageIDCaller),
+			MessageMissing: events.NewEvent(MessageIDCaller),
 		},
 
 		tangle: tangle,

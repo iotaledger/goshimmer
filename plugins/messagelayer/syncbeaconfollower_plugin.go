@@ -1,4 +1,4 @@
-package syncbeaconfollower
+package messagelayer
 
 import (
 	"errors"
@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/config"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	syncbeacon_payload "github.com/iotaledger/goshimmer/plugins/syncbeacon/payload"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/daemon"
@@ -18,12 +17,11 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"github.com/mr-tron/base58"
 	flag "github.com/spf13/pflag"
-	"go.uber.org/atomic"
 )
 
 const (
-	// PluginName is the plugin name of the sync beacon plugin.
-	PluginName = "SyncBeaconFollower"
+	// SyncBeaconFollowerPluginName is the plugin name of the sync beacon follower plugin.
+	SyncBeaconFollowerPluginName = "SyncBeaconFollower"
 
 	// CfgSyncBeaconFollowNodes defines the list of nodes this node should follow to determine its sync status.
 	CfgSyncBeaconFollowNodes = "syncbeaconfollower.followNodes"
@@ -59,39 +57,26 @@ func init() {
 
 var (
 	// plugin is the plugin instance of the sync beacon plugin.
-	plugin                  *node.Plugin
-	once                    sync.Once
-	log                     *logger.Logger
-	currentBeacons          map[ed25519.PublicKey]*Status
-	currentBeaconPubKeys    map[ed25519.PublicKey]string
-	mutex                   sync.RWMutex
-	beaconMaxTimeOfflineSec float64
-	beaconMaxTimeWindowSec  float64
-	syncPercentage          float64
-	// tells whether the node is synced or not.
-	synced atomic.Bool
+	syncBeaconFollowerPlugin     *node.Plugin
+	syncBeaconFollowerPluginOnce sync.Once
+	syncBeaconFollowerLog        *logger.Logger
+	currentBeacons               map[ed25519.PublicKey]*Status
+	currentBeaconPubKeys         map[ed25519.PublicKey]string
+	mutex                        sync.RWMutex
+	beaconMaxTimeOfflineSec      float64
+	beaconMaxTimeWindowSec       float64
+	syncPercentage               float64
 
 	// ErrMissingFollowNodes is returned if the node starts with no follow nodes list
 	ErrMissingFollowNodes = errors.New("follow nodes list is required")
-	// ErrNodeNotSynchronized is returned when an operation can't be executed because
-	// the node is not synchronized.
-	ErrNodeNotSynchronized = errors.New("node is not synchronized")
 )
 
-// Plugin gets the plugin instance.
-func Plugin() *node.Plugin {
-	once.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+// SyncBeaconFollowerPlugin gets the plugin instance.
+func SyncBeaconFollowerPlugin() *node.Plugin {
+	syncBeaconFollowerPluginOnce.Do(func() {
+		syncBeaconFollowerPlugin = node.NewPlugin(SyncBeaconFollowerPluginName, node.Enabled, configureSyncBeaconFollower, runSyncBeaconFollower)
 	})
-	return plugin
-}
-
-// Synced tells whether the node is in a state we consider synchronized, meaning
-// it has the relevant past and present message data. The synchronized state is
-// defined by following a certain set of sync beacon nodes where for each of these
-// beacons a message needs to become solid within bounded time.
-func Synced() bool {
-	return synced.Load()
+	return syncBeaconFollowerPlugin
 }
 
 // SyncStatus returns the detailed status per beacon node.
@@ -108,36 +93,21 @@ func SyncStatus() (bool, map[ed25519.PublicKey]Status) {
 		}
 	}
 
-	return Synced(), beacons
-}
-
-// MarkSynced marks the node as synced.
-func MarkSynced() {
-	synced.Store(true)
-}
-
-// MarkDesynced marks the node as desynced.
-func MarkDesynced() {
-	synced.Store(false)
-}
-
-// OverwriteSyncedState overwrites the synced state with the given value.
-func OverwriteSyncedState(syncedOverwrite bool) {
-	synced.Store(syncedOverwrite)
+	return Tangle().Synced(), beacons
 }
 
 // configure plugin
-func configure(_ *node.Plugin) {
-	log = logger.NewLogger(PluginName)
+func configureSyncBeaconFollower(*node.Plugin) {
+	syncBeaconFollowerLog = logger.NewLogger(SyncBeaconFollowerPluginName)
 
 	pubKeys := config.Node().Strings(CfgSyncBeaconFollowNodes)
 	beaconMaxTimeOfflineSec = float64(config.Node().Int(CfgSyncBeaconMaxTimeOfflineSec))
 	beaconMaxTimeWindowSec = float64(config.Node().Int(CfgSyncBeaconMaxTimeWindowSec))
 	syncPercentage = config.Node().Float64(CfgSyncBeaconSyncPercentage)
 	if syncPercentage < 0.5 || syncPercentage > 1.0 {
-		log.Warnf("invalid syncPercentage: %f, syncPercentage has to be in [0.5, 1.0] interval", syncPercentage)
+		syncBeaconFollowerLog.Warnf("invalid syncPercentage: %f, syncPercentage has to be in [0.5, 1.0] interval", syncPercentage)
 		// set it to default
-		log.Warnf("setting syncPercentage to default value of 0.5")
+		syncBeaconFollowerLog.Warnf("setting syncPercentage to default value of 0.5")
 		syncPercentage = 0.5
 	}
 
@@ -147,12 +117,12 @@ func configure(_ *node.Plugin) {
 	for _, str := range pubKeys {
 		bytes, err := base58.Decode(str)
 		if err != nil {
-			log.Warnf("error decoding public key: %w", err)
+			syncBeaconFollowerLog.Warnf("error decoding public key: %w", err)
 			continue
 		}
 		pubKey, _, err := ed25519.PublicKeyFromBytes(bytes)
 		if err != nil {
-			log.Warnf("%s is not a valid public key: %w", err)
+			syncBeaconFollowerLog.Warnf("%s is not a valid public key: %w", err)
 			continue
 		}
 		currentBeacons[pubKey] = &Status{
@@ -163,11 +133,11 @@ func configure(_ *node.Plugin) {
 		currentBeaconPubKeys[pubKey] = str
 	}
 	if len(currentBeaconPubKeys) == 0 {
-		log.Panicf("Follow node list cannot be empty: %w", ErrMissingFollowNodes)
+		syncBeaconFollowerLog.Panicf("Follow node list cannot be empty: %w", ErrMissingFollowNodes)
 	}
 
-	messagelayer.Tangle().Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		messagelayer.Tangle().Storage.Message(messageID).Consume(func(msg *tangle.Message) {
+	Tangle().Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		Tangle().Storage.Message(messageID).Consume(func(msg *tangle.Message) {
 			messagePayload := msg.Payload()
 			if messagePayload.Type() != syncbeacon_payload.Type {
 				return
@@ -175,7 +145,7 @@ func configure(_ *node.Plugin) {
 
 			payload, ok := messagePayload.(*syncbeacon_payload.Payload)
 			if !ok {
-				log.Debug("could not cast payload to sync beacon object")
+				syncBeaconFollowerLog.Debug("could not cast payload to sync beacon object")
 				return
 			}
 
@@ -204,7 +174,7 @@ func handlePayload(syncBeaconPayload *syncbeacon_payload.Payload, issuerPublicKe
 	synced := true
 	dur := clock.Since(time.Unix(0, syncBeaconPayload.SentTime()))
 	if dur.Seconds() > beaconMaxTimeWindowSec {
-		log.Debugf("sync beacon %s, received from %s is too old.", msgID, issuerPublicKey)
+		syncBeaconFollowerLog.Debugf("sync beacon %s, received from %s is too old.", msgID, issuerPublicKey)
 		synced = false
 	}
 
@@ -231,7 +201,7 @@ func updateSynced() {
 		globalSynced = beaconNodesSyncedCount/float64(len(currentBeacons)) >= syncPercentage
 	}
 
-	OverwriteSyncedState(globalSynced)
+	Tangle().SetSynced(globalSynced)
 }
 
 // cleanupFollowNodes cleans up offline nodes by setting their sync status to false after a configurable time window.
@@ -249,7 +219,7 @@ func cleanupFollowNodes() {
 	updateSynced()
 }
 
-func run(_ *node.Plugin) {
+func runSyncBeaconFollower(*node.Plugin) {
 	if err := daemon.BackgroundWorker("Sync-Beacon-Cleanup", func(shutdownSignal <-chan struct{}) {
 		ticker := time.NewTicker(config.Node().Duration(CfgSyncBeaconCleanupInterval) * time.Second)
 		defer ticker.Stop()
@@ -262,6 +232,6 @@ func run(_ *node.Plugin) {
 			}
 		}
 	}, shutdown.PrioritySynchronization); err != nil {
-		log.Panicf("Failed to start as daemon: %s", err)
+		syncBeaconFollowerLog.Panicf("Failed to start as daemon: %s", err)
 	}
 }

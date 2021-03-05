@@ -123,7 +123,7 @@ func TestMessageIDFromMarshalUtil(t *testing.T) {
 		assert.Equal(t, randID, result)
 	})
 
-	t.Run("CASE: Wrong bytes in marshalutil", func(t *testing.T) {
+	t.Run("CASE: Wrong bytes in MarshalUtil", func(t *testing.T) {
 		marshalUtil := marshalutil.New(randomBytes(MessageIDLength - 1))
 		result, err := MessageIDFromMarshalUtil(marshalUtil)
 		assert.Error(t, err)
@@ -562,7 +562,7 @@ func TestMessage_Bytes(t *testing.T) {
 		bytesWeakParents := make([][]byte, 0)
 		bothParentsFromBytes := make([]MessageID, MaxParentsCount)
 
-		//extract raw bytes of the parents
+		// extract raw bytes of the parents
 		for i := 0; i < MaxParentsCount; i++ {
 			parentBytes := make([]byte, 32)
 			copy(parentBytes, msgBytes[3+i*32:35+i*32])
@@ -609,8 +609,8 @@ func TestMessage_Bytes(t *testing.T) {
 		assert.Equal(t, MaxMessageSize, len(msgBytes))
 	})
 
-	t.Run("CASE: Min msg sixe", func(t *testing.T) {
-		// msg with maxmimum number of parents
+	t.Run("CASE: Min msg size", func(t *testing.T) {
+		// msg with maximum number of parents
 		msg := NewMessage(
 			randomParents(MaxParentsCount),
 			nil,
@@ -1089,5 +1089,5 @@ func (w wl) publicKey() ed25519.PublicKey {
 	return w.keyPair.PublicKey
 }
 func (w wl) sign(txEssence *ledgerstate.TransactionEssence) *ledgerstate.ED25519Signature {
-	return ledgerstate.NewED25519Signature(w.publicKey(), ed25519.Signature(w.privateKey().Sign(txEssence.Bytes())))
+	return ledgerstate.NewED25519Signature(w.publicKey(), w.privateKey().Sign(txEssence.Bytes()))
 }

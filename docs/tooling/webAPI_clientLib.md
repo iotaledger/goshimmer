@@ -50,7 +50,7 @@ func broadcastData(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 
-	msg, err := issuer.IssuePayload(
+	msg, err := messagelayer.IssuePayload(
 		payload.NewGenericDataPayload(request.Data), messagelayer.Tangle())
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})

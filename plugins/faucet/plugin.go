@@ -121,7 +121,7 @@ func run(*node.Plugin) {
 }
 
 func configureEvents() {
-	messagelayer.Tangle().OpinionFormer.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+	messagelayer.Tangle().ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
 			if !IsFaucetReq(message) {
 				return

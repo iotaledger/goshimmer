@@ -108,6 +108,18 @@ func (l *LedgerState) BookTransaction(transaction *ledgerstate.Transaction, mess
 	return
 }
 
+// SetBranchLiked sets the liked flag of the given Branch. It returns true if the value has been updated or an error if
+// it failed.
+func (l *LedgerState) SetBranchLiked(branchID ledgerstate.BranchID, liked bool) (modified bool, err error) {
+	return l.branchDAG.SetBranchLiked(branchID, liked)
+}
+
+// SetBranchFinalized sets the finalized flag of the given Branch. It returns true if the value has been updated or an
+// error if it failed.
+func (l *LedgerState) SetBranchFinalized(branchID ledgerstate.BranchID, finalized bool) (modified bool, err error) {
+	return l.branchDAG.SetBranchFinalized(branchID, finalized)
+}
+
 // ConflictSet returns the list of transactionIDs conflicting with the given transactionID.
 func (l *LedgerState) ConflictSet(transactionID ledgerstate.TransactionID) (conflictSet ledgerstate.TransactionIDs) {
 	conflictIDs := make(ledgerstate.ConflictIDs)
