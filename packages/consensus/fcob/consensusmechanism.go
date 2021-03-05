@@ -269,11 +269,11 @@ func (f *ConsensusMechanism) onPayloadOpinionFormed(messageID tangle.MessageID, 
 
 func (f *ConsensusMechanism) setEligibility(messageID tangle.MessageID) {
 	f.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-		timestampOpinion := f.storage.TimestampOpinion(messageID)
-
-		messageMetadata.SetEligible(
-			timestampOpinion != nil && timestampOpinion.Value == opinion.Like && timestampOpinion.LoK > One && f.parentsEligibility(messageID),
-		)
+		f.storage.TimestampOpinion(messageID).Consume(func(timestampOpinion *TimestampOpinion) {
+			messageMetadata.SetEligible(
+				timestampOpinion != nil && timestampOpinion.Value == opinion.Like && timestampOpinion.LoK > One && f.parentsEligibility(messageID),
+			)
+		})
 	})
 }
 

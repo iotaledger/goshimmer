@@ -44,18 +44,14 @@ func (s *Storage) OpinionEssence(transactionID ledgerstate.TransactionID) (opini
 	return
 }
 
-// CachedOpinion returns the CachedOpinion of the given TransactionID.
+// Opinion returns the Opinion associated with given TransactionID.
 func (s *Storage) Opinion(transactionID ledgerstate.TransactionID) (cachedOpinion *CachedOpinion) {
 	return &CachedOpinion{CachedObject: s.opinionStorage.Load(transactionID.Bytes())}
 }
 
-// TimestampOpinion returns the timestampOpinion of the given message metadata.
-func (s *Storage) TimestampOpinion(messageID tangle.MessageID) (timestampOpinion *TimestampOpinion) {
-	(&CachedTimestampOpinion{CachedObject: s.timestampOpinionStorage.Load(messageID.Bytes())}).Consume(func(opinion *TimestampOpinion) {
-		timestampOpinion = opinion
-	})
-
-	return
+// TimestampOpinion returns the TimestampOpinion associated with given MessageID.
+func (s *Storage) TimestampOpinion(messageID tangle.MessageID) (cachedTimestampOpinion *CachedTimestampOpinion) {
+	return &CachedTimestampOpinion{CachedObject: s.timestampOpinionStorage.Load(messageID.Bytes())}
 }
 
 // SetTimestampOpinion sets the timestampOpinion flag.
