@@ -51,6 +51,12 @@ const (
 
 	// SigLockedColoredOutputType represents an Output that holds colored coins that gets unlocked by a signature.
 	SigLockedColoredOutputType
+
+	// AliasOutputType represents an Output which makes a chain with optional governance
+	AliasOutputType
+
+	// AliasLockOutputType represents an Output which locks funds to the alias
+	AliasLockOutputType
 )
 
 // String returns a human readable representation of the OutputType.
