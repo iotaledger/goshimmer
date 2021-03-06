@@ -1,9 +1,9 @@
 # Plugin system
 
-GoShimmer is a complex application that is used in research environment where requirements often changed and new ideas arise. 
+GoShimmer is a complex application that is used in a research environment where requirements often changed and new ideas arise. 
 Plugin system allows to quickly and easily add and remove modules that need to be started. However, one thing that might be non-intuitive about the use of plugins is that it's taken to an extreme - everything is run through plugins. 
 The only code that is not executed through a plugin system is the code responsible for configuring and starting the plugins.
-All new future features added to GoShimmer must be added by creating new plugin. 
+All new future features added to the GoShimmer must be added by creating a new plugin. 
 
 
 ## Plugin structure
@@ -29,33 +29,33 @@ Below is a brief description of each field:
 
 ## Plugin events
 
-Each plugin defines 3 events: * `Init`, `Configure`, `Run`. 
-Those events are triggered during different stages of node startup, but plugin doesn't have to define handlers for all of those events in order to do what it's been designed to.
+Each plugin defines 3 events: `Init`, `Configure`, `Run`. 
+Those events are triggered during different stages of node startup, but plugin doesn't have to define handlers for all of those events in order to do what it's been designed for.
 Execution order and purpose of each event is described below: 
 
 1. `Init` - is triggered almost immediately after a node is started. It's used in plugins that are critical for GoShimmer such as reading config file or initializing global logger. Most plugins don't need to use this event.
-2. `Configure` - this event is used to configure the plugin before it is started. It is used to define events related to plugin logic or initialize some objects used by the plugin. 
-3. `Run` - this event is triggered as the last one. Even handler function contains main logic of the plugin. 
-   For many plugins, the event handler function creates a separate worker that works in the background, so that the handler function for one can finish and allow other plugins be started.  
+2. `Configure` - this event is used to configure the plugin before it is started. It is used to define events related to internal plugin logic or initialize objects used by the plugin. 
+3. `Run` - this event is triggered as the last one. The event handler function contains main logic of the plugin. 
+   For many plugins, the event handler function creates a separate worker that works in the background, so that the handler function for one plugin can finish and allow other plugins be started.  
 
-Each event could potentially have more than one handler, however currently all plugins follow a convention where each event has only one handler.
+Each event could potentially have more than one handler, however currently all existing plugins follow a convention where each event has only one handler.
 
-It is important to note that each event is triggered for all plugins sequentially, so that event `Init` is triggered for all plugins, then `Configure` is triggered for all plugins and finally `Run`. 
+It is important to note that each event is triggered for all plugins sequentially, so that the event `Init` is triggered for all plugins, then `Configure` is triggered for all plugins and finally `Run`. 
 Such order is crucial, because some plugins rely on other plugins' initialization or configuration. The order in which plugins are initialized, configured and run is also important and this is described below. 
 
 Handler functions for all plugin events share the same interface, so they could potentially be used interchangeably. Sample handler functions look like this:
 
 ```go
 func configure(_ *node.Plugin) {
-	// configure stuff
+    // configure stuff
 }
 
-func run(*node.Plugin) {
+func run(*node.Plugin) { 
     // run plugin	
 }
 ```
 
-The handler functions receive one argument of type `*Plugin`. The code responsible for triggering those events passes a pointer to the plugin itself. 
+The handler functions receive one argument of type `*Plugin`. The code responsible for triggering those events passes a pointer to the plugin object itself. 
 The object needs to be passed so that the handler function can access plugin fields (e.g. plugin name to configure logger).
 
 ## Creating new plugin
@@ -65,7 +65,7 @@ The method creates and returns a new plugin object, as well as registers it so t
 It accepts following arguments:
 * `name string` - plugin name.
 * `status int` - flag indicating whether plugin is enabled or disabled by default. This can be overridden by enabling/disabling the plugin in the external configuration file. Possible values: `node.Enabled`, `node.Disabled`. 
-* `callbacks ...Callback` - list of event handler functions. Method will correctly create an event when passing up to 2 callbacks. Note: `type Callback = func(plugin *Plugin)`, which is a raw function type without being wrapped in `events.Closure`.
+* `callbacks ...Callback` - list of event handler functions. Method will correctly create a plugin when passing up to 2 callbacks. Note: `type Callback = func(plugin *Plugin)`, which is a raw function type without being wrapped in `events.Closure`.
 
 
 There is a couple of ways that the method can be called, depending on which plugin events need to be configured. 
@@ -86,7 +86,7 @@ plugin = node.NewPlugin(PluginName, node.Enabled, configure)
 plugin = node.NewPlugin(PluginName, node.Enabled)
 ```
 
-However, the `Init` event handler cannot be specified using the `node.NewPlugin` method. 
+However, the `Init` event handler cannot be attached using the `node.NewPlugin` method. 
 In order to specify this handler, plugin creator needs to attach it manually to the event, for example inside the package's `init()` method in the file containing the rest of the plugin definition.
 
 ```go
@@ -107,7 +107,7 @@ It's crucial that each plugin is created only once and `sync.Once` class is used
 const PluginName = "SamplePlugin"
 
 var (
-	// plugin is the plugin instance of the DRNG plugin.
+	// plugin is the plugin instance of the new plugin plugin.
 	plugin     *node.Plugin
 	pluginOnce sync.Once
 )
@@ -127,7 +127,7 @@ func init() {
     }))
 }
 func configure(_ *node.Plugin) {
-	// configure stuff
+    // configure stuff
 }
 
 func run(*node.Plugin) {
@@ -150,7 +150,7 @@ node.Run(
 )
 ```
 
-You can add plugin simply by calling `Plugin()` method of the newly created plugin and passing the argument further. An example group definition is presented below. When it's added, the plugin is correctly added and will be run when GoShimmer starts/ 
+You can add plugin simply by calling `Plugin()` method of the newly created plugin and passing the argument further. An example group definition is presented below. When it's added, the plugin is correctly added and will be run when GoShimmer starts.
 
 ```go
 var Core = node.Plugins(
@@ -160,7 +160,6 @@ var Core = node.Plugins(
 )
 ```
 
-
 ## Background workers
 
 In order to run plugins beyond the scope of the short-lived `Run` event handler, possibly multiple `daemon.BackgroundWorker` instances can be started inside the handler function. 
@@ -169,18 +168,18 @@ This allows the `Run` event handler finish quickly, and the plugin logic can con
 Background worker can be started by running the `daemon.BackgroundWorker` method, which accepts following arguments:
 * `name string` - background worker name
 * `handler WorkerFunc` - long-running function that will be started in its own goroutine. It accepts a single argument of type `<-chan struct{}`. When something is sent to that channel, the worker will shut down. Note: `type WorkerFunc = func(shutdownSignal <-chan struct{})`
-* `order ...int` - value used to define in which shutdown order this particular background worker is shut down (higher = earlier).
+* `order ...int` - value used to define in which shutdown order this particular background worker must be shut down (higher = earlier).
 The parameter can either accept one or zero values, more values will be ignored. When passing zero values, default value of `0` is assumed.
 Values are normalized in the `github.com/iotaledger/goshimmer/packages/shutdown` package, and it should be used instead of passing integers manually. 
-Correct shutdown order is as important as correct start order, because different plugins depend on others working correctly, so when one plugin shuts down too soon, other plugins may run into errors, crash and leave the state in an incorrect state. 
+Correct shutdown order is as important as correct start order, because different plugins depend on others working correctly, so when one plugin shuts down too soon, other plugins may run into errors, crash and leave an incorrect state. 
   
   
-An example code for creating background worker: 
+An example code for creating a background worker: 
 
 ```go
 func start(shutdownSignal <-chan struct{}) {
 	// long running function
-	// possible start goroutines here
+	// possibly start goroutines here
 	// wait for shutdown signal
     <-shutdownSignal
 }
