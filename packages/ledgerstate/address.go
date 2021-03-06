@@ -19,6 +19,9 @@ const (
 
 	// BLSAddressType represents an Address secured by the BLS signature scheme.
 	BLSAddressType
+
+	// AddressAliasType represents ID used in AliasOutput and AliasLockOutput
+	AddressAliasType
 )
 
 // AddressLength contains the length of an address (type length = 1, digest length = 32).
@@ -32,6 +35,7 @@ func (a AddressType) String() string {
 	return [...]string{
 		"AddressTypeED25519",
 		"AddressTypeBLS",
+		"AddressAlias",
 	}[a]
 }
 
@@ -104,6 +108,8 @@ func AddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address Addre
 		return ED25519AddressFromMarshalUtil(marshalUtil)
 	case BLSAddressType:
 		return BLSAddressFromMarshalUtil(marshalUtil)
+	case AddressAliasType:
+		return AddressAliasFromMarshalUtil(marshalUtil)
 	default:
 		err = xerrors.Errorf("unsupported address type (%X): %w", addressType, cerrors.ErrParseBytesFailed)
 		return

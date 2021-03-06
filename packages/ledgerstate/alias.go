@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
-	"golang.org/x/crypto/blake2b"
 	"golang.org/x/xerrors"
 	"sync"
 )
@@ -19,10 +18,10 @@ type AliasOutput struct {
 	// common for all outputs
 	outputId      OutputID
 	outputIdMutex sync.RWMutex
-	balances      ColoredBalances
+	balances      *ColoredBalances
 
 	// alias id is immutable after created
-	aliasId      AliasID
+	addressAlias AddressAlias
 	aliasIdMutex sync.RWMutex //TODO is it necessary ?
 
 	// address which controls the state and state metadata if != nil
@@ -31,50 +30,34 @@ type AliasOutput struct {
 	stateAddress Address
 	// optional state metadata. nil means it is absent
 	stateMetadata []byte
-	// governance parameter if set
-	governanceParams GovernanceParams
+	// governance parameters if set
+	governingAddress Address
 
 	objectstorage.StorableObjectFlags
-}
-
-type GovernanceParams struct {
-	Set               bool
-	GovernedByAddress bool
-	GoverningAddress  Address
-	GoverningAlias    AliasID
-	Matadata          []byte
 }
 
 const MaxMetadataSize = 8 * 1024
 
 // flags use to compress serialized bytes
 const (
-	flagAliasOutputMint                      = 0x01
-	flagAliasOutputDestroy                   = 0x02
-	flagAliasOutputGovernanceSet             = 0x03
-	flagAliasOutputGovernedByAddress         = 0x08
-	flagAliasOutputStateMetadataPresent      = 0x10
-	flagAliasOutputGovernanceMetadataPresent = 0x20
+	flagAliasOutputMint                 = 0x01
+	flagAliasOutputDestroy              = 0x02
+	flagAliasOutputGovernanceSet        = 0x04
+	flagAliasOutputStateMetadataPresent = 0x08
 )
 
 // NewAliasOutputMint creates new AliasOutput as minting output.
-func NewAliasOutputMint(balances ColoredBalances, stateAddr Address, stateMetadata []byte, governanceParams ...GovernanceParams) (*AliasOutput, error) {
+func NewAliasOutputMint(balances *ColoredBalances, stateAddr Address, stateMetadata []byte, governingAddress Address) (*AliasOutput, error) {
 	ret := &AliasOutput{
-		mintNew:       true,
-		balances:      balances,
-		stateAddress:  stateAddr,
-		stateMetadata: stateMetadata,
+		mintNew:          true,
+		balances:         balances,
+		stateAddress:     stateAddr,
+		stateMetadata:    stateMetadata,
+		governingAddress: governingAddress,
 	}
-	if len(stateMetadata) > MaxMetadataSize {
-		return nil, xerrors.New("metadata too big")
+	if err := ret.checkConsistency(); err != nil {
+		return nil, err
 	}
-	if len(governanceParams) > 0 {
-		if len(governanceParams[0].Matadata) > MaxMetadataSize {
-			return nil, xerrors.New("metadata too big")
-		}
-		ret.governanceParams = governanceParams[0]
-	}
-	ret.mustConsistent()
 	return ret, nil
 }
 
@@ -82,7 +65,7 @@ func NewAliasOutputMint(balances ColoredBalances, stateAddr Address, stateMetada
 func (a *AliasOutput) NewAliasOutputDestroy() *AliasOutput {
 	ret := &AliasOutput{
 		destroy:      true,
-		aliasId:      a.aliasId,
+		addressAlias: a.addressAlias,
 		stateAddress: a.stateAddress.Clone(),
 	}
 	ret.mustConsistent()
@@ -93,11 +76,11 @@ func (a *AliasOutput) NewAliasOutputDestroy() *AliasOutput {
 func (a *AliasOutput) NewAliasOutputStateTransition(balances ColoredBalances, stateMetadata []byte) *AliasOutput {
 	a.mustConsistent()
 	ret := &AliasOutput{
-		balances:         *balances.Clone(),
-		aliasId:          a.GetAliasID(),
+		balances:         balances.Clone(),
+		addressAlias:     a.GetAddressAlias(),
 		stateAddress:     a.stateAddress.Clone(),
 		stateMetadata:    make([]byte, len(stateMetadata)),
-		governanceParams: a.governanceParams.clone(),
+		governingAddress: a.governingAddress,
 	}
 	copy(ret.stateMetadata, stateMetadata)
 	ret.mustConsistent()
@@ -105,13 +88,11 @@ func (a *AliasOutput) NewAliasOutputStateTransition(balances ColoredBalances, st
 }
 
 // NewAliasOutputUpdateGovernance creates new output from previous by updating governance parameters
-func (a *AliasOutput) NewAliasOutputUpdateGovernance(stateAddress Address, params ...GovernanceParams) *AliasOutput {
+func (a *AliasOutput) NewAliasOutputUpdateGovernance(stateAddress Address, governingAddress Address, governanceMetadata []byte) *AliasOutput {
 	a.mustConsistent()
 	ret := a.clone()
 	a.stateAddress = stateAddress
-	if len(params) > 0 {
-		ret.governanceParams = params[0]
-	}
+	a.governingAddress = governingAddress
 	a.mustConsistent()
 	return ret
 }
@@ -127,11 +108,11 @@ func (a *AliasOutput) clone() *AliasOutput {
 		mintNew:          a.mintNew,
 		destroy:          a.destroy,
 		outputId:         a.outputId,
-		balances:         *a.balances.Clone(),
-		aliasId:          a.aliasId,
+		balances:         a.balances.Clone(),
+		addressAlias:     a.addressAlias,
 		stateAddress:     a.stateAddress.Clone(),
 		stateMetadata:    make([]byte, len(a.stateMetadata)),
-		governanceParams: a.governanceParams.clone(),
+		governingAddress: a.governingAddress.Clone(),
 	}
 	copy(ret.stateMetadata, a.stateMetadata)
 	ret.mustConsistent()
@@ -146,14 +127,14 @@ func (a *AliasOutput) ID() OutputID {
 }
 
 // GetAliasID calculates new ID if it is a minting output. Otherwise it takes stored value
-func (a *AliasOutput) GetAliasID() AliasID {
+func (a *AliasOutput) GetAddressAlias() AddressAlias {
 	a.aliasIdMutex.Lock()
 	defer a.aliasIdMutex.Unlock()
 
 	if a.mintNew {
-		return blake2b.Sum256(a.ID().Bytes())
+		return *NewAddressAlias(a.ID().Bytes())
 	}
-	return a.aliasId
+	return a.addressAlias
 }
 
 func (a *AliasOutput) SetID(outputID OutputID) Output {
@@ -169,7 +150,7 @@ func (a *AliasOutput) Type() OutputType {
 }
 
 func (a *AliasOutput) Balances() *ColoredBalances {
-	return &a.balances
+	return a.balances
 }
 
 func (a *AliasOutput) Address() Address {
@@ -195,10 +176,14 @@ func (a *AliasOutput) Bytes() []byte {
 func (a *AliasOutput) String() string {
 	ret := "AliasOutput:\n"
 	ret += fmt.Sprintf("   outputId: %s\n", a.ID())
-	ret += fmt.Sprintf("   balance: %s\n", a.balances.String())
+	ret += fmt.Sprintf("   balance: %s\n", a.balances)
 	ret += fmt.Sprintf("   stateAddress: %s\n", a.stateAddress)
 	ret += fmt.Sprintf("   stateMetadataSize: %d\n", len(a.stateMetadata))
-	ret += a.governanceParams.String()
+	if a.governingAddress == nil {
+		ret += fmt.Sprintf("   governingAddress: self governed\n")
+	} else {
+		ret += fmt.Sprintf("   governingAddress: %s\n", a.governingAddress)
+	}
 	return ret
 }
 
@@ -214,61 +199,25 @@ func (a *AliasOutput) ObjectStorageKey() []byte {
 	return a.ID().Bytes()
 }
 
-func (p *GovernanceParams) clone() GovernanceParams {
-	ret := GovernanceParams{}
-	if !p.Set {
-		return ret
-	}
-	ret.GovernedByAddress = p.GovernedByAddress
-	if p.GovernedByAddress {
-		ret.GoverningAddress = p.GoverningAddress.Clone()
-	} else {
-		ret.GoverningAlias = p.GoverningAlias
-	}
-	if p.Matadata != nil {
-		ret.Matadata = make([]byte, len(p.Matadata))
-		copy(ret.Matadata, p.Matadata)
-	}
-	return ret
-}
-
-func (p *GovernanceParams) String() string {
-	if !p.Set {
-		return fmt.Sprintf("Governance: self-governed")
-	}
-	if p.GovernedByAddress {
-		return fmt.Sprintf("Governing address: %s metadata size: %d", p.GoverningAddress.String(), len(p.Matadata))
-	}
-	return fmt.Sprintf("Governing alias: %s metadata size: %d", p.GoverningAlias.String(), len(p.Matadata))
-}
-
 func (a *AliasOutput) checkConsistency() error {
 	if a.stateAddress == nil {
-		return xerrors.New("AliasOutput: inconsistency 1")
+		return xerrors.New("address must not be nil")
+	}
+	if len(a.stateMetadata) > MaxMetadataSize {
+		return xerrors.New("metadata too big")
 	}
 	if a.mintNew && a.destroy {
-		return xerrors.New("AliasOutput: inconsistency 2")
+		return xerrors.New("AliasOutput: inconsistency 1")
 	}
 	if !a.destroy {
-		if a.balances.Size() == 0 {
+		if a.balances == nil || a.balances.Size() == 0 {
 			// TODO minimum deposit
-			return xerrors.New("AliasOutput: inconsistency 3")
+			return xerrors.New("AliasOutput: inconsistency 2")
 		}
 	}
 	if a.destroy {
-		if a.Balances() != nil {
-			return xerrors.New("AliasOutput: inconsistency 4")
-		}
-	}
-	if a.governanceParams.Set {
-		if a.governanceParams.GovernedByAddress {
-			if a.governanceParams.GoverningAddress == nil {
-				return xerrors.New("AliasOutput: inconsistency 5")
-			}
-		} else {
-			if a.governanceParams.GoverningAlias == AliasNil {
-				return xerrors.New("AliasOutput: inconsistency 6")
-			}
+		if a.balances != nil {
+			return xerrors.New("AliasOutput: inconsistency 3")
 		}
 	}
 	return nil
@@ -292,14 +241,8 @@ func (a *AliasOutput) mustFlags() byte {
 	if a.stateMetadata != nil {
 		ret |= flagAliasOutputStateMetadataPresent
 	}
-	if a.governanceParams.Set {
+	if a.governingAddress != nil {
 		ret |= flagAliasOutputGovernanceSet
-		if a.governanceParams.GovernedByAddress {
-			ret |= flagAliasOutputGovernedByAddress
-		}
-		if a.governanceParams.Matadata != nil {
-			ret |= flagAliasOutputGovernanceMetadataPresent
-		}
 	}
 	return ret
 }
@@ -310,7 +253,7 @@ func (a *AliasOutput) ObjectStorageValue() []byte {
 		WriteByte(byte(AliasOutputType)).
 		WriteByte(flags)
 	if flags&flagAliasOutputMint == 0 {
-		ret.WriteBytes(a.aliasId.Bytes())
+		ret.WriteBytes(a.addressAlias.Bytes())
 	}
 	ret.WriteBytes(a.stateAddress.Bytes())
 	if flags&flagAliasOutputDestroy == 0 {
@@ -323,14 +266,6 @@ func (a *AliasOutput) ObjectStorageValue() []byte {
 	if flags&flagAliasOutputGovernanceSet == 0 {
 		return ret.Bytes()
 	}
-	if flags&flagAliasOutputGovernedByAddress != 0 {
-		ret.WriteBytes(a.governanceParams.GoverningAddress.Bytes())
-	} else {
-		ret.WriteBytes(a.governanceParams.GoverningAlias.Bytes())
-	}
-	if flags&flagAliasOutputGovernanceMetadataPresent != 0 {
-		ret.WriteUint16(uint16(len(a.governanceParams.Matadata))).
-			WriteBytes(a.governanceParams.Matadata)
-	}
+	ret.WriteBytes(a.governingAddress.Bytes())
 	return ret.Bytes()
 }
