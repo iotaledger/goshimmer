@@ -15,30 +15,17 @@ import (
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/goshimmer/packages/vote/statement"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-	flag "github.com/spf13/pflag"
 )
 
 const (
 	// ConsensusPluginName contains the human readable name of the plugin.
 	ConsensusPluginName = "Consensus"
-
-	// CfgCleanInterval defines the time interval [in minutes] for cleaning the statement registry.
-	CfgCleanInterval = "statement.cleanInterval"
-
-	// CfgDeleteAfter defines the time [in minutes] after which older statements are deleted from the registry.
-	CfgDeleteAfter = "statement.deleteAfter"
 )
-
-func init() {
-	flag.Int(CfgCleanInterval, 5, "the time in minutes after which the node cleans the statement registry")
-	flag.Int(CfgDeleteAfter, 5, "the time in minutes after which older statements are deleted from the registry")
-}
 
 var (
 	// plugin is the plugin instance of the statement plugin.
@@ -50,8 +37,6 @@ var (
 	consensusPluginLog  *logger.Logger
 	registry            *statement.Registry
 	registryOnce        sync.Once
-	cleanInterval       int
-	deleteAfter         int
 )
 
 // ConsensusPlugin returns the consensus plugin.
@@ -66,10 +51,6 @@ func configureConsensusPlugin(*node.Plugin) {
 	consensusPluginLog = logger.NewLogger(ConsensusPluginName)
 
 	configureRemoteLogger()
-
-	cleanInterval = config.Node().Int(CfgCleanInterval)
-	deleteAfter = config.Node().Int(CfgDeleteAfter)
-
 	configureFPC()
 
 	// subscribe to FCOB events
@@ -206,13 +187,13 @@ func runFPC() {
 	if err := daemon.BackgroundWorker("StatementCleaner", func(shutdownSignal <-chan struct{}) {
 		consensusPluginLog.Infof("Started Statement Cleaner")
 		defer consensusPluginLog.Infof("Stopped Statement Cleaner")
-		ticker := time.NewTicker(time.Duration(cleanInterval) * time.Minute)
+		ticker := time.NewTicker(time.Duration(StatementParameters.CleanInterval) * time.Minute)
 		defer ticker.Stop()
 	exit:
 		for {
 			select {
 			case <-ticker.C:
-				Registry().Clean(time.Duration(deleteAfter) * time.Minute)
+				Registry().Clean(time.Duration(StatementParameters.DeleteAfter) * time.Minute)
 			case <-shutdownSignal:
 				break exit
 			}

@@ -31,6 +31,8 @@ var StatementParameters = struct {
 	WaitForStatement int     `default:"5" usage:"the time in seconds for which the node wait for receiving the new statement"`
 	WriteStatement   bool    `default:"false" usage:"if the node should make statements"`
 	ManaThreshold    float64 `default:"1" usage:"Mana threshold to accept/write a statement"`
+	CleanInterval    int     `default:"5" usage:"the time in minutes after which the node cleans the statement registry"`
+	DeleteAfter      int     `default:"5" usage:"the time in minutes after which older statements are deleted from the registry"`
 }{}
 
 func init() {
