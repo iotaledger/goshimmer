@@ -31,9 +31,9 @@ type OpinionGiver struct {
 // OpinionGivers is a map of OpinionGiver.
 type OpinionGivers map[identity.ID]OpinionGiver
 
-// Query retrievs the opinions about the given conflicts and timestamps.
+// Query retrieves the opinions about the given conflicts and timestamps.
 func (o *OpinionGiver) Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (opinions opinion.Opinions, err error) {
-	for i := 0; i < waitForStatement; i++ {
+	for i := 0; i < StatementParameters.WaitForStatement; i++ {
 		if o.view != nil {
 			opinions, err = o.view.Query(ctx, conflictIDs, timestampIDs)
 			if err == nil {

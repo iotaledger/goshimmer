@@ -48,6 +48,12 @@ func DefineParameters(parameters interface{}, optionalPrefix ...string) {
 		case string:
 			defaultValue := typeField.Tag.Get("default")
 			pflag.StringVar(valueAddr.(*string), parameterPrefix+"."+name, defaultValue, usage)
+		case float64:
+			defaultValue, err := strconv.ParseFloat(typeField.Tag.Get("default"), 64)
+			if err != nil {
+				panic(err)
+			}
+			pflag.Float64Var(valueAddr.(*float64), parameterPrefix+"."+name, defaultValue, usage)
 		case int64:
 			defaultValue, err := strconv.ParseInt(typeField.Tag.Get("default"), 10, 64)
 			if err != nil {

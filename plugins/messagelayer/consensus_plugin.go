@@ -28,12 +28,6 @@ const (
 	// ConsensusPluginName contains the human readable name of the plugin.
 	ConsensusPluginName = "Consensus"
 
-	// CfgWaitForStatement is the time in seconds for which the node wait for receiving the new statement.
-	CfgWaitForStatement = "statement.waitForStatement"
-
-	// CfgManaThreshold defines the Mana threshold to accept/write a statement.
-	CfgManaThreshold = "statement.manaThreshold"
-
 	// CfgCleanInterval defines the time interval [in minutes] for cleaning the statement registry.
 	CfgCleanInterval = "statement.cleanInterval"
 
@@ -42,8 +36,6 @@ const (
 )
 
 func init() {
-	flag.Int(CfgWaitForStatement, 5, "the time in seconds for which the node wait for receiving the new statement")
-	flag.Float64(CfgManaThreshold, 1., "Mana threshold to accept/write a statement")
 	flag.Int(CfgCleanInterval, 5, "the time in minutes after which the node cleans the statement registry")
 	flag.Int(CfgDeleteAfter, 5, "the time in minutes after which older statements are deleted from the registry")
 }
@@ -58,7 +50,6 @@ var (
 	consensusPluginLog  *logger.Logger
 	registry            *statement.Registry
 	registryOnce        sync.Once
-	waitForStatement    int
 	cleanInterval       int
 	deleteAfter         int
 )
@@ -76,7 +67,6 @@ func configureConsensusPlugin(*node.Plugin) {
 
 	configureRemoteLogger()
 
-	waitForStatement = config.Node().Int(CfgWaitForStatement)
 	cleanInterval = config.Node().Int(CfgCleanInterval)
 	deleteAfter = config.Node().Int(CfgDeleteAfter)
 

@@ -28,7 +28,9 @@ var FPCParameters = struct {
 
 // StatementParameters contains the configuration parameters used by the FPC statements in the tangle.
 var StatementParameters = struct {
-	WriteStatement bool `default:"false" usage:"if the node should make statements"`
+	WaitForStatement int     `default:"5" usage:"the time in seconds for which the node wait for receiving the new statement"`
+	WriteStatement   bool    `default:"false" usage:"if the node should make statements"`
+	ManaThreshold    float64 `default:"1" usage:"Mana threshold to accept/write a statement"`
 }{}
 
 func init() {
