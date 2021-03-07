@@ -31,12 +31,6 @@ const (
 	// CfgFPCQuerySampleSize defines how many nodes will be queried each round.
 	CfgFPCQuerySampleSize = "fpc.querySampleSize"
 
-	// CfgFPCRoundInterval defines how long a round lasts (in seconds)
-	CfgFPCRoundInterval = "fpc.roundInterval"
-
-	// CfgFPCListen defines if the FPC service should listen.
-	CfgFPCListen = "fpc.listen"
-
 	// CfgFPCBindAddress defines on which address the FPC service should listen.
 	CfgFPCBindAddress = "fpc.bindAddress"
 
@@ -56,10 +50,8 @@ const (
 )
 
 func init() {
-	flag.Bool(CfgFPCListen, true, "if the FPC service should listen")
 	flag.Bool(CfgWriteStatement, false, "if the node should make statements")
 	flag.Int(CfgFPCQuerySampleSize, 21, "Size of the voting quorum (k)")
-	flag.Int64(CfgFPCRoundInterval, 10, "FPC round interval [s]")
 	flag.String(CfgFPCBindAddress, "0.0.0.0:10895", "the bind address on which the FPC vote server binds to")
 	flag.Int(CfgWaitForStatement, 5, "the time in seconds for which the node wait for receiving the new statement")
 	flag.Float64(CfgManaThreshold, 1., "Mana threshold to accept/write a statement")
@@ -69,20 +61,18 @@ func init() {
 
 var (
 	// plugin is the plugin instance of the statement plugin.
-	consensusPlugin      *node.Plugin
-	consensusPluginOnce  sync.Once
-	voter                *fpc.FPC
-	voterOnce            sync.Once
-	voterServer          *votenet.VoterServer
-	roundIntervalSeconds int64
-	consensusPluginLog   *logger.Logger
-	registry             *statement.Registry
-	registryOnce         sync.Once
-	waitForStatement     int
-	listen               bool
-	cleanInterval        int
-	deleteAfter          int
-	writeStatement       bool
+	consensusPlugin     *node.Plugin
+	consensusPluginOnce sync.Once
+	voter               *fpc.FPC
+	voterOnce           sync.Once
+	voterServer         *votenet.VoterServer
+	consensusPluginLog  *logger.Logger
+	registry            *statement.Registry
+	registryOnce        sync.Once
+	waitForStatement    int
+	cleanInterval       int
+	deleteAfter         int
+	writeStatement      bool
 )
 
 // ConsensusPlugin returns the consensus plugin.
@@ -98,9 +88,7 @@ func configureConsensusPlugin(*node.Plugin) {
 
 	configureRemoteLogger()
 
-	roundIntervalSeconds = config.Node().Int64(CfgFPCRoundInterval)
 	waitForStatement = config.Node().Int(CfgWaitForStatement)
-	listen = config.Node().Bool(CfgFPCListen)
 	cleanInterval = config.Node().Int(CfgCleanInterval)
 	deleteAfter = config.Node().Int(CfgDeleteAfter)
 	writeStatement = config.Node().Bool(CfgWriteStatement)
@@ -142,7 +130,7 @@ func Registry() *statement.Registry {
 }
 
 func configureFPC() {
-	if listen {
+	if FPCParameters.Listen {
 		lPeer := local.GetInstance()
 		bindAddr := config.Node().String(CfgFPCBindAddress)
 		_, portStr, err := net.SplitHostPort(bindAddr)
@@ -186,7 +174,7 @@ func configureFPC() {
 func runFPC() {
 	const ServerWorkerName = "FPCVoterServer"
 
-	if listen {
+	if FPCParameters.Listen {
 		if err := daemon.BackgroundWorker(ServerWorkerName, func(shutdownSignal <-chan struct{}) {
 			stopped := make(chan struct{})
 			bindAddr := config.Node().String(CfgFPCBindAddress)
@@ -221,7 +209,7 @@ func runFPC() {
 	if err := daemon.BackgroundWorker("FPCRoundsInitiator", func(shutdownSignal <-chan struct{}) {
 		consensusPluginLog.Infof("Started FPC round initiator")
 		defer consensusPluginLog.Infof("Stopped FPC round initiator")
-		unixTsPRNG := prng.NewUnixTimestampPRNG(roundIntervalSeconds)
+		unixTsPRNG := prng.NewUnixTimestampPRNG(FPCParameters.RoundInterval)
 		unixTsPRNG.Start()
 		defer unixTsPRNG.Stop()
 	exit:
