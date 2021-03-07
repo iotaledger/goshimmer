@@ -73,47 +73,51 @@ func AliasAddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address 
 	return
 }
 
-func (b *AliasAddress) IsMint() bool {
-	return b.digest == [32]byte{}
+func (addr *AliasAddress) IsMint() bool {
+	return addr.digest == [32]byte{}
 }
 
 // Type returns the AddressType of the Address.
-func (b *AliasAddress) Type() AddressType {
+func (addr *AliasAddress) Type() AddressType {
 	return AliasAddressType
 }
 
 // Digest returns the hashed version of the Addresses public key.
-func (b *AliasAddress) Digest() []byte {
-	return b.digest[:]
+func (addr *AliasAddress) Digest() []byte {
+	return addr.digest[:]
 }
 
 // Clone creates a copy of the Address.
-func (b *AliasAddress) Clone() Address {
-	return &(*b)
+func (addr *AliasAddress) Clone() Address {
+	return &(*addr)
 }
 
 // Bytes returns a marshaled version of the Address.
-func (b *AliasAddress) Bytes() []byte {
-	return byteutils.ConcatBytes([]byte{byte(AliasAddressType)}, b.digest[:])
+func (addr *AliasAddress) Bytes() []byte {
+	return byteutils.ConcatBytes([]byte{byte(AliasAddressType)}, addr.digest[:])
 }
 
 // Array returns an array of bytes that contains the marshaled version of the Address.
-func (b *AliasAddress) Array() (array [AddressLength]byte) {
-	copy(array[:], b.Bytes())
+func (addr *AliasAddress) Array() (array [AddressLength]byte) {
+	copy(array[:], addr.Bytes())
 
 	return
 }
 
+func (addr *AliasAddress) Equal(b *AliasAddress) bool {
+	return addr.digest == b.digest
+}
+
 // Base58 returns a base58 encoded version of the Address.
-func (b *AliasAddress) Base58() string {
-	return base58.Encode(b.Bytes())
+func (addr *AliasAddress) Base58() string {
+	return base58.Encode(addr.Bytes())
 }
 
 // String returns a human readable version of the addresses for debug purposes.
-func (b *AliasAddress) String() string {
+func (addr *AliasAddress) String() string {
 	return stringify.Struct("AliasAddress",
-		stringify.StructField("Digest", b.Digest()),
-		stringify.StructField("Base58", b.Base58()),
+		stringify.StructField("Digest", addr.Digest()),
+		stringify.StructField("Base58", addr.Base58()),
 	)
 }
 

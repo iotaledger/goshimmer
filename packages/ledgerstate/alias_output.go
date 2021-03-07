@@ -215,8 +215,136 @@ func (a *AliasOutput) Address() Address {
 	return a.stateAddress
 }
 
+func (a *AliasOutput) findChainedOutput(tx *Transaction) (*AliasOutput, error) {
+	var ret *AliasOutput
+	aliasAddress := a.GetAliasAddress()
+	for _, out := range tx.Essence().Outputs() {
+		if out.Type() != AliasOutputType {
+			continue
+		}
+		outAlias := out.(*AliasOutput)
+		if !aliasAddress.Equal(outAlias.GetAliasAddress()) {
+			continue
+		}
+		if ret != nil {
+			return nil, xerrors.Errorf("duplicated alias output: %s", aliasAddress.String())
+		}
+		ret = outAlias
+	}
+	return ret, nil
+}
+
+func (a *AliasOutput) unlockedBySig(tx *Transaction, sigBlock *SignatureUnlockBlock) (bool, bool) {
+	stateSigValid := sigBlock.signature.AddressSignatureValid(a.stateAddress, tx.Essence().Bytes())
+	if a.IsSelfGoverned() {
+		return stateSigValid, stateSigValid
+	}
+	if stateSigValid {
+		return true, false
+	}
+	return false, sigBlock.signature.AddressSignatureValid(a.governingAddress, tx.Essence().Bytes())
+}
+
+func equalColoredBalance(b1, b2 ColoredBalances) bool {
+	return false
+}
+
+func isDust(b ColoredBalances) bool {
+	bal, ok := b.Get(ColorIOTA)
+	if !ok || bal < MinimumIOTAOnAlias {
+		return true
+	}
+	return false
+}
+
+func isExactMinimum(b ColoredBalances) bool {
+	bals := b.Map()
+	if len(bals) != 1 {
+		return false
+	}
+	bal, ok := bals[ColorIOTA]
+	if !ok || bal != MinimumIOTAOnAlias {
+		return false
+	}
+	return true
+}
+
+func (a *AliasOutput) validateState(chained *AliasOutput, unlockedState bool) error {
+	if unlockedState {
+		if isDust(chained.balances) {
+			return xerrors.New("tokens are below dust threshold")
+		}
+	}
+	// should not modify state data
+	if !bytes.Equal(a.stateData, chained.stateData) {
+		return xerrors.New("state data is locked for modification")
+	}
+	if !equalColoredBalance(a.balances, chained.balances) {
+		return xerrors.New("tokens are locked for modification")
+	}
+	return nil
+}
+
+func (a *AliasOutput) validateGovernance(chained *AliasOutput, unlockedGovernance bool) error {
+	if unlockedGovernance {
+		return nil
+	}
+	// must not modify governance data
+	if bytes.Compare(a.stateAddress.Bytes(), chained.stateAddress.Bytes()) != 0 {
+		return xerrors.New("state address is locked for modification")
+	}
+	if !a.IsSelfGoverned() {
+		if bytes.Compare(a.governingAddress.Bytes(), chained.governingAddress.Bytes()) != 0 {
+			return xerrors.New("state address is locked for modification")
+		}
+	}
+	return nil
+}
+
+func (a *AliasOutput) validateDestroy(unlockedGovernance bool) error {
+	if !unlockedGovernance {
+		return xerrors.New("didn't find chained output and alias is not unlocked to be destroyed.")
+	}
+	if !isExactMinimum(a.balances) {
+		return xerrors.New("didn't find chained output and there are more tokens then upper limit for alias destruction")
+	}
+	return nil
+}
+
 func (a *AliasOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock) (bool, error) {
-	panic("implement me")
+	switch unlockBlock.Type() {
+	case SignatureUnlockBlockType:
+		sigBlock := unlockBlock.(*SignatureUnlockBlock)
+		unlockedState, unlockedGovernance := a.unlockedBySig(tx, sigBlock)
+		if !unlockedState && !unlockedGovernance {
+			return false, nil
+		}
+		chained, err := a.findChainedOutput(tx)
+		if err != nil {
+			return false, err
+		}
+		if chained != nil {
+			if err := a.validateState(chained, unlockedState); err != nil {
+				return false, err
+			}
+			if err := a.validateGovernance(chained, unlockedState); err != nil {
+				return false, err
+			}
+		} else {
+			// may be alias destroyed
+			if err := a.validateDestroy(unlockedGovernance); err != nil {
+				return false, err
+			}
+		}
+		return true, nil
+
+	case ReferenceUnlockBlockType:
+		// TODO
+		panic("implement me")
+		//refIdx := unlockBlock.(*ReferenceUnlockBlock).ReferencedIndex()
+		//return a.UnlockValid(tx, tx.UnlockBlocks()[refIdx])
+	}
+	return false, xerrors.New("unsupported unlock block type")
 }
 
 func (a *AliasOutput) Input() Input {
