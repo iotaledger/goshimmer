@@ -13,15 +13,13 @@ import (
 // AliasAddress represents a special type of Address which is not backed by a private key directly,
 // but is indirectly backed by a private key represented by AliasOutput
 type AliasAddress struct {
-	digest []byte
+	digest [32]byte
 }
 
 // NewAliasAddress creates a new AliasAddress from the given public key.
 func NewAliasAddress(data []byte) *AliasAddress {
-	digest := blake2b.Sum256(data)
-
 	return &AliasAddress{
-		digest: digest[:],
+		digest: blake2b.Sum256(data),
 	}
 }
 
@@ -65,13 +63,18 @@ func AliasAddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address 
 		return
 	}
 
-	address = &AliasAddress{}
-	if address.digest, err = marshalUtil.ReadBytes(32); err != nil {
+	data, err := marshalUtil.ReadBytes(32)
+	if err != nil {
 		err = xerrors.Errorf("error parsing digest (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-
+	address = &AliasAddress{}
+	copy(address.digest[:], data)
 	return
+}
+
+func (b *AliasAddress) IsMint() bool {
+	return b.digest == [32]byte{}
 }
 
 // Type returns the AddressType of the Address.
@@ -81,22 +84,17 @@ func (b *AliasAddress) Type() AddressType {
 
 // Digest returns the hashed version of the Addresses public key.
 func (b *AliasAddress) Digest() []byte {
-	return b.digest
+	return b.digest[:]
 }
 
 // Clone creates a copy of the Address.
 func (b *AliasAddress) Clone() Address {
-	clonedDigest := make([]byte, len(b.digest))
-	copy(clonedDigest, b.digest)
-
-	return &AliasAddress{
-		digest: clonedDigest,
-	}
+	return &(*b)
 }
 
 // Bytes returns a marshaled version of the Address.
 func (b *AliasAddress) Bytes() []byte {
-	return byteutils.ConcatBytes([]byte{byte(AliasAddressType)}, b.digest)
+	return byteutils.ConcatBytes([]byte{byte(AliasAddressType)}, b.digest[:])
 }
 
 // Array returns an array of bytes that contains the marshaled version of the Address.

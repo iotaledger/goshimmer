@@ -248,6 +248,12 @@ func OutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output Output,
 			err = xerrors.Errorf("failed to parse SigLockedColoredOutput: %w", err)
 			return
 		}
+	case AliasOutputType:
+		if output, err = AliasOutputFromMarshalUtil(marshalUtil); err != nil {
+			err = xerrors.Errorf("failed to parse AliasOutput: %w", err)
+			return
+		}
+
 	default:
 		err = xerrors.Errorf("unsupported OutputType (%X): %w", outputType, cerrors.ErrParseBytesFailed)
 		return

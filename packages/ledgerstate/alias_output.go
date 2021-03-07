@@ -3,98 +3,146 @@ package ledgerstate
 import (
 	"bytes"
 	"fmt"
+	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"golang.org/x/xerrors"
 	"sync"
 )
 
+const MinimumIOTAOnAlias = uint64(100) // TODO protocol wide dust threshold
+
 // code contract (make sure the type implements all required methods)
 var _ Output = &AliasOutput{}
 
+// AliasOutput represents output which defines an alias and AliasAddress
 type AliasOutput struct {
-	mintNew bool
-	destroy bool
 	// common for all outputs
 	outputId      OutputID
 	outputIdMutex sync.RWMutex
-	balances      *ColoredBalances
+	balances      ColoredBalances
 
-	// alias id is immutable after created
-	addressAlias AliasAddress
-	aliasIdMutex sync.RWMutex //TODO is it necessary ?
+	// alias id becomes immutable after created
+	aliasAddress AliasAddress
 
 	// address which controls the state and state metadata if != nil
 	// alias destroy command is == nil
 	// It can only be changed by governing entity, if set. Otherwise it is self governed.
 	stateAddress Address
 	// optional state metadata. nil means it is absent
-	stateMetadata []byte
-	// governance parameters if set
+	stateData []byte
+	// governance address if set
 	governingAddress Address
 
 	objectstorage.StorableObjectFlags
 }
 
-const MaxMetadataSize = 8 * 1024
+const MaxStateDataSize = 8 * 1024
 
 // flags use to compress serialized bytes
 const (
-	flagAliasOutputMint                 = 0x01
-	flagAliasOutputDestroy              = 0x02
-	flagAliasOutputGovernanceSet        = 0x04
-	flagAliasOutputStateMetadataPresent = 0x08
+	flagAliasOutputGovernanceSet    = 0x02
+	flagAliasOutputStateDataPresent = 0x04
 )
 
 // NewAliasOutputMint creates new AliasOutput as minting output.
-func NewAliasOutputMint(balances *ColoredBalances, stateAddr Address, stateMetadata []byte, governingAddress Address) (*AliasOutput, error) {
+func NewAliasOutputMint(balances map[Color]uint64, stateAddr Address, stateMetadata []byte, governingAddress Address) (*AliasOutput, error) {
+	if len(balances) == 0 {
+		return nil, xerrors.New("colored balances should not be empty")
+	}
 	ret := &AliasOutput{
-		mintNew:          true,
-		balances:         balances,
+		balances:         *NewColoredBalances(balances),
 		stateAddress:     stateAddr,
-		stateMetadata:    stateMetadata,
+		stateData:        stateMetadata,
 		governingAddress: governingAddress,
 	}
-	if err := ret.checkConsistency(); err != nil {
+	if err := ret.checkValidity(); err != nil {
 		return nil, err
 	}
 	return ret, nil
 }
 
-// NewAliasOutputDestroy creates new AliasOutput for destroy
-func (a *AliasOutput) NewAliasOutputDestroy() *AliasOutput {
-	ret := &AliasOutput{
-		destroy:      true,
-		addressAlias: a.addressAlias,
-		stateAddress: a.stateAddress.Clone(),
-	}
-	ret.mustConsistent()
-	return ret
-}
-
 // NewAliasOutputStateTransition creates new AliasOutput as state transition from the previous
-func (a *AliasOutput) NewAliasOutputStateTransition(balances ColoredBalances, stateMetadata []byte) *AliasOutput {
-	a.mustConsistent()
+func (a *AliasOutput) NewAliasOutputStateTransition(balances map[Color]uint64, stateMetadata []byte) (*AliasOutput, error) {
+	if len(balances) == 0 {
+		return nil, xerrors.New("colored balances should not be empty")
+	}
+	a.mustValidate()
 	ret := &AliasOutput{
-		balances:         balances.Clone(),
-		addressAlias:     a.GetAddressAlias(),
+		balances:         *NewColoredBalances(balances),
+		aliasAddress:     *a.GetAliasAddress(),
 		stateAddress:     a.stateAddress.Clone(),
-		stateMetadata:    make([]byte, len(stateMetadata)),
+		stateData:        make([]byte, len(stateMetadata)),
 		governingAddress: a.governingAddress,
 	}
-	copy(ret.stateMetadata, stateMetadata)
-	ret.mustConsistent()
-	return ret
+	copy(ret.stateData, stateMetadata)
+	if err := ret.checkValidity(); err != nil {
+		return nil, err
+	}
+	return ret, nil
 }
 
 // NewAliasOutputUpdateGovernance creates new output from previous by updating governance parameters
 func (a *AliasOutput) NewAliasOutputUpdateGovernance(stateAddress Address, governingAddress Address, governanceMetadata []byte) *AliasOutput {
-	a.mustConsistent()
+	a.mustValidate()
 	ret := a.clone()
 	a.stateAddress = stateAddress
 	a.governingAddress = governingAddress
-	a.mustConsistent()
+	a.mustValidate()
 	return ret
+}
+
+// AliasOutputFromMarshalUtil unmarshals a AliasOutput using a MarshalUtil (for easier unmarshaling).
+func AliasOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*AliasOutput, error) {
+	var ret *AliasOutput
+	outputType, err := marshalUtil.ReadByte()
+	if err != nil {
+		return nil, xerrors.Errorf("failed to parse OutputType (%v): %w", err, cerrors.ErrParseBytesFailed)
+	}
+	if OutputType(outputType) != AliasOutputType {
+		return nil, xerrors.Errorf("invalid OutputType (%X): %w", outputType, cerrors.ErrParseBytesFailed)
+	}
+	ret = &AliasOutput{}
+	flags, err := marshalUtil.ReadByte()
+	if err != nil {
+		return nil, xerrors.Errorf("failed to parse AliasOutput flags (%v): %w", err, cerrors.ErrParseBytesFailed)
+	}
+	if ret.aliasAddress.IsMint() {
+		addr, err := AliasAddressFromMarshalUtil(marshalUtil)
+		if err != nil {
+			return nil, xerrors.Errorf("failed to parse alias address (%v): %w", err, cerrors.ErrParseBytesFailed)
+		}
+		ret.aliasAddress = *addr
+	}
+	cb, err := ColoredBalancesFromMarshalUtil(marshalUtil)
+	if err != nil {
+		return nil, xerrors.Errorf("failed to parse colored balances: %w", err)
+	}
+	ret.balances = *cb
+	ret.stateAddress, err = AddressFromMarshalUtil(marshalUtil)
+	if err != nil {
+		return nil, xerrors.Errorf("failed to parse state address (%v): %w", err, cerrors.ErrParseBytesFailed)
+	}
+	if flags&flagAliasOutputStateDataPresent != 0 {
+		size, err := marshalUtil.ReadUint16()
+		if err != nil {
+			return nil, xerrors.Errorf("failed to parse state data size: %w", err)
+		}
+		ret.stateData, err = marshalUtil.ReadBytes(int(size))
+		if err != nil {
+			return nil, xerrors.Errorf("failed to parse state data: %w", err)
+		}
+	}
+	if flags&flagAliasOutputGovernanceSet != 0 {
+		ret.governingAddress, err = AddressFromMarshalUtil(marshalUtil)
+		if err != nil {
+			return nil, xerrors.Errorf("failed to parse governing address (%v): %w", err, cerrors.ErrParseBytesFailed)
+		}
+	}
+	if err := ret.checkValidity(); err != nil {
+		return nil, err
+	}
+	return ret, nil
 }
 
 // Clone clones the structure
@@ -103,20 +151,41 @@ func (a *AliasOutput) Clone() Output {
 }
 
 func (a *AliasOutput) clone() *AliasOutput {
-	a.mustConsistent()
+	a.mustValidate()
 	ret := &AliasOutput{
-		mintNew:          a.mintNew,
-		destroy:          a.destroy,
 		outputId:         a.outputId,
-		balances:         a.balances.Clone(),
-		addressAlias:     a.addressAlias,
+		balances:         *a.balances.Clone(),
+		aliasAddress:     a.aliasAddress,
 		stateAddress:     a.stateAddress.Clone(),
-		stateMetadata:    make([]byte, len(a.stateMetadata)),
+		stateData:        make([]byte, len(a.stateData)),
 		governingAddress: a.governingAddress.Clone(),
 	}
-	copy(ret.stateMetadata, a.stateMetadata)
-	ret.mustConsistent()
+	copy(ret.stateData, a.stateData)
+	ret.mustValidate()
 	return ret
+}
+
+// GetAliasID calculates new ID if it is a minting output. Otherwise it takes stored value
+func (a *AliasOutput) GetAliasAddress() *AliasAddress {
+	if a.aliasAddress.IsMint() {
+		return NewAliasAddress(a.ID().Bytes())
+	}
+	return &a.aliasAddress
+}
+
+func (a *AliasOutput) IsSelfGoverned() bool {
+	return a.governingAddress == nil
+}
+
+func (a *AliasOutput) GetGoverningAddress() Address {
+	if a.IsSelfGoverned() {
+		return a.stateAddress
+	}
+	return a.governingAddress
+}
+
+func (a *AliasOutput) GetStateData() []byte {
+	return a.stateData
 }
 
 func (a *AliasOutput) ID() OutputID {
@@ -124,17 +193,6 @@ func (a *AliasOutput) ID() OutputID {
 	defer a.outputIdMutex.RUnlock()
 
 	return a.outputId
-}
-
-// GetAliasID calculates new ID if it is a minting output. Otherwise it takes stored value
-func (a *AliasOutput) GetAddressAlias() AliasAddress {
-	a.aliasIdMutex.Lock()
-	defer a.aliasIdMutex.Unlock()
-
-	if a.mintNew {
-		return *NewAliasAddress(a.ID().Bytes())
-	}
-	return a.addressAlias
 }
 
 func (a *AliasOutput) SetID(outputID OutputID) Output {
@@ -150,7 +208,7 @@ func (a *AliasOutput) Type() OutputType {
 }
 
 func (a *AliasOutput) Balances() *ColoredBalances {
-	return a.balances
+	return &a.balances
 }
 
 func (a *AliasOutput) Address() Address {
@@ -176,14 +234,10 @@ func (a *AliasOutput) Bytes() []byte {
 func (a *AliasOutput) String() string {
 	ret := "AliasOutput:\n"
 	ret += fmt.Sprintf("   outputId: %s\n", a.ID())
-	ret += fmt.Sprintf("   balance: %s\n", a.balances)
+	ret += fmt.Sprintf("   balance: %s\n", a.balances.String())
 	ret += fmt.Sprintf("   stateAddress: %s\n", a.stateAddress)
-	ret += fmt.Sprintf("   stateMetadataSize: %d\n", len(a.stateMetadata))
-	if a.governingAddress == nil {
-		ret += fmt.Sprintf("   governingAddress: self governed\n")
-	} else {
-		ret += fmt.Sprintf("   governingAddress: %s\n", a.governingAddress)
-	}
+	ret += fmt.Sprintf("   stateMetadataSize: %d\n", len(a.stateData))
+	ret += fmt.Sprintf("   governingAddress (self-governed=%v): %s\n", a.IsSelfGoverned(), a.GetGoverningAddress())
 	return ret
 }
 
@@ -192,54 +246,40 @@ func (a *AliasOutput) Compare(other Output) int {
 }
 
 func (a *AliasOutput) Update(other objectstorage.StorableObject) {
-	panic("AliasOutput: updates disabled")
+	panic("AliasOutput: storage object updates disabled")
 }
 
 func (a *AliasOutput) ObjectStorageKey() []byte {
 	return a.ID().Bytes()
 }
 
-func (a *AliasOutput) checkConsistency() error {
+func (a *AliasOutput) checkValidity() error {
+	if len(a.balances.Map()) == 0 {
+		return xerrors.New("balances must not be nil")
+	}
+	if iotas, ok := a.balances.Get(ColorIOTA); !ok || iotas < MinimumIOTAOnAlias {
+		return xerrors.New("balances are less than dust threshold")
+	}
 	if a.stateAddress == nil {
-		return xerrors.New("address must not be nil")
+		return xerrors.New("state address must not be nil")
 	}
-	if len(a.stateMetadata) > MaxMetadataSize {
-		return xerrors.New("metadata too big")
-	}
-	if a.mintNew && a.destroy {
-		return xerrors.New("AliasOutput: inconsistency 1")
-	}
-	if !a.destroy {
-		if a.balances == nil || a.balances.Size() == 0 {
-			// TODO minimum deposit
-			return xerrors.New("AliasOutput: inconsistency 2")
-		}
-	}
-	if a.destroy {
-		if a.balances != nil {
-			return xerrors.New("AliasOutput: inconsistency 3")
-		}
+	if len(a.stateData) > MaxStateDataSize {
+		return xerrors.New("state data too big")
 	}
 	return nil
 }
 
-func (a *AliasOutput) mustConsistent() {
-	if err := a.checkConsistency(); err != nil {
+func (a *AliasOutput) mustValidate() {
+	if err := a.checkValidity(); err != nil {
 		panic(err)
 	}
 }
 
 func (a *AliasOutput) mustFlags() byte {
-	a.mustConsistent()
+	a.mustValidate()
 	var ret byte
-	if a.mintNew {
-		ret |= flagAliasOutputMint
-	}
-	if a.destroy {
-		ret |= flagAliasOutputDestroy
-	}
-	if a.stateMetadata != nil {
-		ret |= flagAliasOutputStateMetadataPresent
+	if len(a.stateData) > 0 {
+		ret |= flagAliasOutputStateDataPresent
 	}
 	if a.governingAddress != nil {
 		ret |= flagAliasOutputGovernanceSet
@@ -251,21 +291,16 @@ func (a *AliasOutput) ObjectStorageValue() []byte {
 	flags := a.mustFlags()
 	ret := marshalutil.New().
 		WriteByte(byte(AliasOutputType)).
-		WriteByte(flags)
-	if flags&flagAliasOutputMint == 0 {
-		ret.WriteBytes(a.addressAlias.Bytes())
+		WriteByte(flags).
+		WriteBytes(a.aliasAddress.Bytes()).
+		WriteBytes(a.balances.Bytes()).
+		WriteBytes(a.stateAddress.Bytes())
+	if flags&flagAliasOutputStateDataPresent != 0 {
+		ret.WriteUint16(uint16(len(a.stateData))).
+			WriteBytes(a.stateData)
 	}
-	ret.WriteBytes(a.stateAddress.Bytes())
-	if flags&flagAliasOutputDestroy == 0 {
-		ret.WriteBytes(a.balances.Bytes())
+	if flags&flagAliasOutputGovernanceSet != 0 {
+		ret.WriteBytes(a.governingAddress.Bytes())
 	}
-	if flags&flagAliasOutputStateMetadataPresent != 0 {
-		ret.WriteUint16(uint16(len(a.stateMetadata))).
-			WriteBytes(a.stateMetadata)
-	}
-	if flags&flagAliasOutputGovernanceSet == 0 {
-		return ret.Bytes()
-	}
-	ret.WriteBytes(a.governingAddress.Bytes())
 	return ret.Bytes()
 }
