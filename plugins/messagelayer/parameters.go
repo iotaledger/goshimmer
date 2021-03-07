@@ -2,7 +2,6 @@ package messagelayer
 
 import (
 	"github.com/iotaledger/goshimmer/packages/configuration"
-	"github.com/spf13/pflag"
 )
 
 // Parameters contains the configuration parameters used by the message layer.
@@ -27,9 +26,13 @@ var FPCParameters = struct {
 	QuerySampleSize int    `default:"21" usage:"Size of the voting quorum (k)"`
 }{}
 
+// StatementParameters contains the configuration parameters used by the FPC statements in the tangle.
+var StatementParameters = struct {
+	WriteStatement bool `default:"false" usage:"if the node should make statements"`
+}{}
+
 func init() {
 	configuration.DefineParameters(&Parameters, "messageLayer")
 	configuration.DefineParameters(&FPCParameters, "fpc")
-
-	pflag.PrintDefaults()
+	configuration.DefineParameters(&StatementParameters, "statement")
 }

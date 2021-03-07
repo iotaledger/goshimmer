@@ -39,12 +39,9 @@ const (
 
 	// CfgDeleteAfter defines the time [in minutes] after which older statements are deleted from the registry.
 	CfgDeleteAfter = "statement.deleteAfter"
-	// CfgWriteStatement defines if the node should write statements.
-	CfgWriteStatement = "statement.writeStatement"
 )
 
 func init() {
-	flag.Bool(CfgWriteStatement, false, "if the node should make statements")
 	flag.Int(CfgWaitForStatement, 5, "the time in seconds for which the node wait for receiving the new statement")
 	flag.Float64(CfgManaThreshold, 1., "Mana threshold to accept/write a statement")
 	flag.Int(CfgCleanInterval, 5, "the time in minutes after which the node cleans the statement registry")
@@ -64,7 +61,6 @@ var (
 	waitForStatement    int
 	cleanInterval       int
 	deleteAfter         int
-	writeStatement      bool
 )
 
 // ConsensusPlugin returns the consensus plugin.
@@ -83,7 +79,6 @@ func configureConsensusPlugin(*node.Plugin) {
 	waitForStatement = config.Node().Int(CfgWaitForStatement)
 	cleanInterval = config.Node().Int(CfgCleanInterval)
 	deleteAfter = config.Node().Int(CfgDeleteAfter)
-	writeStatement = config.Node().Bool(CfgWriteStatement)
 
 	configureFPC()
 
@@ -139,7 +134,7 @@ func configureFPC() {
 	}
 
 	Voter().Events().RoundExecuted.Attach(events.NewClosure(func(roundStats *vote.RoundStats) {
-		if writeStatement {
+		if StatementParameters.WriteStatement {
 			makeStatement(roundStats)
 		}
 		peersQueried := len(roundStats.QueriedOpinions)
