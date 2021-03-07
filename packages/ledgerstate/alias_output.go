@@ -21,7 +21,7 @@ type AliasOutput struct {
 	balances      *ColoredBalances
 
 	// alias id is immutable after created
-	addressAlias AddressAlias
+	addressAlias AliasAddress
 	aliasIdMutex sync.RWMutex //TODO is it necessary ?
 
 	// address which controls the state and state metadata if != nil
@@ -127,12 +127,12 @@ func (a *AliasOutput) ID() OutputID {
 }
 
 // GetAliasID calculates new ID if it is a minting output. Otherwise it takes stored value
-func (a *AliasOutput) GetAddressAlias() AddressAlias {
+func (a *AliasOutput) GetAddressAlias() AliasAddress {
 	a.aliasIdMutex.Lock()
 	defer a.aliasIdMutex.Unlock()
 
 	if a.mintNew {
-		return *NewAddressAlias(a.ID().Bytes())
+		return *NewAliasAddress(a.ID().Bytes())
 	}
 	return a.addressAlias
 }

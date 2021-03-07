@@ -64,6 +64,7 @@ func (o OutputType) String() string {
 	return [...]string{
 		"SigLockedSingleOutputType",
 		"SigLockedColoredOutputType",
+		"AliasOutputType",
 	}[o]
 }
 
