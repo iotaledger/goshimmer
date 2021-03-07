@@ -28,12 +28,6 @@ const (
 	// ConsensusPluginName contains the human readable name of the plugin.
 	ConsensusPluginName = "Consensus"
 
-	// CfgFPCQuerySampleSize defines how many nodes will be queried each round.
-	CfgFPCQuerySampleSize = "fpc.querySampleSize"
-
-	// CfgFPCBindAddress defines on which address the FPC service should listen.
-	CfgFPCBindAddress = "fpc.bindAddress"
-
 	// CfgWaitForStatement is the time in seconds for which the node wait for receiving the new statement.
 	CfgWaitForStatement = "statement.waitForStatement"
 
@@ -51,8 +45,6 @@ const (
 
 func init() {
 	flag.Bool(CfgWriteStatement, false, "if the node should make statements")
-	flag.Int(CfgFPCQuerySampleSize, 21, "Size of the voting quorum (k)")
-	flag.String(CfgFPCBindAddress, "0.0.0.0:10895", "the bind address on which the FPC vote server binds to")
 	flag.Int(CfgWaitForStatement, 5, "the time in seconds for which the node wait for receiving the new statement")
 	flag.Float64(CfgManaThreshold, 1., "Mana threshold to accept/write a statement")
 	flag.Int(CfgCleanInterval, 5, "the time in minutes after which the node cleans the statement registry")
@@ -132,14 +124,13 @@ func Registry() *statement.Registry {
 func configureFPC() {
 	if FPCParameters.Listen {
 		lPeer := local.GetInstance()
-		bindAddr := config.Node().String(CfgFPCBindAddress)
-		_, portStr, err := net.SplitHostPort(bindAddr)
+		_, portStr, err := net.SplitHostPort(FPCParameters.BindAddress)
 		if err != nil {
-			consensusPluginLog.Fatalf("FPC bind address '%s' is invalid: %s", bindAddr, err)
+			consensusPluginLog.Fatalf("FPC bind address '%s' is invalid: %s", FPCParameters.BindAddress, err)
 		}
 		port, err := strconv.Atoi(portStr)
 		if err != nil {
-			consensusPluginLog.Fatalf("FPC bind address '%s' is invalid: %s", bindAddr, err)
+			consensusPluginLog.Fatalf("FPC bind address '%s' is invalid: %s", FPCParameters.BindAddress, err)
 		}
 
 		if err := lPeer.UpdateService(service.FPCKey, "tcp", port); err != nil {
@@ -177,7 +168,7 @@ func runFPC() {
 	if FPCParameters.Listen {
 		if err := daemon.BackgroundWorker(ServerWorkerName, func(shutdownSignal <-chan struct{}) {
 			stopped := make(chan struct{})
-			bindAddr := config.Node().String(CfgFPCBindAddress)
+			bindAddr := FPCParameters.BindAddress
 			voterServer = votenet.New(Voter(), OpinionRetriever, bindAddr,
 				metrics.Events().FPCInboundBytes,
 				metrics.Events().FPCOutboundBytes,

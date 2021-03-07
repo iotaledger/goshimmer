@@ -21,8 +21,10 @@ var Parameters = struct {
 
 // FPCParameters contains the configuration parameters used by the FPC consensus.
 var FPCParameters = struct {
-	Listen        bool  `default:"true" usage:"if the FPC service should listen"`
-	RoundInterval int64 `default:"10" usage:"FPC round interval [s]"`
+	BindAddress     string `default:"0.0.0.0:10895" usage:"the bind address on which the FPC vote server binds to"`
+	Listen          bool   `default:"true" usage:"if the FPC service should listen"`
+	RoundInterval   int64  `default:"10" usage:"FPC round interval [s]"`
+	QuerySampleSize int    `default:"21" usage:"Size of the voting quorum (k)"`
 }{}
 
 func init() {
