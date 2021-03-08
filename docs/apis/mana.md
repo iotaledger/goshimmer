@@ -2,6 +2,31 @@
 
 The mana APIs provide methods for people to retrieve the amount of access/consensus mana of nodes and outputs, as well as the event logs.   
 
+Mana APIs:
+* [/mana](#mana)
+    * [client lib - GetOwnMana](#getownmana)
+    * [client lib - GetManaFullNodeID](#getmanafullnodeid)
+    * [client lib - GetMana with short node ID](#getmana-with-short-node-id)
+* [/mana/all](#manaall)
+    * [client lib - GetAllMana()](#client-lib---getallmana)
+* [/mana/percentile](#manapercentile)
+    * [client lib - GetManaPercentile()](#client-lib---getmanapercentile)
+* [/mana/access/online](#manaaccessonline)
+    * [client lib - GetOnlineAccessMana()](#client-lib---getonlineaccessmana)
+* [/mana/consensus/online](#manaconsensusonline)
+    * [client lib - GetOnlineConsensusMana()](#client-lib---getonlineconsensusmana)
+* [/mana/access/nhighest](#manaaccessnhighest)
+    * [client lib - GetNHighestAccessMana()](#client-lib---getnhighestaccessmana)
+* [/mana/consensus/nhighest](#manaconsensusnhighest)
+    * [client lib - GetNHighestConsensusMana()](#client-lib---getnhighestconsensusmana)2)
+* [/mana/pending](#manapending)
+    * [client lib - GetPending()](#client-lib---getpending)
+* [/mana/consensus/past](#manaconsensuspast)
+    * [client lib - GetPastConsensusManaVector()](#client-lib---getpastconsensusmanavector)
+* [/mana/consensus/logs](#manaconsensuslogs)
+    * [client lib - GetConsensusEventLogs()](#client-lib---getconsensuseventlogs)
+* [/value/allowedManaPledge](#valueallowedmanapledge)
+    * [client lib - GetAllowedManaPledgeNodeIDs()](#client-lib---getallowedmanapledgenodeids)
 
 ## `/mana`
 
