@@ -53,11 +53,11 @@ func broadcastStatement(conflicts statement.Conflicts, timestamps statement.Time
 	msg, err := Tangle().IssuePayload(statement.New(conflicts, timestamps))
 
 	if err != nil {
-		log.Warnf("error issuing statement: %s", err)
+		Plugin().LogWarnf("error issuing statement: %s", err)
 		return
 	}
 
-	log.Debugf("issued statement %s", msg.ID())
+	Plugin().LogDebugf("issued statement %s", msg.ID())
 }
 
 func readStatement(messageID tangle.MessageID) {
@@ -68,7 +68,7 @@ func readStatement(messageID tangle.MessageID) {
 		}
 		statementPayload, ok := messagePayload.(*statement.Statement)
 		if !ok {
-			log.Debug("could not cast payload to statement object")
+			Plugin().LogDebug("could not cast payload to statement object")
 			return
 		}
 
