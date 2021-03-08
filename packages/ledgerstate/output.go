@@ -195,7 +195,7 @@ type Output interface {
 
 	// UnlockValid determines if the given Transaction and the corresponding UnlockBlock are allowed to spend the
 	// Output.
-	UnlockValid(tx *Transaction, unlockBlock UnlockBlock) (bool, error)
+	UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inputs []Output) (bool, error)
 
 	// Input returns an Input that references the Output.
 	Input() Input
@@ -593,7 +593,7 @@ func (s *SigLockedSingleOutput) Balances() *ColoredBalances {
 }
 
 // UnlockValid determines if the given Transaction and the corresponding UnlockBlock are allowed to spend the Output.
-func (s *SigLockedSingleOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock) (unlockValid bool, err error) {
+func (s *SigLockedSingleOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inputs []Output) (unlockValid bool, err error) {
 	signatureUnlockBlock, correctType := unlockBlock.(*SignatureUnlockBlock)
 	if !correctType {
 		err = xerrors.Errorf("UnlockBlock does not match expected OutputType: %w", cerrors.ErrParseBytesFailed)
@@ -764,7 +764,7 @@ func (s *SigLockedColoredOutput) Balances() *ColoredBalances {
 }
 
 // UnlockValid determines if the given Transaction and the corresponding UnlockBlock are allowed to spend the Output.
-func (s *SigLockedColoredOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock) (unlockValid bool, err error) {
+func (s *SigLockedColoredOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inputs []Output) (unlockValid bool, err error) {
 	signatureUnlockBlock, correctType := unlockBlock.(*SignatureUnlockBlock)
 	if !correctType {
 		err = xerrors.Errorf("UnlockBlock does not match expected OutputType: %w", cerrors.ErrParseBytesFailed)

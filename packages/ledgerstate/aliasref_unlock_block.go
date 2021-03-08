@@ -7,24 +7,24 @@ import (
 	"golang.org/x/xerrors"
 )
 
-// AliasReferenceUnlockBlock defines an UnlockBlock which references a previous UnlockBlock
-// The previous can be another AliasReferenceUnlockBlock. This unlock block type allows recursive unlocks
-type AliasReferenceUnlockBlock struct {
+// AliasReferencedUnlockBlock defines an UnlockBlock which references a previous UnlockBlock
+// The previous can be another AliasReferencedUnlockBlock. This unlock block type allows recursive unlocks
+type AliasReferencedUnlockBlock struct {
 	referencedIndex uint16
 }
 
 // NewAliasUnlockBlock is the constructor for AliasUnlockBlocks.
-func NewAliasReferenceUnlockBlock(referencedIndex uint16) *AliasReferenceUnlockBlock {
-	return &AliasReferenceUnlockBlock{
+func NewAliasReferenceUnlockBlock(referencedIndex uint16) *AliasReferencedUnlockBlock {
+	return &AliasReferencedUnlockBlock{
 		referencedIndex: referencedIndex,
 	}
 }
 
-// AliasUnlockBlockFromBytes unmarshals a AliasReferenceUnlockBlock from a sequence of bytes.
-func AliasReferenceUnlockBlockFromBytes(bytes []byte) (unlockBlock *AliasReferenceUnlockBlock, consumedBytes int, err error) {
+// AliasUnlockBlockFromBytes unmarshals a AliasReferencedUnlockBlock from a sequence of bytes.
+func AliasReferenceUnlockBlockFromBytes(bytes []byte) (unlockBlock *AliasReferencedUnlockBlock, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if unlockBlock, err = AliasReferenceUnlockBlockFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse AliasReferenceUnlockBlock from MarshalUtil: %w", err)
+		err = xerrors.Errorf("failed to parse AliasReferencedUnlockBlock from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -32,19 +32,19 @@ func AliasReferenceUnlockBlockFromBytes(bytes []byte) (unlockBlock *AliasReferen
 	return
 }
 
-// AliasReferenceUnlockBlockFromMarshalUtil unmarshals a AliasReferenceUnlockBlock using a MarshalUtil (for easier unmarshaling).
-func AliasReferenceUnlockBlockFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (unlockBlock *AliasReferenceUnlockBlock, err error) {
+// AliasReferenceUnlockBlockFromMarshalUtil unmarshals a AliasReferencedUnlockBlock using a MarshalUtil (for easier unmarshaling).
+func AliasReferenceUnlockBlockFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (unlockBlock *AliasReferencedUnlockBlock, err error) {
 	unlockBlockType, err := marshalUtil.ReadByte()
 	if err != nil {
 		err = xerrors.Errorf("failed to parse UnlockBlockType (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	if UnlockBlockType(unlockBlockType) != AliasUnlockBlockType {
+	if UnlockBlockType(unlockBlockType) != AliasReferencedUnlockBlockType {
 		err = xerrors.Errorf("invalid UnlockBlockType (%X): %w", unlockBlockType, cerrors.ErrParseBytesFailed)
 		return
 	}
 
-	unlockBlock = &AliasReferenceUnlockBlock{}
+	unlockBlock = &AliasReferencedUnlockBlock{}
 	if unlockBlock.referencedIndex, err = marshalUtil.ReadUint16(); err != nil {
 		err = xerrors.Errorf("failed to parse referencedIndex (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
@@ -53,37 +53,29 @@ func AliasReferenceUnlockBlockFromMarshalUtil(marshalUtil *marshalutil.MarshalUt
 }
 
 // ReferencedIndex returns the index of the referenced UnlockBlock.
-func (r *AliasReferenceUnlockBlock) ReferencedIndex() uint16 {
+func (r *AliasReferencedUnlockBlock) ReferencedIndex() uint16 {
 	return r.referencedIndex
 }
 
 // Type returns the UnlockBlockType of the UnlockBlock.
-func (r *AliasReferenceUnlockBlock) Type() UnlockBlockType {
-	return AliasUnlockBlockType
+func (r *AliasReferencedUnlockBlock) Type() UnlockBlockType {
+	return AliasReferencedUnlockBlockType
 }
 
 // Bytes returns a marshaled version of the UnlockBlock.
-func (r *AliasReferenceUnlockBlock) Bytes() []byte {
+func (r *AliasReferencedUnlockBlock) Bytes() []byte {
 	return marshalutil.New(1 + marshalutil.Uint16Size).
-		WriteByte(byte(AliasUnlockBlockType)).
+		WriteByte(byte(AliasReferencedUnlockBlockType)).
 		WriteUint16(r.referencedIndex).
 		Bytes()
 }
 
 // String returns a human readable version of the UnlockBlock.
-func (r *AliasReferenceUnlockBlock) String() string {
-	return stringify.Struct("AliasReferenceUnlockBlock",
+func (r *AliasReferencedUnlockBlock) String() string {
+	return stringify.Struct("AliasReferencedUnlockBlock",
 		stringify.StructField("referencedIndex", int(r.referencedIndex)),
 	)
 }
 
-// UnlockValid checks if the AliasReferenceUnlockBlock unlocks input in the context of all inputs
-func (r *AliasReferenceUnlockBlock) UnlockValid(input Output, tx *Transaction, allInputs Outputs) (bool, error) {
-	if int(r.referencedIndex) > len(allInputs) || input {
-		return false, xerrors.New("wrong index")
-	}
-	return false, nil
-}
-
 // code contract (make sure the type implements all required methods)
-var _ UnlockBlock = &AliasReferenceUnlockBlock{}
+var _ UnlockBlock = &AliasReferencedUnlockBlock{}

@@ -19,8 +19,8 @@ const (
 	// ReferenceUnlockBlockType represents the type of a ReferenceUnlockBlock.
 	ReferenceUnlockBlockType
 
-	// AliasUnlockBlockType represents the type of a AliasReferenceUnlockBlock
-	AliasUnlockBlockType
+	// AliasReferencedUnlockBlockType represents the type of a AliasReferencedUnlockBlock
+	AliasReferencedUnlockBlockType
 )
 
 // UnlockBlockType represents the type of the UnlockBlock. Different types of UnlockBlocks can unlock different types of
@@ -32,7 +32,7 @@ func (a UnlockBlockType) String() string {
 	return [...]string{
 		"SignatureUnlockBlockType",
 		"ReferenceUnlockBlockType",
-		"AliasUnlockBlockType",
+		"AliasReferencedUnlockBlockType",
 	}[a]
 }
 

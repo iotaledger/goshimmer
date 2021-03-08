@@ -215,6 +215,136 @@ func (a *AliasOutput) Address() Address {
 	return a.stateAddress
 }
 
+func (a *AliasOutput) Input() Input {
+	if a.ID() == EmptyOutputID {
+		panic("Outputs that haven't been assigned an ID, yet cannot be converted to an Input")
+	}
+
+	return NewUTXOInput(a.ID())
+}
+
+func (a *AliasOutput) Bytes() []byte {
+	return a.ObjectStorageValue()
+}
+
+func (a *AliasOutput) String() string {
+	ret := "AliasOutput:\n"
+	ret += fmt.Sprintf("   outputId: %s\n", a.ID())
+	ret += fmt.Sprintf("   balance: %s\n", a.balances.String())
+	ret += fmt.Sprintf("   stateAddress: %s\n", a.stateAddress)
+	ret += fmt.Sprintf("   stateMetadataSize: %d\n", len(a.stateData))
+	ret += fmt.Sprintf("   governingAddress (self-governed=%v): %s\n", a.IsSelfGoverned(), a.GetGoverningAddress())
+	return ret
+}
+
+func (a *AliasOutput) Compare(other Output) int {
+	return bytes.Compare(a.Bytes(), other.Bytes())
+}
+
+func (a *AliasOutput) Update(other objectstorage.StorableObject) {
+	panic("AliasOutput: storage object updates disabled")
+}
+
+func (a *AliasOutput) ObjectStorageKey() []byte {
+	return a.ID().Bytes()
+}
+
+func (a *AliasOutput) checkValidity() error {
+	if len(a.balances.Map()) == 0 {
+		return xerrors.New("balances must not be nil")
+	}
+	if iotas, ok := a.balances.Get(ColorIOTA); !ok || iotas < MinimumIOTAOnAlias {
+		return xerrors.New("balances are less than dust threshold")
+	}
+	if a.stateAddress == nil {
+		return xerrors.New("state address must not be nil")
+	}
+	if len(a.stateData) > MaxStateDataSize {
+		return xerrors.New("state data too big")
+	}
+	return nil
+}
+
+func (a *AliasOutput) mustValidate() {
+	if err := a.checkValidity(); err != nil {
+		panic(err)
+	}
+}
+
+func (a *AliasOutput) mustFlags() byte {
+	a.mustValidate()
+	var ret byte
+	if len(a.stateData) > 0 {
+		ret |= flagAliasOutputStateDataPresent
+	}
+	if a.governingAddress != nil {
+		ret |= flagAliasOutputGovernanceSet
+	}
+	return ret
+}
+
+func (a *AliasOutput) ObjectStorageValue() []byte {
+	flags := a.mustFlags()
+	ret := marshalutil.New().
+		WriteByte(byte(AliasOutputType)).
+		WriteByte(flags).
+		WriteBytes(a.aliasAddress.Bytes()).
+		WriteBytes(a.balances.Bytes()).
+		WriteBytes(a.stateAddress.Bytes())
+	if flags&flagAliasOutputStateDataPresent != 0 {
+		ret.WriteUint16(uint16(len(a.stateData))).
+			WriteBytes(a.stateData)
+	}
+	if flags&flagAliasOutputGovernanceSet != 0 {
+		ret.WriteBytes(a.governingAddress.Bytes())
+	}
+	return ret.Bytes()
+}
+
+// UnlockValid check unlock and validates chain
+func (a *AliasOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inputs []Output) (bool, error) {
+	switch blk := unlockBlock.(type) {
+	case *SignatureUnlockBlock:
+		stateUnlocked, governanceUnlocked, err := a.unlockBySignature(tx, blk)
+
+		return stateUnlocked || governanceUnlocked, err
+
+	case *AliasReferencedUnlockBlock:
+		return a.unlockByAliasIndex(tx, blk.ReferencedIndex(), inputs)
+	}
+	return false, xerrors.New("unsupported unlock block type")
+}
+
+// AliasUnlocked utility function checks if alias is state-unlocked in the transaction. allInputs are consumed outputs in the
+// order how they appear in the transaction
+func referencedAliasStateUnlocked(tx *Transaction, outputIdx uint16, inputs []Output, all []uint16) (bool, error) {
+	// prevent endless recursion due to the cyclic references
+	for _, idx := range all {
+		if idx == outputIdx {
+			return false, xerrors.New("AliasReferencedUnlockBlock: cyclic reference ")
+		}
+	}
+	if int(outputIdx) >= len(inputs) {
+		return false, xerrors.New("referencedAliasStateUnlocked: wrong index")
+	}
+	all = append(all, outputIdx)
+	refInput, ok := inputs[outputIdx].(*AliasOutput)
+	if !ok {
+		return false, xerrors.New("AliasReferencedUnlockBlock: wrong referenced output type")
+	}
+	switch unlockBlock := tx.UnlockBlocks()[outputIdx].(type) {
+	case *SignatureUnlockBlock:
+		stateUnlocked, _, err := refInput.unlockBySignature(tx, unlockBlock)
+		if err != nil {
+			return false, err
+		}
+		return stateUnlocked, nil
+	case *AliasReferencedUnlockBlock:
+		return referencedAliasStateUnlocked(tx, unlockBlock.ReferencedIndex(), inputs, all)
+	}
+	return false, xerrors.New("unsupported unlock block type")
+}
+
 func (a *AliasOutput) findChainedOutput(tx *Transaction) (*AliasOutput, error) {
 	var ret *AliasOutput
 	aliasAddress := a.GetAliasAddress()
@@ -328,122 +458,50 @@ func (a *AliasOutput) validateDestroy(unlockedGovernance bool) error {
 	return nil
 }
 
-func (a *AliasOutput) unlockBySignature(tx *Transaction, sigBlock *SignatureUnlockBlock) (bool, error) {
-	unlockedState, unlockedGovernance := a.unlockedBySig(tx, sigBlock)
-	if !unlockedState && !unlockedGovernance {
-		return false, nil
-	}
+func (a *AliasOutput) validateTransition(tx *Transaction, unlockedState, unlockedGovernance bool) error {
 	chained, err := a.findChainedOutput(tx)
 	if err != nil {
-		return false, err
+		return err
 	}
 	if chained != nil {
 		if err := a.validateState(chained, unlockedState); err != nil {
-			return false, err
+			return err
 		}
-		if err := a.validateGovernance(chained, unlockedState); err != nil {
-			return false, err
+		if err := a.validateGovernance(chained, unlockedGovernance); err != nil {
+			return err
 		}
 	} else {
 		// no chained output found. Alias is being destroyed?
 		if err := a.validateDestroy(unlockedGovernance); err != nil {
-			return false, err
+			return err
 		}
-	}
-	return true, nil
-}
-
-// UnlockValid check unlock and validates chain
-func (a *AliasOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock) (bool, error) {
-	switch blk := unlockBlock.(type) {
-	case *SignatureUnlockBlock:
-		return a.unlockBySignature(tx, blk)
-	}
-	return false, xerrors.New("unsupported unlock block type")
-}
-
-func (a *AliasOutput) Input() Input {
-	if a.ID() == EmptyOutputID {
-		panic("Outputs that haven't been assigned an ID, yet cannot be converted to an Input")
-	}
-
-	return NewUTXOInput(a.ID())
-}
-
-func (a *AliasOutput) Bytes() []byte {
-	return a.ObjectStorageValue()
-}
-
-func (a *AliasOutput) String() string {
-	ret := "AliasOutput:\n"
-	ret += fmt.Sprintf("   outputId: %s\n", a.ID())
-	ret += fmt.Sprintf("   balance: %s\n", a.balances.String())
-	ret += fmt.Sprintf("   stateAddress: %s\n", a.stateAddress)
-	ret += fmt.Sprintf("   stateMetadataSize: %d\n", len(a.stateData))
-	ret += fmt.Sprintf("   governingAddress (self-governed=%v): %s\n", a.IsSelfGoverned(), a.GetGoverningAddress())
-	return ret
-}
-
-func (a *AliasOutput) Compare(other Output) int {
-	return bytes.Compare(a.Bytes(), other.Bytes())
-}
-
-func (a *AliasOutput) Update(other objectstorage.StorableObject) {
-	panic("AliasOutput: storage object updates disabled")
-}
-
-func (a *AliasOutput) ObjectStorageKey() []byte {
-	return a.ID().Bytes()
-}
-
-func (a *AliasOutput) checkValidity() error {
-	if len(a.balances.Map()) == 0 {
-		return xerrors.New("balances must not be nil")
-	}
-	if iotas, ok := a.balances.Get(ColorIOTA); !ok || iotas < MinimumIOTAOnAlias {
-		return xerrors.New("balances are less than dust threshold")
-	}
-	if a.stateAddress == nil {
-		return xerrors.New("state address must not be nil")
-	}
-	if len(a.stateData) > MaxStateDataSize {
-		return xerrors.New("state data too big")
 	}
 	return nil
 }
 
-func (a *AliasOutput) mustValidate() {
-	if err := a.checkValidity(); err != nil {
-		panic(err)
+func (a *AliasOutput) unlockBySignature(tx *Transaction, sigBlock *SignatureUnlockBlock) (bool, bool, error) {
+	unlockedState, unlockedGovernance := a.unlockedBySig(tx, sigBlock)
+	if !unlockedState && !unlockedGovernance {
+		return false, false, nil
 	}
+	if err := a.validateTransition(tx, unlockedState, unlockedGovernance); err != nil {
+		return false, false, nil
+	}
+	return unlockedState, unlockedGovernance, nil
 }
 
-func (a *AliasOutput) mustFlags() byte {
-	a.mustValidate()
-	var ret byte
-	if len(a.stateData) > 0 {
-		ret |= flagAliasOutputStateDataPresent
+func (a *AliasOutput) unlockByAliasIndex(tx *Transaction, refIndex uint16, inputs []Output) (bool, error) {
+	unlocked, err := referencedAliasStateUnlocked(tx, refIndex, inputs, []uint16{})
+	if err != nil {
+		return false, err
 	}
-	if a.governingAddress != nil {
-		ret |= flagAliasOutputGovernanceSet
+	if !unlocked {
+		return false, nil
 	}
-	return ret
-}
-
-func (a *AliasOutput) ObjectStorageValue() []byte {
-	flags := a.mustFlags()
-	ret := marshalutil.New().
-		WriteByte(byte(AliasOutputType)).
-		WriteByte(flags).
-		WriteBytes(a.aliasAddress.Bytes()).
-		WriteBytes(a.balances.Bytes()).
-		WriteBytes(a.stateAddress.Bytes())
-	if flags&flagAliasOutputStateDataPresent != 0 {
-		ret.WriteUint16(uint16(len(a.stateData))).
-			WriteBytes(a.stateData)
+	refInput := inputs[refIndex].(*AliasOutput)
+	unlockedState := refInput
+	if err := a.validateTransition(tx, unlockedState, false); err != nil {
+		return false, err
 	}
-	if flags&flagAliasOutputGovernanceSet != 0 {
-		ret.WriteBytes(a.governingAddress.Bytes())
-	}
-	return ret.Bytes()
+	return true, nil
 }
