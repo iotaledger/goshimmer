@@ -59,10 +59,13 @@ func (o *ExtendedLockedOutput) WithTimeLock(timelock uint32) *ExtendedLockedOutp
 	return o
 }
 
-func (o *ExtendedLockedOutput) WithPayload(data []byte) *ExtendedLockedOutput {
+func (o *ExtendedLockedOutput) SetPayload(data []byte) error {
+	if len(data) > MaxOutputPayloadSize {
+		return xerrors.Errorf("data payload size is bigger than maximum allowed (%d bytes)", MaxOutputPayloadSize)
+	}
 	o.payload = make([]byte, len(data))
 	copy(o.payload, data)
-	return o
+	return nil
 }
 
 // ExtendedOutputFromBytes unmarshals a ExtendedLockedOutput from a sequence of bytes.
