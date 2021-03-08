@@ -498,10 +498,32 @@ func (a *AliasOutput) unlockByAliasIndex(tx *Transaction, refIndex uint16, input
 	if !unlocked {
 		return false, nil
 	}
+	// determine which part was unlocked by referenced AliasOutput
 	refInput := inputs[refIndex].(*AliasOutput)
-	unlockedState := refInput
-	if err := a.validateTransition(tx, unlockedState, false); err != nil {
+	unlockedState := false
+	if a.stateAddress.Type() == AliasAddressType {
+		unlockedState = refInput.GetAliasAddress().Equal(a.stateAddress.(*AliasAddress))
+	}
+	unlockedGovernance := false
+	if a.governingAddress.Type() == AliasAddressType {
+		unlockedGovernance = refInput.GetAliasAddress().Equal(a.governingAddress.(*AliasAddress))
+	}
+	if err := a.validateTransition(tx, unlockedState, unlockedGovernance); err != nil {
 		return false, err
 	}
 	return true, nil
+}
+
+func UnlockedAliasStateByIndex(tx *Transaction, alias *AliasAddress, refIndex uint16, inputs []Output) (bool, error) {
+	if int(refIndex) >= len(inputs) {
+		return false, xerrors.New("wrong index")
+	}
+	aliasOutput, ok := inputs[refIndex].(*AliasOutput)
+	if !ok {
+		return false, xerrors.New("referenced non AliasOutput")
+	}
+	if !aliasOutput.GetAliasAddress().Equal(alias) {
+		return false, nil
+	}
+	return referencedAliasStateUnlocked(tx, refIndex, inputs, []uint16{})
 }

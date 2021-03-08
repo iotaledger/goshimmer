@@ -55,8 +55,8 @@ const (
 	// AliasOutputType represents an Output which makes a chain with optional governance
 	AliasOutputType
 
-	// AliasLockOutputType represents an Output which locks funds to the alias
-	AliasLockedOutputType
+	// ExtendedLockedOutputType represents an Output which extends SigLockedColoredOutput with alias locking and fallback
+	ExtendedLockedOutputType
 )
 
 // String returns a human readable representation of the OutputType.
@@ -65,6 +65,7 @@ func (o OutputType) String() string {
 		"SigLockedSingleOutputType",
 		"SigLockedColoredOutputType",
 		"AliasOutputType",
+		"ExtendedLockedOutputType",
 	}[o]
 }
 
@@ -251,6 +252,11 @@ func OutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output Output,
 	case AliasOutputType:
 		if output, err = AliasOutputFromMarshalUtil(marshalUtil); err != nil {
 			err = xerrors.Errorf("failed to parse AliasOutput: %w", err)
+			return
+		}
+	case ExtendedLockedOutputType:
+		if output, err = ExtendedOutputFromMarshalUtil(marshalUtil); err != nil {
+			err = xerrors.Errorf("failed to parse ExtendedOutput: %w", err)
 			return
 		}
 

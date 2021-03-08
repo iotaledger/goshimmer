@@ -104,3 +104,14 @@ func TestStateTransition1(t *testing.T) {
 	require.Zero(t, outNext.Compare(outNext1))
 	require.Zero(t, bytes.Compare(outNext.Bytes(), outNext1.Bytes()))
 }
+
+func TestExtendedOutput(t *testing.T) {
+	bals1 := map[Color]uint64{ColorIOTA: 100}
+	kp := ed25519.GenerateKeyPair()
+	addr := NewED25519Address(kp.PublicKey)
+
+	out := NewExtendedLockedOutput(bals1, addr)
+	outBack, _, err := OutputFromBytes(out.Bytes())
+	require.NoError(t, err)
+	require.Zero(t, outBack.Compare(out))
+}
