@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/hive.go/autopeering/discover"
 	"github.com/iotaledger/hive.go/autopeering/selection"
 	"github.com/iotaledger/hive.go/daemon"
@@ -35,7 +35,6 @@ func Plugin() *node.Plugin {
 
 func configure(*node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	networkVersion = uint32(config.Node().Int(CfgNetworkVersion))
 
 	configureEvents()
 }
@@ -48,7 +47,7 @@ func run(*node.Plugin) {
 
 func configureEvents() {
 	// assure that the autopeering is instantiated
-	peerDisc := Discovery()
+	peerDisc := discovery.Discovery()
 	peerSel := Selection()
 
 	// log the peer discovery events

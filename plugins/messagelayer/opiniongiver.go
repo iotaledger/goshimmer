@@ -11,7 +11,7 @@ import (
 	votenet "github.com/iotaledger/goshimmer/packages/vote/net"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/goshimmer/packages/vote/statement"
-	"github.com/iotaledger/goshimmer/plugins/autopeering"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/identity"
@@ -63,7 +63,7 @@ func OpinionGiverFunc() (givers []opinion.OpinionGiver, err error) {
 		}
 	}
 
-	for _, p := range autopeering.Discovery().GetVerifiedPeers() {
+	for _, p := range discovery.Discovery().GetVerifiedPeers() {
 		fpcService := p.Services().Get(service.FPCKey)
 		if fpcService == nil {
 			continue

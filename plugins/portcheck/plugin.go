@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/hive.go/autopeering/discover"
@@ -59,14 +60,14 @@ func checkAutopeeringConnection() {
 	defer conn.Close()
 
 	// create a new discovery server for the port check
-	disc := discover.New(local.GetInstance(), autopeering.ProtocolVersion, autopeering.NetworkVersion(), discover.Logger(log))
+	disc := discover.New(local.GetInstance(), discovery.ProtocolVersion, discovery.NetworkVersion(), discover.Logger(log))
 	srv := server.Serve(local.GetInstance(), conn, log, disc)
 	defer srv.Close()
 
 	disc.Start(srv)
 	defer disc.Close()
 
-	for _, master := range autopeering.Discovery().GetMasterPeers() {
+	for _, master := range discovery.Discovery().GetMasterPeers() {
 		err = disc.Ping(master)
 		if err == nil {
 			log.Infof("Pong received from %s", master.IP())
