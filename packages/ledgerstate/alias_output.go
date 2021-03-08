@@ -37,7 +37,7 @@ type AliasOutput struct {
 	objectstorage.StorableObjectFlags
 }
 
-const MaxStateDataSize = 8 * 1024
+const MaxOutputPayloadSize = 4 * 1024
 
 // flags use to compress serialized bytes
 const (
@@ -259,7 +259,7 @@ func (a *AliasOutput) checkValidity() error {
 	if a.stateAddress == nil {
 		return xerrors.New("state address must not be nil")
 	}
-	if len(a.stateData) > MaxStateDataSize {
+	if len(a.stateData) > MaxOutputPayloadSize {
 		return xerrors.New("state data too big")
 	}
 	return nil

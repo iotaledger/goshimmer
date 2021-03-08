@@ -17,6 +17,7 @@ import (
 // - fallback address and timeout
 // - can be unlocked by AliasReferencedUnlockBlock
 // - can't be time locked until deadline
+// - data payload for arbitrary metadata
 type ExtendedLockedOutput struct {
 	id       OutputID
 	idMutex  sync.RWMutex
@@ -26,27 +27,41 @@ type ExtendedLockedOutput struct {
 	fallbackAddress  Address // if nil, fallback action not set
 	fallbackDeadline uint32  // fallback deadline in Unix seconds. The deadline is calculated relative to the tx timestamo
 
-	timelock uint32 // deadlne since when output can be unlocked
+	timelock uint32 // deadline since when output can be unlocked
+
+	payload []byte
 
 	objectstorage.StorableObjectFlags
 }
+
+const (
+	flagExtendedLockedOutputFallbackPresent = 0x01
+	flagExtendedLockedOutputTimeLockPresent = 0x02
+	flagExtendedLockedOutputPayloadPresent  = 0x04
+)
 
 // ExtendedLockedOutput is the constructor for a ExtendedLockedOutput.
 func NewExtendedLockedOutput(balances map[Color]uint64, address Address) *ExtendedLockedOutput {
 	return &ExtendedLockedOutput{
 		balances: NewColoredBalances(balances),
-		address:  address,
+		address:  address.Clone(),
 	}
 }
 
 func (o *ExtendedLockedOutput) WithFallbackOptions(addr Address, deadline uint32) *ExtendedLockedOutput {
-	o.fallbackAddress = addr
+	o.fallbackAddress = addr.Clone()
 	o.fallbackDeadline = deadline
 	return o
 }
 
 func (o *ExtendedLockedOutput) WithTimeLock(timelock uint32) *ExtendedLockedOutput {
 	o.timelock = timelock
+	return o
+}
+
+func (o *ExtendedLockedOutput) WithPayload(data []byte) *ExtendedLockedOutput {
+	o.payload = make([]byte, len(data))
+	copy(o.payload, data)
 	return o
 }
 
@@ -83,24 +98,55 @@ func ExtendedOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output
 		err = xerrors.Errorf("failed to parse Address (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	if output.timelock, err = marshalUtil.ReadUint32(); err != nil {
-		err = xerrors.Errorf("failed to parse timelock (%v): %w", err, cerrors.ErrParseBytesFailed)
+	var flags byte
+	if flags, err = marshalUtil.ReadByte(); err != nil {
+		err = xerrors.Errorf("failed to parse flags (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	var fallbackExists bool
-	fallbackExists, err = marshalUtil.ReadBool()
-	if err != nil || !fallbackExists {
-		return
+	if flagExtendedLockedOutputFallbackPresent&flags != 0 {
+		if output.fallbackAddress, err = AddressFromMarshalUtil(marshalUtil); err != nil {
+			err = xerrors.Errorf("failed to parse fallbackAddress (%v): %w", err, cerrors.ErrParseBytesFailed)
+			return
+		}
+		if output.fallbackDeadline, err = marshalUtil.ReadUint32(); err != nil {
+			err = xerrors.Errorf("failed to parse fallbackTimeout (%v): %w", err, cerrors.ErrParseBytesFailed)
+			return
+		}
 	}
-	if output.fallbackAddress, err = AddressFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse fallbackAddress (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
+	if flagExtendedLockedOutputTimeLockPresent&flags != 0 {
+		if output.timelock, err = marshalUtil.ReadUint32(); err != nil {
+			err = xerrors.Errorf("failed to parse timelock (%v): %w", err, cerrors.ErrParseBytesFailed)
+			return
+		}
 	}
-	if output.fallbackDeadline, err = marshalUtil.ReadUint32(); err != nil {
-		err = xerrors.Errorf("failed to parse fallbackTimeout (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
+	if flagExtendedLockedOutputPayloadPresent&flags != 0 {
+		var size uint16
+		size, err = marshalUtil.ReadUint16()
+		if err != nil {
+			err = xerrors.Errorf("failed to parse payload size (%v): %w", err, cerrors.ErrParseBytesFailed)
+			return
+		}
+		output.payload, err = marshalUtil.ReadBytes(int(size))
+		if err != nil {
+			err = xerrors.Errorf("failed to parse payload (%v): %w", err, cerrors.ErrParseBytesFailed)
+			return
+		}
 	}
 	return
+}
+
+func (o *ExtendedLockedOutput) compressFlags() byte {
+	var ret byte
+	if o.fallbackAddress != nil {
+		ret |= flagExtendedLockedOutputFallbackPresent
+	}
+	if o.timelock > 0 {
+		ret |= flagExtendedLockedOutputTimeLockPresent
+	}
+	if len(o.payload) > 0 {
+		ret |= flagExtendedLockedOutputPayloadPresent
+	}
+	return ret
 }
 
 // ID returns the identifier of the Output that is used to address the Output in the UTXODAG.
@@ -232,16 +278,22 @@ func (o *ExtendedLockedOutput) ObjectStorageKey() []byte {
 // ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
 // a key in the ObjectStorage.
 func (o *ExtendedLockedOutput) ObjectStorageValue() []byte {
+	flags := o.compressFlags()
 	ret := marshalutil.New().
 		WriteByte(byte(ExtendedLockedOutputType)).
 		WriteBytes(o.balances.Bytes()).
 		WriteBytes(o.address.Bytes()).
-		WriteUint32(o.timelock).
-		WriteBool(o.fallbackAddress != nil)
-
-	if o.fallbackAddress != nil {
+		WriteByte(flags)
+	if flagExtendedLockedOutputFallbackPresent&flags != 0 {
 		ret.WriteBytes(o.fallbackAddress.Bytes()).
 			WriteUint32(o.fallbackDeadline)
+	}
+	if flagExtendedLockedOutputTimeLockPresent&flags != 0 {
+		ret.WriteUint32(o.timelock)
+	}
+	if flagExtendedLockedOutputPayloadPresent&flags != 0 {
+		ret.WriteUint16(uint16(len(o.payload))).
+			WriteBytes(o.payload)
 	}
 	return ret.Bytes()
 }
@@ -259,6 +311,10 @@ func (o *ExtendedLockedOutput) String() string {
 		stringify.StructField("address", o.address),
 		stringify.StructField("balances", o.balances),
 	)
+}
+
+func (o *ExtendedLockedOutput) GetPayload() []byte {
+	return o.payload
 }
 
 // code contract (make sure the type implements all required methods)

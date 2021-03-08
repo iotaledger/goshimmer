@@ -21,7 +21,7 @@ func TestAliasMint(t *testing.T) {
 	out, err := NewAliasOutputMint(bals1, addr, nil, nil)
 	require.NoError(t, err)
 
-	bigData := make([]byte, MaxStateDataSize+1)
+	bigData := make([]byte, MaxOutputPayloadSize+1)
 	_, err = NewAliasOutputMint(bals0, addr, bigData, nil)
 	require.Error(t, err)
 
