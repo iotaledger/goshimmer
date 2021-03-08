@@ -2,31 +2,33 @@
 
 The mana APIs provide methods for people to retrieve the amount of access/consensus mana of nodes and outputs, as well as the event logs.   
 
-Mana APIs:
+HTTP APIs:
 * [/mana](#mana)
-    * [client lib - GetOwnMana](#getownmana)
-    * [client lib - GetManaFullNodeID](#getmanafullnodeid)
-    * [client lib - GetMana with short node ID](#getmana-with-short-node-id)
 * [/mana/all](#manaall)
-    * [client lib - GetAllMana()](#client-lib---getallmana)
 * [/mana/percentile](#manapercentile)
-    * [client lib - GetManaPercentile()](#client-lib---getmanapercentile)
 * [/mana/access/online](#manaaccessonline)
-    * [client lib - GetOnlineAccessMana()](#client-lib---getonlineaccessmana)
 * [/mana/consensus/online](#manaconsensusonline)
-    * [client lib - GetOnlineConsensusMana()](#client-lib---getonlineconsensusmana)
 * [/mana/access/nhighest](#manaaccessnhighest)
-    * [client lib - GetNHighestAccessMana()](#client-lib---getnhighestaccessmana)
 * [/mana/consensus/nhighest](#manaconsensusnhighest)
-    * [client lib - GetNHighestConsensusMana()](#client-lib---getnhighestconsensusmana)2)
 * [/mana/pending](#manapending)
-    * [client lib - GetPending()](#client-lib---getpending)
 * [/mana/consensus/past](#manaconsensuspast)
-    * [client lib - GetPastConsensusManaVector()](#client-lib---getpastconsensusmanavector)
 * [/mana/consensus/logs](#manaconsensuslogs)
-    * [client lib - GetConsensusEventLogs()](#client-lib---getconsensuseventlogs)
 * [/value/allowedManaPledge](#valueallowedmanapledge)
-    * [client lib - GetAllowedManaPledgeNodeIDs()](#client-lib---getallowedmanapledgenodeids)
+
+Client lib APIs:
+* [GetOwnMana()](#getownmana)
+* [GetManaFullNodeID()](#getmanafullnodeid)
+* [GetMana with short node ID()](#getmana-with-short-node-id)
+* [GetAllMana()](#client-lib---getallmana)
+* [GetManaPercentile()](#client-lib---getmanapercentile)
+* [GetOnlineAccessMana()](#client-lib---getonlineaccessmana)
+* [GetOnlineConsensusMana()](#client-lib---getonlineconsensusmana)
+* [GetNHighestAccessMana()](#client-lib---getnhighestaccessmana)
+* [GetNHighestConsensusMana()](#client-lib---getnhighestconsensusmana)
+* [GetPending()](#client-lib---getpending)
+* [GetPastConsensusManaVector()](#client-lib---getpastconsensusmanavector)
+* [GetConsensusEventLogs()](#client-lib---getconsensuseventlogs)
+* [GetAllowedManaPledgeNodeIDs()](#client-lib---getallowedmanapledgenodeids)
 
 ## `/mana`
 
@@ -134,7 +136,7 @@ curl http://localhost:8080/mana/all \
 -H 'Content-Type: application/json'
 ```
 
-#### client lib - `GetAllMana()` 
+#### `GetAllMana()` 
 
 ```go
 manas, err := goshimAPI.GetAllMana()
@@ -217,7 +219,7 @@ curl http://localhost:8080/mana/percentile?2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKts
 -H 'Content-Type: application/json'
 ```
 
-#### client lib - `GetManaPercentile()`
+#### `GetManaPercentile()`
 
 ```go
 mana, err := goshimAPI.GetManaPercentile("2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5")
@@ -270,7 +272,7 @@ curl http://localhost:8080/mana/access/online \
 -H 'Content-Type: application/json'
 ```
 
-#### client lib - `GetOnlineAccessMana()`
+#### `GetOnlineAccessMana()`
 
 ```go
 // online access mana
@@ -331,7 +333,7 @@ curl http://localhost:8080/mana/consensus/online \
 -H 'Content-Type: application/json'
 ```
 
-#### client lib - `GetOnlineConsensusMana()`
+#### `GetOnlineConsensusMana()`
 
 ```go
 // online access mana
@@ -398,7 +400,7 @@ curl http://localhost:8080/mana/access/nhighest?number=5 \
 -H 'Content-Type: application/json'
 ```
 
-#### client lib - `GetNHighestAccessMana()`
+#### `GetNHighestAccessMana()`
 
 ```go
 // get the top 5 highest access mana nodes
@@ -462,7 +464,7 @@ curl http://localhost:8080/mana/consensus/nhighest?number=5 \
 -H 'Content-Type: application/json'
 ```
 
-#### client lib - `GetNHighestConsensusMana()`
+#### `GetNHighestConsensusMana()`
 
 ```go
 // get the top 5 highest consensus mana nodes
@@ -526,7 +528,7 @@ curl http://localhost:8080/mana/pending?outputid="4a5KkxVfsdFVbf1NBGeGTCjP8Ppsje
 -H 'Content-Type: application/json'
 ```
 
-#### client lib - `GetPending()`
+#### `GetPending()`
 
 ```go
 res, err := goshimAPI.GetPending("4a5KkxVfsdFVbf1NBGeGTCjP8Ppsje4YFQg9bu5YGNMSJK1")
@@ -578,7 +580,7 @@ curl http://localhost:8080/mana/consensus/past?timestamp=1614924295 \
 -H 'Content-Type: application/json'
 ```
 
-#### client lib - `GetPastConsensusManaVector()`
+#### `GetPastConsensusManaVector()`
 
 ```go
 res, err := goshimAPI.GetPastConsensusManaVector(1614924295)
@@ -648,7 +650,7 @@ curl http://localhost:8080/mana/consensus/logs \
 }'
 ```
 
-#### client lib - `GetConsensusEventLogs()`
+#### `GetConsensusEventLogs()`
 
 ```go
 res, err := goshimAPI.GetConsensusEventLogs([]string{"2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5"})
@@ -761,7 +763,7 @@ curl http://localhost:8080/value/allowedManaPledge \
 -H 'Content-Type: application/json'
 ```
 
-#### client lib - `GetAllowedManaPledgeNodeIDs()`
+#### `GetAllowedManaPledgeNodeIDs()`
 
 ```go
 res, err := goshimAPI.GetAllowedManaPledgeNodeIDs()
