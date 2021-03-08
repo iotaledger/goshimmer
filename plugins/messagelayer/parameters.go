@@ -1,18 +1,13 @@
 package messagelayer
 
-import (
-	"github.com/iotaledger/goshimmer/packages/configuration"
-)
+import "github.com/iotaledger/hive.go/configuration"
 
 // Parameters contains the configuration parameters used by the message layer.
 var Parameters = struct {
 	TangleWidth int `default:"0" usage:"the width of the Tangle"`
-
-	Snapshot struct {
-		// File is the path to the snapshot file.
+	Snapshot    struct {
 		File string `default:"./snapshot.bin" usage:"the path to the snapshot file"`
 	}
-
 	FCOB struct {
 		AverageNetworkDelay int `default:"5" usage:"the avg. network delay to use for FCoB rules"`
 	}
@@ -36,7 +31,7 @@ var StatementParameters = struct {
 }{}
 
 func init() {
-	configuration.DefineParameters(&Parameters, "messageLayer")
-	configuration.DefineParameters(&FPCParameters, "fpc")
-	configuration.DefineParameters(&StatementParameters, "statement")
+	configuration.BindParameters(&Parameters, "messageLayer")
+	configuration.BindParameters(&FPCParameters, "fpc")
+	configuration.BindParameters(&StatementParameters, "statement")
 }
