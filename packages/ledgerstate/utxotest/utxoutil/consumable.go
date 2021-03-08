@@ -1,5 +1,5 @@
 // package to build value transaction
-package txutil
+package utxoutil
 
 import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"

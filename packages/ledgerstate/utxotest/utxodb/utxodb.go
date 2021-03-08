@@ -140,7 +140,7 @@ func (u *UtxoDB) checkLedgerBalance() {
 		}
 		total += b
 	}
-	if total != supply {
+	if total != Supply {
 		panic("utxodb: wrong ledger balance")
 	}
 }
@@ -176,8 +176,8 @@ func (u *UtxoDB) validate(tx *ledgerstate.Transaction) error {
 			continue
 		}
 		if outb > inb {
-			// colored supply can't be inflated
-			return xerrors.New("utxodb.validate: colored supply can't be inflated")
+			// colored Supply can't be inflated
+			return xerrors.New("utxodb.validate: colored Supply can't be inflated")
 		}
 	}
 	if err := u.checkUnlockBlocks(tx); err != nil {

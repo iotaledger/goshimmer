@@ -1,4 +1,4 @@
-package txutil
+package utxoutil
 
 import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -19,18 +19,18 @@ type Builder struct {
 	outputs           []ledgerstate.Output
 }
 
-func NewBuilder(outputs []ledgerstate.Output) *Builder {
-	senderAddr, err := takeSenderAddress(outputs)
+func NewBuilder(inputs []ledgerstate.Output) *Builder {
+	senderAddr, err := takeSenderAddress(inputs)
 	if err != nil {
 		return nil
 	}
 	ret := &Builder{
 		timestamp:     time.Now(),
-		consumables:   make([]*ConsumableOutput, len(outputs)),
+		consumables:   make([]*ConsumableOutput, len(inputs)),
 		senderAddress: senderAddr,
 		outputs:       make([]ledgerstate.Output, 0),
 	}
-	for i, out := range outputs {
+	for i, out := range inputs {
 		ret.consumables[i] = NewConsumableOutput(out)
 	}
 	return ret
@@ -112,16 +112,16 @@ func (b *Builder) AddIOTAOutput(targetAddress ledgerstate.Address, amount uint64
 	return uint16(len(b.outputs) - 1), nil
 }
 
-// AddOutput adds output with colored tokens by consuming inputs
+// AddSimpleColoredOutput adds output with colored tokens by consuming inputs
 // Supports minting (coloring) of part of consumed iotas. Re-coloring of other colors do not support
-func (b *Builder) AddOutput(targetAddress ledgerstate.Address, amounts map[ledgerstate.Color]uint64, mint ...uint64) (uint16, error) {
+func (b *Builder) AddSimpleColoredOutput(targetAddress ledgerstate.Address, amounts map[ledgerstate.Color]uint64, mint ...uint64) (uint16, error) {
 	if len(amounts) == 0 {
-		return 0, xerrors.New("AddOutput: no tokens to transfer")
+		return 0, xerrors.New("AddSimpleColoredOutput: no tokens to transfer")
 	}
 	amountsCopy := make(map[ledgerstate.Color]uint64)
 	for col, bal := range amounts {
 		if bal == 0 {
-			return 0, xerrors.New("AddOutput: zero tokens in input not allowed")
+			return 0, xerrors.New("AddSimpleColoredOutput: zero tokens in input not allowed")
 		}
 		amountsCopy[col] = bal
 	}
@@ -130,7 +130,7 @@ func (b *Builder) AddOutput(targetAddress ledgerstate.Address, amounts map[ledge
 		return 0, xerrors.Errorf("can't mint more tokens (%d) than consumed iotas (%d)", iotas, mint[0])
 	}
 	if !ConsumeAll(amountsCopy, b.consumables...) {
-		return 0, xerrors.New("AddOutput: not enough balance")
+		return 0, xerrors.New("AddSimpleColoredOutput: not enough balance")
 	}
 	if len(mint) > 0 && mint[0] > 0 {
 		amountsCopy[ledgerstate.ColorMint] = mint[0]

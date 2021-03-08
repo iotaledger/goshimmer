@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate/testutil/txutil"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate/utxotest/utxoutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -18,7 +18,7 @@ func TestBasic(t *testing.T) {
 
 func TestGenesis(t *testing.T) {
 	u := New()
-	require.EqualValues(t, supply, u.BalanceIOTA(u.GetGenesisAddress()))
+	require.EqualValues(t, Supply, u.BalanceIOTA(u.GetGenesisAddress()))
 	u.checkLedgerBalance()
 }
 
@@ -28,7 +28,7 @@ func TestRequestFunds(t *testing.T) {
 	addr := ledgerstate.NewED25519Address(user.PublicKey)
 	_, err := u.RequestFunds(addr)
 	require.NoError(t, err)
-	require.EqualValues(t, supply-RequestFundsAmount, u.BalanceIOTA(u.GetGenesisAddress()))
+	require.EqualValues(t, Supply-RequestFundsAmount, u.BalanceIOTA(u.GetGenesisAddress()))
 	require.EqualValues(t, RequestFundsAmount, u.BalanceIOTA(addr))
 	u.checkLedgerBalance()
 }
@@ -39,7 +39,7 @@ func TestAddTransactionFail(t *testing.T) {
 	addr := ledgerstate.NewED25519Address(user.PublicKey)
 	tx, err := u.RequestFunds(addr)
 	require.NoError(t, err)
-	require.EqualValues(t, supply-RequestFundsAmount, u.BalanceIOTA(u.GetGenesisAddress()))
+	require.EqualValues(t, Supply-RequestFundsAmount, u.BalanceIOTA(u.GetGenesisAddress()))
 	require.EqualValues(t, RequestFundsAmount, u.BalanceIOTA(addr))
 	u.checkLedgerBalance()
 	err = u.AddTransaction(tx)
@@ -62,7 +62,7 @@ func TestSendIotas(t *testing.T) {
 
 	outputs := u.GetAddressOutputs(addr1)
 	require.EqualValues(t, 1, len(outputs))
-	txb := txutil.NewBuilder(ledgerstate.NewOutputs(outputs...))
+	txb := utxoutil.NewBuilder(ledgerstate.NewOutputs(outputs...))
 	idx, err := txb.AddIOTAOutput(addr2, 42)
 	require.EqualValues(t, 0, idx)
 	require.NoError(t, err)
@@ -94,7 +94,7 @@ func TestSendIotasMany(t *testing.T) {
 	for i := uint64(0); i < howMany; i++ {
 		outputs := u.GetAddressOutputs(addr1)
 		require.EqualValues(t, 1, len(outputs))
-		txb := txutil.NewBuilder(ledgerstate.NewOutputs(outputs...))
+		txb := utxoutil.NewBuilder(outputs)
 		idx, err := txb.AddIOTAOutput(addr2, 1)
 		require.NoError(t, err)
 		require.EqualValues(t, 0, idx)
@@ -124,7 +124,7 @@ func TestSendIotas1FromMany(t *testing.T) {
 	for i := uint64(0); i < howMany; i++ {
 		outputs := u.GetAddressOutputs(addr1)
 		require.EqualValues(t, 1, len(outputs))
-		txb := txutil.NewBuilder(ledgerstate.NewOutputs(outputs...))
+		txb := utxoutil.NewBuilder(ledgerstate.NewOutputs(outputs...))
 		idx, err := txb.AddIOTAOutput(addr2, 1)
 		require.NoError(t, err)
 		require.EqualValues(t, 0, idx)
@@ -140,7 +140,7 @@ func TestSendIotas1FromMany(t *testing.T) {
 	outputs := u.GetAddressOutputs(addr2)
 	require.EqualValues(t, howMany, len(outputs))
 
-	txb := txutil.NewBuilder(outputs)
+	txb := utxoutil.NewBuilder(outputs)
 	idx, err := txb.AddIOTAOutput(addr1, 1)
 	require.NoError(t, err)
 	require.EqualValues(t, 0, idx)
@@ -170,7 +170,7 @@ func TestSendIotasManyFromMany(t *testing.T) {
 	for i := uint64(0); i < howMany; i++ {
 		outputs := u.GetAddressOutputs(addr1)
 		require.EqualValues(t, 1, len(outputs))
-		txb := txutil.NewBuilder(ledgerstate.NewOutputs(outputs...))
+		txb := utxoutil.NewBuilder(ledgerstate.NewOutputs(outputs...))
 		idx, err := txb.AddIOTAOutput(addr2, 1)
 		require.NoError(t, err)
 		require.EqualValues(t, 0, idx)
@@ -186,7 +186,7 @@ func TestSendIotasManyFromMany(t *testing.T) {
 	outputs := u.GetAddressOutputs(addr2)
 	require.EqualValues(t, howMany, len(outputs))
 
-	txb := txutil.NewBuilder(outputs)
+	txb := utxoutil.NewBuilder(outputs)
 	idx, err := txb.AddIOTAOutput(addr1, howMany/2)
 	require.NoError(t, err)
 	require.EqualValues(t, 0, idx)
