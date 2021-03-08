@@ -136,7 +136,7 @@ curl http://localhost:8080/mana/all \
 -H 'Content-Type: application/json'
 ```
 
-#### `GetAllMana()` 
+#### client lib - `GetAllMana()` 
 
 ```go
 manas, err := goshimAPI.GetAllMana()
@@ -219,7 +219,7 @@ curl http://localhost:8080/mana/percentile?2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKts
 -H 'Content-Type: application/json'
 ```
 
-#### `GetManaPercentile()`
+#### client lib - `GetManaPercentile()`
 
 ```go
 mana, err := goshimAPI.GetManaPercentile("2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5")
@@ -272,7 +272,7 @@ curl http://localhost:8080/mana/access/online \
 -H 'Content-Type: application/json'
 ```
 
-#### `GetOnlineAccessMana()`
+#### client lib - `GetOnlineAccessMana()`
 
 ```go
 // online access mana
@@ -333,7 +333,7 @@ curl http://localhost:8080/mana/consensus/online \
 -H 'Content-Type: application/json'
 ```
 
-#### `GetOnlineConsensusMana()`
+#### client lib - `GetOnlineConsensusMana()`
 
 ```go
 // online access mana
@@ -400,7 +400,7 @@ curl http://localhost:8080/mana/access/nhighest?number=5 \
 -H 'Content-Type: application/json'
 ```
 
-#### `GetNHighestAccessMana()`
+#### client lib - `GetNHighestAccessMana()`
 
 ```go
 // get the top 5 highest access mana nodes
@@ -464,7 +464,7 @@ curl http://localhost:8080/mana/consensus/nhighest?number=5 \
 -H 'Content-Type: application/json'
 ```
 
-#### `GetNHighestConsensusMana()`
+#### client lib - `GetNHighestConsensusMana()`
 
 ```go
 // get the top 5 highest consensus mana nodes
@@ -528,7 +528,7 @@ curl http://localhost:8080/mana/pending?outputid="4a5KkxVfsdFVbf1NBGeGTCjP8Ppsje
 -H 'Content-Type: application/json'
 ```
 
-#### `GetPending()`
+#### client lib - `GetPending()`
 
 ```go
 res, err := goshimAPI.GetPending("4a5KkxVfsdFVbf1NBGeGTCjP8Ppsje4YFQg9bu5YGNMSJK1")
@@ -580,7 +580,7 @@ curl http://localhost:8080/mana/consensus/past?timestamp=1614924295 \
 -H 'Content-Type: application/json'
 ```
 
-#### `GetPastConsensusManaVector()`
+#### client lib - `GetPastConsensusManaVector()`
 
 ```go
 res, err := goshimAPI.GetPastConsensusManaVector(1614924295)
@@ -650,7 +650,7 @@ curl http://localhost:8080/mana/consensus/logs \
 }'
 ```
 
-#### `GetConsensusEventLogs()`
+#### client lib - `GetConsensusEventLogs()`
 
 ```go
 res, err := goshimAPI.GetConsensusEventLogs([]string{"2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5"})
@@ -763,7 +763,7 @@ curl http://localhost:8080/value/allowedManaPledge \
 -H 'Content-Type: application/json'
 ```
 
-#### `GetAllowedManaPledgeNodeIDs()`
+#### client lib - `GetAllowedManaPledgeNodeIDs()`
 
 ```go
 res, err := goshimAPI.GetAllowedManaPledgeNodeIDs()
