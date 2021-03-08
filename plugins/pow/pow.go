@@ -42,6 +42,9 @@ func Worker() *pow.Worker {
 		log = logger.NewLogger(PluginName)
 		// load the parameters
 		difficulty = config.Node().Int(CfgPOWDifficulty)
+		pow.BaseDifficulty = difficulty
+		pow.ApowWindow = config.Node().Int(CfgPOWWindow)
+		pow.AdaptiveRate = config.Node().Float64(CfgPOWRate)
 		numWorkers = config.Node().Int(CfgPOWNumThreads)
 		timeout = config.Node().Duration(CfgPOWTimeout)
 		// create the worker
@@ -51,7 +54,7 @@ func Worker() *pow.Worker {
 }
 
 // DoPOW performs the PoW on the provided msg and returns the nonce.
-func DoPOW(msg []byte) (uint64, error) {
+func DoPOW(msg []byte, d int) (uint64, error) {
 	content, err := powData(msg)
 	if err != nil {
 		return 0, err
@@ -60,11 +63,11 @@ func DoPOW(msg []byte) (uint64, error) {
 	// get the PoW worker
 	worker := Worker()
 
-	log.Debugw("start PoW", "difficulty", difficulty, "numWorkers", numWorkers)
+	log.Debugw("start PoW", "difficulty", d, "numWorkers", numWorkers)
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	nonce, err := worker.Mine(ctx, content[:len(content)-pow.NonceBytes], difficulty)
+	nonce, err := worker.Mine(ctx, content[:len(content)-pow.NonceBytes], d)
 
 	log.Debugw("PoW stopped", "nonce", nonce, "err", err)
 

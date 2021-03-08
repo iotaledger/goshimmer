@@ -402,7 +402,7 @@ func TestTangle_Flow(t *testing.T) {
 	)
 
 	// PoW workers
-	tangle.MessageFactory.SetWorker(WorkerFunc(func(msgBytes []byte) (uint64, error) {
+	tangle.MessageFactory.SetWorker(WorkerFunc(func(msgBytes []byte, targetPOW int) (uint64, error) {
 		content := msgBytes[:len(msgBytes)-ed25519.SignatureSize-8]
 		return testWorker.Mine(context.Background(), content, targetPOW)
 	}))
@@ -436,7 +436,7 @@ func TestTangle_Flow(t *testing.T) {
 	}
 
 	// setup the message parser
-	tangle.Parser.AddBytesFilter(NewPowFilter(testWorker, targetPOW))
+	tangle.Parser.AddMessageFilter(NewPowFilter(testWorker, targetPOW))
 
 	// create inboxWP to act as the gossip layer
 	inboxWP := workerpool.New(func(task workerpool.Task) {
@@ -597,8 +597,11 @@ func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, t ...*Tangle) 
 	issuingTime := time.Now().Add(maxParentsTimeDifference + 5*time.Minute)
 	issuerPublicKey := f.localIdentity.PublicKey()
 
+	// Calculate the current difficulty for this msg.
+	currentDifficulty := f.mw.AdaptiveDifficulty(issuingTime)
+
 	// do the PoW
-	nonce, err := f.doPOW(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p)
+	nonce, err := f.doPOW(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p, currentDifficulty)
 	if err != nil {
 		err = fmt.Errorf("pow failed: %w", err)
 		f.Events.Error.Trigger(err)
@@ -618,5 +621,12 @@ func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, t ...*Tangle) 
 		nonce,
 		signature,
 	)
+
+	// Update our messagesWindow
+	f.mw.Append(pow.MessageAge{
+		ID:        msg.ID().String(),
+		Timestamp: issuingTime,
+	})
+
 	return msg, nil
 }

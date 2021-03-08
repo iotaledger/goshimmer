@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
@@ -26,6 +27,7 @@ type MessageFactory struct {
 	sequence      *kvstore.Sequence
 	localIdentity *identity.LocalIdentity
 	selector      TipSelector
+	mw            pow.MessagesWindow
 
 	worker        Worker
 	workerMutex   sync.RWMutex
@@ -103,8 +105,12 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, t ...*Tangle) (*Message
 
 	issuerPublicKey := f.localIdentity.PublicKey()
 
+	// Calculate the current difficulty for this msg.
+	currentDifficulty := f.mw.AdaptiveDifficulty(issuingTime)
+
 	// do the PoW
-	nonce, err := f.doPOW(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p)
+	nonce, err := f.doPOW(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p, currentDifficulty)
+
 	if err != nil {
 		err = xerrors.Errorf("pow failed: %w", err)
 		f.Events.Error.Trigger(err)
@@ -124,6 +130,13 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, t ...*Tangle) (*Message
 		nonce,
 		signature,
 	)
+
+	// Update our messagesWindow
+	f.mw.Append(pow.MessageAge{
+		ID:        msg.ID().String(),
+		Timestamp: issuingTime,
+	})
+
 	f.Events.MessageConstructed.Trigger(msg)
 	return msg, nil
 }
@@ -135,13 +148,13 @@ func (f *MessageFactory) Shutdown() {
 	}
 }
 
-func (f *MessageFactory) doPOW(strongParents []MessageID, weakParents []MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload payload.Payload) (uint64, error) {
+func (f *MessageFactory) doPOW(strongParents []MessageID, weakParents []MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload payload.Payload, difficulty int) (uint64, error) {
 	// create a dummy message to simplify marshaling
 	dummy := NewMessage(strongParents, weakParents, issuingTime, key, seq, payload, 0, ed25519.EmptySignature).Bytes()
 
 	f.workerMutex.RLock()
 	defer f.workerMutex.RUnlock()
-	return f.worker.DoPOW(dummy)
+	return f.worker.DoPOW(dummy, difficulty)
 }
 
 func (f *MessageFactory) sign(strongParents []MessageID, weakParents []MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload payload.Payload, nonce uint64) ed25519.Signature {
@@ -197,7 +210,7 @@ func (f TipSelectorFunc) Tips(p payload.Payload, countStrongParents, countWeakPa
 
 // A Worker performs the PoW for the provided message in serialized byte form.
 type Worker interface {
-	DoPOW([]byte) (nonce uint64, err error)
+	DoPOW([]byte, int) (nonce uint64, err error)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -205,11 +218,11 @@ type Worker interface {
 // region WorkerFunc ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // The WorkerFunc type is an adapter to allow the use of ordinary functions as a PoW performer.
-type WorkerFunc func([]byte) (uint64, error)
+type WorkerFunc func([]byte, int) (uint64, error)
 
 // DoPOW calls f(msg).
-func (f WorkerFunc) DoPOW(msg []byte) (uint64, error) {
-	return f(msg)
+func (f WorkerFunc) DoPOW(msg []byte, difficulty int) (uint64, error) {
+	return f(msg, difficulty)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -217,6 +230,6 @@ func (f WorkerFunc) DoPOW(msg []byte) (uint64, error) {
 // region ZeroWorker ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ZeroWorker is a PoW worker that always returns 0 as the nonce.
-var ZeroWorker = WorkerFunc(func([]byte) (uint64, error) { return 0, nil })
+var ZeroWorker = WorkerFunc(func([]byte, int) (uint64, error) { return 0, nil })
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

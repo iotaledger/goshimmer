@@ -41,6 +41,10 @@ func newTestParentsPayloadWithTimestamp(payload payload.Payload, strongParents, 
 	return NewMessage(strongParents, weakParents, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), payload, 0, ed25519.Signature{})
 }
 
+func newTestAPOWMessage(t time.Time) *Message {
+	return NewMessage([]MessageID{EmptyMessageID}, []MessageID{}, t, ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("test")), 0, ed25519.Signature{})
+}
+
 type wallet struct {
 	keyPair ed25519.KeyPair
 	address *ledgerstate.ED25519Address
