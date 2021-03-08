@@ -15,6 +15,6 @@ const (
 
 func init() {
 	flag.Bool(CfgMana, true, "Enable/disable mana in the autopeering")
-	flag.Int(CfgR, 10, "R parameter")
+	flag.Int(CfgR, 20, "R parameter")
 	flag.Float64(CfgRo, 2., "Ro parameter")
 }

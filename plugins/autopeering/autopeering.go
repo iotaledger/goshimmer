@@ -67,7 +67,7 @@ func createPeerSel() {
 		selection.Logger(log),
 		selection.NeighborValidator(selection.ValidatorFunc(isValidNeighbor)),
 		selection.UseMana(config.Node().Bool(CfgMana)),
-		selection.ManaFunc(EvalMana),
+		selection.ManaFunc(evalMana),
 		selection.R(config.Node().Int(CfgR)),
 		selection.Ro(config.Node().Float64(CfgRo)),
 	)
@@ -127,7 +127,7 @@ func start(shutdownSignal <-chan struct{}) {
 	lPeer.Database().Close()
 }
 
-func EvalMana(identity *identity.Identity) uint64 {
+func evalMana(identity *identity.Identity) uint64 {
 	m, _, err := mana.GetConsensusMana(identity.ID())
 	if err != nil {
 		return 0
