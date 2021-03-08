@@ -18,13 +18,7 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-)
-
-const (
-	// ConsensusPluginName contains the human readable name of the plugin.
-	ConsensusPluginName = "Consensus"
 )
 
 var (
@@ -34,7 +28,6 @@ var (
 	voter               *fpc.FPC
 	voterOnce           sync.Once
 	voterServer         *votenet.VoterServer
-	consensusPluginLog  *logger.Logger
 	registry            *statement.Registry
 	registryOnce        sync.Once
 )
@@ -42,33 +35,31 @@ var (
 // ConsensusPlugin returns the consensus plugin.
 func ConsensusPlugin() *node.Plugin {
 	consensusPluginOnce.Do(func() {
-		consensusPlugin = node.NewPlugin(ConsensusPluginName, node.Enabled, configureConsensusPlugin, runConsensusPlugin)
+		consensusPlugin = node.NewPlugin("Consensus", node.Enabled, configureConsensusPlugin, runConsensusPlugin)
 	})
 	return consensusPlugin
 }
 
-func configureConsensusPlugin(*node.Plugin) {
-	consensusPluginLog = logger.NewLogger(ConsensusPluginName)
-
+func configureConsensusPlugin(plugin *node.Plugin) {
 	configureRemoteLogger()
-	configureFPC()
+	configureFPC(plugin)
 
 	// subscribe to FCOB events
 	ConsensusMechanism().Events.Vote.Attach(events.NewClosure(func(id string, initOpn opinion.Opinion) {
 		if err := Voter().Vote(id, vote.ConflictType, initOpn); err != nil {
-			consensusPluginLog.Warnf("FPC vote: %s", err)
+			plugin.LogWarnf("FPC vote: %s", err)
 		}
 	}))
 	ConsensusMechanism().Events.Error.Attach(events.NewClosure(func(err error) {
-		consensusPluginLog.Errorf("FCOB error: %s", err)
+		plugin.LogErrorf("FCOB error: %s", err)
 	}))
 
 	// subscribe to message-layer
 	Tangle().ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(readStatement))
 }
 
-func runConsensusPlugin(*node.Plugin) {
-	runFPC()
+func runConsensusPlugin(plugin *node.Plugin) {
+	runFPC(plugin)
 }
 
 // Voter returns the DRNGRoundBasedVoter instance used by the FPC plugin.
@@ -87,20 +78,20 @@ func Registry() *statement.Registry {
 	return registry
 }
 
-func configureFPC() {
+func configureFPC(plugin *node.Plugin) {
 	if FPCParameters.Listen {
 		lPeer := local.GetInstance()
 		_, portStr, err := net.SplitHostPort(FPCParameters.BindAddress)
 		if err != nil {
-			consensusPluginLog.Fatalf("FPC bind address '%s' is invalid: %s", FPCParameters.BindAddress, err)
+			plugin.LogFatalf("FPC bind address '%s' is invalid: %s", FPCParameters.BindAddress, err)
 		}
 		port, err := strconv.Atoi(portStr)
 		if err != nil {
-			consensusPluginLog.Fatalf("FPC bind address '%s' is invalid: %s", FPCParameters.BindAddress, err)
+			plugin.LogFatalf("FPC bind address '%s' is invalid: %s", FPCParameters.BindAddress, err)
 		}
 
 		if err := lPeer.UpdateService(service.FPCKey, "tcp", port); err != nil {
-			consensusPluginLog.Fatalf("could not update services: %v", err)
+			plugin.LogFatalf("could not update services: %v", err)
 		}
 	}
 
@@ -110,25 +101,25 @@ func configureFPC() {
 		}
 		peersQueried := len(roundStats.QueriedOpinions)
 		voteContextsCount := len(roundStats.ActiveVoteContexts)
-		consensusPluginLog.Debugf("executed round with rand %0.4f for %d vote contexts on %d peers, took %v", roundStats.RandUsed, voteContextsCount, peersQueried, roundStats.Duration)
+		plugin.LogDebugf("executed round with rand %0.4f for %d vote contexts on %d peers, took %v", roundStats.RandUsed, voteContextsCount, peersQueried, roundStats.Duration)
 	}))
 
 	Voter().Events().Finalized.Attach(events.NewClosure(ConsensusMechanism().ProcessVote))
 	Voter().Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
 		if ev.Ctx.Type == vote.ConflictType {
-			consensusPluginLog.Infof("FPC finalized for transaction with id '%s' - final opinion: '%s'", ev.ID, ev.Opinion)
+			plugin.LogInfof("FPC finalized for transaction with id '%s' - final opinion: '%s'", ev.ID, ev.Opinion)
 		}
 	}))
 
 	Voter().Events().Failed.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
 		if ev.Ctx.Type == vote.ConflictType {
-			consensusPluginLog.Warnf("FPC failed for transaction with id '%s' - last opinion: '%s'", ev.ID, ev.Opinion)
+			plugin.LogWarnf("FPC failed for transaction with id '%s' - last opinion: '%s'", ev.ID, ev.Opinion)
 		}
 	}))
 
 }
 
-func runFPC() {
+func runFPC(plugin *node.Plugin) {
 	const ServerWorkerName = "FPCVoterServer"
 
 	if FPCParameters.Listen {
@@ -142,9 +133,9 @@ func runFPC() {
 			)
 
 			go func() {
-				consensusPluginLog.Infof("%s started, bind-address=%s", ServerWorkerName, bindAddr)
+				plugin.LogInfof("%s started, bind-address=%s", ServerWorkerName, bindAddr)
 				if err := voterServer.Run(); err != nil {
-					consensusPluginLog.Errorf("Error serving: %s", err)
+					plugin.LogErrorf("Error serving: %s", err)
 				}
 				close(stopped)
 			}()
@@ -155,17 +146,17 @@ func runFPC() {
 			case <-stopped:
 			}
 
-			consensusPluginLog.Infof("Stopping %s ...", ServerWorkerName)
+			plugin.LogInfof("Stopping %s ...", ServerWorkerName)
 			voterServer.Shutdown()
-			consensusPluginLog.Infof("Stopping %s ... done", ServerWorkerName)
+			plugin.LogInfof("Stopping %s ... done", ServerWorkerName)
 		}, shutdown.PriorityFPC); err != nil {
-			consensusPluginLog.Panicf("Failed to start as daemon: %s", err)
+			plugin.Panicf("Failed to start as daemon: %s", err)
 		}
 	}
 
 	if err := daemon.BackgroundWorker("FPCRoundsInitiator", func(shutdownSignal <-chan struct{}) {
-		consensusPluginLog.Infof("Started FPC round initiator")
-		defer consensusPluginLog.Infof("Stopped FPC round initiator")
+		plugin.LogInfof("Started FPC round initiator")
+		defer plugin.LogInfof("Stopped FPC round initiator")
 		unixTsPRNG := prng.NewUnixTimestampPRNG(FPCParameters.RoundInterval)
 		unixTsPRNG.Start()
 		defer unixTsPRNG.Stop()
@@ -174,19 +165,19 @@ func runFPC() {
 			select {
 			case r := <-unixTsPRNG.C():
 				if err := voter.Round(r); err != nil {
-					consensusPluginLog.Warnf("unable to execute FPC round: %s", err)
+					plugin.LogWarnf("unable to execute FPC round: %s", err)
 				}
 			case <-shutdownSignal:
 				break exit
 			}
 		}
 	}, shutdown.PriorityFPC); err != nil {
-		consensusPluginLog.Panicf("Failed to start as daemon: %s", err)
+		plugin.Panicf("Failed to start as daemon: %s", err)
 	}
 
 	if err := daemon.BackgroundWorker("StatementCleaner", func(shutdownSignal <-chan struct{}) {
-		consensusPluginLog.Infof("Started Statement Cleaner")
-		defer consensusPluginLog.Infof("Stopped Statement Cleaner")
+		plugin.LogInfof("Started Statement Cleaner")
+		defer plugin.LogInfof("Stopped Statement Cleaner")
 		ticker := time.NewTicker(time.Duration(StatementParameters.CleanInterval) * time.Minute)
 		defer ticker.Stop()
 	exit:
@@ -199,6 +190,6 @@ func runFPC() {
 			}
 		}
 	}, shutdown.PriorityFPC); err != nil {
-		consensusPluginLog.Panicf("Failed to start as daemon: %s", err)
+		plugin.Panicf("Failed to start as daemon: %s", err)
 	}
 }
