@@ -52,13 +52,17 @@ func TransactionBalancesValid(inputs Outputs, outputs Outputs) (valid bool) {
 // UnlockBlocksValid is an internal utility function that checks if the UnlockBlocks are matching the referenced Inputs.
 func UnlockBlocksValid(inputs Outputs, transaction *Transaction) (valid bool) {
 	unlockBlocks := transaction.UnlockBlocks()
+	var unlockValid bool
+	var unlockErr error
 	for i, input := range inputs {
-		currentUnlockBlock := unlockBlocks[i]
-		if currentUnlockBlock.Type() == ReferenceUnlockBlockType {
-			currentUnlockBlock = unlockBlocks[unlockBlocks[i].(*ReferenceUnlockBlock).ReferencedIndex()]
+		switch unlockBlock := unlockBlocks[i].(type) {
+		case *ReferenceUnlockBlock:
+			unlockValid, unlockErr = input.UnlockValid(transaction, unlockBlocks[unlockBlock.ReferencedIndex()])
+		case *AliasReferenceUnlockBlock:
+			unlockValid, unlockErr = unlockBlock.UnlockValid(input, transaction, inputs)
+		default:
+			unlockValid, unlockErr = input.UnlockValid(transaction, unlockBlock)
 		}
-
-		unlockValid, unlockErr := input.UnlockValid(transaction, currentUnlockBlock)
 		if !unlockValid || unlockErr != nil {
 			return false
 		}

@@ -234,6 +234,7 @@ func (a *AliasOutput) findChainedOutput(tx *Transaction) (*AliasOutput, error) {
 	return ret, nil
 }
 
+// unlockedBySig only possible unlocked for both state and governance when self-governed
 func (a *AliasOutput) unlockedBySig(tx *Transaction, sigBlock *SignatureUnlockBlock) (bool, bool) {
 	stateSigValid := sigBlock.signature.AddressSignatureValid(a.stateAddress, tx.Essence().Bytes())
 	if a.IsSelfGoverned() {
@@ -246,7 +247,23 @@ func (a *AliasOutput) unlockedBySig(tx *Transaction, sigBlock *SignatureUnlockBl
 }
 
 func equalColoredBalance(b1, b2 ColoredBalances) bool {
-	return false
+	allColors := make(map[Color]bool)
+	b1.ForEach(func(col Color, bal uint64) bool {
+		allColors[col] = true
+		return true
+	})
+	b2.ForEach(func(col Color, bal uint64) bool {
+		allColors[col] = true
+		return true
+	})
+	for col := range allColors {
+		v1, ok1 := b1.Get(col)
+		v2, ok2 := b2.Get(col)
+		if ok1 != ok2 || v1 != v2 {
+			return false
+		}
+	}
+	return true
 }
 
 func isDust(b ColoredBalances) bool {
@@ -311,38 +328,36 @@ func (a *AliasOutput) validateDestroy(unlockedGovernance bool) error {
 	return nil
 }
 
-func (a *AliasOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock) (bool, error) {
-	switch unlockBlock.Type() {
-	case SignatureUnlockBlockType:
-		sigBlock := unlockBlock.(*SignatureUnlockBlock)
-		unlockedState, unlockedGovernance := a.unlockedBySig(tx, sigBlock)
-		if !unlockedState && !unlockedGovernance {
-			return false, nil
-		}
-		chained, err := a.findChainedOutput(tx)
-		if err != nil {
+func (a *AliasOutput) unlockBySignature(tx *Transaction, sigBlock *SignatureUnlockBlock) (bool, error) {
+	unlockedState, unlockedGovernance := a.unlockedBySig(tx, sigBlock)
+	if !unlockedState && !unlockedGovernance {
+		return false, nil
+	}
+	chained, err := a.findChainedOutput(tx)
+	if err != nil {
+		return false, err
+	}
+	if chained != nil {
+		if err := a.validateState(chained, unlockedState); err != nil {
 			return false, err
 		}
-		if chained != nil {
-			if err := a.validateState(chained, unlockedState); err != nil {
-				return false, err
-			}
-			if err := a.validateGovernance(chained, unlockedState); err != nil {
-				return false, err
-			}
-		} else {
-			// may be alias destroyed
-			if err := a.validateDestroy(unlockedGovernance); err != nil {
-				return false, err
-			}
+		if err := a.validateGovernance(chained, unlockedState); err != nil {
+			return false, err
 		}
-		return true, nil
+	} else {
+		// no chained output found. Alias is being destroyed?
+		if err := a.validateDestroy(unlockedGovernance); err != nil {
+			return false, err
+		}
+	}
+	return true, nil
+}
 
-	case ReferenceUnlockBlockType:
-		// TODO
-		panic("implement me")
-		//refIdx := unlockBlock.(*ReferenceUnlockBlock).ReferencedIndex()
-		//return a.UnlockValid(tx, tx.UnlockBlocks()[refIdx])
+// UnlockValid check unlock and validates chain
+func (a *AliasOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock) (bool, error) {
+	switch blk := unlockBlock.(type) {
+	case *SignatureUnlockBlock:
+		return a.unlockBySignature(tx, blk)
 	}
 	return false, xerrors.New("unsupported unlock block type")
 }

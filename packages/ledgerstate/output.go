@@ -56,7 +56,7 @@ const (
 	AliasOutputType
 
 	// AliasLockOutputType represents an Output which locks funds to the alias
-	AliasLockOutputType
+	AliasLockedOutputType
 )
 
 // String returns a human readable representation of the OutputType.
