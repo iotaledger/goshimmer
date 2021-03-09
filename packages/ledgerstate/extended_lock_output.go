@@ -223,7 +223,7 @@ func (o *ExtendedLockedOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBl
 		if addr.Array() != refAliasOutput.GetAliasAddress().Array() {
 			return false, xerrors.New("wrong alias referenced")
 		}
-		unlockValid = refAliasOutput.IsInputUnlockedForStateUpdate(tx)
+		unlockValid = refAliasOutput.IsUnlockedForStateUpdate(tx)
 
 	default:
 		err = xerrors.Errorf("UnlockBlock does not match expected OutputType: %w", cerrors.ErrParseBytesFailed)

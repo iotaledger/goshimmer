@@ -510,10 +510,10 @@ func (a *AliasOutput) unlockedGovernanceByAliasIndex(tx *Transaction, refIndex u
 	if !refInput.GetAliasAddress().Equal(a.governingAddress.(*AliasAddress)) {
 		return false, xerrors.New("wrong alias reference")
 	}
-	return refInput.IsInputUnlockedForStateUpdate(tx), nil
+	return refInput.IsUnlockedForStateUpdate(tx), nil
 }
 
-func (a *AliasOutput) IsInputUnlockedForStateUpdate(tx *Transaction) bool {
+func (a *AliasOutput) IsUnlockedForStateUpdate(tx *Transaction) bool {
 	chained, err := a.findChainedOutput(tx)
 	if err != nil {
 		return false
