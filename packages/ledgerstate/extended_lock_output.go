@@ -213,11 +213,17 @@ func (o *ExtendedLockedOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBl
 				addr = o.fallbackAddress
 			}
 		}
-		aliasAddress, ok := addr.(*AliasAddress)
 		if !ok {
 			return false, nil
 		}
-		unlockValid, _ = UnlockedAliasStateByIndex(tx, aliasAddress, blk.ReferencedIndex(), inputs)
+		refAliasOutput, isAlias := inputs[blk.ReferencedIndex()].(*AliasOutput)
+		if !isAlias {
+			return false, xerrors.New("referenced input must be AliasOutput")
+		}
+		if addr.Array() != refAliasOutput.GetAliasAddress().Array() {
+			return false, xerrors.New("wrong alias referenced")
+		}
+		unlockValid = refAliasOutput.IsInputUnlockedForStateUpdate(tx)
 
 	default:
 		err = xerrors.Errorf("UnlockBlock does not match expected OutputType: %w", cerrors.ErrParseBytesFailed)

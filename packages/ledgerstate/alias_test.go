@@ -9,24 +9,29 @@ import (
 
 func TestAliasMint(t *testing.T) {
 	bals1 := map[Color]uint64{ColorIOTA: 100}
-	_, err := NewAliasOutputMint(bals1, nil, nil, nil)
+	_, err := NewAliasOutputMint(bals1, nil)
 	require.Error(t, err)
 
 	bals0 := map[Color]uint64{}
 	kp := ed25519.GenerateKeyPair()
 	addr := NewED25519Address(kp.PublicKey)
-	_, err = NewAliasOutputMint(bals0, addr, nil, nil)
+	_, err = NewAliasOutputMint(bals0, addr)
 	require.Error(t, err)
 
-	out, err := NewAliasOutputMint(bals1, addr, nil, nil)
+	out, err := NewAliasOutputMint(bals1, addr)
 	require.NoError(t, err)
 
 	bigData := make([]byte, MaxOutputPayloadSize+1)
-	_, err = NewAliasOutputMint(bals0, addr, bigData, nil)
+	out, err = NewAliasOutputMint(bals1, addr)
+	require.NoError(t, err)
+	err = out.SetStateData(bigData)
 	require.Error(t, err)
 
-	out, err = NewAliasOutputMint(bals1, addr, nil, addr)
+	out, err = NewAliasOutputMint(bals1, addr)
 	require.NoError(t, err)
+	require.True(t, out.IsSelfGoverned())
+	out.SetGoverningAddress(addr)
+	require.True(t, out.IsSelfGoverned())
 
 	t.Logf("%s", out)
 }
@@ -35,7 +40,7 @@ func TestMarshal1(t *testing.T) {
 	bals1 := map[Color]uint64{ColorIOTA: 100}
 	kp := ed25519.GenerateKeyPair()
 	addr := NewED25519Address(kp.PublicKey)
-	out, err := NewAliasOutputMint(bals1, addr, nil, nil)
+	out, err := NewAliasOutputMint(bals1, addr)
 	require.NoError(t, err)
 
 	data := out.Bytes()
@@ -51,10 +56,16 @@ func TestMarshal1(t *testing.T) {
 
 func TestMarshal2(t *testing.T) {
 	bals1 := map[Color]uint64{ColorIOTA: 100}
-	kp := ed25519.GenerateKeyPair()
-	addr := NewED25519Address(kp.PublicKey)
-	out, err := NewAliasOutputMint(bals1, addr, nil, addr)
+	kp1 := ed25519.GenerateKeyPair()
+	addr1 := NewED25519Address(kp1.PublicKey)
+	kp2 := ed25519.GenerateKeyPair()
+	addr2 := NewED25519Address(kp2.PublicKey)
+
+	out, err := NewAliasOutputMint(bals1, addr1)
 	require.NoError(t, err)
+	require.True(t, out.IsSelfGoverned())
+	out.SetGoverningAddress(addr2)
+	require.False(t, out.IsSelfGoverned())
 
 	data := out.Bytes()
 	outBack, _, err := OutputFromBytes(data)
@@ -71,7 +82,10 @@ func TestMarshal3(t *testing.T) {
 	bals1 := map[Color]uint64{ColorIOTA: 100}
 	kp := ed25519.GenerateKeyPair()
 	addr := NewED25519Address(kp.PublicKey)
-	out, err := NewAliasOutputMint(bals1, addr, []byte("dummy..."), addr)
+	out, err := NewAliasOutputMint(bals1, addr)
+	out.SetGoverningAddress(addr)
+	require.NoError(t, err)
+	err = out.SetStateData([]byte("dummy..."))
 	require.NoError(t, err)
 
 	data := out.Bytes()
@@ -89,14 +103,13 @@ func TestStateTransition1(t *testing.T) {
 	bals1 := map[Color]uint64{ColorIOTA: 100}
 	kp := ed25519.GenerateKeyPair()
 	addr := NewED25519Address(kp.PublicKey)
-	out, err := NewAliasOutputMint(bals1, addr, nil, nil)
+	out, err := NewAliasOutputMint(bals1, addr)
 	require.NoError(t, err)
 
 	oid := NewOutputID(TransactionID{}, 42)
 	out.SetID(oid)
 
-	outNext, err := out.NewAliasOutputStateTransition(out.Balances().Map(), out.GetStateData())
-	require.NoError(t, err)
+	outNext := out.NewAliasOutputStateTransition(true)
 
 	require.Zero(t, bytes.Compare(out.GetAliasAddress().Bytes(), outNext.GetAliasAddress().Bytes()))
 	outNext1, _, err := OutputFromBytes(outNext.Bytes())

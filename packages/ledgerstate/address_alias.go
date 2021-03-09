@@ -16,7 +16,7 @@ type AliasAddress struct {
 	digest [32]byte
 }
 
-// NewAliasAddress creates a new AliasAddress from the given public key.
+// NewAliasAddress creates a new AliasAddress from the given bytes, used as seed. Normally it is an OutputID.
 func NewAliasAddress(data []byte) *AliasAddress {
 	return &AliasAddress{
 		digest: blake2b.Sum256(data),

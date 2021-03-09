@@ -19,7 +19,7 @@ func TestAliasMint(t *testing.T) {
 	userStateControl := utxodb.NewKeyPairFromSeed(3)
 	addrStateControl := ledgerstate.NewED25519Address(userStateControl.PublicKey)
 	bals1 := map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: 100}
-	_, err = ledgerstate.NewAliasOutputMint(bals1, addrStateControl, nil, nil)
+	_, err = ledgerstate.NewAliasOutputMint(bals1, addrStateControl)
 	require.NoError(t, err)
 
 	outputs := u.GetAddressOutputs(addr)
