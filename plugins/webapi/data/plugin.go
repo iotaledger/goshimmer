@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	"github.com/iotaledger/goshimmer/plugins/issuer"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/logger"
@@ -45,7 +44,7 @@ func broadcastData(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 
-	msg, err := issuer.IssuePayload(payload.NewGenericDataPayload(request.Data), messagelayer.Tangle())
+	msg, err := messagelayer.Tangle().IssuePayload(payload.NewGenericDataPayload(request.Data))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}

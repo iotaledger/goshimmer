@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
+
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -19,7 +21,7 @@ import (
 // TestConsensusNoConflicts issues valid non-conflicting value objects and then checks
 // whether the ledger of every peer reflects the same correct state.
 func TestConsensusNoConflicts(t *testing.T) {
-	n, err := f.CreateNetwork("consensus_TestConsensusNoConflicts", 4, 2)
+	n, err := f.CreateNetwork("consensus_TestConsensusNoConflicts", 4, 2, framework.CreateNetworkConfig{})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -80,7 +82,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 	// the transaction we just issued must be preferred, liked, finalized and confirmed
 	log.Println("check that the transaction is finalized/confirmed by all peers")
 	tests.CheckTransactions(t, n.Peers(), map[string]*tests.ExpectedTransaction{
-		txID: {Inputs: &utilsTx.Inputs, Outputs: &utilsTx.Outputs, Signature: &utilsTx.Signature},
+		txID: {Inputs: &utilsTx.Inputs, Outputs: &utilsTx.Outputs, UnlockBlocks: &utilsTx.UnlockBlocks},
 	}, true, tests.ExpectedInclusionState{
 		Confirmed: tests.True(), Finalized: tests.True(),
 		Conflicting: tests.False(), Solid: tests.True(),
@@ -115,7 +117,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 
 		secondReceiverExpectedBalances[addr.Base58()] = map[ledgerstate.Color]int64{ledgerstate.ColorIOTA: deposit}
 		secondReceiverExpectedTransactions[txID] = &tests.ExpectedTransaction{
-			Inputs: &utilsTx.Inputs, Outputs: &utilsTx.Outputs, Signature: &utilsTx.Signature,
+			Inputs: &utilsTx.Inputs, Outputs: &utilsTx.Outputs, UnlockBlocks: &utilsTx.UnlockBlocks,
 		}
 	}
 

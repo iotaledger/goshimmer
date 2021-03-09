@@ -3,6 +3,8 @@ package shutdown
 const (
 	// PriorityDatabase defines the shutdown priority for the database.
 	PriorityDatabase = iota
+	// PriorityMana defines the shutdown priority for the mana plugin.
+	PriorityMana
 	// PriorityTangle defines the shutdown priority for the tangle.
 	PriorityTangle
 	// PriorityValueTangle defines the shutdown priority for the value tangle.

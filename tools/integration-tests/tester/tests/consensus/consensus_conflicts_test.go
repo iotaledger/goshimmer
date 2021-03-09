@@ -37,7 +37,7 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	}()
 
 	// create two partitions with their own peers
-	n, err := f.CreateNetworkWithPartitions("abc", 6, 2, 2)
+	n, err := f.CreateNetworkWithPartitions("abc", 6, 2, 2, framework.CreateNetworkConfig{})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -139,9 +139,9 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	for _, conflictingTx := range conflictingTxs {
 		utilsTx := value.ParseTransaction(conflictingTx)
 		expectations[conflictingTx.ID().Base58()] = &tests.ExpectedTransaction{
-			Inputs:    &utilsTx.Inputs,
-			Outputs:   &utilsTx.Outputs,
-			Signature: &utilsTx.Signature,
+			Inputs:       &utilsTx.Inputs,
+			Outputs:      &utilsTx.Outputs,
+			UnlockBlocks: &utilsTx.UnlockBlocks,
 		}
 	}
 

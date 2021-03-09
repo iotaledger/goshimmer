@@ -1,6 +1,7 @@
 package value
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"sync"
@@ -8,13 +9,18 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/issuer"
+	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/labstack/echo"
 )
 
-var sendTxMu sync.Mutex
+var (
+	sendTxMu sync.Mutex
+	// ErrNotAllowedToPledgeManaToNode defines an unsupported node to pledge mana to.
+	ErrNotAllowedToPledgeManaToNode = errors.New("not allowed to pledge mana to node")
+)
 
 // sendTransactionHandler sends a transaction.
 func sendTransactionHandler(c echo.Context) error {
@@ -32,21 +38,27 @@ func sendTransactionHandler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: err.Error()})
 	}
 
-	// check balances validity
-	consumedOutputs := make(ledgerstate.Outputs, len(tx.Essence().Inputs()))
-	for i, consumedOutputID := range tx.Essence().Inputs() {
-		referencedOutputID := consumedOutputID.(*ledgerstate.UTXOInput).ReferencedOutputID()
-		messagelayer.Tangle().LedgerState.Output(referencedOutputID).Consume(func(output ledgerstate.Output) {
-			consumedOutputs[i] = output
-		})
+	// validate allowed mana pledge nodes.
+	allowedAccessMana := manaPlugin.GetAllowedPledgeNodes(mana.AccessMana)
+	if allowedAccessMana.IsFilterEnabled {
+		if !allowedAccessMana.Allowed.Has(tx.Essence().AccessPledgeID()) {
+			return c.JSON(http.StatusBadRequest, SendTransactionResponse{
+				Error: fmt.Errorf("not allowed to pledge access mana to %s: %w", tx.Essence().AccessPledgeID().String(), ErrNotAllowedToPledgeManaToNode).Error(),
+			})
+		}
 	}
-	if !ledgerstate.TransactionBalancesValid(consumedOutputs, tx.Essence().Outputs()) {
-		return c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: "sum of consumed and spent balances is not 0"})
+	allowedConsensusMana := manaPlugin.GetAllowedPledgeNodes(mana.ConsensusMana)
+	if allowedConsensusMana.IsFilterEnabled {
+		if !allowedConsensusMana.Allowed.Has(tx.Essence().ConsensusPledgeID()) {
+			return c.JSON(http.StatusBadRequest, SendTransactionResponse{
+				Error: fmt.Errorf("not allowed to pledge consensus mana to %s: %w", tx.Essence().ConsensusPledgeID().String(), ErrNotAllowedToPledgeManaToNode).Error(),
+			})
+		}
 	}
 
-	// check unlock blocks validity
-	if !ledgerstate.UnlockBlocksValid(consumedOutputs, tx) {
-		return c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: "spending of referenced consumedOutputs is not authorized"})
+	// check transaction validity
+	if valid, err := messagelayer.Tangle().LedgerState.CheckTransaction(tx); !valid {
+		return c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: err.Error()})
 	}
 
 	// check if transaction is too old
@@ -60,7 +72,7 @@ func sendTransactionHandler(c echo.Context) error {
 	}
 
 	issueTransaction := func() (*tangle.Message, error) {
-		msg, e := issuer.IssuePayload(tx, messagelayer.Tangle())
+		msg, e := messagelayer.Tangle().IssuePayload(tx)
 		if e != nil {
 			return nil, c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: e.Error()})
 		}

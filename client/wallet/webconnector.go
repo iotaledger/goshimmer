@@ -4,6 +4,7 @@ import (
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/mana"
 )
 
 // WebConnector implements a connector that uses the web API to connect to a node to implement the required functions
@@ -29,6 +30,7 @@ func (webConnector *WebConnector) ServerStatus() (status ServerStatus, err error
 	status.ID = response.IdentityID
 	status.Synced = response.Synced
 	status.Version = response.Version
+	status.ManaDecay = response.ManaDecay
 
 	return
 }
@@ -95,6 +97,9 @@ func (webConnector WebConnector) UnspentOutputs(addresses ...address.Address) (u
 					Conflicting: output.InclusionState.Conflicting,
 					Spent:       false,
 				},
+				Metadata: OutputMetadata{
+					Timestamp: output.Metadata.Timestamp,
+				},
 			}
 
 			// store output in result
@@ -111,6 +116,20 @@ func (webConnector WebConnector) UnspentOutputs(addresses ...address.Address) (u
 // SendTransaction sends a new transaction to the network.
 func (webConnector WebConnector) SendTransaction(tx *ledgerstate.Transaction) (err error) {
 	_, err = webConnector.client.SendTransaction(tx.Bytes())
+
+	return
+}
+
+// GetAllowedPledgeIDs gets the list of nodeIDs that the node accepts as pledgeIDs in a transaction.
+func (webConnector WebConnector) GetAllowedPledgeIDs() (pledgeIDMap map[mana.Type][]string, err error) {
+	res, err := webConnector.client.GetAllowedManaPledgeNodeIDs()
+	if err != nil {
+		return
+	}
+	pledgeIDMap = map[mana.Type][]string{
+		mana.AccessMana:    res.Access.Allowed,
+		mana.ConsensusMana: res.Consensus.Allowed,
+	}
 
 	return
 }

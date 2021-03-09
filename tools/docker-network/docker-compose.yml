@@ -47,6 +47,8 @@ services:
       --messageLayer.snapshot.file=/tmp/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin
       --syncbeacon.broadcastInterval=5
       --syncbeacon.startSynced=true
+      --metrics.manaResearch=true
+      --mana.enableResearchVectors=true
       --statement.writeStatement=true
       --webapi.exportPath=/tmp/
     volumes:

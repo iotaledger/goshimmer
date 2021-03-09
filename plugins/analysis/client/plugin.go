@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/goshimmer/plugins/config"
-	"github.com/iotaledger/goshimmer/plugins/consensus"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
@@ -56,12 +56,12 @@ func run(_ *node.Plugin) {
 		defer conn.Stop()
 
 		onFinalizedClosure := events.NewClosure(onFinalized)
-		consensus.Voter().Events().Finalized.Attach(onFinalizedClosure)
-		defer consensus.Voter().Events().Finalized.Detach(onFinalizedClosure)
+		messagelayer.Voter().Events().Finalized.Attach(onFinalizedClosure)
+		defer messagelayer.Voter().Events().Finalized.Detach(onFinalizedClosure)
 
 		onRoundExecutedClosure := events.NewClosure(onRoundExecuted)
-		consensus.Voter().Events().RoundExecuted.Attach(onRoundExecutedClosure)
-		defer consensus.Voter().Events().RoundExecuted.Detach(onRoundExecutedClosure)
+		messagelayer.Voter().Events().RoundExecuted.Attach(onRoundExecutedClosure)
+		defer messagelayer.Voter().Events().RoundExecuted.Detach(onRoundExecutedClosure)
 
 		ticker := time.NewTicker(reportIntervalSec * time.Second)
 		defer ticker.Stop()

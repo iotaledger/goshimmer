@@ -7,10 +7,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/config"
-	"github.com/iotaledger/goshimmer/plugins/issuer"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/syncbeacon/payload"
-	"github.com/iotaledger/goshimmer/plugins/syncbeaconfollower"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
@@ -58,7 +56,7 @@ func configure(_ *node.Plugin) {
 		log.Infof("Retrieving all the tips")
 		messagelayer.Tangle().TipManager.Set(messagelayer.Tangle().Storage.RetrieveAllTips()...)
 
-		syncbeaconfollower.OverwriteSyncedState(true)
+		messagelayer.Tangle().SetSynced(true)
 		log.Infof("overwriting synced state to 'true'")
 	}
 }
@@ -70,7 +68,7 @@ func broadcastSyncBeaconPayload() (doneSignal chan struct{}) {
 		defer close(doneSignal)
 
 		syncBeaconPayload := payload.NewSyncBeaconPayload(clock.SyncedTime().UnixNano())
-		msg, err := issuer.IssuePayload(syncBeaconPayload, messagelayer.Tangle())
+		msg, err := messagelayer.Tangle().IssuePayload(syncBeaconPayload)
 
 		if err != nil {
 			log.Warnf("error issuing sync beacon: %w", err)

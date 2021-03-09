@@ -625,7 +625,7 @@ func TestConsumedOutputs(t *testing.T) {
 
 	// testing when storing the inputs
 	tx, output := singleInputTransaction(utxoDAG, wallets[0], wallets[1], input, false)
-	cachedInputs := utxoDAG.consumedOutputs(tx)
+	cachedInputs := utxoDAG.ConsumedOutputs(tx)
 	inputs := cachedInputs.Unwrap()
 
 	assert.Equal(t, input, inputs[0])
@@ -634,7 +634,7 @@ func TestConsumedOutputs(t *testing.T) {
 
 	// testing when not storing the inputs
 	tx, _ = singleInputTransaction(utxoDAG, wallets[1], wallets[0], output, false)
-	cachedInputs = utxoDAG.consumedOutputs(tx)
+	cachedInputs = utxoDAG.ConsumedOutputs(tx)
 	inputs = cachedInputs.Unwrap()
 
 	assert.Equal(t, nil, inputs[0])
@@ -651,7 +651,7 @@ func TestAllOutputsExist(t *testing.T) {
 
 	// testing when storing the inputs
 	tx, output := singleInputTransaction(utxoDAG, wallets[0], wallets[1], input, false)
-	cachedInputs := utxoDAG.consumedOutputs(tx)
+	cachedInputs := utxoDAG.ConsumedOutputs(tx)
 	inputs := cachedInputs.Unwrap()
 
 	assert.True(t, utxoDAG.allOutputsExist(inputs))
@@ -660,7 +660,7 @@ func TestAllOutputsExist(t *testing.T) {
 
 	// testing when not storing the inputs
 	tx, _ = singleInputTransaction(utxoDAG, wallets[1], wallets[0], output, false)
-	cachedInputs = utxoDAG.consumedOutputs(tx)
+	cachedInputs = utxoDAG.ConsumedOutputs(tx)
 	inputs = cachedInputs.Unwrap()
 
 	assert.False(t, utxoDAG.allOutputsExist(inputs))

@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
+	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
@@ -144,6 +145,8 @@ func (s *Sequence) IncreaseHighestIndex(referencedMarkers *Markers) (index Index
 
 			s.parentReferences.AddReferences(referencedMarkers, s.highestIndex)
 		}
+
+		s.SetModified()
 	}
 	index = s.highestIndex
 
@@ -478,35 +481,42 @@ func SequenceAliasMappingFromObjectStorage(key []byte, data []byte) (mapping obj
 }
 
 // SequenceAlias returns the SequenceAlias of SequenceAliasMapping.
-func (a *SequenceAliasMapping) SequenceAlias() (sequenceAlias SequenceAlias) {
-	return a.sequenceAlias
+func (s *SequenceAliasMapping) SequenceAlias() (sequenceAlias SequenceAlias) {
+	return s.sequenceAlias
 }
 
 // SequenceID returns the SequenceID of the SequenceAliasMapping.
-func (a *SequenceAliasMapping) SequenceID() (sequenceID SequenceID) {
-	return a.sequenceID
+func (s *SequenceAliasMapping) SequenceID() (sequenceID SequenceID) {
+	return s.sequenceID
 }
 
 // Bytes returns a marshaled version of the SequenceAliasMapping.
-func (a *SequenceAliasMapping) Bytes() (marshaledSequenceAliasMapping []byte) {
-	return byteutils.ConcatBytes(a.ObjectStorageKey(), a.ObjectStorageValue())
+func (s *SequenceAliasMapping) Bytes() (marshaledSequenceAliasMapping []byte) {
+	return byteutils.ConcatBytes(s.ObjectStorageKey(), s.ObjectStorageValue())
+}
+
+func (s *SequenceAliasMapping) String() string {
+	return stringify.Struct("SequenceAliasMapping",
+		stringify.StructField("sequenceAlias", s.sequenceAlias),
+		stringify.StructField("sequenceID", s.sequenceID),
+	)
 }
 
 // Update is required to match the StorableObject interface but updates of the object are disabled.
-func (a *SequenceAliasMapping) Update(other objectstorage.StorableObject) {
+func (s *SequenceAliasMapping) Update(other objectstorage.StorableObject) {
 	panic("updates disabled")
 }
 
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
-func (a *SequenceAliasMapping) ObjectStorageKey() (objectStorageKey []byte) {
-	return a.sequenceAlias.Bytes()
+func (s *SequenceAliasMapping) ObjectStorageKey() (objectStorageKey []byte) {
+	return s.sequenceAlias.Bytes()
 }
 
 // ObjectStorageValue marshals the Transaction into a sequence of bytes. The ID is not serialized here as it is only
 // used as a key in the object storage.
-func (a *SequenceAliasMapping) ObjectStorageValue() (objectStorageValue []byte) {
-	return a.sequenceID.Bytes()
+func (s *SequenceAliasMapping) ObjectStorageValue() (objectStorageValue []byte) {
+	return s.sequenceID.Bytes()
 }
 
 // code contract (make sure the type implements all required methods)
@@ -544,10 +554,17 @@ func (c *CachedSequenceAliasMapping) Unwrap() *SequenceAliasMapping {
 
 // Consume unwraps the CachedObject and passes a type-casted version to the consumer. It automatically releases the
 // object when the consumer finishes and returns true of there was at least one object that was consumed.
-func (c *CachedSequenceAliasMapping) Consume(consumer func(aggregatedSequencesIDMapping *SequenceAliasMapping), forceRelease ...bool) (consumed bool) {
+func (c *CachedSequenceAliasMapping) Consume(consumer func(sequenceAliasMapping *SequenceAliasMapping), forceRelease ...bool) (consumed bool) {
 	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*SequenceAliasMapping))
 	}, forceRelease...)
+}
+
+// String returns a human readable version of the CachedSequenceAliasMapping.
+func (c *CachedSequenceAliasMapping) String() string {
+	return stringify.Struct("CachedSequenceAliasMapping",
+		stringify.StructField("CachedObject", c.Unwrap()),
+	)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

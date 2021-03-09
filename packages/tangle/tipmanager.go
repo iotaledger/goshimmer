@@ -70,7 +70,7 @@ func NewTipManager(tangle *Tangle, tips ...MessageID) *TipManager {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (t *TipManager) Setup() {
-	t.tangle.OpinionFormer.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID MessageID) {
+	t.tangle.ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID MessageID) {
 		t.tangle.Storage.Message(messageID).Consume(t.AddTip)
 	}))
 }
@@ -99,7 +99,7 @@ func (t *TipManager) AddTip(message *Message) {
 		return
 	}
 
-	if !t.tangle.OpinionFormer.PayloadLiked(messageID) {
+	if !t.tangle.ConsensusManager.PayloadLiked(messageID) {
 		return
 	}
 
@@ -168,7 +168,7 @@ func (t *TipManager) Tips(p payload.Payload, countStrongParents, countWeakParent
 		transaction := p.(*ledgerstate.Transaction)
 
 		tries := 5
-		for !t.tangle.Utils.AllTransactionsContainedOrApprovedByMessages(transaction.ReferencedTransactionIDs(), strongParents) {
+		for !t.tangle.Utils.AllTransactionsApprovedByMessages(transaction.ReferencedTransactionIDs(), strongParents...) {
 			if tries == 0 {
 				err = xerrors.Errorf("not able to make sure that all inputs are in the past cone of selected tips")
 				return nil, nil, err

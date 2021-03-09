@@ -6,14 +6,14 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/cli"
 	"github.com/iotaledger/goshimmer/plugins/clock"
 	"github.com/iotaledger/goshimmer/plugins/config"
-	"github.com/iotaledger/goshimmer/plugins/consensus"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/drng"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/gracefulshutdown"
-	"github.com/iotaledger/goshimmer/plugins/issuer"
 	"github.com/iotaledger/goshimmer/plugins/logger"
+	"github.com/iotaledger/goshimmer/plugins/mana"
+	"github.com/iotaledger/goshimmer/plugins/manaeventlogger"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/goshimmer/plugins/portcheck"
@@ -21,7 +21,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/profiling"
 	"github.com/iotaledger/goshimmer/plugins/spammer"
 	"github.com/iotaledger/goshimmer/plugins/syncbeacon"
-	"github.com/iotaledger/goshimmer/plugins/syncbeaconfollower"
 	"github.com/iotaledger/hive.go/node"
 )
 
@@ -40,12 +39,13 @@ var Core = node.Plugins(
 	clock.Plugin(),
 	messagelayer.Plugin(),
 	gossip.Plugin(),
-	issuer.Plugin(),
 	syncbeacon.Plugin(),
-	syncbeaconfollower.Plugin(),
+	messagelayer.SyncBeaconFollowerPlugin(),
 	drng.Plugin(),
 	faucet.Plugin(),
-	consensus.Plugin(),
+	messagelayer.ConsensusPlugin(),
 	metrics.Plugin(),
 	spammer.Plugin(),
+	mana.Plugin(),
+	manaeventlogger.Plugin(),
 )

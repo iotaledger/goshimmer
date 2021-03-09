@@ -11,7 +11,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
-	"github.com/iotaledger/goshimmer/plugins/syncbeaconfollower"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
@@ -84,7 +83,7 @@ func configure(_ *node.Plugin) {
 	configureWebAPI()
 
 	// subscribe to message-layer
-	messagelayer.Tangle().OpinionFormer.Events.MessageOpinionFormed.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
+	messagelayer.Tangle().ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
 
 	clockEnabled = !node.IsSkipped(clockPlugin.Plugin())
 }
@@ -130,7 +129,7 @@ func sendToRemoteLog(networkDelayObject *Object, receiveTime int64) {
 		ReceiveTime: receiveTime,
 		Delta:       receiveTime - networkDelayObject.sentTime,
 		Clock:       clockEnabled,
-		Sync:        syncbeaconfollower.Synced(),
+		Sync:        messagelayer.Tangle().Synced(),
 		Type:        remoteLogType,
 	}
 	_ = remoteLogger.Send(m)
@@ -144,7 +143,7 @@ func sendPoWInfo(object *Object, powDelta time.Duration) {
 		ReceiveTime: 0,
 		Delta:       powDelta.Nanoseconds(),
 		Clock:       clockEnabled,
-		Sync:        syncbeaconfollower.Synced(),
+		Sync:        messagelayer.Tangle().Synced(),
 		Type:        remoteLogType,
 	}
 	_ = remoteLogger.Send(m)

@@ -37,7 +37,7 @@ type Booker struct {
 func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 	messageBooker = &Booker{
 		Events: &BookerEvents{
-			MessageBooked: events.NewEvent(messageIDEventHandler),
+			MessageBooked: events.NewEvent(MessageIDCaller),
 		},
 		tangle:                       tangle,
 		MarkersManager:               NewMarkersManager(tangle),
@@ -94,7 +94,7 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 					return
 				}
 
-				if !b.tangle.Utils.AllTransactionsApprovedByMessage(transaction.ReferencedTransactionIDs(), messageID) {
+				if !b.tangle.Utils.AllTransactionsApprovedByMessages(transaction.ReferencedTransactionIDs(), messageID) {
 					b.tangle.Events.MessageInvalid.Trigger(messageID)
 					err = fmt.Errorf("message does not reference all the transaction's dependencies")
 					return
@@ -258,7 +258,10 @@ func (m *MarkersManager) InheritStructureDetails(message *Message, newSequenceAl
 // PastMaster was assigned.
 func (m *MarkersManager) propagatePastMarkerToFutureMarkers(pastMarkerToInherit *markers.Marker) func(messageMetadata *MessageMetadata, walker *walker.Walker) {
 	return func(messageMetadata *MessageMetadata, walker *walker.Walker) {
-		_, inheritFurther := m.UpdateStructureDetails(messageMetadata.StructureDetails(), pastMarkerToInherit)
+		updated, inheritFurther := m.UpdateStructureDetails(messageMetadata.StructureDetails(), pastMarkerToInherit)
+		if updated {
+			messageMetadata.SetModified(true)
+		}
 		if inheritFurther {
 			m.tangle.Storage.Message(messageMetadata.ID()).Consume(func(message *Message) {
 				for _, strongParentMessageID := range message.StrongParents() {
@@ -285,7 +288,7 @@ func (m *MarkersManager) structureDetailsOfStrongParents(message *Message) (stru
 }
 
 // increaseMarkersIndexCallbackStrategy implements the default strategy for increasing marker Indexes in the Tangle.
-func increaseMarkersIndexCallbackStrategy(sequenceID markers.SequenceID, currentHighestIndex markers.Index) bool {
+func increaseMarkersIndexCallbackStrategy(markers.SequenceID, markers.Index) bool {
 	return true
 }
 

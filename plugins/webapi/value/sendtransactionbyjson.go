@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	"github.com/iotaledger/goshimmer/plugins/issuer"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/crypto/bls"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -86,7 +85,7 @@ func sendTransactionByJSONHandler(c echo.Context) error {
 
 	// send tx message
 	issueTransaction := func() (*tangle.Message, error) {
-		msg, e := issuer.IssuePayload(tx, messagelayer.Tangle())
+		msg, e := messagelayer.Tangle().IssuePayload(tx)
 		if e != nil {
 			return nil, c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: e.Error()})
 		}
@@ -180,7 +179,7 @@ func NewTransactionFromJSON(request SendTransactionByJSONRequest) (*ledgerstate.
 	// add signatures
 	unlockBlocks := make([]ledgerstate.UnlockBlock, len(txEssence.Inputs()))
 	for i, signature := range request.Signatures {
-		switch ledgerstate.SignatureType(signature.Version) {
+		switch ledgerstate.SignatureType(signature.Type) {
 
 		case ledgerstate.ED25519SignatureType:
 			pubKeyBytes, err := base58.Decode(signature.PublicKey)
@@ -233,12 +232,12 @@ func NewTransactionFromJSON(request SendTransactionByJSONRequest) (*ledgerstate.
 // 	 "signature": []string
 //  }
 type SendTransactionByJSONRequest struct {
-	Inputs        []string    `json:"inputs"`
-	Outputs       []Output    `json:"outputs"`
-	AManaPledgeID string      `json:"a_mana_pledg"`
-	CManaPledgeID string      `json:"c_mana_pledg"`
-	Signatures    []Signature `json:"signatures"`
-	Payload       []byte      `json:"payload"`
+	Inputs        []string      `json:"inputs"`
+	Outputs       []Output      `json:"outputs"`
+	AManaPledgeID string        `json:"a_mana_pledg"`
+	CManaPledgeID string        `json:"c_mana_pledg"`
+	Signatures    []UnlockBlock `json:"signatures"`
+	Payload       []byte        `json:"payload"`
 }
 
 // SendTransactionByJSONResponse is the HTTP response from sending transaction.

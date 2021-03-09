@@ -19,9 +19,17 @@ func handleRequest(c echo.Context) error {
 			request.MPM = 1
 		}
 
+		// IMIF: Inter Message Issuing Function
+		switch request.IMIF {
+		case "exponential":
+			break
+		default:
+			request.IMIF = "uniform"
+		}
+
 		messageSpammer.Shutdown()
-		messageSpammer.Start(request.MPM, time.Minute)
-		log.Infof("Started spamming messages with %d MPM", request.MPM)
+		messageSpammer.Start(request.MPM, time.Minute, request.IMIF)
+		log.Infof("Started spamming messages with %d MPM and %s inter-message issuing function", request.MPM, request.IMIF)
 		return c.JSON(http.StatusOK, Response{Message: "started spamming messages"})
 	case "stop":
 		messageSpammer.Shutdown()
@@ -40,6 +48,7 @@ type Response struct {
 
 // Request contains the parameters of a spammer request.
 type Request struct {
-	Cmd string `json:"cmd"`
-	MPM int    `json:"mpm"`
+	Cmd  string `json:"cmd"`
+	IMIF string `json:"imif"`
+	MPM  int    `json:"mpm"`
 }
