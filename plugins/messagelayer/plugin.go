@@ -20,9 +20,6 @@ import (
 )
 
 const (
-	// PluginName defines the plugin name.
-	PluginName = "MessageLayer"
-
 	// DefaultAverageNetworkDelay contains the default average time it takes for a network to propagate through gossip.
 	DefaultAverageNetworkDelay = 5 * time.Second
 )

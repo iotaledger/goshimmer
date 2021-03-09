@@ -1,25 +1,39 @@
 package messagelayer
 
 import (
+	"context"
+	"fmt"
 	"net"
 	"strconv"
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/prng"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/packages/vote/fpc"
 	votenet "github.com/iotaledger/goshimmer/packages/vote/net"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/goshimmer/packages/vote/statement"
+	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/clock"
+	"github.com/iotaledger/goshimmer/plugins/remotelog"
+	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/node"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 )
+
+// region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 var (
 	// plugin is the plugin instance of the statement plugin.
@@ -193,3 +207,311 @@ func runFPC(plugin *node.Plugin) {
 		plugin.Panicf("Failed to start as daemon: %s", err)
 	}
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region OpinionGivers ////////////////////////////////////////////////////////////////////////////////////////////////
+
+// OpinionGiver is a wrapper for both statements and peers.
+type OpinionGiver struct {
+	id   identity.ID
+	view *statement.View
+	pog  *PeerOpinionGiver
+}
+
+// OpinionGivers is a map of OpinionGiver.
+type OpinionGivers map[identity.ID]OpinionGiver
+
+// Query retrieves the opinions about the given conflicts and timestamps.
+func (o *OpinionGiver) Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (opinions opinion.Opinions, err error) {
+	for i := 0; i < StatementParameters.WaitForStatement; i++ {
+		if o.view != nil {
+			opinions, err = o.view.Query(ctx, conflictIDs, timestampIDs)
+			if err == nil {
+				return opinions, nil
+			}
+		}
+		time.Sleep(time.Second)
+	}
+
+	return o.pog.Query(ctx, conflictIDs, timestampIDs)
+}
+
+// ID returns the identifier of the underlying Peer.
+func (o *OpinionGiver) ID() identity.ID {
+	return o.id
+}
+
+// OpinionGiverFunc returns a slice of opinion givers.
+func OpinionGiverFunc() (givers []opinion.OpinionGiver, err error) {
+	opinionGiversMap := make(map[identity.ID]*OpinionGiver)
+	opinionGivers := make([]opinion.OpinionGiver, 0)
+
+	for _, v := range Registry().NodesView() {
+		opinionGiversMap[v.ID()] = &OpinionGiver{
+			id:   v.ID(),
+			view: v,
+		}
+	}
+
+	for _, p := range autopeering.Discovery().GetVerifiedPeers() {
+		fpcService := p.Services().Get(service.FPCKey)
+		if fpcService == nil {
+			continue
+		}
+		if _, ok := opinionGiversMap[p.ID()]; !ok {
+			opinionGiversMap[p.ID()] = &OpinionGiver{
+				id:   p.ID(),
+				view: nil,
+			}
+		}
+		opinionGiversMap[p.ID()].pog = &PeerOpinionGiver{p: p}
+	}
+
+	for _, v := range opinionGiversMap {
+		opinionGivers = append(opinionGivers, v)
+	}
+
+	return opinionGivers, nil
+}
+
+// endregion /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region PeerOpinionGiver /////////////////////////////////////////////////////////////////////////////////////////////
+
+// PeerOpinionGiver implements the OpinionGiver interface based on a peer.
+type PeerOpinionGiver struct {
+	p *peer.Peer
+}
+
+// Query queries another node for its opinion.
+func (pog *PeerOpinionGiver) Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (opinion.Opinions, error) {
+	if pog == nil {
+		return nil, fmt.Errorf("unable to query opinions, PeerOpinionGiver is nil")
+	}
+
+	var opts []grpc.DialOption
+	opts = append(opts, grpc.WithInsecure())
+
+	// connect to the FPC service
+	conn, err := grpc.Dial(pog.Address(), opts...)
+	if err != nil {
+		return nil, fmt.Errorf("unable to connect to FPC service: %w", err)
+	}
+	defer conn.Close()
+
+	client := votenet.NewVoterQueryClient(conn)
+	query := &votenet.QueryRequest{ConflictIDs: conflictIDs, TimestampIDs: timestampIDs}
+	reply, err := client.Opinion(ctx, query)
+	if err != nil {
+		metrics.Events().QueryReplyError.Trigger(&metrics.QueryReplyErrorEvent{
+			ID:           pog.p.ID().String(),
+			OpinionCount: len(conflictIDs) + len(timestampIDs),
+		})
+		return nil, fmt.Errorf("unable to query opinions: %w", err)
+	}
+
+	metrics.Events().FPCInboundBytes.Trigger(uint64(proto.Size(reply)))
+	metrics.Events().FPCOutboundBytes.Trigger(uint64(proto.Size(query)))
+
+	// convert int32s in reply to opinions
+	opinions := make(opinion.Opinions, len(reply.Opinion))
+	for i, intOpn := range reply.Opinion {
+		opinions[i] = opinion.ConvertInt32Opinion(intOpn)
+	}
+
+	return opinions, nil
+}
+
+// ID returns the identifier of the underlying Peer.
+func (pog *PeerOpinionGiver) ID() identity.ID {
+	return pog.p.ID()
+}
+
+// Address returns the FPC address of the underlying Peer.
+func (pog *PeerOpinionGiver) Address() string {
+	fpcServicePort := pog.p.Services().Get(service.FPCKey).Port()
+	return net.JoinHostPort(pog.p.IP().String(), strconv.Itoa(fpcServicePort))
+}
+
+// endregion /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region OpinionRetriever /////////////////////////////////////////////////////////////////////////////////////////////
+
+// OpinionRetriever returns the current opinion of the given id.
+func OpinionRetriever(id string, objectType vote.ObjectType) opinion.Opinion {
+	switch objectType {
+	case vote.TimestampType:
+		// TODO: implement
+		return opinion.Like
+	default: // conflict type
+		transactionID, err := ledgerstate.TransactionIDFromBase58(id)
+		if err != nil {
+			plugin.LogErrorf("received invalid vote request for branch '%s'", id)
+
+			return opinion.Unknown
+		}
+
+		opinionEssence := ConsensusMechanism().TransactionOpinionEssence(transactionID)
+
+		if opinionEssence.LevelOfKnowledge() == fcob.Pending {
+			return opinion.Unknown
+		}
+
+		if !opinionEssence.Liked() {
+			return opinion.Dislike
+		}
+
+		return opinion.Like
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region RemoteLogger /////////////////////////////////////////////////////////////////////////////////////////////////
+
+const (
+	remoteLogType = "statement"
+)
+
+var (
+	remoteLogger *remotelog.RemoteLoggerConn
+	myID         string
+	clockEnabled bool
+)
+
+func configureRemoteLogger() {
+	remoteLogger = remotelog.RemoteLogger()
+
+	if local.GetInstance() != nil {
+		myID = local.GetInstance().ID().String()
+	}
+
+	clockEnabled = !node.IsSkipped(clock.Plugin())
+}
+
+func sendToRemoteLog(msgID, issuerID string, issuedTime, arrivalTime, solidTime int64) {
+	m := statementLog{
+		NodeID:       myID,
+		MsgID:        msgID,
+		IssuerID:     issuerID,
+		IssuedTime:   issuedTime,
+		ArrivalTime:  arrivalTime,
+		SolidTime:    solidTime,
+		DeltaArrival: arrivalTime - issuedTime,
+		DeltaSolid:   solidTime - issuedTime,
+		Clock:        clockEnabled,
+		Sync:         Tangle().Synced(),
+		Type:         remoteLogType,
+	}
+	_ = remoteLogger.Send(m)
+}
+
+type statementLog struct {
+	NodeID       string `json:"nodeID"`
+	MsgID        string `json:"msgID"`
+	IssuerID     string `json:"issuerID"`
+	IssuedTime   int64  `json:"issuedTime"`
+	ArrivalTime  int64  `json:"arrivalTime"`
+	SolidTime    int64  `json:"solidTime"`
+	DeltaArrival int64  `json:"deltaArrival"`
+	DeltaSolid   int64  `json:"deltaSolid"`
+	Clock        bool   `json:"clock"`
+	Sync         bool   `json:"sync"`
+	Type         string `json:"type"`
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Statement ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func makeStatement(roundStats *vote.RoundStats) {
+	// TODO: add check for Mana threshold
+
+	timestamps := statement.Timestamps{}
+	conflicts := statement.Conflicts{}
+
+	for id, v := range roundStats.ActiveVoteContexts {
+		switch v.Type {
+		case vote.TimestampType:
+			messageID, err := tangle.NewMessageID(id)
+			if err != nil {
+				// TODO
+				break
+			}
+			timestamps = append(timestamps, statement.Timestamp{
+				ID: messageID,
+				Opinion: statement.Opinion{
+					Value: v.LastOpinion(),
+					Round: uint8(v.Rounds)}},
+			)
+		case vote.ConflictType:
+			messageID, err := ledgerstate.TransactionIDFromBase58(id)
+			if err != nil {
+				// TODO
+				break
+			}
+			conflicts = append(conflicts, statement.Conflict{
+				ID: messageID,
+				Opinion: statement.Opinion{
+					Value: v.LastOpinion(),
+					Round: uint8(v.Rounds)}},
+			)
+		default:
+		}
+	}
+
+	broadcastStatement(conflicts, timestamps)
+}
+
+// broadcastStatement broadcasts a statement via communication layer.
+func broadcastStatement(conflicts statement.Conflicts, timestamps statement.Timestamps) {
+	msg, err := Tangle().IssuePayload(statement.New(conflicts, timestamps))
+
+	if err != nil {
+		plugin.LogWarnf("error issuing statement: %s", err)
+		return
+	}
+
+	plugin.LogDebugf("issued statement %s", msg.ID())
+}
+
+func readStatement(messageID tangle.MessageID) {
+	Tangle().Storage.Message(messageID).Consume(func(msg *tangle.Message) {
+		messagePayload := msg.Payload()
+		if messagePayload.Type() != statement.StatementType {
+			return
+		}
+		statementPayload, ok := messagePayload.(*statement.Statement)
+		if !ok {
+			plugin.LogDebug("could not cast payload to statement object")
+			return
+		}
+
+		// TODO: check if the Mana threshold of the issuer is ok
+
+		issuerID := identity.NewID(msg.IssuerPublicKey())
+		// Skip ourselves
+		if issuerID == local.GetInstance().ID() {
+			return
+		}
+
+		issuerRegistry := Registry().NodeView(issuerID)
+
+		issuerRegistry.AddConflicts(statementPayload.Conflicts)
+
+		issuerRegistry.AddTimestamps(statementPayload.Timestamps)
+
+		Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
+			sendToRemoteLog(
+				msg.ID().String(),
+				issuerID.String(),
+				msg.IssuingTime().UnixNano(),
+				messageMetadata.ReceivedTime().UnixNano(),
+				messageMetadata.SolidificationTime().UnixNano(),
+			)
+		})
+	})
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
