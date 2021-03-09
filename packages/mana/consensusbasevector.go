@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/identity"
 	"golang.org/x/xerrors"
 )
@@ -103,13 +104,12 @@ func (c *ConsensusBaseManaVector) Book(txInfo *TxInfo) {
 	defer c.Unlock()
 	// first, revoke mana from previous owners
 	for _, inputInfo := range txInfo.InputInfos {
-		// which node did the input pledge mana to?
-		pledgeNodeID := inputInfo.PledgeID[c.Type()]
-		// can't revoke from genesis
-		emptyID := identity.ID{}
-		if pledgeNodeID == emptyID {
+		// and there was the genesis once
+		if inputInfo.InputID == ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0) {
 			continue
 		}
+		// which node did the input pledge mana to?
+		pledgeNodeID := inputInfo.PledgeID[c.Type()]
 		if _, exist := c.vector[pledgeNodeID]; !exist {
 			// first time we see this node
 			c.vector[pledgeNodeID] = &ConsensusBaseMana{}
