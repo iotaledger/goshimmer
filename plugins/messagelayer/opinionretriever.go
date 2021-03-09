@@ -16,7 +16,7 @@ func OpinionRetriever(id string, objectType vote.ObjectType) opinion.Opinion {
 	default: // conflict type
 		transactionID, err := ledgerstate.TransactionIDFromBase58(id)
 		if err != nil {
-			Plugin().LogErrorf("received invalid vote request for branch '%s'", id)
+			plugin.LogErrorf("received invalid vote request for branch '%s'", id)
 
 			return opinion.Unknown
 		}

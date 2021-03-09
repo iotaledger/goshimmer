@@ -12,7 +12,6 @@ import (
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/mr-tron/base58"
 )
@@ -33,7 +32,6 @@ var (
 	// plugin is the plugin instance of the sync beacon plugin.
 	syncBeaconFollowerPlugin     *node.Plugin
 	syncBeaconFollowerPluginOnce sync.Once
-	syncBeaconFollowerLog        *logger.Logger
 	currentBeacons               map[ed25519.PublicKey]*Status
 	currentBeaconPubKeys         map[ed25519.PublicKey]string
 	mutex                        sync.RWMutex
@@ -69,12 +67,10 @@ func SyncStatus() (bool, map[ed25519.PublicKey]Status) {
 
 // configure plugin
 func configureSyncBeaconFollower(*node.Plugin) {
-	syncBeaconFollowerLog = logger.NewLogger(SyncBeaconFollowerPluginName)
-
 	if SyncBeaconFollowerParameters.SyncPercentage < 0.5 || SyncBeaconFollowerParameters.SyncPercentage > 1.0 {
-		syncBeaconFollowerLog.Warnf("invalid syncPercentage: %f, syncPercentage has to be in [0.5, 1.0] interval", SyncBeaconFollowerParameters.SyncPercentage)
+		syncBeaconFollowerPlugin.LogWarnf("invalid syncPercentage: %f, syncPercentage has to be in [0.5, 1.0] interval", SyncBeaconFollowerParameters.SyncPercentage)
 		// set it to default
-		syncBeaconFollowerLog.Warnf("setting syncPercentage to default value of 0.5")
+		syncBeaconFollowerPlugin.LogWarnf("setting syncPercentage to default value of 0.5")
 		SyncBeaconFollowerParameters.SyncPercentage = 0.5
 	}
 
@@ -84,12 +80,12 @@ func configureSyncBeaconFollower(*node.Plugin) {
 	for _, str := range SyncBeaconFollowerParameters.FollowNodes {
 		bytes, err := base58.Decode(str)
 		if err != nil {
-			syncBeaconFollowerLog.Warnf("error decoding public key: %w", err)
+			syncBeaconFollowerPlugin.LogWarnf("error decoding public key: %w", err)
 			continue
 		}
 		pubKey, _, err := ed25519.PublicKeyFromBytes(bytes)
 		if err != nil {
-			syncBeaconFollowerLog.Warnf("%s is not a valid public key: %w", err)
+			syncBeaconFollowerPlugin.LogWarnf("%s is not a valid public key: %w", err)
 			continue
 		}
 		currentBeacons[pubKey] = &Status{
@@ -100,7 +96,7 @@ func configureSyncBeaconFollower(*node.Plugin) {
 		currentBeaconPubKeys[pubKey] = str
 	}
 	if len(currentBeaconPubKeys) == 0 {
-		syncBeaconFollowerLog.Panicf("Follow node list cannot be empty: %w", ErrMissingFollowNodes)
+		syncBeaconFollowerPlugin.Panicf("Follow node list cannot be empty: %w", ErrMissingFollowNodes)
 	}
 
 	Tangle().Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID tangle.MessageID) {
@@ -112,7 +108,7 @@ func configureSyncBeaconFollower(*node.Plugin) {
 
 			payload, ok := messagePayload.(*syncbeacon_payload.Payload)
 			if !ok {
-				syncBeaconFollowerLog.Debug("could not cast payload to sync beacon object")
+				syncBeaconFollowerPlugin.LogDebug("could not cast payload to sync beacon object")
 				return
 			}
 
@@ -141,7 +137,7 @@ func handlePayload(syncBeaconPayload *syncbeacon_payload.Payload, issuerPublicKe
 	synced := true
 	dur := clock.Since(time.Unix(0, syncBeaconPayload.SentTime()))
 	if dur.Seconds() > float64(SyncBeaconFollowerParameters.MaxTimeWindowSec) {
-		syncBeaconFollowerLog.Debugf("sync beacon %s, received from %s is too old.", msgID, issuerPublicKey)
+		syncBeaconFollowerPlugin.LogDebugf("sync beacon %s, received from %s is too old.", msgID, issuerPublicKey)
 		synced = false
 	}
 
@@ -199,6 +195,6 @@ func runSyncBeaconFollower(*node.Plugin) {
 			}
 		}
 	}, shutdown.PrioritySynchronization); err != nil {
-		syncBeaconFollowerLog.Panicf("Failed to start as daemon: %s", err)
+		syncBeaconFollowerPlugin.Panicf("Failed to start as daemon: %s", err)
 	}
 }
