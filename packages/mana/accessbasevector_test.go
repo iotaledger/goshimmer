@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
@@ -46,6 +47,7 @@ var (
 					AccessMana:    inputPledgeID1,
 					ConsensusMana: inputPledgeID1,
 				},
+				InputID: ledgerstate.OutputID{1},
 			},
 			{
 				// funds have been sitting here for couple days...
@@ -55,6 +57,7 @@ var (
 					AccessMana:    inputPledgeID2,
 					ConsensusMana: inputPledgeID2,
 				},
+				InputID: ledgerstate.OutputID{2},
 			},
 			{
 				// funds have been sitting here for couple days...
@@ -64,6 +67,7 @@ var (
 					AccessMana:    inputPledgeID3,
 					ConsensusMana: inputPledgeID3,
 				},
+				InputID: ledgerstate.OutputID{3},
 			},
 		},
 	}

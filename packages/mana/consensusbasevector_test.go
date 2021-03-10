@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
@@ -670,6 +671,8 @@ func TestConsensusBaseManaVector_BuildPastBaseVector(t *testing.T) {
 				TimeStamp: inputTime,
 				Amount:    10,
 				PledgeID:  map[Type]identity.ID{ConsensusMana: emptyID},
+				// imitate spending the genesis
+				InputID: ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0),
 			},
 		},
 	}
@@ -684,6 +687,7 @@ func TestConsensusBaseManaVector_BuildPastBaseVector(t *testing.T) {
 				TimeStamp: txTime,
 				Amount:    5,
 				PledgeID:  map[Type]identity.ID{ConsensusMana: inputPledgeID1},
+				InputID:   ledgerstate.OutputID{2},
 			},
 		},
 	}
@@ -698,11 +702,13 @@ func TestConsensusBaseManaVector_BuildPastBaseVector(t *testing.T) {
 				TimeStamp: txTime,
 				Amount:    5,
 				PledgeID:  map[Type]identity.ID{ConsensusMana: inputPledgeID1},
+				InputID:   ledgerstate.OutputID{3},
 			},
 			{
 				TimeStamp: txTime.Add(1 * time.Hour),
 				Amount:    5,
 				PledgeID:  map[Type]identity.ID{ConsensusMana: inputPledgeID2},
+				InputID:   ledgerstate.OutputID{4},
 			},
 		},
 	}
