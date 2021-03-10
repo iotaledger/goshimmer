@@ -2,6 +2,7 @@ package utxoutil
 
 import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"golang.org/x/xerrors"
 	"time"
@@ -186,7 +187,7 @@ func (b *Builder) AddExtendedOutputSimple(targetAddress ledgerstate.Address, amo
 
 // ConsumeChainInput consumes and returns clone of the input
 func (b *Builder) ConsumeChainInput(addressAlias ledgerstate.Address) (ledgerstate.Output, error) {
-	out, idx, ok := FindChainInput(addressAlias, b.consumables...)
+	out, idx, ok := FindChainConsumableInput(addressAlias, b.consumables...)
 	if !ok {
 		return nil, xerrors.Errorf("can't find chain input for %s", addressAlias)
 	}
@@ -210,9 +211,9 @@ func (b *Builder) ConsumeReminderBalances(compress bool) []*ConsumableOutput {
 	return inputConsumables
 }
 
-func (b *Builder) BuildEssence(compress ...bool) (*ledgerstate.TransactionEssence, error) {
+func (b *Builder) BuildEssence(compress ...bool) (*ledgerstate.TransactionEssence, []ledgerstate.Output, error) {
 	if len(b.consumedUnspent) > 0 {
-		return nil, xerrors.New("not all consumed balances were spent")
+		return nil, nil, xerrors.New("not all consumed balances were spent")
 	}
 	compr := false
 	if len(compress) > 0 {
@@ -224,37 +225,21 @@ func (b *Builder) BuildEssence(compress ...bool) (*ledgerstate.TransactionEssenc
 	}
 	for _, consumable := range inputConsumables {
 		if !consumable.NothingRemains() {
-			return nil, xerrors.New("not all inputs were completely consumed")
+			return nil, nil, xerrors.New("not all inputs were completely consumed")
 		}
 	}
-	// NewOutputs sorts the outputs and changes indices -> impossible to know index of a particular output
+	// NewOutputs sorts the outputs and changes indices -> impossible to know indexUnlocked of a particular output
 	outputs := ledgerstate.NewOutputs(b.outputs...)
-	inputs := MakeUTXOInputs(inputConsumables...)
+	inputs, consumedOutputs := MakeUTXOInputs(inputConsumables...)
 	ret := ledgerstate.NewTransactionEssence(b.version, b.timestamp, b.accessPledgeID, b.consensusPledgeID, inputs, outputs)
-	return ret, nil
+	return ret, consumedOutputs, nil
 }
 
-//
-//func (b *Builder) BuildWithED25519(keyPair *ed25519.KeyPair) (*ledgerstate.Transaction, error) {
-//	addr := ledgerstate.NewED25519Address(keyPair.PublicKey)
-//	essence, err := b.BuildEssence(addr)
-//	if err != nil {
-//		return nil, err
-//	}
-//	data := essence.Bytes()
-//	signature := ledgerstate.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(data))
-//	if !signature.AddressSignatureValid(addr, data) {
-//		panic("BuildWithED25519: internal error, signature invalid")
-//	}
-//	unlockBlocks := unlockBlocksFromSignature(signature, len(essence.Inputs()))
-//	return ledgerstate.NewTransaction(essence, unlockBlocks), nil
-//}
-//
-//func unlockBlocksFromSignature(signature ledgerstate.Signature, n int) ledgerstate.UnlockBlocks {
-//	ret := make(ledgerstate.UnlockBlocks, n)
-//	ret[0] = ledgerstate.NewSignatureUnlockBlock(signature)
-//	for i := 1; i < n; i++ {
-//		ret[i] = ledgerstate.NewReferenceUnlockBlock(0)
-//	}
-//	return ret
-//}
+func (b *Builder) BuildWithED25519(keyPairs []*ed25519.KeyPair) (*ledgerstate.Transaction, error) {
+	essence, consumedOutputs, err := b.BuildEssence()
+	if err != nil {
+		return nil, err
+	}
+	unlockBlocks, err := UnlockInputsWithED25519KeyPairs(consumedOutputs, essence, keyPairs)
+	return ledgerstate.NewTransaction(essence, unlockBlocks), nil
+}

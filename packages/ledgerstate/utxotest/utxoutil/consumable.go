@@ -159,12 +159,14 @@ func SelectConsumed(consumables ...*ConsumableOutput) []*ConsumableOutput {
 	return ret
 }
 
-func MakeUTXOInputs(consumables ...*ConsumableOutput) ledgerstate.Inputs {
-	ret := make(ledgerstate.Inputs, len(consumables))
+func MakeUTXOInputs(consumables ...*ConsumableOutput) (ledgerstate.Inputs, []ledgerstate.Output) {
+	retInputs := make(ledgerstate.Inputs, len(consumables))
+	retConsumedOutputs := make([]ledgerstate.Output, len(consumables))
 	for i, out := range consumables {
-		ret[i] = ledgerstate.NewUTXOInput(out.output.ID())
+		retInputs[i] = ledgerstate.NewUTXOInput(out.output.ID())
+		retConsumedOutputs[i] = out.output
 	}
-	return ret
+	return retInputs, retConsumedOutputs
 }
 
 func TakeOneSenderAddress(consumables ...*ConsumableOutput) (ledgerstate.Address, error) {
@@ -178,7 +180,7 @@ func TakeOneSenderAddress(consumables ...*ConsumableOutput) (ledgerstate.Address
 	return ret, nil
 }
 
-func FindChainInput(aliasAddr ledgerstate.Address, consumables ...*ConsumableOutput) (*ledgerstate.ChainOutput, int, bool) {
+func FindChainConsumableInput(aliasAddr ledgerstate.Address, consumables ...*ConsumableOutput) (*ledgerstate.ChainOutput, int, bool) {
 	for i, out := range consumables {
 		if EqualAddresses(out.output.Address(), aliasAddr) {
 			if ret, ok := out.output.(*ledgerstate.ChainOutput); ok {

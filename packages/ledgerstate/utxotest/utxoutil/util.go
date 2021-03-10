@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"golang.org/x/xerrors"
 )
 
 func EqualAddresses(a1, a2 ledgerstate.Address) bool {
@@ -22,12 +23,134 @@ func EqualAddresses(a1, a2 ledgerstate.Address) bool {
 	return true
 }
 
-func SigUnlockBlockED25519(essence *ledgerstate.TransactionEssence, keyPair *ed25519.KeyPair) *ledgerstate.SignatureUnlockBlock {
-	addr := ledgerstate.NewED25519Address(keyPair.PublicKey)
-	data := essence.Bytes()
-	signature := ledgerstate.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(data))
-	if !signature.AddressSignatureValid(addr, data) {
-		panic("SigUnlockBlockED25519: internal error, signature invalid")
+//type ChainInputWithIndex struct{
+//	Input *ledgerstate.ChainOutput
+//	Index int
+//}
+//
+//func FindChainInputs(inputs []ledgerstate.Output) (map[[33]byte]ChainInputWithIndex, error) {
+//	ret := make(map[[33]byte]ChainInputWithIndex, 0)
+//
+//	for i, out := range inputs {
+//		retTmp, ok := out.(*ledgerstate.ChainOutput)
+//		if !ok {
+//			continue
+//		}
+//		if _, ok := ret[retTmp.Address().Array()]; ok{
+//			return nil, xerrors.New("duplicate chain input")
+//		}
+//		ret[retTmp.Address().Array()] = ChainInputWithIndex{
+//			Input: retTmp,
+//			Index: i,
+//		}
+//	}
+//	return ret, nil
+//}
+
+type signatureUnlockBlockWithIndex struct {
+	unlockBlock   *ledgerstate.SignatureUnlockBlock
+	indexUnlocked int
+}
+
+func UnlockInputsWithED25519KeyPairs(inputs []ledgerstate.Output, essence *ledgerstate.TransactionEssence, keyPairs []*ed25519.KeyPair) ([]ledgerstate.UnlockBlock, error) {
+	sigs := make(map[[33]byte]*signatureUnlockBlockWithIndex)
+	for _, keyPair := range keyPairs {
+		addr := ledgerstate.NewED25519Address(keyPair.PublicKey)
+		data := essence.Bytes()
+		signature := ledgerstate.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(data))
+		if !signature.AddressSignatureValid(addr, data) {
+			panic("SigUnlockBlockED25519: internal error, unlockBlock invalid")
+		}
+		sigs[addr.Array()] = &signatureUnlockBlockWithIndex{
+			unlockBlock:   ledgerstate.NewSignatureUnlockBlock(signature),
+			indexUnlocked: -1,
+		}
 	}
-	return ledgerstate.NewSignatureUnlockBlock(signature)
+	return unlockInputsWithSignatureBlocks(inputs, sigs)
+}
+
+func unlockInputsWithSignatureBlocks(inputs []ledgerstate.Output, sigUnlockBlocks map[[33]byte]*signatureUnlockBlockWithIndex) ([]ledgerstate.UnlockBlock, error) {
+	// unlock ChainOutputs
+	ret := make([]ledgerstate.UnlockBlock, len(inputs))
+	for index, out := range inputs {
+		if ret[index] != nil {
+			continue
+		}
+		switch ot := out.(type) {
+		case *ledgerstate.ChainOutput:
+			sig, ok := sigUnlockBlocks[ot.GetStateAddress().Array()]
+			if !ok {
+				return nil, xerrors.Errorf("chain input %d can't be unlocked for state update")
+			}
+			if sig.indexUnlocked >= 0 {
+				// signature already included
+				ret[index] = ledgerstate.NewAliasReferenceUnlockBlock(uint16(sig.indexUnlocked))
+			} else {
+				// signature is included here
+				ret[index] = sig.unlockBlock
+				sig.indexUnlocked = index
+			}
+			// assign unlock blocks for all alias locked inputs
+			for i, o := range inputs {
+				eot, ok := o.(*ledgerstate.ExtendedLockedOutput)
+				if !ok {
+					continue
+				}
+				if !EqualAddresses(ot.GetAliasAddress(), eot.Address()) {
+					continue
+				}
+				ret[i] = ledgerstate.NewAliasReferenceUnlockBlock(uint16(index))
+			}
+
+		case *ledgerstate.ExtendedLockedOutput:
+			sig, ok := sigUnlockBlocks[ot.Address().Array()]
+			if !ok {
+				// no corresponding signature, it probably is an alias
+				continue
+			}
+			if sig.indexUnlocked >= 0 {
+				// signature already included
+				ret[index] = ledgerstate.NewReferenceUnlockBlock(uint16(sig.indexUnlocked))
+			} else {
+				// signature is included here
+				ret[index] = sig.unlockBlock
+				sig.indexUnlocked = index
+			}
+
+		case *ledgerstate.SigLockedSingleOutput:
+			sig, ok := sigUnlockBlocks[ot.Address().Array()]
+			if !ok {
+				return nil, xerrors.Errorf("sig locked input %d can't be unlocked")
+			}
+			if sig.indexUnlocked >= 0 {
+				// signature already included
+				ret[index] = ledgerstate.NewReferenceUnlockBlock(uint16(sig.indexUnlocked))
+			} else {
+				// signature is included here
+				ret[index] = sig.unlockBlock
+				sig.indexUnlocked = index
+			}
+		case *ledgerstate.SigLockedColoredOutput:
+			sig, ok := sigUnlockBlocks[ot.Address().Array()]
+			if !ok {
+				return nil, xerrors.Errorf("sig locked input %d can't be unlocked")
+			}
+			if sig.indexUnlocked >= 0 {
+				// signature already included
+				ret[index] = ledgerstate.NewReferenceUnlockBlock(uint16(sig.indexUnlocked))
+			} else {
+				// signature is included here
+				ret[index] = sig.unlockBlock
+				sig.indexUnlocked = index
+			}
+		default:
+			return nil, xerrors.Errorf("unsupported output type at #d", index)
+		}
+	}
+	for _, b := range ret {
+		if b == nil {
+			return nil, xerrors.New("failed to unlock some inputs")
+		}
+	}
+	return ret, nil
 }

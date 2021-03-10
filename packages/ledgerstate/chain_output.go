@@ -176,6 +176,10 @@ func (c *ChainOutput) IsSelfGoverned() bool {
 	return c.governingAddress == nil
 }
 
+func (c *ChainOutput) GetStateAddress() Address {
+	return c.stateAddress
+}
+
 func (c *ChainOutput) SetStateAddress(addr Address) error {
 	if addr == nil || addr.Type() == AliasAddressType {
 		return xerrors.New("ChainOutput: mandatory state address cannot be c AliasAddress")
