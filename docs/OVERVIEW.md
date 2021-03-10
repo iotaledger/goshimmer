@@ -1,6 +1,6 @@
 # Overview
 
-Rendered Version of the documentation: http://goshimmer.docs.iota.org/
+Rendered version of the documentation: http://goshimmer.docs.iota.org/
 
 - [GoShimmer](./goshimmer.md)
 - [Application logic](./application_logic.md)
@@ -16,4 +16,4 @@ Rendered Version of the documentation: http://goshimmer.docs.iota.org/
 - [Tooling](./tooling.md)
   - [Docker private network](./tooling/docker_private_network.md)
 - [Specification of Implementation](./specification.md)
-  - [Mana](./specification/001-mana_proposal.md)
+  - [Mana](./specification/001-mana.md)
