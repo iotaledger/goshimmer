@@ -127,7 +127,12 @@ func (id MessageID) Bytes() []byte {
 	return id[:]
 }
 
-// String returns the base58 encode of the MessageID.
+// Base58 returns a base58 encoded version of the MessageID.
+func (id MessageID) Base58() string {
+	return base58.Encode(id[:])
+}
+
+// String returns a human readable representation of the MessageID.
 func (id MessageID) String() string {
 	return "MessageID(" + base58.Encode(id[:]) + ")"
 }

@@ -62,7 +62,7 @@ func testSortParents(parents []MessageID) {
 func TestNewMessageID(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		randID := randomMessageID()
-		randIDString := randID.String()
+		randIDString := randID.Base58()
 
 		result, err := NewMessageID(randIDString)
 		assert.NoError(t, err)
@@ -78,7 +78,7 @@ func TestNewMessageID(t *testing.T) {
 
 	t.Run("CASE: Too long string", func(t *testing.T) {
 		randID := randomMessageID()
-		randIDString := randID.String()
+		randIDString := randID.Base58()
 
 		result, err := NewMessageID(randIDString + "1")
 		assert.Error(t, err)

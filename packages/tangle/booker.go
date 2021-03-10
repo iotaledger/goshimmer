@@ -134,7 +134,7 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 			inheritedStructureDetails := b.MarkersManager.InheritStructureDetails(message, newSequenceAlias...)
 			messageMetadata.SetStructureDetails(inheritedStructureDetails)
 
-			if !inheritedStructureDetails.IsPastMarker {
+			if isConflict && !inheritedStructureDetails.IsPastMarker {
 				messageMetadata.SetBranchID(inheritedBranch)
 			} else {
 				b.MarkerBranchIDMappingManager.SetBranchID(inheritedStructureDetails.PastMarkers.FirstMarker(), inheritedBranch)
