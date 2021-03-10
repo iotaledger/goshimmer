@@ -209,7 +209,12 @@ func (b *Booker) branchIDOfMessage(messageID MessageID) (branchID ledgerstate.Br
 			return
 		}
 
-		branchID = b.MarkerBranchIDMappingManager.BranchID(messageMetadata.StructureDetails().PastMarkers.FirstMarker())
+		structureDetails := messageMetadata.StructureDetails()
+		if structureDetails == nil {
+			panic(fmt.Errorf("tried to retrieve BranchID from unbooked Message with %s: %v", messageID, cerrors.ErrFatal))
+		}
+
+		branchID = b.MarkerBranchIDMappingManager.BranchID(structureDetails.PastMarkers.FirstMarker())
 	}) {
 		panic(fmt.Errorf("failed to load MessageMetadata with %s", messageID))
 	}

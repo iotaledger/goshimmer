@@ -1,11 +1,14 @@
 package tangle
 
 import (
+	"fmt"
 	"strconv"
 	"testing"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -13,12 +16,25 @@ import (
 func TestTipManager_AddTip(t *testing.T) {
 	tangle := New()
 	defer tangle.Shutdown()
+	tangle.Storage.Setup()
+	tangle.Solidifier.Setup()
 	tipManager := tangle.TipManager
+
+	seed := ed25519.NewSeed()
+
+	tangle.LedgerState.LoadSnapshot(map[ledgerstate.TransactionID]map[ledgerstate.Address]*ledgerstate.ColoredBalances{
+		ledgerstate.GenesisTransactionID: {
+			ledgerstate.NewED25519Address(seed.KeyPair(0).PublicKey): ledgerstate.NewColoredBalances(
+				map[ledgerstate.Color]uint64{
+					ledgerstate.ColorIOTA: 10000,
+				})},
+	})
 
 	// not eligible messages -> nothing is added
 	{
 		message := newTestParentsDataMessage("testmessage", []MessageID{EmptyMessageID}, []MessageID{})
 		tangle.Storage.StoreMessage(message)
+		tangle.Booker.Book(message.ID())
 		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetEligible(false)
 		})
@@ -30,8 +46,34 @@ func TestTipManager_AddTip(t *testing.T) {
 
 	// payload not liked -> nothing is added
 	{
-		message := newTestParentsDataMessage("testmessage", []MessageID{EmptyMessageID}, []MessageID{})
+		randomID, err := identity.RandomID()
+		require.NoError(t, err)
+
+		transactionEssence := ledgerstate.NewTransactionEssence(
+			1,
+			time.Now(),
+			randomID,
+			randomID,
+			ledgerstate.NewInputs(
+				ledgerstate.NewUTXOInput(
+					ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0),
+				),
+			),
+			ledgerstate.NewOutputs(
+				ledgerstate.NewSigLockedSingleOutput(10000, ledgerstate.NewED25519Address(seed.KeyPair(1).PublicKey)),
+			),
+		)
+
+		transaction := ledgerstate.NewTransaction(
+			transactionEssence,
+			[]ledgerstate.UnlockBlock{
+				ledgerstate.NewSignatureUnlockBlock(ledgerstate.NewED25519Signature(seed.KeyPair(0).PublicKey, seed.KeyPair(0).PrivateKey.Sign(transactionEssence.Bytes()))),
+			},
+		)
+
+		message := newTestParentsPayloadMessage(transaction, []MessageID{EmptyMessageID}, []MessageID{})
 		tangle.Storage.StoreMessage(message)
+		tangle.Booker.Book(message.ID())
 		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetEligible(true)
 		})
@@ -39,12 +81,7 @@ func TestTipManager_AddTip(t *testing.T) {
 		// mock the Tangle's PayloadOpinionProvider so that we can add payloads without actually building opinions
 		tangle.Options.ConsensusMechanism = &mockConsensusProvider{
 			func(transactionID ledgerstate.TransactionID) bool {
-				if message.Payload().Type() == ledgerstate.TransactionType {
-					if transactionID == message.Payload().(*ledgerstate.Transaction).ID() {
-						return true
-					}
-				}
-
+				fmt.Println("WADDE")
 				return false
 			},
 		}
