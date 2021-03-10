@@ -18,7 +18,7 @@ type Builder struct {
 	consumedUnspent   map[ledgerstate.Color]uint64
 }
 
-func NewBuilder(inputs []ledgerstate.Output) *Builder {
+func NewBuilder(inputs ...ledgerstate.Output) *Builder {
 	ret := &Builder{
 		timestamp:       time.Now(),
 		consumables:     make([]*ConsumableOutput, len(inputs)),
@@ -69,7 +69,7 @@ func (b *Builder) addToConsumedUnspent(bals map[ledgerstate.Color]uint64) {
 }
 
 func (b *Builder) consumeAmounts(amounts map[ledgerstate.Color]uint64) bool {
-	if !ConsumeAll(amounts, b.consumables...) {
+	if !ConsumeMany(amounts, b.consumables...) {
 		return false
 	}
 	b.addToConsumedUnspent(amounts)
@@ -105,7 +105,7 @@ func (b *Builder) mustSpendAmounts(amounts map[ledgerstate.Color]uint64) {
 	}
 }
 
-// SpendConsumedUnspent spends all consumed unspent and return
+// SpendConsumedUnspent spends all wasConsumed unspent and return
 func (b *Builder) SpendConsumedUnspent() map[ledgerstate.Color]uint64 {
 	ret := b.consumedUnspent
 	b.consumedUnspent = make(map[ledgerstate.Color]uint64)
@@ -116,7 +116,7 @@ func (b *Builder) prepareColoredBalancesOutput(amounts map[ledgerstate.Color]uin
 	if len(amounts) == 0 {
 		return nil, xerrors.New("AddSigLockedColoredOutput: no tokens to transfer")
 	}
-	// check if it is enough consumed unspent amounts
+	// check if it is enough wasConsumed unspent amounts
 	if !b.ensureEnoughUnspendAmounts(amounts) {
 		return nil, xerrors.New("AddSigLockedColoredOutput: not enough balance")
 	}
@@ -130,7 +130,7 @@ func (b *Builder) prepareColoredBalancesOutput(amounts map[ledgerstate.Color]uin
 	}
 	iotas, _ := amountsCopy[ledgerstate.ColorIOTA]
 	if len(mint) > 0 && mint[0] > iotas {
-		return nil, xerrors.Errorf("can't mint more tokens (%d) than consumed iotas (%d)", iotas, mint[0])
+		return nil, xerrors.Errorf("can't mint more tokens (%d) than wasConsumed iotas (%d)", iotas, mint[0])
 	}
 	if len(mint) > 0 && mint[0] > 0 {
 		amountsCopy[ledgerstate.ColorMint] = mint[0]
@@ -155,7 +155,7 @@ func (b *Builder) AddSigLockedColoredOutput(targetAddress ledgerstate.Address, a
 }
 
 // AddSigLockedIOTAOutput adds output with iotas by consuming inputs
-// supports minting (coloring) of part of consumed iotas
+// supports minting (coloring) of part of wasConsumed iotas
 func (b *Builder) AddSigLockedIOTAOutput(targetAddress ledgerstate.Address, amount uint64, mint ...uint64) error {
 	balances, err := b.prepareColoredBalancesOutput(map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: amount}, mint...)
 	if err != nil {
@@ -183,6 +183,25 @@ func (b *Builder) AddExtendedOutputSimple(targetAddress ledgerstate.Address, amo
 		return err
 	}
 	return nil
+}
+
+func (b *Builder) AddReminderOutput(reminderAddr ledgerstate.Address, compress ...bool) error {
+	compr := false
+	if len(compress) > 0 {
+		compr = compress[0]
+	}
+	b.ConsumeReminderBalances(compr)
+	return b.AddExtendedOutputSimple(reminderAddr, b.ConsumedUnspent())
+}
+
+func (b *Builder) ConsumedUnspent() map[ledgerstate.Color]uint64 {
+	ret := make(map[ledgerstate.Color]uint64)
+	for col, bal := range b.consumedUnspent {
+		if bal != 0 {
+			ret[col] = bal
+		}
+	}
+	return ret
 }
 
 // ConsumeChainInput consumes and returns clone of the input
@@ -225,7 +244,7 @@ func (b *Builder) BuildEssence(compress ...bool) (*ledgerstate.TransactionEssenc
 	}
 	for _, consumable := range inputConsumables {
 		if !consumable.NothingRemains() {
-			return nil, nil, xerrors.New("not all inputs were completely consumed")
+			return nil, nil, xerrors.New("not all inputs were completely were consumed")
 		}
 	}
 	// NewOutputs sorts the outputs and changes indices -> impossible to know indexUnlocked of a particular output
@@ -235,7 +254,8 @@ func (b *Builder) BuildEssence(compress ...bool) (*ledgerstate.TransactionEssenc
 	return ret, consumedOutputs, nil
 }
 
-func (b *Builder) BuildWithED25519(keyPairs []*ed25519.KeyPair) (*ledgerstate.Transaction, error) {
+func (b *Builder) BuildWithED25519(keyPairs ...*ed25519.KeyPair) (*ledgerstate.Transaction, error) {
+
 	essence, consumedOutputs, err := b.BuildEssence()
 	if err != nil {
 		return nil, err

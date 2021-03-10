@@ -7,19 +7,18 @@ import (
 )
 
 type ConsumableOutput struct {
-	output   ledgerstate.Output
-	remain   map[ledgerstate.Color]uint64
-	consumed map[ledgerstate.Color]uint64
+	output      ledgerstate.Output
+	remaining   map[ledgerstate.Color]uint64
+	wasConsumed bool
 }
 
 func NewConsumableOutput(out ledgerstate.Output) *ConsumableOutput {
 	ret := &ConsumableOutput{
-		output:   out,
-		remain:   make(map[ledgerstate.Color]uint64),
-		consumed: make(map[ledgerstate.Color]uint64),
+		output:    out,
+		remaining: make(map[ledgerstate.Color]uint64),
 	}
 	out.Balances().ForEach(func(col ledgerstate.Color, bal uint64) bool {
-		ret.remain[col] = bal
+		ret.remaining[col] = bal
 		return true
 	})
 	return ret
@@ -27,30 +26,27 @@ func NewConsumableOutput(out ledgerstate.Output) *ConsumableOutput {
 
 func (o *ConsumableOutput) Clone() *ConsumableOutput {
 	ret := &ConsumableOutput{
-		output:   o.output.Clone(),
-		remain:   make(map[ledgerstate.Color]uint64),
-		consumed: make(map[ledgerstate.Color]uint64),
+		output:      o.output.Clone(),
+		remaining:   make(map[ledgerstate.Color]uint64),
+		wasConsumed: o.wasConsumed,
 	}
-	for col, bal := range o.remain {
-		ret.remain[col] = bal
-	}
-	for col, bal := range o.consumed {
-		ret.consumed[col] = bal
+	for col, bal := range o.remaining {
+		ret.remaining[col] = bal
 	}
 	return ret
 }
 
 func (o *ConsumableOutput) ConsumableBalance(color ledgerstate.Color) uint64 {
-	ret, _ := o.remain[color]
+	ret, _ := o.remaining[color]
 	return ret
 }
 
 func (o *ConsumableOutput) WasConsumed() bool {
-	return len(o.consumed) > 0
+	return o.wasConsumed
 }
 
 func (o *ConsumableOutput) NothingRemains() bool {
-	for _, bal := range o.remain {
+	for _, bal := range o.remaining {
 		if bal != 0 {
 			return false
 		}
@@ -82,7 +78,7 @@ func EnoughBalances(amounts map[ledgerstate.Color]uint64, consumables ...*Consum
 
 // ConsumeColored specified amount of colored tokens sequentially from specified ConsumableOutputs
 // return nil if it was a success.
-// In case of failure ConsumableOutputs remain unchanged
+// In case of failure ConsumableOutputs remaining unchanged
 func ConsumeColored(color ledgerstate.Color, amount uint64, consumables ...*ConsumableOutput) bool {
 	if !EnoughBalance(color, amount, consumables...) {
 		return false
@@ -97,31 +93,25 @@ func MustConsumeColored(color ledgerstate.Color, amount uint64, consumables ...*
 		if remaining == 0 {
 			break
 		}
-		rem, _ := out.remain[color]
+		rem, _ := out.remaining[color]
 		if rem == 0 {
 			continue
 		}
-		cons, _ := out.consumed[color]
 		if rem >= remaining {
-			out.remain[color] = rem - remaining
+			out.remaining[color] = rem - remaining
 			remaining = 0
-			out.consumed[color] = cons + remaining
 		} else {
-			out.remain[color] = 0
+			out.remaining[color] = 0
 			remaining -= rem
-			out.consumed[color] = cons + rem
 		}
+		out.wasConsumed = true
 	}
 	if remaining != 0 {
 		panic("ConsumeColored: internal error")
 	}
 }
 
-func ConsumeIOTA(amount uint64, consumables ...*ConsumableOutput) bool {
-	return ConsumeColored(ledgerstate.ColorIOTA, amount, consumables...)
-}
-
-func ConsumeAll(amounts map[ledgerstate.Color]uint64, consumables ...*ConsumableOutput) bool {
+func ConsumeMany(amounts map[ledgerstate.Color]uint64, consumables ...*ConsumableOutput) bool {
 	if !EnoughBalances(amounts, consumables...) {
 		return false
 	}
@@ -131,20 +121,15 @@ func ConsumeAll(amounts map[ledgerstate.Color]uint64, consumables ...*Consumable
 	return true
 }
 
-// ConsumeRemaining consumes all remaining tokens and return map of consumed balances
+// ConsumeRemaining consumes all remaining tokens and return map of wasConsumed balances
 func ConsumeRemaining(consumables ...*ConsumableOutput) map[ledgerstate.Color]uint64 {
 	ret := make(map[ledgerstate.Color]uint64)
 	for _, out := range consumables {
-		for col, bal := range out.remain {
-			if bal == 0 {
-				continue
-			}
-			cons, _ := out.consumed[col]
-			out.consumed[col] = cons + bal
+		for col, bal := range out.remaining {
+			ConsumeColored(col, bal, out)
 			total, _ := ret[col]
 			ret[col] = total + bal
 		}
-		out.remain = make(map[ledgerstate.Color]uint64) // clear remaining
 	}
 	return ret
 }
