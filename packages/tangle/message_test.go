@@ -172,6 +172,12 @@ func TestMessageID_UnmarshalBinary(t *testing.T) {
 func TestMessageID_String(t *testing.T) {
 	randID := randomMessageID()
 	randIDString := randID.String()
+	assert.Equal(t, "MessageID("+base58.Encode(randID.Bytes())+")", randIDString)
+}
+
+func TestMessageID_Base58(t *testing.T) {
+	randID := randomMessageID()
+	randIDString := randID.Base58()
 	assert.Equal(t, base58.Encode(randID.Bytes()), randIDString)
 }
 
