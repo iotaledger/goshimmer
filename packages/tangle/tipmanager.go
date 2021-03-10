@@ -109,7 +109,7 @@ func (t *TipManager) AddTip(message *Message) {
 
 	// if branch is monotonically liked: strong message
 	// if branch is not monotonically liked: weak message
-	t.tangle.LedgerState.branchDAG.Branch(messageMetadata.BranchID()).Consume(func(branch ledgerstate.Branch) {
+	t.tangle.LedgerState.branchDAG.Branch(t.tangle.Booker.branchIDOfMessage(messageID)).Consume(func(branch ledgerstate.Branch) {
 		if branch.MonotonicallyLiked() {
 			if t.strongTips.Set(messageID, messageID) {
 				t.Events.TipAdded.Trigger(&TipEvent{

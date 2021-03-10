@@ -85,7 +85,7 @@ func (b *Booker) UpdateMessagesBranch(transactionID ledgerstate.TransactionID) {
 func (b *Booker) Book(messageID MessageID) (err error) {
 	b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-			sequenceAlias := make([]markers.SequenceAlias, 0)
+			isConflict := false
 			combinedBranches := b.branchIDsOfParents(message)
 			if payload := message.Payload(); payload != nil && payload.Type() == ledgerstate.TransactionType {
 				transaction := payload.(*ledgerstate.Transaction)
@@ -107,7 +107,7 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 				}
 				combinedBranches = combinedBranches.Add(targetBranch)
 				if ledgerstate.NewBranchID(transaction.ID()) == targetBranch {
-					sequenceAlias = append(sequenceAlias, markers.NewSequenceAlias(targetBranch.Bytes()))
+					isConflict = true
 				}
 
 				for _, output := range transaction.Essence().Outputs() {
@@ -126,7 +126,12 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 				return
 			}
 
-			inheritedStructureDetails := b.MarkersManager.InheritStructureDetails(message, sequenceAlias...)
+			newSequenceAlias := make([]markers.SequenceAlias, 0)
+			if isConflict {
+				newSequenceAlias = append(newSequenceAlias, markers.NewSequenceAlias(inheritedBranch.Bytes()))
+			}
+
+			inheritedStructureDetails := b.MarkersManager.InheritStructureDetails(message, newSequenceAlias...)
 			messageMetadata.SetStructureDetails(inheritedStructureDetails)
 
 			if !inheritedStructureDetails.IsPastMarker {
