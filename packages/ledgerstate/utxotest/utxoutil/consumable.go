@@ -3,6 +3,7 @@ package utxoutil
 
 import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"golang.org/x/xerrors"
 )
 
 type ConsumableOutput struct {
@@ -46,6 +47,15 @@ func (o *ConsumableOutput) ConsumableBalance(color ledgerstate.Color) uint64 {
 
 func (o *ConsumableOutput) WasConsumed() bool {
 	return len(o.consumed) > 0
+}
+
+func (o *ConsumableOutput) NothingRemains() bool {
+	for _, bal := range o.remain {
+		if bal != 0 {
+			return false
+		}
+	}
+	return true
 }
 
 func ConsumableBalance(color ledgerstate.Color, consumables ...*ConsumableOutput) uint64 {
@@ -155,4 +165,26 @@ func MakeUTXOInputs(consumables ...*ConsumableOutput) ledgerstate.Inputs {
 		ret[i] = ledgerstate.NewUTXOInput(out.output.ID())
 	}
 	return ret
+}
+
+func TakeOneSenderAddress(consumables ...*ConsumableOutput) (ledgerstate.Address, error) {
+	var ret ledgerstate.Address
+	for _, out := range consumables {
+		if EqualAddresses(ret, out.output.Address()) {
+			return nil, xerrors.New("outputs are from several addresses")
+		}
+		ret = out.output.Address()
+	}
+	return ret, nil
+}
+
+func FindChainInput(aliasAddr ledgerstate.Address, consumables ...*ConsumableOutput) (*ledgerstate.ChainOutput, int, bool) {
+	for i, out := range consumables {
+		if EqualAddresses(out.output.Address(), aliasAddr) {
+			if ret, ok := out.output.(*ledgerstate.ChainOutput); ok {
+				return ret, i, true
+			}
+		}
+	}
+	return nil, 0, false
 }

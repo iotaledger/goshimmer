@@ -10,7 +10,7 @@ import (
 	"sync"
 )
 
-const MinimumIOTAOnChainOutput = uint64(100) // TODO protocol wide dust threshold
+const DustThresholdChainOutputIOTA = uint64(100) // TODO protocol wide dust threshold
 
 // code contract (make sure the type implements all required methods)
 var _ Output = &ChainOutput{}
@@ -157,7 +157,7 @@ func (c *ChainOutput) SetBalances(balanses map[Color]uint64) error {
 	if len(balanses) == 0 {
 		return xerrors.New("ChainOutput: colored balances should not be empty")
 	}
-	if iotas, ok := balanses[ColorIOTA]; !ok || iotas < MinimumIOTAOnChainOutput {
+	if iotas, ok := balanses[ColorIOTA]; !ok || iotas < DustThresholdChainOutputIOTA {
 		return xerrors.New("ChainOutput: balances are less than dust threshold")
 	}
 	c.balances = *NewColoredBalances(balanses)
@@ -278,7 +278,7 @@ func (c *ChainOutput) checkValidity() error {
 	if len(c.balances.Map()) == 0 {
 		return xerrors.New("ChainOutput: balances must not be nil")
 	}
-	if iotas, ok := c.balances.Get(ColorIOTA); !ok || iotas < MinimumIOTAOnChainOutput {
+	if iotas, ok := c.balances.Get(ColorIOTA); !ok || iotas < DustThresholdChainOutputIOTA {
 		return xerrors.New("ChainOutput: balances are less than dust threshold")
 	}
 	if c.stateAddress == nil {
@@ -397,7 +397,7 @@ func equalColoredBalance(b1, b2 ColoredBalances) bool {
 
 func isDust(b ColoredBalances) bool {
 	bal, ok := b.Get(ColorIOTA)
-	if !ok || bal < MinimumIOTAOnChainOutput {
+	if !ok || bal < DustThresholdChainOutputIOTA {
 		return true
 	}
 	return false
@@ -409,7 +409,7 @@ func isExactMinimum(b ColoredBalances) bool {
 		return false
 	}
 	bal, ok := bals[ColorIOTA]
-	if !ok || bal != MinimumIOTAOnChainOutput {
+	if !ok || bal != DustThresholdChainOutputIOTA {
 		return false
 	}
 	return true

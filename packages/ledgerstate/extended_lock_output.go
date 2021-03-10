@@ -12,18 +12,20 @@ import (
 	"time"
 )
 
-// ExtendedLockedOutput is an Extension of SigLockedColoredOutput.
-// In addition it has optional:
+// ExtendedLockedOutput is an Extension of SigLockedColoredOutput. If extended options not enabled,
+// it behaves as SigLockedColoredOutput.
+// In addition it has options:
 // - fallback address and timeout
-// - can be unlocked by AliasReferencedUnlockBlock
-// - can't be time locked until deadline
-// - data payload for arbitrary metadata
+// - can be unlocked by AliasReferencedUnlockBlock (is address is of AliasAddress type)
+// - can be time locked until deadline
+// - data payload for arbitrary metadata (size limits apply)
 type ExtendedLockedOutput struct {
 	id       OutputID
 	idMutex  sync.RWMutex
 	balances *ColoredBalances
 	address  Address // any address type
 
+	// optional part
 	// Fallback address after timeout. If nil, fallback action not set
 	fallbackAddress Address
 	// fallback deadline in Unix seconds. The deadline is calculated relative to the tx timestamo

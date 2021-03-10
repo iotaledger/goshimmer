@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate/utxotest/utxoutil"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 )
@@ -75,15 +74,18 @@ func (u *UtxoDB) GetGenesisAddress() ledgerstate.Address {
 
 func (u *UtxoDB) mustRequestFundsTx(target ledgerstate.Address) *ledgerstate.Transaction {
 	sourceOutputs := u.GetAddressOutputs(u.GetGenesisAddress())
-	builder := utxoutil.NewBuilder(sourceOutputs)
-	if _, err := builder.AddIOTAOutput(target, RequestFundsAmount); err != nil {
-		panic(err)
+	if len(sourceOutputs) != 1 {
+		panic("number of genesis outputs must be 1")
 	}
-	ret, err := builder.BuildWithED25519(u.genesisKeyPair)
-	if err != nil {
-		panic(err)
-	}
-	return ret
+	reminder, _ := sourceOutputs[0].Balances().Get(ledgerstate.ColorIOTA)
+	o1 := ledgerstate.NewSigLockedSingleOutput(RequestFundsAmount, target)
+	o2 := ledgerstate.NewSigLockedSingleOutput(reminder-RequestFundsAmount, u.GetGenesisAddress())
+	outputs := ledgerstate.NewOutputs(o1, o2)
+	inputs := ledgerstate.NewInputs(ledgerstate.NewUTXOInput(sourceOutputs[0].ID()))
+	essence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, inputs, outputs)
+	signature := ledgerstate.NewED25519Signature(genesisKeyPair.PublicKey, genesisKeyPair.PrivateKey.Sign(essence.Bytes()))
+	unlockBlocks := []ledgerstate.UnlockBlock{ledgerstate.NewSignatureUnlockBlock(signature)}
+	return ledgerstate.NewTransaction(essence, unlockBlocks)
 }
 
 // RequestFunds implements faucet: it sends 1337 IOTA tokens from genesis to the given address.
