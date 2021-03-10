@@ -148,7 +148,7 @@ type MessageIDs []MessageID
 func (ids MessageIDs) ToStrings() []string {
 	result := make([]string, 0, len(ids))
 	for _, id := range ids {
-		result = append(result, id.String())
+		result = append(result, id.Base58())
 	}
 	return result
 }
