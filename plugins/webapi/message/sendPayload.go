@@ -27,7 +27,7 @@ func sendPayloadHandler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, SendPayloadResponse{Error: err.Error()})
 	}
 
-	return c.JSON(http.StatusOK, SendPayloadResponse{ID: msg.ID().String()})
+	return c.JSON(http.StatusOK, SendPayloadResponse{ID: msg.ID().Base58()})
 }
 
 // SendPayloadResponse contains the ID of the message sent.

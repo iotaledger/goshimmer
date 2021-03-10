@@ -45,7 +45,7 @@ func createExplorerMessage(msg *tangle.Message) (*ExplorerMessage, error) {
 	defer cachedMessageMetadata.Release()
 	messageMetadata := cachedMessageMetadata.Unwrap()
 	t := &ExplorerMessage{
-		ID:                      messageID.String(),
+		ID:                      messageID.Base58(),
 		SolidificationTimestamp: messageMetadata.SolidificationTime().Unix(),
 		IssuanceTimestamp:       msg.IssuingTime().Unix(),
 		IssuerPublicKey:         msg.IssuerPublicKey().String(),
@@ -148,7 +148,7 @@ func findMessage(messageID tangle.MessageID) (explorerMsg *ExplorerMessage, err 
 	if !messagelayer.Tangle().Storage.Message(messageID).Consume(func(msg *tangle.Message) {
 		explorerMsg, err = createExplorerMessage(msg)
 	}) {
-		err = fmt.Errorf("%w: message %s", ErrNotFound, messageID.String())
+		err = fmt.Errorf("%w: message %s", ErrNotFound, messageID.Base58())
 	}
 
 	return

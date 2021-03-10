@@ -28,7 +28,7 @@ func collectiveBeaconHandler(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, CollectiveBeaconResponse{Error: err.Error()})
 	}
-	return c.JSON(http.StatusOK, CollectiveBeaconResponse{ID: msg.ID().String()})
+	return c.JSON(http.StatusOK, CollectiveBeaconResponse{ID: msg.ID().Base58()})
 }
 
 // CollectiveBeaconResponse is the HTTP response from broadcasting a collective beacon message.

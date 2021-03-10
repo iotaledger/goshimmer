@@ -272,7 +272,7 @@ func currentNodeStatus() *nodestatus {
 
 	for publicKey, s := range beacons {
 		status.Beacons[publicKey.String()] = Beacon{
-			MsgID:    s.MsgID.String(),
+			MsgID:    s.MsgID.Base58(),
 			SentTime: s.SentTime,
 			Synced:   s.Synced,
 		}

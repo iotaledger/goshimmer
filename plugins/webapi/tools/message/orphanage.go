@@ -118,7 +118,7 @@ type MsgInfoOrphanage struct {
 
 func (m MsgInfoOrphanage) toCSV() (row []string) {
 	row = append(row, []string{
-		m.MsgID.String(),
+		m.MsgID.Base58(),
 		m.MsgIssuerID.String(),
 		m.MsgIssuanceTimestamp.String(),
 		m.MsgArrivalTime.String(),

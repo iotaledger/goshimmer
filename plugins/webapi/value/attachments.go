@@ -45,11 +45,11 @@ func attachmentsHandler(c echo.Context) error {
 		payload := payloadObj.Unwrap()
 		var parents []string
 		for _, parent := range payload.Parents() {
-			parents = append(parents, parent.String())
+			parents = append(parents, parent.Base58())
 		}
 		// append value object
 		valueObjs = append(valueObjs, ValueObject{
-			ID:          payload.ID().String(),
+			ID:          payload.ID().Base58(),
 			Parents:     parents,
 			Transaction: txn,
 		})

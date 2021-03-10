@@ -12,7 +12,7 @@ func MissingHandler(c echo.Context) error {
 	res := &MissingResponse{}
 	missingIDs := messagelayer.Tangle().Storage.MissingMessages()
 	for _, msg := range missingIDs {
-		res.IDs = append(res.IDs, msg.String())
+		res.IDs = append(res.IDs, msg.Base58())
 	}
 	res.Count = len(missingIDs)
 	return c.JSON(http.StatusOK, res)

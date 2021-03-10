@@ -38,7 +38,7 @@ func broadcastNetworkDelayObject(c echo.Context) error {
 
 	sendPoWInfo(obj, time.Since(nowWithoutClock))
 
-	return c.JSON(http.StatusOK, Response{ID: msg.ID().String()})
+	return c.JSON(http.StatusOK, Response{ID: msg.ID().Base58()})
 }
 
 // Response contains the ID of the message sent.

@@ -100,7 +100,7 @@ func getInfo(c echo.Context) error {
 	for publicKey, s := range beacons {
 		beaconsStatus = append(beaconsStatus, Beacon{
 			PublicKey: publicKey.String(),
-			MsgID:     s.MsgID.String(),
+			MsgID:     s.MsgID.Base58(),
 			SentTime:  s.SentTime,
 			Synced:    s.Synced,
 		})

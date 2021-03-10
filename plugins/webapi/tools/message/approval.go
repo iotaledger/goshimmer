@@ -190,7 +190,7 @@ func firstApprovers(msgID tangle.MessageID) ([]MsgInfo, error) {
 
 func info(msgID tangle.MessageID) MsgInfo {
 	msgInfo := MsgInfo{
-		MsgID: msgID.String(),
+		MsgID: msgID.Base58(),
 	}
 
 	messagelayer.Tangle().Storage.Message(msgID).Consume(func(msg *tangle.Message) {

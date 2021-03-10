@@ -63,7 +63,7 @@ func findByIDHandler(c echo.Context) error {
 				Eligible:  msgMetadata.IsEligible(),
 				Invalid:   msgMetadata.IsInvalid(),
 			},
-			ID:              msg.ID().String(),
+			ID:              msg.ID().Base58(),
 			StrongParents:   msg.StrongParents().ToStrings(),
 			WeakParents:     msg.WeakParents().ToStrings(),
 			IssuerPublicKey: msg.IssuerPublicKey().String(),
