@@ -213,6 +213,16 @@ func TransactionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transacti
 		return
 	}
 
+	maxReferencedUnlockIndex := len(transaction.essence.Inputs()) - 1
+	for i, unlockBlock := range transaction.unlockBlocks {
+		if unlockBlock.Type() == ReferenceUnlockBlockType {
+			if unlockBlock.(*ReferenceUnlockBlock).ReferencedIndex() > uint16(maxReferencedUnlockIndex) {
+				err = xerrors.Errorf("unlock block %d references non-existent unlock block at index %d", i, unlockBlock.(*ReferenceUnlockBlock).ReferencedIndex())
+				return
+			}
+		}
+	}
+
 	for i, output := range transaction.essence.Outputs() {
 		output.SetID(NewOutputID(transaction.ID(), uint16(i)))
 	}
