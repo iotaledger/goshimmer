@@ -52,8 +52,8 @@ const (
 	// SigLockedColoredOutputType represents an Output that holds colored coins that gets unlocked by a signature.
 	SigLockedColoredOutputType
 
-	// AliasOutputType represents an Output which makes a chain with optional governance
-	AliasOutputType
+	// ChainOutputType represents an Output which makes a chain with optional governance
+	ChainOutputType
 
 	// ExtendedLockedOutputType represents an Output which extends SigLockedColoredOutput with alias locking and fallback
 	ExtendedLockedOutputType
@@ -64,7 +64,7 @@ func (o OutputType) String() string {
 	return [...]string{
 		"SigLockedSingleOutputType",
 		"SigLockedColoredOutputType",
-		"AliasOutputType",
+		"ChainOutputType",
 		"ExtendedLockedOutputType",
 	}[o]
 }
@@ -249,9 +249,9 @@ func OutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output Output,
 			err = xerrors.Errorf("failed to parse SigLockedColoredOutput: %w", err)
 			return
 		}
-	case AliasOutputType:
-		if output, err = AliasOutputFromMarshalUtil(marshalUtil); err != nil {
-			err = xerrors.Errorf("failed to parse AliasOutput: %w", err)
+	case ChainOutputType:
+		if output, err = ChainOutputFromMarshalUtil(marshalUtil); err != nil {
+			err = xerrors.Errorf("failed to parse ChainOutput: %w", err)
 			return
 		}
 	case ExtendedLockedOutputType:

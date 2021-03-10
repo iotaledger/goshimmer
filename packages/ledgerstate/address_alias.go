@@ -11,7 +11,7 @@ import (
 )
 
 // AliasAddress represents a special type of Address which is not backed by a private key directly,
-// but is indirectly backed by a private key represented by AliasOutput
+// but is indirectly backed by a private key represented by ChainOutput
 type AliasAddress struct {
 	digest [32]byte
 }

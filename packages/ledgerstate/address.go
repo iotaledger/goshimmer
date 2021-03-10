@@ -20,7 +20,7 @@ const (
 	// BLSAddressType represents an Address secured by the BLS signature scheme.
 	BLSAddressType
 
-	// AliasAddressType represents ID used in AliasOutput and AliasLockOutput
+	// AliasAddressType represents ID used in ChainOutput and AliasLockOutput
 	AliasAddressType
 )
 

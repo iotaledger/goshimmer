@@ -24,11 +24,15 @@ type ExtendedLockedOutput struct {
 	balances *ColoredBalances
 	address  Address // any address type
 
-	fallbackAddress  Address // if nil, fallback action not set
-	fallbackDeadline uint32  // fallback deadline in Unix seconds. The deadline is calculated relative to the tx timestamo
+	// Fallback address after timeout. If nil, fallback action not set
+	fallbackAddress Address
+	// fallback deadline in Unix seconds. The deadline is calculated relative to the tx timestamo
+	fallbackDeadline uint32
 
-	timelock uint32 // deadline since when output can be unlocked
+	// Deadline since when output can be unlocked. Unix seconds
+	timelock uint32
 
+	// any attached data (subject to size limits)
 	payload []byte
 
 	objectstorage.StorableObjectFlags
@@ -61,7 +65,7 @@ func (o *ExtendedLockedOutput) WithTimeLock(timelock uint32) *ExtendedLockedOutp
 
 func (o *ExtendedLockedOutput) SetPayload(data []byte) error {
 	if len(data) > MaxOutputPayloadSize {
-		return xerrors.Errorf("data payload size is bigger than maximum allowed (%d bytes)", MaxOutputPayloadSize)
+		return xerrors.Errorf("ExtendedLockedOutput: data payload size (%d bytes) is bigger than maximum allowed (%d bytes)", len(data), MaxOutputPayloadSize)
 	}
 	o.payload = make([]byte, len(data))
 	copy(o.payload, data)
@@ -189,44 +193,42 @@ func (o *ExtendedLockedOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBl
 		return false, nil
 	}
 	var addr Address
-	switch blk := unlockBlock.(type) {
-	case *SignatureUnlockBlock:
-		if o.fallbackAddress == nil {
+	if o.fallbackAddress == nil {
+		// if fallback option is not set, the output can be unlocked by the main address
+		addr = o.address
+	} else {
+		// fallback option is set
+		// until fallback deadline the output can be unlocked by main address.
+		// after fallback deadline it can be unlocked by fallback address
+		if tx.Essence().Timestamp().Before(time.Unix(int64(o.fallbackDeadline), 0)) {
 			addr = o.address
 		} else {
-			if tx.Essence().Timestamp().Before(time.Unix(int64(o.fallbackDeadline), 0)) {
-				addr = o.address
-			} else {
-				addr = o.fallbackAddress
-			}
+			addr = o.fallbackAddress
 		}
+	}
+
+	switch blk := unlockBlock.(type) {
+	case *SignatureUnlockBlock:
+		// unlocking by signature
 		unlockValid = blk.AddressSignatureValid(addr, tx.Essence().Bytes())
 
 	case *AliasReferencedUnlockBlock:
+		// unlocking by alias reference
 		var ok bool
-		if o.fallbackAddress == nil {
-			addr = o.address
-		} else {
-			if tx.Essence().Timestamp().Before(time.Unix(int64(o.fallbackDeadline), 0)) {
-				addr = o.address
-			} else {
-				addr = o.fallbackAddress
-			}
-		}
 		if !ok {
 			return false, nil
 		}
-		refAliasOutput, isAlias := inputs[blk.ReferencedIndex()].(*AliasOutput)
+		refAliasOutput, isAlias := inputs[blk.ReferencedIndex()].(*ChainOutput)
 		if !isAlias {
-			return false, xerrors.New("referenced input must be AliasOutput")
+			return false, xerrors.New("ExtendedLockedOutput: referenced input must be ChainOutput")
 		}
 		if addr.Array() != refAliasOutput.GetAliasAddress().Array() {
-			return false, xerrors.New("wrong alias referenced")
+			return false, xerrors.New("ExtendedLockedOutput: wrong alias referenced")
 		}
-		unlockValid = refAliasOutput.IsUnlockedForStateUpdate(tx)
+		unlockValid = refAliasOutput.IsSelfGoverned() || refAliasOutput.IsUnlockedForStateUpdate(tx)
 
 	default:
-		err = xerrors.Errorf("UnlockBlock does not match expected OutputType: %w", cerrors.ErrParseBytesFailed)
+		err = xerrors.Errorf("ExtendedLockedOutput: unsupported unlock block type: %w", cerrors.ErrParseBytesFailed)
 	}
 	return
 }
@@ -239,7 +241,7 @@ func (o *ExtendedLockedOutput) Address() Address {
 // Input returns an Input that references the Output.
 func (o *ExtendedLockedOutput) Input() Input {
 	if o.ID() == EmptyOutputID {
-		panic("Outputs that haven't been assigned an ID, yet cannot be converted to an Input")
+		panic("ExtendedLockedOutput: Outputs that haven't been assigned an ID, yet cannot be converted to an Input")
 	}
 
 	return NewUTXOInput(o.ID())
@@ -275,7 +277,7 @@ func (o *ExtendedLockedOutput) Bytes() []byte {
 
 // Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
 func (o *ExtendedLockedOutput) Update(objectstorage.StorableObject) {
-	panic("updates disabled")
+	panic("ExtendedLockedOutput: updates disabled")
 }
 
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
@@ -319,6 +321,9 @@ func (o *ExtendedLockedOutput) String() string {
 		stringify.StructField("id", o.ID()),
 		stringify.StructField("address", o.address),
 		stringify.StructField("balances", o.balances),
+		stringify.StructField("fallbackAddress", o.fallbackAddress),
+		stringify.StructField("fallbackDeadline", o.fallbackDeadline),
+		stringify.StructField("timelock", o.timelock),
 	)
 }
 
