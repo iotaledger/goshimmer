@@ -359,6 +359,9 @@ func NewMarkerIndexBranchIDMapping(sequenceID markers.SequenceID) (markerBranchM
 		mapping:    thresholdmap.New(thresholdmap.LowerThresholdMode, markerIndexComparator),
 	}
 
+	markerBranchMapping.Persist()
+	markerBranchMapping.SetModified()
+
 	return
 }
 

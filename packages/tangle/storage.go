@@ -36,10 +36,12 @@ const (
 	// PrefixMarkerBranchIDMapping defines the storage prefix for the PrefixMarkerBranchIDMapping.
 	PrefixMarkerBranchIDMapping
 
-	cacheTime = 2 * time.Second
-
 	// DBSequenceNumber defines the db sequence number.
 	DBSequenceNumber = "seq"
+)
+
+var (
+	cacheTime = 2 * time.Second
 )
 
 // region Storage //////////////////////////////////////////////////////////////////////////////////////////////////////
