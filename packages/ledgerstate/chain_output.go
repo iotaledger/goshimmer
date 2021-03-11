@@ -280,7 +280,7 @@ func (c *ChainOutput) ObjectStorageKey() []byte {
 }
 
 func (c *ChainOutput) checkValidity() error {
-	if !IsAboveDustThreshold(c.balances) {
+	if !IsAboveDustThreshold(c.balances.Map()) {
 		return xerrors.New("ChainOutput: balances are below dust threshold")
 	}
 	if c.stateAddress == nil {
@@ -397,19 +397,9 @@ func equalColoredBalance(b1, b2 ColoredBalances) bool {
 	return true
 }
 
-func IsAboveDustThreshold(b interface{}) bool {
-	switch m := b.(type) {
-	case ColoredBalances:
-		bal, ok := m.Get(ColorIOTA)
-		if !ok || bal >= DustThresholdChainOutputIOTA {
-			return true
-		}
-	case map[Color]uint64:
-		if iotas, ok := m[ColorIOTA]; !ok || iotas >= DustThresholdChainOutputIOTA {
-			return true
-		}
-	default:
-		panic("wrong parameter type in IsAboveDustThreshold")
+func IsAboveDustThreshold(m map[Color]uint64) bool {
+	if iotas, ok := m[ColorIOTA]; ok && iotas >= DustThresholdChainOutputIOTA {
+		return true
 	}
 	return false
 }
@@ -432,7 +422,7 @@ func (c *ChainOutput) validateStateTransition(chained *ChainOutput, unlockedStat
 		if chained.isGovernanceUpdate {
 			return xerrors.New("ChainOutput: wrong unlock for state update")
 		}
-		if !IsAboveDustThreshold(chained.balances) {
+		if !IsAboveDustThreshold(chained.balances.Map()) {
 			return xerrors.New("ChainOutput: tokens are below dust threshold")
 		}
 		return nil
