@@ -38,8 +38,12 @@ func (u *UtxoDB) AddTransaction(tx *ledgerstate.Transaction) error {
 			outClone = o.UpdateMintingColor()
 		case *ledgerstate.SigLockedSingleOutput:
 			outClone = out.Clone()
+		case *ledgerstate.ChainOutput:
+			outClone = out.Clone()
+		case *ledgerstate.ExtendedLockedOutput:
+			outClone = out.Clone()
 		default:
-			panic("utxodb.AddTransaction: unknown type")
+			panic("utxodb.AddTransaction: unknown output type")
 		}
 		u.utxo[out.ID()] = outClone
 	}

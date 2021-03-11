@@ -185,13 +185,18 @@ func (b *Builder) AddExtendedOutputSimple(targetAddress ledgerstate.Address, amo
 	return nil
 }
 
-func (b *Builder) AddReminderOutput(reminderAddr ledgerstate.Address, compress ...bool) error {
+func (b *Builder) AddReminderOutputIfNeeded(reminderAddr ledgerstate.Address, compress ...bool) error {
 	compr := false
 	if len(compress) > 0 {
 		compr = compress[0]
 	}
 	b.ConsumeReminderBalances(compr)
-	return b.AddExtendedOutputSimple(reminderAddr, b.ConsumedUnspent())
+	unspent := b.ConsumedUnspent()
+	if len(unspent) == 0 {
+		// no need for reminder output
+		return nil
+	}
+	return b.AddExtendedOutputSimple(reminderAddr, unspent)
 }
 
 func (b *Builder) ConsumedUnspent() map[ledgerstate.Color]uint64 {

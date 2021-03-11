@@ -483,7 +483,11 @@ func (c *ChainOutput) validateTransition(tx *Transaction, unlockedState, unlocke
 	if err != nil {
 		return err
 	}
+
 	if chained != nil {
+		if !c.aliasAddress.Equal(c.GetAliasAddress()) {
+			return xerrors.New("chain alias address can't be modified")
+		}
 		if err := c.validateStateTransition(chained, unlockedState); err != nil {
 			return err
 		}

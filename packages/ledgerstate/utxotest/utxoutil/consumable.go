@@ -126,6 +126,9 @@ func ConsumeRemaining(consumables ...*ConsumableOutput) map[ledgerstate.Color]ui
 	ret := make(map[ledgerstate.Color]uint64)
 	for _, out := range consumables {
 		for col, bal := range out.remaining {
+			if bal == 0 {
+				continue
+			}
 			ConsumeColored(col, bal, out)
 			total, _ := ret[col]
 			ret[col] = total + bal
