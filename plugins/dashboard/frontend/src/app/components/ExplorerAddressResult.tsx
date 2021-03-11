@@ -9,6 +9,7 @@ import Spinner from "react-bootstrap/Spinner";
 import ListGroup from "react-bootstrap/ListGroup";
 import Alert from "react-bootstrap/Alert";
 import * as dateformat from 'dateformat';
+import {displayManaUnit} from "app/utils";
 
 interface Props {
     nodeStore?: NodeStore;
@@ -117,7 +118,8 @@ export class ExplorerAddressQueryResult extends React.Component<Props, any> {
                             <div>{status}</div>
                             <div>{consumed}</div>
                             <div>{conflicting}</div>
-                            <div>{'Balance:'} {balances}</div>   
+                            <div>{'Balance:'} {balances}</div>
+                            <div>Pending Mana: {displayManaUnit(output.pending_mana)}</div>
                         </small>
                     </ListGroup.Item>
                 );

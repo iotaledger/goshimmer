@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
-	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/events"
@@ -36,9 +35,6 @@ const (
 
 	// PrefixMarkerBranchIDMapping defines the storage prefix for the PrefixMarkerBranchIDMapping.
 	PrefixMarkerBranchIDMapping
-
-	// PrefixFCoB defines the storage prefix for FCoB.
-	PrefixFCoB
 
 	cacheTime = 2 * time.Second
 
@@ -77,9 +73,9 @@ func NewStorage(tangle *Tangle) (storage *Storage) {
 		markerIndexBranchIDMappingStorage: osFactory.New(PrefixMarkerBranchIDMapping, MarkerIndexBranchIDMappingFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 
 		Events: &StorageEvents{
-			MessageStored:        events.NewEvent(messageIDEventHandler),
-			MessageRemoved:       events.NewEvent(messageIDEventHandler),
-			MissingMessageStored: events.NewEvent(messageIDEventHandler),
+			MessageStored:        events.NewEvent(MessageIDCaller),
+			MessageRemoved:       events.NewEvent(MessageIDCaller),
+			MissingMessageStored: events.NewEvent(MessageIDCaller),
 		},
 	}
 
@@ -267,10 +263,6 @@ func (s *Storage) storeGenesis() {
 				IsPastMarker:  false,
 				PastMarkers:   markers.NewMarkers(),
 				FutureMarkers: markers.NewMarkers(),
-			},
-			timestampOpinion: TimestampOpinion{
-				Value: opinion.Like,
-				LoK:   Three,
 			},
 			booked:   true,
 			eligible: true,

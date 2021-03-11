@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -20,7 +21,7 @@ var (
 	visualizerWorkerPool      *workerpool.WorkerPool
 
 	msgHistoryMutex    sync.RWMutex
-	msgSolid           map[string]bool
+	msgOpinionFormed   map[string]bool
 	msgHistory         []*tangle.Message
 	maxMsgHistorySize  = 1000
 	numHistoryToRemove = 100
@@ -31,7 +32,8 @@ type vertex struct {
 	ID              string   `json:"id"`
 	StrongParentIDs []string `json:"strongParentIDs"`
 	WeakParentIDs   []string `json:"weakParentIDs"`
-	IsSolid         bool     `json:"is_solid"`
+	IsOpinionFormed bool     `json:"is_confirmed"`
+	IsTx            bool     `json:"is_tx"`
 }
 
 // tipinfo holds information about whether a given message is a tip or not.
@@ -49,25 +51,26 @@ func configureVisualizer() {
 	visualizerWorkerPool = workerpool.New(func(task workerpool.Task) {
 		switch x := task.Param(0).(type) {
 		case *tangle.Message:
-			sendVertex(x, task.Param(1).(*tangle.MessageMetadata))
-		case tangle.MessageID:
-			sendTipInfo(x, task.Param(1).(bool))
+			sendVertex(x, task.Param(1).(bool))
+		case tangle.TipType:
+			sendTipInfo(task.Param(1).(tangle.MessageID), task.Param(2).(bool))
 		}
 
 		task.Return(nil)
 	}, workerpool.WorkerCount(visualizerWorkerCount), workerpool.QueueSize(visualizerWorkerQueueSize))
 
 	// configure msgHistory, msgSolid
-	msgSolid = make(map[string]bool, maxMsgHistorySize)
+	msgOpinionFormed = make(map[string]bool, maxMsgHistorySize)
 	msgHistory = make([]*tangle.Message, 0, maxMsgHistorySize)
 }
 
-func sendVertex(msg *tangle.Message, messageMetadata *tangle.MessageMetadata) {
+func sendVertex(msg *tangle.Message, confirmed bool) {
 	broadcastWsMessage(&wsmsg{MsgTypeVertex, &vertex{
 		ID:              msg.ID().String(),
 		StrongParentIDs: msg.StrongParents().ToStrings(),
 		WeakParentIDs:   msg.WeakParents().ToStrings(),
-		IsSolid:         messageMetadata.IsSolid(),
+		IsOpinionFormed: confirmed,
+		IsTx:            msg.Payload().Type() == ledgerstate.TransactionType,
 	}}, true)
 }
 
@@ -82,9 +85,20 @@ func runVisualizer() {
 	notifyNewMsg := events.NewClosure(func(messageID tangle.MessageID) {
 		messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
 			messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-				addToHistory(message, messageMetadata.IsSolid())
+				confirmed := false
 
-				visualizerWorkerPool.TrySubmit(message, messageMetadata)
+				p := message.Payload()
+				if p.Type() == ledgerstate.TransactionType {
+					txID := p.(*ledgerstate.Transaction).ID()
+					txInclusionState, _ := messagelayer.Tangle().LedgerState.TransactionInclusionState(txID)
+					confirmed = txInclusionState == ledgerstate.Confirmed
+				} else {
+					confirmed = messageMetadata.IsEligible()
+				}
+
+				addToHistory(message, confirmed)
+
+				visualizerWorkerPool.TrySubmit(message, confirmed)
 			})
 		})
 	})
@@ -92,22 +106,22 @@ func runVisualizer() {
 	notifyNewTip := events.NewClosure(func(tipEvent *tangle.TipEvent) {
 		// TODO: handle weak tips
 		if tipEvent.TipType == tangle.StrongTip {
-			visualizerWorkerPool.TrySubmit(tipEvent.MessageID, true)
+			visualizerWorkerPool.TrySubmit(tipEvent.TipType, tipEvent.MessageID, true)
 		}
 	})
 
 	notifyDeletedTip := events.NewClosure(func(tipEvent *tangle.TipEvent) {
 		// TODO: handle weak tips
 		if tipEvent.TipType == tangle.StrongTip {
-			visualizerWorkerPool.TrySubmit(tipEvent.MessageID, false)
+			visualizerWorkerPool.TrySubmit(tipEvent.TipType, tipEvent.MessageID, false)
 		}
 	})
 
 	if err := daemon.BackgroundWorker("Dashboard[Visualizer]", func(shutdownSignal <-chan struct{}) {
 		messagelayer.Tangle().Storage.Events.MessageStored.Attach(notifyNewMsg)
 		defer messagelayer.Tangle().Storage.Events.MessageStored.Detach(notifyNewMsg)
-		messagelayer.Tangle().Solidifier.Events.MessageSolid.Attach(notifyNewMsg)
-		defer messagelayer.Tangle().Solidifier.Events.MessageSolid.Detach(notifyNewMsg)
+		messagelayer.Tangle().ConsensusManager.Events.MessageOpinionFormed.Attach(notifyNewMsg)
+		defer messagelayer.Tangle().ConsensusManager.Events.MessageOpinionFormed.Detach(notifyNewMsg)
 		messagelayer.Tangle().TipManager.Events.TipAdded.Attach(notifyNewTip)
 		defer messagelayer.Tangle().TipManager.Events.TipAdded.Detach(notifyNewTip)
 		messagelayer.Tangle().TipManager.Events.TipRemoved.Attach(notifyDeletedTip)
@@ -136,7 +150,8 @@ func setupVisualizerRoutes(routeGroup *echo.Group) {
 				ID:              msg.ID().String(),
 				StrongParentIDs: msg.StrongParents().ToStrings(),
 				WeakParentIDs:   msg.WeakParents().ToStrings(),
-				IsSolid:         msgSolid[msg.ID().String()],
+				IsOpinionFormed: msgOpinionFormed[msg.ID().String()],
+				IsTx:            msg.Payload().Type() == ledgerstate.TransactionType,
 			})
 		}
 
@@ -144,22 +159,22 @@ func setupVisualizerRoutes(routeGroup *echo.Group) {
 	})
 }
 
-func addToHistory(msg *tangle.Message, solid bool) {
+func addToHistory(msg *tangle.Message, opinionFormed bool) {
 	msgHistoryMutex.Lock()
 	defer msgHistoryMutex.Unlock()
-	if _, exist := msgSolid[msg.ID().String()]; exist {
-		msgSolid[msg.ID().String()] = solid
+	if _, exist := msgOpinionFormed[msg.ID().String()]; exist {
+		msgOpinionFormed[msg.ID().String()] = opinionFormed
 		return
 	}
 
 	// remove 100 old msgs if the slice is full
 	if len(msgHistory) >= maxMsgHistorySize {
 		for i := 0; i < numHistoryToRemove; i++ {
-			delete(msgSolid, msgHistory[i].ID().String())
+			delete(msgOpinionFormed, msgHistory[i].ID().String())
 		}
 		msgHistory = append(msgHistory[:0], msgHistory[numHistoryToRemove:maxMsgHistorySize]...)
 	}
 	// add new msg
 	msgHistory = append(msgHistory, msg)
-	msgSolid[msg.ID().String()] = solid
+	msgOpinionFormed[msg.ID().String()] = opinionFormed
 }

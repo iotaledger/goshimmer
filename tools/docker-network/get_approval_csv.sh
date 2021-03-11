@@ -29,4 +29,4 @@ do
 done
 
 echo "Copying csv files from peer_master and $NUM_REPLICAS replicas... DONE"
-echo "Copied files are located at `pwd`/csv"
+echo "Copied files are located at ./csv"

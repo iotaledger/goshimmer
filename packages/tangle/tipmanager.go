@@ -70,7 +70,7 @@ func NewTipManager(tangle *Tangle, tips ...MessageID) *TipManager {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (t *TipManager) Setup() {
-	t.tangle.OpinionFormer.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID MessageID) {
+	t.tangle.ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID MessageID) {
 		t.tangle.Storage.Message(messageID).Consume(t.AddTip)
 	}))
 }
@@ -99,7 +99,7 @@ func (t *TipManager) AddTip(message *Message) {
 		return
 	}
 
-	if !t.tangle.OpinionFormer.PayloadLiked(messageID) {
+	if !t.tangle.ConsensusManager.PayloadLiked(messageID) {
 		return
 	}
 

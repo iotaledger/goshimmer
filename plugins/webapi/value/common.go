@@ -103,11 +103,17 @@ type Transaction struct {
 	DataPayload       []byte                                `json:"dataPayload"`
 }
 
+// Metadata holds metadata about the output.
+type Metadata struct {
+	Timestamp time.Time `json:"timestamp"`
+}
+
 // OutputID holds the output id and its inclusion state
 type OutputID struct {
 	ID             string         `json:"id"`
 	Balances       []Balance      `json:"balances"`
 	InclusionState InclusionState `json:"inclusion_state"`
+	Metadata       Metadata       `json:"output_metadata"`
 }
 
 // UnspentOutput holds the address and the corresponding unspent output ids

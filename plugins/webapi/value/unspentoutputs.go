@@ -2,6 +2,7 @@ package value
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -56,10 +57,16 @@ func unspentOutputsHandler(c echo.Context) error {
 					inclusionState.Rejected = txInclusionState == ledgerstate.Rejected
 					inclusionState.Conflicting = len(messagelayer.Tangle().LedgerState.ConflictSet(txID)) == 0
 
+					cachedTx := messagelayer.Tangle().LedgerState.Transaction(output.ID().TransactionID())
+					var timestamp time.Time
+					cachedTx.Consume(func(tx *ledgerstate.Transaction) {
+						timestamp = tx.Essence().Timestamp()
+					})
 					outputids = append(outputids, OutputID{
 						ID:             output.ID().Base58(),
 						Balances:       b,
 						InclusionState: inclusionState,
+						Metadata:       Metadata{Timestamp: timestamp},
 					})
 				}
 			})

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/plugins/issuer"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/labstack/echo"
@@ -32,7 +31,7 @@ func broadcastNetworkDelayObject(c echo.Context) error {
 
 	nowWithoutClock := time.Now()
 
-	msg, err := issuer.IssuePayload(obj, messagelayer.Tangle())
+	msg, err := messagelayer.Tangle().IssuePayload(obj)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}

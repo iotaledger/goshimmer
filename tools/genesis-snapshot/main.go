@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/mr-tron/base58"
 	flag "github.com/spf13/pflag"
@@ -134,5 +135,9 @@ func (connector *mockConnector) RequestFaucetFunds(addr address.Address) (err er
 
 func (connector *mockConnector) SendTransaction(tx *ledgerstate.Transaction) (err error) {
 	// mark outputs as spent
+	return
+}
+
+func (connector *mockConnector) GetAllowedPledgeIDs() (pledgeIDMap map[mana.Type][]string, err error) {
 	return
 }

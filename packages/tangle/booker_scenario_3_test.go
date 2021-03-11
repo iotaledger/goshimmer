@@ -9,7 +9,7 @@ import (
 )
 
 func TestScenario_3(t *testing.T) {
-	tangle := New(WithoutOpinionFormer(true))
+	tangle := New()
 	defer tangle.Shutdown()
 	tangle.Booker.Setup()
 
@@ -96,7 +96,7 @@ func TestScenario_3(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, branches["green"], txBranchID)
 
-	// Message 3 (Reattachemnt of transaction 2)
+	// Message 3 (Reattachment of transaction 2)
 	messages["3"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{messages["1"].ID(), messages["2"].ID()}, []MessageID{})
 	tangle.Storage.StoreMessage(messages["3"])
 

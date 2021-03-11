@@ -15,4 +15,10 @@ const (
 
 	// PrefixLedgerState defines the storage prefix for the ledgerstate package.
 	PrefixLedgerState
+
+	// PrefixMana defines the storage prefix for the mana package.
+	PrefixMana
+
+	// PrefixFCOB defines the storage prefix for the fcob consensus package.
+	PrefixFCOB
 )

@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
+
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -19,7 +21,7 @@ import (
 // TestConsensusNoConflicts issues valid non-conflicting value objects and then checks
 // whether the ledger of every peer reflects the same correct state.
 func TestConsensusNoConflicts(t *testing.T) {
-	n, err := f.CreateNetwork("consensus_TestConsensusNoConflicts", 4, 2)
+	n, err := f.CreateNetwork("consensus_TestConsensusNoConflicts", 4, 2, framework.CreateNetworkConfig{})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 

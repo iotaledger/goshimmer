@@ -2,6 +2,7 @@ package faucet
 
 import (
 	"crypto"
+	"errors"
 	"runtime"
 	"sync"
 	"time"
@@ -21,7 +22,7 @@ import (
 )
 
 const (
-	// PluginName is the name of the faucet dApp.
+	// PluginName is the name of the faucet plugin.
 	PluginName = "Faucet"
 
 	// CfgFaucetSeed defines the base58 encoded seed the faucet uses.
@@ -36,14 +37,17 @@ const (
 	// CfgFaucetBlacklistCapacity holds the maximum amount the address blacklist holds.
 	// An address for which a funding was done in the past is added to the blacklist and eventually is removed from it.
 	CfgFaucetBlacklistCapacity = "faucet.blacklistCapacity"
+	// CfgFaucetPreparedOutputsCount is the number of outputs the faucet prepares for requests.
+	CfgFaucetPreparedOutputsCount = "faucet.preparedOutputsCounts"
 )
 
 func init() {
-	flag.String(CfgFaucetSeed, "", "the base58 encoded seed of the faucet, must be defined if this dApp is enabled")
+	flag.String(CfgFaucetSeed, "", "the base58 encoded seed of the faucet, must be defined if this faucet is enabled")
 	flag.Int(CfgFaucetTokensPerRequest, 1337, "the amount of tokens the faucet should send for each request")
 	flag.Int(CfgFaucetMaxTransactionBookedAwaitTimeSeconds, 5, "the max amount of time for a funding transaction to become booked in the value layer")
 	flag.Int(CfgFaucetPoWDifficulty, 25, "defines the PoW difficulty for faucet payloads")
 	flag.Int(CfgFaucetBlacklistCapacity, 10000, "holds the maximum amount the address blacklist holds")
+	flag.Int(CfgFaucetPreparedOutputsCount, 100, "number of outputs the faucet prepares")
 }
 
 var (
@@ -57,9 +61,10 @@ var (
 	fundingWorkerPool      *workerpool.WorkerPool
 	fundingWorkerCount     = runtime.GOMAXPROCS(0)
 	fundingWorkerQueueSize = 500
+	preparedOutputsCount   int
 )
 
-// Plugin returns the plugin instance of the faucet dApp.
+// Plugin returns the plugin instance of the faucet plugin.
 func Plugin() *node.Plugin {
 	pluginOnce.Do(func() {
 		plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
@@ -67,12 +72,12 @@ func Plugin() *node.Plugin {
 	return plugin
 }
 
-// Faucet gets the faucet component instance the faucet dApp has initialized.
+// Faucet gets the faucet component instance the faucet plugin has initialized.
 func Faucet() *Component {
 	faucetOnce.Do(func() {
 		base58Seed := config.Node().String(CfgFaucetSeed)
 		if len(base58Seed) == 0 {
-			log.Fatal("a seed must be defined when enabling the faucet dApp")
+			log.Fatal("a seed must be defined when enabling the faucet plugin")
 		}
 		seedBytes, err := base58.Decode(base58Seed)
 		if err != nil {
@@ -87,7 +92,11 @@ func Faucet() *Component {
 			log.Fatalf("the max transaction booked await time must be more than 0")
 		}
 		blacklistCapacity := config.Node().Int(CfgFaucetBlacklistCapacity)
-		_faucet = New(seedBytes, tokensPerRequest, blacklistCapacity, time.Duration(maxTxBookedAwaitTime)*time.Second)
+		preparedOutputsCount = config.Node().Int(CfgFaucetPreparedOutputsCount)
+		if preparedOutputsCount <= 0 {
+			log.Fatalf("the number of faucet prepared outputs should be more than 0")
+		}
+		_faucet = New(seedBytes, tokensPerRequest, blacklistCapacity, time.Duration(maxTxBookedAwaitTime)*time.Second, preparedOutputsCount)
 	})
 	return _faucet
 }
@@ -102,6 +111,11 @@ func configure(*node.Plugin) {
 		msg, txID, err := Faucet().SendFunds(msg)
 		if err != nil {
 			log.Warnf("couldn't fulfill funding request to %s: %s", addr.Base58(), err)
+			if errors.Is(err, ErrPrepareFaucet) {
+				log.Warn(err.Error())
+			} else {
+				log.Warnf("couldn't fulfill funding request to %s: %s", addr, err)
+			}
 			return
 		}
 		log.Infof("sent funds to address %s via tx %s and msg %s", addr.Base58(), txID, msg.ID().String())
@@ -114,6 +128,10 @@ func run(*node.Plugin) {
 	if err := daemon.BackgroundWorker("[Faucet]", func(shutdownSignal <-chan struct{}) {
 		fundingWorkerPool.Start()
 		defer fundingWorkerPool.Stop()
+		if _, err := Faucet().PrepareGenesisOutput(); err != nil {
+			log.Errorf("couldn't move all faucet funds: %s", err)
+		}
+
 		<-shutdownSignal
 	}, shutdown.PriorityFaucet); err != nil {
 		log.Panicf("Failed to start daemon: %s", err)
@@ -121,7 +139,7 @@ func run(*node.Plugin) {
 }
 
 func configureEvents() {
-	messagelayer.Tangle().OpinionFormer.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+	messagelayer.Tangle().ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
 			if !IsFaucetReq(message) {
 				return

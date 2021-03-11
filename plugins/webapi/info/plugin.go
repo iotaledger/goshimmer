@@ -4,15 +4,19 @@ import (
 	"net/http"
 	"sort"
 	goSync "sync"
+	"time"
 
+	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
+	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
-	"github.com/iotaledger/goshimmer/plugins/syncbeaconfollower"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
+	"github.com/mr-tron/base58/base58"
 )
 
 // PluginName is the name of the web API info endpoint plugin.
@@ -91,7 +95,7 @@ func getInfo(c echo.Context) error {
 	sort.Strings(enabledPlugins)
 	sort.Strings(disabledPlugins)
 
-	synced, beacons := syncbeaconfollower.SyncStatus()
+	synced, beacons := messagelayer.SyncStatus()
 	var beaconsStatus []Beacon
 	for publicKey, s := range beacons {
 		beaconsStatus = append(beaconsStatus, Beacon{
@@ -102,18 +106,31 @@ func getInfo(c echo.Context) error {
 		})
 	}
 
+	t := time.Now()
+	accessMana, tAccess, _ := manaPlugin.GetAccessMana(local.GetInstance().ID(), t)
+	consensusMana, tConsensus, _ := manaPlugin.GetConsensusMana(local.GetInstance().ID(), t)
+	nodeMana := Mana{
+		Access:             accessMana,
+		AccessTimestamp:    tAccess,
+		Consensus:          consensusMana,
+		ConsensusTimestamp: tConsensus,
+	}
+
 	return c.JSON(http.StatusOK, Response{
 		Version:                 banner.AppVersion,
 		NetworkVersion:          autopeering.NetworkVersion(),
 		Synced:                  synced,
 		Beacons:                 beaconsStatus,
-		IdentityID:              local.GetInstance().Identity.ID().String(),
+		IdentityID:              base58.Encode(local.GetInstance().Identity.ID().Bytes()),
+		IdentityIDShort:         local.GetInstance().Identity.ID().String(),
 		PublicKey:               local.GetInstance().PublicKey().String(),
 		MessageRequestQueueSize: int(metrics.MessageRequestQueueSize()),
 		SolidMessageCount:       int(metrics.MessageSolidCountDB()),
 		TotalMessageCount:       int(metrics.MessageTotalCountDB()),
 		EnabledPlugins:          enabledPlugins,
 		DisabledPlugins:         disabledPlugins,
+		Mana:                    nodeMana,
+		ManaDecay:               mana.Decay,
 	})
 }
 
@@ -127,8 +144,10 @@ type Response struct {
 	Synced bool `json:"synced"`
 	// sync beacons status
 	Beacons []Beacon `json:"beacons"`
-	// identity ID of the node encoded in base58 and truncated to its first 8 bytes
+	// identity ID of the node encoded in base58
 	IdentityID string `json:"identityID,omitempty"`
+	// identity ID of the node encoded in base58 and truncated to its first 8 bytes
+	IdentityIDShort string `json:"identityIDShort,omitempty"`
 	// public key of the node encoded in base58
 	PublicKey string `json:"publicKey,omitempty"`
 	// MessageRequestQueueSize is the number of messages a node is trying to request from neighbors.
@@ -141,6 +160,10 @@ type Response struct {
 	EnabledPlugins []string `json:"enabledPlugins,omitempty"`
 	// list if disabled plugins
 	DisabledPlugins []string `json:"disabledPlugins,omitempty"`
+	// Mana values
+	Mana Mana `json:"mana,omitempty"`
+	// ManaDecay is the decay coefficient of bm2.
+	ManaDecay float64 `json:"mana_decay"`
 	// error of the response
 	Error string `json:"error,omitempty"`
 }
@@ -151,4 +174,12 @@ type Beacon struct {
 	MsgID     string `json:"msg_id"`
 	SentTime  int64  `json:"sent_time"`
 	Synced    bool   `json:"synced"`
+}
+
+// Mana contains the different mana values of the node.
+type Mana struct {
+	Access             float64   `json:"access"`
+	AccessTimestamp    time.Time `json:"accessTimestamp"`
+	Consensus          float64   `json:"consensus"`
+	ConsensusTimestamp time.Time `json:"consensusTimestamp"`
 }

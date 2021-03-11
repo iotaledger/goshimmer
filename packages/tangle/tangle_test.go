@@ -14,6 +14,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+	"github.com/iotaledger/hive.go/async"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -21,9 +22,78 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/testutil"
 	"github.com/iotaledger/hive.go/workerpool"
+	"github.com/panjf2000/ants/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func BenchmarkVerifyDataMessages(b *testing.B) {
+	tangle := New()
+
+	var pool async.WorkerPool
+	pool.Tune(runtime.GOMAXPROCS(0))
+
+	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error) {
+		return []MessageID{EmptyMessageID}, []MessageID{}, nil
+	}))
+
+	messages := make([][]byte, b.N)
+	for i := 0; i < b.N; i++ {
+		msg, err := factory.IssuePayload(payload.NewGenericDataPayload([]byte("some data")))
+		require.NoError(b, err)
+		messages[i] = msg.Bytes()
+	}
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		currentIndex := i
+		pool.Submit(func() {
+			if msg, _, err := MessageFromBytes(messages[currentIndex]); err != nil {
+				b.Error(err)
+			} else {
+				msg.VerifySignature()
+			}
+		})
+	}
+
+	pool.Shutdown()
+}
+
+func BenchmarkVerifySignature(b *testing.B) {
+	tangle := New()
+
+	pool, _ := ants.NewPool(80, ants.WithNonblocking(false))
+
+	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error) {
+		return []MessageID{EmptyMessageID}, []MessageID{}, nil
+	}))
+
+	messages := make([]*Message, b.N)
+	for i := 0; i < b.N; i++ {
+		msg, err := factory.IssuePayload(payload.NewGenericDataPayload([]byte("some data")))
+		require.NoError(b, err)
+		messages[i] = msg
+		messages[i].Bytes()
+	}
+	b.ResetTimer()
+
+	var wg sync.WaitGroup
+	for i := 0; i < b.N; i++ {
+		wg.Add(1)
+
+		currentIndex := i
+		if err := pool.Submit(func() {
+			messages[currentIndex].VerifySignature()
+			wg.Done()
+		}); err != nil {
+			b.Error(err)
+			return
+		}
+	}
+
+	wg.Wait()
+}
 
 func BenchmarkTangle_StoreMessage(b *testing.B) {
 	tangle := New()
@@ -154,7 +224,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 	require.NoError(t, err)
 
 	// create the tangle
-	tangle := New(Store(badger), WithoutOpinionFormer(true))
+	tangle := New(Store(badger))
 	defer tangle.Shutdown()
 	require.NoError(t, tangle.Prune())
 
@@ -262,7 +332,7 @@ func TestRetrieveAllTips(t *testing.T) {
 
 	var wg sync.WaitGroup
 
-	messageTangle.OpinionFormer.Events.MessageOpinionFormed.Attach(events.NewClosure(func(MessageID) {
+	messageTangle.ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(func(MessageID) {
 		wg.Done()
 	}))
 
@@ -457,13 +527,13 @@ func TestTangle_Flow(t *testing.T) {
 		t.Logf("booked messages %d/%d", n, totalMsgCount)
 	}))
 
-	tangle.OpinionFormer.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID MessageID) {
+	tangle.ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID MessageID) {
 		n := atomic.AddInt32(&opinionFormedMessages, 1)
 		t.Logf("opinion formed messages %d/%d", n, totalMsgCount)
 	}))
 
 	// data messages should not trigger this event
-	tangle.OpinionFormer.Events.TransactionConfirmed.Attach(events.NewClosure(func(messageID MessageID) {
+	tangle.ConsensusManager.Events.TransactionConfirmed.Attach(events.NewClosure(func(messageID MessageID) {
 		n := atomic.AddInt32(&opinionFormedTransactions, 1)
 		t.Logf("opinion formed transaction %d/%d", n, totalMsgCount)
 	}))

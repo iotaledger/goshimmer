@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -11,7 +12,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/analysis/server"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/config"
-	"github.com/iotaledger/goshimmer/plugins/consensus"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/daemon"
@@ -20,6 +20,8 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/timeutil"
 )
+
+// TODO: implement mana metrics
 
 // PluginName is the name of the metrics plugin.
 const PluginName = "Metrics"
@@ -83,6 +85,33 @@ func run(_ *node.Plugin) {
 	}, shutdown.PriorityMetrics); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
+
+	// create a background worker that updates the mana metrics
+	if err := daemon.BackgroundWorker("Metrics Mana Updater", func(shutdownSignal <-chan struct{}) {
+		defer log.Infof("Stopping Metrics Mana Updater ... done")
+		timeutil.NewTicker(func() {
+			measureMana()
+		}, time.Second*time.Duration(config.Node().Int(CfgManaUpdateInterval)), shutdownSignal)
+
+		log.Infof("Stopping Metrics Mana Updater ...")
+	}, shutdown.PriorityMetrics); err != nil {
+		log.Panicf("Failed to start as daemon: %s", err)
+	}
+
+	if config.Node().Bool(CfgMetricsManaResearch) {
+		// create a background worker that updates the research mana metrics
+		if err := daemon.BackgroundWorker("Metrics Research Mana Updater", func(shutdownSignal <-chan struct{}) {
+			defer log.Infof("Stopping Metrics Research Mana Updater ... done")
+			timeutil.NewTicker(func() {
+				measureAccessResearchMana()
+				measureConsensusResearchMana()
+			}, time.Second*time.Duration(config.Node().Int(CfgManaUpdateInterval)), shutdownSignal)
+
+			log.Infof("Stopping Metrics Research Mana Updater ...")
+		}, shutdown.PriorityMetrics); err != nil {
+			log.Panicf("Failed to start as daemon: %s", err)
+		}
+	}
 }
 
 func registerLocalMetrics() {
@@ -145,17 +174,17 @@ func registerLocalMetrics() {
 	// }))
 
 	// FPC round executed
-	consensus.Voter().Events().RoundExecuted.Attach(events.NewClosure(func(roundStats *vote.RoundStats) {
+	messagelayer.Voter().Events().RoundExecuted.Attach(events.NewClosure(func(roundStats *vote.RoundStats) {
 		processRoundStats(roundStats)
 	}))
 
 	// a conflict has been finalized
-	consensus.Voter().Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
+	messagelayer.Voter().Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
 		processFinalized(ev.Ctx)
 	}))
 
 	// consensus failure in conflict resolution
-	consensus.Voter().Events().Failed.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
+	messagelayer.Voter().Events().Failed.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
 		processFailed(ev.Ctx)
 	}))
 
@@ -195,5 +224,10 @@ func registerLocalMetrics() {
 	}))
 	metrics.Events().QueryReplyError.Attach(events.NewClosure(func(ev *metrics.QueryReplyErrorEvent) {
 		processQueryReplyError(ev)
+	}))
+
+	// mana pledge events
+	mana.Events().Pledged.Attach(events.NewClosure(func(ev *mana.PledgedEvent) {
+		addPledge(ev)
 	}))
 }
