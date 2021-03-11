@@ -1,3 +1,14 @@
+# v0.5.0 - 2021-03-11
+* Add Mana (currently not used by any of the modules)
+* Add Mana APIs
+* Add Mana section to the local dashboard
+* Add Mana section to the Pollen Analyzer dashboard
+* Add Mana section to the Grafana dashboard
+* Refactor the Consensus Manager to be independent from the concrete consensus mechanism implemented  
+* Improve Tangle visualizer
+* Improve documentation
+* **Breaking**: bumps network and database versions
+
 # v0.4.1 - 2021-03-02
 * Add orphanage analysis tool
 * Add documentation web-api
