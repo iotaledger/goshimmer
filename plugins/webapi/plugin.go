@@ -17,8 +17,6 @@ import (
 	"github.com/labstack/echo/middleware"
 )
 
-// TODO: add mana related webapi endpoints
-
 // PluginName is the name of the web API plugin.
 const PluginName = "WebAPI"
 
