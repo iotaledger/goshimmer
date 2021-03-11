@@ -35,7 +35,7 @@ type ChainOutput struct {
 	// if the ChainOutput is chained in the transaction, the flags states if it is updating state or governance data.
 	// unlock validation of the corresponding input depends on it.
 	// The flag is used to prevent a need to check signature each time when checking unlocking mode
-	isStateUpdate bool
+	isGovernanceUpdate bool
 	// governance address if set. It can be any address, unlocked by signature of alias address. Nil means self governed
 	governingAddress Address
 
@@ -47,7 +47,7 @@ const MaxOutputPayloadSize = 4 * 1024
 
 // flags use to compress serialized bytes
 const (
-	flagChainOutputStateUpdate      = 0x01
+	flagChainOutputGovernanceUpdate = 0x01
 	flagChainOutputGovernanceSet    = 0x02
 	flagChainOutputStateDataPresent = 0x04
 )
@@ -71,9 +71,12 @@ func NewChainOutputMint(balances map[Color]uint64, stateAddr Address) (*ChainOut
 }
 
 // NewChainOutputNext creates new ChainOutput as state transition from the previous one
-func (c *ChainOutput) NewChainOutputNext(stateUpdate bool) *ChainOutput {
+func (c *ChainOutput) NewChainOutputNext(governanceUpdate ...bool) *ChainOutput {
 	ret := c.clone()
-	ret.isStateUpdate = stateUpdate
+	ret.isGovernanceUpdate = false
+	if len(governanceUpdate) > 0 {
+		ret.isGovernanceUpdate = governanceUpdate[0]
+	}
 	return ret
 }
 
@@ -92,7 +95,7 @@ func ChainOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*ChainOut
 	if err != nil {
 		return nil, xerrors.Errorf("ChainOutput: failed to parse ChainOutput flags (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
-	ret.isStateUpdate = flags&flagChainOutputStateUpdate != 0
+	ret.isGovernanceUpdate = flags&flagChainOutputGovernanceUpdate != 0
 	if ret.aliasAddress.IsMint() {
 		addr, err := AliasAddressFromMarshalUtil(marshalUtil)
 		if err != nil {
@@ -303,8 +306,8 @@ func (c *ChainOutput) mustValidate() {
 func (c *ChainOutput) mustFlags() byte {
 	c.mustValidate()
 	var ret byte
-	if c.isStateUpdate {
-		ret |= flagChainOutputStateUpdate
+	if c.isGovernanceUpdate {
+		ret |= flagChainOutputGovernanceUpdate
 	}
 	if len(c.stateData) > 0 {
 		ret |= flagChainOutputStateDataPresent
@@ -422,7 +425,7 @@ func isExactMinimum(b ColoredBalances) bool {
 // validateStateTransition checks if part controlled by state address is valid
 func (c *ChainOutput) validateStateTransition(chained *ChainOutput, unlockedState bool) error {
 	if unlockedState {
-		if !chained.isStateUpdate {
+		if chained.isGovernanceUpdate {
 			return xerrors.New("ChainOutput: wrong unlock for state update")
 		}
 		if isDust(chained.balances) {
@@ -444,7 +447,7 @@ func (c *ChainOutput) validateStateTransition(chained *ChainOutput, unlockedStat
 // validateGovernanceChange checks if the parte controlled by the governing party is valid
 func (c *ChainOutput) validateGovernanceChange(chained *ChainOutput, unlockedGovernance bool) error {
 	if unlockedGovernance {
-		if chained.isStateUpdate {
+		if !chained.isGovernanceUpdate {
 			return xerrors.New("ChainOutput: wrong unlock for governance change")
 		}
 		return nil
@@ -525,13 +528,13 @@ func (c *ChainOutput) unlockedGovernanceByAliasIndex(tx *Transaction, refIndex u
 	if !refInput.GetAliasAddress().Equal(c.governingAddress.(*AliasAddress)) {
 		return false, xerrors.New("ChainOutput: wrong alias reference address")
 	}
-	return refInput.IsUnlockedForStateUpdate(tx), nil
+	return !refInput.IsUnlockedForGovernanceUpdate(tx), nil
 }
 
-func (c *ChainOutput) IsUnlockedForStateUpdate(tx *Transaction) bool {
+func (c *ChainOutput) IsUnlockedForGovernanceUpdate(tx *Transaction) bool {
 	chained, err := c.findChainedOutput(tx)
 	if err != nil {
 		return false
 	}
-	return chained.isStateUpdate
+	return chained.isGovernanceUpdate
 }

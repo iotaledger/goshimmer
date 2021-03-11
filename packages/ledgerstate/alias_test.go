@@ -109,7 +109,7 @@ func TestStateTransition1(t *testing.T) {
 	oid := NewOutputID(TransactionID{}, 42)
 	out.SetID(oid)
 
-	outNext := out.NewChainOutputNext(true)
+	outNext := out.NewChainOutputNext()
 
 	require.Zero(t, bytes.Compare(out.GetAliasAddress().Bytes(), outNext.GetAliasAddress().Bytes()))
 	outNext1, _, err := OutputFromBytes(outNext.Bytes())

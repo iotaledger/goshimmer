@@ -227,7 +227,7 @@ func (o *ExtendedLockedOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBl
 		if addr.Array() != refAliasOutput.GetAliasAddress().Array() {
 			return false, xerrors.New("ExtendedLockedOutput: wrong alias referenced")
 		}
-		unlockValid = refAliasOutput.IsSelfGoverned() || refAliasOutput.IsUnlockedForStateUpdate(tx)
+		unlockValid = refAliasOutput.IsSelfGoverned() || !refAliasOutput.IsUnlockedForGovernanceUpdate(tx)
 
 	default:
 		err = xerrors.Errorf("ExtendedLockedOutput: unsupported unlock block type: %w", cerrors.ErrParseBytesFailed)

@@ -211,7 +211,7 @@ func (b *Builder) ConsumeChainInput(addressAlias ledgerstate.Address) (ledgersta
 		return nil, xerrors.Errorf("can't find chain input for %s", addressAlias)
 	}
 	b.MustConsumeUntouchedInputByIndex(idx)
-	return out.NewChainOutputNext(true), nil
+	return out.NewChainOutputNext(), nil
 }
 
 func (b *Builder) MustConsumeUntouchedInputByIndex(index int) {
