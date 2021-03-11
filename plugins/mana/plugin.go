@@ -276,7 +276,6 @@ func pruneStorages() {
 }
 
 func shutdownStorages() {
-	// TODO: does it still cause the plugin to hang?
 	for vectorType := range baseManaVectors {
 		storages[vectorType].Shutdown()
 	}
