@@ -126,15 +126,19 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 				return
 			}
 
-			newSequenceAlias := make([]markers.SequenceAlias, 0)
-			if isConflict {
-				newSequenceAlias = append(newSequenceAlias, markers.NewSequenceAlias(inheritedBranch.Bytes()))
+			if !isConflict && inheritedBranch != ledgerstate.InvalidBranchID && inheritedBranch != ledgerstate.LazyBookedConflictsBranchID {
+				messageMetadata.SetStructureDetails(b.MarkersManager.InheritStructureDetails(message))
+				messageMetadata.SetBooked(true)
+
+				b.Events.MessageBooked.Trigger(messageID)
+
+				return
 			}
 
-			inheritedStructureDetails := b.MarkersManager.InheritStructureDetails(message, newSequenceAlias...)
+			inheritedStructureDetails := b.MarkersManager.InheritStructureDetails(message, markers.NewSequenceAlias(inheritedBranch.Bytes()))
 			messageMetadata.SetStructureDetails(inheritedStructureDetails)
 
-			if isConflict && !inheritedStructureDetails.IsPastMarker {
+			if !inheritedStructureDetails.IsPastMarker {
 				messageMetadata.SetBranchID(inheritedBranch)
 			} else {
 				b.MarkerBranchIDMappingManager.SetBranchID(inheritedStructureDetails.PastMarkers.FirstMarker(), inheritedBranch)
