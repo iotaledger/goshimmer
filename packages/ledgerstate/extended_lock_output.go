@@ -192,6 +192,7 @@ func (o *ExtendedLockedOutput) Balances() *ColoredBalances {
 // UnlockValid determines if the given Transaction and the corresponding UnlockBlock are allowed to spend the Output.
 func (o *ExtendedLockedOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inputs []Output) (unlockValid bool, err error) {
 	if tx.Essence().Timestamp().Before(time.Unix(int64(o.timelock), 0)) {
+		// can't be unlocked yet
 		return false, nil
 	}
 	var addr Address

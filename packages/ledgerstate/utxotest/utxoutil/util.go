@@ -23,30 +23,6 @@ func EqualAddresses(a1, a2 ledgerstate.Address) bool {
 	return true
 }
 
-//type ChainInputWithIndex struct{
-//	Input *ledgerstate.ChainOutput
-//	Index int
-//}
-//
-//func FindChainInputs(inputs []ledgerstate.Output) (map[[33]byte]ChainInputWithIndex, error) {
-//	ret := make(map[[33]byte]ChainInputWithIndex, 0)
-//
-//	for i, out := range inputs {
-//		retTmp, ok := out.(*ledgerstate.ChainOutput)
-//		if !ok {
-//			continue
-//		}
-//		if _, ok := ret[retTmp.Address().Array()]; ok{
-//			return nil, xerrors.New("duplicate chain input")
-//		}
-//		ret[retTmp.Address().Array()] = ChainInputWithIndex{
-//			Input: retTmp,
-//			Index: i,
-//		}
-//	}
-//	return ret, nil
-//}
-
 type signatureUnlockBlockWithIndex struct {
 	unlockBlock   *ledgerstate.SignatureUnlockBlock
 	indexUnlocked int
@@ -153,4 +129,36 @@ func unlockInputsWithSignatureBlocks(inputs []ledgerstate.Output, sigUnlockBlock
 		}
 	}
 	return ret, nil
+}
+
+func CollectChainedOutputs(essence *ledgerstate.TransactionEssence) (map[[33]byte]*ledgerstate.ChainOutput, error) {
+	ret := make(map[[33]byte]*ledgerstate.ChainOutput)
+	for _, o := range essence.Outputs() {
+		out, ok := o.(*ledgerstate.ChainOutput)
+		if !ok {
+			continue
+		}
+		if _, ok := ret[out.GetAliasAddress().Array()]; ok {
+			return nil, xerrors.New("duplicate chain output")
+		}
+		ret[out.GetAliasAddress().Array()] = out
+	}
+	return ret, nil
+}
+
+func GetSingleChainedOutput(essence *ledgerstate.TransactionEssence) (*ledgerstate.ChainOutput, error) {
+	ch, err := CollectChainedOutputs(essence)
+	if err != nil {
+		return nil, err
+	}
+	if len(ch) == 0 {
+		return nil, xerrors.New("chained output not found")
+	}
+	if len(ch) > 1 {
+		return nil, xerrors.New("more than one chained output was found")
+	}
+	for _, out := range ch {
+		return out, nil
+	}
+	panic("shouldn't be here")
 }

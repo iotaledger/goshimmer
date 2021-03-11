@@ -54,7 +54,7 @@ const (
 
 // NewChainOutputMint creates new ChainOutput as minting output, i.e. the one which does not contain corresponding input.
 func NewChainOutputMint(balances map[Color]uint64, stateAddr Address) (*ChainOutput, error) {
-	if len(balances) == 0 {
+	if !IsAboveDustThreshold(balances) {
 		return nil, xerrors.New("ChainOutput: colored balances should not be empty")
 	}
 	if stateAddr == nil || stateAddr.Type() == AliasAddressType {
@@ -73,6 +73,7 @@ func NewChainOutputMint(balances map[Color]uint64, stateAddr Address) (*ChainOut
 // NewChainOutputNext creates new ChainOutput as state transition from the previous one
 func (c *ChainOutput) NewChainOutputNext(governanceUpdate ...bool) *ChainOutput {
 	ret := c.clone()
+	ret.aliasAddress = *c.GetAliasAddress()
 	ret.isGovernanceUpdate = false
 	if len(governanceUpdate) > 0 {
 		ret.isGovernanceUpdate = governanceUpdate[0]
@@ -156,14 +157,11 @@ func (c *ChainOutput) clone() *ChainOutput {
 	return ret
 }
 
-func (c *ChainOutput) SetBalances(balanses map[Color]uint64) error {
-	if len(balanses) == 0 {
-		return xerrors.New("ChainOutput: colored balances should not be empty")
-	}
-	if iotas, ok := balanses[ColorIOTA]; !ok || iotas < DustThresholdChainOutputIOTA {
+func (c *ChainOutput) SetBalances(balances map[Color]uint64) error {
+	if !IsAboveDustThreshold(balances) {
 		return xerrors.New("ChainOutput: balances are less than dust threshold")
 	}
-	c.balances = *NewColoredBalances(balanses)
+	c.balances = *NewColoredBalances(balances)
 	return nil
 }
 
@@ -282,11 +280,8 @@ func (c *ChainOutput) ObjectStorageKey() []byte {
 }
 
 func (c *ChainOutput) checkValidity() error {
-	if len(c.balances.Map()) == 0 {
-		return xerrors.New("ChainOutput: balances must not be nil")
-	}
-	if iotas, ok := c.balances.Get(ColorIOTA); !ok || iotas < DustThresholdChainOutputIOTA {
-		return xerrors.New("ChainOutput: balances are less than dust threshold")
+	if !IsAboveDustThreshold(c.balances) {
+		return xerrors.New("ChainOutput: balances are below dust threshold")
 	}
 	if c.stateAddress == nil {
 		return xerrors.New("ChainOutput: state address must not be nil")
@@ -402,10 +397,19 @@ func equalColoredBalance(b1, b2 ColoredBalances) bool {
 	return true
 }
 
-func isDust(b ColoredBalances) bool {
-	bal, ok := b.Get(ColorIOTA)
-	if !ok || bal < DustThresholdChainOutputIOTA {
-		return true
+func IsAboveDustThreshold(b interface{}) bool {
+	switch m := b.(type) {
+	case ColoredBalances:
+		bal, ok := m.Get(ColorIOTA)
+		if !ok || bal >= DustThresholdChainOutputIOTA {
+			return true
+		}
+	case map[Color]uint64:
+		if iotas, ok := m[ColorIOTA]; !ok || iotas >= DustThresholdChainOutputIOTA {
+			return true
+		}
+	default:
+		panic("wrong parameter type in IsAboveDustThreshold")
 	}
 	return false
 }
@@ -428,7 +432,7 @@ func (c *ChainOutput) validateStateTransition(chained *ChainOutput, unlockedStat
 		if chained.isGovernanceUpdate {
 			return xerrors.New("ChainOutput: wrong unlock for state update")
 		}
-		if isDust(chained.balances) {
+		if !IsAboveDustThreshold(chained.balances) {
 			return xerrors.New("ChainOutput: tokens are below dust threshold")
 		}
 		return nil
@@ -447,10 +451,10 @@ func (c *ChainOutput) validateStateTransition(chained *ChainOutput, unlockedStat
 // validateGovernanceChange checks if the parte controlled by the governing party is valid
 func (c *ChainOutput) validateGovernanceChange(chained *ChainOutput, unlockedGovernance bool) error {
 	if unlockedGovernance {
-		if !chained.isGovernanceUpdate {
-			return xerrors.New("ChainOutput: wrong unlock for governance change")
-		}
 		return nil
+	}
+	if c.isGovernanceUpdate {
+		return xerrors.New("ChainOutput: wrong governance update flag")
 	}
 	// locked: must not modify governance data
 	if bytes.Compare(c.stateAddress.Bytes(), chained.stateAddress.Bytes()) != 0 {
@@ -485,7 +489,7 @@ func (c *ChainOutput) validateTransition(tx *Transaction, unlockedState, unlocke
 	}
 
 	if chained != nil {
-		if !c.aliasAddress.Equal(c.GetAliasAddress()) {
+		if !c.GetAliasAddress().Equal(c.GetAliasAddress()) {
 			return xerrors.New("chain alias address can't be modified")
 		}
 		if err := c.validateStateTransition(chained, unlockedState); err != nil {

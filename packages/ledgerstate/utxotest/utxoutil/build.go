@@ -199,6 +199,26 @@ func (b *Builder) AddReminderOutputIfNeeded(reminderAddr ledgerstate.Address, co
 	return b.AddExtendedOutputSimple(reminderAddr, unspent)
 }
 
+// AddNewChainMint creates new self governed chain.
+// The identity of the chain is not known until the full transaction is produced
+func (b *Builder) AddNewChainMint(balances map[ledgerstate.Color]uint64, stateAddress ledgerstate.Address, stateData []byte) error {
+	output, err := ledgerstate.NewChainOutputMint(balances, stateAddress)
+	if err != nil {
+		return err
+	}
+	if err := output.SetStateData(stateData); err != nil {
+		return err
+	}
+	if !b.ensureEnoughUnspendAmounts(balances) {
+		return xerrors.New("not enough tokens")
+	}
+	b.SpendConsumedUnspent()
+	if err := b.AddOutput(output); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (b *Builder) ConsumedUnspent() map[ledgerstate.Color]uint64 {
 	ret := make(map[ledgerstate.Color]uint64)
 	for col, bal := range b.consumedUnspent {
@@ -210,7 +230,7 @@ func (b *Builder) ConsumedUnspent() map[ledgerstate.Color]uint64 {
 }
 
 // ConsumeChainInput consumes and returns clone of the input
-func (b *Builder) ConsumeChainInput(addressAlias ledgerstate.Address) (ledgerstate.Output, error) {
+func (b *Builder) ConsumeChainInput(addressAlias ledgerstate.Address) (*ledgerstate.ChainOutput, error) {
 	out, idx, ok := FindChainConsumableInput(addressAlias, b.consumables...)
 	if !ok {
 		return nil, xerrors.Errorf("can't find chain input for %s", addressAlias)
@@ -260,7 +280,6 @@ func (b *Builder) BuildEssence(compress ...bool) (*ledgerstate.TransactionEssenc
 }
 
 func (b *Builder) BuildWithED25519(keyPairs ...*ed25519.KeyPair) (*ledgerstate.Transaction, error) {
-
 	essence, consumedOutputs, err := b.BuildEssence()
 	if err != nil {
 		return nil, err
