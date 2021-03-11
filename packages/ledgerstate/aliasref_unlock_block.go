@@ -7,8 +7,9 @@ import (
 	"golang.org/x/xerrors"
 )
 
-// AliasReferencedUnlockBlock defines an UnlockBlock which references a previous UnlockBlock
-// The previous can be another AliasReferencedUnlockBlock. This unlock block type allows recursive unlocks
+// AliasReferencedUnlockBlock defines an UnlockBlock which references a signature UnlockBlock
+// It is similar to the ReferenceUnlockBlock, however output types which are related to
+// unlocking mechanism by alias interpret it specially
 type AliasReferencedUnlockBlock struct {
 	referencedIndex uint16
 }
