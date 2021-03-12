@@ -59,6 +59,17 @@ func (b *Builder) WithConsensusPledge(id identity.ID) *Builder {
 	return b
 }
 
+func (b *Builder) ConsumeUntouchedByIndex(idx int) error {
+	if idx >= len(b.consumables) {
+		return xerrors.New("wrong index")
+	}
+	if b.consumables[idx].WasConsumed() {
+		return xerrors.New("input already consumed")
+	}
+	b.addToConsumedUnspent(ConsumeRemaining(b.consumables[idx]))
+	return nil
+}
+
 func (b *Builder) AddOutputAndSpend(out ledgerstate.Output) error {
 	b.SpendConsumedUnspent()
 	return b.addOutput(out)
@@ -190,19 +201,22 @@ func (b *Builder) AddSigLockedIOTAOutput(targetAddress ledgerstate.Address, amou
 	return nil
 }
 
-func (b *Builder) AddExtendedOutputSimple(targetAddress ledgerstate.Address, amounts map[ledgerstate.Color]uint64, mint ...uint64) error {
+func (b *Builder) AddExtendedOutputSimple(targetAddress ledgerstate.Address, data []byte, amounts map[ledgerstate.Color]uint64, mint ...uint64) error {
 	balances, err := b.prepareColoredBalancesOutput(amounts, mint...)
 	if err != nil {
 		return err
 	}
 	output := ledgerstate.NewExtendedLockedOutput(balances, targetAddress)
+	if err := output.SetPayload(data); err != nil {
+		return err
+	}
 	if err := b.addOutput(output); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (b *Builder) AddReminderOutputIfNeeded(reminderAddr ledgerstate.Address, compress ...bool) error {
+func (b *Builder) AddReminderOutputIfNeeded(reminderAddr ledgerstate.Address, data []byte, compress ...bool) error {
 	compr := false
 	if len(compress) > 0 {
 		compr = compress[0]
@@ -213,7 +227,7 @@ func (b *Builder) AddReminderOutputIfNeeded(reminderAddr ledgerstate.Address, co
 		// no need for reminder output
 		return nil
 	}
-	return b.AddExtendedOutputSimple(reminderAddr, unspent)
+	return b.AddExtendedOutputSimple(reminderAddr, data, unspent)
 }
 
 // AddNewChainMint creates new self governed chain.
@@ -270,6 +284,17 @@ func (b *Builder) ConsumeReminderBalances(compress bool) []*ConsumableOutput {
 	}
 	b.addToConsumedUnspent(ConsumeRemaining(inputConsumables...))
 	return inputConsumables
+}
+
+func (b *Builder) ForEachUntouched(fun func(out ledgerstate.Output, index int) bool) {
+	for i, consumable := range b.consumables {
+		if consumable.WasConsumed() {
+			continue
+		}
+		if !fun(consumable.output, i) {
+			break
+		}
+	}
 }
 
 func (b *Builder) BuildEssence(compress ...bool) (*ledgerstate.TransactionEssence, []ledgerstate.Output, error) {
