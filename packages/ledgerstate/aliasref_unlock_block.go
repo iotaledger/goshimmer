@@ -8,8 +8,10 @@ import (
 )
 
 // AliasReferencedUnlockBlock defines an UnlockBlock which references a signature UnlockBlock
-// It is similar to the ReferenceUnlockBlock, however output types which are related to
-// unlocking mechanism by alias interpret it specially
+// It is similar to the ReferenceUnlockBlock, however unlocking logic of outputs is agnostic about
+// ReferenceUnlockBlock.
+// AliasReferencedUnlockBlock is always passed to the UnlockValid logic of the output. It makes it pssible
+// for the output types which are related to unlocking mechanism by alias interpret it in a special way.
 type AliasReferencedUnlockBlock struct {
 	referencedIndex uint16
 }

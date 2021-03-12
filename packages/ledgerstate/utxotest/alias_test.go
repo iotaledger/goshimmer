@@ -2,8 +2,8 @@ package utxotest
 
 import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate/utxotest/utxodb"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate/utxotest/utxoutil"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate/utxodb"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate/utxoutil"
 	"github.com/stretchr/testify/require"
 	"testing"
 )

@@ -15,7 +15,7 @@ import (
 // ExtendedLockedOutput is an Extension of SigLockedColoredOutput. If extended options not enabled,
 // it behaves as SigLockedColoredOutput.
 // In addition it has options:
-// - fallback address and timeout
+// - fallback address and fallback timeout
 // - can be unlocked by AliasReferencedUnlockBlock (is address is of AliasAddress type)
 // - can be time locked until deadline
 // - data payload for arbitrary metadata (size limits apply)
