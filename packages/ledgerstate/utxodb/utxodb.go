@@ -32,20 +32,7 @@ func (u *UtxoDB) AddTransaction(tx *ledgerstate.Transaction) error {
 		if out.ID().TransactionID() != tx.ID() {
 			panic("utxodb.AddTransaction: incorrect output ID")
 		}
-		var outClone ledgerstate.Output
-		switch o := out.(type) {
-		case *ledgerstate.SigLockedColoredOutput:
-			outClone = o.UpdateMintingColor()
-		case *ledgerstate.SigLockedSingleOutput:
-			outClone = out.Clone()
-		case *ledgerstate.ChainOutput:
-			outClone = out.Clone()
-		case *ledgerstate.ExtendedLockedOutput:
-			outClone = out.Clone()
-		default:
-			panic("utxodb.AddTransaction: unknown output type")
-		}
-		u.utxo[out.ID()] = outClone
+		u.utxo[out.ID()] = out.UpdateMintingColor()
 	}
 	u.transactions[tx.ID()] = tx
 	u.checkLedgerBalance()

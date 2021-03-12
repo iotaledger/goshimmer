@@ -514,9 +514,7 @@ func (u *UTXODAG) bookConsumers(inputsMetadata OutputsMetadata, transactionID Tr
 func (u *UTXODAG) bookOutputs(transaction *Transaction, targetBranch BranchID) {
 	for _, output := range transaction.Essence().Outputs() {
 		// replace ColorMint color with unique color based on OutputID
-		if output.Type() == SigLockedColoredOutputType {
-			output = output.(*SigLockedColoredOutput).UpdateMintingColor()
-		}
+		output = output.UpdateMintingColor()
 
 		// store Output
 		u.outputStorage.Store(output).Release()

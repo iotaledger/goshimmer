@@ -198,6 +198,10 @@ type Output interface {
 	// Output.
 	UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inputs []Output) (bool, error)
 
+	// UpdateMintingColor replaces the ColorMint in the balances of the Output with the hash of the OutputID. It returns a
+	// copy of the original Output with the modified balances.
+	UpdateMintingColor() Output
+
 	// Input returns an Input that references the Output.
 	Input() Input
 
@@ -644,6 +648,10 @@ func (s *SigLockedSingleOutput) Update(objectstorage.StorableObject) {
 	panic("updates disabled")
 }
 
+func (s *SigLockedSingleOutput) UpdateMintingColor() Output {
+	return s
+}
+
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (s *SigLockedSingleOutput) ObjectStorageKey() []byte {
@@ -807,7 +815,7 @@ func (s *SigLockedColoredOutput) Clone() Output {
 
 // UpdateMintingColor replaces the ColorMint in the balances of the Output with the hash of the OutputID. It returns a
 // copy of the original Output with the modified balances.
-func (s *SigLockedColoredOutput) UpdateMintingColor() (updatedOutput *SigLockedColoredOutput) {
+func (s *SigLockedColoredOutput) UpdateMintingColor() (updatedOutput Output) {
 	coloredBalances := s.Balances().Map()
 	if mintedCoins, mintedCoinsExist := coloredBalances[ColorMint]; mintedCoinsExist {
 		delete(coloredBalances, ColorMint)
@@ -1182,6 +1190,19 @@ func (c *ChainOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inpu
 		return c.unlockedGovernanceByAliasIndex(tx, blk.ChainInputIndex(), inputs)
 	}
 	return false, xerrors.New("unsupported unlock block type")
+}
+
+func (c *ChainOutput) UpdateMintingColor() Output {
+	coloredBalances := c.Balances().Map()
+	if mintedCoins, mintedCoinsExist := coloredBalances[ColorMint]; mintedCoinsExist {
+		delete(coloredBalances, ColorMint)
+		coloredBalances[Color(blake2b.Sum256(c.ID().Bytes()))] = mintedCoins
+	}
+	updatedOutput := c.clone()
+	_ = updatedOutput.SetBalances(coloredBalances)
+	updatedOutput.SetID(c.ID())
+
+	return updatedOutput
 }
 
 func (c *ChainOutput) checkValidity() error {
@@ -1661,16 +1682,16 @@ func (o *ExtendedLockedOutput) Clone() Output {
 
 // UpdateMintingColor replaces the ColorMint in the balances of the Output with the hash of the OutputID. It returns a
 // copy of the original Output with the modified balances.
-func (o *ExtendedLockedOutput) UpdateMintingColor() (updatedOutput *ExtendedLockedOutput) {
+func (o *ExtendedLockedOutput) UpdateMintingColor() Output {
 	coloredBalances := o.Balances().Map()
 	if mintedCoins, mintedCoinsExist := coloredBalances[ColorMint]; mintedCoinsExist {
 		delete(coloredBalances, ColorMint)
 		coloredBalances[Color(blake2b.Sum256(o.ID().Bytes()))] = mintedCoins
 	}
-	updatedOutput = NewExtendedLockedOutput(coloredBalances, o.Address())
+	updatedOutput := NewExtendedLockedOutput(coloredBalances, o.Address())
 	updatedOutput.SetID(o.ID())
 
-	return
+	return updatedOutput
 }
 
 // Bytes returns a marshaled version of the Output.
