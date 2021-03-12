@@ -25,6 +25,10 @@ func newTestDataMessage(payloadString string) *Message {
 	return NewMessage([]MessageID{EmptyMessageID}, []MessageID{}, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
 }
 
+func newTestDataMessagePublicKey(payloadString string, publicKey ed25519.PublicKey) *Message {
+	return NewMessage([]MessageID{EmptyMessageID}, []MessageID{}, time.Now(), publicKey, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+}
+
 func newTestParentsDataMessage(payloadString string, strongParents, weakParents []MessageID) *Message {
 	return NewMessage(strongParents, weakParents, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
 }

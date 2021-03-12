@@ -19,7 +19,9 @@ type ApprovalWeightManager struct {
 
 func NewApprovalWeightManager(tangle *Tangle) (approvalWeightManager *ApprovalWeightManager) {
 	approvalWeightManager = &ApprovalWeightManager{
-		tangle: tangle,
+		tangle:         tangle,
+		lastStatements: make(map[ed25519.PublicKey]*Statement),
+		supporters:     make(map[ledgerstate.BranchID]set.Set),
 	}
 
 	return
@@ -35,7 +37,7 @@ func (a *ApprovalWeightManager) ProcessMessage(messageID MessageID) {
 		newStatement := a.statementFromMessage(message)
 		a.lastStatements[message.IssuerPublicKey()] = newStatement
 
-		if lastStatement.BranchID == newStatement.BranchID {
+		if lastStatementExists && lastStatement.BranchID == newStatement.BranchID {
 			return
 		}
 
@@ -60,6 +62,10 @@ func (a *ApprovalWeightManager) propagateSupportToBranches(branchID ledgerstate.
 }
 
 func (a *ApprovalWeightManager) addSupportToBranch(branchID ledgerstate.BranchID, issuer ed25519.PublicKey, walk *walker.Walker) {
+	if _, exists := a.supporters[branchID]; !exists {
+		a.supporters[branchID] = set.New()
+	}
+
 	if !a.supporters[branchID].Add(issuer) {
 		return
 	}
@@ -72,10 +78,16 @@ func (a *ApprovalWeightManager) addSupportToBranch(branchID ledgerstate.BranchID
 			a.revokeSupportFromBranch(revokeWalker.Next().(ledgerstate.BranchID), issuer, revokeWalker)
 		}
 	})
+
+	a.tangle.LedgerState.branchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
+		for parentBranchID := range branch.Parents() {
+			walk.Push(parentBranchID)
+		}
+	})
 }
 
 func (a *ApprovalWeightManager) revokeSupportFromBranch(branchID ledgerstate.BranchID, issuer ed25519.PublicKey, walker *walker.Walker) {
-	if !a.supporters[branchID].Delete(issuer) {
+	if supporters, exists := a.supporters[branchID]; !exists || !supporters.Delete(issuer) {
 		return
 	}
 
