@@ -340,6 +340,22 @@ func (b *BranchDAG) ResolveConflictBranchIDs(branchIDs BranchIDs) (conflictBranc
 	return
 }
 
+// ForEachConflictingBranchID executes the callback for each ConflictBranch that is conflicting with the Branch
+// identified by the given BranchID.
+func (b *BranchDAG) ForEachConflictingBranchID(branchID BranchID, callback func(conflictingBranchID BranchID)) {
+	b.Branch(branchID).Consume(func(branch Branch) {
+		for conflictID := range branch.(*ConflictBranch).Conflicts() {
+			b.ConflictMembers(conflictID).Consume(func(conflictMember *ConflictMember) {
+				if conflictMember.BranchID() == branchID {
+					return
+				}
+
+				callback(conflictMember.BranchID())
+			})
+		}
+	})
+}
+
 // Prune resets the database and deletes all objects (for testing or "node resets").
 func (b *BranchDAG) Prune() (err error) {
 	for _, storage := range []*objectstorage.ObjectStorage{
