@@ -177,7 +177,7 @@ func (b *Booker) branchIDsOfParents(message *Message) (branchIDs ledgerstate.Bra
 			return
 		}
 
-		branchIDs[b.branchIDOfMessage(parentMessageID)] = types.Void
+		branchIDs[b.BranchIDOfMessage(parentMessageID)] = types.Void
 	})
 
 	message.ForEachWeakParent(func(parentMessageID MessageID) {
@@ -203,13 +203,20 @@ func (b *Booker) branchIDsOfParents(message *Message) (branchIDs ledgerstate.Bra
 	return
 }
 
-func (b *Booker) branchIDOfMessage(messageID MessageID) (branchID ledgerstate.BranchID) {
+func (b *Booker) BranchIDOfMessage(messageID MessageID) (branchID ledgerstate.BranchID) {
+	branchID, _ = b.branchIDOfMessage(messageID)
+
+	return
+}
+
+func (b *Booker) branchIDOfMessage(messageID MessageID) (branchID ledgerstate.BranchID, explicitlySet bool) {
 	if messageID == EmptyMessageID {
-		return ledgerstate.MasterBranchID
+		return ledgerstate.MasterBranchID, false
 	}
 
 	if !b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 		if branchID = messageMetadata.BranchID(); branchID != ledgerstate.UndefinedBranchID {
+			explicitlySet = true
 			return
 		}
 

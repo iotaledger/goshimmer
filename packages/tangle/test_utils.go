@@ -98,7 +98,7 @@ func addressFromInput(input ledgerstate.Input, outputsByID ledgerstate.OutputsBy
 }
 
 func messageBranchID(tangle *Tangle, messageID MessageID) (branchID ledgerstate.BranchID, err error) {
-	if branchID = tangle.Booker.branchIDOfMessage(messageID); branchID == ledgerstate.UndefinedBranchID {
+	if branchID = tangle.Booker.BranchIDOfMessage(messageID); branchID == ledgerstate.UndefinedBranchID {
 		return branchID, fmt.Errorf("missing message metadata")
 	}
 

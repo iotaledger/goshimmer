@@ -813,7 +813,7 @@ func storeBookLikeMessage(t *testing.T, tangle *Tangle, message *Message) {
 	tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 		// make sure that everything was booked into master branch
 		require.True(t, messageMetadata.booked)
-		require.Equal(t, ledgerstate.MasterBranchID, tangle.Booker.branchIDOfMessage(message.ID()))
+		require.Equal(t, ledgerstate.MasterBranchID, tangle.Booker.BranchIDOfMessage(message.ID()))
 
 		messageMetadata.SetEligible(true)
 	})
