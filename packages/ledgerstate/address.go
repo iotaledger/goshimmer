@@ -1,6 +1,8 @@
 package ledgerstate
 
 import (
+	"bytes"
+
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -53,6 +55,9 @@ type Address interface {
 
 	// Clone creates a copy of the Address.
 	Clone() Address
+
+	// Equals returns true if the two Addresses are equal.
+	Equals(other Address) bool
 
 	// Bytes returns a marshaled version of the Address.
 	Bytes() []byte
@@ -203,6 +208,11 @@ func (e *ED25519Address) Clone() Address {
 	}
 }
 
+// Equals returns true if the two Addresses are equal.
+func (e *ED25519Address) Equals(other Address) bool {
+	return e.Type() == other.Type() && bytes.Compare(e.digest, other.Digest()) == 0
+}
+
 // Bytes returns a marshaled version of the Address.
 func (e *ED25519Address) Bytes() []byte {
 	return byteutils.ConcatBytes([]byte{byte(ED25519AddressType)}, e.digest)
@@ -316,6 +326,11 @@ func (b *BLSAddress) Clone() Address {
 	return &BLSAddress{
 		digest: clonedDigest,
 	}
+}
+
+// Equals returns true if the two Addresses are equal.
+func (b *BLSAddress) Equals(other Address) bool {
+	return b.Type() == other.Type() && bytes.Compare(b.digest, other.Digest()) == 0
 }
 
 // Bytes returns a marshaled version of the Address.

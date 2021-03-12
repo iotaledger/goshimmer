@@ -1,6 +1,8 @@
 package ledgerstate
 
 import (
+	"bytes"
+
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -73,51 +75,52 @@ func AliasAddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address 
 	return
 }
 
-func (addr *AliasAddress) IsMint() bool {
-	return addr.digest == [32]byte{}
+func (a *AliasAddress) IsMint() bool {
+	return a.digest == [32]byte{}
 }
 
 // Type returns the AddressType of the Address.
-func (addr *AliasAddress) Type() AddressType {
+func (a *AliasAddress) Type() AddressType {
 	return AliasAddressType
 }
 
 // Digest returns the hashed version of the Addresses public key.
-func (addr *AliasAddress) Digest() []byte {
-	return addr.digest[:]
+func (a *AliasAddress) Digest() []byte {
+	return a.digest[:]
 }
 
 // Clone creates a copy of the Address.
-func (addr *AliasAddress) Clone() Address {
-	return &(*addr)
+func (a *AliasAddress) Clone() Address {
+	return &(*a)
 }
 
 // Bytes returns a marshaled version of the Address.
-func (addr *AliasAddress) Bytes() []byte {
-	return byteutils.ConcatBytes([]byte{byte(AliasAddressType)}, addr.digest[:])
+func (a *AliasAddress) Bytes() []byte {
+	return byteutils.ConcatBytes([]byte{byte(AliasAddressType)}, a.digest[:])
 }
 
 // Array returns an array of bytes that contains the marshaled version of the Address.
-func (addr *AliasAddress) Array() (array [AddressLength]byte) {
-	copy(array[:], addr.Bytes())
+func (a *AliasAddress) Array() (array [AddressLength]byte) {
+	copy(array[:], a.Bytes())
 
 	return
 }
 
-func (addr *AliasAddress) Equal(b *AliasAddress) bool {
-	return addr.digest == b.digest
+// Equals returns true if the two Addresses are equal.
+func (a *AliasAddress) Equals(other Address) bool {
+	return a.Type() == other.Type() && bytes.Compare(a.Digest(), other.Digest()) == 0
 }
 
 // Base58 returns a base58 encoded version of the Address.
-func (addr *AliasAddress) Base58() string {
-	return base58.Encode(addr.Bytes())
+func (a *AliasAddress) Base58() string {
+	return base58.Encode(a.Bytes())
 }
 
 // String returns a human readable version of the addresses for debug purposes.
-func (addr *AliasAddress) String() string {
+func (a *AliasAddress) String() string {
 	return stringify.Struct("AliasAddress",
-		stringify.StructField("Digest", addr.Digest()),
-		stringify.StructField("Base58", addr.Base58()),
+		stringify.StructField("Digest", a.Digest()),
+		stringify.StructField("Base58", a.Base58()),
 	)
 }
 

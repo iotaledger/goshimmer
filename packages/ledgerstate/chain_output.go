@@ -3,11 +3,12 @@ package ledgerstate
 import (
 	"bytes"
 	"fmt"
+	"sync"
+
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"golang.org/x/xerrors"
-	"sync"
 )
 
 const DustThresholdChainOutputIOTA = uint64(100) // TODO protocol wide dust threshold
@@ -354,7 +355,7 @@ func (c *ChainOutput) findChainedOutput(tx *Transaction) (*ChainOutput, error) {
 			continue
 		}
 		outAlias := out.(*ChainOutput)
-		if !aliasAddress.Equal(outAlias.GetAliasAddress()) {
+		if !aliasAddress.Equals(outAlias.GetAliasAddress()) {
 			continue
 		}
 		if ret != nil {
@@ -479,7 +480,7 @@ func (c *ChainOutput) validateTransition(tx *Transaction, unlockedState, unlocke
 	}
 
 	if chained != nil {
-		if !c.GetAliasAddress().Equal(c.GetAliasAddress()) {
+		if !c.GetAliasAddress().Equals(c.GetAliasAddress()) {
 			return xerrors.New("chain alias address can't be modified")
 		}
 		if err := c.validateStateTransition(chained, unlockedState); err != nil {
@@ -523,7 +524,7 @@ func (c *ChainOutput) unlockedGovernanceByAliasIndex(tx *Transaction, refIndex u
 	if !ok {
 		return false, xerrors.New("ChainOutput: the referenced output is not of ChainOutput type")
 	}
-	if !refInput.GetAliasAddress().Equal(c.governingAddress.(*AliasAddress)) {
+	if !refInput.GetAliasAddress().Equals(c.governingAddress.(*AliasAddress)) {
 		return false, xerrors.New("ChainOutput: wrong alias reference address")
 	}
 	return !refInput.IsUnlockedForGovernanceUpdate(tx), nil
