@@ -60,7 +60,7 @@ func unlockInputsWithSignatureBlocks(inputs []ledgerstate.Output, sigUnlockBlock
 			}
 			if sig.indexUnlocked >= 0 {
 				// signature already included
-				ret[index] = ledgerstate.NewAliasReferenceUnlockBlock(uint16(sig.indexUnlocked))
+				ret[index] = ledgerstate.NewAliasUnlockBlock(uint16(sig.indexUnlocked))
 			} else {
 				// signature is included here
 				ret[index] = sig.unlockBlock
@@ -75,7 +75,7 @@ func unlockInputsWithSignatureBlocks(inputs []ledgerstate.Output, sigUnlockBlock
 				if !EqualAddresses(ot.GetAliasAddress(), eot.Address()) {
 					continue
 				}
-				ret[i] = ledgerstate.NewAliasReferenceUnlockBlock(uint16(index))
+				ret[i] = ledgerstate.NewAliasUnlockBlock(uint16(index))
 			}
 
 		case *ledgerstate.ExtendedLockedOutput:
