@@ -7,6 +7,7 @@ import (
 
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
+	"github.com/iotaledger/hive.go/crypto"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
@@ -66,6 +67,13 @@ func ConflictIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictID
 		return
 	}
 	copy(conflictID[:], conflictIDBytes)
+
+	return
+}
+
+// ConflictIDFromRandomness returns a random ConflictID which can for example be used for unit tests.
+func ConflictIDFromRandomness() (conflictID ConflictID) {
+	crypto.Randomness.Read(conflictID[:])
 
 	return
 }

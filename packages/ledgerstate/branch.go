@@ -9,6 +9,7 @@ import (
 
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
+	"github.com/iotaledger/hive.go/crypto"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
@@ -83,6 +84,13 @@ func BranchIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchID Bra
 		return
 	}
 	copy(branchID[:], branchIDBytes)
+
+	return
+}
+
+// BranchIDFromRandomness returns a random BranchID which can for example be used for unit tests.
+func BranchIDFromRandomness() (branchID BranchID) {
+	crypto.Randomness.Read(branchID[:])
 
 	return
 }

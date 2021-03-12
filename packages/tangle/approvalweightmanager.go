@@ -17,7 +17,7 @@ type ApprovalWeightManager struct {
 	supporters     map[ledgerstate.BranchID]set.Set
 }
 
-func NewApprovalsWeightManager(tangle *Tangle) (approvalWeightManager *ApprovalWeightManager) {
+func NewApprovalWeightManager(tangle *Tangle) (approvalWeightManager *ApprovalWeightManager) {
 	approvalWeightManager = &ApprovalWeightManager{
 		tangle: tangle,
 	}
