@@ -307,6 +307,39 @@ func (b *BranchDAG) BranchIDsContainRejectedBranch(branchIDs BranchIDs) (rejecte
 	return
 }
 
+// ResolveConflictBranchIDs returns the BranchIDs of the ConflictBranches that the given Branches represent by resolving
+// AggregatedBranches to their corresponding ConflictBranches.
+func (b *BranchDAG) ResolveConflictBranchIDs(branchIDs BranchIDs) (conflictBranchIDs BranchIDs, err error) {
+	// initialize return variable
+	conflictBranchIDs = make(BranchIDs)
+
+	// iterate through parameters and collect the conflict branches
+	seenBranches := set.New()
+	for branchID := range branchIDs {
+		// abort if branch was processed already
+		if !seenBranches.Add(branchID) {
+			continue
+		}
+
+		// process branch or abort if it can not be found
+		if !b.Branch(branchID).Consume(func(branch Branch) {
+			switch branch.Type() {
+			case ConflictBranchType:
+				conflictBranchIDs[branch.ID()] = types.Void
+			case AggregatedBranchType:
+				for parentBranchID := range branch.Parents() {
+					conflictBranchIDs[parentBranchID] = types.Void
+				}
+			}
+		}) {
+			err = xerrors.Errorf("failed to load Branch with %s: %w", branchID, cerrors.ErrFatal)
+			return
+		}
+	}
+
+	return
+}
+
 // Prune resets the database and deletes all objects (for testing or "node resets").
 func (b *BranchDAG) Prune() (err error) {
 	for _, storage := range []*objectstorage.ObjectStorage{
@@ -369,45 +402,12 @@ func (b *BranchDAG) init() {
 	}
 }
 
-// resolveConflictBranchIDs is an internal utility function that returns the BranchIDs of the ConflictBranches that the
-// given Branches represent by resolving AggregatedBranches to their corresponding ConflictBranches.
-func (b *BranchDAG) resolveConflictBranchIDs(branchIDs BranchIDs) (conflictBranchIDs BranchIDs, err error) {
-	// initialize return variable
-	conflictBranchIDs = make(BranchIDs)
-
-	// iterate through parameters and collect the conflict branches
-	seenBranches := set.New()
-	for branchID := range branchIDs {
-		// abort if branch was processed already
-		if !seenBranches.Add(branchID) {
-			continue
-		}
-
-		// process branch or abort if it can not be found
-		if !b.Branch(branchID).Consume(func(branch Branch) {
-			switch branch.Type() {
-			case ConflictBranchType:
-				conflictBranchIDs[branch.ID()] = types.Void
-			case AggregatedBranchType:
-				for parentBranchID := range branch.Parents() {
-					conflictBranchIDs[parentBranchID] = types.Void
-				}
-			}
-		}) {
-			err = xerrors.Errorf("failed to load Branch with %s: %w", branchID, cerrors.ErrFatal)
-			return
-		}
-	}
-
-	return
-}
-
 // normalizeBranches is an internal utility function that takes a list of BranchIDs and returns the BranchIDS of the
 // most special ConflictBranches that the given BranchIDs represent. It returns an error if the Branches are conflicting
 // or any other unforeseen error occurred.
 func (b *BranchDAG) normalizeBranches(branchIDs BranchIDs) (normalizedBranches BranchIDs, err error) {
 	// retrieve conflict branches and abort if we faced an error
-	conflictBranches, err := b.resolveConflictBranchIDs(branchIDs)
+	conflictBranches, err := b.ResolveConflictBranchIDs(branchIDs)
 	if err != nil {
 		err = xerrors.Errorf("failed to resolve ConflictBranchIDs: %w", err)
 		return

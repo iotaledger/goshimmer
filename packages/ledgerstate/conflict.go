@@ -550,7 +550,7 @@ func (c CachedConflictMembers) Unwrap() (unwrappedConflictMembers []*ConflictMem
 // Consume iterates over the CachedObjects, unwraps them and passes a type-casted version to the consumer (if the object
 // is not empty - it exists). It automatically releases the object when the consumer finishes. It returns true, if at
 // least one object was consumed.
-func (c CachedConflictMembers) Consume(consumer func(childBranch *ConflictMember), forceRelease ...bool) (consumed bool) {
+func (c CachedConflictMembers) Consume(consumer func(conflictMember *ConflictMember), forceRelease ...bool) (consumed bool) {
 	for _, cachedConflictMember := range c {
 		consumed = cachedConflictMember.Consume(func(output *ConflictMember) {
 			consumer(output)
