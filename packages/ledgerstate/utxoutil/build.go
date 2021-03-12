@@ -8,14 +8,24 @@ import (
 	"time"
 )
 
+// Builder builder implements a structure and interface to build transactions
+// Initial input is a list of outputs which can be used as consumable inputs
+// Balances are tracked by "consuming" tokens from inputs and then "spending" them to outputs
+// "consuming" tokens from inputs means:
+// - tracking "remaining" part of tokens in each consumable output
+// - placing consumed token into the "consumedUnspent"
+// - By SpendConsumedUnspent all tokens are cleared from "consumedUnspent" and can be used as a token payload to
+//   the output
 type Builder struct {
 	version           ledgerstate.TransactionEssenceVersion
 	accessPledgeID    identity.ID
 	consensusPledgeID identity.ID
 	timestamp         time.Time
-	consumables       []*ConsumableOutput
-	outputs           []ledgerstate.Output
-	consumedUnspent   map[ledgerstate.Color]uint64
+	// tracks remaining tokens for each consumable output
+	consumables []*ConsumableOutput
+	outputs     []ledgerstate.Output
+	// buffer of consumed but unspent yet tokens
+	consumedUnspent map[ledgerstate.Color]uint64
 }
 
 func NewBuilder(inputs ...ledgerstate.Output) *Builder {
@@ -51,7 +61,12 @@ func (b *Builder) WithConsensusPledge(id identity.ID) *Builder {
 	return b
 }
 
-func (b *Builder) AddOutput(out ledgerstate.Output) error {
+func (b *Builder) AddOutputAndSpend(out ledgerstate.Output) error {
+	b.SpendConsumedUnspent()
+	return b.addOutput(out)
+}
+
+func (b *Builder) addOutput(out ledgerstate.Output) error {
 	for _, o := range b.outputs {
 		if out.Compare(o) == 0 {
 			return xerrors.New("duplicate outputs not allowed")
@@ -112,6 +127,10 @@ func (b *Builder) SpendConsumedUnspent() map[ledgerstate.Color]uint64 {
 	return ret
 }
 
+// prepareColoredBalancesOutput:
+// - ensures enough tokens in unspentAmounts
+// - spends them
+// - handles minting of new colors (if any) and returns final map of tokens with valid minting
 func (b *Builder) prepareColoredBalancesOutput(amounts map[ledgerstate.Color]uint64, mint ...uint64) (map[ledgerstate.Color]uint64, error) {
 	if len(amounts) == 0 {
 		return nil, xerrors.New("AddSigLockedColoredOutput: no tokens to transfer")
@@ -148,7 +167,7 @@ func (b *Builder) AddSigLockedColoredOutput(targetAddress ledgerstate.Address, a
 	}
 	bals := ledgerstate.NewColoredBalances(balances)
 	output := ledgerstate.NewSigLockedColoredOutput(bals, targetAddress)
-	if err := b.AddOutput(output); err != nil {
+	if err := b.addOutput(output); err != nil {
 		return err
 	}
 	return nil
@@ -167,7 +186,7 @@ func (b *Builder) AddSigLockedIOTAOutput(targetAddress ledgerstate.Address, amou
 	} else {
 		output = ledgerstate.NewSigLockedSingleOutput(amount, targetAddress)
 	}
-	if err := b.AddOutput(output); err != nil {
+	if err := b.addOutput(output); err != nil {
 		return err
 	}
 	return nil
@@ -179,7 +198,7 @@ func (b *Builder) AddExtendedOutputSimple(targetAddress ledgerstate.Address, amo
 		return err
 	}
 	output := ledgerstate.NewExtendedLockedOutput(balances, targetAddress)
-	if err := b.AddOutput(output); err != nil {
+	if err := b.addOutput(output); err != nil {
 		return err
 	}
 	return nil
@@ -213,7 +232,7 @@ func (b *Builder) AddNewChainMint(balances map[ledgerstate.Color]uint64, stateAd
 		return xerrors.New("not enough tokens")
 	}
 	b.SpendConsumedUnspent()
-	if err := b.AddOutput(output); err != nil {
+	if err := b.addOutput(output); err != nil {
 		return err
 	}
 	return nil
@@ -229,8 +248,8 @@ func (b *Builder) ConsumedUnspent() map[ledgerstate.Color]uint64 {
 	return ret
 }
 
-// ConsumeChainInput consumes and returns clone of the input
-func (b *Builder) ConsumeChainInput(addressAlias ledgerstate.Address) (*ledgerstate.ChainOutput, error) {
+// ConsumeChainInputToOutput consumes and returns clone of the input
+func (b *Builder) ConsumeChainInputToOutput(addressAlias ledgerstate.Address) (*ledgerstate.ChainOutput, error) {
 	out, idx, ok := FindChainConsumableInput(addressAlias, b.consumables...)
 	if !ok {
 		return nil, xerrors.Errorf("can't find chain input for %s", addressAlias)

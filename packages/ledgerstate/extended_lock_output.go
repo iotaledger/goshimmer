@@ -217,10 +217,6 @@ func (o *ExtendedLockedOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBl
 
 	case *AliasReferencedUnlockBlock:
 		// unlocking by alias reference
-		var ok bool
-		if !ok {
-			return false, nil
-		}
 		refAliasOutput, isAlias := inputs[blk.ReferencedIndex()].(*ChainOutput)
 		if !isAlias {
 			return false, xerrors.New("ExtendedLockedOutput: referenced input must be ChainOutput")
