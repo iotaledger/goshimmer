@@ -12,15 +12,18 @@ type ConsumableOutput struct {
 	wasConsumed bool
 }
 
-func NewConsumableOutput(out ledgerstate.Output) *ConsumableOutput {
-	ret := &ConsumableOutput{
-		output:    out,
-		remaining: make(map[ledgerstate.Color]uint64),
+func NewConsumables(out ...ledgerstate.Output) []*ConsumableOutput {
+	ret := make([]*ConsumableOutput, len(out))
+	for i, o := range out {
+		ret[i] = &ConsumableOutput{
+			output:    o,
+			remaining: make(map[ledgerstate.Color]uint64),
+		}
+		o.Balances().ForEach(func(col ledgerstate.Color, bal uint64) bool {
+			ret[i].remaining[col] = bal
+			return true
+		})
 	}
-	out.Balances().ForEach(func(col ledgerstate.Color, bal uint64) bool {
-		ret.remaining[col] = bal
-		return true
-	})
 	return ret
 }
 

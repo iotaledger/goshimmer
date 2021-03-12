@@ -35,9 +35,7 @@ func NewBuilder(inputs ...ledgerstate.Output) *Builder {
 		outputs:         make([]ledgerstate.Output, 0),
 		consumedUnspent: make(map[ledgerstate.Color]uint64),
 	}
-	for i, out := range inputs {
-		ret.consumables[i] = NewConsumableOutput(out)
-	}
+	ret.consumables = NewConsumables(inputs...)
 	return ret
 }
 
