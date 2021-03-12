@@ -298,4 +298,10 @@ func (c ConflictSet) anchor() (opinion *OpinionEssence) {
 	return opinion
 }
 
+// finalizedAsDisliked returns true if all of the elements of the conflict set have been disliked
+// (with a LoK greater than 1).
+func (c ConflictSet) finalizedAsDisliked() bool {
+	return !c.hasDecidedLike() && c.anchor() == nil
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

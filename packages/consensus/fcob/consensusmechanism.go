@@ -186,20 +186,26 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 		cachedOpinion := f.storage.opinionStorage.Store(newOpinion)
 		defer cachedOpinion.Release()
 
-		if newOpinion.LevelOfKnowledge() == One {
+		switch newOpinion.LevelOfKnowledge() {
+
+		case Pending:
+			break
+
+		case One:
 			// trigger voting for this transactionID
 			liked := voter.Dislike
 			if newOpinion.liked {
 				liked = voter.Like
 			}
 			f.Events.Vote.Trigger(transactionID.Base58(), liked)
-		}
+			return
 
-		if newOpinion.LevelOfKnowledge() > One {
+		default:
 			f.onPayloadOpinionFormed(messageID, newOpinion.liked)
+			return
+
 		}
 
-		return
 	}
 
 	newOpinion.OpinionEssence = OpinionEssence{
@@ -211,9 +217,24 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 
 	// Wait LikedThreshold
 	f.likedThresholdExecutor.ExecuteAt(func() {
+		runLocallyFinalizedExecutor := true
+
 		f.storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
 			opinion.SetLevelOfKnowledge(One)
 			if f.tangle.LedgerState.TransactionConflicting(transactionID) {
+				runLocallyFinalizedExecutor = false
+				// if the previous conflicts have been finalized with all dislikes,
+				// and no other conflicts arrived within LikedThreshold seconds,
+				// start voting with local like
+				conflictSet := ConflictSet(f.OpinionsEssence(f.tangle.LedgerState.ConflictSet(transactionID)))
+				if conflictSet.finalizedAsDisliked() {
+					opinion.SetLiked(true)
+					opinion.SetLevelOfKnowledge(One)
+					// trigger voting for this transactionID
+					f.Events.Vote.Trigger(transactionID.Base58(), voter.Like)
+					return
+				}
+
 				opinion.SetLiked(false)
 				// trigger voting for this transactionID
 				f.Events.Vote.Trigger(transactionID.Base58(), voter.Dislike)
@@ -222,23 +243,25 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 			opinion.SetLiked(true)
 		})
 
-		// Wait LocallyFinalizedThreshold
-		f.locallyFinalizedExecutor.ExecuteAt(func() {
-			f.storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
-				opinion.SetLiked(true)
-				if f.tangle.LedgerState.TransactionConflicting(transactionID) {
-					// trigger voting for this transactionID
-					f.Events.Vote.Trigger(transactionID.Base58(), voter.Like)
-					return
-				}
-				opinion.SetLevelOfKnowledge(Two)
-				// trigger OpinionPayloadFormed
-				messageIDs := f.tangle.Storage.AttachmentMessageIDs(transactionID)
-				for _, messageID := range messageIDs {
-					f.onPayloadOpinionFormed(messageID, opinion.liked)
-				}
-			})
-		}, timestamp.Add(LocallyFinalizedThreshold))
+		if runLocallyFinalizedExecutor {
+			// Wait LocallyFinalizedThreshold
+			f.locallyFinalizedExecutor.ExecuteAt(func() {
+				f.storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
+					opinion.SetLiked(true)
+					if f.tangle.LedgerState.TransactionConflicting(transactionID) {
+						// trigger voting for this transactionID
+						f.Events.Vote.Trigger(transactionID.Base58(), voter.Like)
+						return
+					}
+					opinion.SetLevelOfKnowledge(Two)
+					// trigger OpinionPayloadFormed
+					messageIDs := f.tangle.Storage.AttachmentMessageIDs(transactionID)
+					for _, messageID := range messageIDs {
+						f.onPayloadOpinionFormed(messageID, opinion.liked)
+					}
+				})
+			}, timestamp.Add(LocallyFinalizedThreshold))
+		}
 	}, timestamp.Add(LikedThreshold))
 }
 
