@@ -99,13 +99,6 @@ func (f *ConsensusMechanism) EvaluateTimestamp(messageID tangle.MessageID) {
 	f.setEligibility(messageID)
 
 	if f.waiting.done(messageID, timestampOpinion) {
-		// f.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-		// 	messageMetadata.SetOpinionFormed(true)
-		// })
-		// f.tangle.ConsensusManager.Events.MessageOpinionFormed.Trigger(messageID)
-		// for _, childID := range f.tangle.Utils.ApprovingMessageIDs(messageID) {
-		// 	f.onParentOpinionFormed(childID)
-		// }
 		f.onParentOpinionFormed(messageID)
 	}
 }
@@ -263,12 +256,7 @@ func (f *ConsensusMechanism) onPayloadOpinionFormed(messageID tangle.MessageID, 
 	})
 
 	if f.waiting.done(messageID, payloadOpinion) {
-
-		// f.tangle.ConsensusManager.Events.MessageOpinionFormed.Trigger(messageID)
-		// TODO: propagate over all of its approvers
-
 		f.onParentOpinionFormed(messageID)
-
 	}
 }
 
