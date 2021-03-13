@@ -131,6 +131,8 @@ func unlockInputsWithSignatureBlocks(inputs []ledgerstate.Output, sigUnlockBlock
 	return ret, nil
 }
 
+// CollectChainedOutputs scans all outputs and collects ledgerstate.ChainOutput into a map by the Address.Array
+// Returns an error if finds duplicate
 func CollectChainedOutputs(essence *ledgerstate.TransactionEssence) (map[[33]byte]*ledgerstate.ChainOutput, error) {
 	ret := make(map[[33]byte]*ledgerstate.ChainOutput)
 	for _, o := range essence.Outputs() {
@@ -146,13 +148,17 @@ func CollectChainedOutputs(essence *ledgerstate.TransactionEssence) (map[[33]byt
 	return ret, nil
 }
 
+// GetSingleChainedOutput expects the exactly one chained output in the transaction and returns it
+// returns:
+// - nil and no error if found none
+// - error if there's more than 1
 func GetSingleChainedOutput(essence *ledgerstate.TransactionEssence) (*ledgerstate.ChainOutput, error) {
 	ch, err := CollectChainedOutputs(essence)
 	if err != nil {
 		return nil, err
 	}
 	if len(ch) == 0 {
-		return nil, xerrors.New("chained output not found")
+		return nil, nil
 	}
 	if len(ch) > 1 {
 		return nil, xerrors.New("more than one chained output was found")
@@ -161,4 +167,57 @@ func GetSingleChainedOutput(essence *ledgerstate.TransactionEssence) (*ledgersta
 		return out, nil
 	}
 	panic("shouldn't be here")
+}
+
+// GetSingleSender analyzes inputs and signatures and retrieves single address which is consistent
+// to be a 'sender':
+// - ony one signature block is accepted
+// - if transaction does not contain ChainOutput as input, the address corresponding to the signature is returned
+// - if transaction contain ChainOutput as input, the alias address of the chain is return ed as sender
+func GetSingleSender(tx *ledgerstate.Transaction, inputs []ledgerstate.Output) (ledgerstate.Address, error) {
+	if len(tx.Essence().Inputs()) != len(inputs) {
+		return nil, xerrors.New("GetSingleSender: mismatch between number of inputs in transaction and number of outputs")
+	}
+	// only accepting one signature in the transaction
+	var sigBlock *ledgerstate.SignatureUnlockBlock
+	for _, blk := range tx.UnlockBlocks() {
+		t, ok := blk.(*ledgerstate.SignatureUnlockBlock)
+		if !ok {
+			continue
+		}
+		if sigBlock != nil {
+			return nil, xerrors.New("GetSingleSender: exactly one signature block expected")
+		}
+		sigBlock = t
+	}
+	if sigBlock == nil {
+		panic("GetSingleSender: exactly one signature block expected")
+	}
+	var ret ledgerstate.Address
+	for i, out := range inputs {
+		utxoInput, ok := tx.Essence().Inputs()[i].(*ledgerstate.UTXOInput)
+		if !ok {
+			return nil, xerrors.New("GetSingleSender: wrong input type")
+		}
+		if out.ID() != utxoInput.ReferencedOutputID() {
+			return nil, xerrors.New("GetSingleSender: mismatch between outputs and transaction")
+		}
+		checkAgainstAddr := out.Address()
+		if chainInput, ok := out.(*ledgerstate.ChainOutput); ok {
+			checkAgainstAddr = chainInput.GetStateAddress() // returning alias address as sender
+		}
+		if checkAgainstAddr.Type() == ledgerstate.AliasAddressType {
+			continue
+		}
+		if sigBlock.AddressSignatureValid(checkAgainstAddr, tx.Essence().Bytes()) {
+			if ret != nil && !ret.Equals(out.Address()) {
+				return nil, xerrors.New("GetSingleSender: inconsistent sender information 1")
+			}
+			ret = out.Address()
+		}
+	}
+	if ret == nil {
+		return nil, xerrors.New("GetSingleSender: inconsistent sender information 2")
+	}
+	return ret, nil
 }

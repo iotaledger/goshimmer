@@ -39,9 +39,14 @@ func TestAliasMint(t *testing.T) {
 
 	chained, err := utxoutil.GetSingleChainedOutput(tx.Essence())
 	require.NoError(t, err)
+	require.NotNil(t, chained)
 
 	t.Logf("Chained output: %s", chained)
 	t.Logf("newly created alias address: %s", chained.GetAliasAddress().Base58())
+
+	sender, err := utxoutil.GetSingleSender(tx, txb.ConsumedOutputs())
+	require.NoError(t, err)
+	require.True(t, sender.Equals(addr))
 }
 
 const chainLength = 10
@@ -75,8 +80,13 @@ func TestChain1(t *testing.T) {
 	err = u.AddTransaction(tx)
 	require.NoError(t, err)
 
+	sender, err := utxoutil.GetSingleSender(tx, txb.ConsumedOutputs())
+	require.NoError(t, err)
+	require.True(t, sender.Equals(addr))
+
 	chained, err := utxoutil.GetSingleChainedOutput(tx.Essence())
 	require.NoError(t, err)
+	require.NotNil(t, chained)
 
 	aliasAddress := chained.GetAliasAddress()
 	t.Logf("newly created alias address: %s", aliasAddress.Base58())
@@ -99,6 +109,10 @@ func TestChain1(t *testing.T) {
 
 		err = u.AddTransaction(tx)
 		require.NoError(t, err)
+
+		sender, err := utxoutil.GetSingleSender(tx, txb.ConsumedOutputs())
+		require.NoError(t, err)
+		require.True(t, sender.Equals(aliasAddress))
 
 		require.EqualValues(t, 100, u.BalanceIOTA(aliasAddress))
 		require.EqualValues(t, 0, u.BalanceIOTA(addrStateControl))
@@ -134,8 +148,13 @@ func TestChain3(t *testing.T) {
 	err = u.AddTransaction(tx)
 	require.NoError(t, err)
 
+	sender, err := utxoutil.GetSingleSender(tx, txb.ConsumedOutputs())
+	require.NoError(t, err)
+	require.True(t, sender.Equals(addr))
+
 	chained, err := utxoutil.GetSingleChainedOutput(tx.Essence())
 	require.NoError(t, err)
+	require.NotNil(t, chained)
 
 	aliasAddress := chained.GetAliasAddress()
 	t.Logf("newly created alias address: %s", aliasAddress.Base58())
@@ -158,6 +177,10 @@ func TestChain3(t *testing.T) {
 		err = u.AddTransaction(tx)
 		require.NoError(t, err)
 
+		sender, err := utxoutil.GetSingleSender(tx, txb.ConsumedOutputs())
+		require.NoError(t, err)
+		require.True(t, sender.Equals(addr))
+
 		// continue chain without consuming ExtendedOutputs
 		outputs = u.GetAddressOutputs(aliasAddress)
 		require.EqualValues(t, 1+i+1, len(outputs))
@@ -173,6 +196,10 @@ func TestChain3(t *testing.T) {
 
 		err = u.AddTransaction(tx)
 		require.NoError(t, err)
+
+		sender, err = utxoutil.GetSingleSender(tx, txb.ConsumedOutputs())
+		require.NoError(t, err)
+		require.True(t, sender.Equals(aliasAddress))
 
 		require.EqualValues(t, 100+i+1, u.BalanceIOTA(aliasAddress))
 		require.EqualValues(t, 0, u.BalanceIOTA(addrStateControl))
@@ -208,8 +235,13 @@ func TestChainWithExtendedOutput(t *testing.T) {
 	err = u.AddTransaction(tx)
 	require.NoError(t, err)
 
+	sender, err := utxoutil.GetSingleSender(tx, txb.ConsumedOutputs())
+	require.NoError(t, err)
+	require.True(t, sender.Equals(addr))
+
 	chained, err := utxoutil.GetSingleChainedOutput(tx.Essence())
 	require.NoError(t, err)
+	require.NotNil(t, chained)
 
 	aliasAddress := chained.GetAliasAddress()
 	t.Logf("newly created alias address: %s", aliasAddress.Base58())
@@ -231,6 +263,10 @@ func TestChainWithExtendedOutput(t *testing.T) {
 		err = u.AddTransaction(tx)
 		require.NoError(t, err)
 
+		sender, err := utxoutil.GetSingleSender(tx, txb.ConsumedOutputs())
+		require.NoError(t, err)
+		require.True(t, sender.Equals(addr))
+
 		// continue chain with consuming ExtendedOutput
 		outputs = u.GetAddressOutputs(aliasAddress)
 		require.EqualValues(t, 2, len(outputs))
@@ -249,6 +285,10 @@ func TestChainWithExtendedOutput(t *testing.T) {
 
 		err = u.AddTransaction(tx)
 		require.NoError(t, err)
+
+		sender, err = utxoutil.GetSingleSender(tx, txb.ConsumedOutputs())
+		require.NoError(t, err)
+		require.True(t, sender.Equals(aliasAddress))
 
 		require.EqualValues(t, 100+i+1, u.BalanceIOTA(aliasAddress))
 		require.EqualValues(t, 0, u.BalanceIOTA(addrStateControl))
@@ -285,8 +325,13 @@ func TestRequestSendingPattern(t *testing.T) {
 	err = u.AddTransaction(tx)
 	require.NoError(t, err)
 
+	sender, err := utxoutil.GetSingleSender(tx, txb.ConsumedOutputs())
+	require.NoError(t, err)
+	require.True(t, sender.Equals(addrRequester))
+
 	chained, err := utxoutil.GetSingleChainedOutput(tx.Essence())
 	require.NoError(t, err)
+	require.NotNil(t, chained)
 
 	aliasAddress := chained.GetAliasAddress()
 	t.Logf("newly created alias address: %s", aliasAddress.Base58())
@@ -309,6 +354,10 @@ func TestRequestSendingPattern(t *testing.T) {
 		require.NoError(t, err)
 		err = u.AddTransaction(tx)
 		require.NoError(t, err)
+
+		sender, err := utxoutil.GetSingleSender(tx, txb.ConsumedOutputs())
+		require.NoError(t, err)
+		require.True(t, sender.Equals(addrRequester))
 	}
 	// continue chain with consuming ExtendedOutput
 	outputs = u.GetAddressOutputs(aliasAddress)
@@ -333,6 +382,10 @@ func TestRequestSendingPattern(t *testing.T) {
 	//
 	err = u.AddTransaction(tx)
 	require.NoError(t, err)
+
+	sender, err = utxoutil.GetSingleSender(tx, txb.ConsumedOutputs())
+	require.NoError(t, err)
+	require.True(t, sender.Equals(aliasAddress))
 
 	require.EqualValues(t, 100+numRequests, int(u.BalanceIOTA(aliasAddress)))
 	require.EqualValues(t, 0, u.BalanceIOTA(addrStateControl))

@@ -327,5 +327,11 @@ func (b *Builder) BuildWithED25519(keyPairs ...*ed25519.KeyPair) (*ledgerstate.T
 		return nil, err
 	}
 	unlockBlocks, err := UnlockInputsWithED25519KeyPairs(consumedOutputs, essence, keyPairs)
+
 	return ledgerstate.NewTransaction(essence, unlockBlocks), nil
+}
+
+// ConsumedOutputs outputs which were consumed by Build
+func (b *Builder) ConsumedOutputs() []ledgerstate.Output {
+	return ToOutputs(SelectConsumed(b.consumables...)...)
 }

@@ -3,7 +3,6 @@ package utxoutil
 
 import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"golang.org/x/xerrors"
 )
 
 type ConsumableOutput struct {
@@ -23,6 +22,14 @@ func NewConsumables(out ...ledgerstate.Output) []*ConsumableOutput {
 			ret[i].remaining[col] = bal
 			return true
 		})
+	}
+	return ret
+}
+
+func ToOutputs(consumables ...*ConsumableOutput) []ledgerstate.Output {
+	ret := make([]ledgerstate.Output, len(consumables))
+	for i, c := range consumables {
+		ret[i] = c.output
 	}
 	return ret
 }
@@ -158,17 +165,6 @@ func MakeUTXOInputs(consumables ...*ConsumableOutput) (ledgerstate.Inputs, []led
 		retConsumedOutputs[i] = out.output
 	}
 	return retInputs, retConsumedOutputs
-}
-
-func TakeOneSenderAddress(consumables ...*ConsumableOutput) (ledgerstate.Address, error) {
-	var ret ledgerstate.Address
-	for _, out := range consumables {
-		if EqualAddresses(ret, out.output.Address()) {
-			return nil, xerrors.New("outputs are from several addresses")
-		}
-		ret = out.output.Address()
-	}
-	return ret, nil
 }
 
 func FindChainConsumableInput(aliasAddr ledgerstate.Address, consumables ...*ConsumableOutput) (*ledgerstate.ChainOutput, int, bool) {

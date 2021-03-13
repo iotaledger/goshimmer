@@ -70,6 +70,10 @@ func TestSendIotasMany(t *testing.T) {
 
 		err = u.AddTransaction(tx)
 		require.NoError(t, err)
+
+		sender, err := utxoutil.GetSingleSender(tx, txb.ConsumedOutputs())
+		require.NoError(t, err)
+		require.True(t, addr1.Equals(sender))
 	}
 	require.EqualValues(t, utxodb.RequestFundsAmount-howMany, u.BalanceIOTA(addr1))
 	require.EqualValues(t, howMany, u.BalanceIOTA(addr2))
@@ -105,6 +109,10 @@ func TestSendIotas1FromMany(t *testing.T) {
 		require.NoError(t, err)
 		err = u.AddTransaction(tx)
 		require.NoError(t, err)
+
+		sender, err := utxoutil.GetSingleSender(tx, txb.ConsumedOutputs())
+		require.NoError(t, err)
+		require.True(t, sender.Equals(addr1))
 	}
 
 	require.EqualValues(t, utxodb.RequestFundsAmount-howMany*outputAmount, u.BalanceIOTA(addr1))
@@ -124,6 +132,10 @@ func TestSendIotas1FromMany(t *testing.T) {
 	err = u.AddTransaction(tx)
 	require.NoError(t, err)
 
+	sender, err := utxoutil.GetSingleSender(tx, txb.ConsumedOutputs())
+	require.NoError(t, err)
+	require.True(t, sender.Equals(addr2))
+
 	require.EqualValues(t, utxodb.RequestFundsAmount-howMany*outputAmount+outputAmount, u.BalanceIOTA(addr1))
 	require.EqualValues(t, howMany*outputAmount-outputAmount, u.BalanceIOTA(addr2))
 
@@ -140,6 +152,10 @@ func TestSendIotas1FromMany(t *testing.T) {
 	require.NoError(t, err)
 	err = u.AddTransaction(tx)
 	require.NoError(t, err)
+
+	sender, err = utxoutil.GetSingleSender(tx, txb.ConsumedOutputs())
+	require.NoError(t, err)
+	require.True(t, sender.Equals(addr2))
 
 	require.EqualValues(t, utxodb.RequestFundsAmount-howMany*outputAmount+outputAmount+3, u.BalanceIOTA(addr1))
 	require.EqualValues(t, howMany*outputAmount-outputAmount-3, u.BalanceIOTA(addr2))
@@ -173,6 +189,10 @@ func TestSendIotasManyFromMany(t *testing.T) {
 		require.NoError(t, err)
 		err = u.AddTransaction(tx)
 		require.NoError(t, err)
+
+		sender, err := utxoutil.GetSingleSender(tx, txb.ConsumedOutputs())
+		require.NoError(t, err)
+		require.True(t, sender.Equals(addr1))
 	}
 
 	require.EqualValues(t, utxodb.RequestFundsAmount-howMany*outputAmount, u.BalanceIOTA(addr1))
@@ -188,6 +208,10 @@ func TestSendIotasManyFromMany(t *testing.T) {
 	require.NoError(t, err)
 	err = u.AddTransaction(tx)
 	require.NoError(t, err)
+
+	sender, err := utxoutil.GetSingleSender(tx, txb.ConsumedOutputs())
+	require.NoError(t, err)
+	require.True(t, sender.Equals(addr2))
 
 	require.EqualValues(t, utxodb.RequestFundsAmount-howMany*outputAmount/2, u.BalanceIOTA(addr1))
 	require.EqualValues(t, howMany*outputAmount/2, u.BalanceIOTA(addr2))
