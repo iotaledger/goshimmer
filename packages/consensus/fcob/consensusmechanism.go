@@ -1,6 +1,7 @@
 package fcob
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -99,7 +100,13 @@ func (f *ConsensusMechanism) EvaluateTimestamp(messageID tangle.MessageID) {
 	f.setEligibility(messageID)
 
 	if f.waiting.done(messageID, timestampOpinion) {
+		f.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
+			messageMetadata.SetOpinionFormed(true)
+		})
 		f.tangle.ConsensusManager.Events.MessageOpinionFormed.Trigger(messageID)
+		for _, childID := range f.tangle.Utils.ApprovingMessageIDs(messageID) {
+			f.onParentOpinionFormed(childID)
+		}
 	}
 }
 
@@ -264,8 +271,41 @@ func (f *ConsensusMechanism) onPayloadOpinionFormed(messageID tangle.MessageID, 
 		if isTxConfirmed {
 			f.tangle.ConsensusManager.Events.TransactionConfirmed.Trigger(messageID)
 		}
+		f.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
+			messageMetadata.SetOpinionFormed(true)
+		})
 		f.tangle.ConsensusManager.Events.MessageOpinionFormed.Trigger(messageID)
+		// TODO: propagate over all of its approvers
+
+		for _, childID := range f.tangle.Utils.ApprovingMessageIDs(messageID) {
+			f.onParentOpinionFormed(childID)
+		}
+
 	}
+}
+
+func (f *ConsensusMechanism) onParentOpinionFormed(messageID tangle.MessageID) {
+	f.tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
+		allParentsWithOpinionFormed := true
+		message.ForEachParent(func(parent tangle.Parent) {
+			if !allParentsWithOpinionFormed {
+				return
+			}
+			f.tangle.Storage.MessageMetadata(parent.ID).Consume(func(messageMetadata *tangle.MessageMetadata) {
+				allParentsWithOpinionFormed = messageMetadata.OpinionFormed() && allParentsWithOpinionFormed
+				fmt.Println("onParentOpinionFormed : allParentsWithOpinionFormed", allParentsWithOpinionFormed)
+			})
+		})
+		if allParentsWithOpinionFormed && f.waiting.done(messageID, parentsFormed) {
+			f.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
+				messageMetadata.SetOpinionFormed(true)
+			})
+			f.tangle.ConsensusManager.Events.MessageOpinionFormed.Trigger(messageID)
+			for _, childID := range f.tangle.Utils.ApprovingMessageIDs(messageID) {
+				f.onParentOpinionFormed(childID)
+			}
+		}
+	})
 }
 
 func (f *ConsensusMechanism) setEligibility(messageID tangle.MessageID) {
@@ -346,24 +386,28 @@ type callerType uint8
 const (
 	payloadOpinion callerType = iota
 	timestampOpinion
+	parentsFormed
 )
 
 type waitStruct struct {
 	payloadCaller   bool
 	timestampCaller bool
+	parentsCaller   bool
 }
 
 func (w *waitStruct) update(caller callerType) {
 	switch caller {
 	case payloadOpinion:
 		w.payloadCaller = true
+	case parentsFormed:
+		w.parentsCaller = true
 	default:
 		w.timestampCaller = true
 	}
 }
 
 func (w *waitStruct) ready() (ready bool) {
-	return w.payloadCaller && w.timestampCaller
+	return w.payloadCaller && w.timestampCaller && w.parentsCaller
 }
 
 type opinionWait struct {

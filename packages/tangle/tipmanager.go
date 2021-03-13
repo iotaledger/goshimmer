@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -251,10 +252,24 @@ func (t *TipManager) selectStrongTips(p payload.Payload, count int) (parents Mes
 	// at least one tip is returned
 	for _, tip := range tips {
 		messageID := tip.(MessageID)
+
+		tipRemoved := false
+		t.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+			if clock.Since(message.IssuingTime()) > maxParentsTimeDifference+1*time.Minute {
+				tipRemoved = true
+				t.strongTips.Delete(messageID)
+			}
+		})
+
+		if tipRemoved {
+			continue
+		}
+
 		if _, ok := parentsMap[messageID]; !ok {
 			parentsMap[messageID] = types.Void
 			parents = append(parents, messageID)
 		}
+
 	}
 
 	return
@@ -271,7 +286,21 @@ func (t *TipManager) selectWeakTips(count int) (parents MessageIDs) {
 	}
 	// at least one tip is returned
 	for _, tip := range tips {
-		parents = append(parents, tip.(MessageID))
+		messageID := tip.(MessageID)
+
+		tipRemoved := false
+		t.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+			if clock.Since(message.IssuingTime()) > maxParentsTimeDifference+1*time.Minute {
+				tipRemoved = true
+				t.weakTips.Delete(messageID)
+			}
+		})
+
+		if tipRemoved {
+			continue
+		}
+
+		parents = append(parents, messageID)
 	}
 
 	return
