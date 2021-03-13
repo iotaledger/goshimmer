@@ -1,6 +1,7 @@
 package fcob
 
 import (
+	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/database"
@@ -107,6 +108,134 @@ const (
 	// cacheTime defines the duration that the object storage caches objects.
 	cacheTime = 2 * time.Second
 )
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region MessageMetadata //////////////////////////////////////////////////////////////////////////////////////////////
+
+type MessageMetadata struct {
+	id                          tangle.MessageID
+	payloadOpinionFormed        bool
+	payloadOpinionFormedMutex   sync.RWMutex
+	timestampOpinionFormed      bool
+	timestampOpinionFormedMutex sync.RWMutex
+	messageOpinionFormed        bool
+	messageOpinionFormedMutex   sync.RWMutex
+
+	objectstorage.StorableObjectFlags
+}
+
+func NewMessageMetadata(messageID tangle.MessageID) *MessageMetadata {
+	return &MessageMetadata{
+		id: messageID,
+	}
+}
+
+func (m *MessageMetadata) ID() tangle.MessageID {
+	return m.id
+}
+
+func (m *MessageMetadata) PayloadOpinionFormed() bool {
+	m.payloadOpinionFormedMutex.RLock()
+	defer m.payloadOpinionFormedMutex.RUnlock()
+
+	return m.payloadOpinionFormed
+}
+
+func (m *MessageMetadata) SetPayloadOpinionFormed(payloadOpinionFormed bool) (modified bool) {
+	m.payloadOpinionFormedMutex.Lock()
+	defer m.payloadOpinionFormedMutex.Unlock()
+
+	if m.payloadOpinionFormed == payloadOpinionFormed {
+		return
+	}
+
+	m.payloadOpinionFormed = payloadOpinionFormed
+	modified = true
+
+	m.SetModified()
+	m.Persist()
+
+	return
+}
+
+func (m *MessageMetadata) TimestampOpinionFormed() bool {
+	m.timestampOpinionFormedMutex.RLock()
+	defer m.timestampOpinionFormedMutex.RUnlock()
+
+	return m.timestampOpinionFormed
+}
+
+func (m *MessageMetadata) SetTimestampOpinionFormed(timestampOpinionFormed bool) (modified bool) {
+	m.timestampOpinionFormedMutex.Lock()
+	defer m.timestampOpinionFormedMutex.Unlock()
+
+	if m.timestampOpinionFormed == timestampOpinionFormed {
+		return
+	}
+
+	m.timestampOpinionFormed = timestampOpinionFormed
+	modified = true
+
+	m.SetModified()
+	m.Persist()
+
+	return
+}
+
+func (m *MessageMetadata) MessageOpinionFormed() bool {
+	m.messageOpinionFormedMutex.RLock()
+	defer m.messageOpinionFormedMutex.RUnlock()
+
+	return m.messageOpinionFormed
+}
+
+func (m *MessageMetadata) SetMessageOpinionFormed(messageOpinionFormed bool) (modified bool) {
+	m.messageOpinionFormedMutex.Lock()
+	defer m.messageOpinionFormedMutex.Unlock()
+
+	if m.messageOpinionFormed == messageOpinionFormed {
+		return
+	}
+
+	m.messageOpinionFormed = messageOpinionFormed
+	modified = true
+
+	m.SetModified()
+	m.Persist()
+
+	return
+}
+
+func (m *MessageMetadata) Bytes() []byte {
+	return byteutils.ConcatBytes(m.ObjectStorageKey(), m.ObjectStorageValue())
+}
+
+func (m *MessageMetadata) String() string {
+	return stringify.Struct("MessageMetadata",
+		stringify.StructField("payloadOpinionFormed", m.PayloadOpinionFormed()),
+		stringify.StructField("timestampOpinionFormed", m.TimestampOpinionFormed()),
+		stringify.StructField("messageOpinionFormed", m.MessageOpinionFormed()),
+	)
+}
+
+func (m *MessageMetadata) Update(objectstorage.StorableObject) {
+	panic("updates disabled")
+}
+
+func (m *MessageMetadata) ObjectStorageKey() []byte {
+	return m.id.Bytes()
+}
+
+func (m *MessageMetadata) ObjectStorageValue() []byte {
+	return marshalutil.New(3 * marshalutil.BoolSize).
+		WriteBool(m.PayloadOpinionFormed()).
+		WriteBool(m.TimestampOpinionFormed()).
+		WriteBool(m.MessageOpinionFormed()).
+		Bytes()
+}
+
+var _ objectstorage.StorableObject = &MessageMetadata{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
