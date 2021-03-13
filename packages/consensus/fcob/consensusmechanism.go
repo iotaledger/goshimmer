@@ -420,7 +420,6 @@ func (o *opinionWait) delete(messageID tangle.MessageID) {
 	o.Lock()
 	defer o.Unlock()
 	delete(o.waitMap, messageID)
-	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
