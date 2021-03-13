@@ -467,7 +467,7 @@ func (t *TimestampOpinion) ObjectStorageKey() []byte {
 	return t.MessageID.Bytes()
 }
 
-// ObjectStorageValue marshals the ConflictMessageMetadata into a sequence of bytes that are used as the value part in the
+// ObjectStorageValue marshals the TimestampOpinion into a sequence of bytes that are used as the value part in the
 // object storage.
 func (t *TimestampOpinion) ObjectStorageValue() []byte {
 	return marshalutil.New(2).
