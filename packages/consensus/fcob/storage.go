@@ -130,7 +130,7 @@ type MessageMetadata struct {
 func MessageMetadataFromBytes(bytes []byte) (messageMetadata *MessageMetadata, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if messageMetadata, err = MessageMetadataFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
+		err = xerrors.Errorf("failed to parse MessageMetadata from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
