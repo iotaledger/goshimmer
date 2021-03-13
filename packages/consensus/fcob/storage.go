@@ -113,6 +113,7 @@ const (
 
 // region MessageMetadata //////////////////////////////////////////////////////////////////////////////////////////////
 
+// MessageMetadata defines the metadata for a message.
 type MessageMetadata struct {
 	id                          tangle.MessageID
 	payloadOpinionFormed        bool
@@ -125,16 +126,64 @@ type MessageMetadata struct {
 	objectstorage.StorableObjectFlags
 }
 
+// MessageMetadataFromBytes unmarshals a MessageMetadata object from a sequence of bytes.
+func MessageMetadataFromBytes(bytes []byte) (messageMetadata *MessageMetadata, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(bytes)
+	if messageMetadata, err = MessageMetadataFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// MessageMetadataFromMarshalUtil unmarshals a MessageMetadata object using a MarshalUtil (for easier unmarshaling).
+func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (messageMetadata *MessageMetadata, err error) {
+	messageMetadata = &MessageMetadata{}
+	if messageMetadata.id, err = tangle.MessageIDFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse MessageID: %w", err)
+		return
+	}
+	if messageMetadata.payloadOpinionFormed, err = marshalUtil.ReadBool(); err != nil {
+		err = xerrors.Errorf("failed to parse payloadOpinionFormed flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	if messageMetadata.timestampOpinionFormed, err = marshalUtil.ReadBool(); err != nil {
+		err = xerrors.Errorf("failed to parse timestampOpinionFormed flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	if messageMetadata.messageOpinionFormed, err = marshalUtil.ReadBool(); err != nil {
+		err = xerrors.Errorf("failed to parse messageOpinionFormed flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+
+	return
+}
+
+// MessageMetadataFromObjectStorage restores a MessageMetadata object from the object storage.
+func MessageMetadataFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
+	if result, _, err = MessageMetadataFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
+		err = xerrors.Errorf("failed to parse MessageMetadata from bytes: %w", err)
+		return
+	}
+
+	return
+}
+
+// NewMessageMetadata is the constructor of the MessageMetadata object.
 func NewMessageMetadata(messageID tangle.MessageID) *MessageMetadata {
 	return &MessageMetadata{
 		id: messageID,
 	}
 }
 
+// ID returns the MessageID that this metadata object belongs to.
 func (m *MessageMetadata) ID() tangle.MessageID {
 	return m.id
 }
 
+// PayloadOpinionFormed returns the payloadOpinionFormed flag of the MessageMetadata.
 func (m *MessageMetadata) PayloadOpinionFormed() bool {
 	m.payloadOpinionFormedMutex.RLock()
 	defer m.payloadOpinionFormedMutex.RUnlock()
@@ -142,6 +191,8 @@ func (m *MessageMetadata) PayloadOpinionFormed() bool {
 	return m.payloadOpinionFormed
 }
 
+// SetPayloadOpinionFormed sets the payloadOpinionFormed flag to the given value. It returns true if the value has been
+// updated.
 func (m *MessageMetadata) SetPayloadOpinionFormed(payloadOpinionFormed bool) (modified bool) {
 	m.payloadOpinionFormedMutex.Lock()
 	defer m.payloadOpinionFormedMutex.Unlock()
@@ -159,6 +210,7 @@ func (m *MessageMetadata) SetPayloadOpinionFormed(payloadOpinionFormed bool) (mo
 	return
 }
 
+// TimestampOpinionFormed returns the timestampOpinionFormed flag of the MessageMetadata.
 func (m *MessageMetadata) TimestampOpinionFormed() bool {
 	m.timestampOpinionFormedMutex.RLock()
 	defer m.timestampOpinionFormedMutex.RUnlock()
@@ -166,6 +218,8 @@ func (m *MessageMetadata) TimestampOpinionFormed() bool {
 	return m.timestampOpinionFormed
 }
 
+// SetTimestampOpinionFormed sets the timestampOpinionFormed flag to the given value. It returns true if the value has
+// been updated.
 func (m *MessageMetadata) SetTimestampOpinionFormed(timestampOpinionFormed bool) (modified bool) {
 	m.timestampOpinionFormedMutex.Lock()
 	defer m.timestampOpinionFormedMutex.Unlock()
@@ -183,6 +237,7 @@ func (m *MessageMetadata) SetTimestampOpinionFormed(timestampOpinionFormed bool)
 	return
 }
 
+// MessageOpinionFormed returns the messageOpinionFormed flag of the MessageMetadata.
 func (m *MessageMetadata) MessageOpinionFormed() bool {
 	m.messageOpinionFormedMutex.RLock()
 	defer m.messageOpinionFormedMutex.RUnlock()
@@ -190,6 +245,8 @@ func (m *MessageMetadata) MessageOpinionFormed() bool {
 	return m.messageOpinionFormed
 }
 
+// SetMessageOpinionFormed sets the messageOpinionFormed flag to the given value. It returns true if the value has been
+// updated.
 func (m *MessageMetadata) SetMessageOpinionFormed(messageOpinionFormed bool) (modified bool) {
 	m.messageOpinionFormedMutex.Lock()
 	defer m.messageOpinionFormedMutex.Unlock()
@@ -207,10 +264,12 @@ func (m *MessageMetadata) SetMessageOpinionFormed(messageOpinionFormed bool) (mo
 	return
 }
 
+// Bytes returns a marshaled version of the MessageMetadata.
 func (m *MessageMetadata) Bytes() []byte {
 	return byteutils.ConcatBytes(m.ObjectStorageKey(), m.ObjectStorageValue())
 }
 
+// String returns a human readable version of the MessageMetadata.
 func (m *MessageMetadata) String() string {
 	return stringify.Struct("MessageMetadata",
 		stringify.StructField("payloadOpinionFormed", m.PayloadOpinionFormed()),
@@ -219,14 +278,19 @@ func (m *MessageMetadata) String() string {
 	)
 }
 
+// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
 func (m *MessageMetadata) Update(objectstorage.StorableObject) {
 	panic("updates disabled")
 }
 
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
 func (m *MessageMetadata) ObjectStorageKey() []byte {
 	return m.id.Bytes()
 }
 
+// ObjectStorageValue marshals the AggregatedBranch into a sequence of bytes that are used as the value part in the
+// object storage.
 func (m *MessageMetadata) ObjectStorageValue() []byte {
 	return marshalutil.New(3 * marshalutil.BoolSize).
 		WriteBool(m.PayloadOpinionFormed()).
@@ -235,6 +299,7 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 		Bytes()
 }
 
+// code contract (make sure the struct implements all required methods)
 var _ objectstorage.StorableObject = &MessageMetadata{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
