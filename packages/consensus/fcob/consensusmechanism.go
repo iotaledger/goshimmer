@@ -1,7 +1,6 @@
 package fcob
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -100,13 +99,14 @@ func (f *ConsensusMechanism) EvaluateTimestamp(messageID tangle.MessageID) {
 	f.setEligibility(messageID)
 
 	if f.waiting.done(messageID, timestampOpinion) {
-		f.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-			messageMetadata.SetOpinionFormed(true)
-		})
-		f.tangle.ConsensusManager.Events.MessageOpinionFormed.Trigger(messageID)
-		for _, childID := range f.tangle.Utils.ApprovingMessageIDs(messageID) {
-			f.onParentOpinionFormed(childID)
-		}
+		// f.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
+		// 	messageMetadata.SetOpinionFormed(true)
+		// })
+		// f.tangle.ConsensusManager.Events.MessageOpinionFormed.Trigger(messageID)
+		// for _, childID := range f.tangle.Utils.ApprovingMessageIDs(messageID) {
+		// 	f.onParentOpinionFormed(childID)
+		// }
+		f.onParentOpinionFormed(messageID)
 	}
 }
 
@@ -250,10 +250,8 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 }
 
 func (f *ConsensusMechanism) onPayloadOpinionFormed(messageID tangle.MessageID, liked bool) {
-	isTxConfirmed := false
 	// set BranchLiked and BranchFinalized if this payload was a conflict
 	f.tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
-		isTxConfirmed = liked
 		f.tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 			transactionMetadata.SetFinalized(true)
 		})
@@ -261,25 +259,15 @@ func (f *ConsensusMechanism) onPayloadOpinionFormed(messageID tangle.MessageID, 
 			_, _ = f.tangle.LedgerState.SetBranchLiked(f.tangle.LedgerState.BranchID(transactionID), liked)
 			// TODO: move this to approval weight logic
 			_, _ = f.tangle.LedgerState.SetBranchFinalized(f.tangle.LedgerState.BranchID(transactionID), true)
-			isTxConfirmed = liked
 		}
 	})
 
 	if f.waiting.done(messageID, payloadOpinion) {
-		f.setEligibility(messageID)
-		// trigger TransactionOpinionFormed if the message contains a transaction
-		if isTxConfirmed {
-			f.tangle.ConsensusManager.Events.TransactionConfirmed.Trigger(messageID)
-		}
-		f.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-			messageMetadata.SetOpinionFormed(true)
-		})
-		f.tangle.ConsensusManager.Events.MessageOpinionFormed.Trigger(messageID)
+
+		// f.tangle.ConsensusManager.Events.MessageOpinionFormed.Trigger(messageID)
 		// TODO: propagate over all of its approvers
 
-		for _, childID := range f.tangle.Utils.ApprovingMessageIDs(messageID) {
-			f.onParentOpinionFormed(childID)
-		}
+		f.onParentOpinionFormed(messageID)
 
 	}
 }
@@ -293,17 +281,31 @@ func (f *ConsensusMechanism) onParentOpinionFormed(messageID tangle.MessageID) {
 			}
 			f.tangle.Storage.MessageMetadata(parent.ID).Consume(func(messageMetadata *tangle.MessageMetadata) {
 				allParentsWithOpinionFormed = messageMetadata.OpinionFormed() && allParentsWithOpinionFormed
-				fmt.Println("onParentOpinionFormed : allParentsWithOpinionFormed", allParentsWithOpinionFormed)
 			})
 		})
-		if allParentsWithOpinionFormed && f.waiting.done(messageID, parentsFormed) {
+		if allParentsWithOpinionFormed {
 			f.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-				messageMetadata.SetOpinionFormed(true)
+				modified := messageMetadata.SetOpinionFormed(true)
+				if modified {
+					f.waiting.delete(messageID)
+					// trigger TransactionOpinionFormed if the message contains a transaction
+					f.tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
+						if f.tangle.LedgerState.BranchInclusionState(f.tangle.LedgerState.BranchID(transactionID)) == ledgerstate.Confirmed {
+							f.tangle.ConsensusManager.Events.TransactionConfirmed.Trigger(messageID)
+						}
+					})
+
+					f.tangle.ConsensusManager.Events.MessageOpinionFormed.Trigger(messageID)
+					for _, childID := range f.tangle.Utils.ApprovingMessageIDs(messageID) {
+						f.tangle.Storage.MessageMetadata(childID).Consume(func(childMetadata *tangle.MessageMetadata) {
+							if f.waiting.done(childID) {
+								f.onParentOpinionFormed(childID)
+							}
+						})
+					}
+				}
 			})
-			f.tangle.ConsensusManager.Events.MessageOpinionFormed.Trigger(messageID)
-			for _, childID := range f.tangle.Utils.ApprovingMessageIDs(messageID) {
-				f.onParentOpinionFormed(childID)
-			}
+
 		}
 	})
 }
@@ -386,28 +388,24 @@ type callerType uint8
 const (
 	payloadOpinion callerType = iota
 	timestampOpinion
-	parentsFormed
 )
 
 type waitStruct struct {
 	payloadCaller   bool
 	timestampCaller bool
-	parentsCaller   bool
 }
 
 func (w *waitStruct) update(caller callerType) {
 	switch caller {
 	case payloadOpinion:
 		w.payloadCaller = true
-	case parentsFormed:
-		w.parentsCaller = true
 	default:
 		w.timestampCaller = true
 	}
 }
 
 func (w *waitStruct) ready() (ready bool) {
-	return w.payloadCaller && w.timestampCaller && w.parentsCaller
+	return w.payloadCaller && w.timestampCaller
 }
 
 type opinionWait struct {
@@ -415,17 +413,25 @@ type opinionWait struct {
 	sync.Mutex
 }
 
-func (o *opinionWait) done(messageID tangle.MessageID, caller callerType) (done bool) {
+func (o *opinionWait) done(messageID tangle.MessageID, caller ...callerType) (done bool) {
 	o.Lock()
 	defer o.Unlock()
 	if _, exist := o.waitMap[messageID]; !exist {
 		o.waitMap[messageID] = &waitStruct{}
 	}
-	o.waitMap[messageID].update(caller)
+	if len(caller) > 0 {
+		o.waitMap[messageID].update(caller[0])
+	}
 	if o.waitMap[messageID].ready() {
-		delete(o.waitMap, messageID)
 		done = true
 	}
+	return
+}
+
+func (o *opinionWait) delete(messageID tangle.MessageID) {
+	o.Lock()
+	defer o.Unlock()
+	delete(o.waitMap, messageID)
 	return
 }
 
