@@ -178,7 +178,7 @@ func NewMessageMetadata(messageID tangle.MessageID) *MessageMetadata {
 	}
 }
 
-// ID returns the MessageID that this metadata object belongs to.
+// ID returns the MessageID that this MessageMetadata object belongs to.
 func (m *MessageMetadata) ID() tangle.MessageID {
 	return m.id
 }
@@ -289,7 +289,7 @@ func (m *MessageMetadata) ObjectStorageKey() []byte {
 	return m.id.Bytes()
 }
 
-// ObjectStorageValue marshals the AggregatedBranch into a sequence of bytes that are used as the value part in the
+// ObjectStorageValue marshals the MessageMetadata into a sequence of bytes that are used as the value part in the
 // object storage.
 func (m *MessageMetadata) ObjectStorageValue() []byte {
 	return marshalutil.New(3 * marshalutil.BoolSize).
@@ -301,6 +301,61 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 
 // code contract (make sure the struct implements all required methods)
 var _ objectstorage.StorableObject = &MessageMetadata{}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region CachedMessageMetadata ////////////////////////////////////////////////////////////////////////////////////////
+
+// CachedMessageMetadata is a wrapper for the generic CachedObject returned by the object storage that overrides the
+// accessor methods with a type-casted one.
+type CachedMessageMetadata struct {
+	objectstorage.CachedObject
+}
+
+// ID returns the MessageID of the requested MessageMetadata.
+func (c *CachedMessageMetadata) ID() (messageID tangle.MessageID) {
+	messageID, _, err := tangle.MessageIDFromBytes(c.Key())
+	if err != nil {
+		panic(err)
+	}
+
+	return
+}
+
+// Retain marks the CachedObject to still be in use by the program.
+func (c *CachedMessageMetadata) Retain() *CachedMessageMetadata {
+	return &CachedMessageMetadata{c.CachedObject.Retain()}
+}
+
+// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
+func (c *CachedMessageMetadata) Unwrap() *MessageMetadata {
+	untypedObject := c.Get()
+	if untypedObject == nil {
+		return nil
+	}
+
+	typedObject := untypedObject.(*MessageMetadata)
+	if typedObject == nil || typedObject.IsDeleted() {
+		return nil
+	}
+
+	return typedObject
+}
+
+// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
+// exists). It automatically releases the object when the consumer finishes.
+func (c *CachedMessageMetadata) Consume(consumer func(messageMetadata *MessageMetadata), forceRelease ...bool) (consumed bool) {
+	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*MessageMetadata))
+	}, forceRelease...)
+}
+
+// String returns a human readable version of the CachedMessageMetadata.
+func (c *CachedMessageMetadata) String() string {
+	return stringify.Struct("CachedMessageMetadata",
+		stringify.StructField("CachedObject", c.Unwrap()),
+	)
+}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -396,7 +451,7 @@ func (t *TimestampOpinion) String() string {
 }
 
 // Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (t *TimestampOpinion) Update(other objectstorage.StorableObject) {
+func (t *TimestampOpinion) Update(objectstorage.StorableObject) {
 	panic("updates disabled")
 }
 
@@ -406,7 +461,7 @@ func (t *TimestampOpinion) ObjectStorageKey() []byte {
 	return t.MessageID.Bytes()
 }
 
-// ObjectStorageValue marshals the ConflictBranch into a sequence of bytes that are used as the value part in the
+// ObjectStorageValue marshals the ConflictMessageMetadata into a sequence of bytes that are used as the value part in the
 // object storage.
 func (t *TimestampOpinion) ObjectStorageValue() []byte {
 	return marshalutil.New(2).
