@@ -37,9 +37,6 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 		"Branch 4.1.2": ledgerstate.BranchIDFromRandomness(),
 		"Branch 4.2":   ledgerstate.BranchIDFromRandomness(),
 	}
-	//for name, branchID := range branchIDs {
-	//	fmt.Println(name, branchID)
-	//}
 
 	createBranch(t, tangle, branchIDs["Branch 1"], ledgerstate.MasterBranchID, conflictIDs["Conflict 1"])
 	createBranch(t, tangle, branchIDs["Branch 2"], ledgerstate.MasterBranchID, conflictIDs["Conflict 1"])
