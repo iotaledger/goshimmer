@@ -24,6 +24,7 @@ type Storage struct {
 	store                   kvstore.KVStore
 	opinionStorage          *objectstorage.ObjectStorage
 	timestampOpinionStorage *objectstorage.ObjectStorage
+	messageMetadataStorage  *objectstorage.ObjectStorage
 }
 
 // NewStorage is the constructor for a Storage.
@@ -34,6 +35,7 @@ func NewStorage(store kvstore.KVStore) (storage *Storage) {
 		store:                   store,
 		opinionStorage:          osFactory.New(PrefixOpinion, OpinionFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 		timestampOpinionStorage: osFactory.New(PrefixTimestampOpinion, TimestampOpinionFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		messageMetadataStorage:  osFactory.New(PrefixMessageMetadata, MessageMetadataFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 	}
 }
 
@@ -92,6 +94,7 @@ func (s *Storage) StoreTimestampOpinion(timestampOpinion *TimestampOpinion) (mod
 func (s *Storage) Shutdown() {
 	s.opinionStorage.Shutdown()
 	s.timestampOpinionStorage.Shutdown()
+	s.messageMetadataStorage.Shutdown()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -104,6 +107,9 @@ const (
 
 	// PrefixTimestampOpinion defines the storage prefix for the timestamp opinion storage.
 	PrefixTimestampOpinion
+
+	// PrefixMessageMetadata defines the storage prefix for the MessageMetadata storage.
+	PrefixMessageMetadata
 
 	// cacheTime defines the duration that the object storage caches objects.
 	cacheTime = 2 * time.Second
