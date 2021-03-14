@@ -135,9 +135,12 @@ func (f *ConsensusMechanism) TransactionOpinionEssence(transactionID ledgerstate
 
 // OpinionsEssence returns a list of OpinionEssence (i.e., a copy of the triple{timestamp, liked, levelOfKnowledge})
 // of given conflictSet.
-func (f *ConsensusMechanism) OpinionsEssence(conflictSet ledgerstate.TransactionIDs) (opinions []OpinionEssence) {
+func (f *ConsensusMechanism) OpinionsEssence(targetID ledgerstate.TransactionID, conflictSet ledgerstate.TransactionIDs) (opinions []OpinionEssence) {
 	opinions = make([]OpinionEssence, 0)
 	for conflictID := range conflictSet {
+		if conflictID == targetID {
+			continue
+		}
 		opinions = append(opinions, f.storage.OpinionEssence(conflictID))
 	}
 	return
@@ -183,64 +186,87 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 	}
 
 	if f.tangle.LedgerState.TransactionConflicting(transactionID) {
-		newOpinion.OpinionEssence = deriveOpinion(timestamp, f.OpinionsEssence(f.tangle.LedgerState.ConflictSet(transactionID)))
+		newOpinion.OpinionEssence = deriveOpinion(timestamp, f.OpinionsEssence(transactionID, f.tangle.LedgerState.ConflictSet(transactionID)))
 
-		cachedOpinion := f.storage.opinionStorage.Store(newOpinion)
-		defer cachedOpinion.Release()
+		f.storage.opinionStorage.Store(newOpinion).Release()
 
-		if newOpinion.LevelOfKnowledge() == One {
+		switch newOpinion.LevelOfKnowledge() {
+
+		case Pending:
+			break
+
+		case One:
 			// trigger voting for this transactionID
 			liked := voter.Dislike
 			if newOpinion.liked {
 				liked = voter.Like
 			}
 			f.Events.Vote.Trigger(transactionID.Base58(), liked)
-		}
+			return
 
-		if newOpinion.LevelOfKnowledge() > One {
+		default:
 			f.onPayloadOpinionFormed(messageID, newOpinion.liked)
+			return
+
 		}
 
-		return
 	}
 
 	newOpinion.OpinionEssence = OpinionEssence{
 		timestamp:        timestamp,
 		levelOfKnowledge: Pending,
 	}
-	cachedOpinion := f.storage.opinionStorage.Store(newOpinion)
-	defer cachedOpinion.Release()
+	o, stored := f.storage.opinionStorage.StoreIfAbsent(newOpinion)
+	if stored {
+		o.Release()
+	}
 
 	// Wait LikedThreshold
 	f.likedThresholdExecutor.ExecuteAt(func() {
+		runLocallyFinalizedExecutor := true
 		f.storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
-			opinion.SetLevelOfKnowledge(One)
 			if f.tangle.LedgerState.TransactionConflicting(transactionID) {
+				runLocallyFinalizedExecutor = false
+				// if the previous conflicts have been finalized with all dislikes,
+				// and no other conflicts arrived within LikedThreshold seconds,
+				// start voting with local like
+				conflictSet := ConflictSet(f.OpinionsEssence(transactionID, f.tangle.LedgerState.ConflictSet(transactionID)))
+				if conflictSet.finalizedAsDisliked(opinion.OpinionEssence) {
+					opinion.SetLiked(true)
+					opinion.SetLevelOfKnowledge(One)
+					// trigger voting for this transactionID
+					f.Events.Vote.Trigger(transactionID.Base58(), voter.Like)
+					return
+				}
+				opinion.SetLevelOfKnowledge(One)
 				opinion.SetLiked(false)
 				// trigger voting for this transactionID
 				f.Events.Vote.Trigger(transactionID.Base58(), voter.Dislike)
 				return
 			}
+			opinion.SetLevelOfKnowledge(One)
 			opinion.SetLiked(true)
 		})
 
-		// Wait LocallyFinalizedThreshold
-		f.locallyFinalizedExecutor.ExecuteAt(func() {
-			f.storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
-				opinion.SetLiked(true)
-				if f.tangle.LedgerState.TransactionConflicting(transactionID) {
-					// trigger voting for this transactionID
-					f.Events.Vote.Trigger(transactionID.Base58(), voter.Like)
-					return
-				}
-				opinion.SetLevelOfKnowledge(Two)
-				// trigger OpinionPayloadFormed
-				messageIDs := f.tangle.Storage.AttachmentMessageIDs(transactionID)
-				for _, messageID := range messageIDs {
-					f.onPayloadOpinionFormed(messageID, opinion.liked)
-				}
-			})
-		}, timestamp.Add(LocallyFinalizedThreshold))
+		if runLocallyFinalizedExecutor {
+			// Wait LocallyFinalizedThreshold
+			f.locallyFinalizedExecutor.ExecuteAt(func() {
+				f.storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
+					opinion.SetLiked(true)
+					if f.tangle.LedgerState.TransactionConflicting(transactionID) {
+						// trigger voting for this transactionID
+						f.Events.Vote.Trigger(transactionID.Base58(), voter.Like)
+						return
+					}
+					opinion.SetLevelOfKnowledge(Two)
+					// trigger OpinionPayloadFormed
+					messageIDs := f.tangle.Storage.AttachmentMessageIDs(transactionID)
+					for _, messageID := range messageIDs {
+						f.onPayloadOpinionFormed(messageID, opinion.liked)
+					}
+				})
+			}, timestamp.Add(LocallyFinalizedThreshold))
+		}
 	}, timestamp.Add(LikedThreshold))
 }
 
@@ -410,7 +436,7 @@ func deriveOpinion(targetTime time.Time, conflictSet ConflictSet) (opinion Opini
 	}
 
 	anchor := conflictSet.anchor()
-	if anchor == nil {
+	if (anchor == OpinionEssence{}) {
 		opinion = OpinionEssence{
 			timestamp:        targetTime,
 			levelOfKnowledge: Pending,
