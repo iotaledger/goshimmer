@@ -59,6 +59,7 @@ export default class ManaAllowedPledgeID extends React.Component<Props, any> {
                     <Card.Body>
                         <Card.Title>
                             Access Pledge Filter
+                            {' '}
                             {allowedPledgeIDs.accessFilter.enabled ?
                                 <Badge variant="success">Enabled</Badge>:
                                 <Badge variant="danger">Disabled</Badge>
@@ -80,6 +81,7 @@ export default class ManaAllowedPledgeID extends React.Component<Props, any> {
                     <Card.Body>
                         <Card.Title>
                             Consensus Pledge Filter
+                            {' '}
                             {allowedPledgeIDs.consensusFilter.enabled ?
                                 <Badge variant="success">Enabled</Badge>:
                                 <Badge variant="danger">Disabled</Badge>
