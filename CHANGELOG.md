@@ -5,6 +5,7 @@
 * Make FCoB fire the MessageOpinionFormed event only if the event for its parents was also fired
 * Update JS dependencies
 * Refactor parameters in MessageLayer
+* Upgrade go to 1.16.2
 * **Breaking**: bumps network and database versions
 
 # v0.5.0 - 2021-03-11
