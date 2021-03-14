@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
@@ -9,6 +10,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/datastructure/randommap"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/timedexecutor"
+	"github.com/iotaledger/hive.go/timedqueue"
 	"github.com/iotaledger/hive.go/types"
 	"golang.org/x/xerrors"
 )
@@ -42,20 +45,39 @@ func (t TipType) String() string {
 
 // region TipManager ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+type tipsCleaner struct {
+	timedExecutor       *timedexecutor.TimedExecutor
+	queuedElements      map[MessageID]*timedqueue.QueueElement
+	queuedElementsMutex sync.RWMutex
+}
+
+func newTipsCleaner() *tipsCleaner {
+	return &tipsCleaner{
+		timedExecutor:  timedexecutor.New(1),
+		queuedElements: make(map[MessageID]*timedqueue.QueueElement),
+	}
+}
+
+func (t *tipsCleaner) schedule(messageID MessageID, queuedElement *timedqueue.QueueElement) {
+
+}
+
 // TipManager manages a map of tips and emits events for their removal and addition.
 type TipManager struct {
-	tangle     *Tangle
-	strongTips *randommap.RandomMap
-	weakTips   *randommap.RandomMap
-	Events     *TipManagerEvents
+	tangle      *Tangle
+	strongTips  *randommap.RandomMap
+	weakTips    *randommap.RandomMap
+	tipsCleaner *tipsCleaner
+	Events      *TipManagerEvents
 }
 
 // NewTipManager creates a new tip-selector.
 func NewTipManager(tangle *Tangle, tips ...MessageID) *TipManager {
 	tipSelector := &TipManager{
-		tangle:     tangle,
-		strongTips: randommap.New(),
-		weakTips:   randommap.New(),
+		tangle:      tangle,
+		strongTips:  randommap.New(),
+		weakTips:    randommap.New(),
+		tipsCleaner: newTipsCleaner(),
 		Events: &TipManagerEvents{
 			TipAdded:   events.NewEvent(tipEventHandler),
 			TipRemoved: events.NewEvent(tipEventHandler),
@@ -117,6 +139,10 @@ func (t *TipManager) AddTip(message *Message) {
 					MessageID: messageID,
 					TipType:   StrongTip,
 				})
+				t.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+					queuedElements.Add(messageID, t.tipsCleaner.ExecuteAt(func() { t.strongTips.Delete(messageID) }, message.IssuingTime().Add(maxParentsTimeDifference-1*time.Minute)))
+				})
+
 			}
 
 			// skip removing tips if TangleWidth is enabled
