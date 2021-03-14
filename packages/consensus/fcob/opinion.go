@@ -104,6 +104,7 @@ func (o *Opinion) SetTimestamp(t time.Time) {
 	o.timestampMutex.Lock()
 	defer o.timestampMutex.Unlock()
 	o.timestamp = t
+	o.SetModified(true)
 }
 
 // Liked returns the opinion's liked.
@@ -118,6 +119,7 @@ func (o *Opinion) SetLiked(l bool) {
 	o.likedMutex.Lock()
 	defer o.likedMutex.Unlock()
 	o.liked = l
+	o.SetModified(true)
 }
 
 // LevelOfKnowledge returns the opinion's LevelOfKnowledge.

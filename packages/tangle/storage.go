@@ -264,9 +264,8 @@ func (s *Storage) storeGenesis() {
 				PastMarkers:   markers.NewMarkers(),
 				FutureMarkers: markers.NewMarkers(),
 			},
-			booked:        true,
-			eligible:      true,
-			opinionFormed: true,
+			booked:   true,
+			eligible: true,
 		}
 
 		genesisMetadata.Persist()

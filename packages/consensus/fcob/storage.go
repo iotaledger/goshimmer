@@ -31,12 +31,20 @@ type Storage struct {
 func NewStorage(store kvstore.KVStore) (storage *Storage) {
 	osFactory := objectstorage.NewFactory(store, database.PrefixFCOB)
 
-	return &Storage{
+	storage = &Storage{
 		store:                   store,
 		opinionStorage:          osFactory.New(PrefixOpinion, OpinionFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 		timestampOpinionStorage: osFactory.New(PrefixTimestampOpinion, TimestampOpinionFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 		messageMetadataStorage:  osFactory.New(PrefixMessageMetadata, MessageMetadataFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 	}
+
+	genesis := NewMessageMetadata(tangle.EmptyMessageID)
+	genesis.SetMessageOpinionFormed(true)
+	genesis.SetPayloadOpinionFormed(true)
+	genesis.SetTimestampOpinionFormed(true)
+	storage.StoreMessageMetadata(genesis)
+
+	return
 }
 
 // OpinionEssence returns the OpinionEssence (i.e., a copy of the triple{timestamp, liked, levelOfKnowledge})
@@ -57,6 +65,11 @@ func (s *Storage) Opinion(transactionID ledgerstate.TransactionID) (cachedOpinio
 // TimestampOpinion returns the TimestampOpinion associated with given MessageID.
 func (s *Storage) TimestampOpinion(messageID tangle.MessageID) (cachedTimestampOpinion *CachedTimestampOpinion) {
 	return &CachedTimestampOpinion{CachedObject: s.timestampOpinionStorage.Load(messageID.Bytes())}
+}
+
+// MessageMetadata returns the MessageMetadata associated with given MessageID.
+func (s *Storage) MessageMetadata(messageID tangle.MessageID) (cachedMessageMetadata *CachedMessageMetadata) {
+	return &CachedMessageMetadata{CachedObject: s.messageMetadataStorage.Load(messageID.Bytes())}
 }
 
 // StoreTimestampOpinion stores the TimestampOpinion in the object storage. It returns true if it was stored or updated.
@@ -84,6 +97,38 @@ func (s *Storage) StoreTimestampOpinion(timestampOpinion *TimestampOpinion) (mod
 
 		timestampOpinion.SetModified()
 		timestampOpinion.Persist()
+		modified = true
+	})
+
+	return
+}
+
+// StoreMessageMetadata stores the MessageMetadata in the object storage. It returns true if it was stored or updated.
+func (s *Storage) StoreMessageMetadata(messageMetadata *MessageMetadata) (modified bool) {
+	cachedMessageMetadata := &CachedMessageMetadata{CachedObject: s.messageMetadataStorage.ComputeIfAbsent(messageMetadata.id.Bytes(), func(key []byte) objectstorage.StorableObject {
+		messageMetadata.SetModified()
+		messageMetadata.Persist()
+		modified = true
+
+		return messageMetadata
+	})}
+
+	if modified {
+		cachedMessageMetadata.Release()
+		return
+	}
+
+	cachedMessageMetadata.Consume(func(loadedMessageMetadata *MessageMetadata) {
+		if loadedMessageMetadata.id == messageMetadata.id {
+			return
+		}
+
+		loadedMessageMetadata.messageOpinionFormed = messageMetadata.messageOpinionFormed
+		loadedMessageMetadata.payloadOpinionFormed = messageMetadata.payloadOpinionFormed
+		loadedMessageMetadata.timestampOpinionFormed = messageMetadata.timestampOpinionFormed
+
+		messageMetadata.SetModified()
+		messageMetadata.Persist()
 		modified = true
 	})
 
@@ -278,6 +323,7 @@ func (m *MessageMetadata) Bytes() []byte {
 // String returns a human readable version of the MessageMetadata.
 func (m *MessageMetadata) String() string {
 	return stringify.Struct("MessageMetadata",
+		stringify.StructField("payloadOpinionFormed", m.ID().String()),
 		stringify.StructField("payloadOpinionFormed", m.PayloadOpinionFormed()),
 		stringify.StructField("timestampOpinionFormed", m.TimestampOpinionFormed()),
 		stringify.StructField("messageOpinionFormed", m.MessageOpinionFormed()),

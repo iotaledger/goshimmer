@@ -632,7 +632,6 @@ type MessageMetadata struct {
 	scheduled          bool
 	booked             bool
 	eligible           bool
-	opinionFormed      bool
 	invalid            bool
 
 	solidMutex              sync.RWMutex
@@ -642,7 +641,6 @@ type MessageMetadata struct {
 	scheduledMutex          sync.RWMutex
 	bookedMutex             sync.RWMutex
 	eligibleMutex           sync.RWMutex
-	opinionFormedMutex      sync.RWMutex
 	invalidMutex            sync.RWMutex
 }
 
@@ -701,10 +699,6 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 	}
 	if result.eligible, err = marshalUtil.ReadBool(); err != nil {
 		err = fmt.Errorf("failed to parse eligble flag of message metadata: %w", err)
-		return
-	}
-	if result.opinionFormed, err = marshalUtil.ReadBool(); err != nil {
-		err = fmt.Errorf("failed to parse opinionFormed flag of message metadata: %w", err)
 		return
 	}
 	if result.invalid, err = marshalUtil.ReadBool(); err != nil {
@@ -833,15 +827,6 @@ func (m *MessageMetadata) IsEligible() (result bool) {
 	return
 }
 
-// OpinionFormed returns true if the message represented by this metadata has an opinion formed. False otherwise.
-func (m *MessageMetadata) OpinionFormed() (result bool) {
-	m.opinionFormedMutex.RLock()
-	defer m.opinionFormedMutex.RUnlock()
-	result = m.opinionFormed
-
-	return
-}
-
 // SetScheduled sets the message associated with this metadata as scheduled.
 // It returns true if the scheduled status is modified. False otherwise.
 func (m *MessageMetadata) SetScheduled(scheduled bool) (modified bool) {
@@ -910,23 +895,6 @@ func (m *MessageMetadata) SetEligible(eligible bool) (modified bool) {
 	return
 }
 
-// SetOpinionFormed sets the message associated with this metadata as with an opinion formed.
-// It returns true if the opinionFormed status is modified. False otherwise.
-func (m *MessageMetadata) SetOpinionFormed(opinionFormed bool) (modified bool) {
-	m.opinionFormedMutex.Lock()
-	defer m.opinionFormedMutex.Unlock()
-
-	if m.opinionFormed == opinionFormed {
-		return false
-	}
-
-	m.opinionFormed = opinionFormed
-	m.SetModified()
-	modified = true
-
-	return
-}
-
 // IsInvalid returns true if the message represented by this metadata is invalid. False otherwise.
 func (m *MessageMetadata) IsInvalid() (result bool) {
 	m.invalidMutex.RLock()
@@ -976,7 +944,6 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 		WriteBool(m.Scheduled()).
 		WriteBool(m.IsBooked()).
 		WriteBool(m.IsEligible()).
-		WriteBool(m.OpinionFormed()).
 		WriteBool(m.IsInvalid()).
 		Bytes()
 }
@@ -999,7 +966,6 @@ func (m *MessageMetadata) String() string {
 		stringify.StructField("scheduled", m.Scheduled()),
 		stringify.StructField("booked", m.IsBooked()),
 		stringify.StructField("eligible", m.IsEligible()),
-		stringify.StructField("opinionFormed", m.OpinionFormed()),
 		stringify.StructField("invalid", m.IsInvalid()),
 	)
 }
