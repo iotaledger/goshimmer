@@ -339,6 +339,14 @@ func (f *ConsensusMechanism) messageDone(messageID tangle.MessageID) (done bool)
 	return
 }
 
+// messageOpinionFormed checks if the message opinion is formed.
+func (f *ConsensusMechanism) messageOpinionFormed(messageID tangle.MessageID) (messageOpinionFormed bool) {
+	f.storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		messageOpinionFormed = messageMetadata.MessageOpinionFormed()
+	})
+	return
+}
+
 // parentsDone checks if all of the parents' opinion are formed.
 func (f *ConsensusMechanism) parentsDone(messageID tangle.MessageID) (done bool) {
 	f.tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
@@ -347,7 +355,7 @@ func (f *ConsensusMechanism) parentsDone(messageID tangle.MessageID) (done bool)
 			if !done {
 				return
 			}
-			done = f.messageDone(parent.ID) && done
+			done = f.messageOpinionFormed(parent.ID) && done
 		})
 	})
 	return
