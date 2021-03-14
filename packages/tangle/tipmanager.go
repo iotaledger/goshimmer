@@ -185,6 +185,10 @@ func (t *TipManager) AddTip(message *Message) {
 		panic(fmt.Errorf("failed to load MessageMetadata with %s", messageID))
 	}
 
+	if clock.Since(message.IssuingTime()) > maxParentsTimeDifference-1*time.Minute {
+		return
+	}
+
 	if !messageMetadata.IsEligible() {
 		return
 	}
@@ -206,11 +210,10 @@ func (t *TipManager) AddTip(message *Message) {
 					MessageID: messageID,
 					TipType:   StrongTip,
 				})
-				t.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-					t.tipsCleaner.ExecuteAt(messageID, func() {
-						t.strongTips.Delete(messageID)
-					}, message.IssuingTime().Add(maxParentsTimeDifference-1*time.Minute))
-				})
+
+				t.tipsCleaner.ExecuteAt(messageID, func() {
+					t.strongTips.Delete(messageID)
+				}, message.IssuingTime().Add(maxParentsTimeDifference-1*time.Minute))
 
 			}
 
@@ -244,11 +247,9 @@ func (t *TipManager) AddTip(message *Message) {
 					TipType:   WeakTip,
 				})
 
-				t.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-					t.tipsCleaner.ExecuteAt(messageID, func() {
-						t.weakTips.Delete(messageID)
-					}, message.IssuingTime().Add(maxParentsTimeDifference-1*time.Minute))
-				})
+				t.tipsCleaner.ExecuteAt(messageID, func() {
+					t.weakTips.Delete(messageID)
+				}, message.IssuingTime().Add(maxParentsTimeDifference-1*time.Minute))
 			}
 		}
 	})
