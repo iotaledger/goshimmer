@@ -40,6 +40,7 @@ func NewStorage(store kvstore.KVStore) (storage *Storage) {
 
 	genesis := NewMessageMetadata(tangle.EmptyMessageID)
 	genesis.SetMessageOpinionFormed(true)
+	genesis.SetMessageOpinionTriggered(true)
 	genesis.SetPayloadOpinionFormed(true)
 	genesis.SetTimestampOpinionFormed(true)
 	storage.StoreMessageMetadata(genesis)
@@ -126,6 +127,7 @@ func (s *Storage) StoreMessageMetadata(messageMetadata *MessageMetadata) (modifi
 		loadedMessageMetadata.messageOpinionFormed = messageMetadata.messageOpinionFormed
 		loadedMessageMetadata.payloadOpinionFormed = messageMetadata.payloadOpinionFormed
 		loadedMessageMetadata.timestampOpinionFormed = messageMetadata.timestampOpinionFormed
+		loadedMessageMetadata.messageOpinionTriggered = messageMetadata.messageOpinionTriggered
 
 		messageMetadata.SetModified()
 		messageMetadata.Persist()
@@ -166,13 +168,15 @@ const (
 
 // MessageMetadata defines the metadata for a message.
 type MessageMetadata struct {
-	id                          tangle.MessageID
-	payloadOpinionFormed        bool
-	payloadOpinionFormedMutex   sync.RWMutex
-	timestampOpinionFormed      bool
-	timestampOpinionFormedMutex sync.RWMutex
-	messageOpinionFormed        bool
-	messageOpinionFormedMutex   sync.RWMutex
+	id                           tangle.MessageID
+	payloadOpinionFormed         bool
+	payloadOpinionFormedMutex    sync.RWMutex
+	timestampOpinionFormed       bool
+	timestampOpinionFormedMutex  sync.RWMutex
+	messageOpinionFormed         bool
+	messageOpinionFormedMutex    sync.RWMutex
+	messageOpinionTriggered      bool
+	messageOpinionTriggeredMutex sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
@@ -206,6 +210,10 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (messa
 	}
 	if messageMetadata.messageOpinionFormed, err = marshalUtil.ReadBool(); err != nil {
 		err = xerrors.Errorf("failed to parse messageOpinionFormed flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	if messageMetadata.messageOpinionTriggered, err = marshalUtil.ReadBool(); err != nil {
+		err = xerrors.Errorf("failed to parse messageOpinionTriggered flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -315,6 +323,33 @@ func (m *MessageMetadata) SetMessageOpinionFormed(messageOpinionFormed bool) (mo
 	return
 }
 
+// MessageOpinionTriggered returns the messageOpinionTriggered flag of the MessageMetadata.
+func (m *MessageMetadata) MessageOpinionTriggered() bool {
+	m.messageOpinionTriggeredMutex.RLock()
+	defer m.messageOpinionTriggeredMutex.RUnlock()
+
+	return m.messageOpinionTriggered
+}
+
+// SetMessageOpinionTriggered sets the messageOpinionTriggered flag to the given value. It returns true if the value has been
+// updated.
+func (m *MessageMetadata) SetMessageOpinionTriggered(messageOpinionTriggered bool) (modified bool) {
+	m.messageOpinionTriggeredMutex.Lock()
+	defer m.messageOpinionTriggeredMutex.Unlock()
+
+	if m.messageOpinionTriggered == messageOpinionTriggered {
+		return
+	}
+
+	m.messageOpinionTriggered = messageOpinionTriggered
+	modified = true
+
+	m.SetModified()
+	m.Persist()
+
+	return
+}
+
 // Bytes returns a marshaled version of the MessageMetadata.
 func (m *MessageMetadata) Bytes() []byte {
 	return byteutils.ConcatBytes(m.ObjectStorageKey(), m.ObjectStorageValue())
@@ -327,6 +362,7 @@ func (m *MessageMetadata) String() string {
 		stringify.StructField("payloadOpinionFormed", m.PayloadOpinionFormed()),
 		stringify.StructField("timestampOpinionFormed", m.TimestampOpinionFormed()),
 		stringify.StructField("messageOpinionFormed", m.MessageOpinionFormed()),
+		stringify.StructField("messageOpinionTriggered", m.MessageOpinionTriggered()),
 	)
 }
 
@@ -348,6 +384,7 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 		WriteBool(m.PayloadOpinionFormed()).
 		WriteBool(m.TimestampOpinionFormed()).
 		WriteBool(m.MessageOpinionFormed()).
+		WriteBool(m.MessageOpinionTriggered()).
 		Bytes()
 }
 

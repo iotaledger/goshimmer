@@ -269,7 +269,7 @@ func (f *ConsensusMechanism) createMessageOpinion(messageID tangle.MessageID, wa
 		return
 	}
 
-	if !f.setMessageOpinionDone(messageID) {
+	if !f.setMessageOpinionFormed(messageID) {
 		return
 	}
 
@@ -281,6 +281,8 @@ func (f *ConsensusMechanism) createMessageOpinion(messageID tangle.MessageID, wa
 	})
 
 	f.tangle.ConsensusManager.Events.MessageOpinionFormed.Trigger(messageID)
+
+	f.setMessageOpinionTriggered(messageID)
 
 	f.tangle.Storage.Approvers(messageID).Consume(func(approver *tangle.Approver) {
 		if f.messageDone(approver.ApproverMessageID()) {
@@ -329,8 +331,8 @@ func (f *ConsensusMechanism) setTimestampOpinionDone(messageID tangle.MessageID)
 	return
 }
 
-// setMessageOpinionDone set the message opinion as formed.
-func (f *ConsensusMechanism) setMessageOpinionDone(messageID tangle.MessageID) (modified bool) {
+// setMessageOpinionFormed set the message opinion as formed.
+func (f *ConsensusMechanism) setMessageOpinionFormed(messageID tangle.MessageID) (modified bool) {
 	f.storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 		modified = messageMetadata.SetMessageOpinionFormed(true)
 	})
@@ -353,6 +355,22 @@ func (f *ConsensusMechanism) messageOpinionFormed(messageID tangle.MessageID) (m
 	return
 }
 
+// setMessageOpinionTriggered set the message opinion as triggered.
+func (f *ConsensusMechanism) setMessageOpinionTriggered(messageID tangle.MessageID) (modified bool) {
+	f.storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		modified = messageMetadata.SetMessageOpinionTriggered(true)
+	})
+	return
+}
+
+// messageOpinionTriggered checks if the message opinion has been triggered.
+func (f *ConsensusMechanism) messageOpinionTriggered(messageID tangle.MessageID) (messageOpinionTriggered bool) {
+	f.storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		messageOpinionTriggered = messageMetadata.MessageOpinionTriggered()
+	})
+	return
+}
+
 // parentsDone checks if all of the parents' opinion are formed.
 func (f *ConsensusMechanism) parentsDone(messageID tangle.MessageID) (done bool) {
 	f.tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
@@ -361,7 +379,7 @@ func (f *ConsensusMechanism) parentsDone(messageID tangle.MessageID) (done bool)
 			if !done {
 				return
 			}
-			done = f.messageOpinionFormed(parent.ID) && done
+			done = f.messageOpinionTriggered(parent.ID) && done
 		})
 	})
 	return
