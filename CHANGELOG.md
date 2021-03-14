@@ -6,6 +6,7 @@
 * Update JS dependencies
 * Refactor parameters in MessageLayer
 * Upgrade go to 1.16.2
+* Upgrade to latest hive.go
 * **Breaking**: bumps network and database versions
 
 # v0.5.0 - 2021-03-11
