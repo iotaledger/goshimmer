@@ -411,7 +411,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		storeBookLikeMessage(t, tangle, messages["1"])
 
 		tipManager.AddTip(messages["1"])
-		assert.Equal(t, 1, tipManager.StrongTipCount())
+		assert.Equal(t, 0, tipManager.StrongTipCount())
 		assert.Equal(t, 0, tipManager.WeakTipCount())
 	}
 
@@ -428,7 +428,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		storeBookLikeMessage(t, tangle, messages["2"])
 
 		tipManager.AddTip(messages["2"])
-		assert.Equal(t, 2, tipManager.StrongTipCount())
+		assert.Equal(t, 1, tipManager.StrongTipCount())
 		assert.Equal(t, 0, tipManager.WeakTipCount())
 	}
 
