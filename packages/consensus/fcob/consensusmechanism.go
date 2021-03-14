@@ -1,7 +1,6 @@
 package fcob
 
 import (
-	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -9,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	voter "github.com/iotaledger/goshimmer/packages/vote/opinion"
+	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/timedexecutor"
 	"github.com/iotaledger/hive.go/timedqueue"
@@ -32,7 +32,6 @@ type ConsensusMechanism struct {
 	storage                  *Storage
 	likedThresholdExecutor   *timedexecutor.TimedExecutor
 	locallyFinalizedExecutor *timedexecutor.TimedExecutor
-	waiting                  *opinionWait
 }
 
 // NewConsensusMechanism is the constructor for the FCoB consensus mechanism.
@@ -44,7 +43,6 @@ func NewConsensusMechanism() *ConsensusMechanism {
 		},
 		likedThresholdExecutor:   timedexecutor.New(1),
 		locallyFinalizedExecutor: timedexecutor.New(1),
-		waiting:                  &opinionWait{waitMap: make(map[tangle.MessageID]*waitStruct)},
 	}
 }
 
@@ -78,6 +76,7 @@ func (f *ConsensusMechanism) Shutdown() {
 
 // Evaluate evaluates the opinion of the given messageID.
 func (f *ConsensusMechanism) Evaluate(messageID tangle.MessageID) {
+	f.storage.StoreMessageMetadata(NewMessageMetadata(messageID))
 	if f.tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
 		f.onTransactionBooked(transactionID, messageID)
 	}) {
@@ -90,6 +89,7 @@ func (f *ConsensusMechanism) Evaluate(messageID tangle.MessageID) {
 
 // EvaluateTimestamp evaluates the honesty of the timestamp of the given Message.
 func (f *ConsensusMechanism) EvaluateTimestamp(messageID tangle.MessageID) {
+	f.storage.StoreMessageMetadata(NewMessageMetadata(messageID))
 	f.storage.StoreTimestampOpinion(&TimestampOpinion{
 		MessageID: messageID,
 		Value:     voter.Like,
@@ -98,8 +98,10 @@ func (f *ConsensusMechanism) EvaluateTimestamp(messageID tangle.MessageID) {
 
 	f.setEligibility(messageID)
 
-	if f.waiting.done(messageID, timestampOpinion) {
-		f.tangle.ConsensusManager.Events.MessageOpinionFormed.Trigger(messageID)
+	f.setTimestampOpinionDone(messageID)
+
+	if f.messageDone(messageID) {
+		f.tangle.Utils.WalkMessageID(f.createMessageOpinion, tangle.MessageIDs{messageID}, true)
 	}
 }
 
@@ -243,10 +245,8 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 }
 
 func (f *ConsensusMechanism) onPayloadOpinionFormed(messageID tangle.MessageID, liked bool) {
-	isTxConfirmed := false
 	// set BranchLiked and BranchFinalized if this payload was a conflict
 	f.tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
-		isTxConfirmed = liked
 		f.tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 			transactionMetadata.SetFinalized(true)
 		})
@@ -254,18 +254,41 @@ func (f *ConsensusMechanism) onPayloadOpinionFormed(messageID tangle.MessageID, 
 			_, _ = f.tangle.LedgerState.SetBranchLiked(f.tangle.LedgerState.BranchID(transactionID), liked)
 			// TODO: move this to approval weight logic
 			_, _ = f.tangle.LedgerState.SetBranchFinalized(f.tangle.LedgerState.BranchID(transactionID), true)
-			isTxConfirmed = liked
 		}
 	})
 
-	if f.waiting.done(messageID, payloadOpinion) {
-		f.setEligibility(messageID)
-		// trigger TransactionOpinionFormed if the message contains a transaction
-		if isTxConfirmed {
+	f.setPayloadOpinionDone(messageID)
+
+	if f.messageDone(messageID) {
+		f.tangle.Utils.WalkMessageID(f.createMessageOpinion, tangle.MessageIDs{messageID}, true)
+	}
+}
+
+func (f *ConsensusMechanism) createMessageOpinion(messageID tangle.MessageID, walker *walker.Walker) {
+	if !f.parentsDone(messageID) {
+		return
+	}
+
+	if !f.setMessageOpinionFormed(messageID) {
+		return
+	}
+
+	// trigger TransactionOpinionFormed if the message contains a transaction
+	f.tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
+		if f.tangle.LedgerState.BranchInclusionState(f.tangle.LedgerState.BranchID(transactionID)) == ledgerstate.Confirmed {
 			f.tangle.ConsensusManager.Events.TransactionConfirmed.Trigger(messageID)
 		}
-		f.tangle.ConsensusManager.Events.MessageOpinionFormed.Trigger(messageID)
-	}
+	})
+
+	f.tangle.ConsensusManager.Events.MessageOpinionFormed.Trigger(messageID)
+
+	f.setMessageOpinionTriggered(messageID)
+
+	f.tangle.Storage.Approvers(messageID).Consume(func(approver *tangle.Approver) {
+		if f.messageDone(approver.ApproverMessageID()) {
+			walker.Push(approver.ApproverMessageID())
+		}
+	})
 }
 
 func (f *ConsensusMechanism) setEligibility(messageID tangle.MessageID) {
@@ -287,6 +310,68 @@ func (f *ConsensusMechanism) parentsEligibility(messageID tangle.MessageID) (eli
 			if eligible = eligible && f.tangle.ConsensusManager.MessageEligible(parent.ID); !eligible {
 				return
 			}
+		})
+	})
+	return
+}
+
+// setPayloadOpinionDone set the payload opinion as formed.
+func (f *ConsensusMechanism) setPayloadOpinionDone(messageID tangle.MessageID) (modified bool) {
+	f.storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		modified = messageMetadata.SetPayloadOpinionFormed(true)
+	})
+	return
+}
+
+// setTimestampOpinionDone set the timestamp opinion as formed.
+func (f *ConsensusMechanism) setTimestampOpinionDone(messageID tangle.MessageID) (modified bool) {
+	f.storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		modified = messageMetadata.SetTimestampOpinionFormed(true)
+	})
+	return
+}
+
+// setMessageOpinionFormed set the message opinion as formed.
+func (f *ConsensusMechanism) setMessageOpinionFormed(messageID tangle.MessageID) (modified bool) {
+	f.storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		modified = messageMetadata.SetMessageOpinionFormed(true)
+	})
+	return
+}
+
+// messageDone checks if the both timestamp opinion and payload opinion are formed.
+func (f *ConsensusMechanism) messageDone(messageID tangle.MessageID) (done bool) {
+	f.storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		done = messageMetadata.TimestampOpinionFormed() && messageMetadata.PayloadOpinionFormed()
+	})
+	return
+}
+
+// setMessageOpinionTriggered set the message opinion as triggered.
+func (f *ConsensusMechanism) setMessageOpinionTriggered(messageID tangle.MessageID) (modified bool) {
+	f.storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		modified = messageMetadata.SetMessageOpinionTriggered(true)
+	})
+	return
+}
+
+// messageOpinionTriggered checks if the message opinion has been triggered.
+func (f *ConsensusMechanism) messageOpinionTriggered(messageID tangle.MessageID) (messageOpinionTriggered bool) {
+	f.storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		messageOpinionTriggered = messageMetadata.MessageOpinionTriggered()
+	})
+	return
+}
+
+// parentsDone checks if all of the parents' opinion are formed.
+func (f *ConsensusMechanism) parentsDone(messageID tangle.MessageID) (done bool) {
+	f.tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
+		done = true
+		message.ForEachParent(func(parent tangle.Parent) {
+			if !done {
+				return
+			}
+			done = f.messageOpinionTriggered(parent.ID) && done
 		})
 	})
 	return
@@ -337,50 +422,6 @@ func deriveOpinion(targetTime time.Time, conflictSet ConflictSet) (opinion Opini
 		timestamp:        targetTime,
 		liked:            false,
 		levelOfKnowledge: One,
-	}
-	return
-}
-
-type callerType uint8
-
-const (
-	payloadOpinion callerType = iota
-	timestampOpinion
-)
-
-type waitStruct struct {
-	payloadCaller   bool
-	timestampCaller bool
-}
-
-func (w *waitStruct) update(caller callerType) {
-	switch caller {
-	case payloadOpinion:
-		w.payloadCaller = true
-	default:
-		w.timestampCaller = true
-	}
-}
-
-func (w *waitStruct) ready() (ready bool) {
-	return w.payloadCaller && w.timestampCaller
-}
-
-type opinionWait struct {
-	waitMap map[tangle.MessageID]*waitStruct
-	sync.Mutex
-}
-
-func (o *opinionWait) done(messageID tangle.MessageID, caller callerType) (done bool) {
-	o.Lock()
-	defer o.Unlock()
-	if _, exist := o.waitMap[messageID]; !exist {
-		o.waitMap[messageID] = &waitStruct{}
-	}
-	o.waitMap[messageID].update(caller)
-	if o.waitMap[messageID].ready() {
-		delete(o.waitMap, messageID)
-		done = true
 	}
 	return
 }
