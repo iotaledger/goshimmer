@@ -347,14 +347,6 @@ func (f *ConsensusMechanism) messageDone(messageID tangle.MessageID) (done bool)
 	return
 }
 
-// messageOpinionFormed checks if the message opinion is formed.
-func (f *ConsensusMechanism) messageOpinionFormed(messageID tangle.MessageID) (messageOpinionFormed bool) {
-	f.storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-		messageOpinionFormed = messageMetadata.MessageOpinionFormed()
-	})
-	return
-}
-
 // setMessageOpinionTriggered set the message opinion as triggered.
 func (f *ConsensusMechanism) setMessageOpinionTriggered(messageID tangle.MessageID) (modified bool) {
 	f.storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
