@@ -98,11 +98,13 @@ type Entry struct {
 
 // View holds the node's opinion about conflicts and timestamps.
 type View struct {
-	NodeID     identity.ID
-	Conflicts  map[ledgerstate.TransactionID]Entry
-	cMutex     sync.RWMutex
-	Timestamps map[tangle.MessageID]Entry
-	tMutex     sync.RWMutex
+	NodeID                         identity.ID
+	Conflicts                      map[ledgerstate.TransactionID]Entry
+	cMutex                         sync.RWMutex
+	Timestamps                     map[tangle.MessageID]Entry
+	tMutex                         sync.RWMutex
+	LastStatementReceivedTimestamp time.Time
+	lstMutex                       sync.RWMutex
 }
 
 // AddConflict appends the given conflict to the given view.
@@ -181,6 +183,14 @@ func (v *View) AddTimestamps(timestamps Timestamps) {
 	}
 }
 
+// UpdateLastStatementReceivedTime updates last statement issuing time in node's View.
+func (v *View) UpdateLastStatementReceivedTime(statementIssuingTime time.Time) {
+	v.lstMutex.RLock()
+	defer v.lstMutex.RUnlock()
+
+	v.LastStatementReceivedTimestamp = statementIssuingTime
+}
+
 // ConflictOpinion returns the opinion history of a given transaction ID.
 func (v *View) ConflictOpinion(id ledgerstate.TransactionID) Opinions {
 	v.cMutex.RLock()
@@ -205,7 +215,7 @@ func (v *View) TimestampOpinion(id tangle.MessageID) Opinions {
 	return v.Timestamps[id].Opinions
 }
 
-// Query retrievs the opinions about the given conflicts and timestamps.
+// Query retrieves the opinions about the given conflicts and timestamps.
 func (v *View) Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (opinion.Opinions, error) {
 	answer := opinion.Opinions{}
 	for _, id := range conflictIDs {

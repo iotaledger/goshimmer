@@ -1,6 +1,7 @@
 package messagelayer
 
 import (
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/vote"
@@ -73,6 +74,7 @@ func readStatement(messageID tangle.MessageID) {
 		}
 
 		// TODO: check if the Mana threshold of the issuer is ok
+		// everyone can potentially write a statement, and if they don't write it we will request their opinion directly
 
 		issuerID := identity.NewID(msg.IssuerPublicKey())
 		// Skip ourselves
@@ -85,6 +87,8 @@ func readStatement(messageID tangle.MessageID) {
 		issuerRegistry.AddConflicts(statementPayload.Conflicts)
 
 		issuerRegistry.AddTimestamps(statementPayload.Timestamps)
+
+		issuerRegistry.UpdateLastStatementReceivedTime(clock.SyncedTime())
 
 		Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
 			sendToRemoteLog(

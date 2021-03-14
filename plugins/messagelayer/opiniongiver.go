@@ -3,6 +3,7 @@ package messagelayer
 import (
 	"context"
 	"fmt"
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"net"
 	"strconv"
 	"time"
@@ -34,7 +35,9 @@ type OpinionGivers map[identity.ID]OpinionGiver
 // Query retrievs the opinions about the given conflicts and timestamps.
 func (o *OpinionGiver) Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (opinions opinion.Opinions, err error) {
 	for i := 0; i < waitForStatement; i++ {
-		if o.view != nil {
+		// query statement only if it's been received within the last round interval
+		// otherwise node might be down and we don't want to look at old statements in subsequent rounds
+		if o.view != nil && o.view.LastStatementReceivedTimestamp.Add(time.Duration(roundIntervalSeconds)*time.Second).After(clock.SyncedTime()) {
 			opinions, err = o.view.Query(ctx, conflictIDs, timestampIDs)
 			if err == nil {
 				return opinions, nil
@@ -42,7 +45,6 @@ func (o *OpinionGiver) Query(ctx context.Context, conflictIDs []string, timestam
 		}
 		time.Sleep(time.Second)
 	}
-
 	return o.pog.Query(ctx, conflictIDs, timestampIDs)
 }
 
