@@ -1,7 +1,7 @@
 # Plugin system
 
 GoShimmer is a complex application that is used in a research environment where requirements often changed and new ideas arise. 
-Plugin system allows to quickly and easily add and remove modules that need to be started. However, one thing that might be non-intuitive about the use of plugins is that it's taken to an extreme - everything is run through plugins. 
+The Plugin system allows to quickly and easily add and remove modules that need to be started. However, one thing that might be non-intuitive about the use of plugins is that it's taken to an extreme - everything is run through plugins. 
 The only code that is not executed through a plugin system is the code responsible for configuring and starting the plugins.
 All new future features added to the GoShimmer must be added by creating a new plugin. 
 
@@ -30,13 +30,13 @@ Below is a brief description of each field:
 ## Plugin events
 
 Each plugin defines 3 events: `Init`, `Configure`, `Run`. 
-Those events are triggered during different stages of node startup, but plugin doesn't have to define handlers for all of those events in order to do what it's been designed for.
+Those events are triggered during different stages of node startup, but the plugin doesn't have to define handlers for all of those events in order to do what it's been designed for.
 Execution order and purpose of each event is described below: 
 
 1. `Init` - is triggered almost immediately after a node is started. It's used in plugins that are critical for GoShimmer such as reading config file or initializing global logger. Most plugins don't need to use this event.
 2. `Configure` - this event is used to configure the plugin before it is started. It is used to define events related to internal plugin logic or initialize objects used by the plugin. 
-3. `Run` - this event is triggered as the last one. The event handler function contains main logic of the plugin. 
-   For many plugins, the event handler function creates a separate worker that works in the background, so that the handler function for one plugin can finish and allow other plugins be started.  
+3. `Run` - this event is triggered as the last one. The event handler function contains the main logic of the plugin. 
+   For many plugins, the event handler function creates a separate worker that works in the background, so that the handler function for one plugin can finish and allow other plugins to be started.  
 
 Each event could potentially have more than one handler, however currently all existing plugins follow a convention where each event has only one handler.
 
@@ -62,10 +62,10 @@ The object needs to be passed so that the handler function can access plugin fie
 
 A plugin object can be created by calling the `node.NewPlugin` method. 
 The method creates and returns a new plugin object, as well as registers it so that GoShimmer knows the plugin is available.
-It accepts following arguments:
+It accepts the following arguments:
 * `name string` - plugin name.
 * `status int` - flag indicating whether plugin is enabled or disabled by default. This can be overridden by enabling/disabling the plugin in the external configuration file. Possible values: `node.Enabled`, `node.Disabled`. 
-* `callbacks ...Callback` - list of event handler functions. Method will correctly create a plugin when passing up to 2 callbacks. Note: `type Callback = func(plugin *Plugin)`, which is a raw function type without being wrapped in `events.Closure`.
+* `callbacks ...Callback` - list of event handler functions. The method will correctly create a plugin when passing up to 2 callbacks. Note: `type Callback = func(plugin *Plugin)`, which is a raw function type without being wrapped in `events.Closure`.
 
 
 There is a couple of ways that the method can be called, depending on which plugin events need to be configured. 
@@ -139,7 +139,7 @@ func run(*node.Plugin) {
 
 In order to correctly add a new plugin to GoShimmer, apart from defining it, it must also be passed to the `node.Run` method. 
 Because there are plenty of plugins, in order to improve readability and make managing plugins easier, they are grouped into separate wrappers passed to the `node.Run` method. 
-When adding new plugin, it must be added into one of those groups, or a new group must be created.
+When adding a new plugin, it must be added into one of those groups, or a new group must be created.
 
 ```go
 node.Run(
@@ -150,7 +150,7 @@ node.Run(
 )
 ```
 
-You can add plugin simply by calling `Plugin()` method of the newly created plugin and passing the argument further. An example group definition is presented below. When it's added, the plugin is correctly added and will be run when GoShimmer starts.
+You can add a plugin simply by calling the `Plugin()` method of the newly created plugin and passing the argument further. An example group definition is presented below. When it's added, the plugin is correctly added and will be run when GoShimmer starts.
 
 ```go
 var Core = node.Plugins(
@@ -163,7 +163,7 @@ var Core = node.Plugins(
 ## Background workers
 
 In order to run plugins beyond the scope of the short-lived `Run` event handler, possibly multiple `daemon.BackgroundWorker` instances can be started inside the handler function. 
-This allows the `Run` event handler finish quickly, and the plugin logic can continue running concurrently in a separate goroutine. 
+This allows the `Run` event handler to finish quickly, and the plugin logic can continue running concurrently in a separate goroutine. 
 
 Background worker can be started by running the `daemon.BackgroundWorker` method, which accepts following arguments:
 * `name string` - background worker name
@@ -178,7 +178,7 @@ An example code for creating a background worker:
 
 ```go
 func start(shutdownSignal <-chan struct{}) {
-	// long running function
+	// long-running function
 	// possibly start goroutines here
 	// wait for shutdown signal
     <-shutdownSignal
