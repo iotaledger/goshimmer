@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	voter "github.com/iotaledger/goshimmer/packages/vote/opinion"
+	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/timedexecutor"
 	"github.com/iotaledger/hive.go/timedqueue"
@@ -100,7 +101,7 @@ func (f *ConsensusMechanism) EvaluateTimestamp(messageID tangle.MessageID) {
 	f.setTimestampOpinionDone(messageID)
 
 	if f.messageDone(messageID) {
-		f.createMessageOpinion(messageID)
+		f.tangle.Utils.WalkMessageID(f.createMessageOpinion, tangle.MessageIDs{messageID}, true)
 	}
 }
 
@@ -259,28 +260,33 @@ func (f *ConsensusMechanism) onPayloadOpinionFormed(messageID tangle.MessageID, 
 	f.setPayloadOpinionDone(messageID)
 
 	if f.messageDone(messageID) {
-		f.createMessageOpinion(messageID)
+		f.tangle.Utils.WalkMessageID(f.createMessageOpinion, tangle.MessageIDs{messageID}, true)
 	}
 }
 
-func (f *ConsensusMechanism) createMessageOpinion(messageID tangle.MessageID) {
-	if f.parentsDone(messageID) && f.setMessageOpinionDone(messageID) {
-		// trigger TransactionOpinionFormed if the message contains a transaction
-		f.tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
-			if f.tangle.LedgerState.BranchInclusionState(f.tangle.LedgerState.BranchID(transactionID)) == ledgerstate.Confirmed {
-				f.tangle.ConsensusManager.Events.TransactionConfirmed.Trigger(messageID)
-			}
-		})
-
-		f.tangle.ConsensusManager.Events.MessageOpinionFormed.Trigger(messageID)
-
-		// propagate to children if they are ready
-		for _, childID := range f.tangle.Utils.ApprovingMessageIDs(messageID) {
-			if f.messageDone(childID) {
-				f.createMessageOpinion(childID)
-			}
-		}
+func (f *ConsensusMechanism) createMessageOpinion(messageID tangle.MessageID, walker *walker.Walker) {
+	if !f.parentsDone(messageID) {
+		return
 	}
+
+	if !f.setMessageOpinionDone(messageID) {
+		return
+	}
+
+	// trigger TransactionOpinionFormed if the message contains a transaction
+	f.tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
+		if f.tangle.LedgerState.BranchInclusionState(f.tangle.LedgerState.BranchID(transactionID)) == ledgerstate.Confirmed {
+			f.tangle.ConsensusManager.Events.TransactionConfirmed.Trigger(messageID)
+		}
+	})
+
+	f.tangle.ConsensusManager.Events.MessageOpinionFormed.Trigger(messageID)
+
+	f.tangle.Storage.Approvers(messageID).Consume(func(approver *tangle.Approver) {
+		if f.messageDone(approver.ApproverMessageID()) {
+			walker.Push(approver.ApproverMessageID())
+		}
+	})
 }
 
 func (f *ConsensusMechanism) setEligibility(messageID tangle.MessageID) {
