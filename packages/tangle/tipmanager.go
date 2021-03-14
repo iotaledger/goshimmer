@@ -43,31 +43,94 @@ func (t TipType) String() string {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region TipManager ///////////////////////////////////////////////////////////////////////////////////////////////////
+// region TimedTaskExecutor ////////////////////////////////////////////////////////////////////////////////////////////
 
-type tipsCleaner struct {
-	timedExecutor       *timedexecutor.TimedExecutor
-	queuedElements      map[MessageID]*timedqueue.QueueElement
-	queuedElementsMutex sync.RWMutex
+// TimedTaskExecutor is a TimedExecutor that internally manages the scheduled callbacks as tasks with a unique
+// identifier. It allows to replace existing scheduled tasks and cancel them using the same identifier.
+type TimedTaskExecutor struct {
+	*timedexecutor.TimedExecutor
+	queuedElements      map[interface{}]*timedqueue.QueueElement
+	queuedElementsMutex sync.Mutex
 }
 
-func newTipsCleaner() *tipsCleaner {
-	return &tipsCleaner{
-		timedExecutor:  timedexecutor.New(1),
-		queuedElements: make(map[MessageID]*timedqueue.QueueElement),
+// NewTimedTaskExecutor is the constructor of the TimedTaskExecutor.
+func NewTimedTaskExecutor(workerCount int) *TimedTaskExecutor {
+	return &TimedTaskExecutor{
+		TimedExecutor:  timedexecutor.New(workerCount),
+		queuedElements: make(map[interface{}]*timedqueue.QueueElement),
 	}
 }
 
-func (t *tipsCleaner) schedule(messageID MessageID, queuedElement *timedqueue.QueueElement) {
+// ExecuteAfter executes the given function after the given delay.
+func (t *TimedTaskExecutor) ExecuteAfter(identifier interface{}, callback func(), delay time.Duration) *timedexecutor.ScheduledTask {
+	t.queuedElementsMutex.Lock()
+	defer t.queuedElementsMutex.Unlock()
 
+	queuedElement, queuedElementExists := t.queuedElements[identifier]
+	if queuedElementExists {
+		queuedElement.Cancel()
+	}
+
+	t.queuedElements[identifier] = t.TimedExecutor.ExecuteAfter(func() {
+		callback()
+
+		t.queuedElementsMutex.Lock()
+		defer t.queuedElementsMutex.Unlock()
+
+		delete(t.queuedElements, identifier)
+	}, delay)
+
+	return t.queuedElements[identifier]
 }
+
+// ExecuteAt executes the given function at the given time.
+func (t *TimedTaskExecutor) ExecuteAt(identifier interface{}, callback func(), executionTime time.Time) *timedexecutor.ScheduledTask {
+	t.queuedElementsMutex.Lock()
+	defer t.queuedElementsMutex.Unlock()
+
+	queuedElement, queuedElementExists := t.queuedElements[identifier]
+	if queuedElementExists {
+		queuedElement.Cancel()
+	}
+
+	t.queuedElements[identifier] = t.TimedExecutor.ExecuteAt(func() {
+		callback()
+
+		t.queuedElementsMutex.Lock()
+		defer t.queuedElementsMutex.Unlock()
+
+		delete(t.queuedElements, identifier)
+	}, executionTime)
+
+	return t.queuedElements[identifier]
+}
+
+// Cancel cancels a queued task.
+func (t *TimedTaskExecutor) Cancel(identifier interface{}) (canceled bool) {
+	t.queuedElementsMutex.Lock()
+	defer t.queuedElementsMutex.Unlock()
+
+	queuedElement, queuedElementExists := t.queuedElements[identifier]
+	if !queuedElementExists {
+		return
+	}
+
+	queuedElement.Cancel()
+	delete(t.queuedElements, identifier)
+
+	return true
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TipManager ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // TipManager manages a map of tips and emits events for their removal and addition.
 type TipManager struct {
 	tangle      *Tangle
 	strongTips  *randommap.RandomMap
 	weakTips    *randommap.RandomMap
-	tipsCleaner *tipsCleaner
+	tipsCleaner *TimedTaskExecutor
 	Events      *TipManagerEvents
 }
 
@@ -77,7 +140,7 @@ func NewTipManager(tangle *Tangle, tips ...MessageID) *TipManager {
 		tangle:      tangle,
 		strongTips:  randommap.New(),
 		weakTips:    randommap.New(),
-		tipsCleaner: newTipsCleaner(),
+		tipsCleaner: NewTimedTaskExecutor(1),
 		Events: &TipManagerEvents{
 			TipAdded:   events.NewEvent(tipEventHandler),
 			TipRemoved: events.NewEvent(tipEventHandler),
@@ -95,6 +158,10 @@ func NewTipManager(tangle *Tangle, tips ...MessageID) *TipManager {
 func (t *TipManager) Setup() {
 	t.tangle.ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID MessageID) {
 		t.tangle.Storage.Message(messageID).Consume(t.AddTip)
+	}))
+
+	t.Events.TipRemoved.Attach(events.NewClosure(func(tipEvent *TipEvent) {
+		t.tipsCleaner.Cancel(tipEvent.MessageID)
 	}))
 }
 
@@ -140,7 +207,9 @@ func (t *TipManager) AddTip(message *Message) {
 					TipType:   StrongTip,
 				})
 				t.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-					queuedElements.Add(messageID, t.tipsCleaner.ExecuteAt(func() { t.strongTips.Delete(messageID) }, message.IssuingTime().Add(maxParentsTimeDifference-1*time.Minute)))
+					t.tipsCleaner.ExecuteAt(messageID, func() {
+						t.strongTips.Delete(messageID)
+					}, message.IssuingTime().Add(maxParentsTimeDifference-1*time.Minute))
 				})
 
 			}
@@ -173,6 +242,12 @@ func (t *TipManager) AddTip(message *Message) {
 				t.Events.TipAdded.Trigger(&TipEvent{
 					MessageID: messageID,
 					TipType:   WeakTip,
+				})
+
+				t.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+					t.tipsCleaner.ExecuteAt(messageID, func() {
+						t.weakTips.Delete(messageID)
+					}, message.IssuingTime().Add(maxParentsTimeDifference-1*time.Minute))
 				})
 			}
 		}
@@ -279,18 +354,6 @@ func (t *TipManager) selectStrongTips(p payload.Payload, count int) (parents Mes
 	for _, tip := range tips {
 		messageID := tip.(MessageID)
 
-		tipRemoved := false
-		t.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-			if clock.Since(message.IssuingTime()) > maxParentsTimeDifference+1*time.Minute {
-				tipRemoved = true
-				t.strongTips.Delete(messageID)
-			}
-		})
-
-		if tipRemoved {
-			continue
-		}
-
 		if _, ok := parentsMap[messageID]; !ok {
 			parentsMap[messageID] = types.Void
 			parents = append(parents, messageID)
@@ -314,18 +377,6 @@ func (t *TipManager) selectWeakTips(count int) (parents MessageIDs) {
 	for _, tip := range tips {
 		messageID := tip.(MessageID)
 
-		tipRemoved := false
-		t.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-			if clock.Since(message.IssuingTime()) > maxParentsTimeDifference+1*time.Minute {
-				tipRemoved = true
-				t.weakTips.Delete(messageID)
-			}
-		})
-
-		if tipRemoved {
-			continue
-		}
-
 		parents = append(parents, messageID)
 	}
 
@@ -340,6 +391,11 @@ func (t *TipManager) StrongTipCount() int {
 // WeakTipCount the amount of weak tips.
 func (t *TipManager) WeakTipCount() int {
 	return t.weakTips.Size()
+}
+
+// Shutdown stops the TipManager.
+func (t *TipManager) Shutdown() {
+	t.tipsCleaner.Shutdown(timedexecutor.CancelPendingTasks)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
