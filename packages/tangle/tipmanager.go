@@ -125,6 +125,8 @@ func (t *TimedTaskExecutor) Cancel(identifier interface{}) (canceled bool) {
 
 // region TipManager ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+const tipLifeGracePeriod = maxParentsTimeDifference - 1*time.Minute
+
 // TipManager manages a map of tips and emits events for their removal and addition.
 type TipManager struct {
 	tangle      *Tangle
@@ -185,7 +187,7 @@ func (t *TipManager) AddTip(message *Message) {
 		panic(fmt.Errorf("failed to load MessageMetadata with %s", messageID))
 	}
 
-	if clock.Since(message.IssuingTime()) > maxParentsTimeDifference-1*time.Minute {
+	if clock.Since(message.IssuingTime()) > tipLifeGracePeriod {
 		return
 	}
 
@@ -213,7 +215,7 @@ func (t *TipManager) AddTip(message *Message) {
 
 				t.tipsCleaner.ExecuteAt(messageID, func() {
 					t.strongTips.Delete(messageID)
-				}, message.IssuingTime().Add(maxParentsTimeDifference-1*time.Minute))
+				}, message.IssuingTime().Add(tipLifeGracePeriod))
 
 			}
 
@@ -249,7 +251,7 @@ func (t *TipManager) AddTip(message *Message) {
 
 				t.tipsCleaner.ExecuteAt(messageID, func() {
 					t.weakTips.Delete(messageID)
-				}, message.IssuingTime().Add(maxParentsTimeDifference-1*time.Minute))
+				}, message.IssuingTime().Add(tipLifeGracePeriod))
 			}
 		}
 	})
