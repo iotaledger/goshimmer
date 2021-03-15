@@ -276,7 +276,6 @@ func pruneStorages() {
 }
 
 func shutdownStorages() {
-	// TODO: does it still cause the plugin to hang?
 	for vectorType := range baseManaVectors {
 		storages[vectorType].Shutdown()
 	}
@@ -627,7 +626,7 @@ func getConsensusEventLogsStorageSize() uint32 {
 	consensusEventsLogStorage.ForEachKeyOnly(func(key []byte) bool {
 		size++
 		return true
-	}, true)
+	}, objectstorage.WithSkipCache(true))
 	return size
 }
 

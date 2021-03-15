@@ -1,6 +1,6 @@
 module github.com/iotaledger/goshimmer
 
-go 1.14
+go 1.16
 
 require (
 	github.com/DataDog/zstd v1.4.8 // indirect
@@ -16,7 +16,7 @@ require (
 	github.com/golang/protobuf v1.4.3
 	github.com/golang/snappy v0.0.2 // indirect
 	github.com/gorilla/websocket v1.4.2
-	github.com/iotaledger/hive.go v0.0.0-20210228213009-bdcfaf0d67c0
+	github.com/iotaledger/hive.go v0.0.0-20210314220918-ac82b8322991
 	github.com/kr/pretty v0.2.1 // indirect
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0
@@ -30,14 +30,14 @@ require (
 	github.com/spf13/afero v1.3.0 // indirect
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.0
-	github.com/stretchr/testify v1.6.1
+	github.com/stretchr/testify v1.7.0
 	github.com/valyala/fasttemplate v1.1.0 // indirect
 	github.com/xdg/stringprep v1.0.0 // indirect
 	go.dedis.ch/kyber/v3 v3.0.13
 	go.mongodb.org/mongo-driver v1.3.4
 	go.uber.org/atomic v1.7.0
 	go.uber.org/zap v1.16.0
-	golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897
+	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83
 	golang.org/x/exp v0.0.0-20210220032938-85be41e4509f // indirect
 	golang.org/x/net v0.0.0-20201202161906-c7110b5ffcbb // indirect
 	golang.org/x/sys v0.0.0-20210224231101-5640770f5e4e // indirect
