@@ -122,6 +122,10 @@ export class ManaStore {
 
     @observable consensusEvents: Array<ManaEvent> = [];
 
+    initAccessEvents: Array<ManaEvent> = [];
+
+    initConsensusEvents: Array<ManaEvent> = [];
+
     ownID: string;
 
     constructor() {
@@ -130,6 +134,9 @@ export class ManaStore {
         registerHandler(WSMsgType.ManaMapOverall, this.updateNetworkRichest);
         registerHandler(WSMsgType.ManaMapOnline, this.updateActiveRichest);
         registerHandler(WSMsgType.ManaAllowedPledge, this.updateAllowedPledgeIDs);
+        registerHandler(WSMsgType.ManaInitPledge, this.addNewInitPledge);
+        registerHandler(WSMsgType.ManaInitRevoke, this.addNewInitRevoke);
+        registerHandler(WSMsgType.ManaInitDone, this.initDone);
         registerHandler(WSMsgType.ManaPledge, this.addNewPledge);
         registerHandler(WSMsgType.ManaRevoke, this.addNewRevoke);
     };
@@ -192,6 +199,18 @@ export class ManaStore {
     }
 
     @action
+    addNewInitPledge = (msg: PledgeMsg) => {
+        switch (msg.manaType) {
+            case "Access":
+                this.handleNewPledgeEvent(this.initAccessEvents, msg);
+                break;
+            case "Consensus":
+                this.handleNewPledgeEvent(this.initConsensusEvents, msg);
+                break;
+        }
+    }
+
+    @action
     addNewPledge = (msg: PledgeMsg) => {
         switch (msg.manaType) {
             case "Access":
@@ -217,6 +236,18 @@ export class ManaStore {
     }
 
     @action
+    addNewInitRevoke = (msg: RevokeMsg) => {
+        switch (msg.manaType) {
+            case "Access":
+                this.handleNewRevokeEvent(this.initAccessEvents, msg);
+                break;
+            case "Consensus":
+                this.handleNewRevokeEvent(this.initConsensusEvents, msg);
+                break;
+        }
+    }
+
+    @action
     addNewRevoke = (msg: RevokeMsg) => {
         switch (msg.manaType) {
             case "Access":
@@ -239,6 +270,12 @@ export class ManaStore {
             msg.amount
         )
         store.push(newData)
+    }
+
+    @action
+    initDone = () => {
+        this.accessEvents = this.initAccessEvents
+        this.consensusEvents = this.initConsensusEvents
     }
 
     nodeList = (leaderBoard: Array<Node>, manaSum: number) => {

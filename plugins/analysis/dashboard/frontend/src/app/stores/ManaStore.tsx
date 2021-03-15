@@ -75,6 +75,11 @@ export class ManaStore {
     @observable accessEvents: Array<ManaEvent> = [];
 
     @observable consensusEvents: Array<ManaEvent> = [];
+
+    initAccessEvents: Array<ManaEvent> = [];
+
+    initConsensusEvents: Array<ManaEvent> = [];
+
     @observable public dashboardWebsocketConnected: boolean = false;
     @observable public manaDashboardAddress: string
 
@@ -85,6 +90,9 @@ export class ManaStore {
         this.consensusValues = [];
         registerHandler(WSMsgTypeDashboard.ManaMapOverall, this.updateNetworkRichest);
         registerHandler(WSMsgTypeDashboard.ManaMapOnline, this.updateActiveRichest);
+        registerHandler(WSMsgTypeDashboard.ManaInitPledge, this.addNewInitPledge);
+        registerHandler(WSMsgTypeDashboard.ManaInitRevoke, this.addNewInitRevoke);
+        registerHandler(WSMsgTypeDashboard.ManaInitDone, this.initDone);
         registerHandler(WSMsgTypeDashboard.ManaPledge, this.addNewPledge);
         registerHandler(WSMsgTypeDashboard.ManaRevoke, this.addNewRevoke);
     };
@@ -189,6 +197,18 @@ export class ManaStore {
     }
 
     @action
+    addNewInitPledge = (msg: IPledgeMessage) => {
+        switch (msg.manaType) {
+            case "Access":
+                this.handleNewPledgeEvent(this.initAccessEvents, msg);
+                break;
+            case "Consensus":
+                this.handleNewPledgeEvent(this.initConsensusEvents, msg);
+                break;
+        }
+    }
+
+    @action
     addNewPledge = (msg: IPledgeMessage) => {
         switch (msg.manaType) {
             case "Access":
@@ -216,6 +236,18 @@ export class ManaStore {
     }
 
     @action
+    addNewInitRevoke = (msg: IRevokeMessage) => {
+        switch (msg.manaType) {
+            case "Access":
+                this.handleNewRevokeEvent(this.initAccessEvents, msg);
+                break;
+            case "Consensus":
+                this.handleNewRevokeEvent(this.initConsensusEvents, msg);
+                break;
+        }
+    }
+
+    @action
     addNewRevoke = (msg: IRevokeMessage) => {
         switch (msg.manaType) {
             case "Access":
@@ -238,6 +270,12 @@ export class ManaStore {
             msg.amount
         )
         store.push(newData)
+    }
+
+    @action
+    initDone = () => {
+        this.accessEvents = this.initAccessEvents
+        this.consensusEvents = this.initConsensusEvents
     }
 
     nodeList = (leaderBoard: Array<INode>, manaSum: number) => {

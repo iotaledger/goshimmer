@@ -166,8 +166,14 @@ const (
 	MsgTypeManaAllowedPledge
 	// MsgTypeManaPledge defines a message that is sent when mana was pledged to the node.
 	MsgTypeManaPledge
+	// MsgTypeManaInitPledge defines a message that is sent when initial pledge events are sent to the dashboard.
+	MsgTypeManaInitPledge
 	// MsgTypeManaRevoke defines a message that is sent when mana was revoked from a node.
 	MsgTypeManaRevoke
+	// MsgTypeManaInitRevoke defines a message that is sent when initial revoke events are sent to the dashboard.
+	MsgTypeManaInitRevoke
+	// MsgTypeManaInitDone defines a message that is sent when all initial values are sent.
+	MsgTypeManaInitDone
 	// MsgManaDashboardAddress is the socket address of the dashboard to stream mana from.
 	MsgManaDashboardAddress
 	// MsgTypeMsgOpinionFormed defines a tip info message.
