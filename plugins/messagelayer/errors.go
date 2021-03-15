@@ -1,4 +1,4 @@
-package mana
+package messagelayer
 
 import "golang.org/x/xerrors"
 

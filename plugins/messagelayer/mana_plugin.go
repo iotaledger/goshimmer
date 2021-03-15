@@ -1,6 +1,7 @@
-package mana
+package messagelayer
 
 import (
+	"github.com/iotaledger/goshimmer/packages/gossip"
 	"math"
 	"math/rand"
 	"sort"
@@ -16,8 +17,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/database"
-	"github.com/iotaledger/goshimmer/plugins/gossip"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/events"
@@ -37,10 +36,10 @@ const (
 )
 
 var (
-	// plugin is the plugin instance of the mana plugin.
-	plugin                                     *node.Plugin
+	// manaPlugin is the plugin instance of the mana plugin.
+	manaPlugin                                 *node.Plugin
 	once                                       sync.Once
-	log                                        *logger.Logger
+	manaLogger                                 *logger.Logger
 	baseManaVectors                            map[mana.Type]mana.BaseManaVector
 	osFactory                                  *objectstorage.Factory
 	storages                                   map[mana.Type]*objectstorage.ObjectStorage
@@ -56,15 +55,15 @@ var (
 )
 
 // Plugin gets the plugin instance.
-func Plugin() *node.Plugin {
+func ManaPlugin() *node.Plugin {
 	once.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+		manaPlugin = node.NewPlugin(PluginName, node.Enabled, configureManaPlugin, runManaPlugin)
 	})
-	return plugin
+	return manaPlugin
 }
 
-func configure(*node.Plugin) {
-	log = logger.NewLogger(PluginName)
+func configureManaPlugin(*node.Plugin) {
+	manaLogger = logger.NewLogger(PluginName)
 
 	onTransactionConfirmedClosure = events.NewClosure(onTransactionConfirmed)
 	onPledgeEventClosure = events.NewClosure(logPledgeEvent)
@@ -96,7 +95,7 @@ func configure(*node.Plugin) {
 
 	err := verifyPledgeNodes()
 	if err != nil {
-		log.Panic(err.Error())
+		manaLogger.Panic(err.Error())
 	}
 
 	debuggingEnabled = config.Node().Bool(CfgDebuggingEnabled)
@@ -106,7 +105,7 @@ func configure(*node.Plugin) {
 
 func configureEvents() {
 	// until we have the proper event...
-	messagelayer.Tangle().ConsensusManager.Events.TransactionConfirmed.Attach(onTransactionConfirmedClosure)
+	Tangle().ConsensusManager.Events.TransactionConfirmed.Attach(onTransactionConfirmedClosure)
 	mana.Events().Pledged.Attach(onPledgeEventClosure)
 	mana.Events().Revoked.Attach(onRevokeEventClosure)
 }
@@ -127,7 +126,7 @@ func logRevokeEvent(ev *mana.RevokedEvent) {
 func onTransactionConfirmed(msgID tangle.MessageID) {
 	var tx *ledgerstate.Transaction
 	isTx := false
-	messagelayer.Tangle().Storage.Message(msgID).Consume(func(message *tangle.Message) {
+	Tangle().Storage.Message(msgID).Consume(func(message *tangle.Message) {
 		if message.Payload().Type() != ledgerstate.TransactionType {
 			return
 		}
@@ -136,7 +135,7 @@ func onTransactionConfirmed(msgID tangle.MessageID) {
 		tx, _, err = ledgerstate.TransactionFromBytes(message.Payload().Bytes())
 		if err != nil {
 			isTx = false
-			log.Errorf("Message %s contains invalid transaction payload: %w", msgID.String(), err)
+			manaLogger.Errorf("Message %s contains invalid transaction payload: %w", msgID.String(), err)
 			return
 		}
 	})
@@ -160,7 +159,7 @@ func onTransactionConfirmed(msgID tangle.MessageID) {
 		var consensusManaNodeID identity.ID
 		var _inputInfo mana.InputInfo
 
-		messagelayer.Tangle().LedgerState.Output(i.ReferencedOutputID()).Consume(func(o ledgerstate.Output) {
+		Tangle().LedgerState.Output(i.ReferencedOutputID()).Consume(func(o ledgerstate.Output) {
 			// first, sum balances of the input, calculate total amount as well for later
 			o.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
 				amount += float64(balance)
@@ -170,7 +169,7 @@ func onTransactionConfirmed(msgID tangle.MessageID) {
 			// derive the transaction that created this input
 			inputTxID := o.ID().TransactionID()
 			// look into the transaction, we need timestamp and access & consensus pledge IDs
-			messagelayer.Tangle().LedgerState.Transaction(inputTxID).Consume(func(transaction *ledgerstate.Transaction) {
+			Tangle().LedgerState.Transaction(inputTxID).Consume(func(transaction *ledgerstate.Transaction) {
 				if transaction != nil {
 					inputTimestamp = transaction.Essence().Timestamp()
 					accessManaNodeID = transaction.Essence().AccessPledgeID()
@@ -207,7 +206,7 @@ func onTransactionConfirmed(msgID tangle.MessageID) {
 	}
 }
 
-func run(_ *node.Plugin) {
+func runManaPlugin(_ *node.Plugin) {
 	// mana calculation coefficients can be set from config
 	ema1 := config.Node().Float64(CfgEmaCoefficient1)
 	ema2 := config.Node().Float64(CfgEmaCoefficient2)
@@ -217,7 +216,7 @@ func run(_ *node.Plugin) {
 
 	mana.SetCoefficients(ema1, ema2, dec)
 	if err := daemon.BackgroundWorker("Mana", func(shutdownSignal <-chan struct{}) {
-		defer log.Infof("Stopping %s ... done", PluginName)
+		defer manaLogger.Infof("Stopping %s ... done", PluginName)
 		ticker := time.NewTicker(pruneInterval)
 		defer ticker.Stop()
 		cleanupTicker := time.NewTicker(vectorsCleanUpInterval)
@@ -227,10 +226,10 @@ func run(_ *node.Plugin) {
 		for {
 			select {
 			case <-shutdownSignal:
-				log.Infof("Stopping %s ...", PluginName)
+				manaLogger.Infof("Stopping %s ...", PluginName)
 				mana.Events().Pledged.Detach(onPledgeEventClosure)
 				mana.Events().Pledged.Detach(onRevokeEventClosure)
-				messagelayer.Tangle().ConsensusManager.Events.TransactionConfirmed.Detach(onTransactionConfirmedClosure)
+				Tangle().ConsensusManager.Events.TransactionConfirmed.Detach(onTransactionConfirmedClosure)
 				storeManaVectors()
 				shutdownStorages()
 				return
@@ -241,7 +240,7 @@ func run(_ *node.Plugin) {
 			}
 		}
 	}, shutdown.PriorityMana); err != nil {
-		log.Panicf("Failed to start as daemon: %s", err)
+		manaLogger.Panicf("Failed to start as daemon: %s", err)
 	}
 }
 
@@ -252,7 +251,7 @@ func readStoredManaVectors() {
 			cachedPbm.Consume(func(p *mana.PersistableBaseMana) {
 				err := baseManaVectors[vectorType].FromPersistable(p)
 				if err != nil {
-					log.Errorf("error while restoring %s mana vector: %w", vectorType.String(), err)
+					manaLogger.Errorf("error while restoring %s mana vector: %w", vectorType.String(), err)
 				}
 			})
 			return true
@@ -320,11 +319,11 @@ func GetConsensusMana(nodeID identity.ID, optionalUpdateTime ...time.Time) (floa
 }
 
 // GetNeighborsMana returns the type mana of the nodes neighbors
-func GetNeighborsMana(manaType mana.Type, optionalUpdateTime ...time.Time) (mana.NodeMap, error) {
+func GetNeighborsMana(manaType mana.Type, neighbors []*gossip.Neighbor, optionalUpdateTime ...time.Time) (mana.NodeMap, error) {
 	if !QueryAllowed() {
 		return mana.NodeMap{}, ErrQueryNotAllowed
 	}
-	neighbors := gossip.Manager().AllNeighbors()
+
 	res := make(mana.NodeMap)
 	for _, n := range neighbors {
 		// in case of error, value is 0.0
@@ -450,7 +449,7 @@ func verifyPledgeNodes() error {
 
 // PendingManaOnOutput predicts how much mana (bm2) will be pledged to a node if the output specified is spent.
 func PendingManaOnOutput(outputID ledgerstate.OutputID) (float64, time.Time) {
-	cachedOutputMetadata := messagelayer.Tangle().LedgerState.OutputMetadata(outputID)
+	cachedOutputMetadata := Tangle().LedgerState.OutputMetadata(outputID)
 	defer cachedOutputMetadata.Release()
 	outputMetadata := cachedOutputMetadata.Unwrap()
 
@@ -460,14 +459,14 @@ func PendingManaOnOutput(outputID ledgerstate.OutputID) (float64, time.Time) {
 	}
 
 	var value float64
-	messagelayer.Tangle().LedgerState.Output(outputID).Consume(func(output ledgerstate.Output) {
+	Tangle().LedgerState.Output(outputID).Consume(func(output ledgerstate.Output) {
 		output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
 			value += float64(balance)
 			return true
 		})
 	})
 
-	cachedTx := messagelayer.Tangle().LedgerState.Transaction(outputID.TransactionID())
+	cachedTx := Tangle().LedgerState.Transaction(outputID.TransactionID())
 	defer cachedTx.Release()
 	tx := cachedTx.Unwrap()
 	txTimestamp := tx.Essence().Timestamp()
@@ -569,7 +568,7 @@ func GetPastConsensusManaVector(t time.Time) (*mana.ConsensusBaseManaVector, []m
 				p := cachedPbm.Unwrap()
 				err = cbmvPast.FromPersistable(p)
 				if err != nil {
-					log.Errorf("error while restoring %s mana vector from storage: %w", mana.ConsensusMana.String(), err)
+					manaLogger.Errorf("error while restoring %s mana vector from storage: %w", mana.ConsensusMana.String(), err)
 					baseManaVector, _ := mana.NewBaseManaVector(mana.ConsensusMana)
 					cbmvPast = baseManaVector.(*mana.ConsensusBaseManaVector)
 					return false
@@ -640,7 +639,7 @@ func pruneConsensusEventLogsStorage() {
 
 	bmv, err := mana.NewBaseManaVector(mana.ConsensusMana)
 	if err != nil {
-		log.Errorf("error creating consensus base mana vector: %v", err)
+		manaLogger.Errorf("error creating consensus base mana vector: %v", err)
 		return
 	}
 	cbmvPast := bmv.(*mana.ConsensusBaseManaVector)
@@ -657,7 +656,7 @@ func pruneConsensusEventLogsStorage() {
 			return true
 		})
 		if err != nil {
-			log.Errorf("error reading stored consensus base mana vector: %v", err)
+			manaLogger.Errorf("error reading stored consensus base mana vector: %v", err)
 			return
 		}
 	}
@@ -677,7 +676,7 @@ func pruneConsensusEventLogsStorage() {
 		return true
 	})
 	if err != nil {
-		log.Infof("error reading persistable events: %v", err)
+		manaLogger.Infof("error reading persistable events: %v", err)
 		return
 	}
 	eventLogs.Sort()
@@ -696,13 +695,13 @@ func pruneConsensusEventLogsStorage() {
 
 	err = cbmvPast.BuildPastBaseVector(eventLogs, t)
 	if err != nil {
-		log.Error("error building past consensus base mana vector: %v", err)
+		manaLogger.Error("error building past consensus base mana vector: %v", err)
 		return
 	}
 
 	// store cbmv
 	if err = consensusBaseManaPastVectorStorage.Prune(); err != nil {
-		log.Errorf("error pruning consensus base mana vector storage: %w", err)
+		manaLogger.Errorf("error pruning consensus base mana vector storage: %w", err)
 		return
 	}
 	for _, p := range cbmvPast.ToPersistables() {
@@ -756,5 +755,5 @@ type EventsLogs struct {
 func QueryAllowed() (allowed bool) {
 	// if debugging enabled, reply to the query
 	// if debugging is not allowed, only reply when in sync
-	return messagelayer.Tangle().Synced() || debuggingEnabled
+	return Tangle().Synced() || debuggingEnabled
 }

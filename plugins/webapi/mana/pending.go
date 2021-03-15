@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
+	manaPlugin "github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/labstack/echo"
 )
 

@@ -3,6 +3,7 @@ package messagelayer
 import (
 	"context"
 	"fmt"
+	"github.com/iotaledger/goshimmer/packages/mana"
 	"net"
 	"strconv"
 	"sync"
@@ -217,6 +218,7 @@ type OpinionGiver struct {
 	id   identity.ID
 	view *statement.View
 	pog  *PeerOpinionGiver
+	mana float64
 }
 
 // OpinionGivers is a map of OpinionGiver.
@@ -242,15 +244,27 @@ func (o *OpinionGiver) ID() identity.ID {
 	return o.id
 }
 
+// Mana returns consensus mana value for an opinion giver
+func (o *OpinionGiver) Mana() float64 {
+	return o.mana
+}
+
 // OpinionGiverFunc returns a slice of opinion givers.
 func OpinionGiverFunc() (givers []opinion.OpinionGiver, err error) {
 	opinionGiversMap := make(map[identity.ID]*OpinionGiver)
 	opinionGivers := make([]opinion.OpinionGiver, 0)
 
+	consensusManaNodes, _, err := GetManaMap(mana.ConsensusMana)
+
 	for _, v := range Registry().NodesView() {
+		manaValue := 0.0
+		if v, ok := consensusManaNodes[v.ID()]; ok {
+			manaValue = v
+		}
 		opinionGiversMap[v.ID()] = &OpinionGiver{
 			id:   v.ID(),
 			view: v,
+			mana: manaValue,
 		}
 	}
 
@@ -260,9 +274,14 @@ func OpinionGiverFunc() (givers []opinion.OpinionGiver, err error) {
 			continue
 		}
 		if _, ok := opinionGiversMap[p.ID()]; !ok {
+			manaValue := 0.0
+			if v, ok := consensusManaNodes[p.ID()]; ok {
+				manaValue = v
+			}
 			opinionGiversMap[p.ID()] = &OpinionGiver{
 				id:   p.ID(),
 				view: nil,
+				mana: manaValue,
 			}
 		}
 		opinionGiversMap[p.ID()].pog = &PeerOpinionGiver{p: p}

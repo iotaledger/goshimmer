@@ -6,7 +6,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/mana"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	valueutils "github.com/iotaledger/goshimmer/plugins/webapi/value"
 	"github.com/labstack/echo"
@@ -195,7 +194,7 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 			solidificationTime = txMeta.SolidificationTime().Unix()
 		})
 
-		pendingMana, _ := mana.PendingManaOnOutput(output.ID())
+		pendingMana, _ := messagelayer.PendingManaOnOutput(output.ID())
 		outputids = append(outputids, ExplorerOutput{
 			ID:                 output.ID().String(),
 			Balances:           b,

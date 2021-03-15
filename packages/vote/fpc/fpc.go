@@ -5,8 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/iotaledger/goshimmer/packages/mana"
-	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
+	"math"
 	"math/rand"
 	"sync"
 	"time"
@@ -311,24 +310,24 @@ func (f *FPC) queryOpinions() ([]opinion.QueriedOpinions, error) {
 func (f *FPC) manaBasedSampling(opinionGivers []opinion.OpinionGiver) map[opinion.OpinionGiver]int {
 	// TODO: apply mana for weighted sampling instead of uniform sampling
 	// TODO: include yourself in random weighted sampling
-	consensusManaNodes, _, err := manaPlugin.GetManaMap(mana.ConsensusMana)
-
-	if err != nil {
-		// fallback to uniform sampling
-		return f.uniformSampling(opinionGivers)
-	}
 
 	totalConsensusMana := 0.0
 	totals := make([]float64, 0, len(opinionGivers))
 
 	for i := 0; i < len(opinionGivers); i++ {
-		totalConsensusMana += consensusManaNodes[opinionGivers[i].ID()]
+		totalConsensusMana += opinionGivers[i].Mana()
 		totals = append(totals, totalConsensusMana)
+	}
+
+	// check almost equal
+	if math.Abs(totalConsensusMana-0.0) <= 1e-9 {
+		// fallback to uniform sampling
+		return f.uniformSampling(opinionGivers)
 	}
 
 	opinionGiversToQuery := map[opinion.OpinionGiver]int{}
 	for i := 0; i < f.paras.QuerySampleSize; i++ {
-		//for i := 0; i < f.paras.MaxQuerySampleSize && len(opinionGiversToQuery) < f.paras.QuerySampleSize; i++ {
+		//TODO: for i := 0; i < f.paras.MaxQuerySampleSize && len(opinionGiversToQuery) < f.paras.QuerySampleSize; i++ {
 
 		//another parameter: max query sample size (max votes we can sample)
 		// unique selector - len(opinionGiversToQuery),
