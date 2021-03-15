@@ -152,6 +152,7 @@ func (t *Tangle) Shutdown() {
 	t.ConsensusManager.Shutdown()
 	t.Storage.Shutdown()
 	t.Options.Store.Shutdown()
+	t.TipManager.Shutdown()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -31,7 +31,7 @@ func configure(*node.Plugin) {
 	log := logger.NewLogger(PluginName)
 
 	if node.IsSkipped(messagelayer.Plugin()) {
-		log.Infof("%s is disabled; skipping %s\n", messagelayer.PluginName, PluginName)
+		log.Infof("%s is disabled; skipping %s\n", messagelayer.Plugin().Name, PluginName)
 		return
 	}
 

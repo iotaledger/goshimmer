@@ -2,12 +2,16 @@ package tangle
 
 import (
 	"fmt"
+	"sync"
+	"time"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/datastructure/randommap"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/timedexecutor"
+	"github.com/iotaledger/hive.go/timedqueue"
 	"github.com/iotaledger/hive.go/types"
 	"golang.org/x/xerrors"
 )
@@ -39,22 +43,106 @@ func (t TipType) String() string {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// region TimedTaskExecutor ////////////////////////////////////////////////////////////////////////////////////////////
+
+// TimedTaskExecutor is a TimedExecutor that internally manages the scheduled callbacks as tasks with a unique
+// identifier. It allows to replace existing scheduled tasks and cancel them using the same identifier.
+type TimedTaskExecutor struct {
+	*timedexecutor.TimedExecutor
+	queuedElements      map[interface{}]*timedqueue.QueueElement
+	queuedElementsMutex sync.Mutex
+}
+
+// NewTimedTaskExecutor is the constructor of the TimedTaskExecutor.
+func NewTimedTaskExecutor(workerCount int) *TimedTaskExecutor {
+	return &TimedTaskExecutor{
+		TimedExecutor:  timedexecutor.New(workerCount),
+		queuedElements: make(map[interface{}]*timedqueue.QueueElement),
+	}
+}
+
+// ExecuteAfter executes the given function after the given delay.
+func (t *TimedTaskExecutor) ExecuteAfter(identifier interface{}, callback func(), delay time.Duration) *timedexecutor.ScheduledTask {
+	t.queuedElementsMutex.Lock()
+	defer t.queuedElementsMutex.Unlock()
+
+	queuedElement, queuedElementExists := t.queuedElements[identifier]
+	if queuedElementExists {
+		queuedElement.Cancel()
+	}
+
+	t.queuedElements[identifier] = t.TimedExecutor.ExecuteAfter(func() {
+		callback()
+
+		t.queuedElementsMutex.Lock()
+		defer t.queuedElementsMutex.Unlock()
+
+		delete(t.queuedElements, identifier)
+	}, delay)
+
+	return t.queuedElements[identifier]
+}
+
+// ExecuteAt executes the given function at the given time.
+func (t *TimedTaskExecutor) ExecuteAt(identifier interface{}, callback func(), executionTime time.Time) *timedexecutor.ScheduledTask {
+	t.queuedElementsMutex.Lock()
+	defer t.queuedElementsMutex.Unlock()
+
+	queuedElement, queuedElementExists := t.queuedElements[identifier]
+	if queuedElementExists {
+		queuedElement.Cancel()
+	}
+
+	t.queuedElements[identifier] = t.TimedExecutor.ExecuteAt(func() {
+		callback()
+
+		t.queuedElementsMutex.Lock()
+		defer t.queuedElementsMutex.Unlock()
+
+		delete(t.queuedElements, identifier)
+	}, executionTime)
+
+	return t.queuedElements[identifier]
+}
+
+// Cancel cancels a queued task.
+func (t *TimedTaskExecutor) Cancel(identifier interface{}) (canceled bool) {
+	t.queuedElementsMutex.Lock()
+	defer t.queuedElementsMutex.Unlock()
+
+	queuedElement, queuedElementExists := t.queuedElements[identifier]
+	if !queuedElementExists {
+		return
+	}
+
+	queuedElement.Cancel()
+	delete(t.queuedElements, identifier)
+
+	return true
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // region TipManager ///////////////////////////////////////////////////////////////////////////////////////////////////
+
+const tipLifeGracePeriod = maxParentsTimeDifference - 1*time.Minute
 
 // TipManager manages a map of tips and emits events for their removal and addition.
 type TipManager struct {
-	tangle     *Tangle
-	strongTips *randommap.RandomMap
-	weakTips   *randommap.RandomMap
-	Events     *TipManagerEvents
+	tangle      *Tangle
+	strongTips  *randommap.RandomMap
+	weakTips    *randommap.RandomMap
+	tipsCleaner *TimedTaskExecutor
+	Events      *TipManagerEvents
 }
 
 // NewTipManager creates a new tip-selector.
 func NewTipManager(tangle *Tangle, tips ...MessageID) *TipManager {
 	tipSelector := &TipManager{
-		tangle:     tangle,
-		strongTips: randommap.New(),
-		weakTips:   randommap.New(),
+		tangle:      tangle,
+		strongTips:  randommap.New(),
+		weakTips:    randommap.New(),
+		tipsCleaner: NewTimedTaskExecutor(1),
 		Events: &TipManagerEvents{
 			TipAdded:   events.NewEvent(tipEventHandler),
 			TipRemoved: events.NewEvent(tipEventHandler),
@@ -72,6 +160,10 @@ func NewTipManager(tangle *Tangle, tips ...MessageID) *TipManager {
 func (t *TipManager) Setup() {
 	t.tangle.ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID MessageID) {
 		t.tangle.Storage.Message(messageID).Consume(t.AddTip)
+	}))
+
+	t.Events.TipRemoved.Attach(events.NewClosure(func(tipEvent *TipEvent) {
+		t.tipsCleaner.Cancel(tipEvent.MessageID)
 	}))
 }
 
@@ -95,6 +187,10 @@ func (t *TipManager) AddTip(message *Message) {
 		panic(fmt.Errorf("failed to load MessageMetadata with %s", messageID))
 	}
 
+	if clock.Since(message.IssuingTime()) > tipLifeGracePeriod {
+		return
+	}
+
 	if !messageMetadata.IsEligible() {
 		return
 	}
@@ -116,6 +212,11 @@ func (t *TipManager) AddTip(message *Message) {
 					MessageID: messageID,
 					TipType:   StrongTip,
 				})
+
+				t.tipsCleaner.ExecuteAt(messageID, func() {
+					t.strongTips.Delete(messageID)
+				}, message.IssuingTime().Add(tipLifeGracePeriod))
+
 			}
 
 			// skip removing tips if TangleWidth is enabled
@@ -147,6 +248,10 @@ func (t *TipManager) AddTip(message *Message) {
 					MessageID: messageID,
 					TipType:   WeakTip,
 				})
+
+				t.tipsCleaner.ExecuteAt(messageID, func() {
+					t.weakTips.Delete(messageID)
+				}, message.IssuingTime().Add(tipLifeGracePeriod))
 			}
 		}
 	})
@@ -251,10 +356,12 @@ func (t *TipManager) selectStrongTips(p payload.Payload, count int) (parents Mes
 	// at least one tip is returned
 	for _, tip := range tips {
 		messageID := tip.(MessageID)
+
 		if _, ok := parentsMap[messageID]; !ok {
 			parentsMap[messageID] = types.Void
 			parents = append(parents, messageID)
 		}
+
 	}
 
 	return
@@ -271,7 +378,9 @@ func (t *TipManager) selectWeakTips(count int) (parents MessageIDs) {
 	}
 	// at least one tip is returned
 	for _, tip := range tips {
-		parents = append(parents, tip.(MessageID))
+		messageID := tip.(MessageID)
+
+		parents = append(parents, messageID)
 	}
 
 	return
@@ -285,6 +394,11 @@ func (t *TipManager) StrongTipCount() int {
 // WeakTipCount the amount of weak tips.
 func (t *TipManager) WeakTipCount() int {
 	return t.weakTips.Size()
+}
+
+// Shutdown stops the TipManager.
+func (t *TipManager) Shutdown() {
+	t.tipsCleaner.Shutdown(timedexecutor.CancelPendingTasks)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
