@@ -74,3 +74,12 @@ func (vc *Context) IsNew() bool {
 func (vc *Context) HadFirstRound() bool {
 	return vc.Rounds == 1
 }
+
+// IsEndingRound tells whether the vote context is in the last l2 rounds of fixed threshold
+func (vc *Context) HadLastFixedRound(coolingOffPeriod int, finalizationThreshold int, fixedEndingThreshold int) bool {
+	if fixedEndingThreshold >= finalizationThreshold || fixedEndingThreshold == 0 {
+		return false
+	}
+	return vc.IsFinalized(coolingOffPeriod, finalizationThreshold-fixedEndingThreshold+1)
+}
+

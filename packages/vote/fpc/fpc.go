@@ -164,6 +164,11 @@ func (f *FPC) formOpinions(rand float64) {
 			upperThreshold = f.paras.FirstRoundUpperBoundThreshold
 		}
 
+		if voteCtx.HadLastFixedRound(f.paras.CoolingOffPeriod, f.paras.FinalizationThreshold, f.paras.FixedEndingThreshold) {
+			lowerThreshold = f.paras.EndingRoundsFixedThreshold
+			upperThreshold = f.paras.EndingRoundsFixedThreshold
+		}
+
 		if voteCtx.Liked >= RandUniformThreshold(rand, lowerThreshold, upperThreshold) {
 			voteCtx.AddOpinion(opinion.Like)
 			continue

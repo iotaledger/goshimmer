@@ -12,10 +12,14 @@ type Parameters struct {
 	SubsequentRoundsLowerBoundThreshold float64
 	// The upper bound liked percentage threshold used after the first round.
 	SubsequentRoundsUpperBoundThreshold float64
+	// The fixed liked percentage threshold used in last 'l2' rounds.
+	EndingRoundsFixedThreshold float64
 	// The amount of opinions to query on each round for a given vote context. Also called 'k'.
 	QuerySampleSize int
 	// The amount of rounds a vote context's opinion needs to stay the same to be considered final. Also called 'l'.
 	FinalizationThreshold int
+	// The amount of last rounds for the fixed threshold.
+	FixedEndingThreshold int
 	// The amount of rounds for which to ignore any finalization checks for. Also called 'm'.
 	CoolingOffPeriod int
 	// The max amount of rounds to execute per vote context before aborting them.
@@ -31,8 +35,10 @@ func DefaultParameters() *Parameters {
 		FirstRoundUpperBoundThreshold:       0.67,
 		SubsequentRoundsLowerBoundThreshold: 0.50,
 		SubsequentRoundsUpperBoundThreshold: 0.67,
+		EndingRoundsFixedThreshold:			 0.50,
 		QuerySampleSize:                     21,
 		FinalizationThreshold:               10,
+		FixedEndingThreshold:				 3,
 		CoolingOffPeriod:                    0,
 		MaxRoundsPerVoteContext:             100,
 		QueryTimeout:                        6500 * time.Millisecond,
