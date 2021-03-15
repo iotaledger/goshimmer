@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 )
 
@@ -91,7 +90,7 @@ type errorresponse struct {
 }
 
 func interpretBody(res *http.Response, decodeTo interface{}) error {
-	resBody, err := ioutil.ReadAll(res.Body)
+	resBody, err := io.ReadAll(res.Body)
 	if err != nil {
 		return fmt.Errorf("unable to read response body: %w", err)
 	}
