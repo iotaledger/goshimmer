@@ -4,7 +4,7 @@ Rendered version of the documentation: http://goshimmer.docs.iota.org/
 
 - [GoShimmer](./goshimmer.md)
 - [FAQ](./faq.md)
-- [Tutorial]
+- Tutorial
   - [Setting up a GoShimmer node](./tutorials/setup.md)
   - [Obtaining tokens from the faucet](./tutorials/request_funds.md)
   - [The wallet library](./tutorials/wallet.md)
@@ -30,10 +30,10 @@ Rendered version of the documentation: http://goshimmer.docs.iota.org/
   - [Docker private network](./tooling/docker_private_network.md)
 - [Specification of Implementation](./specification.md)
   - [Mana](./specification/001-mana.md)
-- [Concepts]
+- Concepts
   - [Glossary](./concepts/glossary.md)
   - [Layers](./concepts/layers.md)
-- [Team Resources]
+- Team Resources
   - [How to do a release](teamresources/release.md)
   - [Code Guidelines](./teamresources/guidelines.md)  
 
