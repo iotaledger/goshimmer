@@ -75,7 +75,7 @@ In order to start the spammer, you need to send GET requests to a `/spammer` API
 * `cmd` - one of two possible values: `start` and `shutdown`.
 * `mpm` - messages per minute. Only applicable when `cmd=start`. 
 * `imif` - parameter indicating time interval between issued messages. Possible values
-    * `exponential` -  emit messages by intervals whose random length is exponentially distributed
+    * `poisson` - emit messages modeled with Poisson point process, whose time intervals are exponential variables with mean 1/rate
     * `uniform` - issues messages at constant rate
 
 Example requests:
