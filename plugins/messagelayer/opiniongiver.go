@@ -56,10 +56,22 @@ func OpinionGiverFunc() (givers []opinion.OpinionGiver, err error) {
 	opinionGiversMap := make(map[identity.ID]*OpinionGiver)
 	opinionGivers := make([]opinion.OpinionGiver, 0)
 
+	//consensusManaNodes,_,err := manaPlugin.GetManaMap(mana.ConsensusMana)
+	//if err != nil && err != manaPlugin.ErrQueryNotAllowed {
+	//	log.Errorf("failed to get list of consensus mana nodes: %s", err.Error())
+	//}
+
 	for _, v := range Registry().NodesView() {
+		// default to 0 mana if node is not found in mana map
+		//consensusMana := 0.0
+		//if _, ok := consensusManaNodes[v.ID()]; ok {
+		//	consensusMana = consensusManaNodes[v.ID()]
+		//}
+
 		opinionGiversMap[v.ID()] = &OpinionGiver{
 			id:   v.ID(),
 			view: v,
+			//mana: consensusMana,
 		}
 	}
 
@@ -69,9 +81,17 @@ func OpinionGiverFunc() (givers []opinion.OpinionGiver, err error) {
 			continue
 		}
 		if _, ok := opinionGiversMap[p.ID()]; !ok {
+			// default to 0 mana if node is not found in mana map
+			//consensusMana := 0.0
+			//if _, ok := consensusManaNodes[p.ID()]; ok {
+			//	consensusMana = consensusManaNodes[p.ID()]
+			//}
+
 			opinionGiversMap[p.ID()] = &OpinionGiver{
 				id:   p.ID(),
 				view: nil,
+				//mana: consensusMana,
+
 			}
 		}
 		opinionGiversMap[p.ID()].pog = &PeerOpinionGiver{p: p}

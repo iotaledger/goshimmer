@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/iotaledger/goshimmer/packages/mana"
+	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
 	"math/rand"
 	"sync"
 	"time"
@@ -211,11 +213,8 @@ func (f *FPC) queryOpinions() ([]opinion.QueriedOpinions, error) {
 	// select a random subset of opinion givers to query.
 	// if the same opinion giver is selected multiple times, we query it only once
 	// but use its opinion N selected times.
-	opinionGiversToQuery := map[opinion.OpinionGiver]int{}
-	for i := 0; i < f.paras.QuerySampleSize; i++ {
-		selected := opinionGivers[f.opinionGiverRng.Intn(len(opinionGivers))]
-		opinionGiversToQuery[selected]++
-	}
+
+	opinionGiversToQuery := f.manaBasedSampling(opinionGivers)
 
 	// votes per id
 	var voteMapMu sync.Mutex
@@ -306,6 +305,54 @@ func (f *FPC) queryOpinions() ([]opinion.QueriedOpinions, error) {
 		f.ctxs[id].Liked = likedSum / votedCount
 	}
 	return allQueriedOpinions, nil
+}
+
+// weighted random sampling based on https://eli.thegreenplace.net/2010/01/22/weighted-random-generation-in-python/
+func (f *FPC) manaBasedSampling(opinionGivers []opinion.OpinionGiver) map[opinion.OpinionGiver]int {
+	// TODO: apply mana for weighted sampling instead of uniform sampling
+	// TODO: include yourself in random weighted sampling
+	consensusManaNodes, _, err := manaPlugin.GetManaMap(mana.ConsensusMana)
+
+	if err != nil {
+		// fallback to uniform sampling
+		return f.uniformSampling(opinionGivers)
+	}
+
+	totalConsensusMana := 0.0
+	totals := make([]float64, 0, len(opinionGivers))
+
+	for i := 0; i < len(opinionGivers); i++ {
+		totalConsensusMana += consensusManaNodes[opinionGivers[i].ID()]
+		totals = append(totals, totalConsensusMana)
+	}
+
+	opinionGiversToQuery := map[opinion.OpinionGiver]int{}
+	for i := 0; i < f.paras.QuerySampleSize; i++ {
+		//for i := 0; i < f.paras.MaxQuerySampleSize && len(opinionGiversToQuery) < f.paras.QuerySampleSize; i++ {
+
+		//another parameter: max query sample size (max votes we can sample)
+		// unique selector - len(opinionGiversToQuery),
+		// check len(opinionGiversToQuery)
+		rnd := f.opinionGiverRng.Float64() * totalConsensusMana
+		for idx, v := range totals {
+			if rnd < v {
+				selected := opinionGivers[idx]
+				opinionGiversToQuery[selected]++
+				break
+			}
+		}
+
+	}
+	return opinionGiversToQuery
+}
+
+func (f *FPC) uniformSampling(opinionGivers []opinion.OpinionGiver) map[opinion.OpinionGiver]int {
+	opinionGiversToQuery := map[opinion.OpinionGiver]int{}
+	for i := 0; i < f.paras.QuerySampleSize; i++ {
+		selected := opinionGivers[f.opinionGiverRng.Intn(len(opinionGivers))]
+		opinionGiversToQuery[selected]++
+	}
+	return opinionGiversToQuery
 }
 
 func (f *FPC) voteContextIDs() (conflictIDs []string, timestampIDs []string) {
