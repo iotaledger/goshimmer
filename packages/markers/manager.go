@@ -228,6 +228,11 @@ func (m *Manager) IsInPastCone(earlierStructureDetails *StructureDetails, laterS
 	return types.False
 }
 
+// Sequence returns a stored Sequence from the object storage.
+func (m *Manager) Sequence(sequenceID SequenceID) *CachedSequence {
+	return &CachedSequence{CachedObject: m.sequenceStore.Load(sequenceID.Bytes())}
+}
+
 // Shutdown shuts down the Manager and persists its state.
 func (m *Manager) Shutdown() {
 	m.shutdownOnce.Do(func() {

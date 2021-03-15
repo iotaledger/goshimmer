@@ -1,15 +1,17 @@
 package tangle
 
 import (
+	fmt "fmt"
 	"testing"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
+func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
 	tangle := New()
 	defer tangle.Shutdown()
 	approvalWeightManager := NewApprovalWeightManager(tangle)
@@ -66,7 +68,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetBranchID(branchIDs["Branch 1.1 + Branch 4.1.1"])
 		})
-		approvalWeightManager.ProcessMessage(message.ID())
+		approvalWeightManager.updateBranchSupporters(message)
 
 		expectedResults := map[string]bool{
 			"Branch 1":     true,
@@ -91,7 +93,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetBranchID(branchIDs["Branch 4.1.2"])
 		})
-		approvalWeightManager.ProcessMessage(message.ID())
+		approvalWeightManager.updateBranchSupporters(message)
 
 		expectedResults := map[string]bool{
 			"Branch 1":     true,
@@ -116,7 +118,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetBranchID(branchIDs["Branch 2"])
 		})
-		approvalWeightManager.ProcessMessage(message.ID())
+		approvalWeightManager.updateBranchSupporters(message)
 
 		expectedResults := map[string]bool{
 			"Branch 1":     false,
@@ -135,6 +137,46 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	}
 }
 
+func TestApprovalWeightManager_updateSequenceSupporters(t *testing.T) {
+	tangle := New()
+	defer tangle.Shutdown()
+	_ = NewApprovalWeightManager(tangle)
+
+	markersMap := make(map[string]*markers.StructureDetails)
+	markersMap["1,1"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails(nil, increaseIndexCallback, markers.NewSequenceAlias([]byte("1")))
+	markersMap["1,2"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["1,1"]}, increaseIndexCallback)
+	markersMap["1,3"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["1,2"]}, increaseIndexCallback)
+	markersMap["1,4"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["1,3"]}, increaseIndexCallback)
+
+	markersMap["2,1"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails(nil, increaseIndexCallback, markers.NewSequenceAlias([]byte("2")))
+	markersMap["2,2"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["2,1"]}, increaseIndexCallback)
+	markersMap["2,3"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["2,2"]}, increaseIndexCallback)
+	markersMap["2,4"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["2,3"]}, increaseIndexCallback)
+
+	markersMap["3,4"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["1,3"], markersMap["2,3"]}, increaseIndexCallback)
+	markersMap["3,5"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["1,4"], markersMap["3,4"]}, increaseIndexCallback)
+	markersMap["3,6"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["3,5"]}, increaseIndexCallback)
+	markersMap["3,7"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["3,6"]}, increaseIndexCallback)
+
+	markersMap["4,8"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["3,7"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("4")))
+	markersMap["5,8"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["2,4"], markersMap["3,7"]}, increaseIndexCallback, markers.NewSequenceAlias([]byte("5")))
+
+	fmt.Println(markersMap["4,8"])
+	fmt.Println(markersMap["5,8"])
+
+	tangle.Booker.MarkersManager.Manager.Sequence(3).Consume(func(sequence *markers.Sequence) {
+		sequence.ParentReferences().HighestReferencedMarkers(7).ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
+			fmt.Println(sequenceID, index)
+
+			return true
+		})
+	})
+}
+
+func increaseIndexCallback(sequenceID markers.SequenceID, currentHighestIndex markers.Index) bool {
+	return true
+}
+
 func createBranch(t *testing.T, tangle *Tangle, branchID ledgerstate.BranchID, parentBranchID ledgerstate.BranchID, conflictID ledgerstate.ConflictID) {
 	cachedBranch, _, err := tangle.LedgerState.branchDAG.CreateConflictBranch(branchID, ledgerstate.NewBranchIDs(parentBranchID), ledgerstate.NewConflictIDs(conflictID))
 	require.NoError(t, err)
@@ -145,7 +187,7 @@ func createBranch(t *testing.T, tangle *Tangle, branchID ledgerstate.BranchID, p
 func validateStatementResults(t *testing.T, approvalWeightManager *ApprovalWeightManager, branchIDs map[string]ledgerstate.BranchID, issuerPublicKey ed25519.PublicKey, expectedResults map[string]bool) {
 	for branchIDstring, expectedResult := range expectedResults {
 		var actualResult bool
-		supporters := approvalWeightManager.supporters[branchIDs[branchIDstring]]
+		supporters := approvalWeightManager.branchSupporters[branchIDs[branchIDstring]]
 		if supporters != nil {
 			actualResult = supporters.Has(issuerPublicKey)
 		}

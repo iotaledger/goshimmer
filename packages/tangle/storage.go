@@ -36,6 +36,9 @@ const (
 	// PrefixMarkerBranchIDMapping defines the storage prefix for the PrefixMarkerBranchIDMapping.
 	PrefixMarkerBranchIDMapping
 
+	// PrefixSequenceSupporters defines the storage prefix for the SequenceSupporters.
+	PrefixSequenceSupporters
+
 	cacheTime = 2 * time.Second
 
 	// DBSequenceNumber defines the db sequence number.
@@ -53,6 +56,7 @@ type Storage struct {
 	missingMessageStorage             *objectstorage.ObjectStorage
 	attachmentStorage                 *objectstorage.ObjectStorage
 	markerIndexBranchIDMappingStorage *objectstorage.ObjectStorage
+	sequenceSupportersStorage         *objectstorage.ObjectStorage
 
 	Events   *StorageEvents
 	shutdown chan struct{}
@@ -71,6 +75,7 @@ func NewStorage(tangle *Tangle) (storage *Storage) {
 		missingMessageStorage:             osFactory.New(PrefixMissingMessage, MissingMessageFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 		attachmentStorage:                 osFactory.New(PrefixAttachments, AttachmentFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.PartitionKey(ledgerstate.TransactionIDLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false)),
 		markerIndexBranchIDMappingStorage: osFactory.New(PrefixMarkerBranchIDMapping, MarkerIndexBranchIDMappingFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		sequenceSupportersStorage:         osFactory.New(PrefixSequenceSupporters, SequenceSupportersFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 
 		Events: &StorageEvents{
 			MessageStored:        events.NewEvent(MessageIDCaller),
@@ -250,6 +255,17 @@ func (s *Storage) MarkerIndexBranchIDMapping(sequenceID markers.SequenceID, comp
 	}
 
 	return &CachedMarkerIndexBranchIDMapping{CachedObject: s.markerIndexBranchIDMappingStorage.Load(sequenceID.Bytes())}
+}
+
+// SequenceSupporters retrieves the SequenceSupporters with the given SequenceID.
+func (s *Storage) SequenceSupporters(sequenceID markers.SequenceID, computeIfAbsentCallback ...func() *SequenceSupporters) *CachedSequenceSupporters {
+	if len(computeIfAbsentCallback) >= 1 {
+		return &CachedSequenceSupporters{s.sequenceSupportersStorage.ComputeIfAbsent(sequenceID.Bytes(), func(key []byte) objectstorage.StorableObject {
+			return computeIfAbsentCallback[0]()
+		})}
+	}
+
+	return &CachedSequenceSupporters{CachedObject: s.sequenceSupportersStorage.Load(sequenceID.Bytes())}
 }
 
 func (s *Storage) storeGenesis() {
