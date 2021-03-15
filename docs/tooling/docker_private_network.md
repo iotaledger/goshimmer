@@ -70,8 +70,8 @@ Note, that the record length of the files might differ, since the approval check
 
 ## Spammer tool
 
-Spammer tool lets you add messages to the tangle when running GoShimmer in a Docker network.
-In order to start spammer, you need to send GET request to a `/spammer` API endpoint with following parameters:
+The Spammer tool lets you add messages to the tangle when running GoShimmer in a Docker network.
+In order to start the spammer, you need to send GET requests to a `/spammer` API endpoint with the following parameters:
 * `cmd` - one of two possible values: `start` and `shutdown`.
 * `mpm` - messages per minute. Only applicable when `cmd=start`. 
 * `imif` - parameter indicating time interval between issued messages. Possible values
@@ -87,11 +87,11 @@ http://localhost:8080/spammer?cmd=shutdown
 
 ## Tangle width
 
-When running GoShimmer locally in a Docker network, network delay is so small that only 1 tip will be available most of the time. 
+When running GoShimmer locally in a Docker network, the network delay is so small that only 1 tip will be available most of the time. 
 In order to artificially create a tangle structure with multiple tips you can add a `messageLayer.tangleWidth` property to [config.docker.json](tools/docker-network/config.docker.json)
-that specifies number of tips that nodes should retain. This setting exists only for local testing purposes and should not be used in distributed testnet.  
+that specifies the number of tips that nodes should retain. This setting exists only for local testing purposes and should not be used in a distributed testnet.  
 
-An example config that can be added: 
+Here is an example config that can be added: 
 
 ```json
   "messageLayer": {
