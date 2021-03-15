@@ -136,8 +136,8 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 			messageMetadata.SetBranchID(inheritedBranch)
 			messageMetadata.SetStructureDetails(b.MarkersManager.InheritStructureDetails(message, sequenceAlias...))
 			messageMetadata.SetBooked(true)
-			fmt.Println(messageMetadata.String())
-			fmt.Println(message.String())
+			//fmt.Println(messageMetadata.String())
+			//fmt.Println(message.String())
 
 			b.Events.MessageBooked.Trigger(messageID)
 		})
