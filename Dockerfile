@@ -1,8 +1,8 @@
 ############################
 # Build
 ############################
-# golang:1.15.5-buster
-FROM golang@sha256:eb88b20326f70fbf943af9d62650d8293d62fb5764c50e7477cdcb33caf9ff73 AS build
+# golang:1.16.2-buster
+FROM golang@sha256:a23a7e49a820f9ae69df0fedf64f037cb15b004997effa93ec885e5032277bc1 AS build
 
 # Ensure ca-certficates are up to date
 RUN update-ca-certificates

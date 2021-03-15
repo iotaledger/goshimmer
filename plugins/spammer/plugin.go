@@ -39,7 +39,7 @@ func configure(plugin *node.Plugin) {
 }
 
 func run(*node.Plugin) {
-	if err := daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("spammer", func(shutdownSignal <-chan struct{}) {
 		<-shutdownSignal
 
 		messageSpammer.Shutdown()

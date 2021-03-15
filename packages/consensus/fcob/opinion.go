@@ -92,6 +92,14 @@ func (o OpinionEssence) LevelOfKnowledge() LevelOfKnowledge {
 	return o.levelOfKnowledge
 }
 
+func (o OpinionEssence) String() string {
+	return stringify.Struct("OpinionEssence",
+		stringify.StructField("Timestamp", o.timestamp),
+		stringify.StructField("Liked", o.liked),
+		stringify.StructField("LoK", o.levelOfKnowledge),
+	)
+}
+
 // Timestamp returns the opinion's timestamp.
 func (o *Opinion) Timestamp() time.Time {
 	o.timestampMutex.RLock()
@@ -104,6 +112,7 @@ func (o *Opinion) SetTimestamp(t time.Time) {
 	o.timestampMutex.Lock()
 	defer o.timestampMutex.Unlock()
 	o.timestamp = t
+	o.SetModified(true)
 }
 
 // Liked returns the opinion's liked.
@@ -118,6 +127,7 @@ func (o *Opinion) SetLiked(l bool) {
 	o.likedMutex.Lock()
 	defer o.likedMutex.Unlock()
 	o.liked = l
+	o.SetModified(true)
 }
 
 // LevelOfKnowledge returns the opinion's LevelOfKnowledge.
@@ -132,6 +142,7 @@ func (o *Opinion) SetLevelOfKnowledge(lok LevelOfKnowledge) {
 	o.levelOfKnowledgeMutex.Lock()
 	defer o.levelOfKnowledgeMutex.Unlock()
 	o.levelOfKnowledge = lok
+	o.SetModified(true)
 }
 
 // Bytes marshals the Opinion into a sequence of bytes.
@@ -283,12 +294,12 @@ func (c ConflictSet) hasDecidedLike() bool {
 }
 
 // anchor returns the oldest opinion with LoK <= 1.
-func (c ConflictSet) anchor() (opinion *OpinionEssence) {
+func (c ConflictSet) anchor() (opinion OpinionEssence) {
 	oldestTimestamp := time.Unix(1<<63-62135596801, 999999999)
 	for _, o := range c {
-		if o.levelOfKnowledge <= One && o.timestamp.Before(oldestTimestamp) {
+		if o.levelOfKnowledge <= One && o.timestamp.Before(oldestTimestamp) && (o.timestamp != time.Time{}) {
 			oldestTimestamp = o.timestamp
-			opinion = &OpinionEssence{
+			opinion = OpinionEssence{
 				timestamp:        o.timestamp,
 				liked:            o.liked,
 				levelOfKnowledge: o.levelOfKnowledge,
@@ -296,6 +307,12 @@ func (c ConflictSet) anchor() (opinion *OpinionEssence) {
 		}
 	}
 	return opinion
+}
+
+// finalizedAsDisliked returns true if all of the elements of the conflict set have been disliked
+// (with a LoK greater than 1).
+func (c ConflictSet) finalizedAsDisliked(target OpinionEssence) bool {
+	return !c.hasDecidedLike() && c.anchor() == OpinionEssence{}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -1,3 +1,14 @@
+# v0.5.1 - 2021-03-15
+* Implement FCoB*
+* Fix markers persistence bug
+* Fix Docker shutdown too early
+* Make FCoB fire the MessageOpinionFormed event only if the event for its parents was also fired
+* Update JS dependencies
+* Refactor parameters in MessageLayer
+* Upgrade go to 1.16.2
+* Upgrade to latest hive.go
+* **Breaking**: bumps network and database versions
+
 # v0.5.0 - 2021-03-11
 * Add Mana (currently not used by any of the modules)
 * Add Mana APIs
