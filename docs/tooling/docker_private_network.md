@@ -74,13 +74,15 @@ Spammer tool lets you add messages to the tangle when running GoShimmer in a Doc
 In order to start spammer, you need to send GET request to a `/spammer` API endpoint with following parameters:
 * `cmd` - one of two possible values: `start` and `shutdown`.
 * `mpm` - messages per minute. Only applicable when `cmd=start`. 
-* `imif` - parameter indicating time interval between issued messages. Possible values
+* `imif` - (*optional*) parameter indicating time interval between issued messages. Possible values:
     * `exponential` -  emit messages by intervals whose random length is exponentially distributed
     * `uniform` - issues messages at constant rate
 
 Example requests:
 
 ```bash
+http://localhost:8080/spammer?cmd=start&mpm=1000
+
 http://localhost:8080/spammer?cmd=start&mpm=1000&imif=uniform
 http://localhost:8080/spammer?cmd=shutdown
 ```
