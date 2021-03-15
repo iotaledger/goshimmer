@@ -1,6 +1,7 @@
 package message
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/iotaledger/goshimmer/packages/markers"
@@ -31,8 +32,17 @@ func findByIDHandler(c echo.Context) error {
 			return c.JSON(http.StatusBadRequest, FindByIDResponse{Error: err.Error()})
 		}
 
+		approvers := messagelayer.Tangle().Utils.ApprovingMessageIDs(msgID).ToStrings()
+
 		msgObject := messagelayer.Tangle().Storage.Message(msgID)
 		msgMetadataObject := messagelayer.Tangle().Storage.MessageMetadata(msgID)
+
+		if msgMetadataObject.Exists() {
+			msgMetadata := msgMetadataObject.Unwrap()
+			fmt.Println(msgMetadata.String())
+			fmt.Println("Approvers of the msg:")
+			fmt.Println(approvers)
+		}
 
 		if !msgObject.Exists() || !msgMetadataObject.Exists() {
 			result = append(result, Message{})
