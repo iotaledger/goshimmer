@@ -46,26 +46,33 @@ func findByIDHandler(c echo.Context) error {
 		msg := msgObject.Unwrap()
 		msgMetadata := msgMetadataObject.Unwrap()
 
+		var structureDetails StructureDetails
+		if msgMetadata.StructureDetails() != nil {
+			structureDetails = StructureDetails{
+				Rank:          msgMetadata.StructureDetails().Rank,
+				IsPastMarker:  msgMetadata.StructureDetails().IsPastMarker,
+				PastMarkers:   newMarkers(msgMetadata.StructureDetails().PastMarkers),
+				FutureMarkers: newMarkers(msgMetadata.StructureDetails().FutureMarkers),
+			}
+		}
+
 		msgResp := Message{
 			Metadata: Metadata{
 				ReceivedTime:       msgMetadata.ReceivedTime().Unix(),
 				Solid:              msgMetadata.IsSolid(),
 				SolidificationTime: msgMetadata.SolidificationTime().Unix(),
-				StructureDetails: StructureDetails{
-					Rank:          msgMetadata.StructureDetails().Rank,
-					IsPastMarker:  msgMetadata.StructureDetails().IsPastMarker,
-					PastMarkers:   newMarkers(msgMetadata.StructureDetails().PastMarkers),
-					FutureMarkers: newMarkers(msgMetadata.StructureDetails().FutureMarkers),
-				},
-				BranchID:  msgMetadata.BranchID().String(),
-				Scheduled: msgMetadata.Scheduled(),
-				Booked:    msgMetadata.IsBooked(),
-				Eligible:  msgMetadata.IsEligible(),
-				Invalid:   msgMetadata.IsInvalid(),
+				StructureDetails:   structureDetails,
+				BranchID:           msgMetadata.BranchID().String(),
+				Scheduled:          msgMetadata.Scheduled(),
+				Booked:             msgMetadata.IsBooked(),
+				Eligible:           msgMetadata.IsEligible(),
+				Invalid:            msgMetadata.IsInvalid(),
 			},
 			ID:              msg.ID().String(),
 			StrongParents:   msg.StrongParents().ToStrings(),
 			WeakParents:     msg.WeakParents().ToStrings(),
+			StrongApprovers: messagelayer.Tangle().Utils.ApprovingMessageIDs(msgID, tangle.StrongApprover).ToStrings(),
+			WeakApprovers:   messagelayer.Tangle().Utils.ApprovingMessageIDs(msgID, tangle.WeakApprover).ToStrings(),
 			IssuerPublicKey: msg.IssuerPublicKey().String(),
 			IssuingTime:     msg.IssuingTime().Unix(),
 			SequenceNumber:  msg.SequenceNumber(),
@@ -99,6 +106,8 @@ type Message struct {
 	ID              string   `json:"ID"`
 	StrongParents   []string `json:"strongParents"`
 	WeakParents     []string `json:"weakParents"`
+	StrongApprovers []string `json:"strongApprovers"`
+	WeakApprovers   []string `json:"weakApprovers"`
 	IssuerPublicKey string   `json:"issuerPublicKey"`
 	IssuingTime     int64    `json:"issuingTime"`
 	SequenceNumber  uint64   `json:"sequenceNumber"`

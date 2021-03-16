@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"fmt"
+	"github.com/labstack/gommon/log"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
@@ -100,6 +101,12 @@ func (u *Utils) AllTransactionsApprovedByMessages(transactionIDs ledgerstate.Tra
 				delete(transactionIDs, transactionID)
 			}
 		}
+	}
+	if len(transactionIDs) != 0 {
+		for txId, _ := range transactionIDs {
+			log.Errorf("Transaction %s is not approved by message %s", txId.Base58(), messageIDs[0].String())
+		}
+
 	}
 
 	return len(transactionIDs) == 0
