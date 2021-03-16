@@ -2,7 +2,7 @@
 An append only message data structure where each message references (at least) two other messages.
 
 #### MESSAGE
-The object that is gossiped between neighbors. All gossiped information is included in a message. The most basic unit of information of the IOTA Protocol. Each object has a type and size and contains data.
+The object that is gossiped between neighbors. All gossiped information is included in a message. The most basic unit of information of the IOTA Protocol. Each message has a type and size and contains data.
 
 ### MARKERS
 A tool that exists only locally and allows to perform certain calcuations more efficiently. Such as approval weight calculation or the existence of certain messages in the past or future cone of another message.
@@ -22,7 +22,7 @@ A field in a message which determines the type. Examples are:
 The application which maintains the ledger state.
 
 #### TRANSACTION
-The payload of a value message. It contains the particulars of a transfer of funds.
+A message with payload of type value. It contains the information of a transfer of funds.
 
 #### UTXO
 Unspent transaction output.
@@ -113,9 +113,6 @@ The procedure of discovering and connecting to other network nodes.
 
 #### PROOF-OF-WORK
 Data which is difficult (costly, time-consuming) to produce but easy for others to verify.
-
-#### RANDOM WALK
-A mathematical object that describes a path, which consists of a succession of random steps in some mathematical space.
 
 #### REATTACHMENT
 Resending a transaction by redoing tip selection and referencing newer tips by redoing PoW.
