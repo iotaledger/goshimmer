@@ -326,12 +326,7 @@ func (f *FPC) manaBasedSampling(opinionGivers []opinion.OpinionGiver) map[opinio
 	}
 
 	opinionGiversToQuery := map[opinion.OpinionGiver]int{}
-	for i := 0; i < f.paras.QuerySampleSize; i++ {
-		//TODO: for i := 0; i < f.paras.MaxQuerySampleSize && len(opinionGiversToQuery) < f.paras.QuerySampleSize; i++ {
-
-		//another parameter: max query sample size (max votes we can sample)
-		// unique selector - len(opinionGiversToQuery),
-		// check len(opinionGiversToQuery)
+	for i := 0; i < f.paras.MaxQuerySampleSize && len(opinionGiversToQuery) < f.paras.QuerySampleSize; i++ {
 		rnd := f.opinionGiverRng.Float64() * totalConsensusMana
 		for idx, v := range totals {
 			if rnd < v {

@@ -14,6 +14,8 @@ type Parameters struct {
 	SubsequentRoundsUpperBoundThreshold float64
 	// The amount of opinions to query on each round for a given vote context. Also called 'k'.
 	QuerySampleSize int
+	// The maximum amount of votes to collect on each round for a given vote context. Naive implementation of 'k_diff' from the paper.
+	MaxQuerySampleSize int
 	// The amount of rounds a vote context's opinion needs to stay the same to be considered final. Also called 'l'.
 	FinalizationThreshold int
 	// The amount of rounds for which to ignore any finalization checks for. Also called 'm'.
@@ -32,6 +34,7 @@ func DefaultParameters() *Parameters {
 		SubsequentRoundsLowerBoundThreshold: 0.50,
 		SubsequentRoundsUpperBoundThreshold: 0.67,
 		QuerySampleSize:                     21,
+		MaxQuerySampleSize:                  100,
 		FinalizationThreshold:               10,
 		CoolingOffPeriod:                    0,
 		MaxRoundsPerVoteContext:             100,
