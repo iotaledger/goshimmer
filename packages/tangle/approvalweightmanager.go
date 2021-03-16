@@ -42,19 +42,45 @@ func (a *ApprovalWeightManager) ProcessMessage(messageID MessageID) {
 	})
 }
 
+func (a *ApprovalWeightManager) SupportersOfMarker(marker *markers.Marker) (supporters *Supporters) {
+	if !a.tangle.Storage.SequenceSupporters(marker.SequenceID()).Consume(func(sequenceSupporters *SequenceSupporters) {
+		supporters = sequenceSupporters.Supporters(marker.Index())
+	}) {
+		supporters = NewSupporters()
+	}
+
+	return
+}
+
 func (a *ApprovalWeightManager) updateSequenceSupporters(message *Message) {
 	a.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
+		supportWalker := walker.New()
+
 		messageMetadata.StructureDetails().PastMarkers.ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
-			a.tangle.Storage.SequenceSupporters(sequenceID, func() *SequenceSupporters {
-				return NewSequenceSupporters(sequenceID)
-			}).Consume(func(sequenceSupporters *SequenceSupporters) {
-				if sequenceSupporters.AddSupporter(message.IssuerPublicKey(), index) {
-					// Propagate to parent sequences
-				}
-			})
+			supportWalker.Push(markers.NewMarker(sequenceID, index))
 
 			return true
 		})
+
+		for supportWalker.HasNext() {
+			a.addSupportToMarker(supportWalker.Next().(*markers.Marker), message.IssuerPublicKey(), supportWalker)
+		}
+	})
+}
+
+func (a *ApprovalWeightManager) addSupportToMarker(marker *markers.Marker, supporter Supporter, walker *walker.Walker) {
+	a.tangle.Storage.SequenceSupporters(marker.SequenceID(), func() *SequenceSupporters {
+		return NewSequenceSupporters(marker.SequenceID())
+	}).Consume(func(sequenceSupporters *SequenceSupporters) {
+		if sequenceSupporters.AddSupporter(supporter, marker.Index()) {
+			a.tangle.Booker.MarkersManager.Manager.Sequence(marker.SequenceID()).Consume(func(sequence *markers.Sequence) {
+				sequence.ParentReferences().HighestReferencedMarkers(marker.Index()).ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
+					walker.Push(markers.NewMarker(sequenceID, index))
+
+					return true
+				})
+			})
+		}
 	})
 }
 
@@ -192,6 +218,15 @@ func (s *Supporters) ForEach(callback func(supporter Supporter)) {
 	s.Set.ForEach(func(element interface{}) {
 		callback(element.(Supporter))
 	})
+}
+
+func (s *Supporters) String() string {
+	structBuilder := stringify.StructBuilder("Supporters")
+	s.ForEach(func(supporter Supporter) {
+		structBuilder.AddField(stringify.StructField(supporter.String(), "true"))
+	})
+
+	return structBuilder.String()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
