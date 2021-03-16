@@ -145,7 +145,7 @@ func (f *FPC) enqueue() {
 	}
 }
 
-// formOpinions updates the opinion for ongoing vote contexts by comparing their liked percentage
+// formOpinions updates the opinion for ongoing vote contexts by comparing their liked proportion
 // against the threshold appropriate for their given rounds.
 func (f *FPC) formOpinions(rand float64) {
 	f.ctxsMu.RLock()
@@ -164,7 +164,7 @@ func (f *FPC) formOpinions(rand float64) {
 			upperThreshold = f.paras.FirstRoundUpperBoundThreshold
 		}
 
-		if voteCtx.Liked >= RandUniformThreshold(rand, lowerThreshold, upperThreshold) {
+		if voteCtx.ProportionLiked >= RandUniformThreshold(rand, lowerThreshold, upperThreshold) {
 			voteCtx.AddOpinion(opinion.Like)
 			continue
 		}
@@ -283,7 +283,7 @@ func (f *FPC) queryOpinions() ([]opinion.QueriedOpinions, error) {
 
 	f.ctxsMu.RLock()
 	defer f.ctxsMu.RUnlock()
-	// compute liked percentage
+	// compute liked proportion
 	for id, votes := range voteMap {
 		var likedSum float64
 		votedCount := float64(len(votes))
@@ -303,7 +303,7 @@ func (f *FPC) queryOpinions() ([]opinion.QueriedOpinions, error) {
 		if votedCount == 0 {
 			continue
 		}
-		f.ctxs[id].Liked = likedSum / votedCount
+		f.ctxs[id].ProportionLiked = likedSum / votedCount
 	}
 	return allQueriedOpinions, nil
 }
