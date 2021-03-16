@@ -20,19 +20,17 @@ Active Consensus Mana
 
 Let's define the terms related to markers:
 * **Sequence:** A Sequence is a sequence of markers. Each Sequence corresponds to a UTXO branch, which help us to track the structure independently. 
-* **Sequence Identifier (SID):** A Sequence Identifier is the unique identifier of a Sequence.
-* **Marker Index (MI):** A Marker Index is the marker rank in the marker DAG. Throughout the code the marker rank will be called index. 
-* **marker:** A marker is a pair of numbers: SID and MI associated to a given message. Markers carrying the same SID belong to the same Sequence.
-* **future marker (FM):** A future marker of a message is the first marker in its future cone from different sequences; this field in the message metadata is updated when the new marker is generated in the future, following the rules defined in (#future-markers).
-* **past marker (PM):** A past marker of a message is a marker in its past cone. For a given sequence it is set to the newest past marker of its parents, that is the one that has the largest MI. The past marker of a marker is set to itself.
+* **Sequence Identifier (`SID`):** A Sequence Identifier is the unique identifier of a Sequence.
+* **Marker Index (`MI`):** A Marker Index is the marker rank in the marker DAG. Throughout the code the marker rank will be called index. 
+* **marker:** A marker is a pair of numbers: `SID` and `MI` associated to a given message. Markers carrying the same `SID` belong to the same Sequence.
+* **future marker (`FM`):** A future marker of a message is the first marker in its future cone from different sequences; this field in the message metadata is updated when the new marker is generated in the future, following the rules defined in [Future Markers](#future-markers).
+* **past marker (`PM`):** A past marker of a message is a marker in its past cone. For a given sequence it is set to the newest past marker of its parents, that is the one that has the largest `MI`. The past marker of a marker is set to itself.
 * **sequence rank:** The rank of a sequence will be simply called rank throughout this code. Bear in mind that for clarity the marker rank is called index.
 
 ## Detailed Design
 
-
-
 ### The Markers
-Markers are messages selected from the tip set periodically and assigned unique identifiers, in the form of $[SID, MI]$. 
+Markers are messages selected from the tip set periodically and assigned unique identifiers, in the form of $[`SID`, `MI`]$. 
 
 #### Marker Structure
 <table>
@@ -67,18 +65,18 @@ A new marker is created when:
 2. A new sequence is created. 
 > :mega: to be confirmed here.
  
-A new marker is selected from the strong tips set randomly, and selected from the weak tips set if there's no strong tip. A new pair of $[SID, MI]$ is assigned to the new marker. 
+A new marker is selected from the strong tips set randomly, and selected from the weak tips set if there's no strong tip. A new pair of $[`SID`, `MI`]$ is assigned to the new marker. 
 > :mega:  to be confirmed here.
 
 
-The $SID$ is set according to the following rules:
-* Inherit the SID from parents if the new marker references the latest marker of a sequence and meets the requirement to set up a new marker without initiating a new MS.
-* Create a new SID if it is the first marker of a new sequence.
+The `SID` is set according to the following rules:
+* Inherit the `SID` from parents if the new marker references the latest marker of a sequence and meets the requirement to set up a new marker without initiating a new MS.
+* Create a new `SID` if it is the first marker of a new sequence.
 
-The $MI$ is set to $MI = 1+ max(referencedMI)$, which complies to the rule:
-+ Marker indexes ($MIs$) are monotonically increasing such that $\forall x \in fc(y)$ => $MI_x > MI_y$, where $fc(y)$ is the future cone of $y$ and $x$ is any message in that future cone.
+The `MI` is set to $MI = 1+ max(referencedMI)$, which complies to the rule:
++ Marker indexes (`MI`s) are monotonically increasing such that $\forall x \in fc(y)$ => $MI_x > MI_y$, where $fc(y)$ is the future cone of $y$ and $x$ is any message in that future cone.
 
-### Past Markers and Future Markers
+### Markers in Messages
 Each message keeps its associated marker information in two lists:
 * past markers 
 * future markers 
@@ -117,26 +115,25 @@ StructureDetails is a structure that will be in the message metadata containing 
 </table>
 
 ##### Past Markers
-* The PM list of a marker contains the marker itself only.
-* The PM list of non-marker messages is inherited from its **strong** parents, with 2 steps:
-    1. for a given sequence select only the nearest marker (i.e. the markers with the highest MI). Thus for every sequence from the parents there will be exactly one marker.
+* The `PM` list of a marker contains the marker itself only.
+* The `PM` list of non-marker messages is inherited from its **strong** parents, with 2 steps:
+    1. for a given sequence select only the nearest marker (i.e. the markers with the highest `MI`). Thus for every sequence from the parents there will be exactly one marker.
     2. remove those that have been referenced by other markers from this set. 
 
 ##### Future Markers
-The FM list of a message is empty at start and gets updated when a new marker directly or indirectly references it. The propagation of a FM to its past cone (i.e. the update of the `FutureMarkers` field in the encountered messages) does not continue beyond a message if:
-1. the FM list of a message includes a previous marker of the same sequence;
-2. the message is the marker in the different sequence, we update the FM list of that marker only.
+The `FM` list of a message is empty at start and gets updated when a new marker directly or indirectly references it. The propagation of a `FM` to its past cone (i.e. the update of the `FutureMarkers` field in the encountered messages) does not continue beyond a message if:
+1. the `FM` list of a message includes a previous marker of the same sequence;
+2. the message is the marker in the different sequence, we update the `FM` list of that marker only.
 
-The figure below shows an example of applying markers to the Tangle with 1 sequence only. The yellow messages are markers with identifiers: $[0,1]$ and $[0,2]$. Both markers are in Sequence $0$ with $MI$ $1$ and $2$ respectively.
+The figure below shows an example of applying markers to the Tangle with 1 sequence only. The yellow messages are markers with identifiers: $[0,1]$ and $[0,2]$. Both markers are in Sequence **0** with `MI` **1** and **2** respectively.
 
 For a more complete but complex example, including multiple sequences refer to the next figure.
 
 ![](https://i.imgur.com/RluZWCJ.png)
 
 
-
 ### The Sequence
-Sequences are used to track the UTXO DAG branches, each branch corresponds to a sequence with a unique $SID$, and the sequences form a DAG as well.
+Sequences are used to track the UTXO DAG branches, each branch corresponds to a sequence with a unique `SID`, and the sequences form a DAG as well.
 
 #### Sequence Structure
 
@@ -183,17 +180,13 @@ A new sequence is created when:
 Each new sequence starts from a new marker.
 
 #### Sequences
-For whatever reason a sequence is created, we assign a new $SID = 1+max(referenceSequencesIdentifiers)$. To prevent assigning a new $SID$ when combining same sequences again, we build parents-child relation in a map if a new sequence is created. 
+For whatever reason a sequence is created, we assign a new $SID = 1+max(referenceSequencesIdentifiers)$. To prevent assigning a new `SID` when combining same sequences again, we build parents-child relation in a map if a new sequence is created. 
 
 #### Sequence Rank
 The rank of a sequence graph is the number of sequences from the starting point to itself. The sequence ranks are shown in the figure above.
 
 
-
-
-
 ## Example
-
 Here is an example of how the markers and sequences structures would look in the Tangle:
 The purple colored messages are markers.
 
@@ -201,15 +194,14 @@ The purple colored messages are markers.
 
 
 ## Implementation details
-
 In the following we describe some of the functions in more detail.
+
 ### Normalization of the referenced PMs and Sequences
+Messages can have markers from different sequences in `PM` list and `FM` list, the order and referenced relationship among sequences are important for example when it comes to inheriting the `PM` list from parents. Thus, we need to track these sequences.
 
-Messages can have markers from different sequences in PM list and FM list, the order and referenced relationship among sequences are important for example when it comes to inheriting the PM list from parents. Thus, we need to track these sequences.
+When a new sequence is created we check the parent marker' sequences with the function `normalizeMarkers()` in order from high to low rank. In this function, we remove those `PM`s that it's belonging sequence is referenced by others.
 
-When a new sequence is created we check the parent marker' sequences with the function `normalizeMarkers()` in order from high to low rank. In this function, we remove those PMs that it's belonging sequence is referenced by others.
-
-An example is **msg 10** in the figure, $[0,2], [1,1], [2,3]$ are PMs to be considered to inherit. $[2,3]$ is the first marker to check, since it has the highest sequence rank. We select the parent sequences of $[2,3]$, which are $0$ and $1$, and the referenced PMs therein. Next any PMs that are already referenced can be removed. This results in that the PMs of **msg 10** is $[2,3]$ only.
+An example is **msg 10** in the figure above, $[0,2], [1,1], [2,3]$ are `PM`s to be considered to inherit. $[2,3]$ is the first marker to check, since it has the highest sequence rank. We select the parent sequences of $[2,3]$, which are $0$ and $1$, and the referenced `PM`s therein. Next any `PM`s that are already referenced can be removed. This results in that the PMs of **msg 10** is $[2,3]$ only.
 
 In the following we show an implementation of  `normalizeMarkers()`, which returns the markers and sequences that will be inherited from a message.
 ```go
@@ -292,9 +284,9 @@ func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkersByRank *m
 ```
 
 ### Markers Application: Past Cone Check
-By comparing the past and future markers of messages, we can easily tell if one is in another's past cone. The function returns a `TriBool` representing the three possible statuses: `True`, `False` and `Maybe`. If `Maybe` is returned, then we need to perform a search of the Tangle by walking by means of e.g. a Breath-First-Search.
+By comparing the past and future markers of messages, we can easily tell if one is in another's past cone. The function returns a `TriBool` representing the three possible statuses: `True`, `False` and `Maybe`. If `Maybe` is returned, then we need to perform a search of the Tangle by walking by means of e.g. a Breadth-First Search.
 
-#### Algorithm
+#### Implementation
 ```go
 // IsInPastCone checks if the earlier Markers are directly or indirectly referenced by the later Markers.
 func (m *Manager) IsInPastCone(earlierMarkers *MarkersPair, laterMarkers *MarkersPair) (referenced TriBool) {
@@ -400,4 +392,4 @@ func (m *Manager) IsInPastCone(earlierMarkers *MarkersPair, laterMarkers *Marker
 ```
 
 ###  Markers Application: Approval Weight Estimation
-To approximate the approval weight of a message, we simply retrieve the approval weight of its FM list. Since the message is in the past cone of its FMs, the approval weight and the finality will be at least the same as its FMs. This will of course be a lower bound (which is the “safe” bound), but if the markers are set frequently enough, it should be a good approximation.
+To approximate the approval weight of a message, we simply retrieve the approval weight of its `FM` list. Since the message is in the past cone of its `FM`s, the approval weight and the finality will be at least the same as its `FM`s. This will of course be a lower bound (which is the “safe” bound), but if the markers are set frequently enough, it should be a good approximation.
