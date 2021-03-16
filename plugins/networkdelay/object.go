@@ -110,7 +110,7 @@ func (o *Object) Bytes() (bytes []byte) {
 	marshalUtil := marshalutil.New(marshalutil.Uint32Size + marshalutil.Uint32Size + objectLength)
 
 	// marshal the payload specific information
-	marshalUtil.WriteUint32(uint32(objectLength))
+	marshalUtil.WriteUint32(payload.TypeLength + uint32(objectLength))
 	marshalUtil.WriteBytes(Type.Bytes())
 	marshalUtil.WriteBytes(o.id[:])
 	marshalUtil.WriteInt64(o.sentTime)

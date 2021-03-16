@@ -15,29 +15,27 @@ var liveFeedWorkerPool *workerpool.WorkerPool
 
 func configureLiveFeed() {
 	liveFeedWorkerPool = workerpool.New(func(task workerpool.Task) {
-		task.Param(0).(*tangle.CachedMessage).Consume(func(message *tangle.Message) {
-			broadcastWsMessage(&wsmsg{MsgTypeMessage, &msg{message.ID().String(), 0, uint32(message.Payload().Type())}})
-		})
+		message := task.Param(0).(*tangle.Message)
+
+		broadcastWsMessage(&wsmsg{MsgTypeMessage, &msg{message.ID().String(), 0, uint32(message.Payload().Type())}})
 
 		task.Return(nil)
 	}, workerpool.WorkerCount(liveFeedWorkerCount), workerpool.QueueSize(liveFeedWorkerQueueSize))
 }
 
 func runLiveFeed() {
-	notifyNewMsg := events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
-		cachedMsgEvent.MessageMetadata.Release()
-		_, ok := liveFeedWorkerPool.TrySubmit(cachedMsgEvent.Message)
-		if !ok {
-			cachedMsgEvent.Message.Release()
-		}
+	notifyNewMsg := events.NewClosure(func(messageID tangle.MessageID) {
+		messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
+			liveFeedWorkerPool.TrySubmit(message)
+		})
 	})
 
 	if err := daemon.BackgroundWorker("Dashboard[MsgUpdater]", func(shutdownSignal <-chan struct{}) {
-		messagelayer.Tangle().Events.MessageAttached.Attach(notifyNewMsg)
+		messagelayer.Tangle().Storage.Events.MessageStored.Attach(notifyNewMsg)
 		liveFeedWorkerPool.Start()
 		<-shutdownSignal
 		log.Info("Stopping Dashboard[MsgUpdater] ...")
-		messagelayer.Tangle().Events.MessageAttached.Detach(notifyNewMsg)
+		messagelayer.Tangle().Storage.Events.MessageStored.Detach(notifyNewMsg)
 		liveFeedWorkerPool.Stop()
 		log.Info("Stopping Dashboard[MsgUpdater] ... done")
 	}, shutdown.PriorityDashboard); err != nil {

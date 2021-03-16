@@ -2,9 +2,10 @@ package value
 
 import (
 	"net/http"
+	"time"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/labstack/echo"
 	"github.com/labstack/gommon/log"
 )
@@ -19,7 +20,7 @@ func unspentOutputsHandler(c echo.Context) error {
 
 	var unspents []UnspentOutput
 	for _, strAddress := range request.Addresses {
-		address, err := address.FromBase58(strAddress)
+		address, err := ledgerstate.AddressFromBase58EncodedString(strAddress)
 		if err != nil {
 			log.Info(err.Error())
 			continue
@@ -27,41 +28,49 @@ func unspentOutputsHandler(c echo.Context) error {
 
 		outputids := make([]OutputID, 0)
 		// get outputids by address
-		for id, cachedOutput := range valuetransfers.Tangle().OutputsOnAddress(address) {
-			// TODO: don't do this in a for
-			defer cachedOutput.Release()
-			output := cachedOutput.Unwrap()
-			cachedTxMeta := valuetransfers.Tangle().TransactionMetadata(output.TransactionID())
-			// TODO: don't do this in a for
-			defer cachedTxMeta.Release()
+		cachedOutputs := messagelayer.Tangle().LedgerState.OutputsOnAddress(address)
+		cachedOutputs.Consume(func(output ledgerstate.Output) {
+			cachedOutputMetadata := messagelayer.Tangle().LedgerState.OutputMetadata(output.ID())
+			cachedOutputMetadata.Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+				if outputMetadata.ConsumerCount() == 0 {
+					// iterate balances
+					var b []Balance
+					output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+						b = append(b, Balance{
+							Value: int64(balance),
+							Color: color.String(),
+						})
+						return true
+					})
 
-			if output.ConsumerCount() == 0 {
-				// iterate balances
-				var b []Balance
-				for _, balance := range output.Balances() {
-					b = append(b, Balance{
-						Value: balance.Value,
-						Color: balance.Color.String(),
+					inclusionState := InclusionState{}
+					txID := output.ID().TransactionID()
+					txInclusionState, err := messagelayer.Tangle().LedgerState.TransactionInclusionState(txID)
+					if err != nil {
+						return
+					}
+					messagelayer.Tangle().LedgerState.TransactionMetadata(txID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+						inclusionState.Finalized = transactionMetadata.Finalized()
+					})
+
+					inclusionState.Confirmed = txInclusionState == ledgerstate.Confirmed
+					inclusionState.Rejected = txInclusionState == ledgerstate.Rejected
+					inclusionState.Conflicting = len(messagelayer.Tangle().LedgerState.ConflictSet(txID)) == 0
+
+					cachedTx := messagelayer.Tangle().LedgerState.Transaction(output.ID().TransactionID())
+					var timestamp time.Time
+					cachedTx.Consume(func(tx *ledgerstate.Transaction) {
+						timestamp = tx.Essence().Timestamp()
+					})
+					outputids = append(outputids, OutputID{
+						ID:             output.ID().Base58(),
+						Balances:       b,
+						InclusionState: inclusionState,
+						Metadata:       Metadata{Timestamp: timestamp},
 					})
 				}
-
-				inclusionState := InclusionState{}
-				if cachedTxMeta.Exists() {
-					txMeta := cachedTxMeta.Unwrap()
-					inclusionState.Confirmed = txMeta.Confirmed()
-					inclusionState.Liked = txMeta.Liked()
-					inclusionState.Rejected = txMeta.Rejected()
-					inclusionState.Finalized = txMeta.Finalized()
-					inclusionState.Conflicting = txMeta.Conflicting()
-					inclusionState.Confirmed = txMeta.Confirmed()
-				}
-				outputids = append(outputids, OutputID{
-					ID:             id.String(),
-					Balances:       b,
-					InclusionState: inclusionState,
-				})
-			}
-		}
+			})
+		})
 
 		unspents = append(unspents, UnspentOutput{
 			Address:   strAddress,

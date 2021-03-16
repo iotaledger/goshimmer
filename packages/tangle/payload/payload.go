@@ -49,6 +49,10 @@ func FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (payload Payload, err
 		err = xerrors.Errorf("maximum payload size of %d bytes exceeded: %w", MaxSize, cerrors.ErrParseBytesFailed)
 		return
 	}
+	// a payloadSize of 0 indicates the payload is omitted and the payload is nil
+	if payloadSize == 0 {
+		return
+	}
 
 	payloadType, err := TypeFromMarshalUtil(marshalUtil)
 	if err != nil {
@@ -57,7 +61,7 @@ func FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (payload Payload, err
 	}
 
 	marshalUtil.ReadSeek(-marshalutil.Uint32Size * 2)
-	payloadBytes, err := marshalUtil.ReadBytes(int(payloadSize) + 8)
+	payloadBytes, err := marshalUtil.ReadBytes(int(payloadSize) + 4)
 	if err != nil {
 		err = xerrors.Errorf("failed to unmarshal payload bytes (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return

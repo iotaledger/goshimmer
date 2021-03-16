@@ -34,5 +34,12 @@ func FetchTimeOffset(host string) error {
 func SyncedTime() time.Time {
 	offsetMutex.RLock()
 	defer offsetMutex.RUnlock()
+
 	return time.Now().Add(offset)
+}
+
+// Since returns the time elapsed since t.
+// It is shorthand for clock.SyncedTime().Sub(t).
+func Since(t time.Time) time.Duration {
+	return SyncedTime().Sub(t)
 }

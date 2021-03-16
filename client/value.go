@@ -8,11 +8,12 @@ import (
 )
 
 const (
-	routeAttachments    = "value/attachments"
-	routeGetTxnByID     = "value/transactionByID"
-	routeSendTxn        = "value/sendTransaction"
-	routeSendTxnByJSON  = "value/sendTransactionByJson"
-	routeUnspentOutputs = "value/unspentOutputs"
+	routeAttachments          = "value/attachments"
+	routeGetTxnByID           = "value/transactionByID"
+	routeSendTxn              = "value/sendTransaction"
+	routeSendTxnByJSON        = "value/sendTransactionByJson"
+	routeUnspentOutputs       = "value/unspentOutputs"
+	routeAllowedPledgeNodeIDs = "value/allowedManaPledge"
 )
 
 // GetAttachments gets the attachments of a transaction ID
@@ -61,18 +62,30 @@ func (api *GoShimmerAPI) SendTransaction(txnBytes []byte) (string, error) {
 	return res.TransactionID, nil
 }
 
-// SendTransactionByJSON sends the transaction(JSON) to the Value Tangle and returns transaction ID.
+// SendTransactionByJSON sends the transaction(JSON) to the Value Tangle and returns transaction ID and message ID.
 func (api *GoShimmerAPI) SendTransactionByJSON(txn webapi_value.SendTransactionByJSONRequest) (string, error) {
 	res := &webapi_value.SendTransactionByJSONResponse{}
 	if err := api.do(http.MethodPost, routeSendTxnByJSON,
 		&webapi_value.SendTransactionByJSONRequest{
-			Inputs:     txn.Inputs,
-			Outputs:    txn.Outputs,
-			Data:       txn.Data,
-			Signatures: txn.Signatures,
+			Inputs:        txn.Inputs,
+			Outputs:       txn.Outputs,
+			AManaPledgeID: txn.AManaPledgeID,
+			CManaPledgeID: txn.CManaPledgeID,
+			Signatures:    txn.Signatures,
+			Payload:       txn.Payload,
 		}, res); err != nil {
 		return "", err
 	}
 
 	return res.TransactionID, nil
+}
+
+// GetAllowedManaPledgeNodeIDs returns the list of allowed mana pledge IDs.
+func (api *GoShimmerAPI) GetAllowedManaPledgeNodeIDs() (*webapi_value.AllowedManaPledgeResponse, error) {
+	res := &webapi_value.AllowedManaPledgeResponse{}
+	if err := api.do(http.MethodGet, routeAllowedPledgeNodeIDs, nil, res); err != nil {
+		return nil, err
+	}
+
+	return res, nil
 }

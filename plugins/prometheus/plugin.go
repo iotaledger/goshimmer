@@ -61,10 +61,15 @@ func configure(plugin *node.Plugin) {
 		registerNetworkMetrics()
 		registerProcessMetrics()
 		registerTangleMetrics()
+		registerManaMetrics()
 	}
 
 	if config.Node().Bool(metrics.CfgMetricsGlobal) {
 		registerClientsMetrics()
+	}
+
+	if config.Node().Bool(metrics.CfgMetricsManaResearch) {
+		registerManaResearchMetrics()
 	}
 }
 

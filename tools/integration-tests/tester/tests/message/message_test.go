@@ -4,13 +4,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 	"github.com/stretchr/testify/require"
 )
 
 // TestPersistence issues messages on random peers, restarts them and checks for persistence after restart.
 func TestPersistence(t *testing.T) {
-	n, err := f.CreateNetwork("message_TestPersistence", 4, 2)
+	n, err := f.CreateNetwork("message_TestPersistence", 4, 2, framework.CreateNetworkConfig{})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 

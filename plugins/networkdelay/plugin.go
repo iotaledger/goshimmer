@@ -11,7 +11,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
-	"github.com/iotaledger/goshimmer/plugins/syncbeaconfollower"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
@@ -84,50 +83,42 @@ func configure(_ *node.Plugin) {
 	configureWebAPI()
 
 	// subscribe to message-layer
-	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
+	messagelayer.Tangle().ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
 
 	clockEnabled = !node.IsSkipped(clockPlugin.Plugin())
 }
 
-func onReceiveMessageFromMessageLayer(cachedMessageEvent *tangle.CachedMessageEvent) {
-	defer cachedMessageEvent.Message.Release()
-	defer cachedMessageEvent.MessageMetadata.Release()
+func onReceiveMessageFromMessageLayer(messageID tangle.MessageID) {
+	messagelayer.Tangle().Storage.Message(messageID).Consume(func(solidMessage *tangle.Message) {
+		messagePayload := solidMessage.Payload()
+		if messagePayload.Type() != Type {
+			return
+		}
 
-	solidMessage := cachedMessageEvent.Message.Unwrap()
-	if solidMessage == nil {
-		log.Debug("failed to unpack solid message from message layer")
+		// check for node identity
+		issuerPubKey := solidMessage.IssuerPublicKey()
+		if issuerPubKey != originPublicKey || issuerPubKey == myPublicKey {
+			return
+		}
 
-		return
-	}
+		networkDelayObject, ok := messagePayload.(*Object)
+		if !ok {
+			log.Info("could not cast payload to network delay object")
 
-	messagePayload := solidMessage.Payload()
-	if messagePayload.Type() != Type {
-		return
-	}
+			return
+		}
 
-	// check for node identity
-	issuerPubKey := solidMessage.IssuerPublicKey()
-	if issuerPubKey != originPublicKey || issuerPubKey == myPublicKey {
-		return
-	}
+		now := clock.SyncedTime().UnixNano()
 
-	networkDelayObject, ok := messagePayload.(*Object)
-	if !ok {
-		log.Info("could not cast payload to network delay object")
+		// abort if message was sent more than 1min ago
+		// this should only happen due to a node resyncing
+		if time.Duration(now-networkDelayObject.sentTime) > time.Minute {
+			log.Debugf("Received network delay message with >1min delay\n%s", networkDelayObject)
+			return
+		}
 
-		return
-	}
-
-	now := clock.SyncedTime().UnixNano()
-
-	// abort if message was sent more than 1min ago
-	// this should only happen due to a node resyncing
-	if time.Duration(now-networkDelayObject.sentTime) > time.Minute {
-		log.Debugf("Received network delay message with >1min delay\n%s", networkDelayObject)
-		return
-	}
-
-	sendToRemoteLog(networkDelayObject, now)
+		sendToRemoteLog(networkDelayObject, now)
+	})
 }
 
 func sendToRemoteLog(networkDelayObject *Object, receiveTime int64) {
@@ -138,7 +129,21 @@ func sendToRemoteLog(networkDelayObject *Object, receiveTime int64) {
 		ReceiveTime: receiveTime,
 		Delta:       receiveTime - networkDelayObject.sentTime,
 		Clock:       clockEnabled,
-		Sync:        syncbeaconfollower.Synced(),
+		Sync:        messagelayer.Tangle().Synced(),
+		Type:        remoteLogType,
+	}
+	_ = remoteLogger.Send(m)
+}
+
+func sendPoWInfo(object *Object, powDelta time.Duration) {
+	m := networkDelay{
+		NodeID:      myID,
+		ID:          object.id.String(),
+		SentTime:    0,
+		ReceiveTime: 0,
+		Delta:       powDelta.Nanoseconds(),
+		Clock:       clockEnabled,
+		Sync:        messagelayer.Tangle().Synced(),
 		Type:        remoteLogType,
 	}
 	_ = remoteLogger.Send(m)

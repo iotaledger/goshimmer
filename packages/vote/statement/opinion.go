@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/iotaledger/goshimmer/packages/vote"
+	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
@@ -20,7 +20,7 @@ const (
 
 // Opinion holds the opinion at a specific round.
 type Opinion struct {
-	Value vote.Opinion
+	Value opinion.Opinion
 	Round uint8
 }
 
@@ -55,7 +55,7 @@ func OpinionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result Opinio
 		err = xerrors.Errorf("failed to parse opinion from bytes: %w", e)
 		return
 	}
-	result.Value = vote.Opinion(opinionByte)
+	result.Value = opinion.Opinion(opinionByte)
 
 	if result.Round, err = marshalUtil.ReadUint8(); err != nil {
 		err = xerrors.Errorf("failed to parse round from bytes: %w", err)

@@ -5,7 +5,7 @@ import (
 	"net/http"
 	goSync "sync"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -47,7 +47,7 @@ func requestFunds(c echo.Context) error {
 	fundingMu.Lock()
 	defer fundingMu.Unlock()
 	var request Request
-	var addr address.Address
+	var addr ledgerstate.Address
 	if err := c.Bind(&request); err != nil {
 		log.Info(err.Error())
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
@@ -55,7 +55,7 @@ func requestFunds(c echo.Context) error {
 
 	log.Debug("Received - address:", request.Address)
 
-	addr, err := address.FromBase58(request.Address)
+	addr, err := ledgerstate.AddressFromBase58EncodedString(request.Address)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, Response{Error: "Invalid address"})
 	}
@@ -64,7 +64,7 @@ func requestFunds(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
-	msg, err := messagelayer.MessageFactory().IssuePayload(faucetPayload)
+	msg, err := messagelayer.Tangle().MessageFactory.IssuePayload(faucetPayload, messagelayer.Tangle())
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, Response{Error: fmt.Sprintf("Failed to send faucetrequest: %s", err.Error())})
 	}

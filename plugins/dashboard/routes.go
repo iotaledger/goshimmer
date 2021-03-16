@@ -3,7 +3,7 @@ package dashboard
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 
@@ -35,7 +35,7 @@ func indexRoute(e echo.Context) error {
 		if err != nil {
 			return err
 		}
-		devIndexHTML, err := ioutil.ReadAll(res.Body)
+		devIndexHTML, err := io.ReadAll(res.Body)
 		if err != nil {
 			return err
 		}
@@ -48,7 +48,7 @@ func indexRoute(e echo.Context) error {
 	}
 	defer index.Close()
 
-	indexHTML, err := ioutil.ReadAll(index)
+	indexHTML, err := io.ReadAll(index)
 	if err != nil {
 		return err
 	}
@@ -89,6 +89,7 @@ func setupRoutes(e *echo.Echo) {
 
 	setupExplorerRoutes(apiRoutes)
 	setupFaucetRoutes(apiRoutes)
+	setupVisualizerRoutes(apiRoutes)
 
 	e.HTTPErrorHandler = func(err error, c echo.Context) {
 		log.Warnf("Request failed: %s", err)

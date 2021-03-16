@@ -12,7 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	pb "github.com/iotaledger/hive.go/autopeering/server/proto"
@@ -215,7 +214,7 @@ func (t *TCP) run() {
 
 		// add a new matcher to the list
 		case m := <-t.addAcceptMatcher:
-			m.deadline = clock.SyncedTime().Add(connectionTimeout)
+			m.deadline = time.Now().Add(connectionTimeout)
 			matcherList.PushBack(m)
 
 		// on accept received, check all matchers for a fit
@@ -238,7 +237,7 @@ func (t *TCP) run() {
 
 		// on timeout, check for expired matchers
 		case <-timeout.C:
-			now := clock.SyncedTime()
+			now := time.Now()
 
 			// notify and remove any expired matchers
 			for e := matcherList.Front(); e != nil; e = e.Next() {
@@ -330,7 +329,7 @@ func (t *TCP) doHandshake(key ed25519.PublicKey, remoteAddr string, conn net.Con
 		return fmt.Errorf("handshake size too large: %d, max %d", l, maxHandshakePacketSize)
 	}
 
-	err = conn.SetWriteDeadline(clock.SyncedTime().Add(handshakeTimeout))
+	err = conn.SetWriteDeadline(time.Now().Add(handshakeTimeout))
 	if err != nil {
 		return err
 	}
@@ -339,7 +338,7 @@ func (t *TCP) doHandshake(key ed25519.PublicKey, remoteAddr string, conn net.Con
 		return err
 	}
 
-	err = conn.SetReadDeadline(clock.SyncedTime().Add(handshakeTimeout))
+	err = conn.SetReadDeadline(time.Now().Add(handshakeTimeout))
 	if err != nil {
 		return err
 	}
@@ -367,7 +366,7 @@ func (t *TCP) doHandshake(key ed25519.PublicKey, remoteAddr string, conn net.Con
 }
 
 func (t *TCP) readHandshakeRequest(conn net.Conn) (ed25519.PublicKey, []byte, error) {
-	if err := conn.SetReadDeadline(clock.SyncedTime().Add(handshakeTimeout)); err != nil {
+	if err := conn.SetReadDeadline(time.Now().Add(handshakeTimeout)); err != nil {
 		return ed25519.PublicKey{}, nil, err
 	}
 	b := make([]byte, maxHandshakePacketSize)
@@ -413,7 +412,7 @@ func (t *TCP) writeHandshakeResponse(reqData []byte, conn net.Conn) error {
 		return fmt.Errorf("handshake size too large: %d, max %d", l, maxHandshakePacketSize)
 	}
 
-	err = conn.SetWriteDeadline(clock.SyncedTime().Add(handshakeTimeout))
+	err = conn.SetWriteDeadline(time.Now().Add(handshakeTimeout))
 	if err != nil {
 		return err
 	}

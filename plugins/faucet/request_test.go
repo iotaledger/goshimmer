@@ -5,20 +5,20 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
-	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
 func ExampleRequest() {
 	keyPair := ed25519.GenerateKeyPair()
+	address := ledgerstate.NewED25519Address(keyPair.PublicKey)
 	local := identity.NewLocalIdentity(keyPair.PublicKey, keyPair.PrivateKey)
 
 	// 1. create faucet payload
-	faucetRequest, err := NewRequest(address.Random(), 4)
+	faucetRequest, err := NewRequest(address, 4)
 	if err != nil {
 		panic(err)
 	}
@@ -38,7 +38,9 @@ func ExampleRequest() {
 }
 
 func TestRequest(t *testing.T) {
-	originalRequest, err := NewRequest(address.Random(), 4)
+	keyPair := ed25519.GenerateKeyPair()
+	address := ledgerstate.NewED25519Address(keyPair.PublicKey)
+	originalRequest, err := NewRequest(address, 4)
 	if err != nil {
 		panic(err)
 	}

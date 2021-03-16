@@ -7,8 +7,9 @@ export class Vertex {
     id: string;
     strongParentIDs: Array<string>;
     weakParentIDs: Array<string>;
-    is_solid: boolean;
     is_tip: boolean;
+    is_confirmed: boolean;
+    is_tx: boolean;
 }
 
 export class TipInfo {
@@ -16,15 +17,19 @@ export class TipInfo {
     is_tip: boolean;
 }
 
+class history {
+    vertices: Array<Vertex>;
+}
+
 const vertexSize = 20;
 
 export class VisualizerStore {
     @observable vertices = new ObservableMap<string, Vertex>();
     @observable verticesLimit = 1500;
-    @observable solid_count = 0;
+    @observable confirmed_count = 0;
     @observable tips_count = 0;
     verticesIncomingOrder = [];
-    collect: boolean = false;
+    draw: boolean = false;
     routerStore: RouterStore;
 
     // the currently selected vertex via hover
@@ -45,8 +50,22 @@ export class VisualizerStore {
 
     constructor(routerStore: RouterStore) {
         this.routerStore = routerStore;
+        this.fetchHistory();
         registerHandler(WSMsgType.Vertex, this.addVertex);
-        registerHandler(WSMsgType.TipInfo, this.addTipInfo);
+        registerHandler(WSMsgType.TipInfo, this.addTipInfo); 
+    }
+
+    fetchHistory = async () => {
+        try {
+            let res = await fetch(`/api/visualizer/history`);           
+            let history: history = await res.json();
+            history.vertices.forEach(v => {
+               this.addVertex(v); 
+            });
+        } catch (err) {
+            console.log("Fail to fetch history in visualizer", err);
+        }
+        return
     }
 
     @action
@@ -87,56 +106,34 @@ export class VisualizerStore {
     }
 
     @action
-    addVertex = (vert: Vertex) => {
-        if (!this.collect) return;
-
+    addVertex = (vert: Vertex) => {        
         let existing = this.vertices.get(vert.id);
         if (existing) {
-            // can only go from unsolid to solid
-            if (!existing.is_solid && vert.is_solid) {
-                existing.is_solid = true;
-                this.solid_count++;
+            if (!existing.is_confirmed && vert.is_confirmed) {
+                existing.is_confirmed = true;
+                this.confirmed_count++;
             }
             // update parent1 and parent2 ids since we might be dealing
             // with a vertex obj only created from a tip info
             existing.strongParentIDs = vert.strongParentIDs;
             existing.weakParentIDs = vert.weakParentIDs;
-            vert = existing
+            vert = existing;
         } else {
-            if (vert.is_solid) {
-                this.solid_count++;
+            if (vert.is_confirmed) {
+                this.confirmed_count++;
             }
             this.verticesIncomingOrder.push(vert.id);
             this.checkLimit();
-
-            if (vert.strongParentIDs) {
-                // clear tip status of strong and weak parents
-                vert.strongParentIDs.forEach((value, index) => {
-                    let strongParentVert = this.vertices.get(value);
-                    if (strongParentVert) {
-                        strongParentVert.is_tip = false;
-                        this.vertices.set(strongParentVert.id, strongParentVert)
-                    }
-                });
-            }
-            if (vert.weakParentIDs) {
-                vert.weakParentIDs.forEach((value, index) => {
-                    let weakParentVert = this.vertices.get(value);
-                    if (weakParentVert) {
-                        weakParentVert.is_tip = false;
-                        this.vertices.set(weakParentVert.id, weakParentVert)
-                    }
-                });
-            }
         }
 
         this.vertices.set(vert.id, vert);
-        this.drawVertex(vert);
+        if (this.draw) {
+            this.drawVertex(vert);
+        }
     };
 
     @action
     addTipInfo = (tipInfo: TipInfo) => {
-        if (!this.collect) return;
         let vert = this.vertices.get(tipInfo.id);
         if (!vert) {
             // create a new empty one for now
@@ -148,7 +145,9 @@ export class VisualizerStore {
         this.tips_count += tipInfo.is_tip ? 1 : vert.is_tip ? -1 : 0;
         vert.is_tip = tipInfo.is_tip;
         this.vertices.set(vert.id, vert);
-        this.drawVertex(vert);
+        if (this.draw) {
+            this.drawVertex(vert);
+        }
     };
 
     @action
@@ -161,12 +160,14 @@ export class VisualizerStore {
                 this.clearSelected();
             }
             this.vertices.delete(deleteId);
-            this.graph.removeNode(deleteId);
+            if (this.draw) {
+                this.graph.removeNode(deleteId);
+            }
             if (!vert) {
                 continue;
             }
-            if (vert.is_solid) {
-                this.solid_count--;
+            if (vert.is_confirmed) {
+                this.confirmed_count--;
             }
             if (vert.is_tip) {
                 this.tips_count--;
@@ -190,15 +191,17 @@ export class VisualizerStore {
             if (this.selected && approveeId === this.selected.id) {
                 this.clearSelected();
             }
-            if (approvee.is_solid) {
-                this.solid_count--;
+            if (approvee.is_confirmed) {
+                this.confirmed_count--;
             }
             if (approvee.is_tip) {
                 this.tips_count--;
             }
             this.vertices.delete(approveeId);
         }
-        this.graph.removeNode(approveeId);
+        if (this.draw) {
+            this.graph.removeNode(approveeId);
+        }
     }
 
     drawVertex = (vert: Vertex) => {
@@ -217,7 +220,11 @@ export class VisualizerStore {
             vert.strongParentIDs.forEach((value) => {
                 // if value is valid AND (links is empty OR there is no between parent and children)
                 if ( value && ((!node.links || !node.links.some(link => link.fromId === value)))){
-                    this.graph.addLink(value, vert.id);
+                    // draw the link only when the parent exists
+                    let existing = this.graph.getNode(value);
+                    if (existing) {
+                        this.graph.addLink(value, vert.id);
+                    }
                 }
             })
         }
@@ -225,7 +232,11 @@ export class VisualizerStore {
             vert.weakParentIDs.forEach((value) => {
                 // if value is valid AND (links is empty OR there is no between parent and children)
                 if ( value && ((!node.links || !node.links.some(link => link.fromId === value)))){
-                    this.graph.addLink(value, vert.id);
+                    // draw the link only when the parent exists
+                    let existing = this.graph.getNode(value);
+                    if (existing) {
+                        this.graph.addLink(value, vert.id);
+                    }
                 }
             })
         }
@@ -236,14 +247,18 @@ export class VisualizerStore {
         if (vert.is_tip) {
             return "#cb4b16";
         }
-        if (vert.is_solid) {
-            return "#6c71c4";
+        if (vert.is_tx && vert.is_confirmed) {
+            return "#fad02c";
         }
-        return "#2aa198";
+        // non-tx message confirmed
+        if (vert.is_confirmed) {
+            return "#6c71c4"
+        }
+        return "#b9b7bd";
     }
 
     start = () => {
-        this.collect = true;
+        this.draw = true;
         this.graph = Viva.Graph.graph();
 
         let graphics: any = Viva.Graph.View.webglGraphics();
@@ -273,24 +288,31 @@ export class VisualizerStore {
         let events = Viva.Graph.webglInputEvents(graphics, this.graph);
 
         events.mouseEnter((node) => {
-            this.clearSelected();
+            this.clearSelected(true);
             this.updateSelected(node.data);
         }).mouseLeave((node) => {
-            this.clearSelected();
+            this.clearSelected(false);
         });
+
+        events.click((node) => {
+            this.clearSelected(true);
+            this.updateSelected(node.data, true);
+        });
+
         this.graphics = graphics;
         this.renderer.run();
+
+        this.vertices.forEach((vertex) => {
+            this.drawVertex(vertex)
+        })
     }
 
     stop = () => {
-        this.collect = false;
+        this.draw = false;
         this.renderer.dispose();
         this.graph = null;
         this.paused = false;
         this.selected = null;
-        this.solid_count = 0;
-        this.tips_count = 0;
-        this.vertices.clear();
     }
 
     @action
@@ -339,12 +361,13 @@ export class VisualizerStore {
     }
 
     @action
-    clearSelected = () => {
-        this.selected_approvers_count = 0;
-        this.selected_approvees_count = 0;
-        if (this.selected_via_click || !this.selected) {
+    clearSelected = (force_clear?: boolean) => {
+        if (!this.selected || (this.selected_via_click && !force_clear)) {
             return;
         }
+
+        this.selected_approvers_count = 0;
+        this.selected_approvees_count = 0;
 
         // clear link highlight
         let node = this.graph.getNode(this.selected.id);
@@ -378,6 +401,7 @@ export class VisualizerStore {
         );
 
         this.selected = null;
+        this.selected_via_click = false;
     }
 
 }

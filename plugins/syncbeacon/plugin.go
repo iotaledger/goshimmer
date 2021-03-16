@@ -7,10 +7,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/config"
-	"github.com/iotaledger/goshimmer/plugins/issuer"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/syncbeacon/payload"
-	"github.com/iotaledger/goshimmer/plugins/syncbeaconfollower"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
@@ -56,25 +54,31 @@ func configure(_ *node.Plugin) {
 
 	if config.Node().Bool(CfgSyncBeaconStartSynced) {
 		log.Infof("Retrieving all the tips")
-		messagelayer.TipSelector().Set(messagelayer.Tangle().RetrieveAllTips()...)
+		messagelayer.Tangle().TipManager.Set(messagelayer.Tangle().Storage.RetrieveAllTips()...)
 
-		syncbeaconfollower.OverwriteSyncedState(true)
+		messagelayer.Tangle().SetSynced(true)
 		log.Infof("overwriting synced state to 'true'")
 	}
 }
 
 // broadcastSyncBeaconPayload broadcasts a sync beacon via communication layer.
-func broadcastSyncBeaconPayload() {
+func broadcastSyncBeaconPayload() (doneSignal chan struct{}) {
+	doneSignal = make(chan struct{}, 1)
+	go func() {
+		defer close(doneSignal)
 
-	syncBeaconPayload := payload.NewSyncBeaconPayload(clock.SyncedTime().UnixNano())
-	msg, err := issuer.IssuePayload(syncBeaconPayload)
+		syncBeaconPayload := payload.NewSyncBeaconPayload(clock.SyncedTime().UnixNano())
+		msg, err := messagelayer.Tangle().IssuePayload(syncBeaconPayload)
 
-	if err != nil {
-		log.Warnf("error issuing sync beacon: %w", err)
-		return
-	}
+		if err != nil {
+			log.Warnf("error issuing sync beacon: %w", err)
+			return
+		}
 
-	log.Debugf("issued sync beacon %s", msg.ID())
+		log.Debugf("issued sync beacon %s", msg.ID())
+	}()
+
+	return
 }
 
 func run(_ *node.Plugin) {
@@ -83,10 +87,17 @@ func run(_ *node.Plugin) {
 		defer ticker.Stop()
 		for {
 			select {
-			case <-ticker.C:
-				broadcastSyncBeaconPayload()
 			case <-shutdownSignal:
 				return
+			case <-ticker.C:
+				doneSignal := broadcastSyncBeaconPayload()
+
+				select {
+				case <-shutdownSignal:
+					return
+				case <-doneSignal:
+					// continue with the next beacon
+				}
 			}
 		}
 	}, shutdown.PrioritySynchronization); err != nil {

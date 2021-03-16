@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
 	pb "github.com/iotaledger/goshimmer/packages/gossip/server/proto"
 	"github.com/iotaledger/hive.go/autopeering/server"
 	"google.golang.org/protobuf/proto"
@@ -24,7 +23,7 @@ func newHandshakeRequest(toAddr string) ([]byte, error) {
 	m := &pb.HandshakeRequest{
 		Version:   versionNum,
 		To:        toAddr,
-		Timestamp: clock.SyncedTime().Unix(),
+		Timestamp: time.Now().Unix(),
 	}
 	return proto.Marshal(m)
 }

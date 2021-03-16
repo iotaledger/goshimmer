@@ -7,5 +7,5 @@ import (
 )
 
 func main() {
-	fmt.Println(walletseed.NewSeed().Address(0))
+	fmt.Println(walletseed.NewSeed().Address(0).Address().Base58())
 }
