@@ -12,8 +12,8 @@ A time interval that is used for a certain type of consensus mana. At the end of
 
 #### PAYLOAD
 A field in a message which determines the type. Examples are:
-* Value payload
-* FPC Opinion payload
+* Value payload (type TransactionType)
+* FPC Opinion payload (type StatementType)
 * dRNG payload
 * Salt declaration payload
 * Generic data payload
@@ -22,7 +22,7 @@ A field in a message which determines the type. Examples are:
 The application which maintains the ledger state.
 
 #### TRANSACTION
-A message with payload of type value. It contains the information of a transfer of funds.
+A message with payload of type TransactionType. It contains the information of a transfer of funds.
 
 #### UTXO
 Unspent transaction output.
