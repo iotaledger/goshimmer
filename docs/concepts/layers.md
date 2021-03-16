@@ -13,7 +13,7 @@ The communication layer is the most primitive layer, as its job is to simply for
 A message is a core data type which reflects a vertex in the communication layer [DAG](https://en.wikipedia.org/wiki/Directed_acyclic_graph).
 
 It contains following properties:
-* References to two other messages
+* References to other messages
 * Issuer's public key
 * The issuance time of the message
 * The message sequence number from the node which issued the message

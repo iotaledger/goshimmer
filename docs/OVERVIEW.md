@@ -22,7 +22,7 @@ Rendered version of the documentation: http://goshimmer.docs.iota.org/
   - [Plugin](./implementation_design/plugin.md)
   - [Object storage](./implementation_design/object_storage.md)
 - [API](./apis/api.md)
-  - [Client Lib: Interaction with Layers](./clientLib.md)
+  - [Client Lib: Interaction with Layers](./apis/clientLib.md)
   - [WebAPI](./apis/webAPI_clientLib.md)
   - [Mana](./apis/mana.md)
   - [dRNG](./apis/dRNG.md)
@@ -36,5 +36,4 @@ Rendered version of the documentation: http://goshimmer.docs.iota.org/
 - Team Resources
   - [How to do a release](teamresources/release.md)
   - [Code Guidelines](./teamresources/guidelines.md)  
-
 
