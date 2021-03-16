@@ -1,5 +1,5 @@
 #### TANGLE
-An append only message data structure where each message references two other messages.
+An append only message data structure where each message references (at least) two other messages.
 
 #### MESSAGE
 The object that is gossiped between neighbors. All gossiped information is included in a message. The most basic unit of information of the IOTA Protocol. Each object has a type and size and contains data.
