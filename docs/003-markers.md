@@ -393,3 +393,6 @@ func (m *Manager) IsInPastCone(earlierMarkers *MarkersPair, laterMarkers *Marker
 
 ###  Markers Application: Approval Weight Estimation
 To approximate the approval weight of a message, we simply retrieve the approval weight of its `FM` list. Since the message is in the past cone of its `FM`s, the approval weight and the finality will be at least the same as its `FM`s. This will of course be a lower bound (which is the “safe” bound), but if the markers are set frequently enough, it should be a good approximation.
+
+Details of managing approval weight of each marker and approval weight calculation of each messages refer to the Approval Weight Spec.
+>:mega: Add link here. 
