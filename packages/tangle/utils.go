@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"fmt"
+
 	"github.com/labstack/gommon/log"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -168,6 +169,14 @@ func (u *Utils) MessageApprovedBy(approvedMessageID MessageID, approvingMessageI
 			continue
 		}
 
+		var weakApproverBooked bool
+		u.tangle.Storage.MessageMetadata(weakApprover.ApproverMessageID()).Consume(func(weakApproverMetadata *MessageMetadata) {
+			weakApproverBooked = weakApproverMetadata.IsBooked()
+		})
+		if !weakApproverBooked {
+			continue
+		}
+
 		if u.messageStronglyApprovedBy(weakApprover.ApproverMessageID(), approvingMessageID) {
 			return true
 		}
@@ -199,7 +208,7 @@ func (u *Utils) messageStronglyApprovedBy(approvedMessageID MessageID, approving
 		approvedMessageStructureDetails = messageMetadata.StructureDetails()
 	})
 	if approvedMessageStructureDetails == nil {
-		return false
+		panic(fmt.Sprintf("tried to check approval of non-booked Message with %s", approvedMessageID))
 	}
 
 	var approvingMessageStructureDetails *markers.StructureDetails
