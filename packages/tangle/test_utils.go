@@ -2,14 +2,326 @@ package tangle
 
 import (
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/types"
 )
+
+// region MessageTestFramework /////////////////////////////////////////////////////////////////////////////////////////
+
+type MessageTestFramework struct {
+	tangle           *Tangle
+	messagesByAlias  map[string]*Message
+	walletsByAlias   map[string]wallet
+	walletsByAddress map[ledgerstate.Address]wallet
+	inputsByAlias    map[string]ledgerstate.Input
+	outputsByAlias   map[string]ledgerstate.Output
+	outputsByID      map[ledgerstate.OutputID]ledgerstate.Output
+	options          *FrameworkOptions
+	messagesBookedWG sync.WaitGroup
+}
+
+func NewMessageTestFramework(tangle *Tangle, options ...FrameworkOption) (messageTestFramework *MessageTestFramework) {
+	messageTestFramework = &MessageTestFramework{
+		tangle:           tangle,
+		messagesByAlias:  make(map[string]*Message),
+		walletsByAlias:   make(map[string]wallet),
+		walletsByAddress: make(map[ledgerstate.Address]wallet),
+		inputsByAlias:    make(map[string]ledgerstate.Input),
+		outputsByAlias:   make(map[string]ledgerstate.Output),
+		outputsByID:      make(map[ledgerstate.OutputID]ledgerstate.Output),
+		options:          NewFrameworkOptions(options...),
+	}
+
+	messageTestFramework.createGenesisOutputs()
+
+	tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(func(messageID MessageID) {
+		messageTestFramework.messagesBookedWG.Done()
+	}))
+	tangle.Events.MessageInvalid.Attach(events.NewClosure(func(messageID MessageID) {
+		messageTestFramework.messagesBookedWG.Done()
+	}))
+
+	return
+}
+
+func (m *MessageTestFramework) CreateMessage(messageAlias string, messageOptions ...MessageOption) (message *Message) {
+	options := NewMessageOptions(messageOptions...)
+
+	if transaction := m.buildTransaction(options); transaction != nil {
+		m.messagesByAlias[messageAlias] = newTestParentsPayloadMessage(transaction, m.strongParentIDs(options), m.weakParentIDs(options))
+		return m.messagesByAlias[messageAlias]
+	}
+
+	m.messagesByAlias[messageAlias] = newTestParentsDataMessage(messageAlias, m.strongParentIDs(options), m.weakParentIDs(options))
+	return m.messagesByAlias[messageAlias]
+}
+
+func (m *MessageTestFramework) IssueMessages(messageAliases ...string) *MessageTestFramework {
+	m.messagesBookedWG.Add(len(messageAliases))
+
+	for _, messageAlias := range messageAliases {
+		m.tangle.Storage.StoreMessage(m.messagesByAlias[messageAlias])
+	}
+
+	return m
+}
+
+func (m *MessageTestFramework) WaitMessagesBooked() {
+	m.messagesBookedWG.Wait()
+}
+
+func (m *MessageTestFramework) Message(alias string) (message *Message) {
+	return m.messagesByAlias[alias]
+}
+
+func (m *MessageTestFramework) createGenesisOutputs() {
+	genesisOutputs := make(map[ledgerstate.Address]*ledgerstate.ColoredBalances)
+
+	for alias, balance := range m.options.genesisOutputs {
+		wallet := createWallets(1)[0]
+		m.walletsByAlias[alias] = wallet
+		m.walletsByAddress[wallet.address] = wallet
+
+		genesisOutputs[wallet.address] = ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
+			ledgerstate.ColorIOTA: balance,
+		})
+	}
+
+	for alias, coloredBalances := range m.options.coloredGenesisOutputs {
+		wallet := createWallets(1)[0]
+		m.walletsByAlias[alias] = wallet
+		m.walletsByAddress[wallet.address] = wallet
+
+		genesisOutputs[wallet.address] = ledgerstate.NewColoredBalances(coloredBalances)
+	}
+
+	m.tangle.LedgerState.LoadSnapshot(map[ledgerstate.TransactionID]map[ledgerstate.Address]*ledgerstate.ColoredBalances{
+		ledgerstate.GenesisTransactionID: genesisOutputs,
+	})
+
+	for alias := range m.options.genesisOutputs {
+		m.tangle.LedgerState.utxoDAG.AddressOutputMapping(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *ledgerstate.AddressOutputMapping) {
+			m.tangle.LedgerState.utxoDAG.Output(addressOutputMapping.OutputID()).Consume(func(output ledgerstate.Output) {
+				m.outputsByAlias[alias] = output
+				m.outputsByID[addressOutputMapping.OutputID()] = output
+				m.inputsByAlias[alias] = ledgerstate.NewUTXOInput(addressOutputMapping.OutputID())
+			})
+		})
+	}
+
+	for alias := range m.options.coloredGenesisOutputs {
+		m.tangle.LedgerState.utxoDAG.AddressOutputMapping(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *ledgerstate.AddressOutputMapping) {
+			m.tangle.LedgerState.utxoDAG.Output(addressOutputMapping.OutputID()).Consume(func(output ledgerstate.Output) {
+				m.outputsByAlias[alias] = output
+				m.outputsByID[addressOutputMapping.OutputID()] = output
+			})
+		})
+	}
+}
+
+func (m *MessageTestFramework) buildTransaction(options *MessageOptions) (transaction *ledgerstate.Transaction) {
+	if len(options.inputs) == 0 || len(options.outputs) == 0 {
+		return
+	}
+
+	inputs := make([]ledgerstate.Input, 0)
+	for inputAlias := range options.inputs {
+		inputs = append(inputs, m.inputsByAlias[inputAlias])
+	}
+
+	outputs := make([]ledgerstate.Output, 0)
+	for alias, balance := range options.outputs {
+		wallet := createWallets(1)[0]
+		m.walletsByAlias[alias] = wallet
+		m.walletsByAddress[wallet.address] = wallet
+
+		m.outputsByAlias[alias] = ledgerstate.NewSigLockedSingleOutput(balance, m.walletsByAlias[alias].address)
+
+		outputs = append(outputs, m.outputsByAlias[alias])
+	}
+	for alias, balances := range options.coloredOutputs {
+		wallet := createWallets(1)[0]
+		m.walletsByAlias[alias] = wallet
+		m.walletsByAddress[wallet.address] = wallet
+
+		m.outputsByAlias[alias] = ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(balances), m.walletsByAlias[alias].address)
+
+		outputs = append(outputs, m.outputsByAlias[alias])
+	}
+
+	transaction = makeTransaction(ledgerstate.NewInputs(inputs...), ledgerstate.NewOutputs(outputs...), m.outputsByID, m.walletsByAddress)
+	for outputIndex, output := range transaction.Essence().Outputs() {
+		for alias, aliasedOutput := range m.outputsByAlias {
+			if aliasedOutput == output {
+				output.SetID(ledgerstate.NewOutputID(transaction.ID(), uint16(outputIndex)))
+
+				m.outputsByID[output.ID()] = output
+				m.inputsByAlias[alias] = ledgerstate.NewUTXOInput(output.ID())
+
+				break
+			}
+		}
+	}
+
+	return
+}
+
+func (m *MessageTestFramework) strongParentIDs(options *MessageOptions) (strongParentIDs []MessageID) {
+	strongParentIDs = make([]MessageID, 0)
+	for strongParentAlias := range options.strongParents {
+		if strongParentAlias == "Genesis" {
+			strongParentIDs = append(strongParentIDs, EmptyMessageID)
+
+			continue
+		}
+
+		strongParentIDs = append(strongParentIDs, m.messagesByAlias[strongParentAlias].ID())
+	}
+
+	return
+}
+
+func (m *MessageTestFramework) weakParentIDs(options *MessageOptions) (weakParentIDs []MessageID) {
+	weakParentIDs = make([]MessageID, 0)
+	for weakParentAlias := range options.strongParents {
+		if weakParentAlias == "Genesis" {
+			weakParentIDs = append(weakParentIDs, EmptyMessageID)
+
+			continue
+		}
+
+		weakParentIDs = append(weakParentIDs, m.messagesByAlias[weakParentAlias].ID())
+	}
+
+	return
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region FrameworkOptions /////////////////////////////////////////////////////////////////////////////////////////////
+
+type FrameworkOptions struct {
+	genesisOutputs        map[string]uint64
+	coloredGenesisOutputs map[string]map[ledgerstate.Color]uint64
+}
+
+func NewFrameworkOptions(options ...FrameworkOption) (frameworkOptions *FrameworkOptions) {
+	frameworkOptions = &FrameworkOptions{
+		genesisOutputs:        make(map[string]uint64),
+		coloredGenesisOutputs: make(map[string]map[ledgerstate.Color]uint64),
+	}
+
+	for _, option := range options {
+		option(frameworkOptions)
+	}
+
+	return
+}
+
+type FrameworkOption func(*FrameworkOptions)
+
+func GenesisOutput(alias string, balance uint64) FrameworkOption {
+	return func(options *FrameworkOptions) {
+		if _, exists := options.genesisOutputs[alias]; exists {
+			panic(fmt.Sprintf("duplicate genesis output alias (%s)", alias))
+		}
+		if _, exists := options.coloredGenesisOutputs[alias]; exists {
+			panic(fmt.Sprintf("duplicate genesis output alias (%s)", alias))
+		}
+
+		options.genesisOutputs[alias] = balance
+	}
+}
+
+func ColoredGenesisOutput(alias string, balances map[ledgerstate.Color]uint64) FrameworkOption {
+	return func(options *FrameworkOptions) {
+		if _, exists := options.genesisOutputs[alias]; exists {
+			panic(fmt.Sprintf("duplicate genesis output alias (%s)", alias))
+		}
+		if _, exists := options.coloredGenesisOutputs[alias]; exists {
+			panic(fmt.Sprintf("duplicate genesis output alias (%s)", alias))
+		}
+
+		options.coloredGenesisOutputs[alias] = balances
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region MessageOptions ///////////////////////////////////////////////////////////////////////////////////////////////
+
+type MessageOptions struct {
+	inputs         map[string]types.Empty
+	outputs        map[string]uint64
+	coloredOutputs map[string]map[ledgerstate.Color]uint64
+	strongParents  map[string]types.Empty
+	weakParents    map[string]types.Empty
+}
+
+func NewMessageOptions(options ...MessageOption) (messageOptions *MessageOptions) {
+	messageOptions = &MessageOptions{
+		inputs:        make(map[string]types.Empty),
+		outputs:       make(map[string]uint64),
+		strongParents: make(map[string]types.Empty),
+		weakParents:   make(map[string]types.Empty),
+	}
+
+	for _, option := range options {
+		option(messageOptions)
+	}
+
+	return
+}
+
+type MessageOption func(*MessageOptions)
+
+func Inputs(inputAliases ...string) MessageOption {
+	return func(options *MessageOptions) {
+		for _, inputAlias := range inputAliases {
+			options.inputs[inputAlias] = types.Void
+		}
+	}
+}
+
+func Output(alias string, balance uint64) MessageOption {
+	return func(options *MessageOptions) {
+		options.outputs[alias] = balance
+	}
+}
+
+func ColoredOutput(alias string, balances map[ledgerstate.Color]uint64) MessageOption {
+	return func(options *MessageOptions) {
+		options.coloredOutputs[alias] = balances
+	}
+}
+
+func StrongParents(messageAliases ...string) MessageOption {
+	return func(options *MessageOptions) {
+		for _, messageAlias := range messageAliases {
+			options.strongParents[messageAlias] = types.Void
+		}
+	}
+}
+
+func WeakParents(messageAliases ...string) MessageOption {
+	return func(options *MessageOptions) {
+		for _, messageAlias := range messageAliases {
+			options.weakParents[messageAlias] = types.Void
+		}
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Utility functions ////////////////////////////////////////////////////////////////////////////////////////////
 
 var sequenceNumber uint64
 
@@ -140,3 +452,5 @@ func selectIndex(transaction *ledgerstate.Transaction, w wallet) (index uint16) 
 	}
 	return
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
