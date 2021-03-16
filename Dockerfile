@@ -1,3 +1,4 @@
+# syntax = docker/dockerfile:1.2
 ############################
 # Build
 ############################
@@ -24,13 +25,10 @@ RUN go mod verify
 # 3. Build the binary
 # 4. Verify that goshimmer binary is statically linked
 RUN --mount=target=. \
-
     --mount=type=cache,target=/root/.cache/go-build \
-
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags='-w -s -extldflags "-static"' \
     -o /go/bin/goshimmer; \
-
     ./check_static.sh
 
 ############################
