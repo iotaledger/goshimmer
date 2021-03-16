@@ -1,49 +1,46 @@
 #### TANGLE
-An append only data structure where each item references two other items.
+An append only message data structure where each message references two other messages.
 
 #### MESSAGE
-The object type which is gossiped between neighbors. All gossiped information is included in a message.
+The object that is gossiped between neighbors. All gossiped information is included in a message. The most basic unit of information of the IOTA Protocol. Each object has a type and size and contains data.
 
-#### MESSAGE TANGLE
-The collection of all messages.
+### MARKERS
+A tool that exists only locally and allows to perform certain calcuations more efficiently. Such as approval weight calculation or the existence of certain messages in the past or future cone of another message.
 
-#### OBJECT
-The most basic unit of information of the IOTA Protocol. Each object has a type and size and contains data.
-
-#### CORE OBJECT TYPE
-An object type which must be parsed by all users. Core object types include:
-* Value objects
-* FPC Opinion objects
-* DRNG objects
-* Salt declaration objects
-* Generic data objects
-
-#### GENERIC DATA OBJECT
-The most basic object type.
+### EPOCH
+A time interval that is used for a certain type of consensus mana. At the end of each epoch a snapshot of the state of mana distribution in the network is taken. Since this tool employs the timestamp of messages every node can reach consensus on a epoch's mana distibution eventually.
 
 #### PAYLOAD
-A field in an object which can only be filled by another object.
-
-#### VALUE TANGLE
-The collection of all value objects.
+A field in a message which determines the type. Examples are:
+* Value payload
+* FPC Opinion payload
+* dRNG payload
+* Salt declaration payload
+* Generic data payload
 
 #### VALUE TRANSFER APPLICATION
 The application which maintains the ledger state.
 
-#### VALUE OBJECT
-The basic object of the value transfer application.
-
 #### TRANSACTION
-The payload of a value object. It contains the particulars of a transfer of funds.
+The payload of a value message. It contains the particulars of a transfer of funds.
 
 #### UTXO
 Unspent transaction output.
 
 #### TIP
-A message/value object that has not yet been approved.
+A message that has not yet been approved.
 
 #### TIP SELECTION
-The process of selecting previous messages/value objects to be referenced by a new message/value object. These references are where a message/value object attaches to the existing data structure. IOTA only enforces that a message/value object approves two other messages/value objects, but the tip selection strategy is left up to the user (with a good default provided by IOTA).
+The process of selecting previous messages to be referenced by a new message. These references are where a message attaches to the existing data structure. IOTA only enforces that a message approves (at least) two other messages, but the tip selection strategy is left up to the user (with a good default provided by IOTA).
+
+### STRONG/WEAK PARENT
+A message approved by another message is called a parent to the latter. A parent can be selected as strong or weak parent. If the past cone of the parent is liked the parent is set as strong parent. If the message is liked but its past cone is disliked it is set as a weak parent. This mechanism is called approval switch.
+
+### APPROVAL SWITCH
+When selecting a message as a parent, we can select from the strong or weak tip pool. This mechanism is called approval switch. 
+
+### APPROVAL WEIGHT
+A message gains mana weight, by messages approving it directly or indirectly. However, only strong parents can propagate the mana weight to the past, while weak parents obtain the weight from its weak children but don't propagate it.d
 
 #### NETWORK LAYER
 This layer manages the lower layers of internet communication like TCP. It is the most technical, and in some ways the least interesting. In this layer, the connections between nodes are managed by the autopeering and peer discovery modules and the gossip protocol.
@@ -133,7 +130,7 @@ The solidification time is the point at which the entire history of a transactio
 An attack in which a malicious node attempts to split the Tangle into two branches. As one of the branches grows the attacker publishes transactions on the other branch to keep both alive.Splitting attacks attempt to slow down the consensus process or conduct a double spend.
 
 #### SUBTANGLE
-A consistent section of the Tangle (i.e. a subset of messages/value objects), such that each included message/value object also includes its referenced messages/value objects.
+A consistent section of the Tangle (i.e. a subset of messages), such that each included message also includes its referenced messages.
 
 #### SYBIL ATTACK
 An attempt to gain control over a peer-to-peer network by forging multiple fake identities.
