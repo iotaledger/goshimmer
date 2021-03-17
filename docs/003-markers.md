@@ -30,7 +30,7 @@ Let's define the terms related to markers:
 ## Detailed Design
 
 ### The Markers
-Markers are messages selected from the tip set periodically and assigned unique identifiers, in the form of $[`SID`, `MI`]$. 
+Markers are messages selected from the tip set periodically and assigned unique identifiers, in the form of $[SID, MI]$. 
 
 #### Marker Structure
 <table>
