@@ -20,13 +20,12 @@ ENV GO111MODULE=on
 RUN go mod download
 RUN go mod verify
 
-COPY . .
-
 # 1. Mount everything from the current directory to the PWD(Present Working Directory) inside the container
 # 2. Mount the build cache volume
 # 3. Build the binary
 # 4. Verify that goshimmer binary is statically linked
-RUN --mount=type=cache,target=/root/.cache/go-build \
+RUN --mount=target=. \
+    --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags='-w -s -extldflags "-static"' \
     -o /go/bin/goshimmer; \
