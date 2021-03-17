@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
@@ -255,9 +256,10 @@ func (s *Storage) MarkerIndexBranchIDMapping(sequenceID markers.SequenceID, comp
 func (s *Storage) storeGenesis() {
 	s.MessageMetadata(EmptyMessageID, func() *MessageMetadata {
 		genesisMetadata := &MessageMetadata{
-			messageID: EmptyMessageID,
-			solid:     true,
-			branchID:  ledgerstate.MasterBranchID,
+			solidificationTime: clock.SyncedTime().Add(time.Duration(-20) * time.Minute),
+			messageID:          EmptyMessageID,
+			solid:              true,
+			branchID:           ledgerstate.MasterBranchID,
 			structureDetails: &markers.StructureDetails{
 				Rank:          0,
 				IsPastMarker:  false,
@@ -274,7 +276,6 @@ func (s *Storage) storeGenesis() {
 
 		return genesisMetadata
 	}).Release()
-
 }
 
 // deleteStrongApprover deletes an Approver from the object storage that was created by a strong parent.

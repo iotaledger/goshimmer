@@ -6,6 +6,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
@@ -191,6 +192,7 @@ type Options struct {
 	IncreaseMarkersIndexCallback markers.IncreaseIndexCallback
 	TangleWidth                  int
 	ConsensusMechanism           ConsensusMechanism
+	GenesisNode                  *ed25519.PublicKey
 }
 
 // Store is an Option for the Tangle that allows to specify which storage layer is supposed to be used to persist data.
@@ -222,10 +224,24 @@ func IncreaseMarkersIndexCallback(callback markers.IncreaseIndexCallback) Option
 	}
 }
 
-// TangleWidth is an Option for the Tangle that allows to change the strategy how Tips get removed.
-func TangleWidth(width int) Option {
+// Width is an Option for the Tangle that allows to change the strategy how Tips get removed.
+func Width(width int) Option {
 	return func(options *Options) {
 		options.TangleWidth = width
+	}
+}
+
+// GenesisNode is an Option for the Tangle that allows to set the GenesisNode, i.e., the node that is allowed to attach
+// to the Genesis Message.
+func GenesisNode(genesisNode string) Option {
+	var genesisPublicKey *ed25519.PublicKey
+	pk, _, err := ed25519.PublicKeyFromBytes([]byte(genesisNode))
+	if err == nil {
+		genesisPublicKey = &pk
+	}
+
+	return func(options *Options) {
+		options.GenesisNode = genesisPublicKey
 	}
 }
 

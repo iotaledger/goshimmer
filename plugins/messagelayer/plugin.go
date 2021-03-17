@@ -93,8 +93,9 @@ func Tangle() *tangle.Tangle {
 		tangleInstance = tangle.New(
 			tangle.Store(database.Store()),
 			tangle.Identity(local.GetInstance().LocalIdentity()),
-			tangle.TangleWidth(Parameters.TangleWidth),
+			tangle.Width(Parameters.TangleWidth),
 			tangle.Consensus(ConsensusMechanism()),
+			tangle.GenesisNode(Parameters.Snapshot.GenesisNode),
 		)
 
 		tangleInstance.Setup()
