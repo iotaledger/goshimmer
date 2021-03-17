@@ -27,7 +27,7 @@ Let's define the terms related to markers:
 * **past marker (`PM`):** A past marker of a message is a marker in its past cone. For a given sequence it is set to the newest past marker of its parents, that is the one that has the largest `MI`. The past marker of a marker is set to itself.
 * **sequence rank:** The rank of a sequence will be simply called rank throughout this code. Bear in mind that for clarity the marker rank is called index.
 
-## Detailed Design
+## Design
 
 ### The Markers
 Markers are messages selected from the tip set periodically and assigned unique identifiers, in the form of $[SID, MI]$. 
@@ -65,7 +65,7 @@ A new marker is created when:
 2. A new sequence is created. 
 > :mega: to be confirmed here.
  
-A new marker is selected from the strong tips set randomly, and selected from the weak tips set if there's no strong tip. A new pair of $[`SID`, `MI`]$ is assigned to the new marker. 
+A new marker is selected from the strong tips set randomly, and selected from the weak tips set if there's no strong tip. A new pair of $[SID, MI]$ is assigned to the new marker. 
 > :mega:  to be confirmed here.
 
 
@@ -203,7 +203,7 @@ When a new sequence is created we check the parent marker' sequences with the fu
 
 An example is **msg 10** in the figure above, $[0,2], [1,1], [2,3]$ are `PM`s to be considered to inherit. $[2,3]$ is the first marker to check, since it has the highest sequence rank. We select the parent sequences of $[2,3]$, which are $0$ and $1$, and the referenced `PM`s therein. Next any `PM`s that are already referenced can be removed. This results in that the PMs of **msg 10** is $[2,3]$ only.
 
-In the following we show an implementation of  `normalizeMarkers()`, which returns the markers and sequences that will be inherited from a message.
+In the following we show the implementation of  `normalizeMarkers()`, which returns the markers and sequences that will be inherited from a message.
 ```go
 // normalizeMarkers takes a set of Markers and removes each Marker that is already referenced by another Marker in the
 // same set (the remaining Markers are the "most special" Markers that reference all Markers in the set grouped by the
@@ -286,7 +286,7 @@ func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkersByRank *m
 ### Markers Application: Past Cone Check
 By comparing the past and future markers of messages, we can easily tell if one is in another's past cone. The function returns a `TriBool` representing the three possible statuses: `True`, `False` and `Maybe`. If `Maybe` is returned, then we need to perform a search of the Tangle by walking by means of e.g. a Breadth-First Search.
 
-#### Implementation
+In the following we show the implementation of the past cone check: 
 ```go
 // IsInPastCone checks if the earlier Markers are directly or indirectly referenced by the later Markers.
 func (m *Manager) IsInPastCone(earlierMarkers *MarkersPair, laterMarkers *MarkersPair) (referenced TriBool) {
