@@ -57,7 +57,7 @@ func NewMessageTestFramework(tangle *Tangle, options ...MessageTestFrameworkOpti
 
 // CreateMessage creates a Message with the given alias and MessageTestFrameworkMessageOptions.
 func (m *MessageTestFramework) CreateMessage(messageAlias string, messageOptions ...MessageOption) (message *Message) {
-	options := NewMessageOptions(messageOptions...)
+	options := NewMessageTestFrameworkMessageOptions(messageOptions...)
 
 	if transaction := m.buildTransaction(options); transaction != nil {
 		m.messagesByAlias[messageAlias] = newTestParentsPayloadMessage(transaction, m.strongParentIDs(options), m.weakParentIDs(options))
@@ -272,6 +272,8 @@ func WithColoredGenesisOutput(alias string, balances map[ledgerstate.Color]uint6
 
 // region MessageTestFrameworkMessageOptions ///////////////////////////////////////////////////////////////////////////
 
+// MessageTestFrameworkOptions is a struct that represents a collection of options that can be set when creating a
+// Message with the MessageTestFramework.
 type MessageTestFrameworkMessageOptions struct {
 	inputs         map[string]types.Empty
 	outputs        map[string]uint64
@@ -280,7 +282,7 @@ type MessageTestFrameworkMessageOptions struct {
 	weakParents    map[string]types.Empty
 }
 
-func NewMessageOptions(options ...MessageOption) (messageOptions *MessageTestFrameworkMessageOptions) {
+func NewMessageTestFrameworkMessageOptions(options ...MessageOption) (messageOptions *MessageTestFrameworkMessageOptions) {
 	messageOptions = &MessageTestFrameworkMessageOptions{
 		inputs:        make(map[string]types.Empty),
 		outputs:       make(map[string]uint64),
@@ -297,6 +299,7 @@ func NewMessageOptions(options ...MessageOption) (messageOptions *MessageTestFra
 
 type MessageOption func(*MessageTestFrameworkMessageOptions)
 
+// WithInputs returns a MessageOption that is used to provide the Inputs of the Transaction.
 func WithInputs(inputAliases ...string) MessageOption {
 	return func(options *MessageTestFrameworkMessageOptions) {
 		for _, inputAlias := range inputAliases {
