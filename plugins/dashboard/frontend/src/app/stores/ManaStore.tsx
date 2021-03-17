@@ -328,7 +328,7 @@ export class ManaStore {
         let histInput = new Array()
         for (let i = 0; i < this.accessNetworkRichest.length; i++) {
             histInput.push(
-                [this.accessNetworkRichest[i].shortNodeID, this.accessNetworkRichest[i].mana]
+                [this.accessNetworkRichest[i].shortNodeID, Math.log10(this.accessNetworkRichest[i].mana)]
             )
         }
         return histInput
@@ -342,7 +342,7 @@ export class ManaStore {
         let histInput = new Array()
         for (let i = 0; i < this.consensusNetworkRichest.length; i++) {
             histInput.push(
-                [this.consensusNetworkRichest[i].shortNodeID, this.consensusNetworkRichest[i].mana]
+                [this.consensusNetworkRichest[i].shortNodeID, Math.log10(this.consensusNetworkRichest[i].mana)]
             )
         }
         return histInput
