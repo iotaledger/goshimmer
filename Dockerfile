@@ -1,5 +1,4 @@
-# syntax = docker/dockerfile@sha256:6ce32b7af840de740a21ba297f7d1c31e0f1eb0d6b03c0efc03ae0cca9c8fd2a
-# Use Docker fronted docker/dockerfile:1.2.1 to enable BuildKit features.
+# syntax = docker/dockerfile:1.2.1
 
 ############################
 # Build
