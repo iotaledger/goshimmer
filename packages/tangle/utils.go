@@ -113,8 +113,24 @@ func (u *Utils) TransactionApprovedByMessage(transactionID ledgerstate.Transacti
 			return true
 		}
 
+		var attachmentBooked bool
+		u.tangle.Storage.MessageMetadata(attachmentMessageID).Consume(func(attachmentMetadata *MessageMetadata) {
+			attachmentBooked = attachmentMetadata.IsBooked()
+		})
+		if !attachmentBooked {
+			continue
+		}
+
 		u.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 			for _, parentID := range message.StrongParents() {
+				var parentBooked bool
+				u.tangle.Storage.MessageMetadata(parentID).Consume(func(parentMetadata *MessageMetadata) {
+					parentBooked = parentMetadata.IsBooked()
+				})
+				if !parentBooked {
+					continue
+				}
+
 				if u.MessageApprovedBy(attachmentMessageID, parentID) {
 					approved = true
 					return
@@ -142,6 +158,14 @@ func (u *Utils) MessageApprovedBy(approvedMessageID MessageID, approvingMessageI
 
 	for _, weakApprover := range cachedWeakApprovers.Unwrap() {
 		if weakApprover == nil {
+			continue
+		}
+
+		var weakApproverBooked bool
+		u.tangle.Storage.MessageMetadata(weakApprover.ApproverMessageID()).Consume(func(weakApproverMetadata *MessageMetadata) {
+			weakApproverBooked = weakApproverMetadata.IsBooked()
+		})
+		if !weakApproverBooked {
 			continue
 		}
 

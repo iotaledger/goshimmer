@@ -321,6 +321,29 @@ func (m *Markers) Clone() (clonedMarkers *Markers) {
 	return
 }
 
+// Equals is a comparator for two Markers.
+func (m *Markers) Equals(other *Markers) (equals bool) {
+	m.markersMutex.RLock()
+	defer m.markersMutex.RUnlock()
+
+	if len(m.markers) != len(other.markers) {
+		return false
+	}
+
+	for sequenceID, index := range m.markers {
+		otherIndex, exists := other.markers[sequenceID]
+		if !exists {
+			return false
+		}
+
+		if otherIndex != index {
+			return false
+		}
+	}
+
+	return true
+}
+
 // Bytes returns the Markers in serialized byte form.
 func (m *Markers) Bytes() (marshalMarkers []byte) {
 	m.markersMutex.RLock()
