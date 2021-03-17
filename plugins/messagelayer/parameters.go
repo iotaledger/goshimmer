@@ -11,7 +11,7 @@ var Parameters = struct {
 	Snapshot struct {
 		// File is the path to the snapshot file.
 		File        string `default:"./snapshot.bin" usage:"the path to the snapshot file"`
-		GenesisNode string `default:"Gm7W191NDnqyF7KJycZqK7V6ENLwqxTwoKQN4SmpkB24" usage:"the node that is allowed to attach to the genesis message"`
+		GenesisNode string `default:"Gm7W191NDnqyF7KJycZqK7V6ENLwqxTwoKQN4SmpkB24" usage:"the node (base58 public key) that is allowed to attach to the genesis message"`
 	}
 
 	// FCOB contains parameters related to the fast consensus of barcelona.
