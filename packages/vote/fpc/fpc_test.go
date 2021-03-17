@@ -46,10 +46,10 @@ func TestVoteContext_HadFixedRound(t *testing.T) {
 	var tests = []testInput{
 		{vote.Context{
 			Opinions: []opinion.Opinion{opinion.Like, opinion.Like, opinion.Like, opinion.Like, opinion.Like},
-		}, 0, 6, 2,true},
+		}, 2, 4, 2,true},
 		{vote.Context{
-			Opinions: []opinion.Opinion{opinion.Like, opinion.Dislike, opinion.Like, opinion.Like, opinion.Like},
-		}, 0, 5, 2, false},
+			Opinions: []opinion.Opinion{opinion.Like, opinion.Like, opinion.Like, opinion.Like, opinion.Dislike},
+		}, 2, 4, 2,false},
 	}
 	for _, test := range tests {
 		assert.Equal(t, test.want, test.voteCtx.HadFixedRound(test.coolOffPeriod, test.finalizationThreshold, test.fixedEndingThreshold))

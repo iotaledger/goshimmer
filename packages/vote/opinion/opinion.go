@@ -94,3 +94,14 @@ func ConvertOpinionsToInts32(opinions []Opinion) []int32 {
 	}
 	return result
 }
+
+// ConvertOpinionToFloat64 converts the given Opinion to an float64.
+func ConvertOpinionToFloat64(x Opinion) float64 {
+	switch {
+	case x == Like:
+		return 1
+	case x == Dislike:
+		return 2
+	}
+	return 4
+}

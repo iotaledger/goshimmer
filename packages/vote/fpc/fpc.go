@@ -155,21 +155,11 @@ func (f *FPC) formOpinions(rand float64) {
 		if voteCtx.IsNew() {
 			continue
 		}
+		// TODO add mana to context after merging with Piotr's changes
+		lowerThreshold, upperThreshold := f.setThreshold(voteCtx)
 
-		lowerThreshold := f.paras.SubsequentRoundsLowerBoundThreshold
-		upperThreshold := f.paras.SubsequentRoundsUpperBoundThreshold
-
-		if voteCtx.HadFirstRound() {
-			lowerThreshold = f.paras.FirstRoundLowerBoundThreshold
-			upperThreshold = f.paras.FirstRoundUpperBoundThreshold
-		}
-
-		if voteCtx.HadLastFixedRound(f.paras.CoolingOffPeriod, f.paras.FinalizationThreshold, f.paras.FixedEndingThreshold) {
-			lowerThreshold = f.paras.EndingRoundsFixedThreshold
-			upperThreshold = f.paras.EndingRoundsFixedThreshold
-		}
-
-		if voteCtx.Liked >= RandUniformThreshold(rand, lowerThreshold, upperThreshold) {
+		eta := f.biasTowardsOwnOpinion(voteCtx)
+		if eta >= RandUniformThreshold(rand, lowerThreshold, upperThreshold) {
 			voteCtx.AddOpinion(opinion.Like)
 			continue
 		}
@@ -292,7 +282,6 @@ func (f *FPC) queryOpinions() ([]opinion.QueriedOpinions, error) {
 	for id, votes := range voteMap {
 		var likedSum float64
 		votedCount := float64(len(votes))
-
 		for _, o := range votes {
 			switch o {
 			case opinion.Unknown:
@@ -325,4 +314,33 @@ func (f *FPC) voteContextIDs() (conflictIDs []string, timestampIDs []string) {
 		}
 	}
 	return conflictIDs, timestampIDs
+}
+
+// get round boundaries based on the voting stage
+func (f *FPC) setThreshold(voteCtx *vote.Context) (float64, float64) {
+	lowerThreshold := f.paras.SubsequentRoundsLowerBoundThreshold
+	upperThreshold := f.paras.SubsequentRoundsUpperBoundThreshold
+
+	if voteCtx.HadFirstRound() {
+		lowerThreshold = f.paras.FirstRoundLowerBoundThreshold
+		upperThreshold = f.paras.FirstRoundUpperBoundThreshold
+	}
+
+	if voteCtx.HadFixedRound(f.paras.CoolingOffPeriod, f.paras.FinalizationThreshold, f.paras.FixedEndingThreshold) {
+		lowerThreshold = f.paras.EndingRoundsFixedThreshold
+		upperThreshold = f.paras.EndingRoundsFixedThreshold
+	}
+
+	return lowerThreshold, upperThreshold
+}
+
+// Node biases the received Liked opinion to its current own opinion using base mana proportions
+func (f *FPC) biasTowardsOwnOpinion(voteCtx *vote.Context) float64 {
+	if voteCtx.OwnMana == 0 || voteCtx.TotalMana == 0 {
+		return voteCtx.Liked
+	}
+	ownOpinion := opinion.ConvertOpinionToFloat64(voteCtx.LastOpinion())
+	eta := voteCtx.OwnMana/voteCtx.TotalMana * ownOpinion + (1 - voteCtx.OwnMana/voteCtx.TotalMana) * voteCtx.Liked
+	return eta
+
 }

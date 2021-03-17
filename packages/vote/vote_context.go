@@ -32,6 +32,10 @@ type Context struct {
 	// Append-only list of opinions formed after each round.
 	// the first opinion is the initial opinion when this vote context was created.
 	Opinions []opinion.Opinion
+	//Total base mana of opinion givers from the last query
+	TotalMana float64
+	// Own mana from the last query
+	OwnMana float64
 }
 
 // AddOpinion adds the given opinion to this vote context.
@@ -78,32 +82,23 @@ func (vc *Context) HadFirstRound() bool {
 // HadFixedRound tells whether the vote context is in the last l2 rounds of fixed threshold
 func (vc *Context) HadFixedRound(coolingOffPeriod int, finalizationThreshold int, fixedEndingThreshold int) bool {
 	// check whether we have enough opinions to say whether this vote context is finalized.
-	if len(vc.Opinions[1:]) < coolingOffPeriod+finalizationThreshold {
+	consecutiveRounds := finalizationThreshold - fixedEndingThreshold // l - l2
+	if len(vc.Opinions[1:]) < coolingOffPeriod + consecutiveRounds {
 		return false
 	}
-	if len(vc.Opinions) < finalizationThreshold - fixedEndingThreshold {
+	if len(vc.Opinions) < consecutiveRounds {
 		return false
 	}
-	startIdx := len(vc.Opinions) - finalizationThreshold + 1
-	// opinion vector has length between finalizationThreshold and fixedEndingThreshold
-	if startIdx < 1 {
-		startIdx = 1
-	}
-	prevOpinion := vc.Opinions[startIdx-1]
-	consecutiveCount := 1
-	for _, subsequentOpinion := range vc.Opinions[startIdx:] {
-		if prevOpinion == subsequentOpinion {
-			consecutiveCount++
-		} else {
-			consecutiveCount = 1
+	// grab opinion which needs to be held for finalizationThreshold number of rounds
+	candidateOpinion := vc.Opinions[len(vc.Opinions) - consecutiveRounds]
+
+	// check whether it was held for the subsequent rounds
+	for _, subsequentOpinion := range vc.Opinions[len(vc.Opinions)-consecutiveRounds+1:] {
+		if subsequentOpinion != candidateOpinion {
+			return false
 		}
-		prevOpinion = subsequentOpinion
 	}
-	// if finalizationThreshold - fixedEndingThreshold rounds with unchanged opinion has passed
-	if consecutiveCount > finalizationThreshold - fixedEndingThreshold {
-		return true
-	}
-	return false
+	return true
 }
 
 
