@@ -16,6 +16,8 @@ import (
 
 // region MessageTestFramework /////////////////////////////////////////////////////////////////////////////////////////
 
+// MessageTestFramework implements a framework for conveniently issuing messages in a tangle as part of unit tests in a
+// simplified way.
 type MessageTestFramework struct {
 	tangle           *Tangle
 	messagesByAlias  map[string]*Message
@@ -24,11 +26,12 @@ type MessageTestFramework struct {
 	inputsByAlias    map[string]ledgerstate.Input
 	outputsByAlias   map[string]ledgerstate.Output
 	outputsByID      map[ledgerstate.OutputID]ledgerstate.Output
-	options          *FrameworkOptions
+	options          *MessageTestFrameworkOptions
 	messagesBookedWG sync.WaitGroup
 }
 
-func NewMessageTestFramework(tangle *Tangle, options ...FrameworkOption) (messageTestFramework *MessageTestFramework) {
+// NewMessageTestFramework is the constructor of the MessageTestFramework.
+func NewMessageTestFramework(tangle *Tangle, options ...MessageTestFrameworkOption) (messageTestFramework *MessageTestFramework) {
 	messageTestFramework = &MessageTestFramework{
 		tangle:           tangle,
 		messagesByAlias:  make(map[string]*Message),
@@ -52,6 +55,7 @@ func NewMessageTestFramework(tangle *Tangle, options ...FrameworkOption) (messag
 	return
 }
 
+// CreateMessage creates a Message with the given alias and MessageTestFrameworkMessageOptions.
 func (m *MessageTestFramework) CreateMessage(messageAlias string, messageOptions ...MessageOption) (message *Message) {
 	options := NewMessageOptions(messageOptions...)
 
@@ -64,6 +68,7 @@ func (m *MessageTestFramework) CreateMessage(messageAlias string, messageOptions
 	return m.messagesByAlias[messageAlias]
 }
 
+// IssueMessages stores the given Messages in the Storage and triggers the processing by the Tangle.
 func (m *MessageTestFramework) IssueMessages(messageAliases ...string) *MessageTestFramework {
 	m.messagesBookedWG.Add(len(messageAliases))
 
@@ -74,14 +79,17 @@ func (m *MessageTestFramework) IssueMessages(messageAliases ...string) *MessageT
 	return m
 }
 
+// WaitMessagesBooked waits for all Messages to be processed by the Booker.
 func (m *MessageTestFramework) WaitMessagesBooked() {
 	m.messagesBookedWG.Wait()
 }
 
+// Message retrieves the Messages that is associated with the given alias.
 func (m *MessageTestFramework) Message(alias string) (message *Message) {
 	return m.messagesByAlias[alias]
 }
 
+// createGenesisOutputs initializes the Outputs that are used by the MessageTestFramework as the genesis.
 func (m *MessageTestFramework) createGenesisOutputs() {
 	genesisOutputs := make(map[ledgerstate.Address]*ledgerstate.ColoredBalances)
 
@@ -127,7 +135,9 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 	}
 }
 
-func (m *MessageTestFramework) buildTransaction(options *MessageOptions) (transaction *ledgerstate.Transaction) {
+// buildTransaction creates a Transaction from the given MessageTestFrameworkMessageOptions. It returns nil if there are
+// no Transaction related MessageTestFrameworkMessageOptions.
+func (m *MessageTestFramework) buildTransaction(options *MessageTestFrameworkMessageOptions) (transaction *ledgerstate.Transaction) {
 	if len(options.inputs) == 0 || len(options.outputs) == 0 {
 		return
 	}
@@ -174,8 +184,10 @@ func (m *MessageTestFramework) buildTransaction(options *MessageOptions) (transa
 	return
 }
 
-func (m *MessageTestFramework) strongParentIDs(options *MessageOptions) (strongParentIDs []MessageID) {
-	strongParentIDs = make([]MessageID, 0)
+// strongParentIDs returns the MessageIDs that were defined to be the strong parents of the
+// MessageTestFrameworkMessageOptions.
+func (m *MessageTestFramework) strongParentIDs(options *MessageTestFrameworkMessageOptions) (strongParentIDs MessageIDs) {
+	strongParentIDs = make(MessageIDs, 0)
 	for strongParentAlias := range options.strongParents {
 		if strongParentAlias == "Genesis" {
 			strongParentIDs = append(strongParentIDs, EmptyMessageID)
@@ -189,8 +201,10 @@ func (m *MessageTestFramework) strongParentIDs(options *MessageOptions) (strongP
 	return
 }
 
-func (m *MessageTestFramework) weakParentIDs(options *MessageOptions) (weakParentIDs []MessageID) {
-	weakParentIDs = make([]MessageID, 0)
+// weakParentIDs returns the MessageIDs that were defined to be the weak parents of the
+// MessageTestFrameworkMessageOptions.
+func (m *MessageTestFramework) weakParentIDs(options *MessageTestFrameworkMessageOptions) (weakParentIDs MessageIDs) {
+	weakParentIDs = make(MessageIDs, 0)
 	for weakParentAlias := range options.strongParents {
 		if weakParentAlias == "Genesis" {
 			weakParentIDs = append(weakParentIDs, EmptyMessageID)
@@ -206,15 +220,15 @@ func (m *MessageTestFramework) weakParentIDs(options *MessageOptions) (weakParen
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region FrameworkOptions /////////////////////////////////////////////////////////////////////////////////////////////
+// region MessageTestFrameworkOptions //////////////////////////////////////////////////////////////////////////////////
 
-type FrameworkOptions struct {
+type MessageTestFrameworkOptions struct {
 	genesisOutputs        map[string]uint64
 	coloredGenesisOutputs map[string]map[ledgerstate.Color]uint64
 }
 
-func NewFrameworkOptions(options ...FrameworkOption) (frameworkOptions *FrameworkOptions) {
-	frameworkOptions = &FrameworkOptions{
+func NewFrameworkOptions(options ...MessageTestFrameworkOption) (frameworkOptions *MessageTestFrameworkOptions) {
+	frameworkOptions = &MessageTestFrameworkOptions{
 		genesisOutputs:        make(map[string]uint64),
 		coloredGenesisOutputs: make(map[string]map[ledgerstate.Color]uint64),
 	}
@@ -226,10 +240,10 @@ func NewFrameworkOptions(options ...FrameworkOption) (frameworkOptions *Framewor
 	return
 }
 
-type FrameworkOption func(*FrameworkOptions)
+type MessageTestFrameworkOption func(*MessageTestFrameworkOptions)
 
-func GenesisOutput(alias string, balance uint64) FrameworkOption {
-	return func(options *FrameworkOptions) {
+func WithGenesisOutput(alias string, balance uint64) MessageTestFrameworkOption {
+	return func(options *MessageTestFrameworkOptions) {
 		if _, exists := options.genesisOutputs[alias]; exists {
 			panic(fmt.Sprintf("duplicate genesis output alias (%s)", alias))
 		}
@@ -241,8 +255,8 @@ func GenesisOutput(alias string, balance uint64) FrameworkOption {
 	}
 }
 
-func ColoredGenesisOutput(alias string, balances map[ledgerstate.Color]uint64) FrameworkOption {
-	return func(options *FrameworkOptions) {
+func WithColoredGenesisOutput(alias string, balances map[ledgerstate.Color]uint64) MessageTestFrameworkOption {
+	return func(options *MessageTestFrameworkOptions) {
 		if _, exists := options.genesisOutputs[alias]; exists {
 			panic(fmt.Sprintf("duplicate genesis output alias (%s)", alias))
 		}
@@ -256,9 +270,9 @@ func ColoredGenesisOutput(alias string, balances map[ledgerstate.Color]uint64) F
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region MessageOptions ///////////////////////////////////////////////////////////////////////////////////////////////
+// region MessageTestFrameworkMessageOptions ///////////////////////////////////////////////////////////////////////////
 
-type MessageOptions struct {
+type MessageTestFrameworkMessageOptions struct {
 	inputs         map[string]types.Empty
 	outputs        map[string]uint64
 	coloredOutputs map[string]map[ledgerstate.Color]uint64
@@ -266,8 +280,8 @@ type MessageOptions struct {
 	weakParents    map[string]types.Empty
 }
 
-func NewMessageOptions(options ...MessageOption) (messageOptions *MessageOptions) {
-	messageOptions = &MessageOptions{
+func NewMessageOptions(options ...MessageOption) (messageOptions *MessageTestFrameworkMessageOptions) {
+	messageOptions = &MessageTestFrameworkMessageOptions{
 		inputs:        make(map[string]types.Empty),
 		outputs:       make(map[string]uint64),
 		strongParents: make(map[string]types.Empty),
@@ -281,38 +295,38 @@ func NewMessageOptions(options ...MessageOption) (messageOptions *MessageOptions
 	return
 }
 
-type MessageOption func(*MessageOptions)
+type MessageOption func(*MessageTestFrameworkMessageOptions)
 
-func Inputs(inputAliases ...string) MessageOption {
-	return func(options *MessageOptions) {
+func WithInputs(inputAliases ...string) MessageOption {
+	return func(options *MessageTestFrameworkMessageOptions) {
 		for _, inputAlias := range inputAliases {
 			options.inputs[inputAlias] = types.Void
 		}
 	}
 }
 
-func Output(alias string, balance uint64) MessageOption {
-	return func(options *MessageOptions) {
+func WithOutput(alias string, balance uint64) MessageOption {
+	return func(options *MessageTestFrameworkMessageOptions) {
 		options.outputs[alias] = balance
 	}
 }
 
-func ColoredOutput(alias string, balances map[ledgerstate.Color]uint64) MessageOption {
-	return func(options *MessageOptions) {
+func WithColoredOutput(alias string, balances map[ledgerstate.Color]uint64) MessageOption {
+	return func(options *MessageTestFrameworkMessageOptions) {
 		options.coloredOutputs[alias] = balances
 	}
 }
 
-func StrongParents(messageAliases ...string) MessageOption {
-	return func(options *MessageOptions) {
+func WithStrongParents(messageAliases ...string) MessageOption {
+	return func(options *MessageTestFrameworkMessageOptions) {
 		for _, messageAlias := range messageAliases {
 			options.strongParents[messageAlias] = types.Void
 		}
 	}
 }
 
-func WeakParents(messageAliases ...string) MessageOption {
-	return func(options *MessageOptions) {
+func WithWeakParents(messageAliases ...string) MessageOption {
+	return func(options *MessageTestFrameworkMessageOptions) {
 		for _, messageAlias := range messageAliases {
 			options.weakParents[messageAlias] = types.Void
 		}

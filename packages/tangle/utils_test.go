@@ -18,17 +18,17 @@ func TestUtils_AllTransactionsApprovedByMessages(t *testing.T) {
 		panic(err)
 	}))
 
-	messageTestFramework := NewMessageTestFramework(tangle, GenesisOutput("Genesis1", 5), GenesisOutput("Genesis2", 8))
+	mtf := NewMessageTestFramework(tangle, WithGenesisOutput("Genesis1", 5), WithGenesisOutput("Genesis2", 8))
 
-	messageTestFramework.CreateMessage("Message1", StrongParents("Genesis"))
-	messageTestFramework.CreateMessage("Message2", Inputs("Genesis1"), Output("A", 5), StrongParents("Message1"))
-	messageTestFramework.CreateMessage("Message3", StrongParents("Message2"))
-	messageTestFramework.CreateMessage("Message4", StrongParents("Genesis"))
-	messageTestFramework.CreateMessage("Message5", Inputs("Genesis2"), Output("B", 4), Output("C", 4), StrongParents("Message4"))
-	messageTestFramework.CreateMessage("Message6", StrongParents("Message5"))
-	messageTestFramework.CreateMessage("Message7", Inputs("A", "B", "C"), Output("D", 13), StrongParents("Message3", "Message6"))
+	mtf.CreateMessage("Message1", WithStrongParents("Genesis"))
+	mtf.CreateMessage("Message2", WithInputs("Genesis1"), WithOutput("A", 5), WithStrongParents("Message1"))
+	mtf.CreateMessage("Message3", WithStrongParents("Message2"))
+	mtf.CreateMessage("Message4", WithStrongParents("Genesis"))
+	mtf.CreateMessage("Message5", WithInputs("Genesis2"), WithOutput("B", 4), WithOutput("C", 4), WithStrongParents("Message4"))
+	mtf.CreateMessage("Message6", WithStrongParents("Message5"))
+	mtf.CreateMessage("Message7", WithInputs("A", "B", "C"), WithOutput("D", 13), WithStrongParents("Message3", "Message6"))
 
-	messageTestFramework.IssueMessages("Message1", "Message2", "Message3", "Message4", "Message5", "Message6", "Message7").WaitMessagesBooked()
+	mtf.IssueMessages("Message1", "Message2", "Message3", "Message4", "Message5", "Message6", "Message7").WaitMessagesBooked()
 
 	for messageAlias, expectedMarkers := range map[string]*markers.Markers{
 		"Message1": markers.NewMarkers(markers.NewMarker(1, 1)),
@@ -39,7 +39,7 @@ func TestUtils_AllTransactionsApprovedByMessages(t *testing.T) {
 		"Message6": markers.NewMarkers(markers.NewMarker(0, 0)),
 		"Message7": markers.NewMarkers(markers.NewMarker(1, 4)),
 	} {
-		tangle.Storage.MessageMetadata(messageTestFramework.Message(messageAlias).ID()).Consume(func(messageMetadata *MessageMetadata) {
+		tangle.Storage.MessageMetadata(mtf.Message(messageAlias).ID()).Consume(func(messageMetadata *MessageMetadata) {
 			assert.True(t, messageMetadata.StructureDetails().PastMarkers.Equals(expectedMarkers))
 		})
 	}
