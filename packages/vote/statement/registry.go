@@ -205,7 +205,7 @@ func (v *View) TimestampOpinion(id tangle.MessageID) Opinions {
 	return v.Timestamps[id].Opinions
 }
 
-// Query retrievs the opinions about the given conflicts and timestamps.
+// Query retrieves the opinions about the given conflicts and timestamps.
 func (v *View) Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (opinion.Opinions, error) {
 	answer := opinion.Opinions{}
 	for _, id := range conflictIDs {

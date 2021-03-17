@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/prng"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/packages/vote/fpc"
 	votenet "github.com/iotaledger/goshimmer/packages/vote/net"
@@ -224,16 +225,17 @@ type OpinionGivers map[identity.ID]OpinionGiver
 
 // Query retrieves the opinions about the given conflicts and timestamps.
 func (o *OpinionGiver) Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (opinions opinion.Opinions, err error) {
-	for i := 0; i < StatementParameters.WaitForStatement; i++ {
-		if o.view != nil {
-			opinions, err = o.view.Query(ctx, conflictIDs, timestampIDs)
-			if err == nil {
-				return opinions, nil
-			}
+	// wait for statement(s) to arrive
+	time.Sleep(time.Duration(StatementParameters.WaitForStatement) * time.Second)
+	// process opinions from statements
+	if o.view != nil {
+		opinions, err = o.view.Query(ctx, conflictIDs, timestampIDs)
+		if err == nil {
+			return opinions, nil
 		}
-		time.Sleep(time.Second)
 	}
 
+	// query node directly
 	return o.pog.Query(ctx, conflictIDs, timestampIDs)
 }
 
@@ -459,9 +461,19 @@ func makeStatement(roundStats *vote.RoundStats) {
 			)
 		default:
 		}
+		// limit the size of statements
+		maxSize := payload.MaxSize
+		if (len(conflicts)*statement.ConflictLength + len(timestamps)*statement.TimestampLength) >= int(0.9*float64(maxSize)) {
+			broadcastStatement(conflicts, timestamps)
+			timestamps = statement.Timestamps{}
+			conflicts = statement.Conflicts{}
+		}
 	}
 
-	broadcastStatement(conflicts, timestamps)
+	if len(conflicts)+len(timestamps) >= 0 {
+		broadcastStatement(conflicts, timestamps)
+	}
+
 }
 
 // broadcastStatement broadcasts a statement via communication layer.
