@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
+	"github.com/mr-tron/base58"
 	"golang.org/x/xerrors"
 )
 
@@ -233,9 +234,10 @@ func Width(width int) Option {
 
 // GenesisNode is an Option for the Tangle that allows to set the GenesisNode, i.e., the node that is allowed to attach
 // to the Genesis Message.
-func GenesisNode(genesisNode string) Option {
+func GenesisNode(genesisNodeBase58 string) Option {
 	var genesisPublicKey *ed25519.PublicKey
-	pk, _, err := ed25519.PublicKeyFromBytes([]byte(genesisNode))
+	pkBytes, _ := base58.Decode(genesisNodeBase58)
+	pk, _, err := ed25519.PublicKeyFromBytes(pkBytes)
 	if err == nil {
 		genesisPublicKey = &pk
 	}
