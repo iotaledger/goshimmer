@@ -256,7 +256,7 @@ func (s *Storage) MarkerIndexBranchIDMapping(sequenceID markers.SequenceID, comp
 func (s *Storage) storeGenesis() {
 	s.MessageMetadata(EmptyMessageID, func() *MessageMetadata {
 		genesisMetadata := &MessageMetadata{
-			solidificationTime: clock.SyncedTime(),
+			solidificationTime: clock.SyncedTime().Add(time.Duration(-20) * time.Minute),
 			messageID:          EmptyMessageID,
 			solid:              true,
 			branchID:           ledgerstate.MasterBranchID,
