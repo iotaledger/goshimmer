@@ -75,11 +75,36 @@ func (vc *Context) HadFirstRound() bool {
 	return vc.Rounds == 1
 }
 
-// IsEndingRound tells whether the vote context is in the last l2 rounds of fixed threshold
-func (vc *Context) HadLastFixedRound(coolingOffPeriod int, finalizationThreshold int, fixedEndingThreshold int) bool {
-	if fixedEndingThreshold >= finalizationThreshold || fixedEndingThreshold == 0 {
+// HadFixedRound tells whether the vote context is in the last l2 rounds of fixed threshold
+func (vc *Context) HadFixedRound(coolingOffPeriod int, finalizationThreshold int, fixedEndingThreshold int) bool {
+	// check whether we have enough opinions to say whether this vote context is finalized.
+	if len(vc.Opinions[1:]) < coolingOffPeriod+finalizationThreshold {
 		return false
 	}
-	return vc.IsFinalized(coolingOffPeriod, finalizationThreshold-fixedEndingThreshold+1)
+	if len(vc.Opinions) < finalizationThreshold - fixedEndingThreshold {
+		return false
+	}
+	startIdx := len(vc.Opinions) - finalizationThreshold + 1
+	// opinion vector has length between finalizationThreshold and fixedEndingThreshold
+	if startIdx < 1 {
+		startIdx = 1
+	}
+	prevOpinion := vc.Opinions[startIdx-1]
+	consecutiveCount := 1
+	for _, subsequentOpinion := range vc.Opinions[startIdx:] {
+		if prevOpinion == subsequentOpinion {
+			consecutiveCount++
+		} else {
+			consecutiveCount = 1
+		}
+		prevOpinion = subsequentOpinion
+	}
+	// if finalizationThreshold - fixedEndingThreshold rounds with unchanged opinion has passed
+	if consecutiveCount > finalizationThreshold - fixedEndingThreshold {
+		return true
+	}
+	return false
 }
+
+
 

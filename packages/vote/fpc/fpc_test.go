@@ -35,6 +35,27 @@ func TestVoteContext_IsFinalized(t *testing.T) {
 	}
 }
 
+func TestVoteContext_HadFixedRound(t *testing.T) {
+	type testInput struct {
+		voteCtx               vote.Context
+		coolOffPeriod         int
+		finalizationThreshold int
+		fixedEndingThreshold  int
+		want                  bool
+	}
+	var tests = []testInput{
+		{vote.Context{
+			Opinions: []opinion.Opinion{opinion.Like, opinion.Like, opinion.Like, opinion.Like, opinion.Like},
+		}, 0, 6, 2,true},
+		{vote.Context{
+			Opinions: []opinion.Opinion{opinion.Like, opinion.Dislike, opinion.Like, opinion.Like, opinion.Like},
+		}, 0, 5, 2, false},
+	}
+	for _, test := range tests {
+		assert.Equal(t, test.want, test.voteCtx.HadFixedRound(test.coolOffPeriod, test.finalizationThreshold, test.fixedEndingThreshold))
+	}
+}
+
 func TestVoteContext_LastOpinion(t *testing.T) {
 	type testInput struct {
 		voteCtx  vote.Context
