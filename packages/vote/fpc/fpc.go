@@ -213,7 +213,7 @@ func (f *FPC) queryOpinions() ([]opinion.QueriedOpinions, error) {
 	// if the same opinion giver is selected multiple times, we query it only once
 	// but use its opinion N selected times.
 
-	opinionGiversToQuery := f.manaBasedSampling(opinionGivers)
+	opinionGiversToQuery := ManaBasedSampling(opinionGivers, f.paras.MaxQuerySampleSize, f.paras.QuerySampleSize, f.opinionGiverRng)
 
 	// votes per id
 	var voteMapMu sync.Mutex
@@ -306,49 +306,6 @@ func (f *FPC) queryOpinions() ([]opinion.QueriedOpinions, error) {
 	return allQueriedOpinions, nil
 }
 
-// weighted random sampling based on https://eli.thegreenplace.net/2010/01/22/weighted-random-generation-in-python/
-func (f *FPC) manaBasedSampling(opinionGivers []opinion.OpinionGiver) map[opinion.OpinionGiver]int {
-	// TODO: apply mana for weighted sampling instead of uniform sampling
-	// TODO: include yourself in random weighted sampling
-
-	totalConsensusMana := 0.0
-	totals := make([]float64, 0, len(opinionGivers))
-
-	for i := 0; i < len(opinionGivers); i++ {
-		totalConsensusMana += opinionGivers[i].Mana()
-		totals = append(totals, totalConsensusMana)
-	}
-
-	// check almost equal
-	if math.Abs(totalConsensusMana-0.0) <= 1e-9 {
-		// fallback to uniform sampling
-		return f.uniformSampling(opinionGivers)
-	}
-
-	opinionGiversToQuery := map[opinion.OpinionGiver]int{}
-	for i := 0; i < f.paras.MaxQuerySampleSize && len(opinionGiversToQuery) < f.paras.QuerySampleSize; i++ {
-		rnd := f.opinionGiverRng.Float64() * totalConsensusMana
-		for idx, v := range totals {
-			if rnd < v {
-				selected := opinionGivers[idx]
-				opinionGiversToQuery[selected]++
-				break
-			}
-		}
-
-	}
-	return opinionGiversToQuery
-}
-
-func (f *FPC) uniformSampling(opinionGivers []opinion.OpinionGiver) map[opinion.OpinionGiver]int {
-	opinionGiversToQuery := map[opinion.OpinionGiver]int{}
-	for i := 0; i < f.paras.QuerySampleSize; i++ {
-		selected := opinionGivers[f.opinionGiverRng.Intn(len(opinionGivers))]
-		opinionGiversToQuery[selected]++
-	}
-	return opinionGiversToQuery
-}
-
 func (f *FPC) voteContextIDs() (conflictIDs []string, timestampIDs []string) {
 	f.ctxsMu.RLock()
 	defer f.ctxsMu.RUnlock()
@@ -361,4 +318,52 @@ func (f *FPC) voteContextIDs() (conflictIDs []string, timestampIDs []string) {
 		}
 	}
 	return conflictIDs, timestampIDs
+}
+
+func (f *FPC) SetOpinionGiverRng(rng *rand.Rand) {
+	f.opinionGiverRng = rng
+}
+
+// ManaBasedSampling returns list of OpinionGivers to query, weighted by consensus mana. If mana not available, fallback to uniform sampling
+// weighted random sampling based on https://eli.thegreenplace.net/2010/01/22/weighted-random-generation-in-python/
+func ManaBasedSampling(opinionGivers []opinion.OpinionGiver, maxQuerySampleSize, querySampleSize int, rng *rand.Rand) map[opinion.OpinionGiver]int {
+	// TODO: remove yourself in random weighted sampling
+
+	totalConsensusMana := 0.0
+	totals := make([]float64, 0, len(opinionGivers))
+
+	for i := 0; i < len(opinionGivers); i++ {
+		totalConsensusMana += opinionGivers[i].Mana()
+		totals = append(totals, totalConsensusMana)
+	}
+
+	// check almost equal
+	if math.Abs(totalConsensusMana-0.0) <= 1e-9 {
+		// fallback to uniform sampling
+		return UniformSampling(opinionGivers, maxQuerySampleSize, querySampleSize, rng)
+	}
+
+	opinionGiversToQuery := map[opinion.OpinionGiver]int{}
+	for i := 0; i < maxQuerySampleSize && len(opinionGiversToQuery) < querySampleSize; i++ {
+		rnd := rng.Float64() * totalConsensusMana
+		for idx, v := range totals {
+			if rnd < v {
+				selected := opinionGivers[idx]
+				opinionGiversToQuery[selected]++
+				break
+			}
+		}
+
+	}
+	return opinionGiversToQuery
+}
+
+// UniformSampling returns list of OpinionGivers to query, sampled uniformly
+func UniformSampling(opinionGivers []opinion.OpinionGiver, maxQuerySampleSize, querySampleSize int, rng *rand.Rand) map[opinion.OpinionGiver]int {
+	opinionGiversToQuery := map[opinion.OpinionGiver]int{}
+	for i := 0; i < querySampleSize; i++ {
+		selected := opinionGivers[rng.Intn(len(opinionGivers))]
+		opinionGiversToQuery[selected]++
+	}
+	return opinionGiversToQuery
 }
