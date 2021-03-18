@@ -37,7 +37,7 @@ func GetBranchChildrenEndPoint(c echo.Context) (err error) {
 	cachedChildBranches := messagelayer.Tangle().LedgerState.ChildBranches(branchID)
 	defer cachedChildBranches.Release()
 
-	return c.JSON(http.StatusBadRequest, NewBranchChildren(cachedChildBranches.Unwrap()))
+	return c.JSON(http.StatusOK, NewBranchChildren(cachedChildBranches.Unwrap()))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
