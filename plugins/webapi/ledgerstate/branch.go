@@ -24,7 +24,7 @@ func GetBranchEndPoint(c echo.Context) (err error) {
 		return
 	}
 
-	return c.JSON(http.StatusBadRequest, NewErrorResponse(fmt.Errorf("failed to load Branch with %s", branchID)))
+	return c.JSON(http.StatusNotFound, NewErrorResponse(fmt.Errorf("failed to load Branch with %s", branchID)))
 }
 
 // GetBranchChildrenEndPoint is the handler for the /ledgerstate/branch/:branchID/childBranches endpoint.
@@ -66,7 +66,7 @@ func GetBranchConflictsEndPoint(c echo.Context) (err error) {
 		return
 	}
 
-	return c.JSON(http.StatusBadRequest, NewErrorResponse(fmt.Errorf("failed to load Branch with %s", branchID)))
+	return c.JSON(http.StatusNotFound, NewErrorResponse(fmt.Errorf("failed to load Branch with %s", branchID)))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
