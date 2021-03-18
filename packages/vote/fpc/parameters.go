@@ -24,11 +24,13 @@ type Parameters struct {
 	MaxRoundsPerVoteContext int
 	// The max amount of time a query is allowed to take.
 	QueryTimeout time.Duration
+	// MinOpinionsReceived defines the minimum amount of opinions to receive in order to consider an FPC round valid.
+	MinOpinionsReceived int
 }
 
 // DefaultParameters returns the default parameters used in FPC.
 func DefaultParameters() *Parameters {
-	return &Parameters{
+	p := &Parameters{
 		FirstRoundLowerBoundThreshold:       0.67,
 		FirstRoundUpperBoundThreshold:       0.67,
 		SubsequentRoundsLowerBoundThreshold: 0.50,
@@ -40,6 +42,11 @@ func DefaultParameters() *Parameters {
 		MaxRoundsPerVoteContext:             100,
 		QueryTimeout:                        6500 * time.Millisecond,
 	}
+
+	// Setting the minimum amount of received opinions as the half of the quorum size.
+	p.MinOpinionsReceived = p.QuerySampleSize / 2
+
+	return p
 }
 
 // RandUniformThreshold returns random threshold between the given lower/upper bound values.
