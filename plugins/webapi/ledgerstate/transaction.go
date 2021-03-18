@@ -25,29 +25,29 @@ var (
 
 // GetTransactionByIDEndpoint is the handler for /ledgerstate/transactions/:transactionID endpoint.
 func GetTransactionByIDEndpoint(c echo.Context) (err error) {
-	txID, err := ledgerstate.TransactionIDFromBase58(c.Param("transactionID"))
+	transactionID, err := ledgerstate.TransactionIDFromBase58(c.Param("transactionID"))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse(err))
 	}
 
-	if !messagelayer.Tangle().LedgerState.Transaction(txID).Consume(func(transaction *ledgerstate.Transaction) {
+	if !messagelayer.Tangle().LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
 		err = c.JSON(http.StatusOK, NewTransaction(transaction))
 	}) {
-		c.JSON(http.StatusNotFound, NewErrorResponse(ErrTransactionNotFound))
+		c.JSON(http.StatusNotFound, NewErrorResponse(xerrors.Errorf("transaction with %s not found", transactionID)))
 	}
 	return
 }
 
 // GetTransactionMetadataEndpoint is the handler for ledgerstate/transactions/:transactionID/metadata
 func GetTransactionMetadataEndpoint(c echo.Context) (err error) {
-	txID, err := ledgerstate.TransactionIDFromBase58(c.Param("transactionID"))
+	transactionID, err := ledgerstate.TransactionIDFromBase58(c.Param("transactionID"))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse(err))
 	}
-	if !messagelayer.Tangle().LedgerState.TransactionMetadata(txID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+	if !messagelayer.Tangle().LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 		err = c.JSON(http.StatusOK, NewTransactionMetadata(transactionMetadata))
 	}) {
-		return c.JSON(http.StatusNotFound, NewErrorResponse(ErrTransactionMetadataNotFound))
+		return c.JSON(http.StatusNotFound, NewErrorResponse(xerrors.Errorf("transaction metadata with %s not found", transactionID)))
 	}
 
 	return
@@ -55,16 +55,19 @@ func GetTransactionMetadataEndpoint(c echo.Context) (err error) {
 
 // GetTransactionAttachmentsEndpoint is the handler for ledgerstate/transactions/:transactionID/attachments endpoint.
 func GetTransactionAttachmentsEndpoint(c echo.Context) (err error) {
-	txID, err := ledgerstate.TransactionIDFromBase58(c.Param("transactionID"))
+	transactionID, err := ledgerstate.TransactionIDFromBase58(c.Param("transactionID"))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse(err))
 	}
-	cachedAttachments := messagelayer.Tangle().Storage.Attachments(txID)
+
 	var messageIDs tangle.MessageIDs
-	cachedAttachments.Consume(func(attachment *tangle.Attachment) {
+	if !messagelayer.Tangle().Storage.Attachments(transactionID).Consume(func(attachment *tangle.Attachment) {
 		messageIDs = append(messageIDs, attachment.MessageID())
-	})
-	return c.JSON(http.StatusOK, NewAttachments(txID, messageIDs))
+	}) {
+		return c.JSON(http.StatusNotFound, NewErrorResponse(xerrors.Errorf("attachments of transaction with %s not found", transactionID)))
+	}
+
+	return c.JSON(http.StatusOK, NewAttachments(transactionID, messageIDs))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
