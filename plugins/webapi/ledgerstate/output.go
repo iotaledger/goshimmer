@@ -12,21 +12,19 @@ import (
 // region API endpoints ////////////////////////////////////////////////////////////////////////////////////////////////
 
 // GetOutputEndPoint is the handler for the /ledgerstate/outputs/:outputID endpoint.
-func GetOutputEndPoint(c echo.Context) error {
+func GetOutputEndPoint(c echo.Context) (err error) {
 	outputID, err := ledgerstate.OutputIDFromBase58(c.Param("outputID"))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse(err))
 	}
 
-	cachedOutput := messagelayer.Tangle().LedgerState.Output(outputID)
-	defer cachedOutput.Release()
-	// output object is nil if was not found
-	output := cachedOutput.Unwrap()
-	if output == nil {
+	if !messagelayer.Tangle().LedgerState.Output(outputID).Consume(func(output ledgerstate.Output) {
+		err = c.JSON(http.StatusOK, NewOutput(output))
+	}) {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse(xerrors.Errorf("output not present in node")))
 	}
 
-	return c.JSON(http.StatusOK, NewOutput(output))
+	return
 }
 
 // GetOutputConsumersEndPoint is the handler for the /ledgerstate/outputs/:outputID/consumers endpoint.
@@ -36,15 +34,11 @@ func GetOutputConsumersEndPoint(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse(err))
 	}
 
-	cachedConsumers := messagelayer.Tangle().LedgerState.Consumers(outputID)
-	defer cachedConsumers.Release()
-
-	consumers := cachedConsumers.Unwrap()
-	// check all returned and unwrapped objects
-	for _, consumer := range consumers {
-		if consumer == nil {
-			return c.JSON(http.StatusBadRequest, NewErrorResponse(xerrors.Errorf("failed to load consumers")))
-		}
+	consumers := make([]*ledgerstate.Consumer, 0)
+	if !messagelayer.Tangle().LedgerState.Consumers(outputID).Consume(func(consumer *ledgerstate.Consumer) {
+		consumers = append(consumers, consumer)
+	}) {
+		return c.JSON(http.StatusBadRequest, NewErrorResponse(xerrors.Errorf("failed to load consumers")))
 	}
 
 	return c.JSON(http.StatusOK, NewConsumers(outputID, consumers))
@@ -57,15 +51,13 @@ func GetOutputMetadataEndPoint(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, NewErrorResponse(err))
 	}
 
-	cachedOutputMetadata := messagelayer.Tangle().LedgerState.OutputMetadata(outputID)
-	defer cachedOutputMetadata.Release()
-	// outputMetadata object is nil if was not found
-	outputMetadata := cachedOutputMetadata.Unwrap()
-	if outputMetadata == nil {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse(xerrors.Errorf("output metadata not present in node")))
+	if !messagelayer.Tangle().LedgerState.OutputMetadata(outputID).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+		err = c.JSON(http.StatusOK, NewOutputMetadata(outputMetadata))
+	}) {
+		return c.JSON(http.StatusBadRequest, NewErrorResponse(xerrors.Errorf("output metadata not found")))
 	}
 
-	return c.JSON(http.StatusOK, NewOutputMetadata(outputMetadata))
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -74,12 +66,10 @@ func GetOutputMetadataEndPoint(c echo.Context) (err error) {
 
 // Output represents a JSON model of a ledgerstate.Output.
 type Output struct {
-	ID            string           `json:"id"`
-	TransactionID string           `json:"transactionID"`
-	OutputIndex   uint16           `json:"outputIndex"`
-	Type          string           `json:"type"`
-	Balances      []ColoredBalance `json:"balances"`
-	Address       string           `json:"address"`
+	OutputID OutputID         `json:"outputID"`
+	Type     string           `json:"type"`
+	Balances []ColoredBalance `json:"balances"`
+	Address  string           `json:"address"`
 }
 
 // ColoredBalance represents a JSON model of a single colored balance.
@@ -91,10 +81,8 @@ type ColoredBalance struct {
 // NewOutput creates a JSON compatible representation of the output.
 func NewOutput(output ledgerstate.Output) Output {
 	return Output{
-		ID:            output.ID().Base58(),
-		TransactionID: output.ID().TransactionID().Base58(),
-		OutputIndex:   output.ID().OutputIndex(),
-		Type:          output.Type().String(),
+		OutputID: NewOutputID(output.ID()),
+		Type:     output.Type().String(),
 		Balances: func() []ColoredBalance {
 			coloredBalances := make([]ColoredBalance, 0)
 			output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
@@ -114,7 +102,6 @@ func NewOutput(output ledgerstate.Output) Output {
 // Consumers is the JSON model of consumers of the output.
 type Consumers struct {
 	OutputID              string                 `json:"outputID"`
-	ConsumerCount         int                    `json:"consumerCount"`
 	ConsumingTransactions []ConsumingTransaction `json:"consumers"`
 }
 
@@ -127,8 +114,7 @@ type ConsumingTransaction struct {
 // NewConsumers creates a JSON compatible representation of the consumers of the output.
 func NewConsumers(outputID ledgerstate.OutputID, consumers []*ledgerstate.Consumer) Consumers {
 	return Consumers{
-		OutputID:      outputID.Base58(),
-		ConsumerCount: len(consumers),
+		OutputID: outputID.Base58(),
 		ConsumingTransactions: func() []ConsumingTransaction {
 			consumingTransactions := make([]ConsumingTransaction, 0)
 			for _, consumer := range consumers {
