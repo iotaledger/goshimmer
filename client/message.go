@@ -18,8 +18,8 @@ func (api *GoShimmerAPI) GetMessage(base58EncodedID string) (*webapi_message.Mes
 
 	if err := api.do(
 		http.MethodGet,
-		routeMessage,
-		base58EncodedID,
+		routeMessage+base58EncodedID,
+		nil,
 		res,
 	); err != nil {
 		return nil, err
