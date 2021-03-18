@@ -1,3 +1,33 @@
+# v0.5.2 - 2021-03-17
+* Fix markers past cone check
+* Add more information to explorer and message API
+* Restrict Genesis attachment
+* Fix parsing of GenesisNode public key
+* Display mana histogram in log scale on dashboards
+* **Breaking**: bumps network and database versions
+
+# v0.5.1 - 2021-03-15
+* Implement FCoB*
+* Fix markers persistence bug
+* Fix Docker shutdown too early
+* Make FCoB fire the MessageOpinionFormed event only if the event for its parents was also fired
+* Update JS dependencies
+* Refactor parameters in MessageLayer
+* Upgrade go to 1.16.2
+* Upgrade to latest hive.go
+* **Breaking**: bumps network and database versions
+
+# v0.5.0 - 2021-03-11
+* Add Mana (currently not used by any of the modules)
+* Add Mana APIs
+* Add Mana section to the local dashboard
+* Add Mana section to the Pollen Analyzer dashboard
+* Add Mana section to the Grafana dashboard
+* Refactor the Consensus Manager to be independent from the concrete consensus mechanism implemented  
+* Improve Tangle visualizer
+* Improve documentation
+* **Breaking**: bumps network and database versions
+
 # v0.4.1 - 2021-03-02
 * Add orphanage analysis tool
 * Add documentation web-api

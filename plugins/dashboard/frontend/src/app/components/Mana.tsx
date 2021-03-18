@@ -110,6 +110,7 @@ export class Mana extends React.Component<Props, any> {
                                             }}>
                                                 Events
                                             </Badge>
+                                            {' '}
                                             <Badge pill style={{
                                                 backgroundColor: '#a6f6f1',
                                                 color: 'white'

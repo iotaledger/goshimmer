@@ -113,6 +113,7 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 			}(),
 			fmt.Sprintf("--faucet.tokensPerRequest=%d", ParaFaucetTokensPerRequest),
 			fmt.Sprintf("--messageLayer.snapshot.file=%s", config.SnapshotFilePath),
+			"--messageLayer.snapshot.genesisNode=",
 			"--webapi.bindAddress=0.0.0.0:8080",
 			fmt.Sprintf("--autopeering.seed=base58:%s", config.Seed),
 			fmt.Sprintf("--autopeering.entryNodes=%s@%s:14626", config.EntryNodePublicKey, config.EntryNodeHost),

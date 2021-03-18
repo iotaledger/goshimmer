@@ -2,6 +2,33 @@
 
 The mana APIs provide methods for people to retrieve the amount of access/consensus mana of nodes and outputs, as well as the event logs.   
 
+HTTP APIs:
+* [/mana](#mana)
+* [/mana/all](#manaall)
+* [/mana/percentile](#manapercentile)
+* [/mana/access/online](#manaaccessonline)
+* [/mana/consensus/online](#manaconsensusonline)
+* [/mana/access/nhighest](#manaaccessnhighest)
+* [/mana/consensus/nhighest](#manaconsensusnhighest)
+* [/mana/pending](#manapending)
+* [/mana/consensus/past](#manaconsensuspast)
+* [/mana/consensus/logs](#manaconsensuslogs)
+* [/value/allowedManaPledge](#valueallowedmanapledge)
+
+Client lib APIs:
+* [GetOwnMana()](#getownmana)
+* [GetManaFullNodeID()](#getmanafullnodeid)
+* [GetMana with short node ID()](#getmana-with-short-node-id)
+* [GetAllMana()](#client-lib---getallmana)
+* [GetManaPercentile()](#client-lib---getmanapercentile)
+* [GetOnlineAccessMana()](#client-lib---getonlineaccessmana)
+* [GetOnlineConsensusMana()](#client-lib---getonlineconsensusmana)
+* [GetNHighestAccessMana()](#client-lib---getnhighestaccessmana)
+* [GetNHighestConsensusMana()](#client-lib---getnhighestconsensusmana)
+* [GetPending()](#client-lib---getpending)
+* [GetPastConsensusManaVector()](#client-lib---getpastconsensusmanavector)
+* [GetConsensusEventLogs()](#client-lib---getconsensuseventlogs)
+* [GetAllowedManaPledgeNodeIDs()](#client-lib---getallowedmanapledgenodeids)
 
 ## `/mana`
 
