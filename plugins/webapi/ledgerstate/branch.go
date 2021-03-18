@@ -40,7 +40,6 @@ func GetBranchChildrenEndPoint(c echo.Context) (err error) {
 	return c.JSON(http.StatusOK, NewBranchChildren(branchID, cachedChildBranches.Unwrap()))
 }
 
-// GetBranchConflictsEndPoint is the handler for the /ledgerstate/branch/:branchID/conflicts endpoint.
 func GetBranchConflictsEndPoint(c echo.Context) (err error) {
 	branchID, err := branchIDFromContext(c)
 	if err != nil {
