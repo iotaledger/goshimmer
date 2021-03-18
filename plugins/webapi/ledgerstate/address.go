@@ -73,8 +73,8 @@ func NewOutputsOnAddress(outputs ledgerstate.Outputs) OutputsOnAddress {
 		OutputCount: len(outputs),
 		Outputs: func() []Output {
 			jsonOutputs := make([]Output, len(outputs))
-			for _, output := range outputs {
-				jsonOutputs = append(jsonOutputs, NewOutput(output))
+			for i, output := range outputs {
+				jsonOutputs[i] = NewOutput(output)
 			}
 			return jsonOutputs
 		}(),
@@ -97,8 +97,8 @@ func NewUnspentOutputsOnAddress(unspentOutputs ledgerstate.Outputs) UnspentOutpu
 		UnspentOutputsCount: len(unspentOutputs),
 		UnspentOutputs: func() []Output {
 			jsonOutputs := make([]Output, len(unspentOutputs))
-			for _, output := range unspentOutputs {
-				jsonOutputs = append(jsonOutputs, NewOutput(output))
+			for i, output := range unspentOutputs {
+				jsonOutputs[i] = NewOutput(output)
 			}
 			return jsonOutputs
 		}(),
