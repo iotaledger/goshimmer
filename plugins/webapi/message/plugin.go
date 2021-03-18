@@ -28,6 +28,7 @@ func Plugin() *node.Plugin {
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	webapi.Server().POST("message/findById", findByIDHandler)
-	webapi.Server().POST("message/sendPayload", sendPayloadHandler)
+	webapi.Server().GET("messages/:messageID", GetMessageEndPoint)
+	webapi.Server().GET("messages/:messageID/metadata", GetMessageMetadataEndPoint)
+	webapi.Server().POST("messages/sendPayload", sendPayloadHandler)
 }
