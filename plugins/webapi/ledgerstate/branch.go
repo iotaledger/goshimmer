@@ -178,25 +178,6 @@ func NewBranchConflicts(conflictBranch *ledgerstate.ConflictBranch) BranchConfli
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region OutputID /////////////////////////////////////////////////////////////////////////////////////////////////////
-
-type OutputID struct {
-	ID            string `json:"id"`
-	TransactionID string `json:"transactionID"`
-	OutputIndex   uint16 `json:"outputIndex"`
-}
-
-// NewOutputID returns a OutputID from the given ledgerstate.OutputID.
-func NewOutputID(outputID ledgerstate.OutputID) OutputID {
-	return OutputID{
-		ID:            outputID.Base58(),
-		TransactionID: outputID.TransactionID().Base58(),
-		OutputIndex:   outputID.OutputIndex(),
-	}
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region Conflict /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Conflict represents the JSON model of a ledgerstate.Conflict.
@@ -217,6 +198,26 @@ func NewConflict(conflictID ledgerstate.ConflictID) Conflict {
 
 			return
 		}(),
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region OutputID /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// OutputID represents the JSON model of a ledgerstate.OutputID.
+type OutputID struct {
+	ID            string `json:"id"`
+	TransactionID string `json:"transactionID"`
+	OutputIndex   uint16 `json:"outputIndex"`
+}
+
+// NewOutputID returns a OutputID from the given ledgerstate.OutputID.
+func NewOutputID(outputID ledgerstate.OutputID) OutputID {
+	return OutputID{
+		ID:            outputID.Base58(),
+		TransactionID: outputID.TransactionID().Base58(),
+		OutputIndex:   outputID.OutputIndex(),
 	}
 }
 
