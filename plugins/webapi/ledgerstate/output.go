@@ -21,7 +21,7 @@ func GetOutputEndPoint(c echo.Context) (err error) {
 	if !messagelayer.Tangle().LedgerState.Output(outputID).Consume(func(output ledgerstate.Output) {
 		err = c.JSON(http.StatusOK, NewOutput(output))
 	}) {
-		return c.JSON(http.StatusNotFound, NewErrorResponse(xerrors.Errorf("output not found")))
+		return c.JSON(http.StatusNotFound, NewErrorResponse(xerrors.Errorf("output with %s not found", outputID)))
 	}
 
 	return
@@ -38,7 +38,7 @@ func GetOutputConsumersEndPoint(c echo.Context) (err error) {
 	if !messagelayer.Tangle().LedgerState.Consumers(outputID).Consume(func(consumer *ledgerstate.Consumer) {
 		consumers = append(consumers, consumer)
 	}) {
-		return c.JSON(http.StatusNotFound, NewErrorResponse(xerrors.Errorf("consumers not found")))
+		return c.JSON(http.StatusNotFound, NewErrorResponse(xerrors.Errorf("consumers for %s not found", outputID)))
 	}
 
 	return c.JSON(http.StatusOK, NewConsumers(outputID, consumers))
@@ -54,7 +54,7 @@ func GetOutputMetadataEndPoint(c echo.Context) (err error) {
 	if !messagelayer.Tangle().LedgerState.OutputMetadata(outputID).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 		err = c.JSON(http.StatusOK, NewOutputMetadata(outputMetadata))
 	}) {
-		return c.JSON(http.StatusNotFound, NewErrorResponse(xerrors.Errorf("output metadata not found")))
+		return c.JSON(http.StatusNotFound, NewErrorResponse(xerrors.Errorf("output metadata for %s not found", outputID)))
 	}
 
 	return
