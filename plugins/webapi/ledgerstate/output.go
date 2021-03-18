@@ -47,7 +47,7 @@ func GetOutputConsumersEndPoint(c echo.Context) (err error) {
 		}
 	}
 
-	return c.JSON(http.StatusOK, NewConsumers(consumers))
+	return c.JSON(http.StatusOK, NewConsumers(outputID, consumers))
 }
 
 // GetOutputMetadataEndPoint is the handler for the /ledgerstate/outputs/:outputID/metadata endpoint.
@@ -74,10 +74,12 @@ func GetOutputMetadataEndPoint(c echo.Context) (err error) {
 
 // Output represents a JSON model of a ledgerstate.Output.
 type Output struct {
-	ID       string           `json:"id"`
-	Type     string           `json:"type"`
-	Balances []ColoredBalance `json:"balances"`
-	Address  string           `json:"address"`
+	ID            string           `json:"id"`
+	TransactionID string           `json:"transactionID"`
+	OutputIndex   uint16           `json:"outputIndex"`
+	Type          string           `json:"type"`
+	Balances      []ColoredBalance `json:"balances"`
+	Address       string           `json:"address"`
 }
 
 // ColoredBalance represents a JSON model of a single colored balance.
@@ -89,8 +91,10 @@ type ColoredBalance struct {
 // NewOutput creates a JSON compatible representation of the output.
 func NewOutput(output ledgerstate.Output) Output {
 	return Output{
-		ID:   output.ID().Base58(),
-		Type: output.Type().String(),
+		ID:            output.ID().Base58(),
+		TransactionID: output.ID().TransactionID().Base58(),
+		OutputIndex:   output.ID().OutputIndex(),
+		Type:          output.Type().String(),
 		Balances: func() []ColoredBalance {
 			coloredBalances := make([]ColoredBalance, 0)
 			output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
@@ -109,24 +113,26 @@ func NewOutput(output ledgerstate.Output) Output {
 
 // Consumers is the JSON model of consumers of the output.
 type Consumers struct {
-	ConsumerCount        int                   `json:"consumerCount"`
-	ConsumerTransactions []ConsumerTransaction `json:"consumers"`
+	OutputID              string                 `json:"outputID"`
+	ConsumerCount         int                    `json:"consumerCount"`
+	ConsumingTransactions []ConsumingTransaction `json:"consumers"`
 }
 
-// ConsumerTransaction is the JSON model of a consumer transaction.
-type ConsumerTransaction struct {
+// ConsumingTransaction is the JSON model of a consuming transaction.
+type ConsumingTransaction struct {
 	ID    string `json:"transactionID"`
 	Valid string `json:"valid"`
 }
 
 // NewConsumers creates a JSON compatible representation of the consumers of the output.
-func NewConsumers(consumers []*ledgerstate.Consumer) Consumers {
+func NewConsumers(outputID ledgerstate.OutputID, consumers []*ledgerstate.Consumer) Consumers {
 	return Consumers{
+		OutputID:      outputID.Base58(),
 		ConsumerCount: len(consumers),
-		ConsumerTransactions: func() []ConsumerTransaction {
-			consumingTransactions := make([]ConsumerTransaction, 0)
+		ConsumingTransactions: func() []ConsumingTransaction {
+			consumingTransactions := make([]ConsumingTransaction, 0)
 			for _, consumer := range consumers {
-				consumingTransactions = append(consumingTransactions, ConsumerTransaction{
+				consumingTransactions = append(consumingTransactions, ConsumingTransaction{
 					ID:    consumer.TransactionID().Base58(),
 					Valid: consumer.Valid().String(),
 				})
