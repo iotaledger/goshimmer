@@ -19,7 +19,7 @@ import (
 	votenet "github.com/iotaledger/goshimmer/packages/vote/net"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/goshimmer/packages/vote/statement"
-	"github.com/iotaledger/goshimmer/plugins/autopeering"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/clock"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
@@ -254,7 +254,7 @@ func OpinionGiverFunc() (givers []opinion.OpinionGiver, err error) {
 		}
 	}
 
-	for _, p := range autopeering.Discovery().GetVerifiedPeers() {
+	for _, p := range discovery.Discovery().GetVerifiedPeers() {
 		fpcService := p.Services().Get(service.FPCKey)
 		if fpcService == nil {
 			continue
