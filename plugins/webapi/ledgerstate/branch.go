@@ -11,8 +11,8 @@ import (
 
 // GetBranchResponse is the response object of the GetBranch function.
 type GetBranchResponse struct {
-	Branch Branch `json:"branch,omitempty"`
-	Error  string `json:"error,omitempty"`
+	Branch *Branch `json:"branch,omitempty"`
+	Error  string  `json:"error,omitempty"`
 }
 
 // Branch represents the JSON model of a ledgerstate.Branch.
@@ -28,8 +28,8 @@ type Branch struct {
 }
 
 // BranchFromModel returns the JSON model of a ledgerstate.Branch.
-func BranchFromModel(branch ledgerstate.Branch) Branch {
-	return Branch{
+func BranchFromModel(branch ledgerstate.Branch) *Branch {
+	return &Branch{
 		ID:   branch.ID().Base58(),
 		Type: branch.Type().String(),
 		Parents: func() []string {
