@@ -80,7 +80,7 @@ func runConsensusPlugin(plugin *node.Plugin) {
 // Voter returns the DRNGRoundBasedVoter instance used by the FPC plugin.
 func Voter() vote.DRNGRoundBasedVoter {
 	voterOnce.Do(func() {
-		voter = fpc.New(OpinionGiverFunc)
+		voter = fpc.New(OpinionGiverFunc, OwnManaRetriever)
 	})
 	return voter
 }
@@ -351,6 +351,20 @@ func (pog *PeerOpinionGiver) ID() identity.ID {
 func (pog *PeerOpinionGiver) Address() string {
 	fpcServicePort := pog.p.Services().Get(service.FPCKey).Port()
 	return net.JoinHostPort(pog.p.IP().String(), strconv.Itoa(fpcServicePort))
+}
+
+// endregion /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region OwnWeightsRetriever/////////////////////////////////////////////////////////////////////////////////////
+
+// OwnManaRetriever returns the current consensus mana of a vector
+func OwnManaRetriever() (float64, error) {
+	var ownMana float64
+	consensusManaNodes, _, err := GetManaMap(mana.ConsensusMana)
+	if v, ok := consensusManaNodes[local.GetInstance().ID()]; ok {
+		ownMana = v
+	}
+	return ownMana, err
 }
 
 // endregion /////////////////////////////////////////////////////////////////////////////////////////////////////

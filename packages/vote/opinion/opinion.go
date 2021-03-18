@@ -31,6 +31,9 @@ type QueriedOpinions struct {
 // OpinionGiverFunc is a function which gives a slice of OpinionGivers or an error.
 type OpinionGiverFunc func() ([]OpinionGiver, error)
 
+// OwnWeightRetriever is a function which gives your own weight used in voting mechanism
+type OwnWeightRetriever func() (float64, error)
+
 // Opinions is a slice of Opinion.
 type Opinions []Opinion
 

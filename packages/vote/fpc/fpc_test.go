@@ -77,7 +77,7 @@ func TestVoteContext_LastOpinion(t *testing.T) {
 }
 
 func TestFPCPreventSameIDMultipleTimes(t *testing.T) {
-	voter := fpc.New(nil)
+	voter := fpc.New(nil, nil)
 	assert.NoError(t, voter.Vote("a", vote.ConflictType, opinion.Like))
 	// can't add the same item twice
 	assert.True(t, errors.Is(voter.Vote("a", vote.ConflictType, opinion.Like), fpc.ErrVoteAlreadyOngoing))
@@ -123,13 +123,17 @@ func TestFPCFinalizedEvent(t *testing.T) {
 		return []opinion.OpinionGiver{opinionGiverMock}, nil
 	}
 
+	ownWeightRetrieverFunc := func() (float64, error) {
+		return 0, nil
+	}
+
 	id := "a"
 
 	paras := fpc.DefaultParameters()
 	paras.TotalRoundsFinalization = 2
 	paras.TotalRoundsCoolingOffPeriod = 2
 	paras.QuerySampleSize = 1
-	voter := fpc.New(opinionGiverFunc, paras)
+	voter := fpc.New(opinionGiverFunc, ownWeightRetrieverFunc, paras)
 	var finalizedOpinion *opinion.Opinion
 	voter.Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
 		finalizedOpinion = &ev.Opinion
@@ -152,6 +156,9 @@ func TestFPCFailedEvent(t *testing.T) {
 			roundsReplies: []opinion.Opinions{{opinion.Dislike}},
 		}}, nil
 	}
+	ownWeightRetrieverFunc := func() (float64, error) {
+		return 0, nil
+	}
 
 	id := "a"
 
@@ -162,7 +169,7 @@ func TestFPCFailedEvent(t *testing.T) {
 	// since the finalization threshold is over max rounds it will
 	// always fail finalizing an opinion
 	paras.TotalRoundsFinalization = 4
-	voter := fpc.New(opinionGiverFunc, paras)
+	voter := fpc.New(opinionGiverFunc, ownWeightRetrieverFunc, paras)
 	var failedOpinion *opinion.Opinion
 	voter.Events().Failed.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
 		failedOpinion = &ev.Opinion
@@ -199,11 +206,14 @@ func TestFPCVotingMultipleOpinionGivers(t *testing.T) {
 			}
 			return opinionGivers, nil
 		}
+		ownWeightRetrieverFunc := func() (float64, error) {
+			return 0, nil
+		}
 
 		paras := fpc.DefaultParameters()
 		paras.TotalRoundsFinalization = 2
 		paras.TotalRoundsCoolingOffPeriod = 2
-		voter := fpc.New(opinionGiverFunc, paras)
+		voter := fpc.New(opinionGiverFunc, ownWeightRetrieverFunc, paras)
 		var finalOpinion *opinion.Opinion
 		voter.Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
 			finalOpinion = &ev.Opinion
@@ -247,7 +257,7 @@ func TestManaBasedSamplingFallback(t *testing.T) {
 	}
 
 	// provide custom rng with fixed seed, so that execution is deterministic
-	opinionGiversToQuery := fpc.ManaBasedSampling(opinionGivers, fpc.DefaultParameters().MaxQuerySampleSize, fpc.DefaultParameters().QuerySampleSize, rand.New(rand.NewSource(42)))
+	opinionGiversToQuery, _ := fpc.ManaBasedSampling(opinionGivers, fpc.DefaultParameters().MaxQuerySampleSize, fpc.DefaultParameters().QuerySampleSize, rand.New(rand.NewSource(42)))
 	sumVotes := 0
 	for _, v := range opinionGiversToQuery {
 		sumVotes += v
@@ -283,7 +293,7 @@ func TestManaBasedSampling(t *testing.T) {
 	}
 
 	// provide custom rng with fixed seed, so that execution is deterministic
-	opinionGiversToQuery := fpc.ManaBasedSampling(opinionGivers, fpc.DefaultParameters().MaxQuerySampleSize, fpc.DefaultParameters().QuerySampleSize, rand.New(rand.NewSource(42)))
+	opinionGiversToQuery, _ := fpc.ManaBasedSampling(opinionGivers, fpc.DefaultParameters().MaxQuerySampleSize, fpc.DefaultParameters().QuerySampleSize, rand.New(rand.NewSource(42)))
 	sumVotes := 0
 	for _, v := range opinionGiversToQuery {
 		sumVotes += v
@@ -320,10 +330,14 @@ func TestFPCVotingMultipleOpinionGiversWithMana(t *testing.T) {
 			return opinionGivers, nil
 		}
 
+		ownWeightRetrieverFunc := func() (float64, error) {
+			return 0, nil
+		}
+
 		paras := fpc.DefaultParameters()
 		paras.TotalRoundsFinalization = 2
 		paras.TotalRoundsCoolingOffPeriod = 2
-		voter := fpc.New(opinionGiverFunc, paras)
+		voter := fpc.New(opinionGiverFunc, ownWeightRetrieverFunc, paras)
 		// set custom rng with fixed seed to make runs deterministic
 		voter.SetOpinionGiverRng(rand.New(rand.NewSource(42)))
 		var finalOpinion *opinion.Opinion

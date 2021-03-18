@@ -32,10 +32,16 @@ type Context struct {
 	// Append-only list of opinions formed after each round.
 	// the first opinion is the initial opinion when this vote context was created.
 	Opinions []opinion.Opinion
+	// Weights used for voting
+	Weights VotingWeights
+}
+
+// votingWeights stores parameters used for weighted voting calculation
+type VotingWeights struct {
 	//Total base mana of opinion givers from the last query
-	TotalMana float64
+	TotalWeights float64
 	// Own mana from the last query
-	OwnMana float64
+	OwnWeight float64
 }
 
 // AddOpinion adds the given opinion to this vote context.
