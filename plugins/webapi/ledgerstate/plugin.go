@@ -39,7 +39,6 @@ func configure(*node.Plugin) {
 	webapi.Server().GET("ledgerstate/transactions/:transactionID", GetTransactionByIDEndpoint)
 	webapi.Server().GET("ledgerstate/transactions/:transactionID/metadata", GetTransactionMetadataEndpoint)
 	webapi.Server().GET("ledgerstate/transactions/:transactionID/attachments", GetTransactionAttachmentsEndpoint)
-
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
