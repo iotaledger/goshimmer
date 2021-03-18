@@ -25,7 +25,7 @@ func TestPersistence(t *testing.T) {
 	time.Sleep(10 * time.Second)
 
 	// 2. check whether all issued messages are available on all nodes
-	tests.CheckForMessageIds(t, n.Peers(), ids, true)
+	tests.CheckForMessageIDs(t, n.Peers(), ids, true)
 
 	// 3. stop all nodes
 	for _, peer := range n.Peers() {
@@ -43,5 +43,5 @@ func TestPersistence(t *testing.T) {
 	time.Sleep(10 * time.Second)
 
 	// 5. check whether all issued messages are persistently available on all nodes
-	tests.CheckForMessageIds(t, n.Peers(), ids, false)
+	tests.CheckForMessageIDs(t, n.Peers(), ids, false)
 }
