@@ -208,4 +208,9 @@ func (l *LedgerState) ConsumedOutputs(transaction *ledgerstate.Transaction) (cac
 	return l.utxoDAG.ConsumedOutputs(transaction)
 }
 
+// Consumers returns the (cached) consumers of the given outputID.
+func (l *LedgerState) Consumers(outputID ledgerstate.OutputID) (cachedTransactions ledgerstate.CachedConsumers) {
+	return l.utxoDAG.Consumers(outputID)
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
