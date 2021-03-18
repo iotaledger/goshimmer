@@ -21,7 +21,7 @@ func GetOutputEndPoint(c echo.Context) (err error) {
 	if !messagelayer.Tangle().LedgerState.Output(outputID).Consume(func(output ledgerstate.Output) {
 		err = c.JSON(http.StatusOK, NewOutput(output))
 	}) {
-		return c.JSON(http.StatusNotFound, NewErrorResponse(xerrors.Errorf("output not present in node")))
+		return c.JSON(http.StatusNotFound, NewErrorResponse(xerrors.Errorf("output not found")))
 	}
 
 	return
@@ -38,7 +38,7 @@ func GetOutputConsumersEndPoint(c echo.Context) (err error) {
 	if !messagelayer.Tangle().LedgerState.Consumers(outputID).Consume(func(consumer *ledgerstate.Consumer) {
 		consumers = append(consumers, consumer)
 	}) {
-		return c.JSON(http.StatusNotFound, NewErrorResponse(xerrors.Errorf("failed to load consumers")))
+		return c.JSON(http.StatusNotFound, NewErrorResponse(xerrors.Errorf("consumers not found")))
 	}
 
 	return c.JSON(http.StatusOK, NewConsumers(outputID, consumers))
