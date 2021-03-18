@@ -98,11 +98,36 @@ func GetBranchChildrenEndPoint(c echo.Context) (err error) {
 
 // GetBranchChildrenResponse represents the JSON model of the response of the GetBranchChildrenEndPoint.
 type GetBranchChildrenResponse struct {
+	Children []GetBranchChildrenResponseChild `json:"childBranches"`
 }
 
 // NewGetBranchChildrenResponse returns a GetBranchChildrenResponse from the given ChildBranches.
 func NewGetBranchChildrenResponse(childBranches []*ledgerstate.ChildBranch) GetBranchChildrenResponse {
-	return GetBranchChildrenResponse{}
+	return GetBranchChildrenResponse{
+		Children: func() (children []GetBranchChildrenResponseChild) {
+			children = make([]GetBranchChildrenResponseChild, 0)
+			for _, childBranch := range childBranches {
+				children = append(children, NewGetBranchChildrenResponseChild(childBranch))
+			}
+
+			return
+		}(),
+	}
+}
+
+// GetBranchChildrenResponseChild represents the JSON model of the nested model of a Child in the response of the
+// GetBranchChildrenEndPoint.
+type GetBranchChildrenResponseChild struct {
+	ID   string `json:"id"`
+	Type string `json:"type"`
+}
+
+// NewGetBranchChildrenResponseChild returns a GetBranchChildrenResponseChild from the given ChildBranch.
+func NewGetBranchChildrenResponseChild(childBranch *ledgerstate.ChildBranch) GetBranchChildrenResponseChild {
+	return GetBranchChildrenResponseChild{
+		ID:   childBranch.ChildBranchID().Base58(),
+		Type: childBranch.ChildBranchType().String(),
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
