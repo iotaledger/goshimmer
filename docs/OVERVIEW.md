@@ -24,7 +24,6 @@ Rendered version of the documentation: http://goshimmer.docs.iota.org/
 - [API](./apis/api.md)
   - [WebAPI](./apis/webAPI.md)
   - [Mana](./apis/mana.md)
-  - [Mana (deprecated)](./apis/mana_old.md)
   - [dRNG](./apis/dRNG.md)
   - [Communication](./apis/communication.md)
   - [Value layer](./apis/value.md)
