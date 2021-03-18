@@ -44,12 +44,12 @@ func GetBranchChildrenEndPoint(c echo.Context) (err error) {
 func GetBranchConflictsEndPoint(c echo.Context) (err error) {
 	branchID, err := branchIDFromContext(c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, webapi.NewErrorResponse(err))
 	}
 
 	if messagelayer.Tangle().LedgerState.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
 		if branch.Type() != ledgerstate.ConflictBranchType {
-			err = c.JSON(http.StatusBadRequest, NewErrorResponse(fmt.Errorf("the Branch with %s is not a ConflictBranch", branchID)))
+			err = c.JSON(http.StatusBadRequest, webapi.NewErrorResponse(fmt.Errorf("the Branch with %s is not a ConflictBranch", branchID)))
 			return
 		}
 
@@ -58,7 +58,7 @@ func GetBranchConflictsEndPoint(c echo.Context) (err error) {
 		return
 	}
 
-	return c.JSON(http.StatusBadRequest, NewErrorResponse(fmt.Errorf("failed to load Branch with %s", branchID)))
+	return c.JSON(http.StatusBadRequest, webapi.NewErrorResponse(fmt.Errorf("failed to load Branch with %s", branchID)))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
