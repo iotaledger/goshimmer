@@ -4,7 +4,7 @@ services:
  
   entry_node:
     container_name: entry_node
-    image: golang:1.15.5
+    image: golang:1.16.2
     stop_grace_period: 1m
     entrypoint: /go/bin/main
     command: >
@@ -34,7 +34,7 @@ services:
 
   peer_master:
     container_name: peer_master
-    image: golang:1.15.5
+    image: golang:1.16.2
     stop_grace_period: 1m
     entrypoint: /go/bin/main
     command: >
@@ -45,6 +45,7 @@ services:
       --node.disablePlugins=syncbeaconfollower,clock
       --faucet.seed=7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih
       --messageLayer.snapshot.file=/tmp/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin
+      --messageLayer.snapshot.genesisNode=
       --syncbeacon.broadcastInterval=5
       --syncbeacon.startSynced=true
       --metrics.manaResearch=true
@@ -63,7 +64,7 @@ services:
       - entry_node
 
   peer_replica:
-    image: golang:1.15.5
+    image: golang:1.16.2
     stop_grace_period: 1m
     entrypoint: /go/bin/main
     command: >
@@ -71,6 +72,7 @@ services:
       --database.directory=/tmp/mainnetdb
       --node.enablePlugins=bootstrap,"webapi tools endpoint"
       --messageLayer.snapshot.file=/tmp/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin
+      --messageLayer.snapshot.genesisNode=
       --node.disablePlugins=portcheck,clock
       --syncbeaconfollower.followNodes=EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP
       --webapi.exportPath=/tmp/

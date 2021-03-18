@@ -25,7 +25,14 @@ export class Message {
     signature: string;
     strongParents: Array<string>;
     weakParents: Array<string>;
+    strongApprovers: Array<string>;
+    weakApprovers: Array<string>;
     solid: boolean;
+    branchID: string;
+    scheduled: boolean;
+    booked: boolean;
+    eligible: boolean;
+    invalid: boolean;
     payload_type: number;
     payload: any;
 }
