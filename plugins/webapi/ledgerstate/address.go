@@ -31,7 +31,7 @@ func GetAddressOutputsEndPoint(c echo.Context) error {
 	return c.JSON(http.StatusOK, NewOutputsOnAddress(outputs))
 }
 
-// GetAddressUnspentOutputsEndPoint is the handler for the /ledgerstate/addresses/:address/unspent endpoint.
+// GetAddressUnspentOutputsEndPoint is the handler for the /ledgerstate/addresses/:address/unspentOutputs endpoint.
 func GetAddressUnspentOutputsEndPoint(c echo.Context) error {
 	address, err := ledgerstate.AddressFromBase58EncodedString(c.Param("address"))
 	if err != nil {
