@@ -5,6 +5,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/labstack/echo"
 	"golang.org/x/xerrors"
 )
@@ -15,13 +16,13 @@ import (
 func GetOutputEndPoint(c echo.Context) (err error) {
 	outputID, err := ledgerstate.OutputIDFromBase58(c.Param("outputID"))
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, webapi.NewErrorResponse(err))
 	}
 
 	if !messagelayer.Tangle().LedgerState.Output(outputID).Consume(func(output ledgerstate.Output) {
 		err = c.JSON(http.StatusOK, NewOutput(output))
 	}) {
-		return c.JSON(http.StatusNotFound, NewErrorResponse(xerrors.Errorf("output with %s not found", outputID)))
+		return c.JSON(http.StatusNotFound, webapi.NewErrorResponse(xerrors.Errorf("output with %s not found", outputID)))
 	}
 
 	return
@@ -31,14 +32,14 @@ func GetOutputEndPoint(c echo.Context) (err error) {
 func GetOutputConsumersEndPoint(c echo.Context) (err error) {
 	outputID, err := ledgerstate.OutputIDFromBase58(c.Param("outputID"))
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, webapi.NewErrorResponse(err))
 	}
 
 	consumers := make([]*ledgerstate.Consumer, 0)
 	if !messagelayer.Tangle().LedgerState.Consumers(outputID).Consume(func(consumer *ledgerstate.Consumer) {
 		consumers = append(consumers, consumer)
 	}) {
-		return c.JSON(http.StatusNotFound, NewErrorResponse(xerrors.Errorf("consumers of output with %s not found", outputID)))
+		return c.JSON(http.StatusNotFound, webapi.NewErrorResponse(xerrors.Errorf("consumers of output with %s not found", outputID)))
 	}
 
 	return c.JSON(http.StatusOK, NewConsumers(outputID, consumers))
@@ -48,13 +49,13 @@ func GetOutputConsumersEndPoint(c echo.Context) (err error) {
 func GetOutputMetadataEndPoint(c echo.Context) (err error) {
 	outputID, err := ledgerstate.OutputIDFromBase58(c.Param("outputID"))
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, webapi.NewErrorResponse(err))
 	}
 
 	if !messagelayer.Tangle().LedgerState.OutputMetadata(outputID).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 		err = c.JSON(http.StatusOK, NewOutputMetadata(outputMetadata))
 	}) {
-		return c.JSON(http.StatusNotFound, NewErrorResponse(xerrors.Errorf("metadata of output with %s not found", outputID)))
+		return c.JSON(http.StatusNotFound, webapi.NewErrorResponse(xerrors.Errorf("metadata of output with %s not found", outputID)))
 	}
 
 	return

@@ -5,6 +5,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/labstack/echo"
 	"golang.org/x/xerrors"
 )
@@ -15,7 +16,7 @@ import (
 func GetAddressOutputsEndPoint(c echo.Context) error {
 	address, err := ledgerstate.AddressFromBase58EncodedString(c.Param("address"))
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, webapi.NewErrorResponse(err))
 	}
 
 	cachedOutputs := messagelayer.Tangle().LedgerState.OutputsOnAddress(address)
@@ -24,7 +25,7 @@ func GetAddressOutputsEndPoint(c echo.Context) error {
 	outputs := cachedOutputs.Unwrap()
 	for _, output := range outputs {
 		if output == nil {
-			return c.JSON(http.StatusBadRequest, NewErrorResponse(xerrors.Errorf("failed to load outputs")))
+			return c.JSON(http.StatusBadRequest, webapi.NewErrorResponse(xerrors.Errorf("failed to load outputs")))
 		}
 	}
 
@@ -35,7 +36,7 @@ func GetAddressOutputsEndPoint(c echo.Context) error {
 func GetAddressUnspentOutputsEndPoint(c echo.Context) error {
 	address, err := ledgerstate.AddressFromBase58EncodedString(c.Param("address"))
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, webapi.NewErrorResponse(err))
 	}
 
 	cachedOutputs := messagelayer.Tangle().LedgerState.OutputsOnAddress(address)
@@ -45,7 +46,7 @@ func GetAddressUnspentOutputsEndPoint(c echo.Context) error {
 	unspentOutputs := make(ledgerstate.Outputs, 0)
 	for _, output := range outputs {
 		if output == nil {
-			return c.JSON(http.StatusBadRequest, NewErrorResponse(xerrors.Errorf("failed to load outputs")))
+			return c.JSON(http.StatusBadRequest, webapi.NewErrorResponse(xerrors.Errorf("failed to load outputs")))
 		}
 		messagelayer.Tangle().LedgerState.OutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 			if outputMetadata.ConsumerCount() == 0 {

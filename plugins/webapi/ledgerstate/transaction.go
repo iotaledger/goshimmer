@@ -6,6 +6,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58"
 	"golang.org/x/xerrors"
@@ -17,13 +18,13 @@ import (
 func GetTransactionByIDEndpoint(c echo.Context) (err error) {
 	transactionID, err := ledgerstate.TransactionIDFromBase58(c.Param("transactionID"))
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, webapi.NewErrorResponse(err))
 	}
 
 	if !messagelayer.Tangle().LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
 		err = c.JSON(http.StatusOK, NewTransaction(transaction))
 	}) {
-		c.JSON(http.StatusNotFound, NewErrorResponse(xerrors.Errorf("transaction with %s not found", transactionID)))
+		c.JSON(http.StatusNotFound, webapi.NewErrorResponse(xerrors.Errorf("transaction with %s not found", transactionID)))
 	}
 	return
 }
@@ -32,12 +33,12 @@ func GetTransactionByIDEndpoint(c echo.Context) (err error) {
 func GetTransactionMetadataEndpoint(c echo.Context) (err error) {
 	transactionID, err := ledgerstate.TransactionIDFromBase58(c.Param("transactionID"))
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, webapi.NewErrorResponse(err))
 	}
 	if !messagelayer.Tangle().LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 		err = c.JSON(http.StatusOK, NewTransactionMetadata(transactionMetadata))
 	}) {
-		return c.JSON(http.StatusNotFound, NewErrorResponse(xerrors.Errorf("transaction metadata with %s not found", transactionID)))
+		return c.JSON(http.StatusNotFound, webapi.NewErrorResponse(xerrors.Errorf("transaction metadata with %s not found", transactionID)))
 	}
 
 	return
@@ -47,14 +48,14 @@ func GetTransactionMetadataEndpoint(c echo.Context) (err error) {
 func GetTransactionAttachmentsEndpoint(c echo.Context) (err error) {
 	transactionID, err := ledgerstate.TransactionIDFromBase58(c.Param("transactionID"))
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, webapi.NewErrorResponse(err))
 	}
 
 	var messageIDs tangle.MessageIDs
 	if !messagelayer.Tangle().Storage.Attachments(transactionID).Consume(func(attachment *tangle.Attachment) {
 		messageIDs = append(messageIDs, attachment.MessageID())
 	}) {
-		return c.JSON(http.StatusNotFound, NewErrorResponse(xerrors.Errorf("attachments of transaction with %s not found", transactionID)))
+		return c.JSON(http.StatusNotFound, webapi.NewErrorResponse(xerrors.Errorf("attachments of transaction with %s not found", transactionID)))
 	}
 
 	return c.JSON(http.StatusOK, NewAttachments(transactionID, messageIDs))
