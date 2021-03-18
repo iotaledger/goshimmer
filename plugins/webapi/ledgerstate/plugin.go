@@ -27,8 +27,8 @@ func Plugin() *node.Plugin {
 }
 
 func configure(*node.Plugin) {
-	webapi.Server().GET("ledgerstate/branch/:branchID", GetBranchEndPoint)
-	webapi.Server().GET("ledgerstate/branch/:branchID/children", GetBranchChildrenEndPoint)
+	webapi.Server().GET("ledgerstate/branches/:branchID", GetBranchEndPoint)
+	webapi.Server().GET("ledgerstate/branches/:branchID/children", GetBranchChildrenEndPoint)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
