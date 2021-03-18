@@ -178,40 +178,24 @@ func NewBranchConflicts(conflictBranch *ledgerstate.ConflictBranch) BranchConfli
 
 // region Conflict /////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// Conflict represents the JSON model of a ledgerstate.Conflict.
 type Conflict struct {
-	ConflictID      string           `json:"conflictID"`
-	ConflictMembers []ConflictMember `json:"conflictingBranches"`
+	ID      string   `json:"id"`
+	Members []string `json:"members"`
 }
 
+// NewConflict returns a Conflict from the given ledgerstate.ConflictID.
 func NewConflict(conflictID ledgerstate.ConflictID) Conflict {
 	return Conflict{
-		ConflictID: conflictID.Base58(),
-		ConflictMembers: func() (conflictMembers []ConflictMember) {
-			conflictMembers = make([]ConflictMember, 0)
+		ID: conflictID.Base58(),
+		Members: func() (members []string) {
+			members = make([]string, 0)
 			messagelayer.Tangle().LedgerState.BranchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
-				conflictMembers = append(conflictMembers, NewConflictMember(conflictMember))
+				members = append(members, conflictMember.BranchID().Base58())
 			})
 
 			return
 		}(),
-	}
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region ConflictMember ///////////////////////////////////////////////////////////////////////////////////////////////
-
-// ConflictMember represents the JSON model of a ledgerstate.ConflictMember.
-type ConflictMember struct {
-	ConflictID string `json:"conflictID"`
-	BranchID   string `json:"branchID"`
-}
-
-// NewConflictMember returns a ConflictMember from the given ledgerstate.ConflictMember.
-func NewConflictMember(conflictMember *ledgerstate.ConflictMember) ConflictMember {
-	return ConflictMember{
-		ConflictID: conflictMember.ConflictID().Base58(),
-		BranchID:   conflictMember.BranchID().Base58(),
 	}
 }
 
