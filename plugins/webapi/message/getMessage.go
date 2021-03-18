@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -60,6 +61,7 @@ type Message struct {
 	IssuingTime     int64    `json:"issuingTime"`
 	SequenceNumber  uint64   `json:"sequenceNumber"`
 	PayloadType     string   `json:"payloadType"`
+	TransactionID   string   `json:"transactionID,omitempty"`
 	Payload         []byte   `json:"payload"`
 	Signature       string   `json:"signature"`
 }
@@ -76,8 +78,15 @@ func NewMessage(message *tangle.Message) Message {
 		IssuingTime:     message.IssuingTime().Unix(),
 		SequenceNumber:  message.SequenceNumber(),
 		PayloadType:     message.Payload().Type().String(),
-		Payload:         message.Payload().Bytes(),
-		Signature:       message.Signature().String(),
+		TransactionID: func() string {
+			if message.Payload().Type() == ledgerstate.TransactionType {
+				return message.Payload().(*ledgerstate.Transaction).ID().Base58()
+			}
+
+			return ""
+		}(),
+		Payload:   message.Payload().Bytes(),
+		Signature: message.Signature().String(),
 	}
 }
 
