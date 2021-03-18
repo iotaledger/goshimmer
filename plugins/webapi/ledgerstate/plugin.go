@@ -31,6 +31,9 @@ func configure(*node.Plugin) {
 	webapi.Server().GET("ledgerstate/branches/:branchID", GetBranchEndPoint)
 	webapi.Server().GET("ledgerstate/branches/:branchID/children", GetBranchChildrenEndPoint)
 	webapi.Server().GET("ledgerstate/branches/:branchID/conflicts", GetBranchConflictsEndPoint)
+	webapi.Server().GET("ledgerstate/transactions/:transactionID", GetTransactionByIDEndpoint)
+	webapi.Server().GET("ledgerstate/transactions/:transactionID/metadata", GetTransactionMetadataEndpoint)
+	webapi.Server().GET("ledgerstate/transactions/:transactionID/attachments", GetTransactionAttachmentsEndpoint)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
