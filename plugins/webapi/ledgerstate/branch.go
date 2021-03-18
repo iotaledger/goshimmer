@@ -27,10 +27,6 @@ func GetBranchEndPoint(c echo.Context) (err error) {
 	return c.JSON(http.StatusBadRequest, NewErrorResponse(fmt.Errorf("failed to load Branch with %s", branchID)))
 }
 
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region GetBranchResponse ///////////////////////////////////////////////////////////////////////////////////////////////
-
 // GetBranchResponse represents the JSON model of the response of the GetBranchEndPoint.
 type GetBranchResponse struct {
 	ID                 string   `json:"id"`
@@ -91,10 +87,6 @@ func GetBranchChildrenEndPoint(c echo.Context) (err error) {
 
 	return c.JSON(http.StatusBadRequest, NewGetBranchChildrenResponse(cachedChildBranches.Unwrap()))
 }
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region GetBranchChildrenResponse ////////////////////////////////////////////////////////////////////////////////////
 
 // GetBranchChildrenResponse represents the JSON model of the response of the GetBranchChildrenEndPoint.
 type GetBranchChildrenResponse struct {
