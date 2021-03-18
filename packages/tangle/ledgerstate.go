@@ -138,7 +138,7 @@ func (l *LedgerState) ConflictSet(transactionID ledgerstate.TransactionID) (conf
 	return
 }
 
-// ChildBranches returns the child branches of the given Branch.
+// ChildBranches returns the ChildBranches of the Branch identified by the given BranchID.
 func (l *LedgerState) ChildBranches(branchID ledgerstate.BranchID) ledgerstate.CachedChildBranches {
 	return l.branchDAG.ChildBranches(branchID)
 }
