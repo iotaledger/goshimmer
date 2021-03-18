@@ -30,7 +30,8 @@ func Plugin() *node.Plugin {
 func configure(*node.Plugin) {
 	webapi.Server().GET("ledgerstate/branches/:branchID", GetBranchEndPoint)
 	webapi.Server().GET("ledgerstate/branches/:branchID/children", GetBranchChildrenEndPoint)
-	webapi.Server().GET("ledgerstate/outputs/:outputID", GetOutputEndPoint)
+	webapi.Server().GET("ledgerstate/branches/:branchID/conflicts", GetBranchConflictsEndPoint)
+  webapi.Server().GET("ledgerstate/outputs/:outputID", GetOutputEndPoint)
 	webapi.Server().GET("ledgerstate/outputs/:outputID/consumers", GetOutputConsumersEndPoint)
 	webapi.Server().GET("ledgerstate/outputs/:outputID/metadata", GetOutputMetadataEndPoint)
 }

@@ -40,6 +40,26 @@ func GetBranchChildrenEndPoint(c echo.Context) (err error) {
 	return c.JSON(http.StatusOK, NewBranchChildren(cachedChildBranches.Unwrap()))
 }
 
+func GetBranchConflictsEndPoint(c echo.Context) (err error) {
+	branchID, err := branchIDFromContext(c)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, NewErrorResponse(err))
+	}
+
+	if messagelayer.Tangle().LedgerState.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
+		if branch.Type() != ledgerstate.ConflictBranchType {
+			err = c.JSON(http.StatusBadRequest, NewErrorResponse(fmt.Errorf("the Branch with %s is not a ConflictBranch", branchID)))
+			return
+		}
+
+		err = c.JSON(http.StatusOK, NewBranchConflicts(branch.(*ledgerstate.ConflictBranch)))
+	}) {
+		return
+	}
+
+	return c.JSON(http.StatusBadRequest, NewErrorResponse(fmt.Errorf("failed to load Branch with %s", branchID)))
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Branch ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -126,6 +146,56 @@ func NewChildBranch(childBranch *ledgerstate.ChildBranch) ChildBranch {
 	return ChildBranch{
 		ID:   childBranch.ChildBranchID().Base58(),
 		Type: childBranch.ChildBranchType().String(),
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region BranchConflicts //////////////////////////////////////////////////////////////////////////////////////////////
+
+// BranchConflicts represents the JSON model of a collection of Conflicts that a ledgerstate.ConflictBranch is part of.
+type BranchConflicts struct {
+	BranchID  string     `json:"branchID"`
+	Conflicts []Conflict `json:"conflicts"`
+}
+
+// NewBranchConflicts returns BranchConflicts that a ledgerstate.ConflictBranch is part of.
+func NewBranchConflicts(conflictBranch *ledgerstate.ConflictBranch) BranchConflicts {
+	return BranchConflicts{
+		BranchID: conflictBranch.ID().Base58(),
+		Conflicts: func() (conflicts []Conflict) {
+			conflicts = make([]Conflict, 0)
+			for conflictID := range conflictBranch.Conflicts() {
+				conflicts = append(conflicts, NewConflict(conflictID))
+			}
+
+			return
+		}(),
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Conflict /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Conflict represents the JSON model of a ledgerstate.Conflict.
+type Conflict struct {
+	ID      string   `json:"id"`
+	Members []string `json:"members"`
+}
+
+// NewConflict returns a Conflict from the given ledgerstate.ConflictID.
+func NewConflict(conflictID ledgerstate.ConflictID) Conflict {
+	return Conflict{
+		ID: conflictID.Base58(),
+		Members: func() (members []string) {
+			members = make([]string, 0)
+			messagelayer.Tangle().LedgerState.BranchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
+				members = append(members, conflictMember.BranchID().Base58())
+			})
+
+			return
+		}(),
 	}
 }
 
