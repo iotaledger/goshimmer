@@ -45,6 +45,10 @@ func GetMessageMetadataEndPoint(c echo.Context) (err error) {
 	return c.JSON(http.StatusBadRequest, webapi.NewErrorResponse(fmt.Errorf("failed to load MessageMetadata with %s", messageID)))
 }
 
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Message ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // Message contains information about a given message.
 type Message struct {
 	ID              string   `json:"id"`
@@ -59,6 +63,40 @@ type Message struct {
 	Payload         []byte   `json:"payload"`
 	Signature       string   `json:"signature"`
 }
+
+// NewMessage returns a Message from the given pointer to a tangle.Message.
+func NewMessage(message *tangle.Message) Message {
+	return Message{
+		ID:              message.ID().String(),
+		StrongParents:   message.StrongParents().ToStrings(),
+		WeakParents:     message.WeakParents().ToStrings(),
+		StrongApprovers: messagelayer.Tangle().Utils.ApprovingMessageIDs(message.ID(), tangle.StrongApprover).ToStrings(),
+		WeakApprovers:   messagelayer.Tangle().Utils.ApprovingMessageIDs(message.ID(), tangle.WeakApprover).ToStrings(),
+		IssuerPublicKey: message.IssuerPublicKey().String(),
+		IssuingTime:     message.IssuingTime().Unix(),
+		SequenceNumber:  message.SequenceNumber(),
+		PayloadType:     message.Payload().Type().String(),
+		Payload:         message.Payload().Bytes(),
+		Signature:       message.Signature().String(),
+	}
+}
+
+// messageIDFromContext determines the MessageID from the messageID parameter in an echo.Context. It expects it to either
+// be a base58 encoded string or one of the builtin aliases (EmptyMessageID)
+func messageIDFromContext(c echo.Context) (messageID tangle.MessageID, err error) {
+	switch messageIDString := c.Param("messageID"); messageIDString {
+	case "EmptyMessageID":
+		messageID = tangle.EmptyMessageID
+	default:
+		messageID, err = tangle.NewMessageID(messageIDString)
+	}
+
+	return
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region MessageMetadata ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // MessageMetadata contains metadata information of a message.
 type MessageMetadata struct {
@@ -88,23 +126,6 @@ type Markers struct {
 	Markers      map[markers.SequenceID]markers.Index `json:"markers"`
 	HighestIndex markers.Index                        `json:"highestIndex"`
 	LowestIndex  markers.Index                        `json:"lowestIndex"`
-}
-
-// NewMessage returns a Message from the given pointer to a tangle.Message.
-func NewMessage(message *tangle.Message) Message {
-	return Message{
-		ID:              message.ID().String(),
-		StrongParents:   message.StrongParents().ToStrings(),
-		WeakParents:     message.WeakParents().ToStrings(),
-		StrongApprovers: messagelayer.Tangle().Utils.ApprovingMessageIDs(message.ID(), tangle.StrongApprover).ToStrings(),
-		WeakApprovers:   messagelayer.Tangle().Utils.ApprovingMessageIDs(message.ID(), tangle.WeakApprover).ToStrings(),
-		IssuerPublicKey: message.IssuerPublicKey().String(),
-		IssuingTime:     message.IssuingTime().Unix(),
-		SequenceNumber:  message.SequenceNumber(),
-		PayloadType:     message.Payload().Type().String(),
-		Payload:         message.Payload().Bytes(),
-		Signature:       message.Signature().String(),
-	}
 }
 
 // NewMessageMetadata returns a MessageMetadata from the given pointer to a tangle.MessageMetadata.
@@ -145,15 +166,4 @@ func newMarkers(m *markers.Markers) (newMarkers Markers) {
 	return
 }
 
-// messageIDFromContext determines the MessageID from the messageID parameter in an echo.Context. It expects it to either
-// be a base58 encoded string or one of the builtin aliases (EmptyMessageID)
-func messageIDFromContext(c echo.Context) (messageID tangle.MessageID, err error) {
-	switch messageIDString := c.Param("messageID"); messageIDString {
-	case "EmptyMessageID":
-		messageID = tangle.EmptyMessageID
-	default:
-		messageID, err = tangle.NewMessageID(messageIDString)
-	}
-
-	return
-}
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
