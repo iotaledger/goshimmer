@@ -33,6 +33,8 @@ func configure(*node.Plugin) {
 	webapi.Server().GET("ledgerstate/outputs/:outputID", GetOutputEndPoint)
 	webapi.Server().GET("ledgerstate/outputs/:outputID/consumers", GetOutputConsumersEndPoint)
 	webapi.Server().GET("ledgerstate/outputs/:outputID/metadata", GetOutputMetadataEndPoint)
+	webapi.Server().GET("ledgerstate/addresses/:address", GetAddressOutputsEndPoint)
+	webapi.Server().GET("ledgerstate/addresses/:address/unspentOutputs", GetAddressUnspentOutputsEndPoint)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
