@@ -81,12 +81,13 @@ func (vc *Context) HadFirstRound() bool {
 
 // HadFixedRound tells whether the vote context is in the last l2 rounds of fixed threshold
 func (vc *Context) HadFixedRound(coolingOffPeriod int, finalizationThreshold int, fixedEndingThreshold int) bool {
-	// check whether we have enough opinions to say whether this vote context is finalized.
 	consecutiveRounds := finalizationThreshold - fixedEndingThreshold // l - l2
+	// check whether we have enough opinions to say whether this vote context is finalized.
 	if len(vc.Opinions[1:]) < coolingOffPeriod + consecutiveRounds {
 		return false
 	}
-	if len(vc.Opinions) < consecutiveRounds {
+	// check weather we have enough opinions and parameters are valid
+	if len(vc.Opinions) < consecutiveRounds || consecutiveRounds < 0 {
 		return false
 	}
 	// grab opinion which needs to be held for finalizationThreshold number of rounds
