@@ -62,17 +62,32 @@ func BranchFromModel(branch ledgerstate.Branch) Branch {
 // getBranch is the handler for the /ledgerstate/branch/:branchID API endpoint. It expects the branchID to be passed in
 // as a base58 encoded string.
 func getBranch(c echo.Context) (err error) {
-	branchID, err := ledgerstate.BranchIDFromBase58(c.Param("branchID"))
+	branchID, err := branchIDFromContext(c)
 	if err != nil {
-		return
-		//return c.JSON(http.StatusBadRequest, GetBranchResponse{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, GetBranchResponse{Error: err.Error()})
 	}
 
 	if messagelayer.Tangle().LedgerState.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
-		err = c.JSON(http.StatusOK, BranchFromModel(branch))
+		_ = c.JSON(http.StatusOK, BranchFromModel(branch))
 	}) {
 		return
 	}
 
-	return fmt.Errorf("Branch with %s does not exist", branchID)
+	return c.JSON(http.StatusBadRequest, GetBranchResponse{Error: fmt.Sprintf("Branch with %s does not exist", branchID)})
+}
+
+// branchIDFromContext returns the BranchID from a request context.
+func branchIDFromContext(c echo.Context) (branchID ledgerstate.BranchID, err error) {
+	switch branchIDString := c.Param("branchID"); branchIDString {
+	case "MasterBranchID":
+		branchID = ledgerstate.MasterBranchID
+	case "LazyBookedConflictsBranchID":
+		branchID = ledgerstate.LazyBookedConflictsBranchID
+	case "InvalidBranchID":
+		branchID = ledgerstate.InvalidBranchID
+	default:
+		branchID, err = ledgerstate.BranchIDFromBase58(branchIDString)
+	}
+
+	return
 }
