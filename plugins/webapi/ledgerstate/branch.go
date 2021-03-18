@@ -182,14 +182,14 @@ func NewBranchConflicts(conflictBranch *ledgerstate.ConflictBranch) BranchConfli
 
 // Conflict represents the JSON model of a ledgerstate.Conflict.
 type Conflict struct {
-	ID        string   `json:"id"`
+	OutputID  string   `json:"outputID"`
 	BranchIDs []string `json:"branchIDs"`
 }
 
 // NewConflict returns a Conflict from the given ledgerstate.ConflictID.
 func NewConflict(conflictID ledgerstate.ConflictID) Conflict {
 	return Conflict{
-		ID: conflictID.Base58(),
+		OutputID: conflictID.Base58(),
 		BranchIDs: func() (mappedBranchIDs []string) {
 			mappedBranchIDs = make([]string, 0)
 			messagelayer.Tangle().LedgerState.BranchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
