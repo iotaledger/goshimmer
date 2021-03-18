@@ -4,29 +4,25 @@ import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/plugins/webapi"
-	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 )
 
-// PluginName is the name of the web API message endpoint plugin.
-const PluginName = "WebAPI ledgerstate Endpoint"
-
 var (
-	// plugin is the plugin instance of the web API message endpoint plugin.
 	plugin *node.Plugin
 	once   sync.Once
-	log    *logger.Logger
 )
 
-// Plugin gets the plugin instance.
+// Plugin returns the Plugin.
 func Plugin() *node.Plugin {
 	once.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+		plugin = node.NewPlugin("WebAPI ledgerstate Endpoint", node.Enabled, configure)
 	})
+
 	return plugin
 }
 
 func configure(plugin *node.Plugin) {
-	log = logger.NewLogger(PluginName)
-	webapi.Server().POST("ledgerstate/findBranchByID", findBranchByIDHandler)
+	webapi.Server().GET("ledgerstate/branch/:branchID", getBranch)
+	//webapi.Server().GET("ledgerstate/branch/:branchID/conflicts", findBranchByIDHandler)
+	//webapi.Server().GET("ledgerstate/branch/:branchID/children", findBranchByIDHandler)
 }
