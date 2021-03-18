@@ -1229,8 +1229,8 @@ type CachedConsumers []*CachedConsumer
 
 // Unwrap is the type-casted equivalent of Get. It returns a slice of unwrapped objects with the object being nil if it
 // does not exist.
-func (c CachedConsumers) Unwrap() (unwrappedOutputs []*Consumer) {
-	unwrappedOutputs = make([]*Consumer, len(c))
+func (c CachedConsumers) Unwrap() (unwrappedConsumers []*Consumer) {
+	unwrappedConsumers = make([]*Consumer, len(c))
 	for i, cachedConsumer := range c {
 		untypedObject := cachedConsumer.Get()
 		if untypedObject == nil {
@@ -1242,7 +1242,7 @@ func (c CachedConsumers) Unwrap() (unwrappedOutputs []*Consumer) {
 			continue
 		}
 
-		unwrappedOutputs[i] = typedObject
+		unwrappedConsumers[i] = typedObject
 	}
 
 	return

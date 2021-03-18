@@ -25,7 +25,7 @@ func GetBranchEndPoint(c echo.Context) (err error) {
 		return
 	}
 
-	return c.JSON(http.StatusBadRequest, webapi.NewErrorResponse(fmt.Errorf("failed to load Branch with %s", branchID)))
+	return c.JSON(http.StatusNotFound, webapi.NewErrorResponse(fmt.Errorf("failed to load Branch with %s", branchID)))
 }
 
 // GetBranchChildrenEndPoint is the handler for the /ledgerstate/branch/:branchID/childBranches endpoint.
@@ -41,6 +41,7 @@ func GetBranchChildrenEndPoint(c echo.Context) (err error) {
 	return c.JSON(http.StatusOK, NewBranchChildren(branchID, cachedChildBranches.Unwrap()))
 }
 
+// GetBranchConflictsEndPoint is the handler for the /ledgerstate/branch/:branchID/conflicts endpoint.
 func GetBranchConflictsEndPoint(c echo.Context) (err error) {
 	branchID, err := branchIDFromContext(c)
 	if err != nil {
@@ -53,12 +54,20 @@ func GetBranchConflictsEndPoint(c echo.Context) (err error) {
 			return
 		}
 
-		err = c.JSON(http.StatusOK, NewBranchConflicts(branch.(*ledgerstate.ConflictBranch)))
+		branchIDsPerConflictID := make(map[ledgerstate.ConflictID][]ledgerstate.BranchID)
+		for conflictID := range branch.(*ledgerstate.ConflictBranch).Conflicts() {
+			branchIDsPerConflictID[conflictID] = make([]ledgerstate.BranchID, 0)
+			messagelayer.Tangle().LedgerState.BranchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
+				branchIDsPerConflictID[conflictID] = append(branchIDsPerConflictID[conflictID], conflictMember.BranchID())
+			})
+		}
+
+		err = c.JSON(http.StatusOK, NewBranchConflicts(branchID, branchIDsPerConflictID))
 	}) {
 		return
 	}
 
-	return c.JSON(http.StatusBadRequest, webapi.NewErrorResponse(fmt.Errorf("failed to load Branch with %s", branchID)))
+	return c.JSON(http.StatusNotFound, webapi.NewErrorResponse(fmt.Errorf("failed to load Branch with %s", branchID)))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -163,36 +172,17 @@ type BranchConflicts struct {
 }
 
 // NewBranchConflicts returns the BranchConflicts that a ledgerstate.ConflictBranch is part of.
-func NewBranchConflicts(conflictBranch *ledgerstate.ConflictBranch) BranchConflicts {
+func NewBranchConflicts(branchID ledgerstate.BranchID, branchIDsPerConflictID map[ledgerstate.ConflictID][]ledgerstate.BranchID) BranchConflicts {
 	return BranchConflicts{
-		BranchID: conflictBranch.ID().Base58(),
+		BranchID: branchID.Base58(),
 		Conflicts: func() (mappedConflicts []Conflict) {
 			mappedConflicts = make([]Conflict, 0)
-			for conflictID := range conflictBranch.Conflicts() {
-				mappedConflicts = append(mappedConflicts, NewConflict(conflictID))
+			for conflictID, branchIDs := range branchIDsPerConflictID {
+				mappedConflicts = append(mappedConflicts, NewConflict(conflictID, branchIDs))
 			}
 
 			return
 		}(),
-	}
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region OutputID /////////////////////////////////////////////////////////////////////////////////////////////////////
-
-type OutputID struct {
-	ID            string `json:"id"`
-	TransactionID string `json:"transactionID"`
-	OutputIndex   uint16 `json:"outputIndex"`
-}
-
-// NewOutputID returns a OutputID from the given ledgerstate.OutputID.
-func NewOutputID(outputID ledgerstate.OutputID) OutputID {
-	return OutputID{
-		ID:            outputID.Base58(),
-		TransactionID: outputID.TransactionID().Base58(),
-		OutputIndex:   outputID.OutputIndex(),
 	}
 }
 
@@ -207,17 +197,37 @@ type Conflict struct {
 }
 
 // NewConflict returns a Conflict from the given ledgerstate.ConflictID.
-func NewConflict(conflictID ledgerstate.ConflictID) Conflict {
+func NewConflict(conflictID ledgerstate.ConflictID, branchIDs []ledgerstate.BranchID) Conflict {
 	return Conflict{
 		OutputID: NewOutputID(conflictID.OutputID()),
 		BranchIDs: func() (mappedBranchIDs []string) {
 			mappedBranchIDs = make([]string, 0)
-			messagelayer.Tangle().LedgerState.BranchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
-				mappedBranchIDs = append(mappedBranchIDs, conflictMember.BranchID().Base58())
-			})
+			for _, branchID := range branchIDs {
+				mappedBranchIDs = append(mappedBranchIDs, branchID.Base58())
+			}
 
 			return
 		}(),
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region OutputID /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// OutputID represents the JSON model of a ledgerstate.OutputID.
+type OutputID struct {
+	ID            string `json:"id"`
+	TransactionID string `json:"transactionID"`
+	OutputIndex   uint16 `json:"outputIndex"`
+}
+
+// NewOutputID returns a OutputID from the given ledgerstate.OutputID.
+func NewOutputID(outputID ledgerstate.OutputID) OutputID {
+	return OutputID{
+		ID:            outputID.Base58(),
+		TransactionID: outputID.TransactionID().Base58(),
+		OutputIndex:   outputID.OutputIndex(),
 	}
 }
 
