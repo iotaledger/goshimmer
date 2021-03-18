@@ -11,16 +11,6 @@ import (
 	"golang.org/x/xerrors"
 )
 
-// region Errors //////////////////////////////////////////////////////////////////////////////////////////////////////
-var (
-	// ErrTransactionNotFound is returned if the transaction is not found.
-	ErrTransactionNotFound = xerrors.New("transaction not found")
-	// ErrTransactionMetadataNotFound is returned if the transaction metadata is not found.
-	ErrTransactionMetadataNotFound = xerrors.New("transaction metadata not found")
-)
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region API endpoints ////////////////////////////////////////////////////////////////////////////////////////////////
 
 // GetTransactionByIDEndpoint is the handler for /ledgerstate/transactions/:transactionID endpoint.
