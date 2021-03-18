@@ -1,11 +1,11 @@
 package ledgerstate
 
 import (
-	"golang.org/x/crypto/blake2b"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/blake2b"
 )
 
 func TestNewColoredBalances(t *testing.T) {
