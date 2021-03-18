@@ -38,7 +38,27 @@ func GetBranchChildrenEndPoint(c echo.Context) (err error) {
 	cachedChildBranches := messagelayer.Tangle().LedgerState.ChildBranches(branchID)
 	defer cachedChildBranches.Release()
 
-	return c.JSON(http.StatusOK, NewBranchChildren(cachedChildBranches.Unwrap()))
+	return c.JSON(http.StatusOK, NewBranchChildren(branchID, cachedChildBranches.Unwrap()))
+}
+
+func GetBranchConflictsEndPoint(c echo.Context) (err error) {
+	branchID, err := branchIDFromContext(c)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, NewErrorResponse(err))
+	}
+
+	if messagelayer.Tangle().LedgerState.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
+		if branch.Type() != ledgerstate.ConflictBranchType {
+			err = c.JSON(http.StatusBadRequest, NewErrorResponse(fmt.Errorf("the Branch with %s is not a ConflictBranch", branchID)))
+			return
+		}
+
+		err = c.JSON(http.StatusOK, NewBranchConflicts(branch.(*ledgerstate.ConflictBranch)))
+	}) {
+		return
+	}
+
+	return c.JSON(http.StatusBadRequest, NewErrorResponse(fmt.Errorf("failed to load Branch with %s", branchID)))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -48,7 +68,7 @@ func GetBranchChildrenEndPoint(c echo.Context) (err error) {
 // Branch represents the JSON model of a ledgerstate.Branch.
 type Branch struct {
 	ID                 string   `json:"id"`
-	Type               string   `json:"branchType"`
+	Type               string   `json:"type"`
 	Parents            []string `json:"parents"`
 	ConflictIDs        []string `json:"conflictIDs,omitempty"`
 	Liked              bool     `json:"liked"`
@@ -95,16 +115,18 @@ func NewBranch(branch ledgerstate.Branch) Branch {
 
 // BranchChildren represents the JSON model of a collection of ChildBranch objects.
 type BranchChildren struct {
-	Children []ChildBranch `json:"childBranches"`
+	BranchID      string        `json:"branchID"`
+	ChildBranches []ChildBranch `json:"childBranches"`
 }
 
 // NewBranchChildren returns BranchChildren from the given collection of ledgerstate.ChildBranch objects.
-func NewBranchChildren(childBranches []*ledgerstate.ChildBranch) BranchChildren {
+func NewBranchChildren(branchID ledgerstate.BranchID, childBranches []*ledgerstate.ChildBranch) BranchChildren {
 	return BranchChildren{
-		Children: func() (children []ChildBranch) {
-			children = make([]ChildBranch, 0)
+		BranchID: branchID.Base58(),
+		ChildBranches: func() (mappedChildBranches []ChildBranch) {
+			mappedChildBranches = make([]ChildBranch, 0)
 			for _, childBranch := range childBranches {
-				children = append(children, NewChildBranch(childBranch))
+				mappedChildBranches = append(mappedChildBranches, NewChildBranch(childBranch))
 			}
 
 			return
@@ -118,15 +140,84 @@ func NewBranchChildren(childBranches []*ledgerstate.ChildBranch) BranchChildren 
 
 // ChildBranch represents the JSON model of a ledgerstate.ChildBranch.
 type ChildBranch struct {
-	ID   string `json:"id"`
-	Type string `json:"type"`
+	BranchID   string `json:"branchID"`
+	BranchType string `json:"type"`
 }
 
 // NewChildBranch returns a ChildBranch from the given ledgerstate.ChildBranch.
 func NewChildBranch(childBranch *ledgerstate.ChildBranch) ChildBranch {
 	return ChildBranch{
-		ID:   childBranch.ChildBranchID().Base58(),
-		Type: childBranch.ChildBranchType().String(),
+		BranchID:   childBranch.ChildBranchID().Base58(),
+		BranchType: childBranch.ChildBranchType().String(),
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region BranchConflicts //////////////////////////////////////////////////////////////////////////////////////////////
+
+// BranchConflicts represents the JSON model of a collection of Conflicts that a ledgerstate.ConflictBranch is part of.
+type BranchConflicts struct {
+	BranchID  string     `json:"branchID"`
+	Conflicts []Conflict `json:"conflicts"`
+}
+
+// NewBranchConflicts returns the BranchConflicts that a ledgerstate.ConflictBranch is part of.
+func NewBranchConflicts(conflictBranch *ledgerstate.ConflictBranch) BranchConflicts {
+	return BranchConflicts{
+		BranchID: conflictBranch.ID().Base58(),
+		Conflicts: func() (mappedConflicts []Conflict) {
+			mappedConflicts = make([]Conflict, 0)
+			for conflictID := range conflictBranch.Conflicts() {
+				mappedConflicts = append(mappedConflicts, NewConflict(conflictID))
+			}
+
+			return
+		}(),
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region OutputID /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type OutputID struct {
+	ID            string `json:"id"`
+	TransactionID string `json:"transactionID"`
+	OutputIndex   uint16 `json:"outputIndex"`
+}
+
+// NewOutputID returns a OutputID from the given ledgerstate.OutputID.
+func NewOutputID(outputID ledgerstate.OutputID) OutputID {
+	return OutputID{
+		ID:            outputID.Base58(),
+		TransactionID: outputID.TransactionID().Base58(),
+		OutputIndex:   outputID.OutputIndex(),
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Conflict /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Conflict represents the JSON model of a ledgerstate.Conflict.
+type Conflict struct {
+	OutputID  OutputID `json:"outputID"`
+	BranchIDs []string `json:"branchIDs"`
+}
+
+// NewConflict returns a Conflict from the given ledgerstate.ConflictID.
+func NewConflict(conflictID ledgerstate.ConflictID) Conflict {
+	return Conflict{
+		OutputID: NewOutputID(conflictID.OutputID()),
+		BranchIDs: func() (mappedBranchIDs []string) {
+			mappedBranchIDs = make([]string, 0)
+			messagelayer.Tangle().LedgerState.BranchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
+				mappedBranchIDs = append(mappedBranchIDs, conflictMember.BranchID().Base58())
+			})
+
+			return
+		}(),
 	}
 }
 
