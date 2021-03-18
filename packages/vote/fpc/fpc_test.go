@@ -17,10 +17,10 @@ import (
 
 func TestVoteContext_IsFinalized(t *testing.T) {
 	type testInput struct {
-		voteCtx               vote.Context
-		coolOffPeriod         int
-		finalizationThreshold int
-		want                  bool
+		voteCtx                     vote.Context
+		totalRoundsCoolingOffPeriod int
+		totalRoundsFinalization     int
+		want                        bool
 	}
 	var tests = []testInput{
 		{vote.Context{
@@ -32,28 +32,28 @@ func TestVoteContext_IsFinalized(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		assert.Equal(t, test.want, test.voteCtx.IsFinalized(test.coolOffPeriod, test.finalizationThreshold))
+		assert.Equal(t, test.want, test.voteCtx.IsFinalized(test.totalRoundsCoolingOffPeriod, test.totalRoundsFinalization))
 	}
 }
 
 func TestVoteContext_HadFixedRound(t *testing.T) {
 	type testInput struct {
-		voteCtx               vote.Context
-		coolOffPeriod         int
-		finalizationThreshold int
-		fixedEndingThreshold  int
-		want                  bool
+		voteCtx                     vote.Context
+		totalRoundsCoolingOffPeriod int
+		totalRoundsFinalization       int
+		totalRoundsFixedThreshold        int
+		want                        bool
 	}
 	var tests = []testInput{
 		{vote.Context{
 			Opinions: []opinion.Opinion{opinion.Like, opinion.Like, opinion.Like, opinion.Like, opinion.Like},
-		}, 2, 4, 2,true},
+		}, 2, 4, 2, true},
 		{vote.Context{
 			Opinions: []opinion.Opinion{opinion.Like, opinion.Like, opinion.Like, opinion.Like, opinion.Dislike},
-		}, 2, 4, 2,false},
+		}, 2, 4, 2, false},
 	}
 	for _, test := range tests {
-		assert.Equal(t, test.want, test.voteCtx.HadFixedRound(test.coolOffPeriod, test.finalizationThreshold, test.fixedEndingThreshold))
+		assert.Equal(t, test.want, test.voteCtx.HadFixedRound(test.totalRoundsCoolingOffPeriod, test.totalRoundsFinalization, test.totalRoundsFixedThreshold))
 	}
 }
 
@@ -126,8 +126,8 @@ func TestFPCFinalizedEvent(t *testing.T) {
 	id := "a"
 
 	paras := fpc.DefaultParameters()
-	paras.FinalizationThreshold = 2
-	paras.CoolingOffPeriod = 2
+	paras.TotalRoundsFinalization = 2
+	paras.TotalRoundsCoolingOffPeriod = 2
 	paras.QuerySampleSize = 1
 	voter := fpc.New(opinionGiverFunc, paras)
 	var finalizedOpinion *opinion.Opinion
@@ -158,10 +158,10 @@ func TestFPCFailedEvent(t *testing.T) {
 	paras := fpc.DefaultParameters()
 	paras.QuerySampleSize = 1
 	paras.MaxRoundsPerVoteContext = 3
-	paras.CoolingOffPeriod = 0
+	paras.TotalRoundsCoolingOffPeriod = 0
 	// since the finalization threshold is over max rounds it will
 	// always fail finalizing an opinion
-	paras.FinalizationThreshold = 4
+	paras.TotalRoundsFinalization = 4
 	voter := fpc.New(opinionGiverFunc, paras)
 	var failedOpinion *opinion.Opinion
 	voter.Events().Failed.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
@@ -201,8 +201,8 @@ func TestFPCVotingMultipleOpinionGivers(t *testing.T) {
 		}
 
 		paras := fpc.DefaultParameters()
-		paras.FinalizationThreshold = 2
-		paras.CoolingOffPeriod = 2
+		paras.TotalRoundsFinalization = 2
+		paras.TotalRoundsCoolingOffPeriod = 2
 		voter := fpc.New(opinionGiverFunc, paras)
 		var finalOpinion *opinion.Opinion
 		voter.Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
@@ -321,8 +321,8 @@ func TestFPCVotingMultipleOpinionGiversWithMana(t *testing.T) {
 		}
 
 		paras := fpc.DefaultParameters()
-		paras.FinalizationThreshold = 2
-		paras.CoolingOffPeriod = 2
+		paras.TotalRoundsFinalization = 2
+		paras.TotalRoundsCoolingOffPeriod = 2
 		voter := fpc.New(opinionGiverFunc, paras)
 		// set custom rng with fixed seed to make runs deterministic
 		voter.SetOpinionGiverRng(rand.New(rand.NewSource(42)))

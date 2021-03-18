@@ -102,7 +102,7 @@ func ConvertOpinionToFloat64(x Opinion) float64 {
 	case x == Like:
 		return 1
 	case x == Dislike:
-		return 2
+		return 0
 	}
-	return 4
+	return -1
 }

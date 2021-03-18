@@ -49,19 +49,18 @@ func (vc *Context) LastOpinion() opinion.Opinion {
 }
 
 // IsFinalized tells whether this vote context is finalized by checking whether the opinion was held
-// for finalizationThreshold number of rounds.
-func (vc *Context) IsFinalized(coolingOffPeriod int, finalizationThreshold int) bool {
+// for totalRoundsFinalization number of rounds.
+func (vc *Context) IsFinalized(coolingOffPeriod int, totalRoundsFinalization int) bool {
 	// check whether we have enough opinions to say whether this vote context is finalized.
-	// we start from the 2nd opinion since the first one is the initial opinion.
-	if len(vc.Opinions[1:]) < coolingOffPeriod+finalizationThreshold {
+	if len(vc.Opinions) < coolingOffPeriod+totalRoundsFinalization+1 {
 		return false
 	}
 
-	// grab opinion which needs to be held for finalizationThreshold number of rounds
-	candidateOpinion := vc.Opinions[len(vc.Opinions)-finalizationThreshold]
+	// grab opinion which needs to be held for TotalRoundsFinalization number of rounds
+	candidateOpinion := vc.Opinions[len(vc.Opinions)-totalRoundsFinalization]
 
 	// check whether it was held for the subsequent rounds
-	for _, subsequentOpinion := range vc.Opinions[len(vc.Opinions)-finalizationThreshold+1:] {
+	for _, subsequentOpinion := range vc.Opinions[len(vc.Opinions)-totalRoundsFinalization+1:] {
 		if subsequentOpinion != candidateOpinion {
 			return false
 		}
@@ -80,27 +79,24 @@ func (vc *Context) HadFirstRound() bool {
 }
 
 // HadFixedRound tells whether the vote context is in the last l2 rounds of fixed threshold
-func (vc *Context) HadFixedRound(coolingOffPeriod int, finalizationThreshold int, fixedEndingThreshold int) bool {
-	consecutiveRounds := finalizationThreshold - fixedEndingThreshold // l - l2
-	// check whether we have enough opinions to say whether this vote context is finalized.
-	if len(vc.Opinions[1:]) < coolingOffPeriod + consecutiveRounds {
+func (vc *Context) HadFixedRound(coolingOffPeriod int, totalRoundsFinalization int, totalRoundsFixedThreshold int) bool {
+	totalRoundsRandomThreshold := totalRoundsFinalization - totalRoundsFixedThreshold // l - l2
+	// check whether we have enough opinions to say whether the random threshold for this vote context can be fixed.
+	if len(vc.Opinions) < coolingOffPeriod+totalRoundsRandomThreshold+1 {
 		return false
 	}
 	// check weather we have enough opinions and parameters are valid
-	if len(vc.Opinions) < consecutiveRounds || consecutiveRounds < 0 {
+	if len(vc.Opinions) < totalRoundsRandomThreshold || totalRoundsRandomThreshold < 0 {
 		return false
 	}
-	// grab opinion which needs to be held for finalizationThreshold number of rounds
-	candidateOpinion := vc.Opinions[len(vc.Opinions) - consecutiveRounds]
+	// grab opinion which needs to be held for TotalRoundsFinalization number of rounds
+	candidateOpinion := vc.Opinions[len(vc.Opinions)-totalRoundsRandomThreshold]
 
 	// check whether it was held for the subsequent rounds
-	for _, subsequentOpinion := range vc.Opinions[len(vc.Opinions)-consecutiveRounds+1:] {
+	for _, subsequentOpinion := range vc.Opinions[len(vc.Opinions)-totalRoundsRandomThreshold+1:] {
 		if subsequentOpinion != candidateOpinion {
 			return false
 		}
 	}
 	return true
 }
-
-
-

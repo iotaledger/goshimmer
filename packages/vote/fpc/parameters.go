@@ -19,11 +19,11 @@ type Parameters struct {
 	// The maximum amount of votes to collect on each round for a given vote context. Naive implementation of 'k_diff' from the paper.
 	MaxQuerySampleSize int
 	// The amount of rounds a vote context's opinion needs to stay the same to be considered final. Also called 'l'.
-	FinalizationThreshold int
+	TotalRoundsFinalization int
 	// The amount of last rounds for the fixed threshold.
-	FixedEndingThreshold int
+	TotalRoundsFixedThreshold int
 	// The amount of rounds for which to ignore any finalization checks for. Also called 'm'.
-	CoolingOffPeriod int
+	TotalRoundsCoolingOffPeriod int
 	// The max amount of rounds to execute per vote context before aborting them.
 	MaxRoundsPerVoteContext int
 	// The max amount of time a query is allowed to take.
@@ -37,12 +37,12 @@ func DefaultParameters() *Parameters {
 		FirstRoundUpperBoundThreshold:       0.67,
 		SubsequentRoundsLowerBoundThreshold: 0.50,
 		SubsequentRoundsUpperBoundThreshold: 0.67,
-		EndingRoundsFixedThreshold:			 0.50,
+		EndingRoundsFixedThreshold:          0.50,
 		QuerySampleSize:                     21,
 		MaxQuerySampleSize:                  100,
-		FinalizationThreshold:               10,
-		FixedEndingThreshold:				 3,
-		CoolingOffPeriod:                    0,
+		TotalRoundsFinalization:             10,
+		TotalRoundsFixedThreshold:           3,
+		TotalRoundsCoolingOffPeriod:         0,
 		MaxRoundsPerVoteContext:             100,
 		QueryTimeout:                        6500 * time.Millisecond,
 	}

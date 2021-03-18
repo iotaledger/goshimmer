@@ -110,7 +110,7 @@ func (f *FPC) Round(rand float64) error {
 	if f.lastRoundCompletedSuccessfully {
 		// form opinions by using the random number supplied for this new round
 		f.formOpinions(rand)
-		// clean opinions on vote contexts where an opinion was reached in FinalizationThreshold
+		// clean opinions on vote contexts where an opinion was reached in TotalRoundFinalization
 		// number of rounds and clear those who failed to be finalized in MaxRoundsPerVoteContext.
 		f.finalizeOpinions()
 	}
@@ -173,7 +173,7 @@ func (f *FPC) finalizeOpinions() {
 	f.ctxsMu.Lock()
 	defer f.ctxsMu.Unlock()
 	for id, voteCtx := range f.ctxs {
-		if voteCtx.IsFinalized(f.paras.CoolingOffPeriod, f.paras.FinalizationThreshold) {
+		if voteCtx.IsFinalized(f.paras.TotalRoundsCoolingOffPeriod, f.paras.TotalRoundsFinalization) {
 			f.events.Finalized.Trigger(&vote.OpinionEvent{ID: id, Opinion: voteCtx.LastOpinion(), Ctx: *voteCtx})
 			delete(f.ctxs, id)
 			continue
@@ -324,7 +324,7 @@ func (f *FPC) setThreshold(voteCtx *vote.Context) (float64, float64) {
 		upperThreshold = f.paras.FirstRoundUpperBoundThreshold
 	}
 
-	if voteCtx.HadFixedRound(f.paras.CoolingOffPeriod, f.paras.FinalizationThreshold, f.paras.FixedEndingThreshold) {
+	if voteCtx.HadFixedRound(f.paras.TotalRoundsCoolingOffPeriod, f.paras.TotalRoundsFinalization, f.paras.TotalRoundsFixedThreshold) {
 		lowerThreshold = f.paras.EndingRoundsFixedThreshold
 		upperThreshold = f.paras.EndingRoundsFixedThreshold
 	}
@@ -338,6 +338,9 @@ func (f *FPC) biasTowardsOwnOpinion(voteCtx *vote.Context) float64 {
 		return voteCtx.Liked
 	}
 	ownOpinion := opinion.ConvertOpinionToFloat64(voteCtx.LastOpinion())
+	if ownOpinion < 0 {
+		return voteCtx.Liked
+	}
 	eta := voteCtx.OwnMana/voteCtx.TotalMana*ownOpinion + (1-voteCtx.OwnMana/voteCtx.TotalMana)*voteCtx.Liked
 	return eta
 }
