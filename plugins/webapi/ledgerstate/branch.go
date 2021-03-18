@@ -9,14 +9,30 @@ import (
 	"github.com/labstack/echo"
 )
 
-// GetBranchResponse is the response object of the GetBranch function.
-type GetBranchResponse struct {
-	Branch *Branch `json:"branch,omitempty"`
-	Error  string  `json:"error,omitempty"`
+// region GetBranchEndPoint ////////////////////////////////////////////////////////////////////////////////////////////
+
+// GetBranchEndPoint is the handler for the /ledgerstate/branch/:branchID endpoint.
+func GetBranchEndPoint(c echo.Context) (err error) {
+	branchID, err := branchIDFromContext(c)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, NewErrorResponse(err))
+	}
+
+	if messagelayer.Tangle().LedgerState.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
+		err = c.JSON(http.StatusOK, NewGetBranchResponse(branch))
+	}) {
+		return
+	}
+
+	return c.JSON(http.StatusBadRequest, NewErrorResponse(fmt.Errorf("failed to load Branch with %s", branchID)))
 }
 
-// Branch represents the JSON model of a ledgerstate.Branch.
-type Branch struct {
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region GetBranchResponse ///////////////////////////////////////////////////////////////////////////////////////////////
+
+// GetBranchResponse represents the JSON model of the response of the GetBranchEndPoint.
+type GetBranchResponse struct {
 	ID                 string   `json:"id"`
 	Type               string   `json:"branchType"`
 	Parents            []string `json:"parents"`
@@ -27,9 +43,9 @@ type Branch struct {
 	InclusionState     string   `json:"inclusionState"`
 }
 
-// BranchFromModel returns the JSON model of a ledgerstate.Branch.
-func BranchFromModel(branch ledgerstate.Branch) *Branch {
-	return &Branch{
+// NewGetBranchResponse returns a GetBranchResponse from the given Branch.
+func NewGetBranchResponse(branch ledgerstate.Branch) GetBranchResponse {
+	return GetBranchResponse{
 		ID:   branch.ID().Base58(),
 		Type: branch.Type().String(),
 		Parents: func() []string {
@@ -59,24 +75,43 @@ func BranchFromModel(branch ledgerstate.Branch) *Branch {
 	}
 }
 
-// getBranch is the handler for the /ledgerstate/branch/:branchID API endpoint. It expects the branchID to be passed in
-// as a base58 encoded string.
-func getBranch(c echo.Context) (err error) {
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region GetBranchChildrenEndPoint ////////////////////////////////////////////////////////////////////////////////////
+
+// GetBranchChildrenEndPoint is the handler for the /ledgerstate/branch/:branchID/childBranches endpoint.
+func GetBranchChildrenEndPoint(c echo.Context) (err error) {
 	branchID, err := branchIDFromContext(c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, GetBranchResponse{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, NewErrorResponse(err))
 	}
 
-	if messagelayer.Tangle().LedgerState.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
-		_ = c.JSON(http.StatusOK, BranchFromModel(branch))
-	}) {
-		return
-	}
+	cachedChildBranches := messagelayer.Tangle().LedgerState.ChildBranches(branchID)
+	defer cachedChildBranches.Release()
 
-	return c.JSON(http.StatusBadRequest, GetBranchResponse{Error: fmt.Sprintf("Branch with %s does not exist", branchID)})
+	return c.JSON(http.StatusBadRequest, NewGetBranchChildrenResponse(cachedChildBranches.Unwrap()))
 }
 
-// branchIDFromContext returns the BranchID from a request context.
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region GetBranchChildrenResponse ////////////////////////////////////////////////////////////////////////////////////
+
+// GetBranchChildrenResponse represents the JSON model of the response of the GetBranchChildrenEndPoint.
+type GetBranchChildrenResponse struct {
+}
+
+// NewGetBranchChildrenResponse returns a GetBranchChildrenResponse from the given ChildBranches.
+func NewGetBranchChildrenResponse(childBranches []*ledgerstate.ChildBranch) GetBranchChildrenResponse {
+	return GetBranchChildrenResponse{}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region branchIDFromContext //////////////////////////////////////////////////////////////////////////////////////////
+
+// branchIDFromContext determines the BranchID from the branchID parameter in an echo.Context. It expects it to either
+// be a base58 encoded string or one of the builtin aliases (MasterBranchID, LazyBookedConflictsBranchID or
+// InvalidBranchID)
 func branchIDFromContext(c echo.Context) (branchID ledgerstate.BranchID, err error) {
 	switch branchIDString := c.Param("branchID"); branchIDString {
 	case "MasterBranchID":
@@ -91,3 +126,5 @@ func branchIDFromContext(c echo.Context) (branchID ledgerstate.BranchID, err err
 
 	return
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

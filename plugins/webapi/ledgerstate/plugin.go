@@ -7,22 +7,44 @@ import (
 	"github.com/iotaledger/hive.go/node"
 )
 
+// region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
 var (
+	// plugin holds the instance of the plugin.
 	plugin *node.Plugin
-	once   sync.Once
+
+	// pluginOnce is used to ensure that the plugin is a singleton.
+	pluginOnce sync.Once
 )
 
 // Plugin returns the Plugin.
 func Plugin() *node.Plugin {
-	once.Do(func() {
+	pluginOnce.Do(func() {
 		plugin = node.NewPlugin("WebAPI ledgerstate Endpoint", node.Enabled, configure)
 	})
 
 	return plugin
 }
 
-func configure(plugin *node.Plugin) {
-	webapi.Server().GET("ledgerstate/branch/:branchID", getBranch)
-	//webapi.Server().GET("ledgerstate/branch/:branchID/conflicts", findBranchByIDHandler)
-	//webapi.Server().GET("ledgerstate/branch/:branchID/children", findBranchByIDHandler)
+func configure(*node.Plugin) {
+	webapi.Server().GET("ledgerstate/branch/:branchID", GetBranchEndPoint)
+	webapi.Server().GET("ledgerstate/branch/:branchID/children", GetBranchChildrenEndPoint)
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region ErrorResponse ////////////////////////////////////////////////////////////////////////////////////////////////
+
+// ErrorResponse is the response that is returned when an error occurred in any of the endpoints.
+type ErrorResponse struct {
+	Error string `json:"error"`
+}
+
+// NewErrorResponse returns an ErrorResponse from the given error.
+func NewErrorResponse(err error) ErrorResponse {
+	return ErrorResponse{
+		Error: err.Error(),
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
