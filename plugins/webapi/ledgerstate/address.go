@@ -25,7 +25,7 @@ func GetAddressOutputsEndPoint(c echo.Context) error {
 	outputs := cachedOutputs.Unwrap()
 	for _, output := range outputs {
 		if output == nil {
-			return c.JSON(http.StatusBadRequest, webapi.NewErrorResponse(xerrors.Errorf("failed to load outputs")))
+			return c.JSON(http.StatusNotFound, webapi.NewErrorResponse(xerrors.Errorf("failed to load outputs with %s", output.ID())))
 		}
 	}
 
@@ -46,7 +46,7 @@ func GetAddressUnspentOutputsEndPoint(c echo.Context) error {
 	unspentOutputs := make(ledgerstate.Outputs, 0)
 	for _, output := range outputs {
 		if output == nil {
-			return c.JSON(http.StatusBadRequest, webapi.NewErrorResponse(xerrors.Errorf("failed to load outputs")))
+			return c.JSON(http.StatusNotFound, webapi.NewErrorResponse(xerrors.Errorf("failed to load outputs with %s", output.ID())))
 		}
 		messagelayer.Tangle().LedgerState.OutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 			if outputMetadata.ConsumerCount() == 0 {

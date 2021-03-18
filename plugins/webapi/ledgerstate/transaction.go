@@ -24,7 +24,7 @@ func GetTransactionByIDEndpoint(c echo.Context) (err error) {
 	if !messagelayer.Tangle().LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
 		err = c.JSON(http.StatusOK, NewTransaction(transaction))
 	}) {
-		c.JSON(http.StatusNotFound, webapi.NewErrorResponse(xerrors.Errorf("transaction with %s not found", transactionID)))
+		c.JSON(http.StatusNotFound, webapi.NewErrorResponse(xerrors.Errorf("failed to load transaction with %s", transactionID)))
 	}
 	return
 }
@@ -38,7 +38,7 @@ func GetTransactionMetadataEndpoint(c echo.Context) (err error) {
 	if !messagelayer.Tangle().LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 		err = c.JSON(http.StatusOK, NewTransactionMetadata(transactionMetadata))
 	}) {
-		return c.JSON(http.StatusNotFound, webapi.NewErrorResponse(xerrors.Errorf("transaction metadata with %s not found", transactionID)))
+		return c.JSON(http.StatusNotFound, webapi.NewErrorResponse(xerrors.Errorf("failed to load transaction metadata with %s", transactionID)))
 	}
 
 	return
@@ -55,7 +55,7 @@ func GetTransactionAttachmentsEndpoint(c echo.Context) (err error) {
 	if !messagelayer.Tangle().Storage.Attachments(transactionID).Consume(func(attachment *tangle.Attachment) {
 		messageIDs = append(messageIDs, attachment.MessageID())
 	}) {
-		return c.JSON(http.StatusNotFound, webapi.NewErrorResponse(xerrors.Errorf("attachments of transaction with %s not found", transactionID)))
+		return c.JSON(http.StatusNotFound, webapi.NewErrorResponse(xerrors.Errorf("failed to load attachments with %s", transactionID)))
 	}
 
 	return c.JSON(http.StatusOK, NewAttachments(transactionID, messageIDs))

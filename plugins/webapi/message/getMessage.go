@@ -27,7 +27,7 @@ func GetMessageEndPoint(c echo.Context) (err error) {
 		return
 	}
 
-	return c.JSON(http.StatusBadRequest, webapi.NewErrorResponse(fmt.Errorf("failed to load Message with %s", messageID)))
+	return c.JSON(http.StatusNotFound, webapi.NewErrorResponse(fmt.Errorf("failed to load Message with %s", messageID)))
 }
 
 // GetMessageMetadataEndPoint is the handler for the /messages/:messageID/metadata endpoint.
@@ -43,7 +43,7 @@ func GetMessageMetadataEndPoint(c echo.Context) (err error) {
 		return
 	}
 
-	return c.JSON(http.StatusBadRequest, webapi.NewErrorResponse(fmt.Errorf("failed to load MessageMetadata with %s", messageID)))
+	return c.JSON(http.StatusNotFound, webapi.NewErrorResponse(fmt.Errorf("failed to load MessageMetadata with %s", messageID)))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
