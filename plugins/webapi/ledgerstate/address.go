@@ -63,7 +63,7 @@ func GetAddressUnspentOutputsEndPoint(c echo.Context) error {
 
 // OutputsOnAddress is the JSON model of outputs that are associated to an address.
 type OutputsOnAddress struct {
-	OutputCount int      `json:"outputCount"`
+	OutputCount int      `json:"outputsCount"`
 	Outputs     []Output `json:"outputs"`
 }
 
