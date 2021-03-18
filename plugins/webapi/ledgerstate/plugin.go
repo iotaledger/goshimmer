@@ -26,6 +26,7 @@ func Plugin() *node.Plugin {
 	return plugin
 }
 
+// configure bind the API endpoints to their corresponding route.
 func configure(*node.Plugin) {
 	webapi.Server().GET("ledgerstate/branches/:branchID", GetBranchEndPoint)
 	webapi.Server().GET("ledgerstate/branches/:branchID/children", GetBranchChildrenEndPoint)

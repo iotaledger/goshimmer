@@ -9,7 +9,7 @@ import (
 	"github.com/labstack/echo"
 )
 
-// region GetBranchEndPoint ////////////////////////////////////////////////////////////////////////////////////////////
+// region API endpoints ////////////////////////////////////////////////////////////////////////////////////////////////
 
 // GetBranchEndPoint is the handler for the /ledgerstate/branch/:branchID endpoint.
 func GetBranchEndPoint(c echo.Context) (err error) {
@@ -19,7 +19,7 @@ func GetBranchEndPoint(c echo.Context) (err error) {
 	}
 
 	if messagelayer.Tangle().LedgerState.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
-		err = c.JSON(http.StatusOK, NewGetBranchResponse(branch))
+		err = c.JSON(http.StatusOK, NewBranch(branch))
 	}) {
 		return
 	}
@@ -27,8 +27,25 @@ func GetBranchEndPoint(c echo.Context) (err error) {
 	return c.JSON(http.StatusBadRequest, NewErrorResponse(fmt.Errorf("failed to load Branch with %s", branchID)))
 }
 
-// GetBranchResponse represents the JSON model of the response of the GetBranchEndPoint.
-type GetBranchResponse struct {
+// GetBranchChildrenEndPoint is the handler for the /ledgerstate/branch/:branchID/childBranches endpoint.
+func GetBranchChildrenEndPoint(c echo.Context) (err error) {
+	branchID, err := branchIDFromContext(c)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, NewErrorResponse(err))
+	}
+
+	cachedChildBranches := messagelayer.Tangle().LedgerState.ChildBranches(branchID)
+	defer cachedChildBranches.Release()
+
+	return c.JSON(http.StatusBadRequest, NewBranchChildren(cachedChildBranches.Unwrap()))
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Branch ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Branch represents the JSON model of a ledgerstate.Branch.
+type Branch struct {
 	ID                 string   `json:"id"`
 	Type               string   `json:"branchType"`
 	Parents            []string `json:"parents"`
@@ -39,9 +56,9 @@ type GetBranchResponse struct {
 	InclusionState     string   `json:"inclusionState"`
 }
 
-// NewGetBranchResponse returns a GetBranchResponse from the given Branch.
-func NewGetBranchResponse(branch ledgerstate.Branch) GetBranchResponse {
-	return GetBranchResponse{
+// NewBranch returns a Branch from the given ledgerstate.Branch.
+func NewBranch(branch ledgerstate.Branch) Branch {
+	return Branch{
 		ID:   branch.ID().Base58(),
 		Type: branch.Type().String(),
 		Parents: func() []string {
@@ -73,33 +90,20 @@ func NewGetBranchResponse(branch ledgerstate.Branch) GetBranchResponse {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region GetBranchChildrenEndPoint ////////////////////////////////////////////////////////////////////////////////////
+// region BranchChildren ///////////////////////////////////////////////////////////////////////////////////////////////
 
-// GetBranchChildrenEndPoint is the handler for the /ledgerstate/branch/:branchID/childBranches endpoint.
-func GetBranchChildrenEndPoint(c echo.Context) (err error) {
-	branchID, err := branchIDFromContext(c)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse(err))
-	}
-
-	cachedChildBranches := messagelayer.Tangle().LedgerState.ChildBranches(branchID)
-	defer cachedChildBranches.Release()
-
-	return c.JSON(http.StatusBadRequest, NewGetBranchChildrenResponse(cachedChildBranches.Unwrap()))
+// BranchChildren represents the JSON model of a collection of ChildBranch objects.
+type BranchChildren struct {
+	Children []ChildBranch `json:"childBranches"`
 }
 
-// GetBranchChildrenResponse represents the JSON model of the response of the GetBranchChildrenEndPoint.
-type GetBranchChildrenResponse struct {
-	Children []GetBranchChildrenResponseChild `json:"childBranches"`
-}
-
-// NewGetBranchChildrenResponse returns a GetBranchChildrenResponse from the given ChildBranches.
-func NewGetBranchChildrenResponse(childBranches []*ledgerstate.ChildBranch) GetBranchChildrenResponse {
-	return GetBranchChildrenResponse{
-		Children: func() (children []GetBranchChildrenResponseChild) {
-			children = make([]GetBranchChildrenResponseChild, 0)
+// NewBranchChildren returns BranchChildren from the given collection of ledgerstate.ChildBranch objects.
+func NewBranchChildren(childBranches []*ledgerstate.ChildBranch) BranchChildren {
+	return BranchChildren{
+		Children: func() (children []ChildBranch) {
+			children = make([]ChildBranch, 0)
 			for _, childBranch := range childBranches {
-				children = append(children, NewGetBranchChildrenResponseChild(childBranch))
+				children = append(children, NewChildBranch(childBranch))
 			}
 
 			return
@@ -107,16 +111,19 @@ func NewGetBranchChildrenResponse(childBranches []*ledgerstate.ChildBranch) GetB
 	}
 }
 
-// GetBranchChildrenResponseChild represents the JSON model of the nested model of a Child in the response of the
-// GetBranchChildrenEndPoint.
-type GetBranchChildrenResponseChild struct {
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region ChildBranch //////////////////////////////////////////////////////////////////////////////////////////////////
+
+// ChildBranch represents the JSON model of a ledgerstate.ChildBranch.
+type ChildBranch struct {
 	ID   string `json:"id"`
 	Type string `json:"type"`
 }
 
-// NewGetBranchChildrenResponseChild returns a GetBranchChildrenResponseChild from the given ChildBranch.
-func NewGetBranchChildrenResponseChild(childBranch *ledgerstate.ChildBranch) GetBranchChildrenResponseChild {
-	return GetBranchChildrenResponseChild{
+// NewChildBranch returns a ChildBranch from the given ledgerstate.ChildBranch.
+func NewChildBranch(childBranch *ledgerstate.ChildBranch) ChildBranch {
+	return ChildBranch{
 		ID:   childBranch.ChildBranchID().Base58(),
 		Type: childBranch.ChildBranchType().String(),
 	}
