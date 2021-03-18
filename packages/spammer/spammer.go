@@ -57,8 +57,8 @@ func (spammer *Spammer) run(rate int, timeUnit time.Duration, processID int64, i
 
 		currentInterval := time.Since(start)
 
-		if imif == "exponential" {
-			// emit messages by intervals whose random length is exponentially distributed
+		if imif == "poisson" {
+			// emit messages modeled with Poisson point process, whose time intervals are exponential variables with mean 1/rate
 			msgInterval = time.Duration(float64(timeUnit.Nanoseconds()) * rand.ExpFloat64() / float64(rate))
 		}
 
