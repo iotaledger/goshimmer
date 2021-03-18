@@ -1,11 +1,12 @@
 package metrics
 
 import (
+	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
+	manaPlugin "github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/identity"
 	"go.uber.org/atomic"
 )
@@ -173,8 +174,8 @@ func measureMana() {
 	consensusMap = tmp[mana.ConsensusMana]
 	cPer, _ := consensusMap.GetPercentile(local.GetInstance().ID())
 	consensusPercentile.Store(cPer)
-
-	neighborAccessMap, _ := manaPlugin.GetNeighborsMana(mana.AccessMana)
+	neighbors := gossip.Manager().AllNeighbors()
+	neighborAccessMap, _ := manaPlugin.GetNeighborsMana(mana.AccessMana, neighbors)
 	accessSum, accessAvg := 0.0, 0.0
 	for _, v := range neighborAccessMap {
 		accessSum += v
@@ -184,7 +185,7 @@ func measureMana() {
 	}
 	averageNeighborsAccess.Store(accessAvg)
 
-	neighborConsensusMap, _ := manaPlugin.GetNeighborsMana(mana.ConsensusMana)
+	neighborConsensusMap, _ := manaPlugin.GetNeighborsMana(mana.ConsensusMana, neighbors)
 	consensusSum, consensusAvg := 0.0, 0.0
 	for _, v := range neighborConsensusMap {
 		consensusSum += v

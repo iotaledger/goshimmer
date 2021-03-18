@@ -16,6 +16,8 @@ type Parameters struct {
 	EndingRoundsFixedThreshold float64
 	// The amount of opinions to query on each round for a given vote context. Also called 'k'.
 	QuerySampleSize int
+	// The maximum amount of votes to collect on each round for a given vote context. Naive implementation of 'k_diff' from the paper.
+	MaxQuerySampleSize int
 	// The amount of rounds a vote context's opinion needs to stay the same to be considered final. Also called 'l'.
 	FinalizationThreshold int
 	// The amount of last rounds for the fixed threshold.
@@ -37,6 +39,7 @@ func DefaultParameters() *Parameters {
 		SubsequentRoundsUpperBoundThreshold: 0.67,
 		EndingRoundsFixedThreshold:			 0.50,
 		QuerySampleSize:                     21,
+		MaxQuerySampleSize:                  100,
 		FinalizationThreshold:               10,
 		FixedEndingThreshold:				 3,
 		CoolingOffPeriod:                    0,

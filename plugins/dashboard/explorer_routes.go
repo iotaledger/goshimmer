@@ -6,7 +6,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/mana"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	valueutils "github.com/iotaledger/goshimmer/plugins/webapi/value"
 	"github.com/labstack/echo"
@@ -31,8 +30,17 @@ type ExplorerMessage struct {
 	StrongParents []string `json:"strongParents"`
 	// WeakParents are the weak parents (references) of the message.
 	WeakParents []string `json:"weakParents"`
+	// StrongApprovers are the strong approvers of the message.
+	StrongApprovers []string `json:"strongApprovers"`
+	// WeakApprovers are the weak approvers of the message.
+	WeakApprovers []string `json:"weakApprovers"`
 	// Solid defines the solid status of the message.
-	Solid bool `json:"solid"`
+	Solid     bool   `json:"solid"`
+	BranchID  string `json:"branchID"`
+	Scheduled bool   `json:"scheduled"`
+	Booked    bool   `json:"booked"`
+	Eligible  bool   `json:"eligible"`
+	Invalid   bool   `json:"invalid"`
 	// PayloadType defines the type of the payload.
 	PayloadType uint32 `json:"payload_type"`
 	// Payload is the content of the payload.
@@ -53,7 +61,14 @@ func createExplorerMessage(msg *tangle.Message) (*ExplorerMessage, error) {
 		SequenceNumber:          msg.SequenceNumber(),
 		StrongParents:           msg.StrongParents().ToStrings(),
 		WeakParents:             msg.WeakParents().ToStrings(),
-		Solid:                   cachedMessageMetadata.Unwrap().IsSolid(),
+		StrongApprovers:         messagelayer.Tangle().Utils.ApprovingMessageIDs(messageID, tangle.StrongApprover).ToStrings(),
+		WeakApprovers:           messagelayer.Tangle().Utils.ApprovingMessageIDs(messageID, tangle.WeakApprover).ToStrings(),
+		Solid:                   messageMetadata.IsSolid(),
+		BranchID:                messageMetadata.BranchID().String(),
+		Scheduled:               messageMetadata.Scheduled(),
+		Booked:                  messageMetadata.IsBooked(),
+		Eligible:                messageMetadata.IsEligible(),
+		Invalid:                 messageMetadata.IsInvalid(),
 		PayloadType:             uint32(msg.Payload().Type()),
 		Payload:                 ProcessPayload(msg.Payload()),
 	}
@@ -195,7 +210,7 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 			solidificationTime = txMeta.SolidificationTime().Unix()
 		})
 
-		pendingMana, _ := mana.PendingManaOnOutput(output.ID())
+		pendingMana, _ := messagelayer.PendingManaOnOutput(output.ID())
 		outputids = append(outputids, ExplorerOutput{
 			ID:                 output.ID().String(),
 			Balances:           b,
