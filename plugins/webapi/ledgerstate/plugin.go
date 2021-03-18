@@ -10,14 +10,14 @@ import (
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 var (
-	// plugin holds the instance of the plugin.
+	// plugin holds the singleton instance of the plugin.
 	plugin *node.Plugin
 
 	// pluginOnce is used to ensure that the plugin is a singleton.
 	pluginOnce sync.Once
 )
 
-// Plugin returns the Plugin.
+// Plugin returns the plugin as a singleton.
 func Plugin() *node.Plugin {
 	pluginOnce.Do(func() {
 		plugin = node.NewPlugin("WebAPI ledgerstate Endpoint", node.Enabled, configure)
