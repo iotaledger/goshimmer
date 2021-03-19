@@ -21,14 +21,7 @@ func GetAddressOutputsEndPoint(c echo.Context) error {
 	cachedOutputs := messagelayer.Tangle().LedgerState.OutputsOnAddress(address)
 	defer cachedOutputs.Release()
 
-	outputs := cachedOutputs.Unwrap()
-	for _, output := range outputs {
-		if output == nil {
-			return c.JSON(http.StatusBadRequest, NewErrorResponse(xerrors.Errorf("failed to load outputs")))
-		}
-	}
-
-	return c.JSON(http.StatusOK, NewOutputsOnAddress(outputs))
+	return c.JSON(http.StatusOK, NewOutputsOnAddress(cachedOutputs.Unwrap()))
 }
 
 // GetAddressUnspentOutputsEndPoint is the handler for the /ledgerstate/addresses/:address/unspentOutputs endpoint.
@@ -71,12 +64,15 @@ type OutputsOnAddress struct {
 func NewOutputsOnAddress(outputs ledgerstate.Outputs) OutputsOnAddress {
 	return OutputsOnAddress{
 		OutputCount: len(outputs),
-		Outputs: func() []Output {
-			jsonOutputs := make([]Output, len(outputs))
-			for i, output := range outputs {
-				jsonOutputs[i] = NewOutput(output)
+		Outputs: func() (mappedOutputs []Output) {
+			mappedOutputs = make([]Output, 0)
+			for _, output := range outputs {
+				if output != nil {
+					mappedOutputs = append(mappedOutputs, NewOutput(output))
+				}
 			}
-			return jsonOutputs
+
+			return
 		}(),
 	}
 }
