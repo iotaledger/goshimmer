@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/mr-tron/base58"
+	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -79,12 +80,12 @@ func sendManaValue() {
 	ownID := local.GetInstance().ID()
 	access, _, err := manaPlugin.GetAccessMana(ownID)
 	// if node not found, returned value is 0.0
-	if err != nil && err != mana.ErrNodeNotFoundInBaseManaVector && err != manaPlugin.ErrQueryNotAllowed {
+	if err != nil && !xerrors.Is(err, mana.ErrNodeNotFoundInBaseManaVector) && !xerrors.Is(err, manaPlugin.ErrQueryNotAllowed) {
 		log.Errorf("failed to get own access mana: %s ", err.Error())
 	}
 	consensus, _, err := manaPlugin.GetConsensusMana(ownID)
 	// if node not found, returned value is 0.0
-	if err != nil && err != mana.ErrNodeNotFoundInBaseManaVector && err != manaPlugin.ErrQueryNotAllowed {
+	if err != nil && !xerrors.Is(err, mana.ErrNodeNotFoundInBaseManaVector) && !xerrors.Is(err, manaPlugin.ErrQueryNotAllowed) {
 		log.Errorf("failed to get own consensus mana: %s ", err.Error())
 	}
 	msgData := &ManaValueMsgData{
@@ -102,7 +103,7 @@ func sendManaValue() {
 
 func sendManaMapOverall() {
 	accessManaList, _, err := manaPlugin.GetHighestManaNodes(mana.AccessMana, 0)
-	if err != nil && err != manaPlugin.ErrQueryNotAllowed {
+	if err != nil && !xerrors.Is(err, manaPlugin.ErrQueryNotAllowed) {
 		log.Errorf("failed to get list of n highest access mana nodes: %s ", err.Error())
 	}
 	accessPayload := &ManaNetworkListMsgData{ManaType: mana.AccessMana.String()}
@@ -117,7 +118,7 @@ func sendManaMapOverall() {
 		Data: accessPayload,
 	})
 	consensusManaList, _, err := manaPlugin.GetHighestManaNodes(mana.ConsensusMana, 0)
-	if err != nil && err != manaPlugin.ErrQueryNotAllowed {
+	if err != nil && !xerrors.Is(err, manaPlugin.ErrQueryNotAllowed) {
 		log.Errorf("failed to get list of n highest consensus mana nodes: %s ", err.Error())
 	}
 	consensusPayload := &ManaNetworkListMsgData{ManaType: mana.ConsensusMana.String()}
@@ -136,7 +137,7 @@ func sendManaMapOverall() {
 
 func sendManaMapOnline() {
 	accessManaList, _, err := manaPlugin.GetOnlineNodes(mana.AccessMana)
-	if err != nil && err != manaPlugin.ErrQueryNotAllowed {
+	if err != nil && !xerrors.Is(err, manaPlugin.ErrQueryNotAllowed) {
 		log.Errorf("failed to get list of online access mana nodes: %s", err.Error())
 	}
 	accessPayload := &ManaNetworkListMsgData{ManaType: mana.AccessMana.String()}
@@ -151,7 +152,7 @@ func sendManaMapOnline() {
 		Data: accessPayload,
 	})
 	consensusManaList, _, err := manaPlugin.GetOnlineNodes(mana.ConsensusMana)
-	if err != nil && err != manaPlugin.ErrQueryNotAllowed {
+	if err != nil && !xerrors.Is(err, manaPlugin.ErrQueryNotAllowed) {
 		log.Errorf("failed to get list of online consensus mana nodes: %s ", err.Error())
 	}
 	consensusPayload := &ManaNetworkListMsgData{ManaType: mana.ConsensusMana.String()}
