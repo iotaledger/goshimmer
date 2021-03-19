@@ -14,8 +14,8 @@ import (
 
 // region API endpoints ////////////////////////////////////////////////////////////////////////////////////////////////
 
-// GetTransactionByIDEndpoint is the handler for /ledgerstate/transactions/:transactionID endpoint.
-func GetTransactionByIDEndpoint(c echo.Context) (err error) {
+// GetTransactionEndpoint is the handler for /ledgerstate/transactions/:transactionID endpoint.
+func GetTransactionEndpoint(c echo.Context) (err error) {
 	transactionID, err := ledgerstate.TransactionIDFromBase58(c.Param("transactionID"))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, webapi.NewErrorResponse(err))
