@@ -38,7 +38,7 @@ func GetOutputConsumersEndPoint(c echo.Context) (err error) {
 	cachedConsumers := messagelayer.Tangle().LedgerState.Consumers(outputID)
 	defer cachedConsumers.Release()
 
-	return c.JSON(http.StatusOK, NewConsumers(outputID, cachedConsumers.Unwrap()))
+	return c.JSON(http.StatusOK, NewOutputConsumers(outputID, cachedConsumers.Unwrap()))
 }
 
 // GetOutputMetadataEndPoint is the handler for the /ledgerstate/outputs/:outputID/metadata endpoint.
@@ -88,37 +88,70 @@ func NewOutput(output ledgerstate.Output) *Output {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region Consumers ////////////////////////////////////////////////////////////////////////////////////////////////////
+// region OutputID /////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Consumers is the JSON model of consumers of the output.
-type Consumers struct {
-	OutputID              *OutputID              `json:"outputID"`
-	ConsumingTransactions []ConsumingTransaction `json:"consumingTransactions"`
-}
-
-// ConsumingTransaction is the JSON model of a consuming transaction.
-type ConsumingTransaction struct {
+// OutputID represents the JSON model of a ledgerstate.OutputID.
+type OutputID struct {
+	Base58        string `json:"base58"`
 	TransactionID string `json:"transactionID"`
-	Valid         string `json:"valid"`
+	OutputIndex   uint16 `json:"outputIndex"`
 }
 
-// NewConsumers creates a JSON compatible representation of the consumers of the output.
-func NewConsumers(outputID ledgerstate.OutputID, consumers []*ledgerstate.Consumer) *Consumers {
-	return &Consumers{
+// NewOutputID returns an OutputID from the given ledgerstate.OutputID.
+func NewOutputID(outputID ledgerstate.OutputID) *OutputID {
+	if outputID == ledgerstate.EmptyOutputID {
+		return nil
+	}
+
+	return &OutputID{
+		Base58:        outputID.Base58(),
+		TransactionID: outputID.TransactionID().Base58(),
+		OutputIndex:   outputID.OutputIndex(),
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region OutputConsumers //////////////////////////////////////////////////////////////////////////////////////////////
+
+// OutputConsumers is the JSON model of a collection of Consumers of an Output.
+type OutputConsumers struct {
+	OutputID  *OutputID   `json:"outputID"`
+	Consumers []*Consumer `json:"consumers"`
+}
+
+// NewOutputConsumers creates a JSON compatible representation of the Consumers of the Output.
+func NewOutputConsumers(outputID ledgerstate.OutputID, consumers []*ledgerstate.Consumer) *OutputConsumers {
+	return &OutputConsumers{
 		OutputID: NewOutputID(outputID),
-		ConsumingTransactions: func() []ConsumingTransaction {
-			consumingTransactions := make([]ConsumingTransaction, 0)
+		Consumers: func() []*Consumer {
+			consumingTransactions := make([]*Consumer, 0)
 			for _, consumer := range consumers {
 				if consumer != nil {
-					consumingTransactions = append(consumingTransactions, ConsumingTransaction{
-						TransactionID: consumer.TransactionID().Base58(),
-						Valid:         consumer.Valid().String(),
-					})
+					consumingTransactions = append(consumingTransactions, NewConsumer(consumer))
 				}
 			}
 
 			return consumingTransactions
 		}(),
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Consumer /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Consumer represents the JSON model of a ledgerstate.Consumer.
+type Consumer struct {
+	TransactionID string `json:"transactionID"`
+	Valid         string `json:"valid"`
+}
+
+// NewConflict returns a Consumer from the given ledgerstate.Consumer.
+func NewConsumer(consumer *ledgerstate.Consumer) *Consumer {
+	return &Consumer{
+		TransactionID: consumer.TransactionID().Base58(),
+		Valid:         consumer.Valid().String(),
 	}
 }
 

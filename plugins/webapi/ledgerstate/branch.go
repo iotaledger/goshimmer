@@ -213,30 +213,6 @@ func NewConflict(conflictID ledgerstate.ConflictID, branchIDs []ledgerstate.Bran
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region OutputID /////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// OutputID represents the JSON model of a ledgerstate.OutputID.
-type OutputID struct {
-	Base58        string `json:"base58"`
-	TransactionID string `json:"transactionID"`
-	OutputIndex   uint16 `json:"outputIndex"`
-}
-
-// NewOutputID returns an OutputID from the given ledgerstate.OutputID.
-func NewOutputID(outputID ledgerstate.OutputID) *OutputID {
-	if outputID == ledgerstate.EmptyOutputID {
-		return nil
-	}
-
-	return &OutputID{
-		Base58:        outputID.Base58(),
-		TransactionID: outputID.TransactionID().Base58(),
-		OutputIndex:   outputID.OutputIndex(),
-	}
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region branchIDFromContext //////////////////////////////////////////////////////////////////////////////////////////
 
 // branchIDFromContext determines the BranchID from the branchID parameter in an echo.Context. It expects it to either
