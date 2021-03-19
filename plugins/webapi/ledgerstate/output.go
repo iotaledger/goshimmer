@@ -138,8 +138,8 @@ type OutputMetadata struct {
 }
 
 // NewOutputMetadata creates a JSON compatible representation of the output metadata
-func NewOutputMetadata(outputMetadata *ledgerstate.OutputMetadata) OutputMetadata {
-	return OutputMetadata{
+func NewOutputMetadata(outputMetadata *ledgerstate.OutputMetadata) *OutputMetadata {
+	return &OutputMetadata{
 		ID:                 outputMetadata.ID().Base58(),
 		BranchID:           outputMetadata.BranchID().Base58(),
 		Solid:              outputMetadata.Solid(),

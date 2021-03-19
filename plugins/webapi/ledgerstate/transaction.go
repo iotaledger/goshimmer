@@ -24,8 +24,9 @@ func GetTransactionEndpoint(c echo.Context) (err error) {
 	if !messagelayer.Tangle().LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
 		err = c.JSON(http.StatusOK, NewTransaction(transaction))
 	}) {
-		c.JSON(http.StatusNotFound, webapi.NewErrorResponse(xerrors.Errorf("failed to load transaction with %s", transactionID)))
+		err = c.JSON(http.StatusNotFound, webapi.NewErrorResponse(xerrors.Errorf("failed to load transaction with %s", transactionID)))
 	}
+
 	return
 }
 
@@ -71,29 +72,29 @@ type Transaction struct {
 	Timestamp         int64                                 `json:"timestamp"`
 	AccessPledgeID    string                                `json:"accessPledgeID"`
 	ConsensusPledgeID string                                `json:"consensusPledgeID"`
-	Inputs            []Input                               `json:"inputs"`
-	Outputs           []Output                              `json:"outputs"`
-	UnlockBlocks      []UnlockBlock                         `json:"unlockBlocks"`
+	Inputs            []*Input                              `json:"inputs"`
+	Outputs           []*Output                             `json:"outputs"`
+	UnlockBlocks      []*UnlockBlock                        `json:"unlockBlocks"`
 	DataPayload       []byte                                `json:"dataPayload"`
 }
 
 // NewTransaction returns a Transaction from the given ledgerstate.Transaction.
-func NewTransaction(transaction *ledgerstate.Transaction) Transaction {
+func NewTransaction(transaction *ledgerstate.Transaction) *Transaction {
 	// process inputs
-	inputs := make([]Input, len(transaction.Essence().Inputs()))
+	inputs := make([]*Input, len(transaction.Essence().Inputs()))
 	for i, input := range transaction.Essence().Inputs() {
 		inputs[i] = NewInput(input)
 	}
 
 	// process outputs
-	outputs := make([]Output, len(transaction.Essence().Outputs()))
+	outputs := make([]*Output, len(transaction.Essence().Outputs()))
 	for i, output := range transaction.Essence().Outputs() {
 		balances := make(map[string]uint64)
 		output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
 			balances[color.String()] = balance
 			return true
 		})
-		outputs[i] = Output{
+		outputs[i] = &Output{
 			Type:     output.Type().String(),
 			Address:  output.Address().Base58(),
 			Balances: balances,
@@ -101,9 +102,9 @@ func NewTransaction(transaction *ledgerstate.Transaction) Transaction {
 	}
 
 	// process unlock blocks
-	unlockBlocks := make([]UnlockBlock, len(transaction.UnlockBlocks()))
+	unlockBlocks := make([]*UnlockBlock, len(transaction.UnlockBlocks()))
 	for i, unlockBlock := range transaction.UnlockBlocks() {
-		ub := UnlockBlock{
+		ub := &UnlockBlock{
 			Type:  unlockBlock.Type().String(),
 			Index: i,
 		}
@@ -129,12 +130,12 @@ func NewTransaction(transaction *ledgerstate.Transaction) Transaction {
 		unlockBlocks[i] = ub
 	}
 
-	dataPayload := []byte{}
+	dataPayload := make([]byte, 0)
 	if transaction.Essence().Payload() != nil {
 		dataPayload = transaction.Essence().Payload().Bytes()
 	}
 
-	return Transaction{
+	return &Transaction{
 		Version:           transaction.Essence().Version(),
 		Timestamp:         transaction.Essence().Timestamp().Unix(),
 		AccessPledgeID:    base58.Encode(transaction.Essence().AccessPledgeID().Bytes()),
@@ -153,14 +154,15 @@ type Input struct {
 }
 
 // NewInput returns an Input from the given ledgerstate.Input.
-func NewInput(input ledgerstate.Input) Input {
+func NewInput(input ledgerstate.Input) *Input {
 	if input.Type() == ledgerstate.UTXOInputType {
-		return Input{
+		return &Input{
 			Type:               input.Type().String(),
 			ReferencedOutputID: NewOutputID(input.(*ledgerstate.UTXOInput).ReferencedOutputID()),
 		}
 	}
-	return Input{}
+
+	return nil
 }
 
 // UnlockBlock defines the struct of a signature.
@@ -187,8 +189,8 @@ type TransactionMetadata struct {
 }
 
 // NewTransactionMetadata returns a TransactionMetadata from the given ledgerstate.TransactionMetadata.
-func NewTransactionMetadata(transactionMetadata *ledgerstate.TransactionMetadata) TransactionMetadata {
-	return TransactionMetadata{
+func NewTransactionMetadata(transactionMetadata *ledgerstate.TransactionMetadata) *TransactionMetadata {
+	return &TransactionMetadata{
 		BranchID:           transactionMetadata.BranchID().Base58(),
 		Solid:              transactionMetadata.Solid(),
 		SolidificationTime: transactionMetadata.SolidificationTime().Unix(),
@@ -208,12 +210,13 @@ type Attachments struct {
 }
 
 // NewAttachments creates a new `Attachments`.
-func NewAttachments(transactionID ledgerstate.TransactionID, messageIDs tangle.MessageIDs) Attachments {
+func NewAttachments(transactionID ledgerstate.TransactionID, messageIDs tangle.MessageIDs) *Attachments {
 	var messageIDsBase58 []string
 	for _, messageID := range messageIDs {
 		messageIDsBase58 = append(messageIDsBase58, messageID.String())
 	}
-	return Attachments{
+
+	return &Attachments{
 		TransactionID: transactionID.Base58(),
 		MessageIDs:    messageIDsBase58,
 	}
