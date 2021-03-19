@@ -257,7 +257,12 @@ func OpinionGiverFunc() (givers []opinion.OpinionGiver, err error) {
 	consensusManaNodes, _, err := GetManaMap(mana.ConsensusMana)
 
 	for _, v := range Registry().NodesView() {
+		// double check to exclude self
+		if v.ID() == local.GetInstance().ID() {
+			continue
+		}
 		manaValue := 0.0
+
 		if v, ok := consensusManaNodes[v.ID()]; ok {
 			manaValue = v
 		}
@@ -274,6 +279,10 @@ func OpinionGiverFunc() (givers []opinion.OpinionGiver, err error) {
 			continue
 		}
 		if _, ok := opinionGiversMap[p.ID()]; !ok {
+			// double check to exclude self
+			if p.ID() == local.GetInstance().ID() {
+				continue
+			}
 			manaValue := 0.0
 			if v, ok := consensusManaNodes[p.ID()]; ok {
 				manaValue = v
