@@ -124,16 +124,16 @@ func NewBranch(branch ledgerstate.Branch) Branch {
 
 // BranchChildren represents the JSON model of a collection of ChildBranch objects.
 type BranchChildren struct {
-	BranchID      string        `json:"branchID"`
-	ChildBranches []ChildBranch `json:"childBranches"`
+	BranchID      string         `json:"branchID"`
+	ChildBranches []*ChildBranch `json:"childBranches"`
 }
 
 // NewBranchChildren returns BranchChildren from the given collection of ledgerstate.ChildBranch objects.
-func NewBranchChildren(branchID ledgerstate.BranchID, childBranches []*ledgerstate.ChildBranch) BranchChildren {
-	return BranchChildren{
+func NewBranchChildren(branchID ledgerstate.BranchID, childBranches []*ledgerstate.ChildBranch) *BranchChildren {
+	return &BranchChildren{
 		BranchID: branchID.Base58(),
-		ChildBranches: func() (mappedChildBranches []ChildBranch) {
-			mappedChildBranches = make([]ChildBranch, 0)
+		ChildBranches: func() (mappedChildBranches []*ChildBranch) {
+			mappedChildBranches = make([]*ChildBranch, 0)
 			for _, childBranch := range childBranches {
 				mappedChildBranches = append(mappedChildBranches, NewChildBranch(childBranch))
 			}
@@ -154,8 +154,8 @@ type ChildBranch struct {
 }
 
 // NewChildBranch returns a ChildBranch from the given ledgerstate.ChildBranch.
-func NewChildBranch(childBranch *ledgerstate.ChildBranch) ChildBranch {
-	return ChildBranch{
+func NewChildBranch(childBranch *ledgerstate.ChildBranch) *ChildBranch {
+	return &ChildBranch{
 		BranchID:   childBranch.ChildBranchID().Base58(),
 		BranchType: childBranch.ChildBranchType().String(),
 	}
@@ -167,16 +167,16 @@ func NewChildBranch(childBranch *ledgerstate.ChildBranch) ChildBranch {
 
 // BranchConflicts represents the JSON model of a collection of Conflicts that a ledgerstate.ConflictBranch is part of.
 type BranchConflicts struct {
-	BranchID  string     `json:"branchID"`
-	Conflicts []Conflict `json:"conflicts"`
+	BranchID  string      `json:"branchID"`
+	Conflicts []*Conflict `json:"conflicts"`
 }
 
 // NewBranchConflicts returns the BranchConflicts that a ledgerstate.ConflictBranch is part of.
-func NewBranchConflicts(branchID ledgerstate.BranchID, branchIDsPerConflictID map[ledgerstate.ConflictID][]ledgerstate.BranchID) BranchConflicts {
-	return BranchConflicts{
+func NewBranchConflicts(branchID ledgerstate.BranchID, branchIDsPerConflictID map[ledgerstate.ConflictID][]ledgerstate.BranchID) *BranchConflicts {
+	return &BranchConflicts{
 		BranchID: branchID.Base58(),
-		Conflicts: func() (mappedConflicts []Conflict) {
-			mappedConflicts = make([]Conflict, 0)
+		Conflicts: func() (mappedConflicts []*Conflict) {
+			mappedConflicts = make([]*Conflict, 0)
 			for conflictID, branchIDs := range branchIDsPerConflictID {
 				mappedConflicts = append(mappedConflicts, NewConflict(conflictID, branchIDs))
 			}
@@ -197,8 +197,8 @@ type Conflict struct {
 }
 
 // NewConflict returns a Conflict from the given ledgerstate.ConflictID.
-func NewConflict(conflictID ledgerstate.ConflictID, branchIDs []ledgerstate.BranchID) Conflict {
-	return Conflict{
+func NewConflict(conflictID ledgerstate.ConflictID, branchIDs []ledgerstate.BranchID) *Conflict {
+	return &Conflict{
 		OutputID: NewOutputID(conflictID.OutputID()),
 		BranchIDs: func() (mappedBranchIDs []string) {
 			mappedBranchIDs = make([]string, 0)

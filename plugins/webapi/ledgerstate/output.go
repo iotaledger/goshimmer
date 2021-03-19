@@ -70,8 +70,8 @@ type Output struct {
 }
 
 // NewOutput creates a JSON compatible representation of the output.
-func NewOutput(output ledgerstate.Output) Output {
-	return Output{
+func NewOutput(output ledgerstate.Output) *Output {
+	return &Output{
 		OutputID: NewOutputID(output.ID()),
 		Type:     output.Type().String(),
 		Balances: func() map[string]uint64 {
@@ -103,8 +103,8 @@ type ConsumingTransaction struct {
 }
 
 // NewConsumers creates a JSON compatible representation of the consumers of the output.
-func NewConsumers(outputID ledgerstate.OutputID, consumers []*ledgerstate.Consumer) Consumers {
-	return Consumers{
+func NewConsumers(outputID ledgerstate.OutputID, consumers []*ledgerstate.Consumer) *Consumers {
+	return &Consumers{
 		OutputID: NewOutputID(outputID),
 		ConsumingTransactions: func() []ConsumingTransaction {
 			consumingTransactions := make([]ConsumingTransaction, 0)
