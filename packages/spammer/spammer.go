@@ -64,7 +64,7 @@ func (spammer *Spammer) run(rate int, timeUnit time.Duration, processID int64, i
 		}
 
 		if currentInterval < msgInterval {
-			//there is still time, sleep until msgInterval
+			// there is still time, sleep until msgInterval
 			time.Sleep(msgInterval - currentInterval)
 		}
 		// when currentInterval > msgInterval, the node can't issue msgs as fast as requested, will do as fast as it can

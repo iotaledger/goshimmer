@@ -98,10 +98,10 @@ func newUpdateEvent() *UpdatedEvent {
 	}
 }
 
-func randomNodeID() (ID identity.ID) {
+func randomNodeID() (iID identity.ID) {
 	idBytes := make([]byte, sha256.Size)
 	_, _ = rand.Read(idBytes)
-	copy(ID[:], idBytes)
+	copy(iID[:], idBytes)
 	return
 }
 

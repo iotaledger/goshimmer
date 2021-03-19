@@ -59,7 +59,7 @@ func (chs *RandChooser) Pick(n uint) []interface{} {
 			return res[:n]
 		}
 	}
-	return res[:]
+	return res
 }
 
 // remove picked element at index
