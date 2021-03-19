@@ -5,15 +5,16 @@ import (
 	"log"
 	"os"
 
+	"github.com/iotaledger/hive.go/bitmask"
+	"github.com/mr-tron/base58"
+	flag "github.com/spf13/pflag"
+	"github.com/spf13/viper"
+
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
-	"github.com/iotaledger/hive.go/bitmask"
-	"github.com/mr-tron/base58"
-	flag "github.com/spf13/pflag"
-	"github.com/spf13/viper"
 )
 
 const (

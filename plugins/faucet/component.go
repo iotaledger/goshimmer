@@ -4,16 +4,17 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/datastructure/orderedmap"
+	"github.com/iotaledger/hive.go/identity"
+	"golang.org/x/xerrors"
+
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/datastructure/orderedmap"
-	"github.com/iotaledger/hive.go/identity"
-	"golang.org/x/xerrors"
 )
 
 // New creates a new faucet component using the given seed and tokensPerRequest config.
@@ -351,7 +352,6 @@ func (c *Component) splitOutput(remainderOutputID ledgerstate.OutputID, remainde
 
 type wallet struct {
 	keyPair ed25519.KeyPair
-	address *ledgerstate.ED25519Address
 }
 
 func (w wallet) privateKey() ed25519.PrivateKey {

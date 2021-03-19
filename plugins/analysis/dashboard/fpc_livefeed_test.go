@@ -5,11 +5,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 	analysisserver "github.com/iotaledger/goshimmer/plugins/analysis/server"
-	"github.com/stretchr/testify/require"
 )
 
 // TestCreateFPCUpdate checks that given a FPC heartbeat, the returned FPCUpdate is ok.

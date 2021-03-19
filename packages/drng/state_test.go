@@ -3,9 +3,10 @@ package drng
 import (
 	"testing"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/goshimmer/packages/clock"
 )
 
 func dummyRandomness() *Randomness {

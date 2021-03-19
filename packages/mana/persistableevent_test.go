@@ -1,10 +1,11 @@
 package mana
 
 import (
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"math"
 	"testing"
 	"time"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 
 	"github.com/iotaledger/hive.go/identity"
 

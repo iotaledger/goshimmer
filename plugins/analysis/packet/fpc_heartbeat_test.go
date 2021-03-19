@@ -5,12 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/vote"
-	"github.com/iotaledger/goshimmer/packages/vote/opinion"
-	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/hive.go/protocol/message"
 	"github.com/iotaledger/hive.go/protocol/tlv"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/goshimmer/packages/vote"
+	"github.com/iotaledger/goshimmer/packages/vote/opinion"
+	"github.com/iotaledger/goshimmer/plugins/banner"
 )
 
 var ownID = sha256.Sum256([]byte{'A'})

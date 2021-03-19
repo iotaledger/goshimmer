@@ -7,9 +7,10 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/labstack/echo"
 	"github.com/markbates/pkger"
+
+	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 // ErrInvalidParameter defines the invalid parameter error.

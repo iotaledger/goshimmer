@@ -3,12 +3,13 @@ package metrics
 import (
 	"sync"
 
-	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
-	analysisserver "github.com/iotaledger/goshimmer/plugins/analysis/server"
-	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"go.uber.org/atomic"
+
+	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
+	analysisserver "github.com/iotaledger/goshimmer/plugins/analysis/server"
+	"github.com/iotaledger/goshimmer/plugins/banner"
 )
 
 // NodeInfo holds info of a node.

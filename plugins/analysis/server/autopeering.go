@@ -5,11 +5,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/identity"
+
 	"github.com/iotaledger/goshimmer/packages/graph"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/identity"
 )
 
 // NetworkMap contains information about the peer connections on a specific network.

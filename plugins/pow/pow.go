@@ -8,10 +8,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/pow"
-	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/logger"
 	_ "golang.org/x/crypto/blake2b" // required by crypto.BLAKE2b_512
+
+	"github.com/iotaledger/goshimmer/packages/pow"
+	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 var (

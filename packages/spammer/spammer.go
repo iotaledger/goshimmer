@@ -5,9 +5,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"golang.org/x/xerrors"
+
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	"golang.org/x/xerrors"
 )
 
 // IssuePayloadFunc is a function which issues a payload.

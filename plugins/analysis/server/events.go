@@ -1,8 +1,9 @@
 package server
 
 import (
-	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 	"github.com/iotaledger/hive.go/events"
+
+	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 )
 
 // Events holds the events of the analysis server package.

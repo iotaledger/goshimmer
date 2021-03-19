@@ -5,9 +5,10 @@ import (
 	"sort"
 	"time"
 
+	"github.com/labstack/echo"
+
 	"github.com/iotaledger/goshimmer/packages/mana"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
-	"github.com/labstack/echo"
 )
 
 // getAllManaHandler handles the request.

@@ -3,13 +3,14 @@ package prometheus
 import (
 	"strconv"
 
+	"github.com/iotaledger/hive.go/events"
+	"github.com/prometheus/client_golang/prometheus"
+
 	metricspkg "github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	analysisserver "github.com/iotaledger/goshimmer/plugins/analysis/server"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
-	"github.com/iotaledger/hive.go/events"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (

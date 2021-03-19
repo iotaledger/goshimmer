@@ -3,8 +3,6 @@ package tangle
 import (
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/markers"
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
@@ -13,6 +11,9 @@ import (
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/mr-tron/base58"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/markers"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
 // region Tangle ///////////////////////////////////////////////////////////////////////////////////////////////////////

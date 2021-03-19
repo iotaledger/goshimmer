@@ -1,8 +1,9 @@
 package prometheus
 
 import (
-	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/iotaledger/goshimmer/plugins/gossip"
 )
 
 var (

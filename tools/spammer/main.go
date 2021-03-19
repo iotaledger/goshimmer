@@ -3,9 +3,10 @@ package main
 import (
 	"fmt"
 
-	"github.com/iotaledger/goshimmer/client"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
+
+	"github.com/iotaledger/goshimmer/client"
 )
 
 const (

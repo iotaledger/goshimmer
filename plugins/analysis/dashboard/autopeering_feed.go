@@ -4,11 +4,12 @@ import (
 	"fmt"
 
 	"github.com/gorilla/websocket"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	analysisserver "github.com/iotaledger/goshimmer/plugins/analysis/server"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/workerpool"
+
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	analysisserver "github.com/iotaledger/goshimmer/plugins/analysis/server"
 )
 
 var (

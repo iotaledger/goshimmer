@@ -5,10 +5,11 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/iotaledger/hive.go/identity"
+
 	"github.com/iotaledger/goshimmer/client"
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/plugins/webapi/autopeering"
-	"github.com/iotaledger/hive.go/identity"
 )
 
 // Peer represents a GoShimmer node inside the Docker network

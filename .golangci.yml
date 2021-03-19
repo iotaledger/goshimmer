@@ -4,16 +4,17 @@ run:
 issues:
     exclude-use-default: false
     max-issues-per-linter: 0
+    max-same-issues: 0
+    exclude:
+        - 'type name will be used as * by other packages, and that stutters; consider calling this *'
 
 linters-settings:
-    gofmt:
-        simplify: true
-    golint:
-        min-confidence: 0.8
     govet:
         check-shadowing: true
     misspell:
         locale: US
+    goimports:
+        local-prefixes: github.com/iotaledger/goshimmer
 
 linters:
     enable:

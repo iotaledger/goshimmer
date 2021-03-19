@@ -4,8 +4,9 @@ import (
 	"errors"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/hive.go/events"
+
+	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 )
 
 var (

@@ -4,8 +4,9 @@ import (
 	"sync"
 
 	"github.com/gorilla/websocket"
-	"github.com/iotaledger/goshimmer/packages/mana"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/mana"
 )
 
 const (

@@ -6,9 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 func TestRevokedEvent_ToPersistable(t *testing.T) {

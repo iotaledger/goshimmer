@@ -3,10 +3,11 @@ package metrics
 import (
 	"sync"
 
+	"go.uber.org/atomic"
+
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
-	"go.uber.org/atomic"
 )
 
 var (
