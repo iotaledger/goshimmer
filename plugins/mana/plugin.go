@@ -481,14 +481,14 @@ func GetPendingMana(value float64, n time.Duration) float64 {
 }
 
 // GetLoggedEvents gets the events logs for the node IDs and time frame specified. If none is specified, it returns the logs for all nodes.
-func GetLoggedEvents(IDs []identity.ID, startTime time.Time, endTime time.Time) (map[identity.ID]*EventsLogs, error) {
+func GetLoggedEvents(identityIDs []identity.ID, startTime time.Time, endTime time.Time) (map[identity.ID]*EventsLogs, error) {
 	logs := make(map[identity.ID]*EventsLogs)
 	lookup := make(map[identity.ID]bool)
 	getAll := true
 
-	if len(IDs) > 0 {
+	if len(identityIDs) > 0 {
 		getAll = false
-		for _, nodeID := range IDs {
+		for _, nodeID := range identityIDs {
 			lookup[nodeID] = true
 		}
 	}

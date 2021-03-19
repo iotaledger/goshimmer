@@ -36,6 +36,7 @@ func indexRoute(e echo.Context) error {
 		if err != nil {
 			return err
 		}
+		defer res.Body.Close()
 		devIndexHTML, err := io.ReadAll(res.Body)
 		if err != nil {
 			return err

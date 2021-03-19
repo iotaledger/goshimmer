@@ -133,7 +133,7 @@ func start(shutdownSignal <-chan struct{}) {
 	// resolve the bind address
 	localAddr, err := net.ResolveUDPAddr(peering.Network(), BindAddress())
 	if err != nil {
-		log.Fatalf("Error resolving %s: %v", local.CfgBind, err)
+		log.Fatalf("Error resolving %s: %v", local.CfgBind, err) // nolint: gocritic
 	}
 
 	conn, err := net.ListenUDP(peering.Network(), localAddr)

@@ -228,7 +228,7 @@ func (c *ConsensusBaseManaVector) GetHighestManaNodes(n uint) (res []Node, t tim
 		return nil, t, err
 	}
 
-	sort.Slice(res[:], func(i, j int) bool {
+	sort.Slice(res, func(i, j int) bool {
 		return res[i].Mana > res[j].Mana
 	})
 

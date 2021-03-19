@@ -109,7 +109,7 @@ func (p *Payload) Bytes() (bytes []byte) {
 	marshalUtil.WriteUint32(payload.TypeLength + uint32(len(p.Data)+HeaderLength))
 	marshalUtil.WriteBytes(PayloadType.Bytes())
 	marshalUtil.WriteBytes(p.Header.Bytes())
-	marshalUtil.WriteBytes(p.Data[:])
+	marshalUtil.WriteBytes(p.Data)
 
 	bytes = marshalUtil.Bytes()
 

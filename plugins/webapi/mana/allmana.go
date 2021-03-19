@@ -21,7 +21,7 @@ func getAllManaHandler(c echo.Context) error {
 		})
 	}
 	accessList := access.ToNodeStrList()
-	sort.Slice(accessList[:], func(i, j int) bool {
+	sort.Slice(accessList, func(i, j int) bool {
 		return accessList[i].Mana > accessList[j].Mana
 	})
 	consensus, tConsensus, err := manaPlugin.GetManaMap(mana.ConsensusMana, t)
@@ -31,7 +31,7 @@ func getAllManaHandler(c echo.Context) error {
 		})
 	}
 	consensusList := consensus.ToNodeStrList()
-	sort.Slice(consensusList[:], func(i, j int) bool {
+	sort.Slice(consensusList, func(i, j int) bool {
 		return consensusList[i].Mana > consensusList[j].Mana
 	})
 	return c.JSON(http.StatusOK, GetAllManaResponse{

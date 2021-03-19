@@ -25,12 +25,12 @@ type Graph struct {
 }
 
 // New returns a graph.
-func New(IDs []string) *Graph {
+func New(ids []string) *Graph {
 	g := &Graph{
-		symbolTable: make(symbolTable, len(IDs)),
-		nodes:       make(nodes, len(IDs)),
+		symbolTable: make(symbolTable, len(ids)),
+		nodes:       make(nodes, len(ids)),
 	}
-	for index, id := range IDs {
+	for index, id := range ids {
 		g.nodes[index].ID = nodeID(index)
 		g.symbolTable[id] = nodeID(index)
 	}

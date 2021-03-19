@@ -800,13 +800,13 @@ func (m *MessageMetadata) StructureDetails() *markers.StructureDetails {
 }
 
 // SetBranchID sets the branch ID of the message.
-func (m *MessageMetadata) SetBranchID(ID ledgerstate.BranchID) (modified bool) {
+func (m *MessageMetadata) SetBranchID(bID ledgerstate.BranchID) (modified bool) {
 	m.branchIDMutex.Lock()
 	defer m.branchIDMutex.Unlock()
-	if m.branchID == ID {
+	if m.branchID == bID {
 		return
 	}
-	m.branchID = ID
+	m.branchID = bID
 	m.SetModified(true)
 	modified = true
 	return

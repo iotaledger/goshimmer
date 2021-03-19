@@ -4,9 +4,18 @@ run:
 issues:
     exclude-use-default: false
     max-issues-per-linter: 0
-    max-same-issues: 0
+#    max-same-issues: 0
     exclude:
         - 'type name will be used as * by other packages, and that stutters; consider calling this *'
+        - 'ifElseChain: rewrite if-else to switch statement'
+        - "elseif: can replace 'else {if cond {}}' with 'else if cond {}'"
+    exclude-rules:
+        -   path: _test\.go
+            linters:
+                - errcheck
+                - bodyclose
+                - noctx
+                - dupl
 
 linters-settings:
     govet:
@@ -18,11 +27,17 @@ linters-settings:
 
 linters:
     enable:
+        - bodyclose
+        - deadcode
+        - dogsled
+        #        - dupl
+        #        - errcheck
+        - gocritic
         - misspell
         - gofmt
         - goimports
         - govet
         - golint
     disable:
-        - errcheck
         - gochecknoglobals
+        - errcheck

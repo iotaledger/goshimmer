@@ -530,7 +530,7 @@ func (b *BranchDAG) createConflictBranchFromNormalizedParentBranchIDs(branchID B
 	}
 
 	// register references
-	switch true {
+	switch {
 	case newBranchCreated:
 		// store child references
 		for parentBranchID := range normalizedParentBranchIDs {
