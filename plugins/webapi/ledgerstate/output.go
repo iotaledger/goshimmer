@@ -76,8 +76,8 @@ func NewOutput(output ledgerstate.Output) Output {
 			if output.ID() == ledgerstate.EmptyOutputID {
 				return nil
 			}
-			outputID := NewOutputID(output.ID())
-			return &outputID
+
+			return &[]OutputID{NewOutputID(output.ID())}[0]
 		}(),
 		Type: output.Type().String(),
 		Balances: func() map[string]uint64 {
