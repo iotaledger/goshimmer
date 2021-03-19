@@ -72,14 +72,8 @@ type Output struct {
 // NewOutput creates a JSON compatible representation of the output.
 func NewOutput(output ledgerstate.Output) Output {
 	return Output{
-		OutputID: func() *OutputID {
-			if output.ID() == ledgerstate.EmptyOutputID {
-				return nil
-			}
-
-			return NewOutputID(output.ID()).Pointer()
-		}(),
-		Type: output.Type().String(),
+		OutputID: NewOutputID(output.ID()),
+		Type:     output.Type().String(),
 		Balances: func() map[string]uint64 {
 			coloredBalances := make(map[string]uint64)
 			output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
@@ -98,7 +92,7 @@ func NewOutput(output ledgerstate.Output) Output {
 
 // Consumers is the JSON model of consumers of the output.
 type Consumers struct {
-	OutputID              OutputID               `json:"outputID"`
+	OutputID              *OutputID              `json:"outputID"`
 	ConsumingTransactions []ConsumingTransaction `json:"consumingTransactions"`
 }
 

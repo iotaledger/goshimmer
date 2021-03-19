@@ -49,14 +49,14 @@ func GetAddressUnspentOutputsEndPoint(c echo.Context) error {
 
 // OutputsOnAddress is the JSON model of outputs that are associated to an address.
 type OutputsOnAddress struct {
-	Address string   `json:"address"`
+	Address *Address `json:"address"`
 	Outputs []Output `json:"outputs"`
 }
 
 // NewOutputsOnAddress creates a JSON compatible representation of the outputs on the address.
-func NewOutputsOnAddress(address ledgerstate.Address, outputs ledgerstate.Outputs) OutputsOnAddress {
-	return OutputsOnAddress{
-		Address: address.Base58(),
+func NewOutputsOnAddress(address ledgerstate.Address, outputs ledgerstate.Outputs) *OutputsOnAddress {
+	return &OutputsOnAddress{
+		Address: NewAddress(address),
 		Outputs: func() (mappedOutputs []Output) {
 			mappedOutputs = make([]Output, 0)
 			for _, output := range outputs {
@@ -67,6 +67,24 @@ func NewOutputsOnAddress(address ledgerstate.Address, outputs ledgerstate.Output
 
 			return
 		}(),
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Address //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Address represents the JSON model of a ledgerstate.Address.
+type Address struct {
+	Type   string `json:"type"`
+	Base58 string `json:"base58"`
+}
+
+// NewAddress returns an Address from the given ledgerstate.Address.
+func NewAddress(address ledgerstate.Address) *Address {
+	return &Address{
+		Type:   address.Type().String(),
+		Base58: address.Base58(),
 	}
 }
 

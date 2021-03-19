@@ -148,8 +148,8 @@ func NewTransaction(transaction *ledgerstate.Transaction) Transaction {
 
 // Input defines the Input model.
 type Input struct {
-	Type               string   `json:"type"`
-	ReferencedOutputID OutputID `json:"referencedOutputID"`
+	Type               string    `json:"type"`
+	ReferencedOutputID *OutputID `json:"referencedOutputID"`
 }
 
 // NewInput returns an Input from the given ledgerstate.Input.

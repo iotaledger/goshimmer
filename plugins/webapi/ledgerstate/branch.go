@@ -192,8 +192,8 @@ func NewBranchConflicts(branchID ledgerstate.BranchID, branchIDsPerConflictID ma
 
 // Conflict represents the JSON model of a ledgerstate.Conflict.
 type Conflict struct {
-	OutputID  OutputID `json:"outputID"`
-	BranchIDs []string `json:"branchIDs"`
+	OutputID  *OutputID `json:"outputID"`
+	BranchIDs []string  `json:"branchIDs"`
 }
 
 // NewConflict returns a Conflict from the given ledgerstate.ConflictID.
@@ -222,18 +222,17 @@ type OutputID struct {
 	OutputIndex   uint16 `json:"outputIndex"`
 }
 
-// NewOutputID returns a OutputID from the given ledgerstate.OutputID.
-func NewOutputID(outputID ledgerstate.OutputID) OutputID {
-	return OutputID{
+// NewOutputID returns an OutputID from the given ledgerstate.OutputID.
+func NewOutputID(outputID ledgerstate.OutputID) *OutputID {
+	if outputID == ledgerstate.EmptyOutputID {
+		return nil
+	}
+
+	return &OutputID{
 		Base58:        outputID.Base58(),
 		TransactionID: outputID.TransactionID().Base58(),
 		OutputIndex:   outputID.OutputIndex(),
 	}
-}
-
-// Pointer returns a pointer to the underlying OutputID.
-func (o OutputID) Pointer() *OutputID {
-	return &o
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
