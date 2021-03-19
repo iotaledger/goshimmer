@@ -59,8 +59,9 @@ func (i ID) String() string {
 type Epoch struct {
 	objectstorage.StorableObjectFlags
 
-	id   ID
-	mana map[identity.ID]float64
+	id            ID
+	mana          map[identity.ID]float64
+	manaRetrieved bool
 
 	manaMutex sync.RWMutex
 }
@@ -138,6 +139,21 @@ func (e *Epoch) AddNode(id identity.ID) {
 	e.SetModified()
 }
 
+func (e *Epoch) ManaRetrieved() bool {
+	e.manaMutex.RLock()
+	defer e.manaMutex.RUnlock()
+
+	return e.manaRetrieved
+}
+
+func (e *Epoch) SetMana() {
+	e.manaMutex.Lock()
+	defer e.manaMutex.Unlock()
+
+	e.manaRetrieved = true
+	e.SetModified()
+}
+
 func (e *Epoch) Mana() (mana map[identity.ID]float64) {
 	e.manaMutex.RLock()
 	defer e.manaMutex.RUnlock()
@@ -149,6 +165,7 @@ func (e *Epoch) Mana() (mana map[identity.ID]float64) {
 	return
 }
 
+// TotalMana
 func (e *Epoch) TotalMana() float64 {
 	e.manaMutex.RLock()
 	defer e.manaMutex.RUnlock()
