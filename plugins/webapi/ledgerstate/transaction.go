@@ -82,9 +82,7 @@ func NewTransaction(transaction *ledgerstate.Transaction) Transaction {
 	// process inputs
 	inputs := make([]Input, len(transaction.Essence().Inputs()))
 	for i, input := range transaction.Essence().Inputs() {
-		inputs[i] = Input{
-			ConsumedOutputID: input.Base58(),
-		}
+		inputs[i] = NewInput(input)
 	}
 
 	// process outputs
@@ -150,9 +148,21 @@ func NewTransaction(transaction *ledgerstate.Transaction) Transaction {
 	}
 }
 
-// Input holds the consumedOutputID
+// Input defines the Input model.
 type Input struct {
-	ConsumedOutputID string `json:"consumedOutputID"`
+	Type              string   `json:"type"`
+	ReferencedInputID OutputID `json:"referencedInputID"`
+}
+
+// NewInput returns an Input from the given ledgerstate.Input.
+func NewInput(input ledgerstate.Input) Input {
+	if input.Type() == ledgerstate.UTXOInputType {
+		return Input{
+			Type:              input.Type().String(),
+			ReferencedInputID: NewOutputID(input.(*ledgerstate.UTXOInput).ReferencedOutputID()),
+		}
+	}
+	return Input{}
 }
 
 // UnlockBlock defines the struct of a signature.
