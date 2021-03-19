@@ -7,7 +7,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/labstack/echo"
-	"golang.org/x/xerrors"
 )
 
 // region API endpoints ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -22,7 +21,7 @@ func GetAddressOutputsEndPoint(c echo.Context) error {
 	cachedOutputs := messagelayer.Tangle().LedgerState.OutputsOnAddress(address)
 	defer cachedOutputs.Release()
 
-	return c.JSON(http.StatusOK, NewOutputsOnAddress(cachedOutputs.Unwrap()))
+	return c.JSON(http.StatusOK, NewOutputsOnAddress(address, cachedOutputs.Unwrap()))
 }
 
 // GetAddressUnspentOutputsEndPoint is the handler for the /ledgerstate/addresses/:address/unspentOutputs endpoint.
@@ -35,20 +34,13 @@ func GetAddressUnspentOutputsEndPoint(c echo.Context) error {
 	cachedOutputs := messagelayer.Tangle().LedgerState.OutputsOnAddress(address)
 	defer cachedOutputs.Release()
 
-	outputs := cachedOutputs.Unwrap()
-	unspentOutputs := make(ledgerstate.Outputs, 0)
-	for _, output := range outputs {
-		if output == nil {
-			return c.JSON(http.StatusNotFound, webapi.NewErrorResponse(xerrors.Errorf("failed to load outputs with %s", output.ID())))
-		}
+	return c.JSON(http.StatusOK, NewOutputsOnAddress(address, cachedOutputs.Unwrap().Filter(func(output ledgerstate.Output) (isUnspent bool) {
 		messagelayer.Tangle().LedgerState.OutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
-			if outputMetadata.ConsumerCount() == 0 {
-				unspentOutputs = append(unspentOutputs, output)
-			}
+			isUnspent = outputMetadata.ConsumerCount() == 0
 		})
-	}
 
-	return c.JSON(http.StatusOK, NewUnspentOutputsOnAddress(unspentOutputs))
+		return
+	})))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -57,14 +49,14 @@ func GetAddressUnspentOutputsEndPoint(c echo.Context) error {
 
 // OutputsOnAddress is the JSON model of outputs that are associated to an address.
 type OutputsOnAddress struct {
-	OutputCount int      `json:"outputsCount"`
-	Outputs     []Output `json:"outputs"`
+	Address string   `json:"address"`
+	Outputs []Output `json:"outputs"`
 }
 
 // NewOutputsOnAddress creates a JSON compatible representation of the outputs on the address.
-func NewOutputsOnAddress(outputs ledgerstate.Outputs) OutputsOnAddress {
+func NewOutputsOnAddress(address ledgerstate.Address, outputs ledgerstate.Outputs) OutputsOnAddress {
 	return OutputsOnAddress{
-		OutputCount: len(outputs),
+		Address: address.Base58(),
 		Outputs: func() (mappedOutputs []Output) {
 			mappedOutputs = make([]Output, 0)
 			for _, output := range outputs {
@@ -74,30 +66,6 @@ func NewOutputsOnAddress(outputs ledgerstate.Outputs) OutputsOnAddress {
 			}
 
 			return
-		}(),
-	}
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region UnspentOutputsOnAddress //////////////////////////////////////////////////////////////////////////////////////
-
-// UnspentOutputsOnAddress is the JSON model of unspent outputs that are associated to an address.
-type UnspentOutputsOnAddress struct {
-	UnspentOutputsCount int      `json:"unspentOutputsCount"`
-	UnspentOutputs      []Output `json:"unspentOutputs"`
-}
-
-// NewUnspentOutputsOnAddress creates a JSON compatible representation of the unspent outputs on the address.
-func NewUnspentOutputsOnAddress(unspentOutputs ledgerstate.Outputs) UnspentOutputsOnAddress {
-	return UnspentOutputsOnAddress{
-		UnspentOutputsCount: len(unspentOutputs),
-		UnspentOutputs: func() []Output {
-			jsonOutputs := make([]Output, len(unspentOutputs))
-			for i, output := range unspentOutputs {
-				jsonOutputs[i] = NewOutput(output)
-			}
-			return jsonOutputs
 		}(),
 	}
 }
