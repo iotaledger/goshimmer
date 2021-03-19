@@ -217,7 +217,7 @@ func NewConflict(conflictID ledgerstate.ConflictID, branchIDs []ledgerstate.Bran
 
 // OutputID represents the JSON model of a ledgerstate.OutputID.
 type OutputID struct {
-	ID            string `json:"id"`
+	Base58        string `json:"base58"`
 	TransactionID string `json:"transactionID"`
 	OutputIndex   uint16 `json:"outputIndex"`
 }
@@ -225,7 +225,7 @@ type OutputID struct {
 // NewOutputID returns a OutputID from the given ledgerstate.OutputID.
 func NewOutputID(outputID ledgerstate.OutputID) OutputID {
 	return OutputID{
-		ID:            outputID.Base58(),
+		Base58:        outputID.Base58(),
 		TransactionID: outputID.TransactionID().Base58(),
 		OutputIndex:   outputID.OutputIndex(),
 	}
