@@ -222,7 +222,8 @@ func (m MsgInfo) toCSV() (row []string) {
 		m.MsgIssuerID,
 		fmt.Sprint(m.MsgIssuanceTimestamp.UnixNano()),
 		fmt.Sprint(m.MsgArrivalTime.UnixNano()),
-		fmt.Sprint(m.MsgSolidTime.UnixNano())}...)
+		fmt.Sprint(m.MsgSolidTime.UnixNano()),
+	}...)
 
 	return
 }

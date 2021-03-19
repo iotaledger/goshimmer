@@ -33,7 +33,7 @@ type NeighborMetric struct {
 var Networks = make(map[string]*NetworkMap)
 
 func updateAutopeeringMap(p *packet.Heartbeat) {
-	var networkID = string(p.NetworkID)
+	networkID := string(p.NetworkID)
 	var out strings.Builder
 	for _, value := range p.OutboundIDs {
 		out.WriteString(ShortNodeIDString(value))
@@ -55,7 +55,6 @@ func updateAutopeeringMap(p *packet.Heartbeat) {
 	}
 	nm := Networks[networkID]
 	nm.update(p)
-
 }
 
 // NewNetworkMap creates a new network map with a given network version
@@ -221,7 +220,6 @@ func ReplayAutopeeringEvents(handlers *EventHandlers) {
 			}
 		}
 	}
-
 }
 
 // EventHandlers holds the handler for each event of the record manager.

@@ -590,7 +590,6 @@ func (c *CachedApprover) Unwrap() *Approver {
 	}
 
 	return typedObject
-
 }
 
 // Consume consumes the cachedApprover.

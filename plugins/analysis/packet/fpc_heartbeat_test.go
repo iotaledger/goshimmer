@@ -28,7 +28,8 @@ func dummyFPCHeartbeat() *FPCHeartbeat {
 					Liked:    1.,
 					Rounds:   3,
 					Opinions: []opinion.Opinion{opinion.Dislike, opinion.Like, opinion.Dislike},
-				}},
+				},
+			},
 			QueriedOpinions: []opinion.QueriedOpinions{{
 				OpinionGiverID: "nodeA",
 				Opinions:       map[string]opinion.Opinion{"one": opinion.Like, "two": opinion.Dislike},

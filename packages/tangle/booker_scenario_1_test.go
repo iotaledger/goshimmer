@@ -37,7 +37,8 @@ func TestScenario_1(t *testing.T) {
 		})
 	snapshot := map[ledgerstate.TransactionID]map[ledgerstate.Address]*ledgerstate.ColoredBalances{
 		ledgerstate.GenesisTransactionID: {
-			wallets["GENESIS"].address: genesisBalance},
+			wallets["GENESIS"].address: genesisBalance,
+		},
 	}
 
 	tangle.LedgerState.LoadSnapshot(snapshot)

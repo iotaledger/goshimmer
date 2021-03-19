@@ -185,6 +185,7 @@ func TestExampleB(t *testing.T) {
 		})
 	}
 }
+
 func TestExampleA(t *testing.T) {
 	branchDAG, utxoDAG := setupDependencies(t)
 	defer branchDAG.Shutdown()
@@ -450,7 +451,6 @@ func TestBookConflictingTransaction(t *testing.T) {
 }
 
 func TestInclusionState(t *testing.T) {
-
 	{
 		branchDAG, utxoDAG := setupDependencies(t)
 		defer branchDAG.Shutdown()
@@ -616,6 +616,7 @@ func TestInputsInInvalidBranch(t *testing.T) {
 	assert.True(t, utxoDAG.inputsInInvalidBranch(outputsMetadata))
 	assert.False(t, utxoDAG.inputsInInvalidBranch(outputsMetadata[1:]))
 }
+
 func TestConsumedOutputs(t *testing.T) {
 	branchDAG, utxoDAG := setupDependencies(t)
 	defer branchDAG.Shutdown()
@@ -757,7 +758,6 @@ func TestUnlockBlocksValid(t *testing.T) {
 	// testing invalid signature
 	tx, _ = singleInputTransaction(utxoDAG, wallets[1], wallets[0], input, true)
 	assert.False(t, UnlockBlocksValid(Outputs{input}, tx))
-
 }
 
 func TestAddressOutputMapping(t *testing.T) {

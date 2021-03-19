@@ -426,7 +426,7 @@ func (wallet *Wallet) buildInputs(outputsToUseAsInputs map[address.Address]map[l
 	consumedInputs := make(ledgerstate.Inputs, 0)
 	consumedFunds = make(map[ledgerstate.Color]uint64)
 	for _, unspentOutputsOfAddress := range outputsToUseAsInputs {
-		var i = uint16(0)
+		i := uint16(0)
 		for outputID, output := range unspentOutputsOfAddress {
 			input := ledgerstate.NewUTXOInput(outputID)
 			consumedInputs = append(consumedInputs, input)

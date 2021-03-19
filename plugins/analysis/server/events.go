@@ -76,6 +76,7 @@ func connectNodesCaller(handler interface{}, params ...interface{}) {
 func disconnectNodesCaller(handler interface{}, params ...interface{}) {
 	handler.(func(*DisconnectNodesEvent))(params[0].(*DisconnectNodesEvent))
 }
+
 func errorCaller(handler interface{}, params ...interface{}) {
 	handler.(func(error))(params[0].(error))
 }

@@ -61,6 +61,7 @@ func configureEvents() {
 func logPledge(ev *mana.PledgedEvent) {
 	eventsBuffer = append(eventsBuffer, ev)
 }
+
 func logRevoke(ev *mana.RevokedEvent) {
 	eventsBuffer = append(eventsBuffer, ev)
 }

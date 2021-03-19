@@ -94,7 +94,7 @@ func (m *ManaBuffer) SendValueMsgs(ws *websocket.Conn) error {
 	m.valueMsgsMutex.RLock()
 	defer m.valueMsgsMutex.RUnlock()
 	for _, valueMsg := range m.ValueMsgs {
-		var msg = &wsmsg{
+		msg := &wsmsg{
 			Type: MsgTypeManaValue,
 			Data: valueMsg,
 		}

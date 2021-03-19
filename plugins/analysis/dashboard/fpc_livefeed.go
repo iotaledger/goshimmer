@@ -41,7 +41,6 @@ type FPCUpdate struct {
 }
 
 func configureFPCLiveFeed() {
-
 	if config.Node().Bool(CfgMongoDBEnabled) {
 		mongoDB()
 	}

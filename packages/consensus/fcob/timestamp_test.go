@@ -43,7 +43,7 @@ func TestTimestampQuality(t *testing.T) {
 	o = TimestampQuality(tangle.EmptyMessageID, issuedTime, current)
 	assert.True(t, o.Equals(&TimestampOpinion{MessageID: tangle.EmptyMessageID, Value: opinion.Like, LoK: One}))
 
-	//Testing Dislike
+	// Testing Dislike
 	issuedTime = current.Add(-offset - TimestampWindow)
 	o = TimestampQuality(tangle.EmptyMessageID, issuedTime, current)
 	assert.True(t, o.Equals(&TimestampOpinion{MessageID: tangle.EmptyMessageID, Value: opinion.Dislike, LoK: One}))

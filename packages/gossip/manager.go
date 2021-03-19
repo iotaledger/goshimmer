@@ -70,14 +70,12 @@ func NewManager(local *peer.Local, f LoadMessageFunc, log *logger.Logger) *Manag
 	}
 
 	m.messageWorkerPool = workerpool.New(func(task workerpool.Task) {
-
 		m.processPacketMessage(task.Param(0).([]byte), task.Param(1).(*Neighbor))
 
 		task.Return(nil)
 	}, workerpool.WorkerCount(messageWorkerCount), workerpool.QueueSize(messageWorkerQueueSize))
 
 	m.messageRequestWorkerPool = workerpool.New(func(task workerpool.Task) {
-
 		m.processMessageRequest(task.Param(0).([]byte), task.Param(1).(*Neighbor))
 
 		task.Return(nil)

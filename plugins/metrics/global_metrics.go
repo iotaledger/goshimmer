@@ -48,7 +48,7 @@ func NodesMetrics() map[string]NodeInfo {
 	nodesMetricsMutex.RLock()
 	defer nodesMetricsMutex.RUnlock()
 	// create copy of the map
-	var copy = make(map[string]NodeInfo)
+	copy := make(map[string]NodeInfo)
 	// manually copy content
 	for node, clientInfo := range nodesMetrics {
 		copy[node] = clientInfo

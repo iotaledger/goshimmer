@@ -172,7 +172,6 @@ func findMessage(messageID tangle.MessageID) (explorerMsg *ExplorerMessage, err 
 }
 
 func findAddress(strAddress string) (*ExplorerAddress, error) {
-
 	address, err := ledgerstate.AddressFromBase58EncodedString(strAddress)
 	if err != nil {
 		return nil, fmt.Errorf("%w: address %s", ErrNotFound, strAddress)
@@ -231,5 +230,4 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 		Address:   strAddress,
 		OutputIDs: outputids,
 	}, nil
-
 }

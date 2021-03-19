@@ -30,7 +30,8 @@ func TestCreateFPCUpdate(t *testing.T) {
 					Liked:    1.,
 					Rounds:   3,
 					Opinions: []opinion.Opinion{opinion.Dislike, opinion.Like, opinion.Dislike},
-				}},
+				},
+			},
 		},
 	}
 
@@ -53,5 +54,4 @@ func TestCreateFPCUpdate(t *testing.T) {
 	for k, v := range createFPCUpdate(hbTest).Conflicts {
 		require.Equal(t, want.Conflicts[k].NodesView, v.NodesView)
 	}
-
 }

@@ -34,7 +34,7 @@ const (
 	PluginName                  = "Mana"
 	manaScaleFactor             = 1000 // scale floating point mana to int
 	maxConsensusEventsInStorage = 108000
-	slidingEventsInterval       = 10800 //10% of maxConsensusEventsInStorage
+	slidingEventsInterval       = 10800 // 10% of maxConsensusEventsInStorage
 )
 
 var (
@@ -118,6 +118,7 @@ func logPledgeEvent(ev *mana.PledgedEvent) {
 		consensusEventsLogsStorageSize.Inc()
 	}
 }
+
 func logRevokeEvent(ev *mana.RevokedEvent) {
 	if ev.ManaType == mana.ConsensusMana {
 		consensusEventsLogStorage.Store(ev.ToPersistable()).Release()
@@ -353,7 +354,7 @@ func OverrideMana(manaType mana.Type, nodeID identity.ID, bm *mana.AccessBaseMan
 	baseManaVectors[manaType].SetMana(nodeID, bm)
 }
 
-//GetWeightedRandomNodes returns a weighted random selection of n nodes.
+// GetWeightedRandomNodes returns a weighted random selection of n nodes.
 func GetWeightedRandomNodes(n uint, manaType mana.Type) (mana.NodeMap, error) {
 	if !QueryAllowed() {
 		return mana.NodeMap{}, ErrQueryNotAllowed
@@ -364,7 +365,7 @@ func GetWeightedRandomNodes(n uint, manaType mana.Type) (mana.NodeMap, error) {
 	for nodeID, manaValue := range manaMap {
 		choices = append(choices, mana.RandChoice{
 			Item:   nodeID,
-			Weight: int(manaValue * manaScaleFactor), //scale float mana to int
+			Weight: int(manaValue * manaScaleFactor), // scale float mana to int
 		})
 	}
 	chooser := mana.NewRandChooser(choices...)
@@ -710,7 +711,7 @@ func pruneConsensusEventLogsStorage() {
 		consensusBaseManaPastVectorStorage.Store(p).Release()
 	}
 
-	//store the metadata
+	// store the metadata
 	metadata := &mana.ConsensusBasePastManaVectorMetadata{
 		Timestamp: t,
 	}

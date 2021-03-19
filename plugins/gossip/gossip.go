@@ -20,10 +20,8 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
-var (
-	// ErrMessageNotFound is returned when a message could not be found in the Tangle.
-	ErrMessageNotFound = errors.New("message not found")
-)
+// ErrMessageNotFound is returned when a message could not be found in the Tangle.
+var ErrMessageNotFound = errors.New("message not found")
 
 var (
 	mgr     *gossip.Manager

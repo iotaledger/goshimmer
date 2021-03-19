@@ -22,7 +22,7 @@ func TestVoteContext_IsFinalized(t *testing.T) {
 		finalizationThreshold int
 		want                  bool
 	}
-	var tests = []testInput{
+	tests := []testInput{
 		{vote.Context{
 			Opinions: []opinion.Opinion{opinion.Like, opinion.Like, opinion.Like, opinion.Like, opinion.Like},
 		}, 2, 2, true},
@@ -41,7 +41,7 @@ func TestVoteContext_LastOpinion(t *testing.T) {
 		voteCtx  vote.Context
 		expected opinion.Opinion
 	}
-	var tests = []testInput{
+	tests := []testInput{
 		{vote.Context{
 			Opinions: []opinion.Opinion{opinion.Like, opinion.Like, opinion.Like, opinion.Like},
 		}, opinion.Like},
@@ -152,7 +152,7 @@ func TestFPCVotingMultipleOpinionGivers(t *testing.T) {
 		expectedRoundsDone int
 		expectedOpinion    opinion.Opinion
 	}
-	var tests = []testInput{
+	tests := []testInput{
 		{"1", opinion.Like, 5, opinion.Like},
 		{"2", opinion.Dislike, 5, opinion.Dislike},
 	}

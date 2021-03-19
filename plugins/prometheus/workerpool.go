@@ -6,9 +6,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 )
 
-var (
-	workerpools *prometheus.GaugeVec
-)
+var workerpools *prometheus.GaugeVec
 
 func registerWorkerpoolMetrics() {
 	workerpools = prometheus.NewGaugeVec(

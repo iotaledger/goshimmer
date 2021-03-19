@@ -274,7 +274,8 @@ func TestConsensusBaseManaVector_Update(t *testing.T) {
 	assert.Equal(t, ConsensusMana, ev.ManaType)
 	assert.Equal(t, &ConsensusBaseMana{
 		BaseMana1:   10.0,
-		LastUpdated: baseTime},
+		LastUpdated: baseTime,
+	},
 		ev.OldMana.(*ConsensusBaseMana))
 	assert.Equal(t, 10.0, ev.NewMana.BaseValue())
 	assert.InDelta(t, 5, ev.NewMana.EffectiveValue(), delta)
@@ -449,7 +450,7 @@ func TestConsensusBaseManaVector_GetHighestManaNodes(t *testing.T) {
 	bmv, err := NewBaseManaVector(ConsensusMana)
 	assert.NoError(t, err)
 
-	var nodeIDs = make([]identity.ID, 10)
+	nodeIDs := make([]identity.ID, 10)
 
 	baseTime = time.Now()
 
@@ -494,7 +495,7 @@ func TestConsensusBaseManaVector_GetHighestManaNodes(t *testing.T) {
 func TestConsensusBaseManaVector_SetMana(t *testing.T) {
 	bmv, err := NewBaseManaVector(ConsensusMana)
 	assert.NoError(t, err)
-	var nodeIDs = make([]identity.ID, 10)
+	nodeIDs := make([]identity.ID, 10)
 	for i := 0; i < 10; i++ {
 		nodeIDs[i] = randNodeID()
 		bmv.SetMana(nodeIDs[i], &ConsensusBaseMana{

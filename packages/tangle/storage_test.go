@@ -50,5 +50,4 @@ func TestStorage_Attachments(t *testing.T) {
 			cachedAttachment.Release()
 		}
 	}
-
 }

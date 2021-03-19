@@ -24,5 +24,4 @@ func TestCollectiveBeaconEvent(t *testing.T) {
 	eventTest.Trigger(cbTriggered)
 
 	require.Equal(t, cbTriggered, cbReceived)
-
 }

@@ -263,7 +263,7 @@ func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkersByRank *m
 	})
 	markersToIterate := normalizedMarkersByRank.Clone()
 
-	//iterate from highest sequence rank to lowest
+	// iterate from highest sequence rank to lowest
 	for i := markersToIterate.HighestRank() + 1; i > normalizedMarkersByRank.LowestRank(); i-- {
 		currentRank := i - 1
 		markersByRank, rankExists := markersToIterate.Markers(currentRank)

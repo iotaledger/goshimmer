@@ -15,10 +15,8 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
-var (
-	// ErrMessageTooSmall is returned when the message is smaller than the 8-byte nonce.
-	ErrMessageTooSmall = errors.New("message too small")
-)
+// ErrMessageTooSmall is returned when the message is smaller than the 8-byte nonce.
+var ErrMessageTooSmall = errors.New("message too small")
 
 // parameters
 var (

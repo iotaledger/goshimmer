@@ -25,11 +25,9 @@ const (
 	DefaultAverageNetworkDelay = 5 * time.Second
 )
 
-var (
-	// ErrMessageWasNotBookedInTime is returned if a message did not get booked
-	// within the defined await time.
-	ErrMessageWasNotBookedInTime = errors.New("message could not be booked in time")
-)
+// ErrMessageWasNotBookedInTime is returned if a message did not get booked
+// within the defined await time.
+var ErrMessageWasNotBookedInTime = errors.New("message could not be booked in time")
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
 

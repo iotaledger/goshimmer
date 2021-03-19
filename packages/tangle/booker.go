@@ -190,7 +190,6 @@ func (b *Booker) branchIDsOfParents(message *Message) (branchIDs ledgerstate.Bra
 					panic(fmt.Errorf("failed to load TransactionMetadata with %s", transactionID))
 				}
 			}
-
 		}) {
 			panic(fmt.Errorf("failed to load MessageMetadata with %s", parentMessageID))
 		}

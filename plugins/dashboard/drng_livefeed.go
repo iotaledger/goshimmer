@@ -13,9 +13,11 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/drng"
 )
 
-var drngLiveFeedWorkerCount = 1
-var drngLiveFeedWorkerQueueSize = 50
-var drngLiveFeedWorkerPool *workerpool.WorkerPool
+var (
+	drngLiveFeedWorkerCount     = 1
+	drngLiveFeedWorkerQueueSize = 50
+	drngLiveFeedWorkerPool      *workerpool.WorkerPool
+)
 
 type drngMsg struct {
 	Instance      uint32 `json:"instance"`
@@ -49,7 +51,8 @@ func configureDrngLiveFeed() {
 			DistributedPK: hex.EncodeToString(newRandomness.Committee().DistributedPK),
 			Round:         newRandomness.Randomness().Round,
 			Randomness:    hex.EncodeToString(newRandomness.Randomness().Randomness[:32]),
-			Timestamp:     newRandomness.Randomness().Timestamp.Format("2 Jan 2006 15:04:05")}})
+			Timestamp:     newRandomness.Randomness().Timestamp.Format("2 Jan 2006 15:04:05"),
+		}})
 
 		task.Return(nil)
 	}, workerpool.WorkerCount(drngLiveFeedWorkerCount), workerpool.QueueSize(drngLiveFeedWorkerQueueSize))

@@ -298,6 +298,7 @@ func pledgeEventCaller(handler interface{}, params ...interface{}) {
 func revokedEventCaller(handler interface{}, params ...interface{}) {
 	handler.(func(ev *RevokedEvent))(params[0].(*RevokedEvent))
 }
+
 func updatedEventCaller(handler interface{}, params ...interface{}) {
 	handler.(func(ev *UpdatedEvent))(params[0].(*UpdatedEvent))
 }

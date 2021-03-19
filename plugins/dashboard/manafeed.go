@@ -69,13 +69,12 @@ func runManaFeed() {
 				manaFeedWorkerPool.Submit(MsgTypeManaMapOnline)
 			}
 		}
-
 	}, shutdown.PriorityDashboard); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
 }
 
-//region Websocket message sending handlers (live updates)
+// region Websocket message sending handlers (live updates)
 func sendManaValue() {
 	ownID := local.GetInstance().ID()
 	access, _, err := manaPlugin.GetAccessMana(ownID)
@@ -185,9 +184,9 @@ func sendManaRevoke(ev *mana.RevokedEvent) {
 	})
 }
 
-//endregion
+// endregion
 
-//region Websocket message sending handlers (initial data)
+// region Websocket message sending handlers (initial data)
 func sendAllowedManaPledge(ws *websocket.Conn) error {
 	allowedAccess := manaPlugin.GetAllowedPledgeNodes(mana.AccessMana)
 	allowedConsensus := manaPlugin.GetAllowedPledgeNodes(mana.ConsensusMana)
@@ -219,9 +218,9 @@ func sendAllowedManaPledge(ws *websocket.Conn) error {
 	return nil
 }
 
-//endregion
+// endregion
 
-//region Websocket message data structs
+// region Websocket message data structs
 
 // ManaValueMsgData contains mana values for a particular node.
 type ManaValueMsgData struct {
@@ -256,4 +255,4 @@ type AllowedNodeStr struct {
 	FullID  string `json:"fullID"`
 }
 
-//endregion
+// endregion

@@ -38,7 +38,6 @@ func Plugin() *node.Plugin {
 
 // getNeighbors returns the chosen and accepted neighbors of the node
 func getNeighbors(c echo.Context) error {
-
 	var chosen []Neighbor
 	var accepted []Neighbor
 	var knownPeers []Neighbor

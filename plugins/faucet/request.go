@@ -31,8 +31,10 @@ type Request struct {
 }
 
 // Type represents the identifier for the faucet Request type.
-var Type = payload.NewType(2, ObjectName, PayloadUnmarshaler)
-var powWorker = pow.New(crypto.BLAKE2b_512, 1)
+var (
+	Type      = payload.NewType(2, ObjectName, PayloadUnmarshaler)
+	powWorker = pow.New(crypto.BLAKE2b_512, 1)
+)
 
 // NewRequest is the constructor of a Request and creates a new Request object from the given details.
 func NewRequest(addr ledgerstate.Address, powTarget int) (*Request, error) {

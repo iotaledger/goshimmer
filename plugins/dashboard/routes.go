@@ -58,7 +58,6 @@ func indexRoute(e echo.Context) error {
 }
 
 func setupRoutes(e *echo.Echo) {
-
 	if config.Node().Bool("dashboard.dev") {
 		e.Static("/assets", "./plugins/dashboard/frontend/src/assets")
 	} else {

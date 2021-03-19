@@ -10,9 +10,11 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
-var liveFeedWorkerCount = 1
-var liveFeedWorkerQueueSize = 50
-var liveFeedWorkerPool *workerpool.WorkerPool
+var (
+	liveFeedWorkerCount     = 1
+	liveFeedWorkerQueueSize = 50
+	liveFeedWorkerPool      *workerpool.WorkerPool
+)
 
 func configureLiveFeed() {
 	liveFeedWorkerPool = workerpool.New(func(task workerpool.Task) {

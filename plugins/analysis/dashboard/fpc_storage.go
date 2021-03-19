@@ -39,7 +39,7 @@ const (
 
 var (
 	clientDB *mongo.Client
-	//db       *mongo.Database
+	// db       *mongo.Database
 	dbOnce sync.Once
 	// read locked by pingers and write locked by the routine trying to reconnect.
 	mongoReconnectLock sync.RWMutex

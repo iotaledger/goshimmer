@@ -10,9 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/database"
 )
 
-var (
-	dbSize prometheus.Gauge
-)
+var dbSize prometheus.Gauge
 
 func registerDBMetrics() {
 	dbSize = prometheus.NewGauge(

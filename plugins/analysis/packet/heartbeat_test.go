@@ -12,8 +12,10 @@ import (
 	. "github.com/iotaledger/goshimmer/plugins/analysis/packet"
 )
 
-var ownID = sha256.Sum256([]byte{'A'})
-var networkID = []byte("v0.2.0")
+var (
+	ownID     = sha256.Sum256([]byte{'A'})
+	networkID = []byte("v0.2.0")
+)
 
 func TestNewHeartbeatMessage(t *testing.T) {
 	testCases := []struct {
@@ -136,7 +138,6 @@ func TestNewHeartbeatMessage(t *testing.T) {
 			assert.EqualValues(t, hb.InboundIDs[i], serializedHb[offset+i*HeartbeatPacketPeerIDSize:offset+(i+1)*HeartbeatPacketPeerIDSize], "inbound ID at the given position doesn't match")
 		}
 	}
-
 }
 
 func TestParseHeartbeat(t *testing.T) {

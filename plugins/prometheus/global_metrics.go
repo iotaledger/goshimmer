@@ -191,7 +191,6 @@ func collectNodesInfo() {
 	}
 
 	networkDiameter.Set(float64(metrics.NetworkDiameter()))
-
 }
 
 func opinionToString(o opinion.Opinion) string {

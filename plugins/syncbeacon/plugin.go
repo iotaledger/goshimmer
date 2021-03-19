@@ -70,7 +70,6 @@ func broadcastSyncBeaconPayload() (doneSignal chan struct{}) {
 
 		syncBeaconPayload := payload.NewSyncBeaconPayload(clock.SyncedTime().UnixNano())
 		msg, err := messagelayer.Tangle().IssuePayload(syncBeaconPayload)
-
 		if err != nil {
 			log.Warnf("error issuing sync beacon: %w", err)
 			return

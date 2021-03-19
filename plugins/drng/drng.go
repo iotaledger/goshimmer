@@ -24,10 +24,8 @@ const (
 	Community = 7438
 )
 
-var (
-	// ErrParsingCommitteeMember is returned for an invalid committee member
-	ErrParsingCommitteeMember = errors.New("cannot parse committee member")
-)
+// ErrParsingCommitteeMember is returned for an invalid committee member
+var ErrParsingCommitteeMember = errors.New("cannot parse committee member")
 
 func configureDRNG() *drng.DRNG {
 	c := make(map[uint32][]drng.Option)

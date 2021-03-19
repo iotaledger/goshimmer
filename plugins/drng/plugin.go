@@ -56,12 +56,12 @@ func configureEvents() {
 			marshalUtil := marshalutil.New(msg.Payload().Bytes())
 			parsedPayload, err := drng.PayloadFromMarshalUtil(marshalUtil)
 			if err != nil {
-				//TODO: handle error
+				// TODO: handle error
 				log.Debug(err)
 				return
 			}
 			if err := instance.Dispatch(msg.IssuerPublicKey(), msg.IssuingTime(), parsedPayload); err != nil {
-				//TODO: handle error
+				// TODO: handle error
 				log.Debug(err)
 				return
 			}

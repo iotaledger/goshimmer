@@ -22,7 +22,8 @@ func TestLoadSnapshot(t *testing.T) {
 			wallets[0].address: ledgerstate.NewColoredBalances(
 				map[ledgerstate.Color]uint64{
 					ledgerstate.ColorIOTA: 10000,
-				})},
+				}),
+		},
 	}
 
 	ledgerState.LoadSnapshot(snapshot)

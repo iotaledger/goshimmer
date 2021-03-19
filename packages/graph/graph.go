@@ -77,7 +77,6 @@ func (nl nodes) AddEdge(a, b nodeID) {
 
 // Diameter is the maximum length of a shortest path in the network
 func (nl nodes) Diameter() int {
-
 	cpus := runtime.GOMAXPROCS(0)
 	numNodes := len(nl)
 	nodesPerCPU := numNodes / cpus
@@ -128,7 +127,6 @@ func (nl nodes) Diameter() int {
 type bfsNode int16
 
 func (nl nodes) longestShortestPath(start nodeID, q *list, depths []bfsNode) int {
-
 	n := nl.get(start)
 	depths[n.ID] = 0
 	q.pushBack(n)

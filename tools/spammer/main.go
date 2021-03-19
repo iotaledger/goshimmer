@@ -35,7 +35,7 @@ func main() {
 	}
 	enableSpammer := viper.GetBool(cfgEnable)
 
-	var apis = []*client.GoShimmerAPI{}
+	apis := []*client.GoShimmerAPI{}
 	for _, api := range viper.GetStringSlice(cfgNodeURI) {
 		apis = append(apis, client.NewGoShimmerAPI(api))
 	}
@@ -48,5 +48,4 @@ func main() {
 		}
 		fmt.Println(resp)
 	}
-
 }

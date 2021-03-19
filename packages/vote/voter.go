@@ -9,10 +9,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 )
 
-var (
-	// ErrVotingNotFound is returned when a voting for a given id wasn't found.
-	ErrVotingNotFound = errors.New("no voting found")
-)
+// ErrVotingNotFound is returned when a voting for a given id wasn't found.
+var ErrVotingNotFound = errors.New("no voting found")
 
 // Voter votes on hashes.
 type Voter interface {

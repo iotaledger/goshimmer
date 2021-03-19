@@ -28,7 +28,7 @@ var (
 	consensusResearchPercentile atomic.Float64
 )
 
-//region access research exported metrics. Modules accessing access research metrics call these functions.
+// region access research exported metrics. Modules accessing access research metrics call these functions.
 
 // AccessResearchPercentile returns the top percentile the node belongs to in terms of access mana holders, only taking
 // ResearchAccess mana into account.
@@ -54,9 +54,9 @@ func AccessResearchManaMap() mana.NodeMap {
 	return result
 }
 
-//endregion
+// endregion
 
-//region consensus research exported metrics. Modules accessing consensus research metrics call these functions.
+// region consensus research exported metrics. Modules accessing consensus research metrics call these functions.
 
 // ConsensusResearchPercentile returns the top percentile the node belongs to in terms of consensus mana holders, only taking
 // ResearchConsensus mana into account.
@@ -82,9 +82,9 @@ func ConsensusResearchManaMap() mana.NodeMap {
 	return result
 }
 
-//endregion
+// endregion
 
-//region Functions for periodically updating internal metrics.
+// region Functions for periodically updating internal metrics.
 
 func measureAccessResearchMana() {
 	accessResearchLock.Lock()
@@ -102,4 +102,4 @@ func measureConsensusResearchMana() {
 	consensusResearchPercentile.Store(aPer)
 }
 
-//endregion
+// endregion

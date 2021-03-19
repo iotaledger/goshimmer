@@ -147,7 +147,7 @@ func (c *Component) SendFunds(msg *tangle.Message) (m *tangle.Message, txID stri
 // collectUTXOsForFunding iterates over the faucet's UTXOs until the token threshold is reached.
 // this function also returns the remainder balance for the given outputs.
 func (c *Component) collectUTXOsForFunding() (inputs ledgerstate.Inputs, addrsIndices map[uint64]ledgerstate.Inputs, remainder int64) {
-	var total = c.tokensPerRequest
+	total := c.tokensPerRequest
 	var i uint64
 	addrsIndices = map[uint64]ledgerstate.Inputs{}
 
@@ -361,6 +361,7 @@ func (w wallet) privateKey() ed25519.PrivateKey {
 func (w wallet) publicKey() ed25519.PublicKey {
 	return w.keyPair.PublicKey
 }
+
 func (w wallet) sign(txEssence *ledgerstate.TransactionEssence) *ledgerstate.ED25519Signature {
 	return ledgerstate.NewED25519Signature(w.publicKey(), ed25519.Signature(w.privateKey().Sign(txEssence.Bytes())))
 }

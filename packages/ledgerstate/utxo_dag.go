@@ -264,7 +264,7 @@ func (u *UTXODAG) LoadSnapshot(snapshot map[TransactionID]map[Address]*ColoredBa
 				cachedOutput.Release()
 			}
 
-			//store addressOutputMapping
+			// store addressOutputMapping
 			u.StoreAddressOutputMapping(address, output.ID())
 
 			// store OutputMetadata

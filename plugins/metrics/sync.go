@@ -7,9 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
-var (
-	isSynced atomic.Bool
-)
+var isSynced atomic.Bool
 
 func measureSynced() {
 	s := messagelayer.Tangle().Synced()
