@@ -36,7 +36,7 @@ func configure(*node.Plugin) {
 	webapi.Server().GET("ledgerstate/outputs/:outputID", GetOutputEndPoint)
 	webapi.Server().GET("ledgerstate/outputs/:outputID/consumers", GetOutputConsumersEndPoint)
 	webapi.Server().GET("ledgerstate/outputs/:outputID/metadata", GetOutputMetadataEndPoint)
-	webapi.Server().GET("ledgerstate/transactions/:transactionID", GetTransactionByIDEndpoint)
+	webapi.Server().GET("ledgerstate/transactions/:transactionID", GetTransactionEndpoint)
 	webapi.Server().GET("ledgerstate/transactions/:transactionID/metadata", GetTransactionMetadataEndpoint)
 	webapi.Server().GET("ledgerstate/transactions/:transactionID/attachments", GetTransactionAttachmentsEndpoint)
 }
