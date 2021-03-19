@@ -67,27 +67,27 @@ func GetOutputMetadataEndPoint(c echo.Context) (err error) {
 
 // Output represents a JSON model of a ledgerstate.Output.
 type Output struct {
-	OutputID OutputID         `json:"outputID"`
-	Type     string           `json:"type"`
-	Balances []ColoredBalance `json:"balances"`
-	Address  string           `json:"address"`
-}
-
-// ColoredBalance represents a JSON model of a single colored balance.
-type ColoredBalance struct {
-	Color   string `json:"color"`
-	Balance uint64 `json:"balance"`
+	OutputID *OutputID         `json:"outputID,omitempty"`
+	Type     string            `json:"type"`
+	Balances map[string]uint64 `json:"balances"`
+	Address  string            `json:"address"`
 }
 
 // NewOutput creates a JSON compatible representation of the output.
 func NewOutput(output ledgerstate.Output) Output {
 	return Output{
-		OutputID: NewOutputID(output.ID()),
-		Type:     output.Type().String(),
-		Balances: func() []ColoredBalance {
-			coloredBalances := make([]ColoredBalance, 0)
+		OutputID: func() *OutputID {
+			if output.ID() == ledgerstate.EmptyOutputID {
+				return nil
+			}
+			outputID := NewOutputID(output.ID())
+			return &outputID
+		}(),
+		Type: output.Type().String(),
+		Balances: func() map[string]uint64 {
+			coloredBalances := make(map[string]uint64)
 			output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
-				coloredBalances = append(coloredBalances, ColoredBalance{Color: color.String(), Balance: balance})
+				coloredBalances[color.String()] = balance
 				return true
 			})
 			return coloredBalances

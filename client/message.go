@@ -29,8 +29,8 @@ func (api *GoShimmerAPI) GetMessage(base58EncodedID string) (*webapi_message.Mes
 }
 
 // GetMessageMetadata is the handler for the /messages/:messageID/metadata endpoint.
-func (api *GoShimmerAPI) GetMessageMetadata(base58EncodedID string) (*webapi_message.MessageMetadata, error) {
-	res := &webapi_message.MessageMetadata{}
+func (api *GoShimmerAPI) GetMessageMetadata(base58EncodedID string) (*webapi_message.Metadata, error) {
+	res := &webapi_message.Metadata{}
 
 	if err := api.do(
 		http.MethodGet,

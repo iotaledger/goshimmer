@@ -38,7 +38,7 @@ func GetMessageMetadataEndPoint(c echo.Context) (err error) {
 	}
 
 	if messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-		err = c.JSON(http.StatusOK, NewMessageMetadata(messageMetadata))
+		err = c.JSON(http.StatusOK, NewMetadata(messageMetadata))
 	}) {
 		return
 	}
@@ -105,10 +105,10 @@ func messageIDFromContext(c echo.Context) (messageID tangle.MessageID, err error
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region MessageMetadata ///////////////////////////////////////////////////////////////////////////////////////////////////////
+// region Metadata ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// MessageMetadata contains metadata information of a message.
-type MessageMetadata struct {
+// Metadata contains metadata information of a message.
+type Metadata struct {
 	ID                 string           `json:"id"`
 	ReceivedTime       int64            `json:"receivedTime"`
 	Solid              bool             `json:"solid"`
@@ -137,9 +137,9 @@ type Markers struct {
 	LowestIndex  markers.Index                        `json:"lowestIndex"`
 }
 
-// NewMessageMetadata returns a MessageMetadata from the given pointer to a tangle.MessageMetadata.
-func NewMessageMetadata(metadata *tangle.MessageMetadata) MessageMetadata {
-	return MessageMetadata{
+// NewMetadata returns a Metadata from the given pointer to a tangle.MessageMetadata.
+func NewMetadata(metadata *tangle.MessageMetadata) Metadata {
+	return Metadata{
 		ID:                 metadata.ID().String(),
 		ReceivedTime:       metadata.ReceivedTime().Unix(),
 		Solid:              metadata.IsSolid(),

@@ -88,12 +88,9 @@ func NewTransaction(transaction *ledgerstate.Transaction) Transaction {
 	// process outputs
 	outputs := make([]Output, len(transaction.Essence().Outputs()))
 	for i, output := range transaction.Essence().Outputs() {
-		var balances []ColoredBalance
+		balances := make(map[string]uint64)
 		output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
-			balances = append(balances, ColoredBalance{
-				Color:   color.String(),
-				Balance: balance,
-			})
+			balances[color.String()] = balance
 			return true
 		})
 		outputs[i] = Output{
@@ -107,7 +104,8 @@ func NewTransaction(transaction *ledgerstate.Transaction) Transaction {
 	unlockBlocks := make([]UnlockBlock, len(transaction.UnlockBlocks()))
 	for i, unlockBlock := range transaction.UnlockBlocks() {
 		ub := UnlockBlock{
-			Type: unlockBlock.Type(),
+			Type:  unlockBlock.Type().String(),
+			Index: i,
 		}
 		switch unlockBlock.Type() {
 		case ledgerstate.SignatureUnlockBlockType:
@@ -150,16 +148,16 @@ func NewTransaction(transaction *ledgerstate.Transaction) Transaction {
 
 // Input defines the Input model.
 type Input struct {
-	Type              string   `json:"type"`
-	ReferencedInputID OutputID `json:"referencedInputID"`
+	Type               string   `json:"type"`
+	ReferencedOutputID OutputID `json:"referencedOutputID"`
 }
 
 // NewInput returns an Input from the given ledgerstate.Input.
 func NewInput(input ledgerstate.Input) Input {
 	if input.Type() == ledgerstate.UTXOInputType {
 		return Input{
-			Type:              input.Type().String(),
-			ReferencedInputID: NewOutputID(input.(*ledgerstate.UTXOInput).ReferencedOutputID()),
+			Type:               input.Type().String(),
+			ReferencedOutputID: NewOutputID(input.(*ledgerstate.UTXOInput).ReferencedOutputID()),
 		}
 	}
 	return Input{}
@@ -167,11 +165,12 @@ func NewInput(input ledgerstate.Input) Input {
 
 // UnlockBlock defines the struct of a signature.
 type UnlockBlock struct {
-	Type            ledgerstate.UnlockBlockType `json:"type"`
-	ReferencedIndex uint16                      `json:"referencedIndex,omitempty"`
-	SignatureType   ledgerstate.SignatureType   `json:"signatureType,omitempty"`
-	PublicKey       string                      `json:"publicKey,omitempty"`
-	Signature       string                      `json:"signature,omitempty"`
+	Index           int                       `json:"index,omitempty"`
+	Type            string                    `json:"type"`
+	ReferencedIndex uint16                    `json:"referencedIndex,omitempty"`
+	SignatureType   ledgerstate.SignatureType `json:"signatureType,omitempty"`
+	PublicKey       string                    `json:"publicKey,omitempty"`
+	Signature       string                    `json:"signature,omitempty"`
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
