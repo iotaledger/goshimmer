@@ -25,5 +25,5 @@ jobs:
           with:
             repository: iotaledger/goshimmer
             username: '${{ secrets.IOTALEDGER_HUB_DOCKER_LOGIN }}'
-          password: '${{ secrets.IOTALEDGER_HUB_DOCKER_PASSWORD }}'
-          tags: develop
+            password: '${{ secrets.IOTALEDGER_HUB_DOCKER_PASSWORD }}'
+            tags: develop
