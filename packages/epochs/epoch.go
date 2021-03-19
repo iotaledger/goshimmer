@@ -65,7 +65,7 @@ type Epoch struct {
 	manaMutex sync.RWMutex
 }
 
-func New(id ID) *Epoch {
+func NewEpoch(id ID) *Epoch {
 	return &Epoch{
 		id:   id,
 		mana: make(map[identity.ID]float64),
@@ -134,6 +134,8 @@ func (e *Epoch) AddNode(id identity.ID) {
 	defer e.manaMutex.Unlock()
 
 	e.mana[id] = 0
+
+	e.SetModified()
 }
 
 func (e *Epoch) Mana() (mana map[identity.ID]float64) {

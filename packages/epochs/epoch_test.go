@@ -3,6 +3,7 @@ package epochs
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
@@ -10,7 +11,7 @@ import (
 )
 
 func Test_EpochMarshaling(t *testing.T) {
-	epoch := New(1)
+	epoch := NewEpoch(1)
 	id, _ := identity.RandomID()
 	epoch.AddNode(id)
 
@@ -22,4 +23,11 @@ func Test_EpochMarshaling(t *testing.T) {
 	assert.Equal(t, epoch.mana[id], epochFromBytes.mana[id])
 
 	fmt.Println(epoch)
+}
+
+func Test_timeToEpochID(t *testing.T) {
+	fmt.Println(timeToEpochID(time.Now()))
+	fmt.Println(timeToEpochID(time.Now().Add(15 * time.Minute)))
+	fmt.Println(timeToEpochID(time.Now().Add(-24 * time.Hour)))
+	fmt.Println(timeToEpochID(time.Now().Add(2 * time.Hour)))
 }
