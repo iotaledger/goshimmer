@@ -33,7 +33,7 @@ func TestFaucetPersistence(t *testing.T) {
 	time.Sleep(2 * messagelayer.DefaultAverageNetworkDelay)
 
 	// check whether all issued messages are available on all nodes
-	tests.CheckForMessageIds(t, n.Peers(), ids, true)
+	tests.CheckForMessageIDs(t, n.Peers(), ids, true)
 
 	// wait for transactions to be gossiped
 	time.Sleep(2 * messagelayer.DefaultAverageNetworkDelay)
@@ -57,7 +57,7 @@ func TestFaucetPersistence(t *testing.T) {
 	time.Sleep(20 * time.Second)
 
 	// check whether all issued messages are available on all nodes
-	tests.CheckForMessageIds(t, n.Peers(), ids, true)
+	tests.CheckForMessageIDs(t, n.Peers(), ids, true)
 
 	// check ledger state
 	tests.CheckBalances(t, peers[1:], addrBalance)

@@ -7,19 +7,35 @@ import (
 )
 
 const (
-	routeFindByID    = "message/findById"
-	routeSendPayload = "message/sendPayload"
+	routeMessage         = "messages/"
+	routeMessageMetadata = "/metadata"
+	routeSendPayload     = "messages/sendPayload"
 )
 
-// FindMessageByID finds messages by the given base58 encoded IDs. The messages are returned in the same order as
-// the given IDs. Non available messages are empty at their corresponding index.
-func (api *GoShimmerAPI) FindMessageByID(base58EncodedIDs []string) (*webapi_message.FindByIDResponse, error) {
-	res := &webapi_message.FindByIDResponse{}
+// GetMessage is the handler for the /messages/:messageID endpoint.
+func (api *GoShimmerAPI) GetMessage(base58EncodedID string) (*webapi_message.Message, error) {
+	res := &webapi_message.Message{}
 
 	if err := api.do(
-		http.MethodPost,
-		routeFindByID,
-		&webapi_message.FindByIDRequest{IDs: base58EncodedIDs},
+		http.MethodGet,
+		routeMessage+base58EncodedID,
+		nil,
+		res,
+	); err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+// GetMessageMetadata is the handler for the /messages/:messageID/metadata endpoint.
+func (api *GoShimmerAPI) GetMessageMetadata(base58EncodedID string) (*webapi_message.Metadata, error) {
+	res := &webapi_message.Metadata{}
+
+	if err := api.do(
+		http.MethodGet,
+		routeMessage+base58EncodedID+routeMessageMetadata,
+		nil,
 		res,
 	); err != nil {
 		return nil, err

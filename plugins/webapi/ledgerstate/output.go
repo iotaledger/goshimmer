@@ -5,6 +5,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/labstack/echo"
 	"golang.org/x/xerrors"
 )
@@ -15,13 +16,13 @@ import (
 func GetOutputEndPoint(c echo.Context) (err error) {
 	outputID, err := ledgerstate.OutputIDFromBase58(c.Param("outputID"))
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, webapi.NewErrorResponse(err))
 	}
 
 	if !messagelayer.Tangle().LedgerState.Output(outputID).Consume(func(output ledgerstate.Output) {
 		err = c.JSON(http.StatusOK, NewOutput(output))
 	}) {
-		return c.JSON(http.StatusNotFound, NewErrorResponse(xerrors.Errorf("output with %s not found", outputID)))
+		return c.JSON(http.StatusNotFound, webapi.NewErrorResponse(xerrors.Errorf("failed to load output with %s", outputID)))
 	}
 
 	return
@@ -31,14 +32,14 @@ func GetOutputEndPoint(c echo.Context) (err error) {
 func GetOutputConsumersEndPoint(c echo.Context) (err error) {
 	outputID, err := ledgerstate.OutputIDFromBase58(c.Param("outputID"))
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, webapi.NewErrorResponse(err))
 	}
 
 	consumers := make([]*ledgerstate.Consumer, 0)
 	if !messagelayer.Tangle().LedgerState.Consumers(outputID).Consume(func(consumer *ledgerstate.Consumer) {
 		consumers = append(consumers, consumer)
 	}) {
-		return c.JSON(http.StatusNotFound, NewErrorResponse(xerrors.Errorf("consumers of output with %s not found", outputID)))
+		return c.JSON(http.StatusNotFound, webapi.NewErrorResponse(xerrors.Errorf("failed to load consumers %s", outputID)))
 	}
 
 	return c.JSON(http.StatusOK, NewConsumers(outputID, consumers))
@@ -48,13 +49,13 @@ func GetOutputConsumersEndPoint(c echo.Context) (err error) {
 func GetOutputMetadataEndPoint(c echo.Context) (err error) {
 	outputID, err := ledgerstate.OutputIDFromBase58(c.Param("outputID"))
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, webapi.NewErrorResponse(err))
 	}
 
 	if !messagelayer.Tangle().LedgerState.OutputMetadata(outputID).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 		err = c.JSON(http.StatusOK, NewOutputMetadata(outputMetadata))
 	}) {
-		return c.JSON(http.StatusNotFound, NewErrorResponse(xerrors.Errorf("metadata of output with %s not found", outputID)))
+		return c.JSON(http.StatusNotFound, webapi.NewErrorResponse(xerrors.Errorf("failed to load metadata %s", outputID)))
 	}
 
 	return
@@ -66,27 +67,27 @@ func GetOutputMetadataEndPoint(c echo.Context) (err error) {
 
 // Output represents a JSON model of a ledgerstate.Output.
 type Output struct {
-	OutputID OutputID         `json:"outputID"`
-	Type     string           `json:"type"`
-	Balances []ColoredBalance `json:"balances"`
-	Address  string           `json:"address"`
-}
-
-// ColoredBalance represents a JSON model of a single colored balance.
-type ColoredBalance struct {
-	Color   string `json:"color"`
-	Balance uint64 `json:"balance"`
+	OutputID *OutputID         `json:"outputID,omitempty"`
+	Type     string            `json:"type"`
+	Balances map[string]uint64 `json:"balances"`
+	Address  string            `json:"address"`
 }
 
 // NewOutput creates a JSON compatible representation of the output.
 func NewOutput(output ledgerstate.Output) Output {
 	return Output{
-		OutputID: NewOutputID(output.ID()),
-		Type:     output.Type().String(),
-		Balances: func() []ColoredBalance {
-			coloredBalances := make([]ColoredBalance, 0)
+		OutputID: func() *OutputID {
+			if output.ID() == ledgerstate.EmptyOutputID {
+				return nil
+			}
+			outputID := NewOutputID(output.ID())
+			return &outputID
+		}(),
+		Type: output.Type().String(),
+		Balances: func() map[string]uint64 {
+			coloredBalances := make(map[string]uint64)
 			output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
-				coloredBalances = append(coloredBalances, ColoredBalance{Color: color.String(), Balance: balance})
+				coloredBalances[color.String()] = balance
 				return true
 			})
 			return coloredBalances
