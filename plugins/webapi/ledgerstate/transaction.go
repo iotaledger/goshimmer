@@ -6,6 +6,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58"
 	"golang.org/x/xerrors"
@@ -17,13 +18,13 @@ import (
 func GetTransactionByIDEndpoint(c echo.Context) (err error) {
 	transactionID, err := ledgerstate.TransactionIDFromBase58(c.Param("transactionID"))
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, webapi.NewErrorResponse(err))
 	}
 
 	if !messagelayer.Tangle().LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
 		err = c.JSON(http.StatusOK, NewTransaction(transaction))
 	}) {
-		c.JSON(http.StatusNotFound, NewErrorResponse(xerrors.Errorf("transaction with %s not found", transactionID)))
+		c.JSON(http.StatusNotFound, webapi.NewErrorResponse(xerrors.Errorf("failed to load transaction with %s", transactionID)))
 	}
 	return
 }
@@ -32,12 +33,12 @@ func GetTransactionByIDEndpoint(c echo.Context) (err error) {
 func GetTransactionMetadataEndpoint(c echo.Context) (err error) {
 	transactionID, err := ledgerstate.TransactionIDFromBase58(c.Param("transactionID"))
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, webapi.NewErrorResponse(err))
 	}
 	if !messagelayer.Tangle().LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 		err = c.JSON(http.StatusOK, NewTransactionMetadata(transactionMetadata))
 	}) {
-		return c.JSON(http.StatusNotFound, NewErrorResponse(xerrors.Errorf("transaction metadata with %s not found", transactionID)))
+		return c.JSON(http.StatusNotFound, webapi.NewErrorResponse(xerrors.Errorf("failed to load transaction metadata with %s", transactionID)))
 	}
 
 	return
@@ -47,14 +48,14 @@ func GetTransactionMetadataEndpoint(c echo.Context) (err error) {
 func GetTransactionAttachmentsEndpoint(c echo.Context) (err error) {
 	transactionID, err := ledgerstate.TransactionIDFromBase58(c.Param("transactionID"))
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, webapi.NewErrorResponse(err))
 	}
 
 	var messageIDs tangle.MessageIDs
 	if !messagelayer.Tangle().Storage.Attachments(transactionID).Consume(func(attachment *tangle.Attachment) {
 		messageIDs = append(messageIDs, attachment.MessageID())
 	}) {
-		return c.JSON(http.StatusNotFound, NewErrorResponse(xerrors.Errorf("attachments of transaction with %s not found", transactionID)))
+		return c.JSON(http.StatusNotFound, webapi.NewErrorResponse(xerrors.Errorf("failed to load attachments with %s", transactionID)))
 	}
 
 	return c.JSON(http.StatusOK, NewAttachments(transactionID, messageIDs))
@@ -81,20 +82,15 @@ func NewTransaction(transaction *ledgerstate.Transaction) Transaction {
 	// process inputs
 	inputs := make([]Input, len(transaction.Essence().Inputs()))
 	for i, input := range transaction.Essence().Inputs() {
-		inputs[i] = Input{
-			ConsumedOutputID: input.Base58(),
-		}
+		inputs[i] = NewInput(input)
 	}
 
 	// process outputs
 	outputs := make([]Output, len(transaction.Essence().Outputs()))
 	for i, output := range transaction.Essence().Outputs() {
-		var balances []ColoredBalance
+		balances := make(map[string]uint64)
 		output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
-			balances = append(balances, ColoredBalance{
-				Color:   color.String(),
-				Balance: balance,
-			})
+			balances[color.String()] = balance
 			return true
 		})
 		outputs[i] = Output{
@@ -108,7 +104,8 @@ func NewTransaction(transaction *ledgerstate.Transaction) Transaction {
 	unlockBlocks := make([]UnlockBlock, len(transaction.UnlockBlocks()))
 	for i, unlockBlock := range transaction.UnlockBlocks() {
 		ub := UnlockBlock{
-			Type: unlockBlock.Type(),
+			Type:  unlockBlock.Type().String(),
+			Index: i,
 		}
 		switch unlockBlock.Type() {
 		case ledgerstate.SignatureUnlockBlockType:
@@ -149,18 +146,31 @@ func NewTransaction(transaction *ledgerstate.Transaction) Transaction {
 	}
 }
 
-// Input holds the consumedOutputID
+// Input defines the Input model.
 type Input struct {
-	ConsumedOutputID string `json:"consumedOutputID"`
+	Type               string   `json:"type"`
+	ReferencedOutputID OutputID `json:"referencedOutputID"`
+}
+
+// NewInput returns an Input from the given ledgerstate.Input.
+func NewInput(input ledgerstate.Input) Input {
+	if input.Type() == ledgerstate.UTXOInputType {
+		return Input{
+			Type:               input.Type().String(),
+			ReferencedOutputID: NewOutputID(input.(*ledgerstate.UTXOInput).ReferencedOutputID()),
+		}
+	}
+	return Input{}
 }
 
 // UnlockBlock defines the struct of a signature.
 type UnlockBlock struct {
-	Type            ledgerstate.UnlockBlockType `json:"type"`
-	ReferencedIndex uint16                      `json:"referencedIndex,omitempty"`
-	SignatureType   ledgerstate.SignatureType   `json:"signatureType,omitempty"`
-	PublicKey       string                      `json:"publicKey,omitempty"`
-	Signature       string                      `json:"signature,omitempty"`
+	Index           int                       `json:"index,omitempty"`
+	Type            string                    `json:"type"`
+	ReferencedIndex uint16                    `json:"referencedIndex,omitempty"`
+	SignatureType   ledgerstate.SignatureType `json:"signatureType,omitempty"`
+	PublicKey       string                    `json:"publicKey,omitempty"`
+	Signature       string                    `json:"signature,omitempty"`
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
