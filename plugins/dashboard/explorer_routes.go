@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/mana"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	ledgerstateAPI "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
 	valueutils "github.com/iotaledger/goshimmer/plugins/webapi/value"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58/base58"
@@ -122,6 +123,16 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 			return err
 		}
 		return c.JSON(http.StatusOK, addr)
+	})
+
+	routeGroup.GET("/transaction/:transactionID", func(c echo.Context) error {
+		return ledgerstateAPI.GetTransactionByIDEndpoint(c)
+	})
+	routeGroup.GET("/transaction/:transactionID/metadata", func(c echo.Context) error {
+		return ledgerstateAPI.GetTransactionMetadataEndpoint(c)
+	})
+	routeGroup.GET("/transaction/:transactionID/attachments", func(c echo.Context) error {
+		return ledgerstateAPI.GetTransactionAttachmentsEndpoint(c)
 	})
 
 	routeGroup.GET("/search/:search", func(c echo.Context) error {

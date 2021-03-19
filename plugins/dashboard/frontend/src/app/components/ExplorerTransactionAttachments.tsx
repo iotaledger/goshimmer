@@ -32,7 +32,7 @@ export class ExplorerTransactionAttachments extends React.Component<Props, any> 
                    <Col>
                        <ListGroup>
                            {txAttachments.messageIDs.map((msgId, i) => {
-                               return <ListGroup.Item key={i}>{msgId}</ListGroup.Item>
+                               return <ListGroup.Item key={i}><a href={`/explorer/message/${msgId}`}>{msgId}</a></ListGroup.Item>
                            })}
                        </ListGroup>
                    </Col>

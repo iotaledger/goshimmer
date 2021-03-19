@@ -88,16 +88,7 @@ func NewTransaction(transaction *ledgerstate.Transaction) Transaction {
 	// process outputs
 	outputs := make([]Output, len(transaction.Essence().Outputs()))
 	for i, output := range transaction.Essence().Outputs() {
-		balances := make(map[string]uint64)
-		output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
-			balances[color.String()] = balance
-			return true
-		})
-		outputs[i] = Output{
-			Type:     output.Type().String(),
-			Address:  output.Address().Base58(),
-			Balances: balances,
-		}
+		outputs[i] = NewOutput(output)
 	}
 
 	// process unlock blocks

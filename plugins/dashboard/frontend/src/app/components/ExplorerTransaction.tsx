@@ -64,15 +64,23 @@ export class ExplorerTransaction extends React.Component<Props, any> {
                                 <ListGroup.Item>
                                     <span className={"mb-2"}>Inputs</span>
                                         {tx.inputs.map((input, i) => {
-                                            return <ListGroup.Item key={i}>{input.consumedOutputID}</ListGroup.Item>
+                                            return (
+                                                <ListGroup key={i} className={"mb-1"}>
+                                                    <ListGroup.Item>Input Type: {input.type}</ListGroup.Item>
+                                                    <ListGroup.Item>Referenced OutputID: <a href={"#"}>{input.referencedOutputID.id}</a></ListGroup.Item>
+                                                    <ListGroup.Item>OutputIndex: {input.referencedOutputID.outputIndex}</ListGroup.Item>
+                                                    <ListGroup.Item>Transaction ID: <a href={`/explorer/transaction/${input.referencedOutputID.transactionID}`}>{input.referencedOutputID.transactionID}</a></ListGroup.Item>
+                                                </ListGroup>
+                                            )
                                         })}
                                 </ListGroup.Item>
                                 <ListGroup.Item>
                                     <span className={"mb-2"}> Outputs</span>
                                     {tx.outputs.map((output, i) => {
-                                        return <ListGroup.Item key={i}>{output.id}</ListGroup.Item>
+                                        return <ListGroup.Item key={i}><a href={"#"}>{output.outputID.id}</a></ListGroup.Item>
                                     })}
                                 </ListGroup.Item>
+                                <ListGroup.Item>Data payload: {tx.dataPayload}</ListGroup.Item>
                             </ListGroup>
                         </Col>
                     </Row>
