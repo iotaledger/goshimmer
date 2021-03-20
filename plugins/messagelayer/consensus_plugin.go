@@ -22,6 +22,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/clock"
+	clockPkg "github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
@@ -225,7 +226,9 @@ type OpinionGivers map[identity.ID]OpinionGiver
 // Query retrieves the opinions about the given conflicts and timestamps.
 func (o *OpinionGiver) Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (opinions opinion.Opinions, err error) {
 	for i := 0; i < StatementParameters.WaitForStatement; i++ {
-		if o.view != nil {
+		// query statement only if it's been received within the last round interval
+		// otherwise node might be down and we don't want to look at old statements in subsequent rounds
+		if o.view != nil && o.view.LastStatementReceivedTimestamp.Add(time.Duration(FPCParameters.RoundInterval)*time.Second).After(clockPkg.SyncedTime()) {
 			opinions, err = o.view.Query(ctx, conflictIDs, timestampIDs)
 			if err == nil {
 				return opinions, nil
@@ -501,6 +504,8 @@ func readStatement(messageID tangle.MessageID) {
 		issuerRegistry.AddConflicts(statementPayload.Conflicts)
 
 		issuerRegistry.AddTimestamps(statementPayload.Timestamps)
+
+		issuerRegistry.UpdateLastStatementReceivedTime(clockPkg.SyncedTime())
 
 		Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
 			sendToRemoteLog(
