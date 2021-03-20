@@ -24,7 +24,7 @@ func GetTransactionEndpoint(c echo.Context) (err error) {
 	if !messagelayer.Tangle().LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
 		err = c.JSON(http.StatusOK, NewTransaction(transaction))
 	}) {
-		err = c.JSON(http.StatusNotFound, webapi.NewErrorResponse(xerrors.Errorf("failed to load transaction with %s", transactionID)))
+		err = c.JSON(http.StatusNotFound, webapi.NewErrorResponse(xerrors.Errorf("failed to load Transaction with %s", transactionID)))
 	}
 
 	return
@@ -36,10 +36,11 @@ func GetTransactionMetadataEndpoint(c echo.Context) (err error) {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, webapi.NewErrorResponse(err))
 	}
+
 	if !messagelayer.Tangle().LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 		err = c.JSON(http.StatusOK, NewTransactionMetadata(transactionMetadata))
 	}) {
-		return c.JSON(http.StatusNotFound, webapi.NewErrorResponse(xerrors.Errorf("failed to load transaction metadata with %s", transactionID)))
+		return c.JSON(http.StatusNotFound, webapi.NewErrorResponse(xerrors.Errorf("failed to load TransactionMetadata of Transaction with %s", transactionID)))
 	}
 
 	return
@@ -56,7 +57,7 @@ func GetTransactionAttachmentsEndpoint(c echo.Context) (err error) {
 	if !messagelayer.Tangle().Storage.Attachments(transactionID).Consume(func(attachment *tangle.Attachment) {
 		messageIDs = append(messageIDs, attachment.MessageID())
 	}) {
-		return c.JSON(http.StatusNotFound, webapi.NewErrorResponse(xerrors.Errorf("failed to load attachments with %s", transactionID)))
+		return c.JSON(http.StatusNotFound, webapi.NewErrorResponse(xerrors.Errorf("failed to load Attachments of Transaction with %s", transactionID)))
 	}
 
 	return c.JSON(http.StatusOK, NewAttachments(transactionID, messageIDs))
@@ -89,16 +90,7 @@ func NewTransaction(transaction *ledgerstate.Transaction) *Transaction {
 	// process outputs
 	outputs := make([]*Output, len(transaction.Essence().Outputs()))
 	for i, output := range transaction.Essence().Outputs() {
-		balances := make(map[string]uint64)
-		output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
-			balances[color.String()] = balance
-			return true
-		})
-		outputs[i] = &Output{
-			Type:     output.Type().String(),
-			Address:  output.Address().Base58(),
-			Balances: balances,
-		}
+		outputs[i] = NewOutput(output)
 	}
 
 	// process unlock blocks
@@ -147,6 +139,10 @@ func NewTransaction(transaction *ledgerstate.Transaction) *Transaction {
 	}
 }
 
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Input ////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // Input defines the Input model.
 type Input struct {
 	Type               string    `json:"type"`
@@ -164,6 +160,10 @@ func NewInput(input ledgerstate.Input) *Input {
 
 	return nil
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region UnlockBlock //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // UnlockBlock defines the struct of a signature.
 type UnlockBlock struct {
