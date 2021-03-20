@@ -56,6 +56,7 @@ func (i ID) String() string {
 
 // region Epoch /////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// Epoch is an universal time interval that allows to track active nodes and their mana.
 type Epoch struct {
 	objectstorage.StorableObjectFlags
 
@@ -66,6 +67,7 @@ type Epoch struct {
 	manaMutex sync.RWMutex
 }
 
+// NewEpoch is the constructor for an Epoch.
 func NewEpoch(id ID) *Epoch {
 	return &Epoch{
 		id:   id,
@@ -126,10 +128,12 @@ func EpochFromObjectStorage(key []byte, data []byte) (result objectstorage.Stora
 	return
 }
 
+// ID returns the Epoch's ID.
 func (e *Epoch) ID() ID {
 	return e.id
 }
 
+// AddNode adds an active node to this Epoch.
 func (e *Epoch) AddNode(id identity.ID) {
 	e.manaMutex.Lock()
 	defer e.manaMutex.Unlock()
@@ -139,6 +143,8 @@ func (e *Epoch) AddNode(id identity.ID) {
 	e.SetModified()
 }
 
+// ManaRetrieved describes whether the active consensus mana was already retrieved. Retrieving/setting the consensus
+// mana needs to be done only once per Epoch.
 func (e *Epoch) ManaRetrieved() bool {
 	e.manaMutex.RLock()
 	defer e.manaMutex.RUnlock()
@@ -146,14 +152,41 @@ func (e *Epoch) ManaRetrieved() bool {
 	return e.manaRetrieved
 }
 
-func (e *Epoch) SetMana() {
-	e.manaMutex.Lock()
-	defer e.manaMutex.Unlock()
+// SetMana updates the active nodes from a consensus mana vector. If forceOverride is true, the active consensus mana
+// will be copied from the given consensus mana vector.
+func (e *Epoch) SetMana(consensusMana map[identity.ID]float64, forceOverride ...bool) {
+	var force bool
+	if len(forceOverride) > 0 {
+		force = forceOverride[0]
+	}
 
-	e.manaRetrieved = true
-	e.SetModified()
+	e.manaMutex.Lock()
+	defer func() {
+		e.manaRetrieved = true
+		e.SetModified()
+		e.manaMutex.Unlock()
+	}()
+
+	if force {
+		for nodeID := range consensusMana {
+			e.mana[nodeID] = consensusMana[nodeID]
+		}
+		return
+	}
+
+	for nodeID := range e.mana {
+		e.mana[nodeID] = consensusMana[nodeID]
+	}
+
+	// clean up nodes that do not have any mana
+	for nodeID := range e.mana {
+		if e.mana[nodeID] == 0 {
+			delete(e.mana, nodeID)
+		}
+	}
 }
 
+// Mana returns a map of active nodes and their consensus mana within the Epoch.
 func (e *Epoch) Mana() (mana map[identity.ID]float64) {
 	e.manaMutex.RLock()
 	defer e.manaMutex.RUnlock()
@@ -165,7 +198,7 @@ func (e *Epoch) Mana() (mana map[identity.ID]float64) {
 	return
 }
 
-// TotalMana
+// TotalMana returns the total active consensus mana within this Epoch.
 func (e *Epoch) TotalMana() float64 {
 	e.manaMutex.RLock()
 	defer e.manaMutex.RUnlock()
