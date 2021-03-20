@@ -69,18 +69,20 @@ type Output struct {
 	Address  string            `json:"address"`
 }
 
-// NewOutput creates a JSON compatible representation of the output.
+// NewOutput returns an Output from the given ledgerstate.Output.
 func NewOutput(output ledgerstate.Output) *Output {
 	return &Output{
 		OutputID: NewOutputID(output.ID()),
 		Type:     output.Type().String(),
-		Balances: func() map[string]uint64 {
-			coloredBalances := make(map[string]uint64)
+		Balances: func() (mappedBalances map[string]uint64) {
+			mappedBalances = make(map[string]uint64)
 			output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
-				coloredBalances[color.String()] = balance
+				mappedBalances[color.String()] = balance
+
 				return true
 			})
-			return coloredBalances
+
+			return
 		}(),
 		Address: output.Address().Base58(),
 	}
@@ -120,7 +122,7 @@ type OutputConsumers struct {
 	Consumers []*Consumer `json:"consumers"`
 }
 
-// NewOutputConsumers creates a JSON compatible representation of the Consumers of the Output.
+// NewOutputConsumers creates an OutputConsumers object from the given details.
 func NewOutputConsumers(outputID ledgerstate.OutputID, consumers []*ledgerstate.Consumer) *OutputConsumers {
 	return &OutputConsumers{
 		OutputID: NewOutputID(outputID),
@@ -159,21 +161,21 @@ func NewConsumer(consumer *ledgerstate.Consumer) *Consumer {
 
 // region OutputMetadata ///////////////////////////////////////////////////////////////////////////////////////////////
 
-// OutputMetadata is a JSON model of a ledgerstate.OutputMetadata.
+// OutputMetadata represents the JSON model of a ledgerstate.OutputMetadata object.
 type OutputMetadata struct {
-	ID                 string `json:"ID"`
-	BranchID           string `json:"branchID"`
-	Solid              bool   `json:"solid"`
-	SolidificationTime int64  `json:"solidificationTime"`
-	ConsumerCount      int    `json:"consumerCount"`
-	FirstConsumer      string `json:"firstConsumer"`
-	Finalized          bool   `json:"finalized"`
+	OutputID           *OutputID `json:"outputID"`
+	BranchID           string    `json:"branchID"`
+	Solid              bool      `json:"solid"`
+	SolidificationTime int64     `json:"solidificationTime"`
+	ConsumerCount      int       `json:"consumerCount"`
+	FirstConsumer      string    `json:"firstConsumer"`
+	Finalized          bool      `json:"finalized"`
 }
 
-// NewOutputMetadata creates a JSON compatible representation of the output metadata
+// NewOutputMetadata returns an OutputMetadata object from the given ledgerstate.OutputMetadata.
 func NewOutputMetadata(outputMetadata *ledgerstate.OutputMetadata) *OutputMetadata {
 	return &OutputMetadata{
-		ID:                 outputMetadata.ID().Base58(),
+		OutputID:           NewOutputID(outputMetadata.ID()),
 		BranchID:           outputMetadata.BranchID().Base58(),
 		Solid:              outputMetadata.Solid(),
 		SolidificationTime: outputMetadata.SolidificationTime().Unix(),
