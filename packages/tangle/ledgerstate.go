@@ -108,18 +108,6 @@ func (l *LedgerState) BookTransaction(transaction *ledgerstate.Transaction, mess
 	return
 }
 
-// SetBranchLiked sets the liked flag of the given Branch. It returns true if the value has been updated or an error if
-// it failed.
-func (l *LedgerState) SetBranchLiked(branchID ledgerstate.BranchID, liked bool) (modified bool, err error) {
-	return l.BranchDAG.SetBranchLiked(branchID, liked)
-}
-
-// SetBranchFinalized sets the finalized flag of the given Branch. It returns true if the value has been updated or an
-// error if it failed.
-func (l *LedgerState) SetBranchFinalized(branchID ledgerstate.BranchID, finalized bool) (modified bool, err error) {
-	return l.BranchDAG.SetBranchFinalized(branchID, finalized)
-}
-
 // ConflictSet returns the list of transactionIDs conflicting with the given transactionID.
 func (l *LedgerState) ConflictSet(transactionID ledgerstate.TransactionID) (conflictSet ledgerstate.TransactionIDs) {
 	conflictIDs := make(ledgerstate.ConflictIDs)
@@ -136,11 +124,6 @@ func (l *LedgerState) ConflictSet(transactionID ledgerstate.TransactionID) (conf
 	}
 
 	return
-}
-
-// ChildBranches returns the ChildBranches of the Branch identified by the given BranchID.
-func (l *LedgerState) ChildBranches(branchID ledgerstate.BranchID) ledgerstate.CachedChildBranches {
-	return l.BranchDAG.ChildBranches(branchID)
 }
 
 // TransactionInclusionState returns the InclusionState of the Transaction with the given TransactionID which can either be
@@ -164,11 +147,6 @@ func (l *LedgerState) BranchID(transactionID ledgerstate.TransactionID) (branchI
 		branchID = transactionMetadata.BranchID()
 	})
 	return
-}
-
-// Branch returns the branch with the given ID.
-func (l *LedgerState) Branch(branchID ledgerstate.BranchID) *ledgerstate.CachedBranch {
-	return l.BranchDAG.Branch(branchID)
 }
 
 // LoadSnapshot creates a set of outputs in the UTXO-DAG, that are forming the genesis for future transactions.

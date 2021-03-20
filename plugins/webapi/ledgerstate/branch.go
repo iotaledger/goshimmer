@@ -19,7 +19,7 @@ func GetBranchEndPoint(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, webapi.NewErrorResponse(err))
 	}
 
-	if messagelayer.Tangle().LedgerState.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
+	if messagelayer.Tangle().LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
 		err = c.JSON(http.StatusOK, NewBranch(branch))
 	}) {
 		return
@@ -35,7 +35,7 @@ func GetBranchChildrenEndPoint(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, webapi.NewErrorResponse(err))
 	}
 
-	cachedChildBranches := messagelayer.Tangle().LedgerState.ChildBranches(branchID)
+	cachedChildBranches := messagelayer.Tangle().LedgerState.BranchDAG.ChildBranches(branchID)
 	defer cachedChildBranches.Release()
 
 	return c.JSON(http.StatusOK, NewBranchChildren(branchID, cachedChildBranches.Unwrap()))
@@ -48,7 +48,7 @@ func GetBranchConflictsEndPoint(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, webapi.NewErrorResponse(err))
 	}
 
-	if messagelayer.Tangle().LedgerState.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
+	if messagelayer.Tangle().LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
 		if branch.Type() != ledgerstate.ConflictBranchType {
 			err = c.JSON(http.StatusBadRequest, webapi.NewErrorResponse(fmt.Errorf("the Branch with %s is not a ConflictBranch", branchID)))
 			return

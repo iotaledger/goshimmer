@@ -147,7 +147,7 @@ type Consumer struct {
 	Valid         string `json:"valid"`
 }
 
-// NewConflict returns a Consumer from the given ledgerstate.Consumer.
+// NewConsumer returns a Consumer from the given ledgerstate.Consumer.
 func NewConsumer(consumer *ledgerstate.Consumer) *Consumer {
 	return &Consumer{
 		TransactionID: consumer.TransactionID().Base58(),
