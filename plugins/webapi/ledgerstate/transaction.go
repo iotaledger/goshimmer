@@ -81,45 +81,19 @@ type Transaction struct {
 
 // NewTransaction returns a Transaction from the given ledgerstate.Transaction.
 func NewTransaction(transaction *ledgerstate.Transaction) *Transaction {
-	// process inputs
 	inputs := make([]*Input, len(transaction.Essence().Inputs()))
 	for i, input := range transaction.Essence().Inputs() {
 		inputs[i] = NewInput(input)
 	}
 
-	// process outputs
 	outputs := make([]*Output, len(transaction.Essence().Outputs()))
 	for i, output := range transaction.Essence().Outputs() {
 		outputs[i] = NewOutput(output)
 	}
 
-	// process unlock blocks
 	unlockBlocks := make([]*UnlockBlock, len(transaction.UnlockBlocks()))
 	for i, unlockBlock := range transaction.UnlockBlocks() {
-		ub := &UnlockBlock{
-			Type:  unlockBlock.Type().String(),
-			Index: i,
-		}
-		switch unlockBlock.Type() {
-		case ledgerstate.SignatureUnlockBlockType:
-			signature, _, _ := ledgerstate.SignatureFromBytes(unlockBlock.Bytes())
-			ub.SignatureType = signature.Type()
-			switch signature.Type() {
-			case ledgerstate.ED25519SignatureType:
-				signature, _, _ := ledgerstate.ED25519SignatureFromBytes(signature.Bytes())
-				ub.PublicKey = signature.PublicKey.String()
-				ub.Signature = signature.Signature.String()
-
-			case ledgerstate.BLSSignatureType:
-				signature, _, _ := ledgerstate.BLSSignatureFromBytes(signature.Bytes())
-				ub.Signature = signature.Signature.String()
-			}
-		case ledgerstate.ReferenceUnlockBlockType:
-			referenceUnlockBlock, _, _ := ledgerstate.ReferenceUnlockBlockFromBytes(unlockBlock.Bytes())
-			ub.ReferencedIndex = referenceUnlockBlock.ReferencedIndex()
-		}
-
-		unlockBlocks[i] = ub
+		unlockBlocks[i] = NewUnlockBlock(unlockBlock)
 	}
 
 	dataPayload := make([]byte, 0)
@@ -143,10 +117,10 @@ func NewTransaction(transaction *ledgerstate.Transaction) *Transaction {
 
 // region Input ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Input defines the Input model.
+// Input represents the JSON model of a ledgerstate.Input.
 type Input struct {
 	Type               string    `json:"type"`
-	ReferencedOutputID *OutputID `json:"referencedOutputID"`
+	ReferencedOutputID *OutputID `json:"referencedOutputID,omitempty"`
 }
 
 // NewInput returns an Input from the given ledgerstate.Input.
@@ -158,16 +132,18 @@ func NewInput(input ledgerstate.Input) *Input {
 		}
 	}
 
-	return nil
+	return &Input{
+		Type:               "UnknownInputType",
+		ReferencedOutputID: nil,
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region UnlockBlock //////////////////////////////////////////////////////////////////////////////////////////////////
 
-// UnlockBlock defines the struct of a signature.
+// UnlockBlock represents the JSON model of a ledgerstate.UnlockBlock.
 type UnlockBlock struct {
-	Index           int                       `json:"index,omitempty"`
 	Type            string                    `json:"type"`
 	ReferencedIndex uint16                    `json:"referencedIndex,omitempty"`
 	SignatureType   ledgerstate.SignatureType `json:"signatureType,omitempty"`
@@ -175,12 +151,41 @@ type UnlockBlock struct {
 	Signature       string                    `json:"signature,omitempty"`
 }
 
+// NewUnlockBlock returns an UnlockBlock from the given ledgerstate.UnlockBlock.
+func NewUnlockBlock(unlockBlock ledgerstate.UnlockBlock) *UnlockBlock {
+	result := &UnlockBlock{
+		Type: unlockBlock.Type().String(),
+	}
+
+	switch unlockBlock.Type() {
+	case ledgerstate.SignatureUnlockBlockType:
+		signature, _, _ := ledgerstate.SignatureFromBytes(unlockBlock.Bytes())
+		result.SignatureType = signature.Type()
+		switch signature.Type() {
+		case ledgerstate.ED25519SignatureType:
+			signature, _, _ := ledgerstate.ED25519SignatureFromBytes(signature.Bytes())
+			result.PublicKey = signature.PublicKey.String()
+			result.Signature = signature.Signature.String()
+
+		case ledgerstate.BLSSignatureType:
+			signature, _, _ := ledgerstate.BLSSignatureFromBytes(signature.Bytes())
+			result.Signature = signature.Signature.String()
+		}
+	case ledgerstate.ReferenceUnlockBlockType:
+		referenceUnlockBlock, _, _ := ledgerstate.ReferenceUnlockBlockFromBytes(unlockBlock.Bytes())
+		result.ReferencedIndex = referenceUnlockBlock.ReferencedIndex()
+	}
+
+	return result
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region TransactionMetadata ///////////////////////////////////////////////////////////////////////////////////////////
 
-// TransactionMetadata holds the information of a transaction metadata.
+// TransactionMetadata represents the JSON model of a ledgerstate.TransactionMetadata object.
 type TransactionMetadata struct {
+	TransactionID      string `json:"transactionID"`
 	BranchID           string `json:"branchID"`
 	Solid              bool   `json:"solid"`
 	SolidificationTime int64  `json:"solidificationTime"`
@@ -188,9 +193,10 @@ type TransactionMetadata struct {
 	LazyBooked         bool   `json:"lazyBooked"`
 }
 
-// NewTransactionMetadata returns a TransactionMetadata from the given ledgerstate.TransactionMetadata.
+// NewTransactionMetadata returns a TransactionMetadata object from the given ledgerstate.TransactionMetadata.
 func NewTransactionMetadata(transactionMetadata *ledgerstate.TransactionMetadata) *TransactionMetadata {
 	return &TransactionMetadata{
+		TransactionID:      transactionMetadata.ID().Base58(),
 		BranchID:           transactionMetadata.BranchID().Base58(),
 		Solid:              transactionMetadata.Solid(),
 		SolidificationTime: transactionMetadata.SolidificationTime().Unix(),
@@ -203,13 +209,13 @@ func NewTransactionMetadata(transactionMetadata *ledgerstate.TransactionMetadata
 
 // region Attachments ////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Attachments is the JSON model for the attachments of a transaction.
+// Attachments represents the JSON model of a collection of MessageIDs that attached a particular Transaction.
 type Attachments struct {
 	TransactionID string   `json:"transactionID"`
 	MessageIDs    []string `json:"messageIDs"`
 }
 
-// NewAttachments creates a new `Attachments`.
+// NewAttachments returns a collection of MessageIDs that attached a particular Transaction from the given details.
 func NewAttachments(transactionID ledgerstate.TransactionID, messageIDs tangle.MessageIDs) *Attachments {
 	var messageIDsBase58 []string
 	for _, messageID := range messageIDs {

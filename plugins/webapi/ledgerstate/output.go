@@ -61,7 +61,7 @@ func GetOutputMetadataEndPoint(c echo.Context) (err error) {
 
 // region Output ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Output represents a JSON model of a ledgerstate.Output.
+// Output represents the JSON model of a ledgerstate.Output.
 type Output struct {
 	OutputID *OutputID         `json:"outputID,omitempty"`
 	Type     string            `json:"type"`
