@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"unsafe"
@@ -40,7 +39,7 @@ func loadWallet() *wallet.Wallet {
 }
 
 func importWalletStateFile(filename string) (seed *walletseed.Seed, lastAddressIndex uint64, spentAddresses []bitmask.BitMask, assetRegistry *wallet.AssetRegistry, err error) {
-	walletStateBytes, err := ioutil.ReadFile(filename)
+	walletStateBytes, err := os.ReadFile(filename)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			return
@@ -114,7 +113,7 @@ func writeWalletStateFile(wallet *wallet.Wallet, filename string) {
 		}
 	}
 
-	err = ioutil.WriteFile(filename, wallet.ExportState(), 0644)
+	err = os.WriteFile(filename, wallet.ExportState(), 0644)
 	if err != nil {
 		panic(err)
 	}

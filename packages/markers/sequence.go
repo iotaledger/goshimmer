@@ -153,6 +153,16 @@ func (s *Sequence) IncreaseHighestIndex(referencedMarkers *Markers) (index Index
 	return
 }
 
+// String returns a human readable version of the Sequence.
+func (s *Sequence) String() string {
+	return stringify.Struct("Sequence",
+		stringify.StructField("ID", s.ID()),
+		stringify.StructField("ID", s.Rank()),
+		stringify.StructField("ID", s.LowestIndex()),
+		stringify.StructField("ID", s.HighestIndex()),
+	)
+}
+
 // Bytes returns a marshaled version of the Sequence.
 func (s *Sequence) Bytes() []byte {
 	return byteutils.ConcatBytes(s.ObjectStorageKey(), s.ObjectStorageValue())
