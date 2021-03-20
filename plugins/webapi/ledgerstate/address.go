@@ -47,13 +47,13 @@ func GetAddressUnspentOutputsEndPoint(c echo.Context) error {
 
 // region OutputsOnAddress /////////////////////////////////////////////////////////////////////////////////////////////
 
-// OutputsOnAddress is the JSON model of outputs that are associated to an address.
+// OutputsOnAddress represents the JSON model of Outputs that are associated to an Address.
 type OutputsOnAddress struct {
 	Address *Address  `json:"address"`
 	Outputs []*Output `json:"outputs"`
 }
 
-// NewOutputsOnAddress creates a JSON compatible representation of the outputs on the address.
+// NewOutputsOnAddress creates a JSON model of Outputs that are associated to an Address.
 func NewOutputsOnAddress(address ledgerstate.Address, outputs ledgerstate.Outputs) *OutputsOnAddress {
 	return &OutputsOnAddress{
 		Address: NewAddress(address),
