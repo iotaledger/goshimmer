@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
-	webapi_message "github.com/iotaledger/goshimmer/plugins/webapi/message"
 )
 
 const (
@@ -47,9 +46,9 @@ func (api *GoShimmerAPI) GetMessageMetadata(base58EncodedID string) (*jsonmodels
 
 // SendPayload send a message with the given payload.
 func (api *GoShimmerAPI) SendPayload(payload []byte) (string, error) {
-	res := &webapi_message.PostPayloadResponse{}
+	res := &jsonmodels.PostPayloadResponse{}
 	if err := api.do(http.MethodPost, routeSendPayload,
-		&webapi_message.PostPayloadRequest{Payload: payload}, res); err != nil {
+		&jsonmodels.PostPayloadRequest{Payload: payload}, res); err != nil {
 		return "", err
 	}
 
