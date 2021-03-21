@@ -31,7 +31,7 @@ goshimmer \
 Currently, in the code there are two ways in which parameters are registered with GoShimmer. One is deprecated way, and the other is the one that should be used when adding new parameters.
 
 ### Old, deprecated way
-The old way will be described shortly to give a basic understanding of how it works.
+The old way is described shortly to give a basic understanding of how it works, as it should not be used when adding new parameters.
 
 In a package where the parameters will be used, create a `parameters.go` file, that contains definition of constants, which define parameter names in JSON dot-notation. 
 The constants will be later used in the code to access the parameter value. 
@@ -67,9 +67,9 @@ config.Node().Int(CfgGossipPort)
 Defining configuration parameters using the new way is really similar, however the parameters are not registered directly with the package reading the configuration,
 but rather with our custom package that contains all the logic required to make it work seamlessly. 
 
-In this approach, instead of defining parameter name, a whole structure is defined with all necessary parameters and their default values and usage descriptions using Go's struct field tags.
+In this approach, instead of defining parameter name, a new structure is defined with all necessary parameters, their default values and usage descriptions using Go's struct field tags.
 
-One difference is that parameter names do not contain the namespace they belong to, the namespace is set when registering the parameters structure with the `configuration` package.
+One difference is that parameter names do not contain the namespace they belong to, the namespace is set when registering the parameters structure with the `configuration` package. One `parameters.go` file can contain definitions and register multiple parameter structures.
 
 ```go
 package customPlugin
@@ -97,4 +97,5 @@ func init() {
 
 In order to access the parameter value, user can simply access the structure's field: `Parameters.ParamName` or `Parameters.ParamGroup.DetailedParam1` 
 and it will be populated either with default value or values passed through JSON config or command-line argument. 
+
 This approach makes it more simple to define new parameters as well as makes accessing configuration values more clear. 
