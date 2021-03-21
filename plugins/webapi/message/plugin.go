@@ -83,7 +83,7 @@ func GetMessageMetadata(c echo.Context) (err error) {
 
 // PostPayload is the handler for the /messages/payload endpoint.
 func PostPayload(c echo.Context) error {
-	var request PostPayloadRequest
+	var request jsonmodels.PostPayloadRequest
 	if err := c.Bind(&request); err != nil {
 		Plugin().LogInfo(err.Error())
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
@@ -99,17 +99,7 @@ func PostPayload(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	return c.JSON(http.StatusOK, PostPayloadResponse{ID: msg.ID().String()})
-}
-
-// PostPayloadRequest represents the JSON model of a PostPayload request.
-type PostPayloadRequest struct {
-	Payload []byte `json:"payload"`
-}
-
-// PostPayloadResponse represents the JSON model of a PostPayload response.
-type PostPayloadResponse struct {
-	ID string `json:"id"`
+	return c.JSON(http.StatusOK, jsonmodels.NewPostPayloadResponse(msg))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
