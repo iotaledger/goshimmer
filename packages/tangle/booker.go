@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -96,7 +97,13 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 
 				if !b.tangle.Utils.AllTransactionsApprovedByMessages(transaction.ReferencedTransactionIDs(), messageID) {
 					b.tangle.Events.MessageInvalid.Trigger(messageID)
-					err = fmt.Errorf("message does not reference all the transaction's dependencies")
+					refIds := transaction.ReferencedTransactionIDs()
+					var refIdsStrings strings.Builder
+					for key, _ := range refIds {
+						refIdsStrings.WriteString(key.Base58())
+						refIdsStrings.WriteString(", ")
+					}
+					err = fmt.Errorf("message %s does not reference all the transaction's dependencies: %s", messageID.String(), refIdsStrings.String())
 					return
 				}
 

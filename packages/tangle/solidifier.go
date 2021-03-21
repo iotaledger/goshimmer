@@ -118,20 +118,28 @@ func (s *Solidifier) isMessageMarkedAsSolid(messageID MessageID) (solid bool) {
 func (s *Solidifier) areParentMessagesValid(message *Message) (valid bool) {
 	valid = true
 	message.ForEachParent(func(parent Parent) {
-		valid = valid && s.isParentMessageValid(parent.ID, message.IssuingTime())
+		valid = valid && s.isParentMessageValid(parent.ID, message)
 	})
 
 	return
 }
 
 // isParentMessageValid checks whether the given parent Message is valid.
-func (s *Solidifier) isParentMessageValid(parentMessageID MessageID, childMessageIssuingTime time.Time) (valid bool) {
+func (s *Solidifier) isParentMessageValid(parentMessageID MessageID, childMessage *Message) (valid bool) {
 	if parentMessageID == EmptyMessageID {
-		return true
+		if s.tangle.Options.GenesisNode != nil {
+			return *s.tangle.Options.GenesisNode == childMessage.IssuerPublicKey()
+		}
+
+		s.tangle.Storage.MessageMetadata(parentMessageID).Consume(func(messageMetadata *MessageMetadata) {
+			timeDifference := childMessage.IssuingTime().Sub(messageMetadata.SolidificationTime())
+			valid = timeDifference >= minParentsTimeDifference && timeDifference <= maxParentsTimeDifference
+		})
+		return
 	}
 
 	s.tangle.Storage.Message(parentMessageID).Consume(func(parentMessage *Message) {
-		timeDifference := childMessageIssuingTime.Sub(parentMessage.IssuingTime())
+		timeDifference := childMessage.IssuingTime().Sub(parentMessage.IssuingTime())
 
 		valid = timeDifference >= minParentsTimeDifference && timeDifference <= maxParentsTimeDifference
 	})

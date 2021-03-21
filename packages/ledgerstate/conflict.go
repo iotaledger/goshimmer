@@ -74,6 +74,14 @@ func ConflictIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictID
 // ConflictIDFromRandomness returns a random ConflictID which can for example be used for unit tests.
 func ConflictIDFromRandomness() (conflictID ConflictID) {
 	crypto.Randomness.Read(conflictID[:])
+}
+
+// OutputID returns the OutputID that the ConflictID represents.
+func (c ConflictID) OutputID() (outputID OutputID) {
+	outputID, _, err := OutputIDFromBytes(c.Bytes())
+	if err != nil {
+		panic(err)
+	}
 
 	return
 }

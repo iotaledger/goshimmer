@@ -101,6 +101,9 @@ func fetch(printConfig bool, ignoreSettingsAtPrint ...[]string) error {
 		return err
 	}
 
+	// propagate values in the config back to bound parameters
+	configuration.UpdateBoundParameters(_node)
+
 	if printConfig {
 		PrintConfig(ignoreSettingsAtPrint...)
 	}

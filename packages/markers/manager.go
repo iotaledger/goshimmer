@@ -136,6 +136,10 @@ func (m *Manager) UpdateStructureDetails(structureDetailsToUpdate *StructureDeta
 
 // IsInPastCone checks if the earlier node is directly or indirectly referenced by the later node in the DAG.
 func (m *Manager) IsInPastCone(earlierStructureDetails *StructureDetails, laterStructureDetails *StructureDetails) (isInPastCone types.TriBool) {
+	if earlierStructureDetails.FutureMarkers.Size() == 0 && laterStructureDetails.FutureMarkers.Size() == 0 {
+		return types.Maybe
+	}
+
 	if earlierStructureDetails.Rank >= laterStructureDetails.Rank {
 		return types.False
 	}
