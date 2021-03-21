@@ -156,7 +156,7 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 			// trigger PayloadOpinionFormed event
 			f.onPayloadOpinionFormed(messageID, opinion.liked)
 		}
-		// otherwise the PayloadOpinionFormed will be triggered by iterating over the GetTransactionAttachmentsResponse
+		// otherwise the PayloadOpinionFormed will be triggered by iterating over the Attachments
 		// either after FCOB or as a result of an FPC voting.
 		isReattachment = true
 	})
