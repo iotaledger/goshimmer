@@ -120,28 +120,7 @@ func GetBranchChildren(c echo.Context) (err error) {
 	cachedChildBranches := messagelayer.Tangle().LedgerState.BranchDAG.ChildBranches(branchID)
 	defer cachedChildBranches.Release()
 
-	return c.JSON(http.StatusOK, NewGetBranchChildrenResponse(branchID, cachedChildBranches.Unwrap()))
-}
-
-// GetBranchChildrenResponse represents the JSON model of a collection of ChildBranch objects.
-type GetBranchChildrenResponse struct {
-	BranchID      string                    `json:"branchID"`
-	ChildBranches []*jsonmodels.ChildBranch `json:"childBranches"`
-}
-
-// NewGetBranchChildrenResponse returns GetBranchChildrenResponse from the given collection of ledgerstate.ChildBranch objects.
-func NewGetBranchChildrenResponse(branchID ledgerstate.BranchID, childBranches []*ledgerstate.ChildBranch) *GetBranchChildrenResponse {
-	return &GetBranchChildrenResponse{
-		BranchID: branchID.Base58(),
-		ChildBranches: func() (mappedChildBranches []*jsonmodels.ChildBranch) {
-			mappedChildBranches = make([]*jsonmodels.ChildBranch, 0)
-			for _, childBranch := range childBranches {
-				mappedChildBranches = append(mappedChildBranches, jsonmodels.NewChildBranch(childBranch))
-			}
-
-			return
-		}(),
-	}
+	return c.JSON(http.StatusOK, jsonmodels.NewGetBranchChildrenResponse(branchID, cachedChildBranches.Unwrap()))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -169,33 +148,12 @@ func GetBranchConflicts(c echo.Context) (err error) {
 			})
 		}
 
-		err = c.JSON(http.StatusOK, NewGetBranchConflictsResponse(branchID, branchIDsPerConflictID))
+		err = c.JSON(http.StatusOK, jsonmodels.NewGetBranchConflictsResponse(branchID, branchIDsPerConflictID))
 	}) {
 		return
 	}
 
 	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load Branch with %s", branchID)))
-}
-
-// GetBranchConflictsResponse represents the JSON model of a collection of Conflicts that a ledgerstate.ConflictBranch is part of.
-type GetBranchConflictsResponse struct {
-	BranchID  string                 `json:"branchID"`
-	Conflicts []*jsonmodels.Conflict `json:"conflicts"`
-}
-
-// NewGetBranchConflictsResponse returns the GetBranchConflictsResponse that a ledgerstate.ConflictBranch is part of.
-func NewGetBranchConflictsResponse(branchID ledgerstate.BranchID, branchIDsPerConflictID map[ledgerstate.ConflictID][]ledgerstate.BranchID) *GetBranchConflictsResponse {
-	return &GetBranchConflictsResponse{
-		BranchID: branchID.Base58(),
-		Conflicts: func() (mappedConflicts []*jsonmodels.Conflict) {
-			mappedConflicts = make([]*jsonmodels.Conflict, 0)
-			for conflictID, branchIDs := range branchIDsPerConflictID {
-				mappedConflicts = append(mappedConflicts, jsonmodels.NewConflict(conflictID, branchIDs))
-			}
-
-			return
-		}(),
-	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -232,30 +190,7 @@ func GetOutputConsumers(c echo.Context) (err error) {
 	cachedConsumers := messagelayer.Tangle().LedgerState.Consumers(outputID)
 	defer cachedConsumers.Release()
 
-	return c.JSON(http.StatusOK, NewGetOutputConsumersResponse(outputID, cachedConsumers.Unwrap()))
-}
-
-// GetOutputConsumersResponse is the JSON model of a collection of Consumers of an Output.
-type GetOutputConsumersResponse struct {
-	OutputID  *jsonmodels.OutputID   `json:"outputID"`
-	Consumers []*jsonmodels.Consumer `json:"consumers"`
-}
-
-// NewGetOutputConsumersResponse creates an GetOutputConsumersResponse object from the given details.
-func NewGetOutputConsumersResponse(outputID ledgerstate.OutputID, consumers []*ledgerstate.Consumer) *GetOutputConsumersResponse {
-	return &GetOutputConsumersResponse{
-		OutputID: jsonmodels.NewOutputID(outputID),
-		Consumers: func() []*jsonmodels.Consumer {
-			consumingTransactions := make([]*jsonmodels.Consumer, 0)
-			for _, consumer := range consumers {
-				if consumer != nil {
-					consumingTransactions = append(consumingTransactions, jsonmodels.NewConsumer(consumer))
-				}
-			}
-
-			return consumingTransactions
-		}(),
-	}
+	return c.JSON(http.StatusOK, jsonmodels.NewGetOutputConsumersResponse(outputID, cachedConsumers.Unwrap()))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

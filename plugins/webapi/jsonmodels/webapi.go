@@ -32,6 +32,83 @@ func NewGetAddressResponse(address ledgerstate.Address, outputs ledgerstate.Outp
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// region GetBranchChildrenResponse ////////////////////////////////////////////////////////////////////////////////////
+
+// GetBranchChildrenResponse represents the JSON model of a collection of ChildBranch objects.
+type GetBranchChildrenResponse struct {
+	BranchID      string         `json:"branchID"`
+	ChildBranches []*ChildBranch `json:"childBranches"`
+}
+
+// NewGetBranchChildrenResponse returns GetBranchChildrenResponse from the given collection of ledgerstate.ChildBranch objects.
+func NewGetBranchChildrenResponse(branchID ledgerstate.BranchID, childBranches []*ledgerstate.ChildBranch) *GetBranchChildrenResponse {
+	return &GetBranchChildrenResponse{
+		BranchID: branchID.Base58(),
+		ChildBranches: func() (mappedChildBranches []*ChildBranch) {
+			mappedChildBranches = make([]*ChildBranch, 0)
+			for _, childBranch := range childBranches {
+				mappedChildBranches = append(mappedChildBranches, NewChildBranch(childBranch))
+			}
+
+			return
+		}(),
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region GetBranchConflictsResponse ///////////////////////////////////////////////////////////////////////////////////
+
+// GetBranchConflictsResponse represents the JSON model of a collection of Conflicts that a ledgerstate.ConflictBranch is part of.
+type GetBranchConflictsResponse struct {
+	BranchID  string      `json:"branchID"`
+	Conflicts []*Conflict `json:"conflicts"`
+}
+
+// NewGetBranchConflictsResponse returns the GetBranchConflictsResponse that a ledgerstate.ConflictBranch is part of.
+func NewGetBranchConflictsResponse(branchID ledgerstate.BranchID, branchIDsPerConflictID map[ledgerstate.ConflictID][]ledgerstate.BranchID) *GetBranchConflictsResponse {
+	return &GetBranchConflictsResponse{
+		BranchID: branchID.Base58(),
+		Conflicts: func() (mappedConflicts []*Conflict) {
+			mappedConflicts = make([]*Conflict, 0)
+			for conflictID, branchIDs := range branchIDsPerConflictID {
+				mappedConflicts = append(mappedConflicts, NewConflict(conflictID, branchIDs))
+			}
+
+			return
+		}(),
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region GetOutputConsumersResponse ///////////////////////////////////////////////////////////////////////////////////
+
+// GetOutputConsumersResponse is the JSON model of a collection of Consumers of an Output.
+type GetOutputConsumersResponse struct {
+	OutputID  *OutputID   `json:"outputID"`
+	Consumers []*Consumer `json:"consumers"`
+}
+
+// NewGetOutputConsumersResponse creates an GetOutputConsumersResponse object from the given details.
+func NewGetOutputConsumersResponse(outputID ledgerstate.OutputID, consumers []*ledgerstate.Consumer) *GetOutputConsumersResponse {
+	return &GetOutputConsumersResponse{
+		OutputID: NewOutputID(outputID),
+		Consumers: func() []*Consumer {
+			consumingTransactions := make([]*Consumer, 0)
+			for _, consumer := range consumers {
+				if consumer != nil {
+					consumingTransactions = append(consumingTransactions, NewConsumer(consumer))
+				}
+			}
+
+			return consumingTransactions
+		}(),
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // region GetTransactionAttachmentsResponse ////////////////////////////////////////////////////////////////////////////
 
 // GetTransactionAttachmentsResponse represents the JSON model of a collection of MessageIDs that attached a particular Transaction.
