@@ -52,7 +52,7 @@ func NewMessage(message *tangle.Message) Message {
 
 // region MessageMetadata //////////////////////////////////////////////////////////////////////////////////////////////
 
-// MessageMetadata represents the JSON model of a tangle.MessageMetadata.
+// MessageMetadata represents the JSON model of the tangle.MessageMetadata.
 type MessageMetadata struct {
 	ID                 string            `json:"id"`
 	ReceivedTime       int64             `json:"receivedTime"`
@@ -66,7 +66,7 @@ type MessageMetadata struct {
 	Invalid            bool              `json:"invalid"`
 }
 
-// NewMessageMetadata returns a MessageMetadata from the given tangle.MessageMetadata.
+// NewMessageMetadata returns MessageMetadata from the given tangle.MessageMetadata.
 func NewMessageMetadata(metadata *tangle.MessageMetadata) MessageMetadata {
 	return MessageMetadata{
 		ID:                 metadata.ID().String(),
