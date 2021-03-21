@@ -217,7 +217,7 @@ func GetOutputMetadata(c echo.Context) (err error) {
 
 // region GetTransaction ///////////////////////////////////////////////////////////////////////////////////////////////
 
-// GetTransaction is the handler for /ledgerstate/transactions/:transactionID endpoint.
+// GetTransaction is the handler for the /ledgerstate/transactions/:transactionID endpoint.
 func GetTransaction(c echo.Context) (err error) {
 	transactionID, err := ledgerstate.TransactionIDFromBase58(c.Param("transactionID"))
 	if err != nil {
@@ -237,7 +237,7 @@ func GetTransaction(c echo.Context) (err error) {
 
 // region GetTransactionMetadata ///////////////////////////////////////////////////////////////////////////////////////
 
-// GetTransactionMetadata is the handler for ledgerstate/transactions/:transactionID/metadata
+// GetTransactionMetadata is the handler for the ledgerstate/transactions/:transactionID/metadata endpoint.
 func GetTransactionMetadata(c echo.Context) (err error) {
 	transactionID, err := ledgerstate.TransactionIDFromBase58(c.Param("transactionID"))
 	if err != nil {
@@ -257,7 +257,7 @@ func GetTransactionMetadata(c echo.Context) (err error) {
 
 // region GetTransactionAttachments ////////////////////////////////////////////////////////////////////////////////////
 
-// GetTransactionAttachments is the handler for ledgerstate/transactions/:transactionID/attachments endpoint.
+// GetTransactionAttachments is the handler for the ledgerstate/transactions/:transactionID/attachments endpoint.
 func GetTransactionAttachments(c echo.Context) (err error) {
 	transactionID, err := ledgerstate.TransactionIDFromBase58(c.Param("transactionID"))
 	if err != nil {
