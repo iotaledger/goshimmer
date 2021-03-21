@@ -66,7 +66,7 @@ type MessageMetadata struct {
 	Invalid            bool              `json:"invalid"`
 }
 
-// NewMessageMetadata returns a MessageMetadata object from the given tangle.MessageMetadata.
+// NewMessageMetadata returns a MessageMetadata from the given tangle.MessageMetadata.
 func NewMessageMetadata(metadata *tangle.MessageMetadata) MessageMetadata {
 	return MessageMetadata{
 		ID:                 metadata.ID().String(),

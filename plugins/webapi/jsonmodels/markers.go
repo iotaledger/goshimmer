@@ -6,7 +6,7 @@ import (
 
 // region StructureDetails /////////////////////////////////////////////////////////////////////////////////////////////
 
-// StructureDetails represents the JSON model of a markers.StructureDetails object.
+// StructureDetails represents the JSON model of the markers.StructureDetails.
 type StructureDetails struct {
 	Rank          uint64   `json:"rank"`
 	IsPastMarker  bool     `json:"isPastMarker"`
@@ -14,7 +14,7 @@ type StructureDetails struct {
 	FutureMarkers *Markers `json:"futureMarkers"`
 }
 
-// NewStructureDetails returns a StructureDetails object from the given markers.StructureDetails.
+// NewStructureDetails returns the StructureDetails from the given markers.StructureDetails.
 func NewStructureDetails(structureDetails *markersPackage.StructureDetails) *StructureDetails {
 	if structureDetails == nil {
 		return nil
@@ -32,14 +32,14 @@ func NewStructureDetails(structureDetails *markersPackage.StructureDetails) *Str
 
 // region Markers //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Markers represents the JSON model of markers.Markers.
+// Markers represents the JSON model of the markers.Markers.
 type Markers struct {
 	Markers      map[markersPackage.SequenceID]markersPackage.Index `json:"markers"`
 	HighestIndex markersPackage.Index                               `json:"highestIndex"`
 	LowestIndex  markersPackage.Index                               `json:"lowestIndex"`
 }
 
-// NewMarkers returns Markers from the given markers.Markers.
+// NewMarkers returns the Markers from the given markers.Markers.
 func NewMarkers(markers *markersPackage.Markers) *Markers {
 	return &Markers{
 		Markers: func() (mappedMarkers map[markersPackage.SequenceID]markersPackage.Index) {
