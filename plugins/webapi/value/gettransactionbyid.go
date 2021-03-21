@@ -33,7 +33,7 @@ func getTransactionByIDHandler(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusOK, GetTransactionByIDResponse{Error: err.Error()})
 	}
-	cachedBranch := messagelayer.Tangle().LedgerState.Branch(txMetadata.BranchID())
+	cachedBranch := messagelayer.Tangle().LedgerState.BranchDAG.Branch(txMetadata.BranchID())
 	defer cachedBranch.Release()
 	if !cachedTxnObj.Exists() {
 		return c.JSON(http.StatusNotFound, GetTransactionByIDResponse{Error: "Branch not found"})

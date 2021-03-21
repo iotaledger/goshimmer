@@ -70,6 +70,16 @@ func ConflictIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictID
 	return
 }
 
+// OutputID returns the OutputID that the ConflictID represents.
+func (c ConflictID) OutputID() (outputID OutputID) {
+	outputID, _, err := OutputIDFromBytes(c.Bytes())
+	if err != nil {
+		panic(err)
+	}
+
+	return
+}
+
 // Bytes returns a marshaled version of the ConflictID.
 func (c ConflictID) Bytes() []byte {
 	return c[:]

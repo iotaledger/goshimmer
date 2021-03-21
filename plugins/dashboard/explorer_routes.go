@@ -197,7 +197,7 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 		var branch ledgerstate.Branch
 		messagelayer.Tangle().LedgerState.OutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 			consumerCount = outputMetadata.ConsumerCount()
-			messagelayer.Tangle().LedgerState.Branch(outputMetadata.BranchID()).Consume(func(b ledgerstate.Branch) {
+			messagelayer.Tangle().LedgerState.BranchDAG.Branch(outputMetadata.BranchID()).Consume(func(b ledgerstate.Branch) {
 				branch = b
 			})
 		})
