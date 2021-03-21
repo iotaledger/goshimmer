@@ -7,13 +7,13 @@ import (
 
 // region GetAddressResponse ///////////////////////////////////////////////////////////////////////////////////////////
 
-// GetAddressResponse represents the JSON model of Outputs that are associated to an Address.
+// GetAddressResponse represents the JSON model of a response from the GetAddress endpoint.
 type GetAddressResponse struct {
 	Address *Address  `json:"address"`
 	Outputs []*Output `json:"outputs"`
 }
 
-// NewGetAddressResponse creates a JSON model of Outputs that are associated to an Address.
+// NewGetAddressResponse returns a GetAddressResponse from the given details.
 func NewGetAddressResponse(address ledgerstate.Address, outputs ledgerstate.Outputs) *GetAddressResponse {
 	return &GetAddressResponse{
 		Address: NewAddress(address),
@@ -34,13 +34,13 @@ func NewGetAddressResponse(address ledgerstate.Address, outputs ledgerstate.Outp
 
 // region GetBranchChildrenResponse ////////////////////////////////////////////////////////////////////////////////////
 
-// GetBranchChildrenResponse represents the JSON model of a collection of ChildBranches.
+// GetBranchChildrenResponse represents the JSON model of a response from the GetBranchChildren endpoint.
 type GetBranchChildrenResponse struct {
 	BranchID      string         `json:"branchID"`
 	ChildBranches []*ChildBranch `json:"childBranches"`
 }
 
-// NewGetBranchChildrenResponse returns a GetBranchChildrenResponse from the given collection of ledgerstate.ChildBranches.
+// NewGetBranchChildrenResponse returns a GetBranchChildrenResponse from the given details.
 func NewGetBranchChildrenResponse(branchID ledgerstate.BranchID, childBranches []*ledgerstate.ChildBranch) *GetBranchChildrenResponse {
 	return &GetBranchChildrenResponse{
 		BranchID: branchID.Base58(),
@@ -59,13 +59,13 @@ func NewGetBranchChildrenResponse(branchID ledgerstate.BranchID, childBranches [
 
 // region GetBranchConflictsResponse ///////////////////////////////////////////////////////////////////////////////////
 
-// GetBranchConflictsResponse represents the JSON model of a collection of Conflicts that a ledgerstate.ConflictBranch is part of.
+// GetBranchConflictsResponse represents the JSON model of a response from the GetBranchConflicts endpoint.
 type GetBranchConflictsResponse struct {
 	BranchID  string      `json:"branchID"`
 	Conflicts []*Conflict `json:"conflicts"`
 }
 
-// NewGetBranchConflictsResponse returns the GetBranchConflictsResponse that a ledgerstate.ConflictBranch is part of.
+// NewGetBranchConflictsResponse returns a GetBranchConflictsResponse from the given details.
 func NewGetBranchConflictsResponse(branchID ledgerstate.BranchID, branchIDsPerConflictID map[ledgerstate.ConflictID][]ledgerstate.BranchID) *GetBranchConflictsResponse {
 	return &GetBranchConflictsResponse{
 		BranchID: branchID.Base58(),
@@ -84,13 +84,13 @@ func NewGetBranchConflictsResponse(branchID ledgerstate.BranchID, branchIDsPerCo
 
 // region GetOutputConsumersResponse ///////////////////////////////////////////////////////////////////////////////////
 
-// GetOutputConsumersResponse is the JSON model of a collection of Consumers of an Output.
+// GetOutputConsumersResponse represents the JSON model of a response from the GetOutputConsumers endpoint.
 type GetOutputConsumersResponse struct {
 	OutputID  *OutputID   `json:"outputID"`
 	Consumers []*Consumer `json:"consumers"`
 }
 
-// NewGetOutputConsumersResponse creates an GetOutputConsumersResponse from the given details.
+// NewGetOutputConsumersResponse returns a GetOutputConsumersResponse from the given details.
 func NewGetOutputConsumersResponse(outputID ledgerstate.OutputID, consumers []*ledgerstate.Consumer) *GetOutputConsumersResponse {
 	return &GetOutputConsumersResponse{
 		OutputID: NewOutputID(outputID),
@@ -111,13 +111,13 @@ func NewGetOutputConsumersResponse(outputID ledgerstate.OutputID, consumers []*l
 
 // region GetTransactionAttachmentsResponse ////////////////////////////////////////////////////////////////////////////
 
-// GetTransactionAttachmentsResponse represents the JSON model of a collection of MessageIDs that attached a particular Transaction.
+// GetTransactionAttachmentsResponse represents the JSON model of a response from the GetTransactionAttachments endpoint.
 type GetTransactionAttachmentsResponse struct {
 	TransactionID string   `json:"transactionID"`
 	MessageIDs    []string `json:"messageIDs"`
 }
 
-// NewGetTransactionAttachmentsResponse returns a collection of MessageIDs that attached a particular Transaction from the given details.
+// NewGetTransactionAttachmentsResponse returns a GetTransactionAttachmentsResponse from the given details.
 func NewGetTransactionAttachmentsResponse(transactionID ledgerstate.TransactionID, messageIDs tangle.MessageIDs) *GetTransactionAttachmentsResponse {
 	var messageIDsBase58 []string
 	for _, messageID := range messageIDs {
@@ -134,14 +134,14 @@ func NewGetTransactionAttachmentsResponse(transactionID ledgerstate.TransactionI
 
 // region ErrorResponse ////////////////////////////////////////////////////////////////////////////////////////////////
 
-// ErrorResponse is the response that is returned when an error occurred in any of the endpoints.
+// ErrorResponse represents the JSON model of an error response from an API endpoint.
 type ErrorResponse struct {
 	Error string `json:"error"`
 }
 
-// NewErrorResponse returns an ErrorResponse from the given error.
-func NewErrorResponse(err error) ErrorResponse {
-	return ErrorResponse{
+// NewErrorResponse returns am ErrorResponse from the given error.
+func NewErrorResponse(err error) *ErrorResponse {
+	return &ErrorResponse{
 		Error: err.Error(),
 	}
 }
