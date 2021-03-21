@@ -94,11 +94,12 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 	genesisOutputs := make(map[ledgerstate.Address]*ledgerstate.ColoredBalances)
 
 	for alias, balance := range m.options.genesisOutputs {
-		wallet := createWallets(1)[0]
-		m.walletsByAlias[alias] = wallet
-		m.walletsByAddress[wallet.address] = wallet
+		addressWallet := createWallets(1)[0]
 
-		genesisOutputs[wallet.address] = ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
+		m.walletsByAlias[alias] = addressWallet
+		m.walletsByAddress[addressWallet.address] = addressWallet
+
+		genesisOutputs[addressWallet.address] = ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
 			ledgerstate.ColorIOTA: balance,
 		})
 	}
@@ -281,8 +282,8 @@ func WithColoredGenesisOutput(alias string, balances map[ledgerstate.Color]uint6
 
 // region MessageTestFrameworkMessageOptions ///////////////////////////////////////////////////////////////////////////
 
-// MessageTestFrameworkOptions is a struct that represents a collection of options that can be set when creating a
-// Message with the MessageTestFramework.
+// MessageTestFrameworkMessageOptions is a struct that represents a collection of options that can be set when creating
+// a Message with the MessageTestFramework.
 type MessageTestFrameworkMessageOptions struct {
 	inputs         map[string]types.Empty
 	outputs        map[string]uint64
