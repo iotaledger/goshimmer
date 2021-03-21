@@ -1,3 +1,11 @@
+# v0.5.2 - 2021-03-17
+* Fix markers past cone check
+* Add more information to explorer and message API
+* Restrict Genesis attachment
+* Fix parsing of GenesisNode public key
+* Display mana histogram in log scale on dashboards
+* **Breaking**: bumps network and database versions
+
 # v0.5.1 - 2021-03-15
 * Implement FCoB*
 * Fix markers persistence bug
