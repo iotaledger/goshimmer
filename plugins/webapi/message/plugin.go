@@ -117,7 +117,7 @@ type PostPayloadResponse struct {
 // region messageIDFromContext /////////////////////////////////////////////////////////////////////////////////////////
 
 // messageIDFromContext determines the MessageID from the messageID parameter in an echo.Context. It expects it to
-// either be a base58 encoded string or one of the builtin aliases (EmptyMessageID)
+// either be a base58 encoded string or the builtin alias EmptyMessageID.
 func messageIDFromContext(c echo.Context) (messageID tangle.MessageID, err error) {
 	switch messageIDString := c.Param("messageID"); messageIDString {
 	case "EmptyMessageID":
