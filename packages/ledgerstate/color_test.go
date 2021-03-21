@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/blake2b"
 )
 
 func TestNewColoredBalances(t *testing.T) {
@@ -66,4 +67,22 @@ func TestColoredBalances_String(t *testing.T) {
 	})
 
 	assert.Equal(t, "ColoredBalances {\n    IOTA: 100\n    MINT: 120\n}", coloredBalances.String())
+}
+
+func TestNonExistentColor(t *testing.T) {
+	h := blake2b.Sum256([]byte("dummy"))
+	color, _, err := ColorFromBytes(h[:])
+	require.NoError(t, err)
+	m := map[Color]uint64{color: 5}
+
+	cb := NewColoredBalances(m)
+	amount, ok := cb.Get(color)
+	require.EqualValues(t, 5, amount)
+	require.True(t, ok)
+
+	require.NotPanics(t, func() {
+		amount, ok = cb.Get(ColorIOTA)
+	})
+	require.False(t, ok)
+	require.EqualValues(t, 0, amount)
 }

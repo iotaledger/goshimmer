@@ -688,7 +688,8 @@ func AttachmentFromBytes(bytes []byte) (result *Attachment, consumedBytes int, e
 	return
 }
 
-// ParseAttachment is a wrapper for simplified unmarshaling of Attachments from a byte stream using the marshalUtil package.
+// ParseAttachment is a wrapper for simplified unmarshaling of Attachments from a byte stream using the marshalUtil
+// package.
 func ParseAttachment(marshalUtil *marshalutil.MarshalUtil) (result *Attachment, err error) {
 	result = &Attachment{}
 	if result.transactionID, err = ledgerstate.TransactionIDFromMarshalUtil(marshalUtil); err != nil {

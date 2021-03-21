@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/webapi/faucet"
 	"github.com/iotaledger/goshimmer/plugins/webapi/healthz"
 	"github.com/iotaledger/goshimmer/plugins/webapi/info"
+	"github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
 	"github.com/iotaledger/goshimmer/plugins/webapi/mana"
 	"github.com/iotaledger/goshimmer/plugins/webapi/message"
 	"github.com/iotaledger/goshimmer/plugins/webapi/tools"
@@ -28,4 +29,5 @@ var WebAPI = node.Plugins(
 	value.Plugin(),
 	tools.Plugin(),
 	mana.Plugin(),
+	ledgerstate.Plugin(),
 )

@@ -397,6 +397,18 @@ func (o Outputs) Clone() (clonedOutputs Outputs) {
 	return
 }
 
+// Filter removes all elements from the Outputs that do not pass the given condition.
+func (o Outputs) Filter(condition func(output Output) bool) (filteredOutputs Outputs) {
+	filteredOutputs = make(Outputs, 0)
+	for _, output := range o {
+		if condition(output) {
+			filteredOutputs = append(filteredOutputs, output)
+		}
+	}
+
+	return
+}
+
 // Bytes returns a marshaled version of the Outputs.
 func (o Outputs) Bytes() []byte {
 	marshalUtil := marshalutil.New()
@@ -898,8 +910,8 @@ type CachedOutputs []*CachedOutput
 
 // Unwrap is the type-casted equivalent of Get. It returns a slice of unwrapped objects with the object being nil if it
 // does not exist.
-func (c CachedOutputs) Unwrap() (unwrappedOutputs []Output) {
-	unwrappedOutputs = make([]Output, len(c))
+func (c CachedOutputs) Unwrap() (unwrappedOutputs Outputs) {
+	unwrappedOutputs = make(Outputs, len(c))
 	for i, cachedOutput := range c {
 		untypedObject := cachedOutput.Get()
 		if untypedObject == nil {
