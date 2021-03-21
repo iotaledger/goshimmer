@@ -40,7 +40,7 @@ func NewMessageTestFramework(tangle *Tangle, options ...MessageTestFrameworkOpti
 		inputsByAlias:    make(map[string]ledgerstate.Input),
 		outputsByAlias:   make(map[string]ledgerstate.Output),
 		outputsByID:      make(map[ledgerstate.OutputID]ledgerstate.Output),
-		options:          NewFrameworkOptions(options...),
+		options:          NewMessageTestFrameworkOptions(options...),
 	}
 
 	messageTestFramework.createGenesisOutputs()
@@ -222,12 +222,15 @@ func (m *MessageTestFramework) weakParentIDs(options *MessageTestFrameworkMessag
 
 // region MessageTestFrameworkOptions //////////////////////////////////////////////////////////////////////////////////
 
+// MessageTestFrameworkOptions is a container that holds the values of all configurable options of the
+// MessageTestFramework.
 type MessageTestFrameworkOptions struct {
 	genesisOutputs        map[string]uint64
 	coloredGenesisOutputs map[string]map[ledgerstate.Color]uint64
 }
 
-func NewFrameworkOptions(options ...MessageTestFrameworkOption) (frameworkOptions *MessageTestFrameworkOptions) {
+// NewMessageTestFrameworkOptions is the constructor for the MessageTestFrameworkOptions.
+func NewMessageTestFrameworkOptions(options ...MessageTestFrameworkOption) (frameworkOptions *MessageTestFrameworkOptions) {
 	frameworkOptions = &MessageTestFrameworkOptions{
 		genesisOutputs:        make(map[string]uint64),
 		coloredGenesisOutputs: make(map[string]map[ledgerstate.Color]uint64),
@@ -240,8 +243,12 @@ func NewFrameworkOptions(options ...MessageTestFrameworkOption) (frameworkOption
 	return
 }
 
+// MessageTestFrameworkOption is the type that is used for options that can be passed into the MessageTestFramework to
+// configure its behavior.
 type MessageTestFrameworkOption func(*MessageTestFrameworkOptions)
 
+// WithGenesisOutput returns a MessageTestFrameworkOption that defines a genesis Output that is loaded as part of the
+// initial snapshot.
 func WithGenesisOutput(alias string, balance uint64) MessageTestFrameworkOption {
 	return func(options *MessageTestFrameworkOptions) {
 		if _, exists := options.genesisOutputs[alias]; exists {
@@ -255,6 +262,8 @@ func WithGenesisOutput(alias string, balance uint64) MessageTestFrameworkOption 
 	}
 }
 
+// WithColoredGenesisOutput returns a MessageTestFrameworkOption that defines a genesis Output that is loaded as part of
+// the initial snapshot and that supports colored coins.
 func WithColoredGenesisOutput(alias string, balances map[ledgerstate.Color]uint64) MessageTestFrameworkOption {
 	return func(options *MessageTestFrameworkOptions) {
 		if _, exists := options.genesisOutputs[alias]; exists {
