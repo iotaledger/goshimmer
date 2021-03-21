@@ -1,38 +1,60 @@
 package jsonmodels
 
 import (
-	"github.com/iotaledger/goshimmer/packages/markers"
+	markersPackage "github.com/iotaledger/goshimmer/packages/markers"
 )
 
 // region StructureDetails /////////////////////////////////////////////////////////////////////////////////////////////
 
-// StructureDetails represents a container for the complete Marker related information of a node in a DAG that are used
-// to interact with the public API of this package.
+// StructureDetails represents the JSON model of a markers.StructureDetails object.
 type StructureDetails struct {
-	Rank          uint64  `json:"rank"`
-	IsPastMarker  bool    `json:"isPastMarker"`
-	PastMarkers   Markers `json:"pastMarkers"`
-	FutureMarkers Markers `json:"futureMarkers"`
+	Rank          uint64   `json:"rank"`
+	IsPastMarker  bool     `json:"isPastMarker"`
+	PastMarkers   *Markers `json:"pastMarkers"`
+	FutureMarkers *Markers `json:"futureMarkers"`
 }
 
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////// region Markers //////////////////////////////////////////////////////////////////////////////////////////////////////
+// NewStructureDetails returns a StructureDetails object from the given markers.StructureDetails.
+func NewStructureDetails(structureDetails *markersPackage.StructureDetails) *StructureDetails {
+	if structureDetails == nil {
+		return nil
+	}
 
-// Markers represents a collection of Markers that can contain exactly one Index per SequenceID.
+	return &StructureDetails{
+		Rank:          structureDetails.Rank,
+		IsPastMarker:  structureDetails.IsPastMarker,
+		PastMarkers:   NewMarkers(structureDetails.PastMarkers),
+		FutureMarkers: NewMarkers(structureDetails.FutureMarkers),
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Markers //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Markers represents the JSON model of markers.Markers.
 type Markers struct {
-	Markers      map[markers.SequenceID]markers.Index `json:"markers"`
-	HighestIndex markers.Index                        `json:"highestIndex"`
-	LowestIndex  markers.Index                        `json:"lowestIndex"`
+	Markers      map[markersPackage.SequenceID]markersPackage.Index `json:"markers"`
+	HighestIndex markersPackage.Index                               `json:"highestIndex"`
+	LowestIndex  markersPackage.Index                               `json:"lowestIndex"`
 }
 
-func newMarkers(m *markers.Markers) (newMarkers Markers) {
-	newMarkers.Markers = make(map[markers.SequenceID]markers.Index)
-	m.ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
-		newMarkers.Markers[sequenceID] = index
-		return true
-	})
-	newMarkers.HighestIndex = m.HighestIndex()
-	newMarkers.LowestIndex = m.LowestIndex()
-	return
+// NewMarkers returns Markers from the given markers.Markers.
+func NewMarkers(markers *markersPackage.Markers) *Markers {
+	return &Markers{
+		Markers: func() (mappedMarkers map[markersPackage.SequenceID]markersPackage.Index) {
+			mappedMarkers = make(map[markersPackage.SequenceID]markersPackage.Index)
+			markers.ForEach(func(sequenceID markersPackage.SequenceID, index markersPackage.Index) bool {
+				mappedMarkers[sequenceID] = index
+
+				return true
+			})
+
+			return
+		}(),
+		HighestIndex: markers.HighestIndex(),
+		LowestIndex:  markers.LowestIndex(),
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

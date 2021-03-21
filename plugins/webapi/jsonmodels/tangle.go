@@ -54,16 +54,16 @@ func NewMessage(message *tangle.Message) Message {
 
 // MessageMetadata represents the JSON model of a tangle.MessageMetadata.
 type MessageMetadata struct {
-	ID                 string           `json:"id"`
-	ReceivedTime       int64            `json:"receivedTime"`
-	Solid              bool             `json:"solid"`
-	SolidificationTime int64            `json:"solidificationTime"`
-	StructureDetails   StructureDetails `json:"structureDetails"`
-	BranchID           string           `json:"branchID"`
-	Scheduled          bool             `json:"scheduled"`
-	Booked             bool             `json:"booked"`
-	Eligible           bool             `json:"eligible"`
-	Invalid            bool             `json:"invalid"`
+	ID                 string            `json:"id"`
+	ReceivedTime       int64             `json:"receivedTime"`
+	Solid              bool              `json:"solid"`
+	SolidificationTime int64             `json:"solidificationTime"`
+	StructureDetails   *StructureDetails `json:"structureDetails,omitempty"`
+	BranchID           string            `json:"branchID"`
+	Scheduled          bool              `json:"scheduled"`
+	Booked             bool              `json:"booked"`
+	Eligible           bool              `json:"eligible"`
+	Invalid            bool              `json:"invalid"`
 }
 
 // NewMessageMetadata returns a MessageMetadata object from the given tangle.MessageMetadata.
@@ -73,23 +73,12 @@ func NewMessageMetadata(metadata *tangle.MessageMetadata) MessageMetadata {
 		ReceivedTime:       metadata.ReceivedTime().Unix(),
 		Solid:              metadata.IsSolid(),
 		SolidificationTime: metadata.SolidificationTime().Unix(),
-		StructureDetails: func() StructureDetails {
-			var structureDetails StructureDetails
-			if metadata.StructureDetails() != nil {
-				structureDetails = StructureDetails{
-					Rank:          metadata.StructureDetails().Rank,
-					IsPastMarker:  metadata.StructureDetails().IsPastMarker,
-					PastMarkers:   newMarkers(metadata.StructureDetails().PastMarkers),
-					FutureMarkers: newMarkers(metadata.StructureDetails().FutureMarkers),
-				}
-			}
-			return structureDetails
-		}(),
-		BranchID:  metadata.BranchID().String(),
-		Scheduled: metadata.Scheduled(),
-		Booked:    metadata.IsBooked(),
-		Eligible:  metadata.IsEligible(),
-		Invalid:   metadata.IsInvalid(),
+		StructureDetails:   NewStructureDetails(metadata.StructureDetails()),
+		BranchID:           metadata.BranchID().String(),
+		Scheduled:          metadata.Scheduled(),
+		Booked:             metadata.IsBooked(),
+		Eligible:           metadata.IsEligible(),
+		Invalid:            metadata.IsInvalid(),
 	}
 }
 
