@@ -80,7 +80,7 @@ func NewOutputID(outputID ledgerstate.OutputID) *OutputID {
 
 // region OutputMetadata ///////////////////////////////////////////////////////////////////////////////////////////////
 
-// OutputMetadata represents the JSON model of a ledgerstate.OutputMetadata object.
+// OutputMetadata represents the JSON model of the ledgerstate.OutputMetadata.
 type OutputMetadata struct {
 	OutputID           *OutputID `json:"outputID"`
 	BranchID           string    `json:"branchID"`
@@ -91,7 +91,7 @@ type OutputMetadata struct {
 	Finalized          bool      `json:"finalized"`
 }
 
-// NewOutputMetadata returns an OutputMetadata object from the given ledgerstate.OutputMetadata.
+// NewOutputMetadata returns the OutputMetadata from the given ledgerstate.OutputMetadata.
 func NewOutputMetadata(outputMetadata *ledgerstate.OutputMetadata) *OutputMetadata {
 	return &OutputMetadata{
 		OutputID:           NewOutputID(outputMetadata.ID()),
@@ -333,7 +333,7 @@ func NewUnlockBlock(unlockBlock ledgerstate.UnlockBlock) *UnlockBlock {
 
 // region TransactionMetadata ///////////////////////////////////////////////////////////////////////////////////////////
 
-// TransactionMetadata represents the JSON model of a ledgerstate.TransactionMetadata object.
+// TransactionMetadata represents the JSON model of the ledgerstate.TransactionMetadata.
 type TransactionMetadata struct {
 	TransactionID      string `json:"transactionID"`
 	BranchID           string `json:"branchID"`
@@ -343,7 +343,7 @@ type TransactionMetadata struct {
 	LazyBooked         bool   `json:"lazyBooked"`
 }
 
-// NewTransactionMetadata returns a TransactionMetadata object from the given ledgerstate.TransactionMetadata.
+// NewTransactionMetadata returns the TransactionMetadata from the given ledgerstate.TransactionMetadata.
 func NewTransactionMetadata(transactionMetadata *ledgerstate.TransactionMetadata) *TransactionMetadata {
 	return &TransactionMetadata{
 		TransactionID:      transactionMetadata.ID().Base58(),

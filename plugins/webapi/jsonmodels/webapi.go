@@ -34,13 +34,13 @@ func NewGetAddressResponse(address ledgerstate.Address, outputs ledgerstate.Outp
 
 // region GetBranchChildrenResponse ////////////////////////////////////////////////////////////////////////////////////
 
-// GetBranchChildrenResponse represents the JSON model of a collection of ChildBranch objects.
+// GetBranchChildrenResponse represents the JSON model of a collection of ChildBranches.
 type GetBranchChildrenResponse struct {
 	BranchID      string         `json:"branchID"`
 	ChildBranches []*ChildBranch `json:"childBranches"`
 }
 
-// NewGetBranchChildrenResponse returns GetBranchChildrenResponse from the given collection of ledgerstate.ChildBranch objects.
+// NewGetBranchChildrenResponse returns a GetBranchChildrenResponse from the given collection of ledgerstate.ChildBranches.
 func NewGetBranchChildrenResponse(branchID ledgerstate.BranchID, childBranches []*ledgerstate.ChildBranch) *GetBranchChildrenResponse {
 	return &GetBranchChildrenResponse{
 		BranchID: branchID.Base58(),
@@ -90,7 +90,7 @@ type GetOutputConsumersResponse struct {
 	Consumers []*Consumer `json:"consumers"`
 }
 
-// NewGetOutputConsumersResponse creates an GetOutputConsumersResponse object from the given details.
+// NewGetOutputConsumersResponse creates an GetOutputConsumersResponse from the given details.
 func NewGetOutputConsumersResponse(outputID ledgerstate.OutputID, consumers []*ledgerstate.Consumer) *GetOutputConsumersResponse {
 	return &GetOutputConsumersResponse{
 		OutputID: NewOutputID(outputID),
