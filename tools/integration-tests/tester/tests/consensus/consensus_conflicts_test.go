@@ -1,6 +1,7 @@
 package consensus
 
 import (
+	"fmt"
 	"log"
 	"testing"
 	"time"
@@ -119,6 +120,9 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 		issuerPeer := n.Peers()[0]
 		_, err := issuerPeer.SendPayload(conflict.Bytes())
 		log.Printf("issued reattachment conflict transaction %s on peer %s", conflict.ID(), issuerPeer.ID().String())
+		if err != nil {
+			fmt.Println(err)
+		}
 		assert.NoError(t, err)
 	}
 
