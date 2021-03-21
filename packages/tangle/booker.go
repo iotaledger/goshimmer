@@ -99,7 +99,7 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 					b.tangle.Events.MessageInvalid.Trigger(messageID)
 					refIds := transaction.ReferencedTransactionIDs()
 					var refIdsStrings strings.Builder
-					for key, _ := range refIds {
+					for key := range refIds {
 						refIdsStrings.WriteString(key.Base58())
 						refIdsStrings.WriteString(", ")
 					}

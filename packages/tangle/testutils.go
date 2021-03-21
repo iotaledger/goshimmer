@@ -105,11 +105,11 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 	}
 
 	for alias, coloredBalances := range m.options.coloredGenesisOutputs {
-		wallet := createWallets(1)[0]
-		m.walletsByAlias[alias] = wallet
-		m.walletsByAddress[wallet.address] = wallet
+		addressWallet := createWallets(1)[0]
+		m.walletsByAlias[alias] = addressWallet
+		m.walletsByAddress[addressWallet.address] = addressWallet
 
-		genesisOutputs[wallet.address] = ledgerstate.NewColoredBalances(coloredBalances)
+		genesisOutputs[addressWallet.address] = ledgerstate.NewColoredBalances(coloredBalances)
 	}
 
 	m.tangle.LedgerState.LoadSnapshot(map[ledgerstate.TransactionID]map[ledgerstate.Address]*ledgerstate.ColoredBalances{
@@ -150,18 +150,18 @@ func (m *MessageTestFramework) buildTransaction(options *MessageTestFrameworkMes
 
 	outputs := make([]ledgerstate.Output, 0)
 	for alias, balance := range options.outputs {
-		wallet := createWallets(1)[0]
-		m.walletsByAlias[alias] = wallet
-		m.walletsByAddress[wallet.address] = wallet
+		addressWallet := createWallets(1)[0]
+		m.walletsByAlias[alias] = addressWallet
+		m.walletsByAddress[addressWallet.address] = addressWallet
 
 		m.outputsByAlias[alias] = ledgerstate.NewSigLockedSingleOutput(balance, m.walletsByAlias[alias].address)
 
 		outputs = append(outputs, m.outputsByAlias[alias])
 	}
 	for alias, balances := range options.coloredOutputs {
-		wallet := createWallets(1)[0]
-		m.walletsByAlias[alias] = wallet
-		m.walletsByAddress[wallet.address] = wallet
+		addressWallet := createWallets(1)[0]
+		m.walletsByAlias[alias] = addressWallet
+		m.walletsByAddress[addressWallet.address] = addressWallet
 
 		m.outputsByAlias[alias] = ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(balances), m.walletsByAlias[alias].address)
 
@@ -292,6 +292,7 @@ type MessageTestFrameworkMessageOptions struct {
 	weakParents    map[string]types.Empty
 }
 
+// NewMessageTestFrameworkMessageOptions is the constructor for the MessageTestFrameworkMessageOptions.
 func NewMessageTestFrameworkMessageOptions(options ...MessageOption) (messageOptions *MessageTestFrameworkMessageOptions) {
 	messageOptions = &MessageTestFrameworkMessageOptions{
 		inputs:        make(map[string]types.Empty),
@@ -307,6 +308,8 @@ func NewMessageTestFrameworkMessageOptions(options ...MessageOption) (messageOpt
 	return
 }
 
+// MessageOption is the type that is used for options that can be passed into the CreateMessage method to configure its
+// behavior.
 type MessageOption func(*MessageTestFrameworkMessageOptions)
 
 // WithInputs returns a MessageOption that is used to provide the Inputs of the Transaction.
@@ -318,18 +321,21 @@ func WithInputs(inputAliases ...string) MessageOption {
 	}
 }
 
+// WithOutput returns a MessageOption that is used to define a non-colored Output for the Transaction in the Message.
 func WithOutput(alias string, balance uint64) MessageOption {
 	return func(options *MessageTestFrameworkMessageOptions) {
 		options.outputs[alias] = balance
 	}
 }
 
+// WithColoredOutput returns a MessageOption that is used to define a colored Output for the Transaction in the Message.
 func WithColoredOutput(alias string, balances map[ledgerstate.Color]uint64) MessageOption {
 	return func(options *MessageTestFrameworkMessageOptions) {
 		options.coloredOutputs[alias] = balances
 	}
 }
 
+// WithStrongParents returns a MessageOption that is used to define the strong parents of the Message.
 func WithStrongParents(messageAliases ...string) MessageOption {
 	return func(options *MessageTestFrameworkMessageOptions) {
 		for _, messageAlias := range messageAliases {
@@ -338,6 +344,7 @@ func WithStrongParents(messageAliases ...string) MessageOption {
 	}
 }
 
+// WithWeakParents returns a MessageOption that is used to define the weak parents of the Message.
 func WithWeakParents(messageAliases ...string) MessageOption {
 	return func(options *MessageTestFrameworkMessageOptions) {
 		for _, messageAlias := range messageAliases {
