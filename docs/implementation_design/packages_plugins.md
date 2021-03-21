@@ -3,6 +3,7 @@ In GoShimmer, new features are added through the [plugin system](plugin.md), how
 The plugin system works as an adapter that can be used to easily expose complex logic through a common interface. 
 It's really useful in a prototype software like GoShimmer, because it's possible to easily switch between different implementations just by using different plugin, without having to
 rewrite the code using it. 
+
 ![Adapter design pattern](https://upload.wikimedia.org/wikipedia/commons/4/4e/Adapter_pattern.png "Adapter design pattern")
 
 When creating new plugin, the logic should be implemented in a separate package stored in the `packages/` directory. 
