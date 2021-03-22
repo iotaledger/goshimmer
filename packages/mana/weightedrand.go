@@ -32,7 +32,7 @@ func NewRandChooser(cs ...RandChoice) *RandChooser {
 	totals := make([]int, len(cs))
 	runningTotal := 0
 	for i, c := range cs {
-		runningTotal += int(c.Weight)
+		runningTotal += c.Weight
 		totals[i] = runningTotal
 	}
 	return &RandChooser{data: cs, totals: totals, max: runningTotal}

@@ -116,7 +116,7 @@ func NewTransactionFromJSON(request SendTransactionByJSONRequest) (*ledgerstate.
 	// prepare outputs
 	outputs := []ledgerstate.Output{}
 	for _, output := range request.Outputs {
-		outputType := ledgerstate.OutputType(output.Type)
+		outputType := output.Type
 		address, err := ledgerstate.AddressFromBase58EncodedString(output.Address)
 		if err != nil {
 			return nil, ErrMalformedOutputs

@@ -102,7 +102,7 @@ func (nl nodes) Diameter() int {
 					depths[i] = -1
 				}
 
-				df := nl.longestShortestPath(nodeID(id), q, depths)
+				df := nl.longestShortestPath(id, q, depths)
 				if df > diameter {
 					diameter = df
 				}

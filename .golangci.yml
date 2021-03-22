@@ -4,7 +4,7 @@ run:
 issues:
     exclude-use-default: false
     max-issues-per-linter: 0
-#    max-same-issues: 0
+    max-same-issues: 0
     exclude:
         - 'type name will be used as [0-9A-Za-z_.]+ by other packages, and that stutters; consider calling this' # golint
         - "G404: Use of weak random number generator" # gosec
@@ -50,6 +50,7 @@ linters:
         # Errcheck is a program for checking for unchecked errors in go programs.
         # These unchecked errors can be critical bugs in some cases
         - errcheck
+        - exportloopref # Checks for pointers to enclosing loop variables.
         - gocritic # Provides many diagnostics that check for bugs, performance and style issues.
         - gocyclo # Computes and checks the cyclomatic complexity of functions.
         - godot # Check if comments end in a period.
@@ -65,5 +66,8 @@ linters:
         - nakedret # Finds naked returns in functions greater than a specified function length.
         - noctx # noctx finds sending http request without context.Context.
         - nolintlint # Reports ill-formed or insufficient nolint directives.
+        - staticcheck # Staticcheck is a go vet on steroids, applying a ton of static analysis checks.
+        - structcheck # Finds unused struct fields.
+        - unconvert # Remove unnecessary type conversions.
     disable:
         - gochecknoglobals

@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -47,7 +46,7 @@ func TestNewTransactionFromJSON(t *testing.T) {
 
 	// sign transaction
 	kp := *mySeed.KeyPair(0)
-	sig := ledgerstate.NewED25519Signature(kp.PublicKey, ed25519.Signature(kp.PrivateKey.Sign(txEssence.Bytes())))
+	sig := ledgerstate.NewED25519Signature(kp.PublicKey, kp.PrivateKey.Sign(txEssence.Bytes()))
 
 	// create unlockBlock
 	unlockBlock := ledgerstate.NewSignatureUnlockBlock(sig)

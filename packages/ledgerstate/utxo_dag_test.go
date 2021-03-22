@@ -384,7 +384,7 @@ func TestBookNonConflictingTransaction(t *testing.T) {
 
 	inclusionState, err := utxoDAG.InclusionState(tx.ID())
 	require.NoError(t, err)
-	assert.Equal(t, InclusionState(Pending), inclusionState)
+	assert.Equal(t, Pending, inclusionState)
 
 	// check that the inputs are marked as spent
 	assert.False(t, utxoDAG.outputsUnspent(inputsMetadata))
@@ -439,11 +439,11 @@ func TestBookConflictingTransaction(t *testing.T) {
 
 	inclusionState, err := utxoDAG.InclusionState(tx1.ID())
 	require.NoError(t, err)
-	assert.Equal(t, InclusionState(Pending), inclusionState)
+	assert.Equal(t, Pending, inclusionState)
 
 	inclusionState, err = utxoDAG.InclusionState(tx2.ID())
 	require.NoError(t, err)
-	assert.Equal(t, InclusionState(Pending), inclusionState)
+	assert.Equal(t, Pending, inclusionState)
 
 	// check that the inputs are marked as spent
 	assert.False(t, utxoDAG.outputsUnspent(inputsMetadata))
@@ -461,7 +461,7 @@ func TestInclusionState(t *testing.T) {
 
 		inclusionState, err := utxoDAG.InclusionState(tx.ID())
 		require.NoError(t, err)
-		assert.Equal(t, InclusionState(Confirmed), inclusionState)
+		assert.Equal(t, Confirmed, inclusionState)
 	}
 
 	{
@@ -474,7 +474,7 @@ func TestInclusionState(t *testing.T) {
 
 		inclusionState, err := utxoDAG.InclusionState(tx.ID())
 		require.NoError(t, err)
-		assert.Equal(t, InclusionState(Pending), inclusionState)
+		assert.Equal(t, Pending, inclusionState)
 	}
 
 	{
@@ -487,7 +487,7 @@ func TestInclusionState(t *testing.T) {
 
 		inclusionState, err := utxoDAG.InclusionState(tx.ID())
 		require.NoError(t, err)
-		assert.Equal(t, InclusionState(Rejected), inclusionState)
+		assert.Equal(t, Rejected, inclusionState)
 	}
 }
 
@@ -811,7 +811,7 @@ func createWallets(n int) []wallet {
 }
 
 func (w wallet) sign(txEssence *TransactionEssence) *ED25519Signature {
-	return NewED25519Signature(w.publicKey(), ed25519.Signature(w.privateKey().Sign(txEssence.Bytes())))
+	return NewED25519Signature(w.publicKey(), w.privateKey().Sign(txEssence.Bytes()))
 }
 
 func (w wallet) unlockBlocks(txEssence *TransactionEssence) []UnlockBlock {

@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/goshimmer/client"
@@ -95,7 +94,7 @@ func main() {
 			}), destAddr.Address())
 			txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, ledgerstate.NewInputs(ledgerstate.NewUTXOInput(out)), ledgerstate.NewOutputs(output))
 			kp := *mySeed.KeyPair(0)
-			sig := ledgerstate.NewED25519Signature(kp.PublicKey, ed25519.Signature(kp.PrivateKey.Sign(txEssence.Bytes())))
+			sig := ledgerstate.NewED25519Signature(kp.PublicKey, kp.PrivateKey.Sign(txEssence.Bytes()))
 			unlockBlock := ledgerstate.NewSignatureUnlockBlock(sig)
 			tx := ledgerstate.NewTransaction(txEssence, ledgerstate.UnlockBlocks{unlockBlock})
 			conflictingTxs[i] = tx
