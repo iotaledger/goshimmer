@@ -192,34 +192,41 @@ type Supporter = ed25519.PublicKey
 
 // region Supporters ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+// Supporters is a set of node identities that votes for a particular Branch.
 type Supporters struct {
 	set.Set
 }
 
+// NewSupporters is the constructor of the Supporters type.
 func NewSupporters() (supporters *Supporters) {
 	return &Supporters{
 		Set: set.New(),
 	}
 }
 
+// Add adds a new Supporter to the Set and returns true if the Supporter was not present in the set before.
 func (s *Supporters) Add(supporter Supporter) (added bool) {
 	return s.Set.Add(supporter)
 }
 
+// Delete removes the Supporter from the Set and returns true if it did exist.
 func (s *Supporters) Delete(supporter Supporter) (deleted bool) {
 	return s.Set.Delete(supporter)
 }
 
+// Has returns true if the Supporter exists in the Set.
 func (s *Supporters) Has(supporter Supporter) (has bool) {
 	return s.Set.Has(supporter)
 }
 
+// ForEach iterates through the Supporters and calls the callback for every element.
 func (s *Supporters) ForEach(callback func(supporter Supporter)) {
 	s.Set.ForEach(func(element interface{}) {
 		callback(element.(Supporter))
 	})
 }
 
+// String returns a human readable version of the Supporters.
 func (s *Supporters) String() string {
 	structBuilder := stringify.StructBuilder("Supporters")
 	s.ForEach(func(supporter Supporter) {
