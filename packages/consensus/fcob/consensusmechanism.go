@@ -192,7 +192,6 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 		f.storage.opinionStorage.Store(newOpinion).Release()
 
 		switch newOpinion.LevelOfKnowledge() {
-
 		case Pending:
 			break
 
@@ -208,9 +207,7 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 		default:
 			f.onPayloadOpinionFormed(messageID, newOpinion.liked)
 			return
-
 		}
-
 	}
 
 	newOpinion.OpinionEssence = OpinionEssence{

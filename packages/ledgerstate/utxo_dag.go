@@ -507,7 +507,6 @@ func (u *UTXODAG) bookConsumers(inputsMetadata OutputsMetadata, transactionID Tr
 		}) {
 			panic("failed to update valid flag of Consumer")
 		}
-
 	}
 }
 

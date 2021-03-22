@@ -65,7 +65,6 @@ func setupRoutes(e *echo.Echo) {
 	if config.Node().Bool("analysis.dashboard.dev") {
 		e.Static("/assets", "./plugins/analysis/dashboard/frontend/src/assets")
 	} else {
-
 		// load assets from packr: either from within the binary or actual disk
 		pkger.Walk(app, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
@@ -97,7 +96,6 @@ func setupRoutes(e *echo.Echo) {
 		var message string
 
 		switch errors.Unwrap(err) {
-
 		case echo.ErrNotFound:
 			c.Redirect(http.StatusSeeOther, "/")
 			return

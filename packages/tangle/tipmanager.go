@@ -217,7 +217,6 @@ func (t *TipManager) AddTip(message *Message) {
 				t.tipsCleaner.ExecuteAt(messageID, func() {
 					t.strongTips.Delete(messageID)
 				}, message.IssuingTime().Add(tipLifeGracePeriod))
-
 			}
 
 			// skip removing tips if TangleWidth is enabled
@@ -362,7 +361,6 @@ func (t *TipManager) selectStrongTips(p payload.Payload, count int) (parents Mes
 			parentsMap[messageID] = types.Void
 			parents = append(parents, messageID)
 		}
-
 	}
 
 	return

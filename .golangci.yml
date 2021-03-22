@@ -106,6 +106,8 @@ linters:
         - unparam # Reports unused function parameters.
         - unused # Checks Go code for unused constants, variables, functions and types.
         - varcheck # Finds unused global variables and constants.
+        - whitespace # Tool for detection of leading and trailing whitespace.
+
 
     # don't enable:
     # asciicheck: Simple linter to check that your code does not contain non-ASCII identifiers [fast: true, auto-fix: false]

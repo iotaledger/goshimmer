@@ -262,7 +262,6 @@ func (m *Manager) handlePacket(data []byte, nbr *Neighbor) error {
 	}
 
 	switch pb.PacketType(data[0]) {
-
 	case pb.PacketMessage:
 		if _, added := m.messageWorkerPool.TrySubmit(data, nbr); !added {
 			return fmt.Errorf("messageWorkerPool full: packet message discarded")

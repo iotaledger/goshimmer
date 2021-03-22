@@ -398,7 +398,6 @@ func TestTipManager_TransactionTips(t *testing.T) {
 
 	// Message 1
 	{
-
 		inputs["G1"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, g1))
 		outputs["A"] = ledgerstate.NewSigLockedSingleOutput(3, wallets["A"].address)
 		outputs["B"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["B"].address)

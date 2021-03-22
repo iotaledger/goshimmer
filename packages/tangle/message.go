@@ -760,7 +760,6 @@ func (m *MessageMetadata) SetSolid(solid bool) (modified bool) {
 			modified = true
 		}
 		m.solidMutex.Unlock()
-
 	} else {
 		m.solidMutex.RUnlock()
 	}

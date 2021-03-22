@@ -135,7 +135,6 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 		}
 
 		switch len(searchInByte) {
-
 		case ledgerstate.AddressLength:
 			addr, err := findAddress(search)
 			if err == nil {

@@ -68,7 +68,6 @@ func Server() *echo.Echo {
 			var message string
 
 			switch errors.Unwrap(err) {
-
 			case echo.ErrUnauthorized:
 				statusCode = http.StatusUnauthorized
 				message = "unauthorized"
