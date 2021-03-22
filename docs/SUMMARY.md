@@ -14,6 +14,7 @@ Rendered version of the documentation: http://goshimmer.docs.iota.org/
   - [How to configure followed sync beacon nodes](./tutorials/follow_syncbeacon.md)
   - [How to create a static identity](./tutorials/static_identity.md)
   - [How to setup a custom dRNG committee](./tutorials/custom_dRNG.md)
+  - [Setting up Monitoring Dashboard](./tutorials/monitoring.md)
 
 - [Application logic](./application_logic.md)
   - [Protocol high level overview](./application_logic/protocol.md)

@@ -1,4 +1,5 @@
-# Error handling
+# Code guidelines
+## Error handling
 
 We use the new error wrapping API and behavior introduced with Go 1.13 but we use the "golang.org/x/xerrors" drop-in replacement which follows the Go 2 design draft and which enables us to have a stack trace for every "wrapping" of the error.
 

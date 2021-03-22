@@ -1,3 +1,5 @@
+# Glossary
+
 #### APPLICATION LAYER
 The IOTA Protocol allows for a host of applications to run on the message tangle. Anybody can design an application, and users can decide which applications to run on their nodes. These applications will all use the communication layer to broadcast and store data.
 
