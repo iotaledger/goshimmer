@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/mr-tron/base58"
@@ -78,7 +79,7 @@ func main() {
 		},
 	}
 
-	f, err := os.OpenFile(snapshotFileName, os.O_RDWR|os.O_CREATE, 0666)
+	f, err := os.OpenFile(filepath.Clean(snapshotFileName), os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
 		log.Fatal("unable to create snapshot file", err)
 	}
