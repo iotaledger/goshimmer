@@ -1,7 +1,10 @@
 # Overview
 
-Rendered version of the documentation: http://goshimmer.docs.iota.org/
+Rendered version of the documentation: 
 
+http://goshimmer.docs.iota.org/
+
+#
 - [GoShimmer](./goshimmer.md)
 - [FAQ](./faq.md)
 #
@@ -24,7 +27,8 @@ Rendered version of the documentation: http://goshimmer.docs.iota.org/
   - [Configuration parameters](./implementation_design/configuration_parameters.md)
   - [Plugin](./implementation_design/plugin.md)
   - [Object storage](./implementation_design/object_storage.md)
-- [API](./apis/api.md)
+- API
+  - [Client Lib](./apis/api.md)
   - [WebAPI](./apis/webAPI.md)
   - [Mana](./apis/mana.md)
   - [dRNG](./apis/dRNG.md)
