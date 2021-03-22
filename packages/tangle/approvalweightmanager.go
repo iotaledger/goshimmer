@@ -3,7 +3,9 @@ package tangle
 import (
 	"fmt"
 	"sync"
+	"time"
 
+	"github.com/iotaledger/goshimmer/packages/epochs"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/hive.go/byteutils"
@@ -11,6 +13,8 @@ import (
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/datastructure/walker"
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
@@ -20,13 +24,20 @@ import (
 // region ApprovalWeightManager ////////////////////////////////////////////////////////////////////////////////////////
 
 type ApprovalWeightManager struct {
+	Events           *ApprovalWeightManagerEvents
 	tangle           *Tangle
 	lastStatements   map[Supporter]*Statement
 	branchSupporters map[ledgerstate.BranchID]*Supporters
+	epochManager     *epochs.Manager
 }
 
 func NewApprovalWeightManager(tangle *Tangle) (approvalWeightManager *ApprovalWeightManager) {
 	approvalWeightManager = &ApprovalWeightManager{
+		Events: &ApprovalWeightManagerEvents{
+			BranchSupportAdded:     events.NewEvent(branchSupportEventCaller),
+			BranchSupportRemoved:   events.NewEvent(branchSupportEventCaller),
+			SequenceSupportUpdated: events.NewEvent(sequenceSupportEventCaller),
+		},
 		tangle:           tangle,
 		lastStatements:   make(map[Supporter]*Statement),
 		branchSupporters: make(map[ledgerstate.BranchID]*Supporters),
@@ -63,16 +74,18 @@ func (a *ApprovalWeightManager) updateSequenceSupporters(message *Message) {
 		})
 
 		for supportWalker.HasNext() {
-			a.addSupportToMarker(supportWalker.Next().(*markers.Marker), message.IssuerPublicKey(), supportWalker)
+			a.addSupportToMarker(supportWalker.Next().(*markers.Marker), message.IssuingTime(), identity.NewID(message.IssuerPublicKey()), supportWalker)
 		}
 	})
 }
 
-func (a *ApprovalWeightManager) addSupportToMarker(marker *markers.Marker, supporter Supporter, walker *walker.Walker) {
+func (a *ApprovalWeightManager) addSupportToMarker(marker *markers.Marker, issuingTime time.Time, supporter Supporter, walker *walker.Walker) {
 	a.tangle.Storage.SequenceSupporters(marker.SequenceID(), func() *SequenceSupporters {
 		return NewSequenceSupporters(marker.SequenceID())
 	}).Consume(func(sequenceSupporters *SequenceSupporters) {
 		if sequenceSupporters.AddSupporter(supporter, marker.Index()) {
+			a.Events.SequenceSupportUpdated.Trigger(marker, issuingTime, supporter)
+
 			a.tangle.Booker.MarkersManager.Manager.Sequence(marker.SequenceID()).Consume(func(sequence *markers.Sequence) {
 				sequence.ParentReferences().HighestReferencedMarkers(marker.Index()).ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
 					walker.Push(markers.NewMarker(sequenceID, index))
@@ -85,22 +98,24 @@ func (a *ApprovalWeightManager) addSupportToMarker(marker *markers.Marker, suppo
 }
 
 func (a *ApprovalWeightManager) updateBranchSupporters(message *Message) {
-	lastStatement, lastStatementExists := a.lastStatements[message.IssuerPublicKey()]
+	nodeID := identity.NewID(message.IssuerPublicKey())
+
+	lastStatement, lastStatementExists := a.lastStatements[nodeID]
 	if lastStatementExists && !a.isNewStatement(lastStatement, message) {
 		return
 	}
 
 	newStatement := a.statementFromMessage(message)
-	a.lastStatements[message.IssuerPublicKey()] = newStatement
+	a.lastStatements[nodeID] = newStatement
 
 	if lastStatementExists && lastStatement.BranchID == newStatement.BranchID {
 		return
 	}
 
-	a.propagateSupportToBranches(newStatement.BranchID, message.IssuerPublicKey())
+	a.propagateSupportToBranches(newStatement.BranchID, message.IssuingTime(), nodeID)
 }
 
-func (a *ApprovalWeightManager) propagateSupportToBranches(branchID ledgerstate.BranchID, issuer Supporter) {
+func (a *ApprovalWeightManager) propagateSupportToBranches(branchID ledgerstate.BranchID, issuingTime time.Time, supporter Supporter) {
 	conflictBranchIDs, err := a.tangle.LedgerState.BranchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchID))
 	if err != nil {
 		panic(err)
@@ -112,16 +127,16 @@ func (a *ApprovalWeightManager) propagateSupportToBranches(branchID ledgerstate.
 	}
 
 	for supportWalker.HasNext() {
-		a.addSupportToBranch(supportWalker.Next().(ledgerstate.BranchID), issuer, supportWalker)
+		a.addSupportToBranch(supportWalker.Next().(ledgerstate.BranchID), issuingTime, supporter, supportWalker)
 	}
 }
 
-func (a *ApprovalWeightManager) addSupportToBranch(branchID ledgerstate.BranchID, issuer Supporter, walk *walker.Walker) {
+func (a *ApprovalWeightManager) addSupportToBranch(branchID ledgerstate.BranchID, issuingTime time.Time, supporter Supporter, walk *walker.Walker) {
 	if _, exists := a.branchSupporters[branchID]; !exists {
 		a.branchSupporters[branchID] = NewSupporters()
 	}
 
-	if !a.branchSupporters[branchID].Add(issuer) {
+	if !a.branchSupporters[branchID].Add(supporter) {
 		return
 	}
 
@@ -130,9 +145,11 @@ func (a *ApprovalWeightManager) addSupportToBranch(branchID ledgerstate.BranchID
 		revokeWalker.Push(conflictingBranchID)
 
 		for revokeWalker.HasNext() {
-			a.revokeSupportFromBranch(revokeWalker.Next().(ledgerstate.BranchID), issuer, revokeWalker)
+			a.revokeSupportFromBranch(revokeWalker.Next().(ledgerstate.BranchID), issuingTime, supporter, revokeWalker)
 		}
 	})
+
+	a.Events.BranchSupportAdded.Trigger(branchID, issuingTime, supporter)
 
 	a.tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
 		for parentBranchID := range branch.Parents() {
@@ -141,10 +158,12 @@ func (a *ApprovalWeightManager) addSupportToBranch(branchID ledgerstate.BranchID
 	})
 }
 
-func (a *ApprovalWeightManager) revokeSupportFromBranch(branchID ledgerstate.BranchID, issuer Supporter, walker *walker.Walker) {
-	if supporters, exists := a.branchSupporters[branchID]; !exists || !supporters.Delete(issuer) {
+func (a *ApprovalWeightManager) revokeSupportFromBranch(branchID ledgerstate.BranchID, issuingTime time.Time, supporter Supporter, walker *walker.Walker) {
+	if supporters, exists := a.branchSupporters[branchID]; !exists || !supporters.Delete(supporter) {
 		return
 	}
+
+	a.Events.BranchSupportRemoved.Trigger(branchID, issuingTime, supporter)
 
 	a.tangle.LedgerState.BranchDAG.ChildBranches(branchID).Consume(func(childBranch *ledgerstate.ChildBranch) {
 		if childBranch.ChildBranchType() != ledgerstate.ConflictBranchType {
@@ -175,6 +194,24 @@ func (a *ApprovalWeightManager) statementFromMessage(message *Message) (statemen
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// region ApprovalWeightManagerEvents //////////////////////////////////////////////////////////////////////////////////
+
+type ApprovalWeightManagerEvents struct {
+	BranchSupportAdded     *events.Event
+	BranchSupportRemoved   *events.Event
+	SequenceSupportUpdated *events.Event
+}
+
+func branchSupportEventCaller(handler interface{}, params ...interface{}) {
+	handler.(func(ledgerstate.BranchID, time.Time, Supporter))(params[0].(ledgerstate.BranchID), params[1].(time.Time), params[2].(Supporter))
+}
+
+func sequenceSupportEventCaller(handler interface{}, params ...interface{}) {
+	handler.(func(*markers.Marker, time.Time, Supporter))(params[0].(*markers.Marker), params[1].(time.Time), params[2].(Supporter))
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // region Statement ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Statement struct {
@@ -186,7 +223,7 @@ type Statement struct {
 
 // region Supporter ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-type Supporter = ed25519.PublicKey
+type Supporter = identity.ID
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -288,11 +325,12 @@ func SequenceSupportersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (se
 	}
 	sequenceSupporters.supportersPerIndex = make(map[Supporter]markers.Index)
 	for i := uint64(0); i < supportersCount; i++ {
-		supporter, supporterErr := ed25519.ParsePublicKey(marshalUtil)
+		supporter, supporterErr := identity.IDFromMarshalUtil(marshalUtil)
 		if supporterErr != nil {
 			err = xerrors.Errorf("failed to parse Supporter (%v): %w", supporterErr, cerrors.ErrParseBytesFailed)
 			return
 		}
+
 		index, indexErr := markers.IndexFromMarshalUtil(marshalUtil)
 		if indexErr != nil {
 			err = xerrors.Errorf("failed to parse Index: %w", indexErr)

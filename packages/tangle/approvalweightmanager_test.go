@@ -6,6 +6,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -82,7 +83,7 @@ func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
 			"Branch 4.1.2": false,
 			"Branch 4.2":   false,
 		}
-		validateStatementResults(t, approvalWeightManager, branchIDs, keyPair.PublicKey, expectedResults)
+		validateStatementResults(t, approvalWeightManager, branchIDs, identity.NewID(keyPair.PublicKey), expectedResults)
 	}
 
 	// statement 2: "Branch 4.1.2"
@@ -107,7 +108,7 @@ func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
 			"Branch 4.1.2": true,
 			"Branch 4.2":   false,
 		}
-		validateStatementResults(t, approvalWeightManager, branchIDs, keyPair.PublicKey, expectedResults)
+		validateStatementResults(t, approvalWeightManager, branchIDs, identity.NewID(keyPair.PublicKey), expectedResults)
 	}
 
 	// statement 3: "Branch 2"
@@ -132,7 +133,7 @@ func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
 			"Branch 4.1.2": true,
 			"Branch 4.2":   false,
 		}
-		validateStatementResults(t, approvalWeightManager, branchIDs, keyPair.PublicKey, expectedResults)
+		validateStatementResults(t, approvalWeightManager, branchIDs, identity.NewID(keyPair.PublicKey), expectedResults)
 	}
 }
 
@@ -140,9 +141,9 @@ func TestApprovalWeightManager_updateSequenceSupporters(t *testing.T) {
 	tangle := New()
 	defer tangle.Shutdown()
 	approvalWeightManager := NewApprovalWeightManager(tangle)
-	supporters := map[string]Supporter{
-		"A": ed25519.GenerateKeyPair().PublicKey,
-		"B": ed25519.GenerateKeyPair().PublicKey,
+	supporters := map[string]*identity.Identity{
+		"A": identity.New(ed25519.GenerateKeyPair().PublicKey),
+		"B": identity.New(ed25519.GenerateKeyPair().PublicKey),
 	}
 	markersMap := make(map[string]*markers.StructureDetails)
 
@@ -168,7 +169,7 @@ func TestApprovalWeightManager_updateSequenceSupporters(t *testing.T) {
 	{
 		approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["A"], markers.NewMarker(1, 3)))
 
-		validateMarkerSupporters(t, approvalWeightManager, markersMap, map[string][]Supporter{
+		validateMarkerSupporters(t, approvalWeightManager, markersMap, map[string][]*identity.Identity{
 			"1,1": {supporters["A"]},
 			"1,2": {supporters["A"]},
 			"1,3": {supporters["A"]},
@@ -190,7 +191,7 @@ func TestApprovalWeightManager_updateSequenceSupporters(t *testing.T) {
 	{
 		approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["A"], markers.NewMarker(1, 4), markers.NewMarker(3, 5)))
 
-		validateMarkerSupporters(t, approvalWeightManager, markersMap, map[string][]Supporter{
+		validateMarkerSupporters(t, approvalWeightManager, markersMap, map[string][]*identity.Identity{
 			"1,1": {supporters["A"]},
 			"1,2": {supporters["A"]},
 			"1,3": {supporters["A"]},
@@ -212,7 +213,7 @@ func TestApprovalWeightManager_updateSequenceSupporters(t *testing.T) {
 	{
 		approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["A"], markers.NewMarker(5, 8)))
 
-		validateMarkerSupporters(t, approvalWeightManager, markersMap, map[string][]Supporter{
+		validateMarkerSupporters(t, approvalWeightManager, markersMap, map[string][]*identity.Identity{
 			"1,1": {supporters["A"]},
 			"1,2": {supporters["A"]},
 			"1,3": {supporters["A"]},
@@ -234,7 +235,7 @@ func TestApprovalWeightManager_updateSequenceSupporters(t *testing.T) {
 	{
 		approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["B"], markers.NewMarker(2, 3)))
 
-		validateMarkerSupporters(t, approvalWeightManager, markersMap, map[string][]Supporter{
+		validateMarkerSupporters(t, approvalWeightManager, markersMap, map[string][]*identity.Identity{
 			"1,1": {supporters["A"]},
 			"1,2": {supporters["A"]},
 			"1,3": {supporters["A"]},
@@ -253,19 +254,19 @@ func TestApprovalWeightManager_updateSequenceSupporters(t *testing.T) {
 	}
 }
 
-func validateMarkerSupporters(t *testing.T, approvalWeightManager *ApprovalWeightManager, markersMap map[string]*markers.StructureDetails, expectedSupporters map[string][]Supporter) {
+func validateMarkerSupporters(t *testing.T, approvalWeightManager *ApprovalWeightManager, markersMap map[string]*markers.StructureDetails, expectedSupporters map[string][]*identity.Identity) {
 	for markerAlias, expectedSupportersOfMarker := range expectedSupporters {
 		supporters := approvalWeightManager.SupportersOfMarker(markersMap[markerAlias].PastMarkers.FirstMarker())
 
 		assert.Equal(t, len(expectedSupportersOfMarker), supporters.Size(), "size of supporters for Marker("+markerAlias+") does not match")
 		for _, supporter := range expectedSupportersOfMarker {
-			assert.Equal(t, true, supporters.Has(supporter))
+			assert.Equal(t, true, supporters.Has(supporter.ID()))
 		}
 	}
 }
 
-func approveMarkers(approvalWeightManager *ApprovalWeightManager, supporter Supporter, markersToApprove ...*markers.Marker) (message *Message) {
-	message = newTestDataMessagePublicKey("test", supporter)
+func approveMarkers(approvalWeightManager *ApprovalWeightManager, supporter *identity.Identity, markersToApprove ...*markers.Marker) (message *Message) {
+	message = newTestDataMessagePublicKey("test", supporter.PublicKey())
 	approvalWeightManager.tangle.Storage.StoreMessage(message)
 	approvalWeightManager.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 		messageMetadata.SetStructureDetails(&markers.StructureDetails{
@@ -290,12 +291,12 @@ func createBranch(t *testing.T, tangle *Tangle, branchID ledgerstate.BranchID, p
 	cachedBranch.Release()
 }
 
-func validateStatementResults(t *testing.T, approvalWeightManager *ApprovalWeightManager, branchIDs map[string]ledgerstate.BranchID, issuerPublicKey ed25519.PublicKey, expectedResults map[string]bool) {
+func validateStatementResults(t *testing.T, approvalWeightManager *ApprovalWeightManager, branchIDs map[string]ledgerstate.BranchID, supporter Supporter, expectedResults map[string]bool) {
 	for branchIDstring, expectedResult := range expectedResults {
 		var actualResult bool
 		supporters := approvalWeightManager.branchSupporters[branchIDs[branchIDstring]]
 		if supporters != nil {
-			actualResult = supporters.Has(issuerPublicKey)
+			actualResult = supporters.Has(supporter)
 		}
 
 		assert.Equalf(t, expectedResult, actualResult, "%s(%s) does not match", branchIDstring, branchIDs[branchIDstring])
