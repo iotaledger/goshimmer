@@ -4,6 +4,9 @@ on:
   pull_request:
     paths-ignore:
       - 'docs/**'
+env:
+  DOCKER_BUILDKIT: 1
+
 
 jobs:
 
@@ -11,7 +14,6 @@ jobs:
     name: autopeering
     env:
       TEST_NAME: autopeering
-      DOCKER_BUILDKIT: 1
     runs-on: ubuntu-latest
     steps:
 
@@ -47,7 +49,6 @@ jobs:
     name: common
     env:
       TEST_NAME: common
-      DOCKER_BUILDKIT: 1
     runs-on: ubuntu-latest
     steps:
 
@@ -82,7 +83,6 @@ jobs:
     name: consensus
     env:
       TEST_NAME: consensus
-      DOCKER_BUILDKIT: 1
     runs-on: ubuntu-latest
     steps:
 
@@ -118,7 +118,6 @@ jobs:
     name: drng
     env:
       TEST_NAME: drng
-      DOCKER_BUILDKIT: 1
     runs-on: ubuntu-latest
     steps:
 
@@ -155,7 +154,6 @@ jobs:
     name: message
     env:
       TEST_NAME: message
-      DOCKER_BUILDKIT: 1
     runs-on: ubuntu-latest
     steps:
 
@@ -192,7 +190,6 @@ jobs:
     name: value
     env:
       TEST_NAME: value
-      DOCKER_BUILDKIT: 1
     runs-on: ubuntu-latest
     steps:
 
@@ -227,7 +224,6 @@ jobs:
     name: faucet
     env:
       TEST_NAME: faucet
-      DOCKER_BUILDKIT: 1
     runs-on: ubuntu-latest
     steps:
 
@@ -262,7 +258,6 @@ jobs:
     name: syncbeacon
     env:
       TEST_NAME: syncbeacon
-      DOCKER_BUILDKIT: 1
     runs-on: ubuntu-latest
     steps:
 
@@ -297,7 +292,6 @@ jobs:
     name: mana
     env:
       TEST_NAME: mana
-      DOCKER_BUILDKIT: 1
     runs-on: ubuntu-latest
     steps:
 
