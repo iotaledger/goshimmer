@@ -99,14 +99,12 @@ func (a *ApprovalWeightManager) weightsPerEpoch(branchID ledgerstate.BranchID) *
 }
 
 func (a *ApprovalWeightManager) onBranchSupportAdded(branchID ledgerstate.BranchID, issuingTime time.Time, supporter Supporter) {
-	epochID := a.epochsManager.TimeToOracleEpochID(issuingTime)
-
-	weightOfSupporter := a.epochsManager.RelativeMana(epochID, supporter)
+	weightOfSupporter := a.epochsManager.RelativeNodeMana(supporter, issuingTime)
 	if weightOfSupporter <= lowerWeightThreshold {
 		return
 	}
 
-	if a.weightsPerEpoch(branchID).AddWeight(epochID, weightOfSupporter) >= 0.5 {
+	if a.weightsPerEpoch(branchID).AddWeight(a.epochsManager.TimeToOracleEpochID(issuingTime), weightOfSupporter) >= 0.5 {
 		// DO SOMETHING
 	}
 }

@@ -265,7 +265,7 @@ func (b *BranchDAG) ChildBranches(branchID BranchID) (cachedChildBranches Cached
 		cachedChildBranches = append(cachedChildBranches, &CachedChildBranch{CachedObject: cachedObject})
 
 		return true
-	}, objectstorage.WithPrefix(branchID.Bytes()))
+	}, objectstorage.WithIteratorPrefix(branchID.Bytes()))
 
 	return
 }
@@ -282,7 +282,7 @@ func (b *BranchDAG) ConflictMembers(conflictID ConflictID) (cachedConflictMember
 		cachedConflictMembers = append(cachedConflictMembers, &CachedConflictMember{CachedObject: cachedObject})
 
 		return true
-	}, objectstorage.WithPrefix(conflictID.Bytes()))
+	}, objectstorage.WithIteratorPrefix(conflictID.Bytes()))
 
 	return
 }

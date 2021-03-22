@@ -104,12 +104,7 @@ func TestEpochs(t *testing.T) {
 	// Retrieve active mana in epoch 3 -> oracle epoch 0
 	{
 		epochID := ID(3)
-		activeMana := manager.ActiveMana(manager.randomTimeInEpoch(epochID))
-
-		var totalMana float64
-		for _, m := range activeMana {
-			totalMana += m
-		}
+		activeMana, totalMana := manager.ActiveMana(manager.randomTimeInEpoch(epochID))
 
 		assert.Len(t, activeMana, 1)
 		assert.EqualValues(t, 100, totalMana)
@@ -122,12 +117,7 @@ func TestEpochs(t *testing.T) {
 	// Retrieve active mana in epoch 4 -> oracle epoch 2
 	{
 		epochID := ID(4)
-		activeMana := manager.ActiveMana(manager.randomTimeInEpoch(epochID))
-
-		var totalMana float64
-		for _, m := range activeMana {
-			totalMana += m
-		}
+		activeMana, totalMana := manager.ActiveMana(manager.randomTimeInEpoch(epochID))
 
 		assert.Len(t, activeMana, 3)
 		assert.EqualValues(t, 158, totalMana)
@@ -140,12 +130,7 @@ func TestEpochs(t *testing.T) {
 	// Retrieve active mana in epoch 5 -> oracle epoch 3
 	{
 		epochID := ID(5)
-		activeMana := manager.ActiveMana(manager.randomTimeInEpoch(epochID))
-
-		var totalMana float64
-		for _, m := range activeMana {
-			totalMana += m
-		}
+		activeMana, totalMana := manager.ActiveMana(manager.randomTimeInEpoch(epochID))
 
 		assert.Len(t, activeMana, 3)
 		assert.EqualValues(t, 214, totalMana)
@@ -158,12 +143,7 @@ func TestEpochs(t *testing.T) {
 	// Retrieve active mana in epoch 6 -> oracle epoch 4
 	{
 		epochID := ID(6)
-		activeMana := manager.ActiveMana(manager.randomTimeInEpoch(epochID))
-
-		var totalMana float64
-		for _, m := range activeMana {
-			totalMana += m
-		}
+		activeMana, totalMana := manager.ActiveMana(manager.randomTimeInEpoch(epochID))
 
 		assert.Len(t, activeMana, 4)
 		assert.EqualValues(t, 247, totalMana)
