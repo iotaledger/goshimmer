@@ -53,7 +53,7 @@ export class ExplorerTransactionMetadata extends React.Component<Props, any> {
                             <tbody>
                                 <tr>
                                     <td>Branch ID</td>
-                                    <td>{txMetadata.branchID}</td>
+                                    <td><a href="#">{txMetadata.branchID}</a></td>
                                 </tr>
                                 <tr>
                                     <td>Solid</td>

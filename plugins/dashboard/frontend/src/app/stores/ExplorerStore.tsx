@@ -190,6 +190,17 @@ export class ExplorerStore {
                 return;
             }
             let tx = await res.json()
+            for(let i = 0; i < tx.inputs.length; i++) {
+                let inputID = tx.inputs[i].referencedOutputID ? tx.inputs[i].referencedOutputID.base58 : GenesisMessageID
+                try{
+                    let referencedOutputRes = await fetch(`/api/output/${inputID}`)
+                    if (referencedOutputRes.status === 200){
+                        tx.inputs[i].referencedOutput = await referencedOutputRes.json()
+                    }
+                }catch(err){
+                    // ignore
+                }
+            }
             this.updateTransaction(tx)
         } catch (err) {
             this.updateQueryError(err);

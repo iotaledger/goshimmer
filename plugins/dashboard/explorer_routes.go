@@ -134,6 +134,9 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/transaction/:transactionID/attachments", func(c echo.Context) error {
 		return ledgerstateAPI.GetTransactionAttachments(c)
 	})
+	routeGroup.GET("/output/:outputID", func(c echo.Context) error {
+		return ledgerstateAPI.GetOutput(c)
+	})
 
 	routeGroup.GET("/search/:search", func(c echo.Context) error {
 		search := c.Param("search")
