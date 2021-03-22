@@ -101,7 +101,7 @@ func (a *ApprovalWeightManager) updateBranchSupporters(message *Message) {
 }
 
 func (a *ApprovalWeightManager) propagateSupportToBranches(branchID ledgerstate.BranchID, issuer Supporter) {
-	conflictBranchIDs, err := a.tangle.LedgerState.branchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchID))
+	conflictBranchIDs, err := a.tangle.LedgerState.BranchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchID))
 	if err != nil {
 		panic(err)
 	}
@@ -125,7 +125,7 @@ func (a *ApprovalWeightManager) addSupportToBranch(branchID ledgerstate.BranchID
 		return
 	}
 
-	a.tangle.LedgerState.branchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
+	a.tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
 		revokeWalker := walker.New()
 		revokeWalker.Push(conflictingBranchID)
 
@@ -134,7 +134,7 @@ func (a *ApprovalWeightManager) addSupportToBranch(branchID ledgerstate.BranchID
 		}
 	})
 
-	a.tangle.LedgerState.branchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
+	a.tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
 		for parentBranchID := range branch.Parents() {
 			walk.Push(parentBranchID)
 		}
@@ -146,7 +146,7 @@ func (a *ApprovalWeightManager) revokeSupportFromBranch(branchID ledgerstate.Bra
 		return
 	}
 
-	a.tangle.LedgerState.branchDAG.ChildBranches(branchID).Consume(func(childBranch *ledgerstate.ChildBranch) {
+	a.tangle.LedgerState.BranchDAG.ChildBranches(branchID).Consume(func(childBranch *ledgerstate.ChildBranch) {
 		if childBranch.ChildBranchType() != ledgerstate.ConflictBranchType {
 			return
 		}

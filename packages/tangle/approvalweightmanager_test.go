@@ -54,7 +54,7 @@ func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
 	createBranch(t, tangle, branchIDs["Branch 4.1.1"], branchIDs["Branch 4.1"], conflictIDs["Conflict 5"])
 	createBranch(t, tangle, branchIDs["Branch 4.1.2"], branchIDs["Branch 4.1"], conflictIDs["Conflict 5"])
 
-	cachedAggregatedBranch, _, err := tangle.LedgerState.branchDAG.AggregateBranches(ledgerstate.NewBranchIDs(branchIDs["Branch 1.1"], branchIDs["Branch 4.1.1"]))
+	cachedAggregatedBranch, _, err := tangle.LedgerState.BranchDAG.AggregateBranches(ledgerstate.NewBranchIDs(branchIDs["Branch 1.1"], branchIDs["Branch 4.1.1"]))
 	require.NoError(t, err)
 	cachedAggregatedBranch.Consume(func(branch ledgerstate.Branch) {
 		branchIDs["Branch 1.1 + Branch 4.1.1"] = branch.ID()
@@ -284,7 +284,7 @@ func increaseIndexCallback(markers.SequenceID, markers.Index) bool {
 }
 
 func createBranch(t *testing.T, tangle *Tangle, branchID ledgerstate.BranchID, parentBranchID ledgerstate.BranchID, conflictID ledgerstate.ConflictID) {
-	cachedBranch, _, err := tangle.LedgerState.branchDAG.CreateConflictBranch(branchID, ledgerstate.NewBranchIDs(parentBranchID), ledgerstate.NewConflictIDs(conflictID))
+	cachedBranch, _, err := tangle.LedgerState.BranchDAG.CreateConflictBranch(branchID, ledgerstate.NewBranchIDs(parentBranchID), ledgerstate.NewConflictIDs(conflictID))
 	require.NoError(t, err)
 
 	cachedBranch.Release()
