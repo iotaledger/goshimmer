@@ -49,7 +49,7 @@ type ExplorerMessage struct {
 	Payload interface{} `json:"payload"`
 }
 
-func createExplorerMessage(msg *tangle.Message) (*ExplorerMessage, error) {
+func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 	messageID := msg.ID()
 	cachedMessageMetadata := messagelayer.Tangle().Storage.MessageMetadata(messageID)
 	defer cachedMessageMetadata.Release()
@@ -75,7 +75,7 @@ func createExplorerMessage(msg *tangle.Message) (*ExplorerMessage, error) {
 		Payload:                 ProcessPayload(msg.Payload()),
 	}
 
-	return t, nil
+	return t
 }
 
 // ExplorerAddress defines the struct of the ExplorerAddress.
@@ -163,7 +163,7 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 
 func findMessage(messageID tangle.MessageID) (explorerMsg *ExplorerMessage, err error) {
 	if !messagelayer.Tangle().Storage.Message(messageID).Consume(func(msg *tangle.Message) {
-		explorerMsg, err = createExplorerMessage(msg)
+		explorerMsg = createExplorerMessage(msg)
 	}) {
 		err = fmt.Errorf("%w: message %s", ErrNotFound, messageID.String())
 	}

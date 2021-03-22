@@ -14,6 +14,7 @@ issues:
         - '(Expect directory permissions to be 0750 or less|Expect file permissions to be 0600 or less)' # gosec
         - 'err113: do not define dynamic errors, use wrapped static errors instead: ' # goerr113
         - 'G101: Potential hardcoded credentials' # gosec
+        - '`[0-9A-Za-z_.]+` - `[0-9A-Za-z_.]+` always receives `[0-9A-Za-z_.]+`'
         # temporary:
         - 'ifElseChain: rewrite if-else to switch statement' # gocritic
         - "elseif: can replace 'else {if cond {}}' with 'else if cond {}'" #gocritic
@@ -69,5 +70,6 @@ linters:
         - staticcheck # Staticcheck is a go vet on steroids, applying a ton of static analysis checks.
         - structcheck # Finds unused struct fields.
         - unconvert # Remove unnecessary type conversions.
+        - unparam
     disable:
         - gochecknoglobals

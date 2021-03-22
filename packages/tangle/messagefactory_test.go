@@ -150,16 +150,14 @@ func TestWorkerFunc_PayloadSize(t *testing.T) {
 	msgFactory := NewMessageFactory(
 		testTangle,
 		TipSelectorFunc(func(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error) {
-			return func() ([]MessageID, []MessageID, error) {
-				result := make([]MessageID, 0, MaxParentsCount)
-				for i := 0; i < MaxParentsCount; i++ {
-					b := make([]byte, MessageIDLength)
-					_, _ = rand.Read(b)
-					randID, _, _ := MessageIDFromBytes(b)
-					result = append(result, randID)
-				}
-				return result, []MessageID{}, nil
-			}()
+			result := make(MessageIDs, 0, MaxParentsCount)
+			for i := 0; i < MaxParentsCount; i++ {
+				b := make([]byte, MessageIDLength)
+				_, _ = rand.Read(b)
+				randID, _, _ := MessageIDFromBytes(b)
+				result = append(result, randID)
+			}
+			return result, MessageIDs{}, nil
 		}),
 	)
 	defer msgFactory.Shutdown()

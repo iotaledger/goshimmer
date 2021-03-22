@@ -89,7 +89,7 @@ func processFinalized(ctx vote.Context) {
 	finalizedConflictCount.Inc()
 }
 
-func processFailed(ctx vote.Context) {
+func processFailed(_ vote.Context) {
 	failedConflictCount.Inc()
 }
 

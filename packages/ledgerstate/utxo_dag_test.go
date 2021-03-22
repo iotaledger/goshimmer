@@ -483,7 +483,7 @@ func TestInclusionState(t *testing.T) {
 
 		wallets := createWallets(1)
 		inputs := generateOutputs(utxoDAG, wallets[0].address, BranchIDs{InvalidBranchID: types.Void})
-		tx, _ := multipleInputsTransaction(utxoDAG, wallets[0], wallets[0], inputs, false)
+		tx := multipleInputsTransaction(utxoDAG, wallets[0], wallets[0], inputs, false)
 
 		inclusionState, err := utxoDAG.InclusionState(tx.ID())
 		require.NoError(t, err)
@@ -498,7 +498,7 @@ func TestConsumedBranchIDs(t *testing.T) {
 	wallets := createWallets(1)
 	branchIDs := BranchIDs{MasterBranchID: types.Void, InvalidBranchID: types.Void}
 	inputs := generateOutputs(utxoDAG, wallets[0].address, branchIDs)
-	tx, _ := multipleInputsTransaction(utxoDAG, wallets[0], wallets[0], inputs, true)
+	tx := multipleInputsTransaction(utxoDAG, wallets[0], wallets[0], inputs, true)
 
 	assert.Equal(t, branchIDs, utxoDAG.consumedBranchIDs(tx.ID()))
 }
@@ -885,7 +885,7 @@ func singleInputTransaction(utxoDAG *UTXODAG, a, b wallet, outputToSpend *SigLoc
 	return tx, output
 }
 
-func multipleInputsTransaction(utxoDAG *UTXODAG, a, b wallet, outputsToSpend []*SigLockedSingleOutput, finalized bool) (*Transaction, *SigLockedSingleOutput) {
+func multipleInputsTransaction(utxoDAG *UTXODAG, a, b wallet, outputsToSpend []*SigLockedSingleOutput, finalized bool) *Transaction {
 	inputs := make(Inputs, len(outputsToSpend))
 	branchIDs := make(BranchIDs, len(outputsToSpend))
 	for i, outputToSpend := range outputsToSpend {
@@ -926,10 +926,10 @@ func multipleInputsTransaction(utxoDAG *UTXODAG, a, b wallet, outputsToSpend []*
 
 	utxoDAG.transactionStorage.Store(tx).Release()
 
-	return tx, output
+	return tx
 }
 
-func buildTransaction(utxoDAG *UTXODAG, a, b wallet, outputsToSpend []*SigLockedSingleOutput) *Transaction {
+func buildTransaction(_ *UTXODAG, a, b wallet, outputsToSpend []*SigLockedSingleOutput) *Transaction {
 	inputs := make(Inputs, len(outputsToSpend))
 	sum := uint64(0)
 	for i, outputToSpend := range outputsToSpend {
