@@ -4,21 +4,34 @@ run:
 issues:
     exclude-use-default: false
     max-issues-per-linter: 0
-    max-same-issues: 0
+#    max-same-issues: 0
     exclude:
-        - 'type name will be used as * by other packages, and that stutters; consider calling this *'
-        - 'ifElseChain: rewrite if-else to switch statement'
-        - "elseif: can replace 'else {if cond {}}' with 'else if cond {}'"
-        - 'commentFormatting: put a space between `//` and comment text'
-        - 'err113: do not define dynamic errors, use wrapped static errors instead: '
-        - 'cyclomatic complexity * of func `*` is high'
+        - 'type name will be used as [0-9A-Za-z_.]+ by other packages, and that stutters; consider calling this' # golint
+        - "G404: Use of weak random number generator" # gosec
+        - 'Subprocess launch(ed with variable|ing should be audited)' # gosec
+        - 'Use of unsafe calls should be audited' # gosec
+        - 'G108: Profiling endpoint is automatically exposed on /debug/pprof' # gosec
+        - '(Expect directory permissions to be 0750 or less|Expect file permissions to be 0600 or less)' # gosec
+        - 'err113: do not define dynamic errors, use wrapped static errors instead: ' # goerr113
+        - 'G101: Potential hardcoded credentials' # gosec
+        # temporary:
+        - 'ifElseChain: rewrite if-else to switch statement' # gocritic
+        - "elseif: can replace 'else {if cond {}}' with 'else if cond {}'" #gocritic
+        - 'commentFormatting: put a space between `//` and comment text' #gocritic
+        - 'Comment should end in a period' #godot
+        - 'G104: Errors unhandled.' # gosec
+        - 'G307: Deferring unsafe method "[0-9A-Za-z_]+" on type "[0-9A-Za-z_.*]+"' # gosec
+        - 'lines are duplicate of `*`'
+        - 'Error return value of (`[0-9A-Za-z_.]+`|``) is not checked' # errcheck
+        - 'cyclomatic complexity [0-9]+ of func `[0-9A-Za-z_.]+` is high' # gocyclo
+        - 'naked return in func `[0-9A-Za-z_.]+` with [0-9]+ lines of code'
     exclude-rules:
-        -   path: _test\.go
+        -   path: (_test\.go|example_test\.go|example_[0-9A-Za-z_-]+_test\.go)
             linters:
                 - errcheck
                 - bodyclose
                 - noctx
-                - dupl
+                - gosec
 
 linters-settings:
     govet:
@@ -30,20 +43,27 @@ linters-settings:
 
 linters:
     enable:
-        - bodyclose
-        - deadcode
-        - dogsled
-        #        - dupl
-        #        - errcheck
-        - gocritic
-        - gocyclo
-        - goerr113
-        - gofumpt
-
-        - misspell
-        - goimports
-        - govet
-        - golint
+        - bodyclose # Checks whether HTTP response body is closed successfully.
+        - deadcode # Finds unused code.
+        - dogsled # Checks assignments with too many blank identifiers (e.g. x, , , _, := f()).
+        - dupl # Tool for code clone detection.
+        # Errcheck is a program for checking for unchecked errors in go programs.
+        # These unchecked errors can be critical bugs in some cases
+        - errcheck
+        - gocritic # Provides many diagnostics that check for bugs, performance and style issues.
+        - gocyclo # Computes and checks the cyclomatic complexity of functions.
+        - godot # Check if comments end in a period.
+        - goerr113 # Golang linter to check the errors handling expressions.
+        - gofumpt # Gofumpt checks whether code was gofumpt-ed. A more strict version of gofmt.
+        - goimports # Sorts and format imports.
+        - golint # golint checks style mistakes.
+        - gosec # Inspects source code for security problems.
+        - gosimple # Linter for Go source code that specializes in simplifying a code.
+        - govet # Vet examines Go source code and reports suspicious constructs.
+        - ineffassign # Detects when assignments to existing variables are not used.
+        - misspell # Finds commonly misspelled English words in comments.
+        - nakedret # Finds naked returns in functions greater than a specified function length.
+        - noctx # noctx finds sending http request without context.Context.
+        - nolintlint # Reports ill-formed or insufficient nolint directives.
     disable:
         - gochecknoglobals
-        - errcheck
