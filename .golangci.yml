@@ -18,8 +18,8 @@ issues:
         - 'ST1000: at least one file in a package should have a package comment' # stylecheck
 
         # temporary:
-        - "elseif: can replace 'else {if cond {}}' with 'else if cond {}'" #gocritic
-        - 'commentFormatting: put a space between `//` and comment text' #gocritic
+        - "elseif: can replace 'else {if cond {}}' with 'else if cond {}'" # gocritic
+        - 'commentFormatting: put a space between `//` and comment text' # gocritic
         - 'G104: Errors unhandled.' # gosec
         - 'G307: Deferring unsafe method "[0-9A-Za-z_]+" on type "[0-9A-Za-z_.*]+"' # gosec
         - 'lines are duplicate of `*`' # dupl
@@ -31,9 +31,10 @@ issues:
         - "Function '[0-9A-Za-z_.]+' has too many statements" # funlen
         - "Function '[0-9A-Za-z_.]+' is too long" # funlen
         - 'ST1005: error strings should not be capitalized' # stylecheck
-        - 'ST1019' # stylecheck
         - 'is being imported more than once' # stylecheck
+        - 'ST1019' # stylecheck
         - 'ST1003:' # stylecheck ST1003: var unixTsPRNG should be unixTSPRNG
+        - 'exitAfterDefer:' # gocritic
     exclude-rules:
         -   path: (_test\.go|example_test\.go|example_[0-9A-Za-z_-]+_test\.go)
             linters:

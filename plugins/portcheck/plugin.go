@@ -77,7 +77,7 @@ func checkAutopeeringConnection() {
 	}
 
 	if err != nil {
-		log.Fatalf("Please check that %s is publicly reachable at port %d/%s", // nolint: gocritic
+		log.Fatalf("Please check that %s is publicly reachable at port %d/%s",
 			banner.AppName, peering.Port(), peering.Network())
 	}
 }

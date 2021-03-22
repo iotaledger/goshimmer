@@ -86,7 +86,7 @@ func main() {
 	defer f.Close()
 
 	if _, err = snapshot.WriteTo(f); err != nil {
-		log.Fatal("unable to write snapshot content to file", err) // nolint: gocritic
+		log.Fatal("unable to write snapshot content to file", err)
 	}
 
 	log.Printf("created %s, bye", snapshotFileName)
