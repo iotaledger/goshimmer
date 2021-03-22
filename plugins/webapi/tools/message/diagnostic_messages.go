@@ -9,66 +9,45 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/labstack/echo"
 )
 
 // DiagnosticMessagesHandler runs the diagnostic over the Tangle.
-func DiagnosticMessagesHandler(c echo.Context) error {
-	res := &DiagnosticMessagesResponse{}
-	res.Err = runDiagnosticMessages()
-	if res.Err != nil {
-		return c.JSON(http.StatusInternalServerError, res)
-	}
-	return c.JSON(http.StatusOK, res)
-}
-
-// DiagnosticMessagesResponse is the HTTP response.
-type DiagnosticMessagesResponse struct {
-	Result string `json:"result,omitempty"`
-	Err    error  `json:"error,omitempty"`
+func DiagnosticMessagesHandler(c echo.Context) (err error) {
+	runDiagnosticMessages(c)
+	return
 }
 
 // region Analysis code implementation /////////////////////////////////////////////////////////////////////////////////
 
-// func firstApprovalAnalysis(nodeID string, filePath string) (err error) {
-// 	// write TableDescription
-// 	if err := w.Write(TableDescription); err != nil {
-// 		return err
-// 	}
+func runDiagnosticMessages(c echo.Context) {
+	// write Header and table description
+	c.Response().Header().Set(echo.HeaderContentType, "text/csv")
+	c.Response().WriteHeader(http.StatusOK)
 
-// 	messagelayer.Tangle().Utils.WalkMessageID(func(msgID tangle.MessageID, walker *walker.Walker) {
-// 		approverInfo, err := firstApprovers(msgID)
-// 		// firstApprovers returns an error when the msgID is a tip, thus
-// 		// we want to stop the computation but continue with the future cone iteration.
-// 		if err != nil {
-// 			return
-// 		}
+	_, err := fmt.Fprintln(c.Response(), strings.Join(DiagnosticMessagesTableDescription, ","))
+	if err != nil {
+		panic(err)
+	}
 
-// 		msgApproval := MsgApproval{
-// 			NodeID:                  nodeID,
-// 			Msg:                     info(msgID),
-// 			FirstApproverByIssuance: approverInfo[byIssuance],
-// 			FirstApproverByArrival:  approverInfo[byArrival],
-// 			FirstApproverBySolid:    approverInfo[bySolid],
-// 		}
+	messagelayer.Tangle().Utils.WalkMessageID(func(messageID tangle.MessageID, walker *walker.Walker) {
+		messageInfo := getDiagnosticMessageInfo(messageID)
+		_, err = fmt.Fprintln(c.Response(), messageInfo.toCSV())
+		if err != nil {
+			panic(err)
+		}
+		c.Response().Flush()
 
-// 		// write msgApproval to file
-// 		if err = w.Write(msgApproval.toCSV()); err != nil {
-// 			return
-// 		}
-// 		w.Flush()
-// 		if err = w.Error(); err != nil {
-// 			return
-// 		}
+		messagelayer.Tangle().Storage.Approvers(messageID).Consume(func(approver *tangle.Approver) {
+			walker.Push(approver.ApproverMessageID())
+		})
+	}, tangle.MessageIDs{tangle.EmptyMessageID})
 
-// 		messagelayer.Tangle().Storage.Approvers(msgID).Consume(func(approver *tangle.Approver) {
-// 			walker.Push(approver.ApproverMessageID())
-// 		})
-// 	}, tangle.MessageIDs{tangle.EmptyMessageID})
-
-// 	return
-// }
+	c.Response().Flush()
+	return
+}
 
 // DiagnosticMessagesTableDescription holds the description of the diagnostic messages.
 var DiagnosticMessagesTableDescription = []string{
