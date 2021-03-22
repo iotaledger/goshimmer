@@ -41,7 +41,7 @@ func configureLocal() *peer.Local {
 	}
 
 	peeringPort := config.Node().Int(CfgPort)
-	if 0 > peeringPort || peeringPort > 65535 {
+	if peeringPort < 0 || peeringPort > 65535 {
 		log.Fatalf("Invalid port number (%s): %d", CfgPort, peeringPort)
 	}
 

@@ -51,7 +51,7 @@ func configure(plugin *node.Plugin) {
 	}))
 
 	// read snapshot file
-	if len(Parameters.Snapshot.File) != 0 {
+	if Parameters.Snapshot.File == "" {
 		snapshot := ledgerstate.Snapshot{}
 		f, err := os.Open(Parameters.Snapshot.File)
 		if err != nil {

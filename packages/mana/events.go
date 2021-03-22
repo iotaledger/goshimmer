@@ -16,7 +16,7 @@ var (
 	manaEvents *EventDefinitions
 )
 
-func new() *EventDefinitions {
+func newEvents() *EventDefinitions {
 	return &EventDefinitions{
 		Pledged: events.NewEvent(pledgeEventCaller),
 		Revoked: events.NewEvent(revokedEventCaller),
@@ -27,7 +27,7 @@ func new() *EventDefinitions {
 // Events returns the events defined in the package.
 func Events() *EventDefinitions {
 	once.Do(func() {
-		manaEvents = new()
+		manaEvents = newEvents()
 	})
 	return manaEvents
 }

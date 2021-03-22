@@ -92,6 +92,10 @@ func main() {
 	log.Printf("created %s, bye", snapshotFileName)
 }
 
+type mockConnector struct {
+	outputs map[address.Address]map[ledgerstate.OutputID]*wallet.Output
+}
+
 func (connector *mockConnector) UnspentOutputs(addresses ...address.Address) (outputs map[address.Address]map[ledgerstate.OutputID]*wallet.Output, err error) {
 	outputs = make(map[address.Address]map[ledgerstate.OutputID]*wallet.Output)
 	for _, addr := range addresses {
@@ -107,10 +111,6 @@ func (connector *mockConnector) UnspentOutputs(addresses ...address.Address) (ou
 	}
 
 	return
-}
-
-type mockConnector struct {
-	outputs map[address.Address]map[ledgerstate.OutputID]*wallet.Output
 }
 
 func newMockConnector(outputs ...*wallet.Output) (connector *mockConnector) {

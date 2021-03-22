@@ -1,6 +1,3 @@
-run:
-    tests: true
-
 issues:
     exclude-use-default: false
     max-issues-per-linter: 0
@@ -16,10 +13,10 @@ issues:
         - 'G101: Potential hardcoded credentials' # gosec
         - '`[0-9A-Za-z_.]+` - `[0-9A-Za-z_.]+` always receives `[0-9A-Za-z_.]+`' # unparam
         - 'ST1000: at least one file in a package should have a package comment' # stylecheck
+        - 'ST1005: error strings should not be capitalized' # stylecheck
+
 
         # temporary:
-        - "elseif: can replace 'else {if cond {}}' with 'else if cond {}'" # gocritic
-        - 'commentFormatting: put a space between `//` and comment text' # gocritic
         - 'G104: Errors unhandled.' # gosec
         - 'G307: Deferring unsafe method "[0-9A-Za-z_]+" on type "[0-9A-Za-z_.*]+"' # gosec
         - 'lines are duplicate of `*`' # dupl
@@ -30,11 +27,9 @@ issues:
         - 'mnd: Magic number:' # gomnd
         - "Function '[0-9A-Za-z_.]+' has too many statements" # funlen
         - "Function '[0-9A-Za-z_.]+' is too long" # funlen
-        - 'ST1005: error strings should not be capitalized' # stylecheck
         - 'is being imported more than once' # stylecheck
         - 'ST1019' # stylecheck
         - 'ST1003:' # stylecheck ST1003: var unixTsPRNG should be unixTSPRNG
-        - 'exitAfterDefer:' # gocritic
     exclude-rules:
         -   path: (_test\.go|example_test\.go|example_[0-9A-Za-z_-]+_test\.go)
             linters:
@@ -44,18 +39,36 @@ issues:
                 - gosec
                 - funlen
                 - gomnd
+        -   path: (_test\.go|example_test\.go|example_[0-9A-Za-z_-]+_test\.go)
+            linters:
+                - gocritic
+            text: "unnecessaryBlock: block doesn't have definitions, can be simply deleted"
 
 linters-settings:
     funlen:
         lines: 100
         statements: 50
     gocritic:
-        #        enabled-tags:
-        #            - diagnostic
-        #            - performance
-        #            - security
+        enabled-tags:
+            - diagnostic
+            - style
+            - opinionated
         disabled-checks:
+            - commentedOutCode
             - ifElseChain
+            - commentFormatting
+            - dupImport
+            - unnamedResult
+            - octalLiteral
+            - whyNoLint
+            - wrapperFunc
+
+            # temporary
+            - importShadow
+            - typeUnparen
+            - paramTypeCombine
+            - exitAfterDefer
+            - elseif
     goimports:
         local-prefixes: github.com/iotaledger/goshimmer
     gomnd:
