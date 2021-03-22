@@ -4,9 +4,8 @@ import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import NodeStore from "app/stores/NodeStore";
 import { inject, observer } from "mobx-react";
-import ExplorerStore, { GenesisTransactionID } from "app/stores/ExplorerStore";
+import ExplorerStore from "app/stores/ExplorerStore";
 import ListGroup from "react-bootstrap/ListGroup";
-import * as dateformat from 'dateformat';
 import {FaChevronCircleRight} from "react-icons/fa";
 import {IconContext} from "react-icons";
 import Badge from "react-bootstrap/Badge";
@@ -38,14 +37,6 @@ export class ExplorerTransaction extends React.Component<Props, any> {
         let { txId } = this.props;
         let { query_err, tx } = this.props.explorerStore;
 
-        if (txId === GenesisTransactionID) {
-            return (
-                <Container>
-                    <h3>Genesis Transaction ID</h3>
-                    <p>This represents the identifier of the genesis Transaction.</p>
-                </Container>
-            )
-        }
         if (query_err) {
             return (
                 <Container>
@@ -68,7 +59,7 @@ export class ExplorerTransaction extends React.Component<Props, any> {
                             <ListGroup>
                                 <ListGroup.Item>ID: {txId}</ListGroup.Item>
                                 <ListGroup.Item>Version: {tx.version}</ListGroup.Item>
-                                <ListGroup.Item>Timestamp: {dateformat(new Date(tx.timestamp * 1000), "dd.mm.yyyy HH:MM:ss")}</ListGroup.Item>
+                                <ListGroup.Item>Timestamp: {new Date(tx.timestamp * 1000).toLocaleString()}</ListGroup.Item>
                                 <ListGroup.Item>Access pledge ID: {tx.accessPledgeID}</ListGroup.Item>
                                 <ListGroup.Item>Consensus pledge ID: {tx.consensusPledgeID}</ListGroup.Item>
                                 <ListGroup.Item>
@@ -122,7 +113,7 @@ export class ExplorerTransaction extends React.Component<Props, any> {
                                                         <span className={"mb-2"}>Index: <Badge variant={"primary"}>{i}</Badge></span>
                                                         <ListGroup>
                                                             <ListGroup.Item>ID: <a href={"#"}>{output.outputID.base58}</a></ListGroup.Item>
-                                                            <ListGroup.Item>Address: <a href={"#"}> {output.address}</a></ListGroup.Item>
+                                                            <ListGroup.Item>Address: <a href={`/explorer/address/${output.address}`}> {output.address}</a></ListGroup.Item>
                                                             <ListGroup.Item>Type: {output.type}</ListGroup.Item>
                                                             <ListGroup.Item>Output Index: {output.outputID.outputIndex}</ListGroup.Item>
                                                             <ListGroup.Item>
@@ -138,7 +129,7 @@ export class ExplorerTransaction extends React.Component<Props, any> {
                                         </div>
                                     </div>
                                 </ListGroup.Item>
-                                <ListGroup.Item>Data payload: {tx.dataPayload}</ListGroup.Item>
+                                { tx.dataPayload && <ListGroup.Item>Data payload: {tx.dataPayload}</ListGroup.Item>}
                             </ListGroup>
                         </Col>
                     </Row>

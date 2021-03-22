@@ -5,7 +5,6 @@ import Col from "react-bootstrap/Col";
 import NodeStore from "app/stores/NodeStore";
 import { inject, observer } from "mobx-react";
 import ExplorerStore, { GenesisTransactionID } from "app/stores/ExplorerStore";
-import * as dateformat from 'dateformat';
 
 interface Props {
     nodeStore?: NodeStore;
@@ -61,7 +60,7 @@ export class ExplorerTransactionMetadata extends React.Component<Props, any> {
                                 </tr>
                                 <tr>
                                     <td>Solidification time</td>
-                                    <td>{dateformat(new Date(txMetadata.solidificationTime * 1000), "dd.mm.yyyy HH:MM:ss")}</td>
+                                    <td>{new Date(txMetadata.solidificationTime * 1000).toLocaleString()}</td>
                                 </tr>
                                 <tr>
                                     <td>Finalized</td>
