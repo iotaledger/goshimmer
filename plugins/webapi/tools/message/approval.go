@@ -26,7 +26,7 @@ func ApprovalHandler(c echo.Context) error {
 	res := &ApprovalResponse{}
 	res.Err = firstApprovalAnalysis(local.GetInstance().Identity.ID().String(), path+fileName)
 	if res.Err != nil {
-		c.JSON(http.StatusInternalServerError, res)
+		return c.JSON(http.StatusInternalServerError, res)
 	}
 	return c.JSON(http.StatusOK, res)
 }

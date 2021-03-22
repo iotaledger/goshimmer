@@ -34,7 +34,7 @@ func OrphanageHandler(c echo.Context) error {
 	}
 
 	if err = orphanageAnalysis(targetMessageID, path); err != nil {
-		c.JSON(http.StatusInternalServerError, OrphanageResponse{Err: err.Error()})
+		return c.JSON(http.StatusInternalServerError, OrphanageResponse{Err: err.Error()})
 	}
 	return c.JSON(http.StatusOK, OrphanageResponse{})
 }
