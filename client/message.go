@@ -3,18 +3,18 @@ package client
 import (
 	"net/http"
 
-	webapi_message "github.com/iotaledger/goshimmer/plugins/webapi/message"
+	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 const (
 	routeMessage         = "messages/"
 	routeMessageMetadata = "/metadata"
-	routeSendPayload     = "messages/sendPayload"
+	routeSendPayload     = "messages/payload"
 )
 
 // GetMessage is the handler for the /messages/:messageID endpoint.
-func (api *GoShimmerAPI) GetMessage(base58EncodedID string) (*webapi_message.Message, error) {
-	res := &webapi_message.Message{}
+func (api *GoShimmerAPI) GetMessage(base58EncodedID string) (*jsonmodels.Message, error) {
+	res := &jsonmodels.Message{}
 
 	if err := api.do(
 		http.MethodGet,
@@ -29,8 +29,8 @@ func (api *GoShimmerAPI) GetMessage(base58EncodedID string) (*webapi_message.Mes
 }
 
 // GetMessageMetadata is the handler for the /messages/:messageID/metadata endpoint.
-func (api *GoShimmerAPI) GetMessageMetadata(base58EncodedID string) (*webapi_message.Metadata, error) {
-	res := &webapi_message.Metadata{}
+func (api *GoShimmerAPI) GetMessageMetadata(base58EncodedID string) (*jsonmodels.MessageMetadata, error) {
+	res := &jsonmodels.MessageMetadata{}
 
 	if err := api.do(
 		http.MethodGet,
@@ -46,9 +46,9 @@ func (api *GoShimmerAPI) GetMessageMetadata(base58EncodedID string) (*webapi_mes
 
 // SendPayload send a message with the given payload.
 func (api *GoShimmerAPI) SendPayload(payload []byte) (string, error) {
-	res := &webapi_message.SendPayloadResponse{}
+	res := &jsonmodels.PostPayloadResponse{}
 	if err := api.do(http.MethodPost, routeSendPayload,
-		&webapi_message.SendPayloadRequest{Payload: payload}, res); err != nil {
+		&jsonmodels.PostPayloadRequest{Payload: payload}, res); err != nil {
 		return "", err
 	}
 

@@ -126,13 +126,13 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 	})
 
 	routeGroup.GET("/transaction/:transactionID", func(c echo.Context) error {
-		return ledgerstateAPI.GetTransactionByIDEndpoint(c)
+		return ledgerstateAPI.GetTransaction(c)
 	})
 	routeGroup.GET("/transaction/:transactionID/metadata", func(c echo.Context) error {
-		return ledgerstateAPI.GetTransactionMetadataEndpoint(c)
+		return ledgerstateAPI.GetTransactionMetadata(c)
 	})
 	routeGroup.GET("/transaction/:transactionID/attachments", func(c echo.Context) error {
-		return ledgerstateAPI.GetTransactionAttachmentsEndpoint(c)
+		return ledgerstateAPI.GetTransactionAttachments(c)
 	})
 
 	routeGroup.GET("/search/:search", func(c echo.Context) error {
@@ -208,7 +208,7 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 		var branch ledgerstate.Branch
 		messagelayer.Tangle().LedgerState.OutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 			consumerCount = outputMetadata.ConsumerCount()
-			messagelayer.Tangle().LedgerState.Branch(outputMetadata.BranchID()).Consume(func(b ledgerstate.Branch) {
+			messagelayer.Tangle().LedgerState.BranchDAG.Branch(outputMetadata.BranchID()).Consume(func(b ledgerstate.Branch) {
 				branch = b
 			})
 		})
