@@ -14,7 +14,7 @@ import (
 func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
 	tangle := New()
 	defer tangle.Shutdown()
-	approvalWeightManager := NewApprovalWeightManager(tangle)
+	approvalWeightManager := NewSupporterManager(tangle)
 
 	keyPair := ed25519.GenerateKeyPair()
 
@@ -140,7 +140,7 @@ func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
 func TestApprovalWeightManager_updateSequenceSupporters(t *testing.T) {
 	tangle := New()
 	defer tangle.Shutdown()
-	approvalWeightManager := NewApprovalWeightManager(tangle)
+	approvalWeightManager := NewSupporterManager(tangle)
 	supporters := map[string]*identity.Identity{
 		"A": identity.New(ed25519.GenerateKeyPair().PublicKey),
 		"B": identity.New(ed25519.GenerateKeyPair().PublicKey),
@@ -254,7 +254,7 @@ func TestApprovalWeightManager_updateSequenceSupporters(t *testing.T) {
 	}
 }
 
-func validateMarkerSupporters(t *testing.T, approvalWeightManager *ApprovalWeightManager, markersMap map[string]*markers.StructureDetails, expectedSupporters map[string][]*identity.Identity) {
+func validateMarkerSupporters(t *testing.T, approvalWeightManager *SupporterManager, markersMap map[string]*markers.StructureDetails, expectedSupporters map[string][]*identity.Identity) {
 	for markerAlias, expectedSupportersOfMarker := range expectedSupporters {
 		supporters := approvalWeightManager.SupportersOfMarker(markersMap[markerAlias].PastMarkers.FirstMarker())
 
@@ -265,7 +265,7 @@ func validateMarkerSupporters(t *testing.T, approvalWeightManager *ApprovalWeigh
 	}
 }
 
-func approveMarkers(approvalWeightManager *ApprovalWeightManager, supporter *identity.Identity, markersToApprove ...*markers.Marker) (message *Message) {
+func approveMarkers(approvalWeightManager *SupporterManager, supporter *identity.Identity, markersToApprove ...*markers.Marker) (message *Message) {
 	message = newTestDataMessagePublicKey("test", supporter.PublicKey())
 	approvalWeightManager.tangle.Storage.StoreMessage(message)
 	approvalWeightManager.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
@@ -291,7 +291,7 @@ func createBranch(t *testing.T, tangle *Tangle, branchID ledgerstate.BranchID, p
 	cachedBranch.Release()
 }
 
-func validateStatementResults(t *testing.T, approvalWeightManager *ApprovalWeightManager, branchIDs map[string]ledgerstate.BranchID, supporter Supporter, expectedResults map[string]bool) {
+func validateStatementResults(t *testing.T, approvalWeightManager *SupporterManager, branchIDs map[string]ledgerstate.BranchID, supporter Supporter, expectedResults map[string]bool) {
 	for branchIDstring, expectedResult := range expectedResults {
 		var actualResult bool
 		supporters := approvalWeightManager.branchSupporters[branchIDs[branchIDstring]]
