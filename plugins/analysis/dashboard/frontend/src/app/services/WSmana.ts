@@ -1,4 +1,3 @@
-import { WSMsgType } from "../models/ws/wsMsgType";
 import {WSMsgTypeDashboard} from "../models/ws/WSMsgTypeDashboard";
 import { WSMessage } from "../models/ws/IWSMsg";
 import {IManaMessage} from "../models/mana/IManaMessage";
@@ -49,10 +48,6 @@ export function connectDashboardWebSocket(
 
     ws.onmessage = (e) => {
         const msg: WSMessage = JSON.parse(e.data) as WSMessage;
-        // Just a ping, do nothing
-        if (msg.type === WSMsgType.ping) {
-            return;
-        }
         const handler = handlers[msg.type];
         if (handler) {
             handler(msg.data);
