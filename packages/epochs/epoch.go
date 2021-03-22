@@ -62,6 +62,7 @@ type Epoch struct {
 
 	id            ID
 	mana          map[identity.ID]float64
+	totalMana     float64
 	manaRetrieved bool
 
 	manaMutex sync.RWMutex
@@ -113,6 +114,11 @@ func EpochFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Epoch, 
 		}
 
 		result.mana[nodeID] = math.Float64frombits(mana)
+	}
+
+	if result.totalMana, err = marshalUtil.ReadFloat64(); err != nil {
+		err = xerrors.Errorf("failed to parse total mana value from MarshalUtil: %w", err)
+		return
 	}
 
 	return
@@ -168,14 +174,17 @@ func (e *Epoch) SetMana(consensusMana map[identity.ID]float64, forceOverride ...
 	}()
 
 	if force {
-		for nodeID := range consensusMana {
-			e.mana[nodeID] = consensusMana[nodeID]
+		e.totalMana = 0
+		for nodeID, mana := range consensusMana {
+			e.mana[nodeID] = mana
+			e.totalMana += mana
 		}
 		return
 	}
 
 	for nodeID := range e.mana {
 		e.mana[nodeID] = consensusMana[nodeID]
+		e.totalMana += consensusMana[nodeID]
 	}
 
 	// clean up nodes that do not have any mana
@@ -203,11 +212,7 @@ func (e *Epoch) TotalMana() float64 {
 	e.manaMutex.RLock()
 	defer e.manaMutex.RUnlock()
 
-	var total float64
-	for _, mana := range e.mana {
-		total += mana
-	}
-	return total
+	return e.totalMana
 }
 
 // Bytes returns a marshaled version of the whole Epoch object.
@@ -233,6 +238,7 @@ func (e *Epoch) ObjectStorageValue() []byte {
 		marshalUtil.Write(nodeID)
 		marshalUtil.WriteUint64(math.Float64bits(mana))
 	}
+	marshalUtil.WriteFloat64(e.totalMana)
 
 	return marshalUtil.Bytes()
 }

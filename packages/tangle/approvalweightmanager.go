@@ -21,12 +21,41 @@ import (
 	"golang.org/x/xerrors"
 )
 
+const lowerWeightThreshold = float64(0)
+
+// region BranchWeightPerEpoch /////////////////////////////////////////////////////////////////////////////////////////
+
+type BranchWeightPerEpoch struct {
+	weightPerEpoch      map[epochs.ID]float64
+	weightPerEpochMutex sync.RWMutex
+}
+
+func NewBranchWeightPerEpoch() *BranchWeightPerEpoch {
+	return &BranchWeightPerEpoch{
+		weightPerEpoch: make(map[epochs.ID]float64),
+	}
+}
+
+func (b *BranchWeightPerEpoch) AddWeight(epochID epochs.ID, weight float64) (totalWeight float64) {
+	b.weightPerEpochMutex.Lock()
+	defer b.weightPerEpochMutex.Unlock()
+
+	totalWeight = b.weightPerEpoch[epochID] + weight
+	b.weightPerEpoch[epochID] = totalWeight
+
+	return
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // region ApprovalWeightManager ////////////////////////////////////////////////////////////////////////////////////////
 
 type ApprovalWeightManager struct {
-	tangle            *Tangle
-	epochsManager     *epochs.Manager
-	supportersManager *SupporterManager
+	tangle             *Tangle
+	epochsManager      *epochs.Manager
+	supportersManager  *SupporterManager
+	branchWeights      map[ledgerstate.BranchID]*BranchWeightPerEpoch
+	branchWeightsMutex sync.RWMutex
 }
 
 func NewApprovalWeightManager() *ApprovalWeightManager {
@@ -46,9 +75,40 @@ func (a *ApprovalWeightManager) Shutdown() {
 	// TODO: IMPLEMENT ME
 }
 
-func (a *ApprovalWeightManager) onBranchSupportAdded(branchID ledgerstate.BranchID, issuingTime time.Time, supporter Supporter) {
+func (a *ApprovalWeightManager) weightsPerEpoch(branchID ledgerstate.BranchID) *BranchWeightPerEpoch {
+	a.branchWeightsMutex.RLock()
+	weightsPerEpoch, exists := a.branchWeights[branchID]
+	if exists {
+		a.branchWeightsMutex.RUnlock()
+		return weightsPerEpoch
+	}
 
-	// TODO: IMPLEMENT ME
+	a.branchWeightsMutex.RUnlock()
+	a.branchWeightsMutex.Lock()
+	defer a.branchWeightsMutex.Unlock()
+
+	weightsPerEpoch, exists = a.branchWeights[branchID]
+	if exists {
+		return weightsPerEpoch
+	}
+
+	weightsPerEpoch = NewBranchWeightPerEpoch()
+	a.branchWeights[branchID] = weightsPerEpoch
+
+	return weightsPerEpoch
+}
+
+func (a *ApprovalWeightManager) onBranchSupportAdded(branchID ledgerstate.BranchID, issuingTime time.Time, supporter Supporter) {
+	epochID := a.epochsManager.TimeToOracleEpochID(issuingTime)
+
+	weightOfSupporter := a.epochsManager.RelativeMana(epochID, supporter)
+	if weightOfSupporter <= lowerWeightThreshold {
+		return
+	}
+
+	if a.weightsPerEpoch(branchID).AddWeight(epochID, weightOfSupporter) >= 0.5 {
+		// DO SOMETHING
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
