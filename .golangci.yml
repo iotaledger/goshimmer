@@ -4,6 +4,7 @@ issues:
     max-same-issues: 0
     exclude:
         - 'type name will be used as [0-9A-Za-z_.]+ by other packages, and that stutters; consider calling this' # golint
+        - 'Potential file inclusion via variable' # gosec
         - "G404: Use of weak random number generator" # gosec
         - 'Subprocess launch(ed with variable|ing should be audited)' # gosec
         - 'Use of unsafe calls should be audited' # gosec
