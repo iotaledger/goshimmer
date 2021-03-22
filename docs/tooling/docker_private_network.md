@@ -21,7 +21,7 @@ More details on how to set up the dashboard can be found [here](https://github.c
 The peers can communicate freely within the Docker network 
 while the analysis and visualizer dashboard, as well as the `master_peer's` dashboard and web API are reachable from the host system on the respective ports.
 
-The settings for the different containers (`entry_node`, `peer_master`, `peer_replica`) can be modified in `docker-compose.yml`. 
+The settings for the different containers (`entry_node`, `peer_master`, `peer_replica`) can be modified in `docker-compose.yml`.
 
 ## How to use as development tool
 Using a standalone throwaway Docker network can be really helpful as a development tool. 
@@ -67,3 +67,36 @@ csv
 ...
 ```
 Note, that the record length of the files might differ, since the approval check execution time of the nodes might differ.
+
+## Spammer tool
+
+The Spammer tool lets you add messages to the tangle when running GoShimmer in a Docker network.
+In order to start the spammer, you need to send GET requests to a `/spammer` API endpoint with the following parameters:
+* `cmd` - one of two possible values: `start` and `shutdown`.
+* `mpm` - messages per minute. Only applicable when `cmd=start`. 
+* `imif` - (*optional*) parameter indicating time interval between issued messages. Possible values:
+    * `poisson` - emit messages modeled with Poisson point process, whose time intervals are exponential variables with mean 1/rate
+    * `uniform` - issues messages at constant rate
+
+Example requests:
+
+```bash
+http://localhost:8080/spammer?cmd=start&mpm=1000
+
+http://localhost:8080/spammer?cmd=start&mpm=1000&imif=uniform
+http://localhost:8080/spammer?cmd=shutdown
+```
+
+## Tangle width
+
+When running GoShimmer locally in a Docker network, the network delay is so small that only 1 tip will be available most of the time. 
+In order to artificially create a tangle structure with multiple tips you can add a `messageLayer.tangleWidth` property to [config.docker.json](tools/docker-network/config.docker.json)
+that specifies the number of tips that nodes should retain. This setting exists only for local testing purposes and should not be used in a distributed testnet.  
+
+Here is an example config that can be added: 
+
+```json
+  "messageLayer": {
+    "tangleWidth": 10
+  },
+```
