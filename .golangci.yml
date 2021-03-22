@@ -12,20 +12,28 @@ issues:
         - 'Use of unsafe calls should be audited' # gosec
         - 'G108: Profiling endpoint is automatically exposed on /debug/pprof' # gosec
         - '(Expect directory permissions to be 0750 or less|Expect file permissions to be 0600 or less)' # gosec
-        - 'err113: do not define dynamic errors, use wrapped static errors instead: ' # goerr113
+        - 'err113: do not define dynamic errors, use wrapped static errors instead:' # goerr113
         - 'G101: Potential hardcoded credentials' # gosec
-        - '`[0-9A-Za-z_.]+` - `[0-9A-Za-z_.]+` always receives `[0-9A-Za-z_.]+`'
+        - '`[0-9A-Za-z_.]+` - `[0-9A-Za-z_.]+` always receives `[0-9A-Za-z_.]+`' # unparam
+        - 'ST1000: at least one file in a package should have a package comment' # stylecheck
+
         # temporary:
-        - 'ifElseChain: rewrite if-else to switch statement' # gocritic
         - "elseif: can replace 'else {if cond {}}' with 'else if cond {}'" #gocritic
         - 'commentFormatting: put a space between `//` and comment text' #gocritic
-        - 'Comment should end in a period' #godot
         - 'G104: Errors unhandled.' # gosec
         - 'G307: Deferring unsafe method "[0-9A-Za-z_]+" on type "[0-9A-Za-z_.*]+"' # gosec
-        - 'lines are duplicate of `*`'
+        - 'lines are duplicate of `*`' # dupl
         - 'Error return value of (`[0-9A-Za-z_.]+`|``) is not checked' # errcheck
         - 'cyclomatic complexity [0-9]+ of func `[0-9A-Za-z_.]+` is high' # gocyclo
-        - 'naked return in func `[0-9A-Za-z_.]+` with [0-9]+ lines of code'
+        - 'naked return in func `[0-9A-Za-z_.]+` with [0-9]+ lines of code' #nakedret
+        - 'string `init` has 3 occurrences, make it a constant' # goconst
+        - 'mnd: Magic number:' # gomnd
+        - "Function '[0-9A-Za-z_.]+' has too many statements" # funlen
+        - "Function '[0-9A-Za-z_.]+' is too long" # funlen
+        - 'ST1005: error strings should not be capitalized' # stylecheck
+        - 'ST1019' # stylecheck
+        - 'is being imported more than once' # stylecheck
+        - 'ST1003:' # stylecheck ST1003: var unixTsPRNG should be unixTSPRNG
     exclude-rules:
         -   path: (_test\.go|example_test\.go|example_[0-9A-Za-z_-]+_test\.go)
             linters:
@@ -33,16 +41,36 @@ issues:
                 - bodyclose
                 - noctx
                 - gosec
+                - funlen
+                - gomnd
 
 linters-settings:
+    funlen:
+        lines: 100
+        statements: 50
+    gocritic:
+        #        enabled-tags:
+        #            - diagnostic
+        #            - performance
+        #            - security
+        disabled-checks:
+            - ifElseChain
+    goimports:
+        local-prefixes: github.com/iotaledger/goshimmer
+    gomnd:
+        settings:
+            mnd:
+                # don't include the "operation" and "assign"
+                checks: argument,case,condition,return
     govet:
         check-shadowing: true
     misspell:
         locale: US
-    goimports:
-        local-prefixes: github.com/iotaledger/goshimmer
+    nolintlint:
+        allow-unused: false # report any unused nolint directives
 
 linters:
+    disable-all: true
     enable:
         - bodyclose # Checks whether HTTP response body is closed successfully.
         - deadcode # Finds unused code.
@@ -52,13 +80,17 @@ linters:
         # These unchecked errors can be critical bugs in some cases
         - errcheck
         - exportloopref # Checks for pointers to enclosing loop variables.
+        - funlen # Tool for detection of long functions.
+        - goconst # Finds repeated strings that could be replaced by a constant.
         - gocritic # Provides many diagnostics that check for bugs, performance and style issues.
         - gocyclo # Computes and checks the cyclomatic complexity of functions.
-        - godot # Check if comments end in a period.
         - goerr113 # Golang linter to check the errors handling expressions.
+        - gofmt # Gofmt checks whether code was gofmt-ed. By default this tool runs with -s option to check for code simplification.
         - gofumpt # Gofumpt checks whether code was gofumpt-ed. A more strict version of gofmt.
         - goimports # Sorts and format imports.
         - golint # golint checks style mistakes.
+        - gomnd # An analyzer to detect magic numbers.
+        - goprintffuncname # Checks that printf-like functions are named with f at the end.
         - gosec # Inspects source code for security problems.
         - gosimple # Linter for Go source code that specializes in simplifying a code.
         - govet # Vet examines Go source code and reports suspicious constructs.
@@ -69,7 +101,52 @@ linters:
         - nolintlint # Reports ill-formed or insufficient nolint directives.
         - staticcheck # Staticcheck is a go vet on steroids, applying a ton of static analysis checks.
         - structcheck # Finds unused struct fields.
+        - stylecheck # Stylecheck is a replacement for golint.
         - unconvert # Remove unnecessary type conversions.
-        - unparam
-    disable:
-        - gochecknoglobals
+        - unparam # Reports unused function parameters.
+        - unused # Checks Go code for unused constants, variables, functions and types.
+        - varcheck # Finds unused global variables and constants.
+
+    # don't enable:
+    # asciicheck: Simple linter to check that your code does not contain non-ASCII identifiers [fast: true, auto-fix: false]
+    # cyclop: checks function and package cyclomatic complexity [fast: true, auto-fix: false]
+    # depguard: Go linter that checks if package imports are in a list of acceptable packages [fast: true, auto-fix: false]
+    # durationcheck: check for two durations multiplied together [fast: true, auto-fix: false]
+    # errorlint: go-errorlint is a source code linter for Go software that can be used to find code that will cause problemswith the error wrapping scheme introduced in Go 1.13. [fast: true, auto-fix: false]
+    # exhaustive: check exhaustiveness of enum switch statements [fast: true, auto-fix: false]
+    # exhaustivestruct: Checks if all struct's fields are initialized [fast: true, auto-fix: false]
+    # forbidigo: Forbids identifiers [fast: true, auto-fix: false]
+    # forcetypeassert: finds forced type assertions [fast: true, auto-fix: false]
+    # gci: Gci control golang package import order and make it always deterministic. [fast: true, auto-fix: true]
+    # gochecknoglobals: check that no global variables exist [fast: true, auto-fix: false]
+    # gochecknoinits: Checks that no init functions are present in Go code [fast: true, auto-fix: false]
+    # gocognit: Computes and checks the cognitive complexity of functions [fast: true, auto-fix: false]
+    # godot: Check if comments end in a period [fast: true, auto-fix: true]
+    # godox: Tool for detection of FIXME, TODO and other comment keywords [fast: true, auto-fix: false]
+    # gofmt: Gofmt checks whether code was gofmt-ed. By default this tool runs with -s option to check for code simplification [fast: true, auto-fix: true]
+    # goheader: Checks is file header matches to pattern [fast: true, auto-fix: false]
+    # gomodguard: Allow and block list linter for direct Go module dependencies. This is different from depguard where there are different block types for example version constraints and module recommendations. [fast: true, auto-fix: false]
+    # ifshort: Checks that your code uses short syntax for if-statements whenever possible [fast: true, auto-fix: false]
+    # importas: Enforces consistent import aliases [fast: true, auto-fix: false]
+    # interfacer: Linter that suggests narrower interface types [fast: true, auto-fix: false]
+    # lll: Reports long lines [fast: true, auto-fix: false]
+    # makezero: Finds slice declarations with non-zero initial length [fast: true, auto-fix: false]
+    # maligned: Tool to detect Go structs that would take less memory if their fields were sorted [fast: true, auto-fix: false]
+    # nestif: Reports deeply nested if statements [fast: true, auto-fix: false]
+    # nilerr: Finds the code that returns nil even if it checks that the error is not nil. [fast: true, auto-fix: false]
+    # nlreturn: nlreturn checks for a new line before return and branch statements to increase code clarity [fast: true, auto-fix: false]
+    # paralleltest: paralleltest detects missing usage of t.Parallel() method in your Go test [fast: true, auto-fix: false]
+    # prealloc: Finds slice declarations that could potentially be preallocated [fast: true, auto-fix: false]
+    # predeclared: find code that shadows one of Go's predeclared identifiers [fast: true, auto-fix: false]
+    # revive: Fast, configurable, extensible, flexible, and beautiful linter for Go. Drop-in replacement of golint. [fast: true, auto-fix: false]
+    # rowserrcheck: checks whether Err of rows is checked successfully [fast: true, auto-fix: false]
+    # scopelint: Scopelint checks for unpinned variables in go programs [fast: true, auto-fix: false]
+    # sqlclosecheck: Checks that sql.Rows and sql.Stmt are closed. [fast: true, auto-fix: false]
+    # testpackage: linter that makes you use a separate _test package [fast: true, auto-fix: false]
+    # thelper: thelper detects golang test helpers without t.Helper() call and checks the consistency of test helpers [fast: true, auto-fix: false]
+    # tparallel: tparallel detects inappropriate usage of t.Parallel() method in your Go test codes [fast: true, auto-fix: false]
+    # typecheck: Like the front-end of a Go compiler, parses and type-checks Go code [fast: true, auto-fix: false]
+    # wastedassign: wastedassign finds wasted assignment statements. [fast: true, auto-fix: false]
+    # wrapcheck: Checks that errors returned from external packages are wrapped [fast: true, auto-fix: false]
+    # wsl: Whitespace Linter - Forces you to use empty lines! [fast: true, auto-fix: false]
+
