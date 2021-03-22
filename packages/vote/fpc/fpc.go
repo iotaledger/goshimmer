@@ -284,7 +284,9 @@ func (f *FPC) queryOpinions() ([]opinion.QueriedOpinions, error) {
 	// compute liked percentage
 	for id, votes := range voteMap {
 		var likedSum float64
-		votedCount := float64(len(votes))
+
+		votedCount := len(votes)
+
 		for _, o := range votes {
 			switch o {
 			case opinion.Unknown:
@@ -297,14 +299,14 @@ func (f *FPC) queryOpinions() ([]opinion.QueriedOpinions, error) {
 		// mark a round being done, even though there's no opinion,
 		// so this voting context will be cleared eventually
 		f.ctxs[id].Rounds++
-		if votedCount == 0 {
+		if votedCount < f.paras.MinOpinionsReceived {
 			continue
 		}
-		f.ctxs[id].Liked = likedSum / votedCount
 		f.ctxs[id].Weights = vote.VotingWeights{
 			OwnWeight: ownMana,
 			TotalWeights: totalMana,
 		}
+		f.ctxs[id].Liked = likedSum / float64(votedCount)
 	}
 
 	return allQueriedOpinions, nil

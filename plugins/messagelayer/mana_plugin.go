@@ -1,6 +1,7 @@
 package messagelayer
 
 import (
+	"fmt"
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"math"
 	"math/rand"
@@ -15,7 +16,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/datastructure/set"
@@ -73,7 +73,7 @@ func configureManaPlugin(*node.Plugin) {
 	baseManaVectors = make(map[mana.Type]mana.BaseManaVector)
 	baseManaVectors[mana.AccessMana], _ = mana.NewBaseManaVector(mana.AccessMana)
 	baseManaVectors[mana.ConsensusMana], _ = mana.NewBaseManaVector(mana.ConsensusMana)
-	if config.Node().Bool(CfgManaEnableResearchVectors) {
+	if ManaParameters.EnableResearchVectors {
 		baseManaVectors[mana.ResearchAccess], _ = mana.NewResearchBaseManaVector(mana.WeightedMana, mana.AccessMana, mana.Mixed)
 		baseManaVectors[mana.ResearchConsensus], _ = mana.NewResearchBaseManaVector(mana.WeightedMana, mana.ConsensusMana, mana.Mixed)
 	}
@@ -84,7 +84,7 @@ func configureManaPlugin(*node.Plugin) {
 	osFactory = objectstorage.NewFactory(store, db_pkg.PrefixMana)
 	storages[mana.AccessMana] = osFactory.New(mana.PrefixAccess, mana.FromObjectStorage)
 	storages[mana.ConsensusMana] = osFactory.New(mana.PrefixConsensus, mana.FromObjectStorage)
-	if config.Node().Bool(CfgManaEnableResearchVectors) {
+	if ManaParameters.EnableResearchVectors {
 		storages[mana.ResearchAccess] = osFactory.New(mana.PrefixAccessResearch, mana.FromObjectStorage)
 		storages[mana.ResearchConsensus] = osFactory.New(mana.PrefixConsensusResearch, mana.FromObjectStorage)
 	}
@@ -98,7 +98,7 @@ func configureManaPlugin(*node.Plugin) {
 		manaLogger.Panic(err.Error())
 	}
 
-	debuggingEnabled = config.Node().Bool(CfgDebuggingEnabled)
+	debuggingEnabled = ManaParameters.DebuggingEnabled
 
 	configureEvents()
 }
@@ -208,12 +208,12 @@ func onTransactionConfirmed(msgID tangle.MessageID) {
 
 func runManaPlugin(_ *node.Plugin) {
 	// mana calculation coefficients can be set from config
-	ema1 := config.Node().Float64(CfgEmaCoefficient1)
-	ema2 := config.Node().Float64(CfgEmaCoefficient2)
-	dec := config.Node().Float64(CfgDecay)
-	pruneInterval := config.Node().Duration(CfgPruneConsensusEventLogsInterval)
-	vectorsCleanUpInterval := config.Node().Duration(CfgVectorsCleanupInterval)
-
+	ema1 := ManaParameters.EmaCoefficient1
+	ema2 := ManaParameters.EmaCoefficient2
+	dec := ManaParameters.Decay
+	pruneInterval := ManaParameters.PruneConsensusEventLogsInterval
+	vectorsCleanUpInterval := ManaParameters.VectorsCleanupInterval
+	fmt.Printf("Prune interval: %v\n", pruneInterval)
 	mana.SetCoefficients(ema1, ema2, dec)
 	if err := daemon.BackgroundWorker("Mana", func(shutdownSignal <-chan struct{}) {
 		defer manaLogger.Infof("Stopping %s ... done", PluginName)
@@ -410,17 +410,17 @@ func GetOnlineNodes(manaType mana.Type) (onlineNodesMana []mana.Node, t time.Tim
 
 func verifyPledgeNodes() error {
 	access := AllowedPledge{
-		IsFilterEnabled: config.Node().Bool(CfgAllowedAccessFilterEnabled),
+		IsFilterEnabled: ManaParameters.AllowedAccessFilterEnabled,
 	}
 	consensus := AllowedPledge{
-		IsFilterEnabled: config.Node().Bool(CfgAllowedConsensusFilterEnabled),
+		IsFilterEnabled: ManaParameters.AllowedConsensusFilterEnabled,
 	}
 
 	access.Allowed = set.New(false)
 	// own ID is allowed by default
 	access.Allowed.Add(local.GetInstance().ID())
 	if access.IsFilterEnabled {
-		for _, pubKey := range config.Node().Strings(CfgAllowedAccessPledge) {
+		for _, pubKey := range ManaParameters.AllowedAccessPledge {
 			ID, err := mana.IDFromStr(pubKey)
 			if err != nil {
 				return err
@@ -433,7 +433,7 @@ func verifyPledgeNodes() error {
 	// own ID is allowed by default
 	consensus.Allowed.Add(local.GetInstance().ID())
 	if consensus.IsFilterEnabled {
-		for _, pubKey := range config.Node().Strings(CfgAllowedConsensusPledge) {
+		for _, pubKey := range ManaParameters.AllowedConsensusPledge {
 			ID, err := mana.IDFromStr(pubKey)
 			if err != nil {
 				return err
@@ -730,7 +730,7 @@ func pruneConsensusEventLogsStorage() {
 
 func cleanupManaVectors() {
 	vectorTypes := []mana.Type{mana.AccessMana, mana.ConsensusMana}
-	if config.Node().Bool(CfgManaEnableResearchVectors) {
+	if ManaParameters.EnableResearchVectors {
 		vectorTypes = append(vectorTypes, mana.ResearchAccess)
 		vectorTypes = append(vectorTypes, mana.ResearchConsensus)
 	}

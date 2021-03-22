@@ -134,6 +134,8 @@ func TestFPCFinalizedEvent(t *testing.T) {
 	paras.TotalRoundsCoolingOffPeriod = 2
 	paras.QuerySampleSize = 1
 	voter := fpc.New(opinionGiverFunc, ownWeightRetrieverFunc, paras)
+	paras.MinOpinionsReceived = 1
+
 	var finalizedOpinion *opinion.Opinion
 	voter.Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
 		finalizedOpinion = &ev.Opinion
@@ -164,6 +166,7 @@ func TestFPCFailedEvent(t *testing.T) {
 
 	paras := fpc.DefaultParameters()
 	paras.QuerySampleSize = 1
+	paras.MinOpinionsReceived = 1
 	paras.MaxRoundsPerVoteContext = 3
 	paras.TotalRoundsCoolingOffPeriod = 0
 	// since the finalization threshold is over max rounds it will
