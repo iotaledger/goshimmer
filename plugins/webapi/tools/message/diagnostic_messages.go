@@ -62,6 +62,18 @@ var DiagnosticMessagesTableDescription = []string{
 	"WeakApprovers",
 	"BranchID",
 	"InclusionState",
+	"Scheduled",
+	"Booked",
+	"Eligible",
+	"Invalid",
+	"Rank",
+	"IsPastMarker",
+	"PastMarkers",
+	"PMHI",
+	"PMLI",
+	"FutureMarkers",
+	"FMHI",
+	"FMLI",
 }
 
 // DiagnosticMessagesInfo holds the information of a message.
@@ -77,6 +89,18 @@ type DiagnosticMessagesInfo struct {
 	WeakApprovers     tangle.MessageIDs
 	BranchID          string
 	InclusionState    string
+	Scheduled         bool
+	Booked            bool
+	Eligible          bool
+	Invalid           bool
+	Rank              uint64
+	IsPastMarker      bool
+	PastMarkers       string // PastMarkers
+	PMHI              uint64 // PastMarkers Highest Index
+	PMLI              uint64 // PastMarkers Lowest Index
+	FutureMarkers     string // FutureMarkers
+	FMHI              uint64 // FutureMarkers Highest Index
+	FMLI              uint64 // FutureMarkers Lowest Index
 }
 
 func getDiagnosticMessageInfo(messageID tangle.MessageID) DiagnosticMessagesInfo {
@@ -96,6 +120,19 @@ func getDiagnosticMessageInfo(messageID tangle.MessageID) DiagnosticMessagesInfo
 		msgInfo.ArrivalTime = metadata.ReceivedTime()
 		msgInfo.SolidTime = metadata.SolidificationTime()
 		msgInfo.BranchID = metadata.BranchID().String()
+		msgInfo.Scheduled = metadata.Scheduled()
+		msgInfo.Booked = metadata.IsBooked()
+		msgInfo.Eligible = metadata.IsEligible()
+		msgInfo.Invalid = metadata.IsInvalid()
+		msgInfo.Rank = metadata.StructureDetails().Rank
+		msgInfo.IsPastMarker = metadata.StructureDetails().IsPastMarker
+		msgInfo.PastMarkers = metadata.StructureDetails().PastMarkers.SequenceToString()
+		msgInfo.PMHI = uint64(metadata.StructureDetails().PastMarkers.HighestIndex())
+		msgInfo.PMLI = uint64(metadata.StructureDetails().PastMarkers.LowestIndex())
+		msgInfo.FutureMarkers = metadata.StructureDetails().FutureMarkers.SequenceToString()
+		msgInfo.FMHI = uint64(metadata.StructureDetails().FutureMarkers.HighestIndex())
+		msgInfo.FMLI = uint64(metadata.StructureDetails().FutureMarkers.LowestIndex())
+
 		branchID = metadata.BranchID()
 	}, false)
 
@@ -114,12 +151,24 @@ func (d DiagnosticMessagesInfo) toCSV() (result string) {
 		fmt.Sprint(d.IssuanceTimestamp.UnixNano()),
 		fmt.Sprint(d.ArrivalTime.UnixNano()),
 		fmt.Sprint(d.SolidTime.UnixNano()),
-		strings.Join(d.StrongParents.ToStrings(), ":"),
-		strings.Join(d.WeakParents.ToStrings(), ":"),
-		strings.Join(d.StrongApprovers.ToStrings(), ":"),
-		strings.Join(d.WeakApprovers.ToStrings(), ":"),
+		strings.Join(d.StrongParents.ToStrings(), ";"),
+		strings.Join(d.WeakParents.ToStrings(), ";"),
+		strings.Join(d.StrongApprovers.ToStrings(), ";"),
+		strings.Join(d.WeakApprovers.ToStrings(), ";"),
 		d.BranchID,
 		d.InclusionState,
+		fmt.Sprint(d.Scheduled),
+		fmt.Sprint(d.Booked),
+		fmt.Sprint(d.Eligible),
+		fmt.Sprint(d.Invalid),
+		fmt.Sprint(d.Rank),
+		fmt.Sprint(d.IsPastMarker),
+		d.PastMarkers,
+		fmt.Sprint(d.PMHI),
+		fmt.Sprint(d.PMLI),
+		d.FutureMarkers,
+		fmt.Sprint(d.FMHI),
+		fmt.Sprint(d.FMLI),
 	}
 
 	result = strings.Join(row, ",")

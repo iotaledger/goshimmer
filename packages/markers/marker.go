@@ -1,6 +1,7 @@
 package markers
 
 import (
+	"fmt"
 	"strconv"
 	"sync"
 
@@ -371,6 +372,15 @@ func (m *Markers) String() (humanReadableMarkers string) {
 	structBuilder.AddField(stringify.StructField("highestIndex", m.HighestIndex()))
 
 	return structBuilder.String()
+}
+
+// SequenceToString returns a string in the form sequenceID:index;.
+func (m *Markers) SequenceToString() (s string) {
+	m.ForEach(func(sequenceID SequenceID, index Index) bool {
+		s += fmt.Sprintf("%d:%d;", sequenceID, index)
+		return true
+	})
+	return s
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
