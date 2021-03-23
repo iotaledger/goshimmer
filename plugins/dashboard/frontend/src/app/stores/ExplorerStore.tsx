@@ -15,7 +15,6 @@ import {Link} from 'react-router-dom';
 import {RouterStore} from "mobx-react-router";
 
 export const GenesisMessageID = "1111111111111111111111111111111111111111111111111111111111111111";
-export const GenesisTransactionID = "1111111111111111111111111111111111111111111111111111111111111111"
 
 export class Message {
     id: string;
