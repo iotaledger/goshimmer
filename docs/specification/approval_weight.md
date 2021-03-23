@@ -8,6 +8,10 @@ The goal of this document is to provide a high level overview of how approval we
 
 The **active** consensus mana means taking into account only the "recently" active nodes, such that no very old or inactive nodes keep power over the consensus.
 
+## Definitions
+* **branch supporter**: A branch's approver is a **node** that attach messages to that branch, meaning the node likes the branch.
+* **marker/message approver**: A marker/message's approver is a **node** that attach messages that directly/inderictly reference it, including its issuer.
+
 ## Dependency
 * Epoch
 * marker
@@ -52,6 +56,99 @@ After we have the approval weight of a branch, it is marked **confirmed** when:
 **Note**: Once a branch gets confirmed, the conflicting ones get "lost."
 
 ## Detailed design
+In this section, we will describe how approval weight are managed with epoch and markers, which includes:
+1. supporters of a branch as well as the approvers of markers management,
+2. approval weight management.
+
+## Branch supporter / message approver management
+Instead of keeping a list of approvers for each marker and collecting supporters of a branch by walking the Tangle, we keep the list of approvers along with its approved marker rank for each branch.
+
+This approach gives us benefits:
+1. easy to get the supporters of a branch,
+2. simple and fast look-up of marker approver look-up,
+3. easy to maintain.
+
+### Supporter
+A `Supporter` in the code is a node ID, and `Supporters` is a struct containing a set of `Supporter`. Both the data type and structure will be further used in supporter manager.
+
+<table>
+    <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+    </tr>
+    <tr>
+        <td>Supporter</td>
+        <td>identity.ID</td>
+        <td>A supporter of a branch.</td>
+    </tr>
+    <tr>
+        <td>Supporters</td>
+        <td>set.Set</td>
+        <td>A list of supporters of a branch.</td>
+    </tr>
+</table> 
+
+`Supporters` has following methods:
+* `Add(supporter Supporter) (added bool)`: Add the `Supporter` from the Set and returns true if it did added.
+* `Delete(supporter Supporter) (deleted bool)`: Removes the `Supporter` from the Set and returns true if it did exist.
+* `Has(supporter Supporter) (has bool)`: Returns true if the Supporter exists in the Set.
+* `ForEach(callback func(supporter Supporter))`: Iterates through the `Supporters` and calls the callback for every element.
+
+### SupporterManager
+The `supporterManager` holds the following fields: 
+<table>
+    <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+    </tr>
+    <tr>
+        <td>Events</td>
+        <td>*SupporterManagerEvents</td>
+        <td>A list of defined events for supporter manager.</td>
+    </tr>
+    <tr>
+        <td>tangle</td>
+        <td>*Tangle</td>
+        <td>The Tangle.</td>
+    </tr>
+    <tr>        
+        <td>lastStatements</td>
+        <td colspan="1">map[Supporter]*Statement            
+            <details open="true">
+            <table>                
+                <summary>Statement</summary>
+                    <tr>
+                        <th>Name</th>
+                        <th>Type</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td>SequenceNumber</td>
+                        <td>uint64</td>
+                        <td>The sequence number of the statement message.</td>
+                    </tr>
+                    <tr>
+                        <td>BranchID</td>
+                        <td>ledgerstate.BranchID</td>
+                        <td>The Branch ID of the branch it supports.</td>
+                    </tr>
+            </table>
+            </details>
+        </td>        
+        <td>A map of supporter to `Statement` of its latest issued message.</td>
+    </tr>
+    <tr>
+        <td>branchSupporters</td>
+        <td>map[ledgerstate.BranchID]*Supporters</td>
+        <td>A map of branch ID to its supporters.</td>
+    </tr>
+</table> 
+
+
+
+
 
 
 
