@@ -69,7 +69,7 @@ For the function parameter we should provide:
 Most of them has its default implementation in `objectstorage` library except from `Update`, `ObjectStorageKey`, `ObjectStorageValue` which need to be provided.
 
 ### StorableObjectFactory function
-The function `FromObjectStorage` from object storage provides a functionality to restore object from the objectstorage. By convention implementation of this function usually follows the schemat:
+The function `FromObjectStorage` from object storage provides functionality to restore objects from the objectstorage. By convention the implementation of this function usually follows the schema:
 `ObjectFromObjectStorage` uses `ObjectFromBytes`
 ```Go
 func FromObjectStorage(key []byte, data []byte) (result StorableObject, err error) {
