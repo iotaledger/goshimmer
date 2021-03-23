@@ -24,8 +24,8 @@ http://goshimmer.docs.iota.org/
 - [Implementation design](./implementation_design.md)
   - [Event driven model](./implementation_design/event_driven_model.md)
   - [Packages and plugins](./implementation_design/packages_plugins.md)
-  - [Configuration parameters](./implementation_design/configuration_parameters.md)
   - [Plugin](./implementation_design/plugin.md)
+  - [Configuration parameters](./implementation_design/configuration_parameters.md)
   - [Object storage](./implementation_design/object_storage.md)
 - API
   - [Client Lib](./apis/api.md)
