@@ -219,7 +219,7 @@ export class ManaStore {
         switch (msg.manaType) {
             case "Access":
                 store = this.initAccessEvents;
-                if (store.length > maxEventsStored) {
+                if (store.length >= maxEventsStored) {
                     let lastRemoved = store.shift();
                     if (lastRemoved) {
                         this.lastInitRemovedAccessEventTime = lastRemoved.time;
@@ -228,7 +228,7 @@ export class ManaStore {
                 break;
             case "Consensus":
                 store = this.initConsensusEvents;
-                if (store.length > maxEventsStored) {
+                if (store.length >= maxEventsStored) {
                     let lastRemoved = store.shift();
                     if (lastRemoved) {
                         this.lastInitRemovedConsensusEventTime = lastRemoved.time;
@@ -253,7 +253,7 @@ export class ManaStore {
         switch (msg.manaType) {
             case "Access":
                 store = this.accessEvents;
-                if (store.length > maxEventsStored) {
+                if (store.length >= maxEventsStored) {
                     let lastRemoved = store.shift();
                     if (lastRemoved) {
                         this.lastRemovedAccessEventTime = lastRemoved.time;
@@ -262,7 +262,7 @@ export class ManaStore {
                 break;
             case "Consensus":
                 store = this.consensusEvents;
-                if (store.length > maxEventsStored) {
+                if (store.length >= maxEventsStored) {
                     let lastRemoved = store.shift();
                     if (lastRemoved) {
                         this.lastRemovedConsensusEventTime = lastRemoved.time;
@@ -288,7 +288,7 @@ export class ManaStore {
         switch (msg.manaType) {
             case "Consensus":
                 store = this.initConsensusEvents;
-                if (store.length > maxEventsStored) {
+                if (store.length >= maxEventsStored) {
                     let lastRemoved = store.shift();
                     if (lastRemoved) {
                         this.lastInitRemovedConsensusEventTime = lastRemoved.time;
@@ -313,7 +313,7 @@ export class ManaStore {
         switch (msg.manaType) {
             case "Consensus":
                 store = this.consensusEvents;
-                if (store.length > maxEventsStored) {
+                if (store.length >= maxEventsStored) {
                     let lastRemoved = store.shift();
                     if (lastRemoved) {
                         this.lastRemovedConsensusEventTime = lastRemoved.time;
