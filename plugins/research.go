@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/networkdelay"
 	"github.com/iotaledger/goshimmer/plugins/prometheus"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
+	"github.com/iotaledger/goshimmer/plugins/waspconn"
 	"github.com/iotaledger/hive.go/node"
 )
 
@@ -18,4 +19,5 @@ var Research = node.Plugins(
 	analysisdashboard.Plugin(),
 	prometheus.Plugin(),
 	networkdelay.App(),
+	waspconn.Plugin(),
 )
