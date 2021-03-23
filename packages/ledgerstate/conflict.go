@@ -274,7 +274,7 @@ func (c *Conflict) IncreaseMemberCount(optionalDelta ...int) (newMemberCount int
 	c.memberCountMutex.Lock()
 	defer c.memberCountMutex.Unlock()
 
-	c.memberCount -= delta
+	c.memberCount += delta
 	c.SetModified()
 	newMemberCount = c.memberCount
 
