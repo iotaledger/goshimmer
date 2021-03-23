@@ -74,7 +74,6 @@ func runDiagnosticMessages(c echo.Context, rank ...uint64) {
 	}, tangle.MessageIDs{tangle.EmptyMessageID})
 
 	c.Response().Flush()
-	return
 }
 
 func runDiagnosticMessagesOnFirstWeakReferences(c echo.Context) {
@@ -120,7 +119,6 @@ func runDiagnosticMessagesOnFirstWeakReferences(c echo.Context) {
 	}, tangle.MessageIDs{tangle.EmptyMessageID})
 
 	c.Response().Flush()
-	return
 }
 
 // DiagnosticMessagesTableDescription holds the description of the diagnostic messages.

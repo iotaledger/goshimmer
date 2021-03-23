@@ -865,7 +865,7 @@ func (m *MessageMetadata) Scheduled() (result bool) {
 	return m.scheduled
 }
 
-// Scheduled returns the time when the message represented by this metadata was scheduled.
+// ScheduledTime returns the time when the message represented by this metadata was scheduled.
 func (m *MessageMetadata) ScheduledTime() time.Time {
 	m.scheduledTimeMutex.RLock()
 	defer m.scheduledTimeMutex.RUnlock()

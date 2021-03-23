@@ -56,7 +56,6 @@ func runDiagnosticBranches(c echo.Context) {
 	})
 
 	c.Response().Flush()
-	return
 }
 
 func runDiagnosticChildBranches(c echo.Context, branchID ledgerstate.BranchID) {
@@ -79,7 +78,6 @@ func runDiagnosticChildBranches(c echo.Context, branchID ledgerstate.BranchID) {
 	})
 
 	c.Response().Flush()
-	return
 }
 
 // DiagnosticBranchesTableDescription holds the description of the diagnostic Branches.
