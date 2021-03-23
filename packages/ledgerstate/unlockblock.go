@@ -3,6 +3,7 @@ package ledgerstate
 import (
 	"strconv"
 
+	"github.com/iotaledger/hive.go/bytesfilter"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -116,12 +117,28 @@ func UnlockBlocksFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (unlockBl
 		return
 	}
 
+	seenUnlockBlocks := bytesfilter.New(int(unlockBlockCount))
 	unlockBlocks = make(UnlockBlocks, unlockBlockCount)
 	for i := uint16(0); i < unlockBlockCount; i++ {
-		if unlockBlocks[i], err = UnlockBlockFromMarshalUtil(marshalUtil); err != nil {
-			err = xerrors.Errorf("failed to parse UnlockBlock from MarshalUtil: %w", err)
+		unlockBlockBytesStart := marshalUtil.ReadOffset()
+		unlockBlock, unlockBlockErr := UnlockBlockFromMarshalUtil(marshalUtil)
+		if unlockBlockErr != nil {
+			err = xerrors.Errorf("failed to parse UnlockBlock from MarshalUtil: %w", unlockBlockErr)
 			return
 		}
+
+		unlockBlockBytes, unlockBlockBytesErr := marshalUtil.ReadBytes(marshalUtil.ReadOffset()-unlockBlockBytesStart, unlockBlockBytesStart)
+		if unlockBlockBytesErr != nil {
+			err = xerrors.Errorf("failed to parse UnlockBlock bytes from MarshalUtil: %w", unlockBlockBytesErr)
+			return
+		}
+
+		if unlockBlock.Type() != ReferenceUnlockBlockType && !seenUnlockBlocks.Add(unlockBlockBytes) {
+			err = xerrors.Errorf("duplicate UnlockBlock detected at index %d: %w", i, cerrors.ErrParseBytesFailed)
+			return
+		}
+
+		unlockBlocks[i] = unlockBlock
 	}
 
 	return

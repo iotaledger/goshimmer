@@ -43,7 +43,7 @@ export class TransactionPayload extends React.Component<Props, any> {
                 <Row className={"mb-3"}>
                     <Col>
                         <ListGroup>
-                            <ListGroup.Item>Transaction ID: {payload.tx_id} </ListGroup.Item>
+                            <ListGroup.Item>Transaction ID: <a href={`/explorer/transaction/${payload.tx_id}`}>{payload.tx_id}</a></ListGroup.Item>
                         </ListGroup>
                     </Col>
                 </Row>
