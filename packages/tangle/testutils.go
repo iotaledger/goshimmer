@@ -414,7 +414,7 @@ func createWallets(n int) []wallet {
 }
 
 func (w wallet) sign(txEssence *ledgerstate.TransactionEssence) *ledgerstate.ED25519Signature {
-	return ledgerstate.NewED25519Signature(w.publicKey(), ed25519.Signature(w.privateKey().Sign(txEssence.Bytes())))
+	return ledgerstate.NewED25519Signature(w.publicKey(), w.privateKey().Sign(txEssence.Bytes()))
 }
 
 // addressFromInput retrieves the Address belonging to an Input by looking it up in the outputs that we have created for

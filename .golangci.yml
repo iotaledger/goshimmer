@@ -1,5 +1,4 @@
 issues:
-    new-from-rev: 0772847d47c672a11fc5438901a53fc945b73a24
     exclude-use-default: false
     max-issues-per-linter: 0
     max-same-issues: 0
@@ -20,18 +19,21 @@ issues:
         - '`[0-9A-Za-z_.]+` - `[0-9A-Za-z_.]+` always receives `[0-9A-Za-z_.]+`' # unparam
 
 
-        # temporary:
-#        - 'lines are duplicate of `*`' # dupl
-#        - 'Error return value of (`[0-9A-Za-z_.]+`|``) is not checked' # errcheck
-#        - 'cyclomatic complexity [0-9]+ of func `[0-9A-Za-z_.]+` is high' # gocyclo
-#        - 'naked return in func `[0-9A-Za-z_.]+` with [0-9]+ lines of code' #nakedret
-#        - 'string `init` has 3 occurrences, make it a constant' # goconst
-#        - 'mnd: Magic number:' # gomnd
-#        - "Function '[0-9A-Za-z_.]+' has too many statements" # funlen
-#        - "Function '[0-9A-Za-z_.]+' is too long" # funlen
-#        - 'is being imported more than once' # stylecheck
-#        - 'ST1019' # stylecheck
-#        - 'ST1003:' # stylecheck ST1003: var unixTsPRNG should be unixTSPRNG
+        # Temporary exclusions.
+        # They are needed until golangci-lint changes get merged into develop.
+        # After that they will be removed and golangci-lint start analyzing the codebase from the merge commit.
+        # Via new-from-rev config setting in .golangci.yml file.
+        - 'lines are duplicate of `*`' # dupl
+        - 'Error return value of (`[0-9A-Za-z_.]+`|``) is not checked' # errcheck
+        - 'cyclomatic complexity [0-9]+ of func `[0-9A-Za-z_.]+` is high' # gocyclo
+        - 'naked return in func `[0-9A-Za-z_.]+` with [0-9]+ lines of code' #nakedret
+        - 'string `init` has 3 occurrences, make it a constant' # goconst
+        - 'mnd: Magic number:' # gomnd
+        - "Function '[0-9A-Za-z_.]+' has too many statements" # funlen
+        - "Function '[0-9A-Za-z_.]+' is too long" # funlen
+        - 'is being imported more than once' # stylecheck
+        - 'ST1019' # stylecheck
+        - 'ST1003:' # stylecheck ST1003: var unixTsPRNG should be unixTSPRNG
     exclude-rules:
         -   path: (_test\.go|example_test\.go|example_[0-9A-Za-z_-]+_test\.go)
             linters:
@@ -65,12 +67,15 @@ linters-settings:
             - whyNoLint
             - wrapperFunc
 
-            # temporary
-#            - importShadow
-#            - typeUnparen
-#            - paramTypeCombine
-#            - exitAfterDefer
-#            - elseif
+            # Temporary exclusions.
+            # They are needed until golangci-lint changes get merged into develop.
+            # After that they will be removed and golangci-lint start analyzing the codebase from the merge commit.
+            # Via new-from-rev config setting in .golangci.yml file.
+            - importShadow
+            - typeUnparen
+            - paramTypeCombine
+            - exitAfterDefer
+            - elseif
     goimports:
         local-prefixes: github.com/iotaledger/goshimmer
     gomnd:
