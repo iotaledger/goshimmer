@@ -44,11 +44,21 @@ class AddressResult {
 
 class Output {
     id: string;
+    transaction_id: string;
+    type: string;
+    index: number;
     balances: Array<Balance>;
     inclusion_state: InclusionState;
     consumer_count: number;
     solidification_time: number;
     pending_mana: number;
+}
+
+class PendingMana {
+    mana: number;
+    outputID: string;
+    error: string;
+    timestamp: number;
 }
 
 class Balance {
@@ -90,6 +100,8 @@ export class ExplorerStore {
     @observable tx: any = null;
     @observable txMetadata: any = null;
     @observable txAttachments: any = [];
+    @observable output: any = null;
+    @observable pendingMana: PendingMana = null;
 
     // loading
     @observable query_loading: boolean = false;
@@ -234,6 +246,37 @@ export class ExplorerStore {
         }
     }
 
+    getOutput = async (id: string) => {
+        try {
+            let res = await fetch(`/api/output/${id}`)
+            if (res.status === 404) {
+                this.updateQueryError(QueryError.NotFound);
+                return;
+            }
+            let output: any = await res.json()
+            if (output.error) {
+                this.updateQueryError(output.error)
+                return
+            }
+            this.updateOutput(output)
+        } catch (err) {
+            this.updateQueryError(err);
+        }
+    }
+
+    getPendingMana = async (outputID: string) => {
+        try {
+            let res = await fetch(`/api/mana/pending?OutputID=${outputID}`)
+            if (res.status === 404) {
+                return;
+            }
+            let pendingMana: PendingMana = await res.json()
+            this.updatePendingMana(pendingMana)
+        } catch (err) {
+            // ignore
+        }
+    }
+
     @action
     reset = () => {
         this.msg = null;
@@ -260,6 +303,16 @@ export class ExplorerStore {
     @action
     updateTransactionMetadata = (metadata: any) => {
         this.txMetadata = metadata;
+    }
+
+    @action
+    updateOutput = (output: any) => {
+        this.output = output;
+    }
+
+    @action
+    updatePendingMana = (pendingMana: PendingMana) => {
+        this.pendingMana = pendingMana;
     }
 
     @action

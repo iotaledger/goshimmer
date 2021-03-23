@@ -455,7 +455,7 @@ func PendingManaOnOutput(outputID ledgerstate.OutputID) (float64, time.Time) {
 	outputMetadata := cachedOutputMetadata.Unwrap()
 
 	// spent output has 0 pending mana.
-	if outputMetadata.ConsumerCount() > 0 {
+	if outputMetadata == nil || outputMetadata.ConsumerCount() > 0 {
 		return 0, time.Time{}
 	}
 

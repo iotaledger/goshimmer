@@ -8,8 +8,8 @@ import (
 	"github.com/labstack/echo"
 )
 
-// getPendingHandler handles the request.
-func getPendingHandler(c echo.Context) error {
+// GetPendingMana handles the request.
+func GetPendingMana(c echo.Context) error {
 	var req PendingRequest
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, PendingResponse{Error: err.Error()})

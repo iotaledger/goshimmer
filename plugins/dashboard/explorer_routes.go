@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/mana"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	ledgerstateAPI "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
+	manaAPI "github.com/iotaledger/goshimmer/plugins/webapi/mana"
 	valueutils "github.com/iotaledger/goshimmer/plugins/webapi/value"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58/base58"
@@ -87,6 +88,7 @@ type ExplorerAddress struct {
 // ExplorerOutput defines the struct of the ExplorerOutput.
 type ExplorerOutput struct {
 	ID                 string                    `json:"id"`
+	TransactionID      string                    `json:"transaction_id"`
 	Balances           []valueutils.Balance      `json:"balances"`
 	InclusionState     valueutils.InclusionState `json:"inclusion_state"`
 	SolidificationTime int64                     `json:"solidification_time"`
@@ -136,6 +138,9 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 	})
 	routeGroup.GET("/output/:outputID", func(c echo.Context) error {
 		return ledgerstateAPI.GetOutput(c)
+	})
+	routeGroup.GET("/mana/pending", func(c echo.Context) error {
+		return manaAPI.GetPendingMana(c)
 	})
 
 	routeGroup.GET("/search/:search", func(c echo.Context) error {
@@ -227,7 +232,8 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 
 		pendingMana, _ := mana.PendingManaOnOutput(output.ID())
 		outputids = append(outputids, ExplorerOutput{
-			ID:                 output.ID().String(),
+			ID:                 output.ID().Base58(),
+			TransactionID:      output.ID().TransactionID().Base58(),
 			Balances:           b,
 			InclusionState:     inclusionState,
 			ConsumerCount:      consumerCount,
