@@ -7,13 +7,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/iotaledger/hive.go/datastructure/walker"
+	"github.com/iotaledger/hive.go/identity"
+	"github.com/labstack/echo"
+
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
-	"github.com/iotaledger/hive.go/datastructure/walker"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/labstack/echo"
 )
 
 // DiagnosticMessagesHandler runs the diagnostic over the Tangle.

@@ -6,12 +6,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 // DiagnosticUTXODAGHandler runs the diagnostic over the Tangle.

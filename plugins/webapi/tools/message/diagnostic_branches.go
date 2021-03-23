@@ -6,10 +6,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/labstack/echo"
+
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/labstack/echo"
 )
 
 // DiagnosticBranchesHandler runs the diagnostic over the Tangle.
