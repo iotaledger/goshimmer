@@ -61,7 +61,7 @@ For the function parameter we should provide:
 - `Delete` - marks the object to be deleted from the persistence layer
 - `IsDeleted` - returns true if the object was marked as deleted
 - `Persist` - enables or disables persistence for this object
-- `ShouldPersist` - returns "true" if this object is going to be persisted
+- `ShouldPersist` - returns true if this object is going to be persisted
 - `Update` - updates the object with the values of another object - needs to be implemented
 - `ObjectStorageKey` - returns the key that is used to store the object in the database - needs to be implemented
 - `ObjectStorageValue` - marshals the object data into a sequence of bytes that are used as the value part in the object storage - needs to be implemented
