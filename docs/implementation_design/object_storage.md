@@ -39,7 +39,7 @@ To easily create multiple storage objects instances for one package, the most co
 osFactory := objectstorage.NewFactory(store, database.Prefix)
 ```
 It needs two parameters:
-- `store` - the key value `kvstore` object
+- `store` - the key value `kvstore` instance
 - `database.Prefix` - prefix defined in the `database` package for our new `example` package. It will be responsible for automatic configuration of newly provided KVStore object.
 
 
