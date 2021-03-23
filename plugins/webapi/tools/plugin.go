@@ -37,5 +37,5 @@ func configure(_ *node.Plugin) {
 	webapi.Server().GET("tools/message/orphanage", message.OrphanageHandler)
 
 	webapi.Server().GET("tools/diagnostic/messages", message.DiagnosticMessagesHandler)
-	webapi.Server().GET("tools/diagnostic/messages/:rank", message.DiagnosticMessagesRankHandler)
+	webapi.Server().GET("tools/diagnostic/messages/rank/:rank", message.DiagnosticMessagesRankHandler)
 }
