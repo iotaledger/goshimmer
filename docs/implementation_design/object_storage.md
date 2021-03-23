@@ -56,7 +56,7 @@ For the function parameter we should provide:
 ### StorableObject
 `StorableObject` is an interface that allow the dynamic creation of different object types depending on the stored data. We need to make sure that all methods required by the interface are implemented to use object storage factory.
 
-- `SetModified` - marks the object as modified, which causes it to be written to the disk (if persistence is enabled).
+- `SetModified` - marks the object as modified, which will be written to the disk (if persistence is enabled).
 - `IsModified` - returns true if the object is marked as modified
 - `Delete` - marks the object to be deleted from the persistence layer
 - `IsDeleted` - returns true if the object was marked as deleted
