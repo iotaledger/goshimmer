@@ -23,30 +23,7 @@ import (
 
 const lowerWeightThreshold = float64(0)
 
-// region BranchWeightPerEpoch /////////////////////////////////////////////////////////////////////////////////////////
-
-type BranchWeightPerEpoch struct {
-	weightPerEpoch      map[epochs.ID]float64
-	weightPerEpochMutex sync.RWMutex
-}
-
-func NewBranchWeightPerEpoch() *BranchWeightPerEpoch {
-	return &BranchWeightPerEpoch{
-		weightPerEpoch: make(map[epochs.ID]float64),
-	}
-}
-
-func (b *BranchWeightPerEpoch) AddWeight(epochID epochs.ID, weight float64) (totalWeight float64) {
-	b.weightPerEpochMutex.Lock()
-	defer b.weightPerEpochMutex.Unlock()
-
-	totalWeight = b.weightPerEpoch[epochID] + weight
-	b.weightPerEpoch[epochID] = totalWeight
-
-	return
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+const confirmationThreshold = 0.5
 
 // region ApprovalWeightManager ////////////////////////////////////////////////////////////////////////////////////////
 
@@ -63,8 +40,8 @@ func NewApprovalWeightManager() *ApprovalWeightManager {
 }
 
 func (a *ApprovalWeightManager) Setup() {
-	// TODO: IMPLEMENT ME
 	a.supportersManager.Events.BranchSupportAdded.Attach(events.NewClosure(a.onBranchSupportAdded))
+	a.supportersManager.Events.BranchSupportRemoved.Attach(events.NewClosure(a.onBranchSupportRemoved))
 }
 
 func (a *ApprovalWeightManager) ProcessMessage(messageID MessageID) {
@@ -104,9 +81,71 @@ func (a *ApprovalWeightManager) onBranchSupportAdded(branchID ledgerstate.Branch
 		return
 	}
 
-	if a.weightsPerEpoch(branchID).AddWeight(a.epochsManager.TimeToOracleEpochID(issuingTime), weightOfSupporter) >= 0.5 {
+	epochID := a.epochsManager.TimeToOracleEpochID(issuingTime)
+	if a.weightsPerEpoch(branchID).AddWeight(epochID, weightOfSupporter)-a.weightOfLargestConflictingBranch(branchID, epochID) >= confirmationThreshold {
 		// DO SOMETHING
 	}
+}
+
+func (a *ApprovalWeightManager) weightOfLargestConflictingBranch(branchID ledgerstate.BranchID, epochID epochs.ID) (weight float64) {
+	a.tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
+		if branchWeight := a.weightsPerEpoch(branchID).Weight(epochID); branchWeight > weight {
+			weight = branchWeight
+		}
+	})
+
+	return
+}
+
+func (a *ApprovalWeightManager) onBranchSupportRemoved(branchID ledgerstate.BranchID, issuingTime time.Time, supporter Supporter) {
+	weightOfSupporter := a.epochsManager.RelativeNodeMana(supporter, issuingTime)
+	if weightOfSupporter <= lowerWeightThreshold {
+		return
+	}
+
+	a.weightsPerEpoch(branchID).RemoveWeight(a.epochsManager.TimeToOracleEpochID(issuingTime), weightOfSupporter)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region BranchWeightPerEpoch /////////////////////////////////////////////////////////////////////////////////////////
+
+type BranchWeightPerEpoch struct {
+	weightPerEpoch      map[epochs.ID]float64
+	weightPerEpochMutex sync.RWMutex
+}
+
+func NewBranchWeightPerEpoch() *BranchWeightPerEpoch {
+	return &BranchWeightPerEpoch{
+		weightPerEpoch: make(map[epochs.ID]float64),
+	}
+}
+
+func (b *BranchWeightPerEpoch) Weight(epochID epochs.ID) (totalWeight float64) {
+	b.weightPerEpochMutex.RLock()
+	defer b.weightPerEpochMutex.RUnlock()
+
+	return b.weightPerEpoch[epochID]
+}
+
+func (b *BranchWeightPerEpoch) AddWeight(epochID epochs.ID, weight float64) (totalWeight float64) {
+	b.weightPerEpochMutex.Lock()
+	defer b.weightPerEpochMutex.Unlock()
+
+	totalWeight = b.weightPerEpoch[epochID] + weight
+	b.weightPerEpoch[epochID] = totalWeight
+
+	return
+}
+
+func (b *BranchWeightPerEpoch) RemoveWeight(epochID epochs.ID, weight float64) (totalWeight float64) {
+	b.weightPerEpochMutex.Lock()
+	defer b.weightPerEpochMutex.Unlock()
+
+	totalWeight = b.weightPerEpoch[epochID] - weight
+	b.weightPerEpoch[epochID] = totalWeight
+
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
