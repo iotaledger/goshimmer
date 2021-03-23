@@ -3,12 +3,14 @@ package message
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/labstack/echo"
@@ -20,9 +22,20 @@ func DiagnosticMessagesHandler(c echo.Context) (err error) {
 	return
 }
 
+// DiagnosticMessagesRankHandler runs the diagnostic over the Tangle
+// for messages with rank >= of the given rank parameter.
+func DiagnosticMessagesRankHandler(c echo.Context) (err error) {
+	rank, err := rankFromContext(c)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	}
+	runDiagnosticMessages(c, rank)
+	return
+}
+
 // region Analysis code implementation /////////////////////////////////////////////////////////////////////////////////
 
-func runDiagnosticMessages(c echo.Context) {
+func runDiagnosticMessages(c echo.Context, rank ...uint64) {
 	// write Header and table description
 	c.Response().Header().Set(echo.HeaderContentType, "text/csv")
 	c.Response().WriteHeader(http.StatusOK)
@@ -32,13 +45,21 @@ func runDiagnosticMessages(c echo.Context) {
 		panic(err)
 	}
 
+	startRank := uint64(0)
+
+	if len(rank) > 0 {
+		startRank = rank[0]
+	}
+
 	messagelayer.Tangle().Utils.WalkMessageID(func(messageID tangle.MessageID, walker *walker.Walker) {
 		messageInfo := getDiagnosticMessageInfo(messageID)
-		_, err = fmt.Fprintln(c.Response(), messageInfo.toCSV())
-		if err != nil {
-			panic(err)
+		if messageInfo.Rank >= startRank {
+			_, err = fmt.Fprintln(c.Response(), messageInfo.toCSV())
+			if err != nil {
+				panic(err)
+			}
+			c.Response().Flush()
 		}
-		c.Response().Flush()
 
 		messagelayer.Tangle().Storage.Approvers(messageID).Consume(func(approver *tangle.Approver) {
 			walker.Push(approver.ApproverMessageID())
@@ -186,6 +207,13 @@ func (d DiagnosticMessagesInfo) toCSV() (result string) {
 	result = strings.Join(row, ",")
 
 	return
+}
+
+// rankFromContext determines the marker rank from the rank parameter in an echo.Context.
+func rankFromContext(c echo.Context) (rank uint64, err error) {
+	rank, err = strconv.ParseUint(c.Param("rank"), 10, 64)
+
+	return rank, err
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
