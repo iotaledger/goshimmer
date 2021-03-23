@@ -54,6 +54,32 @@ class Output {
     pending_mana: number;
 }
 
+class OutputID {
+    base58:  string;
+    transactionID: string;
+    outputIndex: number;
+}
+
+class OutputMetadata {
+    outputID: OutputID;
+    branchID: string;
+    solid: boolean;
+    solidificationTime: number;
+    consumerCount: number;
+    firstConsumer: string; //tx id
+    finalized: boolean;
+}
+
+class OutputConsumer {
+    transactionID: string;
+    valid: string;
+}
+
+class OutputConsumers {
+    outputID: OutputID;
+    consumers: Array<OutputConsumer>
+}
+
 class PendingMana {
     mana: number;
     outputID: string;
@@ -132,6 +158,8 @@ export class ExplorerStore {
     @observable txMetadata: any = null;
     @observable txAttachments: any = [];
     @observable output: any = null;
+    @observable outputMetadata: OutputMetadata = null;
+    @observable outputConsumers: OutputConsumers = null;
     @observable pendingMana: PendingMana = null;
     @observable branch: Branch = null;
     @observable branchChildren: BranchChildren = null;
@@ -298,6 +326,32 @@ export class ExplorerStore {
         }
     }
 
+    getOutputMetadata = async (id: string) => {
+        try {
+            let res = await fetch(`/api/output/${id}/metadata`)
+            if (res.status === 404) {
+                return;
+            }
+            let metadata: OutputMetadata = await res.json()
+            this.updateOutputMetadata(metadata)
+        } catch (err) {
+            //ignore
+        }
+    }
+
+    getOutputConsumers = async (id: string) => {
+        try {
+            let res = await fetch(`/api/output/${id}/consumers`)
+            if (res.status === 404) {
+                return;
+            }
+            let consumers: OutputConsumers = await res.json()
+            this.updateOutputConsumers(consumers)
+        } catch (err) {
+            //ignore
+        }
+    }
+
     getPendingMana = async (outputID: string) => {
         try {
             let res = await fetch(`/api/mana/pending?OutputID=${outputID}`)
@@ -382,6 +436,16 @@ export class ExplorerStore {
     @action
     updateOutput = (output: any) => {
         this.output = output;
+    }
+
+    @action
+    updateOutputMetadata = (metadata: OutputMetadata) => {
+        this.outputMetadata = metadata;
+    }
+
+    @action
+    updateOutputConsumers = (consumers: OutputConsumers) => {
+        this.outputConsumers = consumers;
     }
 
     @action

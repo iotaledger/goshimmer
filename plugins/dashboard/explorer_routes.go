@@ -139,6 +139,12 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/output/:outputID", func(c echo.Context) error {
 		return ledgerstateAPI.GetOutput(c)
 	})
+	routeGroup.GET("/output/:outputID/metadata", func(c echo.Context) error {
+		return ledgerstateAPI.GetOutputMetadata(c)
+	})
+	routeGroup.GET("/output/:outputID/consumers", func(c echo.Context) error {
+		return ledgerstateAPI.GetOutputConsumers(c)
+	})
 	routeGroup.GET("/mana/pending", func(c echo.Context) error {
 		return manaAPI.GetPendingMana(c)
 	})
