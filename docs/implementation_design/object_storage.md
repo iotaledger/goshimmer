@@ -66,7 +66,7 @@ For the function parameter we should provide:
 - `ObjectStorageKey` - returns the key that is used to store the object in the database - needs to be implemented
 - `ObjectStorageValue` - marshals the object data into a sequence of bytes that are used as the value part in the object storage - needs to be implemented
 
-Most of them has its default implementation in `objectstorage` library except from `Update`, `ObjectStorageKey`, `ObjectStorageValue` which need to be provided.
+Most of these have their default implementation in `objectstorage` library, except from `Update`, `ObjectStorageKey`, `ObjectStorageValue` which need to be provided.
 
 ### StorableObjectFactory function
 The function `FromObjectStorage` from object storage provides functionality to restore objects from the objectstorage. By convention the implementation of this function usually follows the schema:
