@@ -1,0 +1,19 @@
+name: golangci-lint
+
+on: pull_request
+
+jobs:
+    golangci:
+        name: lint
+        runs-on: ubuntu-latest
+        steps:
+            -   name: Checkout repository
+                uses: actions/checkout@v2
+
+            -   name: golangci-lint
+                uses: golangci/golangci-lint-action@d9f0e73c0497685d68af8c58280f49fcaf0545ff # v2.5.1
+                with:
+                    # Optional: version of golangci-lint to use in form of v1.2 or v1.2.3 or `latest` to use the latest version
+                    github-token: ${{ secrets.github_token }}
+                    version: v1.38.0
+                    args: "--timeout=10m"
