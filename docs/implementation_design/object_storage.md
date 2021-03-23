@@ -34,7 +34,7 @@ type Storage struct {
 }
 ```
 ### ObjectStorage factory
-To easily create multiple storage objects instances for one package, the most convinient way is to use facory function.
+To easily create multiple storage objects instances for one package, the most convenient way is to use the factory function.
 ```Go
 osFactory := objectstorage.NewFactory(store, database.Prefix)
 ```
