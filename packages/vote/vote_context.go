@@ -91,11 +91,11 @@ func (vc *Context) HadFixedRound(coolingOffPeriod int, totalRoundsFinalization i
 	if len(vc.Opinions) < coolingOffPeriod+totalRoundsRandomThreshold+1 {
 		return false
 	}
-	// check weather we have enough opinions and parameters are valid
+	// check whether we have enough opinions and parameters are valid
 	if len(vc.Opinions) < totalRoundsRandomThreshold || totalRoundsRandomThreshold < 0 {
 		return false
 	}
-	// grab opinion which needs to be held for TotalRoundsFinalization number of rounds
+	// grab opinion which needs to be held for totalRoundsRandomThreshold number of rounds
 	candidateOpinion := vc.Opinions[len(vc.Opinions)-totalRoundsRandomThreshold]
 
 	// check whether it was held for the subsequent rounds
