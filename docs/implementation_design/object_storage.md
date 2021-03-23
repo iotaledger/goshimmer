@@ -18,7 +18,7 @@ For the persistent storage in a database it uses package `badger` from hive.go. 
 
 Both solutions are implemented in `database` package, along prefixes definitions that can be used during creation of new object storage elements.
 
-Database plugin is responsible for creating `store` instance of the chosen database under the directory specified with `CfgDatabaseDir` parameter. It will manage proper closure of the database upon recieving shutdown signal. During the start configuration, database is marked as unhealthy, it will be marked as healthy on shutdown, then garbage collector is run and database can be closed.
+Database plugin is responsible for creating a `store` instance of the chosen database under the directory specified with `CfgDatabaseDir` parameter. It will manage a proper closure of the database upon receiving a shutdown signal. During the start configuration, the database is marked as unhealthy, it will be marked as healthy on shutdown, then garbage collector is run and database can be closed.
 
 ## ObjectStorage
 
