@@ -23,7 +23,7 @@ Database plugin is responsible for creating `store` instance of the chosen datab
 ## ObjectStorage
 
 
-Assuming we need to store data for some newly created object `A`. We need to define a new prefix for our package in the `database` package, and prefixes for single storage objects. They will be later used during objectstorage cration. A package prefix will be combined with store specific prefix to create specyfic realm.
+Assume we need to store data for some newly created object `A`. Then we need to define a new prefix for our package in the `database` package, and prefixes for single storage objects. They will be later used during objectstorage creation. A package prefix will be combined with a store specific prefix to create a specific realm.
 ```Go
 package example
 
