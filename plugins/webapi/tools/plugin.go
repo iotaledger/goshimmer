@@ -38,4 +38,5 @@ func configure(_ *node.Plugin) {
 
 	webapi.Server().GET("tools/diagnostic/messages", message.DiagnosticMessagesHandler)
 	webapi.Server().GET("tools/diagnostic/messages/rank/:rank", message.DiagnosticMessagesRankHandler)
+	webapi.Server().GET("tools/diagnostic/utxodag", message.DiagnosticUTXODAGHandler)
 }

@@ -1,0 +1,162 @@
+package message
+
+import (
+	"fmt"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/hive.go/datastructure/walker"
+	"github.com/labstack/echo"
+	"github.com/mr-tron/base58"
+)
+
+// DiagnosticUTXODAGHandler runs the diagnostic over the Tangle.
+func DiagnosticUTXODAGHandler(c echo.Context) (err error) {
+	runDiagnosticUTXODAG(c)
+	return
+}
+
+// region Analysis code implementation /////////////////////////////////////////////////////////////////////////////////
+
+func runDiagnosticUTXODAG(c echo.Context) {
+	// write Header and table description
+	c.Response().Header().Set(echo.HeaderContentType, "text/csv")
+	c.Response().WriteHeader(http.StatusOK)
+
+	_, err := fmt.Fprintln(c.Response(), strings.Join(DiagnosticUTXODAGTableDescription, ","))
+	if err != nil {
+		panic(err)
+	}
+
+	messagelayer.Tangle().Utils.WalkMessageID(func(messageID tangle.MessageID, walker *walker.Walker) {
+		messagelayer.Tangle().Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
+			transactionInfo := getDiagnosticUTXODAGInfo(transactionID, messageID)
+			_, err = fmt.Fprintln(c.Response(), transactionInfo.toCSV())
+			if err != nil {
+				panic(err)
+			}
+			c.Response().Flush()
+		})
+
+		messagelayer.Tangle().Storage.Approvers(messageID).Consume(func(approver *tangle.Approver) {
+			walker.Push(approver.ApproverMessageID())
+		})
+	}, tangle.MessageIDs{tangle.EmptyMessageID})
+
+	c.Response().Flush()
+	return
+}
+
+// DiagnosticUTXODAGTableDescription holds the description of the diagnostic UTXODAG.
+var DiagnosticUTXODAGTableDescription = []string{
+	"ID",
+	"IssuanceTime",
+	"SolidTime",
+	"OpinionFormedTime",
+	"AccessManaPledgeID",
+	"ConsensusManaPledgeID",
+	"Inputs",
+	"Outputs",
+	"Attachments",
+	"BranchID",
+	"BranchLiked",
+	"BranchMonotonicallyLiked",
+	"Conflicting",
+	"InclusionState",
+	"Finalized",
+	"LazyBooked",
+	"Liked",
+}
+
+// DiagnosticUTXODAGInfo holds the information of a UTXO.
+type DiagnosticUTXODAGInfo struct {
+	// transaction essence
+	ID                    string
+	IssuanceTimestamp     time.Time
+	SolidTime             time.Time
+	OpinionFormedTime     time.Time
+	AccessManaPledgeID    string
+	ConsensusManaPledgeID string
+	Inputs                ledgerstate.Inputs
+	Outputs               ledgerstate.Outputs
+	// attachments
+	Attachments []string
+	// transaction metadata
+	BranchID                 string
+	BranchLiked              bool
+	BranchMonotonicallyLiked bool
+	Conflicting              bool
+	InclusionState           string
+	Finalized                bool
+	LazyBooked               bool
+	Liked                    bool
+}
+
+func getDiagnosticUTXODAGInfo(transactionID ledgerstate.TransactionID, messageID tangle.MessageID) DiagnosticUTXODAGInfo {
+	txInfo := DiagnosticUTXODAGInfo{
+		ID: transactionID.Base58(),
+	}
+
+	messagelayer.Tangle().LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
+		txInfo.IssuanceTimestamp = transaction.Essence().Timestamp()
+		txInfo.OpinionFormedTime = messagelayer.ConsensusMechanism().OpinionFormedTime(messageID)
+		txInfo.AccessManaPledgeID = base58.Encode(transaction.Essence().AccessPledgeID().Bytes())
+		txInfo.ConsensusManaPledgeID = base58.Encode(transaction.Essence().ConsensusPledgeID().Bytes())
+		txInfo.Inputs = transaction.Essence().Inputs()
+		txInfo.Outputs = transaction.Essence().Outputs()
+	})
+
+	for _, messageID := range messagelayer.Tangle().Storage.AttachmentMessageIDs(transactionID) {
+		txInfo.Attachments = append(txInfo.Attachments, messageID.String())
+	}
+
+	messagelayer.Tangle().LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+		txInfo.SolidTime = transactionMetadata.SolidificationTime()
+		txInfo.BranchID = transactionMetadata.BranchID().String()
+
+		messagelayer.Tangle().LedgerState.BranchDAG.Branch(transactionMetadata.BranchID()).Consume(func(branch ledgerstate.Branch) {
+			txInfo.BranchLiked = branch.Liked()
+			txInfo.BranchMonotonicallyLiked = branch.MonotonicallyLiked()
+		})
+
+		txInfo.Conflicting = messagelayer.Tangle().LedgerState.TransactionConflicting(transactionID)
+		txInfo.Finalized = transactionMetadata.Finalized()
+		txInfo.LazyBooked = transactionMetadata.LazyBooked()
+		txInfo.InclusionState = messagelayer.Tangle().LedgerState.BranchInclusionState(transactionMetadata.BranchID()).String()
+		txInfo.Liked = messagelayer.ConsensusMechanism().TransactionLiked(transactionID)
+	})
+
+	return txInfo
+}
+
+func (d DiagnosticUTXODAGInfo) toCSV() (result string) {
+	row := []string{
+		d.ID,
+		fmt.Sprint(d.IssuanceTimestamp.UnixNano()),
+		fmt.Sprint(d.SolidTime.UnixNano()),
+		fmt.Sprint(d.OpinionFormedTime.UnixNano()),
+		d.AccessManaPledgeID,
+		d.ConsensusManaPledgeID,
+		strings.Join(d.Inputs.Strings(), ";"),
+		strings.Join(d.Outputs.Strings(), ";"),
+		strings.Join(d.Attachments, ";"),
+		d.BranchID,
+		fmt.Sprint(d.BranchLiked),
+		fmt.Sprint(d.BranchMonotonicallyLiked),
+		fmt.Sprint(d.Conflicting),
+		d.InclusionState,
+		fmt.Sprint(d.Finalized),
+		fmt.Sprint(d.LazyBooked),
+		fmt.Sprint(d.Liked),
+	}
+
+	result = strings.Join(row, ",")
+
+	return
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
