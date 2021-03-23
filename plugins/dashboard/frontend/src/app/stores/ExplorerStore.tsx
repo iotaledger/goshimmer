@@ -144,7 +144,8 @@ class MessageRef {
 const liveFeedSize = 50;
 
 enum QueryError {
-    NotFound = 1
+    NotFound = 1,
+    BadRequest = 2
 }
 
 export class ExplorerStore {
@@ -315,6 +316,10 @@ export class ExplorerStore {
                 this.updateQueryError(QueryError.NotFound);
                 return;
             }
+            if (res.status === 400) {
+                this.updateQueryError(QueryError.BadRequest);
+                return;
+            }
             let output: any = await res.json()
             if (output.error) {
                 this.updateQueryError(output.error)
@@ -332,6 +337,9 @@ export class ExplorerStore {
             if (res.status === 404) {
                 return;
             }
+            if (res.status === 400) {
+                return;
+            }
             let metadata: OutputMetadata = await res.json()
             this.updateOutputMetadata(metadata)
         } catch (err) {
@@ -343,6 +351,9 @@ export class ExplorerStore {
         try {
             let res = await fetch(`/api/output/${id}/consumers`)
             if (res.status === 404) {
+                return;
+            }
+            if (res.status === 400) {
                 return;
             }
             let consumers: OutputConsumers = await res.json()
@@ -358,6 +369,9 @@ export class ExplorerStore {
             if (res.status === 404) {
                 return;
             }
+            if (res.status === 400) {
+                return;
+            }
             let pendingMana: PendingMana = await res.json()
             this.updatePendingMana(pendingMana)
         } catch (err) {
@@ -370,6 +384,10 @@ export class ExplorerStore {
             let res = await fetch(`/api/branch/${id}`)
             if (res.status === 404) {
                 this.updateQueryError(QueryError.NotFound);
+                return;
+            }
+            if (res.status === 400) {
+                this.updateQueryError(QueryError.BadRequest);
                 return;
             }
             let branch: Branch = await res.json()
@@ -409,6 +427,17 @@ export class ExplorerStore {
     reset = () => {
         this.msg = null;
         this.query_err = null;
+        // reset all variables
+        this.tx = null;
+        this.txMetadata = null;
+        this.txAttachments = [];
+        this.output = null;
+        this.outputMetadata = null;
+        this.outputConsumers = null;
+        this.pendingMana = null;
+        this.branch = null;
+        this.branchChildren = null;
+        this.branchConflicts = null;
     };
 
     @action
