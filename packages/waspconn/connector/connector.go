@@ -4,6 +4,7 @@ import (
 	"io"
 	"net"
 	"strings"
+	"sync/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -15,16 +16,15 @@ import (
 )
 
 type WaspConnector struct {
-	id                                 string
 	bconn                              *buffconn.BufferedConnection
-	subscriptions                      map[[ledgerstate.AddressLength]byte]bool
+	subscriptions                      atomic.Value
 	inTxChan                           chan interface{}
 	exitConnChan                       chan struct{}
 	receiveConfirmedTransactionClosure *events.Closure
 	receiveBookedTransactionClosure    *events.Closure
 	receiveWaspMessageClosure          *events.Closure
 	messageChopper                     *chopper.Chopper
-	log                                *logger.Logger
+	atomicLog                          atomic.Value
 	ledger                             waspconn.Ledger
 }
 
@@ -36,48 +36,47 @@ func Run(conn net.Conn, log *logger.Logger, ledger waspconn.Ledger, shutdownSign
 		bconn:          buffconn.NewBufferedConnection(conn, tangle.MaxMessageSize),
 		exitConnChan:   make(chan struct{}),
 		messageChopper: chopper.NewChopper(),
-		log:            log,
 		ledger:         ledger,
 	}
+
+	wconn.atomicLog.Store(log) // temporarily until we know the connection ID
+
+	wconn.subscriptions.Store(make(map[[ledgerstate.AddressLength]byte]bool))
 
 	wconn.attach()
 	defer wconn.detach()
 
 	select {
 	case <-shutdownSignal:
-		wconn.log.Infof("shutdown signal received..")
+		wconn.log().Infof("shutdown signal received..")
 		_ = wconn.bconn.Close()
 
 	case <-wconn.exitConnChan:
-		wconn.log.Infof("closing connection..")
+		wconn.log().Infof("closing connection..")
 		_ = wconn.bconn.Close()
 	}
 }
 
-func (wconn *WaspConnector) Id() string {
-	if wconn.id == "" {
-		return "wasp_" + wconn.bconn.RemoteAddr().String()
-	}
-	return wconn.id
+func (wconn *WaspConnector) log() *logger.Logger {
+	return wconn.atomicLog.Load().(*logger.Logger)
 }
 
 func (wconn *WaspConnector) SetId(id string) {
-	wconn.id = id
-	wconn.log = wconn.log.Named(id)
-	wconn.log.Infof("wasp connection id has been set to '%s' for '%s'", id, wconn.bconn.RemoteAddr().String())
+	wconn.atomicLog.Store(wconn.log().Named(id))
+	wconn.log().Infof("wasp connection id has been set to '%s' for '%s'", id, wconn.bconn.RemoteAddr().String())
 }
 
 func (wconn *WaspConnector) attach() {
 	wconn.inTxChan = make(chan interface{})
 
 	wconn.receiveConfirmedTransactionClosure = events.NewClosure(func(tx *ledgerstate.Transaction) {
-		wconn.log.Debugf("on transaction confirmed: %s", tx.ID().String())
+		wconn.log().Debugf("on transaction confirmed: %s", tx.ID().String())
 		wconn.inTxChan <- wrapConfirmedTx(tx)
 	})
 	wconn.ledger.EventTransactionConfirmed().Attach(wconn.receiveConfirmedTransactionClosure)
 
 	wconn.receiveBookedTransactionClosure = events.NewClosure(func(tx *ledgerstate.Transaction) {
-		wconn.log.Debugf("on transaction booked: %s", tx.ID().String())
+		wconn.log().Debugf("on transaction booked: %s", tx.ID().String())
 		wconn.inTxChan <- wrapBookedTx(tx)
 	})
 	wconn.ledger.EventTransactionBooked().Attach(wconn.receiveBookedTransactionClosure)
@@ -87,13 +86,13 @@ func (wconn *WaspConnector) attach() {
 	})
 	wconn.bconn.Events.ReceiveMessage.Attach(wconn.receiveWaspMessageClosure)
 
-	wconn.log.Debugf("attached waspconn")
+	wconn.log().Debugf("attached waspconn")
 
 	// read connection thread
 	go func() {
 		if err := wconn.bconn.Read(); err != nil {
 			if err != io.EOF && !strings.Contains(err.Error(), "use of closed network connection") {
-				wconn.log.Warnw("Permanent error", "err", err)
+				wconn.log().Warnw("Permanent error", "err", err)
 			}
 		}
 		close(wconn.exitConnChan)
@@ -110,7 +109,7 @@ func (wconn *WaspConnector) attach() {
 				wconn.processBookedTransactionFromNode(tvtx)
 
 			default:
-				wconn.log.Panicf("wrong type")
+				wconn.log().Panicf("wrong type")
 			}
 		}
 	}()
@@ -124,7 +123,7 @@ func (wconn *WaspConnector) detach() {
 	wconn.messageChopper.Close()
 	close(wconn.inTxChan)
 	_ = wconn.bconn.Close()
-	wconn.log.Debugf("stopped waspconn")
+	wconn.log().Debugf("stopped waspconn")
 }
 
 func (wconn *WaspConnector) setSubscriptions(addrs []*ledgerstate.AliasAddress) (newAddrs []*ledgerstate.AliasAddress) {
@@ -135,12 +134,12 @@ func (wconn *WaspConnector) setSubscriptions(addrs []*ledgerstate.AliasAddress) 
 		}
 		subscriptions[addr.Array()] = true
 	}
-	wconn.subscriptions = subscriptions
+	wconn.subscriptions.Store(subscriptions)
 	return
 }
 
 func (wconn *WaspConnector) isSubscribed(addr *ledgerstate.AliasAddress) bool {
-	_, ok := wconn.subscriptions[addr.Array()]
+	_, ok := wconn.subscriptions.Load().(map[[ledgerstate.AddressLength]byte]bool)[addr.Array()]
 	return ok
 }
 
@@ -175,6 +174,7 @@ func (wconn *WaspConnector) txSubscribedAddresses(tx *ledgerstate.Transaction) [
 // it parses SC transaction incoming from the node. Forwards it to Wasp if subscribed
 func (wconn *WaspConnector) processConfirmedTransactionFromNode(tx *ledgerstate.Transaction) {
 	for _, addr := range wconn.txSubscribedAddresses(tx) {
+		wconn.log().Debugf("confirmed tx -> Wasp -- addr: %s txid: %s", addr.Base58(), tx.ID().String())
 		wconn.pushTransaction(tx.ID(), addr)
 	}
 }
@@ -185,14 +185,14 @@ func (wconn *WaspConnector) processBookedTransactionFromNode(tx *ledgerstate.Tra
 		return
 	}
 	txid := tx.ID()
-	wconn.log.Infof("booked tx -> Wasp. txid: %s", tx.ID().String())
+	wconn.log().Debugf("booked tx -> Wasp. txid: %s", tx.ID().String())
 	wconn.sendTxInclusionStateToWasp(txid, ledgerstate.Pending)
 }
 
 func (wconn *WaspConnector) getTxInclusionState(txid ledgerstate.TransactionID) {
 	state, err := wconn.ledger.GetTxInclusionState(txid)
 	if err != nil {
-		wconn.log.Errorf("getTxInclusionState: %v", err)
+		wconn.log().Errorf("getTxInclusionState: %v", err)
 		return
 	}
 	wconn.sendTxInclusionStateToWasp(txid, state)
@@ -213,6 +213,6 @@ func (wconn *WaspConnector) getBacklog(addr *ledgerstate.AliasAddress) {
 
 func (wconn *WaspConnector) postTransaction(tx *ledgerstate.Transaction) {
 	if err := wconn.ledger.PostTransaction(tx); err != nil {
-		wconn.log.Warnf("%v: %s", err, tx.ID().String())
+		wconn.log().Warnf("%v: %s", err, tx.ID().String())
 	}
 }

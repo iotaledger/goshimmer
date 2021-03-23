@@ -28,7 +28,7 @@ func New() *UtxoDBLedger {
 
 func (u *UtxoDBLedger) PostTransaction(tx *ledgerstate.Transaction) error {
 	err := u.AddTransaction(tx)
-	if err != nil {
+	if err == nil {
 		u.txConfirmedEvent.Trigger(tx)
 	}
 	return err

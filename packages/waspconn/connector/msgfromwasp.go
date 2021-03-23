@@ -13,14 +13,14 @@ func (wconn *WaspConnector) processMsgDataFromWasp(data []byte) {
 	var msg interface{}
 	var err error
 	if msg, err = waspconn.DecodeMsg(data, false); err != nil {
-		wconn.log.Errorf("DecodeMsg: %v", err)
+		wconn.log().Errorf("DecodeMsg: %v", err)
 		return
 	}
 	switch msg := msg.(type) {
 	case *waspconn.WaspMsgChunk:
 		finalMsg, err := wconn.messageChopper.IncomingChunk(msg.Data, tangle.MaxMessageSize, waspconn.ChunkMessageHeaderSize)
 		if err != nil {
-			wconn.log.Errorf("DecodeMsg: %v", err)
+			wconn.log().Errorf("DecodeMsg: %v", err)
 			return
 		}
 		if finalMsg != nil {

@@ -13,7 +13,7 @@ func (wconn *WaspConnector) sendMsgToWasp(msg waspconn.Message) {
 	var err error
 	defer func() {
 		if err != nil {
-			wconn.log.Errorf("sendMsgToWasp: %s", err.Error())
+			wconn.log().Errorf("sendMsgToWasp: %s", err.Error())
 		}
 	}()
 
@@ -33,7 +33,7 @@ func (wconn *WaspConnector) sendMsgToWasp(msg waspconn.Message) {
 			Data: piece,
 		})
 		if len(dataToSend) > tangle.MaxMessageSize {
-			wconn.log.Panicf("sendMsgToWasp: internal inconsistency 3 size too big: %d", len(dataToSend))
+			wconn.log().Panicf("sendMsgToWasp: internal inconsistency: size too big: %d", len(dataToSend))
 		}
 		_, err = wconn.bconn.Write(dataToSend)
 		if err != nil {
@@ -57,6 +57,6 @@ func (wconn *WaspConnector) pushTransaction(txid ledgerstate.TransactionID, chai
 		})
 	})
 	if !found {
-		wconn.log.Warnf("pushTransaction: not found %s", txid.String())
+		wconn.log().Warnf("pushTransaction: not found %s", txid.String())
 	}
 }
