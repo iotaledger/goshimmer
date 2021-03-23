@@ -215,9 +215,17 @@ func TransactionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transacti
 
 	maxReferencedUnlockIndex := len(transaction.essence.Inputs()) - 1
 	for i, unlockBlock := range transaction.unlockBlocks {
-		if unlockBlock.Type() == ReferenceUnlockBlockType {
+		switch unlockBlock.Type() {
+		case SignatureUnlockBlockType:
+			continue
+		case ReferenceUnlockBlockType:
 			if unlockBlock.(*ReferenceUnlockBlock).ReferencedIndex() > uint16(maxReferencedUnlockIndex) {
 				err = xerrors.Errorf("unlock block %d references non-existent unlock block at index %d", i, unlockBlock.(*ReferenceUnlockBlock).ReferencedIndex())
+				return
+			}
+		case AliasUnlockBlockType:
+			if unlockBlock.(*AliasUnlockBlock).ChainInputIndex() > uint16(maxReferencedUnlockIndex) {
+				err = xerrors.Errorf("unlock block %d references non-existent chain input at index %d", i, unlockBlock.(*AliasUnlockBlock).ChainInputIndex())
 				return
 			}
 		}

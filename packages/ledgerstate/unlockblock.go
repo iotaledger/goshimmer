@@ -19,6 +19,9 @@ const (
 
 	// ReferenceUnlockBlockType represents the type of a ReferenceUnlockBlock.
 	ReferenceUnlockBlockType
+
+	// AliasUnlockBlockType represents the type of a AliasUnlockBlock
+	AliasUnlockBlockType
 )
 
 // UnlockBlockType represents the type of the UnlockBlock. Different types of UnlockBlocks can unlock different types of
@@ -30,6 +33,7 @@ func (a UnlockBlockType) String() string {
 	return [...]string{
 		"SignatureUnlockBlockType",
 		"ReferenceUnlockBlockType",
+		"AliasUnlockBlockType",
 	}[a]
 }
 
@@ -82,6 +86,12 @@ func UnlockBlockFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (unlockBlo
 			err = xerrors.Errorf("failed to parse ReferenceUnlockBlock from MarshalUtil: %w", err)
 			return
 		}
+	case AliasUnlockBlockType:
+		if unlockBlock, err = AliasUnlockBlockFromMarshalUtil(marshalUtil); err != nil {
+			err = xerrors.Errorf("failed to parse AliasUnlockBlock from MarshalUtil: %w", err)
+			return
+		}
+
 	default:
 		err = xerrors.Errorf("unsupported UnlockBlockType (%X): %w", unlockBlockType, cerrors.ErrParseBytesFailed)
 		return
@@ -133,7 +143,9 @@ func UnlockBlocksFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (unlockBl
 			return
 		}
 
-		if unlockBlock.Type() != ReferenceUnlockBlockType && !seenUnlockBlocks.Add(unlockBlockBytes) {
+		if unlockBlock.Type() != ReferenceUnlockBlockType &&
+			unlockBlock.Type() != AliasUnlockBlockType &&
+			!seenUnlockBlocks.Add(unlockBlockBytes) {
 			err = xerrors.Errorf("duplicate UnlockBlock detected at index %d: %w", i, cerrors.ErrParseBytesFailed)
 			return
 		}
@@ -235,6 +247,11 @@ func (s *SignatureUnlockBlock) String() string {
 	)
 }
 
+// Signature return the signature itself
+func (s *SignatureUnlockBlock) Signature() Signature {
+	return s.signature
+}
+
 // code contract (make sure the type implements all required methods)
 var _ UnlockBlock = &SignatureUnlockBlock{}
 
@@ -314,5 +331,81 @@ func (r *ReferenceUnlockBlock) String() string {
 
 // code contract (make sure the type implements all required methods)
 var _ UnlockBlock = &ReferenceUnlockBlock{}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region AliasUnlockBlock /////////////////////////////////////////////////////////////////////////////////////////
+
+// AliasUnlockBlock defines an UnlockBlock which contains an index of corresponding ChainOutput
+type AliasUnlockBlock struct {
+	referencedIndex uint16
+}
+
+// NewAliasUnlockBlock is the constructor for AliasUnlockBlocks.
+func NewAliasUnlockBlock(chainInputIndex uint16) *AliasUnlockBlock {
+	return &AliasUnlockBlock{
+		referencedIndex: chainInputIndex,
+	}
+}
+
+// AliasUnlockBlockFromBytes unmarshals a AliasUnlockBlock from a sequence of bytes.
+func AliasUnlockBlockFromBytes(bytes []byte) (unlockBlock *AliasUnlockBlock, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(bytes)
+	if unlockBlock, err = AliasUnlockBlockFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse AliasUnlockBlock from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// AliasUnlockBlockFromMarshalUtil unmarshals a AliasUnlockBlock using a MarshalUtil (for easier unmarshaling).
+func AliasUnlockBlockFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (unlockBlock *AliasUnlockBlock, err error) {
+	unlockBlockType, err := marshalUtil.ReadByte()
+	if err != nil {
+		err = xerrors.Errorf("failed to parse UnlockBlockType (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	if UnlockBlockType(unlockBlockType) != AliasUnlockBlockType {
+		err = xerrors.Errorf("invalid UnlockBlockType (%X): %w", unlockBlockType, cerrors.ErrParseBytesFailed)
+		return
+	}
+
+	unlockBlock = &AliasUnlockBlock{}
+	if unlockBlock.referencedIndex, err = marshalUtil.ReadUint16(); err != nil {
+		err = xerrors.Errorf("failed to parse referencedIndex (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	return
+}
+
+// ChainInputIndex returns the index of the input, the ChainOutput which contains AliasAddress
+func (r *AliasUnlockBlock) ChainInputIndex() uint16 {
+	return r.referencedIndex
+}
+
+// Type returns the UnlockBlockType of the UnlockBlock.
+func (r *AliasUnlockBlock) Type() UnlockBlockType {
+	return AliasUnlockBlockType
+}
+
+// Bytes returns a marshaled version of the UnlockBlock.
+func (r *AliasUnlockBlock) Bytes() []byte {
+	return marshalutil.New(1 + marshalutil.Uint16Size).
+		WriteByte(byte(AliasUnlockBlockType)).
+		WriteUint16(r.referencedIndex).
+		Bytes()
+}
+
+// String returns a human readable version of the UnlockBlock.
+func (r *AliasUnlockBlock) String() string {
+	return stringify.Struct("AliasUnlockBlock",
+		stringify.StructField("referencedIndex", int(r.referencedIndex)),
+	)
+}
+
+// code contract (make sure the type implements all required methods)
+var _ UnlockBlock = &AliasUnlockBlock{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

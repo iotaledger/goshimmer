@@ -118,6 +118,10 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 				}
 
 				for _, output := range transaction.Essence().Outputs() {
+					if output.Type() == ledgerstate.ExtendedLockedOutputType {
+						castedOutput := output.(*ledgerstate.ExtendedLockedOutput)
+						b.tangle.LedgerState.utxoDAG.StoreAddressOutputMapping(castedOutput.FallbackAddress(), output.ID())
+					}
 					b.tangle.LedgerState.utxoDAG.StoreAddressOutputMapping(output.Address(), output.ID())
 				}
 

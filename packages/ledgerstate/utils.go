@@ -51,6 +51,13 @@ func TransactionBalancesValid(inputs Outputs, outputs Outputs) (valid bool) {
 
 // UnlockBlocksValid is an internal utility function that checks if the UnlockBlocks are matching the referenced Inputs.
 func UnlockBlocksValid(inputs Outputs, transaction *Transaction) (valid bool) {
+	unlockValid, unlockErr := UnlockBlocksValidWithError(inputs, transaction)
+
+	return unlockValid && unlockErr == nil
+}
+
+// UnlockBlocksValid is an internal utility function that checks if the UnlockBlocks are matching the referenced Inputs.
+func UnlockBlocksValidWithError(inputs Outputs, transaction *Transaction) (bool, error) {
 	unlockBlocks := transaction.UnlockBlocks()
 	for i, input := range inputs {
 		currentUnlockBlock := unlockBlocks[i]
@@ -58,13 +65,13 @@ func UnlockBlocksValid(inputs Outputs, transaction *Transaction) (valid bool) {
 			currentUnlockBlock = unlockBlocks[unlockBlocks[i].(*ReferenceUnlockBlock).ReferencedIndex()]
 		}
 
-		unlockValid, unlockErr := input.UnlockValid(transaction, currentUnlockBlock)
+		unlockValid, unlockErr := input.UnlockValid(transaction, currentUnlockBlock, inputs)
 		if !unlockValid || unlockErr != nil {
-			return false
+			return false, unlockErr
 		}
 	}
 
-	return true
+	return true, nil
 }
 
 // SafeAddUint64 adds two uint64 values. It returns the result and a valid flag that indicates whether the addition is
