@@ -307,6 +307,15 @@ func (b *BranchDAG) BranchIDsContainRejectedBranch(branchIDs BranchIDs) (rejecte
 	return
 }
 
+// InclusionState returns the InclusionState of the given Branch.
+func (b *BranchDAG) InclusionState(branchID BranchID) (inclusionState InclusionState) {
+	b.Branch(branchID).Consume(func(branch Branch) {
+		inclusionState = branch.InclusionState()
+	})
+
+	return
+}
+
 // ResolveConflictBranchIDs returns the BranchIDs of the ConflictBranches that the given Branches represent by resolving
 // AggregatedBranches to their corresponding ConflictBranches.
 func (b *BranchDAG) ResolveConflictBranchIDs(branchIDs BranchIDs) (conflictBranchIDs BranchIDs, err error) {

@@ -21,35 +21,48 @@ import (
 	"golang.org/x/xerrors"
 )
 
-const lowerWeightThreshold = float64(0)
-
-const confirmationThreshold = 0.5
+const (
+	lowerWeightThreshold        = float64(0)
+	confirmationThreshold       = 0.5
+	markerConfirmationThreshold = 0.2
+)
 
 // region ApprovalWeightManager ////////////////////////////////////////////////////////////////////////////////////////
 
 type ApprovalWeightManager struct {
-	tangle             *Tangle
-	epochsManager      *epochs.Manager
-	supportersManager  *SupporterManager
-	branchWeights      map[ledgerstate.BranchID]*BranchWeightPerEpoch
-	branchWeightsMutex sync.RWMutex
+	Events               *ApprovalWeightManagerEvents
+	tangle               *Tangle
+	epochsManager        *epochs.Manager
+	supportersManager    *SupporterManager
+	branchWeights        map[ledgerstate.BranchID]*BranchWeightPerEpoch
+	branchWeightsMutex   sync.RWMutex
+	lastConfirmedMarkers map[markers.SequenceID]markers.Index
 }
 
-func NewApprovalWeightManager() *ApprovalWeightManager {
-	return &ApprovalWeightManager{}
+func NewApprovalWeightManager(tangle *Tangle) *ApprovalWeightManager {
+	return &ApprovalWeightManager{
+		Events: &ApprovalWeightManagerEvents{
+			MessageProcessed: events.NewEvent(MessageIDCaller),
+			BranchConfirmed:  events.NewEvent(branchIDCaller),
+			MarkerConfirmed:  events.NewEvent(markerCaller),
+		},
+		tangle:               tangle,
+		supportersManager:    NewSupporterManager(tangle),
+		branchWeights:        make(map[ledgerstate.BranchID]*BranchWeightPerEpoch),
+		lastConfirmedMarkers: make(map[markers.SequenceID]markers.Index),
+	}
 }
 
 func (a *ApprovalWeightManager) Setup() {
 	a.supportersManager.Events.BranchSupportAdded.Attach(events.NewClosure(a.onBranchSupportAdded))
 	a.supportersManager.Events.BranchSupportRemoved.Attach(events.NewClosure(a.onBranchSupportRemoved))
+	a.supportersManager.Events.SequenceSupportUpdated.Attach(events.NewClosure(a.onSequenceSupportUpdated))
 }
 
 func (a *ApprovalWeightManager) ProcessMessage(messageID MessageID) {
 	a.supportersManager.ProcessMessage(messageID)
-}
 
-func (a *ApprovalWeightManager) Shutdown() {
-	// TODO: IMPLEMENT ME
+	a.Events.MessageProcessed.Trigger(messageID)
 }
 
 func (a *ApprovalWeightManager) weightsPerEpoch(branchID ledgerstate.BranchID) *BranchWeightPerEpoch {
@@ -75,6 +88,36 @@ func (a *ApprovalWeightManager) weightsPerEpoch(branchID ledgerstate.BranchID) *
 	return weightsPerEpoch
 }
 
+func (a *ApprovalWeightManager) onSequenceSupportUpdated(marker *markers.Marker, updateTime time.Time, supporter Supporter) {
+	if a.lastConfirmedMarkers[marker.SequenceID()] >= marker.Index() {
+		return
+	}
+
+	activeMana, totalMana := a.epochsManager.ActiveMana(updateTime)
+
+	for i := a.lastConfirmedMarkers[marker.SequenceID()] + 1; i <= marker.Index(); i++ {
+		currentMarker := markers.NewMarker(marker.SequenceID(), i)
+		branchID := a.tangle.Booker.MarkerBranchIDMappingManager.BranchID(currentMarker)
+		supportersOfBranch := a.supportersManager.SupportersOfBranch(branchID)
+		supportersOfMarker := a.supportersManager.SupportersOfMarker(currentMarker)
+
+		supporterMana := float64(0)
+		supportersOfBranch.ForEach(func(supporter Supporter) {
+			if supportersOfMarker.Has(supporter) {
+				supporterMana += activeMana[supporter]
+			}
+		})
+
+		if supporterMana/totalMana < markerConfirmationThreshold || a.tangle.LedgerState.BranchDAG.InclusionState(branchID) != ledgerstate.Confirmed {
+			break
+		}
+
+		a.lastConfirmedMarkers[marker.SequenceID()] = currentMarker.Index()
+
+		a.Events.MarkerConfirmed.Trigger(currentMarker)
+	}
+}
+
 func (a *ApprovalWeightManager) onBranchSupportAdded(branchID ledgerstate.BranchID, issuingTime time.Time, supporter Supporter) {
 	weightOfSupporter := a.epochsManager.RelativeNodeMana(supporter, issuingTime)
 	if weightOfSupporter <= lowerWeightThreshold {
@@ -83,8 +126,17 @@ func (a *ApprovalWeightManager) onBranchSupportAdded(branchID ledgerstate.Branch
 
 	epochID := a.epochsManager.TimeToOracleEpochID(issuingTime)
 	if a.weightsPerEpoch(branchID).AddWeight(epochID, weightOfSupporter)-a.weightOfLargestConflictingBranch(branchID, epochID) >= confirmationThreshold {
-		// DO SOMETHING
+		a.Events.BranchConfirmed.Trigger(branchID)
 	}
+}
+
+func (a *ApprovalWeightManager) onBranchSupportRemoved(branchID ledgerstate.BranchID, issuingTime time.Time, supporter Supporter) {
+	weightOfSupporter := a.epochsManager.RelativeNodeMana(supporter, issuingTime)
+	if weightOfSupporter <= lowerWeightThreshold {
+		return
+	}
+
+	a.weightsPerEpoch(branchID).RemoveWeight(a.epochsManager.TimeToOracleEpochID(issuingTime), weightOfSupporter)
 }
 
 func (a *ApprovalWeightManager) weightOfLargestConflictingBranch(branchID ledgerstate.BranchID, epochID epochs.ID) (weight float64) {
@@ -97,13 +149,22 @@ func (a *ApprovalWeightManager) weightOfLargestConflictingBranch(branchID ledger
 	return
 }
 
-func (a *ApprovalWeightManager) onBranchSupportRemoved(branchID ledgerstate.BranchID, issuingTime time.Time, supporter Supporter) {
-	weightOfSupporter := a.epochsManager.RelativeNodeMana(supporter, issuingTime)
-	if weightOfSupporter <= lowerWeightThreshold {
-		return
-	}
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-	a.weightsPerEpoch(branchID).RemoveWeight(a.epochsManager.TimeToOracleEpochID(issuingTime), weightOfSupporter)
+// region ApprovalWeightManagerEvents //////////////////////////////////////////////////////////////////////////////////
+
+type ApprovalWeightManagerEvents struct {
+	MessageProcessed *events.Event
+	BranchConfirmed  *events.Event
+	MarkerConfirmed  *events.Event
+}
+
+func branchIDCaller(handler interface{}, params ...interface{}) {
+	handler.(func(ledgerstate.BranchID))(params[0].(ledgerstate.BranchID))
+}
+
+func markerCaller(handler interface{}, params ...interface{}) {
+	handler.(func(*markers.Marker))(params[0].(*markers.Marker))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -179,6 +240,10 @@ func (s *SupporterManager) ProcessMessage(messageID MessageID) {
 		s.updateBranchSupporters(message)
 		s.updateSequenceSupporters(message)
 	})
+}
+
+func (s *SupporterManager) SupportersOfBranch(branchID ledgerstate.BranchID) (supporters *Supporters) {
+	return s.branchSupporters[branchID]
 }
 
 func (s *SupporterManager) SupportersOfMarker(marker *markers.Marker) (supporters *Supporters) {
@@ -303,6 +368,7 @@ func (s *SupporterManager) revokeSupportFromBranch(branchID ledgerstate.BranchID
 }
 
 func (s *SupporterManager) isNewStatement(lastStatement *Statement, message *Message) bool {
+	// TODO: FIX FEHL0R
 	return lastStatement.SequenceNumber < message.SequenceNumber()
 }
 
