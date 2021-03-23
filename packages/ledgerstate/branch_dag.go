@@ -270,6 +270,17 @@ func (b *BranchDAG) ChildBranches(branchID BranchID) (cachedChildBranches Cached
 	return
 }
 
+// ForEachBranch iterates over all of the branches and executes consumer.
+func (b *BranchDAG) ForEachBranch(consumer func(branch Branch)) {
+	b.branchStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		(&CachedBranch{CachedObject: cachedObject}).Consume(func(branch Branch) {
+			consumer(branch)
+		})
+
+		return true
+	})
+}
+
 // Conflict loads a Conflict from the object storage.
 func (b *BranchDAG) Conflict(conflictID ConflictID) *CachedConflict {
 	return &CachedConflict{CachedObject: b.conflictStorage.Load(conflictID.Bytes())}

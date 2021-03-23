@@ -22,6 +22,12 @@ func DiagnosticMessagesHandler(c echo.Context) (err error) {
 	return
 }
 
+// DiagnosticMessagesOnlyFirstWeakReferencesHandler runs the diagnostic over the Tangle.
+func DiagnosticMessagesOnlyFirstWeakReferencesHandler(c echo.Context) (err error) {
+	runDiagnosticMessagesOnFirstWeakReferences(c)
+	return
+}
+
 // DiagnosticMessagesRankHandler runs the diagnostic over the Tangle
 // for messages with rank >= of the given rank parameter.
 func DiagnosticMessagesRankHandler(c echo.Context) (err error) {
@@ -53,6 +59,7 @@ func runDiagnosticMessages(c echo.Context, rank ...uint64) {
 
 	messagelayer.Tangle().Utils.WalkMessageID(func(messageID tangle.MessageID, walker *walker.Walker) {
 		messageInfo := getDiagnosticMessageInfo(messageID)
+
 		if messageInfo.Rank >= startRank {
 			_, err = fmt.Fprintln(c.Response(), messageInfo.toCSV())
 			if err != nil {
@@ -63,6 +70,52 @@ func runDiagnosticMessages(c echo.Context, rank ...uint64) {
 
 		messagelayer.Tangle().Storage.Approvers(messageID).Consume(func(approver *tangle.Approver) {
 			walker.Push(approver.ApproverMessageID())
+		})
+	}, tangle.MessageIDs{tangle.EmptyMessageID})
+
+	c.Response().Flush()
+	return
+}
+
+func runDiagnosticMessagesOnFirstWeakReferences(c echo.Context) {
+	// write Header and table description
+	c.Response().Header().Set(echo.HeaderContentType, "text/csv")
+	c.Response().WriteHeader(http.StatusOK)
+
+	_, err := fmt.Fprintln(c.Response(), strings.Join(DiagnosticMessagesTableDescription, ","))
+	if err != nil {
+		panic(err)
+	}
+
+	messagelayer.Tangle().Utils.WalkMessageID(func(messageID tangle.MessageID, walker *walker.Walker) {
+		messageInfo := getDiagnosticMessageInfo(messageID)
+
+		if len(messageInfo.WeakApprovers) > 0 {
+			_, err = fmt.Fprintln(c.Response(), messageInfo.toCSV())
+			if err != nil {
+				panic(err)
+			}
+			c.Response().Flush()
+
+			messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
+				message.ForEachParent(func(parent tangle.Parent) {
+					messageInfo = getDiagnosticMessageInfo(parent.ID)
+					_, err = fmt.Fprintln(c.Response(), messageInfo.toCSV())
+					if err != nil {
+						panic(err)
+					}
+					c.Response().Flush()
+				})
+			})
+
+			walker.StopWalk()
+			return
+		}
+
+		messagelayer.Tangle().Storage.Approvers(messageID).Consume(func(approver *tangle.Approver) {
+			if approver.Type() == tangle.StrongApprover {
+				walker.Push(approver.ApproverMessageID())
+			}
 		})
 	}, tangle.MessageIDs{tangle.EmptyMessageID})
 
@@ -98,6 +151,8 @@ var DiagnosticMessagesTableDescription = []string{
 	"FutureMarkers",
 	"FMHI",
 	"FMLI",
+	"PayloadType",
+	"TransactionID",
 }
 
 // DiagnosticMessagesInfo holds the information of a message.
@@ -128,6 +183,8 @@ type DiagnosticMessagesInfo struct {
 	FutureMarkers     string // FutureMarkers
 	FMHI              uint64 // FutureMarkers Highest Index
 	FMLI              uint64 // FutureMarkers Lowest Index
+	PayloadType       string
+	TransactionID     string
 }
 
 func getDiagnosticMessageInfo(messageID tangle.MessageID) DiagnosticMessagesInfo {
@@ -140,6 +197,10 @@ func getDiagnosticMessageInfo(messageID tangle.MessageID) DiagnosticMessagesInfo
 		msgInfo.IssuerID = identity.NewID(message.IssuerPublicKey()).String()
 		msgInfo.StrongParents = message.StrongParents()
 		msgInfo.WeakParents = message.WeakParents()
+		msgInfo.PayloadType = message.Payload().Type().String()
+		if message.Payload().Type() == ledgerstate.TransactionType {
+			msgInfo.TransactionID = message.Payload().(*ledgerstate.Transaction).ID().Base58()
+		}
 	})
 
 	branchID := ledgerstate.BranchID{}
@@ -202,6 +263,8 @@ func (d DiagnosticMessagesInfo) toCSV() (result string) {
 		d.FutureMarkers,
 		fmt.Sprint(d.FMHI),
 		fmt.Sprint(d.FMLI),
+		d.PayloadType,
+		d.TransactionID,
 	}
 
 	result = strings.Join(row, ",")

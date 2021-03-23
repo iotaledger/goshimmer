@@ -125,6 +125,18 @@ func (t TransactionIDs) Clone() (transactionIDs TransactionIDs) {
 	return
 }
 
+// Strings returns a slice of string rapresentation of the TransactionIDs.
+func (t TransactionIDs) Strings() (transactionIDs []string) {
+	transactionIDs = make([]string, len(t))
+	i := 0
+	for transactionID := range t {
+		transactionIDs[i] = transactionID.Base58()
+		i++
+	}
+
+	return
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Transaction //////////////////////////////////////////////////////////////////////////////////////////////////

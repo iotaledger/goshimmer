@@ -37,6 +37,10 @@ func configure(_ *node.Plugin) {
 	webapi.Server().GET("tools/message/orphanage", message.OrphanageHandler)
 
 	webapi.Server().GET("tools/diagnostic/messages", message.DiagnosticMessagesHandler)
+	webapi.Server().GET("tools/diagnostic/messages/firstweakreferences", message.DiagnosticMessagesOnlyFirstWeakReferencesHandler)
 	webapi.Server().GET("tools/diagnostic/messages/rank/:rank", message.DiagnosticMessagesRankHandler)
 	webapi.Server().GET("tools/diagnostic/utxodag", message.DiagnosticUTXODAGHandler)
+	webapi.Server().GET("tools/diagnostic/branches", message.DiagnosticBranchesHandler)
+	webapi.Server().GET("tools/diagnostic/branches/lazybooked", message.DiagnosticLazyBookedBranchesHandler)
+	webapi.Server().GET("tools/diagnostic/branches/invalid", message.DiagnosticInvalidBranchesHandler)
 }
