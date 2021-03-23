@@ -13,7 +13,7 @@ In order to create an object storage we need to provide underlying `kvstore.KVSt
 ## Database
 GoShimmer stores data in a form of an object storage system. The data is stored in one large repository with flat structure. It is a scalable solution that allows for fast data retrieval because of its categorization structure.
 
-Additionally GoShimmer leaves the possibility to store data only it in-memory, that can be specified with parameter `CfgDatabaseInMemory` value. In-memory storage is purely based on Go map, package `mapdb` from hive.go.
+Additionally, GoShimmer leaves the possibility to store data only in memory that can be specified with the parameter `CfgDatabaseInMemory` value. In-memory storage is purely based on Go map, package `mapdb` from hive.go.
 For the persistent storage in a database it uses package `badger` from hive.go. It is a simple and fast key-value database that performs well for both reads and writes simultaneously.
 
 Both solutions are implemented in `database` package, along prefixes definitions that can be used during creation of new object storage elements.
