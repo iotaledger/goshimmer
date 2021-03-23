@@ -48,7 +48,6 @@ func runDiagnosticUTXODAG(c echo.Context) {
 	}, tangle.MessageIDs{tangle.EmptyMessageID})
 
 	c.Response().Flush()
-	return
 }
 
 // DiagnosticUTXODAGTableDescription holds the description of the diagnostic UTXODAG.
