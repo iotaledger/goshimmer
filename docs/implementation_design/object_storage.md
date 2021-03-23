@@ -84,4 +84,4 @@ func FromObjectStorage(key []byte, data []byte) (result StorableObject, err erro
 
 `ObjectFromBytes` unmarshals the object sequence of bytes with help of `marshalutil` library.
 
-The key logic needs to be implemented in `ObjectFromMarshalUtil` that takes the marshalled object and returns object with appropriate object type.
+The key logic needs to be implemented in `ObjectFromMarshalUtil` that takes the marshaled object and returns an object with an appropriate object type.
