@@ -15,5 +15,6 @@ jobs:
                 with:
                     # Optional: version of golangci-lint to use in form of v1.2 or v1.2.3 or `latest` to use the latest version
                     github-token: ${{ secrets.github_token }}
+                    skip-pkg-cache: true
                     version: v1.38.0
                     args: "--timeout=10m"
