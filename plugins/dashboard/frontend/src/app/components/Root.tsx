@@ -20,6 +20,7 @@ import {Drng} from "app/components/Drng";
 import {Mana} from "app/components/Mana";
 import {ExplorerTransactionQueryResult} from "app/components/ExplorerTransactionQueryResult";
 import {ExplorerOutputQueryResult} from "app/components/ExplorerOutputQueryResult";
+import {ExplorerBranchQueryResult} from "app/components/ExplorerBranchQueryResult";
 
 interface Props {
     history: any;
@@ -96,6 +97,7 @@ export class Root extends React.Component<Props, any> {
                     <Route exact path="/explorer/address/:id" component={ExplorerAddressQueryResult}/>
                     <Route exact path="/explorer/transaction/:id" component={ExplorerTransactionQueryResult}/>
                     <Route exact path="/explorer/output/:id" component={ExplorerOutputQueryResult}/>
+                    <Route exact path="/explorer/branch/:id" component={ExplorerBranchQueryResult}/>
                     <Route exact path="/explorer/404/:search" component={Explorer404}/>
                     <Route exact path="/drng" component={Drng}/>
                     <Route exact path="/explorer" component={Explorer}/>

@@ -142,6 +142,15 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/mana/pending", func(c echo.Context) error {
 		return manaAPI.GetPendingMana(c)
 	})
+	routeGroup.GET("/branch/:branchID", func(c echo.Context) error {
+		return ledgerstateAPI.GetBranch(c)
+	})
+	routeGroup.GET("/branch/:branchID/children", func(c echo.Context) error {
+		return ledgerstateAPI.GetBranchChildren(c)
+	})
+	routeGroup.GET("/branch/:branchID/conflicts", func(c echo.Context) error {
+		return ledgerstateAPI.GetBranchConflicts(c)
+	})
 
 	routeGroup.GET("/search/:search", func(c echo.Context) error {
 		search := c.Param("search")

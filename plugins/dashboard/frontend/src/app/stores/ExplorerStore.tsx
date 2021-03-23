@@ -61,6 +61,37 @@ class PendingMana {
     timestamp: number;
 }
 
+class Branch {
+    id: string;
+    type: string;
+    parents: Array<string>;
+    conflictIDs: Array<string>;
+    liked: boolean;
+    monotonicallyLiked: boolean;
+    finalized: boolean;
+    inclusionState: string;
+}
+
+class BranchChildren {
+    branchID: string;
+    childBranches: Array<BranchChild>
+}
+
+class BranchChild {
+    branchID: string;
+    type: string;
+}
+
+class BranchConflict {
+    outputID: string;
+    branchIDs: Array<string>;
+}
+
+class BranchConflicts {
+    branchID: string;
+    conflicts: Array<BranchConflict>
+}
+
 class Balance {
     value: number;
     color: string;
@@ -102,6 +133,9 @@ export class ExplorerStore {
     @observable txAttachments: any = [];
     @observable output: any = null;
     @observable pendingMana: PendingMana = null;
+    @observable branch: Branch = null;
+    @observable branchChildren: BranchChildren = null;
+    @observable branchConflicts: BranchConflicts = null;
 
     // loading
     @observable query_loading: boolean = false;
@@ -277,6 +311,46 @@ export class ExplorerStore {
         }
     }
 
+    getBranch = async (id: string) => {
+        try {
+            let res = await fetch(`/api/branch/${id}`)
+            if (res.status === 404) {
+                this.updateQueryError(QueryError.NotFound);
+                return;
+            }
+            let branch: Branch = await res.json()
+            this.updateBranch(branch)
+        } catch (err) {
+            this.updateQueryError(err);
+        }
+    }
+
+    getBranchChildren = async (id: string) => {
+        try {
+            let res = await fetch(`/api/branch/${id}/children`)
+            if (res.status === 404) {
+                return;
+            }
+            let children: BranchChildren = await res.json()
+            this.updateBranchChildren(children)
+        } catch (err) {
+            // ignore
+        }
+    }
+
+    getBranchConflicts = async (id: string) => {
+        try {
+            let res = await fetch(`/api/branch/${id}/conflicts`)
+            if (res.status === 404) {
+                return;
+            }
+            let conflicts: BranchConflicts = await res.json()
+            this.updateBranchConflicts(conflicts)
+        } catch (err) {
+            // ignore
+        }
+    }
+
     @action
     reset = () => {
         this.msg = null;
@@ -313,6 +387,21 @@ export class ExplorerStore {
     @action
     updatePendingMana = (pendingMana: PendingMana) => {
         this.pendingMana = pendingMana;
+    }
+
+    @action
+    updateBranch = (branch: Branch) => {
+        this.branch = branch;
+    }
+
+    @action
+    updateBranchChildren = (children: BranchChildren) => {
+        this.branchChildren = children;
+    }
+
+    @action
+    updateBranchConflicts = (conflicts: BranchConflicts) => {
+        this.branchConflicts = conflicts;
     }
 
     @action
