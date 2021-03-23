@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -177,6 +178,8 @@ type MessageMetadata struct {
 	messageOpinionFormedMutex    sync.RWMutex
 	messageOpinionTriggered      bool
 	messageOpinionTriggeredMutex sync.RWMutex
+	opinionFormedTime            time.Time
+	opinionFormedTimeMutex       sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
@@ -214,6 +217,10 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (messa
 	}
 	if messageMetadata.messageOpinionTriggered, err = marshalUtil.ReadBool(); err != nil {
 		err = xerrors.Errorf("failed to parse messageOpinionTriggered flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	if messageMetadata.opinionFormedTime, err = marshalUtil.ReadTime(); err != nil {
+		err = xerrors.Errorf("failed to parse opinionFormedTime (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -296,6 +303,14 @@ func (m *MessageMetadata) SetTimestampOpinionFormed(timestampOpinionFormed bool)
 	return
 }
 
+// OpinionFormedTime returns the opinionFormed time of the MessageMetadata.
+func (m *MessageMetadata) OpinionFormedTime() time.Time {
+	m.opinionFormedTimeMutex.RLock()
+	defer m.opinionFormedTimeMutex.RUnlock()
+
+	return m.opinionFormedTime
+}
+
 // MessageOpinionFormed returns the messageOpinionFormed flag of the MessageMetadata.
 func (m *MessageMetadata) MessageOpinionFormed() bool {
 	m.messageOpinionFormedMutex.RLock()
@@ -315,6 +330,7 @@ func (m *MessageMetadata) SetMessageOpinionFormed(messageOpinionFormed bool) (mo
 	}
 
 	m.messageOpinionFormed = messageOpinionFormed
+	m.opinionFormedTime = clock.SyncedTime()
 	modified = true
 
 	m.SetModified()
@@ -363,6 +379,7 @@ func (m *MessageMetadata) String() string {
 		stringify.StructField("timestampOpinionFormed", m.TimestampOpinionFormed()),
 		stringify.StructField("messageOpinionFormed", m.MessageOpinionFormed()),
 		stringify.StructField("messageOpinionTriggered", m.MessageOpinionTriggered()),
+		stringify.StructField("opinionFormedTime", m.OpinionFormedTime()),
 	)
 }
 
@@ -385,6 +402,7 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 		WriteBool(m.TimestampOpinionFormed()).
 		WriteBool(m.MessageOpinionFormed()).
 		WriteBool(m.MessageOpinionTriggered()).
+		WriteTime(m.OpinionFormedTime()).
 		Bytes()
 }
 

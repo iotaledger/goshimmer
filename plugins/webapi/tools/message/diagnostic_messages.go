@@ -56,6 +56,9 @@ var DiagnosticMessagesTableDescription = []string{
 	"IssuanceTime",
 	"ArrivalTime",
 	"SolidTime",
+	"ScheduledTime",
+	"BookedTime",
+	"OpinionFormedTime",
 	"StrongParents",
 	"WeakParents",
 	"StrongApprovers",
@@ -83,6 +86,9 @@ type DiagnosticMessagesInfo struct {
 	IssuanceTimestamp time.Time
 	ArrivalTime       time.Time
 	SolidTime         time.Time
+	ScheduledTime     time.Time
+	BookedTime        time.Time
+	OpinionFormedTime time.Time
 	StrongParents     tangle.MessageIDs
 	WeakParents       tangle.MessageIDs
 	StrongApprovers   tangle.MessageIDs
@@ -121,6 +127,9 @@ func getDiagnosticMessageInfo(messageID tangle.MessageID) DiagnosticMessagesInfo
 		msgInfo.SolidTime = metadata.SolidificationTime()
 		msgInfo.BranchID = metadata.BranchID().String()
 		msgInfo.Scheduled = metadata.Scheduled()
+		msgInfo.ScheduledTime = metadata.ScheduledTime()
+		msgInfo.BookedTime = metadata.BookedTime()
+		msgInfo.OpinionFormedTime = messagelayer.ConsensusMechanism().OpinionFormedTime(messageID)
 		msgInfo.Booked = metadata.IsBooked()
 		msgInfo.Eligible = metadata.IsEligible()
 		msgInfo.Invalid = metadata.IsInvalid()
@@ -151,6 +160,9 @@ func (d DiagnosticMessagesInfo) toCSV() (result string) {
 		fmt.Sprint(d.IssuanceTimestamp.UnixNano()),
 		fmt.Sprint(d.ArrivalTime.UnixNano()),
 		fmt.Sprint(d.SolidTime.UnixNano()),
+		fmt.Sprint(d.ScheduledTime.UnixNano()),
+		fmt.Sprint(d.BookedTime.UnixNano()),
+		fmt.Sprint(d.OpinionFormedTime.UnixNano()),
 		strings.Join(d.StrongParents.ToStrings(), ";"),
 		strings.Join(d.WeakParents.ToStrings(), ";"),
 		strings.Join(d.StrongApprovers.ToStrings(), ";"),
