@@ -51,6 +51,7 @@ type TransactionConfig struct {
 // SendDataMessagesOnRandomPeer sends data messages on a random peer and saves the sent message to a map.
 func SendDataMessagesOnRandomPeer(t *testing.T, peers []*framework.Peer, numMessages int, idsMap ...map[string]DataMessageSent) map[string]DataMessageSent {
 	var ids map[string]DataMessageSent
+
 	if len(idsMap) > 0 {
 		ids = idsMap[0]
 	} else {
