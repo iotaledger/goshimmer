@@ -5,12 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/vote"
-	"github.com/iotaledger/goshimmer/packages/vote/opinion"
-	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/hive.go/protocol/message"
 	"github.com/iotaledger/hive.go/protocol/tlv"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/goshimmer/packages/vote"
+	"github.com/iotaledger/goshimmer/packages/vote/opinion"
+	"github.com/iotaledger/goshimmer/plugins/banner"
 )
 
 var ownID = sha256.Sum256([]byte{'A'})
@@ -27,7 +28,8 @@ func dummyFPCHeartbeat() *FPCHeartbeat {
 					Liked:    1.,
 					Rounds:   3,
 					Opinions: []opinion.Opinion{opinion.Dislike, opinion.Like, opinion.Dislike},
-				}},
+				},
+			},
 			QueriedOpinions: []opinion.QueriedOpinions{{
 				OpinionGiverID: "nodeA",
 				Opinions:       map[string]opinion.Opinion{"one": opinion.Like, "two": opinion.Dislike},

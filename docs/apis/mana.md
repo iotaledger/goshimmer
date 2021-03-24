@@ -811,3 +811,6 @@ for _, id := range res.Consensus.Allowed {
 |:-----|:------|:------|
 | `isFilterEnabled`  | bool | A flag shows that if mana pledge filter is enabled.   |
 | `allowed`   | []string | A list of node ID that allow to be pledged mana.     |
+
+
+

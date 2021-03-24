@@ -4,9 +4,10 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/iotaledger/goshimmer/packages/mana"
-	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
 	"github.com/labstack/echo"
+
+	"github.com/iotaledger/goshimmer/packages/mana"
+	manaPlugin "github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 // getNHighestAccessHandler handles a /mana/access/nhighest request.

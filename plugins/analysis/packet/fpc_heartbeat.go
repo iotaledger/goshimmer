@@ -6,11 +6,12 @@ import (
 	"encoding/gob"
 	"errors"
 
+	"github.com/iotaledger/hive.go/protocol/message"
+	"github.com/iotaledger/hive.go/protocol/tlv"
+
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/goshimmer/plugins/banner"
-	"github.com/iotaledger/hive.go/protocol/message"
-	"github.com/iotaledger/hive.go/protocol/tlv"
 )
 
 var (

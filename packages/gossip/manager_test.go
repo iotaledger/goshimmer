@@ -6,9 +6,6 @@ import (
 	"testing"
 	"time"
 
-	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
-	"github.com/iotaledger/goshimmer/packages/gossip/server"
-	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/events"
@@ -18,6 +15,10 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+
+	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
+	"github.com/iotaledger/goshimmer/packages/gossip/server"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
 const graceTime = 10 * time.Millisecond

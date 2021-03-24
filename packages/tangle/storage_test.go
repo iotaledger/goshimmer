@@ -4,8 +4,9 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 func TestStorage_StoreAttachment(t *testing.T) {
@@ -49,5 +50,4 @@ func TestStorage_Attachments(t *testing.T) {
 			cachedAttachment.Release()
 		}
 	}
-
 }

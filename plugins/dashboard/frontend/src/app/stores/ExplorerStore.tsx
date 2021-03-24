@@ -44,11 +44,78 @@ class AddressResult {
 
 class Output {
     id: string;
+    transaction_id: string;
+    type: string;
+    index: number;
     balances: Array<Balance>;
     inclusion_state: InclusionState;
     consumer_count: number;
     solidification_time: number;
     pending_mana: number;
+}
+
+class OutputID {
+    base58:  string;
+    transactionID: string;
+    outputIndex: number;
+}
+
+class OutputMetadata {
+    outputID: OutputID;
+    branchID: string;
+    solid: boolean;
+    solidificationTime: number;
+    consumerCount: number;
+    firstConsumer: string; //tx id
+    finalized: boolean;
+}
+
+class OutputConsumer {
+    transactionID: string;
+    valid: string;
+}
+
+class OutputConsumers {
+    outputID: OutputID;
+    consumers: Array<OutputConsumer>
+}
+
+class PendingMana {
+    mana: number;
+    outputID: string;
+    error: string;
+    timestamp: number;
+}
+
+class Branch {
+    id: string;
+    type: string;
+    parents: Array<string>;
+    conflictIDs: Array<string>;
+    liked: boolean;
+    monotonicallyLiked: boolean;
+    finalized: boolean;
+    inclusionState: string;
+}
+
+class BranchChildren {
+    branchID: string;
+    childBranches: Array<BranchChild>
+}
+
+class BranchChild {
+    branchID: string;
+    type: string;
+}
+
+class BranchConflict {
+    outputID: OutputID;
+    branchIDs: Array<string>;
+}
+
+class BranchConflicts {
+    branchID: string;
+    conflicts: Array<BranchConflict>
 }
 
 class Balance {
@@ -77,7 +144,8 @@ class MessageRef {
 const liveFeedSize = 50;
 
 enum QueryError {
-    NotFound = 1
+    NotFound = 1,
+    BadRequest = 2
 }
 
 export class ExplorerStore {
@@ -87,6 +155,16 @@ export class ExplorerStore {
     // queries
     @observable msg: Message = null;
     @observable addr: AddressResult = null;
+    @observable tx: any = null;
+    @observable txMetadata: any = null;
+    @observable txAttachments: any = [];
+    @observable output: any = null;
+    @observable outputMetadata: OutputMetadata = null;
+    @observable outputConsumers: OutputConsumers = null;
+    @observable pendingMana: PendingMana = null;
+    @observable branch: Branch = null;
+    @observable branchChildren: BranchChildren = null;
+    @observable branchConflicts: BranchConflicts = null;
 
     // loading
     @observable query_loading: boolean = false;
@@ -178,10 +256,188 @@ export class ExplorerStore {
         }
     };
 
+    getTransaction = async (id: string) => {
+        try {
+            let res = await fetch(`/api/transaction/${id}`)
+            if (res.status === 404) {
+                this.updateQueryError(QueryError.NotFound);
+                return;
+            }
+            let tx = await res.json()
+            for(let i = 0; i < tx.inputs.length; i++) {
+                let inputID = tx.inputs[i].referencedOutputID ? tx.inputs[i].referencedOutputID.base58 : GenesisMessageID
+                try{
+                    let referencedOutputRes = await fetch(`/api/output/${inputID}`)
+                    if (referencedOutputRes.status === 200){
+                        tx.inputs[i].referencedOutput = await referencedOutputRes.json()
+                    }
+                }catch(err){
+                    // ignore
+                }
+            }
+            this.updateTransaction(tx)
+        } catch (err) {
+            this.updateQueryError(err);
+        }
+    }
+
+    getTransactionAttachments = async (id: string) => {
+        try {
+            let res = await fetch(`/api/transaction/${id}/attachments`)
+            if (res.status === 404) {
+                this.updateQueryError(QueryError.NotFound);
+                return;
+            }
+            let attachments = await res.json()
+            this.updateTransactionAttachments(attachments)
+        } catch (err) {
+            this.updateQueryError(err);
+        }
+    }
+
+    getTransactionMetadata = async (id: string) => {
+        try {
+            let res = await fetch(`/api/transaction/${id}/metadata`)
+            if (res.status === 404) {
+                this.updateQueryError(QueryError.NotFound);
+                return;
+            }
+            let metadata = await res.json()
+            this.updateTransactionMetadata(metadata)
+        } catch (err) {
+            this.updateQueryError(err);
+        }
+    }
+
+    getOutput = async (id: string) => {
+        try {
+            let res = await fetch(`/api/output/${id}`)
+            if (res.status === 404) {
+                this.updateQueryError(QueryError.NotFound);
+                return;
+            }
+            if (res.status === 400) {
+                this.updateQueryError(QueryError.BadRequest);
+                return;
+            }
+            let output: any = await res.json()
+            if (output.error) {
+                this.updateQueryError(output.error)
+                return
+            }
+            this.updateOutput(output)
+        } catch (err) {
+            this.updateQueryError(err);
+        }
+    }
+
+    getOutputMetadata = async (id: string) => {
+        try {
+            let res = await fetch(`/api/output/${id}/metadata`)
+            if (res.status === 404) {
+                return;
+            }
+            if (res.status === 400) {
+                return;
+            }
+            let metadata: OutputMetadata = await res.json()
+            this.updateOutputMetadata(metadata)
+        } catch (err) {
+            //ignore
+        }
+    }
+
+    getOutputConsumers = async (id: string) => {
+        try {
+            let res = await fetch(`/api/output/${id}/consumers`)
+            if (res.status === 404) {
+                return;
+            }
+            if (res.status === 400) {
+                return;
+            }
+            let consumers: OutputConsumers = await res.json()
+            this.updateOutputConsumers(consumers)
+        } catch (err) {
+            //ignore
+        }
+    }
+
+    getPendingMana = async (outputID: string) => {
+        try {
+            let res = await fetch(`/api/mana/pending?OutputID=${outputID}`)
+            if (res.status === 404) {
+                return;
+            }
+            if (res.status === 400) {
+                return;
+            }
+            let pendingMana: PendingMana = await res.json()
+            this.updatePendingMana(pendingMana)
+        } catch (err) {
+            // ignore
+        }
+    }
+
+    getBranch = async (id: string) => {
+        try {
+            let res = await fetch(`/api/branch/${id}`)
+            if (res.status === 404) {
+                this.updateQueryError(QueryError.NotFound);
+                return;
+            }
+            if (res.status === 400) {
+                this.updateQueryError(QueryError.BadRequest);
+                return;
+            }
+            let branch: Branch = await res.json()
+            this.updateBranch(branch)
+        } catch (err) {
+            this.updateQueryError(err);
+        }
+    }
+
+    getBranchChildren = async (id: string) => {
+        try {
+            let res = await fetch(`/api/branch/${id}/children`)
+            if (res.status === 404) {
+                return;
+            }
+            let children: BranchChildren = await res.json()
+            this.updateBranchChildren(children)
+        } catch (err) {
+            // ignore
+        }
+    }
+
+    getBranchConflicts = async (id: string) => {
+        try {
+            let res = await fetch(`/api/branch/${id}/conflicts`)
+            if (res.status === 404) {
+                return;
+            }
+            let conflicts: BranchConflicts = await res.json()
+            this.updateBranchConflicts(conflicts)
+        } catch (err) {
+            // ignore
+        }
+    }
+
     @action
     reset = () => {
         this.msg = null;
         this.query_err = null;
+        // reset all variables
+        this.tx = null;
+        this.txMetadata = null;
+        this.txAttachments = [];
+        this.output = null;
+        this.outputMetadata = null;
+        this.outputConsumers = null;
+        this.pendingMana = null;
+        this.branch = null;
+        this.branchChildren = null;
+        this.branchConflicts = null;
     };
 
     @action
@@ -190,6 +446,56 @@ export class ExplorerStore {
         this.query_err = null;
         this.query_loading = false;
     };
+
+    @action
+    updateTransaction = (tx: any) => {
+        this.tx = tx;
+    }
+
+    @action
+    updateTransactionAttachments = (attachments: any) => {
+        this.txAttachments = attachments;
+    }
+
+    @action
+    updateTransactionMetadata = (metadata: any) => {
+        this.txMetadata = metadata;
+    }
+
+    @action
+    updateOutput = (output: any) => {
+        this.output = output;
+    }
+
+    @action
+    updateOutputMetadata = (metadata: OutputMetadata) => {
+        this.outputMetadata = metadata;
+    }
+
+    @action
+    updateOutputConsumers = (consumers: OutputConsumers) => {
+        this.outputConsumers = consumers;
+    }
+
+    @action
+    updatePendingMana = (pendingMana: PendingMana) => {
+        this.pendingMana = pendingMana;
+    }
+
+    @action
+    updateBranch = (branch: Branch) => {
+        this.branch = branch;
+    }
+
+    @action
+    updateBranchChildren = (children: BranchChildren) => {
+        this.branchChildren = children;
+    }
+
+    @action
+    updateBranchConflicts = (conflicts: BranchConflicts) => {
+        this.branchConflicts = conflicts;
+    }
 
     @action
     updateMessage = (msg: Message) => {

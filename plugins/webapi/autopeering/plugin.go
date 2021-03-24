@@ -6,12 +6,13 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/plugins/autopeering"
-	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
+
+	"github.com/iotaledger/goshimmer/plugins/autopeering"
+	"github.com/iotaledger/goshimmer/plugins/webapi"
 )
 
 // PluginName is the name of the web API autopeering endpoint plugin.
@@ -37,7 +38,6 @@ func Plugin() *node.Plugin {
 
 // getNeighbors returns the chosen and accepted neighbors of the node
 func getNeighbors(c echo.Context) error {
-
 	var chosen []Neighbor
 	var accepted []Neighbor
 	var knownPeers []Neighbor

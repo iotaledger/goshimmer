@@ -3,10 +3,11 @@ package mana
 import (
 	"net/http"
 
-	"github.com/iotaledger/goshimmer/packages/mana"
-	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58"
+
+	"github.com/iotaledger/goshimmer/packages/mana"
+	manaPlugin "github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 func getOnlineAccessHandler(c echo.Context) error {

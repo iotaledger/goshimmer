@@ -3,10 +3,20 @@ package messagelayer
 import (
 	"context"
 	"fmt"
+	"github.com/iotaledger/goshimmer/packages/mana"
 	"net"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/autopeering/peer/service"
+	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/node"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -24,14 +34,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/clock"
 	clockPkg "github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
-	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/autopeering/peer/service"
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/node"
-	"google.golang.org/grpc"
-	"google.golang.org/protobuf/proto"
 )
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -131,7 +133,6 @@ func configureFPC(plugin *node.Plugin) {
 			plugin.LogWarnf("FPC failed for transaction with id '%s' - last opinion: '%s'", ev.ID, ev.Opinion)
 		}
 	}))
-
 }
 
 func runFPC(plugin *node.Plugin) {
@@ -218,6 +219,7 @@ type OpinionGiver struct {
 	id   identity.ID
 	view *statement.View
 	pog  *PeerOpinionGiver
+	mana float64
 }
 
 // OpinionGivers is a map of OpinionGiver.
@@ -245,15 +247,32 @@ func (o *OpinionGiver) ID() identity.ID {
 	return o.id
 }
 
+// Mana returns consensus mana value for an opinion giver
+func (o *OpinionGiver) Mana() float64 {
+	return o.mana
+}
+
 // OpinionGiverFunc returns a slice of opinion givers.
 func OpinionGiverFunc() (givers []opinion.OpinionGiver, err error) {
 	opinionGiversMap := make(map[identity.ID]*OpinionGiver)
 	opinionGivers := make([]opinion.OpinionGiver, 0)
 
+	consensusManaNodes, _, err := GetManaMap(mana.ConsensusMana)
+
 	for _, v := range Registry().NodesView() {
+		// double check to exclude self
+		if v.ID() == local.GetInstance().ID() {
+			continue
+		}
+		manaValue := 0.0
+
+		if v, ok := consensusManaNodes[v.ID()]; ok {
+			manaValue = v
+		}
 		opinionGiversMap[v.ID()] = &OpinionGiver{
 			id:   v.ID(),
 			view: v,
+			mana: manaValue,
 		}
 	}
 
@@ -263,9 +282,18 @@ func OpinionGiverFunc() (givers []opinion.OpinionGiver, err error) {
 			continue
 		}
 		if _, ok := opinionGiversMap[p.ID()]; !ok {
+			// double check to exclude self
+			if p.ID() == local.GetInstance().ID() {
+				continue
+			}
+			manaValue := 0.0
+			if v, ok := consensusManaNodes[p.ID()]; ok {
+				manaValue = v
+			}
 			opinionGiversMap[p.ID()] = &OpinionGiver{
 				id:   p.ID(),
 				view: nil,
+				mana: manaValue,
 			}
 		}
 		opinionGiversMap[p.ID()].pog = &PeerOpinionGiver{p: p}
@@ -446,7 +474,9 @@ func makeStatement(roundStats *vote.RoundStats) {
 				ID: messageID,
 				Opinion: statement.Opinion{
 					Value: v.LastOpinion(),
-					Round: uint8(v.Rounds)}},
+					Round: uint8(v.Rounds),
+				},
+			},
 			)
 		case vote.ConflictType:
 			messageID, err := ledgerstate.TransactionIDFromBase58(id)
@@ -458,7 +488,9 @@ func makeStatement(roundStats *vote.RoundStats) {
 				ID: messageID,
 				Opinion: statement.Opinion{
 					Value: v.LastOpinion(),
-					Round: uint8(v.Rounds)}},
+					Round: uint8(v.Rounds),
+				},
+			},
 			)
 		default:
 		}
@@ -470,7 +502,6 @@ func makeStatement(roundStats *vote.RoundStats) {
 // broadcastStatement broadcasts a statement via communication layer.
 func broadcastStatement(conflicts statement.Conflicts, timestamps statement.Timestamps) {
 	msg, err := Tangle().IssuePayload(statement.New(conflicts, timestamps))
-
 	if err != nil {
 		plugin.LogWarnf("error issuing statement: %s", err)
 		return

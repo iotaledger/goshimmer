@@ -3,13 +3,14 @@ package spammer
 import (
 	"sync"
 
+	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/node"
+
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/spammer"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/node"
 )
 
 var messageSpammer *spammer.Spammer

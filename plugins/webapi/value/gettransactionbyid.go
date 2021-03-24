@@ -3,9 +3,10 @@ package value
 import (
 	"net/http"
 
+	"github.com/labstack/echo"
+
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/labstack/echo"
 )
 
 // getTransactionByIDHandler gets the transaction by id.
@@ -33,7 +34,7 @@ func getTransactionByIDHandler(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusOK, GetTransactionByIDResponse{Error: err.Error()})
 	}
-	cachedBranch := messagelayer.Tangle().LedgerState.Branch(txMetadata.BranchID())
+	cachedBranch := messagelayer.Tangle().LedgerState.BranchDAG.Branch(txMetadata.BranchID())
 	defer cachedBranch.Release()
 	if !cachedTxnObj.Exists() {
 		return c.JSON(http.StatusNotFound, GetTransactionByIDResponse{Error: "Branch not found"})

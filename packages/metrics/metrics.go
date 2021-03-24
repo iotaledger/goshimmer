@@ -11,7 +11,7 @@ var (
 	metricEvents *CollectionEvents
 )
 
-func new() *CollectionEvents {
+func newEvents() *CollectionEvents {
 	return &CollectionEvents{
 		AnalysisOutboundBytes: events.NewEvent(uint64Caller),
 		FPCInboundBytes:       events.NewEvent(uint64Caller),
@@ -30,7 +30,7 @@ func new() *CollectionEvents {
 // Events returns the events defined in the package.
 func Events() *CollectionEvents {
 	once.Do(func() {
-		metricEvents = new()
+		metricEvents = newEvents()
 	})
 	return metricEvents
 }

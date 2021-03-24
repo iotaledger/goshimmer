@@ -6,11 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/hive.go/protocol/message"
 	"github.com/iotaledger/hive.go/protocol/tlv"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/goshimmer/plugins/banner"
 )
 
 var nodeID = sha256.Sum256([]byte{'A'})

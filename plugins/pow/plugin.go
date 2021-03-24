@@ -3,10 +3,11 @@ package pow
 import (
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+
+	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 // PluginName is the name of the PoW plugin.

@@ -13,6 +13,7 @@ type OpinionGiver interface {
 	Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (Opinions, error)
 	// ID returns the ID of the opinion giver.
 	ID() identity.ID
+	Mana() float64
 }
 
 // QueriedOpinions represents queried opinions from a given opinion giver.
