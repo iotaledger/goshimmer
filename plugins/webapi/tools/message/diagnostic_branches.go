@@ -44,9 +44,11 @@ func runDiagnosticBranches(c echo.Context) {
 	}
 
 	messagelayer.Tangle().LedgerState.BranchDAG.ForEachBranch(func(branch ledgerstate.Branch) {
-		if branch.ID() != ledgerstate.MasterBranchID &&
-			branch.ID() != ledgerstate.InvalidBranchID &&
-			branch.ID() != ledgerstate.LazyBookedConflictsBranchID {
+		switch branch.ID() {
+		case ledgerstate.MasterBranchID:
+		case ledgerstate.InvalidBranchID:
+		case ledgerstate.LazyBookedConflictsBranchID:
+		default:
 			conflictInfo := getDiagnosticConflictsInfo(branch.ID())
 			_, err = fmt.Fprintln(c.Response(), conflictInfo.toCSV())
 			if err != nil {
