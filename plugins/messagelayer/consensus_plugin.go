@@ -226,7 +226,9 @@ type OpinionGivers map[identity.ID]OpinionGiver
 
 // Query retrieves the opinions about the given conflicts and timestamps.
 func (o *OpinionGiver) Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (opinions opinion.Opinions, err error) {
-	for i := 0; i < StatementParameters.WaitForStatement; i++ {
+	// if o.view == nil, then we can immediately perform P2P query instead of waiting for statement
+	//because it won't be provided.
+	for i := 0; o.view != nil && i < StatementParameters.WaitForStatement; i++ {
 		if o.view != nil {
 			opinions, err = o.view.Query(ctx, conflictIDs, timestampIDs)
 			if err == nil {
@@ -257,14 +259,15 @@ func OpinionGiverFunc() (givers []opinion.OpinionGiver, err error) {
 	consensusManaNodes, _, err := GetManaMap(mana.ConsensusMana)
 
 	for _, v := range Registry().NodesView() {
-		// double check to exclude self
-		if v.ID() == local.GetInstance().ID() {
+		// double check to exclude self and check if node has enough mana to consider its statement
+		if v.ID() == local.GetInstance().ID() || !checkEnoughMana(v.ID(), StatementParameters.ReadManaThreshold) {
 			continue
 		}
+
 		manaValue := 0.0
 
-		if v, ok := consensusManaNodes[v.ID()]; ok {
-			manaValue = v
+		if manaAmount, ok := consensusManaNodes[v.ID()]; ok {
+			manaValue = manaAmount
 		}
 		opinionGiversMap[v.ID()] = &OpinionGiver{
 			id:   v.ID(),
@@ -453,9 +456,25 @@ type statementLog struct {
 
 // region Statement ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func makeStatement(roundStats *vote.RoundStats) {
-	// TODO: add check for Mana threshold
+func checkEnoughMana(id identity.ID, threshold float64) bool {
+	highestManaNodes, _, err := GetHighestManaNodesFraction(mana.ConsensusMana, threshold)
+	enoughMana := true
+	if err == nil {
+		enoughMana = false
+		for _, v := range highestManaNodes {
+			if v.ID == id {
+				enoughMana = true
+				break
+			}
+		}
+	}
+	return enoughMana
+}
 
+func makeStatement(roundStats *vote.RoundStats) {
+	if !checkEnoughMana(local.GetInstance().ID(), StatementParameters.WriteManaThreshold) {
+		return
+	}
 	timestamps := statement.Timestamps{}
 	conflicts := statement.Conflicts{}
 

@@ -296,6 +296,23 @@ func GetHighestManaNodes(manaType mana.Type, n uint) ([]mana.Node, time.Time, er
 	return bmv.GetHighestManaNodes(n)
 }
 
+// GetHighestManaNodesFraction returns the given percent `p` of highest type mana nodes in descending order.
+// The number of nodes returned depends on the total number of nodes with mana.
+// It also updates the mana values for each node.
+// If `p` is <= 0 or > 1, returns all nodes.
+func GetHighestManaNodesFraction(manaType mana.Type, p float64) ([]mana.Node, time.Time, error) {
+	if !QueryAllowed() {
+		return []mana.Node{}, time.Now(), ErrQueryNotAllowed
+	}
+	bmv := baseManaVectors[manaType]
+	if p <= 0 || p > 1 {
+		return bmv.GetHighestManaNodes(uint(bmv.Size()))
+	}
+	n := uint(math.Ceil(float64(bmv.Size()) * p))
+	fmt.Printf("N: %d p: %f, size: %d", n, p, bmv.Size())
+	return bmv.GetHighestManaNodes(n)
+}
+
 // GetManaMap returns type mana perception of the node.
 func GetManaMap(manaType mana.Type, optionalUpdateTime ...time.Time) (mana.NodeMap, time.Time, error) {
 	if !QueryAllowed() {

@@ -328,8 +328,6 @@ func (f *FPC) SetOpinionGiverRng(rng *rand.Rand) {
 // ManaBasedSampling returns list of OpinionGivers to query, weighted by consensus mana. If mana not available, fallback to uniform sampling
 // weighted random sampling based on https://eli.thegreenplace.net/2010/01/22/weighted-random-generation-in-python/
 func ManaBasedSampling(opinionGivers []opinion.OpinionGiver, maxQuerySampleSize, querySampleSize int, rng *rand.Rand) map[opinion.OpinionGiver]int {
-	// TODO: remove yourself in random weighted sampling
-
 	totalConsensusMana := 0.0
 	totals := make([]float64, 0, len(opinionGivers))
 
