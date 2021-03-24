@@ -109,7 +109,7 @@ class BranchChild {
 }
 
 class BranchConflict {
-    outputID: string;
+    outputID: OutputID;
     branchIDs: Array<string>;
 }
 

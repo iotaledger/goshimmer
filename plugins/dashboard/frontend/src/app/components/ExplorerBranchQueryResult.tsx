@@ -88,7 +88,7 @@ export class ExplorerBranchQueryResult extends React.Component<Props, any> {
                     <ListGroup.Item> Conflicts:
                         {branchConflicts && <ListGroup>
                             {branchConflicts.conflicts.map((c,i) => <div key={i}>
-                                OutputID: <a href={`/explorer/output/${c.outputID}`}>{c.outputID}</a>
+                                OutputID: <a href={`/explorer/output/${c.outputID.base58}`}>{c.outputID.base58}</a>
                                 <ListGroup className={"mb-2"}>
                                     {c.branchIDs.map((b,j) => <ListGroup.Item key={j}>
                                         <a href={`/explorer/branch/${b}`}>{b}</a>
