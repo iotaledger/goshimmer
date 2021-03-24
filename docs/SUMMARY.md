@@ -48,5 +48,6 @@ http://goshimmer.docs.iota.org/
   - [Layers](./concepts/layers.md)
 - [Team Resources](./team_resources.md)
   - [How to do a release](teamresources/release.md)
-  - [Code Guidelines](./teamresources/guidelines.md)  
+  - [Code Guidelines](./teamresources/guidelines.md)
+  - [Local development](./teamresources/local_development.md)  
 
