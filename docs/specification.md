@@ -1,1 +1,1 @@
-# Specification of Implementation#
+# Specification of Implementation
