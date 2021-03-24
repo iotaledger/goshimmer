@@ -185,11 +185,11 @@ func (v *View) AddTimestamps(timestamps Timestamps) {
 }
 
 // UpdateLastStatementReceivedTime updates last statement issuing time in node's View.
-func (v *View) UpdateLastStatementReceivedTime(statementIssuingTime time.Time) {
+func (v *View) UpdateLastStatementReceivedTime(statementReceivingTime time.Time) {
 	v.lstMutex.RLock()
 	defer v.lstMutex.RUnlock()
 
-	v.LastStatementReceivedTimestamp = statementIssuingTime
+	v.LastStatementReceivedTimestamp = statementReceivingTime
 }
 
 // ConflictOpinion returns the opinion history of a given transaction ID.
@@ -225,11 +225,11 @@ func (v *View) Query(ctx context.Context, conflictIDs []string, timestampIDs []s
 			return answer, err
 		}
 		o := v.ConflictOpinion(ID)
-		opinion := opinion.Unknown
+		fetchedOpinion := opinion.Unknown
 		if len(o) > 0 {
-			opinion = o.Last().Value
+			fetchedOpinion = o.Last().Value
 		}
-		answer = append(answer, opinion)
+		answer = append(answer, fetchedOpinion)
 	}
 	for _, id := range timestampIDs {
 		ID, err := tangle.NewMessageID(id)
@@ -237,11 +237,11 @@ func (v *View) Query(ctx context.Context, conflictIDs []string, timestampIDs []s
 			return answer, err
 		}
 		o := v.TimestampOpinion(ID)
-		opinion := opinion.Unknown
+		fetchedOpinion := opinion.Unknown
 		if len(o) > 0 {
-			opinion = o.Last().Value
+			fetchedOpinion = o.Last().Value
 		}
-		answer = append(answer, opinion)
+		answer = append(answer, fetchedOpinion)
 	}
 	return answer, nil
 }
