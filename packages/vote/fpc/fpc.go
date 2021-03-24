@@ -161,6 +161,7 @@ func (f *FPC) formOpinions(rand float64) {
 		lowerThreshold, upperThreshold := f.setThreshold(voteCtx)
 
 		eta := f.biasTowardsOwnOpinion(voteCtx)
+
 		if eta >= RandUniformThreshold(rand, lowerThreshold, upperThreshold) {
 			voteCtx.AddOpinion(opinion.Like)
 			continue

@@ -103,7 +103,7 @@ func createFPCUpdate(hb *packet.FPCHeartbeat) *FPCUpdate {
 		newVoteContext := voteContext{
 			NodeID:   nodeID,
 			Rounds:   context.Rounds,
-			Opinions: opinion.ConvertOpinionsToInts32(context.Opinions),
+			Opinions: opinion.ConvertOpinionsToInts32ForLiveFeed(context.Opinions),
 		}
 
 		conflicts[ID] = newConflict()
@@ -127,7 +127,7 @@ func createFPCUpdate(hb *packet.FPCHeartbeat) *FPCUpdate {
 			continue
 		}
 		conflictDetail := conflictOverview.NodesView[nodeID]
-		conflictDetail.Outcome = opinion.ConvertOpinionToInt32(finalOpinion)
+		conflictDetail.Outcome = opinion.ConvertOpinionToInt32ForLiveFeed(finalOpinion)
 		conflicts[ID] = newConflict()
 		conflicts[ID].NodesView[nodeID] = conflictDetail
 		activeConflicts.update(ID, conflicts[ID])
