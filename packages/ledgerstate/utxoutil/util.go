@@ -2,9 +2,10 @@ package utxoutil
 
 import (
 	"bytes"
+
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/minio/blake2b-simd"
+	"golang.org/x/crypto/blake2b"
 	"golang.org/x/xerrors"
 )
 
