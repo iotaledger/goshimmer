@@ -4,15 +4,15 @@ import (
 	"fmt"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/txstream"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/packages/waspconn"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/events"
 )
 
-// TangleLedger imlpements waspconn.TangleLedger with the Goshimmer tangle as backend
+// TangleLedger imlpements txstream.TangleLedger with the Goshimmer tangle as backend
 type TangleLedger struct {
 	txConfirmedClosure *events.Closure
 	txBookedClosure    *events.Closure
@@ -22,7 +22,7 @@ type TangleLedger struct {
 }
 
 // ensure conformance to Ledger interface
-var _ waspconn.Ledger = &TangleLedger{}
+var _ txstream.Ledger = &TangleLedger{}
 
 var txEventHandler = func(f interface{}, params ...interface{}) {
 	f.(func(tx *ledgerstate.Transaction))(params[0].(*ledgerstate.Transaction))
@@ -36,7 +36,7 @@ func extractTransaction(id tangle.MessageID, ev *events.Event) {
 	})
 }
 
-// New returns an implementation for waspconn.Ledger
+// New returns an implementation for txstream.Ledger
 func New() *TangleLedger {
 	t := &TangleLedger{
 		txConfirmedEvent: events.NewEvent(txEventHandler),
@@ -56,20 +56,23 @@ func New() *TangleLedger {
 	return t
 }
 
+// Detach detaches the event handlers
 func (t *TangleLedger) Detach() {
 	messagelayer.Tangle().ConsensusManager.Events.TransactionConfirmed.Detach(t.txConfirmedClosure)
 	messagelayer.Tangle().Booker.Events.MessageBooked.Detach(t.txBookedClosure)
 }
 
+// EventTransactionConfirmed returns an event that triggers when a transaction is confirmed
 func (t *TangleLedger) EventTransactionConfirmed() *events.Event {
 	return t.txConfirmedEvent
 }
 
+// EventTransactionBooked returns an event that triggers when a transaction is booked
 func (t *TangleLedger) EventTransactionBooked() *events.Event {
 	return t.txBookedEvent
 }
 
-// GetAddressOutputs returns the available UTXOs for an address
+// GetUnspentOutputs returns the available UTXOs for an address
 func (t *TangleLedger) GetUnspentOutputs(addr ledgerstate.Address, f func(output ledgerstate.Output)) {
 	messagelayer.Tangle().LedgerState.OutputsOnAddress(addr).Consume(func(output ledgerstate.Output) {
 		ok := true
@@ -101,10 +104,12 @@ func (t *TangleLedger) GetConfirmedTransaction(txid ledgerstate.TransactionID, f
 	return
 }
 
-func (ce *TangleLedger) GetTxInclusionState(txid ledgerstate.TransactionID) (ledgerstate.InclusionState, error) {
+// GetTxInclusionState returns the inclusion state of the given transaction
+func (t *TangleLedger) GetTxInclusionState(txid ledgerstate.TransactionID) (ledgerstate.InclusionState, error) {
 	return messagelayer.Tangle().LedgerState.TransactionInclusionState(txid)
 }
 
+// PostTransaction posts a transaction to the ledger
 func (t *TangleLedger) PostTransaction(tx *ledgerstate.Transaction) error {
 	_, err := messagelayer.Tangle().IssuePayload(tx)
 	if err != nil {
@@ -113,6 +118,7 @@ func (t *TangleLedger) PostTransaction(tx *ledgerstate.Transaction) error {
 	return nil
 }
 
+// RequestFunds requests funds from the faucet
 func (t *TangleLedger) RequestFunds(target ledgerstate.Address) error {
 	faucetPayload, err := faucet.NewRequest(target, config.Node().Int(faucet.CfgFaucetPoWDifficulty))
 	if err != nil {

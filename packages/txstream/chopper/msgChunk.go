@@ -9,9 +9,9 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 )
 
-// special wrapper message for chunks of larger than buffer messages
+// msgChunk is a special wrapper message for chunks of larger than buffer messages
 type msgChunk struct {
-	msgId       uint32
+	msgID       uint32
 	chunkSeqNum byte
 	numChunks   byte
 	data        []byte
@@ -19,7 +19,7 @@ type msgChunk struct {
 
 func (c *msgChunk) encode() []byte {
 	m := marshalutil.New()
-	m.WriteUint32(c.msgId)
+	m.WriteUint32(c.msgID)
 	m.WriteByte(c.numChunks)
 	m.WriteByte(c.chunkSeqNum)
 	m.WriteUint16(uint16(len(c.data)))
@@ -30,7 +30,7 @@ func (c *msgChunk) encode() []byte {
 func (c *msgChunk) decode(data []byte, maxChunkSizeWithoutHeader int) error {
 	m := marshalutil.New(data)
 	var err error
-	if c.msgId, err = m.ReadUint32(); err != nil {
+	if c.msgID, err = m.ReadUint32(); err != nil {
 		return err
 	}
 	if c.numChunks, err = m.ReadByte(); err != nil {

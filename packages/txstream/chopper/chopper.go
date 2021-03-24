@@ -18,9 +18,10 @@ const (
 	maxTTL          = 5 * time.Minute
 )
 
+// Chopper handles the splitting and joining of large messages
 type Chopper struct {
 	nextID  uint32
-	mutex   *sync.Mutex
+	mutex   sync.Mutex
 	chunks  map[uint32]*dataInProgress
 	closeCh chan bool
 }
@@ -31,10 +32,10 @@ type dataInProgress struct {
 	numReceived int
 }
 
+// NewChopper creates a new chopper instance
 func NewChopper() *Chopper {
 	c := Chopper{
 		nextID:  0,
-		mutex:   &sync.Mutex{},
 		chunks:  make(map[uint32]*dataInProgress),
 		closeCh: make(chan bool),
 	}
@@ -42,6 +43,7 @@ func NewChopper() *Chopper {
 	return &c
 }
 
+// Close stops the internal cleanup goroutine
 func (c *Chopper) Close() {
 	close(c.closeCh)
 }
@@ -68,13 +70,14 @@ func (c *Chopper) cleanupLoop() {
 	}
 }
 
-func (c *Chopper) getNextMsgId() uint32 {
+func (c *Chopper) getNextMsgID() uint32 {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	c.nextID++
 	return c.nextID
 }
 
+// NumChunks returns the expected amount of chunks for the given data length
 func NumChunks(dataLen, maxMsgSize, includingChoppingOverhead int) (byte, int, error) {
 	if dataLen <= maxMsgSize {
 		return 0, 0, nil // no need to split
@@ -89,7 +92,7 @@ func NumChunks(dataLen, maxMsgSize, includingChoppingOverhead int) (byte, int, e
 		numChunks++
 	}
 	if numChunks < 2 {
-		panic("ChopData: internal inconsistency 1")
+		panic("ChopData: internal inconsistency")
 	}
 	return byte(numChunks), maxChunkSize, nil
 }
@@ -105,7 +108,7 @@ func (c *Chopper) ChopData(data []byte, maxMsgSize int, includingChoppingOverhea
 		return nil, false, nil
 	}
 	maxSizeWithoutHeader := maxChunkSize - chunkHeaderSize
-	id := c.getNextMsgId()
+	id := c.getNextMsgID()
 	ret := make([][]byte, 0, numChunks)
 	var d []byte
 	for i := byte(0); i < numChunks; i++ {
@@ -116,7 +119,7 @@ func (c *Chopper) ChopData(data []byte, maxMsgSize int, includingChoppingOverhea
 			d = data
 		}
 		chunk := &msgChunk{
-			msgId:       id,
+			msgID:       id,
 			chunkSeqNum: i,
 			numChunks:   numChunks,
 			data:        d,
@@ -151,13 +154,13 @@ func (c *Chopper) IncomingChunk(data []byte, maxMsgSize int, includingChoppingOv
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	dip, ok := c.chunks[msg.msgId]
+	dip, ok := c.chunks[msg.msgID]
 	if !ok {
 		dip = &dataInProgress{
 			buffer: make([][]byte, int(msg.numChunks)),
 			ttl:    time.Now().Add(maxTTL),
 		}
-		c.chunks[msg.msgId] = dip
+		c.chunks[msg.msgID] = dip
 	} else {
 		if dip.buffer[msg.chunkSeqNum] != nil {
 			return nil, fmt.Errorf("IncomingChunk: repeating seq number")
@@ -174,6 +177,6 @@ func (c *Chopper) IncomingChunk(data []byte, maxMsgSize int, includingChoppingOv
 	for _, d := range dip.buffer {
 		buf.Write(d)
 	}
-	delete(c.chunks, msg.msgId)
+	delete(c.chunks, msg.msgID)
 	return buf.Bytes(), nil
 }

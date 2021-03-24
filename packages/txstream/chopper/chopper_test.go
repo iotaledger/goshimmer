@@ -7,7 +7,7 @@ import (
 	"crypto/rand"
 	"testing"
 
-	"github.com/iotaledger/goshimmer/packages/waspconn/chopper"
+	"github.com/iotaledger/goshimmer/packages/txstream/chopper"
 	"github.com/stretchr/testify/assert"
 )
 
