@@ -1,9 +1,10 @@
 package tangle
 
 import (
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/types"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 // region LedgerState //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -12,7 +13,7 @@ import (
 // "single point of contact".
 type LedgerState struct {
 	tangle    *Tangle
-	branchDAG *ledgerstate.BranchDAG
+	BranchDAG *ledgerstate.BranchDAG
 	utxoDAG   *ledgerstate.UTXODAG
 }
 
@@ -21,7 +22,7 @@ func NewLedgerState(tangle *Tangle) (ledgerState *LedgerState) {
 	branchDAG := ledgerstate.NewBranchDAG(tangle.Options.Store)
 	return &LedgerState{
 		tangle:    tangle,
-		branchDAG: branchDAG,
+		BranchDAG: branchDAG,
 		utxoDAG:   ledgerstate.NewUTXODAG(tangle.Options.Store, branchDAG),
 	}
 }
@@ -29,7 +30,7 @@ func NewLedgerState(tangle *Tangle) (ledgerState *LedgerState) {
 // Shutdown shuts down the LedgerState and persists its state.
 func (l *LedgerState) Shutdown() {
 	l.utxoDAG.Shutdown()
-	l.branchDAG.Shutdown()
+	l.BranchDAG.Shutdown()
 }
 
 // InheritBranch implements the inheritance rules for Branches in the Tangle. It returns a single inherited Branch
@@ -40,12 +41,12 @@ func (l *LedgerState) InheritBranch(referencedBranchIDs ledgerstate.BranchIDs) (
 		return
 	}
 
-	branchIDsContainRejectedBranch, inheritedBranch := l.branchDAG.BranchIDsContainRejectedBranch(referencedBranchIDs)
+	branchIDsContainRejectedBranch, inheritedBranch := l.BranchDAG.BranchIDsContainRejectedBranch(referencedBranchIDs)
 	if branchIDsContainRejectedBranch {
 		return
 	}
 
-	cachedAggregatedBranch, _, err := l.branchDAG.AggregateBranches(referencedBranchIDs)
+	cachedAggregatedBranch, _, err := l.BranchDAG.AggregateBranches(referencedBranchIDs)
 	if err != nil {
 		if xerrors.Is(err, ledgerstate.ErrInvalidStateTransition) {
 			inheritedBranch = ledgerstate.InvalidBranchID
@@ -108,29 +109,17 @@ func (l *LedgerState) BookTransaction(transaction *ledgerstate.Transaction, mess
 	return
 }
 
-// SetBranchLiked sets the liked flag of the given Branch. It returns true if the value has been updated or an error if
-// it failed.
-func (l *LedgerState) SetBranchLiked(branchID ledgerstate.BranchID, liked bool) (modified bool, err error) {
-	return l.branchDAG.SetBranchLiked(branchID, liked)
-}
-
-// SetBranchFinalized sets the finalized flag of the given Branch. It returns true if the value has been updated or an
-// error if it failed.
-func (l *LedgerState) SetBranchFinalized(branchID ledgerstate.BranchID, finalized bool) (modified bool, err error) {
-	return l.branchDAG.SetBranchFinalized(branchID, finalized)
-}
-
 // ConflictSet returns the list of transactionIDs conflicting with the given transactionID.
 func (l *LedgerState) ConflictSet(transactionID ledgerstate.TransactionID) (conflictSet ledgerstate.TransactionIDs) {
 	conflictIDs := make(ledgerstate.ConflictIDs)
 	conflictSet = make(ledgerstate.TransactionIDs)
 
-	l.branchDAG.Branch(ledgerstate.NewBranchID(transactionID)).Consume(func(branch ledgerstate.Branch) {
+	l.BranchDAG.Branch(ledgerstate.NewBranchID(transactionID)).Consume(func(branch ledgerstate.Branch) {
 		conflictIDs = branch.(*ledgerstate.ConflictBranch).Conflicts()
 	})
 
 	for conflictID := range conflictIDs {
-		l.branchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
+		l.BranchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
 			conflictSet[ledgerstate.TransactionID(conflictMember.BranchID())] = types.Void
 		})
 	}
@@ -147,7 +136,7 @@ func (l *LedgerState) TransactionInclusionState(transactionID ledgerstate.Transa
 // BranchInclusionState returns the InclusionState of the Branch with the given BranchID which can either be
 // Pending, Confirmed or Rejected.
 func (l *LedgerState) BranchInclusionState(branchID ledgerstate.BranchID) (inclusionState ledgerstate.InclusionState) {
-	l.branchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
+	l.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
 		inclusionState = branch.InclusionState()
 	})
 	return
@@ -159,11 +148,6 @@ func (l *LedgerState) BranchID(transactionID ledgerstate.TransactionID) (branchI
 		branchID = transactionMetadata.BranchID()
 	})
 	return
-}
-
-// Branch returns the branch with the given ID.
-func (l *LedgerState) Branch(branchID ledgerstate.BranchID) *ledgerstate.CachedBranch {
-	return l.branchDAG.Branch(branchID)
 }
 
 // LoadSnapshot creates a set of outputs in the UTXO-DAG, that are forming the genesis for future transactions.
@@ -201,6 +185,11 @@ func (l *LedgerState) CheckTransaction(transaction *ledgerstate.Transaction) (va
 // ConsumedOutputs returns the consumed (cached)Outputs of the given Transaction.
 func (l *LedgerState) ConsumedOutputs(transaction *ledgerstate.Transaction) (cachedInputs ledgerstate.CachedOutputs) {
 	return l.utxoDAG.ConsumedOutputs(transaction)
+}
+
+// Consumers returns the (cached) consumers of the given outputID.
+func (l *LedgerState) Consumers(outputID ledgerstate.OutputID) (cachedTransactions ledgerstate.CachedConsumers) {
+	return l.utxoDAG.Consumers(outputID)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

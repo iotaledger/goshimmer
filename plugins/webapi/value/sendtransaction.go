@@ -7,13 +7,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/labstack/echo"
+
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/labstack/echo"
 )
 
 var (
@@ -79,8 +80,7 @@ func sendTransactionHandler(c echo.Context) error {
 		return msg, nil
 	}
 
-	_, err = messagelayer.AwaitMessageToBeBooked(issueTransaction, tx.ID(), maxBookedAwaitTime)
-	if err != nil {
+	if _, err := messagelayer.AwaitMessageToBeBooked(issueTransaction, tx.ID(), maxBookedAwaitTime); err != nil {
 		return c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: err.Error()})
 	}
 	return c.JSON(http.StatusOK, SendTransactionResponse{TransactionID: tx.ID().Base58()})

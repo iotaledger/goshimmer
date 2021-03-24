@@ -1,9 +1,10 @@
 package wallet
 
 import (
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/typeutils"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 // AssetRegistry represents a registry for colored coins, that stores the relevant metadata in a dictionary.

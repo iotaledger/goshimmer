@@ -3,9 +3,10 @@ package mana
 import (
 	"net/http"
 
+	"github.com/labstack/echo"
+
 	"github.com/iotaledger/goshimmer/packages/mana"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/labstack/echo"
 )
 
 // getPastConsensusVectorMetadataHandler handles the request.

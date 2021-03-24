@@ -6,6 +6,11 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/iotaledger/hive.go/autopeering/peer/service"
+	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/netutil"
+	"github.com/iotaledger/hive.go/types"
+
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -13,16 +18,10 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/hive.go/autopeering/peer/service"
-	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/netutil"
-	"github.com/iotaledger/hive.go/types"
 )
 
-var (
-	// ErrMessageNotFound is returned when a message could not be found in the Tangle.
-	ErrMessageNotFound = errors.New("message not found")
-)
+// ErrMessageNotFound is returned when a message could not be found in the Tangle.
+var ErrMessageNotFound = errors.New("message not found")
 
 var (
 	mgr     *gossip.Manager

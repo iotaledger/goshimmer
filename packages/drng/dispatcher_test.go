@@ -5,11 +5,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/goshimmer/packages/clock"
 )
 
 var (

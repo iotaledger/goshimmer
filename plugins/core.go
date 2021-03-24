@@ -1,6 +1,8 @@
 package plugins
 
 import (
+	"github.com/iotaledger/hive.go/node"
+
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/cli"
@@ -20,7 +22,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/profiling"
 	"github.com/iotaledger/goshimmer/plugins/spammer"
 	"github.com/iotaledger/goshimmer/plugins/syncbeacon"
-	"github.com/iotaledger/hive.go/node"
 )
 
 // Core contains the core plugins of a GoShimmer node.

@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/types"
+
+	"github.com/iotaledger/goshimmer/packages/database"
 )
 
 // region Manager //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -262,7 +263,7 @@ func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkersByRank *m
 	})
 	markersToIterate := normalizedMarkersByRank.Clone()
 
-	//iterate from highest sequence rank to lowest
+	// iterate from highest sequence rank to lowest
 	for i := markersToIterate.HighestRank() + 1; i > normalizedMarkersByRank.LowestRank(); i-- {
 		currentRank := i - 1
 		markersByRank, rankExists := markersToIterate.Markers(currentRank)

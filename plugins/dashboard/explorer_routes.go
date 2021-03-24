@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/labstack/echo"
+	"github.com/mr-tron/base58/base58"
+
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	ledgerstateAPI "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
 	valueutils "github.com/iotaledger/goshimmer/plugins/webapi/value"
-	"github.com/labstack/echo"
-	"github.com/mr-tron/base58/base58"
 )
 
 // ExplorerMessage defines the struct of the ExplorerMessage.
@@ -47,7 +49,7 @@ type ExplorerMessage struct {
 	Payload interface{} `json:"payload"`
 }
 
-func createExplorerMessage(msg *tangle.Message) (*ExplorerMessage, error) {
+func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 	messageID := msg.ID()
 	cachedMessageMetadata := messagelayer.Tangle().Storage.MessageMetadata(messageID)
 	defer cachedMessageMetadata.Release()
@@ -73,7 +75,7 @@ func createExplorerMessage(msg *tangle.Message) (*ExplorerMessage, error) {
 		Payload:                 ProcessPayload(msg.Payload()),
 	}
 
-	return t, nil
+	return t
 }
 
 // ExplorerAddress defines the struct of the ExplorerAddress.
@@ -123,6 +125,19 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 		return c.JSON(http.StatusOK, addr)
 	})
 
+	routeGroup.GET("/transaction/:transactionID", func(c echo.Context) error {
+		return ledgerstateAPI.GetTransaction(c)
+	})
+	routeGroup.GET("/transaction/:transactionID/metadata", func(c echo.Context) error {
+		return ledgerstateAPI.GetTransactionMetadata(c)
+	})
+	routeGroup.GET("/transaction/:transactionID/attachments", func(c echo.Context) error {
+		return ledgerstateAPI.GetTransactionAttachments(c)
+	})
+	routeGroup.GET("/output/:outputID", func(c echo.Context) error {
+		return ledgerstateAPI.GetOutput(c)
+	})
+
 	routeGroup.GET("/search/:search", func(c echo.Context) error {
 		search := c.Param("search")
 		result := &SearchResult{}
@@ -133,7 +148,6 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 		}
 
 		switch len(searchInByte) {
-
 		case ledgerstate.AddressLength:
 			addr, err := findAddress(search)
 			if err == nil {
@@ -161,7 +175,7 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 
 func findMessage(messageID tangle.MessageID) (explorerMsg *ExplorerMessage, err error) {
 	if !messagelayer.Tangle().Storage.Message(messageID).Consume(func(msg *tangle.Message) {
-		explorerMsg, err = createExplorerMessage(msg)
+		explorerMsg = createExplorerMessage(msg)
 	}) {
 		err = fmt.Errorf("%w: message %s", ErrNotFound, messageID.String())
 	}
@@ -170,7 +184,6 @@ func findMessage(messageID tangle.MessageID) (explorerMsg *ExplorerMessage, err 
 }
 
 func findAddress(strAddress string) (*ExplorerAddress, error) {
-
 	address, err := ledgerstate.AddressFromBase58EncodedString(strAddress)
 	if err != nil {
 		return nil, fmt.Errorf("%w: address %s", ErrNotFound, strAddress)
@@ -196,7 +209,7 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 		var branch ledgerstate.Branch
 		messagelayer.Tangle().LedgerState.OutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 			consumerCount = outputMetadata.ConsumerCount()
-			messagelayer.Tangle().LedgerState.Branch(outputMetadata.BranchID()).Consume(func(b ledgerstate.Branch) {
+			messagelayer.Tangle().LedgerState.BranchDAG.Branch(outputMetadata.BranchID()).Consume(func(b ledgerstate.Branch) {
 				branch = b
 			})
 		})
@@ -229,5 +242,4 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 		Address:   strAddress,
 		OutputIDs: outputids,
 	}, nil
-
 }

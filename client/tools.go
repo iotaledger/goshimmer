@@ -12,7 +12,6 @@ const (
 	routePastCone = "tools/message/pastcone"
 	routeMissing  = "tools/message/missing"
 
-	routeValueTips  = "tools/value/tips"
 	routeValueDebug = "tools/value/objects"
 )
 

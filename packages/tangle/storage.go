@@ -5,10 +5,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/events"
@@ -16,6 +12,11 @@ import (
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
 const (
@@ -589,7 +590,6 @@ func (c *CachedApprover) Unwrap() *Approver {
 	}
 
 	return typedObject
-
 }
 
 // Consume consumes the cachedApprover.
@@ -688,7 +688,8 @@ func AttachmentFromBytes(bytes []byte) (result *Attachment, consumedBytes int, e
 	return
 }
 
-// ParseAttachment is a wrapper for simplified unmarshaling of Attachments from a byte stream using the marshalUtil package.
+// ParseAttachment is a wrapper for simplified unmarshaling of Attachments from a byte stream using the marshalUtil
+// package.
 func ParseAttachment(marshalUtil *marshalutil.MarshalUtil) (result *Attachment, err error) {
 	result = &Attachment{}
 	if result.transactionID, err = ledgerstate.TransactionIDFromMarshalUtil(marshalUtil); err != nil {

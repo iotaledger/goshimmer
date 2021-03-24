@@ -487,5 +487,4 @@ func TestWeightedBaseMana_SetWeight(t *testing.T) {
 		assert.Error(t, err)
 		assert.True(t, xerrors.Is(err, ErrInvalidWeightParameter))
 	})
-
 }

@@ -1,14 +1,15 @@
 package metrics
 
 import (
-	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"sync"
+
+	"github.com/iotaledger/hive.go/identity"
+	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/gossip"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/hive.go/identity"
-	"go.uber.org/atomic"
 )
 
 // PledgeLog is a log of base mana 1 and 2 pledges.

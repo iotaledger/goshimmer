@@ -8,10 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/markers"
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
@@ -23,6 +19,11 @@ import (
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/markers"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
 const (
@@ -759,7 +760,6 @@ func (m *MessageMetadata) SetSolid(solid bool) (modified bool) {
 			modified = true
 		}
 		m.solidMutex.Unlock()
-
 	} else {
 		m.solidMutex.RUnlock()
 	}
@@ -799,13 +799,13 @@ func (m *MessageMetadata) StructureDetails() *markers.StructureDetails {
 }
 
 // SetBranchID sets the branch ID of the message.
-func (m *MessageMetadata) SetBranchID(ID ledgerstate.BranchID) (modified bool) {
+func (m *MessageMetadata) SetBranchID(bID ledgerstate.BranchID) (modified bool) {
 	m.branchIDMutex.Lock()
 	defer m.branchIDMutex.Unlock()
-	if m.branchID == ID {
+	if m.branchID == bID {
 		return
 	}
-	m.branchID = ID
+	m.branchID = bID
 	m.SetModified(true)
 	modified = true
 	return

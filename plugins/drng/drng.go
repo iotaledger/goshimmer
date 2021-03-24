@@ -5,11 +5,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/iotaledger/goshimmer/packages/drng"
-	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/mr-tron/base58/base58"
+
+	"github.com/iotaledger/goshimmer/packages/drng"
+	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 const (
@@ -23,10 +24,8 @@ const (
 	Community = 7438
 )
 
-var (
-	// ErrParsingCommitteeMember is returned for an invalid committee member
-	ErrParsingCommitteeMember = errors.New("cannot parse committee member")
-)
+// ErrParsingCommitteeMember is returned for an invalid committee member
+var ErrParsingCommitteeMember = errors.New("cannot parse committee member")
 
 func configureDRNG() *drng.DRNG {
 	c := make(map[uint32][]drng.Option)
