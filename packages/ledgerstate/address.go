@@ -457,9 +457,7 @@ func (a *AliasAddress) Digest() []byte {
 
 // Clone creates a copy of the Address.
 func (a *AliasAddress) Clone() Address {
-	clone := &AliasAddress{}
-	copy(clone.digest[:], a.digest[:])
-	return clone
+	return &AliasAddress{digest: a.digest}
 }
 
 // Bytes returns a marshaled version of the Address.
