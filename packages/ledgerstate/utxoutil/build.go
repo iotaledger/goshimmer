@@ -1,11 +1,12 @@
 package utxoutil
 
 import (
+	"time"
+
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"golang.org/x/xerrors"
-	"time"
 )
 
 // Builder builder implements a structure and interface to build transactions

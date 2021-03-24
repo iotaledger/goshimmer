@@ -660,6 +660,7 @@ func (s *SigLockedSingleOutput) Update(objectstorage.StorableObject) {
 	panic("updates disabled")
 }
 
+// UpdateMintingColor does nothing for SigLockedSingleOutput
 func (s *SigLockedSingleOutput) UpdateMintingColor() Output {
 	return s
 }
@@ -887,7 +888,9 @@ var _ Output = &SigLockedColoredOutput{}
 
 // region ChainOutput ///////////////////////////////////////////////////////////////////////////////////////
 
-const DustThresholdChainOutputIOTA = uint64(100) // TODO protocol-wide dust threshold
+// DustThresholdChainOutputIOTA is minimum number of iotas enforced for the output to be correct
+// TODO protocol-wide dust threshold configuration
+const DustThresholdChainOutputIOTA = uint64(100)
 
 // MaxOutputPayloadSize size limit on the data payload in the output.
 const MaxOutputPayloadSize = 4 * 1024
