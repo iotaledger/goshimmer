@@ -1,9 +1,9 @@
 # Configuration parameters
 ## Customizing configuration
 Users can pass configuration parameters two ways when running GoShimmer. One way is through JSON configuration file and another way is through command line arguments.
-Settings passed through command line arguments take precedence. JSON configuration file is structured as an JSON object containing parameters and their values.
+Settings passed through command line arguments take precedence. The JSON configuration file is structured as an JSON object containing parameters and their values.
 Parameters are grouped into embedded objects containing parameters for a single plugin or functionality. There is no limit on how deep the configuration object may be embedded.
-For example, below config contains example parameters for PoW plugin.
+For example, below config contains example parameters for the PoW plugin.
 
 ```json
 {
@@ -16,7 +16,7 @@ For example, below config contains example parameters for PoW plugin.
 ```
 
 The same arguments can be passed through command line arguments in a following way. Embedded objects' values are described using JSON dot-notation.
-Additionally, user can pass path of the JSON config file through command-line argument as well, as shown in an example below. 
+Additionally,the user can pass the path of the JSON config file through a command-line argument as well, as shown in an example below. 
 
 ```bash
 goshimmer \
@@ -67,7 +67,7 @@ config.Node().Int(CfgGossipPort)
 Defining configuration parameters using the new way is really similar, however the parameters are not registered directly with the package reading the configuration,
 but rather with our custom package that contains all the logic required to make it work seamlessly. 
 
-In this approach, instead of defining parameter name, a new structure is defined with all necessary parameters, their default values and usage descriptions using Go's struct field tags.
+In this approach, instead of defining a parameter name, a new structure is defined with all necessary parameters, their default values and usage descriptions using Go's struct field tags.
 
 One difference is that parameter names do not contain the namespace they belong to, the namespace is set when registering the parameters structure with the `configuration` package. One `parameters.go` file can contain definitions and register multiple parameter structures.
 
