@@ -4,9 +4,10 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/shirou/gopsutil/cpu"
 	"go.uber.org/atomic"
+
+	"github.com/iotaledger/goshimmer/packages/metrics"
 )
 
 var (

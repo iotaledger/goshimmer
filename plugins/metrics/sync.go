@@ -1,14 +1,13 @@
 package metrics
 
 import (
+	"go.uber.org/atomic"
+
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"go.uber.org/atomic"
 )
 
-var (
-	isSynced atomic.Bool
-)
+var isSynced atomic.Bool
 
 func measureSynced() {
 	s := messagelayer.Tangle().Synced()

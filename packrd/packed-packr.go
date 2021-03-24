@@ -39,13 +39,11 @@ var _ = func() error {
 	}
 	g.DefaultResolver = hgr
 
-
 	func() {
 		b := packr.New("AnalysisDashboard_Assets", "./frontend/src/assets")
 		b.SetResolver("index.html", packr.Pointer{ForwardBox: gk, ForwardPath: "65a921cba3330e7981bebf1960495f1c"})
 		b.SetResolver("logo-header.svg", packr.Pointer{ForwardBox: gk, ForwardPath: "45fb552262c93c138d95c5e1cb63250e"})
 	}()
-
 
 	func() {
 		b := packr.New("Analysis_DashboardAssets", "./frontend/src/assets")

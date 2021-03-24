@@ -5,15 +5,16 @@ import (
 	"log"
 	"os"
 
+	"github.com/iotaledger/hive.go/bitmask"
+	"github.com/mr-tron/base58"
+	flag "github.com/spf13/pflag"
+	"github.com/spf13/viper"
+
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
-	"github.com/iotaledger/hive.go/bitmask"
-	"github.com/mr-tron/base58"
-	flag "github.com/spf13/pflag"
-	"github.com/spf13/viper"
 )
 
 const (
@@ -90,6 +91,10 @@ func main() {
 	log.Printf("created %s, bye", snapshotFileName)
 }
 
+type mockConnector struct {
+	outputs map[address.Address]map[ledgerstate.OutputID]*wallet.Output
+}
+
 func (connector *mockConnector) UnspentOutputs(addresses ...address.Address) (outputs map[address.Address]map[ledgerstate.OutputID]*wallet.Output, err error) {
 	outputs = make(map[address.Address]map[ledgerstate.OutputID]*wallet.Output)
 	for _, addr := range addresses {
@@ -105,10 +110,6 @@ func (connector *mockConnector) UnspentOutputs(addresses ...address.Address) (ou
 	}
 
 	return
-}
-
-type mockConnector struct {
-	outputs map[address.Address]map[ledgerstate.OutputID]*wallet.Output
 }
 
 func newMockConnector(outputs ...*wallet.Output) (connector *mockConnector) {

@@ -5,9 +5,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 var (
@@ -15,7 +16,7 @@ var (
 	manaEvents *EventDefinitions
 )
 
-func new() *EventDefinitions {
+func newEvents() *EventDefinitions {
 	return &EventDefinitions{
 		Pledged: events.NewEvent(pledgeEventCaller),
 		Revoked: events.NewEvent(revokedEventCaller),
@@ -26,7 +27,7 @@ func new() *EventDefinitions {
 // Events returns the events defined in the package.
 func Events() *EventDefinitions {
 	once.Do(func() {
-		manaEvents = new()
+		manaEvents = newEvents()
 	})
 	return manaEvents
 }
@@ -297,6 +298,7 @@ func pledgeEventCaller(handler interface{}, params ...interface{}) {
 func revokedEventCaller(handler interface{}, params ...interface{}) {
 	handler.(func(ev *RevokedEvent))(params[0].(*RevokedEvent))
 }
+
 func updatedEventCaller(handler interface{}, params ...interface{}) {
 	handler.(func(ev *UpdatedEvent))(params[0].(*UpdatedEvent))
 }

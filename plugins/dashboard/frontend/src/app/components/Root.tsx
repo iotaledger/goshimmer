@@ -18,6 +18,7 @@ import {Neighbors} from "app/components/Neighbors";
 import {Visualizer} from "app/components/Visualizer";
 import {Drng} from "app/components/Drng";
 import {Mana} from "app/components/Mana";
+import {ExplorerTransactionQueryResult} from "app/components/ExplorerTransactionQueryResult";
 
 interface Props {
     history: any;
@@ -92,6 +93,7 @@ export class Root extends React.Component<Props, any> {
                     <Route exact path="/neighbors" component={Neighbors}/>
                     <Route exact path="/explorer/message/:id" component={ExplorerMessageQueryResult}/>
                     <Route exact path="/explorer/address/:id" component={ExplorerAddressQueryResult}/>
+                    <Route exact path="/explorer/transaction/:id" component={ExplorerTransactionQueryResult}/>
                     <Route exact path="/explorer/404/:search" component={Explorer404}/>
                     <Route exact path="/drng" component={Drng}/>
                     <Route exact path="/explorer" component={Explorer}/>

@@ -4,8 +4,9 @@ import (
 	"sync"
 
 	"github.com/gorilla/websocket"
-	"github.com/iotaledger/goshimmer/packages/mana"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/mana"
 )
 
 const (
@@ -59,12 +60,12 @@ func (m *ManaBuffer) SendEvents(ws *websocket.Conn) error {
 		switch ev.Type() {
 		case mana.EventTypePledge:
 			msg = &wsmsg{
-				Type: MsgTypeManaPledge,
+				Type: MsgTypeManaInitPledge,
 				Data: ev.ToJSONSerializable(),
 			}
 		case mana.EventTypeRevoke:
 			msg = &wsmsg{
-				Type: MsgTypeManaRevoke,
+				Type: MsgTypeManaInitRevoke,
 				Data: ev.ToJSONSerializable(),
 			}
 		default:
@@ -73,6 +74,10 @@ func (m *ManaBuffer) SendEvents(ws *websocket.Conn) error {
 		if err := sendJSON(ws, msg); err != nil {
 			return xerrors.Errorf("failed to send mana event to client: %w", err)
 		}
+	}
+	// signal to frontend that all initial values are sent
+	if err := sendJSON(ws, &wsmsg{MsgTypeManaInitDone, nil}); err != nil {
+		return xerrors.Errorf("failed to send mana event to client: %w", err)
 	}
 	return nil
 }
@@ -93,7 +98,7 @@ func (m *ManaBuffer) SendValueMsgs(ws *websocket.Conn) error {
 	m.valueMsgsMutex.RLock()
 	defer m.valueMsgsMutex.RUnlock()
 	for _, valueMsg := range m.ValueMsgs {
-		var msg = &wsmsg{
+		msg := &wsmsg{
 			Type: MsgTypeManaValue,
 			Data: valueMsg,
 		}

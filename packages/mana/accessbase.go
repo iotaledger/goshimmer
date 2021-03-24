@@ -34,7 +34,7 @@ func (a *AccessBaseMana) updateBM2(n time.Duration) {
 		a.BaseMana2 = 0
 		return
 	}
-	a.BaseMana2 = a.BaseMana2 * math.Pow(math.E, -Decay*n.Seconds())
+	a.BaseMana2 *= math.Pow(math.E, -Decay*n.Seconds())
 }
 
 func (a *AccessBaseMana) updateEBM2(n time.Duration) {

@@ -5,13 +5,14 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/iotaledger/hive.go/node"
+	"github.com/labstack/echo"
+
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
-	"github.com/iotaledger/hive.go/node"
-	"github.com/labstack/echo"
 )
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
