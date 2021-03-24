@@ -4,10 +4,11 @@ import (
 	"container/list"
 	"net/http"
 
+	"github.com/labstack/echo"
+
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/labstack/echo"
 )
 
 // ObjectsHandler returns the list of value objects.

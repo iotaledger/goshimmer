@@ -3,11 +3,12 @@ package drng
 import (
 	"net/http"
 
-	"github.com/iotaledger/goshimmer/packages/drng"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/labstack/echo"
 	"github.com/labstack/gommon/log"
+
+	"github.com/iotaledger/goshimmer/packages/drng"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 // collectiveBeaconHandler gets the current DRNG committee.

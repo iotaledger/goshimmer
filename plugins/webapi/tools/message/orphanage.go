@@ -8,11 +8,12 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/labstack/echo"
+
+	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 var fileNameOrphanage = "orphanage-analysis.csv"
@@ -33,7 +34,7 @@ func OrphanageHandler(c echo.Context) error {
 	}
 
 	if err = orphanageAnalysis(targetMessageID, path); err != nil {
-		c.JSON(http.StatusInternalServerError, OrphanageResponse{Err: err.Error()})
+		return c.JSON(http.StatusInternalServerError, OrphanageResponse{Err: err.Error()})
 	}
 	return c.JSON(http.StatusOK, OrphanageResponse{})
 }
@@ -45,7 +46,7 @@ type OrphanageResponse struct {
 
 // region Analysis code implementation /////////////////////////////////////////////////////////////////////////////////
 
-func orphanageAnalysis(targetMessageID tangle.MessageID, filePath string) (err error) {
+func orphanageAnalysis(targetMessageID tangle.MessageID, filePath string) error {
 	// If the file doesn't exist, create it, or truncate the file
 	f, err := os.Create(filePath)
 	if err != nil {
@@ -59,7 +60,7 @@ func orphanageAnalysis(targetMessageID tangle.MessageID, filePath string) (err e
 	if err := w.Write(TableDescriptionOrphanage); err != nil {
 		return err
 	}
-
+	var writeErr error
 	messagelayer.Tangle().Utils.WalkMessageID(func(msgID tangle.MessageID, walker *walker.Walker) {
 		approverMessageIDs := messagelayer.Tangle().Utils.ApprovingMessageIDs(msgID)
 		if len(approverMessageIDs) == 0 {
@@ -75,11 +76,11 @@ func orphanageAnalysis(targetMessageID tangle.MessageID, filePath string) (err e
 					}
 
 					// write msgApproval to file
-					if err = w.Write(msgApproval.toCSV()); err != nil {
+					if writeErr = w.Write(msgApproval.toCSV()); writeErr != nil {
 						return
 					}
 					w.Flush()
-					if err = w.Error(); err != nil {
+					if writeErr = w.Error(); writeErr != nil {
 						return
 					}
 				})
@@ -93,7 +94,7 @@ func orphanageAnalysis(targetMessageID tangle.MessageID, filePath string) (err e
 		}
 	}, tangle.MessageIDs{targetMessageID})
 
-	return
+	return writeErr
 }
 
 // TableDescriptionOrphanage holds the description of the First Approval analysis table.

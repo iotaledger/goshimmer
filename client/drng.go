@@ -14,7 +14,6 @@ const (
 
 // BroadcastCollectiveBeacon sends the given collective beacon (payload) by creating a message in the backend.
 func (api *GoShimmerAPI) BroadcastCollectiveBeacon(payload []byte) (string, error) {
-
 	res := &webapi_drng.CollectiveBeaconResponse{}
 	if err := api.do(http.MethodPost, routeCollectiveBeacon,
 		&webapi_drng.CollectiveBeaconRequest{Payload: payload}, res); err != nil {

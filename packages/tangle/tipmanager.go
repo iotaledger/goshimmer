@@ -5,15 +5,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/datastructure/randommap"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/timedexecutor"
 	"github.com/iotaledger/hive.go/timedqueue"
 	"github.com/iotaledger/hive.go/types"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
 // region TipType //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -216,7 +217,6 @@ func (t *TipManager) AddTip(message *Message) {
 				t.tipsCleaner.ExecuteAt(messageID, func() {
 					t.strongTips.Delete(messageID)
 				}, message.IssuingTime().Add(tipLifeGracePeriod))
-
 			}
 
 			// skip removing tips if TangleWidth is enabled

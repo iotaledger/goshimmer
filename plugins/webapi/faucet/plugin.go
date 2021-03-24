@@ -5,14 +5,15 @@ import (
 	"net/http"
 	goSync "sync"
 
+	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/node"
+	"github.com/labstack/echo"
+
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
-	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/node"
-	"github.com/labstack/echo"
 )
 
 const (

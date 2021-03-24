@@ -1,3 +1,5 @@
+# Setting up a GoShimmer node 
+
 This page describes how to setup your own GoShimmer node in the Pollen testnet with Docker.
 
 > DISCLAIMER: **Note that there will be breaking changes frequently (approx. bi-weekly) where the entire network needs to upgrade. If you don't have time to continuously monitor and upgrade your node, then running a GoShimmer node might not be for you.**  We want to emphasize that running a GoShimmer node requires proper knowledge in Linux and IT related topics such as networking and so on. It is not meant as a node to be run by people with little experience in the mentioned fields. **Do not plan to run any production level services on your node/network.**
@@ -10,7 +12,7 @@ This page describes how to setup your own GoShimmer node in the Pollen testnet w
 | [Managing the GoShimmer node lifecycle](#managing-the-goshimmer-node-lifecycle) |
 | [Setting up the Grafana dashboard](#setting-up-the-grafana-dashboard)           |
 
-# Why you should run a node
+## Why you should run a node
 
 Running a node in the Pollen testnet helps us in the following ways:
 * It increases the amount of nodes in the network and thus lets it form a more realistic network.
@@ -20,7 +22,7 @@ Running a node in the Pollen testnet helps us in the following ways:
 
 > Note that any metric data is anonymous.
 
-# Installing GoShimmer with Docker
+## Installing GoShimmer with Docker
 
 #### Hardware Requirements
 
@@ -224,7 +226,7 @@ It is important that the ports are correctly mapped so that the node for example
 
 > If the UDP NAT mapping is not configured correctly, GoShimmer will terminate with an error message stating to check the NAT configuration
 
-# Running the GoShimmer node
+## Running the GoShimmer node
 
 Within the `/opt/goshimmer` folder where the `docker-compose.yml` resides, simply execute:
 ```
@@ -292,7 +294,7 @@ GoShimmer also exposes an HTTP API. To check whether that works correctly, you c
 }
 ```
 
-# Managing the GoShimmer node lifecycle
+## Managing the GoShimmer node lifecycle
 
 ##### Stopping the node
 ```
@@ -337,7 +339,7 @@ $ docker restart grafana
 ```
 
 
-# Setting up the Grafana dashboard
+## Setting up the Grafana dashboard
 
 #### Add Prometheus and Grafana Containers to `docker-compose.yml`
 Append the following to the previously described `docker-compose.yml` file (**make sure to also copy the space in front of "prometheus"/the entire whitespace**):

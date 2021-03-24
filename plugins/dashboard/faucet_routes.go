@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"sync"
 
+	"golang.org/x/xerrors"
+
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 
 	"github.com/iotaledger/goshimmer/plugins/config"
@@ -11,7 +13,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 
 	"github.com/labstack/echo"
-	"github.com/pkg/errors"
 )
 
 // ReqMsg defines the struct of the faucet request message ID.
@@ -23,7 +24,7 @@ func setupFaucetRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/faucet/:hash", func(c echo.Context) (err error) {
 		addr, err := ledgerstate.AddressFromBase58EncodedString(c.Param("hash"))
 		if err != nil {
-			return errors.Wrapf(ErrInvalidParameter, "faucet request address invalid: %s", addr)
+			return xerrors.Errorf("faucet request address invalid: %s: %w", addr, ErrInvalidParameter)
 		}
 
 		t, err := sendFaucetReq(addr)
@@ -46,7 +47,7 @@ func sendFaucetReq(addr ledgerstate.Address) (res *ReqMsg, err error) {
 	}
 	msg, err := messagelayer.Tangle().MessageFactory.IssuePayload(faucetPayload, messagelayer.Tangle())
 	if err != nil {
-		return nil, errors.Wrapf(ErrInternalError, "Failed to send faucet request: %s", err.Error())
+		return nil, xerrors.Errorf("Failed to send faucet request: %s: %w", err.Error(), ErrInternalError)
 	}
 
 	r := &ReqMsg{

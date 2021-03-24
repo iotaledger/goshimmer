@@ -5,13 +5,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 // LevelOfKnowledge defines the Level Of Knowledge type.
@@ -311,7 +312,7 @@ func (c ConflictSet) anchor() (opinion OpinionEssence) {
 
 // finalizedAsDisliked returns true if all of the elements of the conflict set have been disliked
 // (with a LoK greater than 1).
-func (c ConflictSet) finalizedAsDisliked(target OpinionEssence) bool {
+func (c ConflictSet) finalizedAsDisliked(_ OpinionEssence) bool {
 	return !c.hasDecidedLike() && c.anchor() == OpinionEssence{}
 }
 

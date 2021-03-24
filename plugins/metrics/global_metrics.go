@@ -3,12 +3,13 @@ package metrics
 import (
 	"sync"
 
-	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
-	analysisserver "github.com/iotaledger/goshimmer/plugins/analysis/server"
-	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"go.uber.org/atomic"
+
+	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
+	analysisserver "github.com/iotaledger/goshimmer/plugins/analysis/server"
+	"github.com/iotaledger/goshimmer/plugins/banner"
 )
 
 // NodeInfo holds info of a node.
@@ -47,12 +48,12 @@ func NodesMetrics() map[string]NodeInfo {
 	nodesMetricsMutex.RLock()
 	defer nodesMetricsMutex.RUnlock()
 	// create copy of the map
-	var copy = make(map[string]NodeInfo)
+	metricsCopy := make(map[string]NodeInfo)
 	// manually copy content
 	for node, clientInfo := range nodesMetrics {
-		copy[node] = clientInfo
+		metricsCopy[node] = clientInfo
 	}
-	return copy
+	return metricsCopy
 }
 
 func calculateNetworkDiameter() {

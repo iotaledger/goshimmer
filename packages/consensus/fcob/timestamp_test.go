@@ -4,9 +4,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestTimestampQuality(t *testing.T) {
@@ -42,7 +43,7 @@ func TestTimestampQuality(t *testing.T) {
 	o = TimestampQuality(tangle.EmptyMessageID, issuedTime, current)
 	assert.True(t, o.Equals(&TimestampOpinion{MessageID: tangle.EmptyMessageID, Value: opinion.Like, LoK: One}))
 
-	//Testing Dislike
+	// Testing Dislike
 	issuedTime = current.Add(-offset - TimestampWindow)
 	o = TimestampQuality(tangle.EmptyMessageID, issuedTime, current)
 	assert.True(t, o.Equals(&TimestampOpinion{MessageID: tangle.EmptyMessageID, Value: opinion.Dislike, LoK: One}))

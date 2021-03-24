@@ -1,3 +1,5 @@
+# How to do a release
+
 1. Create a PR into `develop` updating the banner version (`plugins/banner.AppVersion`) and mentioning the changes in `CHANGELOG.md`
 2. Create a PR merging `develop` into `master`
 3. Create a release via the release page with the same changelog entries as in `CHANGELOG.md` for the given version tagging the `master` branch

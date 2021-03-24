@@ -1,3 +1,5 @@
+# How to obtain tokens from the faucet
+
 ## The faucet dApp
 The faucet is a dApp built on top of the [value-](https://github.com/iotaledger/goshimmer/wiki/Layers#value-layer) and [communication layer](https://github.com/iotaledger/goshimmer/wiki/Layers#communication-layer). It sends IOTA tokens to addresses by listening to faucet request messages. A faucet message is a Message containing an address encoded in Base58, and it is retrievable via [`FindMessageByID()`](https://github.com/iotaledger/goshimmer/wiki/Client-Lib:-Interaction-with-layers#retrieve-messages).
 After sending a faucet request message, you can check your balances via [`GetUnspentOutputs()`](https://github.com/iotaledger/goshimmer/wiki/Client-Lib:-Interaction-with-layers#retrieve-utxosbalances).

@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/labstack/echo"
+
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/labstack/echo"
 )
 
 // PastconeHandler process a pastcone request.

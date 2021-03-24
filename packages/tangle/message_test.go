@@ -11,8 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -22,6 +20,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
 func randomBytes(size uint) []byte {
@@ -698,7 +699,6 @@ func TestMessageFromBytes(t *testing.T) {
 		assert.Error(t, err)
 		assert.True(t, xerrors.Is(err, cerrors.ErrParseBytesFailed))
 	})
-
 }
 
 func createTestMsgBytes(numStrongParents int, numWeakParents int) []byte {
@@ -998,7 +998,7 @@ func TestMessage_ForEachParent(t *testing.T) {
 		sortedStrongParents := sortParents(strongParents)
 		sortedWeakParents := sortParents(weakParents)
 		sortedStrongWeakParents := append(sortedStrongParents, sortedWeakParents...)
-		var resultParents = make([]MessageID, 0)
+		resultParents := make([]MessageID, 0)
 		checker := func(parent Parent) {
 			resultParents = append(resultParents, parent.ID)
 		}
@@ -1025,7 +1025,7 @@ func TestMessage_ForEachStrongParent(t *testing.T) {
 		)
 
 		sortedStrongParents := sortParents(strongParents)
-		var resultParents = make([]MessageID, 0)
+		resultParents := make([]MessageID, 0)
 		checker := func(parent MessageID) {
 			resultParents = append(resultParents, parent)
 		}
@@ -1052,7 +1052,7 @@ func TestMessage_ForEachWeakParent(t *testing.T) {
 		)
 
 		sortedWeakParents := sortParents(weakParents)
-		var resultParents = make([]MessageID, 0)
+		resultParents := make([]MessageID, 0)
 		checker := func(parent MessageID) {
 			resultParents = append(resultParents, parent)
 		}
@@ -1094,6 +1094,7 @@ func (w wl) privateKey() ed25519.PrivateKey {
 func (w wl) publicKey() ed25519.PublicKey {
 	return w.keyPair.PublicKey
 }
+
 func (w wl) sign(txEssence *ledgerstate.TransactionEssence) *ledgerstate.ED25519Signature {
 	return ledgerstate.NewED25519Signature(w.publicKey(), w.privateKey().Sign(txEssence.Bytes()))
 }

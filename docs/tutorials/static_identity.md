@@ -1,3 +1,5 @@
+# Create a static identity
+
 To create a static GoShimmer identity, you will need to generate a random 32byte autopeering seed. You can use `openssl` or the `rand-seed` tool we provide under the GoShimmer folder `tools/rand-seed`.
 For example, by running:
 * `openssl rand -base64 32`: generates a random 32 byte sequence encoded in base64. The output should look like: `gP0uRLhwBG2yJJmnLySX4S4R5G250Z3dbN9yBR6VSyY=`

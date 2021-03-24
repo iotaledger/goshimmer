@@ -6,9 +6,10 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"

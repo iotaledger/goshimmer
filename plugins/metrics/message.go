@@ -3,11 +3,12 @@ package metrics
 import (
 	"time"
 
+	"github.com/iotaledger/hive.go/syncutils"
+	"go.uber.org/atomic"
+
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/hive.go/syncutils"
-	"go.uber.org/atomic"
 )
 
 // ComponentType defines the component for the different MPS metrics.

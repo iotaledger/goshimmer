@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/stringify"
+
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 
 	"github.com/iotaledger/hive.go/marshalutil"
 )

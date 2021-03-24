@@ -5,10 +5,11 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/labstack/echo"
+
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
-	"github.com/labstack/echo"
 )
 
 func configureWebAPI() {

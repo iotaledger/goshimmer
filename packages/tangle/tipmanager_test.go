@@ -11,6 +11,8 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 func TestTipManager_AddTip(t *testing.T) {
@@ -434,7 +436,6 @@ func TestTipManager_TransactionTips(t *testing.T) {
 
 	// Message 1
 	{
-
 		inputs["G1"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, g1))
 		outputs["A"] = ledgerstate.NewSigLockedSingleOutput(3, wallets["A"].address)
 		outputs["B"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["B"].address)

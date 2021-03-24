@@ -1,4 +1,3 @@
-import { WSMsgType } from "../models/ws/wsMsgType";
 import {WSMsgTypeDashboard} from "../models/ws/WSMsgTypeDashboard";
 import { WSMessage } from "../models/ws/IWSMsg";
 import {IManaMessage} from "../models/mana/IManaMessage";
@@ -14,7 +13,10 @@ export function registerHandler(msgTypeID: WSMsgTypeDashboard.Mana, handler: Dat
 export function registerHandler(msgTypeID: WSMsgTypeDashboard.ManaMapOverall, handler: DataHandler<INetworkManaMessage>);
 export function registerHandler(msgTypeID: WSMsgTypeDashboard.ManaMapOnline, handler: DataHandler<INetworkManaMessage>);
 export function registerHandler(msgTypeID: WSMsgTypeDashboard.ManaPledge, handler: DataHandler<IPledgeMessage>);
+export function registerHandler(msgTypeID: WSMsgTypeDashboard.ManaInitPledge, handler: DataHandler<IPledgeMessage>);
 export function registerHandler(msgTypeID: WSMsgTypeDashboard.ManaRevoke, handler: DataHandler<IRevokeMessage>);
+export function registerHandler(msgTypeID: WSMsgTypeDashboard.ManaInitRevoke, handler: DataHandler<IRevokeMessage>);
+export function registerHandler(msgTypeID: WSMsgTypeDashboard.ManaInitDone, handler: DataHandler<null>);
 
 
 export function registerHandler<T>(msgTypeID: number, handler: DataHandler<T>): void {
@@ -46,10 +48,6 @@ export function connectDashboardWebSocket(
 
     ws.onmessage = (e) => {
         const msg: WSMessage = JSON.parse(e.data) as WSMessage;
-        // Just a ping, do nothing
-        if (msg.type === WSMsgType.ping) {
-            return;
-        }
         const handler = handlers[msg.type];
         if (handler) {
             handler(msg.data);

@@ -1,6 +1,8 @@
 package dashboard
 
 import (
+	"github.com/iotaledger/hive.go/marshalutil"
+
 	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
@@ -8,7 +10,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	syncbeaconpayload "github.com/iotaledger/goshimmer/plugins/syncbeacon/payload"
-	"github.com/iotaledger/hive.go/marshalutil"
 )
 
 // BasicPayload contains content title and bytes

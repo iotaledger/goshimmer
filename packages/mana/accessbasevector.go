@@ -137,7 +137,7 @@ func (a *AccessBaseManaVector) GetHighestManaNodes(n uint) (res []Node, t time.T
 		return nil, t, err
 	}
 
-	sort.Slice(res[:], func(i, j int) bool {
+	sort.Slice(res, func(i, j int) bool {
 		return res[i].Mana > res[j].Mana
 	})
 

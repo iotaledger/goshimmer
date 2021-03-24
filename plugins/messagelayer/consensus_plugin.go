@@ -8,6 +8,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/autopeering/peer/service"
+	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/node"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/metrics"
@@ -23,14 +32,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/clock"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
-	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/autopeering/peer/service"
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/node"
-	"google.golang.org/grpc"
-	"google.golang.org/protobuf/proto"
 )
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -130,7 +131,6 @@ func configureFPC(plugin *node.Plugin) {
 			plugin.LogWarnf("FPC failed for transaction with id '%s' - last opinion: '%s'", ev.ID, ev.Opinion)
 		}
 	}))
-
 }
 
 func runFPC(plugin *node.Plugin) {
@@ -443,7 +443,9 @@ func makeStatement(roundStats *vote.RoundStats) {
 				ID: messageID,
 				Opinion: statement.Opinion{
 					Value: v.LastOpinion(),
-					Round: uint8(v.Rounds)}},
+					Round: uint8(v.Rounds),
+				},
+			},
 			)
 		case vote.ConflictType:
 			messageID, err := ledgerstate.TransactionIDFromBase58(id)
@@ -455,7 +457,9 @@ func makeStatement(roundStats *vote.RoundStats) {
 				ID: messageID,
 				Opinion: statement.Opinion{
 					Value: v.LastOpinion(),
-					Round: uint8(v.Rounds)}},
+					Round: uint8(v.Rounds),
+				},
+			},
 			)
 		default:
 		}
@@ -467,7 +471,6 @@ func makeStatement(roundStats *vote.RoundStats) {
 // broadcastStatement broadcasts a statement via communication layer.
 func broadcastStatement(conflicts statement.Conflicts, timestamps statement.Timestamps) {
 	msg, err := Tangle().IssuePayload(statement.New(conflicts, timestamps))
-
 	if err != nil {
 		plugin.LogWarnf("error issuing statement: %s", err)
 		return
