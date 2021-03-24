@@ -309,7 +309,6 @@ func GetHighestManaNodesFraction(manaType mana.Type, p float64) ([]mana.Node, ti
 		return bmv.GetHighestManaNodes(uint(bmv.Size()))
 	}
 	n := uint(math.Ceil(float64(bmv.Size()) * p))
-	fmt.Printf("N: %d p: %f, size: %d", n, p, bmv.Size())
 	return bmv.GetHighestManaNodes(n)
 }
 
