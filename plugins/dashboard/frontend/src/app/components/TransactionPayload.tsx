@@ -142,7 +142,7 @@ class Inputs extends React.Component<OutputProps> {
                 <Col>
                     Index: <Badge variant={"primary"}>{this.props.index}</Badge>
                     <ListGroup>
-                        <ListGroup.Item key={this.props.outputID}>OutputID: {this.props.outputID} </ListGroup.Item>
+                        <ListGroup.Item key={this.props.outputID}>OutputID: <a href={`/explorer/output/${this.props.outputID}`}>{this.props.outputID}</a> </ListGroup.Item>
                         <ListGroup.Item key={this.props.address}>Address: <Link to={`/explorer/address/${this.props.address}`}>{this.props.address}</Link>
                         </ListGroup.Item>
                         <ListGroup.Item key={'balances'}>
@@ -165,7 +165,7 @@ class Outputs extends React.Component<OutputProps> {
                 <Col>
                     Index: <Badge variant={"primary"}>{this.props.index}</Badge>
                     <ListGroup>
-                        <ListGroup.Item key={this.props.outputID}>OutputID: {this.props.outputID} </ListGroup.Item>
+                        <ListGroup.Item key={this.props.outputID}>OutputID: <a href={`/explorer/output/${this.props.outputID}`}>{this.props.outputID}</a></ListGroup.Item>
                         <ListGroup.Item key={this.props.address}>Address: <Link to={`/explorer/address/${this.props.address}`}>{this.props.address}</Link>
                         </ListGroup.Item>
                         <ListGroup.Item key={'balances'}>
