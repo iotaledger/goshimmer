@@ -41,7 +41,7 @@ func (wconn *WaspConnector) processMsgDataFromWasp(data []byte) {
 		wconn.pushTransaction(msg.TxID, msg.ChainAddress)
 
 	case *waspconn.WaspToNodeGetTxInclusionStateMsg:
-		wconn.getTxInclusionState(msg.TxID)
+		wconn.getTxInclusionState(msg.TxID, msg.ChainAddress)
 
 	case *waspconn.WaspToNodeGetBacklogMsg:
 		wconn.getBacklog(msg.ChainAddress)

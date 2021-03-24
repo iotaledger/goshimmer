@@ -186,16 +186,18 @@ func (wconn *WaspConnector) processBookedTransactionFromNode(tx *ledgerstate.Tra
 	}
 	txid := tx.ID()
 	wconn.log().Debugf("booked tx -> Wasp. txid: %s", tx.ID().String())
-	wconn.sendTxInclusionStateToWasp(txid, ledgerstate.Pending)
+	for _, addr := range addrs {
+		wconn.sendTxInclusionStateToWasp(txid, addr, ledgerstate.Pending)
+	}
 }
 
-func (wconn *WaspConnector) getTxInclusionState(txid ledgerstate.TransactionID) {
+func (wconn *WaspConnector) getTxInclusionState(txid ledgerstate.TransactionID, chainAddress *ledgerstate.AliasAddress) {
 	state, err := wconn.ledger.GetTxInclusionState(txid)
 	if err != nil {
 		wconn.log().Errorf("getTxInclusionState: %v", err)
 		return
 	}
-	wconn.sendTxInclusionStateToWasp(txid, state)
+	wconn.sendTxInclusionStateToWasp(txid, chainAddress, state)
 }
 
 func (wconn *WaspConnector) getBacklog(addr *ledgerstate.AliasAddress) {

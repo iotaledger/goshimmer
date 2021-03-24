@@ -42,10 +42,11 @@ func (wconn *WaspConnector) sendMsgToWasp(msg waspconn.Message) {
 	}
 }
 
-func (wconn *WaspConnector) sendTxInclusionStateToWasp(txid ledgerstate.TransactionID, state ledgerstate.InclusionState) {
+func (wconn *WaspConnector) sendTxInclusionStateToWasp(txid ledgerstate.TransactionID, chainAddress *ledgerstate.AliasAddress, state ledgerstate.InclusionState) {
 	wconn.sendMsgToWasp(&waspconn.WaspFromNodeTxInclusionStateMsg{
-		TxID:  txid,
-		State: state,
+		ChainAddress: chainAddress,
+		TxID:         txid,
+		State:        state,
 	})
 }
 

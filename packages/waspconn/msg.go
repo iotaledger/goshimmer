@@ -93,10 +93,11 @@ type WaspFromNodeTransactionMsg struct {
 }
 
 // WaspFromNodeTxInclusionStateMsg informs the Wasp node with the inclusion state of a given
-// transaction.
+// transaction as a response from the given chain address.
 type WaspFromNodeTxInclusionStateMsg struct {
-	TxID  ledgerstate.TransactionID
-	State ledgerstate.InclusionState
+	ChainAddress *ledgerstate.AliasAddress
+	TxID         ledgerstate.TransactionID
+	State        ledgerstate.InclusionState
 }
 
 /////////////////////////////////
@@ -328,12 +329,16 @@ func (msg *WaspMsgChunk) Type() MessageType {
 }
 
 func (msg *WaspFromNodeTxInclusionStateMsg) Write(w *marshalutil.MarshalUtil) {
+	w.Write(msg.ChainAddress)
 	w.Write(msg.State)
 	w.Write(msg.TxID)
 }
 
 func (msg *WaspFromNodeTxInclusionStateMsg) Read(m *marshalutil.MarshalUtil) error {
 	var err error
+	if msg.ChainAddress, err = ledgerstate.AliasAddressFromMarshalUtil(m); err != nil {
+		return err
+	}
 	if msg.State, err = ledgerstate.InclusionStateFromMarshalUtil(m); err != nil {
 		return err
 	}
