@@ -39,7 +39,6 @@ func TestIsFinalized(t *testing.T) {
 	for _, conflictTest := range tests {
 		require.Equal(t, conflictTest.want, conflictTest.isFinalized())
 	}
-
 }
 
 // TestFinalizationStatus checks that for a given conflict, its method finalizationStatus works ok.
@@ -75,5 +74,4 @@ func TestFinalizationStatus(t *testing.T) {
 	for _, conflictTest := range tests {
 		require.Equal(t, conflictTest.want, conflictTest.finalizedRatio())
 	}
-
 }

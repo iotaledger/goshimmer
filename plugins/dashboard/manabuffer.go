@@ -4,8 +4,9 @@ import (
 	"sync"
 
 	"github.com/gorilla/websocket"
-	"github.com/iotaledger/goshimmer/packages/mana"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/mana"
 )
 
 const (
@@ -97,7 +98,7 @@ func (m *ManaBuffer) SendValueMsgs(ws *websocket.Conn) error {
 	m.valueMsgsMutex.RLock()
 	defer m.valueMsgsMutex.RUnlock()
 	for _, valueMsg := range m.ValueMsgs {
-		var msg = &wsmsg{
+		msg := &wsmsg{
 			Type: MsgTypeManaValue,
 			Data: valueMsg,
 		}

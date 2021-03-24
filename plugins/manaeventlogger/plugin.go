@@ -6,13 +6,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/mana"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+
+	"github.com/iotaledger/goshimmer/packages/mana"
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 const (
@@ -60,6 +61,7 @@ func configureEvents() {
 func logPledge(ev *mana.PledgedEvent) {
 	eventsBuffer = append(eventsBuffer, ev)
 }
+
 func logRevoke(ev *mana.RevokedEvent) {
 	eventsBuffer = append(eventsBuffer, ev)
 }

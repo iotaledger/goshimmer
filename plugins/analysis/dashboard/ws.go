@@ -6,10 +6,11 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/labstack/echo"
+
 	analysisserver "github.com/iotaledger/goshimmer/plugins/analysis/server"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/dashboard"
-	"github.com/labstack/echo"
 )
 
 var (

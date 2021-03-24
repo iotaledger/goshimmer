@@ -3,9 +3,10 @@ package wallet
 import (
 	"time"
 
+	"github.com/iotaledger/hive.go/stringify"
+
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/hive.go/stringify"
 )
 
 // region Output ///////////////////////////////////////////////////////////////////////////////////////////////////////
