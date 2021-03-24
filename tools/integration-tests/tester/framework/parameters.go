@@ -51,7 +51,7 @@ var (
 	// ParaWaitForStatement is the time in seconds for which the node wait for receiveing the new statement.
 	ParaWaitForStatement = 3
 	// ParaFPCListen defines if the FPC service should listen.
-	ParaFPCListen = false
+	ParaFPCListen = true
 	// ParaWriteStatement defines if the node should write statements.
 	ParaWriteStatement = true
 )

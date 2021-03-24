@@ -77,7 +77,8 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 	containerConfig := &container.Config{
 		Image: "iotaledger/goshimmer",
 		ExposedPorts: nat.PortSet{
-			nat.Port("8080/tcp"): {},
+			nat.Port("8080/tcp"):  {},
+			nat.Port("10895/tcp"): {},
 		},
 		Cmd: strslice.StrSlice{
 			"--skip-config=true",
