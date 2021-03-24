@@ -6,6 +6,7 @@ import { inject, observer } from "mobx-react";
 import ExplorerStore from "app/stores/ExplorerStore";
 import Badge from "react-bootstrap/Badge";
 import {displayManaUnit} from "app/utils";
+import {resolveBase58BranchID} from "app/utils/branch";
 
 interface Props {
     nodeStore?: NodeStore;
@@ -81,7 +82,7 @@ export class ExplorerOutputQueryResult extends React.Component<Props, any> {
                 {outputMetadata && <div className={"mb-2"}>
                     <ListGroup>
                         <ListGroup.Item>Transaction ID: <a href={`/explorer/transaction/${outputMetadata.outputID.transactionID}`}>{outputMetadata.outputID.transactionID}</a> </ListGroup.Item>
-                        <ListGroup.Item>Branch ID: <a href={`/explorer/branch/${outputMetadata.branchID}`}>{outputMetadata.branchID}</a> </ListGroup.Item>
+                        <ListGroup.Item>Branch ID: <a href={`/explorer/branch/${outputMetadata.branchID}`}>{resolveBase58BranchID(outputMetadata.branchID)}</a> </ListGroup.Item>
                         <ListGroup.Item>Solid: {outputMetadata.solid.toString()}</ListGroup.Item>
                         <ListGroup.Item>Solidification Time: {new Date(outputMetadata.solidificationTime * 1000).toLocaleString()}</ListGroup.Item>
                         <ListGroup.Item>Consumer Count: {outputMetadata.consumerCount}</ListGroup.Item>
