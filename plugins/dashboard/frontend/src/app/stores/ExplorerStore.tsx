@@ -15,6 +15,7 @@ import {Link} from 'react-router-dom';
 import {RouterStore} from "mobx-react-router";
 
 export const GenesisMessageID = "1111111111111111111111111111111111111111111111111111111111111111";
+export const GenesisTransactionID = "1111111111111111111111111111111111111111111111111111111111111111"
 
 export class Message {
     id: string;
@@ -25,7 +26,14 @@ export class Message {
     signature: string;
     strongParents: Array<string>;
     weakParents: Array<string>;
+    strongApprovers: Array<string>;
+    weakApprovers: Array<string>;
     solid: boolean;
+    branchID: string;
+    scheduled: boolean;
+    booked: boolean;
+    eligible: boolean;
+    invalid: boolean;
     payload_type: number;
     payload: any;
 }
@@ -80,6 +88,9 @@ export class ExplorerStore {
     // queries
     @observable msg: Message = null;
     @observable addr: AddressResult = null;
+    @observable tx: any = null;
+    @observable txMetadata: any = null;
+    @observable txAttachments: any = [];
 
     // loading
     @observable query_loading: boolean = false;
@@ -171,6 +182,59 @@ export class ExplorerStore {
         }
     };
 
+    getTransaction = async (id: string) => {
+        try {
+            let res = await fetch(`/api/transaction/${id}`)
+            if (res.status === 404) {
+                this.updateQueryError(QueryError.NotFound);
+                return;
+            }
+            let tx = await res.json()
+            for(let i = 0; i < tx.inputs.length; i++) {
+                let inputID = tx.inputs[i].referencedOutputID ? tx.inputs[i].referencedOutputID.base58 : GenesisMessageID
+                try{
+                    let referencedOutputRes = await fetch(`/api/output/${inputID}`)
+                    if (referencedOutputRes.status === 200){
+                        tx.inputs[i].referencedOutput = await referencedOutputRes.json()
+                    }
+                }catch(err){
+                    // ignore
+                }
+            }
+            this.updateTransaction(tx)
+        } catch (err) {
+            this.updateQueryError(err);
+        }
+    }
+
+    getTransactionAttachments = async (id: string) => {
+        try {
+            let res = await fetch(`/api/transaction/${id}/attachments`)
+            if (res.status === 404) {
+                this.updateQueryError(QueryError.NotFound);
+                return;
+            }
+            let attachments = await res.json()
+            this.updateTransactionAttachments(attachments)
+        } catch (err) {
+            this.updateQueryError(err);
+        }
+    }
+
+    getTransactionMetadata = async (id: string) => {
+        try {
+            let res = await fetch(`/api/transaction/${id}/metadata`)
+            if (res.status === 404) {
+                this.updateQueryError(QueryError.NotFound);
+                return;
+            }
+            let metadata = await res.json()
+            this.updateTransactionMetadata(metadata)
+        } catch (err) {
+            this.updateQueryError(err);
+        }
+    }
+
     @action
     reset = () => {
         this.msg = null;
@@ -183,6 +247,21 @@ export class ExplorerStore {
         this.query_err = null;
         this.query_loading = false;
     };
+
+    @action
+    updateTransaction = (tx: any) => {
+        this.tx = tx;
+    }
+
+    @action
+    updateTransactionAttachments = (attachments: any) => {
+        this.txAttachments = attachments;
+    }
+
+    @action
+    updateTransactionMetadata = (metadata: any) => {
+        this.txMetadata = metadata;
+    }
 
     @action
     updateMessage = (msg: Message) => {

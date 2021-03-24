@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
@@ -161,7 +162,7 @@ func (s *Storage) Approvers(messageID MessageID, optionalApproverType ...Approve
 	s.approverStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		cachedApprovers = append(cachedApprovers, &CachedApprover{CachedObject: cachedObject})
 		return true
-	}, iterationPrefix)
+	}, objectstorage.WithPrefix(iterationPrefix))
 
 	return
 }
@@ -201,7 +202,7 @@ func (s *Storage) Attachments(transactionID ledgerstate.TransactionID) (cachedAt
 	s.attachmentStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		cachedAttachments = append(cachedAttachments, &CachedAttachment{CachedObject: cachedObject})
 		return true
-	}, transactionID.Bytes())
+	}, objectstorage.WithPrefix(transactionID.Bytes()))
 	return
 }
 
@@ -257,17 +258,19 @@ func (s *Storage) MarkerIndexBranchIDMapping(sequenceID markers.SequenceID, comp
 func (s *Storage) storeGenesis() {
 	s.MessageMetadata(EmptyMessageID, func() *MessageMetadata {
 		genesisMetadata := &MessageMetadata{
-			messageID: EmptyMessageID,
-			solid:     true,
-			branchID:  ledgerstate.MasterBranchID,
+			solidificationTime: clock.SyncedTime().Add(time.Duration(-20) * time.Minute),
+			messageID:          EmptyMessageID,
+			solid:              true,
+			branchID:           ledgerstate.MasterBranchID,
 			structureDetails: &markers.StructureDetails{
 				Rank:          0,
 				IsPastMarker:  false,
 				PastMarkers:   markers.NewMarkers(),
 				FutureMarkers: markers.NewMarkers(),
 			},
-			booked:   true,
-			eligible: true,
+			scheduled: true,
+			booked:    true,
+			eligible:  true,
 		}
 
 		genesisMetadata.Persist()
@@ -275,7 +278,6 @@ func (s *Storage) storeGenesis() {
 
 		return genesisMetadata
 	}).Release()
-
 }
 
 // deleteStrongApprover deletes an Approver from the object storage that was created by a strong parent.
@@ -688,7 +690,8 @@ func AttachmentFromBytes(bytes []byte) (result *Attachment, consumedBytes int, e
 	return
 }
 
-// ParseAttachment is a wrapper for simplified unmarshaling of Attachments from a byte stream using the marshalUtil package.
+// ParseAttachment is a wrapper for simplified unmarshaling of Attachments from a byte stream using the marshalUtil
+// package.
 func ParseAttachment(marshalUtil *marshalutil.MarshalUtil) (result *Attachment, err error) {
 	result = &Attachment{}
 	if result.transactionID, err = ledgerstate.TransactionIDFromMarshalUtil(marshalUtil); err != nil {

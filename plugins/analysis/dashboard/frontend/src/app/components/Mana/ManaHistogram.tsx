@@ -21,12 +21,12 @@ export default class ManaHistogram extends React.Component<Props, any> {
                         chartType="Histogram"
                         loader={<div>Loading Chart</div>}
                         data={[
-                            ['NodeID', {type: 'number', label: 'Mana' }],
+                            ['NodeID', {type: 'number', label: 'log10(Mana)' }],
                             ...this.props.data
                         ]}
                         options={{
                             title: 'Mana Histogram',
-                            hAxis: { title: 'Mana Holding of Nodes', titleTextStyle: { color: '#333' } },
+                            hAxis: { title: 'log10(Mana) of Nodes ', titleTextStyle: { color: '#333' } },
                             vAxis: { title: 'Number of Nodes in Bucket', titleTextStyle: { color: '#333' } },
                             // By default, Google Charts will choose the bucket size automatically,
                             // using a well-known algorithm for histograms.
@@ -37,7 +37,7 @@ export default class ManaHistogram extends React.Component<Props, any> {
                             // percentage you specify. The values are still included in the histogram, but do
                             // not affect how they're bucketed. This is useful when you don't want outliers to
                             // land in their own buckets; they will be grouped with the first or last buckets instead.
-                            histogram: { lastBucketPercentile: 5 },
+                            //histogram: { lastBucketPercentile: 5 },
                             legend: {position: 'none'},
                             colors: ['#41aea9']
                         }}

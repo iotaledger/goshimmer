@@ -4,6 +4,9 @@ on:
   pull_request:
     paths-ignore:
       - 'docs/**'
+env:
+  DOCKER_BUILDKIT: 1
+
 
 jobs:
 

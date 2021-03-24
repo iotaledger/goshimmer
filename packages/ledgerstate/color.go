@@ -175,8 +175,11 @@ func ColoredBalancesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (color
 // Get returns the balance of the given Color and a boolean value indicating if the requested Color existed.
 func (c *ColoredBalances) Get(color Color) (uint64, bool) {
 	balance, exists := c.balances.Get(color)
-
-	return balance.(uint64), exists
+	ret, ok := balance.(uint64)
+	if !ok {
+		return 0, false
+	}
+	return ret, exists
 }
 
 // ForEach calls the consumer for each element in the collection and aborts the iteration if the consumer returns false.
