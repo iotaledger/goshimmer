@@ -31,7 +31,7 @@ goshimmer \
 Currently, in the code there are two ways in which parameters are registered with GoShimmer. However, one is deprecated way, while the second should be used any longer when adding new parameters.
 
 ### Old, deprecated way
-The old way is described shortly to give a basic understanding of how it works, as it should not be used when adding new parameters.
+The old way is described shortly to give a basic understanding of how it works, but it should not be used any longer when adding new parameters.
 
 In a package where the parameters will be used, create a `parameters.go` file, that contains the definition of constants, which define parameter names in JSON dot-notation. 
 The constants will be later used in the code to access the parameter value. 
