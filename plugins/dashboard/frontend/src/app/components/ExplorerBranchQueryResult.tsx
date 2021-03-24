@@ -75,7 +75,7 @@ export class ExplorerBranchQueryResult extends React.Component<Props, any> {
                     </ListGroup.Item>
                     <ListGroup.Item>Conflicts:
                         {branch.conflictIDs && <ListGroup>
-                            {branch.conflictIDs.map((c,i) => <ListGroup.Item key={i}>{resolveBase58BranchID(c)}</ListGroup.Item>)}
+                            {branch.conflictIDs.map((c,i) => <ListGroup.Item key={i}><a href={`/explorer/output/${c}`}>{c}</a></ListGroup.Item>)}
                         </ListGroup>}
                     </ListGroup.Item>
                     <ListGroup.Item>Finalized: {branch.finalized.toString()}</ListGroup.Item>

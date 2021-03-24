@@ -2,11 +2,11 @@ export function resolveBase58BranchID(base58Branch: string): string {
     switch (base58Branch) {
         case MasterBranchInBase58:
             return "MasterBranchID";
-        case UndefinedBranchID:
+        case UndefinedBranchInBase58:
             return "UndefinedBranchID";
-        case LazyBookedConflictsBranchID:
+        case LazyBookedConflictsBranchInBase58:
             return "LazyBookedConflictsBranchID";
-        case InvalidBranchID:
+        case InvalidBranchInBase58:
             return "InvalidBranchID";
         default:
             // otherwise it is a "regular" branchID that doesn't have a distinct name
@@ -14,7 +14,8 @@ export function resolveBase58BranchID(base58Branch: string): string {
     }
 }
 
+// base58 branchIDs that have distinct names
 const MasterBranchInBase58 = "4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM"
-const UndefinedBranchID = "11111111111111111111111111111111"
-const LazyBookedConflictsBranchID = "JEKNVnkbo3jma5nREBBJCDoXFVeKkD56V3xKrvRmWxFF"
-const InvalidBranchID = "JEKNVnkbo3jma5nREBBJCDoXFVeKkD56V3xKrvRmWxFG"
+const UndefinedBranchInBase58 = "11111111111111111111111111111111"
+const LazyBookedConflictsBranchInBase58 = "JEKNVnkbo3jma5nREBBJCDoXFVeKkD56V3xKrvRmWxFF"
+const InvalidBranchInBase58 = "JEKNVnkbo3jma5nREBBJCDoXFVeKkD56V3xKrvRmWxFG"
