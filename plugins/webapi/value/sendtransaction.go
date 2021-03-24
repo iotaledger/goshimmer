@@ -73,11 +73,7 @@ func sendTransactionHandler(c echo.Context) error {
 	}
 
 	issueTransaction := func() (*tangle.Message, error) {
-		msg, e := messagelayer.Tangle().IssuePayload(tx)
-		if e != nil {
-			return nil, c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: e.Error()})
-		}
-		return msg, nil
+		return messagelayer.Tangle().IssuePayload(tx)
 	}
 
 	if _, err := messagelayer.AwaitMessageToBeBooked(issueTransaction, tx.ID(), maxBookedAwaitTime); err != nil {
