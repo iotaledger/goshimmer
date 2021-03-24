@@ -17,6 +17,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 )
 
+const (
+	tolerance = 0.001
+)
+
 var (
 	// ErrVoteAlreadyOngoing is returned if a vote is already going on for the given ID.
 	ErrVoteAlreadyOngoing = errors.New("a vote is already ongoing for the given ID")
@@ -321,6 +325,7 @@ func (f *FPC) voteContextIDs() (conflictIDs []string, timestampIDs []string) {
 	return conflictIDs, timestampIDs
 }
 
+// SetOpinionGiverRng sets random number generator in the FPC instance
 func (f *FPC) SetOpinionGiverRng(rng *rand.Rand) {
 	f.opinionGiverRng = rng
 }
@@ -337,7 +342,8 @@ func ManaBasedSampling(opinionGivers []opinion.OpinionGiver, maxQuerySampleSize,
 	}
 
 	// check if total mana is almost zero
-	if math.Abs(totalConsensusMana-0.0) <= 1e-9 {
+
+	if math.Abs(totalConsensusMana) <= tolerance {
 		// fallback to uniform sampling
 		return UniformSampling(opinionGivers, maxQuerySampleSize, querySampleSize, rng)
 	}
@@ -352,7 +358,6 @@ func ManaBasedSampling(opinionGivers []opinion.OpinionGiver, maxQuerySampleSize,
 				break
 			}
 		}
-
 	}
 	return opinionGiversToQuery
 }

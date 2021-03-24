@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/iotaledger/goshimmer/packages/mana"
+	"golang.org/x/xerrors"
 	"net"
 	"strconv"
 	"sync"
@@ -257,7 +258,9 @@ func OpinionGiverFunc() (givers []opinion.OpinionGiver, err error) {
 	opinionGivers := make([]opinion.OpinionGiver, 0)
 
 	consensusManaNodes, _, err := GetManaMap(mana.ConsensusMana)
-
+	if err != nil {
+		plugin.LogErrorf("Error retrieving consensus mana: %s", err)
+	}
 	for _, v := range Registry().NodesView() {
 		// double check to exclude self and check if node has enough mana to consider its statement
 		if v.ID() == local.GetInstance().ID() || !checkEnoughMana(v.ID(), StatementParameters.ReadManaThreshold) {
@@ -329,7 +332,12 @@ func (pog *PeerOpinionGiver) Query(ctx context.Context, conflictIDs []string, ti
 	if err != nil {
 		return nil, fmt.Errorf("unable to connect to FPC service: %w", err)
 	}
-	defer conn.Close()
+	defer func() {
+		cerr := conn.Close()
+		if err == nil {
+			err = xerrors.Errorf("failed to close conneection: %w", cerr)
+		}
+	}()
 
 	client := votenet.NewVoterQueryClient(conn)
 	query := &votenet.QueryRequest{ConflictIDs: conflictIDs, TimestampIDs: timestampIDs}
@@ -351,7 +359,7 @@ func (pog *PeerOpinionGiver) Query(ctx context.Context, conflictIDs []string, ti
 		opinions[i] = opinion.ConvertInt32Opinion(intOpn)
 	}
 
-	return opinions, nil
+	return opinions, err
 }
 
 // ID returns the identifier of the underlying Peer.
