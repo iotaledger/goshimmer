@@ -2,6 +2,7 @@ issues:
     exclude-use-default: false
     max-issues-per-linter: 0
     max-same-issues: 0
+    new-from-rev: e79d2a0c90ae4c80aa56afebcd06d5540bbdc75f # Enhance golangci-lint (#1113)
     exclude:
         - 'Error return value of .((os\.)?std(out|err)\..*|.*Close|.*Flush|os\.Remove(All)?|.*print(f|ln)?|os\.(Un)?Setenv). is not checked' # errcheck
         - 'err113: do not define dynamic errors, use wrapped static errors instead:' # goerr113
@@ -17,23 +18,6 @@ issues:
         - 'ST1000: at least one file in a package should have a package comment' # stylecheck
         - 'ST1005: error strings should not be capitalized' # stylecheck
         - '`[0-9A-Za-z_.]+` - `[0-9A-Za-z_.]+` always receives `[0-9A-Za-z_.]+`' # unparam
-
-
-        # Temporary exclusions.
-        # They are needed until golangci-lint changes get merged into develop.
-        # After that they will be removed and golangci-lint start analyzing the codebase from the merge commit.
-        # Via new-from-rev config setting in .golangci.yml file.
-        - 'lines are duplicate of `*`' # dupl
-        - 'Error return value of (`[0-9A-Za-z_.]+`|``) is not checked' # errcheck
-        - 'cyclomatic complexity [0-9]+ of func `[0-9A-Za-z_.]+` is high' # gocyclo
-        - 'naked return in func `[0-9A-Za-z_.]+` with [0-9]+ lines of code' #nakedret
-        - 'string `init` has 3 occurrences, make it a constant' # goconst
-        - 'mnd: Magic number:' # gomnd
-        - "Function '[0-9A-Za-z_.]+' has too many statements" # funlen
-        - "Function '[0-9A-Za-z_.]+' is too long" # funlen
-        - 'is being imported more than once' # stylecheck
-        - 'ST1019' # stylecheck
-        - 'ST1003:' # stylecheck ST1003: var unixTsPRNG should be unixTSPRNG
     exclude-rules:
         -   path: (_test\.go|example_test\.go|example_[0-9A-Za-z_-]+_test\.go)
             linters:
@@ -66,16 +50,6 @@ linters-settings:
             - octalLiteral
             - whyNoLint
             - wrapperFunc
-
-            # Temporary exclusions.
-            # They are needed until golangci-lint changes get merged into develop.
-            # After that they will be removed and golangci-lint start analyzing the codebase from the merge commit.
-            # Via new-from-rev config setting in .golangci.yml file.
-            - importShadow
-            - typeUnparen
-            - paramTypeCombine
-            - exitAfterDefer
-            - elseif
     goimports:
         local-prefixes: github.com/iotaledger/goshimmer
     gomnd:
