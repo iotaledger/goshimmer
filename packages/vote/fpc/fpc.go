@@ -337,7 +337,7 @@ func ManaBasedSampling(opinionGivers []opinion.OpinionGiver, maxQuerySampleSize,
 		totals = append(totals, totalConsensusMana)
 	}
 
-	// check almost equal
+	// check if total mana is almost zero
 	if math.Abs(totalConsensusMana-0.0) <= 1e-9 {
 		// fallback to uniform sampling
 		return UniformSampling(opinionGivers, maxQuerySampleSize, querySampleSize, rng)
