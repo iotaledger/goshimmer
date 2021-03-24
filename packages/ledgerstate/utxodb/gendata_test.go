@@ -1,10 +1,11 @@
 package utxodb
 
 import (
+	"testing"
+
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestGenSeed(t *testing.T) {
