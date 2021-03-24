@@ -88,7 +88,8 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 	b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 			isConflict := false
-			combinedBranches := b.branchIDsOfParents(message)
+			parentBranches := b.branchIDsOfParents(message)
+			combinedBranches := parentBranches.Clone()
 			if payload := message.Payload(); payload != nil && payload.Type() == ledgerstate.TransactionType {
 				transaction := payload.(*ledgerstate.Transaction)
 				if valid, er := b.tangle.LedgerState.TransactionValid(transaction, messageID); !valid {
@@ -122,8 +123,7 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 					b.tangle.LedgerState.utxoDAG.StoreAddressOutputMapping(output.Address(), output.ID())
 				}
 
-				attachment, stored := b.tangle.Storage.StoreAttachment(transaction.ID(), messageID)
-				if stored {
+				if attachment, stored := b.tangle.Storage.StoreAttachment(transaction.ID(), messageID); stored {
 					attachment.Release()
 				}
 			}
@@ -134,16 +134,12 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 				return
 			}
 
-			if !isConflict && inheritedBranch != ledgerstate.InvalidBranchID && inheritedBranch != ledgerstate.LazyBookedConflictsBranchID {
-				messageMetadata.SetStructureDetails(b.MarkersManager.InheritStructureDetails(message))
-				messageMetadata.SetBooked(true)
-
-				b.Events.MessageBooked.Trigger(messageID)
-
-				return
+			newSequenceAlias := make([]markers.SequenceAlias, 0)
+			if isConflict || inheritedBranch == ledgerstate.InvalidBranchID || inheritedBranch == ledgerstate.LazyBookedConflictsBranchID {
+				newSequenceAlias = append(newSequenceAlias, markers.NewSequenceAlias(inheritedBranch.Bytes()))
 			}
 
-			inheritedStructureDetails := b.MarkersManager.InheritStructureDetails(message, markers.NewSequenceAlias(inheritedBranch.Bytes()))
+			inheritedStructureDetails := b.MarkersManager.InheritStructureDetails(message, newSequenceAlias...)
 			messageMetadata.SetStructureDetails(inheritedStructureDetails)
 
 			if !inheritedStructureDetails.IsPastMarker {
@@ -192,6 +188,7 @@ func (b *Booker) branchIDsOfParents(message *Message) (branchIDs ledgerstate.Bra
 		if parentMessageID == EmptyMessageID {
 			return
 		}
+
 		if !b.tangle.Storage.Message(parentMessageID).Consume(func(message *Message) {
 			if payload := message.Payload(); payload != nil && payload.Type() == ledgerstate.TransactionType {
 				transactionID := payload.(*ledgerstate.Transaction).ID()
