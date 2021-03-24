@@ -136,7 +136,7 @@ func onTransactionConfirmed(msgID tangle.MessageID) {
 		tx, _, err = ledgerstate.TransactionFromBytes(message.Payload().Bytes())
 		if err != nil {
 			isTx = false
-			log.Errorf("Message %s contains invalid transaction payload: %w", msgID.String(), err)
+			log.Errorf("Message with %s contains invalid transaction payload: %w", msgID, err)
 			return
 		}
 	})

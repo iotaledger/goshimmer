@@ -118,7 +118,7 @@ func configure(*node.Plugin) {
 			}
 			return
 		}
-		log.Infof("sent funds to address %s via tx %s and msg %s", addr.Base58(), txID, msg.ID().String())
+		log.Infof("sent funds to address %s via tx %s and msg %s", addr.Base58(), txID, msg.ID())
 	}, workerpool.WorkerCount(fundingWorkerCount), workerpool.QueueSize(fundingWorkerQueueSize))
 
 	configureEvents()

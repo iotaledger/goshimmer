@@ -103,7 +103,7 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 						refIdsStrings.WriteString(key.Base58())
 						refIdsStrings.WriteString(", ")
 					}
-					err = fmt.Errorf("message %s does not reference all the transaction's dependencies: %s", messageID.String(), refIdsStrings.String())
+					err = fmt.Errorf("message %s does not reference all the transaction's dependencies: %s", messageID, refIdsStrings.String())
 					return
 				}
 

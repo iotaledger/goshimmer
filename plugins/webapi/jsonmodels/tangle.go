@@ -27,7 +27,7 @@ type Message struct {
 // NewMessage returns a Message from the given tangle.Message.
 func NewMessage(message *tangle.Message) Message {
 	return Message{
-		ID:              message.ID().String(),
+		ID:              message.ID().Base58(),
 		StrongParents:   message.StrongParents().ToStrings(),
 		WeakParents:     message.WeakParents().ToStrings(),
 		StrongApprovers: messagelayer.Tangle().Utils.ApprovingMessageIDs(message.ID(), tangle.StrongApprover).ToStrings(),
@@ -69,7 +69,7 @@ type MessageMetadata struct {
 // NewMessageMetadata returns MessageMetadata from the given tangle.MessageMetadata.
 func NewMessageMetadata(metadata *tangle.MessageMetadata) MessageMetadata {
 	return MessageMetadata{
-		ID:                 metadata.ID().String(),
+		ID:                 metadata.ID().Base58(),
 		ReceivedTime:       metadata.ReceivedTime().Unix(),
 		Solid:              metadata.IsSolid(),
 		SolidificationTime: metadata.SolidificationTime().Unix(),
