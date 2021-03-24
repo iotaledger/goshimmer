@@ -13,8 +13,10 @@ import (
 var ErrNTPQueryFailed = errors.New("NTP query failed")
 
 // difference between network time and node's local time.
-var offset time.Duration
-var offsetMutex sync.RWMutex
+var (
+	offset      time.Duration
+	offsetMutex sync.RWMutex
+)
 
 // FetchTimeOffset establishes the difference in local vs network time.
 // This difference is stored in offset so that it can be used to adjust the local clock.

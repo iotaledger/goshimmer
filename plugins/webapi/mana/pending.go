@@ -3,9 +3,10 @@ package mana
 import (
 	"net/http"
 
+	"github.com/labstack/echo"
+
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
-	"github.com/labstack/echo"
 )
 
 // GetPendingMana handles the request.

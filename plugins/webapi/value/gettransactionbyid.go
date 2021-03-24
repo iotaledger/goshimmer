@@ -3,9 +3,10 @@ package value
 import (
 	"net/http"
 
+	"github.com/labstack/echo"
+
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/labstack/echo"
 )
 
 // getTransactionByIDHandler gets the transaction by id.

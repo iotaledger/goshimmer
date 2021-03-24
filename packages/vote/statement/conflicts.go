@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 const (

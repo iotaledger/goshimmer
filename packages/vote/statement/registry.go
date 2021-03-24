@@ -5,11 +5,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/identity"
+
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
-	"github.com/iotaledger/hive.go/identity"
 )
 
 // region Registry /////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -8,10 +8,11 @@ import (
 	// import required to profile
 	_ "net/http/pprof"
 
-	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	flag "github.com/spf13/pflag"
+
+	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 // PluginName is the name of the profiling plugin.

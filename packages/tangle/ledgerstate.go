@@ -1,9 +1,10 @@
 package tangle
 
 import (
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/types"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 // region LedgerState //////////////////////////////////////////////////////////////////////////////////////////////////

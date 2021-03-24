@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/labstack/echo"
+	"github.com/mr-tron/base58/base58"
+
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/mana"
@@ -11,8 +14,6 @@ import (
 	ledgerstateAPI "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
 	manaAPI "github.com/iotaledger/goshimmer/plugins/webapi/mana"
 	valueutils "github.com/iotaledger/goshimmer/plugins/webapi/value"
-	"github.com/labstack/echo"
-	"github.com/mr-tron/base58/base58"
 )
 
 // ExplorerMessage defines the struct of the ExplorerMessage.
@@ -50,7 +51,7 @@ type ExplorerMessage struct {
 	Payload interface{} `json:"payload"`
 }
 
-func createExplorerMessage(msg *tangle.Message) (*ExplorerMessage, error) {
+func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 	messageID := msg.ID()
 	cachedMessageMetadata := messagelayer.Tangle().Storage.MessageMetadata(messageID)
 	defer cachedMessageMetadata.Release()
@@ -76,7 +77,7 @@ func createExplorerMessage(msg *tangle.Message) (*ExplorerMessage, error) {
 		Payload:                 ProcessPayload(msg.Payload()),
 	}
 
-	return t, nil
+	return t
 }
 
 // ExplorerAddress defines the struct of the ExplorerAddress.
@@ -168,7 +169,6 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 		}
 
 		switch len(searchInByte) {
-
 		case ledgerstate.AddressLength:
 			addr, err := findAddress(search)
 			if err == nil {
@@ -196,7 +196,7 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 
 func findMessage(messageID tangle.MessageID) (explorerMsg *ExplorerMessage, err error) {
 	if !messagelayer.Tangle().Storage.Message(messageID).Consume(func(msg *tangle.Message) {
-		explorerMsg, err = createExplorerMessage(msg)
+		explorerMsg = createExplorerMessage(msg)
 	}) {
 		err = fmt.Errorf("%w: message %s", ErrNotFound, messageID.String())
 	}
@@ -205,7 +205,6 @@ func findMessage(messageID tangle.MessageID) (explorerMsg *ExplorerMessage, err 
 }
 
 func findAddress(strAddress string) (*ExplorerAddress, error) {
-
 	address, err := ledgerstate.AddressFromBase58EncodedString(strAddress)
 	if err != nil {
 		return nil, fmt.Errorf("%w: address %s", ErrNotFound, strAddress)
@@ -265,5 +264,4 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 		Address:   strAddress,
 		OutputIDs: outputids,
 	}, nil
-
 }
