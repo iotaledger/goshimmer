@@ -52,10 +52,10 @@ AStorage = osFactory.New(objPrefix, FromObjectStorage, optionalOptions...)
 For the function parameter we should provide:
 - `objPrefix` - mentioned before, we provide the object specific prefix.
 - `FromObjectStorage` function, a `StorableObject` factory that receives a key and the serialized data of the object and returns an empty `StorableObject` with just key set.
-- `optionalOptions` -  an optional parameter provided in a form of options array `[]objectstorage.Option`. All possible options are defined in `objectstorage.Options`. If we do not specify them during creation, the default values will be used, such as enabling persistence or setting cache time to 0.
+- `optionalOptions` -  an optional parameter provided in the form of options array `[]objectstorage.Option`. All possible options are defined in `objectstorage.Options`. If we do not specify them during creation, the default values will be used, such as enabled persistence or setting cache time to 0.
 
 ### StorableObject
-`StorableObject` is an interface that allows the dynamic creation of different object types depending on the stored data. We need to make sure that all methods required by the interface are implemented to use object storage factory.
+`StorableObject` is an interface that allows the dynamic creation of different object types depending on the stored data. We need to make sure that all methods required by the interface are implemented to use the object storage factory.
 
 - `SetModified` - marks the object as modified, which will be written to the disk (if persistence is enabled).
 - `IsModified` - returns true if the object is marked as modified
@@ -123,10 +123,11 @@ func (a *Approver) ObjectStorageApprover() []byte {
     Bytes()
 }
 ```
+
 We continue to decompose our object into smaller pieces with help of `MarshalUtil` struct that keeps track of bytes, and a read offset.
 Then we use `marshalutil` build in methods on an appropriate parts of the byte stream with its length defined by the data
 type of the struct field. This way, we are able to parse bytes to the correct Go data structure.
----
+
 ### ObjectStorage methods
 After defining marshalling and unmarshalling mechanism for`objectStorage` bytes conversion, 
 we can start using it for its sole purpose, to actually store and read the particular parts of the project elements. 
