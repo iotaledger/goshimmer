@@ -1,9 +1,10 @@
 package metrics
 
 import (
-	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/hive.go/identity"
 	"go.uber.org/atomic"
+
+	"github.com/iotaledger/goshimmer/plugins/gossip"
 )
 
 var (

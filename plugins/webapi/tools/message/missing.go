@@ -3,8 +3,9 @@ package message
 import (
 	"net/http"
 
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/labstack/echo"
+
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 // MissingHandler process missing requests.

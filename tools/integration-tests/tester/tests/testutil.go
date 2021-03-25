@@ -9,16 +9,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	valueutils "github.com/iotaledger/goshimmer/plugins/webapi/value"
-	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+	valueutils "github.com/iotaledger/goshimmer/plugins/webapi/value"
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 )
 
 var (
@@ -115,13 +116,8 @@ func SendFaucetRequest(t *testing.T, peer *framework.Peer, addr ledgerstate.Addr
 	return resp.ID, sent
 }
 
-// CheckForMessageIds performs checks to make sure that all peers received all given messages defined in ids.
-func CheckForMessageIds(t *testing.T, peers []*framework.Peer, ids map[string]DataMessageSent, checkSynchronized bool) {
-	var idsSlice []string
-	for id := range ids {
-		idsSlice = append(idsSlice, id)
-	}
-
+// CheckForMessageIDs performs checks to make sure that all peers received all given messages defined in ids.
+func CheckForMessageIDs(t *testing.T, peers []*framework.Peer, messageIDs map[string]DataMessageSent, checkSynchronized bool) {
 	for _, peer := range peers {
 		if checkSynchronized {
 			// check that the peer sees itself as synchronized
@@ -130,26 +126,31 @@ func CheckForMessageIds(t *testing.T, peers []*framework.Peer, ids map[string]Da
 			assert.Truef(t, info.Synced, "Node %s is not synced", peer)
 		}
 
-		resp, err := peer.FindMessageByID(idsSlice)
-		require.NoError(t, err)
+		var idsSlice []string
+		var respIDs []string
+		for messageID := range messageIDs {
+			idsSlice = append(idsSlice, messageID)
+
+			resp, err := peer.GetMessage(messageID)
+			require.NoError(t, err)
+			respIDs = append(respIDs, resp.ID)
+
+			respMetadata, err := peer.GetMessageMetadata(messageID)
+			require.NoError(t, err)
+
+			// check for general information
+			msgSent := messageIDs[messageID]
+
+			assert.Equalf(t, msgSent.issuerPublicKey, resp.IssuerPublicKey, "messageID=%s, issuer=%s not correct issuer in %s.", msgSent.id, msgSent.issuerPublicKey, peer.String())
+			if msgSent.data != nil {
+				assert.Equalf(t, msgSent.data, resp.Payload, "messageID=%s, issuer=%s data not equal in %s.", msgSent.id, msgSent.issuerPublicKey, peer.String())
+			}
+
+			assert.Truef(t, respMetadata.Solid, "messageID=%s, issuer=%s not solid in %s.", msgSent.id, msgSent.issuerPublicKey, peer.String())
+		}
 
 		// check that all messages are present in response
-		respIDs := make([]string, len(resp.Messages))
-		for i, msg := range resp.Messages {
-			respIDs[i] = msg.ID
-		}
 		assert.ElementsMatchf(t, idsSlice, respIDs, "messages do not match sent in %s", peer.String())
-
-		// check for general information
-		for _, msg := range resp.Messages {
-			msgSent := ids[msg.ID]
-
-			assert.Equalf(t, msgSent.issuerPublicKey, msg.IssuerPublicKey, "messageID=%s, issuer=%s not correct issuer in %s.", msgSent.id, msgSent.issuerPublicKey, peer.String())
-			if msgSent.data != nil {
-				assert.Equalf(t, msgSent.data, msg.Payload, "messageID=%s, issuer=%s data not equal in %s.", msgSent.id, msgSent.issuerPublicKey, peer.String())
-			}
-			assert.Truef(t, msg.Metadata.Solid, "messageID=%s, issuer=%s not solid in %s.", msgSent.id, msgSent.issuerPublicKey, peer.String())
-		}
 	}
 }
 

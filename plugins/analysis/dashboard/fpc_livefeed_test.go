@@ -5,11 +5,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 	analysisserver "github.com/iotaledger/goshimmer/plugins/analysis/server"
-	"github.com/stretchr/testify/require"
 )
 
 // TestCreateFPCUpdate checks that given a FPC heartbeat, the returned FPCUpdate is ok.
@@ -29,7 +30,8 @@ func TestCreateFPCUpdate(t *testing.T) {
 					Liked:    1.,
 					Rounds:   3,
 					Opinions: []opinion.Opinion{opinion.Dislike, opinion.Like, opinion.Dislike},
-				}},
+				},
+			},
 		},
 	}
 
@@ -52,5 +54,4 @@ func TestCreateFPCUpdate(t *testing.T) {
 	for k, v := range createFPCUpdate(hbTest).Conflicts {
 		require.Equal(t, want.Conflicts[k].NodesView, v.NodesView)
 	}
-
 }

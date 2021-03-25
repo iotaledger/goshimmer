@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/identity"
@@ -19,6 +18,8 @@ import (
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
 // region TransactionType //////////////////////////////////////////////////////////////////////////////////////////////
@@ -120,6 +121,16 @@ func (t TransactionIDs) Clone() (transactionIDs TransactionIDs) {
 	transactionIDs = make(TransactionIDs)
 	for transactionID := range t {
 		transactionIDs[transactionID] = types.Void
+	}
+
+	return
+}
+
+// Strings returns a slice of string representation of the TransactionIDs.
+func (t TransactionIDs) Strings() (transactionIDs []string) {
+	transactionIDs = make([]string, 0, len(t))
+	for transactionID := range t {
+		transactionIDs = append(transactionIDs, transactionID.Base58())
 	}
 
 	return

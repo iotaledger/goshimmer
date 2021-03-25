@@ -3,23 +3,39 @@ package client
 import (
 	"net/http"
 
-	webapi_message "github.com/iotaledger/goshimmer/plugins/webapi/message"
+	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 const (
-	routeFindByID    = "message/findById"
-	routeSendPayload = "message/sendPayload"
+	routeMessage         = "messages/"
+	routeMessageMetadata = "/metadata"
+	routeSendPayload     = "messages/payload"
 )
 
-// FindMessageByID finds messages by the given base58 encoded IDs. The messages are returned in the same order as
-// the given IDs. Non available messages are empty at their corresponding index.
-func (api *GoShimmerAPI) FindMessageByID(base58EncodedIDs []string) (*webapi_message.FindByIDResponse, error) {
-	res := &webapi_message.FindByIDResponse{}
+// GetMessage is the handler for the /messages/:messageID endpoint.
+func (api *GoShimmerAPI) GetMessage(base58EncodedID string) (*jsonmodels.Message, error) {
+	res := &jsonmodels.Message{}
 
 	if err := api.do(
-		http.MethodPost,
-		routeFindByID,
-		&webapi_message.FindByIDRequest{IDs: base58EncodedIDs},
+		http.MethodGet,
+		routeMessage+base58EncodedID,
+		nil,
+		res,
+	); err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+// GetMessageMetadata is the handler for the /messages/:messageID/metadata endpoint.
+func (api *GoShimmerAPI) GetMessageMetadata(base58EncodedID string) (*jsonmodels.MessageMetadata, error) {
+	res := &jsonmodels.MessageMetadata{}
+
+	if err := api.do(
+		http.MethodGet,
+		routeMessage+base58EncodedID+routeMessageMetadata,
+		nil,
 		res,
 	); err != nil {
 		return nil, err
@@ -30,9 +46,9 @@ func (api *GoShimmerAPI) FindMessageByID(base58EncodedIDs []string) (*webapi_mes
 
 // SendPayload send a message with the given payload.
 func (api *GoShimmerAPI) SendPayload(payload []byte) (string, error) {
-	res := &webapi_message.SendPayloadResponse{}
+	res := &jsonmodels.PostPayloadResponse{}
 	if err := api.do(http.MethodPost, routeSendPayload,
-		&webapi_message.SendPayloadRequest{Payload: payload}, res); err != nil {
+		&jsonmodels.PostPayloadRequest{Payload: payload}, res); err != nil {
 		return "", err
 	}
 

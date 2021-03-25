@@ -9,25 +9,78 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestManagerConvergence(t *testing.T) {
+	db := mapdb.NewMapDB()
+	manager := NewManager(db)
+
+	structureDetails1, newSequenceCreated1 := manager.InheritStructureDetails(nil, alwaysIncreaseIndex, NewSequenceAlias([]byte("1")))
+	assert.True(t, structureDetails1.PastMarkers.Equals(NewMarkers(NewMarker(1, 1))))
+	assert.True(t, newSequenceCreated1)
+
+	structureDetails2, newSequenceCreated2 := manager.InheritStructureDetails(nil, alwaysIncreaseIndex, NewSequenceAlias([]byte("2")))
+	assert.True(t, structureDetails2.PastMarkers.Equals(NewMarkers(NewMarker(2, 1))))
+	assert.True(t, newSequenceCreated2)
+
+	structureDetails3, newSequenceCreated3 := manager.InheritStructureDetails(nil, alwaysIncreaseIndex, NewSequenceAlias([]byte("3")))
+	assert.True(t, structureDetails3.PastMarkers.Equals(NewMarkers(NewMarker(3, 1))))
+	assert.True(t, newSequenceCreated3)
+
+	structureDetails4, newSequenceCreated4 := manager.InheritStructureDetails([]*StructureDetails{structureDetails1, structureDetails2}, alwaysIncreaseIndex, NewSequenceAlias([]byte("1+2")))
+	assert.True(t, structureDetails4.PastMarkers.Equals(NewMarkers(NewMarker(4, 2))))
+	assert.True(t, newSequenceCreated4)
+
+	structureDetails5, newSequenceCreated5 := manager.InheritStructureDetails([]*StructureDetails{structureDetails1, structureDetails3}, alwaysIncreaseIndex, NewSequenceAlias([]byte("1+3")))
+	assert.True(t, structureDetails5.PastMarkers.Equals(NewMarkers(NewMarker(5, 2))))
+	assert.True(t, newSequenceCreated5)
+
+	structureDetails6, newSequenceCreated6 := manager.InheritStructureDetails([]*StructureDetails{structureDetails1, structureDetails2, structureDetails3}, alwaysIncreaseIndex, NewSequenceAlias([]byte("1+2+3")))
+	assert.True(t, structureDetails6.PastMarkers.Equals(NewMarkers(NewMarker(6, 2))))
+	assert.True(t, newSequenceCreated6)
+
+	structureDetails7, newSequenceCreated7 := manager.InheritStructureDetails([]*StructureDetails{structureDetails2, structureDetails3}, alwaysIncreaseIndex, NewSequenceAlias([]byte("2+3")))
+	assert.True(t, structureDetails7.PastMarkers.Equals(NewMarkers(NewMarker(7, 2))))
+	assert.True(t, newSequenceCreated7)
+
+	structureDetails8, newSequenceCreated8 := manager.InheritStructureDetails([]*StructureDetails{structureDetails4, structureDetails5}, alwaysIncreaseIndex, NewSequenceAlias([]byte("1+2+3")))
+	assert.True(t, structureDetails8.PastMarkers.Equals(NewMarkers(NewMarker(4, 2), NewMarker(5, 2))))
+	assert.False(t, newSequenceCreated8)
+
+	structureDetails9, newSequenceCreated9 := manager.InheritStructureDetails([]*StructureDetails{structureDetails5, structureDetails6}, alwaysIncreaseIndex, NewSequenceAlias([]byte("1+2+3")))
+	assert.True(t, structureDetails9.PastMarkers.Equals(NewMarkers(NewMarker(6, 3))))
+	assert.False(t, newSequenceCreated9)
+
+	structureDetails10, newSequenceCreated10 := manager.InheritStructureDetails([]*StructureDetails{structureDetails6, structureDetails7}, alwaysIncreaseIndex, NewSequenceAlias([]byte("1+2+3")))
+	assert.True(t, structureDetails10.PastMarkers.Equals(NewMarkers(NewMarker(6, 2), NewMarker(7, 2))))
+	assert.False(t, newSequenceCreated10)
+
+	structureDetails11, newSequenceCreated11 := manager.InheritStructureDetails([]*StructureDetails{structureDetails9, structureDetails10}, alwaysIncreaseIndex, NewSequenceAlias([]byte("1+2+3")))
+	assert.True(t, structureDetails11.PastMarkers.Equals(NewMarkers(NewMarker(6, 4))))
+	assert.False(t, newSequenceCreated11)
+}
+
+func alwaysIncreaseIndex(SequenceID, Index) bool {
+	return true
+}
+
 func TestManager(t *testing.T) {
 	testMessages := []*message{
-		newMessage("msg0", false, nil),
-		newMessage("msg1", false, nil),
-		newMessage("msg2", false, []string{"msg1"}),
-		newMessage("msg3", false, []string{"msg0", "msg1"}),
-		newMessage("msg4", false, nil, "newSequence1"),
-		newMessage("msg5", true, []string{"msg2", "msg3"}),
-		newMessage("msg6", false, []string{"msg4"}),
-		newMessage("msg7", false, []string{"msg5", "msg6"}),
-		newMessage("msg8", false, []string{"msg3", "msg5"}),
-		newMessage("msg9", false, []string{"msg5", "msg6"}),
-		newMessage("msg10", false, []string{"msg7", "msg9"}),
-		newMessage("msg11", true, []string{"msg8"}),
-		newMessage("msg12", true, []string{"msg2", "msg6", "msg10", "msg11"}),
-		newMessage("msg13", false, nil, "newSequence2"),
-		newMessage("msg14", false, []string{"msg13"}),
-		newMessage("msg15", false, []string{"msg3", "msg14"}),
-		newMessage("msg16", true, []string{"msg11", "msg15"}),
+		newMessage("msg0", false, nil, "sequence0"),
+		newMessage("msg1", false, nil, "sequence0"),
+		newMessage("msg2", false, []string{"msg1"}, "sequence0"),
+		newMessage("msg3", false, []string{"msg0", "msg1"}, "sequence0"),
+		newMessage("msg4", false, nil, "sequence1"),
+		newMessage("msg5", true, []string{"msg2", "msg3"}, "sequence0"),
+		newMessage("msg6", false, []string{"msg4"}, "sequence1"),
+		newMessage("msg7", false, []string{"msg5", "msg6"}, "sequence2"),
+		newMessage("msg8", false, []string{"msg3", "msg5"}, "sequence0"),
+		newMessage("msg9", false, []string{"msg5", "msg6"}, "sequence2"),
+		newMessage("msg10", false, []string{"msg7", "msg9"}, "sequence2"),
+		newMessage("msg11", true, []string{"msg8"}, "sequence0"),
+		newMessage("msg12", true, []string{"msg2", "msg6", "msg10", "msg11"}, "sequence2"),
+		newMessage("msg13", false, nil, "sequence3"),
+		newMessage("msg14", false, []string{"msg13"}, "sequence3"),
+		newMessage("msg15", false, []string{"msg3", "msg14"}, "sequence4"),
+		newMessage("msg16", true, []string{"msg11", "msg15"}, "sequence4"),
 	}
 
 	messageDB := makeMessageDB(testMessages...)
@@ -125,7 +178,7 @@ func inheritPastMarkers(message *message, manager *Manager, messageDB map[string
 	}
 
 	// inherit new past Markers
-	message.markers, _ = manager.InheritStructureDetails(pastMarkers, increaseIndex(message), message.optionalNewSequenceAlias...)
+	message.markers, _ = manager.InheritStructureDetails(pastMarkers, increaseIndex(message), message.sequenceAlias)
 	if message.markers.IsPastMarker {
 		pastMarkerToPropagate = message.markers.PastMarkers.FirstMarker()
 	}
@@ -158,24 +211,19 @@ func makeMessageDB(messages ...*message) (messageDB map[string]*message) {
 }
 
 type message struct {
-	id                       string
-	forceNewMarker           bool
-	parents                  []string
-	optionalNewSequenceAlias []SequenceAlias
-	markers                  *StructureDetails
+	id             string
+	forceNewMarker bool
+	parents        []string
+	sequenceAlias  SequenceAlias
+	markers        *StructureDetails
 }
 
-func newMessage(id string, forceNewMarker bool, parents []string, optionalNewSequenceID ...string) *message {
-	var optionalNewSequenceAlias []SequenceAlias
-	if len(optionalNewSequenceID) >= 1 {
-		optionalNewSequenceAlias = []SequenceAlias{NewSequenceAlias([]byte(optionalNewSequenceID[0]))}
-	}
-
+func newMessage(id string, forceNewMarker bool, parents []string, sequenceAlias string) *message {
 	return &message{
-		id:                       id,
-		forceNewMarker:           forceNewMarker,
-		optionalNewSequenceAlias: optionalNewSequenceAlias,
-		parents:                  parents,
+		id:             id,
+		forceNewMarker: forceNewMarker,
+		sequenceAlias:  NewSequenceAlias([]byte(sequenceAlias)),
+		parents:        parents,
 		markers: &StructureDetails{
 			PastMarkers:   NewMarkers(),
 			FutureMarkers: NewMarkers(),
