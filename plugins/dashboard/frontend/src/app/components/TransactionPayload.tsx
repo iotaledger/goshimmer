@@ -43,7 +43,7 @@ export class TransactionPayload extends React.Component<Props, any> {
                 <Row className={"mb-3"}>
                     <Col>
                         <ListGroup>
-                            <ListGroup.Item>Transaction ID: {payload.tx_id} </ListGroup.Item>
+                            <ListGroup.Item>Transaction ID: <a href={`/explorer/transaction/${payload.tx_id}`}>{payload.tx_id}</a></ListGroup.Item>
                         </ListGroup>
                     </Col>
                 </Row>
@@ -142,7 +142,7 @@ class Inputs extends React.Component<OutputProps> {
                 <Col>
                     Index: <Badge variant={"primary"}>{this.props.index}</Badge>
                     <ListGroup>
-                        <ListGroup.Item key={this.props.outputID}>OutputID: {this.props.outputID} </ListGroup.Item>
+                        <ListGroup.Item key={this.props.outputID}>OutputID: <a href={`/explorer/output/${this.props.outputID}`}>{this.props.outputID}</a> </ListGroup.Item>
                         <ListGroup.Item key={this.props.address}>Address: <Link to={`/explorer/address/${this.props.address}`}>{this.props.address}</Link>
                         </ListGroup.Item>
                         <ListGroup.Item key={'balances'}>
@@ -165,7 +165,7 @@ class Outputs extends React.Component<OutputProps> {
                 <Col>
                     Index: <Badge variant={"primary"}>{this.props.index}</Badge>
                     <ListGroup>
-                        <ListGroup.Item key={this.props.outputID}>OutputID: {this.props.outputID} </ListGroup.Item>
+                        <ListGroup.Item key={this.props.outputID}>OutputID: <a href={`/explorer/output/${this.props.outputID}`}>{this.props.outputID}</a></ListGroup.Item>
                         <ListGroup.Item key={this.props.address}>Address: <Link to={`/explorer/address/${this.props.address}`}>{this.props.address}</Link>
                         </ListGroup.Item>
                         <ListGroup.Item key={'balances'}>

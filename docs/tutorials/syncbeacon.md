@@ -1,3 +1,5 @@
+# How to run a sync beacon
+
 ## What is a sync beacon?
 A sync beacon is a special type of payload in the message tangle. It contains the unix timestamp of issuance of the beacon. Node owners may configure their nodes to distribute such sync beacons periodically to the network. Followers can listen to sync beacons issued by a particular set of nodes, and derive their `synced` status based on if they are able to solidify the messages containing those sync beacons.
 

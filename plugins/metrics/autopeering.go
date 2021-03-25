@@ -4,10 +4,11 @@ import (
 	"sync"
 	"time"
 
-	gossipPkg "github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/hive.go/autopeering/selection"
 	"github.com/iotaledger/hive.go/events"
 	"go.uber.org/atomic"
+
+	gossipPkg "github.com/iotaledger/goshimmer/packages/gossip"
 )
 
 var (

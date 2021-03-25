@@ -7,14 +7,15 @@ import (
 	"strings"
 	"sync"
 
-	databasePkg "github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/plugins/config"
-	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/mr-tron/base58"
+
+	databasePkg "github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/plugins/database"
 )
 
 var (
@@ -40,7 +41,7 @@ func configureLocal() *peer.Local {
 	}
 
 	peeringPort := config.Node().Int(CfgPort)
-	if 0 > peeringPort || peeringPort > 65535 {
+	if peeringPort < 0 || peeringPort > 65535 {
 		log.Fatalf("Invalid port number (%s): %d", CfgPort, peeringPort)
 	}
 

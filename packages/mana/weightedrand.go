@@ -32,7 +32,7 @@ func NewRandChooser(cs ...RandChoice) *RandChooser {
 	totals := make([]int, len(cs))
 	runningTotal := 0
 	for i, c := range cs {
-		runningTotal += int(c.Weight)
+		runningTotal += c.Weight
 		totals[i] = runningTotal
 	}
 	return &RandChooser{data: cs, totals: totals, max: runningTotal}
@@ -45,7 +45,7 @@ func (chs *RandChooser) Pick(n uint) []interface{} {
 	rands := rand.Perm(chs.max)
 	var res []interface{}
 	for _, r := range rands {
-		r = r + 1
+		r++
 		i := sort.SearchInts(chs.totals, r)
 		if i > len(chs.data)-1 {
 			i = len(chs.data) - 1
@@ -59,7 +59,7 @@ func (chs *RandChooser) Pick(n uint) []interface{} {
 			return res[:n]
 		}
 	}
-	return res[:]
+	return res
 }
 
 // remove picked element at index

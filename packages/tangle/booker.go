@@ -7,8 +7,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/thresholdmap"
@@ -19,6 +17,9 @@ import (
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
 // region Booker ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -189,7 +190,6 @@ func (b *Booker) branchIDsOfParents(message *Message) (branchIDs ledgerstate.Bra
 					panic(fmt.Errorf("failed to load TransactionMetadata with %s", transactionID))
 				}
 			}
-
 		}) {
 			panic(fmt.Errorf("failed to load MessageMetadata with %s", parentMessageID))
 		}

@@ -130,7 +130,7 @@ func (s *State) UpdateDPK(dpk []byte) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.committee.DistributedPK = make([]byte, PublicKeySize)
-	copy(s.committee.DistributedPK[:], dpk[:PublicKeySize])
+	copy(s.committee.DistributedPK, dpk[:PublicKeySize])
 }
 
 // Committee returns the committee of the DRNG state
