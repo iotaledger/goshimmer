@@ -14,12 +14,23 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
 
 const (
 	creatorIndex      = 2
 	stateControlIndex = 3
 )
+
+var log = initLog()
+
+func initLog() *logger.Logger {
+	log, err := zap.NewDevelopment()
+	if err != nil {
+		panic(err)
+	}
+	return log.Sugar()
+}
 
 func start(t *testing.T) (*utxodbledger.UtxoDBLedger, *Client) {
 	t.Helper()
@@ -32,11 +43,11 @@ func start(t *testing.T) (*utxodbledger.UtxoDBLedger, *Client) {
 
 	dial := DialFunc(func() (string, net.Conn, error) {
 		conn1, conn2 := net.Pipe()
-		go server.Run(conn2, logger.NewExampleLogger("txstream/server"), ledger, done)
+		go server.Run(conn2, log.Named("txstream/server"), ledger, done)
 		return "pipe", conn1, nil
 	})
 
-	n := New("test", logger.NewExampleLogger("txstream/client"), dial)
+	n := New("test", log.Named("txstream/client"), dial)
 	t.Cleanup(n.Close)
 
 	ok := n.WaitForConnection(10 * time.Second)
