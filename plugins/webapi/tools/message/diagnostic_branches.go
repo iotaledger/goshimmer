@@ -31,7 +31,7 @@ func DiagnosticInvalidBranchesHandler(c echo.Context) (err error) {
 	return
 }
 
-// region Analysis code implementation /////////////////////////////////////////////////////////////////////////////////
+// region DiagnosticBranches code implementation /////////////////////////////////////////////////////////////////////////////////
 
 func runDiagnosticBranches(c echo.Context) {
 	// write Header and table description
@@ -46,8 +46,11 @@ func runDiagnosticBranches(c echo.Context) {
 	messagelayer.Tangle().LedgerState.BranchDAG.ForEachBranch(func(branch ledgerstate.Branch) {
 		switch branch.ID() {
 		case ledgerstate.MasterBranchID:
+			return
 		case ledgerstate.InvalidBranchID:
+			return
 		case ledgerstate.LazyBookedConflictsBranchID:
+			return
 		default:
 			conflictInfo := getDiagnosticConflictsInfo(branch.ID())
 			_, err = fmt.Fprintln(c.Response(), conflictInfo.toCSV())

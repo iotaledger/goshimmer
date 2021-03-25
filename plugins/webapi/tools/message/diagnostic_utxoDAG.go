@@ -21,7 +21,7 @@ func DiagnosticUTXODAGHandler(c echo.Context) (err error) {
 	return
 }
 
-// region Analysis code implementation /////////////////////////////////////////////////////////////////////////////////
+// region DiagnosticUTXODAG code implementation /////////////////////////////////////////////////////////////////////////////////
 
 func runDiagnosticUTXODAG(c echo.Context) {
 	// write Header and table description

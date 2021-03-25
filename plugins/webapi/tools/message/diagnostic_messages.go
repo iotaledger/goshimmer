@@ -40,7 +40,7 @@ func DiagnosticMessagesRankHandler(c echo.Context) (err error) {
 	return
 }
 
-// region Analysis code implementation /////////////////////////////////////////////////////////////////////////////////
+// region DiagnosticMessages code implementation /////////////////////////////////////////////////////////////////////////////////
 
 func runDiagnosticMessages(c echo.Context, rank ...uint64) {
 	// write Header and table description

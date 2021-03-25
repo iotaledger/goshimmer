@@ -433,7 +433,7 @@ func (o Outputs) String() string {
 // Strings returns the Outputs in the form []transactionID:index.
 func (o Outputs) Strings() (result []string) {
 	for _, output := range o {
-		result = append(result, output.ID().TransactionID().Base58()+":"+fmt.Sprint(output.ID().OutputIndex()))
+		result = append(result, fmt.Sprintf("%s:%d", output.ID().TransactionID().Base58(), output.ID().OutputIndex()))
 	}
 
 	return

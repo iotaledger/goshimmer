@@ -216,7 +216,7 @@ func (i Inputs) Strings() (result []string) {
 	for _, input := range i {
 		if input.Type() == UTXOInputType {
 			outputID := input.(*UTXOInput).ReferencedOutputID()
-			result = append(result, outputID.TransactionID().Base58()+":"+fmt.Sprint(outputID.OutputIndex()))
+			result = append(result, fmt.Sprintf("%s:%d", outputID.TransactionID().Base58(), outputID.OutputIndex()))
 		}
 	}
 

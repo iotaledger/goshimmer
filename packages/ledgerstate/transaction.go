@@ -126,7 +126,7 @@ func (t TransactionIDs) Clone() (transactionIDs TransactionIDs) {
 	return
 }
 
-// Strings returns a slice of string rapresentation of the TransactionIDs.
+// Strings returns a slice of string representation of the TransactionIDs.
 func (t TransactionIDs) Strings() (transactionIDs []string) {
 	transactionIDs = make([]string, 0, len(t))
 	for transactionID := range t {

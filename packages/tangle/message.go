@@ -844,6 +844,8 @@ func (m *MessageMetadata) IsEligible() (result bool) {
 func (m *MessageMetadata) SetScheduled(scheduled bool) (modified bool) {
 	m.scheduledMutex.Lock()
 	defer m.scheduledMutex.Unlock()
+	m.scheduledTimeMutex.Lock()
+	defer m.scheduledTimeMutex.Unlock()
 
 	if m.scheduled == scheduled {
 		return false
@@ -878,6 +880,8 @@ func (m *MessageMetadata) ScheduledTime() time.Time {
 func (m *MessageMetadata) SetBooked(booked bool) (modified bool) {
 	m.bookedMutex.Lock()
 	defer m.bookedMutex.Unlock()
+	m.bookedTimeMutex.Lock()
+	defer m.bookedTimeMutex.Unlock()
 
 	if m.booked == booked {
 		return false

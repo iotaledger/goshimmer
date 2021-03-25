@@ -325,6 +325,8 @@ func (m *MessageMetadata) MessageOpinionFormed() bool {
 func (m *MessageMetadata) SetMessageOpinionFormed(messageOpinionFormed bool) (modified bool) {
 	m.messageOpinionFormedMutex.Lock()
 	defer m.messageOpinionFormedMutex.Unlock()
+	m.opinionFormedTimeMutex.Lock()
+	defer m.opinionFormedTimeMutex.Unlock()
 
 	if m.messageOpinionFormed == messageOpinionFormed {
 		return
