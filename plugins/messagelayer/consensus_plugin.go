@@ -18,6 +18,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 
+	clockPkg "github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/metrics"
@@ -227,7 +228,10 @@ type OpinionGivers map[identity.ID]OpinionGiver
 // Query retrieves the opinions about the given conflicts and timestamps.
 func (o *OpinionGiver) Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (opinions opinion.Opinions, err error) {
 	for i := 0; i < StatementParameters.WaitForStatement; i++ {
-		if o.view != nil {
+		// query statement status only if any statement has been received within the last round interval.
+		// This is important. We do want to consider old statements IF the node has been active in the last round.
+		// otherwise node might be down and we don't want to look at old statements in subsequent rounds
+		if o.view != nil && o.view.LastStatementReceivedTimestamp.Add(time.Duration(FPCParameters.RoundInterval)*time.Second).After(clockPkg.SyncedTime()) {
 			opinions, err = o.view.Query(ctx, conflictIDs, timestampIDs)
 			if err == nil {
 				return opinions, nil
@@ -546,6 +550,8 @@ func readStatement(messageID tangle.MessageID) {
 		issuerRegistry.AddConflicts(statementPayload.Conflicts)
 
 		issuerRegistry.AddTimestamps(statementPayload.Timestamps)
+
+		issuerRegistry.UpdateLastStatementReceivedTime(clockPkg.SyncedTime())
 
 		Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
 			sendToRemoteLog(

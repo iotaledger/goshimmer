@@ -46,7 +46,7 @@ func DefaultParameters() *Parameters {
 		TotalRoundsFixedThreshold:           3,
 		TotalRoundsCoolingOffPeriod:         0,
 		MaxRoundsPerVoteContext:             100,
-		QueryTimeout:                        6500 * time.Millisecond,
+		QueryTimeout:                        1500 * time.Millisecond,
 	}
 
 	// Setting the minimum amount of received opinions as the half of the quorum size.
