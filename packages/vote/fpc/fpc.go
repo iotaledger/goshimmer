@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	tolerance = 0.001
+	toleranceTotalMana = 0.001
 )
 
 var (
