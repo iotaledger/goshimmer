@@ -126,6 +126,7 @@ func runDiagnosticMessagesOnFirstWeakReferences(c echo.Context) {
 var DiagnosticMessagesTableDescription = []string{
 	"ID",
 	"IssuerID",
+	"IssuerPublicKey",
 	"IssuanceTime",
 	"ArrivalTime",
 	"SolidTime",
@@ -158,6 +159,7 @@ var DiagnosticMessagesTableDescription = []string{
 type DiagnosticMessagesInfo struct {
 	ID                string
 	IssuerID          string
+	IssuerPublicKey   string
 	IssuanceTimestamp time.Time
 	ArrivalTime       time.Time
 	SolidTime         time.Time
@@ -194,6 +196,7 @@ func getDiagnosticMessageInfo(messageID tangle.MessageID) DiagnosticMessagesInfo
 	messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
 		msgInfo.IssuanceTimestamp = message.IssuingTime()
 		msgInfo.IssuerID = identity.NewID(message.IssuerPublicKey()).String()
+		msgInfo.IssuerPublicKey = message.IssuerPublicKey().String()
 		msgInfo.StrongParents = message.StrongParents()
 		msgInfo.WeakParents = message.WeakParents()
 		msgInfo.PayloadType = message.Payload().Type().String()
@@ -238,6 +241,7 @@ func (d DiagnosticMessagesInfo) toCSV() (result string) {
 	row := []string{
 		d.ID,
 		d.IssuerID,
+		d.IssuerPublicKey,
 		fmt.Sprint(d.IssuanceTimestamp.UnixNano()),
 		fmt.Sprint(d.ArrivalTime.UnixNano()),
 		fmt.Sprint(d.SolidTime.UnixNano()),
