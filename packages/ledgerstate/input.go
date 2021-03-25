@@ -211,6 +211,18 @@ func (i Inputs) String() string {
 	return structBuilder.String()
 }
 
+// Strings returns the Inputs in the form []transactionID:index.
+func (i Inputs) Strings() (result []string) {
+	for _, input := range i {
+		if input.Type() == UTXOInputType {
+			outputID := input.(*UTXOInput).ReferencedOutputID()
+			result = append(result, fmt.Sprintf("%s:%d", outputID.TransactionID().Base58(), outputID.OutputIndex()))
+		}
+	}
+
+	return
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region UTXOInput ////////////////////////////////////////////////////////////////////////////////////////////////////
