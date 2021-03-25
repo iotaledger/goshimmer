@@ -57,10 +57,11 @@ After we have the approval weight of a branch, it is marked **confirmed** when:
 
 ## Detailed design
 In this section, we will describe implementation details of how approval weight are managed with epoch and markers, which includes:
-1. supporters of a branch as well as the approvers of markers management,
-2. approval weight management.
+1. supporters of a branch management,
+2. approvers of markers management,
+3. approval weight management.
 
-## Branch supporter / message approver management
+## Branch supporter / marker approver management
 Instead of keeping a list of approvers for each marker and collecting supporters of a branch by walking the Tangle, we keep the list of approvers along with its approved marker rank for each branch.
 
 This approach gives us benefits:
@@ -183,8 +184,6 @@ Finally, green nodes issued **message 3**, which is attached to `Branch 2`. Now 
 
 `Branch 3`, `4` and both of their child branches have nothing to do with this attachement, the supporter status remains. 
 
-
-
 #### `addSupportToBranch`
 The codes below shows how a supporter is propagated to branches. For each processing branch, its conflicting branches (if have any) will trigger `revokeSupportFromBranch` to remove the supporter.
 ```go
@@ -242,8 +241,82 @@ func (s *SupporterManager) revokeSupportFromBranch(branchID ledgerstate.BranchID
 ```
 
 ### Support management to markers
+For each marker sequence, we keep a map of supporter to marker index, meaning a supporter supports a marker index `i`. This give the implication that the supporter supports all markers with index `<= i`.
 
+Take the figure below as an example:
+![MarkersApprovalWeight SequenceSupporters-Page-2](https://user-images.githubusercontent.com/11289354/112416694-21012780-8d61-11eb-8089-cb9f5b236f30.png)
 
+The purple circles represent markers of the same sequence, the given numbers are marker index. 
+
+Four nodes (A to D) issue messages with Past Markers of the purple sequence. Node A and D issue messages having Past Marker with index 6, thus node A and D are the supporter of marker 6 that implicates they supports all markers before, which is 1 to 5. On the other hand, node B issues messages having Past Marker with index 3, which implicates node B is a supporter for marker 1 and 2 as well.
+
+This is a fast look-up and avoids walking through a marker's future cone when it comes to retreiving supporters for approval weight calculation. 
+
+For example, to find all supporter of marker 2, we iterate through the map and filter out those support marker with `index >= 2`. In this case, all nodes are its supporters. As for marker 5, it has supporters node A and D, which fulfill the check: `index >= 5`.
+
+Here is another complicated example with parent references:
+![MarkersApprovalWeight SequenceSupporters-Page-2(1)](https://user-images.githubusercontent.com/11289354/112433680-8cf18900-8d7d-11eb-8944-54030581a033.png)
+
+The supporter will be propagated to the parent references sequence.
+
+Node A issues message A2 having Past Marker `[1,4], [3,5]`, which implicates node A is a supporter for marker `[1,1]` to `[1,4]`, `[2,1]` to `[2,3]`, and `[3,4], [3,5]` as well.
+
+#### Sequence supporter
+Each marker sequence has a corresponding `SequenceSupporters` struct to keep marker supporters information.
+
+<table>
+    <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+    </tr>
+    <tr>
+        <td>sequenceID</td>
+        <td>markers.SequenceID</td>
+        <td>The sequence ID of sequence that holds this struct.</td>
+    </tr>
+    <tr>
+        <td>supportersPerIndex</td>
+        <td>map[Supporter]markers.Index</td>
+        <td>Map supporters to the supported marker index of this sequence.</td>
+    </tr>
+    <tr>
+        <td>supportersPerIndexMutex</td>
+        <td>sync.RWMutex</td>
+        <td>A read/write mutex to protect read/write operations.</td>
+    </tr>
+</table> 
+
+`SequenceSupporters` has the following methods for management:
+* `NewSequenceSupporters(sequenceID markers.SequenceID) (sequenceSupporters *SequenceSupporters)`: Create a `SequenceSupporters` for the given sequence ID.
+* `AddSupporter(supporter Supporter, index markers.Index) (added bool)`: Add a new Supporter of a given index to the Sequence.
+* `Supporters(index markers.Index) (supporters *Supporters)`: Returns a list of supporters for the given marker index.
+* `SequenceID() (sequenceID markers.SequenceID)`: Return the SequenceID that is being tracked.
+
+#### `addSupportToMarker`
+The codes below shows how a supporter is propagated within marker sequences.
+```go
+func (s *SupporterManager) addSupportToMarker(marker *markers.Marker, issuingTime time.Time, supporter Supporter, walker *walker.Walker) {
+	// create a SequenceSupporters if the sequence doesn't have one
+    s.tangle.Storage.SequenceSupporters(marker.SequenceID(), func() *SequenceSupporters {
+		return NewSequenceSupporters(marker.SequenceID())
+	}).Consume(func(sequenceSupporters *SequenceSupporters) {
+        // add the supporter to the sequence
+		if sequenceSupporters.AddSupporter(supporter, marker.Index()) {
+			s.Events.SequenceSupportUpdated.Trigger(marker, issuingTime, supporter)
+
+            // propagate the supporter to parent marker sequences
+			s.tangle.Booker.MarkersManager.Manager.Sequence(marker.SequenceID()).Consume(func(sequence *markers.Sequence) {
+				sequence.ParentReferences().HighestReferencedMarkers(marker.Index()).ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
+					walker.Push(markers.NewMarker(sequenceID, index))
+
+					return true
+				})
+			})
+		}
+	})
+}
+```
 
 
 
