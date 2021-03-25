@@ -84,6 +84,7 @@ func TestChainForkFail(t *testing.T) {
 	chained, err := utxoutil.GetSingleChainedOutput(tx.Essence())
 	require.NoError(t, err)
 	require.NotNil(t, chained)
+	require.EqualValues(t, 0, int(chained.GetStateIndex()))
 
 	aliasAddress := chained.GetAliasAddress()
 	t.Logf("newly created alias address: %s", aliasAddress.Base58())
@@ -286,9 +287,12 @@ func TestChain3(t *testing.T) {
 		require.NoError(t, err)
 
 		sender, err = utxoutil.GetSingleSender(tx)
-		//sender, err = utxoutil.GetSingleSender(tx, txb.ConsumedOutputs())
 		require.NoError(t, err)
 		require.True(t, sender.Equals(aliasAddress))
+
+		chained, err := utxoutil.GetSingleChainedOutput(tx.Essence())
+		require.NoError(t, err)
+		require.EqualValues(t, i+1, int(chained.GetStateIndex()))
 
 		require.EqualValues(t, 100+i+1, u.BalanceIOTA(aliasAddress))
 		require.EqualValues(t, 0, u.BalanceIOTA(addrStateControl))
