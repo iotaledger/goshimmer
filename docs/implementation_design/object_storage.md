@@ -3,7 +3,7 @@ In GoShimmer `ObjectStorage`  is used as a base data structure for many data col
 It can be described by the following characteristics, it:
 - is a manual cache which keeps objects in memory as long as consumers are using it
 - uses key-value storage type 
-- provides mutex options for guarding shared variables and preventing changing object state by multiple goroutines at the same time
+- provides mutex options for guarding shared variables and preventing changing the object state by multiple goroutines at the same time
 - takes care of  dynamic creation of different object types depending on the key, and the serialized data it receives through the utility `objectstorage.Factory`
 - helps with multiple `ObjectStorage` instances creation from the same package and  automatic configuration.
 
@@ -134,7 +134,7 @@ we can start using it for its sole purpose, to actually store and read the parti
 
  - `Load` allows retrieving corresponding object based on provided id. For example, method on the message `objectStorage`  
   is getting the cached object. 
-- To convert object retrieved in a form of a cache to its own corresponding type, we can use `Unwrap`.
+- To convert object retrieved in the form of a cache to its own corresponding type, we can use `Unwrap`.
  In the code below it will return the message wrapped by the cached object.
 - `Exists` - checks weather the object has been deleted if yest it is released from memory with `Release` method.
     ```Go
