@@ -308,7 +308,7 @@ func (c *Component) splitOutput(remainderOutputID ledgerstate.OutputID, remainde
 
 	essence := ledgerstate.NewTransactionEssence(
 		0,
-		time.Now(),
+		clock.SyncedTime(),
 		local.GetInstance().ID(),
 		local.GetInstance().ID(),
 		ledgerstate.NewInputs(inputs...),

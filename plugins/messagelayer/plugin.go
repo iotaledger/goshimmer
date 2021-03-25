@@ -50,6 +50,11 @@ func configure(plugin *node.Plugin) {
 		plugin.LogError(err)
 	}))
 
+	Tangle().Parser.Events.MessageRejected.Attach(events.NewClosure(func(rejectedEvent *tangle.MessageRejectedEvent, err error) {
+		plugin.LogError(err)
+		plugin.LogError(rejectedEvent.Message)
+	}))
+
 	// read snapshot file
 	if Parameters.Snapshot.File != "" {
 		snapshot := ledgerstate.Snapshot{}
