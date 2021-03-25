@@ -7,9 +7,9 @@ import (
 	"sync/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/txstream"
 	"github.com/iotaledger/goshimmer/packages/txstream/chopper"
-	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/netutil/buffconn"

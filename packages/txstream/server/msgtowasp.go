@@ -5,8 +5,8 @@ package server
 
 import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/txstream"
 	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/txstream"
 )
 
 func (c *Connection) sendMsgToClient(msg txstream.Message) {

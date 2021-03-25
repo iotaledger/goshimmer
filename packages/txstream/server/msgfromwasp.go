@@ -4,8 +4,8 @@ package server
 // SPDX-License-Identifier: Apache-2.0
 
 import (
-	"github.com/iotaledger/goshimmer/packages/txstream"
 	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/txstream"
 )
 
 // process messages received from the clien

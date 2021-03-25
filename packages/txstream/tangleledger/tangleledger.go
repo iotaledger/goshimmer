@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/txstream"
 	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/txstream"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
