@@ -56,7 +56,7 @@ After we have the approval weight of a branch, it is marked **confirmed** when:
 **Note**: Once a branch gets confirmed, the conflicting ones get "lost."
 
 ## Detailed design
-In this section, we will describe how approval weight are managed with epoch and markers, which includes:
+In this section, we will describe implementation details of how approval weight are managed with epoch and markers, which includes:
 1. supporters of a branch as well as the approvers of markers management,
 2. approval weight management.
 
@@ -146,7 +146,102 @@ The `supporterManager` holds the following fields:
     </tr>
 </table> 
 
+`supporterManager` processes every message to update the branch supporters and those for markers:
+```go
+func (s *SupporterManager) ProcessMessage(messageID MessageID) {
+	s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+        // branch supporter update
+		s.updateBranchSupporters(message)
+        // marker approver update
+		s.updateSequenceSupporters(message)
+	})
+}
+```
 
+### Support management to branches
+`lastStatements` keeps the sequence number and the attached branch of the newest message that an issuer sent. The `supporterManager` will only continue if both conditions meet:
+1. the statement of the issuer is new, meaning the sequence number is larger than the lastStatement.
+2. the issuer attaches to the different branch from last message.
+
+This check help nodes update supporters when it's necessary.
+
+If the above conditions fulfill, `supporterManager` starts:
+1. add the issuer as supporters to the branch, and propagate to its parent branches,
+2. remove the issuer from the supporters of conflict branches, and propagate to its child branches.
+
+Here's an example of how the propagation will look like:
+![ApprovalWeight](https://user-images.githubusercontent.com/11289354/112409357-518e9480-8d54-11eb-8a40-19f4ab33ea35.png)
+
+
+The green node issued **message 1** and attached it to `Branch 1.1 + Branch 4.1.1`. Thus, the green node is a supporter of `Branch 1.1 + Branch 4.1.1`, and is also a supporter to parent branches, which are (from top to bottom) `Branch 4.1.1`, `Branch 1.1`, `Branch 4.1`, `Branch 1`, and `Branch 4`.
+
+Then, the green node issued **message 2** and attached it to `Branch 4.1.2`. This makes the green node a supporter of `Branch 4.1.2`, however, `Branch 4.1.1` is its conflict branch that green node is removed from the supporters list of `Branch 4.1.1`. 
+
+`Branch 4.1`, `Branch 4` are parent branches of `Branch 4.1.2`, green node is still their supporters. Since `Branch 1.1`, `Branch 1` are not conflicting to either of `Branch 4.1.2`'s parents, the green node remains their supporter. 
+
+Finally, green nodes issued **message 3**, which is attached to `Branch 2`. Now the green node is a supporter of `Branch 2`, and no longer a supporter of `Branch 1`, since `Branch 1` is conflicting to `Branch 2`. Note that, this supporter removal will propagate to child branches. Thus, green node is removed from `Branch 1.1`. 
+
+`Branch 3`, `4` and both of their child branches have nothing to do with this attachement, the supporter status remains. 
+
+
+
+#### `addSupportToBranch`
+The codes below shows how a supporter is propagated to branches. For each processing branch, its conflicting branches (if have any) will trigger `revokeSupportFromBranch` to remove the supporter.
+```go
+func (s *SupporterManager) addSupportToBranch(branchID ledgerstate.BranchID, issuingTime time.Time, supporter Supporter, walk *walker.Walker) {
+	// prepare supporters set for a new branch
+    if _, exists := s.branchSupporters[branchID]; !exists {
+		s.branchSupporters[branchID] = NewSupporters()
+	}
+    // abort if the supporter exists
+	if !s.branchSupporters[branchID].Add(supporter) {
+		return
+	}
+
+    // remove the supporter from the conflicting branches if it exists
+	s.tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
+		revokeWalker := walker.New()
+		revokeWalker.Push(conflictingBranchID)
+        // revoke supporters needs propagated to child branches
+		for revokeWalker.HasNext() {
+			s.revokeSupportFromBranch(revokeWalker.Next().(ledgerstate.BranchID), issuingTime, supporter, revokeWalker)
+		}
+	})
+
+	s.Events.BranchSupportAdded.Trigger(branchID, issuingTime, supporter)
+
+    // add parent branches to the walker for supporter propagation 
+	s.tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
+		for parentBranchID := range branch.Parents() {
+			walk.Push(parentBranchID)
+		}
+	})
+}
+```
+
+#### `revokeSupportFromBranch`
+The codes below shows how a supporter is revoked from a branch and its child branches. 
+```go
+func (s *SupporterManager) revokeSupportFromBranch(branchID ledgerstate.BranchID, issuingTime time.Time, supporter Supporter, walker *walker.Walker) {
+	// check if the supporter supports the branch
+    if supporters, exists := s.branchSupporters[branchID]; !exists || !supporters.Delete(supporter) {
+		return
+	}
+
+	s.Events.BranchSupportRemoved.Trigger(branchID, issuingTime, supporter)
+
+    // propagate supporter removal to child branches
+	s.tangle.LedgerState.BranchDAG.ChildBranches(branchID).Consume(func(childBranch *ledgerstate.ChildBranch) {
+		if childBranch.ChildBranchType() != ledgerstate.ConflictBranchType {
+			return
+		}
+
+		walker.Push(childBranch.ChildBranchID())
+	})
+}
+```
+
+### Support management to markers
 
 
 
