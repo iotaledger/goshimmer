@@ -103,7 +103,7 @@ func interpretBody(res *http.Response, decodeTo interface{}) error {
 
 	errRes := &errorresponse{}
 	if err := json.Unmarshal(resBody, errRes); err != nil {
-		return fmt.Errorf("unable to read error from response body: %w", err)
+		return fmt.Errorf("unable to read error from response body: %w repsonseBody: %s", err, resBody)
 	}
 
 	switch res.StatusCode {

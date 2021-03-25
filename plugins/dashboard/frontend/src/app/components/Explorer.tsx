@@ -6,6 +6,9 @@ import NodeStore from "app/stores/NodeStore";
 import {inject, observer} from "mobx-react";
 import {ExplorerSearchbar} from "app/components/ExplorerSearchbar";
 import {ExplorerLiveFeed} from "app/components/ExplorerLiveFeed";
+import {ExplorerTransactionSearchbar} from "app/components/ExplorerTransactionSearchbar";
+import {ExplorerOutputSearchbar} from "app/components/ExplorerOutputSearchbar";
+import {ExplorerBranchSearchbar} from "app/components/ExplorerBranchSearchbar";
 
 interface Props {
     nodeStore?: NodeStore;
@@ -21,11 +24,26 @@ export class Explorer extends React.Component<Props, any> {
                 <Row className={"mb-3"}>
                     <Col>
                         <p>
-                            Search for addresses or messages.
+                            Search for addresses, messages, transactions, outputs and branches.
                         </p>
                     </Col>
                 </Row>
-                <ExplorerSearchbar/>
+                <Row>
+                    <Col>
+                        <ExplorerSearchbar/>
+                    </Col>
+                    <Col>
+                        <ExplorerTransactionSearchbar/>
+                    </Col>
+                </Row>
+                <Row>
+                    <Col>
+                        <ExplorerOutputSearchbar/>
+                    </Col>
+                    <Col>
+                        <ExplorerBranchSearchbar/>
+                    </Col>
+                </Row>
                 <ExplorerLiveFeed/>
                 <small>
                     This explorer implementation is heavily inspired by <a

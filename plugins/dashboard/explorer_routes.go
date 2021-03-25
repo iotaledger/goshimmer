@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/mana"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	ledgerstateAPI "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
+	manaAPI "github.com/iotaledger/goshimmer/plugins/webapi/mana"
 	valueutils "github.com/iotaledger/goshimmer/plugins/webapi/value"
 )
 
@@ -67,7 +68,7 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		StrongApprovers:         messagelayer.Tangle().Utils.ApprovingMessageIDs(messageID, tangle.StrongApprover).ToStrings(),
 		WeakApprovers:           messagelayer.Tangle().Utils.ApprovingMessageIDs(messageID, tangle.WeakApprover).ToStrings(),
 		Solid:                   messageMetadata.IsSolid(),
-		BranchID:                messageMetadata.BranchID().String(),
+		BranchID:                messageMetadata.BranchID().Base58(),
 		Scheduled:               messageMetadata.Scheduled(),
 		Booked:                  messageMetadata.IsBooked(),
 		Eligible:                messageMetadata.IsEligible(),
@@ -88,6 +89,7 @@ type ExplorerAddress struct {
 // ExplorerOutput defines the struct of the ExplorerOutput.
 type ExplorerOutput struct {
 	ID                 string                    `json:"id"`
+	TransactionID      string                    `json:"transaction_id"`
 	Balances           []valueutils.Balance      `json:"balances"`
 	InclusionState     valueutils.InclusionState `json:"inclusion_state"`
 	SolidificationTime int64                     `json:"solidification_time"`
@@ -137,6 +139,24 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 	})
 	routeGroup.GET("/output/:outputID", func(c echo.Context) error {
 		return ledgerstateAPI.GetOutput(c)
+	})
+	routeGroup.GET("/output/:outputID/metadata", func(c echo.Context) error {
+		return ledgerstateAPI.GetOutputMetadata(c)
+	})
+	routeGroup.GET("/output/:outputID/consumers", func(c echo.Context) error {
+		return ledgerstateAPI.GetOutputConsumers(c)
+	})
+	routeGroup.GET("/mana/pending", func(c echo.Context) error {
+		return manaAPI.GetPendingMana(c)
+	})
+	routeGroup.GET("/branch/:branchID", func(c echo.Context) error {
+		return ledgerstateAPI.GetBranch(c)
+	})
+	routeGroup.GET("/branch/:branchID/children", func(c echo.Context) error {
+		return ledgerstateAPI.GetBranchChildren(c)
+	})
+	routeGroup.GET("/branch/:branchID/conflicts", func(c echo.Context) error {
+		return ledgerstateAPI.GetBranchConflicts(c)
 	})
 
 	routeGroup.GET("/search/:search", func(c echo.Context) error {
@@ -226,7 +246,8 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 
 		pendingMana, _ := mana.PendingManaOnOutput(output.ID())
 		outputids = append(outputids, ExplorerOutput{
-			ID:                 output.ID().String(),
+			ID:                 output.ID().Base58(),
+			TransactionID:      output.ID().TransactionID().Base58(),
 			Balances:           b,
 			InclusionState:     inclusionState,
 			ConsumerCount:      consumerCount,
