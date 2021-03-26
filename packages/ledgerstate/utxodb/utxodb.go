@@ -130,8 +130,8 @@ func (u *UtxoDB) CheckNewTransaction(tx *ledgerstate.Transaction, lock ...bool) 
 	return nil
 }
 
-// GetChainOutputs collects all output of type ledgerstate.AliasOutput for the transaction
-func (u *UtxoDB) GetChainOutputs(addr ledgerstate.Address) []*ledgerstate.AliasOutput {
+// GetAliasOutputs collects all outputs of type ledgerstate.AliasOutput for the transaction
+func (u *UtxoDB) GetAliasOutputs(addr ledgerstate.Address) []*ledgerstate.AliasOutput {
 	outs := u.GetAddressOutputs(addr)
 	ret := make([]*ledgerstate.AliasOutput, 0)
 	for _, out := range outs {

@@ -1296,7 +1296,7 @@ func (c *AliasOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inpu
 
 	case *AliasUnlockBlock:
 		// state cannot be unlocked by alias reference, so only checking governance mode
-		return c.unlockedGovernanceByAliasIndex(tx, blk.ChainInputIndex(), inputs)
+		return c.unlockedGovernanceByAliasIndex(tx, blk.AliasInputIndex(), inputs)
 	}
 	return false, xerrors.New("unsupported unlock block type")
 }
@@ -1710,7 +1710,7 @@ func (o *ExtendedLockedOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBl
 
 	case *AliasUnlockBlock:
 		// unlocking by alias reference
-		refAliasOutput, isAlias := inputs[blk.ChainInputIndex()].(*AliasOutput)
+		refAliasOutput, isAlias := inputs[blk.AliasInputIndex()].(*AliasOutput)
 		if !isAlias {
 			return false, xerrors.New("ExtendedLockedOutput: referenced input must be AliasOutput")
 		}

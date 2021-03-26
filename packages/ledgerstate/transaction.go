@@ -235,8 +235,8 @@ func TransactionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transacti
 				return
 			}
 		case AliasUnlockBlockType:
-			if unlockBlock.(*AliasUnlockBlock).ChainInputIndex() > uint16(maxReferencedUnlockIndex) {
-				err = xerrors.Errorf("unlock block %d references non-existent chain input at index %d", i, unlockBlock.(*AliasUnlockBlock).ChainInputIndex())
+			if unlockBlock.(*AliasUnlockBlock).AliasInputIndex() > uint16(maxReferencedUnlockIndex) {
+				err = xerrors.Errorf("unlock block %d references non-existent chain input at index %d", i, unlockBlock.(*AliasUnlockBlock).AliasInputIndex())
 				return
 			}
 		}

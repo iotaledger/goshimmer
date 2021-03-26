@@ -130,9 +130,9 @@ func unlockInputsWithSignatureBlocks(inputs []ledgerstate.Output, sigUnlockBlock
 	return ret, nil
 }
 
-// CollectChainedOutputs scans all outputs and collects ledgerstate.AliasOutput into a map by the Address.Array
+// CollectAliasOutputs scans all outputs and collects ledgerstate.AliasOutput into a map by the Address.Array
 // Returns an error if finds duplicate
-func CollectChainedOutputs(essence *ledgerstate.TransactionEssence) (map[[33]byte]*ledgerstate.AliasOutput, error) {
+func CollectAliasOutputs(essence *ledgerstate.TransactionEssence) (map[[33]byte]*ledgerstate.AliasOutput, error) {
 	ret := make(map[[33]byte]*ledgerstate.AliasOutput)
 	for _, o := range essence.Outputs() {
 		out, ok := o.(*ledgerstate.AliasOutput)
@@ -147,12 +147,12 @@ func CollectChainedOutputs(essence *ledgerstate.TransactionEssence) (map[[33]byt
 	return ret, nil
 }
 
-// GetSingleChainedOutput expects the exactly one chained output in the transaction and returns it
+// GetSingleChainedAliasOutput expects exactly one chained output in the transaction and returns it
 // returns:
 // - nil and no error if found none
 // - error if there's more than 1
-func GetSingleChainedOutput(essence *ledgerstate.TransactionEssence) (*ledgerstate.AliasOutput, error) {
-	ch, err := CollectChainedOutputs(essence)
+func GetSingleChainedAliasOutput(essence *ledgerstate.TransactionEssence) (*ledgerstate.AliasOutput, error) {
+	ch, err := CollectAliasOutputs(essence)
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +192,7 @@ func GetSingleSender(tx *ledgerstate.Transaction) (ledgerstate.Address, error) {
 	if err != nil {
 		return nil, err
 	}
-	chained, err := GetSingleChainedOutput(tx.Essence())
+	chained, err := GetSingleChainedAliasOutput(tx.Essence())
 	if err != nil {
 		return nil, err
 	}

@@ -203,8 +203,8 @@ func getPermutation(inputs ledgerstate.Inputs) map[ledgerstate.OutputID]int {
 	return ret
 }
 
-// FindChainConsumableInput finds chain output with given alias address
-func FindChainConsumableInput(aliasAddr ledgerstate.Address, consumables ...*ConsumableOutput) (*ledgerstate.AliasOutput, int, bool) {
+// FindAliasConsumableInput finds chain output with given alias address
+func FindAliasConsumableInput(aliasAddr ledgerstate.Address, consumables ...*ConsumableOutput) (*ledgerstate.AliasOutput, int, bool) {
 	for i, out := range consumables {
 		if out.output.Address().Equals(aliasAddr) {
 			if ret, ok := out.output.(*ledgerstate.AliasOutput); ok {
