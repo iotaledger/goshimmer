@@ -133,7 +133,7 @@ func (r *ReferencingMarkers) ReferencingSequences() (referencingSequences Sequen
 }
 
 // Bytes returns a marshaled version of the ReferencingMarkers.
-func (r *ReferencingMarkers) Bytes() (marshaledChildReferences []byte) {
+func (r *ReferencingMarkers) Bytes() (marshaledReferencingMarkers []byte) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 
@@ -154,7 +154,7 @@ func (r *ReferencingMarkers) Bytes() (marshaledChildReferences []byte) {
 }
 
 // String returns a human readable version of the ReferencingMarkers.
-func (r *ReferencingMarkers) String() (humanReadableChildReferences string) {
+func (r *ReferencingMarkers) String() (humanReadableReferencingMarkers string) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 
