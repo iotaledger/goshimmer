@@ -19,6 +19,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 
+	clockPkg "github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/metrics"
@@ -82,7 +83,7 @@ func runConsensusPlugin(plugin *node.Plugin) {
 // Voter returns the DRNGRoundBasedVoter instance used by the FPC plugin.
 func Voter() vote.DRNGRoundBasedVoter {
 	voterOnce.Do(func() {
-		voter = fpc.New(OpinionGiverFunc)
+		voter = fpc.New(OpinionGiverFunc, OwnManaRetriever)
 	})
 	return voter
 }
@@ -230,7 +231,10 @@ func (o *OpinionGiver) Query(ctx context.Context, conflictIDs []string, timestam
 	// if o.view == nil, then we can immediately perform P2P query instead of waiting for statement
 	//because it won't be provided.
 	for i := 0; o.view != nil && i < StatementParameters.WaitForStatement; i++ {
-		if o.view != nil {
+		// query statement status only if any statement has been received within the last round interval.
+		// This is important. We do want to consider old statements IF the node has been active in the last round.
+		// otherwise node might be down and we don't want to look at old statements in subsequent rounds
+		if o.view != nil && o.view.LastStatementReceivedTimestamp.Add(time.Duration(FPCParameters.RoundInterval)*time.Second).After(clockPkg.SyncedTime()) {
 			opinions, err = o.view.Query(ctx, conflictIDs, timestampIDs)
 			if err == nil {
 				return opinions, nil
@@ -371,6 +375,20 @@ func (pog *PeerOpinionGiver) ID() identity.ID {
 func (pog *PeerOpinionGiver) Address() string {
 	fpcServicePort := pog.p.Services().Get(service.FPCKey).Port()
 	return net.JoinHostPort(pog.p.IP().String(), strconv.Itoa(fpcServicePort))
+}
+
+// endregion /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region OwnWeightsRetriever/////////////////////////////////////////////////////////////////////////////////////
+
+// OwnManaRetriever returns the current consensus mana of a vector
+func OwnManaRetriever() (float64, error) {
+	var ownMana float64
+	consensusManaNodes, _, err := GetManaMap(mana.ConsensusMana)
+	if v, ok := consensusManaNodes[local.GetInstance().ID()]; ok {
+		ownMana = v
+	}
+	return ownMana, err
 }
 
 // endregion /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -559,6 +577,8 @@ func readStatement(messageID tangle.MessageID) {
 		issuerRegistry.AddConflicts(statementPayload.Conflicts)
 
 		issuerRegistry.AddTimestamps(statementPayload.Timestamps)
+
+		issuerRegistry.UpdateLastStatementReceivedTime(clockPkg.SyncedTime())
 
 		Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
 			sendToRemoteLog(
