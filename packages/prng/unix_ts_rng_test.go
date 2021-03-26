@@ -3,8 +3,9 @@ package prng_test
 import (
 	"testing"
 
-	"github.com/iotaledger/goshimmer/packages/prng"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/iotaledger/goshimmer/packages/prng"
 )
 
 func TestResolveNextTimePoint(t *testing.T) {

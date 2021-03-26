@@ -97,12 +97,14 @@ export default class Mana extends React.Component<Props, any> {
                         <ManaEventList
                             title={"Access Events"}
                             listItems={manaStore.accessEventList}
+                            since={manaStore.lastRemovedAccessEventTime}
                         />
                     </Col>
                     <Col>
                         <ManaEventList
                             title={"Consensus Events"}
                             listItems={manaStore.consensusEventList}
+                            since={manaStore.lastRemovedConsensusEventTime}
                         />
                     </Col>
                 </Row>

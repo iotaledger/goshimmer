@@ -5,9 +5,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"golang.org/x/xerrors"
+
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	"golang.org/x/xerrors"
 )
 
 // IssuePayloadFunc is a function which issues a payload.
@@ -63,7 +64,7 @@ func (spammer *Spammer) run(rate int, timeUnit time.Duration, processID int64, i
 		}
 
 		if currentInterval < msgInterval {
-			//there is still time, sleep until msgInterval
+			// there is still time, sleep until msgInterval
 			time.Sleep(msgInterval - currentInterval)
 		}
 		// when currentInterval > msgInterval, the node can't issue msgs as fast as requested, will do as fast as it can

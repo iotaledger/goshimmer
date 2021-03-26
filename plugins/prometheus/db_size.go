@@ -4,14 +4,13 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/database"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
-var (
-	dbSize prometheus.Gauge
-)
+var dbSize prometheus.Gauge
 
 func registerDBMetrics() {
 	dbSize = prometheus.NewGauge(

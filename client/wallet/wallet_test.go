@@ -4,15 +4,16 @@ import (
 	"crypto/rand"
 	"testing"
 
+	"github.com/iotaledger/hive.go/bitmask"
+	"github.com/iotaledger/hive.go/identity"
+	"github.com/mr-tron/base58"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	walletaddr "github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
-	"github.com/iotaledger/hive.go/bitmask"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/mr-tron/base58"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestWallet_SendFunds(t *testing.T) {

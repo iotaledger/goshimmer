@@ -4,16 +4,17 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/datastructure/orderedmap"
+	"github.com/iotaledger/hive.go/identity"
+	"golang.org/x/xerrors"
+
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/datastructure/orderedmap"
-	"github.com/iotaledger/hive.go/identity"
-	"golang.org/x/xerrors"
 )
 
 // New creates a new faucet component using the given seed and tokensPerRequest config.
@@ -146,7 +147,7 @@ func (c *Component) SendFunds(msg *tangle.Message) (m *tangle.Message, txID stri
 // collectUTXOsForFunding iterates over the faucet's UTXOs until the token threshold is reached.
 // this function also returns the remainder balance for the given outputs.
 func (c *Component) collectUTXOsForFunding() (inputs ledgerstate.Inputs, addrsIndices map[uint64]ledgerstate.Inputs, remainder int64) {
-	var total = c.tokensPerRequest
+	total := c.tokensPerRequest
 	var i uint64
 	addrsIndices = map[uint64]ledgerstate.Inputs{}
 
@@ -307,7 +308,7 @@ func (c *Component) splitOutput(remainderOutputID ledgerstate.OutputID, remainde
 
 	essence := ledgerstate.NewTransactionEssence(
 		0,
-		time.Now(),
+		clock.SyncedTime(),
 		local.GetInstance().ID(),
 		local.GetInstance().ID(),
 		ledgerstate.NewInputs(inputs...),
@@ -351,7 +352,6 @@ func (c *Component) splitOutput(remainderOutputID ledgerstate.OutputID, remainde
 
 type wallet struct {
 	keyPair ed25519.KeyPair
-	address *ledgerstate.ED25519Address
 }
 
 func (w wallet) privateKey() ed25519.PrivateKey {
@@ -361,6 +361,7 @@ func (w wallet) privateKey() ed25519.PrivateKey {
 func (w wallet) publicKey() ed25519.PublicKey {
 	return w.keyPair.PublicKey
 }
+
 func (w wallet) sign(txEssence *ledgerstate.TransactionEssence) *ledgerstate.ED25519Signature {
-	return ledgerstate.NewED25519Signature(w.publicKey(), ed25519.Signature(w.privateKey().Sign(txEssence.Bytes())))
+	return ledgerstate.NewED25519Signature(w.publicKey(), w.privateKey().Sign(txEssence.Bytes()))
 }

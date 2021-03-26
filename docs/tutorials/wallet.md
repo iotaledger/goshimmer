@@ -1,3 +1,5 @@
+# The wallet library
+
 This page describes how to use the wallet library.
 
 GoShimmer ships with a very basic wallet library so that developers and testers can use it to move tokens around.

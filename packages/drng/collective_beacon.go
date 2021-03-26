@@ -29,17 +29,16 @@ var (
 // - verify that we have a valid random
 // - update drng state
 func ProcessBeacon(state *State, cb *CollectiveBeaconEvent) error {
-
 	// verify that we have a valid random
 	if err := VerifyCollectiveBeacon(state, cb); err != nil {
-		//TODO: handle error
+		// TODO: handle error
 		return err
 	}
 
 	// update drng state
 	randomness, err := ExtractRandomness(cb.Signature)
 	if err != nil {
-		//TODO: handle error
+		// TODO: handle error
 		return err
 	}
 	newRandomness := &Randomness{

@@ -6,14 +6,15 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
-	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"golang.org/x/crypto/blake2b"
+
+	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/mana"
 )
 
 // Wallet represents a simple cryptocurrency wallet for the IOTA tangle. It contains the logic to manage the movement of
@@ -425,7 +426,7 @@ func (wallet *Wallet) buildInputs(outputsToUseAsInputs map[address.Address]map[l
 	consumedInputs := make(ledgerstate.Inputs, 0)
 	consumedFunds = make(map[ledgerstate.Color]uint64)
 	for _, unspentOutputsOfAddress := range outputsToUseAsInputs {
-		var i = uint16(0)
+		i := uint16(0)
 		for outputID, output := range unspentOutputsOfAddress {
 			input := ledgerstate.NewUTXOInput(outputID)
 			consumedInputs = append(consumedInputs, input)
