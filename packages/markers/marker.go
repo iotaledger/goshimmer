@@ -367,8 +367,6 @@ func (m *Markers) String() (humanReadableMarkers string) {
 
 		return true
 	})
-	structBuilder.AddField(stringify.StructField("lowestIndex", m.LowestIndex()))
-	structBuilder.AddField(stringify.StructField("highestIndex", m.HighestIndex()))
 
 	return structBuilder.String()
 }

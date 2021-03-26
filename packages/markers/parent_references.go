@@ -61,7 +61,7 @@ func ParentReferencesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (pare
 		references: make(map[SequenceID]*thresholdmap.ThresholdMap),
 	}
 	if parentReferences.parentSequences, err = SequenceIDsFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse parent SequenceIDs from MarshalUtil: %w", err)
+		err = xerrors.Errorf("failed to parse parent ReferencingSequences from MarshalUtil: %w", err)
 		return
 	}
 
@@ -206,18 +206,18 @@ func (p *ParentReferences) String() (humanReadableParentReferences string) {
 	defer p.referencesMutex.RUnlock()
 
 	referencingIndexes := make([]Index, 0)
-	referencedMarkersByReferencingIndex := make(map[Index][]*Marker)
+	referencedMarkersByReferencingIndex := make(map[Index]*Markers)
 	for sequenceID, thresholdMap := range p.references {
 		thresholdMap.ForEach(func(node *thresholdmap.Element) bool {
 			referencingIndex := Index(node.Key().(uint64))
 			referencedIndex := Index(node.Value().(uint64))
 			if _, exists := referencedMarkersByReferencingIndex[referencingIndex]; !exists {
-				referencedMarkersByReferencingIndex[referencingIndex] = make([]*Marker, 0)
+				referencedMarkersByReferencingIndex[referencingIndex] = NewMarkers()
 
 				referencingIndexes = append(referencingIndexes, referencingIndex)
 			}
 
-			referencedMarkersByReferencingIndex[referencingIndex] = append(referencedMarkersByReferencingIndex[referencingIndex], &Marker{sequenceID, referencedIndex})
+			referencedMarkersByReferencingIndex[referencingIndex].Set(sequenceID, referencedIndex)
 
 			return true
 		})

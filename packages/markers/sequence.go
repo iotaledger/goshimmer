@@ -274,7 +274,7 @@ func (a SequenceID) String() (humanReadableSequenceID string) {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region SequenceIDs //////////////////////////////////////////////////////////////////////////////////////////////////
+// region ReferencingSequences //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // SequenceIDs represents a collection of SequenceIDs.
 type SequenceIDs map[SequenceID]types.Empty
@@ -293,7 +293,7 @@ func NewSequenceIDs(sequenceIDs ...SequenceID) (result SequenceIDs) {
 func SequenceIDsFromBytes(sequenceIDBytes []byte) (sequenceIDs SequenceIDs, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(sequenceIDBytes)
 	if sequenceIDs, err = SequenceIDsFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse SequenceIDs from MarshalUtil: %w", err)
+		err = xerrors.Errorf("failed to parse ReferencingSequences from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -305,7 +305,7 @@ func SequenceIDsFromBytes(sequenceIDBytes []byte) (sequenceIDs SequenceIDs, cons
 func SequenceIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequenceIDs SequenceIDs, err error) {
 	sequenceIDsCount, err := marshalUtil.ReadUint32()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse SequenceIDs count (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse ReferencingSequences count (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	sequenceIDs = make(SequenceIDs, sequenceIDsCount)
@@ -354,7 +354,7 @@ func (s SequenceIDs) Bytes() (marshaledSequenceIDs []byte) {
 func (s SequenceIDs) String() (humanReadableSequenceIDs string) {
 	result := "SequenceIDs("
 	for sequenceID := range s {
-		if len(result) != 12 {
+		if result != "SequenceIDs(" {
 			result += ", "
 		}
 		result += strconv.FormatUint(uint64(sequenceID), 10)
