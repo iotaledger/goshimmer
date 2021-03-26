@@ -56,7 +56,7 @@ func TestChainOutputMarshal1(t *testing.T) {
 	require.NoError(t, err)
 
 	require.EqualValues(t, ledgerstate.AliasAddressType, outBack.Type())
-	_, ok := outBack.(*ledgerstate.ChainOutput)
+	_, ok := outBack.(*ledgerstate.AliasOutput)
 	require.True(t, ok)
 
 	require.Zero(t, out.Compare(outBack))
@@ -80,7 +80,7 @@ func TestChainOutputMarshal2(t *testing.T) {
 	require.NoError(t, err)
 
 	require.EqualValues(t, ledgerstate.AliasAddressType, outBack.Type())
-	_, ok := outBack.(*ledgerstate.ChainOutput)
+	_, ok := outBack.(*ledgerstate.AliasOutput)
 	require.True(t, ok)
 
 	require.Zero(t, out.Compare(outBack))
@@ -101,7 +101,7 @@ func TestChainOutputMarshal3(t *testing.T) {
 	require.NoError(t, err)
 
 	require.EqualValues(t, ledgerstate.AliasAddressType, outBack.Type())
-	_, ok := outBack.(*ledgerstate.ChainOutput)
+	_, ok := outBack.(*ledgerstate.AliasOutput)
 	require.True(t, ok)
 
 	require.Zero(t, out.Compare(outBack))
@@ -122,7 +122,7 @@ func TestChainOutputMarshal4(t *testing.T) {
 	require.NoError(t, err)
 
 	require.EqualValues(t, ledgerstate.AliasAddressType, outBack.Type())
-	_, ok := outBack.(*ledgerstate.ChainOutput)
+	_, ok := outBack.(*ledgerstate.AliasOutput)
 	require.True(t, ok)
 
 	require.Zero(t, out.Compare(outBack))

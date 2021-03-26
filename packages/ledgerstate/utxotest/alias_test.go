@@ -123,7 +123,7 @@ func TestChainForkFail(t *testing.T) {
 	chained, err = txb.ChainNextOutput(aliasAddress)
 	require.NoError(t, err)
 	chainedFork := chained.Clone()
-	err = chainedFork.(*ledgerstate.ChainOutput).SetStateData([]byte("qq"))
+	err = chainedFork.(*ledgerstate.AliasOutput).SetStateData([]byte("qq"))
 	require.NoError(t, err)
 
 	succ := txb.ConsumeAmounts(chainedFork.Balances().Map())
