@@ -1,7 +1,6 @@
 package markers
 
 import (
-	"fmt"
 	"sort"
 	"strconv"
 	"sync"
@@ -116,18 +115,16 @@ func (r *ReferencedMarkers) Add(index Index, referencedMarkers *Markers) {
 	})
 }
 
-// HighestReferencedMarkers returns a collection of Markers that were referenced by the given Index.
+// HighestReferencedMarkers returns that Markers that were referenced by the given Index.
 func (r *ReferencedMarkers) HighestReferencedMarkers(index Index) (referencedMarkers *Markers) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 
 	referencedMarkers = NewMarkers()
 	for sequenceID, thresholdMap := range r.referencedIndexesBySequence {
-		referencedIndex, exists := thresholdMap.Get(uint64(index))
-		if !exists {
-			panic(fmt.Sprintf("%s is smaller than the lowest known Index", index))
+		if referencedIndex, exists := thresholdMap.Get(uint64(index)); exists {
+			referencedMarkers.Set(sequenceID, Index(referencedIndex.(uint64)))
 		}
-		referencedMarkers.Set(sequenceID, Index(referencedIndex.(uint64)))
 	}
 
 	return
@@ -179,6 +176,20 @@ func (r *ReferencedMarkers) String() (humanReadableReferencedMarkers string) {
 	sort.Slice(referencingIndexes, func(i, j int) bool {
 		return referencingIndexes[i] < referencingIndexes[j]
 	})
+
+	for i, referencedIndex := range referencingIndexes {
+		for j := 0; j < i; j++ {
+			referencedMarkersByReferencingIndex[referencingIndexes[j]].ForEach(func(sequenceID SequenceID, index Index) bool {
+				if _, exists := referencedMarkersByReferencingIndex[referencedIndex].Get(sequenceID); exists {
+					return true
+				}
+
+				referencedMarkersByReferencingIndex[referencedIndex].Set(sequenceID, index)
+
+				return true
+			})
+		}
+	}
 
 	referencedMarkers := stringify.StructBuilder("ReferencedMarkers")
 	for i, referencingIndex := range referencingIndexes {

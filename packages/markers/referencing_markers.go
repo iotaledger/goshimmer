@@ -108,12 +108,9 @@ func (r *ReferencingMarkers) Get(index Index) (referencingMarkers *Markers) {
 
 	referencingMarkers = NewMarkers()
 	for sequenceID, thresholdMap := range r.referencingIndexesBySequence {
-		referencingIndex, referencingMarkersExists := thresholdMap.Get(uint64(index))
-		if !referencingMarkersExists {
-			continue
+		if referencingIndex, exists := thresholdMap.Get(uint64(index)); exists {
+			referencingMarkers.Set(sequenceID, referencingIndex.(Index))
 		}
-
-		referencingMarkers.Set(sequenceID, referencingIndex.(Index))
 	}
 
 	return

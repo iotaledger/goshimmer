@@ -14,6 +14,10 @@ func TestReferencedMarkers(t *testing.T) {
 		&Marker{2, 7},
 	))
 
+	referencedMarkers.Add(8, NewMarkers(
+		&Marker{4, 9},
+	))
+
 	referencedMarkers.Add(9, NewMarkers(
 		&Marker{1, 5},
 		&Marker{2, 8},
@@ -41,4 +45,18 @@ func TestReferencedMarkers(t *testing.T) {
 	assert.Equal(t, &Marker{1, 7}, unmarshaledReferencedMarkers.HighestReferencedMarker(1, 12))
 	*/
 	fmt.Println(unmarshaledReferencedMarkers)
+}
+
+func TestReferencedMarkersPanic(t *testing.T) {
+	referencedMarkers := NewReferencedMarkers(NewMarkers(
+		&Marker{1, 3},
+	))
+
+	referencedMarkers.Add(7, NewMarkers(
+		&Marker{4, 9},
+	))
+
+	assert.Equal(t, NewMarkers(
+		&Marker{1, 3},
+	), referencedMarkers.HighestReferencedMarkers(4))
 }
