@@ -87,6 +87,8 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 			inheritedStructureDetails.IsPastMarker = true
 			// sequence has just been created, so lowestIndex = highestIndex
 			inheritedStructureDetails.PastMarkers = NewMarkers(&Marker{sequenceID: sequence.id, index: sequence.lowestIndex})
+
+			m.registerReferencingMarker(referencedMarkers, NewMarker(sequence.id, sequence.lowestIndex))
 		})
 		return
 	}
@@ -101,6 +103,9 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 			if newIndex, increased := sequence.IncreaseHighestIndex(referencedMarkers); increased {
 				inheritedStructureDetails.IsPastMarker = true
 				inheritedStructureDetails.PastMarkers = NewMarkers(&Marker{sequenceID: sequence.id, index: newIndex})
+
+				m.registerReferencingMarker(referencedMarkers, NewMarker(sequence.id, newIndex))
+
 				return
 			}
 		}
@@ -109,6 +114,16 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 	})
 
 	return
+}
+
+func (m *Manager) registerReferencingMarker(referencedMarkers *Markers, marker *Marker) {
+	referencedMarkers.ForEach(func(sequenceID SequenceID, index Index) bool {
+		(&CachedSequence{CachedObject: m.sequenceStore.Load(sequenceID.Bytes())}).Consume(func(sequence *Sequence) {
+			sequence.AddReferencingMarker(index, marker)
+		})
+
+		return true
+	})
 }
 
 // UpdateStructureDetails updates the StructureDetails of an existing node in the DAG by propagating new Markers of its
@@ -125,7 +140,7 @@ func (m *Manager) UpdateStructureDetails(structureDetailsToUpdate *StructureDeta
 
 	structureDetailsToUpdate.FutureMarkers.Set(markerToInherit.sequenceID, markerToInherit.index)
 	futureMarkersUpdated = true
-	// stop propagating further if structureDetailsToUpadate is a marker
+	// stop propagating further if structureDetailsToUpdate is a marker
 	inheritFutureMarkerFurther = !structureDetailsToUpdate.IsPastMarker
 
 	return
