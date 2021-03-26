@@ -284,7 +284,7 @@ func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkersByRank *m
 				return false
 			}
 
-			if !(&CachedSequence{CachedObject: m.sequenceStore.Load(sequenceID.Bytes())}).Consume(func(sequence *Sequence) {
+			if !m.Sequence(sequenceID).Consume(func(sequence *Sequence) {
 				// for each of the parentMarkers of this particular index
 				sequence.ReferencedMarkers(index).ForEach(func(referencedSequenceID SequenceID, referencedIndex Index) bool {
 					// of this marker delete the referenced sequences since they are no sequence tips anymore in the sequence DAG
@@ -372,7 +372,7 @@ func (m *Manager) markersReferenceMarkers(laterMarkers *Markers, earlierMarkers 
 
 		// queue parents for additional checks
 		laterMarkers.ForEach(func(sequenceID SequenceID, index Index) bool {
-			(&CachedSequence{CachedObject: m.sequenceStore.Load(sequenceID.Bytes())}).Consume(func(sequence *Sequence) {
+			m.Sequence(sequenceID).Consume(func(sequence *Sequence) {
 				sequence.ReferencedMarkers(index).ForEach(func(referencedSequenceID SequenceID, referencedIndex Index) bool {
 					futureMarkersByRank.Add(m.rankOfSequence(referencedSequenceID, rankCache), referencedSequenceID, referencedIndex)
 					return true
@@ -415,7 +415,7 @@ func (m *Manager) markersReferenceMarkers(laterMarkers *Markers, earlierMarkers 
 // structure.
 func (m *Manager) registerReferencingMarker(referencedMarkers *Markers, marker *Marker) {
 	referencedMarkers.ForEach(func(sequenceID SequenceID, index Index) bool {
-		(&CachedSequence{CachedObject: m.sequenceStore.Load(sequenceID.Bytes())}).Consume(func(sequence *Sequence) {
+		m.Sequence(sequenceID).Consume(func(sequence *Sequence) {
 			sequence.AddReferencingMarker(index, marker)
 		})
 
@@ -451,7 +451,7 @@ func (m *Manager) fetchSequence(referencedMarkers *Markers, rank uint64, sequenc
 	}
 
 	cachedSequenceAliasMapping.Consume(func(sequenceAliasMapping *SequenceAliasMapping) {
-		cachedSequence = &CachedSequence{CachedObject: m.sequenceStore.Load(sequenceAliasMapping.SequenceID().Bytes())}
+		cachedSequence = m.Sequence(sequenceAliasMapping.SequenceID())
 	})
 
 	return
@@ -463,7 +463,7 @@ func (m *Manager) rankOfSequence(sequenceID SequenceID, ranksCache map[SequenceI
 		return rank
 	}
 
-	if !(&CachedSequence{CachedObject: m.sequenceStore.Load(sequenceID.Bytes())}).Consume(func(sequence *Sequence) {
+	if !m.Sequence(sequenceID).Consume(func(sequence *Sequence) {
 		ranksCache[sequenceID] = sequence.rank
 	}) {
 		panic(fmt.Sprintf("failed to load Sequence with %s", sequenceID))
