@@ -28,22 +28,59 @@ func TestReferencedMarkers(t *testing.T) {
 		&Marker{2, 10},
 	))
 
-	/*
-		assert.Equal(t, &Marker{1, 3}, referencedMarkers.HighestReferencedMarker(1, 8))
-		assert.Equal(t, &Marker{1, 5}, referencedMarkers.HighestReferencedMarker(1, 10))
-		assert.Equal(t, &Marker{1, 5}, referencedMarkers.HighestReferencedMarker(1, 11))
-		assert.Equal(t, &Marker{1, 7}, referencedMarkers.HighestReferencedMarker(1, 12))
-	*/
+	assert.Equal(t, NewMarkers(
+		&Marker{1, 3},
+		&Marker{2, 7},
+		&Marker{4, 9},
+	), referencedMarkers.Get(8))
+
+	assert.Equal(t, NewMarkers(
+		&Marker{1, 5},
+		&Marker{2, 8},
+		&Marker{4, 9},
+	), referencedMarkers.Get(10))
+
+	assert.Equal(t, NewMarkers(
+		&Marker{1, 5},
+		&Marker{2, 8},
+		&Marker{4, 9},
+	), referencedMarkers.Get(11))
+
+	assert.Equal(t, NewMarkers(
+		&Marker{1, 7},
+		&Marker{2, 10},
+		&Marker{4, 9},
+	), referencedMarkers.Get(12))
+
 	marshaledReferencedMarkers := referencedMarkers.Bytes()
 	unmarshaledReferencedMarkers, consumedBytes, err := ReferencedMarkersFromBytes(marshaledReferencedMarkers)
 	require.NoError(t, err)
 	assert.Equal(t, len(marshaledReferencedMarkers), consumedBytes)
 
-	/*assert.Equal(t, &Marker{1, 3}, unmarshaledReferencedMarkers.HighestReferencedMarker(1, 8))
-	assert.Equal(t, &Marker{1, 5}, unmarshaledReferencedMarkers.HighestReferencedMarker(1, 10))
-	assert.Equal(t, &Marker{1, 5}, unmarshaledReferencedMarkers.HighestReferencedMarker(1, 11))
-	assert.Equal(t, &Marker{1, 7}, unmarshaledReferencedMarkers.HighestReferencedMarker(1, 12))
-	*/
+	assert.Equal(t, NewMarkers(
+		&Marker{1, 3},
+		&Marker{2, 7},
+		&Marker{4, 9},
+	), unmarshaledReferencedMarkers.Get(8))
+
+	assert.Equal(t, NewMarkers(
+		&Marker{1, 5},
+		&Marker{2, 8},
+		&Marker{4, 9},
+	), unmarshaledReferencedMarkers.Get(10))
+
+	assert.Equal(t, NewMarkers(
+		&Marker{1, 5},
+		&Marker{2, 8},
+		&Marker{4, 9},
+	), unmarshaledReferencedMarkers.Get(11))
+
+	assert.Equal(t, NewMarkers(
+		&Marker{1, 7},
+		&Marker{2, 10},
+		&Marker{4, 9},
+	), unmarshaledReferencedMarkers.Get(12))
+
 	fmt.Println(unmarshaledReferencedMarkers)
 }
 
