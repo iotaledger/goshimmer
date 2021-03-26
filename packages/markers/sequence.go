@@ -97,11 +97,6 @@ func (s *Sequence) ID() SequenceID {
 	return s.id
 }
 
-// ParentSequences returns the SequenceIDs of the parent Sequences in the Sequence DAG.
-func (s *Sequence) ParentSequences() SequenceIDs {
-	return s.parentReferences.ReferencedSequences()
-}
-
 // HighestReferencedParentMarkers returns a collection of Markers that were referenced by the given Index.
 func (s *Sequence) HighestReferencedParentMarkers(index Index) *Markers {
 	return s.parentReferences.HighestReferencedMarkers(index)

@@ -24,7 +24,6 @@ func TestReferencedMarkers(t *testing.T) {
 		&Marker{2, 10},
 	), 12)
 
-	assert.Equal(t, NewSequenceIDs(1, 2), referencedMarkers.ReferencedSequences())
 	assert.Equal(t, &Marker{1, 3}, referencedMarkers.HighestReferencedMarker(1, 8))
 	assert.Equal(t, &Marker{1, 5}, referencedMarkers.HighestReferencedMarker(1, 10))
 	assert.Equal(t, &Marker{1, 5}, referencedMarkers.HighestReferencedMarker(1, 11))
@@ -35,7 +34,6 @@ func TestReferencedMarkers(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, len(marshaledReferencedMarkers), consumedBytes)
 
-	assert.Equal(t, NewSequenceIDs(1, 2), unmarshaledReferencedMarkers.ReferencedSequences())
 	assert.Equal(t, &Marker{1, 3}, unmarshaledReferencedMarkers.HighestReferencedMarker(1, 8))
 	assert.Equal(t, &Marker{1, 5}, unmarshaledReferencedMarkers.HighestReferencedMarker(1, 10))
 	assert.Equal(t, &Marker{1, 5}, unmarshaledReferencedMarkers.HighestReferencedMarker(1, 11))

@@ -154,19 +154,6 @@ func (r *ReferencedMarkers) HighestReferencedMarkers(index Index) (highestRefere
 	return
 }
 
-// ReferencedSequences returns the SequenceIDs of all referenced Sequences.
-func (r *ReferencedMarkers) ReferencedSequences() (referencedSequences SequenceIDs) {
-	r.mutex.RLock()
-	defer r.mutex.RUnlock()
-
-	sequenceIDsSlice := make([]SequenceID, 0, len(r.referencedIndexesBySequence))
-	for sequenceID := range r.referencedIndexesBySequence {
-		sequenceIDsSlice = append(sequenceIDsSlice, sequenceID)
-	}
-
-	return NewSequenceIDs(sequenceIDsSlice...)
-}
-
 // Bytes returns a marshaled version of the ReferencedMarkers.
 func (r *ReferencedMarkers) Bytes() (marshaledReferencedMarkers []byte) {
 	r.mutex.RLock()
@@ -229,10 +216,7 @@ func (r *ReferencedMarkers) String() (humanReadableReferencedMarkers string) {
 		}
 	}
 
-	return stringify.Struct("ReferencedMarkers",
-		stringify.StructField("referencedSequences", r.ReferencedSequences()),
-		stringify.StructField("referencedMarkers", referencedMarkers),
-	)
+	return referencedMarkers.String()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

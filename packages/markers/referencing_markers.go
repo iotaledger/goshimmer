@@ -119,19 +119,6 @@ func (r *ReferencingMarkers) Get(index Index) (referencingMarkers *Markers) {
 	return
 }
 
-// ReferencingSequences returns the SequenceIDs of all referencing Sequences.
-func (r *ReferencingMarkers) ReferencingSequences() (referencingSequences SequenceIDs) {
-	r.mutex.RLock()
-	defer r.mutex.RUnlock()
-
-	sequenceIDsSlice := make([]SequenceID, 0, len(r.referencingIndexesBySequence))
-	for sequenceID := range r.referencingIndexesBySequence {
-		sequenceIDsSlice = append(sequenceIDsSlice, sequenceID)
-	}
-
-	return NewSequenceIDs(sequenceIDsSlice...)
-}
-
 // Bytes returns a marshaled version of the ReferencingMarkers.
 func (r *ReferencingMarkers) Bytes() (marshaledReferencingMarkers []byte) {
 	r.mutex.RLock()
@@ -207,10 +194,7 @@ func (r *ReferencingMarkers) String() (humanReadableReferencingMarkers string) {
 		thresholdStart = strconv.FormatUint(uint64(referencingIndex)+1, 10)
 	}
 
-	return stringify.Struct("ReferencingMarkers",
-		stringify.StructField("referencingSequences", r.ReferencingSequences()),
-		stringify.StructField("referencingMarkers", referencingMarkers),
-	)
+	return referencingMarkers.String()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
