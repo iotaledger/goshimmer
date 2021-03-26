@@ -89,7 +89,7 @@ func ReferencedMarkersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (ref
 				return
 			}
 
-			thresholdMap.Set(referencingIndex, referencedIndex)
+			thresholdMap.Set(referencingIndex, Index(referencedIndex))
 		}
 		referencedMarkers.referencedIndexesBySequence[sequenceID] = thresholdMap
 	}
@@ -109,7 +109,7 @@ func (r *ReferencedMarkers) Add(index Index, referencedMarkers *Markers) {
 			r.referencedIndexesBySequence[referencedSequenceID] = thresholdMap
 		}
 
-		thresholdMap.Set(uint64(index), uint64(referencedIndex))
+		thresholdMap.Set(uint64(index), referencedIndex)
 
 		return true
 	})
@@ -123,7 +123,7 @@ func (r *ReferencedMarkers) Get(index Index) (referencedMarkers *Markers) {
 	referencedMarkers = NewMarkers()
 	for sequenceID, thresholdMap := range r.referencedIndexesBySequence {
 		if referencedIndex, exists := thresholdMap.Get(uint64(index)); exists {
-			referencedMarkers.Set(sequenceID, Index(referencedIndex.(uint64)))
+			referencedMarkers.Set(sequenceID, referencedIndex.(Index))
 		}
 	}
 

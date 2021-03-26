@@ -43,8 +43,8 @@ func ReferencingMarkersFromBytes(referencingMarkersBytes []byte) (referencingMar
 }
 
 // ReferencingMarkersFromMarshalUtil unmarshals ReferencingMarkers using a MarshalUtil (for easier unmarshaling).
-func ReferencingMarkersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (childReferences *ReferencingMarkers, err error) {
-	childReferences = &ReferencingMarkers{
+func ReferencingMarkersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (referencingMarkers *ReferencingMarkers, err error) {
+	referencingMarkers = &ReferencingMarkers{
 		referencingIndexesBySequence: make(map[SequenceID]*thresholdmap.ThresholdMap),
 	}
 
@@ -81,7 +81,7 @@ func ReferencingMarkersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (ch
 
 			thresholdMap.Set(referencedIndex, Index(referencingIndex))
 		}
-		childReferences.referencingIndexesBySequence[sequenceID] = thresholdMap
+		referencingMarkers.referencingIndexesBySequence[sequenceID] = thresholdMap
 	}
 
 	return
