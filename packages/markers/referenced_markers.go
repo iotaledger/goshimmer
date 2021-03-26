@@ -156,30 +156,30 @@ func (r *ReferencedMarkers) String() (humanReadableReferencedMarkers string) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 
-	referencingIndexes := make([]Index, 0)
+	indexes := make([]Index, 0)
 	referencedMarkersByReferencingIndex := make(map[Index]*Markers)
 	for sequenceID, thresholdMap := range r.referencedIndexesBySequence {
 		thresholdMap.ForEach(func(node *thresholdmap.Element) bool {
-			referencingIndex := Index(node.Key().(uint64))
+			index := Index(node.Key().(uint64))
 			referencedIndex := Index(node.Value().(uint64))
-			if _, exists := referencedMarkersByReferencingIndex[referencingIndex]; !exists {
-				referencedMarkersByReferencingIndex[referencingIndex] = NewMarkers()
+			if _, exists := referencedMarkersByReferencingIndex[index]; !exists {
+				referencedMarkersByReferencingIndex[index] = NewMarkers()
 
-				referencingIndexes = append(referencingIndexes, referencingIndex)
+				indexes = append(indexes, index)
 			}
 
-			referencedMarkersByReferencingIndex[referencingIndex].Set(sequenceID, referencedIndex)
+			referencedMarkersByReferencingIndex[index].Set(sequenceID, referencedIndex)
 
 			return true
 		})
 	}
-	sort.Slice(referencingIndexes, func(i, j int) bool {
-		return referencingIndexes[i] < referencingIndexes[j]
+	sort.Slice(indexes, func(i, j int) bool {
+		return indexes[i] < indexes[j]
 	})
 
-	for i, referencedIndex := range referencingIndexes {
+	for i, referencedIndex := range indexes {
 		for j := 0; j < i; j++ {
-			referencedMarkersByReferencingIndex[referencingIndexes[j]].ForEach(func(sequenceID SequenceID, index Index) bool {
+			referencedMarkersByReferencingIndex[indexes[j]].ForEach(func(sequenceID SequenceID, index Index) bool {
 				if _, exists := referencedMarkersByReferencingIndex[referencedIndex].Get(sequenceID); exists {
 					return true
 				}
@@ -192,17 +192,17 @@ func (r *ReferencedMarkers) String() (humanReadableReferencedMarkers string) {
 	}
 
 	referencedMarkers := stringify.StructBuilder("ReferencedMarkers")
-	for i, referencingIndex := range referencingIndexes {
-		thresholdStart := strconv.FormatUint(uint64(referencingIndex), 10)
+	for i, index := range indexes {
+		thresholdStart := strconv.FormatUint(uint64(index), 10)
 		thresholdEnd := "INF"
-		if len(referencingIndexes) > i+1 {
-			thresholdEnd = strconv.FormatUint(uint64(referencingIndexes[i+1])-1, 10)
+		if len(indexes) > i+1 {
+			thresholdEnd = strconv.FormatUint(uint64(indexes[i+1])-1, 10)
 		}
 
 		if thresholdStart == thresholdEnd {
-			referencedMarkers.AddField(stringify.StructField("Index("+thresholdStart+")", referencedMarkersByReferencingIndex[referencingIndex]))
+			referencedMarkers.AddField(stringify.StructField("Index("+thresholdStart+")", referencedMarkersByReferencingIndex[index]))
 		} else {
-			referencedMarkers.AddField(stringify.StructField("Index("+thresholdStart+" ... "+thresholdEnd+")", referencedMarkersByReferencingIndex[referencingIndex]))
+			referencedMarkers.AddField(stringify.StructField("Index("+thresholdStart+" ... "+thresholdEnd+")", referencedMarkersByReferencingIndex[index]))
 		}
 	}
 

@@ -142,35 +142,35 @@ func (r *ReferencingMarkers) String() (humanReadableReferencingMarkers string) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 
-	referencedIndexes := make([]Index, 0)
-	referencedMarkersByReferencingIndex := make(map[Index]*Markers)
+	indexes := make([]Index, 0)
+	referencingMarkersByReferencingIndex := make(map[Index]*Markers)
 	for sequenceID, thresholdMap := range r.referencingIndexesBySequence {
 		thresholdMap.ForEach(func(node *thresholdmap.Element) bool {
-			referencedIndex := Index(node.Key().(uint64))
+			index := Index(node.Key().(uint64))
 			referencingIndex := node.Value().(Index)
-			if _, exists := referencedMarkersByReferencingIndex[referencedIndex]; !exists {
-				referencedMarkersByReferencingIndex[referencedIndex] = NewMarkers()
+			if _, exists := referencingMarkersByReferencingIndex[index]; !exists {
+				referencingMarkersByReferencingIndex[index] = NewMarkers()
 
-				referencedIndexes = append(referencedIndexes, referencedIndex)
+				indexes = append(indexes, index)
 			}
 
-			referencedMarkersByReferencingIndex[referencedIndex].Set(sequenceID, referencingIndex)
+			referencingMarkersByReferencingIndex[index].Set(sequenceID, referencingIndex)
 
 			return true
 		})
 	}
-	sort.Slice(referencedIndexes, func(i, j int) bool {
-		return referencedIndexes[i] < referencedIndexes[j]
+	sort.Slice(indexes, func(i, j int) bool {
+		return indexes[i] < indexes[j]
 	})
 
-	for i, referencedIndex := range referencedIndexes {
-		for j := i + 1; j < len(referencedIndexes); j++ {
-			referencedMarkersByReferencingIndex[referencedIndexes[j]].ForEach(func(sequenceID SequenceID, index Index) bool {
-				if _, exists := referencedMarkersByReferencingIndex[referencedIndex].Get(sequenceID); exists {
+	for i, index := range indexes {
+		for j := i + 1; j < len(indexes); j++ {
+			referencingMarkersByReferencingIndex[indexes[j]].ForEach(func(referencingSequenceID SequenceID, referencingIndex Index) bool {
+				if _, exists := referencingMarkersByReferencingIndex[index].Get(referencingSequenceID); exists {
 					return true
 				}
 
-				referencedMarkersByReferencingIndex[referencedIndex].Set(sequenceID, index)
+				referencingMarkersByReferencingIndex[index].Set(referencingSequenceID, referencingIndex)
 
 				return true
 			})
@@ -179,16 +179,16 @@ func (r *ReferencingMarkers) String() (humanReadableReferencingMarkers string) {
 
 	thresholdStart := "0"
 	referencingMarkers := stringify.StructBuilder("ReferencingMarkers")
-	for _, referencingIndex := range referencedIndexes {
-		thresholdEnd := strconv.FormatUint(uint64(referencingIndex), 10)
+	for _, index := range indexes {
+		thresholdEnd := strconv.FormatUint(uint64(index), 10)
 
 		if thresholdStart == thresholdEnd {
-			referencingMarkers.AddField(stringify.StructField("Index("+thresholdStart+")", referencedMarkersByReferencingIndex[referencingIndex]))
+			referencingMarkers.AddField(stringify.StructField("Index("+thresholdStart+")", referencingMarkersByReferencingIndex[index]))
 		} else {
-			referencingMarkers.AddField(stringify.StructField("Index("+thresholdStart+" ... "+thresholdEnd+")", referencedMarkersByReferencingIndex[referencingIndex]))
+			referencingMarkers.AddField(stringify.StructField("Index("+thresholdStart+" ... "+thresholdEnd+")", referencingMarkersByReferencingIndex[index]))
 		}
 
-		thresholdStart = strconv.FormatUint(uint64(referencingIndex)+1, 10)
+		thresholdStart = strconv.FormatUint(uint64(index)+1, 10)
 	}
 
 	return referencingMarkers.String()
