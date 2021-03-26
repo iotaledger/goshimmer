@@ -8,33 +8,33 @@ import (
 	"testing"
 )
 
-func TestChainOutputMint(t *testing.T) {
+func TestAliasOutputMint(t *testing.T) {
 	bals1 := map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: 100}
-	_, err := ledgerstate.NewChainOutputMint(bals1, nil)
+	_, err := ledgerstate.NewAliasOutputMint(bals1, nil)
 	require.Error(t, err)
 
 	bals0 := map[ledgerstate.Color]uint64{}
 	kp := ed25519.GenerateKeyPair()
 	addr := ledgerstate.NewED25519Address(kp.PublicKey)
-	_, err = ledgerstate.NewChainOutputMint(bals0, addr)
+	_, err = ledgerstate.NewAliasOutputMint(bals0, addr)
 	require.Error(t, err)
 
-	out, err := ledgerstate.NewChainOutputMint(bals1, addr)
+	out, err := ledgerstate.NewAliasOutputMint(bals1, addr)
 	require.NoError(t, err)
 
 	bigData := make([]byte, ledgerstate.MaxOutputPayloadSize+1)
-	out, err = ledgerstate.NewChainOutputMint(bals1, addr)
+	out, err = ledgerstate.NewAliasOutputMint(bals1, addr)
 	require.NoError(t, err)
 	err = out.SetStateData(bigData)
 	require.Error(t, err)
 
-	out, err = ledgerstate.NewChainOutputMint(bals1, addr)
+	out, err = ledgerstate.NewAliasOutputMint(bals1, addr)
 	require.NoError(t, err)
 	require.True(t, out.IsSelfGoverned())
 	out.SetGoverningAddress(addr)
 	require.True(t, out.IsSelfGoverned())
 
-	out, err = ledgerstate.NewChainOutputMint(bals1, addr, []byte("dummy"))
+	out, err = ledgerstate.NewAliasOutputMint(bals1, addr, []byte("dummy"))
 	require.NoError(t, err)
 	require.True(t, out.IsSelfGoverned())
 	out.SetGoverningAddress(addr)
@@ -44,11 +44,11 @@ func TestChainOutputMint(t *testing.T) {
 	t.Logf("%s", out)
 }
 
-func TestChainOutputMarshal1(t *testing.T) {
+func TestAliasOutputMarshal1(t *testing.T) {
 	bals1 := map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: 100}
 	kp := ed25519.GenerateKeyPair()
 	addr := ledgerstate.NewED25519Address(kp.PublicKey)
-	out, err := ledgerstate.NewChainOutputMint(bals1, addr)
+	out, err := ledgerstate.NewAliasOutputMint(bals1, addr)
 	require.NoError(t, err)
 
 	data := out.Bytes()
@@ -62,14 +62,14 @@ func TestChainOutputMarshal1(t *testing.T) {
 	require.Zero(t, out.Compare(outBack))
 }
 
-func TestChainOutputMarshal2(t *testing.T) {
+func TestAliasOutputMarshal2(t *testing.T) {
 	bals1 := map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: 100}
 	kp1 := ed25519.GenerateKeyPair()
 	addr1 := ledgerstate.NewED25519Address(kp1.PublicKey)
 	kp2 := ed25519.GenerateKeyPair()
 	addr2 := ledgerstate.NewED25519Address(kp2.PublicKey)
 
-	out, err := ledgerstate.NewChainOutputMint(bals1, addr1)
+	out, err := ledgerstate.NewAliasOutputMint(bals1, addr1)
 	require.NoError(t, err)
 	require.True(t, out.IsSelfGoverned())
 	out.SetGoverningAddress(addr2)
@@ -86,11 +86,11 @@ func TestChainOutputMarshal2(t *testing.T) {
 	require.Zero(t, out.Compare(outBack))
 }
 
-func TestChainOutputMarshal3(t *testing.T) {
+func TestAliasOutputMarshal3(t *testing.T) {
 	bals1 := map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: 100}
 	kp := ed25519.GenerateKeyPair()
 	addr := ledgerstate.NewED25519Address(kp.PublicKey)
-	out, err := ledgerstate.NewChainOutputMint(bals1, addr)
+	out, err := ledgerstate.NewAliasOutputMint(bals1, addr)
 	out.SetGoverningAddress(addr)
 	require.NoError(t, err)
 	err = out.SetStateData([]byte("dummy..."))
@@ -107,11 +107,11 @@ func TestChainOutputMarshal3(t *testing.T) {
 	require.Zero(t, out.Compare(outBack))
 }
 
-func TestChainOutputMarshal4(t *testing.T) {
+func TestAliasOutputMarshal4(t *testing.T) {
 	bals1 := map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: 100}
 	kp := ed25519.GenerateKeyPair()
 	addr := ledgerstate.NewED25519Address(kp.PublicKey)
-	out, err := ledgerstate.NewChainOutputMint(bals1, addr, []byte("dummy NFT..."))
+	out, err := ledgerstate.NewAliasOutputMint(bals1, addr, []byte("dummy NFT..."))
 	out.SetGoverningAddress(addr)
 	require.NoError(t, err)
 	err = out.SetStateData([]byte("dummy state..."))
@@ -132,13 +132,13 @@ func TestStateTransition1(t *testing.T) {
 	bals1 := map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: 100}
 	kp := ed25519.GenerateKeyPair()
 	addr := ledgerstate.NewED25519Address(kp.PublicKey)
-	out, err := ledgerstate.NewChainOutputMint(bals1, addr)
+	out, err := ledgerstate.NewAliasOutputMint(bals1, addr)
 	require.NoError(t, err)
 
 	oid := ledgerstate.NewOutputID(ledgerstate.TransactionID{}, 42)
 	out.SetID(oid)
 
-	outNext := out.NewChainOutputNext()
+	outNext := out.NewAliasOutputNext()
 
 	require.Zero(t, bytes.Compare(out.GetAliasAddress().Bytes(), outNext.GetAliasAddress().Bytes()))
 	outNext1, _, err := ledgerstate.OutputFromBytes(outNext.Bytes())
@@ -151,13 +151,13 @@ func TestStateTransition2(t *testing.T) {
 	bals1 := map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: 100}
 	kp := ed25519.GenerateKeyPair()
 	addr := ledgerstate.NewED25519Address(kp.PublicKey)
-	out, err := ledgerstate.NewChainOutputMint(bals1, addr, []byte("dummy NFT"))
+	out, err := ledgerstate.NewAliasOutputMint(bals1, addr, []byte("dummy NFT"))
 	require.NoError(t, err)
 
 	oid := ledgerstate.NewOutputID(ledgerstate.TransactionID{}, 42)
 	out.SetID(oid)
 
-	outNext := out.NewChainOutputNext()
+	outNext := out.NewAliasOutputNext()
 
 	require.Zero(t, bytes.Compare(out.GetAliasAddress().Bytes(), outNext.GetAliasAddress().Bytes()))
 	outNext1, _, err := ledgerstate.OutputFromBytes(outNext.Bytes())

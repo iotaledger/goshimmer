@@ -52,8 +52,8 @@ const (
 	// SigLockedColoredOutputType represents an Output that holds colored coins that gets unlocked by a signature.
 	SigLockedColoredOutputType
 
-	// ChainOutputType represents an Output which makes a chain with optional governance
-	ChainOutputType
+	// AliasOutputType represents an Output which makes a chain with optional governance
+	AliasOutputType
 
 	// ExtendedLockedOutputType represents an Output which extends SigLockedColoredOutput with alias locking and fallback
 	ExtendedLockedOutputType
@@ -64,7 +64,7 @@ func (o OutputType) String() string {
 	return [...]string{
 		"SigLockedSingleOutputType",
 		"SigLockedColoredOutputType",
-		"ChainOutputType",
+		"AliasOutputType",
 		"ExtendedLockedOutputType",
 	}[o]
 }
@@ -253,8 +253,8 @@ func OutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output Output,
 			err = xerrors.Errorf("failed to parse SigLockedColoredOutput: %w", err)
 			return
 		}
-	case ChainOutputType:
-		if output, err = ChainOutputFromMarshalUtil(marshalUtil); err != nil {
+	case AliasOutputType:
+		if output, err = AliasOutputFromMarshalUtil(marshalUtil); err != nil {
 			err = xerrors.Errorf("failed to parse AliasOutput: %w", err)
 			return
 		}
@@ -897,19 +897,19 @@ var _ Output = &SigLockedColoredOutput{}
 
 // region AliasOutput ///////////////////////////////////////////////////////////////////////////////////////
 
-// DustThresholdChainOutputIOTA is minimum number of iotas enforced for the output to be correct
+// DustThresholdAliasOutputIOTA is minimum number of iotas enforced for the output to be correct
 // TODO protocol-wide dust threshold configuration
-const DustThresholdChainOutputIOTA = uint64(100)
+const DustThresholdAliasOutputIOTA = uint64(100)
 
 // MaxOutputPayloadSize size limit on the data payload in the output.
 const MaxOutputPayloadSize = 4 * 1024
 
 // flags use to compress serialized bytes
 const (
-	flagChainOutputGovernanceUpdate     = 0x01
-	flagChainOutputGovernanceSet        = 0x02
-	flagChainOutputStateDataPresent     = 0x04
-	flagChainOutputImmutableDataPresent = 0x08
+	flagAliasOutputGovernanceUpdate     = 0x01
+	flagAliasOutputGovernanceSet        = 0x02
+	flagAliasOutputStateDataPresent     = 0x04
+	flagAliasOutputImmutableDataPresent = 0x08
 )
 
 // AliasOutput represents output which defines as AliasAddress.
@@ -945,8 +945,8 @@ type AliasOutput struct {
 	objectstorage.StorableObjectFlags
 }
 
-// NewChainOutputMint creates new AliasOutput as minting output, i.e. the one which does not contain corresponding input.
-func NewChainOutputMint(balances map[Color]uint64, stateAddr Address, immutableData ...[]byte) (*AliasOutput, error) {
+// NewAliasOutputMint creates new AliasOutput as minting output, i.e. the one which does not contain corresponding input.
+func NewAliasOutputMint(balances map[Color]uint64, stateAddr Address, immutableData ...[]byte) (*AliasOutput, error) {
 	if !IsAboveDustThreshold(balances) {
 		return nil, xerrors.New("AliasOutput: colored balances are below dust threshold")
 	}
@@ -966,8 +966,8 @@ func NewChainOutputMint(balances map[Color]uint64, stateAddr Address, immutableD
 	return ret, nil
 }
 
-// NewChainOutputNext creates new AliasOutput as state transition from the previous one
-func (c *AliasOutput) NewChainOutputNext(governanceUpdate ...bool) *AliasOutput {
+// NewAliasOutputNext creates new AliasOutput as state transition from the previous one
+func (c *AliasOutput) NewAliasOutputNext(governanceUpdate ...bool) *AliasOutput {
 	ret := c.clone()
 	ret.aliasAddress = *c.GetAliasAddress()
 	ret.isGovernanceUpdate = false
@@ -980,14 +980,14 @@ func (c *AliasOutput) NewChainOutputNext(governanceUpdate ...bool) *AliasOutput 
 	return ret
 }
 
-// ChainOutputFromMarshalUtil unmarshals a AliasOutput using a MarshalUtil (for easier unmarshaling).
-func ChainOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*AliasOutput, error) {
+// AliasOutputFromMarshalUtil unmarshals a AliasOutput using a MarshalUtil (for easier unmarshaling).
+func AliasOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*AliasOutput, error) {
 	var ret *AliasOutput
 	outputType, err := marshalUtil.ReadByte()
 	if err != nil {
 		return nil, xerrors.Errorf("AliasOutput: failed to parse OutputType (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
-	if OutputType(outputType) != ChainOutputType {
+	if OutputType(outputType) != AliasOutputType {
 		return nil, xerrors.Errorf("AliasOutput: invalid OutputType (%X): %w", outputType, cerrors.ErrParseBytesFailed)
 	}
 	ret = &AliasOutput{}
@@ -995,7 +995,7 @@ func ChainOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*AliasOut
 	if err != nil {
 		return nil, xerrors.Errorf("AliasOutput: failed to parse AliasOutput flags (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
-	ret.isGovernanceUpdate = flags&flagChainOutputGovernanceUpdate != 0
+	ret.isGovernanceUpdate = flags&flagAliasOutputGovernanceUpdate != 0
 	if ret.aliasAddress.IsNil() {
 		addr, err := AliasAddressFromMarshalUtil(marshalUtil)
 		if err != nil {
@@ -1016,7 +1016,7 @@ func ChainOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*AliasOut
 	if err != nil {
 		return nil, xerrors.Errorf("AliasOutput: failed to parse state address (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
-	if flags&flagChainOutputStateDataPresent != 0 {
+	if flags&flagAliasOutputStateDataPresent != 0 {
 		size, err := marshalUtil.ReadUint16()
 		if err != nil {
 			return nil, xerrors.Errorf("AliasOutput: failed to parse state data size: %w", err)
@@ -1026,7 +1026,7 @@ func ChainOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*AliasOut
 			return nil, xerrors.Errorf("AliasOutput: failed to parse state data: %w", err)
 		}
 	}
-	if flags&flagChainOutputImmutableDataPresent != 0 {
+	if flags&flagAliasOutputImmutableDataPresent != 0 {
 		size, err := marshalUtil.ReadUint16()
 		if err != nil {
 			return nil, xerrors.Errorf("AliasOutput: failed to parse immutable data size: %w", err)
@@ -1036,7 +1036,7 @@ func ChainOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*AliasOut
 			return nil, xerrors.Errorf("AliasOutput: failed to parse immutable data: %w", err)
 		}
 	}
-	if flags&flagChainOutputGovernanceSet != 0 {
+	if flags&flagAliasOutputGovernanceSet != 0 {
 		ret.governingAddress, err = AddressFromMarshalUtil(marshalUtil)
 		if err != nil {
 			return nil, xerrors.Errorf("AliasOutput: failed to parse governing address (%v): %w", err, cerrors.ErrParseBytesFailed)
@@ -1177,7 +1177,7 @@ func (c *AliasOutput) SetID(outputID OutputID) Output {
 
 // Type return the type of the output
 func (c *AliasOutput) Type() OutputType {
-	return ChainOutputType
+	return AliasOutputType
 }
 
 // Balances return colored balances of the output
@@ -1235,21 +1235,21 @@ func (c *AliasOutput) ObjectStorageKey() []byte {
 func (c *AliasOutput) ObjectStorageValue() []byte {
 	flags := c.mustFlags()
 	ret := marshalutil.New().
-		WriteByte(byte(ChainOutputType)).
+		WriteByte(byte(AliasOutputType)).
 		WriteByte(flags).
 		WriteBytes(c.aliasAddress.Bytes()).
 		WriteBytes(c.balances.Bytes()).
 		WriteBytes(c.stateAddress.Bytes()).
 		WriteUint32(c.stateIndex)
-	if flags&flagChainOutputStateDataPresent != 0 {
+	if flags&flagAliasOutputStateDataPresent != 0 {
 		ret.WriteUint16(uint16(len(c.stateData))).
 			WriteBytes(c.stateData)
 	}
-	if flags&flagChainOutputImmutableDataPresent != 0 {
+	if flags&flagAliasOutputImmutableDataPresent != 0 {
 		ret.WriteUint16(uint16(len(c.immutableData))).
 			WriteBytes(c.immutableData)
 	}
-	if flags&flagChainOutputGovernanceSet != 0 {
+	if flags&flagAliasOutputGovernanceSet != 0 {
 		ret.WriteBytes(c.governingAddress.Bytes())
 	}
 	return ret.Bytes()
@@ -1349,16 +1349,16 @@ func (c *AliasOutput) mustFlags() byte {
 	c.mustValidate()
 	var ret byte
 	if c.isGovernanceUpdate {
-		ret |= flagChainOutputGovernanceUpdate
+		ret |= flagAliasOutputGovernanceUpdate
 	}
 	if len(c.immutableData) > 0 {
-		ret |= flagChainOutputImmutableDataPresent
+		ret |= flagAliasOutputImmutableDataPresent
 	}
 	if len(c.stateData) > 0 {
-		ret |= flagChainOutputStateDataPresent
+		ret |= flagAliasOutputStateDataPresent
 	}
 	if c.governingAddress != nil {
-		ret |= flagChainOutputGovernanceSet
+		ret |= flagAliasOutputGovernanceSet
 	}
 	return ret
 }
@@ -1370,7 +1370,7 @@ func (c *AliasOutput) findChainedOutputAndCheckFork(tx *Transaction) (*AliasOutp
 	var ret *AliasOutput
 	aliasAddress := c.GetAliasAddress()
 	for _, out := range tx.Essence().Outputs() {
-		if out.Type() != ChainOutputType {
+		if out.Type() != AliasOutputType {
 			continue
 		}
 		outAlias := out.(*AliasOutput)
@@ -1408,7 +1408,7 @@ func equalColoredBalance(b1, b2 ColoredBalances) bool {
 
 // IsAboveDustThreshold internal utility to check if balances pass dust constraint
 func IsAboveDustThreshold(m map[Color]uint64) bool {
-	if iotas, ok := m[ColorIOTA]; ok && iotas >= DustThresholdChainOutputIOTA {
+	if iotas, ok := m[ColorIOTA]; ok && iotas >= DustThresholdAliasOutputIOTA {
 		return true
 	}
 	return false
@@ -1421,7 +1421,7 @@ func isExactDustMinimum(b ColoredBalances) bool {
 		return false
 	}
 	bal, ok := bals[ColorIOTA]
-	if !ok || bal != DustThresholdChainOutputIOTA {
+	if !ok || bal != DustThresholdAliasOutputIOTA {
 		return false
 	}
 	return true

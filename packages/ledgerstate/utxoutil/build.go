@@ -312,7 +312,7 @@ func (b *Builder) AddMintingOutputConsume(targetAddress ledgerstate.Address, amo
 // AddNewChainMint creates new self governed chain.
 // The identity of the chain is not known until the full transaction is produced
 func (b *Builder) AddNewChainMint(balances map[ledgerstate.Color]uint64, stateAddress ledgerstate.Address, stateData []byte) error {
-	output, err := ledgerstate.NewChainOutputMint(balances, stateAddress)
+	output, err := ledgerstate.NewAliasOutputMint(balances, stateAddress)
 	if err != nil {
 		return err
 	}
@@ -358,7 +358,7 @@ func (b *Builder) ChainNextOutput(addressAlias ledgerstate.Address) (*ledgerstat
 	if !ok {
 		return nil, xerrors.Errorf("can't find chain input for %s", addressAlias)
 	}
-	return out.NewChainOutputNext(false), nil
+	return out.NewAliasOutputNext(false), nil
 }
 
 // ConsumeChainInput consumes remaining alances and returns clone of the input
@@ -375,7 +375,7 @@ func (b *Builder) AddChainOutputAsReminder(addressAlias ledgerstate.Address, sta
 		compr = compress[0]
 	}
 	b.ConsumeRemainingBalances(compr)
-	chained := out.NewChainOutputNext()
+	chained := out.NewAliasOutputNext()
 	if err := chained.SetBalances(b.ConsumedUnspent()); err != nil {
 		return err
 	}

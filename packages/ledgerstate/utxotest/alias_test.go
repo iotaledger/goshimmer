@@ -299,7 +299,7 @@ func TestChain3(t *testing.T) {
 	}
 }
 
-func TestChainWithExtendedOutput(t *testing.T) {
+func TestAliasWithExtendedOutput(t *testing.T) {
 	u := utxodb.NewRandom()
 	user, addr := u.NewKeyPairByIndex(2)
 	_, err := u.RequestFunds(addr)
