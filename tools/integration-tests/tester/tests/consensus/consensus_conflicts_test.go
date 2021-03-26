@@ -252,13 +252,22 @@ func CreateOutputs(input *ledgerstate.UTXOInput, inputBalance int, inputSeed *se
 	destAddr := make([]ledgerstate.Address, nOutputs)
 	sigLockedColoredOutputs := make([]*ledgerstate.SigLockedColoredOutput, nOutputs)
 	outputs := make([]ledgerstate.Output, nOutputs)
+
+	outputBalances := make([]uint64, nOutputs)
+	// make sure the output balances are equal input
+	var totalBalance uint64 = 0
+	for i:=0; i<len(outputs)-1; i++ {
+		outputBalances[i] = uint64(inputBalance / nOutputs)
+		totalBalance += outputBalances[i]
+	}
+	outputBalances[nOutputs-1] = uint64(inputBalance) - totalBalance
+
 	for i := 0; i < nOutputs; i++ {
 		destAddr[i] = partitionReceiverSeed.Address(uint64(i)).Address()
 		sigLockedColoredOutputs[i] = ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
-			ledgerstate.ColorIOTA: uint64(inputBalance / nOutputs),
+			ledgerstate.ColorIOTA: outputBalances[i],
 		}), destAddr[i])
 		outputs[i] = sigLockedColoredOutputs[i]
-
 	}
 
 	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), pledgeID, pledgeID, ledgerstate.NewInputs(input), ledgerstate.NewOutputs(outputs...))
