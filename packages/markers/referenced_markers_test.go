@@ -9,37 +9,37 @@ import (
 )
 
 func TestReferencedMarkers(t *testing.T) {
-	parentReferences := NewReferencedMarkers(NewMarkers(
+	referencedMarkers := NewReferencedMarkers(NewMarkers(
 		&Marker{1, 3},
 		&Marker{2, 7},
 	))
 
-	parentReferences.AddReferences(NewMarkers(
+	referencedMarkers.AddReferences(NewMarkers(
 		&Marker{1, 5},
 		&Marker{2, 8},
 	), 9)
 
-	parentReferences.AddReferences(NewMarkers(
+	referencedMarkers.AddReferences(NewMarkers(
 		&Marker{1, 7},
 		&Marker{2, 10},
 	), 12)
 
-	assert.Equal(t, NewSequenceIDs(1, 2), parentReferences.ReferencedSequences())
-	assert.Equal(t, &Marker{1, 3}, parentReferences.HighestReferencedMarker(1, 8))
-	assert.Equal(t, &Marker{1, 5}, parentReferences.HighestReferencedMarker(1, 10))
-	assert.Equal(t, &Marker{1, 5}, parentReferences.HighestReferencedMarker(1, 11))
-	assert.Equal(t, &Marker{1, 7}, parentReferences.HighestReferencedMarker(1, 12))
+	assert.Equal(t, NewSequenceIDs(1, 2), referencedMarkers.ReferencedSequences())
+	assert.Equal(t, &Marker{1, 3}, referencedMarkers.HighestReferencedMarker(1, 8))
+	assert.Equal(t, &Marker{1, 5}, referencedMarkers.HighestReferencedMarker(1, 10))
+	assert.Equal(t, &Marker{1, 5}, referencedMarkers.HighestReferencedMarker(1, 11))
+	assert.Equal(t, &Marker{1, 7}, referencedMarkers.HighestReferencedMarker(1, 12))
 
-	marshaledParentReferences := parentReferences.Bytes()
-	unmarshalParentReferences, consumedBytes, err := ReferencedMarkersFromBytes(marshaledParentReferences)
+	marshaledReferencedMarkers := referencedMarkers.Bytes()
+	unmarshaledReferencedMarkers, consumedBytes, err := ReferencedMarkersFromBytes(marshaledReferencedMarkers)
 	require.NoError(t, err)
-	assert.Equal(t, len(marshaledParentReferences), consumedBytes)
+	assert.Equal(t, len(marshaledReferencedMarkers), consumedBytes)
 
-	assert.Equal(t, NewSequenceIDs(1, 2), unmarshalParentReferences.ReferencedSequences())
-	assert.Equal(t, &Marker{1, 3}, unmarshalParentReferences.HighestReferencedMarker(1, 8))
-	assert.Equal(t, &Marker{1, 5}, unmarshalParentReferences.HighestReferencedMarker(1, 10))
-	assert.Equal(t, &Marker{1, 5}, unmarshalParentReferences.HighestReferencedMarker(1, 11))
-	assert.Equal(t, &Marker{1, 7}, unmarshalParentReferences.HighestReferencedMarker(1, 12))
+	assert.Equal(t, NewSequenceIDs(1, 2), unmarshaledReferencedMarkers.ReferencedSequences())
+	assert.Equal(t, &Marker{1, 3}, unmarshaledReferencedMarkers.HighestReferencedMarker(1, 8))
+	assert.Equal(t, &Marker{1, 5}, unmarshaledReferencedMarkers.HighestReferencedMarker(1, 10))
+	assert.Equal(t, &Marker{1, 5}, unmarshaledReferencedMarkers.HighestReferencedMarker(1, 11))
+	assert.Equal(t, &Marker{1, 7}, unmarshaledReferencedMarkers.HighestReferencedMarker(1, 12))
 
-	fmt.Println(unmarshalParentReferences)
+	fmt.Println(unmarshaledReferencedMarkers)
 }
