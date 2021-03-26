@@ -57,11 +57,18 @@ After we have the approval weight of a branch, it is marked **confirmed** when:
 
 ## Detailed design
 In this section, we will describe implementation details of how approval weight are managed with epoch and markers, which includes:
-1. supporters of a branch management,
-2. approvers of markers management,
-3. approval weight management.
+1. approval weight management,
+2. supporters of a branch management,
+3. approvers of markers management.
 
-## Branch supporter / marker approver management
+## Approval Weight Manager
+In approval weight manager, the approval weight calculation described in [Approval weight calculation](#approval-weight-calculation) is performed. It contains:
+* **epochs manager**: retrieve active consensus mana of the given epoch
+* **supporters manager**: manage branch/marker supporters, refer to [Branch supporter / marker supporter management](#branch-supporter--marker-approver-management).
+
+
+
+## Branch supporter / marker supporter management
 Instead of keeping a list of approvers for each marker and collecting supporters of a branch by walking the Tangle, we keep the list of approvers along with its approved marker rank for each branch.
 
 This approach gives us benefits:
@@ -317,6 +324,4 @@ func (s *SupporterManager) addSupportToMarker(marker *markers.Marker, issuingTim
 	})
 }
 ```
-
-
 
