@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestParentReferences(t *testing.T) {
+func TestReferencedMarkers(t *testing.T) {
 	parentReferences := NewReferencedMarkers(NewMarkers(
 		&Marker{1, 3},
 		&Marker{2, 7},

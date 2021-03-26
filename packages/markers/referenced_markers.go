@@ -45,7 +45,7 @@ func NewReferencedMarkers(markers *Markers) (referencedMarkers *ReferencedMarker
 func ReferencedMarkersFromBytes(parentReferencesBytes []byte) (referencedMarkers *ReferencedMarkers, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(parentReferencesBytes)
 	if referencedMarkers, err = ParentReferencesFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Markers from MarshalUtil: %w", err)
+		err = xerrors.Errorf("failed to parse ReferencedMarkers from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
