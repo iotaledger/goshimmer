@@ -58,5 +58,5 @@ func TestReferencedMarkersPanic(t *testing.T) {
 
 	assert.Equal(t, NewMarkers(
 		&Marker{1, 3},
-	), referencedMarkers.HighestReferencedMarkers(4))
+	), referencedMarkers.Get(4))
 }

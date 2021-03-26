@@ -105,7 +105,7 @@ func (s *Sequence) ID() SequenceID {
 
 // ReferencedMarkers returns a collection of Markers that were referenced by the given Index.
 func (s *Sequence) ReferencedMarkers(index Index) *Markers {
-	return s.referencedMarkers.HighestReferencedMarkers(index)
+	return s.referencedMarkers.Get(index)
 }
 
 // Rank returns the rank of the Sequence (maximum distance from the root of the Sequence DAG).

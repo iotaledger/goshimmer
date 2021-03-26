@@ -115,8 +115,8 @@ func (r *ReferencedMarkers) Add(index Index, referencedMarkers *Markers) {
 	})
 }
 
-// HighestReferencedMarkers returns that Markers that were referenced by the given Index.
-func (r *ReferencedMarkers) HighestReferencedMarkers(index Index) (referencedMarkers *Markers) {
+// Get returns that Markers that were referenced by the given Index.
+func (r *ReferencedMarkers) Get(index Index) (referencedMarkers *Markers) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 
