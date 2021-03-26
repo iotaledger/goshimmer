@@ -15,8 +15,8 @@ import (
 
 // region ReferencedMarkers /////////////////////////////////////////////////////////////////////////////////////////////
 
-// ReferencedMarkers is a data structure that allows to denote which Marker of a Sequence references which Markers of
-// parent Sequences in the Sequence DAG.
+// ReferencedMarkers is a data structure that allows to denote which Marker of a Sequence references which other Markers
+// of its parent Sequences in the Sequence DAG.
 type ReferencedMarkers struct {
 	referencedIndexesBySequence map[SequenceID]*thresholdmap.ThresholdMap
 	mutex                       sync.RWMutex
@@ -98,8 +98,8 @@ func ParentReferencesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (refe
 	return
 }
 
-// AddReferences adds referenced Markers to the ReferencedMarkers.
-func (r *ReferencedMarkers) AddReferences(referencedMarkers *Markers, referencingIndex Index) {
+// Add adds new referenced Markers to the ReferencedMarkers.
+func (r *ReferencedMarkers) Add(index Index, referencedMarkers *Markers) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
@@ -110,45 +110,24 @@ func (r *ReferencedMarkers) AddReferences(referencedMarkers *Markers, referencin
 			r.referencedIndexesBySequence[referencedSequenceID] = thresholdMap
 		}
 
-		thresholdMap.Set(uint64(referencingIndex), uint64(referencedIndex))
+		thresholdMap.Set(uint64(index), uint64(referencedIndex))
 
 		return true
 	})
 }
 
-// HighestReferencedMarker returns the referenced Marker with the highest Index of a given Sequence.
-func (r *ReferencedMarkers) HighestReferencedMarker(sequenceID SequenceID, referencingIndex Index) (highestReferencedMarker *Marker) {
-	r.mutex.RLock()
-	defer r.mutex.RUnlock()
-
-	thresholdMap, exists := r.referencedIndexesBySequence[sequenceID]
-	if !exists {
-		panic(fmt.Sprintf("Sequence with %s does not exist in ReferencedMarkers", sequenceID))
-	}
-
-	highestReferencedIndex, exists := thresholdMap.Get(uint64(referencingIndex))
-	if !exists {
-		panic(fmt.Sprintf("%s references an unknown Index", referencingIndex))
-	}
-
-	return &Marker{
-		sequenceID: sequenceID,
-		index:      Index(highestReferencedIndex.(uint64)),
-	}
-}
-
 // HighestReferencedMarkers returns a collection of Markers that were referenced by the given Index.
-func (r *ReferencedMarkers) HighestReferencedMarkers(index Index) (highestReferencedMarkers *Markers) {
+func (r *ReferencedMarkers) HighestReferencedMarkers(index Index) (referencedMarkers *Markers) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 
-	highestReferencedMarkers = NewMarkers()
+	referencedMarkers = NewMarkers()
 	for sequenceID, thresholdMap := range r.referencedIndexesBySequence {
 		referencedIndex, exists := thresholdMap.Get(uint64(index))
 		if !exists {
 			panic(fmt.Sprintf("%s is smaller than the lowest known Index", index))
 		}
-		highestReferencedMarkers.Set(sequenceID, Index(referencedIndex.(uint64)))
+		referencedMarkers.Set(sequenceID, Index(referencedIndex.(uint64)))
 	}
 
 	return

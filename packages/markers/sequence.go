@@ -138,7 +138,7 @@ func (s *Sequence) IncreaseHighestIndex(referencedMarkers *Markers) (index Index
 		if referencedMarkers.Size() > 1 {
 			referencedMarkers.Delete(s.id)
 
-			s.parentReferences.AddReferences(referencedMarkers, s.highestIndex)
+			s.parentReferences.Add(s.highestIndex, referencedMarkers)
 		}
 
 		s.SetModified()
