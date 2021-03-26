@@ -74,7 +74,7 @@ func send(t *testing.T, n *Client, sendMsg func(), rcv func(msg txstream.Message
 	}
 }
 
-func createChain(t *testing.T, u *utxodbledger.UtxoDBLedger, creatorIndex int, stateControlIndex int, balances map[ledgerstate.Color]uint64) (*ledgerstate.Transaction, *ledgerstate.AliasAddress) {
+func createAliasChain(t *testing.T, u *utxodbledger.UtxoDBLedger, creatorIndex int, stateControlIndex int, balances map[ledgerstate.Color]uint64) (*ledgerstate.Transaction, *ledgerstate.AliasAddress) {
 	t.Helper()
 
 	creatorKP, creatorAddr := u.NewKeyPairByIndex(creatorIndex)
@@ -84,7 +84,7 @@ func createChain(t *testing.T, u *utxodbledger.UtxoDBLedger, creatorIndex int, s
 	_, addrStateControl := u.NewKeyPairByIndex(stateControlIndex)
 	outputs := u.GetAddressOutputs(creatorAddr)
 	txb := utxoutil.NewBuilder(outputs...)
-	err = txb.AddNewChainMint(balances, addrStateControl, nil)
+	err = txb.AddNewAliasMint(balances, addrStateControl, nil)
 	require.NoError(t, err)
 	err = txb.AddReminderOutputIfNeeded(creatorAddr, nil)
 	require.NoError(t, err)
@@ -94,7 +94,7 @@ func createChain(t *testing.T, u *utxodbledger.UtxoDBLedger, creatorIndex int, s
 	err = u.PostTransaction(tx)
 	require.NoError(t, err)
 
-	chainOutput, err := utxoutil.GetSingleChainedOutput(tx.Essence())
+	chainOutput, err := utxoutil.GetSingleChainedAliasOutput(tx.Essence())
 	require.NoError(t, err)
 	chainAddress := chainOutput.GetAliasAddress()
 	t.Logf("chain address: %s", chainAddress.Base58())
@@ -105,7 +105,7 @@ func createChain(t *testing.T, u *utxodbledger.UtxoDBLedger, creatorIndex int, s
 func TestRequestBacklog(t *testing.T) {
 	ledger, n := start(t)
 
-	tx, chainAddress := createChain(t, ledger, creatorIndex, stateControlIndex, map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: 100})
+	tx, chainAddress := createAliasChain(t, ledger, creatorIndex, stateControlIndex, map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: 100})
 
 	// request backlog for chainAddress
 	var resp *txstream.MsgTransaction
@@ -131,7 +131,7 @@ func TestRequestBacklog(t *testing.T) {
 
 	require.Equal(t, tx.ID(), resp.Tx.ID())
 
-	chainOutput, err := utxoutil.GetSingleChainedOutput(resp.Tx.Essence())
+	chainOutput, err := utxoutil.GetSingleChainedAliasOutput(resp.Tx.Essence())
 	require.NoError(t, err)
 	require.EqualValues(t, chainAddress.Base58(), chainOutput.Address().Base58())
 }
@@ -158,7 +158,7 @@ func postRequest(t *testing.T, u *utxodbledger.UtxoDBLedger, fromIndex int, chai
 func TestPostRequest(t *testing.T) {
 	ledger, n := start(t)
 
-	createTx, chainAddress := createChain(t, ledger, creatorIndex, stateControlIndex, map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: 100})
+	createTx, chainAddress := createAliasChain(t, ledger, creatorIndex, stateControlIndex, map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: 100})
 
 	reqTx := postRequest(t, ledger, 2, chainAddress)
 
@@ -188,7 +188,7 @@ func TestPostRequest(t *testing.T) {
 
 func TestRequestInclusionLevel(t *testing.T) {
 	ledger, n := start(t)
-	createTx, chainAddress := createChain(t, ledger, creatorIndex, stateControlIndex, map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: 100})
+	createTx, chainAddress := createAliasChain(t, ledger, creatorIndex, stateControlIndex, map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: 100})
 
 	// request inclusion level
 	var resp *txstream.MsgTxInclusionState
@@ -210,7 +210,7 @@ func TestRequestInclusionLevel(t *testing.T) {
 
 func TestSubscribe(t *testing.T) {
 	ledger, n := start(t)
-	_, chainAddress := createChain(t, ledger, creatorIndex, stateControlIndex, map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: 100})
+	_, chainAddress := createAliasChain(t, ledger, creatorIndex, stateControlIndex, map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: 100})
 
 	// subscribe to chain address
 	n.Subscribe(chainAddress)
