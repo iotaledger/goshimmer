@@ -116,16 +116,6 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 	return
 }
 
-func (m *Manager) registerReferencingMarker(referencedMarkers *Markers, marker *Marker) {
-	referencedMarkers.ForEach(func(sequenceID SequenceID, index Index) bool {
-		(&CachedSequence{CachedObject: m.sequenceStore.Load(sequenceID.Bytes())}).Consume(func(sequence *Sequence) {
-			sequence.AddReferencingMarker(index, marker)
-		})
-
-		return true
-	})
-}
-
 // UpdateStructureDetails updates the StructureDetails of an existing node in the DAG by propagating new Markers of its
 // children into its future Markers. It returns two boolean flags that indicate if the future Markers were updated and
 // if the new Marker should be propagated further to the parents of the given node.
@@ -242,6 +232,11 @@ func (m *Manager) IsInPastCone(earlierStructureDetails *StructureDetails, laterS
 	}
 
 	return types.False
+}
+
+// Sequence retrieves a Sequence from the object storage.
+func (m *Manager) Sequence(sequenceID SequenceID) *CachedSequence {
+	return &CachedSequence{CachedObject: m.sequenceStore.Load(sequenceID.Bytes())}
 }
 
 // Shutdown shuts down the Manager and persists its state.
@@ -414,6 +409,18 @@ func (m *Manager) markersReferenceMarkers(laterMarkers *Markers, earlierMarkers 
 	}
 
 	return
+}
+
+// registerReferencingMarker is an internal utility function that adds a referencing Marker to the internal data
+// structure.
+func (m *Manager) registerReferencingMarker(referencedMarkers *Markers, marker *Marker) {
+	referencedMarkers.ForEach(func(sequenceID SequenceID, index Index) bool {
+		(&CachedSequence{CachedObject: m.sequenceStore.Load(sequenceID.Bytes())}).Consume(func(sequence *Sequence) {
+			sequence.AddReferencingMarker(index, marker)
+		})
+
+		return true
+	})
 }
 
 // fetchSequence is an internal utility function that retrieves or creates the Sequence that represents the given

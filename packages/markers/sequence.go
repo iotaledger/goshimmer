@@ -113,6 +113,7 @@ func (s *Sequence) ReferencingMarkers(index Index) *Markers {
 	return s.referencingMarkers.Get(index)
 }
 
+// AddReferencingMarker register a Marker that referenced the given Index of this Sequence.
 func (s *Sequence) AddReferencingMarker(index Index, referencingMarker *Marker) {
 	s.referencingMarkers.Add(index, referencingMarker)
 
