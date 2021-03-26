@@ -380,8 +380,8 @@ func AliasUnlockBlockFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (unlo
 	return
 }
 
-// ChainInputIndex returns the index of the input, the AliasOutput which contains AliasAddress
-func (r *AliasUnlockBlock) ChainInputIndex() uint16 {
+// AliasInputIndex returns the index of the input, the AliasOutput which contains AliasAddress
+func (r *AliasUnlockBlock) AliasInputIndex() uint16 {
 	return r.referencedIndex
 }
 

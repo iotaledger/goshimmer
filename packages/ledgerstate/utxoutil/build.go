@@ -309,9 +309,9 @@ func (b *Builder) AddMintingOutputConsume(targetAddress ledgerstate.Address, amo
 	return nil
 }
 
-// AddNewChainMint creates new self governed chain.
+// AddNewAliasMint creates new self governed chain.
 // The identity of the chain is not known until the full transaction is produced
-func (b *Builder) AddNewChainMint(balances map[ledgerstate.Color]uint64, stateAddress ledgerstate.Address, stateData []byte) error {
+func (b *Builder) AddNewAliasMint(balances map[ledgerstate.Color]uint64, stateAddress ledgerstate.Address, stateData []byte) error {
 	output, err := ledgerstate.NewAliasOutputMint(balances, stateAddress)
 	if err != nil {
 		return err
@@ -340,9 +340,9 @@ func (b *Builder) ConsumedUnspent() map[ledgerstate.Color]uint64 {
 	return ret
 }
 
-// ConsumeChainInput consumes chain input by alias
-func (b *Builder) ConsumeChainInput(addressAlias ledgerstate.Address) error {
-	_, idx, ok := FindChainConsumableInput(addressAlias, b.consumables...)
+// ConsumeAliasInput consumes chain input by alias
+func (b *Builder) ConsumeAliasInput(addressAlias ledgerstate.Address) error {
+	_, idx, ok := FindAliasConsumableInput(addressAlias, b.consumables...)
 	if !ok {
 		return xerrors.Errorf("can't find chain input for %s", addressAlias)
 	}
@@ -352,18 +352,18 @@ func (b *Builder) ConsumeChainInput(addressAlias ledgerstate.Address) error {
 	return nil
 }
 
-// ChainNextOutput creates chained output without consuming it
-func (b *Builder) ChainNextOutput(addressAlias ledgerstate.Address) (*ledgerstate.AliasOutput, error) {
-	out, _, ok := FindChainConsumableInput(addressAlias, b.consumables...)
+// AliasNextChainedOutput creates chained output without consuming it
+func (b *Builder) AliasNextChainedOutput(addressAlias ledgerstate.Address) (*ledgerstate.AliasOutput, error) {
+	out, _, ok := FindAliasConsumableInput(addressAlias, b.consumables...)
 	if !ok {
 		return nil, xerrors.Errorf("can't find chain input for %s", addressAlias)
 	}
 	return out.NewAliasOutputNext(false), nil
 }
 
-// ConsumeChainInput consumes remaining alances and returns clone of the input
-func (b *Builder) AddChainOutputAsReminder(addressAlias ledgerstate.Address, stateData []byte, compress ...bool) error {
-	out, idx, ok := FindChainConsumableInput(addressAlias, b.consumables...)
+// ConsumeAliasInput consumes remaining alances and returns clone of the input
+func (b *Builder) AddAliasOutputAsReminder(addressAlias ledgerstate.Address, stateData []byte, compress ...bool) error {
+	out, idx, ok := FindAliasConsumableInput(addressAlias, b.consumables...)
 	if !ok {
 		return xerrors.Errorf("can't find chain input for %s", addressAlias)
 	}

@@ -25,7 +25,7 @@ func TestAliasMint(t *testing.T) {
 	require.EqualValues(t, 1, len(outputs))
 
 	txb := utxoutil.NewBuilder(outputs...)
-	err = txb.AddNewChainMint(bals1, addrStateControl, nil)
+	err = txb.AddNewAliasMint(bals1, addrStateControl, nil)
 	require.NoError(t, err)
 	err = txb.AddReminderOutputIfNeeded(addr, nil)
 	require.NoError(t, err)
@@ -35,7 +35,7 @@ func TestAliasMint(t *testing.T) {
 	err = u.AddTransaction(tx)
 	require.NoError(t, err)
 
-	chained, err := utxoutil.GetSingleChainedOutput(tx.Essence())
+	chained, err := utxoutil.GetSingleChainedAliasOutput(tx.Essence())
 	require.NoError(t, err)
 	require.NotNil(t, chained)
 
@@ -65,7 +65,7 @@ func TestChainForkFail(t *testing.T) {
 	require.EqualValues(t, 1, len(outputs))
 
 	txb := utxoutil.NewBuilder(outputs...)
-	err = txb.AddNewChainMint(bals1, addrStateControl, nil)
+	err = txb.AddNewAliasMint(bals1, addrStateControl, nil)
 	require.NoError(t, err)
 	err = txb.AddReminderOutputIfNeeded(addr, nil)
 	require.NoError(t, err)
@@ -81,7 +81,7 @@ func TestChainForkFail(t *testing.T) {
 	require.True(t, sender.Equals(addr))
 
 	// determine newly created alias address
-	chained, err := utxoutil.GetSingleChainedOutput(tx.Essence())
+	chained, err := utxoutil.GetSingleChainedAliasOutput(tx.Essence())
 	require.NoError(t, err)
 	require.NotNil(t, chained)
 	require.EqualValues(t, 0, int(chained.GetStateIndex()))
@@ -113,14 +113,14 @@ func TestChainForkFail(t *testing.T) {
 
 	txb = utxoutil.NewBuilder(outputs...)
 	// create first alias output
-	err = txb.ConsumeChainInput(aliasAddress)
+	err = txb.ConsumeAliasInput(aliasAddress)
 	require.NoError(t, err)
-	err = txb.AddChainOutputAsReminder(aliasAddress, nil)
+	err = txb.AddAliasOutputAsReminder(aliasAddress, nil)
 	require.NoError(t, err)
 
 	// create another identical and modify slightly with adding dummy data
 	// This creates forked chain
-	chained, err = txb.ChainNextOutput(aliasAddress)
+	chained, err = txb.AliasNextChainedOutput(aliasAddress)
 	require.NoError(t, err)
 	chainedFork := chained.Clone()
 	err = chainedFork.(*ledgerstate.AliasOutput).SetStateData([]byte("qq"))
@@ -144,7 +144,7 @@ func TestChainForkFail(t *testing.T) {
 
 const chainLength = 10
 
-func TestChain1(t *testing.T) {
+func TestAlias1(t *testing.T) {
 	u := utxodb.NewRandom()
 	user, addr := u.NewKeyPairByIndex(2)
 	_, err := u.RequestFunds(addr)
@@ -161,7 +161,7 @@ func TestChain1(t *testing.T) {
 
 	// mint chain output
 	txb := utxoutil.NewBuilder(outputs...)
-	err = txb.AddNewChainMint(bals1, addrStateControl, nil)
+	err = txb.AddNewAliasMint(bals1, addrStateControl, nil)
 	require.NoError(t, err)
 	err = txb.AddReminderOutputIfNeeded(addr, nil)
 	require.NoError(t, err)
@@ -175,7 +175,7 @@ func TestChain1(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, sender.Equals(addr))
 
-	chained, err := utxoutil.GetSingleChainedOutput(tx.Essence())
+	chained, err := utxoutil.GetSingleChainedAliasOutput(tx.Essence())
 	require.NoError(t, err)
 	require.NotNil(t, chained)
 
@@ -191,9 +191,9 @@ func TestChain1(t *testing.T) {
 		require.EqualValues(t, 1, len(outputs))
 
 		txb = utxoutil.NewBuilder(outputs...)
-		err = txb.ConsumeChainInput(aliasAddress)
+		err = txb.ConsumeAliasInput(aliasAddress)
 		require.NoError(t, err)
-		err = txb.AddChainOutputAsReminder(aliasAddress, nil)
+		err = txb.AddAliasOutputAsReminder(aliasAddress, nil)
 		require.NoError(t, err)
 		tx, err = txb.BuildWithED25519(userStateControl)
 		require.NoError(t, err)
@@ -210,7 +210,7 @@ func TestChain1(t *testing.T) {
 	}
 }
 
-func TestChain3(t *testing.T) {
+func TestAlias3(t *testing.T) {
 	u := utxodb.NewRandom()
 	user, addr := u.NewKeyPairByIndex(2)
 	_, err := u.RequestFunds(addr)
@@ -227,7 +227,7 @@ func TestChain3(t *testing.T) {
 
 	// mint chain output
 	txb := utxoutil.NewBuilder(outputs...)
-	err = txb.AddNewChainMint(bals1, addrStateControl, nil)
+	err = txb.AddNewAliasMint(bals1, addrStateControl, nil)
 	require.NoError(t, err)
 	err = txb.AddReminderOutputIfNeeded(addr, nil)
 	require.NoError(t, err)
@@ -241,7 +241,7 @@ func TestChain3(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, sender.Equals(addr))
 
-	chained, err := utxoutil.GetSingleChainedOutput(tx.Essence())
+	chained, err := utxoutil.GetSingleChainedAliasOutput(tx.Essence())
 	require.NoError(t, err)
 	require.NotNil(t, chained)
 
@@ -276,9 +276,9 @@ func TestChain3(t *testing.T) {
 		require.EqualValues(t, 0, u.BalanceIOTA(addrStateControl))
 
 		txb = utxoutil.NewBuilder(outputs...)
-		err = txb.ConsumeChainInput(aliasAddress)
+		err = txb.ConsumeAliasInput(aliasAddress)
 		require.NoError(t, err)
-		err = txb.AddChainOutputAsReminder(aliasAddress, nil)
+		err = txb.AddAliasOutputAsReminder(aliasAddress, nil)
 		require.NoError(t, err)
 		tx, err = txb.BuildWithED25519(userStateControl)
 		require.NoError(t, err)
@@ -290,7 +290,7 @@ func TestChain3(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, sender.Equals(aliasAddress))
 
-		chained, err := utxoutil.GetSingleChainedOutput(tx.Essence())
+		chained, err := utxoutil.GetSingleChainedAliasOutput(tx.Essence())
 		require.NoError(t, err)
 		require.EqualValues(t, i+1, int(chained.GetStateIndex()))
 
@@ -316,7 +316,7 @@ func TestAliasWithExtendedOutput(t *testing.T) {
 
 	// mint chain output
 	txb := utxoutil.NewBuilder(outputs...)
-	err = txb.AddNewChainMint(bals1, addrStateControl, nil)
+	err = txb.AddNewAliasMint(bals1, addrStateControl, nil)
 	require.NoError(t, err)
 	err = txb.AddReminderOutputIfNeeded(addr, nil)
 	require.NoError(t, err)
@@ -330,7 +330,7 @@ func TestAliasWithExtendedOutput(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, sender.Equals(addr))
 
-	chained, err := utxoutil.GetSingleChainedOutput(tx.Essence())
+	chained, err := utxoutil.GetSingleChainedAliasOutput(tx.Essence())
 	require.NoError(t, err)
 	require.NotNil(t, chained)
 
@@ -364,9 +364,9 @@ func TestAliasWithExtendedOutput(t *testing.T) {
 		require.EqualValues(t, 0, u.BalanceIOTA(addrStateControl))
 
 		txb = utxoutil.NewBuilder(outputs...)
-		err = txb.ConsumeChainInput(aliasAddress)
+		err = txb.ConsumeAliasInput(aliasAddress)
 		require.NoError(t, err)
-		err = txb.AddChainOutputAsReminder(aliasAddress, nil, true)
+		err = txb.AddAliasOutputAsReminder(aliasAddress, nil, true)
 		require.NoError(t, err)
 		tx, err = txb.BuildWithED25519(userStateControl)
 		require.NoError(t, err)
@@ -401,7 +401,7 @@ func TestRequestSendingPattern(t *testing.T) {
 
 	// mint chain output
 	txb := utxoutil.NewBuilder(outputs...)
-	err = txb.AddNewChainMint(bals1, addrStateControl, nil)
+	err = txb.AddNewAliasMint(bals1, addrStateControl, nil)
 	require.NoError(t, err)
 	err = txb.AddReminderOutputIfNeeded(addrRequester, nil)
 	require.NoError(t, err)
@@ -415,7 +415,7 @@ func TestRequestSendingPattern(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, sender.Equals(addrRequester))
 
-	chained, err := utxoutil.GetSingleChainedOutput(tx.Essence())
+	chained, err := utxoutil.GetSingleChainedAliasOutput(tx.Essence())
 	require.NoError(t, err)
 	require.NotNil(t, chained)
 
@@ -452,9 +452,9 @@ func TestRequestSendingPattern(t *testing.T) {
 	require.EqualValues(t, 100+numRequests, int(u.BalanceIOTA(aliasAddress)))
 
 	txb = utxoutil.NewBuilder(outputs...)
-	err = txb.ConsumeChainInput(aliasAddress)
+	err = txb.ConsumeAliasInput(aliasAddress)
 	require.NoError(t, err)
-	err = txb.AddChainOutputAsReminder(aliasAddress, nil, true)
+	err = txb.AddAliasOutputAsReminder(aliasAddress, nil, true)
 	require.NoError(t, err)
 
 	tx, err = txb.BuildWithED25519(userStateControl)
