@@ -108,6 +108,11 @@ func (s *Sequence) ReferencedMarkers(index Index) *Markers {
 	return s.referencedMarkers.Get(index)
 }
 
+// ReferencedMarkers returns a collection of Markers that reference the given Index.
+func (s *Sequence) ReferencingMarkers(index Index) *Markers {
+	return s.referencingMarkers.Get(index)
+}
+
 // Rank returns the rank of the Sequence (maximum distance from the root of the Sequence DAG).
 func (s *Sequence) Rank() uint64 {
 	return s.rank
