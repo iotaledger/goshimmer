@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -15,6 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/webapi/value"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
+	"github.com/iotaledger/hive.go/identity"
 )
 
 // TestConsensusFiftyFiftyOpinionSplit spawns two network partitions with their own peers,
@@ -54,10 +54,52 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	genesisSeedBytes, err := base58.Decode("7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih")
 	require.NoError(t, err, "couldn't decode genesis seed from base58 seed")
 
-	const genesisBalance = 1000000000000000
+	const genesisBalance = 700000000000000
 	genesisSeed := seed.NewSeed(genesisSeedBytes)
 	genesisOutputID := ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0)
 	input := ledgerstate.NewUTXOInput(genesisOutputID)
+
+	tx, destSeed := CreateOutputs(input, genesisBalance, genesisSeed, 7, identity.ID{})
+
+	//issue tx
+	//prepare all the pledgingTxs
+	pledgingTxs := make([]*ledgerstate.Transaction, 7)
+	pledgeSeed := make([]*seed.Seed, 7)
+	for i, partition := range n.Partitions() {
+		for j, peer := range partition.Peers() {
+			tx.Essence().Outputs()
+		}
+	}
+
+	manaPledgingTxs := make([]*ledgerstate.Transaction, len(n.Partitions()))
+	manaPledgingTxIDs := make([]string, len(n.Partitions()))
+	manaReceiverSeeds := make([]*seed.Seed, len(n.Partitions()))
+
+	// create a new receiver wallet for the given partition
+	partitionReceiverSeed := seed.NewSeed()
+	destAddr := partitionReceiverSeed.Address(0).Address()
+	manaReceiverSeeds[0] = partitionReceiverSeed
+	output := ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
+		ledgerstate.ColorIOTA: uint64(genesisBalance / 4),
+	}), destAddr)
+	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), n.Partitions()[0].Peers()[0].Identity.ID(), n.Partitions()[0].Peers()[0].Identity.ID(), ledgerstate.NewInputs(input), ledgerstate.NewOutputs(output))
+	kp := genesisSeed.KeyPair(0)
+	sig := ledgerstate.NewED25519Signature(kp.PublicKey, kp.PrivateKey.Sign(txEssence.Bytes()))
+	unlockBlock := ledgerstate.NewSignatureUnlockBlock(sig)
+	tx := ledgerstate.NewTransaction(txEssence, ledgerstate.UnlockBlocks{unlockBlock})
+	manaPledgingTxs[0] = tx
+
+	// issue the transaction on the first peer of the partition
+	issuerPeer := n.Partitions()[0].Peers()[0]
+	txID, err := issuerPeer.SendTransaction(tx.Bytes())
+	manaPledgingTxIDs[0] = txID
+	log.Printf("issued conflict transaction %s on partition %d on peer %s", txID, 0, issuerPeer.ID().String())
+	assert.NoError(t, err)
+
+	// sleep the 3 times the avg. network delay so both partitions confirm their own first seen transaction
+	log.Printf("waiting 3 times %d seconds avg. network delay to make the transactions "+
+		"preferred in their corresponding partition", framework.ParaFCoBAverageNetworkDelay)
+	time.Sleep(time.Duration(framework.ParaFCoBAverageNetworkDelay) * 3 * time.Second)
 
 	// issue transactions which spend the same genesis output in all partitions
 	conflictingTxs := make([]*ledgerstate.Transaction, len(n.Partitions()))
@@ -73,7 +115,7 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 		output := ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
 			ledgerstate.ColorIOTA: uint64(genesisBalance),
 		}), destAddr)
-		txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, ledgerstate.NewInputs(input), ledgerstate.NewOutputs(output))
+		txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), partition.Peers()[0].Identity.ID(), partition.Peers()[0].Identity.ID(), ledgerstate.NewInputs(input), ledgerstate.NewOutputs(output))
 		kp := genesisSeed.KeyPair(0)
 		sig := ledgerstate.NewED25519Signature(kp.PublicKey, kp.PrivateKey.Sign(txEssence.Bytes()))
 		unlockBlock := ledgerstate.NewSignatureUnlockBlock(sig)
@@ -96,6 +138,16 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	// check that each partition is preferring its corresponding transaction
 	log.Println("checking that each partition likes its corresponding transaction before the conflict:")
 	for i, partition := range n.Partitions() {
+
+		log.Printf("partition %d:", i)
+		// Check mana
+
+		resp, err := partition.Peers()[0].GoShimmerAPI.GetAllMana()
+		require.NoError(t, err)
+		for _, nodeStr := range resp.Consensus {
+			log.Printf("NodeID %s cMana %f", nodeStr.ShortNodeID, nodeStr.Mana)
+		}
+
 		tests.CheckTransactions(t, partition.Peers(), map[string]*tests.ExpectedTransaction{
 			conflictingTxIDs[i]: nil,
 		}, true, tests.ExpectedInclusionState{
@@ -195,4 +247,31 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	if confirmedOverConflictSet != 0 {
 		assert.Equal(t, 1, confirmedOverConflictSet, "only one transaction can be confirmed out of the conflict set. %d of %d are confirmed", confirmedOverConflictSet, len(conflictingTxIDs))
 	}
+}
+
+func CreateOutputs(input *ledgerstate.UTXOInput, inputBalance int, inputSeed *seed.Seed, nOutputs int, pledgeID identity.ID) (*ledgerstate.Transaction, *seed.Seed) {
+	partitionReceiverSeed := seed.NewSeed()
+
+	destAddr := make([]ledgerstate.Address, nOutputs)
+	sigLockedColoredOutputs := make([]*ledgerstate.SigLockedColoredOutput, nOutputs)
+	outputs := make([]ledgerstate.Output, nOutputs)
+	for i := 0; i < nOutputs; i++ {
+		destAddr[i] = partitionReceiverSeed.Address(uint64(i)).Address()
+		sigLockedColoredOutputs[i] = ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
+			ledgerstate.ColorIOTA: uint64(inputBalance / nOutputs),
+		}), destAddr[i])
+		outputs[i] = sigLockedColoredOutputs[i]
+
+	}
+
+	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), pledgeID, pledgeID, ledgerstate.NewInputs(input), ledgerstate.NewOutputs(outputs...))
+	kp := inputSeed.KeyPair(0)
+	sig := ledgerstate.NewED25519Signature(kp.PublicKey, kp.PrivateKey.Sign(txEssence.Bytes()))
+	unlockBlock := ledgerstate.NewSignatureUnlockBlock(sig)
+	tx := ledgerstate.NewTransaction(txEssence, ledgerstate.UnlockBlocks{unlockBlock})
+	return tx, partitionReceiverSeed
+}
+
+func test() {
+
 }
