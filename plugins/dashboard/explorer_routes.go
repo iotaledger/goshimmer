@@ -9,7 +9,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/mana"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	ledgerstateAPI "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
 	manaAPI "github.com/iotaledger/goshimmer/plugins/webapi/mana"
@@ -244,7 +243,7 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 			solidificationTime = txMeta.SolidificationTime().Unix()
 		})
 
-		pendingMana, _ := mana.PendingManaOnOutput(output.ID())
+		pendingMana, _ := messagelayer.PendingManaOnOutput(output.ID())
 		outputids = append(outputids, ExplorerOutput{
 			ID:                 output.ID().Base58(),
 			TransactionID:      output.ID().TransactionID().Base58(),

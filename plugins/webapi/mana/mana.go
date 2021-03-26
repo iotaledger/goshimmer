@@ -10,7 +10,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
+	manaPlugin "github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 // getManaHandler handles the request.
