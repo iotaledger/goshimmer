@@ -6,17 +6,18 @@ import (
 	goSync "sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/node"
+	"github.com/labstack/echo"
+	"github.com/mr-tron/base58/base58"
+
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
-	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	manaPlugin "github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
-	"github.com/iotaledger/hive.go/node"
-	"github.com/labstack/echo"
-	"github.com/mr-tron/base58/base58"
 )
 
 // PluginName is the name of the web API info endpoint plugin.

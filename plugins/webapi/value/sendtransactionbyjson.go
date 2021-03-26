@@ -6,16 +6,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/crypto/bls"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58/base58"
+
+	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 var (
@@ -115,7 +116,7 @@ func NewTransactionFromJSON(request SendTransactionByJSONRequest) (*ledgerstate.
 	// prepare outputs
 	outputs := []ledgerstate.Output{}
 	for _, output := range request.Outputs {
-		outputType := ledgerstate.OutputType(output.Type)
+		outputType := output.Type
 		address, err := ledgerstate.AddressFromBase58EncodedString(output.Address)
 		if err != nil {
 			return nil, ErrMalformedOutputs
@@ -180,7 +181,6 @@ func NewTransactionFromJSON(request SendTransactionByJSONRequest) (*ledgerstate.
 	unlockBlocks := make([]ledgerstate.UnlockBlock, len(txEssence.Inputs()))
 	for i, signature := range request.Signatures {
 		switch ledgerstate.SignatureType(signature.Type) {
-
 		case ledgerstate.ED25519SignatureType:
 			pubKeyBytes, err := base58.Decode(signature.PublicKey)
 			if err != nil || len(pubKeyBytes) != ed25519.PublicKeySize {

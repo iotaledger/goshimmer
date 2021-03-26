@@ -1,6 +1,6 @@
-# Mana Implementation Proposal
+# Mana Implementation
 
-The goal of this document is to provide a high level overview of how mana will be implemented in GoShimmer.
+This document provides a high level overview of how mana is implemented in GoShimmer.
 
 ## Introduction
 

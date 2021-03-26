@@ -8,14 +8,15 @@ import (
 
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 
+	"github.com/iotaledger/hive.go/identity"
+	"github.com/mr-tron/base58/base58"
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi/value"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/mr-tron/base58/base58"
-	"github.com/stretchr/testify/require"
 )
 
 // TestConsensusNoConflicts issues valid non-conflicting value objects and then checks

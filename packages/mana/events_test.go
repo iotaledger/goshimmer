@@ -6,9 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 func TestRevokedEvent_ToPersistable(t *testing.T) {
@@ -97,10 +98,10 @@ func newUpdateEvent() *UpdatedEvent {
 	}
 }
 
-func randomNodeID() (ID identity.ID) {
+func randomNodeID() (iID identity.ID) {
 	idBytes := make([]byte, sha256.Size)
 	_, _ = rand.Read(idBytes)
-	copy(ID[:], idBytes)
+	copy(iID[:], idBytes)
 	return
 }
 

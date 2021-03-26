@@ -4,10 +4,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 var (
@@ -319,7 +320,8 @@ func TestAccessBaseManaVector_Update(t *testing.T) {
 	assert.Equal(t, AccessMana, ev.ManaType)
 	assert.Equal(t, &AccessBaseMana{
 		BaseMana2:   10.0,
-		LastUpdated: baseTime},
+		LastUpdated: baseTime,
+	},
 		ev.OldMana)
 	assert.InDelta(t, 5, ev.NewMana.BaseValue(), delta)
 	assert.InDelta(t, 3.465731, ev.NewMana.EffectiveValue(), delta)
@@ -494,7 +496,7 @@ func TestAccessBaseManaVector_GetHighestManaNodes(t *testing.T) {
 	bmv, err := NewBaseManaVector(AccessMana)
 	assert.NoError(t, err)
 
-	var nodeIDs = make([]identity.ID, 10)
+	nodeIDs := make([]identity.ID, 10)
 
 	baseTime = time.Now()
 
@@ -539,7 +541,7 @@ func TestAccessBaseManaVector_GetHighestManaNodes(t *testing.T) {
 func TestAccessBaseManaVector_SetMana(t *testing.T) {
 	bmv, err := NewBaseManaVector(AccessMana)
 	assert.NoError(t, err)
-	var nodeIDs = make([]identity.ID, 10)
+	nodeIDs := make([]identity.ID, 10)
 	for i := 0; i < 10; i++ {
 		nodeIDs[i] = randNodeID()
 		bmv.SetMana(nodeIDs[i], &AccessBaseMana{

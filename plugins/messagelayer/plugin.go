@@ -6,17 +6,18 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/node"
+	"github.com/labstack/gommon/log"
+	"golang.org/x/xerrors"
+
 	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/database"
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/node"
-	"github.com/labstack/gommon/log"
-	"golang.org/x/xerrors"
 )
 
 const (
@@ -24,11 +25,9 @@ const (
 	DefaultAverageNetworkDelay = 5 * time.Second
 )
 
-var (
-	// ErrMessageWasNotBookedInTime is returned if a message did not get booked
-	// within the defined await time.
-	ErrMessageWasNotBookedInTime = errors.New("message could not be booked in time")
-)
+// ErrMessageWasNotBookedInTime is returned if a message did not get booked
+// within the defined await time.
+var ErrMessageWasNotBookedInTime = errors.New("message could not be booked in time")
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -52,7 +51,7 @@ func configure(plugin *node.Plugin) {
 	}))
 
 	// read snapshot file
-	if len(Parameters.Snapshot.File) != 0 {
+	if Parameters.Snapshot.File != "" {
 		snapshot := ledgerstate.Snapshot{}
 		f, err := os.Open(Parameters.Snapshot.File)
 		if err != nil {

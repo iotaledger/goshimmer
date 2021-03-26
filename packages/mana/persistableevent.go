@@ -6,11 +6,12 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/mr-tron/base58"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 // PersistableEvent is a persistable event.

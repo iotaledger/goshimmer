@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/set"
@@ -18,6 +17,8 @@ import (
 	"github.com/iotaledger/hive.go/types"
 	"github.com/iotaledger/hive.go/typeutils"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/database"
 )
 
 // region UTXODAG //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -263,7 +264,7 @@ func (u *UTXODAG) LoadSnapshot(snapshot map[TransactionID]map[Address]*ColoredBa
 				cachedOutput.Release()
 			}
 
-			//store addressOutputMapping
+			// store addressOutputMapping
 			u.StoreAddressOutputMapping(address, output.ID())
 
 			// store OutputMetadata
@@ -506,7 +507,6 @@ func (u *UTXODAG) bookConsumers(inputsMetadata OutputsMetadata, transactionID Tr
 		}) {
 			panic("failed to update valid flag of Consumer")
 		}
-
 	}
 }
 
@@ -1229,8 +1229,8 @@ type CachedConsumers []*CachedConsumer
 
 // Unwrap is the type-casted equivalent of Get. It returns a slice of unwrapped objects with the object being nil if it
 // does not exist.
-func (c CachedConsumers) Unwrap() (unwrappedOutputs []*Consumer) {
-	unwrappedOutputs = make([]*Consumer, len(c))
+func (c CachedConsumers) Unwrap() (unwrappedConsumers []*Consumer) {
+	unwrappedConsumers = make([]*Consumer, len(c))
 	for i, cachedConsumer := range c {
 		untypedObject := cachedConsumer.Get()
 		if untypedObject == nil {
@@ -1242,7 +1242,7 @@ func (c CachedConsumers) Unwrap() (unwrappedOutputs []*Consumer) {
 			continue
 		}
 
-		unwrappedOutputs[i] = typedObject
+		unwrappedConsumers[i] = typedObject
 	}
 
 	return

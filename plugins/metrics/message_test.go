@@ -3,10 +3,11 @@ package metrics
 import (
 	"testing"
 
+	"github.com/magiconair/properties/assert"
+
 	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	"github.com/magiconair/properties/assert"
 )
 
 func TestMessageCountPerPayload(t *testing.T) {

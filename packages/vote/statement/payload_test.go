@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
-	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/stretchr/testify/require"
 )
 
 func dummyPayload(t *testing.T) *Statement {

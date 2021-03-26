@@ -647,7 +647,7 @@ func TestWeightedBaseManaVector_GetHighestManaNodes(t *testing.T) {
 	bmv, err := NewResearchBaseManaVector(WeightedMana, AccessMana, Mixed)
 	assert.NoError(t, err)
 
-	var nodeIDs = make([]identity.ID, 10)
+	nodeIDs := make([]identity.ID, 10)
 
 	baseTime = time.Now()
 
@@ -700,7 +700,7 @@ func TestWeightedBaseManaVector_GetHighestManaNodes(t *testing.T) {
 func TestWeightedBaseManaVector_SetMana(t *testing.T) {
 	bmv, err := NewResearchBaseManaVector(WeightedMana, AccessMana, Mixed)
 	assert.NoError(t, err)
-	var nodeIDs = make([]identity.ID, 10)
+	nodeIDs := make([]identity.ID, 10)
 	for i := 0; i < 10; i++ {
 		nodeIDs[i] = randNodeID()
 		bmv.SetMana(nodeIDs[i], &WeightedBaseMana{

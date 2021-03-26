@@ -3,9 +3,10 @@ package tangle
 import (
 	"testing"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 func TestScenario_1(t *testing.T) {
@@ -36,7 +37,8 @@ func TestScenario_1(t *testing.T) {
 		})
 	snapshot := map[ledgerstate.TransactionID]map[ledgerstate.Address]*ledgerstate.ColoredBalances{
 		ledgerstate.GenesisTransactionID: {
-			wallets["GENESIS"].address: genesisBalance},
+			wallets["GENESIS"].address: genesisBalance,
+		},
 	}
 
 	tangle.LedgerState.LoadSnapshot(snapshot)

@@ -23,9 +23,7 @@ func TransactionBalancesValid(inputs Outputs, outputs Outputs) (valid bool) {
 	for _, output := range outputs {
 		output.Balances().ForEach(func(color Color, balance uint64) bool {
 			switch color {
-			case ColorIOTA:
-				fallthrough
-			case ColorMint:
+			case ColorIOTA, ColorMint:
 				recoloredCoins, valid = SafeAddUint64(recoloredCoins, balance)
 			default:
 				consumedCoins[color], valid = SafeSubUint64(consumedCoins[color], balance)
@@ -70,7 +68,7 @@ func UnlockBlocksValid(inputs Outputs, transaction *Transaction) (valid bool) {
 // SafeAddUint64 adds two uint64 values. It returns the result and a valid flag that indicates whether the addition is
 // valid without causing an overflow.
 func SafeAddUint64(a uint64, b uint64) (result uint64, valid bool) {
-	valid = !(math.MaxUint64-a < b)
+	valid = math.MaxUint64-a >= b
 	result = a + b
 	return
 }

@@ -3,12 +3,23 @@ package messagelayer
 import (
 	"context"
 	"fmt"
+	"github.com/iotaledger/goshimmer/packages/mana"
 	"golang.org/x/xerrors"
 	"net"
 	"strconv"
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/autopeering/peer/service"
+	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/node"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
+
+	clockPkg "github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/metrics"
@@ -25,14 +36,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/clock"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
-	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/autopeering/peer/service"
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/node"
-	"google.golang.org/grpc"
-	"google.golang.org/protobuf/proto"
 )
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -81,7 +84,7 @@ func runConsensusPlugin(plugin *node.Plugin) {
 // Voter returns the DRNGRoundBasedVoter instance used by the FPC plugin.
 func Voter() vote.DRNGRoundBasedVoter {
 	voterOnce.Do(func() {
-		voter = fpc.New(OpinionGiverFunc)
+		voter = fpc.New(OpinionGiverFunc, OwnManaRetriever)
 	})
 	return voter
 }
@@ -132,7 +135,6 @@ func configureFPC(plugin *node.Plugin) {
 			plugin.LogWarnf("FPC failed for transaction with id '%s' - last opinion: '%s'", ev.ID, ev.Opinion)
 		}
 	}))
-
 }
 
 func runFPC(plugin *node.Plugin) {
@@ -219,6 +221,7 @@ type OpinionGiver struct {
 	id   identity.ID
 	view *statement.View
 	pog  *PeerOpinionGiver
+	mana float64
 }
 
 // OpinionGivers is a map of OpinionGiver.
@@ -228,8 +231,10 @@ type OpinionGivers map[identity.ID]OpinionGiver
 func (o *OpinionGiver) Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (opinions opinion.Opinions, err error) {
 	// wait for statement(s) to arrive
 	time.Sleep(time.Duration(StatementParameters.WaitForStatement) * time.Second)
-	// process opinions from statements
-	if o.view != nil {
+	// query statement status only if any statement has been received within the last round interval.
+	// This is important. We do want to consider old statements IF the node has been active in the last round.
+	// otherwise node might be down and we don't want to look at old statements in subsequent rounds
+	if o.view != nil && o.view.LastStatementReceivedTimestamp.Add(time.Duration(FPCParameters.RoundInterval)*time.Second).After(clockPkg.SyncedTime()) {
 		opinions, err = o.view.Query(ctx, conflictIDs, timestampIDs)
 		if err == nil {
 			return opinions, nil
@@ -245,15 +250,32 @@ func (o *OpinionGiver) ID() identity.ID {
 	return o.id
 }
 
+// Mana returns consensus mana value for an opinion giver
+func (o *OpinionGiver) Mana() float64 {
+	return o.mana
+}
+
 // OpinionGiverFunc returns a slice of opinion givers.
 func OpinionGiverFunc() (givers []opinion.OpinionGiver, err error) {
 	opinionGiversMap := make(map[identity.ID]*OpinionGiver)
 	opinionGivers := make([]opinion.OpinionGiver, 0)
 
+	consensusManaNodes, _, err := GetManaMap(mana.ConsensusMana)
+
 	for _, v := range Registry().NodesView() {
+		// double check to exclude self
+		if v.ID() == local.GetInstance().ID() {
+			continue
+		}
+		manaValue := 0.0
+
+		if v, ok := consensusManaNodes[v.ID()]; ok {
+			manaValue = v
+		}
 		opinionGiversMap[v.ID()] = &OpinionGiver{
 			id:   v.ID(),
 			view: v,
+			mana: manaValue,
 		}
 	}
 
@@ -263,9 +285,18 @@ func OpinionGiverFunc() (givers []opinion.OpinionGiver, err error) {
 			continue
 		}
 		if _, ok := opinionGiversMap[p.ID()]; !ok {
+			// double check to exclude self
+			if p.ID() == local.GetInstance().ID() {
+				continue
+			}
+			manaValue := 0.0
+			if v, ok := consensusManaNodes[p.ID()]; ok {
+				manaValue = v
+			}
 			opinionGiversMap[p.ID()] = &OpinionGiver{
 				id:   p.ID(),
 				view: nil,
+				mana: manaValue,
 			}
 		}
 		opinionGiversMap[p.ID()].pog = &PeerOpinionGiver{p: p}
@@ -335,6 +366,20 @@ func (pog *PeerOpinionGiver) ID() identity.ID {
 func (pog *PeerOpinionGiver) Address() string {
 	fpcServicePort := pog.p.Services().Get(service.FPCKey).Port()
 	return net.JoinHostPort(pog.p.IP().String(), strconv.Itoa(fpcServicePort))
+}
+
+// endregion /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region OwnWeightsRetriever/////////////////////////////////////////////////////////////////////////////////////
+
+// OwnManaRetriever returns the current consensus mana of a vector
+func OwnManaRetriever() (float64, error) {
+	var ownMana float64
+	consensusManaNodes, _, err := GetManaMap(mana.ConsensusMana)
+	if v, ok := consensusManaNodes[local.GetInstance().ID()]; ok {
+		ownMana = v
+	}
+	return ownMana, err
 }
 
 // endregion /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -513,7 +558,6 @@ func makeTimeStampStatement(id string, v *vote.Context) (statement.Timestamp, er
 // broadcastStatement broadcasts a statement via communication layer.
 func broadcastStatement(conflicts statement.Conflicts, timestamps statement.Timestamps) {
 	msg, err := Tangle().IssuePayload(statement.New(conflicts, timestamps))
-
 	if err != nil {
 		plugin.LogWarnf("error issuing statement: %s", err)
 		return
@@ -547,6 +591,8 @@ func readStatement(messageID tangle.MessageID) {
 		issuerRegistry.AddConflicts(statementPayload.Conflicts)
 
 		issuerRegistry.AddTimestamps(statementPayload.Timestamps)
+
+		issuerRegistry.UpdateLastStatementReceivedTime(clockPkg.SyncedTime())
 
 		Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
 			sendToRemoteLog(

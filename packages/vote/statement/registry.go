@@ -5,11 +5,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/identity"
+
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
-	"github.com/iotaledger/hive.go/identity"
 )
 
 // region Registry /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -98,11 +99,13 @@ type Entry struct {
 
 // View holds the node's opinion about conflicts and timestamps.
 type View struct {
-	NodeID     identity.ID
-	Conflicts  map[ledgerstate.TransactionID]Entry
-	cMutex     sync.RWMutex
-	Timestamps map[tangle.MessageID]Entry
-	tMutex     sync.RWMutex
+	NodeID                         identity.ID
+	Conflicts                      map[ledgerstate.TransactionID]Entry
+	cMutex                         sync.RWMutex
+	Timestamps                     map[tangle.MessageID]Entry
+	tMutex                         sync.RWMutex
+	LastStatementReceivedTimestamp time.Time
+	lstMutex                       sync.RWMutex
 }
 
 // AddConflict appends the given conflict to the given view.
@@ -181,6 +184,14 @@ func (v *View) AddTimestamps(timestamps Timestamps) {
 	}
 }
 
+// UpdateLastStatementReceivedTime updates last statement issuing time in node's View.
+func (v *View) UpdateLastStatementReceivedTime(statementReceivingTime time.Time) {
+	v.lstMutex.RLock()
+	defer v.lstMutex.RUnlock()
+
+	v.LastStatementReceivedTimestamp = statementReceivingTime
+}
+
 // ConflictOpinion returns the opinion history of a given transaction ID.
 func (v *View) ConflictOpinion(id ledgerstate.TransactionID) Opinions {
 	v.cMutex.RLock()
@@ -214,11 +225,11 @@ func (v *View) Query(ctx context.Context, conflictIDs []string, timestampIDs []s
 			return answer, err
 		}
 		o := v.ConflictOpinion(ID)
-		opinion := opinion.Unknown
+		fetchedOpinion := opinion.Unknown
 		if len(o) > 0 {
-			opinion = o.Last().Value
+			fetchedOpinion = o.Last().Value
 		}
-		answer = append(answer, opinion)
+		answer = append(answer, fetchedOpinion)
 	}
 	for _, id := range timestampIDs {
 		ID, err := tangle.NewMessageID(id)
@@ -226,11 +237,11 @@ func (v *View) Query(ctx context.Context, conflictIDs []string, timestampIDs []s
 			return answer, err
 		}
 		o := v.TimestampOpinion(ID)
-		opinion := opinion.Unknown
+		fetchedOpinion := opinion.Unknown
 		if len(o) > 0 {
-			opinion = o.Last().Value
+			fetchedOpinion = o.Last().Value
 		}
-		answer = append(answer, opinion)
+		answer = append(answer, fetchedOpinion)
 	}
 	return answer, nil
 }

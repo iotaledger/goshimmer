@@ -5,14 +5,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"math/rand"
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/events"
+
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
-	"github.com/iotaledger/hive.go/events"
 )
 
 var (
@@ -23,14 +25,15 @@ var (
 )
 
 // New creates a new FPC instance.
-func New(opinionGiverFunc opinion.OpinionGiverFunc, paras ...*Parameters) *FPC {
+func New(opinionGiverFunc opinion.OpinionGiverFunc, ownWeightRetrieverFunc opinion.OwnWeightRetriever, paras ...*Parameters) *FPC {
 	f := &FPC{
-		opinionGiverFunc: opinionGiverFunc,
-		paras:            DefaultParameters(),
-		opinionGiverRng:  rand.New(rand.NewSource(clock.SyncedTime().UnixNano())),
-		ctxs:             make(map[string]*vote.Context),
-		queue:            list.New(),
-		queueSet:         make(map[string]struct{}),
+		opinionGiverFunc:       opinionGiverFunc,
+		ownWeightRetrieverFunc: ownWeightRetrieverFunc,
+		paras:                  DefaultParameters(),
+		opinionGiverRng:        rand.New(rand.NewSource(clock.SyncedTime().UnixNano())),
+		ctxs:                   make(map[string]*vote.Context),
+		queue:                  list.New(),
+		queueSet:               make(map[string]struct{}),
 		events: vote.Events{
 			Finalized:     events.NewEvent(vote.OpinionCaller),
 			Failed:        events.NewEvent(vote.OpinionCaller),
@@ -49,6 +52,7 @@ func New(opinionGiverFunc opinion.OpinionGiverFunc, paras ...*Parameters) *FPC {
 type FPC struct {
 	events           vote.Events
 	opinionGiverFunc opinion.OpinionGiverFunc
+	ownWeightRetrieverFunc opinion.OwnWeightRetriever
 	// the lifo queue of newly enqueued items to vote on.
 	queue *list.List
 	// contains a set of currently queued items.
@@ -109,7 +113,7 @@ func (f *FPC) Round(rand float64) error {
 	if f.lastRoundCompletedSuccessfully {
 		// form opinions by using the random number supplied for this new round
 		f.formOpinions(rand)
-		// clean opinions on vote contexts where an opinion was reached in FinalizationThreshold
+		// clean opinions on vote contexts where an opinion was reached in TotalRoundFinalization
 		// number of rounds and clear those who failed to be finalized in MaxRoundsPerVoteContext.
 		f.finalizeOpinions()
 	}
@@ -155,16 +159,11 @@ func (f *FPC) formOpinions(rand float64) {
 		if voteCtx.IsNew() {
 			continue
 		}
+		lowerThreshold, upperThreshold := f.setThreshold(voteCtx)
 
-		lowerThreshold := f.paras.SubsequentRoundsLowerBoundThreshold
-		upperThreshold := f.paras.SubsequentRoundsUpperBoundThreshold
+		eta := f.biasTowardsOwnOpinion(voteCtx)
 
-		if voteCtx.HadFirstRound() {
-			lowerThreshold = f.paras.FirstRoundLowerBoundThreshold
-			upperThreshold = f.paras.FirstRoundUpperBoundThreshold
-		}
-
-		if voteCtx.ProportionLiked >= RandUniformThreshold(rand, lowerThreshold, upperThreshold) {
+		if eta >= RandUniformThreshold(rand, lowerThreshold, upperThreshold) {
 			voteCtx.AddOpinion(opinion.Like)
 			continue
 		}
@@ -177,7 +176,7 @@ func (f *FPC) finalizeOpinions() {
 	f.ctxsMu.Lock()
 	defer f.ctxsMu.Unlock()
 	for id, voteCtx := range f.ctxs {
-		if voteCtx.IsFinalized(f.paras.CoolingOffPeriod, f.paras.FinalizationThreshold) {
+		if voteCtx.IsFinalized(f.paras.TotalRoundsCoolingOffPeriod, f.paras.TotalRoundsFinalization) {
 			f.events.Finalized.Trigger(&vote.OpinionEvent{ID: id, Opinion: voteCtx.LastOpinion(), Ctx: *voteCtx})
 			delete(f.ctxs, id)
 			continue
@@ -211,11 +210,12 @@ func (f *FPC) queryOpinions() ([]opinion.QueriedOpinions, error) {
 	// select a random subset of opinion givers to query.
 	// if the same opinion giver is selected multiple times, we query it only once
 	// but use its opinion N selected times.
-	opinionGiversToQuery := map[opinion.OpinionGiver]int{}
-	for i := 0; i < f.paras.QuerySampleSize; i++ {
-		selected := opinionGivers[f.opinionGiverRng.Intn(len(opinionGivers))]
-		opinionGiversToQuery[selected]++
-	}
+
+	opinionGiversToQuery, totalOpinionGiversMana := ManaBasedSampling(opinionGivers, f.paras.MaxQuerySampleSize, f.paras.QuerySampleSize, f.opinionGiverRng)
+
+	// get own mana and calculate total mana
+	ownMana, err := f.ownWeightRetrieverFunc()
+	totalMana := totalOpinionGiversMana + ownMana
 
 	// votes per id
 	var voteMapMu sync.Mutex
@@ -286,7 +286,8 @@ func (f *FPC) queryOpinions() ([]opinion.QueriedOpinions, error) {
 	// compute liked proportion
 	for id, votes := range voteMap {
 		var likedSum float64
-		votedCount := float64(len(votes))
+
+		votedCount := len(votes)
 
 		for _, o := range votes {
 			switch o {
@@ -300,11 +301,16 @@ func (f *FPC) queryOpinions() ([]opinion.QueriedOpinions, error) {
 		// mark a round being done, even though there's no opinion,
 		// so this voting context will be cleared eventually
 		f.ctxs[id].Rounds++
-		if votedCount == 0 {
+		if votedCount < f.paras.MinOpinionsReceived {
 			continue
 		}
-		f.ctxs[id].ProportionLiked = likedSum / votedCount
+		f.ctxs[id].Weights = vote.VotingWeights{
+			OwnWeight: ownMana,
+			TotalWeights: totalMana,
+		}
+		f.ctxs[id].ProportionLiked = likedSum / float64(votedCount)
 	}
+
 	return allQueriedOpinions, nil
 }
 
@@ -320,4 +326,88 @@ func (f *FPC) voteContextIDs() (conflictIDs []string, timestampIDs []string) {
 		}
 	}
 	return conflictIDs, timestampIDs
+}
+
+// get round boundaries based on the voting stage
+func (f *FPC) setThreshold(voteCtx *vote.Context) (float64, float64) {
+	lowerThreshold := f.paras.SubsequentRoundsLowerBoundThreshold
+	upperThreshold := f.paras.SubsequentRoundsUpperBoundThreshold
+
+	if voteCtx.HadFirstRound() {
+		lowerThreshold = f.paras.FirstRoundLowerBoundThreshold
+		upperThreshold = f.paras.FirstRoundUpperBoundThreshold
+	}
+
+	if voteCtx.HadFixedRound(f.paras.TotalRoundsCoolingOffPeriod, f.paras.TotalRoundsFinalization, f.paras.TotalRoundsFixedThreshold) {
+		lowerThreshold = f.paras.EndingRoundsFixedThreshold
+		upperThreshold = f.paras.EndingRoundsFixedThreshold
+	}
+
+	return lowerThreshold, upperThreshold
+}
+
+// Node biases the received Liked opinion to its current own opinion using base mana proportions
+func (f *FPC) biasTowardsOwnOpinion(voteCtx *vote.Context) float64 {
+	totalMana := voteCtx.Weights.TotalWeights
+	ownMana := voteCtx.Weights.OwnWeight
+
+	if ownMana == 0 || totalMana == 0 {
+		return voteCtx.ProportionLiked
+	}
+	ownOpinion := opinion.ConvertOpinionToFloat64(voteCtx.LastOpinion())
+	if ownOpinion < 0 {
+		return voteCtx.ProportionLiked
+	}
+	eta := ownMana/totalMana*ownOpinion + (1-ownMana/totalMana)*voteCtx.ProportionLiked
+	return eta
+}
+
+func (f *FPC) SetOpinionGiverRng(rng *rand.Rand) {
+	f.opinionGiverRng = rng
+}
+
+// ManaBasedSampling returns list of OpinionGivers to query, weighted by consensus mana and corresponding total mana value.
+//If mana not available, fallback to uniform sampling
+// weighted random sampling based on https://eli.thegreenplace.net/2010/01/22/weighted-random-generation-in-python/
+func ManaBasedSampling(opinionGivers []opinion.OpinionGiver, maxQuerySampleSize, querySampleSize int, rng *rand.Rand) (map[opinion.OpinionGiver]int, float64) {
+	// TODO: remove yourself in random weighted sampling
+
+	totalConsensusMana := 0.0
+	totals := make([]float64, 0, len(opinionGivers))
+
+	for i := 0; i < len(opinionGivers); i++ {
+		totalConsensusMana += opinionGivers[i].Mana()
+		totals = append(totals, totalConsensusMana)
+	}
+
+	// check if total mana is almost zero
+	if math.Abs(totalConsensusMana-0.0) <= 1e-9 {
+		// fallback to uniform sampling
+		return UniformSampling(opinionGivers, maxQuerySampleSize, querySampleSize, rng), 0
+	}
+
+	opinionGiversToQuery := map[opinion.OpinionGiver]int{}
+	for i := 0; i < maxQuerySampleSize && len(opinionGiversToQuery) < querySampleSize; i++ {
+		rnd := rng.Float64() * totalConsensusMana
+		for idx, v := range totals {
+			if rnd < v {
+				selected := opinionGivers[idx]
+				opinionGiversToQuery[selected]++
+				break
+			}
+		}
+
+	}
+	return opinionGiversToQuery, totalConsensusMana
+
+}
+
+// UniformSampling returns list of OpinionGivers to query, sampled uniformly
+func UniformSampling(opinionGivers []opinion.OpinionGiver, maxQuerySampleSize, querySampleSize int, rng *rand.Rand) map[opinion.OpinionGiver]int {
+	opinionGiversToQuery := map[opinion.OpinionGiver]int{}
+	for i := 0; i < querySampleSize; i++ {
+		selected := opinionGivers[rng.Intn(len(opinionGivers))]
+		opinionGiversToQuery[selected]++
+	}
+	return opinionGiversToQuery
 }

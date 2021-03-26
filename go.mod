@@ -16,7 +16,7 @@ require (
 	github.com/golang/protobuf v1.4.3
 	github.com/golang/snappy v0.0.2 // indirect
 	github.com/gorilla/websocket v1.4.2
-	github.com/iotaledger/hive.go v0.0.0-20210314220918-ac82b8322991
+	github.com/iotaledger/hive.go v0.0.0-20210317185122-1ac328c4054f
 	github.com/kr/pretty v0.2.1 // indirect
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0
@@ -24,7 +24,6 @@ require (
 	github.com/markbates/pkger v0.17.1
 	github.com/mr-tron/base58 v1.2.0
 	github.com/panjf2000/ants/v2 v2.4.3
-	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.7.0
 	github.com/shirou/gopsutil v2.20.5+incompatible
 	github.com/spf13/afero v1.3.0 // indirect

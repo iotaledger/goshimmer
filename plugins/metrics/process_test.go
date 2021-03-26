@@ -4,9 +4,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/iotaledger/goshimmer/packages/metrics"
 )
 
 func TestMemUsage(t *testing.T) {

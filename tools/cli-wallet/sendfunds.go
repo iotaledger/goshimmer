@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/mr-tron/base58"
+
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/mr-tron/base58"
 )
 
 func execSendFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {

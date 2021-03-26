@@ -7,8 +7,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/thresholdmap"
@@ -19,6 +17,9 @@ import (
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
 // region Booker ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -99,7 +100,7 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 					b.tangle.Events.MessageInvalid.Trigger(messageID)
 					refIds := transaction.ReferencedTransactionIDs()
 					var refIdsStrings strings.Builder
-					for key, _ := range refIds {
+					for key := range refIds {
 						refIdsStrings.WriteString(key.Base58())
 						refIdsStrings.WriteString(", ")
 					}
@@ -189,7 +190,6 @@ func (b *Booker) branchIDsOfParents(message *Message) (branchIDs ledgerstate.Bra
 					panic(fmt.Errorf("failed to load TransactionMetadata with %s", transactionID))
 				}
 			}
-
 		}) {
 			panic(fmt.Errorf("failed to load MessageMetadata with %s", parentMessageID))
 		}

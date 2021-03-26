@@ -25,12 +25,12 @@ type Graph struct {
 }
 
 // New returns a graph.
-func New(IDs []string) *Graph {
+func New(ids []string) *Graph {
 	g := &Graph{
-		symbolTable: make(symbolTable, len(IDs)),
-		nodes:       make(nodes, len(IDs)),
+		symbolTable: make(symbolTable, len(ids)),
+		nodes:       make(nodes, len(ids)),
 	}
-	for index, id := range IDs {
+	for index, id := range ids {
 		g.nodes[index].ID = nodeID(index)
 		g.symbolTable[id] = nodeID(index)
 	}
@@ -77,7 +77,6 @@ func (nl nodes) AddEdge(a, b nodeID) {
 
 // Diameter is the maximum length of a shortest path in the network
 func (nl nodes) Diameter() int {
-
 	cpus := runtime.GOMAXPROCS(0)
 	numNodes := len(nl)
 	nodesPerCPU := numNodes / cpus
@@ -103,7 +102,7 @@ func (nl nodes) Diameter() int {
 					depths[i] = -1
 				}
 
-				df := nl.longestShortestPath(nodeID(id), q, depths)
+				df := nl.longestShortestPath(id, q, depths)
 				if df > diameter {
 					diameter = df
 				}
@@ -128,7 +127,6 @@ func (nl nodes) Diameter() int {
 type bfsNode int16
 
 func (nl nodes) longestShortestPath(start nodeID, q *list, depths []bfsNode) int {
-
 	n := nl.get(start)
 	depths[n.ID] = 0
 	q.pushBack(n)
