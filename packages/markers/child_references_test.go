@@ -19,26 +19,26 @@ func TestChildReferences(t *testing.T) {
 		&Marker{1, 5},
 		&Marker{2, 10},
 		&Marker{3, 4},
-	), childReferences.LowestReferencingMarkers(8))
+	), childReferences.ReferencingMarkers(8))
 
 	assert.Equal(t, NewMarkers(
 		&Marker{1, 5},
 		&Marker{2, 10},
 		&Marker{3, 4},
-	), childReferences.LowestReferencingMarkers(9))
+	), childReferences.ReferencingMarkers(9))
 
 	assert.Equal(t, NewMarkers(
 		&Marker{1, 7},
 		&Marker{2, 10},
 		&Marker{3, 4},
-	), childReferences.LowestReferencingMarkers(10))
+	), childReferences.ReferencingMarkers(10))
 
 	assert.Equal(t, NewMarkers(
 		&Marker{1, 7},
 		&Marker{2, 10},
-	), childReferences.LowestReferencingMarkers(12))
+	), childReferences.ReferencingMarkers(12))
 
-	assert.Equal(t, NewMarkers(), childReferences.LowestReferencingMarkers(13))
+	assert.Equal(t, NewMarkers(), childReferences.ReferencingMarkers(13))
 
 	marshaledChildReferences := childReferences.Bytes()
 	unmarshaledChildReferences, consumedBytes, err := ChildReferencesFromBytes(marshaledChildReferences)
@@ -49,26 +49,26 @@ func TestChildReferences(t *testing.T) {
 		&Marker{1, 5},
 		&Marker{2, 10},
 		&Marker{3, 4},
-	), unmarshaledChildReferences.LowestReferencingMarkers(8))
+	), unmarshaledChildReferences.ReferencingMarkers(8))
 
 	assert.Equal(t, NewMarkers(
 		&Marker{1, 5},
 		&Marker{2, 10},
 		&Marker{3, 4},
-	), unmarshaledChildReferences.LowestReferencingMarkers(9))
+	), unmarshaledChildReferences.ReferencingMarkers(9))
 
 	assert.Equal(t, NewMarkers(
 		&Marker{1, 7},
 		&Marker{2, 10},
 		&Marker{3, 4},
-	), unmarshaledChildReferences.LowestReferencingMarkers(10))
+	), unmarshaledChildReferences.ReferencingMarkers(10))
 
 	assert.Equal(t, NewMarkers(
 		&Marker{1, 7},
 		&Marker{2, 10},
-	), unmarshaledChildReferences.LowestReferencingMarkers(12))
+	), unmarshaledChildReferences.ReferencingMarkers(12))
 
-	assert.Equal(t, NewMarkers(), unmarshaledChildReferences.LowestReferencingMarkers(13))
+	assert.Equal(t, NewMarkers(), unmarshaledChildReferences.ReferencingMarkers(13))
 
 	fmt.Println(unmarshaledChildReferences)
 }
