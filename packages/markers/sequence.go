@@ -64,7 +64,7 @@ func SequenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequence *Se
 		err = xerrors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
 		return
 	}
-	if sequence.referencedMarkers, err = ParentReferencesFromMarshalUtil(marshalUtil); err != nil {
+	if sequence.referencedMarkers, err = ReferencedMarkersFromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse ReferencedMarkers from MarshalUtil: %w", err)
 		return
 	}
@@ -103,8 +103,8 @@ func (s *Sequence) ID() SequenceID {
 	return s.id
 }
 
-// HighestReferencedParentMarkers returns a collection of Markers that were referenced by the given Index.
-func (s *Sequence) HighestReferencedParentMarkers(index Index) *Markers {
+// ReferencedMarkers returns a collection of Markers that were referenced by the given Index.
+func (s *Sequence) ReferencedMarkers(index Index) *Markers {
 	return s.referencedMarkers.HighestReferencedMarkers(index)
 }
 

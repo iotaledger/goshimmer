@@ -43,7 +43,7 @@ func NewReferencedMarkers(markers *Markers) (referencedMarkers *ReferencedMarker
 // ReferencedMarkersFromBytes unmarshals ReferencedMarkers from a sequence of bytes.
 func ReferencedMarkersFromBytes(parentReferencesBytes []byte) (referencedMarkers *ReferencedMarkers, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(parentReferencesBytes)
-	if referencedMarkers, err = ParentReferencesFromMarshalUtil(marshalUtil); err != nil {
+	if referencedMarkers, err = ReferencedMarkersFromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse ReferencedMarkers from MarshalUtil: %w", err)
 		return
 	}
@@ -52,8 +52,8 @@ func ReferencedMarkersFromBytes(parentReferencesBytes []byte) (referencedMarkers
 	return
 }
 
-// ParentReferencesFromMarshalUtil unmarshals ReferencedMarkers using a MarshalUtil (for easier unmarshaling).
-func ParentReferencesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (referencedMarkers *ReferencedMarkers, err error) {
+// ReferencedMarkersFromMarshalUtil unmarshals ReferencedMarkers using a MarshalUtil (for easier unmarshaling).
+func ReferencedMarkersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (referencedMarkers *ReferencedMarkers, err error) {
 	referencedMarkers = &ReferencedMarkers{
 		referencedIndexesBySequence: make(map[SequenceID]*thresholdmap.ThresholdMap),
 	}
