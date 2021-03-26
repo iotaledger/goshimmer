@@ -13,27 +13,27 @@ import (
 	"golang.org/x/xerrors"
 )
 
-// region ParentReferences /////////////////////////////////////////////////////////////////////////////////////////////
+// region ReferencedMarkers /////////////////////////////////////////////////////////////////////////////////////////////
 
-// ParentReferences models the relationship between Sequences by providing a way to encode which Marker references which
-// other Markers of other Sequences.
-type ParentReferences struct {
+// ReferencedMarkers is a data structure that allows to denote which Marker of a Sequence references which Markers of
+// parent Sequences in the Sequence DAG.
+type ReferencedMarkers struct {
 	referencedIndexesBySequence map[SequenceID]*thresholdmap.ThresholdMap
 	mutex                       sync.RWMutex
 }
 
-// NewParentReferences creates a new set of ParentReferences.
-func NewParentReferences(referencedMarkers *Markers) (newParentReferences *ParentReferences) {
-	newParentReferences = &ParentReferences{
+// NewReferencedMarkers is the constructor for the ReferencedMarkers.
+func NewReferencedMarkers(markers *Markers) (referencedMarkers *ReferencedMarkers) {
+	referencedMarkers = &ReferencedMarkers{
 		referencedIndexesBySequence: make(map[SequenceID]*thresholdmap.ThresholdMap),
 	}
 
-	initialSequenceIndex := referencedMarkers.HighestIndex() + 1
-	referencedMarkers.ForEach(func(sequenceID SequenceID, index Index) bool {
+	initialSequenceIndex := markers.HighestIndex() + 1
+	markers.ForEach(func(sequenceID SequenceID, index Index) bool {
 		thresholdMap := thresholdmap.New(thresholdmap.LowerThresholdMode)
-
 		thresholdMap.Set(uint64(initialSequenceIndex), uint64(index))
-		newParentReferences.referencedIndexesBySequence[sequenceID] = thresholdMap
+
+		referencedMarkers.referencedIndexesBySequence[sequenceID] = thresholdMap
 
 		return true
 	})
@@ -41,10 +41,10 @@ func NewParentReferences(referencedMarkers *Markers) (newParentReferences *Paren
 	return
 }
 
-// ParentReferencesFromBytes unmarshals a ParentReferences from a sequence of bytes.
-func ParentReferencesFromBytes(parentReferencesBytes []byte) (parentReferences *ParentReferences, consumedBytes int, err error) {
+// ReferencedMarkersFromBytes unmarshals ReferencedMarkers from a sequence of bytes.
+func ReferencedMarkersFromBytes(parentReferencesBytes []byte) (referencedMarkers *ReferencedMarkers, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(parentReferencesBytes)
-	if parentReferences, err = ParentReferencesFromMarshalUtil(marshalUtil); err != nil {
+	if referencedMarkers, err = ParentReferencesFromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse Markers from MarshalUtil: %w", err)
 		return
 	}
@@ -53,9 +53,9 @@ func ParentReferencesFromBytes(parentReferencesBytes []byte) (parentReferences *
 	return
 }
 
-// ParentReferencesFromMarshalUtil unmarshals a ParentReferences object using a MarshalUtil (for easier unmarshaling).
-func ParentReferencesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (parentReferences *ParentReferences, err error) {
-	parentReferences = &ParentReferences{
+// ParentReferencesFromMarshalUtil unmarshals ReferencedMarkers using a MarshalUtil (for easier unmarshaling).
+func ParentReferencesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (referencedMarkers *ReferencedMarkers, err error) {
+	referencedMarkers = &ReferencedMarkers{
 		referencedIndexesBySequence: make(map[SequenceID]*thresholdmap.ThresholdMap),
 	}
 
@@ -92,22 +92,22 @@ func ParentReferencesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (pare
 
 			thresholdMap.Set(referencingIndex, referencedIndex)
 		}
-		parentReferences.referencedIndexesBySequence[sequenceID] = thresholdMap
+		referencedMarkers.referencedIndexesBySequence[sequenceID] = thresholdMap
 	}
 
 	return
 }
 
-// AddReferences adds referenced Markers to the ParentReferences.
-func (p *ParentReferences) AddReferences(referencedMarkers *Markers, referencingIndex Index) {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
+// AddReferences adds referenced Markers to the ReferencedMarkers.
+func (r *ReferencedMarkers) AddReferences(referencedMarkers *Markers, referencingIndex Index) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 
 	referencedMarkers.ForEach(func(referencedSequenceID SequenceID, referencedIndex Index) bool {
-		thresholdMap, exists := p.referencedIndexesBySequence[referencedSequenceID]
+		thresholdMap, exists := r.referencedIndexesBySequence[referencedSequenceID]
 		if !exists {
 			thresholdMap = thresholdmap.New(thresholdmap.LowerThresholdMode)
-			p.referencedIndexesBySequence[referencedSequenceID] = thresholdMap
+			r.referencedIndexesBySequence[referencedSequenceID] = thresholdMap
 		}
 
 		thresholdMap.Set(uint64(referencingIndex), uint64(referencedIndex))
@@ -117,13 +117,13 @@ func (p *ParentReferences) AddReferences(referencedMarkers *Markers, referencing
 }
 
 // HighestReferencedMarker returns the referenced Marker with the highest Index of a given Sequence.
-func (p *ParentReferences) HighestReferencedMarker(sequenceID SequenceID, referencingIndex Index) (highestReferencedMarker *Marker) {
-	p.mutex.RLock()
-	defer p.mutex.RUnlock()
+func (r *ReferencedMarkers) HighestReferencedMarker(sequenceID SequenceID, referencingIndex Index) (highestReferencedMarker *Marker) {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
 
-	thresholdMap, exists := p.referencedIndexesBySequence[sequenceID]
+	thresholdMap, exists := r.referencedIndexesBySequence[sequenceID]
 	if !exists {
-		panic(fmt.Sprintf("Sequence with %s does not exist in ParentReferences", sequenceID))
+		panic(fmt.Sprintf("Sequence with %s does not exist in ReferencedMarkers", sequenceID))
 	}
 
 	highestReferencedIndex, exists := thresholdMap.Get(uint64(referencingIndex))
@@ -138,12 +138,12 @@ func (p *ParentReferences) HighestReferencedMarker(sequenceID SequenceID, refere
 }
 
 // HighestReferencedMarkers returns a collection of Markers that were referenced by the given Index.
-func (p *ParentReferences) HighestReferencedMarkers(index Index) (highestReferencedMarkers *Markers) {
-	p.mutex.RLock()
-	defer p.mutex.RUnlock()
+func (r *ReferencedMarkers) HighestReferencedMarkers(index Index) (highestReferencedMarkers *Markers) {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
 
 	highestReferencedMarkers = NewMarkers()
-	for sequenceID, thresholdMap := range p.referencedIndexesBySequence {
+	for sequenceID, thresholdMap := range r.referencedIndexesBySequence {
 		referencedIndex, exists := thresholdMap.Get(uint64(index))
 		if !exists {
 			panic(fmt.Sprintf("%s is smaller than the lowest known Index", index))
@@ -154,27 +154,27 @@ func (p *ParentReferences) HighestReferencedMarkers(index Index) (highestReferen
 	return
 }
 
-// SequenceIDs returns the SequenceIDs of all referenced Sequences (and not just the parents in the Sequence DAG).
-func (p *ParentReferences) SequenceIDs() (sequenceIDs SequenceIDs) {
-	p.mutex.RLock()
-	defer p.mutex.RUnlock()
+// ReferencedSequences returns the SequenceIDs of all referenced Sequences.
+func (r *ReferencedMarkers) ReferencedSequences() (referencedSequences SequenceIDs) {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
 
-	sequenceIDsSlice := make([]SequenceID, 0, len(p.referencedIndexesBySequence))
-	for sequenceID := range p.referencedIndexesBySequence {
+	sequenceIDsSlice := make([]SequenceID, 0, len(r.referencedIndexesBySequence))
+	for sequenceID := range r.referencedIndexesBySequence {
 		sequenceIDsSlice = append(sequenceIDsSlice, sequenceID)
 	}
 
 	return NewSequenceIDs(sequenceIDsSlice...)
 }
 
-// Bytes returns a marshaled version of the ParentReferences.
-func (p *ParentReferences) Bytes() (marshaledParentReferences []byte) {
-	p.mutex.RLock()
-	defer p.mutex.RUnlock()
+// Bytes returns a marshaled version of the ReferencedMarkers.
+func (r *ReferencedMarkers) Bytes() (marshaledParentReferences []byte) {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
 
 	marshalUtil := marshalutil.New()
-	marshalUtil.WriteUint64(uint64(len(p.referencedIndexesBySequence)))
-	for sequenceID, thresholdMap := range p.referencedIndexesBySequence {
+	marshalUtil.WriteUint64(uint64(len(r.referencedIndexesBySequence)))
+	for sequenceID, thresholdMap := range r.referencedIndexesBySequence {
 		marshalUtil.Write(sequenceID)
 		marshalUtil.WriteUint64(uint64(thresholdMap.Size()))
 		thresholdMap.ForEach(func(node *thresholdmap.Element) bool {
@@ -188,14 +188,14 @@ func (p *ParentReferences) Bytes() (marshaledParentReferences []byte) {
 	return marshalUtil.Bytes()
 }
 
-// String returns a human readable version of the ParentReferences.
-func (p *ParentReferences) String() (humanReadableParentReferences string) {
-	p.mutex.RLock()
-	defer p.mutex.RUnlock()
+// String returns a human readable version of the ReferencedMarkers.
+func (r *ReferencedMarkers) String() (humanReadableParentReferences string) {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
 
 	referencingIndexes := make([]Index, 0)
 	referencedMarkersByReferencingIndex := make(map[Index]*Markers)
-	for sequenceID, thresholdMap := range p.referencedIndexesBySequence {
+	for sequenceID, thresholdMap := range r.referencedIndexesBySequence {
 		thresholdMap.ForEach(func(node *thresholdmap.Element) bool {
 			referencingIndex := Index(node.Key().(uint64))
 			referencedIndex := Index(node.Value().(uint64))
@@ -229,8 +229,8 @@ func (p *ParentReferences) String() (humanReadableParentReferences string) {
 		}
 	}
 
-	return stringify.Struct("ParentReferences",
-		stringify.StructField("referencedSequences", p.SequenceIDs()),
+	return stringify.Struct("ReferencedMarkers",
+		stringify.StructField("referencedSequences", r.ReferencedSequences()),
 		stringify.StructField("referencedMarkers", referencedMarkers),
 	)
 }

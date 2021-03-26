@@ -21,7 +21,7 @@ import (
 // Sequence represents a set of ever increasing Indexes that are encapsulating a certain part of the DAG.
 type Sequence struct {
 	id                SequenceID
-	parentReferences  *ParentReferences
+	parentReferences  *ReferencedMarkers
 	rank              uint64
 	lowestIndex       Index
 	highestIndex      Index
@@ -36,7 +36,7 @@ func NewSequence(id SequenceID, referencedMarkers *Markers, rank uint64) *Sequen
 
 	return &Sequence{
 		id:               id,
-		parentReferences: NewParentReferences(referencedMarkers),
+		parentReferences: NewReferencedMarkers(referencedMarkers),
 		rank:             rank,
 		lowestIndex:      initialIndex,
 		highestIndex:     initialIndex,
@@ -63,7 +63,7 @@ func SequenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequence *Se
 		return
 	}
 	if sequence.parentReferences, err = ParentReferencesFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse ParentReferences from MarshalUtil: %w", err)
+		err = xerrors.Errorf("failed to parse ReferencedMarkers from MarshalUtil: %w", err)
 		return
 	}
 	if sequence.rank, err = marshalUtil.ReadUint64(); err != nil {
@@ -99,7 +99,7 @@ func (s *Sequence) ID() SequenceID {
 
 // ParentSequences returns the SequenceIDs of the parent Sequences in the Sequence DAG.
 func (s *Sequence) ParentSequences() SequenceIDs {
-	return s.parentReferences.SequenceIDs()
+	return s.parentReferences.ReferencedSequences()
 }
 
 // HighestReferencedParentMarkers returns a collection of Markers that were referenced by the given Index.

@@ -9,7 +9,7 @@ import (
 )
 
 func TestParentReferences(t *testing.T) {
-	parentReferences := NewParentReferences(NewMarkers(
+	parentReferences := NewReferencedMarkers(NewMarkers(
 		&Marker{1, 3},
 		&Marker{2, 7},
 	))
@@ -24,18 +24,18 @@ func TestParentReferences(t *testing.T) {
 		&Marker{2, 10},
 	), 12)
 
-	assert.Equal(t, NewSequenceIDs(1, 2), parentReferences.SequenceIDs())
+	assert.Equal(t, NewSequenceIDs(1, 2), parentReferences.ReferencedSequences())
 	assert.Equal(t, &Marker{1, 3}, parentReferences.HighestReferencedMarker(1, 8))
 	assert.Equal(t, &Marker{1, 5}, parentReferences.HighestReferencedMarker(1, 10))
 	assert.Equal(t, &Marker{1, 5}, parentReferences.HighestReferencedMarker(1, 11))
 	assert.Equal(t, &Marker{1, 7}, parentReferences.HighestReferencedMarker(1, 12))
 
 	marshaledParentReferences := parentReferences.Bytes()
-	unmarshalParentReferences, consumedBytes, err := ParentReferencesFromBytes(marshaledParentReferences)
+	unmarshalParentReferences, consumedBytes, err := ReferencedMarkersFromBytes(marshaledParentReferences)
 	require.NoError(t, err)
 	assert.Equal(t, len(marshaledParentReferences), consumedBytes)
 
-	assert.Equal(t, NewSequenceIDs(1, 2), unmarshalParentReferences.SequenceIDs())
+	assert.Equal(t, NewSequenceIDs(1, 2), unmarshalParentReferences.ReferencedSequences())
 	assert.Equal(t, &Marker{1, 3}, unmarshalParentReferences.HighestReferencedMarker(1, 8))
 	assert.Equal(t, &Marker{1, 5}, unmarshalParentReferences.HighestReferencedMarker(1, 10))
 	assert.Equal(t, &Marker{1, 5}, unmarshalParentReferences.HighestReferencedMarker(1, 11))

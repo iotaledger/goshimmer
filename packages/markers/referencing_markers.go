@@ -15,7 +15,7 @@ import (
 // region ReferencingMarkers ///////////////////////////////////////////////////////////////////////////////////////////
 
 // ReferencingMarkers is a data structure that allows to denote which Markers of child Sequences in the Sequence DAG
-// reference a given Index in a Sequence.
+// reference a given Marker in a Sequence.
 type ReferencingMarkers struct {
 	referencingIndexesBySequence map[SequenceID]*thresholdmap.ThresholdMap
 	mutex                        sync.RWMutex
@@ -120,7 +120,7 @@ func (r *ReferencingMarkers) Get(index Index) (referencingMarkers *Markers) {
 }
 
 // ReferencingSequences returns the SequenceIDs of all referencing Sequences.
-func (r *ReferencingMarkers) ReferencingSequences() (sequenceIDs SequenceIDs) {
+func (r *ReferencingMarkers) ReferencingSequences() (referencingSequences SequenceIDs) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 
