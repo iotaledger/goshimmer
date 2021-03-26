@@ -13,7 +13,6 @@ func TestParentReferences(t *testing.T) {
 		&Marker{1, 3},
 		&Marker{2, 7},
 	))
-	assert.Equal(t, NewSequenceIDs(1, 2), parentReferences.ParentSequences())
 
 	parentReferences.AddReferences(NewMarkers(
 		&Marker{1, 5},

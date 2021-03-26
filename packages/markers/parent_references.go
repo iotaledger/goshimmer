@@ -18,7 +18,6 @@ import (
 // ParentReferences models the relationship between Sequences by providing a way to encode which Marker references which
 // other Markers of other Sequences.
 type ParentReferences struct {
-	parentSequences SequenceIDs
 	references      map[SequenceID]*thresholdmap.ThresholdMap
 	referencesMutex sync.RWMutex
 }
@@ -26,8 +25,7 @@ type ParentReferences struct {
 // NewParentReferences creates a new set of ParentReferences.
 func NewParentReferences(referencedMarkers *Markers) (newParentReferences *ParentReferences) {
 	newParentReferences = &ParentReferences{
-		parentSequences: referencedMarkers.SequenceIDs(),
-		references:      make(map[SequenceID]*thresholdmap.ThresholdMap),
+		references: make(map[SequenceID]*thresholdmap.ThresholdMap),
 	}
 
 	initialSequenceIndex := referencedMarkers.HighestIndex() + 1
@@ -59,10 +57,6 @@ func ParentReferencesFromBytes(parentReferencesBytes []byte) (parentReferences *
 func ParentReferencesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (parentReferences *ParentReferences, err error) {
 	parentReferences = &ParentReferences{
 		references: make(map[SequenceID]*thresholdmap.ThresholdMap),
-	}
-	if parentReferences.parentSequences, err = SequenceIDsFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse parent ReferencingSequences from MarshalUtil: %w", err)
-		return
 	}
 
 	sequenceCount, err := marshalUtil.ReadUint64()
@@ -102,11 +96,6 @@ func ParentReferencesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (pare
 	}
 
 	return
-}
-
-// ParentSequences returns the parent Sequences of the ParentReferences.
-func (p *ParentReferences) ParentSequences() (parentSequences SequenceIDs) {
-	return p.parentSequences
 }
 
 // AddReferences adds referenced Markers to the ParentReferences.
@@ -184,7 +173,6 @@ func (p *ParentReferences) Bytes() (marshaledParentReferences []byte) {
 	defer p.referencesMutex.RUnlock()
 
 	marshalUtil := marshalutil.New()
-	marshalUtil.Write(p.parentSequences)
 	marshalUtil.WriteUint64(uint64(len(p.references)))
 	for sequenceID, thresholdMap := range p.references {
 		marshalUtil.Write(sequenceID)
@@ -242,8 +230,7 @@ func (p *ParentReferences) String() (humanReadableParentReferences string) {
 	}
 
 	return stringify.Struct("ParentReferences",
-		stringify.StructField("parentSequences", p.ParentSequences()),
-		stringify.StructField("referencedSequenceIDs", p.SequenceIDs()),
+		stringify.StructField("referencedSequences", p.SequenceIDs()),
 		stringify.StructField("referencedMarkers", referencedMarkers),
 	)
 }
