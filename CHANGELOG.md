@@ -1,3 +1,16 @@
+# v0.5.3 - 2021-03-25
+* Added new API endpoints
+* Added models navigation through the Dashboard Explorer
+* Added new diagnostic APIs
+* Added new docs sections
+* Fix dashboard mana event feed
+* Fix markers issue
+* Fix UnlockBlocks check
+* Fix loading of config parameters
+* Fix bug in the Get method of ColoredBalances
+* Enhance golangci-lint
+* **Breaking**: bumps network and database versions
+
 # v0.5.2 - 2021-03-17
 * Fix markers past cone check
 * Add more information to explorer and message API

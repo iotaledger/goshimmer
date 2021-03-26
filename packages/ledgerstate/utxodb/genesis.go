@@ -50,7 +50,8 @@ func newUtxodb(seed *ed25519.Seed, supply uint64) *UtxoDB {
 	return u
 }
 
-// New creates new utxodb instance with optional supply. Supply defaults to the standard IOTA supply
+// New creates new utxodb instance with predefined genesis seed and optional supply.
+// Supply defaults to the standard IOTA supply
 func New(supply ...uint64) *UtxoDB {
 	s := defaultSupply
 	if len(supply) > 0 {

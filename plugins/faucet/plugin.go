@@ -7,11 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/pow"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/config"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
@@ -19,6 +14,12 @@ import (
 	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/mr-tron/base58"
 	flag "github.com/spf13/pflag"
+
+	"github.com/iotaledger/goshimmer/packages/pow"
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 const (
@@ -76,7 +77,7 @@ func Plugin() *node.Plugin {
 func Faucet() *Component {
 	faucetOnce.Do(func() {
 		base58Seed := config.Node().String(CfgFaucetSeed)
-		if len(base58Seed) == 0 {
+		if base58Seed == "" {
 			log.Fatal("a seed must be defined when enabling the faucet plugin")
 		}
 		seedBytes, err := base58.Decode(base58Seed)
@@ -113,8 +114,6 @@ func configure(*node.Plugin) {
 			log.Warnf("couldn't fulfill funding request to %s: %s", addr.Base58(), err)
 			if errors.Is(err, ErrPrepareFaucet) {
 				log.Warn(err.Error())
-			} else {
-				log.Warnf("couldn't fulfill funding request to %s: %s", addr, err)
 			}
 			return
 		}

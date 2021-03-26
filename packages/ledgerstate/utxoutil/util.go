@@ -1,35 +1,31 @@
 package utxoutil
 
 import (
-	"bytes"
-
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/xerrors"
 )
 
-func EqualAddresses(a1, a2 ledgerstate.Address) bool {
-	if a1 == a2 {
-		return true
-	}
-	if a1 == nil || a2 == nil {
-		return false
-	}
-	if a1.Type() != a2.Type() {
-		return false
-	}
-	if bytes.Compare(a1.Digest(), a2.Digest()) != 0 {
-		return false
-	}
-	return true
-}
-
+// signatureUnlockBlockWithIndex internal structure used to track signature and indices where it was used in the transaction
 type signatureUnlockBlockWithIndex struct {
 	unlockBlock   *ledgerstate.SignatureUnlockBlock
 	indexUnlocked int
 }
 
+// UnlockInputsWithED25519KeyPairs signs the transaction essence with provided ED25519 pair. Then it unlocks
+// inputs provided as a list of outputs using those signatures and returns a list of unlock blocks in the same
+// order as inputs.
+// It only uses no more signatures as it is needed to unlock all inputs. Other unlock blocks are references
+// The function unlocks the following output types:
+// - ledgerstate.AliasOutput
+// - ledgerstate.ExtendedLockedOutput
+// - ledgerstate.SigLockedSingleOutput
+// - ledgerstate.SigLockedColoredOutput
+// It unlocks inputs by using the following unlock block types:
+// - ledgerstate.SignatureUnlockBlock
+// - ledgerstate.ReferenceUnlockBlock
+// - ledgerstate.AliasUnlockBlock
 func UnlockInputsWithED25519KeyPairs(inputs []ledgerstate.Output, essence *ledgerstate.TransactionEssence, keyPairs ...*ed25519.KeyPair) ([]ledgerstate.UnlockBlock, error) {
 	sigs := make(map[[33]byte]*signatureUnlockBlockWithIndex)
 	for _, keyPair := range keyPairs {
@@ -47,6 +43,7 @@ func UnlockInputsWithED25519KeyPairs(inputs []ledgerstate.Output, essence *ledge
 	return unlockInputsWithSignatureBlocks(inputs, sigs)
 }
 
+// unlockInputsWithSignatureBlocks does the optimized unlocking
 func unlockInputsWithSignatureBlocks(inputs []ledgerstate.Output, sigUnlockBlocks map[[33]byte]*signatureUnlockBlockWithIndex) ([]ledgerstate.UnlockBlock, error) {
 	// unlock ChainOutputs
 	ret := make([]ledgerstate.UnlockBlock, len(inputs))
@@ -55,7 +52,7 @@ func unlockInputsWithSignatureBlocks(inputs []ledgerstate.Output, sigUnlockBlock
 			continue
 		}
 		switch ot := out.(type) {
-		case *ledgerstate.ChainOutput:
+		case *ledgerstate.AliasOutput:
 			sig, ok := sigUnlockBlocks[ot.GetStateAddress().Array()]
 			if !ok {
 				return nil, xerrors.Errorf("chain input %d can't be unlocked for state update")
@@ -74,7 +71,7 @@ func unlockInputsWithSignatureBlocks(inputs []ledgerstate.Output, sigUnlockBlock
 				if !ok {
 					continue
 				}
-				if !EqualAddresses(ot.GetAliasAddress(), eot.Address()) {
+				if !ot.GetAliasAddress().Equals(eot.Address()) {
 					continue
 				}
 				ret[i] = ledgerstate.NewAliasUnlockBlock(uint16(index))
@@ -122,7 +119,7 @@ func unlockInputsWithSignatureBlocks(inputs []ledgerstate.Output, sigUnlockBlock
 				sig.indexUnlocked = index
 			}
 		default:
-			return nil, xerrors.Errorf("unsupported output type at #d", index)
+			return nil, xerrors.Errorf("unsupported output type at index d", index)
 		}
 	}
 	for _, b := range ret {
@@ -133,12 +130,12 @@ func unlockInputsWithSignatureBlocks(inputs []ledgerstate.Output, sigUnlockBlock
 	return ret, nil
 }
 
-// CollectChainedOutputs scans all outputs and collects ledgerstate.ChainOutput into a map by the Address.Array
+// CollectChainedOutputs scans all outputs and collects ledgerstate.AliasOutput into a map by the Address.Array
 // Returns an error if finds duplicate
-func CollectChainedOutputs(essence *ledgerstate.TransactionEssence) (map[[33]byte]*ledgerstate.ChainOutput, error) {
-	ret := make(map[[33]byte]*ledgerstate.ChainOutput)
+func CollectChainedOutputs(essence *ledgerstate.TransactionEssence) (map[[33]byte]*ledgerstate.AliasOutput, error) {
+	ret := make(map[[33]byte]*ledgerstate.AliasOutput)
 	for _, o := range essence.Outputs() {
-		out, ok := o.(*ledgerstate.ChainOutput)
+		out, ok := o.(*ledgerstate.AliasOutput)
 		if !ok {
 			continue
 		}
@@ -154,7 +151,7 @@ func CollectChainedOutputs(essence *ledgerstate.TransactionEssence) (map[[33]byt
 // returns:
 // - nil and no error if found none
 // - error if there's more than 1
-func GetSingleChainedOutput(essence *ledgerstate.TransactionEssence) (*ledgerstate.ChainOutput, error) {
+func GetSingleChainedOutput(essence *ledgerstate.TransactionEssence) (*ledgerstate.AliasOutput, error) {
 	ch, err := CollectChainedOutputs(essence)
 	if err != nil {
 		return nil, err
@@ -208,6 +205,8 @@ func GetSingleSender(tx *ledgerstate.Transaction) (ledgerstate.Address, error) {
 	return chained.GetAliasAddress(), nil
 }
 
+// GetMintedAmounts analyzes outputs and extracts information of new colors
+// which were minted and respective amounts of tokens
 func GetMintedAmounts(tx *ledgerstate.Transaction) map[ledgerstate.Color]uint64 {
 	ret := make(map[ledgerstate.Color]uint64)
 	for _, out := range tx.Essence().Outputs() {

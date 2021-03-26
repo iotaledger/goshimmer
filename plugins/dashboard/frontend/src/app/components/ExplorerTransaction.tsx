@@ -75,8 +75,8 @@ export class ExplorerTransaction extends React.Component<Props, any> {
                                                           {
                                                               input.referencedOutputID ?
                                                                   <React.Fragment>
-                                                                      <ListGroup.Item>Transaction ID: <a className={"font-sm"} href={`/explorer/transaction/${input.referencedOutputID.transactionID}`}>{input.referencedOutputID.transactionID}</a></ListGroup.Item>
-                                                                      <ListGroup.Item>Referenced OutputID: <a href={"#"}>{input.referencedOutputID.base58}</a></ListGroup.Item>
+                                                                      <ListGroup.Item>Transaction ID: <a href={`/explorer/transaction/${input.referencedOutputID.transactionID}`}>{input.referencedOutputID.transactionID}</a></ListGroup.Item>
+                                                                      <ListGroup.Item>Referenced OutputID: <a href={`/explorer/output/${input.referencedOutputID.base58}`}>{input.referencedOutputID.base58}</a></ListGroup.Item>
                                                                       <ListGroup.Item>Output Index: {input.referencedOutputID.outputIndex}</ListGroup.Item>
                                                                   </React.Fragment>
                                                               :
@@ -112,7 +112,7 @@ export class ExplorerTransaction extends React.Component<Props, any> {
                                                     <div className={"mb-2"} key={i}>
                                                         <span className={"mb-2"}>Index: <Badge variant={"primary"}>{i}</Badge></span>
                                                         <ListGroup>
-                                                            <ListGroup.Item>ID: <a href={"#"}>{output.outputID.base58}</a></ListGroup.Item>
+                                                            <ListGroup.Item>ID: <a href={`/explorer/output/${output.outputID.base58}`}>{output.outputID.base58}</a></ListGroup.Item>
                                                             <ListGroup.Item>Address: <a href={`/explorer/address/${output.address}`}> {output.address}</a></ListGroup.Item>
                                                             <ListGroup.Item>Type: {output.type}</ListGroup.Item>
                                                             <ListGroup.Item>Output Index: {output.outputID.outputIndex}</ListGroup.Item>

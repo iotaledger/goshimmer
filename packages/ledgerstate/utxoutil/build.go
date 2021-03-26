@@ -353,7 +353,7 @@ func (b *Builder) ConsumeChainInput(addressAlias ledgerstate.Address) error {
 }
 
 // ChainNextOutput creates chained output without consuming it
-func (b *Builder) ChainNextOutput(addressAlias ledgerstate.Address) (*ledgerstate.ChainOutput, error) {
+func (b *Builder) ChainNextOutput(addressAlias ledgerstate.Address) (*ledgerstate.AliasOutput, error) {
 	out, _, ok := FindChainConsumableInput(addressAlias, b.consumables...)
 	if !ok {
 		return nil, xerrors.Errorf("can't find chain input for %s", addressAlias)

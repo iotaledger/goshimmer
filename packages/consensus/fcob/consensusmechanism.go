@@ -3,15 +3,16 @@ package fcob
 import (
 	"time"
 
+	"github.com/iotaledger/hive.go/datastructure/walker"
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/timedexecutor"
+	"github.com/iotaledger/hive.go/timedqueue"
+
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	voter "github.com/iotaledger/goshimmer/packages/vote/opinion"
-	"github.com/iotaledger/hive.go/datastructure/walker"
-	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/timedexecutor"
-	"github.com/iotaledger/hive.go/timedqueue"
 )
 
 var (
@@ -191,7 +192,6 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 		f.storage.opinionStorage.Store(newOpinion).Release()
 
 		switch newOpinion.LevelOfKnowledge() {
-
 		case Pending:
 			break
 
@@ -207,9 +207,7 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 		default:
 			f.onPayloadOpinionFormed(messageID, newOpinion.liked)
 			return
-
 		}
-
 	}
 
 	newOpinion.OpinionEssence = OpinionEssence{
@@ -325,6 +323,14 @@ func (f *ConsensusMechanism) setEligibility(messageID tangle.MessageID) {
 			)
 		})
 	})
+}
+
+// OpinionFormedTime returns the time when the opinion for the given message was formed.
+func (f *ConsensusMechanism) OpinionFormedTime(messageID tangle.MessageID) (t time.Time) {
+	f.storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		t = messageMetadata.OpinionFormedTime()
+	})
+	return
 }
 
 // parentsEligibility checks if the parents are eligible.

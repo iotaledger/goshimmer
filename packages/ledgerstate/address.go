@@ -22,7 +22,7 @@ const (
 	// BLSAddressType represents an Address secured by the BLS signature scheme.
 	BLSAddressType
 
-	// AliasAddressType represents ID used in ChainOutput and AliasLockOutput
+	// AliasAddressType represents ID used in AliasOutput and AliasLockOutput
 	AliasAddressType
 )
 
@@ -377,7 +377,7 @@ var _ Address = &BLSAddress{}
 // region AliasAddress ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // AliasAddress represents a special type of Address which is not backed by a private key directly,
-// but is indirectly backed by a private key defined by corresponding ChainOutput parameters
+// but is indirectly backed by a private key defined by corresponding AliasOutput parameters
 type AliasAddress struct {
 	digest [32]byte
 }

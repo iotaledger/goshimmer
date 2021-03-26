@@ -1,8 +1,9 @@
 package prometheus
 
 import (
-	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/iotaledger/goshimmer/plugins/metrics"
 )
 
 var (
@@ -27,6 +28,6 @@ func registerProcessMetrics() {
 }
 
 func collectProcessMetrics() {
-	cpuUsage.Set(float64(metrics.CPUUsage()))
+	cpuUsage.Set(metrics.CPUUsage())
 	memUsageBytes.Set(float64(metrics.MemUsage()))
 }

@@ -28,8 +28,8 @@ func TestPersistableBaseMana_Bytes(t *testing.T) {
 
 	bytes := marshalUtil.Bytes()
 	assert.Equal(t, bytes, p.Bytes(), "should be equal")
-
 }
+
 func TestPersistableBaseMana_ObjectStorageKey(t *testing.T) {
 	p := newPersistableMana()
 	key := p.ObjectStorageKey()

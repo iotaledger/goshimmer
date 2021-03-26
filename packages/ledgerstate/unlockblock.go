@@ -336,7 +336,7 @@ var _ UnlockBlock = &ReferenceUnlockBlock{}
 
 // region AliasUnlockBlock /////////////////////////////////////////////////////////////////////////////////////////
 
-// AliasUnlockBlock defines an UnlockBlock which contains an index of corresponding ChainOutput
+// AliasUnlockBlock defines an UnlockBlock which contains an index of corresponding AliasOutput
 type AliasUnlockBlock struct {
 	referencedIndex uint16
 }
@@ -380,7 +380,7 @@ func AliasUnlockBlockFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (unlo
 	return
 }
 
-// ChainInputIndex returns the index of the input, the ChainOutput which contains AliasAddress
+// ChainInputIndex returns the index of the input, the AliasOutput which contains AliasAddress
 func (r *AliasUnlockBlock) ChainInputIndex() uint16 {
 	return r.referencedIndex
 }

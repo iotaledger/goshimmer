@@ -16,6 +16,7 @@ import {TransactionPayload} from 'app/components/TransactionPayload'
 import {SyncBeaconPayload} from 'app/components/SyncBeaconPayload'
 import {getPayloadType, PayloadType} from 'app/misc/Payload'
 import {StatementPayload} from "app/components/StatemenetPayload";
+import {resolveBase58BranchID} from "app/utils/branch";
 
 interface Props {
     nodeStore?: NodeStore;
@@ -127,7 +128,7 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                                         Sequence Number: {msg.sequence_number}
                                     </ListGroup.Item>
                                     <ListGroup.Item>
-                                        BranchID: {msg.branchID}
+                                        BranchID: <Link to={`/explorer/branch/${msg.branchID}`}>{resolveBase58BranchID(msg.branchID)}</Link>
                                     </ListGroup.Item>
                                     <ListGroup.Item>
                                         Solid: {msg.solid ? 'Yes' : 'No'}

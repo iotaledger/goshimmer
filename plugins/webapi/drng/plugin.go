@@ -3,8 +3,9 @@ package drng
 import (
 	"sync"
 
-	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/node"
+
+	"github.com/iotaledger/goshimmer/plugins/webapi"
 )
 
 // PluginName is the name of the web API DRNG endpoint plugin.

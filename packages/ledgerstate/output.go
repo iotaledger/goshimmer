@@ -255,7 +255,7 @@ func OutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output Output,
 		}
 	case ChainOutputType:
 		if output, err = ChainOutputFromMarshalUtil(marshalUtil); err != nil {
-			err = xerrors.Errorf("failed to parse ChainOutput: %w", err)
+			err = xerrors.Errorf("failed to parse AliasOutput: %w", err)
 			return
 		}
 	case ExtendedLockedOutputType:
@@ -451,6 +451,15 @@ func (o Outputs) String() string {
 	}
 
 	return structBuilder.String()
+}
+
+// Strings returns the Outputs in the form []transactionID:index.
+func (o Outputs) Strings() (result []string) {
+	for _, output := range o {
+		result = append(result, fmt.Sprintf("%s:%d", output.ID().TransactionID().Base58(), output.ID().OutputIndex()))
+	}
+
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -886,7 +895,7 @@ var _ Output = &SigLockedColoredOutput{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region ChainOutput ///////////////////////////////////////////////////////////////////////////////////////
+// region AliasOutput ///////////////////////////////////////////////////////////////////////////////////////
 
 // DustThresholdChainOutputIOTA is minimum number of iotas enforced for the output to be correct
 // TODO protocol-wide dust threshold configuration
@@ -903,9 +912,9 @@ const (
 	flagChainOutputImmutableDataPresent = 0x08
 )
 
-// ChainOutput represents output which defines as AliasAddress.
+// AliasOutput represents output which defines as AliasAddress.
 // It can only be used in a chained manner
-type ChainOutput struct {
+type AliasOutput struct {
 	// common for all outputs
 	outputId      OutputID
 	outputIdMutex sync.RWMutex
@@ -924,10 +933,10 @@ type ChainOutput struct {
 	stateIndex uint32
 	// optional state metadata. nil means absent
 	stateData []byte
-	// optional immutable data. It is set when ChainOutput is minted and can't be changed since
+	// optional immutable data. It is set when AliasOutput is minted and can't be changed since
 	// Useful for NFTs
 	immutableData []byte
-	// if the ChainOutput is chained in the transaction, the flags states if it is updating state or governance data.
+	// if the AliasOutput is chained in the transaction, the flags states if it is updating state or governance data.
 	// unlock validation of the corresponding input depends on it.
 	isGovernanceUpdate bool
 	// governance address if set. It can be any address, unlocked by signature of alias address. Nil means self governed
@@ -936,15 +945,15 @@ type ChainOutput struct {
 	objectstorage.StorableObjectFlags
 }
 
-// NewChainOutputMint creates new ChainOutput as minting output, i.e. the one which does not contain corresponding input.
-func NewChainOutputMint(balances map[Color]uint64, stateAddr Address, immutableData ...[]byte) (*ChainOutput, error) {
+// NewChainOutputMint creates new AliasOutput as minting output, i.e. the one which does not contain corresponding input.
+func NewChainOutputMint(balances map[Color]uint64, stateAddr Address, immutableData ...[]byte) (*AliasOutput, error) {
 	if !IsAboveDustThreshold(balances) {
-		return nil, xerrors.New("ChainOutput: colored balances are below dust threshold")
+		return nil, xerrors.New("AliasOutput: colored balances are below dust threshold")
 	}
 	if stateAddr == nil || stateAddr.Type() == AliasAddressType {
-		return nil, xerrors.New("ChainOutput: mandatory state address must be backed by a private key, can't be an alias")
+		return nil, xerrors.New("AliasOutput: mandatory state address must be backed by a private key, can't be an alias")
 	}
-	ret := &ChainOutput{
+	ret := &AliasOutput{
 		balances:     *NewColoredBalances(balances),
 		stateAddress: stateAddr,
 	}
@@ -957,8 +966,8 @@ func NewChainOutputMint(balances map[Color]uint64, stateAddr Address, immutableD
 	return ret, nil
 }
 
-// NewChainOutputNext creates new ChainOutput as state transition from the previous one
-func (c *ChainOutput) NewChainOutputNext(governanceUpdate ...bool) *ChainOutput {
+// NewChainOutputNext creates new AliasOutput as state transition from the previous one
+func (c *AliasOutput) NewChainOutputNext(governanceUpdate ...bool) *AliasOutput {
 	ret := c.clone()
 	ret.aliasAddress = *c.GetAliasAddress()
 	ret.isGovernanceUpdate = false
@@ -971,66 +980,66 @@ func (c *ChainOutput) NewChainOutputNext(governanceUpdate ...bool) *ChainOutput 
 	return ret
 }
 
-// ChainOutputFromMarshalUtil unmarshals a ChainOutput using a MarshalUtil (for easier unmarshaling).
-func ChainOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*ChainOutput, error) {
-	var ret *ChainOutput
+// ChainOutputFromMarshalUtil unmarshals a AliasOutput using a MarshalUtil (for easier unmarshaling).
+func ChainOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*AliasOutput, error) {
+	var ret *AliasOutput
 	outputType, err := marshalUtil.ReadByte()
 	if err != nil {
-		return nil, xerrors.Errorf("ChainOutput: failed to parse OutputType (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return nil, xerrors.Errorf("AliasOutput: failed to parse OutputType (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
 	if OutputType(outputType) != ChainOutputType {
-		return nil, xerrors.Errorf("ChainOutput: invalid OutputType (%X): %w", outputType, cerrors.ErrParseBytesFailed)
+		return nil, xerrors.Errorf("AliasOutput: invalid OutputType (%X): %w", outputType, cerrors.ErrParseBytesFailed)
 	}
-	ret = &ChainOutput{}
+	ret = &AliasOutput{}
 	flags, err := marshalUtil.ReadByte()
 	if err != nil {
-		return nil, xerrors.Errorf("ChainOutput: failed to parse ChainOutput flags (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return nil, xerrors.Errorf("AliasOutput: failed to parse AliasOutput flags (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
 	ret.isGovernanceUpdate = flags&flagChainOutputGovernanceUpdate != 0
 	if ret.aliasAddress.IsNil() {
 		addr, err := AliasAddressFromMarshalUtil(marshalUtil)
 		if err != nil {
-			return nil, xerrors.Errorf("ChainOutput: failed to parse alias address (%v): %w", err, cerrors.ErrParseBytesFailed)
+			return nil, xerrors.Errorf("AliasOutput: failed to parse alias address (%v): %w", err, cerrors.ErrParseBytesFailed)
 		}
 		ret.aliasAddress = *addr
 	}
 	cb, err := ColoredBalancesFromMarshalUtil(marshalUtil)
 	if err != nil {
-		return nil, xerrors.Errorf("ChainOutput: failed to parse colored balances: %w", err)
+		return nil, xerrors.Errorf("AliasOutput: failed to parse colored balances: %w", err)
 	}
 	ret.balances = *cb
 	ret.stateAddress, err = AddressFromMarshalUtil(marshalUtil)
 	if err != nil {
-		return nil, xerrors.Errorf("ChainOutput: failed to parse state address (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return nil, xerrors.Errorf("AliasOutput: failed to parse state address (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
 	ret.stateIndex, err = marshalUtil.ReadUint32()
 	if err != nil {
-		return nil, xerrors.Errorf("ChainOutput: failed to parse state address (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return nil, xerrors.Errorf("AliasOutput: failed to parse state address (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
 	if flags&flagChainOutputStateDataPresent != 0 {
 		size, err := marshalUtil.ReadUint16()
 		if err != nil {
-			return nil, xerrors.Errorf("ChainOutput: failed to parse state data size: %w", err)
+			return nil, xerrors.Errorf("AliasOutput: failed to parse state data size: %w", err)
 		}
 		ret.stateData, err = marshalUtil.ReadBytes(int(size))
 		if err != nil {
-			return nil, xerrors.Errorf("ChainOutput: failed to parse state data: %w", err)
+			return nil, xerrors.Errorf("AliasOutput: failed to parse state data: %w", err)
 		}
 	}
 	if flags&flagChainOutputImmutableDataPresent != 0 {
 		size, err := marshalUtil.ReadUint16()
 		if err != nil {
-			return nil, xerrors.Errorf("ChainOutput: failed to parse immutable data size: %w", err)
+			return nil, xerrors.Errorf("AliasOutput: failed to parse immutable data size: %w", err)
 		}
 		ret.immutableData, err = marshalUtil.ReadBytes(int(size))
 		if err != nil {
-			return nil, xerrors.Errorf("ChainOutput: failed to parse immutable data: %w", err)
+			return nil, xerrors.Errorf("AliasOutput: failed to parse immutable data: %w", err)
 		}
 	}
 	if flags&flagChainOutputGovernanceSet != 0 {
 		ret.governingAddress, err = AddressFromMarshalUtil(marshalUtil)
 		if err != nil {
-			return nil, xerrors.Errorf("ChainOutput: failed to parse governing address (%v): %w", err, cerrors.ErrParseBytesFailed)
+			return nil, xerrors.Errorf("AliasOutput: failed to parse governing address (%v): %w", err, cerrors.ErrParseBytesFailed)
 		}
 	}
 	if err := ret.checkBasicValidity(); err != nil {
@@ -1040,16 +1049,16 @@ func ChainOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*ChainOut
 }
 
 // SetBalances sets colored balances of the output
-func (c *ChainOutput) SetBalances(balances map[Color]uint64) error {
+func (c *AliasOutput) SetBalances(balances map[Color]uint64) error {
 	if !IsAboveDustThreshold(balances) {
-		return xerrors.New("ChainOutput: balances are less than dust threshold")
+		return xerrors.New("AliasOutput: balances are less than dust threshold")
 	}
 	c.balances = *NewColoredBalances(balances)
 	return nil
 }
 
 // GetAliasAddress calculates new ID if it is a minting output. Otherwise it takes stored value
-func (c *ChainOutput) GetAliasAddress() *AliasAddress {
+func (c *AliasOutput) GetAliasAddress() *AliasAddress {
 	if c.aliasAddress.IsNil() {
 		return NewAliasAddress(c.ID().Bytes())
 	}
@@ -1057,31 +1066,31 @@ func (c *ChainOutput) GetAliasAddress() *AliasAddress {
 }
 
 // IsOrigin returns true if it starts the chain
-func (c *ChainOutput) IsOrigin() bool {
+func (c *AliasOutput) IsOrigin() bool {
 	return c.aliasAddress.IsNil()
 }
 
 // IsSelfGoverned return if
-func (c *ChainOutput) IsSelfGoverned() bool {
+func (c *AliasOutput) IsSelfGoverned() bool {
 	return c.governingAddress == nil
 }
 
 // GetStateAddress return state controlling address
-func (c *ChainOutput) GetStateAddress() Address {
+func (c *AliasOutput) GetStateAddress() Address {
 	return c.stateAddress
 }
 
 // SetStateAddress sets the state controlling address
-func (c *ChainOutput) SetStateAddress(addr Address) error {
+func (c *AliasOutput) SetStateAddress(addr Address) error {
 	if addr == nil || addr.Type() == AliasAddressType {
-		return xerrors.New("ChainOutput: mandatory state address cannot be c AliasAddress")
+		return xerrors.New("AliasOutput: mandatory state address cannot be c AliasAddress")
 	}
 	c.stateAddress = addr
 	return nil
 }
 
 // SetGoverningAddress sets the governing address or nil for self-giverning
-func (c *ChainOutput) SetGoverningAddress(addr Address) {
+func (c *AliasOutput) SetGoverningAddress(addr Address) {
 	if addr.Array() == c.stateAddress.Array() {
 		addr = nil // self governing
 	}
@@ -1089,7 +1098,7 @@ func (c *ChainOutput) SetGoverningAddress(addr Address) {
 }
 
 // GetGoverningAddress return governing address. If self-governed, it is the same as state controlling address
-func (c *ChainOutput) GetGoverningAddress() Address {
+func (c *AliasOutput) GetGoverningAddress() Address {
 	if c.IsSelfGoverned() {
 		return c.stateAddress
 	}
@@ -1097,9 +1106,9 @@ func (c *ChainOutput) GetGoverningAddress() Address {
 }
 
 // SetStateData sets state data
-func (c *ChainOutput) SetStateData(data []byte) error {
+func (c *AliasOutput) SetStateData(data []byte) error {
 	if len(data) > MaxOutputPayloadSize {
-		return xerrors.New("ChainOutput: state data too big")
+		return xerrors.New("AliasOutput: state data too big")
 	}
 	c.stateData = make([]byte, len(data))
 	copy(c.stateData, data)
@@ -1107,31 +1116,31 @@ func (c *ChainOutput) SetStateData(data []byte) error {
 }
 
 // GetStateData gets the state data
-func (c *ChainOutput) GetStateData() []byte {
+func (c *AliasOutput) GetStateData() []byte {
 	return c.stateData
 }
 
-func (c *ChainOutput) SetStateIndex(index uint32) {
+func (c *AliasOutput) SetStateIndex(index uint32) {
 	c.stateIndex = index
 }
 
-func (c *ChainOutput) GetStateIndex() uint32 {
+func (c *AliasOutput) GetStateIndex() uint32 {
 	return c.stateIndex
 }
 
 // GetImmutableData gets the state data
-func (c *ChainOutput) GetImmutableData() []byte {
+func (c *AliasOutput) GetImmutableData() []byte {
 	return c.immutableData
 }
 
 // Clone clones the structure
-func (c *ChainOutput) Clone() Output {
+func (c *AliasOutput) Clone() Output {
 	return c.clone()
 }
 
-func (c *ChainOutput) clone() *ChainOutput {
+func (c *AliasOutput) clone() *AliasOutput {
 	c.mustValidate()
-	ret := &ChainOutput{
+	ret := &AliasOutput{
 		outputId:      c.outputId,
 		balances:      *c.balances.Clone(),
 		aliasAddress:  c.aliasAddress,
@@ -1150,7 +1159,7 @@ func (c *ChainOutput) clone() *ChainOutput {
 }
 
 // ID is the ID of the output
-func (c *ChainOutput) ID() OutputID {
+func (c *AliasOutput) ID() OutputID {
 	c.outputIdMutex.RLock()
 	defer c.outputIdMutex.RUnlock()
 
@@ -1158,7 +1167,7 @@ func (c *ChainOutput) ID() OutputID {
 }
 
 // SetID set the output ID after unmarshalling
-func (c *ChainOutput) SetID(outputID OutputID) Output {
+func (c *AliasOutput) SetID(outputID OutputID) Output {
 	c.outputIdMutex.Lock()
 	defer c.outputIdMutex.Unlock()
 
@@ -1167,37 +1176,37 @@ func (c *ChainOutput) SetID(outputID OutputID) Output {
 }
 
 // Type return the type of the output
-func (c *ChainOutput) Type() OutputType {
+func (c *AliasOutput) Type() OutputType {
 	return ChainOutputType
 }
 
 // Balances return colored balances of the output
-func (c *ChainOutput) Balances() *ColoredBalances {
+func (c *AliasOutput) Balances() *ColoredBalances {
 	return &c.balances
 }
 
-// Address ChainOutput is searchable in the ledger through its AliasAddress
-func (c *ChainOutput) Address() Address {
+// Address AliasOutput is searchable in the ledger through its AliasAddress
+func (c *AliasOutput) Address() Address {
 	return c.GetAliasAddress()
 }
 
 // Input makes input from the output
-func (c *ChainOutput) Input() Input {
+func (c *AliasOutput) Input() Input {
 	if c.ID() == EmptyOutputID {
-		panic("ChainOutput: Outputs that haven't been assigned an ID, yet cannot be converted to an Input")
+		panic("AliasOutput: Outputs that haven't been assigned an ID, yet cannot be converted to an Input")
 	}
 
 	return NewUTXOInput(c.ID())
 }
 
 // Bytes serialized form
-func (c *ChainOutput) Bytes() []byte {
+func (c *AliasOutput) Bytes() []byte {
 	return c.ObjectStorageValue()
 }
 
 // String human readable form
-func (c *ChainOutput) String() string {
-	ret := "ChainOutput:\n"
+func (c *AliasOutput) String() string {
+	ret := "AliasOutput:\n"
 	ret += fmt.Sprintf("   address: %s\n", c.Address())
 	ret += fmt.Sprintf("   outputId: %s\n", c.ID())
 	ret += fmt.Sprintf("   balance: %s\n", c.balances.String())
@@ -1208,22 +1217,22 @@ func (c *ChainOutput) String() string {
 }
 
 // Compare the two outputs
-func (c *ChainOutput) Compare(other Output) int {
+func (c *AliasOutput) Compare(other Output) int {
 	return bytes.Compare(c.Bytes(), other.Bytes())
 }
 
 // Update is disabled
-func (c *ChainOutput) Update(other objectstorage.StorableObject) {
-	panic("ChainOutput: storage object updates disabled")
+func (c *AliasOutput) Update(other objectstorage.StorableObject) {
+	panic("AliasOutput: storage object updates disabled")
 }
 
 // ObjectStorageKey a key
-func (c *ChainOutput) ObjectStorageKey() []byte {
+func (c *AliasOutput) ObjectStorageKey() []byte {
 	return c.ID().Bytes()
 }
 
 // ObjectStorageValue binary form
-func (c *ChainOutput) ObjectStorageValue() []byte {
+func (c *AliasOutput) ObjectStorageValue() []byte {
 	flags := c.mustFlags()
 	ret := marshalutil.New().
 		WriteByte(byte(ChainOutputType)).
@@ -1247,7 +1256,7 @@ func (c *ChainOutput) ObjectStorageValue() []byte {
 }
 
 // UnlockValid check unlock and validates chain
-func (c *ChainOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inputs []Output) (bool, error) {
+func (c *AliasOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inputs []Output) (bool, error) {
 	switch blk := unlockBlock.(type) {
 	case *SignatureUnlockBlock:
 		chained, err := c.findChainedOutputAndCheckFork(tx)
@@ -1293,7 +1302,7 @@ func (c *ChainOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inpu
 }
 
 // UpdateMintingColor replaces minting code with computed color code
-func (c *ChainOutput) UpdateMintingColor() Output {
+func (c *AliasOutput) UpdateMintingColor() Output {
 	coloredBalances := c.Balances().Map()
 	if mintedCoins, mintedCoinsExist := coloredBalances[ColorMint]; mintedCoinsExist {
 		delete(coloredBalances, ColorMint)
@@ -1307,36 +1316,36 @@ func (c *ChainOutput) UpdateMintingColor() Output {
 }
 
 // checkBasicValidity checks basic validity of the output
-func (c *ChainOutput) checkBasicValidity() error {
+func (c *AliasOutput) checkBasicValidity() error {
 	if !IsAboveDustThreshold(c.balances.Map()) {
-		return xerrors.New("ChainOutput: balances are below dust threshold")
+		return xerrors.New("AliasOutput: balances are below dust threshold")
 	}
 	if c.stateAddress == nil {
-		return xerrors.New("ChainOutput: state address must not be nil")
+		return xerrors.New("AliasOutput: state address must not be nil")
 	}
 	if c.IsOrigin() && c.stateIndex != 0 {
-		return xerrors.New("ChainOutput: origin must have stateIndex == 0")
+		return xerrors.New("AliasOutput: origin must have stateIndex == 0")
 	}
 	if len(c.stateData) > MaxOutputPayloadSize {
-		return xerrors.Errorf("ChainOutput: size of the stateData (%d) exceeds maximum allowed (%d)",
+		return xerrors.Errorf("AliasOutput: size of the stateData (%d) exceeds maximum allowed (%d)",
 			len(c.immutableData), MaxOutputPayloadSize)
 	}
 	if len(c.immutableData) > MaxOutputPayloadSize {
-		return xerrors.Errorf("ChainOutput: size of the immutableData (%d) exceeds maximum allowed (%d)",
+		return xerrors.Errorf("AliasOutput: size of the immutableData (%d) exceeds maximum allowed (%d)",
 			len(c.immutableData), MaxOutputPayloadSize)
 	}
 	return nil
 }
 
 // mustValidate internal validity assertion
-func (c *ChainOutput) mustValidate() {
+func (c *AliasOutput) mustValidate() {
 	if err := c.checkBasicValidity(); err != nil {
 		panic(err)
 	}
 }
 
 // mustFlags produces flags for serialization
-func (c *ChainOutput) mustFlags() byte {
+func (c *AliasOutput) mustFlags() byte {
 	c.mustValidate()
 	var ret byte
 	if c.isGovernanceUpdate {
@@ -1357,14 +1366,14 @@ func (c *ChainOutput) mustFlags() byte {
 // findChainedOutputAndCheckFork finds corresponding chained output.
 // If it is not unique, returns an error
 // If there's no such output, return nil and no error
-func (c *ChainOutput) findChainedOutputAndCheckFork(tx *Transaction) (*ChainOutput, error) {
-	var ret *ChainOutput
+func (c *AliasOutput) findChainedOutputAndCheckFork(tx *Transaction) (*AliasOutput, error) {
+	var ret *AliasOutput
 	aliasAddress := c.GetAliasAddress()
 	for _, out := range tx.Essence().Outputs() {
 		if out.Type() != ChainOutputType {
 			continue
 		}
-		outAlias := out.(*ChainOutput)
+		outAlias := out.(*AliasOutput)
 		if !aliasAddress.Equals(outAlias.GetAliasAddress()) {
 			continue
 		}
@@ -1419,7 +1428,7 @@ func isExactDustMinimum(b ColoredBalances) bool {
 }
 
 // validateTransition enforces transition constraints between input and output chain outputs
-func (c *ChainOutput) validateTransition(chained *ChainOutput) error {
+func (c *AliasOutput) validateTransition(chained *AliasOutput) error {
 	// enforce immutability of alias address and immutable data
 	if !c.GetAliasAddress().Equals(c.GetAliasAddress()) {
 		return xerrors.New("chain alias address can't be modified")
@@ -1432,15 +1441,15 @@ func (c *ChainOutput) validateTransition(chained *ChainOutput) error {
 		// GOVERNANCE TRANSITION
 		// should not modify state data
 		if !bytes.Equal(c.stateData, chained.stateData) {
-			return xerrors.New("ChainOutput: state data is not unlocked for modification")
+			return xerrors.New("AliasOutput: state data is not unlocked for modification")
 		}
 		// should not modify state index
 		if c.stateIndex != chained.stateIndex {
-			return xerrors.New("ChainOutput: state index is not unlocked for modification")
+			return xerrors.New("AliasOutput: state index is not unlocked for modification")
 		}
 		// should not modify tokens
 		if !equalColoredBalance(c.balances, chained.balances) {
-			return xerrors.New("ChainOutput: tokens are not unlocked for modification")
+			return xerrors.New("AliasOutput: tokens are not unlocked for modification")
 		}
 		// can modify state address
 		// can modify governing address
@@ -1449,53 +1458,53 @@ func (c *ChainOutput) validateTransition(chained *ChainOutput) error {
 		// can modify state data
 		// should increment state index
 		if c.stateIndex+1 != chained.stateIndex {
-			return xerrors.Errorf("ChainOutput: expected state index is %d found %d", c.stateIndex+1, chained.stateIndex)
+			return xerrors.Errorf("AliasOutput: expected state index is %d found %d", c.stateIndex+1, chained.stateIndex)
 		}
 		// can modify tokens
 		// should not modify stateAddress
 		if !c.stateAddress.Equals(chained.stateAddress) {
-			return xerrors.New("ChainOutput: state address is not unlocked for modification")
+			return xerrors.New("AliasOutput: state address is not unlocked for modification")
 		}
 		// should not modify governing address
 		if c.IsSelfGoverned() != chained.IsSelfGoverned() ||
 			(c.governingAddress != nil && !c.governingAddress.Equals(chained.governingAddress)) {
-			return xerrors.New("ChainOutput: governing address is not unlocked for modification")
+			return xerrors.New("AliasOutput: governing address is not unlocked for modification")
 		}
 	}
 	return nil
 }
 
 // validateDestroyTransition check validity if input is not chained (destroyed)
-func (c *ChainOutput) validateDestroyTransition() error {
+func (c *AliasOutput) validateDestroyTransition() error {
 	if !isExactDustMinimum(c.balances) {
-		return xerrors.New("ChainOutput: didn't find chained output and there are more tokens then upper limit for alias destruction")
+		return xerrors.New("AliasOutput: didn't find chained output and there are more tokens then upper limit for alias destruction")
 	}
 	return nil
 }
 
 // unlockedGovernanceByAliasIndex unlock one step of alias dereference
-func (c *ChainOutput) unlockedGovernanceByAliasIndex(tx *Transaction, refIndex uint16, inputs []Output) (bool, error) {
+func (c *AliasOutput) unlockedGovernanceByAliasIndex(tx *Transaction, refIndex uint16, inputs []Output) (bool, error) {
 	if c.IsSelfGoverned() {
-		return false, xerrors.New("ChainOutput: self-governing alias output can't be unlocked by alias reference")
+		return false, xerrors.New("AliasOutput: self-governing alias output can't be unlocked by alias reference")
 	}
 	if c.governingAddress.Type() != AliasAddressType {
-		return false, xerrors.New("ChainOutput: expected governing address of AliasAddress type")
+		return false, xerrors.New("AliasOutput: expected governing address of AliasAddress type")
 	}
 	if int(refIndex) > len(inputs) {
-		return false, xerrors.New("ChainOutput: wrong alias reference index")
+		return false, xerrors.New("AliasOutput: wrong alias reference index")
 	}
-	refInput, ok := inputs[refIndex].(*ChainOutput)
+	refInput, ok := inputs[refIndex].(*AliasOutput)
 	if !ok {
-		return false, xerrors.New("ChainOutput: the referenced output is not of ChainOutput type")
+		return false, xerrors.New("AliasOutput: the referenced output is not of AliasOutput type")
 	}
 	if !refInput.GetAliasAddress().Equals(c.governingAddress.(*AliasAddress)) {
-		return false, xerrors.New("ChainOutput: wrong alias reference address")
+		return false, xerrors.New("AliasOutput: wrong alias reference address")
 	}
 	return !refInput.IsUnlockedForGovernanceUpdate(tx), nil
 }
 
 // IsUnlockedForGovernanceUpdate finds chained output and checks if it is unlocked governance flags set
-func (c *ChainOutput) IsUnlockedForGovernanceUpdate(tx *Transaction) bool {
+func (c *AliasOutput) IsUnlockedForGovernanceUpdate(tx *Transaction) bool {
 	chained, err := c.findChainedOutputAndCheckFork(tx)
 	if err != nil {
 		return false
@@ -1504,7 +1513,7 @@ func (c *ChainOutput) IsUnlockedForGovernanceUpdate(tx *Transaction) bool {
 }
 
 // code contract (make sure the type implements all required methods)
-var _ Output = &ChainOutput{}
+var _ Output = &AliasOutput{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1701,9 +1710,9 @@ func (o *ExtendedLockedOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBl
 
 	case *AliasUnlockBlock:
 		// unlocking by alias reference
-		refAliasOutput, isAlias := inputs[blk.ChainInputIndex()].(*ChainOutput)
+		refAliasOutput, isAlias := inputs[blk.ChainInputIndex()].(*AliasOutput)
 		if !isAlias {
-			return false, xerrors.New("ExtendedLockedOutput: referenced input must be ChainOutput")
+			return false, xerrors.New("ExtendedLockedOutput: referenced input must be AliasOutput")
 		}
 		if !addr.Equals(refAliasOutput.GetAliasAddress()) {
 			return false, xerrors.New("ExtendedLockedOutput: wrong alias referenced")

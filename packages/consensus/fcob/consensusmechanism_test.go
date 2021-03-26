@@ -6,16 +6,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	"github.com/iotaledger/goshimmer/packages/vote"
-	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+	"github.com/iotaledger/goshimmer/packages/vote"
+	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 )
 
 func TestOpinionFormer_Scenario2(t *testing.T) {
@@ -52,7 +53,8 @@ func TestOpinionFormer_Scenario2(t *testing.T) {
 		})
 	snapshot := map[ledgerstate.TransactionID]map[ledgerstate.Address]*ledgerstate.ColoredBalances{
 		ledgerstate.GenesisTransactionID: {
-			wallets["GENESIS"].address: genesisBalance},
+			wallets["GENESIS"].address: genesisBalance,
+		},
 	}
 
 	testTangle.LedgerState.LoadSnapshot(snapshot)
@@ -144,7 +146,8 @@ func TestOpinionFormer_Scenario2(t *testing.T) {
 		consensusProvider.ProcessVote(&vote.OpinionEvent{
 			ID:      transactionID,
 			Opinion: o,
-			Ctx:     vote.Context{Type: vote.ConflictType}})
+			Ctx:     vote.Context{Type: vote.ConflictType},
+		})
 	}))
 
 	consensusProvider.Events.Error.Attach(events.NewClosure(func(err error) {
@@ -217,7 +220,8 @@ func TestOpinionFormer(t *testing.T) {
 			wallets[0].address: ledgerstate.NewColoredBalances(
 				map[ledgerstate.Color]uint64{
 					ledgerstate.ColorIOTA: 10000,
-				})},
+				}),
+		},
 	}
 
 	testTangle.LedgerState.LoadSnapshot(snapshot)
@@ -266,7 +270,8 @@ func TestOpinionFormer(t *testing.T) {
 		consensusProvider.ProcessVote(&vote.OpinionEvent{
 			ID:      transactionID,
 			Opinion: opinion.Dislike,
-			Ctx:     vote.Context{Type: vote.ConflictType}})
+			Ctx:     vote.Context{Type: vote.ConflictType},
+		})
 	}))
 
 	consensusProvider.Events.Error.Attach(events.NewClosure(func(err error) {
@@ -294,7 +299,8 @@ func TestDeriveOpinion(t *testing.T) {
 				timestamp:        now,
 				liked:            false,
 				levelOfKnowledge: Pending,
-			}}
+			},
+		}
 
 		opinion := deriveOpinion(now.Add(1*time.Second), conflictSet)
 		assert.Equal(t, OpinionEssence{
@@ -312,7 +318,8 @@ func TestDeriveOpinion(t *testing.T) {
 					timestamp:        now,
 					liked:            true,
 					levelOfKnowledge: One,
-				}}
+				},
+			}
 
 			opinion := deriveOpinion(now.Add(1*time.Second), conflictSet)
 			assert.Equal(t, OpinionEssence{
@@ -331,7 +338,8 @@ func TestDeriveOpinion(t *testing.T) {
 					timestamp:        now,
 					liked:            true,
 					levelOfKnowledge: Two,
-				}}
+				},
+			}
 
 			opinion := deriveOpinion(now.Add(1*time.Second), conflictSet)
 			assert.Equal(t, OpinionEssence{
@@ -354,7 +362,8 @@ func TestDeriveOpinion(t *testing.T) {
 					timestamp:        now,
 					liked:            false,
 					levelOfKnowledge: Two,
-				}}
+				},
+			}
 
 			opinion := deriveOpinion(now.Add(1*time.Second), conflictSet)
 			assert.Equal(t, OpinionEssence{
@@ -378,7 +387,8 @@ func TestDeriveOpinion(t *testing.T) {
 					timestamp:        now.Add(1 * time.Second),
 					liked:            false,
 					levelOfKnowledge: One,
-				}}
+				},
+			}
 
 			opinion := deriveOpinion(now.Add(10*time.Second), conflictSet)
 			assert.Equal(t, OpinionEssence{
@@ -402,7 +412,8 @@ func TestDeriveOpinion(t *testing.T) {
 					timestamp:        now.Add(1 * time.Second),
 					liked:            false,
 					levelOfKnowledge: One,
-				}}
+				},
+			}
 
 			opinion := deriveOpinion(now.Add(10*time.Second), conflictSet)
 			assert.Equal(t, OpinionEssence{
@@ -425,7 +436,8 @@ func TestDeriveOpinion(t *testing.T) {
 					timestamp:        now.Add(1 * time.Second),
 					liked:            true,
 					levelOfKnowledge: One,
-				}}
+				},
+			}
 
 			opinion := deriveOpinion(now.Add(6*time.Second), conflictSet)
 			assert.Equal(t, OpinionEssence{
@@ -448,7 +460,8 @@ func TestDeriveOpinion(t *testing.T) {
 					timestamp:        now.Add(1 * time.Second),
 					liked:            false,
 					levelOfKnowledge: One,
-				}}
+				},
+			}
 
 			opinion := deriveOpinion(now.Add(6*time.Second), conflictSet)
 			assert.Equal(t, OpinionEssence{
@@ -486,7 +499,7 @@ func createWallets(n int) []wallet {
 }
 
 func (w wallet) sign(txEssence *ledgerstate.TransactionEssence) *ledgerstate.ED25519Signature {
-	return ledgerstate.NewED25519Signature(w.publicKey(), ed25519.Signature(w.privateKey().Sign(txEssence.Bytes())))
+	return ledgerstate.NewED25519Signature(w.publicKey(), w.privateKey().Sign(txEssence.Bytes()))
 }
 
 func (w wallet) unlockBlocks(txEssence *ledgerstate.TransactionEssence) []ledgerstate.UnlockBlock {

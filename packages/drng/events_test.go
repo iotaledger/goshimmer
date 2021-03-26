@@ -3,9 +3,10 @@ package drng
 import (
 	"testing"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/goshimmer/packages/clock"
 )
 
 func TestCollectiveBeaconEvent(t *testing.T) {
@@ -23,5 +24,4 @@ func TestCollectiveBeaconEvent(t *testing.T) {
 	eventTest.Trigger(cbTriggered)
 
 	require.Equal(t, cbTriggered, cbReceived)
-
 }

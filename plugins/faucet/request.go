@@ -4,13 +4,14 @@ import (
 	"context"
 	"crypto"
 
+	"github.com/iotaledger/hive.go/cerrors"
+	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/stringify"
+
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	"github.com/iotaledger/hive.go/cerrors"
-	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/stringify"
 
 	// Only want to use init
 	_ "golang.org/x/crypto/blake2b"
@@ -30,8 +31,10 @@ type Request struct {
 }
 
 // Type represents the identifier for the faucet Request type.
-var Type = payload.NewType(2, ObjectName, PayloadUnmarshaler)
-var powWorker = pow.New(crypto.BLAKE2b_512, 1)
+var (
+	Type      = payload.NewType(2, ObjectName, PayloadUnmarshaler)
+	powWorker = pow.New(crypto.BLAKE2b_512, 1)
+)
 
 // NewRequest is the constructor of a Request and creates a new Request object from the given details.
 func NewRequest(addr ledgerstate.Address, powTarget int) (*Request, error) {

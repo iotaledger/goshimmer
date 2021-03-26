@@ -1,3 +1,5 @@
+# How to configure followed sync beacon nodes
+
 ## Why do you need to follow sync beacons?
 [Sync beacons](https://github.com/iotaledger/goshimmer/wiki/How-to-run-a-sync-beacon#what-is-a-sync-beacon) help your node to determine its synced status. To conclude that your node has the same view on the Tangle in a fully decentralized network, you have to rely on information coming from your peers. Sync beacons are part of the mechanism that lets you do exactly this.
 
