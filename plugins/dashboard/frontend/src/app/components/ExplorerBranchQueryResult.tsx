@@ -5,6 +5,7 @@ import { inject, observer } from "mobx-react";
 import ExplorerStore from "app/stores/ExplorerStore";
 import ListGroup from "react-bootstrap/ListGroup";
 import Badge from "react-bootstrap/Badge";
+import {resolveBase58BranchID} from "app/utils/branch";
 
 
 interface Props {
@@ -65,16 +66,16 @@ export class ExplorerBranchQueryResult extends React.Component<Props, any> {
             <Container>
                 <h4>Branch</h4>
                 {branch && <ListGroup>
-                    <ListGroup.Item>ID: {branch.id}</ListGroup.Item>
+                    <ListGroup.Item>ID: {resolveBase58BranchID(branch.id)}</ListGroup.Item>
                     <ListGroup.Item>Type: {branch.type}</ListGroup.Item>
                     <ListGroup.Item>Parents:
                         <ListGroup>
-                        {branch.parents.map((p,i) => <ListGroup.Item key={i}>{p}</ListGroup.Item>)}
+                        {branch.parents.map((p,i) => <ListGroup.Item key={i}><a href={`/explorer/branch/${p}`}>{resolveBase58BranchID(p)}</a></ListGroup.Item>)}
                         </ListGroup>
                     </ListGroup.Item>
                     <ListGroup.Item>Conflicts:
                         {branch.conflictIDs && <ListGroup>
-                            {branch.conflictIDs.map((c,i) => <ListGroup.Item key={i}>{c}</ListGroup.Item>)}
+                            {branch.conflictIDs.map((c,i) => <ListGroup.Item key={i}><a href={`/explorer/output/${c}`}>{c}</a></ListGroup.Item>)}
                         </ListGroup>}
                     </ListGroup.Item>
                     <ListGroup.Item>Finalized: {branch.finalized.toString()}</ListGroup.Item>
@@ -82,7 +83,7 @@ export class ExplorerBranchQueryResult extends React.Component<Props, any> {
                     <ListGroup.Item>Inclusion State: {renderInclusionState(branch.inclusionState)}</ListGroup.Item>
                     <ListGroup.Item> Children:
                         {branchChildren && <ListGroup>
-                            {branchChildren.childBranches.map((c,i) => <ListGroup.Item key={i}><a href={`/explorer/branch/${c}`}>{c}</a></ListGroup.Item>)}
+                            {branchChildren.childBranches.map((c,i) => <ListGroup.Item key={i}><a href={`/explorer/branch/${c.branchID}`}>{resolveBase58BranchID(c.branchID)}</a></ListGroup.Item>)}
                         </ListGroup> }
                     </ListGroup.Item>
                     <ListGroup.Item> Conflicts:
@@ -91,7 +92,7 @@ export class ExplorerBranchQueryResult extends React.Component<Props, any> {
                                 OutputID: <a href={`/explorer/output/${c.outputID.base58}`}>{c.outputID.base58}</a>
                                 <ListGroup className={"mb-2"}>
                                     {c.branchIDs.map((b,j) => <ListGroup.Item key={j}>
-                                        <a href={`/explorer/branch/${b}`}>{b}</a>
+                                        <a href={`/explorer/branch/${b}`}>{resolveBase58BranchID(b)}</a>
                                     </ListGroup.Item>)}
                                 </ListGroup>
                             </div>)}

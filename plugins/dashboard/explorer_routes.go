@@ -67,7 +67,7 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		StrongApprovers:         messagelayer.Tangle().Utils.ApprovingMessageIDs(messageID, tangle.StrongApprover).ToStrings(),
 		WeakApprovers:           messagelayer.Tangle().Utils.ApprovingMessageIDs(messageID, tangle.WeakApprover).ToStrings(),
 		Solid:                   messageMetadata.IsSolid(),
-		BranchID:                messageMetadata.BranchID().String(),
+		BranchID:                messageMetadata.BranchID().Base58(),
 		Scheduled:               messageMetadata.Scheduled(),
 		Booked:                  messageMetadata.IsBooked(),
 		Eligible:                messageMetadata.IsEligible(),

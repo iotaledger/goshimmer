@@ -114,8 +114,6 @@ func configure(*node.Plugin) {
 			log.Warnf("couldn't fulfill funding request to %s: %s", addr.Base58(), err)
 			if errors.Is(err, ErrPrepareFaucet) {
 				log.Warn(err.Error())
-			} else {
-				log.Warnf("couldn't fulfill funding request to %s: %s", addr, err)
 			}
 			return
 		}

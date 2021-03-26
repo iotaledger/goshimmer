@@ -87,7 +87,6 @@ func (b *Booker) UpdateMessagesBranch(transactionID ledgerstate.TransactionID) {
 func (b *Booker) Book(messageID MessageID) (err error) {
 	b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-			sequenceAlias := make([]markers.SequenceAlias, 0)
 			combinedBranches := b.branchIDsOfParents(message)
 			if payload := message.Payload(); payload != nil && payload.Type() == ledgerstate.TransactionType {
 				transaction := payload.(*ledgerstate.Transaction)
@@ -114,9 +113,6 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 					return
 				}
 				combinedBranches = combinedBranches.Add(targetBranch)
-				if ledgerstate.NewBranchID(transaction.ID()) == targetBranch {
-					sequenceAlias = append(sequenceAlias, markers.NewSequenceAlias(targetBranch.Bytes()))
-				}
 
 				for _, output := range transaction.Essence().Outputs() {
 					b.tangle.LedgerState.utxoDAG.StoreAddressOutputMapping(output.Address(), output.ID())
@@ -135,7 +131,7 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 			}
 
 			messageMetadata.SetBranchID(inheritedBranch)
-			messageMetadata.SetStructureDetails(b.MarkersManager.InheritStructureDetails(message, sequenceAlias...))
+			messageMetadata.SetStructureDetails(b.MarkersManager.InheritStructureDetails(message, markers.NewSequenceAlias(inheritedBranch.Bytes())))
 			messageMetadata.SetBooked(true)
 
 			b.Events.MessageBooked.Trigger(messageID)
@@ -230,8 +226,8 @@ func NewMarkersManager(tangle *Tangle) *MarkersManager {
 
 // InheritStructureDetails returns the structure Details of a Message that are derived from the StructureDetails of its
 // strong parents.
-func (m *MarkersManager) InheritStructureDetails(message *Message, newSequenceAlias ...markers.SequenceAlias) (structureDetails *markers.StructureDetails) {
-	structureDetails, _ = m.Manager.InheritStructureDetails(m.structureDetailsOfStrongParents(message), m.tangle.Options.IncreaseMarkersIndexCallback, newSequenceAlias...)
+func (m *MarkersManager) InheritStructureDetails(message *Message, sequenceAlias markers.SequenceAlias) (structureDetails *markers.StructureDetails) {
+	structureDetails, _ = m.Manager.InheritStructureDetails(m.structureDetailsOfStrongParents(message), m.tangle.Options.IncreaseMarkersIndexCallback, sequenceAlias)
 
 	if structureDetails.IsPastMarker {
 		m.tangle.Utils.WalkMessageMetadata(m.propagatePastMarkerToFutureMarkers(structureDetails.PastMarkers.FirstMarker()), message.StrongParents())

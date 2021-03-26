@@ -325,6 +325,14 @@ func (f *ConsensusMechanism) setEligibility(messageID tangle.MessageID) {
 	})
 }
 
+// OpinionFormedTime returns the time when the opinion for the given message was formed.
+func (f *ConsensusMechanism) OpinionFormedTime(messageID tangle.MessageID) (t time.Time) {
+	f.storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		t = messageMetadata.OpinionFormedTime()
+	})
+	return
+}
+
 // parentsEligibility checks if the parents are eligible.
 func (f *ConsensusMechanism) parentsEligibility(messageID tangle.MessageID) (eligible bool) {
 	f.tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {

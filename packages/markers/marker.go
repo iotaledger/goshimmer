@@ -1,7 +1,9 @@
 package markers
 
 import (
+	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/iotaledger/hive.go/cerrors"
@@ -371,6 +373,17 @@ func (m *Markers) String() (humanReadableMarkers string) {
 	structBuilder.AddField(stringify.StructField("highestIndex", m.HighestIndex()))
 
 	return structBuilder.String()
+}
+
+// SequenceToString returns a string in the form sequenceID:index;.
+func (m *Markers) SequenceToString() (s string) {
+	parts := make([]string, 0, m.Size())
+	m.ForEach(func(sequenceID SequenceID, index Index) bool {
+		parts = append(parts, fmt.Sprintf("%d:%d", sequenceID, index))
+		return true
+	})
+	s = strings.Join(parts, ";")
+	return s
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
