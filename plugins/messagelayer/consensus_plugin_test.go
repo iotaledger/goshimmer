@@ -12,13 +12,19 @@ import (
 
 
 func MockBroadcastStatement(conflicts statement.Conflicts, timestamps statement.Timestamps) {
-	fmt.Printf("Here")
+	statementPayload := statement.New(conflicts, timestamps)
+	payloadLen := len(statementPayload.Bytes())
+	if payloadLen > payload.MaxSize {
+		err := fmt.Errorf("maximum payload size of %d bytes exceeded", payloadLen)
+		panic(err)
+	}
 }
+
 
 func TestMakeStatement(t *testing.T) {
 	senderSeed := walletseed.NewSeed()
 	maxSize := payload.MaxSize
-	maxNumOfStatements := maxSize / statement.ConflictLength
+	maxNumOfStatements := maxSize*4 / statement.ConflictLength
 
 	stats := &vote.RoundStats{
 		ActiveVoteContexts: map[string]*vote.Context{},
@@ -34,6 +40,7 @@ func TestMakeStatement(t *testing.T) {
 			Opinions:        []opinion.Opinion{opinion.Like, opinion.Like, opinion.Like},
 		}
 	}
+	// if max payload size exceeded MockBroadcastStatement will panic
 	makeStatement(stats, MockBroadcastStatement)
 }
 
