@@ -12,29 +12,29 @@ import (
 	"golang.org/x/xerrors"
 )
 
-// region ChildReferences //////////////////////////////////////////////////////////////////////////////////////////////
+// region ReferencingMarkers ///////////////////////////////////////////////////////////////////////////////////////////
 
-// ChildReferences models the relationship between Sequences by providing a way to encode which Marker references which
-// other Markers of other Sequences.
-type ChildReferences struct {
+// ReferencingMarkers is a data structure that allows to denote which Markers of child Sequences in the Sequence DAG
+// reference a given Index in a Sequence.
+type ReferencingMarkers struct {
 	referencingIndexesBySequence map[SequenceID]*thresholdmap.ThresholdMap
 	mutex                        sync.RWMutex
 }
 
-// NewChildReferences creates a new set of ChildReferences.
-func NewChildReferences() (newChildReferences *ChildReferences) {
-	newChildReferences = &ChildReferences{
+// NewReferencingMarkers is the constructor for the ReferencingMarkers.
+func NewReferencingMarkers() (referencingMarkers *ReferencingMarkers) {
+	referencingMarkers = &ReferencingMarkers{
 		referencingIndexesBySequence: make(map[SequenceID]*thresholdmap.ThresholdMap),
 	}
 
 	return
 }
 
-// ChildReferencesFromBytes unmarshals a ChildReferences from a sequence of bytes.
-func ChildReferencesFromBytes(childReferencesBytes []byte) (childReferences *ChildReferences, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(childReferencesBytes)
-	if childReferences, err = ChildReferencesFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Markers from MarshalUtil: %w", err)
+// ReferencingMarkersFromBytes unmarshals the ReferencingMarkers from a sequence of bytes.
+func ReferencingMarkersFromBytes(referencingMarkersBytes []byte) (referencingMarkers *ReferencingMarkers, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(referencingMarkersBytes)
+	if referencingMarkers, err = ReferencingMarkersFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse ReferencingMarkers from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -42,9 +42,9 @@ func ChildReferencesFromBytes(childReferencesBytes []byte) (childReferences *Chi
 	return
 }
 
-// ChildReferencesFromMarshalUtil unmarshals a ChildReferences object using a MarshalUtil (for easier unmarshaling).
-func ChildReferencesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (childReferences *ChildReferences, err error) {
-	childReferences = &ChildReferences{
+// ReferencingMarkersFromMarshalUtil unmarshals the ReferencingMarkers using a MarshalUtil (for easier unmarshaling).
+func ReferencingMarkersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (childReferences *ReferencingMarkers, err error) {
+	childReferences = &ReferencingMarkers{
 		referencingIndexesBySequence: make(map[SequenceID]*thresholdmap.ThresholdMap),
 	}
 
@@ -87,8 +87,8 @@ func ChildReferencesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (child
 	return
 }
 
-// AddReferencingMarker adds referenced Markers to the ChildReferences.
-func (c *ChildReferences) AddReferencingMarker(referencedIndex Index, referencingMarker *Marker) {
+// Add adds a new referencing Marker to the ReferencingMarkers.
+func (c *ReferencingMarkers) Add(index Index, referencingMarker *Marker) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -98,11 +98,11 @@ func (c *ChildReferences) AddReferencingMarker(referencedIndex Index, referencin
 		c.referencingIndexesBySequence[referencingMarker.SequenceID()] = thresholdMap
 	}
 
-	thresholdMap.Set(uint64(referencedIndex), referencingMarker.Index())
+	thresholdMap.Set(uint64(index), referencingMarker.Index())
 }
 
-// ReferencingMarkers returns the Markers of child Sequences that reference the given Index.
-func (c *ChildReferences) ReferencingMarkers(index Index) (referencingMarkers *Markers) {
+// Get returns the Markers of child Sequences that reference the given Index.
+func (c *ReferencingMarkers) Get(index Index) (referencingMarkers *Markers) {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
@@ -120,7 +120,7 @@ func (c *ChildReferences) ReferencingMarkers(index Index) (referencingMarkers *M
 }
 
 // ReferencingSequences returns the SequenceIDs of all referencing Sequences.
-func (c *ChildReferences) ReferencingSequences() (sequenceIDs SequenceIDs) {
+func (c *ReferencingMarkers) ReferencingSequences() (sequenceIDs SequenceIDs) {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
@@ -132,8 +132,8 @@ func (c *ChildReferences) ReferencingSequences() (sequenceIDs SequenceIDs) {
 	return NewSequenceIDs(sequenceIDsSlice...)
 }
 
-// Bytes returns a marshaled version of the ChildReferences.
-func (c *ChildReferences) Bytes() (marshaledChildReferences []byte) {
+// Bytes returns a marshaled version of the ReferencingMarkers.
+func (c *ReferencingMarkers) Bytes() (marshaledChildReferences []byte) {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
@@ -153,8 +153,8 @@ func (c *ChildReferences) Bytes() (marshaledChildReferences []byte) {
 	return marshalUtil.Bytes()
 }
 
-// String returns a human readable version of the ChildReferences.
-func (c *ChildReferences) String() (humanReadableChildReferences string) {
+// String returns a human readable version of the ReferencingMarkers.
+func (c *ReferencingMarkers) String() (humanReadableChildReferences string) {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
@@ -194,22 +194,22 @@ func (c *ChildReferences) String() (humanReadableChildReferences string) {
 	}
 
 	thresholdStart := "0"
-	referencedMarkers := stringify.StructBuilder("ReferencingMarkers")
+	referencingMarkers := stringify.StructBuilder("ReferencingMarkers")
 	for _, referencingIndex := range referencedIndexes {
 		thresholdEnd := strconv.FormatUint(uint64(referencingIndex), 10)
 
 		if thresholdStart == thresholdEnd {
-			referencedMarkers.AddField(stringify.StructField("Index("+thresholdStart+")", referencedMarkersByReferencingIndex[referencingIndex]))
+			referencingMarkers.AddField(stringify.StructField("Index("+thresholdStart+")", referencedMarkersByReferencingIndex[referencingIndex]))
 		} else {
-			referencedMarkers.AddField(stringify.StructField("Index("+thresholdStart+" ... "+thresholdEnd+")", referencedMarkersByReferencingIndex[referencingIndex]))
+			referencingMarkers.AddField(stringify.StructField("Index("+thresholdStart+" ... "+thresholdEnd+")", referencedMarkersByReferencingIndex[referencingIndex]))
 		}
 
 		thresholdStart = strconv.FormatUint(uint64(referencingIndex)+1, 10)
 	}
 
-	return stringify.Struct("ChildReferences",
+	return stringify.Struct("ReferencingMarkers",
 		stringify.StructField("referencingSequences", c.ReferencingSequences()),
-		stringify.StructField("referencingMarkers", referencedMarkers),
+		stringify.StructField("referencingMarkers", referencingMarkers),
 	)
 }
 
