@@ -88,26 +88,26 @@ func ReferencingMarkersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (ch
 }
 
 // Add adds a new referencing Marker to the ReferencingMarkers.
-func (c *ReferencingMarkers) Add(index Index, referencingMarker *Marker) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+func (r *ReferencingMarkers) Add(index Index, referencingMarker *Marker) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 
-	thresholdMap, thresholdMapExists := c.referencingIndexesBySequence[referencingMarker.SequenceID()]
+	thresholdMap, thresholdMapExists := r.referencingIndexesBySequence[referencingMarker.SequenceID()]
 	if !thresholdMapExists {
 		thresholdMap = thresholdmap.New(thresholdmap.UpperThresholdMode)
-		c.referencingIndexesBySequence[referencingMarker.SequenceID()] = thresholdMap
+		r.referencingIndexesBySequence[referencingMarker.SequenceID()] = thresholdMap
 	}
 
 	thresholdMap.Set(uint64(index), referencingMarker.Index())
 }
 
 // Get returns the Markers of child Sequences that reference the given Index.
-func (c *ReferencingMarkers) Get(index Index) (referencingMarkers *Markers) {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
+func (r *ReferencingMarkers) Get(index Index) (referencingMarkers *Markers) {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
 
 	referencingMarkers = NewMarkers()
-	for sequenceID, thresholdMap := range c.referencingIndexesBySequence {
+	for sequenceID, thresholdMap := range r.referencingIndexesBySequence {
 		referencingIndex, referencingMarkersExists := thresholdMap.Get(uint64(index))
 		if !referencingMarkersExists {
 			continue
@@ -120,12 +120,12 @@ func (c *ReferencingMarkers) Get(index Index) (referencingMarkers *Markers) {
 }
 
 // ReferencingSequences returns the SequenceIDs of all referencing Sequences.
-func (c *ReferencingMarkers) ReferencingSequences() (sequenceIDs SequenceIDs) {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
+func (r *ReferencingMarkers) ReferencingSequences() (sequenceIDs SequenceIDs) {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
 
-	sequenceIDsSlice := make([]SequenceID, 0, len(c.referencingIndexesBySequence))
-	for sequenceID := range c.referencingIndexesBySequence {
+	sequenceIDsSlice := make([]SequenceID, 0, len(r.referencingIndexesBySequence))
+	for sequenceID := range r.referencingIndexesBySequence {
 		sequenceIDsSlice = append(sequenceIDsSlice, sequenceID)
 	}
 
@@ -133,13 +133,13 @@ func (c *ReferencingMarkers) ReferencingSequences() (sequenceIDs SequenceIDs) {
 }
 
 // Bytes returns a marshaled version of the ReferencingMarkers.
-func (c *ReferencingMarkers) Bytes() (marshaledChildReferences []byte) {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
+func (r *ReferencingMarkers) Bytes() (marshaledChildReferences []byte) {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
 
 	marshalUtil := marshalutil.New()
-	marshalUtil.WriteUint64(uint64(len(c.referencingIndexesBySequence)))
-	for sequenceID, thresholdMap := range c.referencingIndexesBySequence {
+	marshalUtil.WriteUint64(uint64(len(r.referencingIndexesBySequence)))
+	for sequenceID, thresholdMap := range r.referencingIndexesBySequence {
 		marshalUtil.Write(sequenceID)
 		marshalUtil.WriteUint64(uint64(thresholdMap.Size()))
 		thresholdMap.ForEach(func(node *thresholdmap.Element) bool {
@@ -154,13 +154,13 @@ func (c *ReferencingMarkers) Bytes() (marshaledChildReferences []byte) {
 }
 
 // String returns a human readable version of the ReferencingMarkers.
-func (c *ReferencingMarkers) String() (humanReadableChildReferences string) {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
+func (r *ReferencingMarkers) String() (humanReadableChildReferences string) {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
 
 	referencedIndexes := make([]Index, 0)
 	referencedMarkersByReferencingIndex := make(map[Index]*Markers)
-	for sequenceID, thresholdMap := range c.referencingIndexesBySequence {
+	for sequenceID, thresholdMap := range r.referencingIndexesBySequence {
 		thresholdMap.ForEach(func(node *thresholdmap.Element) bool {
 			referencedIndex := Index(node.Key().(uint64))
 			referencingIndex := node.Value().(Index)
@@ -208,7 +208,7 @@ func (c *ReferencingMarkers) String() (humanReadableChildReferences string) {
 	}
 
 	return stringify.Struct("ReferencingMarkers",
-		stringify.StructField("referencingSequences", c.ReferencingSequences()),
+		stringify.StructField("referencingSequences", r.ReferencingSequences()),
 		stringify.StructField("referencingMarkers", referencingMarkers),
 	)
 }
