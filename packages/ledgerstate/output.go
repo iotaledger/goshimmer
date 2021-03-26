@@ -430,6 +430,15 @@ func (o Outputs) String() string {
 	return structBuilder.String()
 }
 
+// Strings returns the Outputs in the form []transactionID:index.
+func (o Outputs) Strings() (result []string) {
+	for _, output := range o {
+		result = append(result, fmt.Sprintf("%s:%d", output.ID().TransactionID().Base58(), output.ID().OutputIndex()))
+	}
+
+	return
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region OutputsByID //////////////////////////////////////////////////////////////////////////////////////////////////
