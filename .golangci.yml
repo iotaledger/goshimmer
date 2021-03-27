@@ -2,6 +2,7 @@ issues:
     exclude-use-default: false
     max-issues-per-linter: 0
     max-same-issues: 0
+    only-new-issues: true
     exclude:
         - 'Error return value of .((os\.)?std(out|err)\..*|.*Close|.*Flush|os\.Remove(All)?|.*print(f|ln)?|os\.(Un)?Setenv). is not checked' # errcheck
         - 'err113: do not define dynamic errors, use wrapped static errors instead:' # goerr113
