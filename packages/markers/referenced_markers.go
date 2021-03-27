@@ -142,7 +142,7 @@ func (r *ReferencedMarkers) Bytes() (marshaledReferencedMarkers []byte) {
 		marshalUtil.WriteUint64(uint64(thresholdMap.Size()))
 		thresholdMap.ForEach(func(node *thresholdmap.Element) bool {
 			marshalUtil.WriteUint64(node.Key().(uint64))
-			marshalUtil.WriteUint64(node.Value().(uint64))
+			marshalUtil.WriteUint64(uint64(node.Value().(Index)))
 
 			return true
 		})
