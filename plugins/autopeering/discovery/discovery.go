@@ -7,8 +7,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/autopeering/discover"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
@@ -16,6 +14,9 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/mr-tron/base58"
+
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 // autopeering constants
@@ -24,6 +25,8 @@ const (
 
 	// PluginName is the name of the autopeering plugin.
 	PluginName = "Autopeering"
+
+	entryNodeParts = 2
 )
 
 var (
@@ -68,7 +71,7 @@ func parseEntryNodes() (result []*peer.Peer, err error) {
 		}
 
 		parts := strings.Split(entryNodeDefinition, "@")
-		if len(parts) != 2 {
+		if len(parts) != entryNodeParts {
 			return nil, fmt.Errorf("%w: master node parts must be 2, is %d", ErrParsingMasterNode, len(parts))
 		}
 		pubKey, err := base58.Decode(parts[0])

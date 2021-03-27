@@ -5,16 +5,17 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/config"
-	"github.com/iotaledger/goshimmer/plugins/mana"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/autopeering/selection"
 	"github.com/iotaledger/hive.go/autopeering/server"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
+
+	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/plugins/mana"
 )
 
 var (
@@ -127,8 +128,8 @@ func start(shutdownSignal <-chan struct{}) {
 	lPeer.Database().Close()
 }
 
-func evalMana(identity *identity.Identity) uint64 {
-	m, _, err := mana.GetConsensusMana(identity.ID())
+func evalMana(nodeIdentity *identity.Identity) uint64 {
+	m, _, err := mana.GetConsensusMana(nodeIdentity.ID())
 	if err != nil {
 		return 0
 	}
