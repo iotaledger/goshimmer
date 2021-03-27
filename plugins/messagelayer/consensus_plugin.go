@@ -266,8 +266,8 @@ func OpinionGiverFunc() (givers []opinion.OpinionGiver, err error) {
 		plugin.LogErrorf("Error retrieving consensus mana: %s", err)
 	}
 	for _, v := range Registry().NodesView() {
-		// double check to exclude self and check if node has enough mana to consider its statement
-		if v.ID() == local.GetInstance().ID() || !checkEnoughMana(v.ID(), StatementParameters.ReadManaThreshold) {
+		// double check to exclude self
+		if v.ID() == local.GetInstance().ID() {
 			continue
 		}
 
@@ -485,7 +485,7 @@ type statementLog struct {
 func checkEnoughMana(id identity.ID, threshold float64) bool {
 	highestManaNodes, _, err := GetHighestManaNodesFraction(mana.ConsensusMana, threshold)
 	enoughMana := true
-	if err == nil {
+	if err == nil && threshold < 1.0 {
 		enoughMana = false
 		for _, v := range highestManaNodes {
 			if v.ID == id {
@@ -564,9 +564,12 @@ func readStatement(messageID tangle.MessageID) {
 			return
 		}
 
-		// TODO: check if the Mana threshold of the issuer is ok
-
 		issuerID := identity.NewID(msg.IssuerPublicKey())
+
+		// check if the Mana threshold of the issuer is ok
+		if !checkEnoughMana(issuerID, StatementParameters.ReadManaThreshold) {
+			return
+		}
 		// Skip ourselves
 		if issuerID == local.GetInstance().ID() {
 			return

@@ -47,10 +47,10 @@ var StatementParameters = struct {
 	WriteStatement bool `default:"false" usage:"if the node should make statements"`
 
 	// ReadManaThreshold defines the Mana threshold to accept a statement.
-	ReadManaThreshold float64 `default:"0.2" usage:"Value describing the percentage of top mana nodes to accept a statement from"`
+	ReadManaThreshold float64 `default:"1.0" usage:"Value describing the percentage of top mana nodes to accept a statement from"`
 
 	// WriteManaThreshold defines the Mana threshold to write a statement.
-	WriteManaThreshold float64 `default:"0.2" usage:"Value describing the percentage of top mana nodes that can write a statement"`
+	WriteManaThreshold float64 `default:"0.7" usage:"Value describing the percentage of top mana nodes that can write a statement"`
 
 	// CleanInterval defines the time interval [in minutes] for cleaning the statement registry.
 	CleanInterval int `default:"5" usage:"the time in minutes after which the node cleans the statement registry"`
