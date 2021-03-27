@@ -61,8 +61,11 @@ func send(t *testing.T, n *Client, sendMsg func(), rcv func(msg txstream.Message
 		}
 	})
 
-	n.Events.MessageReceived.Attach(closure)
-	defer n.Events.MessageReceived.Detach(closure)
+	n.Events.TransactionReceived.Attach(closure)
+	defer n.Events.TransactionReceived.Detach(closure)
+
+	n.Events.InclusionStateReceived.Attach(closure)
+	defer n.Events.InclusionStateReceived.Detach(closure)
 
 	sendMsg()
 	wgSend.Done()

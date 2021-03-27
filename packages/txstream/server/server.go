@@ -96,20 +96,20 @@ func (c *Connection) log() *logger.Logger {
 
 func (c *Connection) setID(id string) {
 	c.atomicLog.Store(c.log().Named(id))
-	c.log().Infof("client connection id has been set to '%c' for '%s'", id, c.bconn.RemoteAddr().String())
+	c.log().Infof("client connection id has been set to '%s' for '%s'", id, c.bconn.RemoteAddr().String())
 }
 
 func (c *Connection) attach() {
 	c.inTxChan = make(chan interface{})
 
 	c.receiveConfirmedTransactionClosure = events.NewClosure(func(tx *ledgerstate.Transaction) {
-		c.log().Debugf("on transaction confirmed: %c", tx.ID().String())
+		c.log().Debugf("on transaction confirmed: %s", tx.ID().Base58())
 		c.inTxChan <- wrapConfirmedTx(tx)
 	})
 	c.ledger.EventTransactionConfirmed().Attach(c.receiveConfirmedTransactionClosure)
 
 	c.receiveBookedTransactionClosure = events.NewClosure(func(tx *ledgerstate.Transaction) {
-		c.log().Debugf("on transaction booked: %c", tx.ID().String())
+		c.log().Debugf("on transaction booked: %s", tx.ID().Base58())
 		c.inTxChan <- wrapBookedTx(tx)
 	})
 	c.ledger.EventTransactionBooked().Attach(c.receiveBookedTransactionClosure)
@@ -224,6 +224,6 @@ func (c *Connection) getBacklog(addr ledgerstate.Address) {
 
 func (c *Connection) postTransaction(tx *ledgerstate.Transaction) {
 	if err := c.ledger.PostTransaction(tx); err != nil {
-		c.log().Warnf("%v: %c", err, tx.ID().String())
+		c.log().Warnf("%v: %s", err, tx.ID().Base58())
 	}
 }

@@ -132,10 +132,15 @@ func (n *Client) decodeReceivedMessage(data []byte, msgChopper *chopper.Chopper)
 		if finalData != nil {
 			return n.decodeReceivedMessage(finalData, msgChopper)
 		}
-
-	default:
+	case *txstream.MsgTransaction:
 		n.log.Debugf("received message from server: %T", msg)
-		n.Events.MessageReceived.Trigger(msg)
+		n.Events.TransactionReceived.Trigger(msg)
+
+	case *txstream.MsgTxInclusionState:
+		n.log.Debugf("received message from server: %T", msg)
+		n.Events.InclusionStateReceived.Trigger(msg)
+	default:
+		n.log.Errorf("received unknkwn message from server: %T", msg)
 	}
 	return nil
 }

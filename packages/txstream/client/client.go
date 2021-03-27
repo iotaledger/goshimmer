@@ -24,8 +24,10 @@ type Client struct {
 
 // Events contains all events emitted by the Client
 type Events struct {
-	// MessageReceived is triggered when a message is received from the server
-	MessageReceived *events.Event
+	// TransactionReceived is triggered when a transaction message is received from the server
+	TransactionReceived *events.Event
+	// InclusionStateReceived is triggered when an inclusion state message is received from the server
+	InclusionStateReceived *events.Event
 	// Connected is triggered when the client connects successfully to the server
 	Connected *events.Event
 }
@@ -51,8 +53,9 @@ func New(clientID string, log *logger.Logger, dial DialFunc) *Client {
 		chUnsubscribe: make(chan ledgerstate.Address),
 		shutdown:      make(chan bool),
 		Events: Events{
-			MessageReceived: events.NewEvent(handleMessageReceived),
-			Connected:       events.NewEvent(handleConnected),
+			TransactionReceived:    events.NewEvent(handleMessageReceived),
+			InclusionStateReceived: events.NewEvent(handleMessageReceived),
+			Connected:              events.NewEvent(handleConnected),
 		},
 	}
 
@@ -65,6 +68,7 @@ func New(clientID string, log *logger.Logger, dial DialFunc) *Client {
 // Close shuts down the client
 func (n *Client) Close() {
 	close(n.shutdown)
-	n.Events.MessageReceived.DetachAll()
+	n.Events.TransactionReceived.DetachAll()
+	n.Events.InclusionStateReceived.DetachAll()
 	n.Events.Connected.DetachAll()
 }
