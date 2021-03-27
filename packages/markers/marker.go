@@ -179,7 +179,7 @@ func (m *Markers) Get(sequenceID SequenceID) (index Index, exists bool) {
 
 // Set adds a new Marker to the collection and updates the Index of an existing entry if it is higher than a possible
 // previously stored one. The method returns two boolean flags that indicate if an entry was updated and/or added.
-func (m *Markers) Set(sequenceID SequenceID, index Index) (updated bool, added bool) {
+func (m *Markers) Set(sequenceID SequenceID, index Index) (updated, added bool) {
 	m.markersMutex.Lock()
 	defer m.markersMutex.Unlock()
 
@@ -212,10 +212,8 @@ func (m *Markers) Set(sequenceID SequenceID, index Index) (updated bool, added b
 	}
 
 	m.markers[sequenceID] = index
-	updated = true
-	added = true
 
-	return
+	return true, true
 }
 
 // Delete removes the Marker with the given SequenceID from the collection and returns a boolean flag that indicates if
@@ -409,7 +407,7 @@ func newMarkersByRank() (newMarkersByRank *markersByRank) {
 
 // Add adds a new Marker to the collection and returns two boolean flags that indicate if a Marker was added and/or
 // updated.
-func (m *markersByRank) Add(rank uint64, sequenceID SequenceID, index Index) (updated bool, added bool) {
+func (m *markersByRank) Add(rank uint64, sequenceID SequenceID, index Index) (updated, added bool) {
 	m.markersByRankMutex.Lock()
 	defer m.markersByRankMutex.Unlock()
 
@@ -514,7 +512,7 @@ func (m *markersByRank) Delete(rank uint64, sequenceID SequenceID) (deleted bool
 		}
 	}
 
-	return
+	return deleted
 }
 
 // LowestRank returns the lowest rank that has Markers.

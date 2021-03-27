@@ -89,7 +89,7 @@ func SequenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequence *Se
 }
 
 // SequenceFromObjectStorage restores an Sequence that was stored in the object storage.
-func SequenceFromObjectStorage(key []byte, data []byte) (sequence objectstorage.StorableObject, err error) {
+func SequenceFromObjectStorage(key, data []byte) (sequence objectstorage.StorableObject, err error) {
 	if sequence, _, err = SequenceFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
 		err = xerrors.Errorf("failed to parse Sequence from bytes: %w", err)
 		return
@@ -498,7 +498,7 @@ func SequenceAliasMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (
 }
 
 // SequenceAliasMappingFromObjectStorage restores a SequenceAlias that was stored in the object storage.
-func SequenceAliasMappingFromObjectStorage(key []byte, data []byte) (mapping objectstorage.StorableObject, err error) {
+func SequenceAliasMappingFromObjectStorage(key, data []byte) (mapping objectstorage.StorableObject, err error) {
 	if mapping, _, err = SequenceAliasMappingFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
 		err = xerrors.Errorf("failed to parse SequenceAliasMapping from bytes: %w", err)
 		return
