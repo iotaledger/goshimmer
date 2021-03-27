@@ -353,7 +353,7 @@ func (s SequenceIDs) Alias() (aggregatedSequencesID SequenceAlias) {
 	return
 }
 
-// Bytes0sssg returns a marshaled version of the SequenceIDs.
+// Bytes returns a marshaled version of the SequenceIDs.
 func (s SequenceIDs) Bytes() (marshaledSequenceIDs []byte) {
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteUint32(uint32(len(s)))
