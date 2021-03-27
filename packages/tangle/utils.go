@@ -95,6 +95,8 @@ func (u *Utils) WalkMessageAndMetadata(callback func(message *Message, messageMe
 func (u *Utils) AllTransactionsApprovedByMessages(transactionIDs ledgerstate.TransactionIDs, messageIDs ...MessageID) (approved bool) {
 	transactionIDs = transactionIDs.Clone()
 
+	fmt.Println(transactionIDs.Strings())
+
 	for _, messageID := range messageIDs {
 		for transactionID := range transactionIDs {
 			if u.TransactionApprovedByMessage(transactionID, messageID) {
@@ -122,6 +124,7 @@ func (u *Utils) TransactionApprovedByMessage(transactionID ledgerstate.Transacti
 			continue
 		}
 
+		bookedParents := make(MessageIDs, 0)
 		u.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 			for _, parentID := range message.StrongParents() {
 				var parentBooked bool
@@ -132,13 +135,26 @@ func (u *Utils) TransactionApprovedByMessage(transactionID ledgerstate.Transacti
 					continue
 				}
 
-				if u.MessageApprovedBy(attachmentMessageID, parentID) {
+				// First check all of the parents to avoid unnecessary checks and possible walking.
+				if attachmentMessageID == parentID {
 					approved = true
 					return
 				}
+
+				bookedParents = append(bookedParents, parentID)
 			}
 		})
+		if approved {
+			return
+		}
 
+		// Only now check all parents.
+		for _, bookedParent := range bookedParents {
+			if u.MessageApprovedBy(attachmentMessageID, bookedParent) {
+				approved = true
+				return
+			}
+		}
 		if approved {
 			return
 		}
@@ -218,6 +234,10 @@ func (u *Utils) messageStronglyApprovedBy(approvedMessageID MessageID, approving
 	case types.False:
 		stronglyApproved = false
 	case types.Maybe:
+		fmt.Println("Need to walk..")
+		fmt.Println("ApprovedMessageID", approvedMessageID, approvedMessageStructureDetails)
+		fmt.Println("ApprovingMessageID", approvingMessageID, approvingMessageStructureDetails)
+
 		u.WalkMessageID(func(messageID MessageID, walker *walker.Walker) {
 			if messageID == approvingMessageID {
 				stronglyApproved = true
