@@ -335,7 +335,7 @@ func SequenceIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequenceI
 	return
 }
 
-// Alias returns the SequenceAlias of the SequenceIDs. The SequenceAlias is used to address the numerical Sequences
+// Aliasse returns the SequenceAlias of the SequenceIDs. The SequenceAlias is used to address the numerical Sequences
 // in the object storage.
 func (s SequenceIDs) Alias() (aggregatedSequencesID SequenceAlias) {
 	sequenceIDsSlice := make([]SequenceID, 0, len(s))
