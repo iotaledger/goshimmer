@@ -628,7 +628,7 @@ func getConsensusEventLogsStorageSize() uint32 {
 	consensusEventsLogStorage.ForEachKeyOnly(func(key []byte) bool {
 		size++
 		return true
-	}, objectstorage.WithSkipCache(true))
+	}, objectstorage.WithIteratorSkipCache(true))
 	return size
 }
 
