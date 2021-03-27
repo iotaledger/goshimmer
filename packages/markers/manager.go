@@ -87,6 +87,8 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 			inheritedStructureDetails.IsPastMarker = true
 			// sequence has just been created, so lowestIndex = highestIndex
 			inheritedStructureDetails.PastMarkers = NewMarkers(&Marker{sequenceID: sequence.id, index: sequence.lowestIndex})
+
+			m.registerReferencingMarker(referencedMarkers, NewMarker(sequence.id, sequence.lowestIndex))
 		})
 		return
 	}
@@ -101,6 +103,9 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 			if newIndex, increased := sequence.IncreaseHighestIndex(referencedMarkers); increased {
 				inheritedStructureDetails.IsPastMarker = true
 				inheritedStructureDetails.PastMarkers = NewMarkers(&Marker{sequenceID: sequence.id, index: newIndex})
+
+				m.registerReferencingMarker(referencedMarkers, NewMarker(sequence.id, newIndex))
+
 				return
 			}
 		}
@@ -125,7 +130,7 @@ func (m *Manager) UpdateStructureDetails(structureDetailsToUpdate *StructureDeta
 
 	structureDetailsToUpdate.FutureMarkers.Set(markerToInherit.sequenceID, markerToInherit.index)
 	futureMarkersUpdated = true
-	// stop propagating further if structureDetailsToUpadate is a marker
+	// stop propagating further if structureDetailsToUpdate is a marker
 	inheritFutureMarkerFurther = !structureDetailsToUpdate.IsPastMarker
 
 	return
@@ -229,6 +234,11 @@ func (m *Manager) IsInPastCone(earlierStructureDetails *StructureDetails, laterS
 	return types.False
 }
 
+// Sequence retrieves a Sequence from the object storage.
+func (m *Manager) Sequence(sequenceID SequenceID) *CachedSequence {
+	return &CachedSequence{CachedObject: m.sequenceStore.Load(sequenceID.Bytes())}
+}
+
 // Shutdown shuts down the Manager and persists its state.
 func (m *Manager) Shutdown() {
 	m.shutdownOnce.Do(func() {
@@ -274,9 +284,9 @@ func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkersByRank *m
 				return false
 			}
 
-			if !(&CachedSequence{CachedObject: m.sequenceStore.Load(sequenceID.Bytes())}).Consume(func(sequence *Sequence) {
+			if !m.Sequence(sequenceID).Consume(func(sequence *Sequence) {
 				// for each of the parentMarkers of this particular index
-				sequence.HighestReferencedParentMarkers(index).ForEach(func(referencedSequenceID SequenceID, referencedIndex Index) bool {
+				sequence.ReferencedMarkers(index).ForEach(func(referencedSequenceID SequenceID, referencedIndex Index) bool {
 					// of this marker delete the referenced sequences since they are no sequence tips anymore in the sequence DAG
 					delete(normalizedSequences, referencedSequenceID)
 
@@ -362,8 +372,8 @@ func (m *Manager) markersReferenceMarkers(laterMarkers *Markers, earlierMarkers 
 
 		// queue parents for additional checks
 		laterMarkers.ForEach(func(sequenceID SequenceID, index Index) bool {
-			(&CachedSequence{CachedObject: m.sequenceStore.Load(sequenceID.Bytes())}).Consume(func(sequence *Sequence) {
-				sequence.HighestReferencedParentMarkers(index).ForEach(func(referencedSequenceID SequenceID, referencedIndex Index) bool {
+			m.Sequence(sequenceID).Consume(func(sequence *Sequence) {
+				sequence.ReferencedMarkers(index).ForEach(func(referencedSequenceID SequenceID, referencedIndex Index) bool {
 					futureMarkersByRank.Add(m.rankOfSequence(referencedSequenceID, rankCache), referencedSequenceID, referencedIndex)
 					return true
 				})
@@ -401,6 +411,18 @@ func (m *Manager) markersReferenceMarkers(laterMarkers *Markers, earlierMarkers 
 	return
 }
 
+// registerReferencingMarker is an internal utility function that adds a referencing Marker to the internal data
+// structure.
+func (m *Manager) registerReferencingMarker(referencedMarkers *Markers, marker *Marker) {
+	referencedMarkers.ForEach(func(sequenceID SequenceID, index Index) bool {
+		m.Sequence(sequenceID).Consume(func(sequence *Sequence) {
+			sequence.AddReferencingMarker(index, marker)
+		})
+
+		return true
+	})
+}
+
 // fetchSequence is an internal utility function that retrieves or creates the Sequence that represents the given
 // parameters and returns it.
 func (m *Manager) fetchSequence(referencedMarkers *Markers, rank uint64, sequenceAlias SequenceAlias) (cachedSequence *CachedSequence, isNew bool) {
@@ -429,7 +451,7 @@ func (m *Manager) fetchSequence(referencedMarkers *Markers, rank uint64, sequenc
 	}
 
 	cachedSequenceAliasMapping.Consume(func(sequenceAliasMapping *SequenceAliasMapping) {
-		cachedSequence = &CachedSequence{CachedObject: m.sequenceStore.Load(sequenceAliasMapping.SequenceID().Bytes())}
+		cachedSequence = m.Sequence(sequenceAliasMapping.SequenceID())
 	})
 
 	return
@@ -441,7 +463,7 @@ func (m *Manager) rankOfSequence(sequenceID SequenceID, ranksCache map[SequenceI
 		return rank
 	}
 
-	if !(&CachedSequence{CachedObject: m.sequenceStore.Load(sequenceID.Bytes())}).Consume(func(sequence *Sequence) {
+	if !m.Sequence(sequenceID).Consume(func(sequence *Sequence) {
 		ranksCache[sequenceID] = sequence.rank
 	}) {
 		panic(fmt.Sprintf("failed to load Sequence with %s", sequenceID))

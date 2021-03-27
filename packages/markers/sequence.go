@@ -20,12 +20,13 @@ import (
 
 // Sequence represents a set of ever increasing Indexes that are encapsulating a certain part of the DAG.
 type Sequence struct {
-	id                SequenceID
-	parentReferences  *ParentReferences
-	rank              uint64
-	lowestIndex       Index
-	highestIndex      Index
-	highestIndexMutex sync.RWMutex
+	id                 SequenceID
+	referencedMarkers  *ReferencedMarkers
+	referencingMarkers *ReferencingMarkers
+	rank               uint64
+	lowestIndex        Index
+	highestIndex       Index
+	highestIndexMutex  sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
@@ -35,11 +36,12 @@ func NewSequence(id SequenceID, referencedMarkers *Markers, rank uint64) *Sequen
 	initialIndex := referencedMarkers.HighestIndex() + 1
 
 	return &Sequence{
-		id:               id,
-		parentReferences: NewParentReferences(referencedMarkers),
-		rank:             rank,
-		lowestIndex:      initialIndex,
-		highestIndex:     initialIndex,
+		id:                 id,
+		referencedMarkers:  NewReferencedMarkers(referencedMarkers),
+		referencingMarkers: NewReferencingMarkers(),
+		rank:               rank,
+		lowestIndex:        initialIndex,
+		highestIndex:       initialIndex,
 	}
 }
 
@@ -62,8 +64,12 @@ func SequenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequence *Se
 		err = xerrors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
 		return
 	}
-	if sequence.parentReferences, err = ParentReferencesFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse ParentReferences from MarshalUtil: %w", err)
+	if sequence.referencedMarkers, err = ReferencedMarkersFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse ReferencedMarkers from MarshalUtil: %w", err)
+		return
+	}
+	if sequence.referencingMarkers, err = ReferencingMarkersFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse ReferencingMarkers from MarshalUtil: %w", err)
 		return
 	}
 	if sequence.rank, err = marshalUtil.ReadUint64(); err != nil {
@@ -97,14 +103,14 @@ func (s *Sequence) ID() SequenceID {
 	return s.id
 }
 
-// ParentSequences returns the SequenceIDs of the parent Sequences in the Sequence DAG.
-func (s *Sequence) ParentSequences() SequenceIDs {
-	return s.parentReferences.SequenceIDs()
+// ReferencedMarkers returns a collection of Markers that were referenced by the given Index.
+func (s *Sequence) ReferencedMarkers(index Index) *Markers {
+	return s.referencedMarkers.Get(index)
 }
 
-// HighestReferencedParentMarkers returns a collection of Markers that were referenced by the given Index.
-func (s *Sequence) HighestReferencedParentMarkers(index Index) *Markers {
-	return s.parentReferences.HighestReferencedMarkers(index)
+// ReferencedMarkers returns a collection of Markers that reference the given Index.
+func (s *Sequence) ReferencingMarkers(index Index) *Markers {
+	return s.referencingMarkers.Get(index)
 }
 
 // Rank returns the rank of the Sequence (maximum distance from the root of the Sequence DAG).
@@ -143,7 +149,7 @@ func (s *Sequence) IncreaseHighestIndex(referencedMarkers *Markers) (index Index
 		if referencedMarkers.Size() > 1 {
 			referencedMarkers.Delete(s.id)
 
-			s.parentReferences.AddReferences(referencedMarkers, s.highestIndex)
+			s.referencedMarkers.Add(s.highestIndex, referencedMarkers)
 		}
 
 		s.SetModified()
@@ -151,6 +157,13 @@ func (s *Sequence) IncreaseHighestIndex(referencedMarkers *Markers) (index Index
 	index = s.highestIndex
 
 	return
+}
+
+// AddReferencingMarker register a Marker that referenced the given Index of this Sequence.
+func (s *Sequence) AddReferencingMarker(index Index, referencingMarker *Marker) {
+	s.referencingMarkers.Add(index, referencingMarker)
+
+	s.SetModified()
 }
 
 // String returns a human readable version of the Sequence.
@@ -183,7 +196,8 @@ func (s *Sequence) ObjectStorageKey() []byte {
 // a key in the object storage.
 func (s *Sequence) ObjectStorageValue() []byte {
 	return marshalutil.New().
-		Write(s.parentReferences).
+		Write(s.referencedMarkers).
+		Write(s.referencingMarkers).
 		WriteUint64(s.rank).
 		Write(s.lowestIndex).
 		Write(s.HighestIndex()).
@@ -353,11 +367,14 @@ func (s SequenceIDs) Bytes() (marshaledSequenceIDs []byte) {
 // String returns a human readable version of the SequenceIDs.
 func (s SequenceIDs) String() (humanReadableSequenceIDs string) {
 	result := "SequenceIDs("
+	firstItem := true
 	for sequenceID := range s {
-		if len(result) != 12 {
+		if !firstItem {
 			result += ", "
 		}
 		result += strconv.FormatUint(uint64(sequenceID), 10)
+
+		firstItem = false
 	}
 	result += ")"
 
