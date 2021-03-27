@@ -485,7 +485,7 @@ type statementLog struct {
 func checkEnoughMana(id identity.ID, threshold float64) bool {
 	highestManaNodes, _, err := GetHighestManaNodesFraction(mana.ConsensusMana, threshold)
 	enoughMana := true
-	if err == nil && threshold < 1.0 {
+	if err == nil && threshold < 1.0 && len(highestManaNodes) > 0 {
 		enoughMana = false
 		for _, v := range highestManaNodes {
 			if v.ID == id {
