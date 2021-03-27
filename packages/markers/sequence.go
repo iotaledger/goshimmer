@@ -108,7 +108,7 @@ func (s *Sequence) ReferencedMarkers(index Index) *Markers {
 	return s.referencedMarkers.Get(index)
 }
 
-// ReferencedMarkers returns a collection of Markers that reference the given Index.
+// ReferencingMarkers returns a collection of Markers that reference the given Index.
 func (s *Sequence) ReferencingMarkers(index Index) *Markers {
 	return s.referencingMarkers.Get(index)
 }

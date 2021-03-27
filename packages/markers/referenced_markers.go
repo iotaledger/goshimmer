@@ -94,7 +94,7 @@ func ReferencedMarkersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (ref
 		referencedMarkers.referencedIndexesBySequence[sequenceID] = thresholdMap
 	}
 
-	return
+	return referencedMarkers, err
 }
 
 // Add adds new referenced Markers to the ReferencedMarkers.
