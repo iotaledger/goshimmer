@@ -48,6 +48,14 @@ func ReferencingMarkersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (re
 		referencingIndexesBySequence: make(map[SequenceID]*thresholdmap.ThresholdMap),
 	}
 
+	referencingMarkers.referencingIndexesBySequence, err = ReferenceMarkersFromMarshalUtil(marshalUtil, thresholdmap.UpperThresholdMode)
+	return referencingMarkers, err
+}
+
+// ReferenceMarkersFromMarshalUtil unmarshals Referencing/ReferencedMarkers using a MarshalUtil (for easier unmarshaling).
+func ReferenceMarkersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil, mode thresholdmap.Mode) (referenceMarkers map[SequenceID]*thresholdmap.ThresholdMap, err error) {
+	referenceMarkers = make(map[SequenceID]*thresholdmap.ThresholdMap)
+
 	sequenceCount, err := marshalUtil.ReadUint64()
 	if err != nil {
 		err = xerrors.Errorf("failed to parse Sequence count (%v): %w", err, cerrors.ErrParseBytesFailed)
@@ -65,26 +73,46 @@ func ReferencingMarkersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (re
 			err = xerrors.Errorf("failed to parse reference count (%v): %w", referenceCountErr, cerrors.ErrParseBytesFailed)
 			return
 		}
-		thresholdMap := thresholdmap.New(thresholdmap.UpperThresholdMode)
-		for j := uint64(0); j < referenceCount; j++ {
-			referencedIndex, referencedIndexErr := marshalUtil.ReadUint64()
-			if referencedIndexErr != nil {
-				err = xerrors.Errorf("failed to read referenced Index (%v): %w", referencedIndexErr, cerrors.ErrParseBytesFailed)
-				return
-			}
+		thresholdMap := thresholdmap.New(mode)
+		switch mode {
+		case thresholdmap.LowerThresholdMode:
+			for j := uint64(0); j < referenceCount; j++ {
+				referencingIndex, referencingIndexErr := marshalUtil.ReadUint64()
+				if referencingIndexErr != nil {
+					err = xerrors.Errorf("failed to read referencing Index (%v): %w", referencingIndexErr, cerrors.ErrParseBytesFailed)
+					return
+				}
 
-			referencingIndex, referencingIndexErr := marshalUtil.ReadUint64()
-			if referencingIndexErr != nil {
-				err = xerrors.Errorf("failed to read referencing Index (%v): %w", referencingIndexErr, cerrors.ErrParseBytesFailed)
-				return
-			}
+				referencedIndex, referencedIndexErr := marshalUtil.ReadUint64()
+				if referencedIndexErr != nil {
+					err = xerrors.Errorf("failed to read referenced Index (%v): %w", referencedIndexErr, cerrors.ErrParseBytesFailed)
+					return
+				}
 
-			thresholdMap.Set(referencedIndex, Index(referencingIndex))
+				thresholdMap.Set(referencingIndex, Index(referencedIndex))
+			}
+		case thresholdmap.UpperThresholdMode:
+			for j := uint64(0); j < referenceCount; j++ {
+				referencedIndex, referencedIndexErr := marshalUtil.ReadUint64()
+				if referencedIndexErr != nil {
+					err = xerrors.Errorf("failed to read referenced Index (%v): %w", referencedIndexErr, cerrors.ErrParseBytesFailed)
+					return
+				}
+
+				referencingIndex, referencingIndexErr := marshalUtil.ReadUint64()
+				if referencingIndexErr != nil {
+					err = xerrors.Errorf("failed to read referencing Index (%v): %w", referencingIndexErr, cerrors.ErrParseBytesFailed)
+					return
+				}
+
+				thresholdMap.Set(referencedIndex, Index(referencingIndex))
+			}
 		}
-		referencingMarkers.referencingIndexesBySequence[sequenceID] = thresholdMap
+
+		referenceMarkers[sequenceID] = thresholdMap
 	}
 
-	return referencingMarkers, err
+	return referenceMarkers, err
 }
 
 // Add adds a new referencing Marker to the ReferencingMarkers.

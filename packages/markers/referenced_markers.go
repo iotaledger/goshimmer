@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/thresholdmap"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
@@ -58,42 +57,7 @@ func ReferencedMarkersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (ref
 		referencedIndexesBySequence: make(map[SequenceID]*thresholdmap.ThresholdMap),
 	}
 
-	sequenceCount, err := marshalUtil.ReadUint64()
-	if err != nil {
-		err = xerrors.Errorf("failed to parse Sequence count (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	for i := uint64(0); i < sequenceCount; i++ {
-		sequenceID, sequenceIDErr := SequenceIDFromMarshalUtil(marshalUtil)
-		if sequenceIDErr != nil {
-			err = xerrors.Errorf("failed to parse SequenceID from MarshalUtil: %w", sequenceIDErr)
-			return
-		}
-
-		referenceCount, referenceCountErr := marshalUtil.ReadUint64()
-		if referenceCountErr != nil {
-			err = xerrors.Errorf("failed to parse reference count (%v): %w", referenceCountErr, cerrors.ErrParseBytesFailed)
-			return
-		}
-		thresholdMap := thresholdmap.New(thresholdmap.LowerThresholdMode)
-		for j := uint64(0); j < referenceCount; j++ {
-			referencingIndex, referencingIndexErr := marshalUtil.ReadUint64()
-			if referencingIndexErr != nil {
-				err = xerrors.Errorf("failed to read referencing Index (%v): %w", referencingIndexErr, cerrors.ErrParseBytesFailed)
-				return
-			}
-
-			referencedIndex, referencedIndexErr := marshalUtil.ReadUint64()
-			if referencedIndexErr != nil {
-				err = xerrors.Errorf("failed to read referenced Index (%v): %w", referencedIndexErr, cerrors.ErrParseBytesFailed)
-				return
-			}
-
-			thresholdMap.Set(referencingIndex, Index(referencedIndex))
-		}
-		referencedMarkers.referencedIndexesBySequence[sequenceID] = thresholdMap
-	}
-
+	referencedMarkers.referencedIndexesBySequence, err = ReferenceMarkersFromMarshalUtil(marshalUtil, thresholdmap.LowerThresholdMode)
 	return referencedMarkers, err
 }
 
