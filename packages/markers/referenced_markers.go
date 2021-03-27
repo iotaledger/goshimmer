@@ -30,7 +30,7 @@ func NewReferencedMarkers(markers *Markers) (referencedMarkers *ReferencedMarker
 	initialSequenceIndex := markers.HighestIndex() + 1
 	markers.ForEach(func(sequenceID SequenceID, index Index) bool {
 		thresholdMap := thresholdmap.New(thresholdmap.LowerThresholdMode)
-		thresholdMap.Set(uint64(initialSequenceIndex), uint64(index))
+		thresholdMap.Set(uint64(initialSequenceIndex), index)
 
 		referencedMarkers.referencedIndexesBySequence[sequenceID] = thresholdMap
 
