@@ -353,7 +353,7 @@ func (s SequenceIDs) Alias() (aggregatedSequencesID SequenceAlias) {
 	return
 }
 
-// Bytes returns a marshaled version of the SequenceIDs.
+// Bytesse returns a marshaled version of the SequenceIDs.
 func (s SequenceIDs) Bytes() (marshaledSequenceIDs []byte) {
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteUint32(uint32(len(s)))
@@ -364,7 +364,7 @@ func (s SequenceIDs) Bytes() (marshaledSequenceIDs []byte) {
 	return marshalUtil.Bytes()
 }
 
-// Stringse returns a human readable version of the SequenceIDs.
+// String returns a human readable version of the SequenceIDs.
 func (s SequenceIDs) String() (humanReadableSequenceIDs string) {
 	result := "SequenceIDs("
 	firstItem := true
