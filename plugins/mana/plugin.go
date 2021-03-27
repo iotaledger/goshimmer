@@ -367,7 +367,7 @@ func GetWeightedRandomNodes(n uint, manaType mana.Type) (mana.NodeMap, error) {
 	for nodeID, manaValue := range manaMap {
 		choices = append(choices, mana.RandChoice{
 			Item:   nodeID,
-			Weight: int(manaValue * manaScaleFactor), // scale float mana to int
+			Weight: int(manaValue * ManaScaleFactor), // scale float mana to int
 		})
 	}
 	chooser := mana.NewRandChooser(choices...)
