@@ -22,3 +22,4 @@ jobs:
           github_token: ${{ secrets.github_token }}
           golangci_lint_flags: "--timeout=10m"
           reporter: "github-pr-review"
+          only-new-issues: true
