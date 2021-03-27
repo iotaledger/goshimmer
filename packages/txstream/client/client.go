@@ -35,8 +35,12 @@ type Events struct {
 // DialFunc is a function that performs the TCP connection to the server
 type DialFunc func() (addr string, conn net.Conn, err error)
 
-func handleMessageReceived(handler interface{}, params ...interface{}) {
-	handler.(func(txstream.Message))(params[0].(txstream.Message))
+func handleTransactionReceived(handler interface{}, params ...interface{}) {
+	handler.(func(*txstream.MsgTransaction))(params[0].(*txstream.MsgTransaction))
+}
+
+func handleInclusionStateReceived(handler interface{}, params ...interface{}) {
+	handler.(func(*txstream.MsgTxInclusionState))(params[0].(*txstream.MsgTxInclusionState))
 }
 
 func handleConnected(handler interface{}, params ...interface{}) {
@@ -53,8 +57,8 @@ func New(clientID string, log *logger.Logger, dial DialFunc) *Client {
 		chUnsubscribe: make(chan ledgerstate.Address),
 		shutdown:      make(chan bool),
 		Events: Events{
-			TransactionReceived:    events.NewEvent(handleMessageReceived),
-			InclusionStateReceived: events.NewEvent(handleMessageReceived),
+			TransactionReceived:    events.NewEvent(handleTransactionReceived),
+			InclusionStateReceived: events.NewEvent(handleInclusionStateReceived),
 			Connected:              events.NewEvent(handleConnected),
 		},
 	}

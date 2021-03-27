@@ -53,19 +53,27 @@ func send(t *testing.T, n *Client, sendMsg func(), rcv func(msg txstream.Message
 	var wgSend sync.WaitGroup
 	wgSend.Add(1)
 
-	closure := events.NewClosure(func(msg txstream.Message) {
-		t.Logf("received msg from txstream %T", msg)
+	closureTransactionReceived := events.NewClosure(func(msg *txstream.MsgTransaction) {
+		t.Logf("received 'transaction' from txstream: %s", msg.Tx.ID().Base58())
 		wgSend.Wait()
 		if rcv(msg) {
 			close(done)
 		}
 	})
 
-	n.Events.TransactionReceived.Attach(closure)
-	defer n.Events.TransactionReceived.Detach(closure)
+	closureInlucsionStateReceived := events.NewClosure(func(msg *txstream.MsgTxInclusionState) {
+		t.Logf("received 'inlcusion state' from txstream: %s: %s", msg.TxID.Base58(), msg.State.String())
+		wgSend.Wait()
+		if rcv(msg) {
+			close(done)
+		}
+	})
 
-	n.Events.InclusionStateReceived.Attach(closure)
-	defer n.Events.InclusionStateReceived.Detach(closure)
+	n.Events.TransactionReceived.Attach(closureTransactionReceived)
+	defer n.Events.TransactionReceived.Detach(closureTransactionReceived)
+
+	n.Events.InclusionStateReceived.Attach(closureInlucsionStateReceived)
+	defer n.Events.InclusionStateReceived.Detach(closureInlucsionStateReceived)
 
 	sendMsg()
 	wgSend.Done()
