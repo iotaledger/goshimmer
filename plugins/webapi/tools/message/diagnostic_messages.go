@@ -229,14 +229,16 @@ func getDiagnosticMessageInfo(messageID tangle.MessageID) *DiagnosticMessagesInf
 		msgInfo.Booked = metadata.IsBooked()
 		msgInfo.Eligible = metadata.IsEligible()
 		msgInfo.Invalid = metadata.IsInvalid()
-		msgInfo.Rank = metadata.StructureDetails().Rank
-		msgInfo.IsPastMarker = metadata.StructureDetails().IsPastMarker
-		msgInfo.PastMarkers = metadata.StructureDetails().PastMarkers.SequenceToString()
-		msgInfo.PMHI = uint64(metadata.StructureDetails().PastMarkers.HighestIndex())
-		msgInfo.PMLI = uint64(metadata.StructureDetails().PastMarkers.LowestIndex())
-		msgInfo.FutureMarkers = metadata.StructureDetails().FutureMarkers.SequenceToString()
-		msgInfo.FMHI = uint64(metadata.StructureDetails().FutureMarkers.HighestIndex())
-		msgInfo.FMLI = uint64(metadata.StructureDetails().FutureMarkers.LowestIndex())
+		if metadata.StructureDetails() != nil {
+			msgInfo.Rank = metadata.StructureDetails().Rank
+			msgInfo.IsPastMarker = metadata.StructureDetails().IsPastMarker
+			msgInfo.PastMarkers = metadata.StructureDetails().PastMarkers.SequenceToString()
+			msgInfo.PMHI = uint64(metadata.StructureDetails().PastMarkers.HighestIndex())
+			msgInfo.PMLI = uint64(metadata.StructureDetails().PastMarkers.LowestIndex())
+			msgInfo.FutureMarkers = metadata.StructureDetails().FutureMarkers.SequenceToString()
+			msgInfo.FMHI = uint64(metadata.StructureDetails().FutureMarkers.HighestIndex())
+			msgInfo.FMLI = uint64(metadata.StructureDetails().FutureMarkers.LowestIndex())
+		}
 
 		branchID = metadata.BranchID()
 	}, false)
