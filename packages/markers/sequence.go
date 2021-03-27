@@ -113,13 +113,6 @@ func (s *Sequence) ReferencingMarkers(index Index) *Markers {
 	return s.referencingMarkers.Get(index)
 }
 
-// AddReferencingMarker register a Marker that referenced the given Index of this Sequence.
-func (s *Sequence) AddReferencingMarker(index Index, referencingMarker *Marker) {
-	s.referencingMarkers.Add(index, referencingMarker)
-
-	s.SetModified()
-}
-
 // Rank returns the rank of the Sequence (maximum distance from the root of the Sequence DAG).
 func (s *Sequence) Rank() uint64 {
 	return s.rank
@@ -164,6 +157,13 @@ func (s *Sequence) IncreaseHighestIndex(referencedMarkers *Markers) (index Index
 	index = s.highestIndex
 
 	return
+}
+
+// AddReferencingMarker register a Marker that referenced the given Index of this Sequence.
+func (s *Sequence) AddReferencingMarker(index Index, referencingMarker *Marker) {
+	s.referencingMarkers.Add(index, referencingMarker)
+
+	s.SetModified()
 }
 
 // String returns a human readable version of the Sequence.
@@ -367,11 +367,14 @@ func (s SequenceIDs) Bytes() (marshaledSequenceIDs []byte) {
 // String returns a human readable version of the SequenceIDs.
 func (s SequenceIDs) String() (humanReadableSequenceIDs string) {
 	result := "SequenceIDs("
+	firstItem := true
 	for sequenceID := range s {
-		if result != "SequenceIDs(" {
+		if !firstItem {
 			result += ", "
 		}
 		result += strconv.FormatUint(uint64(sequenceID), 10)
+
+		firstItem = false
 	}
 	result += ")"
 
