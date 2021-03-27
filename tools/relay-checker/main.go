@@ -19,7 +19,7 @@ func testBroadcastData(api *client.GoShimmerAPI) (string, error) {
 
 func testTargetGetMessages(api *client.GoShimmerAPI, msgID string) error {
 	// query target node for broadcasted data
-	if _, err := api.FindMessageByID([]string{msgID}); err != nil {
+	if _, err := api.GetMessage(msgID); err != nil {
 		return fmt.Errorf("querying the target node failed: %w", err)
 	}
 	return nil
@@ -29,7 +29,7 @@ func testNodesGetMessages(msgID string) error {
 	// query nodes node for broadcasted data
 	for _, n := range nodes {
 		nodesAPI := client.NewGoShimmerAPI(n)
-		if _, err := nodesAPI.FindMessageByID([]string{msgID}); err != nil {
+		if _, err := nodesAPI.GetMessage(msgID); err != nil {
 			return fmt.Errorf("querying node %s failed: %w", n, err)
 		}
 		fmt.Printf("msg found in node %s\n", n)

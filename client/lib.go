@@ -3,6 +3,7 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -102,7 +103,7 @@ func interpretBody(res *http.Response, decodeTo interface{}) error {
 
 	errRes := &errorresponse{}
 	if err := json.Unmarshal(resBody, errRes); err != nil {
-		return fmt.Errorf("unable to read error from response body: %w", err)
+		return fmt.Errorf("unable to read error from response body: %w repsonseBody: %s", err, resBody)
 	}
 
 	switch res.StatusCode {
@@ -131,9 +132,9 @@ func (api *GoShimmerAPI) do(method string, route string, reqObj interface{}, res
 			return err
 		}
 	}
-
+	ctx := context.TODO()
 	// construct request
-	req, err := http.NewRequest(method, fmt.Sprintf("%s/%s", api.baseURL, route), func() io.Reader {
+	req, err := http.NewRequestWithContext(ctx, method, fmt.Sprintf("%s/%s", api.baseURL, route), func() io.Reader {
 		if data == nil {
 			return nil
 		}

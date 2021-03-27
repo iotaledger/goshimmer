@@ -7,6 +7,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/datastructure/set"
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/objectstorage"
+	"go.uber.org/atomic"
+
 	db_pkg "github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -18,14 +27,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/datastructure/set"
-	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/node"
-	"github.com/iotaledger/hive.go/objectstorage"
-	"go.uber.org/atomic"
 )
 
 const (
@@ -36,7 +37,7 @@ const (
 	ManaScaleFactor = 1000
 
 	maxConsensusEventsInStorage = 108000
-	slidingEventsInterval       = 10800 //10% of maxConsensusEventsInStorage
+	slidingEventsInterval       = 10800 // 10% of maxConsensusEventsInStorage
 )
 
 var (
@@ -120,6 +121,7 @@ func logPledgeEvent(ev *mana.PledgedEvent) {
 		consensusEventsLogsStorageSize.Inc()
 	}
 }
+
 func logRevokeEvent(ev *mana.RevokedEvent) {
 	if ev.ManaType == mana.ConsensusMana {
 		consensusEventsLogStorage.Store(ev.ToPersistable()).Release()
@@ -354,7 +356,7 @@ func OverrideMana(manaType mana.Type, nodeID identity.ID, bm *mana.AccessBaseMan
 	baseManaVectors[manaType].SetMana(nodeID, bm)
 }
 
-//GetWeightedRandomNodes returns a weighted random selection of n nodes.
+// GetWeightedRandomNodes returns a weighted random selection of n nodes.
 func GetWeightedRandomNodes(n uint, manaType mana.Type) (mana.NodeMap, error) {
 	if !QueryAllowed() {
 		return mana.NodeMap{}, ErrQueryNotAllowed
@@ -365,7 +367,7 @@ func GetWeightedRandomNodes(n uint, manaType mana.Type) (mana.NodeMap, error) {
 	for nodeID, manaValue := range manaMap {
 		choices = append(choices, mana.RandChoice{
 			Item:   nodeID,
-			Weight: int(manaValue * ManaScaleFactor), //scale float mana to int
+			Weight: int(manaValue * manaScaleFactor), // scale float mana to int
 		})
 	}
 	chooser := mana.NewRandChooser(choices...)
@@ -457,7 +459,7 @@ func PendingManaOnOutput(outputID ledgerstate.OutputID) (float64, time.Time) {
 	outputMetadata := cachedOutputMetadata.Unwrap()
 
 	// spent output has 0 pending mana.
-	if outputMetadata.ConsumerCount() > 0 {
+	if outputMetadata == nil || outputMetadata.ConsumerCount() > 0 {
 		return 0, time.Time{}
 	}
 
@@ -482,14 +484,14 @@ func GetPendingMana(value float64, n time.Duration) float64 {
 }
 
 // GetLoggedEvents gets the events logs for the node IDs and time frame specified. If none is specified, it returns the logs for all nodes.
-func GetLoggedEvents(IDs []identity.ID, startTime time.Time, endTime time.Time) (map[identity.ID]*EventsLogs, error) {
+func GetLoggedEvents(identityIDs []identity.ID, startTime time.Time, endTime time.Time) (map[identity.ID]*EventsLogs, error) {
 	logs := make(map[identity.ID]*EventsLogs)
 	lookup := make(map[identity.ID]bool)
 	getAll := true
 
-	if len(IDs) > 0 {
+	if len(identityIDs) > 0 {
 		getAll = false
-		for _, nodeID := range IDs {
+		for _, nodeID := range identityIDs {
 			lookup[nodeID] = true
 		}
 	}
@@ -711,7 +713,7 @@ func pruneConsensusEventLogsStorage() {
 		consensusBaseManaPastVectorStorage.Store(p).Release()
 	}
 
-	//store the metadata
+	// store the metadata
 	metadata := &mana.ConsensusBasePastManaVectorMetadata{
 		Timestamp: t,
 	}

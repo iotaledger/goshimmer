@@ -8,10 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/markers"
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
@@ -23,6 +19,11 @@ import (
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/markers"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
 const (
@@ -630,7 +631,9 @@ type MessageMetadata struct {
 	structureDetails   *markers.StructureDetails
 	branchID           ledgerstate.BranchID
 	scheduled          bool
+	scheduledTime      time.Time
 	booked             bool
+	bookedTime         time.Time
 	eligible           bool
 	invalid            bool
 
@@ -639,7 +642,9 @@ type MessageMetadata struct {
 	structureDetailsMutex   sync.RWMutex
 	branchIDMutex           sync.RWMutex
 	scheduledMutex          sync.RWMutex
+	scheduledTimeMutex      sync.RWMutex
 	bookedMutex             sync.RWMutex
+	bookedTimeMutex         sync.RWMutex
 	eligibleMutex           sync.RWMutex
 	invalidMutex            sync.RWMutex
 }
@@ -693,8 +698,16 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 		err = fmt.Errorf("failed to parse scheduled flag of message metadata: %w", err)
 		return
 	}
+	if result.scheduledTime, err = marshalUtil.ReadTime(); err != nil {
+		err = fmt.Errorf("failed to parse scheduled time of message metadata: %w", err)
+		return
+	}
 	if result.booked, err = marshalUtil.ReadBool(); err != nil {
 		err = fmt.Errorf("failed to parse booked flag of message metadata: %w", err)
+		return
+	}
+	if result.bookedTime, err = marshalUtil.ReadTime(); err != nil {
+		err = fmt.Errorf("failed to parse booked time of message metadata: %w", err)
 		return
 	}
 	if result.eligible, err = marshalUtil.ReadBool(); err != nil {
@@ -759,7 +772,6 @@ func (m *MessageMetadata) SetSolid(solid bool) (modified bool) {
 			modified = true
 		}
 		m.solidMutex.Unlock()
-
 	} else {
 		m.solidMutex.RUnlock()
 	}
@@ -799,13 +811,13 @@ func (m *MessageMetadata) StructureDetails() *markers.StructureDetails {
 }
 
 // SetBranchID sets the branch ID of the message.
-func (m *MessageMetadata) SetBranchID(ID ledgerstate.BranchID) (modified bool) {
+func (m *MessageMetadata) SetBranchID(bID ledgerstate.BranchID) (modified bool) {
 	m.branchIDMutex.Lock()
 	defer m.branchIDMutex.Unlock()
-	if m.branchID == ID {
+	if m.branchID == bID {
 		return
 	}
-	m.branchID = ID
+	m.branchID = bID
 	m.SetModified(true)
 	modified = true
 	return
@@ -832,12 +844,15 @@ func (m *MessageMetadata) IsEligible() (result bool) {
 func (m *MessageMetadata) SetScheduled(scheduled bool) (modified bool) {
 	m.scheduledMutex.Lock()
 	defer m.scheduledMutex.Unlock()
+	m.scheduledTimeMutex.Lock()
+	defer m.scheduledTimeMutex.Unlock()
 
 	if m.scheduled == scheduled {
 		return false
 	}
 
 	m.scheduled = scheduled
+	m.scheduledTime = clock.SyncedTime()
 	m.SetModified()
 	modified = true
 
@@ -852,17 +867,28 @@ func (m *MessageMetadata) Scheduled() (result bool) {
 	return m.scheduled
 }
 
+// ScheduledTime returns the time when the message represented by this metadata was scheduled.
+func (m *MessageMetadata) ScheduledTime() time.Time {
+	m.scheduledTimeMutex.RLock()
+	defer m.scheduledTimeMutex.RUnlock()
+
+	return m.scheduledTime
+}
+
 // SetBooked sets the message associated with this metadata as booked.
 // It returns true if the booked status is modified. False otherwise.
 func (m *MessageMetadata) SetBooked(booked bool) (modified bool) {
 	m.bookedMutex.Lock()
 	defer m.bookedMutex.Unlock()
+	m.bookedTimeMutex.Lock()
+	defer m.bookedTimeMutex.Unlock()
 
 	if m.booked == booked {
 		return false
 	}
 
 	m.booked = booked
+	m.bookedTime = clock.SyncedTime()
 	m.SetModified()
 	modified = true
 
@@ -876,6 +902,14 @@ func (m *MessageMetadata) IsBooked() (result bool) {
 	result = m.booked
 
 	return
+}
+
+// BookedTime returns the time when the message represented by this metadata was booked.
+func (m *MessageMetadata) BookedTime() time.Time {
+	m.bookedTimeMutex.RLock()
+	defer m.bookedTimeMutex.RUnlock()
+
+	return m.bookedTime
 }
 
 // SetEligible sets the message associated with this metadata as eligible.
@@ -942,7 +976,9 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 		Write(m.StructureDetails()).
 		Write(m.BranchID()).
 		WriteBool(m.Scheduled()).
+		WriteTime(m.ScheduledTime()).
 		WriteBool(m.IsBooked()).
+		WriteTime(m.BookedTime()).
 		WriteBool(m.IsEligible()).
 		WriteBool(m.IsInvalid()).
 		Bytes()
@@ -964,7 +1000,9 @@ func (m *MessageMetadata) String() string {
 		stringify.StructField("structureDetails", m.StructureDetails()),
 		stringify.StructField("branchID", m.BranchID()),
 		stringify.StructField("scheduled", m.Scheduled()),
+		stringify.StructField("scheduledTime", m.ScheduledTime()),
 		stringify.StructField("booked", m.IsBooked()),
+		stringify.StructField("bookedTime", m.BookedTime()),
 		stringify.StructField("eligible", m.IsEligible()),
 		stringify.StructField("invalid", m.IsInvalid()),
 	)

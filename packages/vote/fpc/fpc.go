@@ -9,10 +9,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/events"
+
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
-	"github.com/iotaledger/hive.go/events"
 )
 
 var (

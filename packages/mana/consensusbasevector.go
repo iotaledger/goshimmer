@@ -6,9 +6,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/identity"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 // ConsensusBaseManaVector represents a base mana vector.
@@ -227,7 +228,7 @@ func (c *ConsensusBaseManaVector) GetHighestManaNodes(n uint) (res []Node, t tim
 		return nil, t, err
 	}
 
-	sort.Slice(res[:], func(i, j int) bool {
+	sort.Slice(res, func(i, j int) bool {
 		return res[i].Mana > res[j].Mana
 	})
 

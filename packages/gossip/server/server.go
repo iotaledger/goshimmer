@@ -200,7 +200,6 @@ func (t *TCP) run() {
 	<-timeout.C // ignore first timeout
 
 	for {
-
 		// Set the timer so that it fires when the next accept expires
 		if e := matcherList.Front(); e != nil {
 			// the first element always has the closest deadline
@@ -211,7 +210,6 @@ func (t *TCP) run() {
 		}
 
 		select {
-
 		// add a new matcher to the list
 		case m := <-t.addAcceptMatcher:
 			m.deadline = time.Now().Add(connectionTimeout)
@@ -255,7 +253,6 @@ func (t *TCP) run() {
 				e.Value.(*acceptMatcher).connected <- connect{nil, ErrClosed}
 			}
 			return
-
 		}
 	}
 }

@@ -122,7 +122,6 @@ func (s *Scheduler) parentsBooked(messageID MessageID) (parentsBooked bool) {
 				parentsBooked = false
 			}
 		})
-
 	})
 
 	return

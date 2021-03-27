@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/mr-tron/base58"
+
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
 const (

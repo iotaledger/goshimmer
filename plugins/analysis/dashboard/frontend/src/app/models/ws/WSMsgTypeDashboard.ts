@@ -4,5 +4,8 @@ export enum WSMsgTypeDashboard {
     ManaMapOnline,
     ManaAllowedPledge,
     ManaPledge,
+    ManaInitPledge,
     ManaRevoke,
+    ManaInitRevoke,
+    ManaInitDone
 }

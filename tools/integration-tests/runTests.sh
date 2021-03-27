@@ -2,6 +2,8 @@
 
 TEST_NAMES='autopeering common drng message value consensus faucet syncbeacon mana'
 
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
 echo "Build GoShimmer image"
 docker build -t iotaledger/goshimmer ../../.
 

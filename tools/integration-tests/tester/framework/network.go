@@ -9,10 +9,11 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
-	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
+
+	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 )
 
 // Network represents a complete GoShimmer network within Docker.

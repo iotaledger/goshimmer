@@ -12,8 +12,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Run golangci-lint
-        uses: docker://reviewdog/action-golangci-lint:v1.9
+      - name: Run golangci-lint # reviewdog v1.19.0, golangci-lint v1.38.0
+        uses: reviewdog/action-golangci-lint@93be4324306dcbba508544d891a7b0576bb28ddd
         with:
           github_token: ${{ secrets.github_token }}
           golangci_lint_flags: "--timeout=10m"

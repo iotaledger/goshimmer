@@ -5,9 +5,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"golang.org/x/xerrors"
+
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	"golang.org/x/xerrors"
 )
 
 // IssuePayloadFunc is a function which issues a payload.
@@ -57,13 +58,13 @@ func (spammer *Spammer) run(rate int, timeUnit time.Duration, processID int64, i
 
 		currentInterval := time.Since(start)
 
-		if imif == "exponential" {
-			// emit messages by intervals whose random length is exponentially distributed
+		if imif == "poisson" {
+			// emit messages modeled with Poisson point process, whose time intervals are exponential variables with mean 1/rate
 			msgInterval = time.Duration(float64(timeUnit.Nanoseconds()) * rand.ExpFloat64() / float64(rate))
 		}
 
 		if currentInterval < msgInterval {
-			//there is still time, sleep until msgInterval
+			// there is still time, sleep until msgInterval
 			time.Sleep(msgInterval - currentInterval)
 		}
 		// when currentInterval > msgInterval, the node can't issue msgs as fast as requested, will do as fast as it can
