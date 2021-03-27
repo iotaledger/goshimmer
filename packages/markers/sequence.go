@@ -364,7 +364,7 @@ func (s SequenceIDs) Bytes() (marshaledSequenceIDs []byte) {
 	return marshalUtil.Bytes()
 }
 
-// Stringse returns a human readable version of the SequenceIDs.
+// String returns a human readable version of the SequenceIDs.
 func (s SequenceIDs) String() (humanReadableSequenceIDs string) {
 	result := "SequenceIDs("
 	firstItem := true
