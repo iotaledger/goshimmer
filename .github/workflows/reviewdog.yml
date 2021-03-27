@@ -12,7 +12,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
         with:
-          fetch-depth: 0
+          fetch-depth: 0 # required for new-from-rev option in .golangci.yml
 
       - uses: actions/setup-go@v2
         with:
