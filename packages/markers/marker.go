@@ -391,7 +391,7 @@ func (m *Markers) SequenceToString() (s string) {
 // ReferencingMarkers is a data structure that allows to denote which Markers of child Sequences in the Sequence DAG
 // reference a given Marker in a Sequence.
 type ReferencingMarkers struct {
-	referencingIndexesBySequence MarkerReferences
+	referencingIndexesBySequence markerReferences
 	mutex                        sync.RWMutex
 }
 
@@ -422,7 +422,7 @@ func ReferencingMarkersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (re
 		referencingIndexesBySequence: make(map[SequenceID]*thresholdmap.ThresholdMap),
 	}
 
-	referencingMarkers.referencingIndexesBySequence, err = MarkerReferencesFromMarshalUtil(marshalUtil, thresholdmap.UpperThresholdMode)
+	referencingMarkers.referencingIndexesBySequence, err = markerReferencesFromMarshalUtil(marshalUtil, thresholdmap.UpperThresholdMode)
 	return referencingMarkers, err
 }
 
@@ -540,7 +540,7 @@ func (r *ReferencingMarkers) String() (humanReadableReferencingMarkers string) {
 // ReferencedMarkers is a data structure that allows to denote which Marker of a Sequence references which other Markers
 // of its parent Sequences in the Sequence DAG.
 type ReferencedMarkers struct {
-	referencedIndexesBySequence MarkerReferences
+	referencedIndexesBySequence markerReferences
 	mutex                       sync.RWMutex
 }
 
@@ -581,7 +581,7 @@ func ReferencedMarkersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (ref
 		referencedIndexesBySequence: make(map[SequenceID]*thresholdmap.ThresholdMap),
 	}
 
-	referencedMarkers.referencedIndexesBySequence, err = MarkerReferencesFromMarshalUtil(marshalUtil, thresholdmap.LowerThresholdMode)
+	referencedMarkers.referencedIndexesBySequence, err = markerReferencesFromMarshalUtil(marshalUtil, thresholdmap.LowerThresholdMode)
 	return referencedMarkers, err
 }
 
@@ -895,10 +895,11 @@ func (m *markersByRank) String() (humanReadableMarkersByRank string) {
 
 // region markerReferences /////////////////////////////////////////////////////////////////////////////////////////////
 
-type MarkerReferences map[SequenceID]*thresholdmap.ThresholdMap
+// markerReferences represents a type that encodes the reference between Markers of different Sequences.
+type markerReferences map[SequenceID]*thresholdmap.ThresholdMap
 
-// MarkerReferencesFromMarshalUtil unmarshals MarkerReferences using a MarshalUtil (for easier unmarshaling).
-func MarkerReferencesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil, mode thresholdmap.Mode) (referenceMarkers MarkerReferences, err error) {
+// markerReferencesFromMarshalUtil unmarshals markerReferences using a MarshalUtil (for easier unmarshaling).
+func markerReferencesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil, mode thresholdmap.Mode) (referenceMarkers markerReferences, err error) {
 	referenceMarkers = make(map[SequenceID]*thresholdmap.ThresholdMap)
 
 	sequenceCount, err := marshalUtil.ReadUint64()
