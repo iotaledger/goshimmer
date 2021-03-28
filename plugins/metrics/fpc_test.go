@@ -3,9 +3,10 @@ package metrics
 import (
 	"testing"
 
+	"github.com/magiconair/properties/assert"
+
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/vote"
-	"github.com/magiconair/properties/assert"
 )
 
 func TestActiveConflicts(t *testing.T) {

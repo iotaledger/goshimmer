@@ -3,9 +3,10 @@ package drng
 import (
 	"testing"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/goshimmer/packages/clock"
 )
 
 func dummyRandomness() *Randomness {
@@ -42,10 +43,8 @@ func TestState(t *testing.T) {
 }
 
 func TestFloat64(t *testing.T) {
-
 	max := []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 	r := &Randomness{1, max, clock.SyncedTime()}
 	stateTest := NewState(SetRandomness(r))
 	require.Equal(t, 0.9999999999999999, stateTest.Randomness().Float64())
-
 }

@@ -4,10 +4,11 @@ import (
 	"encoding/hex"
 	"net/http"
 
-	"github.com/iotaledger/goshimmer/plugins/drng"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58"
+
+	"github.com/iotaledger/goshimmer/plugins/drng"
 )
 
 // committeeHandler returns the current DRNG committee used.

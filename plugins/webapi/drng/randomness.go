@@ -4,8 +4,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/iotaledger/goshimmer/plugins/drng"
 	"github.com/labstack/echo"
+
+	"github.com/iotaledger/goshimmer/plugins/drng"
 )
 
 // randomnessHandler returns the current DRNG randomness used.

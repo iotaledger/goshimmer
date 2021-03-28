@@ -1,8 +1,9 @@
 package server
 
 import (
-	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 	"github.com/iotaledger/hive.go/events"
+
+	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 )
 
 // Events holds the events of the analysis server package.
@@ -75,6 +76,7 @@ func connectNodesCaller(handler interface{}, params ...interface{}) {
 func disconnectNodesCaller(handler interface{}, params ...interface{}) {
 	handler.(func(*DisconnectNodesEvent))(params[0].(*DisconnectNodesEvent))
 }
+
 func errorCaller(handler interface{}, params ...interface{}) {
 	handler.(func(error))(params[0].(error))
 }

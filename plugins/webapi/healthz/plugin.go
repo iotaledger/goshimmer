@@ -4,11 +4,12 @@ import (
 	"net/http"
 	goSync "sync"
 
+	"github.com/iotaledger/hive.go/node"
+	"github.com/labstack/echo"
+
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
-	"github.com/iotaledger/hive.go/node"
-	"github.com/labstack/echo"
 )
 
 // PluginName is the name of the web API healthz endpoint plugin.

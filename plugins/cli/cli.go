@@ -7,13 +7,16 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/node"
 	flag "github.com/spf13/pflag"
+
+	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
-var enabledPlugins []string
-var disabledPlugins []string
+var (
+	enabledPlugins  []string
+	disabledPlugins []string
+)
 
 // AddPluginStatus adds the status (enabled=1, disabled=0) of a given plugin.
 func AddPluginStatus(name string, status int) {

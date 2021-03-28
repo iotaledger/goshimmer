@@ -1,7 +1,9 @@
 
+# Layers
 > DISCLAIMER: The described layers describe how things are implemented in GoShimmer. They might not reflect final Coordicide specification or implementations.
 
-# Layers
+
+
 GoShimmer abstracts node functionalities into different layers. Similar to other architectures, upper layers build on the provided functionality of the layers below them. A layer is merely the concept of creating a clear separation of concerns.
 
 Layers operate on payloads and it is up to the layer to react to the wanted payload types.

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/set"
@@ -15,6 +14,8 @@ import (
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/types"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/database"
 )
 
 // region BranchDAG ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -268,6 +269,17 @@ func (b *BranchDAG) ChildBranches(branchID BranchID) (cachedChildBranches Cached
 	}, objectstorage.WithIteratorPrefix(branchID.Bytes()))
 
 	return
+}
+
+// ForEachBranch iterates over all of the branches and executes consumer.
+func (b *BranchDAG) ForEachBranch(consumer func(branch Branch)) {
+	b.branchStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		(&CachedBranch{CachedObject: cachedObject}).Consume(func(branch Branch) {
+			consumer(branch)
+		})
+
+		return true
+	})
 }
 
 // Conflict loads a Conflict from the object storage.
@@ -554,7 +566,7 @@ func (b *BranchDAG) createConflictBranchFromNormalizedParentBranchIDs(branchID B
 	}
 
 	// register references
-	switch true {
+	switch {
 	case newBranchCreated:
 		// store child references
 		for parentBranchID := range normalizedParentBranchIDs {

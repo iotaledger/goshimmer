@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
 const (
@@ -95,7 +96,7 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (statement *Statement, err erro
 		return
 	}
 
-	parsedBytes := marshalUtil.ReadOffset() - 8 //skip the payload size and type
+	parsedBytes := marshalUtil.ReadOffset() - 8 // skip the payload size and type
 	if uint32(parsedBytes)+(statement.ConflictsCount*ConflictLength) > payloadSize {
 		err = fmt.Errorf("failed to parse statement payload: number of conflicts overflowing: %w", err)
 		return
@@ -112,7 +113,7 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (statement *Statement, err erro
 		return
 	}
 
-	parsedBytes = marshalUtil.ReadOffset() - 8 //skip the payload size and type
+	parsedBytes = marshalUtil.ReadOffset() - 8 // skip the payload size and type
 	if uint32(parsedBytes)+statement.TimestampsCount*TimestampLength > payloadSize {
 		err = fmt.Errorf("failed to parse statement payload: number of timestamps overflowing: %w", err)
 		return
@@ -125,7 +126,7 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (statement *Statement, err erro
 
 	// return the number of bytes we processed
 	parsedBytes = marshalUtil.ReadOffset() - readStartOffset
-	if parsedBytes != int(payloadSize)+4 { //skip the payload size
+	if parsedBytes != int(payloadSize)+4 { // skip the payload size
 		err = xerrors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, payloadSize, cerrors.ErrParseBytesFailed)
 		return
 	}

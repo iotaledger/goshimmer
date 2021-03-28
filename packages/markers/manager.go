@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/types"
+
+	"github.com/iotaledger/goshimmer/packages/database"
 )
 
 // region Manager //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -53,7 +54,7 @@ func NewManager(store kvstore.KVStore) (newManager *Manager) {
 // InheritStructureDetails takes the StructureDetails of the referenced parents and returns new StructureDetails for the
 // message that was just added to the DAG. It automatically creates a new Sequence and Index if necessary and returns an
 // additional flag that indicates if a new Sequence was created.
-func (m *Manager) InheritStructureDetails(referencedStructureDetails []*StructureDetails, increaseIndexCallback IncreaseIndexCallback, newSequenceAlias ...SequenceAlias) (inheritedStructureDetails *StructureDetails, newSequenceCreated bool) {
+func (m *Manager) InheritStructureDetails(referencedStructureDetails []*StructureDetails, increaseIndexCallback IncreaseIndexCallback, sequenceAlias SequenceAlias) (inheritedStructureDetails *StructureDetails, newSequenceCreated bool) {
 	inheritedStructureDetails = &StructureDetails{
 		FutureMarkers: NewMarkers(),
 	}
@@ -78,46 +79,47 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 	if !referencedMarkersExist {
 		referencedMarkers = NewMarkers(&Marker{sequenceID: 0, index: 0})
 		normalizedSequences = map[SequenceID]types.Empty{0: types.Void}
-		if len(newSequenceAlias) == 0 {
-			newSequenceAlias = []SequenceAlias{NewSequenceAlias([]byte("MAIN_SEQUENCE"))}
-		}
 	}
 
-	cachedSequence, newSequenceCreated := m.fetchSequence(normalizedSequences, referencedMarkers, rankOfReferencedSequences, newSequenceAlias...)
+	cachedSequence, newSequenceCreated := m.fetchSequence(referencedMarkers, rankOfReferencedSequences, sequenceAlias)
 	if newSequenceCreated {
 		cachedSequence.Consume(func(sequence *Sequence) {
 			inheritedStructureDetails.IsPastMarker = true
 			// sequence has just been created, so lowestIndex = highestIndex
 			inheritedStructureDetails.PastMarkers = NewMarkers(&Marker{sequenceID: sequence.id, index: sequence.lowestIndex})
+
+			m.registerReferencingMarker(referencedMarkers, NewMarker(sequence.id, sequence.lowestIndex))
 		})
 		return
 	}
 
-	if len(normalizedSequences) == 1 {
-		cachedSequence.Consume(func(sequence *Sequence) {
-			if currentIndex, _ := referencedMarkers.Get(sequence.id); sequence.HighestIndex() == currentIndex && increaseIndexCallback(sequence.id, currentIndex) {
-				if newIndex, increased := sequence.IncreaseHighestIndex(referencedMarkers); increased {
-					inheritedStructureDetails.IsPastMarker = true
-					inheritedStructureDetails.PastMarkers = NewMarkers(&Marker{sequenceID: sequence.id, index: newIndex})
-					return
-				}
-			}
-
+	cachedSequence.Consume(func(sequence *Sequence) {
+		if _, fetchedSequenceReferenced := normalizedSequences[sequence.ID()]; !fetchedSequenceReferenced {
 			inheritedStructureDetails.PastMarkers = referencedMarkers
-		})
-		return
-	}
+			return
+		}
 
-	cachedSequence.Release()
-	inheritedStructureDetails.PastMarkers = referencedMarkers
+		if currentIndex, _ := referencedMarkers.Get(sequence.id); sequence.HighestIndex() == currentIndex && increaseIndexCallback(sequence.id, currentIndex) {
+			if newIndex, increased := sequence.IncreaseHighestIndex(referencedMarkers); increased {
+				inheritedStructureDetails.IsPastMarker = true
+				inheritedStructureDetails.PastMarkers = NewMarkers(&Marker{sequenceID: sequence.id, index: newIndex})
 
-	return
+				m.registerReferencingMarker(referencedMarkers, NewMarker(sequence.id, newIndex))
+
+				return
+			}
+		}
+
+		inheritedStructureDetails.PastMarkers = referencedMarkers
+	})
+
+	return inheritedStructureDetails, newSequenceCreated
 }
 
 // UpdateStructureDetails updates the StructureDetails of an existing node in the DAG by propagating new Markers of its
 // children into its future Markers. It returns two boolean flags that indicate if the future Markers were updated and
 // if the new Marker should be propagated further to the parents of the given node.
-func (m *Manager) UpdateStructureDetails(structureDetailsToUpdate *StructureDetails, markerToInherit *Marker) (futureMarkersUpdated bool, inheritFutureMarkerFurther bool) {
+func (m *Manager) UpdateStructureDetails(structureDetailsToUpdate *StructureDetails, markerToInherit *Marker) (futureMarkersUpdated, inheritFutureMarkerFurther bool) {
 	structureDetailsToUpdate.futureMarkersUpdateMutex.Lock()
 	defer structureDetailsToUpdate.futureMarkersUpdateMutex.Unlock()
 
@@ -128,14 +130,14 @@ func (m *Manager) UpdateStructureDetails(structureDetailsToUpdate *StructureDeta
 
 	structureDetailsToUpdate.FutureMarkers.Set(markerToInherit.sequenceID, markerToInherit.index)
 	futureMarkersUpdated = true
-	// stop propagating further if structureDetailsToUpadate is a marker
+	// stop propagating further if structureDetailsToUpdate is a marker
 	inheritFutureMarkerFurther = !structureDetailsToUpdate.IsPastMarker
 
 	return
 }
 
 // IsInPastCone checks if the earlier node is directly or indirectly referenced by the later node in the DAG.
-func (m *Manager) IsInPastCone(earlierStructureDetails *StructureDetails, laterStructureDetails *StructureDetails) (isInPastCone types.TriBool) {
+func (m *Manager) IsInPastCone(earlierStructureDetails, laterStructureDetails *StructureDetails) (isInPastCone types.TriBool) {
 	if earlierStructureDetails.FutureMarkers.Size() == 0 && laterStructureDetails.FutureMarkers.Size() == 0 {
 		return types.Maybe
 	}
@@ -232,7 +234,7 @@ func (m *Manager) IsInPastCone(earlierStructureDetails *StructureDetails, laterS
 	return types.False
 }
 
-// Sequence returns a stored Sequence from the object storage.
+// Sequence retrieves a Sequence from the object storage.
 func (m *Manager) Sequence(sequenceID SequenceID) *CachedSequence {
 	return &CachedSequence{CachedObject: m.sequenceStore.Load(sequenceID.Bytes())}
 }
@@ -267,7 +269,7 @@ func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkersByRank *m
 	})
 	markersToIterate := normalizedMarkersByRank.Clone()
 
-	//iterate from highest sequence rank to lowest
+	// iterate from highest sequence rank to lowest
 	for i := markersToIterate.HighestRank() + 1; i > normalizedMarkersByRank.LowestRank(); i-- {
 		currentRank := i - 1
 		markersByRank, rankExists := markersToIterate.Markers(currentRank)
@@ -282,9 +284,9 @@ func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkersByRank *m
 				return false
 			}
 
-			if !(&CachedSequence{CachedObject: m.sequenceStore.Load(sequenceID.Bytes())}).Consume(func(sequence *Sequence) {
+			if !m.Sequence(sequenceID).Consume(func(sequence *Sequence) {
 				// for each of the parentMarkers of this particular index
-				sequence.HighestReferencedParentMarkers(index).ForEach(func(referencedSequenceID SequenceID, referencedIndex Index) bool {
+				sequence.ReferencedMarkers(index).ForEach(func(referencedSequenceID SequenceID, referencedIndex Index) bool {
 					// of this marker delete the referenced sequences since they are no sequence tips anymore in the sequence DAG
 					delete(normalizedSequences, referencedSequenceID)
 
@@ -323,12 +325,12 @@ func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkersByRank *m
 		}
 	}
 
-	return
+	return normalizedMarkersByRank, normalizedSequences
 }
 
 // markersReferenceMarkersOfSameSequence is an internal utility function that determines if the given markers reference
 // each other as part of the same Sequence.
-func (m *Manager) markersReferenceMarkersOfSameSequence(laterMarkers *Markers, earlierMarkers *Markers, requireBiggerMarkers bool) (sameSequenceFound bool, referenceFound bool) {
+func (m *Manager) markersReferenceMarkersOfSameSequence(laterMarkers, earlierMarkers *Markers, requireBiggerMarkers bool) (sameSequenceFound, referenceFound bool) {
 	sameSequenceFound = !laterMarkers.ForEach(func(sequenceID SequenceID, laterIndex Index) bool {
 		earlierIndex, sequenceExists := earlierMarkers.Get(sequenceID)
 		if !sequenceExists {
@@ -348,7 +350,7 @@ func (m *Manager) markersReferenceMarkersOfSameSequence(laterMarkers *Markers, e
 
 // markersReferenceMarkers is an internal utility function that returns true if the later Markers reference the earlier
 // Markers. If requireBiggerMarkers is false then a Marker with an equal Index is considered to be a valid reference.
-func (m *Manager) markersReferenceMarkers(laterMarkers *Markers, earlierMarkers *Markers, requireBiggerMarkers bool) (result bool) {
+func (m *Manager) markersReferenceMarkers(laterMarkers, earlierMarkers *Markers, requireBiggerMarkers bool) (result bool) {
 	rankCache := make(map[SequenceID]uint64)
 	futureMarkersByRank := newMarkersByRank()
 
@@ -370,8 +372,8 @@ func (m *Manager) markersReferenceMarkers(laterMarkers *Markers, earlierMarkers 
 
 		// queue parents for additional checks
 		laterMarkers.ForEach(func(sequenceID SequenceID, index Index) bool {
-			(&CachedSequence{CachedObject: m.sequenceStore.Load(sequenceID.Bytes())}).Consume(func(sequence *Sequence) {
-				sequence.HighestReferencedParentMarkers(index).ForEach(func(referencedSequenceID SequenceID, referencedIndex Index) bool {
+			m.Sequence(sequenceID).Consume(func(sequence *Sequence) {
+				sequence.ReferencedMarkers(index).ForEach(func(referencedSequenceID SequenceID, referencedIndex Index) bool {
 					futureMarkersByRank.Add(m.rankOfSequence(referencedSequenceID, rankCache), referencedSequenceID, referencedIndex)
 					return true
 				})
@@ -406,24 +408,24 @@ func (m *Manager) markersReferenceMarkers(laterMarkers *Markers, earlierMarkers 
 		}
 	}
 
-	return
+	return result
+}
+
+// registerReferencingMarker is an internal utility function that adds a referencing Marker to the internal data
+// structure.
+func (m *Manager) registerReferencingMarker(referencedMarkers *Markers, marker *Marker) {
+	referencedMarkers.ForEach(func(sequenceID SequenceID, index Index) bool {
+		m.Sequence(sequenceID).Consume(func(sequence *Sequence) {
+			sequence.AddReferencingMarker(index, marker)
+		})
+
+		return true
+	})
 }
 
 // fetchSequence is an internal utility function that retrieves or creates the Sequence that represents the given
 // parameters and returns it.
-func (m *Manager) fetchSequence(parentSequences SequenceIDs, referencedMarkers *Markers, rank uint64, newSequenceAlias ...SequenceAlias) (cachedSequence *CachedSequence, isNew bool) {
-	if len(parentSequences) == 1 && len(newSequenceAlias) == 0 {
-		for sequenceID := range parentSequences {
-			cachedSequence = &CachedSequence{CachedObject: m.sequenceStore.Load(sequenceID.Bytes())}
-			return
-		}
-	}
-
-	sequenceAlias := parentSequences.Alias()
-	if len(newSequenceAlias) >= 1 {
-		sequenceAlias = sequenceAlias.Merge(newSequenceAlias[0])
-	}
-
+func (m *Manager) fetchSequence(referencedMarkers *Markers, rank uint64, sequenceAlias SequenceAlias) (cachedSequence *CachedSequence, isNew bool) {
 	cachedSequenceAliasMapping := &CachedSequenceAliasMapping{CachedObject: m.sequenceAliasMappingStore.ComputeIfAbsent(sequenceAlias.Bytes(), func(key []byte) objectstorage.StorableObject {
 		m.sequenceIDCounterMutex.Lock()
 		sequence := NewSequence(m.sequenceIDCounter, referencedMarkers, rank+1)
@@ -448,8 +450,8 @@ func (m *Manager) fetchSequence(parentSequences SequenceIDs, referencedMarkers *
 		return
 	}
 
-	cachedSequenceAliasMapping.Consume(func(aggregatedSequencesIDMapping *SequenceAliasMapping) {
-		cachedSequence = &CachedSequence{CachedObject: m.sequenceStore.Load(aggregatedSequencesIDMapping.SequenceID().Bytes())}
+	cachedSequenceAliasMapping.Consume(func(sequenceAliasMapping *SequenceAliasMapping) {
+		cachedSequence = m.Sequence(sequenceAliasMapping.SequenceID())
 	})
 
 	return
@@ -461,7 +463,7 @@ func (m *Manager) rankOfSequence(sequenceID SequenceID, ranksCache map[SequenceI
 		return rank
 	}
 
-	if !(&CachedSequence{CachedObject: m.sequenceStore.Load(sequenceID.Bytes())}).Consume(func(sequence *Sequence) {
+	if !m.Sequence(sequenceID).Consume(func(sequence *Sequence) {
 		ranksCache[sequenceID] = sequence.rank
 	}) {
 		panic(fmt.Sprintf("failed to load Sequence with %s", sequenceID))

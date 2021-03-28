@@ -3,8 +3,9 @@ package value
 import (
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/mr-tron/base58/base58"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 var maxBookedAwaitTime = 5 * time.Second

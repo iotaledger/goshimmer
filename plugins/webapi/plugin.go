@@ -8,13 +8,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
+
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 // PluginName is the name of the web API plugin.
@@ -67,7 +68,6 @@ func Server() *echo.Echo {
 			var message string
 
 			switch errors.Unwrap(err) {
-
 			case echo.ErrUnauthorized:
 				statusCode = http.StatusUnauthorized
 				message = "unauthorized"

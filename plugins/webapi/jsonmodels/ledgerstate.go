@@ -1,8 +1,9 @@
 package jsonmodels
 
 import (
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/mr-tron/base58"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 // region Address //////////////////////////////////////////////////////////////////////////////////////////////////////

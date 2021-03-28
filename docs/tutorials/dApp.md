@@ -1,13 +1,16 @@
+
+# How to create a simple dApp
+
 > This guide is meant for developers familiar with the Go programming language.
 
 > **DISCLAIMER:** GoShimmer is a rapidly evolving prototype software. As such, the described steps here will likely change in the future. Specifically, we are envisioning to ease the process of dApp creation and installation for node owners. Furthermore, the current approach is in no way hardened and should be seen as purely experimental. Do not write any software for actual production use.
 
-# Network Delay dApp
+## Network Delay dApp
 In this guide we are going to explain how to write a very simple dApp based on an actual dApp we are using in GoShimmer to help us measure the network delay, i.e., how long it takes for every active node in the network to receive a message. Gathering this data will enable us to set realistic parameters for FCoB.
 
 The complete source code of the application can be found [in the repository](https://github.com/iotaledger/goshimmer/tree/develop/dapps/networkdelay). 
 
-## Overview
+### Overview
 Our network delay dApp should help us to identify the time it takes for every active node to receive and process a message. That can be done in a few simple steps:
 1. A (known) node sends a special message containing a network delay object.
 2. Upon receipt, every other node in the network answers to the special message by posting its current time to our remote logger.
@@ -17,7 +20,7 @@ Within GoShimmer we need 3 components to realize this undertaking. First, we nee
 
 If a node does not have our dApp installed and activated, the message will be simply treated as a raw data message without any particular meaning. In general that means that in order for a dApp to be useful, node owners need to explicitly install it. In our case we simply ship it with GoShimmer.
 
-## Define & Register The Network Delay Object
+### Define & Register The Network Delay Object
 First, we need to decide what data our network delay object should contain and define the byte layout accordingly.
 In our case we need an `ID` to identify a network delay message and the `sent time` of the initiator. 
 Therefore, we can define the byte layout as follows:
@@ -54,7 +57,7 @@ func init() {
 }
 ```
 
-## Create The Web API Endpoints
+### Create The Web API Endpoints
 In order to issue a message with our newly created network delay object, we need to create a web API endpoint. Here we simply create a random `ID` and the `sentTime` and then issue a message with `issuer.IssuePayload()`. This plugin takes care of all the specifics and employs the `MessageFactory` to, i.a., select tips and sign the message.
 
 ```Go
@@ -77,7 +80,7 @@ func broadcastNetworkDelayObject(c echo.Context) error {
 ```
 
 
-## Listen for network delay objects
+### Listen for network delay objects
 Every dApp listens for messages from the *communication layer* and when its data type is detected, takes appropriate action. For us that means listening for network delay objects and sending messages to our remote logger if we encounter any. Of course in this context, we only want to react to network delay objects which were issued by our analysis/entry node server. Therefore, matching the message signer's public key with a configured public key lets us only react to the appropriate network delay objects.
 
 ```Go

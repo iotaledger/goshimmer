@@ -8,8 +8,10 @@ import (
 	"github.com/magiconair/properties/assert"
 )
 
-const testChoices = 10
-const testIterations = 1000000
+const (
+	testChoices    = 10
+	testIterations = 1000000
+)
 
 // TestRandChooser_PickObvious should picks the only non-zero weighted item.
 func TestRandChooser_PickObvious(t *testing.T) {

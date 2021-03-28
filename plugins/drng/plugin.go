@@ -3,13 +3,14 @@ package drng
 import (
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/drng"
-	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/node"
+
+	"github.com/iotaledger/goshimmer/packages/drng"
+	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 // PluginName is the name of the DRNG plugin.
@@ -55,12 +56,12 @@ func configureEvents() {
 			marshalUtil := marshalutil.New(msg.Payload().Bytes())
 			parsedPayload, err := drng.PayloadFromMarshalUtil(marshalUtil)
 			if err != nil {
-				//TODO: handle error
+				// TODO: handle error
 				log.Debug(err)
 				return
 			}
 			if err := instance.Dispatch(msg.IssuerPublicKey(), msg.IssuingTime(), parsedPayload); err != nil {
-				//TODO: handle error
+				// TODO: handle error
 				log.Debug(err)
 				return
 			}
