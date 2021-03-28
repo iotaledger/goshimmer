@@ -280,7 +280,7 @@ func (s *SupporterManager) addSupportToMarker(marker *markers.Marker, issuingTim
 			s.Events.SequenceSupportUpdated.Trigger(marker, issuingTime, supporter)
 
 			s.tangle.Booker.MarkersManager.Manager.Sequence(marker.SequenceID()).Consume(func(sequence *markers.Sequence) {
-				sequence.ParentReferences().HighestReferencedMarkers(marker.Index()).ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
+				sequence.ReferencedMarkers(marker.Index()).ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
 					walker.Push(markers.NewMarker(sequenceID, index))
 
 					return true
