@@ -1120,10 +1120,12 @@ func (c *AliasOutput) GetStateData() []byte {
 	return c.stateData
 }
 
+// SetStateIndex sets the state index in the input. It is enforced to increment by 1 with each state transition
 func (c *AliasOutput) SetStateIndex(index uint32) {
 	c.stateIndex = index
 }
 
+// GetStateIndex returns the state index
 func (c *AliasOutput) GetStateIndex() uint32 {
 	return c.stateIndex
 }
@@ -1582,8 +1584,8 @@ func (o *ExtendedLockedOutput) SetPayload(data []byte) error {
 }
 
 // ExtendedOutputFromBytes unmarshals a ExtendedLockedOutput from a sequence of bytes.
-func ExtendedOutputFromBytes(bytes []byte) (output *ExtendedLockedOutput, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
+func ExtendedOutputFromBytes(data []byte) (output *ExtendedLockedOutput, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(data)
 	if output, err = ExtendedOutputFromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse ExtendedLockedOutput from MarshalUtil: %w", err)
 		return
@@ -1837,7 +1839,7 @@ func (o *ExtendedLockedOutput) TimeLock() time.Time {
 	return time.Unix(int64(o.timelock), 0)
 }
 
-// TimeLockedNow checks is output is unlocked for the specific moment
+// TimeLockedNow checks if output is unlocked for the specific moment
 func (o *ExtendedLockedOutput) TimeLockedNow(nowis time.Time) bool {
 	return o.TimeLock().After(nowis)
 

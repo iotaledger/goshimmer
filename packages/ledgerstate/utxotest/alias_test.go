@@ -253,7 +253,6 @@ func TestAlias3(t *testing.T) {
 	require.EqualValues(t, 0, u.BalanceIOTA(addrStateControl))
 
 	for i := 0; i < chainLength; i++ {
-
 		// transfer 1 more iota to alias address
 		outputs = u.GetAddressOutputs(addr)
 		txb := utxoutil.NewBuilder(outputs...)

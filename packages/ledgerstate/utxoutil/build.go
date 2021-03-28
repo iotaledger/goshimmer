@@ -161,7 +161,7 @@ func (b *Builder) Spend(spend map[ledgerstate.Color]uint64) error {
 		}
 	}
 	for col, bal := range spend {
-		b.consumedUnspent[col] = b.consumedUnspent[col] - bal
+		b.consumedUnspent[col] -= bal
 	}
 	return nil
 }
@@ -342,11 +342,11 @@ func (b *Builder) ConsumedUnspent() map[ledgerstate.Color]uint64 {
 
 // ConsumeAliasInput consumes chain input by alias
 func (b *Builder) ConsumeAliasInput(addressAlias ledgerstate.Address) error {
-	_, idx, ok := FindAliasConsumableInput(addressAlias, b.consumables...)
+	out, _, ok := FindAliasConsumableInput(addressAlias, b.consumables...)
 	if !ok {
 		return xerrors.Errorf("can't find chain input for %s", addressAlias)
 	}
-	if err := b.ConsumeInputByIndex(idx); err != nil {
+	if err := b.ConsumeInputByOutputID(out.ID()); err != nil {
 		return err
 	}
 	return nil
@@ -361,13 +361,13 @@ func (b *Builder) AliasNextChainedOutput(addressAlias ledgerstate.Address) (*led
 	return out.NewAliasOutputNext(false), nil
 }
 
-// ConsumeAliasInput consumes remaining alances and returns clone of the input
+// AddAliasOutputAsReminder forms an reminder by creating new alias output
 func (b *Builder) AddAliasOutputAsReminder(addressAlias ledgerstate.Address, stateData []byte, compress ...bool) error {
-	out, idx, ok := FindAliasConsumableInput(addressAlias, b.consumables...)
+	out, _, ok := FindAliasConsumableInput(addressAlias, b.consumables...)
 	if !ok {
 		return xerrors.Errorf("can't find chain input for %s", addressAlias)
 	}
-	if err := b.ConsumeInputByIndex(idx); err != nil {
+	if err := b.ConsumeInputByOutputID(out.ID()); err != nil {
 		return err
 	}
 	compr := false
@@ -388,21 +388,15 @@ func (b *Builder) AddAliasOutputAsReminder(addressAlias ledgerstate.Address, sta
 	return nil
 }
 
-// InputByIndex return input by index
-func (b *Builder) InputByIndex(index int) (ledgerstate.Output, error) {
-	if index >= len(b.consumables) {
-		return nil, xerrors.New("MustConsumeUntouchedInputByIndex: invalid index")
+// ConsumeInputByOutputID consumes input by outputID
+func (b *Builder) ConsumeInputByOutputID(id ledgerstate.OutputID) error {
+	for _, consumable := range b.consumables {
+		if consumable.output.ID() == id {
+			b.addToConsumedUnspent(ConsumeRemaining(consumable))
+			return nil
+		}
 	}
-	return b.consumables[index].output, nil
-}
-
-// ConsumeInputByIndex consumes input by index
-func (b *Builder) ConsumeInputByIndex(index int) error {
-	if index >= len(b.consumables) {
-		return xerrors.New("MustConsumeUntouchedInputByIndex: invalid index")
-	}
-	b.addToConsumedUnspent(ConsumeRemaining(b.consumables[index]))
-	return nil
+	return xerrors.Errorf("MustConsumeInputByOutputID: output not found")
 }
 
 // ConsumeRemainingBalances consumes touched balances

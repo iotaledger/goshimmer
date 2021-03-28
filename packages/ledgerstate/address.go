@@ -391,8 +391,8 @@ func NewAliasAddress(data []byte) *AliasAddress {
 }
 
 // AliasAddressFromBytes unmarshals an AliasAddress from a sequence of bytes.
-func AliasAddressFromBytes(bytes []byte) (address *AliasAddress, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
+func AliasAddressFromBytes(data []byte) (address *AliasAddress, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(data)
 	if address, err = AliasAddressFromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse AliasAddress from MarshalUtil: %w", err)
 		return
@@ -404,14 +404,14 @@ func AliasAddressFromBytes(bytes []byte) (address *AliasAddress, consumedBytes i
 
 // AliasAddressFromBase58EncodedString creates an AliasAddress from a base58 encoded string.
 func AliasAddressFromBase58EncodedString(base58String string) (address *AliasAddress, err error) {
-	bytes, err := base58.Decode(base58String)
+	data, err := base58.Decode(base58String)
 	if err != nil {
 		err = xerrors.Errorf("error while decoding base58 encoded AliasAddress (%v): %w", err, cerrors.ErrBase58DecodeFailed)
 		return
 	}
 
-	if address, _, err = AliasAddressFromBytes(bytes); err != nil {
-		err = xerrors.Errorf("failed to parse AliasAddress from bytes: %w", err)
+	if address, _, err = AliasAddressFromBytes(data); err != nil {
+		err = xerrors.Errorf("failed to parse AliasAddress from data: %w", err)
 		return
 	}
 

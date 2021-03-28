@@ -14,6 +14,7 @@ const (
 	defaultSupply = uint64(2779530283 * 1000 * 1000)
 	genesisIndex  = 31415926535
 
+	// RequestFundsAmount is how many iotas are returned from the faucet
 	RequestFundsAmount = 1337 // same as Goshimmer faucet
 )
 
@@ -29,7 +30,7 @@ type UtxoDB struct {
 	utxo            map[ledgerstate.OutputID]ledgerstate.Output
 	consumedOutputs map[ledgerstate.OutputID]ledgerstate.Output
 	mutex           *sync.RWMutex
-	genesisTxId     ledgerstate.TransactionID
+	genesisTxID     ledgerstate.TransactionID
 }
 
 // New creates new UTXODB instance
@@ -87,8 +88,8 @@ func (u *UtxoDB) genesisInit() {
 	unlockBlock := ledgerstate.NewSignatureUnlockBlock(signature)
 	genesisTx := ledgerstate.NewTransaction(essence, ledgerstate.UnlockBlocks{unlockBlock})
 
-	u.genesisTxId = genesisTx.ID()
-	u.transactions[u.genesisTxId] = genesisTx
+	u.genesisTxID = genesisTx.ID()
+	u.transactions[u.genesisTxID] = genesisTx
 	u.utxo[output.ID()] = output.Clone()
 }
 
