@@ -1,15 +1,16 @@
 package utxodb
 
 import (
-	"github.com/stretchr/testify/require"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestBasic(t *testing.T) {
 	u := New()
-	genTx, ok := u.GetTransaction(u.genesisTxId)
+	genTx, ok := u.GetTransaction(u.genesisTxID)
 	require.True(t, ok)
-	require.EqualValues(t, genTx.ID(), u.genesisTxId)
+	require.EqualValues(t, genTx.ID(), u.genesisTxID)
 }
 
 func TestGenesis(t *testing.T) {

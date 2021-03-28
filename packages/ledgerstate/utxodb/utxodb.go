@@ -104,6 +104,7 @@ func (u *UtxoDB) BalanceIOTA(addr ledgerstate.Address) uint64 {
 	return u.Balance(addr, ledgerstate.ColorIOTA)
 }
 
+// CollectUnspentOutputsFromInputs returns unspent outputs by inputs of the transaction
 func (u *UtxoDB) CollectUnspentOutputsFromInputs(essence *ledgerstate.TransactionEssence) ([]ledgerstate.Output, error) {
 	u.mutex.RLock()
 	defer u.mutex.RUnlock()
