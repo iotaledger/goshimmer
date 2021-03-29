@@ -482,6 +482,7 @@ type statementLog struct {
 
 // region Statement ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// checkEnoughMana function check whether a node with id is among the top holders of p percent of consensus mana mana
 func checkEnoughMana(id identity.ID, threshold float64) bool {
 	highestManaNodes, _, err := GetHighestManaNodesFraction(mana.ConsensusMana, threshold)
 	enoughMana := true
