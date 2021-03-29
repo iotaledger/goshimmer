@@ -41,7 +41,6 @@ func (c *ConsensusBaseManaVector) Has(nodeID identity.ID) bool {
 // BuildPastBaseVector builds a consensus base mana vector from past events upto time `t`.
 // `eventLogs` is expected to be sorted chronologically.
 func (c *ConsensusBaseManaVector) BuildPastBaseVector(eventsLog []Event, t time.Time) error {
-	emptyID := identity.ID{}
 	if c.vector == nil {
 		c.vector = make(map[identity.ID]*ConsensusBaseMana)
 	}
@@ -52,9 +51,6 @@ func (c *ConsensusBaseManaVector) BuildPastBaseVector(eventsLog []Event, t time.
 			if ev.Time.After(t) {
 				return nil
 			}
-			if ev.NodeID == emptyID {
-				continue
-			}
 			if _, exist := c.vector[ev.NodeID]; !exist {
 				c.vector[ev.NodeID] = &ConsensusBaseMana{}
 			}
@@ -63,9 +59,6 @@ func (c *ConsensusBaseManaVector) BuildPastBaseVector(eventsLog []Event, t time.
 			ev := _ev.(*RevokedEvent)
 			if ev.Time.After(t) {
 				return nil
-			}
-			if ev.NodeID == emptyID {
-				continue
 			}
 			if _, exist := c.vector[ev.NodeID]; !exist {
 				c.vector[ev.NodeID] = &ConsensusBaseMana{}
