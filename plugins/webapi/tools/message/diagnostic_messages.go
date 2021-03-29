@@ -284,9 +284,7 @@ func (d *DiagnosticMessagesInfo) toCSVRow() (row []string) {
 		d.TransactionID,
 	}
 
-	result = strings.Join(row, ",")
-
-	return result
+	return row
 }
 
 // rankFromContext determines the marker rank from the rank parameter in an echo.Context.
