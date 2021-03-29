@@ -85,7 +85,6 @@ func (b *Booker) UpdateMessagesBranch(transactionID ledgerstate.TransactionID) {
 // Book tries to book the given Message (and potentially its contained Transaction) into the LedgerState and the Tangle.
 // It fires a MessageBooked event if it succeeds.
 func (b *Booker) Book(messageID MessageID) (err error) {
-	fmt.Println("Booking", messageID)
 	b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 			combinedBranches := b.branchIDsOfParents(message)
@@ -134,8 +133,6 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 			messageMetadata.SetBranchID(inheritedBranch)
 			messageMetadata.SetStructureDetails(b.MarkersManager.InheritStructureDetails(message, markers.NewSequenceAlias(inheritedBranch.Bytes())))
 			messageMetadata.SetBooked(true)
-
-			fmt.Println("Booking", messageID, "done ...")
 
 			b.Events.MessageBooked.Trigger(messageID)
 		})

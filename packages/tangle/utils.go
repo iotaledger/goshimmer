@@ -95,8 +95,6 @@ func (u *Utils) WalkMessageAndMetadata(callback func(message *Message, messageMe
 func (u *Utils) AllTransactionsApprovedByMessages(transactionIDs ledgerstate.TransactionIDs, messageIDs ...MessageID) (approved bool) {
 	transactionIDs = transactionIDs.Clone()
 
-	fmt.Println(transactionIDs.Strings())
-
 	for _, messageID := range messageIDs {
 		for transactionID := range transactionIDs {
 			if u.TransactionApprovedByMessage(transactionID, messageID) {
@@ -234,10 +232,6 @@ func (u *Utils) messageStronglyApprovedBy(approvedMessageID MessageID, approving
 	case types.False:
 		stronglyApproved = false
 	case types.Maybe:
-		fmt.Println("Need to walk..")
-		fmt.Println("ApprovedMessageID", approvedMessageID, approvedMessageStructureDetails)
-		fmt.Println("ApprovingMessageID", approvingMessageID, approvingMessageStructureDetails)
-
 		u.WalkMessageID(func(messageID MessageID, walker *walker.Walker) {
 			if messageID == approvingMessageID {
 				stronglyApproved = true
