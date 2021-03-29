@@ -17,7 +17,7 @@ GoShimmer stores data in the form of an object storage system. The data is store
 Additionally, GoShimmer leaves the possibility to store data only in memory that can be specified with the parameter `CfgDatabaseInMemory` value. In-memory storage is purely based on a Go map, package `mapdb` from hive.go.
 For the persistent storage in a database it uses package `badger` from hive.go. It is a simple and fast key-value database that performs well for both reads and writes simultaneously.
 
-Both solutions are implemented in `database` package, along with prefixes definitions that can be used during creation of new object storage elements.
+Both solutions are implemented in `database` package, along with prefix definitions that can be used during creation of new object storage elements.
 
 The database plugin is responsible for creating a `store` instance of the chosen database under the directory specified with `CfgDatabaseDir` parameter. It will manage a proper closure of the database upon receiving a shutdown signal. During the start configuration, the database is marked as unhealthy, and it will be marked as healthy on shutdown. Then the garbage collector is run and the database can be closed.
 
@@ -51,7 +51,7 @@ AStorage = osFactory.New(objPrefix, FromObjectStorage, optionalOptions...)
 ```
 For the function parameter we should provide:
 - `objPrefix` - mentioned before, we provide the object specific prefix.
-- `FromObjectStorage` function, a `StorableObject` factory that receives a key and the serialized data of the object and returns an empty `StorableObject` with just key set.
+- `FromObjectStorage` - a function that allows the dynamic creation of different object types depending on the stored data.
 - `optionalOptions` -  an optional parameter provided in the form of options array `[]objectstorage.Option`. All possible options are defined in `objectstorage.Options`. If we do not specify them during creation, the default values will be used, such as enabled persistence or setting cache time to 0.
 
 ### StorableObject
