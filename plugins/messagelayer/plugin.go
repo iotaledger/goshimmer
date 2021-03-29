@@ -55,6 +55,11 @@ func configure(plugin *node.Plugin) {
 		plugin.LogError(rejectedEvent.Message)
 	}))
 
+	// Messages created by the node need to pass through the normal flow.
+	Tangle().MessageFactory.Events.MessageConstructed.Attach(events.NewClosure(func(message *tangle.Message) {
+		Tangle().ProcessGossipMessage(message.Bytes(), local.GetInstance().Peer)
+	}))
+
 	// read snapshot file
 	if Parameters.Snapshot.File != "" {
 		snapshot := ledgerstate.Snapshot{}
