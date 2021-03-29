@@ -7,19 +7,19 @@ It can be described by the following characteristics, it:
 - takes care of  dynamic creation of different object types depending on the key, and the serialized data it receives through the utility `objectstorage.Factory`
 - helps with multiple `ObjectStorage` instances creation from the same package and  automatic configuration.
 
-In order to create an object storage we need to provide underlying `kvstore.KVStore` structure backed by the database.
+In order to create an object storage we need to provide the underlying `kvstore.KVStore` structure backed by the database.
 
 
 
 ## Database
-GoShimmer stores data in a form of an object storage system. The data is stored in one large repository with flat structure. It is a scalable solution that allows for fast data retrieval because of its categorization structure.
+GoShimmer stores data in the form of an object storage system. The data is stored in one large repository with flat structure. It is a scalable solution that allows for fast data retrieval because of its categorization structure.
 
-Additionally, GoShimmer leaves the possibility to store data only in memory that can be specified with the parameter `CfgDatabaseInMemory` value. In-memory storage is purely based on Go map, package `mapdb` from hive.go.
+Additionally, GoShimmer leaves the possibility to store data only in memory that can be specified with the parameter `CfgDatabaseInMemory` value. In-memory storage is purely based on a Go map, package `mapdb` from hive.go.
 For the persistent storage in a database it uses package `badger` from hive.go. It is a simple and fast key-value database that performs well for both reads and writes simultaneously.
 
-Both solutions are implemented in `database` package, along prefixes definitions that can be used during creation of new object storage elements.
+Both solutions are implemented in `database` package, along with prefixes definitions that can be used during creation of new object storage elements.
 
-Database plugin is responsible for creating a `store` instance of the chosen database under the directory specified with `CfgDatabaseDir` parameter. It will manage a proper closure of the database upon receiving a shutdown signal. During the start configuration, the database is marked as unhealthy, it will be marked as healthy on a shutdown, then garbage collector is run and database can be closed.
+The database plugin is responsible for creating a `store` instance of the chosen database under the directory specified with `CfgDatabaseDir` parameter. It will manage a proper closure of the database upon receiving a shutdown signal. During the start configuration, the database is marked as unhealthy, and it will be marked as healthy on shutdown. Then the garbage collector is run and the database can be closed.
 
 ## ObjectStorage
 
@@ -44,7 +44,7 @@ It needs two parameters:
 - `database.Prefix` - prefix defined in the `database` package for our new `example` package. It will be responsible for automatic configuration of newly provided KVStore object.
 
 
-After defining storage factory for the group of object we can use it to create `*objectstorage.ObjectStorage` instance:
+After defining the storage factory for the group of objects, we can use it to create an `*objectstorage.ObjectStorage` instance:
 ```Go
 AStorage = osFactory.New(objPrefix, FromObjectStorage)
 AStorage = osFactory.New(objPrefix, FromObjectStorage, optionalOptions...)
