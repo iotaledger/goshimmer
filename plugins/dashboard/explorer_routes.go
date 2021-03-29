@@ -127,36 +127,16 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 		return c.JSON(http.StatusOK, addr)
 	})
 
-	routeGroup.GET("/transaction/:transactionID", func(c echo.Context) error {
-		return ledgerstateAPI.GetTransaction(c)
-	})
-	routeGroup.GET("/transaction/:transactionID/metadata", func(c echo.Context) error {
-		return ledgerstateAPI.GetTransactionMetadata(c)
-	})
-	routeGroup.GET("/transaction/:transactionID/attachments", func(c echo.Context) error {
-		return ledgerstateAPI.GetTransactionAttachments(c)
-	})
-	routeGroup.GET("/output/:outputID", func(c echo.Context) error {
-		return ledgerstateAPI.GetOutput(c)
-	})
-	routeGroup.GET("/output/:outputID/metadata", func(c echo.Context) error {
-		return ledgerstateAPI.GetOutputMetadata(c)
-	})
-	routeGroup.GET("/output/:outputID/consumers", func(c echo.Context) error {
-		return ledgerstateAPI.GetOutputConsumers(c)
-	})
-	routeGroup.GET("/mana/pending", func(c echo.Context) error {
-		return manaAPI.GetPendingMana(c)
-	})
-	routeGroup.GET("/branch/:branchID", func(c echo.Context) error {
-		return ledgerstateAPI.GetBranch(c)
-	})
-	routeGroup.GET("/branch/:branchID/children", func(c echo.Context) error {
-		return ledgerstateAPI.GetBranchChildren(c)
-	})
-	routeGroup.GET("/branch/:branchID/conflicts", func(c echo.Context) error {
-		return ledgerstateAPI.GetBranchConflicts(c)
-	})
+	routeGroup.GET("/transaction/:transactionID", ledgerstateAPI.GetTransaction)
+	routeGroup.GET("/transaction/:transactionID/metadata", ledgerstateAPI.GetTransactionMetadata)
+	routeGroup.GET("/transaction/:transactionID/attachments", ledgerstateAPI.GetTransactionAttachments)
+	routeGroup.GET("/output/:outputID", ledgerstateAPI.GetOutput)
+	routeGroup.GET("/output/:outputID/metadata", ledgerstateAPI.GetOutputMetadata)
+	routeGroup.GET("/output/:outputID/consumers", ledgerstateAPI.GetOutputConsumers)
+	routeGroup.GET("/mana/pending", manaAPI.GetPendingMana)
+	routeGroup.GET("/branch/:branchID", ledgerstateAPI.GetBranch)
+	routeGroup.GET("/branch/:branchID/children", ledgerstateAPI.GetBranchChildren)
+	routeGroup.GET("/branch/:branchID/conflicts", ledgerstateAPI.GetBranchConflicts)
 
 	routeGroup.GET("/search/:search", func(c echo.Context) error {
 		search := c.Param("search")

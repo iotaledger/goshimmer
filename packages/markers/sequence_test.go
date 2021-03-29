@@ -14,7 +14,6 @@ func TestSequence(t *testing.T) {
 	), 7)
 
 	assert.Equal(t, SequenceID(1337), sequence.ID())
-	assert.Equal(t, NewSequenceIDs(1, 2), sequence.ParentSequences())
 	assert.Equal(t, uint64(7), sequence.Rank())
 	assert.Equal(t, Index(7), sequence.HighestIndex())
 
@@ -25,5 +24,4 @@ func TestSequence(t *testing.T) {
 	assert.Equal(t, sequence.ID(), unmarshaledSequence.ID())
 	assert.Equal(t, sequence.Rank(), unmarshaledSequence.Rank())
 	assert.Equal(t, sequence.HighestIndex(), unmarshaledSequence.HighestIndex())
-	assert.Equal(t, sequence.ParentSequences(), unmarshaledSequence.ParentSequences())
 }

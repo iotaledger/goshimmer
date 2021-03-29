@@ -91,7 +91,6 @@ func (s *Storage) Setup() {
 	s.tangle.Parser.Events.MessageParsed.Attach(events.NewClosure(func(msgParsedEvent *MessageParsedEvent) {
 		s.tangle.Storage.StoreMessage(msgParsedEvent.Message)
 	}))
-	s.tangle.MessageFactory.Events.MessageConstructed.Attach(events.NewClosure(s.StoreMessage))
 }
 
 // StoreMessage stores a new message to the message store.

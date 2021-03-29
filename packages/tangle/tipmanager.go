@@ -385,6 +385,25 @@ func (t *TipManager) selectWeakTips(count int) (parents MessageIDs) {
 	return
 }
 
+// AllWeakTips returns a list of all weak tips that are stored in the TipManger.
+func (t *TipManager) AllWeakTips() MessageIDs {
+	return retrieveAllTips(t.weakTips)
+}
+
+// AllStrongTips returns a list of all strong tips that are stored in the TipManger.
+func (t *TipManager) AllStrongTips() MessageIDs {
+	return retrieveAllTips(t.strongTips)
+}
+
+func retrieveAllTips(tipsMap *randommap.RandomMap) MessageIDs {
+	mapKeys := tipsMap.Keys()
+	tips := make(MessageIDs, len(mapKeys))
+	for i, key := range mapKeys {
+		tips[i] = key.(MessageID)
+	}
+	return tips
+}
+
 // StrongTipCount the amount of strong tips.
 func (t *TipManager) StrongTipCount() int {
 	return t.strongTips.Size()
