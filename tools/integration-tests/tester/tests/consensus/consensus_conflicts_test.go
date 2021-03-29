@@ -26,7 +26,7 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	backupFCoBAvgNetworkDelay := framework.ParaFCoBAverageNetworkDelay
 	backupBootstrapOnEveryNode := framework.ParaSyncBeaconOnEveryNode
 	backupParaWaitToKill := framework.ParaWaitToKill
-	framework.ParaFCoBAverageNetworkDelay = 60
+	framework.ParaFCoBAverageNetworkDelay = 120
 	framework.ParaSyncBeaconOnEveryNode = true
 	framework.ParaWaitToKill = 2*framework.ParaFCoBAverageNetworkDelay + 10
 
