@@ -208,7 +208,7 @@ func TestApis(t *testing.T) {
 	// send funds to node 2
 	_, err = peers[2].SendFaucetRequest(peers[2].Seed.Address(0).Address().Base58())
 	require.NoError(t, err)
-	time.Sleep(12 * time.Second)
+	time.Sleep(20 * time.Second)
 
 	require.NoError(t, err)
 	allManaResp, err := peers[0].GoShimmerAPI.GetAllMana()
@@ -302,7 +302,7 @@ func TestApis(t *testing.T) {
 	// Test /mana/consensus/logs
 	resp10, err := peers[0].GoShimmerAPI.GetConsensusEventLogs([]string{})
 	require.NoError(t, err)
-	fmt.Println("consensus mana evnet logs")
+	fmt.Println("consensus mana event logs")
 	for n, l := range resp10.Logs {
 		fmt.Println("node: ", n, " pledge logs: ", len(l.Pledge), " revoke logs: ", len(l.Revoke))
 	}
