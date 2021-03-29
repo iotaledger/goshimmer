@@ -139,7 +139,7 @@ func (b *Builder) mustSpendAmounts(amounts map[ledgerstate.Color]uint64) {
 				b.consumedUnspent[col] = s - bal
 			}
 		} else {
-			panic("not enough unspent amounts")
+			panic("mustSpendAmounts: not enough unspent amounts")
 		}
 	}
 }
@@ -157,7 +157,7 @@ func (b *Builder) Spend(spend map[ledgerstate.Color]uint64) error {
 	for color, needed := range spend {
 		available, _ := b.consumedUnspent[color]
 		if available < needed {
-			return xerrors.New("not enough consumed-unspend funds")
+			return xerrors.New("Spend: not enough consumed-unspend funds")
 		}
 	}
 	for col, bal := range spend {
@@ -172,7 +172,7 @@ func (b *Builder) AddExtendedOutputSpend(targetAddress ledgerstate.Address, data
 	for col, needed := range amounts {
 		available, _ := b.consumedUnspent[col]
 		if available < needed {
-			return xerrors.New("not enough consumed-unspent funds")
+			return xerrors.New("AddExtendedOutputSpend: not enough consumed-unspent funds")
 		}
 	}
 	if err := b.Spend(amounts); err != nil {
@@ -194,22 +194,22 @@ func (b *Builder) AddExtendedOutputSpend(targetAddress ledgerstate.Address, data
 // - handles minting of new colors (if any) and returns final map of tokens with valid minting
 func (b *Builder) prepareColoredBalancesOutput(amounts map[ledgerstate.Color]uint64, mint ...uint64) (map[ledgerstate.Color]uint64, error) {
 	if len(amounts) == 0 {
-		return nil, xerrors.New("AddSigLockedColoredOutput: no tokens to transfer")
+		return nil, xerrors.New("prepareColoredBalancesOutput: no tokens to transfer")
 	}
 	minting := len(mint) > 0 && mint[0] > 0
 	iotas, _ := amounts[ledgerstate.ColorIOTA]
 	if minting && iotas < mint[0] {
-		return nil, xerrors.Errorf("not enough iotas (%d) to mint %d new colored tokens", iotas, mint[0])
+		return nil, xerrors.Errorf("prepareColoredBalancesOutput: not enough iotas (%d) to mint %d new colored tokens", iotas, mint[0])
 	}
 	// check if it is enough consumed unspent amounts
 	if !b.ensureEnoughUnspendAmounts(amounts) {
-		return nil, xerrors.New("AddSigLockedColoredOutput: not enough balance")
+		return nil, xerrors.New("prepareColoredBalancesOutput: not enough balance")
 	}
 	b.mustSpendAmounts(amounts)
 	amountsCopy := make(map[ledgerstate.Color]uint64)
 	for col, bal := range amounts {
 		if bal == 0 {
-			return nil, xerrors.New("AddSigLockedColoredOutput: zero tokens in input not allowed")
+			return nil, xerrors.New("prepareColoredBalancesOutput: zero tokens in input not allowed")
 		}
 		amountsCopy[col] = bal
 	}
@@ -320,7 +320,7 @@ func (b *Builder) AddNewAliasMint(balances map[ledgerstate.Color]uint64, stateAd
 		return err
 	}
 	if !b.ensureEnoughUnspendAmounts(balances) {
-		return xerrors.New("not enough tokens")
+		return xerrors.New("AddNewAliasMint: not enough tokens")
 	}
 	b.SpendConsumedUnspent()
 	if err := b.addOutput(output); err != nil {
@@ -344,7 +344,7 @@ func (b *Builder) ConsumedUnspent() map[ledgerstate.Color]uint64 {
 func (b *Builder) ConsumeAliasInput(addressAlias ledgerstate.Address) error {
 	out, _, ok := FindAliasConsumableInput(addressAlias, b.consumables...)
 	if !ok {
-		return xerrors.Errorf("can't find chain input for %s", addressAlias)
+		return xerrors.Errorf("ConsumeAliasInput: can't find chain input for %s", addressAlias)
 	}
 	if err := b.ConsumeInputByOutputID(out.ID()); err != nil {
 		return err
@@ -396,7 +396,7 @@ func (b *Builder) ConsumeInputByOutputID(id ledgerstate.OutputID) error {
 			return nil
 		}
 	}
-	return xerrors.Errorf("MustConsumeInputByOutputID: output not found")
+	return xerrors.Errorf("ConsumeInputByOutputID: output not found")
 }
 
 // ConsumeRemainingBalances consumes touched balances
@@ -415,7 +415,7 @@ func (b *Builder) ConsumeRemainingBalances(compress bool) []*ConsumableOutput {
 // - false means take only touched (consumed) outputs. This is the default
 func (b *Builder) BuildEssence(compress ...bool) (*ledgerstate.TransactionEssence, []ledgerstate.Output, error) {
 	if len(b.consumedUnspent) > 0 {
-		return nil, nil, xerrors.New("not all consumed balances were spent")
+		return nil, nil, xerrors.New("BuildEssence: not all consumed balances were spent")
 	}
 	compr := false
 	if len(compress) > 0 {
@@ -427,7 +427,7 @@ func (b *Builder) BuildEssence(compress ...bool) (*ledgerstate.TransactionEssenc
 	}
 	for _, consumable := range inputConsumables {
 		if !consumable.NothingRemains() {
-			return nil, nil, xerrors.New("not all inputs were completely were consumed")
+			return nil, nil, xerrors.New("BuildEssence: not all inputs were completely were consumed")
 		}
 	}
 	// NewOutputs sorts the outputs and changes indices -> impossible to know indexUnlocked of a particular output
