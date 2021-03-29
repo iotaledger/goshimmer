@@ -153,7 +153,7 @@ func TestManager(t *testing.T) {
 	}
 }
 
-func messageReferencesMessage(laterMessage *message, earlierMessage *message, messageDB map[string]*message) types.TriBool {
+func messageReferencesMessage(laterMessage, earlierMessage *message, messageDB map[string]*message) types.TriBool {
 	for _, parentID := range laterMessage.parents {
 		if parentID == earlierMessage.id {
 			return types.True

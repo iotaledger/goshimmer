@@ -153,7 +153,7 @@ func (f *FPC) enqueue() {
 	}
 }
 
-// formOpinions updates the opinion for ongoing vote contexts by comparing their liked percentage
+// formOpinions updates the opinion for ongoing vote contexts by comparing their liked proportion
 // against the threshold appropriate for their given rounds.
 func (f *FPC) formOpinions(rand float64) {
 	f.ctxsMu.RLock()
@@ -287,7 +287,7 @@ func (f *FPC) queryOpinions() ([]opinion.QueriedOpinions, error) {
 
 	f.ctxsMu.RLock()
 	defer f.ctxsMu.RUnlock()
-	// compute liked percentage
+	// compute liked proportion
 	for id, votes := range voteMap {
 		var likedSum float64
 
@@ -312,7 +312,7 @@ func (f *FPC) queryOpinions() ([]opinion.QueriedOpinions, error) {
 			OwnWeight:    ownMana,
 			TotalWeights: totalMana,
 		}
-		f.ctxs[id].Liked = likedSum / float64(votedCount)
+		f.ctxs[id].ProportionLiked = likedSum / float64(votedCount)
 	}
 
 	return allQueriedOpinions, nil
@@ -356,13 +356,13 @@ func (f *FPC) biasTowardsOwnOpinion(voteCtx *vote.Context) float64 {
 	ownMana := voteCtx.Weights.OwnWeight
 
 	if ownMana == 0 || totalMana == 0 {
-		return voteCtx.Liked
+		return voteCtx.ProportionLiked
 	}
 	ownOpinion := opinion.ConvertOpinionToFloat64(voteCtx.LastOpinion())
 	if ownOpinion < 0 {
-		return voteCtx.Liked
+		return voteCtx.ProportionLiked
 	}
-	eta := ownMana/totalMana*ownOpinion + (1-ownMana/totalMana)*voteCtx.Liked
+	eta := ownMana/totalMana*ownOpinion + (1-ownMana/totalMana)*voteCtx.ProportionLiked
 	return eta
 }
 

@@ -4,7 +4,7 @@ import "github.com/iotaledger/goshimmer/packages/vote/opinion"
 
 // NewContext creates a new vote context.
 func NewContext(id string, objectType ObjectType, initOpn opinion.Opinion) *Context {
-	voteCtx := &Context{ID: id, Type: objectType, Liked: likedInit}
+	voteCtx := &Context{ID: id, Type: objectType, ProportionLiked: likedInit}
 	voteCtx.AddOpinion(initOpn)
 	return voteCtx
 }
@@ -26,7 +26,7 @@ type Context struct {
 	ID   string
 	Type ObjectType
 	// The percentage of OpinionGivers who liked this item on the last query.
-	Liked float64
+	ProportionLiked float64
 	// The number of voting rounds performed.
 	Rounds int
 	// Append-only list of opinions formed after each round.
@@ -76,7 +76,7 @@ func (vc *Context) IsFinalized(coolingOffPeriod int, totalRoundsFinalization int
 
 // IsNew tells whether the vote context is new.
 func (vc *Context) IsNew() bool {
-	return vc.Liked == likedInit
+	return vc.ProportionLiked == likedInit
 }
 
 // HadFirstRound tells whether the vote context just had its first round.

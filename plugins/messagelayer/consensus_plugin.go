@@ -26,6 +26,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/prng"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/packages/vote/fpc"
 	votenet "github.com/iotaledger/goshimmer/packages/vote/net"
@@ -115,7 +116,7 @@ func configureFPC(plugin *node.Plugin) {
 
 	Voter().Events().RoundExecuted.Attach(events.NewClosure(func(roundStats *vote.RoundStats) {
 		if StatementParameters.WriteStatement {
-			makeStatement(roundStats)
+			makeStatement(roundStats, broadcastStatement)
 		}
 		peersQueried := len(roundStats.QueriedOpinions)
 		voteContextsCount := len(roundStats.ActiveVoteContexts)
@@ -230,19 +231,21 @@ type OpinionGivers map[identity.ID]OpinionGiver
 func (o *OpinionGiver) Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (opinions opinion.Opinions, err error) {
 	// if o.view == nil, then we can immediately perform P2P query instead of waiting for statement
 	//because it won't be provided.
-	for i := 0; o.view != nil && i < StatementParameters.WaitForStatement; i++ {
-		// query statement status only if any statement has been received within the last round interval.
-		// This is important. We do want to consider old statements IF the node has been active in the last round.
-		// otherwise node might be down and we don't want to look at old statements in subsequent rounds
-		if o.view != nil && o.view.LastStatementReceivedTimestamp.Add(time.Duration(FPCParameters.RoundInterval)*time.Second).After(clockPkg.SyncedTime()) {
-			opinions, err = o.view.Query(ctx, conflictIDs, timestampIDs)
-			if err == nil {
-				return opinions, nil
-			}
+	if o.view != nil {
+		// wait for statement(s) to arrive
+		time.Sleep(time.Duration(StatementParameters.WaitForStatement) * time.Second)
+	}
+	// query statement status only if any statement has been received within the last round interval.
+	// This is important. We do want to consider old statements IF the node has been active in the last round.
+	// otherwise node might be down and we don't want to look at old statements in subsequent rounds
+	if o.view != nil && o.view.LastStatementReceivedTimestamp.Add(time.Duration(FPCParameters.RoundInterval)*time.Second).After(clockPkg.SyncedTime()) {
+		opinions, err = o.view.Query(ctx, conflictIDs, timestampIDs)
+		if err == nil {
+			return opinions, nil
 		}
-		time.Sleep(time.Second)
 	}
 
+	// query node directly
 	return o.pog.Query(ctx, conflictIDs, timestampIDs)
 }
 
@@ -498,7 +501,7 @@ func checkEnoughMana(id identity.ID, threshold float64) bool {
 	return enoughMana
 }
 
-func makeStatement(roundStats *vote.RoundStats) {
+func makeStatement(roundStats *vote.RoundStats, broadcastFunc func (conflicts statement.Conflicts, timestamps statement.Timestamps)) {
 	if !checkEnoughMana(local.GetInstance().ID(), StatementParameters.WriteManaThreshold) {
 		return
 	}
@@ -508,39 +511,78 @@ func makeStatement(roundStats *vote.RoundStats) {
 	for id, v := range roundStats.ActiveVoteContexts {
 		switch v.Type {
 		case vote.TimestampType:
-			messageID, err := tangle.NewMessageID(id)
+			timeStampStatement, err := makeTimeStampStatement(id, v)
 			if err != nil {
-				// TODO
+				err = xerrors.Errorf("Failed to create a TimeStamp statement: %w", err)
+				plugin.LogErrorf("Statement error: %s", err)
 				break
 			}
-			timestamps = append(timestamps, statement.Timestamp{
-				ID: messageID,
-				Opinion: statement.Opinion{
-					Value: v.LastOpinion(),
-					Round: uint8(v.Rounds),
-				},
-			},
-			)
+			timestamps = append(timestamps, timeStampStatement)
 		case vote.ConflictType:
-			messageID, err := ledgerstate.TransactionIDFromBase58(id)
+			conflictStatement, err := makeConflictStatement(id, v)
 			if err != nil {
-				// TODO
+				plugin.LogErrorf("Statement error: %s", err)
+				err = xerrors.Errorf("Failed to create a Conflict statement: %w", err)
 				break
 			}
-			conflicts = append(conflicts, statement.Conflict{
-				ID: messageID,
-				Opinion: statement.Opinion{
-					Value: v.LastOpinion(),
-					Round: uint8(v.Rounds),
-				},
-			},
-			)
-		default:
+			conflicts = append(conflicts, conflictStatement)
 		}
+		conflicts, timestamps = handleStatement(conflicts, timestamps, broadcastFunc)
 	}
 
-	broadcastStatement(conflicts, timestamps)
+	if len(conflicts) + len(timestamps) >= 0 {
+		broadcastFunc(conflicts, timestamps)
+	}
+
 }
+// handleStatement limits the size of statements if size exceeds max capacity
+func handleStatement(conflicts statement.Conflicts, timestamps statement.Timestamps,
+	broadcastFunc func (conflicts statement.Conflicts, timestamps statement.Timestamps)) (statement.Conflicts, statement.Timestamps) {
+
+	if hasStatementExceededMaxSize(conflicts, timestamps) {
+		broadcastFunc(conflicts, timestamps)
+		timestamps = statement.Timestamps{}
+		conflicts = statement.Conflicts{}
+	}
+	return conflicts, timestamps
+}
+
+func hasStatementExceededMaxSize(conflicts statement.Conflicts, timestamps statement.Timestamps) bool {
+	maxSize := payload.MaxSize
+	return (len(conflicts)*statement.ConflictLength + len(timestamps)*statement.TimestampLength) >= int(0.9*float64(maxSize))
+}
+
+func makeConflictStatement(id string, v *vote.Context) (statement.Conflict, error) {
+	messageID, err := ledgerstate.TransactionIDFromBase58(id)
+	if err != nil {
+		err = xerrors.Errorf("Failed to create a Conflict statement: %w", err)
+		return statement.Conflict{}, err
+	}
+	conflict :=  statement.Conflict{
+		ID: messageID,
+		Opinion: statement.Opinion{
+			Value: v.LastOpinion(),
+			Round: uint8(v.Rounds)},
+	}
+	return conflict, nil
+}
+
+func makeTimeStampStatement(id string, v *vote.Context) (statement.Timestamp, error) {
+	messageID, err := tangle.NewMessageID(id)
+	if err != nil {
+		err = xerrors.Errorf("Failed to create a TimeStamp statement: %w", err)
+		return statement.Timestamp{}, err
+	}
+	timestamp := statement.Timestamp{
+		ID: messageID,
+		Opinion: statement.Opinion{
+			Value: v.LastOpinion(),
+			Round: uint8(v.Rounds)},
+	}
+	return timestamp, nil
+}
+
+
 
 // broadcastStatement broadcasts a statement via communication layer.
 func broadcastStatement(conflicts statement.Conflicts, timestamps statement.Timestamps) {
