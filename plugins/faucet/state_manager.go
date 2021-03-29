@@ -194,7 +194,6 @@ func (s *StateManager) DeriveStateFromTangle(startIndex int) (err error) {
 	log.Infof("Remainder output %s had %d funds", s.remainderOutput.ID.Base58(), s.remainderOutput.Balance)
 	// ignore toBeSweptOutputs
 	return
-
 }
 
 // FulFillFundingRequest fulfills a faucet request by spending the next funding output to the requested address.
@@ -239,7 +238,6 @@ func (s *StateManager) FulFillFundingRequest(requestMsg *tangle.Message) (m *tan
 	}
 	txID = tx.ID().Base58()
 	return
-
 }
 
 // prepareFaucetTransaction prepares a funding faucet transaction that spends fundingOutput to destAddr and pledges
@@ -327,7 +325,7 @@ func (s *StateManager) prepareMoreFundingOutputs() (err error) {
 				if msg.Payload().Type() == ledgerstate.TransactionType {
 					msgTx, _, err := ledgerstate.TransactionFromBytes(msg.Payload().Bytes())
 					if err != nil {
-						//log.Errorf("Message %s contains invalid transaction payload: %w", msgID.String(), err)
+						// log.Errorf("Message %s contains invalid transaction payload: %w", msgID.String(), err)
 						return
 					}
 					if msgTx.ID() == tx.ID() {
@@ -364,7 +362,6 @@ func (s *StateManager) prepareMoreFundingOutputs() (err error) {
 			timeoutCounter++
 		}
 	}
-
 }
 
 // updateState takes a confirmed transaction (splitting tx), and updates the faucet internal state based on its content.

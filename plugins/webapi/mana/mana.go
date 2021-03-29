@@ -1,10 +1,10 @@
 package mana
 
 import (
+	"golang.org/x/xerrors"
 	"net/http"
 	"time"
 
-	"github.com/iotaledger/hive.go/identity"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58"
 
@@ -23,18 +23,27 @@ func getManaHandler(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, GetManaResponse{Error: err.Error()})
 	}
-	emptyID := identity.ID{}
-	if ID == emptyID {
+	if request.NodeID == "" {
 		ID = local.GetInstance().ID()
 	}
 	t := time.Now()
 	accessMana, tAccess, err := manaPlugin.GetAccessMana(ID, t)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, GetManaResponse{Error: err.Error()})
+		if xerrors.Is(err, mana.ErrNodeNotFoundInBaseManaVector) {
+			accessMana = 0
+			tAccess = t
+		} else {
+			return c.JSON(http.StatusBadRequest, GetManaResponse{Error: err.Error()})
+		}
 	}
 	consensusMana, tConsensus, err := manaPlugin.GetConsensusMana(ID, t)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, GetManaResponse{Error: err.Error()})
+		if xerrors.Is(err, mana.ErrNodeNotFoundInBaseManaVector) {
+			consensusMana = 0
+			tConsensus = t
+		} else {
+			return c.JSON(http.StatusBadRequest, GetManaResponse{Error: err.Error()})
+		}
 	}
 
 	return c.JSON(http.StatusOK, GetManaResponse{

@@ -80,8 +80,10 @@ func TestPrepareFaucet(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, genesisBalance-(10*framework.ParaFaucetTokensPerRequest), balanceOutput.UnspentOutputs[0].OutputIDs[0].Balances[0].Value)
 
-	// issue 1 more request to split the balance at [11]
+	// issue 2 more request to split the remainder balance.
 	addr := peer.Seed.Address(10).Address()
+	tests.SendFaucetRequest(t, peer, addr)
+	addr = peer.Seed.Address(11).Address()
 	tests.SendFaucetRequest(t, peer, addr)
 	time.Sleep(2 * time.Second)
 
