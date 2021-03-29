@@ -19,11 +19,11 @@ func TestAliasOutputMint(t *testing.T) {
 	_, err = ledgerstate.NewAliasOutputMint(bals0, addr)
 	require.Error(t, err)
 
-	out, err := ledgerstate.NewAliasOutputMint(bals1, addr)
+	_, err = ledgerstate.NewAliasOutputMint(bals1, addr)
 	require.NoError(t, err)
 
 	bigData := make([]byte, ledgerstate.MaxOutputPayloadSize+1)
-	out, err = ledgerstate.NewAliasOutputMint(bals1, addr)
+	out, err := ledgerstate.NewAliasOutputMint(bals1, addr)
 	require.NoError(t, err)
 	err = out.SetStateData(bigData)
 	require.Error(t, err)

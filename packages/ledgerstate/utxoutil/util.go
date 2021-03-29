@@ -55,7 +55,7 @@ func unlockInputsWithSignatureBlocks(inputs []ledgerstate.Output, sigUnlockBlock
 		case *ledgerstate.AliasOutput:
 			sig, ok := sigUnlockBlocks[ot.GetStateAddress().Array()]
 			if !ok {
-				return nil, xerrors.Errorf("chain input %d can't be unlocked for state update")
+				return nil, xerrors.New("chain input can't be unlocked for state update")
 			}
 			if sig.indexUnlocked >= 0 {
 				// signature already included
@@ -95,7 +95,7 @@ func unlockInputsWithSignatureBlocks(inputs []ledgerstate.Output, sigUnlockBlock
 		case *ledgerstate.SigLockedSingleOutput:
 			sig, ok := sigUnlockBlocks[ot.Address().Array()]
 			if !ok {
-				return nil, xerrors.Errorf("sig locked input %d can't be unlocked")
+				return nil, xerrors.New("sig locked input can't be unlocked")
 			}
 			if sig.indexUnlocked >= 0 {
 				// signature already included
@@ -108,7 +108,7 @@ func unlockInputsWithSignatureBlocks(inputs []ledgerstate.Output, sigUnlockBlock
 		case *ledgerstate.SigLockedColoredOutput:
 			sig, ok := sigUnlockBlocks[ot.Address().Array()]
 			if !ok {
-				return nil, xerrors.Errorf("sig locked input %d can't be unlocked")
+				return nil, xerrors.New("sig locked input can't be unlocked")
 			}
 			if sig.indexUnlocked >= 0 {
 				// signature already included
@@ -119,7 +119,7 @@ func unlockInputsWithSignatureBlocks(inputs []ledgerstate.Output, sigUnlockBlock
 				sig.indexUnlocked = index
 			}
 		default:
-			return nil, xerrors.Errorf("unsupported output type at index d", index)
+			return nil, xerrors.Errorf("unsupported output type at index %d", index)
 		}
 	}
 	for _, b := range ret {

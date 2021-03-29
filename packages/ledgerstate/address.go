@@ -221,7 +221,7 @@ func (e *ED25519Address) Clone() Address {
 
 // Equals returns true if the two Addresses are equal.
 func (e *ED25519Address) Equals(other Address) bool {
-	return e.Type() == other.Type() && bytes.Compare(e.digest, other.Digest()) == 0
+	return e.Type() == other.Type() && bytes.Equal(e.digest, other.Digest())
 }
 
 // Bytes returns a marshaled version of the Address.
@@ -341,7 +341,7 @@ func (b *BLSAddress) Clone() Address {
 
 // Equals returns true if the two Addresses are equal.
 func (b *BLSAddress) Equals(other Address) bool {
-	return b.Type() == other.Type() && bytes.Compare(b.digest, other.Digest()) == 0
+	return b.Type() == other.Type() && bytes.Equal(b.digest, other.Digest())
 }
 
 // Bytes returns a marshaled version of the Address.
@@ -474,7 +474,7 @@ func (a *AliasAddress) Array() (array [AddressLength]byte) {
 
 // Equals returns true if the two Addresses are equal.
 func (a *AliasAddress) Equals(other Address) bool {
-	return a.Type() == other.Type() && bytes.Compare(a.Digest(), other.Digest()) == 0
+	return a.Type() == other.Type() && bytes.Equal(a.Digest(), other.Digest())
 }
 
 // Base58 returns a base58 encoded version of the Address.
