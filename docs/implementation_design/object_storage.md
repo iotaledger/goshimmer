@@ -1,11 +1,11 @@
 # Object storage
-In GoShimmer `ObjectStorage`  is used as a base data structure for many data collections elements such as `branchStorage`, `conflictStorage`, `messageStorage` and others.
+In GoShimmer `ObjectStorage`  is used as a base data structure for many data collection elements such as `branchStorage`, `conflictStorage`, `messageStorage` and others.
 It can be described by the following characteristics, it:
 - is a manual cache which keeps objects in memory as long as consumers are using it
 - uses key-value storage type 
 - provides mutex options for guarding shared variables and preventing changing the object state by multiple goroutines at the same time
 - takes care of  dynamic creation of different object types depending on the key, and the serialized data it receives through the utility `objectstorage.Factory`
-- helps with multiple `ObjectStorage` instances creation from the same package and  automatic configuration.
+- helps with the creation of multiple `ObjectStorage` instances from the same package and  automatic configuration.
 
 In order to create an object storage we need to provide the underlying `kvstore.KVStore` structure backed by the database.
 
@@ -17,7 +17,7 @@ GoShimmer stores data in the form of an object storage system. The data is store
 Additionally, GoShimmer leaves the possibility to store data only in memory that can be specified with the parameter `CfgDatabaseInMemory` value. In-memory storage is purely based on a Go map, package `mapdb` from hive.go.
 For the persistent storage in a database it uses package `badger` from hive.go. It is a simple and fast key-value database that performs well for both reads and writes simultaneously.
 
-Both solutions are implemented in `database` package, along with prefix definitions that can be used during creation of new object storage elements.
+Both solutions are implemented in the `database` package, along with prefix definitions that can be used during the creation of new object storage elements.
 
 The database plugin is responsible for creating a `store` instance of the chosen database under the directory specified with `CfgDatabaseDir` parameter. It will manage a proper closure of the database upon receiving a shutdown signal. During the start configuration, the database is marked as unhealthy, and it will be marked as healthy on shutdown. Then the garbage collector is run and the database can be closed.
 
@@ -41,7 +41,7 @@ osFactory := objectstorage.NewFactory(store, database.Prefix)
 ```
 It needs two parameters:
 - `store` - the key value `kvstore` instance
-- `database.Prefix` - prefix defined in the `database` package for our new `example` package. It will be responsible for automatic configuration of newly provided KVStore object.
+- `database.Prefix` - a prefix defined in the `database` package for our new `example` package. It will be responsible for automatic configuration of the newly provided `kvstore` instance.
 
 
 After defining the storage factory for the group of objects, we can use it to create an `*objectstorage.ObjectStorage` instance:
@@ -80,8 +80,8 @@ func ObjectFromObjectStorage(key []byte, data []byte) (result StorableObject, er
 }
 ```
 
-`ObjectFromBytes` unmarshals the object sequence of bytes with a help of `marshalutil` library. Returned `consumedBytes` can be used for the testing purposes.
-Created `marshalUtil` instance stores the stream of bytes and keeps track of what has been already read (`readOffset`).
+`ObjectFromBytes` unmarshals the object sequence of bytes with a help of `marshalutil` library. The returned `consumedBytes` can be used for the testing purposes.
+The created `marshalUtil` instance stores the stream of bytes and keeps track of what has been already read (`readOffset`).
 ```Go
 func ObjectFromBytes(bytes []byte) (object *ObjectType, consumedBytes int, err error) {
     marshalUtil := marshalutil.New(bytes)
@@ -103,7 +103,7 @@ type Approver struct {
 }
 ```
 
-Order in which we read bytes has to reflect the order in which it was written down during marshaling. As in the example, the order: `referencedMessageID`, `approverType`, `approverMessageID` is the same in both marshalling and unmarshalling.
+The order in which we read bytes has to reflect the order in which it was written down during marshaling. As in the example, the order: `referencedMessageID`, `approverType`, `approverMessageID` is the same in both marshalling and unmarshalling.
 
 ```Go
 // Unmarshalling
@@ -125,18 +125,18 @@ func (a *Approver) ObjectStorageApprover() []byte {
 ```
 
 We continue to decompose our object into smaller pieces with help of `MarshalUtil` struct that keeps track of bytes, and a read offset.
-Then we use `marshalutil` build in methods on an appropriate parts of the byte stream with its length defined by the data
+Then we use `marshalutil` build in methods on the appropriate parts of the byte stream with its length defined by the data
 type of the struct field. This way, we are able to parse bytes to the correct Go data structure.
 
 ### ObjectStorage methods
 After defining marshalling and unmarshalling mechanism for`objectStorage` bytes conversion, 
 we can start using it for its sole purpose, to actually store and read the particular parts of the project elements. 
 
- - `Load` allows retrieving corresponding object based on provided id. For example, method on the message `objectStorage`  
+ - `Load` allows retrieving the corresponding object based on the provided id. For example, the method on the message `objectStorage`  
   is getting the cached object. 
-- To convert object retrieved in the form of a cache to its own corresponding type, we can use `Unwrap`.
+- To convert an object retrieved in the form of a cache to its own corresponding type, we can use `Unwrap`.
  In the code below it will return the message wrapped by the cached object.
-- `Exists` - checks weather the object has been deleted if yest it is released from memory with `Release` method.
+- `Exists` - checks weather the object has been deleted. If so it is released from memory with the `Release` method.
     ```Go
     func (s *Storage) Message(messageID MessageID) *CachedMessage {
         return &CachedMessage{CachedObject: s.messageStorage.Load(messageID[:])}
@@ -148,8 +148,8 @@ we can start using it for its sole purpose, to actually store and read the parti
         }
     message := cachedMessage.Unwrap()
     ``` 
-- `Consume` will be useful when we want to apply function on the cached object. `Consume` unwraps the `CachedObject` and passes a type-casted version to the consumer function.
-  Right after the object is consumed and when callback is finished, the object is released.
+- `Consume` will be useful when we want to apply a function on the cached object. `Consume` unwraps the `CachedObject` and passes a type-casted version to the consumer function.
+  Right after the object is consumed and when the callback is finished, the object is released.
 
     ```Go
     cachedMessage.Consume(func(message *tangle.Message) {
@@ -157,7 +157,7 @@ we can start using it for its sole purpose, to actually store and read the parti
             })
     ```
 - `ForEach` - allows to apply a `Consumer` function for every object residing within the cache and the underlying persistence layer.
-  For example, that's how we can count number of messages.
+  For example, this is how we can count the number of messages.
   ```Go
   messageCount := 0
   messageStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
@@ -167,8 +167,8 @@ we can start using it for its sole purpose, to actually store and read the parti
   }
   ```
 - `Store` - storing an object in the objectStorage. An extended version is method `StoreIfAbsent` 
-  that stores an object only if it was not stored before and returns boolean indication if object was stored. 
-  Similarly, works `ComputeIfAbsent` but does not access the value log. 
+  that stores an object only if it was not stored before and returns boolean indication if the object was stored. 
+  `ComputeIfAbsent` works similarly but does not access the value log. 
     ```Go
     cachedMessage := messageStorage.Store(newMessage)
     cachedMessage, stored := messageStorage.StoreIfAbsent(newMessage)
