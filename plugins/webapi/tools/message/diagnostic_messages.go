@@ -283,6 +283,7 @@ func (d *DiagnosticMessagesInfo) toCSVRow() (row []string) {
 		d.PayloadType,
 		d.TransactionID,
 	}
+
 	return row
 }
 
