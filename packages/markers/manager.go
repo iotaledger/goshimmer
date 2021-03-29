@@ -138,10 +138,6 @@ func (m *Manager) UpdateStructureDetails(structureDetailsToUpdate *StructureDeta
 
 // IsInPastCone checks if the earlier node is directly or indirectly referenced by the later node in the DAG.
 func (m *Manager) IsInPastCone(earlierStructureDetails, laterStructureDetails *StructureDetails) (isInPastCone types.TriBool) {
-	if earlierStructureDetails.FutureMarkers.Size() == 0 && laterStructureDetails.FutureMarkers.Size() == 0 {
-		return types.Maybe
-	}
-
 	if earlierStructureDetails.Rank >= laterStructureDetails.Rank {
 		return types.False
 	}
@@ -193,7 +189,7 @@ func (m *Manager) IsInPastCone(earlierStructureDetails, laterStructureDetails *S
 
 		// Iterate the future markers of laterStructureDetails and check if the earlier one has future markers in the same sequence,
 		// if yes, then make sure the index is smaller than the one of laterStructureDetails.
-		if !laterStructureDetails.FutureMarkers.ForEach(func(sequenceID SequenceID, laterIndex Index) bool {
+		if laterStructureDetails.FutureMarkers.Size() != 0 && !laterStructureDetails.FutureMarkers.ForEach(func(sequenceID SequenceID, laterIndex Index) bool {
 			earlierIndex, similarSequenceExists := earlierStructureDetails.FutureMarkers.Get(sequenceID)
 			return !similarSequenceExists || earlierIndex < laterIndex
 		}) {
@@ -219,7 +215,7 @@ func (m *Manager) IsInPastCone(earlierStructureDetails, laterStructureDetails *S
 		}
 	}
 
-	if m.markersReferenceMarkers(laterStructureDetails.PastMarkers, earlierStructureDetails.FutureMarkers, false) {
+	if earlierStructureDetails.FutureMarkers.Size() != 0 && m.markersReferenceMarkers(laterStructureDetails.PastMarkers, earlierStructureDetails.FutureMarkers, false) {
 		return types.True
 	}
 
@@ -227,7 +223,11 @@ func (m *Manager) IsInPastCone(earlierStructureDetails, laterStructureDetails *S
 		return types.False
 	}
 
-	if m.markersReferenceMarkers(earlierStructureDetails.FutureMarkers, laterStructureDetails.PastMarkers, true) {
+	if earlierStructureDetails.FutureMarkers.Size() != 0 && m.markersReferenceMarkers(earlierStructureDetails.FutureMarkers, laterStructureDetails.PastMarkers, true) {
+		return types.Maybe
+	}
+
+	if earlierStructureDetails.FutureMarkers.Size() == 0 && laterStructureDetails.FutureMarkers.Size() == 0 {
 		return types.Maybe
 	}
 
