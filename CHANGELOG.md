@@ -1,3 +1,31 @@
+# v0.5.4 - 2021-03-29
+* Add new diagnostic APIs
+* Add new docs sections
+* Add branch inclusion state check before issuing new transactions
+* Refactor the Faucet plugin
+* Optimize transaction's past cone check
+* Make issued messages pass through the parser filters
+* Fix Faucet time usage
+* Fix markers issue
+* Fix max inputs count check
+* Fix nil pointer in diagnostic API
+* Update to latest hive.go 
+* Enhance golangci-lint
+* **Breaking**: bumps network and database versions
+
+# v0.5.3 - 2021-03-25
+* Added new API endpoints
+* Added models navigation through the Dashboard Explorer
+* Added new diagnostic APIs
+* Added new docs sections
+* Fix dashboard mana event feed
+* Fix markers issue
+* Fix UnlockBlocks check
+* Fix loading of config parameters
+* Fix bug in the Get method of ColoredBalances
+* Enhance golangci-lint
+* **Breaking**: bumps network and database versions
+
 # v0.5.2 - 2021-03-17
 * Fix markers past cone check
 * Add more information to explorer and message API

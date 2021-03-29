@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"strings"
 	"sync"
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
@@ -12,6 +13,7 @@ import (
 	"github.com/mr-tron/base58"
 	"golang.org/x/xerrors"
 
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -112,6 +114,25 @@ func (t *Tangle) IssuePayload(payload payload.Payload) (message *Message, err er
 	if !t.Synced() {
 		err = xerrors.Errorf("can't issue payload: %w", ErrNotSynced)
 		return
+	}
+
+	if payload.Type() == ledgerstate.TransactionType {
+		var invalidInputs []string
+		transaction := payload.(*ledgerstate.Transaction)
+		for _, input := range transaction.Essence().Inputs() {
+			if input.Type() == ledgerstate.UTXOInputType {
+				t.LedgerState.OutputMetadata(input.(*ledgerstate.UTXOInput).ReferencedOutputID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+					t.LedgerState.BranchDAG.Branch(outputMetadata.BranchID()).Consume(func(branch ledgerstate.Branch) {
+						if branch.InclusionState() == ledgerstate.Rejected || !branch.MonotonicallyLiked() {
+							invalidInputs = append(invalidInputs, input.Base58())
+						}
+					})
+				})
+			}
+		}
+		if len(invalidInputs) > 0 {
+			return nil, xerrors.Errorf("invalid inputs: %s: %w", strings.Join(invalidInputs, ","), ErrInvalidInputs)
+		}
 	}
 
 	return t.MessageFactory.IssuePayload(payload)

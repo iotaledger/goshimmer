@@ -22,7 +22,7 @@ var (
 // Plugin gets the plugin instance.
 func Plugin() *node.Plugin {
 	once.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Disabled, configure)
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure)
 	})
 	return plugin
 }
@@ -33,4 +33,15 @@ func configure(_ *node.Plugin) {
 	webapi.Server().GET("tools/message/approval", message.ApprovalHandler)
 	webapi.Server().GET("tools/value/objects", value.ObjectsHandler)
 	webapi.Server().GET("tools/message/orphanage", message.OrphanageHandler)
+
+	webapi.Server().GET("tools/diagnostic/messages", message.DiagnosticMessagesHandler)
+	webapi.Server().GET("tools/diagnostic/messages/firstweakreferences", message.DiagnosticMessagesOnlyFirstWeakReferencesHandler)
+	webapi.Server().GET("tools/diagnostic/messages/rank/:rank", message.DiagnosticMessagesRankHandler)
+	webapi.Server().GET("tools/diagnostic/utxodag", message.DiagnosticUTXODAGHandler)
+	webapi.Server().GET("tools/diagnostic/branches", message.DiagnosticBranchesHandler)
+	webapi.Server().GET("tools/diagnostic/branches/lazybooked", message.DiagnosticLazyBookedBranchesHandler)
+	webapi.Server().GET("tools/diagnostic/branches/invalid", message.DiagnosticInvalidBranchesHandler)
+	webapi.Server().GET("tools/diagnostic/tips", message.TipsDiagnosticHandler)
+	webapi.Server().GET("tools/diagnostic/tips/strong", message.StrongTipsDiagnosticHandler)
+	webapi.Server().GET("tools/diagnostic/tips/weak", message.WeakTipsDiagnosticHandler)
 }

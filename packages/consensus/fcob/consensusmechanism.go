@@ -61,8 +61,16 @@ func (f *ConsensusMechanism) Setup() {
 
 // TransactionLiked returns a boolean value indicating whether the given Transaction is liked.
 func (f *ConsensusMechanism) TransactionLiked(transactionID ledgerstate.TransactionID) (liked bool) {
-	f.storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
-		liked = opinion.OpinionEssence.liked
+	f.tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+		f.tangle.LedgerState.BranchDAG.Branch(transactionMetadata.BranchID()).Consume(func(branch ledgerstate.Branch) {
+			if !branch.MonotonicallyLiked() {
+				return
+			}
+
+			f.storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
+				liked = opinion.OpinionEssence.liked
+			})
+		})
 	})
 
 	return
@@ -323,6 +331,14 @@ func (f *ConsensusMechanism) setEligibility(messageID tangle.MessageID) {
 			)
 		})
 	})
+}
+
+// OpinionFormedTime returns the time when the opinion for the given message was formed.
+func (f *ConsensusMechanism) OpinionFormedTime(messageID tangle.MessageID) (t time.Time) {
+	f.storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		t = messageMetadata.OpinionFormedTime()
+	})
+	return
 }
 
 // parentsEligibility checks if the parents are eligible.
