@@ -1,12 +1,12 @@
 <h1 align="center">
   <br>
-  <a href="https://github.com/iotaledger/goshimmer/wiki"><img src="images/GoShimmer.png"></a>
+  <a href="https://goshimmer.docs.iota.org/goshimmer.html"><img src="images/GoShimmer.png"></a>
 </h1>
 
 <h2 align="center">Prototype node software for an IOTA network without the Coordinator</h2>
 
 <p align="center">
-    <a href="https://github.com/iotaledger/goshimmer/wiki" style="text-decoration:none;">
+    <a href="https://goshimmer.docs.iota.org/goshimmer.html" style="text-decoration:none;">
     <img src="https://img.shields.io/badge/Documentation%20portal-blue.svg?style=for-the-badge" alt="Developer documentation portal">
 </p>
 <p align="center">
@@ -87,11 +87,11 @@ The following Coordicide modules are a work in progress:
 
 You can use the Go client-library to interact with GoShimmer (located under `github.com/iotaledger/goshimmer/client`).
 
-You can find more info about this on our [client-lib](https://github.com/iotaledger/goshimmer/wiki/Client-Lib:-Interaction-with-layers) wiki page.
+You can find more info about this on our [client-lib](https://goshimmer.docs.iota.org/apis/api.html) and [Web API](https://goshimmer.docs.iota.org/apis/webAPI.html) GitHub page.
 
 ## Getting started
 
-You can find tutorials on how to [setup a GoShimmer node](https://github.com/iotaledger/goshimmer/wiki/Setup-up-a-GoShimmer-node-(Joining-the-pollen-testnet)), [writing a dApp](https://github.com/iotaledger/goshimmer/wiki/How-to-create-a-simple-dApp), [obtaining tokens from the faucet](https://github.com/iotaledger/goshimmer/wiki/How-to-obtain-tokens-from-the-faucet) and more on our [wiki](https://github.com/iotaledger/goshimmer/wiki).
+You can find tutorials on how to [setup a GoShimmer node](https://goshimmer.docs.iota.org/tutorials/setup.html), [writing a dApp](https://goshimmer.docs.iota.org/tutorials/dApp.html), [obtaining tokens from the faucet](https://goshimmer.docs.iota.org/tutorials/request_funds.html) and more on our [GitHub Page](https://goshimmer.docs.iota.org/goshimmer.html).
 
 ## Supporting the project
 

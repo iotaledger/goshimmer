@@ -33,8 +33,8 @@ const (
 )
 
 func init() {
-	flag.Float64(CfgEmaCoefficient1, 0.00003209, "coefficient used for Effective Base Mana 1 (moving average) calculation")
-	flag.Float64(CfgEmaCoefficient2, 0.00003209, "coefficient used for Effective Base Mana 2 (moving average) calculation")
+	flag.Float64(CfgEmaCoefficient1, 0.00003209, "coefficient used for Effective Base Mana 1 (moving average) calculation")   // half-life = 6 hours
+	flag.Float64(CfgEmaCoefficient2, 0.0057762265, "coefficient used for Effective Base Mana 2 (moving average) calculation") // half-life = 2 minutes
 	flag.Float64(CfgDecay, 0.00003209, "decay coefficient used for Base Mana 2 calculation")
 	flag.StringSlice(CfgAllowedAccessPledge, nil, "list of nodes that access mana is allowed to be pledged to")
 	flag.StringSlice(CfgAllowedConsensusPledge, nil, "list of nodes that consensus mana is allowed to be pledge to")
