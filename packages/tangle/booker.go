@@ -200,6 +200,7 @@ func (b *Booker) branchIDsOfParents(message *Message) (branchIDs ledgerstate.Bra
 	return
 }
 
+// BranchIDOfMessage returns the BranchID of the given Message.
 func (b *Booker) BranchIDOfMessage(messageID MessageID) (branchID ledgerstate.BranchID) {
 	branchID, _ = b.branchIDOfMessage(messageID)
 

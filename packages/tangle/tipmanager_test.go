@@ -28,7 +28,9 @@ func TestTipManager_AddTip(t *testing.T) {
 			ledgerstate.NewED25519Address(seed.KeyPair(0).PublicKey): ledgerstate.NewColoredBalances(
 				map[ledgerstate.Color]uint64{
 					ledgerstate.ColorIOTA: 10000,
-				})},
+				},
+			),
+		},
 	})
 
 	// not eligible messages -> nothing is added
