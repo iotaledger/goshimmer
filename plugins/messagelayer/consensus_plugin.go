@@ -115,7 +115,7 @@ func configureFPC(plugin *node.Plugin) {
 	}
 
 	Voter().Events().RoundExecuted.Attach(events.NewClosure(func(roundStats *vote.RoundStats) {
-		if StatementParameters.WriteStatement {
+		if StatementParameters.WriteStatement && checkEnoughMana(local.GetInstance().ID(), StatementParameters.WriteManaThreshold) {
 			makeStatement(roundStats, broadcastStatement)
 		}
 		peersQueried := len(roundStats.QueriedOpinions)
@@ -501,10 +501,7 @@ func checkEnoughMana(id identity.ID, threshold float64) bool {
 	return enoughMana
 }
 
-func makeStatement(roundStats *vote.RoundStats, broadcastFunc func (conflicts statement.Conflicts, timestamps statement.Timestamps)) {
-	if !checkEnoughMana(local.GetInstance().ID(), StatementParameters.WriteManaThreshold) {
-		return
-	}
+func makeStatement(roundStats *vote.RoundStats, broadcastFunc func(conflicts statement.Conflicts, timestamps statement.Timestamps)) {
 	timestamps := statement.Timestamps{}
 	conflicts := statement.Conflicts{}
 
@@ -530,14 +527,15 @@ func makeStatement(roundStats *vote.RoundStats, broadcastFunc func (conflicts st
 		conflicts, timestamps = handleStatement(conflicts, timestamps, broadcastFunc)
 	}
 
-	if len(conflicts) + len(timestamps) >= 0 {
+	if len(conflicts)+len(timestamps) >= 0 {
 		broadcastFunc(conflicts, timestamps)
 	}
 
 }
+
 // handleStatement limits the size of statements if size exceeds max capacity
 func handleStatement(conflicts statement.Conflicts, timestamps statement.Timestamps,
-	broadcastFunc func (conflicts statement.Conflicts, timestamps statement.Timestamps)) (statement.Conflicts, statement.Timestamps) {
+	broadcastFunc func(conflicts statement.Conflicts, timestamps statement.Timestamps)) (statement.Conflicts, statement.Timestamps) {
 
 	if hasStatementExceededMaxSize(conflicts, timestamps) {
 		broadcastFunc(conflicts, timestamps)
@@ -558,7 +556,7 @@ func makeConflictStatement(id string, v *vote.Context) (statement.Conflict, erro
 		err = xerrors.Errorf("Failed to create a Conflict statement: %w", err)
 		return statement.Conflict{}, err
 	}
-	conflict :=  statement.Conflict{
+	conflict := statement.Conflict{
 		ID: messageID,
 		Opinion: statement.Opinion{
 			Value: v.LastOpinion(),
@@ -581,8 +579,6 @@ func makeTimeStampStatement(id string, v *vote.Context) (statement.Timestamp, er
 	}
 	return timestamp, nil
 }
-
-
 
 // broadcastStatement broadcasts a statement via communication layer.
 func broadcastStatement(conflicts statement.Conflicts, timestamps statement.Timestamps) {
