@@ -54,6 +54,10 @@ var (
 	ParaFPCListen = false
 	// ParaWriteStatement defines if the node should write statements.
 	ParaWriteStatement = true
+	// ParaReadManaThreshold defines the Mana threshold to accept a statement.
+	ParaReadManaThreshold = 1.0
+	// ParaWriteManaThreshold defines the Mana threshold to write a statement.
+	ParaWriteManaThreshold = 1.0
 )
 
 var (
@@ -90,10 +94,12 @@ type GoShimmerConfig struct {
 	ManaAllowedAccessPledge           []string
 	ManaAllowedConsensusPledge        []string
 
-	FPCRoundInterval int64
-	WaitForStatement int
-	FPCListen        bool
-	WriteStatement   bool
+	FPCRoundInterval   int64
+	WaitForStatement   int
+	FPCListen          bool
+	WriteStatement     bool
+	WriteManaThreshold float64
+	ReadManaThreshold  float64
 }
 
 // NetworkConfig defines the config of a GoShimmer Docker network.

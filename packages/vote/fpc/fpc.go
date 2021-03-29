@@ -17,6 +17,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 )
 
+const (
+	toleranceTotalMana = 0.001
+)
+
 var (
 	// ErrVoteAlreadyOngoing is returned if a vote is already going on for the given ID.
 	ErrVoteAlreadyOngoing = errors.New("a vote is already ongoing for the given ID")
@@ -50,8 +54,8 @@ func New(opinionGiverFunc opinion.OpinionGiverFunc, ownWeightRetrieverFunc opini
 // FPC is a DRNGRoundBasedVoter which uses the Opinion of other entities
 // in order to finalize an Opinion.
 type FPC struct {
-	events           vote.Events
-	opinionGiverFunc opinion.OpinionGiverFunc
+	events                 vote.Events
+	opinionGiverFunc       opinion.OpinionGiverFunc
 	ownWeightRetrieverFunc opinion.OwnWeightRetriever
 	// the lifo queue of newly enqueued items to vote on.
 	queue *list.List
@@ -305,7 +309,7 @@ func (f *FPC) queryOpinions() ([]opinion.QueriedOpinions, error) {
 			continue
 		}
 		f.ctxs[id].Weights = vote.VotingWeights{
-			OwnWeight: ownMana,
+			OwnWeight:    ownMana,
 			TotalWeights: totalMana,
 		}
 		f.ctxs[id].ProportionLiked = likedSum / float64(votedCount)
@@ -362,6 +366,7 @@ func (f *FPC) biasTowardsOwnOpinion(voteCtx *vote.Context) float64 {
 	return eta
 }
 
+// SetOpinionGiverRng sets random number generator in the FPC instance
 func (f *FPC) SetOpinionGiverRng(rng *rand.Rand) {
 	f.opinionGiverRng = rng
 }
@@ -370,8 +375,6 @@ func (f *FPC) SetOpinionGiverRng(rng *rand.Rand) {
 //If mana not available, fallback to uniform sampling
 // weighted random sampling based on https://eli.thegreenplace.net/2010/01/22/weighted-random-generation-in-python/
 func ManaBasedSampling(opinionGivers []opinion.OpinionGiver, maxQuerySampleSize, querySampleSize int, rng *rand.Rand) (map[opinion.OpinionGiver]int, float64) {
-	// TODO: remove yourself in random weighted sampling
-
 	totalConsensusMana := 0.0
 	totals := make([]float64, 0, len(opinionGivers))
 
@@ -381,7 +384,8 @@ func ManaBasedSampling(opinionGivers []opinion.OpinionGiver, maxQuerySampleSize,
 	}
 
 	// check if total mana is almost zero
-	if math.Abs(totalConsensusMana-0.0) <= 1e-9 {
+
+	if math.Abs(totalConsensusMana) <= toleranceTotalMana {
 		// fallback to uniform sampling
 		return UniformSampling(opinionGivers, maxQuerySampleSize, querySampleSize, rng), 0
 	}
@@ -396,7 +400,6 @@ func ManaBasedSampling(opinionGivers []opinion.OpinionGiver, maxQuerySampleSize,
 				break
 			}
 		}
-
 	}
 	return opinionGiversToQuery, totalConsensusMana
 

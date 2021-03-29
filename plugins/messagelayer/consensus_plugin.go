@@ -115,7 +115,7 @@ func configureFPC(plugin *node.Plugin) {
 	}
 
 	Voter().Events().RoundExecuted.Attach(events.NewClosure(func(roundStats *vote.RoundStats) {
-		if StatementParameters.WriteStatement {
+		if StatementParameters.WriteStatement && checkEnoughMana(local.GetInstance().ID(), StatementParameters.WriteManaThreshold) {
 			makeStatement(roundStats, broadcastStatement)
 		}
 		peersQueried := len(roundStats.QueriedOpinions)
@@ -229,8 +229,12 @@ type OpinionGivers map[identity.ID]OpinionGiver
 
 // Query retrieves the opinions about the given conflicts and timestamps.
 func (o *OpinionGiver) Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (opinions opinion.Opinions, err error) {
-	// wait for statement(s) to arrive
-	time.Sleep(time.Duration(StatementParameters.WaitForStatement) * time.Second)
+	// if o.view == nil, then we can immediately perform P2P query instead of waiting for statement
+	//because it won't be provided.
+	if o.view != nil {
+		// wait for statement(s) to arrive
+		time.Sleep(time.Duration(StatementParameters.WaitForStatement) * time.Second)
+	}
 	// query statement status only if any statement has been received within the last round interval.
 	// This is important. We do want to consider old statements IF the node has been active in the last round.
 	// otherwise node might be down and we don't want to look at old statements in subsequent rounds
@@ -261,16 +265,19 @@ func OpinionGiverFunc() (givers []opinion.OpinionGiver, err error) {
 	opinionGivers := make([]opinion.OpinionGiver, 0)
 
 	consensusManaNodes, _, err := GetManaMap(mana.ConsensusMana)
-
+	if err != nil {
+		plugin.LogErrorf("Error retrieving consensus mana: %s", err)
+	}
 	for _, v := range Registry().NodesView() {
 		// double check to exclude self
 		if v.ID() == local.GetInstance().ID() {
 			continue
 		}
+
 		manaValue := 0.0
 
-		if v, ok := consensusManaNodes[v.ID()]; ok {
-			manaValue = v
+		if manaAmount, ok := consensusManaNodes[v.ID()]; ok {
+			manaValue = manaAmount
 		}
 		opinionGiversMap[v.ID()] = &OpinionGiver{
 			id:   v.ID(),
@@ -332,7 +339,12 @@ func (pog *PeerOpinionGiver) Query(ctx context.Context, conflictIDs []string, ti
 	if err != nil {
 		return nil, fmt.Errorf("unable to connect to FPC service: %w", err)
 	}
-	defer conn.Close()
+	defer func() {
+		cerr := conn.Close()
+		if err == nil {
+			err = xerrors.Errorf("failed to close conneection: %w", cerr)
+		}
+	}()
 
 	client := votenet.NewVoterQueryClient(conn)
 	query := &votenet.QueryRequest{ConflictIDs: conflictIDs, TimestampIDs: timestampIDs}
@@ -354,7 +366,7 @@ func (pog *PeerOpinionGiver) Query(ctx context.Context, conflictIDs []string, ti
 		opinions[i] = opinion.ConvertInt32Opinion(intOpn)
 	}
 
-	return opinions, nil
+	return opinions, err
 }
 
 // ID returns the identifier of the underlying Peer.
@@ -473,9 +485,23 @@ type statementLog struct {
 
 // region Statement ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func makeStatement(roundStats *vote.RoundStats, broadcastFunc func (conflicts statement.Conflicts, timestamps statement.Timestamps)) {
-	// TODO: add check for Mana threshold
+// checkEnoughMana function check whether a node with id is among the top holders of p percent of consensus mana mana
+func checkEnoughMana(id identity.ID, threshold float64) bool {
+	highestManaNodes, _, err := GetHighestManaNodesFraction(mana.ConsensusMana, threshold)
+	enoughMana := true
+	if err == nil && threshold < 1.0 && len(highestManaNodes) > 0 {
+		enoughMana = false
+		for _, v := range highestManaNodes {
+			if v.ID == id {
+				enoughMana = true
+				break
+			}
+		}
+	}
+	return enoughMana
+}
 
+func makeStatement(roundStats *vote.RoundStats, broadcastFunc func(conflicts statement.Conflicts, timestamps statement.Timestamps)) {
 	timestamps := statement.Timestamps{}
 	conflicts := statement.Conflicts{}
 
@@ -501,14 +527,15 @@ func makeStatement(roundStats *vote.RoundStats, broadcastFunc func (conflicts st
 		conflicts, timestamps = handleStatement(conflicts, timestamps, broadcastFunc)
 	}
 
-	if len(conflicts) + len(timestamps) >= 0 {
+	if len(conflicts)+len(timestamps) >= 0 {
 		broadcastFunc(conflicts, timestamps)
 	}
 
 }
+
 // handleStatement limits the size of statements if size exceeds max capacity
 func handleStatement(conflicts statement.Conflicts, timestamps statement.Timestamps,
-	broadcastFunc func (conflicts statement.Conflicts, timestamps statement.Timestamps)) (statement.Conflicts, statement.Timestamps) {
+	broadcastFunc func(conflicts statement.Conflicts, timestamps statement.Timestamps)) (statement.Conflicts, statement.Timestamps) {
 
 	if hasStatementExceededMaxSize(conflicts, timestamps) {
 		broadcastFunc(conflicts, timestamps)
@@ -529,7 +556,7 @@ func makeConflictStatement(id string, v *vote.Context) (statement.Conflict, erro
 		err = xerrors.Errorf("Failed to create a Conflict statement: %w", err)
 		return statement.Conflict{}, err
 	}
-	conflict :=  statement.Conflict{
+	conflict := statement.Conflict{
 		ID: messageID,
 		Opinion: statement.Opinion{
 			Value: v.LastOpinion(),
@@ -552,8 +579,6 @@ func makeTimeStampStatement(id string, v *vote.Context) (statement.Timestamp, er
 	}
 	return timestamp, nil
 }
-
-
 
 // broadcastStatement broadcasts a statement via communication layer.
 func broadcastStatement(conflicts statement.Conflicts, timestamps statement.Timestamps) {
@@ -578,9 +603,12 @@ func readStatement(messageID tangle.MessageID) {
 			return
 		}
 
-		// TODO: check if the Mana threshold of the issuer is ok
-
 		issuerID := identity.NewID(msg.IssuerPublicKey())
+
+		// check if the Mana threshold of the issuer is ok
+		if !checkEnoughMana(issuerID, StatementParameters.ReadManaThreshold) {
+			return
+		}
 		// Skip ourselves
 		if issuerID == local.GetInstance().ID() {
 			return
