@@ -41,4 +41,7 @@ func configure(_ *node.Plugin) {
 	webapi.Server().GET("tools/diagnostic/branches", message.DiagnosticBranchesHandler)
 	webapi.Server().GET("tools/diagnostic/branches/lazybooked", message.DiagnosticLazyBookedBranchesHandler)
 	webapi.Server().GET("tools/diagnostic/branches/invalid", message.DiagnosticInvalidBranchesHandler)
+	webapi.Server().GET("tools/diagnostic/tips", message.TipsDiagnosticHandler)
+	webapi.Server().GET("tools/diagnostic/tips/strong", message.StrongTipsDiagnosticHandler)
+	webapi.Server().GET("tools/diagnostic/tips/weak", message.WeakTipsDiagnosticHandler)
 }
