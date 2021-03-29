@@ -272,7 +272,7 @@ func (d DiagnosticMessagesInfo) toCSV() (result string) {
 
 	result = strings.Join(row, ",")
 
-	return
+	return result
 }
 
 // rankFromContext determines the marker rank from the rank parameter in an echo.Context.

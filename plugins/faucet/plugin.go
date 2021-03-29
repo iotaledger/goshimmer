@@ -29,6 +29,9 @@ const (
 	// PluginName is the name of the faucet plugin.
 	PluginName = "Faucet"
 
+	// WaitForSync defines the time to wait for being in sync.
+	WaitForSync = 5 * time.Second
+
 	// CfgFaucetSeed defines the base58 encoded seed the faucet uses.
 	CfgFaucetSeed = "faucet.seed"
 	// CfgFaucetTokensPerRequest defines the amount of tokens the faucet should send for each request.
@@ -146,7 +149,7 @@ func run(*node.Plugin) {
 		// wait until node is in sync
 		for !messagelayer.Tangle().Synced() {
 			log.Infof("Waiting for node to become synced...")
-			time.Sleep(5 * time.Second)
+			time.Sleep(WaitForSync)
 		}
 		log.Infof("Waiting for node to become synced... DONE")
 

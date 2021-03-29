@@ -20,10 +20,20 @@ import (
 )
 
 const (
-	GenesisTokenAmount    = 1000000000000000
+	// GenesisTokenAmount is the total supply.
+	GenesisTokenAmount = 1000000000000000
+
+	// RemainderAddressIndex is the RemainderAddressIndex.
 	RemainderAddressIndex = 0
-	// Warning, if faucet has less than this amount left, it stops operating!
+
+	// MinimumFaucetBalance defines the minimum token amount required, before the faucet stops operating.
 	MinimumFaucetBalance = 0.1 * GenesisTokenAmount
+
+	// MaxFaucetOutputsCount defines the max outputs count for the Facuet as the ledgerstate.MaxOutputCount -1 remainder output.
+	MaxFaucetOutputsCount = ledgerstate.MaxOutputCount - 1
+
+	// WaitForConfirmation defines the wait time before considering a transaction confirmed.
+	WaitForConfirmation = 10 * time.Second
 )
 
 // region FaucetOutput
@@ -78,8 +88,8 @@ func NewStateManager(
 	// currently the max number of outputs in a tx is 127, therefore, when creating the splitting tx, we can have at most
 	// 126 prepared outputs (+1 remainder output).
 	// TODO: break down the splitting into more tx steps to be able to create more, than 126
-	if preparedOutputsCount > 126 {
-		preparedOutputsCount = 126
+	if preparedOutputsCount > MaxFaucetOutputsCount {
+		preparedOutputsCount = MaxFaucetOutputsCount
 	}
 	res := &StateManager{
 		fundingOutputs: list.New(),
@@ -139,7 +149,7 @@ func (s *StateManager) DeriveStateFromTangle(startIndex int) (err error) {
 		})
 	})
 	if foundRemainderOutput == nil {
-		return xerrors.Errorf("can't find an output on address %s that has at least %d tokens", remainderAddress.Base58(), MinimumFaucetBalance)
+		return xerrors.Errorf("can't find an output on address %s that has at least %d tokens", remainderAddress.Base58(), int(MinimumFaucetBalance))
 	}
 
 	endIndex := (GenesisTokenAmount - foundRemainderOutput.Balance) / s.tokensPerRequest
@@ -193,7 +203,7 @@ func (s *StateManager) DeriveStateFromTangle(startIndex int) (err error) {
 	}
 	log.Infof("Remainder output %s had %d funds", s.remainderOutput.ID.Base58(), s.remainderOutput.Balance)
 	// ignore toBeSweptOutputs
-	return
+	return err
 }
 
 // FulFillFundingRequest fulfills a faucet request by spending the next funding output to the requested address.
@@ -237,7 +247,8 @@ func (s *StateManager) FulFillFundingRequest(requestMsg *tangle.Message) (m *tan
 		return
 	}
 	txID = tx.ID().Base58()
-	return
+
+	return m, txID, err
 }
 
 // prepareFaucetTransaction prepares a funding faucet transaction that spends fundingOutput to destAddr and pledges
@@ -323,8 +334,8 @@ func (s *StateManager) prepareMoreFundingOutputs() (err error) {
 		func(msgID tangle.MessageID) {
 			messagelayer.Tangle().Storage.Message(msgID).Consume(func(msg *tangle.Message) {
 				if msg.Payload().Type() == ledgerstate.TransactionType {
-					msgTx, _, err := ledgerstate.TransactionFromBytes(msg.Payload().Bytes())
-					if err != nil {
+					msgTx, _, er := ledgerstate.TransactionFromBytes(msg.Payload().Bytes())
+					if er != nil {
 						// log.Errorf("Message %s contains invalid transaction payload: %w", msgID.String(), err)
 						return
 					}
@@ -345,7 +356,7 @@ func (s *StateManager) prepareMoreFundingOutputs() (err error) {
 		return issueErr
 	}
 
-	ticker := time.NewTicker(10 * time.Second)
+	ticker := time.NewTicker(WaitForConfirmation)
 	defer ticker.Stop()
 	timeoutCounter := 0
 	maxWaitAttempts := 10 // 100 s max timeout (if fpc voting is in place)
@@ -393,7 +404,6 @@ func (s *StateManager) updateState(tx *ledgerstate.Transaction) error {
 		default:
 			err := xerrors.Errorf("tx %s should not have output with balance %d", tx.ID().Base58(), iotaBalance)
 			return err
-
 		}
 	}
 	// save the info in internal state
@@ -442,7 +452,7 @@ func (s *StateManager) createSplittingTx() *ledgerstate.Transaction {
 		ledgerstate.NewOutputs(outputs...),
 	)
 
-	w := wallet{keyPair: *s.seed.KeyPair(uint64(s.remainderOutput.AddressIndex))}
+	w := wallet{keyPair: *s.seed.KeyPair(s.remainderOutput.AddressIndex)}
 	unlockBlock := ledgerstate.NewSignatureUnlockBlock(w.sign(essence))
 
 	tx := ledgerstate.NewTransaction(
