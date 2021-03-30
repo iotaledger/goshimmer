@@ -1,8 +1,9 @@
 package messagelayer
 
 import (
-	"github.com/iotaledger/hive.go/configuration"
 	"time"
+
+	"github.com/iotaledger/hive.go/configuration"
 )
 
 // Parameters contains the configuration parameters used by the message layer.
@@ -82,7 +83,7 @@ var ManaParameters = struct {
 	// EmaCoefficient1 defines the coefficient used for Effective Base Mana 1 (moving average) calculation.
 	EmaCoefficient1 float64 `default:"0.00003209" usage:"coefficient used for Effective Base Mana 1 (moving average) calculation"`
 	// EmaCoefficient2 defines the coefficient used for Effective Base Mana 2 (moving average) calculation.
-	EmaCoefficient2 float64 `default:"0.00003209" usage:"coefficient used for Effective Base Mana 1 (moving average) calculation"`
+	EmaCoefficient2 float64 `default:"0.0057762265" usage:"coefficient used for Effective Base Mana 1 (moving average) calculation"`
 	// Decay defines the decay coefficient used for Base Mana 2 calculation.
 	Decay float64 `default:"0.00003209" usage:"decay coefficient used for Base Mana 2 calculation"`
 	// AllowedAccessPledge defines the list of nodes that access mana is allowed to be pledged to.
