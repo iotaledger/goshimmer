@@ -198,16 +198,16 @@ func (w *WeightedBaseManaVector) GetHighestManaNodes(n uint) (res []Node, t time
 // GetHighestManaNodesFraction returns the highest mana that own 'p' percent of total mana.
 // It also updates the mana values for each node.
 // If p is zero or greater than one, it returns all nodes.
-func (c *WeightedBaseManaVector) GetHighestManaNodesFraction(p float64) (res []Node, t time.Time, err error) {
+func (w *WeightedBaseManaVector) GetHighestManaNodesFraction(p float64) (res []Node, t time.Time, err error) {
 	totalMana := 0.0
 	err = func() error {
 		// don't lock the vector after this func returns
-		c.Lock()
-		defer c.Unlock()
+		w.Lock()
+		defer w.Unlock()
 		t = time.Now()
-		for ID := range c.vector {
+		for ID := range w.vector {
 			var mana float64
-			mana, _, err = c.getMana(ID, t)
+			mana, _, err = w.getMana(ID, t)
 			if err != nil {
 				return err
 			}
@@ -239,7 +239,7 @@ func (c *WeightedBaseManaVector) GetHighestManaNodesFraction(p float64) (res []N
 		return
 	}
 	res = res[:n]
-	return
+	return res, t, err
 }
 
 // SetMana sets the base mana for a node.

@@ -41,17 +41,13 @@ func TestVoteContext_HadFixedRound(t *testing.T) {
 	type testInput struct {
 		voteCtx                     vote.Context
 		totalRoundsCoolingOffPeriod int
-		totalRoundsFinalization       int
-		totalRoundsFixedThreshold        int
+		totalRoundsFinalization     int
+		totalRoundsFixedThreshold   int
 		want                        bool
 	}
-	var tests = []testInput{
-		{vote.Context{
-			Opinions: []opinion.Opinion{opinion.Like, opinion.Like, opinion.Like, opinion.Like, opinion.Like},
-		}, 2, 4, 2, true},
-		{vote.Context{
-			Opinions: []opinion.Opinion{opinion.Like, opinion.Like, opinion.Like, opinion.Like, opinion.Dislike},
-		}, 2, 4, 2, false},
+	tests := []testInput{
+		{vote.Context{Opinions: []opinion.Opinion{opinion.Like, opinion.Like, opinion.Like, opinion.Like, opinion.Like}}, 2, 4, 2, true},
+		{vote.Context{Opinions: []opinion.Opinion{opinion.Like, opinion.Like, opinion.Like, opinion.Like, opinion.Dislike}}, 2, 4, 2, false},
 	}
 	for _, test := range tests {
 		assert.Equal(t, test.want, test.voteCtx.HadFixedRound(test.totalRoundsCoolingOffPeriod, test.totalRoundsFinalization, test.totalRoundsFixedThreshold))
@@ -268,7 +264,6 @@ func TestManaBasedSamplingFallback(t *testing.T) {
 	}
 	assert.Equal(t, fpc.DefaultParameters().QuerySampleSize, sumVotes)
 	assert.Equal(t, expectedOpinionGivers, opinionGiversToQuery)
-
 }
 
 func TestManaBasedSampling(t *testing.T) {
@@ -304,8 +299,8 @@ func TestManaBasedSampling(t *testing.T) {
 	}
 	assert.Equal(t, fpc.DefaultParameters().MaxQuerySampleSize, sumVotes)
 	assert.Equal(t, expectedOpinionGivers, opinionGiversToQuery)
-
 }
+
 func TestFPCVotingMultipleOpinionGiversWithMana(t *testing.T) {
 	type testInput struct {
 		id                  string
@@ -314,7 +309,7 @@ func TestFPCVotingMultipleOpinionGiversWithMana(t *testing.T) {
 		expectedRoundsDone  int
 		expectedOpinion     opinion.Opinion
 	}
-	var tests = []testInput{
+	tests := []testInput{
 		{"1", opinion.Like, opinion.Dislike, 5, opinion.Dislike},
 		{"2", opinion.Dislike, opinion.Like, 5, opinion.Like},
 	}

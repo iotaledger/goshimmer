@@ -219,6 +219,9 @@ func (f *FPC) queryOpinions() ([]opinion.QueriedOpinions, error) {
 
 	// get own mana and calculate total mana
 	ownMana, err := f.ownWeightRetrieverFunc()
+	if err != nil {
+		return nil, err
+	}
 	totalMana := totalOpinionGiversMana + ownMana
 
 	// votes per id
@@ -372,7 +375,7 @@ func (f *FPC) SetOpinionGiverRng(rng *rand.Rand) {
 }
 
 // ManaBasedSampling returns list of OpinionGivers to query, weighted by consensus mana and corresponding total mana value.
-//If mana not available, fallback to uniform sampling
+// If mana not available, fallback to uniform sampling
 // weighted random sampling based on https://eli.thegreenplace.net/2010/01/22/weighted-random-generation-in-python/
 func ManaBasedSampling(opinionGivers []opinion.OpinionGiver, maxQuerySampleSize, querySampleSize int, rng *rand.Rand) (map[opinion.OpinionGiver]int, float64) {
 	totalConsensusMana := 0.0
@@ -402,7 +405,6 @@ func ManaBasedSampling(opinionGivers []opinion.OpinionGiver, maxQuerySampleSize,
 		}
 	}
 	return opinionGiversToQuery, totalConsensusMana
-
 }
 
 // UniformSampling returns list of OpinionGivers to query, sampled uniformly

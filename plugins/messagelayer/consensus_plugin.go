@@ -3,8 +3,6 @@ package messagelayer
 import (
 	"context"
 	"fmt"
-	"github.com/iotaledger/goshimmer/packages/mana"
-	"golang.org/x/xerrors"
 	"net"
 	"strconv"
 	"sync"
@@ -16,12 +14,14 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/node"
+	"golang.org/x/xerrors"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 
 	clockPkg "github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/prng"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -230,7 +230,7 @@ type OpinionGivers map[identity.ID]OpinionGiver
 // Query retrieves the opinions about the given conflicts and timestamps.
 func (o *OpinionGiver) Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (opinions opinion.Opinions, err error) {
 	// if o.view == nil, then we can immediately perform P2P query instead of waiting for statement
-	//because it won't be provided.
+	// because it won't be provided.
 	if o.view != nil {
 		// wait for statement(s) to arrive
 		time.Sleep(time.Duration(StatementParameters.WaitForStatement) * time.Second)
@@ -485,6 +485,10 @@ type statementLog struct {
 
 // region Statement ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+const (
+	maxPayloadRatio = 0.9
+)
+
 // checkEnoughMana function check whether a node with id is among the top holders of p percent of consensus mana mana
 func checkEnoughMana(id identity.ID, threshold float64) bool {
 	highestManaNodes, _, err := GetHighestManaNodesFraction(mana.ConsensusMana, threshold)
@@ -510,16 +514,14 @@ func makeStatement(roundStats *vote.RoundStats, broadcastFunc func(conflicts sta
 		case vote.TimestampType:
 			timeStampStatement, err := makeTimeStampStatement(id, v)
 			if err != nil {
-				err = xerrors.Errorf("Failed to create a TimeStamp statement: %w", err)
-				plugin.LogErrorf("Statement error: %s", err)
+				plugin.LogErrorf("Statement error: %s", xerrors.Errorf("Failed to create a TimeStamp statement: %w", err))
 				break
 			}
 			timestamps = append(timestamps, timeStampStatement)
 		case vote.ConflictType:
 			conflictStatement, err := makeConflictStatement(id, v)
 			if err != nil {
-				plugin.LogErrorf("Statement error: %s", err)
-				err = xerrors.Errorf("Failed to create a Conflict statement: %w", err)
+				plugin.LogErrorf("Statement error: %s", xerrors.Errorf("Failed to create a Conflict statement: %w", err))
 				break
 			}
 			conflicts = append(conflicts, conflictStatement)
@@ -530,13 +532,11 @@ func makeStatement(roundStats *vote.RoundStats, broadcastFunc func(conflicts sta
 	if len(conflicts)+len(timestamps) >= 0 {
 		broadcastFunc(conflicts, timestamps)
 	}
-
 }
 
 // handleStatement limits the size of statements if size exceeds max capacity
 func handleStatement(conflicts statement.Conflicts, timestamps statement.Timestamps,
 	broadcastFunc func(conflicts statement.Conflicts, timestamps statement.Timestamps)) (statement.Conflicts, statement.Timestamps) {
-
 	if hasStatementExceededMaxSize(conflicts, timestamps) {
 		broadcastFunc(conflicts, timestamps)
 		timestamps = statement.Timestamps{}
@@ -547,7 +547,7 @@ func handleStatement(conflicts statement.Conflicts, timestamps statement.Timesta
 
 func hasStatementExceededMaxSize(conflicts statement.Conflicts, timestamps statement.Timestamps) bool {
 	maxSize := payload.MaxSize
-	return (len(conflicts)*statement.ConflictLength + len(timestamps)*statement.TimestampLength) >= int(0.9*float64(maxSize))
+	return (len(conflicts)*statement.ConflictLength + len(timestamps)*statement.TimestampLength) >= int(maxPayloadRatio*float64(maxSize))
 }
 
 func makeConflictStatement(id string, v *vote.Context) (statement.Conflict, error) {
@@ -560,7 +560,8 @@ func makeConflictStatement(id string, v *vote.Context) (statement.Conflict, erro
 		ID: messageID,
 		Opinion: statement.Opinion{
 			Value: v.LastOpinion(),
-			Round: uint8(v.Rounds)},
+			Round: uint8(v.Rounds),
+		},
 	}
 	return conflict, nil
 }
@@ -575,7 +576,8 @@ func makeTimeStampStatement(id string, v *vote.Context) (statement.Timestamp, er
 		ID: messageID,
 		Opinion: statement.Opinion{
 			Value: v.LastOpinion(),
-			Round: uint8(v.Rounds)},
+			Round: uint8(v.Rounds),
+		},
 	}
 	return timestamp, nil
 }

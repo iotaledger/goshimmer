@@ -276,7 +276,7 @@ func (c *ConsensusBaseManaVector) GetHighestManaNodesFraction(p float64) (res []
 		return
 	}
 	res = res[:n]
-	return
+	return res, t, err
 }
 
 // SetMana sets the base mana for a node.

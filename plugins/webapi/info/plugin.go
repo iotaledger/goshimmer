@@ -15,7 +15,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	manaPlugin "github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 )
@@ -108,8 +107,8 @@ func getInfo(c echo.Context) error {
 	}
 
 	t := time.Now()
-	accessMana, tAccess, _ := manaPlugin.GetAccessMana(local.GetInstance().ID(), t)
-	consensusMana, tConsensus, _ := manaPlugin.GetConsensusMana(local.GetInstance().ID(), t)
+	accessMana, tAccess, _ := messagelayer.GetAccessMana(local.GetInstance().ID(), t)
+	consensusMana, tConsensus, _ := messagelayer.GetConsensusMana(local.GetInstance().ID(), t)
 	nodeMana := Mana{
 		Access:             accessMana,
 		AccessTimestamp:    tAccess,

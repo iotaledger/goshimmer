@@ -2,14 +2,14 @@ package messagelayer
 
 import (
 	"fmt"
+	"testing"
+
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/goshimmer/packages/vote/statement"
-	"testing"
 )
-
 
 func MockBroadcastStatement(conflicts statement.Conflicts, timestamps statement.Timestamps) {
 	statementPayload := statement.New(conflicts, timestamps)
@@ -20,16 +20,15 @@ func MockBroadcastStatement(conflicts statement.Conflicts, timestamps statement.
 	}
 }
 
-
 func TestMakeStatement(t *testing.T) {
 	senderSeed := walletseed.NewSeed()
 	maxSize := payload.MaxSize
-	maxNumOfStatements := maxSize*4 / statement.ConflictLength
+	maxNumOfStatements := maxSize * 4 / statement.ConflictLength
 
 	stats := &vote.RoundStats{
 		ActiveVoteContexts: map[string]*vote.Context{},
 	}
-	for i:=0; i<maxNumOfStatements; i++ {
+	for i := 0; i < maxNumOfStatements; i++ {
 		// transactionId needs to be in base58 format
 		transactionID := senderSeed.Address(uint64(i)).Base58()
 		// generate voting context to fill in the payload
@@ -43,5 +42,3 @@ func TestMakeStatement(t *testing.T) {
 	// if max payload size exceeded MockBroadcastStatement will panic
 	makeStatement(stats, MockBroadcastStatement)
 }
-
-

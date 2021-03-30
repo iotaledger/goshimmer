@@ -36,9 +36,9 @@ type Context struct {
 	Weights VotingWeights
 }
 
-// votingWeights stores parameters used for weighted voting calculation
+// VotingWeights stores parameters used for weighted voting calculation
 type VotingWeights struct {
-	//Total base mana of opinion givers from the last query
+	// Total base mana of opinion givers from the last query
 	TotalWeights float64
 	// Own mana from the last query
 	OwnWeight float64
@@ -56,7 +56,7 @@ func (vc *Context) LastOpinion() opinion.Opinion {
 
 // IsFinalized tells whether this vote context is finalized by checking whether the opinion was held
 // for totalRoundsFinalization number of rounds.
-func (vc *Context) IsFinalized(coolingOffPeriod int, totalRoundsFinalization int) bool {
+func (vc *Context) IsFinalized(coolingOffPeriod, totalRoundsFinalization int) bool {
 	// check whether we have enough opinions to say whether this vote context is finalized.
 	if len(vc.Opinions) < coolingOffPeriod+totalRoundsFinalization+1 {
 		return false
@@ -85,7 +85,7 @@ func (vc *Context) HadFirstRound() bool {
 }
 
 // HadFixedRound tells whether the vote context is in the last l2 rounds of fixed threshold
-func (vc *Context) HadFixedRound(coolingOffPeriod int, totalRoundsFinalization int, totalRoundsFixedThreshold int) bool {
+func (vc *Context) HadFixedRound(coolingOffPeriod, totalRoundsFinalization, totalRoundsFixedThreshold int) bool {
 	totalRoundsRandomThreshold := totalRoundsFinalization - totalRoundsFixedThreshold // l - l2
 	// check whether we have enough opinions to say whether the random threshold for this vote context can be fixed.
 	if len(vc.Opinions) < coolingOffPeriod+totalRoundsRandomThreshold+1 {

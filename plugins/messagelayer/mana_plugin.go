@@ -2,7 +2,6 @@ package messagelayer
 
 import (
 	"fmt"
-	"github.com/iotaledger/goshimmer/packages/gossip"
 	"math"
 	"math/rand"
 	"sort"
@@ -19,6 +18,7 @@ import (
 	"go.uber.org/atomic"
 
 	db_pkg "github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
