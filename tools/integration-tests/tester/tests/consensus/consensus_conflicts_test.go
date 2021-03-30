@@ -64,7 +64,7 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	genesisOutputID := ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0)
 	input := ledgerstate.NewUTXOInput(genesisOutputID)
 	// splitting genesis funds to one address per peer plus one additional that will be used for the conflict
-	spendingGenTx, destGenSeed := CreateOutputs(input, genesisBalance, genesisSeed.KeyPair(0), numberOfPeers+1, identity.ID{})
+	spendingGenTx, destGenSeed := CreateOutputs(input, genesisBalance, genesisSeed.KeyPair(0), numberOfPeers+1, identity.ID{}, "skewed")
 
 	// issue the transaction on the first peer of each partition, both partitions will have the same view
 	issueTransaction(n.Partitions()[0].Peers()[0], spendingGenTx, t, "genesis splitting", 0)
@@ -94,7 +94,7 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 			})[0]
 			balance, _ := outputGenTx.Balances().Get(ledgerstate.ColorIOTA)
 			pledgeInput := ledgerstate.NewUTXOInput(outputGenTx.ID())
-			pledgingTxs[receiverId], pledgeSeed[receiverId] = CreateOutputs(pledgeInput, balance, destGenSeed.KeyPair(uint64(receiverId)), 1, peer.ID())
+			pledgingTxs[receiverId], pledgeSeed[receiverId] = CreateOutputs(pledgeInput, balance, destGenSeed.KeyPair(uint64(receiverId)), 1, peer.ID(), "equal")
 
 			// issue the transaction to peers on both partitions
 			issueTransaction(n.Partitions()[0].Peers()[0], pledgingTxs[receiverId], t, "pledging", 0)
@@ -104,9 +104,8 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	}
 	// sleep 3* the avg. network delay so both partitions confirm their own pledging transaction
 	// and 1 avg delay more to make sure each node has mana
-	log.Printf("waiting 3 * %d seconds avg. network delay to make the transactions "+
-		"preferred in their corresponding partition", framework.ParaFCoBAverageNetworkDelay)
-	time.Sleep(time.Duration(framework.ParaFCoBAverageNetworkDelay) * 3 * time.Second)
+	log.Printf("waiting 2 * %d seconds avg. network delay + 5s to make the transactions confirmed", framework.ParaFCoBAverageNetworkDelay)
+	time.Sleep(time.Duration(framework.ParaFCoBAverageNetworkDelay)*2*time.Second + 5*time.Second)
 
 	//prepare two conflicting transactions from one additional unused genesis output
 	conflictingTxs := make([]*ledgerstate.Transaction, len(n.Partitions()))
@@ -122,7 +121,7 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	// prepare two conflicting transactions, one per partition
 	for i, partition := range n.Partitions() {
 		conflictInput := ledgerstate.NewUTXOInput(lastOutputTx.ID())
-		conflictingTxs[i], receiverSeeds[i] = CreateOutputs(conflictInput, lastOutputBalance, destGenSeed.KeyPair(numberOfPeers), 1, partition.Peers()[0].ID())
+		conflictingTxs[i], receiverSeeds[i] = CreateOutputs(conflictInput, lastOutputBalance, destGenSeed.KeyPair(numberOfPeers), 1, partition.Peers()[0].ID(), "equal")
 
 		// issue conflicting transaction on the current partition
 		txId := issueTransaction(partition.Peers()[0], conflictingTxs[i], t, "conflicting", 0)
@@ -195,58 +194,42 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 		}
 	}
 
-	err = tests.AwaitTransactionInclusionState(n.Peers(), awaitFinalization, 20*time.Duration(framework.ParaFPCRoundInterval)*time.Second)
+	err = tests.AwaitTransactionInclusionState(n.Peers(), awaitFinalization, 30*time.Duration(framework.ParaFPCRoundInterval)*time.Second)
 	assert.NoError(t, err)
 
 	// now all transactions must be finalized and at most one must be confirmed
-	var confirmedOverConflictSet int
-	for _, conflictingTx := range conflictingTxIDs {
-		var rejected, confirmed int
+	rejected := make([]int, 2)
+	confirmed := make([]int, 2)
+
+	for i, conflictingTx := range conflictingTxIDs {
+
 		for _, p := range n.Peers() {
 			tx, err := p.GetTransactionByID(conflictingTx)
 			assert.NoError(t, err)
 			if tx.InclusionState.Confirmed {
-				confirmed++
+				confirmed[i]++
 				continue
 			}
 			if tx.InclusionState.Rejected {
-				rejected++
+				rejected[i]++
 			}
 		}
-
-		if rejected != 0 {
-			assert.Len(t, n.Peers(), rejected, "the rejected count for %s should be equal to the amount of peers", conflictingTx)
-		}
-		if confirmed != 0 {
-			assert.Len(t, n.Peers(), confirmed, "the confirmed count for %s should be equal to the amount of peers", conflictingTx)
-			confirmedOverConflictSet++
-		}
-
-		assert.False(t, rejected == 0 && confirmed == 0, "a transaction must either be rejected or confirmed")
 	}
 
-	// there must only be one confirmed transaction out of the conflict set
-	if confirmedOverConflictSet != 0 {
-		assert.Equal(t, 1, confirmedOverConflictSet, "only one transaction can be confirmed out of the conflict set. %d of %d are confirmed", confirmedOverConflictSet, len(conflictingTxIDs))
-	}
+	assert.Equal(t, 0, rejected[0], "the rejected count for first transaction should be equal to 0")
+	assert.Equal(t, len(n.Peers()), rejected[1], "the rejected count for second transaction should be equal to %d", len(n.Peers()))
+	assert.Equal(t, 0, confirmed[1], "the confirmed count for second transaction should be equal to 0")
+	assert.Equal(t, len(n.Peers()), confirmed[0], "the confirmed count for first transaction should be equal to the amount of peers %d", len(n.Peers()))
+
 }
 
-func CreateOutputs(input *ledgerstate.UTXOInput, inputBalance uint64, kp *ed25519.KeyPair, nOutputs int, pledgeID identity.ID) (*ledgerstate.Transaction, *seed.Seed) {
+func CreateOutputs(input *ledgerstate.UTXOInput, inputBalance uint64, kp *ed25519.KeyPair, nOutputs int, pledgeID identity.ID, balanceType string) (*ledgerstate.Transaction, *seed.Seed) {
 	partitionReceiverSeed := seed.NewSeed()
 
 	destAddr := make([]ledgerstate.Address, nOutputs)
 	sigLockedColoredOutputs := make([]*ledgerstate.SigLockedColoredOutput, nOutputs)
 	outputs := make([]ledgerstate.Output, nOutputs)
-
-	outputBalances := make([]uint64, nOutputs)
-	// make sure the output balances are equal input
-	var totalBalance uint64 = 0
-	for i := 0; i < nOutputs-1; i++ {
-		outputBalances[i] = inputBalance / uint64(nOutputs)
-		totalBalance, _ = ledgerstate.SafeAddUint64(totalBalance, outputBalances[i])
-	}
-	outputBalances[nOutputs-1], _ = ledgerstate.SafeSubUint64(inputBalance, totalBalance)
-	log.Printf("Transaction balances; input: %d, output: %v", inputBalance, outputBalances)
+	outputBalances := createBalances(balanceType, nOutputs, inputBalance)
 	for i := 0; i < nOutputs; i++ {
 		destAddr[i] = partitionReceiverSeed.Address(uint64(i)).Address()
 		sigLockedColoredOutputs[i] = ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
@@ -268,4 +251,42 @@ func issueTransaction(issuerPeer *framework.Peer, tx *ledgerstate.Transaction, t
 	assert.NoError(t, err)
 	log.Printf("issued %s transaction %s on partition %d on peer %s", txDescription, txID, partNum, issuerPeer.ID().String())
 	return txID
+}
+
+func createBalances(balanceType string, nOutputs int, inputBalance uint64) []uint64 {
+	outputBalances := make([]uint64, 0)
+	// make sure the output balances are equal input
+	var totalBalance uint64 = 0
+	switch balanceType {
+	// input is divided equally among outputs
+	case "equal":
+		for i := 0; i < nOutputs-1; i++ {
+			outputBalances = append(outputBalances, inputBalance/uint64(nOutputs))
+			totalBalance, _ = ledgerstate.SafeAddUint64(totalBalance, outputBalances[i])
+		}
+		lastBalance, _ := ledgerstate.SafeSubUint64(inputBalance, totalBalance)
+		outputBalances = append(outputBalances, lastBalance)
+		fmt.Printf("equal balances %v", outputBalances)
+	// first output gets 90% of all input funds
+	case "skewed":
+		if nOutputs == 1 {
+			outputBalances = append(outputBalances, inputBalance)
+			fmt.Println("one balance")
+		} else {
+			fmt.Printf("before %v", outputBalances)
+			outputBalances = append(outputBalances, inputBalance*9/10)
+			remainingBalance, _ := ledgerstate.SafeSubUint64(inputBalance, outputBalances[0])
+			fmt.Printf("remainig %v", outputBalances)
+			for i := 1; i < nOutputs-1; i++ {
+				outputBalances = append(outputBalances, remainingBalance/uint64(nOutputs-1))
+				totalBalance, _ = ledgerstate.SafeAddUint64(totalBalance, outputBalances[i])
+			}
+			lastBalance, _ := ledgerstate.SafeSubUint64(remainingBalance, totalBalance)
+			outputBalances = append(outputBalances, lastBalance)
+			//outputBalances = append(outputBalances, createBalances("equal", nOutputs-1, remainingBalance)...)
+			fmt.Printf("rady %v", outputBalances)
+		}
+	}
+	log.Printf("Transaction balances; input: %d, output: %v", inputBalance, outputBalances)
+	return outputBalances
 }
