@@ -24,6 +24,9 @@ const (
 
 	syncBeaconSeed      = "Dw6dKWvQGbcijpib6A8t1vSiuDU1XWsnT71xhLSzXUGc"
 	syncBeaconPublicKey = "6wuo4zNP4MXzojmj2EXGsPEHPkWJNnbKZ9e17ufdTmp"
+
+	// GenesisTokenAmount is the amount of tokens in the genesis output.
+	GenesisTokenAmount = 1000000000000000
 )
 
 // Parameters to override before calling any peer creation function.

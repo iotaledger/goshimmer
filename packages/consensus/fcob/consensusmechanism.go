@@ -61,8 +61,16 @@ func (f *ConsensusMechanism) Setup() {
 
 // TransactionLiked returns a boolean value indicating whether the given Transaction is liked.
 func (f *ConsensusMechanism) TransactionLiked(transactionID ledgerstate.TransactionID) (liked bool) {
-	f.storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
-		liked = opinion.OpinionEssence.liked
+	f.tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+		f.tangle.LedgerState.BranchDAG.Branch(transactionMetadata.BranchID()).Consume(func(branch ledgerstate.Branch) {
+			if !branch.MonotonicallyLiked() {
+				return
+			}
+
+			f.storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
+				liked = opinion.OpinionEssence.liked
+			})
+		})
 	})
 
 	return
