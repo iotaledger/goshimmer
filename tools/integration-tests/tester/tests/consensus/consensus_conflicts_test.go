@@ -67,8 +67,8 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	spendingGenTx, destGenSeed := CreateOutputs(input, genesisBalance, genesisSeed.KeyPair(0), numberOfPeers+1, identity.ID{})
 
 	// issue the transaction on the first peer of each partition, both partitions will have the same view
-	issueTransaction(n.Partitions()[0].Peers()[0], spendingGenTx, t, "genesis splitting")
-	issueTransaction(n.Partitions()[1].Peers()[0], spendingGenTx, t, "genesis splitting")
+	issueTransaction(n.Partitions()[0].Peers()[0], spendingGenTx, t, "genesis splitting", 0)
+	issueTransaction(n.Partitions()[1].Peers()[0], spendingGenTx, t, "genesis splitting", 1)
 
 	// sleep the avg. network delay so both partitions confirm their own first seen transaction
 	log.Printf("waiting %d seconds avg. network delay to make the transactions "+
@@ -97,13 +97,12 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 			pledgingTxs[receiverId], pledgeSeed[receiverId] = CreateOutputs(pledgeInput, balance, destGenSeed.KeyPair(uint64(receiverId)), 1, peer.ID())
 
 			// issue the transaction to peers on both partitions
-			issueTransaction(n.Partitions()[0].Peers()[0], pledgingTxs[receiverId], t, "pledging")
-			issueTransaction(n.Partitions()[1].Peers()[0], pledgingTxs[receiverId], t, "pledging")
+			issueTransaction(n.Partitions()[0].Peers()[0], pledgingTxs[receiverId], t, "pledging", 0)
+			issueTransaction(n.Partitions()[1].Peers()[0], pledgingTxs[receiverId], t, "pledging", 1)
 			receiverId++
 		}
 	}
-	// wait 3 times network delay
-	// sleep 2* the avg. network delay so both partitions confirm their own pledging transaction
+	// sleep 3* the avg. network delay so both partitions confirm their own pledging transaction
 	// and 1 avg delay more to make sure each node has mana
 	log.Printf("waiting 3 * %d seconds avg. network delay to make the transactions "+
 		"preferred in their corresponding partition", framework.ParaFCoBAverageNetworkDelay)
@@ -126,13 +125,13 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 		conflictingTxs[i], receiverSeeds[i] = CreateOutputs(conflictInput, lastOutputBalance, destGenSeed.KeyPair(numberOfPeers), 1, partition.Peers()[0].ID())
 
 		// issue conflicting transaction on the current partition
-		txId := issueTransaction(partition.Peers()[0], conflictingTxs[i], t, "conflicting")
+		txId := issueTransaction(partition.Peers()[0], conflictingTxs[i], t, "conflicting", 0)
 		conflictingTxIDs[i] = txId
 	}
 
 	// sleep the avg. network delay so both partitions prefer their own first seen transaction
 	log.Printf("waiting  %d seconds avg. network delay to make the transactions "+
-		"preferred in their corresponding partition", framework.ParaFCoBAverageNetworkDelay)
+		"preferred in their corresponding partition", framework.ParaFCoBAverageNetworkDelay/4)
 	time.Sleep(time.Duration(framework.ParaFCoBAverageNetworkDelay) / 4 * time.Second)
 	premergeTimestamp := time.Now()
 	// merge back the partitions
@@ -144,6 +143,8 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 
 	diff := time.Since(premergeTimestamp)
 	if diff < time.Duration(framework.ParaFCoBAverageNetworkDelay)*time.Second {
+		log.Printf("waiting  %d seconds avg. network delay to make the transactions "+
+			"preferred in their corresponding partition", framework.ParaFCoBAverageNetworkDelay-int(diff))
 		time.Sleep(time.Duration(framework.ParaFCoBAverageNetworkDelay)*time.Second - diff*time.Second)
 	}
 
@@ -288,9 +289,9 @@ func CreateOutputs(input *ledgerstate.UTXOInput, inputBalance uint64, kp *ed2551
 	return tx, partitionReceiverSeed
 }
 
-func issueTransaction(issuerPeer *framework.Peer, tx *ledgerstate.Transaction, t *testing.T, txDescription string) string {
+func issueTransaction(issuerPeer *framework.Peer, tx *ledgerstate.Transaction, t *testing.T, txDescription string, partNum int) string {
 	txID, err := issuerPeer.SendTransaction(tx.Bytes())
 	assert.NoError(t, err)
-	log.Printf("issued %s transaction %s on partition %d on peer %s", txDescription, txID, 0, issuerPeer.ID().String())
+	log.Printf("issued %s transaction %s on partition %d on peer %s", txDescription, txID, partNum, issuerPeer.ID().String())
 	return txID
 }
