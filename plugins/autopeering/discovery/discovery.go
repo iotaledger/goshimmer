@@ -30,8 +30,8 @@ const (
 )
 
 var (
-	// ErrParsingMasterNode is returned for an invalid master node.
-	ErrParsingMasterNode = errors.New("cannot parse master node")
+	// ErrParsingEntryNode is returned for an invalid entry node.
+	ErrParsingEntryNode = errors.New("cannot parse entry node")
 
 	// the peer discovery protocol
 	peerDisc     *discover.Protocol
@@ -52,15 +52,15 @@ func createPeerDisc() {
 
 	networkVersion = uint32(config.Node().Int(CfgNetworkVersion))
 
-	masterPeers, err := parseEntryNodes()
+	endtryNodes, err := parseEntryNodes()
 	if err != nil {
 		log.Errorf("Invalid entry nodes; ignoring: %v", err)
 	}
-	log.Debugf("Master peers: %v", masterPeers)
+	log.Debugf("Entry nodes: %v", endtryNodes)
 
 	peerDisc = discover.New(local.GetInstance(), ProtocolVersion, NetworkVersion(),
 		discover.Logger(log),
-		discover.MasterPeers(masterPeers),
+		discover.MasterPeers(endtryNodes),
 	)
 }
 
@@ -72,15 +72,15 @@ func parseEntryNodes() (result []*peer.Peer, err error) {
 
 		parts := strings.Split(entryNodeDefinition, "@")
 		if len(parts) != entryNodeParts {
-			return nil, fmt.Errorf("%w: master node parts must be 2, is %d", ErrParsingMasterNode, len(parts))
+			return nil, fmt.Errorf("%w: entry node parts must be 2, is %d", ErrParsingEntryNode, len(parts))
 		}
 		pubKey, err := base58.Decode(parts[0])
 		if err != nil {
-			return nil, fmt.Errorf("%w: invalid public key: %s", ErrParsingMasterNode, err)
+			return nil, fmt.Errorf("%w: invalid public key: %s", ErrParsingEntryNode, err)
 		}
 		addr, err := net.ResolveUDPAddr("udp", parts[1])
 		if err != nil {
-			return nil, fmt.Errorf("%w: host cannot be resolved: %s", ErrParsingMasterNode, err)
+			return nil, fmt.Errorf("%w: host cannot be resolved: %s", ErrParsingEntryNode, err)
 		}
 		publicKey, _, err := ed25519.PublicKeyFromBytes(pubKey)
 		if err != nil {

@@ -68,13 +68,13 @@ func checkAutopeeringConnection() {
 	disc.Start(srv)
 	defer disc.Close()
 
-	for _, master := range discovery.Discovery().GetMasterPeers() {
-		err = disc.Ping(master)
+	for _, entryNode := range discovery.Discovery().GetMasterPeers() {
+		err = disc.Ping(entryNode)
 		if err == nil {
-			log.Infof("Pong received from %s", master.IP())
+			log.Infof("Pong received from %s", entryNode.IP())
 			break
 		}
-		log.Warnf("Error pinging entry node %s: %s", master.IP(), err)
+		log.Warnf("Error pinging entry node %s: %s", entryNode.IP(), err)
 	}
 
 	if err != nil {

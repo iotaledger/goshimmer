@@ -133,5 +133,5 @@ func evalMana(nodeIdentity *identity.Identity) uint64 {
 	if err != nil {
 		return 0
 	}
-	return uint64(m * mana.ManaScaleFactor)
+	return uint64(m)
 }
