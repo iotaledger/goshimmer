@@ -130,7 +130,7 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	}
 
 	// sleep the avg. network delay so both partitions prefer their own first seen transaction
-	log.Printf("waiting  %d seconds avg. network delay to make the transactions "+
+	log.Printf("waiting %d seconds, 1/4th of avg. network delay to make the transactions "+
 		"preferred in their corresponding partition", framework.ParaFCoBAverageNetworkDelay/4)
 	time.Sleep(time.Duration(framework.ParaFCoBAverageNetworkDelay) / 4 * time.Second)
 	premergeTimestamp := time.Now()
@@ -143,35 +143,10 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 
 	diff := time.Since(premergeTimestamp)
 	if diff < time.Duration(framework.ParaFCoBAverageNetworkDelay)*time.Second {
-		log.Printf("waiting  %d seconds avg. network delay to make the transactions "+
-			"preferred in their corresponding partition", framework.ParaFCoBAverageNetworkDelay-int(diff))
-		time.Sleep(time.Duration(framework.ParaFCoBAverageNetworkDelay)*time.Second - diff*time.Second)
+		log.Printf("waiting remaining  %d seconds of avg. network delay to make the transactions "+
+			"preferred in their corresponding partition", framework.ParaFCoBAverageNetworkDelay-int(diff.Seconds()))
+		time.Sleep(time.Duration(framework.ParaFCoBAverageNetworkDelay)*time.Second - diff)
 	}
-
-	//// check that each partition is preferring its corresponding transaction
-	//log.Println("checking that each partition likes its corresponding transaction before the conflict:")
-	//for i, partition := range n.Partitions() {
-	//
-	//	log.Printf("partition %d:", i)
-	//	// Check mana
-	//
-	//	resp, err := partition.Peers()[0].GoShimmerAPI.GetAllMana()
-	//	require.NoError(t, err)
-	//	for _, nodeStr := range resp.Consensus {
-	//		log.Printf("NodeID %s cMana %f", nodeStr.ShortNodeID, nodeStr.Mana)
-	//	}
-	//
-	//	tests.CheckTransactions(t, partition.Peers(), map[string]*tests.ExpectedTransaction{
-	//		conflictingTxIDs[i]: nil,
-	//	}, true, tests.ExpectedInclusionState{
-	//		Confirmed:   tests.False(),
-	//		Finalized:   tests.False(),
-	//		Conflicting: tests.False(),
-	//		Solid:       tests.True(),
-	//		Rejected:    tests.False(),
-	//		Liked:       tests.True(),
-	//	})
-	//}
 
 	for _, conflict := range conflictingTxs {
 		// issue the reattachment on the first peer
@@ -274,7 +249,6 @@ func CreateOutputs(input *ledgerstate.UTXOInput, inputBalance uint64, kp *ed2551
 	log.Printf("Transaction balances; input: %d, output: %v", inputBalance, outputBalances)
 	for i := 0; i < nOutputs; i++ {
 		destAddr[i] = partitionReceiverSeed.Address(uint64(i)).Address()
-		fmt.Printf("Init dest address: %s\n", destAddr[i])
 		sigLockedColoredOutputs[i] = ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
 			ledgerstate.ColorIOTA: outputBalances[i],
 		}), destAddr[i])
