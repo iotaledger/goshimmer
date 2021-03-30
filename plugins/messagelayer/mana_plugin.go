@@ -3,7 +3,6 @@ package messagelayer
 import (
 	"fmt"
 	"math"
-	"math/rand"
 	"sort"
 	"sync"
 	"time"
@@ -362,30 +361,6 @@ func GetAllManaMaps(optionalUpdateTime ...time.Time) (map[mana.Type]mana.NodeMap
 // It can be useful for debugging, setting faucet mana, initialization, etc.. Triggers ManaUpdated
 func OverrideMana(manaType mana.Type, nodeID identity.ID, bm *mana.AccessBaseMana) {
 	baseManaVectors[manaType].SetMana(nodeID, bm)
-}
-
-// GetWeightedRandomNodes returns a weighted random selection of n nodes.
-func GetWeightedRandomNodes(n uint, manaType mana.Type) (mana.NodeMap, error) {
-	if !QueryAllowed() {
-		return mana.NodeMap{}, ErrQueryNotAllowed
-	}
-	rand.Seed(time.Now().UTC().UnixNano())
-	manaMap, _, _ := GetManaMap(manaType)
-	var choices []mana.RandChoice
-	for nodeID, manaValue := range manaMap {
-		choices = append(choices, mana.RandChoice{
-			Item:   nodeID,
-			Weight: int(manaValue * manaScaleFactor), // scale float mana to int
-		})
-	}
-	chooser := mana.NewRandChooser(choices...)
-	pickedNodes := chooser.Pick(n)
-	res := make(mana.NodeMap)
-	for _, nodeID := range pickedNodes {
-		ID := nodeID.(identity.ID)
-		res[ID] = manaMap[ID]
-	}
-	return res, nil
 }
 
 // GetAllowedPledgeNodes returns the list of nodes that type mana is allowed to be pledged to.
