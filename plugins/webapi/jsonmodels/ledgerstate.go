@@ -1,6 +1,10 @@
 package jsonmodels
 
 import (
+	"encoding/json"
+	"time"
+
+	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -28,28 +32,145 @@ func NewAddress(address ledgerstate.Address) *Address {
 
 // Output represents the JSON model of a ledgerstate.Output.
 type Output struct {
-	OutputID *OutputID         `json:"outputID,omitempty"`
-	Type     string            `json:"type"`
+	OutputID *OutputID       `json:"outputID,omitempty"`
+	Type     string          `json:"type"`
+	Output   json.RawMessage `json:"output"`
+}
+
+type SigLockedSingleOutput struct {
+	Balance uint64 `json:"balance"`
+	Address string `json:"address"`
+}
+
+type SigLockedColoredOutput struct {
 	Balances map[string]uint64 `json:"balances"`
 	Address  string            `json:"address"`
 }
 
+type AliasOutput struct {
+	Balances           map[string]uint64 `json:"balances"`
+	AliasAddress       string            `json:"aliasAddress"`
+	StateAddress       string            `json:"stateAddress"`
+	StateIndex         uint32            `json:"stateIndex"`
+	IsGovernanceUpdate bool              `json:"isGovernanceUpdate"`
+
+	// marshalled to base64
+	StateData        []byte `json:"stateData,omitempty"`
+	ImmutableData    []byte `json:"immutableData,omitempty"`
+	GoverningAddress string `json:"governingAddress,omitempty"`
+}
+
+type ExtendedLockedOutput struct {
+	Balances         map[string]uint64 `json:"balances"`
+	Address          string            `json:"address"`
+	FallbackAddress  string            `json:"fallbackAddress,omitempty"`
+	FallbackDeadline time.Time         `json:"fallbackDeadline,omitempty"`
+	TimeLock         time.Time         `json:"timelock,omitempty"`
+	Payload          []byte            `json:"payload,omitempty"`
+}
+
 // NewOutput returns an Output from the given ledgerstate.Output.
-func NewOutput(output ledgerstate.Output) *Output {
-	return &Output{
+func NewOutput(output ledgerstate.Output) (result *Output) {
+	result = &Output{
 		OutputID: NewOutputID(output.ID()),
 		Type:     output.Type().String(),
-		Balances: func() (mappedBalances map[string]uint64) {
-			mappedBalances = make(map[string]uint64)
-			output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
-				mappedBalances[color.String()] = balance
+	}
+	switch output.Type() {
+	case ledgerstate.SigLockedSingleOutputType:
+		result.Output = func() []byte {
+			balance, _ := output.Balances().Get(ledgerstate.ColorIOTA)
+			res := SigLockedSingleOutput{
+				Address: output.Address().Base58(),
+				Balance: balance,
+			}
+			byteResult, err := json.Marshal(res)
+			if err != nil {
+				// should never happen
+				panic(err)
+			}
+			return byteResult
+		}()
+		return
+	case ledgerstate.SigLockedColoredOutputType:
+		result.Output = func() []byte {
+			balances := output.Balances().Map()
+			stringBalances := make(map[string]uint64, len(balances))
+			for color, balance := range balances {
+				stringBalances[color.Base58()] = balance
+			}
+			res := SigLockedColoredOutput{
+				Address:  output.Address().Base58(),
+				Balances: stringBalances,
+			}
+			byteResult, err := json.Marshal(res)
+			if err != nil {
+				// should never happen
+				panic(err)
+			}
+			return byteResult
+		}()
+		return
+	case ledgerstate.AliasOutputType:
+		result.Output = func() []byte {
+			balances := output.Balances().Map()
+			stringBalances := make(map[string]uint64, len(balances))
+			for color, balance := range balances {
+				stringBalances[color.Base58()] = balance
+			}
+			castedOutput := output.(*ledgerstate.AliasOutput)
+			res := AliasOutput{
+				Balances:           stringBalances,
+				AliasAddress:       castedOutput.GetAliasAddress().Base58(),
+				StateAddress:       castedOutput.GetStateAddress().Base58(),
+				StateIndex:         castedOutput.GetStateIndex(),
+				IsGovernanceUpdate: castedOutput.GetIsGovernanceUpdated(),
+				StateData:          castedOutput.GetStateData(),
+				ImmutableData:      castedOutput.GetImmutableData(),
+			}
 
-				return true
-			})
+			if !castedOutput.IsSelfGoverned() {
+				res.GoverningAddress = castedOutput.GetGoverningAddress().Base58()
+			}
 
-			return
-		}(),
-		Address: output.Address().Base58(),
+			byteResult, err := json.Marshal(res)
+			if err != nil {
+				// should never happen
+				panic(err)
+			}
+			return byteResult
+		}()
+		return
+	case ledgerstate.ExtendedLockedOutputType:
+		result.Output = func() []byte {
+			balances := output.Balances().Map()
+			stringBalances := make(map[string]uint64, len(balances))
+			for color, balance := range balances {
+				stringBalances[color.Base58()] = balance
+			}
+			res := ExtendedLockedOutput{
+				Address:  output.Address().Base58(),
+				Balances: stringBalances,
+			}
+			castedOutput := output.(*ledgerstate.ExtendedLockedOutput)
+			fallbackAddy, fallbackDeadline := castedOutput.FallbackOptions()
+			if !typeutils.IsInterfaceNil(fallbackAddy) {
+				res.FallbackAddress = fallbackAddy.Base58()
+				res.FallbackDeadline = fallbackDeadline
+			}
+			if !castedOutput.TimeLock().Equal(time.Time{}) {
+				res.TimeLock = castedOutput.TimeLock()
+			}
+
+			byteResult, err := json.Marshal(res)
+			if err != nil {
+				// should never happen
+				panic(err)
+			}
+			return byteResult
+		}()
+		return
+	default:
+		panic("unsupported output type")
 	}
 }
 

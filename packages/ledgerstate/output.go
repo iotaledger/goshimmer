@@ -1125,6 +1125,11 @@ func (c *AliasOutput) SetStateIndex(index uint32) {
 	c.stateIndex = index
 }
 
+// GetIsGovernanceUpdated returns if the output was unlocked for governance in the transaction.
+func (c *AliasOutput) GetIsGovernanceUpdated() bool {
+	return c.isGovernanceUpdate
+}
+
 // GetStateIndex returns the state index
 func (c *AliasOutput) GetStateIndex() uint32 {
 	return c.stateIndex
