@@ -51,15 +51,15 @@ func createPeerDisc() {
 
 	networkVersion = uint32(Parameters.NetworkVersion)
 
-	endtryNodes, err := parseEntryNodes()
+	entryNodes, err := parseEntryNodes()
 	if err != nil {
 		log.Errorf("Invalid entry nodes; ignoring: %v", err)
 	}
-	log.Debugf("Entry nodes: %v", endtryNodes)
+	log.Debugf("Entry nodes: %v", entryNodes)
 
 	peerDisc = discover.New(local.GetInstance(), ProtocolVersion, NetworkVersion(),
 		discover.Logger(log),
-		discover.MasterPeers(endtryNodes),
+		discover.MasterPeers(entryNodes),
 	)
 }
 
