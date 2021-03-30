@@ -1,17 +1,16 @@
 package discovery
 
-import (
-	flag "github.com/spf13/pflag"
-)
+import "github.com/iotaledger/hive.go/configuration"
 
-const (
-	// CfgNetworkVersion defines the config flag of the network version.
-	CfgNetworkVersion = "autopeering.networkVersion"
-	// CfgEntryNodes defines the config flag of the entry nodes.
-	CfgEntryNodes = "autopeering.entryNodes"
-)
+// Parameters contains the configuration parameters used by the message layer.
+var Parameters = struct {
+	// NetworkVersion defines the config flag of the network version.
+	NetworkVersion int `default:"22" usage:"autopeering network version"`
+
+	// EntryNodes defines the config flag of the entry nodes.
+	EntryNodes []string `default:"2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@ressims.iota.cafe:15626,5EDH4uY78EA6wrBkHHAVBWBMDt7EcksRq6pjzipoW15B@entryshimmer.tanglebay.com:14646" usage:"list of trusted entry nodes for auto peering"`
+}{}
 
 func init() {
-	flag.Int(CfgNetworkVersion, 22, "autopeering network version")
-	flag.StringSlice(CfgEntryNodes, []string{"2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@ressims.iota.cafe:15626", "5EDH4uY78EA6wrBkHHAVBWBMDt7EcksRq6pjzipoW15B@entryshimmer.tanglebay.com:14646"}, "list of trusted entry nodes for auto peering")
+	configuration.BindParameters(&Parameters, "autopeering")
 }

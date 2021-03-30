@@ -67,10 +67,10 @@ func createPeerSel() {
 	peerSel = selection.New(local.GetInstance(), discovery.Discovery(),
 		selection.Logger(log),
 		selection.NeighborValidator(selection.ValidatorFunc(isValidNeighbor)),
-		selection.UseMana(config.Node().Bool(CfgMana)),
+		selection.UseMana(Parameters.Mana),
 		selection.ManaFunc(evalMana),
-		selection.R(config.Node().Int(CfgR)),
-		selection.Ro(config.Node().Float64(CfgRo)),
+		selection.R(Parameters.R),
+		selection.Ro(Parameters.Ro),
 	)
 }
 

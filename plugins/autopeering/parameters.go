@@ -1,20 +1,19 @@
 package autopeering
 
-import (
-	flag "github.com/spf13/pflag"
-)
+import "github.com/iotaledger/hive.go/configuration"
 
-const (
-	// CfgMana defines the config flag of mana in the autopeering.
-	CfgMana = "autopeering.mana"
-	// CfgR defines the config flag of R.
-	CfgR = "autopeering.R"
-	// CfgRo defines the config flag of Ro.
-	CfgRo = "autopeeringRo"
-)
+// Parameters contains the configuration parameters used by the message layer.
+var Parameters = struct {
+	// Mana defines the config flag of mana in the autopeering.
+	Mana bool `default:"true" usage:"enable/disable mana in the autopeering"`
+
+	// R defines the config flag of R.
+	R int `default:"40" usage:"R parameter"`
+
+	// Ro defines the config flag of Ro.
+	Ro float64 `default:"2." usage:"Ro parameter"`
+}{}
 
 func init() {
-	flag.Bool(CfgMana, true, "Enable/disable mana in the autopeering")
-	flag.Int(CfgR, 40, "R parameter")
-	flag.Float64(CfgRo, 2., "Ro parameter")
+	configuration.BindParameters(&Parameters, "autopeering")
 }

@@ -16,7 +16,6 @@ import (
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 // autopeering constants
@@ -50,7 +49,7 @@ func createPeerDisc() {
 	// assure that the logger is available
 	log := logger.NewLogger(PluginName).Named("disc")
 
-	networkVersion = uint32(config.Node().Int(CfgNetworkVersion))
+	networkVersion = uint32(Parameters.NetworkVersion)
 
 	endtryNodes, err := parseEntryNodes()
 	if err != nil {
@@ -65,7 +64,7 @@ func createPeerDisc() {
 }
 
 func parseEntryNodes() (result []*peer.Peer, err error) {
-	for _, entryNodeDefinition := range config.Node().Strings(CfgEntryNodes) {
+	for _, entryNodeDefinition := range Parameters.EntryNodes {
 		if entryNodeDefinition == "" {
 			continue
 		}
