@@ -23,15 +23,11 @@ class Beacon {
 }
 
 class MemoryMetrics {
-    sys: number;
     heap_sys: number;
-    heap_inuse: number;
+    heap_alloc: number;
     heap_idle: number;
     heap_released: number;
     heap_objects: number;
-    m_span_inuse: number;
-    m_cache_inuse: number;
-    stack_sys: number;
     last_pause_gc: number;
     num_gc: number;
     ts: string;
@@ -374,11 +370,11 @@ export class NodeStore {
 
     @computed
     get memSeries() {
-        let heapAlloc = Object.assign({}, chartSeriesOpts,
-            series("Heap Alloc", 'rgba(168, 50, 76,1)', 'rgba(168, 50, 76,0.4)')
+        let heapSys = Object.assign({}, chartSeriesOpts,
+            series("Heap Sys", 'rgba(168, 50, 76,1)', 'rgba(168, 50, 76,0.4)')
         );
-        let heapInuse = Object.assign({}, chartSeriesOpts,
-            series("Heap In-Use", 'rgba(222, 49, 87,1)', 'rgba(222, 49, 87,0.4)')
+        let heapAlloc = Object.assign({}, chartSeriesOpts,
+            series("Heap Alloc", 'rgba(222, 49, 87,1)', 'rgba(222, 49, 87,0.4)')
         );
         let heapIdle = Object.assign({}, chartSeriesOpts,
             series("Heap Idle", 'rgba(222, 49, 182,1)', 'rgba(222, 49, 182,0.4)')
@@ -386,28 +382,20 @@ export class NodeStore {
         let heapReleased = Object.assign({}, chartSeriesOpts,
             series("Heap Released", 'rgba(250, 76, 252,1)', 'rgba(250, 76, 252,0.4)')
         );
-        let stackAlloc = Object.assign({}, chartSeriesOpts,
-            series("Stack Alloc", 'rgba(54, 191, 173,1)', 'rgba(54, 191, 173,0.4)')
-        );
-        let sys = Object.assign({}, chartSeriesOpts,
-            series("Total Alloc", 'rgba(160, 50, 168,1)', 'rgba(160, 50, 168,0.4)')
-        );
 
         let labels = [];
         for (let i = 0; i < this.collected_mem_metrics.length; i++) {
             let metric = this.collected_mem_metrics[i];
             labels.push(metric.ts);
-            heapAlloc.data.push(metric.heap_sys);
-            heapInuse.data.push(metric.heap_inuse);
+            heapSys.data.push(metric.heap_sys);
+            heapAlloc.data.push(metric.heap_alloc);
             heapIdle.data.push(metric.heap_idle);
             heapReleased.data.push(metric.heap_released);
-            stackAlloc.data.push(metric.stack_sys);
-            sys.data.push(metric.sys);
         }
 
         return {
             labels: labels,
-            datasets: [sys, heapAlloc, heapInuse, heapIdle, heapReleased, stackAlloc],
+            datasets: [heapSys, heapAlloc, heapIdle, heapReleased],
         };
     }
 }
