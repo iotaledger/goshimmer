@@ -8,6 +8,7 @@ import (
 
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58"
 	"golang.org/x/xerrors"
@@ -35,17 +36,21 @@ func runDiagnosticDRNGMessages(c echo.Context) (err error) {
 	}
 
 	var writeErr error
-	messagelayer.Tangle().Utils.WalkMessage(func(message *tangle.Message, walker *walker.Walker) {
-		if message.Payload().Type() == drng.PayloadType {
-			messageInfo := getDiagnosticDRNGMessageInfo(message.ID())
-
-			if err := csvWriter.Write(messageInfo.toCSVRow()); err != nil {
-				writeErr = xerrors.Errorf("failed to write message diagnostic info row: %w", err)
-				return
+	messagelayer.Tangle().Utils.WalkMessageID(func(messageID tangle.MessageID, walker *walker.Walker) {
+		messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
+			if message.Payload().Type() == drng.PayloadType {
+				messageInfo := getDiagnosticDRNGMessageInfo(message)
+				if messageInfo == nil {
+					return
+				}
+				if err := csvWriter.Write(messageInfo.toCSVRow()); err != nil {
+					writeErr = xerrors.Errorf("failed to write message diagnostic info row: %w", err)
+					return
+				}
 			}
-		}
+		})
 
-		messagelayer.Tangle().Storage.Approvers(message.ID()).Consume(func(approver *tangle.Approver) {
+		messagelayer.Tangle().Storage.Approvers(messageID).Consume(func(approver *tangle.Approver) {
 			walker.Push(approver.ApproverMessageID())
 		})
 	}, tangle.MessageIDs{tangle.EmptyMessageID})
@@ -99,30 +104,36 @@ type DiagnosticDRNGMessagesInfo struct {
 	DistributedPK     string
 }
 
-func getDiagnosticDRNGMessageInfo(messageID tangle.MessageID) *DiagnosticDRNGMessagesInfo {
+func getDiagnosticDRNGMessageInfo(message *tangle.Message) *DiagnosticDRNGMessagesInfo {
 	msgInfo := &DiagnosticDRNGMessagesInfo{
-		ID: messageID.String(),
+		ID: message.ID().String(),
 	}
 
-	messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
-		msgInfo.IssuanceTimestamp = message.IssuingTime()
-		msgInfo.IssuerID = identity.NewID(message.IssuerPublicKey()).String()
-		msgInfo.IssuerPublicKey = message.IssuerPublicKey().String()
-		collectiveBeacon := message.Payload().(*drng.CollectiveBeaconPayload)
-		msgInfo.PayloadType = collectiveBeacon.Type().String()
-		msgInfo.InstanceID = collectiveBeacon.InstanceID
-		msgInfo.Round = collectiveBeacon.Round
-		msgInfo.PreviousSignature = base58.Encode(collectiveBeacon.PrevSignature)
-		msgInfo.Signature = base58.Encode(collectiveBeacon.Signature)
-		msgInfo.DistributedPK = base58.Encode(collectiveBeacon.Dpk)
-	})
+	msgInfo.IssuanceTimestamp = message.IssuingTime()
+	msgInfo.IssuerID = identity.NewID(message.IssuerPublicKey()).String()
+	msgInfo.IssuerPublicKey = message.IssuerPublicKey().String()
+	drngPayload := message.Payload().(*drng.Payload)
 
-	messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(metadata *tangle.MessageMetadata) {
+	// parse as CollectiveBeaconType
+	marshalUtil := marshalutil.New(drngPayload.Bytes())
+	collectiveBeacon, err := drng.CollectiveBeaconPayloadFromMarshalUtil(marshalUtil)
+	if err != nil {
+		return nil
+	}
+
+	msgInfo.PayloadType = collectiveBeacon.Type().String()
+	msgInfo.InstanceID = collectiveBeacon.InstanceID
+	msgInfo.Round = collectiveBeacon.Round
+	msgInfo.PreviousSignature = base58.Encode(collectiveBeacon.PrevSignature)
+	msgInfo.Signature = base58.Encode(collectiveBeacon.Signature)
+	msgInfo.DistributedPK = base58.Encode(collectiveBeacon.Dpk)
+
+	messagelayer.Tangle().Storage.MessageMetadata(message.ID()).Consume(func(metadata *tangle.MessageMetadata) {
 		msgInfo.ArrivalTime = metadata.ReceivedTime()
 		msgInfo.SolidTime = metadata.SolidificationTime()
 		msgInfo.ScheduledTime = metadata.ScheduledTime()
 		msgInfo.BookedTime = metadata.BookedTime()
-		msgInfo.OpinionFormedTime = messagelayer.ConsensusMechanism().OpinionFormedTime(messageID)
+		msgInfo.OpinionFormedTime = messagelayer.ConsensusMechanism().OpinionFormedTime(message.ID())
 	}, false)
 
 	return msgInfo
@@ -139,6 +150,12 @@ func (d *DiagnosticDRNGMessagesInfo) toCSVRow() (row []string) {
 		fmt.Sprint(d.ScheduledTime.UnixNano()),
 		fmt.Sprint(d.BookedTime.UnixNano()),
 		fmt.Sprint(d.OpinionFormedTime.UnixNano()),
+		d.PayloadType,
+		fmt.Sprint(d.InstanceID),
+		fmt.Sprint(d.Round),
+		d.PreviousSignature,
+		d.Signature,
+		d.DistributedPK,
 	}
 
 	return row
