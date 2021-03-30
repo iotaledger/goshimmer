@@ -90,6 +90,16 @@ func (m *MessageTestFramework) Message(alias string) (message *Message) {
 	return m.messagesByAlias[alias]
 }
 
+// TransactionID returns the TransactionID of the Transaction contained in the Message associated with the given alias.
+func (m *MessageTestFramework) TransactionID(messageAlias string) ledgerstate.TransactionID {
+	messagePayload := m.messagesByAlias[messageAlias].Payload()
+	if messagePayload.Type() != ledgerstate.TransactionType {
+		panic(fmt.Sprintf("Message with alias '%s' does not contain a Transaction", messageAlias))
+	}
+
+	return messagePayload.(*ledgerstate.Transaction).ID()
+}
+
 // createGenesisOutputs initializes the Outputs that are used by the MessageTestFramework as the genesis.
 func (m *MessageTestFramework) createGenesisOutputs() {
 	genesisOutputs := make(map[ledgerstate.Address]*ledgerstate.ColoredBalances)
@@ -445,14 +455,18 @@ func addressFromInput(input ledgerstate.Input, outputsByID ledgerstate.OutputsBy
 }
 
 func messageBranchID(tangle *Tangle, messageID MessageID) (branchID ledgerstate.BranchID, err error) {
-	if !tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-		branchID = messageMetadata.BranchID()
-		// fmt.Println(messageID)
-		// fmt.Println(messageMetadata.StructureDetails())
-	}) {
-		return branchID, fmt.Errorf("missing message metadata")
-	}
-	return
+	return tangle.Booker.BranchIDOfMessage(messageID), nil
+	/*
+		if !tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+			branchID = messageMetadata.BranchID()
+			// fmt.Println(messageID)
+			// fmt.Println(messageMetadata.StructureDetails())
+		}) {
+			return branchID, fmt.Errorf("missing message metadata")
+		}
+		return
+
+	*/
 }
 
 func transactionBranchID(tangle *Tangle, transactionID ledgerstate.TransactionID) (branchID ledgerstate.BranchID, err error) {

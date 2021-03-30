@@ -239,6 +239,24 @@ func (m *Manager) Sequence(sequenceID SequenceID) *CachedSequence {
 	return &CachedSequence{CachedObject: m.sequenceStore.Load(sequenceID.Bytes())}
 }
 
+// SequenceFromAlias returns a Sequence from the given SequenceAlias.
+func (m *Manager) SequenceFromAlias(sequenceAlias SequenceAlias) (cachedSequence *CachedSequence, exists bool) {
+	exists = (&CachedSequenceAliasMapping{CachedObject: m.sequenceAliasMappingStore.Load(sequenceAlias.Bytes())}).Consume(func(sequenceAliasMapping *SequenceAliasMapping) {
+		cachedSequence = m.Sequence(sequenceAliasMapping.SequenceID())
+	})
+
+	return
+}
+
+func (m *Manager) RegisterSequenceAlias(sequenceAlias SequenceAlias, sequenceID SequenceID) {
+	if cachedObject, stored := m.sequenceAliasMappingStore.StoreIfAbsent(&SequenceAliasMapping{
+		sequenceAlias: sequenceAlias,
+		sequenceID:    sequenceID,
+	}); stored {
+		cachedObject.Release()
+	}
+}
+
 // Shutdown shuts down the Manager and persists its state.
 func (m *Manager) Shutdown() {
 	m.shutdownOnce.Do(func() {

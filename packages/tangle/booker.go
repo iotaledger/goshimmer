@@ -65,26 +65,74 @@ func (b *Booker) Setup() {
 	b.tangle.LedgerState.utxoDAG.Events.TransactionBranchIDUpdated.Attach(events.NewClosure(b.UpdateMessagesBranch))
 }
 
+func (b *Booker) BranchIDOfPayload(message *Message) ledgerstate.BranchID {
+	if message.Payload().Type() != ledgerstate.TransactionType {
+		return ledgerstate.MasterBranchID
+	}
+
+	return b.tangle.LedgerState.BranchID(message.Payload().(*ledgerstate.Transaction).ID())
+}
+
 // UpdateMessagesBranch propagates the update of the message's branchID (and its future cone) in case on changes of it contained transction's branchID.
 func (b *Booker) UpdateMessagesBranch(transactionID ledgerstate.TransactionID) {
 	b.tangle.Utils.WalkMessageAndMetadata(func(message *Message, messageMetadata *MessageMetadata, walker *walker.Walker) {
-		if messageMetadata.IsBooked() {
-			inheritedBranch, inheritErr := b.tangle.LedgerState.InheritBranch(b.branchIDsOfParents(message).Add(b.branchIDOfPayload(message)))
-			if inheritErr != nil {
-				panic(xerrors.Errorf("failed to inherit Branch when booking Message with %s: %w", message.ID(), inheritErr))
-			}
-			if messageMetadata.SetBranchID(inheritedBranch) {
-				for _, approvingMessageID := range b.tangle.Utils.ApprovingMessageIDs(message.ID(), StrongApprover) {
-					walker.Push(approvingMessageID)
-				}
-			}
+		if !messageMetadata.IsBooked() {
+			return
 		}
+
+		oldBranchID := b.BranchIDOfMessage(message.ID())
+
+		_, strongParentsBranchIDs, _ := b.strongParentsDetails(message)
+		weakParentsBranchIDs := b.weakParentsDetails(message)
+		branchIDOfPayload := b.BranchIDOfPayload(message)
+		combinedBranches := strongParentsBranchIDs.Clone()
+		combinedBranches.Add(branchIDOfPayload)
+		for weakParentsBranchID := range weakParentsBranchIDs {
+			combinedBranches.Add(weakParentsBranchID)
+		}
+		newBranchID, inheritErr := b.tangle.LedgerState.InheritBranch(combinedBranches)
+		if inheritErr != nil {
+			b.tangle.Events.Error.Trigger(xerrors.Errorf("failed to inherit Branch when booking Message with %s: %w", message.ID(), inheritErr))
+			return
+		}
+
+		oldSequenceAlias := markers.NewSequenceAlias(oldBranchID.Bytes())
+		cacheSequence, cachedSequenceExists := b.MarkersManager.SequenceFromAlias(oldSequenceAlias)
+		if !cachedSequenceExists {
+			panic("could not find Sequence of message")
+		}
+
+		newSequenceAlias := markers.NewSequenceAlias(newBranchID.Bytes())
+		cacheSequence.Consume(func(sequence *markers.Sequence) {
+			b.MarkersManager.RegisterSequenceAlias(newSequenceAlias, sequence.ID())
+
+			if structureDetails := messageMetadata.StructureDetails(); structureDetails.IsPastMarker {
+				sequenceIndex, sequenceExists := structureDetails.PastMarkers.Get(sequence.ID())
+				if !sequenceExists {
+					panic(fmt.Sprintf("could not find Index of expected Sequence with %s", sequence.ID()))
+				}
+
+				if sequence.LowestIndex() == sequenceIndex {
+					// TODO: remove mapping
+				}
+
+				b.MarkerBranchIDMappingManager.SetBranchID(markers.NewMarker(sequence.ID(), sequenceIndex), newBranchID)
+				return
+			}
+
+			messageMetadata.SetBranchID(newBranchID)
+			for _, approvingMessageID := range b.tangle.Utils.ApprovingMessageIDs(message.ID(), StrongApprover) {
+				walker.Push(approvingMessageID)
+			}
+		})
 	}, b.tangle.Storage.AttachmentMessageIDs(transactionID), true)
 }
 
 // Book tries to book the given Message (and potentially its contained Transaction) into the LedgerState and the Tangle.
 // It fires a MessageBooked event if it succeeds.
 func (b *Booker) Book(messageID MessageID) (err error) {
+	fmt.Println(messageID)
+
 	b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 			strongParentsStructureDetails, strongParentsBranchIDs, strongParentsBranchIDExplicitlySet := b.strongParentsDetails(message)
@@ -136,13 +184,13 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 				return
 			}
 
-			storeBranchID := strongParentsBranchIDExplicitlySet
+			inheritedStructureDetails, newSequenceCreated := b.MarkersManager.Manager.InheritStructureDetails(strongParentsStructureDetails, b.tangle.Options.IncreaseMarkersIndexCallback, markers.NewSequenceAlias(inheritedBranch.Bytes()))
+			messageMetadata.SetStructureDetails(inheritedStructureDetails)
+
+			storeBranchID := strongParentsBranchIDExplicitlySet || newSequenceCreated
 			if _, sameBranchAsParents := strongParentsBranchIDs[inheritedBranch]; !sameBranchAsParents {
 				storeBranchID = true
 			}
-
-			inheritedStructureDetails, _ := b.MarkersManager.Manager.InheritStructureDetails(strongParentsStructureDetails, b.tangle.Options.IncreaseMarkersIndexCallback, markers.NewSequenceAlias(inheritedBranch.Bytes()))
-			messageMetadata.SetStructureDetails(inheritedStructureDetails)
 
 			if storeBranchID {
 				if !inheritedStructureDetails.IsPastMarker {
@@ -295,7 +343,6 @@ func (b *Booker) branchIDOfMessage(messageID MessageID) (branchID ledgerstate.Br
 		if structureDetails == nil {
 			panic(fmt.Errorf("tried to retrieve BranchID from unbooked Message with %s: %v", messageID, cerrors.ErrFatal))
 		}
-
 		if structureDetails.PastMarkers.Size() > 1 {
 			panic(fmt.Errorf("tried to retrieve BranchID from Message with multiple past markers - %s: %v", messageID, cerrors.ErrFatal))
 		}
