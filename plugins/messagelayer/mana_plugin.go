@@ -22,15 +22,15 @@ import (
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/autopeering"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/database"
 )
 
-// PluginName is the name of the mana plugin.
 const (
-	PluginName                  = "Mana"
-	manaScaleFactor             = 1000 // scale floating point mana to int
+	// PluginName is the name of the mana plugin.
+	PluginName = "Mana"
+
 	maxConsensusEventsInStorage = 108000
 	slidingEventsInterval       = 10800 // 10% of maxConsensusEventsInStorage
 )
@@ -374,7 +374,7 @@ func GetOnlineNodes(manaType mana.Type) (onlineNodesMana []mana.Node, t time.Tim
 	if !QueryAllowed() {
 		return []mana.Node{}, time.Now(), ErrQueryNotAllowed
 	}
-	knownPeers := autopeering.Discovery().GetVerifiedPeers()
+	knownPeers := discovery.Discovery().GetVerifiedPeers()
 	// consider ourselves as a peer in the network too
 	knownPeers = append(knownPeers, local.GetInstance().Peer)
 	onlineNodesMana = make([]mana.Node, 0)
@@ -613,7 +613,7 @@ func getConsensusEventLogsStorageSize() uint32 {
 	consensusEventsLogStorage.ForEachKeyOnly(func(key []byte) bool {
 		size++
 		return true
-	}, objectstorage.WithSkipCache(true))
+	}, objectstorage.WithIteratorSkipCache(true))
 	return size
 }
 
