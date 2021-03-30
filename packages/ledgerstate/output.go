@@ -69,6 +69,20 @@ func (o OutputType) String() string {
 	}[o]
 }
 
+// OutputTypeFromString returns the output type from a string.
+func OutputTypeFromString(ot string) (OutputType, error) {
+	res, ok := map[string]OutputType{
+		"SigLockedSingleOutputType":  SigLockedSingleOutputType,
+		"SigLockedColoredOutputType": SigLockedColoredOutputType,
+		"AliasOutputType":            AliasOutputType,
+		"ExtendedLockedOutputType":   ExtendedLockedOutputType,
+	}[ot]
+	if !ok {
+		return res, xerrors.New(fmt.Sprintf("unsupported output type: %s", ot))
+	}
+	return res, nil
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region OutputID /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -967,15 +981,15 @@ func NewAliasOutputMint(balances map[Color]uint64, stateAddr Address, immutableD
 }
 
 // NewAliasOutputNext creates new AliasOutput as state transition from the previous one
-func (c *AliasOutput) NewAliasOutputNext(governanceUpdate ...bool) *AliasOutput {
-	ret := c.clone()
-	ret.aliasAddress = *c.GetAliasAddress()
+func (a *AliasOutput) NewAliasOutputNext(governanceUpdate ...bool) *AliasOutput {
+	ret := a.clone()
+	ret.aliasAddress = *a.GetAliasAddress()
 	ret.isGovernanceUpdate = false
 	if len(governanceUpdate) > 0 {
 		ret.isGovernanceUpdate = governanceUpdate[0]
 	}
 	if !ret.isGovernanceUpdate {
-		ret.stateIndex = c.stateIndex + 1
+		ret.stateIndex = a.stateIndex + 1
 	}
 	return ret
 }
@@ -1049,219 +1063,237 @@ func AliasOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*AliasOut
 }
 
 // SetBalances sets colored balances of the output
-func (c *AliasOutput) SetBalances(balances map[Color]uint64) error {
+func (a *AliasOutput) SetBalances(balances map[Color]uint64) error {
 	if !IsAboveDustThreshold(balances) {
 		return xerrors.New("AliasOutput: balances are less than dust threshold")
 	}
-	c.balances = *NewColoredBalances(balances)
+	a.balances = *NewColoredBalances(balances)
 	return nil
 }
 
 // GetAliasAddress calculates new ID if it is a minting output. Otherwise it takes stored value
-func (c *AliasOutput) GetAliasAddress() *AliasAddress {
-	if c.aliasAddress.IsNil() {
-		return NewAliasAddress(c.ID().Bytes())
+func (a *AliasOutput) GetAliasAddress() *AliasAddress {
+	if a.aliasAddress.IsNil() {
+		return NewAliasAddress(a.ID().Bytes())
 	}
-	return &c.aliasAddress
+	return &a.aliasAddress
+}
+
+func (a *AliasOutput) SetAliasAddress(addr *AliasAddress) {
+	a.aliasAddress = *addr
 }
 
 // IsOrigin returns true if it starts the chain
-func (c *AliasOutput) IsOrigin() bool {
-	return c.aliasAddress.IsNil()
+func (a *AliasOutput) IsOrigin() bool {
+	return a.aliasAddress.IsNil()
 }
 
 // IsSelfGoverned return if
-func (c *AliasOutput) IsSelfGoverned() bool {
-	return c.governingAddress == nil
+func (a *AliasOutput) IsSelfGoverned() bool {
+	return a.governingAddress == nil
 }
 
 // GetStateAddress return state controlling address
-func (c *AliasOutput) GetStateAddress() Address {
-	return c.stateAddress
+func (a *AliasOutput) GetStateAddress() Address {
+	return a.stateAddress
 }
 
 // SetStateAddress sets the state controlling address
-func (c *AliasOutput) SetStateAddress(addr Address) error {
+func (a *AliasOutput) SetStateAddress(addr Address) error {
 	if addr == nil || addr.Type() == AliasAddressType {
-		return xerrors.New("AliasOutput: mandatory state address cannot be c AliasAddress")
+		return xerrors.New("AliasOutput: mandatory state address cannot be a AliasAddress")
 	}
-	c.stateAddress = addr
+	a.stateAddress = addr
 	return nil
 }
 
 // SetGoverningAddress sets the governing address or nil for self-giverning
-func (c *AliasOutput) SetGoverningAddress(addr Address) {
-	if addr.Array() == c.stateAddress.Array() {
+func (a *AliasOutput) SetGoverningAddress(addr Address) {
+	if addr.Array() == a.stateAddress.Array() {
 		addr = nil // self governing
 	}
-	c.governingAddress = addr
+	a.governingAddress = addr
 }
 
 // GetGoverningAddress return governing address. If self-governed, it is the same as state controlling address
-func (c *AliasOutput) GetGoverningAddress() Address {
-	if c.IsSelfGoverned() {
-		return c.stateAddress
+func (a *AliasOutput) GetGoverningAddress() Address {
+	if a.IsSelfGoverned() {
+		return a.stateAddress
 	}
-	return c.governingAddress
+	return a.governingAddress
 }
 
 // SetStateData sets state data
-func (c *AliasOutput) SetStateData(data []byte) error {
+func (a *AliasOutput) SetStateData(data []byte) error {
 	if len(data) > MaxOutputPayloadSize {
 		return xerrors.New("AliasOutput: state data too big")
 	}
-	c.stateData = make([]byte, len(data))
-	copy(c.stateData, data)
+	a.stateData = make([]byte, len(data))
+	copy(a.stateData, data)
 	return nil
 }
 
 // GetStateData gets the state data
-func (c *AliasOutput) GetStateData() []byte {
-	return c.stateData
+func (a *AliasOutput) GetStateData() []byte {
+	return a.stateData
 }
 
 // SetStateIndex sets the state index in the input. It is enforced to increment by 1 with each state transition
-func (c *AliasOutput) SetStateIndex(index uint32) {
-	c.stateIndex = index
+func (a *AliasOutput) SetStateIndex(index uint32) {
+	a.stateIndex = index
+}
+
+// GetIsGovernanceUpdated returns if the output was unlocked for governance in the transaction.
+func (a *AliasOutput) GetIsGovernanceUpdated() bool {
+	return a.isGovernanceUpdate
+}
+
+// SetIsGovernanceUpdated sets the isGovernanceUpdated flag.
+func (a *AliasOutput) SetIsGovernanceUpdated(i bool) {
+	a.isGovernanceUpdate = i
 }
 
 // GetStateIndex returns the state index
-func (c *AliasOutput) GetStateIndex() uint32 {
-	return c.stateIndex
+func (a *AliasOutput) GetStateIndex() uint32 {
+	return a.stateIndex
 }
 
 // GetImmutableData gets the state data
-func (c *AliasOutput) GetImmutableData() []byte {
-	return c.immutableData
+func (a *AliasOutput) GetImmutableData() []byte {
+	return a.immutableData
+}
+
+func (a *AliasOutput) SetImmutableData(data []byte) {
+	a.immutableData = data
 }
 
 // Clone clones the structure
-func (c *AliasOutput) Clone() Output {
-	return c.clone()
+func (a *AliasOutput) Clone() Output {
+	return a.clone()
 }
 
-func (c *AliasOutput) clone() *AliasOutput {
-	c.mustValidate()
+func (a *AliasOutput) clone() *AliasOutput {
+	a.mustValidate()
 	ret := &AliasOutput{
-		outputId:      c.outputId,
-		balances:      *c.balances.Clone(),
-		aliasAddress:  c.aliasAddress,
-		stateAddress:  c.stateAddress.Clone(),
-		stateIndex:    c.stateIndex,
-		stateData:     make([]byte, len(c.stateData)),
-		immutableData: make([]byte, len(c.immutableData)),
+		outputId:      a.outputId,
+		balances:      *a.balances.Clone(),
+		aliasAddress:  a.aliasAddress,
+		stateAddress:  a.stateAddress.Clone(),
+		stateIndex:    a.stateIndex,
+		stateData:     make([]byte, len(a.stateData)),
+		immutableData: make([]byte, len(a.immutableData)),
 	}
-	if c.governingAddress != nil {
-		ret.governingAddress = c.governingAddress.Clone()
+	if a.governingAddress != nil {
+		ret.governingAddress = a.governingAddress.Clone()
 	}
-	copy(ret.stateData, c.stateData)
-	copy(ret.immutableData, c.immutableData)
+	copy(ret.stateData, a.stateData)
+	copy(ret.immutableData, a.immutableData)
 	ret.mustValidate()
 	return ret
 }
 
 // ID is the ID of the output
-func (c *AliasOutput) ID() OutputID {
-	c.outputIdMutex.RLock()
-	defer c.outputIdMutex.RUnlock()
+func (a *AliasOutput) ID() OutputID {
+	a.outputIdMutex.RLock()
+	defer a.outputIdMutex.RUnlock()
 
-	return c.outputId
+	return a.outputId
 }
 
 // SetID set the output ID after unmarshalling
-func (c *AliasOutput) SetID(outputID OutputID) Output {
-	c.outputIdMutex.Lock()
-	defer c.outputIdMutex.Unlock()
+func (a *AliasOutput) SetID(outputID OutputID) Output {
+	a.outputIdMutex.Lock()
+	defer a.outputIdMutex.Unlock()
 
-	c.outputId = outputID
-	return c
+	a.outputId = outputID
+	return a
 }
 
 // Type return the type of the output
-func (c *AliasOutput) Type() OutputType {
+func (a *AliasOutput) Type() OutputType {
 	return AliasOutputType
 }
 
 // Balances return colored balances of the output
-func (c *AliasOutput) Balances() *ColoredBalances {
-	return &c.balances
+func (a *AliasOutput) Balances() *ColoredBalances {
+	return &a.balances
 }
 
 // Address AliasOutput is searchable in the ledger through its AliasAddress
-func (c *AliasOutput) Address() Address {
-	return c.GetAliasAddress()
+func (a *AliasOutput) Address() Address {
+	return a.GetAliasAddress()
 }
 
 // Input makes input from the output
-func (c *AliasOutput) Input() Input {
-	if c.ID() == EmptyOutputID {
+func (a *AliasOutput) Input() Input {
+	if a.ID() == EmptyOutputID {
 		panic("AliasOutput: Outputs that haven't been assigned an ID, yet cannot be converted to an Input")
 	}
 
-	return NewUTXOInput(c.ID())
+	return NewUTXOInput(a.ID())
 }
 
 // Bytes serialized form
-func (c *AliasOutput) Bytes() []byte {
-	return c.ObjectStorageValue()
+func (a *AliasOutput) Bytes() []byte {
+	return a.ObjectStorageValue()
 }
 
 // String human readable form
-func (c *AliasOutput) String() string {
+func (a *AliasOutput) String() string {
 	ret := "AliasOutput:\n"
-	ret += fmt.Sprintf("   address: %s\n", c.Address())
-	ret += fmt.Sprintf("   outputId: %s\n", c.ID())
-	ret += fmt.Sprintf("   balance: %s\n", c.balances.String())
-	ret += fmt.Sprintf("   stateAddress: %s\n", c.stateAddress)
-	ret += fmt.Sprintf("   stateMetadataSize: %d\n", len(c.stateData))
-	ret += fmt.Sprintf("   governingAddress (self-governed=%v): %s\n", c.IsSelfGoverned(), c.GetGoverningAddress())
+	ret += fmt.Sprintf("   address: %s\n", a.Address())
+	ret += fmt.Sprintf("   outputId: %s\n", a.ID())
+	ret += fmt.Sprintf("   balance: %s\n", a.balances.String())
+	ret += fmt.Sprintf("   stateAddress: %s\n", a.stateAddress)
+	ret += fmt.Sprintf("   stateMetadataSize: %d\n", len(a.stateData))
+	ret += fmt.Sprintf("   governingAddress (self-governed=%v): %s\n", a.IsSelfGoverned(), a.GetGoverningAddress())
 	return ret
 }
 
 // Compare the two outputs
-func (c *AliasOutput) Compare(other Output) int {
-	return bytes.Compare(c.Bytes(), other.Bytes())
+func (a *AliasOutput) Compare(other Output) int {
+	return bytes.Compare(a.Bytes(), other.Bytes())
 }
 
 // Update is disabled
-func (c *AliasOutput) Update(other objectstorage.StorableObject) {
+func (a *AliasOutput) Update(other objectstorage.StorableObject) {
 	panic("AliasOutput: storage object updates disabled")
 }
 
 // ObjectStorageKey a key
-func (c *AliasOutput) ObjectStorageKey() []byte {
-	return c.ID().Bytes()
+func (a *AliasOutput) ObjectStorageKey() []byte {
+	return a.ID().Bytes()
 }
 
 // ObjectStorageValue binary form
-func (c *AliasOutput) ObjectStorageValue() []byte {
-	flags := c.mustFlags()
+func (a *AliasOutput) ObjectStorageValue() []byte {
+	flags := a.mustFlags()
 	ret := marshalutil.New().
 		WriteByte(byte(AliasOutputType)).
 		WriteByte(flags).
-		WriteBytes(c.aliasAddress.Bytes()).
-		WriteBytes(c.balances.Bytes()).
-		WriteBytes(c.stateAddress.Bytes()).
-		WriteUint32(c.stateIndex)
+		WriteBytes(a.aliasAddress.Bytes()).
+		WriteBytes(a.balances.Bytes()).
+		WriteBytes(a.stateAddress.Bytes()).
+		WriteUint32(a.stateIndex)
 	if flags&flagAliasOutputStateDataPresent != 0 {
-		ret.WriteUint16(uint16(len(c.stateData))).
-			WriteBytes(c.stateData)
+		ret.WriteUint16(uint16(len(a.stateData))).
+			WriteBytes(a.stateData)
 	}
 	if flags&flagAliasOutputImmutableDataPresent != 0 {
-		ret.WriteUint16(uint16(len(c.immutableData))).
-			WriteBytes(c.immutableData)
+		ret.WriteUint16(uint16(len(a.immutableData))).
+			WriteBytes(a.immutableData)
 	}
 	if flags&flagAliasOutputGovernanceSet != 0 {
-		ret.WriteBytes(c.governingAddress.Bytes())
+		ret.WriteBytes(a.governingAddress.Bytes())
 	}
 	return ret.Bytes()
 }
 
 // UnlockValid check unlock and validates chain
-func (c *AliasOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inputs []Output) (bool, error) {
+func (a *AliasOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inputs []Output) (bool, error) {
 	switch blk := unlockBlock.(type) {
 	case *SignatureUnlockBlock:
-		chained, err := c.findChainedOutputAndCheckFork(tx)
+		chained, err := a.findChainedOutputAndCheckFork(tx)
 		if err != nil {
 			return false, err
 		}
@@ -1270,27 +1302,27 @@ func (c *AliasOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inpu
 			// chained output is present
 			if chained.isGovernanceUpdate {
 				// check if signature is valid against governing address
-				if !blk.AddressSignatureValid(c.GetGoverningAddress(), tx.Essence().Bytes()) {
+				if !blk.AddressSignatureValid(a.GetGoverningAddress(), tx.Essence().Bytes()) {
 					return false, xerrors.New("signature is invalid for governance unlock")
 				}
 			} else {
 				// check if signature is valid against state address
-				if !blk.AddressSignatureValid(c.GetStateAddress(), tx.Essence().Bytes()) {
+				if !blk.AddressSignatureValid(a.GetStateAddress(), tx.Essence().Bytes()) {
 					return false, xerrors.New("signature is invalid for state unlock")
 				}
 			}
 			// validate if transition passes the constraints
-			if err := c.validateTransition(chained); err != nil {
+			if err := a.validateTransition(chained); err != nil {
 				return false, err
 			}
 		} else {
 			// no chained output found. Alias is being destroyed?
 			// check if governance is unlocked
-			if !blk.AddressSignatureValid(c.GetGoverningAddress(), tx.Essence().Bytes()) {
+			if !blk.AddressSignatureValid(a.GetGoverningAddress(), tx.Essence().Bytes()) {
 				return false, xerrors.New("signature is invalid for chain output deletion")
 			}
 			// validate deletion constraint
-			if err := c.validateDestroyTransition(); err != nil {
+			if err := a.validateDestroyTransition(); err != nil {
 				return false, err
 			}
 		}
@@ -1298,68 +1330,68 @@ func (c *AliasOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inpu
 
 	case *AliasUnlockBlock:
 		// state cannot be unlocked by alias reference, so only checking governance mode
-		return c.unlockedGovernanceByAliasIndex(tx, blk.AliasInputIndex(), inputs)
+		return a.unlockedGovernanceByAliasIndex(tx, blk.AliasInputIndex(), inputs)
 	}
 	return false, xerrors.New("unsupported unlock block type")
 }
 
 // UpdateMintingColor replaces minting code with computed color code
-func (c *AliasOutput) UpdateMintingColor() Output {
-	coloredBalances := c.Balances().Map()
+func (a *AliasOutput) UpdateMintingColor() Output {
+	coloredBalances := a.Balances().Map()
 	if mintedCoins, mintedCoinsExist := coloredBalances[ColorMint]; mintedCoinsExist {
 		delete(coloredBalances, ColorMint)
-		coloredBalances[Color(blake2b.Sum256(c.ID().Bytes()))] = mintedCoins
+		coloredBalances[Color(blake2b.Sum256(a.ID().Bytes()))] = mintedCoins
 	}
-	updatedOutput := c.clone()
+	updatedOutput := a.clone()
 	_ = updatedOutput.SetBalances(coloredBalances)
-	updatedOutput.SetID(c.ID())
+	updatedOutput.SetID(a.ID())
 
 	return updatedOutput
 }
 
 // checkBasicValidity checks basic validity of the output
-func (c *AliasOutput) checkBasicValidity() error {
-	if !IsAboveDustThreshold(c.balances.Map()) {
+func (a *AliasOutput) checkBasicValidity() error {
+	if !IsAboveDustThreshold(a.balances.Map()) {
 		return xerrors.New("AliasOutput: balances are below dust threshold")
 	}
-	if c.stateAddress == nil {
+	if a.stateAddress == nil {
 		return xerrors.New("AliasOutput: state address must not be nil")
 	}
-	if c.IsOrigin() && c.stateIndex != 0 {
+	if a.IsOrigin() && a.stateIndex != 0 {
 		return xerrors.New("AliasOutput: origin must have stateIndex == 0")
 	}
-	if len(c.stateData) > MaxOutputPayloadSize {
+	if len(a.stateData) > MaxOutputPayloadSize {
 		return xerrors.Errorf("AliasOutput: size of the stateData (%d) exceeds maximum allowed (%d)",
-			len(c.immutableData), MaxOutputPayloadSize)
+			len(a.immutableData), MaxOutputPayloadSize)
 	}
-	if len(c.immutableData) > MaxOutputPayloadSize {
+	if len(a.immutableData) > MaxOutputPayloadSize {
 		return xerrors.Errorf("AliasOutput: size of the immutableData (%d) exceeds maximum allowed (%d)",
-			len(c.immutableData), MaxOutputPayloadSize)
+			len(a.immutableData), MaxOutputPayloadSize)
 	}
 	return nil
 }
 
 // mustValidate internal validity assertion
-func (c *AliasOutput) mustValidate() {
-	if err := c.checkBasicValidity(); err != nil {
+func (a *AliasOutput) mustValidate() {
+	if err := a.checkBasicValidity(); err != nil {
 		panic(err)
 	}
 }
 
 // mustFlags produces flags for serialization
-func (c *AliasOutput) mustFlags() byte {
-	c.mustValidate()
+func (a *AliasOutput) mustFlags() byte {
+	a.mustValidate()
 	var ret byte
-	if c.isGovernanceUpdate {
+	if a.isGovernanceUpdate {
 		ret |= flagAliasOutputGovernanceUpdate
 	}
-	if len(c.immutableData) > 0 {
+	if len(a.immutableData) > 0 {
 		ret |= flagAliasOutputImmutableDataPresent
 	}
-	if len(c.stateData) > 0 {
+	if len(a.stateData) > 0 {
 		ret |= flagAliasOutputStateDataPresent
 	}
-	if c.governingAddress != nil {
+	if a.governingAddress != nil {
 		ret |= flagAliasOutputGovernanceSet
 	}
 	return ret
@@ -1368,9 +1400,9 @@ func (c *AliasOutput) mustFlags() byte {
 // findChainedOutputAndCheckFork finds corresponding chained output.
 // If it is not unique, returns an error
 // If there's no such output, return nil and no error
-func (c *AliasOutput) findChainedOutputAndCheckFork(tx *Transaction) (*AliasOutput, error) {
+func (a *AliasOutput) findChainedOutputAndCheckFork(tx *Transaction) (*AliasOutput, error) {
 	var ret *AliasOutput
-	aliasAddress := c.GetAliasAddress()
+	aliasAddress := a.GetAliasAddress()
 	for _, out := range tx.Essence().Outputs() {
 		if out.Type() != AliasOutputType {
 			continue
@@ -1430,27 +1462,27 @@ func isExactDustMinimum(b ColoredBalances) bool {
 }
 
 // validateTransition enforces transition constraints between input and output chain outputs
-func (c *AliasOutput) validateTransition(chained *AliasOutput) error {
+func (a *AliasOutput) validateTransition(chained *AliasOutput) error {
 	// enforce immutability of alias address and immutable data
-	if !c.GetAliasAddress().Equals(c.GetAliasAddress()) {
+	if !a.GetAliasAddress().Equals(a.GetAliasAddress()) {
 		return xerrors.New("chain alias address can't be modified")
 	}
-	if bytes.Compare(c.immutableData, chained.immutableData) != 0 {
+	if bytes.Compare(a.immutableData, chained.immutableData) != 0 {
 		return xerrors.New("can't modify immutable data")
 	}
 	// depending on update type, enforce valid transition
 	if chained.isGovernanceUpdate {
 		// GOVERNANCE TRANSITION
 		// should not modify state data
-		if !bytes.Equal(c.stateData, chained.stateData) {
+		if !bytes.Equal(a.stateData, chained.stateData) {
 			return xerrors.New("AliasOutput: state data is not unlocked for modification")
 		}
 		// should not modify state index
-		if c.stateIndex != chained.stateIndex {
+		if a.stateIndex != chained.stateIndex {
 			return xerrors.New("AliasOutput: state index is not unlocked for modification")
 		}
 		// should not modify tokens
-		if !equalColoredBalance(c.balances, chained.balances) {
+		if !equalColoredBalance(a.balances, chained.balances) {
 			return xerrors.New("AliasOutput: tokens are not unlocked for modification")
 		}
 		// can modify state address
@@ -1459,17 +1491,17 @@ func (c *AliasOutput) validateTransition(chained *AliasOutput) error {
 		// STATE TRANSITION
 		// can modify state data
 		// should increment state index
-		if c.stateIndex+1 != chained.stateIndex {
-			return xerrors.Errorf("AliasOutput: expected state index is %d found %d", c.stateIndex+1, chained.stateIndex)
+		if a.stateIndex+1 != chained.stateIndex {
+			return xerrors.Errorf("AliasOutput: expected state index is %d found %d", a.stateIndex+1, chained.stateIndex)
 		}
 		// can modify tokens
 		// should not modify stateAddress
-		if !c.stateAddress.Equals(chained.stateAddress) {
+		if !a.stateAddress.Equals(chained.stateAddress) {
 			return xerrors.New("AliasOutput: state address is not unlocked for modification")
 		}
 		// should not modify governing address
-		if c.IsSelfGoverned() != chained.IsSelfGoverned() ||
-			(c.governingAddress != nil && !c.governingAddress.Equals(chained.governingAddress)) {
+		if a.IsSelfGoverned() != chained.IsSelfGoverned() ||
+			(a.governingAddress != nil && !a.governingAddress.Equals(chained.governingAddress)) {
 			return xerrors.New("AliasOutput: governing address is not unlocked for modification")
 		}
 	}
@@ -1477,19 +1509,19 @@ func (c *AliasOutput) validateTransition(chained *AliasOutput) error {
 }
 
 // validateDestroyTransition check validity if input is not chained (destroyed)
-func (c *AliasOutput) validateDestroyTransition() error {
-	if !isExactDustMinimum(c.balances) {
+func (a *AliasOutput) validateDestroyTransition() error {
+	if !isExactDustMinimum(a.balances) {
 		return xerrors.New("AliasOutput: didn't find chained output and there are more tokens then upper limit for alias destruction")
 	}
 	return nil
 }
 
 // unlockedGovernanceByAliasIndex unlock one step of alias dereference
-func (c *AliasOutput) unlockedGovernanceByAliasIndex(tx *Transaction, refIndex uint16, inputs []Output) (bool, error) {
-	if c.IsSelfGoverned() {
+func (a *AliasOutput) unlockedGovernanceByAliasIndex(tx *Transaction, refIndex uint16, inputs []Output) (bool, error) {
+	if a.IsSelfGoverned() {
 		return false, xerrors.New("AliasOutput: self-governing alias output can't be unlocked by alias reference")
 	}
-	if c.governingAddress.Type() != AliasAddressType {
+	if a.governingAddress.Type() != AliasAddressType {
 		return false, xerrors.New("AliasOutput: expected governing address of AliasAddress type")
 	}
 	if int(refIndex) > len(inputs) {
@@ -1499,15 +1531,15 @@ func (c *AliasOutput) unlockedGovernanceByAliasIndex(tx *Transaction, refIndex u
 	if !ok {
 		return false, xerrors.New("AliasOutput: the referenced output is not of AliasOutput type")
 	}
-	if !refInput.GetAliasAddress().Equals(c.governingAddress.(*AliasAddress)) {
+	if !refInput.GetAliasAddress().Equals(a.governingAddress.(*AliasAddress)) {
 		return false, xerrors.New("AliasOutput: wrong alias reference address")
 	}
 	return !refInput.IsUnlockedForGovernanceUpdate(tx), nil
 }
 
 // IsUnlockedForGovernanceUpdate finds chained output and checks if it is unlocked governance flags set
-func (c *AliasOutput) IsUnlockedForGovernanceUpdate(tx *Transaction) bool {
-	chained, err := c.findChainedOutputAndCheckFork(tx)
+func (a *AliasOutput) IsUnlockedForGovernanceUpdate(tx *Transaction) bool {
+	chained, err := a.findChainedOutputAndCheckFork(tx)
 	if err != nil {
 		return false
 	}
