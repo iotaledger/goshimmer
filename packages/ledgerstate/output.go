@@ -69,6 +69,20 @@ func (o OutputType) String() string {
 	}[o]
 }
 
+// OutputTypeFromString returns the output type from a string.
+func OutputTypeFromString(ot string) (OutputType, error) {
+	res, ok := map[string]OutputType{
+		"SigLockedSingleOutputType":  SigLockedSingleOutputType,
+		"SigLockedColoredOutputType": SigLockedColoredOutputType,
+		"AliasOutputType":            AliasOutputType,
+		"ExtendedLockedOutputType":   ExtendedLockedOutputType,
+	}[ot]
+	if !ok {
+		return res, xerrors.New(fmt.Sprintf("unsupported output type: %s", ot))
+	}
+	return res, nil
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region OutputID /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1065,6 +1079,10 @@ func (c *AliasOutput) GetAliasAddress() *AliasAddress {
 	return &c.aliasAddress
 }
 
+func (c *AliasOutput) SetAliasAddress(addr *AliasAddress) {
+	c.aliasAddress = *addr
+}
+
 // IsOrigin returns true if it starts the chain
 func (c *AliasOutput) IsOrigin() bool {
 	return c.aliasAddress.IsNil()
@@ -1130,6 +1148,11 @@ func (c *AliasOutput) GetIsGovernanceUpdated() bool {
 	return c.isGovernanceUpdate
 }
 
+// SetIsGovernanceUpdated sets the isGovernanceUpdated flag.
+func (c *AliasOutput) SetIsGovernanceUpdated(i bool) {
+	c.isGovernanceUpdate = i
+}
+
 // GetStateIndex returns the state index
 func (c *AliasOutput) GetStateIndex() uint32 {
 	return c.stateIndex
@@ -1138,6 +1161,10 @@ func (c *AliasOutput) GetStateIndex() uint32 {
 // GetImmutableData gets the state data
 func (c *AliasOutput) GetImmutableData() []byte {
 	return c.immutableData
+}
+
+func (c *AliasOutput) SetImmutableData(data []byte) {
+	c.immutableData = data
 }
 
 // Clone clones the structure
