@@ -8,6 +8,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/gossip"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
 )
 
@@ -175,7 +176,7 @@ func measureMana() {
 	cPer, _ := consensusMap.GetPercentile(local.GetInstance().ID())
 	consensusPercentile.Store(cPer)
 
-	neighborAccessMap, _ := manaPlugin.GetNeighborsMana(mana.AccessMana)
+	neighborAccessMap, _ := manaPlugin.GetNeighborsMana(gossip.Manager().AllNeighbors(), mana.AccessMana)
 	accessSum, accessAvg := 0.0, 0.0
 	for _, v := range neighborAccessMap {
 		accessSum += v
@@ -185,7 +186,7 @@ func measureMana() {
 	}
 	averageNeighborsAccess.Store(accessAvg)
 
-	neighborConsensusMap, _ := manaPlugin.GetNeighborsMana(mana.ConsensusMana)
+	neighborConsensusMap, _ := manaPlugin.GetNeighborsMana(gossip.Manager().AllNeighbors(), mana.ConsensusMana)
 	consensusSum, consensusAvg := 0.0, 0.0
 	for _, v := range neighborConsensusMap {
 		consensusSum += v

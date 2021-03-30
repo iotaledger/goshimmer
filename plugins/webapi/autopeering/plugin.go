@@ -12,6 +12,7 @@ import (
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 )
 
@@ -43,7 +44,7 @@ func getNeighbors(c echo.Context) error {
 	var knownPeers []Neighbor
 
 	if c.QueryParam("known") == "1" {
-		for _, p := range autopeering.Discovery().GetVerifiedPeers() {
+		for _, p := range discovery.Discovery().GetVerifiedPeers() {
 			knownPeers = append(knownPeers, createNeighborFromPeer(p))
 		}
 	}

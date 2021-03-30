@@ -17,22 +17,22 @@ import (
 	"go.uber.org/atomic"
 
 	db_pkg "github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/autopeering"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/database"
-	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
-// PluginName is the name of the mana plugin.
 const (
-	PluginName                  = "Mana"
-	manaScaleFactor             = 1000 // scale floating point mana to int
+	// PluginName is the name of the mana plugin.
+	PluginName = "Mana"
+
 	maxConsensusEventsInStorage = 108000
 	slidingEventsInterval       = 10800 // 10% of maxConsensusEventsInStorage
 )
@@ -322,11 +322,10 @@ func GetConsensusMana(nodeID identity.ID, optionalUpdateTime ...time.Time) (floa
 }
 
 // GetNeighborsMana returns the type mana of the nodes neighbors
-func GetNeighborsMana(manaType mana.Type, optionalUpdateTime ...time.Time) (mana.NodeMap, error) {
+func GetNeighborsMana(neighbors []*gossip.Neighbor, manaType mana.Type, optionalUpdateTime ...time.Time) (mana.NodeMap, error) {
 	if !QueryAllowed() {
 		return mana.NodeMap{}, ErrQueryNotAllowed
 	}
-	neighbors := gossip.Manager().AllNeighbors()
 	res := make(mana.NodeMap)
 	for _, n := range neighbors {
 		// in case of error, value is 0.0
@@ -365,7 +364,7 @@ func GetWeightedRandomNodes(n uint, manaType mana.Type) (mana.NodeMap, error) {
 	for nodeID, manaValue := range manaMap {
 		choices = append(choices, mana.RandChoice{
 			Item:   nodeID,
-			Weight: int(manaValue * manaScaleFactor), // scale float mana to int
+			Weight: int(manaValue), // convert float mana to int
 		})
 	}
 	chooser := mana.NewRandChooser(choices...)
@@ -389,7 +388,7 @@ func GetOnlineNodes(manaType mana.Type) (onlineNodesMana []mana.Node, t time.Tim
 	if !QueryAllowed() {
 		return []mana.Node{}, time.Now(), ErrQueryNotAllowed
 	}
-	knownPeers := autopeering.Discovery().GetVerifiedPeers()
+	knownPeers := discovery.Discovery().GetVerifiedPeers()
 	// consider ourselves as a peer in the network too
 	knownPeers = append(knownPeers, local.GetInstance().Peer)
 	onlineNodesMana = make([]mana.Node, 0)
@@ -628,7 +627,7 @@ func getConsensusEventLogsStorageSize() uint32 {
 	consensusEventsLogStorage.ForEachKeyOnly(func(key []byte) bool {
 		size++
 		return true
-	}, objectstorage.WithSkipCache(true))
+	}, objectstorage.WithIteratorSkipCache(true))
 	return size
 }
 

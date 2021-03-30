@@ -11,7 +11,7 @@ import (
 	"github.com/mr-tron/base58/base58"
 
 	"github.com/iotaledger/goshimmer/packages/mana"
-	"github.com/iotaledger/goshimmer/plugins/autopeering"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
@@ -119,7 +119,7 @@ func getInfo(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, Response{
 		Version:                 banner.AppVersion,
-		NetworkVersion:          autopeering.NetworkVersion(),
+		NetworkVersion:          discovery.NetworkVersion(),
 		Synced:                  synced,
 		Beacons:                 beaconsStatus,
 		IdentityID:              base58.Encode(local.GetInstance().Identity.ID().Bytes()),
