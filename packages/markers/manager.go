@@ -113,13 +113,13 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 		inheritedStructureDetails.PastMarkers = referencedMarkers
 	})
 
-	return
+	return inheritedStructureDetails, newSequenceCreated
 }
 
 // UpdateStructureDetails updates the StructureDetails of an existing node in the DAG by propagating new Markers of its
 // children into its future Markers. It returns two boolean flags that indicate if the future Markers were updated and
 // if the new Marker should be propagated further to the parents of the given node.
-func (m *Manager) UpdateStructureDetails(structureDetailsToUpdate *StructureDetails, markerToInherit *Marker) (futureMarkersUpdated bool, inheritFutureMarkerFurther bool) {
+func (m *Manager) UpdateStructureDetails(structureDetailsToUpdate *StructureDetails, markerToInherit *Marker) (futureMarkersUpdated, inheritFutureMarkerFurther bool) {
 	structureDetailsToUpdate.futureMarkersUpdateMutex.Lock()
 	defer structureDetailsToUpdate.futureMarkersUpdateMutex.Unlock()
 
@@ -137,11 +137,7 @@ func (m *Manager) UpdateStructureDetails(structureDetailsToUpdate *StructureDeta
 }
 
 // IsInPastCone checks if the earlier node is directly or indirectly referenced by the later node in the DAG.
-func (m *Manager) IsInPastCone(earlierStructureDetails *StructureDetails, laterStructureDetails *StructureDetails) (isInPastCone types.TriBool) {
-	if earlierStructureDetails.FutureMarkers.Size() == 0 && laterStructureDetails.FutureMarkers.Size() == 0 {
-		return types.Maybe
-	}
-
+func (m *Manager) IsInPastCone(earlierStructureDetails, laterStructureDetails *StructureDetails) (isInPastCone types.TriBool) {
 	if earlierStructureDetails.Rank >= laterStructureDetails.Rank {
 		return types.False
 	}
@@ -193,7 +189,7 @@ func (m *Manager) IsInPastCone(earlierStructureDetails *StructureDetails, laterS
 
 		// Iterate the future markers of laterStructureDetails and check if the earlier one has future markers in the same sequence,
 		// if yes, then make sure the index is smaller than the one of laterStructureDetails.
-		if !laterStructureDetails.FutureMarkers.ForEach(func(sequenceID SequenceID, laterIndex Index) bool {
+		if laterStructureDetails.FutureMarkers.Size() != 0 && !laterStructureDetails.FutureMarkers.ForEach(func(sequenceID SequenceID, laterIndex Index) bool {
 			earlierIndex, similarSequenceExists := earlierStructureDetails.FutureMarkers.Get(sequenceID)
 			return !similarSequenceExists || earlierIndex < laterIndex
 		}) {
@@ -219,7 +215,7 @@ func (m *Manager) IsInPastCone(earlierStructureDetails *StructureDetails, laterS
 		}
 	}
 
-	if m.markersReferenceMarkers(laterStructureDetails.PastMarkers, earlierStructureDetails.FutureMarkers, false) {
+	if earlierStructureDetails.FutureMarkers.Size() != 0 && m.markersReferenceMarkers(laterStructureDetails.PastMarkers, earlierStructureDetails.FutureMarkers, false) {
 		return types.True
 	}
 
@@ -227,7 +223,11 @@ func (m *Manager) IsInPastCone(earlierStructureDetails *StructureDetails, laterS
 		return types.False
 	}
 
-	if m.markersReferenceMarkers(earlierStructureDetails.FutureMarkers, laterStructureDetails.PastMarkers, true) {
+	if earlierStructureDetails.FutureMarkers.Size() != 0 && m.markersReferenceMarkers(earlierStructureDetails.FutureMarkers, laterStructureDetails.PastMarkers, true) {
+		return types.Maybe
+	}
+
+	if earlierStructureDetails.FutureMarkers.Size() == 0 && laterStructureDetails.FutureMarkers.Size() == 0 {
 		return types.Maybe
 	}
 
@@ -325,12 +325,12 @@ func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkersByRank *m
 		}
 	}
 
-	return
+	return normalizedMarkersByRank, normalizedSequences
 }
 
 // markersReferenceMarkersOfSameSequence is an internal utility function that determines if the given markers reference
 // each other as part of the same Sequence.
-func (m *Manager) markersReferenceMarkersOfSameSequence(laterMarkers *Markers, earlierMarkers *Markers, requireBiggerMarkers bool) (sameSequenceFound bool, referenceFound bool) {
+func (m *Manager) markersReferenceMarkersOfSameSequence(laterMarkers, earlierMarkers *Markers, requireBiggerMarkers bool) (sameSequenceFound, referenceFound bool) {
 	sameSequenceFound = !laterMarkers.ForEach(func(sequenceID SequenceID, laterIndex Index) bool {
 		earlierIndex, sequenceExists := earlierMarkers.Get(sequenceID)
 		if !sequenceExists {
@@ -350,7 +350,7 @@ func (m *Manager) markersReferenceMarkersOfSameSequence(laterMarkers *Markers, e
 
 // markersReferenceMarkers is an internal utility function that returns true if the later Markers reference the earlier
 // Markers. If requireBiggerMarkers is false then a Marker with an equal Index is considered to be a valid reference.
-func (m *Manager) markersReferenceMarkers(laterMarkers *Markers, earlierMarkers *Markers, requireBiggerMarkers bool) (result bool) {
+func (m *Manager) markersReferenceMarkers(laterMarkers, earlierMarkers *Markers, requireBiggerMarkers bool) (result bool) {
 	rankCache := make(map[SequenceID]uint64)
 	futureMarkersByRank := newMarkersByRank()
 
@@ -408,7 +408,7 @@ func (m *Manager) markersReferenceMarkers(laterMarkers *Markers, earlierMarkers 
 		}
 	}
 
-	return
+	return result
 }
 
 // registerReferencingMarker is an internal utility function that adds a referencing Marker to the internal data

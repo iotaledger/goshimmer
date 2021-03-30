@@ -164,8 +164,10 @@ func SendTransactionFromFaucet(t *testing.T, peers []*framework.Peer, sentValue 
 	}
 
 	faucetPeer := peers[0]
+	// faucet keeps remaining amount on address 0
+	addrBalance[faucetPeer.Seed.Address(0).Address().Base58()][ledgerstate.ColorIOTA] = int64(framework.GenesisTokenAmount - framework.ParaFaucetPreparedOutputsCount*int(framework.ParaFaucetTokensPerRequest))
 	var i uint64
-	// faucet has split genesis output into n bits of 1337 each and remainder on n + 1
+	// faucet has split genesis output into n bits of 1337 each and remainder on 0
 	for i = 1; i < uint64(len(peers)); i++ {
 		faucetAddrStr := faucetPeer.Seed.Address(i).Address().Base58()
 		addrBalance[faucetAddrStr] = make(map[ledgerstate.Color]int64)
