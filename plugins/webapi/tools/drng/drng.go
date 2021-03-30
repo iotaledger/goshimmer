@@ -24,7 +24,7 @@ func DiagnosticDRNGMessagesHandler(c echo.Context) (err error) {
 
 // region DiagnosticDRNGMessages code implementation /////////////////////////////////////////////////////////////////////////////////
 
-func runDiagnosticDRNGMessages(c echo.Context, rank ...uint64) (err error) {
+func runDiagnosticDRNGMessages(c echo.Context) (err error) {
 	// write Header and table description
 	c.Response().Header().Set(echo.HeaderContentType, "text/csv")
 	c.Response().WriteHeader(http.StatusOK)
