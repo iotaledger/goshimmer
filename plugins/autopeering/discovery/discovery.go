@@ -72,7 +72,7 @@ func parseEntryNodes() (result []*peer.Peer, err error) {
 
 		parts := strings.Split(entryNodeDefinition, "@")
 		if len(parts) != entryNodeParts {
-			return nil, fmt.Errorf("%w: entry node parts must be 2, is %d", ErrParsingEntryNode, len(parts))
+			return nil, fmt.Errorf("%w: entry node information must contains %d parts, is %d", ErrParsingEntryNode, entryNodeParts, len(parts))
 		}
 		pubKey, err := base58.Decode(parts[0])
 		if err != nil {

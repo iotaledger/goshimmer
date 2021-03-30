@@ -33,9 +33,6 @@ const (
 	// PluginName is the name of the mana plugin.
 	PluginName = "Mana"
 
-	// ManaScaleFactor scales floating point mana to int
-	ManaScaleFactor = 1000
-
 	maxConsensusEventsInStorage = 108000
 	slidingEventsInterval       = 10800 // 10% of maxConsensusEventsInStorage
 )
@@ -367,7 +364,7 @@ func GetWeightedRandomNodes(n uint, manaType mana.Type) (mana.NodeMap, error) {
 	for nodeID, manaValue := range manaMap {
 		choices = append(choices, mana.RandChoice{
 			Item:   nodeID,
-			Weight: int(manaValue * ManaScaleFactor), // scale float mana to int
+			Weight: int(manaValue), // convert float mana to int
 		})
 	}
 	chooser := mana.NewRandChooser(choices...)
