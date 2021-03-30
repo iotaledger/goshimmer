@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/labstack/echo"
+	"github.com/mr-tron/base58"
 	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/drng"
@@ -71,6 +72,12 @@ var DiagnosticDRNGMessagesTableDescription = []string{
 	"ScheduledTime",
 	"BookedTime",
 	"OpinionFormedTime",
+	"dRNGPayloadType",
+	"InstanceID",
+	"Round",
+	"PreviousSignature",
+	"Signature",
+	"DistributedPK",
 }
 
 // DiagnosticDRNGMessagesInfo holds the information of a dRNG message.
@@ -84,6 +91,12 @@ type DiagnosticDRNGMessagesInfo struct {
 	ScheduledTime     time.Time
 	BookedTime        time.Time
 	OpinionFormedTime time.Time
+	PayloadType       string
+	InstanceID        uint32
+	Round             uint64
+	PreviousSignature string
+	Signature         string
+	DistributedPK     string
 }
 
 func getDiagnosticDRNGMessageInfo(messageID tangle.MessageID) *DiagnosticDRNGMessagesInfo {
@@ -95,6 +108,13 @@ func getDiagnosticDRNGMessageInfo(messageID tangle.MessageID) *DiagnosticDRNGMes
 		msgInfo.IssuanceTimestamp = message.IssuingTime()
 		msgInfo.IssuerID = identity.NewID(message.IssuerPublicKey()).String()
 		msgInfo.IssuerPublicKey = message.IssuerPublicKey().String()
+		collectiveBeacon := message.Payload().(*drng.CollectiveBeaconPayload)
+		msgInfo.PayloadType = collectiveBeacon.Type().String()
+		msgInfo.InstanceID = collectiveBeacon.InstanceID
+		msgInfo.Round = collectiveBeacon.Round
+		msgInfo.PreviousSignature = base58.Encode(collectiveBeacon.PrevSignature)
+		msgInfo.Signature = base58.Encode(collectiveBeacon.Signature)
+		msgInfo.DistributedPK = base58.Encode(collectiveBeacon.Dpk)
 	})
 
 	messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(metadata *tangle.MessageMetadata) {
