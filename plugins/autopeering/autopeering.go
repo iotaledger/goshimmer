@@ -15,7 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/config"
-	"github.com/iotaledger/goshimmer/plugins/mana"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 var (
@@ -129,7 +129,7 @@ func start(shutdownSignal <-chan struct{}) {
 }
 
 func evalMana(nodeIdentity *identity.Identity) uint64 {
-	m, _, err := mana.GetConsensusMana(nodeIdentity.ID())
+	m, _, err := messagelayer.GetConsensusMana(nodeIdentity.ID())
 	if err != nil {
 		return 0
 	}

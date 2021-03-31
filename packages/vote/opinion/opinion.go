@@ -13,6 +13,7 @@ type OpinionGiver interface {
 	Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (Opinions, error)
 	// ID returns the ID of the opinion giver.
 	ID() identity.ID
+	Mana() float64
 }
 
 // QueriedOpinions represents queried opinions from a given opinion giver.
@@ -29,6 +30,9 @@ type QueriedOpinions struct {
 
 // OpinionGiverFunc is a function which gives a slice of OpinionGivers or an error.
 type OpinionGiverFunc func() ([]OpinionGiver, error)
+
+// OwnWeightRetriever is a function which gives your own weight used in voting mechanism
+type OwnWeightRetriever func() (float64, error)
 
 // Opinions is a slice of Opinion.
 type Opinions []Opinion
@@ -75,8 +79,8 @@ func ConvertInts32ToOpinions(opinions []int32) []Opinion {
 	return result
 }
 
-// ConvertOpinionToInt32 converts the given Opinion to an int32.
-func ConvertOpinionToInt32(x Opinion) int32 {
+// ConvertOpinionToInt32ForLiveFeed converts the given Opinion to an int32.
+func ConvertOpinionToInt32ForLiveFeed(x Opinion) int32 {
 	switch {
 	case x == Like:
 		return 1
@@ -86,11 +90,22 @@ func ConvertOpinionToInt32(x Opinion) int32 {
 	return 4
 }
 
-// ConvertOpinionsToInts32 converts the given slice of Opinion to a slice of int32.
-func ConvertOpinionsToInts32(opinions []Opinion) []int32 {
+// ConvertOpinionsToInts32ForLiveFeed converts the given slice of Opinion to a slice of int32.
+func ConvertOpinionsToInts32ForLiveFeed(opinions []Opinion) []int32 {
 	result := make([]int32, len(opinions))
 	for i, opinion := range opinions {
-		result[i] = ConvertOpinionToInt32(opinion)
+		result[i] = ConvertOpinionToInt32ForLiveFeed(opinion)
 	}
 	return result
+}
+
+// ConvertOpinionToFloat64 converts the given Opinion to an float64.
+func ConvertOpinionToFloat64(x Opinion) float64 {
+	switch {
+	case x == Like:
+		return 1
+	case x == Dislike:
+		return 0
+	}
+	return -1
 }

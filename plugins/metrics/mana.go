@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
-	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
+	manaPlugin "github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 // PledgeLog is a log of base mana 1 and 2 pledges.
@@ -175,8 +175,8 @@ func measureMana() {
 	consensusMap = tmp[mana.ConsensusMana]
 	cPer, _ := consensusMap.GetPercentile(local.GetInstance().ID())
 	consensusPercentile.Store(cPer)
-
-	neighborAccessMap, _ := manaPlugin.GetNeighborsMana(gossip.Manager().AllNeighbors(), mana.AccessMana)
+	neighbors := gossip.Manager().AllNeighbors()
+	neighborAccessMap, _ := manaPlugin.GetNeighborsMana(mana.AccessMana, neighbors)
 	accessSum, accessAvg := 0.0, 0.0
 	for _, v := range neighborAccessMap {
 		accessSum += v
@@ -186,7 +186,7 @@ func measureMana() {
 	}
 	averageNeighborsAccess.Store(accessAvg)
 
-	neighborConsensusMap, _ := manaPlugin.GetNeighborsMana(gossip.Manager().AllNeighbors(), mana.ConsensusMana)
+	neighborConsensusMap, _ := manaPlugin.GetNeighborsMana(mana.ConsensusMana, neighbors)
 	consensusSum, consensusAvg := 0.0, 0.0
 	for _, v := range neighborConsensusMap {
 		consensusSum += v

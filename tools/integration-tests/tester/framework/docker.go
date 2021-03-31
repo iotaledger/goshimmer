@@ -77,7 +77,8 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 	containerConfig := &container.Config{
 		Image: "iotaledger/goshimmer",
 		ExposedPorts: nat.PortSet{
-			nat.Port("8080/tcp"): {},
+			nat.Port("8080/tcp"):  {},
+			nat.Port("10895/tcp"): {},
 		},
 		Cmd: strslice.StrSlice{
 			"--skip-config=true",
@@ -121,6 +122,8 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 			fmt.Sprintf("--fpc.listen=%v", config.FPCListen),
 			fmt.Sprintf("--statement.writeStatement=%v", config.WriteStatement),
 			fmt.Sprintf("--statement.waitForStatement=%d", config.WaitForStatement),
+			fmt.Sprintf("--statement.readManaThreshold=%f", config.ReadManaThreshold),
+			fmt.Sprintf("--statement.writeManaThreshold=%f", config.WriteManaThreshold),
 			fmt.Sprintf("--drng.custom.instanceId=%d", config.DRNGInstance),
 			fmt.Sprintf("--drng.custom.threshold=%d", config.DRNGThreshold),
 			fmt.Sprintf("--drng.custom.committeeMembers=%s", config.DRNGCommittee),
