@@ -107,11 +107,10 @@ type DiagnosticDRNGMessagesInfo struct {
 func getDiagnosticDRNGMessageInfo(message *tangle.Message) *DiagnosticDRNGMessagesInfo {
 	msgInfo := &DiagnosticDRNGMessagesInfo{
 		ID: message.ID().String(),
+		IssuanceTimestamp: message.IssuingTime(),
+		IssuerID: identity.NewID(message.IssuerPublicKey()).String(),
+		IssuerPublicKey: message.IssuerPublicKey().String()
 	}
-
-	msgInfo.IssuanceTimestamp = message.IssuingTime()
-	msgInfo.IssuerID = identity.NewID(message.IssuerPublicKey()).String()
-	msgInfo.IssuerPublicKey = message.IssuerPublicKey().String()
 	drngPayload := message.Payload().(*drng.Payload)
 
 	// parse as CollectiveBeaconType
