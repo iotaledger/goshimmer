@@ -95,18 +95,18 @@ func TestSendIotas1FromMany(t *testing.T) {
 		require.EqualValues(t, 1, len(outputs))
 
 		txb := utxoutil.NewBuilder(outputs...)
-		err := txb.AddSigLockedIOTAOutput(addr2, outputAmount)
+		err = txb.AddSigLockedIOTAOutput(addr2, outputAmount)
 		require.NoError(t, err)
 		err = txb.AddReminderOutputIfNeeded(addr1, nil)
 		require.NoError(t, err)
 
-		tx, err := txb.BuildWithED25519(user1)
-		require.NoError(t, err)
+		tx, bErr := txb.BuildWithED25519(user1)
+		require.NoError(t, bErr)
 		err = u.AddTransaction(tx)
 		require.NoError(t, err)
 
-		sender, err := utxoutil.GetSingleSender(tx)
-		require.NoError(t, err)
+		sender, sErr := utxoutil.GetSingleSender(tx)
+		require.NoError(t, sErr)
 		require.True(t, sender.Equals(addr1))
 	}
 

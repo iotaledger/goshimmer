@@ -105,6 +105,7 @@ func (o *Output) ToLedgerstateOutput() (ledgerstate.Output, error) {
 	}
 }
 
+// MarshalOutput uses the json marshaller to marshal a ledgerstate.Output into bytes.
 func MarshalOutput(output ledgerstate.Output) []byte {
 	var res interface{}
 	switch output.Type() {
