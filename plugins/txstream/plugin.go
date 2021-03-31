@@ -3,14 +3,15 @@ package txstream
 import (
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/packages/txstream/server"
-	"github.com/iotaledger/goshimmer/packages/txstream/tangleledger"
-	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	flag "github.com/spf13/pflag"
+
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/txstream/server"
+	"github.com/iotaledger/goshimmer/packages/txstream/tangleledger"
+	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 const (
@@ -48,9 +49,13 @@ func runPlugin(_ *node.Plugin) {
 	bindAddress := config.Node().String(bindAddress)
 	log.Debugf("starting TXStream plugin on %s", bindAddress)
 	err := daemon.BackgroundWorker("TXStream worker", func(shutdownSignal <-chan struct{}) {
-		server.Listen(ledger, bindAddress, log, shutdownSignal)
+		err := server.Listen(ledger, bindAddress, log, shutdownSignal)
+		if err != nil {
+			log.Errorf("failed to start TXStream server: %w", err)
+		}
+		<-shutdownSignal
 	}, shutdown.PriorityTXStream)
 	if err != nil {
-		log.Errorf("failed to start TXStream daemon: %v", err)
+		log.Errorf("failed to start TXStream daemon: %w", err)
 	}
 }

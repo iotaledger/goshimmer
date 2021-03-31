@@ -1,18 +1,20 @@
 package server
 
 import (
+	"fmt"
 	"io"
 	"net"
 	"strings"
 	"sync/atomic"
 
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/netutil/buffconn"
+
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/txstream"
 	"github.com/iotaledger/goshimmer/packages/txstream/chopper"
-	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/netutil/buffconn"
 )
 
 // Connection handles the server-side part of the txstream protocol
@@ -29,19 +31,17 @@ type Connection struct {
 	ledger                             txstream.Ledger
 }
 
-type wrapConfirmedTx *ledgerstate.Transaction
-type wrapBookedTx *ledgerstate.Transaction
+type (
+	wrapConfirmedTx *ledgerstate.Transaction
+	wrapBookedTx    *ledgerstate.Transaction
+)
 
 // Listen starts a TCP listener and starts a Connection for each accepted connection
-func Listen(ledger txstream.Ledger, bindAddress string, log *logger.Logger, shutdownSignal <-chan struct{}) {
+func Listen(ledger txstream.Ledger, bindAddress string, log *logger.Logger, shutdownSignal <-chan struct{}) error {
 	listener, err := net.Listen("tcp", bindAddress)
 	if err != nil {
-		log.Errorf("failed to start TXStream daemon: %v", err)
-		return
+		return fmt.Errorf("failed to start TXStream daemon: %w", err)
 	}
-	defer func() {
-		_ = listener.Close()
-	}()
 
 	go func() {
 		for {
@@ -54,13 +54,17 @@ func Listen(ledger txstream.Ledger, bindAddress string, log *logger.Logger, shut
 		}
 	}()
 
-	<-shutdownSignal
-
-	log.Infof("Detaching TXStream from the Value Tangle..")
 	go func() {
+		defer listener.Close()
+
+		<-shutdownSignal
+
+		log.Infof("Detaching TXStream from the Value Tangle..")
 		ledger.Detach()
 		log.Infof("Detaching TXStream from the Value Tangle..Done")
 	}()
+
+	return nil
 }
 
 // Run starts the server-side handling code for an already accepted connection from a client
