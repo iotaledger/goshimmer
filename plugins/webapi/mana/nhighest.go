@@ -7,7 +7,7 @@ import (
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/mana"
-	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
+	manaPlugin "github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 // getNHighestAccessHandler handles a /mana/access/nhighest request.

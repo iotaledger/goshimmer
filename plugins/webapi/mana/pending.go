@@ -6,7 +6,7 @@ import (
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
+	manaPlugin "github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 // GetPendingMana handles the request.

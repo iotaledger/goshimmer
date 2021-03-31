@@ -165,11 +165,13 @@ func (f *Framework) CreateNetworkWithPartitions(name string, peers, partitions, 
 				}
 				return ""
 			}(i),
-			Faucet:           config.Faucet && i == 0,
-			FPCRoundInterval: ParaFPCRoundInterval,
-			WaitForStatement: ParaWaitForStatement,
-			FPCListen:        ParaFPCListen,
-			WriteStatement:   ParaWriteStatement,
+			Faucet:             config.Faucet && i == 0,
+			FPCRoundInterval:   ParaFPCRoundInterval,
+			WaitForStatement:   ParaWaitForStatement,
+			FPCListen:          ParaFPCListen,
+			WriteStatement:     ParaWriteStatement,
+			WriteManaThreshold: ParaWriteManaThreshold,
+			ReadManaThreshold:  ParaReadManaThreshold,
 		}
 		if _, err = network.CreatePeer(config); err != nil {
 			return nil, err

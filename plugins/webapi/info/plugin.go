@@ -11,10 +11,9 @@ import (
 	"github.com/mr-tron/base58/base58"
 
 	"github.com/iotaledger/goshimmer/packages/mana"
-	"github.com/iotaledger/goshimmer/plugins/autopeering"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
-	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
@@ -108,8 +107,8 @@ func getInfo(c echo.Context) error {
 	}
 
 	t := time.Now()
-	accessMana, tAccess, _ := manaPlugin.GetAccessMana(local.GetInstance().ID(), t)
-	consensusMana, tConsensus, _ := manaPlugin.GetConsensusMana(local.GetInstance().ID(), t)
+	accessMana, tAccess, _ := messagelayer.GetAccessMana(local.GetInstance().ID(), t)
+	consensusMana, tConsensus, _ := messagelayer.GetConsensusMana(local.GetInstance().ID(), t)
 	nodeMana := Mana{
 		Access:             accessMana,
 		AccessTimestamp:    tAccess,
@@ -119,7 +118,7 @@ func getInfo(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, Response{
 		Version:                 banner.AppVersion,
-		NetworkVersion:          autopeering.NetworkVersion(),
+		NetworkVersion:          discovery.NetworkVersion(),
 		Synced:                  synced,
 		Beacons:                 beaconsStatus,
 		IdentityID:              base58.Encode(local.GetInstance().Identity.ID().Bytes()),

@@ -149,6 +149,8 @@ const (
 	MsgTypeMessage
 	// MsgTypeNeighborMetric is the type of the NeighborMetric message.
 	MsgTypeNeighborMetric
+	// MsgTypeComponentCounterMetric is the type of the component counter triggered per second.
+	MsgTypeComponentCounterMetric
 	// MsgTypeDrng is the type of the dRNG message.
 	MsgTypeDrng
 	// MsgTypeTipsMetric is the type of the TipsMetric message.
@@ -209,15 +211,11 @@ type Beacon struct {
 }
 
 type memmetrics struct {
-	Sys          uint64 `json:"sys"`
 	HeapSys      uint64 `json:"heap_sys"`
-	HeapInuse    uint64 `json:"heap_inuse"`
+	HeapAlloc    uint64 `json:"heap_alloc"`
 	HeapIdle     uint64 `json:"heap_idle"`
 	HeapReleased uint64 `json:"heap_released"`
 	HeapObjects  uint64 `json:"heap_objects"`
-	MSpanInuse   uint64 `json:"m_span_inuse"`
-	MCacheInuse  uint64 `json:"m_cache_inuse"`
-	StackSys     uint64 `json:"stack_sys"`
 	NumGC        uint32 `json:"num_gc"`
 	LastPauseGC  uint64 `json:"last_pause_gc"`
 }
@@ -228,6 +226,13 @@ type neighbormetric struct {
 	ConnectionOrigin string `json:"connection_origin"`
 	BytesRead        uint64 `json:"bytes_read"`
 	BytesWritten     uint64 `json:"bytes_written"`
+}
+
+type componentsmetric struct {
+	Store      uint64 `json:"store"`
+	Solidifier uint64 `json:"solidifier"`
+	Scheduler  uint64 `json:"scheduler"`
+	Booker     uint64 `json:"booker"`
 }
 
 func neighborMetrics() []neighbormetric {
@@ -287,15 +292,11 @@ func currentNodeStatus() *nodestatus {
 
 	// memory metrics
 	status.Mem = &memmetrics{
-		Sys:          m.Sys,
 		HeapSys:      m.HeapSys,
-		HeapInuse:    m.HeapInuse,
+		HeapAlloc:    m.HeapAlloc,
 		HeapIdle:     m.HeapIdle,
 		HeapReleased: m.HeapReleased,
 		HeapObjects:  m.HeapObjects,
-		MSpanInuse:   m.MSpanInuse,
-		MCacheInuse:  m.MCacheInuse,
-		StackSys:     m.StackSys,
 		NumGC:        m.NumGC,
 		LastPauseGC:  m.PauseNs[(m.NumGC+255)%256],
 	}
