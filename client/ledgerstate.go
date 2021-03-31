@@ -12,7 +12,7 @@ const (
 	routeGetUnspentOutputPt2 = "/unspentOutputs"
 )
 
-// GetAttachments gets the attachments of a transaction ID
+// GetAddressUnspentOutputs gets the unspent outputs of an address.
 func (api *GoShimmerAPI) GetAddressUnspentOutputs(base58EncodedAddress string) (*json_models.GetAddressResponse, error) {
 	res := &json_models.GetAddressResponse{}
 	if err := api.do(http.MethodGet, func() string {

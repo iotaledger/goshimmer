@@ -5,14 +5,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 const (
-	defaultSupply = uint64(2779530283 * 1000 * 1000)
-	genesisIndex  = 31415926535
+	defaultSupplyInt = 2779530283000000
+	defaultSupply    = uint64(defaultSupplyInt)
+	genesisIndex     = 31415926535
 
 	// RequestFundsAmount is how many iotas are returned from the faucet
 	RequestFundsAmount = 1337 // same as Goshimmer faucet

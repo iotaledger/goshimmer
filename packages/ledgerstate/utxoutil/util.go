@@ -1,10 +1,11 @@
 package utxoutil
 
 import (
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 // signatureUnlockBlockWithIndex internal structure used to track signature and indices where it was used in the transaction
