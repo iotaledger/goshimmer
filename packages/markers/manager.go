@@ -257,6 +257,10 @@ func (m *Manager) RegisterSequenceAlias(sequenceAlias SequenceAlias, sequenceID 
 	}
 }
 
+func (m *Manager) UnregisterSequenceAlias(sequenceAlias SequenceAlias) {
+	m.sequenceAliasMappingStore.Delete(sequenceAlias.Bytes())
+}
+
 // Shutdown shuts down the Manager and persists its state.
 func (m *Manager) Shutdown() {
 	m.shutdownOnce.Do(func() {
