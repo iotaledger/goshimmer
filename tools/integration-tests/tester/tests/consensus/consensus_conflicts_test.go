@@ -2,21 +2,21 @@ package consensus
 
 import (
 	"fmt"
-	"github.com/iotaledger/goshimmer/plugins/webapi/value"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"log"
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/plugins/webapi/value"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
-	"github.com/iotaledger/hive.go/identity"
 )
 
 // TestConsensusFiftyFiftyOpinionSplit spawns two network partitions with their own peers,
@@ -129,8 +129,7 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	}
 
 	// sleep the avg. network delay so both partitions prefer their own first seen transaction
-	log.Printf("waiting %d seconds, 1/4th of avg. network delay to make the transactions "+
-		"preferred in their corresponding partition", framework.ParaFCoBAverageNetworkDelay/4)
+	log.Printf("waiting %d seconds, 1/4th of avg. network delay before merging the partitions", framework.ParaFCoBAverageNetworkDelay/4)
 	time.Sleep(time.Duration(framework.ParaFCoBAverageNetworkDelay) / 4 * time.Second)
 	premergeTimestamp := time.Now()
 	// merge back the partitions
