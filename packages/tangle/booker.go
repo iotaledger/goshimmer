@@ -112,8 +112,9 @@ func (b *Booker) UpdateMessagesBranch(transactionID ledgerstate.TransactionID) {
 					panic(fmt.Sprintf("could not find Index of expected Sequence with %s", sequence.ID()))
 				}
 
-				if sequence.LowestIndex() == sequenceIndex {
+				if floorIndex, exists := b.MarkerBranchIDMappingManager.Floor(markers.NewMarker(sequence.ID(), sequenceIndex)); exists && floorIndex == sequenceIndex {
 					// TODO: remove mapping
+					fmt.Println("REMOVE MAPPING", sequenceIndex, oldBranchID)
 				}
 
 				b.MarkerBranchIDMappingManager.SetBranchID(markers.NewMarker(sequence.ID(), sequenceIndex), newBranchID)
@@ -131,8 +132,6 @@ func (b *Booker) UpdateMessagesBranch(transactionID ledgerstate.TransactionID) {
 // Book tries to book the given Message (and potentially its contained Transaction) into the LedgerState and the Tangle.
 // It fires a MessageBooked event if it succeeds.
 func (b *Booker) Book(messageID MessageID) (err error) {
-	fmt.Println(messageID)
-
 	b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 			strongParentsStructureDetails, strongParentsBranchIDs, strongParentsBranchIDExplicitlySet := b.strongParentsDetails(message)
@@ -458,6 +457,10 @@ func NewMarkerBranchIDMappingManager(tangle *Tangle) (markerBranchIDMappingManag
 
 // BranchID returns the BranchID that is associated with the given Marker.
 func (m *MarkerBranchIDMappingManager) BranchID(marker *markers.Marker) (branchID ledgerstate.BranchID) {
+	if marker.SequenceID() == 0 {
+		return ledgerstate.MasterBranchID
+	}
+
 	m.tangle.Storage.MarkerIndexBranchIDMapping(marker.SequenceID(), func(sequenceID markers.SequenceID) *MarkerIndexBranchIDMapping {
 		panic(fmt.Sprintf("tried to retrieve the BranchID of unknown marker.%s", sequenceID))
 	}).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
@@ -472,6 +475,26 @@ func (m *MarkerBranchIDMappingManager) SetBranchID(marker *markers.Marker, branc
 	m.tangle.Storage.MarkerIndexBranchIDMapping(marker.SequenceID(), NewMarkerIndexBranchIDMapping).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
 		markerIndexBranchIDMapping.SetBranchID(marker.Index(), branchID)
 	})
+}
+
+// Floor returns the largest Index that is <= the given Marker which has a mapped BranchID (and a boolean value
+// indicating if it exists).
+func (m *MarkerBranchIDMappingManager) Floor(marker *markers.Marker) (floor markers.Index, exists bool) {
+	m.tangle.Storage.MarkerIndexBranchIDMapping(marker.SequenceID(), NewMarkerIndexBranchIDMapping).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
+		floor, exists = markerIndexBranchIDMapping.Floor(marker.Index())
+	})
+
+	return
+}
+
+// Ceiling returns the smallest Index that is >= the given Marker which has a mapped BranchID (and a boolean value
+// indicating if it exists).
+func (m *MarkerBranchIDMappingManager) Ceiling(marker *markers.Marker) (floor markers.Index, exists bool) {
+	m.tangle.Storage.MarkerIndexBranchIDMapping(marker.SequenceID(), NewMarkerIndexBranchIDMapping).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
+		floor, exists = markerIndexBranchIDMapping.Ceiling(marker.Index())
+	})
+
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -580,6 +603,26 @@ func (m *MarkerIndexBranchIDMapping) SetBranchID(index markers.Index, branchID l
 	defer m.mappingMutex.Unlock()
 
 	m.mapping.Set(index, branchID)
+}
+
+// Floor returns the largest Index that is <= the given Index which has a mapped BranchID (and a boolean value
+// indicating if it exists).
+func (m *MarkerIndexBranchIDMapping) Floor(index markers.Index) (floor markers.Index, exists bool) {
+	if untypedFloor, exists := m.mapping.Floor(index); exists {
+		return untypedFloor.(markers.Index), true
+	}
+
+	return 0, false
+}
+
+// Ceiling returns the smallest Index that is >= the given Index which has a mapped BranchID (and a boolean value
+// indicating if it exists).
+func (m *MarkerIndexBranchIDMapping) Ceiling(index markers.Index) (floor markers.Index, exists bool) {
+	if untypedCeiling, exists := m.mapping.Ceiling(index); exists {
+		return untypedCeiling.(markers.Index), true
+	}
+
+	return 0, false
 }
 
 // Bytes returns a marshaled version of the MarkerIndexBranchIDMapping.

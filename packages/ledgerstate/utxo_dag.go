@@ -242,7 +242,7 @@ func (u *UTXODAG) Consumers(outputID OutputID) (cachedConsumers CachedConsumers)
 		cachedConsumers = append(cachedConsumers, &CachedConsumer{CachedObject: cachedObject})
 
 		return true
-	}, objectstorage.WithPrefix(outputID.Bytes()))
+	}, objectstorage.WithIteratorPrefix(outputID.Bytes()))
 
 	return
 }
@@ -294,7 +294,7 @@ func (u *UTXODAG) AddressOutputMapping(address Address) (cachedAddressOutputMapp
 	u.addressOutputMappingStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		cachedAddressOutputMappings = append(cachedAddressOutputMappings, &CachedAddressOutputMapping{cachedObject})
 		return true
-	}, objectstorage.WithPrefix(address.Bytes()))
+	}, objectstorage.WithIteratorPrefix(address.Bytes()))
 	return
 }
 
