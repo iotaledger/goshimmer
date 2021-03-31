@@ -42,15 +42,13 @@ func DefaultParameters() *Parameters {
 		EndingRoundsFixedThreshold:          0.50,
 		QuerySampleSize:                     21,
 		MaxQuerySampleSize:                  100,
+		MinOpinionsReceived:                 1,
 		TotalRoundsFinalization:             10,
 		TotalRoundsFixedThreshold:           3,
 		TotalRoundsCoolingOffPeriod:         0,
 		MaxRoundsPerVoteContext:             100,
 		QueryTimeout:                        1500 * time.Millisecond,
 	}
-
-	// Setting the minimum amount of received opinions as the half of the quorum size.
-	p.MinOpinionsReceived = p.QuerySampleSize / 2
 
 	return p
 }
