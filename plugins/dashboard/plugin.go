@@ -149,6 +149,8 @@ const (
 	MsgTypeMessage
 	// MsgTypeNeighborMetric is the type of the NeighborMetric message.
 	MsgTypeNeighborMetric
+	// MsgTypeComponentCounterMetric is the type of the component counter triggered per second.
+	MsgTypeComponentCounterMetric
 	// MsgTypeDrng is the type of the dRNG message.
 	MsgTypeDrng
 	// MsgTypeTipsMetric is the type of the TipsMetric message.
@@ -224,6 +226,13 @@ type neighbormetric struct {
 	ConnectionOrigin string `json:"connection_origin"`
 	BytesRead        uint64 `json:"bytes_read"`
 	BytesWritten     uint64 `json:"bytes_written"`
+}
+
+type componentsmetric struct {
+	Store      uint64 `json:"store"`
+	Solidifier uint64 `json:"solidifier"`
+	Scheduler  uint64 `json:"scheduler"`
+	Booker     uint64 `json:"booker"`
 }
 
 func neighborMetrics() []neighbormetric {

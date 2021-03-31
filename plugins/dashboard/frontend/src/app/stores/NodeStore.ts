@@ -119,6 +119,14 @@ class NeighborMetric {
     ts: number;
 }
 
+class ComponentCounterMetric {
+    store: number;
+    solidifier: number;
+    scheduler: number;
+    booker: number;
+    ts: number;
+}
+
 const chartSeriesOpts = {
     label: "Incoming", data: [],
     fill: true,
@@ -165,6 +173,8 @@ export class NodeStore {
     @observable neighbor_metrics = new ObservableMap<string, NeighborMetrics>();
     @observable last_tips_metric: TipsMetric = new TipsMetric();
     @observable collected_tips_metrics: Array<TipsMetric> = [];
+    @observable last_component_counter_metric: ComponentCounterMetric = new ComponentCounterMetric();
+    @observable collected_component_counter_metrics: Array<ComponentCounterMetric> = [];
     @observable collecting: boolean = true;
 
     constructor() {
@@ -179,6 +189,7 @@ export class NodeStore {
         });
         registerHandler(WSMsgType.NeighborStats, this.updateNeighborMetrics);
         registerHandler(WSMsgType.TipsMetrics, this.updateLastTipsMetric);
+        registerHandler(WSMsgType.ComponentCounterMetrics, this.updateLastComponentMetric);
         this.updateCollecting(true);
     }
 
@@ -187,6 +198,7 @@ export class NodeStore {
         unregisterHandler(WSMsgType.MPSMetrics);
         unregisterHandler(WSMsgType.NeighborStats);
         unregisterHandler(WSMsgType.TipsMetrics);
+        unregisterHandler(WSMsgType.ComponentCounterMetrics);
         this.updateCollecting(false);
     }
 
@@ -201,6 +213,7 @@ export class NodeStore {
         this.collected_mem_metrics = [];
         this.neighbor_metrics = new ObservableMap<string, NeighborMetrics>();
         this.collected_tips_metrics = [];
+        this.collected_component_counter_metrics = [];
     }
 
     reconnect() {
@@ -283,6 +296,16 @@ export class NodeStore {
         this.collected_tips_metrics.push(tipsMetric);
     };
 
+    @action
+    updateLastComponentMetric = (componentCounterMetric: ComponentCounterMetric) => {
+        componentCounterMetric.ts = dateformat(Date.now(), "HH:MM:ss");
+        this.last_component_counter_metric = componentCounterMetric;
+        if (this.collected_component_counter_metrics.length > maxMetricsDataPoints) {
+            this.collected_component_counter_metrics.shift()
+        }
+        this.collected_component_counter_metrics.push(componentCounterMetric);
+    };
+
     @computed
     get mpsSeries() {
         let mps = Object.assign({}, chartSeriesOpts,
@@ -318,6 +341,82 @@ export class NodeStore {
         return {
             labels: labels,
             datasets: [tips],
+        };
+    }
+
+    @computed
+    get solidifySeries() {
+        let solidified = Object.assign({}, chartSeriesOpts,
+            series("MPS", 'rgba(165,209,253,1)', 'rgba(165,209,253,0.4)')
+        );
+
+        let labels = [];
+        for (let i = 0; i < this.collected_component_counter_metrics.length; i++) {
+            let metric: ComponentCounterMetric = this.collected_component_counter_metrics[i];
+            labels.push(metric.ts);
+            solidified.data.push(metric.solidifier);
+        }
+
+        return {
+            labels: labels,
+            datasets: [solidified],
+        };
+    }
+
+    @computed
+    get storeSeries() {
+        let stored = Object.assign({}, chartSeriesOpts,
+            series("MPS", 'rgba(209,165,253,1)', 'rgba(209,165,253,0.4)')
+        );
+
+        let labels = [];
+        for (let i = 0; i < this.collected_component_counter_metrics.length; i++) {
+            let metric: ComponentCounterMetric = this.collected_component_counter_metrics[i];
+            labels.push(metric.ts);
+            stored.data.push(metric.store);
+        }
+
+        return {
+            labels: labels,
+            datasets: [stored],
+        };
+    }
+
+    @computed
+    get scheduleSeries() {
+        let scheduled = Object.assign({}, chartSeriesOpts,
+            series("MPS", 'rgba(182, 141, 64,1)', 'rgba(182, 141, 64,0.4)')
+        );
+
+        let labels = [];
+        for (let i = 0; i < this.collected_component_counter_metrics.length; i++) {
+            let metric: ComponentCounterMetric = this.collected_component_counter_metrics[i];
+            labels.push(metric.ts);
+            scheduled.data.push(metric.scheduler);
+        }
+
+        return {
+            labels: labels,
+            datasets: [scheduled],
+        };
+    }
+
+    @computed
+    get bookSeries() {
+        let booked = Object.assign({}, chartSeriesOpts,
+            series("MPS", 'rgba(5, 68, 94,1)', 'rgba(5, 68, 94,0.4)')
+        );
+
+        let labels = [];
+        for (let i = 0; i < this.collected_component_counter_metrics.length; i++) {
+            let metric: ComponentCounterMetric = this.collected_component_counter_metrics[i];
+            labels.push(metric.ts);
+            booked.data.push(metric.booker);
+        }
+
+        return {
+            labels: labels,
+            datasets: [booked],
         };
     }
 
