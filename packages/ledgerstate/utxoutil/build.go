@@ -3,10 +3,11 @@ package utxoutil
 import (
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 // Builder builder implements a structure and interface to build transactions
@@ -101,7 +102,7 @@ func (b *Builder) addOutput(out ledgerstate.Output) error {
 
 func (b *Builder) addToConsumedUnspent(bals map[ledgerstate.Color]uint64) {
 	for col, bal := range bals {
-		s, _ := b.consumedUnspent[col]
+		s := b.consumedUnspent[col]
 		b.consumedUnspent[col] = s + bal
 	}
 }
@@ -118,7 +119,7 @@ func (b *Builder) ConsumeAmounts(amounts map[ledgerstate.Color]uint64) bool {
 func (b *Builder) ensureEnoughUnspendAmounts(amounts map[ledgerstate.Color]uint64) bool {
 	missing := make(map[ledgerstate.Color]uint64)
 	for col, bal := range amounts {
-		if s, _ := b.consumedUnspent[col]; s < bal {
+		if s := b.consumedUnspent[col]; s < bal {
 			missing[col] = bal - s
 		}
 	}
@@ -132,7 +133,7 @@ func (b *Builder) ensureEnoughUnspendAmounts(amounts map[ledgerstate.Color]uint6
 
 func (b *Builder) mustSpendAmounts(amounts map[ledgerstate.Color]uint64) {
 	for col, bal := range amounts {
-		if s, _ := b.consumedUnspent[col]; s >= bal {
+		if s := b.consumedUnspent[col]; s >= bal {
 			if s == bal {
 				delete(b.consumedUnspent, col)
 			} else {
@@ -155,7 +156,7 @@ func (b *Builder) SpendConsumedUnspent() map[ledgerstate.Color]uint64 {
 func (b *Builder) Spend(spend map[ledgerstate.Color]uint64) error {
 	// check if enough
 	for color, needed := range spend {
-		available, _ := b.consumedUnspent[color]
+		available := b.consumedUnspent[color]
 		if available < needed {
 			return xerrors.New("Spend: not enough consumed-unspend funds")
 		}
@@ -170,7 +171,7 @@ func (b *Builder) Spend(spend map[ledgerstate.Color]uint64) error {
 // Do not consume inputs
 func (b *Builder) AddExtendedOutputSpend(targetAddress ledgerstate.Address, data []byte, amounts map[ledgerstate.Color]uint64, mint ...uint64) error {
 	for col, needed := range amounts {
-		available, _ := b.consumedUnspent[col]
+		available := b.consumedUnspent[col]
 		if available < needed {
 			return xerrors.New("AddExtendedOutputSpend: not enough consumed-unspent funds")
 		}
@@ -197,7 +198,7 @@ func (b *Builder) prepareColoredBalancesOutput(amounts map[ledgerstate.Color]uin
 		return nil, xerrors.New("prepareColoredBalancesOutput: no tokens to transfer")
 	}
 	minting := len(mint) > 0 && mint[0] > 0
-	iotas, _ := amounts[ledgerstate.ColorIOTA]
+	iotas := amounts[ledgerstate.ColorIOTA]
 	if minting && iotas < mint[0] {
 		return nil, xerrors.Errorf("prepareColoredBalancesOutput: not enough iotas (%d) to mint %d new colored tokens", iotas, mint[0])
 	}
@@ -443,7 +444,9 @@ func (b *Builder) BuildWithED25519(keyPairs ...*ed25519.KeyPair) (*ledgerstate.T
 	if err != nil {
 		return nil, err
 	}
-	unlockBlocks, err := UnlockInputsWithED25519KeyPairs(consumedOutputs, essence, keyPairs...)
-
+	unlockBlocks, err2 := UnlockInputsWithED25519KeyPairs(consumedOutputs, essence, keyPairs...)
+	if err2 != nil {
+		return nil, err2
+	}
 	return ledgerstate.NewTransaction(essence, unlockBlocks), nil
 }

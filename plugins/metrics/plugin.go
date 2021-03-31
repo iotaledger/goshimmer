@@ -72,6 +72,7 @@ func run(_ *node.Plugin) {
 				measureReceivedMPS()
 				measureRequestQueueSize()
 				measureGossipTraffic()
+				measurePerComponentCounter()
 			}, 1*time.Second, shutdownSignal)
 		}
 

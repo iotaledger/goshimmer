@@ -1,8 +1,9 @@
 package utxodb
 
 import (
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 // Supply returns supply of the instance
@@ -84,7 +85,7 @@ func (u *UtxoDB) GetAddressBalances(addr ledgerstate.Address) map[ledgerstate.Co
 	outputs := u.GetAddressOutputs(addr)
 	for _, out := range outputs {
 		out.Balances().ForEach(func(col ledgerstate.Color, bal uint64) bool {
-			s, _ := ret[col]
+			s := ret[col]
 			ret[col] = s + bal
 			return true
 		})
@@ -95,7 +96,7 @@ func (u *UtxoDB) GetAddressBalances(addr ledgerstate.Address) map[ledgerstate.Co
 // Balance returns balances of specific color
 func (u *UtxoDB) Balance(addr ledgerstate.Address, color ledgerstate.Color) uint64 {
 	bals := u.GetAddressBalances(addr)
-	ret, _ := bals[color]
+	ret := bals[color]
 	return ret
 }
 

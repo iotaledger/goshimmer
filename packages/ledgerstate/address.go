@@ -376,10 +376,13 @@ var _ Address = &BLSAddress{}
 
 // region AliasAddress ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+// AliasAddressDigestSize defines the length of the alias address digest in bytes.
+const AliasAddressDigestSize = 32
+
 // AliasAddress represents a special type of Address which is not backed by a private key directly,
 // but is indirectly backed by a private key defined by corresponding AliasOutput parameters
 type AliasAddress struct {
-	digest [32]byte
+	digest [AliasAddressDigestSize]byte
 }
 
 // NewAliasAddress creates a new AliasAddress from the given bytes used as seed.
@@ -430,7 +433,7 @@ func AliasAddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address 
 		return
 	}
 
-	data, err := marshalUtil.ReadBytes(32)
+	data, err := marshalUtil.ReadBytes(AliasAddressDigestSize)
 	if err != nil {
 		err = xerrors.Errorf("error parsing digest (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
@@ -442,7 +445,7 @@ func AliasAddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address 
 
 // IsNil returns if it is all 0
 func (a *AliasAddress) IsNil() bool {
-	return a.digest == [32]byte{}
+	return a.digest == [AliasAddressDigestSize]byte{}
 }
 
 // Type returns the AddressType of the Address.

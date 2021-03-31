@@ -5,5 +5,5 @@ export enum WSMsgType {
     removeNode = 3,
     connectNodes = 4,
     disconnectNodes = 5,
-    MsgManaDashboardAddress= 17
+    MsgManaDashboardAddress= 18
 }
