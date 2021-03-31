@@ -6,6 +6,7 @@ import (
 	"github.com/iotaledger/hive.go/node"
 
 	"github.com/iotaledger/goshimmer/plugins/webapi"
+	"github.com/iotaledger/goshimmer/plugins/webapi/tools/drng"
 	"github.com/iotaledger/goshimmer/plugins/webapi/tools/message"
 	"github.com/iotaledger/goshimmer/plugins/webapi/tools/value"
 )
@@ -44,4 +45,5 @@ func configure(_ *node.Plugin) {
 	webapi.Server().GET("tools/diagnostic/tips", message.TipsDiagnosticHandler)
 	webapi.Server().GET("tools/diagnostic/tips/strong", message.StrongTipsDiagnosticHandler)
 	webapi.Server().GET("tools/diagnostic/tips/weak", message.WeakTipsDiagnosticHandler)
+	webapi.Server().GET("tools/diagnostic/drng", drng.DiagnosticDRNGMessagesHandler)
 }
