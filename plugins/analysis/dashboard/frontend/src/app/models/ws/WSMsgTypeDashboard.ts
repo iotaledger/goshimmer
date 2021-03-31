@@ -1,5 +1,5 @@
 export enum WSMsgTypeDashboard {
-    Mana = 8,
+    Mana = 9,
     ManaMapOverall,
     ManaMapOnline,
     ManaAllowedPledge,

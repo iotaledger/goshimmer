@@ -190,6 +190,22 @@ func increasePerComponentCounter(c ComponentType) {
 	messageCountPerComponent[c]++
 }
 
+// measures the Component Counter value per second
+func measurePerComponentCounter() {
+	// sample the current counter value into a measured MPS value
+	componentCounters := MessageCountSinceStartPerComponent()
+
+	// reset the counter
+	messageCountPerComponentMutex.Lock()
+	for key := range messageCountPerComponent {
+		messageCountPerComponent[key] = 0
+	}
+	messageCountPerComponentMutex.Unlock()
+
+	// trigger events for outside listeners
+	Events.ComponentCounterUpdated.Trigger(componentCounters)
+}
+
 func measureMessageTips() {
 	metrics.Events().MessageTips.Trigger((uint64)(messagelayer.Tangle().TipManager.StrongTipCount()))
 }
