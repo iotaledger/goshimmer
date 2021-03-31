@@ -54,7 +54,8 @@ func UnlockBlocksValid(inputs Outputs, transaction *Transaction) (valid bool) {
 	return unlockValid && unlockErr == nil
 }
 
-// UnlockBlocksValid is an internal utility function that checks if the UnlockBlocks are matching the referenced Inputs.
+// UnlockBlocksValidWithError is an internal utility function that checks if the UnlockBlocks are matching the referenced Inputs.
+// In case an unlockblock is invalid, it returns the error that caused it.
 func UnlockBlocksValidWithError(inputs Outputs, transaction *Transaction) (bool, error) {
 	unlockBlocks := transaction.UnlockBlocks()
 	for i, input := range inputs {

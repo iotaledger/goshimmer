@@ -1,4 +1,4 @@
-// package to build value transaction
+// Package utxoutil is used to build value transaction
 package utxoutil
 
 import (
@@ -38,7 +38,7 @@ func ToOutputs(consumables ...*ConsumableOutput) []ledgerstate.Output {
 	return ret
 }
 
-// Clone clones the conumable
+// Clone clones the consumable
 func (o *ConsumableOutput) Clone() *ConsumableOutput {
 	ret := &ConsumableOutput{
 		output:      o.output.Clone(),
@@ -53,7 +53,7 @@ func (o *ConsumableOutput) Clone() *ConsumableOutput {
 
 // ConsumableBalance return number of tokens remaining to consume on the consumable
 func (o *ConsumableOutput) ConsumableBalance(color ledgerstate.Color) uint64 {
-	ret, _ := o.remaining[color]
+	ret := o.remaining[color]
 	return ret
 }
 
@@ -72,7 +72,7 @@ func (o *ConsumableOutput) NothingRemains() bool {
 	return true
 }
 
-// ConsumableBalance return how many tokens of the given color can be consumed from remaining
+// ConsumableBalance returns how many tokens of the given color can be consumed from remaining
 func ConsumableBalance(color ledgerstate.Color, consumables ...*ConsumableOutput) uint64 {
 	ret := uint64(0)
 	for _, out := range consumables {
@@ -115,7 +115,7 @@ func MustConsumeColored(color ledgerstate.Color, amount uint64, consumables ...*
 		if remaining == 0 {
 			break
 		}
-		rem, _ := out.remaining[color]
+		rem := out.remaining[color]
 		if rem == 0 {
 			continue
 		}
@@ -153,7 +153,7 @@ func ConsumeRemaining(consumables ...*ConsumableOutput) map[ledgerstate.Color]ui
 				continue
 			}
 			ConsumeColored(col, bal, out)
-			total, _ := ret[col]
+			total := ret[col]
 			ret[col] = total + bal
 		}
 	}

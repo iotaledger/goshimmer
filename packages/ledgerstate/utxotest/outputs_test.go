@@ -2,10 +2,12 @@ package utxotest
 
 import (
 	"bytes"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"testing"
+
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/stretchr/testify/require"
-	"testing"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 func TestAliasOutputMint(t *testing.T) {

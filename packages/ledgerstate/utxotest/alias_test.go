@@ -2,11 +2,13 @@ package utxotest
 
 import (
 	"fmt"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate/utxodb"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate/utxoutil"
-	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestAliasMint(t *testing.T) {
@@ -42,7 +44,7 @@ func TestAliasMint(t *testing.T) {
 	t.Logf("Chained output: %s", chained)
 	t.Logf("newly created alias address: %s", chained.GetAliasAddress().Base58())
 
-	//sender, err := utxoutil.GetSingleSender(tx, txb.ConsumedOutputs())
+	// sender, err := utxoutil.GetSingleSender(tx, txb.ConsumedOutputs())
 	sender, err := utxoutil.GetSingleSender(tx)
 	require.NoError(t, err)
 	require.True(t, sender.Equals(addr))
@@ -253,8 +255,8 @@ func TestAlias3(t *testing.T) {
 	require.EqualValues(t, 0, u.BalanceIOTA(addrStateControl))
 
 	for i := 0; i < chainLength; i++ {
-		// transfer 1 more iota to alias address
 		outputs = u.GetAddressOutputs(addr)
+		// transfer 1 more iota to alias address
 		txb := utxoutil.NewBuilder(outputs...)
 		err = txb.AddExtendedOutputConsume(aliasAddress, nil, map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: 1})
 		require.NoError(t, err)
@@ -435,12 +437,12 @@ func TestRequestSendingPattern(t *testing.T) {
 		require.NoError(t, err)
 		err = txb.AddReminderOutputIfNeeded(addrRequester, nil)
 		require.NoError(t, err)
-		tx, err := txb.BuildWithED25519(userRequester)
+		tx, err = txb.BuildWithED25519(userRequester)
 		require.NoError(t, err)
 		err = u.AddTransaction(tx)
 		require.NoError(t, err)
 
-		sender, err := utxoutil.GetSingleSender(tx)
+		sender, err = utxoutil.GetSingleSender(tx)
 		require.NoError(t, err)
 		require.True(t, sender.Equals(addrRequester))
 	}

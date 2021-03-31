@@ -1,11 +1,13 @@
 package utxotest
 
 import (
-	"github.com/iotaledger/goshimmer/packages/ledgerstate/utxodb"
 	"testing"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate/utxoutil"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate/utxodb"
+
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate/utxoutil"
 )
 
 func TestSendIotas(t *testing.T) {
@@ -55,19 +57,19 @@ func TestSendIotasMany(t *testing.T) {
 		require.EqualValues(t, 1, len(outputs))
 		txb := utxoutil.NewBuilder(outputs...)
 
-		err := txb.AddSigLockedIOTAOutput(addr2, 1)
+		err = txb.AddSigLockedIOTAOutput(addr2, 1)
 		require.NoError(t, err)
 		err = txb.AddReminderOutputIfNeeded(addr1, nil)
 		require.NoError(t, err)
 
-		tx, err := txb.BuildWithED25519(user1)
-		require.NoError(t, err)
+		tx, err1 := txb.BuildWithED25519(user1)
+		require.NoError(t, err1)
 
 		err = u.AddTransaction(tx)
 		require.NoError(t, err)
 
-		sender, err := utxoutil.GetSingleSender(tx)
-		require.NoError(t, err)
+		sender, err2 := utxoutil.GetSingleSender(tx)
+		require.NoError(t, err2)
 		require.True(t, addr1.Equals(sender))
 	}
 	require.EqualValues(t, utxodb.RequestFundsAmount-howMany, u.BalanceIOTA(addr1))
@@ -172,17 +174,17 @@ func TestSendIotasManyFromMany(t *testing.T) {
 		outputs := u.GetAddressOutputs(addr1)
 		require.EqualValues(t, 1, len(outputs))
 		txb := utxoutil.NewBuilder(outputs...)
-		err := txb.AddSigLockedIOTAOutput(addr2, outputAmount)
+		err = txb.AddSigLockedIOTAOutput(addr2, outputAmount)
 		require.NoError(t, err)
 		err = txb.AddReminderOutputIfNeeded(addr1, nil)
 		require.NoError(t, err)
-		tx, err := txb.BuildWithED25519(user1)
-		require.NoError(t, err)
+		tx, err1 := txb.BuildWithED25519(user1)
+		require.NoError(t, err1)
 		err = u.AddTransaction(tx)
 		require.NoError(t, err)
 
-		sender, err := utxoutil.GetSingleSender(tx)
-		require.NoError(t, err)
+		sender, err2 := utxoutil.GetSingleSender(tx)
+		require.NoError(t, err2)
 		require.True(t, sender.Equals(addr1))
 	}
 

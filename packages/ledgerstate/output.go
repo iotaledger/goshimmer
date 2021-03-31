@@ -930,8 +930,8 @@ const (
 // It can only be used in a chained manner
 type AliasOutput struct {
 	// common for all outputs
-	outputId      OutputID
-	outputIdMutex sync.RWMutex
+	outputID      OutputID
+	outputIDMutex sync.RWMutex
 	balances      ColoredBalances
 
 	// aliasAddress becomes immutable after created for a lifetime. It is returned as Address()
@@ -1005,21 +1005,21 @@ func AliasOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*AliasOut
 		return nil, xerrors.Errorf("AliasOutput: invalid OutputType (%X): %w", outputType, cerrors.ErrParseBytesFailed)
 	}
 	ret = &AliasOutput{}
-	flags, err := marshalUtil.ReadByte()
-	if err != nil {
-		return nil, xerrors.Errorf("AliasOutput: failed to parse AliasOutput flags (%v): %w", err, cerrors.ErrParseBytesFailed)
+	flags, err1 := marshalUtil.ReadByte()
+	if err1 != nil {
+		return nil, xerrors.Errorf("AliasOutput: failed to parse AliasOutput flags (%v): %w", err1, cerrors.ErrParseBytesFailed)
 	}
 	ret.isGovernanceUpdate = flags&flagAliasOutputGovernanceUpdate != 0
 	if ret.aliasAddress.IsNil() {
-		addr, err := AliasAddressFromMarshalUtil(marshalUtil)
-		if err != nil {
-			return nil, xerrors.Errorf("AliasOutput: failed to parse alias address (%v): %w", err, cerrors.ErrParseBytesFailed)
+		addr, err2 := AliasAddressFromMarshalUtil(marshalUtil)
+		if err2 != nil {
+			return nil, xerrors.Errorf("AliasOutput: failed to parse alias address (%v): %w", err2, cerrors.ErrParseBytesFailed)
 		}
 		ret.aliasAddress = *addr
 	}
-	cb, err := ColoredBalancesFromMarshalUtil(marshalUtil)
-	if err != nil {
-		return nil, xerrors.Errorf("AliasOutput: failed to parse colored balances: %w", err)
+	cb, err3 := ColoredBalancesFromMarshalUtil(marshalUtil)
+	if err3 != nil {
+		return nil, xerrors.Errorf("AliasOutput: failed to parse colored balances: %w", err3)
 	}
 	ret.balances = *cb
 	ret.stateAddress, err = AddressFromMarshalUtil(marshalUtil)
@@ -1031,9 +1031,9 @@ func AliasOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*AliasOut
 		return nil, xerrors.Errorf("AliasOutput: failed to parse state address (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
 	if flags&flagAliasOutputStateDataPresent != 0 {
-		size, err := marshalUtil.ReadUint16()
-		if err != nil {
-			return nil, xerrors.Errorf("AliasOutput: failed to parse state data size: %w", err)
+		size, err4 := marshalUtil.ReadUint16()
+		if err4 != nil {
+			return nil, xerrors.Errorf("AliasOutput: failed to parse state data size: %w", err4)
 		}
 		ret.stateData, err = marshalUtil.ReadBytes(int(size))
 		if err != nil {
@@ -1041,9 +1041,9 @@ func AliasOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*AliasOut
 		}
 	}
 	if flags&flagAliasOutputImmutableDataPresent != 0 {
-		size, err := marshalUtil.ReadUint16()
-		if err != nil {
-			return nil, xerrors.Errorf("AliasOutput: failed to parse immutable data size: %w", err)
+		size, err5 := marshalUtil.ReadUint16()
+		if err5 != nil {
+			return nil, xerrors.Errorf("AliasOutput: failed to parse immutable data size: %w", err5)
 		}
 		ret.immutableData, err = marshalUtil.ReadBytes(int(size))
 		if err != nil {
@@ -1056,8 +1056,8 @@ func AliasOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*AliasOut
 			return nil, xerrors.Errorf("AliasOutput: failed to parse governing address (%v): %w", err, cerrors.ErrParseBytesFailed)
 		}
 	}
-	if err := ret.checkBasicValidity(); err != nil {
-		return nil, err
+	if err7 := ret.checkBasicValidity(); err7 != nil {
+		return nil, err7
 	}
 	return ret, nil
 }
@@ -1079,6 +1079,7 @@ func (a *AliasOutput) GetAliasAddress() *AliasAddress {
 	return &a.aliasAddress
 }
 
+// SetAliasAddress sets the alias address of the alias output.
 func (a *AliasOutput) SetAliasAddress(addr *AliasAddress) {
 	a.aliasAddress = *addr
 }
@@ -1163,6 +1164,7 @@ func (a *AliasOutput) GetImmutableData() []byte {
 	return a.immutableData
 }
 
+// SetImmutableData sets the immutable data field of the alias output.
 func (a *AliasOutput) SetImmutableData(data []byte) {
 	a.immutableData = data
 }
@@ -1175,7 +1177,7 @@ func (a *AliasOutput) Clone() Output {
 func (a *AliasOutput) clone() *AliasOutput {
 	a.mustValidate()
 	ret := &AliasOutput{
-		outputId:      a.outputId,
+		outputID:      a.outputID,
 		balances:      *a.balances.Clone(),
 		aliasAddress:  a.aliasAddress,
 		stateAddress:  a.stateAddress.Clone(),
@@ -1194,18 +1196,18 @@ func (a *AliasOutput) clone() *AliasOutput {
 
 // ID is the ID of the output
 func (a *AliasOutput) ID() OutputID {
-	a.outputIdMutex.RLock()
-	defer a.outputIdMutex.RUnlock()
+	a.outputIDMutex.RLock()
+	defer a.outputIDMutex.RUnlock()
 
-	return a.outputId
+	return a.outputID
 }
 
 // SetID set the output ID after unmarshalling
 func (a *AliasOutput) SetID(outputID OutputID) Output {
-	a.outputIdMutex.Lock()
-	defer a.outputIdMutex.Unlock()
+	a.outputIDMutex.Lock()
+	defer a.outputIDMutex.Unlock()
 
-	a.outputId = outputID
+	a.outputID = outputID
 	return a
 }
 
@@ -1242,7 +1244,7 @@ func (a *AliasOutput) Bytes() []byte {
 func (a *AliasOutput) String() string {
 	ret := "AliasOutput:\n"
 	ret += fmt.Sprintf("   address: %s\n", a.Address())
-	ret += fmt.Sprintf("   outputId: %s\n", a.ID())
+	ret += fmt.Sprintf("   outputID: %s\n", a.ID())
 	ret += fmt.Sprintf("   balance: %s\n", a.balances.String())
 	ret += fmt.Sprintf("   stateAddress: %s\n", a.stateAddress)
 	ret += fmt.Sprintf("   stateMetadataSize: %d\n", len(a.stateData))
@@ -1467,7 +1469,7 @@ func (a *AliasOutput) validateTransition(chained *AliasOutput) error {
 	if !a.GetAliasAddress().Equals(a.GetAliasAddress()) {
 		return xerrors.New("chain alias address can't be modified")
 	}
-	if bytes.Compare(a.immutableData, chained.immutableData) != 0 {
+	if !bytes.Equal(a.immutableData, chained.immutableData) {
 		return xerrors.New("can't modify immutable data")
 	}
 	// depending on update type, enforce valid transition
@@ -1587,7 +1589,7 @@ const (
 	flagExtendedLockedOutputPayloadPresent  = 0x04
 )
 
-// ExtendedLockedOutput is the constructor for a ExtendedLockedOutput.
+// NewExtendedLockedOutput is the constructor for a ExtendedLockedOutput.
 func NewExtendedLockedOutput(balances map[Color]uint64, address Address) *ExtendedLockedOutput {
 	return &ExtendedLockedOutput{
 		balances: NewColoredBalances(balances),
@@ -1595,17 +1597,20 @@ func NewExtendedLockedOutput(balances map[Color]uint64, address Address) *Extend
 	}
 }
 
+// WithFallbackOptions adds fallback options to the output and returns the updated version.
 func (o *ExtendedLockedOutput) WithFallbackOptions(addr Address, deadline uint32) *ExtendedLockedOutput {
 	o.fallbackAddress = addr.Clone()
 	o.fallbackDeadline = deadline
 	return o
 }
 
+// WithTimeLock adds timelock to the output and returns the updated version.
 func (o *ExtendedLockedOutput) WithTimeLock(timelock uint32) *ExtendedLockedOutput {
 	o.timelock = timelock
 	return o
 }
 
+// SetPayload sets the payload field of the output.
 func (o *ExtendedLockedOutput) SetPayload(data []byte) error {
 	if len(data) > MaxOutputPayloadSize {
 		return xerrors.Errorf("ExtendedLockedOutput: data payload size (%d bytes) is bigger than maximum allowed (%d bytes)", len(data), MaxOutputPayloadSize)
@@ -1682,9 +1687,10 @@ func ExtendedOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output
 			return
 		}
 	}
-	return
+	return output, nil
 }
 
+// compressFlags examines the optional fields of the output and returns the combined flags as a byte.
 func (o *ExtendedLockedOutput) compressFlags() byte {
 	var ret byte
 	if o.fallbackAddress != nil {
@@ -1874,7 +1880,6 @@ func (o *ExtendedLockedOutput) TimeLock() time.Time {
 // TimeLockedNow checks if output is unlocked for the specific moment
 func (o *ExtendedLockedOutput) TimeLockedNow(nowis time.Time) bool {
 	return o.TimeLock().After(nowis)
-
 }
 
 // FallbackOptions returns fallback options of the output. The address is nil if fallback options are not set
