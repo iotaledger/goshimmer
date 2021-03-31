@@ -12,11 +12,7 @@ import {inject, observer} from "mobx-react";
 import ListGroup from "react-bootstrap/ListGroup";
 import Card from "react-bootstrap/Card";
 import MemChart from "app/components/MemChart";
-import StoreChart from "app/components/StoreChart";
-import SolidifierChart from "app/components/SolidifierChart";
-import SchedulerChart from "app/components/SchedulerChart";
-import BookerChart from "app/components/BookerChart";
-
+import ComponentCounterChart from "app/components/ComponentCounterChart";
 interface Props {
     nodeStore?: NodeStore;
 }
@@ -59,16 +55,7 @@ export class Dashboard extends React.Component<Props, any> {
                     <Col><TipsChart/></Col>
                 </Row>
                 <Row className={"mb-3"}>
-                    <Col><StoreChart/></Col>
-                </Row>
-                <Row className={"mb-3"}>
-                    <Col><SolidifierChart/></Col>
-                </Row>
-                <Row className={"mb-3"}>
-                    <Col><SchedulerChart/></Col>
-                </Row>
-                <Row className={"mb-3"}>
-                    <Col><BookerChart/></Col>
+                    <Col><ComponentCounterChart/></Col>
                 </Row>
                 <Row className={"mb-3"}>
                     <Col><MemChart/></Col>

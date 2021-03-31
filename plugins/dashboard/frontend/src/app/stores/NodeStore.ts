@@ -345,28 +345,18 @@ export class NodeStore {
     }
 
     @computed
-    get solidifySeries() {
-        let solidified = Object.assign({}, chartSeriesOpts,
-            series("MPS", 'rgba(165,209,253,1)', 'rgba(165,209,253,0.4)')
-        );
-
-        let labels = [];
-        for (let i = 0; i < this.collected_component_counter_metrics.length; i++) {
-            let metric: ComponentCounterMetric = this.collected_component_counter_metrics[i];
-            labels.push(metric.ts);
-            solidified.data.push(metric.solidifier);
-        }
-
-        return {
-            labels: labels,
-            datasets: [solidified],
-        };
-    }
-
-    @computed
-    get storeSeries() {
+    get componentSeries() {
         let stored = Object.assign({}, chartSeriesOpts,
-            series("MPS", 'rgba(209,165,253,1)', 'rgba(209,165,253,0.4)')
+            series("stored", 'rgba(209,165,253,1)', 'rgba(209,165,253,0.4)')
+        );
+        let solidified = Object.assign({}, chartSeriesOpts,
+            series("solidified", 'rgba(165,209,253,1)', 'rgba(165,209,253,0.4)')
+        );
+        let scheduled = Object.assign({}, chartSeriesOpts,
+            series("scheduled", 'rgba(182, 141, 64,1)', 'rgba(182, 141, 64,0.4)')
+        );
+        let booked = Object.assign({}, chartSeriesOpts,
+            series("booked", 'rgba(5, 68, 94,1)', 'rgba(5, 68, 94,0.4)')
         );
 
         let labels = [];
@@ -374,49 +364,14 @@ export class NodeStore {
             let metric: ComponentCounterMetric = this.collected_component_counter_metrics[i];
             labels.push(metric.ts);
             stored.data.push(metric.store);
-        }
-
-        return {
-            labels: labels,
-            datasets: [stored],
-        };
-    }
-
-    @computed
-    get scheduleSeries() {
-        let scheduled = Object.assign({}, chartSeriesOpts,
-            series("MPS", 'rgba(182, 141, 64,1)', 'rgba(182, 141, 64,0.4)')
-        );
-
-        let labels = [];
-        for (let i = 0; i < this.collected_component_counter_metrics.length; i++) {
-            let metric: ComponentCounterMetric = this.collected_component_counter_metrics[i];
-            labels.push(metric.ts);
+            solidified.data.push(metric.solidifier);
             scheduled.data.push(metric.scheduler);
-        }
-
-        return {
-            labels: labels,
-            datasets: [scheduled],
-        };
-    }
-
-    @computed
-    get bookSeries() {
-        let booked = Object.assign({}, chartSeriesOpts,
-            series("MPS", 'rgba(5, 68, 94,1)', 'rgba(5, 68, 94,0.4)')
-        );
-
-        let labels = [];
-        for (let i = 0; i < this.collected_component_counter_metrics.length; i++) {
-            let metric: ComponentCounterMetric = this.collected_component_counter_metrics[i];
-            labels.push(metric.ts);
             booked.data.push(metric.booker);
         }
 
         return {
             labels: labels,
-            datasets: [booked],
+            datasets: [stored, solidified, scheduled, booked],
         };
     }
 

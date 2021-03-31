@@ -54,12 +54,12 @@ export default class StoreChart extends React.Component<Props, any> {
         return (
             <Card>
                 <Card.Body>
-                    <Card.Title>Scheduled Messages Per Second</Card.Title>
+                    <Card.Title>Component Counter Messages Per Second</Card.Title>
                     <small>
-                        MPS: {this.props.nodeStore.last_component_counter_metric.scheduler}.
+                        MPS: {this.props.nodeStore.last_component_counter_metric.store}.
                     </small>
 
-                    <Line height={50} data={this.props.nodeStore.scheduleSeries} options={lineChartOptions}/>
+                    <Line height={50} data={this.props.nodeStore.componentSeries} options={lineChartOptions}/>
                 </Card.Body>
             </Card>
         );
