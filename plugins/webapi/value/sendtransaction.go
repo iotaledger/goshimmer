@@ -13,7 +13,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
@@ -40,7 +39,7 @@ func sendTransactionHandler(c echo.Context) error {
 	}
 
 	// validate allowed mana pledge nodes.
-	allowedAccessMana := manaPlugin.GetAllowedPledgeNodes(mana.AccessMana)
+	allowedAccessMana := messagelayer.GetAllowedPledgeNodes(mana.AccessMana)
 	if allowedAccessMana.IsFilterEnabled {
 		if !allowedAccessMana.Allowed.Has(tx.Essence().AccessPledgeID()) {
 			return c.JSON(http.StatusBadRequest, SendTransactionResponse{
@@ -48,7 +47,7 @@ func sendTransactionHandler(c echo.Context) error {
 			})
 		}
 	}
-	allowedConsensusMana := manaPlugin.GetAllowedPledgeNodes(mana.ConsensusMana)
+	allowedConsensusMana := messagelayer.GetAllowedPledgeNodes(mana.ConsensusMana)
 	if allowedConsensusMana.IsFilterEnabled {
 		if !allowedConsensusMana.Allowed.Has(tx.Essence().ConsensusPledgeID()) {
 			return c.JSON(http.StatusBadRequest, SendTransactionResponse{

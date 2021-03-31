@@ -308,6 +308,13 @@ func (f *ConsensusMechanism) createMessageOpinion(messageID tangle.MessageID, wa
 	// trigger TransactionOpinionFormed if the message contains a transaction
 	f.tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
 		if f.tangle.LedgerState.BranchInclusionState(f.tangle.LedgerState.BranchID(transactionID)) == ledgerstate.Confirmed {
+			// skip reattachments
+			for _, attachmentID := range f.tangle.Storage.AttachmentMessageIDs(transactionID) {
+				if f.messageOpinionTriggered(attachmentID) {
+					return
+				}
+			}
+
 			f.tangle.ConsensusManager.Events.TransactionConfirmed.Trigger(messageID)
 		}
 	})

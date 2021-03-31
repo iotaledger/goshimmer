@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/node"
 
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 )
@@ -60,20 +61,20 @@ func checkAutopeeringConnection() {
 	defer conn.Close()
 
 	// create a new discovery server for the port check
-	disc := discover.New(local.GetInstance(), autopeering.ProtocolVersion, autopeering.NetworkVersion(), discover.Logger(log))
+	disc := discover.New(local.GetInstance(), discovery.ProtocolVersion, discovery.NetworkVersion(), discover.Logger(log))
 	srv := server.Serve(local.GetInstance(), conn, log, disc)
 	defer srv.Close()
 
 	disc.Start(srv)
 	defer disc.Close()
 
-	for _, master := range autopeering.Discovery().GetMasterPeers() {
-		err = disc.Ping(master)
+	for _, entryNode := range discovery.Discovery().GetMasterPeers() {
+		err = disc.Ping(entryNode)
 		if err == nil {
-			log.Infof("Pong received from %s", master.IP())
+			log.Infof("Pong received from %s", entryNode.IP())
 			break
 		}
-		log.Warnf("Error pinging entry node %s: %s", master.IP(), err)
+		log.Warnf("Error pinging entry node %s: %s", entryNode.IP(), err)
 	}
 
 	if err != nil {
