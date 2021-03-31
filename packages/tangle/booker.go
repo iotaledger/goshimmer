@@ -113,6 +113,7 @@ func (b *Booker) UpdateMessagesBranch(transactionID ledgerstate.TransactionID) {
 				}
 
 				if floorIndex, exists := b.MarkerBranchIDMappingManager.Floor(markers.NewMarker(sequence.ID(), sequenceIndex)); exists && floorIndex == sequenceIndex {
+					b.MarkerBranchIDMappingManager.Delete(markers.NewMarker(sequence.ID(), sequenceIndex))
 					// TODO: remove mapping
 					fmt.Println("REMOVE MAPPING", sequenceIndex, oldBranchID)
 				}

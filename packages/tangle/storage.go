@@ -161,7 +161,7 @@ func (s *Storage) Approvers(messageID MessageID, optionalApproverType ...Approve
 	s.approverStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		cachedApprovers = append(cachedApprovers, &CachedApprover{CachedObject: cachedObject})
 		return true
-	}, objectstorage.WithPrefix(iterationPrefix))
+	}, objectstorage.WithIteratorPrefix(iterationPrefix))
 
 	return
 }
@@ -201,7 +201,7 @@ func (s *Storage) Attachments(transactionID ledgerstate.TransactionID) (cachedAt
 	s.attachmentStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		cachedAttachments = append(cachedAttachments, &CachedAttachment{CachedObject: cachedObject})
 		return true
-	}, objectstorage.WithPrefix(transactionID.Bytes()))
+	}, objectstorage.WithIteratorPrefix(transactionID.Bytes()))
 	return
 }
 
