@@ -1,3 +1,13 @@
+# v0.5.5 - 2021-04-01
+* Integrate Mana with FPC
+* Integrate Mana with the Autopeering
+* Add several FPC optimizations
+* Add dRNG diagnostic API
+* Simplify memory usage of dashboard and align to Grafana
+* Add a chart for stored, solidifier, scheduler and booker MPS
+* Update to latest hive.go
+* **Breaking**: bumps network and database versions
+
 # v0.5.4 - 2021-03-29
 * Add new diagnostic APIs
 * Add new docs sections
