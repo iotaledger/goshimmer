@@ -731,7 +731,7 @@ func getStringBalances(output ledgerstate.Output) map[string]uint64 {
 	balances := output.Balances().Map()
 	stringBalances := make(map[string]uint64, len(balances))
 	for color, balance := range balances {
-		stringBalances[color.String()] = balance
+		stringBalances[color.Base58()] = balance
 	}
 	return stringBalances
 }
