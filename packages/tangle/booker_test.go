@@ -1,9 +1,9 @@
 package tangle
 
 import (
-	"fmt"
 	"testing"
 
+	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -424,6 +424,9 @@ func TestBookerBook(t *testing.T) {
 			"Message11": branchIDs["A+C"],
 			"Message12": branchIDs["A+C"],
 		})
+		checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
+			branchIDs["A+C"]: {"Message12"},
+		})
 	}
 
 	// ISSUE Message13
@@ -478,11 +481,14 @@ func TestBookerBook(t *testing.T) {
 			"Message12": branchIDs["A+C"],
 			"Message13": branchIDs["A+C+E"],
 		})
+		checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
+			branchIDs["A+C"]: {"Message12"},
+		})
 	}
 
 	// ISSUE Message14
 	{
-		testFramework.CreateMessage("Message14", WithStrongParents("Message12"))
+		testFramework.CreateMessage("Message14", WithStrongParents("Message12"), WithInputs("I"), WithOutput("J", 500))
 		testFramework.IssueMessages("Message14").WaitMessagesBooked()
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -532,6 +538,9 @@ func TestBookerBook(t *testing.T) {
 			"Message12": branchIDs["A+C"],
 			"Message13": branchIDs["A+C+E"],
 			"Message14": branchIDs["A+C"],
+		})
+		checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
+			branchIDs["A+C"]: {"Message12", "Message14"},
 		})
 	}
 
@@ -590,6 +599,9 @@ func TestBookerBook(t *testing.T) {
 			"Message13": branchIDs["A+C+E"],
 			"Message14": branchIDs["A+C"],
 			"Message15": branchIDs["A+C"],
+		})
+		checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
+			branchIDs["A+C"]: {"Message12", "Message14"},
 		})
 	}
 
@@ -652,6 +664,9 @@ func TestBookerBook(t *testing.T) {
 			"Message15": branchIDs["A+C"],
 			"Message16": branchIDs["A+C"],
 		})
+		checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
+			branchIDs["A+C"]: {"Message12", "Message14"},
+		})
 	}
 
 	// ISSUE Message17
@@ -663,8 +678,6 @@ func TestBookerBook(t *testing.T) {
 		branchIDs["G"] = ledgerstate.NewBranchID(testFramework.TransactionID("Message17"))
 		branchIDs["F+C"] = aggregatedBranchID(branchIDs["F"], branchIDs["C"])
 		branchIDs["F+C+E"] = aggregatedBranchID(branchIDs["F"], branchIDs["C"], branchIDs["E"])
-
-		fmt.Println(branchIDs)
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"Message1":  markers.NewMarkers(markers.NewMarker(1, 1)),
@@ -697,9 +710,9 @@ func TestBookerBook(t *testing.T) {
 			"Message9":  ledgerstate.UndefinedBranchID,
 			"Message10": ledgerstate.UndefinedBranchID,
 			"Message11": ledgerstate.UndefinedBranchID,
-			"Message12": branchIDs["A+C"],
+			"Message12": branchIDs["F+C"],
 			"Message13": ledgerstate.UndefinedBranchID,
-			"Message14": branchIDs["A+C"],
+			"Message14": branchIDs["F+C"],
 			"Message15": ledgerstate.UndefinedBranchID,
 			"Message16": ledgerstate.UndefinedBranchID,
 			"Message17": ledgerstate.UndefinedBranchID,
@@ -723,13 +736,111 @@ func TestBookerBook(t *testing.T) {
 			"Message16": branchIDs["F+C"],
 			"Message17": branchIDs["G"],
 		})
+		checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
+			branchIDs["F+C"]: {"Message12", "Message14"},
+		})
 	}
 
-	fmt.Println("DONE")
+	// ISSUE Message18
+	{
+		testFramework.CreateMessage("Message18", WithStrongParents("Message12"), WithInputs("I"), WithOutput("K", 500))
+		testFramework.IssueMessages("Message18").WaitMessagesBooked()
+
+		branchIDs["H"] = ledgerstate.NewBranchID(testFramework.TransactionID("Message14"))
+		branchIDs["H+C"] = aggregatedBranchID(branchIDs["H"], branchIDs["C"])
+		branchIDs["I"] = ledgerstate.NewBranchID(testFramework.TransactionID("Message18"))
+		branchIDs["I+C"] = aggregatedBranchID(branchIDs["I"], branchIDs["C"])
+
+		checkMarkers(t, testFramework, map[string]*markers.Markers{
+			"Message1":  markers.NewMarkers(markers.NewMarker(1, 1)),
+			"Message2":  markers.NewMarkers(markers.NewMarker(2, 1)),
+			"Message3":  markers.NewMarkers(markers.NewMarker(3, 1)),
+			"Message4":  markers.NewMarkers(markers.NewMarker(4, 1)),
+			"Message5":  markers.NewMarkers(markers.NewMarker(4, 2)),
+			"Message6":  markers.NewMarkers(markers.NewMarker(1, 2)),
+			"Message7":  markers.NewMarkers(markers.NewMarker(3, 2)),
+			"Message8":  markers.NewMarkers(markers.NewMarker(1, 3)),
+			"Message9":  markers.NewMarkers(markers.NewMarker(3, 3)),
+			"Message10": markers.NewMarkers(markers.NewMarker(5, 2)),
+			"Message11": markers.NewMarkers(markers.NewMarker(6, 4)),
+			"Message12": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
+			"Message13": markers.NewMarkers(markers.NewMarker(7, 3)),
+			"Message14": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(3, 3)),
+			"Message15": markers.NewMarkers(markers.NewMarker(6, 4)),
+			"Message16": markers.NewMarkers(markers.NewMarker(6, 5)),
+			"Message17": markers.NewMarkers(markers.NewMarker(8, 2)),
+			"Message18": markers.NewMarkers(markers.NewMarker(9, 4)),
+		})
+		checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+			"Message1":  ledgerstate.UndefinedBranchID,
+			"Message2":  ledgerstate.UndefinedBranchID,
+			"Message3":  ledgerstate.UndefinedBranchID,
+			"Message4":  ledgerstate.UndefinedBranchID,
+			"Message5":  ledgerstate.UndefinedBranchID,
+			"Message6":  ledgerstate.UndefinedBranchID,
+			"Message7":  ledgerstate.UndefinedBranchID,
+			"Message8":  ledgerstate.UndefinedBranchID,
+			"Message9":  ledgerstate.UndefinedBranchID,
+			"Message10": ledgerstate.UndefinedBranchID,
+			"Message11": ledgerstate.UndefinedBranchID,
+			"Message12": branchIDs["F+C"],
+			"Message13": ledgerstate.UndefinedBranchID,
+			"Message14": branchIDs["H+C"],
+			"Message15": branchIDs["H+C"],
+			"Message16": ledgerstate.UndefinedBranchID,
+			"Message17": ledgerstate.UndefinedBranchID,
+			"Message18": ledgerstate.UndefinedBranchID,
+		})
+		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
+			"Message1":  branchIDs["A"],
+			"Message2":  branchIDs["B"],
+			"Message3":  branchIDs["C"],
+			"Message4":  ledgerstate.MasterBranchID,
+			"Message5":  branchIDs["D"],
+			"Message6":  branchIDs["F"],
+			"Message7":  branchIDs["C"],
+			"Message8":  branchIDs["F"],
+			"Message9":  branchIDs["C"],
+			"Message10": branchIDs["B+E"],
+			"Message11": branchIDs["F+C"],
+			"Message12": branchIDs["F+C"],
+			"Message13": branchIDs["F+C+E"],
+			"Message14": branchIDs["H+C"],
+			"Message15": branchIDs["H+C"],
+			"Message16": branchIDs["H+C"],
+			"Message17": branchIDs["G"],
+			"Message18": branchIDs["I+C"],
+		})
+		checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
+			branchIDs["F+C"]: {"Message12"},
+			branchIDs["H+C"]: {"Message14", "Message15"},
+		})
+	}
 }
 
 func aggregatedBranchID(branchIDs ...ledgerstate.BranchID) ledgerstate.BranchID {
 	return ledgerstate.NewAggregatedBranch(ledgerstate.NewBranchIDs(branchIDs...)).ID()
+}
+
+func checkIndividuallyMappedMessages(t *testing.T, testFramework *MessageTestFramework, expectedIndividuallyMappedMessages map[ledgerstate.BranchID][]string) {
+	expectedMappings := 0
+
+	for branchID, expectedMessageAliases := range expectedIndividuallyMappedMessages {
+		for _, alias := range expectedMessageAliases {
+			expectedMappings++
+			assert.True(t, testFramework.tangle.Storage.IndividuallyMappedMessage(branchID, testFramework.Message(alias).ID()).Consume(func(individuallyMappedMessage *IndividuallyMappedMessage) {}))
+		}
+	}
+
+	testFramework.tangle.Storage.individuallyMappedMessageStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		cachedObject.Release()
+
+		expectedMappings--
+
+		return true
+	})
+
+	assert.Zero(t, expectedMappings)
 }
 
 func checkMarkers(t *testing.T, testFramework *MessageTestFramework, expectedMarkers map[string]*markers.Markers) {
@@ -749,7 +860,7 @@ func checkBranchIDs(t *testing.T, testFramework *MessageTestFramework, expectedB
 func checkMessageMetadataBranchIDs(t *testing.T, testFramework *MessageTestFramework, expectedBranchIDs map[string]ledgerstate.BranchID) {
 	for messageID, expectedBranchID := range expectedBranchIDs {
 		assert.True(t, testFramework.tangle.Storage.MessageMetadata(testFramework.Message(messageID).ID()).Consume(func(messageMetadata *MessageMetadata) {
-			assert.Equal(t, expectedBranchID, messageMetadata.BranchID(), "BranchID of %s is wrong in the Metadata", messageID)
+			assert.Equal(t, expectedBranchID, messageMetadata.BranchID(), "BranchID of %s should be %s but is %s in the Metadata", messageID, expectedBranchID, testFramework.tangle.Booker.BranchIDOfMessage(testFramework.Message(messageID).ID()))
 		}))
 	}
 }

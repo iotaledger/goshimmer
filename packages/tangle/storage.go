@@ -38,6 +38,9 @@ const (
 	// PrefixMarkerBranchIDMapping defines the storage prefix for the PrefixMarkerBranchIDMapping.
 	PrefixMarkerBranchIDMapping
 
+	// PrefixIndividuallyMappedMessage defines the storage prefix for the IndividuallyMappedMessage.
+	PrefixIndividuallyMappedMessage
+
 	// DBSequenceNumber defines the db sequence number.
 	DBSequenceNumber = "seq"
 )
@@ -56,6 +59,7 @@ type Storage struct {
 	missingMessageStorage             *objectstorage.ObjectStorage
 	attachmentStorage                 *objectstorage.ObjectStorage
 	markerIndexBranchIDMappingStorage *objectstorage.ObjectStorage
+	individuallyMappedMessageStorage  *objectstorage.ObjectStorage
 
 	Events   *StorageEvents
 	shutdown chan struct{}
@@ -74,6 +78,7 @@ func NewStorage(tangle *Tangle) (storage *Storage) {
 		missingMessageStorage:             osFactory.New(PrefixMissingMessage, MissingMessageFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
 		attachmentStorage:                 osFactory.New(PrefixAttachments, AttachmentFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.PartitionKey(ledgerstate.TransactionIDLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false)),
 		markerIndexBranchIDMappingStorage: osFactory.New(PrefixMarkerBranchIDMapping, MarkerIndexBranchIDMappingFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
+		individuallyMappedMessageStorage:  osFactory.New(PrefixIndividuallyMappedMessage, IndividuallyMappedMessageFromObjectStorage, objectstorage.CacheTime(CacheTime), IndividuallyMappedMessagePartitionKeys, objectstorage.LeakDetectionEnabled(false)),
 
 		Events: &StorageEvents{
 			MessageStored:        events.NewEvent(MessageIDCaller),
@@ -254,6 +259,30 @@ func (s *Storage) MarkerIndexBranchIDMapping(sequenceID markers.SequenceID, comp
 	return &CachedMarkerIndexBranchIDMapping{CachedObject: s.markerIndexBranchIDMappingStorage.Load(sequenceID.Bytes())}
 }
 
+// StoreIndividuallyMappedMessage stores an IndividuallyMappedMessage in the underlying object storage.
+func (s *Storage) StoreIndividuallyMappedMessage(individuallyMappedMessage *IndividuallyMappedMessage) {
+	s.individuallyMappedMessageStorage.Store(individuallyMappedMessage).Release()
+}
+
+// DeleteIndividuallyMappedMessage deleted an IndividuallyMappedMessage in the underlying object storage.
+func (s *Storage) DeleteIndividuallyMappedMessage(branchID ledgerstate.BranchID, messageID MessageID) {
+	s.individuallyMappedMessageStorage.Delete(byteutils.ConcatBytes(branchID.Bytes(), messageID.Bytes()))
+}
+
+// IndividuallyMappedMessage retrieves the IndividuallyMappedMessage associated with the given details.
+func (s *Storage) IndividuallyMappedMessage(branchID ledgerstate.BranchID, messageID MessageID) (cachedIndividuallyMappedMessages *CachedIndividuallyMappedMessage) {
+	return &CachedIndividuallyMappedMessage{CachedObject: s.individuallyMappedMessageStorage.Load(byteutils.ConcatBytes(branchID.Bytes(), messageID.Bytes()))}
+}
+
+// IndividuallyMappedMessages retrieves the IndividuallyMappedMessages of a Branch in the object storage.
+func (s *Storage) IndividuallyMappedMessages(branchID ledgerstate.BranchID) (cachedIndividuallyMappedMessages CachedIndividuallyMappedMessages) {
+	s.individuallyMappedMessageStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		cachedIndividuallyMappedMessages = append(cachedIndividuallyMappedMessages, &CachedIndividuallyMappedMessage{CachedObject: cachedObject})
+		return true
+	}, objectstorage.WithIteratorPrefix(branchID.Bytes()))
+	return
+}
+
 func (s *Storage) storeGenesis() {
 	s.MessageMetadata(EmptyMessageID, func() *MessageMetadata {
 		genesisMetadata := &MessageMetadata{
@@ -297,6 +326,7 @@ func (s *Storage) Shutdown() {
 	s.missingMessageStorage.Shutdown()
 	s.attachmentStorage.Shutdown()
 	s.markerIndexBranchIDMappingStorage.Shutdown()
+	s.individuallyMappedMessageStorage.Shutdown()
 
 	close(s.shutdown)
 }
@@ -310,6 +340,7 @@ func (s *Storage) Prune() error {
 		s.missingMessageStorage,
 		s.attachmentStorage,
 		s.markerIndexBranchIDMappingStorage,
+		s.individuallyMappedMessageStorage,
 	} {
 		if err := storage.Prune(); err != nil {
 			err = fmt.Errorf("failed to prune storage: %w", err)
