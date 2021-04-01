@@ -82,15 +82,7 @@ func (b *Booker) UpdateMessagesBranch(transactionID ledgerstate.TransactionID) {
 
 		oldBranchID := b.BranchIDOfMessage(message.ID())
 
-		_, strongParentsBranchIDs, _ := b.strongParentsDetails(message)
-		weakParentsBranchIDs := b.weakParentsDetails(message)
-		branchIDOfPayload := b.BranchIDOfPayload(message)
-		combinedBranches := strongParentsBranchIDs.Clone()
-		combinedBranches.Add(branchIDOfPayload)
-		for weakParentsBranchID := range weakParentsBranchIDs {
-			combinedBranches.Add(weakParentsBranchID)
-		}
-		newBranchID, inheritErr := b.tangle.LedgerState.InheritBranch(combinedBranches)
+		newBranchID, inheritErr := b.tangle.LedgerState.InheritBranch(ledgerstate.NewBranchIDs(oldBranchID, b.tangle.LedgerState.BranchID(transactionID)))
 		if inheritErr != nil {
 			b.tangle.Events.Error.Trigger(xerrors.Errorf("failed to inherit Branch when booking Message with %s: %w", message.ID(), inheritErr))
 			return
@@ -117,6 +109,28 @@ func (b *Booker) UpdateMessagesBranch(transactionID ledgerstate.TransactionID) {
 				}
 
 				b.MarkerBranchIDMappingManager.SetBranchID(markers.NewMarker(sequence.ID(), sequenceIndex), newBranchID)
+
+				// TODO: UPDATE REFERENCING MARKERS AND RECALCULATE AS WELL
+				sequence.ReferencingMarkers(sequenceIndex).ForEachSorted(func(referencingSequenceID markers.SequenceID, referencingIndex markers.Index) bool {
+					branchIDBeforeUpdate := b.MarkerBranchIDMappingManager.BranchID(markers.NewMarker(referencingSequenceID, referencingIndex))
+					if branchIDBeforeUpdate == newBranchID {
+						return true
+					}
+
+					branchIDAfterUpdate, err := b.tangle.LedgerState.InheritBranch(ledgerstate.NewBranchIDs(branchIDBeforeUpdate, newBranchID))
+					if err != nil {
+						b.tangle.Events.Error.Trigger(xerrors.Errorf("failed to inherit Branch when booking Message with %s: %w", message.ID(), err))
+						return false
+					}
+					if branchIDBeforeUpdate == branchIDAfterUpdate {
+						return true
+					}
+
+					b.MarkerBranchIDMappingManager.SetBranchID(markers.NewMarker(referencingSequenceID, referencingIndex), branchIDAfterUpdate)
+
+					return true
+				})
+
 				return
 			}
 
@@ -186,7 +200,7 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 			messageMetadata.SetStructureDetails(inheritedStructureDetails)
 
 			// store in none of my past markers is already mapped to the branch
-			if !b.branchMappedInPastMarkers(inheritedBranch, inheritedStructureDetails.PastMarkers) {
+			if !b.MarkerBranchIDMappingManager.BranchMappedByPastMarkers(inheritedBranch, inheritedStructureDetails.PastMarkers) {
 				if !inheritedStructureDetails.IsPastMarker {
 					messageMetadata.SetBranchID(inheritedBranch)
 				} else {
@@ -198,16 +212,6 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 
 			b.Events.MessageBooked.Trigger(messageID)
 		})
-	})
-
-	return
-}
-
-func (b *Booker) branchMappedInPastMarkers(branch ledgerstate.BranchID, pastMarkers *markers.Markers) (branchMappedByPastMarkers bool) {
-	pastMarkers.ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
-		branchMappedByPastMarkers = b.MarkerBranchIDMappingManager.BranchID(markers.NewMarker(sequenceID, index)) == branch
-
-		return !branchMappedByPastMarkers
 	})
 
 	return
@@ -495,6 +499,16 @@ func (m *MarkerBranchIDMappingManager) Floor(marker *markers.Marker) (floor mark
 func (m *MarkerBranchIDMappingManager) Ceiling(marker *markers.Marker) (floor markers.Index, exists bool) {
 	m.tangle.Storage.MarkerIndexBranchIDMapping(marker.SequenceID(), NewMarkerIndexBranchIDMapping).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
 		floor, exists = markerIndexBranchIDMapping.Ceiling(marker.Index())
+	})
+
+	return
+}
+
+func (m *MarkerBranchIDMappingManager) BranchMappedByPastMarkers(branch ledgerstate.BranchID, pastMarkers *markers.Markers) (branchMappedByPastMarkers bool) {
+	pastMarkers.ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
+		branchMappedByPastMarkers = m.BranchID(markers.NewMarker(sequenceID, index)) == branch
+
+		return !branchMappedByPastMarkers
 	})
 
 	return

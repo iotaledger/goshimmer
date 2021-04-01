@@ -267,6 +267,30 @@ func (m *Markers) ForEach(iterator func(sequenceID SequenceID, index Index) bool
 	return
 }
 
+// ForEachSorted calls the iterator for each of the contained Markers in increasing order. The iteration is aborted if
+// the iterator returns false. The method returns false if the iteration was aborted.
+func (m *Markers) ForEachSorted(iterator func(sequenceID SequenceID, index Index) bool) (success bool) {
+	m.markersMutex.RLock()
+	defer m.markersMutex.RUnlock()
+
+	sequenceIDs := make([]SequenceID, 0, len(m.markers))
+	for sequenceID := range m.markers {
+		sequenceIDs = append(sequenceIDs, sequenceID)
+	}
+	sort.Slice(sequenceIDs, func(i, j int) bool {
+		return sequenceIDs[i] < sequenceIDs[j]
+	})
+
+	success = true
+	for _, sequenceID := range sequenceIDs {
+		if success = iterator(sequenceID, m.markers[sequenceID]); !success {
+			return
+		}
+	}
+
+	return
+}
+
 // Size returns the amount of Markers in the collection.
 func (m *Markers) Size() (size int) {
 	m.markersMutex.RLock()

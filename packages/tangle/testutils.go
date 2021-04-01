@@ -21,16 +21,16 @@ import (
 // MessageTestFramework implements a framework for conveniently issuing messages in a tangle as part of unit tests in a
 // simplified way.
 type MessageTestFramework struct {
-	tangle                      *Tangle
-	messagesByAlias             map[string]*Message
-	walletsByAlias              map[string]wallet
-	walletsByAddress            map[ledgerstate.Address]wallet
-	inputsByAlias               map[string]ledgerstate.Input
-	outputsByAlias              map[string]ledgerstate.Output
-	outputsByID                 map[ledgerstate.OutputID]ledgerstate.Output
-	options                     *MessageTestFrameworkOptions
-	hookedIncreaseIndexCallback markers.IncreaseIndexCallback
-	messagesBookedWG            sync.WaitGroup
+	tangle                   *Tangle
+	messagesByAlias          map[string]*Message
+	walletsByAlias           map[string]wallet
+	walletsByAddress         map[ledgerstate.Address]wallet
+	inputsByAlias            map[string]ledgerstate.Input
+	outputsByAlias           map[string]ledgerstate.Output
+	outputsByID              map[ledgerstate.OutputID]ledgerstate.Output
+	options                  *MessageTestFrameworkOptions
+	oldIncreaseIndexCallback markers.IncreaseIndexCallback
+	messagesBookedWG         sync.WaitGroup
 }
 
 // NewMessageTestFramework is the constructor of the MessageTestFramework.
@@ -80,14 +80,15 @@ func (m *MessageTestFramework) IncreaseMarkersIndexCallback(markers.SequenceID, 
 
 // PreventNewMarkers disables the generation of new Markers for the given Messages.
 func (m *MessageTestFramework) PreventNewMarkers(enabled bool) *MessageTestFramework {
-	if enabled && m.hookedIncreaseIndexCallback == nil {
-		m.hookedIncreaseIndexCallback = m.IncreaseMarkersIndexCallback
+	if enabled && m.oldIncreaseIndexCallback == nil {
+		m.oldIncreaseIndexCallback = m.tangle.Options.IncreaseMarkersIndexCallback
 		m.tangle.Options.IncreaseMarkersIndexCallback = m.IncreaseMarkersIndexCallback
 		return m
 	}
 
-	if !enabled && m.hookedIncreaseIndexCallback != nil {
-		m.tangle.Options.IncreaseMarkersIndexCallback = m.hookedIncreaseIndexCallback
+	if !enabled && m.oldIncreaseIndexCallback != nil {
+		m.tangle.Options.IncreaseMarkersIndexCallback = m.oldIncreaseIndexCallback
+		m.oldIncreaseIndexCallback = nil
 		return m
 	}
 
