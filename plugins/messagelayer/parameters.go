@@ -45,7 +45,7 @@ var StatementParameters = struct {
 	WaitForStatement int `default:"5" usage:"the time in seconds for which the node wait for receiving the new statement"`
 
 	// WriteStatement defines if the node should write statements.
-	WriteStatement bool `default:"false" usage:"if the node should make statements"`
+	WriteStatement bool `default:"true" usage:"if the node should make statements"`
 
 	// ReadManaThreshold defines the Mana threshold to accept a statement.
 	ReadManaThreshold float64 `default:"1.0" usage:"Value describing the percentage of top mana nodes to accept a statement from"`
