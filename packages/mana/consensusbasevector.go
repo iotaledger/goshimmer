@@ -245,7 +245,7 @@ func (c *ConsensusBaseManaVector) GetHighestManaNodesFraction(p float64) (res []
 		defer c.Unlock()
 		t = time.Now()
 		for ID := range c.vector {
-			// skip the emtpy node ID
+			// skip the empty node ID
 			if bytes.Equal(ID[:], emptyNodeID[:]) {
 				continue
 			}
