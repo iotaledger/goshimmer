@@ -73,6 +73,44 @@ func (b *Booker) BranchIDOfPayload(message *Message) ledgerstate.BranchID {
 	return b.tangle.LedgerState.BranchID(message.Payload().(*ledgerstate.Transaction).ID())
 }
 
+func (b *Booker) updatedMarkerMappings(marker *markers.Marker, newConflictBranchID ledgerstate.BranchID) {
+	propagationWalker := walker.New()
+	propagationWalker.Push(marker)
+
+	for propagationWalker.HasNext() {
+		currentMarker := propagationWalker.Next().(*markers.Marker)
+
+		branchIDBeforeUpdate := b.MarkerBranchIDMappingManager.BranchID(currentMarker)
+		if branchIDBeforeUpdate == newConflictBranchID {
+			continue
+		}
+
+		branchIDAfterUpdate, err := b.tangle.LedgerState.InheritBranch(ledgerstate.NewBranchIDs(branchIDBeforeUpdate, newConflictBranchID))
+		if err != nil {
+			b.tangle.Events.Error.Trigger(xerrors.Errorf("failed to inherit Branch when update Marker '%s': %w", currentMarker, err))
+			return
+		}
+		if branchIDBeforeUpdate == branchIDAfterUpdate {
+			continue
+		}
+
+		if floorIndex, exists := b.MarkerBranchIDMappingManager.Floor(currentMarker); exists && floorIndex == currentMarker.Index() {
+			b.MarkersManager.UnregisterSequenceAlias(markers.NewSequenceAlias(branchIDBeforeUpdate.Bytes()))
+		}
+		b.MarkersManager.RegisterSequenceAlias(markers.NewSequenceAlias(branchIDAfterUpdate.Bytes()), currentMarker.SequenceID())
+
+		b.MarkerBranchIDMappingManager.SetBranchID(currentMarker, branchIDAfterUpdate)
+
+		b.MarkersManager.Sequence(currentMarker.SequenceID()).Consume(func(sequence *markers.Sequence) {
+			sequence.ReferencingMarkers(currentMarker.Index()).ForEachSorted(func(referencingSequenceID markers.SequenceID, referencingIndex markers.Index) bool {
+				propagationWalker.Push(markers.NewMarker(referencingSequenceID, referencingIndex))
+
+				return true
+			})
+		})
+	}
+}
+
 // UpdateMessagesBranch propagates the update of the message's branchID (and its future cone) in case on changes of it contained transction's branchID.
 func (b *Booker) UpdateMessagesBranch(transactionID ledgerstate.TransactionID) {
 	b.tangle.Utils.WalkMessageAndMetadata(func(message *Message, messageMetadata *MessageMetadata, walker *walker.Walker) {
@@ -80,65 +118,33 @@ func (b *Booker) UpdateMessagesBranch(transactionID ledgerstate.TransactionID) {
 			return
 		}
 
-		oldBranchID := b.BranchIDOfMessage(message.ID())
+		if structureDetails := messageMetadata.StructureDetails(); structureDetails.IsPastMarker {
+			b.updatedMarkerMappings(structureDetails.PastMarkers.FirstMarker(), b.tangle.LedgerState.BranchID(transactionID))
+			return
+		}
 
+		/*
+			_, strongParentsBranchIDs, _ := b.strongParentsDetails(message)
+			weakParentsBranchIDs := b.weakParentsDetails(message)
+			branchIDOfPayload := b.BranchIDOfPayload(message)
+			combinedBranches := strongParentsBranchIDs.Clone()
+			combinedBranches.Add(branchIDOfPayload)
+			for weakParentsBranchID := range weakParentsBranchIDs {
+				combinedBranches.Add(weakParentsBranchID)
+			}
+		*/
+
+		oldBranchID := b.BranchIDOfMessage(message.ID())
 		newBranchID, inheritErr := b.tangle.LedgerState.InheritBranch(ledgerstate.NewBranchIDs(oldBranchID, b.tangle.LedgerState.BranchID(transactionID)))
 		if inheritErr != nil {
 			b.tangle.Events.Error.Trigger(xerrors.Errorf("failed to inherit Branch when booking Message with %s: %w", message.ID(), inheritErr))
 			return
 		}
 
-		oldSequenceAlias := markers.NewSequenceAlias(oldBranchID.Bytes())
-		cacheSequence, cachedSequenceExists := b.MarkersManager.SequenceFromAlias(oldSequenceAlias)
-		if !cachedSequenceExists {
-			panic("could not find Sequence of message")
+		messageMetadata.SetBranchID(newBranchID)
+		for _, approvingMessageID := range b.tangle.Utils.ApprovingMessageIDs(message.ID(), StrongApprover) {
+			walker.Push(approvingMessageID)
 		}
-
-		newSequenceAlias := markers.NewSequenceAlias(newBranchID.Bytes())
-		cacheSequence.Consume(func(sequence *markers.Sequence) {
-			b.MarkersManager.RegisterSequenceAlias(newSequenceAlias, sequence.ID())
-
-			if structureDetails := messageMetadata.StructureDetails(); structureDetails.IsPastMarker {
-				sequenceIndex, sequenceExists := structureDetails.PastMarkers.Get(sequence.ID())
-				if !sequenceExists {
-					panic(fmt.Sprintf("could not find Index of expected Sequence with %s", sequence.ID()))
-				}
-
-				if floorIndex, exists := b.MarkerBranchIDMappingManager.Floor(markers.NewMarker(sequence.ID(), sequenceIndex)); exists && floorIndex == sequenceIndex {
-					b.MarkersManager.UnregisterSequenceAlias(oldSequenceAlias)
-				}
-
-				b.MarkerBranchIDMappingManager.SetBranchID(markers.NewMarker(sequence.ID(), sequenceIndex), newBranchID)
-
-				// TODO: UPDATE REFERENCING MARKERS AND RECALCULATE AS WELL
-				sequence.ReferencingMarkers(sequenceIndex).ForEachSorted(func(referencingSequenceID markers.SequenceID, referencingIndex markers.Index) bool {
-					branchIDBeforeUpdate := b.MarkerBranchIDMappingManager.BranchID(markers.NewMarker(referencingSequenceID, referencingIndex))
-					if branchIDBeforeUpdate == newBranchID {
-						return true
-					}
-
-					branchIDAfterUpdate, err := b.tangle.LedgerState.InheritBranch(ledgerstate.NewBranchIDs(branchIDBeforeUpdate, newBranchID))
-					if err != nil {
-						b.tangle.Events.Error.Trigger(xerrors.Errorf("failed to inherit Branch when booking Message with %s: %w", message.ID(), err))
-						return false
-					}
-					if branchIDBeforeUpdate == branchIDAfterUpdate {
-						return true
-					}
-
-					b.MarkerBranchIDMappingManager.SetBranchID(markers.NewMarker(referencingSequenceID, referencingIndex), branchIDAfterUpdate)
-
-					return true
-				})
-
-				return
-			}
-
-			messageMetadata.SetBranchID(newBranchID)
-			for _, approvingMessageID := range b.tangle.Utils.ApprovingMessageIDs(message.ID(), StrongApprover) {
-				walker.Push(approvingMessageID)
-			}
-		})
 	}, b.tangle.Storage.AttachmentMessageIDs(transactionID), true)
 }
 
@@ -618,6 +624,8 @@ func (m *MarkerIndexBranchIDMapping) BranchID(markerIndex markers.Index) (branch
 func (m *MarkerIndexBranchIDMapping) SetBranchID(index markers.Index, branchID ledgerstate.BranchID) {
 	m.mappingMutex.Lock()
 	defer m.mappingMutex.Unlock()
+
+	m.SetModified()
 
 	m.mapping.Set(index, branchID)
 }

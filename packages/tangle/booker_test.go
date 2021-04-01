@@ -662,7 +662,9 @@ func TestBookerBook(t *testing.T) {
 		branchIDs["F"] = ledgerstate.NewBranchID(testFramework.TransactionID("Message6"))
 		branchIDs["G"] = ledgerstate.NewBranchID(testFramework.TransactionID("Message17"))
 		branchIDs["F+C"] = aggregatedBranchID(branchIDs["F"], branchIDs["C"])
-		branchIDs["F+C+E"] = aggregatedBranchID(branchIDs["F"], branchIDs["C"], branchIDs["G"])
+		branchIDs["F+C+E"] = aggregatedBranchID(branchIDs["F"], branchIDs["C"], branchIDs["E"])
+
+		fmt.Println(branchIDs)
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"Message1":  markers.NewMarkers(markers.NewMarker(1, 1)),
@@ -695,9 +697,9 @@ func TestBookerBook(t *testing.T) {
 			"Message9":  ledgerstate.UndefinedBranchID,
 			"Message10": ledgerstate.UndefinedBranchID,
 			"Message11": ledgerstate.UndefinedBranchID,
-			"Message12": branchIDs["F+C"],
+			"Message12": branchIDs["A+C"],
 			"Message13": ledgerstate.UndefinedBranchID,
-			"Message14": branchIDs["F+C"],
+			"Message14": branchIDs["A+C"],
 			"Message15": ledgerstate.UndefinedBranchID,
 			"Message16": ledgerstate.UndefinedBranchID,
 			"Message17": ledgerstate.UndefinedBranchID,
@@ -740,7 +742,7 @@ func checkMarkers(t *testing.T, testFramework *MessageTestFramework, expectedMar
 
 func checkBranchIDs(t *testing.T, testFramework *MessageTestFramework, expectedBranchIDs map[string]ledgerstate.BranchID) {
 	for messageID, expectedBranchID := range expectedBranchIDs {
-		assert.Equal(t, expectedBranchID, testFramework.tangle.Booker.BranchIDOfMessage(testFramework.Message(messageID).ID()), "BranchID of %s is wrong", messageID)
+		assert.Equal(t, expectedBranchID, testFramework.tangle.Booker.BranchIDOfMessage(testFramework.Message(messageID).ID()), "BranchID of %s should be %s but is %s", messageID, expectedBranchID, testFramework.tangle.Booker.BranchIDOfMessage(testFramework.Message(messageID).ID()))
 	}
 }
 
