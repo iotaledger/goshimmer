@@ -932,7 +932,7 @@ type AliasOutput struct {
 	// common for all outputs
 	outputID      OutputID
 	outputIDMutex sync.RWMutex
-	balances      ColoredBalances
+	balances      *ColoredBalances
 
 	// aliasAddress becomes immutable after created for a lifetime. It is returned as Address()
 	aliasAddress AliasAddress
@@ -968,7 +968,7 @@ func NewAliasOutputMint(balances map[Color]uint64, stateAddr Address, immutableD
 		return nil, xerrors.New("AliasOutput: mandatory state address must be backed by a private key, can't be an alias")
 	}
 	ret := &AliasOutput{
-		balances:     *NewColoredBalances(balances),
+		balances:     NewColoredBalances(balances),
 		stateAddress: stateAddr,
 	}
 	if len(immutableData) > 0 {
@@ -1021,7 +1021,7 @@ func AliasOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*AliasOut
 	if err3 != nil {
 		return nil, xerrors.Errorf("AliasOutput: failed to parse colored balances: %w", err3)
 	}
-	ret.balances = *cb
+	ret.balances = cb
 	ret.stateAddress, err = AddressFromMarshalUtil(marshalUtil)
 	if err != nil {
 		return nil, xerrors.Errorf("AliasOutput: failed to parse state address (%v): %w", err, cerrors.ErrParseBytesFailed)
@@ -1067,7 +1067,7 @@ func (a *AliasOutput) SetBalances(balances map[Color]uint64) error {
 	if !IsAboveDustThreshold(balances) {
 		return xerrors.New("AliasOutput: balances are less than dust threshold")
 	}
-	a.balances = *NewColoredBalances(balances)
+	a.balances = NewColoredBalances(balances)
 	return nil
 }
 
@@ -1178,7 +1178,7 @@ func (a *AliasOutput) clone() *AliasOutput {
 	a.mustValidate()
 	ret := &AliasOutput{
 		outputID:      a.outputID,
-		balances:      *a.balances.Clone(),
+		balances:      a.balances.Clone(),
 		aliasAddress:  a.aliasAddress,
 		stateAddress:  a.stateAddress.Clone(),
 		stateIndex:    a.stateIndex,
@@ -1218,7 +1218,7 @@ func (a *AliasOutput) Type() OutputType {
 
 // Balances return colored balances of the output
 func (a *AliasOutput) Balances() *ColoredBalances {
-	return &a.balances
+	return a.balances
 }
 
 // Address AliasOutput is searchable in the ledger through its AliasAddress
@@ -1422,7 +1422,7 @@ func (a *AliasOutput) findChainedOutputAndCheckFork(tx *Transaction) (*AliasOutp
 }
 
 // equalColoredBalance utility to compare colored balances
-func equalColoredBalance(b1, b2 ColoredBalances) bool {
+func equalColoredBalance(b1, b2 *ColoredBalances) bool {
 	allColors := make(map[Color]bool)
 	b1.ForEach(func(col Color, bal uint64) bool {
 		allColors[col] = true
@@ -1451,7 +1451,7 @@ func IsAboveDustThreshold(m map[Color]uint64) bool {
 }
 
 // isExactDustMinimum checks if colored balances are exactly what is required by dust constraint
-func isExactDustMinimum(b ColoredBalances) bool {
+func isExactDustMinimum(b *ColoredBalances) bool {
 	bals := b.Map()
 	if len(bals) != 1 {
 		return false
@@ -1536,14 +1536,21 @@ func (a *AliasOutput) unlockedGovernanceByAliasIndex(tx *Transaction, refIndex u
 	if !refInput.GetAliasAddress().Equals(a.governingAddress.(*AliasAddress)) {
 		return false, xerrors.New("AliasOutput: wrong alias reference address")
 	}
-	return !refInput.IsUnlockedForGovernanceUpdate(tx), nil
+	// the referenced output must be unlocked for state update
+	return !refInput.hasToBeUnlockedForGovernanceUpdate(tx), nil
 }
 
-// IsUnlockedForGovernanceUpdate finds chained output and checks if it is unlocked governance flags set
-func (a *AliasOutput) IsUnlockedForGovernanceUpdate(tx *Transaction) bool {
+// hasToBeUnlockedForGovernanceUpdate finds chained output and checks if it is unlocked governance flags set
+// If there's no chained output it means governance unlock is required to destroy the output
+func (a *AliasOutput) hasToBeUnlockedForGovernanceUpdate(tx *Transaction) bool {
 	chained, err := a.findChainedOutputAndCheckFork(tx)
 	if err != nil {
 		return false
+	}
+	if chained == nil {
+		// the corresponding chained output not found, it means it is being destroyed,
+		// for this we need governance unlock
+		return true
 	}
 	return chained.isGovernanceUpdate
 }
@@ -1570,12 +1577,11 @@ type ExtendedLockedOutput struct {
 
 	// optional part
 	// Fallback address after timeout. If nil, fallback action not set
-	fallbackAddress Address
-	// fallback deadline in Unix seconds. The deadline is calculated relative to the tx timestamo
-	fallbackDeadline uint32
+	fallbackAddress  Address
+	fallbackDeadline time.Time
 
-	// Deadline since when output can be unlocked. Unix seconds
-	timelock uint32
+	// Deadline since when output can be unlocked
+	timelock time.Time
 
 	// any attached data (subject to size limits)
 	payload []byte
@@ -1598,14 +1604,18 @@ func NewExtendedLockedOutput(balances map[Color]uint64, address Address) *Extend
 }
 
 // WithFallbackOptions adds fallback options to the output and returns the updated version.
-func (o *ExtendedLockedOutput) WithFallbackOptions(addr Address, deadline uint32) *ExtendedLockedOutput {
-	o.fallbackAddress = addr.Clone()
+func (o *ExtendedLockedOutput) WithFallbackOptions(addr Address, deadline time.Time) *ExtendedLockedOutput {
+	if addr != nil {
+		o.fallbackAddress = addr.Clone()
+	} else {
+		o.fallbackAddress = nil
+	}
 	o.fallbackDeadline = deadline
 	return o
 }
 
 // WithTimeLock adds timelock to the output and returns the updated version.
-func (o *ExtendedLockedOutput) WithTimeLock(timelock uint32) *ExtendedLockedOutput {
+func (o *ExtendedLockedOutput) WithTimeLock(timelock time.Time) *ExtendedLockedOutput {
 	o.timelock = timelock
 	return o
 }
@@ -1663,13 +1673,13 @@ func ExtendedOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output
 			err = xerrors.Errorf("failed to parse fallbackAddress (%v): %w", err, cerrors.ErrParseBytesFailed)
 			return
 		}
-		if output.fallbackDeadline, err = marshalUtil.ReadUint32(); err != nil {
+		if output.fallbackDeadline, err = marshalUtil.ReadTime(); err != nil {
 			err = xerrors.Errorf("failed to parse fallbackTimeout (%v): %w", err, cerrors.ErrParseBytesFailed)
 			return
 		}
 	}
 	if flagExtendedLockedOutputTimeLockPresent&flags != 0 {
-		if output.timelock, err = marshalUtil.ReadUint32(); err != nil {
+		if output.timelock, err = marshalUtil.ReadTime(); err != nil {
 			err = xerrors.Errorf("failed to parse timelock (%v): %w", err, cerrors.ErrParseBytesFailed)
 			return
 		}
@@ -1696,7 +1706,7 @@ func (o *ExtendedLockedOutput) compressFlags() byte {
 	if o.fallbackAddress != nil {
 		ret |= flagExtendedLockedOutputFallbackPresent
 	}
-	if o.timelock > 0 {
+	if !o.timelock.IsZero() {
 		ret |= flagExtendedLockedOutputTimeLockPresent
 	}
 	if len(o.payload) > 0 {
@@ -1749,7 +1759,9 @@ func (o *ExtendedLockedOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBl
 		unlockValid = blk.AddressSignatureValid(addr, tx.Essence().Bytes())
 
 	case *AliasUnlockBlock:
-		// unlocking by alias reference
+		// unlocking by alias reference. The unlock is valid if:
+		// - referenced alias output has same alias address
+		// - it is not unlocked for governance
 		refAliasOutput, isAlias := inputs[blk.AliasInputIndex()].(*AliasOutput)
 		if !isAlias {
 			return false, xerrors.New("ExtendedLockedOutput: referenced input must be AliasOutput")
@@ -1757,7 +1769,7 @@ func (o *ExtendedLockedOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBl
 		if !addr.Equals(refAliasOutput.GetAliasAddress()) {
 			return false, xerrors.New("ExtendedLockedOutput: wrong alias referenced")
 		}
-		unlockValid = refAliasOutput.IsSelfGoverned() || !refAliasOutput.IsUnlockedForGovernanceUpdate(tx)
+		unlockValid = !refAliasOutput.hasToBeUnlockedForGovernanceUpdate(tx)
 
 	default:
 		err = xerrors.Errorf("ExtendedLockedOutput: unsupported unlock block type: %w", cerrors.ErrParseBytesFailed)
@@ -1789,11 +1801,17 @@ func (o *ExtendedLockedOutput) Input() Input {
 
 // Clone creates a copy of the Output.
 func (o *ExtendedLockedOutput) Clone() Output {
-	return &ExtendedLockedOutput{
-		id:       o.id,
-		balances: o.balances.Clone(),
-		address:  o.address.Clone(),
+	ret := *o
+	ret.balances = o.balances.Clone()
+	ret.address = o.address.Clone()
+	if o.fallbackAddress != nil {
+		ret.fallbackAddress = o.fallbackAddress.Clone()
 	}
+	if o.payload != nil {
+		ret.payload = make([]byte, len(o.payload))
+		copy(ret.payload, o.payload)
+	}
+	return &ret
 }
 
 // UpdateMintingColor replaces the ColorMint in the balances of the Output with the hash of the OutputID. It returns a
@@ -1804,7 +1822,12 @@ func (o *ExtendedLockedOutput) UpdateMintingColor() Output {
 		delete(coloredBalances, ColorMint)
 		coloredBalances[Color(blake2b.Sum256(o.ID().Bytes()))] = mintedCoins
 	}
-	updatedOutput := NewExtendedLockedOutput(coloredBalances, o.Address())
+	updatedOutput := NewExtendedLockedOutput(coloredBalances, o.Address()).
+		WithFallbackOptions(o.fallbackAddress, o.fallbackDeadline).
+		WithTimeLock(o.timelock)
+	if err := updatedOutput.SetPayload(o.payload); err != nil {
+		panic(xerrors.Errorf("UpdateMintingColor: %v", err))
+	}
 	updatedOutput.SetID(o.ID())
 
 	return updatedOutput
@@ -1837,10 +1860,10 @@ func (o *ExtendedLockedOutput) ObjectStorageValue() []byte {
 		WriteByte(flags)
 	if flagExtendedLockedOutputFallbackPresent&flags != 0 {
 		ret.WriteBytes(o.fallbackAddress.Bytes()).
-			WriteUint32(o.fallbackDeadline)
+			WriteTime(o.fallbackDeadline)
 	}
 	if flagExtendedLockedOutputTimeLockPresent&flags != 0 {
-		ret.WriteUint32(o.timelock)
+		ret.WriteTime(o.timelock)
 	}
 	if flagExtendedLockedOutputPayloadPresent&flags != 0 {
 		ret.WriteUint16(uint16(len(o.payload))).
@@ -1874,7 +1897,7 @@ func (o *ExtendedLockedOutput) GetPayload() []byte {
 
 // TimeLock is a time after which output can be unlocked
 func (o *ExtendedLockedOutput) TimeLock() time.Time {
-	return time.Unix(int64(o.timelock), 0)
+	return o.timelock
 }
 
 // TimeLockedNow checks if output is unlocked for the specific moment
@@ -1884,7 +1907,7 @@ func (o *ExtendedLockedOutput) TimeLockedNow(nowis time.Time) bool {
 
 // FallbackOptions returns fallback options of the output. The address is nil if fallback options are not set
 func (o *ExtendedLockedOutput) FallbackOptions() (Address, time.Time) {
-	return o.fallbackAddress, time.Unix(int64(o.fallbackDeadline), 0)
+	return o.fallbackAddress, o.fallbackDeadline
 }
 
 // UnlockAddressNow return unlock address which is valid for the specific moment of time
@@ -1892,7 +1915,7 @@ func (o *ExtendedLockedOutput) UnlockAddressNow(nowis time.Time) Address {
 	if o.fallbackAddress == nil {
 		return o.address
 	}
-	if nowis.After(time.Unix(int64(o.fallbackDeadline), 0)) {
+	if nowis.After(o.fallbackDeadline) {
 		return o.fallbackAddress
 	}
 	return o.address

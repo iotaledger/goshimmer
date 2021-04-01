@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/objectstorage"
@@ -44,7 +45,7 @@ func TestAliasOutput_NewAliasOutputMint(t *testing.T) {
 	})
 
 	t.Run("CASE: State address is an alias", func(t *testing.T) {
-		stateAddy := randAliasAddres()
+		stateAddy := randAliasAddress()
 		data := []byte("dummy")
 		alias, err := NewAliasOutputMint(map[Color]uint64{ColorIOTA: 100}, stateAddy, data)
 		assert.Error(t, err)
@@ -59,7 +60,7 @@ func TestAliasOutput_NewAliasOutputMint(t *testing.T) {
 	})
 
 	t.Run("CASE: Too big state data", func(t *testing.T) {
-		stateAddy := randAliasAddres()
+		stateAddy := randAliasAddress()
 		data := make([]byte, MaxOutputPayloadSize+1)
 		alias, err := NewAliasOutputMint(map[Color]uint64{ColorIOTA: 100}, stateAddy, data)
 		assert.Error(t, err)
@@ -68,19 +69,7 @@ func TestAliasOutput_NewAliasOutputMint(t *testing.T) {
 }
 
 func TestAliasOutput_NewAliasOutputNext(t *testing.T) {
-	originAlias := &AliasOutput{
-		outputID:            randOutputID(),
-		outputIDMutex:       sync.RWMutex{},
-		balances:            *NewColoredBalances(map[Color]uint64{ColorIOTA: 100}),
-		aliasAddress:        *randAliasAddres(),
-		stateAddress:        randEd25119Address(),
-		stateIndex:          0,
-		stateData:           []byte("initial"),
-		immutableData:       []byte("don't touch this"),
-		isGovernanceUpdate:  false,
-		governingAddress:    randAliasAddres(),
-		StorableObjectFlags: objectstorage.StorableObjectFlags{},
-	}
+	originAlias := dummyAliasOutput()
 
 	t.Run("CASE: Happy path, no governance update", func(t *testing.T) {
 		nextAlias := originAlias.NewAliasOutputNext()
@@ -94,12 +83,74 @@ func TestAliasOutput_NewAliasOutputNext(t *testing.T) {
 	// TODO: to be continued
 }
 
+func TestAliasOutput_Clone(t *testing.T) {
+	out := dummyAliasOutput()
+	outBack := out.Clone()
+	outBackT, ok := outBack.(*AliasOutput)
+	assert.True(t, ok)
+	assert.True(t, out != outBackT)
+	assert.True(t, out.stateAddress != outBackT.stateAddress)
+	assert.True(t, out.governingAddress != outBackT.governingAddress)
+	assert.True(t, notSameMemory(out.immutableData, outBackT.immutableData))
+	assert.True(t, notSameMemory(out.stateData, outBackT.stateData))
+	assert.EqualValues(t, out.Bytes(), outBack.Bytes())
+}
+
+func TestExtendedLockedOutput_Clone(t *testing.T) {
+	out := dummyExtendedLockedOutput()
+	outBack := out.Clone()
+	outBackT, ok := outBack.(*ExtendedLockedOutput)
+	assert.True(t, ok)
+	assert.True(t, out != outBackT)
+	assert.True(t, notSameMemory(out.payload, outBackT.payload))
+	assert.True(t, out.address != outBackT.address)
+	assert.True(t, out.fallbackAddress != outBackT.fallbackAddress)
+	assert.EqualValues(t, out.Bytes(), outBack.Bytes())
+}
+
+func notSameMemory(s1, s2 []byte) bool {
+	if s1 == nil || s2 == nil {
+		return true
+	}
+	return &s1[cap(s1)-1] != &s2[cap(s2)-1]
+}
+
+func dummyAliasOutput() *AliasOutput {
+	return &AliasOutput{
+		outputID:            randOutputID(),
+		outputIDMutex:       sync.RWMutex{},
+		balances:            NewColoredBalances(map[Color]uint64{ColorIOTA: 100}),
+		aliasAddress:        *randAliasAddress(),
+		stateAddress:        randEd25119Address(),
+		stateIndex:          0,
+		stateData:           []byte("initial"),
+		immutableData:       []byte("don't touch this"),
+		isGovernanceUpdate:  false,
+		governingAddress:    randAliasAddress(),
+		StorableObjectFlags: objectstorage.StorableObjectFlags{},
+	}
+}
+
+func dummyExtendedLockedOutput() *ExtendedLockedOutput {
+	return &ExtendedLockedOutput{
+		id:                  randOutputID(),
+		idMutex:             sync.RWMutex{},
+		balances:            NewColoredBalances(map[Color]uint64{ColorIOTA: 1}),
+		address:             randEd25119Address(),
+		fallbackAddress:     randEd25119Address(),
+		fallbackDeadline:    time.Unix(1001, 0),
+		timelock:            time.Unix(2000, 0),
+		payload:             []byte("a payload"),
+		StorableObjectFlags: objectstorage.StorableObjectFlags{},
+	}
+}
+
 func randEd25119Address() *ED25519Address {
 	keyPair := ed25519.GenerateKeyPair()
 	return NewED25519Address(keyPair.PublicKey)
 }
 
-func randAliasAddres() *AliasAddress {
+func randAliasAddress() *AliasAddress {
 	randOutputIDBytes := make([]byte, 34)
 	_, _ = rand.Read(randOutputIDBytes)
 	return NewAliasAddress(randOutputIDBytes)
