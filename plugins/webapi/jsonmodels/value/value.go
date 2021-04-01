@@ -3,84 +3,20 @@ package value
 import (
 	"time"
 
-	"github.com/mr-tron/base58/base58"
-
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
-var maxBookedAwaitTime = 5 * time.Second
+// AttachmentsResponse is the HTTP response from retrieving value objects.
+type AttachmentsResponse struct {
+	Attachments []ValueObject `json:"attachments,omitempty"`
+	Error       string        `json:"error,omitempty"`
+}
 
-// ParseTransaction handle transaction json object.
-func ParseTransaction(tx *ledgerstate.Transaction) (txn Transaction) {
-	// process inputs
-	inputs := make([]Input, len(tx.Essence().Inputs()))
-	for i, input := range tx.Essence().Inputs() {
-		inputs[i] = Input{
-			ConsumedOutputID: input.Base58(),
-		}
-	}
-
-	// process outputs
-	outputs := make([]Output, len(tx.Essence().Outputs()))
-	for i, output := range tx.Essence().Outputs() {
-		var balances []Balance
-		output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
-			balances = append(balances, Balance{
-				Color: color.String(),
-				Value: int64(balance),
-			})
-			return true
-		})
-		outputs[i] = Output{
-			Type:     output.Type(),
-			Address:  output.Address().Base58(),
-			Balances: balances,
-		}
-	}
-
-	// process unlock blocks
-	unlockBlocks := make([]UnlockBlock, len(tx.UnlockBlocks()))
-	for i, unlockBlock := range tx.UnlockBlocks() {
-		ub := UnlockBlock{
-			Type: unlockBlock.Type(),
-		}
-		switch unlockBlock.Type() {
-		case ledgerstate.SignatureUnlockBlockType:
-			signature, _, _ := ledgerstate.SignatureFromBytes(unlockBlock.Bytes())
-			ub.SignatureType = signature.Type()
-			switch signature.Type() {
-			case ledgerstate.ED25519SignatureType:
-				signature, _, _ := ledgerstate.ED25519SignatureFromBytes(signature.Bytes())
-				ub.PublicKey = signature.PublicKey.String()
-				ub.Signature = signature.Signature.String()
-
-			case ledgerstate.BLSSignatureType:
-				signature, _, _ := ledgerstate.BLSSignatureFromBytes(signature.Bytes())
-				ub.Signature = signature.Signature.String()
-			}
-		case ledgerstate.ReferenceUnlockBlockType:
-			referenceUnlockBlock, _, _ := ledgerstate.ReferenceUnlockBlockFromBytes(unlockBlock.Bytes())
-			ub.ReferencedIndex = referenceUnlockBlock.ReferencedIndex()
-		}
-
-		unlockBlocks[i] = ub
-	}
-
-	dataPayload := []byte{}
-	if tx.Essence().Payload() != nil {
-		dataPayload = tx.Essence().Payload().Bytes()
-	}
-
-	return Transaction{
-		Version:           tx.Essence().Version(),
-		Timestamp:         tx.Essence().Timestamp().Unix(),
-		AccessPledgeID:    base58.Encode(tx.Essence().AccessPledgeID().Bytes()),
-		ConsensusPledgeID: base58.Encode(tx.Essence().ConsensusPledgeID().Bytes()),
-		Inputs:            inputs,
-		Outputs:           outputs,
-		UnlockBlocks:      unlockBlocks,
-		DataPayload:       dataPayload,
-	}
+// ValueObject holds the information of a value object.
+type ValueObject struct {
+	ID          string      `json:"id"`
+	Parents     []string    `json:"parents"`
+	Transaction Transaction `json:"transaction"`
 }
 
 // TransactionMetadata holds the information of a transaction metadata.
@@ -159,4 +95,79 @@ type UnlockBlock struct {
 	SignatureType   ledgerstate.SignatureType   `json:"signatureType,omitempty"`
 	PublicKey       string                      `json:"publicKey,omitempty"`
 	Signature       string                      `json:"signature,omitempty"`
+}
+
+// GetTransactionByIDResponse is the HTTP response from retrieving transaction.
+type GetTransactionByIDResponse struct {
+	TransactionMetadata TransactionMetadata `json:"transactionMetadata"`
+	Transaction         Transaction         `json:"transaction"`
+	InclusionState      InclusionState      `json:"inclusion_state"`
+	Error               string              `json:"error,omitempty"`
+}
+
+// SendTransactionByJSONRequest holds the transaction object(json) to send.
+// e.g.,
+// {
+// 	"inputs": string[],
+//  "a_mana_pledge": string,
+//  "c_mana_pledg": string,
+// 	"outputs": {
+//	   "type": number,
+// 	   "address": string,
+// 	   "balances": {
+// 		   "value": number,
+// 		   "color": string
+// 	   }[];
+// 	 }[],
+// 	 "signature": []string
+//  }
+type SendTransactionByJSONRequest struct {
+	Inputs        []string      `json:"inputs"`
+	Outputs       []Output      `json:"outputs"`
+	AManaPledgeID string        `json:"a_mana_pledg"`
+	CManaPledgeID string        `json:"c_mana_pledg"`
+	Signatures    []UnlockBlock `json:"signatures"`
+	Payload       []byte        `json:"payload"`
+}
+
+// SendTransactionByJSONResponse is the HTTP response from sending transaction.
+type SendTransactionByJSONResponse struct {
+	TransactionID string `json:"transaction_id,omitempty"`
+	Error         string `json:"error,omitempty"`
+}
+
+// UnspentOutputsRequest holds the addresses to query.
+type UnspentOutputsRequest struct {
+	Addresses []string `json:"addresses,omitempty"`
+	Error     string   `json:"error,omitempty"`
+}
+
+// UnspentOutputsResponse is the HTTP response from retrieving value objects.
+type UnspentOutputsResponse struct {
+	UnspentOutputs []UnspentOutput `json:"unspent_outputs,omitempty"`
+	Error          string          `json:"error,omitempty"`
+}
+
+// SendTransactionRequest holds the transaction object(bytes) to send.
+type SendTransactionRequest struct {
+	TransactionBytes []byte `json:"txn_bytes"`
+}
+
+// SendTransactionResponse is the HTTP response from sending transaction.
+type SendTransactionResponse struct {
+	TransactionID string `json:"transaction_id,omitempty"`
+	Error         string `json:"error,omitempty"`
+}
+
+// AllowedManaPledgeResponse is the http response.
+type AllowedManaPledgeResponse struct {
+	Access    AllowedPledge `json:"accessMana"`
+	Consensus AllowedPledge `json:"consensusMana"`
+	Error     string        `json:"error,omitempty"`
+}
+
+// AllowedPledge represents the nodes that mana is allowed to be pledged to.
+type AllowedPledge struct {
+	IsFilterEnabled bool     `json:"isFilterEnabled"`
+	Allowed         []string `json:"allowed,omitempty"`
 }
