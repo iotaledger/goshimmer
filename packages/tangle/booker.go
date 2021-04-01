@@ -113,29 +113,20 @@ func (b *Booker) updatedMarkerMappings(marker *markers.Marker, newConflictBranch
 
 // UpdateMessagesBranch propagates the update of the message's branchID (and its future cone) in case on changes of it contained transction's branchID.
 func (b *Booker) UpdateMessagesBranch(transactionID ledgerstate.TransactionID) {
+	newConflictBranchID := b.tangle.LedgerState.BranchID(transactionID)
+
 	b.tangle.Utils.WalkMessageAndMetadata(func(message *Message, messageMetadata *MessageMetadata, walker *walker.Walker) {
 		if !messageMetadata.IsBooked() {
 			return
 		}
 
 		if structureDetails := messageMetadata.StructureDetails(); structureDetails.IsPastMarker {
-			b.updatedMarkerMappings(structureDetails.PastMarkers.FirstMarker(), b.tangle.LedgerState.BranchID(transactionID))
+			b.updatedMarkerMappings(structureDetails.PastMarkers.FirstMarker(), newConflictBranchID)
 			return
 		}
 
-		/*
-			_, strongParentsBranchIDs, _ := b.strongParentsDetails(message)
-			weakParentsBranchIDs := b.weakParentsDetails(message)
-			branchIDOfPayload := b.BranchIDOfPayload(message)
-			combinedBranches := strongParentsBranchIDs.Clone()
-			combinedBranches.Add(branchIDOfPayload)
-			for weakParentsBranchID := range weakParentsBranchIDs {
-				combinedBranches.Add(weakParentsBranchID)
-			}
-		*/
-
 		oldBranchID := b.BranchIDOfMessage(message.ID())
-		newBranchID, inheritErr := b.tangle.LedgerState.InheritBranch(ledgerstate.NewBranchIDs(oldBranchID, b.tangle.LedgerState.BranchID(transactionID)))
+		newBranchID, inheritErr := b.tangle.LedgerState.InheritBranch(ledgerstate.NewBranchIDs(oldBranchID, newConflictBranchID))
 		if inheritErr != nil {
 			b.tangle.Events.Error.Trigger(xerrors.Errorf("failed to inherit Branch when booking Message with %s: %w", message.ID(), inheritErr))
 			return
@@ -786,5 +777,33 @@ func (c *CachedMarkerIndexBranchIDMapping) String() string {
 		stringify.StructField("CachedObject", c.Unwrap()),
 	)
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region IndividuallyMappedMessage ////////////////////////////////////////////////////////////////////////////////////
+
+type IndividuallyMappedMessage struct {
+	branchID    ledgerstate.BranchID
+	messageID   MessageID
+	pastMarkers *markers.Markers
+
+	objectstorage.StorableObjectFlags
+}
+
+// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
+func (i IndividuallyMappedMessage) Update(other objectstorage.StorableObject) {
+	panic("updates disabled")
+}
+
+func (i IndividuallyMappedMessage) ObjectStorageKey() []byte {
+	panic("implement me")
+}
+
+func (i IndividuallyMappedMessage) ObjectStorageValue() []byte {
+	panic("implement me")
+}
+
+// code contract (make sure the type implements all required methods)
+var _ objectstorage.StorableObject = &IndividuallyMappedMessage{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
