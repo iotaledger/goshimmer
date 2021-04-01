@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
@@ -20,15 +21,16 @@ import (
 // MessageTestFramework implements a framework for conveniently issuing messages in a tangle as part of unit tests in a
 // simplified way.
 type MessageTestFramework struct {
-	tangle           *Tangle
-	messagesByAlias  map[string]*Message
-	walletsByAlias   map[string]wallet
-	walletsByAddress map[ledgerstate.Address]wallet
-	inputsByAlias    map[string]ledgerstate.Input
-	outputsByAlias   map[string]ledgerstate.Output
-	outputsByID      map[ledgerstate.OutputID]ledgerstate.Output
-	options          *MessageTestFrameworkOptions
-	messagesBookedWG sync.WaitGroup
+	tangle                      *Tangle
+	messagesByAlias             map[string]*Message
+	walletsByAlias              map[string]wallet
+	walletsByAddress            map[ledgerstate.Address]wallet
+	inputsByAlias               map[string]ledgerstate.Input
+	outputsByAlias              map[string]ledgerstate.Output
+	outputsByID                 map[ledgerstate.OutputID]ledgerstate.Output
+	options                     *MessageTestFrameworkOptions
+	hookedIncreaseIndexCallback markers.IncreaseIndexCallback
+	messagesBookedWG            sync.WaitGroup
 }
 
 // NewMessageTestFramework is the constructor of the MessageTestFramework.
@@ -66,7 +68,30 @@ func (m *MessageTestFramework) CreateMessage(messageAlias string, messageOptions
 	}
 
 	m.messagesByAlias[messageAlias] = newTestParentsDataMessage(messageAlias, m.strongParentIDs(options), m.weakParentIDs(options))
+
 	return m.messagesByAlias[messageAlias]
+}
+
+// IncreaseMarkersIndexCallback is the IncreaseMarkersIndexCallback that the MessageTestFramework uses to determine when
+// to assign new Markers to messages.
+func (m *MessageTestFramework) IncreaseMarkersIndexCallback(markers.SequenceID, markers.Index) bool {
+	return false
+}
+
+// PreventNewMarkers disables the generation of new Markers for the given Messages.
+func (m *MessageTestFramework) PreventNewMarkers(enabled bool) *MessageTestFramework {
+	if enabled && m.hookedIncreaseIndexCallback == nil {
+		m.hookedIncreaseIndexCallback = m.IncreaseMarkersIndexCallback
+		m.tangle.Options.IncreaseMarkersIndexCallback = m.IncreaseMarkersIndexCallback
+		return m
+	}
+
+	if !enabled && m.hookedIncreaseIndexCallback != nil {
+		m.tangle.Options.IncreaseMarkersIndexCallback = m.hookedIncreaseIndexCallback
+		return m
+	}
+
+	return m
 }
 
 // IssueMessages stores the given Messages in the Storage and triggers the processing by the Tangle.
@@ -81,8 +106,10 @@ func (m *MessageTestFramework) IssueMessages(messageAliases ...string) *MessageT
 }
 
 // WaitMessagesBooked waits for all Messages to be processed by the Booker.
-func (m *MessageTestFramework) WaitMessagesBooked() {
+func (m *MessageTestFramework) WaitMessagesBooked() *MessageTestFramework {
 	m.messagesBookedWG.Wait()
+
+	return m
 }
 
 // Message retrieves the Messages that is associated with the given alias.
@@ -217,7 +244,7 @@ func (m *MessageTestFramework) strongParentIDs(options *MessageTestFrameworkMess
 // MessageTestFrameworkMessageOptions.
 func (m *MessageTestFramework) weakParentIDs(options *MessageTestFrameworkMessageOptions) (weakParentIDs MessageIDs) {
 	weakParentIDs = make(MessageIDs, 0)
-	for weakParentAlias := range options.strongParents {
+	for weakParentAlias := range options.weakParents {
 		if weakParentAlias == "Genesis" {
 			weakParentIDs = append(weakParentIDs, EmptyMessageID)
 
@@ -296,11 +323,12 @@ func WithColoredGenesisOutput(alias string, balances map[ledgerstate.Color]uint6
 // MessageTestFrameworkMessageOptions is a struct that represents a collection of options that can be set when creating
 // a Message with the MessageTestFramework.
 type MessageTestFrameworkMessageOptions struct {
-	inputs         map[string]types.Empty
-	outputs        map[string]uint64
-	coloredOutputs map[string]map[ledgerstate.Color]uint64
-	strongParents  map[string]types.Empty
-	weakParents    map[string]types.Empty
+	inputs           map[string]types.Empty
+	outputs          map[string]uint64
+	coloredOutputs   map[string]map[ledgerstate.Color]uint64
+	strongParents    map[string]types.Empty
+	weakParents      map[string]types.Empty
+	withoutNewMarker bool
 }
 
 // NewMessageTestFrameworkMessageOptions is the constructor for the MessageTestFrameworkMessageOptions.

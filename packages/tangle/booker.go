@@ -133,7 +133,7 @@ func (b *Booker) UpdateMessagesBranch(transactionID ledgerstate.TransactionID) {
 func (b *Booker) Book(messageID MessageID) (err error) {
 	b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-			strongParentsStructureDetails, strongParentsBranchIDs, strongParentsBranchIDExplicitlySet := b.strongParentsDetails(message)
+			strongParentsStructureDetails, strongParentsBranchIDs, _ := b.strongParentsDetails(message)
 			weakParentsBranchIDs := b.weakParentsDetails(message)
 			branchIDOfPayload := ledgerstate.MasterBranchID
 			if payload := message.Payload(); payload != nil && payload.Type() == ledgerstate.TransactionType {
@@ -182,15 +182,11 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 				return
 			}
 
-			inheritedStructureDetails, newSequenceCreated := b.MarkersManager.Manager.InheritStructureDetails(strongParentsStructureDetails, b.tangle.Options.IncreaseMarkersIndexCallback, markers.NewSequenceAlias(inheritedBranch.Bytes()))
+			inheritedStructureDetails, _ := b.MarkersManager.Manager.InheritStructureDetails(strongParentsStructureDetails, b.tangle.Options.IncreaseMarkersIndexCallback, markers.NewSequenceAlias(inheritedBranch.Bytes()))
 			messageMetadata.SetStructureDetails(inheritedStructureDetails)
 
-			storeBranchID := strongParentsBranchIDExplicitlySet || newSequenceCreated
-			if _, sameBranchAsParents := strongParentsBranchIDs[inheritedBranch]; !sameBranchAsParents {
-				storeBranchID = true
-			}
-
-			if storeBranchID {
+			// store in none of my past markers is already mapped to the branch
+			if !b.branchMappedInPastMarkers(inheritedBranch, inheritedStructureDetails.PastMarkers) {
 				if !inheritedStructureDetails.IsPastMarker {
 					messageMetadata.SetBranchID(inheritedBranch)
 				} else {
@@ -202,6 +198,16 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 
 			b.Events.MessageBooked.Trigger(messageID)
 		})
+	})
+
+	return
+}
+
+func (b *Booker) branchMappedInPastMarkers(branch ledgerstate.BranchID, pastMarkers *markers.Markers) (branchMappedByPastMarkers bool) {
+	pastMarkers.ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
+		branchMappedByPastMarkers = b.MarkerBranchIDMappingManager.BranchID(markers.NewMarker(sequenceID, index)) == branch
+
+		return !branchMappedByPastMarkers
 	})
 
 	return
@@ -222,7 +228,7 @@ func (b *Booker) strongParentsDetails(message *Message) (structureDetails []*mar
 			structureDetails = append(structureDetails, structureDetailsOfMessage)
 
 			if branchID := messageMetadata.BranchID(); branchID != ledgerstate.UndefinedBranchID {
-				branchIDs[ledgerstate.MasterBranchID] = types.Void
+				branchIDs[branchID] = types.Void
 				branchExplicitlySet = true
 				return
 			}
@@ -460,9 +466,7 @@ func (m *MarkerBranchIDMappingManager) BranchID(marker *markers.Marker) (branchI
 		return ledgerstate.MasterBranchID
 	}
 
-	m.tangle.Storage.MarkerIndexBranchIDMapping(marker.SequenceID(), func(sequenceID markers.SequenceID) *MarkerIndexBranchIDMapping {
-		panic(fmt.Sprintf("tried to retrieve the BranchID of unknown marker.%s", sequenceID))
-	}).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
+	m.tangle.Storage.MarkerIndexBranchIDMapping(marker.SequenceID()).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
 		branchID = markerIndexBranchIDMapping.BranchID(marker.Index())
 	})
 
