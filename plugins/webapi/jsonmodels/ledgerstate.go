@@ -374,10 +374,10 @@ func (e *ExtendedLockedOutput) ToLedgerStateOutput(id ledgerstate.OutputID) (led
 		if fErr != nil {
 			return nil, xerrors.Errorf("wrong fallback address in ExtendedLockedOutput: %w", err)
 		}
-		res = res.WithFallbackOptions(fallbackAddy, uint32(e.FallbackDeadline.Unix()))
+		res = res.WithFallbackOptions(fallbackAddy, e.FallbackDeadline)
 	}
 	if !e.TimeLock.Equal(time.Time{}) {
-		res = res.WithTimeLock(uint32(e.TimeLock.Unix()))
+		res = res.WithTimeLock(e.TimeLock)
 	}
 	if e.Payload != nil {
 		rErr := res.SetPayload(e.Payload)
