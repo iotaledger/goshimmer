@@ -22,6 +22,8 @@ We turn our attention now to another point of view: the one of the nodes receivi
 
 Only after the scheduler, the messages can be written into the local Tangle. To do that, the nodes perform most of the **semantic validation**, such as the search for ("non mergeable"? how can I say that?) conflicts in the message's past cone or (in the case of value transfers) unlock condition checks. At this point (if the message passes this tests), the message will be **booked** into the **local Tangle** of the node and, in the case of a value transfer, the **ledger state** and two vectors called Access Mana vector (already mentioned in this text) and **Consensus Mana** Vector are updated accordingly. The Consensus Mana is another Sybil protection mechanism, but that, since it is applied to different modules than Access Mana, has the need of a different calculation (for more details on that subject, see INSERT LINK). 
 
+![title](Protocol_overview_booking.png)
+
 After having the message booked, the node is free to **gossip** it, but a crucial step of the protocol is still missing: the **opinion Setter** and the voting protocol, that deal with the most subjective parts of the consensus mechanism (notice that, until now, the protocol has mostly dealt with objective checks). The voting protocol used here is the FPC (or **Fast Probabilistic Consensus**), which is a binary voting protocol which allows a large group of nodes to come to consensus on the value of a single bit. The FPC begins with each node having an initial opinion. 
 
 In each round, nodes randomly choose other nodes to query about their opinions. If the number of responses with the opposite opinion is greater than a certain threshold, the querying node changes its opinion. If a node holds the same opinion for a certain number of rounds, it finalizes on that opinion.
@@ -34,16 +36,11 @@ When selecting which other nodes to query, a node must weight the list of all no
 2. Agreement: all honest nodes will finalize on the same opinion.
 3. Integrity: if a super majority of nodes -e.g. more than 90% weighted by Consensus Mana-, have the same initial opinion, then FPC will terminate with that value.
 
+![title](Protocol_overview_consensus.png)
+
 For more details, see INSERT LINK.  
 
 
-
-
-
-
-
-
-ADD A FIGURE
 
 
 
