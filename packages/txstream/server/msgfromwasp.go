@@ -32,6 +32,7 @@ func (c *Connection) processMessageFromClient(data []byte) {
 
 	case *txstream.MsgUpdateSubscriptions:
 		newAddrs := c.setSubscriptions(msg.Addresses)
+		c.log().Debugf("update subscriptions: %+v", msg.Addresses)
 		// send backlogs of newly subscribed addresses
 		for _, addr := range newAddrs {
 			c.getBacklog(addr)
