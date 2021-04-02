@@ -39,7 +39,7 @@ func (u *UtxoDB) AddTransaction(tx *ledgerstate.Transaction) error {
 
 		consumed, ok := u.findUnspentOutputByID(utxoInp.ReferencedOutputID())
 		if !ok {
-			return xerrors.New("deleting UTXO: corresponding output does not exists")
+			return xerrors.Errorf("deleting UTXO: corresponding output does not exists: %s", utxoInp.ReferencedOutputID().String())
 		}
 		delete(u.utxo, utxoInp.ReferencedOutputID())
 		u.consumedOutputs[utxoInp.ReferencedOutputID()] = consumed
@@ -127,7 +127,7 @@ func (u *UtxoDB) CheckNewTransaction(tx *ledgerstate.Transaction, lock ...bool) 
 		return xerrors.Errorf("sum of consumed and spent balances is not 0")
 	}
 	if ok, err := ledgerstate.UnlockBlocksValidWithError(inputs, tx); !ok || err != nil {
-		return xerrors.Errorf("input unlocking failed. Error: %v", err)
+		return xerrors.Errorf("CheckNewTransaction: input unlocking failed: %w", err)
 	}
 	return nil
 }
@@ -179,7 +179,7 @@ func (u *UtxoDB) getAddressOutputs(addr ledgerstate.Address) []ledgerstate.Outpu
 func (u *UtxoDB) getOutputTotal(outid ledgerstate.OutputID) (uint64, error) {
 	out, ok := u.utxo[outid]
 	if !ok {
-		return 0, xerrors.Errorf("no such output: %s", outid.String())
+		return 0, xerrors.Errorf("getOutputTotal: no such output: %s", outid.String())
 	}
 	ret := uint64(0)
 	out.Balances().ForEach(func(_ ledgerstate.Color, bal uint64) bool {
@@ -213,7 +213,7 @@ func (u *UtxoDB) collectUnspentOutputsFromInputs(essence *ledgerstate.Transactio
 		var ok bool
 		oid := utxoInp.ReferencedOutputID()
 		if ret[i], ok = u.findUnspentOutputByID(oid); !ok {
-			return nil, xerrors.New("CollectUnspentOutputsFromInputs: unspent output does not exist")
+			return nil, xerrors.Errorf("CollectUnspentOutputsFromInputs: unspent output does not exist: %s", oid.String())
 		}
 		otx, ok := u.getTransaction(oid.TransactionID())
 		if !ok {
