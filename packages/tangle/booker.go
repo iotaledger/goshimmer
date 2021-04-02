@@ -142,7 +142,7 @@ func (b *Booker) updateIndividuallyMappedMessagesOfBranchApprovingMarker(oldChil
 func (b *Booker) UpdateMessagesBranch(transactionID ledgerstate.TransactionID) {
 	newConflictBranchID := b.tangle.LedgerState.BranchID(transactionID)
 
-	b.tangle.Utils.WalkMessageAndMetadata(func(message *Message, messageMetadata *MessageMetadata, walker *walker.Walker) {
+	b.tangle.Utils.WalkMessageMetadata(func(messageMetadata *MessageMetadata, walker *walker.Walker) {
 		if !messageMetadata.IsBooked() {
 			return
 		}
@@ -152,27 +152,31 @@ func (b *Booker) UpdateMessagesBranch(transactionID ledgerstate.TransactionID) {
 			return
 		}
 
-		oldBranchID := b.BranchIDOfMessage(message.ID())
-		newBranchID, inheritErr := b.tangle.LedgerState.InheritBranch(ledgerstate.NewBranchIDs(oldBranchID, newConflictBranchID))
-		if inheritErr != nil {
-			b.tangle.Events.Error.Trigger(xerrors.Errorf("failed to inherit Branch when booking Message with %s: %w", message.ID(), inheritErr))
-			return
-		}
-
-		if newBranchID == oldBranchID {
-			return
-		}
-
-		if messageMetadata.BranchID() != ledgerstate.UndefinedBranchID {
-			b.tangle.Storage.DeleteIndividuallyMappedMessage(messageMetadata.BranchID(), message.ID())
-		}
-		messageMetadata.SetBranchID(newBranchID)
-		b.tangle.Storage.StoreIndividuallyMappedMessage(NewIndividuallyMappedMessage(newBranchID, message.ID(), messageMetadata.StructureDetails().PastMarkers))
-
-		for _, approvingMessageID := range b.tangle.Utils.ApprovingMessageIDs(message.ID(), StrongApprover) {
-			walker.Push(approvingMessageID)
-		}
+		b.updateMetadataMappings(messageMetadata, newConflictBranchID, walker)
 	}, b.tangle.Storage.AttachmentMessageIDs(transactionID), true)
+}
+
+func (b *Booker) updateMetadataMappings(messageMetadata *MessageMetadata, newConflictBranchID ledgerstate.BranchID, walker *walker.Walker) {
+	oldBranchID := b.BranchIDOfMessage(messageMetadata.ID())
+	newBranchID, inheritErr := b.tangle.LedgerState.InheritBranch(ledgerstate.NewBranchIDs(oldBranchID, newConflictBranchID))
+	if inheritErr != nil {
+		b.tangle.Events.Error.Trigger(xerrors.Errorf("failed to inherit Branch when booking Message with %s: %w", messageMetadata.ID(), inheritErr))
+		return
+	}
+
+	if newBranchID == oldBranchID {
+		return
+	}
+
+	if messageMetadata.BranchID() != ledgerstate.UndefinedBranchID {
+		b.tangle.Storage.DeleteIndividuallyMappedMessage(messageMetadata.BranchID(), messageMetadata.ID())
+	}
+	messageMetadata.SetBranchID(newBranchID)
+	b.tangle.Storage.StoreIndividuallyMappedMessage(NewIndividuallyMappedMessage(newBranchID, messageMetadata.ID(), messageMetadata.StructureDetails().PastMarkers))
+
+	for _, approvingMessageID := range b.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID(), StrongApprover) {
+		walker.Push(approvingMessageID)
+	}
 }
 
 // Book tries to book the given Message (and potentially its contained Transaction) into the LedgerState and the Tangle.
