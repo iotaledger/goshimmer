@@ -307,6 +307,7 @@ func (a *AliasOutput) ToLedgerStateOutput(id ledgerstate.OutputID) (ledgerstate.
 		}
 		res.SetGoverningAddress(addy)
 	}
+	res.SetID(id)
 	return res, nil
 }
 
@@ -385,6 +386,7 @@ func (e *ExtendedLockedOutput) ToLedgerStateOutput(id ledgerstate.OutputID) (led
 			return nil, rErr
 		}
 	}
+	res.SetID(id)
 	return res, nil
 }
 
