@@ -84,6 +84,16 @@ func TestExampleC(t *testing.T) {
 		utxoDAG.branchDAG.Branch(Tx3AggregatedBranch.ID()).Consume(func(branch Branch) {
 			assert.Equal(t, NewBranchIDs(NewBranchID(transactions["TX1"].ID()), NewBranchID(transactions["TX2"].ID())), branch.Parents())
 		})
+
+		time.Sleep(1 * time.Second)
+
+		utxoDAG.branchDAG.ChildBranches(NewBranchID(transactions["TX1"].ID())).Consume(func(childBranch *ChildBranch) {
+			assert.Equal(t, AggregatedBranchType, childBranch.ChildBranchType())
+		})
+
+		utxoDAG.branchDAG.ChildBranches(NewBranchID(transactions["TX2"].ID())).Consume(func(childBranch *ChildBranch) {
+			assert.Equal(t, AggregatedBranchType, childBranch.ChildBranchType())
+		})
 	}
 }
 
