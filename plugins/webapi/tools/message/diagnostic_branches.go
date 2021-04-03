@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
@@ -121,29 +121,32 @@ func getDiagnosticConflictsInfo(branchID ledgerstate.BranchID) DiagnosticBranchI
 		ID: branchID.Base58(),
 	}
 
-	transactionID := ledgerstate.TransactionID(branchID)
+	messagelayer.Tangle().LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
+		conflictInfo.Liked = branch.Liked()
+		conflictInfo.MonotonicallyLiked = branch.MonotonicallyLiked()
+		conflictInfo.InclusionState = messagelayer.Tangle().LedgerState.BranchInclusionState(branchID).String()
 
-	conflictInfo.ConflictSet = messagelayer.Tangle().LedgerState.ConflictSet(transactionID).Strings()
+		if branch.Type() == ledgerstate.AggregatedBranchType {
+			return
+		}
 
-	messagelayer.Tangle().LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
-		conflictInfo.IssuanceTimestamp = transaction.Essence().Timestamp()
-		messagelayer.Tangle().Storage.Attachments(transactionID).Consume(func(attachment *tangle.Attachment) {
-			conflictInfo.OpinionFormedTime = messagelayer.ConsensusMechanism().OpinionFormedTime(attachment.MessageID())
+		transactionID := ledgerstate.TransactionID(branchID)
+
+		conflictInfo.ConflictSet = messagelayer.Tangle().LedgerState.ConflictSet(transactionID).Strings()
+
+		messagelayer.Tangle().LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
+			conflictInfo.IssuanceTimestamp = transaction.Essence().Timestamp()
+			messagelayer.Tangle().Storage.Attachments(transactionID).Consume(func(attachment *tangle.Attachment) {
+				conflictInfo.OpinionFormedTime = messagelayer.ConsensusMechanism().OpinionFormedTime(attachment.MessageID())
+			})
 		})
-	})
 
-	messagelayer.Tangle().LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-		conflictInfo.SolidTime = transactionMetadata.SolidificationTime()
-
-		messagelayer.Tangle().LedgerState.BranchDAG.Branch(transactionMetadata.BranchID()).Consume(func(branch ledgerstate.Branch) {
-			conflictInfo.Liked = branch.Liked()
-			conflictInfo.MonotonicallyLiked = branch.MonotonicallyLiked()
+		messagelayer.Tangle().LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+			conflictInfo.SolidTime = transactionMetadata.SolidificationTime()
+			conflictInfo.Finalized = transactionMetadata.Finalized()
+			conflictInfo.LazyBooked = transactionMetadata.LazyBooked()
+			conflictInfo.TransactionLiked = messagelayer.ConsensusMechanism().TransactionLiked(transactionID)
 		})
-
-		conflictInfo.Finalized = transactionMetadata.Finalized()
-		conflictInfo.LazyBooked = transactionMetadata.LazyBooked()
-		conflictInfo.InclusionState = messagelayer.Tangle().LedgerState.BranchInclusionState(transactionMetadata.BranchID()).String()
-		conflictInfo.TransactionLiked = messagelayer.ConsensusMechanism().TransactionLiked(transactionID)
 	})
 
 	return conflictInfo

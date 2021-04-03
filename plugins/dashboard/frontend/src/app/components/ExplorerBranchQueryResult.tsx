@@ -73,11 +73,12 @@ export class ExplorerBranchQueryResult extends React.Component<Props, any> {
                         {branch.parents.map((p,i) => <ListGroup.Item key={i}><a href={`/explorer/branch/${p}`}>{resolveBase58BranchID(p)}</a></ListGroup.Item>)}
                         </ListGroup>
                     </ListGroup.Item>
+                    {branch.type !== "AggregatedBranchType" &&
                     <ListGroup.Item>Conflicts:
                         {branch.conflictIDs && <ListGroup>
                             {branch.conflictIDs.map((c,i) => <ListGroup.Item key={i}><a href={`/explorer/output/${c}`}>{c}</a></ListGroup.Item>)}
                         </ListGroup>}
-                    </ListGroup.Item>
+                    </ListGroup.Item>}
                     <ListGroup.Item>Finalized: {branch.finalized.toString()}</ListGroup.Item>
                     <ListGroup.Item>Monotonically Liked: {branch.monotonicallyLiked.toString()}</ListGroup.Item>
                     <ListGroup.Item>Inclusion State: {renderInclusionState(branch.inclusionState)}</ListGroup.Item>
@@ -86,18 +87,19 @@ export class ExplorerBranchQueryResult extends React.Component<Props, any> {
                             {branchChildren.childBranches.map((c,i) => <ListGroup.Item key={i}><a href={`/explorer/branch/${c.branchID}`}>{resolveBase58BranchID(c.branchID)}</a></ListGroup.Item>)}
                         </ListGroup> }
                     </ListGroup.Item>
-                    <ListGroup.Item> Conflicts:
-                        {branchConflicts && <ListGroup>
-                            {branchConflicts.conflicts.map((c,i) => <div key={i}>
-                                OutputID: <a href={`/explorer/output/${c.outputID.base58}`}>{c.outputID.base58}</a>
-                                <ListGroup className={"mb-2"}>
-                                    {c.branchIDs.map((b,j) => <ListGroup.Item key={j}>
-                                        <a href={`/explorer/branch/${b}`}>{resolveBase58BranchID(b)}</a>
-                                    </ListGroup.Item>)}
-                                </ListGroup>
-                            </div>)}
-                        </ListGroup> }
-                    </ListGroup.Item>
+                    {branch.type !== "AggregatedBranchType" &&
+                        <ListGroup.Item> Conflicts:
+                            {branchConflicts && <ListGroup>
+                                {branchConflicts.conflicts.map((c,i) => <div key={i}>
+                                    OutputID: <a href={`/explorer/output/${c.outputID.base58}`}>{c.outputID.base58}</a>
+                                    <ListGroup className={"mb-2"}>
+                                        {c.branchIDs.map((b,j) => <ListGroup.Item key={j}>
+                                            <a href={`/explorer/branch/${b}`}>{resolveBase58BranchID(b)}</a>
+                                        </ListGroup.Item>)}
+                                    </ListGroup>
+                                </div>)}
+                            </ListGroup> }
+                        </ListGroup.Item>}
                 </ListGroup>}
             </Container>
         )
