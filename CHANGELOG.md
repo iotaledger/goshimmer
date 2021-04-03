@@ -1,3 +1,9 @@
+# v0.5.6 - 2021-04-03
+* Fix childBranchType
+* Fix FPC empty round increase
+* Make reading of FPC statements less strict
+* **Breaking**: bumps network and database versions
+
 # v0.5.5 - 2021-04-01
 * Integrate Mana with FPC
 * Integrate Mana with the Autopeering
