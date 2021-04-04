@@ -36,7 +36,7 @@ type UtxoDB struct {
 }
 
 // New creates new UTXODB instance
-func newUtxodb(seed *ed25519.Seed, supply uint64) *UtxoDB {
+func newUtxodb(seed *ed25519.Seed, supply uint64, timestamp time.Time) *UtxoDB {
 	genesisKeyPair := seed.KeyPair(uint64(genesisIndex))
 	genesisAddress := ledgerstate.NewED25519Address(genesisKeyPair.PublicKey)
 	u := &UtxoDB{
@@ -49,7 +49,7 @@ func newUtxodb(seed *ed25519.Seed, supply uint64) *UtxoDB {
 		consumedOutputs: make(map[ledgerstate.OutputID]ledgerstate.Output),
 		mutex:           &sync.RWMutex{},
 	}
-	u.genesisInit()
+	u.genesisInit(timestamp)
 	return u
 }
 
@@ -60,7 +60,15 @@ func New(supply ...uint64) *UtxoDB {
 	if len(supply) > 0 {
 		s = supply[0]
 	}
-	return newUtxodb(ed25519.NewSeed([]byte("EFonzaUz5ngYeDxbRKu8qV5aoSogUQ5qVSTSjn7hJ8FQ")), s)
+	return newUtxodb(ed25519.NewSeed([]byte("EFonzaUz5ngYeDxbRKu8qV5aoSogUQ5qVSTSjn7hJ8FQ")), s, time.Now())
+}
+
+func NewWithTimestamp(timestamp time.Time, supply ...uint64) *UtxoDB {
+	s := defaultSupply
+	if len(supply) > 0 {
+		s = supply[0]
+	}
+	return newUtxodb(ed25519.NewSeed([]byte("EFonzaUz5ngYeDxbRKu8qV5aoSogUQ5qVSTSjn7hJ8FQ")), s, timestamp)
 }
 
 // NewRandom creates utxodb with random genesis seed
@@ -71,7 +79,7 @@ func NewRandom(supply ...uint64) *UtxoDB {
 	}
 	var rnd [32]byte
 	rand.Read(rnd[:])
-	return newUtxodb(ed25519.NewSeed(rnd[:]), s)
+	return newUtxodb(ed25519.NewSeed(rnd[:]), s, time.Now())
 }
 
 // NewKeyPairByIndex creates key pair and address generated from the seed and the index
@@ -80,12 +88,12 @@ func (u *UtxoDB) NewKeyPairByIndex(index int) (*ed25519.KeyPair, *ledgerstate.ED
 	return kp, ledgerstate.NewED25519Address(kp.PublicKey)
 }
 
-func (u *UtxoDB) genesisInit() {
+func (u *UtxoDB) genesisInit(timestamp time.Time) {
 	// create genesis transaction
 	inputs := ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.TransactionID{}, 0)))
 	output := ledgerstate.NewSigLockedSingleOutput(defaultSupply, u.GetGenesisAddress())
 	outputs := ledgerstate.NewOutputs(output)
-	essence := ledgerstate.NewTransactionEssence(essenceVersion, time.Now(), identity.ID{}, identity.ID{}, inputs, outputs)
+	essence := ledgerstate.NewTransactionEssence(essenceVersion, timestamp, identity.ID{}, identity.ID{}, inputs, outputs)
 	signature := ledgerstate.NewED25519Signature(u.genesisKeyPair.PublicKey, u.genesisKeyPair.PrivateKey.Sign(essence.Bytes()))
 	unlockBlock := ledgerstate.NewSignatureUnlockBlock(signature)
 	genesisTx := ledgerstate.NewTransaction(essence, ledgerstate.UnlockBlocks{unlockBlock})
