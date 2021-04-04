@@ -47,3 +47,5 @@ require (
 	google.golang.org/protobuf v1.25.0
 	gopkg.in/src-d/go-git.v4 v4.13.1
 )
+
+replace github.com/iotaledger/hive.go v0.0.0-20210331170324-e7699d9dfdbb => github.com/lunfardo314/hive.go v0.0.0-20210404054736-665eabab5ed9
