@@ -113,7 +113,7 @@ func (u *UtxoDB) GetGenesisAddress() ledgerstate.Address {
 	return u.genesisAddress
 }
 
-func (u *UtxoDB) mustRequestFundsTx(target ledgerstate.Address) *ledgerstate.Transaction {
+func (u *UtxoDB) mustRequestFundsTx(target ledgerstate.Address, timestamp time.Time) *ledgerstate.Transaction {
 	sourceOutputs := u.GetAddressOutputs(u.GetGenesisAddress())
 	if len(sourceOutputs) != 1 {
 		panic("number of genesis outputs must be 1")
@@ -123,14 +123,18 @@ func (u *UtxoDB) mustRequestFundsTx(target ledgerstate.Address) *ledgerstate.Tra
 	o2 := ledgerstate.NewSigLockedSingleOutput(reminder-RequestFundsAmount, u.GetGenesisAddress())
 	outputs := ledgerstate.NewOutputs(o1, o2)
 	inputs := ledgerstate.NewInputs(ledgerstate.NewUTXOInput(sourceOutputs[0].ID()))
-	essence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, inputs, outputs)
+	essence := ledgerstate.NewTransactionEssence(0, timestamp, identity.ID{}, identity.ID{}, inputs, outputs)
 	signature := ledgerstate.NewED25519Signature(u.genesisKeyPair.PublicKey, u.genesisKeyPair.PrivateKey.Sign(essence.Bytes()))
 	unlockBlocks := []ledgerstate.UnlockBlock{ledgerstate.NewSignatureUnlockBlock(signature)}
 	return ledgerstate.NewTransaction(essence, unlockBlocks)
 }
 
 // RequestFunds implements faucet: it sends 1337 IOTA tokens from genesis to the given address.
-func (u *UtxoDB) RequestFunds(target ledgerstate.Address) (*ledgerstate.Transaction, error) {
-	tx := u.mustRequestFundsTx(target)
+func (u *UtxoDB) RequestFunds(target ledgerstate.Address, timestamp ...time.Time) (*ledgerstate.Transaction, error) {
+	t := time.Now()
+	if len(timestamp) > 0 {
+		t = timestamp[0]
+	}
+	tx := u.mustRequestFundsTx(target, t)
 	return tx, u.AddTransaction(tx)
 }
