@@ -73,6 +73,22 @@ func (b *Booker) BranchIDOfPayload(message *Message) ledgerstate.BranchID {
 	return b.tangle.LedgerState.BranchID(message.Payload().(*ledgerstate.Transaction).ID())
 }
 
+func (b *Booker) addConflictToBranchID(branchID ledgerstate.BranchID, conflictBranchID ledgerstate.BranchID) (oldBranchID ledgerstate.BranchID, newBranchID ledgerstate.BranchID, branchIDUpdated bool, err error) {
+	if branchID == conflictBranchID {
+		return branchID, branchID, false, nil
+	}
+
+	if newBranchID, err = b.tangle.LedgerState.InheritBranch(ledgerstate.NewBranchIDs(branchID, conflictBranchID)); err != nil {
+		return ledgerstate.UndefinedBranchID, ledgerstate.UndefinedBranchID, false, xerrors.Errorf("failed to add conflict with %s to %s: %w", branchID, conflictBranchID, cerrors.ErrFatal)
+	}
+
+	if newBranchID == branchID {
+		return branchID, branchID, false, nil
+	}
+
+	return branchID, newBranchID, true, nil
+}
+
 func (b *Booker) updateMarkerMappings(marker *markers.Marker, newConflictBranchID ledgerstate.BranchID) {
 	propagationWalker := walker.New()
 	propagationWalker.Push(marker)
@@ -80,32 +96,27 @@ func (b *Booker) updateMarkerMappings(marker *markers.Marker, newConflictBranchI
 	for propagationWalker.HasNext() {
 		currentMarker := propagationWalker.Next().(*markers.Marker)
 
-		branchIDBeforeUpdate := b.MarkerBranchIDMappingManager.BranchID(currentMarker)
-		if branchIDBeforeUpdate == newConflictBranchID {
+		oldBranchID, newBranchID, branchIDUpdated, err := b.addConflictToBranchID(b.MarkersManager.BranchID(currentMarker), newConflictBranchID)
+		if err != nil {
+			err = xerrors.Errorf("failed to updateMarkerMappings of %s with newConflict%s: %w", marker, newConflictBranchID, err)
+		} else if branchIDUpdated == false {
 			continue
 		}
 
-		branchIDAfterUpdate, err := b.tangle.LedgerState.InheritBranch(ledgerstate.NewBranchIDs(branchIDBeforeUpdate, newConflictBranchID))
-		if err != nil {
-			b.tangle.Events.Error.Trigger(xerrors.Errorf("failed to inherit Branch when update Marker '%s': %w", currentMarker, err))
-			return
-		}
-		if branchIDBeforeUpdate == branchIDAfterUpdate {
-			continue
-		}
+		b.MarkersManager.SetBranchID(marker, newBranchID)
 
 		if floorIndex, exists := b.MarkerBranchIDMappingManager.Floor(currentMarker); exists && floorIndex == currentMarker.Index() {
-			b.MarkersManager.UnregisterSequenceAlias(markers.NewSequenceAlias(branchIDBeforeUpdate.Bytes()))
+			b.MarkersManager.UnregisterSequenceAlias(markers.NewSequenceAlias(oldBranchID.Bytes()))
 		}
-		b.MarkersManager.RegisterSequenceAlias(markers.NewSequenceAlias(branchIDAfterUpdate.Bytes()), currentMarker.SequenceID())
+		b.MarkersManager.RegisterSequenceAlias(markers.NewSequenceAlias(newBranchID.Bytes()), currentMarker.SequenceID())
 
-		b.MarkerBranchIDMappingManager.SetBranchID(currentMarker, branchIDAfterUpdate)
+		b.MarkersManager.SetBranchID(currentMarker, newBranchID)
 
 		b.MarkersManager.Sequence(currentMarker.SequenceID()).Consume(func(sequence *markers.Sequence) {
 			sequence.ReferencingMarkers(currentMarker.Index()).ForEachSorted(func(referencingSequenceID markers.SequenceID, referencingIndex markers.Index) bool {
 				propagationWalker.Push(markers.NewMarker(referencingSequenceID, referencingIndex))
 
-				b.updateIndividuallyMappedMessagesOfBranchApprovingMarker(b.MarkerBranchIDMappingManager.BranchID(markers.NewMarker(referencingSequenceID, referencingIndex)), currentMarker, newConflictBranchID)
+				b.updateIndividuallyMappedMessagesOfBranchApprovingMarker(b.MarkersManager.BranchID(markers.NewMarker(referencingSequenceID, referencingIndex)), currentMarker, newConflictBranchID)
 
 				return true
 			})
@@ -237,13 +248,13 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 			messageMetadata.SetStructureDetails(inheritedStructureDetails)
 
 			// store in none of my past markers is already mapped to the branch
-			if !b.MarkerBranchIDMappingManager.BranchMappedByPastMarkers(inheritedBranch, inheritedStructureDetails.PastMarkers) {
+			if !b.MarkersManager.BranchMappedByPastMarkers(inheritedBranch, inheritedStructureDetails.PastMarkers) {
 				if !inheritedStructureDetails.IsPastMarker {
 					messageMetadata.SetBranchID(inheritedBranch)
 
 					b.tangle.Storage.StoreIndividuallyMappedMessage(NewIndividuallyMappedMessage(inheritedBranch, messageID, inheritedStructureDetails.PastMarkers))
 				} else {
-					b.MarkerBranchIDMappingManager.SetBranchID(inheritedStructureDetails.PastMarkers.FirstMarker(), inheritedBranch)
+					b.MarkersManager.SetBranchID(inheritedStructureDetails.PastMarkers.FirstMarker(), inheritedBranch)
 				}
 			}
 
@@ -283,7 +294,7 @@ func (b *Booker) strongParentsDetails(message *Message) (structureDetails []*mar
 				panic(fmt.Errorf("tried to retrieve BranchID from Message with multiple past markers - %s: %v", messageID, cerrors.ErrFatal))
 			}
 
-			branchIDs[b.MarkerBranchIDMappingManager.BranchID(structureDetailsOfMessage.PastMarkers.FirstMarker())] = types.Void
+			branchIDs[b.MarkersManager.BranchID(structureDetailsOfMessage.PastMarkers.FirstMarker())] = types.Void
 		}) {
 			panic(fmt.Errorf("failed to load MessageMetadata with %s", messageID))
 		}
@@ -394,7 +405,7 @@ func (b *Booker) branchIDOfMessage(messageID MessageID) (branchID ledgerstate.Br
 			panic(fmt.Errorf("tried to retrieve BranchID from Message with multiple past markers - %s: %v", messageID, cerrors.ErrFatal))
 		}
 
-		branchID = b.MarkerBranchIDMappingManager.BranchID(structureDetails.PastMarkers.FirstMarker())
+		branchID = b.MarkersManager.BranchID(structureDetails.PastMarkers.FirstMarker())
 	}) {
 		panic(fmt.Errorf("failed to load MessageMetadata with %s", messageID))
 	}
@@ -442,6 +453,41 @@ func (m *MarkersManager) InheritStructureDetails(message *Message, sequenceAlias
 			m.tangle.Utils.WalkMessageMetadata(m.propagatePastMarkerToFutureMarkers(structureDetails.PastMarkers.FirstMarker()), message.StrongParents())
 		}
 	*/
+
+	return
+}
+
+// BranchID returns the BranchID that is associated with the given Marker.
+func (m *MarkersManager) BranchID(marker *markers.Marker) (branchID ledgerstate.BranchID) {
+	if marker.SequenceID() == 0 {
+		return ledgerstate.MasterBranchID
+	}
+
+	m.tangle.Storage.MarkerIndexBranchIDMapping(marker.SequenceID()).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
+		branchID = markerIndexBranchIDMapping.BranchID(marker.Index())
+	})
+
+	return
+}
+
+// SetBranchID associates a BranchID with the given Marker.
+func (m *MarkersManager) SetBranchID(marker *markers.Marker, branchID ledgerstate.BranchID) {
+	if floorIndex, exists := m.Floor(marker); exists && floorIndex == marker.Index() {
+		m.UnregisterSequenceAlias(markers.NewSequenceAlias(oldBranchID.Bytes()))
+	}
+	m.RegisterSequenceAlias(markers.NewSequenceAlias(newBranchID.Bytes()), marker.SequenceID())
+
+	m.tangle.Storage.MarkerIndexBranchIDMapping(marker.SequenceID(), NewMarkerIndexBranchIDMapping).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
+		markerIndexBranchIDMapping.SetBranchID(marker.Index(), branchID)
+	})
+}
+
+func (m *MarkersManager) BranchMappedByPastMarkers(branch ledgerstate.BranchID, pastMarkers *markers.Markers) (branchMappedByPastMarkers bool) {
+	pastMarkers.ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
+		branchMappedByPastMarkers = m.BranchID(markers.NewMarker(sequenceID, index)) == branch
+
+		return !branchMappedByPastMarkers
+	})
 
 	return
 }
@@ -503,26 +549,6 @@ func NewMarkerBranchIDMappingManager(tangle *Tangle) (markerBranchIDMappingManag
 	return
 }
 
-// BranchID returns the BranchID that is associated with the given Marker.
-func (m *MarkerBranchIDMappingManager) BranchID(marker *markers.Marker) (branchID ledgerstate.BranchID) {
-	if marker.SequenceID() == 0 {
-		return ledgerstate.MasterBranchID
-	}
-
-	m.tangle.Storage.MarkerIndexBranchIDMapping(marker.SequenceID()).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
-		branchID = markerIndexBranchIDMapping.BranchID(marker.Index())
-	})
-
-	return
-}
-
-// SetBranchID associates a BranchID with the given Marker.
-func (m *MarkerBranchIDMappingManager) SetBranchID(marker *markers.Marker, branchID ledgerstate.BranchID) {
-	m.tangle.Storage.MarkerIndexBranchIDMapping(marker.SequenceID(), NewMarkerIndexBranchIDMapping).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
-		markerIndexBranchIDMapping.SetBranchID(marker.Index(), branchID)
-	})
-}
-
 // Floor returns the largest Index that is <= the given Marker which has a mapped BranchID (and a boolean value
 // indicating if it exists).
 func (m *MarkerBranchIDMappingManager) Floor(marker *markers.Marker) (floor markers.Index, exists bool) {
@@ -538,16 +564,6 @@ func (m *MarkerBranchIDMappingManager) Floor(marker *markers.Marker) (floor mark
 func (m *MarkerBranchIDMappingManager) Ceiling(marker *markers.Marker) (floor markers.Index, exists bool) {
 	m.tangle.Storage.MarkerIndexBranchIDMapping(marker.SequenceID(), NewMarkerIndexBranchIDMapping).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
 		floor, exists = markerIndexBranchIDMapping.Ceiling(marker.Index())
-	})
-
-	return
-}
-
-func (m *MarkerBranchIDMappingManager) BranchMappedByPastMarkers(branch ledgerstate.BranchID, pastMarkers *markers.Markers) (branchMappedByPastMarkers bool) {
-	pastMarkers.ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
-		branchMappedByPastMarkers = m.BranchID(markers.NewMarker(sequenceID, index)) == branch
-
-		return !branchMappedByPastMarkers
 	})
 
 	return
@@ -665,9 +681,9 @@ func (m *MarkerIndexBranchIDMapping) SetBranchID(index markers.Index, branchID l
 
 // Floor returns the largest Index that is <= the given Index which has a mapped BranchID (and a boolean value
 // indicating if it exists).
-func (m *MarkerIndexBranchIDMapping) Floor(index markers.Index) (floor markers.Index, exists bool) {
-	if untypedFloor, exists := m.mapping.Floor(index); exists {
-		return untypedFloor.(markers.Index), true
+func (m *MarkerIndexBranchIDMapping) Floor(index markers.Index) (marker markers.Index, branchID ledgerstate.BranchID, exists bool) {
+	if untypedIndex, untypedBranchID, exists := m.mapping.Floor(index); exists {
+		return untypedIndex.(markers.Index), untypedBranchID.(ledgerstate.BranchID) true
 	}
 
 	return 0, false
