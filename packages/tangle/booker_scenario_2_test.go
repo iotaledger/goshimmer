@@ -340,9 +340,9 @@ func TestScenario_2(t *testing.T) {
 			FutureMarkers: markers.NewMarkers(),
 		}
 
-		for _, message := range messages {
+		for alias, message := range messages {
 			tangle.Storage.MessageMetadata(message.ID()).Consume(func(metadata *MessageMetadata) {
-				assert.Equal(t, structureDetails[message.ID()], metadata.StructureDetails())
+				assert.Equal(t, structureDetails[message.ID()], metadata.StructureDetails(), "StructureDetails of Message %s are not correct", alias)
 			})
 		}
 	}

@@ -485,17 +485,6 @@ func addressFromInput(input ledgerstate.Input, outputsByID ledgerstate.OutputsBy
 
 func messageBranchID(tangle *Tangle, messageID MessageID) (branchID ledgerstate.BranchID, err error) {
 	return tangle.Booker.MessageBranchID(messageID)
-	/*
-		if !tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-			branchID = messageMetadata.BranchID()
-			// fmt.Println(messageID)
-			// fmt.Println(messageMetadata.StructureDetails())
-		}) {
-			return branchID, fmt.Errorf("missing message metadata")
-		}
-		return
-
-	*/
 }
 
 func transactionBranchID(tangle *Tangle, transactionID ledgerstate.TransactionID) (branchID ledgerstate.BranchID, err error) {
