@@ -239,36 +239,36 @@ func (m *Manager) send(b []byte, to ...identity.ID) {
 	}
 }
 
-func (m *Manager) addNeighbor(peer *peer.Peer, connectorFunc func(*peer.Peer) (net.Conn, error), opts []NeighborOption,
+func (m *Manager) addNeighbor(p *peer.Peer, connectorFunc func(*peer.Peer) (net.Conn, error), opts []NeighborOption,
 ) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if peer.ID() == m.local.ID() {
+	if p.ID() == m.local.ID() {
 		return ErrLoopbackNeighbor
 	}
 	if m.srv == nil {
 		return ErrNotRunning
 	}
 
-	conn, err := connectorFunc(peer)
+	conn, err := connectorFunc(p)
 	if err != nil {
-		m.events.ConnectionFailed.Trigger(peer, err)
+		m.events.ConnectionFailed.Trigger(p, err)
 		return err
 	}
 
-	if _, ok := m.neighbors[peer.ID()]; ok {
+	if _, ok := m.neighbors[p.ID()]; ok {
 		_ = conn.Close()
-		m.events.ConnectionFailed.Trigger(peer, ErrDuplicateNeighbor)
+		m.events.ConnectionFailed.Trigger(p, ErrDuplicateNeighbor)
 		return ErrDuplicateNeighbor
 	}
 	options := makeNeighborOptions(opts)
 
 	// create and add the neighbor
-	nbr := NewNeighbor(peer, conn, m.log)
+	nbr := NewNeighbor(p, conn, m.log)
 	nbr.Events.Close.Attach(events.NewClosure(func() {
 		// assure that the neighbor is removed and notify
-		_ = m.DropNeighbor(peer.ID(), WithNeighborsGroup(options.group))
+		_ = m.DropNeighbor(p.ID(), WithNeighborsGroup(options.group))
 		m.events.NeighborRemoved.Trigger(nbr)
 	}))
 	nbr.Events.ReceiveMessage.Attach(events.NewClosure(func(data []byte) {
@@ -279,7 +279,7 @@ func (m *Manager) addNeighbor(peer *peer.Peer, connectorFunc func(*peer.Peer) (n
 		}
 	}))
 
-	m.neighbors[peer.ID()] = &neighborWithGroup{Neighbor: nbr, group: options.group}
+	m.neighbors[p.ID()] = &neighborWithGroup{Neighbor: nbr, group: options.group}
 	nbr.Listen()
 	m.events.NeighborAdded.Trigger(nbr)
 
