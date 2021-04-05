@@ -30,9 +30,8 @@ type Booker struct {
 	// Events is a dictionary for the Booker related Events.
 	Events *BookerEvents
 
-	tangle                       *Tangle
-	MarkersManager               *MarkersManager
-	MarkerBranchIDMappingManager *MarkerBranchIDMappingManager
+	tangle         *Tangle
+	MarkersManager *MarkersManager
 }
 
 // NewBooker is the constructor of a Booker.
@@ -41,153 +40,26 @@ func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 		Events: &BookerEvents{
 			MessageBooked: events.NewEvent(MessageIDCaller),
 		},
-		tangle:                       tangle,
-		MarkersManager:               NewMarkersManager(tangle),
-		MarkerBranchIDMappingManager: NewMarkerBranchIDMappingManager(tangle),
+		tangle:         tangle,
+		MarkersManager: NewMarkersManager(tangle),
 	}
 
 	return
 }
 
-// Shutdown shuts down the Booker and persists its state.
-func (b *Booker) Shutdown() {
-	b.MarkersManager.Shutdown()
-}
-
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (b *Booker) Setup() {
 	b.tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
-		err := b.Book(messageID)
-		if err != nil {
-			b.tangle.Events.Error.Trigger(err)
+		if err := b.Book(messageID); err != nil {
+			b.tangle.Events.Error.Trigger(xerrors.Errorf("failed to book message with %s: %w", messageID, err))
 		}
 	}))
-	b.tangle.LedgerState.utxoDAG.Events.TransactionBranchIDUpdated.Attach(events.NewClosure(b.UpdateMessagesBranch))
-}
 
-func (b *Booker) BranchIDOfPayload(message *Message) ledgerstate.BranchID {
-	if message.Payload().Type() != ledgerstate.TransactionType {
-		return ledgerstate.MasterBranchID
-	}
-
-	return b.tangle.LedgerState.BranchID(message.Payload().(*ledgerstate.Transaction).ID())
-}
-
-func (b *Booker) addConflictToBranchID(branchID ledgerstate.BranchID, conflictBranchID ledgerstate.BranchID) (oldBranchID ledgerstate.BranchID, newBranchID ledgerstate.BranchID, branchIDUpdated bool, err error) {
-	if branchID == conflictBranchID {
-		return branchID, branchID, false, nil
-	}
-
-	if newBranchID, err = b.tangle.LedgerState.InheritBranch(ledgerstate.NewBranchIDs(branchID, conflictBranchID)); err != nil {
-		return ledgerstate.UndefinedBranchID, ledgerstate.UndefinedBranchID, false, xerrors.Errorf("failed to add conflict with %s to %s: %w", branchID, conflictBranchID, cerrors.ErrFatal)
-	}
-
-	if newBranchID == branchID {
-		return branchID, branchID, false, nil
-	}
-
-	return branchID, newBranchID, true, nil
-}
-
-func (b *Booker) updateMarkerMappings(marker *markers.Marker, newConflictBranchID ledgerstate.BranchID) {
-	propagationWalker := walker.New()
-	propagationWalker.Push(marker)
-
-	for propagationWalker.HasNext() {
-		currentMarker := propagationWalker.Next().(*markers.Marker)
-
-		oldBranchID, newBranchID, branchIDUpdated, err := b.addConflictToBranchID(b.MarkersManager.BranchID(currentMarker), newConflictBranchID)
-		if err != nil {
-			err = xerrors.Errorf("failed to updateMarkerMappings of %s with newConflict%s: %w", marker, newConflictBranchID, err)
-		} else if branchIDUpdated == false {
-			continue
+	b.tangle.LedgerState.utxoDAG.Events.TransactionBranchIDUpdated.Attach(events.NewClosure(func(transactionID ledgerstate.TransactionID) {
+		if err := b.PropagateConflictingTransactionToTangle(transactionID); err != nil {
+			b.tangle.Events.Error.Trigger(xerrors.Errorf("failed to propagate ConflictBranch of %s to tangle: %w", transactionID, err))
 		}
-
-		b.MarkersManager.SetBranchID(marker, newBranchID)
-
-		if floorIndex, exists := b.MarkerBranchIDMappingManager.Floor(currentMarker); exists && floorIndex == currentMarker.Index() {
-			b.MarkersManager.UnregisterSequenceAlias(markers.NewSequenceAlias(oldBranchID.Bytes()))
-		}
-		b.MarkersManager.RegisterSequenceAlias(markers.NewSequenceAlias(newBranchID.Bytes()), currentMarker.SequenceID())
-
-		b.MarkersManager.SetBranchID(currentMarker, newBranchID)
-
-		b.MarkersManager.Sequence(currentMarker.SequenceID()).Consume(func(sequence *markers.Sequence) {
-			sequence.ReferencingMarkers(currentMarker.Index()).ForEachSorted(func(referencingSequenceID markers.SequenceID, referencingIndex markers.Index) bool {
-				propagationWalker.Push(markers.NewMarker(referencingSequenceID, referencingIndex))
-
-				b.updateIndividuallyMappedMessagesOfBranchApprovingMarker(b.MarkersManager.BranchID(markers.NewMarker(referencingSequenceID, referencingIndex)), currentMarker, newConflictBranchID)
-
-				return true
-			})
-		})
-	}
-}
-
-func (b *Booker) updateIndividuallyMappedMessagesOfBranchApprovingMarker(oldChildBranch ledgerstate.BranchID, currentMarker *markers.Marker, newConflictBranchID ledgerstate.BranchID) {
-	newChildBranch, err := b.tangle.LedgerState.InheritBranch(ledgerstate.NewBranchIDs(oldChildBranch, newConflictBranchID))
-	if err != nil {
-		panic(err)
-	}
-
-	b.tangle.Storage.IndividuallyMappedMessages(oldChildBranch).Consume(func(individuallyMappedMessage *IndividuallyMappedMessage) {
-		index, sequenceExists := individuallyMappedMessage.PastMarkers().Get(currentMarker.SequenceID())
-		if !sequenceExists {
-			return
-		}
-
-		if index < currentMarker.Index() {
-			return
-		}
-
-		b.tangle.Storage.MessageMetadata(individuallyMappedMessage.MessageID()).Consume(func(messageMetadata *MessageMetadata) {
-			messageMetadata.SetBranchID(newChildBranch)
-		})
-
-		individuallyMappedMessage.Delete()
-		b.tangle.Storage.StoreIndividuallyMappedMessage(NewIndividuallyMappedMessage(newChildBranch, individuallyMappedMessage.MessageID(), individuallyMappedMessage.PastMarkers()))
-	})
-}
-
-// UpdateMessagesBranch propagates the update of the message's branchID (and its future cone) in case on changes of it contained transction's branchID.
-func (b *Booker) UpdateMessagesBranch(transactionID ledgerstate.TransactionID) {
-	newConflictBranchID := b.tangle.LedgerState.BranchID(transactionID)
-
-	b.tangle.Utils.WalkMessageMetadata(func(messageMetadata *MessageMetadata, walker *walker.Walker) {
-		if !messageMetadata.IsBooked() {
-			return
-		}
-
-		if structureDetails := messageMetadata.StructureDetails(); structureDetails.IsPastMarker {
-			b.updateMarkerMappings(structureDetails.PastMarkers.FirstMarker(), newConflictBranchID)
-			return
-		}
-
-		b.updateMetadataMappings(messageMetadata, newConflictBranchID, walker)
-	}, b.tangle.Storage.AttachmentMessageIDs(transactionID), true)
-}
-
-func (b *Booker) updateMetadataMappings(messageMetadata *MessageMetadata, newConflictBranchID ledgerstate.BranchID, walker *walker.Walker) {
-	oldBranchID := b.BranchIDOfMessage(messageMetadata.ID())
-	newBranchID, inheritErr := b.tangle.LedgerState.InheritBranch(ledgerstate.NewBranchIDs(oldBranchID, newConflictBranchID))
-	if inheritErr != nil {
-		b.tangle.Events.Error.Trigger(xerrors.Errorf("failed to inherit Branch when booking Message with %s: %w", messageMetadata.ID(), inheritErr))
-		return
-	}
-
-	if newBranchID == oldBranchID {
-		return
-	}
-
-	if messageMetadata.BranchID() != ledgerstate.UndefinedBranchID {
-		b.tangle.Storage.DeleteIndividuallyMappedMessage(messageMetadata.BranchID(), messageMetadata.ID())
-	}
-	messageMetadata.SetBranchID(newBranchID)
-	b.tangle.Storage.StoreIndividuallyMappedMessage(NewIndividuallyMappedMessage(newBranchID, messageMetadata.ID(), messageMetadata.StructureDetails().PastMarkers))
-
-	for _, approvingMessageID := range b.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID(), StrongApprover) {
-		walker.Push(approvingMessageID)
-	}
+	}))
 }
 
 // Book tries to book the given Message (and potentially its contained Transaction) into the LedgerState and the Tangle.
@@ -195,7 +67,7 @@ func (b *Booker) updateMetadataMappings(messageMetadata *MessageMetadata, newCon
 func (b *Booker) Book(messageID MessageID) (err error) {
 	b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-			strongParentsStructureDetails, strongParentsBranchIDs, _ := b.strongParentsDetails(message)
+			_, strongParentsBranchIDs, _ := b.strongParentsDetails(message)
 			weakParentsBranchIDs := b.weakParentsDetails(message)
 			branchIDOfPayload := ledgerstate.MasterBranchID
 			if payload := message.Payload(); payload != nil && payload.Type() == ledgerstate.TransactionType {
@@ -244,14 +116,13 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 				return
 			}
 
-			inheritedStructureDetails, _ := b.MarkersManager.Manager.InheritStructureDetails(strongParentsStructureDetails, b.tangle.Options.IncreaseMarkersIndexCallback, markers.NewSequenceAlias(inheritedBranch.Bytes()))
+			inheritedStructureDetails := b.MarkersManager.InheritStructureDetails(message, markers.NewSequenceAlias(inheritedBranch.Bytes()))
 			messageMetadata.SetStructureDetails(inheritedStructureDetails)
 
 			// store in none of my past markers is already mapped to the branch
 			if !b.MarkersManager.BranchMappedByPastMarkers(inheritedBranch, inheritedStructureDetails.PastMarkers) {
 				if !inheritedStructureDetails.IsPastMarker {
 					messageMetadata.SetBranchID(inheritedBranch)
-
 					b.tangle.Storage.StoreIndividuallyMappedMessage(NewIndividuallyMappedMessage(inheritedBranch, messageID, inheritedStructureDetails.PastMarkers))
 				} else {
 					b.MarkersManager.SetBranchID(inheritedStructureDetails.PastMarkers.FirstMarker(), inheritedBranch)
@@ -263,6 +134,171 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 			b.Events.MessageBooked.Trigger(messageID)
 		})
 	})
+
+	return
+}
+
+// PropagateConflictingTransactionToTangle propagates updates to the Branches of Messages in the tangle.
+func (b *Booker) PropagateConflictingTransactionToTangle(transactionID ledgerstate.TransactionID) (err error) {
+	conflictBranchID := b.tangle.LedgerState.BranchID(transactionID)
+
+	b.tangle.Utils.WalkMessageMetadata(func(messageMetadata *MessageMetadata, walker *walker.Walker) {
+		if !messageMetadata.IsBooked() {
+			return
+		}
+
+		if structureDetails := messageMetadata.StructureDetails(); structureDetails.IsPastMarker {
+			if err = b.propagateConflictBranchIDToMarkerFutureCone(structureDetails.PastMarkers.FirstMarker(), conflictBranchID); err != nil {
+				err = xerrors.Errorf("failed to propagate conflict%s to future cone of %s: %w", conflictBranchID, structureDetails.PastMarkers.FirstMarker())
+				walker.StopWalk()
+			}
+
+			return
+		}
+
+		if err = b.propagateConflictBranchIDTOMetadataFutureCone(messageMetadata, conflictBranchID, walker); err != nil {
+			err = xerrors.Errorf("failed to propagate conflict%s to MessageMetadata future cone of %s: %w", conflictBranchID, messageMetadata.ID())
+			walker.StopWalk()
+			return
+		}
+	}, b.tangle.Storage.AttachmentMessageIDs(transactionID))
+
+	return
+}
+
+// MessageBranchID returns the BranchID of the given Message.
+func (b *Booker) MessageBranchID(messageID MessageID) (branchID ledgerstate.BranchID, err error) {
+	if messageID == EmptyMessageID {
+		return ledgerstate.MasterBranchID, nil
+	}
+
+	if !b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		if branchID = messageMetadata.BranchID(); branchID != ledgerstate.UndefinedBranchID {
+			return
+		}
+
+		structureDetails := messageMetadata.StructureDetails()
+		if structureDetails == nil {
+			err = xerrors.Errorf("failed to retrieve StructureDetails of %s: %w", messageID, cerrors.ErrFatal)
+			return
+		}
+		if structureDetails.PastMarkers.Size() > 1 {
+			err = xerrors.Errorf("multiple past markers in Message with %s should be mapped via it's MessageMetadata: %w", messageID, cerrors.ErrFatal)
+			return
+		}
+
+		branchID = b.MarkersManager.BranchID(structureDetails.PastMarkers.FirstMarker())
+	}) {
+		err = xerrors.Errorf("failed to load MessageMetadata of %s: %w", messageID, cerrors.ErrFatal)
+		return
+	}
+
+	return
+}
+
+// Shutdown shuts down the Booker and persists its state.
+func (b *Booker) Shutdown() {
+	b.MarkersManager.Shutdown()
+}
+
+func (b *Booker) addConflictToBranchID(branchID ledgerstate.BranchID, conflictBranchID ledgerstate.BranchID) (newBranchID ledgerstate.BranchID, branchIDUpdated bool, err error) {
+	if branchID == conflictBranchID {
+		return branchID, false, nil
+	}
+
+	if newBranchID, err = b.tangle.LedgerState.InheritBranch(ledgerstate.NewBranchIDs(branchID, conflictBranchID)); err != nil {
+		return ledgerstate.UndefinedBranchID, false, xerrors.Errorf("failed to add conflict with %s to %s: %w", branchID, conflictBranchID, cerrors.ErrFatal)
+	}
+
+	if newBranchID == branchID {
+		return branchID, false, nil
+	}
+
+	return newBranchID, true, nil
+}
+
+func (b *Booker) propagateConflictBranchIDToMarkerFutureCone(marker *markers.Marker, newConflictBranchID ledgerstate.BranchID) (err error) {
+	walk := walker.New()
+	walk.Push(marker)
+
+	for walk.HasNext() {
+		currentMarker := walk.Next().(*markers.Marker)
+
+		if err = b.propagateConflictBranchIDToMessagesApprovingMarker(currentMarker, newConflictBranchID, walk); err != nil {
+			err = xerrors.Errorf("failed to propagate Conflict%s to Messages approving %s: %w", newConflictBranchID, currentMarker, err)
+			return
+		}
+	}
+
+	return
+}
+
+func (b *Booker) propagateConflictBranchIDToMessagesApprovingMarker(currentMarker *markers.Marker, conflictBranchID ledgerstate.BranchID, walk *walker.Walker) (err error) {
+	newBranchID, branchIDUpdated, err := b.addConflictToBranchID(b.MarkersManager.BranchID(currentMarker), conflictBranchID)
+	if err != nil {
+		err = xerrors.Errorf("failed to add Conflict%s to BranchID %s: %w", b.MarkersManager.BranchID(currentMarker), conflictBranchID, err)
+		return
+	}
+	if !branchIDUpdated || !b.MarkersManager.SetBranchID(currentMarker, newBranchID) {
+		return
+	}
+
+	b.MarkersManager.Sequence(currentMarker.SequenceID()).Consume(func(sequence *markers.Sequence) {
+		sequence.ReferencingMarkers(currentMarker.Index()).ForEachSorted(func(referencingSequenceID markers.SequenceID, referencingIndex markers.Index) bool {
+			walk.Push(markers.NewMarker(referencingSequenceID, referencingIndex))
+
+			b.updateIndividuallyMappedMessagesOfBranchApprovingMarker(b.MarkersManager.BranchID(markers.NewMarker(referencingSequenceID, referencingIndex)), currentMarker, conflictBranchID)
+
+			return true
+		})
+	})
+
+	return
+}
+
+func (b *Booker) updateIndividuallyMappedMessagesOfBranchApprovingMarker(oldChildBranch ledgerstate.BranchID, currentMarker *markers.Marker, newConflictBranchID ledgerstate.BranchID) {
+	newBranchID, branchIDUpdated, err := b.addConflictToBranchID(oldChildBranch, newConflictBranchID)
+	if err != nil {
+		return
+	} else if !branchIDUpdated {
+		return
+	}
+
+	b.tangle.Storage.IndividuallyMappedMessages(oldChildBranch).Consume(func(individuallyMappedMessage *IndividuallyMappedMessage) {
+		if index, sequenceExists := individuallyMappedMessage.PastMarkers().Get(currentMarker.SequenceID()); !sequenceExists || index < currentMarker.Index() {
+			return
+		}
+
+		individuallyMappedMessage.Delete()
+
+		b.tangle.Storage.MessageMetadata(individuallyMappedMessage.MessageID()).Consume(func(messageMetadata *MessageMetadata) {
+			messageMetadata.SetBranchID(newBranchID)
+			b.tangle.Storage.StoreIndividuallyMappedMessage(NewIndividuallyMappedMessage(newBranchID, individuallyMappedMessage.MessageID(), individuallyMappedMessage.PastMarkers()))
+		})
+	})
+}
+
+func (b *Booker) propagateConflictBranchIDTOMetadataFutureCone(messageMetadata *MessageMetadata, newConflictBranchID ledgerstate.BranchID, walk *walker.Walker) (err error) {
+	oldBranchID, err := b.MessageBranchID(messageMetadata.ID())
+	if err != nil {
+		err = xerrors.Errorf("failed to propagate conflict%s to MessageMetadata of %s: %w", newConflictBranchID, messageMetadata.ID(), err)
+		return
+	}
+
+	newBranchID, branchIDUpdated, err := b.addConflictToBranchID(oldBranchID, newConflictBranchID)
+	if err != nil {
+		err = xerrors.Errorf("failed to propagate conflict%s to MessageMetadata of %s: %w", newConflictBranchID, messageMetadata.ID(), err)
+		return
+	} else if !branchIDUpdated || !messageMetadata.SetBranchID(newBranchID) {
+		return
+	}
+
+	b.tangle.Storage.DeleteIndividuallyMappedMessage(messageMetadata.BranchID(), messageMetadata.ID())
+	b.tangle.Storage.StoreIndividuallyMappedMessage(NewIndividuallyMappedMessage(newBranchID, messageMetadata.ID(), messageMetadata.StructureDetails().PastMarkers))
+
+	for _, approvingMessageID := range b.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID(), StrongApprover) {
+		walk.Push(approvingMessageID)
+	}
 
 	return
 }
@@ -329,23 +365,8 @@ func (b *Booker) weakParentsDetails(message *Message) (branchIDs ledgerstate.Bra
 	return branchIDs
 }
 
-func (b *Booker) branchIDOfPayload(message *Message) (branchIDOfPayload ledgerstate.BranchID) {
-	payload := message.Payload()
-	if payload == nil || payload.Type() != ledgerstate.TransactionType {
-		branchIDOfPayload = ledgerstate.MasterBranchID
-		return
-	}
-	transactionID := payload.(*ledgerstate.Transaction).ID()
-	if !b.tangle.LedgerState.utxoDAG.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-		branchIDOfPayload = transactionMetadata.BranchID()
-	}) {
-		panic(fmt.Sprintf("failed to load TransactionMetadata of %s: ", transactionID))
-	}
-	return
-}
-
 // branchIDsOfParents returns the BranchIDs of the parents of the given Message.
-func (b *Booker) branchIDsOfParents(message *Message) (branchIDs ledgerstate.BranchIDs) {
+func (b *Booker) branchIDsOfParents(message *Message) (branchIDs ledgerstate.BranchIDs, err error) {
 	branchIDs = make(ledgerstate.BranchIDs)
 
 	message.ForEachStrongParent(func(parentMessageID MessageID) {
@@ -353,7 +374,13 @@ func (b *Booker) branchIDsOfParents(message *Message) (branchIDs ledgerstate.Bra
 			return
 		}
 
-		branchIDs[b.BranchIDOfMessage(parentMessageID)] = types.Void
+		parentBranchID, branchIDErr := b.MessageBranchID(parentMessageID)
+		if branchIDErr != nil {
+			err = xerrors.Errorf("failed to retrieve BranchID of %s (strong parent of %s): %w", parentMessageID, message.ID(), branchIDErr)
+			return
+		}
+
+		branchIDs[parentBranchID] = types.Void
 	})
 
 	message.ForEachWeakParent(func(parentMessageID MessageID) {
@@ -368,47 +395,15 @@ func (b *Booker) branchIDsOfParents(message *Message) (branchIDs ledgerstate.Bra
 				if !b.tangle.LedgerState.utxoDAG.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 					branchIDs[transactionMetadata.BranchID()] = types.Void
 				}) {
-					panic(fmt.Errorf("failed to load TransactionMetadata with %s", transactionID))
+					err = xerrors.Errorf("failed to load TransactionMetadata for %s: %w", transactionID, cerrors.ErrFatal)
+					return
 				}
 			}
 		}) {
-			panic(fmt.Errorf("failed to load MessageMetadata with %s", parentMessageID))
-		}
-	})
-
-	return
-}
-
-// BranchIDOfMessage returns the BranchID of the given Message.
-func (b *Booker) BranchIDOfMessage(messageID MessageID) (branchID ledgerstate.BranchID) {
-	branchID, _ = b.branchIDOfMessage(messageID)
-
-	return
-}
-
-func (b *Booker) branchIDOfMessage(messageID MessageID) (branchID ledgerstate.BranchID, explicitlySet bool) {
-	if messageID == EmptyMessageID {
-		return ledgerstate.MasterBranchID, false
-	}
-
-	if !b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-		if branchID = messageMetadata.BranchID(); branchID != ledgerstate.UndefinedBranchID {
-			explicitlySet = true
+			err = xerrors.Errorf("failed to load MessageMetadata of %s: %w", message.ID(), cerrors.ErrFatal)
 			return
 		}
-
-		structureDetails := messageMetadata.StructureDetails()
-		if structureDetails == nil {
-			panic(fmt.Errorf("tried to retrieve BranchID from unbooked Message with %s: %v", messageID, cerrors.ErrFatal))
-		}
-		if structureDetails.PastMarkers.Size() > 1 {
-			panic(fmt.Errorf("tried to retrieve BranchID from Message with multiple past markers - %s: %v", messageID, cerrors.ErrFatal))
-		}
-
-		branchID = b.MarkersManager.BranchID(structureDetails.PastMarkers.FirstMarker())
-	}) {
-		panic(fmt.Errorf("failed to load MessageMetadata with %s", messageID))
-	}
+	})
 
 	return
 }
@@ -471,15 +466,23 @@ func (m *MarkersManager) BranchID(marker *markers.Marker) (branchID ledgerstate.
 }
 
 // SetBranchID associates a BranchID with the given Marker.
-func (m *MarkersManager) SetBranchID(marker *markers.Marker, branchID ledgerstate.BranchID) {
-	if floorIndex, exists := m.Floor(marker); exists && floorIndex == marker.Index() {
-		m.UnregisterSequenceAlias(markers.NewSequenceAlias(oldBranchID.Bytes()))
+func (m *MarkersManager) SetBranchID(marker *markers.Marker, branchID ledgerstate.BranchID) (updated bool) {
+	if floorMarker, floorBranchID, exists := m.Floor(marker); exists {
+		if floorBranchID == branchID {
+			return false
+		}
+
+		if floorMarker == marker.Index() {
+			m.UnregisterSequenceAlias(markers.NewSequenceAlias(floorBranchID.Bytes()))
+		}
+		m.RegisterSequenceAlias(markers.NewSequenceAlias(branchID.Bytes()), marker.SequenceID())
 	}
-	m.RegisterSequenceAlias(markers.NewSequenceAlias(newBranchID.Bytes()), marker.SequenceID())
 
 	m.tangle.Storage.MarkerIndexBranchIDMapping(marker.SequenceID(), NewMarkerIndexBranchIDMapping).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
 		markerIndexBranchIDMapping.SetBranchID(marker.Index(), branchID)
 	})
+
+	return true
 }
 
 func (m *MarkersManager) BranchMappedByPastMarkers(branch ledgerstate.BranchID, pastMarkers *markers.Markers) (branchMappedByPastMarkers bool) {
@@ -487,6 +490,26 @@ func (m *MarkersManager) BranchMappedByPastMarkers(branch ledgerstate.BranchID, 
 		branchMappedByPastMarkers = m.BranchID(markers.NewMarker(sequenceID, index)) == branch
 
 		return !branchMappedByPastMarkers
+	})
+
+	return
+}
+
+// Floor returns the largest Index that is <= the given Marker, it's BranchID and a boolean value indicating if it
+// exists.
+func (m *MarkersManager) Floor(referenceMarker *markers.Marker) (marker markers.Index, branchID ledgerstate.BranchID, exists bool) {
+	m.tangle.Storage.MarkerIndexBranchIDMapping(referenceMarker.SequenceID(), NewMarkerIndexBranchIDMapping).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
+		marker, branchID, exists = markerIndexBranchIDMapping.Floor(referenceMarker.Index())
+	})
+
+	return
+}
+
+// Ceiling returns the smallest Index that is >= the given Marker, it's BranchID and a boolean value indicating if it
+// exists.
+func (m *MarkersManager) Ceiling(referenceMarker *markers.Marker) (marker markers.Index, branchID ledgerstate.BranchID, exists bool) {
+	m.tangle.Storage.MarkerIndexBranchIDMapping(referenceMarker.SequenceID(), NewMarkerIndexBranchIDMapping).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
+		marker, branchID, exists = markerIndexBranchIDMapping.Ceiling(referenceMarker.Index())
 	})
 
 	return
@@ -528,45 +551,6 @@ func (m *MarkersManager) structureDetailsOfStrongParents(message *Message) (stru
 // increaseMarkersIndexCallbackStrategy implements the default strategy for increasing marker Indexes in the Tangle.
 func increaseMarkersIndexCallbackStrategy(markers.SequenceID, markers.Index) bool {
 	return true
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region MarkerBranchIDMappingManager /////////////////////////////////////////////////////////////////////////////////
-
-// MarkerBranchIDMappingManager is a data structure that enables the mapping of Markers to BranchIDs with binary search
-// efficiency (O(log(n)) where n is the amount of Markers that have a unique BranchID value).
-type MarkerBranchIDMappingManager struct {
-	tangle *Tangle
-}
-
-// NewMarkerBranchIDMappingManager is the constructor for the MarkerBranchIDMappingManager.
-func NewMarkerBranchIDMappingManager(tangle *Tangle) (markerBranchIDMappingManager *MarkerBranchIDMappingManager) {
-	markerBranchIDMappingManager = &MarkerBranchIDMappingManager{
-		tangle: tangle,
-	}
-
-	return
-}
-
-// Floor returns the largest Index that is <= the given Marker which has a mapped BranchID (and a boolean value
-// indicating if it exists).
-func (m *MarkerBranchIDMappingManager) Floor(marker *markers.Marker) (floor markers.Index, exists bool) {
-	m.tangle.Storage.MarkerIndexBranchIDMapping(marker.SequenceID(), NewMarkerIndexBranchIDMapping).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
-		floor, exists = markerIndexBranchIDMapping.Floor(marker.Index())
-	})
-
-	return
-}
-
-// Ceiling returns the smallest Index that is >= the given Marker which has a mapped BranchID (and a boolean value
-// indicating if it exists).
-func (m *MarkerBranchIDMappingManager) Ceiling(marker *markers.Marker) (floor markers.Index, exists bool) {
-	m.tangle.Storage.MarkerIndexBranchIDMapping(marker.SequenceID(), NewMarkerIndexBranchIDMapping).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
-		floor, exists = markerIndexBranchIDMapping.Ceiling(marker.Index())
-	})
-
-	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -683,20 +667,20 @@ func (m *MarkerIndexBranchIDMapping) SetBranchID(index markers.Index, branchID l
 // indicating if it exists).
 func (m *MarkerIndexBranchIDMapping) Floor(index markers.Index) (marker markers.Index, branchID ledgerstate.BranchID, exists bool) {
 	if untypedIndex, untypedBranchID, exists := m.mapping.Floor(index); exists {
-		return untypedIndex.(markers.Index), untypedBranchID.(ledgerstate.BranchID) true
+		return untypedIndex.(markers.Index), untypedBranchID.(ledgerstate.BranchID), true
 	}
 
-	return 0, false
+	return 0, ledgerstate.UndefinedBranchID, false
 }
 
 // Ceiling returns the smallest Index that is >= the given Index which has a mapped BranchID (and a boolean value
 // indicating if it exists).
-func (m *MarkerIndexBranchIDMapping) Ceiling(index markers.Index) (floor markers.Index, exists bool) {
-	if untypedCeiling, exists := m.mapping.Ceiling(index); exists {
-		return untypedCeiling.(markers.Index), true
+func (m *MarkerIndexBranchIDMapping) Ceiling(index markers.Index) (marker markers.Index, branchID ledgerstate.BranchID, exists bool) {
+	if untypedIndex, untypedBranchID, exists := m.mapping.Ceiling(index); exists {
+		return untypedIndex.(markers.Index), untypedBranchID.(ledgerstate.BranchID), true
 	}
 
-	return 0, false
+	return 0, ledgerstate.UndefinedBranchID, false
 }
 
 // Bytes returns a marshaled version of the MarkerIndexBranchIDMapping.
@@ -745,7 +729,7 @@ func (m *MarkerIndexBranchIDMapping) String() string {
 }
 
 // Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (m *MarkerIndexBranchIDMapping) Update(other objectstorage.StorableObject) {
+func (m *MarkerIndexBranchIDMapping) Update(objectstorage.StorableObject) {
 	panic("updates disabled")
 }
 
@@ -935,7 +919,7 @@ func (i *IndividuallyMappedMessage) String() string {
 }
 
 // Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (i *IndividuallyMappedMessage) Update(other objectstorage.StorableObject) {
+func (i *IndividuallyMappedMessage) Update(objectstorage.StorableObject) {
 	panic("updates disabled")
 }
 

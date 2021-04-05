@@ -109,8 +109,26 @@ func (b BranchID) String() string {
 	case MasterBranchID:
 		return "BranchID(MasterBranchID)"
 	default:
+		if branchIDAlias, exists := branchIDAliases[b]; exists {
+			return "BranchID(" + branchIDAlias + ")"
+		}
+
 		return "BranchID(" + b.Base58() + ")"
 	}
+}
+
+// branchIDAliases contains a list of aliases registered for a set of MessageIDs.
+var branchIDAliases = make(map[BranchID]string)
+
+// RegisterBranchIDAlias registers an alias that will modify the String() output of the BranchID to show a human
+// readable string instead of the base58 encoded version of itself.
+func RegisterBranchIDAlias(branchID BranchID, alias string) {
+	branchIDAliases[branchID] = alias
+}
+
+// UnregisterBranchIDAliases removes all aliases registered through the RegisterBranchIDAlias function.
+func UnregisterBranchIDAliases() {
+	branchIDAliases = make(map[BranchID]string)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

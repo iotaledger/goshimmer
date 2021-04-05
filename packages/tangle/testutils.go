@@ -484,7 +484,7 @@ func addressFromInput(input ledgerstate.Input, outputsByID ledgerstate.OutputsBy
 }
 
 func messageBranchID(tangle *Tangle, messageID MessageID) (branchID ledgerstate.BranchID, err error) {
-	return tangle.Booker.BranchIDOfMessage(messageID), nil
+	return tangle.Booker.MessageBranchID(messageID)
 	/*
 		if !tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 			branchID = messageMetadata.BranchID()

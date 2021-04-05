@@ -135,7 +135,29 @@ func (id MessageID) Base58() string {
 
 // String returns a human readable representation of the MessageID.
 func (id MessageID) String() string {
+	if id == EmptyMessageID {
+		return "MessageID(EmptyMessageID)"
+	}
+
+	if messageIDAlias, exists := messageIDAliases[id]; exists {
+		return "Message(" + messageIDAlias + ")"
+	}
+
 	return "MessageID(" + base58.Encode(id[:]) + ")"
+}
+
+// messageIDAliases contains a list of aliases registered for a set of MessageIDs.
+var messageIDAliases = make(map[MessageID]string)
+
+// RegisterMessageIDAlias registers an alias that will modify the String() output of the MessageID to show a human
+// readable string instead of the base58 encoded version of itself.
+func RegisterMessageIDAlias(messageID MessageID, alias string) {
+	messageIDAliases[messageID] = alias
+}
+
+// UnregisterMessageIDAliases removes all aliases registered through the RegisterMessageIDAlias function.
+func UnregisterMessageIDAliases() {
+	messageIDAliases = make(map[MessageID]string)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
