@@ -34,10 +34,13 @@ var (
 // LoadMessageFunc defines a function that returns the message for the given id.
 type LoadMessageFunc func(messageId tangle.MessageID) ([]byte, error)
 
+// NeighborsGroup is an enum type for various neighbors groups like auto/manual.
 type NeighborsGroup int8
 
 const (
+	// NeighborsGroupAuto represents a neighbors group that is managed automatically.
 	NeighborsGroupAuto NeighborsGroup = iota
+	// NeighborsGroupManual represents a neighbors group that is managed manually.
 	NeighborsGroupManual
 )
 
@@ -133,20 +136,22 @@ func (m *Manager) stop() {
 	}
 }
 
-type NeighborOptions struct {
+type neighborOptions struct {
 	group NeighborsGroup
 }
 
-type NeighborOption func(opts *NeighborOptions)
+// NeighborOption defines a function that sets neighbor option.
+type NeighborOption func(opts *neighborOptions)
 
+// WithNeighborsGroup allows to pass a specific neighbors group as an option.
 func WithNeighborsGroup(group NeighborsGroup) NeighborOption {
-	return func(opts *NeighborOptions) {
+	return func(opts *neighborOptions) {
 		opts.group = group
 	}
 }
 
-func makeNeighborOptions(opts []NeighborOption) *NeighborOptions {
-	options := &NeighborOptions{group: NeighborsGroupAuto}
+func makeNeighborOptions(opts []NeighborOption) *neighborOptions {
+	options := &neighborOptions{group: NeighborsGroupAuto}
 	for _, opt := range opts {
 		opt(options)
 	}
@@ -236,7 +241,6 @@ func (m *Manager) send(b []byte, to ...identity.ID) {
 
 func (m *Manager) addNeighbor(peer *peer.Peer, connectorFunc func(*peer.Peer) (net.Conn, error), opts []NeighborOption,
 ) error {
-
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
