@@ -36,6 +36,11 @@ type LoadMessageFunc func(messageId tangle.MessageID) ([]byte, error)
 
 type NeighborsGroup int8
 
+const (
+	NeighborsGroupAuto NeighborsGroup = iota
+	NeighborsGroupManuel
+)
+
 type neighborWithGroup struct {
 	*Neighbor
 	group NeighborsGroup
@@ -128,23 +133,43 @@ func (m *Manager) stop() {
 	}
 }
 
+type NeighborOptions struct {
+	group NeighborsGroup
+}
+
+type NeighborOption func(opts *NeighborOptions)
+
+func WithNeighborsGroup(group NeighborsGroup) NeighborOption {
+	return func(opts *NeighborOptions) {
+		opts.group = group
+	}
+}
+
+func makeNeighborOptions(opts []NeighborOption) *NeighborOptions {
+	options := &NeighborOptions{group: NeighborsGroupAuto}
+	for _, opt := range opts {
+		opt(options)
+	}
+	return options
+}
+
 // AddOutbound tries to add a neighbor by connecting to that peer.
-func (m *Manager) AddOutbound(p *peer.Peer, group NeighborsGroup) error {
-	return m.addNeighbor(p, group, m.srv.DialPeer)
+func (m *Manager) AddOutbound(p *peer.Peer, opts ...NeighborOption) error {
+	return m.addNeighbor(p, m.srv.DialPeer, opts)
 }
 
 // AddInbound tries to add a neighbor by accepting an incoming connection from that peer.
-func (m *Manager) AddInbound(p *peer.Peer, group NeighborsGroup) error {
-	return m.addNeighbor(p, group, m.srv.AcceptPeer)
+func (m *Manager) AddInbound(p *peer.Peer, opts ...NeighborOption) error {
+	return m.addNeighbor(p, m.srv.AcceptPeer, opts)
 }
 
 // DropNeighbor disconnects the neighbor with the given ID.
-func (m *Manager) DropNeighbor(id identity.ID, group NeighborsGroup) error {
+func (m *Manager) DropNeighbor(id identity.ID, opts ...NeighborOption) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-
 	n, ok := m.neighbors[id]
-	if !ok || n.group!= group {
+	options := makeNeighborOptions(opts)
+	if !ok || n.group != options.group {
 		return ErrUnknownNeighbor
 	}
 	delete(m.neighbors, id)
@@ -209,7 +234,7 @@ func (m *Manager) send(b []byte, to ...identity.ID) {
 	}
 }
 
-func (m *Manager) addNeighbor(peer *peer.Peer, group NeighborsGroup, connectorFunc func(*peer.Peer) (net.Conn, error),
+func (m *Manager) addNeighbor(peer *peer.Peer, connectorFunc func(*peer.Peer) (net.Conn, error), opts []NeighborOption,
 ) error {
 
 	m.mu.Lock()
@@ -233,12 +258,13 @@ func (m *Manager) addNeighbor(peer *peer.Peer, group NeighborsGroup, connectorFu
 		m.events.ConnectionFailed.Trigger(peer, ErrDuplicateNeighbor)
 		return ErrDuplicateNeighbor
 	}
+	options := makeNeighborOptions(opts)
 
 	// create and add the neighbor
 	nbr := NewNeighbor(peer, conn, m.log)
 	nbr.Events.Close.Attach(events.NewClosure(func() {
 		// assure that the neighbor is removed and notify
-		_ = m.DropNeighbor(peer.ID(),group)
+		_ = m.DropNeighbor(peer.ID(), WithNeighborsGroup(options.group))
 		m.events.NeighborRemoved.Trigger(nbr)
 	}))
 	nbr.Events.ReceiveMessage.Attach(events.NewClosure(func(data []byte) {
@@ -249,7 +275,7 @@ func (m *Manager) addNeighbor(peer *peer.Peer, group NeighborsGroup, connectorFu
 		}
 	}))
 
-	m.neighbors[peer.ID()] = &neighborWithGroup{Neighbor:nbr,group: group}
+	m.neighbors[peer.ID()] = &neighborWithGroup{Neighbor: nbr, group: options.group}
 	nbr.Listen()
 	m.events.NeighborAdded.Trigger(nbr)
 
