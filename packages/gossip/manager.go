@@ -38,7 +38,7 @@ type NeighborsGroup int8
 
 const (
 	NeighborsGroupAuto NeighborsGroup = iota
-	NeighborsGroupManuel
+	NeighborsGroupManual
 )
 
 type neighborWithGroup struct {
