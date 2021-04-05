@@ -233,9 +233,8 @@ func (f *FPC) queryOpinions() ([]opinion.QueriedOpinions, error) {
 	}
 	totalMana := totalOpinionGiversMana + ownMana
 
-	// votes per id
-	var voteMapMu sync.Mutex
-	voteMap := map[string]opinion.Opinions{}
+	// create vote Map for existing conflict ids and timestamps
+	voteMap, voteMapMu := createVoteMapForConflicts(conflictIDs, timestampIDs)
 
 	// holds queried opinions
 	allQueriedOpinions := []opinion.QueriedOpinions{}
@@ -267,12 +266,8 @@ func (f *FPC) queryOpinions() ([]opinion.QueriedOpinions, error) {
 			voteMapMu.Lock()
 			defer voteMapMu.Unlock()
 			for i, id := range conflictIDs {
-				votes, has := voteMap[id]
-				if !has {
-					votes = opinion.Opinions{}
-				}
-				// reuse the opinion N times selected.
-				// note this is always at least 1.
+				votes, _ := voteMap[id]
+				// reuse the opinion N times selected. Note this is always at least 1.
 				for j := 0; j < selectedCount; j++ {
 					votes = append(votes, opinions[i])
 				}
@@ -280,12 +275,8 @@ func (f *FPC) queryOpinions() ([]opinion.QueriedOpinions, error) {
 				voteMap[id] = votes
 			}
 			for i, id := range timestampIDs {
-				votes, has := voteMap[id]
-				if !has {
-					votes = opinion.Opinions{}
-				}
-				// reuse the opinion N times selected.
-				// note this is always at least 1.
+				votes, _ := voteMap[id]
+				// reuse the opinion N times selected. Note this is always at least 1.
 				for j := 0; j < selectedCount; j++ {
 					votes = append(votes, opinions[i])
 				}
@@ -421,4 +412,21 @@ func UniformSampling(opinionGivers []opinion.OpinionGiver, maxQuerySampleSize, q
 		opinionGiversToQuery[selected]++
 	}
 	return opinionGiversToQuery
+}
+
+// create a voteMap for the stored conflicts and timestamps
+func createVoteMapForConflicts(conflictIDs, timestampIDs []string) (map[string]opinion.Opinions, sync.Mutex) {
+	var voteMapMu sync.Mutex
+	voteMap := map[string]opinion.Opinions{}
+
+	voteMapMu.Lock()
+	defer voteMapMu.Unlock()
+	for _, id := range conflictIDs {
+		voteMap[id] = opinion.Opinions{}
+	}
+	for _, id := range timestampIDs {
+		voteMap[id] = opinion.Opinions{}
+	}
+
+	return voteMap, voteMapMu
 }
