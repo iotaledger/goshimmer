@@ -266,22 +266,18 @@ func (f *FPC) queryOpinions() ([]opinion.QueriedOpinions, error) {
 			voteMapMu.Lock()
 			defer voteMapMu.Unlock()
 			for i, id := range conflictIDs {
-				votes, _ := voteMap[id]
 				// reuse the opinion N times selected. Note this is always at least 1.
 				for j := 0; j < selectedCount; j++ {
-					votes = append(votes, opinions[i])
+					voteMap[id] = append(voteMap[id], opinions[i])
 				}
 				queriedOpinions.Opinions[id] = opinions[i]
-				voteMap[id] = votes
 			}
 			for i, id := range timestampIDs {
-				votes, _ := voteMap[id]
 				// reuse the opinion N times selected. Note this is always at least 1.
 				for j := 0; j < selectedCount; j++ {
-					votes = append(votes, opinions[i])
+					voteMap[id] = append(voteMap[id], opinions[i])
 				}
 				queriedOpinions.Opinions[id] = opinions[i]
-				voteMap[id] = votes
 			}
 			allQueriedOpinions = append(allQueriedOpinions, queriedOpinions)
 		}(opinionGiverToQuery, selectedCount)
