@@ -1,6 +1,7 @@
 package mana
 
 import (
+	"bytes"
 	"fmt"
 	"sort"
 	"sync"
@@ -236,6 +237,7 @@ func (c *ConsensusBaseManaVector) GetHighestManaNodes(n uint) (res []Node, t tim
 // It also updates the mana values for each node.
 // If p is zero or greater than one, it returns all nodes.
 func (c *ConsensusBaseManaVector) GetHighestManaNodesFraction(p float64) (res []Node, t time.Time, err error) {
+	emptyNodeID := identity.ID{}
 	totalMana := 0.0
 	err = func() error {
 		// don't lock the vector after this func returns
@@ -243,6 +245,11 @@ func (c *ConsensusBaseManaVector) GetHighestManaNodesFraction(p float64) (res []
 		defer c.Unlock()
 		t = time.Now()
 		for ID := range c.vector {
+			// skip the empty node ID
+			if bytes.Equal(ID[:], emptyNodeID[:]) {
+				continue
+			}
+
 			var mana float64
 			mana, _, err = c.getMana(ID, t)
 			if err != nil {
