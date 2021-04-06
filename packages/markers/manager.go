@@ -248,6 +248,7 @@ func (m *Manager) SequenceFromAlias(sequenceAlias SequenceAlias) (cachedSequence
 	return
 }
 
+// RegisterSequenceAlias adds a mapping from a SequenceAlias to a Sequence.
 func (m *Manager) RegisterSequenceAlias(sequenceAlias SequenceAlias, sequenceID SequenceID) {
 	if cachedObject, stored := m.sequenceAliasMappingStore.StoreIfAbsent(&SequenceAliasMapping{
 		sequenceAlias: sequenceAlias,
@@ -257,6 +258,7 @@ func (m *Manager) RegisterSequenceAlias(sequenceAlias SequenceAlias, sequenceID 
 	}
 }
 
+// UnregisterSequenceAlias removes the mapping of the given SequenceAlias to its corresponding Sequence.
 func (m *Manager) UnregisterSequenceAlias(sequenceAlias SequenceAlias) {
 	m.sequenceAliasMappingStore.Delete(sequenceAlias.Bytes())
 }
