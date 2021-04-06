@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -243,7 +244,11 @@ func OutputFromBytes(bytes []byte) (output Output, consumedBytes int, err error)
 		err = xerrors.Errorf("failed to parse Output from MarshalUtil: %w", err)
 	}
 	consumedBytes = marshalUtil.ReadOffset()
-
+	if consumedBytes != len(bytes) {
+		if err == nil {
+			err = xerrors.Errorf("did not consume all bytes")
+		}
+	}
 	return
 }
 
@@ -920,10 +925,10 @@ const MaxOutputPayloadSize = 4 * 1024
 
 // flags use to compress serialized bytes
 const (
-	flagAliasOutputGovernanceUpdate     = 0x01
-	flagAliasOutputGovernanceSet        = 0x02
-	flagAliasOutputStateDataPresent     = 0x04
-	flagAliasOutputImmutableDataPresent = 0x08
+	flagAliasOutputGovernanceUpdate = uint(iota)
+	flagAliasOutputGovernanceSet
+	flagAliasOutputStateDataPresent
+	flagAliasOutputImmutableDataPresent
 )
 
 // AliasOutput represents output which defines as AliasAddress.
@@ -983,7 +988,6 @@ func NewAliasOutputMint(balances map[Color]uint64, stateAddr Address, immutableD
 // NewAliasOutputNext creates new AliasOutput as state transition from the previous one
 func (a *AliasOutput) NewAliasOutputNext(governanceUpdate ...bool) *AliasOutput {
 	ret := a.clone()
-	ret.aliasAddress = *a.GetAliasAddress()
 	ret.isGovernanceUpdate = false
 	if len(governanceUpdate) > 0 {
 		ret.isGovernanceUpdate = governanceUpdate[0]
@@ -1005,11 +1009,12 @@ func AliasOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*AliasOut
 		return nil, xerrors.Errorf("AliasOutput: invalid OutputType (%X): %w", outputType, cerrors.ErrParseBytesFailed)
 	}
 	ret = &AliasOutput{}
-	flags, err1 := marshalUtil.ReadByte()
+	flagsByte, err1 := marshalUtil.ReadByte()
 	if err1 != nil {
 		return nil, xerrors.Errorf("AliasOutput: failed to parse AliasOutput flags (%v): %w", err1, cerrors.ErrParseBytesFailed)
 	}
-	ret.isGovernanceUpdate = flags&flagAliasOutputGovernanceUpdate != 0
+	flags := bitmask.BitMask(flagsByte)
+	ret.isGovernanceUpdate = flags.HasBit(flagAliasOutputGovernanceUpdate)
 	if ret.aliasAddress.IsNil() {
 		addr, err2 := AliasAddressFromMarshalUtil(marshalUtil)
 		if err2 != nil {
@@ -1030,7 +1035,7 @@ func AliasOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*AliasOut
 	if err != nil {
 		return nil, xerrors.Errorf("AliasOutput: failed to parse state address (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
-	if flags&flagAliasOutputStateDataPresent != 0 {
+	if flags.HasBit(flagAliasOutputStateDataPresent) {
 		size, err4 := marshalUtil.ReadUint16()
 		if err4 != nil {
 			return nil, xerrors.Errorf("AliasOutput: failed to parse state data size: %w", err4)
@@ -1040,7 +1045,7 @@ func AliasOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*AliasOut
 			return nil, xerrors.Errorf("AliasOutput: failed to parse state data: %w", err)
 		}
 	}
-	if flags&flagAliasOutputImmutableDataPresent != 0 {
+	if flags.HasBit(flagAliasOutputImmutableDataPresent) {
 		size, err5 := marshalUtil.ReadUint16()
 		if err5 != nil {
 			return nil, xerrors.Errorf("AliasOutput: failed to parse immutable data size: %w", err5)
@@ -1050,7 +1055,7 @@ func AliasOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*AliasOut
 			return nil, xerrors.Errorf("AliasOutput: failed to parse immutable data: %w", err)
 		}
 	}
-	if flags&flagAliasOutputGovernanceSet != 0 {
+	if flags.HasBit(flagAliasOutputGovernanceSet) {
 		ret.governingAddress, err = AddressFromMarshalUtil(marshalUtil)
 		if err != nil {
 			return nil, xerrors.Errorf("AliasOutput: failed to parse governing address (%v): %w", err, cerrors.ErrParseBytesFailed)
@@ -1179,7 +1184,7 @@ func (a *AliasOutput) clone() *AliasOutput {
 	ret := &AliasOutput{
 		outputID:      a.outputID,
 		balances:      a.balances.Clone(),
-		aliasAddress:  a.aliasAddress,
+		aliasAddress:  *a.aliasAddress.Clone().(*AliasAddress),
 		stateAddress:  a.stateAddress.Clone(),
 		stateIndex:    a.stateIndex,
 		stateData:     make([]byte, len(a.stateData)),
@@ -1272,20 +1277,20 @@ func (a *AliasOutput) ObjectStorageValue() []byte {
 	flags := a.mustFlags()
 	ret := marshalutil.New().
 		WriteByte(byte(AliasOutputType)).
-		WriteByte(flags).
+		WriteByte(byte(flags)).
 		WriteBytes(a.aliasAddress.Bytes()).
 		WriteBytes(a.balances.Bytes()).
 		WriteBytes(a.stateAddress.Bytes()).
 		WriteUint32(a.stateIndex)
-	if flags&flagAliasOutputStateDataPresent != 0 {
+	if flags.HasBit(flagAliasOutputStateDataPresent) {
 		ret.WriteUint16(uint16(len(a.stateData))).
 			WriteBytes(a.stateData)
 	}
-	if flags&flagAliasOutputImmutableDataPresent != 0 {
+	if flags.HasBit(flagAliasOutputImmutableDataPresent) {
 		ret.WriteUint16(uint16(len(a.immutableData))).
 			WriteBytes(a.immutableData)
 	}
-	if flags&flagAliasOutputGovernanceSet != 0 {
+	if flags.HasBit(flagAliasOutputGovernanceSet) {
 		ret.WriteBytes(a.governingAddress.Bytes())
 	}
 	return ret.Bytes()
@@ -1364,7 +1369,7 @@ func (a *AliasOutput) checkBasicValidity() error {
 	}
 	if len(a.stateData) > MaxOutputPayloadSize {
 		return xerrors.Errorf("AliasOutput: size of the stateData (%d) exceeds maximum allowed (%d)",
-			len(a.immutableData), MaxOutputPayloadSize)
+			len(a.stateData), MaxOutputPayloadSize)
 	}
 	if len(a.immutableData) > MaxOutputPayloadSize {
 		return xerrors.Errorf("AliasOutput: size of the immutableData (%d) exceeds maximum allowed (%d)",
@@ -1381,20 +1386,20 @@ func (a *AliasOutput) mustValidate() {
 }
 
 // mustFlags produces flags for serialization
-func (a *AliasOutput) mustFlags() byte {
+func (a *AliasOutput) mustFlags() bitmask.BitMask {
 	a.mustValidate()
-	var ret byte
+	var ret bitmask.BitMask
 	if a.isGovernanceUpdate {
-		ret |= flagAliasOutputGovernanceUpdate
+		ret = ret.SetBit(flagAliasOutputGovernanceUpdate)
 	}
 	if len(a.immutableData) > 0 {
-		ret |= flagAliasOutputImmutableDataPresent
+		ret = ret.SetBit(flagAliasOutputImmutableDataPresent)
 	}
 	if len(a.stateData) > 0 {
-		ret |= flagAliasOutputStateDataPresent
+		ret = ret.SetBit(flagAliasOutputStateDataPresent)
 	}
 	if a.governingAddress != nil {
-		ret |= flagAliasOutputGovernanceSet
+		ret = ret.SetBit(flagAliasOutputGovernanceSet)
 	}
 	return ret
 }
