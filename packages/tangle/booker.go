@@ -131,7 +131,7 @@ func (b *Booker) bookMessage(message *Message, messageMetadata *MessageMetadata)
 
 	b.Events.MessageBooked.Trigger(message.ID())
 
-	return err
+	return nil
 }
 
 // Book tries to book the given Message (and potentially its contained Transaction) into the LedgerState and the Tangle.
