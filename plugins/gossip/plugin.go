@@ -47,11 +47,14 @@ func configure(*node.Plugin) {
 	log = logger.NewLogger(PluginName)
 	ageThreshold = config.Node().Duration(CfgGossipAgeThreshold)
 	tipsBroadcasterInterval = config.Node().Duration(CfgGossipTipsBroadcastInterval)
+	disableAutopeering := config.Node().Bool(CfgGossipDisableAutopeering)
 	requestedMsgs = newRequestedMessages()
 
 	configureLogging()
 	configureMessageLayer()
-	configureAutopeering()
+	if !disableAutopeering {
+		configureAutopeering()
+	}
 }
 
 func run(*node.Plugin) {
@@ -64,6 +67,7 @@ func run(*node.Plugin) {
 }
 
 func configureAutopeering() {
+	log.Info("Configuring autopeering to manage neighbors in the gossip layer")
 	// assure that the Manager is instantiated
 	mgr := Manager()
 
