@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	webapi_value "github.com/iotaledger/goshimmer/plugins/webapi/value"
+	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels/value"
 )
 
 const (
@@ -17,8 +17,8 @@ const (
 )
 
 // GetAttachments gets the attachments of a transaction ID
-func (api *GoShimmerAPI) GetAttachments(base58EncodedTxnID string) (*webapi_value.AttachmentsResponse, error) {
-	res := &webapi_value.AttachmentsResponse{}
+func (api *GoShimmerAPI) GetAttachments(base58EncodedTxnID string) (*value.AttachmentsResponse, error) {
+	res := &value.AttachmentsResponse{}
 	if err := api.do(http.MethodGet, func() string {
 		return fmt.Sprintf("%s?txnID=%s", routeAttachments, base58EncodedTxnID)
 	}(), nil, res); err != nil {
@@ -29,8 +29,8 @@ func (api *GoShimmerAPI) GetAttachments(base58EncodedTxnID string) (*webapi_valu
 }
 
 // GetTransactionByID gets the transaction of a transaction ID
-func (api *GoShimmerAPI) GetTransactionByID(base58EncodedTxnID string) (*webapi_value.GetTransactionByIDResponse, error) {
-	res := &webapi_value.GetTransactionByIDResponse{}
+func (api *GoShimmerAPI) GetTransactionByID(base58EncodedTxnID string) (*value.GetTransactionByIDResponse, error) {
+	res := &value.GetTransactionByIDResponse{}
 	if err := api.do(http.MethodGet, func() string {
 		return fmt.Sprintf("%s?txnID=%s", routeGetTxnByID, base58EncodedTxnID)
 	}(), nil, res); err != nil {
@@ -41,10 +41,10 @@ func (api *GoShimmerAPI) GetTransactionByID(base58EncodedTxnID string) (*webapi_
 }
 
 // GetUnspentOutputs return unspent output IDs of addresses
-func (api *GoShimmerAPI) GetUnspentOutputs(addresses []string) (*webapi_value.UnspentOutputsResponse, error) {
-	res := &webapi_value.UnspentOutputsResponse{}
+func (api *GoShimmerAPI) GetUnspentOutputs(addresses []string) (*value.UnspentOutputsResponse, error) {
+	res := &value.UnspentOutputsResponse{}
 	if err := api.do(http.MethodPost, routeUnspentOutputs,
-		&webapi_value.UnspentOutputsRequest{Addresses: addresses}, res); err != nil {
+		&value.UnspentOutputsRequest{Addresses: addresses}, res); err != nil {
 		return nil, err
 	}
 
@@ -53,9 +53,9 @@ func (api *GoShimmerAPI) GetUnspentOutputs(addresses []string) (*webapi_value.Un
 
 // SendTransaction sends the transaction(bytes) to the Value Tangle and returns transaction ID.
 func (api *GoShimmerAPI) SendTransaction(txnBytes []byte) (string, error) {
-	res := &webapi_value.SendTransactionResponse{}
+	res := &value.SendTransactionResponse{}
 	if err := api.do(http.MethodPost, routeSendTxn,
-		&webapi_value.SendTransactionRequest{TransactionBytes: txnBytes}, res); err != nil {
+		&value.SendTransactionRequest{TransactionBytes: txnBytes}, res); err != nil {
 		return "", err
 	}
 
@@ -63,10 +63,10 @@ func (api *GoShimmerAPI) SendTransaction(txnBytes []byte) (string, error) {
 }
 
 // SendTransactionByJSON sends the transaction(JSON) to the Value Tangle and returns transaction ID and message ID.
-func (api *GoShimmerAPI) SendTransactionByJSON(txn webapi_value.SendTransactionByJSONRequest) (string, error) {
-	res := &webapi_value.SendTransactionByJSONResponse{}
+func (api *GoShimmerAPI) SendTransactionByJSON(txn value.SendTransactionByJSONRequest) (string, error) {
+	res := &value.SendTransactionByJSONResponse{}
 	if err := api.do(http.MethodPost, routeSendTxnByJSON,
-		&webapi_value.SendTransactionByJSONRequest{
+		&value.SendTransactionByJSONRequest{
 			Inputs:        txn.Inputs,
 			Outputs:       txn.Outputs,
 			AManaPledgeID: txn.AManaPledgeID,
@@ -81,8 +81,8 @@ func (api *GoShimmerAPI) SendTransactionByJSON(txn webapi_value.SendTransactionB
 }
 
 // GetAllowedManaPledgeNodeIDs returns the list of allowed mana pledge IDs.
-func (api *GoShimmerAPI) GetAllowedManaPledgeNodeIDs() (*webapi_value.AllowedManaPledgeResponse, error) {
-	res := &webapi_value.AllowedManaPledgeResponse{}
+func (api *GoShimmerAPI) GetAllowedManaPledgeNodeIDs() (*value.AllowedManaPledgeResponse, error) {
+	res := &value.AllowedManaPledgeResponse{}
 	if err := api.do(http.MethodGet, routeAllowedPledgeNodeIDs, nil, res); err != nil {
 		return nil, err
 	}

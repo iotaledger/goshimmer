@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
+	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 const (
@@ -47,39 +48,28 @@ func configure(plugin *node.Plugin) {
 func requestFunds(c echo.Context) error {
 	fundingMu.Lock()
 	defer fundingMu.Unlock()
-	var request Request
+	var request jsonmodels.FaucetRequest
 	var addr ledgerstate.Address
 	if err := c.Bind(&request); err != nil {
 		log.Info(err.Error())
-		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, jsonmodels.FaucetResponse{Error: err.Error()})
 	}
 
 	log.Debug("Received - address:", request.Address)
 
 	addr, err := ledgerstate.AddressFromBase58EncodedString(request.Address)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, Response{Error: "Invalid address"})
+		return c.JSON(http.StatusBadRequest, jsonmodels.FaucetResponse{Error: "Invalid address"})
 	}
 
 	faucetPayload, err := faucet.NewRequest(addr, config.Node().Int(faucet.CfgFaucetPoWDifficulty))
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, jsonmodels.FaucetResponse{Error: err.Error()})
 	}
 	msg, err := messagelayer.Tangle().MessageFactory.IssuePayload(faucetPayload, messagelayer.Tangle())
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, Response{Error: fmt.Sprintf("Failed to send faucetrequest: %s", err.Error())})
+		return c.JSON(http.StatusInternalServerError, jsonmodels.FaucetResponse{Error: fmt.Sprintf("Failed to send faucetrequest: %s", err.Error())})
 	}
 
-	return c.JSON(http.StatusOK, Response{ID: msg.ID().String()})
-}
-
-// Response contains the ID of the message sent.
-type Response struct {
-	ID    string `json:"id,omitempty"`
-	Error string `json:"error,omitempty"`
-}
-
-// Request contains the address to request funds from faucet.
-type Request struct {
-	Address string `json:"address"`
+	return c.JSON(http.StatusOK, jsonmodels.FaucetResponse{ID: msg.ID().String()})
 }

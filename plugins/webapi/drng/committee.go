@@ -9,36 +9,23 @@ import (
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/plugins/drng"
+	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 // committeeHandler returns the current DRNG committee used.
 func committeeHandler(c echo.Context) error {
-	committees := []Committee{}
+	committees := []jsonmodels.Committee{}
 	for _, state := range drng.Instance().State {
-		committees = append(committees, Committee{
+		committees = append(committees, jsonmodels.Committee{
 			InstanceID:    state.Committee().InstanceID,
 			Threshold:     state.Committee().Threshold,
 			Identities:    identitiesToString(state.Committee().Identities),
 			DistributedPK: hex.EncodeToString(state.Committee().DistributedPK),
 		})
 	}
-	return c.JSON(http.StatusOK, CommitteeResponse{
+	return c.JSON(http.StatusOK, jsonmodels.CommitteeResponse{
 		Committees: committees,
 	})
-}
-
-// CommitteeResponse is the HTTP message containing the DRNG committee.
-type CommitteeResponse struct {
-	Committees []Committee `json:"committees,omitempty"`
-	Error      string      `json:"error,omitempty"`
-}
-
-// Committee defines the information about a committee.
-type Committee struct {
-	InstanceID    uint32   `json:"instanceID,omitempty"`
-	Threshold     uint8    `json:"threshold,omitempty"`
-	Identities    []string `json:"identities,omitempty"`
-	DistributedPK string   `json:"distributedPK,omitempty"`
 }
 
 func identitiesToString(publicKeys []ed25519.PublicKey) []string {
