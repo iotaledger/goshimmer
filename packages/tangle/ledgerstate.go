@@ -65,13 +65,14 @@ func (l *LedgerState) InheritBranch(referencedBranchIDs ledgerstate.BranchIDs) (
 
 // TransactionValid performs some fast checks of the Transaction and triggers a MessageInvalid event if the checks do
 // not pass.
-func (l *LedgerState) TransactionValid(transaction *ledgerstate.Transaction, messageID MessageID) (valid bool, err error) {
-	valid, err = l.utxoDAG.CheckTransaction(transaction)
-	if err != nil {
+func (l *LedgerState) TransactionValid(transaction *ledgerstate.Transaction, messageID MessageID) (err error) {
+	if err = l.utxoDAG.CheckTransaction(transaction); err != nil {
 		l.tangle.Events.MessageInvalid.Trigger(messageID)
+
+		return xerrors.Errorf("invalid transaction in message with %s: %w", err)
 	}
 
-	return
+	return nil
 }
 
 // TransactionConflicting returns whether the given transaction is part of a conflict.
@@ -178,7 +179,7 @@ func (l *LedgerState) OutputsOnAddress(address ledgerstate.Address) (cachedOutpu
 }
 
 // CheckTransaction contains fast checks that have to be performed before booking a Transaction.
-func (l *LedgerState) CheckTransaction(transaction *ledgerstate.Transaction) (valid bool, err error) {
+func (l *LedgerState) CheckTransaction(transaction *ledgerstate.Transaction) (err error) {
 	return l.utxoDAG.CheckTransaction(transaction)
 }
 

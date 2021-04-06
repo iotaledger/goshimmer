@@ -806,7 +806,7 @@ func storeBookLikeMessage(t *testing.T, tangle *Tangle, message *Message) {
 	tangle.Storage.StoreMessage(message)
 	// TODO: CheckTransaction should be removed here once the booker passes on errors
 	if message.payload.Type() == ledgerstate.TransactionType {
-		_, err := tangle.LedgerState.utxoDAG.CheckTransaction(message.payload.(*ledgerstate.Transaction))
+		err := tangle.LedgerState.utxoDAG.CheckTransaction(message.payload.(*ledgerstate.Transaction))
 		require.NoError(t, err)
 	}
 	err := tangle.Booker.BookMessage(message.ID())

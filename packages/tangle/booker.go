@@ -224,8 +224,9 @@ func (b *Booker) bookPayload(message *Message) (branchID ledgerstate.BranchID, e
 	}
 
 	transaction := payload.(*ledgerstate.Transaction)
-	if valid, err := b.tangle.LedgerState.TransactionValid(transaction, message.ID()); !valid {
-		return ledgerstate.UndefinedBranchID, xerrors.Errorf("invalid transaction in message with %s: %w", message.ID(), err)
+
+	if transactionErr := b.tangle.LedgerState.TransactionValid(transaction, message.ID()); transactionErr != nil {
+		return ledgerstate.UndefinedBranchID, xerrors.Errorf("invalid transaction in message with %s: %w", message.ID(), transactionErr)
 	}
 
 	if !b.tangle.Utils.AllTransactionsApprovedByMessages(transaction.ReferencedTransactionIDs(), message.ID()) {
