@@ -37,7 +37,7 @@ func TestTipManager_AddTip(t *testing.T) {
 	{
 		message := newTestParentsDataMessage("testmessage", []MessageID{EmptyMessageID}, []MessageID{})
 		tangle.Storage.StoreMessage(message)
-		tangle.Booker.Book(message.ID())
+		tangle.Booker.BookMessage(message.ID())
 		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetEligible(false)
 		})
@@ -76,7 +76,7 @@ func TestTipManager_AddTip(t *testing.T) {
 
 		message := newTestParentsPayloadMessage(transaction, []MessageID{EmptyMessageID}, []MessageID{})
 		tangle.Storage.StoreMessage(message)
-		tangle.Booker.Book(message.ID())
+		tangle.Booker.BookMessage(message.ID())
 		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetEligible(true)
 		})
@@ -809,7 +809,7 @@ func storeBookLikeMessage(t *testing.T, tangle *Tangle, message *Message) {
 		_, err := tangle.LedgerState.utxoDAG.CheckTransaction(message.payload.(*ledgerstate.Transaction))
 		require.NoError(t, err)
 	}
-	err := tangle.Booker.Book(message.ID())
+	err := tangle.Booker.BookMessage(message.ID())
 	require.NoError(t, err)
 
 	tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {

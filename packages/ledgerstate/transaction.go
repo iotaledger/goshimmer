@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -124,6 +125,19 @@ func (t TransactionIDs) Clone() (transactionIDs TransactionIDs) {
 	}
 
 	return
+}
+
+// String returns a human readable version of the TransactionIDs.
+func (t TransactionIDs) String() (result string) {
+	builder := strings.Builder{}
+	for key := range t {
+		if builder.Len() != 0 {
+			builder.WriteString(", ")
+		}
+		builder.WriteString(key.Base58())
+	}
+
+	return "TransactionIDs(" + builder.String() + ")"
 }
 
 // Strings returns a slice of string representation of the TransactionIDs.
