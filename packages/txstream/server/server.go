@@ -210,7 +210,7 @@ func (c *Connection) processBookedTransaction(tx *ledgerstate.Transaction) {
 func (c *Connection) getTxInclusionState(txid ledgerstate.TransactionID, addr ledgerstate.Address) {
 	state, err := c.ledger.GetTxInclusionState(txid)
 	if err != nil {
-		c.log().Errorf("getTxInclusionState: %v", err)
+		c.log().Warnf("getTxInclusionState: %v", err)
 		return
 	}
 	c.sendTxInclusionState(txid, addr, state)

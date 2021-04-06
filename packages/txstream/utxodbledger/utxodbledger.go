@@ -56,7 +56,7 @@ func (u *UtxoDBLedger) GetConfirmedTransaction(txid ledgerstate.TransactionID, f
 func (u *UtxoDBLedger) GetTxInclusionState(txid ledgerstate.TransactionID) (ledgerstate.InclusionState, error) {
 	_, ok := u.UtxoDB.GetTransaction(txid)
 	if !ok {
-		return ledgerstate.Pending, xerrors.New("Not found")
+		return ledgerstate.Pending, xerrors.Errorf("UtxoDBLedger.GetTxInclusionState: not found %s", txid.Base58())
 	}
 	return ledgerstate.Confirmed, nil
 }
