@@ -367,49 +367,6 @@ func (b *Booker) parentsBranchID(message *Message) (branchIDs ledgerstate.Branch
 	return branchIDs
 }
 
-// branchIDsOfParents returns the BranchIDs of the parents of the given Message.
-func (b *Booker) branchIDsOfParents(message *Message) (branchIDs ledgerstate.BranchIDs, err error) {
-	branchIDs = make(ledgerstate.BranchIDs)
-
-	message.ForEachStrongParent(func(parentMessageID MessageID) {
-		if parentMessageID == EmptyMessageID {
-			return
-		}
-
-		parentBranchID, branchIDErr := b.MessageBranchID(parentMessageID)
-		if branchIDErr != nil {
-			err = xerrors.Errorf("failed to retrieve BranchID of %s (strong parent of %s): %w", parentMessageID, message.ID(), branchIDErr)
-			return
-		}
-
-		branchIDs[parentBranchID] = types.Void
-	})
-
-	message.ForEachWeakParent(func(parentMessageID MessageID) {
-		if parentMessageID == EmptyMessageID {
-			return
-		}
-
-		if !b.tangle.Storage.Message(parentMessageID).Consume(func(message *Message) {
-			if payload := message.Payload(); payload != nil && payload.Type() == ledgerstate.TransactionType {
-				transactionID := payload.(*ledgerstate.Transaction).ID()
-
-				if !b.tangle.LedgerState.utxoDAG.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-					branchIDs[transactionMetadata.BranchID()] = types.Void
-				}) {
-					err = xerrors.Errorf("failed to load TransactionMetadata for %s: %w", transactionID, cerrors.ErrFatal)
-					return
-				}
-			}
-		}) {
-			err = xerrors.Errorf("failed to load MessageMetadata of %s: %w", message.ID(), cerrors.ErrFatal)
-			return
-		}
-	})
-
-	return
-}
-
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region BookerEvents /////////////////////////////////////////////////////////////////////////////////////////////////
