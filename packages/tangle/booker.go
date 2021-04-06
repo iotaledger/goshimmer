@@ -303,7 +303,7 @@ func (b *Booker) propagateConflictBranchIDTOMetadataFutureCone(messageMetadata *
 		return
 	}
 
-	b.tangle.Storage.DeleteIndividuallyMappedMessage(messageMetadata.BranchID(), messageMetadata.ID())
+	b.tangle.Storage.DeleteIndividuallyMappedMessage(oldBranchID, messageMetadata.ID())
 	b.tangle.Storage.StoreIndividuallyMappedMessage(NewIndividuallyMappedMessage(newBranchID, messageMetadata.ID(), messageMetadata.StructureDetails().PastMarkers))
 
 	for _, approvingMessageID := range b.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID(), StrongApprover) {
