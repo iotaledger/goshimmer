@@ -69,7 +69,7 @@ func (l *LedgerState) TransactionValid(transaction *ledgerstate.Transaction, mes
 	if err = l.utxoDAG.CheckTransaction(transaction); err != nil {
 		l.tangle.Events.MessageInvalid.Trigger(messageID)
 
-		return xerrors.Errorf("invalid transaction in message with %s: %w", err)
+		return xerrors.Errorf("invalid transaction in message with %s: %w", messageID, err)
 	}
 
 	return nil
