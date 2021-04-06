@@ -82,12 +82,11 @@ func (b *Booker) bookPayload(message *Message) (branchID ledgerstate.BranchID, e
 			refIdsStrings.WriteString(key.Base58())
 			refIdsStrings.WriteString(", ")
 		}
-		err = fmt.Errorf("message %s does not reference all the transaction's dependencies: %s", message.ID(), refIdsStrings.String())
-		return
+
+		return ledgerstate.UndefinedBranchID, fmt.Errorf("message %s does not reference all the transaction's dependencies: %s", message.ID(), refIdsStrings.String())
 	}
 
-	branchID, err = b.tangle.LedgerState.BookTransaction(transaction, message.ID())
-	if err != nil {
+	if branchID, err = b.tangle.LedgerState.BookTransaction(transaction, message.ID()); err != nil {
 		err = xerrors.Errorf("failed to book Transaction of Message with %s: %w", message.ID(), err)
 		return
 	}
@@ -100,14 +99,13 @@ func (b *Booker) bookPayload(message *Message) (branchID ledgerstate.BranchID, e
 		attachment.Release()
 	}
 
-	return
+	return branchID, nil
 }
 
 func (b *Booker) bookMessage(message *Message, messageMetadata *MessageMetadata) (err error) {
 	branchIDOfPayload, bookingErr := b.bookPayload(message)
 	if bookingErr != nil {
-		err = bookingErr
-		return
+		return bookingErr
 	}
 
 	inheritedBranch, inheritErr := b.tangle.LedgerState.InheritBranch(b.parentsBranchID(message).Add(branchIDOfPayload))
@@ -133,7 +131,7 @@ func (b *Booker) bookMessage(message *Message, messageMetadata *MessageMetadata)
 
 	b.Events.MessageBooked.Trigger(message.ID())
 
-	return
+	return err
 }
 
 // Book tries to book the given Message (and potentially its contained Transaction) into the LedgerState and the Tangle.
