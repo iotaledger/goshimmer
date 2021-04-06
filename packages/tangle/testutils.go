@@ -324,12 +324,11 @@ func WithColoredGenesisOutput(alias string, balances map[ledgerstate.Color]uint6
 // MessageTestFrameworkMessageOptions is a struct that represents a collection of options that can be set when creating
 // a Message with the MessageTestFramework.
 type MessageTestFrameworkMessageOptions struct {
-	inputs           map[string]types.Empty
-	outputs          map[string]uint64
-	coloredOutputs   map[string]map[ledgerstate.Color]uint64
-	strongParents    map[string]types.Empty
-	weakParents      map[string]types.Empty
-	withoutNewMarker bool
+	inputs         map[string]types.Empty
+	outputs        map[string]uint64
+	coloredOutputs map[string]map[ledgerstate.Color]uint64
+	strongParents  map[string]types.Empty
+	weakParents    map[string]types.Empty
 }
 
 // NewMessageTestFrameworkMessageOptions is the constructor for the MessageTestFrameworkMessageOptions.
