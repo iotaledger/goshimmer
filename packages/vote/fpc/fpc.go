@@ -121,6 +121,15 @@ func (f *FPC) Round(rand float64) error {
 		// number of rounds and clear those who failed to be finalized in MaxRoundsPerVoteContext.
 		f.finalizeOpinions()
 	}
+
+	// mark a round being done, even though there's no opinion,
+	// so this voting context will be cleared eventually
+	f.ctxsMu.Lock()
+	for voteObjectID := range f.ctxs {
+		f.ctxs[voteObjectID].Rounds++
+	}
+	f.ctxsMu.Unlock()
+
 	// query for opinions on the current vote contexts
 	queriedOpinions, err := f.queryOpinions()
 	if err == nil {
@@ -305,9 +314,6 @@ func (f *FPC) queryOpinions() ([]opinion.QueriedOpinions, error) {
 			}
 		}
 
-		// mark a round being done, even though there's no opinion,
-		// so this voting context will be cleared eventually
-		f.ctxs[id].Rounds++
 		if votedCount < f.paras.MinOpinionsReceived {
 			continue
 		}

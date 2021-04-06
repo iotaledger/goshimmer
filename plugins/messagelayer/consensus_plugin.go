@@ -234,11 +234,7 @@ func (o *OpinionGiver) Query(ctx context.Context, conflictIDs []string, timestam
 	if o.view != nil {
 		// wait for statement(s) to arrive
 		time.Sleep(time.Duration(StatementParameters.WaitForStatement) * time.Second)
-	}
-	// query statement status only if any statement has been received within the last round interval.
-	// This is important. We do want to consider old statements IF the node has been active in the last round.
-	// otherwise node might be down and we don't want to look at old statements in subsequent rounds
-	if o.view != nil && o.view.LastStatementReceivedTimestamp.Add(time.Duration(FPCParameters.RoundInterval)*time.Second).After(clockPkg.SyncedTime()) {
+
 		opinions, err = o.view.Query(ctx, conflictIDs, timestampIDs)
 		if err == nil {
 			return opinions, nil
