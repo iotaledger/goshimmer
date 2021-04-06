@@ -159,7 +159,7 @@ func (b *Booker) PropagateConflictingTransactionToTangle(transactionID ledgersta
 
 		if structureDetails := messageMetadata.StructureDetails(); structureDetails.IsPastMarker {
 			if err = b.propagateConflictBranchIDToMarkerFutureCone(structureDetails.PastMarkers.FirstMarker(), conflictBranchID); err != nil {
-				err = xerrors.Errorf("failed to propagate conflict%s to future cone of %s: %w", conflictBranchID, structureDetails.PastMarkers.FirstMarker())
+				err = xerrors.Errorf("failed to propagate conflict%s to future cone of %s: %w", conflictBranchID, structureDetails.PastMarkers.FirstMarker(), err)
 				walker.StopWalk()
 			}
 
