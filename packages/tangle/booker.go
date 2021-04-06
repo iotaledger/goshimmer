@@ -210,7 +210,7 @@ func (b *Booker) Shutdown() {
 }
 
 // addConflictToBranchID makes a BranchID more special by adding the given conflictBranchID to it's parents.
-func (b *Booker) addConflictToBranchID(branchID ledgerstate.BranchID, conflictBranchID ledgerstate.BranchID) (newBranchID ledgerstate.BranchID, branchIDUpdated bool, err error) {
+func (b *Booker) addConflictToBranchID(branchID, conflictBranchID ledgerstate.BranchID) (newBranchID ledgerstate.BranchID, branchIDUpdated bool, err error) {
 	if branchID == conflictBranchID {
 		return branchID, false, nil
 	}
@@ -439,6 +439,7 @@ func (m *MarkersManager) SetBranchID(marker *markers.Marker, branchID ledgerstat
 	return true
 }
 
+// BranchMappedByPastMarkers returns true if the given BranchID is associated to at least one of the given past Markers.
 func (m *MarkersManager) BranchMappedByPastMarkers(branch ledgerstate.BranchID, pastMarkers *markers.Markers) (branchMappedByPastMarkers bool) {
 	pastMarkers.ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
 		branchMappedByPastMarkers = m.BranchID(markers.NewMarker(sequenceID, index)) == branch
