@@ -147,7 +147,7 @@ func (m *Manager) IsInPastCone(earlierStructureDetails, laterStructureDetails *S
 	}
 
 	if earlierStructureDetails.IsPastMarker {
-		earlierMarker := earlierStructureDetails.PastMarkers.FirstMarker()
+		earlierMarker := earlierStructureDetails.PastMarkers.HighestSequenceMarker()
 		if earlierMarker == nil {
 			panic("failed to retrieve Marker")
 		}
@@ -170,7 +170,7 @@ func (m *Manager) IsInPastCone(earlierStructureDetails, laterStructureDetails *S
 	}
 
 	if laterStructureDetails.IsPastMarker {
-		laterMarker := laterStructureDetails.PastMarkers.FirstMarker()
+		laterMarker := laterStructureDetails.PastMarkers.HighestSequenceMarker()
 		if laterMarker == nil {
 			panic("failed to retrieve Marker")
 		}
