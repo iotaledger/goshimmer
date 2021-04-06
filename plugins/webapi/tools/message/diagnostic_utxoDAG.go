@@ -111,7 +111,7 @@ func getDiagnosticUTXODAGInfo(transactionID ledgerstate.TransactionID, messageID
 	})
 
 	for _, messageID := range messagelayer.Tangle().Storage.AttachmentMessageIDs(transactionID) {
-		txInfo.Attachments = append(txInfo.Attachments, messageID.String())
+		txInfo.Attachments = append(txInfo.Attachments, messageID.Base58())
 	}
 
 	messagelayer.Tangle().LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {

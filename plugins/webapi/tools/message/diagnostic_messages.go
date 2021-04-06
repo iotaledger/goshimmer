@@ -202,7 +202,7 @@ type DiagnosticMessagesInfo struct {
 
 func getDiagnosticMessageInfo(messageID tangle.MessageID) *DiagnosticMessagesInfo {
 	msgInfo := &DiagnosticMessagesInfo{
-		ID: messageID.String(),
+		ID: messageID.Base58(),
 	}
 
 	messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
