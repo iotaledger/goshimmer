@@ -165,7 +165,7 @@ func (b *Booker) PropagateConflictingTransactionToTangle(transactionID ledgersta
 		}
 
 		if err = b.propagateConflictBranchIDTOMetadataFutureCone(messageMetadata, conflictBranchID, walker); err != nil {
-			err = xerrors.Errorf("failed to propagate conflict%s to MessageMetadata future cone of %s: %w", conflictBranchID, messageMetadata.ID())
+			err = xerrors.Errorf("failed to propagate conflict%s to MessageMetadata future cone of %s: %w", conflictBranchID, messageMetadata.ID(), err)
 			walker.StopWalk()
 			return
 		}
