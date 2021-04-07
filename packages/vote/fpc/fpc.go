@@ -145,6 +145,7 @@ func (f *FPC) Round(rand float64) error {
 		// in order to prevent the collection of the round stats data if not needed
 		f.events.RoundExecuted.Trigger(roundStats)
 	}
+
 	return err
 }
 
@@ -223,7 +224,6 @@ func (f *FPC) queryOpinions() ([]opinion.QueriedOpinions, error) {
 	// select a random subset of opinion givers to query.
 	// if the same opinion giver is selected multiple times, we query it only once
 	// but use its opinion N selected times.
-
 	opinionGiversToQuery, totalOpinionGiversMana := ManaBasedSampling(opinionGivers, f.paras.MaxQuerySampleSize, f.paras.QuerySampleSize, f.opinionGiverRng)
 
 	// get own mana and calculate total mana
@@ -234,7 +234,8 @@ func (f *FPC) queryOpinions() ([]opinion.QueriedOpinions, error) {
 	totalMana := totalOpinionGiversMana + ownMana
 
 	// create vote Map for existing conflict ids and timestamps
-	voteMap, voteMapMu := createVoteMapForConflicts(conflictIDs, timestampIDs)
+	voteMap := createVoteMapForConflicts(conflictIDs, timestampIDs)
+	var voteMapMu sync.Mutex
 
 	// holds queried opinions
 	allQueriedOpinions := []opinion.QueriedOpinions{}
@@ -411,12 +412,9 @@ func UniformSampling(opinionGivers []opinion.OpinionGiver, maxQuerySampleSize, q
 }
 
 // create a voteMap for the stored conflicts and timestamps
-func createVoteMapForConflicts(conflictIDs, timestampIDs []string) (map[string]opinion.Opinions, sync.Mutex) {
-	var voteMapMu sync.Mutex
+func createVoteMapForConflicts(conflictIDs, timestampIDs []string) map[string]opinion.Opinions {
 	voteMap := map[string]opinion.Opinions{}
 
-	voteMapMu.Lock()
-	defer voteMapMu.Unlock()
 	for _, id := range conflictIDs {
 		voteMap[id] = opinion.Opinions{}
 	}
@@ -424,5 +422,5 @@ func createVoteMapForConflicts(conflictIDs, timestampIDs []string) (map[string]o
 		voteMap[id] = opinion.Opinions{}
 	}
 
-	return voteMap, voteMapMu
+	return voteMap
 }
