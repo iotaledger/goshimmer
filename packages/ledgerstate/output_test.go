@@ -1291,6 +1291,51 @@ func TestAliasOutput_Clone(t *testing.T) {
 
 // region ExtendedLockedOutput Tests
 
+func TestExtendedLockedOutput_Address(t *testing.T) {
+	t.Run("CASE: Address is signature backed", func(t *testing.T) {
+		addy := randEd25119Address()
+		o := &ExtendedLockedOutput{address: addy}
+		assert.True(t, o.Address().Equals(addy))
+	})
+
+	t.Run("CASE: Address is alias address", func(t *testing.T) {
+		addy := randAliasAddress()
+		o := &ExtendedLockedOutput{address: addy}
+		assert.True(t, o.Address().Equals(addy))
+	})
+}
+
+func TestExtendedLockedOutput_Balances(t *testing.T) {
+	t.Run("CASE: Happy path", func(t *testing.T) {
+		bal := NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA})
+		o := &ExtendedLockedOutput{balances: bal}
+		assert.Equal(t, bal.Bytes(), o.Balances().Bytes())
+	})
+}
+
+func TestExtendedLockedOutput_Bytes(t *testing.T) {
+	t.Run("CASE: Happy path", func(t *testing.T) {
+		o := NewExtendedLockedOutput(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}, randEd25119Address()).
+			WithFallbackOptions(randEd25119Address(), time.Now().Add(2*time.Hour)).
+			WithTimeLock(time.Now().Add(1 * time.Hour))
+		err := o.SetPayload([]byte("some metadata"))
+		oBytes := o.Bytes()
+		var restored Output
+		restored, _, err = OutputFromBytes(oBytes)
+		assert.NoError(t, err)
+		castedRestored, ok := restored.(*ExtendedLockedOutput)
+		assert.True(t, ok)
+		assert.Equal(t, o.balances.Bytes(), castedRestored.balances.Bytes())
+		assert.True(t, o.address.Equals(castedRestored.address))
+		assert.Equal(t, o.id.Bytes(), castedRestored.id.Bytes())
+		assert.True(t, o.fallbackDeadline.Equal(castedRestored.fallbackDeadline))
+		assert.True(t, o.fallbackAddress.Equals(castedRestored.fallbackAddress))
+		assert.True(t, o.timelock.Equal(castedRestored.timelock))
+		assert.Equal(t, o.payload, castedRestored.payload)
+
+	})
+}
+
 func TestExtendedLockedOutput_Clone(t *testing.T) {
 	out := dummyExtendedLockedOutput()
 	outBack := out.Clone()
