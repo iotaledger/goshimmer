@@ -228,6 +228,6 @@ func (c *Connection) getBacklog(addr ledgerstate.Address) {
 
 func (c *Connection) postTransaction(tx *ledgerstate.Transaction) {
 	if err := c.ledger.PostTransaction(tx); err != nil {
-		c.log().Warnf("%v: %s", err, tx.ID().Base58())
+		c.log().Debugf("%v: %s", err, tx.ID().Base58())
 	}
 }
