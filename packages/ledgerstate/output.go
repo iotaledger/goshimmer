@@ -1342,7 +1342,8 @@ func (a *AliasOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inpu
 	return false, xerrors.New("unsupported unlock block type")
 }
 
-// UpdateMintingColor replaces minting code with computed color code
+// UpdateMintingColor replaces minting code with computed color code, and calculates the alias address if it is a
+// freshly minted alias output
 func (a *AliasOutput) UpdateMintingColor() Output {
 	coloredBalances := a.Balances().Map()
 	if mintedCoins, mintedCoinsExist := coloredBalances[ColorMint]; mintedCoinsExist {
@@ -1352,6 +1353,10 @@ func (a *AliasOutput) UpdateMintingColor() Output {
 	updatedOutput := a.clone()
 	_ = updatedOutput.SetBalances(coloredBalances)
 	updatedOutput.SetID(a.ID())
+
+	if a.IsOrigin() {
+		updatedOutput.SetAliasAddress(a.GetAliasAddress())
+	}
 
 	return updatedOutput
 }

@@ -49,13 +49,6 @@ func (u *UtxoDB) AddTransaction(tx *ledgerstate.Transaction) error {
 		if out.ID().TransactionID() != tx.ID() {
 			panic("utxodb.AddTransaction: incorrect output ID")
 		}
-		if out.Type() == ledgerstate.AliasOutputType {
-			casted := out.(*ledgerstate.AliasOutput)
-			// update alias address if it is an origin alias
-			if casted.IsOrigin() {
-				casted.SetAliasAddress(casted.GetAliasAddress())
-			}
-		}
 		u.utxo[out.ID()] = out.UpdateMintingColor()
 	}
 	u.transactions[tx.ID()] = tx
