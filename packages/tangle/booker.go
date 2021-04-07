@@ -4,10 +4,9 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/thresholdmap"
@@ -18,6 +17,9 @@ import (
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
 // region Booker ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -85,7 +87,6 @@ func (b *Booker) UpdateMessagesBranch(transactionID ledgerstate.TransactionID) {
 func (b *Booker) Book(messageID MessageID) (err error) {
 	b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-			sequenceAlias := make([]markers.SequenceAlias, 0)
 			combinedBranches := b.branchIDsOfParents(message)
 			if payload := message.Payload(); payload != nil && payload.Type() == ledgerstate.TransactionType {
 				transaction := payload.(*ledgerstate.Transaction)
@@ -96,7 +97,13 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 
 				if !b.tangle.Utils.AllTransactionsApprovedByMessages(transaction.ReferencedTransactionIDs(), messageID) {
 					b.tangle.Events.MessageInvalid.Trigger(messageID)
-					err = fmt.Errorf("message does not reference all the transaction's dependencies")
+					refIds := transaction.ReferencedTransactionIDs()
+					var refIdsStrings strings.Builder
+					for key := range refIds {
+						refIdsStrings.WriteString(key.Base58())
+						refIdsStrings.WriteString(", ")
+					}
+					err = fmt.Errorf("message %s does not reference all the transaction's dependencies: %s", messageID.String(), refIdsStrings.String())
 					return
 				}
 
@@ -106,9 +113,6 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 					return
 				}
 				combinedBranches = combinedBranches.Add(targetBranch)
-				if ledgerstate.NewBranchID(transaction.ID()) == targetBranch {
-					sequenceAlias = append(sequenceAlias, markers.NewSequenceAlias(targetBranch.Bytes()))
-				}
 
 				for _, output := range transaction.Essence().Outputs() {
 					b.tangle.LedgerState.utxoDAG.StoreAddressOutputMapping(output.Address(), output.ID())
@@ -127,7 +131,7 @@ func (b *Booker) Book(messageID MessageID) (err error) {
 			}
 
 			messageMetadata.SetBranchID(inheritedBranch)
-			messageMetadata.SetStructureDetails(b.MarkersManager.InheritStructureDetails(message, sequenceAlias...))
+			messageMetadata.SetStructureDetails(b.MarkersManager.InheritStructureDetails(message, markers.NewSequenceAlias(inheritedBranch.Bytes())))
 			messageMetadata.SetBooked(true)
 
 			b.Events.MessageBooked.Trigger(messageID)
@@ -182,7 +186,6 @@ func (b *Booker) branchIDsOfParents(message *Message) (branchIDs ledgerstate.Bra
 					panic(fmt.Errorf("failed to load TransactionMetadata with %s", transactionID))
 				}
 			}
-
 		}) {
 			panic(fmt.Errorf("failed to load MessageMetadata with %s", parentMessageID))
 		}
@@ -223,8 +226,8 @@ func NewMarkersManager(tangle *Tangle) *MarkersManager {
 
 // InheritStructureDetails returns the structure Details of a Message that are derived from the StructureDetails of its
 // strong parents.
-func (m *MarkersManager) InheritStructureDetails(message *Message, newSequenceAlias ...markers.SequenceAlias) (structureDetails *markers.StructureDetails) {
-	structureDetails, _ = m.Manager.InheritStructureDetails(m.structureDetailsOfStrongParents(message), m.tangle.Options.IncreaseMarkersIndexCallback, newSequenceAlias...)
+func (m *MarkersManager) InheritStructureDetails(message *Message, sequenceAlias markers.SequenceAlias) (structureDetails *markers.StructureDetails) {
+	structureDetails, _ = m.Manager.InheritStructureDetails(m.structureDetailsOfStrongParents(message), m.tangle.Options.IncreaseMarkersIndexCallback, sequenceAlias)
 
 	if structureDetails.IsPastMarker {
 		m.tangle.Utils.WalkMessageMetadata(m.propagatePastMarkerToFutureMarkers(structureDetails.PastMarkers.FirstMarker()), message.StrongParents())

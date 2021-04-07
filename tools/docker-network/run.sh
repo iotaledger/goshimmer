@@ -8,6 +8,8 @@ fi
 REPLICAS=$1
 GRAFANA=${2:-0}
 
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
 echo "Build GoShimmer"
 docker-compose -f builder/docker-compose.builder.yml up --abort-on-container-exit --exit-code-from builder
 

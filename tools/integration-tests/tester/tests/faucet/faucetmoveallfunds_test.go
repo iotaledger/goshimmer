@@ -4,10 +4,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
-	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
 
 // TestPrepareFaucet tests that the faucet prepares outputs to be consumed by faucet requests.
@@ -44,7 +45,7 @@ func TestPrepareFaucet(t *testing.T) {
 		totalSplit += framework.ParaFaucetTokensPerRequest
 	}
 	balance := genesisBalance - totalSplit
-	faucetAddr := faucet.Seed.Address(i).Address().Base58()
+	faucetAddr := faucet.Seed.Address(0).Address().Base58()
 	outputs, err := faucet.GetUnspentOutputs([]string{faucetAddr})
 	require.NoError(t, err)
 	assert.Equal(t, balance, outputs.UnspentOutputs[0].OutputIDs[0].Balances[0].Value)
@@ -74,23 +75,26 @@ func TestPrepareFaucet(t *testing.T) {
 	assert.Equal(t, framework.ParaFaucetTokensPerRequest, lastPreparedOutput.UnspentOutputs[0].OutputIDs[0].Balances[0].Value)
 
 	// check balance is untouched
-	balanceOutputAddress := faucet.Seed.Address(11).Address().Base58()
+	balanceOutputAddress := faucet.Seed.Address(0).Address().Base58()
 	balanceOutput, err := faucet.GetUnspentOutputs([]string{balanceOutputAddress})
 	require.NoError(t, err)
 	assert.Equal(t, genesisBalance-(10*framework.ParaFaucetTokensPerRequest), balanceOutput.UnspentOutputs[0].OutputIDs[0].Balances[0].Value)
 
-	// issue 1 more request to split the balance at [11]
+	// issue 2 more request to split the remainder balance.
 	addr := peer.Seed.Address(10).Address()
+	tests.SendFaucetRequest(t, peer, addr)
+	addr = peer.Seed.Address(11).Address()
 	tests.SendFaucetRequest(t, peer, addr)
 	time.Sleep(2 * time.Second)
 
-	// check split of balance [11] to [12...21]
-	_addr := faucet.Seed.Address(11).Address().Base58()
+	// check split of balance [0] to [11...20]
+	_addr := faucet.Seed.Address(0).Address().Base58()
 	outputs, err = faucet.GetUnspentOutputs([]string{_addr})
 	require.NoError(t, err)
-	assert.Equal(t, 0, len(outputs.UnspentOutputs[0].OutputIDs)) //output is spent.
+	assert.Equal(t, 1, len(outputs.UnspentOutputs[0].OutputIDs)) // 1 output is unspent.
+	assert.Equal(t, genesisBalance-20*framework.ParaFaucetTokensPerRequest, outputs.UnspentOutputs[0].OutputIDs[0].Balances[0].Value)
 
-	for i := 12; i < 22; i++ {
+	for i := 11; i < 21; i++ {
 		_addr := faucet.Seed.Address(uint64(i)).Address().Base58()
 		outputs, err = faucet.GetUnspentOutputs([]string{_addr})
 		require.NoError(t, err)

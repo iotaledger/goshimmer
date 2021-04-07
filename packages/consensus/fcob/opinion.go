@@ -5,13 +5,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 // LevelOfKnowledge defines the Level Of Knowledge type.
@@ -74,6 +75,10 @@ type Opinion struct {
 	likedMutex            sync.RWMutex
 	levelOfKnowledgeMutex sync.RWMutex
 
+	fcobTime1     time.Time
+	fcobTime2     time.Time
+	fcobTimeMutex sync.RWMutex
+
 	objectstorage.StorableObjectFlags
 }
 
@@ -92,6 +97,14 @@ func (o OpinionEssence) LevelOfKnowledge() LevelOfKnowledge {
 	return o.levelOfKnowledge
 }
 
+func (o OpinionEssence) String() string {
+	return stringify.Struct("OpinionEssence",
+		stringify.StructField("Timestamp", o.timestamp),
+		stringify.StructField("Liked", o.liked),
+		stringify.StructField("LoK", o.levelOfKnowledge),
+	)
+}
+
 // Timestamp returns the opinion's timestamp.
 func (o *Opinion) Timestamp() time.Time {
 	o.timestampMutex.RLock()
@@ -104,6 +117,7 @@ func (o *Opinion) SetTimestamp(t time.Time) {
 	o.timestampMutex.Lock()
 	defer o.timestampMutex.Unlock()
 	o.timestamp = t
+	o.SetModified(true)
 }
 
 // Liked returns the opinion's liked.
@@ -118,6 +132,7 @@ func (o *Opinion) SetLiked(l bool) {
 	o.likedMutex.Lock()
 	defer o.likedMutex.Unlock()
 	o.liked = l
+	o.SetModified(true)
 }
 
 // LevelOfKnowledge returns the opinion's LevelOfKnowledge.
@@ -132,6 +147,37 @@ func (o *Opinion) SetLevelOfKnowledge(lok LevelOfKnowledge) {
 	o.levelOfKnowledgeMutex.Lock()
 	defer o.levelOfKnowledgeMutex.Unlock()
 	o.levelOfKnowledge = lok
+	o.SetModified(true)
+}
+
+// SetFCOBTime1 sets the opinion's LikedThreshold execution time.
+func (o *Opinion) SetFCOBTime1(t time.Time) {
+	o.fcobTimeMutex.Lock()
+	defer o.fcobTimeMutex.Unlock()
+	o.fcobTime1 = t
+	o.SetModified()
+}
+
+// FCOBTime1 returns the opinion's LikedThreshold execution time.
+func (o *Opinion) FCOBTime1() time.Time {
+	o.fcobTimeMutex.RLock()
+	defer o.fcobTimeMutex.RUnlock()
+	return o.fcobTime1
+}
+
+// SetFCOBTime2 sets the opinion's LocallyFinalizedThreshold execution time.
+func (o *Opinion) SetFCOBTime2(t time.Time) {
+	o.fcobTimeMutex.Lock()
+	defer o.fcobTimeMutex.Unlock()
+	o.fcobTime2 = t
+	o.SetModified()
+}
+
+// FCOBTime2 returns the opinion's LocallyFinalizedThreshold execution time.
+func (o *Opinion) FCOBTime2() time.Time {
+	o.fcobTimeMutex.RLock()
+	defer o.fcobTimeMutex.RUnlock()
+	return o.fcobTime2
 }
 
 // Bytes marshals the Opinion into a sequence of bytes.
@@ -146,6 +192,8 @@ func (o *Opinion) String() string {
 		stringify.StructField("timestamp", o.Timestamp),
 		stringify.StructField("liked", o.Liked),
 		stringify.StructField("LevelOfKnowledge", o.LevelOfKnowledge),
+		stringify.StructField("fcobTime1", o.FCOBTime1()),
+		stringify.StructField("fcobTime2", o.FCOBTime2()),
 	)
 }
 
@@ -167,6 +215,8 @@ func (o *Opinion) ObjectStorageValue() []byte {
 		WriteTime(o.Timestamp()).
 		WriteBool(o.Liked()).
 		WriteUint8(uint8(o.LevelOfKnowledge())).
+		WriteTime(o.FCOBTime1()).
+		WriteTime(o.FCOBTime2()).
 		Bytes()
 }
 
@@ -191,6 +241,16 @@ func OpinionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Opini
 	}
 	result.levelOfKnowledge = LevelOfKnowledge(levelOfKnowledgeUint8)
 
+	if result.fcobTime1, err = marshalUtil.ReadTime(); err != nil {
+		err = xerrors.Errorf("failed to parse opinion fcob time 1 from MarshalUtil (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+
+	if result.fcobTime2, err = marshalUtil.ReadTime(); err != nil {
+		err = xerrors.Errorf("failed to parse opinion fcob time 2 from MarshalUtil (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+
 	return
 }
 
@@ -199,14 +259,14 @@ func OpinionFromObjectStorage(key []byte, data []byte) (result objectstorage.Sto
 	// parse the opinion
 	opinion, err := OpinionFromMarshalUtil(marshalutil.New(data))
 	if err != nil {
-		err = xerrors.Errorf("failed to parse opinion from object storage (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse opinion from object Storage (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
 	// parse the TransactionID from they key
 	id, err := ledgerstate.TransactionIDFromMarshalUtil(marshalutil.New(key))
 	if err != nil {
-		err = xerrors.Errorf("failed to parse transaction ID from object storage (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = xerrors.Errorf("failed to parse transaction ID from object Storage (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	opinion.transactionID = id
@@ -224,7 +284,7 @@ var _ objectstorage.StorableObject = &Opinion{}
 
 // region CachedOpinion ////////////////////////////////////////////////////////////////////////////////////////////////
 
-// CachedOpinion is a wrapper for the generic CachedObject returned by the object storage that overrides the accessor
+// CachedOpinion is a wrapper for the generic CachedObject returned by the object Storage that overrides the accessor
 // methods with a type-casted one.
 type CachedOpinion struct {
 	objectstorage.CachedObject
@@ -283,12 +343,12 @@ func (c ConflictSet) hasDecidedLike() bool {
 }
 
 // anchor returns the oldest opinion with LoK <= 1.
-func (c ConflictSet) anchor() (opinion *OpinionEssence) {
+func (c ConflictSet) anchor() (opinion OpinionEssence) {
 	oldestTimestamp := time.Unix(1<<63-62135596801, 999999999)
 	for _, o := range c {
-		if o.levelOfKnowledge <= One && o.timestamp.Before(oldestTimestamp) {
+		if o.levelOfKnowledge <= One && o.timestamp.Before(oldestTimestamp) && (o.timestamp != time.Time{}) {
 			oldestTimestamp = o.timestamp
-			opinion = &OpinionEssence{
+			opinion = OpinionEssence{
 				timestamp:        o.timestamp,
 				liked:            o.liked,
 				levelOfKnowledge: o.levelOfKnowledge,
@@ -296,6 +356,12 @@ func (c ConflictSet) anchor() (opinion *OpinionEssence) {
 		}
 	}
 	return opinion
+}
+
+// finalizedAsDisliked returns true if all of the elements of the conflict set have been disliked
+// (with a LoK greater than 1).
+func (c ConflictSet) finalizedAsDisliked(_ OpinionEssence) bool {
+	return !c.hasDecidedLike() && c.anchor() == OpinionEssence{}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -6,84 +6,76 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/node"
+	"github.com/labstack/gommon/log"
+	"golang.org/x/xerrors"
+
 	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/database"
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/node"
-	"golang.org/x/xerrors"
 )
 
 const (
-	// PluginName defines the plugin name.
-	PluginName = "MessageLayer"
 	// DefaultAverageNetworkDelay contains the default average time it takes for a network to propagate through gossip.
 	DefaultAverageNetworkDelay = 5 * time.Second
-
-	// CfgMessageLayerSnapshotFile is the path to the snapshot file.
-	CfgMessageLayerSnapshotFile = "messageLayer.snapshot.file"
-
-	// CfgMessageLayerFCOBAverageNetworkDelay is the avg. network delay to use for FCoB rules
-	CfgMessageLayerFCOBAverageNetworkDelay = "messageLayer.fcob.averageNetworkDelay"
-
-	// CfgTangleWidth is the width of the Tangle.
-	CfgTangleWidth = "messageLayer.tangleWidth"
 )
 
-var (
-	// ErrMessageWasNotBookedInTime is returned if a message did not get booked
-	// within the defined await time.
-	ErrMessageWasNotBookedInTime = errors.New("message could not be booked in time")
-)
+// ErrMessageWasNotBookedInTime is returned if a message did not get booked
+// within the defined await time.
+var ErrMessageWasNotBookedInTime = errors.New("message could not be booked in time")
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 var (
 	plugin     *node.Plugin
 	pluginOnce sync.Once
-	log        *logger.Logger
 )
 
 // Plugin gets the plugin instance.
 func Plugin() *node.Plugin {
 	pluginOnce.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+		plugin = node.NewPlugin("MessageLayer", node.Enabled, configure, run)
 	})
 
 	return plugin
 }
 
-func configure(*node.Plugin) {
-	log = logger.NewLogger(PluginName)
-
+func configure(plugin *node.Plugin) {
 	Tangle().Events.Error.Attach(events.NewClosure(func(err error) {
-		log.Error(err)
+		plugin.LogError(err)
+	}))
+
+	Tangle().Parser.Events.MessageRejected.Attach(events.NewClosure(func(rejectedEvent *tangle.MessageRejectedEvent, err error) {
+		plugin.LogError(err)
+		plugin.LogError(rejectedEvent.Message)
+	}))
+
+	// Messages created by the node need to pass through the normal flow.
+	Tangle().MessageFactory.Events.MessageConstructed.Attach(events.NewClosure(func(message *tangle.Message) {
+		Tangle().ProcessGossipMessage(message.Bytes(), local.GetInstance().Peer)
 	}))
 
 	// read snapshot file
-	snapshotFilePath := config.Node().String(CfgMessageLayerSnapshotFile)
-	if len(snapshotFilePath) != 0 {
+	if Parameters.Snapshot.File != "" {
 		snapshot := ledgerstate.Snapshot{}
-		f, err := os.Open(snapshotFilePath)
+		f, err := os.Open(Parameters.Snapshot.File)
 		if err != nil {
-			log.Panic("can not open snapshot file:", err)
+			plugin.Panic("can not open snapshot file:", err)
 		}
 		if _, err := snapshot.ReadFrom(f); err != nil {
-			log.Panic("could not read snapshot file:", err)
+			plugin.Panic("could not read snapshot file:", err)
 		}
 		Tangle().LedgerState.LoadSnapshot(snapshot)
-		log.Infof("read snapshot from %s", snapshotFilePath)
+		plugin.LogInfof("read snapshot from %s", Parameters.Snapshot.File)
 	}
 
-	avgNetworkDelay := config.Node().Int(CfgMessageLayerFCOBAverageNetworkDelay)
-	fcob.LikedThreshold = time.Duration(avgNetworkDelay) * time.Second
-	fcob.LocallyFinalizedThreshold = time.Duration(avgNetworkDelay*2) * time.Second
+	fcob.LikedThreshold = time.Duration(Parameters.FCOB.AverageNetworkDelay) * time.Second
+	fcob.LocallyFinalizedThreshold = time.Duration(Parameters.FCOB.AverageNetworkDelay*2) * time.Second
 }
 
 func run(*node.Plugin) {
@@ -110,8 +102,9 @@ func Tangle() *tangle.Tangle {
 		tangleInstance = tangle.New(
 			tangle.Store(database.Store()),
 			tangle.Identity(local.GetInstance().LocalIdentity()),
-			tangle.TangleWidth(config.Node().Int(CfgTangleWidth)),
+			tangle.Width(Parameters.TangleWidth),
 			tangle.Consensus(ConsensusMechanism()),
+			tangle.GenesisNode(Parameters.Snapshot.GenesisNode),
 		)
 
 		tangleInstance.Setup()

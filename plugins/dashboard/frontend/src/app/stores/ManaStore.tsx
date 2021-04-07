@@ -118,18 +118,42 @@ export class ManaStore {
 
     @observable public allowedPledgeIDs: AllowedPledgeIDsMsg;
 
-    @observable accessEvents: Array<ManaEvent> = [];
+    // internal arrays to store mana events
+    accessEvents: Array<ManaEvent> = [];
+    consensusEvents: Array<ManaEvent> = [];
 
-    @observable consensusEvents: Array<ManaEvent> = [];
+    // internal arrays to store  initial mana events
+    initAccessEvents: Array<ManaEvent> = [];
+    initConsensusEvents: Array<ManaEvent> = [];
+
+    // info on latest removed events
+    @observable lastRemovedAccessEventTime: Date = null;
+    @observable lastRemovedConsensusEventTime: Date = null;
+
+    lastInitRemovedAccessEventTime: Date = null;
+    lastInitRemovedConsensusEventTime: Date = null;
+
+    // only update displayed events when initial arrays were modified
+    eventsUpdated: boolean = false;
+
+    // mana events displayed in frontend
+    @observable displayedAccessEvents: Array<ManaEvent> = [];
+    @observable displayedConsensusEvents: Array<ManaEvent> = [];
 
     ownID: string;
 
+    nodeNotSyncedListItem = (<ListGroupItem>Wait for node to be synced to display mana events.</ListGroupItem>);
+
     constructor() {
         this.manaValues = [];
+
         registerHandler(WSMsgType.Mana, this.addNewManaValue);
         registerHandler(WSMsgType.ManaMapOverall, this.updateNetworkRichest);
         registerHandler(WSMsgType.ManaMapOnline, this.updateActiveRichest);
         registerHandler(WSMsgType.ManaAllowedPledge, this.updateAllowedPledgeIDs);
+        registerHandler(WSMsgType.ManaInitPledge, this.addNewInitPledge);
+        registerHandler(WSMsgType.ManaInitRevoke, this.addNewInitRevoke);
+        registerHandler(WSMsgType.ManaInitDone, this.initDone);
         registerHandler(WSMsgType.ManaPledge, this.addNewPledge);
         registerHandler(WSMsgType.ManaRevoke, this.addNewRevoke);
     };
@@ -192,60 +216,137 @@ export class ManaStore {
     }
 
     @action
-    addNewPledge = (msg: PledgeMsg) => {
+    addNewInitPledge = (msg: PledgeMsg) => {
+        let store: Array<ManaEvent> = [];
         switch (msg.manaType) {
             case "Access":
-                this.handleNewPledgeEvent(this.accessEvents, msg);
+                store = this.initAccessEvents;
+                if (store.length >= maxEventsStored) {
+                    let lastRemoved = store.shift();
+                    this.lastInitRemovedAccessEventTime = lastRemoved.time;
+                }
                 break;
             case "Consensus":
-                this.handleNewPledgeEvent(this.consensusEvents, msg);
+                store = this.initConsensusEvents;
+                if (store.length >= maxEventsStored) {
+                    let lastRemoved = store.shift();
+                    this.lastInitRemovedConsensusEventTime = lastRemoved.time;
+                }
                 break;
-        }
-    }
-
-    handleNewPledgeEvent = (store: Array<ManaEvent>, msg: PledgeMsg) => {
-        if (store.length === maxEventsStored) {
-            store.shift()
+            default:
+                return
         }
         let newData = new PledgeEvent(
             msg.nodeID,
             new Date(msg.time*1000),
             msg.txID,
             msg.amount,
-        )
-        store.push(newData)
+        );
+        store.push(newData);
     }
 
     @action
-    addNewRevoke = (msg: RevokeMsg) => {
+    addNewPledge = (msg: PledgeMsg) => {
+        let store: Array<ManaEvent> = [];
         switch (msg.manaType) {
             case "Access":
-                this.handleNewRevokeEvent(this.accessEvents, msg);
+                store = this.accessEvents;
+                if (store.length >= maxEventsStored) {
+                    let lastRemoved = store.shift();
+                    this.lastRemovedAccessEventTime = lastRemoved.time;
+                }
                 break;
             case "Consensus":
-                this.handleNewRevokeEvent(this.consensusEvents, msg);
+                store = this.consensusEvents;
+                if (store.length >= maxEventsStored) {
+                    let lastRemoved = store.shift();
+                    this.lastRemovedConsensusEventTime = lastRemoved.time;
+                }
                 break;
+            default:
+                return
         }
+        let newData = new PledgeEvent(
+            msg.nodeID,
+            new Date(msg.time*1000),
+            msg.txID,
+            msg.amount,
+        );
+        store.push(newData);
+        this.eventsUpdated = true;
     }
 
-    handleNewRevokeEvent = (store: Array<ManaEvent>, msg: RevokeMsg) => {
-        if (store.length === maxEventsStored) {
-            store.shift()
+    @action
+    addNewInitRevoke = (msg: RevokeMsg) => {
+        let store: Array<ManaEvent> = [];
+        switch (msg.manaType) {
+            case "Consensus":
+                store = this.initConsensusEvents;
+                if (store.length >= maxEventsStored) {
+                    let lastRemoved = store.shift();
+                    this.lastInitRemovedConsensusEventTime = lastRemoved.time;
+                }
+                break;
+            default:
+                return;
         }
         let newData = new RevokeEvent(
             msg.nodeID,
             new Date(msg.time*1000),
             msg.txID,
             msg.amount
-        )
-        store.push(newData)
+        );
+        store.push(newData);
+    }
+
+    @action
+    addNewRevoke = (msg: RevokeMsg) => {
+        let store: Array<ManaEvent> = [];
+        switch (msg.manaType) {
+            case "Consensus":
+                store = this.consensusEvents;
+                if (store.length >= maxEventsStored) {
+                    let lastRemoved = store.shift();
+                    this.lastRemovedConsensusEventTime = lastRemoved.time;
+                }
+                break;
+            default:
+                return;
+        }
+        let newData = new RevokeEvent(
+            msg.nodeID,
+            new Date(msg.time*1000),
+            msg.txID,
+            msg.amount
+        );
+        store.push(newData);
+        this.eventsUpdated = true;
+    }
+
+    @action
+    initDone = () => {
+        this.accessEvents = this.initAccessEvents;
+        this.lastRemovedAccessEventTime = this.lastInitRemovedAccessEventTime;
+        this.consensusEvents= this.initConsensusEvents;
+        this.lastRemovedConsensusEventTime = this.lastInitRemovedConsensusEventTime;
+
+        this.displayedAccessEvents = [...this.accessEvents]
+        this.displayedConsensusEvents = [...this.consensusEvents]
+
+        setInterval(() => {
+            if (this.eventsUpdated) {
+                this.displayedAccessEvents = [...this.accessEvents];
+                this.displayedConsensusEvents = [...this.consensusEvents];
+                this.eventsUpdated = false;
+            }
+        }, 500)
     }
 
     nodeList = (leaderBoard: Array<Node>, manaSum: number) => {
         if (leaderBoard === null || undefined) {
             return []
         }
-        let feed = new Array()
+        let feed = [];
         let pushToFeed = (node: Node, i: number) => {
             feed.push(
                 <tr
@@ -328,7 +429,7 @@ export class ManaStore {
         let histInput = new Array()
         for (let i = 0; i < this.accessNetworkRichest.length; i++) {
             histInput.push(
-                [this.accessNetworkRichest[i].shortNodeID, this.accessNetworkRichest[i].mana]
+                [this.accessNetworkRichest[i].shortNodeID, Math.log10(this.accessNetworkRichest[i].mana)]
             )
         }
         return histInput
@@ -342,7 +443,7 @@ export class ManaStore {
         let histInput = new Array()
         for (let i = 0; i < this.consensusNetworkRichest.length; i++) {
             histInput.push(
-                [this.consensusNetworkRichest[i].shortNodeID, this.consensusNetworkRichest[i].mana]
+                [this.consensusNetworkRichest[i].shortNodeID, Math.log10(this.consensusNetworkRichest[i].mana)]
             )
         }
         return histInput
@@ -384,7 +485,7 @@ export class ManaStore {
     }
 
     computeEventList = (evArr: Array<ManaEvent>) => {
-        let result = new Array();
+        let result = [];
         result.push(
             <ListGroupItem
                 style={{textAlign: 'center'}}
@@ -503,7 +604,7 @@ export class ManaStore {
 
     @computed
     get accessEventList() {
-        let result = this.computeEventList(this.accessEvents);
+        let result = this.computeEventList(this.displayedAccessEvents);
         if (result.length === 1) {
             result.push(emptyListItem);
         }
@@ -512,7 +613,7 @@ export class ManaStore {
 
     @computed
     get consensusEventList() {
-        let result = this.computeEventList(this.consensusEvents);
+        let result = this.computeEventList(this.displayedConsensusEvents);
         if (result.length === 1) {
             result.push(emptyListItem);
         }

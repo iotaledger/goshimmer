@@ -3,10 +3,11 @@ package pow
 import (
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+
+	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 // PluginName is the name of the PoW plugin.
@@ -31,7 +32,7 @@ func configure(*node.Plugin) {
 	log := logger.NewLogger(PluginName)
 
 	if node.IsSkipped(messagelayer.Plugin()) {
-		log.Infof("%s is disabled; skipping %s\n", messagelayer.PluginName, PluginName)
+		log.Infof("%s is disabled; skipping %s\n", messagelayer.Plugin().Name, PluginName)
 		return
 	}
 

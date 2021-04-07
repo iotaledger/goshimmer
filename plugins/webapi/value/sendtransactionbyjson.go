@@ -6,16 +6,18 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/crypto/bls"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58/base58"
+
+	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels/value"
 )
 
 var (
@@ -46,14 +48,14 @@ func sendTransactionByJSONHandler(c echo.Context) error {
 	sendTxByJSONMu.Lock()
 	defer sendTxByJSONMu.Unlock()
 
-	var request SendTransactionByJSONRequest
+	var request value.SendTransactionByJSONRequest
 	if err := c.Bind(&request); err != nil {
-		return c.JSON(http.StatusBadRequest, SendTransactionByJSONResponse{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, value.SendTransactionByJSONResponse{Error: err.Error()})
 	}
 
 	tx, err := NewTransactionFromJSON(request)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, SendTransactionByJSONResponse{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, value.SendTransactionByJSONResponse{Error: err.Error()})
 	}
 
 	// check balances validity
@@ -65,17 +67,17 @@ func sendTransactionByJSONHandler(c echo.Context) error {
 		})
 	}
 	if !ledgerstate.TransactionBalancesValid(consumedOutputs, tx.Essence().Outputs()) {
-		return c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: "sum of consumed and spent balances is not 0"})
+		return c.JSON(http.StatusBadRequest, value.SendTransactionResponse{Error: "sum of consumed and spent balances is not 0"})
 	}
 
 	// check unlock blocks validity
 	if !ledgerstate.UnlockBlocksValid(consumedOutputs, tx) {
-		return c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: "spending of referenced consumedOutputs is not authorized"})
+		return c.JSON(http.StatusBadRequest, value.SendTransactionResponse{Error: "spending of referenced consumedOutputs is not authorized"})
 	}
 
 	// check if transaction is too old
 	if tx.Essence().Timestamp().Before(clock.SyncedTime().Add(-tangle.MaxReattachmentTimeMin)) {
-		return c.JSON(http.StatusBadRequest, SendTransactionByJSONResponse{Error: fmt.Sprintf("transaction timestamp is older than MaxReattachmentTime (%s) and cannot be issued", tangle.MaxReattachmentTimeMin)})
+		return c.JSON(http.StatusBadRequest, value.SendTransactionByJSONResponse{Error: fmt.Sprintf("transaction timestamp is older than MaxReattachmentTime (%s) and cannot be issued", tangle.MaxReattachmentTimeMin)})
 	}
 
 	// if transaction is in the future we wait until the time arrives
@@ -87,21 +89,21 @@ func sendTransactionByJSONHandler(c echo.Context) error {
 	issueTransaction := func() (*tangle.Message, error) {
 		msg, e := messagelayer.Tangle().IssuePayload(tx)
 		if e != nil {
-			return nil, c.JSON(http.StatusBadRequest, SendTransactionResponse{Error: e.Error()})
+			return nil, c.JSON(http.StatusBadRequest, value.SendTransactionResponse{Error: e.Error()})
 		}
 		return msg, nil
 	}
 
 	_, err = messagelayer.AwaitMessageToBeBooked(issueTransaction, tx.ID(), maxBookedAwaitTime)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, SendTransactionByJSONResponse{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, value.SendTransactionByJSONResponse{Error: err.Error()})
 	}
 
-	return c.JSON(http.StatusOK, SendTransactionByJSONResponse{TransactionID: tx.ID().Base58()})
+	return c.JSON(http.StatusOK, value.SendTransactionByJSONResponse{TransactionID: tx.ID().Base58()})
 }
 
 // NewTransactionFromJSON returns a new transaction from a given JSON request or an error.
-func NewTransactionFromJSON(request SendTransactionByJSONRequest) (*ledgerstate.Transaction, error) {
+func NewTransactionFromJSON(request value.SendTransactionByJSONRequest) (*ledgerstate.Transaction, error) {
 	// prepare inputs
 	var inputs []ledgerstate.Input
 	for _, input := range request.Inputs {
@@ -115,7 +117,7 @@ func NewTransactionFromJSON(request SendTransactionByJSONRequest) (*ledgerstate.
 	// prepare outputs
 	outputs := []ledgerstate.Output{}
 	for _, output := range request.Outputs {
-		outputType := ledgerstate.OutputType(output.Type)
+		outputType := output.Type
 		address, err := ledgerstate.AddressFromBase58EncodedString(output.Address)
 		if err != nil {
 			return nil, ErrMalformedOutputs
@@ -180,7 +182,6 @@ func NewTransactionFromJSON(request SendTransactionByJSONRequest) (*ledgerstate.
 	unlockBlocks := make([]ledgerstate.UnlockBlock, len(txEssence.Inputs()))
 	for i, signature := range request.Signatures {
 		switch ledgerstate.SignatureType(signature.Type) {
-
 		case ledgerstate.ED25519SignatureType:
 			pubKeyBytes, err := base58.Decode(signature.PublicKey)
 			if err != nil || len(pubKeyBytes) != ed25519.PublicKeySize {
@@ -213,35 +214,4 @@ func NewTransactionFromJSON(request SendTransactionByJSONRequest) (*ledgerstate.
 	}
 
 	return ledgerstate.NewTransaction(txEssence, unlockBlocks), nil
-}
-
-// SendTransactionByJSONRequest holds the transaction object(json) to send.
-// e.g.,
-// {
-// 	"inputs": string[],
-//  "a_mana_pledge": string,
-//  "c_mana_pledg": string,
-// 	"outputs": {
-//	   "type": number,
-// 	   "address": string,
-// 	   "balances": {
-// 		   "value": number,
-// 		   "color": string
-// 	   }[];
-// 	 }[],
-// 	 "signature": []string
-//  }
-type SendTransactionByJSONRequest struct {
-	Inputs        []string      `json:"inputs"`
-	Outputs       []Output      `json:"outputs"`
-	AManaPledgeID string        `json:"a_mana_pledg"`
-	CManaPledgeID string        `json:"c_mana_pledg"`
-	Signatures    []UnlockBlock `json:"signatures"`
-	Payload       []byte        `json:"payload"`
-}
-
-// SendTransactionByJSONResponse is the HTTP response from sending transaction.
-type SendTransactionByJSONResponse struct {
-	TransactionID string `json:"transaction_id,omitempty"`
-	Error         string `json:"error,omitempty"`
 }

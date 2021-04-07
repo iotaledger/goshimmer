@@ -6,17 +6,18 @@ import (
 	goSync "sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/mana"
-	"github.com/iotaledger/goshimmer/plugins/autopeering"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/banner"
-	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/goshimmer/plugins/metrics"
-	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58/base58"
+
+	"github.com/iotaledger/goshimmer/packages/mana"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/banner"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/metrics"
+	"github.com/iotaledger/goshimmer/plugins/webapi"
+	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 // PluginName is the name of the web API info endpoint plugin.
@@ -96,9 +97,9 @@ func getInfo(c echo.Context) error {
 	sort.Strings(disabledPlugins)
 
 	synced, beacons := messagelayer.SyncStatus()
-	var beaconsStatus []Beacon
+	var beaconsStatus []jsonmodels.Beacon
 	for publicKey, s := range beacons {
-		beaconsStatus = append(beaconsStatus, Beacon{
+		beaconsStatus = append(beaconsStatus, jsonmodels.Beacon{
 			PublicKey: publicKey.String(),
 			MsgID:     s.MsgID.String(),
 			SentTime:  s.SentTime,
@@ -107,18 +108,18 @@ func getInfo(c echo.Context) error {
 	}
 
 	t := time.Now()
-	accessMana, tAccess, _ := manaPlugin.GetAccessMana(local.GetInstance().ID(), t)
-	consensusMana, tConsensus, _ := manaPlugin.GetConsensusMana(local.GetInstance().ID(), t)
-	nodeMana := Mana{
+	accessMana, tAccess, _ := messagelayer.GetAccessMana(local.GetInstance().ID(), t)
+	consensusMana, tConsensus, _ := messagelayer.GetConsensusMana(local.GetInstance().ID(), t)
+	nodeMana := jsonmodels.Mana{
 		Access:             accessMana,
 		AccessTimestamp:    tAccess,
 		Consensus:          consensusMana,
 		ConsensusTimestamp: tConsensus,
 	}
 
-	return c.JSON(http.StatusOK, Response{
+	return c.JSON(http.StatusOK, jsonmodels.InfoResponse{
 		Version:                 banner.AppVersion,
-		NetworkVersion:          autopeering.NetworkVersion(),
+		NetworkVersion:          discovery.NetworkVersion(),
 		Synced:                  synced,
 		Beacons:                 beaconsStatus,
 		IdentityID:              base58.Encode(local.GetInstance().Identity.ID().Bytes()),
@@ -132,54 +133,4 @@ func getInfo(c echo.Context) error {
 		Mana:                    nodeMana,
 		ManaDecay:               mana.Decay,
 	})
-}
-
-// Response holds the response of the GET request.
-type Response struct {
-	// version of GoShimmer
-	Version string `json:"version,omitempty"`
-	// Network Version of the autopeering
-	NetworkVersion uint32 `json:"networkVersion,omitempty"`
-	// whether the node is synchronized
-	Synced bool `json:"synced"`
-	// sync beacons status
-	Beacons []Beacon `json:"beacons"`
-	// identity ID of the node encoded in base58
-	IdentityID string `json:"identityID,omitempty"`
-	// identity ID of the node encoded in base58 and truncated to its first 8 bytes
-	IdentityIDShort string `json:"identityIDShort,omitempty"`
-	// public key of the node encoded in base58
-	PublicKey string `json:"publicKey,omitempty"`
-	// MessageRequestQueueSize is the number of messages a node is trying to request from neighbors.
-	MessageRequestQueueSize int `json:"messageRequestQueueSize,omitempty"`
-	// SolidMessageCount is the number of solid messages in the node's database.
-	SolidMessageCount int `json:"solidMessageCount,omitempty"`
-	// TotalMessageCount is the number of messages in the node's database.
-	TotalMessageCount int `json:"totalMessageCount,omitempty"`
-	// list of enabled plugins
-	EnabledPlugins []string `json:"enabledPlugins,omitempty"`
-	// list if disabled plugins
-	DisabledPlugins []string `json:"disabledPlugins,omitempty"`
-	// Mana values
-	Mana Mana `json:"mana,omitempty"`
-	// ManaDecay is the decay coefficient of bm2.
-	ManaDecay float64 `json:"mana_decay"`
-	// error of the response
-	Error string `json:"error,omitempty"`
-}
-
-// Beacon contains a sync beacons detailed status.
-type Beacon struct {
-	PublicKey string `json:"public_key"`
-	MsgID     string `json:"msg_id"`
-	SentTime  int64  `json:"sent_time"`
-	Synced    bool   `json:"synced"`
-}
-
-// Mana contains the different mana values of the node.
-type Mana struct {
-	Access             float64   `json:"access"`
-	AccessTimestamp    time.Time `json:"accessTimestamp"`
-	Consensus          float64   `json:"consensus"`
-	ConsensusTimestamp time.Time `json:"consensusTimestamp"`
 }

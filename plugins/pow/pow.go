@@ -8,16 +8,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/pow"
-	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/logger"
 	_ "golang.org/x/crypto/blake2b" // required by crypto.BLAKE2b_512
+
+	"github.com/iotaledger/goshimmer/packages/pow"
+	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
-var (
-	// ErrMessageTooSmall is returned when the message is smaller than the 8-byte nonce.
-	ErrMessageTooSmall = errors.New("message too small")
-)
+// ErrMessageTooSmall is returned when the message is smaller than the 8-byte nonce.
+var ErrMessageTooSmall = errors.New("message too small")
 
 // parameters
 var (

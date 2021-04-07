@@ -110,6 +110,7 @@ export class Mana extends React.Component<Props, any> {
                                             }}>
                                                 Events
                                             </Badge>
+                                            {' '}
                                             <Badge pill style={{
                                                 backgroundColor: '#a6f6f1',
                                                 color: 'white'
@@ -154,13 +155,15 @@ export class Mana extends React.Component<Props, any> {
                     <Col>
                         <ManaEventList
                             title={"Access Events"}
-                            listItems={manaStore.accessEventList}
+                            listItems={nodeStore.status.synced?  manaStore.accessEventList: [manaStore.nodeNotSyncedListItem]}
+                            since={manaStore.lastRemovedAccessEventTime}
                         />
                     </Col>
                     <Col>
                         <ManaEventList
                             title={"Consensus Events"}
-                            listItems={manaStore.consensusEventList}
+                            listItems={nodeStore.status.synced? manaStore.consensusEventList: [manaStore.nodeNotSyncedListItem]}
+                            since={manaStore.lastRemovedConsensusEventTime}
                         />
                     </Col>
                 </Row>

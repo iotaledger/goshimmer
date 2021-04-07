@@ -7,6 +7,8 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 var (
@@ -46,6 +48,7 @@ var (
 					AccessMana:    inputPledgeID1,
 					ConsensusMana: inputPledgeID1,
 				},
+				InputID: ledgerstate.OutputID{1},
 			},
 			{
 				// funds have been sitting here for couple days...
@@ -55,6 +58,7 @@ var (
 					AccessMana:    inputPledgeID2,
 					ConsensusMana: inputPledgeID2,
 				},
+				InputID: ledgerstate.OutputID{2},
 			},
 			{
 				// funds have been sitting here for couple days...
@@ -64,6 +68,7 @@ var (
 					AccessMana:    inputPledgeID3,
 					ConsensusMana: inputPledgeID3,
 				},
+				InputID: ledgerstate.OutputID{3},
 			},
 		},
 	}
@@ -315,7 +320,8 @@ func TestAccessBaseManaVector_Update(t *testing.T) {
 	assert.Equal(t, AccessMana, ev.ManaType)
 	assert.Equal(t, &AccessBaseMana{
 		BaseMana2:   10.0,
-		LastUpdated: baseTime},
+		LastUpdated: baseTime,
+	},
 		ev.OldMana)
 	assert.InDelta(t, 5, ev.NewMana.BaseValue(), delta)
 	assert.InDelta(t, 3.465731, ev.NewMana.EffectiveValue(), delta)
@@ -490,7 +496,7 @@ func TestAccessBaseManaVector_GetHighestManaNodes(t *testing.T) {
 	bmv, err := NewBaseManaVector(AccessMana)
 	assert.NoError(t, err)
 
-	var nodeIDs = make([]identity.ID, 10)
+	nodeIDs := make([]identity.ID, 10)
 
 	baseTime = time.Now()
 
@@ -532,10 +538,63 @@ func TestAccessBaseManaVector_GetHighestManaNodes(t *testing.T) {
 	}
 }
 
+func TestAccessBaseManaVector_GetHighestManaNodesFraction(t *testing.T) {
+	bmv, err := NewBaseManaVector(AccessMana)
+	assert.NoError(t, err)
+
+	nodeIDs := make([]identity.ID, 10)
+
+	baseTime = time.Now()
+
+	for i := 0; i < 10; i++ {
+		nodeIDs[i] = randNodeID()
+		bmv.SetMana(nodeIDs[i], &AccessBaseMana{
+			BaseMana2:          float64(i),
+			EffectiveBaseMana2: float64(i),
+			LastUpdated:        baseTime,
+		})
+	}
+
+	// requesting minus value
+	result, _, err := bmv.GetHighestManaNodesFraction(-0.1)
+	assert.NoError(t, err)
+	assert.Equal(t, 10, len(result))
+	assert.Equal(t, nodeIDs[9], result[0].ID)
+	assert.InDelta(t, 9.0, result[0].Mana, delta)
+
+	// requesting the holders of top 5% of mana
+	result, _, err = bmv.GetHighestManaNodesFraction(0.1)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(result))
+	assert.Equal(t, nodeIDs[9], result[0].ID)
+	assert.InDelta(t, 9.0, result[0].Mana, delta)
+
+	// requesting holders of top 50% of mana
+	result, _, err = bmv.GetHighestManaNodesFraction(0.5)
+	assert.NoError(t, err)
+	assert.Equal(t, 3, len(result))
+	assert.InDelta(t, 9.0, result[0].Mana, delta)
+	for index, value := range result {
+		if index < 2 {
+			// it's greater than the next one
+			assert.True(t, value.Mana > result[index+1].Mana)
+		}
+		assert.Equal(t, nodeIDs[9-index], value.ID)
+	}
+
+	// requesting more, than there currently are in the vector
+	result, _, err = bmv.GetHighestManaNodesFraction(1.1)
+	assert.NoError(t, err)
+	assert.Equal(t, 10, len(result))
+	for index, value := range result {
+		assert.Equal(t, nodeIDs[9-index], value.ID)
+	}
+}
+
 func TestAccessBaseManaVector_SetMana(t *testing.T) {
 	bmv, err := NewBaseManaVector(AccessMana)
 	assert.NoError(t, err)
-	var nodeIDs = make([]identity.ID, 10)
+	nodeIDs := make([]identity.ID, 10)
 	for i := 0; i < 10; i++ {
 		nodeIDs[i] = randNodeID()
 		bmv.SetMana(nodeIDs[i], &AccessBaseMana{

@@ -1,3 +1,78 @@
+# v0.5.6 - 2021-04-03
+* Fix childBranchType
+* Fix FPC empty round increase
+* Make reading of FPC statements less strict
+* Fix aggregated branch diagnostic API and dashboard page  
+* **Breaking**: bumps network and database versions
+
+# v0.5.5 - 2021-04-01
+* Integrate Mana with FPC
+* Integrate Mana with the Autopeering
+* Add several FPC optimizations
+* Add dRNG diagnostic API
+* Simplify memory usage of dashboard and align to Grafana
+* Add a chart for stored, solidifier, scheduler and booker MPS
+* Update to latest hive.go
+* **Breaking**: bumps network and database versions
+
+# v0.5.4 - 2021-03-29
+* Add new diagnostic APIs
+* Add new docs sections
+* Add branch inclusion state check before issuing new transactions
+* Refactor the Faucet plugin
+* Optimize transaction's past cone check
+* Make issued messages pass through the parser filters
+* Fix Faucet time usage
+* Fix markers issue
+* Fix max inputs count check
+* Fix nil pointer in diagnostic API
+* Update to latest hive.go 
+* Enhance golangci-lint
+* **Breaking**: bumps network and database versions
+
+# v0.5.3 - 2021-03-25
+* Added new API endpoints
+* Added models navigation through the Dashboard Explorer
+* Added new diagnostic APIs
+* Added new docs sections
+* Fix dashboard mana event feed
+* Fix markers issue
+* Fix UnlockBlocks check
+* Fix loading of config parameters
+* Fix bug in the Get method of ColoredBalances
+* Enhance golangci-lint
+* **Breaking**: bumps network and database versions
+
+# v0.5.2 - 2021-03-17
+* Fix markers past cone check
+* Add more information to explorer and message API
+* Restrict Genesis attachment
+* Fix parsing of GenesisNode public key
+* Display mana histogram in log scale on dashboards
+* **Breaking**: bumps network and database versions
+
+# v0.5.1 - 2021-03-15
+* Implement FCoB*
+* Fix markers persistence bug
+* Fix Docker shutdown too early
+* Make FCoB fire the MessageOpinionFormed event only if the event for its parents was also fired
+* Update JS dependencies
+* Refactor parameters in MessageLayer
+* Upgrade go to 1.16.2
+* Upgrade to latest hive.go
+* **Breaking**: bumps network and database versions
+
+# v0.5.0 - 2021-03-11
+* Add Mana (currently not used by any of the modules)
+* Add Mana APIs
+* Add Mana section to the local dashboard
+* Add Mana section to the Pollen Analyzer dashboard
+* Add Mana section to the Grafana dashboard
+* Refactor the Consensus Manager to be independent from the concrete consensus mechanism implemented  
+* Improve Tangle visualizer
+* Improve documentation
+* **Breaking**: bumps network and database versions
+
 # v0.4.1 - 2021-03-02
 * Add orphanage analysis tool
 * Add documentation web-api

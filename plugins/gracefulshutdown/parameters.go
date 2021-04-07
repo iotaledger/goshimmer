@@ -10,5 +10,5 @@ const (
 )
 
 func init() {
-	flag.Int(CfgWaitToKillTimeInSeconds, 60, "the maximum amount of time to wait for background processes to terminate, in seconds")
+	flag.Int(CfgWaitToKillTimeInSeconds, 120, "the maximum amount of time to wait for background processes to terminate, in seconds")
 }

@@ -5,14 +5,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/pow"
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/pow"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
 const storeSequenceInterval = 100

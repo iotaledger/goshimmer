@@ -4,13 +4,15 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/mana"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	valueutils "github.com/iotaledger/goshimmer/plugins/webapi/value"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58/base58"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels/value"
+	ledgerstateAPI "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
+	manaAPI "github.com/iotaledger/goshimmer/plugins/webapi/mana"
 )
 
 // ExplorerMessage defines the struct of the ExplorerMessage.
@@ -31,15 +33,24 @@ type ExplorerMessage struct {
 	StrongParents []string `json:"strongParents"`
 	// WeakParents are the weak parents (references) of the message.
 	WeakParents []string `json:"weakParents"`
+	// StrongApprovers are the strong approvers of the message.
+	StrongApprovers []string `json:"strongApprovers"`
+	// WeakApprovers are the weak approvers of the message.
+	WeakApprovers []string `json:"weakApprovers"`
 	// Solid defines the solid status of the message.
-	Solid bool `json:"solid"`
+	Solid     bool   `json:"solid"`
+	BranchID  string `json:"branchID"`
+	Scheduled bool   `json:"scheduled"`
+	Booked    bool   `json:"booked"`
+	Eligible  bool   `json:"eligible"`
+	Invalid   bool   `json:"invalid"`
 	// PayloadType defines the type of the payload.
 	PayloadType uint32 `json:"payload_type"`
 	// Payload is the content of the payload.
 	Payload interface{} `json:"payload"`
 }
 
-func createExplorerMessage(msg *tangle.Message) (*ExplorerMessage, error) {
+func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 	messageID := msg.ID()
 	cachedMessageMetadata := messagelayer.Tangle().Storage.MessageMetadata(messageID)
 	defer cachedMessageMetadata.Release()
@@ -53,12 +64,19 @@ func createExplorerMessage(msg *tangle.Message) (*ExplorerMessage, error) {
 		SequenceNumber:          msg.SequenceNumber(),
 		StrongParents:           msg.StrongParents().ToStrings(),
 		WeakParents:             msg.WeakParents().ToStrings(),
-		Solid:                   cachedMessageMetadata.Unwrap().IsSolid(),
+		StrongApprovers:         messagelayer.Tangle().Utils.ApprovingMessageIDs(messageID, tangle.StrongApprover).ToStrings(),
+		WeakApprovers:           messagelayer.Tangle().Utils.ApprovingMessageIDs(messageID, tangle.WeakApprover).ToStrings(),
+		Solid:                   messageMetadata.IsSolid(),
+		BranchID:                messageMetadata.BranchID().Base58(),
+		Scheduled:               messageMetadata.Scheduled(),
+		Booked:                  messageMetadata.IsBooked(),
+		Eligible:                messageMetadata.IsEligible(),
+		Invalid:                 messageMetadata.IsInvalid(),
 		PayloadType:             uint32(msg.Payload().Type()),
 		Payload:                 ProcessPayload(msg.Payload()),
 	}
 
-	return t, nil
+	return t
 }
 
 // ExplorerAddress defines the struct of the ExplorerAddress.
@@ -69,12 +87,13 @@ type ExplorerAddress struct {
 
 // ExplorerOutput defines the struct of the ExplorerOutput.
 type ExplorerOutput struct {
-	ID                 string                    `json:"id"`
-	Balances           []valueutils.Balance      `json:"balances"`
-	InclusionState     valueutils.InclusionState `json:"inclusion_state"`
-	SolidificationTime int64                     `json:"solidification_time"`
-	ConsumerCount      int                       `json:"consumer_count"`
-	PendingMana        float64                   `json:"pending_mana"`
+	ID                 string               `json:"id"`
+	TransactionID      string               `json:"transaction_id"`
+	Balances           []value.Balance      `json:"balances"`
+	InclusionState     value.InclusionState `json:"inclusion_state"`
+	SolidificationTime int64                `json:"solidification_time"`
+	ConsumerCount      int                  `json:"consumer_count"`
+	PendingMana        float64              `json:"pending_mana"`
 }
 
 // SearchResult defines the struct of the SearchResult.
@@ -108,6 +127,17 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 		return c.JSON(http.StatusOK, addr)
 	})
 
+	routeGroup.GET("/transaction/:transactionID", ledgerstateAPI.GetTransaction)
+	routeGroup.GET("/transaction/:transactionID/metadata", ledgerstateAPI.GetTransactionMetadata)
+	routeGroup.GET("/transaction/:transactionID/attachments", ledgerstateAPI.GetTransactionAttachments)
+	routeGroup.GET("/output/:outputID", ledgerstateAPI.GetOutput)
+	routeGroup.GET("/output/:outputID/metadata", ledgerstateAPI.GetOutputMetadata)
+	routeGroup.GET("/output/:outputID/consumers", ledgerstateAPI.GetOutputConsumers)
+	routeGroup.GET("/mana/pending", manaAPI.GetPendingMana)
+	routeGroup.GET("/branch/:branchID", ledgerstateAPI.GetBranch)
+	routeGroup.GET("/branch/:branchID/children", ledgerstateAPI.GetBranchChildren)
+	routeGroup.GET("/branch/:branchID/conflicts", ledgerstateAPI.GetBranchConflicts)
+
 	routeGroup.GET("/search/:search", func(c echo.Context) error {
 		search := c.Param("search")
 		result := &SearchResult{}
@@ -118,7 +148,6 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 		}
 
 		switch len(searchInByte) {
-
 		case ledgerstate.AddressLength:
 			addr, err := findAddress(search)
 			if err == nil {
@@ -146,7 +175,7 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 
 func findMessage(messageID tangle.MessageID) (explorerMsg *ExplorerMessage, err error) {
 	if !messagelayer.Tangle().Storage.Message(messageID).Consume(func(msg *tangle.Message) {
-		explorerMsg, err = createExplorerMessage(msg)
+		explorerMsg = createExplorerMessage(msg)
 	}) {
 		err = fmt.Errorf("%w: message %s", ErrNotFound, messageID.String())
 	}
@@ -155,21 +184,20 @@ func findMessage(messageID tangle.MessageID) (explorerMsg *ExplorerMessage, err 
 }
 
 func findAddress(strAddress string) (*ExplorerAddress, error) {
-
 	address, err := ledgerstate.AddressFromBase58EncodedString(strAddress)
 	if err != nil {
 		return nil, fmt.Errorf("%w: address %s", ErrNotFound, strAddress)
 	}
 
 	outputids := make([]ExplorerOutput, 0)
-	inclusionState := valueutils.InclusionState{}
+	inclusionState := value.InclusionState{}
 
 	// get outputids by address
 	messagelayer.Tangle().LedgerState.OutputsOnAddress(address).Consume(func(output ledgerstate.Output) {
 		// iterate balances
-		var b []valueutils.Balance
+		var b []value.Balance
 		output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
-			b = append(b, valueutils.Balance{
+			b = append(b, value.Balance{
 				Value: int64(balance),
 				Color: color.String(),
 			})
@@ -181,7 +209,7 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 		var branch ledgerstate.Branch
 		messagelayer.Tangle().LedgerState.OutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 			consumerCount = outputMetadata.ConsumerCount()
-			messagelayer.Tangle().LedgerState.Branch(outputMetadata.BranchID()).Consume(func(b ledgerstate.Branch) {
+			messagelayer.Tangle().LedgerState.BranchDAG.Branch(outputMetadata.BranchID()).Consume(func(b ledgerstate.Branch) {
 				branch = b
 			})
 		})
@@ -195,9 +223,10 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 			solidificationTime = txMeta.SolidificationTime().Unix()
 		})
 
-		pendingMana, _ := mana.PendingManaOnOutput(output.ID())
+		pendingMana, _ := messagelayer.PendingManaOnOutput(output.ID())
 		outputids = append(outputids, ExplorerOutput{
-			ID:                 output.ID().String(),
+			ID:                 output.ID().Base58(),
+			TransactionID:      output.ID().TransactionID().Base58(),
 			Balances:           b,
 			InclusionState:     inclusionState,
 			ConsumerCount:      consumerCount,
@@ -214,5 +243,4 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 		Address:   strAddress,
 		OutputIDs: outputids,
 	}, nil
-
 }

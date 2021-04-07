@@ -4,21 +4,23 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/labstack/echo"
 	"github.com/labstack/gommon/log"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels/value"
 )
 
 // unspentOutputsHandler gets the unspent outputs.
 func unspentOutputsHandler(c echo.Context) error {
-	var request UnspentOutputsRequest
+	var request value.UnspentOutputsRequest
 	if err := c.Bind(&request); err != nil {
 		log.Info(err.Error())
-		return c.JSON(http.StatusBadRequest, UnspentOutputsResponse{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, value.UnspentOutputsResponse{Error: err.Error()})
 	}
 
-	var unspents []UnspentOutput
+	var unspents []value.UnspentOutput
 	for _, strAddress := range request.Addresses {
 		address, err := ledgerstate.AddressFromBase58EncodedString(strAddress)
 		if err != nil {
@@ -26,7 +28,7 @@ func unspentOutputsHandler(c echo.Context) error {
 			continue
 		}
 
-		outputids := make([]OutputID, 0)
+		outputids := make([]value.OutputID, 0)
 		// get outputids by address
 		cachedOutputs := messagelayer.Tangle().LedgerState.OutputsOnAddress(address)
 		cachedOutputs.Consume(func(output ledgerstate.Output) {
@@ -34,16 +36,16 @@ func unspentOutputsHandler(c echo.Context) error {
 			cachedOutputMetadata.Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 				if outputMetadata.ConsumerCount() == 0 {
 					// iterate balances
-					var b []Balance
+					var b []value.Balance
 					output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
-						b = append(b, Balance{
+						b = append(b, value.Balance{
 							Value: int64(balance),
 							Color: color.String(),
 						})
 						return true
 					})
 
-					inclusionState := InclusionState{}
+					inclusionState := value.InclusionState{}
 					txID := output.ID().TransactionID()
 					txInclusionState, err := messagelayer.Tangle().LedgerState.TransactionInclusionState(txID)
 					if err != nil {
@@ -62,33 +64,21 @@ func unspentOutputsHandler(c echo.Context) error {
 					cachedTx.Consume(func(tx *ledgerstate.Transaction) {
 						timestamp = tx.Essence().Timestamp()
 					})
-					outputids = append(outputids, OutputID{
+					outputids = append(outputids, value.OutputID{
 						ID:             output.ID().Base58(),
 						Balances:       b,
 						InclusionState: inclusionState,
-						Metadata:       Metadata{Timestamp: timestamp},
+						Metadata:       value.Metadata{Timestamp: timestamp},
 					})
 				}
 			})
 		})
 
-		unspents = append(unspents, UnspentOutput{
+		unspents = append(unspents, value.UnspentOutput{
 			Address:   strAddress,
 			OutputIDs: outputids,
 		})
 	}
 
-	return c.JSON(http.StatusOK, UnspentOutputsResponse{UnspentOutputs: unspents})
-}
-
-// UnspentOutputsRequest holds the addresses to query.
-type UnspentOutputsRequest struct {
-	Addresses []string `json:"addresses,omitempty"`
-	Error     string   `json:"error,omitempty"`
-}
-
-// UnspentOutputsResponse is the HTTP response from retrieving value objects.
-type UnspentOutputsResponse struct {
-	UnspentOutputs []UnspentOutput `json:"unspent_outputs,omitempty"`
-	Error          string          `json:"error,omitempty"`
+	return c.JSON(http.StatusOK, value.UnspentOutputsResponse{UnspentOutputs: unspents})
 }

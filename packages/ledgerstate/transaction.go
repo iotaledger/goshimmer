@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/identity"
@@ -19,6 +18,8 @@ import (
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
 // region TransactionType //////////////////////////////////////////////////////////////////////////////////////////////
@@ -125,6 +126,16 @@ func (t TransactionIDs) Clone() (transactionIDs TransactionIDs) {
 	return
 }
 
+// Strings returns a slice of string representation of the TransactionIDs.
+func (t TransactionIDs) Strings() (transactionIDs []string) {
+	transactionIDs = make([]string, 0, len(t))
+	for transactionID := range t {
+		transactionIDs = append(transactionIDs, transactionID.Base58())
+	}
+
+	return
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Transaction //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -211,6 +222,16 @@ func TransactionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transacti
 	if len(transaction.unlockBlocks) != len(transaction.essence.Inputs()) {
 		err = xerrors.Errorf("amount of UnlockBlocks (%d) does not match amount of Inputs (%d): %w", len(transaction.unlockBlocks), len(transaction.essence.inputs), cerrors.ErrParseBytesFailed)
 		return
+	}
+
+	maxReferencedUnlockIndex := len(transaction.essence.Inputs()) - 1
+	for i, unlockBlock := range transaction.unlockBlocks {
+		if unlockBlock.Type() == ReferenceUnlockBlockType {
+			if unlockBlock.(*ReferenceUnlockBlock).ReferencedIndex() > uint16(maxReferencedUnlockIndex) {
+				err = xerrors.Errorf("unlock block %d references non-existent unlock block at index %d", i, unlockBlock.(*ReferenceUnlockBlock).ReferencedIndex())
+				return
+			}
+		}
 	}
 
 	for i, output := range transaction.essence.Outputs() {

@@ -3,8 +3,9 @@ package mana
 import (
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/identity"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 // TxInfo holds information related to the transaction which we are processing for mana calculation.

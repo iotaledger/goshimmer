@@ -9,8 +9,8 @@ import (
 )
 
 // IDFromStr decodes and returns an ID from base58.
-func IDFromStr(idStr string) (ID identity.ID, err error) {
-	ID = identity.ID{}
+func IDFromStr(idStr string) (iID identity.ID, err error) {
+	iID = identity.ID{}
 	if idStr == "" {
 		return
 	}
@@ -19,13 +19,13 @@ func IDFromStr(idStr string) (ID identity.ID, err error) {
 		err = fmt.Errorf("could not decode ID: %s, from base58: %w", idStr, err)
 		return
 	}
-	copy(ID[:], bytes)
+	copy(iID[:], bytes)
 	return
 }
 
 // IDFromPubKey returns the ID from the given public key.
-func IDFromPubKey(pubKey string) (ID identity.ID, err error) {
-	ID = identity.ID{}
+func IDFromPubKey(pubKey string) (iID identity.ID, err error) {
+	iID = identity.ID{}
 	if pubKey == "" {
 		return
 	}
@@ -40,6 +40,6 @@ func IDFromPubKey(pubKey string) (ID identity.ID, err error) {
 		return
 	}
 
-	copy(ID[:], _identity.ID().Bytes())
+	copy(iID[:], _identity.ID().Bytes())
 	return
 }

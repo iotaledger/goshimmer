@@ -5,16 +5,17 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/workerpool"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 	analysis "github.com/iotaledger/goshimmer/plugins/analysis/server"
 	"github.com/iotaledger/goshimmer/plugins/config"
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/workerpool"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 const (
@@ -40,7 +41,6 @@ type FPCUpdate struct {
 }
 
 func configureFPCLiveFeed() {
-
 	if config.Node().Bool(CfgMongoDBEnabled) {
 		mongoDB()
 	}
@@ -103,7 +103,7 @@ func createFPCUpdate(hb *packet.FPCHeartbeat) *FPCUpdate {
 		newVoteContext := voteContext{
 			NodeID:   nodeID,
 			Rounds:   context.Rounds,
-			Opinions: opinion.ConvertOpinionsToInts32(context.Opinions),
+			Opinions: opinion.ConvertOpinionsToInts32ForLiveFeed(context.Opinions),
 		}
 
 		conflicts[ID] = newConflict()
@@ -127,7 +127,7 @@ func createFPCUpdate(hb *packet.FPCHeartbeat) *FPCUpdate {
 			continue
 		}
 		conflictDetail := conflictOverview.NodesView[nodeID]
-		conflictDetail.Outcome = opinion.ConvertOpinionToInt32(finalOpinion)
+		conflictDetail.Outcome = opinion.ConvertOpinionToInt32ForLiveFeed(finalOpinion)
 		conflicts[ID] = newConflict()
 		conflicts[ID].NodesView[nodeID] = conflictDetail
 		activeConflicts.update(ID, conflicts[ID])

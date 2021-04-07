@@ -3,11 +3,12 @@ package metrics
 import (
 	"time"
 
+	"github.com/iotaledger/hive.go/syncutils"
+	"go.uber.org/atomic"
+
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/hive.go/syncutils"
-	"go.uber.org/atomic"
 )
 
 // ComponentType defines the component for the different MPS metrics.
@@ -187,6 +188,22 @@ func increasePerComponentCounter(c ComponentType) {
 
 	// increase cumulative metrics
 	messageCountPerComponent[c]++
+}
+
+// measures the Component Counter value per second
+func measurePerComponentCounter() {
+	// sample the current counter value into a measured MPS value
+	componentCounters := MessageCountSinceStartPerComponent()
+
+	// reset the counter
+	messageCountPerComponentMutex.Lock()
+	for key := range messageCountPerComponent {
+		messageCountPerComponent[key] = 0
+	}
+	messageCountPerComponentMutex.Unlock()
+
+	// trigger events for outside listeners
+	Events.ComponentCounterUpdated.Trigger(componentCounters)
 }
 
 func measureMessageTips() {

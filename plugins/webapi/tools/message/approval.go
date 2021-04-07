@@ -8,13 +8,14 @@ import (
 	"sort"
 	"time"
 
+	"github.com/iotaledger/hive.go/datastructure/walker"
+	"github.com/iotaledger/hive.go/identity"
+	"github.com/labstack/echo"
+
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/hive.go/datastructure/walker"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/labstack/echo"
 )
 
 var fileName = "approval-analysis.csv"
@@ -25,7 +26,7 @@ func ApprovalHandler(c echo.Context) error {
 	res := &ApprovalResponse{}
 	res.Err = firstApprovalAnalysis(local.GetInstance().Identity.ID().String(), path+fileName)
 	if res.Err != nil {
-		c.JSON(http.StatusInternalServerError, res)
+		return c.JSON(http.StatusInternalServerError, res)
 	}
 	return c.JSON(http.StatusOK, res)
 }
@@ -221,7 +222,8 @@ func (m MsgInfo) toCSV() (row []string) {
 		m.MsgIssuerID,
 		fmt.Sprint(m.MsgIssuanceTimestamp.UnixNano()),
 		fmt.Sprint(m.MsgArrivalTime.UnixNano()),
-		fmt.Sprint(m.MsgSolidTime.UnixNano())}...)
+		fmt.Sprint(m.MsgSolidTime.UnixNano()),
+	}...)
 
 	return
 }

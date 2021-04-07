@@ -5,6 +5,7 @@ import {Card, ListGroup} from "react-bootstrap";
 interface Props {
     title: string;
     listItems;
+    since: Date;
 }
 
 @inject("manaStore")
@@ -15,7 +16,8 @@ export default class ManaEventList extends React.Component<Props, any> {
             <Card>
                 <Card.Body>
                     <Card.Title>
-                        {this.props.title}
+                        {this.props.title}{" "}
+                        {this.props.since==null?  <i style={{fontSize: '0.8rem'}}>since genesis</i> : <i style={{fontSize: '0.8rem'}}>since {this.props.since.toLocaleString()}</i>}
                     </Card.Title>
                     <ListGroup style={{
                         fontSize: '0.8rem',

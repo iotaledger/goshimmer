@@ -27,6 +27,8 @@ type BaseManaVector interface {
 	GetManaMap(...time.Time) (NodeMap, time.Time, error)
 	// GetHighestManaNodes returns the n highest mana nodes in descending order.
 	GetHighestManaNodes(uint) ([]Node, time.Time, error)
+	// GetHighestManaNodesFraction returns the highest mana that own 'p' percent of total mana.
+	GetHighestManaNodesFraction(p float64) ([]Node, time.Time, error)
 	// SetMana sets the base mana for a node.
 	SetMana(identity.ID, BaseMana)
 	// ForEach executes a callback function for each entry in the vector.

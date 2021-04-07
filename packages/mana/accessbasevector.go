@@ -137,7 +137,7 @@ func (a *AccessBaseManaVector) GetHighestManaNodes(n uint) (res []Node, t time.T
 		return nil, t, err
 	}
 
-	sort.Slice(res[:], func(i, j int) bool {
+	sort.Slice(res, func(i, j int) bool {
 		return res[i].Mana > res[j].Mana
 	})
 
@@ -146,6 +146,53 @@ func (a *AccessBaseManaVector) GetHighestManaNodes(n uint) (res []Node, t time.T
 	}
 	res = res[:n]
 	return
+}
+
+// GetHighestManaNodesFraction returns the highest mana that own 'p' percent of total mana.
+// It also updates the mana values for each node.
+// If p is zero or greater than one, it returns all nodes.
+func (a *AccessBaseManaVector) GetHighestManaNodesFraction(p float64) (res []Node, t time.Time, err error) {
+	totalMana := 0.0
+	err = func() error {
+		// don't lock the vector after this func returns
+		a.Lock()
+		defer a.Unlock()
+		t = time.Now()
+		for ID := range a.vector {
+			var mana float64
+			mana, _, err = a.getMana(ID, t)
+			if err != nil {
+				return err
+			}
+			res = append(res, Node{
+				ID:   ID,
+				Mana: mana,
+			})
+			totalMana += mana
+		}
+		return nil
+	}()
+	if err != nil {
+		return nil, t, err
+	}
+	sort.Slice(res, func(i, j int) bool {
+		return res[i].Mana > res[j].Mana
+	})
+
+	// how much mana is p percent of total mana
+	manaThreshold := p * totalMana
+	// include nodes as long as their counted mana is less than the threshold
+	manaCounted := 0.0
+	var n uint
+	for n = 0; int(n) < len(res) && manaCounted < manaThreshold; n++ {
+		manaCounted += res[n].Mana
+	}
+
+	if n == 0 || int(n) >= len(res) {
+		return
+	}
+	res = res[:n]
+	return res, t, err
 }
 
 // SetMana sets the base mana for a node.

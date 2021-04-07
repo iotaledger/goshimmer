@@ -5,13 +5,14 @@ import (
 	"testing"
 	"time"
 
-	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels/value"
 )
 
 func TestNewTransactionFromJSON(t *testing.T) {
@@ -46,7 +47,7 @@ func TestNewTransactionFromJSON(t *testing.T) {
 
 	// sign transaction
 	kp := *mySeed.KeyPair(0)
-	sig := ledgerstate.NewED25519Signature(kp.PublicKey, ed25519.Signature(kp.PrivateKey.Sign(txEssence.Bytes())))
+	sig := ledgerstate.NewED25519Signature(kp.PublicKey, kp.PrivateKey.Sign(txEssence.Bytes()))
 
 	// create unlockBlock
 	unlockBlock := ledgerstate.NewSignatureUnlockBlock(sig)
@@ -54,11 +55,11 @@ func TestNewTransactionFromJSON(t *testing.T) {
 	tx := ledgerstate.NewTransaction(txEssence, ledgerstate.UnlockBlocks{unlockBlock})
 
 	// output JSON object
-	outputsObj := []Output{
+	outputsObj := []value.Output{
 		{
 			Type:    output1.Type(),
 			Address: output1.Address().Base58(),
-			Balances: []Balance{
+			Balances: []value.Balance{
 				{
 					Value: 100,
 					Color: "IOTA",
@@ -68,7 +69,7 @@ func TestNewTransactionFromJSON(t *testing.T) {
 		{
 			Type:    output2.Type(),
 			Address: output2.Address().Base58(),
-			Balances: []Balance{
+			Balances: []value.Balance{
 				{
 					Value: 100,
 					Color: "MINT",
@@ -82,17 +83,17 @@ func TestNewTransactionFromJSON(t *testing.T) {
 	}
 
 	// signature JSON object
-	sigObj := UnlockBlock{
+	sigObj := value.UnlockBlock{
 		Type:          ledgerstate.SignatureUnlockBlockType,
 		SignatureType: ledgerstate.ED25519SignatureType,
 		PublicKey:     kp.PublicKey.String(),
 		Signature:     sig.Base58(),
 	}
 
-	req := SendTransactionByJSONRequest{
+	req := value.SendTransactionByJSONRequest{
 		Inputs:        []string{myOutputID},
 		Outputs:       outputsObj,
-		Signatures:    []UnlockBlock{sigObj},
+		Signatures:    []value.UnlockBlock{sigObj},
 		AManaPledgeID: string(pledgeID),
 		CManaPledgeID: string(pledgeID),
 		Payload:       dataPayload.Bytes(),

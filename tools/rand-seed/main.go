@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
 )
 
@@ -26,7 +28,13 @@ func main() {
 	defer f.Close()
 
 	f.WriteString("base64:" + base64.StdEncoding.EncodeToString(b) + "\n")
-	f.WriteString("base58:" + base58.Encode(b))
+	f.WriteString("base58:" + base58.Encode(b) + "\n")
+
+	// create private / public key
+	pk := ed25519.PrivateKeyFromSeed(b[:])
+
+	f.WriteString("Identity - base58:" + identity.New(pk.Public()).ID().String() + "\n")
+	f.WriteString("Public Key - base58:" + identity.New(pk.Public()).PublicKey().String())
 
 	fmt.Println("New random seed generated (both base64 and base58 encoded) and written in random-seed.txt")
 }

@@ -3,11 +3,13 @@ package value
 import (
 	"net/http"
 
-	"github.com/iotaledger/goshimmer/packages/mana"
-	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58"
+
+	"github.com/iotaledger/goshimmer/packages/mana"
+	manaPlugin "github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels/value"
 )
 
 // Handler handles the request.
@@ -18,7 +20,7 @@ func allowedManaPledgeHandler(c echo.Context) error {
 		accessNodes = append(accessNodes, base58.Encode(element.(identity.ID).Bytes()))
 	})
 	if len(accessNodes) == 0 {
-		return c.JSON(http.StatusNotFound, AllowedManaPledgeResponse{Error: "No access mana pledge IDs are accepted"})
+		return c.JSON(http.StatusNotFound, value.AllowedManaPledgeResponse{Error: "No access mana pledge IDs are accepted"})
 	}
 
 	consensus := manaPlugin.GetAllowedPledgeNodes(mana.ConsensusMana)
@@ -27,30 +29,17 @@ func allowedManaPledgeHandler(c echo.Context) error {
 		consensusNodes = append(consensusNodes, base58.Encode(element.(identity.ID).Bytes()))
 	})
 	if len(consensusNodes) == 0 {
-		return c.JSON(http.StatusNotFound, AllowedManaPledgeResponse{Error: "No consensus mana pledge IDs are accepted"})
+		return c.JSON(http.StatusNotFound, value.AllowedManaPledgeResponse{Error: "No consensus mana pledge IDs are accepted"})
 	}
 
-	return c.JSON(http.StatusOK, AllowedManaPledgeResponse{
-		Access: AllowedPledge{
+	return c.JSON(http.StatusOK, value.AllowedManaPledgeResponse{
+		Access: value.AllowedPledge{
 			IsFilterEnabled: access.IsFilterEnabled,
 			Allowed:         accessNodes,
 		},
-		Consensus: AllowedPledge{
+		Consensus: value.AllowedPledge{
 			IsFilterEnabled: consensus.IsFilterEnabled,
 			Allowed:         consensusNodes,
 		},
 	})
-}
-
-// AllowedManaPledgeResponse is the http response.
-type AllowedManaPledgeResponse struct {
-	Access    AllowedPledge `json:"accessMana"`
-	Consensus AllowedPledge `json:"consensusMana"`
-	Error     string        `json:"error,omitempty"`
-}
-
-// AllowedPledge represents the nodes that mana is allowed to be pledged to.
-type AllowedPledge struct {
-	IsFilterEnabled bool     `json:"isFilterEnabled"`
-	Allowed         []string `json:"allowed,omitempty"`
 }

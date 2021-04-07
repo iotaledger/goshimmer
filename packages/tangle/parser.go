@@ -6,14 +6,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/bytesfilter"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/typeutils"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/pow"
 )
 
 const (
@@ -101,7 +102,8 @@ func (p *Parser) setupBytesFilterDataFlow() {
 			p.bytesFilters[i].OnReject(func(bytes []byte, err error, peer *peer.Peer) {
 				p.Events.BytesRejected.Trigger(&BytesRejectedEvent{
 					Bytes: bytes,
-					Peer:  peer}, err)
+					Peer:  peer,
+				}, err)
 			})
 		}
 	}
@@ -124,7 +126,8 @@ func (p *Parser) setupMessageFilterDataFlow() {
 				p.messageFilters[i].OnAccept(func(msg *Message, peer *peer.Peer) {
 					p.Events.MessageParsed.Trigger(&MessageParsedEvent{
 						Message: msg,
-						Peer:    peer})
+						Peer:    peer,
+					})
 				})
 			} else {
 				p.messageFilters[i].OnAccept(p.messageFilters[i+1].Filter)
@@ -132,7 +135,8 @@ func (p *Parser) setupMessageFilterDataFlow() {
 			p.messageFilters[i].OnReject(func(msg *Message, err error, peer *peer.Peer) {
 				p.Events.MessageRejected.Trigger(&MessageRejectedEvent{
 					Message: msg,
-					Peer:    peer}, err)
+					Peer:    peer,
+				}, err)
 			})
 		}
 	}
@@ -144,7 +148,8 @@ func (p *Parser) parseMessage(bytes []byte, peer *peer.Peer) {
 	if parsedMessage, _, err := MessageFromBytes(bytes); err != nil {
 		p.Events.BytesRejected.Trigger(&BytesRejectedEvent{
 			Bytes: bytes,
-			Peer:  peer}, err)
+			Peer:  peer,
+		}, err)
 	} else {
 		p.messageFilters[0].Filter(parsedMessage, peer)
 	}

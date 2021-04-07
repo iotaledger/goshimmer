@@ -9,13 +9,14 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/pow"
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	_ "golang.org/x/crypto/blake2b"
+
+	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/pow"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
 const (
@@ -149,16 +150,14 @@ func TestWorkerFunc_PayloadSize(t *testing.T) {
 	msgFactory := NewMessageFactory(
 		testTangle,
 		TipSelectorFunc(func(p payload.Payload, countStrongParents, countWeakParents int) (strongParents, weakParents MessageIDs, err error) {
-			return func() ([]MessageID, []MessageID, error) {
-				result := make([]MessageID, 0, MaxParentsCount)
-				for i := 0; i < MaxParentsCount; i++ {
-					b := make([]byte, MessageIDLength)
-					_, _ = rand.Read(b)
-					randID, _, _ := MessageIDFromBytes(b)
-					result = append(result, randID)
-				}
-				return result, []MessageID{}, nil
-			}()
+			result := make(MessageIDs, 0, MaxParentsCount)
+			for i := 0; i < MaxParentsCount; i++ {
+				b := make([]byte, MessageIDLength)
+				_, _ = rand.Read(b)
+				randID, _, _ := MessageIDFromBytes(b)
+				result = append(result, randID)
+			}
+			return result, MessageIDs{}, nil
 		}),
 	)
 	defer msgFactory.Shutdown()

@@ -3,10 +3,11 @@ package tangle
 import (
 	"fmt"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/types"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
 // region Utils ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -113,15 +114,45 @@ func (u *Utils) TransactionApprovedByMessage(transactionID ledgerstate.Transacti
 			return true
 		}
 
+		var attachmentBooked bool
+		u.tangle.Storage.MessageMetadata(attachmentMessageID).Consume(func(attachmentMetadata *MessageMetadata) {
+			attachmentBooked = attachmentMetadata.IsBooked()
+		})
+		if !attachmentBooked {
+			continue
+		}
+
+		bookedParents := make(MessageIDs, 0)
 		u.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 			for _, parentID := range message.StrongParents() {
-				if u.MessageApprovedBy(attachmentMessageID, parentID) {
+				var parentBooked bool
+				u.tangle.Storage.MessageMetadata(parentID).Consume(func(parentMetadata *MessageMetadata) {
+					parentBooked = parentMetadata.IsBooked()
+				})
+				if !parentBooked {
+					continue
+				}
+
+				// First check all of the parents to avoid unnecessary checks and possible walking.
+				if attachmentMessageID == parentID {
 					approved = true
 					return
 				}
+
+				bookedParents = append(bookedParents, parentID)
 			}
 		})
+		if approved {
+			return
+		}
 
+		// Only now check all parents.
+		for _, bookedParent := range bookedParents {
+			if u.MessageApprovedBy(attachmentMessageID, bookedParent) {
+				approved = true
+				return
+			}
+		}
 		if approved {
 			return
 		}
@@ -142,6 +173,14 @@ func (u *Utils) MessageApprovedBy(approvedMessageID MessageID, approvingMessageI
 
 	for _, weakApprover := range cachedWeakApprovers.Unwrap() {
 		if weakApprover == nil {
+			continue
+		}
+
+		var weakApproverBooked bool
+		u.tangle.Storage.MessageMetadata(weakApprover.ApproverMessageID()).Consume(func(weakApproverMetadata *MessageMetadata) {
+			weakApproverBooked = weakApproverMetadata.IsBooked()
+		})
+		if !weakApproverBooked {
 			continue
 		}
 

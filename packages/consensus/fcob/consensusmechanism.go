@@ -1,17 +1,19 @@
 package fcob
 
 import (
-	"sync"
+	"fmt"
 	"time"
+
+	"github.com/iotaledger/hive.go/datastructure/walker"
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/timedexecutor"
+	"github.com/iotaledger/hive.go/timedqueue"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	voter "github.com/iotaledger/goshimmer/packages/vote/opinion"
-	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/timedexecutor"
-	"github.com/iotaledger/hive.go/timedqueue"
 )
 
 var (
@@ -29,10 +31,9 @@ type ConsensusMechanism struct {
 	Events *ConsensusMechanismEvents
 
 	tangle                   *tangle.Tangle
-	storage                  *Storage
+	Storage                  *Storage
 	likedThresholdExecutor   *timedexecutor.TimedExecutor
 	locallyFinalizedExecutor *timedexecutor.TimedExecutor
-	waiting                  *opinionWait
 }
 
 // NewConsensusMechanism is the constructor for the FCoB consensus mechanism.
@@ -44,14 +45,13 @@ func NewConsensusMechanism() *ConsensusMechanism {
 		},
 		likedThresholdExecutor:   timedexecutor.New(1),
 		locallyFinalizedExecutor: timedexecutor.New(1),
-		waiting:                  &opinionWait{waitMap: make(map[tangle.MessageID]*waitStruct)},
 	}
 }
 
 // Init initializes the ConsensusMechanism by making the Tangle object available that is using it.
 func (f *ConsensusMechanism) Init(tangle *tangle.Tangle) {
 	f.tangle = tangle
-	f.storage = NewStorage(tangle.Options.Store)
+	f.Storage = NewStorage(tangle.Options.Store)
 }
 
 // Setup sets up the behavior of the ConsensusMechanism by making it attach to the relevant events in the Tangle.
@@ -62,8 +62,16 @@ func (f *ConsensusMechanism) Setup() {
 
 // TransactionLiked returns a boolean value indicating whether the given Transaction is liked.
 func (f *ConsensusMechanism) TransactionLiked(transactionID ledgerstate.TransactionID) (liked bool) {
-	f.storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
-		liked = opinion.OpinionEssence.liked
+	f.tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+		f.tangle.LedgerState.BranchDAG.Branch(transactionMetadata.BranchID()).Consume(func(branch ledgerstate.Branch) {
+			if !branch.MonotonicallyLiked() {
+				return
+			}
+
+			f.Storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
+				liked = opinion.OpinionEssence.liked
+			})
+		})
 	})
 
 	return
@@ -73,11 +81,12 @@ func (f *ConsensusMechanism) TransactionLiked(transactionID ledgerstate.Transact
 func (f *ConsensusMechanism) Shutdown() {
 	f.likedThresholdExecutor.Shutdown(timedqueue.CancelPendingElements)
 	f.locallyFinalizedExecutor.Shutdown(timedqueue.CancelPendingElements)
-	f.storage.Shutdown()
+	f.Storage.Shutdown()
 }
 
 // Evaluate evaluates the opinion of the given messageID.
 func (f *ConsensusMechanism) Evaluate(messageID tangle.MessageID) {
+	f.Storage.StoreMessageMetadata(NewMessageMetadata(messageID))
 	if f.tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
 		f.onTransactionBooked(transactionID, messageID)
 	}) {
@@ -90,7 +99,8 @@ func (f *ConsensusMechanism) Evaluate(messageID tangle.MessageID) {
 
 // EvaluateTimestamp evaluates the honesty of the timestamp of the given Message.
 func (f *ConsensusMechanism) EvaluateTimestamp(messageID tangle.MessageID) {
-	f.storage.StoreTimestampOpinion(&TimestampOpinion{
+	f.Storage.StoreMessageMetadata(NewMessageMetadata(messageID))
+	f.Storage.StoreTimestampOpinion(&TimestampOpinion{
 		MessageID: messageID,
 		Value:     voter.Like,
 		LoK:       Two,
@@ -98,8 +108,10 @@ func (f *ConsensusMechanism) EvaluateTimestamp(messageID tangle.MessageID) {
 
 	f.setEligibility(messageID)
 
-	if f.waiting.done(messageID, timestampOpinion) {
-		f.tangle.ConsensusManager.Events.MessageOpinionFormed.Trigger(messageID)
+	f.setTimestampOpinionDone(messageID)
+
+	if f.messageDone(messageID) {
+		f.tangle.Utils.WalkMessageID(f.createMessageOpinion, tangle.MessageIDs{messageID}, true)
 	}
 }
 
@@ -112,7 +124,7 @@ func (f *ConsensusMechanism) ProcessVote(ev *vote.OpinionEvent) {
 			return
 		}
 
-		f.storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
+		f.Storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
 			opinion.SetLiked(ev.Opinion == voter.Like)
 			opinion.SetLevelOfKnowledge(Two)
 			// trigger PayloadOpinionFormed event
@@ -126,17 +138,20 @@ func (f *ConsensusMechanism) ProcessVote(ev *vote.OpinionEvent) {
 
 // TransactionOpinionEssence returns the opinion essence of a given transactionID.
 func (f *ConsensusMechanism) TransactionOpinionEssence(transactionID ledgerstate.TransactionID) (opinion OpinionEssence) {
-	opinion = f.storage.OpinionEssence(transactionID)
+	opinion = f.Storage.OpinionEssence(transactionID)
 
 	return
 }
 
 // OpinionsEssence returns a list of OpinionEssence (i.e., a copy of the triple{timestamp, liked, levelOfKnowledge})
 // of given conflictSet.
-func (f *ConsensusMechanism) OpinionsEssence(conflictSet ledgerstate.TransactionIDs) (opinions []OpinionEssence) {
+func (f *ConsensusMechanism) OpinionsEssence(targetID ledgerstate.TransactionID, conflictSet ledgerstate.TransactionIDs) (opinions []OpinionEssence) {
 	opinions = make([]OpinionEssence, 0)
 	for conflictID := range conflictSet {
-		opinions = append(opinions, f.storage.OpinionEssence(conflictID))
+		if conflictID == targetID {
+			continue
+		}
+		opinions = append(opinions, f.Storage.OpinionEssence(conflictID))
 	}
 	return
 }
@@ -145,7 +160,7 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 	// if the opinion for this transactionID is already present,
 	// it's a reattachment and thus, we re-use the same opinion.
 	isReattachment := false
-	f.storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
+	f.Storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
 		// if the opinion has been already set by the opinion provider, re-use it
 		if opinion.LevelOfKnowledge() > One {
 			// trigger PayloadOpinionFormed event
@@ -175,107 +190,171 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 			liked:            false,
 			levelOfKnowledge: Two,
 		}
-		f.storage.opinionStorage.Store(newOpinion).Release()
+		f.Storage.opinionStorage.Store(newOpinion).Release()
 		f.onPayloadOpinionFormed(messageID, newOpinion.liked)
 		return
 	}
 
 	if f.tangle.LedgerState.TransactionConflicting(transactionID) {
-		newOpinion.OpinionEssence = deriveOpinion(timestamp, f.OpinionsEssence(f.tangle.LedgerState.ConflictSet(transactionID)))
+		newOpinion.OpinionEssence = deriveOpinion(timestamp, f.OpinionsEssence(transactionID, f.tangle.LedgerState.ConflictSet(transactionID)))
 
-		cachedOpinion := f.storage.opinionStorage.Store(newOpinion)
-		defer cachedOpinion.Release()
+		f.Storage.opinionStorage.Store(newOpinion).Release()
 
-		if newOpinion.LevelOfKnowledge() == One {
+		switch newOpinion.LevelOfKnowledge() {
+		case Pending:
+			break
+
+		case One:
 			// trigger voting for this transactionID
 			liked := voter.Dislike
 			if newOpinion.liked {
 				liked = voter.Like
 			}
 			f.Events.Vote.Trigger(transactionID.Base58(), liked)
-		}
+			return
 
-		if newOpinion.LevelOfKnowledge() > One {
+		default:
 			f.onPayloadOpinionFormed(messageID, newOpinion.liked)
+			return
 		}
-
-		return
 	}
 
 	newOpinion.OpinionEssence = OpinionEssence{
 		timestamp:        timestamp,
 		levelOfKnowledge: Pending,
 	}
-	cachedOpinion := f.storage.opinionStorage.Store(newOpinion)
-	defer cachedOpinion.Release()
+	o, stored := f.Storage.opinionStorage.StoreIfAbsent(newOpinion)
+	if stored {
+		o.Release()
+	}
 
 	// Wait LikedThreshold
 	f.likedThresholdExecutor.ExecuteAt(func() {
-		f.storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
-			opinion.SetLevelOfKnowledge(One)
+		runLocallyFinalizedExecutor := true
+		if !f.Storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
+			opinion.SetFCOBTime1(time.Now())
+
 			if f.tangle.LedgerState.TransactionConflicting(transactionID) {
+				runLocallyFinalizedExecutor = false
+				// if the previous conflicts have been finalized with all dislikes,
+				// and no other conflicts arrived within LikedThreshold seconds,
+				// start voting with local like
+				conflictSet := ConflictSet(f.OpinionsEssence(transactionID, f.tangle.LedgerState.ConflictSet(transactionID)))
+				if conflictSet.finalizedAsDisliked(opinion.OpinionEssence) {
+					opinion.SetLiked(true)
+					opinion.SetLevelOfKnowledge(One)
+					// trigger voting for this transactionID
+					f.Events.Vote.Trigger(transactionID.Base58(), voter.Like)
+					return
+				}
+				opinion.SetLevelOfKnowledge(One)
 				opinion.SetLiked(false)
 				// trigger voting for this transactionID
 				f.Events.Vote.Trigger(transactionID.Base58(), voter.Dislike)
 				return
 			}
+			opinion.SetLevelOfKnowledge(One)
 			opinion.SetLiked(true)
-		})
+		}) {
+			panic(fmt.Sprintf("could not load opinion of transaction %s", transactionID))
+		}
 
-		// Wait LocallyFinalizedThreshold
-		f.locallyFinalizedExecutor.ExecuteAt(func() {
-			f.storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
-				opinion.SetLiked(true)
-				if f.tangle.LedgerState.TransactionConflicting(transactionID) {
-					// trigger voting for this transactionID
-					f.Events.Vote.Trigger(transactionID.Base58(), voter.Like)
-					return
+		if runLocallyFinalizedExecutor {
+			// Wait LocallyFinalizedThreshold
+			f.locallyFinalizedExecutor.ExecuteAt(func() {
+				if !f.Storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
+					opinion.SetFCOBTime2(time.Now())
+
+					opinion.SetLiked(true)
+					if f.tangle.LedgerState.TransactionConflicting(transactionID) {
+						// trigger voting for this transactionID
+						f.Events.Vote.Trigger(transactionID.Base58(), voter.Like)
+						return
+					}
+					opinion.SetLevelOfKnowledge(Two)
+					// trigger OpinionPayloadFormed
+					messageIDs := f.tangle.Storage.AttachmentMessageIDs(transactionID)
+					for _, messageID := range messageIDs {
+						f.onPayloadOpinionFormed(messageID, opinion.liked)
+					}
+				}) {
+					panic(fmt.Sprintf("could not load opinion of transaction %s", transactionID))
 				}
-				opinion.SetLevelOfKnowledge(Two)
-				// trigger OpinionPayloadFormed
-				messageIDs := f.tangle.Storage.AttachmentMessageIDs(transactionID)
-				for _, messageID := range messageIDs {
-					f.onPayloadOpinionFormed(messageID, opinion.liked)
-				}
-			})
-		}, timestamp.Add(LocallyFinalizedThreshold))
+			}, timestamp.Add(LocallyFinalizedThreshold))
+		}
 	}, timestamp.Add(LikedThreshold))
 }
 
 func (f *ConsensusMechanism) onPayloadOpinionFormed(messageID tangle.MessageID, liked bool) {
-	isTxConfirmed := false
 	// set BranchLiked and BranchFinalized if this payload was a conflict
 	f.tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
-		isTxConfirmed = liked
 		f.tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 			transactionMetadata.SetFinalized(true)
 		})
 		if f.tangle.LedgerState.TransactionConflicting(transactionID) {
-			_, _ = f.tangle.LedgerState.SetBranchLiked(f.tangle.LedgerState.BranchID(transactionID), liked)
+			_, _ = f.tangle.LedgerState.BranchDAG.SetBranchLiked(f.tangle.LedgerState.BranchID(transactionID), liked)
 			// TODO: move this to approval weight logic
-			_, _ = f.tangle.LedgerState.SetBranchFinalized(f.tangle.LedgerState.BranchID(transactionID), true)
-			isTxConfirmed = liked
+			_, _ = f.tangle.LedgerState.BranchDAG.SetBranchFinalized(f.tangle.LedgerState.BranchID(transactionID), true)
 		}
 	})
 
-	if f.waiting.done(messageID, payloadOpinion) {
-		f.setEligibility(messageID)
-		// trigger TransactionOpinionFormed if the message contains a transaction
-		if isTxConfirmed {
+	f.setPayloadOpinionDone(messageID)
+
+	if f.messageDone(messageID) {
+		f.tangle.Utils.WalkMessageID(f.createMessageOpinion, tangle.MessageIDs{messageID}, true)
+	}
+}
+
+func (f *ConsensusMechanism) createMessageOpinion(messageID tangle.MessageID, walker *walker.Walker) {
+	if !f.parentsDone(messageID) {
+		return
+	}
+
+	if !f.setMessageOpinionFormed(messageID) {
+		return
+	}
+
+	// trigger TransactionOpinionFormed if the message contains a transaction
+	f.tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
+		if f.tangle.LedgerState.BranchInclusionState(f.tangle.LedgerState.BranchID(transactionID)) == ledgerstate.Confirmed {
+			// skip reattachments
+			for _, attachmentID := range f.tangle.Storage.AttachmentMessageIDs(transactionID) {
+				if f.messageOpinionTriggered(attachmentID) {
+					return
+				}
+			}
+
 			f.tangle.ConsensusManager.Events.TransactionConfirmed.Trigger(messageID)
 		}
-		f.tangle.ConsensusManager.Events.MessageOpinionFormed.Trigger(messageID)
-	}
+	})
+
+	f.tangle.ConsensusManager.Events.MessageOpinionFormed.Trigger(messageID)
+
+	f.setMessageOpinionTriggered(messageID)
+
+	f.tangle.Storage.Approvers(messageID).Consume(func(approver *tangle.Approver) {
+		if f.messageDone(approver.ApproverMessageID()) {
+			walker.Push(approver.ApproverMessageID())
+		}
+	})
 }
 
 func (f *ConsensusMechanism) setEligibility(messageID tangle.MessageID) {
 	f.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-		f.storage.TimestampOpinion(messageID).Consume(func(timestampOpinion *TimestampOpinion) {
+		f.Storage.TimestampOpinion(messageID).Consume(func(timestampOpinion *TimestampOpinion) {
 			messageMetadata.SetEligible(
 				timestampOpinion != nil && timestampOpinion.Value == opinion.Like && timestampOpinion.LoK > One && f.parentsEligibility(messageID),
 			)
 		})
 	})
+}
+
+// OpinionFormedTime returns the time when the opinion for the given message was formed.
+func (f *ConsensusMechanism) OpinionFormedTime(messageID tangle.MessageID) (t time.Time) {
+	f.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		t = messageMetadata.OpinionFormedTime()
+	})
+	return
 }
 
 // parentsEligibility checks if the parents are eligible.
@@ -287,6 +366,68 @@ func (f *ConsensusMechanism) parentsEligibility(messageID tangle.MessageID) (eli
 			if eligible = eligible && f.tangle.ConsensusManager.MessageEligible(parent.ID); !eligible {
 				return
 			}
+		})
+	})
+	return
+}
+
+// setPayloadOpinionDone set the payload opinion as formed.
+func (f *ConsensusMechanism) setPayloadOpinionDone(messageID tangle.MessageID) (modified bool) {
+	f.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		modified = messageMetadata.SetPayloadOpinionFormed(true)
+	})
+	return
+}
+
+// setTimestampOpinionDone set the timestamp opinion as formed.
+func (f *ConsensusMechanism) setTimestampOpinionDone(messageID tangle.MessageID) (modified bool) {
+	f.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		modified = messageMetadata.SetTimestampOpinionFormed(true)
+	})
+	return
+}
+
+// setMessageOpinionFormed set the message opinion as formed.
+func (f *ConsensusMechanism) setMessageOpinionFormed(messageID tangle.MessageID) (modified bool) {
+	f.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		modified = messageMetadata.SetMessageOpinionFormed(true)
+	})
+	return
+}
+
+// messageDone checks if the both timestamp opinion and payload opinion are formed.
+func (f *ConsensusMechanism) messageDone(messageID tangle.MessageID) (done bool) {
+	f.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		done = messageMetadata.TimestampOpinionFormed() && messageMetadata.PayloadOpinionFormed()
+	})
+	return
+}
+
+// setMessageOpinionTriggered set the message opinion as triggered.
+func (f *ConsensusMechanism) setMessageOpinionTriggered(messageID tangle.MessageID) (modified bool) {
+	f.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		modified = messageMetadata.SetMessageOpinionTriggered(true)
+	})
+	return
+}
+
+// messageOpinionTriggered checks if the message opinion has been triggered.
+func (f *ConsensusMechanism) messageOpinionTriggered(messageID tangle.MessageID) (messageOpinionTriggered bool) {
+	f.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		messageOpinionTriggered = messageMetadata.MessageOpinionTriggered()
+	})
+	return
+}
+
+// parentsDone checks if all of the parents' opinion are formed.
+func (f *ConsensusMechanism) parentsDone(messageID tangle.MessageID) (done bool) {
+	f.tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
+		done = true
+		message.ForEachParent(func(parent tangle.Parent) {
+			if !done {
+				return
+			}
+			done = f.messageOpinionTriggered(parent.ID) && done
 		})
 	})
 	return
@@ -325,7 +466,7 @@ func deriveOpinion(targetTime time.Time, conflictSet ConflictSet) (opinion Opini
 	}
 
 	anchor := conflictSet.anchor()
-	if anchor == nil {
+	if (anchor == OpinionEssence{}) {
 		opinion = OpinionEssence{
 			timestamp:        targetTime,
 			levelOfKnowledge: Pending,
@@ -337,50 +478,6 @@ func deriveOpinion(targetTime time.Time, conflictSet ConflictSet) (opinion Opini
 		timestamp:        targetTime,
 		liked:            false,
 		levelOfKnowledge: One,
-	}
-	return
-}
-
-type callerType uint8
-
-const (
-	payloadOpinion callerType = iota
-	timestampOpinion
-)
-
-type waitStruct struct {
-	payloadCaller   bool
-	timestampCaller bool
-}
-
-func (w *waitStruct) update(caller callerType) {
-	switch caller {
-	case payloadOpinion:
-		w.payloadCaller = true
-	default:
-		w.timestampCaller = true
-	}
-}
-
-func (w *waitStruct) ready() (ready bool) {
-	return w.payloadCaller && w.timestampCaller
-}
-
-type opinionWait struct {
-	waitMap map[tangle.MessageID]*waitStruct
-	sync.Mutex
-}
-
-func (o *opinionWait) done(messageID tangle.MessageID, caller callerType) (done bool) {
-	o.Lock()
-	defer o.Unlock()
-	if _, exist := o.waitMap[messageID]; !exist {
-		o.waitMap[messageID] = &waitStruct{}
-	}
-	o.waitMap[messageID].update(caller)
-	if o.waitMap[messageID].ready() {
-		delete(o.waitMap, messageID)
-		done = true
 	}
 	return
 }

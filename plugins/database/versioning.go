@@ -5,12 +5,13 @@ import (
 	"fmt"
 
 	"github.com/iotaledger/hive.go/kvstore"
+	"golang.org/x/xerrors"
 )
 
 const (
 	// DBVersion defines the version of the database schema this version of GoShimmer supports.
 	// Every time there's a breaking change regarding the stored data, this version flag should be adjusted.
-	DBVersion = 19
+	DBVersion = 26
 )
 
 var (
@@ -24,7 +25,7 @@ var (
 // also automatically sets the version if the database is new.
 func checkDatabaseVersion(store kvstore.KVStore) error {
 	entry, err := store.Get(dbVersionKey)
-	if err == kvstore.ErrKeyNotFound {
+	if xerrors.Is(err, kvstore.ErrKeyNotFound) {
 		// set the version in an empty DB
 		return store.Set(dbVersionKey, []byte{DBVersion})
 	}

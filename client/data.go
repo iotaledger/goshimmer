@@ -3,7 +3,7 @@ package client
 import (
 	"net/http"
 
-	webapi_data "github.com/iotaledger/goshimmer/plugins/webapi/data"
+	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 const (
@@ -12,10 +12,9 @@ const (
 
 // Data sends the given data (payload) by creating a message in the backend.
 func (api *GoShimmerAPI) Data(data []byte) (string, error) {
-
-	res := &webapi_data.Response{}
+	res := &jsonmodels.DataResponse{}
 	if err := api.do(http.MethodPost, routeData,
-		&webapi_data.Request{Data: data}, res); err != nil {
+		&jsonmodels.DataRequest{Data: data}, res); err != nil {
 		return "", err
 	}
 

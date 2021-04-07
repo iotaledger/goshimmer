@@ -20,6 +20,12 @@ import (
 const (
 	// UTXOInputType is the type of an Input that references an UTXO Output.
 	UTXOInputType InputType = iota
+
+	// MinInputCount defines the minimum amount of Inputs in a Transaction.
+	MinInputCount = 1
+
+	// MaxInputCount defines the maximum amount of Inputs in a Transaction.
+	MaxInputCount = 127
 )
 
 // InputType represents the type of an Input.
@@ -161,6 +167,14 @@ func InputsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (inputs Inputs,
 		err = xerrors.Errorf("failed to parse inputs count (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
+	if inputsCount < MinInputCount {
+		err = xerrors.Errorf("amount of Inputs (%d) failed to reach MinInputCount (%d): %w", inputsCount, MinInputCount, cerrors.ErrParseBytesFailed)
+		return
+	}
+	if inputsCount > MaxInputCount {
+		err = xerrors.Errorf("amount of Inputs (%d) exceeds MaxInputCount (%d): %w", inputsCount, MaxInputCount, cerrors.ErrParseBytesFailed)
+		return
+	}
 
 	var previousInput Input
 	parsedInputs := make([]Input, inputsCount)
@@ -209,6 +223,18 @@ func (i Inputs) String() string {
 	}
 
 	return structBuilder.String()
+}
+
+// Strings returns the Inputs in the form []transactionID:index.
+func (i Inputs) Strings() (result []string) {
+	for _, input := range i {
+		if input.Type() == UTXOInputType {
+			outputID := input.(*UTXOInput).ReferencedOutputID()
+			result = append(result, fmt.Sprintf("%s:%d", outputID.TransactionID().Base58(), outputID.OutputIndex()))
+		}
+	}
+
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -6,15 +6,16 @@ import (
 	"runtime"
 	"sync"
 
-	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
-	"github.com/iotaledger/goshimmer/packages/gossip/server"
-	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/workerpool"
 	"google.golang.org/protobuf/proto"
+
+	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
+	"github.com/iotaledger/goshimmer/packages/gossip/server"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
 const (
@@ -69,14 +70,12 @@ func NewManager(local *peer.Local, f LoadMessageFunc, log *logger.Logger) *Manag
 	}
 
 	m.messageWorkerPool = workerpool.New(func(task workerpool.Task) {
-
 		m.processPacketMessage(task.Param(0).([]byte), task.Param(1).(*Neighbor))
 
 		task.Return(nil)
 	}, workerpool.WorkerCount(messageWorkerCount), workerpool.QueueSize(messageWorkerQueueSize))
 
 	m.messageRequestWorkerPool = workerpool.New(func(task workerpool.Task) {
-
 		m.processMessageRequest(task.Param(0).([]byte), task.Param(1).(*Neighbor))
 
 		task.Return(nil)
@@ -263,7 +262,6 @@ func (m *Manager) handlePacket(data []byte, nbr *Neighbor) error {
 	}
 
 	switch pb.PacketType(data[0]) {
-
 	case pb.PacketMessage:
 		if _, added := m.messageWorkerPool.TrySubmit(data, nbr); !added {
 			return fmt.Errorf("messageWorkerPool full: packet message discarded")

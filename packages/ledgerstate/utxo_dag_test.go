@@ -84,6 +84,16 @@ func TestExampleC(t *testing.T) {
 		utxoDAG.branchDAG.Branch(Tx3AggregatedBranch.ID()).Consume(func(branch Branch) {
 			assert.Equal(t, NewBranchIDs(NewBranchID(transactions["TX1"].ID()), NewBranchID(transactions["TX2"].ID())), branch.Parents())
 		})
+
+		time.Sleep(1 * time.Second)
+
+		utxoDAG.branchDAG.ChildBranches(NewBranchID(transactions["TX1"].ID())).Consume(func(childBranch *ChildBranch) {
+			assert.Equal(t, AggregatedBranchType, childBranch.ChildBranchType())
+		})
+
+		utxoDAG.branchDAG.ChildBranches(NewBranchID(transactions["TX2"].ID())).Consume(func(childBranch *ChildBranch) {
+			assert.Equal(t, AggregatedBranchType, childBranch.ChildBranchType())
+		})
 	}
 }
 
@@ -185,6 +195,7 @@ func TestExampleB(t *testing.T) {
 		})
 	}
 }
+
 func TestExampleA(t *testing.T) {
 	branchDAG, utxoDAG := setupDependencies(t)
 	defer branchDAG.Shutdown()
@@ -383,7 +394,7 @@ func TestBookNonConflictingTransaction(t *testing.T) {
 
 	inclusionState, err := utxoDAG.InclusionState(tx.ID())
 	require.NoError(t, err)
-	assert.Equal(t, InclusionState(Pending), inclusionState)
+	assert.Equal(t, Pending, inclusionState)
 
 	// check that the inputs are marked as spent
 	assert.False(t, utxoDAG.outputsUnspent(inputsMetadata))
@@ -438,11 +449,11 @@ func TestBookConflictingTransaction(t *testing.T) {
 
 	inclusionState, err := utxoDAG.InclusionState(tx1.ID())
 	require.NoError(t, err)
-	assert.Equal(t, InclusionState(Pending), inclusionState)
+	assert.Equal(t, Pending, inclusionState)
 
 	inclusionState, err = utxoDAG.InclusionState(tx2.ID())
 	require.NoError(t, err)
-	assert.Equal(t, InclusionState(Pending), inclusionState)
+	assert.Equal(t, Pending, inclusionState)
 
 	// check that the inputs are marked as spent
 	assert.False(t, utxoDAG.outputsUnspent(inputsMetadata))
@@ -450,7 +461,6 @@ func TestBookConflictingTransaction(t *testing.T) {
 }
 
 func TestInclusionState(t *testing.T) {
-
 	{
 		branchDAG, utxoDAG := setupDependencies(t)
 		defer branchDAG.Shutdown()
@@ -461,7 +471,7 @@ func TestInclusionState(t *testing.T) {
 
 		inclusionState, err := utxoDAG.InclusionState(tx.ID())
 		require.NoError(t, err)
-		assert.Equal(t, InclusionState(Confirmed), inclusionState)
+		assert.Equal(t, Confirmed, inclusionState)
 	}
 
 	{
@@ -474,7 +484,7 @@ func TestInclusionState(t *testing.T) {
 
 		inclusionState, err := utxoDAG.InclusionState(tx.ID())
 		require.NoError(t, err)
-		assert.Equal(t, InclusionState(Pending), inclusionState)
+		assert.Equal(t, Pending, inclusionState)
 	}
 
 	{
@@ -483,11 +493,11 @@ func TestInclusionState(t *testing.T) {
 
 		wallets := createWallets(1)
 		inputs := generateOutputs(utxoDAG, wallets[0].address, BranchIDs{InvalidBranchID: types.Void})
-		tx, _ := multipleInputsTransaction(utxoDAG, wallets[0], wallets[0], inputs, false)
+		tx := multipleInputsTransaction(utxoDAG, wallets[0], wallets[0], inputs, false)
 
 		inclusionState, err := utxoDAG.InclusionState(tx.ID())
 		require.NoError(t, err)
-		assert.Equal(t, InclusionState(Rejected), inclusionState)
+		assert.Equal(t, Rejected, inclusionState)
 	}
 }
 
@@ -498,7 +508,7 @@ func TestConsumedBranchIDs(t *testing.T) {
 	wallets := createWallets(1)
 	branchIDs := BranchIDs{MasterBranchID: types.Void, InvalidBranchID: types.Void}
 	inputs := generateOutputs(utxoDAG, wallets[0].address, branchIDs)
-	tx, _ := multipleInputsTransaction(utxoDAG, wallets[0], wallets[0], inputs, true)
+	tx := multipleInputsTransaction(utxoDAG, wallets[0], wallets[0], inputs, true)
 
 	assert.Equal(t, branchIDs, utxoDAG.consumedBranchIDs(tx.ID()))
 }
@@ -616,6 +626,7 @@ func TestInputsInInvalidBranch(t *testing.T) {
 	assert.True(t, utxoDAG.inputsInInvalidBranch(outputsMetadata))
 	assert.False(t, utxoDAG.inputsInInvalidBranch(outputsMetadata[1:]))
 }
+
 func TestConsumedOutputs(t *testing.T) {
 	branchDAG, utxoDAG := setupDependencies(t)
 	defer branchDAG.Shutdown()
@@ -757,7 +768,6 @@ func TestUnlockBlocksValid(t *testing.T) {
 	// testing invalid signature
 	tx, _ = singleInputTransaction(utxoDAG, wallets[1], wallets[0], input, true)
 	assert.False(t, UnlockBlocksValid(Outputs{input}, tx))
-
 }
 
 func TestAddressOutputMapping(t *testing.T) {
@@ -811,7 +821,7 @@ func createWallets(n int) []wallet {
 }
 
 func (w wallet) sign(txEssence *TransactionEssence) *ED25519Signature {
-	return NewED25519Signature(w.publicKey(), ed25519.Signature(w.privateKey().Sign(txEssence.Bytes())))
+	return NewED25519Signature(w.publicKey(), w.privateKey().Sign(txEssence.Bytes()))
 }
 
 func (w wallet) unlockBlocks(txEssence *TransactionEssence) []UnlockBlock {
@@ -885,7 +895,7 @@ func singleInputTransaction(utxoDAG *UTXODAG, a, b wallet, outputToSpend *SigLoc
 	return tx, output
 }
 
-func multipleInputsTransaction(utxoDAG *UTXODAG, a, b wallet, outputsToSpend []*SigLockedSingleOutput, finalized bool) (*Transaction, *SigLockedSingleOutput) {
+func multipleInputsTransaction(utxoDAG *UTXODAG, a, b wallet, outputsToSpend []*SigLockedSingleOutput, finalized bool) *Transaction {
 	inputs := make(Inputs, len(outputsToSpend))
 	branchIDs := make(BranchIDs, len(outputsToSpend))
 	for i, outputToSpend := range outputsToSpend {
@@ -926,10 +936,10 @@ func multipleInputsTransaction(utxoDAG *UTXODAG, a, b wallet, outputsToSpend []*
 
 	utxoDAG.transactionStorage.Store(tx).Release()
 
-	return tx, output
+	return tx
 }
 
-func buildTransaction(utxoDAG *UTXODAG, a, b wallet, outputsToSpend []*SigLockedSingleOutput) *Transaction {
+func buildTransaction(_ *UTXODAG, a, b wallet, outputsToSpend []*SigLockedSingleOutput) *Transaction {
 	inputs := make(Inputs, len(outputsToSpend))
 	sum := uint64(0)
 	for i, outputToSpend := range outputsToSpend {

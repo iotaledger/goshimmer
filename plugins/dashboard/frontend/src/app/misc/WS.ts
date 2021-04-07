@@ -3,6 +3,7 @@ export enum WSMsgType {
     MPSMetrics,
     Message,
     NeighborStats,
+    ComponentCounterMetrics,
     Drng,
     TipsMetrics,
     Vertex,
@@ -12,7 +13,11 @@ export enum WSMsgType {
     ManaMapOnline,
     ManaAllowedPledge,
     ManaPledge,
-    ManaRevoke
+    ManaInitPledge,
+    ManaRevoke,
+    ManaInitRevoke,
+    ManaInitDone
+
 }
 
 export interface WSMessage {

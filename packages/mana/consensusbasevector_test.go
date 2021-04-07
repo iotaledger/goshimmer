@@ -7,6 +7,8 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 func TestNewBaseManaVector_Consensus(t *testing.T) {
@@ -272,7 +274,8 @@ func TestConsensusBaseManaVector_Update(t *testing.T) {
 	assert.Equal(t, ConsensusMana, ev.ManaType)
 	assert.Equal(t, &ConsensusBaseMana{
 		BaseMana1:   10.0,
-		LastUpdated: baseTime},
+		LastUpdated: baseTime,
+	},
 		ev.OldMana.(*ConsensusBaseMana))
 	assert.Equal(t, 10.0, ev.NewMana.BaseValue())
 	assert.InDelta(t, 5, ev.NewMana.EffectiveValue(), delta)
@@ -447,7 +450,7 @@ func TestConsensusBaseManaVector_GetHighestManaNodes(t *testing.T) {
 	bmv, err := NewBaseManaVector(ConsensusMana)
 	assert.NoError(t, err)
 
-	var nodeIDs = make([]identity.ID, 10)
+	nodeIDs := make([]identity.ID, 10)
 
 	baseTime = time.Now()
 
@@ -489,10 +492,63 @@ func TestConsensusBaseManaVector_GetHighestManaNodes(t *testing.T) {
 	}
 }
 
+func TestConsensusBaseManaVector_GetHighestManaNodesFraction(t *testing.T) {
+	bmv, err := NewBaseManaVector(ConsensusMana)
+	assert.NoError(t, err)
+
+	nodeIDs := make([]identity.ID, 10)
+
+	baseTime = time.Now()
+
+	for i := 0; i < 10; i++ {
+		nodeIDs[i] = randNodeID()
+		bmv.SetMana(nodeIDs[i], &ConsensusBaseMana{
+			BaseMana1:          float64(i),
+			EffectiveBaseMana1: float64(i),
+			LastUpdated:        baseTime,
+		})
+	}
+
+	// requesting minus value
+	result, _, err := bmv.GetHighestManaNodesFraction(-0.1)
+	assert.NoError(t, err)
+	assert.Equal(t, 10, len(result))
+	assert.Equal(t, nodeIDs[9], result[0].ID)
+	assert.InDelta(t, 9.0, result[0].Mana, delta)
+
+	// requesting the holders of top 10% of mana
+	result, _, err = bmv.GetHighestManaNodesFraction(0.2)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(result))
+	assert.Equal(t, nodeIDs[9], result[0].ID)
+	assert.InDelta(t, 9.0, result[0].Mana, delta)
+
+	// requesting holders of top 50% of mana
+	result, _, err = bmv.GetHighestManaNodesFraction(0.5)
+	assert.NoError(t, err)
+	assert.Equal(t, 3, len(result))
+	assert.InDelta(t, 9.0, result[0].Mana, delta)
+	for index, value := range result {
+		if index < 2 {
+			// it's greater than the next one
+			assert.True(t, value.Mana > result[index+1].Mana)
+		}
+		assert.Equal(t, nodeIDs[9-index], value.ID)
+	}
+
+	// requesting more, than there currently are in the vector
+	result, _, err = bmv.GetHighestManaNodesFraction(1.1)
+	assert.NoError(t, err)
+	assert.Equal(t, 10, len(result))
+	for index, value := range result {
+		assert.Equal(t, nodeIDs[9-index], value.ID)
+	}
+}
+
 func TestConsensusBaseManaVector_SetMana(t *testing.T) {
 	bmv, err := NewBaseManaVector(ConsensusMana)
 	assert.NoError(t, err)
-	var nodeIDs = make([]identity.ID, 10)
+	nodeIDs := make([]identity.ID, 10)
 	for i := 0; i < 10; i++ {
 		nodeIDs[i] = randNodeID()
 		bmv.SetMana(nodeIDs[i], &ConsensusBaseMana{
@@ -670,6 +726,8 @@ func TestConsensusBaseManaVector_BuildPastBaseVector(t *testing.T) {
 				TimeStamp: inputTime,
 				Amount:    10,
 				PledgeID:  map[Type]identity.ID{ConsensusMana: emptyID},
+				// imitate spending the genesis
+				InputID: ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0),
 			},
 		},
 	}
@@ -684,6 +742,7 @@ func TestConsensusBaseManaVector_BuildPastBaseVector(t *testing.T) {
 				TimeStamp: txTime,
 				Amount:    5,
 				PledgeID:  map[Type]identity.ID{ConsensusMana: inputPledgeID1},
+				InputID:   ledgerstate.OutputID{2},
 			},
 		},
 	}
@@ -698,11 +757,13 @@ func TestConsensusBaseManaVector_BuildPastBaseVector(t *testing.T) {
 				TimeStamp: txTime,
 				Amount:    5,
 				PledgeID:  map[Type]identity.ID{ConsensusMana: inputPledgeID1},
+				InputID:   ledgerstate.OutputID{3},
 			},
 			{
 				TimeStamp: txTime.Add(1 * time.Hour),
 				Amount:    5,
 				PledgeID:  map[Type]identity.ID{ConsensusMana: inputPledgeID2},
+				InputID:   ledgerstate.OutputID{4},
 			},
 		},
 	}

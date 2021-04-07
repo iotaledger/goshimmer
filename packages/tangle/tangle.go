@@ -1,16 +1,21 @@
 package tangle
 
 import (
+	"strings"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/markers"
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
+	"github.com/mr-tron/base58"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/markers"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
 // region Tangle ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -111,6 +116,25 @@ func (t *Tangle) IssuePayload(payload payload.Payload) (message *Message, err er
 		return
 	}
 
+	if payload.Type() == ledgerstate.TransactionType {
+		var invalidInputs []string
+		transaction := payload.(*ledgerstate.Transaction)
+		for _, input := range transaction.Essence().Inputs() {
+			if input.Type() == ledgerstate.UTXOInputType {
+				t.LedgerState.OutputMetadata(input.(*ledgerstate.UTXOInput).ReferencedOutputID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+					t.LedgerState.BranchDAG.Branch(outputMetadata.BranchID()).Consume(func(branch ledgerstate.Branch) {
+						if branch.InclusionState() == ledgerstate.Rejected || !branch.MonotonicallyLiked() {
+							invalidInputs = append(invalidInputs, input.Base58())
+						}
+					})
+				})
+			}
+		}
+		if len(invalidInputs) > 0 {
+			return nil, xerrors.Errorf("invalid inputs: %s: %w", strings.Join(invalidInputs, ","), ErrInvalidInputs)
+		}
+	}
+
 	return t.MessageFactory.IssuePayload(payload)
 }
 
@@ -152,6 +176,7 @@ func (t *Tangle) Shutdown() {
 	t.ConsensusManager.Shutdown()
 	t.Storage.Shutdown()
 	t.Options.Store.Shutdown()
+	t.TipManager.Shutdown()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -190,6 +215,7 @@ type Options struct {
 	IncreaseMarkersIndexCallback markers.IncreaseIndexCallback
 	TangleWidth                  int
 	ConsensusMechanism           ConsensusMechanism
+	GenesisNode                  *ed25519.PublicKey
 }
 
 // Store is an Option for the Tangle that allows to specify which storage layer is supposed to be used to persist data.
@@ -221,10 +247,25 @@ func IncreaseMarkersIndexCallback(callback markers.IncreaseIndexCallback) Option
 	}
 }
 
-// TangleWidth is an Option for the Tangle that allows to change the strategy how Tips get removed.
-func TangleWidth(width int) Option {
+// Width is an Option for the Tangle that allows to change the strategy how Tips get removed.
+func Width(width int) Option {
 	return func(options *Options) {
 		options.TangleWidth = width
+	}
+}
+
+// GenesisNode is an Option for the Tangle that allows to set the GenesisNode, i.e., the node that is allowed to attach
+// to the Genesis Message.
+func GenesisNode(genesisNodeBase58 string) Option {
+	var genesisPublicKey *ed25519.PublicKey
+	pkBytes, _ := base58.Decode(genesisNodeBase58)
+	pk, _, err := ed25519.PublicKeyFromBytes(pkBytes)
+	if err == nil {
+		genesisPublicKey = &pk
+	}
+
+	return func(options *Options) {
+		options.GenesisNode = genesisPublicKey
 	}
 }
 

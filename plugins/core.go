@@ -1,6 +1,8 @@
 package plugins
 
 import (
+	"github.com/iotaledger/hive.go/node"
+
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/cli"
@@ -12,7 +14,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/gracefulshutdown"
 	"github.com/iotaledger/goshimmer/plugins/logger"
-	"github.com/iotaledger/goshimmer/plugins/mana"
 	"github.com/iotaledger/goshimmer/plugins/manaeventlogger"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
@@ -21,7 +22,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/profiling"
 	"github.com/iotaledger/goshimmer/plugins/spammer"
 	"github.com/iotaledger/goshimmer/plugins/syncbeacon"
-	"github.com/iotaledger/hive.go/node"
 )
 
 // Core contains the core plugins of a GoShimmer node.
@@ -46,6 +46,6 @@ var Core = node.Plugins(
 	messagelayer.ConsensusPlugin(),
 	metrics.Plugin(),
 	spammer.Plugin(),
-	mana.Plugin(),
+	messagelayer.ManaPlugin(),
 	manaeventlogger.Plugin(),
 )

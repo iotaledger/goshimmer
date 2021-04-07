@@ -8,7 +8,6 @@ import ExplorerStore from "app/stores/ExplorerStore";
 import Spinner from "react-bootstrap/Spinner";
 import ListGroup from "react-bootstrap/ListGroup";
 import Alert from "react-bootstrap/Alert";
-import * as dateformat from 'dateformat';
 import {displayManaUnit} from "app/utils";
 
 interface Props {
@@ -111,9 +110,12 @@ export class ExplorerAddressQueryResult extends React.Component<Props, any> {
                 outputs.push(
                     <ListGroup.Item key={output.id}>
                         <small>
-                            <div>{'Output ID:'} {output.id} {' '}</div>
+                            <div>Output ID: <a href={`/explorer/output/${output.id}`}>{output.id}</a></div>
+                            <div>Transaction ID:  <a href={`/explorer/transaction/${output.transaction_id}`}>{output.transaction_id}</a></div>
+                            <div>Index: {output.index}</div>
+                            <div>Type: {output.type}</div>
                             {output.solidification_time != 0 &&
-                                <div>Solidification Time: {dateformat(new Date(output.solidification_time * 1000), "dd.mm.yyyy HH:MM:ss")}</div>
+                                <div>Solidification Time: {new Date(output.solidification_time * 1000).toLocaleString()}</div>
                             }
                             <div>{status}</div>
                             <div>{consumed}</div>
