@@ -1600,9 +1600,9 @@ type ExtendedLockedOutput struct {
 }
 
 const (
-	flagExtendedLockedOutputFallbackPresent = 0x01
-	flagExtendedLockedOutputTimeLockPresent = 0x02
-	flagExtendedLockedOutputPayloadPresent  = 0x04
+	flagExtendedLockedOutputFallbackPresent = uint(iota)
+	flagExtendedLockedOutputTimeLockPresent
+	flagExtendedLockedOutputPayloadPresent
 )
 
 // NewExtendedLockedOutput is the constructor for a ExtendedLockedOutput.
@@ -1673,12 +1673,13 @@ func ExtendedOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output
 		err = xerrors.Errorf("failed to parse Address (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	var flags byte
-	if flags, err = marshalUtil.ReadByte(); err != nil {
+	var flagsByte byte
+	if flagsByte, err = marshalUtil.ReadByte(); err != nil {
 		err = xerrors.Errorf("failed to parse flags (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	if flagExtendedLockedOutputFallbackPresent&flags != 0 {
+	flags := bitmask.BitMask(flagsByte)
+	if flags.HasBit(flagExtendedLockedOutputFallbackPresent) {
 		if output.fallbackAddress, err = AddressFromMarshalUtil(marshalUtil); err != nil {
 			err = xerrors.Errorf("failed to parse fallbackAddress (%v): %w", err, cerrors.ErrParseBytesFailed)
 			return
@@ -1688,13 +1689,13 @@ func ExtendedOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output
 			return
 		}
 	}
-	if flagExtendedLockedOutputTimeLockPresent&flags != 0 {
+	if flags.HasBit(flagExtendedLockedOutputTimeLockPresent) {
 		if output.timelock, err = marshalUtil.ReadTime(); err != nil {
 			err = xerrors.Errorf("failed to parse timelock (%v): %w", err, cerrors.ErrParseBytesFailed)
 			return
 		}
 	}
-	if flagExtendedLockedOutputPayloadPresent&flags != 0 {
+	if flags.HasBit(flagExtendedLockedOutputPayloadPresent) {
 		var size uint16
 		size, err = marshalUtil.ReadUint16()
 		if err != nil {
@@ -1711,16 +1712,16 @@ func ExtendedOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output
 }
 
 // compressFlags examines the optional fields of the output and returns the combined flags as a byte.
-func (o *ExtendedLockedOutput) compressFlags() byte {
-	var ret byte
+func (o *ExtendedLockedOutput) compressFlags() bitmask.BitMask {
+	var ret bitmask.BitMask
 	if o.fallbackAddress != nil {
-		ret |= flagExtendedLockedOutputFallbackPresent
+		ret = ret.SetBit(flagExtendedLockedOutputFallbackPresent)
 	}
 	if !o.timelock.IsZero() {
-		ret |= flagExtendedLockedOutputTimeLockPresent
+		ret = ret.SetBit(flagExtendedLockedOutputTimeLockPresent)
 	}
 	if len(o.payload) > 0 {
-		ret |= flagExtendedLockedOutputPayloadPresent
+		ret = ret.SetBit(flagExtendedLockedOutputPayloadPresent)
 	}
 	return ret
 }
@@ -1867,15 +1868,15 @@ func (o *ExtendedLockedOutput) ObjectStorageValue() []byte {
 		WriteByte(byte(ExtendedLockedOutputType)).
 		WriteBytes(o.balances.Bytes()).
 		WriteBytes(o.address.Bytes()).
-		WriteByte(flags)
-	if flagExtendedLockedOutputFallbackPresent&flags != 0 {
+		WriteByte(byte(flags))
+	if flags.HasBit(flagExtendedLockedOutputFallbackPresent) {
 		ret.WriteBytes(o.fallbackAddress.Bytes()).
 			WriteTime(o.fallbackDeadline)
 	}
-	if flagExtendedLockedOutputTimeLockPresent&flags != 0 {
+	if flags.HasBit(flagExtendedLockedOutputTimeLockPresent) {
 		ret.WriteTime(o.timelock)
 	}
-	if flagExtendedLockedOutputPayloadPresent&flags != 0 {
+	if flags.HasBit(flagExtendedLockedOutputPayloadPresent) {
 		ret.WriteUint16(uint16(len(o.payload))).
 			WriteBytes(o.payload)
 	}
