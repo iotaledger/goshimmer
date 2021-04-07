@@ -849,7 +849,7 @@ func TestScenario_3(t *testing.T) {
 	assert.Equal(t, branches["purple"], txBranchID)
 }
 
-func TestBookerBook(t *testing.T) {
+func TestBookerMarkerMappings(t *testing.T) {
 	tangle := New()
 	defer tangle.Shutdown()
 
@@ -1510,7 +1510,7 @@ func TestBookerBook(t *testing.T) {
 
 	// ISSUE Message17
 	{
-		testFramework.CreateMessage("Message17", WithStrongParents("Message1"), WithInputs("G"), WithOutput("J", 500))
+		testFramework.CreateMessage("Message17", WithStrongParents("Message1"), WithInputs("G"), WithOutput("K", 500))
 
 		branchIDs["F"] = ledgerstate.NewBranchID(testFramework.TransactionID("Message6"))
 		branchIDs["G"] = ledgerstate.NewBranchID(testFramework.TransactionID("Message17"))
@@ -1587,7 +1587,7 @@ func TestBookerBook(t *testing.T) {
 
 	// ISSUE Message18
 	{
-		testFramework.CreateMessage("Message18", WithStrongParents("Message12"), WithInputs("I"), WithOutput("K", 500))
+		testFramework.CreateMessage("Message18", WithStrongParents("Message12"), WithInputs("I"), WithOutput("L", 500))
 
 		branchIDs["H"] = ledgerstate.NewBranchID(testFramework.TransactionID("Message14"))
 		branchIDs["H+C"] = aggregatedBranchID(branchIDs["H"], branchIDs["C"])
