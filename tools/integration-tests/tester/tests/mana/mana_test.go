@@ -205,6 +205,7 @@ func TestApis(t *testing.T) {
 	// send funds to node 1
 	_, err = peers[1].SendFaucetRequest(peers[1].Seed.Address(0).Address().Base58())
 	require.NoError(t, err)
+	time.Sleep(10 * time.Second)
 	// send funds to node 2
 	_, err = peers[2].SendFaucetRequest(peers[2].Seed.Address(0).Address().Base58())
 	require.NoError(t, err)
