@@ -15,6 +15,8 @@ const (
 	CfgGossipTipsBroadcastInterval = "gossip.tipsBroadcaster.interval"
 	// CfgGossipDisableAutopeering if set to true the autopeering layer won't manage neighbors in the gossip layer.
 	CfgGossipDisableAutopeering = "gossip.disableAutopeering"
+	// CfgGossipManualNeighbors list of peers that will be used as neighbors in the gossip layer.
+	CfgGossipManualNeighbors = "gossip.manualNeighbors"
 )
 
 func init() {
