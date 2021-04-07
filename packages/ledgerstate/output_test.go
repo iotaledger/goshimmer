@@ -26,7 +26,7 @@ func TestAliasOutput_NewAliasOutputMint(t *testing.T) {
 		assert.NoError(t, err)
 		iotaBal, ok := alias.Balances().Get(ColorIOTA)
 		assert.True(t, ok)
-		assert.Equal(t, uint64(DustThresholdAliasOutputIOTA), iotaBal)
+		assert.Equal(t, DustThresholdAliasOutputIOTA, iotaBal)
 		assert.True(t, alias.GetStateAddress().Equals(stateAddy))
 		assert.Nil(t, alias.GetImmutableData())
 	})
@@ -38,7 +38,7 @@ func TestAliasOutput_NewAliasOutputMint(t *testing.T) {
 		assert.NoError(t, err)
 		iotaBal, ok := alias.Balances().Get(ColorIOTA)
 		assert.True(t, ok)
-		assert.Equal(t, uint64(DustThresholdAliasOutputIOTA), iotaBal)
+		assert.Equal(t, DustThresholdAliasOutputIOTA, iotaBal)
 		assert.True(t, alias.GetStateAddress().Equals(stateAddy))
 		assert.True(t, bytes.Equal(alias.GetImmutableData(), data))
 	})
@@ -627,7 +627,7 @@ func TestAliasOutput_UpdateMintingColor(t *testing.T) {
 		assert.Equal(t, uint64(0), balance)
 		balance, ok = updated.Balances().Get(ColorIOTA)
 		assert.True(t, ok)
-		assert.Equal(t, uint64(DustThresholdAliasOutputIOTA), balance)
+		assert.Equal(t, DustThresholdAliasOutputIOTA, balance)
 		assert.True(t, updated.Address().Equals(alias.GetAliasAddress()))
 	})
 
@@ -701,7 +701,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(true)
 		newBalance := prev.Balances().Map()
-		newBalance[ColorIOTA] = newBalance[ColorIOTA] + 1
+		newBalance[ColorIOTA]++
 		next.balances = NewColoredBalances(newBalance)
 		err := prev.validateTransition(next)
 		t.Log(err)
@@ -782,7 +782,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(false)
 		newBalance := prev.Balances().Map()
-		newBalance[ColorIOTA] = newBalance[ColorIOTA] + 1
+		newBalance[ColorIOTA]++
 		next.balances = NewColoredBalances(newBalance)
 		err := prev.validateTransition(next)
 		assert.NoError(t, err)
@@ -799,7 +799,7 @@ func TestAliasOutput_validateDestroyTransition(t *testing.T) {
 	t.Run("CASE: More balance than minimum", func(t *testing.T) {
 		prev := dummyAliasOutput()
 		newBalance := prev.Balances().Map()
-		newBalance[ColorIOTA] = newBalance[ColorIOTA] + 1
+		newBalance[ColorIOTA]++
 		prev.balances = NewColoredBalances(newBalance)
 		err := prev.validateDestroyTransition()
 		t.Log(err)
@@ -978,7 +978,6 @@ func TestAliasOutput_unlockedGovernanceByAliasIndex(t *testing.T) {
 
 		var indexOfAliasInput, indexOfGoverningAliasInput int
 		for i, input := range inputsOfTx {
-
 			castedInput := input.(*UTXOInput)
 			if castedInput.referencedOutputID == alias.ID() {
 				indexOfAliasInput = i
@@ -1219,7 +1218,7 @@ func TestAliasOutput_UnlockValid(t *testing.T) {
 			StorableObjectFlags: objectstorage.StorableObjectFlags{},
 		}
 		aliasStateWallet := genRandomWallet()
-		alias := &AliasOutput{
+		governedAlias := &AliasOutput{
 			outputID:            randOutputID(),
 			outputIDMutex:       sync.RWMutex{},
 			balances:            NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}),
@@ -1233,7 +1232,7 @@ func TestAliasOutput_UnlockValid(t *testing.T) {
 			StorableObjectFlags: objectstorage.StorableObjectFlags{},
 		}
 		// unlocked for gov transition
-		nextAlias := alias.NewAliasOutputNext(true)
+		nextAlias := governedAlias.NewAliasOutputNext(true)
 		// we are updating the state address (simulate committer rotation)
 		nextAlias.stateAddress = randEd25119Address()
 		// unlocked for state transition
@@ -1241,16 +1240,15 @@ func TestAliasOutput_UnlockValid(t *testing.T) {
 
 		outputs := Outputs{nextAlias, nextGoverningAlias}
 		inputs := Outputs{}
-		inputsOfTx := NewInputs(NewUTXOInput(alias.ID()), NewUTXOInput(governingAlias.ID()))
+		inputsOfTx := NewInputs(NewUTXOInput(governedAlias.ID()), NewUTXOInput(governingAlias.ID()))
 		essence := NewTransactionEssence(0, time.Time{}, identity.ID{}, identity.ID{}, inputsOfTx, NewOutputs(outputs...))
 
 		var indexOfAliasInput, indexOfGoverningAliasInput int
 		for i, input := range inputsOfTx {
-
 			castedInput := input.(*UTXOInput)
-			if castedInput.referencedOutputID == alias.ID() {
+			if castedInput.referencedOutputID == governedAlias.ID() {
 				indexOfAliasInput = i
-				inputs = append(inputs, alias)
+				inputs = append(inputs, governedAlias)
 			}
 			if castedInput.referencedOutputID == governingAlias.ID() {
 				indexOfGoverningAliasInput = i
@@ -1263,7 +1261,7 @@ func TestAliasOutput_UnlockValid(t *testing.T) {
 
 		tx := NewTransaction(essence, unlocks)
 
-		ok, err := alias.UnlockValid(tx, unlocks[indexOfAliasInput], inputs)
+		ok, err := governedAlias.UnlockValid(tx, unlocks[indexOfAliasInput], inputs)
 		assert.NoError(t, err)
 		assert.True(t, ok)
 	})
