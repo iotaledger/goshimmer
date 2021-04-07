@@ -17,6 +17,8 @@ const (
 	CfgPOWWindow = "pow.window"
 	// CfgPOWRate defines the config flag for the aPoW rate.
 	CfgPOWRate = "pow.rate"
+
+	defualtPoWRate = 1 / 6
 )
 
 func init() {
@@ -24,5 +26,5 @@ func init() {
 	flag.Int(CfgPOWNumThreads, 1, "number of threads used to do the PoW")
 	flag.Duration(CfgPOWTimeout, time.Minute, "PoW timeout")
 	flag.Int(CfgPOWWindow, 60, "number of seconds used to define the aPoW window")
-	flag.Float64(CfgPOWRate, 1/6, "rate of the aPoW")
+	flag.Float64(CfgPOWRate, defualtPoWRate, "rate of the aPoW")
 }

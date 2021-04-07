@@ -12,6 +12,7 @@ func setDefaultParameters() {
 	ApowWindow = 5
 	AdaptiveRate = 1
 }
+
 func TestAPoWIssuance(t *testing.T) {
 	setDefaultParameters()
 
