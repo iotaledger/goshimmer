@@ -4,8 +4,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 	"github.com/labstack/echo"
+
+	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 func handleRequest(c echo.Context) error {

@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
@@ -32,6 +33,7 @@ func Plugin() *node.Plugin {
 		plugin = node.NewPlugin("WebAPI message Endpoint", node.Enabled, func(*node.Plugin) {
 			webapi.Server().GET("messages/:messageID", GetMessage)
 			webapi.Server().GET("messages/:messageID/metadata", GetMessageMetadata)
+			webapi.Server().GET("messages/:messageID/consensus", GetMessageConsensusMetadata)
 			webapi.Server().POST("messages/payload", PostPayload)
 		})
 	})
@@ -96,6 +98,31 @@ func GetMessageMetadata(c echo.Context) (err error) {
 	}
 
 	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load MessageMetadata with %s", messageID)))
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region GetMessageMetadata ///////////////////////////////////////////////////////////////////////////////////////////
+
+// GetMessageConsensusMetadata is the handler for the /messages/:messageID/consensus endpoint.
+func GetMessageConsensusMetadata(c echo.Context) (err error) {
+	messageID, err := messageIDFromContext(c)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	}
+
+	consensusMechanism := messagelayer.Tangle().Options.ConsensusMechanism.(*fcob.ConsensusMechanism)
+	if consensusMechanism != nil {
+		if consensusMechanism.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *fcob.MessageMetadata) {
+			consensusMechanism.Storage.TimestampOpinion(messageID).Consume(func(timestampOpinion *fcob.TimestampOpinion) {
+				err = c.JSON(http.StatusOK, jsonmodels.NewMessageConsensusMetadata(messageMetadata, timestampOpinion))
+			})
+		}) {
+			return
+		}
+	}
+
+	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load MessageConsensusMetadata with %s", messageID)))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
