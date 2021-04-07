@@ -30,7 +30,7 @@ In each round, nodes randomly choose other nodes to query about their opinions a
 
 When selecting which other nodes to query, a node must weight the list of all nodes by Consensus Mana. Thus, high Consensus Mana nodes are queried more often then low Consensus Mana nodes. This makes it difficult for an attacker to manipulate the outcome of the voting. Unless the attacker controls more than 1/3 of the Consensus Mana in the system, with high probability, we know that FPC has the following properties:
 
-1. **Termination**: every honest node will finalize on some opinion.
+1. **Termination**: every honest node will finalize on some opinion before a maximum round number.
 2. **Agreement**: all honest nodes will finalize on the same opinion.
 3. **Integrity**: if a super majority of nodes -e.g. more than 90% weighted by Consensus Mana-, have the same initial opinion, then FPC will terminate with that value.
 
