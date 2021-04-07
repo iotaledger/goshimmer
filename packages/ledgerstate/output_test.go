@@ -10,6 +10,7 @@ import (
 
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/stretchr/testify/assert"
@@ -19,11 +20,11 @@ import (
 func TestAliasOutput_NewAliasOutputMint(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		stateAddy := randEd25119Address()
-		alias, err := NewAliasOutputMint(map[Color]uint64{ColorIOTA: 100}, stateAddy)
+		alias, err := NewAliasOutputMint(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}, stateAddy)
 		assert.NoError(t, err)
 		iotaBal, ok := alias.Balances().Get(ColorIOTA)
 		assert.True(t, ok)
-		assert.Equal(t, uint64(100), iotaBal)
+		assert.Equal(t, uint64(DustThresholdAliasOutputIOTA), iotaBal)
 		assert.True(t, alias.GetStateAddress().Equals(stateAddy))
 		assert.Nil(t, alias.GetImmutableData())
 	})
@@ -31,11 +32,11 @@ func TestAliasOutput_NewAliasOutputMint(t *testing.T) {
 	t.Run("CASE: Happy path with immutable data", func(t *testing.T) {
 		stateAddy := randEd25119Address()
 		data := []byte("dummy")
-		alias, err := NewAliasOutputMint(map[Color]uint64{ColorIOTA: 100}, stateAddy, data)
+		alias, err := NewAliasOutputMint(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}, stateAddy, data)
 		assert.NoError(t, err)
 		iotaBal, ok := alias.Balances().Get(ColorIOTA)
 		assert.True(t, ok)
-		assert.Equal(t, uint64(100), iotaBal)
+		assert.Equal(t, uint64(DustThresholdAliasOutputIOTA), iotaBal)
 		assert.True(t, alias.GetStateAddress().Equals(stateAddy))
 		assert.True(t, bytes.Equal(alias.GetImmutableData(), data))
 	})
@@ -51,14 +52,14 @@ func TestAliasOutput_NewAliasOutputMint(t *testing.T) {
 	t.Run("CASE: State address is an alias", func(t *testing.T) {
 		stateAddy := randAliasAddress()
 		data := []byte("dummy")
-		alias, err := NewAliasOutputMint(map[Color]uint64{ColorIOTA: 100}, stateAddy, data)
+		alias, err := NewAliasOutputMint(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}, stateAddy, data)
 		assert.Error(t, err)
 		assert.Nil(t, alias)
 	})
 
 	t.Run("CASE: Non existent state address", func(t *testing.T) {
 		data := []byte("dummy")
-		alias, err := NewAliasOutputMint(map[Color]uint64{ColorIOTA: 100}, nil, data)
+		alias, err := NewAliasOutputMint(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}, nil, data)
 		assert.Error(t, err)
 		assert.Nil(t, alias)
 	})
@@ -66,7 +67,7 @@ func TestAliasOutput_NewAliasOutputMint(t *testing.T) {
 	t.Run("CASE: Too big state data", func(t *testing.T) {
 		stateAddy := randAliasAddress()
 		data := make([]byte, MaxOutputPayloadSize+1)
-		alias, err := NewAliasOutputMint(map[Color]uint64{ColorIOTA: 100}, stateAddy, data)
+		alias, err := NewAliasOutputMint(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}, stateAddy, data)
 		assert.Error(t, err)
 		assert.Nil(t, alias)
 	})
@@ -248,7 +249,8 @@ func TestAliasOutputFromMarshalUtil(t *testing.T) {
 	})
 
 	t.Run("CASE: Invalid state index for chain starting output", func(t *testing.T) {
-		originAlias, err := NewAliasOutputMint(map[Color]uint64{ColorIOTA: 100}, randEd25119Address())
+		originAlias, err := NewAliasOutputMint(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}, randEd25119Address())
+		assert.NoError(t, err)
 		originBytes := originAlias.Bytes()
 		stateIndexStartIndex := 1 + 1 + AddressLength + len(originAlias.balances.Bytes()) + AddressLength
 		binary.LittleEndian.PutUint32(originBytes[stateIndexStartIndex:], 5)
@@ -337,7 +339,7 @@ func TestAliasOutput_Address(t *testing.T) {
 func TestAliasOutput_Balances(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		alias := dummyAliasOutput()
-		assert.Equal(t, NewColoredBalances(map[Color]uint64{ColorIOTA: 100}).Bytes(), alias.Balances().Bytes())
+		assert.Equal(t, NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}).Bytes(), alias.Balances().Bytes())
 	})
 }
 
@@ -422,6 +424,7 @@ func TestAliasOutput_GetStateAddress(t *testing.T) {
 		assert.True(t, stateAddy.Equals(alias.stateAddress))
 	})
 }
+
 func TestAliasOutput_GetStateData(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		alias := dummyAliasOutput()
@@ -462,7 +465,7 @@ func TestAliasOutput_Input(t *testing.T) {
 	})
 
 	t.Run("CASE: No output id yet", func(t *testing.T) {
-		alias, err := NewAliasOutputMint(map[Color]uint64{ColorIOTA: 100}, randEd25119Address())
+		alias, err := NewAliasOutputMint(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}, randEd25119Address())
 		assert.NoError(t, err)
 		assert.Panics(t, func() {
 			_ = alias.Input()
@@ -477,7 +480,7 @@ func TestAliasOutput_IsOrigin(t *testing.T) {
 	})
 
 	t.Run("CASE: Is origin", func(t *testing.T) {
-		alias, err := NewAliasOutputMint(map[Color]uint64{ColorIOTA: 100}, randEd25119Address())
+		alias, err := NewAliasOutputMint(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}, randEd25119Address())
 		assert.NoError(t, err)
 		assert.True(t, alias.IsOrigin())
 	})
@@ -601,31 +604,682 @@ func TestAliasOutput_UpdateMintingColor(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		alias := dummyAliasOutput()
 		alias.balances = NewColoredBalances(map[Color]uint64{
-			ColorIOTA: 100,
+			ColorIOTA: DustThresholdAliasOutputIOTA,
 			ColorMint: 500,
 		})
 		updated := alias.UpdateMintingColor()
 		balance, ok := updated.Balances().Get(blake2b.Sum256(alias.ID().Bytes()))
 		assert.True(t, ok)
 		assert.Equal(t, uint64(500), balance)
+		assert.True(t, updated.Address().Equals(alias.GetAliasAddress()))
 	})
 
 	t.Run("CASE: No mint", func(t *testing.T) {
 		alias := dummyAliasOutput()
 		alias.balances = NewColoredBalances(map[Color]uint64{
-			ColorIOTA: 100,
+			ColorIOTA: DustThresholdAliasOutputIOTA,
 		})
 		updated := alias.UpdateMintingColor()
 		balance, ok := updated.Balances().Get(blake2b.Sum256(alias.ID().Bytes()))
 		assert.False(t, ok)
+		assert.Equal(t, uint64(0), balance)
 		balance, ok = updated.Balances().Get(ColorIOTA)
 		assert.True(t, ok)
-		assert.Equal(t, uint64(100), balance)
+		assert.Equal(t, uint64(DustThresholdAliasOutputIOTA), balance)
+		assert.True(t, updated.Address().Equals(alias.GetAliasAddress()))
+	})
+
+	t.Run("CASE: Alias address is updated", func(t *testing.T) {
+		alias := dummyAliasOutput()
+		alias.aliasAddress = AliasAddress{}
+		alias.balances = NewColoredBalances(map[Color]uint64{
+			ColorIOTA: DustThresholdAliasOutputIOTA,
+			ColorMint: 500,
+		})
+		updated := alias.UpdateMintingColor()
+		balance, ok := updated.Balances().Get(blake2b.Sum256(alias.ID().Bytes()))
+		assert.True(t, ok)
+		assert.Equal(t, uint64(500), balance)
+		assert.True(t, updated.Address().Equals(NewAliasAddress(alias.ID().Bytes())))
+	})
+}
+
+func TestAliasOutput_validateTransition(t *testing.T) {
+	t.Run("CASE: Happy path, state transition", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		next := prev.NewAliasOutputNext(false)
+		err := prev.validateTransition(next)
+		assert.NoError(t, err)
+	})
+
+	t.Run("CASE: Happy path, governance transition", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		next := prev.NewAliasOutputNext(true)
+		err := prev.validateTransition(next)
+		assert.NoError(t, err)
+	})
+
+	t.Run("CASE: Modified alias address", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		next := prev.NewAliasOutputNext(false)
+		next.aliasAddress = *randAliasAddress()
+		err := prev.validateTransition(next)
+		t.Log(err)
+		assert.Error(t, err)
+	})
+
+	t.Run("CASE: Modified immutable data", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		next := prev.NewAliasOutputNext(false)
+		next.immutableData = []byte("something new")
+		err := prev.validateTransition(next)
+		t.Log(err)
+		assert.Error(t, err)
+	})
+
+	t.Run("CASE: Gov update, modified state data", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		next := prev.NewAliasOutputNext(true)
+		next.stateData = []byte("something new")
+		err := prev.validateTransition(next)
+		t.Log(err)
+		assert.Error(t, err)
+	})
+
+	t.Run("CASE: Gov update, modified state index", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		next := prev.NewAliasOutputNext(true)
+		next.stateIndex = prev.stateIndex + 1
+		err := prev.validateTransition(next)
+		t.Log(err)
+		assert.Error(t, err)
+	})
+
+	t.Run("CASE: Gov update, modified balance", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		next := prev.NewAliasOutputNext(true)
+		newBalance := prev.Balances().Map()
+		newBalance[ColorIOTA] = newBalance[ColorIOTA] + 1
+		next.balances = NewColoredBalances(newBalance)
+		err := prev.validateTransition(next)
+		t.Log(err)
+		assert.Error(t, err)
+	})
+
+	t.Run("CASE: Gov update, modified state address", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		next := prev.NewAliasOutputNext(true)
+		next.stateAddress = randEd25119Address()
+		err := prev.validateTransition(next)
+		assert.NoError(t, err)
+	})
+
+	t.Run("CASE: Gov update, modified governance address", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		next := prev.NewAliasOutputNext(true)
+		next.governingAddress = randAliasAddress()
+		err := prev.validateTransition(next)
+		assert.NoError(t, err)
+	})
+
+	t.Run("CASE: State update, wrong state index", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		next := prev.NewAliasOutputNext(false)
+		next.stateIndex = prev.GetStateIndex() + 2
+		err := prev.validateTransition(next)
+		t.Log(err)
+		assert.Error(t, err)
+	})
+
+	t.Run("CASE: State update, modify state address", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		next := prev.NewAliasOutputNext(false)
+		next.stateAddress = randEd25119Address()
+		err := prev.validateTransition(next)
+		t.Log(err)
+		assert.Error(t, err)
+	})
+
+	t.Run("CASE: State update, modify governance address", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		next := prev.NewAliasOutputNext(false)
+		next.governingAddress = randAliasAddress()
+		err := prev.validateTransition(next)
+		t.Log(err)
+		assert.Error(t, err)
+	})
+
+	t.Run("CASE: State update, was self governed", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		prev.governingAddress = nil
+		next := prev.NewAliasOutputNext(false)
+		next.governingAddress = randAliasAddress()
+		err := prev.validateTransition(next)
+		t.Log(err)
+		assert.Error(t, err)
+	})
+
+	t.Run("CASE: State update, was not self governed", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		next := prev.NewAliasOutputNext(false)
+		next.governingAddress = nil
+		err := prev.validateTransition(next)
+		t.Log(err)
+		assert.Error(t, err)
+	})
+
+	t.Run("CASE: State update, modify state data", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		next := prev.NewAliasOutputNext(false)
+		next.stateData = []byte("new state data")
+		err := prev.validateTransition(next)
+		assert.NoError(t, err)
+	})
+
+	t.Run("CASE: State update, modify balances", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		next := prev.NewAliasOutputNext(false)
+		newBalance := prev.Balances().Map()
+		newBalance[ColorIOTA] = newBalance[ColorIOTA] + 1
+		next.balances = NewColoredBalances(newBalance)
+		err := prev.validateTransition(next)
+		assert.NoError(t, err)
+	})
+}
+
+func TestAliasOutput_validateDestroyTransition(t *testing.T) {
+	t.Run("CASE: Happy path", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		err := prev.validateDestroyTransition()
+		assert.NoError(t, err)
+	})
+
+	t.Run("CASE: More balance than minimum", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		newBalance := prev.Balances().Map()
+		newBalance[ColorIOTA] = newBalance[ColorIOTA] + 1
+		prev.balances = NewColoredBalances(newBalance)
+		err := prev.validateDestroyTransition()
+		t.Log(err)
+		assert.Error(t, err)
+	})
+
+	t.Run("CASE: More color balance than minimum", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		newBalance := prev.Balances().Map()
+		newBalance[Color{8}] = 1
+		prev.balances = NewColoredBalances(newBalance)
+		err := prev.validateDestroyTransition()
+		t.Log(err)
+		assert.Error(t, err)
+	})
+
+	t.Run("CASE: Only color balance", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		prev.balances = NewColoredBalances(map[Color]uint64{{8}: DustThresholdAliasOutputIOTA})
+		err := prev.validateDestroyTransition()
+		t.Log(err)
+		assert.Error(t, err)
+	})
+}
+
+func TestAliasOutput_findChainedOutputAndCheckFork(t *testing.T) {
+	t.Run("CASE: Happy path", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		chained := prev.NewAliasOutputNext(false)
+		outputs := Outputs{chained}
+		essence := NewTransactionEssence(0, time.Time{}, identity.ID{}, identity.ID{}, NewInputs(NewUTXOInput(prev.ID())), NewOutputs(outputs...))
+		// unlockblocks are irrelevant now
+		tx := NewTransaction(essence, UnlockBlocks{NewReferenceUnlockBlock(0)})
+
+		found, err := prev.findChainedOutputAndCheckFork(tx)
+		assert.NoError(t, err)
+		assert.Equal(t, chained.Bytes(), found.Bytes())
+	})
+
+	t.Run("CASE: No alias output", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		outputs := Outputs{NewSigLockedSingleOutput(DustThresholdAliasOutputIOTA, randEd25119Address())}
+		essence := NewTransactionEssence(0, time.Time{}, identity.ID{}, identity.ID{}, NewInputs(NewUTXOInput(prev.ID())), NewOutputs(outputs...))
+		// unlockblocks are irrelevant now
+		tx := NewTransaction(essence, UnlockBlocks{NewReferenceUnlockBlock(0)})
+
+		// not found means that returned output is nil, no error
+		found, _ := prev.findChainedOutputAndCheckFork(tx)
+		assert.Nil(t, found)
+	})
+
+	t.Run("CASE: Duplicated alias output", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		chained1 := prev.NewAliasOutputNext(false)
+		chained2 := prev.NewAliasOutputNext(true)
+		outputs := Outputs{chained1, chained2}
+		essence := NewTransactionEssence(0, time.Time{}, identity.ID{}, identity.ID{}, NewInputs(NewUTXOInput(prev.ID())), NewOutputs(outputs...))
+		// unlockblocks are irrelevant now
+		tx := NewTransaction(essence, UnlockBlocks{NewReferenceUnlockBlock(0)})
+
+		found, err := prev.findChainedOutputAndCheckFork(tx)
+		t.Log(err)
+		assert.Error(t, err)
+		assert.Nil(t, found)
+	})
+
+	t.Run("CASE: More than one alias in outputs", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		chained := prev.NewAliasOutputNext(false)
+		chainedFake := prev.NewAliasOutputNext(false)
+		chainedFake.aliasAddress = *randAliasAddress()
+		outputs := Outputs{chained, chainedFake}
+		essence := NewTransactionEssence(0, time.Time{}, identity.ID{}, identity.ID{}, NewInputs(NewUTXOInput(prev.ID())), NewOutputs(outputs...))
+		// unlockblocks are irrelevant now
+		tx := NewTransaction(essence, UnlockBlocks{NewReferenceUnlockBlock(0)})
+
+		found, err := prev.findChainedOutputAndCheckFork(tx)
+		assert.NoError(t, err)
+		assert.Equal(t, chained.Bytes(), found.Bytes())
+	})
+}
+
+func TestAliasOutput_hasToBeUnlockedForGovernanceUpdate(t *testing.T) {
+	t.Run("CASE: Happy path", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		chained := prev.NewAliasOutputNext(true)
+		outputs := Outputs{chained}
+		essence := NewTransactionEssence(0, time.Time{}, identity.ID{}, identity.ID{}, NewInputs(NewUTXOInput(prev.ID())), NewOutputs(outputs...))
+		// unlockblocks are irrelevant now
+		tx := NewTransaction(essence, UnlockBlocks{NewReferenceUnlockBlock(0)})
+
+		ok := prev.hasToBeUnlockedForGovernanceUpdate(tx)
+		assert.True(t, ok)
+	})
+
+	t.Run("CASE: No governance update", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		chained := prev.NewAliasOutputNext(false)
+		outputs := Outputs{chained}
+		essence := NewTransactionEssence(0, time.Time{}, identity.ID{}, identity.ID{}, NewInputs(NewUTXOInput(prev.ID())), NewOutputs(outputs...))
+		// unlockblocks are irrelevant now
+		tx := NewTransaction(essence, UnlockBlocks{NewReferenceUnlockBlock(0)})
+
+		ok := prev.hasToBeUnlockedForGovernanceUpdate(tx)
+		assert.False(t, ok)
+	})
+
+	t.Run("CASE: Duplicated alias", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		chained := prev.NewAliasOutputNext(true)
+		chainedDuplicate := chained.clone()
+		chainedDuplicate.stateData = []byte("duplicated")
+		outputs := Outputs{chained, chainedDuplicate}
+		essence := NewTransactionEssence(0, time.Time{}, identity.ID{}, identity.ID{}, NewInputs(NewUTXOInput(prev.ID())), NewOutputs(outputs...))
+		// unlockblocks are irrelevant now
+		tx := NewTransaction(essence, UnlockBlocks{NewReferenceUnlockBlock(0)})
+
+		ok := prev.hasToBeUnlockedForGovernanceUpdate(tx)
+		assert.False(t, ok)
+	})
+
+	t.Run("CASE: No alias output found", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		next := NewSigLockedSingleOutput(DustThresholdAliasOutputIOTA, randEd25119Address())
+		outputs := Outputs{next}
+		essence := NewTransactionEssence(0, time.Time{}, identity.ID{}, identity.ID{}, NewInputs(NewUTXOInput(prev.ID())), NewOutputs(outputs...))
+		// unlockblocks are irrelevant now
+		tx := NewTransaction(essence, UnlockBlocks{NewReferenceUnlockBlock(0)})
+
+		ok := prev.hasToBeUnlockedForGovernanceUpdate(tx)
+		assert.True(t, ok)
+	})
+}
+
+func TestAliasOutput_unlockedGovernanceByAliasIndex(t *testing.T) {
+	governingAliasStateWallet := genRandomWallet()
+	governingAlias := &AliasOutput{
+		outputID:            randOutputID(),
+		outputIDMutex:       sync.RWMutex{},
+		balances:            NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}),
+		aliasAddress:        *randAliasAddress(),
+		stateAddress:        governingAliasStateWallet.address,
+		stateIndex:          10,
+		stateData:           []byte("some data"),
+		immutableData:       []byte("some data"),
+		isGovernanceUpdate:  false,
+		governingAddress:    randAliasAddress(),
+		StorableObjectFlags: objectstorage.StorableObjectFlags{},
+	}
+	aliasStateWallet := genRandomWallet()
+	alias := &AliasOutput{
+		outputID:            randOutputID(),
+		outputIDMutex:       sync.RWMutex{},
+		balances:            NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}),
+		aliasAddress:        *randAliasAddress(),
+		stateAddress:        aliasStateWallet.address,
+		stateIndex:          10,
+		stateData:           []byte("some data"),
+		immutableData:       []byte("some data"),
+		isGovernanceUpdate:  false,
+		governingAddress:    governingAlias.GetAliasAddress(),
+		StorableObjectFlags: objectstorage.StorableObjectFlags{},
+	}
+	t.Run("CASE: Happy path", func(t *testing.T) {
+		// unlocked for gov transition
+		nextAlias := alias.NewAliasOutputNext(true)
+		// we are updating the state address (simulate committer rotation)
+		nextAlias.stateAddress = randEd25119Address()
+		// unlocked for state transition
+		nextGoverningAlias := governingAlias.NewAliasOutputNext(false)
+
+		outputs := Outputs{nextAlias, nextGoverningAlias}
+		inputs := Outputs{}
+		inputsOfTx := NewInputs(NewUTXOInput(alias.ID()), NewUTXOInput(governingAlias.ID()))
+		essence := NewTransactionEssence(0, time.Time{}, identity.ID{}, identity.ID{}, inputsOfTx, NewOutputs(outputs...))
+
+		var indexOfAliasInput, indexOfGoverningAliasInput int
+		for i, input := range inputsOfTx {
+
+			castedInput := input.(*UTXOInput)
+			if castedInput.referencedOutputID == alias.ID() {
+				indexOfAliasInput = i
+				inputs = append(inputs, alias)
+			}
+			if castedInput.referencedOutputID == governingAlias.ID() {
+				indexOfGoverningAliasInput = i
+				inputs = append(inputs, governingAlias)
+			}
+		}
+		unlocks := make(UnlockBlocks, len(inputsOfTx))
+		unlocks[indexOfAliasInput] = NewAliasUnlockBlock(uint16(indexOfGoverningAliasInput))
+		unlocks[indexOfGoverningAliasInput] = NewSignatureUnlockBlock(governingAliasStateWallet.sign(essence))
+
+		tx := NewTransaction(essence, unlocks)
+
+		ok, err := alias.unlockedGovernanceByAliasIndex(tx, uint16(indexOfGoverningAliasInput), inputs)
+		assert.NoError(t, err)
+		assert.True(t, ok)
+	})
+
+	t.Run("CASE: Self governed alias can't be unlocked by alias reference", func(t *testing.T) {
+		dummyAlias := dummyAliasOutput()
+		dummyAlias.governingAddress = nil
+
+		ok, err := dummyAlias.unlockedGovernanceByAliasIndex(&Transaction{}, 0, Outputs{})
+		t.Log(err)
+		assert.Error(t, err)
+		assert.False(t, ok)
+	})
+
+	t.Run("CASE: Governing address is not alias", func(t *testing.T) {
+		dummyAlias := dummyAliasOutput()
+		dummyAlias.governingAddress = randEd25119Address()
+
+		ok, err := dummyAlias.unlockedGovernanceByAliasIndex(&Transaction{}, 0, Outputs{})
+		t.Log(err)
+		assert.Error(t, err)
+		assert.False(t, ok)
+	})
+
+	t.Run("CASE: Invalid referenced index", func(t *testing.T) {
+		dummyAlias := dummyAliasOutput()
+
+		ok, err := dummyAlias.unlockedGovernanceByAliasIndex(&Transaction{}, 1, Outputs{})
+		t.Log(err)
+		assert.Error(t, err)
+		assert.False(t, ok)
+	})
+
+	t.Run("CASE: Referenced output is not an alias", func(t *testing.T) {
+		dummyAlias := dummyAliasOutput()
+
+		ok, err := dummyAlias.unlockedGovernanceByAliasIndex(&Transaction{}, 0, Outputs{NewSigLockedSingleOutput(DustThresholdAliasOutputIOTA, randEd25119Address())})
+		t.Log(err)
+		assert.Error(t, err)
+		assert.False(t, ok)
+	})
+
+	t.Run("CASE: Referenced output has different alias address", func(t *testing.T) {
+		dummyAlias := dummyAliasOutput()
+		dummyGoverningAlias := dummyAliasOutput()
+
+		ok, err := dummyAlias.unlockedGovernanceByAliasIndex(&Transaction{}, 0, Outputs{dummyGoverningAlias})
+		t.Log(err)
+		assert.Error(t, err)
+		assert.False(t, ok)
 	})
 }
 
 func TestAliasOutput_UnlockValid(t *testing.T) {
-	// TODO: to be continued
+	w := genRandomWallet()
+	governingWallet := genRandomWallet()
+	alias := &AliasOutput{
+		outputID:            randOutputID(),
+		outputIDMutex:       sync.RWMutex{},
+		balances:            NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}),
+		aliasAddress:        *randAliasAddress(),
+		stateAddress:        w.address,
+		stateIndex:          10,
+		stateData:           []byte("some data"),
+		immutableData:       []byte("some immutable data"),
+		isGovernanceUpdate:  false,
+		governingAddress:    governingWallet.address,
+		StorableObjectFlags: objectstorage.StorableObjectFlags{},
+	}
+
+	t.Run("CASE: Alias unlocked by signature", func(t *testing.T) {
+		chained := alias.NewAliasOutputNext(false)
+		outputs := Outputs{chained}
+		inputs := Outputs{alias}
+		essence := NewTransactionEssence(0, time.Time{}, identity.ID{}, identity.ID{}, NewInputs(NewUTXOInput(alias.ID())), NewOutputs(outputs...))
+		unlockBlocks := w.unlockBlocks(essence)
+		// w.unlockBlocks puts a signature unlock block for all inputs
+		tx := NewTransaction(essence, unlockBlocks)
+
+		valid, err := alias.UnlockValid(tx, unlockBlocks[0], inputs)
+		assert.NoError(t, err)
+		assert.True(t, valid)
+	})
+
+	t.Run("CASE: Alias can't be unlocked by invalid signature", func(t *testing.T) {
+		chained := alias.NewAliasOutputNext(false)
+		clonedAlias := alias.clone()
+		clonedAlias.stateAddress = randEd25119Address()
+		outputs := Outputs{chained}
+		inputs := Outputs{clonedAlias}
+		essence := NewTransactionEssence(0, time.Time{}, identity.ID{}, identity.ID{}, NewInputs(NewUTXOInput(clonedAlias.ID())), NewOutputs(outputs...))
+		// sign with bad signature
+		unlockBlocks := w.unlockBlocks(essence)
+		tx := NewTransaction(essence, unlockBlocks)
+
+		valid, err := clonedAlias.UnlockValid(tx, unlockBlocks[0], inputs)
+		t.Log(err)
+		assert.Error(t, err)
+		assert.False(t, valid)
+	})
+
+	t.Run("CASE: Alias output destroyed, no gov update", func(t *testing.T) {
+		outputs := Outputs{NewSigLockedSingleOutput(DustThresholdAliasOutputIOTA, randEd25119Address())}
+		inputs := Outputs{alias}
+		essence := NewTransactionEssence(0, time.Time{}, identity.ID{}, identity.ID{}, NewInputs(NewUTXOInput(alias.ID())), NewOutputs(outputs...))
+		unlockBlocks := w.unlockBlocks(essence)
+		// w.unlockBlocks puts a signature unlock block for all inputs
+		tx := NewTransaction(essence, unlockBlocks)
+
+		valid, err := alias.UnlockValid(tx, unlockBlocks[0], inputs)
+		t.Log(err)
+		assert.Error(t, err)
+		assert.False(t, valid)
+	})
+
+	t.Run("CASE: Alias output destroyed, gov update", func(t *testing.T) {
+		outputs := Outputs{NewSigLockedSingleOutput(DustThresholdAliasOutputIOTA, randEd25119Address())}
+		inputs := Outputs{alias}
+		essence := NewTransactionEssence(0, time.Time{}, identity.ID{}, identity.ID{}, NewInputs(NewUTXOInput(alias.ID())), NewOutputs(outputs...))
+		unlockBlocks := governingWallet.unlockBlocks(essence)
+		// w.unlockBlocks puts a signature unlock block for all inputs
+		tx := NewTransaction(essence, unlockBlocks)
+
+		valid, err := alias.UnlockValid(tx, unlockBlocks[0], inputs)
+		assert.NoError(t, err)
+		assert.True(t, valid)
+	})
+
+	t.Run("CASE: Alias output can't be destroyed, gov update", func(t *testing.T) {
+		clonedAlias := alias.clone()
+		clonedAlias.balances = NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA + 1})
+		outputs := Outputs{NewSigLockedSingleOutput(DustThresholdAliasOutputIOTA, randEd25119Address())}
+		inputs := Outputs{clonedAlias}
+		essence := NewTransactionEssence(0, time.Time{}, identity.ID{}, identity.ID{}, NewInputs(NewUTXOInput(clonedAlias.ID())), NewOutputs(outputs...))
+		unlockBlocks := governingWallet.unlockBlocks(essence)
+		// w.unlockBlocks puts a signature unlock block for all inputs
+		tx := NewTransaction(essence, unlockBlocks)
+
+		valid, err := clonedAlias.UnlockValid(tx, unlockBlocks[0], inputs)
+		t.Log(err)
+		assert.Error(t, err)
+		assert.False(t, valid)
+	})
+
+	t.Run("CASE: Duplicated alias output", func(t *testing.T) {
+		chained := alias.NewAliasOutputNext(false)
+		clonedChained := chained.clone()
+		// need to change some bytes not to be considered duplicate already in NewOutputs()
+		clonedChained.stateData = []byte("random data")
+		outputs := Outputs{chained, clonedChained}
+		inputs := Outputs{alias}
+		essence := NewTransactionEssence(0, time.Time{}, identity.ID{}, identity.ID{}, NewInputs(NewUTXOInput(alias.ID())), NewOutputs(outputs...))
+		unlockBlocks := w.unlockBlocks(essence)
+		// w.unlockBlocks puts a signature unlock block for all inputs
+		tx := NewTransaction(essence, unlockBlocks)
+
+		valid, err := alias.UnlockValid(tx, unlockBlocks[0], inputs)
+		t.Log(err)
+		assert.Error(t, err)
+		assert.False(t, valid)
+	})
+
+	t.Run("CASE: Governance update, sig valid", func(t *testing.T) {
+		chained := alias.NewAliasOutputNext(true)
+		outputs := Outputs{chained}
+		inputs := Outputs{alias}
+		essence := NewTransactionEssence(0, time.Time{}, identity.ID{}, identity.ID{}, NewInputs(NewUTXOInput(alias.ID())), NewOutputs(outputs...))
+		unlockBlocks := governingWallet.unlockBlocks(essence)
+		// w.unlockBlocks puts a signature unlock block for all inputs
+		tx := NewTransaction(essence, unlockBlocks)
+
+		valid, err := alias.UnlockValid(tx, unlockBlocks[0], inputs)
+		assert.NoError(t, err)
+		assert.True(t, valid)
+	})
+
+	t.Run("CASE: Governance update, sig invalid", func(t *testing.T) {
+		chained := alias.NewAliasOutputNext(true)
+		outputs := Outputs{chained}
+		inputs := Outputs{alias}
+		essence := NewTransactionEssence(0, time.Time{}, identity.ID{}, identity.ID{}, NewInputs(NewUTXOInput(alias.ID())), NewOutputs(outputs...))
+		unlockBlocks := w.unlockBlocks(essence)
+		// w.unlockBlocks puts a signature unlock block for all inputs
+		tx := NewTransaction(essence, unlockBlocks)
+
+		valid, err := alias.UnlockValid(tx, unlockBlocks[0], inputs)
+		t.Log(err)
+		assert.Error(t, err)
+		assert.False(t, valid)
+	})
+
+	t.Run("CASE: Governance update, transition invalid", func(t *testing.T) {
+		chained := alias.NewAliasOutputNext(true)
+		chained.stateData = []byte("this should not be changed")
+		outputs := Outputs{chained}
+		inputs := Outputs{alias}
+		essence := NewTransactionEssence(0, time.Time{}, identity.ID{}, identity.ID{}, NewInputs(NewUTXOInput(alias.ID())), NewOutputs(outputs...))
+		unlockBlocks := governingWallet.unlockBlocks(essence)
+		// w.unlockBlocks puts a signature unlock block for all inputs
+		tx := NewTransaction(essence, unlockBlocks)
+
+		valid, err := alias.UnlockValid(tx, unlockBlocks[0], inputs)
+		t.Log(err)
+		assert.Error(t, err)
+		assert.False(t, valid)
+	})
+
+	t.Run("CASE: Unlocked by other alias", func(t *testing.T) {
+		governingAliasStateWallet := genRandomWallet()
+		governingAlias := &AliasOutput{
+			outputID:            randOutputID(),
+			outputIDMutex:       sync.RWMutex{},
+			balances:            NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}),
+			aliasAddress:        *randAliasAddress(),
+			stateAddress:        governingAliasStateWallet.address,
+			stateIndex:          10,
+			stateData:           []byte("some data"),
+			immutableData:       []byte("some data"),
+			isGovernanceUpdate:  false,
+			governingAddress:    randAliasAddress(),
+			StorableObjectFlags: objectstorage.StorableObjectFlags{},
+		}
+		aliasStateWallet := genRandomWallet()
+		alias := &AliasOutput{
+			outputID:            randOutputID(),
+			outputIDMutex:       sync.RWMutex{},
+			balances:            NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}),
+			aliasAddress:        *randAliasAddress(),
+			stateAddress:        aliasStateWallet.address,
+			stateIndex:          10,
+			stateData:           []byte("some data"),
+			immutableData:       []byte("some data"),
+			isGovernanceUpdate:  false,
+			governingAddress:    governingAlias.GetAliasAddress(),
+			StorableObjectFlags: objectstorage.StorableObjectFlags{},
+		}
+		// unlocked for gov transition
+		nextAlias := alias.NewAliasOutputNext(true)
+		// we are updating the state address (simulate committer rotation)
+		nextAlias.stateAddress = randEd25119Address()
+		// unlocked for state transition
+		nextGoverningAlias := governingAlias.NewAliasOutputNext(false)
+
+		outputs := Outputs{nextAlias, nextGoverningAlias}
+		inputs := Outputs{}
+		inputsOfTx := NewInputs(NewUTXOInput(alias.ID()), NewUTXOInput(governingAlias.ID()))
+		essence := NewTransactionEssence(0, time.Time{}, identity.ID{}, identity.ID{}, inputsOfTx, NewOutputs(outputs...))
+
+		var indexOfAliasInput, indexOfGoverningAliasInput int
+		for i, input := range inputsOfTx {
+
+			castedInput := input.(*UTXOInput)
+			if castedInput.referencedOutputID == alias.ID() {
+				indexOfAliasInput = i
+				inputs = append(inputs, alias)
+			}
+			if castedInput.referencedOutputID == governingAlias.ID() {
+				indexOfGoverningAliasInput = i
+				inputs = append(inputs, governingAlias)
+			}
+		}
+		unlocks := make(UnlockBlocks, len(inputsOfTx))
+		unlocks[indexOfAliasInput] = NewAliasUnlockBlock(uint16(indexOfGoverningAliasInput))
+		unlocks[indexOfGoverningAliasInput] = NewSignatureUnlockBlock(governingAliasStateWallet.sign(essence))
+
+		tx := NewTransaction(essence, unlocks)
+
+		ok, err := alias.UnlockValid(tx, unlocks[indexOfAliasInput], inputs)
+		assert.NoError(t, err)
+		assert.True(t, ok)
+	})
+
+	t.Run("CASE: Unsupported unlock block", func(t *testing.T) {
+		ok, err := alias.UnlockValid(&Transaction{}, NewReferenceUnlockBlock(0), Outputs{})
+		t.Log(err)
+		assert.Error(t, err)
+		assert.False(t, ok)
+	})
+}
+
+func genRandomWallet() wallet {
+	kp := ed25519.GenerateKeyPair()
+	return wallet{
+		kp,
+		NewED25519Address(kp.PublicKey),
+	}
 }
 
 func TestAliasOutput_Clone(t *testing.T) {
@@ -664,7 +1318,7 @@ func dummyAliasOutput() *AliasOutput {
 	return &AliasOutput{
 		outputID:            randOutputID(),
 		outputIDMutex:       sync.RWMutex{},
-		balances:            NewColoredBalances(map[Color]uint64{ColorIOTA: 100}),
+		balances:            NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}),
 		aliasAddress:        *randAliasAddress(),
 		stateAddress:        randEd25119Address(),
 		stateIndex:          0,

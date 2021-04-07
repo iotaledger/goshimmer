@@ -1476,7 +1476,7 @@ func isExactDustMinimum(b *ColoredBalances) bool {
 // validateTransition enforces transition constraints between input and output chain outputs
 func (a *AliasOutput) validateTransition(chained *AliasOutput) error {
 	// enforce immutability of alias address and immutable data
-	if !a.GetAliasAddress().Equals(a.GetAliasAddress()) {
+	if !a.GetAliasAddress().Equals(chained.GetAliasAddress()) {
 		return xerrors.New("chain alias address can't be modified")
 	}
 	if !bytes.Equal(a.immutableData, chained.immutableData) {
