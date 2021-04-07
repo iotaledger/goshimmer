@@ -17,6 +17,8 @@ import (
 	"golang.org/x/crypto/blake2b"
 )
 
+// region AliasOutput Tests
+
 func TestAliasOutput_NewAliasOutputMint(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		stateAddy := randEd25119Address()
@@ -1274,14 +1276,6 @@ func TestAliasOutput_UnlockValid(t *testing.T) {
 	})
 }
 
-func genRandomWallet() wallet {
-	kp := ed25519.GenerateKeyPair()
-	return wallet{
-		kp,
-		NewED25519Address(kp.PublicKey),
-	}
-}
-
 func TestAliasOutput_Clone(t *testing.T) {
 	out := dummyAliasOutput()
 	outBack := out.Clone()
@@ -1295,6 +1289,10 @@ func TestAliasOutput_Clone(t *testing.T) {
 	assert.EqualValues(t, out.Bytes(), outBack.Bytes())
 }
 
+// endregion
+
+// region ExtendedLockedOutput Tests
+
 func TestExtendedLockedOutput_Clone(t *testing.T) {
 	out := dummyExtendedLockedOutput()
 	outBack := out.Clone()
@@ -1305,6 +1303,18 @@ func TestExtendedLockedOutput_Clone(t *testing.T) {
 	assert.True(t, out.address != outBackT.address)
 	assert.True(t, out.fallbackAddress != outBackT.fallbackAddress)
 	assert.EqualValues(t, out.Bytes(), outBack.Bytes())
+}
+
+// endregion
+
+// region test utils
+
+func genRandomWallet() wallet {
+	kp := ed25519.GenerateKeyPair()
+	return wallet{
+		kp,
+		NewED25519Address(kp.PublicKey),
+	}
 }
 
 func notSameMemory(s1, s2 []byte) bool {
@@ -1361,3 +1371,5 @@ func randOutputID() OutputID {
 	outputID, _, _ := OutputIDFromBytes(randOutputIDBytes)
 	return outputID
 }
+
+// endregion
