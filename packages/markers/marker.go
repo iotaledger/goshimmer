@@ -158,17 +158,17 @@ func (m *Markers) SequenceIDs() (sequenceIDs SequenceIDs) {
 
 // HighestSequenceMarker returns the Marker of the highest SequenceID in the collection. It can for example be used to
 // retrieve the new Marker that was assigned when increasing the Index of a Sequence.
-func (m *Markers) HighestSequenceMarker() (firstMarker *Marker) {
+func (m *Markers) HighestSequenceMarker() (highestSequenceMarker *Marker) {
 	m.markersMutex.RLock()
 	defer m.markersMutex.RUnlock()
 
 	for sequenceID, index := range m.markers {
-		if firstMarker == nil || sequenceID > firstMarker.SequenceID() {
-			firstMarker = &Marker{sequenceID: sequenceID, index: index}
+		if highestSequenceMarker == nil || sequenceID > highestSequenceMarker.SequenceID() {
+			highestSequenceMarker = &Marker{sequenceID: sequenceID, index: index}
 		}
 	}
 
-	return firstMarker
+	return highestSequenceMarker
 }
 
 // Get returns the Index of the Marker with the given Sequence and a flag that indicates if the Marker exists.
