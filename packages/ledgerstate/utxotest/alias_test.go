@@ -40,11 +40,12 @@ func TestAliasMint(t *testing.T) {
 	chained, err := utxoutil.GetSingleChainedAliasOutput(tx)
 	require.NoError(t, err)
 	require.NotNil(t, chained)
+	require.True(t, chained.IsOrigin())
+	require.EqualValues(t, chained.ID().TransactionID(), tx.ID())
 
 	t.Logf("Chained output: %s", chained)
 	t.Logf("newly created alias address: %s", chained.GetAliasAddress().Base58())
 
-	// sender, err := utxoutil.GetSingleSender(tx, txb.ConsumedOutputs())
 	sender, err := utxoutil.GetSingleSender(tx)
 	require.NoError(t, err)
 	require.True(t, sender.Equals(addr))
@@ -179,6 +180,7 @@ func TestAlias1(t *testing.T) {
 	chained, err := utxoutil.GetSingleChainedAliasOutput(tx)
 	require.NoError(t, err)
 	require.NotNil(t, chained)
+	require.True(t, chained.IsOrigin())
 
 	aliasAddress := chained.GetAliasAddress()
 	t.Logf("newly created alias address: %s", aliasAddress.Base58())
@@ -201,6 +203,12 @@ func TestAlias1(t *testing.T) {
 
 		err = u.AddTransaction(tx)
 		require.NoError(t, err)
+
+		chained, err := utxoutil.GetSingleChainedAliasOutput(tx)
+		require.NoError(t, err)
+		require.False(t, chained.IsOrigin())
+		require.True(t, chained.GetAliasAddress().Equals(aliasAddress))
+		require.True(t, chained.GetStateAddress().Equals(addrStateControl))
 
 		sender, err := utxoutil.GetSingleSender(tx)
 		require.NoError(t, err)
