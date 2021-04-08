@@ -443,11 +443,6 @@ func AliasAddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address 
 	return
 }
 
-// IsNil returns if it is all 0
-func (a *AliasAddress) IsNil() bool {
-	return a.digest == [AliasAddressDigestSize]byte{}
-}
-
 // Type returns the AddressType of the Address.
 func (a *AliasAddress) Type() AddressType {
 	return AliasAddressType

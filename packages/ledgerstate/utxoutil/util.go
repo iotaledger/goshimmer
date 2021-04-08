@@ -131,11 +131,11 @@ func unlockInputsWithSignatureBlocks(inputs []ledgerstate.Output, sigUnlockBlock
 	return ret, nil
 }
 
-// CollectAliasOutputs scans all outputs and collects ledgerstate.AliasOutput into a map by the Address.Array
+// collectAliasOutputs scans all outputs and collects ledgerstate.AliasOutput into a map by the Address.Array
 // Returns an error if finds duplicate
-func CollectAliasOutputs(essence *ledgerstate.TransactionEssence) (map[[33]byte]*ledgerstate.AliasOutput, error) {
+func collectAliasOutputs(tx *ledgerstate.Transaction) (map[[33]byte]*ledgerstate.AliasOutput, error) {
 	ret := make(map[[33]byte]*ledgerstate.AliasOutput)
-	for _, o := range essence.Outputs() {
+	for i, o := range tx.Essence().Outputs() {
 		out, ok := o.(*ledgerstate.AliasOutput)
 		if !ok {
 			continue
@@ -143,7 +143,8 @@ func CollectAliasOutputs(essence *ledgerstate.TransactionEssence) (map[[33]byte]
 		if _, ok := ret[out.GetAliasAddress().Array()]; ok {
 			return nil, xerrors.New("duplicate chain output")
 		}
-		ret[out.GetAliasAddress().Array()] = out
+		o = o.SetID(ledgerstate.NewOutputID(tx.ID(), uint16(i))).UpdateMintingColor()
+		ret[out.GetAliasAddress().Array()] = o.(*ledgerstate.AliasOutput)
 	}
 	return ret, nil
 }
@@ -152,8 +153,8 @@ func CollectAliasOutputs(essence *ledgerstate.TransactionEssence) (map[[33]byte]
 // returns:
 // - nil and no error if found none
 // - error if there's more than 1
-func GetSingleChainedAliasOutput(essence *ledgerstate.TransactionEssence) (*ledgerstate.AliasOutput, error) {
-	ch, err := CollectAliasOutputs(essence)
+func GetSingleChainedAliasOutput(tx *ledgerstate.Transaction) (*ledgerstate.AliasOutput, error) {
+	ch, err := collectAliasOutputs(tx)
 	if err != nil {
 		return nil, err
 	}
@@ -193,7 +194,7 @@ func GetSingleSender(tx *ledgerstate.Transaction) (ledgerstate.Address, error) {
 	if err != nil {
 		return nil, err
 	}
-	chained, err := GetSingleChainedAliasOutput(tx.Essence())
+	chained, err := GetSingleChainedAliasOutput(tx)
 	if err != nil {
 		return nil, err
 	}
