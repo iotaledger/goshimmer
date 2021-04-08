@@ -64,13 +64,9 @@ func (m *MessageTestFramework) CreateMessage(messageAlias string, messageOptions
 
 	if transaction := m.buildTransaction(options); transaction != nil {
 		m.messagesByAlias[messageAlias] = newTestParentsPayloadMessage(transaction, m.strongParentIDs(options), m.weakParentIDs(options))
-
-		RegisterMessageIDAlias(m.messagesByAlias[messageAlias].ID(), messageAlias)
-
-		return m.messagesByAlias[messageAlias]
+	} else {
+		m.messagesByAlias[messageAlias] = newTestParentsDataMessage(messageAlias, m.strongParentIDs(options), m.weakParentIDs(options))
 	}
-
-	m.messagesByAlias[messageAlias] = newTestParentsDataMessage(messageAlias, m.strongParentIDs(options), m.weakParentIDs(options))
 
 	RegisterMessageIDAlias(m.messagesByAlias[messageAlias].ID(), messageAlias)
 

@@ -1,7 +1,6 @@
 package tangle
 
 import (
-	"fmt"
 	"strconv"
 	"testing"
 	"time"
@@ -84,7 +83,6 @@ func TestTipManager_AddTip(t *testing.T) {
 		// mock the Tangle's PayloadOpinionProvider so that we can add payloads without actually building opinions
 		tangle.Options.ConsensusMechanism = &mockConsensusProvider{
 			func(transactionID ledgerstate.TransactionID) bool {
-				fmt.Println("WADDE")
 				return false
 			},
 		}

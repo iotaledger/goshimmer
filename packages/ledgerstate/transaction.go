@@ -129,19 +129,11 @@ func (t TransactionIDs) Clone() (transactionIDs TransactionIDs) {
 
 // String returns a human readable version of the TransactionIDs.
 func (t TransactionIDs) String() (result string) {
-	builder := strings.Builder{}
-	for key := range t {
-		if builder.Len() != 0 {
-			builder.WriteString(", ")
-		}
-		builder.WriteString(key.Base58())
-	}
-
-	return "TransactionIDs(" + builder.String() + ")"
+	return "TransactionIDs(" + strings.Join(t.Base58s(), ",") + ")"
 }
 
-// Strings returns a slice of string representation of the TransactionIDs.
-func (t TransactionIDs) Strings() (transactionIDs []string) {
+// Base58s returns a slice of base58 encoded versions of the contained TransactionIDs.
+func (t TransactionIDs) Base58s() (transactionIDs []string) {
 	transactionIDs = make([]string, 0, len(t))
 	for transactionID := range t {
 		transactionIDs = append(transactionIDs, transactionID.Base58())

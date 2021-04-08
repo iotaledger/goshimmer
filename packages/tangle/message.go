@@ -140,7 +140,7 @@ func (id MessageID) String() string {
 	}
 
 	if messageIDAlias, exists := messageIDAliases[id]; exists {
-		return "Message(" + messageIDAlias + ")"
+		return "MessageID(" + messageIDAlias + ")"
 	}
 
 	return "MessageID(" + base58.Encode(id[:]) + ")"
