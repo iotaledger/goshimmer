@@ -2,12 +2,15 @@ package tangle
 
 import (
 	"testing"
+	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/packages/epochs"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
@@ -253,6 +256,139 @@ func TestApprovalWeightManager_updateSequenceSupporters(t *testing.T) {
 			"5,8": {supporters["A"]},
 		})
 	}
+}
+
+func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
+	tangle := New()
+	defer tangle.Shutdown()
+	tangle.Setup()
+
+	testFramework := NewMessageTestFramework(tangle)
+
+	nodes := make(map[string]*identity.Identity)
+	for _, node := range []string{"A", "B", "C", "D", "E"} {
+		nodes[node] = identity.GenerateIdentity()
+	}
+
+	manaRetrieverMock := func(t time.Time) map[identity.ID]float64 {
+		return map[identity.ID]float64{
+			nodes["A"].ID(): 30,
+			nodes["B"].ID(): 15,
+			nodes["C"].ID(): 25,
+			nodes["D"].ID(): 20,
+			nodes["E"].ID(): 10,
+		}
+	}
+	manager := epochs.NewManager(epochs.ManaRetriever(manaRetrieverMock), epochs.CacheTime(0))
+
+	approvalWeightManager := NewApprovalWeightManager(tangle, manager)
+	approvalWeightManager.Setup()
+
+	// ISSUE Message1
+	{
+		testFramework.CreateMessage("Message1", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()))
+		testFramework.IssueMessages("Message1").WaitMessagesBooked()
+
+		validateApprovalWeightManagerEvents(t, approvalWeightManager,
+			MessageIDs{testFramework.Message("Message1").ID()},
+			[]*markers.Marker{},
+			[]ledgerstate.BranchID{},
+			func() {
+				approvalWeightManager.ProcessMessage(testFramework.Message("Message1").ID())
+			},
+		)
+	}
+
+	// ISSUE Message2
+	{
+		testFramework.CreateMessage("Message2", WithStrongParents("Message1"), WithIssuer(nodes["B"].PublicKey()))
+		testFramework.IssueMessages("Message2").WaitMessagesBooked()
+
+		validateApprovalWeightManagerEvents(t, approvalWeightManager,
+			MessageIDs{testFramework.Message("Message2").ID()},
+			[]*markers.Marker{},
+			[]ledgerstate.BranchID{},
+			func() {
+				approvalWeightManager.ProcessMessage(testFramework.Message("Message2").ID())
+			},
+		)
+	}
+
+	// ISSUE Message3
+	{
+		testFramework.CreateMessage("Message3", WithStrongParents("Message2"), WithIssuer(nodes["C"].PublicKey()))
+		testFramework.IssueMessages("Message3").WaitMessagesBooked()
+
+		validateApprovalWeightManagerEvents(t, approvalWeightManager,
+			MessageIDs{testFramework.Message("Message3").ID()},
+			[]*markers.Marker{markers.NewMarker(1, 1)},
+			[]ledgerstate.BranchID{ledgerstate.MasterBranchID},
+			// TODO: handle MasterBRanchID differently?
+			func() {
+				approvalWeightManager.ProcessMessage(testFramework.Message("Message3").ID())
+			},
+		)
+	}
+
+	// ISSUE Message4
+	{
+		testFramework.CreateMessage("Message4", WithStrongParents("Message3"), WithIssuer(nodes["D"].PublicKey()))
+		testFramework.IssueMessages("Message4").WaitMessagesBooked()
+
+		validateApprovalWeightManagerEvents(t, approvalWeightManager,
+			MessageIDs{testFramework.Message("Message4").ID()},
+			[]*markers.Marker{markers.NewMarker(1, 2)},
+			[]ledgerstate.BranchID{ledgerstate.MasterBranchID},
+			func() {
+				approvalWeightManager.ProcessMessage(testFramework.Message("Message4").ID())
+			},
+		)
+	}
+
+	// ISSUE Message5
+	{
+		testFramework.CreateMessage("Message5", WithStrongParents("Message4"), WithIssuer(nodes["A"].PublicKey()))
+		testFramework.IssueMessages("Message5").WaitMessagesBooked()
+
+		validateApprovalWeightManagerEvents(t, approvalWeightManager,
+			MessageIDs{testFramework.Message("Message5").ID()},
+			[]*markers.Marker{markers.NewMarker(1, 3), markers.NewMarker(1, 4)},
+			[]ledgerstate.BranchID{},
+			func() {
+				approvalWeightManager.ProcessMessage(testFramework.Message("Message5").ID())
+			},
+		)
+	}
+}
+
+func validateApprovalWeightManagerEvents(t *testing.T, approvalWeightManager *ApprovalWeightManager, expectedProcessedMessageIDs MessageIDs, expectedConfirmedMarkers []*markers.Marker, expectedConfirmedBranches []ledgerstate.BranchID, callback func()) {
+	var actualProcessedMessageIDs MessageIDs
+	messageProcessedEventHandler := events.NewClosure(func(messageID MessageID) {
+		actualProcessedMessageIDs = append(actualProcessedMessageIDs, messageID)
+	})
+	approvalWeightManager.Events.MessageProcessed.Attach(messageProcessedEventHandler)
+
+	var actualConfirmedMarkers []*markers.Marker
+	markerConfirmedEventHandler := events.NewClosure(func(marker *markers.Marker) {
+		actualConfirmedMarkers = append(actualConfirmedMarkers, marker)
+	})
+	approvalWeightManager.Events.MarkerConfirmed.Attach(markerConfirmedEventHandler)
+
+	var actualConfirmedBranches []ledgerstate.BranchID
+	branchConfirmedEventHandler := events.NewClosure(func(branchID ledgerstate.BranchID) {
+		actualConfirmedBranches = append(actualConfirmedBranches, branchID)
+	})
+	approvalWeightManager.Events.BranchConfirmed.Attach(branchConfirmedEventHandler)
+
+	callback()
+
+	assert.ElementsMatch(t, expectedProcessedMessageIDs, actualProcessedMessageIDs)
+	assert.ElementsMatch(t, expectedConfirmedMarkers, actualConfirmedMarkers)
+	assert.ElementsMatch(t, expectedConfirmedBranches, actualConfirmedBranches)
+
+	approvalWeightManager.Events.MessageProcessed.Detach(messageProcessedEventHandler)
+	approvalWeightManager.Events.MarkerConfirmed.Detach(markerConfirmedEventHandler)
+	approvalWeightManager.Events.BranchConfirmed.Detach(branchConfirmedEventHandler)
 }
 
 func validateMarkerSupporters(t *testing.T, approvalWeightManager *SupporterManager, markersMap map[string]*markers.StructureDetails, expectedSupporters map[string][]*identity.Identity) {

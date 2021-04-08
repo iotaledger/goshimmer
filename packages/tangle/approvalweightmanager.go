@@ -25,7 +25,7 @@ import (
 const (
 	lowerWeightThreshold        = float64(0)
 	confirmationThreshold       = 0.5
-	markerConfirmationThreshold = 0.2
+	markerConfirmationThreshold = 0.5
 )
 
 // region ApprovalWeightManager ////////////////////////////////////////////////////////////////////////////////////////
@@ -40,7 +40,7 @@ type ApprovalWeightManager struct {
 	lastConfirmedMarkers map[markers.SequenceID]markers.Index
 }
 
-func NewApprovalWeightManager(tangle *Tangle) *ApprovalWeightManager {
+func NewApprovalWeightManager(tangle *Tangle, epochsManager *epochs.Manager) *ApprovalWeightManager {
 	return &ApprovalWeightManager{
 		Events: &ApprovalWeightManagerEvents{
 			MessageProcessed: events.NewEvent(MessageIDCaller),
@@ -48,6 +48,7 @@ func NewApprovalWeightManager(tangle *Tangle) *ApprovalWeightManager {
 			MarkerConfirmed:  events.NewEvent(markerCaller),
 		},
 		tangle:               tangle,
+		epochsManager:        epochsManager,
 		supportersManager:    NewSupporterManager(tangle),
 		branchWeights:        make(map[ledgerstate.BranchID]*BranchWeightPerEpoch),
 		lastConfirmedMarkers: make(map[markers.SequenceID]markers.Index),
@@ -221,8 +222,8 @@ type SupporterManager struct {
 	branchSupporters map[ledgerstate.BranchID]*Supporters
 }
 
-func NewSupporterManager(tangle *Tangle) (approvalWeightManager *SupporterManager) {
-	approvalWeightManager = &SupporterManager{
+func NewSupporterManager(tangle *Tangle) (supporterManager *SupporterManager) {
+	supporterManager = &SupporterManager{
 		Events: &SupporterManagerEvents{
 			BranchSupportAdded:     events.NewEvent(branchSupportEventCaller),
 			BranchSupportRemoved:   events.NewEvent(branchSupportEventCaller),
@@ -374,10 +375,16 @@ func (s *SupporterManager) isNewStatement(lastStatement *Statement, message *Mes
 }
 
 func (s *SupporterManager) statementFromMessage(message *Message) (statement *Statement) {
+	branchID, err := s.tangle.Booker.MessageBranchID(message.ID())
+	if err != nil {
+		// TODO: handle error properly
+		panic(err)
+	}
+
 	if !s.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 		statement = &Statement{
 			SequenceNumber: message.SequenceNumber(),
-			BranchID:       messageMetadata.BranchID(),
+			BranchID:       branchID,
 		}
 
 	}) {
