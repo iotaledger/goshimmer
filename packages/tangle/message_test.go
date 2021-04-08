@@ -63,7 +63,7 @@ func testSortParents(parents []MessageID) {
 func TestNewMessageID(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		randID := randomMessageID()
-		randIDString := randID.String()
+		randIDString := randID.Base58()
 
 		result, err := NewMessageID(randIDString)
 		assert.NoError(t, err)
@@ -78,10 +78,7 @@ func TestNewMessageID(t *testing.T) {
 	})
 
 	t.Run("CASE: Too long string", func(t *testing.T) {
-		randID := randomMessageID()
-		randIDString := randID.String()
-
-		result, err := NewMessageID(randIDString + "1")
+		result, err := NewMessageID(base58.Encode(randomBytes(MessageIDLength + 1)))
 		assert.Error(t, err)
 		assert.True(t, strings.Contains(err.Error(), "length of base58 formatted message id is wrong"))
 		assert.Equal(t, EmptyMessageID, result)
@@ -173,6 +170,12 @@ func TestMessageID_UnmarshalBinary(t *testing.T) {
 func TestMessageID_String(t *testing.T) {
 	randID := randomMessageID()
 	randIDString := randID.String()
+	assert.Equal(t, "MessageID("+base58.Encode(randID.Bytes())+")", randIDString)
+}
+
+func TestMessageID_Base58(t *testing.T) {
+	randID := randomMessageID()
+	randIDString := randID.Base58()
 	assert.Equal(t, base58.Encode(randID.Bytes()), randIDString)
 }
 

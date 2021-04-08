@@ -34,7 +34,7 @@ func ObjectsHandler(c echo.Context) error {
 		obj.InclusionState = inclusionState.String()
 		obj.BranchID = messagelayer.Tangle().LedgerState.BranchID(tx.ID()).String()
 		for _, parent := range message.Parents() {
-			obj.Parents = append(obj.Parents, parent.String())
+			obj.Parents = append(obj.Parents, parent.Base58())
 		}
 
 		obj.Tip = !messagelayer.Tangle().Storage.Approvers(message.ID()).Consume(func(approver *tangle.Approver) {})

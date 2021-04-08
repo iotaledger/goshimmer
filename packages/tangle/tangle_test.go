@@ -122,11 +122,6 @@ func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
 	messageTangle := New()
 	messageTangle.Setup()
 	defer messageTangle.Shutdown()
-	if err := messageTangle.Prune(); err != nil {
-		t.Error(err)
-
-		return
-	}
 
 	var storedMessages, solidMessages, invalidMessages int32
 
@@ -350,6 +345,8 @@ func TestRetrieveAllTips(t *testing.T) {
 }
 
 func TestTangle_Flow(t *testing.T) {
+	CacheTime = 0
+
 	const (
 		testNetwork = "udp"
 		testPort    = 8000
