@@ -37,7 +37,7 @@ func TestAliasMint(t *testing.T) {
 	err = u.AddTransaction(tx)
 	require.NoError(t, err)
 
-	chained, err := utxoutil.GetSingleChainedAliasOutput(tx.Essence())
+	chained, err := utxoutil.GetSingleChainedAliasOutput(tx)
 	require.NoError(t, err)
 	require.NotNil(t, chained)
 
@@ -83,7 +83,7 @@ func TestChainForkFail(t *testing.T) {
 	require.True(t, sender.Equals(addr))
 
 	// determine newly created alias address
-	chained, err := utxoutil.GetSingleChainedAliasOutput(tx.Essence())
+	chained, err := utxoutil.GetSingleChainedAliasOutput(tx)
 	require.NoError(t, err)
 	require.NotNil(t, chained)
 	require.EqualValues(t, 0, int(chained.GetStateIndex()))
@@ -176,7 +176,7 @@ func TestAlias1(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, sender.Equals(addr))
 
-	chained, err := utxoutil.GetSingleChainedAliasOutput(tx.Essence())
+	chained, err := utxoutil.GetSingleChainedAliasOutput(tx)
 	require.NoError(t, err)
 	require.NotNil(t, chained)
 
@@ -242,7 +242,7 @@ func TestAlias3(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, sender.Equals(addr))
 
-	chained, err := utxoutil.GetSingleChainedAliasOutput(tx.Essence())
+	chained, err := utxoutil.GetSingleChainedAliasOutput(tx)
 	require.NoError(t, err)
 	require.NotNil(t, chained)
 
@@ -290,7 +290,7 @@ func TestAlias3(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, sender.Equals(aliasAddress))
 
-		chained, err := utxoutil.GetSingleChainedAliasOutput(tx.Essence())
+		chained, err := utxoutil.GetSingleChainedAliasOutput(tx)
 		require.NoError(t, err)
 		require.EqualValues(t, i+1, int(chained.GetStateIndex()))
 
@@ -330,7 +330,7 @@ func TestAliasWithExtendedOutput(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, sender.Equals(addr))
 
-	chained, err := utxoutil.GetSingleChainedAliasOutput(tx.Essence())
+	chained, err := utxoutil.GetSingleChainedAliasOutput(tx)
 	require.NoError(t, err)
 	require.NotNil(t, chained)
 
@@ -415,7 +415,7 @@ func TestRequestSendingPattern(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, sender.Equals(addrRequester))
 
-	chained, err := utxoutil.GetSingleChainedAliasOutput(tx.Essence())
+	chained, err := utxoutil.GetSingleChainedAliasOutput(tx)
 	require.NoError(t, err)
 	require.NotNil(t, chained)
 

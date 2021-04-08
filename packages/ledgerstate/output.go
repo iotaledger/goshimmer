@@ -1021,13 +1021,11 @@ func AliasOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*AliasOut
 	flags := bitmask.BitMask(flagsByte)
 	ret.isOrigin = flags.HasBit(flagAliasOutputIsOrigin)
 	ret.isGovernanceUpdate = flags.HasBit(flagAliasOutputGovernanceUpdate)
-	if ret.aliasAddress.IsNil() {
-		addr, err2 := AliasAddressFromMarshalUtil(marshalUtil)
-		if err2 != nil {
-			return nil, xerrors.Errorf("AliasOutput: failed to parse alias address (%v): %w", err2, cerrors.ErrParseBytesFailed)
-		}
-		ret.aliasAddress = *addr
+	addr, err2 := AliasAddressFromMarshalUtil(marshalUtil)
+	if err2 != nil {
+		return nil, xerrors.Errorf("AliasOutput: failed to parse alias address (%v): %w", err2, cerrors.ErrParseBytesFailed)
 	}
+	ret.aliasAddress = *addr
 	cb, err3 := ColoredBalancesFromMarshalUtil(marshalUtil)
 	if err3 != nil {
 		return nil, xerrors.Errorf("AliasOutput: failed to parse colored balances: %w", err3)
@@ -1084,9 +1082,6 @@ func (a *AliasOutput) SetBalances(balances map[Color]uint64) error {
 
 // GetAliasAddress calculates new ID if it is a minting output. Otherwise it takes stored value
 func (a *AliasOutput) GetAliasAddress() *AliasAddress {
-	if a.aliasAddress.IsNil() {
-		return NewAliasAddress(a.ID().Bytes())
-	}
 	return &a.aliasAddress
 }
 
@@ -1363,7 +1358,7 @@ func (a *AliasOutput) UpdateMintingColor() Output {
 	updatedOutput.SetID(a.ID())
 
 	if a.IsOrigin() {
-		updatedOutput.SetAliasAddress(a.GetAliasAddress())
+		updatedOutput.SetAliasAddress(NewAliasAddress(a.ID().Bytes()))
 	}
 
 	return updatedOutput

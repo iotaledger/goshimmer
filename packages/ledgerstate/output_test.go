@@ -333,25 +333,6 @@ func TestAliasOutput_SetAliasAddress(t *testing.T) {
 	})
 }
 
-func TestAliasOutput_GetAliasAddress(t *testing.T) {
-	t.Run("CASE: Happy path", func(t *testing.T) {
-		alias := dummyAliasOutput()
-		zeroAddy := &AliasAddress{}
-		alias.aliasAddress = *zeroAddy
-		calcAliasAddress := alias.GetAliasAddress()
-		assert.True(t, calcAliasAddress.Equals(NewAliasAddress(alias.ID().Bytes())))
-	})
-}
-
-func TestAliasOutput_Address(t *testing.T) {
-	t.Run("CASE: Happy path", func(t *testing.T) {
-		alias := dummyAliasOutput()
-		zeroAddy := &AliasAddress{}
-		alias.aliasAddress = *zeroAddy
-		assert.True(t, alias.Address().Equals(NewAliasAddress(alias.ID().Bytes())))
-	})
-}
-
 func TestAliasOutput_Balances(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		alias := dummyAliasOutput()
@@ -646,7 +627,7 @@ func TestAliasOutput_UpdateMintingColor(t *testing.T) {
 	})
 
 	t.Run("CASE: Alias address is updated", func(t *testing.T) {
-		alias := dummyAliasOutput()
+		alias := dummyAliasOutput(true)
 		alias.aliasAddress = AliasAddress{}
 		alias.balances = NewColoredBalances(map[Color]uint64{
 			ColorIOTA: DustThresholdAliasOutputIOTA,
@@ -1381,7 +1362,11 @@ func notSameMemory(s1, s2 []byte) bool {
 	return &s1[cap(s1)-1] != &s2[cap(s2)-1]
 }
 
-func dummyAliasOutput() *AliasOutput {
+func dummyAliasOutput(origin ...bool) *AliasOutput {
+	orig := false
+	if len(origin) > 0 {
+		orig = origin[0]
+	}
 	return &AliasOutput{
 		outputID:            randOutputID(),
 		outputIDMutex:       sync.RWMutex{},
@@ -1392,6 +1377,7 @@ func dummyAliasOutput() *AliasOutput {
 		stateData:           []byte("initial"),
 		immutableData:       []byte("don't touch this"),
 		isGovernanceUpdate:  false,
+		isOrigin:            orig,
 		governingAddress:    randAliasAddress(),
 		StorableObjectFlags: objectstorage.StorableObjectFlags{},
 	}
