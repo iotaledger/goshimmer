@@ -18,7 +18,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	valueutils "github.com/iotaledger/goshimmer/plugins/webapi/value"
+	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels/value"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 )
 
@@ -164,8 +164,10 @@ func SendTransactionFromFaucet(t *testing.T, peers []*framework.Peer, sentValue 
 	}
 
 	faucetPeer := peers[0]
+	// faucet keeps remaining amount on address 0
+	addrBalance[faucetPeer.Seed.Address(0).Address().Base58()][ledgerstate.ColorIOTA] = int64(framework.GenesisTokenAmount - framework.ParaFaucetPreparedOutputsCount*int(framework.ParaFaucetTokensPerRequest))
 	var i uint64
-	// faucet has split genesis output into n bits of 1337 each and remainder on n + 1
+	// faucet has split genesis output into n bits of 1337 each and remainder on 0
 	for i = 1; i < uint64(len(peers)); i++ {
 		faucetAddrStr := faucetPeer.Seed.Address(i).Address().Base58()
 		addrBalance[faucetAddrStr] = make(map[ledgerstate.Color]int64)
@@ -447,11 +449,11 @@ func False() *bool {
 // All fields are optional.
 type ExpectedTransaction struct {
 	// The optional input IDs to check against.
-	Inputs *[]valueutils.Input
+	Inputs *[]value.Input
 	// The optional outputs to check against.
-	Outputs *[]valueutils.Output
+	Outputs *[]value.Output
 	// The optional unlock blocks to check against.
-	UnlockBlocks *[]valueutils.UnlockBlock
+	UnlockBlocks *[]value.UnlockBlock
 }
 
 // CheckTransactions performs checks to make sure that all peers have received all transactions.

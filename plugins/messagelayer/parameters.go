@@ -1,6 +1,10 @@
 package messagelayer
 
-import "github.com/iotaledger/hive.go/configuration"
+import (
+	"time"
+
+	"github.com/iotaledger/hive.go/configuration"
+)
 
 // Parameters contains the configuration parameters used by the message layer.
 var Parameters = struct {
@@ -41,10 +45,13 @@ var StatementParameters = struct {
 	WaitForStatement int `default:"5" usage:"the time in seconds for which the node wait for receiving the new statement"`
 
 	// WriteStatement defines if the node should write statements.
-	WriteStatement bool `default:"false" usage:"if the node should make statements"`
+	WriteStatement bool `default:"true" usage:"if the node should make statements"`
 
-	// ManaThreshold defines the Mana threshold to accept/write a statement.
-	ManaThreshold float64 `default:"1" usage:"Mana threshold to accept/write a statement"`
+	// ReadManaThreshold defines the Mana threshold to accept a statement.
+	ReadManaThreshold float64 `default:"1.0" usage:"Value describing the percentage of top mana nodes to accept a statement from"`
+
+	// WriteManaThreshold defines the Mana threshold to write a statement.
+	WriteManaThreshold float64 `default:"0.7" usage:"Value describing the percentage of top mana nodes that can write a statement"`
 
 	// CleanInterval defines the time interval [in minutes] for cleaning the statement registry.
 	CleanInterval int `default:"5" usage:"the time in minutes after which the node cleans the statement registry"`
@@ -71,9 +78,37 @@ var SyncBeaconFollowerParameters = struct {
 	SyncPercentage float64 `default:"0.5" usage:"percentage of nodes being followed that need to be synced in order to consider the node synced"`
 }{}
 
+// ManaParameters contains the configuration parameters used by the mana plugin.
+var ManaParameters = struct {
+	// EmaCoefficient1 defines the coefficient used for Effective Base Mana 1 (moving average) calculation.
+	EmaCoefficient1 float64 `default:"0.00003209" usage:"coefficient used for Effective Base Mana 1 (moving average) calculation"`
+	// EmaCoefficient2 defines the coefficient used for Effective Base Mana 2 (moving average) calculation.
+	EmaCoefficient2 float64 `default:"0.0057762265" usage:"coefficient used for Effective Base Mana 1 (moving average) calculation"`
+	// Decay defines the decay coefficient used for Base Mana 2 calculation.
+	Decay float64 `default:"0.00003209" usage:"decay coefficient used for Base Mana 2 calculation"`
+	// AllowedAccessPledge defines the list of nodes that access mana is allowed to be pledged to.
+	AllowedAccessPledge []string `usage:"list of nodes that access mana is allowed to be pledged to"`
+	// AllowedAccessFilterEnabled defines if access mana pledge filter is enabled.
+	AllowedAccessFilterEnabled bool `default:"false" usage:"list of nodes that consensus mana is allowed to be pledge to"`
+	// AllowedConsensusPledge defines the list of nodes that consensus mana is allowed to be pledged to.
+	AllowedConsensusPledge []string `usage:"list of nodes that consensus mana is allowed to be pledge to"`
+	// AllowedConsensusFilterEnabled defines if consensus mana pledge filter is enabled.
+	AllowedConsensusFilterEnabled bool `default:"false" usage:"if filtering on consensus mana pledge nodes is enabled"`
+	// EnableResearchVectors determines if research mana vector should be used or not. To use the Mana Research
+	// Grafana Dashboard, this should be set to true.
+	EnableResearchVectors bool `default:"false" usage:"enable mana research vectors"`
+	// PruneConsensusEventLogsInterval defines the interval to check and prune consensus event logs storage.
+	PruneConsensusEventLogsInterval time.Duration `default:"5m" usage:"interval to check and prune consensus event storage"`
+	// VectorsCleanupInterval defines the interval to clean empty mana nodes from the base mana vectors.
+	VectorsCleanupInterval time.Duration `default:"30m" usage:"interval to cleanup empty mana nodes from the mana vectors"`
+	// DebuggingEnabled defines if the mana plugin responds to queries while not being in sync or not.
+	DebuggingEnabled bool `default:"false" usage:"if mana plugin responds to queries while not in sync"`
+}{}
+
 func init() {
 	configuration.BindParameters(&Parameters, "messageLayer")
 	configuration.BindParameters(&FPCParameters, "fpc")
 	configuration.BindParameters(&StatementParameters, "statement")
 	configuration.BindParameters(&SyncBeaconFollowerParameters, "syncbeaconfollower")
+	configuration.BindParameters(&ManaParameters, "mana")
 }

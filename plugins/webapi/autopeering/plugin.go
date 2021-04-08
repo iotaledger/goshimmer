@@ -12,7 +12,9 @@ import (
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
+	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 // PluginName is the name of the web API autopeering endpoint plugin.
@@ -38,12 +40,12 @@ func Plugin() *node.Plugin {
 
 // getNeighbors returns the chosen and accepted neighbors of the node
 func getNeighbors(c echo.Context) error {
-	var chosen []Neighbor
-	var accepted []Neighbor
-	var knownPeers []Neighbor
+	var chosen []jsonmodels.Neighbor
+	var accepted []jsonmodels.Neighbor
+	var knownPeers []jsonmodels.Neighbor
 
 	if c.QueryParam("known") == "1" {
-		for _, p := range autopeering.Discovery().GetVerifiedPeers() {
+		for _, p := range discovery.Discovery().GetVerifiedPeers() {
 			knownPeers = append(knownPeers, createNeighborFromPeer(p))
 		}
 	}
@@ -55,11 +57,11 @@ func getNeighbors(c echo.Context) error {
 		accepted = append(accepted, createNeighborFromPeer(p))
 	}
 
-	return c.JSON(http.StatusOK, Response{KnownPeers: knownPeers, Chosen: chosen, Accepted: accepted})
+	return c.JSON(http.StatusOK, jsonmodels.GetNeighborsResponse{KnownPeers: knownPeers, Chosen: chosen, Accepted: accepted})
 }
 
-func createNeighborFromPeer(p *peer.Peer) Neighbor {
-	n := Neighbor{
+func createNeighborFromPeer(p *peer.Peer) jsonmodels.Neighbor {
+	n := jsonmodels.Neighbor{
 		ID:        p.ID().String(),
 		PublicKey: p.PublicKey().String(),
 	}
@@ -68,33 +70,13 @@ func createNeighborFromPeer(p *peer.Peer) Neighbor {
 	return n
 }
 
-// Response contains information of the autopeering.
-type Response struct {
-	KnownPeers []Neighbor `json:"known,omitempty"`
-	Chosen     []Neighbor `json:"chosen"`
-	Accepted   []Neighbor `json:"accepted"`
-	Error      string     `json:"error,omitempty"`
-}
-
-// Neighbor contains information of a neighbor peer.
-type Neighbor struct {
-	ID        string        `json:"id"`        // comparable node identifier
-	PublicKey string        `json:"publicKey"` // public key used to verify signatures
-	Services  []peerService `json:"services,omitempty"`
-}
-
-type peerService struct {
-	ID      string `json:"id"`      // ID of the service
-	Address string `json:"address"` // network address of the service
-}
-
-func getServices(p *peer.Peer) []peerService {
-	var services []peerService
+func getServices(p *peer.Peer) []jsonmodels.PeerService {
+	var services []jsonmodels.PeerService
 
 	host := p.IP().String()
 	peeringService := p.Services().Get(service.PeeringKey)
 	if peeringService != nil {
-		services = append(services, peerService{
+		services = append(services, jsonmodels.PeerService{
 			ID:      "peering",
 			Address: net.JoinHostPort(host, strconv.Itoa(peeringService.Port())),
 		})
@@ -102,7 +84,7 @@ func getServices(p *peer.Peer) []peerService {
 
 	gossipService := p.Services().Get(service.GossipKey)
 	if gossipService != nil {
-		services = append(services, peerService{
+		services = append(services, jsonmodels.PeerService{
 			ID:      "gossip",
 			Address: net.JoinHostPort(host, strconv.Itoa(gossipService.Port())),
 		})
@@ -110,7 +92,7 @@ func getServices(p *peer.Peer) []peerService {
 
 	fpcService := p.Services().Get(service.FPCKey)
 	if fpcService != nil {
-		services = append(services, peerService{
+		services = append(services, jsonmodels.PeerService{
 			ID:      "FPC",
 			Address: net.JoinHostPort(host, strconv.Itoa(fpcService.Port())),
 		})

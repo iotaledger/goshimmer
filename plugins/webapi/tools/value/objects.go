@@ -9,21 +9,22 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 // ObjectsHandler returns the list of value objects.
 func ObjectsHandler(c echo.Context) error {
-	result := []Object{}
+	result := []jsonmodels.Object{}
 
 	for _, msgID := range Approvers(tangle.EmptyMessageID) {
-		var obj Object
+		var obj jsonmodels.Object
 		cachedMessage := messagelayer.Tangle().Storage.Message(msgID)
 		message := cachedMessage.Unwrap()
 		cachedMessage.Release()
 		tx := message.Payload().(*ledgerstate.Transaction)
 		inclusionState, err := messagelayer.Tangle().LedgerState.TransactionInclusionState(tx.ID())
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, ObjectsResponse{Error: err.Error()})
+			return c.JSON(http.StatusBadRequest, jsonmodels.ObjectsResponse{Error: err.Error()})
 		}
 		messagelayer.Tangle().LedgerState.TransactionMetadata(tx.ID()).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 			obj.Solid = transactionMetadata.Solid()
@@ -33,20 +34,14 @@ func ObjectsHandler(c echo.Context) error {
 		obj.InclusionState = inclusionState.String()
 		obj.BranchID = messagelayer.Tangle().LedgerState.BranchID(tx.ID()).String()
 		for _, parent := range message.Parents() {
-			obj.Parents = append(obj.Parents, parent.String())
+			obj.Parents = append(obj.Parents, parent.Base58())
 		}
 
 		obj.Tip = !messagelayer.Tangle().Storage.Approvers(message.ID()).Consume(func(approver *tangle.Approver) {})
 
 		result = append(result, obj)
 	}
-	return c.JSON(http.StatusOK, ObjectsResponse{ValueObjects: result})
-}
-
-// ObjectsResponse is the HTTP response from retrieving value objects.
-type ObjectsResponse struct {
-	ValueObjects []Object `json:"value_objects,omitempty"`
-	Error        string   `json:"error,omitempty"`
+	return c.JSON(http.StatusOK, jsonmodels.ObjectsResponse{ValueObjects: result})
 }
 
 // Approvers returns the list of approvers up to the tips.

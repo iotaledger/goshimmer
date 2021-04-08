@@ -1,3 +1,35 @@
+# v0.5.6 - 2021-04-03
+* Fix childBranchType
+* Fix FPC empty round increase
+* Make reading of FPC statements less strict
+* Fix aggregated branch diagnostic API and dashboard page  
+* **Breaking**: bumps network and database versions
+
+# v0.5.5 - 2021-04-01
+* Integrate Mana with FPC
+* Integrate Mana with the Autopeering
+* Add several FPC optimizations
+* Add dRNG diagnostic API
+* Simplify memory usage of dashboard and align to Grafana
+* Add a chart for stored, solidifier, scheduler and booker MPS
+* Update to latest hive.go
+* **Breaking**: bumps network and database versions
+
+# v0.5.4 - 2021-03-29
+* Add new diagnostic APIs
+* Add new docs sections
+* Add branch inclusion state check before issuing new transactions
+* Refactor the Faucet plugin
+* Optimize transaction's past cone check
+* Make issued messages pass through the parser filters
+* Fix Faucet time usage
+* Fix markers issue
+* Fix max inputs count check
+* Fix nil pointer in diagnostic API
+* Update to latest hive.go 
+* Enhance golangci-lint
+* **Breaking**: bumps network and database versions
+
 # v0.5.3 - 2021-03-25
 * Added new API endpoints
 * Added models navigation through the Dashboard Explorer
