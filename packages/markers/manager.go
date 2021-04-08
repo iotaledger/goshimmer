@@ -136,7 +136,7 @@ func (m *Manager) UpdateStructureDetails(structureDetailsToUpdate *StructureDeta
 	return
 }
 
-// IsInPastCone checks if the earlier node is directly or indirectly referenced by the later node in the DAG.
+// IsInPastCone checks if an earlier message (StructureDetails) is directly or indirectly referenced by a later message (StructureDetails) in the message-DAG (StructureDetails-DAG).
 func (m *Manager) IsInPastCone(earlierStructureDetails, laterStructureDetails *StructureDetails) (isInPastCone types.TriBool) {
 	if earlierStructureDetails.Rank >= laterStructureDetails.Rank {
 		return types.False
@@ -147,13 +147,14 @@ func (m *Manager) IsInPastCone(earlierStructureDetails, laterStructureDetails *S
 	}
 
 	if earlierStructureDetails.IsPastMarker {
+		// earlierStructureDetails is earlierMarker itself
 		earlierMarker := earlierStructureDetails.PastMarkers.HighestSequenceMarker()
 		if earlierMarker == nil {
 			panic("failed to retrieve Marker")
 		}
 
-		// If laterStructureDetails has a past marker in the same sequence of the earlier with a higher index
-		// the earlier one is in its past cone.
+		// If laterStructureDetails has a past marker in the same sequence as earlierMarker but with a higher index
+		// then earlierMarker is in the past cone of laterStructureDetails.
 		if laterIndex, sequenceExists := laterStructureDetails.PastMarkers.Get(earlierMarker.sequenceID); sequenceExists {
 			if laterIndex >= earlierMarker.index {
 				return types.True
@@ -162,32 +163,33 @@ func (m *Manager) IsInPastCone(earlierStructureDetails, laterStructureDetails *S
 			return types.False
 		}
 
-		// If laterStructureDetails has no past marker in the same sequence of the earlier,
-		// then just check the index
+		// If laterStructureDetails has no past marker in the same sequence as earlierMarker,
+		// then check the index
 		if laterStructureDetails.PastMarkers.HighestIndex() <= earlierMarker.index {
 			return types.False
 		}
 	}
 
 	if laterStructureDetails.IsPastMarker {
+		// laterStructureDetails is laterMarker itself
 		laterMarker := laterStructureDetails.PastMarkers.HighestSequenceMarker()
 		if laterMarker == nil {
 			panic("failed to retrieve Marker")
 		}
 
-		// If earlierStructureDetails has a past marker in the same sequence of the later with a higher index or references the later,
-		// the earlier one is definitely not in its past cone.
+		// If earlierStructureDetails has a past marker in the same sequence as laterMarker but with a higher index, or references laterMarker,
+		// then the earlierStructureDetails is definitely not in the past cone of laterMarker
 		if earlierIndex, sequenceExists := earlierStructureDetails.PastMarkers.Get(laterMarker.sequenceID); sequenceExists && earlierIndex >= laterMarker.index {
 			return types.False
 		}
 
-		// If earlierStructureDetails has a future marker in the same sequence of the later with a higher index,
-		// the earlier one is definitely not in its past cone.
+		// If earlierStructureDetails has a future marker in the same sequence as laterMarker but with a higher index,
+		// then earlierStructureDetails one is definitely not in laterMarker's past cone.
 		if earlierFutureIndex, earlierFutureIndexExists := earlierStructureDetails.FutureMarkers.Get(laterMarker.sequenceID); earlierFutureIndexExists && earlierFutureIndex > laterMarker.index {
 			return types.False
 		}
 
-		// Iterate the future markers of laterStructureDetails and check if the earlier one has future markers in the same sequence,
+		// Iterate the future markers of laterStructureDetails and check if earlierStructureDetails has future markers in the same sequence,
 		// if yes, then make sure the index is smaller than the one of laterStructureDetails.
 		if laterStructureDetails.FutureMarkers.Size() != 0 && !laterStructureDetails.FutureMarkers.ForEach(func(sequenceID SequenceID, laterIndex Index) bool {
 			earlierIndex, similarSequenceExists := earlierStructureDetails.FutureMarkers.Get(sequenceID)
@@ -201,7 +203,7 @@ func (m *Manager) IsInPastCone(earlierStructureDetails, laterStructureDetails *S
 		}
 	}
 
-	// If the two messages has the same past marker, then the earlier one is not in the later one's past cone.
+	// If the two StructureDetails have the same past marker, then the earlierStructureDetails is not in laterStructureDetails' past cone.
 	if earlierStructureDetails.PastMarkers.HighestIndex() == laterStructureDetails.PastMarkers.HighestIndex() {
 		if !earlierStructureDetails.PastMarkers.ForEach(func(sequenceID SequenceID, earlierIndex Index) bool {
 			if earlierIndex == earlierStructureDetails.PastMarkers.HighestIndex() {
