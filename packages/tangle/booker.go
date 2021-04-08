@@ -236,6 +236,11 @@ func (b *Booker) bookPayload(message *Message) (branchID ledgerstate.BranchID, e
 	}
 
 	for _, output := range transaction.Essence().Outputs() {
+		// store fallback address as an owner of this output as well
+		if output.Type() == ledgerstate.ExtendedLockedOutputType {
+			castedOutput := output.(*ledgerstate.ExtendedLockedOutput)
+			b.tangle.LedgerState.utxoDAG.StoreAddressOutputMapping(castedOutput.FallbackAddress(), output.ID())
+		}
 		b.tangle.LedgerState.utxoDAG.StoreAddressOutputMapping(output.Address(), output.ID())
 	}
 
