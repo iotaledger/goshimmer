@@ -127,7 +127,7 @@ func (u *UtxoDB) CheckNewTransaction(tx *ledgerstate.Transaction, lock ...bool) 
 		return xerrors.Errorf("sum of consumed and spent balances is not 0")
 	}
 	if ok, err := ledgerstate.UnlockBlocksValidWithError(inputs, tx); !ok || err != nil {
-		return xerrors.Errorf("CheckNewTransaction: input unlocking failed: %w", err)
+		return xerrors.Errorf("CheckNewTransaction: input unlocking failed: %v", err)
 	}
 	return nil
 }
