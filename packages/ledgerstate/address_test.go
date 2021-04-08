@@ -80,4 +80,5 @@ func TestAliasAddressIsNil(t *testing.T) {
 	require.True(t, pNilAddr.IsNil())
 	notNilAddr := NewAliasAddress([]byte("data"))
 	require.False(t, notNilAddr.IsNil())
+	require.True(t, nilAddr.Equals(&AliasAddress{}))
 }
