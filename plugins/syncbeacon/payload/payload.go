@@ -26,7 +26,6 @@ var Type = payload.NewType(200, ObjectName, func(data []byte) (payload payload.P
 		return nil, xerrors.New("not all payload bytes were consumed")
 	}
 	return
-	return
 })
 
 // Payload represents the syncbeacon payload
