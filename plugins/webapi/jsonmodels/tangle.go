@@ -2,7 +2,9 @@ package jsonmodels
 
 import (
 	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 // region Message ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -21,6 +23,30 @@ type Message struct {
 	TransactionID   string   `json:"transactionID,omitempty"`
 	Payload         []byte   `json:"payload"`
 	Signature       string   `json:"signature"`
+}
+
+// NewMessage returns a Message from the given tangle.Message.
+func NewMessage(message *tangle.Message) Message {
+	return Message{
+		ID:              message.ID().Base58(),
+		StrongParents:   message.StrongParents().ToStrings(),
+		WeakParents:     message.WeakParents().ToStrings(),
+		StrongApprovers: messagelayer.Tangle().Utils.ApprovingMessageIDs(message.ID(), tangle.StrongApprover).ToStrings(),
+		WeakApprovers:   messagelayer.Tangle().Utils.ApprovingMessageIDs(message.ID(), tangle.WeakApprover).ToStrings(),
+		IssuerPublicKey: message.IssuerPublicKey().String(),
+		IssuingTime:     message.IssuingTime().Unix(),
+		SequenceNumber:  message.SequenceNumber(),
+		PayloadType:     message.Payload().Type().String(),
+		TransactionID: func() string {
+			if message.Payload().Type() == ledgerstate.TransactionType {
+				return message.Payload().(*ledgerstate.Transaction).ID().Base58()
+			}
+
+			return ""
+		}(),
+		Payload:   message.Payload().Bytes(),
+		Signature: message.Signature().String(),
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -44,7 +70,7 @@ type MessageMetadata struct {
 // NewMessageMetadata returns MessageMetadata from the given tangle.MessageMetadata.
 func NewMessageMetadata(metadata *tangle.MessageMetadata) MessageMetadata {
 	return MessageMetadata{
-		ID:                 metadata.ID().String(),
+		ID:                 metadata.ID().Base58(),
 		ReceivedTime:       metadata.ReceivedTime().Unix(),
 		Solid:              metadata.IsSolid(),
 		SolidificationTime: metadata.SolidificationTime().Unix(),

@@ -60,8 +60,8 @@ func sendTransactionHandler(c echo.Context) error {
 	}
 
 	// check transaction validity
-	if valid, err := messagelayer.Tangle().LedgerState.CheckTransaction(tx); !valid {
-		return c.JSON(http.StatusBadRequest, value.SendTransactionResponse{Error: err.Error()})
+	if transactionErr := messagelayer.Tangle().LedgerState.CheckTransaction(tx); transactionErr != nil {
+		return c.JSON(http.StatusBadRequest, value.SendTransactionResponse{Error: transactionErr.Error()})
 	}
 
 	// check if transaction is too old

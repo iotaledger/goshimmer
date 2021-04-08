@@ -50,5 +50,5 @@ func broadcastData(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: err.Error()})
 	}
-	return c.JSON(http.StatusOK, jsonmodels.DataResponse{ID: msg.ID().String()})
+	return c.JSON(http.StatusOK, jsonmodels.DataResponse{ID: msg.ID().Base58()})
 }

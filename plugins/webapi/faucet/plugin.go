@@ -71,5 +71,5 @@ func requestFunds(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, jsonmodels.FaucetResponse{Error: fmt.Sprintf("Failed to send faucetrequest: %s", err.Error())})
 	}
 
-	return c.JSON(http.StatusOK, jsonmodels.FaucetResponse{ID: msg.ID().String()})
+	return c.JSON(http.StatusOK, jsonmodels.FaucetResponse{ID: msg.ID().Base58()})
 }
