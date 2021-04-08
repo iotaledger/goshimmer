@@ -517,7 +517,7 @@ func TestConsensusBaseManaVector_GetHighestManaNodesFraction(t *testing.T) {
 	assert.InDelta(t, 9.0, result[0].Mana, delta)
 
 	// requesting the holders of top 10% of mana
-	result, _, err = bmv.GetHighestManaNodesFraction(0.2)
+	result, _, err = bmv.GetHighestManaNodesFraction(0.1)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(result))
 	assert.Equal(t, nodeIDs[9], result[0].ID)
