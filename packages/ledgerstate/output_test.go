@@ -3,6 +3,7 @@ package ledgerstate
 import (
 	"bytes"
 	"encoding/binary"
+	"github.com/stretchr/testify/require"
 	"math/rand"
 	"sync"
 	"testing"
@@ -18,6 +19,19 @@ import (
 )
 
 // region AliasOutput Tests
+
+func TestAliasOutputIsOrigin(t *testing.T) {
+	tokens := map[Color]uint64{ColorIOTA: 200}
+	pub, _, err := ed25519.GenerateKey()
+	require.NoError(t, err)
+	addr := NewED25519Address(pub)
+	out, err := NewAliasOutputMint(tokens, addr)
+	require.NoError(t, err)
+	require.True(t, out.IsOrigin())
+	out.SetID(OutputID{})
+	outUpd := out.UpdateMintingColor().(*AliasOutput)
+	require.True(t, outUpd.IsOrigin())
+}
 
 func TestAliasOutput_NewAliasOutputMint(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
