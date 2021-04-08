@@ -5,9 +5,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/epochs"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -19,6 +16,10 @@ import (
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/epochs"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
 const (
@@ -97,7 +98,7 @@ func (a *ApprovalWeightManager) onSequenceSupportUpdated(marker *markers.Marker,
 
 	for i := a.lastConfirmedMarkers[marker.SequenceID()] + 1; i <= marker.Index(); i++ {
 		currentMarker := markers.NewMarker(marker.SequenceID(), i)
-		branchID := a.tangle.Booker.MarkerBranchIDMappingManager.BranchID(currentMarker)
+		branchID := a.tangle.Booker.MarkersManager.BranchID(currentMarker)
 		supportersOfBranch := a.supportersManager.SupportersOfBranch(branchID)
 		supportersOfMarker := a.supportersManager.SupportersOfMarker(currentMarker)
 
