@@ -99,6 +99,10 @@ func (a *ApprovalWeightManager) onSequenceSupportUpdated(marker *markers.Marker,
 	for i := a.lastConfirmedMarkers[marker.SequenceID()] + 1; i <= marker.Index(); i++ {
 		currentMarker := markers.NewMarker(marker.SequenceID(), i)
 		branchID := a.tangle.Booker.MarkersManager.BranchID(currentMarker)
+		if a.tangle.LedgerState.BranchDAG.InclusionState(branchID) != ledgerstate.Confirmed {
+			break
+		}
+
 		supportersOfBranch := a.supportersManager.SupportersOfBranch(branchID)
 		supportersOfMarker := a.supportersManager.SupportersOfMarker(currentMarker)
 
@@ -109,7 +113,7 @@ func (a *ApprovalWeightManager) onSequenceSupportUpdated(marker *markers.Marker,
 			}
 		})
 
-		if supporterMana/totalMana < markerConfirmationThreshold || a.tangle.LedgerState.BranchDAG.InclusionState(branchID) != ledgerstate.Confirmed {
+		if supporterMana/totalMana < markerConfirmationThreshold {
 			break
 		}
 
