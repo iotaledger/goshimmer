@@ -38,11 +38,11 @@ const (
 	// PrefixMarkerBranchIDMapping defines the storage prefix for the PrefixMarkerBranchIDMapping.
 	PrefixMarkerBranchIDMapping
 
-	// PrefixSequenceSupporters defines the storage prefix for the SequenceSupporters.
-	PrefixSequenceSupporters
-
 	// PrefixIndividuallyMappedMessage defines the storage prefix for the IndividuallyMappedMessage.
 	PrefixIndividuallyMappedMessage
+
+	// PrefixSequenceSupporters defines the storage prefix for the SequenceSupporters.
+	PrefixSequenceSupporters
 
 	// DBSequenceNumber defines the db sequence number.
 	DBSequenceNumber = "seq"
@@ -62,8 +62,8 @@ type Storage struct {
 	missingMessageStorage             *objectstorage.ObjectStorage
 	attachmentStorage                 *objectstorage.ObjectStorage
 	markerIndexBranchIDMappingStorage *objectstorage.ObjectStorage
-	sequenceSupportersStorage         *objectstorage.ObjectStorage
 	individuallyMappedMessageStorage  *objectstorage.ObjectStorage
+	sequenceSupportersStorage         *objectstorage.ObjectStorage
 
 	Events   *StorageEvents
 	shutdown chan struct{}

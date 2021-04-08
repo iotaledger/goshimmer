@@ -285,7 +285,7 @@ func increaseIndexCallback(markers.SequenceID, markers.Index) bool {
 	return true
 }
 
-func createBranch(t *testing.T, tangle *Tangle, branchID ledgerstate.BranchID, parentBranchID ledgerstate.BranchID, conflictID ledgerstate.ConflictID) {
+func createBranch(t *testing.T, tangle *Tangle, branchID, parentBranchID ledgerstate.BranchID, conflictID ledgerstate.ConflictID) {
 	cachedBranch, _, err := tangle.LedgerState.BranchDAG.CreateConflictBranch(branchID, ledgerstate.NewBranchIDs(parentBranchID), ledgerstate.NewConflictIDs(conflictID))
 	require.NoError(t, err)
 
