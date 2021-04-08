@@ -1,25 +1,25 @@
 # Timestamps
 
 ## Motivation
-In order to enable snapshotting based on time constraints rather than special messages in the Tangle (e.g., milestones), nodes need to share the same perception of time. Specifically, they need to have consensus on the *age of messages*. Therefore, messages contain a field `timestamp` which represents the creation time of the message and is signed by the issuing node. 
+In order to enable snapshotting based on time constraints rather than special messages in the Tangle (e.g. checkpoints), nodes need to share the same perception of time. Specifically, they need to have consensus on the *age of messages*. Therefore, messages contain a field `timestamp` which represents the creation time of the message and is signed by the issuing node. 
 
 Having consensus on the creation time of messages enables not only partial ordering but also new applications that require certain guarantees regarding time. 
 
-In this document we propose a mechanism achieving consensus on message timestamps by combining a synchronous and an asynchronous approach. While online nodes can leverage FPC to vote on timestamps, nodes that join the network at a later time use an approach similar to On Tangle Voting to determine valid timestamps. 
+In this document we propose a mechanism achieving consensus on message timestamps by combining a synchronous and an asynchronous approach. While online nodes can leverage FPC to vote on timestamps, nodes that join the network at a later time use an approach similar to On Tangle Voting to determine the validity of timestamps. 
 
 ## Requirements
 1. Nodes participating in the network need to share the same perception of time.
 2. Consensus on timestamps.
 
 ## Dependencies
-+ Local markers: they are used to optimize the calculation required to check whether a given message future cone is approved by a given mana threshold.
-+ FPC: it's used to perform voting on timestamps.
++ Marker tool: Markers are used to optimize the calculation required to check whether a given message is approved by a given mana threshold.
++ FPC: used to perform voting on timestamps.
 
 ## Parameters
 - `D` gratuitous network delay ~5 minutes. We assume all messages are delivered within this time.
 - `w` window ~30 minutes. Require w>2D
 - `Delta` max difference in consecutive timestamps. Require Delta>w+D
-- `tw` transaction timestamp window. Max difference between message and transaction timestamp.
+- `tw` max difference between message timestamp and transaction timestamp.
 
 
 ## Clock synchronization
@@ -94,7 +94,7 @@ inputs.timestamp < transaction.timestamp
 In other words, all inputs to a transaction need to have a smaller timestamp than the transaction. In turn, all created unspent outputs will have a greater timestamp than all inputs.
 
 ## Consensus
-The timestamp should define the time when the message was created and issued to the Tangle, and this must be enforced to some degree through voting. Specifically, nodes will vote on whether the timestamp was issued within `w` of current local time. This time window is large to account for the network delay. 
+The timestamp should define the time when the message was created and issued to the Tangle, and this must be enforced to some degree through voting. Specifically, nodes will vote on whether the timestamp was issued within `w` of the current local time. This time window is large to account for the network delay. 
 Clearly, in order to have a correct perception of the timestamp quality, **we assume the node is in sync** (see section [Not in Sync](#Not_in_Sync) otherwise).
 Voting on timestamps should not occur for every messsage. Specifically, only for those that arrive around the border of the threshold +-`w`.
 
@@ -117,7 +117,7 @@ For example, lets set `w` and `D` to 30 minutes and 5 minutes respectively. Let'
 
 Lets consider now a new message with timestamp 11:30:10. Since |11:30:10-12:00:00| < 30 minutes we will set the opinion to `LIKE`. However, since ||11:30:10-12:00:00| - 30 minutes | is lower than 5 minutes, we will set the level of knowledge for this opinion to 1, meaning that this message timestamp will be object of voting. 
 
-In general, timestamps with level of knowledge 1 will be input of FPC, that will eventually trigger the `finalized` event, after which we can set a message as eligible (or discard, depending on the outcome). If instead, the timestamp we are considering, has already level of knowledge >= 2, we do not need to vote. Either it is eligible (marked as liked) or marked as disliked.
+In general, timestamps with level-of-knowledge 1 will be input into FPC, that will eventually trigger the `finalized` event, after which we can set a message as eligible (or discard, depending on the outcome). If instead, the timestamp we are considering, has already level of knowledge >= 2, we do not need to vote, but we will reply to queries. Either it is eligible (marked as liked) or marked as disliked. If the timestamp has level-of-knowledge 3 we do not reply to FPC queries.
 
 ### Modification of FPC
 The current FPC implementation is tailored to only vote on conflicting transactions. To allow for voting on timestamps, we will need to specifiy the type of voting object in the `queryRequest` message, and consequently, in the `queryReply` message.
