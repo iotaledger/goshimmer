@@ -63,9 +63,9 @@ func (m *MessageTestFramework) CreateMessage(messageAlias string, messageOptions
 	options := NewMessageTestFrameworkMessageOptions(messageOptions...)
 
 	if transaction := m.buildTransaction(options); transaction != nil {
-		m.messagesByAlias[messageAlias] = newTestParentsPayloadMessage(transaction, m.strongParentIDs(options), m.weakParentIDs(options))
+		m.messagesByAlias[messageAlias] = newTestParentsPayloadMessageIssuer(transaction, m.strongParentIDs(options), m.weakParentIDs(options), options.issuer)
 	} else {
-		m.messagesByAlias[messageAlias] = newTestParentsDataMessage(messageAlias, m.strongParentIDs(options), m.weakParentIDs(options))
+		m.messagesByAlias[messageAlias] = newTestParentsDataMessageIssuer(messageAlias, m.strongParentIDs(options), m.weakParentIDs(options), options.issuer)
 	}
 
 	RegisterMessageIDAlias(m.messagesByAlias[messageAlias].ID(), messageAlias)
@@ -330,6 +330,7 @@ type MessageTestFrameworkMessageOptions struct {
 	coloredOutputs map[string]map[ledgerstate.Color]uint64
 	strongParents  map[string]types.Empty
 	weakParents    map[string]types.Empty
+	issuer         ed25519.PublicKey
 }
 
 // NewMessageTestFrameworkMessageOptions is the constructor for the MessageTestFrameworkMessageOptions.
@@ -393,6 +394,13 @@ func WithWeakParents(messageAliases ...string) MessageOption {
 	}
 }
 
+// WithIssuer returns a MessageOption that is used to define the issuer of the Message.
+func WithIssuer(issuer ed25519.PublicKey) MessageOption {
+	return func(options *MessageTestFrameworkMessageOptions) {
+		options.issuer = issuer
+	}
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Utility functions ////////////////////////////////////////////////////////////////////////////////////////////
@@ -419,12 +427,20 @@ func newTestParentsDataMessage(payloadString string, strongParents, weakParents 
 	return NewMessage(strongParents, weakParents, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
 }
 
+func newTestParentsDataMessageIssuer(payloadString string, strongParents, weakParents []MessageID, issuer ed25519.PublicKey) *Message {
+	return NewMessage(strongParents, weakParents, time.Now(), issuer, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+}
+
 func newTestParentsDataWithTimestamp(payloadString string, strongParents, weakParents []MessageID, timestamp time.Time) *Message {
 	return NewMessage(strongParents, weakParents, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
 }
 
 func newTestParentsPayloadMessage(payload payload.Payload, strongParents, weakParents []MessageID) *Message {
 	return NewMessage(strongParents, weakParents, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload, 0, ed25519.Signature{})
+}
+
+func newTestParentsPayloadMessageIssuer(payload payload.Payload, strongParents, weakParents []MessageID, issuer ed25519.PublicKey) *Message {
+	return NewMessage(strongParents, weakParents, time.Now(), issuer, nextSequenceNumber(), payload, 0, ed25519.Signature{})
 }
 
 func newTestParentsPayloadWithTimestamp(payload payload.Payload, strongParents, weakParents []MessageID, timestamp time.Time) *Message {
