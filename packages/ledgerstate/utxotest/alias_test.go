@@ -122,10 +122,9 @@ func TestChainForkFail(t *testing.T) {
 
 	// create another identical and modify slightly with adding dummy data
 	// This creates forked chain
-	chained, err = txb.AliasNextChainedOutput(aliasAddress)
+	chainedFork, err := txb.AliasNextChainedOutput(aliasAddress)
 	require.NoError(t, err)
-	chainedFork := chained.Clone()
-	err = chainedFork.(*ledgerstate.AliasOutput).SetStateData([]byte("qq"))
+	err = chainedFork.SetStateData([]byte("qq"))
 	require.NoError(t, err)
 
 	succ := txb.ConsumeAmounts(chainedFork.Balances().Map())

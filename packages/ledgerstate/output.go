@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -243,7 +244,11 @@ func OutputFromBytes(bytes []byte) (output Output, consumedBytes int, err error)
 		err = xerrors.Errorf("failed to parse Output from MarshalUtil: %w", err)
 	}
 	consumedBytes = marshalUtil.ReadOffset()
-
+	if consumedBytes != len(bytes) {
+		if err == nil {
+			err = xerrors.Errorf("did not consume all bytes")
+		}
+	}
 	return
 }
 
@@ -920,10 +925,10 @@ const MaxOutputPayloadSize = 4 * 1024
 
 // flags use to compress serialized bytes
 const (
-	flagAliasOutputGovernanceUpdate     = 0x01
-	flagAliasOutputGovernanceSet        = 0x02
-	flagAliasOutputStateDataPresent     = 0x04
-	flagAliasOutputImmutableDataPresent = 0x08
+	flagAliasOutputGovernanceUpdate = uint(iota)
+	flagAliasOutputGovernanceSet
+	flagAliasOutputStateDataPresent
+	flagAliasOutputImmutableDataPresent
 )
 
 // AliasOutput represents output which defines as AliasAddress.
@@ -983,7 +988,6 @@ func NewAliasOutputMint(balances map[Color]uint64, stateAddr Address, immutableD
 // NewAliasOutputNext creates new AliasOutput as state transition from the previous one
 func (a *AliasOutput) NewAliasOutputNext(governanceUpdate ...bool) *AliasOutput {
 	ret := a.clone()
-	ret.aliasAddress = *a.GetAliasAddress()
 	ret.isGovernanceUpdate = false
 	if len(governanceUpdate) > 0 {
 		ret.isGovernanceUpdate = governanceUpdate[0]
@@ -1005,11 +1009,12 @@ func AliasOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*AliasOut
 		return nil, xerrors.Errorf("AliasOutput: invalid OutputType (%X): %w", outputType, cerrors.ErrParseBytesFailed)
 	}
 	ret = &AliasOutput{}
-	flags, err1 := marshalUtil.ReadByte()
+	flagsByte, err1 := marshalUtil.ReadByte()
 	if err1 != nil {
 		return nil, xerrors.Errorf("AliasOutput: failed to parse AliasOutput flags (%v): %w", err1, cerrors.ErrParseBytesFailed)
 	}
-	ret.isGovernanceUpdate = flags&flagAliasOutputGovernanceUpdate != 0
+	flags := bitmask.BitMask(flagsByte)
+	ret.isGovernanceUpdate = flags.HasBit(flagAliasOutputGovernanceUpdate)
 	if ret.aliasAddress.IsNil() {
 		addr, err2 := AliasAddressFromMarshalUtil(marshalUtil)
 		if err2 != nil {
@@ -1030,7 +1035,7 @@ func AliasOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*AliasOut
 	if err != nil {
 		return nil, xerrors.Errorf("AliasOutput: failed to parse state address (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
-	if flags&flagAliasOutputStateDataPresent != 0 {
+	if flags.HasBit(flagAliasOutputStateDataPresent) {
 		size, err4 := marshalUtil.ReadUint16()
 		if err4 != nil {
 			return nil, xerrors.Errorf("AliasOutput: failed to parse state data size: %w", err4)
@@ -1040,7 +1045,7 @@ func AliasOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*AliasOut
 			return nil, xerrors.Errorf("AliasOutput: failed to parse state data: %w", err)
 		}
 	}
-	if flags&flagAliasOutputImmutableDataPresent != 0 {
+	if flags.HasBit(flagAliasOutputImmutableDataPresent) {
 		size, err5 := marshalUtil.ReadUint16()
 		if err5 != nil {
 			return nil, xerrors.Errorf("AliasOutput: failed to parse immutable data size: %w", err5)
@@ -1050,7 +1055,7 @@ func AliasOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*AliasOut
 			return nil, xerrors.Errorf("AliasOutput: failed to parse immutable data: %w", err)
 		}
 	}
-	if flags&flagAliasOutputGovernanceSet != 0 {
+	if flags.HasBit(flagAliasOutputGovernanceSet) {
 		ret.governingAddress, err = AddressFromMarshalUtil(marshalUtil)
 		if err != nil {
 			return nil, xerrors.Errorf("AliasOutput: failed to parse governing address (%v): %w", err, cerrors.ErrParseBytesFailed)
@@ -1179,7 +1184,7 @@ func (a *AliasOutput) clone() *AliasOutput {
 	ret := &AliasOutput{
 		outputID:      a.outputID,
 		balances:      a.balances.Clone(),
-		aliasAddress:  a.aliasAddress,
+		aliasAddress:  *a.aliasAddress.Clone().(*AliasAddress),
 		stateAddress:  a.stateAddress.Clone(),
 		stateIndex:    a.stateIndex,
 		stateData:     make([]byte, len(a.stateData)),
@@ -1272,20 +1277,20 @@ func (a *AliasOutput) ObjectStorageValue() []byte {
 	flags := a.mustFlags()
 	ret := marshalutil.New().
 		WriteByte(byte(AliasOutputType)).
-		WriteByte(flags).
+		WriteByte(byte(flags)).
 		WriteBytes(a.aliasAddress.Bytes()).
 		WriteBytes(a.balances.Bytes()).
 		WriteBytes(a.stateAddress.Bytes()).
 		WriteUint32(a.stateIndex)
-	if flags&flagAliasOutputStateDataPresent != 0 {
+	if flags.HasBit(flagAliasOutputStateDataPresent) {
 		ret.WriteUint16(uint16(len(a.stateData))).
 			WriteBytes(a.stateData)
 	}
-	if flags&flagAliasOutputImmutableDataPresent != 0 {
+	if flags.HasBit(flagAliasOutputImmutableDataPresent) {
 		ret.WriteUint16(uint16(len(a.immutableData))).
 			WriteBytes(a.immutableData)
 	}
-	if flags&flagAliasOutputGovernanceSet != 0 {
+	if flags.HasBit(flagAliasOutputGovernanceSet) {
 		ret.WriteBytes(a.governingAddress.Bytes())
 	}
 	return ret.Bytes()
@@ -1337,7 +1342,8 @@ func (a *AliasOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inpu
 	return false, xerrors.New("unsupported unlock block type")
 }
 
-// UpdateMintingColor replaces minting code with computed color code
+// UpdateMintingColor replaces minting code with computed color code, and calculates the alias address if it is a
+// freshly minted alias output
 func (a *AliasOutput) UpdateMintingColor() Output {
 	coloredBalances := a.Balances().Map()
 	if mintedCoins, mintedCoinsExist := coloredBalances[ColorMint]; mintedCoinsExist {
@@ -1347,6 +1353,10 @@ func (a *AliasOutput) UpdateMintingColor() Output {
 	updatedOutput := a.clone()
 	_ = updatedOutput.SetBalances(coloredBalances)
 	updatedOutput.SetID(a.ID())
+
+	if a.IsOrigin() {
+		updatedOutput.SetAliasAddress(a.GetAliasAddress())
+	}
 
 	return updatedOutput
 }
@@ -1364,7 +1374,7 @@ func (a *AliasOutput) checkBasicValidity() error {
 	}
 	if len(a.stateData) > MaxOutputPayloadSize {
 		return xerrors.Errorf("AliasOutput: size of the stateData (%d) exceeds maximum allowed (%d)",
-			len(a.immutableData), MaxOutputPayloadSize)
+			len(a.stateData), MaxOutputPayloadSize)
 	}
 	if len(a.immutableData) > MaxOutputPayloadSize {
 		return xerrors.Errorf("AliasOutput: size of the immutableData (%d) exceeds maximum allowed (%d)",
@@ -1381,20 +1391,20 @@ func (a *AliasOutput) mustValidate() {
 }
 
 // mustFlags produces flags for serialization
-func (a *AliasOutput) mustFlags() byte {
+func (a *AliasOutput) mustFlags() bitmask.BitMask {
 	a.mustValidate()
-	var ret byte
+	var ret bitmask.BitMask
 	if a.isGovernanceUpdate {
-		ret |= flagAliasOutputGovernanceUpdate
+		ret = ret.SetBit(flagAliasOutputGovernanceUpdate)
 	}
 	if len(a.immutableData) > 0 {
-		ret |= flagAliasOutputImmutableDataPresent
+		ret = ret.SetBit(flagAliasOutputImmutableDataPresent)
 	}
 	if len(a.stateData) > 0 {
-		ret |= flagAliasOutputStateDataPresent
+		ret = ret.SetBit(flagAliasOutputStateDataPresent)
 	}
 	if a.governingAddress != nil {
-		ret |= flagAliasOutputGovernanceSet
+		ret = ret.SetBit(flagAliasOutputGovernanceSet)
 	}
 	return ret
 }
@@ -1466,7 +1476,7 @@ func isExactDustMinimum(b *ColoredBalances) bool {
 // validateTransition enforces transition constraints between input and output chain outputs
 func (a *AliasOutput) validateTransition(chained *AliasOutput) error {
 	// enforce immutability of alias address and immutable data
-	if !a.GetAliasAddress().Equals(a.GetAliasAddress()) {
+	if !a.GetAliasAddress().Equals(chained.GetAliasAddress()) {
 		return xerrors.New("chain alias address can't be modified")
 	}
 	if !bytes.Equal(a.immutableData, chained.immutableData) {
@@ -1590,9 +1600,9 @@ type ExtendedLockedOutput struct {
 }
 
 const (
-	flagExtendedLockedOutputFallbackPresent = 0x01
-	flagExtendedLockedOutputTimeLockPresent = 0x02
-	flagExtendedLockedOutputPayloadPresent  = 0x04
+	flagExtendedLockedOutputFallbackPresent = uint(iota)
+	flagExtendedLockedOutputTimeLockPresent
+	flagExtendedLockedOutputPayloadPresent
 )
 
 // NewExtendedLockedOutput is the constructor for a ExtendedLockedOutput.
@@ -1663,12 +1673,13 @@ func ExtendedOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output
 		err = xerrors.Errorf("failed to parse Address (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	var flags byte
-	if flags, err = marshalUtil.ReadByte(); err != nil {
+	var flagsByte byte
+	if flagsByte, err = marshalUtil.ReadByte(); err != nil {
 		err = xerrors.Errorf("failed to parse flags (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	if flagExtendedLockedOutputFallbackPresent&flags != 0 {
+	flags := bitmask.BitMask(flagsByte)
+	if flags.HasBit(flagExtendedLockedOutputFallbackPresent) {
 		if output.fallbackAddress, err = AddressFromMarshalUtil(marshalUtil); err != nil {
 			err = xerrors.Errorf("failed to parse fallbackAddress (%v): %w", err, cerrors.ErrParseBytesFailed)
 			return
@@ -1678,13 +1689,13 @@ func ExtendedOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output
 			return
 		}
 	}
-	if flagExtendedLockedOutputTimeLockPresent&flags != 0 {
+	if flags.HasBit(flagExtendedLockedOutputTimeLockPresent) {
 		if output.timelock, err = marshalUtil.ReadTime(); err != nil {
 			err = xerrors.Errorf("failed to parse timelock (%v): %w", err, cerrors.ErrParseBytesFailed)
 			return
 		}
 	}
-	if flagExtendedLockedOutputPayloadPresent&flags != 0 {
+	if flags.HasBit(flagExtendedLockedOutputPayloadPresent) {
 		var size uint16
 		size, err = marshalUtil.ReadUint16()
 		if err != nil {
@@ -1701,16 +1712,16 @@ func ExtendedOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output
 }
 
 // compressFlags examines the optional fields of the output and returns the combined flags as a byte.
-func (o *ExtendedLockedOutput) compressFlags() byte {
-	var ret byte
+func (o *ExtendedLockedOutput) compressFlags() bitmask.BitMask {
+	var ret bitmask.BitMask
 	if o.fallbackAddress != nil {
-		ret |= flagExtendedLockedOutputFallbackPresent
+		ret = ret.SetBit(flagExtendedLockedOutputFallbackPresent)
 	}
 	if !o.timelock.IsZero() {
-		ret |= flagExtendedLockedOutputTimeLockPresent
+		ret = ret.SetBit(flagExtendedLockedOutputTimeLockPresent)
 	}
 	if len(o.payload) > 0 {
-		ret |= flagExtendedLockedOutputPayloadPresent
+		ret = ret.SetBit(flagExtendedLockedOutputPayloadPresent)
 	}
 	return ret
 }
@@ -1857,15 +1868,15 @@ func (o *ExtendedLockedOutput) ObjectStorageValue() []byte {
 		WriteByte(byte(ExtendedLockedOutputType)).
 		WriteBytes(o.balances.Bytes()).
 		WriteBytes(o.address.Bytes()).
-		WriteByte(flags)
-	if flagExtendedLockedOutputFallbackPresent&flags != 0 {
+		WriteByte(byte(flags))
+	if flags.HasBit(flagExtendedLockedOutputFallbackPresent) {
 		ret.WriteBytes(o.fallbackAddress.Bytes()).
 			WriteTime(o.fallbackDeadline)
 	}
-	if flagExtendedLockedOutputTimeLockPresent&flags != 0 {
+	if flags.HasBit(flagExtendedLockedOutputTimeLockPresent) {
 		ret.WriteTime(o.timelock)
 	}
-	if flagExtendedLockedOutputPayloadPresent&flags != 0 {
+	if flags.HasBit(flagExtendedLockedOutputPayloadPresent) {
 		ret.WriteUint16(uint16(len(o.payload))).
 			WriteBytes(o.payload)
 	}

@@ -139,6 +139,7 @@ func TestStateTransition1(t *testing.T) {
 
 	oid := ledgerstate.NewOutputID(ledgerstate.TransactionID{}, 42)
 	out.SetID(oid)
+	out.SetAliasAddress(out.GetAliasAddress())
 
 	outNext := out.NewAliasOutputNext()
 
@@ -158,6 +159,7 @@ func TestStateTransition2(t *testing.T) {
 
 	oid := ledgerstate.NewOutputID(ledgerstate.TransactionID{}, 42)
 	out.SetID(oid)
+	out.SetAliasAddress(out.GetAliasAddress())
 
 	outNext := out.NewAliasOutputNext()
 
