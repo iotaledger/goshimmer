@@ -929,6 +929,7 @@ const (
 	flagAliasOutputGovernanceSet
 	flagAliasOutputStateDataPresent
 	flagAliasOutputImmutableDataPresent
+	flagAliasOutputIsOrigin
 )
 
 // AliasOutput represents output which defines as AliasAddress.
@@ -960,6 +961,8 @@ type AliasOutput struct {
 	isGovernanceUpdate bool
 	// governance address if set. It can be any address, unlocked by signature of alias address. Nil means self governed
 	governingAddress Address
+	// true if it is the first output in the chain
+	isOrigin bool
 
 	objectstorage.StorableObjectFlags
 }
@@ -975,6 +978,7 @@ func NewAliasOutputMint(balances map[Color]uint64, stateAddr Address, immutableD
 	ret := &AliasOutput{
 		balances:     NewColoredBalances(balances),
 		stateAddress: stateAddr,
+		isOrigin:     true,
 	}
 	if len(immutableData) > 0 {
 		ret.immutableData = immutableData[0]
@@ -988,6 +992,7 @@ func NewAliasOutputMint(balances map[Color]uint64, stateAddr Address, immutableD
 // NewAliasOutputNext creates new AliasOutput as state transition from the previous one
 func (a *AliasOutput) NewAliasOutputNext(governanceUpdate ...bool) *AliasOutput {
 	ret := a.clone()
+	ret.isOrigin = false
 	ret.isGovernanceUpdate = false
 	if len(governanceUpdate) > 0 {
 		ret.isGovernanceUpdate = governanceUpdate[0]
@@ -1014,6 +1019,7 @@ func AliasOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*AliasOut
 		return nil, xerrors.Errorf("AliasOutput: failed to parse AliasOutput flags (%v): %w", err1, cerrors.ErrParseBytesFailed)
 	}
 	flags := bitmask.BitMask(flagsByte)
+	ret.isOrigin = flags.HasBit(flagAliasOutputIsOrigin)
 	ret.isGovernanceUpdate = flags.HasBit(flagAliasOutputGovernanceUpdate)
 	if ret.aliasAddress.IsNil() {
 		addr, err2 := AliasAddressFromMarshalUtil(marshalUtil)
@@ -1091,7 +1097,7 @@ func (a *AliasOutput) SetAliasAddress(addr *AliasAddress) {
 
 // IsOrigin returns true if it starts the chain
 func (a *AliasOutput) IsOrigin() bool {
-	return a.aliasAddress.IsNil()
+	return a.isOrigin
 }
 
 // IsSelfGoverned return if
@@ -1182,13 +1188,15 @@ func (a *AliasOutput) Clone() Output {
 func (a *AliasOutput) clone() *AliasOutput {
 	a.mustValidate()
 	ret := &AliasOutput{
-		outputID:      a.outputID,
-		balances:      a.balances.Clone(),
-		aliasAddress:  *a.aliasAddress.Clone().(*AliasAddress),
-		stateAddress:  a.stateAddress.Clone(),
-		stateIndex:    a.stateIndex,
-		stateData:     make([]byte, len(a.stateData)),
-		immutableData: make([]byte, len(a.immutableData)),
+		outputID:           a.outputID,
+		balances:           a.balances.Clone(),
+		aliasAddress:       *a.aliasAddress.Clone().(*AliasAddress),
+		stateAddress:       a.stateAddress.Clone(),
+		stateIndex:         a.stateIndex,
+		stateData:          make([]byte, len(a.stateData)),
+		immutableData:      make([]byte, len(a.immutableData)),
+		isOrigin:           a.isOrigin,
+		isGovernanceUpdate: a.isGovernanceUpdate,
 	}
 	if a.governingAddress != nil {
 		ret.governingAddress = a.governingAddress.Clone()
@@ -1394,6 +1402,9 @@ func (a *AliasOutput) mustValidate() {
 func (a *AliasOutput) mustFlags() bitmask.BitMask {
 	a.mustValidate()
 	var ret bitmask.BitMask
+	if a.isOrigin {
+		ret = ret.SetBit(flagAliasOutputIsOrigin)
+	}
 	if a.isGovernanceUpdate {
 		ret = ret.SetBit(flagAliasOutputGovernanceUpdate)
 	}
