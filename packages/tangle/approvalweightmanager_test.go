@@ -3,12 +3,13 @@ package tangle
 import (
 	"testing"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
 func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
@@ -256,7 +257,7 @@ func TestApprovalWeightManager_updateSequenceSupporters(t *testing.T) {
 
 func validateMarkerSupporters(t *testing.T, approvalWeightManager *SupporterManager, markersMap map[string]*markers.StructureDetails, expectedSupporters map[string][]*identity.Identity) {
 	for markerAlias, expectedSupportersOfMarker := range expectedSupporters {
-		supporters := approvalWeightManager.SupportersOfMarker(markersMap[markerAlias].PastMarkers.FirstMarker())
+		supporters := approvalWeightManager.SupportersOfMarker(markersMap[markerAlias].PastMarkers.HighestSequenceMarker())
 
 		assert.Equal(t, len(expectedSupportersOfMarker), supporters.Size(), "size of supporters for Marker("+markerAlias+") does not match")
 		for _, supporter := range expectedSupportersOfMarker {
@@ -292,13 +293,13 @@ func createBranch(t *testing.T, tangle *Tangle, branchID ledgerstate.BranchID, p
 }
 
 func validateStatementResults(t *testing.T, approvalWeightManager *SupporterManager, branchIDs map[string]ledgerstate.BranchID, supporter Supporter, expectedResults map[string]bool) {
-	for branchIDstring, expectedResult := range expectedResults {
+	for branchIDString, expectedResult := range expectedResults {
 		var actualResult bool
-		supporters := approvalWeightManager.branchSupporters[branchIDs[branchIDstring]]
+		supporters := approvalWeightManager.branchSupporters[branchIDs[branchIDString]]
 		if supporters != nil {
 			actualResult = supporters.Has(supporter)
 		}
 
-		assert.Equalf(t, expectedResult, actualResult, "%s(%s) does not match", branchIDstring, branchIDs[branchIDstring])
+		assert.Equalf(t, expectedResult, actualResult, "%s(%s) does not match", branchIDString, branchIDs[branchIDString])
 	}
 }
