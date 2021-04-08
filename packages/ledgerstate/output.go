@@ -244,11 +244,7 @@ func OutputFromBytes(bytes []byte) (output Output, consumedBytes int, err error)
 		err = xerrors.Errorf("failed to parse Output from MarshalUtil: %w", err)
 	}
 	consumedBytes = marshalUtil.ReadOffset()
-	if consumedBytes != len(bytes) {
-		if err == nil {
-			err = xerrors.Errorf("did not consume all bytes")
-		}
-	}
+
 	return
 }
 

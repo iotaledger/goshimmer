@@ -20,19 +20,6 @@ import (
 
 // region AliasOutput Tests
 
-func TestAliasOutputIsOrigin(t *testing.T) {
-	tokens := map[Color]uint64{ColorIOTA: 200}
-	pub, _, err := ed25519.GenerateKey()
-	require.NoError(t, err)
-	addr := NewED25519Address(pub)
-	out, err := NewAliasOutputMint(tokens, addr)
-	require.NoError(t, err)
-	require.True(t, out.IsOrigin())
-	out.SetID(OutputID{})
-	outUpd := out.UpdateMintingColor().(*AliasOutput)
-	require.True(t, outUpd.IsOrigin())
-}
-
 func TestAliasOutput_NewAliasOutputMint(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		stateAddy := randEd25119Address()
@@ -206,8 +193,9 @@ func TestAliasOutputFromMarshalUtil(t *testing.T) {
 		flags = flags.ClearBit(flagAliasOutputGovernanceSet)
 		// manually change flags
 		originBytes[1] = byte(flags)
-		_, _, err := OutputFromBytes(originBytes)
-		assert.Error(t, err)
+		_, consumedBytes, err := OutputFromBytes(originBytes)
+		assert.NoError(t, err)
+		assert.NotEqual(t, len(originBytes), consumedBytes)
 	})
 
 	t.Run("CASE: Flags provided, state data missing", func(t *testing.T) {
@@ -480,6 +468,20 @@ func TestAliasOutput_IsOrigin(t *testing.T) {
 		alias, err := NewAliasOutputMint(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}, randEd25119Address())
 		assert.NoError(t, err)
 		assert.True(t, alias.IsOrigin())
+	})
+
+	t.Run("CASE: Check IsOrigin after booking", func(t *testing.T) {
+		tokens := map[Color]uint64{ColorIOTA: 200}
+		pub, _, err := ed25519.GenerateKey()
+		require.NoError(t, err)
+		addr := NewED25519Address(pub)
+		out, err := NewAliasOutputMint(tokens, addr)
+		require.NoError(t, err)
+		require.True(t, out.IsOrigin())
+		// imitate booking
+		out.SetID(OutputID{})
+		outUpd := out.UpdateMintingColor().(*AliasOutput)
+		require.True(t, outUpd.IsOrigin())
 	})
 }
 
@@ -1309,7 +1311,7 @@ func TestExtendedLockedOutput_Balances(t *testing.T) {
 }
 
 func TestExtendedLockedOutput_Bytes(t *testing.T) {
-	t.Run("CASE: Happy path", func(t *testing.T) {
+	t.Run("CASE: Happy path, all optional fields", func(t *testing.T) {
 		o := NewExtendedLockedOutput(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}, randEd25119Address()).
 			WithFallbackOptions(randEd25119Address(), time.Now().Add(2*time.Hour)).
 			WithTimeLock(time.Now().Add(1 * time.Hour))
@@ -1327,8 +1329,440 @@ func TestExtendedLockedOutput_Bytes(t *testing.T) {
 		assert.True(t, o.fallbackAddress.Equals(castedRestored.fallbackAddress))
 		assert.True(t, o.timelock.Equal(castedRestored.timelock))
 		assert.Equal(t, o.payload, castedRestored.payload)
+	})
+
+	t.Run("CASE: Happy path, no optional fields", func(t *testing.T) {
+		o := NewExtendedLockedOutput(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}, randEd25119Address())
+		oBytes := o.Bytes()
+		restored, _, err := OutputFromBytes(oBytes)
+		assert.NoError(t, err)
+		castedRestored, ok := restored.(*ExtendedLockedOutput)
+		assert.True(t, ok)
+		assert.Equal(t, o.balances.Bytes(), castedRestored.balances.Bytes())
+		assert.True(t, o.address.Equals(castedRestored.address))
+		assert.Equal(t, o.id.Bytes(), castedRestored.id.Bytes())
+		assert.True(t, o.fallbackDeadline.Equal(castedRestored.fallbackDeadline))
+		assert.Nil(t, o.fallbackAddress)
+		assert.Nil(t, castedRestored.fallbackAddress)
+		assert.True(t, o.timelock.Equal(castedRestored.timelock))
+		assert.Equal(t, o.payload, castedRestored.payload)
+	})
+
+	t.Run("CASE: Happy path, optional timelock", func(t *testing.T) {
+		o := NewExtendedLockedOutput(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}, randEd25119Address()).
+			WithTimeLock(time.Now().Add(1 * time.Hour))
+		oBytes := o.Bytes()
+		restored, _, err := OutputFromBytes(oBytes)
+		assert.NoError(t, err)
+		castedRestored, ok := restored.(*ExtendedLockedOutput)
+		assert.True(t, ok)
+		assert.Equal(t, o.balances.Bytes(), castedRestored.balances.Bytes())
+		assert.True(t, o.address.Equals(castedRestored.address))
+		assert.Equal(t, o.id.Bytes(), castedRestored.id.Bytes())
+		assert.True(t, o.fallbackDeadline.Equal(castedRestored.fallbackDeadline))
+		assert.Nil(t, o.fallbackAddress)
+		assert.Nil(t, castedRestored.fallbackAddress)
+		assert.True(t, o.timelock.Equal(castedRestored.timelock))
+		assert.Equal(t, o.payload, castedRestored.payload)
+	})
+
+	t.Run("CASE: Happy path, optional fallback", func(t *testing.T) {
+		o := NewExtendedLockedOutput(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}, randEd25119Address()).
+			WithFallbackOptions(randEd25119Address(), time.Now().Add(2*time.Hour))
+		oBytes := o.Bytes()
+		restored, _, err := OutputFromBytes(oBytes)
+		assert.NoError(t, err)
+		castedRestored, ok := restored.(*ExtendedLockedOutput)
+		assert.True(t, ok)
+		assert.Equal(t, o.balances.Bytes(), castedRestored.balances.Bytes())
+		assert.True(t, o.address.Equals(castedRestored.address))
+		assert.Equal(t, o.id.Bytes(), castedRestored.id.Bytes())
+		assert.True(t, o.fallbackDeadline.Equal(castedRestored.fallbackDeadline))
+		assert.True(t, o.fallbackAddress.Equals(castedRestored.fallbackAddress))
+		assert.True(t, o.timelock.Equal(castedRestored.timelock))
+		assert.Equal(t, o.payload, castedRestored.payload)
+	})
+
+	t.Run("CASE: Happy path, optional payload", func(t *testing.T) {
+		o := NewExtendedLockedOutput(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}, randEd25119Address())
+		err := o.SetPayload([]byte("some metadata"))
+		oBytes := o.Bytes()
+		var restored Output
+		restored, _, err = OutputFromBytes(oBytes)
+		assert.NoError(t, err)
+		castedRestored, ok := restored.(*ExtendedLockedOutput)
+		assert.True(t, ok)
+		assert.Equal(t, o.balances.Bytes(), castedRestored.balances.Bytes())
+		assert.True(t, o.address.Equals(castedRestored.address))
+		assert.Equal(t, o.id.Bytes(), castedRestored.id.Bytes())
+		assert.True(t, o.fallbackDeadline.Equal(castedRestored.fallbackDeadline))
+		assert.Nil(t, o.fallbackAddress)
+		assert.Nil(t, castedRestored.fallbackAddress)
+		assert.True(t, o.timelock.Equal(castedRestored.timelock))
+		assert.Equal(t, o.payload, castedRestored.payload)
+	})
+}
+
+func TestExtendedLockedOutput_Compare(t *testing.T) {
+	t.Run("CASE: Happy path", func(t *testing.T) {
+		output := dummyExtendedLockedOutput()
+		clone := output.Clone()
+		assert.Equal(t, 0, output.Compare(clone))
+	})
+
+	t.Run("CASE: Not equal", func(t *testing.T) {
+		output := dummyExtendedLockedOutput()
+		clone := output.Clone()
+		castedClone, ok := clone.(*ExtendedLockedOutput)
+		assert.True(t, ok)
+		assert.Equal(t, 0, output.Compare(castedClone))
+		// change one byte
+		castedClone.payload[0] = output.payload[0] + 1
+		assert.NotEqual(t, 0, output.Compare(castedClone))
+	})
+}
+
+func TestExtendedLockedOutput_FallbackAddress(t *testing.T) {
+	t.Run("CASE: Happy path", func(t *testing.T) {
+		output := dummyExtendedLockedOutput()
+		assert.True(t, output.FallbackAddress().Equals(output.fallbackAddress))
+	})
+
+	t.Run("CASE: Address nil", func(t *testing.T) {
+		output := dummyExtendedLockedOutput()
+		output.fallbackAddress = nil
+		assert.Nil(t, output.FallbackAddress())
+	})
+}
+
+func TestExtendedLockedOutput_FallbackOptions(t *testing.T) {
+	t.Run("CASE: Happy path", func(t *testing.T) {
+		output := dummyExtendedLockedOutput()
+		fAddy, fDeadline := output.FallbackOptions()
+		assert.True(t, fAddy.Equals(output.fallbackAddress))
+		assert.True(t, fDeadline.Equal(output.fallbackDeadline))
+	})
+}
+
+func TestExtendedLockedOutput_GetPayload(t *testing.T) {
+	t.Run("CASE: Happy path", func(t *testing.T) {
+		output := dummyExtendedLockedOutput()
+		payload := output.GetPayload()
+		assert.Equal(t, output.payload, payload)
+		output.payload = nil
+		payload = output.GetPayload()
+		assert.Nil(t, payload)
+	})
+}
+
+func TestExtendedLockedOutput_ID(t *testing.T) {
+	t.Run("CASE: Happy path", func(t *testing.T) {
+		output := dummyExtendedLockedOutput()
+		id := output.ID()
+		assert.Equal(t, output.id.Bytes(), id.Bytes())
+	})
+}
+
+func TestExtendedLockedOutput_Input(t *testing.T) {
+	t.Run("CASE: Happy path", func(t *testing.T) {
+		output := dummyExtendedLockedOutput()
+		input, ok := output.Input().(*UTXOInput)
+		assert.True(t, ok)
+		assert.Equal(t, input.referencedOutputID.Bytes(), output.ID().Bytes())
+	})
+
+	t.Run("CASE: No output id yet", func(t *testing.T) {
+		// serialized form of output doesn't have outputid
+		output, _, err := OutputFromBytes(dummyExtendedLockedOutput().Bytes())
+		assert.NoError(t, err)
+		assert.Panics(t, func() {
+			_, _ = output.Input().(*UTXOInput)
+		})
+		output.SetID(randOutputID())
+		assert.NotPanics(t, func() {
+			_, _ = output.Input().(*UTXOInput)
+		})
+	})
+}
+
+func TestExtendedLockedOutput_ObjectStorageKey(t *testing.T) {
+	t.Run("CASE: Happy path", func(t *testing.T) {
+		output := dummyExtendedLockedOutput()
+		assert.Equal(t, output.ID().Bytes(), output.ObjectStorageKey())
+	})
+}
+
+func TestExtendedLockedOutput_ObjectStorageValue(t *testing.T) {
+	t.Run("CASE: Happy path", func(t *testing.T) {
+		output := dummyExtendedLockedOutput()
+		assert.Equal(t, output.Bytes(), output.ObjectStorageValue())
+	})
+}
+
+func TestExtendedLockedOutput_SetID(t *testing.T) {
+	t.Run("CASE: Happy path", func(t *testing.T) {
+		output := dummyExtendedLockedOutput()
+		newID := randOutputID()
+		var ok bool
+		output, ok = output.SetID(newID).(*ExtendedLockedOutput)
+		assert.True(t, ok)
+		assert.Equal(t, newID.Bytes(), output.ID().Bytes())
+	})
+}
+
+func TestExtendedLockedOutput_SetPayload(t *testing.T) {
+	t.Run("CASE: Happy path", func(t *testing.T) {
+		data := make([]byte, MaxOutputPayloadSize)
+		output := dummyExtendedLockedOutput()
+		err := output.SetPayload(data)
+		assert.NoError(t, err)
+	})
+
+	t.Run("CASE: Too much data", func(t *testing.T) {
+		data := make([]byte, MaxOutputPayloadSize+1)
+		output := dummyExtendedLockedOutput()
+		err := output.SetPayload(data)
+		t.Log(err)
+		assert.Error(t, err)
+	})
+}
+
+func TestExtendedLockedOutput_TimeLock(t *testing.T) {
+	t.Run("CASE: Happy path", func(t *testing.T) {
+		output := dummyExtendedLockedOutput()
+		assert.True(t, output.TimeLock().Equal(output.timelock))
+	})
+}
+
+func TestExtendedLockedOutput_TimeLockedNow(t *testing.T) {
+	t.Run("CASE: Happy path", func(t *testing.T) {
+		output := dummyExtendedLockedOutput()
+		timelockDate := time.Now()
+		output.timelock = timelockDate
+		assert.True(t, output.TimeLockedNow(timelockDate.Add(-time.Minute)))
+		assert.True(t, output.TimeLockedNow(timelockDate.Add(-time.Nanosecond)))
+		assert.False(t, output.TimeLockedNow(timelockDate))
+		assert.False(t, output.TimeLockedNow(timelockDate.Add(time.Second)))
+	})
+}
+
+func TestExtendedLockedOutput_Type(t *testing.T) {
+	t.Run("CASE: Happy path", func(t *testing.T) {
+		output := &ExtendedLockedOutput{}
+		assert.Equal(t, ExtendedLockedOutputType, output.Type())
+	})
+}
+
+func TestExtendedLockedOutput_UnlockAddressNow(t *testing.T) {
+	fallbackDeadline := time.Now()
+	fallbackAddress := randEd25119Address()
+
+	t.Run("CASE: Happy path", func(t *testing.T) {
+		output := dummyExtendedLockedOutput().WithFallbackOptions(fallbackAddress, fallbackDeadline)
+		assert.True(t, output.UnlockAddressNow(fallbackDeadline.Add(-time.Minute)).Equals(output.Address()))
+		assert.True(t, output.UnlockAddressNow(fallbackDeadline.Add(time.Minute)).Equals(output.FallbackAddress()))
+	})
+
+	t.Run("CASE: No fallback address", func(t *testing.T) {
+		output := dummyExtendedLockedOutput().WithFallbackOptions(nil, fallbackDeadline)
+		assert.True(t, output.UnlockAddressNow(fallbackDeadline.Add(-time.Minute)).Equals(output.Address()))
+		assert.True(t, output.UnlockAddressNow(fallbackDeadline.Add(time.Minute)).Equals(output.Address()))
 
 	})
+}
+
+func TestExtendedLockedOutput_Update(t *testing.T) {
+	t.Run("CASE: Update panics", func(t *testing.T) {
+		output := &ExtendedLockedOutput{}
+		assert.Panics(t, func() {
+			output.Update(&ExtendedLockedOutput{})
+		})
+	})
+}
+
+func TestExtendedLockedOutput_UpdateMintingColor(t *testing.T) {
+	t.Run("CASE: Happy path", func(t *testing.T) {
+		output := dummyExtendedLockedOutput()
+		output.balances = NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA, ColorMint: 100})
+		updated, ok := output.UpdateMintingColor().(*ExtendedLockedOutput)
+		assert.True(t, ok)
+		assert.Equal(t, output.id.Bytes(), updated.id.Bytes())
+		assert.True(t, updated.address.Equals(output.address))
+		assert.True(t, updated.fallbackAddress.Equals(output.fallbackAddress))
+		assert.True(t, updated.fallbackDeadline.Equal(output.fallbackDeadline))
+		assert.True(t, updated.timelock.Equal(output.timelock))
+		assert.Equal(t, output.payload, updated.payload)
+		mintBalance, valid := output.Balances().Get(ColorMint)
+		assert.True(t, valid)
+		coloredBalance, uValid := updated.Balances().Get(blake2b.Sum256(output.ID().Bytes()))
+		assert.True(t, uValid)
+		assert.Equal(t, mintBalance, coloredBalance)
+	})
+
+	t.Run("CASE: No color mint", func(t *testing.T) {
+		output := dummyExtendedLockedOutput()
+		output.balances = NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA, Color{8}: 100})
+		updated, ok := output.UpdateMintingColor().(*ExtendedLockedOutput)
+		assert.True(t, ok)
+		assert.Equal(t, output.id.Bytes(), updated.id.Bytes())
+		assert.True(t, updated.address.Equals(output.address))
+		assert.True(t, updated.fallbackAddress.Equals(output.fallbackAddress))
+		assert.True(t, updated.fallbackDeadline.Equal(output.fallbackDeadline))
+		assert.True(t, updated.timelock.Equal(output.timelock))
+		assert.Equal(t, output.payload, updated.payload)
+		assert.Equal(t, updated.Balances().Bytes(), output.Balances().Bytes())
+	})
+
+	t.Run("CASE: Output had too big payload", func(t *testing.T) {
+		output := dummyExtendedLockedOutput()
+		output.balances = NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA, Color{8}: 100})
+		output.payload = make([]byte, MaxOutputPayloadSize+1)
+		assert.Panics(t, func() {
+			output.UpdateMintingColor()
+		})
+	})
+}
+
+func TestExtendedLockedOutput_WithFallbackOptions(t *testing.T) {
+	fallbackDeadline := time.Now()
+	fallbackAddress := randEd25119Address()
+
+	t.Run("CASE: Happy path", func(t *testing.T) {
+		output := (&ExtendedLockedOutput{}).WithFallbackOptions(fallbackAddress, fallbackDeadline)
+		assert.True(t, fallbackAddress.Equals(output.FallbackAddress()))
+		assert.True(t, fallbackDeadline.Equal(output.fallbackDeadline))
+	})
+
+	t.Run("CASE: nil fallback address", func(t *testing.T) {
+		output := (&ExtendedLockedOutput{}).WithFallbackOptions(nil, fallbackDeadline)
+		assert.Nil(t, output.FallbackAddress())
+		assert.True(t, fallbackDeadline.Equal(output.fallbackDeadline))
+	})
+}
+
+func TestExtendedLockedOutput_WithTimeLock(t *testing.T) {
+	timelock := time.Now()
+
+	t.Run("CASE: Happy path", func(t *testing.T) {
+		output := (&ExtendedLockedOutput{}).WithTimeLock(timelock)
+		assert.True(t, timelock.Equal(output.TimeLock()))
+	})
+}
+
+func TestNewExtendedLockedOutput(t *testing.T) {
+	t.Run("CASE: Happy path", func(t *testing.T) {
+		addy := randAliasAddress()
+		balances := NewColoredBalances(map[Color]uint64{ColorIOTA: 1})
+		output := NewExtendedLockedOutput(balances.Map(), addy)
+		assert.Equal(t, balances.Bytes(), output.Balances().Bytes())
+		assert.True(t, addy.Equals(output.Address()))
+	})
+}
+
+func TestExtendedOutputFromMarshalUtil(t *testing.T) {
+	t.Run("CASE: Happy path", func(t *testing.T) {
+		output := dummyExtendedLockedOutput()
+		outputBytes := output.Bytes()
+		marshalUtil := marshalutil.New(outputBytes)
+		restored, err := ExtendedOutputFromMarshalUtil(marshalUtil)
+		assert.NoError(t, err)
+		assert.Equal(t, len(outputBytes), marshalUtil.ReadOffset())
+		assert.Equal(t, outputBytes, restored.Bytes())
+	})
+
+	t.Run("CASE: Wrong type", func(t *testing.T) {
+		output := dummyExtendedLockedOutput()
+		outputBytes := output.Bytes()
+		outputBytes[0] = byte(AliasOutputType)
+		marshalUtil := marshalutil.New(outputBytes)
+		_, err := ExtendedOutputFromMarshalUtil(marshalUtil)
+		t.Log(err)
+		assert.Error(t, err)
+	})
+
+	t.Run("CASE: Fallback flag provided, missing data", func(t *testing.T) {
+		output := dummyExtendedLockedOutput().WithFallbackOptions(nil, time.Time{})
+		outputBytes := output.Bytes()
+		flags := output.compressFlags()
+		flags = flags.SetBit(flagExtendedLockedOutputFallbackPresent)
+		outputBytes[1+len(output.balances.Bytes())+AddressLength] = byte(flags)
+		_, _, err := OutputFromBytes(outputBytes)
+		t.Log(err)
+		assert.Error(t, err)
+	})
+
+	t.Run("CASE: Timelock flag provided, missing data", func(t *testing.T) {
+		output := dummyExtendedLockedOutput().WithTimeLock(time.Time{})
+		err := output.SetPayload(nil)
+		assert.NoError(t, err)
+		outputBytes := output.Bytes()
+		flags := output.compressFlags()
+		flags = flags.SetBit(flagExtendedLockedOutputTimeLockPresent)
+		outputBytes[1+len(output.balances.Bytes())+AddressLength] = byte(flags)
+		_, _, err = OutputFromBytes(outputBytes)
+		t.Log(err)
+		assert.Error(t, err)
+	})
+
+	t.Run("CASE: Payload flag provided, missing data", func(t *testing.T) {
+		output := dummyExtendedLockedOutput()
+		err := output.SetPayload(nil)
+		assert.NoError(t, err)
+		outputBytes := output.Bytes()
+		flags := output.compressFlags()
+		flags = flags.SetBit(flagExtendedLockedOutputPayloadPresent)
+		outputBytes[1+len(output.balances.Bytes())+AddressLength] = byte(flags)
+		_, _, err = OutputFromBytes(outputBytes)
+		t.Log(err)
+		assert.Error(t, err)
+	})
+
+	t.Run("CASE: Fallback present, wrong flag", func(t *testing.T) {
+		output := dummyExtendedLockedOutput().WithTimeLock(time.Time{})
+		err := output.SetPayload(nil)
+		assert.NoError(t, err)
+		outputBytes := output.Bytes()
+		flags := output.compressFlags()
+		flags = flags.ClearBit(flagExtendedLockedOutputFallbackPresent)
+		outputBytes[1+len(output.balances.Bytes())+AddressLength] = byte(flags)
+		var consumedBytes int
+		_, consumedBytes, err = OutputFromBytes(outputBytes)
+		assert.NoError(t, err)
+		// we did not consume all bytes
+		assert.NotEqual(t, len(outputBytes), consumedBytes)
+	})
+
+	t.Run("CASE: Timelock present, wrong flag", func(t *testing.T) {
+		output := dummyExtendedLockedOutput().WithTimeLock(time.Now()).WithFallbackOptions(nil, time.Time{})
+		err := output.SetPayload(nil)
+		assert.NoError(t, err)
+		outputBytes := output.Bytes()
+		flags := output.compressFlags()
+		flags = flags.ClearBit(flagExtendedLockedOutputTimeLockPresent)
+		outputBytes[1+len(output.balances.Bytes())+AddressLength] = byte(flags)
+		var consumedBytes int
+		_, consumedBytes, err = OutputFromBytes(outputBytes)
+		assert.NoError(t, err)
+		// we did not consume all bytes
+		assert.NotEqual(t, len(outputBytes), consumedBytes)
+	})
+
+	t.Run("CASE: Payload present, wrong flag", func(t *testing.T) {
+		output := dummyExtendedLockedOutput()
+		outputBytes := output.Bytes()
+		flags := output.compressFlags()
+		flags = flags.ClearBit(flagExtendedLockedOutputPayloadPresent)
+		outputBytes[1+len(output.balances.Bytes())+AddressLength] = byte(flags)
+		_, consumedBytes, err := OutputFromBytes(outputBytes)
+		assert.NoError(t, err)
+		// we did not consume all bytes
+		assert.NotEqual(t, len(outputBytes), consumedBytes)
+	})
+
+}
+
+func TestExtendedLockedOutput_UnlockValid(t *testing.T) {
+	// TODO
 }
 
 func TestExtendedLockedOutput_Clone(t *testing.T) {
