@@ -72,3 +72,12 @@ func TestAliasAddressClone(t *testing.T) {
 	assert.NotSame(t, a, b)
 	assert.Equal(t, a.Array(), b.Array())
 }
+
+func TestAliasAddressIsNil(t *testing.T) {
+	nilAddr := AliasAddress{}
+	require.True(t, nilAddr.IsNil())
+	pNilAddr := &nilAddr
+	require.True(t, pNilAddr.IsNil())
+	notNilAddr := NewAliasAddress([]byte("data"))
+	require.False(t, notNilAddr.IsNil())
+}

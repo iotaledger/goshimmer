@@ -488,6 +488,10 @@ func (a *AliasAddress) String() string {
 	)
 }
 
+func (a *AliasAddress) IsNil() bool {
+	return a.digest == [32]byte{}
+}
+
 // code contract (make sure the struct implements all required methods)
 var _ Address = &AliasAddress{}
 
