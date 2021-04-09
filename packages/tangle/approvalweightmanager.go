@@ -299,15 +299,13 @@ func (s *SupporterManager) updateBranchSupporters(message *Message) {
 	if lastStatementExists && !s.isNewStatement(lastStatement, message) {
 		return
 	}
+	s.lastStatements[nodeID] = s.statementFromMessage(message)
 
-	newStatement := s.statementFromMessage(message)
-	s.lastStatements[nodeID] = newStatement
-
-	if lastStatementExists && lastStatement.BranchID == newStatement.BranchID {
+	if lastStatementExists && lastStatement.BranchID == s.lastStatements[nodeID].BranchID {
 		return
 	}
 
-	s.propagateSupportToBranches(newStatement.BranchID, message)
+	s.propagateSupportToBranches(s.lastStatements[nodeID].BranchID, message)
 }
 
 func (s *SupporterManager) propagateSupportToBranches(branchID ledgerstate.BranchID, message *Message) {
