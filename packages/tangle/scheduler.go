@@ -89,8 +89,8 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 		shutdownSignal: make(chan struct{}),
 	}
 
-	if tangle.Options.AccessManaRetriever == nil {
-		panic("the option AccessManaRetriever must be defined so that AccessMana can be determined in scheduler")
+	if tangle.Options.AccessManaRetriever == nil || tangle.Options.TotalAccessManaRetriever == nil {
+		panic("the option AccessManaRetriever and TotalAccessManaRetriever must be defined so that AccessMana can be determined in scheduler")
 	}
 
 	go scheduler.issuerLoop()
