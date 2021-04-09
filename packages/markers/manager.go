@@ -147,7 +147,7 @@ func (m *Manager) IsInPastCone(earlierStructureDetails, laterStructureDetails *S
 	}
 
 	if earlierStructureDetails.IsPastMarker {
-		earlierMarker := earlierStructureDetails.PastMarkers.FirstMarker()
+		earlierMarker := earlierStructureDetails.PastMarkers.HighestSequenceMarker()
 		if earlierMarker == nil {
 			panic("failed to retrieve Marker")
 		}
@@ -170,7 +170,7 @@ func (m *Manager) IsInPastCone(earlierStructureDetails, laterStructureDetails *S
 	}
 
 	if laterStructureDetails.IsPastMarker {
-		laterMarker := laterStructureDetails.PastMarkers.FirstMarker()
+		laterMarker := laterStructureDetails.PastMarkers.HighestSequenceMarker()
 		if laterMarker == nil {
 			panic("failed to retrieve Marker")
 		}
@@ -237,6 +237,30 @@ func (m *Manager) IsInPastCone(earlierStructureDetails, laterStructureDetails *S
 // Sequence retrieves a Sequence from the object storage.
 func (m *Manager) Sequence(sequenceID SequenceID) *CachedSequence {
 	return &CachedSequence{CachedObject: m.sequenceStore.Load(sequenceID.Bytes())}
+}
+
+// SequenceFromAlias returns a Sequence from the given SequenceAlias.
+func (m *Manager) SequenceFromAlias(sequenceAlias SequenceAlias) (cachedSequence *CachedSequence, exists bool) {
+	exists = (&CachedSequenceAliasMapping{CachedObject: m.sequenceAliasMappingStore.Load(sequenceAlias.Bytes())}).Consume(func(sequenceAliasMapping *SequenceAliasMapping) {
+		cachedSequence = m.Sequence(sequenceAliasMapping.SequenceID())
+	})
+
+	return
+}
+
+// RegisterSequenceAlias adds a mapping from a SequenceAlias to a Sequence.
+func (m *Manager) RegisterSequenceAlias(sequenceAlias SequenceAlias, sequenceID SequenceID) {
+	if cachedObject, stored := m.sequenceAliasMappingStore.StoreIfAbsent(&SequenceAliasMapping{
+		sequenceAlias: sequenceAlias,
+		sequenceID:    sequenceID,
+	}); stored {
+		cachedObject.Release()
+	}
+}
+
+// UnregisterSequenceAlias removes the mapping of the given SequenceAlias to its corresponding Sequence.
+func (m *Manager) UnregisterSequenceAlias(sequenceAlias SequenceAlias) {
+	m.sequenceAliasMappingStore.Delete(sequenceAlias.Bytes())
 }
 
 // Shutdown shuts down the Manager and persists its state.

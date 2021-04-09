@@ -51,7 +51,7 @@ func sendFaucetReq(addr ledgerstate.Address) (res *ReqMsg, err error) {
 	}
 
 	r := &ReqMsg{
-		ID: msg.ID().String(),
+		ID: msg.ID().Base58(),
 	}
 	return r, nil
 }

@@ -270,7 +270,7 @@ func processStatementPayload(p payload.Payload) (sp StatementPayload) {
 	}
 	for _, t := range tmp.Timestamps {
 		st := Timestamp{
-			ID: t.ID.String(),
+			ID: t.ID.Base58(),
 			Opinion: Opinion{
 				Value: t.Value.String(),
 				Round: t.Round,

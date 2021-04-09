@@ -381,9 +381,9 @@ func (b *BranchDAG) init() {
 	}
 }
 
-// resolveConflictBranchIDs is an internal utility function that returns the BranchIDs of the ConflictBranches that the
+// ResolveConflictBranchIDs is an internal utility function that returns the BranchIDs of the ConflictBranches that the
 // given Branches represent by resolving AggregatedBranches to their corresponding ConflictBranches.
-func (b *BranchDAG) resolveConflictBranchIDs(branchIDs BranchIDs) (conflictBranchIDs BranchIDs, err error) {
+func (b *BranchDAG) ResolveConflictBranchIDs(branchIDs BranchIDs) (conflictBranchIDs BranchIDs, err error) {
 	// initialize return variable
 	conflictBranchIDs = make(BranchIDs)
 
@@ -419,7 +419,7 @@ func (b *BranchDAG) resolveConflictBranchIDs(branchIDs BranchIDs) (conflictBranc
 // or any other unforeseen error occurred.
 func (b *BranchDAG) normalizeBranches(branchIDs BranchIDs) (normalizedBranches BranchIDs, err error) {
 	// retrieve conflict branches and abort if we faced an error
-	conflictBranches, err := b.resolveConflictBranchIDs(branchIDs)
+	conflictBranches, err := b.ResolveConflictBranchIDs(branchIDs)
 	if err != nil {
 		err = xerrors.Errorf("failed to resolve ConflictBranchIDs: %w", err)
 		return

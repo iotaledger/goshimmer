@@ -106,7 +106,7 @@ type DiagnosticDRNGMessagesInfo struct {
 
 func getDiagnosticDRNGMessageInfo(message *tangle.Message) *DiagnosticDRNGMessagesInfo {
 	msgInfo := &DiagnosticDRNGMessagesInfo{
-		ID:                message.ID().String(),
+		ID:                message.ID().Base58(),
 		IssuanceTimestamp: message.IssuingTime(),
 		IssuerID:          identity.NewID(message.IssuerPublicKey()).String(),
 		IssuerPublicKey:   message.IssuerPublicKey().String(),

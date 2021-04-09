@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -126,8 +127,13 @@ func (t TransactionIDs) Clone() (transactionIDs TransactionIDs) {
 	return
 }
 
-// Strings returns a slice of string representation of the TransactionIDs.
-func (t TransactionIDs) Strings() (transactionIDs []string) {
+// String returns a human readable version of the TransactionIDs.
+func (t TransactionIDs) String() (result string) {
+	return "TransactionIDs(" + strings.Join(t.Base58s(), ",") + ")"
+}
+
+// Base58s returns a slice of base58 encoded versions of the contained TransactionIDs.
+func (t TransactionIDs) Base58s() (transactionIDs []string) {
 	transactionIDs = make([]string, 0, len(t))
 	for transactionID := range t {
 		transactionIDs = append(transactionIDs, transactionID.Base58())

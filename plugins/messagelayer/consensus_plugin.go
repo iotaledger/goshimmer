@@ -622,7 +622,7 @@ func readStatement(messageID tangle.MessageID) {
 
 		Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
 			sendToRemoteLog(
-				msg.ID().String(),
+				msg.ID().Base58(),
 				issuerID.String(),
 				msg.IssuingTime().UnixNano(),
 				messageMetadata.ReceivedTime().UnixNano(),

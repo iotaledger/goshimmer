@@ -128,9 +128,36 @@ func (id MessageID) Bytes() []byte {
 	return id[:]
 }
 
-// String returns the base58 encode of the MessageID.
-func (id MessageID) String() string {
+// Base58 returns a base58 encoded version of the MessageID.
+func (id MessageID) Base58() string {
 	return base58.Encode(id[:])
+}
+
+// String returns a human readable representation of the MessageID.
+func (id MessageID) String() string {
+	if id == EmptyMessageID {
+		return "MessageID(EmptyMessageID)"
+	}
+
+	if messageIDAlias, exists := messageIDAliases[id]; exists {
+		return "MessageID(" + messageIDAlias + ")"
+	}
+
+	return "MessageID(" + base58.Encode(id[:]) + ")"
+}
+
+// messageIDAliases contains a list of aliases registered for a set of MessageIDs.
+var messageIDAliases = make(map[MessageID]string)
+
+// RegisterMessageIDAlias registers an alias that will modify the String() output of the MessageID to show a human
+// readable string instead of the base58 encoded version of itself.
+func RegisterMessageIDAlias(messageID MessageID, alias string) {
+	messageIDAliases[messageID] = alias
+}
+
+// UnregisterMessageIDAliases removes all aliases registered through the RegisterMessageIDAlias function.
+func UnregisterMessageIDAliases() {
+	messageIDAliases = make(map[MessageID]string)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -144,7 +171,7 @@ type MessageIDs []MessageID
 func (ids MessageIDs) ToStrings() []string {
 	result := make([]string, 0, len(ids))
 	for _, id := range ids {
-		result = append(result, id.String())
+		result = append(result, id.Base58())
 	}
 	return result
 }

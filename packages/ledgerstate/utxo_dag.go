@@ -69,27 +69,23 @@ func (u *UTXODAG) Shutdown() {
 }
 
 // CheckTransaction contains fast checks that have to be performed before booking a Transaction.
-func (u *UTXODAG) CheckTransaction(transaction *Transaction) (valid bool, err error) {
+func (u *UTXODAG) CheckTransaction(transaction *Transaction) (err error) {
 	cachedConsumedOutputs := u.ConsumedOutputs(transaction)
 	defer cachedConsumedOutputs.Release()
 	consumedOutputs := cachedConsumedOutputs.Unwrap()
 
 	// perform cheap checks
 	if !u.allOutputsExist(consumedOutputs) {
-		err = xerrors.Errorf("not all consumedOutputs of transaction are solid: %w", ErrTransactionNotSolid)
-		return
+		return xerrors.Errorf("not all consumedOutputs of transaction are solid: %w", ErrTransactionNotSolid)
 	}
 	if !TransactionBalancesValid(consumedOutputs, transaction.Essence().Outputs()) {
-		err = xerrors.Errorf("sum of consumed and spent balances is not 0: %w", ErrTransactionInvalid)
-		return
+		return xerrors.Errorf("sum of consumed and spent balances is not 0: %w", ErrTransactionInvalid)
 	}
 	if !UnlockBlocksValid(consumedOutputs, transaction) {
-		err = xerrors.Errorf("spending of referenced consumedOutputs is not authorized: %w", ErrTransactionInvalid)
-		return
+		return xerrors.Errorf("spending of referenced consumedOutputs is not authorized: %w", ErrTransactionInvalid)
 	}
 
-	valid = true
-	return
+	return nil
 }
 
 // BookTransaction books a Transaction into the ledger state.
@@ -250,13 +246,8 @@ func (u *UTXODAG) Consumers(outputID OutputID) (cachedConsumers CachedConsumers)
 // LoadSnapshot creates a set of outputs in the UTXO-DAG, that are forming the genesis for future transactions.
 func (u *UTXODAG) LoadSnapshot(snapshot map[TransactionID]map[Address]*ColoredBalances) {
 	index := uint16(0)
-	fmt.Println("Loading snapshot...")
 	for transactionID, addressBalance := range snapshot {
-		fmt.Println("TransactionID: ", transactionID.Base58())
 		for address, balance := range addressBalance {
-			fmt.Println("Address: ", address)
-			fmt.Println("Address Base58: ", address.Base58())
-			fmt.Println("Balance: ", balance)
 			output := NewSigLockedColoredOutput(balance, address)
 			output.SetID(NewOutputID(transactionID, index))
 			cachedOutput, stored := u.outputStorage.StoreIfAbsent(output)

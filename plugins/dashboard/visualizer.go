@@ -67,7 +67,7 @@ func configureVisualizer() {
 
 func sendVertex(msg *tangle.Message, confirmed bool) {
 	broadcastWsMessage(&wsmsg{MsgTypeVertex, &vertex{
-		ID:              msg.ID().String(),
+		ID:              msg.ID().Base58(),
 		StrongParentIDs: msg.StrongParents().ToStrings(),
 		WeakParentIDs:   msg.WeakParents().ToStrings(),
 		IsOpinionFormed: confirmed,
@@ -77,7 +77,7 @@ func sendVertex(msg *tangle.Message, confirmed bool) {
 
 func sendTipInfo(messageID tangle.MessageID, isTip bool) {
 	broadcastWsMessage(&wsmsg{MsgTypeTipInfo, &tipinfo{
-		ID:    messageID.String(),
+		ID:    messageID.Base58(),
 		IsTip: isTip,
 	}}, true)
 }
@@ -148,10 +148,10 @@ func setupVisualizerRoutes(routeGroup *echo.Group) {
 		var res []vertex
 		for _, msg := range cpyHistory {
 			res = append(res, vertex{
-				ID:              msg.ID().String(),
+				ID:              msg.ID().Base58(),
 				StrongParentIDs: msg.StrongParents().ToStrings(),
 				WeakParentIDs:   msg.WeakParents().ToStrings(),
-				IsOpinionFormed: msgOpinionFormed[msg.ID().String()],
+				IsOpinionFormed: msgOpinionFormed[msg.ID().Base58()],
 				IsTx:            msg.Payload().Type() == ledgerstate.TransactionType,
 			})
 		}
@@ -163,19 +163,19 @@ func setupVisualizerRoutes(routeGroup *echo.Group) {
 func addToHistory(msg *tangle.Message, opinionFormed bool) {
 	msgHistoryMutex.Lock()
 	defer msgHistoryMutex.Unlock()
-	if _, exist := msgOpinionFormed[msg.ID().String()]; exist {
-		msgOpinionFormed[msg.ID().String()] = opinionFormed
+	if _, exist := msgOpinionFormed[msg.ID().Base58()]; exist {
+		msgOpinionFormed[msg.ID().Base58()] = opinionFormed
 		return
 	}
 
 	// remove 100 old msgs if the slice is full
 	if len(msgHistory) >= maxMsgHistorySize {
 		for i := 0; i < numHistoryToRemove; i++ {
-			delete(msgOpinionFormed, msgHistory[i].ID().String())
+			delete(msgOpinionFormed, msgHistory[i].ID().Base58())
 		}
 		msgHistory = append(msgHistory[:0], msgHistory[numHistoryToRemove:maxMsgHistorySize]...)
 	}
 	// add new msg
 	msgHistory = append(msgHistory, msg)
-	msgOpinionFormed[msg.ID().String()] = opinionFormed
+	msgOpinionFormed[msg.ID().Base58()] = opinionFormed
 }

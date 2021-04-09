@@ -368,7 +368,7 @@ func (s *StateManager) prepareMoreFundingOutputs() (err error) {
 			return err
 		case <-ticker.C:
 			if timeoutCounter >= maxWaitAttempts {
-				return xerrors.Errorf("Message %s: %w", issuedMsg.ID().String(), ErrConfirmationTimeoutExpired)
+				return xerrors.Errorf("Message %s: %w", issuedMsg.ID(), ErrConfirmationTimeoutExpired)
 			}
 			timeoutCounter++
 		}
