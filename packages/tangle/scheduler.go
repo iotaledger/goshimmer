@@ -40,7 +40,10 @@ var (
 )
 
 // AccessManaRetrieveFunc is a function type to retrieve access mana (e.g. via the mana plugin)
-type AccessManaRetrieveFunc func(nodeID identity.ID) (float64, float64)
+type AccessManaRetrieveFunc func(nodeID identity.ID) float64
+
+// TotalAccessManaRetrieveFunc is a function type to retrieve the total access mana (e.g. via the mana plugin)
+type TotalAccessManaRetrieveFunc func() float64
 
 // Scheduler is a Tangle component that takes care of scheduling the messages that shall be booked.
 type Scheduler struct {
@@ -100,8 +103,6 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 func (s *Scheduler) Setup() {
 	s.tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(s.Submit))
 	s.tangle.Events.MessageInvalid.Attach(events.NewClosure(s.Unsubmit))
-
-	// TODO: a data structure to keep the parents book status
 	s.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(s.Ready))
 
 	/*
@@ -140,7 +141,7 @@ func (s *Scheduler) Submit(messageID MessageID) {
 		}
 
 		// get the current access mana inside the lock
-		mana, _ := s.mustGetMana(nodeID)
+		mana := s.tangle.Options.AccessManaRetriever(nodeID)
 
 		err := s.buffer.Submit(message, mana)
 		if err != nil {
@@ -175,6 +176,10 @@ func (s *Scheduler) Unsubmit(messageID MessageID) {
 // Ready marks a previously submitted message as ready to be scheduled.
 // If Ready is called without a previous Submit, it has no effect.
 func (s *Scheduler) Ready(messageID MessageID) {
+	if !s.parentsBooked(messageID) {
+		return
+	}
+
 	if !s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		// if the current node issued the message, the issuing must go through the rate setting
 		nodeID := identity.NewID(message.IssuerPublicKey())
@@ -205,6 +210,25 @@ func (s *Scheduler) RemoveNode(nodeID identity.ID) {
 	s.buffer.RemoveNode(nodeID)
 }
 
+func (s *Scheduler) parentsBooked(messageID MessageID) (parentsBooked bool) {
+	s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+		parentsBooked = true
+		message.ForEachParent(func(parent Parent) {
+			if !parentsBooked || parent.ID == EmptyMessageID {
+				return
+			}
+
+			if !s.tangle.Storage.MessageMetadata(parent.ID).Consume(func(messageMetadata *MessageMetadata) {
+				parentsBooked = messageMetadata.IsBooked()
+			}) {
+				parentsBooked = false
+			}
+		})
+	})
+
+	return
+}
+
 func (s *Scheduler) schedule() *Message {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -217,7 +241,7 @@ func (s *Scheduler) schedule() *Message {
 	start := s.buffer.Current()
 	for q := start; q.Front() == nil || s.getDeficit(q.NodeID()) < float64(len(q.Front().Bytes())); {
 		// increase the deficit
-		mana, _ := s.mustGetMana(q.NodeID())
+		mana := s.tangle.Options.AccessManaRetriever(q.NodeID())
 		s.setDeficit(q.NodeID(), s.getDeficit(q.NodeID())+mana)
 		// TODO: different from spec
 		q = s.buffer.Next()
@@ -241,7 +265,8 @@ func (s *Scheduler) rateSetting() {
 		return
 	}
 
-	mana, totalMana := s.mustGetMana(s.self)
+	mana := s.tangle.Options.AccessManaRetriever(s.self)
+	totalMana := s.tangle.Options.TotalAccessManaRetriever()
 	if mana <= 0 {
 		panic(fmt.Sprintf("invalid mana: %f", mana))
 	}
@@ -339,7 +364,7 @@ func (s *Scheduler) issueNext() bool {
 		return false
 	}
 
-	mana, _ := s.mustGetMana(s.self)
+	mana := s.tangle.Options.AccessManaRetriever(s.self)
 	if err := s.buffer.Submit(msg, mana); err != nil {
 		return false
 	}
@@ -351,12 +376,6 @@ func (s *Scheduler) issueNext() bool {
 func (s *Scheduler) issueInterval(msg *Message) time.Duration {
 	wait := time.Duration(math.Ceil(float64(len(msg.Bytes())) / s.lambda.Load() * float64(time.Second)))
 	return wait
-}
-
-func (s *Scheduler) mustGetMana(_ identity.ID) (float64, float64) {
-	// TODO: get access mana: mana, totalMana := tangle.Options.AccessManaRetriever(nodeID)
-	// return mana, totalMana
-	return 10.0, 100.0
 }
 
 func (s *Scheduler) getDeficit(nodeID identity.ID) float64 {

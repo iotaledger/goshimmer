@@ -8,12 +8,14 @@ import (
 
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/gommon/log"
 	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
@@ -105,6 +107,8 @@ func Tangle() *tangle.Tangle {
 			tangle.Width(Parameters.TangleWidth),
 			tangle.Consensus(ConsensusMechanism()),
 			tangle.GenesisNode(Parameters.Snapshot.GenesisNode),
+			tangle.AccessManaRetriever(accessManaRetriever),
+			tangle.TotalAccessManaRetriever(totalAccessManaRetriever),
 		)
 
 		tangleInstance.Setup()
@@ -132,6 +136,22 @@ func ConsensusMechanism() *fcob.ConsensusMechanism {
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func accessManaRetriever(nodeID identity.ID) float64 {
+	nodeMana, _, err := GetAccessMana(nodeID)
+	if err != nil {
+		return 0
+	}
+	return nodeMana
+}
+
+func totalAccessManaRetriever() float64 {
+	totalMana, _, err := GetTotalMana(mana.AccessMana)
+	if err != nil {
+		return 0
+	}
+	return totalMana
+}
 
 // AwaitMessageToBeBooked awaits maxAwait for the given message to get booked.
 func AwaitMessageToBeBooked(f func() (*tangle.Message, error), txID ledgerstate.TransactionID, maxAwait time.Duration) (*tangle.Message, error) {

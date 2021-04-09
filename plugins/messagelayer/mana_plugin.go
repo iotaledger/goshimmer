@@ -314,6 +314,23 @@ func GetManaMap(manaType mana.Type, optionalUpdateTime ...time.Time) (mana.NodeM
 	return baseManaVectors[manaType].GetManaMap(optionalUpdateTime...)
 }
 
+// GetTotalMana returns sum of mana of all nodes in the network.
+func GetTotalMana(manaType mana.Type, optionalUpdateTime ...time.Time) (float64, time.Time, error) {
+	if !QueryAllowed() {
+		return 0, time.Now(), ErrQueryNotAllowed
+	}
+	manaMap, updateTime, err := baseManaVectors[manaType].GetManaMap(optionalUpdateTime...)
+	if err != nil {
+		return 0, time.Now(), err
+	}
+
+	var sum float64
+	for _, m := range manaMap {
+		sum += m
+	}
+	return sum, updateTime, nil
+}
+
 // GetAccessMana returns the access mana of the node specified.
 func GetAccessMana(nodeID identity.ID, optionalUpdateTime ...time.Time) (float64, time.Time, error) {
 	if !QueryAllowed() {
