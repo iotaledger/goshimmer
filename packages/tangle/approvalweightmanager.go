@@ -87,14 +87,18 @@ func (a *ApprovalWeightManager) weightsPerEpoch(branchID ledgerstate.BranchID) *
 }
 
 func (a *ApprovalWeightManager) onSequenceSupportUpdated(marker *markers.Marker, message *Message) {
-	if a.lastConfirmedMarkers[marker.SequenceID()] >= marker.Index() {
+	fmt.Println(message.ID())
+
+	if index, exists := a.lastConfirmedMarkers[marker.SequenceID()]; exists && index >= marker.Index() {
 		return
 	}
 
+	fmt.Println("onSequenceSupportUpdated", marker)
 	activeMana, totalMana := a.tangle.WeightProvider.WeightsOfRelevantSupporters(message.IssuingTime())
 
-	for i := a.lastConfirmedMarkers[marker.SequenceID()] + 1; i <= marker.Index(); i++ {
+	for i := a.lowestLastConfirmedMarker(marker.SequenceID()); i <= marker.Index(); i++ {
 		currentMarker := markers.NewMarker(marker.SequenceID(), i)
+		fmt.Println(currentMarker)
 		branchID := a.tangle.Booker.MarkersManager.BranchID(currentMarker)
 		if a.tangle.LedgerState.BranchDAG.InclusionState(branchID) != ledgerstate.Confirmed {
 			break
@@ -114,14 +118,30 @@ func (a *ApprovalWeightManager) onSequenceSupportUpdated(marker *markers.Marker,
 			})
 		}
 
+		fmt.Println("weight:", supporterMana/totalMana)
+
 		if supporterMana/totalMana < markerConfirmationThreshold {
 			break
 		}
 
 		a.lastConfirmedMarkers[marker.SequenceID()] = currentMarker.Index()
 
+		fmt.Println("Marker confirmed!!")
 		a.Events.MarkerConfirmed.Trigger(currentMarker)
 	}
+
+	fmt.Println("===============================================")
+}
+
+func (a *ApprovalWeightManager) lowestLastConfirmedMarker(sequenceID markers.SequenceID) (index markers.Index) {
+	index = a.lastConfirmedMarkers[sequenceID] + 1
+	a.tangle.Booker.MarkersManager.Manager.Sequence(sequenceID).Consume(func(sequence *markers.Sequence) {
+		if index < sequence.LowestIndex() {
+			index = sequence.LowestIndex()
+		}
+	})
+
+	return
 }
 
 func (a *ApprovalWeightManager) onBranchSupportAdded(branchID ledgerstate.BranchID, message *Message) {
@@ -130,8 +150,18 @@ func (a *ApprovalWeightManager) onBranchSupportAdded(branchID ledgerstate.Branch
 	}
 
 	weightOfSupporter, totalMana, epochID := a.tangle.WeightProvider.Weight(message)
-	if a.weightsPerEpoch(branchID).AddWeight(epochID, weightOfSupporter/totalMana)-a.weightOfLargestConflictingBranch(branchID, epochID) >= confirmationThreshold {
+	fmt.Printf("weightOfSupporter: %0.2f, totalMana: %0.2f\n", weightOfSupporter, totalMana)
+
+	branchWeight := a.weightsPerEpoch(branchID).AddWeight(epochID, weightOfSupporter/totalMana)
+	fmt.Println("BranchWeight:", branchWeight)
+	fmt.Println("weightOfLargestConflictingBranch", a.weightOfLargestConflictingBranch(branchID, epochID))
+	fmt.Println("conf", branchWeight-a.weightOfLargestConflictingBranch(branchID, epochID))
+	if branchWeight-a.weightOfLargestConflictingBranch(branchID, epochID) >= confirmationThreshold {
 		a.Events.BranchConfirmed.Trigger(branchID)
+
+		// TODO: move this to a different place
+		a.tangle.LedgerState.BranchDAG.SetBranchLiked(branchID, true)
+		a.tangle.LedgerState.BranchDAG.SetBranchFinalized(branchID, true)
 	}
 }
 
@@ -139,11 +169,12 @@ func (a *ApprovalWeightManager) onBranchSupportRemoved(branchID ledgerstate.Bran
 	weightOfSupporter, totalWeight, epochID := a.tangle.WeightProvider.Weight(message)
 
 	a.weightsPerEpoch(branchID).RemoveWeight(epochID, weightOfSupporter/totalWeight)
+	fmt.Println("onBranchSupportRemoved", message.ID())
 }
 
 func (a *ApprovalWeightManager) weightOfLargestConflictingBranch(branchID ledgerstate.BranchID, epochID uint64) (weight float64) {
 	a.tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
-		if branchWeight := a.weightsPerEpoch(branchID).Weight(epochID); branchWeight > weight {
+		if branchWeight := a.weightsPerEpoch(conflictingBranchID).Weight(epochID); branchWeight > weight {
 			weight = branchWeight
 		}
 	})

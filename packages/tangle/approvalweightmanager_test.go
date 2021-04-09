@@ -286,7 +286,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	defer tangle.Shutdown()
 	tangle.Setup()
 
-	testFramework := NewMessageTestFramework(tangle)
+	testFramework := NewMessageTestFramework(tangle, WithGenesisOutput("A", 500))
 
 	approvalWeightManager := NewApprovalWeightManager(tangle)
 	approvalWeightManager.Setup()
@@ -330,14 +330,11 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 			MessageIDs{testFramework.Message("Message3").ID()},
 			[]*markers.Marker{markers.NewMarker(1, 1)},
 			[]ledgerstate.BranchID{},
-			// TODO: handle MasterBRanchID differently?
 			func() {
 				approvalWeightManager.ProcessMessage(testFramework.Message("Message3").ID())
 			},
 		)
 	}
-
-	// HALLO
 
 	// ISSUE Message4
 	{
@@ -356,7 +353,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 
 	// ISSUE Message5
 	{
-		testFramework.CreateMessage("Message5", WithStrongParents("Message4"), WithIssuer(nodes["A"].PublicKey()))
+		testFramework.CreateMessage("Message5", WithStrongParents("Message4"), WithIssuer(nodes["A"].PublicKey()), WithInputs("A"), WithOutput("B", 500))
 		testFramework.IssueMessages("Message5").WaitMessagesBooked()
 
 		validateApprovalWeightManagerEvents(t, approvalWeightManager,
@@ -368,6 +365,82 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 			},
 		)
 	}
+
+	// ISSUE Message6
+	{
+		testFramework.CreateMessage("Message6", WithStrongParents("Message4"), WithIssuer(nodes["E"].PublicKey()), WithInputs("A"), WithOutput("C", 500))
+		testFramework.IssueMessages("Message6").WaitMessagesBooked()
+
+		validateApprovalWeightManagerEvents(t, approvalWeightManager,
+			MessageIDs{testFramework.Message("Message6").ID()},
+			[]*markers.Marker{},
+			[]ledgerstate.BranchID{},
+			func() {
+				approvalWeightManager.ProcessMessage(testFramework.Message("Message6").ID())
+			},
+		)
+	}
+
+	// ISSUE Message7
+	{
+		testFramework.CreateMessage("Message7", WithStrongParents("Message5"), WithIssuer(nodes["C"].PublicKey()))
+		testFramework.IssueMessages("Message7").WaitMessagesBooked()
+
+		validateApprovalWeightManagerEvents(t, approvalWeightManager,
+			MessageIDs{testFramework.Message("Message7").ID()},
+			[]*markers.Marker{},
+			[]ledgerstate.BranchID{},
+			func() {
+				approvalWeightManager.ProcessMessage(testFramework.Message("Message7").ID())
+			},
+		)
+	}
+
+	// ISSUE Message8
+	{
+		testFramework.CreateMessage("Message8", WithStrongParents("Message6"), WithIssuer(nodes["D"].PublicKey()))
+		testFramework.IssueMessages("Message8").WaitMessagesBooked()
+
+		validateApprovalWeightManagerEvents(t, approvalWeightManager,
+			MessageIDs{testFramework.Message("Message8").ID()},
+			[]*markers.Marker{},
+			[]ledgerstate.BranchID{},
+			func() {
+				approvalWeightManager.ProcessMessage(testFramework.Message("Message8").ID())
+			},
+		)
+	}
+
+	// ISSUE Message9
+	{
+		testFramework.CreateMessage("Message9", WithStrongParents("Message8"), WithIssuer(nodes["A"].PublicKey()))
+		testFramework.IssueMessages("Message9").WaitMessagesBooked()
+
+		validateApprovalWeightManagerEvents(t, approvalWeightManager,
+			MessageIDs{testFramework.Message("Message9").ID()},
+			[]*markers.Marker{},
+			[]ledgerstate.BranchID{},
+			func() {
+				approvalWeightManager.ProcessMessage(testFramework.Message("Message9").ID())
+			},
+		)
+	}
+
+	// ISSUE Message10
+	{
+		testFramework.CreateMessage("Message10", WithStrongParents("Message9"), WithIssuer(nodes["B"].PublicKey()))
+		testFramework.IssueMessages("Message10").WaitMessagesBooked()
+
+		validateApprovalWeightManagerEvents(t, approvalWeightManager,
+			MessageIDs{testFramework.Message("Message10").ID()},
+			[]*markers.Marker{markers.NewMarker(2, 5), markers.NewMarker(2, 6)},
+			[]ledgerstate.BranchID{ledgerstate.NewBranchID(testFramework.TransactionID("Message6"))},
+			func() {
+				approvalWeightManager.ProcessMessage(testFramework.Message("Message10").ID())
+			},
+		)
+	}
+
 }
 
 func validateApprovalWeightManagerEvents(t *testing.T, approvalWeightManager *ApprovalWeightManager, expectedProcessedMessageIDs MessageIDs, expectedConfirmedMarkers []*markers.Marker, expectedConfirmedBranches []ledgerstate.BranchID, callback func()) {
