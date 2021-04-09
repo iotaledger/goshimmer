@@ -28,6 +28,8 @@ type Events struct {
 	TransactionReceived *events.Event
 	// InclusionStateReceived is triggered when an inclusion state message is received from the server
 	InclusionStateReceived *events.Event
+	// OutputReceived is triggered whenever individual output is received
+	OutputReceived *events.Event
 	// Connected is triggered when the client connects successfully to the server
 	Connected *events.Event
 }
@@ -37,6 +39,10 @@ type DialFunc func() (addr string, conn net.Conn, err error)
 
 func handleTransactionReceived(handler interface{}, params ...interface{}) {
 	handler.(func(*txstream.MsgTransaction))(params[0].(*txstream.MsgTransaction))
+}
+
+func handleOutputReceived(handler interface{}, params ...interface{}) {
+	handler.(func(output *txstream.MsgOutput))(params[0].(*txstream.MsgOutput))
 }
 
 func handleInclusionStateReceived(handler interface{}, params ...interface{}) {
@@ -59,6 +65,7 @@ func New(clientID string, log *logger.Logger, dial DialFunc) *Client {
 		Events: Events{
 			TransactionReceived:    events.NewEvent(handleTransactionReceived),
 			InclusionStateReceived: events.NewEvent(handleInclusionStateReceived),
+			OutputReceived:         events.NewEvent(handleOutputReceived),
 			Connected:              events.NewEvent(handleConnected),
 		},
 	}

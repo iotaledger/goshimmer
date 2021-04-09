@@ -13,7 +13,7 @@ func (c *Connection) sendMsgToClient(msg txstream.Message) {
 	var err error
 	defer func() {
 		if err != nil {
-			c.log().Errorf("sendMsgToClient: %c", err.Error())
+			c.log().Errorf("sendMsgToClient: %s", err.Error())
 		}
 	}()
 
@@ -57,5 +57,23 @@ func (c *Connection) pushTransaction(txid ledgerstate.TransactionID, addr ledger
 	})
 	if !found {
 		c.log().Warnf("pushTransaction: not found %c", txid.String())
+	}
+}
+
+func (c *Connection) sendOutput(outputID ledgerstate.OutputID, addr ledgerstate.Address) {
+	validOutput := true
+	foundTx := c.ledger.GetConfirmedTransaction(outputID.TransactionID(), func(tx *ledgerstate.Transaction) {
+		idx := outputID.OutputIndex()
+		if int(idx) >= len(tx.Essence().Outputs()) {
+			validOutput = false
+			return
+		}
+		c.sendMsgToClient(&txstream.MsgOutput{
+			Address: addr,
+			Output:  tx.Essence().Outputs()[outputID.OutputIndex()].UpdateMintingColor(),
+		})
+	})
+	if !foundTx || !validOutput {
+		c.log().Warnf("sendOutput: not found output %s", outputID.String())
 	}
 }

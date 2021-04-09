@@ -72,8 +72,16 @@ func send(t *testing.T, n *Client, sendMsg func(), rcv func(msg txstream.Message
 		}
 	})
 
-	closureInlucsionStateReceived := events.NewClosure(func(msg *txstream.MsgTxInclusionState) {
-		t.Logf("received 'inlcusion state' from txstream: %s: %s", msg.TxID.Base58(), msg.State.String())
+	closureInclusionStateReceived := events.NewClosure(func(msg *txstream.MsgTxInclusionState) {
+		t.Logf("received 'inclusion state' from txstream: %s: %s", msg.TxID.Base58(), msg.State.String())
+		wgSend.Wait()
+		if rcv(msg) {
+			close(done)
+		}
+	})
+
+	closureOutputReceived := events.NewClosure(func(msg *txstream.MsgOutput) {
+		t.Logf("received 'output' from txstream: %s", msg.Output.String())
 		wgSend.Wait()
 		if rcv(msg) {
 			close(done)
@@ -83,8 +91,11 @@ func send(t *testing.T, n *Client, sendMsg func(), rcv func(msg txstream.Message
 	n.Events.TransactionReceived.Attach(closureTransactionReceived)
 	defer n.Events.TransactionReceived.Detach(closureTransactionReceived)
 
-	n.Events.InclusionStateReceived.Attach(closureInlucsionStateReceived)
-	defer n.Events.InclusionStateReceived.Detach(closureInlucsionStateReceived)
+	n.Events.InclusionStateReceived.Attach(closureInclusionStateReceived)
+	defer n.Events.InclusionStateReceived.Detach(closureInclusionStateReceived)
+
+	n.Events.OutputReceived.Attach(closureOutputReceived)
+	defer n.Events.OutputReceived.Detach(closureOutputReceived)
 
 	sendMsg()
 	wgSend.Done()
@@ -116,7 +127,7 @@ func createAliasChain(t *testing.T, u *utxodbledger.UtxoDBLedger, creatorIndex i
 	err = u.PostTransaction(tx)
 	require.NoError(t, err)
 
-	chainOutput, err := utxoutil.GetSingleChainedAliasOutput(tx.Essence())
+	chainOutput, err := utxoutil.GetSingleChainedAliasOutput(tx)
 	require.NoError(t, err)
 	chainAddress := chainOutput.GetAliasAddress()
 	t.Logf("chain address: %s", chainAddress.Base58())
@@ -153,7 +164,7 @@ func TestRequestBacklog(t *testing.T) {
 
 	require.Equal(t, tx.ID(), resp.Tx.ID())
 
-	chainOutput, err := utxoutil.GetSingleChainedAliasOutput(resp.Tx.Essence())
+	chainOutput, err := utxoutil.GetSingleChainedAliasOutput(resp.Tx)
 	require.NoError(t, err)
 	require.EqualValues(t, chainAddress.Base58(), chainOutput.Address().Base58())
 }
@@ -228,6 +239,30 @@ func TestRequestInclusionLevel(t *testing.T) {
 	)
 
 	require.EqualValues(t, ledgerstate.Confirmed, resp.State)
+}
+
+func TestRequestOutput(t *testing.T) {
+	ledger, n := start(t)
+	createTx, chainAddress := createAliasChain(t, ledger, creatorIndex, stateControlIndex, map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: 100})
+	chainOutput, err := utxoutil.GetSingleChainedAliasOutput(createTx)
+	require.NoError(t, err)
+
+	// request chain output
+	var resp *txstream.MsgOutput
+	send(t, n,
+		func() {
+			n.RequestConfirmedOutput(chainAddress, chainOutput.ID())
+		},
+		func(msg txstream.Message) bool {
+			if msg, ok := msg.(*txstream.MsgOutput); ok {
+				resp = msg
+				return true
+			}
+			return false
+		},
+	)
+
+	require.True(t, chainOutput.Compare(resp.Output) == 0)
 }
 
 func TestSubscribe(t *testing.T) {

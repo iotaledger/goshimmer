@@ -30,6 +30,14 @@ func (n *Client) RequestTxInclusionState(addr ledgerstate.Address, txid ledgerst
 	})
 }
 
+// RequestTxInclusionState requests the inclusion state of a transaction
+func (n *Client) RequestConfirmedOutput(addr ledgerstate.Address, outputID ledgerstate.OutputID) {
+	n.sendMessage(&txstream.MsgGetConfirmedOutput{
+		Address:  addr,
+		OutputID: outputID,
+	})
+}
+
 // PostTransaction posts a transaction to the ledger
 func (n *Client) PostTransaction(tx *ledgerstate.Transaction, fromSc ledgerstate.Address, fromLeader uint16) {
 	n.sendMessage(&txstream.MsgPostTransaction{Tx: tx})

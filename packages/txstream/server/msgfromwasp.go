@@ -50,6 +50,9 @@ func (c *Connection) processMessageFromClient(data []byte) {
 	case *txstream.MsgSetID:
 		c.setID(msg.ClientID)
 
+	case *txstream.MsgGetConfirmedOutput:
+		c.sendOutput(msg.OutputID, msg.Address)
+
 	default:
 		panic("wrong msg type")
 	}

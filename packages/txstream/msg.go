@@ -21,12 +21,14 @@ const (
 	msgTypePostTransaction = MessageType(FlagClientToServer + iota)
 	msgTypeSubscribe
 	msgTypeGetConfirmedTransaction
+	msgTypeGetConfirmedOutput
 	msgTypeGetTxInclusionState
 	msgTypeGetBacklog
 	msgTypeSetID
 
 	msgTypeTransaction = MessageType(FlagServerToClient + iota)
 	msgTypeTxInclusionState
+	msgTypeOutput
 )
 
 // Message is the common interface of all messages in the txstream protocol
@@ -69,6 +71,13 @@ type MsgGetConfirmedTransaction struct {
 	TxID    ledgerstate.TransactionID
 }
 
+// MsgGetConfirmedOutput is a request to get a specific confirmed output from the ledger.
+// It may or may not be consumed
+type MsgGetConfirmedOutput struct {
+	Address  ledgerstate.Address
+	OutputID ledgerstate.OutputID
+}
+
 // MsgGetTxInclusionState is a request to get the inclusion state for a transaction.
 // Server replies with MsgTxInclusionState.
 type MsgGetTxInclusionState struct {
@@ -106,6 +115,11 @@ type MsgTxInclusionState struct {
 	Address ledgerstate.Address
 	TxID    ledgerstate.TransactionID
 	State   ledgerstate.InclusionState
+}
+
+type MsgOutput struct {
+	Address ledgerstate.Address
+	Output  ledgerstate.Output
 }
 
 // endregion
@@ -155,6 +169,12 @@ func DecodeMsg(data []byte, expectedFlags uint8) (interface{}, error) {
 
 	case msgTypeTxInclusionState:
 		ret = &MsgTxInclusionState{}
+
+	case msgTypeGetConfirmedOutput:
+		ret = &MsgGetConfirmedOutput{}
+
+	case msgTypeOutput:
+		ret = &MsgOutput{}
 
 	default:
 		return nil, fmt.Errorf("unknown message type %d", msgType)
@@ -343,4 +363,40 @@ func (msg *MsgChunk) Read(m *marshalutil.MarshalUtil) error {
 
 func (msg *MsgChunk) Type() MessageType {
 	return msgTypeChunk
+}
+
+func (msg *MsgGetConfirmedOutput) Write(w *marshalutil.MarshalUtil) {
+	w.Write(msg.Address)
+	w.Write(msg.OutputID)
+}
+
+func (msg *MsgGetConfirmedOutput) Read(m *marshalutil.MarshalUtil) error {
+	var err error
+	if msg.Address, err = ledgerstate.AddressFromMarshalUtil(m); err != nil {
+		return err
+	}
+	msg.OutputID, err = ledgerstate.OutputIDFromMarshalUtil(m)
+	return err
+}
+
+func (msg *MsgGetConfirmedOutput) Type() MessageType {
+	return msgTypeGetConfirmedOutput
+}
+
+func (msg *MsgOutput) Write(w *marshalutil.MarshalUtil) {
+	w.Write(msg.Address)
+	w.Write(msg.Output)
+}
+
+func (msg *MsgOutput) Read(m *marshalutil.MarshalUtil) error {
+	var err error
+	if msg.Address, err = ledgerstate.AddressFromMarshalUtil(m); err != nil {
+		return err
+	}
+	msg.Output, err = ledgerstate.OutputFromMarshalUtil(m)
+	return err
+}
+
+func (msg *MsgOutput) Type() MessageType {
+	return msgTypeOutput
 }
