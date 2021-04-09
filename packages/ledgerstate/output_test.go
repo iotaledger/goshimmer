@@ -1316,6 +1316,7 @@ func TestExtendedLockedOutput_Bytes(t *testing.T) {
 			WithFallbackOptions(randEd25119Address(), time.Now().Add(2*time.Hour)).
 			WithTimeLock(time.Now().Add(1 * time.Hour))
 		err := o.SetPayload([]byte("some metadata"))
+		assert.NoError(t, err)
 		oBytes := o.Bytes()
 		var restored Output
 		restored, _, err = OutputFromBytes(oBytes)
@@ -1386,6 +1387,7 @@ func TestExtendedLockedOutput_Bytes(t *testing.T) {
 	t.Run("CASE: Happy path, optional payload", func(t *testing.T) {
 		o := NewExtendedLockedOutput(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}, randEd25119Address())
 		err := o.SetPayload([]byte("some metadata"))
+		assert.NoError(t, err)
 		oBytes := o.Bytes()
 		var restored Output
 		restored, _, err = OutputFromBytes(oBytes)
