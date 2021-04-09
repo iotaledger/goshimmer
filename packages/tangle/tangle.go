@@ -216,6 +216,7 @@ type Options struct {
 	TangleWidth                  int
 	ConsensusMechanism           ConsensusMechanism
 	GenesisNode                  *ed25519.PublicKey
+	AccessManaRetriever          AccessManaRetrieveFunc
 }
 
 // Store is an Option for the Tangle that allows to specify which storage layer is supposed to be used to persist data.
@@ -266,6 +267,13 @@ func GenesisNode(genesisNodeBase58 string) Option {
 
 	return func(options *Options) {
 		options.GenesisNode = genesisPublicKey
+	}
+}
+
+// AccessManaRetriever is an Option for the Tangle that allows to specify the access mana retrieve function.
+func AccessManaRetriever(accessManaRetriever AccessManaRetrieveFunc) Option {
+	return func(options *Options) {
+		options.AccessManaRetriever = accessManaRetriever
 	}
 }
 

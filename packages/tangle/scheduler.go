@@ -39,6 +39,9 @@ var (
 	ErrInboxExceeded = errors.New("maximum mana-scaled inbox length exceeded")
 )
 
+// AccessManaRetrieveFunc is a function type to retrieve access mana (e.g. via the mana plugin)
+type AccessManaRetrieveFunc func(nodeID identity.ID) (float64, float64)
+
 // Scheduler is a Tangle component that takes care of scheduling the messages that shall be booked.
 type Scheduler struct {
 	Events *SchedulerEvents
@@ -82,6 +85,11 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 		haltUpdate:     0,
 		shutdownSignal: make(chan struct{}),
 	}
+
+	if tangle.Options.AccessManaRetriever == nil {
+		panic("the option AccessManaRetriever must be defined so that AccessMana can be determined in scheduler")
+	}
+
 	go scheduler.issuerLoop()
 	go scheduler.mainLoop()
 
@@ -115,7 +123,7 @@ func (s *Scheduler) Submit(messageID MessageID) {
 		}
 
 		// get the current access mana inside the lock
-		mana, _ := s.getMana(nodeID)
+		mana, _ := s.mustGetMana(nodeID)
 
 		err := s.buffer.Submit(message, mana)
 		if err != nil {
@@ -192,7 +200,7 @@ func (s *Scheduler) schedule() *Message {
 	start := s.buffer.Current()
 	for q := start; q.Front() == nil || s.getDeficit(q.NodeID()) < float64(len(q.Front().Bytes())); {
 		// increase the deficit
-		mana, _ := s.getMana(q.NodeID())
+		mana, _ := s.mustGetMana(q.NodeID())
 		s.setDeficit(q.NodeID(), s.getDeficit(q.NodeID())+mana)
 		// TODO: different from spec
 		q = s.buffer.Next()
@@ -216,7 +224,7 @@ func (s *Scheduler) rateSetting() {
 		return
 	}
 
-	mana, totalMana := s.getMana(s.self)
+	mana, totalMana := s.mustGetMana(s.self)
 	if mana <= 0 {
 		panic(fmt.Sprintf("invalid mana: %f", mana))
 	}
@@ -314,7 +322,7 @@ func (s *Scheduler) issueNext() bool {
 		return false
 	}
 
-	mana, _ := s.getMana(s.self)
+	mana, _ := s.mustGetMana(s.self)
 	if err := s.buffer.Submit(msg, mana); err != nil {
 		return false
 	}
@@ -328,10 +336,9 @@ func (s *Scheduler) issueInterval(msg *Message) time.Duration {
 	return wait
 }
 
-func (s *Scheduler) getMana(_ identity.ID) (float64, float64) {
-	// TODO: get mana from epoch manager: manaMap, totalMana := tangle.EpochManager.ActiveMana(time.Now())
-	//manaMap, totalMana := s.tangle.EpochManager.ActiveMana(time.Now())
-	//return manaMap[nodeID], totalMana
+func (s *Scheduler) mustGetMana(_ identity.ID) (float64, float64) {
+	// TODO: get access mana: mana, totalMana := tangle.Options.AccessManaRetriever(nodeID)
+	// return mana, totalMana
 	return 10.0, 100.0
 }
 
