@@ -786,6 +786,123 @@ func TestAddressOutputMapping(t *testing.T) {
 	assert.Equal(t, 1, len(res))
 }
 
+func TestUTXODAG_CheckTransaction(t *testing.T) {
+	branchDAG, utxoDAG := setupDependencies(t)
+	defer branchDAG.Shutdown()
+	defer utxoDAG.Shutdown()
+
+	w := genRandomWallet()
+	governingWallet := genRandomWallet()
+	alias := &AliasOutput{
+		outputID:         randOutputID(),
+		balances:         NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}),
+		aliasAddress:     *randAliasAddress(),
+		stateAddress:     w.address, // alias state controller is our wallet
+		stateIndex:       10,
+		governingAddress: governingWallet.address,
+	}
+	nextAlias := alias.NewAliasOutputNext(false)
+	toBeConsumedExtended := NewExtendedLockedOutput(map[Color]uint64{ColorIOTA: 1}, alias.GetAliasAddress())
+	toBeConsumedExtended.SetID(randOutputID())
+	inputs := NewOutputs(alias, toBeConsumedExtended)
+	// book manually the outputs into utxoDAG
+	for _, output := range inputs {
+		// replace ColorMint color with unique color based on OutputID
+		output = output.UpdateMintingColor()
+
+		// store Output
+		utxoDAG.outputStorage.Store(output).Release()
+
+		// store OutputMetadata
+		metadata := NewOutputMetadata(output.ID())
+		metadata.SetBranchID(MasterBranchID)
+		metadata.SetSolid(true)
+		utxoDAG.outputMetadataStorage.Store(metadata).Release()
+	}
+
+	nextAliasBalance := alias.Balances().Map()
+	// add 1 more iota from consumed extended output
+	nextAliasBalance[ColorIOTA]++
+	err := nextAlias.SetBalances(nextAliasBalance)
+	assert.NoError(t, err)
+
+	essence := NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, NewInputs(toBeConsumedExtended.Input(), alias.Input()), NewOutputs(nextAlias))
+	// which input index did the alias get?
+	var aliasInputIndex uint16
+	orderedInputs := make(Outputs, len(essence.Inputs()))
+	for i, input := range essence.Inputs() {
+		casted := input.(*UTXOInput)
+		if casted.ReferencedOutputID() == alias.ID() {
+			aliasInputIndex = uint16(i)
+			orderedInputs[i] = alias
+		}
+		if casted.ReferencedOutputID() == toBeConsumedExtended.ID() {
+			orderedInputs[i] = toBeConsumedExtended
+		}
+	}
+
+	t.Run("CASE: Happy path", func(t *testing.T) {
+		// create mapping from outputID to unlockBlock
+		inputToUnlockMapping := make(map[OutputID]UnlockBlock)
+		inputToUnlockMapping[alias.ID()] = NewSignatureUnlockBlock(w.sign(essence))
+		inputToUnlockMapping[toBeConsumedExtended.ID()] = NewAliasUnlockBlock(aliasInputIndex)
+
+		// fill unlock blocks
+		unlocks := make(UnlockBlocks, len(essence.Inputs()))
+		for i, input := range essence.Inputs() {
+			unlocks[i] = inputToUnlockMapping[input.(*UTXOInput).ReferencedOutputID()]
+		}
+
+		tx := NewTransaction(essence, unlocks)
+
+		bErr := utxoDAG.CheckTransaction(tx)
+		assert.NoError(t, bErr)
+	})
+
+	t.Run("CASE: Tx not okay, wrong signature", func(t *testing.T) {
+		// create mapping from outputID to unlockBlock
+		inputToUnlockMapping := make(map[OutputID]UnlockBlock)
+		inputToUnlockMapping[alias.ID()] = NewSignatureUnlockBlock(genRandomWallet().sign(essence))
+		inputToUnlockMapping[toBeConsumedExtended.ID()] = NewAliasUnlockBlock(aliasInputIndex)
+
+		// fill unlock blocks
+		unlocks := make(UnlockBlocks, len(essence.Inputs()))
+		for i, input := range essence.Inputs() {
+			unlocks[i] = inputToUnlockMapping[input.(*UTXOInput).ReferencedOutputID()]
+		}
+
+		tx := NewTransaction(essence, unlocks)
+
+		bErr := utxoDAG.CheckTransaction(tx)
+		t.Log(bErr)
+		assert.Error(t, bErr)
+	})
+
+	t.Run("CASE: Tx not okay, alias unlocked for governance", func(t *testing.T) {
+		// tx alias output will be unlocked for governance
+		nextAlias = alias.NewAliasOutputNext(true)
+		essence.outputs = NewOutputs(nextAlias, NewSigLockedSingleOutput(1, randEd25119Address()))
+
+		// create mapping from outputID to unlockBlock
+		inputToUnlockMapping := make(map[OutputID]UnlockBlock)
+		inputToUnlockMapping[alias.ID()] = NewSignatureUnlockBlock(governingWallet.sign(essence))
+		inputToUnlockMapping[toBeConsumedExtended.ID()] = NewAliasUnlockBlock(aliasInputIndex)
+
+		// fill unlock blocks
+		unlocks := make(UnlockBlocks, len(essence.Inputs()))
+		for i, input := range essence.Inputs() {
+			unlocks[i] = inputToUnlockMapping[input.(*UTXOInput).ReferencedOutputID()]
+		}
+
+		tx := NewTransaction(essence, unlocks)
+
+		bErr := utxoDAG.CheckTransaction(tx)
+		t.Log(bErr)
+		assert.Error(t, bErr)
+	})
+
+}
+
 func setupDependencies(t *testing.T) (*BranchDAG, *UTXODAG) {
 	store := mapdb.NewMapDB()
 	branchDAG := NewBranchDAG(store)
