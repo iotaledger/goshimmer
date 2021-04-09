@@ -3,11 +3,12 @@ package gossip
 import (
 	"encoding/json"
 	"errors"
-	"github.com/iotaledger/hive.go/autopeering/peer"
-	"golang.org/x/xerrors"
 	"net"
 	"strconv"
 	"sync"
+
+	"github.com/iotaledger/hive.go/autopeering/peer"
+	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/logger"
