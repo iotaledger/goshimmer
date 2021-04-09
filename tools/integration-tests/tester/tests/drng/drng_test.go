@@ -30,9 +30,7 @@ func TestDRNG(t *testing.T) {
 	// wait for randomness generation to be started
 	log.Printf("Waiting for randomness generation to be started...\n")
 
-	// randomness starts at round = 2
-	firstRound := uint64(2)
-	resp, err := waitForRound(t, drng.Peers()[0], firstRound, 200)
+	resp, firstRound, err := getFirstRound(t, drng.Peers()[0], 200)
 	if err != nil {
 		t.Log(resp)
 	}
@@ -70,6 +68,20 @@ func TestDRNG(t *testing.T) {
 			}
 		}
 	}
+}
+
+func getFirstRound(t *testing.T, peer *framework.Peer, maxAttempts int) (string, uint64, error) {
+	var b []byte
+	for i := 0; i < maxAttempts; i++ {
+		resp, err := peer.GetRandomness()
+		require.NoError(t, err)
+		b, err = json.MarshalIndent(resp, "", " ")
+		if err == nil {
+			return string(b), resp.Randomness[0].Round, nil
+		}
+		time.Sleep(1 * time.Second)
+	}
+	return string(b), 0, errWrongRound
 }
 
 func waitForRound(t *testing.T, peer *framework.Peer, round uint64, maxAttempts int) (string, error) {

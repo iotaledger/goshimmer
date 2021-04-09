@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/labstack/echo"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -165,6 +166,12 @@ var DiagnosticMessagesTableDescription = []string{
 	"FMLI",
 	"PayloadType",
 	"TransactionID",
+	"PayloadOpinionFormed",
+	"TimestampOpinionFormed",
+	"MessageOpinionFormed",
+	"MessageOpinionTriggered",
+	"TimestampOpinion",
+	"TimestampLoK",
 }
 
 // DiagnosticMessagesInfo holds the information of a message.
@@ -198,11 +205,18 @@ type DiagnosticMessagesInfo struct {
 	FMLI              uint64 // FutureMarkers Lowest Index
 	PayloadType       string
 	TransactionID     string
+	// Consensus information
+	PayloadOpinionFormed    bool
+	TimestampOpinionFormed  bool
+	MessageOpinionFormed    bool
+	MessageOpinionTriggered bool
+	TimestampOpinion        string
+	TimestampLoK            string
 }
 
 func getDiagnosticMessageInfo(messageID tangle.MessageID) *DiagnosticMessagesInfo {
 	msgInfo := &DiagnosticMessagesInfo{
-		ID: messageID.String(),
+		ID: messageID.Base58(),
 	}
 
 	messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
@@ -248,6 +262,22 @@ func getDiagnosticMessageInfo(messageID tangle.MessageID) *DiagnosticMessagesInf
 
 	msgInfo.InclusionState = messagelayer.Tangle().LedgerState.BranchInclusionState(branchID).String()
 
+	// add consensus information
+	consensusMechanism := messagelayer.Tangle().Options.ConsensusMechanism.(*fcob.ConsensusMechanism)
+	if consensusMechanism != nil {
+		consensusMechanism.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *fcob.MessageMetadata) {
+			msgInfo.PayloadOpinionFormed = messageMetadata.PayloadOpinionFormed()
+			msgInfo.TimestampOpinionFormed = messageMetadata.TimestampOpinionFormed()
+			msgInfo.MessageOpinionFormed = messageMetadata.MessageOpinionFormed()
+			msgInfo.MessageOpinionTriggered = messageMetadata.MessageOpinionTriggered()
+		})
+
+		consensusMechanism.Storage.TimestampOpinion(messageID).Consume(func(timestampOpinion *fcob.TimestampOpinion) {
+			msgInfo.TimestampOpinion = timestampOpinion.Value.String()
+			msgInfo.TimestampLoK = timestampOpinion.LoK.String()
+		})
+	}
+
 	return msgInfo
 }
 
@@ -282,6 +312,12 @@ func (d *DiagnosticMessagesInfo) toCSVRow() (row []string) {
 		fmt.Sprint(d.FMLI),
 		d.PayloadType,
 		d.TransactionID,
+		fmt.Sprint(d.PayloadOpinionFormed),
+		fmt.Sprint(d.TimestampOpinionFormed),
+		fmt.Sprint(d.MessageOpinionFormed),
+		fmt.Sprint(d.MessageOpinionTriggered),
+		d.TimestampOpinion,
+		d.TimestampLoK,
 	}
 
 	return row

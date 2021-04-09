@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
@@ -132,7 +132,7 @@ func getDiagnosticConflictsInfo(branchID ledgerstate.BranchID) DiagnosticBranchI
 
 		transactionID := ledgerstate.TransactionID(branchID)
 
-		conflictInfo.ConflictSet = messagelayer.Tangle().LedgerState.ConflictSet(transactionID).Strings()
+		conflictInfo.ConflictSet = messagelayer.Tangle().LedgerState.ConflictSet(transactionID).Base58s()
 
 		messagelayer.Tangle().LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
 			conflictInfo.IssuanceTimestamp = transaction.Essence().Timestamp()

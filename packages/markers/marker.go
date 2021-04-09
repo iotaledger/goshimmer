@@ -156,18 +156,19 @@ func (m *Markers) SequenceIDs() (sequenceIDs SequenceIDs) {
 	return NewSequenceIDs(sequenceIDsSlice...)
 }
 
-// FirstMarker returns the first Marker in the collection. It can for example be used to retrieve the new Marker that
-// was assigned when increasing the Index of a Sequence.
-func (m *Markers) FirstMarker() (firstMarker *Marker) {
+// HighestSequenceMarker returns the Marker of the highest SequenceID in the collection. It can for example be used to
+// retrieve the new Marker that was assigned when increasing the Index of a Sequence.
+func (m *Markers) HighestSequenceMarker() (highestSequenceMarker *Marker) {
 	m.markersMutex.RLock()
 	defer m.markersMutex.RUnlock()
 
 	for sequenceID, index := range m.markers {
-		firstMarker = &Marker{sequenceID: sequenceID, index: index}
-		return
+		if highestSequenceMarker == nil || sequenceID > highestSequenceMarker.SequenceID() {
+			highestSequenceMarker = &Marker{sequenceID: sequenceID, index: index}
+		}
 	}
 
-	return
+	return highestSequenceMarker
 }
 
 // Get returns the Index of the Marker with the given Sequence and a flag that indicates if the Marker exists.
@@ -260,6 +261,30 @@ func (m *Markers) ForEach(iterator func(sequenceID SequenceID, index Index) bool
 	success = true
 	for sequenceID, index := range m.markers {
 		if success = iterator(sequenceID, index); !success {
+			return
+		}
+	}
+
+	return
+}
+
+// ForEachSorted calls the iterator for each of the contained Markers in increasing order. The iteration is aborted if
+// the iterator returns false. The method returns false if the iteration was aborted.
+func (m *Markers) ForEachSorted(iterator func(sequenceID SequenceID, index Index) bool) (success bool) {
+	m.markersMutex.RLock()
+	defer m.markersMutex.RUnlock()
+
+	sequenceIDs := make([]SequenceID, 0, len(m.markers))
+	for sequenceID := range m.markers {
+		sequenceIDs = append(sequenceIDs, sequenceID)
+	}
+	sort.Slice(sequenceIDs, func(i, j int) bool {
+		return sequenceIDs[i] < sequenceIDs[j]
+	})
+
+	success = true
+	for _, sequenceID := range sequenceIDs {
+		if success = iterator(sequenceID, m.markers[sequenceID]); !success {
 			return
 		}
 	}

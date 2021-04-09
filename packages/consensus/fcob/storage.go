@@ -21,7 +21,7 @@ import (
 
 // region Storage //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Storage is a component of the ConsensusMechanism that encapsulates the storage related methods.
+// Storage is a component of the ConsensusMechanism that encapsulates the Storage related methods.
 type Storage struct {
 	store                   kvstore.KVStore
 	opinionStorage          *objectstorage.ObjectStorage
@@ -75,7 +75,7 @@ func (s *Storage) MessageMetadata(messageID tangle.MessageID) (cachedMessageMeta
 	return &CachedMessageMetadata{CachedObject: s.messageMetadataStorage.Load(messageID.Bytes())}
 }
 
-// StoreTimestampOpinion stores the TimestampOpinion in the object storage. It returns true if it was stored or updated.
+// StoreTimestampOpinion stores the TimestampOpinion in the object Storage. It returns true if it was stored or updated.
 func (s *Storage) StoreTimestampOpinion(timestampOpinion *TimestampOpinion) (modified bool) {
 	cachedTimestampOpinion := &CachedTimestampOpinion{CachedObject: s.timestampOpinionStorage.ComputeIfAbsent(timestampOpinion.MessageID.Bytes(), func(key []byte) objectstorage.StorableObject {
 		timestampOpinion.SetModified()
@@ -106,7 +106,7 @@ func (s *Storage) StoreTimestampOpinion(timestampOpinion *TimestampOpinion) (mod
 	return
 }
 
-// StoreMessageMetadata stores the MessageMetadata in the object storage. It returns true if it was stored or updated.
+// StoreMessageMetadata stores the MessageMetadata in the object Storage. It returns true if it was stored or updated.
 func (s *Storage) StoreMessageMetadata(messageMetadata *MessageMetadata) (modified bool) {
 	cachedMessageMetadata := &CachedMessageMetadata{CachedObject: s.messageMetadataStorage.ComputeIfAbsent(messageMetadata.id.Bytes(), func(key []byte) objectstorage.StorableObject {
 		messageMetadata.SetModified()
@@ -151,17 +151,17 @@ func (s *Storage) Shutdown() {
 // region Object Storage Parameters ////////////////////////////////////////////////////////////////////////////////////
 
 const (
-	// PrefixOpinion defines the storage prefix for the opinion storage.
+	// PrefixOpinion defines the Storage prefix for the opinion Storage.
 	PrefixOpinion byte = iota
 
-	// PrefixTimestampOpinion defines the storage prefix for the timestamp opinion storage.
+	// PrefixTimestampOpinion defines the Storage prefix for the timestamp opinion Storage.
 	PrefixTimestampOpinion
 
-	// PrefixMessageMetadata defines the storage prefix for the MessageMetadata storage.
+	// PrefixMessageMetadata defines the Storage prefix for the MessageMetadata Storage.
 	PrefixMessageMetadata
 
-	// cacheTime defines the duration that the object storage caches objects.
-	cacheTime = 2 * time.Second
+	// cacheTime defines the duration that the object Storage caches objects.
+	cacheTime = 0 * time.Second
 )
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -228,7 +228,7 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (messa
 	return
 }
 
-// MessageMetadataFromObjectStorage restores a MessageMetadata object from the object storage.
+// MessageMetadataFromObjectStorage restores a MessageMetadata object from the object Storage.
 func MessageMetadataFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
 	if result, _, err = MessageMetadataFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
 		err = xerrors.Errorf("failed to parse MessageMetadata from bytes: %w", err)
@@ -398,7 +398,7 @@ func (m *MessageMetadata) ObjectStorageKey() []byte {
 }
 
 // ObjectStorageValue marshals the MessageMetadata into a sequence of bytes that are used as the value part in the
-// object storage.
+// object Storage.
 func (m *MessageMetadata) ObjectStorageValue() []byte {
 	return marshalutil.New(3 * marshalutil.BoolSize).
 		WriteBool(m.PayloadOpinionFormed()).
@@ -416,7 +416,7 @@ var _ objectstorage.StorableObject = &MessageMetadata{}
 
 // region CachedMessageMetadata ////////////////////////////////////////////////////////////////////////////////////////
 
-// CachedMessageMetadata is a wrapper for the generic CachedObject returned by the object storage that overrides the
+// CachedMessageMetadata is a wrapper for the generic CachedObject returned by the object Storage that overrides the
 // accessor methods with a type-casted one.
 type CachedMessageMetadata struct {
 	objectstorage.CachedObject
@@ -531,7 +531,7 @@ func TimestampOpinionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resu
 	return
 }
 
-// TimestampOpinionFromObjectStorage restores a TimestampOpinion from the object storage.
+// TimestampOpinionFromObjectStorage restores a TimestampOpinion from the object Storage.
 func TimestampOpinionFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
 	if result, _, err = TimestampOpinionFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
 		err = xerrors.Errorf("failed to parse TimestampOpinion from bytes: %w", err)
@@ -572,7 +572,7 @@ func (t *TimestampOpinion) ObjectStorageKey() []byte {
 }
 
 // ObjectStorageValue marshals the TimestampOpinion into a sequence of bytes that are used as the value part in the
-// object storage.
+// object Storage.
 func (t *TimestampOpinion) ObjectStorageValue() []byte {
 	return marshalutil.New(2).
 		WriteByte(byte(t.Value)).
@@ -584,7 +584,7 @@ func (t *TimestampOpinion) ObjectStorageValue() []byte {
 
 // region CachedTimestampOpinion ///////////////////////////////////////////////////////////////////////////////////////
 
-// CachedTimestampOpinion is a wrapper for the generic CachedObject returned by the object storage that overrides the accessor
+// CachedTimestampOpinion is a wrapper for the generic CachedObject returned by the object Storage that overrides the accessor
 // methods with a type-casted one.
 type CachedTimestampOpinion struct {
 	objectstorage.CachedObject

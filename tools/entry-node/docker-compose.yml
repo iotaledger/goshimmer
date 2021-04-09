@@ -13,7 +13,6 @@ services:
       - "1888:188/tcp"    # analysis server
       - "8080:80/tcp"     # analysis dashboard
       - "14626:14626/udp" # autopeering discovery
-    restart: unless-stopped
     command: >
       --autopeering.seed=${SEED}
       --autopeering.entryNodes=

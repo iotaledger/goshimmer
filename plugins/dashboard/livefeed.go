@@ -20,7 +20,7 @@ func configureLiveFeed() {
 	liveFeedWorkerPool = workerpool.New(func(task workerpool.Task) {
 		message := task.Param(0).(*tangle.Message)
 
-		broadcastWsMessage(&wsmsg{MsgTypeMessage, &msg{message.ID().String(), 0, uint32(message.Payload().Type())}})
+		broadcastWsMessage(&wsmsg{MsgTypeMessage, &msg{message.ID().Base58(), 0, uint32(message.Payload().Type())}})
 
 		task.Return(nil)
 	}, workerpool.WorkerCount(liveFeedWorkerCount), workerpool.QueueSize(liveFeedWorkerQueueSize))
