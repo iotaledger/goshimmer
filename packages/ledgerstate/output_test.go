@@ -3,7 +3,6 @@ package ledgerstate
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/stretchr/testify/require"
 	"math/rand"
 	"sync"
 	"testing"
@@ -15,6 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
 )
 
@@ -1567,7 +1567,6 @@ func TestExtendedLockedOutput_UnlockAddressNow(t *testing.T) {
 		output := dummyExtendedLockedOutput().WithFallbackOptions(nil, fallbackDeadline)
 		assert.True(t, output.UnlockAddressNow(fallbackDeadline.Add(-time.Minute)).Equals(output.Address()))
 		assert.True(t, output.UnlockAddressNow(fallbackDeadline.Add(time.Minute)).Equals(output.Address()))
-
 	})
 }
 
@@ -1601,7 +1600,7 @@ func TestExtendedLockedOutput_UpdateMintingColor(t *testing.T) {
 
 	t.Run("CASE: No color mint", func(t *testing.T) {
 		output := dummyExtendedLockedOutput()
-		output.balances = NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA, Color{8}: 100})
+		output.balances = NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA, {8}: 100})
 		updated, ok := output.UpdateMintingColor().(*ExtendedLockedOutput)
 		assert.True(t, ok)
 		assert.Equal(t, output.id.Bytes(), updated.id.Bytes())
@@ -1615,7 +1614,7 @@ func TestExtendedLockedOutput_UpdateMintingColor(t *testing.T) {
 
 	t.Run("CASE: Output had too big payload", func(t *testing.T) {
 		output := dummyExtendedLockedOutput()
-		output.balances = NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA, Color{8}: 100})
+		output.balances = NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA, {8}: 100})
 		output.payload = make([]byte, MaxOutputPayloadSize+1)
 		assert.Panics(t, func() {
 			output.UpdateMintingColor()
@@ -1758,7 +1757,6 @@ func TestExtendedOutputFromMarshalUtil(t *testing.T) {
 		// we did not consume all bytes
 		assert.NotEqual(t, len(outputBytes), consumedBytes)
 	})
-
 }
 
 func TestExtendedLockedOutput_UnlockValid(t *testing.T) {
