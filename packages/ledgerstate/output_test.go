@@ -1762,7 +1762,201 @@ func TestExtendedOutputFromMarshalUtil(t *testing.T) {
 }
 
 func TestExtendedLockedOutput_UnlockValid(t *testing.T) {
-	// TODO
+	t.Run("CASE: Happy path, unlocked by sig", func(t *testing.T) {
+		w := genRandomWallet()
+		input := NewExtendedLockedOutput(map[Color]uint64{ColorIOTA: 1}, w.address)
+		input.SetID(randOutputID())
+		output := NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{ColorIOTA: 1}), randEd25119Address())
+		essence := NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, NewInputs(input.Input()), NewOutputs(output))
+		unlockBlock := NewSignatureUnlockBlock(w.sign(essence))
+		tx := NewTransaction(essence, UnlockBlocks{unlockBlock})
+
+		valid, err := input.UnlockValid(tx, unlockBlock, Outputs{input})
+		assert.NoError(t, err)
+		assert.True(t, valid)
+	})
+
+	t.Run("CASE: Happy path, unlocked by alias", func(t *testing.T) {
+		w := genRandomWallet()
+		alias := &AliasOutput{
+			outputID:      randOutputID(),
+			outputIDMutex: sync.RWMutex{},
+			balances:      NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}),
+			aliasAddress:  *randAliasAddress(),
+			stateAddress:  w.address, // alias state controller is our wallet
+			stateIndex:    10,
+		}
+		nextAlias := alias.NewAliasOutputNext(false)
+		toBeConsumedExtended := NewExtendedLockedOutput(map[Color]uint64{ColorIOTA: 1}, alias.GetAliasAddress())
+		toBeConsumedExtended.SetID(randOutputID())
+		nextAliasBalance := alias.Balances().Map()
+		// add 1 more iota from consumed extended output
+		nextAliasBalance[ColorIOTA]++
+		err := nextAlias.SetBalances(nextAliasBalance)
+		assert.NoError(t, err)
+
+		essence := NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, NewInputs(toBeConsumedExtended.Input(), alias.Input()), NewOutputs(nextAlias))
+		// which input index did the alias get?
+		var aliasInputIndex uint16
+		orderedInputs := make(Outputs, len(essence.Inputs()))
+		for i, input := range essence.Inputs() {
+			casted := input.(*UTXOInput)
+			if casted.ReferencedOutputID() == alias.ID() {
+				aliasInputIndex = uint16(i)
+				orderedInputs[i] = alias
+			}
+			if casted.ReferencedOutputID() == toBeConsumedExtended.ID() {
+				orderedInputs[i] = toBeConsumedExtended
+			}
+		}
+		// create mapping from outputID to unlockBlock
+		inputToUnlockMapping := make(map[OutputID]UnlockBlock)
+		inputToUnlockMapping[alias.ID()] = NewSignatureUnlockBlock(w.sign(essence))
+		inputToUnlockMapping[toBeConsumedExtended.ID()] = NewAliasUnlockBlock(aliasInputIndex)
+
+		// fill unlock blocks
+		unlocks := make(UnlockBlocks, len(essence.Inputs()))
+		for i, input := range essence.Inputs() {
+			unlocks[i] = inputToUnlockMapping[input.(*UTXOInput).ReferencedOutputID()]
+		}
+
+		tx := NewTransaction(essence, unlocks)
+
+		valid, uErr := toBeConsumedExtended.UnlockValid(tx, inputToUnlockMapping[toBeConsumedExtended.ID()], orderedInputs)
+		assert.NoError(t, uErr)
+		assert.True(t, valid)
+		valid, uErr = alias.UnlockValid(tx, inputToUnlockMapping[alias.ID()], orderedInputs)
+		assert.NoError(t, uErr)
+		assert.True(t, valid)
+	})
+
+	t.Run("CASE: Referenced input not alias", func(t *testing.T) {
+		w := genRandomWallet()
+		nowis := time.Now()
+		input := NewExtendedLockedOutput(map[Color]uint64{ColorIOTA: 1}, w.address)
+		input.SetID(randOutputID())
+		output := NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{ColorIOTA: 1}), randEd25119Address())
+		essence := NewTransactionEssence(0, nowis, identity.ID{}, identity.ID{}, NewInputs(input.Input()), NewOutputs(output))
+		unlockBlock := NewAliasUnlockBlock(0)
+		tx := NewTransaction(essence, UnlockBlocks{unlockBlock})
+
+		valid, err := input.UnlockValid(tx, unlockBlock, Outputs{input})
+		t.Log(err)
+		assert.Error(t, err)
+		assert.False(t, valid)
+	})
+
+	t.Run("CASE: Referenced wrong alias", func(t *testing.T) {
+		alias := &AliasOutput{
+			outputID:      randOutputID(),
+			outputIDMutex: sync.RWMutex{},
+			balances:      NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}),
+			aliasAddress:  *randAliasAddress(),
+			stateAddress:  randEd25119Address(), // alias state controller is our wallet
+			stateIndex:    10,
+		}
+		nowis := time.Now()
+		input := NewExtendedLockedOutput(map[Color]uint64{ColorIOTA: 1}, randAliasAddress())
+		input.SetID(randOutputID())
+		// for the sake of this test, tx doesn't have to be valid
+		essence := NewTransactionEssence(0, nowis, identity.ID{}, identity.ID{}, NewInputs(alias.Input()), NewOutputs(input))
+		// important is that we reference an alias that has different aliasAddress
+		unlockBlock := NewAliasUnlockBlock(0)
+		tx := NewTransaction(essence, UnlockBlocks{unlockBlock})
+
+		valid, err := input.UnlockValid(tx, unlockBlock, Outputs{alias})
+		t.Log(err)
+		assert.Error(t, err)
+		assert.False(t, valid)
+	})
+
+	t.Run("CASE: Output is timelocked, can't spend", func(t *testing.T) {
+		w := genRandomWallet()
+		nowis := time.Now()
+		input := NewExtendedLockedOutput(map[Color]uint64{ColorIOTA: 1}, w.address).WithTimeLock(nowis.Add(time.Hour))
+		input.SetID(randOutputID())
+		output := NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{ColorIOTA: 1}), randEd25119Address())
+		// tx timestamp before timelock
+		essence := NewTransactionEssence(0, nowis, identity.ID{}, identity.ID{}, NewInputs(input.Input()), NewOutputs(output))
+		unlockBlock := NewSignatureUnlockBlock(w.sign(essence))
+		tx := NewTransaction(essence, UnlockBlocks{unlockBlock})
+
+		valid, err := input.UnlockValid(tx, unlockBlock, Outputs{input})
+		assert.NoError(t, err)
+		assert.False(t, valid)
+	})
+
+	t.Run("CASE: Output is timelocked, spend after", func(t *testing.T) {
+		w := genRandomWallet()
+		nowis := time.Now()
+		input := NewExtendedLockedOutput(map[Color]uint64{ColorIOTA: 1}, w.address).WithTimeLock(nowis.Add(time.Hour))
+		input.SetID(randOutputID())
+		output := NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{ColorIOTA: 1}), randEd25119Address())
+		// tx timestamp is exactly timelock, output is allowed to be spent from that moment on
+		essence := NewTransactionEssence(0, nowis.Add(time.Hour), identity.ID{}, identity.ID{}, NewInputs(input.Input()), NewOutputs(output))
+		unlockBlock := NewSignatureUnlockBlock(w.sign(essence))
+		tx := NewTransaction(essence, UnlockBlocks{unlockBlock})
+
+		valid, err := input.UnlockValid(tx, unlockBlock, Outputs{input})
+		assert.NoError(t, err)
+		assert.True(t, valid)
+	})
+
+	t.Run("CASE: Unsupported unlock block", func(t *testing.T) {
+		input := NewExtendedLockedOutput(map[Color]uint64{ColorIOTA: 1}, randAliasAddress())
+		unlockBlock := NewReferenceUnlockBlock(0)
+
+		valid, err := input.UnlockValid(&Transaction{essence: &TransactionEssence{}}, unlockBlock, Outputs{input})
+		t.Log(err)
+		assert.Error(t, err)
+		assert.False(t, valid)
+	})
+
+	t.Run("CASE: Fallback address present", func(t *testing.T) {
+		destWallet := genRandomWallet()
+		myWallet := genRandomWallet()
+		nowis := time.Now()
+		// until nowis+30 minutes, only w wallet can spend it, after that, only myWallet
+		input := NewExtendedLockedOutput(map[Color]uint64{ColorIOTA: 1}, destWallet.address).WithFallbackOptions(myWallet.address, nowis.Add(30*time.Minute))
+		input.SetID(randOutputID())
+		output := NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{ColorIOTA: 1}), randEd25119Address())
+
+		// t =< nowis + 30 mins, destWallet can spend it
+		essence := NewTransactionEssence(0, nowis, identity.ID{}, identity.ID{}, NewInputs(input.Input()), NewOutputs(output))
+		unlockBlock := NewSignatureUnlockBlock(destWallet.sign(essence))
+		tx := NewTransaction(essence, UnlockBlocks{unlockBlock})
+
+		valid, err := input.UnlockValid(tx, unlockBlock, Outputs{input})
+		assert.NoError(t, err)
+		assert.True(t, valid)
+
+		// t =< nowis + 30 mins, myWallet can't spend it
+		essence = NewTransactionEssence(0, nowis, identity.ID{}, identity.ID{}, NewInputs(input.Input()), NewOutputs(output))
+		unlockBlock = NewSignatureUnlockBlock(myWallet.sign(essence))
+		tx = NewTransaction(essence, UnlockBlocks{unlockBlock})
+
+		valid, err = input.UnlockValid(tx, unlockBlock, Outputs{input})
+		assert.NoError(t, err)
+		assert.False(t, valid)
+
+		// t > nowis + 30 mins, destWallet can't spend it
+		essence = NewTransactionEssence(0, nowis.Add(30*time.Minute).Add(time.Nanosecond), identity.ID{}, identity.ID{}, NewInputs(input.Input()), NewOutputs(output))
+		unlockBlock = NewSignatureUnlockBlock(destWallet.sign(essence))
+		tx = NewTransaction(essence, UnlockBlocks{unlockBlock})
+
+		valid, err = input.UnlockValid(tx, unlockBlock, Outputs{input})
+		assert.NoError(t, err)
+		assert.False(t, valid)
+
+		// t > nowis + 30 mins, myWallet can spend it
+		essence = NewTransactionEssence(0, nowis.Add(30*time.Minute).Add(time.Nanosecond), identity.ID{}, identity.ID{}, NewInputs(input.Input()), NewOutputs(output))
+		unlockBlock = NewSignatureUnlockBlock(myWallet.sign(essence))
+		tx = NewTransaction(essence, UnlockBlocks{unlockBlock})
+
+		valid, err = input.UnlockValid(tx, unlockBlock, Outputs{input})
+		assert.NoError(t, err)
+		assert.True(t, valid)
+	})
 }
 
 func TestExtendedLockedOutput_Clone(t *testing.T) {
