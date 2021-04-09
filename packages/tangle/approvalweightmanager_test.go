@@ -15,15 +15,19 @@ import (
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
-func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
-}
-
 func TestSupporterManager_updateBranchSupporters(t *testing.T) {
-	tangle := New()
+	keyPair := ed25519.GenerateKeyPair()
+
+	manaRetrieverMock := func(t time.Time) map[identity.ID]float64 {
+		return map[identity.ID]float64{
+			identity.NewID(keyPair.PublicKey): 100,
+		}
+	}
+	manager := epochs.NewManager(epochs.ManaRetriever(manaRetrieverMock), epochs.CacheTime(0))
+
+	tangle := New(ApprovalWeights(WeightProviderFromEpochsManager(manager)))
 	defer tangle.Shutdown()
 	supporterManager := NewSupporterManager(tangle)
-
-	keyPair := ed25519.GenerateKeyPair()
 
 	conflictIDs := map[string]ledgerstate.ConflictID{
 		"Conflict 1": ledgerstate.ConflictIDFromRandomness(),
@@ -262,12 +266,6 @@ func TestSupporterManager_updateSequenceSupporters(t *testing.T) {
 }
 
 func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
-	tangle := New()
-	defer tangle.Shutdown()
-	tangle.Setup()
-
-	testFramework := NewMessageTestFramework(tangle)
-
 	nodes := make(map[string]*identity.Identity)
 	for _, node := range []string{"A", "B", "C", "D", "E"} {
 		nodes[node] = identity.GenerateIdentity()
@@ -284,7 +282,13 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	}
 	manager := epochs.NewManager(epochs.ManaRetriever(manaRetrieverMock), epochs.CacheTime(0))
 
-	approvalWeightManager := NewApprovalWeightManager(tangle, manager)
+	tangle := New(ApprovalWeights(WeightProviderFromEpochsManager(manager)))
+	defer tangle.Shutdown()
+	tangle.Setup()
+
+	testFramework := NewMessageTestFramework(tangle)
+
+	approvalWeightManager := NewApprovalWeightManager(tangle)
 	approvalWeightManager.Setup()
 
 	// ISSUE Message1
@@ -325,13 +329,15 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 		validateApprovalWeightManagerEvents(t, approvalWeightManager,
 			MessageIDs{testFramework.Message("Message3").ID()},
 			[]*markers.Marker{markers.NewMarker(1, 1)},
-			[]ledgerstate.BranchID{ledgerstate.MasterBranchID},
+			[]ledgerstate.BranchID{},
 			// TODO: handle MasterBRanchID differently?
 			func() {
 				approvalWeightManager.ProcessMessage(testFramework.Message("Message3").ID())
 			},
 		)
 	}
+
+	// HALLO
 
 	// ISSUE Message4
 	{
@@ -341,7 +347,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 		validateApprovalWeightManagerEvents(t, approvalWeightManager,
 			MessageIDs{testFramework.Message("Message4").ID()},
 			[]*markers.Marker{markers.NewMarker(1, 2)},
-			[]ledgerstate.BranchID{ledgerstate.MasterBranchID},
+			[]ledgerstate.BranchID{},
 			func() {
 				approvalWeightManager.ProcessMessage(testFramework.Message("Message4").ID())
 			},

@@ -4,11 +4,12 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/objectstorage"
+
+	"github.com/iotaledger/goshimmer/packages/database"
 )
 
 const (
@@ -123,10 +124,11 @@ func (m *Manager) Update(t time.Time, nodeID identity.ID) {
 	})
 }
 
-func (m *Manager) RelativeNodeMana(nodeID identity.ID, t time.Time) float64 {
+func (m *Manager) RelativeNodeMana(nodeID identity.ID, t time.Time) (ownWeight float64, totalWeight float64, epochID ID) {
 	manaPerID, totalMana := m.ActiveMana(t)
+	epochID = m.TimeToOracleEpochID(t)
 
-	return manaPerID[nodeID] / totalMana
+	return manaPerID[nodeID], totalMana, epochID
 }
 
 // ActiveMana returns the active consensus mana that is valid for the given time t. Active consensus mana is always

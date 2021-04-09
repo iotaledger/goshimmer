@@ -3,6 +3,7 @@ package tangle
 import (
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -13,6 +14,7 @@ import (
 	"github.com/mr-tron/base58"
 	"golang.org/x/xerrors"
 
+	"github.com/iotaledger/goshimmer/packages/epochs"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
@@ -34,6 +36,7 @@ type Tangle struct {
 	MessageFactory   *MessageFactory
 	LedgerState      *LedgerState
 	Utils            *Utils
+	WeightProvider   WeightProvider
 	Events           *Events
 
 	setupParserOnce sync.Once
@@ -64,6 +67,8 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.TipManager = NewTipManager(tangle)
 	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager)
 	tangle.Utils = NewUtils(tangle)
+
+	tangle.WeightProvider = tangle.Options.WeightProvider
 
 	return
 }
@@ -217,6 +222,7 @@ type Options struct {
 	TangleWidth                  int
 	ConsensusMechanism           ConsensusMechanism
 	GenesisNode                  *ed25519.PublicKey
+	WeightProvider               WeightProvider
 }
 
 // Store is an Option for the Tangle that allows to specify which storage layer is supposed to be used to persist data.
@@ -268,6 +274,36 @@ func GenesisNode(genesisNodeBase58 string) Option {
 	return func(options *Options) {
 		options.GenesisNode = genesisPublicKey
 	}
+}
+
+// ApprovalWeights is an Option for the Tangle that allows to define how the approval weights of Messages is determined.
+func ApprovalWeights(weightProvider WeightProvider) Option {
+	return func(options *Options) {
+		options.WeightProvider = weightProvider
+	}
+}
+
+type WeightProvider interface {
+	Weight(message *Message) (weight, totalWeight float64, timeEpoch uint64)
+	WeightsOfRelevantSupporters(issuingTime time.Time) (weights map[identity.ID]float64, totalWeight float64)
+}
+
+func WeightProviderFromEpochsManager(epochManager *epochs.Manager) WeightProvider {
+	return &epochsManagerWeightProvider{Manager: epochManager}
+}
+
+type epochsManagerWeightProvider struct {
+	*epochs.Manager
+}
+
+func (e *epochsManagerWeightProvider) Weight(message *Message) (weight, totalWeight float64, timeEpoch uint64) {
+	weight, totalWeight, untypedEpochID := e.Manager.RelativeNodeMana(identity.NewID(message.IssuerPublicKey()), message.IssuingTime())
+
+	return weight, totalWeight, uint64(untypedEpochID)
+}
+
+func (e *epochsManagerWeightProvider) WeightsOfRelevantSupporters(issuingTime time.Time) (weights map[identity.ID]float64, totalWeight float64) {
+	return e.Manager.ActiveMana(issuingTime)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
