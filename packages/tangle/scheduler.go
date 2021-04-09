@@ -96,6 +96,23 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 	return scheduler
 }
 
+// Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
+func (s *Scheduler) Setup() {
+	s.tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(s.Submit))
+	s.tangle.Events.MessageInvalid.Attach(events.NewClosure(s.Unsubmit))
+
+	// TODO: a data structure to keep the parents book status
+	s.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(s.Ready))
+
+	/*
+		s.tangle.ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID MessageID) {
+			if s.scheduledMessages.Delete(messageID) {
+				s.allMessagesScheduledWG.Done()
+			}
+		}))
+	*/
+}
+
 // Shutdown shuts down the Scheduler.
 func (s *Scheduler) Shutdown() {
 	s.shutdownOnce.Do(func() {
