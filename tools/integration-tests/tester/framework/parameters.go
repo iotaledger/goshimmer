@@ -51,7 +51,9 @@ var (
 	ParaManaOnEveryNode = true
 	// ParaFPCRoundInterval defines how long a round lasts (in seconds)
 	ParaFPCRoundInterval int64 = 5
-	// ParaWaitForStatement is the time in seconds for which the node wait for receiveing the new statement.
+	// ParaFPCTotalRoundsFinalization the amount of FPC rounds where an opinion needs to stay the same to be considered final. Also called 'l'.
+	ParaFPCTotalRoundsFinalization int = 10
+	// ParaWaitForStatement is the time in seconds for which the node wait for receiving the new statement.
 	ParaWaitForStatement = 3
 	// ParaFPCListen defines if the FPC service should listen.
 	ParaFPCListen = false
@@ -97,12 +99,13 @@ type GoShimmerConfig struct {
 	ManaAllowedAccessPledge           []string
 	ManaAllowedConsensusPledge        []string
 
-	FPCRoundInterval   int64
-	WaitForStatement   int
-	FPCListen          bool
-	WriteStatement     bool
-	WriteManaThreshold float64
-	ReadManaThreshold  float64
+	FPCRoundInterval           int64
+	FPCTotalRoundsFinalization int
+	WaitForStatement           int
+	FPCListen                  bool
+	WriteStatement             bool
+	WriteManaThreshold         float64
+	ReadManaThreshold          float64
 }
 
 // NetworkConfig defines the config of a GoShimmer Docker network.
