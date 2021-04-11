@@ -1,7 +1,7 @@
 package tangle
 
 import (
-	"container/list"
+	"container/heap"
 	"container/ring"
 	"errors"
 	"fmt"
@@ -239,8 +239,13 @@ func (s *Scheduler) schedule() *Message {
 	}
 
 	start := s.buffer.Current()
-	for q := start; q.Front() == nil || s.getDeficit(q.NodeID()) < float64(len(q.Front().Bytes())); {
-		// increase the deficit
+	now := time.Now()
+	for q := start; ; {
+		f := q.Front() // check whether the front of the queue can be scheduled
+		if f != nil && s.getDeficit(q.NodeID()) >= float64(len(f.Bytes())) && !now.Before(f.IssuingTime()) {
+			break
+		}
+		// otherwise increase the deficit
 		mana := s.tangle.Options.AccessManaRetriever(q.NodeID())
 		s.setDeficit(q.NodeID(), s.getDeficit(q.NodeID())+mana)
 		// TODO: different from spec
@@ -393,7 +398,7 @@ func (s *Scheduler) setDeficit(nodeID identity.ID, deficit float64) {
 type NodeQueue struct {
 	nodeID    identity.ID
 	submitted map[MessageID]*Message
-	inbox     *list.List
+	inbox     *MessageHeap
 	size      uint
 }
 
@@ -401,7 +406,7 @@ func NewNodeQueue(nodeID identity.ID) *NodeQueue {
 	return &NodeQueue{
 		nodeID:    nodeID,
 		submitted: make(map[MessageID]*Message),
-		inbox:     list.New(),
+		inbox:     new(MessageHeap),
 		size:      0,
 	}
 }
@@ -457,7 +462,7 @@ func (q *NodeQueue) Ready(msg *Message) bool {
 	}
 
 	delete(q.submitted, msg.ID())
-	q.inbox.PushBack(msg)
+	heap.Push(q.inbox, msg)
 	return true
 }
 
@@ -466,12 +471,12 @@ func (q *NodeQueue) Front() *Message {
 	if q == nil || q.inbox.Len() == 0 {
 		return nil
 	}
-	return q.inbox.Front().Value.(*Message)
+	return (*q.inbox)[0]
 }
 
 // PopFront removes the first ready message from the queue.
 func (q *NodeQueue) PopFront() *Message {
-	msg := q.inbox.Remove(q.inbox.Front()).(*Message)
+	msg := heap.Pop(q.inbox).(*Message)
 	q.size -= uint(len(msg.Bytes()))
 	return msg
 }
@@ -651,6 +656,44 @@ type SchedulerEvents struct {
 // NodeIDCaller is the caller function for events that hand over a NodeID.
 func NodeIDCaller(handler interface{}, params ...interface{}) {
 	handler.(func(identity.ID))(params[0].(identity.ID))
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region MessageHeap /////////////////////////////////////////////////////////////////////////////////////////////
+
+// MessageHeap holds a heap of messages with respect to their IssuingTime.
+type MessageHeap []*Message
+
+// Len is the number of elements in the collection.
+func (h MessageHeap) Len() int {
+	return len(h)
+}
+
+// Less reports whether the element with index i must sort before the element with index j.
+func (h MessageHeap) Less(i, j int) bool {
+	return h[i].IssuingTime().Before(h[j].IssuingTime())
+}
+
+// Swap swaps the elements with indexes i and j.
+func (h MessageHeap) Swap(i, j int) {
+	h[i], h[j] = h[j], h[i]
+}
+
+// Push adds x as element with index Len().
+// It panics if x is not types.Message.
+func (h *MessageHeap) Push(x interface{}) {
+	*h = append(*h, x.(*Message))
+}
+
+// Pop removes and returns element with index Len() - 1.
+func (h *MessageHeap) Pop() interface{} {
+	tmp := *h
+	n := len(tmp)
+	x := tmp[n-1]
+	tmp[n-1] = nil
+	*h = tmp[:n-1]
+	return x
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
