@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"go.uber.org/atomic"
@@ -69,6 +70,8 @@ type Scheduler struct {
 
 	shutdownSignal chan struct{}
 	shutdownOnce   sync.Once
+
+	waitingToBeBooked map[MessageID]set.Set
 }
 
 // NewScheduler returns a new Scheduler.
@@ -79,15 +82,16 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 			MessageDiscarded: events.NewEvent(MessageIDCaller),
 			NodeBlacklisted:  events.NewEvent(NodeIDCaller),
 		},
-		self:           tangle.Options.Identity.ID(),
-		tangle:         tangle,
-		buffer:         NewBufferQueue(),
-		deficits:       make(map[identity.ID]float64),
-		issuingQueue:   NewNodeQueue(tangle.Options.Identity.ID()),
-		issue:          make(chan *Message, 1),
-		lambda:         atomic.NewFloat64(Initial),
-		haltUpdate:     0,
-		shutdownSignal: make(chan struct{}),
+		self:              tangle.Options.Identity.ID(),
+		tangle:            tangle,
+		buffer:            NewBufferQueue(),
+		deficits:          make(map[identity.ID]float64),
+		issuingQueue:      NewNodeQueue(tangle.Options.Identity.ID()),
+		issue:             make(chan *Message, 1),
+		lambda:            atomic.NewFloat64(Initial),
+		haltUpdate:        0,
+		shutdownSignal:    make(chan struct{}),
+		waitingToBeBooked: make(map[MessageID]set.Set),
 	}
 
 	if tangle.Options.AccessManaRetriever == nil || tangle.Options.TotalAccessManaRetriever == nil {
@@ -104,6 +108,7 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 func (s *Scheduler) Setup() {
 	s.tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(s.SubmitAndReadyMessage))
 	s.tangle.Events.MessageInvalid.Attach(events.NewClosure(s.Unsubmit))
+	s.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(s.booked))
 
 	//  TODO: wait for all messages to be scheduled here or in message layer?
 	/*
@@ -119,7 +124,8 @@ func (s *Scheduler) Setup() {
 func (s *Scheduler) SubmitAndReadyMessage(messageID MessageID) {
 	s.Submit(messageID)
 
-	// TODO: what if parents are not booked? wait for parents to be booked?
+	// TODO: what if parents are not booked?
+	// wait for parents to be booked
 	if !s.parentsBooked(messageID) {
 		return
 	}
@@ -218,11 +224,35 @@ func (s *Scheduler) RemoveNode(nodeID identity.ID) {
 	s.buffer.RemoveNode(nodeID)
 }
 
+func (s *Scheduler) booked(parentID MessageID) {
+	dependents, ok := s.waitingToBeBooked[parentID]
+	if !ok {
+		return
+	}
+	delete(s.waitingToBeBooked, parentID)
+	dependents.ForEach(func(element interface{}) {
+		// if its not waiting for any of its parents to be booked
+		isReady := true
+		messageID := element.(MessageID)
+		s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+			for _, parentID := range message.Parents() {
+				if _, ok := s.waitingToBeBooked[parentID]; ok {
+					isReady = false
+					return
+				}
+			}
+		})
+		if isReady {
+			s.Ready(messageID)
+		}
+	})
+}
+
 func (s *Scheduler) parentsBooked(messageID MessageID) (parentsBooked bool) {
 	s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		parentsBooked = true
 		message.ForEachParent(func(parent Parent) {
-			if !parentsBooked || parent.ID == EmptyMessageID {
+			if parent.ID == EmptyMessageID {
 				return
 			}
 
@@ -230,6 +260,14 @@ func (s *Scheduler) parentsBooked(messageID MessageID) (parentsBooked bool) {
 				parentsBooked = messageMetadata.IsBooked()
 			}) {
 				parentsBooked = false
+			}
+			if !parentsBooked {
+				dependents, ok := s.waitingToBeBooked[parent.ID]
+				if !ok {
+					dependents = set.New(true)
+				}
+				dependents.Add(messageID)
+				s.waitingToBeBooked[parent.ID] = dependents
 			}
 		})
 	})
@@ -404,12 +442,12 @@ func (s *Scheduler) setDeficit(nodeID identity.ID, deficit float64) {
 
 // defaultGetAccessMana is the default get access mana retriever.
 func defaultGetAccessMana(nodeID identity.ID) float64 {
-	return 0
+	return 100
 }
 
 // defaultGetTotalAccessMana is the default get total access mana retriever.
 func defaultGetTotalAccessMana() float64 {
-	return 0
+	return 100
 }
 
 // region NodeQueue /////////////////////////////////////////////////////////////////////////////////////////////
