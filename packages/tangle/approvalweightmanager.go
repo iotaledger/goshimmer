@@ -306,6 +306,11 @@ func (s *SupporterManager) updateSequenceSupporters(message *Message) {
 }
 
 func (s *SupporterManager) addSupportToMarker(marker *markers.Marker, message *Message, walker *walker.Walker) {
+	// Avoid tracking support of markers in sequence 0.
+	if marker.SequenceID() == 0 {
+		return
+	}
+
 	s.tangle.Storage.SequenceSupporters(marker.SequenceID(), func() *SequenceSupporters {
 		return NewSequenceSupporters(marker.SequenceID())
 	}).Consume(func(sequenceSupporters *SequenceSupporters) {
@@ -314,6 +319,11 @@ func (s *SupporterManager) addSupportToMarker(marker *markers.Marker, message *M
 
 			s.tangle.Booker.MarkersManager.Manager.Sequence(marker.SequenceID()).Consume(func(sequence *markers.Sequence) {
 				sequence.ReferencedMarkers(marker.Index()).ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
+					// Avoid adding and tracking support of markers in sequence 0.
+					if sequenceID == 0 {
+						return true
+					}
+
 					walker.Push(markers.NewMarker(sequenceID, index))
 
 					return true
