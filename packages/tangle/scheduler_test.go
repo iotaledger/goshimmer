@@ -1,7 +1,6 @@
 package tangle
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -16,20 +15,25 @@ import (
 // region Scheduler_test /////////////////////////////////////////////////////////////////////////////////////////////
 
 var (
-	selfLocalIdentity = identity.GenerateLocalIdentity()
-	selfNode          = identity.New(selfLocalIdentity.PublicKey())
-	peerNode          = identity.GenerateIdentity()
-	otherNode         = identity.GenerateIdentity()
+	selfLocalIdentity   = identity.GenerateLocalIdentity()
+	selfNode            = identity.New(selfLocalIdentity.PublicKey())
+	peerNode            = identity.GenerateIdentity()
+	otherNode           = identity.GenerateIdentity()
+	testSchedulerParams = SchedulerParams{
+		RateSetterInitial:           MaxMessageSize * 200,
+		RateSetterBeta:              1,
+		AccessManaRetrieveFunc:      getAccessMana,
+		TotalAccessManaRetrieveFunc: getTotalAccessMana}
 )
 
 func TestScheduler_StartStop(t *testing.T) {
-	tangle := New(Identity(selfLocalIdentity), AccessManaRetriever(getAccessMana), TotalAccessManaRetriever(getTotalAccessMana))
+	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
 	defer tangle.Shutdown()
 	time.Sleep(10 * time.Millisecond)
 }
 
 func TestScheduler_Submit(t *testing.T) {
-	tangle := New(Identity(selfLocalIdentity), AccessManaRetriever(getAccessMana), TotalAccessManaRetriever(getTotalAccessMana))
+	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
 	defer tangle.Shutdown()
 
 	msg := newMessage(selfNode.PublicKey())
@@ -39,7 +43,7 @@ func TestScheduler_Submit(t *testing.T) {
 }
 
 func TestScheduler_Discarded(t *testing.T) {
-	tangle := New(Identity(selfLocalIdentity), AccessManaRetriever(getAccessMana), TotalAccessManaRetriever(getTotalAccessMana))
+	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
 	defer tangle.Shutdown()
 
 	messageDiscarded := make(chan MessageID, 1)
@@ -61,7 +65,7 @@ func TestScheduler_Discarded(t *testing.T) {
 }
 
 func TestScheduler_Schedule(t *testing.T) {
-	tangle := New(Identity(selfLocalIdentity), AccessManaRetriever(getAccessMana), TotalAccessManaRetriever(getTotalAccessMana))
+	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
 	defer tangle.Shutdown()
 
 	messageScheduled := make(chan MessageID, 1)
@@ -84,7 +88,7 @@ func TestScheduler_Schedule(t *testing.T) {
 }
 
 func TestScheduler_Time(t *testing.T) {
-	tangle := New(Identity(selfLocalIdentity), AccessManaRetriever(getAccessMana), TotalAccessManaRetriever(getTotalAccessMana))
+	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
 	defer tangle.Shutdown()
 
 	messageScheduled := make(chan MessageID, 1)
@@ -125,8 +129,9 @@ func TestScheduler_Time(t *testing.T) {
 }
 
 func TestScheduler_Issue(t *testing.T) {
-	tangle := New(Identity(selfLocalIdentity), AccessManaRetriever(getAccessMana), TotalAccessManaRetriever(getTotalAccessMana))
+	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
 	defer tangle.Shutdown()
+	tangle.Setup()
 
 	const numMessages = 5
 	ids := make([]MessageID, numMessages)
@@ -136,18 +141,8 @@ func TestScheduler_Issue(t *testing.T) {
 		ids[i] = msg.ID()
 	}
 
-	// submit everything
-	for i := range ids {
-		tangle.Scheduler.Submit(ids[i])
-	}
-
 	messageScheduled := make(chan MessageID, numMessages)
 	tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(id MessageID) { messageScheduled <- id }))
-
-	// ready everything
-	for i := range ids {
-		tangle.Scheduler.Ready(ids[i])
-	}
 
 	var scheduledIDs []MessageID
 	assert.Eventually(t, func() bool {
@@ -158,14 +153,14 @@ func TestScheduler_Issue(t *testing.T) {
 		default:
 			return false
 		}
-	}, 30*time.Second, 10*time.Millisecond)
+	}, 10*time.Second, 10*time.Millisecond)
 	assert.ElementsMatch(t, ids, scheduledIDs)
 }
 
 func TestSchedulerFlow(t *testing.T) {
 	// create Scheduler dependencies
 	// create the tangle
-	tangle := New(Identity(selfLocalIdentity), AccessManaRetriever(getAccessMana), TotalAccessManaRetriever(getTotalAccessMana))
+	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
 	defer tangle.Shutdown()
 
 	// setup tangle up till the Scheduler
@@ -200,25 +195,13 @@ func TestSchedulerFlow(t *testing.T) {
 	tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
 		tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetBooked(true)
+			tangle.Booker.Events.MessageBooked.Trigger(messageID)
 			tangle.ConsensusManager.Events.MessageOpinionFormed.Trigger(messageID)
 		})
 	}))
 
-	tangle.Scheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(messageID MessageID) {
-		fmt.Println("discarded: ", messageID)
-	}))
-
-	// store messages bypassing the messageStored event
-	keys := []string{"A", "B", "C", "D", "E"}
-	for _, k := range keys[:2] {
-		tangle.Storage.StoreMessage(messages[k])
-	}
-
-	// wait for parents A and B to be booked
-	time.Sleep(5 * time.Second)
-
-	for _, k := range keys[2:] {
-		tangle.Storage.StoreMessage(messages[k])
+	for _, message := range messages {
+		tangle.Storage.StoreMessage(message)
 	}
 
 	var scheduledIDs []MessageID
@@ -230,7 +213,7 @@ func TestSchedulerFlow(t *testing.T) {
 		default:
 			return false
 		}
-	}, 30*time.Second, 100*time.Millisecond)
+	}, 10*time.Second, 100*time.Millisecond)
 }
 
 func getAccessMana(nodeID identity.ID) float64 {

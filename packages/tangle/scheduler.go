@@ -20,9 +20,6 @@ const (
 
 	// MaxBufferSize is the maximum total (of all nodes) buffer size in bytes
 	MaxBufferSize = 10 * 1024 * 1024
-	// MaxQueueWeight is the maximum mana-scaled inbox size; >= minMessageSize / minAccessMana
-	// TODO: check this with @Wolfgang
-	MaxQueueWeight = 10000
 	// MaxLocalQueueSize is the maximum local (containing the message to be issued) queue size in bytes
 	MaxLocalQueueSize = 20 * MaxMessageSize
 
@@ -35,19 +32,21 @@ const (
 
 	// rate setter
 
-	// Initial is the initial rate in bytes per second
-	Initial = 50.0
 	// Backoff is the local threshold for rate setting; < MaxQueueWeight
 	Backoff = 25.0
 	// A is the additive increase
 	A = 1.0
-	// Beta is the multiplicative decrease
-	Beta = 0.7
 	// Tau is the time to wait before next rate's update after a backoff
 	Tau = 2
+)
 
-	// defaultAccessMana is a default value of access mana that will be returned in the defaultAccessManaRetriever
-	defaultAccessMana = 100
+var (
+	// MaxQueueWeight is the maximum mana-scaled inbox size; >= minMessageSize / minAccessMana
+	MaxQueueWeight = 0.0
+	// Beta is the multiplicative decrease
+	Beta = 0.7
+	// 	RateSetterEnabled defines if the rater setter is enabled or not.
+	RateSetterEnabled = true
 )
 
 var (
@@ -62,6 +61,14 @@ type AccessManaRetrieveFunc func(nodeID identity.ID) float64
 
 // TotalAccessManaRetrieveFunc is a function type to retrieve the total access mana (e.g. via the mana plugin)
 type TotalAccessManaRetrieveFunc func() float64
+
+type SchedulerParams struct {
+	RateSetterInitial           float64
+	RateSetterBeta              float64
+	AccessManaRetrieveFunc      func(identity.ID) float64
+	TotalAccessManaRetrieveFunc func() float64
+	RateSetterEnabled           bool
+}
 
 // Scheduler is a Tangle component that takes care of scheduling the messages that shall be booked.
 type Scheduler struct {
@@ -87,7 +94,8 @@ type Scheduler struct {
 	shutdownSignal chan struct{}
 	shutdownOnce   sync.Once
 
-	waitingToBeBooked map[MessageID]set.Set
+	waitingToBeBooked   map[MessageID]set.Set
+	waitingToBeBookedMu sync.Mutex
 }
 
 // NewScheduler returns a new Scheduler.
@@ -104,15 +112,24 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 		deficits:          make(map[identity.ID]float64),
 		issuingQueue:      NewNodeQueue(tangle.Options.Identity.ID()),
 		issue:             make(chan *Message, 1),
-		lambda:            atomic.NewFloat64(Initial),
+		lambda:            atomic.NewFloat64(tangle.Options.SchedulerParams.RateSetterInitial),
 		haltUpdate:        0,
 		shutdownSignal:    make(chan struct{}),
 		waitingToBeBooked: make(map[MessageID]set.Set),
 	}
 
-	if tangle.Options.AccessManaRetriever == nil || tangle.Options.TotalAccessManaRetriever == nil {
-		panic("the option AccessManaRetriever and TotalAccessManaRetriever must be defined so that AccessMana can be determined in scheduler")
+	if tangle.Options.SchedulerParams.AccessManaRetrieveFunc == nil || tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc == nil {
+		//panic("the option AccessManaRetriever and TotalAccessManaRetriever must be defined so that AccessMana can be determined in scheduler")
+		tangle.Options.SchedulerParams.AccessManaRetrieveFunc = func(_ identity.ID) float64 {
+			return 0
+		}
+		tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc = func() float64 {
+			return 0
+		}
 	}
+	MaxQueueWeight = MaxBufferSize / tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc()
+	Beta = tangle.Options.SchedulerParams.RateSetterBeta
+	RateSetterEnabled = tangle.Options.SchedulerParams.RateSetterEnabled
 
 	go scheduler.issuerLoop()
 	go scheduler.mainLoop()
@@ -164,7 +181,7 @@ func (s *Scheduler) Submit(messageID MessageID) {
 		defer s.mu.Unlock()
 
 		nodeID := identity.NewID(message.IssuerPublicKey())
-		if nodeID == s.self {
+		if nodeID == s.self && RateSetterEnabled {
 			if s.issuingQueue.Size()+uint(len(message.Bytes())) > MaxLocalQueueSize {
 				s.Events.MessageDiscarded.Trigger(messageID)
 				return
@@ -175,7 +192,7 @@ func (s *Scheduler) Submit(messageID MessageID) {
 		}
 
 		// get the current access mana inside the lock
-		mana := s.tangle.Options.AccessManaRetriever(nodeID)
+		mana := s.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(nodeID)
 
 		err := s.buffer.Submit(message, mana)
 		if err != nil {
@@ -197,7 +214,7 @@ func (s *Scheduler) Unsubmit(messageID MessageID) {
 		defer s.mu.Unlock()
 
 		nodeID := identity.NewID(message.IssuerPublicKey())
-		if nodeID == s.self {
+		if nodeID == s.self && RateSetterEnabled {
 			s.issuingQueue.Unsubmit(message)
 			return
 		}
@@ -213,7 +230,7 @@ func (s *Scheduler) Ready(messageID MessageID) {
 	if !s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		// if the current node issued the message, the issuing must go through the rate setting
 		nodeID := identity.NewID(message.IssuerPublicKey())
-		if nodeID == s.self {
+		if nodeID == s.self && RateSetterEnabled {
 			s.issue <- message
 			return
 		}
@@ -241,6 +258,8 @@ func (s *Scheduler) RemoveNode(nodeID identity.ID) {
 }
 
 func (s *Scheduler) booked(parentID MessageID) {
+	s.waitingToBeBookedMu.Lock()
+	defer s.waitingToBeBookedMu.Unlock()
 	dependents, ok := s.waitingToBeBooked[parentID]
 	if !ok {
 		return
@@ -278,12 +297,16 @@ func (s *Scheduler) parentsBooked(messageID MessageID) (parentsBooked bool) {
 				parentsBooked = false
 			}
 			if !parentsBooked {
-				dependents, ok := s.waitingToBeBooked[parent.ID]
-				if !ok {
-					dependents = set.New(true)
-				}
-				dependents.Add(messageID)
-				s.waitingToBeBooked[parent.ID] = dependents
+				func() {
+					s.waitingToBeBookedMu.Lock()
+					defer s.waitingToBeBookedMu.Unlock()
+					dependents, ok := s.waitingToBeBooked[parent.ID]
+					if !ok {
+						dependents = set.New(false)
+					}
+					dependents.Add(messageID)
+					s.waitingToBeBooked[parent.ID] = dependents
+				}()
 			}
 		})
 	})
@@ -308,7 +331,7 @@ func (s *Scheduler) schedule() *Message {
 			break
 		}
 		// otherwise increase the deficit
-		mana := s.tangle.Options.AccessManaRetriever(q.NodeID())
+		mana := s.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(q.NodeID())
 		s.setDeficit(q.NodeID(), s.getDeficit(q.NodeID())+mana)
 		// TODO: different from spec
 		q = s.buffer.Next()
@@ -320,7 +343,7 @@ func (s *Scheduler) schedule() *Message {
 	nodeID := identity.NewID(msg.IssuerPublicKey())
 	s.setDeficit(nodeID, s.getDeficit(nodeID)-float64(len(msg.Bytes())))
 
-	if nodeID == s.self {
+	if nodeID == s.self && RateSetterEnabled {
 		s.rateSetting()
 	}
 	return msg
@@ -332,8 +355,8 @@ func (s *Scheduler) rateSetting() {
 		return
 	}
 
-	mana := s.tangle.Options.AccessManaRetriever(s.self)
-	totalMana := s.tangle.Options.TotalAccessManaRetriever()
+	mana := s.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(s.self)
+	totalMana := s.tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc()
 	if mana <= 0 {
 		panic(fmt.Sprintf("invalid mana: %f", mana))
 	}
@@ -431,7 +454,7 @@ func (s *Scheduler) issueNext() bool {
 		return false
 	}
 
-	mana := s.tangle.Options.AccessManaRetriever(s.self)
+	mana := s.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(s.self)
 	if err := s.buffer.Submit(msg, mana); err != nil {
 		return false
 	}
@@ -442,6 +465,7 @@ func (s *Scheduler) issueNext() bool {
 
 func (s *Scheduler) issueInterval(msg *Message) time.Duration {
 	wait := time.Duration(math.Ceil(float64(len(msg.Bytes())) / s.lambda.Load() * float64(time.Second)))
+	fmt.Println("wait: ", wait)
 	return wait
 }
 
@@ -454,16 +478,6 @@ func (s *Scheduler) setDeficit(nodeID identity.ID, deficit float64) {
 		panic("invalid deficit")
 	}
 	s.deficits[nodeID] = math.Min(deficit, MaxDeficit)
-}
-
-// defaultGetAccessMana is the default get access mana retriever.
-func defaultGetAccessMana(nodeID identity.ID) float64 {
-	return defaultAccessMana
-}
-
-// defaultGetTotalAccessMana is the default get total access mana retriever.
-func defaultGetTotalAccessMana() float64 {
-	return defaultAccessMana
 }
 
 // region NodeQueue /////////////////////////////////////////////////////////////////////////////////////////////

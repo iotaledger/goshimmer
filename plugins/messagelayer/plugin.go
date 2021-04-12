@@ -111,8 +111,13 @@ func Tangle() *tangle.Tangle {
 			tangle.Width(Parameters.TangleWidth),
 			tangle.Consensus(ConsensusMechanism()),
 			tangle.GenesisNode(Parameters.Snapshot.GenesisNode),
-			tangle.AccessManaRetriever(accessManaRetriever),
-			tangle.TotalAccessManaRetriever(totalAccessManaRetriever),
+			// TODO: get values from external config.
+			tangle.SchedulerConfig(tangle.SchedulerParams{
+				RateSetterInitial:           tangle.MaxMessageSize * 100, //TODO: calm down!
+				RateSetterBeta:              0.7,
+				AccessManaRetrieveFunc:      accessManaRetriever,
+				TotalAccessManaRetrieveFunc: totalAccessManaRetriever,
+			}),
 		)
 
 		tangleInstance.Setup()

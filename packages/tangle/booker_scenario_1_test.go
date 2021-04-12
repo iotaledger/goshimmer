@@ -10,7 +10,7 @@ import (
 )
 
 func TestScenario_1(t *testing.T) {
-	tangle := New()
+	tangle := New(SchedulerConfig(schedulerParams))
 	defer tangle.Shutdown()
 	tangle.Booker.Setup()
 

@@ -75,8 +75,6 @@ func (t *Tangle) Configure(options ...Option) {
 			Store:                        mapdb.NewMapDB(),
 			Identity:                     identity.GenerateLocalIdentity(),
 			IncreaseMarkersIndexCallback: increaseMarkersIndexCallbackStrategy,
-			AccessManaRetriever:          defaultGetAccessMana,
-			TotalAccessManaRetriever:     defaultGetTotalAccessMana,
 		}
 	}
 
@@ -218,8 +216,7 @@ type Options struct {
 	TangleWidth                  int
 	ConsensusMechanism           ConsensusMechanism
 	GenesisNode                  *ed25519.PublicKey
-	AccessManaRetriever          AccessManaRetrieveFunc
-	TotalAccessManaRetriever     TotalAccessManaRetrieveFunc
+	SchedulerParams              SchedulerParams
 }
 
 // Store is an Option for the Tangle that allows to specify which storage layer is supposed to be used to persist data.
@@ -273,17 +270,9 @@ func GenesisNode(genesisNodeBase58 string) Option {
 	}
 }
 
-// AccessManaRetriever is an Option for the Tangle that allows to specify the access mana retrieve function.
-func AccessManaRetriever(accessManaRetriever AccessManaRetrieveFunc) Option {
+func SchedulerConfig(config SchedulerParams) Option {
 	return func(options *Options) {
-		options.AccessManaRetriever = accessManaRetriever
-	}
-}
-
-// TotalAccessManaRetriever is an Option for the Tangle that allows to specify the total access mana retrieve function.
-func TotalAccessManaRetriever(totalAccessManaRetriever TotalAccessManaRetrieveFunc) Option {
-	return func(options *Options) {
-		options.TotalAccessManaRetriever = totalAccessManaRetriever
+		options.SchedulerParams = config
 	}
 }
 
