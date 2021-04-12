@@ -1091,6 +1091,11 @@ func (a *AliasOutput) IsOrigin() bool {
 	return a.isOrigin
 }
 
+// SetIsOrigin sets the isOrigin field of the output.
+func (a *AliasOutput) SetIsOrigin(isOrigin bool) {
+	a.isOrigin = isOrigin
+}
+
 // IsSelfGoverned return if
 func (a *AliasOutput) IsSelfGoverned() bool {
 	return a.governingAddress == nil

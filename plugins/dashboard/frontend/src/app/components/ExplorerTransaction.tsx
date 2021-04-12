@@ -9,6 +9,7 @@ import ListGroup from "react-bootstrap/ListGroup";
 import {FaChevronCircleRight} from "react-icons/fa";
 import {IconContext} from "react-icons";
 import Badge from "react-bootstrap/Badge";
+import {outputToComponent} from "app/utils/output";
 
 interface Props {
     nodeStore?: NodeStore;
@@ -88,13 +89,9 @@ export class ExplorerTransaction extends React.Component<Props, any> {
                                                           }
 
                                                           <ListGroup.Item>Type: {input.type}</ListGroup.Item>
-                                                          {input.referencedOutput && <ListGroup.Item>
-                                                              Balances:
-                                                              <div>
-                                                                  {Object.entries(input.referencedOutput.balances).map((entry, i) => (<div key={i}><Badge variant="danger">{entry[1]} {entry[0]}</Badge></div>))}
-                                                              </div>
-                                                          </ListGroup.Item>}
                                                       </ListGroup>
+                                                      Referenced Output
+                                                      {outputToComponent(input.output)}
                                                   </div>
                                               )
                                           })}
@@ -108,23 +105,7 @@ export class ExplorerTransaction extends React.Component<Props, any> {
                                             <span>Outputs</span>
                                             <hr/>
                                             {tx.outputs.map((output, i) => {
-                                                return (
-                                                    <div className={"mb-2"} key={i}>
-                                                        <span className={"mb-2"}>Index: <Badge variant={"primary"}>{i}</Badge></span>
-                                                        <ListGroup>
-                                                            <ListGroup.Item>ID: <a href={`/explorer/output/${output.outputID.base58}`}>{output.outputID.base58}</a></ListGroup.Item>
-                                                            <ListGroup.Item>Address: <a href={`/explorer/address/${output.address}`}> {output.address}</a></ListGroup.Item>
-                                                            <ListGroup.Item>Type: {output.type}</ListGroup.Item>
-                                                            <ListGroup.Item>Output Index: {output.outputID.outputIndex}</ListGroup.Item>
-                                                            <ListGroup.Item>
-                                                                Balances:
-                                                                <div>
-                                                                    {Object.entries(output.balances).map((entry, i) => (<div key={i}><Badge variant="success">{entry[1]} {entry[0]}</Badge></div>))}
-                                                                </div>
-                                                            </ListGroup.Item>
-                                                        </ListGroup>
-                                                    </div>
-                                                )
+                                                return outputToComponent(output)
                                             })}
                                         </div>
                                     </div>

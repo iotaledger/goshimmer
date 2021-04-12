@@ -248,6 +248,7 @@ type AliasOutput struct {
 	StateAddress       string            `json:"stateAddress"`
 	StateIndex         uint32            `json:"stateIndex"`
 	IsGovernanceUpdate bool              `json:"isGovernanceUpdate"`
+	IsOrigin           bool              `json:"isOrigin"`
 
 	// marshaled to base64
 	StateData        []byte `json:"stateData,omitempty"`
@@ -275,6 +276,8 @@ func (a *AliasOutput) ToLedgerStateOutput(id ledgerstate.OutputID) (ledgerstate.
 	stateIndex := a.StateIndex
 	// isGovernanceUpdate
 	isGovernanceUpdate := a.IsGovernanceUpdate
+	// isOrigin
+	isOrigin := a.IsOrigin
 
 	// no suitable constructor, doing it the manual way
 	res := &ledgerstate.AliasOutput{}
@@ -290,6 +293,7 @@ func (a *AliasOutput) ToLedgerStateOutput(id ledgerstate.OutputID) (ledgerstate.
 	}
 	res.SetStateIndex(stateIndex)
 	res.SetIsGovernanceUpdated(isGovernanceUpdate)
+	res.SetIsOrigin(isOrigin)
 
 	// optional fields
 	if a.StateData != nil {
@@ -308,7 +312,6 @@ func (a *AliasOutput) ToLedgerStateOutput(id ledgerstate.OutputID) (ledgerstate.
 		}
 		res.SetGoverningAddress(addy)
 	}
-	res.SetID(id)
 	return res, nil
 }
 
@@ -326,6 +329,7 @@ func AliasOutputFromLedgerstate(output ledgerstate.Output) (*AliasOutput, error)
 		IsGovernanceUpdate: castedOutput.GetIsGovernanceUpdated(),
 		StateData:          castedOutput.GetStateData(),
 		ImmutableData:      castedOutput.GetImmutableData(),
+		IsOrigin:           castedOutput.IsOrigin(),
 	}
 
 	if !castedOutput.IsSelfGoverned() {
@@ -350,12 +354,14 @@ func UnmarshalAliasOutputFromBytes(data []byte) (*AliasOutput, error) {
 
 // ExtendedLockedOutput is the JSON model of a ledgerstate.ExtendedLockedOutput
 type ExtendedLockedOutput struct {
-	Balances         map[string]uint64 `json:"balances"`
-	Address          string            `json:"address"`
-	FallbackAddress  string            `json:"fallbackAddress,omitempty"`
-	FallbackDeadline time.Time         `json:"fallbackDeadline,omitempty"`
-	TimeLock         time.Time         `json:"timelock,omitempty"`
-	Payload          []byte            `json:"payload,omitempty"`
+	Balances        map[string]uint64 `json:"balances"`
+	Address         string            `json:"address"`
+	FallbackAddress string            `json:"fallbackAddress,omitempty"`
+
+	// time objects have no zero value that can be omitted, so we use a pointer here
+	FallbackDeadline *time.Time `json:"fallbackDeadline,omitempty"`
+	TimeLock         *time.Time `json:"timelock,omitempty"`
+	Payload          []byte     `json:"payload,omitempty"`
 }
 
 // ToLedgerStateOutput builds a ledgerstate.Output from ExtendedLockedOutput with the given outputID.
@@ -371,15 +377,15 @@ func (e *ExtendedLockedOutput) ToLedgerStateOutput(id ledgerstate.OutputID) (led
 
 	res := ledgerstate.NewExtendedLockedOutput(balances.Map(), addy)
 
-	if e.FallbackAddress != "" && !e.FallbackDeadline.Equal(time.Time{}) {
+	if e.FallbackAddress != "" && e.FallbackDeadline != nil {
 		fallbackAddy, fErr := ledgerstate.AddressFromBase58EncodedString(e.FallbackAddress)
 		if fErr != nil {
 			return nil, xerrors.Errorf("wrong fallback address in ExtendedLockedOutput: %w", err)
 		}
-		res = res.WithFallbackOptions(fallbackAddy, e.FallbackDeadline)
+		res = res.WithFallbackOptions(fallbackAddy, *e.FallbackDeadline)
 	}
-	if !e.TimeLock.Equal(time.Time{}) {
-		res = res.WithTimeLock(e.TimeLock)
+	if e.TimeLock != nil {
+		res = res.WithTimeLock(*e.TimeLock)
 	}
 	if e.Payload != nil {
 		rErr := res.SetPayload(e.Payload)
@@ -404,10 +410,13 @@ func ExtendedLockedOutputFromLedgerstate(output ledgerstate.Output) (*ExtendedLo
 	fallbackAddy, fallbackDeadline := castedOutput.FallbackOptions()
 	if !typeutils.IsInterfaceNil(fallbackAddy) {
 		res.FallbackAddress = fallbackAddy.Base58()
-		res.FallbackDeadline = fallbackDeadline
+		// copy the time object so we can tale the address of it
+		copiedFallbackTime := time.Unix(fallbackDeadline.Unix(), int64(fallbackDeadline.Nanosecond()))
+		res.FallbackDeadline = &copiedFallbackTime
 	}
 	if !castedOutput.TimeLock().Equal(time.Time{}) {
-		res.TimeLock = castedOutput.TimeLock()
+		copiedTimeLock := time.Unix(castedOutput.TimeLock().Unix(), int64(castedOutput.TimeLock().Nanosecond()))
+		res.TimeLock = &copiedTimeLock
 	}
 	return res, nil
 }
