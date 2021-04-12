@@ -13,7 +13,7 @@ const (
 
 // region Scheduler ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Scheduler is a Tangle component that takes care of scheduling the messages that shall be booked.
+// OldScheduler is a Tangle component that takes care of scheduling the messages that shall be booked.
 type OldScheduler struct {
 	Events *OldSchedulerEvents
 
@@ -26,7 +26,7 @@ type OldScheduler struct {
 	shutdownOnce           sync.Once
 }
 
-// NewScheduler returns a new scheduler.
+// NewOldScheduler returns a new scheduler.
 func NewOldScheduler(tangle *Tangle) (scheduler *OldScheduler) {
 	scheduler = &OldScheduler{
 		Events: &OldSchedulerEvents{
@@ -131,7 +131,7 @@ func (s *OldScheduler) parentsBooked(messageID MessageID) (parentsBooked bool) {
 
 // region SchedulerEvents /////////////////////////////////////////////////////////////////////////////////////////////
 
-// SchedulerEvents represents events happening in the Scheduler.
+// OldSchedulerEvents represents events happening in the Scheduler.
 type OldSchedulerEvents struct {
 	// MessageScheduled is triggered when a message is ready to be scheduled.
 	MessageScheduled *events.Event

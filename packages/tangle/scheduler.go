@@ -17,21 +17,37 @@ import (
 
 const (
 	// buffer management
-	MaxBufferSize = 10 * 1024 * 1024 // maximum total (of all nodes) buffer size in bytes
+
+	// MaxBufferSize is the maximum total (of all nodes) buffer size in bytes
+	MaxBufferSize = 10 * 1024 * 1024
+	// MaxQueueWeight is the maximum mana-scaled inbox size; >= minMessageSize / minAccessMana
 	// TODO: check this with @Wolfgang
-	MaxQueueWeight    = 10000               // maximum mana-scaled inbox size; >= minMessageSize / minAccessMana
-	MaxLocalQueueSize = 20 * MaxMessageSize // maximum local (containing the message to be issued) queue size in bytes
+	MaxQueueWeight = 10000
+	// MaxLocalQueueSize is the maximum local (containing the message to be issued) queue size in bytes
+	MaxLocalQueueSize = 20 * MaxMessageSize
 
 	// scheduler
-	MaxDeficit = MaxMessageSize    // maximum deficit, i.e. max bytes that can be scheduled without waiting; >= maxMessageSize
-	Rate       = time.Second / 200 // minimum time interval between two scheduled messages, i.e. 1s / MPS
+
+	// MaxDeficit is the maximum deficit, i.e. max bytes that can be scheduled without waiting; >= maxMessageSize
+	MaxDeficit = MaxMessageSize
+	// Rate is the minimum time interval between two scheduled messages, i.e. 1s / MPS
+	Rate = time.Second / 200
 
 	// rate setter
-	Initial = 50.0 // initial rate in bytes per second
-	Backoff = 25.0 // local threshold for rate setting; < MaxQueueWeight
-	A       = 1.0  // additive increase
-	Beta    = 0.7  // multiplicative decrease
-	Tau     = 2    // time to wait before next rate's update after a backoff
+
+	// Initial is the initial rate in bytes per second
+	Initial = 50.0
+	// Backoff is the local threshold for rate setting; < MaxQueueWeight
+	Backoff = 25.0
+	// A is the additive increase
+	A = 1.0
+	// Beta is the multiplicative decrease
+	Beta = 0.7
+	// Tau is the time to wait before next rate's update after a backoff
+	Tau = 2
+
+	// defaultAccessMana is a default value of access mana that will be returned in the defaultAccessManaRetriever
+	defaultAccessMana = 100
 )
 
 var (
@@ -442,15 +458,17 @@ func (s *Scheduler) setDeficit(nodeID identity.ID, deficit float64) {
 
 // defaultGetAccessMana is the default get access mana retriever.
 func defaultGetAccessMana(nodeID identity.ID) float64 {
-	return 100
+	return defaultAccessMana
 }
 
 // defaultGetTotalAccessMana is the default get total access mana retriever.
 func defaultGetTotalAccessMana() float64 {
-	return 100
+	return defaultAccessMana
 }
 
 // region NodeQueue /////////////////////////////////////////////////////////////////////////////////////////////
+
+// NodeQueue keeps the submitted messages of a node
 type NodeQueue struct {
 	nodeID    identity.ID
 	submitted map[MessageID]*Message
@@ -458,6 +476,7 @@ type NodeQueue struct {
 	size      uint
 }
 
+// NewNodeQueue returns a new NodeQueue
 func NewNodeQueue(nodeID identity.ID) *NodeQueue {
 	return &NodeQueue{
 		nodeID:    nodeID,
@@ -540,12 +559,15 @@ func (q *NodeQueue) PopFront() *Message {
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region BufferQueue /////////////////////////////////////////////////////////////////////////////////////////////
+
+// BufferQueue represents a buffer of NodeQueue
 type BufferQueue struct {
 	activeNode map[identity.ID]*ring.Ring
 	ring       *ring.Ring
 	size       uint
 }
 
+// NewBufferQueue returns a new BufferQueue
 func NewBufferQueue() *BufferQueue {
 	return &BufferQueue{
 		activeNode: make(map[identity.ID]*ring.Ring),
