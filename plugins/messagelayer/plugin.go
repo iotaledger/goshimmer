@@ -62,6 +62,10 @@ func configure(plugin *node.Plugin) {
 		Tangle().ProcessGossipMessage(message.Bytes(), local.GetInstance().Peer)
 	}))
 
+	Tangle().Scheduler.Events.NodeBlacklisted.Attach(events.NewClosure(func(nodeID identity.ID) {
+		// TODO: node blacklisted.
+	}))
+
 	// read snapshot file
 	if Parameters.Snapshot.File != "" {
 		snapshot := ledgerstate.Snapshot{}

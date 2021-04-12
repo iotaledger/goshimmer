@@ -16,8 +16,9 @@ import (
 
 const (
 	// buffer management
-	MaxBufferSize     = 10 * 1024 * 1024    // maximum total (of all nodes) buffer size in bytes
-	MaxQueueWeight    = 100                 // maximum mana-scaled inbox size; >= minMessageSize / minAccessMana
+	MaxBufferSize = 10 * 1024 * 1024 // maximum total (of all nodes) buffer size in bytes
+	// TODO: check this with @Wolfgang
+	MaxQueueWeight    = 10000               // maximum mana-scaled inbox size; >= minMessageSize / minAccessMana
 	MaxLocalQueueSize = 20 * MaxMessageSize // maximum local (containing the message to be issued) queue size in bytes
 
 	// scheduler
@@ -101,10 +102,10 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (s *Scheduler) Setup() {
-	s.tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(s.Submit))
+	s.tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(s.SubmitAndReadyMessage))
 	s.tangle.Events.MessageInvalid.Attach(events.NewClosure(s.Unsubmit))
-	s.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(s.Ready))
 
+	//  TODO: wait for all messages to be scheduled here or in message layer?
 	/*
 		s.tangle.ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID MessageID) {
 			if s.scheduledMessages.Delete(messageID) {
@@ -112,6 +113,17 @@ func (s *Scheduler) Setup() {
 			}
 		}))
 	*/
+}
+
+// SubmitAndReadyMessage submits the message to the scheduler and makes it ready when it's parents are booked.
+func (s *Scheduler) SubmitAndReadyMessage(messageID MessageID) {
+	s.Submit(messageID)
+
+	// TODO: what if parents are not booked? wait for parents to be booked?
+	if !s.parentsBooked(messageID) {
+		return
+	}
+	s.Ready(messageID)
 }
 
 // Shutdown shuts down the Scheduler.
@@ -176,10 +188,6 @@ func (s *Scheduler) Unsubmit(messageID MessageID) {
 // Ready marks a previously submitted message as ready to be scheduled.
 // If Ready is called without a previous Submit, it has no effect.
 func (s *Scheduler) Ready(messageID MessageID) {
-	if !s.parentsBooked(messageID) {
-		return
-	}
-
 	if !s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		// if the current node issued the message, the issuing must go through the rate setting
 		nodeID := identity.NewID(message.IssuerPublicKey())
@@ -392,6 +400,16 @@ func (s *Scheduler) setDeficit(nodeID identity.ID, deficit float64) {
 		panic("invalid deficit")
 	}
 	s.deficits[nodeID] = math.Min(deficit, MaxDeficit)
+}
+
+// defaultGetAccessMana is the default get access mana retriever.
+func defaultGetAccessMana(nodeID identity.ID) float64 {
+	return 0
+}
+
+// defaultGetTotalAccessMana is the default get total access mana retriever.
+func defaultGetTotalAccessMana() float64 {
+	return 0
 }
 
 // region NodeQueue /////////////////////////////////////////////////////////////////////////////////////////////

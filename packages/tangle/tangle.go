@@ -26,7 +26,7 @@ type Tangle struct {
 	Parser           *Parser
 	Storage          *Storage
 	Solidifier       *Solidifier
-	Scheduler        *OldScheduler
+	Scheduler        *Scheduler
 	Booker           *Booker
 	ConsensusManager *ConsensusManager
 	TipManager       *TipManager
@@ -56,7 +56,7 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.Parser = NewParser()
 	tangle.Storage = NewStorage(tangle)
 	tangle.Solidifier = NewSolidifier(tangle)
-	tangle.Scheduler = NewOldScheduler(tangle)
+	tangle.Scheduler = NewScheduler(tangle)
 	tangle.LedgerState = NewLedgerState(tangle)
 	tangle.Booker = NewBooker(tangle)
 	tangle.ConsensusManager = NewConsensusManager(tangle)
@@ -75,6 +75,8 @@ func (t *Tangle) Configure(options ...Option) {
 			Store:                        mapdb.NewMapDB(),
 			Identity:                     identity.GenerateLocalIdentity(),
 			IncreaseMarkersIndexCallback: increaseMarkersIndexCallbackStrategy,
+			AccessManaRetriever:          defaultGetAccessMana,
+			TotalAccessManaRetriever:     defaultGetTotalAccessMana,
 		}
 	}
 
