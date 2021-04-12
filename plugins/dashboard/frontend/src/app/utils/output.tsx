@@ -5,13 +5,13 @@ import {SigLockedColoredOutputComponent} from "app/components/SigLockedColoredOu
 
 export function outputToComponent(output: Output) {
     switch (output.type) {
-        case "SigLockedSingleOutput":
-            return <SigLockedSingleOutputComponent output={output.output as SigLockedSingleOutput} id={output.output_id} />;
-        case "SigLockedColoredOutput":
-            return <SigLockedColoredOutputComponent output={output.output as SigLockedColoredOutput} id={output.output_id} />;
-        case "AliasOutput":
+        case "SigLockedSingleOutputType":
+            return <SigLockedSingleOutputComponent output={output.output as SigLockedSingleOutput} id={output.outputID} />;
+        case "SigLockedColoredOutputType":
+            return <SigLockedColoredOutputComponent output={output.output as SigLockedColoredOutput} id={output.outputID} />;
+        case "AliasOutputType":
             return;
-        case "ExtendedLockedOutput":
+        case "ExtendedLockedOutputType":
             return;
         default:
             return;

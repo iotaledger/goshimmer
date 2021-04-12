@@ -11,6 +11,7 @@ interface Props {
 
 export class SigLockedColoredOutputComponent extends React.Component<Props, any> {
     render() {
+        let balances = Object.keys(this.props.output.balances).map((key) => {return {color:key, value:this.props.output.balances[key]}})
         return (
             <div className={"mb-2"} key={this.props.index}>
                 <span className={"mb-2"}>Index: <Badge variant={"primary"}>{this.props.index}</Badge></span>
@@ -22,7 +23,7 @@ export class SigLockedColoredOutputComponent extends React.Component<Props, any>
                     <ListGroup.Item>
                         Balances:
                         <div>
-                            {this.props.output.balances.map((entry, i) => (<div key={i}><Badge variant="success">{entry.color} {entry.value}</Badge></div>))}
+                            {balances.map((entry, i) => (<div key={i}><Badge variant="success">{entry.color} {entry.value}</Badge></div>))}
                         </div>
                     </ListGroup.Item>
                 </ListGroup>

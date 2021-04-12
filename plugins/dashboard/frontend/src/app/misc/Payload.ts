@@ -56,7 +56,7 @@ export class Input {
 }
 
 export class Output {
-    output_id: OutputID;
+    outputID: OutputID;
     type: string;
     output: any;
 }
@@ -73,12 +73,12 @@ export class SigLockedSingleOutput {
 }
 
 export class SigLockedColoredOutput {
-    balances: Array<Balance>;
+    balances: Map<string,number>;
     address: string;
 }
 
 export class AliasOutput {
-    balances: Array<Balance>;
+    balances: Map<string,number>;
     aliasAddress: string;
     stateAddress: string;
     stateIndex: number;
@@ -91,7 +91,7 @@ export class AliasOutput {
 }
 
 export class ExtendedLockedOutput {
-    balances: Array<Balance>;
+    balances: Map<string,number>;
     address: string
     fallbackAddress: string;
     fallbackDeadline: number;
