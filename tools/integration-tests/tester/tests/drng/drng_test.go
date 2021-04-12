@@ -76,7 +76,7 @@ func getFirstRound(t *testing.T, peer *framework.Peer, maxAttempts int) (string,
 		resp, err := peer.GetRandomness()
 		require.NoError(t, err)
 		b, err = json.MarshalIndent(resp, "", " ")
-		if err == nil {
+		if err == nil && resp.Randomness[0].Round > 0 {
 			return string(b), resp.Randomness[0].Round, nil
 		}
 		time.Sleep(1 * time.Second)
