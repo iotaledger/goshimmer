@@ -128,6 +128,9 @@ func (n *Network) CreatePeer(c GoShimmerConfig) (*Peer, error) {
 	if config.FPCRoundInterval == 0 {
 		config.FPCRoundInterval = 5
 	}
+	if config.FPCTotalRoundsFinalization == 0 {
+		config.FPCTotalRoundsFinalization = 10
+	}
 
 	// create wallet
 	var nodeSeed *walletseed.Seed

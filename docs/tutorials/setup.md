@@ -162,8 +162,7 @@ services:
     image: iotaledger/goshimmer:latest
     container_name: goshimmer
     hostname: goshimmer
-    stop_grace_period: 1m
-    restart: unless-stopped
+    stop_grace_period: 2m
     volumes:
       - "./db:/tmp/mainnetdb:rw"   
       - "/etc/localtime:/etc/localtime:ro"
