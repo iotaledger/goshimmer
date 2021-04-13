@@ -3,6 +3,7 @@ package tangle
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
@@ -52,15 +53,56 @@ func NewApprovalWeightManager(tangle *Tangle) *ApprovalWeightManager {
 }
 
 func (a *ApprovalWeightManager) Setup() {
+	a.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(a.ProcessMessage))
+	a.tangle.Booker.Events.MessageBranchUpdated.Attach(events.NewClosure(a.UpdateMessageBranch))
+	a.tangle.Booker.Events.MarkerBranchUpdated.Attach(events.NewClosure(a.UpdateMarkerBranch))
+
 	a.supportersManager.Events.BranchSupportAdded.Attach(events.NewClosure(a.onBranchSupportAdded))
 	a.supportersManager.Events.BranchSupportRemoved.Attach(events.NewClosure(a.onBranchSupportRemoved))
 	a.supportersManager.Events.SequenceSupportUpdated.Attach(events.NewClosure(a.onSequenceSupportUpdated))
+}
+
+func (a *ApprovalWeightManager) UpdateMessageBranch(messageID MessageID, _, newBranchID ledgerstate.BranchID) {
+	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+		a.supportersManager.propagateSupportToBranches(newBranchID, message)
+	})
+}
+
+func (a *ApprovalWeightManager) UpdateMarkerBranch(marker *markers.Marker, oldBranchID, newBranchID ledgerstate.BranchID) {
+	fmt.Println("HUHU!!! :D")
+	a.supportersManager.MigrateMarkerSupportersToNewBranch(marker, oldBranchID, newBranchID)
 }
 
 func (a *ApprovalWeightManager) ProcessMessage(messageID MessageID) {
 	a.supportersManager.ProcessMessage(messageID)
 
 	a.Events.MessageProcessed.Trigger(messageID)
+}
+
+// WeightOfBranch returns the weight of the given Branch that was added by Supporters of the given epoch.
+func (a *ApprovalWeightManager) WeightOfBranch(branchID ledgerstate.BranchID, epochID uint64) (weight float64) {
+	return a.weightsPerEpoch(branchID).Weight(epochID)
+}
+
+func (a *ApprovalWeightManager) WeightOfMarker(marker *markers.Marker, anchorTime time.Time) (weight float64) {
+	activeMana, totalMana := a.tangle.WeightProvider.WeightsOfRelevantSupporters(anchorTime)
+	branchID := a.tangle.Booker.MarkersManager.BranchID(marker)
+	supportersOfMarker := a.supportersManager.SupportersOfMarker(marker)
+	supporterMana := float64(0)
+	if branchID == ledgerstate.MasterBranchID {
+		supportersOfMarker.ForEach(func(supporter Supporter) {
+			supporterMana += activeMana[supporter]
+		})
+	} else {
+		fmt.Println(branchID)
+		a.supportersManager.SupportersOfBranch(branchID).ForEach(func(supporter Supporter) {
+			if supportersOfMarker.Has(supporter) {
+				supporterMana += activeMana[supporter]
+			}
+		})
+	}
+
+	return supporterMana / totalMana
 }
 
 func (a *ApprovalWeightManager) weightsPerEpoch(branchID ledgerstate.BranchID) *BranchWeightPerEpoch {
@@ -281,6 +323,27 @@ func (s *SupporterManager) SupportersOfMarker(marker *markers.Marker) (supporter
 	}
 
 	return
+}
+
+func (s *SupporterManager) MigrateMarkerSupportersToNewBranch(marker *markers.Marker, oldBranchID, newBranchID ledgerstate.BranchID) {
+	supporters, exists := s.branchSupporters[newBranchID]
+	if !exists {
+		supporters = NewSupporters()
+		s.branchSupporters[newBranchID] = supporters
+	}
+
+	supportersOfMarker := s.SupportersOfMarker(marker)
+	if oldBranchID == ledgerstate.MasterBranchID {
+		supportersOfMarker.ForEach(func(supporter Supporter) {
+			supporters.Add(supporter)
+		})
+	}
+
+	s.SupportersOfBranch(oldBranchID).ForEach(func(supporter Supporter) {
+		if supportersOfMarker.Has(supporter) {
+			supporters.Add(supporter)
+		}
+	})
 }
 
 func (s *SupporterManager) updateSequenceSupporters(message *Message) {
