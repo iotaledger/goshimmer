@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -311,6 +312,11 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	approvalWeightManager := NewApprovalWeightManager(tangle)
 	approvalWeightManager.Setup()
 
+	approvalWeightManager.Events.BranchConfirmed.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
+		tangle.LedgerState.BranchDAG.SetBranchLiked(branchID, true)
+		tangle.LedgerState.BranchDAG.SetBranchFinalized(branchID, true)
+	}))
+
 	// ISSUE Message1
 	{
 		testFramework.CreateMessage("Message1", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()))
@@ -374,6 +380,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	// ISSUE Message5
 	{
 		testFramework.CreateMessage("Message5", WithStrongParents("Message4"), WithIssuer(nodes["A"].PublicKey()), WithInputs("A"), WithOutput("B", 500))
+		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message5")), "Branch1")
 		testFramework.IssueMessages("Message5").WaitMessagesBooked()
 
 		validateApprovalWeightManagerEvents(t, approvalWeightManager,
@@ -389,6 +396,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	// ISSUE Message6
 	{
 		testFramework.CreateMessage("Message6", WithStrongParents("Message4"), WithIssuer(nodes["E"].PublicKey()), WithInputs("A"), WithOutput("C", 500))
+		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message6")), "Branch2")
 		testFramework.IssueMessages("Message6").WaitMessagesBooked()
 
 		validateApprovalWeightManagerEvents(t, approvalWeightManager,
@@ -403,7 +411,10 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 
 	// ISSUE Message7
 	{
-		testFramework.CreateMessage("Message7", WithStrongParents("Message5"), WithIssuer(nodes["C"].PublicKey()))
+		fmt.Println("-----------------    Message7   --------------------------")
+
+		testFramework.CreateMessage("Message7", WithStrongParents("Message5"), WithIssuer(nodes["C"].PublicKey()), WithInputs("B"), WithOutput("E", 500))
+		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message7")), "Branch3")
 		testFramework.IssueMessages("Message7").WaitMessagesBooked()
 
 		validateApprovalWeightManagerEvents(t, approvalWeightManager,
@@ -457,6 +468,42 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 			[]ledgerstate.BranchID{ledgerstate.NewBranchID(testFramework.TransactionID("Message6"))},
 			func() {
 				approvalWeightManager.ProcessMessage(testFramework.Message("Message10").ID())
+			},
+		)
+	}
+
+	// ISSUE Message11
+	{
+		tangle.LedgerState.BranchDAG.SetBranchFinalized(testFramework.BranchID("Message5"), false)
+		tangle.LedgerState.BranchDAG.SetBranchFinalized(testFramework.BranchID("Message6"), false)
+
+		fmt.Println("-----------------    Message11   --------------------------")
+		testFramework.CreateMessage("Message11", WithStrongParents("Message5"), WithIssuer(nodes["A"].PublicKey()), WithInputs("B"), WithOutput("D", 500))
+		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message11")), "Branch4")
+		testFramework.IssueMessages("Message11").WaitMessagesBooked()
+
+		validateApprovalWeightManagerEvents(t, approvalWeightManager,
+			MessageIDs{testFramework.Message("Message11").ID()},
+			[]*markers.Marker{},
+			[]ledgerstate.BranchID{},
+			func() {
+				approvalWeightManager.ProcessMessage(testFramework.Message("Message11").ID())
+			},
+		)
+	}
+
+	// ISSUE Message12
+	{
+		fmt.Println("-----------------    Message12   --------------------------")
+		testFramework.CreateMessage("Message12", WithStrongParents("Message11"), WithIssuer(nodes["D"].PublicKey()))
+		testFramework.IssueMessages("Message12").WaitMessagesBooked()
+
+		validateApprovalWeightManagerEvents(t, approvalWeightManager,
+			MessageIDs{testFramework.Message("Message12").ID()},
+			[]*markers.Marker{markers.NewMarker(1, 5)},
+			[]ledgerstate.BranchID{ledgerstate.NewBranchID(testFramework.TransactionID("Message5"))},
+			func() {
+				approvalWeightManager.ProcessMessage(testFramework.Message("Message12").ID())
 			},
 		)
 	}

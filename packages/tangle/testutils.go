@@ -129,6 +129,16 @@ func (m *MessageTestFramework) TransactionID(messageAlias string) ledgerstate.Tr
 	return messagePayload.(*ledgerstate.Transaction).ID()
 }
 
+// BranchID returns the BranchID of the Transaction contained in the Message associated with the given alias.
+func (m *MessageTestFramework) BranchID(messageAlias string) ledgerstate.BranchID {
+	messagePayload := m.messagesByAlias[messageAlias].Payload()
+	if messagePayload.Type() != ledgerstate.TransactionType {
+		panic(fmt.Sprintf("Message with alias '%s' does not contain a Transaction", messageAlias))
+	}
+
+	return ledgerstate.NewBranchID(messagePayload.(*ledgerstate.Transaction).ID())
+}
+
 // createGenesisOutputs initializes the Outputs that are used by the MessageTestFramework as the genesis.
 func (m *MessageTestFramework) createGenesisOutputs() {
 	genesisOutputs := make(map[ledgerstate.Address]*ledgerstate.ColoredBalances)
