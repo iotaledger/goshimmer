@@ -1,19 +1,19 @@
 package client
 
 import (
-	"crypto/md5"
 	"fmt"
 	"io"
 	"net"
 	"strings"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/packages/txstream"
-	"github.com/iotaledger/goshimmer/packages/txstream/chopper"
 	"github.com/iotaledger/hive.go/backoff"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/netutil/buffconn"
+
+	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/txstream"
+	"github.com/iotaledger/goshimmer/packages/txstream/chopper"
 )
 
 const (
@@ -117,7 +117,6 @@ func (n *Client) connect(dial DialFunc, msgChopper *chopper.Chopper) bool {
 }
 
 func (n *Client) decodeReceivedMessage(data []byte, msgChopper *chopper.Chopper) error {
-	n.log.Debugf("received %d bytes from server (md5 %x)", len(data), md5.Sum(data))
 	msg, err := txstream.DecodeMsg(data, txstream.FlagServerToClient)
 	if err != nil {
 		return fmt.Errorf("txstream.DecodeMsg: %w", err)
@@ -143,6 +142,10 @@ func (n *Client) decodeReceivedMessage(data []byte, msgChopper *chopper.Chopper)
 	case *txstream.MsgOutput:
 		n.log.Debugf("received message from server: %T", msg)
 		n.Events.OutputReceived.Trigger(msg)
+
+	case *txstream.MsgUnspentAliasOutput:
+		n.log.Debugf("received message from server: %T", msg)
+		n.Events.UnspentAliasOutputReceived.Trigger(msg)
 
 	default:
 		n.log.Errorf("received unknkwn message from server: %T", msg)

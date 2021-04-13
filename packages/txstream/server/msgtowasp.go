@@ -68,12 +68,40 @@ func (c *Connection) sendOutput(outputID ledgerstate.OutputID, addr ledgerstate.
 			validOutput = false
 			return
 		}
-		c.sendMsgToClient(&txstream.MsgOutput{
-			Address: addr,
-			Output:  tx.Essence().Outputs()[outputID.OutputIndex()].UpdateMintingColor(),
+		validOutput = c.ledger.GetOutputMetadata(outputID, func(meta *ledgerstate.OutputMetadata) {
+			c.sendMsgToClient(&txstream.MsgOutput{
+				Address:        addr,
+				Output:         tx.Essence().Outputs()[outputID.OutputIndex()].UpdateMintingColor(),
+				OutputMetadata: meta,
+			})
 		})
 	})
 	if !foundTx || !validOutput {
 		c.log().Warnf("sendOutput: not found output %s", outputID.String())
+	}
+}
+
+func (c *Connection) sendUnspentAliasOutput(addr *ledgerstate.AliasAddress) {
+	found := false
+	c.ledger.GetUnspentOutputs(addr, func(out ledgerstate.Output) {
+		if found {
+			return
+		}
+		if aliasOut, ok := out.(*ledgerstate.AliasOutput); ok {
+			c.ledger.GetOutputMetadata(out.ID(), func(meta *ledgerstate.OutputMetadata) {
+				if meta.ConsumerCount() != 0 {
+					return
+				}
+				found = true
+				c.sendMsgToClient(&txstream.MsgUnspentAliasOutput{
+					AliasAddress:   addr,
+					AliasOutput:    aliasOut,
+					OutputMetadata: meta,
+				})
+			})
+		}
+	})
+	if !found {
+		c.log().Warnf("sendUnspentAliasOutput: not found alias output for address %s", addr.Base58())
 	}
 }

@@ -4,10 +4,11 @@ import (
 	"net"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/txstream"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/txstream"
 )
 
 // Client represents the client-side connection to a txstream server
@@ -30,6 +31,8 @@ type Events struct {
 	InclusionStateReceived *events.Event
 	// OutputReceived is triggered whenever individual output is received
 	OutputReceived *events.Event
+	// UnspentAliasOutputReceived is triggered whenever an unspent AliasOutput is received
+	UnspentAliasOutputReceived *events.Event
 	// Connected is triggered when the client connects successfully to the server
 	Connected *events.Event
 }
@@ -43,6 +46,10 @@ func handleTransactionReceived(handler interface{}, params ...interface{}) {
 
 func handleOutputReceived(handler interface{}, params ...interface{}) {
 	handler.(func(output *txstream.MsgOutput))(params[0].(*txstream.MsgOutput))
+}
+
+func handleUnspentAliasOutputReceived(handler interface{}, params ...interface{}) {
+	handler.(func(output *txstream.MsgUnspentAliasOutput))(params[0].(*txstream.MsgUnspentAliasOutput))
 }
 
 func handleInclusionStateReceived(handler interface{}, params ...interface{}) {
@@ -63,10 +70,11 @@ func New(clientID string, log *logger.Logger, dial DialFunc) *Client {
 		chUnsubscribe: make(chan ledgerstate.Address),
 		shutdown:      make(chan bool),
 		Events: Events{
-			TransactionReceived:    events.NewEvent(handleTransactionReceived),
-			InclusionStateReceived: events.NewEvent(handleInclusionStateReceived),
-			OutputReceived:         events.NewEvent(handleOutputReceived),
-			Connected:              events.NewEvent(handleConnected),
+			TransactionReceived:        events.NewEvent(handleTransactionReceived),
+			InclusionStateReceived:     events.NewEvent(handleInclusionStateReceived),
+			OutputReceived:             events.NewEvent(handleOutputReceived),
+			UnspentAliasOutputReceived: events.NewEvent(handleUnspentAliasOutputReceived),
+			Connected:                  events.NewEvent(handleConnected),
 		},
 	}
 
@@ -81,5 +89,7 @@ func (n *Client) Close() {
 	close(n.shutdown)
 	n.Events.TransactionReceived.DetachAll()
 	n.Events.InclusionStateReceived.DetachAll()
+	n.Events.OutputReceived.DetachAll()
+	n.Events.UnspentAliasOutputReceived.DetachAll()
 	n.Events.Connected.DetachAll()
 }

@@ -30,11 +30,18 @@ func (n *Client) RequestTxInclusionState(addr ledgerstate.Address, txid ledgerst
 	})
 }
 
-// RequestTxInclusionState requests the inclusion state of a transaction
+// RequestConfirmedOutput requests a specific confirmed output
 func (n *Client) RequestConfirmedOutput(addr ledgerstate.Address, outputID ledgerstate.OutputID) {
 	n.sendMessage(&txstream.MsgGetConfirmedOutput{
 		Address:  addr,
 		OutputID: outputID,
+	})
+}
+
+// RequestUnspentAliasOutput requests the unique unspent alias output for the given AliasAddress
+func (n *Client) RequestUnspentAliasOutput(addr *ledgerstate.AliasAddress) {
+	n.sendMessage(&txstream.MsgGetUnspentAliasOutput{
+		AliasAddress: addr,
 	})
 }
 

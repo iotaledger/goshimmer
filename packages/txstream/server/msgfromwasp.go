@@ -53,6 +53,9 @@ func (c *Connection) processMessageFromClient(data []byte) {
 	case *txstream.MsgGetConfirmedOutput:
 		c.sendOutput(msg.OutputID, msg.Address)
 
+	case *txstream.MsgGetUnspentAliasOutput:
+		c.sendUnspentAliasOutput(msg.AliasAddress)
+
 	default:
 		panic("wrong msg type")
 	}

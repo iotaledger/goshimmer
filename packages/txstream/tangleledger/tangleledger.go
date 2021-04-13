@@ -127,3 +127,13 @@ func (t *TangleLedger) RequestFunds(target ledgerstate.Address) error {
 	_, err = messagelayer.Tangle().MessageFactory.IssuePayload(faucetPayload, messagelayer.Tangle())
 	return err
 }
+
+// GetOutput finds an output by ID (either spent or unspent)
+func (t *TangleLedger) GetOutput(outID ledgerstate.OutputID, f func(ledgerstate.Output)) bool {
+	return messagelayer.Tangle().LedgerState.Output(outID).Consume(f)
+}
+
+// GetOutputMetadata finds an output by ID and returns its metadata
+func (t *TangleLedger) GetOutputMetadata(outID ledgerstate.OutputID, f func(*ledgerstate.OutputMetadata)) bool {
+	return messagelayer.Tangle().LedgerState.OutputMetadata(outID).Consume(f)
+}

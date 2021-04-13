@@ -6,15 +6,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/logger"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate/utxoutil"
 	"github.com/iotaledger/goshimmer/packages/txstream"
 	"github.com/iotaledger/goshimmer/packages/txstream/server"
 	"github.com/iotaledger/goshimmer/packages/txstream/utxodbledger"
-	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/logger"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 )
 
 const (
@@ -64,38 +65,41 @@ func send(t *testing.T, n *Client, sendMsg func(), rcv func(msg txstream.Message
 	var wgSend sync.WaitGroup
 	wgSend.Add(1)
 
-	closureTransactionReceived := events.NewClosure(func(msg *txstream.MsgTransaction) {
-		t.Logf("received 'transaction' from txstream: %s", msg.Tx.ID().Base58())
+	receiveMessage := func(msg txstream.Message) {
 		wgSend.Wait()
 		if rcv(msg) {
 			close(done)
 		}
-	})
+	}
 
-	closureInclusionStateReceived := events.NewClosure(func(msg *txstream.MsgTxInclusionState) {
-		t.Logf("received 'inclusion state' from txstream: %s: %s", msg.TxID.Base58(), msg.State.String())
-		wgSend.Wait()
-		if rcv(msg) {
-			close(done)
-		}
-	})
-
-	closureOutputReceived := events.NewClosure(func(msg *txstream.MsgOutput) {
-		t.Logf("received 'output' from txstream: %s", msg.Output.String())
-		wgSend.Wait()
-		if rcv(msg) {
-			close(done)
-		}
-	})
-
-	n.Events.TransactionReceived.Attach(closureTransactionReceived)
-	defer n.Events.TransactionReceived.Detach(closureTransactionReceived)
-
-	n.Events.InclusionStateReceived.Attach(closureInclusionStateReceived)
-	defer n.Events.InclusionStateReceived.Detach(closureInclusionStateReceived)
-
-	n.Events.OutputReceived.Attach(closureOutputReceived)
-	defer n.Events.OutputReceived.Detach(closureOutputReceived)
+	{
+		cl := events.NewClosure(func(msg *txstream.MsgTransaction) {
+			receiveMessage(msg)
+		})
+		n.Events.TransactionReceived.Attach(cl)
+		defer n.Events.TransactionReceived.Detach(cl)
+	}
+	{
+		cl := events.NewClosure(func(msg *txstream.MsgTxInclusionState) {
+			receiveMessage(msg)
+		})
+		n.Events.InclusionStateReceived.Attach(cl)
+		defer n.Events.InclusionStateReceived.Detach(cl)
+	}
+	{
+		cl := events.NewClosure(func(msg *txstream.MsgOutput) {
+			receiveMessage(msg)
+		})
+		n.Events.OutputReceived.Attach(cl)
+		defer n.Events.OutputReceived.Detach(cl)
+	}
+	{
+		cl := events.NewClosure(func(msg *txstream.MsgUnspentAliasOutput) {
+			receiveMessage(msg)
+		})
+		n.Events.UnspentAliasOutputReceived.Attach(cl)
+		defer n.Events.OutputReceived.Detach(cl)
+	}
 
 	sendMsg()
 	wgSend.Done()
@@ -147,8 +151,7 @@ func TestRequestBacklog(t *testing.T) {
 			n.RequestBacklog(chainAddress)
 		},
 		func(msg txstream.Message) bool {
-			switch msg := msg.(type) {
-			case *txstream.MsgTransaction:
+			if msg, ok := msg.(*txstream.MsgTransaction); ok {
 				resp = msg
 				return true
 			}
@@ -202,9 +205,7 @@ func TestPostRequest(t *testing.T) {
 			n.RequestBacklog(chainAddress)
 		},
 		func(msg txstream.Message) bool {
-			switch msg := msg.(type) {
-			case *txstream.MsgTransaction:
-				t.Logf("seen tx %s", msg.Tx.ID().Base58())
+			if msg, ok := msg.(*txstream.MsgTransaction); ok {
 				seen[msg.Tx.ID()] = true
 				if len(seen) == 2 {
 					return true
@@ -262,7 +263,35 @@ func TestRequestOutput(t *testing.T) {
 		},
 	)
 
+	require.True(t, chainAddress.Equals(resp.Address))
 	require.True(t, chainOutput.Compare(resp.Output) == 0)
+	require.Zero(t, resp.OutputMetadata.ConsumerCount())
+}
+
+func TestRequestAliasOutput(t *testing.T) {
+	ledger, n := start(t)
+	createTx, chainAddress := createAliasChain(t, ledger, creatorIndex, stateControlIndex, map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: 100})
+	chainOutput, err := utxoutil.GetSingleChainedAliasOutput(createTx)
+	require.NoError(t, err)
+
+	// request chain output
+	var resp *txstream.MsgUnspentAliasOutput
+	send(t, n,
+		func() {
+			n.RequestUnspentAliasOutput(chainAddress)
+		},
+		func(msg txstream.Message) bool {
+			if msg, ok := msg.(*txstream.MsgUnspentAliasOutput); ok {
+				resp = msg
+				return true
+			}
+			return false
+		},
+	)
+
+	require.True(t, chainAddress.Equals(resp.AliasAddress))
+	require.True(t, chainOutput.Compare(resp.AliasOutput) == 0)
+	require.Zero(t, resp.OutputMetadata.ConsumerCount())
 }
 
 func TestSubscribe(t *testing.T) {
@@ -281,9 +310,7 @@ func TestSubscribe(t *testing.T) {
 			reqTx = postRequest(t, ledger, 2, chainAddress)
 		},
 		func(msg txstream.Message) bool {
-			switch msg := msg.(type) {
-			case *txstream.MsgTransaction:
-				t.Logf("received tx %s", msg.Tx.ID().Base58())
+			if msg, ok := msg.(*txstream.MsgTransaction); ok {
 				if msg.Tx.ID() == reqTx.ID() {
 					txMsg = msg
 					return true

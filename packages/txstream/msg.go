@@ -3,8 +3,9 @@ package txstream
 import (
 	"fmt"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/marshalutil"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 // MessageType represents the type of a message in the txstream protocol
@@ -22,6 +23,7 @@ const (
 	msgTypeSubscribe
 	msgTypeGetConfirmedTransaction
 	msgTypeGetConfirmedOutput
+	msgTypeGetUnspentAliasOutput
 	msgTypeGetTxInclusionState
 	msgTypeGetBacklog
 	msgTypeSetID
@@ -29,6 +31,7 @@ const (
 	msgTypeTransaction = MessageType(FlagServerToClient + iota)
 	msgTypeTxInclusionState
 	msgTypeOutput
+	msgTypeUnspentAliasOutput
 )
 
 // Message is the common interface of all messages in the txstream protocol
@@ -76,6 +79,12 @@ type MsgGetConfirmedTransaction struct {
 type MsgGetConfirmedOutput struct {
 	Address  ledgerstate.Address
 	OutputID ledgerstate.OutputID
+	Consumed bool
+}
+
+// MsgGetUnspentAliasOutput is a request to get the unique unspent AliasOutput for the given AliasAddress.
+type MsgGetUnspentAliasOutput struct {
+	AliasAddress *ledgerstate.AliasAddress
 }
 
 // MsgGetTxInclusionState is a request to get the inclusion state for a transaction.
@@ -117,9 +126,18 @@ type MsgTxInclusionState struct {
 	State   ledgerstate.InclusionState
 }
 
+// MsgOutput is the response for MsgGetConfirmedOutput
 type MsgOutput struct {
-	Address ledgerstate.Address
-	Output  ledgerstate.Output
+	Address        ledgerstate.Address
+	Output         ledgerstate.Output
+	OutputMetadata *ledgerstate.OutputMetadata
+}
+
+// MsgUnspentAliasOutput is the response for MsgGetUnspentAliasOutput
+type MsgUnspentAliasOutput struct {
+	AliasAddress   *ledgerstate.AliasAddress
+	AliasOutput    *ledgerstate.AliasOutput
+	OutputMetadata *ledgerstate.OutputMetadata
 }
 
 // endregion
@@ -173,8 +191,14 @@ func DecodeMsg(data []byte, expectedFlags uint8) (interface{}, error) {
 	case msgTypeGetConfirmedOutput:
 		ret = &MsgGetConfirmedOutput{}
 
+	case msgTypeGetUnspentAliasOutput:
+		ret = &MsgGetUnspentAliasOutput{}
+
 	case msgTypeOutput:
 		ret = &MsgOutput{}
+
+	case msgTypeUnspentAliasOutput:
+		ret = &MsgUnspentAliasOutput{}
 
 	default:
 		return nil, fmt.Errorf("unknown message type %d", msgType)
@@ -346,25 +370,6 @@ func (msg *MsgTxInclusionState) Type() MessageType {
 	return msgTypeTxInclusionState
 }
 
-func (msg *MsgChunk) Write(w *marshalutil.MarshalUtil) {
-	w.WriteUint16(uint16(len(msg.Data)))
-	w.WriteBytes(msg.Data)
-}
-
-func (msg *MsgChunk) Read(m *marshalutil.MarshalUtil) error {
-	var err error
-	var size uint16
-	if size, err = m.ReadUint16(); err != nil {
-		return err
-	}
-	msg.Data, err = m.ReadBytes(int(size))
-	return err
-}
-
-func (msg *MsgChunk) Type() MessageType {
-	return msgTypeChunk
-}
-
 func (msg *MsgGetConfirmedOutput) Write(w *marshalutil.MarshalUtil) {
 	w.Write(msg.Address)
 	w.Write(msg.OutputID)
@@ -383,9 +388,26 @@ func (msg *MsgGetConfirmedOutput) Type() MessageType {
 	return msgTypeGetConfirmedOutput
 }
 
+func (msg *MsgGetUnspentAliasOutput) Write(w *marshalutil.MarshalUtil) {
+	w.Write(msg.AliasAddress)
+}
+
+func (msg *MsgGetUnspentAliasOutput) Read(m *marshalutil.MarshalUtil) error {
+	var err error
+	if msg.AliasAddress, err = ledgerstate.AliasAddressFromMarshalUtil(m); err != nil {
+		return err
+	}
+	return err
+}
+
+func (msg *MsgGetUnspentAliasOutput) Type() MessageType {
+	return msgTypeGetUnspentAliasOutput
+}
+
 func (msg *MsgOutput) Write(w *marshalutil.MarshalUtil) {
 	w.Write(msg.Address)
 	w.Write(msg.Output)
+	w.Write(msg.OutputMetadata)
 }
 
 func (msg *MsgOutput) Read(m *marshalutil.MarshalUtil) error {
@@ -393,10 +415,58 @@ func (msg *MsgOutput) Read(m *marshalutil.MarshalUtil) error {
 	if msg.Address, err = ledgerstate.AddressFromMarshalUtil(m); err != nil {
 		return err
 	}
-	msg.Output, err = ledgerstate.OutputFromMarshalUtil(m)
+	if msg.Output, err = ledgerstate.OutputFromMarshalUtil(m); err != nil {
+		return err
+	}
+	if msg.OutputMetadata, err = ledgerstate.OutputMetadataFromMarshalUtil(m); err != nil {
+		return err
+	}
 	return err
 }
 
 func (msg *MsgOutput) Type() MessageType {
 	return msgTypeOutput
+}
+
+func (msg *MsgUnspentAliasOutput) Write(w *marshalutil.MarshalUtil) {
+	w.Write(msg.AliasAddress)
+	w.Write(msg.AliasOutput)
+	w.Write(msg.OutputMetadata)
+}
+
+func (msg *MsgUnspentAliasOutput) Read(m *marshalutil.MarshalUtil) error {
+	var err error
+	if msg.AliasAddress, err = ledgerstate.AliasAddressFromMarshalUtil(m); err != nil {
+		return err
+	}
+	if msg.AliasOutput, err = ledgerstate.AliasOutputFromMarshalUtil(m); err != nil {
+		return err
+	}
+	if msg.OutputMetadata, err = ledgerstate.OutputMetadataFromMarshalUtil(m); err != nil {
+		return err
+	}
+	return err
+}
+
+func (msg *MsgUnspentAliasOutput) Type() MessageType {
+	return msgTypeUnspentAliasOutput
+}
+
+func (msg *MsgChunk) Write(w *marshalutil.MarshalUtil) {
+	w.WriteUint16(uint16(len(msg.Data)))
+	w.WriteBytes(msg.Data)
+}
+
+func (msg *MsgChunk) Read(m *marshalutil.MarshalUtil) error {
+	var err error
+	var size uint16
+	if size, err = m.ReadUint16(); err != nil {
+		return err
+	}
+	msg.Data, err = m.ReadBytes(int(size))
+	return err
+}
+
+func (msg *MsgChunk) Type() MessageType {
+	return msgTypeChunk
 }

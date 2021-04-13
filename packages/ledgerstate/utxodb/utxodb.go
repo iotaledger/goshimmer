@@ -19,6 +19,39 @@ func (u *UtxoDB) IsConfirmed(txid *ledgerstate.TransactionID) bool {
 	return ok
 }
 
+// GetOutput finds an output by ID (either spent or unspent)
+func (u *UtxoDB) GetOutput(outID ledgerstate.OutputID, f func(ledgerstate.Output)) bool {
+	out, ok := u.utxo[outID]
+	if ok {
+		f(out)
+		return true
+	}
+	out, ok = u.consumedOutputs[outID]
+	if ok {
+		f(out)
+		return true
+	}
+	return false
+}
+
+// GetOutputMetadata finds an output by ID and returns its (mocked) metadata
+func (u *UtxoDB) GetOutputMetadata(outID ledgerstate.OutputID, f func(*ledgerstate.OutputMetadata)) bool {
+	var out ledgerstate.Output
+	u.GetOutput(outID, func(o ledgerstate.Output) {
+		out = o
+	})
+	if out == nil {
+		return false
+	}
+	meta := ledgerstate.NewOutputMetadata(outID)
+	txID, consumed := u.consumedBy[outID]
+	if consumed {
+		meta.RegisterConsumer(txID)
+	}
+	f(meta)
+	return true
+}
+
 // AddTransaction adds transaction to UTXODB or return an error.
 // The function ensures consistency of the UTXODB ledger
 func (u *UtxoDB) AddTransaction(tx *ledgerstate.Transaction) error {
@@ -43,6 +76,7 @@ func (u *UtxoDB) AddTransaction(tx *ledgerstate.Transaction) error {
 		}
 		delete(u.utxo, utxoInp.ReferencedOutputID())
 		u.consumedOutputs[utxoInp.ReferencedOutputID()] = consumed
+		u.consumedBy[utxoInp.ReferencedOutputID()] = tx.ID()
 	}
 	// add outputs to the ledger
 	for _, out := range tx.Essence().Outputs() {

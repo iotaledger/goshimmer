@@ -31,6 +31,7 @@ type UtxoDB struct {
 	transactions    map[ledgerstate.TransactionID]*ledgerstate.Transaction
 	utxo            map[ledgerstate.OutputID]ledgerstate.Output
 	consumedOutputs map[ledgerstate.OutputID]ledgerstate.Output
+	consumedBy      map[ledgerstate.OutputID]ledgerstate.TransactionID
 	mutex           *sync.RWMutex
 	genesisTxID     ledgerstate.TransactionID
 }
@@ -47,6 +48,7 @@ func newUtxodb(seed *ed25519.Seed, supply uint64, timestamp time.Time) *UtxoDB {
 		transactions:    make(map[ledgerstate.TransactionID]*ledgerstate.Transaction),
 		utxo:            make(map[ledgerstate.OutputID]ledgerstate.Output),
 		consumedOutputs: make(map[ledgerstate.OutputID]ledgerstate.Output),
+		consumedBy:      make(map[ledgerstate.OutputID]ledgerstate.TransactionID),
 		mutex:           &sync.RWMutex{},
 	}
 	u.genesisInit(timestamp)
