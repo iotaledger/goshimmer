@@ -239,19 +239,16 @@ func (b *Booker) bookPayload(message *Message) (branchID ledgerstate.BranchID, e
 		// TODO: decide where to map what address
 		switch output.Type() {
 		case ledgerstate.AliasOutputType:
-			castedOutput := output.Clone().(*ledgerstate.AliasOutput)
+			castedOutput := output.(*ledgerstate.AliasOutput)
 			// if it is an origin alias output, we don't have the aliasaddress from the parsed bytes.
-			// that happens in utxodag output booking, so we do the same here to save the correct alias address
-			if castedOutput.IsOrigin() {
-				castedOutput.SetAliasAddress(ledgerstate.NewAliasAddress(castedOutput.ID().Bytes()))
-			}
+			// that happens in utxodag output booking, so we calculate the alias address here
 			b.tangle.LedgerState.utxoDAG.StoreAddressOutputMapping(castedOutput.GetAliasAddress(), output.ID())
 			b.tangle.LedgerState.utxoDAG.StoreAddressOutputMapping(castedOutput.GetStateAddress(), output.ID())
 			if !castedOutput.IsSelfGoverned() {
 				b.tangle.LedgerState.utxoDAG.StoreAddressOutputMapping(castedOutput.GetGoverningAddress(), output.ID())
 			}
 		case ledgerstate.ExtendedLockedOutputType:
-			castedOutput := output.Clone().(*ledgerstate.ExtendedLockedOutput)
+			castedOutput := output.(*ledgerstate.ExtendedLockedOutput)
 			if castedOutput.FallbackAddress() != nil {
 				b.tangle.LedgerState.utxoDAG.StoreAddressOutputMapping(castedOutput.FallbackAddress(), output.ID())
 			}
