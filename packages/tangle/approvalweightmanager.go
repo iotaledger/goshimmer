@@ -131,6 +131,7 @@ func (a *ApprovalWeightManager) onSequenceSupportUpdated(marker *markers.Marker,
 	fmt.Println("===============================================")
 }
 
+// lowestLastConfirmedMarker is an internal utility function that returns the last confirmed or lowest marker in a sequence.
 func (a *ApprovalWeightManager) lowestLastConfirmedMarker(sequenceID markers.SequenceID) (index markers.Index) {
 	index = a.lastConfirmedMarkers[sequenceID] + 1
 	a.tangle.Booker.MarkersManager.Manager.Sequence(sequenceID).Consume(func(sequence *markers.Sequence) {
@@ -501,7 +502,7 @@ func StatementFromBytes(bytes []byte) (statement *Statement, consumedBytes int, 
 	return
 }
 
-// SequenceSupportersFromMarshalUtil unmarshals a SequenceSupporters object using a MarshalUtil (for easier unmarshaling).
+// StatementFromMarshalUtil unmarshals a Statement object using a MarshalUtil (for easier unmarshaling).
 func StatementFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (statement *Statement, err error) {
 	statement = &Statement{}
 	if statement.branchID, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
@@ -522,7 +523,7 @@ func StatementFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (statement *
 	return
 }
 
-// SequenceSupportersFromObjectStorage restores a SequenceSupporters object from the object storage.
+// StatementFromObjectStorage restores a Statement object from the object storage.
 func StatementFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
 	if result, _, err = StatementFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
 		err = xerrors.Errorf("failed to parse Statement from bytes: %w", err)
@@ -532,15 +533,18 @@ func StatementFromObjectStorage(key []byte, data []byte) (result objectstorage.S
 	return
 }
 
-// SequenceID returns the SequenceID that is being tracked.
+// BranchID returns the ledgerstate.BranchID that is being tracked.
 func (s *Statement) BranchID() (branchID ledgerstate.BranchID) {
 	return s.branchID
 }
 
+// Supporter returns the Supporter that is being tracked.
 func (s *Statement) Supporter() (supporter Supporter) {
 	return s.supporter
 }
 
+// UpdateSequenceNumber updates the sequence number of the Statement if it is greater than the currently stored
+// sequence number and returns true if it was updated.
 func (s *Statement) UpdateSequenceNumber(sequenceNumber uint64) (updated bool) {
 	s.sequenceNumberMutex.Lock()
 	defer s.sequenceNumberMutex.Unlock()
@@ -556,6 +560,7 @@ func (s *Statement) UpdateSequenceNumber(sequenceNumber uint64) (updated bool) {
 	return
 }
 
+// SequenceNumber returns the sequence number of the Statement.
 func (s *Statement) SequenceNumber() (sequenceNumber uint64) {
 	s.sequenceNumberMutex.RLock()
 	defer s.sequenceNumberMutex.RUnlock()
@@ -563,7 +568,7 @@ func (s *Statement) SequenceNumber() (sequenceNumber uint64) {
 	return sequenceNumber
 }
 
-// Bytes returns a marshaled version of the MessageMetadata.
+// Bytes returns a marshaled version of the Statement.
 func (s *Statement) Bytes() (marshaledSequenceSupporters []byte) {
 	return byteutils.ConcatBytes(s.ObjectStorageKey(), s.ObjectStorageValue())
 }
@@ -588,7 +593,7 @@ func (s *Statement) ObjectStorageKey() []byte {
 	return byteutils.ConcatBytes(s.BranchID().Bytes(), s.Supporter().Bytes())
 }
 
-// ObjectStorageValue marshals the MessageMetadata into a sequence of bytes that are used as the value part in the
+// ObjectStorageValue marshals the Statement into a sequence of bytes that are used as the value part in the
 // object storage.
 func (s *Statement) ObjectStorageValue() []byte {
 	return marshalutil.New(marshalutil.Uint64Size).
@@ -815,7 +820,7 @@ func (s *SequenceSupporters) Supporters(index markers.Index) (supporters *Suppor
 	return
 }
 
-// Bytes returns a marshaled version of the MessageMetadata.
+// Bytes returns a marshaled version of the SequenceSupporters.
 func (s *SequenceSupporters) Bytes() (marshaledSequenceSupporters []byte) {
 	return byteutils.ConcatBytes(s.ObjectStorageKey(), s.ObjectStorageValue())
 }
@@ -846,7 +851,7 @@ func (s *SequenceSupporters) ObjectStorageKey() []byte {
 	return s.sequenceID.Bytes()
 }
 
-// ObjectStorageValue marshals the MessageMetadata into a sequence of bytes that are used as the value part in the
+// ObjectStorageValue marshals the SequenceSupporters into a sequence of bytes that are used as the value part in the
 // object storage.
 func (s *SequenceSupporters) ObjectStorageValue() []byte {
 	s.supportersPerIndexMutex.RLock()
