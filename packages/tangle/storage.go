@@ -360,6 +360,7 @@ func (s *Storage) Shutdown() {
 	s.markerIndexBranchIDMappingStorage.Shutdown()
 	s.individuallyMappedMessageStorage.Shutdown()
 	s.sequenceSupportersStorage.Shutdown()
+	s.statementStorage.Shutdown()
 
 	close(s.shutdown)
 }
@@ -375,6 +376,7 @@ func (s *Storage) Prune() error {
 		s.markerIndexBranchIDMappingStorage,
 		s.individuallyMappedMessageStorage,
 		s.sequenceSupportersStorage,
+		s.statementStorage,
 	} {
 		if err := storage.Prune(); err != nil {
 			err = fmt.Errorf("failed to prune storage: %w", err)
