@@ -21,7 +21,7 @@ const style = {
     maxHeight: "1000px",
     overflow: "auto",
     width: "47%",
-    fontSize: "80%",
+    fontSize: "85%",
 }
 
 @inject("nodeStore")
