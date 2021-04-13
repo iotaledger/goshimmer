@@ -55,6 +55,7 @@ func (a *ApprovalWeightManager) Setup() {
 	a.supportersManager.Events.BranchSupportAdded.Attach(events.NewClosure(a.onBranchSupportAdded))
 	a.supportersManager.Events.BranchSupportRemoved.Attach(events.NewClosure(a.onBranchSupportRemoved))
 	a.supportersManager.Events.SequenceSupportUpdated.Attach(events.NewClosure(a.onSequenceSupportUpdated))
+	a.Events.MarkerConfirmed.Attach(events.NewClosure(a.onMarkerConfirmed))
 }
 
 func (a *ApprovalWeightManager) ProcessMessage(messageID MessageID) {
@@ -84,6 +85,70 @@ func (a *ApprovalWeightManager) weightsPerEpoch(branchID ledgerstate.BranchID) *
 	a.branchWeights[branchID] = weightsPerEpoch
 
 	return weightsPerEpoch
+}
+
+func (a *ApprovalWeightManager) onMarkerConfirmed(marker *markers.Marker, messageID MessageID) {
+	// walk through the marker's pastcone to update FinalizedApprovalWeight
+	finalizedWalker := walker.New()
+
+	// push marker itself
+	finalizedWalker.Push(messageID)
+	a.tangle.Storage.MessageMetadata(messageID).Consume(func(metadata *MessageMetadata) {
+		metadata.SetFinalizedApprovalWeight(true)
+	})
+	// push parents, keep walking
+	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+		message.ForEachParent(func(parent Parent) {
+			finalizedWalker.Push(parent.ID)
+		})
+	})
+
+	for finalizedWalker.HasNext() {
+		a.propagateFinalizedApprovalWeight(finalizedWalker.Next().(MessageID), finalizedWalker)
+	}
+}
+
+func (a *ApprovalWeightManager) propagateFinalizedApprovalWeight(messageID MessageID, finalizedWalker *walker.Walker) {
+	a.tangle.Storage.MessageMetadata(messageID).Consume(func(metadata *MessageMetadata) {
+		// stop walking to past cone if reach a marker
+		if metadata.StructureDetails().IsPastMarker {
+			return
+		}
+
+		// abort if the message is already finalized
+		if !metadata.SetFinalizedApprovalWeight(true) {
+			return
+		}
+
+		// push parents, keep walking
+		a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+			message.ForEachParent(func(parent Parent) {
+				finalizedWalker.Push(parent.ID)
+			})
+		})
+	})
+}
+
+func (a *ApprovalWeightManager) getMessageIDOfMarker(marker *markers.Marker, branchID ledgerstate.BranchID) (messageID MessageID) {
+	a.tangle.Storage.IndividuallyMappedMessages(branchID).Consume(func(individuallyMappedMessage *IndividuallyMappedMessage) {
+		// abort if the message is not a marker (contains more than one marker)
+		if individuallyMappedMessage.PastMarkers().Size() > 1 {
+			return
+		}
+
+		index, exist := individuallyMappedMessage.PastMarkers().Get(marker.SequenceID())
+		if !exist || (index != marker.Index()) {
+			return
+		}
+
+		// ensure the message is the marker message, could be a message contains only 1 past marker
+		a.tangle.Storage.MessageMetadata(individuallyMappedMessage.MessageID()).Consume(func(metadata *MessageMetadata) {
+			if metadata.StructureDetails().IsPastMarker {
+				messageID = individuallyMappedMessage.MessageID()
+			}
+		})
+	})
+	return
 }
 
 func (a *ApprovalWeightManager) onSequenceSupportUpdated(marker *markers.Marker, message *Message) {
@@ -127,7 +192,7 @@ func (a *ApprovalWeightManager) onSequenceSupportUpdated(marker *markers.Marker,
 		a.lastConfirmedMarkers[marker.SequenceID()] = currentMarker.Index()
 
 		fmt.Println("Marker confirmed!!")
-		a.Events.MarkerConfirmed.Trigger(currentMarker)
+		a.Events.MarkerConfirmed.Trigger(currentMarker, a.getMessageIDOfMarker(currentMarker, branchID))
 	}
 
 	fmt.Println("===============================================")
@@ -197,7 +262,7 @@ func branchIDCaller(handler interface{}, params ...interface{}) {
 }
 
 func markerCaller(handler interface{}, params ...interface{}) {
-	handler.(func(*markers.Marker))(params[0].(*markers.Marker))
+	handler.(func(*markers.Marker, MessageID))(params[0].(*markers.Marker), params[1].(MessageID))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
