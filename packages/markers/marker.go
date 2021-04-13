@@ -168,11 +168,11 @@ func (m *Markers) Marker() (marker *Marker) {
 	case 0:
 		panic("converting empty Markers into a single Marker is not supported")
 	case 1:
-		panic("converting multiple Markers into a single Marker is not supported")
-	default:
 		for sequenceID, index := range m.markers {
 			return &Marker{sequenceID: sequenceID, index: index}
 		}
+	default:
+		panic("converting multiple Markers into a single Marker is not supported")
 	}
 
 	return
