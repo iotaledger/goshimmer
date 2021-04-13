@@ -82,7 +82,7 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 			inheritedStructureDetails := b.MarkersManager.InheritStructureDetails(message, markers.NewSequenceAlias(inheritedBranch.Bytes()))
 			messageMetadata.SetStructureDetails(inheritedStructureDetails)
 
-			if !b.MarkersManager.BranchMappedByPastMarkers(inheritedBranch, inheritedStructureDetails.PastMarkers) {
+			if inheritedStructureDetails.PastMarkers.Size() != 1 || !b.MarkersManager.BranchMappedByPastMarkers(inheritedBranch, inheritedStructureDetails.PastMarkers) {
 				if !inheritedStructureDetails.IsPastMarker {
 					messageMetadata.SetBranchID(inheritedBranch)
 					b.tangle.Storage.StoreIndividuallyMappedMessage(NewIndividuallyMappedMessage(inheritedBranch, message.ID(), inheritedStructureDetails.PastMarkers))
@@ -395,6 +395,14 @@ func (m *MarkersManager) InheritStructureDetails(message *Message, sequenceAlias
 	}
 
 	return
+}
+
+func (m *MarkersManager) MessageID(marker *markers.Marker) (messageID MessageID) {
+	return EmptyMessageID
+}
+
+func (m *MarkersManager) SetMessageID(marker *markers.Marker) {
+
 }
 
 // BranchID returns the BranchID that is associated with the given Marker.
@@ -856,6 +864,7 @@ func (i *IndividuallyMappedMessage) Bytes() []byte {
 	return byteutils.ConcatBytes(i.ObjectStorageKey(), i.ObjectStorageValue())
 }
 
+// String returns a human readable version of the IndividuallyMappedMessage.
 func (i *IndividuallyMappedMessage) String() string {
 	return stringify.Struct("IndividuallyMappedMessage",
 		stringify.StructField("branchID", i.branchID),
@@ -984,5 +993,111 @@ func (c CachedIndividuallyMappedMessages) String() string {
 
 	return structBuilder.String()
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region MarkerMessageMapping /////////////////////////////////////////////////////////////////////////////////////////
+
+// MarkerMessageMappingPartitionKeys defines the "layout" of the key. This enables prefix iterations in the object
+// storage.
+var MarkerMessageMappingPartitionKeys = objectstorage.PartitionKey([]int{MessageIDLength, MessageIDLength}...)
+
+// MarkerMessageMapping is a data structure that denotes if a Message has its BranchID set individually in its own
+// MessageMetadata.
+type MarkerMessageMapping struct {
+	marker    *markers.Marker
+	messageID MessageID
+
+	objectstorage.StorableObjectFlags
+}
+
+// NewMarkerMessageMapping is the constructor for the MarkerMessageMapping.
+func NewMarkerMessageMapping(marker *markers.Marker, messageID MessageID) *MarkerMessageMapping {
+	return &MarkerMessageMapping{
+		marker:    marker,
+		messageID: messageID,
+	}
+}
+
+// MarkerMessageMappingFromBytes unmarshals an MarkerMessageMapping from a sequence of bytes.
+func MarkerMessageMappingFromBytes(bytes []byte) (individuallyMappedMessage *MarkerMessageMapping, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(bytes)
+	if individuallyMappedMessage, err = MarkerMessageMappingFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse MarkerMessageMapping from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// MarkerMessageMappingFromMarshalUtil unmarshals an MarkerMessageMapping using a MarshalUtil (for easier unmarshaling).
+func MarkerMessageMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (individuallyMappedMessage *MarkerMessageMapping, err error) {
+	individuallyMappedMessage = &MarkerMessageMapping{}
+	if individuallyMappedMessage.marker, err = markers.MarkerFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse Marker from MarshalUtil: %w", err)
+		return
+	}
+	if individuallyMappedMessage.messageID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse MessageID from MarshalUtil: %w", err)
+		return
+	}
+
+	return
+}
+
+// MarkerMessageMappingFromObjectStorage is a factory method that creates a new MarkerMessageMapping instance
+// from a storage key of the object storage. It is used by the object storage, to create new instances of this entity.
+func MarkerMessageMappingFromObjectStorage(key, value []byte) (result objectstorage.StorableObject, err error) {
+	if result, _, err = MarkerMessageMappingFromBytes(byteutils.ConcatBytes(key, value)); err != nil {
+		err = xerrors.Errorf("failed to parse MarkerMessageMapping from bytes: %w", err)
+		return
+	}
+
+	return
+}
+
+// Marker returns the Marker that is mapped to a MessageID.
+func (i *MarkerMessageMapping) Marker() *markers.Marker {
+	return i.marker
+}
+
+// MessageID returns the MessageID of the Marker.
+func (i *MarkerMessageMapping) MessageID() MessageID {
+	return i.messageID
+}
+
+// Bytes returns a marshaled version of the MarkerMessageMapping.
+func (i *MarkerMessageMapping) Bytes() []byte {
+	return byteutils.ConcatBytes(i.ObjectStorageKey(), i.ObjectStorageValue())
+}
+
+// String returns a human readable version of the MarkerMessageMapping.
+func (i *MarkerMessageMapping) String() string {
+	return stringify.Struct("MarkerMessageMapping",
+		stringify.StructField("marker", i.marker),
+		stringify.StructField("messageID", i.messageID),
+	)
+}
+
+// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
+func (i *MarkerMessageMapping) Update(objectstorage.StorableObject) {
+	panic("updates disabled")
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (i *MarkerMessageMapping) ObjectStorageKey() []byte {
+	return byteutils.ConcatBytes(i.marker.Bytes(), i.messageID.Bytes())
+}
+
+// ObjectStorageValue marshals the MarkerMessageMapping into a sequence of bytes that are used as the value part in
+// the object storage.
+func (i *MarkerMessageMapping) ObjectStorageValue() []byte {
+	return nil
+}
+
+// code contract (make sure the type implements all required methods)
+var _ objectstorage.StorableObject = &MarkerMessageMapping{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

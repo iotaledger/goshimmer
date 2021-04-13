@@ -1787,7 +1787,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message17": ledgerstate.UndefinedBranchID,
 			"Message18": ledgerstate.UndefinedBranchID,
 			"Message19": ledgerstate.UndefinedBranchID,
-			"Message20": ledgerstate.UndefinedBranchID,
+			"Message20": branchIDs["H+C"],
 		})
 		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
 			"Message1":  branchIDs["A"],
@@ -1813,7 +1813,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 		})
 		checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
 			branchIDs["F+C"]: {"Message12"},
-			branchIDs["H+C"]: {"Message14", "Message15"},
+			branchIDs["H+C"]: {"Message14", "Message15", "Message20"},
 		})
 	}
 }
