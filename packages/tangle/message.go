@@ -1065,7 +1065,7 @@ func (m *MessageMetadata) String() string {
 		stringify.StructField("bookedTime", m.BookedTime()),
 		stringify.StructField("eligible", m.IsEligible()),
 		stringify.StructField("invalid", m.IsInvalid()),
-		stringify.StructField("invalid", m.IsFinalizedApprovalWeight()),
+		stringify.StructField("finalizedApprovalWeight", m.IsFinalizedApprovalWeight()),
 	)
 }
 
