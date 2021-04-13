@@ -249,7 +249,6 @@ func (b *BranchWeightPerEpoch) RemoveWeight(epochID uint64, weight float64) (tot
 type SupporterManager struct {
 	Events           *SupporterManagerEvents
 	tangle           *Tangle
-	lastStatements   map[Supporter]*Statement
 	branchSupporters map[ledgerstate.BranchID]*Supporters
 }
 
@@ -261,7 +260,6 @@ func NewSupporterManager(tangle *Tangle) (supporterManager *SupporterManager) {
 			SequenceSupportUpdated: events.NewEvent(sequenceSupportEventCaller),
 		},
 		tangle:           tangle,
-		lastStatements:   make(map[Supporter]*Statement),
 		branchSupporters: make(map[ledgerstate.BranchID]*Supporters),
 	}
 
@@ -334,19 +332,12 @@ func (s *SupporterManager) addSupportToMarker(marker *markers.Marker, message *M
 }
 
 func (s *SupporterManager) updateBranchSupporters(message *Message) {
-	nodeID := identity.NewID(message.IssuerPublicKey())
-
-	lastStatement, lastStatementExists := s.lastStatements[nodeID]
-	if lastStatementExists && !s.isNewStatement(lastStatement, message) {
-		return
-	}
-	s.lastStatements[nodeID] = s.statementFromMessage(message)
-
-	if lastStatementExists && lastStatement.BranchID == s.lastStatements[nodeID].BranchID {
+	statement, isNewStatement := s.statementFromMessage(message)
+	if !isNewStatement {
 		return
 	}
 
-	s.propagateSupportToBranches(s.lastStatements[nodeID].BranchID, message)
+	s.propagateSupportToBranches(statement.BranchID(), message)
 }
 
 func (s *SupporterManager) propagateSupportToBranches(branchID ledgerstate.BranchID, message *Message) {
@@ -373,6 +364,10 @@ func (s *SupporterManager) isRelevantSupporter(message *Message) bool {
 
 func (s *SupporterManager) addSupportToBranch(branchID ledgerstate.BranchID, message *Message, walk *walker.Walker) {
 	if branchID == ledgerstate.MasterBranchID || !s.isRelevantSupporter(message) {
+		return
+	}
+
+	if _, isNewStatement := s.statementFromMessage(message, branchID); !isNewStatement {
 		return
 	}
 
@@ -403,6 +398,10 @@ func (s *SupporterManager) addSupportToBranch(branchID ledgerstate.BranchID, mes
 }
 
 func (s *SupporterManager) revokeSupportFromBranch(branchID ledgerstate.BranchID, message *Message, walker *walker.Walker) {
+	if _, isNewStatement := s.statementFromMessage(message, branchID); !isNewStatement {
+		return
+	}
+
 	if supporters, exists := s.branchSupporters[branchID]; !exists || !supporters.Delete(identity.NewID(message.IssuerPublicKey())) {
 		return
 	}
@@ -418,27 +417,32 @@ func (s *SupporterManager) revokeSupportFromBranch(branchID ledgerstate.BranchID
 	})
 }
 
-func (s *SupporterManager) isNewStatement(lastStatement *Statement, message *Message) bool {
-	// TODO: FIX FEHL0R
-	return lastStatement.SequenceNumber < message.SequenceNumber()
-}
+func (s *SupporterManager) statementFromMessage(message *Message, optionalBranchID ...ledgerstate.BranchID) (statement *Statement, isNewStatement bool) {
+	nodeID := identity.NewID(message.IssuerPublicKey())
 
-func (s *SupporterManager) statementFromMessage(message *Message) (statement *Statement) {
-	branchID, err := s.tangle.Booker.MessageBranchID(message.ID())
-	if err != nil {
-		// TODO: handle error properly
-		panic(err)
+	var branchID ledgerstate.BranchID
+	if len(optionalBranchID) > 0 {
+		branchID = optionalBranchID[0]
+	} else {
+		var err error
+		branchID, err = s.tangle.Booker.MessageBranchID(message.ID())
+		if err != nil {
+			// TODO: handle error properly
+			panic(err)
+		}
 	}
 
-	if !s.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
-		statement = &Statement{
-			SequenceNumber: message.SequenceNumber(),
-			BranchID:       branchID,
+	s.tangle.Storage.Statement(branchID, nodeID, func() *Statement {
+		return NewStatement(branchID, nodeID)
+	}).Consume(func(consumedStatement *Statement) {
+		statement = consumedStatement
+		// We already have a newer statement for this branchID of this supporter.
+		if !statement.UpdateSequenceNumber(message.SequenceNumber()) {
+			return
 		}
 
-	}) {
-		panic(fmt.Errorf("failed to load MessageMetadata of Message with %s", message.ID()))
-	}
+		isNewStatement = true
+	})
 
 	return
 }
@@ -465,9 +469,183 @@ func sequenceSupportEventCaller(handler interface{}, params ...interface{}) {
 
 // region Statement ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// Statement is a data structure that tracks the latest statement by a Supporter per ledgerstate.BranchID.
 type Statement struct {
-	SequenceNumber uint64
-	BranchID       ledgerstate.BranchID
+	branchID       ledgerstate.BranchID
+	supporter      Supporter
+	sequenceNumber uint64
+
+	sequenceNumberMutex sync.RWMutex
+
+	objectstorage.StorableObjectFlags
+}
+
+// NewStatement creates a new Statement
+func NewStatement(branchID ledgerstate.BranchID, supporter Supporter) (statement *Statement) {
+	statement = &Statement{
+		branchID:  branchID,
+		supporter: supporter,
+	}
+
+	statement.Persist()
+	statement.SetModified()
+
+	return
+}
+
+// StatementFromBytes unmarshals a SequenceSupporters object from a sequence of bytes.
+func StatementFromBytes(bytes []byte) (statement *Statement, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(bytes)
+	if statement, err = StatementFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse SequenceSupporters from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// SequenceSupportersFromMarshalUtil unmarshals a SequenceSupporters object using a MarshalUtil (for easier unmarshaling).
+func StatementFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (statement *Statement, err error) {
+	statement = &Statement{}
+	if statement.branchID, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
+		return
+	}
+
+	if statement.supporter, err = identity.IDFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse Supporter from MarshalUtil: %w", err)
+		return
+	}
+
+	if statement.sequenceNumber, err = marshalUtil.ReadUint64(); err != nil {
+		err = xerrors.Errorf("failed to parse sequence number (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+
+	return
+}
+
+// SequenceSupportersFromObjectStorage restores a SequenceSupporters object from the object storage.
+func StatementFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
+	if result, _, err = StatementFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
+		err = xerrors.Errorf("failed to parse Statement from bytes: %w", err)
+		return
+	}
+
+	return
+}
+
+// SequenceID returns the SequenceID that is being tracked.
+func (s *Statement) BranchID() (branchID ledgerstate.BranchID) {
+	return s.branchID
+}
+
+func (s *Statement) Supporter() (supporter Supporter) {
+	return s.supporter
+}
+
+func (s *Statement) UpdateSequenceNumber(sequenceNumber uint64) (updated bool) {
+	s.sequenceNumberMutex.Lock()
+	defer s.sequenceNumberMutex.Unlock()
+
+	if s.sequenceNumber > sequenceNumber {
+		return false
+	}
+
+	s.sequenceNumber = sequenceNumber
+	updated = true
+	s.SetModified()
+
+	return
+}
+
+func (s *Statement) SequenceNumber() (sequenceNumber uint64) {
+	s.sequenceNumberMutex.RLock()
+	defer s.sequenceNumberMutex.RUnlock()
+
+	return sequenceNumber
+}
+
+// Bytes returns a marshaled version of the MessageMetadata.
+func (s *Statement) Bytes() (marshaledSequenceSupporters []byte) {
+	return byteutils.ConcatBytes(s.ObjectStorageKey(), s.ObjectStorageValue())
+}
+
+// String returns a human readable version of the Statement.
+func (s *Statement) String() string {
+	return stringify.Struct("Statement",
+		stringify.StructField("branchID", s.BranchID()),
+		stringify.StructField("supporter", s.Supporter()),
+		stringify.StructField("sequenceNumber", s.SequenceNumber()),
+	)
+}
+
+// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
+func (s *Statement) Update(objectstorage.StorableObject) {
+	panic("updates disabled")
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (s *Statement) ObjectStorageKey() []byte {
+	return byteutils.ConcatBytes(s.BranchID().Bytes(), s.Supporter().Bytes())
+}
+
+// ObjectStorageValue marshals the MessageMetadata into a sequence of bytes that are used as the value part in the
+// object storage.
+func (s *Statement) ObjectStorageValue() []byte {
+	return marshalutil.New(marshalutil.Uint64Size).
+		WriteUint64(s.SequenceNumber()).
+		Bytes()
+}
+
+// code contract (make sure the struct implements all required methods)
+var _ objectstorage.StorableObject = &Statement{}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region CachedStatement /////////////////////////////////////////////////////////////////////////////////////
+
+// CachedStatement is a wrapper for the generic CachedObject returned by the object storage that overrides the
+// accessor methods with a type-casted one.
+type CachedStatement struct {
+	objectstorage.CachedObject
+}
+
+// Retain marks the CachedObject to still be in use by the program.
+func (c *CachedStatement) Retain() *CachedStatement {
+	return &CachedStatement{c.CachedObject.Retain()}
+}
+
+// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
+func (c *CachedStatement) Unwrap() *Statement {
+	untypedObject := c.Get()
+	if untypedObject == nil {
+		return nil
+	}
+
+	typedObject := untypedObject.(*Statement)
+	if typedObject == nil || typedObject.IsDeleted() {
+		return nil
+	}
+
+	return typedObject
+}
+
+// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
+// exists). It automatically releases the object when the consumer finishes.
+func (c *CachedStatement) Consume(consumer func(statement *Statement), forceRelease ...bool) (consumed bool) {
+	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*Statement))
+	}, forceRelease...)
+}
+
+// String returns a human readable version of the CachedStatement.
+func (c *CachedStatement) String() string {
+	return stringify.Struct("CachedStatement",
+		stringify.StructField("CachedObject", c.Unwrap()),
+	)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -15,6 +15,18 @@ import (
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
+func TestStatementMarshalling(t *testing.T) {
+	statement := NewStatement(ledgerstate.BranchIDFromRandomness(), identity.GenerateIdentity().ID())
+	statement.UpdateSequenceNumber(10)
+	statementFromBytes, _, err := StatementFromBytes(statement.Bytes())
+	require.NoError(t, err)
+
+	assert.Equal(t, statement.Bytes(), statementFromBytes.Bytes())
+	assert.Equal(t, statement.BranchID(), statementFromBytes.BranchID())
+	assert.Equal(t, statement.Supporter(), statementFromBytes.Supporter())
+	assert.Equal(t, statement.SequenceNumber(), statementFromBytes.SequenceNumber())
+}
+
 func TestSupporterManager_updateBranchSupporters(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()
 
@@ -51,31 +63,63 @@ func TestSupporterManager_updateBranchSupporters(t *testing.T) {
 		"Branch 4.2":   ledgerstate.BranchIDFromRandomness(),
 	}
 
-	createBranch(t, tangle, branchIDs["Branch 1"], ledgerstate.MasterBranchID, conflictIDs["Conflict 1"])
-	createBranch(t, tangle, branchIDs["Branch 2"], ledgerstate.MasterBranchID, conflictIDs["Conflict 1"])
-	createBranch(t, tangle, branchIDs["Branch 3"], ledgerstate.MasterBranchID, conflictIDs["Conflict 2"])
-	createBranch(t, tangle, branchIDs["Branch 4"], ledgerstate.MasterBranchID, conflictIDs["Conflict 2"])
+	createBranch(t, tangle, "Branch 1", branchIDs, ledgerstate.MasterBranchID, conflictIDs["Conflict 1"])
+	createBranch(t, tangle, "Branch 2", branchIDs, ledgerstate.MasterBranchID, conflictIDs["Conflict 1"])
+	createBranch(t, tangle, "Branch 3", branchIDs, ledgerstate.MasterBranchID, conflictIDs["Conflict 2"])
+	createBranch(t, tangle, "Branch 4", branchIDs, ledgerstate.MasterBranchID, conflictIDs["Conflict 2"])
 
-	createBranch(t, tangle, branchIDs["Branch 1.1"], branchIDs["Branch 1"], conflictIDs["Conflict 3"])
-	createBranch(t, tangle, branchIDs["Branch 1.2"], branchIDs["Branch 1"], conflictIDs["Conflict 3"])
-	createBranch(t, tangle, branchIDs["Branch 1.3"], branchIDs["Branch 1"], conflictIDs["Conflict 3"])
+	createBranch(t, tangle, "Branch 1.1", branchIDs, branchIDs["Branch 1"], conflictIDs["Conflict 3"])
+	createBranch(t, tangle, "Branch 1.2", branchIDs, branchIDs["Branch 1"], conflictIDs["Conflict 3"])
+	createBranch(t, tangle, "Branch 1.3", branchIDs, branchIDs["Branch 1"], conflictIDs["Conflict 3"])
 
-	createBranch(t, tangle, branchIDs["Branch 4.1"], branchIDs["Branch 4"], conflictIDs["Conflict 4"])
-	createBranch(t, tangle, branchIDs["Branch 4.2"], branchIDs["Branch 4"], conflictIDs["Conflict 4"])
+	createBranch(t, tangle, "Branch 4.1", branchIDs, branchIDs["Branch 4"], conflictIDs["Conflict 4"])
+	createBranch(t, tangle, "Branch 4.2", branchIDs, branchIDs["Branch 4"], conflictIDs["Conflict 4"])
 
-	createBranch(t, tangle, branchIDs["Branch 4.1.1"], branchIDs["Branch 4.1"], conflictIDs["Conflict 5"])
-	createBranch(t, tangle, branchIDs["Branch 4.1.2"], branchIDs["Branch 4.1"], conflictIDs["Conflict 5"])
+	createBranch(t, tangle, "Branch 4.1.1", branchIDs, branchIDs["Branch 4.1"], conflictIDs["Conflict 5"])
+	createBranch(t, tangle, "Branch 4.1.2", branchIDs, branchIDs["Branch 4.1"], conflictIDs["Conflict 5"])
 
 	cachedAggregatedBranch, _, err := tangle.LedgerState.BranchDAG.AggregateBranches(ledgerstate.NewBranchIDs(branchIDs["Branch 1.1"], branchIDs["Branch 4.1.1"]))
 	require.NoError(t, err)
 	cachedAggregatedBranch.Consume(func(branch ledgerstate.Branch) {
 		branchIDs["Branch 1.1 + Branch 4.1.1"] = branch.ID()
+		ledgerstate.RegisterBranchIDAlias(branch.ID(), "Branch 1.1 + Branch 4.1.1")
 	})
+
+	// Issue statements in different order to make sure that no information is lost when nodes apply statements in arbitrary order
+
+	message1 := newTestDataMessagePublicKey("test", keyPair.PublicKey)
+	message2 := newTestDataMessagePublicKey("test", keyPair.PublicKey)
+	// statement 2: "Branch 4.1.2"
+	{
+		message := message2
+		tangle.Storage.StoreMessage(message)
+		RegisterMessageIDAlias(message.ID(), "Statement2")
+		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
+			messageMetadata.SetBranchID(branchIDs["Branch 4.1.2"])
+		})
+		supporterManager.updateBranchSupporters(message)
+
+		expectedResults := map[string]bool{
+			"Branch 1":     false,
+			"Branch 1.1":   false,
+			"Branch 1.2":   false,
+			"Branch 1.3":   false,
+			"Branch 2":     false,
+			"Branch 3":     false,
+			"Branch 4":     true,
+			"Branch 4.1":   true,
+			"Branch 4.1.1": false,
+			"Branch 4.1.2": true,
+			"Branch 4.2":   false,
+		}
+		validateStatementResults(t, supporterManager, branchIDs, identity.NewID(keyPair.PublicKey), expectedResults)
+	}
 
 	// statement 1: "Branch 1.1 + Branch 4.1.1"
 	{
-		message := newTestDataMessagePublicKey("test", keyPair.PublicKey)
+		message := message1
 		tangle.Storage.StoreMessage(message)
+		RegisterMessageIDAlias(message.ID(), "Statement1")
 		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetBranchID(branchIDs["Branch 1.1 + Branch 4.1.1"])
 		})
@@ -90,31 +134,6 @@ func TestSupporterManager_updateBranchSupporters(t *testing.T) {
 			"Branch 3":     false,
 			"Branch 4":     true,
 			"Branch 4.1":   true,
-			"Branch 4.1.1": true,
-			"Branch 4.1.2": false,
-			"Branch 4.2":   false,
-		}
-		validateStatementResults(t, supporterManager, branchIDs, identity.NewID(keyPair.PublicKey), expectedResults)
-	}
-
-	// statement 2: "Branch 4.1.2"
-	{
-		message := newTestDataMessagePublicKey("test", keyPair.PublicKey)
-		tangle.Storage.StoreMessage(message)
-		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
-			messageMetadata.SetBranchID(branchIDs["Branch 4.1.2"])
-		})
-		supporterManager.updateBranchSupporters(message)
-
-		expectedResults := map[string]bool{
-			"Branch 1":     true,
-			"Branch 1.1":   true,
-			"Branch 1.2":   false,
-			"Branch 1.3":   false,
-			"Branch 2":     false,
-			"Branch 3":     false,
-			"Branch 4":     true,
-			"Branch 4.1":   true,
 			"Branch 4.1.1": false,
 			"Branch 4.1.2": true,
 			"Branch 4.2":   false,
@@ -122,30 +141,31 @@ func TestSupporterManager_updateBranchSupporters(t *testing.T) {
 		validateStatementResults(t, supporterManager, branchIDs, identity.NewID(keyPair.PublicKey), expectedResults)
 	}
 
-	// statement 3: "Branch 2"
-	{
-		message := newTestDataMessagePublicKey("test", keyPair.PublicKey)
-		tangle.Storage.StoreMessage(message)
-		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
-			messageMetadata.SetBranchID(branchIDs["Branch 2"])
-		})
-		supporterManager.updateBranchSupporters(message)
-
-		expectedResults := map[string]bool{
-			"Branch 1":     false,
-			"Branch 1.1":   false,
-			"Branch 1.2":   false,
-			"Branch 1.3":   false,
-			"Branch 2":     true,
-			"Branch 3":     false,
-			"Branch 4":     true,
-			"Branch 4.1":   true,
-			"Branch 4.1.1": false,
-			"Branch 4.1.2": true,
-			"Branch 4.2":   false,
-		}
-		validateStatementResults(t, supporterManager, branchIDs, identity.NewID(keyPair.PublicKey), expectedResults)
-	}
+	//// statement 3: "Branch 2"
+	//{
+	//	message := newTestDataMessagePublicKey("test", keyPair.PublicKey)
+	//	tangle.Storage.StoreMessage(message)
+	//RegisterMessageIDAlias(message.ID(), "Statement3")
+	//	tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
+	//		messageMetadata.SetBranchID(branchIDs["Branch 2"])
+	//	})
+	//	supporterManager.updateBranchSupporters(message)
+	//
+	//	expectedResults := map[string]bool{
+	//		"Branch 1":     false,
+	//		"Branch 1.1":   false,
+	//		"Branch 1.2":   false,
+	//		"Branch 1.3":   false,
+	//		"Branch 2":     true,
+	//		"Branch 3":     false,
+	//		"Branch 4":     true,
+	//		"Branch 4.1":   true,
+	//		"Branch 4.1.1": false,
+	//		"Branch 4.1.2": true,
+	//		"Branch 4.2":   false,
+	//	}
+	//	validateStatementResults(t, supporterManager, branchIDs, identity.NewID(keyPair.PublicKey), expectedResults)
+	//}
 }
 
 func TestSupporterManager_updateSequenceSupporters(t *testing.T) {
@@ -503,11 +523,14 @@ func increaseIndexCallback(markers.SequenceID, markers.Index) bool {
 	return true
 }
 
-func createBranch(t *testing.T, tangle *Tangle, branchID, parentBranchID ledgerstate.BranchID, conflictID ledgerstate.ConflictID) {
+func createBranch(t *testing.T, tangle *Tangle, branchAlias string, branchIDs map[string]ledgerstate.BranchID, parentBranchID ledgerstate.BranchID, conflictID ledgerstate.ConflictID) {
+	branchID := branchIDs[branchAlias]
 	cachedBranch, _, err := tangle.LedgerState.BranchDAG.CreateConflictBranch(branchID, ledgerstate.NewBranchIDs(parentBranchID), ledgerstate.NewConflictIDs(conflictID))
 	require.NoError(t, err)
 
 	cachedBranch.Release()
+
+	ledgerstate.RegisterBranchIDAlias(branchID, branchAlias)
 }
 
 func validateStatementResults(t *testing.T, approvalWeightManager *SupporterManager, branchIDs map[string]ledgerstate.BranchID, supporter Supporter, expectedResults map[string]bool) {
