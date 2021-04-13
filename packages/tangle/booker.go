@@ -397,12 +397,18 @@ func (m *MarkersManager) InheritStructureDetails(message *Message, sequenceAlias
 	return
 }
 
+// MessageID retrieves the MessageID of the given Marker.
 func (m *MarkersManager) MessageID(marker *markers.Marker) (messageID MessageID) {
-	return EmptyMessageID
+	m.tangle.Storage.MarkerMessageMapping(marker).Consume(func(markerMessageMapping *MarkerMessageMapping) {
+		messageID = markerMessageMapping.MessageID()
+	})
+
+	return
 }
 
-func (m *MarkersManager) SetMessageID(marker *markers.Marker) {
-
+// SetMessageID associates a MessageID with the given Marker.
+func (m *MarkersManager) SetMessageID(marker *markers.Marker, messageID MessageID) {
+	m.tangle.Storage.StoreMarkerMessageMapping(NewMarkerMessageMapping(marker, messageID))
 }
 
 // BranchID returns the BranchID that is associated with the given Marker.
@@ -1000,7 +1006,7 @@ func (c CachedIndividuallyMappedMessages) String() string {
 
 // MarkerMessageMappingPartitionKeys defines the "layout" of the key. This enables prefix iterations in the object
 // storage.
-var MarkerMessageMappingPartitionKeys = objectstorage.PartitionKey([]int{markers.MarkerLength, MessageIDLength}...)
+var MarkerMessageMappingPartitionKeys = objectstorage.PartitionKey(markers.SequenceIDLength, markers.IndexLength)
 
 // MarkerMessageMapping is a data structure that denotes if a Message has its BranchID set individually in its own
 // MessageMetadata.
@@ -1088,13 +1094,13 @@ func (i *MarkerMessageMapping) Update(objectstorage.StorableObject) {
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (i *MarkerMessageMapping) ObjectStorageKey() []byte {
-	return byteutils.ConcatBytes(i.marker.Bytes(), i.messageID.Bytes())
+	return i.marker.Bytes()
 }
 
 // ObjectStorageValue marshals the MarkerMessageMapping into a sequence of bytes that are used as the value part in
 // the object storage.
 func (i *MarkerMessageMapping) ObjectStorageValue() []byte {
-	return nil
+	return i.messageID.Bytes()
 }
 
 // code contract (make sure the type implements all required methods)
