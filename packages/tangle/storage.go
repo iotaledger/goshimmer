@@ -360,6 +360,7 @@ func (s *Storage) Shutdown() {
 	s.markerIndexBranchIDMappingStorage.Shutdown()
 	s.individuallyMappedMessageStorage.Shutdown()
 	s.sequenceSupportersStorage.Shutdown()
+	s.statementStorage.Shutdown()
 
 	close(s.shutdown)
 }
