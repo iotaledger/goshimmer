@@ -1078,6 +1078,9 @@ func (a *AliasOutput) SetBalances(balances map[Color]uint64) error {
 
 // GetAliasAddress calculates new ID if it is a minting output. Otherwise it takes stored value
 func (a *AliasOutput) GetAliasAddress() *AliasAddress {
+	if a.aliasAddress.IsNil() {
+		return NewAliasAddress(a.ID().Bytes())
+	}
 	return &a.aliasAddress
 }
 
@@ -1186,7 +1189,7 @@ func (a *AliasOutput) clone() *AliasOutput {
 	ret := &AliasOutput{
 		outputID:           a.outputID,
 		balances:           a.balances.Clone(),
-		aliasAddress:       *a.aliasAddress.Clone().(*AliasAddress),
+		aliasAddress:       *a.GetAliasAddress(),
 		stateAddress:       a.stateAddress.Clone(),
 		stateIndex:         a.stateIndex,
 		stateData:          make([]byte, len(a.stateData)),
