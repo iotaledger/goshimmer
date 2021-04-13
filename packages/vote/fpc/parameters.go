@@ -39,7 +39,7 @@ func DefaultParameters() *Parameters {
 		FirstRoundUpperBoundThreshold:       0.67,
 		SubsequentRoundsLowerBoundThreshold: 0.50,
 		SubsequentRoundsUpperBoundThreshold: 0.67,
-		EndingRoundsFixedThreshold:          0.50,
+		EndingRoundsFixedThreshold:          0.55,
 		QuerySampleSize:                     21,
 		MaxQuerySampleSize:                  100,
 		MinOpinionsReceived:                 1,
