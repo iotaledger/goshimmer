@@ -87,7 +87,7 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 					messageMetadata.SetBranchID(inheritedBranch)
 					b.tangle.Storage.StoreIndividuallyMappedMessage(NewIndividuallyMappedMessage(inheritedBranch, message.ID(), inheritedStructureDetails.PastMarkers))
 				} else {
-					b.MarkersManager.SetBranchID(inheritedStructureDetails.PastMarkers.HighestSequenceMarker(), inheritedBranch)
+					b.MarkersManager.SetBranchID(inheritedStructureDetails.PastMarkers.Marker(), inheritedBranch)
 				}
 			}
 
@@ -110,8 +110,8 @@ func (b *Booker) BookConflictingTransaction(transactionID ledgerstate.Transactio
 		}
 
 		if structureDetails := messageMetadata.StructureDetails(); structureDetails.IsPastMarker {
-			if err = b.updateMarkerFutureCone(structureDetails.PastMarkers.HighestSequenceMarker(), conflictBranchID); err != nil {
-				err = xerrors.Errorf("failed to propagate conflict%s to future cone of %s: %w", conflictBranchID, structureDetails.PastMarkers.HighestSequenceMarker(), err)
+			if err = b.updateMarkerFutureCone(structureDetails.PastMarkers.Marker(), conflictBranchID); err != nil {
+				err = xerrors.Errorf("failed to propagate conflict%s to future cone of %s: %w", conflictBranchID, structureDetails.PastMarkers.Marker(), err)
 				walker.StopWalk()
 			}
 
@@ -149,7 +149,7 @@ func (b *Booker) MessageBranchID(messageID MessageID) (branchID ledgerstate.Bran
 			return
 		}
 
-		branchID = b.MarkersManager.BranchID(structureDetails.PastMarkers.HighestSequenceMarker())
+		branchID = b.MarkersManager.BranchID(structureDetails.PastMarkers.Marker())
 	}) {
 		err = xerrors.Errorf("failed to load MessageMetadata of %s: %w", messageID, cerrors.ErrFatal)
 		return
@@ -187,7 +187,7 @@ func (b *Booker) parentsBranchIDs(message *Message) (branchIDs ledgerstate.Branc
 				panic(fmt.Errorf("tried to retrieve BranchID from Message with multiple past markers - %s: %v", messageID, cerrors.ErrFatal))
 			}
 
-			branchIDs[b.MarkersManager.BranchID(structureDetailsOfMessage.PastMarkers.HighestSequenceMarker())] = types.Void
+			branchIDs[b.MarkersManager.BranchID(structureDetailsOfMessage.PastMarkers.Marker())] = types.Void
 		}) {
 			panic(fmt.Errorf("failed to load MessageMetadata with %s", messageID))
 		}
@@ -395,8 +395,8 @@ func NewMarkersManager(tangle *Tangle) *MarkersManager {
 func (m *MarkersManager) InheritStructureDetails(message *Message, sequenceAlias markers.SequenceAlias) (structureDetails *markers.StructureDetails) {
 	structureDetails, _ = m.Manager.InheritStructureDetails(m.structureDetailsOfStrongParents(message), m.tangle.Options.IncreaseMarkersIndexCallback, sequenceAlias)
 	if structureDetails.IsPastMarker {
-		m.SetMessageID(structureDetails.PastMarkers.HighestSequenceMarker(), message.ID())
-		m.tangle.Utils.WalkMessageMetadata(m.propagatePastMarkerToFutureMarkers(structureDetails.PastMarkers.HighestSequenceMarker()), message.StrongParents())
+		m.SetMessageID(structureDetails.PastMarkers.Marker(), message.ID())
+		m.tangle.Utils.WalkMessageMetadata(m.propagatePastMarkerToFutureMarkers(structureDetails.PastMarkers.Marker()), message.StrongParents())
 	}
 
 	return
