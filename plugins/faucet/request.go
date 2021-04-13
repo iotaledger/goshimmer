@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
+	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/pow"
@@ -15,7 +16,6 @@ import (
 
 	// Only want to use init
 	_ "golang.org/x/crypto/blake2b"
-	"golang.org/x/xerrors"
 )
 
 const (
@@ -124,11 +124,14 @@ func (p *Request) String() string {
 
 // PayloadUnmarshaler sets the generic unmarshaler.
 func PayloadUnmarshaler(data []byte) (payload payload.Payload, err error) {
-	payload, _, err = FromBytes(data)
+	var consumedBytes int
+	payload, consumedBytes, err = FromBytes(data)
 	if err != nil {
-		err = xerrors.Errorf("failed to unmarshal faucet payload from bytes: %w", err)
+		return nil, err
 	}
-
+	if consumedBytes != len(data) {
+		return nil, xerrors.New("not all payload bytes were consumed")
+	}
 	return
 }
 

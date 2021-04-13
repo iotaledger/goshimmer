@@ -50,15 +50,54 @@ export class TransactionEssence {
 }
 
 export class Input {
-    output_id: string;
-    address: string;
-    balance: Array<Balance>;
+    type: string;
+    referencedOutputID: string;
+    output: Output;
 }
 
 export class Output {
-    output_id: string;
+    outputID: OutputID;
+    type: string;
+    output: any;
+}
+
+export class OutputID {
+    base58: string;
+    transactionID: string;
+    outputIndex: number;
+}
+
+export class SigLockedSingleOutput {
+    balance: number;
     address: string;
-    balance: Array<Balance>;
+}
+
+export class SigLockedColoredOutput {
+    balances: Map<string,number>;
+    address: string;
+}
+
+export class AliasOutput {
+    balances: Map<string,number>;
+    aliasAddress: string;
+    stateAddress: string;
+    stateIndex: number;
+    isGovernanceUpdate: boolean;
+    isOrigin: boolean;
+    governingAddress: string;
+
+    stateData: any;
+    immutableData: any;
+}
+
+export class ExtendedLockedOutput {
+    balances: Map<string,number>;
+    address: string
+    fallbackAddress: string;
+    fallbackDeadline: number;
+    timelock: number;
+    payload: any;
+
 }
 
 export class Balance {

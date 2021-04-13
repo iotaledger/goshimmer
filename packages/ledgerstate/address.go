@@ -488,6 +488,7 @@ func (a *AliasAddress) String() string {
 	)
 }
 
+// IsNil returns if the alias address is zero value (uninitialized).
 func (a *AliasAddress) IsNil() bool {
 	return a.digest == [32]byte{}
 }

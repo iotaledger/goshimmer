@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	syncbeaconpayload "github.com/iotaledger/goshimmer/plugins/syncbeacon/payload"
+	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 // BasicPayload contains content title and bytes
@@ -55,13 +56,13 @@ type TransactionPayload struct {
 
 // Essence contains the transaction essence information.
 type Essence struct {
-	Version           uint8           `json:"version"`
-	Timestamp         int             `json:"timestamp"`
-	AccessPledgeID    string          `json:"access_pledge_id"`
-	ConsensusPledgeID string          `json:"cons_pledge_id"`
-	Inputs            []InputContent  `json:"inputs"`
-	Outputs           []OutputContent `json:"outputs"`
-	Data              string          `json:"data"`
+	Version           uint8                `json:"version"`
+	Timestamp         int                  `json:"timestamp"`
+	AccessPledgeID    string               `json:"access_pledge_id"`
+	ConsensusPledgeID string               `json:"cons_pledge_id"`
+	Inputs            []*jsonmodels.Output `json:"inputs"`
+	Outputs           []*jsonmodels.Output `json:"outputs"`
+	Data              string               `json:"data"`
 }
 
 // StatementPayload is a JSON serializable statement payload.
@@ -193,8 +194,8 @@ func processTransactionPayload(p payload.Payload) (tp TransactionPayload) {
 		return
 	}
 
-	var inputs []InputContent
-	var outputs []OutputContent
+	var inputs []*jsonmodels.Output
+	var outputs []*jsonmodels.Output
 	var stringifiedUnlockBlocks []string
 
 	// fill in inputs
@@ -203,14 +204,7 @@ func processTransactionPayload(p payload.Payload) (tp TransactionPayload) {
 			utxoInput := input.(*ledgerstate.UTXOInput)
 			refOutputID := utxoInput.ReferencedOutputID()
 			_ = messagelayer.Tangle().LedgerState.Output(refOutputID).Consume(func(o ledgerstate.Output) {
-				content := InputContent{
-					OutputID: o.ID().Base58(),
-					Address:  o.Address().Base58(),
-				}
-				o.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
-					content.Balances = append(content.Balances, Balance{Color: color.String(), Value: balance})
-					return true
-				})
+				content := jsonmodels.NewOutput(o)
 				inputs = append(inputs, content)
 			})
 		}
@@ -218,14 +212,7 @@ func processTransactionPayload(p payload.Payload) (tp TransactionPayload) {
 
 	// fill in outputs
 	for _, output := range tx.Essence().Outputs() {
-		content := OutputContent{
-			OutputID: output.ID().Base58(),
-			Address:  output.Address().Base58(),
-		}
-		output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
-			content.Balances = append(content.Balances, Balance{Color: color.String(), Value: balance})
-			return true
-		})
+		content := jsonmodels.NewOutput(output)
 		outputs = append(outputs, content)
 	}
 
