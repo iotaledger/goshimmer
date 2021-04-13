@@ -1043,13 +1043,13 @@ func MarkerMessageMappingFromBytes(bytes []byte) (individuallyMappedMessage *Mar
 }
 
 // MarkerMessageMappingFromMarshalUtil unmarshals an MarkerMessageMapping using a MarshalUtil (for easier unmarshaling).
-func MarkerMessageMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (individuallyMappedMessage *MarkerMessageMapping, err error) {
-	individuallyMappedMessage = &MarkerMessageMapping{}
-	if individuallyMappedMessage.marker, err = markers.MarkerFromMarshalUtil(marshalUtil); err != nil {
+func MarkerMessageMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (markerMessageMapping *MarkerMessageMapping, err error) {
+	markerMessageMapping = &MarkerMessageMapping{}
+	if markerMessageMapping.marker, err = markers.MarkerFromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse Marker from MarshalUtil: %w", err)
 		return
 	}
-	if individuallyMappedMessage.messageID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
+	if markerMessageMapping.messageID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse MessageID from MarshalUtil: %w", err)
 		return
 	}

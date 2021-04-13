@@ -300,7 +300,7 @@ func (s *Storage) DeleteMarkerMessageMapping(branchID ledgerstate.BranchID, mess
 
 // MarkerMessageMapping retrieves the MarkerMessageMapping associated with the given details.
 func (s *Storage) MarkerMessageMapping(marker *markers.Marker) (cachedMarkerMessageMappings *CachedMarkerMessageMapping) {
-	return &CachedMarkerMessageMapping{CachedObject: s.markerMessageMappingStorage.Load(byteutils.ConcatBytes(marker.Bytes()))}
+	return &CachedMarkerMessageMapping{CachedObject: s.markerMessageMappingStorage.Load(marker.Bytes())}
 }
 
 // MarkerMessageMappings retrieves the MarkerMessageMappings of a Sequence in the object storage.
