@@ -234,14 +234,14 @@ func (o *OpinionGiver) Query(ctx context.Context, conflictIDs []string, timestam
 	if o.view != nil {
 		// wait for statement(s) to arrive
 		time.Sleep(time.Duration(StatementParameters.WaitForStatement) * time.Second)
-	}
-	// query statement status only if any statement has been received within the last round interval.
-	// This is important. We do want to consider old statements IF the node has been active in the last round.
-	// otherwise node might be down and we don't want to look at old statements in subsequent rounds
-	if o.view != nil && o.view.LastStatementReceivedTimestamp.Add(time.Duration(FPCParameters.RoundInterval)*time.Second).After(clockPkg.SyncedTime()) {
-		opinions, err = o.view.Query(ctx, conflictIDs, timestampIDs)
-		if err == nil {
-			return opinions, nil
+
+		// check if node has been active in the last two rounds
+		// note, we cannot simply set one RoundInterval since the last message could e.g. have arrived 1.5 intervals ago
+		if o.view.LastStatementReceivedTimestamp.Add(2 * time.Duration(FPCParameters.RoundInterval) * time.Second).After(clockPkg.SyncedTime()) {
+			opinions, err = o.view.Query(ctx, conflictIDs, timestampIDs)
+			if err == nil {
+				return opinions, nil
+			}
 		}
 	}
 
@@ -626,7 +626,7 @@ func readStatement(messageID tangle.MessageID) {
 
 		Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
 			sendToRemoteLog(
-				msg.ID().String(),
+				msg.ID().Base58(),
 				issuerID.String(),
 				msg.IssuingTime().UnixNano(),
 				messageMetadata.ReceivedTime().UnixNano(),

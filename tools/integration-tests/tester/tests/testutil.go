@@ -18,7 +18,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	valueutils "github.com/iotaledger/goshimmer/plugins/webapi/value"
+	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels/value"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 )
 
@@ -449,11 +449,11 @@ func False() *bool {
 // All fields are optional.
 type ExpectedTransaction struct {
 	// The optional input IDs to check against.
-	Inputs *[]valueutils.Input
+	Inputs *[]value.Input
 	// The optional outputs to check against.
-	Outputs *[]valueutils.Output
+	Outputs *[]value.Output
 	// The optional unlock blocks to check against.
-	UnlockBlocks *[]valueutils.UnlockBlock
+	UnlockBlocks *[]value.UnlockBlock
 }
 
 // CheckTransactions performs checks to make sure that all peers have received all transactions.

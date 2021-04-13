@@ -109,8 +109,26 @@ func (b BranchID) String() string {
 	case MasterBranchID:
 		return "BranchID(MasterBranchID)"
 	default:
+		if branchIDAlias, exists := branchIDAliases[b]; exists {
+			return "BranchID(" + branchIDAlias + ")"
+		}
+
 		return "BranchID(" + b.Base58() + ")"
 	}
+}
+
+// branchIDAliases contains a list of aliases registered for a set of MessageIDs.
+var branchIDAliases = make(map[BranchID]string)
+
+// RegisterBranchIDAlias registers an alias that will modify the String() output of the BranchID to show a human
+// readable string instead of the base58 encoded version of itself.
+func RegisterBranchIDAlias(branchID BranchID, alias string) {
+	branchIDAliases[branchID] = alias
+}
+
+// UnregisterBranchIDAliases removes all aliases registered through the RegisterBranchIDAlias function.
+func UnregisterBranchIDAliases() {
+	branchIDAliases = make(map[BranchID]string)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1088,8 +1106,8 @@ func ChildBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (childBran
 
 // ChildBranchFromObjectStorage is a factory method that creates a new ChildBranch instance from a storage key of the
 // object storage. It is used by the object storage, to create new instances of this entity.
-func ChildBranchFromObjectStorage(key []byte, _ []byte) (result objectstorage.StorableObject, err error) {
-	if result, _, err = ChildBranchFromBytes(key); err != nil {
+func ChildBranchFromObjectStorage(key, value []byte) (result objectstorage.StorableObject, err error) {
+	if result, _, err = ChildBranchFromBytes(byteutils.ConcatBytes(key, value)); err != nil {
 		err = xerrors.Errorf("failed to parse ChildBranch from bytes: %w", err)
 		return
 	}
@@ -1134,7 +1152,7 @@ func (c *ChildBranch) Update(objectstorage.StorableObject) {
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (c *ChildBranch) ObjectStorageKey() (objectStorageKey []byte) {
-	return marshalutil.New(ConflictIDLength + BranchIDLength).
+	return marshalutil.New(BranchIDLength + BranchIDLength).
 		WriteBytes(c.parentBranchID.Bytes()).
 		WriteBytes(c.childBranchID.Bytes()).
 		Bytes()
