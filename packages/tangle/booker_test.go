@@ -1848,6 +1848,23 @@ func checkMarkers(t *testing.T, testFramework *MessageTestFramework, expectedMar
 		assert.True(t, testFramework.tangle.Storage.MessageMetadata(testFramework.Message(messageID).ID()).Consume(func(messageMetadata *MessageMetadata) {
 			assert.Equal(t, expectedMarkersOfMessage, messageMetadata.StructureDetails().PastMarkers, "Markers of %s are wrong", messageID)
 		}))
+
+		if expectedMarkersOfMessage.Size() == 1 {
+			currentMarker := expectedMarkersOfMessage.HighestSequenceMarker()
+
+			mappedMessageIDOfMarker := testFramework.tangle.Booker.MarkersManager.MessageID(currentMarker)
+			currentMessageID := testFramework.Message(messageID).ID()
+
+			if mappedMessageIDOfMarker == currentMessageID {
+				continue
+			}
+
+			assert.True(t, testFramework.tangle.Storage.MessageMetadata(mappedMessageIDOfMarker).Consume(func(messageMetadata *MessageMetadata) {
+				structureDetails := messageMetadata.StructureDetails()
+
+				assert.True(t, structureDetails.IsPastMarker && *structureDetails.PastMarkers.HighestSequenceMarker() == *currentMarker, "%s was mapped to wrong %s", currentMarker, messageMetadata.ID())
+			}), "failed to load Message with %s", mappedMessageIDOfMarker)
+		}
 	}
 }
 

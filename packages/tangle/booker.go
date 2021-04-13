@@ -391,6 +391,7 @@ func NewMarkersManager(tangle *Tangle) *MarkersManager {
 func (m *MarkersManager) InheritStructureDetails(message *Message, sequenceAlias markers.SequenceAlias) (structureDetails *markers.StructureDetails) {
 	structureDetails, _ = m.Manager.InheritStructureDetails(m.structureDetailsOfStrongParents(message), m.tangle.Options.IncreaseMarkersIndexCallback, sequenceAlias)
 	if structureDetails.IsPastMarker {
+		m.SetMessageID(structureDetails.PastMarkers.HighestSequenceMarker(), message.ID())
 		m.tangle.Utils.WalkMessageMetadata(m.propagatePastMarkerToFutureMarkers(structureDetails.PastMarkers.HighestSequenceMarker()), message.StrongParents())
 	}
 
@@ -1064,43 +1065,43 @@ func MarkerMessageMappingFromObjectStorage(key, value []byte) (result objectstor
 }
 
 // Marker returns the Marker that is mapped to a MessageID.
-func (i *MarkerMessageMapping) Marker() *markers.Marker {
-	return i.marker
+func (m *MarkerMessageMapping) Marker() *markers.Marker {
+	return m.marker
 }
 
 // MessageID returns the MessageID of the Marker.
-func (i *MarkerMessageMapping) MessageID() MessageID {
-	return i.messageID
+func (m *MarkerMessageMapping) MessageID() MessageID {
+	return m.messageID
 }
 
 // Bytes returns a marshaled version of the MarkerMessageMapping.
-func (i *MarkerMessageMapping) Bytes() []byte {
-	return byteutils.ConcatBytes(i.ObjectStorageKey(), i.ObjectStorageValue())
+func (m *MarkerMessageMapping) Bytes() []byte {
+	return byteutils.ConcatBytes(m.ObjectStorageKey(), m.ObjectStorageValue())
 }
 
 // String returns a human readable version of the MarkerMessageMapping.
-func (i *MarkerMessageMapping) String() string {
+func (m *MarkerMessageMapping) String() string {
 	return stringify.Struct("MarkerMessageMapping",
-		stringify.StructField("marker", i.marker),
-		stringify.StructField("messageID", i.messageID),
+		stringify.StructField("marker", m.marker),
+		stringify.StructField("messageID", m.messageID),
 	)
 }
 
 // Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (i *MarkerMessageMapping) Update(objectstorage.StorableObject) {
+func (m *MarkerMessageMapping) Update(objectstorage.StorableObject) {
 	panic("updates disabled")
 }
 
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
-func (i *MarkerMessageMapping) ObjectStorageKey() []byte {
-	return i.marker.Bytes()
+func (m *MarkerMessageMapping) ObjectStorageKey() []byte {
+	return m.marker.Bytes()
 }
 
 // ObjectStorageValue marshals the MarkerMessageMapping into a sequence of bytes that are used as the value part in
 // the object storage.
-func (i *MarkerMessageMapping) ObjectStorageValue() []byte {
-	return i.messageID.Bytes()
+func (m *MarkerMessageMapping) ObjectStorageValue() []byte {
+	return m.messageID.Bytes()
 }
 
 // code contract (make sure the type implements all required methods)
