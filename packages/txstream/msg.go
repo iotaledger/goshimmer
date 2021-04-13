@@ -79,7 +79,6 @@ type MsgGetConfirmedTransaction struct {
 type MsgGetConfirmedOutput struct {
 	Address  ledgerstate.Address
 	OutputID ledgerstate.OutputID
-	Consumed bool
 }
 
 // MsgGetUnspentAliasOutput is a request to get the unique unspent AliasOutput for the given AliasAddress.
