@@ -18,10 +18,10 @@ interface Props {
 }
 
 const style = {
-    maxHeight: "500px",
+    maxHeight: "1000px",
     overflow: "auto",
     width: "47%",
-    fontSize: "90%",
+    fontSize: "80%",
 }
 
 @inject("nodeStore")
@@ -72,25 +72,6 @@ export class ExplorerTransaction extends React.Component<Props, any> {
                                               return (
                                                   <div className={"mb-2"} key={i}>
                                                       <span className="mb-2">Index: <Badge variant={"primary"}>{i}</Badge></span>
-                                                      <ListGroup className={"mb-1"}>
-                                                          {
-                                                              input.referencedOutputID ?
-                                                                  <React.Fragment>
-                                                                      <ListGroup.Item>Transaction ID: <a href={`/explorer/transaction/${input.referencedOutputID.transactionID}`}>{input.referencedOutputID.transactionID}</a></ListGroup.Item>
-                                                                      <ListGroup.Item>Referenced OutputID: <a href={`/explorer/output/${input.referencedOutputID.base58}`}>{input.referencedOutputID.base58}</a></ListGroup.Item>
-                                                                      <ListGroup.Item>Output Index: {input.referencedOutputID.outputIndex}</ListGroup.Item>
-                                                                  </React.Fragment>
-                                                              :
-                                                                 <React.Fragment>
-                                                                     <ListGroup.Item>Transaction ID: Genesis</ListGroup.Item>
-                                                                     <ListGroup.Item>Referenced OutputID: Genesis</ListGroup.Item>
-                                                                     <ListGroup.Item>Output Index: Genesis</ListGroup.Item>
-                                                                 </React.Fragment>
-                                                          }
-
-                                                          <ListGroup.Item>Type: {input.type}</ListGroup.Item>
-                                                      </ListGroup>
-                                                      Referenced Output
                                                       {outputToComponent(input.output)}
                                                   </div>
                                               )
@@ -105,7 +86,12 @@ export class ExplorerTransaction extends React.Component<Props, any> {
                                             <span>Outputs</span>
                                             <hr/>
                                             {tx.outputs.map((output, i) => {
-                                                return outputToComponent(output)
+                                                return (
+                                                    <div className={"mb-2"} key={i}>
+                                                        <span className="mb-2">Index: <Badge variant={"primary"}>{i}</Badge></span>
+                                                        {outputToComponent(output)}
+                                                    </div>
+                                                )
                                             })}
                                         </div>
                                     </div>
