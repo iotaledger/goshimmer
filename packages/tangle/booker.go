@@ -144,6 +144,10 @@ func (b *Booker) MessageBranchID(messageID MessageID) (branchID ledgerstate.Bran
 			err = xerrors.Errorf("failed to retrieve StructureDetails of %s: %w", messageID, cerrors.ErrFatal)
 			return
 		}
+		if structureDetails.PastMarkers.Size() != 1 {
+			err = xerrors.Errorf("BranchID of %s should have been mapped in the MessageMetadata (multiple PastMarkers): %w", messageID, cerrors.ErrFatal)
+			return
+		}
 
 		branchID = b.MarkersManager.BranchID(structureDetails.PastMarkers.HighestSequenceMarker())
 	}) {

@@ -1849,6 +1849,7 @@ func checkMarkers(t *testing.T, testFramework *MessageTestFramework, expectedMar
 			assert.Equal(t, expectedMarkersOfMessage, messageMetadata.StructureDetails().PastMarkers, "Markers of %s are wrong", messageID)
 		}))
 
+		// if we have only a single marker - check if the marker is mapped to this message (or its inherited past marker)
 		if expectedMarkersOfMessage.Size() == 1 {
 			currentMarker := expectedMarkersOfMessage.HighestSequenceMarker()
 
@@ -1860,9 +1861,7 @@ func checkMarkers(t *testing.T, testFramework *MessageTestFramework, expectedMar
 			}
 
 			assert.True(t, testFramework.tangle.Storage.MessageMetadata(mappedMessageIDOfMarker).Consume(func(messageMetadata *MessageMetadata) {
-				structureDetails := messageMetadata.StructureDetails()
-
-				assert.True(t, structureDetails.IsPastMarker && *structureDetails.PastMarkers.HighestSequenceMarker() == *currentMarker, "%s was mapped to wrong %s", currentMarker, messageMetadata.ID())
+				assert.True(t, messageMetadata.StructureDetails().IsPastMarker && *messageMetadata.StructureDetails().PastMarkers.HighestSequenceMarker() == *currentMarker, "%s was mapped to wrong %s", currentMarker, messageMetadata.ID())
 			}), "failed to load Message with %s", mappedMessageIDOfMarker)
 		}
 	}
