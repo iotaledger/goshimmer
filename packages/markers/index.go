@@ -10,6 +10,9 @@ import (
 
 // region Index ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// IndexLength represents the amount of bytes of a marshaled Index.
+const IndexLength = marshalutil.Uint64Size
+
 // Index represents the ever increasing number of the Markers in a Sequence.
 type Index uint64
 
