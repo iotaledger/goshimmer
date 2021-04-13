@@ -16,6 +16,9 @@ import (
 
 // region Marker ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// MarkerLength represents the amount of bytes of a marshaled Marker.
+const MarkerLength = SequenceIDLength + IndexLength
+
 // Marker represents a coordinate in a Sequence that is identified by an ever increasing Index.
 type Marker struct {
 	sequenceID SequenceID
