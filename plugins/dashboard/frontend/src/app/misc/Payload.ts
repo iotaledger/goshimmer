@@ -93,9 +93,9 @@ export class AliasOutput {
 export class ExtendedLockedOutput {
     balances: Map<string,number>;
     address: string
-    fallbackAddress: string;
-    fallbackDeadline: number;
-    timelock: number;
+    fallbackAddress?: string;
+    fallbackDeadline?: number;
+    timelock?: number;
     payload: any;
 
 }
