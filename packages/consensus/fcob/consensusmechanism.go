@@ -172,8 +172,17 @@ func (f *ConsensusMechanism) ProcessVote(ev *vote.OpinionEvent) {
 
 // TransactionOpinionEssence returns the opinion essence of a given transactionID.
 func (f *ConsensusMechanism) TransactionOpinionEssence(transactionID ledgerstate.TransactionID) (opinion OpinionEssence) {
+	// what TODO when transactionID does not exist?
 	opinion = f.Storage.OpinionEssence(transactionID)
+	return
+}
 
+// TransactionOpinionEssence returns the opinion essence of a given transactionID.
+func (f *ConsensusMechanism) TimestampOpinion(messageID tangle.MessageID) (opinion opinion.Opinion) {
+	// what TODO when messageID does not exist?
+	f.Storage.TimestampOpinion(messageID).Consume(func(o *TimestampOpinion) {
+		opinion = o.Value
+	})
 	return
 }
 
