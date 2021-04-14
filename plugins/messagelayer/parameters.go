@@ -40,6 +40,8 @@ var FPCParameters = struct {
 
 	// TotalRoundsFinalization The amount of rounds a vote context's opinion needs to stay the same to be considered final. Also called 'l'.
 	TotalRoundsFinalization int `default:"10" usage:"The number of rounds opinion needs to stay the same to become final (l)."`
+
+	// DRNGInstanceID
 }{}
 
 // StatementParameters contains the configuration parameters used by the FPC statements in the tangle.

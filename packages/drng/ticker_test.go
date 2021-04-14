@@ -21,9 +21,10 @@ func testRandomness(t time.Time) *Randomness {
 func TestTicker(t *testing.T) {
 	resolution := 5
 	defaultValue := 0.6
+	awaitOffset := 3
 	stateTest := NewState(SetCommittee(dummyCommittee()), SetRandomness(testRandomness(time.Now())))
 
-	ticker := NewTicker(stateTest, int64(resolution), defaultValue)
+	ticker := NewTicker(stateTest, int64(resolution), defaultValue, awaitOffset)
 
 	ticker.Start()
 	defer ticker.Stop()
