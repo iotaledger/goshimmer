@@ -1,7 +1,6 @@
 package drng
 
 import (
-	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
@@ -21,7 +20,6 @@ type Ticker struct {
 	awaitOffset  int // defines the max amount of time (in seconds) to wait for the next dRNG round after the excected time has elapsed.
 	c            chan float64
 	exit         chan struct{}
-	once         sync.Once
 }
 
 // NewTicker returns a pointer to a new Ticker.
@@ -38,30 +36,23 @@ func NewTicker(dRNGState *State, resolution int64, defaultValue float64, awaitOf
 
 // Start starts the Ticker.
 func (t *Ticker) Start() {
-	t.once.Do(func() {
-		// TODO: improve this
-		// Proposal-1: wait until you are in sync. FPC will start when the node is in sync
-		// Proposal-2: use sync.once as soon as you solidfy a dRNG beacon (currently implemented).
-		lastBeaconTime := t.dRNGState.Randomness().Timestamp.Unix()
-		now := clock.SyncedTime().Unix()
+	now := clock.SyncedTime().Unix()
+	nextTimePoint := ResolveNextTimePoint(now, t.resolution)
+	time.AfterFunc(time.Duration(nextTimePoint-now)*time.Second, func() {
+		// send for the first time right after the timer is executed
+		t.send()
 
-		nextTimePoint := ResolveNextTimePoint(now, lastBeaconTime, t.resolution)
-		time.AfterFunc(time.Duration(nextTimePoint-now)*time.Second, func() {
-			// send for the first time right after the timer is executed
-			t.send()
-
-			t.dRNGTicker = time.NewTicker(time.Duration(t.resolution) * time.Second)
-			defer t.Stop()
-		out:
-			for {
-				select {
-				case <-t.dRNGTicker.C:
-					t.send()
-				case <-t.exit:
-					break out
-				}
+		t.dRNGTicker = time.NewTicker(time.Duration(t.resolution) * time.Second)
+		defer t.Stop()
+	out:
+		for {
+			select {
+			case <-t.dRNGTicker.C:
+				t.send()
+			case <-t.exit:
+				break out
 			}
-		})
+		}
 	})
 }
 
@@ -79,13 +70,16 @@ func (t *Ticker) C() <-chan float64 {
 // sends the next random number to the consumer channel.
 func (t *Ticker) send() {
 	randomness := t.defaultValue
-	for i := 0; i < t.awaitOffset*granularityCheck; i++ {
-		if clock.Since(t.dRNGState.Randomness().Timestamp) < time.Duration(t.awaitOffset)*time.Second {
-			randomness = t.dRNGState.Randomness().Float64()
-			t.dRNGTicker.Reset(time.Duration(t.resolution) * time.Second)
-			break
+	if t.dRNGState != nil {
+		// wait for next randomness from dRNG
+		for i := 0; i < t.awaitOffset*granularityCheck; i++ {
+			if clock.Since(t.dRNGState.Randomness().Timestamp) < time.Duration(t.awaitOffset)*time.Second {
+				randomness = t.dRNGState.Randomness().Float64()
+				t.dRNGTicker.Reset(time.Duration(t.resolution) * time.Second)
+				break
+			}
+			time.Sleep(scaleFactor * time.Millisecond)
 		}
-		time.Sleep(scaleFactor * time.Millisecond)
 	}
 
 	// skip slow consumers
@@ -96,10 +90,6 @@ func (t *Ticker) send() {
 }
 
 // ResolveNextTimePoint returns the next time point.
-// resolution - 10
-// 19 - lastBeacon
-// 45 - nowSec
-// 49 - result
-func ResolveNextTimePoint(nowSec, targetSec, resolution int64) int64 {
-	return nowSec + resolution - (nowSec-targetSec)%resolution
+func ResolveNextTimePoint(nowSec, resolution int64) int64 {
+	return nowSec + resolution - nowSec%resolution
 }

@@ -37,3 +37,20 @@ func TestTicker(t *testing.T) {
 	r = <-ticker.C()
 	assert.Equal(t, r, randomness)
 }
+
+func TestNoDRNGTicker(t *testing.T) {
+	resolution := 5
+	defaultValue := 0.6
+	awaitOffset := 3
+
+	ticker := NewTicker(nil, int64(resolution), defaultValue, awaitOffset)
+
+	ticker.Start()
+	defer ticker.Stop()
+
+	r := <-ticker.C()
+	assert.Equal(t, r, defaultValue)
+
+	r = <-ticker.C()
+	assert.Equal(t, r, defaultValue)
+}
