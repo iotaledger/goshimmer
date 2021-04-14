@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/mr-tron/base58"
+	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -133,8 +134,14 @@ func (o *Object) String() string {
 
 // Type represents the identifier which addresses the network delay Object type.
 var Type = payload.NewType(189, ObjectName, func(data []byte) (payload payload.Payload, err error) {
-	payload, _, err = FromBytes(data)
-
+	var consumedBytes int
+	payload, consumedBytes, err = FromBytes(data)
+	if err != nil {
+		return nil, err
+	}
+	if consumedBytes != len(data) {
+		return nil, xerrors.New("not all payload bytes were consumed")
+	}
 	return
 })
 
