@@ -52,6 +52,10 @@ func NewApprovalWeightManager(tangle *Tangle) *ApprovalWeightManager {
 }
 
 func (a *ApprovalWeightManager) Setup() {
+	if a.tangle.WeightProvider == nil {
+		return
+	}
+
 	a.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(a.ProcessMessage))
 	a.tangle.Booker.Events.MessageBranchUpdated.Attach(events.NewClosure(a.UpdateMessageBranch))
 	a.tangle.Booker.Events.MarkerBranchUpdated.Attach(events.NewClosure(a.UpdateMarkerBranch))
@@ -617,7 +621,7 @@ var _ objectstorage.StorableObject = &Statement{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region CachedStatement /////////////////////////////////////////////////////////////////////////////////////
+// region CachedStatement //////////////////////////////////////////////////////////////////////////////////////////////
 
 // CachedStatement is a wrapper for the generic CachedObject returned by the object storage that overrides the
 // accessor methods with a type-casted one.
