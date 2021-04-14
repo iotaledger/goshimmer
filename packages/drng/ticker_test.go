@@ -22,7 +22,7 @@ func TestTicker(t *testing.T) {
 	resolution := 5
 	defaultValue := 0.6
 	awaitOffset := 3
-	stateTest := NewState(SetCommittee(dummyCommittee()), SetRandomness(testRandomness(time.Now())))
+	var stateTest *State
 	stateFunc := func() *State { return stateTest }
 
 	ticker := NewTicker(stateFunc, int64(resolution), defaultValue, awaitOffset)
@@ -33,7 +33,7 @@ func TestTicker(t *testing.T) {
 	r := <-ticker.C()
 	assert.Equal(t, r, defaultValue)
 
-	stateTest.UpdateRandomness(testRandomness(time.Now().Add(time.Duration(resolution) * time.Second)))
+	stateTest = NewState(SetCommittee(dummyCommittee()), SetRandomness(testRandomness(time.Now().Add(time.Duration(resolution)*time.Second))))
 	randomness := stateTest.Randomness().Float64()
 	r = <-ticker.C()
 	assert.Equal(t, r, randomness)
