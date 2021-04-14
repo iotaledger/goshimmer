@@ -688,7 +688,7 @@ func pruneConsensusEventLogsStorage() {
 	}
 	manaLogger.Infof("going to prune %d events", i)
 	toBePrunedEvents := make(mana.EventSlice, i)
-	for k := 0; k < i+1; k++ {
+	for k := 0; k < i; k++ {
 		toBePrunedEvents[k] = eventLogs[k]
 	}
 	t := toBePrunedEvents[len(toBePrunedEvents)-1].Timestamp()
