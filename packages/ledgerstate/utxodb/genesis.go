@@ -105,6 +105,10 @@ func (u *UtxoDB) genesisInit(timestamp time.Time) {
 	u.utxo[output.ID()] = output.Clone()
 }
 
+func (u *UtxoDB) GenesisTransactionID() ledgerstate.TransactionID {
+	return u.genesisTxID
+}
+
 // GetGenesisKeyPair return signature scheme used by creator of genesis
 func (u *UtxoDB) GetGenesisKeyPair() *ed25519.KeyPair {
 	return u.genesisKeyPair
