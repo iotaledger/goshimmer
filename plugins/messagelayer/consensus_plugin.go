@@ -369,12 +369,12 @@ func (pog *PeerOpinionGiver) Query(ctx context.Context, conflictIDs []string, ti
 	return opinions, err
 }
 
-// ID returns the identifier of the underlying Peer.
+// ID returns the identifier of the underlying Peer
 func (pog *PeerOpinionGiver) ID() identity.ID {
 	return pog.p.ID()
 }
 
-// Address returns the FPC address of the underlying Peer.
+// Address returns the FPC address of the underlying Peer
 func (pog *PeerOpinionGiver) Address() string {
 	fpcServicePort := pog.p.Services().Get(service.FPCKey).Port()
 	return net.JoinHostPort(pog.p.IP().String(), strconv.Itoa(fpcServicePort))
