@@ -533,7 +533,7 @@ func validateApprovalWeightManagerEvents(t *testing.T, approvalWeightManager *Ap
 	approvalWeightManager.Events.MessageProcessed.Attach(messageProcessedEventHandler)
 
 	var actualConfirmedMarkers []*markers.Marker
-	markerConfirmedEventHandler := events.NewClosure(func(marker *markers.Marker, messageID MessageID) {
+	markerConfirmedEventHandler := events.NewClosure(func(marker *markers.Marker) {
 		actualConfirmedMarkers = append(actualConfirmedMarkers, marker)
 	})
 	approvalWeightManager.Events.MarkerConfirmed.Attach(markerConfirmedEventHandler)
