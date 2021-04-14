@@ -6,6 +6,7 @@ import (
 
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
+	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -128,7 +129,14 @@ func (p *Payload) String() string {
 
 // PayloadType defines the type of the drng payload.
 var PayloadType = payload.NewType(111, ObjectName, func(data []byte) (payload payload.Payload, err error) {
-	payload, _, err = FromBytes(data)
+	var consumedBytes int
+	payload, consumedBytes, err = FromBytes(data)
+	if err != nil {
+		return nil, err
+	}
+	if consumedBytes != len(data) {
+		return nil, xerrors.New("not all payload bytes were consumed")
+	}
 
 	return
 })

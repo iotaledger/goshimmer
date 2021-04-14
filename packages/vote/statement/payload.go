@@ -23,7 +23,14 @@ var StatementType payload.Type
 func init() {
 	// Type defines the type of the statement payload.
 	StatementType = payload.NewType(3, ObjectName, func(data []byte) (payload payload.Payload, err error) {
-		payload, _, err = FromBytes(data)
+		var consumedBytes int
+		payload, consumedBytes, err = FromBytes(data)
+		if err != nil {
+			return nil, err
+		}
+		if consumedBytes != len(data) {
+			return nil, xerrors.New("not all payload bytes were consumed")
+		}
 		return
 	})
 }

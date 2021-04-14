@@ -1787,7 +1787,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message17": ledgerstate.UndefinedBranchID,
 			"Message18": ledgerstate.UndefinedBranchID,
 			"Message19": ledgerstate.UndefinedBranchID,
-			"Message20": ledgerstate.UndefinedBranchID,
+			"Message20": branchIDs["H+C"],
 		})
 		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
 			"Message1":  branchIDs["A"],
@@ -1813,7 +1813,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 		})
 		checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
 			branchIDs["F+C"]: {"Message12"},
-			branchIDs["H+C"]: {"Message14", "Message15"},
+			branchIDs["H+C"]: {"Message14", "Message15", "Message20"},
 		})
 	}
 }
@@ -1848,6 +1848,22 @@ func checkMarkers(t *testing.T, testFramework *MessageTestFramework, expectedMar
 		assert.True(t, testFramework.tangle.Storage.MessageMetadata(testFramework.Message(messageID).ID()).Consume(func(messageMetadata *MessageMetadata) {
 			assert.Equal(t, expectedMarkersOfMessage, messageMetadata.StructureDetails().PastMarkers, "Markers of %s are wrong", messageID)
 		}))
+
+		// if we have only a single marker - check if the marker is mapped to this message (or its inherited past marker)
+		if expectedMarkersOfMessage.Size() == 1 {
+			currentMarker := expectedMarkersOfMessage.Marker()
+
+			mappedMessageIDOfMarker := testFramework.tangle.Booker.MarkersManager.MessageID(currentMarker)
+			currentMessageID := testFramework.Message(messageID).ID()
+
+			if mappedMessageIDOfMarker == currentMessageID {
+				continue
+			}
+
+			assert.True(t, testFramework.tangle.Storage.MessageMetadata(mappedMessageIDOfMarker).Consume(func(messageMetadata *MessageMetadata) {
+				assert.True(t, messageMetadata.StructureDetails().IsPastMarker && *messageMetadata.StructureDetails().PastMarkers.Marker() == *currentMarker, "%s was mapped to wrong %s", currentMarker, messageMetadata.ID())
+			}), "failed to load Message with %s", mappedMessageIDOfMarker)
+		}
 	}
 }
 
