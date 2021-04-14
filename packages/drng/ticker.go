@@ -70,7 +70,7 @@ func (t *Ticker) C() <-chan float64 {
 // sends the next random number to the consumer channel.
 func (t *Ticker) send() {
 	randomness := t.defaultValue
-	if t.dRNGState != nil {
+	if t.dRNGState() != nil {
 		// wait for next randomness from dRNG
 		for i := 0; i < t.awaitOffset*granularityCheck; i++ {
 			if clock.Since(t.dRNGState().Randomness().Timestamp) < time.Duration(t.awaitOffset)*time.Second {
