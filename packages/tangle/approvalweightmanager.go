@@ -275,7 +275,7 @@ func branchIDCaller(handler interface{}, params ...interface{}) {
 }
 
 func markerCaller(handler interface{}, params ...interface{}) {
-	handler.(func(*markers.Marker, MessageID))(params[0].(*markers.Marker), params[1].(MessageID))
+	handler.(func(*markers.Marker))(params[0].(*markers.Marker))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
