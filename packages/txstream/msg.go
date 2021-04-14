@@ -2,6 +2,7 @@ package txstream
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/iotaledger/hive.go/marshalutil"
 
@@ -137,6 +138,7 @@ type MsgUnspentAliasOutput struct {
 	AliasAddress   *ledgerstate.AliasAddress
 	AliasOutput    *ledgerstate.AliasOutput
 	OutputMetadata *ledgerstate.OutputMetadata
+	Timestamp      time.Time
 }
 
 // endregion
@@ -430,6 +432,7 @@ func (msg *MsgOutput) Type() MessageType {
 func (msg *MsgUnspentAliasOutput) Write(w *marshalutil.MarshalUtil) {
 	w.Write(msg.AliasAddress)
 	w.Write(msg.AliasOutput)
+	w.WriteTime(msg.Timestamp)
 	w.Write(msg.OutputMetadata)
 }
 
@@ -439,6 +442,9 @@ func (msg *MsgUnspentAliasOutput) Read(m *marshalutil.MarshalUtil) error {
 		return err
 	}
 	if msg.AliasOutput, err = ledgerstate.AliasOutputFromMarshalUtil(m); err != nil {
+		return err
+	}
+	if msg.Timestamp, err = m.ReadTime(); err != nil {
 		return err
 	}
 	if msg.OutputMetadata, err = ledgerstate.OutputMetadataFromMarshalUtil(m); err != nil {

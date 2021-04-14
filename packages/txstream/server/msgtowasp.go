@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/txstream"
+	"time"
 )
 
 func (c *Connection) sendMsgToClient(msg txstream.Message) {
@@ -88,6 +89,10 @@ func (c *Connection) sendUnspentAliasOutput(addr *ledgerstate.AliasAddress) {
 			return
 		}
 		if aliasOut, ok := out.(*ledgerstate.AliasOutput); ok {
+			var timestamp time.Time
+			c.ledger.GetConfirmedTransaction(aliasOut.ID().TransactionID(), func(tx *ledgerstate.Transaction) {
+				timestamp = tx.Essence().Timestamp()
+			})
 			c.ledger.GetOutputMetadata(out.ID(), func(meta *ledgerstate.OutputMetadata) {
 				if meta.ConsumerCount() != 0 {
 					return
@@ -97,6 +102,7 @@ func (c *Connection) sendUnspentAliasOutput(addr *ledgerstate.AliasAddress) {
 					AliasAddress:   addr,
 					AliasOutput:    aliasOut,
 					OutputMetadata: meta,
+					Timestamp:      timestamp,
 				})
 			})
 		}
