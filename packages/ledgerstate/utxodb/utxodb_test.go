@@ -1,8 +1,9 @@
 package utxodb
 
 import (
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"testing"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 
 	"github.com/stretchr/testify/require"
 )
@@ -92,9 +93,8 @@ func TestGetOutput(t *testing.T) {
 	require.False(t, succ)
 
 	succ = u.GetOutputMetadata(outid0, func(metadata *ledgerstate.OutputMetadata) {
-		// TODO
-		//require.True(t, metadata.Finalized())
-		//require.True(t, metadata.Solid())
+		require.True(t, metadata.Finalized())
+		require.True(t, metadata.Solid())
 		require.Equal(t, 0, metadata.ConsumerCount())
 	})
 	require.True(t, succ)
