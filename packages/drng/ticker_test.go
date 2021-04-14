@@ -43,8 +43,9 @@ func TestNoDRNGTicker(t *testing.T) {
 	resolution := 5
 	defaultValue := 0.6
 	awaitOffset := 3
+	stateFunc := func() *State { return nil }
 
-	ticker := NewTicker(nil, int64(resolution), defaultValue, awaitOffset)
+	ticker := NewTicker(stateFunc, int64(resolution), defaultValue, awaitOffset)
 
 	ticker.Start()
 	defer ticker.Stop()

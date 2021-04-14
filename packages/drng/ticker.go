@@ -75,14 +75,16 @@ func (t *Ticker) send() {
 	if t.dRNGState() != nil {
 		// wait for next randomness from dRNG
 		for i := 0; i < t.awaitOffset*granularityCheck; i++ {
-			if t.missingDRNG && clock.Since(t.dRNGState().Randomness().Timestamp) < time.Duration(t.resolution)*time.Second {
+			if t.dRNGTicker != nil && t.missingDRNG && clock.Since(t.dRNGState().Randomness().Timestamp) < time.Duration(t.resolution)*time.Second {
 				t.missingDRNG = false
 				timeToNextDRNG := t.dRNGState().Randomness().Timestamp.Add(time.Duration(t.resolution) * time.Second).Sub(clock.SyncedTime())
 				t.dRNGTicker.Reset(timeToNextDRNG)
 			}
 			if clock.Since(t.dRNGState().Randomness().Timestamp) < time.Duration(t.awaitOffset)*time.Second {
 				randomness = t.dRNGState().Randomness().Float64()
-				t.dRNGTicker.Reset(time.Duration(t.resolution) * time.Second)
+				if t.dRNGTicker != nil {
+					t.dRNGTicker.Reset(time.Duration(t.resolution) * time.Second)
+				}
 				break
 			}
 			time.Sleep(scaleFactor * time.Millisecond)
