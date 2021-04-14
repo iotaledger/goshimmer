@@ -681,15 +681,19 @@ func pruneConsensusEventLogsStorage() {
 	prev := eventLogs[slidingEventsInterval-1]
 	var i int
 	for i = slidingEventsInterval; i < len(eventLogs); i++ {
-		if eventLogs[i].Timestamp() != prev.Timestamp() {
+		if !eventLogs[i].Timestamp().Equal(prev.Timestamp()) {
 			break
 		}
 		prev = eventLogs[i]
 	}
-	eventLogs = eventLogs[:i]
-	t := eventLogs[len(eventLogs)-1].Timestamp()
+	manaLogger.Infof("going to prune %d events", i)
+	toBePrunedEvents := make(mana.EventSlice, i)
+	for k := 0; k < i+1; k++ {
+		toBePrunedEvents[k] = eventLogs[k]
+	}
+	t := toBePrunedEvents[len(toBePrunedEvents)-1].Timestamp()
 
-	err = cbmvPast.BuildPastBaseVector(eventLogs, t)
+	err = cbmvPast.BuildPastBaseVector(toBePrunedEvents, t)
 	if err != nil {
 		manaLogger.Errorf("error building past consensus base mana vector: %w", err)
 		return
@@ -716,11 +720,13 @@ func pruneConsensusEventLogsStorage() {
 	consensusBaseManaPastVectorMetadataStorage.Store(metadata).Release()
 
 	var entriesToDelete [][]byte
-	for _, ev := range eventLogs {
+	for _, ev := range toBePrunedEvents {
 		entriesToDelete = append(entriesToDelete, ev.ToPersistable().ObjectStorageKey())
 	}
+	manaLogger.Infof("deleting %d events from consensus event storage", len(entriesToDelete))
 	consensusEventsLogStorage.DeleteEntriesFromStore(entriesToDelete)
 	consensusEventsLogsStorageSize.Sub(uint32(len(entriesToDelete)))
+	manaLogger.Infof("there are %d events remaining in consensus event storage", consensusEventsLogsStorageSize.Load())
 }
 
 func cleanupManaVectors() {
