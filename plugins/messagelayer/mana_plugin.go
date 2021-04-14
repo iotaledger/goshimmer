@@ -654,9 +654,14 @@ func pruneConsensusEventLogsStorage() {
 		cachedPe := &mana.CachedPersistableEvent{CachedObject: cachedObject}
 		defer cachedPe.Release()
 		pe := cachedPe.Unwrap()
+		metadata := cachedMetadata.Unwrap()
 
 		var ev mana.Event
 		ev, err = mana.FromPersistableEvent(pe)
+		if ev.Timestamp().Before(metadata.Timestamp) {
+			manaLogger.Errorf("consensus event storage contains event that is older, than the stored metadata timestamp %s: %s", metadata.Timestamp, ev.String())
+			return true
+		}
 		if err != nil {
 			return false
 		}
@@ -683,7 +688,7 @@ func pruneConsensusEventLogsStorage() {
 
 	err = cbmvPast.BuildPastBaseVector(eventLogs, t)
 	if err != nil {
-		manaLogger.Error("error building past consensus base mana vector: %v", err)
+		manaLogger.Errorf("error building past consensus base mana vector: %w", err)
 		return
 	}
 
@@ -701,12 +706,11 @@ func pruneConsensusEventLogsStorage() {
 		Timestamp: t,
 	}
 
-	if !cachedMetadata.Exists() {
-		consensusBaseManaPastVectorMetadataStorage.Store(metadata).Release()
-	} else {
-		m := cachedMetadata.Unwrap()
-		m.Update(metadata)
+	if err = consensusBaseManaPastVectorMetadataStorage.Prune(); err != nil {
+		manaLogger.Errorf("error pruning consensus base mana vector metadata storage: %w", err)
+		return
 	}
+	consensusBaseManaPastVectorMetadataStorage.Store(metadata).Release()
 
 	var entriesToDelete [][]byte
 	for _, ev := range eventLogs {
