@@ -2,6 +2,7 @@ package fcob
 
 import (
 	"fmt"
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"time"
 
 	"github.com/iotaledger/hive.go/datastructure/walker"
@@ -99,19 +100,32 @@ func (f *ConsensusMechanism) Evaluate(messageID tangle.MessageID) {
 
 // EvaluateTimestamp evaluates the honesty of the timestamp of the given Message.
 func (f *ConsensusMechanism) EvaluateTimestamp(messageID tangle.MessageID) {
+
 	f.Storage.StoreMessageMetadata(NewMessageMetadata(messageID))
-	f.Storage.StoreTimestampOpinion(&TimestampOpinion{
-		MessageID: messageID,
-		Value:     voter.Like,
-		LoK:       Two,
-	})
 
-	f.setEligibility(messageID)
+	var issuingTime time.Time
 
-	f.setTimestampOpinionDone(messageID)
+	if !f.tangle.Storage.Message(messageID).Consume(func(messageMetadata *tangle.Message) {
+		issuingTime = messageMetadata.IssuingTime()
+	}) {
+		// FIXME: what to do when message does not exist in the storage?
+		return
+	}
 
-	if f.messageDone(messageID) {
-		f.tangle.Utils.WalkMessageID(f.createMessageOpinion, tangle.MessageIDs{messageID}, true)
+	timestampOpinion := TimestampQuality(messageID, issuingTime, clock.SyncedTime())
+
+	if timestampOpinion.LoK > One {
+		f.Storage.StoreTimestampOpinion(timestampOpinion)
+		// eligible when timestamp is ok but confirmed when timestamp and tx is correct
+		f.setEligibility(messageID)
+
+		f.setTimestampOpinionDone(messageID)
+
+		if f.messageDone(messageID) {
+			f.tangle.Utils.WalkMessageID(f.createMessageOpinion, tangle.MessageIDs{messageID}, true)
+		}
+	} else {
+		f.Events.Vote.Trigger(messageID.Base58(), timestampOpinion.Value, vote.TimestampType)
 	}
 }
 
@@ -133,6 +147,26 @@ func (f *ConsensusMechanism) ProcessVote(ev *vote.OpinionEvent) {
 				f.onPayloadOpinionFormed(messageID, opinion.liked)
 			}
 		})
+	} else if ev.Ctx.Type == vote.TimestampType {
+		messageID, err := tangle.NewMessageID(ev.ID)
+		if err != nil {
+			f.Events.Error.Trigger(err)
+			return
+		}
+
+		f.Storage.TimestampOpinion(messageID).Consume(func(opinion *TimestampOpinion) {
+			opinion.SetLiked(ev.Opinion)
+			opinion.SetLevelOfKnowledge(Two)
+		})
+
+		// eligible when timestamp is ok but confirmed when timestamp and tx is correct
+		f.setEligibility(messageID)
+
+		f.setTimestampOpinionDone(messageID)
+
+		if f.messageDone(messageID) {
+			f.tangle.Utils.WalkMessageID(f.createMessageOpinion, tangle.MessageIDs{messageID}, true)
+		}
 	}
 }
 
@@ -210,7 +244,7 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 			if newOpinion.liked {
 				liked = voter.Like
 			}
-			f.Events.Vote.Trigger(transactionID.Base58(), liked)
+			f.Events.Vote.Trigger(transactionID.Base58(), liked, vote.ConflictType)
 			return
 
 		default:
@@ -244,13 +278,13 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 					opinion.SetLiked(true)
 					opinion.SetLevelOfKnowledge(One)
 					// trigger voting for this transactionID
-					f.Events.Vote.Trigger(transactionID.Base58(), voter.Like)
+					f.Events.Vote.Trigger(transactionID.Base58(), voter.Like, vote.ConflictType)
 					return
 				}
 				opinion.SetLevelOfKnowledge(One)
 				opinion.SetLiked(false)
 				// trigger voting for this transactionID
-				f.Events.Vote.Trigger(transactionID.Base58(), voter.Dislike)
+				f.Events.Vote.Trigger(transactionID.Base58(), voter.Dislike, vote.ConflictType)
 				return
 			}
 			opinion.SetLevelOfKnowledge(One)
@@ -268,7 +302,7 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 					opinion.SetLiked(true)
 					if f.tangle.LedgerState.TransactionConflicting(transactionID) {
 						// trigger voting for this transactionID
-						f.Events.Vote.Trigger(transactionID.Base58(), voter.Like)
+						f.Events.Vote.Trigger(transactionID.Base58(), voter.Like, vote.ConflictType)
 						return
 					}
 					opinion.SetLevelOfKnowledge(Two)
@@ -447,7 +481,7 @@ type ConsensusMechanismEvents struct {
 }
 
 func voteEventHandler(handler interface{}, params ...interface{}) {
-	handler.(func(id string, initOpn voter.Opinion))(params[0].(string), params[1].(voter.Opinion))
+	handler.(func(id string, initOpn voter.Opinion, objectType vote.ObjectType))(params[0].(string), params[1].(voter.Opinion), params[2].(vote.ObjectType))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

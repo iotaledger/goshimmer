@@ -482,6 +482,9 @@ type TimestampOpinion struct {
 	Value     opinion.Opinion
 	LoK       LevelOfKnowledge
 
+	valueMutex sync.RWMutex
+	lokMutex   sync.RWMutex
+
 	objectstorage.StorableObjectFlags
 }
 
@@ -578,6 +581,20 @@ func (t *TimestampOpinion) ObjectStorageValue() []byte {
 		WriteByte(byte(t.Value)).
 		WriteUint8(uint8(t.LoK)).
 		Bytes()
+}
+
+func (t *TimestampOpinion) SetLiked(opinion opinion.Opinion) {
+	t.valueMutex.Lock()
+	defer t.valueMutex.Unlock()
+	t.Value = opinion
+	t.SetModified(true)
+}
+
+func (t *TimestampOpinion) SetLevelOfKnowledge(lok LevelOfKnowledge) {
+	t.lokMutex.Lock()
+	defer t.lokMutex.Unlock()
+	t.LoK = lok
+	t.SetModified(true)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

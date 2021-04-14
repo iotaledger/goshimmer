@@ -64,8 +64,8 @@ func configureConsensusPlugin(plugin *node.Plugin) {
 	configureFPC(plugin)
 
 	// subscribe to FCOB events
-	ConsensusMechanism().Events.Vote.Attach(events.NewClosure(func(id string, initOpn opinion.Opinion) {
-		if err := Voter().Vote(id, vote.ConflictType, initOpn); err != nil {
+	ConsensusMechanism().Events.Vote.Attach(events.NewClosure(func(id string, initOpn opinion.Opinion, objectType vote.ObjectType) {
+		if err := Voter().Vote(id, objectType, initOpn); err != nil {
 			plugin.LogWarnf("FPC vote: %s", err)
 		}
 	}))
