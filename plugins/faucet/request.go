@@ -4,15 +4,15 @@ import (
 	"context"
 	"crypto"
 
-	"github.com/iotaledger/hive.go/cerrors"
-	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/stringify"
-	"golang.org/x/xerrors"
-
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+	"github.com/iotaledger/hive.go/cerrors"
+	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/stringify"
+	"golang.org/x/xerrors"
 
 	// Only want to use init
 	_ "golang.org/x/crypto/blake2b"
@@ -25,9 +25,11 @@ const (
 
 // Request represents a faucet request which contains an address for the faucet to send funds to.
 type Request struct {
-	payloadType payload.Type
-	address     ledgerstate.Address
-	nonce       uint64
+	payloadType           payload.Type
+	address               ledgerstate.Address
+	accessManaPledgeID    identity.ID
+	consensusManaPledgeID identity.ID
+	nonce                 uint64
 }
 
 // Type represents the identifier for the faucet Request type.
@@ -37,10 +39,12 @@ var (
 )
 
 // NewRequest is the constructor of a Request and creates a new Request object from the given details.
-func NewRequest(addr ledgerstate.Address, powTarget int) (*Request, error) {
+func NewRequest(addr ledgerstate.Address, powTarget int, accessManaPledgeID identity.ID, consensusManaPledgeID identity.ID) (*Request, error) {
 	p := &Request{
-		payloadType: Type,
-		address:     addr,
+		payloadType:           Type,
+		address:               addr,
+		accessManaPledgeID:    accessManaPledgeID,
+		consensusManaPledgeID: consensusManaPledgeID,
 	}
 
 	objectBytes := p.Bytes()
@@ -85,6 +89,17 @@ func FromBytes(bytes []byte) (result *Request, consumedBytes int, err error) {
 		err = xerrors.Errorf("failed to unmarshal nonce of faucet request (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
+
+	result.accessManaPledgeID, err = identity.IDFromMarshalUtil(marshalUtil)
+	if err != nil {
+		err = xerrors.Errorf("failed to unmarshal access mana pledge ID of faucet request (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	result.consensusManaPledgeID, err = identity.IDFromMarshalUtil(marshalUtil)
+	if err != nil {
+		err = xerrors.Errorf("failed to unmarshal consensus mana pledge ID of faucet request (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
@@ -100,16 +115,28 @@ func (p *Request) Address() ledgerstate.Address {
 	return p.address
 }
 
+// AccessManaPledgeID returns the access mana pledge ID of the faucet request.
+func (p *Request) AccessManaPledgeID() identity.ID {
+	return p.accessManaPledgeID
+}
+
+// ConsensusManaPledgeID returns the consensus mana pledge ID of the faucet request.
+func (p *Request) ConsensusManaPledgeID() identity.ID {
+	return p.consensusManaPledgeID
+}
+
 // Bytes marshals the faucet Request payload into a sequence of bytes.
 func (p *Request) Bytes() []byte {
 	// initialize helper
 	marshalUtil := marshalutil.New()
 
 	// marshal the payload specific information
-	marshalUtil.WriteUint32(payload.TypeLength + uint32(ledgerstate.AddressLength+pow.NonceBytes))
+	marshalUtil.WriteUint32(payload.TypeLength + uint32(ledgerstate.AddressLength+pow.NonceBytes+identity.IDLength+identity.IDLength))
 	marshalUtil.WriteBytes(p.Type().Bytes())
 	marshalUtil.WriteBytes(p.address.Bytes())
 	marshalUtil.WriteUint64(p.nonce)
+	marshalUtil.WriteBytes(p.accessManaPledgeID.Bytes())
+	marshalUtil.WriteBytes(p.consensusManaPledgeID.Bytes())
 
 	// return result
 	return marshalUtil.Bytes()
@@ -119,6 +146,8 @@ func (p *Request) Bytes() []byte {
 func (p *Request) String() string {
 	return stringify.Struct("FaucetPayload",
 		stringify.StructField("address", p.Address().Base58()),
+		stringify.StructField("accessManaPledgeID", p.accessManaPledgeID.String()),
+		stringify.StructField("consensusManaPledgeID", p.consensusManaPledgeID.String()),
 	)
 }
 
