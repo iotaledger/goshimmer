@@ -3,6 +3,7 @@ package tangle
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
@@ -52,16 +53,57 @@ func NewApprovalWeightManager(tangle *Tangle) *ApprovalWeightManager {
 }
 
 func (a *ApprovalWeightManager) Setup() {
+	a.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(a.ProcessMessage))
+	a.tangle.Booker.Events.MessageBranchUpdated.Attach(events.NewClosure(a.UpdateMessageBranch))
+	a.tangle.Booker.Events.MarkerBranchUpdated.Attach(events.NewClosure(a.UpdateMarkerBranch))
+
 	a.supportersManager.Events.BranchSupportAdded.Attach(events.NewClosure(a.onBranchSupportAdded))
 	a.supportersManager.Events.BranchSupportRemoved.Attach(events.NewClosure(a.onBranchSupportRemoved))
 	a.supportersManager.Events.SequenceSupportUpdated.Attach(events.NewClosure(a.onSequenceSupportUpdated))
 	a.Events.MarkerConfirmed.Attach(events.NewClosure(a.onMarkerConfirmed))
 }
 
+func (a *ApprovalWeightManager) UpdateMessageBranch(messageID MessageID, _, newBranchID ledgerstate.BranchID) {
+	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+		a.supportersManager.propagateSupportToBranches(newBranchID, message)
+	})
+}
+
+func (a *ApprovalWeightManager) UpdateMarkerBranch(marker *markers.Marker, oldBranchID, newBranchID ledgerstate.BranchID) {
+	fmt.Println("HUHU!!! :D")
+	a.supportersManager.MigrateMarkerSupportersToNewBranch(marker, oldBranchID, newBranchID)
+}
+
 func (a *ApprovalWeightManager) ProcessMessage(messageID MessageID) {
 	a.supportersManager.ProcessMessage(messageID)
 
 	a.Events.MessageProcessed.Trigger(messageID)
+}
+
+// WeightOfBranch returns the weight of the given Branch that was added by Supporters of the given epoch.
+func (a *ApprovalWeightManager) WeightOfBranch(branchID ledgerstate.BranchID, epochID uint64) (weight float64) {
+	return a.weightsPerEpoch(branchID).Weight(epochID)
+}
+
+func (a *ApprovalWeightManager) WeightOfMarker(marker *markers.Marker, anchorTime time.Time) (weight float64) {
+	activeMana, totalMana := a.tangle.WeightProvider.WeightsOfRelevantSupporters(anchorTime)
+	branchID := a.tangle.Booker.MarkersManager.BranchID(marker)
+	supportersOfMarker := a.supportersManager.SupportersOfMarker(marker)
+	supporterMana := float64(0)
+	if branchID == ledgerstate.MasterBranchID {
+		supportersOfMarker.ForEach(func(supporter Supporter) {
+			supporterMana += activeMana[supporter]
+		})
+	} else {
+		fmt.Println(branchID)
+		a.supportersManager.SupportersOfBranch(branchID).ForEach(func(supporter Supporter) {
+			if supportersOfMarker.Has(supporter) {
+				supporterMana += activeMana[supporter]
+			}
+		})
+	}
+
+	return supporterMana / totalMana
 }
 
 func (a *ApprovalWeightManager) weightsPerEpoch(branchID ledgerstate.BranchID) *BranchWeightPerEpoch {
@@ -152,8 +194,6 @@ func (a *ApprovalWeightManager) getMessageIDOfMarker(marker *markers.Marker, bra
 }
 
 func (a *ApprovalWeightManager) onSequenceSupportUpdated(marker *markers.Marker, message *Message) {
-	fmt.Println(message.ID())
-
 	if index, exists := a.lastConfirmedMarkers[marker.SequenceID()]; exists && index >= marker.Index() {
 		return
 	}
@@ -198,6 +238,7 @@ func (a *ApprovalWeightManager) onSequenceSupportUpdated(marker *markers.Marker,
 	fmt.Println("===============================================")
 }
 
+// lowestLastConfirmedMarker is an internal utility function that returns the last confirmed or lowest marker in a sequence.
 func (a *ApprovalWeightManager) lowestLastConfirmedMarker(sequenceID markers.SequenceID) (index markers.Index) {
 	index = a.lastConfirmedMarkers[sequenceID] + 1
 	a.tangle.Booker.MarkersManager.Manager.Sequence(sequenceID).Consume(func(sequence *markers.Sequence) {
@@ -210,6 +251,7 @@ func (a *ApprovalWeightManager) lowestLastConfirmedMarker(sequenceID markers.Seq
 }
 
 func (a *ApprovalWeightManager) onBranchSupportAdded(branchID ledgerstate.BranchID, message *Message) {
+	fmt.Println("onBranchSupportAdded", branchID)
 	if a.tangle.LedgerState.BranchDAG.InclusionState(branchID) == ledgerstate.Confirmed {
 		return
 	}
@@ -221,12 +263,9 @@ func (a *ApprovalWeightManager) onBranchSupportAdded(branchID ledgerstate.Branch
 	fmt.Println("BranchWeight:", branchWeight)
 	fmt.Println("weightOfLargestConflictingBranch", a.weightOfLargestConflictingBranch(branchID, epochID))
 	fmt.Println("conf", branchWeight-a.weightOfLargestConflictingBranch(branchID, epochID))
-	if branchWeight-a.weightOfLargestConflictingBranch(branchID, epochID) >= confirmationThreshold {
+	diff := branchWeight - a.weightOfLargestConflictingBranch(branchID, epochID)
+	if diff-confirmationThreshold > -0.0005 {
 		a.Events.BranchConfirmed.Trigger(branchID)
-
-		// TODO: move this to a different place
-		a.tangle.LedgerState.BranchDAG.SetBranchLiked(branchID, true)
-		a.tangle.LedgerState.BranchDAG.SetBranchFinalized(branchID, true)
 	}
 }
 
@@ -234,7 +273,7 @@ func (a *ApprovalWeightManager) onBranchSupportRemoved(branchID ledgerstate.Bran
 	weightOfSupporter, totalWeight, epochID := a.tangle.WeightProvider.Weight(message)
 
 	a.weightsPerEpoch(branchID).RemoveWeight(epochID, weightOfSupporter/totalWeight)
-	fmt.Println("onBranchSupportRemoved", message.ID())
+	fmt.Println("onBranchSupportRemoved", message.ID(), branchID)
 }
 
 func (a *ApprovalWeightManager) weightOfLargestConflictingBranch(branchID ledgerstate.BranchID, epochID uint64) (weight float64) {
@@ -314,7 +353,6 @@ func (b *BranchWeightPerEpoch) RemoveWeight(epochID uint64, weight float64) (tot
 type SupporterManager struct {
 	Events           *SupporterManagerEvents
 	tangle           *Tangle
-	lastStatements   map[Supporter]*Statement
 	branchSupporters map[ledgerstate.BranchID]*Supporters
 }
 
@@ -326,7 +364,6 @@ func NewSupporterManager(tangle *Tangle) (supporterManager *SupporterManager) {
 			SequenceSupportUpdated: events.NewEvent(sequenceSupportEventCaller),
 		},
 		tangle:           tangle,
-		lastStatements:   make(map[Supporter]*Statement),
 		branchSupporters: make(map[ledgerstate.BranchID]*Supporters),
 	}
 
@@ -352,6 +389,27 @@ func (s *SupporterManager) SupportersOfMarker(marker *markers.Marker) (supporter
 	}
 
 	return
+}
+
+func (s *SupporterManager) MigrateMarkerSupportersToNewBranch(marker *markers.Marker, oldBranchID, newBranchID ledgerstate.BranchID) {
+	supporters, exists := s.branchSupporters[newBranchID]
+	if !exists {
+		supporters = NewSupporters()
+		s.branchSupporters[newBranchID] = supporters
+	}
+
+	supportersOfMarker := s.SupportersOfMarker(marker)
+	if oldBranchID == ledgerstate.MasterBranchID {
+		supportersOfMarker.ForEach(func(supporter Supporter) {
+			supporters.Add(supporter)
+		})
+	}
+
+	s.SupportersOfBranch(oldBranchID).ForEach(func(supporter Supporter) {
+		if supportersOfMarker.Has(supporter) {
+			supporters.Add(supporter)
+		}
+	})
 }
 
 func (s *SupporterManager) updateSequenceSupporters(message *Message) {
@@ -399,19 +457,12 @@ func (s *SupporterManager) addSupportToMarker(marker *markers.Marker, message *M
 }
 
 func (s *SupporterManager) updateBranchSupporters(message *Message) {
-	nodeID := identity.NewID(message.IssuerPublicKey())
-
-	lastStatement, lastStatementExists := s.lastStatements[nodeID]
-	if lastStatementExists && !s.isNewStatement(lastStatement, message) {
-		return
-	}
-	s.lastStatements[nodeID] = s.statementFromMessage(message)
-
-	if lastStatementExists && lastStatement.BranchID == s.lastStatements[nodeID].BranchID {
+	statement, isNewStatement := s.statementFromMessage(message)
+	if !isNewStatement {
 		return
 	}
 
-	s.propagateSupportToBranches(s.lastStatements[nodeID].BranchID, message)
+	s.propagateSupportToBranches(statement.BranchID(), message)
 }
 
 func (s *SupporterManager) propagateSupportToBranches(branchID ledgerstate.BranchID, message *Message) {
@@ -438,6 +489,10 @@ func (s *SupporterManager) isRelevantSupporter(message *Message) bool {
 
 func (s *SupporterManager) addSupportToBranch(branchID ledgerstate.BranchID, message *Message, walk *walker.Walker) {
 	if branchID == ledgerstate.MasterBranchID || !s.isRelevantSupporter(message) {
+		return
+	}
+
+	if _, isNewStatement := s.statementFromMessage(message, branchID); !isNewStatement {
 		return
 	}
 
@@ -468,6 +523,10 @@ func (s *SupporterManager) addSupportToBranch(branchID ledgerstate.BranchID, mes
 }
 
 func (s *SupporterManager) revokeSupportFromBranch(branchID ledgerstate.BranchID, message *Message, walker *walker.Walker) {
+	if _, isNewStatement := s.statementFromMessage(message, branchID); !isNewStatement {
+		return
+	}
+
 	if supporters, exists := s.branchSupporters[branchID]; !exists || !supporters.Delete(identity.NewID(message.IssuerPublicKey())) {
 		return
 	}
@@ -483,27 +542,32 @@ func (s *SupporterManager) revokeSupportFromBranch(branchID ledgerstate.BranchID
 	})
 }
 
-func (s *SupporterManager) isNewStatement(lastStatement *Statement, message *Message) bool {
-	// TODO: FIX FEHL0R
-	return lastStatement.SequenceNumber < message.SequenceNumber()
-}
+func (s *SupporterManager) statementFromMessage(message *Message, optionalBranchID ...ledgerstate.BranchID) (statement *Statement, isNewStatement bool) {
+	nodeID := identity.NewID(message.IssuerPublicKey())
 
-func (s *SupporterManager) statementFromMessage(message *Message) (statement *Statement) {
-	branchID, err := s.tangle.Booker.MessageBranchID(message.ID())
-	if err != nil {
-		// TODO: handle error properly
-		panic(err)
+	var branchID ledgerstate.BranchID
+	if len(optionalBranchID) > 0 {
+		branchID = optionalBranchID[0]
+	} else {
+		var err error
+		branchID, err = s.tangle.Booker.MessageBranchID(message.ID())
+		if err != nil {
+			// TODO: handle error properly
+			panic(err)
+		}
 	}
 
-	if !s.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
-		statement = &Statement{
-			SequenceNumber: message.SequenceNumber(),
-			BranchID:       branchID,
+	s.tangle.Storage.Statement(branchID, nodeID, func() *Statement {
+		return NewStatement(branchID, nodeID)
+	}).Consume(func(consumedStatement *Statement) {
+		statement = consumedStatement
+		// We already have a newer statement for this branchID of this supporter.
+		if !statement.UpdateSequenceNumber(message.SequenceNumber()) {
+			return
 		}
 
-	}) {
-		panic(fmt.Errorf("failed to load MessageMetadata of Message with %s", message.ID()))
-	}
+		isNewStatement = true
+	})
 
 	return
 }
@@ -530,9 +594,187 @@ func sequenceSupportEventCaller(handler interface{}, params ...interface{}) {
 
 // region Statement ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// Statement is a data structure that tracks the latest statement by a Supporter per ledgerstate.BranchID.
 type Statement struct {
-	SequenceNumber uint64
-	BranchID       ledgerstate.BranchID
+	branchID       ledgerstate.BranchID
+	supporter      Supporter
+	sequenceNumber uint64
+
+	sequenceNumberMutex sync.RWMutex
+
+	objectstorage.StorableObjectFlags
+}
+
+// NewStatement creates a new Statement
+func NewStatement(branchID ledgerstate.BranchID, supporter Supporter) (statement *Statement) {
+	statement = &Statement{
+		branchID:  branchID,
+		supporter: supporter,
+	}
+
+	statement.Persist()
+	statement.SetModified()
+
+	return
+}
+
+// StatementFromBytes unmarshals a SequenceSupporters object from a sequence of bytes.
+func StatementFromBytes(bytes []byte) (statement *Statement, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(bytes)
+	if statement, err = StatementFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse SequenceSupporters from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// StatementFromMarshalUtil unmarshals a Statement object using a MarshalUtil (for easier unmarshaling).
+func StatementFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (statement *Statement, err error) {
+	statement = &Statement{}
+	if statement.branchID, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
+		return
+	}
+
+	if statement.supporter, err = identity.IDFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse Supporter from MarshalUtil: %w", err)
+		return
+	}
+
+	if statement.sequenceNumber, err = marshalUtil.ReadUint64(); err != nil {
+		err = xerrors.Errorf("failed to parse sequence number (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+
+	return
+}
+
+// StatementFromObjectStorage restores a Statement object from the object storage.
+func StatementFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
+	if result, _, err = StatementFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
+		err = xerrors.Errorf("failed to parse Statement from bytes: %w", err)
+		return
+	}
+
+	return
+}
+
+// BranchID returns the ledgerstate.BranchID that is being tracked.
+func (s *Statement) BranchID() (branchID ledgerstate.BranchID) {
+	return s.branchID
+}
+
+// Supporter returns the Supporter that is being tracked.
+func (s *Statement) Supporter() (supporter Supporter) {
+	return s.supporter
+}
+
+// UpdateSequenceNumber updates the sequence number of the Statement if it is greater than the currently stored
+// sequence number and returns true if it was updated.
+func (s *Statement) UpdateSequenceNumber(sequenceNumber uint64) (updated bool) {
+	s.sequenceNumberMutex.Lock()
+	defer s.sequenceNumberMutex.Unlock()
+
+	if s.sequenceNumber > sequenceNumber {
+		return false
+	}
+
+	s.sequenceNumber = sequenceNumber
+	updated = true
+	s.SetModified()
+
+	return
+}
+
+// SequenceNumber returns the sequence number of the Statement.
+func (s *Statement) SequenceNumber() (sequenceNumber uint64) {
+	s.sequenceNumberMutex.RLock()
+	defer s.sequenceNumberMutex.RUnlock()
+
+	return sequenceNumber
+}
+
+// Bytes returns a marshaled version of the Statement.
+func (s *Statement) Bytes() (marshaledSequenceSupporters []byte) {
+	return byteutils.ConcatBytes(s.ObjectStorageKey(), s.ObjectStorageValue())
+}
+
+// String returns a human readable version of the Statement.
+func (s *Statement) String() string {
+	return stringify.Struct("Statement",
+		stringify.StructField("branchID", s.BranchID()),
+		stringify.StructField("supporter", s.Supporter()),
+		stringify.StructField("sequenceNumber", s.SequenceNumber()),
+	)
+}
+
+// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
+func (s *Statement) Update(objectstorage.StorableObject) {
+	panic("updates disabled")
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (s *Statement) ObjectStorageKey() []byte {
+	return byteutils.ConcatBytes(s.BranchID().Bytes(), s.Supporter().Bytes())
+}
+
+// ObjectStorageValue marshals the Statement into a sequence of bytes that are used as the value part in the
+// object storage.
+func (s *Statement) ObjectStorageValue() []byte {
+	return marshalutil.New(marshalutil.Uint64Size).
+		WriteUint64(s.SequenceNumber()).
+		Bytes()
+}
+
+// code contract (make sure the struct implements all required methods)
+var _ objectstorage.StorableObject = &Statement{}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region CachedStatement /////////////////////////////////////////////////////////////////////////////////////
+
+// CachedStatement is a wrapper for the generic CachedObject returned by the object storage that overrides the
+// accessor methods with a type-casted one.
+type CachedStatement struct {
+	objectstorage.CachedObject
+}
+
+// Retain marks the CachedObject to still be in use by the program.
+func (c *CachedStatement) Retain() *CachedStatement {
+	return &CachedStatement{c.CachedObject.Retain()}
+}
+
+// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
+func (c *CachedStatement) Unwrap() *Statement {
+	untypedObject := c.Get()
+	if untypedObject == nil {
+		return nil
+	}
+
+	typedObject := untypedObject.(*Statement)
+	if typedObject == nil || typedObject.IsDeleted() {
+		return nil
+	}
+
+	return typedObject
+}
+
+// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
+// exists). It automatically releases the object when the consumer finishes.
+func (c *CachedStatement) Consume(consumer func(statement *Statement), forceRelease ...bool) (consumed bool) {
+	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*Statement))
+	}, forceRelease...)
+}
+
+// String returns a human readable version of the CachedStatement.
+func (c *CachedStatement) String() string {
+	return stringify.Struct("CachedStatement",
+		stringify.StructField("CachedObject", c.Unwrap()),
+	)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -706,7 +948,7 @@ func (s *SequenceSupporters) Supporters(index markers.Index) (supporters *Suppor
 	return
 }
 
-// Bytes returns a marshaled version of the MessageMetadata.
+// Bytes returns a marshaled version of the SequenceSupporters.
 func (s *SequenceSupporters) Bytes() (marshaledSequenceSupporters []byte) {
 	return byteutils.ConcatBytes(s.ObjectStorageKey(), s.ObjectStorageValue())
 }
@@ -737,7 +979,7 @@ func (s *SequenceSupporters) ObjectStorageKey() []byte {
 	return s.sequenceID.Bytes()
 }
 
-// ObjectStorageValue marshals the MessageMetadata into a sequence of bytes that are used as the value part in the
+// ObjectStorageValue marshals the SequenceSupporters into a sequence of bytes that are used as the value part in the
 // object storage.
 func (s *SequenceSupporters) ObjectStorageValue() []byte {
 	s.supportersPerIndexMutex.RLock()

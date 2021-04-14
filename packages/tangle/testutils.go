@@ -31,6 +31,7 @@ type MessageTestFramework struct {
 	options                  *MessageTestFrameworkOptions
 	oldIncreaseIndexCallback markers.IncreaseIndexCallback
 	messagesBookedWG         sync.WaitGroup
+	approvalWeightProcessed  sync.WaitGroup
 }
 
 // NewMessageTestFramework is the constructor of the MessageTestFramework.
@@ -51,8 +52,12 @@ func NewMessageTestFramework(tangle *Tangle, options ...MessageTestFrameworkOpti
 	tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(func(messageID MessageID) {
 		messageTestFramework.messagesBookedWG.Done()
 	}))
+	tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(events.NewClosure(func(messageID MessageID) {
+		messageTestFramework.approvalWeightProcessed.Done()
+	}))
 	tangle.Events.MessageInvalid.Attach(events.NewClosure(func(messageID MessageID) {
 		messageTestFramework.messagesBookedWG.Done()
+		messageTestFramework.approvalWeightProcessed.Done()
 	}))
 
 	return
@@ -99,6 +104,7 @@ func (m *MessageTestFramework) PreventNewMarkers(enabled bool) *MessageTestFrame
 // IssueMessages stores the given Messages in the Storage and triggers the processing by the Tangle.
 func (m *MessageTestFramework) IssueMessages(messageAliases ...string) *MessageTestFramework {
 	m.messagesBookedWG.Add(len(messageAliases))
+	m.approvalWeightProcessed.Add(len(messageAliases))
 
 	for _, messageAlias := range messageAliases {
 		m.tangle.Storage.StoreMessage(m.messagesByAlias[messageAlias])
@@ -110,6 +116,13 @@ func (m *MessageTestFramework) IssueMessages(messageAliases ...string) *MessageT
 // WaitMessagesBooked waits for all Messages to be processed by the Booker.
 func (m *MessageTestFramework) WaitMessagesBooked() *MessageTestFramework {
 	m.messagesBookedWG.Wait()
+
+	return m
+}
+
+// WaitApprovalWeightProcessed waits for all Messages to be processed by the ApprovalWeightManager.
+func (m *MessageTestFramework) WaitApprovalWeightProcessed() *MessageTestFramework {
+	m.approvalWeightProcessed.Wait()
 
 	return m
 }
@@ -127,6 +140,16 @@ func (m *MessageTestFramework) TransactionID(messageAlias string) ledgerstate.Tr
 	}
 
 	return messagePayload.(*ledgerstate.Transaction).ID()
+}
+
+// BranchID returns the BranchID of the Transaction contained in the Message associated with the given alias.
+func (m *MessageTestFramework) BranchID(messageAlias string) ledgerstate.BranchID {
+	messagePayload := m.messagesByAlias[messageAlias].Payload()
+	if messagePayload.Type() != ledgerstate.TransactionType {
+		panic(fmt.Sprintf("Message with alias '%s' does not contain a Transaction", messageAlias))
+	}
+
+	return ledgerstate.NewBranchID(messagePayload.(*ledgerstate.Transaction).ID())
 }
 
 // createGenesisOutputs initializes the Outputs that are used by the MessageTestFramework as the genesis.

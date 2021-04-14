@@ -24,20 +24,21 @@ import (
 
 // Tangle is the central data structure of the IOTA protocol.
 type Tangle struct {
-	Options          *Options
-	Parser           *Parser
-	Storage          *Storage
-	Solidifier       *Solidifier
-	Scheduler        *Scheduler
-	Booker           *Booker
-	ConsensusManager *ConsensusManager
-	TipManager       *TipManager
-	Requester        *Requester
-	MessageFactory   *MessageFactory
-	LedgerState      *LedgerState
-	Utils            *Utils
-	WeightProvider   WeightProvider
-	Events           *Events
+	Options               *Options
+	Parser                *Parser
+	Storage               *Storage
+	Solidifier            *Solidifier
+	Scheduler             *Scheduler
+	Booker                *Booker
+	ApprovalWeightManager *ApprovalWeightManager
+	ConsensusManager      *ConsensusManager
+	TipManager            *TipManager
+	Requester             *Requester
+	MessageFactory        *MessageFactory
+	LedgerState           *LedgerState
+	Utils                 *Utils
+	WeightProvider        WeightProvider
+	Events                *Events
 
 	setupParserOnce sync.Once
 	syncedMutex     sync.RWMutex
@@ -62,6 +63,7 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.Scheduler = NewScheduler(tangle)
 	tangle.LedgerState = NewLedgerState(tangle)
 	tangle.Booker = NewBooker(tangle)
+	tangle.ApprovalWeightManager = NewApprovalWeightManager(tangle)
 	tangle.ConsensusManager = NewConsensusManager(tangle)
 	tangle.Requester = NewRequester(tangle)
 	tangle.TipManager = NewTipManager(tangle)
@@ -99,6 +101,7 @@ func (t *Tangle) Setup() {
 	t.Requester.Setup()
 	t.Scheduler.Setup()
 	t.Booker.Setup()
+	t.ApprovalWeightManager.Setup()
 	t.ConsensusManager.Setup()
 	t.TipManager.Setup()
 
