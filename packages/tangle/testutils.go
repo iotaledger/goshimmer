@@ -50,14 +50,26 @@ func NewMessageTestFramework(tangle *Tangle, options ...MessageTestFrameworkOpti
 	messageTestFramework.createGenesisOutputs()
 
 	tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(func(messageID MessageID) {
-		messageTestFramework.messagesBookedWG.Done()
+		go func() {
+			time.Sleep(20 * time.Millisecond)
+
+			messageTestFramework.messagesBookedWG.Done()
+		}()
 	}))
 	tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(events.NewClosure(func(messageID MessageID) {
-		messageTestFramework.approvalWeightProcessed.Done()
+		go func() {
+			time.Sleep(20 * time.Millisecond)
+
+			messageTestFramework.approvalWeightProcessed.Done()
+		}()
 	}))
 	tangle.Events.MessageInvalid.Attach(events.NewClosure(func(messageID MessageID) {
-		messageTestFramework.messagesBookedWG.Done()
-		messageTestFramework.approvalWeightProcessed.Done()
+		go func() {
+			time.Sleep(20 * time.Millisecond)
+
+			messageTestFramework.messagesBookedWG.Done()
+			messageTestFramework.approvalWeightProcessed.Done()
+		}()
 	}))
 
 	return

@@ -249,6 +249,9 @@ func (c *CachedSequence) Consume(consumer func(sequence *Sequence), forceRelease
 
 // region SequenceID ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+// SequenceIDLength represents the amount of bytes of a marshaled SequenceID.
+const SequenceIDLength = marshalutil.Uint64Size
+
 // SequenceID is the type of the identifier of a Sequence.
 type SequenceID uint64
 

@@ -1,7 +1,6 @@
 package tangle
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -33,7 +32,7 @@ type ApprovalWeightManager struct {
 	Events               *ApprovalWeightManagerEvents
 	tangle               *Tangle
 	supportersManager    *SupporterManager
-	branchWeights        map[ledgerstate.BranchID]*BranchWeightPerEpoch
+	branchWeights        map[ledgerstate.BranchID]float64
 	branchWeightsMutex   sync.RWMutex
 	lastConfirmedMarkers map[markers.SequenceID]markers.Index
 }
@@ -47,7 +46,7 @@ func NewApprovalWeightManager(tangle *Tangle) *ApprovalWeightManager {
 		},
 		tangle:               tangle,
 		supportersManager:    NewSupporterManager(tangle),
-		branchWeights:        make(map[ledgerstate.BranchID]*BranchWeightPerEpoch),
+		branchWeights:        make(map[ledgerstate.BranchID]float64),
 		lastConfirmedMarkers: make(map[markers.SequenceID]markers.Index),
 	}
 }
@@ -69,8 +68,22 @@ func (a *ApprovalWeightManager) UpdateMessageBranch(messageID MessageID, _, newB
 }
 
 func (a *ApprovalWeightManager) UpdateMarkerBranch(marker *markers.Marker, oldBranchID, newBranchID ledgerstate.BranchID) {
-	fmt.Println("HUHU!!! :D")
 	a.supportersManager.MigrateMarkerSupportersToNewBranch(marker, oldBranchID, newBranchID)
+
+	messageID := a.tangle.Booker.MarkersManager.MessageID(marker)
+	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+		epochID := a.tangle.WeightProvider.Epoch(message.IssuingTime())
+
+		weightsOfSupporters, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantSupporters(epochID)
+		branchWeight := float64(0)
+		a.supportersManager.SupportersOfBranch(newBranchID).ForEach(func(supporter Supporter) {
+			branchWeight += weightsOfSupporters[supporter]
+		})
+
+		a.branchWeightsMutex.Lock()
+		a.branchWeights[newBranchID] = branchWeight / totalWeight
+		a.branchWeightsMutex.Unlock()
+	})
 }
 
 func (a *ApprovalWeightManager) ProcessMessage(messageID MessageID) {
@@ -80,12 +93,17 @@ func (a *ApprovalWeightManager) ProcessMessage(messageID MessageID) {
 }
 
 // WeightOfBranch returns the weight of the given Branch that was added by Supporters of the given epoch.
-func (a *ApprovalWeightManager) WeightOfBranch(branchID ledgerstate.BranchID, epochID uint64) (weight float64) {
-	return a.weightsPerEpoch(branchID).Weight(epochID)
+func (a *ApprovalWeightManager) WeightOfBranch(branchID ledgerstate.BranchID) (weight float64) {
+	a.branchWeightsMutex.RLock()
+	defer a.branchWeightsMutex.RUnlock()
+
+	return a.branchWeights[branchID]
 }
 
 func (a *ApprovalWeightManager) WeightOfMarker(marker *markers.Marker, anchorTime time.Time) (weight float64) {
-	activeMana, totalMana := a.tangle.WeightProvider.WeightsOfRelevantSupporters(anchorTime)
+	currentEpoch := a.tangle.WeightProvider.Epoch(anchorTime)
+
+	activeMana, totalMana := a.tangle.WeightProvider.WeightsOfRelevantSupporters(currentEpoch)
 	branchID := a.tangle.Booker.MarkersManager.BranchID(marker)
 	supportersOfMarker := a.supportersManager.SupportersOfMarker(marker)
 	supporterMana := float64(0)
@@ -94,7 +112,6 @@ func (a *ApprovalWeightManager) WeightOfMarker(marker *markers.Marker, anchorTim
 			supporterMana += activeMana[supporter]
 		})
 	} else {
-		fmt.Println(branchID)
 		a.supportersManager.SupportersOfBranch(branchID).ForEach(func(supporter Supporter) {
 			if supportersOfMarker.Has(supporter) {
 				supporterMana += activeMana[supporter]
@@ -105,40 +122,16 @@ func (a *ApprovalWeightManager) WeightOfMarker(marker *markers.Marker, anchorTim
 	return supporterMana / totalMana
 }
 
-func (a *ApprovalWeightManager) weightsPerEpoch(branchID ledgerstate.BranchID) *BranchWeightPerEpoch {
-	a.branchWeightsMutex.RLock()
-	weightsPerEpoch, exists := a.branchWeights[branchID]
-	if exists {
-		a.branchWeightsMutex.RUnlock()
-		return weightsPerEpoch
-	}
-
-	a.branchWeightsMutex.RUnlock()
-	a.branchWeightsMutex.Lock()
-	defer a.branchWeightsMutex.Unlock()
-
-	weightsPerEpoch, exists = a.branchWeights[branchID]
-	if exists {
-		return weightsPerEpoch
-	}
-
-	weightsPerEpoch = NewBranchWeightPerEpoch()
-	a.branchWeights[branchID] = weightsPerEpoch
-
-	return weightsPerEpoch
-}
-
 func (a *ApprovalWeightManager) onSequenceSupportUpdated(marker *markers.Marker, message *Message) {
 	if index, exists := a.lastConfirmedMarkers[marker.SequenceID()]; exists && index >= marker.Index() {
 		return
 	}
 
-	fmt.Println("onSequenceSupportUpdated", marker)
-	activeMana, totalMana := a.tangle.WeightProvider.WeightsOfRelevantSupporters(message.IssuingTime())
+	epoch := a.tangle.WeightProvider.Epoch(message.IssuingTime())
+	activeMana, totalMana := a.tangle.WeightProvider.WeightsOfRelevantSupporters(epoch)
 
 	for i := a.lowestLastConfirmedMarker(marker.SequenceID()); i <= marker.Index(); i++ {
 		currentMarker := markers.NewMarker(marker.SequenceID(), i)
-		fmt.Println(currentMarker)
 		branchID := a.tangle.Booker.MarkersManager.BranchID(currentMarker)
 		if a.tangle.LedgerState.BranchDAG.InclusionState(branchID) != ledgerstate.Confirmed {
 			break
@@ -158,19 +151,14 @@ func (a *ApprovalWeightManager) onSequenceSupportUpdated(marker *markers.Marker,
 			})
 		}
 
-		fmt.Println("weight:", supporterMana/totalMana)
-
 		if supporterMana/totalMana < markerConfirmationThreshold {
 			break
 		}
 
 		a.lastConfirmedMarkers[marker.SequenceID()] = currentMarker.Index()
 
-		fmt.Println("Marker confirmed!!")
 		a.Events.MarkerConfirmed.Trigger(currentMarker)
 	}
-
-	fmt.Println("===============================================")
 }
 
 // lowestLastConfirmedMarker is an internal utility function that returns the last confirmed or lowest marker in a sequence.
@@ -186,35 +174,32 @@ func (a *ApprovalWeightManager) lowestLastConfirmedMarker(sequenceID markers.Seq
 }
 
 func (a *ApprovalWeightManager) onBranchSupportAdded(branchID ledgerstate.BranchID, message *Message) {
-	fmt.Println("onBranchSupportAdded", branchID)
-	if a.tangle.LedgerState.BranchDAG.InclusionState(branchID) == ledgerstate.Confirmed {
-		return
-	}
+	epochID := a.tangle.WeightProvider.Epoch(message.IssuingTime())
+	weightOfSupporter, totalMana := a.tangle.WeightProvider.Weight(epochID, message)
 
-	weightOfSupporter, totalMana, epochID := a.tangle.WeightProvider.Weight(message)
-	fmt.Printf("weightOfSupporter: %0.2f, totalMana: %0.2f\n", weightOfSupporter, totalMana)
+	a.branchWeightsMutex.Lock()
+	a.branchWeights[branchID] += weightOfSupporter / totalMana
+	diff := a.branchWeights[branchID] - a.weightOfLargestConflictingBranch(branchID)
+	a.branchWeightsMutex.Unlock()
 
-	branchWeight := a.weightsPerEpoch(branchID).AddWeight(epochID, weightOfSupporter/totalMana)
-	fmt.Println("BranchWeight:", branchWeight)
-	fmt.Println("weightOfLargestConflictingBranch", a.weightOfLargestConflictingBranch(branchID, epochID))
-	fmt.Println("conf", branchWeight-a.weightOfLargestConflictingBranch(branchID, epochID))
-	diff := branchWeight - a.weightOfLargestConflictingBranch(branchID, epochID)
-	if diff-confirmationThreshold > -0.0005 {
+	if diff-confirmationThreshold > -0.0005 && a.tangle.LedgerState.BranchDAG.InclusionState(branchID) != ledgerstate.Confirmed {
 		a.Events.BranchConfirmed.Trigger(branchID)
 	}
 }
 
 func (a *ApprovalWeightManager) onBranchSupportRemoved(branchID ledgerstate.BranchID, message *Message) {
-	weightOfSupporter, totalWeight, epochID := a.tangle.WeightProvider.Weight(message)
+	epochID := a.tangle.WeightProvider.Epoch(message.IssuingTime())
+	weightOfSupporter, totalWeight := a.tangle.WeightProvider.Weight(epochID, message)
 
-	a.weightsPerEpoch(branchID).RemoveWeight(epochID, weightOfSupporter/totalWeight)
-	fmt.Println("onBranchSupportRemoved", message.ID(), branchID)
+	a.branchWeightsMutex.Lock()
+	a.branchWeights[branchID] -= weightOfSupporter / totalWeight
+	a.branchWeightsMutex.Unlock()
 }
 
-func (a *ApprovalWeightManager) weightOfLargestConflictingBranch(branchID ledgerstate.BranchID, epochID uint64) (weight float64) {
+func (a *ApprovalWeightManager) weightOfLargestConflictingBranch(branchID ledgerstate.BranchID) (weight float64) {
 	a.tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
-		if branchWeight := a.weightsPerEpoch(conflictingBranchID).Weight(epochID); branchWeight > weight {
-			weight = branchWeight
+		if a.branchWeights[conflictingBranchID] > weight {
+			weight = a.branchWeights[conflictingBranchID]
 		}
 	})
 
@@ -237,48 +222,6 @@ func branchIDCaller(handler interface{}, params ...interface{}) {
 
 func markerCaller(handler interface{}, params ...interface{}) {
 	handler.(func(*markers.Marker))(params[0].(*markers.Marker))
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region BranchWeightPerEpoch /////////////////////////////////////////////////////////////////////////////////////////
-
-type BranchWeightPerEpoch struct {
-	weightPerEpoch      map[uint64]float64
-	weightPerEpochMutex sync.RWMutex
-}
-
-func NewBranchWeightPerEpoch() *BranchWeightPerEpoch {
-	return &BranchWeightPerEpoch{
-		weightPerEpoch: make(map[uint64]float64),
-	}
-}
-
-func (b *BranchWeightPerEpoch) Weight(epochID uint64) (totalWeight float64) {
-	b.weightPerEpochMutex.RLock()
-	defer b.weightPerEpochMutex.RUnlock()
-
-	return b.weightPerEpoch[epochID]
-}
-
-func (b *BranchWeightPerEpoch) AddWeight(epochID uint64, weight float64) (totalWeight float64) {
-	b.weightPerEpochMutex.Lock()
-	defer b.weightPerEpochMutex.Unlock()
-
-	totalWeight = b.weightPerEpoch[epochID] + weight
-	b.weightPerEpoch[epochID] = totalWeight
-
-	return
-}
-
-func (b *BranchWeightPerEpoch) RemoveWeight(epochID uint64, weight float64) (totalWeight float64) {
-	b.weightPerEpochMutex.Lock()
-	defer b.weightPerEpochMutex.Unlock()
-
-	totalWeight = b.weightPerEpoch[epochID] - weight
-	b.weightPerEpoch[epochID] = totalWeight
-
-	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -313,7 +256,12 @@ func (s *SupporterManager) ProcessMessage(messageID MessageID) {
 }
 
 func (s *SupporterManager) SupportersOfBranch(branchID ledgerstate.BranchID) (supporters *Supporters) {
-	return s.branchSupporters[branchID]
+	supporters, exists := s.branchSupporters[branchID]
+	if !exists {
+		return NewSupporters()
+	}
+
+	return
 }
 
 func (s *SupporterManager) SupportersOfMarker(marker *markers.Marker) (supporters *Supporters) {
@@ -417,7 +365,7 @@ func (s *SupporterManager) propagateSupportToBranches(branchID ledgerstate.Branc
 }
 
 func (s *SupporterManager) isRelevantSupporter(message *Message) bool {
-	supporterWeight, totalWeight, _ := s.tangle.WeightProvider.Weight(message)
+	supporterWeight, totalWeight := s.tangle.WeightProvider.Weight(s.tangle.WeightProvider.Epoch(message.IssuingTime()), message)
 
 	return supporterWeight/totalWeight >= lowerWeightThreshold
 }
@@ -720,6 +668,12 @@ type Supporter = identity.ID
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// region Epoch ////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type Epoch = uint64
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // region Supporters ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Supporters is a set of node identities that votes for a particular Branch.
@@ -756,6 +710,16 @@ func (s *Supporters) ForEach(callback func(supporter Supporter)) {
 	})
 }
 
+// Clone returns a copy of the Supporters.
+func (s *Supporters) Clone() (clonedSupporters *Supporters) {
+	clonedSupporters = NewSupporters()
+	s.ForEach(func(supporter Supporter) {
+		clonedSupporters.Add(supporter)
+	})
+
+	return
+}
+
 // String returns a human readable version of the Supporters.
 func (s *Supporters) String() string {
 	structBuilder := stringify.StructBuilder("Supporters")
@@ -764,6 +728,71 @@ func (s *Supporters) String() string {
 	})
 
 	return structBuilder.String()
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region SupportersPerEpoch ///////////////////////////////////////////////////////////////////////////////////////////
+
+type SupportersPerEpoch struct {
+	supportersPerEpoch map[Epoch]*Supporters
+}
+
+func NewSupportersPerEpoch() (supportersPerEpoch *SupportersPerEpoch) {
+	return &SupportersPerEpoch{
+		supportersPerEpoch: make(map[Epoch]*Supporters, 0),
+	}
+}
+
+func (s *SupportersPerEpoch) Get(epoch Epoch) (supporters *Supporters, exists bool) {
+	if supporters, exists = s.supportersPerEpoch[epoch]; !exists {
+		supporters = NewSupporters()
+	}
+
+	return
+}
+
+func (s *SupportersPerEpoch) Add(epoch Epoch, supporter Supporter) (added bool) {
+	supporters, supportersExist := s.supportersPerEpoch[epoch]
+	if !supportersExist {
+		previousSupporters, previousSupportersExist := s.supportersPerEpoch[epoch-1]
+		if previousSupportersExist {
+			supporters = previousSupporters.Clone()
+		} else {
+			supporters = NewSupporters()
+		}
+
+		s.supportersPerEpoch[epoch] = supporters
+	}
+
+	return supporters.Add(supporter)
+}
+
+// Delete removes the Supporter from the Set and returns true if it did exist.
+func (s *SupportersPerEpoch) Delete(epoch Epoch, supporter Supporter) (deleted bool) {
+	supporters, supportersExist := s.supportersPerEpoch[epoch]
+	if !supportersExist {
+		return
+	}
+
+	return supporters.Delete(supporter)
+}
+
+// Has returns true if the Supporter exists in the Set.
+func (s *SupportersPerEpoch) Has(epoch Epoch, supporter Supporter) (has bool) {
+	supporters, supportersExist := s.supportersPerEpoch[epoch]
+	if !supportersExist {
+		return
+	}
+
+	return supporters.Has(supporter)
+}
+
+// ForEach iterates through the Epochs and calls the callback for every element.
+func (s *SupportersPerEpoch) ForEach(callback func(epoch Epoch, supporters *Supporters)) {
+	for epoch, supporters := range s.supportersPerEpoch {
+		callback(epoch, supporters)
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

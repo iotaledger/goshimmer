@@ -55,6 +55,12 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 	cachedMessageMetadata := messagelayer.Tangle().Storage.MessageMetadata(messageID)
 	defer cachedMessageMetadata.Release()
 	messageMetadata := cachedMessageMetadata.Unwrap()
+
+	branchID, err := messagelayer.Tangle().Booker.MessageBranchID(messageID)
+	if err != nil {
+		branchID = ledgerstate.BranchID{}
+	}
+
 	t := &ExplorerMessage{
 		ID:                      messageID.Base58(),
 		SolidificationTimestamp: messageMetadata.SolidificationTime().Unix(),
@@ -67,7 +73,7 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		StrongApprovers:         messagelayer.Tangle().Utils.ApprovingMessageIDs(messageID, tangle.StrongApprover).ToStrings(),
 		WeakApprovers:           messagelayer.Tangle().Utils.ApprovingMessageIDs(messageID, tangle.WeakApprover).ToStrings(),
 		Solid:                   messageMetadata.IsSolid(),
-		BranchID:                messageMetadata.BranchID().Base58(),
+		BranchID:                branchID.Base58(),
 		Scheduled:               messageMetadata.Scheduled(),
 		Booked:                  messageMetadata.IsBooked(),
 		Eligible:                messageMetadata.IsEligible(),
