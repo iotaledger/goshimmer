@@ -38,10 +38,14 @@ var FPCParameters = struct {
 	// QuerySampleSize defines how many nodes will be queried each round.
 	QuerySampleSize int `default:"21" usage:"Size of the voting quorum (k)"`
 
-	// TotalRoundsFinalization The amount of rounds a vote context's opinion needs to stay the same to be considered final. Also called 'l'.
-	TotalRoundsFinalization int `default:"10" usage:"The number of rounds opinion needs to stay the same to become final (l)."`
+	// TotalRoundsFinalization defines the amount of rounds a vote context's opinion needs to stay the same to be considered final. Also called 'l'.
+	TotalRoundsFinalization int `default:"10" usage:"The number of rounds opinion needs to stay the same to become final (l)"`
 
-	// DRNGInstanceID
+	// DRNGInstanceID the instanceID of the dRNG to be used with FPC
+	DRNGInstanceID uint32 `default:"1339" usage:"The instanceID of the dRNG to be used with FPC"`
+
+	// AwaitOffset defines the max amount of time (in seconds) to wait for the next dRNG round after the excected time has elapsed.
+	AwaitOffset int `default:"3" usage:"The max amount of time (in seconds) to wait for the next dRNG round after the excected time has elapsed"`
 }{}
 
 // StatementParameters contains the configuration parameters used by the FPC statements in the tangle.

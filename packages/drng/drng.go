@@ -28,6 +28,15 @@ func New(config map[uint32][]Option) *DRNG {
 	return drng
 }
 
+// LoadState returns the pointer to the state associated to the given instanceID.
+func (d *DRNG) LoadState(instanceID uint32) *State {
+	s, ok := d.State[instanceID]
+	if !ok {
+		return nil
+	}
+	return s
+}
+
 // Options define state options of a DRNG.
 type Options struct {
 	// The initial committee of the DRNG.

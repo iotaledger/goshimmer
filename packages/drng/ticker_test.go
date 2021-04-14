@@ -23,8 +23,9 @@ func TestTicker(t *testing.T) {
 	defaultValue := 0.6
 	awaitOffset := 3
 	stateTest := NewState(SetCommittee(dummyCommittee()), SetRandomness(testRandomness(time.Now())))
+	stateFunc := func() *State { return stateTest }
 
-	ticker := NewTicker(stateTest, int64(resolution), defaultValue, awaitOffset)
+	ticker := NewTicker(stateFunc, int64(resolution), defaultValue, awaitOffset)
 
 	ticker.Start()
 	defer ticker.Stop()

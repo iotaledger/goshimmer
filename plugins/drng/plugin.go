@@ -68,4 +68,6 @@ func configureEvents() {
 			log.Debug("New randomness: ", instance.State[parsedPayload.InstanceID].Randomness())
 		})
 	}))
+
+	messagelayer.SetDRNGState(Instance().LoadState(messagelayer.FPCParameters.DRNGInstanceID))
 }

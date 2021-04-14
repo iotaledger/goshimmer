@@ -13,7 +13,7 @@ const (
 
 // Ticker holds a channel that delivers randomness at intervals.
 type Ticker struct {
-	dRNGState    *State
+	dRNGState    func() *State
 	dRNGTicker   *time.Ticker
 	resolution   int64 // the interval at which the ticker should tick (in seconds).
 	defaultValue float64
@@ -23,7 +23,7 @@ type Ticker struct {
 }
 
 // NewTicker returns a pointer to a new Ticker.
-func NewTicker(dRNGState *State, resolution int64, defaultValue float64, awaitOffset int) *Ticker {
+func NewTicker(dRNGState func() *State, resolution int64, defaultValue float64, awaitOffset int) *Ticker {
 	return &Ticker{
 		dRNGState:    dRNGState,
 		resolution:   resolution,
@@ -73,8 +73,8 @@ func (t *Ticker) send() {
 	if t.dRNGState != nil {
 		// wait for next randomness from dRNG
 		for i := 0; i < t.awaitOffset*granularityCheck; i++ {
-			if clock.Since(t.dRNGState.Randomness().Timestamp) < time.Duration(t.awaitOffset)*time.Second {
-				randomness = t.dRNGState.Randomness().Float64()
+			if clock.Since(t.dRNGState().Randomness().Timestamp) < time.Duration(t.awaitOffset)*time.Second {
+				randomness = t.dRNGState().Randomness().Float64()
 				t.dRNGTicker.Reset(time.Duration(t.resolution) * time.Second)
 				break
 			}

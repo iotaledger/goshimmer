@@ -20,10 +20,10 @@ import (
 
 	clockPkg "github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
+	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/metrics"
-	"github.com/iotaledger/goshimmer/packages/prng"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
@@ -49,6 +49,10 @@ var (
 	voterServer         *votenet.VoterServer
 	registry            *statement.Registry
 	registryOnce        sync.Once
+	dRNGState           *drng.State
+	dRNGStateMutex      sync.RWMutex
+
+	// dRNGState := drng.Instance().LoadState(FPCParameters.DRNGInstanceID)
 )
 
 // ConsensusPlugin returns the consensus plugin.
@@ -175,13 +179,14 @@ func runFPC(plugin *node.Plugin) {
 	if err := daemon.BackgroundWorker("FPCRoundsInitiator", func(shutdownSignal <-chan struct{}) {
 		plugin.LogInfof("Started FPC round initiator")
 		defer plugin.LogInfof("Stopped FPC round initiator")
-		unixTsPRNG := prng.NewUnixTimestampPRNG(FPCParameters.RoundInterval)
-		unixTsPRNG.Start()
-		defer unixTsPRNG.Stop()
+
+		dRNGTicker := drng.NewTicker(DRNGState, FPCParameters.RoundInterval, fpc.DefaultParameters().EndingRoundsFixedThreshold, FPCParameters.AwaitOffset)
+		dRNGTicker.Start()
+		defer dRNGTicker.Stop()
 	exit:
 		for {
 			select {
-			case r := <-unixTsPRNG.C():
+			case r := <-dRNGTicker.C():
 				if err := voter.Round(r); err != nil {
 					plugin.LogWarnf("unable to execute FPC round: %s", err)
 				}
@@ -637,3 +642,17 @@ func readStatement(messageID tangle.MessageID) {
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// SetDRNGState sets the dRNGState to the given state.
+func SetDRNGState(state *drng.State) {
+	dRNGStateMutex.Lock()
+	defer dRNGStateMutex.Unlock()
+	dRNGState = state
+}
+
+// DRNGState returns the dRNGState.
+func DRNGState() *drng.State {
+	dRNGStateMutex.RLock()
+	defer dRNGStateMutex.RUnlock()
+	return dRNGState
+}
