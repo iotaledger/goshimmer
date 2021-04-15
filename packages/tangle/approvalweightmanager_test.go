@@ -31,6 +31,23 @@ func TestStatementMarshalling(t *testing.T) {
 	assert.Equal(t, statement.SequenceNumber(), statementFromBytes.SequenceNumber())
 }
 
+func TestBranchSupportersMarshalling(t *testing.T) {
+	branchSupporters := NewBranchSupporters(ledgerstate.BranchIDFromRandomness())
+
+	for i := 0; i < 100; i++ {
+		branchSupporters.AddSupporter(identity.GenerateIdentity().ID())
+	}
+
+	branchSupportersFromBytes, _, err := BranchSupportersFromBytes(branchSupporters.Bytes())
+	require.NoError(t, err)
+
+	// verify that branchSupportersFromBytes has all supporters from branchSupporters
+	assert.Equal(t, branchSupporters.Supporters().Size(), branchSupportersFromBytes.Supporters().Size())
+	branchSupporters.Supporters().ForEach(func(supporter Supporter) {
+		assert.True(t, branchSupportersFromBytes.supporters.Has(supporter))
+	})
+}
+
 func TestSupporterManager_updateBranchSupporters(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()
 
@@ -632,36 +649,6 @@ func issueAndValidateMessageApproval(t *testing.T, messageAlias string, eventMoc
 	eventMock.AssertExpectations(t)
 }
 
-func validateApprovalWeightManagerEvents(t *testing.T, approvalWeightManager *ApprovalWeightManager, expectedProcessedMessageIDs MessageIDs, expectedConfirmedMarkers []*markers.Marker, expectedConfirmedBranches []ledgerstate.BranchID, callback func()) {
-	var actualProcessedMessageIDs MessageIDs
-	messageProcessedEventHandler := events.NewClosure(func(messageID MessageID) {
-		actualProcessedMessageIDs = append(actualProcessedMessageIDs, messageID)
-	})
-	approvalWeightManager.Events.MessageProcessed.Attach(messageProcessedEventHandler)
-
-	var actualConfirmedMarkers []*markers.Marker
-	markerConfirmedEventHandler := events.NewClosure(func(marker *markers.Marker) {
-		actualConfirmedMarkers = append(actualConfirmedMarkers, marker)
-	})
-	approvalWeightManager.Events.MarkerConfirmed.Attach(markerConfirmedEventHandler)
-
-	var actualConfirmedBranches []ledgerstate.BranchID
-	branchConfirmedEventHandler := events.NewClosure(func(branchID ledgerstate.BranchID) {
-		actualConfirmedBranches = append(actualConfirmedBranches, branchID)
-	})
-	approvalWeightManager.Events.BranchConfirmed.Attach(branchConfirmedEventHandler)
-
-	callback()
-
-	assert.ElementsMatch(t, expectedProcessedMessageIDs, actualProcessedMessageIDs)
-	assert.ElementsMatch(t, expectedConfirmedMarkers, actualConfirmedMarkers)
-	assert.ElementsMatch(t, expectedConfirmedBranches, actualConfirmedBranches)
-
-	approvalWeightManager.Events.MessageProcessed.Detach(messageProcessedEventHandler)
-	approvalWeightManager.Events.MarkerConfirmed.Detach(markerConfirmedEventHandler)
-	approvalWeightManager.Events.BranchConfirmed.Detach(branchConfirmedEventHandler)
-}
-
 func validateMarkerSupporters(t *testing.T, approvalWeightManager *SupporterManager, markersMap map[string]*markers.StructureDetails, expectedSupporters map[string][]*identity.Identity) {
 	for markerAlias, expectedSupportersOfMarker := range expectedSupporters {
 		supporters := approvalWeightManager.SupportersOfMarker(markersMap[markerAlias].PastMarkers.Marker())
@@ -702,10 +689,10 @@ func createBranch(t *testing.T, tangle *Tangle, branchAlias string, branchIDs ma
 	ledgerstate.RegisterBranchIDAlias(branchID, branchAlias)
 }
 
-func validateStatementResults(t *testing.T, approvalWeightManager *SupporterManager, branchIDs map[string]ledgerstate.BranchID, supporter Supporter, expectedResults map[string]bool) {
+func validateStatementResults(t *testing.T, supporterManager *SupporterManager, branchIDs map[string]ledgerstate.BranchID, supporter Supporter, expectedResults map[string]bool) {
 	for branchIDString, expectedResult := range expectedResults {
 		var actualResult bool
-		supporters := approvalWeightManager.branchSupporters[branchIDs[branchIDString]]
+		supporters := supporterManager.SupportersOfBranch(branchIDs[branchIDString])
 		if supporters != nil {
 			actualResult = supporters.Has(supporter)
 		}
