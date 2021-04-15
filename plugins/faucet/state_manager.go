@@ -262,7 +262,7 @@ func (s *StateManager) FulFillFundingRequest(requestMsg *tangle.Message) (m *tan
 
 // prepareFaucetTransaction prepares a funding faucet transaction that spends fundingOutput to destAddr and pledges
 // mana to pledgeID.
-func (s *StateManager) prepareFaucetTransaction(destAddr ledgerstate.Address, fundingOutput *FaucetOutput, accessManaPledgeID identity.ID, consensusManaPledgeID identity.ID) (tx *ledgerstate.Transaction) {
+func (s *StateManager) prepareFaucetTransaction(destAddr ledgerstate.Address, fundingOutput *FaucetOutput, accessManaPledgeID, consensusManaPledgeID identity.ID) (tx *ledgerstate.Transaction) {
 	inputs := ledgerstate.NewInputs(ledgerstate.NewUTXOInput(fundingOutput.ID))
 
 	outputs := ledgerstate.NewOutputs(ledgerstate.NewSigLockedColoredOutput(

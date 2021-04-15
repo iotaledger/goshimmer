@@ -39,7 +39,7 @@ var (
 )
 
 // NewRequest is the constructor of a Request and creates a new Request object from the given details.
-func NewRequest(addr ledgerstate.Address, powTarget int, accessManaPledgeID identity.ID, consensusManaPledgeID identity.ID) (*Request, error) {
+func NewRequest(addr ledgerstate.Address, powTarget int, accessManaPledgeID, consensusManaPledgeID identity.ID) (*Request, error) {
 	p := &Request{
 		payloadType:           Type,
 		address:               addr,

@@ -4,14 +4,15 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/iotaledger/hive.go/identity"
+	"github.com/labstack/echo"
+	"golang.org/x/xerrors"
+
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/labstack/echo"
-	"golang.org/x/xerrors"
 )
 
 // ReqMsg defines the struct of the faucet request message ID.
@@ -44,7 +45,6 @@ func setupFaucetRoutes(routeGroup *echo.Group) {
 			if err != nil {
 				return xerrors.Errorf("faucet request consensus mana node ID invalid: %s: %w", consensusManaStr, err)
 			}
-
 		}
 
 		t, err := sendFaucetReq(addr, accessMana, consensusMana)
@@ -58,7 +58,7 @@ func setupFaucetRoutes(routeGroup *echo.Group) {
 
 var fundingReqMu = sync.Mutex{}
 
-func sendFaucetReq(addr ledgerstate.Address, accessManaNodeID identity.ID, consensusManaNodeID identity.ID) (res *ReqMsg, err error) {
+func sendFaucetReq(addr ledgerstate.Address, accessManaNodeID, consensusManaNodeID identity.ID) (res *ReqMsg, err error) {
 	fundingReqMu.Lock()
 	defer fundingReqMu.Unlock()
 	faucetPayload, err := faucet.NewRequest(addr, config.Node().Int(faucet.CfgFaucetPoWDifficulty), accessManaNodeID, consensusManaNodeID)
