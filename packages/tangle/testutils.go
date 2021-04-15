@@ -152,9 +152,25 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 		genesisOutputs[addressWallet.address] = ledgerstate.NewColoredBalances(coloredBalances)
 	}
 
-	m.tangle.LedgerState.LoadSnapshot(map[ledgerstate.TransactionID]map[ledgerstate.Address]*ledgerstate.ColoredBalances{
-		ledgerstate.GenesisTransactionID: genesisOutputs,
-	})
+	outputs := []ledgerstate.Output{}
+
+	for address, balance := range genesisOutputs {
+		outputs = append(outputs, ledgerstate.NewSigLockedColoredOutput(balance, address))
+	}
+
+	snapshot := &ledgerstate.Snapshot{
+		Transactions: []*ledgerstate.TransactionEssence{
+			ledgerstate.NewTransactionEssence(
+				0,
+				time.Now(),
+				identity.ID{},
+				identity.ID{},
+				ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
+				ledgerstate.NewOutputs(outputs...),
+			)},
+	}
+
+	m.tangle.LedgerState.LoadSnapshot(snapshot)
 
 	for alias := range m.options.genesisOutputs {
 		m.tangle.LedgerState.utxoDAG.AddressOutputMapping(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *ledgerstate.AddressOutputMapping) {
