@@ -4,15 +4,16 @@ import (
 	"context"
 	"crypto"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/pow"
-	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/pow"
+	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 
 	// Only want to use init
 	_ "golang.org/x/crypto/blake2b"
@@ -83,13 +84,6 @@ func FromBytes(bytes []byte) (result *Request, consumedBytes int, err error) {
 		err = xerrors.Errorf("failed to unmarshal address of faucet request (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-
-	result.nonce, err = marshalUtil.ReadUint64()
-	if err != nil {
-		err = xerrors.Errorf("failed to unmarshal nonce of faucet request (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-
 	result.accessManaPledgeID, err = identity.IDFromMarshalUtil(marshalUtil)
 	if err != nil {
 		err = xerrors.Errorf("failed to unmarshal access mana pledge ID of faucet request (%v): %w", err, cerrors.ErrParseBytesFailed)
@@ -98,6 +92,11 @@ func FromBytes(bytes []byte) (result *Request, consumedBytes int, err error) {
 	result.consensusManaPledgeID, err = identity.IDFromMarshalUtil(marshalUtil)
 	if err != nil {
 		err = xerrors.Errorf("failed to unmarshal consensus mana pledge ID of faucet request (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	result.nonce, err = marshalUtil.ReadUint64()
+	if err != nil {
+		err = xerrors.Errorf("failed to unmarshal nonce of faucet request (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -131,12 +130,12 @@ func (p *Request) Bytes() []byte {
 	marshalUtil := marshalutil.New()
 
 	// marshal the payload specific information
-	marshalUtil.WriteUint32(payload.TypeLength + uint32(ledgerstate.AddressLength+pow.NonceBytes+identity.IDLength+identity.IDLength))
+	marshalUtil.WriteUint32(payload.TypeLength + uint32(ledgerstate.AddressLength+identity.IDLength+identity.IDLength+pow.NonceBytes))
 	marshalUtil.WriteBytes(p.Type().Bytes())
 	marshalUtil.WriteBytes(p.address.Bytes())
-	marshalUtil.WriteUint64(p.nonce)
 	marshalUtil.WriteBytes(p.accessManaPledgeID.Bytes())
 	marshalUtil.WriteBytes(p.consensusManaPledgeID.Bytes())
+	marshalUtil.WriteUint64(p.nonce)
 
 	// return result
 	return marshalUtil.Bytes()
