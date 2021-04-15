@@ -76,7 +76,7 @@ func configureAutopeering() {
 	peerSel := autopeering.Selection()
 	peerSel.Events().Dropped.Attach(events.NewClosure(func(ev *selection.DroppedEvent) {
 		go func() {
-			if err := mgr.DropNeighbor(ev.DroppedID); err != nil {
+			if err := mgr.DropNeighbor(ev.DroppedID,gossip.NeighborsGroupAuto); err != nil {
 				log.Debugw("error dropping neighbor", "id", ev.DroppedID, "err", err)
 			}
 		}()
@@ -86,7 +86,7 @@ func configureAutopeering() {
 			return // ignore rejected peering
 		}
 		go func() {
-			if err := mgr.AddInbound(ev.Peer); err != nil {
+			if err := mgr.AddInbound(ev.Peer,gossip.NeighborsGroupAuto); err != nil {
 				log.Debugw("error adding inbound", "id", ev.Peer.ID(), "err", err)
 			}
 		}()
@@ -96,17 +96,17 @@ func configureAutopeering() {
 			return // ignore rejected peering
 		}
 		go func() {
-			if err := mgr.AddOutbound(ev.Peer); err != nil {
+			if err := mgr.AddOutbound(ev.Peer, gossip.NeighborsGroupAuto); err != nil {
 				log.Debugw("error adding outbound", "id", ev.Peer.ID(), "err", err)
 			}
 		}()
 	}))
 
 	// notify the autopeering on connection loss
-	mgr.Events().ConnectionFailed.Attach(events.NewClosure(func(p *peer.Peer, _ error) {
+	mgr.NeighborsEvents(gossip.NeighborsGroupAuto).ConnectionFailed.Attach(events.NewClosure(func(p *peer.Peer, _ error) {
 		peerSel.RemoveNeighbor(p.ID())
 	}))
-	mgr.Events().NeighborRemoved.Attach(events.NewClosure(func(n *gossip.Neighbor) {
+	mgr.NeighborsEvents(gossip.NeighborsGroupAuto).NeighborRemoved.Attach(events.NewClosure(func(n *gossip.Neighbor) {
 		peerSel.RemoveNeighbor(n.ID())
 	}))
 }
@@ -116,13 +116,13 @@ func configureLogging() {
 	mgr := Manager()
 
 	// log the gossip events
-	mgr.Events().ConnectionFailed.Attach(events.NewClosure(func(p *peer.Peer, err error) {
+	mgr.NeighborsEvents(gossip.NeighborsGroupAuto).ConnectionFailed.Attach(events.NewClosure(func(p *peer.Peer, err error) {
 		log.Infof("Connection to neighbor %s / %s failed: %s", gossip.GetAddress(p), p.ID(), err)
 	}))
-	mgr.Events().NeighborAdded.Attach(events.NewClosure(func(n *gossip.Neighbor) {
+	mgr.NeighborsEvents(gossip.NeighborsGroupAuto).NeighborAdded.Attach(events.NewClosure(func(n *gossip.Neighbor) {
 		log.Infof("Neighbor added: %s / %s", gossip.GetAddress(n.Peer), n.ID())
 	}))
-	mgr.Events().NeighborRemoved.Attach(events.NewClosure(func(n *gossip.Neighbor) {
+	mgr.NeighborsEvents(gossip.NeighborsGroupAuto).NeighborRemoved.Attach(events.NewClosure(func(n *gossip.Neighbor) {
 		log.Infof("Neighbor removed: %s / %s", gossip.GetAddress(n.Peer), n.ID())
 	}))
 }

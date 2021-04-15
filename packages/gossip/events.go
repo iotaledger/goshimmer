@@ -7,14 +7,25 @@ import (
 
 // Events defines all the events related to the gossip protocol.
 type Events struct {
+	// Fired when a new message was received via the gossip protocol.
+	MessageReceived *events.Event
+}
+
+type NeighborsEvents struct {
 	// Fired when an attempt to build a connection to a neighbor has failed.
 	ConnectionFailed *events.Event
 	// Fired when a neighbor connection has been established.
 	NeighborAdded *events.Event
 	// Fired when a neighbor has been removed.
 	NeighborRemoved *events.Event
-	// Fired when a new message was received via the gossip protocol.
-	MessageReceived *events.Event
+}
+
+func NewNeighborsEvents() NeighborsEvents {
+	return NeighborsEvents{
+		ConnectionFailed: events.NewEvent(peerAndErrorCaller),
+		NeighborAdded:    events.NewEvent(neighborCaller),
+		NeighborRemoved:  events.NewEvent(neighborCaller),
+	}
 }
 
 // MessageReceivedEvent holds data about a message received event.

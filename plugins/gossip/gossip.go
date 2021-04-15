@@ -103,7 +103,7 @@ func addNeighborsFromConfigToManager(mgr *gossip.Manager) {
 	} else if len(manualNeighbors) != 0 {
 		log.Infow("Pass manual neighbors list to gossip layer", "neighbors", manualNeighbors)
 		for _, neighbor := range manualNeighbors {
-			if err := mgr.AddOutbound(neighbor, gossip.WithNeighborsGroup(gossip.NeighborsGroupManual)); err != nil {
+			if err := mgr.AddOutbound(neighbor, gossip.NeighborsGroupManual); err != nil {
 				log.Errorw("Gossip failed to add manual neighbor, skipping that neighbor", "err", err)
 			}
 		}

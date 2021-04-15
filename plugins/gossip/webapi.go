@@ -30,7 +30,7 @@ func addNeighborsHandler(c echo.Context) error {
 	}
 	var addErr error
 	for _, neighbor := range neighbors {
-		if err := mgr.AddOutbound(neighbor, gossip.WithNeighborsGroup(gossip.NeighborsGroupManual)); err != nil {
+		if err := mgr.AddOutbound(neighbor, gossip.NeighborsGroupManual); err != nil {
 			log.Errorw(
 				"Can't add neighbor from the HTTP request to gossip manually, skipping that neighbor",
 				"err", err, "neighbor", neighbor,
@@ -83,7 +83,7 @@ func dropNeighbor(ntd *neighborToDrop) error {
 		return xerrors.Errorf("failed to parse public key from HTTP request: %w", err)
 	}
 	id := identity.NewID(publicKey)
-	if err := mgr.DropNeighbor(id, gossip.WithNeighborsGroup(gossip.NeighborsGroupManual)); err != nil {
+	if err := mgr.DropNeighbor(id, gossip.NeighborsGroupManual); err != nil {
 		return xerrors.Errorf("gossip layer failed to drop the neighbor: %w", err)
 	}
 	return nil
