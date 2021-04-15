@@ -60,8 +60,8 @@ func (t *Ticker) Start() {
 
 // Stop stops the Ticker.
 func (t *Ticker) Stop() {
-	t.dRNGTicker.Stop()
 	t.exit <- struct{}{}
+	t.dRNGTicker.Stop()
 }
 
 // C returns the channel from which random generated numbers can be consumed from.

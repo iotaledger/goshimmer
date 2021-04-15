@@ -182,7 +182,6 @@ func runFPC(plugin *node.Plugin) {
 
 		dRNGTicker := drng.NewTicker(DRNGState, FPCParameters.RoundInterval, fpc.DefaultParameters().EndingRoundsFixedThreshold, FPCParameters.AwaitOffset)
 		dRNGTicker.Start()
-		defer dRNGTicker.Stop()
 	exit:
 		for {
 			select {
@@ -191,6 +190,7 @@ func runFPC(plugin *node.Plugin) {
 					plugin.LogWarnf("unable to execute FPC round: %s", err)
 				}
 			case <-shutdownSignal:
+				dRNGTicker.Stop()
 				break exit
 			}
 		}
