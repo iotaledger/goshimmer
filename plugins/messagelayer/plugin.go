@@ -52,6 +52,12 @@ func Plugin() *node.Plugin {
 }
 
 func configure(plugin *node.Plugin) {
+	// TODO: get from params
+	rateSetterEnabled = true
+	rateSetterBeta = 0.7
+	rateSetterInitial = 20000
+	schedulerRate = time.Second / 200
+
 	Tangle().Events.Error.Attach(events.NewClosure(func(err error) {
 		plugin.LogError(err)
 	}))
@@ -86,12 +92,6 @@ func configure(plugin *node.Plugin) {
 
 	fcob.LikedThreshold = time.Duration(Parameters.FCOB.AverageNetworkDelay) * time.Second
 	fcob.LocallyFinalizedThreshold = time.Duration(Parameters.FCOB.AverageNetworkDelay*2) * time.Second
-
-	// TODO: get from params
-	rateSetterEnabled = true
-	rateSetterBeta = 0.7
-	rateSetterInitial = 1500
-	schedulerRate = time.Second / 200
 }
 
 func run(*node.Plugin) {
@@ -126,7 +126,7 @@ func Tangle() *tangle.Tangle {
 				RateSetterInitial:           &rateSetterInitial,
 				RateSetterBeta:              &rateSetterBeta,
 				RateSetterEnabled:           &rateSetterEnabled,
-				Rate:                        &schedulerRate,
+				Rate:                        schedulerRate,
 				AccessManaRetrieveFunc:      accessManaRetriever,
 				TotalAccessManaRetrieveFunc: totalAccessManaRetriever,
 			}),
@@ -134,7 +134,6 @@ func Tangle() *tangle.Tangle {
 
 		tangleInstance.Setup()
 	})
-
 	return tangleInstance
 }
 
@@ -159,7 +158,7 @@ func ConsensusMechanism() *fcob.ConsensusMechanism {
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 func accessManaRetriever(nodeID identity.ID) float64 {
-	nodeMana, _, err := GetAccessMana(nodeID)
+	nodeMana, _, err := GetAccessManaQueryAllowed(nodeID)
 	if err != nil {
 		return 0
 	}
@@ -167,7 +166,7 @@ func accessManaRetriever(nodeID identity.ID) float64 {
 }
 
 func totalAccessManaRetriever() float64 {
-	totalMana, _, err := GetTotalMana(mana.AccessMana)
+	totalMana, _, err := GetTotalManaQueryAllowed(mana.AccessMana)
 	if err != nil {
 		return 0
 	}

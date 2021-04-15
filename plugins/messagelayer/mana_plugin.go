@@ -314,11 +314,8 @@ func GetManaMap(manaType mana.Type, optionalUpdateTime ...time.Time) (mana.NodeM
 	return baseManaVectors[manaType].GetManaMap(optionalUpdateTime...)
 }
 
-// GetTotalMana returns sum of mana of all nodes in the network.
-func GetTotalMana(manaType mana.Type, optionalUpdateTime ...time.Time) (float64, time.Time, error) {
-	if !QueryAllowed() {
-		return 0, time.Now(), ErrQueryNotAllowed
-	}
+// GetTotalManaQueryAllowed returns sum of mana of all nodes in the network without checking if the node is synced.
+func GetTotalManaQueryAllowed(manaType mana.Type, optionalUpdateTime ...time.Time) (float64, time.Time, error) {
 	manaMap, updateTime, err := baseManaVectors[manaType].GetManaMap(optionalUpdateTime...)
 	if err != nil {
 		return 0, time.Now(), err
@@ -329,6 +326,11 @@ func GetTotalMana(manaType mana.Type, optionalUpdateTime ...time.Time) (float64,
 		sum += m
 	}
 	return sum, updateTime, nil
+}
+
+// GetAccessManaQueryAllowed returns the access mana of the node specified without checking if the node is synced.
+func GetAccessManaQueryAllowed(nodeID identity.ID, optionalUpdateTime ...time.Time) (float64, time.Time, error) {
+	return baseManaVectors[mana.AccessMana].GetMana(nodeID, optionalUpdateTime...)
 }
 
 // GetAccessMana returns the access mana of the node specified.

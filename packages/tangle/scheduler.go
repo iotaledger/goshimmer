@@ -39,8 +39,6 @@ const (
 )
 
 var (
-	// MaxQueueWeight is the maximum mana-scaled inbox size; >= minMessageSize / minAccessMana
-	MaxQueueWeight = 0.0
 	// Beta is the multiplicative decrease
 	Beta = 0.7
 	// 	RateSetterEnabled defines if the rater setter is enabled or not.
@@ -48,7 +46,9 @@ var (
 	// Rate is the minimum time interval between two scheduled messages, i.e. 1s / MPS
 	Rate = time.Second / 200
 	// Initial is the rate in bytes per second
-	Initial = 1500.0
+	Initial = 20000.0
+	// MaxQueueWeight is the maximum mana-scaled inbox size; >= minMessageSize / minAccessMana
+	MaxQueueWeight = 1024.0
 )
 
 var (
@@ -68,12 +68,13 @@ type TotalAccessManaRetrieveFunc func() float64
 
 // SchedulerParams defines the scheduler config parameters.
 type SchedulerParams struct {
+	MaxQueueWeight              *float64
 	RateSetterInitial           *float64
 	RateSetterBeta              *float64
 	AccessManaRetrieveFunc      func(identity.ID) float64
 	TotalAccessManaRetrieveFunc func() float64
 	RateSetterEnabled           *bool
-	Rate                        *time.Duration
+	Rate                        time.Duration
 }
 
 // Scheduler is a Tangle component that takes care of scheduling the messages that shall be booked.
@@ -121,16 +122,19 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 		}
 	}
 
-	MaxQueueWeight = MaxBufferSize / tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc()
 	if tangle.Options.SchedulerParams.RateSetterBeta != nil {
 		Beta = *tangle.Options.SchedulerParams.RateSetterBeta
 	}
 	if tangle.Options.SchedulerParams.RateSetterEnabled != nil {
 		RateSetterEnabled = *tangle.Options.SchedulerParams.RateSetterEnabled
 	}
-	if tangle.Options.SchedulerParams.Rate != nil {
-		Rate = *tangle.Options.SchedulerParams.Rate
+	if tangle.Options.SchedulerParams.Rate > time.Duration(0) {
+		Rate = tangle.Options.SchedulerParams.Rate
 	}
+	if tangle.Options.SchedulerParams.MaxQueueWeight != nil {
+		MaxQueueWeight = *tangle.Options.SchedulerParams.MaxQueueWeight
+	}
+
 	scheduler := &Scheduler{
 		Events: &SchedulerEvents{
 			MessageScheduled: events.NewEvent(MessageIDCaller),

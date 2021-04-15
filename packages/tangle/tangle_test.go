@@ -30,10 +30,11 @@ import (
 
 var (
 	rateSetterEnabled = false
-	rate              = time.Second / 10000
+	maxQueueWeight    = 1024.0 * 1024.0
 	schedulerParams   = SchedulerParams{
 		RateSetterEnabled:           &rateSetterEnabled,
-		Rate:                        &rate,
+		MaxQueueWeight:              &maxQueueWeight,
+		Rate:                        time.Second / 50000,
 		AccessManaRetrieveFunc:      getAccessMana,
 		TotalAccessManaRetrieveFunc: getTotalAccessMana}
 )
