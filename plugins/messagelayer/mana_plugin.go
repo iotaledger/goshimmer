@@ -31,8 +31,8 @@ const (
 	// PluginName is the name of the mana plugin.
 	PluginName = "Mana"
 
-	maxConsensusEventsInStorage = 108000
-	slidingEventsInterval       = 10800 // 10% of maxConsensusEventsInStorage
+	maxConsensusEventsInStorage = 110000
+	slidingEventsInterval       = 10000 // 10% of maxConsensusEventsInStorage
 )
 
 var (
@@ -90,6 +90,7 @@ func configureManaPlugin(*node.Plugin) {
 	}
 	consensusEventsLogStorage = osFactory.New(mana.PrefixEventStorage, mana.FromEventObjectStorage)
 	consensusEventsLogsStorageSize.Store(getConsensusEventLogsStorageSize())
+	manaLogger.Infof("read %d mana events from storage", consensusEventsLogsStorageSize.Load())
 	consensusBaseManaPastVectorStorage = osFactory.New(mana.PrefixConsensusPastVector, mana.FromObjectStorage)
 	consensusBaseManaPastVectorMetadataStorage = osFactory.New(mana.PrefixConsensusPastMetadata, mana.FromMetadataObjectStorage)
 
@@ -621,7 +622,8 @@ func pruneConsensusEventLogsStorage() {
 	if consensusEventsLogsStorageSize.Load() < maxConsensusEventsInStorage {
 		return
 	}
-	cachedObj := consensusBaseManaPastVectorMetadataStorage.Get([]byte(mana.ConsensusBaseManaPastVectorMetadataStorageKey))
+
+	cachedObj := consensusBaseManaPastVectorMetadataStorage.Load([]byte(mana.ConsensusBaseManaPastVectorMetadataStorageKey))
 	cachedMetadata := &mana.CachedConsensusBasePastManaVectorMetadata{CachedObject: cachedObj}
 	defer cachedMetadata.Release()
 
@@ -676,21 +678,28 @@ func pruneConsensusEventLogsStorage() {
 		return
 	}
 	eventLogs.Sort()
-	// Make sure to take related events.
+	// we always want (maxConsensusEventsInStorage - slidingEventsInterval) number of events left
+	deleteWindow := len(eventLogs) - (maxConsensusEventsInStorage - slidingEventsInterval)
+	storageSizeInt := int(consensusEventsLogsStorageSize.Load())
+	if deleteWindow < 0 || deleteWindow > storageSizeInt {
+		manaLogger.Errorf("invalid delete window %d for storage size %d, max storage size %d and sliding interval %d",
+			deleteWindow, storageSizeInt, maxConsensusEventsInStorage, slidingEventsInterval)
+		return
+	}
+	// Make sure to take related events. (we take deleteWindow oldest events)
 	// Ensures that related events (same time) are not split between different intervals.
-	prev := eventLogs[slidingEventsInterval-1]
+	prev := eventLogs[deleteWindow-1]
 	var i int
-	for i = slidingEventsInterval; i < len(eventLogs); i++ {
+	for i = deleteWindow; i < len(eventLogs); i++ {
 		if !eventLogs[i].Timestamp().Equal(prev.Timestamp()) {
 			break
 		}
 		prev = eventLogs[i]
 	}
-	manaLogger.Infof("going to prune %d events", i)
-	toBePrunedEvents := make(mana.EventSlice, i)
-	for k := 0; k < i; k++ {
-		toBePrunedEvents[k] = eventLogs[k]
-	}
+	toBePrunedEvents := eventLogs[:i]
+	// TODO: later, when we have epochs, we have to make sure that `t` is before the epoch to be "finalized" next.
+	// Otherwise, we won't be able to calculate the consensus mana for that epoch because we already pruned the events
+	// leading up to it.
 	t := toBePrunedEvents[len(toBePrunedEvents)-1].Timestamp()
 
 	err = cbmvPast.BuildPastBaseVector(toBePrunedEvents, t)
@@ -726,7 +735,7 @@ func pruneConsensusEventLogsStorage() {
 	manaLogger.Infof("deleting %d events from consensus event storage", len(entriesToDelete))
 	consensusEventsLogStorage.DeleteEntriesFromStore(entriesToDelete)
 	consensusEventsLogsStorageSize.Sub(uint32(len(entriesToDelete)))
-	manaLogger.Infof("there are %d events remaining in consensus event storage", consensusEventsLogsStorageSize.Load())
+	manaLogger.Infof("%d events remaining in consensus event storage", consensusEventsLogsStorageSize.Load())
 }
 
 func cleanupManaVectors() {
