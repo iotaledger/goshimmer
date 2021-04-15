@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/datastructure/set"
+	"github.com/iotaledger/hive.go/datastructure/thresholdevent"
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
@@ -26,6 +27,24 @@ const (
 	markerConfirmationThreshold = 0.5
 )
 
+var confirmationThresholdOptions = []thresholdevent.Option{
+	thresholdevent.WithThresholds(0.49),
+	thresholdevent.WithObjectStorageKey([]byte("confirmationThreshold")),
+	thresholdevent.WithCallbackTypeCaster(func(handler interface{}, identifier interface{}, newLevel int, transition thresholdevent.LevelTransition) {
+		handler.(func(branchID ledgerstate.BranchID, newLevel int, transition thresholdevent.LevelTransition))(identifier.(ledgerstate.BranchID), newLevel, transition)
+	}),
+	thresholdevent.WithIdentifierParser(func(marshalUtil *marshalutil.MarshalUtil) (identifier interface{}, err error) {
+		branchID, err := ledgerstate.BranchIDFromMarshalUtil(marshalUtil)
+		if err != nil {
+			err = xerrors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
+			return
+		}
+
+		identifier = branchID
+		return
+	}),
+}
+
 // region ApprovalWeightManager ////////////////////////////////////////////////////////////////////////////////////////
 
 type ApprovalWeightManager struct {
@@ -41,7 +60,7 @@ func NewApprovalWeightManager(tangle *Tangle) *ApprovalWeightManager {
 	return &ApprovalWeightManager{
 		Events: &ApprovalWeightManagerEvents{
 			MessageProcessed: events.NewEvent(MessageIDCaller),
-			BranchConfirmed:  events.NewEvent(branchIDCaller),
+			BranchConfirmed:  thresholdevent.New(confirmationThresholdOptions...),
 			MarkerConfirmed:  events.NewEvent(markerCaller),
 		},
 		tangle:               tangle,
@@ -186,9 +205,7 @@ func (a *ApprovalWeightManager) onBranchSupportAdded(branchID ledgerstate.Branch
 	diff := a.branchWeights[branchID] - a.weightOfLargestConflictingBranch(branchID)
 	a.branchWeightsMutex.Unlock()
 
-	if diff-confirmationThreshold > -0.0005 && a.tangle.LedgerState.BranchDAG.InclusionState(branchID) != ledgerstate.Confirmed {
-		a.Events.BranchConfirmed.Trigger(branchID)
-	}
+	a.Events.BranchConfirmed.Set(branchID, diff)
 }
 
 func (a *ApprovalWeightManager) onBranchSupportRemoved(branchID ledgerstate.BranchID, message *Message) {
@@ -216,7 +233,7 @@ func (a *ApprovalWeightManager) weightOfLargestConflictingBranch(branchID ledger
 
 type ApprovalWeightManagerEvents struct {
 	MessageProcessed *events.Event
-	BranchConfirmed  *events.Event
+	BranchConfirmed  *thresholdevent.ThresholdEvent
 	MarkerConfirmed  *events.Event
 }
 

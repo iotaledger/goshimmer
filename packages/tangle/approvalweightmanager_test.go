@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/datastructure/thresholdevent"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
@@ -309,7 +310,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	defer tangle.Shutdown()
 	tangle.Setup()
 
-	tangle.ApprovalWeightManager.Events.BranchConfirmed.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
+	tangle.ApprovalWeightManager.Events.BranchConfirmed.Attach(events.NewClosure(func(branchID ledgerstate.BranchID, newLevel int, transition thresholdevent.LevelTransition) {
 		tangle.LedgerState.BranchDAG.SetBranchMonotonicallyLiked(branchID, true)
 		tangle.LedgerState.BranchDAG.SetBranchFinalized(branchID, true)
 	}))
@@ -478,7 +479,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	{
 		testFramework.CreateMessage("Message10", WithStrongParents("Message9"), WithIssuer(nodes["B"].PublicKey()))
 
-		testEventMock.Expect("BranchConfirmed", testFramework.BranchID("Message6"))
+		testEventMock.Expect("BranchConfirmed", testFramework.BranchID("Message6"), 1, thresholdevent.LevelIncreased)
 		testEventMock.Expect("MarkerConfirmed", markers.NewMarker(2, 5))
 		testEventMock.Expect("MarkerConfirmed", markers.NewMarker(2, 6))
 
@@ -506,7 +507,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 		testFramework.CreateMessage("Message11", WithStrongParents("Message5"), WithIssuer(nodes["A"].PublicKey()), WithInputs("B"), WithOutput("D", 500))
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message11")), "Branch4")
 
-		testEventMock.Expect("BranchConfirmed", testFramework.BranchID("Message7"))
+		testEventMock.Expect("BranchConfirmed", testFramework.BranchID("Message7"), 1, thresholdevent.LevelIncreased)
 
 		issueAndValidateMessageApproval(t, "Message11", testEventMock, testFramework, manager, map[ledgerstate.BranchID]float64{
 			testFramework.BranchID("Message5"):  0.55,
@@ -531,7 +532,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	{
 		testFramework.CreateMessage("Message12", WithStrongParents("Message11"), WithIssuer(nodes["D"].PublicKey()))
 
-		testEventMock.Expect("BranchConfirmed", testFramework.BranchID("Message5"))
+		testEventMock.Expect("BranchConfirmed", testFramework.BranchID("Message5"), 1, thresholdevent.LevelIncreased)
 		testEventMock.Expect("MarkerConfirmed", markers.NewMarker(1, 5))
 
 		issueAndValidateMessageApproval(t, "Message12", testEventMock, testFramework, manager, map[ledgerstate.BranchID]float64{
@@ -583,7 +584,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	{
 		testFramework.CreateMessage("Message14", WithStrongParents("Message13"), WithIssuer(nodes["B"].PublicKey()))
 
-		testEventMock.Expect("BranchConfirmed", testFramework.BranchID("Message11"))
+		testEventMock.Expect("BranchConfirmed", testFramework.BranchID("Message11"), 1, thresholdevent.LevelIncreased)
 		testEventMock.Expect("MarkerConfirmed", markers.NewMarker(3, 6))
 
 		issueAndValidateMessageApproval(t, "Message14", testEventMock, testFramework, manager, map[ledgerstate.BranchID]float64{
@@ -732,14 +733,15 @@ func newEventMock(t *testing.T, approvalWeightManager *ApprovalWeightManager) *e
 	}
 	e.Test(t)
 
+	approvalWeightManager.Events.BranchConfirmed.Attach(events.NewClosure(e.BranchConfirmed))
+
 	// attach all events
-	e.attach(approvalWeightManager.Events.BranchConfirmed, e.BranchConfirmed)
 	e.attach(approvalWeightManager.Events.MarkerConfirmed, e.MarkerConfirmed)
 	e.attach(approvalWeightManager.Events.MessageProcessed, e.MessageProcessed)
 
 	// assure that all available events are mocked
 	numEvents := reflect.ValueOf(approvalWeightManager.Events).Elem().NumField()
-	assert.Equalf(t, len(e.attached), numEvents, "not all events in ApprovalWeightManager.Events have been attached")
+	assert.Equalf(t, len(e.attached)+1, numEvents, "not all events in ApprovalWeightManager.Events have been attached")
 
 	return e
 }
@@ -782,8 +784,8 @@ func (e *eventMock) AssertExpectations(t mock.TestingT) bool {
 	return e.Mock.AssertExpectations(t)
 }
 
-func (e *eventMock) BranchConfirmed(branchID ledgerstate.BranchID) {
-	e.Called(branchID)
+func (e *eventMock) BranchConfirmed(branchID ledgerstate.BranchID, newLevel int, transition thresholdevent.LevelTransition) {
+	e.Called(branchID, newLevel, transition)
 
 	atomic.AddUint64(&e.calledEvents, 1)
 }
