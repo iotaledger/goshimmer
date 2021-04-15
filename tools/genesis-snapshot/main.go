@@ -73,8 +73,8 @@ func main() {
 	)
 
 	newSnapshot := &ledgerstate.Snapshot{
-		Transactions: []*ledgerstate.TransactionEssence{
-			ledgerstate.NewTransactionEssence(
+		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{
+			ledgerstate.GenesisTransactionID: ledgerstate.NewTransactionEssence(
 				0,
 				time.Now(),
 				identity.ID{},
@@ -110,11 +110,14 @@ func main() {
 
 	f, err = os.OpenFile(snapshotFileName, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
-		log.Fatal("unable to create snapshot file", err)
+		log.Fatal("unable to create snapshot file ", err)
 	}
 
 	readSnapshot := &ledgerstate.Snapshot{}
-	readSnapshot.ReadFrom(f)
+	_, err = readSnapshot.ReadFrom(f)
+	if err != nil {
+		log.Fatal("unable to read snapshot file ", err)
+	}
 	f.Close()
 
 	fmt.Println(readSnapshot)

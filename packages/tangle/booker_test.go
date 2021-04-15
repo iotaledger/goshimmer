@@ -41,8 +41,8 @@ func TestScenario_1(t *testing.T) {
 		})
 
 	snapshot := &ledgerstate.Snapshot{
-		Transactions: []*ledgerstate.TransactionEssence{
-			ledgerstate.NewTransactionEssence(
+		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{
+			ledgerstate.GenesisTransactionID: ledgerstate.NewTransactionEssence(
 				0,
 				time.Now(),
 				identity.ID{},
@@ -274,8 +274,8 @@ func TestScenario_2(t *testing.T) {
 			ledgerstate.ColorIOTA: 3,
 		})
 	snapshot := &ledgerstate.Snapshot{
-		Transactions: []*ledgerstate.TransactionEssence{
-			ledgerstate.NewTransactionEssence(
+		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{
+			ledgerstate.GenesisTransactionID: ledgerstate.NewTransactionEssence(
 				0,
 				time.Now(),
 				identity.ID{},
@@ -619,8 +619,8 @@ func TestScenario_3(t *testing.T) {
 			ledgerstate.ColorIOTA: 3,
 		})
 	snapshot := &ledgerstate.Snapshot{
-		Transactions: []*ledgerstate.TransactionEssence{
-			ledgerstate.NewTransactionEssence(
+		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{
+			ledgerstate.GenesisTransactionID: ledgerstate.NewTransactionEssence(
 				0,
 				time.Now(),
 				identity.ID{},

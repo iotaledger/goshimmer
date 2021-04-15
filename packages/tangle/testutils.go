@@ -159,8 +159,8 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 	}
 
 	snapshot := &ledgerstate.Snapshot{
-		Transactions: []*ledgerstate.TransactionEssence{
-			ledgerstate.NewTransactionEssence(
+		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{
+			ledgerstate.GenesisTransactionID: ledgerstate.NewTransactionEssence(
 				0,
 				time.Now(),
 				identity.ID{},

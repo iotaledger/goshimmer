@@ -23,7 +23,7 @@ import (
 
 // Snapshot defines a snapshot of the ledger state.
 type Snapshot struct {
-	Transactions []*TransactionEssence
+	Transactions map[TransactionID]*TransactionEssence
 }
 
 // WriteTo writes the snapshot data to the given writer.
@@ -33,16 +33,21 @@ func (s *Snapshot) WriteTo(writer io.Writer) (int64, error) {
 		return 0, fmt.Errorf("unable to write transactions count: %w", err)
 	}
 	bytesWritten += 4
-	for i, transaction := range s.Transactions {
-		if err := binary.Write(writer, binary.LittleEndian, uint32(len(transaction.Bytes()))); err != nil {
-			return 0, fmt.Errorf("unable to write length of transaction at index %d: %w", i, err)
+	for transactionID, essence := range s.Transactions {
+		if err := binary.Write(writer, binary.LittleEndian, uint32(len(essence.Bytes()))); err != nil {
+			return 0, fmt.Errorf("unable to write length of transaction with %s: %w", transactionID, err)
 		}
 		bytesWritten += 4
 
-		if err := binary.Write(writer, binary.LittleEndian, transaction.Bytes()); err != nil {
-			return 0, fmt.Errorf("unable to write transaction at index %d: %w", i, err)
+		if err := binary.Write(writer, binary.LittleEndian, transactionID.Bytes()); err != nil {
+			return 0, fmt.Errorf("unable to write transactionID with %s: %w", transactionID, err)
 		}
-		bytesWritten += int64(len(transaction.Bytes()))
+		bytesWritten += TransactionIDLength
+
+		if err := binary.Write(writer, binary.LittleEndian, essence.Bytes()); err != nil {
+			return 0, fmt.Errorf("unable to write transaction with %s: %w", transactionID, err)
+		}
+		bytesWritten += int64(len(essence.Bytes()))
 	}
 
 	return bytesWritten, nil
@@ -51,6 +56,7 @@ func (s *Snapshot) WriteTo(writer io.Writer) (int64, error) {
 // ReadFrom reads the snapshot bytes from the given reader.
 // This function overrides existing content of the snapshot.
 func (s *Snapshot) ReadFrom(reader io.Reader) (int64, error) {
+	s.Transactions = make(map[TransactionID]*TransactionEssence)
 	var bytesRead int64
 	var transactionCount uint32
 	if err := binary.Read(reader, binary.LittleEndian, &transactionCount); err != nil {
@@ -65,6 +71,17 @@ func (s *Snapshot) ReadFrom(reader io.Reader) (int64, error) {
 		}
 		bytesRead += 4
 
+		transactionIDBytes := make([]byte, TransactionIDLength)
+		if err := binary.Read(reader, binary.LittleEndian, &transactionIDBytes); err != nil {
+			return 0, fmt.Errorf("unable to read transactionID: %w", err)
+		}
+		bytesRead += TransactionIDLength
+
+		txID, n, err := TransactionIDFromBytes(transactionIDBytes)
+		if err != nil {
+			return 0, fmt.Errorf("unable to parse transactionID at index %d: %w", i, err)
+		}
+
 		transactionBytes := make([]byte, transactionLength)
 		if err := binary.Read(reader, binary.LittleEndian, &transactionBytes); err != nil {
 			return 0, fmt.Errorf("unable to read transaction at index %d: %w", i, err)
@@ -74,7 +91,7 @@ func (s *Snapshot) ReadFrom(reader io.Reader) (int64, error) {
 		if err != nil {
 			return 0, fmt.Errorf("unable to parse transaction at index %d: %w", i, err)
 		}
-		s.Transactions = append(s.Transactions, tx)
+		s.Transactions[txID] = tx
 		bytesRead += int64(n)
 	}
 
