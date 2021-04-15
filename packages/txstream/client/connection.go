@@ -27,7 +27,6 @@ var dialRetryPolicy = backoff.ConstantBackOff(backoffDelay).With(backoff.MaxRetr
 
 func (n *Client) connectLoop(dial DialFunc) {
 	msgChopper := chopper.NewChopper()
-	n.wgConnected.Add(1)
 	for {
 		retry := n.connect(dial, msgChopper)
 		if !retry {
@@ -60,53 +59,60 @@ func (n *Client) connect(dial DialFunc, msgChopper *chopper.Chopper) bool {
 	}
 
 	bconn := buffconn.NewBufferedConnection(conn, tangle.MaxMessageSize)
-	defer bconn.Close()
+	defer func() {
+		n.log.Debugf("closing bconn")
+		bconn.Close()
+	}()
 	n.Events.Connected.Trigger()
-
-	n.wgConnected.Done()
-	defer n.wgConnected.Add(1)
 
 	n.log.Debugf("established connection with server at %s", addr)
 
 	dataReceived := make(chan []byte)
-	dataReceivedClosure := events.NewClosure(func(data []byte) {
-		// data slice is from internal buffconn buffer
-		d := make([]byte, len(data))
-		copy(d, data)
-		dataReceived <- d
-	})
-	bconn.Events.ReceiveMessage.Attach(dataReceivedClosure)
-	defer bconn.Events.ReceiveMessage.Detach(dataReceivedClosure)
+	{
+		cl := events.NewClosure(func(data []byte) {
+			// data slice is from internal buffconn buffer
+			d := make([]byte, len(data))
+			copy(d, data)
+			dataReceived <- d
+		})
+		bconn.Events.ReceiveMessage.Attach(cl)
+		defer bconn.Events.ReceiveMessage.Detach(cl)
+	}
 
 	connectionClosed := make(chan bool)
-	connectionClosedClosure := events.NewClosure(func() {
-		n.log.Errorf("lost connection with %s", addr)
-		close(connectionClosed)
-	})
-	bconn.Events.Close.Attach(connectionClosedClosure)
-	defer bconn.Events.Close.Detach(connectionClosedClosure)
-
-	go n.sendWaspID()
+	{
+		cl := events.NewClosure(func() {
+			n.log.Errorf("lost connection with %s", addr)
+			close(connectionClosed)
+		})
+		bconn.Events.Close.Attach(cl)
+		defer bconn.Events.Close.Detach(cl)
+	}
 
 	// read loop
 	go func() {
 		if err := bconn.Read(); err != nil {
 			if err != io.EOF && !strings.Contains(err.Error(), "use of closed network connection") {
-				n.log.Warnw("Permanent error", "err", err)
+				n.log.Warnw("bconn read error", "err", err)
 			}
 		}
 	}()
 
+	// send client ID
+	if err := n.send(&txstream.MsgSetID{ClientID: n.clientID}, bconn, msgChopper); err != nil {
+		n.log.Errorf("sending client ID to server: %v", err)
+	}
+
 	// r/w loop
 	for {
 		select {
+		case msg := <-n.chSend:
+			if err := n.send(msg, bconn, msgChopper); err != nil {
+				n.log.Errorf("sending message to server (%T): %v", msg, err)
+			}
 		case d := <-dataReceived:
 			if err := n.decodeReceivedMessage(d, msgChopper); err != nil {
 				n.log.Errorf("decoding message from server: %v", err)
-			}
-		case msg := <-n.chSend:
-			if err := n.send(msg, bconn, msgChopper); err != nil {
-				n.log.Errorf("sending message to server: %v", err)
 			}
 		case <-n.shutdown:
 			return false
@@ -153,25 +159,12 @@ func (n *Client) decodeReceivedMessage(data []byte, msgChopper *chopper.Chopper)
 	return nil
 }
 
-// WaitForConnection blocks until the client is connected to the server
-func (n *Client) WaitForConnection(timeout time.Duration) bool {
-	c := make(chan struct{})
-	go func() {
-		defer close(c)
-		n.wgConnected.Wait()
-	}()
-	select {
-	case <-c:
-		return true
-	case <-time.After(timeout):
-		return false
-	}
-}
-
+// sendMessage is a thread-safe request to send a message to the server
 func (n *Client) sendMessage(msg txstream.Message) {
 	n.chSend <- msg
 }
 
+// send writes a message into the server connection
 func (n *Client) send(msg txstream.Message, bconn *buffconn.BufferedConnection, msgChopper *chopper.Chopper) error {
 	n.log.Debugf("sending message to server: %T", msg)
 	data := txstream.EncodeMsg(msg)
