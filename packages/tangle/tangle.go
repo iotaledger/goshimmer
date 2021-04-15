@@ -287,8 +287,9 @@ func ApprovalWeights(weightProvider WeightProvider) Option {
 }
 
 type WeightProvider interface {
-	Weight(message *Message) (weight, totalWeight float64, timeEpoch uint64)
-	WeightsOfRelevantSupporters(issuingTime time.Time) (weights map[identity.ID]float64, totalWeight float64)
+	Epoch(referenceTime time.Time) Epoch
+	Weight(epoch Epoch, message *Message) (weight, totalWeight float64)
+	WeightsOfRelevantSupporters(epoch Epoch) (weights map[identity.ID]float64, totalWeight float64)
 }
 
 func WeightProviderFromEpochsManager(epochManager *epochs.Manager) WeightProvider {
@@ -299,14 +300,20 @@ type epochsManagerWeightProvider struct {
 	*epochs.Manager
 }
 
-func (e *epochsManagerWeightProvider) Weight(message *Message) (weight, totalWeight float64, timeEpoch uint64) {
-	weight, totalWeight, untypedEpochID := e.Manager.RelativeNodeMana(identity.NewID(message.IssuerPublicKey()), message.IssuingTime())
-
-	return weight, totalWeight, uint64(untypedEpochID)
+func (e *epochsManagerWeightProvider) Epoch(referenceTime time.Time) Epoch {
+	return uint64(e.Manager.TimeToOracleEpochID(referenceTime))
 }
 
-func (e *epochsManagerWeightProvider) WeightsOfRelevantSupporters(issuingTime time.Time) (weights map[identity.ID]float64, totalWeight float64) {
-	return e.Manager.ActiveMana(issuingTime)
+func (e *epochsManagerWeightProvider) Weight(_ Epoch, message *Message) (weight, totalWeight float64) {
+	weight, totalWeight, _ = e.Manager.RelativeNodeMana(identity.NewID(message.IssuerPublicKey()), message.IssuingTime())
+
+	return weight, totalWeight
 }
+
+func (e *epochsManagerWeightProvider) WeightsOfRelevantSupporters(epoch Epoch) (weights map[identity.ID]float64, totalWeight float64) {
+	return e.Manager.ActiveMana(epochs.ID(epoch))
+}
+
+var _ WeightProvider = &epochsManagerWeightProvider{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

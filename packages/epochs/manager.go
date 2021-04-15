@@ -125,17 +125,15 @@ func (m *Manager) Update(t time.Time, nodeID identity.ID) {
 }
 
 func (m *Manager) RelativeNodeMana(nodeID identity.ID, t time.Time) (ownWeight float64, totalWeight float64, epochID ID) {
-	manaPerID, totalMana := m.ActiveMana(t)
 	epochID = m.TimeToOracleEpochID(t)
+	manaPerID, totalMana := m.ActiveMana(epochID)
 
 	return manaPerID[nodeID], totalMana, epochID
 }
 
 // ActiveMana returns the active consensus mana that is valid for the given time t. Active consensus mana is always
 // retrieved from the oracle epoch.
-func (m *Manager) ActiveMana(t time.Time) (manaPerID map[identity.ID]float64, totalMana float64) {
-	epochID := m.TimeToOracleEpochID(t)
-
+func (m *Manager) ActiveMana(epochID ID) (manaPerID map[identity.ID]float64, totalMana float64) {
 	if !m.Epoch(epochID).Consume(func(epoch *Epoch) {
 		if !epoch.ManaRetrieved() {
 			consensusMana := m.options.ManaRetriever(m.EpochIDToEndTime(epochID))

@@ -49,13 +49,13 @@ func NewMessageTestFramework(tangle *Tangle, options ...MessageTestFrameworkOpti
 
 	messageTestFramework.createGenesisOutputs()
 
-	tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(func(messageID MessageID) {
+	tangle.Booker.Events.MessageBooked.AttachAfter(events.NewClosure(func(messageID MessageID) {
 		messageTestFramework.messagesBookedWG.Done()
 	}))
-	tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(events.NewClosure(func(messageID MessageID) {
+	tangle.ApprovalWeightManager.Events.MessageProcessed.AttachAfter(events.NewClosure(func(messageID MessageID) {
 		messageTestFramework.approvalWeightProcessed.Done()
 	}))
-	tangle.Events.MessageInvalid.Attach(events.NewClosure(func(messageID MessageID) {
+	tangle.Events.MessageInvalid.AttachAfter(events.NewClosure(func(messageID MessageID) {
 		messageTestFramework.messagesBookedWG.Done()
 		messageTestFramework.approvalWeightProcessed.Done()
 	}))

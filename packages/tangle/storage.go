@@ -91,9 +91,9 @@ func NewStorage(tangle *Tangle) (storage *Storage) {
 		attachmentStorage:                 osFactory.New(PrefixAttachments, AttachmentFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.PartitionKey(ledgerstate.TransactionIDLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false)),
 		markerIndexBranchIDMappingStorage: osFactory.New(PrefixMarkerBranchIDMapping, MarkerIndexBranchIDMappingFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
 		individuallyMappedMessageStorage:  osFactory.New(PrefixIndividuallyMappedMessage, IndividuallyMappedMessageFromObjectStorage, objectstorage.CacheTime(CacheTime), IndividuallyMappedMessagePartitionKeys, objectstorage.LeakDetectionEnabled(false)),
+		markerMessageMappingStorage:       osFactory.New(PrefixMarkerMessageMapping, MarkerMessageMappingFromObjectStorage, objectstorage.CacheTime(CacheTime), MarkerMessageMappingPartitionKeys),
 		sequenceSupportersStorage:         osFactory.New(PrefixSequenceSupporters, SequenceSupportersFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
 		statementStorage:                  osFactory.New(PrefixStatement, StatementFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
-		markerMessageMappingStorage:       osFactory.New(PrefixMarkerMessageMapping, MarkerMessageMappingFromObjectStorage, objectstorage.CacheTime(CacheTime), MarkerMessageMappingPartitionKeys),
 
 		Events: &StorageEvents{
 			MessageStored:        events.NewEvent(MessageIDCaller),
@@ -298,28 +298,6 @@ func (s *Storage) IndividuallyMappedMessages(branchID ledgerstate.BranchID) (cac
 	return
 }
 
-// SequenceSupporters retrieves the SequenceSupporters with the given SequenceID.
-func (s *Storage) SequenceSupporters(sequenceID markers.SequenceID, computeIfAbsentCallback ...func() *SequenceSupporters) *CachedSequenceSupporters {
-	if len(computeIfAbsentCallback) >= 1 {
-		return &CachedSequenceSupporters{s.sequenceSupportersStorage.ComputeIfAbsent(sequenceID.Bytes(), func(key []byte) objectstorage.StorableObject {
-			return computeIfAbsentCallback[0]()
-		})}
-	}
-
-	return &CachedSequenceSupporters{CachedObject: s.sequenceSupportersStorage.Load(sequenceID.Bytes())}
-}
-
-// Statement retrieves the Statement with the given ledgerstate.BranchID and Supporter.
-func (s *Storage) Statement(branchID ledgerstate.BranchID, supporter Supporter, computeIfAbsentCallback ...func() *Statement) *CachedStatement {
-	if len(computeIfAbsentCallback) >= 1 {
-		return &CachedStatement{s.sequenceSupportersStorage.ComputeIfAbsent(byteutils.ConcatBytes(branchID.Bytes(), supporter.Bytes()), func(key []byte) objectstorage.StorableObject {
-			return computeIfAbsentCallback[0]()
-		})}
-	}
-
-	return &CachedStatement{CachedObject: s.sequenceSupportersStorage.Load(byteutils.ConcatBytes(branchID.Bytes(), supporter.Bytes()))}
-}
-
 // StoreMarkerMessageMapping stores a MarkerMessageMapping in the underlying object storage.
 func (s *Storage) StoreMarkerMessageMapping(markerMessageMapping *MarkerMessageMapping) {
 	s.markerMessageMappingStorage.Store(markerMessageMapping).Release()
@@ -342,6 +320,28 @@ func (s *Storage) MarkerMessageMappings(sequenceID markers.SequenceID) (cachedMa
 		return true
 	}, objectstorage.WithIteratorPrefix(sequenceID.Bytes()))
 	return
+}
+
+// SequenceSupporters retrieves the SequenceSupporters with the given SequenceID.
+func (s *Storage) SequenceSupporters(sequenceID markers.SequenceID, computeIfAbsentCallback ...func() *SequenceSupporters) *CachedSequenceSupporters {
+	if len(computeIfAbsentCallback) >= 1 {
+		return &CachedSequenceSupporters{s.sequenceSupportersStorage.ComputeIfAbsent(sequenceID.Bytes(), func(key []byte) objectstorage.StorableObject {
+			return computeIfAbsentCallback[0]()
+		})}
+	}
+
+	return &CachedSequenceSupporters{CachedObject: s.sequenceSupportersStorage.Load(sequenceID.Bytes())}
+}
+
+// Statement retrieves the Statement with the given ledgerstate.BranchID and Supporter.
+func (s *Storage) Statement(branchID ledgerstate.BranchID, supporter Supporter, computeIfAbsentCallback ...func() *Statement) *CachedStatement {
+	if len(computeIfAbsentCallback) >= 1 {
+		return &CachedStatement{s.statementStorage.ComputeIfAbsent(byteutils.ConcatBytes(branchID.Bytes(), supporter.Bytes()), func(key []byte) objectstorage.StorableObject {
+			return computeIfAbsentCallback[0]()
+		})}
+	}
+
+	return &CachedStatement{CachedObject: s.statementStorage.Load(byteutils.ConcatBytes(branchID.Bytes(), supporter.Bytes()))}
 }
 
 func (s *Storage) storeGenesis() {
