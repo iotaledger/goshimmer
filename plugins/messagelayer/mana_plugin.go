@@ -3,6 +3,7 @@ package messagelayer
 import (
 	"fmt"
 	"math"
+	"os"
 	"sort"
 	"sync"
 	"time"
@@ -222,7 +223,21 @@ func runManaPlugin(_ *node.Plugin) {
 		defer ticker.Stop()
 		cleanupTicker := time.NewTicker(vectorsCleanUpInterval)
 		defer cleanupTicker.Stop()
-		readStoredManaVectors()
+		if !readStoredManaVectors() {
+			// read snapshot file
+			if Parameters.Snapshot.File != "" {
+				snapshot := &ledgerstate.Snapshot{}
+				f, err := os.Open(Parameters.Snapshot.File)
+				if err != nil {
+					plugin.Panic("can not open snapshot file:", err)
+				}
+				if _, err := snapshot.ReadFrom(f); err != nil {
+					plugin.Panic("could not read snapshot file:", err)
+				}
+				loadSnapshot(snapshot)
+				plugin.LogInfof("read snapshot from %s", Parameters.Snapshot.File)
+			}
+		}
 		pruneStorages()
 		for {
 			select {
@@ -245,7 +260,7 @@ func runManaPlugin(_ *node.Plugin) {
 	}
 }
 
-func readStoredManaVectors() {
+func readStoredManaVectors() (read bool) {
 	for vectorType := range baseManaVectors {
 		storages[vectorType].ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 			cachedPbm := &mana.CachedPersistableBaseMana{CachedObject: cachedObject}
@@ -254,10 +269,12 @@ func readStoredManaVectors() {
 				if err != nil {
 					manaLogger.Errorf("error while restoring %s mana vector: %w", vectorType.String(), err)
 				}
+				read = true
 			})
 			return true
 		})
 	}
+	return
 }
 
 func storeManaVectors() {
@@ -744,4 +761,58 @@ func QueryAllowed() (allowed bool) {
 	// if debugging enabled, reply to the query
 	// if debugging is not allowed, only reply when in sync
 	return Tangle().Synced() || debuggingEnabled
+}
+
+func loadSnapshot(snapshot *ledgerstate.Snapshot) {
+	for transactionID, essence := range snapshot.Transactions {
+		var inputInfos []mana.InputInfo
+		var totalAmount float64
+
+		// iterate over all inputs within the transaction
+		for _, o := range essence.Outputs() {
+			var amount float64
+			var inputTimestamp time.Time
+			var accessManaNodeID identity.ID
+			var consensusManaNodeID identity.ID
+			var _inputInfo mana.InputInfo
+
+			// first, sum balances of the input, calculate total amount as well for later
+			o.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+				amount += float64(balance)
+				totalAmount += amount
+				return true
+			})
+
+			// look into the transaction, we need timestamp and access & consensus pledge IDs
+			inputTimestamp = essence.Timestamp()
+			accessManaNodeID, _ = identity.ParseID(Parameters.Snapshot.GenesisNode)
+			consensusManaNodeID, _ = identity.ParseID(Parameters.Snapshot.GenesisNode)
+
+			// build InputInfo for this particular input in the transaction
+			_inputInfo = mana.InputInfo{
+				TimeStamp: inputTimestamp,
+				Amount:    amount,
+				PledgeID: map[mana.Type]identity.ID{
+					mana.AccessMana:    accessManaNodeID,
+					mana.ConsensusMana: consensusManaNodeID,
+				},
+				InputID: o.ID(),
+			}
+
+			inputInfos = append(inputInfos, _inputInfo)
+		}
+
+		txInfo := &mana.TxInfo{
+			TimeStamp:     essence.Timestamp(),
+			TransactionID: transactionID,
+			TotalBalance:  totalAmount,
+			PledgeID: map[mana.Type]identity.ID{
+				mana.AccessMana:    essence.AccessPledgeID(),
+				mana.ConsensusMana: essence.ConsensusPledgeID(),
+			},
+			InputInfos: inputInfos,
+		}
+
+		baseManaVectors[mana.ConsensusMana].Book(txInfo)
+	}
 }

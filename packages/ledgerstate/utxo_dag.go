@@ -246,8 +246,8 @@ func (u *UTXODAG) Consumers(outputID OutputID) (cachedConsumers CachedConsumers)
 // LoadSnapshot creates a set of outputs in the UTXO-DAG, that are forming the genesis for future transactions.
 func (u *UTXODAG) LoadSnapshot(snapshot *Snapshot) {
 	index := uint16(0)
-	for _, transaction := range snapshot.Transactions {
-		for _, output := range transaction.outputs {
+	for transactionID, essence := range snapshot.Transactions {
+		for _, output := range essence.outputs {
 			cachedOutput, stored := u.outputStorage.StoreIfAbsent(output)
 			if stored {
 				cachedOutput.Release()
@@ -271,7 +271,7 @@ func (u *UTXODAG) LoadSnapshot(snapshot *Snapshot) {
 		}
 
 		// store TransactionMetadata
-		transactionMetadata := NewTransactionMetadata(GenesisTransactionID)
+		transactionMetadata := NewTransactionMetadata(transactionID)
 		transactionMetadata.SetSolid(true)
 		transactionMetadata.SetBranchID(MasterBranchID)
 		transactionMetadata.SetFinalized(true)
