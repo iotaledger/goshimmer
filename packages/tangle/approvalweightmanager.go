@@ -138,10 +138,16 @@ func (a *ApprovalWeightManager) onMarkerConfirmed(marker *markers.Marker) {
 		metadata.SetFinalizedApprovalWeight(true)
 	})
 
-	// start walking from strong parents
-	// TODO: what about weak parents?
 	entryMessageIDs := MessageIDs{}
 	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+		// mark weak parents as finalized but not propagate finalized flag to its past cone
+		message.ForEachWeakParent(func(parentID MessageID) {
+			a.tangle.Storage.MessageMetadata(parentID).Consume(func(metadata *MessageMetadata) {
+				metadata.SetFinalizedApprovalWeight(true)
+			})
+		})
+
+		// propagate finalized flag to strong parents' past cone
 		message.ForEachStrongParent(func(parentID MessageID) {
 			entryMessageIDs = append(entryMessageIDs, parentID)
 		})
@@ -161,7 +167,14 @@ func (a *ApprovalWeightManager) propagateFinalizedApprovalWeight(message *Messag
 		return
 	}
 
-	// TODO: what about weak parents?
+	// mark weak parents as finalized but not propagate finalized flag to its past cone
+	message.ForEachWeakParent(func(parentID MessageID) {
+		a.tangle.Storage.MessageMetadata(parentID).Consume(func(metadata *MessageMetadata) {
+			metadata.SetFinalizedApprovalWeight(true)
+		})
+	})
+
+	// propaget finalized to strong parents
 	message.ForEachStrongParent(func(parentID MessageID) {
 		finalizedWalker.Push(parentID)
 	})
