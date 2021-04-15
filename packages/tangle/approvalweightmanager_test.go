@@ -19,6 +19,18 @@ import (
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
+func TestBranchWeightMarshalling(t *testing.T) {
+	branchWeight := NewBranchWeight(ledgerstate.BranchIDFromRandomness())
+	branchWeight.SetWeight(5.1234)
+
+	branchWeightFromBytes, _, err := BranchWeightFromBytes(branchWeight.Bytes())
+	require.NoError(t, err)
+
+	assert.Equal(t, branchWeight.Bytes(), branchWeightFromBytes.Bytes())
+	assert.Equal(t, branchWeight.BranchID(), branchWeightFromBytes.BranchID())
+	assert.Equal(t, branchWeight.Weight(), branchWeightFromBytes.Weight())
+}
+
 func TestStatementMarshalling(t *testing.T) {
 	statement := NewStatement(ledgerstate.BranchIDFromRandomness(), identity.GenerateIdentity().ID())
 	statement.UpdateSequenceNumber(10)

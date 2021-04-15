@@ -31,8 +31,6 @@ type ApprovalWeightManager struct {
 	Events               *ApprovalWeightManagerEvents
 	tangle               *Tangle
 	supportersManager    *SupporterManager
-	branchWeights        map[ledgerstate.BranchID]float64
-	branchWeightsMutex   sync.RWMutex
 	lastConfirmedMarkers map[markers.SequenceID]markers.Index
 }
 
@@ -45,7 +43,6 @@ func NewApprovalWeightManager(tangle *Tangle) *ApprovalWeightManager {
 		},
 		tangle:               tangle,
 		supportersManager:    NewSupporterManager(tangle),
-		branchWeights:        make(map[ledgerstate.BranchID]float64),
 		lastConfirmedMarkers: make(map[markers.SequenceID]markers.Index),
 	}
 }
@@ -83,9 +80,11 @@ func (a *ApprovalWeightManager) UpdateMarkerBranch(marker *markers.Marker, oldBr
 			branchWeight += weightsOfSupporters[supporter]
 		})
 
-		a.branchWeightsMutex.Lock()
-		a.branchWeights[newBranchID] = branchWeight / totalWeight
-		a.branchWeightsMutex.Unlock()
+		a.tangle.Storage.BranchWeight(newBranchID, func() *BranchWeight {
+			return NewBranchWeight(newBranchID)
+		}).Consume(func(b *BranchWeight) {
+			b.SetWeight(branchWeight / totalWeight)
+		})
 	})
 }
 
@@ -97,10 +96,11 @@ func (a *ApprovalWeightManager) ProcessMessage(messageID MessageID) {
 
 // WeightOfBranch returns the weight of the given Branch that was added by Supporters of the given epoch.
 func (a *ApprovalWeightManager) WeightOfBranch(branchID ledgerstate.BranchID) (weight float64) {
-	a.branchWeightsMutex.RLock()
-	defer a.branchWeightsMutex.RUnlock()
+	a.tangle.Storage.BranchWeight(branchID).Consume(func(branchWeight *BranchWeight) {
+		weight = branchWeight.Weight()
+	})
 
-	return a.branchWeights[branchID]
+	return
 }
 
 func (a *ApprovalWeightManager) WeightOfMarker(marker *markers.Marker, anchorTime time.Time) (weight float64) {
@@ -178,12 +178,15 @@ func (a *ApprovalWeightManager) lowestLastConfirmedMarker(sequenceID markers.Seq
 
 func (a *ApprovalWeightManager) onBranchSupportAdded(branchID ledgerstate.BranchID, message *Message) {
 	epochID := a.tangle.WeightProvider.Epoch(message.IssuingTime())
-	weightOfSupporter, totalMana := a.tangle.WeightProvider.Weight(epochID, message)
+	weightOfSupporter, totalWeight := a.tangle.WeightProvider.Weight(epochID, message)
 
-	a.branchWeightsMutex.Lock()
-	a.branchWeights[branchID] += weightOfSupporter / totalMana
-	diff := a.branchWeights[branchID] - a.weightOfLargestConflictingBranch(branchID)
-	a.branchWeightsMutex.Unlock()
+	var diff float64
+	a.tangle.Storage.BranchWeight(branchID, func() *BranchWeight {
+		return NewBranchWeight(branchID)
+	}).Consume(func(branchWeight *BranchWeight) {
+		branchWeight.IncreaseWeight(weightOfSupporter / totalWeight)
+		diff = branchWeight.Weight() - a.weightOfLargestConflictingBranch(branchID)
+	})
 
 	if diff-confirmationThreshold > -0.0005 && a.tangle.LedgerState.BranchDAG.InclusionState(branchID) != ledgerstate.Confirmed {
 		a.Events.BranchConfirmed.Trigger(branchID)
@@ -194,16 +197,18 @@ func (a *ApprovalWeightManager) onBranchSupportRemoved(branchID ledgerstate.Bran
 	epochID := a.tangle.WeightProvider.Epoch(message.IssuingTime())
 	weightOfSupporter, totalWeight := a.tangle.WeightProvider.Weight(epochID, message)
 
-	a.branchWeightsMutex.Lock()
-	a.branchWeights[branchID] -= weightOfSupporter / totalWeight
-	a.branchWeightsMutex.Unlock()
+	a.tangle.Storage.BranchWeight(branchID, func() *BranchWeight {
+		return NewBranchWeight(branchID)
+	}).Consume(func(branchWeight *BranchWeight) {
+		branchWeight.DecreaseWeight(weightOfSupporter / totalWeight)
+	})
 }
 
 func (a *ApprovalWeightManager) weightOfLargestConflictingBranch(branchID ledgerstate.BranchID) (weight float64) {
 	a.tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
-		if a.branchWeights[conflictingBranchID] > weight {
-			weight = a.branchWeights[conflictingBranchID]
-		}
+		a.tangle.Storage.BranchWeight(conflictingBranchID).Consume(func(branchWeight *BranchWeight) {
+			weight = branchWeight.Weight()
+		})
 	})
 
 	return
@@ -484,6 +489,211 @@ func branchSupportEventCaller(handler interface{}, params ...interface{}) {
 
 func sequenceSupportEventCaller(handler interface{}, params ...interface{}) {
 	handler.(func(*markers.Marker, *Message))(params[0].(*markers.Marker), params[1].(*Message))
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region BranchWeight /////////////////////////////////////////////////////////////////////////////////////////////////
+
+// BranchWeight is a data structure that tracks the weight of a ledgerstate.BranchID.
+type BranchWeight struct {
+	branchID ledgerstate.BranchID
+	weight   float64
+
+	weightMutex sync.RWMutex
+
+	objectstorage.StorableObjectFlags
+}
+
+// NewBranchWeight creates a new BranchWeight.
+func NewBranchWeight(branchID ledgerstate.BranchID) (branchWeight *BranchWeight) {
+	branchWeight = &BranchWeight{
+		branchID: branchID,
+	}
+
+	branchWeight.Persist()
+	branchWeight.SetModified()
+
+	return
+}
+
+// BranchWeightFromBytes unmarshals a BranchWeight object from a sequence of bytes.
+func BranchWeightFromBytes(bytes []byte) (branchWeight *BranchWeight, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(bytes)
+	if branchWeight, err = BranchWeightFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse BranchWeight from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// BranchWeightFromMarshalUtil unmarshals a BranchWeight object using a MarshalUtil (for easier unmarshaling).
+func BranchWeightFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchWeight *BranchWeight, err error) {
+	branchWeight = &BranchWeight{}
+	if branchWeight.branchID, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
+		return
+	}
+
+	if branchWeight.weight, err = marshalUtil.ReadFloat64(); err != nil {
+		err = xerrors.Errorf("failed to parse weight (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+
+	return
+}
+
+// BranchWeightFromObjectStorage restores a BranchWeight object from the object storage.
+func BranchWeightFromObjectStorage(key, data []byte) (result objectstorage.StorableObject, err error) {
+	if result, _, err = BranchWeightFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
+		err = xerrors.Errorf("failed to parse BranchWeight from bytes: %w", err)
+		return
+	}
+
+	return
+}
+
+// BranchID returns the ledgerstate.BranchID that is being tracked.
+func (b *BranchWeight) BranchID() (branchID ledgerstate.BranchID) {
+	return b.branchID
+}
+
+// Weight returns the weight of the ledgerstate.BranchID.
+func (b *BranchWeight) Weight() (weight float64) {
+	b.weightMutex.RLock()
+	defer b.weightMutex.RUnlock()
+
+	return b.weight
+}
+
+// SetWeight sets the weight for the ledgerstate.BranchID and returns true if it was modified.
+func (b *BranchWeight) SetWeight(weight float64) (modified bool) {
+	b.weightMutex.Lock()
+	defer b.weightMutex.Unlock()
+
+	if weight == b.weight {
+		return false
+	}
+
+	b.weight = weight
+	modified = true
+	b.SetModified()
+
+	return
+}
+
+// IncreaseWeight increases the weight for the ledgerstate.BranchID and returns true if it was modified.
+func (b *BranchWeight) IncreaseWeight(weight float64) (modified bool) {
+	b.weightMutex.Lock()
+	defer b.weightMutex.Unlock()
+
+	if weight == 0 {
+		return false
+	}
+
+	b.weight += weight
+	modified = true
+	b.SetModified()
+
+	return
+}
+
+// DecreaseWeight decreases the weight for the ledgerstate.BranchID and returns true if it was modified.
+func (b *BranchWeight) DecreaseWeight(weight float64) (modified bool) {
+	b.weightMutex.Lock()
+	defer b.weightMutex.Unlock()
+
+	if weight == 0 {
+		return false
+	}
+
+	b.weight -= weight
+	modified = true
+	b.SetModified()
+
+	return
+}
+
+// Bytes returns a marshaled version of the BranchWeight.
+func (b *BranchWeight) Bytes() (marshaledBranchWeight []byte) {
+	return byteutils.ConcatBytes(b.ObjectStorageKey(), b.ObjectStorageValue())
+}
+
+// String returns a human readable version of the BranchWeight.
+func (b *BranchWeight) String() string {
+	return stringify.Struct("BranchWeight",
+		stringify.StructField("branchID", b.BranchID()),
+		stringify.StructField("weight", b.Weight()),
+	)
+}
+
+// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
+func (b *BranchWeight) Update(objectstorage.StorableObject) {
+	panic("updates disabled")
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (b *BranchWeight) ObjectStorageKey() []byte {
+	return b.BranchID().Bytes()
+}
+
+// ObjectStorageValue marshals the BranchWeight into a sequence of bytes that are used as the value part in the
+// object storage.
+func (b *BranchWeight) ObjectStorageValue() []byte {
+	return marshalutil.New(marshalutil.Float64Size).
+		WriteFloat64(b.Weight()).
+		Bytes()
+}
+
+// code contract (make sure the struct implements all required methods)
+var _ objectstorage.StorableObject = &BranchWeight{}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region CachedBranchWeight ///////////////////////////////////////////////////////////////////////////////////////////
+
+// CachedBranchWeight is a wrapper for the generic CachedObject returned by the object storage that overrides the
+// accessor methods with a type-casted one.
+type CachedBranchWeight struct {
+	objectstorage.CachedObject
+}
+
+// Retain marks the CachedObject to still be in use by the program.
+func (c *CachedBranchWeight) Retain() *CachedBranchWeight {
+	return &CachedBranchWeight{c.CachedObject.Retain()}
+}
+
+// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
+func (c *CachedBranchWeight) Unwrap() *BranchWeight {
+	untypedObject := c.Get()
+	if untypedObject == nil {
+		return nil
+	}
+
+	typedObject := untypedObject.(*BranchWeight)
+	if typedObject == nil || typedObject.IsDeleted() {
+		return nil
+	}
+
+	return typedObject
+}
+
+// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
+// exists). It automatically releases the object when the consumer finishes.
+func (c *CachedBranchWeight) Consume(consumer func(branchWeight *BranchWeight), forceRelease ...bool) (consumed bool) {
+	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*BranchWeight))
+	}, forceRelease...)
+}
+
+// String returns a human readable version of the CachedBranchWeight.
+func (c *CachedBranchWeight) String() string {
+	return stringify.Struct("CachedBranchWeight",
+		stringify.StructField("CachedObject", c.Unwrap()),
+	)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

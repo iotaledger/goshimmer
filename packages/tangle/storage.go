@@ -50,6 +50,9 @@ const (
 	// PrefixStatement defines the storage prefix for the Statement.
 	PrefixStatement
 
+	// PrefixBranchWeight defines the storage prefix for the BranchWeight.
+	PrefixBranchWeight
+
 	// PrefixMarkerMessageMapping defines the storage prefix for the MarkerMessageMapping.
 	PrefixMarkerMessageMapping
 
@@ -73,8 +76,9 @@ type Storage struct {
 	markerIndexBranchIDMappingStorage *objectstorage.ObjectStorage
 	individuallyMappedMessageStorage  *objectstorage.ObjectStorage
 	sequenceSupportersStorage         *objectstorage.ObjectStorage
-	statementStorage                  *objectstorage.ObjectStorage
 	branchSupportersStorage           *objectstorage.ObjectStorage
+	statementStorage                  *objectstorage.ObjectStorage
+	branchWeightStorage               *objectstorage.ObjectStorage
 	markerMessageMappingStorage       *objectstorage.ObjectStorage
 
 	Events   *StorageEvents
@@ -95,10 +99,11 @@ func NewStorage(tangle *Tangle) (storage *Storage) {
 		attachmentStorage:                 osFactory.New(PrefixAttachments, AttachmentFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.PartitionKey(ledgerstate.TransactionIDLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false)),
 		markerIndexBranchIDMappingStorage: osFactory.New(PrefixMarkerBranchIDMapping, MarkerIndexBranchIDMappingFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
 		individuallyMappedMessageStorage:  osFactory.New(PrefixIndividuallyMappedMessage, IndividuallyMappedMessageFromObjectStorage, objectstorage.CacheTime(CacheTime), IndividuallyMappedMessagePartitionKeys, objectstorage.LeakDetectionEnabled(false)),
-		markerMessageMappingStorage:       osFactory.New(PrefixMarkerMessageMapping, MarkerMessageMappingFromObjectStorage, objectstorage.CacheTime(CacheTime), MarkerMessageMappingPartitionKeys),
 		sequenceSupportersStorage:         osFactory.New(PrefixSequenceSupporters, SequenceSupportersFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
 		branchSupportersStorage:           osFactory.New(PrefixBranchSupporters, BranchSupportersFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
 		statementStorage:                  osFactory.New(PrefixStatement, StatementFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
+		branchWeightStorage:               osFactory.New(PrefixBranchWeight, BranchWeightFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
+		markerMessageMappingStorage:       osFactory.New(PrefixMarkerMessageMapping, MarkerMessageMappingFromObjectStorage, objectstorage.CacheTime(CacheTime), MarkerMessageMappingPartitionKeys),
 
 		Events: &StorageEvents{
 			MessageStored:        events.NewEvent(MessageIDCaller),
@@ -360,6 +365,17 @@ func (s *Storage) Statement(branchID ledgerstate.BranchID, supporter Supporter, 
 	return &CachedStatement{CachedObject: s.statementStorage.Load(byteutils.ConcatBytes(branchID.Bytes(), supporter.Bytes()))}
 }
 
+// BranchWeight retrieves the BranchWeight with the given ledgerstate.BranchID.
+func (s *Storage) BranchWeight(branchID ledgerstate.BranchID, computeIfAbsentCallback ...func() *BranchWeight) *CachedBranchWeight {
+	if len(computeIfAbsentCallback) >= 1 {
+		return &CachedBranchWeight{s.branchWeightStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) objectstorage.StorableObject {
+			return computeIfAbsentCallback[0]()
+		})}
+	}
+
+	return &CachedBranchWeight{CachedObject: s.branchWeightStorage.Load(branchID.Bytes())}
+}
+
 func (s *Storage) storeGenesis() {
 	s.MessageMetadata(EmptyMessageID, func() *MessageMetadata {
 		genesisMetadata := &MessageMetadata{
@@ -407,6 +423,7 @@ func (s *Storage) Shutdown() {
 	s.sequenceSupportersStorage.Shutdown()
 	s.branchSupportersStorage.Shutdown()
 	s.statementStorage.Shutdown()
+	s.branchWeightStorage.Shutdown()
 	s.markerMessageMappingStorage.Shutdown()
 
 	close(s.shutdown)
@@ -425,6 +442,7 @@ func (s *Storage) Prune() error {
 		s.sequenceSupportersStorage,
 		s.branchSupportersStorage,
 		s.statementStorage,
+		s.branchWeightStorage,
 		s.markerMessageMappingStorage,
 	} {
 		if err := storage.Prune(); err != nil {
