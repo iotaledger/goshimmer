@@ -6,7 +6,6 @@ import (
 
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/datastructure/thresholdevent"
 	"github.com/iotaledger/hive.go/datastructure/walker"
@@ -51,8 +50,6 @@ type ApprovalWeightManager struct {
 	Events               *ApprovalWeightManagerEvents
 	tangle               *Tangle
 	supportersManager    *SupporterManager
-	branchWeights        map[ledgerstate.BranchID]float64
-	branchWeightsMutex   sync.RWMutex
 	lastConfirmedMarkers map[markers.SequenceID]markers.Index
 }
 
@@ -65,7 +62,6 @@ func NewApprovalWeightManager(tangle *Tangle) *ApprovalWeightManager {
 		},
 		tangle:               tangle,
 		supportersManager:    NewSupporterManager(tangle),
-		branchWeights:        make(map[ledgerstate.BranchID]float64),
 		lastConfirmedMarkers: make(map[markers.SequenceID]markers.Index),
 	}
 }
@@ -103,9 +99,11 @@ func (a *ApprovalWeightManager) UpdateMarkerBranch(marker *markers.Marker, oldBr
 			branchWeight += weightsOfSupporters[supporter]
 		})
 
-		a.branchWeightsMutex.Lock()
-		a.branchWeights[newBranchID] = branchWeight / totalWeight
-		a.branchWeightsMutex.Unlock()
+		a.tangle.Storage.BranchWeight(newBranchID, func() *BranchWeight {
+			return NewBranchWeight(newBranchID)
+		}).Consume(func(b *BranchWeight) {
+			b.SetWeight(branchWeight / totalWeight)
+		})
 	})
 }
 
@@ -117,10 +115,11 @@ func (a *ApprovalWeightManager) ProcessMessage(messageID MessageID) {
 
 // WeightOfBranch returns the weight of the given Branch that was added by Supporters of the given epoch.
 func (a *ApprovalWeightManager) WeightOfBranch(branchID ledgerstate.BranchID) (weight float64) {
-	a.branchWeightsMutex.RLock()
-	defer a.branchWeightsMutex.RUnlock()
+	a.tangle.Storage.BranchWeight(branchID).Consume(func(branchWeight *BranchWeight) {
+		weight = branchWeight.Weight()
+	})
 
-	return a.branchWeights[branchID]
+	return
 }
 
 func (a *ApprovalWeightManager) WeightOfMarker(marker *markers.Marker, anchorTime time.Time) (weight float64) {
@@ -198,12 +197,15 @@ func (a *ApprovalWeightManager) lowestLastConfirmedMarker(sequenceID markers.Seq
 
 func (a *ApprovalWeightManager) onBranchSupportAdded(branchID ledgerstate.BranchID, message *Message) {
 	epochID := a.tangle.WeightProvider.Epoch(message.IssuingTime())
-	weightOfSupporter, totalMana := a.tangle.WeightProvider.Weight(epochID, message)
+	weightOfSupporter, totalWeight := a.tangle.WeightProvider.Weight(epochID, message)
 
-	a.branchWeightsMutex.Lock()
-	a.branchWeights[branchID] += weightOfSupporter / totalMana
-	diff := a.branchWeights[branchID] - a.weightOfLargestConflictingBranch(branchID)
-	a.branchWeightsMutex.Unlock()
+	var diff float64
+	a.tangle.Storage.BranchWeight(branchID, func() *BranchWeight {
+		return NewBranchWeight(branchID)
+	}).Consume(func(branchWeight *BranchWeight) {
+		branchWeight.IncreaseWeight(weightOfSupporter / totalWeight)
+		diff = branchWeight.Weight() - a.weightOfLargestConflictingBranch(branchID)
+	})
 
 	a.Events.BranchConfirmed.Set(branchID, diff)
 }
@@ -212,16 +214,18 @@ func (a *ApprovalWeightManager) onBranchSupportRemoved(branchID ledgerstate.Bran
 	epochID := a.tangle.WeightProvider.Epoch(message.IssuingTime())
 	weightOfSupporter, totalWeight := a.tangle.WeightProvider.Weight(epochID, message)
 
-	a.branchWeightsMutex.Lock()
-	a.branchWeights[branchID] -= weightOfSupporter / totalWeight
-	a.branchWeightsMutex.Unlock()
+	a.tangle.Storage.BranchWeight(branchID, func() *BranchWeight {
+		return NewBranchWeight(branchID)
+	}).Consume(func(branchWeight *BranchWeight) {
+		branchWeight.DecreaseWeight(weightOfSupporter / totalWeight)
+	})
 }
 
 func (a *ApprovalWeightManager) weightOfLargestConflictingBranch(branchID ledgerstate.BranchID) (weight float64) {
 	a.tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
-		if a.branchWeights[conflictingBranchID] > weight {
-			weight = a.branchWeights[conflictingBranchID]
-		}
+		a.tangle.Storage.BranchWeight(conflictingBranchID).Consume(func(branchWeight *BranchWeight) {
+			weight = branchWeight.Weight()
+		})
 	})
 
 	return
@@ -250,9 +254,8 @@ func markerCaller(handler interface{}, params ...interface{}) {
 // region SupporterManager /////////////////////////////////////////////////////////////////////////////////////////////
 
 type SupporterManager struct {
-	Events           *SupporterManagerEvents
-	tangle           *Tangle
-	branchSupporters map[ledgerstate.BranchID]*Supporters
+	Events *SupporterManagerEvents
+	tangle *Tangle
 }
 
 func NewSupporterManager(tangle *Tangle) (supporterManager *SupporterManager) {
@@ -262,8 +265,7 @@ func NewSupporterManager(tangle *Tangle) (supporterManager *SupporterManager) {
 			BranchSupportRemoved:   events.NewEvent(branchSupportEventCaller),
 			SequenceSupportUpdated: events.NewEvent(sequenceSupportEventCaller),
 		},
-		tangle:           tangle,
-		branchSupporters: make(map[ledgerstate.BranchID]*Supporters),
+		tangle: tangle,
 	}
 
 	return
@@ -277,8 +279,9 @@ func (s *SupporterManager) ProcessMessage(messageID MessageID) {
 }
 
 func (s *SupporterManager) SupportersOfBranch(branchID ledgerstate.BranchID) (supporters *Supporters) {
-	supporters, exists := s.branchSupporters[branchID]
-	if !exists {
+	if !s.tangle.Storage.BranchSupporters(branchID).Consume(func(branchSupporters *BranchSupporters) {
+		supporters = branchSupporters.Supporters()
+	}) {
 		return NewSupporters()
 	}
 
@@ -296,23 +299,23 @@ func (s *SupporterManager) SupportersOfMarker(marker *markers.Marker) (supporter
 }
 
 func (s *SupporterManager) MigrateMarkerSupportersToNewBranch(marker *markers.Marker, oldBranchID, newBranchID ledgerstate.BranchID) {
-	supporters, exists := s.branchSupporters[newBranchID]
-	if !exists {
-		supporters = NewSupporters()
-		s.branchSupporters[newBranchID] = supporters
-	}
+	s.tangle.Storage.BranchSupporters(newBranchID, func() *BranchSupporters {
+		return NewBranchSupporters(newBranchID)
+	}).Consume(func(branchSupporters *BranchSupporters) {
+		supportersOfMarker := s.SupportersOfMarker(marker)
 
-	supportersOfMarker := s.SupportersOfMarker(marker)
-	if oldBranchID == ledgerstate.MasterBranchID {
-		supportersOfMarker.ForEach(func(supporter Supporter) {
-			supporters.Add(supporter)
-		})
-	}
-
-	s.SupportersOfBranch(oldBranchID).ForEach(func(supporter Supporter) {
-		if supportersOfMarker.Has(supporter) {
-			supporters.Add(supporter)
+		if oldBranchID == ledgerstate.MasterBranchID {
+			supportersOfMarker.ForEach(func(supporter Supporter) {
+				branchSupporters.AddSupporter(supporter)
+			})
+			return
 		}
+
+		s.SupportersOfBranch(oldBranchID).ForEach(func(supporter Supporter) {
+			if supportersOfMarker.Has(supporter) {
+				branchSupporters.AddSupporter(supporter)
+			}
+		})
 	})
 }
 
@@ -396,15 +399,19 @@ func (s *SupporterManager) addSupportToBranch(branchID ledgerstate.BranchID, mes
 		return
 	}
 
+	// Keep track of a nodes' statements per branchID and abort if it is not a new statement for this branchID.
 	if _, isNewStatement := s.statementFromMessage(message, branchID); !isNewStatement {
 		return
 	}
 
-	if _, exists := s.branchSupporters[branchID]; !exists {
-		s.branchSupporters[branchID] = NewSupporters()
-	}
-
-	if !s.branchSupporters[branchID].Add(identity.NewID(message.IssuerPublicKey())) {
+	var added bool
+	s.tangle.Storage.BranchSupporters(branchID, func() *BranchSupporters {
+		return NewBranchSupporters(branchID)
+	}).Consume(func(branchSupporters *BranchSupporters) {
+		added = branchSupporters.AddSupporter(identity.NewID(message.IssuerPublicKey()))
+	})
+	// Abort if this node already supports this branch.
+	if !added {
 		return
 	}
 
@@ -431,7 +438,14 @@ func (s *SupporterManager) revokeSupportFromBranch(branchID ledgerstate.BranchID
 		return
 	}
 
-	if supporters, exists := s.branchSupporters[branchID]; !exists || !supporters.Delete(identity.NewID(message.IssuerPublicKey())) {
+	var deleted bool
+	s.tangle.Storage.BranchSupporters(branchID, func() *BranchSupporters {
+		return NewBranchSupporters(branchID)
+	}).Consume(func(branchSupporters *BranchSupporters) {
+		deleted = branchSupporters.DeleteSupporter(identity.NewID(message.IssuerPublicKey()))
+	})
+	// Abort if this node did not support this branch.
+	if !deleted {
 		return
 	}
 
@@ -492,6 +506,211 @@ func branchSupportEventCaller(handler interface{}, params ...interface{}) {
 
 func sequenceSupportEventCaller(handler interface{}, params ...interface{}) {
 	handler.(func(*markers.Marker, *Message))(params[0].(*markers.Marker), params[1].(*Message))
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region BranchWeight /////////////////////////////////////////////////////////////////////////////////////////////////
+
+// BranchWeight is a data structure that tracks the weight of a ledgerstate.BranchID.
+type BranchWeight struct {
+	branchID ledgerstate.BranchID
+	weight   float64
+
+	weightMutex sync.RWMutex
+
+	objectstorage.StorableObjectFlags
+}
+
+// NewBranchWeight creates a new BranchWeight.
+func NewBranchWeight(branchID ledgerstate.BranchID) (branchWeight *BranchWeight) {
+	branchWeight = &BranchWeight{
+		branchID: branchID,
+	}
+
+	branchWeight.Persist()
+	branchWeight.SetModified()
+
+	return
+}
+
+// BranchWeightFromBytes unmarshals a BranchWeight object from a sequence of bytes.
+func BranchWeightFromBytes(bytes []byte) (branchWeight *BranchWeight, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(bytes)
+	if branchWeight, err = BranchWeightFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse BranchWeight from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// BranchWeightFromMarshalUtil unmarshals a BranchWeight object using a MarshalUtil (for easier unmarshaling).
+func BranchWeightFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchWeight *BranchWeight, err error) {
+	branchWeight = &BranchWeight{}
+	if branchWeight.branchID, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
+		return
+	}
+
+	if branchWeight.weight, err = marshalUtil.ReadFloat64(); err != nil {
+		err = xerrors.Errorf("failed to parse weight (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+
+	return
+}
+
+// BranchWeightFromObjectStorage restores a BranchWeight object from the object storage.
+func BranchWeightFromObjectStorage(key, data []byte) (result objectstorage.StorableObject, err error) {
+	if result, _, err = BranchWeightFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
+		err = xerrors.Errorf("failed to parse BranchWeight from bytes: %w", err)
+		return
+	}
+
+	return
+}
+
+// BranchID returns the ledgerstate.BranchID that is being tracked.
+func (b *BranchWeight) BranchID() (branchID ledgerstate.BranchID) {
+	return b.branchID
+}
+
+// Weight returns the weight of the ledgerstate.BranchID.
+func (b *BranchWeight) Weight() (weight float64) {
+	b.weightMutex.RLock()
+	defer b.weightMutex.RUnlock()
+
+	return b.weight
+}
+
+// SetWeight sets the weight for the ledgerstate.BranchID and returns true if it was modified.
+func (b *BranchWeight) SetWeight(weight float64) (modified bool) {
+	b.weightMutex.Lock()
+	defer b.weightMutex.Unlock()
+
+	if weight == b.weight {
+		return false
+	}
+
+	b.weight = weight
+	modified = true
+	b.SetModified()
+
+	return
+}
+
+// IncreaseWeight increases the weight for the ledgerstate.BranchID and returns true if it was modified.
+func (b *BranchWeight) IncreaseWeight(weight float64) (modified bool) {
+	b.weightMutex.Lock()
+	defer b.weightMutex.Unlock()
+
+	if weight == 0 {
+		return false
+	}
+
+	b.weight += weight
+	modified = true
+	b.SetModified()
+
+	return
+}
+
+// DecreaseWeight decreases the weight for the ledgerstate.BranchID and returns true if it was modified.
+func (b *BranchWeight) DecreaseWeight(weight float64) (modified bool) {
+	b.weightMutex.Lock()
+	defer b.weightMutex.Unlock()
+
+	if weight == 0 {
+		return false
+	}
+
+	b.weight -= weight
+	modified = true
+	b.SetModified()
+
+	return
+}
+
+// Bytes returns a marshaled version of the BranchWeight.
+func (b *BranchWeight) Bytes() (marshaledBranchWeight []byte) {
+	return byteutils.ConcatBytes(b.ObjectStorageKey(), b.ObjectStorageValue())
+}
+
+// String returns a human readable version of the BranchWeight.
+func (b *BranchWeight) String() string {
+	return stringify.Struct("BranchWeight",
+		stringify.StructField("branchID", b.BranchID()),
+		stringify.StructField("weight", b.Weight()),
+	)
+}
+
+// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
+func (b *BranchWeight) Update(objectstorage.StorableObject) {
+	panic("updates disabled")
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (b *BranchWeight) ObjectStorageKey() []byte {
+	return b.BranchID().Bytes()
+}
+
+// ObjectStorageValue marshals the BranchWeight into a sequence of bytes that are used as the value part in the
+// object storage.
+func (b *BranchWeight) ObjectStorageValue() []byte {
+	return marshalutil.New(marshalutil.Float64Size).
+		WriteFloat64(b.Weight()).
+		Bytes()
+}
+
+// code contract (make sure the struct implements all required methods)
+var _ objectstorage.StorableObject = &BranchWeight{}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region CachedBranchWeight ///////////////////////////////////////////////////////////////////////////////////////////
+
+// CachedBranchWeight is a wrapper for the generic CachedObject returned by the object storage that overrides the
+// accessor methods with a type-casted one.
+type CachedBranchWeight struct {
+	objectstorage.CachedObject
+}
+
+// Retain marks the CachedObject to still be in use by the program.
+func (c *CachedBranchWeight) Retain() *CachedBranchWeight {
+	return &CachedBranchWeight{c.CachedObject.Retain()}
+}
+
+// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
+func (c *CachedBranchWeight) Unwrap() *BranchWeight {
+	untypedObject := c.Get()
+	if untypedObject == nil {
+		return nil
+	}
+
+	typedObject := untypedObject.(*BranchWeight)
+	if typedObject == nil || typedObject.IsDeleted() {
+		return nil
+	}
+
+	return typedObject
+}
+
+// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
+// exists). It automatically releases the object when the consumer finishes.
+func (c *CachedBranchWeight) Consume(consumer func(branchWeight *BranchWeight), forceRelease ...bool) (consumed bool) {
+	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*BranchWeight))
+	}, forceRelease...)
+}
+
+// String returns a human readable version of the CachedBranchWeight.
+func (c *CachedBranchWeight) String() string {
+	return stringify.Struct("CachedBranchWeight",
+		stringify.StructField("CachedObject", c.Unwrap()),
+	)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -683,15 +902,15 @@ func (c *CachedStatement) String() string {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region Supporter ////////////////////////////////////////////////////////////////////////////////////////////////////
-
-type Supporter = identity.ID
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region Epoch ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Epoch = uint64
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Supporter ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type Supporter = identity.ID
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -749,6 +968,209 @@ func (s *Supporters) String() string {
 	})
 
 	return structBuilder.String()
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region BranchSupporters ///////////////////////////////////////////////////////////////////////////////////////////
+
+// BranchSupporters is a data structure that tracks which nodes support a branch.
+type BranchSupporters struct {
+	branchID   ledgerstate.BranchID
+	supporters *Supporters
+
+	supportersMutex sync.RWMutex
+
+	objectstorage.StorableObjectFlags
+}
+
+// NewBranchSupporters is the constructor for the BranchSupporters object.
+func NewBranchSupporters(branchID ledgerstate.BranchID) (branchSupporters *BranchSupporters) {
+	branchSupporters = &BranchSupporters{
+		branchID:   branchID,
+		supporters: NewSupporters(),
+	}
+
+	branchSupporters.Persist()
+	branchSupporters.SetModified()
+
+	return
+}
+
+// BranchSupportersFromBytes unmarshals a BranchSupporters object from a sequence of bytes.
+func BranchSupportersFromBytes(bytes []byte) (branchSupporters *BranchSupporters, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(bytes)
+	if branchSupporters, err = BranchSupportersFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse SequenceSupporters from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// BranchSupportersFromMarshalUtil unmarshals a BranchSupporters object using a MarshalUtil (for easier unmarshaling).
+func BranchSupportersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchSupporters *BranchSupporters, err error) {
+	branchSupporters = &BranchSupporters{}
+	if branchSupporters.branchID, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
+		return
+	}
+
+	supportersCount, err := marshalUtil.ReadUint64()
+	if err != nil {
+		err = xerrors.Errorf("failed to parse supporters count (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	branchSupporters.supporters = NewSupporters()
+	for i := uint64(0); i < supportersCount; i++ {
+		supporter, supporterErr := identity.IDFromMarshalUtil(marshalUtil)
+		if supporterErr != nil {
+			err = xerrors.Errorf("failed to parse Supporter (%v): %w", supporterErr, cerrors.ErrParseBytesFailed)
+			return
+		}
+
+		branchSupporters.supporters.Add(supporter)
+	}
+
+	return
+}
+
+// BranchSupportersFromObjectStorage restores a BranchSupporters object from the object storage.
+func BranchSupportersFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
+	if result, _, err = BranchSupportersFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
+		err = xerrors.Errorf("failed to parse BranchSupporters from bytes: %w", err)
+		return
+	}
+
+	return
+}
+
+// BranchID returns the ledgerstate.BranchID that is being tracked.
+func (b *BranchSupporters) BranchID() (branchID ledgerstate.BranchID) {
+	return b.branchID
+}
+
+// AddSupporter adds a new Supporter to the tracked ledgerstate.BranchID.
+func (b *BranchSupporters) AddSupporter(supporter Supporter) (added bool) {
+	b.supportersMutex.Lock()
+	defer b.supportersMutex.Unlock()
+
+	if added = b.supporters.Add(supporter); !added {
+		return
+	}
+	b.SetModified()
+
+	return
+}
+
+// DeleteSupporter deletes a Supporter from the tracked ledgerstate.BranchID.
+func (b *BranchSupporters) DeleteSupporter(supporter Supporter) (deleted bool) {
+	b.supportersMutex.Lock()
+	defer b.supportersMutex.Unlock()
+
+	if deleted = b.supporters.Delete(supporter); !deleted {
+		return
+	}
+	b.SetModified()
+
+	return
+}
+
+// Supporters returns the set of Supporters that are supporting the given ledgerstate.BranchID.
+func (b *BranchSupporters) Supporters() (supporters *Supporters) {
+	b.supportersMutex.RLock()
+	defer b.supportersMutex.RUnlock()
+
+	return b.supporters.Clone()
+}
+
+// Bytes returns a marshaled version of the BranchSupporters.
+func (b *BranchSupporters) Bytes() (marshaledBranchSupporters []byte) {
+	return byteutils.ConcatBytes(b.ObjectStorageKey(), b.ObjectStorageValue())
+}
+
+// String returns a human readable version of the BranchSupporters.
+func (b *BranchSupporters) String() string {
+	return stringify.Struct("BranchSupporters",
+		stringify.StructField("branchID", b.BranchID()),
+		stringify.StructField("supporters", b.Supporters()),
+	)
+}
+
+// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
+func (b *BranchSupporters) Update(objectstorage.StorableObject) {
+	panic("updates disabled")
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (b *BranchSupporters) ObjectStorageKey() []byte {
+	return b.BranchID().Bytes()
+}
+
+// ObjectStorageValue marshals the BranchSupporters into a sequence of bytes that are used as the value part in the
+// object storage.
+func (b *BranchSupporters) ObjectStorageValue() []byte {
+	b.supportersMutex.RLock()
+	defer b.supportersMutex.RUnlock()
+
+	marshalUtil := marshalutil.New(marshalutil.Uint64Size + b.supporters.Size()*identity.IDLength)
+	marshalUtil.WriteUint64(uint64(b.supporters.Size()))
+
+	b.supporters.ForEach(func(supporter Supporter) {
+		marshalUtil.WriteBytes(supporter.Bytes())
+	})
+
+	return marshalUtil.Bytes()
+}
+
+// code contract (make sure the struct implements all required methods)
+var _ objectstorage.StorableObject = &BranchSupporters{}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region CachedBranchSupporters /////////////////////////////////////////////////////////////////////////////////////
+
+// CachedBranchSupporters is a wrapper for the generic CachedObject returned by the object storage that overrides the
+// accessor methods with a type-casted one.
+type CachedBranchSupporters struct {
+	objectstorage.CachedObject
+}
+
+// Retain marks the CachedObject to still be in use by the program.
+func (c *CachedBranchSupporters) Retain() *CachedBranchSupporters {
+	return &CachedBranchSupporters{c.CachedObject.Retain()}
+}
+
+// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
+func (c *CachedBranchSupporters) Unwrap() *BranchSupporters {
+	untypedObject := c.Get()
+	if untypedObject == nil {
+		return nil
+	}
+
+	typedObject := untypedObject.(*BranchSupporters)
+	if typedObject == nil || typedObject.IsDeleted() {
+		return nil
+	}
+
+	return typedObject
+}
+
+// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
+// exists). It automatically releases the object when the consumer finishes.
+func (c *CachedBranchSupporters) Consume(consumer func(branchSupporters *BranchSupporters), forceRelease ...bool) (consumed bool) {
+	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*BranchSupporters))
+	}, forceRelease...)
+}
+
+// String returns a human readable version of the CachedBranchSupporters.
+func (c *CachedBranchSupporters) String() string {
+	return stringify.Struct("CachedBranchSupporters",
+		stringify.StructField("CachedObject", c.Unwrap()),
+	)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -905,7 +1327,7 @@ func (s *SequenceSupporters) ObjectStorageValue() []byte {
 	s.supportersPerIndexMutex.RLock()
 	defer s.supportersPerIndexMutex.RUnlock()
 
-	marshalUtil := marshalutil.New(marshalutil.Uint64Size + len(s.supportersPerIndex)*(ed25519.PublicKeySize+marshalutil.Uint64Size))
+	marshalUtil := marshalutil.New(marshalutil.Uint64Size + len(s.supportersPerIndex)*(identity.IDLength+marshalutil.Uint64Size))
 	marshalUtil.WriteUint64(uint64(len(s.supportersPerIndex)))
 	for supporter, index := range s.supportersPerIndex {
 		marshalUtil.WriteBytes(supporter.Bytes())

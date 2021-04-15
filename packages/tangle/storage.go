@@ -44,8 +44,14 @@ const (
 	// PrefixSequenceSupporters defines the storage prefix for the SequenceSupporters.
 	PrefixSequenceSupporters
 
+	// PrefixBranchSupporters defines the storage prefix for the BranchSupporters.
+	PrefixBranchSupporters
+
 	// PrefixStatement defines the storage prefix for the Statement.
 	PrefixStatement
+
+	// PrefixBranchWeight defines the storage prefix for the BranchWeight.
+	PrefixBranchWeight
 
 	// PrefixMarkerMessageMapping defines the storage prefix for the MarkerMessageMapping.
 	PrefixMarkerMessageMapping
@@ -70,7 +76,9 @@ type Storage struct {
 	markerIndexBranchIDMappingStorage *objectstorage.ObjectStorage
 	individuallyMappedMessageStorage  *objectstorage.ObjectStorage
 	sequenceSupportersStorage         *objectstorage.ObjectStorage
+	branchSupportersStorage           *objectstorage.ObjectStorage
 	statementStorage                  *objectstorage.ObjectStorage
+	branchWeightStorage               *objectstorage.ObjectStorage
 	markerMessageMappingStorage       *objectstorage.ObjectStorage
 
 	Events   *StorageEvents
@@ -91,9 +99,11 @@ func NewStorage(tangle *Tangle) (storage *Storage) {
 		attachmentStorage:                 osFactory.New(PrefixAttachments, AttachmentFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.PartitionKey(ledgerstate.TransactionIDLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false)),
 		markerIndexBranchIDMappingStorage: osFactory.New(PrefixMarkerBranchIDMapping, MarkerIndexBranchIDMappingFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
 		individuallyMappedMessageStorage:  osFactory.New(PrefixIndividuallyMappedMessage, IndividuallyMappedMessageFromObjectStorage, objectstorage.CacheTime(CacheTime), IndividuallyMappedMessagePartitionKeys, objectstorage.LeakDetectionEnabled(false)),
-		markerMessageMappingStorage:       osFactory.New(PrefixMarkerMessageMapping, MarkerMessageMappingFromObjectStorage, objectstorage.CacheTime(CacheTime), MarkerMessageMappingPartitionKeys),
 		sequenceSupportersStorage:         osFactory.New(PrefixSequenceSupporters, SequenceSupportersFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
+		branchSupportersStorage:           osFactory.New(PrefixBranchSupporters, BranchSupportersFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
 		statementStorage:                  osFactory.New(PrefixStatement, StatementFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
+		branchWeightStorage:               osFactory.New(PrefixBranchWeight, BranchWeightFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
+		markerMessageMappingStorage:       osFactory.New(PrefixMarkerMessageMapping, MarkerMessageMappingFromObjectStorage, objectstorage.CacheTime(CacheTime), MarkerMessageMappingPartitionKeys),
 
 		Events: &StorageEvents{
 			MessageStored:        events.NewEvent(MessageIDCaller),
@@ -333,6 +343,17 @@ func (s *Storage) SequenceSupporters(sequenceID markers.SequenceID, computeIfAbs
 	return &CachedSequenceSupporters{CachedObject: s.sequenceSupportersStorage.Load(sequenceID.Bytes())}
 }
 
+// BranchSupporters retrieves the BranchSupporters with the given ledgerstate.BranchID.
+func (s *Storage) BranchSupporters(branchID ledgerstate.BranchID, computeIfAbsentCallback ...func() *BranchSupporters) *CachedBranchSupporters {
+	if len(computeIfAbsentCallback) >= 1 {
+		return &CachedBranchSupporters{s.branchSupportersStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) objectstorage.StorableObject {
+			return computeIfAbsentCallback[0]()
+		})}
+	}
+
+	return &CachedBranchSupporters{CachedObject: s.branchSupportersStorage.Load(branchID.Bytes())}
+}
+
 // Statement retrieves the Statement with the given ledgerstate.BranchID and Supporter.
 func (s *Storage) Statement(branchID ledgerstate.BranchID, supporter Supporter, computeIfAbsentCallback ...func() *Statement) *CachedStatement {
 	if len(computeIfAbsentCallback) >= 1 {
@@ -342,6 +363,17 @@ func (s *Storage) Statement(branchID ledgerstate.BranchID, supporter Supporter, 
 	}
 
 	return &CachedStatement{CachedObject: s.statementStorage.Load(byteutils.ConcatBytes(branchID.Bytes(), supporter.Bytes()))}
+}
+
+// BranchWeight retrieves the BranchWeight with the given ledgerstate.BranchID.
+func (s *Storage) BranchWeight(branchID ledgerstate.BranchID, computeIfAbsentCallback ...func() *BranchWeight) *CachedBranchWeight {
+	if len(computeIfAbsentCallback) >= 1 {
+		return &CachedBranchWeight{s.branchWeightStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) objectstorage.StorableObject {
+			return computeIfAbsentCallback[0]()
+		})}
+	}
+
+	return &CachedBranchWeight{CachedObject: s.branchWeightStorage.Load(branchID.Bytes())}
 }
 
 func (s *Storage) storeGenesis() {
@@ -389,7 +421,9 @@ func (s *Storage) Shutdown() {
 	s.markerIndexBranchIDMappingStorage.Shutdown()
 	s.individuallyMappedMessageStorage.Shutdown()
 	s.sequenceSupportersStorage.Shutdown()
+	s.branchSupportersStorage.Shutdown()
 	s.statementStorage.Shutdown()
+	s.branchWeightStorage.Shutdown()
 	s.markerMessageMappingStorage.Shutdown()
 
 	close(s.shutdown)
@@ -406,7 +440,9 @@ func (s *Storage) Prune() error {
 		s.markerIndexBranchIDMappingStorage,
 		s.individuallyMappedMessageStorage,
 		s.sequenceSupportersStorage,
+		s.branchSupportersStorage,
 		s.statementStorage,
+		s.branchWeightStorage,
 		s.markerMessageMappingStorage,
 	} {
 		if err := storage.Prune(); err != nil {
