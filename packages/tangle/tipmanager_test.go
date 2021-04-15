@@ -22,15 +22,26 @@ func TestTipManager_AddTip(t *testing.T) {
 
 	seed := ed25519.NewSeed()
 
-	tangle.LedgerState.LoadSnapshot(map[ledgerstate.TransactionID]map[ledgerstate.Address]*ledgerstate.ColoredBalances{
-		ledgerstate.GenesisTransactionID: {
-			ledgerstate.NewED25519Address(seed.KeyPair(0).PublicKey): ledgerstate.NewColoredBalances(
-				map[ledgerstate.Color]uint64{
-					ledgerstate.ColorIOTA: 10000,
-				},
-			),
-		},
-	})
+	output := ledgerstate.NewSigLockedColoredOutput(
+		ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
+			ledgerstate.ColorIOTA: 10000,
+		}),
+		ledgerstate.NewED25519Address(seed.KeyPair(0).PublicKey),
+	)
+
+	snapshot := &ledgerstate.Snapshot{
+		Transactions: []*ledgerstate.TransactionEssence{
+			ledgerstate.NewTransactionEssence(
+				0,
+				time.Now(),
+				identity.ID{},
+				identity.ID{},
+				ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
+				ledgerstate.NewOutputs(output),
+			)},
+	}
+
+	tangle.LedgerState.LoadSnapshot(snapshot)
 
 	// not eligible messages -> nothing is added
 	{
@@ -390,11 +401,20 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		map[ledgerstate.Color]uint64{
 			ledgerstate.ColorIOTA: 8,
 		})
-	snapshot := map[ledgerstate.TransactionID]map[ledgerstate.Address]*ledgerstate.ColoredBalances{
-		ledgerstate.GenesisTransactionID: {
-			wallets["G1"].address: g1Balance,
-			wallets["G2"].address: g2Balance,
-		},
+
+	snapshot := &ledgerstate.Snapshot{
+		Transactions: []*ledgerstate.TransactionEssence{
+			ledgerstate.NewTransactionEssence(
+				0,
+				time.Now(),
+				identity.ID{},
+				identity.ID{},
+				ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
+				ledgerstate.NewOutputs([]ledgerstate.Output{
+					ledgerstate.NewSigLockedColoredOutput(g1Balance, wallets["G1"].address),
+					ledgerstate.NewSigLockedColoredOutput(g2Balance, wallets["G2"].address),
+				}...),
+			)},
 	}
 
 	tangle.LedgerState.LoadSnapshot(snapshot)

@@ -62,7 +62,7 @@ func configure(plugin *node.Plugin) {
 
 	// read snapshot file
 	if Parameters.Snapshot.File != "" {
-		snapshot := ledgerstate.Snapshot{}
+		snapshot := &ledgerstate.Snapshot{}
 		f, err := os.Open(Parameters.Snapshot.File)
 		if err != nil {
 			plugin.Panic("can not open snapshot file:", err)

@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/iotaledger/hive.go/bitmask"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -63,6 +65,25 @@ func main() {
 		},
 	)
 
+	output := ledgerstate.NewSigLockedColoredOutput(
+		ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
+			ledgerstate.ColorIOTA: 1000000000000000,
+		}),
+		genesisSeed.Address(0).Address(),
+	)
+
+	newSnapshot := &ledgerstate.Snapshot{
+		Transactions: []*ledgerstate.TransactionEssence{
+			ledgerstate.NewTransactionEssence(
+				0,
+				time.Now(),
+				identity.ID{},
+				identity.ID{},
+				ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
+				ledgerstate.NewOutputs(output),
+			)},
+	}
+
 	genesisWallet := wallet.New(wallet.Import(genesisSeed, 1, []bitmask.BitMask{}, wallet.NewAssetRegistry()), wallet.GenericConnector(mockedConnector))
 	genesisAddress := genesisWallet.Seed().Address(0).Address()
 
@@ -72,23 +93,32 @@ func main() {
 	log.Printf("-> output id (base58): %s", ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))
 	log.Printf("-> token amount: %d", genesisTokenAmount)
 
-	snapshot := ledgerstate.Snapshot{
-		ledgerstate.GenesisTransactionID: {
-			genesisAddress: ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: uint64(genesisTokenAmount)}),
-		},
-	}
-
 	f, err := os.OpenFile(snapshotFileName, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
 		log.Fatal("unable to create snapshot file", err)
 	}
-	defer f.Close()
 
-	if _, err = snapshot.WriteTo(f); err != nil {
+	n, err := newSnapshot.WriteTo(f)
+	if err != nil {
 		log.Fatal("unable to write snapshot content to file", err)
 	}
 
+	log.Printf("Bytes written %d", n)
+	f.Close()
+
 	log.Printf("created %s, bye", snapshotFileName)
+
+	f, err = os.OpenFile(snapshotFileName, os.O_RDWR|os.O_CREATE, 0666)
+	if err != nil {
+		log.Fatal("unable to create snapshot file", err)
+	}
+
+	readSnapshot := &ledgerstate.Snapshot{}
+	readSnapshot.ReadFrom(f)
+	f.Close()
+
+	fmt.Println(readSnapshot)
+
 }
 
 type mockConnector struct {

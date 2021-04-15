@@ -2,11 +2,13 @@ package tangle
 
 import (
 	"testing"
+	"time"
 
 	"github.com/magiconair/properties/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/hive.go/identity"
 )
 
 func TestLoadSnapshot(t *testing.T) {
@@ -17,13 +19,23 @@ func TestLoadSnapshot(t *testing.T) {
 
 	wallets := createWallets(1)
 
-	snapshot := map[ledgerstate.TransactionID]map[ledgerstate.Address]*ledgerstate.ColoredBalances{
-		ledgerstate.GenesisTransactionID: {
-			wallets[0].address: ledgerstate.NewColoredBalances(
-				map[ledgerstate.Color]uint64{
-					ledgerstate.ColorIOTA: 10000,
-				}),
-		},
+	output := ledgerstate.NewSigLockedColoredOutput(
+		ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
+			ledgerstate.ColorIOTA: 10000,
+		}),
+		wallets[0].address,
+	)
+
+	snapshot := &ledgerstate.Snapshot{
+		Transactions: []*ledgerstate.TransactionEssence{
+			ledgerstate.NewTransactionEssence(
+				0,
+				time.Now(),
+				identity.ID{},
+				identity.ID{},
+				ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
+				ledgerstate.NewOutputs(output),
+			)},
 	}
 
 	ledgerState.LoadSnapshot(snapshot)

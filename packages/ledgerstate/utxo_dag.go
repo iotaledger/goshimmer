@@ -244,19 +244,17 @@ func (u *UTXODAG) Consumers(outputID OutputID) (cachedConsumers CachedConsumers)
 }
 
 // LoadSnapshot creates a set of outputs in the UTXO-DAG, that are forming the genesis for future transactions.
-func (u *UTXODAG) LoadSnapshot(snapshot map[TransactionID]map[Address]*ColoredBalances) {
+func (u *UTXODAG) LoadSnapshot(snapshot *Snapshot) {
 	index := uint16(0)
-	for transactionID, addressBalance := range snapshot {
-		for address, balance := range addressBalance {
-			output := NewSigLockedColoredOutput(balance, address)
-			output.SetID(NewOutputID(transactionID, index))
+	for _, transaction := range snapshot.Transactions {
+		for _, output := range transaction.outputs {
 			cachedOutput, stored := u.outputStorage.StoreIfAbsent(output)
 			if stored {
 				cachedOutput.Release()
 			}
 
 			// store addressOutputMapping
-			u.StoreAddressOutputMapping(address, output.ID())
+			u.StoreAddressOutputMapping(output.Address(), output.ID())
 
 			// store OutputMetadata
 			metadata := NewOutputMetadata(output.ID())
@@ -269,15 +267,16 @@ func (u *UTXODAG) LoadSnapshot(snapshot map[TransactionID]map[Address]*ColoredBa
 			}
 
 			index++
+
 		}
 
 		// store TransactionMetadata
-		transactionMetadata := NewTransactionMetadata(transactionID)
+		transactionMetadata := NewTransactionMetadata(GenesisTransactionID)
 		transactionMetadata.SetSolid(true)
 		transactionMetadata.SetBranchID(MasterBranchID)
 		transactionMetadata.SetFinalized(true)
 
-		(&CachedTransactionMetadata{CachedObject: u.transactionMetadataStorage.ComputeIfAbsent(transactionID.Bytes(), func(key []byte) objectstorage.StorableObject {
+		(&CachedTransactionMetadata{CachedObject: u.transactionMetadataStorage.ComputeIfAbsent(GenesisTransactionID.Bytes(), func(key []byte) objectstorage.StorableObject {
 			transactionMetadata.Persist()
 			transactionMetadata.SetModified()
 			return transactionMetadata

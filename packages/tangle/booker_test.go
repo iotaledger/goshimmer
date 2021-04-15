@@ -2,7 +2,9 @@ package tangle
 
 import (
 	"testing"
+	"time"
 
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -37,10 +39,17 @@ func TestScenario_1(t *testing.T) {
 		map[ledgerstate.Color]uint64{
 			ledgerstate.ColorIOTA: 3,
 		})
-	snapshot := map[ledgerstate.TransactionID]map[ledgerstate.Address]*ledgerstate.ColoredBalances{
-		ledgerstate.GenesisTransactionID: {
-			wallets["GENESIS"].address: genesisBalance,
-		},
+
+	snapshot := &ledgerstate.Snapshot{
+		Transactions: []*ledgerstate.TransactionEssence{
+			ledgerstate.NewTransactionEssence(
+				0,
+				time.Now(),
+				identity.ID{},
+				identity.ID{},
+				ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
+				ledgerstate.NewOutputs(ledgerstate.NewSigLockedColoredOutput(genesisBalance, wallets["GENESIS"].address)),
+			)},
 	}
 
 	tangle.LedgerState.LoadSnapshot(snapshot)
@@ -264,10 +273,16 @@ func TestScenario_2(t *testing.T) {
 		map[ledgerstate.Color]uint64{
 			ledgerstate.ColorIOTA: 3,
 		})
-	snapshot := map[ledgerstate.TransactionID]map[ledgerstate.Address]*ledgerstate.ColoredBalances{
-		ledgerstate.GenesisTransactionID: {
-			wallets["GENESIS"].address: genesisBalance,
-		},
+	snapshot := &ledgerstate.Snapshot{
+		Transactions: []*ledgerstate.TransactionEssence{
+			ledgerstate.NewTransactionEssence(
+				0,
+				time.Now(),
+				identity.ID{},
+				identity.ID{},
+				ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
+				ledgerstate.NewOutputs(ledgerstate.NewSigLockedColoredOutput(genesisBalance, wallets["GENESIS"].address)),
+			)},
 	}
 
 	tangle.LedgerState.LoadSnapshot(snapshot)
@@ -603,10 +618,16 @@ func TestScenario_3(t *testing.T) {
 		map[ledgerstate.Color]uint64{
 			ledgerstate.ColorIOTA: 3,
 		})
-	snapshot := map[ledgerstate.TransactionID]map[ledgerstate.Address]*ledgerstate.ColoredBalances{
-		ledgerstate.GenesisTransactionID: {
-			wallets["GENESIS"].address: genesisBalance,
-		},
+	snapshot := &ledgerstate.Snapshot{
+		Transactions: []*ledgerstate.TransactionEssence{
+			ledgerstate.NewTransactionEssence(
+				0,
+				time.Now(),
+				identity.ID{},
+				identity.ID{},
+				ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
+				ledgerstate.NewOutputs(ledgerstate.NewSigLockedColoredOutput(genesisBalance, wallets["GENESIS"].address)),
+			)},
 	}
 
 	tangle.LedgerState.LoadSnapshot(snapshot)

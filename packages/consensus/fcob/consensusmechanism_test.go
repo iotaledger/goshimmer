@@ -51,10 +51,17 @@ func TestOpinionFormer_Scenario2(t *testing.T) {
 		map[ledgerstate.Color]uint64{
 			ledgerstate.ColorIOTA: 3,
 		})
-	snapshot := map[ledgerstate.TransactionID]map[ledgerstate.Address]*ledgerstate.ColoredBalances{
-		ledgerstate.GenesisTransactionID: {
-			wallets["GENESIS"].address: genesisBalance,
-		},
+
+	snapshot := &ledgerstate.Snapshot{
+		Transactions: []*ledgerstate.TransactionEssence{
+			ledgerstate.NewTransactionEssence(
+				0,
+				time.Now(),
+				identity.ID{},
+				identity.ID{},
+				ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
+				ledgerstate.NewOutputs(ledgerstate.NewSigLockedColoredOutput(genesisBalance, wallets["GENESIS"].address)),
+			)},
 	}
 
 	testTangle.LedgerState.LoadSnapshot(snapshot)
@@ -215,13 +222,21 @@ func TestOpinionFormer(t *testing.T) {
 
 	wallets := createWallets(2)
 
-	snapshot := map[ledgerstate.TransactionID]map[ledgerstate.Address]*ledgerstate.ColoredBalances{
-		ledgerstate.GenesisTransactionID: {
-			wallets[0].address: ledgerstate.NewColoredBalances(
-				map[ledgerstate.Color]uint64{
-					ledgerstate.ColorIOTA: 10000,
-				}),
-		},
+	genesisBalance := ledgerstate.NewColoredBalances(
+		map[ledgerstate.Color]uint64{
+			ledgerstate.ColorIOTA: 10000,
+		})
+
+	snapshot := &ledgerstate.Snapshot{
+		Transactions: []*ledgerstate.TransactionEssence{
+			ledgerstate.NewTransactionEssence(
+				0,
+				time.Now(),
+				identity.ID{},
+				identity.ID{},
+				ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
+				ledgerstate.NewOutputs(ledgerstate.NewSigLockedColoredOutput(genesisBalance, wallets[0].address)),
+			)},
 	}
 
 	testTangle.LedgerState.LoadSnapshot(snapshot)
