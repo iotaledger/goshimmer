@@ -98,6 +98,10 @@ func (s *Scheduler) scheduleMessage(messageID MessageID) {
 		return
 	}
 
+	// if !s.isInTheFuture(messageID) {
+	// 	return
+	// }
+
 	s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 		if messageMetadata.SetScheduled(true) {
 			if s.scheduledMessages.Add(messageID) {
@@ -126,6 +130,20 @@ func (s *Scheduler) parentsBooked(messageID MessageID) (parentsBooked bool) {
 
 	return
 }
+
+// check if message is currently in the future
+// func (s *Scheduler) isInTheFuture(messageID MessageID) (isInTheFuture bool) {
+// 	s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+// 		isInTheFuture = false
+// 		current := clock.SyncedTime()
+// 		// current := time.Now()
+// 		if current.Sub(message.issuingTime) < 0 {
+// 			isInTheFuture = true
+// 		}
+// 	})
+
+// 	return
+// }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
