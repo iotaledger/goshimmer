@@ -12,25 +12,28 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/pow"
+	"github.com/iotaledger/hive.go/async"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
-	"github.com/iotaledger/hive.go/workerpool"
-
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	"github.com/iotaledger/hive.go/async"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/datastructure/randommap"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/testutil"
+	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/panjf2000/ants/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/goshimmer/packages/pow"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
 var (
-	schedulerParams = SchedulerParams{
-		RateSetterEnabled:           false,
+	rateSetterEnabled = false
+	rate              = time.Second / 10000
+	schedulerParams   = SchedulerParams{
+		RateSetterEnabled:           &rateSetterEnabled,
+		Rate:                        &rate,
 		AccessManaRetrieveFunc:      getAccessMana,
 		TotalAccessManaRetrieveFunc: getTotalAccessMana}
 )

@@ -20,8 +20,9 @@ import (
 )
 
 var (
-	schedulerParams = tangle.SchedulerParams{
-		RateSetterEnabled:           false,
+	rateSetterEnabled = true
+	schedulerParams   = tangle.SchedulerParams{
+		RateSetterEnabled:           &rateSetterEnabled,
 		AccessManaRetrieveFunc:      getAccessMana,
 		TotalAccessManaRetrieveFunc: getTotalAccessMana}
 )

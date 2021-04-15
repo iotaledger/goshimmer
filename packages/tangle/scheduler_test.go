@@ -19,9 +19,11 @@ var (
 	selfNode            = identity.New(selfLocalIdentity.PublicKey())
 	peerNode            = identity.GenerateIdentity()
 	otherNode           = identity.GenerateIdentity()
+	rateSetterInitial   = MaxMessageSize * 200.0
+	rateSetterBeta      = 1.0
 	testSchedulerParams = SchedulerParams{
-		RateSetterInitial:           MaxMessageSize * 200,
-		RateSetterBeta:              1,
+		RateSetterInitial:           &rateSetterInitial,
+		RateSetterBeta:              &rateSetterBeta,
 		AccessManaRetrieveFunc:      getAccessMana,
 		TotalAccessManaRetrieveFunc: getTotalAccessMana}
 )

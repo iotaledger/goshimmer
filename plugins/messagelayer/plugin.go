@@ -34,8 +34,12 @@ var ErrMessageWasNotBookedInTime = errors.New("message could not be booked in ti
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 var (
-	plugin     *node.Plugin
-	pluginOnce sync.Once
+	plugin            *node.Plugin
+	pluginOnce        sync.Once
+	rateSetterInitial float64
+	rateSetterBeta    float64
+	rateSetterEnabled bool
+	schedulerRate     time.Duration
 )
 
 // Plugin gets the plugin instance.
@@ -82,6 +86,12 @@ func configure(plugin *node.Plugin) {
 
 	fcob.LikedThreshold = time.Duration(Parameters.FCOB.AverageNetworkDelay) * time.Second
 	fcob.LocallyFinalizedThreshold = time.Duration(Parameters.FCOB.AverageNetworkDelay*2) * time.Second
+
+	// TODO: get from params
+	rateSetterEnabled = true
+	rateSetterBeta = 0.7
+	rateSetterInitial = 1500
+	schedulerRate = time.Second / 200
 }
 
 func run(*node.Plugin) {
@@ -113,8 +123,10 @@ func Tangle() *tangle.Tangle {
 			tangle.GenesisNode(Parameters.Snapshot.GenesisNode),
 			// TODO: get values from external config.
 			tangle.SchedulerConfig(tangle.SchedulerParams{
-				RateSetterInitial:           tangle.MaxMessageSize * 100, //TODO: calm down!
-				RateSetterBeta:              0.7,
+				RateSetterInitial:           &rateSetterInitial,
+				RateSetterBeta:              &rateSetterBeta,
+				RateSetterEnabled:           &rateSetterEnabled,
+				Rate:                        &schedulerRate,
 				AccessManaRetrieveFunc:      accessManaRetriever,
 				TotalAccessManaRetrieveFunc: totalAccessManaRetriever,
 			}),

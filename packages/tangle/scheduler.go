@@ -27,8 +27,6 @@ const (
 
 	// MaxDeficit is the maximum deficit, i.e. max bytes that can be scheduled without waiting; >= maxMessageSize
 	MaxDeficit = MaxMessageSize
-	// Rate is the minimum time interval between two scheduled messages, i.e. 1s / MPS
-	Rate = time.Second / 200
 
 	// rate setter
 
@@ -47,6 +45,10 @@ var (
 	Beta = 0.7
 	// 	RateSetterEnabled defines if the rater setter is enabled or not.
 	RateSetterEnabled = true
+	// Rate is the minimum time interval between two scheduled messages, i.e. 1s / MPS
+	Rate = time.Second / 200
+	// Initial is the rate in bytes per second
+	Initial = 1500.0
 )
 
 var (
@@ -62,12 +64,16 @@ type AccessManaRetrieveFunc func(nodeID identity.ID) float64
 // TotalAccessManaRetrieveFunc is a function type to retrieve the total access mana (e.g. via the mana plugin)
 type TotalAccessManaRetrieveFunc func() float64
 
+// TODO: make params nullable.
+
+// SchedulerParams defines the scheduler config parameters.
 type SchedulerParams struct {
-	RateSetterInitial           float64
-	RateSetterBeta              float64
+	RateSetterInitial           *float64
+	RateSetterBeta              *float64
 	AccessManaRetrieveFunc      func(identity.ID) float64
 	TotalAccessManaRetrieveFunc func() float64
-	RateSetterEnabled           bool
+	RateSetterEnabled           *bool
+	Rate                        *time.Duration
 }
 
 // Scheduler is a Tangle component that takes care of scheduling the messages that shall be booked.
@@ -100,6 +106,31 @@ type Scheduler struct {
 
 // NewScheduler returns a new Scheduler.
 func NewScheduler(tangle *Tangle) *Scheduler {
+	if tangle.Options.SchedulerParams.RateSetterInitial != nil {
+		Initial = *tangle.Options.SchedulerParams.RateSetterInitial
+	}
+
+	// TODO: panic?
+	//panic("the option AccessManaRetriever and TotalAccessManaRetriever must be defined so that AccessMana can be determined in scheduler")
+	if tangle.Options.SchedulerParams.AccessManaRetrieveFunc == nil || tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc == nil {
+		tangle.Options.SchedulerParams.AccessManaRetrieveFunc = func(_ identity.ID) float64 {
+			return 0
+		}
+		tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc = func() float64 {
+			return 0
+		}
+	}
+
+	MaxQueueWeight = MaxBufferSize / tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc()
+	if tangle.Options.SchedulerParams.RateSetterBeta != nil {
+		Beta = *tangle.Options.SchedulerParams.RateSetterBeta
+	}
+	if tangle.Options.SchedulerParams.RateSetterEnabled != nil {
+		RateSetterEnabled = *tangle.Options.SchedulerParams.RateSetterEnabled
+	}
+	if tangle.Options.SchedulerParams.Rate != nil {
+		Rate = *tangle.Options.SchedulerParams.Rate
+	}
 	scheduler := &Scheduler{
 		Events: &SchedulerEvents{
 			MessageScheduled: events.NewEvent(MessageIDCaller),
@@ -112,24 +143,11 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 		deficits:          make(map[identity.ID]float64),
 		issuingQueue:      NewNodeQueue(tangle.Options.Identity.ID()),
 		issue:             make(chan *Message, 1),
-		lambda:            atomic.NewFloat64(tangle.Options.SchedulerParams.RateSetterInitial),
+		lambda:            atomic.NewFloat64(Initial),
 		haltUpdate:        0,
 		shutdownSignal:    make(chan struct{}),
 		waitingToBeBooked: make(map[MessageID]set.Set),
 	}
-
-	if tangle.Options.SchedulerParams.AccessManaRetrieveFunc == nil || tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc == nil {
-		//panic("the option AccessManaRetriever and TotalAccessManaRetriever must be defined so that AccessMana can be determined in scheduler")
-		tangle.Options.SchedulerParams.AccessManaRetrieveFunc = func(_ identity.ID) float64 {
-			return 0
-		}
-		tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc = func() float64 {
-			return 0
-		}
-	}
-	MaxQueueWeight = MaxBufferSize / tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc()
-	Beta = tangle.Options.SchedulerParams.RateSetterBeta
-	RateSetterEnabled = tangle.Options.SchedulerParams.RateSetterEnabled
 
 	go scheduler.issuerLoop()
 	go scheduler.mainLoop()
@@ -141,7 +159,7 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 func (s *Scheduler) Setup() {
 	s.tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(s.SubmitAndReadyMessage))
 	s.tangle.Events.MessageInvalid.Attach(events.NewClosure(s.Unsubmit))
-	s.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(s.booked))
+	//s.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(s.booked))
 
 	//  TODO: wait for all messages to be scheduled here or in message layer?
 	/*
@@ -156,12 +174,6 @@ func (s *Scheduler) Setup() {
 // SubmitAndReadyMessage submits the message to the scheduler and makes it ready when it's parents are booked.
 func (s *Scheduler) SubmitAndReadyMessage(messageID MessageID) {
 	s.Submit(messageID)
-
-	// TODO: what if parents are not booked?
-	// wait for parents to be booked
-	if !s.parentsBooked(messageID) {
-		return
-	}
 	s.Ready(messageID)
 }
 
@@ -287,7 +299,7 @@ func (s *Scheduler) parentsBooked(messageID MessageID) (parentsBooked bool) {
 	s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		parentsBooked = true
 		message.ForEachParent(func(parent Parent) {
-			if parent.ID == EmptyMessageID {
+			if !parentsBooked || parent.ID == EmptyMessageID {
 				return
 			}
 
@@ -295,18 +307,6 @@ func (s *Scheduler) parentsBooked(messageID MessageID) (parentsBooked bool) {
 				parentsBooked = messageMetadata.IsBooked()
 			}) {
 				parentsBooked = false
-			}
-			if !parentsBooked {
-				func() {
-					s.waitingToBeBookedMu.Lock()
-					defer s.waitingToBeBookedMu.Unlock()
-					dependents, ok := s.waitingToBeBooked[parent.ID]
-					if !ok {
-						dependents = set.New(false)
-					}
-					dependents.Add(messageID)
-					s.waitingToBeBooked[parent.ID] = dependents
-				}()
 			}
 		})
 	})
@@ -338,6 +338,11 @@ func (s *Scheduler) schedule() *Message {
 		if q == start {
 			return nil
 		}
+	}
+
+	// will stay in buffer
+	if !s.parentsBooked(s.buffer.Current().Front().ID()) {
+		return nil
 	}
 	msg := s.buffer.PopFront()
 	nodeID := identity.NewID(msg.IssuerPublicKey())
