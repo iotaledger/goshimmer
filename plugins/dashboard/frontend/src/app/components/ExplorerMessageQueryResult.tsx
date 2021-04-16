@@ -145,6 +145,9 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                                     <ListGroup.Item>
                                         Invalid: {msg.invalid ? 'Yes' : 'No'}
                                     </ListGroup.Item>
+                                    <ListGroup.Item>
+                                        FinalizedApprovalWeight: {msg.finalizedApprovalWeight ? 'Yes' : 'No'}
+                                    </ListGroup.Item>
                                 </ListGroup>
                             </Col>
                         </Row>
