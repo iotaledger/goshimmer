@@ -75,14 +75,19 @@ func (t *Ticker) send() {
 	if t.dRNGState() != nil {
 		// wait for next randomness from dRNG
 		for i := 0; i < t.awaitOffset*checksPerSecond; i++ {
+			// the drng-message has been received less than the dRNG interval ago
+			// TODO Timestamp is no time stamp but the time of receival -> chack and correct description and name
 			if t.dRNGTicker != nil && t.missingDRNG && clock.Since(t.dRNGState().Randomness().Timestamp) < time.Duration(t.interval)*time.Second {
 				t.missingDRNG = false
+				// assume the Drng message was just delayed and our clock is correct; expect the next message at timestamp+interval
 				timeToNextDRNG := t.dRNGState().Randomness().Timestamp.Add(time.Duration(t.interval) * time.Second).Sub(clock.SyncedTime())
 				t.dRNGTicker.Reset(timeToNextDRNG)
 			}
+			// the drng-message has been received less than the allowed offset for considering the randomness
 			if clock.Since(t.dRNGState().Randomness().Timestamp) < time.Duration(t.awaitOffset)*time.Second {
 				randomness = t.dRNGState().Randomness().Float64()
 				if t.dRNGTicker != nil {
+					// expect next tick in exactly dRNG-interval seconds
 					t.dRNGTicker.Reset(time.Duration(t.interval) * time.Second)
 				}
 				break
