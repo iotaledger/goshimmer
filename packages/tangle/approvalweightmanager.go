@@ -83,7 +83,7 @@ func NewApprovalWeightManager(tangle *Tangle) (approvalWeightManager *ApprovalWe
 		panic(err)
 	}
 	if branchConfirmation != nil {
-		if approvalWeightManager.Events.BranchConfirmation, err = events.ThresholdEventFromMarshalUtil(marshalutil.New(branchConfirmation), branchConfirmationThresholdOptions...); err != nil {
+		if approvalWeightManager.Events.BranchConfirmation, _, err = events.ThresholdEventFromBytes(branchConfirmation, branchConfirmationThresholdOptions...); err != nil {
 			panic(err)
 		}
 	} else {
@@ -95,7 +95,7 @@ func NewApprovalWeightManager(tangle *Tangle) (approvalWeightManager *ApprovalWe
 		panic(err)
 	}
 	if markerConfirmation != nil {
-		if approvalWeightManager.Events.MarkerConfirmation, err = events.ThresholdEventFromMarshalUtil(marshalutil.New(markerConfirmation), markerConfirmationThresholdOptions...); err != nil {
+		if approvalWeightManager.Events.MarkerConfirmation, _, err = events.ThresholdEventFromBytes(markerConfirmation, markerConfirmationThresholdOptions...); err != nil {
 			panic(err)
 		}
 	} else {
@@ -117,6 +117,17 @@ func (a *ApprovalWeightManager) Setup() {
 	a.supportersManager.Events.BranchSupportAdded.Attach(events.NewClosure(a.onBranchSupportAdded))
 	a.supportersManager.Events.BranchSupportRemoved.Attach(events.NewClosure(a.onBranchSupportRemoved))
 	a.supportersManager.Events.SequenceSupportUpdated.Attach(events.NewClosure(a.onSequenceSupportUpdated))
+}
+
+func (a *ApprovalWeightManager) Shutdown() {
+	if err := a.tangle.Options.Store.Set(kvstore.Key("BranchConfirmation"), a.Events.BranchConfirmation.Bytes()); err != nil {
+		a.tangle.Events.Error.Trigger(xerrors.Errorf("failed to persists BranchConfirmation event (%v): %w", err, cerrors.ErrFatal))
+		return
+	}
+	if err := a.tangle.Options.Store.Set(kvstore.Key("MarkerConfirmation"), a.Events.MarkerConfirmation.Bytes()); err != nil {
+		a.tangle.Events.Error.Trigger(xerrors.Errorf("failed to persists MarkerConfirmation event (%v): %w", err, cerrors.ErrFatal))
+		return
+	}
 }
 
 func (a *ApprovalWeightManager) UpdateMessageBranch(messageID MessageID, _, newBranchID ledgerstate.BranchID) {
