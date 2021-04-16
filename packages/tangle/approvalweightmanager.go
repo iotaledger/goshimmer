@@ -59,7 +59,7 @@ func (a *ApprovalWeightManager) Setup() {
 	a.tangle.Booker.Events.MessageBranchUpdated.Attach(events.NewClosure(a.UpdateMessageBranch))
 	a.tangle.Booker.Events.MarkerBranchUpdated.Attach(events.NewClosure(a.UpdateMarkerBranch))
 
-	a.supportersManager.Events.BranchSupportAdded.Attach(events.NewClosure(a.onBranchSupportAdded))
+	a.supportersManager.Events.BranchSupportAdded.Attach(events.NewClosure(a.addMessageWeightToBranch))
 	a.supportersManager.Events.BranchSupportRemoved.Attach(events.NewClosure(a.onBranchSupportRemoved))
 	a.supportersManager.Events.SequenceSupportUpdated.Attach(events.NewClosure(a.onSequenceSupportUpdated))
 }
@@ -205,33 +205,30 @@ func (a *ApprovalWeightManager) lowestLastConfirmedMarker(sequenceID markers.Seq
 	return
 }
 
-func (a *ApprovalWeightManager) onBranchSupportAdded(branchID ledgerstate.BranchID, message *Message) {
-	epochID := a.tangle.WeightProvider.Epoch(message.IssuingTime())
-	weightOfSupporter, totalWeight := a.tangle.WeightProvider.Weight(epochID, message)
+func (a *ApprovalWeightManager) addMessageWeightToBranch(branchID ledgerstate.BranchID, message *Message) {
+	weightOfMessage, totalWeight := a.tangle.WeightProvider.Weight(
+		a.tangle.WeightProvider.Epoch(message.IssuingTime()),
+		message,
+	)
 
-	var diff float64
 	a.tangle.Storage.BranchWeight(branchID, func() *BranchWeight {
 		return NewBranchWeight(branchID)
 	}).Consume(func(branchWeight *BranchWeight) {
-		branchWeight.IncreaseWeight(weightOfSupporter / totalWeight)
-		diff = branchWeight.Weight() - a.weightOfLargestConflictingBranch(branchID)
+		a.Events.BranchConfirmation.Set(branchID, branchWeight.IncreaseWeight(weightOfMessage/totalWeight)-a.weightOfHeaviestConflictingBranch(branchID))
 	})
-
-	a.Events.BranchConfirmation.Set(branchID, diff)
 }
 
 func (a *ApprovalWeightManager) onBranchSupportRemoved(branchID ledgerstate.BranchID, message *Message) {
-	epochID := a.tangle.WeightProvider.Epoch(message.IssuingTime())
-	weightOfSupporter, totalWeight := a.tangle.WeightProvider.Weight(epochID, message)
+	weightOfSupporter, totalWeight := a.tangle.WeightProvider.Weight(a.tangle.WeightProvider.Epoch(message.IssuingTime()), message)
 
 	a.tangle.Storage.BranchWeight(branchID, func() *BranchWeight {
 		return NewBranchWeight(branchID)
 	}).Consume(func(branchWeight *BranchWeight) {
-		branchWeight.DecreaseWeight(weightOfSupporter / totalWeight)
+		a.Events.BranchConfirmation.Set(branchID, branchWeight.DecreaseWeight(weightOfSupporter/totalWeight)-a.weightOfHeaviestConflictingBranch(branchID))
 	})
 }
 
-func (a *ApprovalWeightManager) weightOfLargestConflictingBranch(branchID ledgerstate.BranchID) (weight float64) {
+func (a *ApprovalWeightManager) weightOfHeaviestConflictingBranch(branchID ledgerstate.BranchID) (weight float64) {
 	a.tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
 		a.tangle.Storage.BranchWeight(conflictingBranchID).Consume(func(branchWeight *BranchWeight) {
 			weight = branchWeight.Weight()
@@ -640,35 +637,29 @@ func (b *BranchWeight) SetWeight(weight float64) (modified bool) {
 }
 
 // IncreaseWeight increases the weight for the ledgerstate.BranchID and returns true if it was modified.
-func (b *BranchWeight) IncreaseWeight(weight float64) (modified bool) {
+func (b *BranchWeight) IncreaseWeight(weight float64) (newWeight float64) {
 	b.weightMutex.Lock()
 	defer b.weightMutex.Unlock()
 
-	if weight == 0 {
-		return false
+	if weight != 0 {
+		b.weight += weight
+		b.SetModified()
 	}
 
-	b.weight += weight
-	modified = true
-	b.SetModified()
-
-	return
+	return b.weight
 }
 
 // DecreaseWeight decreases the weight for the ledgerstate.BranchID and returns true if it was modified.
-func (b *BranchWeight) DecreaseWeight(weight float64) (modified bool) {
+func (b *BranchWeight) DecreaseWeight(weight float64) (newWeight float64) {
 	b.weightMutex.Lock()
 	defer b.weightMutex.Unlock()
 
-	if weight == 0 {
-		return false
+	if weight != 0 {
+		b.weight -= weight
+		b.SetModified()
 	}
 
-	b.weight -= weight
-	modified = true
-	b.SetModified()
-
-	return
+	return b.weight
 }
 
 // Bytes returns a marshaled version of the BranchWeight.
