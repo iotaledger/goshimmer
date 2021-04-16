@@ -775,7 +775,10 @@ func loadSnapshot(snapshot *ledgerstate.Snapshot) {
 				return true
 			})
 		}
-		info := &mana.SnapshotInfo{float64(totalBalance), txID}
+		info := &mana.SnapshotInfo{
+			Value: float64(totalBalance),
+			TxID:  txID,
+		}
 		manaSnapshot[essence.ConsensusPledgeID()] = info
 	}
 
