@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	lowerWeightThreshold = float64(0.01)
+	minSupporterWeight = float64(0.01)
 )
 
 // region ApprovalWeightManager ////////////////////////////////////////////////////////////////////////////////////////
@@ -44,29 +44,8 @@ func NewApprovalWeightManager(tangle *Tangle) (approvalWeightManager *ApprovalWe
 		lastConfirmedMarkers: make(map[markers.SequenceID]markers.Index),
 	}
 
-	branchConfirmation, err := tangle.Options.Store.Get(kvstore.Key("BranchConfirmation"))
-	if err != nil && !errors.Is(err, kvstore.ErrKeyNotFound) {
-		panic(err)
-	}
-	if branchConfirmation != nil {
-		if approvalWeightManager.Events.BranchConfirmation, _, err = events.ThresholdEventFromBytes(branchConfirmation, branchConfirmationThresholdOptions...); err != nil {
-			panic(err)
-		}
-	} else {
-		approvalWeightManager.Events.BranchConfirmation = events.NewThresholdEvent(branchConfirmationThresholdOptions...)
-	}
-
-	markerConfirmation, err := tangle.Options.Store.Get(kvstore.Key("MarkerConfirmation"))
-	if err != nil && !errors.Is(err, kvstore.ErrKeyNotFound) {
-		panic(err)
-	}
-	if markerConfirmation != nil {
-		if approvalWeightManager.Events.MarkerConfirmation, _, err = events.ThresholdEventFromBytes(markerConfirmation, markerConfirmationThresholdOptions...); err != nil {
-			panic(err)
-		}
-	} else {
-		approvalWeightManager.Events.MarkerConfirmation = events.NewThresholdEvent(markerConfirmationThresholdOptions...)
-	}
+	approvalWeightManager.Events.BranchConfirmation = approvalWeightManager.initThresholdEvent("BranchConfirmation", branchConfirmationThresholdOptions...)
+	approvalWeightManager.Events.MarkerConfirmation = approvalWeightManager.initThresholdEvent("MarkerConfirmation", markerConfirmationThresholdOptions...)
 
 	return
 }
@@ -85,15 +64,10 @@ func (a *ApprovalWeightManager) Setup() {
 	a.supportersManager.Events.SequenceSupportUpdated.Attach(events.NewClosure(a.onSequenceSupportUpdated))
 }
 
-func (a *ApprovalWeightManager) Shutdown() {
-	if err := a.tangle.Options.Store.Set(kvstore.Key("BranchConfirmation"), a.Events.BranchConfirmation.Bytes()); err != nil {
-		a.tangle.Events.Error.Trigger(xerrors.Errorf("failed to persists BranchConfirmation event (%v): %w", err, cerrors.ErrFatal))
-		return
-	}
-	if err := a.tangle.Options.Store.Set(kvstore.Key("MarkerConfirmation"), a.Events.MarkerConfirmation.Bytes()); err != nil {
-		a.tangle.Events.Error.Trigger(xerrors.Errorf("failed to persists MarkerConfirmation event (%v): %w", err, cerrors.ErrFatal))
-		return
-	}
+func (a *ApprovalWeightManager) ProcessMessage(messageID MessageID) {
+	a.supportersManager.ProcessMessage(messageID)
+
+	a.Events.MessageProcessed.Trigger(messageID)
 }
 
 func (a *ApprovalWeightManager) UpdateMessageBranch(messageID MessageID, _, newBranchID ledgerstate.BranchID) {
@@ -121,12 +95,6 @@ func (a *ApprovalWeightManager) UpdateMarkerBranch(marker *markers.Marker, oldBr
 			b.SetWeight(branchWeight / totalWeight)
 		})
 	})
-}
-
-func (a *ApprovalWeightManager) ProcessMessage(messageID MessageID) {
-	a.supportersManager.ProcessMessage(messageID)
-
-	a.Events.MessageProcessed.Trigger(messageID)
 }
 
 // WeightOfBranch returns the weight of the given Branch that was added by Supporters of the given epoch.
@@ -158,6 +126,34 @@ func (a *ApprovalWeightManager) WeightOfMarker(marker *markers.Marker, anchorTim
 	}
 
 	return supporterMana / totalMana
+}
+
+func (a *ApprovalWeightManager) Shutdown() {
+	if err := a.tangle.Options.Store.Set(kvstore.Key("BranchConfirmation"), a.Events.BranchConfirmation.Bytes()); err != nil {
+		a.tangle.Events.Error.Trigger(xerrors.Errorf("failed to persists BranchConfirmation event (%v): %w", err, cerrors.ErrFatal))
+		return
+	}
+	if err := a.tangle.Options.Store.Set(kvstore.Key("MarkerConfirmation"), a.Events.MarkerConfirmation.Bytes()); err != nil {
+		a.tangle.Events.Error.Trigger(xerrors.Errorf("failed to persists MarkerConfirmation event (%v): %w", err, cerrors.ErrFatal))
+		return
+	}
+}
+
+// initThresholdEvent returns the ThresholdEvent that belongs to the given name. Since ThresholdEvents are stateful,
+func (a *ApprovalWeightManager) initThresholdEvent(name string, options ...events.ThresholdEventOption) (thresholdEvent *events.ThresholdEvent) {
+	marshaledThresholdEvent, err := a.tangle.Options.Store.Get(kvstore.Key(name))
+	if err != nil && !errors.Is(err, kvstore.ErrKeyNotFound) {
+		panic(err)
+	}
+	if marshaledThresholdEvent != nil {
+		if thresholdEvent, _, err = events.ThresholdEventFromBytes(marshaledThresholdEvent, options...); err != nil {
+			panic(err)
+		}
+	} else {
+		thresholdEvent = events.NewThresholdEvent(options...)
+	}
+
+	return
 }
 
 func (a *ApprovalWeightManager) onSequenceSupportUpdated(marker *markers.Marker, message *Message) {
@@ -249,44 +245,46 @@ func (a *ApprovalWeightManager) weightOfLargestConflictingBranch(branchID ledger
 
 // region ApprovalWeightManagerEvents //////////////////////////////////////////////////////////////////////////////////
 
+var (
+	branchConfirmationThresholdOptions = []events.ThresholdEventOption{
+		events.WithThresholds(0.49),
+		events.WithCallbackTypeCaster(func(handler interface{}, identifier interface{}, newLevel int, transition events.ThresholdEventTransition) {
+			handler.(func(branchID ledgerstate.BranchID, newLevel int, transition events.ThresholdEventTransition))(identifier.(ledgerstate.BranchID), newLevel, transition)
+		}),
+		events.WithIdentifierParser(func(marshalUtil *marshalutil.MarshalUtil) (identifier interface{}, err error) {
+			branchID, err := ledgerstate.BranchIDFromMarshalUtil(marshalUtil)
+			if err != nil {
+				err = xerrors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
+				return
+			}
+
+			identifier = branchID
+			return
+		}),
+	}
+
+	markerConfirmationThresholdOptions = []events.ThresholdEventOption{
+		events.WithThresholds(0.49),
+		events.WithCallbackTypeCaster(func(handler interface{}, identifier interface{}, newLevel int, transition events.ThresholdEventTransition) {
+			handler.(func(branchID markers.Marker, newLevel int, transition events.ThresholdEventTransition))(identifier.(markers.Marker), newLevel, transition)
+		}),
+		events.WithIdentifierParser(func(marshalUtil *marshalutil.MarshalUtil) (identifier interface{}, err error) {
+			marker, err := markers.MarkerFromMarshalUtil(marshalUtil)
+			if err != nil {
+				err = xerrors.Errorf("failed to parse Marker from MarshalUtil: %w", err)
+				return
+			}
+
+			identifier = *marker
+			return
+		}),
+	}
+)
+
 type ApprovalWeightManagerEvents struct {
 	MessageProcessed   *events.Event
 	BranchConfirmation *events.ThresholdEvent
 	MarkerConfirmation *events.ThresholdEvent
-}
-
-var branchConfirmationThresholdOptions = []events.ThresholdEventOption{
-	events.WithThresholds(0.49),
-	events.WithCallbackTypeCaster(func(handler interface{}, identifier interface{}, newLevel int, transition events.ThresholdEventTransition) {
-		handler.(func(branchID ledgerstate.BranchID, newLevel int, transition events.ThresholdEventTransition))(identifier.(ledgerstate.BranchID), newLevel, transition)
-	}),
-	events.WithIdentifierParser(func(marshalUtil *marshalutil.MarshalUtil) (identifier interface{}, err error) {
-		branchID, err := ledgerstate.BranchIDFromMarshalUtil(marshalUtil)
-		if err != nil {
-			err = xerrors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
-			return
-		}
-
-		identifier = branchID
-		return
-	}),
-}
-
-var markerConfirmationThresholdOptions = []events.ThresholdEventOption{
-	events.WithThresholds(0.49),
-	events.WithCallbackTypeCaster(func(handler interface{}, identifier interface{}, newLevel int, transition events.ThresholdEventTransition) {
-		handler.(func(branchID markers.Marker, newLevel int, transition events.ThresholdEventTransition))(identifier.(markers.Marker), newLevel, transition)
-	}),
-	events.WithIdentifierParser(func(marshalUtil *marshalutil.MarshalUtil) (identifier interface{}, err error) {
-		marker, err := markers.MarkerFromMarshalUtil(marshalUtil)
-		if err != nil {
-			err = xerrors.Errorf("failed to parse Marker from MarshalUtil: %w", err)
-			return
-		}
-
-		identifier = *marker
-		return
-	}),
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -431,7 +429,7 @@ func (s *SupporterManager) propagateSupportToBranches(branchID ledgerstate.Branc
 func (s *SupporterManager) isRelevantSupporter(message *Message) bool {
 	supporterWeight, totalWeight := s.tangle.WeightProvider.Weight(s.tangle.WeightProvider.Epoch(message.IssuingTime()), message)
 
-	return supporterWeight/totalWeight >= lowerWeightThreshold
+	return supporterWeight/totalWeight >= minSupporterWeight
 }
 
 func (s *SupporterManager) addSupportToBranch(branchID ledgerstate.BranchID, message *Message, walk *walker.Walker) {
@@ -1012,7 +1010,7 @@ func (s *Supporters) String() string {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region BranchSupporters ///////////////////////////////////////////////////////////////////////////////////////////
+// region BranchSupporters /////////////////////////////////////////////////////////////////////////////////////////////
 
 // BranchSupporters is a data structure that tracks which nodes support a branch.
 type BranchSupporters struct {
@@ -1170,7 +1168,7 @@ var _ objectstorage.StorableObject = &BranchSupporters{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region CachedBranchSupporters /////////////////////////////////////////////////////////////////////////////////////
+// region CachedBranchSupporters ///////////////////////////////////////////////////////////////////////////////////////
 
 // CachedBranchSupporters is a wrapper for the generic CachedObject returned by the object storage that overrides the
 // accessor methods with a type-casted one.
