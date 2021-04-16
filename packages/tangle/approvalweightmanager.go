@@ -63,7 +63,6 @@ func (a *ApprovalWeightManager) Setup() {
 	a.supportersManager.Events.BranchSupportAdded.Attach(events.NewClosure(a.onBranchSupportAdded))
 	a.supportersManager.Events.BranchSupportRemoved.Attach(events.NewClosure(a.onBranchSupportRemoved))
 	a.supportersManager.Events.SequenceSupportUpdated.Attach(events.NewClosure(a.onSequenceSupportUpdated))
-	a.Events.MarkerConfirmed.Attach(events.NewClosure(a.onMarkerConfirmed))
 }
 
 func (a *ApprovalWeightManager) UpdateMessageBranch(messageID MessageID, _, newBranchID ledgerstate.BranchID) {
@@ -125,57 +124,6 @@ func (a *ApprovalWeightManager) WeightOfMarker(marker *markers.Marker, anchorTim
 	}
 
 	return supporterMana / totalMana
-}
-
-func (a *ApprovalWeightManager) onMarkerConfirmed(marker *markers.Marker) {
-	// get message ID of marker
-	messageID := a.tangle.Booker.MarkersManager.MessageID(marker)
-
-	// mark marker as finalized
-	a.tangle.Storage.MessageMetadata(messageID).Consume(func(metadata *MessageMetadata) {
-		metadata.SetFinalizedApprovalWeight(true)
-	})
-
-	entryMessageIDs := MessageIDs{}
-	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		// mark weak parents as finalized but not propagate finalized flag to its past cone
-		message.ForEachWeakParent(func(parentID MessageID) {
-			a.tangle.Storage.MessageMetadata(parentID).Consume(func(metadata *MessageMetadata) {
-				metadata.SetFinalizedApprovalWeight(true)
-			})
-		})
-
-		// propagate finalized flag to strong parents' past cone
-		message.ForEachStrongParent(func(parentID MessageID) {
-			entryMessageIDs = append(entryMessageIDs, parentID)
-		})
-	})
-
-	a.tangle.Utils.WalkMessageAndMetadata(a.propagateFinalizedApprovalWeight, entryMessageIDs, true)
-}
-
-func (a *ApprovalWeightManager) propagateFinalizedApprovalWeight(message *Message, messageMetadata *MessageMetadata, finalizedWalker *walker.Walker) {
-	// stop walking to past cone if reach a marker
-	if messageMetadata.StructureDetails().IsPastMarker {
-		return
-	}
-
-	// abort if the message is already finalized
-	if !messageMetadata.SetFinalizedApprovalWeight(true) {
-		return
-	}
-
-	// mark weak parents as finalized but not propagate finalized flag to its past cone
-	message.ForEachWeakParent(func(parentID MessageID) {
-		a.tangle.Storage.MessageMetadata(parentID).Consume(func(metadata *MessageMetadata) {
-			metadata.SetFinalizedApprovalWeight(true)
-		})
-	})
-
-	// propaget finalized to strong parents
-	message.ForEachStrongParent(func(parentID MessageID) {
-		finalizedWalker.Push(parentID)
-	})
 }
 
 func (a *ApprovalWeightManager) onSequenceSupportUpdated(marker *markers.Marker, message *Message) {

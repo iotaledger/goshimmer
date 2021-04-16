@@ -70,13 +70,18 @@ type MessageMetadata struct {
 
 // NewMessageMetadata returns MessageMetadata from the given tangle.MessageMetadata.
 func NewMessageMetadata(metadata *tangle.MessageMetadata) MessageMetadata {
+	branchID, err := messagelayer.Tangle().Booker.MessageBranchID(metadata.ID())
+	if err != nil {
+		branchID = ledgerstate.BranchID{}
+	}
+
 	return MessageMetadata{
 		ID:                      metadata.ID().Base58(),
 		ReceivedTime:            metadata.ReceivedTime().Unix(),
 		Solid:                   metadata.IsSolid(),
 		SolidificationTime:      metadata.SolidificationTime().Unix(),
 		StructureDetails:        NewStructureDetails(metadata.StructureDetails()),
-		BranchID:                metadata.BranchID().String(),
+		BranchID:                branchID.String(),
 		Scheduled:               metadata.Scheduled(),
 		Booked:                  metadata.IsBooked(),
 		Eligible:                metadata.IsEligible(),
