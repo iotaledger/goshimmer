@@ -81,8 +81,8 @@ services:
       - goshimmer-cache:/go
       - ../integration-tests/assets:/tmp/assets
     ports:
-      - "127.0.0.2:8080:8080/tcp" # web API
-      - "127.0.0.2:8081:8081/tcp" # dashboard
+      - "127.0.0.1:8090:8080/tcp" # web API
+      - "127.0.0.1:8091:8081/tcp" # dashboard
     depends_on:
       - entry_node
 

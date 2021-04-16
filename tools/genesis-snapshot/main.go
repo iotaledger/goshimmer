@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/bitmask"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -14,6 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/packages/epochs"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 )
@@ -71,10 +74,14 @@ func main() {
 		genesisSeed.Address(0).Address(),
 	)
 
-	nodeID, _ := mana.IDFromStr("EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP")
+	pubKey, err := ed25519.PublicKeyFromString("EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP")
+	if err != nil {
+		panic(err)
+	}
+	nodeID := identity.NewID(pubKey)
 	tx := ledgerstate.NewTransaction(ledgerstate.NewTransactionEssence(
 		0,
-		time.Now(),
+		time.Unix(epochs.DefaultGenesisTime, 0),
 		nodeID,
 		nodeID,
 		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),

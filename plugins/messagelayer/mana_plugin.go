@@ -331,6 +331,14 @@ func GetManaMap(manaType mana.Type, optionalUpdateTime ...time.Time) (mana.NodeM
 	return baseManaVectors[manaType].GetManaMap(optionalUpdateTime...)
 }
 
+func ManaEpoch(t time.Time) map[identity.ID]float64 {
+	m, _, err := GetManaMap(mana.ConsensusMana, t)
+	if err != nil {
+		panic(err)
+	}
+	return m
+}
+
 // GetAccessMana returns the access mana of the node specified.
 func GetAccessMana(nodeID identity.ID, optionalUpdateTime ...time.Time) (float64, time.Time, error) {
 	if !QueryAllowed() {
@@ -766,6 +774,7 @@ func QueryAllowed() (allowed bool) {
 
 func loadSnapshot(snapshot *ledgerstate.Snapshot) {
 	manaSnapshot := make(map[identity.ID]*mana.SnapshotInfo)
+	var snapshotTime time.Time
 
 	for txID, essence := range snapshot.Transactions {
 		totalBalance := uint64(0)
@@ -780,12 +789,14 @@ func loadSnapshot(snapshot *ledgerstate.Snapshot) {
 			TxID:  txID,
 		}
 		manaSnapshot[essence.ConsensusPledgeID()] = info
+
+		snapshotTime = essence.Timestamp()
 	}
 
-	baseManaVectors[mana.ConsensusMana].LoadSnapshot(manaSnapshot, time.Now())
+	baseManaVectors[mana.ConsensusMana].LoadSnapshot(manaSnapshot, snapshotTime)
 	baseManaVectors[mana.AccessMana].LoadSnapshot(manaSnapshot, time.Now())
 	if ManaParameters.EnableResearchVectors {
-		baseManaVectors[mana.ResearchAccess].LoadSnapshot(manaSnapshot, time.Now())
-		baseManaVectors[mana.ResearchConsensus].LoadSnapshot(manaSnapshot, time.Now())
+		baseManaVectors[mana.ResearchAccess].LoadSnapshot(manaSnapshot, snapshotTime)
+		baseManaVectors[mana.ResearchConsensus].LoadSnapshot(manaSnapshot, snapshotTime)
 	}
 }
