@@ -68,7 +68,7 @@ type Randomness struct {
 	Round uint64
 	// Randomness holds the current randomness as a slice of bytes.
 	Randomness []byte
-	// Timestamp holds the timestamp when the current randomness was received.
+	// Timestamp holds the timestamp of the current randomness message
 	Timestamp time.Time
 }
 
