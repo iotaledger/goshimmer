@@ -15,11 +15,17 @@ func configureApprovalWeight() {
 }
 
 func onMarkerConfirmed(marker markers.Marker, newLevel int, transition events.ThresholdEventTransition) {
+	if transition != events.ThresholdLevelIncreased {
+		Plugin().LogInfo("transition != events.ThresholdLevelIncreased")
+		return
+	}
 	// get message ID of marker
 	messageID := Tangle().Booker.MarkersManager.MessageID(&marker)
+	Plugin().LogInfo("message ID of marker ", messageID)
 
 	// mark marker as finalized
 	Tangle().Storage.MessageMetadata(messageID).Consume(func(metadata *tangle.MessageMetadata) {
+		Plugin().LogInfo("mark marker as finalized ")
 		metadata.SetFinalizedApprovalWeight(true)
 	})
 
