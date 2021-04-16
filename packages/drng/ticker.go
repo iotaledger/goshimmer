@@ -7,15 +7,15 @@ import (
 )
 
 const (
-	scaleFactor      = 100
-	granularityCheck = 1000 / scaleFactor
+	intervalCheckDRNG = 100 // interval for checking whether a dRNG message is received, in ms
+	checksPerSecond   = 1000 / intervalCheckDRNG
 )
 
 // Ticker holds a channel that delivers randomness at intervals.
 type Ticker struct {
 	dRNGState    func() *State
 	dRNGTicker   *time.Ticker
-	resolution   int64 // the interval at which the ticker should tick (in seconds).
+	interval     int64 // the interval at which the ticker should tick (in seconds).
 	defaultValue float64
 	awaitOffset  int // defines the max amount of time (in seconds) to wait for the next dRNG round after the excected time has elapsed.
 	missingDRNG  bool
@@ -24,10 +24,10 @@ type Ticker struct {
 }
 
 // NewTicker returns a pointer to a new Ticker.
-func NewTicker(dRNGState func() *State, resolution int64, defaultValue float64, awaitOffset int) *Ticker {
+func NewTicker(dRNGState func() *State, interval int64, defaultValue float64, awaitOffset int) *Ticker {
 	return &Ticker{
 		dRNGState:    dRNGState,
-		resolution:   resolution,
+		interval:     interval,
 		defaultValue: defaultValue,
 		awaitOffset:  awaitOffset,
 		missingDRNG:  true,
@@ -39,12 +39,12 @@ func NewTicker(dRNGState func() *State, resolution int64, defaultValue float64, 
 // Start starts the Ticker.
 func (t *Ticker) Start() {
 	now := clock.SyncedTime().Unix()
-	nextTimePoint := ResolveNextTimePoint(now, t.resolution)
+	nextTimePoint := ResolveNextTimePoint(now, t.interval)
 	time.AfterFunc(time.Duration(nextTimePoint-now)*time.Second, func() {
 		// send for the first time right after the timer is executed
 		t.send()
 
-		t.dRNGTicker = time.NewTicker(time.Duration(t.resolution) * time.Second)
+		t.dRNGTicker = time.NewTicker(time.Duration(t.interval) * time.Second)
 		defer t.Stop()
 	out:
 		for {
@@ -74,20 +74,20 @@ func (t *Ticker) send() {
 	randomness := t.defaultValue
 	if t.dRNGState() != nil {
 		// wait for next randomness from dRNG
-		for i := 0; i < t.awaitOffset*granularityCheck; i++ {
-			if t.dRNGTicker != nil && t.missingDRNG && clock.Since(t.dRNGState().Randomness().Timestamp) < time.Duration(t.resolution)*time.Second {
+		for i := 0; i < t.awaitOffset*checksPerSecond; i++ {
+			if t.dRNGTicker != nil && t.missingDRNG && clock.Since(t.dRNGState().Randomness().Timestamp) < time.Duration(t.interval)*time.Second {
 				t.missingDRNG = false
-				timeToNextDRNG := t.dRNGState().Randomness().Timestamp.Add(time.Duration(t.resolution) * time.Second).Sub(clock.SyncedTime())
+				timeToNextDRNG := t.dRNGState().Randomness().Timestamp.Add(time.Duration(t.interval) * time.Second).Sub(clock.SyncedTime())
 				t.dRNGTicker.Reset(timeToNextDRNG)
 			}
 			if clock.Since(t.dRNGState().Randomness().Timestamp) < time.Duration(t.awaitOffset)*time.Second {
 				randomness = t.dRNGState().Randomness().Float64()
 				if t.dRNGTicker != nil {
-					t.dRNGTicker.Reset(time.Duration(t.resolution) * time.Second)
+					t.dRNGTicker.Reset(time.Duration(t.interval) * time.Second)
 				}
 				break
 			}
-			time.Sleep(scaleFactor * time.Millisecond)
+			time.Sleep(intervalCheckDRNG * time.Millisecond)
 		}
 	}
 
@@ -99,6 +99,6 @@ func (t *Ticker) send() {
 }
 
 // ResolveNextTimePoint returns the next time point.
-func ResolveNextTimePoint(nowSec, resolution int64) int64 {
-	return nowSec + resolution - nowSec%resolution
+func ResolveNextTimePoint(nowSec, interval int64) int64 {
+	return nowSec + interval - nowSec%interval
 }
