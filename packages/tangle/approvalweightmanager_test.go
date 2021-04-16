@@ -339,7 +339,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	defer tangle.Shutdown()
 	tangle.Setup()
 
-	tangle.ApprovalWeightManager.Events.BranchConfirmed.Attach(events.NewClosure(func(branchID ledgerstate.BranchID, newLevel int, transition thresholdevent.LevelTransition) {
+	tangle.ApprovalWeightManager.Events.BranchConfirmation.Attach(events.NewClosure(func(branchID ledgerstate.BranchID, newLevel int, transition thresholdevent.LevelTransition) {
 		tangle.LedgerState.BranchDAG.SetBranchMonotonicallyLiked(branchID, true)
 		tangle.LedgerState.BranchDAG.SetBranchFinalized(branchID, true)
 	}))
@@ -370,7 +370,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	{
 		testFramework.CreateMessage("Message3", WithStrongParents("Message2"), WithIssuer(nodes["C"].PublicKey()))
 
-		testEventMock.Expect("MarkerConfirmed", markers.NewMarker(1, 1))
+		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(1, 1), 1, thresholdevent.LevelIncreased)
 
 		issueAndValidateMessageApproval(t, "Message3", testEventMock, testFramework, manager, map[ledgerstate.BranchID]float64{}, map[markers.Marker]float64{
 			*markers.NewMarker(1, 1): 0.70,
@@ -383,7 +383,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	{
 		testFramework.CreateMessage("Message4", WithStrongParents("Message3"), WithIssuer(nodes["D"].PublicKey()))
 
-		testEventMock.Expect("MarkerConfirmed", markers.NewMarker(1, 2))
+		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(1, 2), 1, thresholdevent.LevelIncreased)
 
 		issueAndValidateMessageApproval(t, "Message4", testEventMock, testFramework, manager, map[ledgerstate.BranchID]float64{}, map[markers.Marker]float64{
 			*markers.NewMarker(1, 1): 0.90,
@@ -398,8 +398,8 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 		testFramework.CreateMessage("Message5", WithStrongParents("Message4"), WithIssuer(nodes["A"].PublicKey()), WithInputs("A"), WithOutput("B", 500))
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message5")), "Branch1")
 
-		testEventMock.Expect("MarkerConfirmed", markers.NewMarker(1, 3))
-		testEventMock.Expect("MarkerConfirmed", markers.NewMarker(1, 4))
+		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(1, 3), 1, thresholdevent.LevelIncreased)
+		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(1, 4), 1, thresholdevent.LevelIncreased)
 
 		issueAndValidateMessageApproval(t, "Message5", testEventMock, testFramework, manager, map[ledgerstate.BranchID]float64{}, map[markers.Marker]float64{
 			*markers.NewMarker(1, 1): 0.90,
@@ -509,8 +509,8 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 		testFramework.CreateMessage("Message10", WithStrongParents("Message9"), WithIssuer(nodes["B"].PublicKey()))
 
 		testEventMock.Expect("BranchConfirmed", testFramework.BranchID("Message6"), 1, thresholdevent.LevelIncreased)
-		testEventMock.Expect("MarkerConfirmed", markers.NewMarker(2, 5))
-		testEventMock.Expect("MarkerConfirmed", markers.NewMarker(2, 6))
+		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(2, 5), 1, thresholdevent.LevelIncreased)
+		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(2, 6), 1, thresholdevent.LevelIncreased)
 
 		issueAndValidateMessageApproval(t, "Message10", testEventMock, testFramework, manager, map[ledgerstate.BranchID]float64{
 			testFramework.BranchID("Message5"): 0.25,
@@ -562,7 +562,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 		testFramework.CreateMessage("Message12", WithStrongParents("Message11"), WithIssuer(nodes["D"].PublicKey()))
 
 		testEventMock.Expect("BranchConfirmed", testFramework.BranchID("Message5"), 1, thresholdevent.LevelIncreased)
-		testEventMock.Expect("MarkerConfirmed", markers.NewMarker(1, 5))
+		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(1, 5), 1, thresholdevent.LevelIncreased)
 
 		issueAndValidateMessageApproval(t, "Message12", testEventMock, testFramework, manager, map[ledgerstate.BranchID]float64{
 			testFramework.BranchID("Message5"):  0.75,
@@ -614,7 +614,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 		testFramework.CreateMessage("Message14", WithStrongParents("Message13"), WithIssuer(nodes["B"].PublicKey()))
 
 		testEventMock.Expect("BranchConfirmed", testFramework.BranchID("Message11"), 1, thresholdevent.LevelIncreased)
-		testEventMock.Expect("MarkerConfirmed", markers.NewMarker(3, 6))
+		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(3, 6), 1, thresholdevent.LevelIncreased)
 
 		issueAndValidateMessageApproval(t, "Message14", testEventMock, testFramework, manager, map[ledgerstate.BranchID]float64{
 			testFramework.BranchID("Message5"):  1,
@@ -732,15 +732,15 @@ func newEventMock(t *testing.T, approvalWeightManager *ApprovalWeightManager) *e
 	}
 	e.Test(t)
 
-	approvalWeightManager.Events.BranchConfirmed.Attach(events.NewClosure(e.BranchConfirmed))
+	approvalWeightManager.Events.BranchConfirmation.Attach(events.NewClosure(e.BranchConfirmed))
+	approvalWeightManager.Events.MarkerConfirmation.Attach(events.NewClosure(e.MarkerConfirmed))
 
 	// attach all events
-	e.attach(approvalWeightManager.Events.MarkerConfirmed, e.MarkerConfirmed)
 	e.attach(approvalWeightManager.Events.MessageProcessed, e.MessageProcessed)
 
 	// assure that all available events are mocked
 	numEvents := reflect.ValueOf(approvalWeightManager.Events).Elem().NumField()
-	assert.Equalf(t, len(e.attached)+1, numEvents, "not all events in ApprovalWeightManager.Events have been attached")
+	assert.Equalf(t, len(e.attached)+2, numEvents, "not all events in ApprovalWeightManager.Events have been attached")
 
 	return e
 }
@@ -789,8 +789,8 @@ func (e *eventMock) BranchConfirmed(branchID ledgerstate.BranchID, newLevel int,
 	atomic.AddUint64(&e.calledEvents, 1)
 }
 
-func (e *eventMock) MarkerConfirmed(marker *markers.Marker) {
-	e.Called(marker)
+func (e *eventMock) MarkerConfirmed(marker markers.Marker, newLevel int, transition thresholdevent.LevelTransition) {
+	e.Called(marker, newLevel, transition)
 
 	atomic.AddUint64(&e.calledEvents, 1)
 }

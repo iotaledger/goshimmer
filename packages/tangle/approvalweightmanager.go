@@ -26,7 +26,7 @@ const (
 	markerConfirmationThreshold = 0.5
 )
 
-var confirmationThresholdOptions = []thresholdevent.Option{
+var branchConfirmationThresholdOptions = []thresholdevent.Option{
 	thresholdevent.WithThresholds(0.49),
 	thresholdevent.WithObjectStorageKey([]byte("confirmationThreshold")),
 	thresholdevent.WithCallbackTypeCaster(func(handler interface{}, identifier interface{}, newLevel int, transition thresholdevent.LevelTransition) {
@@ -44,6 +44,24 @@ var confirmationThresholdOptions = []thresholdevent.Option{
 	}),
 }
 
+var markerConfirmationThresholdOptions = []thresholdevent.Option{
+	thresholdevent.WithThresholds(0.49),
+	thresholdevent.WithObjectStorageKey([]byte("confirmationThreshold")),
+	thresholdevent.WithCallbackTypeCaster(func(handler interface{}, identifier interface{}, newLevel int, transition thresholdevent.LevelTransition) {
+		handler.(func(branchID markers.Marker, newLevel int, transition thresholdevent.LevelTransition))(identifier.(markers.Marker), newLevel, transition)
+	}),
+	thresholdevent.WithIdentifierParser(func(marshalUtil *marshalutil.MarshalUtil) (identifier interface{}, err error) {
+		marker, err := markers.MarkerFromMarshalUtil(marshalUtil)
+		if err != nil {
+			err = xerrors.Errorf("failed to parse Marker from MarshalUtil: %w", err)
+			return
+		}
+
+		identifier = *marker
+		return
+	}),
+}
+
 // region ApprovalWeightManager ////////////////////////////////////////////////////////////////////////////////////////
 
 type ApprovalWeightManager struct {
@@ -56,9 +74,9 @@ type ApprovalWeightManager struct {
 func NewApprovalWeightManager(tangle *Tangle) *ApprovalWeightManager {
 	return &ApprovalWeightManager{
 		Events: &ApprovalWeightManagerEvents{
-			MessageProcessed: events.NewEvent(MessageIDCaller),
-			BranchConfirmed:  thresholdevent.New(confirmationThresholdOptions...),
-			MarkerConfirmed:  events.NewEvent(markerCaller),
+			MessageProcessed:   events.NewEvent(MessageIDCaller),
+			BranchConfirmation: thresholdevent.New(branchConfirmationThresholdOptions...),
+			MarkerConfirmation: thresholdevent.New(markerConfirmationThresholdOptions...),
 		},
 		tangle:               tangle,
 		supportersManager:    NewSupporterManager(tangle),
@@ -173,13 +191,13 @@ func (a *ApprovalWeightManager) onSequenceSupportUpdated(marker *markers.Marker,
 			})
 		}
 
+		a.Events.MarkerConfirmation.Set(*currentMarker, supporterMana/totalMana)
+
 		if supporterMana/totalMana < markerConfirmationThreshold {
 			break
 		}
 
 		a.lastConfirmedMarkers[marker.SequenceID()] = currentMarker.Index()
-
-		a.Events.MarkerConfirmed.Trigger(currentMarker)
 	}
 }
 
@@ -207,7 +225,7 @@ func (a *ApprovalWeightManager) onBranchSupportAdded(branchID ledgerstate.Branch
 		diff = branchWeight.Weight() - a.weightOfLargestConflictingBranch(branchID)
 	})
 
-	a.Events.BranchConfirmed.Set(branchID, diff)
+	a.Events.BranchConfirmation.Set(branchID, diff)
 }
 
 func (a *ApprovalWeightManager) onBranchSupportRemoved(branchID ledgerstate.BranchID, message *Message) {
@@ -236,17 +254,9 @@ func (a *ApprovalWeightManager) weightOfLargestConflictingBranch(branchID ledger
 // region ApprovalWeightManagerEvents //////////////////////////////////////////////////////////////////////////////////
 
 type ApprovalWeightManagerEvents struct {
-	MessageProcessed *events.Event
-	BranchConfirmed  *thresholdevent.ThresholdEvent
-	MarkerConfirmed  *events.Event
-}
-
-func branchIDCaller(handler interface{}, params ...interface{}) {
-	handler.(func(ledgerstate.BranchID))(params[0].(ledgerstate.BranchID))
-}
-
-func markerCaller(handler interface{}, params ...interface{}) {
-	handler.(func(*markers.Marker))(params[0].(*markers.Marker))
+	MessageProcessed   *events.Event
+	BranchConfirmation *thresholdevent.ThresholdEvent
+	MarkerConfirmation *thresholdevent.ThresholdEvent
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

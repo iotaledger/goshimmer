@@ -67,7 +67,7 @@ func (m *Marker) Index() (index Index) {
 }
 
 // Bytes returns a marshaled version of the Marker.
-func (m *Marker) Bytes() (marshaledMarker []byte) {
+func (m Marker) Bytes() (marshaledMarker []byte) {
 	return marshalutil.New(marshalutil.Uint64Size + marshalutil.Uint64Size).
 		Write(m.sequenceID).
 		Write(m.index).
