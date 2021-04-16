@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"errors"
 	"sync"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
@@ -71,17 +73,42 @@ type ApprovalWeightManager struct {
 	lastConfirmedMarkers map[markers.SequenceID]markers.Index
 }
 
-func NewApprovalWeightManager(tangle *Tangle) *ApprovalWeightManager {
-	return &ApprovalWeightManager{
+func NewApprovalWeightManager(tangle *Tangle) (approvalWeightManager *ApprovalWeightManager) {
+	approvalWeightManager = &ApprovalWeightManager{
 		Events: &ApprovalWeightManagerEvents{
 			MessageProcessed:   events.NewEvent(MessageIDCaller),
-			BranchConfirmation: thresholdevent.New(branchConfirmationThresholdOptions...),
 			MarkerConfirmation: thresholdevent.New(markerConfirmationThresholdOptions...),
 		},
 		tangle:               tangle,
 		supportersManager:    NewSupporterManager(tangle),
 		lastConfirmedMarkers: make(map[markers.SequenceID]markers.Index),
 	}
+
+	branchConfirmation, err := tangle.Options.Store.Get(kvstore.Key("BranchConfirmation"))
+	if err != nil && !errors.Is(err, kvstore.ErrKeyNotFound) {
+		panic(err)
+	}
+	if branchConfirmation != nil {
+		if approvalWeightManager.Events.BranchConfirmation, err = thresholdevent.FromMarshalUtil(marshalutil.New(branchConfirmation), branchConfirmationThresholdOptions...); err != nil {
+			panic(err)
+		}
+	} else {
+		approvalWeightManager.Events.BranchConfirmation = thresholdevent.New(branchConfirmationThresholdOptions...)
+	}
+
+	markerConfirmation, err := tangle.Options.Store.Get(kvstore.Key("MarkerConfirmation"))
+	if err != nil && !errors.Is(err, kvstore.ErrKeyNotFound) {
+		panic(err)
+	}
+	if markerConfirmation != nil {
+		if approvalWeightManager.Events.MarkerConfirmation, err = thresholdevent.FromMarshalUtil(marshalutil.New(markerConfirmation), markerConfirmationThresholdOptions...); err != nil {
+			panic(err)
+		}
+	} else {
+		approvalWeightManager.Events.MarkerConfirmation = thresholdevent.New(markerConfirmationThresholdOptions...)
+	}
+
+	return
 }
 
 func (a *ApprovalWeightManager) Setup() {
