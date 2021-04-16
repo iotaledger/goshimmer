@@ -176,30 +176,30 @@ func TestSupporterManager_updateBranchSupporters(t *testing.T) {
 	}
 
 	//// statement 3: "Branch 2"
-	//{
-	//	message := newTestDataMessagePublicKey("test", keyPair.PublicKey)
-	//	tangle.Storage.StoreMessage(message)
-	//RegisterMessageIDAlias(message.ID(), "Statement3")
-	//	tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
-	//		messageMetadata.SetBranchID(branchIDs["Branch 2"])
-	//	})
-	//	supporterManager.updateBranchSupporters(message)
-	//
-	//	expectedResults := map[string]bool{
-	//		"Branch 1":     false,
-	//		"Branch 1.1":   false,
-	//		"Branch 1.2":   false,
-	//		"Branch 1.3":   false,
-	//		"Branch 2":     true,
-	//		"Branch 3":     false,
-	//		"Branch 4":     true,
-	//		"Branch 4.1":   true,
-	//		"Branch 4.1.1": false,
-	//		"Branch 4.1.2": true,
-	//		"Branch 4.2":   false,
-	//	}
-	//	validateStatementResults(t, supporterManager, branchIDs, identity.NewID(keyPair.PublicKey), expectedResults)
-	//}
+	{
+		message := newTestDataMessagePublicKey("test", keyPair.PublicKey)
+		tangle.Storage.StoreMessage(message)
+		RegisterMessageIDAlias(message.ID(), "Statement3")
+		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
+			messageMetadata.SetBranchID(branchIDs["Branch 2"])
+		})
+		supporterManager.updateBranchSupporters(message)
+
+		expectedResults := map[string]bool{
+			"Branch 1":     false,
+			"Branch 1.1":   false,
+			"Branch 1.2":   false,
+			"Branch 1.3":   false,
+			"Branch 2":     true,
+			"Branch 3":     false,
+			"Branch 4":     true,
+			"Branch 4.1":   true,
+			"Branch 4.1.1": false,
+			"Branch 4.1.2": true,
+			"Branch 4.2":   false,
+		}
+		validateStatementResults(t, supporterManager, branchIDs, identity.NewID(keyPair.PublicKey), expectedResults)
+	}
 }
 
 func TestSupporterManager_updateSequenceSupporters(t *testing.T) {
