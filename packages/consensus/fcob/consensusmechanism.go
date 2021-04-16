@@ -112,7 +112,12 @@ func (f *ConsensusMechanism) EvaluateTimestamp(messageID tangle.MessageID) {
 		return
 	}
 
-	timestampOpinion := TimestampQuality(messageID, issuingTime, clock.SyncedTime())
+	timestampOpinion, err := TimestampQuality(messageID, issuingTime, clock.SyncedTime())
+
+	if err != nil {
+		// TODO: what to do when timestamp quality returns an error, which indicates timestamp from the future
+	}
+
 	f.Storage.StoreTimestampOpinion(timestampOpinion)
 
 	if timestampOpinion.LoK < Two {
