@@ -2,7 +2,6 @@ package fcob
 
 import (
 	"fmt"
-	"github.com/iotaledger/goshimmer/packages/clock"
 	"time"
 
 	"github.com/iotaledger/hive.go/datastructure/walker"
@@ -10,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/timedexecutor"
 	"github.com/iotaledger/hive.go/timedqueue"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/vote"
@@ -112,11 +112,8 @@ func (f *ConsensusMechanism) EvaluateTimestamp(messageID tangle.MessageID) {
 		return
 	}
 
-	timestampOpinion, err := TimestampQuality(messageID, issuingTime, clock.SyncedTime())
-
-	if err != nil {
-		// TODO: what to do when timestamp quality returns an error, which indicates timestamp from the future
-	}
+	timestampOpinion, _ := TimestampQuality(messageID, issuingTime, clock.SyncedTime())
+	// TODO: handle error which indicates timestamp from the future
 
 	f.Storage.StoreTimestampOpinion(timestampOpinion)
 
@@ -183,11 +180,11 @@ func (f *ConsensusMechanism) TransactionOpinionEssence(transactionID ledgerstate
 	return
 }
 
-// TransactionOpinionEssence returns the opinion essence of a given transactionID.
-func (f *ConsensusMechanism) TimestampOpinion(messageID tangle.MessageID) (opinion opinion.Opinion) {
+// TimestampOpinion returns the opinion of a given messageID.
+func (f *ConsensusMechanism) TimestampOpinion(messageID tangle.MessageID) (timestampOpinion opinion.Opinion) {
 	// what TODO when messageID does not exist?
 	f.Storage.TimestampOpinion(messageID).Consume(func(o *TimestampOpinion) {
-		opinion = o.Value
+		timestampOpinion = o.Value
 	})
 	return
 }

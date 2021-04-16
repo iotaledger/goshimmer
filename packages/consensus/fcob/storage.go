@@ -583,13 +583,15 @@ func (t *TimestampOpinion) ObjectStorageValue() []byte {
 		Bytes()
 }
 
-func (t *TimestampOpinion) SetLiked(opinion opinion.Opinion) {
+// SetLiked sets the opinion's liked.
+func (t *TimestampOpinion) SetLiked(newOpinion opinion.Opinion) {
 	t.valueMutex.Lock()
 	defer t.valueMutex.Unlock()
-	t.Value = opinion
+	t.Value = newOpinion
 	t.SetModified(true)
 }
 
+// SetLevelOfKnowledge returns the opinion's LevelOfKnowledge.
 func (t *TimestampOpinion) SetLevelOfKnowledge(lok LevelOfKnowledge) {
 	t.lokMutex.Lock()
 	defer t.lokMutex.Unlock()
