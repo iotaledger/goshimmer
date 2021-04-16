@@ -764,6 +764,9 @@ func QueryAllowed() (allowed bool) {
 }
 
 func loadSnapshot(snapshot *ledgerstate.Snapshot) {
+	accessManaNodeID, _ := mana.IDFromStr("EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP")
+	consensusManaNodeID, _ := mana.IDFromStr("EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP")
+	manaLogger.Info("Genesis node ID: ", accessManaNodeID)
 	for transactionID, essence := range snapshot.Transactions {
 		var inputInfos []mana.InputInfo
 		var totalAmount float64
@@ -772,8 +775,6 @@ func loadSnapshot(snapshot *ledgerstate.Snapshot) {
 		for _, o := range essence.Outputs() {
 			var amount float64
 			var inputTimestamp time.Time
-			var accessManaNodeID identity.ID
-			var consensusManaNodeID identity.ID
 			var _inputInfo mana.InputInfo
 
 			// first, sum balances of the input, calculate total amount as well for later
@@ -785,8 +786,6 @@ func loadSnapshot(snapshot *ledgerstate.Snapshot) {
 
 			// look into the transaction, we need timestamp and access & consensus pledge IDs
 			inputTimestamp = essence.Timestamp()
-			accessManaNodeID, _ = identity.ParseID(Parameters.Snapshot.GenesisNode)
-			consensusManaNodeID, _ = identity.ParseID(Parameters.Snapshot.GenesisNode)
 
 			// build InputInfo for this particular input in the transaction
 			_inputInfo = mana.InputInfo{
@@ -807,8 +806,8 @@ func loadSnapshot(snapshot *ledgerstate.Snapshot) {
 			TransactionID: transactionID,
 			TotalBalance:  totalAmount,
 			PledgeID: map[mana.Type]identity.ID{
-				mana.AccessMana:    essence.AccessPledgeID(),
-				mana.ConsensusMana: essence.ConsensusPledgeID(),
+				mana.AccessMana:    accessManaNodeID,
+				mana.ConsensusMana: consensusManaNodeID,
 			},
 			InputInfos: inputInfos,
 		}

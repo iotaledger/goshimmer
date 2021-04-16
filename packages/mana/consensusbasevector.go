@@ -9,8 +9,6 @@ import (
 
 	"github.com/iotaledger/hive.go/identity"
 	"golang.org/x/xerrors"
-
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 // ConsensusBaseManaVector represents a base mana vector.
@@ -99,10 +97,10 @@ func (c *ConsensusBaseManaVector) Book(txInfo *TxInfo) {
 	defer c.Unlock()
 	// first, revoke mana from previous owners
 	for _, inputInfo := range txInfo.InputInfos {
-		// and there was the genesis once
-		if inputInfo.InputID == ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0) {
-			continue
-		}
+		// // and there was the genesis once
+		// if inputInfo.InputID == ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0) {
+		// 	continue
+		// }
 		// which node did the input pledge mana to?
 		pledgeNodeID := inputInfo.PledgeID[c.Type()]
 		if _, exist := c.vector[pledgeNodeID]; !exist {
@@ -133,6 +131,8 @@ func (c *ConsensusBaseManaVector) Book(txInfo *TxInfo) {
 	oldMana := *c.vector[pledgeNodeID]
 	// actually pledge and update
 	pledged := c.vector[pledgeNodeID].pledge(txInfo)
+
+	fmt.Println("Pledging Consensus mana: ", pledged, pledgeNodeID)
 
 	// trigger events
 	Events().Pledged.Trigger(&PledgedEvent{

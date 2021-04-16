@@ -271,6 +271,12 @@ func (u *UTXODAG) LoadSnapshot(snapshot *Snapshot) {
 
 		}
 
+		transaction := NewTransaction(essence, UnlockBlocks{NewReferenceUnlockBlock(0)})
+		cached, stored := u.transactionStorage.StoreIfAbsent(transaction)
+		if stored {
+			cached.Release()
+		}
+
 		// store TransactionMetadata
 		transactionMetadata := NewTransactionMetadata(transactionID)
 		transactionMetadata.SetSolid(true)

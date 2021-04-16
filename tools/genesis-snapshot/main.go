@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/bitmask"
-	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -72,13 +71,15 @@ func main() {
 		genesisSeed.Address(0).Address(),
 	)
 
+	nodeID, _ := mana.IDFromStr("EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP")
+
 	newSnapshot := &ledgerstate.Snapshot{
 		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{
 			ledgerstate.GenesisTransactionID: ledgerstate.NewTransactionEssence(
 				0,
 				time.Now(),
-				identity.ID{},
-				identity.ID{},
+				nodeID,
+				nodeID,
 				ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
 				ledgerstate.NewOutputs(output),
 			)},
