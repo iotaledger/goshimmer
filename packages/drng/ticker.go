@@ -73,7 +73,7 @@ func (t *Ticker) C() <-chan float64 {
 func (t *Ticker) send() {
 	randomness := t.defaultValue
 	if t.dRNGState() != nil {
-		// wait for next randomness from dRNG
+		// randomness already arrived or wait for next randomness from dRNG
 		for i := 0; i < t.awaitOffset*checksPerSecond; i++ {
 			// the drng-message has been received less than the dRNG interval ago
 			// TODO Timestamp is no time stamp but the time of receival -> chack and correct description and name
