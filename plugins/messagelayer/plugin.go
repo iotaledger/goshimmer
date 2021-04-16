@@ -76,6 +76,9 @@ func configure(plugin *node.Plugin) {
 
 	fcob.LikedThreshold = time.Duration(Parameters.FCOB.AverageNetworkDelay) * time.Second
 	fcob.LocallyFinalizedThreshold = time.Duration(Parameters.FCOB.AverageNetworkDelay*2) * time.Second
+	fcob.TimestampWindow = time.Duration(Parameters.FCOB.TimestampWindow) * time.Second
+	fcob.GratuitousNetworkDelay = time.Duration(Parameters.FCOB.GratuitousNetworkDelay) * time.Second
+
 }
 
 func run(*node.Plugin) {

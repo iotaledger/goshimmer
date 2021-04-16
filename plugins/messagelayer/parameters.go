@@ -20,7 +20,9 @@ var Parameters = struct {
 
 	// FCOB contains parameters related to the fast consensus of barcelona.
 	FCOB struct {
-		AverageNetworkDelay int `default:"5" usage:"the avg. network delay to use for FCoB rules"`
+		AverageNetworkDelay    int `default:"5" usage:"the avg. network delay to use for FCoB rules in seconds"`
+		TimestampWindow        int `default:"60" usage:"the time window for assessing the timestamp quality in seconds"`
+		GratuitousNetworkDelay int `default:"15" usage:"the time after which we assume all messages are delivered in seconds"`
 	}
 }{}
 

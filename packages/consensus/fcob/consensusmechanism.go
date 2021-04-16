@@ -113,25 +113,26 @@ func (f *ConsensusMechanism) EvaluateTimestamp(messageID tangle.MessageID) {
 	}
 
 	timestampOpinion := TimestampQuality(messageID, issuingTime, clock.SyncedTime())
+	f.Storage.StoreTimestampOpinion(timestampOpinion)
 
-	if timestampOpinion.LoK > One {
-		f.Storage.StoreTimestampOpinion(timestampOpinion)
-		// eligible when timestamp is ok but confirmed when timestamp and tx is correct
-		f.setEligibility(messageID)
-
-		f.setTimestampOpinionDone(messageID)
-
-		if f.messageDone(messageID) {
-			f.tangle.Utils.WalkMessageID(f.createMessageOpinion, tangle.MessageIDs{messageID}, true)
-		}
-	} else {
+	if timestampOpinion.LoK < Two {
 		f.Events.Vote.Trigger(messageID.Base58(), timestampOpinion.Value, vote.TimestampType)
+		return
+	}
+	// eligible when timestamp is ok but confirmed when timestamp and tx is correct
+	f.setEligibility(messageID)
+
+	f.setTimestampOpinionDone(messageID)
+
+	if f.messageDone(messageID) {
+		f.tangle.Utils.WalkMessageID(f.createMessageOpinion, tangle.MessageIDs{messageID}, true)
 	}
 }
 
 // ProcessVote allows an external voter to hand in the results of the voting process.
 func (f *ConsensusMechanism) ProcessVote(ev *vote.OpinionEvent) {
-	if ev.Ctx.Type == vote.ConflictType {
+	switch ev.Ctx.Type {
+	case vote.ConflictType:
 		transactionID, err := ledgerstate.TransactionIDFromBase58(ev.ID)
 		if err != nil {
 			f.Events.Error.Trigger(err)
@@ -147,7 +148,7 @@ func (f *ConsensusMechanism) ProcessVote(ev *vote.OpinionEvent) {
 				f.onPayloadOpinionFormed(messageID, opinion.liked)
 			}
 		})
-	} else if ev.Ctx.Type == vote.TimestampType {
+	case vote.TimestampType:
 		messageID, err := tangle.NewMessageID(ev.ID)
 		if err != nil {
 			f.Events.Error.Trigger(err)
