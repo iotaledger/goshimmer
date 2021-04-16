@@ -25,40 +25,6 @@ const (
 	lowerWeightThreshold = float64(0.01)
 )
 
-var branchConfirmationThresholdOptions = []events.ThresholdEventOption{
-	events.WithThresholds(0.49),
-	events.WithCallbackTypeCaster(func(handler interface{}, identifier interface{}, newLevel int, transition events.ThresholdEventTransition) {
-		handler.(func(branchID ledgerstate.BranchID, newLevel int, transition events.ThresholdEventTransition))(identifier.(ledgerstate.BranchID), newLevel, transition)
-	}),
-	events.WithIdentifierParser(func(marshalUtil *marshalutil.MarshalUtil) (identifier interface{}, err error) {
-		branchID, err := ledgerstate.BranchIDFromMarshalUtil(marshalUtil)
-		if err != nil {
-			err = xerrors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
-			return
-		}
-
-		identifier = branchID
-		return
-	}),
-}
-
-var markerConfirmationThresholdOptions = []events.ThresholdEventOption{
-	events.WithThresholds(0.49),
-	events.WithCallbackTypeCaster(func(handler interface{}, identifier interface{}, newLevel int, transition events.ThresholdEventTransition) {
-		handler.(func(branchID markers.Marker, newLevel int, transition events.ThresholdEventTransition))(identifier.(markers.Marker), newLevel, transition)
-	}),
-	events.WithIdentifierParser(func(marshalUtil *marshalutil.MarshalUtil) (identifier interface{}, err error) {
-		marker, err := markers.MarkerFromMarshalUtil(marshalUtil)
-		if err != nil {
-			err = xerrors.Errorf("failed to parse Marker from MarshalUtil: %w", err)
-			return
-		}
-
-		identifier = *marker
-		return
-	}),
-}
-
 // region ApprovalWeightManager ////////////////////////////////////////////////////////////////////////////////////////
 
 type ApprovalWeightManager struct {
@@ -287,6 +253,40 @@ type ApprovalWeightManagerEvents struct {
 	MessageProcessed   *events.Event
 	BranchConfirmation *events.ThresholdEvent
 	MarkerConfirmation *events.ThresholdEvent
+}
+
+var branchConfirmationThresholdOptions = []events.ThresholdEventOption{
+	events.WithThresholds(0.49),
+	events.WithCallbackTypeCaster(func(handler interface{}, identifier interface{}, newLevel int, transition events.ThresholdEventTransition) {
+		handler.(func(branchID ledgerstate.BranchID, newLevel int, transition events.ThresholdEventTransition))(identifier.(ledgerstate.BranchID), newLevel, transition)
+	}),
+	events.WithIdentifierParser(func(marshalUtil *marshalutil.MarshalUtil) (identifier interface{}, err error) {
+		branchID, err := ledgerstate.BranchIDFromMarshalUtil(marshalUtil)
+		if err != nil {
+			err = xerrors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
+			return
+		}
+
+		identifier = branchID
+		return
+	}),
+}
+
+var markerConfirmationThresholdOptions = []events.ThresholdEventOption{
+	events.WithThresholds(0.49),
+	events.WithCallbackTypeCaster(func(handler interface{}, identifier interface{}, newLevel int, transition events.ThresholdEventTransition) {
+		handler.(func(branchID markers.Marker, newLevel int, transition events.ThresholdEventTransition))(identifier.(markers.Marker), newLevel, transition)
+	}),
+	events.WithIdentifierParser(func(marshalUtil *marshalutil.MarshalUtil) (identifier interface{}, err error) {
+		marker, err := markers.MarkerFromMarshalUtil(marshalUtil)
+		if err != nil {
+			err = xerrors.Errorf("failed to parse Marker from MarshalUtil: %w", err)
+			return
+		}
+
+		identifier = *marker
+		return
+	}),
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
