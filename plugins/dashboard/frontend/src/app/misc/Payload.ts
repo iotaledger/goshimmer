@@ -87,6 +87,7 @@ export class AliasOutput {
     governingAddress: string;
 
     stateData: any;
+    governanceMetadata: any;
     immutableData: any;
 }
 
