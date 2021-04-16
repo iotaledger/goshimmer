@@ -91,16 +91,25 @@ func txInfoFromPledgeEvent(ev *PledgedEvent) *TxInfo {
 	}
 }
 
-func (c *ConsensusBaseManaVector) LoadSnapshot(snapshot map[identity.ID]float64, snapshotTime time.Time) {
+// LoadSnapshot
+func (c *ConsensusBaseManaVector) LoadSnapshot(snapshot map[identity.ID]*SnapshotInfo, snapshotTime time.Time) {
 	c.Lock()
 	defer c.Unlock()
 
-	for nodeID, cMana := range snapshot {
+	for nodeID, info := range snapshot {
 		c.vector[nodeID] = &ConsensusBaseMana{
-			BaseMana1:          cMana,
-			EffectiveBaseMana1: cMana,
+			BaseMana1:          info.Value,
+			EffectiveBaseMana1: info.Value,
 			LastUpdated:        snapshotTime,
 		}
+		// trigger events
+		Events().Pledged.Trigger(&PledgedEvent{
+			NodeID:        nodeID,
+			Amount:        info.Value,
+			Time:          snapshotTime,
+			ManaType:      c.Type(),
+			TransactionID: info.TxID,
+		})
 	}
 }
 
@@ -110,10 +119,6 @@ func (c *ConsensusBaseManaVector) Book(txInfo *TxInfo) {
 	defer c.Unlock()
 	// first, revoke mana from previous owners
 	for _, inputInfo := range txInfo.InputInfos {
-		// // and there was the genesis once
-		// if inputInfo.InputID == ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0) {
-		// 	continue
-		// }
 		// which node did the input pledge mana to?
 		pledgeNodeID := inputInfo.PledgeID[c.Type()]
 		if _, exist := c.vector[pledgeNodeID]; !exist {
@@ -144,8 +149,6 @@ func (c *ConsensusBaseManaVector) Book(txInfo *TxInfo) {
 	oldMana := *c.vector[pledgeNodeID]
 	// actually pledge and update
 	pledged := c.vector[pledgeNodeID].pledge(txInfo)
-
-	fmt.Println("Pledging Consensus mana: ", pledged, pledgeNodeID)
 
 	// trigger events
 	Events().Pledged.Trigger(&PledgedEvent{

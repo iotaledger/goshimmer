@@ -41,3 +41,8 @@ type InputInfo struct {
 	// InputID is the input consumed.
 	InputID ledgerstate.OutputID
 }
+
+type SnapshotInfo struct {
+	Value float64
+	TxID  ledgerstate.TransactionID
+}

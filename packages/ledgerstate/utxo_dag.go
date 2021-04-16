@@ -245,7 +245,25 @@ func (u *UTXODAG) Consumers(outputID OutputID) (cachedConsumers CachedConsumers)
 
 // LoadSnapshot creates a set of outputs in the UTXO-DAG, that are forming the genesis for future transactions.
 func (u *UTXODAG) LoadSnapshot(snapshot *Snapshot) {
-	for transactionID, essence := range snapshot.Transactions {
+	// storing genesis tx and genesis output
+	// store TransactionMetadata
+	transactionMetadata := NewTransactionMetadata(GenesisTransactionID)
+	transactionMetadata.SetSolid(true)
+	transactionMetadata.SetBranchID(MasterBranchID)
+	transactionMetadata.SetFinalized(true)
+
+	(&CachedTransactionMetadata{CachedObject: u.transactionMetadataStorage.ComputeIfAbsent(GenesisTransactionID.Bytes(), func(key []byte) objectstorage.StorableObject {
+		transactionMetadata.Persist()
+		transactionMetadata.SetModified()
+		return transactionMetadata
+	})}).Release()
+
+	for txID, essence := range snapshot.Transactions {
+		transaction := NewTransaction(essence, UnlockBlocks{NewReferenceUnlockBlock(0)})
+		cached, stored := u.transactionStorage.StoreIfAbsent(transaction)
+		if stored {
+			cached.Release()
+		}
 		for _, output := range essence.outputs {
 			// // output.SetID(NewOutputID(transactionID, uint16(index)))
 			fmt.Println("Output.ID(): ", output.ID())
@@ -268,19 +286,13 @@ func (u *UTXODAG) LoadSnapshot(snapshot *Snapshot) {
 			}
 		}
 
-		transaction := NewTransaction(essence, UnlockBlocks{NewReferenceUnlockBlock(0)})
-		cached, stored := u.transactionStorage.StoreIfAbsent(transaction)
-		if stored {
-			cached.Release()
-		}
-
 		// store TransactionMetadata
-		transactionMetadata := NewTransactionMetadata(transactionID)
+		transactionMetadata := NewTransactionMetadata(txID)
 		transactionMetadata.SetSolid(true)
 		transactionMetadata.SetBranchID(MasterBranchID)
 		transactionMetadata.SetFinalized(true)
 
-		(&CachedTransactionMetadata{CachedObject: u.transactionMetadataStorage.ComputeIfAbsent(transactionID.Bytes(), func(key []byte) objectstorage.StorableObject {
+		(&CachedTransactionMetadata{CachedObject: u.transactionMetadataStorage.ComputeIfAbsent(txID.Bytes(), func(key []byte) objectstorage.StorableObject {
 			transactionMetadata.Persist()
 			transactionMetadata.SetModified()
 			return transactionMetadata

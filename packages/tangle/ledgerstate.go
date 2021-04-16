@@ -154,6 +154,12 @@ func (l *LedgerState) BranchID(transactionID ledgerstate.TransactionID) (branchI
 // LoadSnapshot creates a set of outputs in the UTXO-DAG, that are forming the genesis for future transactions.
 func (l *LedgerState) LoadSnapshot(snapshot *ledgerstate.Snapshot) {
 	l.utxoDAG.LoadSnapshot(snapshot)
+	for txID := range snapshot.Transactions {
+		attachment, _ := l.tangle.Storage.StoreAttachment(txID, EmptyMessageID)
+		if attachment != nil {
+			attachment.Release()
+		}
+	}
 	attachment, _ := l.tangle.Storage.StoreAttachment(ledgerstate.GenesisTransactionID, EmptyMessageID)
 	if attachment != nil {
 		attachment.Release()

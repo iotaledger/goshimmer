@@ -72,17 +72,17 @@ func main() {
 	)
 
 	nodeID, _ := mana.IDFromStr("EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP")
-
+	tx := ledgerstate.NewTransaction(ledgerstate.NewTransactionEssence(
+		0,
+		time.Now(),
+		nodeID,
+		nodeID,
+		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
+		ledgerstate.NewOutputs(output),
+	), ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
 	newSnapshot := &ledgerstate.Snapshot{
 		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{
-			ledgerstate.GenesisTransactionID: ledgerstate.NewTransactionEssence(
-				0,
-				time.Now(),
-				nodeID,
-				nodeID,
-				ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
-				ledgerstate.NewOutputs(output),
-			)},
+			tx.ID(): tx.Essence()},
 	}
 
 	genesisWallet := wallet.New(wallet.Import(genesisSeed, 1, []bitmask.BitMask{}, wallet.NewAssetRegistry()), wallet.GenericConnector(mockedConnector))

@@ -760,14 +760,14 @@ type EventsLogs struct {
 func QueryAllowed() (allowed bool) {
 	// if debugging enabled, reply to the query
 	// if debugging is not allowed, only reply when in sync
-	return Tangle().Synced() || debuggingEnabled
+	// return Tangle().Synced() || debuggingEnabled
+	return true
 }
 
 func loadSnapshot(snapshot *ledgerstate.Snapshot) {
+	manaSnapshot := make(map[identity.ID]*mana.SnapshotInfo)
 
-	manaSnapshot := make(map[identity.ID]float64)
-
-	for _, essence := range snapshot.Transactions {
+	for txID, essence := range snapshot.Transactions {
 		totalBalance := uint64(0)
 		for _, output := range essence.Outputs() {
 			output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
@@ -775,8 +775,14 @@ func loadSnapshot(snapshot *ledgerstate.Snapshot) {
 				return true
 			})
 		}
-		manaSnapshot[essence.ConsensusPledgeID()] = float64(totalBalance)
+		info := &mana.SnapshotInfo{float64(totalBalance), txID}
+		manaSnapshot[essence.ConsensusPledgeID()] = info
 	}
 
 	baseManaVectors[mana.ConsensusMana].LoadSnapshot(manaSnapshot, time.Now())
+	baseManaVectors[mana.AccessMana].LoadSnapshot(manaSnapshot, time.Now())
+	if ManaParameters.EnableResearchVectors {
+		baseManaVectors[mana.ResearchAccess].LoadSnapshot(manaSnapshot, time.Now())
+		baseManaVectors[mana.ResearchConsensus].LoadSnapshot(manaSnapshot, time.Now())
+	}
 }
