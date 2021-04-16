@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/set"
-	"github.com/iotaledger/hive.go/datastructure/thresholdevent"
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
@@ -23,18 +22,15 @@ import (
 )
 
 const (
-	lowerWeightThreshold        = float64(0.01)
-	confirmationThreshold       = 0.5
-	markerConfirmationThreshold = 0.5
+	lowerWeightThreshold = float64(0.01)
 )
 
-var branchConfirmationThresholdOptions = []thresholdevent.Option{
-	thresholdevent.WithThresholds(0.49),
-	thresholdevent.WithObjectStorageKey([]byte("confirmationThreshold")),
-	thresholdevent.WithCallbackTypeCaster(func(handler interface{}, identifier interface{}, newLevel int, transition thresholdevent.LevelTransition) {
-		handler.(func(branchID ledgerstate.BranchID, newLevel int, transition thresholdevent.LevelTransition))(identifier.(ledgerstate.BranchID), newLevel, transition)
+var branchConfirmationThresholdOptions = []events.ThresholdEventOption{
+	events.WithThresholds(0.49),
+	events.WithCallbackTypeCaster(func(handler interface{}, identifier interface{}, newLevel int, transition events.ThresholdEventTransition) {
+		handler.(func(branchID ledgerstate.BranchID, newLevel int, transition events.ThresholdEventTransition))(identifier.(ledgerstate.BranchID), newLevel, transition)
 	}),
-	thresholdevent.WithIdentifierParser(func(marshalUtil *marshalutil.MarshalUtil) (identifier interface{}, err error) {
+	events.WithIdentifierParser(func(marshalUtil *marshalutil.MarshalUtil) (identifier interface{}, err error) {
 		branchID, err := ledgerstate.BranchIDFromMarshalUtil(marshalUtil)
 		if err != nil {
 			err = xerrors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
@@ -46,13 +42,12 @@ var branchConfirmationThresholdOptions = []thresholdevent.Option{
 	}),
 }
 
-var markerConfirmationThresholdOptions = []thresholdevent.Option{
-	thresholdevent.WithThresholds(0.49),
-	thresholdevent.WithObjectStorageKey([]byte("confirmationThreshold")),
-	thresholdevent.WithCallbackTypeCaster(func(handler interface{}, identifier interface{}, newLevel int, transition thresholdevent.LevelTransition) {
-		handler.(func(branchID markers.Marker, newLevel int, transition thresholdevent.LevelTransition))(identifier.(markers.Marker), newLevel, transition)
+var markerConfirmationThresholdOptions = []events.ThresholdEventOption{
+	events.WithThresholds(0.49),
+	events.WithCallbackTypeCaster(func(handler interface{}, identifier interface{}, newLevel int, transition events.ThresholdEventTransition) {
+		handler.(func(branchID markers.Marker, newLevel int, transition events.ThresholdEventTransition))(identifier.(markers.Marker), newLevel, transition)
 	}),
-	thresholdevent.WithIdentifierParser(func(marshalUtil *marshalutil.MarshalUtil) (identifier interface{}, err error) {
+	events.WithIdentifierParser(func(marshalUtil *marshalutil.MarshalUtil) (identifier interface{}, err error) {
 		marker, err := markers.MarkerFromMarshalUtil(marshalUtil)
 		if err != nil {
 			err = xerrors.Errorf("failed to parse Marker from MarshalUtil: %w", err)
@@ -76,8 +71,7 @@ type ApprovalWeightManager struct {
 func NewApprovalWeightManager(tangle *Tangle) (approvalWeightManager *ApprovalWeightManager) {
 	approvalWeightManager = &ApprovalWeightManager{
 		Events: &ApprovalWeightManagerEvents{
-			MessageProcessed:   events.NewEvent(MessageIDCaller),
-			MarkerConfirmation: thresholdevent.New(markerConfirmationThresholdOptions...),
+			MessageProcessed: events.NewEvent(MessageIDCaller),
 		},
 		tangle:               tangle,
 		supportersManager:    NewSupporterManager(tangle),
@@ -89,11 +83,11 @@ func NewApprovalWeightManager(tangle *Tangle) (approvalWeightManager *ApprovalWe
 		panic(err)
 	}
 	if branchConfirmation != nil {
-		if approvalWeightManager.Events.BranchConfirmation, err = thresholdevent.FromMarshalUtil(marshalutil.New(branchConfirmation), branchConfirmationThresholdOptions...); err != nil {
+		if approvalWeightManager.Events.BranchConfirmation, err = events.ThresholdEventFromMarshalUtil(marshalutil.New(branchConfirmation), branchConfirmationThresholdOptions...); err != nil {
 			panic(err)
 		}
 	} else {
-		approvalWeightManager.Events.BranchConfirmation = thresholdevent.New(branchConfirmationThresholdOptions...)
+		approvalWeightManager.Events.BranchConfirmation = events.NewThresholdEvent(branchConfirmationThresholdOptions...)
 	}
 
 	markerConfirmation, err := tangle.Options.Store.Get(kvstore.Key("MarkerConfirmation"))
@@ -101,11 +95,11 @@ func NewApprovalWeightManager(tangle *Tangle) (approvalWeightManager *ApprovalWe
 		panic(err)
 	}
 	if markerConfirmation != nil {
-		if approvalWeightManager.Events.MarkerConfirmation, err = thresholdevent.FromMarshalUtil(marshalutil.New(markerConfirmation), markerConfirmationThresholdOptions...); err != nil {
+		if approvalWeightManager.Events.MarkerConfirmation, err = events.ThresholdEventFromMarshalUtil(marshalutil.New(markerConfirmation), markerConfirmationThresholdOptions...); err != nil {
 			panic(err)
 		}
 	} else {
-		approvalWeightManager.Events.MarkerConfirmation = thresholdevent.New(markerConfirmationThresholdOptions...)
+		approvalWeightManager.Events.MarkerConfirmation = events.NewThresholdEvent(markerConfirmationThresholdOptions...)
 	}
 
 	return
@@ -218,7 +212,7 @@ func (a *ApprovalWeightManager) onSequenceSupportUpdated(marker *markers.Marker,
 			})
 		}
 
-		if _, transition := a.Events.MarkerConfirmation.Set(*currentMarker, supporterMana/totalMana); transition != thresholdevent.LevelIncreased {
+		if _, transition := a.Events.MarkerConfirmation.Set(*currentMarker, supporterMana/totalMana); transition != events.ThresholdLevelIncreased {
 			break
 		}
 
@@ -280,8 +274,8 @@ func (a *ApprovalWeightManager) weightOfLargestConflictingBranch(branchID ledger
 
 type ApprovalWeightManagerEvents struct {
 	MessageProcessed   *events.Event
-	BranchConfirmation *thresholdevent.ThresholdEvent
-	MarkerConfirmation *thresholdevent.ThresholdEvent
+	BranchConfirmation *events.ThresholdEvent
+	MarkerConfirmation *events.ThresholdEvent
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

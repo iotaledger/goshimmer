@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/datastructure/thresholdevent"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
@@ -346,7 +345,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	{
 		testFramework.CreateMessage("Message1", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()))
 
-		issueAndValidateMessageApproval(t, "Message1", testEventMock, testFramework, manager, map[ledgerstate.BranchID]float64{}, map[markers.Marker]float64{
+		issueAndValidateMessageApproval(t, "Message1", testEventMock, testFramework, map[ledgerstate.BranchID]float64{}, map[markers.Marker]float64{
 			*markers.NewMarker(1, 1): 0.30,
 		})
 	}
@@ -355,7 +354,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	{
 		testFramework.CreateMessage("Message2", WithStrongParents("Message1"), WithIssuer(nodes["B"].PublicKey()))
 
-		issueAndValidateMessageApproval(t, "Message2", testEventMock, testFramework, manager, map[ledgerstate.BranchID]float64{}, map[markers.Marker]float64{
+		issueAndValidateMessageApproval(t, "Message2", testEventMock, testFramework, map[ledgerstate.BranchID]float64{}, map[markers.Marker]float64{
 			*markers.NewMarker(1, 1): 0.45,
 			*markers.NewMarker(1, 2): 0.15,
 		})
@@ -365,9 +364,9 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	{
 		testFramework.CreateMessage("Message3", WithStrongParents("Message2"), WithIssuer(nodes["C"].PublicKey()))
 
-		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(1, 1), 1, thresholdevent.LevelIncreased)
+		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(1, 1), 1, events.ThresholdLevelIncreased)
 
-		issueAndValidateMessageApproval(t, "Message3", testEventMock, testFramework, manager, map[ledgerstate.BranchID]float64{}, map[markers.Marker]float64{
+		issueAndValidateMessageApproval(t, "Message3", testEventMock, testFramework, map[ledgerstate.BranchID]float64{}, map[markers.Marker]float64{
 			*markers.NewMarker(1, 1): 0.70,
 			*markers.NewMarker(1, 2): 0.40,
 			*markers.NewMarker(1, 3): 0.25,
@@ -378,9 +377,9 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	{
 		testFramework.CreateMessage("Message4", WithStrongParents("Message3"), WithIssuer(nodes["D"].PublicKey()))
 
-		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(1, 2), 1, thresholdevent.LevelIncreased)
+		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(1, 2), 1, events.ThresholdLevelIncreased)
 
-		issueAndValidateMessageApproval(t, "Message4", testEventMock, testFramework, manager, map[ledgerstate.BranchID]float64{}, map[markers.Marker]float64{
+		issueAndValidateMessageApproval(t, "Message4", testEventMock, testFramework, map[ledgerstate.BranchID]float64{}, map[markers.Marker]float64{
 			*markers.NewMarker(1, 1): 0.90,
 			*markers.NewMarker(1, 2): 0.60,
 			*markers.NewMarker(1, 3): 0.45,
@@ -393,10 +392,10 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 		testFramework.CreateMessage("Message5", WithStrongParents("Message4"), WithIssuer(nodes["A"].PublicKey()), WithInputs("A"), WithOutput("B", 500))
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message5")), "Branch1")
 
-		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(1, 3), 1, thresholdevent.LevelIncreased)
-		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(1, 4), 1, thresholdevent.LevelIncreased)
+		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(1, 3), 1, events.ThresholdLevelIncreased)
+		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(1, 4), 1, events.ThresholdLevelIncreased)
 
-		issueAndValidateMessageApproval(t, "Message5", testEventMock, testFramework, manager, map[ledgerstate.BranchID]float64{}, map[markers.Marker]float64{
+		issueAndValidateMessageApproval(t, "Message5", testEventMock, testFramework, map[ledgerstate.BranchID]float64{}, map[markers.Marker]float64{
 			*markers.NewMarker(1, 1): 0.90,
 			*markers.NewMarker(1, 2): 0.90,
 			*markers.NewMarker(1, 3): 0.75,
@@ -410,7 +409,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 		testFramework.CreateMessage("Message6", WithStrongParents("Message4"), WithIssuer(nodes["E"].PublicKey()), WithInputs("A"), WithOutput("C", 500))
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message6")), "Branch2")
 
-		issueAndValidateMessageApproval(t, "Message6", testEventMock, testFramework, manager, map[ledgerstate.BranchID]float64{
+		issueAndValidateMessageApproval(t, "Message6", testEventMock, testFramework, map[ledgerstate.BranchID]float64{
 			testFramework.BranchID("Message5"): 0.3,
 			testFramework.BranchID("Message6"): 0.1,
 		}, map[markers.Marker]float64{
@@ -429,7 +428,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message7")), "Branch3")
 
 		testFramework.PreventNewMarkers(true)
-		issueAndValidateMessageApproval(t, "Message7", testEventMock, testFramework, manager, map[ledgerstate.BranchID]float64{
+		issueAndValidateMessageApproval(t, "Message7", testEventMock, testFramework, map[ledgerstate.BranchID]float64{
 			testFramework.BranchID("Message5"): 0.55,
 			testFramework.BranchID("Message6"): 0.1,
 		}, map[markers.Marker]float64{
@@ -448,7 +447,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 		testFramework.CreateMessage("Message7.1", WithStrongParents("Message7"), WithIssuer(nodes["A"].PublicKey()))
 
 		testFramework.PreventNewMarkers(true)
-		issueAndValidateMessageApproval(t, "Message7.1", testEventMock, testFramework, manager, map[ledgerstate.BranchID]float64{
+		issueAndValidateMessageApproval(t, "Message7.1", testEventMock, testFramework, map[ledgerstate.BranchID]float64{
 			testFramework.BranchID("Message5"): 0.55,
 			testFramework.BranchID("Message6"): 0.1,
 		}, map[markers.Marker]float64{
@@ -466,7 +465,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	{
 		testFramework.CreateMessage("Message8", WithStrongParents("Message6"), WithIssuer(nodes["D"].PublicKey()))
 
-		issueAndValidateMessageApproval(t, "Message8", testEventMock, testFramework, manager, map[ledgerstate.BranchID]float64{
+		issueAndValidateMessageApproval(t, "Message8", testEventMock, testFramework, map[ledgerstate.BranchID]float64{
 			testFramework.BranchID("Message5"): 0.55,
 			testFramework.BranchID("Message6"): 0.30,
 		}, map[markers.Marker]float64{
@@ -484,7 +483,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	{
 		testFramework.CreateMessage("Message9", WithStrongParents("Message8"), WithIssuer(nodes["A"].PublicKey()))
 
-		issueAndValidateMessageApproval(t, "Message9", testEventMock, testFramework, manager, map[ledgerstate.BranchID]float64{
+		issueAndValidateMessageApproval(t, "Message9", testEventMock, testFramework, map[ledgerstate.BranchID]float64{
 			testFramework.BranchID("Message5"): 0.25,
 			testFramework.BranchID("Message6"): 0.60,
 		}, map[markers.Marker]float64{
@@ -503,11 +502,11 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	{
 		testFramework.CreateMessage("Message10", WithStrongParents("Message9"), WithIssuer(nodes["B"].PublicKey()))
 
-		testEventMock.Expect("BranchConfirmed", testFramework.BranchID("Message6"), 1, thresholdevent.LevelIncreased)
-		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(2, 5), 1, thresholdevent.LevelIncreased)
-		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(2, 6), 1, thresholdevent.LevelIncreased)
+		testEventMock.Expect("BranchConfirmed", testFramework.BranchID("Message6"), 1, events.ThresholdLevelIncreased)
+		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(2, 5), 1, events.ThresholdLevelIncreased)
+		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(2, 6), 1, events.ThresholdLevelIncreased)
 
-		issueAndValidateMessageApproval(t, "Message10", testEventMock, testFramework, manager, map[ledgerstate.BranchID]float64{
+		issueAndValidateMessageApproval(t, "Message10", testEventMock, testFramework, map[ledgerstate.BranchID]float64{
 			testFramework.BranchID("Message5"): 0.25,
 			testFramework.BranchID("Message6"): 0.75,
 		}, map[markers.Marker]float64{
@@ -528,9 +527,9 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 		testFramework.CreateMessage("Message11", WithStrongParents("Message5"), WithIssuer(nodes["A"].PublicKey()), WithInputs("B"), WithOutput("D", 500))
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message11")), "Branch4")
 
-		testEventMock.Expect("BranchConfirmed", testFramework.BranchID("Message7"), 1, thresholdevent.LevelIncreased)
+		testEventMock.Expect("BranchConfirmed", testFramework.BranchID("Message7"), 1, events.ThresholdLevelIncreased)
 
-		issueAndValidateMessageApproval(t, "Message11", testEventMock, testFramework, manager, map[ledgerstate.BranchID]float64{
+		issueAndValidateMessageApproval(t, "Message11", testEventMock, testFramework, map[ledgerstate.BranchID]float64{
 			testFramework.BranchID("Message5"):  0.55,
 			testFramework.BranchID("Message6"):  0.45,
 			testFramework.BranchID("Message7"):  0.25,
@@ -553,10 +552,10 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	{
 		testFramework.CreateMessage("Message12", WithStrongParents("Message11"), WithIssuer(nodes["D"].PublicKey()))
 
-		testEventMock.Expect("BranchConfirmed", testFramework.BranchID("Message5"), 1, thresholdevent.LevelIncreased)
-		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(1, 5), 1, thresholdevent.LevelIncreased)
+		testEventMock.Expect("BranchConfirmed", testFramework.BranchID("Message5"), 1, events.ThresholdLevelIncreased)
+		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(1, 5), 1, events.ThresholdLevelIncreased)
 
-		issueAndValidateMessageApproval(t, "Message12", testEventMock, testFramework, manager, map[ledgerstate.BranchID]float64{
+		issueAndValidateMessageApproval(t, "Message12", testEventMock, testFramework, map[ledgerstate.BranchID]float64{
 			testFramework.BranchID("Message5"):  0.75,
 			testFramework.BranchID("Message6"):  0.25,
 			testFramework.BranchID("Message7"):  0.25,
@@ -580,7 +579,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	{
 		testFramework.CreateMessage("Message13", WithStrongParents("Message12"), WithIssuer(nodes["E"].PublicKey()))
 
-		issueAndValidateMessageApproval(t, "Message13", testEventMock, testFramework, manager, map[ledgerstate.BranchID]float64{
+		issueAndValidateMessageApproval(t, "Message13", testEventMock, testFramework, map[ledgerstate.BranchID]float64{
 			testFramework.BranchID("Message5"):  0.85,
 			testFramework.BranchID("Message6"):  0.15,
 			testFramework.BranchID("Message7"):  0.25,
@@ -605,10 +604,10 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	{
 		testFramework.CreateMessage("Message14", WithStrongParents("Message13"), WithIssuer(nodes["B"].PublicKey()))
 
-		testEventMock.Expect("BranchConfirmed", testFramework.BranchID("Message11"), 1, thresholdevent.LevelIncreased)
-		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(3, 6), 1, thresholdevent.LevelIncreased)
+		testEventMock.Expect("BranchConfirmed", testFramework.BranchID("Message11"), 1, events.ThresholdLevelIncreased)
+		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(3, 6), 1, events.ThresholdLevelIncreased)
 
-		issueAndValidateMessageApproval(t, "Message14", testEventMock, testFramework, manager, map[ledgerstate.BranchID]float64{
+		issueAndValidateMessageApproval(t, "Message14", testEventMock, testFramework, map[ledgerstate.BranchID]float64{
 			testFramework.BranchID("Message5"):  1,
 			testFramework.BranchID("Message6"):  0,
 			testFramework.BranchID("Message7"):  0.25,
@@ -631,7 +630,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	}
 }
 
-func issueAndValidateMessageApproval(t *testing.T, messageAlias string, eventMock *eventMock, testFramework *MessageTestFramework, epochsManager *epochs.Manager, expectedBranchWeights map[ledgerstate.BranchID]float64, expectedMarkerWeights map[markers.Marker]float64) {
+func issueAndValidateMessageApproval(t *testing.T, messageAlias string, eventMock *eventMock, testFramework *MessageTestFramework, expectedBranchWeights map[ledgerstate.BranchID]float64, expectedMarkerWeights map[markers.Marker]float64) {
 	eventMock.Expect("MessageProcessed", testFramework.Message(messageAlias).ID())
 
 	t.Logf("ISSUE:\tMessageID(%s)", messageAlias)
@@ -775,13 +774,13 @@ func (e *eventMock) AssertExpectations(t mock.TestingT) bool {
 	return e.Mock.AssertExpectations(t)
 }
 
-func (e *eventMock) BranchConfirmed(branchID ledgerstate.BranchID, newLevel int, transition thresholdevent.LevelTransition) {
+func (e *eventMock) BranchConfirmed(branchID ledgerstate.BranchID, newLevel int, transition events.ThresholdEventTransition) {
 	e.Called(branchID, newLevel, transition)
 
 	atomic.AddUint64(&e.calledEvents, 1)
 }
 
-func (e *eventMock) MarkerConfirmed(marker markers.Marker, newLevel int, transition thresholdevent.LevelTransition) {
+func (e *eventMock) MarkerConfirmed(marker markers.Marker, newLevel int, transition events.ThresholdEventTransition) {
 	e.Called(marker, newLevel, transition)
 
 	atomic.AddUint64(&e.calledEvents, 1)
