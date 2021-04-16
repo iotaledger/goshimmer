@@ -35,6 +35,10 @@ func (a *AccessBaseManaVector) Has(nodeID identity.ID) bool {
 	return exists
 }
 
+// LoadSnapshot loads the initial mana state into the base mana vector.
+func (a *AccessBaseManaVector) LoadSnapshot(snapshot map[identity.ID]float64, snapshotTime time.Time) {
+}
+
 // Book books mana for a transaction.
 func (a *AccessBaseManaVector) Book(txInfo *TxInfo) {
 	a.Lock()

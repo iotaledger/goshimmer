@@ -764,54 +764,19 @@ func QueryAllowed() (allowed bool) {
 }
 
 func loadSnapshot(snapshot *ledgerstate.Snapshot) {
-	accessManaNodeID, _ := mana.IDFromStr("EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP")
-	consensusManaNodeID, _ := mana.IDFromStr("EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP")
-	manaLogger.Info("Genesis node ID: ", accessManaNodeID)
-	for transactionID, essence := range snapshot.Transactions {
-		var inputInfos []mana.InputInfo
-		var totalAmount float64
 
-		// iterate over all inputs within the transaction
-		for _, o := range essence.Outputs() {
-			var amount float64
-			var inputTimestamp time.Time
-			var _inputInfo mana.InputInfo
+	manaSnapshot := make(map[identity.ID]float64)
 
-			// first, sum balances of the input, calculate total amount as well for later
-			o.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
-				amount += float64(balance)
-				totalAmount += amount
+	for _, essence := range snapshot.Transactions {
+		totalBalance := uint64(0)
+		for _, output := range essence.Outputs() {
+			output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+				totalBalance += balance
 				return true
 			})
-
-			// look into the transaction, we need timestamp and access & consensus pledge IDs
-			inputTimestamp = essence.Timestamp()
-
-			// build InputInfo for this particular input in the transaction
-			_inputInfo = mana.InputInfo{
-				TimeStamp: inputTimestamp,
-				Amount:    amount,
-				PledgeID: map[mana.Type]identity.ID{
-					mana.AccessMana:    accessManaNodeID,
-					mana.ConsensusMana: consensusManaNodeID,
-				},
-				InputID: o.ID(),
-			}
-
-			inputInfos = append(inputInfos, _inputInfo)
 		}
-
-		txInfo := &mana.TxInfo{
-			TimeStamp:     essence.Timestamp(),
-			TransactionID: transactionID,
-			TotalBalance:  totalAmount,
-			PledgeID: map[mana.Type]identity.ID{
-				mana.AccessMana:    accessManaNodeID,
-				mana.ConsensusMana: consensusManaNodeID,
-			},
-			InputInfos: inputInfos,
-		}
-
-		baseManaVectors[mana.ConsensusMana].Book(txInfo)
+		manaSnapshot[essence.ConsensusPledgeID()] = float64(totalBalance)
 	}
+
+	baseManaVectors[mana.ConsensusMana].LoadSnapshot(manaSnapshot, time.Now())
 }

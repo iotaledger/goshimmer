@@ -91,6 +91,19 @@ func txInfoFromPledgeEvent(ev *PledgedEvent) *TxInfo {
 	}
 }
 
+func (c *ConsensusBaseManaVector) LoadSnapshot(snapshot map[identity.ID]float64, snapshotTime time.Time) {
+	c.Lock()
+	defer c.Unlock()
+
+	for nodeID, cMana := range snapshot {
+		c.vector[nodeID] = &ConsensusBaseMana{
+			BaseMana1:          cMana,
+			EffectiveBaseMana1: cMana,
+			LastUpdated:        snapshotTime,
+		}
+	}
+}
+
 // Book books mana for a transaction.
 func (c *ConsensusBaseManaVector) Book(txInfo *TxInfo) {
 	c.Lock()

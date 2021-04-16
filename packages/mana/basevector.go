@@ -15,6 +15,8 @@ type BaseManaVector interface {
 	Size() int
 	// Has tells if a certain node is present in the base mana vactor.
 	Has(identity.ID) bool
+	// LoadSnapshot loads the initial mana state into the base mana vector.
+	LoadSnapshot(map[identity.ID]float64, time.Time)
 	// Book books mana into the base mana vector.
 	Book(*TxInfo)
 	// Update updates the mana entries for a particular node wrt time.
