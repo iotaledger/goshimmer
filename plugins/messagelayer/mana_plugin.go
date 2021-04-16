@@ -235,7 +235,7 @@ func runManaPlugin(_ *node.Plugin) {
 					plugin.Panic("could not read snapshot file:", err)
 				}
 				loadSnapshot(snapshot)
-				plugin.LogInfof("read snapshot from %s", Parameters.Snapshot.File)
+				plugin.LogInfof("MANA: read snapshot from %s", Parameters.Snapshot.File)
 			}
 		}
 		pruneStorages()

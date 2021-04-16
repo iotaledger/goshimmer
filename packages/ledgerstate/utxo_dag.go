@@ -248,6 +248,7 @@ func (u *UTXODAG) LoadSnapshot(snapshot *Snapshot) {
 	index := uint16(0)
 	for transactionID, essence := range snapshot.Transactions {
 		for _, output := range essence.outputs {
+			output.SetID(NewOutputID(transactionID, index))
 			cachedOutput, stored := u.outputStorage.StoreIfAbsent(output)
 			if stored {
 				cachedOutput.Release()
