@@ -339,11 +339,6 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	defer tangle.Shutdown()
 	tangle.Setup()
 
-	tangle.ApprovalWeightManager.Events.BranchConfirmation.Attach(events.NewClosure(func(branchID ledgerstate.BranchID, newLevel int, transition thresholdevent.LevelTransition) {
-		tangle.LedgerState.BranchDAG.SetBranchMonotonicallyLiked(branchID, true)
-		tangle.LedgerState.BranchDAG.SetBranchFinalized(branchID, true)
-	}))
-
 	testEventMock := newEventMock(t, tangle.ApprovalWeightManager)
 	testFramework := NewMessageTestFramework(tangle, WithGenesisOutput("A", 500))
 
@@ -530,9 +525,6 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 
 	// ISSUE Message11
 	{
-		tangle.LedgerState.BranchDAG.SetBranchFinalized(testFramework.BranchID("Message5"), false)
-		tangle.LedgerState.BranchDAG.SetBranchFinalized(testFramework.BranchID("Message6"), false)
-
 		testFramework.CreateMessage("Message11", WithStrongParents("Message5"), WithIssuer(nodes["A"].PublicKey()), WithInputs("B"), WithOutput("D", 500))
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message11")), "Branch4")
 
