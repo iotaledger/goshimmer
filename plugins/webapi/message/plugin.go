@@ -3,7 +3,9 @@ package message
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"sync"
+	"time"
 
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
@@ -32,6 +34,7 @@ func Plugin() *node.Plugin {
 			webapi.Server().GET("messages/:messageID", GetMessage)
 			webapi.Server().GET("messages/:messageID/metadata", GetMessageMetadata)
 			webapi.Server().POST("messages/payload", PostPayload)
+			webapi.Server().POST("messages/payload/:delay", PostPayload)
 		})
 	})
 
@@ -84,6 +87,12 @@ func GetMessageMetadata(c echo.Context) (err error) {
 
 // PostPayload is the handler for the /messages/payload endpoint.
 func PostPayload(c echo.Context) error {
+
+	delay, err := delayFromContext(c)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	}
+
 	var request jsonmodels.PostPayloadRequest
 	if err := c.Bind(&request); err != nil {
 		Plugin().LogInfo(err.Error())
@@ -95,11 +104,17 @@ func PostPayload(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	msg, err := messagelayer.Tangle().IssuePayload(parsedPayload)
+	if delay == 0 {
+		msg, err := messagelayer.Tangle().IssuePayload(parsedPayload)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+		}
+		return c.JSON(http.StatusOK, jsonmodels.NewPostPayloadResponse(msg))
+	}
+	msg, err := messagelayer.Tangle().IssuePayloadWithDelay(parsedPayload, delay)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
-
 	return c.JSON(http.StatusOK, jsonmodels.NewPostPayloadResponse(msg))
 }
 
@@ -117,6 +132,15 @@ func messageIDFromContext(c echo.Context) (messageID tangle.MessageID, err error
 		messageID, err = tangle.NewMessageID(messageIDString)
 	}
 
+	return
+}
+
+func delayFromContext(c echo.Context) (delay time.Duration, err error) {
+	delayString, err := strconv.Atoi(c.Param("delay"))
+	if err != nil {
+		return delay, err
+	}
+	delay = time.Duration(delayString)
 	return
 }
 

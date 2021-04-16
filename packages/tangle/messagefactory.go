@@ -129,6 +129,74 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, t ...*Tangle) (*Message
 	return msg, nil
 }
 
+func (f *MessageFactory) IssuePayloadWithDelay(p payload.Payload, delay time.Duration, t ...*Tangle) (*Message, error) {
+	payloadLen := len(p.Bytes())
+	if payloadLen > payload.MaxSize {
+		err := fmt.Errorf("maximum payload size of %d bytes exceeded", payloadLen)
+		f.Events.Error.Trigger(err)
+		return nil, err
+	}
+
+	f.issuanceMutex.Lock()
+	defer f.issuanceMutex.Unlock()
+	sequenceNumber, err := f.sequence.Next()
+	if err != nil {
+		err = xerrors.Errorf("could not create sequence number: %w", err)
+		f.Events.Error.Trigger(err)
+		return nil, err
+	}
+
+	strongParents, weakParents, err := f.selector.Tips(p, 2, 2)
+	if err != nil {
+		err = xerrors.Errorf("tips could not be selected: %w", err)
+		f.Events.Error.Trigger(err)
+		return nil, err
+	}
+
+	issuingTime := clock.SyncedTime()
+
+	// due to the ParentAge check we must ensure that we set the right issuing time.
+	if t != nil {
+		for _, parent := range strongParents {
+			t[0].Storage.Message(parent).Consume(func(msg *Message) {
+				if msg.ID() != EmptyMessageID && !msg.IssuingTime().Before(issuingTime) {
+					time.Sleep(msg.IssuingTime().Sub(issuingTime) + 1*time.Nanosecond)
+					issuingTime = clock.SyncedTime()
+				}
+			})
+		}
+	}
+
+	issuerPublicKey := f.localIdentity.PublicKey()
+
+	// do the PoW
+	nonce, err := f.doPOW(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p)
+	if err != nil {
+		err = xerrors.Errorf("pow failed: %w", err)
+		f.Events.Error.Trigger(err)
+		return nil, err
+	}
+
+	// create the signature
+	signature := f.sign(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
+
+	msg := NewMessage(
+		strongParents,
+		weakParents,
+		issuingTime,
+		issuerPublicKey,
+		sequenceNumber,
+		p,
+		nonce,
+		signature,
+	)
+
+	time.Sleep(delay)
+
+	f.Events.MessageConstructed.Trigger(msg)
+	return msg, nil
+}
+
 // Shutdown closes the MessageFactory and persists the sequence number.
 func (f *MessageFactory) Shutdown() {
 	if err := f.sequence.Release(); err != nil {

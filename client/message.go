@@ -2,6 +2,8 @@ package client
 
 import (
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
@@ -48,6 +50,18 @@ func (api *GoShimmerAPI) GetMessageMetadata(base58EncodedID string) (*jsonmodels
 func (api *GoShimmerAPI) SendPayload(payload []byte) (string, error) {
 	res := &jsonmodels.PostPayloadResponse{}
 	if err := api.do(http.MethodPost, routeSendPayload,
+		&jsonmodels.PostPayloadRequest{Payload: payload}, res); err != nil {
+		return "", err
+	}
+
+	return res.ID, nil
+}
+
+// SendPayloadWithDelay send a message with the given payload and time delay.
+func (api *GoShimmerAPI) SendPayloadWithDelay(payload []byte, delay time.Duration) (string, error) {
+	res := &jsonmodels.PostPayloadResponse{}
+
+	if err := api.do(http.MethodPost, routeSendPayload+strconv.FormatInt(delay.Nanoseconds(), 10),
 		&jsonmodels.PostPayloadRequest{Payload: payload}, res); err != nil {
 		return "", err
 	}
