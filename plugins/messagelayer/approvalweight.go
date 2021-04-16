@@ -1,12 +1,12 @@
 package messagelayer
 
 import (
+	"github.com/iotaledger/hive.go/datastructure/walker"
+	"github.com/iotaledger/hive.go/events"
+
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/hive.go/datastructure/thresholdevent"
-	"github.com/iotaledger/hive.go/datastructure/walker"
-	"github.com/iotaledger/hive.go/events"
 )
 
 func configureApprovalWeight() {
@@ -14,7 +14,7 @@ func configureApprovalWeight() {
 	Tangle().ApprovalWeightManager.Events.BranchConfirmation.Attach(events.NewClosure(onBranchConfirmed))
 }
 
-func onMarkerConfirmed(marker markers.Marker, newLevel int, transition thresholdevent.LevelTransition) {
+func onMarkerConfirmed(marker markers.Marker, newLevel int, transition events.ThresholdEventTransition) {
 	// get message ID of marker
 	messageID := Tangle().Booker.MarkersManager.MessageID(&marker)
 
@@ -65,7 +65,7 @@ func propagateFinalizedApprovalWeight(message *tangle.Message, messageMetadata *
 	})
 }
 
-func onBranchConfirmed(branchID ledgerstate.BranchID, newLevel int, transition thresholdevent.LevelTransition) {
+func onBranchConfirmed(branchID ledgerstate.BranchID, newLevel int, transition events.ThresholdEventTransition) {
 	plugin.LogDebugf("%s confirmed by ApprovalWeight.", branchID)
 
 	if Tangle().LedgerState.BranchDAG.InclusionState(branchID) == ledgerstate.Rejected {
