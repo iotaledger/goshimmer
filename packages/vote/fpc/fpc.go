@@ -333,6 +333,10 @@ func (f *FPC) voteContextIDs() (conflictIDs []string, timestampIDs []string) {
 func (f *FPC) setThreshold(voteCtx *vote.Context) (float64, float64) {
 	lowerThreshold := f.paras.SubsequentRoundsLowerBoundThreshold
 	upperThreshold := f.paras.SubsequentRoundsUpperBoundThreshold
+	// for TimestampType the threshold is symmetrical
+	if voteCtx.Type == vote.TimestampType {
+		lowerThreshold = 1 - f.paras.SubsequentRoundsUpperBoundThreshold
+	}
 
 	if voteCtx.HadFirstRound() {
 		lowerThreshold = f.paras.FirstRoundLowerBoundThreshold
