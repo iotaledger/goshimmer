@@ -61,7 +61,7 @@ func (api *GoShimmerAPI) SendPayload(payload []byte) (string, error) {
 func (api *GoShimmerAPI) SendPayloadWithDelay(payload []byte, delay time.Duration) (string, error) {
 	res := &jsonmodels.PostPayloadResponse{}
 
-	if err := api.do(http.MethodPost, routeSendPayload+strconv.FormatInt(delay.Nanoseconds(), 10),
+	if err := api.do(http.MethodPost, routeSendPayload+"/"+strconv.FormatInt(delay.Nanoseconds(), 10),
 		&jsonmodels.PostPayloadRequest{Payload: payload}, res); err != nil {
 		return "", err
 	}

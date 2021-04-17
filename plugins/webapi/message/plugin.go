@@ -136,7 +136,12 @@ func messageIDFromContext(c echo.Context) (messageID tangle.MessageID, err error
 }
 
 func delayFromContext(c echo.Context) (delay time.Duration, err error) {
-	delayString, err := strconv.Atoi(c.Param("delay"))
+	parameter := c.Param("delay")
+	if parameter == "" {
+		delay = time.Duration(0)
+		return
+	}
+	delayString, err := strconv.Atoi(parameter)
 	if err != nil {
 		return delay, err
 	}
