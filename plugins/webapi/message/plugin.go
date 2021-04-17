@@ -10,6 +10,8 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -33,6 +35,7 @@ func Plugin() *node.Plugin {
 		plugin = node.NewPlugin("WebAPI message Endpoint", node.Enabled, func(*node.Plugin) {
 			webapi.Server().GET("messages/:messageID", GetMessage)
 			webapi.Server().GET("messages/:messageID/metadata", GetMessageMetadata)
+			webapi.Server().GET("messages/:messageID/consensus", GetMessageConsensusMetadata)
 			webapi.Server().POST("messages/payload", PostPayload)
 			webapi.Server().POST("messages/payload/:delay", PostPayload)
 		})
@@ -53,7 +56,26 @@ func GetMessage(c echo.Context) (err error) {
 	}
 
 	if messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
-		err = c.JSON(http.StatusOK, jsonmodels.NewMessage(message))
+		err = c.JSON(http.StatusOK, jsonmodels.Message{
+			ID:              message.ID().Base58(),
+			StrongParents:   message.StrongParents().ToStrings(),
+			WeakParents:     message.WeakParents().ToStrings(),
+			StrongApprovers: messagelayer.Tangle().Utils.ApprovingMessageIDs(message.ID(), tangle.StrongApprover).ToStrings(),
+			WeakApprovers:   messagelayer.Tangle().Utils.ApprovingMessageIDs(message.ID(), tangle.WeakApprover).ToStrings(),
+			IssuerPublicKey: message.IssuerPublicKey().String(),
+			IssuingTime:     message.IssuingTime().Unix(),
+			SequenceNumber:  message.SequenceNumber(),
+			PayloadType:     message.Payload().Type().String(),
+			TransactionID: func() string {
+				if message.Payload().Type() == ledgerstate.TransactionType {
+					return message.Payload().(*ledgerstate.Transaction).ID().Base58()
+				}
+
+				return ""
+			}(),
+			Payload:   message.Payload().Bytes(),
+			Signature: message.Signature().String(),
+		})
 	}) {
 		return
 	}
@@ -79,6 +101,31 @@ func GetMessageMetadata(c echo.Context) (err error) {
 	}
 
 	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load MessageMetadata with %s", messageID)))
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region GetMessageMetadata ///////////////////////////////////////////////////////////////////////////////////////////
+
+// GetMessageConsensusMetadata is the handler for the /messages/:messageID/consensus endpoint.
+func GetMessageConsensusMetadata(c echo.Context) (err error) {
+	messageID, err := messageIDFromContext(c)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	}
+
+	consensusMechanism := messagelayer.Tangle().Options.ConsensusMechanism.(*fcob.ConsensusMechanism)
+	if consensusMechanism != nil {
+		if consensusMechanism.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *fcob.MessageMetadata) {
+			consensusMechanism.Storage.TimestampOpinion(messageID).Consume(func(timestampOpinion *fcob.TimestampOpinion) {
+				err = c.JSON(http.StatusOK, jsonmodels.NewMessageConsensusMetadata(messageMetadata, timestampOpinion))
+			})
+		}) {
+			return
+		}
+	}
+
+	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load MessageConsensusMetadata with %s", messageID)))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -121,7 +121,7 @@ type GetTransactionAttachmentsResponse struct {
 func NewGetTransactionAttachmentsResponse(transactionID ledgerstate.TransactionID, messageIDs tangle.MessageIDs) *GetTransactionAttachmentsResponse {
 	var messageIDsBase58 []string
 	for _, messageID := range messageIDs {
-		messageIDsBase58 = append(messageIDsBase58, messageID.String())
+		messageIDsBase58 = append(messageIDsBase58, messageID.Base58())
 	}
 
 	return &GetTransactionAttachmentsResponse{
@@ -151,7 +151,7 @@ type PostPayloadResponse struct {
 // NewPostPayloadResponse returns a PostPayloadResponse from the given tangle.Message.
 func NewPostPayloadResponse(message *tangle.Message) *PostPayloadResponse {
 	return &PostPayloadResponse{
-		ID: message.ID().String(),
+		ID: message.ID().Base58(),
 	}
 }
 

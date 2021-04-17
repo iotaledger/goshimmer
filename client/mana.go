@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	webapi_mana "github.com/iotaledger/goshimmer/plugins/webapi/mana"
+	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 const (
@@ -21,10 +21,10 @@ const (
 )
 
 // GetOwnMana returns the access and consensus mana of the node this api client is communicating with.
-func (api *GoShimmerAPI) GetOwnMana() (*webapi_mana.GetManaResponse, error) {
-	res := &webapi_mana.GetManaResponse{}
+func (api *GoShimmerAPI) GetOwnMana() (*jsonmodels.GetManaResponse, error) {
+	res := &jsonmodels.GetManaResponse{}
 	if err := api.do(http.MethodGet, routeGetMana,
-		&webapi_mana.GetManaRequest{NodeID: ""}, res); err != nil {
+		&jsonmodels.GetManaRequest{NodeID: ""}, res); err != nil {
 		return nil, err
 	}
 	return res, nil
@@ -32,24 +32,24 @@ func (api *GoShimmerAPI) GetOwnMana() (*webapi_mana.GetManaResponse, error) {
 
 // GetManaFullNodeID returns the access and consensus mana of the node specified in the argument.
 // Note, that for the node to understand which nodeID we are referring to, short node ID is not sufficient.
-func (api *GoShimmerAPI) GetManaFullNodeID(fullNodeID string) (*webapi_mana.GetManaResponse, error) {
-	res := &webapi_mana.GetManaResponse{}
+func (api *GoShimmerAPI) GetManaFullNodeID(fullNodeID string) (*jsonmodels.GetManaResponse, error) {
+	res := &jsonmodels.GetManaResponse{}
 	if err := api.do(http.MethodGet, routeGetMana,
-		&webapi_mana.GetManaRequest{NodeID: fullNodeID}, res); err != nil {
+		&jsonmodels.GetManaRequest{NodeID: fullNodeID}, res); err != nil {
 		return nil, err
 	}
 	return res, nil
 }
 
 // GetMana returns the access and consensus mana a node has based on its shortNodeID.
-func (api *GoShimmerAPI) GetMana(shortNodeID string) (*webapi_mana.GetManaResponse, error) {
+func (api *GoShimmerAPI) GetMana(shortNodeID string) (*jsonmodels.GetManaResponse, error) {
 	// ask the node about the full mana map and filter out based on shortID
-	allManaRes := &webapi_mana.GetAllManaResponse{}
+	allManaRes := &jsonmodels.GetAllManaResponse{}
 	if err := api.do(http.MethodGet, routeGetAllMana,
 		nil, allManaRes); err != nil {
 		return nil, err
 	}
-	res := &webapi_mana.GetManaResponse{ShortNodeID: shortNodeID}
+	res := &jsonmodels.GetManaResponse{ShortNodeID: shortNodeID}
 	// look for node's mana values in the map
 	for _, nodeStr := range allManaRes.Access {
 		if nodeStr.ShortNodeID == shortNodeID {
@@ -67,8 +67,8 @@ func (api *GoShimmerAPI) GetMana(shortNodeID string) (*webapi_mana.GetManaRespon
 }
 
 // GetAllMana returns the mana perception of the node in the network.
-func (api *GoShimmerAPI) GetAllMana() (*webapi_mana.GetAllManaResponse, error) {
-	res := &webapi_mana.GetAllManaResponse{}
+func (api *GoShimmerAPI) GetAllMana() (*jsonmodels.GetAllManaResponse, error) {
+	res := &jsonmodels.GetAllManaResponse{}
 	if err := api.do(http.MethodGet, routeGetAllMana,
 		nil, res); err != nil {
 		return nil, err
@@ -77,18 +77,18 @@ func (api *GoShimmerAPI) GetAllMana() (*webapi_mana.GetAllManaResponse, error) {
 }
 
 // GetManaPercentile returns the mana percentile for access and consensus mana of a node.
-func (api *GoShimmerAPI) GetManaPercentile(fullNodeID string) (*webapi_mana.GetPercentileResponse, error) {
-	res := &webapi_mana.GetPercentileResponse{}
+func (api *GoShimmerAPI) GetManaPercentile(fullNodeID string) (*jsonmodels.GetPercentileResponse, error) {
+	res := &jsonmodels.GetPercentileResponse{}
 	if err := api.do(http.MethodGet, routeGetManaPercentile,
-		&webapi_mana.GetPercentileRequest{NodeID: fullNodeID}, res); err != nil {
+		&jsonmodels.GetPercentileRequest{NodeID: fullNodeID}, res); err != nil {
 		return nil, err
 	}
 	return res, nil
 }
 
 // GetOnlineAccessMana returns the sorted list of online access mana of nodes.
-func (api *GoShimmerAPI) GetOnlineAccessMana() (*webapi_mana.GetOnlineResponse, error) {
-	res := &webapi_mana.GetOnlineResponse{}
+func (api *GoShimmerAPI) GetOnlineAccessMana() (*jsonmodels.GetOnlineResponse, error) {
+	res := &jsonmodels.GetOnlineResponse{}
 	if err := api.do(http.MethodGet, routeGetOnlineAccessMana,
 		nil, res); err != nil {
 		return nil, err
@@ -97,8 +97,8 @@ func (api *GoShimmerAPI) GetOnlineAccessMana() (*webapi_mana.GetOnlineResponse, 
 }
 
 // GetOnlineConsensusMana returns the sorted list of online consensus mana of nodes.
-func (api *GoShimmerAPI) GetOnlineConsensusMana() (*webapi_mana.GetOnlineResponse, error) {
-	res := &webapi_mana.GetOnlineResponse{}
+func (api *GoShimmerAPI) GetOnlineConsensusMana() (*jsonmodels.GetOnlineResponse, error) {
+	res := &jsonmodels.GetOnlineResponse{}
 	if err := api.do(http.MethodGet, routeGetOnlineConsensusMana,
 		nil, res); err != nil {
 		return nil, err
@@ -107,8 +107,8 @@ func (api *GoShimmerAPI) GetOnlineConsensusMana() (*webapi_mana.GetOnlineRespons
 }
 
 // GetNHighestAccessMana returns the N highest access mana holders in the network, sorted in descending order.
-func (api *GoShimmerAPI) GetNHighestAccessMana(n int) (*webapi_mana.GetNHighestResponse, error) {
-	res := &webapi_mana.GetNHighestResponse{}
+func (api *GoShimmerAPI) GetNHighestAccessMana(n int) (*jsonmodels.GetNHighestResponse, error) {
+	res := &jsonmodels.GetNHighestResponse{}
 	if err := api.do(http.MethodGet, func() string {
 		return fmt.Sprintf("%s?number=%d", routeGetNHighestAccessMana, n)
 	}(), nil, res); err != nil {
@@ -118,8 +118,8 @@ func (api *GoShimmerAPI) GetNHighestAccessMana(n int) (*webapi_mana.GetNHighestR
 }
 
 // GetNHighestConsensusMana returns the N highest consensus mana holders in the network, sorted in descending order.
-func (api *GoShimmerAPI) GetNHighestConsensusMana(n int) (*webapi_mana.GetNHighestResponse, error) {
-	res := &webapi_mana.GetNHighestResponse{}
+func (api *GoShimmerAPI) GetNHighestConsensusMana(n int) (*jsonmodels.GetNHighestResponse, error) {
+	res := &jsonmodels.GetNHighestResponse{}
 	if err := api.do(http.MethodGet, func() string {
 		return fmt.Sprintf("%s?number=%d", routeGetNHighestConsensusMana, n)
 	}(), nil, res); err != nil {
@@ -129,28 +129,28 @@ func (api *GoShimmerAPI) GetNHighestConsensusMana(n int) (*webapi_mana.GetNHighe
 }
 
 // GetPending returns the mana (bm2) that will be pledged by spending the output specified.
-func (api *GoShimmerAPI) GetPending(outputID string) (*webapi_mana.PendingResponse, error) {
-	res := &webapi_mana.PendingResponse{}
+func (api *GoShimmerAPI) GetPending(outputID string) (*jsonmodels.PendingResponse, error) {
+	res := &jsonmodels.PendingResponse{}
 	if err := api.do(http.MethodGet, routePending,
-		&webapi_mana.PendingRequest{OutputID: outputID}, res); err != nil {
+		&jsonmodels.PendingRequest{OutputID: outputID}, res); err != nil {
 		return nil, err
 	}
 	return res, nil
 }
 
 // GetPastConsensusManaVector returns the consensus base mana vector of a time in the past.
-func (api *GoShimmerAPI) GetPastConsensusManaVector(t int64) (*webapi_mana.PastConsensusManaVectorResponse, error) {
-	res := &webapi_mana.PastConsensusManaVectorResponse{}
+func (api *GoShimmerAPI) GetPastConsensusManaVector(t int64) (*jsonmodels.PastConsensusManaVectorResponse, error) {
+	res := &jsonmodels.PastConsensusManaVectorResponse{}
 	if err := api.do(http.MethodGet, routePastConsensusVector,
-		&webapi_mana.PastConsensusManaVectorRequest{Timestamp: t}, res); err != nil {
+		&jsonmodels.PastConsensusManaVectorRequest{Timestamp: t}, res); err != nil {
 		return nil, err
 	}
 	return res, nil
 }
 
 // GetPastConsensusVectorMetadata returns the consensus base mana vector metadata of a time in the past.
-func (api *GoShimmerAPI) GetPastConsensusVectorMetadata() (*webapi_mana.PastConsensusVectorMetadataResponse, error) {
-	res := &webapi_mana.PastConsensusVectorMetadataResponse{}
+func (api *GoShimmerAPI) GetPastConsensusVectorMetadata() (*jsonmodels.PastConsensusVectorMetadataResponse, error) {
+	res := &jsonmodels.PastConsensusVectorMetadataResponse{}
 	if err := api.do(http.MethodGet, routePastConsensusVector, nil, res); err != nil {
 		return nil, err
 	}
@@ -158,10 +158,10 @@ func (api *GoShimmerAPI) GetPastConsensusVectorMetadata() (*webapi_mana.PastCons
 }
 
 // GetConsensusEventLogs returns the consensus event logs or the nodeIDs specified.
-func (api *GoShimmerAPI) GetConsensusEventLogs(nodeIDs []string) (*webapi_mana.GetEventLogsResponse, error) {
-	res := &webapi_mana.GetEventLogsResponse{}
+func (api *GoShimmerAPI) GetConsensusEventLogs(nodeIDs []string) (*jsonmodels.GetEventLogsResponse, error) {
+	res := &jsonmodels.GetEventLogsResponse{}
 	if err := api.do(http.MethodGet, routePastConsensusEventLogs,
-		&webapi_mana.GetEventLogsRequest{NodeIDs: nodeIDs}, res); err != nil {
+		&jsonmodels.GetEventLogsRequest{NodeIDs: nodeIDs}, res); err != nil {
 		return nil, err
 	}
 	return res, nil

@@ -196,6 +196,7 @@ func (t *Tangle) Shutdown() {
 	t.LedgerState.Shutdown()
 	t.ConsensusManager.Shutdown()
 	t.Storage.Shutdown()
+	t.LedgerState.Shutdown()
 	t.Options.Store.Shutdown()
 	t.TipManager.Shutdown()
 }

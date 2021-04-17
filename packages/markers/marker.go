@@ -16,6 +16,9 @@ import (
 
 // region Marker ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// MarkerLength represents the amount of bytes of a marshaled Marker.
+const MarkerLength = SequenceIDLength + IndexLength
+
 // Marker represents a coordinate in a Sequence that is identified by an ever increasing Index.
 type Marker struct {
 	sequenceID SequenceID
@@ -156,15 +159,20 @@ func (m *Markers) SequenceIDs() (sequenceIDs SequenceIDs) {
 	return NewSequenceIDs(sequenceIDsSlice...)
 }
 
-// FirstMarker returns the first Marker in the collection. It can for example be used to retrieve the new Marker that
-// was assigned when increasing the Index of a Sequence.
-func (m *Markers) FirstMarker() (firstMarker *Marker) {
+// Marker type casts the Markers to a Marker if it contains only 1 element.
+func (m *Markers) Marker() (marker *Marker) {
 	m.markersMutex.RLock()
 	defer m.markersMutex.RUnlock()
 
-	for sequenceID, index := range m.markers {
-		firstMarker = &Marker{sequenceID: sequenceID, index: index}
-		return
+	switch len(m.markers) {
+	case 0:
+		panic("converting empty Markers into a single Marker is not supported")
+	case 1:
+		for sequenceID, index := range m.markers {
+			return &Marker{sequenceID: sequenceID, index: index}
+		}
+	default:
+		panic("converting multiple Markers into a single Marker is not supported")
 	}
 
 	return
@@ -260,6 +268,30 @@ func (m *Markers) ForEach(iterator func(sequenceID SequenceID, index Index) bool
 	success = true
 	for sequenceID, index := range m.markers {
 		if success = iterator(sequenceID, index); !success {
+			return
+		}
+	}
+
+	return
+}
+
+// ForEachSorted calls the iterator for each of the contained Markers in increasing order. The iteration is aborted if
+// the iterator returns false. The method returns false if the iteration was aborted.
+func (m *Markers) ForEachSorted(iterator func(sequenceID SequenceID, index Index) bool) (success bool) {
+	m.markersMutex.RLock()
+	defer m.markersMutex.RUnlock()
+
+	sequenceIDs := make([]SequenceID, 0, len(m.markers))
+	for sequenceID := range m.markers {
+		sequenceIDs = append(sequenceIDs, sequenceID)
+	}
+	sort.Slice(sequenceIDs, func(i, j int) bool {
+		return sequenceIDs[i] < sequenceIDs[j]
+	})
+
+	success = true
+	for _, sequenceID := range sequenceIDs {
+		if success = iterator(sequenceID, m.markers[sequenceID]); !success {
 			return
 		}
 	}

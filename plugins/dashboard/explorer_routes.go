@@ -10,9 +10,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels/value"
 	ledgerstateAPI "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
 	manaAPI "github.com/iotaledger/goshimmer/plugins/webapi/mana"
-	valueutils "github.com/iotaledger/goshimmer/plugins/webapi/value"
 )
 
 // ExplorerMessage defines the struct of the ExplorerMessage.
@@ -55,8 +55,14 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 	cachedMessageMetadata := messagelayer.Tangle().Storage.MessageMetadata(messageID)
 	defer cachedMessageMetadata.Release()
 	messageMetadata := cachedMessageMetadata.Unwrap()
+
+	branchID, err := messagelayer.Tangle().Booker.MessageBranchID(messageID)
+	if err != nil {
+		branchID = ledgerstate.BranchID{}
+	}
+
 	t := &ExplorerMessage{
-		ID:                      messageID.String(),
+		ID:                      messageID.Base58(),
 		SolidificationTimestamp: messageMetadata.SolidificationTime().Unix(),
 		IssuanceTimestamp:       msg.IssuingTime().Unix(),
 		IssuerPublicKey:         msg.IssuerPublicKey().String(),
@@ -67,7 +73,7 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		StrongApprovers:         messagelayer.Tangle().Utils.ApprovingMessageIDs(messageID, tangle.StrongApprover).ToStrings(),
 		WeakApprovers:           messagelayer.Tangle().Utils.ApprovingMessageIDs(messageID, tangle.WeakApprover).ToStrings(),
 		Solid:                   messageMetadata.IsSolid(),
-		BranchID:                messageMetadata.BranchID().Base58(),
+		BranchID:                branchID.Base58(),
 		Scheduled:               messageMetadata.Scheduled(),
 		Booked:                  messageMetadata.IsBooked(),
 		Eligible:                messageMetadata.IsEligible(),
@@ -87,13 +93,13 @@ type ExplorerAddress struct {
 
 // ExplorerOutput defines the struct of the ExplorerOutput.
 type ExplorerOutput struct {
-	ID                 string                    `json:"id"`
-	TransactionID      string                    `json:"transaction_id"`
-	Balances           []valueutils.Balance      `json:"balances"`
-	InclusionState     valueutils.InclusionState `json:"inclusion_state"`
-	SolidificationTime int64                     `json:"solidification_time"`
-	ConsumerCount      int                       `json:"consumer_count"`
-	PendingMana        float64                   `json:"pending_mana"`
+	ID                 string               `json:"id"`
+	TransactionID      string               `json:"transaction_id"`
+	Balances           []value.Balance      `json:"balances"`
+	InclusionState     value.InclusionState `json:"inclusion_state"`
+	SolidificationTime int64                `json:"solidification_time"`
+	ConsumerCount      int                  `json:"consumer_count"`
+	PendingMana        float64              `json:"pending_mana"`
 }
 
 // SearchResult defines the struct of the SearchResult.
@@ -177,7 +183,7 @@ func findMessage(messageID tangle.MessageID) (explorerMsg *ExplorerMessage, err 
 	if !messagelayer.Tangle().Storage.Message(messageID).Consume(func(msg *tangle.Message) {
 		explorerMsg = createExplorerMessage(msg)
 	}) {
-		err = fmt.Errorf("%w: message %s", ErrNotFound, messageID.String())
+		err = fmt.Errorf("%w: message %s", ErrNotFound, messageID.Base58())
 	}
 
 	return
@@ -190,14 +196,14 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 	}
 
 	outputids := make([]ExplorerOutput, 0)
-	inclusionState := valueutils.InclusionState{}
+	inclusionState := value.InclusionState{}
 
 	// get outputids by address
 	messagelayer.Tangle().LedgerState.OutputsOnAddress(address).Consume(func(output ledgerstate.Output) {
 		// iterate balances
-		var b []valueutils.Balance
+		var b []value.Balance
 		output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
-			b = append(b, valueutils.Balance{
+			b = append(b, value.Balance{
 				Value: int64(balance),
 				Color: color.String(),
 			})

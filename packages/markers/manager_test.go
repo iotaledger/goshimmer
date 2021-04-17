@@ -180,7 +180,7 @@ func inheritPastMarkers(message *message, manager *Manager, messageDB map[string
 	// inherit new past Markers
 	message.markers, _ = manager.InheritStructureDetails(pastMarkers, increaseIndex(message), message.sequenceAlias)
 	if message.markers.IsPastMarker {
-		pastMarkerToPropagate = message.markers.PastMarkers.FirstMarker()
+		pastMarkerToPropagate = message.markers.PastMarkers.Marker()
 	}
 
 	return

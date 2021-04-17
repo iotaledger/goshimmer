@@ -3,10 +3,11 @@ package payload
 import (
 	"fmt"
 
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
+	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
 const (
@@ -16,8 +17,14 @@ const (
 
 // Type is the type of the syncbeacon payload.
 var Type = payload.NewType(200, ObjectName, func(data []byte) (payload payload.Payload, err error) {
-	payload, _, err = FromBytes(data)
-
+	var consumedBytes int
+	payload, consumedBytes, err = FromBytes(data)
+	if err != nil {
+		return nil, err
+	}
+	if consumedBytes != len(data) {
+		return nil, xerrors.New("not all payload bytes were consumed")
+	}
 	return
 })
 

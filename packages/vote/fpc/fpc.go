@@ -121,6 +121,15 @@ func (f *FPC) Round(rand float64) error {
 		// number of rounds and clear those who failed to be finalized in MaxRoundsPerVoteContext.
 		f.finalizeOpinions()
 	}
+
+	// mark a round being done, even though there's no opinion,
+	// so this voting context will be cleared eventually
+	f.ctxsMu.Lock()
+	for voteObjectID := range f.ctxs {
+		f.ctxs[voteObjectID].Rounds++
+	}
+	f.ctxsMu.Unlock()
+
 	// query for opinions on the current vote contexts
 	queriedOpinions, err := f.queryOpinions()
 	if err == nil {
@@ -136,6 +145,7 @@ func (f *FPC) Round(rand float64) error {
 		// in order to prevent the collection of the round stats data if not needed
 		f.events.RoundExecuted.Trigger(roundStats)
 	}
+
 	return err
 }
 
@@ -214,7 +224,6 @@ func (f *FPC) queryOpinions() ([]opinion.QueriedOpinions, error) {
 	// select a random subset of opinion givers to query.
 	// if the same opinion giver is selected multiple times, we query it only once
 	// but use its opinion N selected times.
-
 	opinionGiversToQuery, totalOpinionGiversMana := ManaBasedSampling(opinionGivers, f.paras.MaxQuerySampleSize, f.paras.QuerySampleSize, f.opinionGiverRng)
 
 	// get own mana and calculate total mana
@@ -224,9 +233,9 @@ func (f *FPC) queryOpinions() ([]opinion.QueriedOpinions, error) {
 	}
 	totalMana := totalOpinionGiversMana + ownMana
 
-	// votes per id
+	// create vote Map for existing conflict ids and timestamps
+	voteMap := createVoteMapForConflicts(conflictIDs, timestampIDs)
 	var voteMapMu sync.Mutex
-	voteMap := map[string]opinion.Opinions{}
 
 	// holds queried opinions
 	allQueriedOpinions := []opinion.QueriedOpinions{}
@@ -258,30 +267,18 @@ func (f *FPC) queryOpinions() ([]opinion.QueriedOpinions, error) {
 			voteMapMu.Lock()
 			defer voteMapMu.Unlock()
 			for i, id := range conflictIDs {
-				votes, has := voteMap[id]
-				if !has {
-					votes = opinion.Opinions{}
-				}
-				// reuse the opinion N times selected.
-				// note this is always at least 1.
+				// reuse the opinion N times selected. Note this is always at least 1.
 				for j := 0; j < selectedCount; j++ {
-					votes = append(votes, opinions[i])
+					voteMap[id] = append(voteMap[id], opinions[i])
 				}
 				queriedOpinions.Opinions[id] = opinions[i]
-				voteMap[id] = votes
 			}
 			for i, id := range timestampIDs {
-				votes, has := voteMap[id]
-				if !has {
-					votes = opinion.Opinions{}
-				}
-				// reuse the opinion N times selected.
-				// note this is always at least 1.
+				// reuse the opinion N times selected. Note this is always at least 1.
 				for j := 0; j < selectedCount; j++ {
-					votes = append(votes, opinions[i])
+					voteMap[id] = append(voteMap[id], opinions[i])
 				}
 				queriedOpinions.Opinions[id] = opinions[i]
-				voteMap[id] = votes
 			}
 			allQueriedOpinions = append(allQueriedOpinions, queriedOpinions)
 		}(opinionGiverToQuery, selectedCount)
@@ -305,9 +302,6 @@ func (f *FPC) queryOpinions() ([]opinion.QueriedOpinions, error) {
 			}
 		}
 
-		// mark a round being done, even though there's no opinion,
-		// so this voting context will be cleared eventually
-		f.ctxs[id].Rounds++
 		if votedCount < f.paras.MinOpinionsReceived {
 			continue
 		}
@@ -339,6 +333,10 @@ func (f *FPC) voteContextIDs() (conflictIDs []string, timestampIDs []string) {
 func (f *FPC) setThreshold(voteCtx *vote.Context) (float64, float64) {
 	lowerThreshold := f.paras.SubsequentRoundsLowerBoundThreshold
 	upperThreshold := f.paras.SubsequentRoundsUpperBoundThreshold
+	// for TimestampType the threshold is symmetrical
+	if voteCtx.Type == vote.TimestampType {
+		lowerThreshold = 1 - f.paras.SubsequentRoundsUpperBoundThreshold
+	}
 
 	if voteCtx.HadFirstRound() {
 		lowerThreshold = f.paras.FirstRoundLowerBoundThreshold
@@ -415,4 +413,18 @@ func UniformSampling(opinionGivers []opinion.OpinionGiver, maxQuerySampleSize, q
 		opinionGiversToQuery[selected]++
 	}
 	return opinionGiversToQuery
+}
+
+// create a voteMap for the stored conflicts and timestamps
+func createVoteMapForConflicts(conflictIDs, timestampIDs []string) map[string]opinion.Opinions {
+	voteMap := map[string]opinion.Opinions{}
+
+	for _, id := range conflictIDs {
+		voteMap[id] = opinion.Opinions{}
+	}
+	for _, id := range timestampIDs {
+		voteMap[id] = opinion.Opinions{}
+	}
+
+	return voteMap
 }
