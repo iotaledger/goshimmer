@@ -104,23 +104,23 @@ func (a *ApprovalWeightManager) WeightOfBranch(branchID ledgerstate.BranchID) (w
 func (a *ApprovalWeightManager) WeightOfMarker(marker *markers.Marker, anchorTime time.Time) (weight float64) {
 	currentEpoch := a.tangle.WeightProvider.Epoch(anchorTime)
 
-	activeMana, totalMana := a.tangle.WeightProvider.WeightsOfRelevantSupporters(currentEpoch)
+	activeWeight, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantSupporters(currentEpoch)
 	branchID := a.tangle.Booker.MarkersManager.BranchID(marker)
 	supportersOfMarker := a.supportersManager.SupportersOfMarker(marker)
-	supporterMana := float64(0)
+	supporterWeight := float64(0)
 	if branchID == ledgerstate.MasterBranchID {
 		supportersOfMarker.ForEach(func(supporter Supporter) {
-			supporterMana += activeMana[supporter]
+			supporterWeight += activeWeight[supporter]
 		})
 	} else {
 		a.supportersManager.SupportersOfBranch(branchID).ForEach(func(supporter Supporter) {
 			if supportersOfMarker.Has(supporter) {
-				supporterMana += activeMana[supporter]
+				supporterWeight += activeWeight[supporter]
 			}
 		})
 	}
 
-	return supporterMana / totalMana
+	return supporterWeight / totalWeight
 }
 
 // initThresholdEvent returns the ThresholdEvent that belongs to the given name. Since ThresholdEvents are stateful,
@@ -173,7 +173,7 @@ func (a *ApprovalWeightManager) onSequenceSupportUpdated(marker *markers.Marker,
 	}
 
 	epoch := a.tangle.WeightProvider.Epoch(message.IssuingTime())
-	activeMana, totalMana := a.tangle.WeightProvider.WeightsOfRelevantSupporters(epoch)
+	activeWeights, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantSupporters(epoch)
 
 	for i := a.lowestLastConfirmedMarker(marker.SequenceID()); i <= marker.Index(); i++ {
 		currentMarker := markers.NewMarker(marker.SequenceID(), i)
@@ -183,20 +183,20 @@ func (a *ApprovalWeightManager) onSequenceSupportUpdated(marker *markers.Marker,
 		}
 
 		supportersOfMarker := a.supportersManager.SupportersOfMarker(currentMarker)
-		supporterMana := float64(0)
+		supporterWeight := float64(0)
 		if branchID == ledgerstate.MasterBranchID {
 			supportersOfMarker.ForEach(func(supporter Supporter) {
-				supporterMana += activeMana[supporter]
+				supporterWeight += activeWeights[supporter]
 			})
 		} else {
 			a.supportersManager.SupportersOfBranch(branchID).ForEach(func(supporter Supporter) {
 				if supportersOfMarker.Has(supporter) {
-					supporterMana += activeMana[supporter]
+					supporterWeight += activeWeights[supporter]
 				}
 			})
 		}
 
-		if _, transition := a.Events.MarkerConfirmation.Set(*currentMarker, supporterMana/totalMana); transition != events.ThresholdLevelIncreased {
+		if _, transition := a.Events.MarkerConfirmation.Set(*currentMarker, supporterWeight/totalWeight); transition != events.ThresholdLevelIncreased {
 			break
 		}
 
