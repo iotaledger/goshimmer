@@ -120,8 +120,8 @@ func TestSupporterManager_updateBranchSupporters(t *testing.T) {
 
 	// Issue statements in different order to make sure that no information is lost when nodes apply statements in arbitrary order
 
-	message1 := newTestDataMessagePublicKey("test", keyPair.PublicKey)
-	message2 := newTestDataMessagePublicKey("test", keyPair.PublicKey)
+	message1 := newTestDataMessagePublicKey("test1", keyPair.PublicKey)
+	message2 := newTestDataMessagePublicKey("test2", keyPair.PublicKey)
 	// statement 2: "Branch 4.1.2"
 	{
 		message := message2

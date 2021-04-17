@@ -22,11 +22,15 @@ import (
 )
 
 const (
-	lowerWeightThreshold = float64(0.01)
+	lowerWeightThreshold        float64 = 0.01
+	branchConfirmationThreshold float64 = 0.49
+	markerConfirmationThreshold float64 = 0.49
 )
 
 // region ApprovalWeightManager ////////////////////////////////////////////////////////////////////////////////////////
 
+// ApprovalWeightManager is a Tangle component to keep track of relative weights of branches and markers so that
+// consensus can be based on the heaviest perception on the tangle as a data structure.
 type ApprovalWeightManager struct {
 	Events               *ApprovalWeightManagerEvents
 	tangle               *Tangle
@@ -34,6 +38,7 @@ type ApprovalWeightManager struct {
 	lastConfirmedMarkers map[markers.SequenceID]markers.Index
 }
 
+// NewApprovalWeightManager is the constructor for ApprovalWeightManager.
 func NewApprovalWeightManager(tangle *Tangle) (approvalWeightManager *ApprovalWeightManager) {
 	approvalWeightManager = &ApprovalWeightManager{
 		Events: &ApprovalWeightManagerEvents{
@@ -68,23 +73,25 @@ func NewApprovalWeightManager(tangle *Tangle) (approvalWeightManager *ApprovalWe
 		approvalWeightManager.Events.MarkerConfirmation = events.NewThresholdEvent(markerConfirmationThresholdOptions...)
 	}
 
-	return
+	return approvalWeightManager
 }
 
+// Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (a *ApprovalWeightManager) Setup() {
 	if a.tangle.WeightProvider == nil {
 		return
 	}
 
 	a.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(a.ProcessMessage))
-	a.tangle.Booker.Events.MessageBranchUpdated.Attach(events.NewClosure(a.UpdateMessageBranch))
-	a.tangle.Booker.Events.MarkerBranchUpdated.Attach(events.NewClosure(a.UpdateMarkerBranch))
+	a.tangle.Booker.Events.MessageBranchUpdated.Attach(events.NewClosure(a.updateMessageBranch))
+	a.tangle.Booker.Events.MarkerBranchUpdated.Attach(events.NewClosure(a.updateMarkerBranch))
 
 	a.supportersManager.Events.BranchSupportAdded.Attach(events.NewClosure(a.onBranchSupportAdded))
 	a.supportersManager.Events.BranchSupportRemoved.Attach(events.NewClosure(a.onBranchSupportRemoved))
 	a.supportersManager.Events.SequenceSupportUpdated.Attach(events.NewClosure(a.onSequenceSupportUpdated))
 }
 
+// Shutdown shuts down the ApprovalWeightManager and persists its state.
 func (a *ApprovalWeightManager) Shutdown() {
 	if err := a.tangle.Options.Store.Set(kvstore.Key("BranchConfirmation"), a.Events.BranchConfirmation.Bytes()); err != nil {
 		a.tangle.Events.Error.Trigger(xerrors.Errorf("failed to persists BranchConfirmation event (%v): %w", err, cerrors.ErrFatal))
@@ -96,40 +103,16 @@ func (a *ApprovalWeightManager) Shutdown() {
 	}
 }
 
-func (a *ApprovalWeightManager) UpdateMessageBranch(messageID MessageID, _, newBranchID ledgerstate.BranchID) {
-	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		a.supportersManager.propagateSupportToBranches(newBranchID, message)
-	})
-}
-
-func (a *ApprovalWeightManager) UpdateMarkerBranch(marker *markers.Marker, oldBranchID, newBranchID ledgerstate.BranchID) {
-	a.supportersManager.MigrateMarkerSupportersToNewBranch(marker, oldBranchID, newBranchID)
-
-	messageID := a.tangle.Booker.MarkersManager.MessageID(marker)
-	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		epochID := a.tangle.WeightProvider.Epoch(message.IssuingTime())
-
-		weightsOfSupporters, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantSupporters(epochID)
-		branchWeight := float64(0)
-		a.supportersManager.SupportersOfBranch(newBranchID).ForEach(func(supporter Supporter) {
-			branchWeight += weightsOfSupporters[supporter]
-		})
-
-		a.tangle.Storage.BranchWeight(newBranchID, func() *BranchWeight {
-			return NewBranchWeight(newBranchID)
-		}).Consume(func(b *BranchWeight) {
-			b.SetWeight(branchWeight / totalWeight)
-		})
-	})
-}
-
+// ProcessMessage is the main entry point for the ApprovalWeightManager. It takes the Message's issuer, adds it to the
+// supporters of the Message's ledgerstate.Branch and approved markers.Marker and eventually triggers events when
+// approval weights for branch and markers are reached.
 func (a *ApprovalWeightManager) ProcessMessage(messageID MessageID) {
 	a.supportersManager.ProcessMessage(messageID)
 
 	a.Events.MessageProcessed.Trigger(messageID)
 }
 
-// WeightOfBranch returns the weight of the given Branch that was added by Supporters of the given epoch.
+// WeightOfBranch returns the weight of the given branch that was added by its Supporters.
 func (a *ApprovalWeightManager) WeightOfBranch(branchID ledgerstate.BranchID) (weight float64) {
 	a.tangle.Storage.BranchWeight(branchID).Consume(func(branchWeight *BranchWeight) {
 		weight = branchWeight.Weight()
@@ -138,6 +121,7 @@ func (a *ApprovalWeightManager) WeightOfBranch(branchID ledgerstate.BranchID) (w
 	return
 }
 
+// WeightOfMarker returns the weight of the given marker based on the anchorTime.
 func (a *ApprovalWeightManager) WeightOfMarker(marker *markers.Marker, anchorTime time.Time) (weight float64) {
 	currentEpoch := a.tangle.WeightProvider.Epoch(anchorTime)
 
@@ -158,6 +142,33 @@ func (a *ApprovalWeightManager) WeightOfMarker(marker *markers.Marker, anchorTim
 	}
 
 	return supporterMana / totalMana
+}
+
+func (a *ApprovalWeightManager) updateMessageBranch(messageID MessageID, _, newBranchID ledgerstate.BranchID) {
+	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+		a.supportersManager.propagateSupportToBranches(newBranchID, message)
+	})
+}
+
+func (a *ApprovalWeightManager) updateMarkerBranch(marker *markers.Marker, oldBranchID, newBranchID ledgerstate.BranchID) {
+	a.supportersManager.migrateMarkerSupportersToNewBranch(marker, oldBranchID, newBranchID)
+
+	messageID := a.tangle.Booker.MarkersManager.MessageID(marker)
+	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+		epochID := a.tangle.WeightProvider.Epoch(message.IssuingTime())
+
+		weightsOfSupporters, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantSupporters(epochID)
+		branchWeight := float64(0)
+		a.supportersManager.SupportersOfBranch(newBranchID).ForEach(func(supporter Supporter) {
+			branchWeight += weightsOfSupporters[supporter]
+		})
+
+		a.tangle.Storage.BranchWeight(newBranchID, func() *BranchWeight {
+			return NewBranchWeight(newBranchID)
+		}).Consume(func(b *BranchWeight) {
+			b.SetWeight(branchWeight / totalWeight)
+		})
+	})
 }
 
 func (a *ApprovalWeightManager) onSequenceSupportUpdated(marker *markers.Marker, message *Message) {
@@ -249,6 +260,7 @@ func (a *ApprovalWeightManager) weightOfLargestConflictingBranch(branchID ledger
 
 // region ApprovalWeightManagerEvents //////////////////////////////////////////////////////////////////////////////////
 
+// ApprovalWeightManagerEvents represents events happening in the ApprovalWeightManager.
 type ApprovalWeightManagerEvents struct {
 	MessageProcessed   *events.Event
 	BranchConfirmation *events.ThresholdEvent
@@ -256,7 +268,7 @@ type ApprovalWeightManagerEvents struct {
 }
 
 var branchConfirmationThresholdOptions = []events.ThresholdEventOption{
-	events.WithThresholds(0.49),
+	events.WithThresholds(branchConfirmationThreshold),
 	events.WithCallbackTypeCaster(func(handler interface{}, identifier interface{}, newLevel int, transition events.ThresholdEventTransition) {
 		handler.(func(branchID ledgerstate.BranchID, newLevel int, transition events.ThresholdEventTransition))(identifier.(ledgerstate.BranchID), newLevel, transition)
 	}),
@@ -273,7 +285,7 @@ var branchConfirmationThresholdOptions = []events.ThresholdEventOption{
 }
 
 var markerConfirmationThresholdOptions = []events.ThresholdEventOption{
-	events.WithThresholds(0.49),
+	events.WithThresholds(markerConfirmationThreshold),
 	events.WithCallbackTypeCaster(func(handler interface{}, identifier interface{}, newLevel int, transition events.ThresholdEventTransition) {
 		handler.(func(branchID markers.Marker, newLevel int, transition events.ThresholdEventTransition))(identifier.(markers.Marker), newLevel, transition)
 	}),
@@ -293,11 +305,13 @@ var markerConfirmationThresholdOptions = []events.ThresholdEventOption{
 
 // region SupporterManager /////////////////////////////////////////////////////////////////////////////////////////////
 
+// SupporterManager is a component to keep track of supporters of branches and markers.
 type SupporterManager struct {
 	Events *SupporterManagerEvents
 	tangle *Tangle
 }
 
+// NewSupporterManager is the constructor for the SupporterManager.
 func NewSupporterManager(tangle *Tangle) (supporterManager *SupporterManager) {
 	supporterManager = &SupporterManager{
 		Events: &SupporterManagerEvents{
@@ -311,6 +325,8 @@ func NewSupporterManager(tangle *Tangle) (supporterManager *SupporterManager) {
 	return
 }
 
+// ProcessMessage is the entry point for the SupporterManager to update support of a message's issuer to the
+// corresponding branch and markers.
 func (s *SupporterManager) ProcessMessage(messageID MessageID) {
 	s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		s.updateBranchSupporters(message)
@@ -318,6 +334,7 @@ func (s *SupporterManager) ProcessMessage(messageID MessageID) {
 	})
 }
 
+// SupportersOfBranch returns the Supporters of the given ledgerstate.BranchID.
 func (s *SupporterManager) SupportersOfBranch(branchID ledgerstate.BranchID) (supporters *Supporters) {
 	if !s.tangle.Storage.BranchSupporters(branchID).Consume(func(branchSupporters *BranchSupporters) {
 		supporters = branchSupporters.Supporters()
@@ -328,6 +345,7 @@ func (s *SupporterManager) SupportersOfBranch(branchID ledgerstate.BranchID) (su
 	return
 }
 
+// SupportersOfMarker returns the Supporters of the given markers.Marker.
 func (s *SupporterManager) SupportersOfMarker(marker *markers.Marker) (supporters *Supporters) {
 	if !s.tangle.Storage.SequenceSupporters(marker.SequenceID()).Consume(func(sequenceSupporters *SequenceSupporters) {
 		supporters = sequenceSupporters.Supporters(marker.Index())
@@ -338,7 +356,7 @@ func (s *SupporterManager) SupportersOfMarker(marker *markers.Marker) (supporter
 	return
 }
 
-func (s *SupporterManager) MigrateMarkerSupportersToNewBranch(marker *markers.Marker, oldBranchID, newBranchID ledgerstate.BranchID) {
+func (s *SupporterManager) migrateMarkerSupportersToNewBranch(marker *markers.Marker, oldBranchID, newBranchID ledgerstate.BranchID) {
 	s.tangle.Storage.BranchSupporters(newBranchID, func() *BranchSupporters {
 		return NewBranchSupporters(newBranchID)
 	}).Consume(func(branchSupporters *BranchSupporters) {
@@ -375,7 +393,7 @@ func (s *SupporterManager) updateSequenceSupporters(message *Message) {
 	})
 }
 
-func (s *SupporterManager) addSupportToMarker(marker *markers.Marker, message *Message, walker *walker.Walker) {
+func (s *SupporterManager) addSupportToMarker(marker *markers.Marker, message *Message, walk *walker.Walker) {
 	// Avoid tracking support of markers in sequence 0.
 	if marker.SequenceID() == 0 {
 		return
@@ -394,7 +412,7 @@ func (s *SupporterManager) addSupportToMarker(marker *markers.Marker, message *M
 						return true
 					}
 
-					walker.Push(markers.NewMarker(sequenceID, index))
+					walk.Push(markers.NewMarker(sequenceID, index))
 
 					return true
 				})
@@ -473,7 +491,7 @@ func (s *SupporterManager) addSupportToBranch(branchID ledgerstate.BranchID, mes
 	})
 }
 
-func (s *SupporterManager) revokeSupportFromBranch(branchID ledgerstate.BranchID, message *Message, walker *walker.Walker) {
+func (s *SupporterManager) revokeSupportFromBranch(branchID ledgerstate.BranchID, message *Message, walk *walker.Walker) {
 	if _, isNewStatement := s.statementFromMessage(message, branchID); !isNewStatement {
 		return
 	}
@@ -496,7 +514,7 @@ func (s *SupporterManager) revokeSupportFromBranch(branchID ledgerstate.BranchID
 			return
 		}
 
-		walker.Push(childBranch.ChildBranchID())
+		walk.Push(childBranch.ChildBranchID())
 	})
 }
 
@@ -534,6 +552,7 @@ func (s *SupporterManager) statementFromMessage(message *Message, optionalBranch
 
 // region SupporterManagerEvents ///////////////////////////////////////////////////////////////////////////////////////
 
+// SupporterManagerEvents represents events happening in the SupporterManager.
 type SupporterManagerEvents struct {
 	BranchSupportAdded     *events.Event
 	BranchSupportRemoved   *events.Event
@@ -815,7 +834,7 @@ func StatementFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (statement *
 }
 
 // StatementFromObjectStorage restores a Statement object from the object storage.
-func StatementFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
+func StatementFromObjectStorage(key, data []byte) (result objectstorage.StorableObject, err error) {
 	if result, _, err = StatementFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
 		err = xerrors.Errorf("failed to parse Statement from bytes: %w", err)
 		return
@@ -942,14 +961,9 @@ func (c *CachedStatement) String() string {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region Epoch ////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-type Epoch = uint64
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region Supporter ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// Supporter is a type wrapper for identity.ID and defines a node that supports a branch or marker.
 type Supporter = identity.ID
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1077,7 +1091,7 @@ func BranchSupportersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (bran
 }
 
 // BranchSupportersFromObjectStorage restores a BranchSupporters object from the object storage.
-func BranchSupportersFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
+func BranchSupportersFromObjectStorage(key, data []byte) (result objectstorage.StorableObject, err error) {
 	if result, _, err = BranchSupportersFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
 		err = xerrors.Errorf("failed to parse BranchSupporters from bytes: %w", err)
 		return
@@ -1284,7 +1298,7 @@ func SequenceSupportersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (se
 }
 
 // SequenceSupportersFromObjectStorage restores a SequenceSupporters object from the object storage.
-func SequenceSupportersFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
+func SequenceSupportersFromObjectStorage(key, data []byte) (result objectstorage.StorableObject, err error) {
 	if result, _, err = SequenceSupportersFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
 		err = xerrors.Errorf("failed to parse SequenceSupporters from bytes: %w", err)
 		return

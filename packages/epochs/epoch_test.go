@@ -157,5 +157,4 @@ func TestEpochs(t *testing.T) {
 	// Retrieve active mana in epoch 7 -> oracle epoch 5
 	{
 	}
-
 }
