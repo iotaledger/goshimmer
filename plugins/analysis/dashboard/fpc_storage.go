@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"context"
+	"github.com/iotaledger/goshimmer/packages/vote"
 	"sync"
 	"time"
 
@@ -25,6 +26,8 @@ type FPCRecord struct {
 	Opinions []int32 `json:"opinions" bson:"opinions"`
 	// Outcome defines final opinion of the conflict.
 	Outcome int32 `json:"outcome" bson:"outcome"`
+	// Type defines the type of conflict - timestamp or payload.
+	Type vote.ObjectType `json:"type" bson:"type"`
 	// Time defines the time when the conflict has been finalized.
 	Time primitive.DateTime `json:"datetime" bson:"datetime"`
 }

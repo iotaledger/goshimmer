@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/hive.go/events"
 
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
@@ -55,6 +56,8 @@ type AnalysisFPCFinalizedEvent struct {
 	NodeID string
 	// Rounds defines the number of rounds performed to finalize.
 	Rounds int
+	// Type defines the type of conflict - timestamp or payload.
+	Type vote.ObjectType
 	// Opinions contains the opinion of each round.
 	Opinions []opinion.Opinion
 	// Outcome defines the outcome of the FPC voting.

@@ -100,9 +100,11 @@ func createFPCUpdate(hb *packet.FPCHeartbeat) *FPCUpdate {
 	conflicts := make(conflictSet)
 	nodeID := analysis.ShortNodeIDString(hb.OwnID)
 	for ID, context := range hb.RoundStats.ActiveVoteContexts {
+
 		newVoteContext := voteContext{
 			NodeID:   nodeID,
 			Rounds:   context.Rounds,
+			Type:     context.Type,
 			Opinions: opinion.ConvertOpinionsToInts32ForLiveFeed(context.Opinions),
 		}
 
@@ -136,6 +138,7 @@ func createFPCUpdate(hb *packet.FPCHeartbeat) *FPCUpdate {
 			NodeID:     conflictDetail.NodeID,
 			Rounds:     conflictDetail.Rounds,
 			Opinions:   conflictDetail.Opinions,
+			Type:       conflictDetail.Type,
 			Outcome:    conflictDetail.Outcome,
 			Time:       primitive.NewDateTimeFromTime(time.Now()),
 		}
@@ -145,6 +148,7 @@ func createFPCUpdate(hb *packet.FPCHeartbeat) *FPCUpdate {
 			ConflictID: ID,
 			NodeID:     conflictDetail.NodeID,
 			Rounds:     conflictDetail.Rounds,
+			Type:       conflictDetail.Type,
 			Opinions:   opinion.ConvertInts32ToOpinions(conflictDetail.Opinions),
 			Outcome:    opinion.ConvertInt32Opinion(conflictDetail.Outcome),
 		})
