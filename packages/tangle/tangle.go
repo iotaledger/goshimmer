@@ -286,12 +286,25 @@ func ApprovalWeights(weightProvider WeightProvider) Option {
 	}
 }
 
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region WeightProvider //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// WeightProvider is an interface that allows the ApprovalWeightManager to determine approval weights of Messages
+// in a flexible way, independently of a specific implementation.
 type WeightProvider interface {
+	// Epoch returns the Epoch from the given referenceTime.
 	Epoch(referenceTime time.Time) Epoch
+
+	// Weight returns the weight and total weight for the given epoch and message.
 	Weight(epoch Epoch, message *Message) (weight, totalWeight float64)
+
+	// WeightsOfRelevantSupporters returns all relevant weights for the given epoch.
 	WeightsOfRelevantSupporters(epoch Epoch) (weights map[identity.ID]float64, totalWeight float64)
 }
 
+// WeightProviderFromEpochsManager returns a WeightProvider from an epochs.Manager instance so that it can be used as a
+// WeightProvider.
 func WeightProviderFromEpochsManager(epochManager *epochs.Manager) WeightProvider {
 	return &epochsManagerWeightProvider{Manager: epochManager}
 }
@@ -315,5 +328,8 @@ func (e *epochsManagerWeightProvider) WeightsOfRelevantSupporters(epoch Epoch) (
 }
 
 var _ WeightProvider = &epochsManagerWeightProvider{}
+
+// Epoch is an alias for a uint64 that represents a universal time interval.
+type Epoch = uint64
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

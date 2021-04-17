@@ -17,7 +17,7 @@ const (
 	DefaultGenesisTime int64 = 1616144400
 
 	// defaultInterval is the default interval of epochs, i.e., their duration, and is 30 minutes (specified in seconds).
-	defaultInterval = int64(30 * 60)
+	defaultInterval int64 = 30 * 60
 
 	// defaultOracleEpochShift is the default shift of the oracle epoch. E.g., current epoch=4 -> oracle epoch=2
 	defaultOracleEpochShift = 2
@@ -124,7 +124,8 @@ func (m *Manager) Update(t time.Time, nodeID identity.ID) {
 	})
 }
 
-func (m *Manager) RelativeNodeMana(nodeID identity.ID, t time.Time) (ownWeight float64, totalWeight float64, epochID ID) {
+// RelativeNodeMana returns the active consensus mana of the nodeID that is valid for the given time t as well as the epoch ID.
+func (m *Manager) RelativeNodeMana(nodeID identity.ID, t time.Time) (ownWeight, totalWeight float64, epochID ID) {
 	epochID = m.TimeToOracleEpochID(t)
 	manaPerID, totalMana := m.ActiveMana(epochID)
 

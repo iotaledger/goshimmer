@@ -121,11 +121,11 @@ func EpochFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Epoch, 
 		return
 	}
 
-	return
+	return result, nil
 }
 
 // EpochFromObjectStorage is the factory method for Epoch stored in the ObjectStorage.
-func EpochFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
+func EpochFromObjectStorage(key, data []byte) (result objectstorage.StorableObject, err error) {
 	if result, _, err = EpochFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
 		err = xerrors.Errorf("failed to parse Epoch from bytes: %w", err)
 		return
@@ -288,7 +288,6 @@ func (c *CachedEpoch) Unwrap() *Epoch {
 	}
 
 	return typedObject
-
 }
 
 // Consume consumes the CachedEpoch.
