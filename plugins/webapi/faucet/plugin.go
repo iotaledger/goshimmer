@@ -5,11 +5,13 @@ import (
 	"net/http"
 	goSync "sync"
 
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -62,7 +64,25 @@ func requestFunds(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.FaucetResponse{Error: "Invalid address"})
 	}
 
-	faucetPayload, err := faucet.NewRequest(addr, config.Node().Int(faucet.CfgFaucetPoWDifficulty))
+	emptyID := identity.ID{}
+	accessManaPledgeID := emptyID
+	consensusManaPledgeID := emptyID
+
+	if request.AccessManaPledgeID != "" {
+		accessManaPledgeID, err = mana.IDFromStr(request.AccessManaPledgeID)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, jsonmodels.FaucetResponse{Error: "Invalid access mana node ID"})
+		}
+	}
+
+	if request.ConsensusManaPledgeID != "" {
+		consensusManaPledgeID, err = mana.IDFromStr(request.ConsensusManaPledgeID)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, jsonmodels.FaucetResponse{Error: "Invalid consensus mana node ID"})
+		}
+	}
+
+	faucetPayload, err := faucet.NewRequest(addr, config.Node().Int(faucet.CfgFaucetPoWDifficulty), accessManaPledgeID, consensusManaPledgeID)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.FaucetResponse{Error: err.Error()})
 	}
