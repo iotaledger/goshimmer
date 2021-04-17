@@ -135,6 +135,8 @@ func messageIDFromContext(c echo.Context) (messageID tangle.MessageID, err error
 	return
 }
 
+// delayFromContext determines the delay from the delay parameter in an echo.Context. It expects it to
+// be a string representing delay time in nanoseconds.
 func delayFromContext(c echo.Context) (delay time.Duration, err error) {
 	parameter := c.Param("delay")
 	if parameter == "" {
