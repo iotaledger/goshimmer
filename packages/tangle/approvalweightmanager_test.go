@@ -528,6 +528,8 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message11")), "Branch4")
 
 		testEventMock.Expect("BranchConfirmed", testFramework.BranchID("Message7"), 1, events.ThresholdLevelIncreased)
+		testEventMock.Expect("BranchConfirmed", testFramework.BranchID("Message7"), 0, events.ThresholdLevelDecreased)
+		testEventMock.Expect("BranchConfirmed", testFramework.BranchID("Message6"), 0, events.ThresholdLevelDecreased)
 
 		issueAndValidateMessageApproval(t, "Message11", testEventMock, testFramework, map[ledgerstate.BranchID]float64{
 			testFramework.BranchID("Message5"):  0.55,
