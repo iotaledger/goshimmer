@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/packages/epochs"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
@@ -40,16 +41,20 @@ func TestScenario_1(t *testing.T) {
 			ledgerstate.ColorIOTA: 3,
 		})
 
+	genesisEssence := ledgerstate.NewTransactionEssence(
+		0,
+		time.Unix(epochs.DefaultGenesisTime, 0),
+		identity.ID{},
+		identity.ID{},
+		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
+		ledgerstate.NewOutputs(ledgerstate.NewSigLockedColoredOutput(genesisBalance, wallets["GENESIS"].address)),
+	)
+
+	genesisTransaction := ledgerstate.NewTransaction(genesisEssence, ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
+
 	snapshot := &ledgerstate.Snapshot{
 		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{
-			ledgerstate.GenesisTransactionID: ledgerstate.NewTransactionEssence(
-				0,
-				time.Now(),
-				identity.ID{},
-				identity.ID{},
-				ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
-				ledgerstate.NewOutputs(ledgerstate.NewSigLockedColoredOutput(genesisBalance, wallets["GENESIS"].address)),
-			)},
+			genesisTransaction.ID(): genesisEssence},
 	}
 
 	tangle.LedgerState.LoadSnapshot(snapshot)
@@ -66,7 +71,7 @@ func TestScenario_1(t *testing.T) {
 	branches["grey"] = ledgerstate.InvalidBranchID
 
 	// Message 1
-	inputs["GENESIS"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))
+	inputs["GENESIS"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(genesisTransaction.ID(), 0))
 	outputs["A"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["A"].address)
 	outputs["B"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["B"].address)
 
@@ -273,16 +278,20 @@ func TestScenario_2(t *testing.T) {
 		map[ledgerstate.Color]uint64{
 			ledgerstate.ColorIOTA: 3,
 		})
+	genesisEssence := ledgerstate.NewTransactionEssence(
+		0,
+		time.Unix(epochs.DefaultGenesisTime, 0),
+		identity.ID{},
+		identity.ID{},
+		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
+		ledgerstate.NewOutputs(ledgerstate.NewSigLockedColoredOutput(genesisBalance, wallets["GENESIS"].address)),
+	)
+
+	genesisTransaction := ledgerstate.NewTransaction(genesisEssence, ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
+
 	snapshot := &ledgerstate.Snapshot{
 		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{
-			ledgerstate.GenesisTransactionID: ledgerstate.NewTransactionEssence(
-				0,
-				time.Now(),
-				identity.ID{},
-				identity.ID{},
-				ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
-				ledgerstate.NewOutputs(ledgerstate.NewSigLockedColoredOutput(genesisBalance, wallets["GENESIS"].address)),
-			)},
+			genesisTransaction.ID(): genesisEssence},
 	}
 
 	tangle.LedgerState.LoadSnapshot(snapshot)
@@ -299,7 +308,7 @@ func TestScenario_2(t *testing.T) {
 	branches["grey"] = ledgerstate.InvalidBranchID
 
 	// Message 1
-	inputs["GENESIS"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))
+	inputs["GENESIS"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(genesisTransaction.ID(), 0))
 	outputs["A"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["A"].address)
 	outputs["B"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["B"].address)
 
@@ -618,16 +627,20 @@ func TestScenario_3(t *testing.T) {
 		map[ledgerstate.Color]uint64{
 			ledgerstate.ColorIOTA: 3,
 		})
+	genesisEssence := ledgerstate.NewTransactionEssence(
+		0,
+		time.Unix(epochs.DefaultGenesisTime, 0),
+		identity.ID{},
+		identity.ID{},
+		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
+		ledgerstate.NewOutputs(ledgerstate.NewSigLockedColoredOutput(genesisBalance, wallets["GENESIS"].address)),
+	)
+
+	genesisTransaction := ledgerstate.NewTransaction(genesisEssence, ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
+
 	snapshot := &ledgerstate.Snapshot{
 		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{
-			ledgerstate.GenesisTransactionID: ledgerstate.NewTransactionEssence(
-				0,
-				time.Now(),
-				identity.ID{},
-				identity.ID{},
-				ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
-				ledgerstate.NewOutputs(ledgerstate.NewSigLockedColoredOutput(genesisBalance, wallets["GENESIS"].address)),
-			)},
+			genesisTransaction.ID(): genesisEssence},
 	}
 
 	tangle.LedgerState.LoadSnapshot(snapshot)
@@ -644,7 +657,7 @@ func TestScenario_3(t *testing.T) {
 	branches["grey"] = ledgerstate.InvalidBranchID
 
 	// Message 1
-	inputs["GENESIS"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))
+	inputs["GENESIS"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(genesisTransaction.ID(), 0))
 	outputs["A"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["A"].address)
 	outputs["B"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["B"].address)
 

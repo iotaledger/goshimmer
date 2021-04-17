@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/packages/epochs"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
@@ -52,16 +53,20 @@ func TestOpinionFormer_Scenario2(t *testing.T) {
 			ledgerstate.ColorIOTA: 3,
 		})
 
+	genesisEssence := ledgerstate.NewTransactionEssence(
+		0,
+		time.Unix(epochs.DefaultGenesisTime, 0),
+		identity.ID{},
+		identity.ID{},
+		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
+		ledgerstate.NewOutputs(ledgerstate.NewSigLockedColoredOutput(genesisBalance, wallets["GENESIS"].address)),
+	)
+
+	genesisTransaction := ledgerstate.NewTransaction(genesisEssence, ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
+
 	snapshot := &ledgerstate.Snapshot{
 		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{
-			ledgerstate.GenesisTransactionID: ledgerstate.NewTransactionEssence(
-				0,
-				time.Now(),
-				identity.ID{},
-				identity.ID{},
-				ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
-				ledgerstate.NewOutputs(ledgerstate.NewSigLockedColoredOutput(genesisBalance, wallets["GENESIS"].address)),
-			)},
+			genesisTransaction.ID(): genesisEssence},
 	}
 
 	testTangle.LedgerState.LoadSnapshot(snapshot)
@@ -73,7 +78,7 @@ func TestOpinionFormer_Scenario2(t *testing.T) {
 	outputsByID := make(map[ledgerstate.OutputID]ledgerstate.Output)
 
 	// Message 1
-	inputs["GENESIS"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))
+	inputs["GENESIS"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(genesisTransaction.ID(), 0))
 	outputs["A"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["A"].address)
 	outputs["B"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["B"].address)
 	outputs["C"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["C"].address)
@@ -173,15 +178,19 @@ func TestOpinionFormer_Scenario2(t *testing.T) {
 	payloadLiked[messages["9"].ID()] = false
 
 	testTangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		t.Log("Message solid:", messageID)
+		t.Log("Message solid: ", messageID)
 	}))
 
 	testTangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		t.Log("Message scheduled:", messageID)
+		t.Log("Message scheduled: ", messageID)
 	}))
 
 	testTangle.Booker.Events.MessageBooked.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		t.Log("Message Booked:", messageID)
+		t.Log("Message Booked: ", messageID)
+	}))
+
+	testTangle.Events.Error.Attach(events.NewClosure(func(err error) {
+		t.Log("Tangle Error: ", err)
 	}))
 
 	var wg sync.WaitGroup
@@ -227,21 +236,25 @@ func TestOpinionFormer(t *testing.T) {
 			ledgerstate.ColorIOTA: 10000,
 		})
 
+	genesisEssence := ledgerstate.NewTransactionEssence(
+		0,
+		time.Unix(epochs.DefaultGenesisTime, 0),
+		identity.ID{},
+		identity.ID{},
+		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
+		ledgerstate.NewOutputs(ledgerstate.NewSigLockedColoredOutput(genesisBalance, wallets[0].address)),
+	)
+
+	genesisTransaction := ledgerstate.NewTransaction(genesisEssence, ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
+
 	snapshot := &ledgerstate.Snapshot{
 		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{
-			ledgerstate.GenesisTransactionID: ledgerstate.NewTransactionEssence(
-				0,
-				time.Now(),
-				identity.ID{},
-				identity.ID{},
-				ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
-				ledgerstate.NewOutputs(ledgerstate.NewSigLockedColoredOutput(genesisBalance, wallets[0].address)),
-			)},
+			genesisTransaction.ID(): genesisEssence},
 	}
 
 	testTangle.LedgerState.LoadSnapshot(snapshot)
 
-	input := ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))
+	input := ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(genesisTransaction.ID(), 0))
 	output := ledgerstate.NewSigLockedSingleOutput(10000, wallets[0].address)
 	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, ledgerstate.NewInputs(input), ledgerstate.NewOutputs(output))
 	tx1 := ledgerstate.NewTransaction(txEssence, wallets[0].unlockBlocks(txEssence))

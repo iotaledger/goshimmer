@@ -181,16 +181,20 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 		outputs = append(outputs, ledgerstate.NewSigLockedColoredOutput(balance, address))
 	}
 
+	genesisEssence := ledgerstate.NewTransactionEssence(
+		0,
+		time.Now(),
+		identity.ID{},
+		identity.ID{},
+		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
+		ledgerstate.NewOutputs(outputs...),
+	)
+
+	genesisTransaction := ledgerstate.NewTransaction(genesisEssence, ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
+
 	snapshot := &ledgerstate.Snapshot{
 		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{
-			ledgerstate.GenesisTransactionID: ledgerstate.NewTransactionEssence(
-				0,
-				time.Now(),
-				identity.ID{},
-				identity.ID{},
-				ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
-				ledgerstate.NewOutputs(outputs...),
-			)},
+			genesisTransaction.ID(): genesisEssence},
 	}
 
 	m.tangle.LedgerState.LoadSnapshot(snapshot)
