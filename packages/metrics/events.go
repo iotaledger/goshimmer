@@ -1,9 +1,9 @@
 package metrics
 
 import (
-	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/hive.go/events"
 
+	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 )
 

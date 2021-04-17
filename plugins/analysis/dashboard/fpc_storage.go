@@ -2,7 +2,6 @@ package dashboard
 
 import (
 	"context"
-	"github.com/iotaledger/goshimmer/packages/vote"
 	"sync"
 	"time"
 
@@ -12,6 +11,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 
 	"github.com/iotaledger/goshimmer/plugins/config"
+
+	"github.com/iotaledger/goshimmer/packages/vote"
 )
 
 // FPCRecord defines the FPC record to be stored into a mongoDB.

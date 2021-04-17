@@ -1,8 +1,9 @@
 package dashboard
 
 import (
-	"github.com/iotaledger/goshimmer/packages/vote"
 	"time"
+
+	"github.com/iotaledger/goshimmer/packages/vote"
 )
 
 // conflictSet is defined as a a map of conflict IDs and their conflict.
