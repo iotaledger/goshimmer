@@ -12,6 +12,8 @@ enum QueryError {
 export class FaucetStore {
     // send request to faucet
     @observable send_addr: string = "";
+    @observable send_access_mana_node_id: string = "";
+    @observable send_consensus_mana_node_id: string = "";
     @observable sending: boolean = false;
     @observable sendResult: SendResult = null;
     @observable query_error: string = "";
@@ -26,7 +28,7 @@ export class FaucetStore {
         this.updateSending(true);
         try {
             // send request
-            let res = await fetch(`/api/faucet/${this.send_addr}`);
+            let res = await fetch(`/api/faucet/${this.send_addr}?accessMana=${this.send_access_mana_node_id}&consensusMana=${this.send_consensus_mana_node_id}`);
             if (res.status !== 200) {
                 this.updateQueryError(QueryError.NotFound);
                 return;
@@ -53,6 +55,16 @@ export class FaucetStore {
     };
 
     @action
+    updateSendAccessManaNodeID = (access_mana: string) => {
+        this.send_access_mana_node_id = access_mana;
+    }
+
+    @action
+    updateSendConsensusManaNodeID = (consensus_mana: string) => {
+        this.send_consensus_mana_node_id = consensus_mana;
+    }
+
+    @action
     updateSending = (sending: boolean) => {
         this.sending = sending;
         this.query_error = "";
@@ -61,6 +73,8 @@ export class FaucetStore {
     @action
     reset = () => {
         this.send_addr = null;
+        this.send_access_mana_node_id = "";
+        this.send_consensus_mana_node_id = "";
         this.sending = false;
         this.query_error = "";
     };
