@@ -19,13 +19,10 @@ var (
 	selfNode            = identity.New(selfLocalIdentity.PublicKey())
 	peerNode            = identity.GenerateIdentity()
 	otherNode           = identity.GenerateIdentity()
-	rateSetterInitial   = MaxMessageSize * 200.0
-	rateSetterBeta      = 1.0
 	testSchedulerParams = SchedulerParams{
-		RateSetterInitial:           &rateSetterInitial,
-		RateSetterBeta:              &rateSetterBeta,
 		AccessManaRetrieveFunc:      getAccessMana,
-		TotalAccessManaRetrieveFunc: getTotalAccessMana}
+		TotalAccessManaRetrieveFunc: getTotalAccessMana,
+	}
 )
 
 func TestScheduler_StartStop(t *testing.T) {
@@ -222,11 +219,11 @@ func getAccessMana(nodeID identity.ID) float64 {
 	if nodeID == otherNode.ID() {
 		return 0
 	}
-	return 8
+	return 1000
 }
 
 func getTotalAccessMana() float64 {
-	return 16
+	return 10000
 }
 
 func newMessage(issuerPublicKey ed25519.PublicKey) *Message {

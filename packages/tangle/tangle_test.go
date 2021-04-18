@@ -29,14 +29,18 @@ import (
 )
 
 var (
-	rateSetterEnabled = false
-	maxQueueWeight    = 1024.0 * 1024.0
-	schedulerParams   = SchedulerParams{
-		RateSetterEnabled:           &rateSetterEnabled,
+	maxQueueWeight  = 1024.0 * 1024.0
+	rate            = time.Second / 5000
+	beta            = 1.0
+	schedulerParams = SchedulerParams{
+		Rate:                        rate,
 		MaxQueueWeight:              &maxQueueWeight,
-		Rate:                        time.Second / 50000,
 		AccessManaRetrieveFunc:      getAccessMana,
-		TotalAccessManaRetrieveFunc: getTotalAccessMana}
+		TotalAccessManaRetrieveFunc: getTotalAccessMana,
+	}
+	rateSetterParams = RateSetterParams{
+		Beta: &beta,
+	}
 )
 
 func BenchmarkVerifyDataMessages(b *testing.B) {
@@ -388,7 +392,7 @@ func TestTangle_Flow(t *testing.T) {
 	tips.Set(EmptyMessageID, EmptyMessageID)
 
 	// create the tangle
-	tangle := New(Store(badger), SchedulerConfig(schedulerParams))
+	tangle := New(Store(badger), SchedulerConfig(schedulerParams), RateSetterConfig(rateSetterParams))
 	defer tangle.Shutdown()
 
 	// create local peer

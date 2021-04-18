@@ -20,11 +20,10 @@ import (
 )
 
 var (
-	rateSetterEnabled = true
-	schedulerParams   = tangle.SchedulerParams{
-		RateSetterEnabled:           &rateSetterEnabled,
+	schedulerParams = tangle.SchedulerParams{
 		AccessManaRetrieveFunc:      getAccessMana,
-		TotalAccessManaRetrieveFunc: getTotalAccessMana}
+		TotalAccessManaRetrieveFunc: getTotalAccessMana,
+	}
 )
 
 func getAccessMana(nodeID identity.ID) float64 {

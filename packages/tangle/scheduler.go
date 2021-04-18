@@ -9,46 +9,22 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
-	"go.uber.org/atomic"
 )
 
 const (
-	// buffer management
-
 	// MaxBufferSize is the maximum total (of all nodes) buffer size in bytes
 	MaxBufferSize = 10 * 1024 * 1024
-	// MaxLocalQueueSize is the maximum local (containing the message to be issued) queue size in bytes
-	MaxLocalQueueSize = 20 * MaxMessageSize
-
-	// scheduler
-
 	// MaxDeficit is the maximum deficit, i.e. max bytes that can be scheduled without waiting; >= maxMessageSize
 	MaxDeficit = MaxMessageSize
-
-	// rate setter
-
-	// Backoff is the local threshold for rate setting; < MaxQueueWeight
-	Backoff = 25.0
-	// A is the additive increase
-	A = 1.0
-	// Tau is the time to wait before next rate's update after a backoff
-	Tau = 2
 )
 
 var (
-	// Beta is the multiplicative decrease
-	Beta = 0.7
-	// 	RateSetterEnabled defines if the rater setter is enabled or not.
-	RateSetterEnabled = true
-	// Rate is the minimum time interval between two scheduled messages, i.e. 1s / MPS
-	Rate = time.Second / 200
-	// Initial is the rate in bytes per second
-	Initial = 20000.0
 	// MaxQueueWeight is the maximum mana-scaled inbox size; >= minMessageSize / minAccessMana
 	MaxQueueWeight = 1024.0
+	// Rate is the minimum time interval between two scheduled messages, i.e. 1s / MPS
+	Rate = time.Second / 200
 )
 
 var (
@@ -68,13 +44,10 @@ type TotalAccessManaRetrieveFunc func() float64
 
 // SchedulerParams defines the scheduler config parameters.
 type SchedulerParams struct {
+	Rate                        time.Duration
 	MaxQueueWeight              *float64
-	RateSetterInitial           *float64
-	RateSetterBeta              *float64
 	AccessManaRetrieveFunc      func(identity.ID) float64
 	TotalAccessManaRetrieveFunc func() float64
-	RateSetterEnabled           *bool
-	Rate                        time.Duration
 }
 
 // Scheduler is a Tangle component that takes care of scheduling the messages that shall be booked.
@@ -92,25 +65,12 @@ type Scheduler struct {
 	buffer   *BufferQueue
 	deficits map[identity.ID]float64
 
-	// rate setter and issuer
-	issuingQueue *NodeQueue
-	issue        chan *Message
-	lambda       *atomic.Float64
-	haltUpdate   uint
-
 	shutdownSignal chan struct{}
 	shutdownOnce   sync.Once
-
-	waitingToBeBooked   map[MessageID]set.Set
-	waitingToBeBookedMu sync.Mutex
 }
 
 // NewScheduler returns a new Scheduler.
 func NewScheduler(tangle *Tangle) *Scheduler {
-	if tangle.Options.SchedulerParams.RateSetterInitial != nil {
-		Initial = *tangle.Options.SchedulerParams.RateSetterInitial
-	}
-
 	// TODO: panic?
 	//panic("the option AccessManaRetriever and TotalAccessManaRetriever must be defined so that AccessMana can be determined in scheduler")
 	if tangle.Options.SchedulerParams.AccessManaRetrieveFunc == nil || tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc == nil {
@@ -121,18 +81,11 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 			return 0
 		}
 	}
-
-	if tangle.Options.SchedulerParams.RateSetterBeta != nil {
-		Beta = *tangle.Options.SchedulerParams.RateSetterBeta
-	}
-	if tangle.Options.SchedulerParams.RateSetterEnabled != nil {
-		RateSetterEnabled = *tangle.Options.SchedulerParams.RateSetterEnabled
-	}
-	if tangle.Options.SchedulerParams.Rate > time.Duration(0) {
-		Rate = tangle.Options.SchedulerParams.Rate
-	}
 	if tangle.Options.SchedulerParams.MaxQueueWeight != nil {
 		MaxQueueWeight = *tangle.Options.SchedulerParams.MaxQueueWeight
+	}
+	if tangle.Options.SchedulerParams.Rate > 0 {
+		Rate = tangle.Options.SchedulerParams.Rate
 	}
 
 	scheduler := &Scheduler{
@@ -141,19 +94,13 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 			MessageDiscarded: events.NewEvent(MessageIDCaller),
 			NodeBlacklisted:  events.NewEvent(NodeIDCaller),
 		},
-		self:              tangle.Options.Identity.ID(),
-		tangle:            tangle,
-		buffer:            NewBufferQueue(),
-		deficits:          make(map[identity.ID]float64),
-		issuingQueue:      NewNodeQueue(tangle.Options.Identity.ID()),
-		issue:             make(chan *Message, 1),
-		lambda:            atomic.NewFloat64(Initial),
-		haltUpdate:        0,
-		shutdownSignal:    make(chan struct{}),
-		waitingToBeBooked: make(map[MessageID]set.Set),
+		self:           tangle.Options.Identity.ID(),
+		tangle:         tangle,
+		buffer:         NewBufferQueue(),
+		deficits:       make(map[identity.ID]float64),
+		shutdownSignal: make(chan struct{}),
 	}
 
-	go scheduler.issuerLoop()
 	go scheduler.mainLoop()
 
 	return scheduler
@@ -197,16 +144,6 @@ func (s *Scheduler) Submit(messageID MessageID) {
 		defer s.mu.Unlock()
 
 		nodeID := identity.NewID(message.IssuerPublicKey())
-		if nodeID == s.self && RateSetterEnabled {
-			if s.issuingQueue.Size()+uint(len(message.Bytes())) > MaxLocalQueueSize {
-				s.Events.MessageDiscarded.Trigger(messageID)
-				return
-			}
-
-			s.issuingQueue.Submit(message)
-			return
-		}
-
 		// get the current access mana inside the lock
 		mana := s.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(nodeID)
 
@@ -228,12 +165,6 @@ func (s *Scheduler) Unsubmit(messageID MessageID) {
 	if !s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
-
-		nodeID := identity.NewID(message.IssuerPublicKey())
-		if nodeID == s.self && RateSetterEnabled {
-			s.issuingQueue.Unsubmit(message)
-			return
-		}
 		s.buffer.Unsubmit(message)
 	}) {
 		panic(fmt.Sprintf("failed to get message '%x' from storage", messageID))
@@ -244,16 +175,8 @@ func (s *Scheduler) Unsubmit(messageID MessageID) {
 // If Ready is called without a previous Submit, it has no effect.
 func (s *Scheduler) Ready(messageID MessageID) {
 	if !s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		// if the current node issued the message, the issuing must go through the rate setting
-		nodeID := identity.NewID(message.IssuerPublicKey())
-		if nodeID == s.self && RateSetterEnabled {
-			s.issue <- message
-			return
-		}
-
 		s.mu.Lock()
 		defer s.mu.Unlock()
-
 		s.buffer.Ready(message)
 	}) {
 		panic(fmt.Sprintf("failed to get message '%x' from storage", messageID))
@@ -271,32 +194,6 @@ func (s *Scheduler) RemoveNode(nodeID identity.ID) {
 
 	// TODO: is it necessary to trigger MessageDiscarded for all the removed messages.
 	s.buffer.RemoveNode(nodeID)
-}
-
-func (s *Scheduler) booked(parentID MessageID) {
-	s.waitingToBeBookedMu.Lock()
-	defer s.waitingToBeBookedMu.Unlock()
-	dependents, ok := s.waitingToBeBooked[parentID]
-	if !ok {
-		return
-	}
-	delete(s.waitingToBeBooked, parentID)
-	dependents.ForEach(func(element interface{}) {
-		// if its not waiting for any of its parents to be booked
-		isReady := true
-		messageID := element.(MessageID)
-		s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-			for _, parentID := range message.Parents() {
-				if _, ok := s.waitingToBeBooked[parentID]; ok {
-					isReady = false
-					return
-				}
-			}
-		})
-		if isReady {
-			s.Ready(messageID)
-		}
-	})
 }
 
 func (s *Scheduler) parentsBooked(messageID MessageID) (parentsBooked bool) {
@@ -351,33 +248,7 @@ func (s *Scheduler) schedule() *Message {
 	msg := s.buffer.PopFront()
 	nodeID := identity.NewID(msg.IssuerPublicKey())
 	s.setDeficit(nodeID, s.getDeficit(nodeID)-float64(len(msg.Bytes())))
-
-	if nodeID == s.self && RateSetterEnabled {
-		s.rateSetting()
-	}
 	return msg
-}
-
-func (s *Scheduler) rateSetting() {
-	if s.haltUpdate > 0 {
-		s.haltUpdate--
-		return
-	}
-
-	mana := s.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(s.self)
-	totalMana := s.tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc()
-	if mana <= 0 {
-		panic(fmt.Sprintf("invalid mana: %f", mana))
-	}
-
-	lambda := s.lambda.Load()
-	if float64(s.buffer.NodeQueue(s.self).Size())/mana > Backoff {
-		lambda *= Beta
-		s.haltUpdate = Tau
-	} else {
-		lambda += A * mana / totalMana
-	}
-	s.lambda.Store(lambda)
 }
 
 // mainLoop periodically triggers the scheduling of ready messages.
@@ -402,82 +273,6 @@ func (s *Scheduler) mainLoop() {
 	}
 }
 
-func (s *Scheduler) issuerLoop() {
-	var (
-		issue         = time.NewTimer(0) // setting this to 0 will cause a trigger right away
-		timerStopped  = false
-		lastIssueTime = time.Now()
-	)
-	defer issue.Stop()
-
-	for {
-		select {
-		// a new message can be scheduled
-		case <-issue.C:
-			timerStopped = true
-			if !s.issueNext() {
-				continue
-			}
-			lastIssueTime = time.Now()
-
-			if next := s.issuingQueue.Front(); next != nil {
-				issue.Reset(time.Until(lastIssueTime.Add(s.issueInterval(next))))
-				timerStopped = false
-			}
-
-		// add a new message to the local issuer queue
-		case msg := <-s.issue:
-			nodeID := identity.NewID(msg.IssuerPublicKey())
-			if nodeID != s.self {
-				panic("invalid message")
-			}
-			// mark the message as ready so that it will be picked up at the next tick
-			func() {
-				s.mu.Lock()
-				defer s.mu.Unlock()
-				s.issuingQueue.Ready(msg)
-			}()
-
-			// set a new timer if needed
-			// if a timer is already running it is not updated, even if the lambda has changed
-			if !timerStopped {
-				break
-			}
-			if next := s.issuingQueue.Front(); next != nil {
-				issue.Reset(time.Until(lastIssueTime.Add(s.issueInterval(next))))
-			}
-
-		// on close, exit the loop
-		case <-s.shutdownSignal:
-			return
-		}
-	}
-}
-
-func (s *Scheduler) issueNext() bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	msg := s.issuingQueue.Front()
-	if msg == nil {
-		return false
-	}
-
-	mana := s.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(s.self)
-	if err := s.buffer.Submit(msg, mana); err != nil {
-		return false
-	}
-	s.issuingQueue.PopFront()
-	s.buffer.Ready(msg)
-	return true
-}
-
-func (s *Scheduler) issueInterval(msg *Message) time.Duration {
-	wait := time.Duration(math.Ceil(float64(len(msg.Bytes())) / s.lambda.Load() * float64(time.Second)))
-	fmt.Println("wait: ", wait)
-	return wait
-}
-
 func (s *Scheduler) getDeficit(nodeID identity.ID) float64 {
 	return s.deficits[nodeID]
 }
@@ -487,6 +282,11 @@ func (s *Scheduler) setDeficit(nodeID identity.ID, deficit float64) {
 		panic("invalid deficit")
 	}
 	s.deficits[nodeID] = math.Min(deficit, MaxDeficit)
+}
+
+// NodeQueueSize returns the size of the nodeIDs queue.
+func (s *Scheduler) NodeQueueSize(nodeID identity.ID) uint {
+	return s.buffer.NodeQueue(nodeID).Size()
 }
 
 // region NodeQueue /////////////////////////////////////////////////////////////////////////////////////////////

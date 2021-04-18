@@ -32,6 +32,7 @@ type Tangle struct {
 	TipManager       *TipManager
 	Requester        *Requester
 	MessageFactory   *MessageFactory
+	RateSetter       *RateSetter
 	LedgerState      *LedgerState
 	Utils            *Utils
 	Events           *Events
@@ -64,6 +65,7 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.TipManager = NewTipManager(tangle)
 	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager)
 	tangle.Utils = NewUtils(tangle)
+	tangle.RateSetter = NewRateSetter(tangle)
 
 	return
 }
@@ -96,6 +98,7 @@ func (t *Tangle) Setup() {
 	t.Booker.Setup()
 	t.ConsensusManager.Setup()
 	t.TipManager.Setup()
+	t.RateSetter.Setup()
 
 	t.MessageFactory.Events.Error.Attach(events.NewClosure(func(err error) {
 		t.Events.Error.Trigger(xerrors.Errorf("error in MessageFactory: %w", err))
@@ -170,6 +173,7 @@ func (t *Tangle) Prune() (err error) {
 // Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
 func (t *Tangle) Shutdown() {
 	t.MessageFactory.Shutdown()
+	t.RateSetter.Shutdown()
 	t.Scheduler.Shutdown()
 	t.Booker.Shutdown()
 	t.LedgerState.Shutdown()
@@ -217,6 +221,7 @@ type Options struct {
 	ConsensusMechanism           ConsensusMechanism
 	GenesisNode                  *ed25519.PublicKey
 	SchedulerParams              SchedulerParams
+	RateSetterParams             RateSetterParams
 }
 
 // Store is an Option for the Tangle that allows to specify which storage layer is supposed to be used to persist data.
@@ -273,6 +278,12 @@ func GenesisNode(genesisNodeBase58 string) Option {
 func SchedulerConfig(config SchedulerParams) Option {
 	return func(options *Options) {
 		options.SchedulerParams = config
+	}
+}
+
+func RateSetterConfig(params RateSetterParams) Option {
+	return func(options *Options) {
+		options.RateSetterParams = params
 	}
 }
 

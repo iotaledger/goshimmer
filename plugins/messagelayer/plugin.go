@@ -38,7 +38,6 @@ var (
 	pluginOnce        sync.Once
 	rateSetterInitial float64
 	rateSetterBeta    float64
-	rateSetterEnabled bool
 	schedulerRate     time.Duration
 )
 
@@ -53,7 +52,6 @@ func Plugin() *node.Plugin {
 
 func configure(plugin *node.Plugin) {
 	// TODO: get from params
-	rateSetterEnabled = true
 	rateSetterBeta = 0.7
 	rateSetterInitial = 20000
 	schedulerRate = time.Second / 200
@@ -68,8 +66,12 @@ func configure(plugin *node.Plugin) {
 	}))
 
 	// Messages created by the node need to pass through the normal flow.
-	Tangle().MessageFactory.Events.MessageConstructed.Attach(events.NewClosure(func(message *tangle.Message) {
+	Tangle().RateSetter.Events.MessageIssued.Attach(events.NewClosure(func(message *tangle.Message) {
 		Tangle().ProcessGossipMessage(message.Bytes(), local.GetInstance().Peer)
+	}))
+
+	Tangle().RateSetter.Events.MessageDiscarded.Attach(events.NewClosure(func(messageID *tangle.MessageID) {
+		plugin.LogInfof("issuing queue is full. Message discarded. %s", messageID)
 	}))
 
 	Tangle().Scheduler.Events.NodeBlacklisted.Attach(events.NewClosure(func(nodeID identity.ID) {
@@ -123,12 +125,13 @@ func Tangle() *tangle.Tangle {
 			tangle.GenesisNode(Parameters.Snapshot.GenesisNode),
 			// TODO: get values from external config.
 			tangle.SchedulerConfig(tangle.SchedulerParams{
-				RateSetterInitial:           &rateSetterInitial,
-				RateSetterBeta:              &rateSetterBeta,
-				RateSetterEnabled:           &rateSetterEnabled,
 				Rate:                        schedulerRate,
 				AccessManaRetrieveFunc:      accessManaRetriever,
 				TotalAccessManaRetrieveFunc: totalAccessManaRetriever,
+			}),
+			tangle.RateSetterConfig(tangle.RateSetterParams{
+				Beta:    &rateSetterBeta,
+				Initial: &rateSetterInitial,
 			}),
 		)
 
