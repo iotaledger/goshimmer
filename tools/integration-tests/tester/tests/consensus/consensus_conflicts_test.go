@@ -61,10 +61,17 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	genesisSeedBytes, err := base58.Decode("7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih")
 	require.NoError(t, err, "couldn't decode genesis seed from base58 seed")
 
+	snapshot := tests.GetSnapshot()
+
+	genesisTransactionID := ledgerstate.GenesisTransactionID
+	for ID := range snapshot.Transactions {
+		genesisTransactionID = ID
+	}
+
 	// make genesis fund easily divisible for further splitting of the funds
 	const genesisBalance = 1000000000000000
 	genesisSeed := seed.NewSeed(genesisSeedBytes)
-	genesisOutputID := ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0)
+	genesisOutputID := ledgerstate.NewOutputID(genesisTransactionID, 0)
 	input := ledgerstate.NewUTXOInput(genesisOutputID)
 	// splitting genesis funds to one address per peer plus one additional that will be used for the conflict
 	spendingGenTx, destGenSeed := CreateOutputs(input, genesisBalance, genesisSeed.KeyPair(0), numberOfPeers+1, identity.ID{}, "skewed")

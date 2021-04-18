@@ -32,10 +32,17 @@ func TestConsensusNoConflicts(t *testing.T) {
 	genesisSeedBytes, err := base58.Decode("7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih")
 	require.NoError(t, err, "couldn't decode genesis seed from base58 seed")
 
+	snapshot := tests.GetSnapshot()
+
+	genesisTransactionID := ledgerstate.GenesisTransactionID
+	for ID := range snapshot.Transactions {
+		genesisTransactionID = ID
+	}
+
 	const genesisBalance = 1000000000000000
 	genesisSeed := seed.NewSeed(genesisSeedBytes)
 	genesisAddr := genesisSeed.Address(0).Address()
-	genesisOutputID := ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0)
+	genesisOutputID := ledgerstate.NewOutputID(genesisTransactionID, 0)
 	input := ledgerstate.NewUTXOInput(genesisOutputID)
 
 	firstReceiver := seed.NewSeed()

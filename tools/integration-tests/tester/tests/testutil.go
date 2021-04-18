@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"os"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -634,4 +635,16 @@ func SelectIndex(transaction *ledgerstate.Transaction, address ledgerstate.Addre
 		}
 	}
 	return
+}
+
+func GetSnapshot() *ledgerstate.Snapshot {
+	snapshot := &ledgerstate.Snapshot{}
+	f, err := os.Open("/tmp/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin")
+	if err != nil {
+		panic(fmt.Sprintln("can not open snapshot file: ", err))
+	}
+	if _, err := snapshot.ReadFrom(f); err != nil {
+		panic(fmt.Sprintln("could not read snapshot file: ", err))
+	}
+	return snapshot
 }
