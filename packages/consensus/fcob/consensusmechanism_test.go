@@ -66,7 +66,8 @@ func TestOpinionFormer_Scenario2(t *testing.T) {
 
 	snapshot := &ledgerstate.Snapshot{
 		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{
-			genesisTransaction.ID(): genesisEssence},
+			genesisTransaction.ID(): genesisEssence,
+		},
 	}
 
 	testTangle.LedgerState.LoadSnapshot(snapshot)
@@ -249,7 +250,8 @@ func TestOpinionFormer(t *testing.T) {
 
 	snapshot := &ledgerstate.Snapshot{
 		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{
-			genesisTransaction.ID(): genesisEssence},
+			genesisTransaction.ID(): genesisEssence,
+		},
 	}
 
 	testTangle.LedgerState.LoadSnapshot(snapshot)

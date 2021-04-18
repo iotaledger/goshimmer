@@ -89,7 +89,8 @@ func main() {
 	), ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
 	newSnapshot := &ledgerstate.Snapshot{
 		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{
-			tx.ID(): tx.Essence()},
+			tx.ID(): tx.Essence(),
+		},
 	}
 
 	genesisWallet := wallet.New(wallet.Import(genesisSeed, 1, []bitmask.BitMask{}, wallet.NewAssetRegistry()), wallet.GenericConnector(mockedConnector))
@@ -129,7 +130,6 @@ func main() {
 	f.Close()
 
 	fmt.Println(readSnapshot)
-
 }
 
 type mockConnector struct {

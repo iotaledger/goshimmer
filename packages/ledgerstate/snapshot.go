@@ -77,10 +77,11 @@ func (s *Snapshot) ReadFrom(reader io.Reader) (int64, error) {
 		}
 		bytesRead += TransactionIDLength
 
-		txID, n, err := TransactionIDFromBytes(transactionIDBytes)
-		if err != nil {
-			return 0, fmt.Errorf("unable to parse transactionID at index %d: %w", i, err)
+		txID, n, e := TransactionIDFromBytes(transactionIDBytes)
+		if e != nil {
+			return 0, fmt.Errorf("unable to parse transactionID at index %d: %w", i, e)
 		}
+		bytesRead += int64(n)
 
 		transactionBytes := make([]byte, transactionLength)
 		if err := binary.Read(reader, binary.LittleEndian, &transactionBytes); err != nil {

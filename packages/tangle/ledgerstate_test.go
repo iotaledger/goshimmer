@@ -4,12 +4,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/magiconair/properties/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/epochs"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/hive.go/identity"
 )
 
 func TestLoadSnapshot(t *testing.T) {
@@ -40,7 +40,8 @@ func TestLoadSnapshot(t *testing.T) {
 
 	snapshot := &ledgerstate.Snapshot{
 		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{
-			genesisTransaction.ID(): genesisEssence},
+			genesisTransaction.ID(): genesisEssence,
+		},
 	}
 
 	ledgerState.LoadSnapshot(snapshot)

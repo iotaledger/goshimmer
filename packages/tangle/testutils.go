@@ -194,7 +194,8 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 
 	snapshot := &ledgerstate.Snapshot{
 		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{
-			genesisTransaction.ID(): genesisEssence},
+			genesisTransaction.ID(): genesisEssence,
+		},
 	}
 
 	m.tangle.LedgerState.LoadSnapshot(snapshot)

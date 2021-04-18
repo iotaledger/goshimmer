@@ -43,7 +43,8 @@ func TestTipManager_AddTip(t *testing.T) {
 
 	snapshot := &ledgerstate.Snapshot{
 		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{
-			genesisTransaction.ID(): genesisEssence},
+			genesisTransaction.ID(): genesisEssence,
+		},
 	}
 
 	tangle.LedgerState.LoadSnapshot(snapshot)
@@ -423,7 +424,8 @@ func TestTipManager_TransactionTips(t *testing.T) {
 
 	snapshot := &ledgerstate.Snapshot{
 		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{
-			genesisTransaction.ID(): genesisEssence},
+			genesisTransaction.ID(): genesisEssence,
+		},
 	}
 
 	tangle.LedgerState.LoadSnapshot(snapshot)

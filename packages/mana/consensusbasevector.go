@@ -91,7 +91,7 @@ func txInfoFromPledgeEvent(ev *PledgedEvent) *TxInfo {
 	}
 }
 
-// LoadSnapshot
+// LoadSnapshot loads the snapshot.
 func (c *ConsensusBaseManaVector) LoadSnapshot(snapshot map[identity.ID]*SnapshotInfo, snapshotTime time.Time) {
 	c.Lock()
 	defer c.Unlock()
