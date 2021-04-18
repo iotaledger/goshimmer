@@ -47,8 +47,8 @@ services:
       --messageLayer.snapshot.genesisNode=
       --syncbeacon.broadcastInterval=5
       --syncbeacon.startSynced=true
-      --metrics.manaResearch=true
-      --mana.enableResearchVectors=true
+      --metrics.manaResearch=false
+      --mana.enableResearchVectors=false
       --statement.writeStatement=true
       --webapi.exportPath=/tmp/
     volumes:
