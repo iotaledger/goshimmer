@@ -74,7 +74,7 @@ func main() {
 		genesisSeed.Address(0).Address(),
 	)
 
-	pubKey, err := ed25519.PublicKeyFromString("EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP")
+	pubKey, err := ed25519.PublicKeyFromString("Gm7W191NDnqyF7KJycZqK7V6ENLwqxTwoKQN4SmpkB24")
 	if err != nil {
 		panic(err)
 	}
