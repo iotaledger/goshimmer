@@ -94,6 +94,17 @@ func (m *Manager) RemovePeer(key ed25519.PublicKey) {
 	})
 }
 
+// GetPeers returns the list of known peers.
+func (m *Manager) GetPeers() []*peer.Peer {
+	m.knownPeersMutex.RLock()
+	defer m.knownPeersMutex.RUnlock()
+	peers := make([]*peer.Peer, 0, len(m.knownPeers))
+	for _, p := range m.knownPeers {
+		peers = append(peers, p)
+	}
+	return peers
+}
+
 func (m *Manager) mutateKnownPeers(mutateFn func(knownPeers map[identity.ID]*peer.Peer)) {
 	m.knownPeersMutex.Lock()
 	defer m.knownPeersMutex.Unlock()
