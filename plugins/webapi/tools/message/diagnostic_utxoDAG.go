@@ -139,7 +139,7 @@ func getDiagnosticUTXODAGInfo(transactionID ledgerstate.TransactionID, messageID
 
 	consensusMechanism := messagelayer.Tangle().Options.ConsensusMechanism.(*fcob.ConsensusMechanism)
 	if consensusMechanism != nil {
-		consensusMechanism.Storage.Opinion(transactionID).Consume(func(opinion *fcob.Opinion) {
+		consensusMechanism.Storage.TransactionOpinion(transactionID).Consume(func(opinion *fcob.Opinion) {
 			txInfo.LoK = opinion.LevelOfKnowledge().String()
 			txInfo.FCOBTime1 = opinion.FCOBTime1()
 			txInfo.FCOBTime2 = opinion.FCOBTime2()

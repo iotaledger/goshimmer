@@ -61,7 +61,7 @@ func (s *Storage) OpinionEssence(transactionID ledgerstate.TransactionID) (opini
 }
 
 // Opinion returns the Opinion associated with given TransactionID.
-func (s *Storage) Opinion(transactionID ledgerstate.TransactionID) (cachedOpinion *CachedOpinion) {
+func (s *Storage) TransactionOpinion(transactionID ledgerstate.TransactionID) (cachedOpinion *CachedOpinion) {
 	return &CachedOpinion{CachedObject: s.opinionStorage.Load(transactionID.Bytes())}
 }
 

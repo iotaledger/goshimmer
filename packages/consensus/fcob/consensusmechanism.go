@@ -69,7 +69,7 @@ func (f *ConsensusMechanism) TransactionLiked(transactionID ledgerstate.Transact
 				return
 			}
 
-			f.Storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
+			f.Storage.TransactionOpinion(transactionID).Consume(func(opinion *Opinion) {
 				liked = opinion.OpinionEssence.liked
 			})
 		})
@@ -141,7 +141,7 @@ func (f *ConsensusMechanism) ProcessVote(ev *vote.OpinionEvent) {
 			return
 		}
 
-		f.Storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
+		f.Storage.TransactionOpinion(transactionID).Consume(func(opinion *Opinion) {
 			opinion.SetLiked(ev.Opinion == voter.Like)
 			opinion.SetLevelOfKnowledge(Two)
 			// trigger PayloadOpinionFormed event
@@ -206,7 +206,7 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 	// if the opinion for this transactionID is already present,
 	// it's a reattachment and thus, we re-use the same opinion.
 	isReattachment := false
-	f.Storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
+	f.Storage.TransactionOpinion(transactionID).Consume(func(opinion *Opinion) {
 		// if the opinion has been already set by the opinion provider, re-use it
 		if opinion.LevelOfKnowledge() > One {
 			// trigger PayloadOpinionFormed event
@@ -277,7 +277,7 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 	// Wait LikedThreshold
 	f.likedThresholdExecutor.ExecuteAt(func() {
 		runLocallyFinalizedExecutor := true
-		if !f.Storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
+		if !f.Storage.TransactionOpinion(transactionID).Consume(func(opinion *Opinion) {
 			opinion.SetFCOBTime1(time.Now())
 
 			if f.tangle.LedgerState.TransactionConflicting(transactionID) {
@@ -308,7 +308,7 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 		if runLocallyFinalizedExecutor {
 			// Wait LocallyFinalizedThreshold
 			f.locallyFinalizedExecutor.ExecuteAt(func() {
-				if !f.Storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
+				if !f.Storage.TransactionOpinion(transactionID).Consume(func(opinion *Opinion) {
 					opinion.SetFCOBTime2(time.Now())
 
 					opinion.SetLiked(true)
