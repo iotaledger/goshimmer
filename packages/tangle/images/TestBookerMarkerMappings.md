@@ -150,7 +150,7 @@ Note that MainBranchID does not own sequence ID 1, although the PastMarker has s
 - Transaction 14: 
     - no marker !
     - PastMarker.BranchID = (1,3), (3,3)
-    - Payload.BranchID = Main 
+    - Payload.BranchID = A, (note: incorrectly shown in the Figure)
     - MessageMetadata.BranchID = A+C (Message needs to be individually mapped to branches)
 
 ![](https://imgur.com/W8p0Ahw.png)
@@ -188,6 +188,7 @@ Note that MainBranchID does not own sequence ID 1, although the PastMarker has s
 - Data message 12:
     - change MessageMetadata.BranchID = F+C (Message needs to be individually mapped to branches)
 - Transaction 14:
+    - change Payload.BranchID = F, (note: incorrectly shown in the Figure)
     - change MessageMetadata.BranchID = F+C (Message needs to be individually mapped to branches)
 - Data message 15:
     - change PastMarker.BranchID = [F+C]  
