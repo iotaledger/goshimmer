@@ -128,7 +128,7 @@ func (o *TransactionOpinion) Liked() bool {
 	return o.liked
 }
 
-// SetLiked sets the opinion's liked.
+// SetLiked sets the opinion's like status.
 func (o *TransactionOpinion) SetLiked(l bool) {
 	o.likedMutex.Lock()
 	defer o.likedMutex.Unlock()
@@ -487,7 +487,7 @@ func (o *TimestampOpinion) Liked() bool {
 	return o.liked
 }
 
-// SetLiked sets the opinion's liked.
+// SetLiked sets the opinion's like status.
 func (o *TimestampOpinion) SetLiked(l bool) {
 	o.likedMutex.Lock()
 	defer o.likedMutex.Unlock()
