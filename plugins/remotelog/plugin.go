@@ -105,6 +105,7 @@ func run(plugin *node.Plugin) {
 	}
 }
 
+// SendLogMsg sends log message to the remote logger.
 func SendLogMsg(level logger.Level, name string, msg string) {
 	m := logMessage{
 		banner.AppVersion,
