@@ -81,8 +81,10 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 				return
 			}
 
+			fmt.Println("inheritedBranch:", inheritedBranch)
 			inheritedStructureDetails := b.MarkersManager.InheritStructureDetails(message, markers.NewSequenceAlias(inheritedBranch.Bytes()))
 			messageMetadata.SetStructureDetails(inheritedStructureDetails)
+			fmt.Println(messageID, inheritedStructureDetails)
 
 			if inheritedStructureDetails.PastMarkers.Size() != 1 || !b.MarkersManager.BranchMappedByPastMarkers(inheritedBranch, inheritedStructureDetails.PastMarkers) {
 				if !inheritedStructureDetails.IsPastMarker {

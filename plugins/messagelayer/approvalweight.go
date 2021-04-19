@@ -29,7 +29,7 @@ func onMarkerConfirmed(marker markers.Marker, newLevel int, transition events.Th
 
 	// mark marker as finalized
 	Tangle().Storage.MessageMetadata(messageID).Consume(func(metadata *tangle.MessageMetadata) {
-		Plugin().LogInfo("mark marker as finalized ")
+		Plugin().LogInfo("mark marker(%d,%d) as finalized ", marker.SequenceID(), marker.Index())
 		metadata.SetFinalizedApprovalWeight(true)
 	})
 
