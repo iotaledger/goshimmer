@@ -170,7 +170,7 @@ var DiagnosticMessagesTableDescription = []string{
 	"TimestampOpinionFormed",
 	"MessageOpinionFormed",
 	"MessageOpinionTriggered",
-	"TimestampOpinion",
+	"TimestampLiked",
 	"TimestampLoK",
 }
 
@@ -210,7 +210,7 @@ type DiagnosticMessagesInfo struct {
 	TimestampOpinionFormed  bool
 	MessageOpinionFormed    bool
 	MessageOpinionTriggered bool
-	TimestampOpinion        string
+	TimestampLiked          bool
 	TimestampLoK            string
 }
 
@@ -274,8 +274,8 @@ func getDiagnosticMessageInfo(messageID tangle.MessageID) *DiagnosticMessagesInf
 		})
 
 		consensusMechanism.Storage.TimestampOpinion(messageID).Consume(func(timestampOpinion *fcob.TimestampOpinion) {
-			msgInfo.TimestampOpinion = timestampOpinion.Value.String()
-			msgInfo.TimestampLoK = timestampOpinion.LoK.String()
+			msgInfo.TimestampLiked = timestampOpinion.Liked()
+			msgInfo.TimestampLoK = timestampOpinion.LevelOfKnowledge().String()
 		})
 	}
 
@@ -317,7 +317,7 @@ func (d *DiagnosticMessagesInfo) toCSVRow() (row []string) {
 		fmt.Sprint(d.TimestampOpinionFormed),
 		fmt.Sprint(d.MessageOpinionFormed),
 		fmt.Sprint(d.MessageOpinionTriggered),
-		d.TimestampOpinion,
+		fmt.Sprint(d.TimestampLiked),
 		d.TimestampLoK,
 	}
 

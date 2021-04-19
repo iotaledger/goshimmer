@@ -100,7 +100,7 @@ type MessageConsensusMetadata struct {
 	TimestampOpinionFormed  bool   `json:"timestampOpinionFormed"`
 	MessageOpinionFormed    bool   `json:"messageOpinionFormed"`
 	MessageOpinionTriggered bool   `json:"messageOpinionTriggered"`
-	TimestampOpinion        string `json:"timestampOpinion"`
+	TimestampLiked          bool   `json:"timestampLiked"`
 	TimestampLoK            string `json:"timestampLoK"`
 }
 
@@ -113,8 +113,8 @@ func NewMessageConsensusMetadata(metadata *fcob.MessageMetadata, timestampOpinio
 		TimestampOpinionFormed:  metadata.TimestampOpinionFormed(),
 		MessageOpinionFormed:    metadata.MessageOpinionFormed(),
 		MessageOpinionTriggered: metadata.MessageOpinionTriggered(),
-		TimestampOpinion:        timestampOpinion.Value.String(),
-		TimestampLoK:            timestampOpinion.LoK.String(),
+		TimestampLiked:          timestampOpinion.Liked(),
+		TimestampLoK:            timestampOpinion.LevelOfKnowledge().String(),
 	}
 }
 
