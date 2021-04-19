@@ -185,6 +185,9 @@ func (m *Manager) getNeighborsDiff() (neighborsToConnect, neighborsToDrop []*pee
 }
 
 func (m *Manager) connectNeighbors(peers []*peer.Peer) {
+	if len(peers) == 0 {
+		return
+	}
 	m.log.Infow("Found known peers that aren't in the gossip neighbors list, connecting to them", "peers", peers)
 	for _, p := range peers {
 		if err := m.connectNeighbor(p); err != nil {
@@ -195,6 +198,9 @@ func (m *Manager) connectNeighbors(peers []*peer.Peer) {
 }
 
 func (m *Manager) dropNeighbors(peers []*peer.Peer) {
+	if len(peers) == 0 {
+		return
+	}
 	m.log.Infow("Found gossip neighbors that aren't in the known peers anymore, dropping them", "peers", peers)
 	for _, p := range peers {
 		if err := m.dropNeighbor(p); err != nil {
