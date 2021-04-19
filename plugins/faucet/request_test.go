@@ -19,9 +19,10 @@ func ExampleRequest() {
 	keyPair := ed25519.GenerateKeyPair()
 	address := ledgerstate.NewED25519Address(keyPair.PublicKey)
 	local := identity.NewLocalIdentity(keyPair.PublicKey, keyPair.PrivateKey)
+	emptyID := identity.ID{}
 
 	// 1. create faucet payload
-	faucetRequest, err := NewRequest(address, 4)
+	faucetRequest, err := NewRequest(address, 4, emptyID, emptyID)
 	if err != nil {
 		panic(err)
 	}
@@ -43,7 +44,10 @@ func ExampleRequest() {
 func TestRequest(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()
 	address := ledgerstate.NewED25519Address(keyPair.PublicKey)
-	originalRequest, err := NewRequest(address, 4)
+	access, _ := identity.RandomID()
+	consensus, _ := identity.RandomID()
+
+	originalRequest, err := NewRequest(address, 4, access, consensus)
 	if err != nil {
 		panic(err)
 	}
@@ -54,6 +58,8 @@ func TestRequest(t *testing.T) {
 	}
 
 	assert.Equal(t, originalRequest.Address(), clonedRequest.Address())
+	assert.Equal(t, originalRequest.AccessManaPledgeID(), clonedRequest.AccessManaPledgeID())
+	assert.Equal(t, originalRequest.ConsensusManaPledgeID(), clonedRequest.ConsensusManaPledgeID())
 
 	clonedRequest2, _, err := FromBytes(clonedRequest.Bytes())
 	if err != nil {
@@ -67,8 +73,9 @@ func TestIsFaucetReq(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()
 	address := ledgerstate.NewED25519Address(keyPair.PublicKey)
 	local := identity.NewLocalIdentity(keyPair.PublicKey, keyPair.PrivateKey)
+	emptyID := identity.ID{}
 
-	faucetRequest, err := NewRequest(address, 4)
+	faucetRequest, err := NewRequest(address, 4, emptyID, emptyID)
 	if err != nil {
 		require.NoError(t, err)
 		return
