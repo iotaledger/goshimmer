@@ -60,6 +60,8 @@ func TestBranchSupportersMarshalling(t *testing.T) {
 	})
 }
 
+// TestSupporterManager_updateBranchSupporters tests the SupporterManager's functionality regarding branches.
+// The scenario can be found in images/approvalweight-updateBranchSupporters.png.
 func TestSupporterManager_updateBranchSupporters(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()
 
@@ -201,6 +203,8 @@ func TestSupporterManager_updateBranchSupporters(t *testing.T) {
 	}
 }
 
+// TestSupporterManager_updateSequenceSupporters tests the SupporterManager's functionality regarding sequences.
+// The scenario can be found in images/approvalweight-updateSequenceSupporters.png.
 func TestSupporterManager_updateSequenceSupporters(t *testing.T) {
 	tangle := New()
 	defer tangle.Shutdown()
@@ -318,6 +322,8 @@ func TestSupporterManager_updateSequenceSupporters(t *testing.T) {
 	}
 }
 
+// TestApprovalWeightManager_ProcessMessage tests the whole functionality of the ApprovalWeightManager.
+// The scenario can be found in images/approvalweight-processMessage.png.
 func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	nodes := make(map[string]*identity.Identity)
 	for _, node := range []string{"A", "B", "C", "D", "E"} {
