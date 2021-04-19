@@ -50,7 +50,7 @@ var (
 	// ParaManaOnEveryNode defines whether all nodes should have mana enabled.
 	ParaManaOnEveryNode = true
 	// ParaFPCRoundInterval defines how long a round lasts (in seconds)
-	ParaFPCRoundInterval int64 = 5
+	ParaFPCRoundInterval int64 = 10
 	// ParaFPCTotalRoundsFinalization the amount of FPC rounds where an opinion needs to stay the same to be considered final. Also called 'l'.
 	ParaFPCTotalRoundsFinalization int = 10
 	// ParaWaitForStatement is the time in seconds for which the node wait for receiving the new statement.

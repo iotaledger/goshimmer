@@ -26,13 +26,13 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	// override avg. network delay to accustom integration test slowness
 	backupFCoBAvgNetworkDelay := framework.ParaFCoBAverageNetworkDelay
 	// adjust l according to networkDelay l = l+c/roundTimeInterval
-	backupFPCTotalRoundsFinalization := framework.ParaFPCTotalRoundsFinalization
+	// backupFPCTotalRoundsFinalization := framework.ParaFPCTotalRoundsFinalization
 	backupBootstrapOnEveryNode := framework.ParaSyncBeaconOnEveryNode
 	backupParaWaitToKill := framework.ParaWaitToKill
 	framework.ParaFCoBAverageNetworkDelay = 60
 	framework.ParaSyncBeaconOnEveryNode = true
 	framework.ParaWaitToKill = 2*framework.ParaFCoBAverageNetworkDelay + 10
-	framework.ParaFPCTotalRoundsFinalization = backupFPCTotalRoundsFinalization + framework.ParaFCoBAverageNetworkDelay/int(framework.ParaFPCRoundInterval)
+	// framework.ParaFPCTotalRoundsFinalization = backupFPCTotalRoundsFinalization + framework.ParaFCoBAverageNetworkDelay/int(framework.ParaFPCRoundInterval)
 
 	const numberOfPeers = 6
 
@@ -41,7 +41,7 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 		framework.ParaFCoBAverageNetworkDelay = backupFCoBAvgNetworkDelay
 		framework.ParaSyncBeaconOnEveryNode = backupBootstrapOnEveryNode
 		framework.ParaWaitToKill = backupParaWaitToKill
-		framework.ParaFPCTotalRoundsFinalization = backupFPCTotalRoundsFinalization
+		// framework.ParaFPCTotalRoundsFinalization = backupFPCTotalRoundsFinalization
 	}()
 
 	// create two partitions with their own peers
