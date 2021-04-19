@@ -2,7 +2,6 @@ package client
 
 import (
 	"net"
-	"sync"
 
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
@@ -20,7 +19,6 @@ type Client struct {
 	chUnsubscribe chan ledgerstate.Address
 	shutdown      chan bool
 	Events        Events
-	wgConnected   sync.WaitGroup
 }
 
 // Events contains all events emitted by the Client

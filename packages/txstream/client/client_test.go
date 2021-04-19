@@ -2,7 +2,6 @@ package client
 
 import (
 	"net"
-	"sync"
 	"testing"
 	"time"
 
@@ -51,63 +50,47 @@ func start(t *testing.T) (*utxodbledger.UtxoDBLedger, *Client) {
 	n := New("test", log.Named("txstream/client"), dial)
 	t.Cleanup(n.Close)
 
-	ok := n.WaitForConnection(10 * time.Second)
-	require.True(t, ok)
-
 	return ledger, n
 }
 
-func send(t *testing.T, n *Client, sendMsg func(), rcv func(msg txstream.Message) bool) {
+func send(t *testing.T, n *Client, sendMsg func(), callback func(msg txstream.Message) bool) {
 	t.Helper()
 
-	done := make(chan bool)
-
-	var wgSend sync.WaitGroup
-	wgSend.Add(1)
-
-	receiveMessage := func(msg txstream.Message) {
-		wgSend.Wait()
-		if rcv(msg) {
-			close(done)
-		}
-	}
+	received := make(chan txstream.Message)
+	enqueueMessage := func(msg txstream.Message) { received <- msg }
 
 	{
-		cl := events.NewClosure(func(msg *txstream.MsgTransaction) {
-			receiveMessage(msg)
-		})
+		cl := events.NewClosure(func(msg *txstream.MsgTransaction) { go enqueueMessage(msg) })
 		n.Events.TransactionReceived.Attach(cl)
 		defer n.Events.TransactionReceived.Detach(cl)
 	}
 	{
-		cl := events.NewClosure(func(msg *txstream.MsgTxInclusionState) {
-			receiveMessage(msg)
-		})
+		cl := events.NewClosure(func(msg *txstream.MsgTxInclusionState) { go enqueueMessage(msg) })
 		n.Events.InclusionStateReceived.Attach(cl)
 		defer n.Events.InclusionStateReceived.Detach(cl)
 	}
 	{
-		cl := events.NewClosure(func(msg *txstream.MsgOutput) {
-			receiveMessage(msg)
-		})
+		cl := events.NewClosure(func(msg *txstream.MsgOutput) { go enqueueMessage(msg) })
 		n.Events.OutputReceived.Attach(cl)
 		defer n.Events.OutputReceived.Detach(cl)
 	}
 	{
-		cl := events.NewClosure(func(msg *txstream.MsgUnspentAliasOutput) {
-			receiveMessage(msg)
-		})
+		cl := events.NewClosure(func(msg *txstream.MsgUnspentAliasOutput) { go enqueueMessage(msg) })
 		n.Events.UnspentAliasOutputReceived.Attach(cl)
 		defer n.Events.OutputReceived.Detach(cl)
 	}
 
 	sendMsg()
-	wgSend.Done()
 
-	select {
-	case <-done:
-	case <-time.After(10 * time.Second):
-		t.Fatalf("timeout")
+	for {
+		select {
+		case msg := <-received:
+			if callback(msg) {
+				return
+			}
+		case <-time.After(10 * time.Second):
+			t.Fatalf("timeout")
+		}
 	}
 }
 

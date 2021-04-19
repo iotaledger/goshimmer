@@ -4,22 +4,23 @@ package server
 // SPDX-License-Identifier: Apache-2.0
 
 import (
+	"time"
+
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/txstream"
-	"time"
 )
 
 func (c *Connection) sendMsgToClient(msg txstream.Message) {
 	var err error
 	defer func() {
 		if err != nil {
-			c.log().Errorf("sendMsgToClient: %s", err.Error())
+			c.log.Errorf("sending message to client (%T): %v", msg, err)
 		}
 	}()
 
 	data := txstream.EncodeMsg(msg)
-	choppedData, chopped, err := c.messageChopper.ChopData(data, tangle.MaxMessageSize, txstream.ChunkMessageHeaderSize)
+	choppedData, chopped, err := c.chopper.ChopData(data, tangle.MaxMessageSize, txstream.ChunkMessageHeaderSize)
 	if err != nil {
 		return
 	}
@@ -32,7 +33,7 @@ func (c *Connection) sendMsgToClient(msg txstream.Message) {
 	for _, piece := range choppedData {
 		dataToSend := txstream.EncodeMsg(&txstream.MsgChunk{Data: piece})
 		if len(dataToSend) > tangle.MaxMessageSize {
-			c.log().Panicf("sendMsgToClient: internal inconsistency: size too big: %d", len(dataToSend))
+			c.log.Panicf("sendMsgToClient: internal inconsistency: size too big: %d", len(dataToSend))
 		}
 		_, err = c.bconn.Write(dataToSend)
 		if err != nil {
@@ -57,7 +58,7 @@ func (c *Connection) pushTransaction(txid ledgerstate.TransactionID, addr ledger
 		})
 	})
 	if !found {
-		c.log().Warnf("pushTransaction: not found %c", txid.String())
+		c.log.Warnf("pushTransaction: not found %c", txid.String())
 	}
 }
 
@@ -78,7 +79,7 @@ func (c *Connection) sendOutput(outputID ledgerstate.OutputID, addr ledgerstate.
 		})
 	})
 	if !foundTx || !validOutput {
-		c.log().Warnf("sendOutput: not found output %s", outputID.String())
+		c.log.Warnf("sendOutput: not found output %s", outputID.String())
 	}
 }
 
@@ -108,6 +109,6 @@ func (c *Connection) sendUnspentAliasOutput(addr *ledgerstate.AliasAddress) {
 		}
 	})
 	if !found {
-		c.log().Warnf("sendUnspentAliasOutput: not found alias output for address %s", addr.Base58())
+		c.log.Warnf("sendUnspentAliasOutput: not found alias output for address %s", addr.Base58())
 	}
 }

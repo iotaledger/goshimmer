@@ -6,25 +6,37 @@ package server
 import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/txstream"
+	"golang.org/x/xerrors"
 )
 
-// process messages received from the clien
-func (c *Connection) processMessageFromClient(data []byte) {
-	var msg interface{}
-	var err error
-	if msg, err = txstream.DecodeMsg(data, txstream.FlagClientToServer); err != nil {
-		c.log().Errorf("DecodeMsg: %v", err)
-		return
+// process first message from client
+func (c *Connection) receiveClientID(data []byte) (string, error) {
+	msg, err := txstream.DecodeMsg(data, txstream.FlagClientToServer)
+	if err != nil {
+		return "", xerrors.Errorf("DecodeMsg: %v", err)
 	}
+
+	if msg, ok := msg.(*txstream.MsgSetID); ok {
+		return msg.ClientID, nil
+	}
+	return "", xerrors.Errorf("wrong msg type: %T", msg)
+}
+
+// process messages received from the clien
+func (c *Connection) processMessageFromClient(data []byte) error {
+	msg, err := txstream.DecodeMsg(data, txstream.FlagClientToServer)
+	if err != nil {
+		return xerrors.Errorf("DecodeMsg: %v", err)
+	}
+
 	switch msg := msg.(type) {
 	case *txstream.MsgChunk:
-		finalMsg, err := c.messageChopper.IncomingChunk(msg.Data, tangle.MaxMessageSize, txstream.ChunkMessageHeaderSize)
+		finalMsg, err := c.chopper.IncomingChunk(msg.Data, tangle.MaxMessageSize, txstream.ChunkMessageHeaderSize)
 		if err != nil {
-			c.log().Errorf("DecodeMsg: %v", err)
-			return
+			return xerrors.Errorf("IncomingChunk: %v", err)
 		}
 		if finalMsg != nil {
-			c.processMessageFromClient(finalMsg)
+			return c.processMessageFromClient(finalMsg)
 		}
 
 	case *txstream.MsgPostTransaction:
@@ -32,7 +44,6 @@ func (c *Connection) processMessageFromClient(data []byte) {
 
 	case *txstream.MsgUpdateSubscriptions:
 		newAddrs := c.setSubscriptions(msg.Addresses)
-		c.log().Debugf("update subscriptions: %+v", msg.Addresses)
 		// send backlogs of newly subscribed addresses
 		for _, addr := range newAddrs {
 			c.getBacklog(addr)
@@ -47,9 +58,6 @@ func (c *Connection) processMessageFromClient(data []byte) {
 	case *txstream.MsgGetBacklog:
 		c.getBacklog(msg.Address)
 
-	case *txstream.MsgSetID:
-		c.setID(msg.ClientID)
-
 	case *txstream.MsgGetConfirmedOutput:
 		c.sendOutput(msg.OutputID, msg.Address)
 
@@ -57,6 +65,7 @@ func (c *Connection) processMessageFromClient(data []byte) {
 		c.sendUnspentAliasOutput(msg.AliasAddress)
 
 	default:
-		panic("wrong msg type")
+		return xerrors.Errorf("wrong msg type: %T", msg)
 	}
+	return nil
 }

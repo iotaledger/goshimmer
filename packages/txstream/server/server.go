@@ -5,7 +5,7 @@ import (
 	"io"
 	"net"
 	"strings"
-	"sync/atomic"
+	"time"
 
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
@@ -19,16 +19,11 @@ import (
 
 // Connection handles the server-side part of the txstream protocol
 type Connection struct {
-	bconn                              *buffconn.BufferedConnection
-	subscriptions                      atomic.Value
-	inTxChan                           chan interface{}
-	exitConnChan                       chan struct{}
-	receiveConfirmedTransactionClosure *events.Closure
-	receiveBookedTransactionClosure    *events.Closure
-	receiveMessageClosure              *events.Closure
-	messageChopper                     *chopper.Chopper
-	atomicLog                          atomic.Value
-	ledger                             txstream.Ledger
+	bconn         *buffconn.BufferedConnection
+	chopper       *chopper.Chopper
+	subscriptions map[[ledgerstate.AddressLength]byte]bool
+	ledger        txstream.Ledger
+	log           *logger.Logger
 }
 
 type (
@@ -60,7 +55,6 @@ func Listen(ledger txstream.Ledger, bindAddress string, log *logger.Logger, shut
 		<-shutdownSignal
 
 		log.Infof("Detaching TXStream from the Value Tangle..")
-		ledger.Detach()
 		log.Infof("Detaching TXStream from the Value Tangle..Done")
 	}()
 
@@ -70,97 +64,119 @@ func Listen(ledger txstream.Ledger, bindAddress string, log *logger.Logger, shut
 // Run starts the server-side handling code for an already accepted connection from a client
 func Run(conn net.Conn, log *logger.Logger, ledger txstream.Ledger, shutdownSignal <-chan struct{}) {
 	c := &Connection{
-		bconn:          buffconn.NewBufferedConnection(conn, tangle.MaxMessageSize),
-		exitConnChan:   make(chan struct{}),
-		messageChopper: chopper.NewChopper(),
-		ledger:         ledger,
+		bconn:         buffconn.NewBufferedConnection(conn, tangle.MaxMessageSize),
+		chopper:       chopper.NewChopper(),
+		subscriptions: make(map[[ledgerstate.AddressLength]byte]bool),
+		ledger:        ledger,
+		log:           log,
 	}
 
-	c.atomicLog.Store(log) // temporarily until we know the connection ID
+	defer c.bconn.Close()
+	defer c.chopper.Close()
 
-	c.subscriptions.Store(make(map[[ledgerstate.AddressLength]byte]bool))
+	bconnDataReceived, bconnClosed := c.bconnReadLoop()
 
-	c.attach()
-	defer c.detach()
-
+	// expect first message received from client == MsgSetID
 	select {
+	case data := <-bconnDataReceived:
+		id, err := c.receiveClientID(data)
+		if err != nil {
+			c.log.Errorf("first message from client: %v", err)
+			return
+		}
+		c.log = c.log.Named(id)
+		c.log.Infof("client connection id has been set to '%s' for '%s'", id, c.bconn.RemoteAddr().String())
 	case <-shutdownSignal:
-		c.log().Infof("shutdown signal received..")
-		_ = c.bconn.Close()
+		c.log.Infof("shutdown signal received")
+		return
+	case <-bconnClosed:
+		c.log.Errorf("connection lost")
+		return
+	case <-time.After(5 * time.Second):
+		c.log.Errorf("timeout receiving client ID")
+		return
+	}
 
-	case <-c.exitConnChan:
-		c.log().Infof("closing connection..")
-		_ = c.bconn.Close()
+	txFromLedgerQueue := make(chan interface{})
+
+	{
+		cl := events.NewClosure(func(tx *ledgerstate.Transaction) {
+			c.log.Debugf("on transaction confirmed: %s", tx.ID().Base58())
+			txFromLedgerQueue <- wrapConfirmedTx(tx)
+		})
+		c.ledger.EventTransactionConfirmed().Attach(cl)
+		defer c.ledger.EventTransactionConfirmed().Detach(cl)
+	}
+
+	{
+		cl := events.NewClosure(func(tx *ledgerstate.Transaction) {
+			c.log.Debugf("on transaction booked: %s", tx.ID().Base58())
+			txFromLedgerQueue <- wrapBookedTx(tx)
+		})
+		c.ledger.EventTransactionBooked().Attach(cl)
+		defer c.ledger.EventTransactionBooked().Detach(cl)
+	}
+
+	c.log.Debugf("started txstream")
+	defer c.log.Debugf("stopped txstream")
+
+	// single-threaded r/w loop
+	for {
+		select {
+		case tx := <-txFromLedgerQueue:
+			switch tx := tx.(type) {
+			case wrapConfirmedTx:
+				c.processConfirmedTransaction(tx)
+			case wrapBookedTx:
+				c.processBookedTransaction(tx)
+			default:
+				c.log.Panicf("wrong type")
+			}
+		case data := <-bconnDataReceived:
+			if err := c.processMessageFromClient(data); err != nil {
+				c.log.Errorf("processMessageFromClient: %v", err)
+			}
+		case <-shutdownSignal:
+			c.log.Infof("shutdown signal received")
+			return
+		case <-bconnClosed:
+			c.log.Errorf("connection lost")
+			return
+		}
 	}
 }
 
-func (c *Connection) log() *logger.Logger {
-	return c.atomicLog.Load().(*logger.Logger)
-}
+func (c *Connection) bconnReadLoop() (chan []byte, chan bool) {
+	bconnDataReceived := make(chan []byte)
+	bconnClosed := make(chan bool)
 
-func (c *Connection) setID(id string) {
-	c.atomicLog.Store(c.log().Named(id))
-	c.log().Infof("client connection id has been set to '%s' for '%s'", id, c.bconn.RemoteAddr().String())
-}
-
-func (c *Connection) attach() {
-	c.inTxChan = make(chan interface{})
-
-	c.receiveConfirmedTransactionClosure = events.NewClosure(func(tx *ledgerstate.Transaction) {
-		c.log().Debugf("on transaction confirmed: %s", tx.ID().Base58())
-		c.inTxChan <- wrapConfirmedTx(tx)
-	})
-	c.ledger.EventTransactionConfirmed().Attach(c.receiveConfirmedTransactionClosure)
-
-	c.receiveBookedTransactionClosure = events.NewClosure(func(tx *ledgerstate.Transaction) {
-		c.log().Debugf("on transaction booked: %s", tx.ID().Base58())
-		c.inTxChan <- wrapBookedTx(tx)
-	})
-	c.ledger.EventTransactionBooked().Attach(c.receiveBookedTransactionClosure)
-
-	c.receiveMessageClosure = events.NewClosure(func(data []byte) {
-		c.processMessageFromClient(data)
-	})
-	c.bconn.Events.ReceiveMessage.Attach(c.receiveMessageClosure)
-
-	c.log().Debugf("attached txstream")
-
-	// read connection thread
+	// bconn read loop
 	go func() {
+		{
+			cl := events.NewClosure(func() { close(bconnClosed) })
+			c.bconn.Events.Close.Attach(cl)
+			defer c.bconn.Events.Close.Detach(cl)
+		}
+
+		{
+			cl := events.NewClosure(func(data []byte) {
+				// data slice is from internal buffconn buffer
+				d := make([]byte, len(data))
+				copy(d, data)
+				bconnDataReceived <- d
+			})
+			c.bconn.Events.ReceiveMessage.Attach(cl)
+			defer c.bconn.Events.ReceiveMessage.Detach(cl)
+		}
+
 		if err := c.bconn.Read(); err != nil {
 			if err != io.EOF && !strings.Contains(err.Error(), "use of closed network connection") {
-				c.log().Warnw("Permanent error", "err", err)
-			}
-		}
-		close(c.exitConnChan)
-	}()
-
-	// read incoming pre-filtered transactions from the ledger
-	go func() {
-		for vtx := range c.inTxChan {
-			switch tvtx := vtx.(type) {
-			case wrapConfirmedTx:
-				c.processConfirmedTransaction(tvtx)
-
-			case wrapBookedTx:
-				c.processBookedTransaction(tvtx)
-
-			default:
-				c.log().Panicf("wrong type")
+				c.log.Warnw("bconn read error", "err", err)
 			}
 		}
 	}()
-}
 
-func (c *Connection) detach() {
-	c.ledger.EventTransactionConfirmed().Detach(c.receiveConfirmedTransactionClosure)
-	c.ledger.EventTransactionBooked().Detach(c.receiveBookedTransactionClosure)
-	c.bconn.Events.ReceiveMessage.Detach(c.receiveMessageClosure)
-
-	c.messageChopper.Close()
-	close(c.inTxChan)
-	_ = c.bconn.Close()
-	c.log().Debugf("stopped txstream")
+	return bconnDataReceived, bconnClosed
 }
 
 func (c *Connection) setSubscriptions(addrs []ledgerstate.Address) (newAddrs []ledgerstate.Address) {
@@ -171,12 +187,12 @@ func (c *Connection) setSubscriptions(addrs []ledgerstate.Address) (newAddrs []l
 		}
 		subscriptions[addr.Array()] = true
 	}
-	c.subscriptions.Store(subscriptions)
+	c.subscriptions = subscriptions
 	return
 }
 
 func (c *Connection) isSubscribed(addr ledgerstate.Address) bool {
-	_, ok := c.subscriptions.Load().(map[[ledgerstate.AddressLength]byte]bool)[addr.Array()]
+	_, ok := c.subscriptions[addr.Array()]
 	return ok
 }
 
@@ -195,14 +211,14 @@ func (c *Connection) txSubscribedAddresses(tx *ledgerstate.Transaction) map[[led
 // it parses SC transaction incoming from the ledger. Forwards it to the client if subscribed
 func (c *Connection) processConfirmedTransaction(tx *ledgerstate.Transaction) {
 	for _, addr := range c.txSubscribedAddresses(tx) {
-		c.log().Debugf("confirmed tx -> client -- addr: %s txid: %s", addr.Base58(), tx.ID().String())
+		c.log.Debugf("confirmed tx -> client -- addr: %s txid: %s", addr.Base58(), tx.ID().String())
 		c.pushTransaction(tx.ID(), addr)
 	}
 }
 
 func (c *Connection) processBookedTransaction(tx *ledgerstate.Transaction) {
 	for _, addr := range c.txSubscribedAddresses(tx) {
-		c.log().Debugf("booked tx -> client -- addr: %s. txid: %s", addr.Base58(), tx.ID().String())
+		c.log.Debugf("booked tx -> client -- addr: %s. txid: %s", addr.Base58(), tx.ID().String())
 		c.sendTxInclusionState(tx.ID(), addr, ledgerstate.Pending)
 	}
 }
@@ -210,7 +226,7 @@ func (c *Connection) processBookedTransaction(tx *ledgerstate.Transaction) {
 func (c *Connection) getTxInclusionState(txid ledgerstate.TransactionID, addr ledgerstate.Address) {
 	state, err := c.ledger.GetTxInclusionState(txid)
 	if err != nil {
-		c.log().Warnf("getTxInclusionState: %v", err)
+		c.log.Warnf("getTxInclusionState: %v", err)
 		return
 	}
 	c.sendTxInclusionState(txid, addr, state)
@@ -228,6 +244,6 @@ func (c *Connection) getBacklog(addr ledgerstate.Address) {
 
 func (c *Connection) postTransaction(tx *ledgerstate.Transaction) {
 	if err := c.ledger.PostTransaction(tx); err != nil {
-		c.log().Debugf("%v: %s", err, tx.ID().Base58())
+		c.log.Debugf("%v: %s", err, tx.ID().Base58())
 	}
 }
