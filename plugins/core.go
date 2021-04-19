@@ -1,6 +1,7 @@
 package plugins
 
 import (
+	"github.com/iotaledger/goshimmer/plugins/manualpeering"
 	"github.com/iotaledger/hive.go/node"
 
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
@@ -38,6 +39,7 @@ var Core = node.Plugins(
 	pow.Plugin(),
 	clock.Plugin(),
 	messagelayer.Plugin(),
+	manualpeering.Plugin(),
 	gossip.Plugin(),
 	syncbeacon.Plugin(),
 	messagelayer.SyncBeaconFollowerPlugin(),

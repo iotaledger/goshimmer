@@ -32,10 +32,11 @@ type Manager struct {
 	connectedNeighbors      map[identity.ID]*peer.Peer
 }
 
-func NewManager(gm *gossip.Manager, local *peer.Local) *Manager {
+func NewManager(gm *gossip.Manager, local *peer.Local, log *logger.Logger) *Manager {
 	m := &Manager{
 		gm:                 gm,
 		local:              local,
+		log:                log,
 		syncTicker:         time.NewTicker(DefaultReconnectInterval),
 		syncTriggerCh:      make(chan struct{}, 1),
 		stopCh:             make(chan struct{}),

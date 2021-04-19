@@ -55,7 +55,6 @@ func configure(*node.Plugin) {
 	if !disableAutopeering {
 		configureAutopeering()
 	}
-	configureWebAPI()
 }
 
 func run(*node.Plugin) {

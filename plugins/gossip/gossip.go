@@ -1,14 +1,10 @@
 package gossip
 
 import (
-	"encoding/json"
 	"errors"
 	"net"
 	"strconv"
 	"sync"
-
-	"github.com/iotaledger/hive.go/autopeering/peer"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/logger"
@@ -85,8 +81,6 @@ func start(shutdownSignal <-chan struct{}) {
 	// trigger start of the autopeering selection
 	go func() { autopeering.StartSelection() }()
 
-	addNeighborsFromConfigToManager(mgr)
-
 	log.Infof("%s started: age-threshold=%v bind-address=%s", PluginName, ageThreshold, localAddr.String())
 
 	<-shutdownSignal
@@ -94,34 +88,6 @@ func start(shutdownSignal <-chan struct{}) {
 
 	// assure that the autopeering selection is always stopped before the gossip manager
 	autopeering.Selection().Close()
-}
-
-func addNeighborsFromConfigToManager(mgr *gossip.Manager) {
-	manualNeighbors, err := getNeighborsFromConfig()
-	if err != nil {
-		log.Errorw("Failed to get manual neighbors from the config file, continuing without them...", "err", err)
-	} else if len(manualNeighbors) != 0 {
-		log.Infow("Pass manual neighbors list to gossip layer", "neighbors", manualNeighbors)
-		for _, neighbor := range manualNeighbors {
-			if err := mgr.AddOutbound(neighbor, gossip.NeighborsGroupManual); err != nil {
-				log.Errorw("Gossip failed to add manual neighbor, skipping that neighbor", "err", err)
-			}
-		}
-	}
-}
-
-func getNeighborsFromConfig() ([]*peer.Peer, error) {
-	rawMap := config.Node().Get(CfgGossipManualNeighbors)
-	// This is a hack to transform a map from config into peer.Peer struct.
-	jsonData, err := json.Marshal(rawMap)
-	if err != nil {
-		return nil, xerrors.Errorf("can't marshal neighbors map from config into json data: %w", err)
-	}
-	var peers []*peer.Peer
-	if err := json.Unmarshal(jsonData, &peers); err != nil {
-		return nil, xerrors.Errorf("can't parse neighbors from json: %w", err)
-	}
-	return peers, nil
 }
 
 // loads the given message from the message layer and returns it or an error if not found.
