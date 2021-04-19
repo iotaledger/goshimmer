@@ -126,7 +126,7 @@ func (m *Manager) Events() Events {
 	return m.events
 }
 
-// Events returns the events related to the gossip protocol.
+// NeighborsEvents returns the events related to the gossip protocol.
 func (m *Manager) NeighborsEvents(group NeighborsGroup) NeighborsEvents {
 	return m.neighborsEvents[group]
 }

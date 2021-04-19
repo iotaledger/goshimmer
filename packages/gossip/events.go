@@ -11,6 +11,7 @@ type Events struct {
 	MessageReceived *events.Event
 }
 
+// NeighborsEvents is a collection of events specific for a particular neighbors group, e.g "manual" or "auto".
 type NeighborsEvents struct {
 	// Fired when an attempt to build a connection to a neighbor has failed.
 	ConnectionFailed *events.Event
@@ -20,6 +21,7 @@ type NeighborsEvents struct {
 	NeighborRemoved *events.Event
 }
 
+// NewNeighborsEvents returns a new instance of NeighborsEvents.
 func NewNeighborsEvents() NeighborsEvents {
 	return NeighborsEvents{
 		ConnectionFailed: events.NewEvent(peerAndErrorCaller),

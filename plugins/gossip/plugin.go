@@ -75,7 +75,7 @@ func configureAutopeering() {
 	peerSel := autopeering.Selection()
 	peerSel.Events().Dropped.Attach(events.NewClosure(func(ev *selection.DroppedEvent) {
 		go func() {
-			if err := mgr.DropNeighbor(ev.DroppedID,gossip.NeighborsGroupAuto); err != nil {
+			if err := mgr.DropNeighbor(ev.DroppedID, gossip.NeighborsGroupAuto); err != nil {
 				log.Debugw("error dropping neighbor", "id", ev.DroppedID, "err", err)
 			}
 		}()
@@ -85,7 +85,7 @@ func configureAutopeering() {
 			return // ignore rejected peering
 		}
 		go func() {
-			if err := mgr.AddInbound(ev.Peer,gossip.NeighborsGroupAuto); err != nil {
+			if err := mgr.AddInbound(ev.Peer, gossip.NeighborsGroupAuto); err != nil {
 				log.Debugw("error adding inbound", "id", ev.Peer.ID(), "err", err)
 			}
 		}()

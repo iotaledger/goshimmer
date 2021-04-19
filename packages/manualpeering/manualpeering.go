@@ -1,20 +1,30 @@
 package manualpeering
 
 import (
-	"github.com/cockroachdb/errors"
+	"sync"
+	"sync/atomic"
+	"time"
+
 	"github.com/iotaledger/goshimmer/packages/gossip"
+
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
-	"sync"
-	"sync/atomic"
-	"time"
 )
 
-const DefaultReconnectInterval = 5 * time.Second
+const defaultReconnectInterval = 5 * time.Second
 
+// Manager is the core entity in the manualpeering package.
+// It holds a list of known peers and constantly provisions it to the gossip layer.
+// Its job is to keep in sync the list of known peers
+// and the list of current manual neighbors connected in the gossip layer.
+// If a new peer is added to known peers, manager will forward it to gossip and make sure it establishes a connection.
+// And vice versa, if a peer is being removed from the list of known peers,
+// manager will make sure gossip drops that connection.
+// Manager also subscribes to the gossip events and in case the connection with a manual peer fails it will reconnect.
 type Manager struct {
 	gm                      *gossip.Manager
 	log                     *logger.Logger
@@ -32,12 +42,13 @@ type Manager struct {
 	connectedNeighbors      map[identity.ID]*peer.Peer
 }
 
+// NewManager initializes a new Manager instance.
 func NewManager(gm *gossip.Manager, local *peer.Local, log *logger.Logger) *Manager {
 	m := &Manager{
 		gm:                 gm,
 		local:              local,
 		log:                log,
-		syncTicker:         time.NewTicker(DefaultReconnectInterval),
+		syncTicker:         time.NewTicker(defaultReconnectInterval),
 		syncTriggerCh:      make(chan struct{}, 1),
 		stopCh:             make(chan struct{}),
 		knownPeers:         map[identity.ID]*peer.Peer{},
@@ -46,6 +57,7 @@ func NewManager(gm *gossip.Manager, local *peer.Local, log *logger.Logger) *Mana
 	return m
 }
 
+// AddPeers adds multiple peers to the list of known peers.
 func (m *Manager) AddPeers(peers []*peer.Peer) {
 	m.mutateKnownPeers(func(knownPeers map[identity.ID]*peer.Peer) {
 		for _, p := range peers {
@@ -54,6 +66,7 @@ func (m *Manager) AddPeers(peers []*peer.Peer) {
 	})
 }
 
+// RemovePeers removes multiple peers from the list of known peers.
 func (m *Manager) RemovePeers(keys []ed25519.PublicKey) {
 	ids := make([]identity.ID, len(keys))
 	for i, key := range keys {
@@ -66,12 +79,14 @@ func (m *Manager) RemovePeers(keys []ed25519.PublicKey) {
 	})
 }
 
+// AddPeer adds a single peer to the list on known peers.
 func (m *Manager) AddPeer(p *peer.Peer) {
 	m.mutateKnownPeers(func(knownPeers map[identity.ID]*peer.Peer) {
 		knownPeers[p.ID()] = p
 	})
 }
 
+// RemovePeer removes single peer from the list on known peers.
 func (m *Manager) RemovePeer(key ed25519.PublicKey) {
 	peerID := identity.NewID(key)
 	m.mutateKnownPeers(func(knownPeers map[identity.ID]*peer.Peer) {
@@ -88,6 +103,8 @@ func (m *Manager) mutateKnownPeers(mutateFn func(knownPeers map[identity.ID]*pee
 	m.triggerSync()
 }
 
+// Start subscribes to the gossip layer events and starts internal background workers.
+// Calling multiple times has no effect.
 func (m *Manager) Start() {
 	m.startOnce.Do(func() {
 		m.gm.NeighborsEvents(gossip.NeighborsGroupManual).NeighborRemoved.Attach(events.NewClosure(m.onGossipNeighborRemoved))
@@ -100,6 +117,7 @@ func (m *Manager) Start() {
 	})
 }
 
+// Stop terminates internal background workers. Calling multiple times has no effect.
 func (m *Manager) Stop() error {
 	if atomic.LoadInt32(&m.isStarted) != 1 {
 		return errors.New("can't stop the manager: it hasn't been started yet")
@@ -122,15 +140,15 @@ func (m *Manager) syncGossipNeighbors() {
 	for {
 		select {
 		case <-m.stopCh:
-			break
+			return
 		case <-m.syncTriggerCh:
 		case <-m.syncTicker.C:
-
 		}
 
 		neighborsToConnect, neighborsToDrop := m.getNeighborsDiff()
 		wg := sync.WaitGroup{}
-		wg.Add(2)
+		const tasksNum = 2
+		wg.Add(tasksNum)
 
 		go func() {
 			defer wg.Done()
@@ -145,7 +163,7 @@ func (m *Manager) syncGossipNeighbors() {
 	}
 }
 
-func (m *Manager) getNeighborsDiff() (neighborsToConnect []*peer.Peer, neighborsToDrop []*peer.Peer) {
+func (m *Manager) getNeighborsDiff() (neighborsToConnect, neighborsToDrop []*peer.Peer) {
 	m.connectedNeighborsMutex.RLock()
 	defer m.connectedNeighborsMutex.RUnlock()
 	m.knownPeersMutex.RLock()
@@ -199,7 +217,6 @@ func (m *Manager) connectNeighbor(p *peer.Peer) error {
 	case connDirectionInbound:
 		if err := m.gm.AddInbound(p, gossip.NeighborsGroupManual); err != nil {
 			return errors.Wrapf(err, "failed to connect an inbound neighbor; publicKey=%s", p.PublicKey())
-
 		}
 	default:
 		return errors.Newf("unknown connection direction for neighbor; publicKey=%s, connDirection=%s", p.PublicKey(), connDirection)

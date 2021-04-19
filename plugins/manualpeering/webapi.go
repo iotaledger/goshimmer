@@ -1,52 +1,52 @@
 package manualpeering
 
 import (
-	"github.com/cockroachdb/errors"
 	"net/http"
+
+	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/labstack/echo"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 func configureWebAPI() {
-	webapi.Server().POST("gossip/neighbors", addNeighborsHandler)
-	webapi.Server().DELETE("gossip/neighbors", dropNeighborsHandler)
+	webapi.Server().POST("manualpeering/knownPeers", addPeersHandler)
+	webapi.Server().DELETE("manualpeering/knownPeers", removePeersHandler)
 }
 
-func addNeighborsHandler(c echo.Context) error {
-	var neighbors []*peer.Peer
-	if err := webapi.ParseJSONRequest(c, &neighbors); err != nil {
-		log().Errorw("Failed to parse neighbors from the request", "err", err)
+func addPeersHandler(c echo.Context) error {
+	var peers []*peer.Peer
+	if err := webapi.ParseJSONRequest(c, &peers); err != nil {
+		log().Errorw("Failed to parse peers from the request", "err", err)
 		return c.JSON(
 			http.StatusBadRequest,
-			jsonmodels.NewErrorResponse(xerrors.Errorf("Invalid add neighbors request: %w", err)),
+			jsonmodels.NewErrorResponse(errors.Wrap(err, "Invalid add peers request")),
 		)
 	}
-	Manager().AddPeers(neighbors)
+	Manager().AddPeers(peers)
 	return c.JSON(http.StatusOK, map[string]bool{"ok": true})
 }
 
-type neighborToDrop struct {
+type peerToRemove struct {
 	PublicKey string `json:"publicKey"`
 }
 
-func dropNeighborsHandler(c echo.Context) error {
-	var neighborsToDrop []*neighborToDrop
-	if err := webapi.ParseJSONRequest(c, &neighborsToDrop); err != nil {
-		log().Errorw("Failed to parse neighbors for drop from the request", "err", err)
+func removePeersHandler(c echo.Context) error {
+	var peersToRemove []*peerToRemove
+	if err := webapi.ParseJSONRequest(c, &peersToRemove); err != nil {
+		log().Errorw("Failed to parse peers to remove from the request", "err", err)
 		return c.JSON(
 			http.StatusBadRequest,
-			jsonmodels.NewErrorResponse(xerrors.Errorf("Invalid drop neighbors request: %w", err)),
+			jsonmodels.NewErrorResponse(errors.Wrap(err, "Invalid remove peers request")),
 		)
 	}
-	if err := dropNeighbors(neighborsToDrop); err != nil {
+	if err := removePeers(peersToRemove); err != nil {
 		log().Errorw(
-			"Can't drop some of the neighbors from the HTTP request",
+			"Can't remove some of the peers from the HTTP request",
 			"err", err,
 		)
 		return c.JSON(http.StatusInternalServerError, jsonmodels.NewErrorResponse(err))
@@ -54,13 +54,12 @@ func dropNeighborsHandler(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]bool{"ok": true})
 }
 
-func dropNeighbors(ntds []*neighborToDrop) error {
+func removePeers(ntds []*peerToRemove) error {
 	keys := make([]ed25519.PublicKey, len(ntds))
 	for i, ntd := range ntds {
 		publicKey, err := ed25519.PublicKeyFromString(ntd.PublicKey)
 		if err != nil {
 			return errors.Wrapf(err, "failed to parse public key %s from HTTP request", publicKey)
-
 		}
 		keys[i] = publicKey
 	}
