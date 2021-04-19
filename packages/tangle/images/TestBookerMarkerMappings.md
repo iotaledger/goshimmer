@@ -77,7 +77,7 @@ Note that MainBranchID does not own sequence ID 1, although the PastMarker has s
 
 - Transaction 6
     - PastMarker.BranchID = [A]
-    - Payload.BranchID = Main, since no double spend
+    - Payload.BranchID = [A] (note: incorrectly shown in the Figure)
 
 ![](https://imgur.com/ZtSYkvq.png)
 
