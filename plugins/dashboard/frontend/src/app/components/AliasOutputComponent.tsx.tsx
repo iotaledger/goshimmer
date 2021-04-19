@@ -26,6 +26,10 @@ export class AliasOutputComponent extends React.Component<Props, any> {
                         <ListGroup.Item>State Data: {this.props.output.stateData}</ListGroup.Item>
                     }
                     {
+                        this.props.output.governanceMetadata &&
+                        <ListGroup.Item>Governance Metadata: {this.props.output.governanceMetadata}</ListGroup.Item>
+                    }
+                    {
                         this.props.output.immutableData &&
                         <ListGroup.Item>Immutable Data: {this.props.output.immutableData}</ListGroup.Item>
                     }

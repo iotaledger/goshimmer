@@ -924,6 +924,7 @@ const (
 	flagAliasOutputGovernanceUpdate = uint(iota)
 	flagAliasOutputGovernanceSet
 	flagAliasOutputStateDataPresent
+	flagAliasOutputGovernanceMetadataPresent
 	flagAliasOutputImmutableDataPresent
 	flagAliasOutputIsOrigin
 )
@@ -949,6 +950,8 @@ type AliasOutput struct {
 	stateIndex uint32
 	// optional state metadata. nil means absent
 	stateData []byte
+	// optional governance level metadata, that can only be changed with a governance update
+	governanceMetadata []byte
 	// optional immutable data. It is set when AliasOutput is minted and can't be changed since
 	// Useful for NFTs
 	immutableData []byte
@@ -1045,10 +1048,20 @@ func AliasOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*AliasOut
 			return nil, xerrors.Errorf("AliasOutput: failed to parse state data: %w", err)
 		}
 	}
-	if flags.HasBit(flagAliasOutputImmutableDataPresent) {
+	if flags.HasBit(flagAliasOutputGovernanceMetadataPresent) {
 		size, err5 := marshalUtil.ReadUint16()
 		if err5 != nil {
-			return nil, xerrors.Errorf("AliasOutput: failed to parse immutable data size: %w", err5)
+			return nil, xerrors.Errorf("AliasOutput: failed to parse governance metadata size: %w", err5)
+		}
+		ret.governanceMetadata, err = marshalUtil.ReadBytes(int(size))
+		if err != nil {
+			return nil, xerrors.Errorf("AliasOutput: failed to parse governance metadata data: %w", err)
+		}
+	}
+	if flags.HasBit(flagAliasOutputImmutableDataPresent) {
+		size, err6 := marshalUtil.ReadUint16()
+		if err6 != nil {
+			return nil, xerrors.Errorf("AliasOutput: failed to parse immutable data size: %w", err6)
 		}
 		ret.immutableData, err = marshalUtil.ReadBytes(int(size))
 		if err != nil {
@@ -1149,6 +1162,21 @@ func (a *AliasOutput) GetStateData() []byte {
 	return a.stateData
 }
 
+// SetGovernanceMetadata sets governance metadata
+func (a *AliasOutput) SetGovernanceMetadata(data []byte) error {
+	if len(data) > MaxOutputPayloadSize {
+		return xerrors.New("AliasOutput: governance metadata too big")
+	}
+	a.governanceMetadata = make([]byte, len(data))
+	copy(a.governanceMetadata, data)
+	return nil
+}
+
+// GetGovernanceMetadata gets the governance metadata
+func (a *AliasOutput) GetGovernanceMetadata() []byte {
+	return a.governanceMetadata
+}
+
 // SetStateIndex sets the state index in the input. It is enforced to increment by 1 with each state transition
 func (a *AliasOutput) SetStateIndex(index uint32) {
 	a.stateIndex = index
@@ -1175,8 +1203,13 @@ func (a *AliasOutput) GetImmutableData() []byte {
 }
 
 // SetImmutableData sets the immutable data field of the alias output.
-func (a *AliasOutput) SetImmutableData(data []byte) {
-	a.immutableData = data
+func (a *AliasOutput) SetImmutableData(data []byte) error {
+	if len(data) > MaxOutputPayloadSize {
+		return xerrors.New("AliasOutput: immutable data too big")
+	}
+	a.immutableData = make([]byte, len(data))
+	copy(a.immutableData, data)
+	return nil
 }
 
 // Clone clones the structure
@@ -1193,6 +1226,7 @@ func (a *AliasOutput) clone() *AliasOutput {
 		stateAddress:       a.stateAddress.Clone(),
 		stateIndex:         a.stateIndex,
 		stateData:          make([]byte, len(a.stateData)),
+		governanceMetadata: make([]byte, len(a.governanceMetadata)),
 		immutableData:      make([]byte, len(a.immutableData)),
 		isOrigin:           a.isOrigin,
 		isGovernanceUpdate: a.isGovernanceUpdate,
@@ -1201,6 +1235,7 @@ func (a *AliasOutput) clone() *AliasOutput {
 		ret.governingAddress = a.governingAddress.Clone()
 	}
 	copy(ret.stateData, a.stateData)
+	copy(ret.governanceMetadata, a.governanceMetadata)
 	copy(ret.immutableData, a.immutableData)
 	ret.mustValidate()
 	return ret
@@ -1293,6 +1328,10 @@ func (a *AliasOutput) ObjectStorageValue() []byte {
 		ret.WriteUint16(uint16(len(a.stateData))).
 			WriteBytes(a.stateData)
 	}
+	if flags.HasBit(flagAliasOutputGovernanceMetadataPresent) {
+		ret.WriteUint16(uint16(len(a.governanceMetadata))).
+			WriteBytes(a.governanceMetadata)
+	}
 	if flags.HasBit(flagAliasOutputImmutableDataPresent) {
 		ret.WriteUint16(uint16(len(a.immutableData))).
 			WriteBytes(a.immutableData)
@@ -1383,6 +1422,10 @@ func (a *AliasOutput) checkBasicValidity() error {
 		return xerrors.Errorf("AliasOutput: size of the stateData (%d) exceeds maximum allowed (%d)",
 			len(a.stateData), MaxOutputPayloadSize)
 	}
+	if len(a.governanceMetadata) > MaxOutputPayloadSize {
+		return xerrors.Errorf("AliasOutput: size of the governance metadata (%d) exceeds maximum allowed (%d)",
+			len(a.governanceMetadata), MaxOutputPayloadSize)
+	}
 	if len(a.immutableData) > MaxOutputPayloadSize {
 		return xerrors.Errorf("AliasOutput: size of the immutableData (%d) exceeds maximum allowed (%d)",
 			len(a.immutableData), MaxOutputPayloadSize)
@@ -1415,6 +1458,9 @@ func (a *AliasOutput) mustFlags() bitmask.BitMask {
 	}
 	if a.governingAddress != nil {
 		ret = ret.SetBit(flagAliasOutputGovernanceSet)
+	}
+	if len(a.governanceMetadata) > 0 {
+		ret = ret.SetBit(flagAliasOutputGovernanceMetadataPresent)
 	}
 	return ret
 }
@@ -1509,6 +1555,7 @@ func (a *AliasOutput) validateTransition(chained *AliasOutput) error {
 		}
 		// can modify state address
 		// can modify governing address
+		// can modify governance metadata
 	} else {
 		// STATE TRANSITION
 		// can modify state data
@@ -1525,6 +1572,10 @@ func (a *AliasOutput) validateTransition(chained *AliasOutput) error {
 		if a.IsSelfGoverned() != chained.IsSelfGoverned() ||
 			(a.governingAddress != nil && !a.governingAddress.Equals(chained.governingAddress)) {
 			return xerrors.New("AliasOutput: governing address is not unlocked for modification")
+		}
+		// should not modify governance metadata
+		if !bytes.Equal(a.governanceMetadata, chained.governanceMetadata) {
+			return xerrors.New("AliasOutput: governance metadata is not unlocked for modification")
 		}
 	}
 	return nil

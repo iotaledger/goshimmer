@@ -251,9 +251,10 @@ type AliasOutput struct {
 	IsOrigin           bool              `json:"isOrigin"`
 
 	// marshaled to base64
-	StateData        []byte `json:"stateData,omitempty"`
-	ImmutableData    []byte `json:"immutableData,omitempty"`
-	GoverningAddress string `json:"governingAddress,omitempty"`
+	StateData          []byte `json:"stateData,omitempty"`
+	GovernanceMetadata []byte `json:"governanceMetadata"`
+	ImmutableData      []byte `json:"immutableData,omitempty"`
+	GoverningAddress   string `json:"governingAddress,omitempty"`
 }
 
 // ToLedgerStateOutput builds a ledgerstate.Output from SigLockedSingleOutput with the given outputID.
@@ -302,8 +303,17 @@ func (a *AliasOutput) ToLedgerStateOutput(id ledgerstate.OutputID) (ledgerstate.
 			return nil, err
 		}
 	}
+	if a.GovernanceMetadata != nil {
+		err = res.SetGovernanceMetadata(a.GovernanceMetadata)
+		if err != nil {
+			return nil, err
+		}
+	}
 	if a.ImmutableData != nil {
-		res.SetImmutableData(a.ImmutableData)
+		err = res.SetImmutableData(a.ImmutableData)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if a.GoverningAddress != "" {
 		addy, gErr := ledgerstate.AddressFromBase58EncodedString(a.GoverningAddress)
@@ -328,6 +338,7 @@ func AliasOutputFromLedgerstate(output ledgerstate.Output) (*AliasOutput, error)
 		StateIndex:         castedOutput.GetStateIndex(),
 		IsGovernanceUpdate: castedOutput.GetIsGovernanceUpdated(),
 		StateData:          castedOutput.GetStateData(),
+		GovernanceMetadata: castedOutput.GetGovernanceMetadata(),
 		ImmutableData:      castedOutput.GetImmutableData(),
 		IsOrigin:           castedOutput.IsOrigin(),
 	}

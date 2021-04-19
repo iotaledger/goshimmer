@@ -89,6 +89,7 @@ func TestAliasOutput_NewAliasOutputNext(t *testing.T) {
 		assert.Equal(t, originAlias.Balances().Bytes(), nextAlias.Balances().Bytes())
 		assert.Equal(t, originAlias.GetStateIndex()+1, nextAlias.GetStateIndex())
 		assert.Equal(t, originAlias.GetStateData(), nextAlias.GetStateData())
+		assert.Equal(t, originAlias.GetGovernanceMetadata(), nextAlias.GetGovernanceMetadata())
 		assert.Equal(t, originAlias.GetImmutableData(), nextAlias.GetImmutableData())
 		assert.Equal(t, originAlias.GetIsGovernanceUpdated(), nextAlias.GetIsGovernanceUpdated())
 	})
@@ -103,6 +104,7 @@ func TestAliasOutput_NewAliasOutputNext(t *testing.T) {
 		assert.Equal(t, originAlias.Balances().Bytes(), nextAlias.Balances().Bytes())
 		assert.Equal(t, originAlias.GetStateIndex(), nextAlias.GetStateIndex())
 		assert.Equal(t, originAlias.GetStateData(), nextAlias.GetStateData())
+		assert.Equal(t, originAlias.GetGovernanceMetadata(), nextAlias.GetGovernanceMetadata())
 		assert.Equal(t, originAlias.GetImmutableData(), nextAlias.GetImmutableData())
 		assert.NotEqual(t, originAlias.GetIsGovernanceUpdated(), nextAlias.GetIsGovernanceUpdated())
 	})
@@ -122,6 +124,7 @@ func TestAliasOutput_NewAliasOutputNext(t *testing.T) {
 		assert.Equal(t, originAlias.Balances().Bytes(), nextAlias.Balances().Bytes())
 		assert.Equal(t, originAlias.GetStateIndex()+1, nextAlias.GetStateIndex())
 		assert.Equal(t, originAlias.GetStateData(), nextAlias.GetStateData())
+		assert.Equal(t, originAlias.GetGovernanceMetadata(), nextAlias.GetGovernanceMetadata())
 		assert.Equal(t, originAlias.GetImmutableData(), nextAlias.GetImmutableData())
 	})
 
@@ -140,6 +143,7 @@ func TestAliasOutput_NewAliasOutputNext(t *testing.T) {
 		assert.Equal(t, originAlias.Balances().Bytes(), nextAlias.Balances().Bytes())
 		assert.Equal(t, originAlias.GetStateIndex(), nextAlias.GetStateIndex())
 		assert.Equal(t, originAlias.GetStateData(), nextAlias.GetStateData())
+		assert.Equal(t, originAlias.GetGovernanceMetadata(), nextAlias.GetGovernanceMetadata())
 		assert.Equal(t, originAlias.GetImmutableData(), nextAlias.GetImmutableData())
 	})
 }
@@ -172,6 +176,18 @@ func TestAliasOutputFromMarshalUtil(t *testing.T) {
 		// manually change flags
 		originBytes[1] = byte(flags)
 		_, _, err := OutputFromBytes(originBytes)
+		assert.Error(t, err)
+	})
+
+	t.Run("CASE: Wrong flag for governance metadata", func(t *testing.T) {
+		originAlias := dummyAliasOutput()
+		originBytes := originAlias.Bytes()
+		flags := originAlias.mustFlags()
+		flags = flags.ClearBit(flagAliasOutputGovernanceMetadataPresent)
+		// manually change flags
+		originBytes[1] = byte(flags)
+		_, _, err := OutputFromBytes(originBytes)
+		t.Log(err)
 		assert.Error(t, err)
 	})
 
@@ -212,16 +228,31 @@ func TestAliasOutputFromMarshalUtil(t *testing.T) {
 		assert.Error(t, err)
 	})
 
+	t.Run("CASE: Flags provided, governance metadata missing", func(t *testing.T) {
+		originAlias := dummyAliasOutput()
+		// remove the data
+		_ = originAlias.SetGovernanceMetadata(nil)
+		originBytes := originAlias.Bytes()
+		flags := originAlias.mustFlags()
+		flags = flags.SetBit(flagAliasOutputGovernanceMetadataPresent)
+		// manually change flags
+		originBytes[1] = byte(flags)
+		_, _, err := OutputFromBytes(originBytes)
+		t.Log(err)
+		assert.Error(t, err)
+	})
+
 	t.Run("CASE: Flags provided, immutable data missing", func(t *testing.T) {
 		originAlias := dummyAliasOutput()
 		// remove the data
-		originAlias.SetImmutableData(nil)
+		err := originAlias.SetImmutableData(nil)
+		assert.NoError(t, err)
 		originBytes := originAlias.Bytes()
 		flags := originAlias.mustFlags()
 		flags = flags.SetBit(flagAliasOutputImmutableDataPresent)
 		// manually change flags
 		originBytes[1] = byte(flags)
-		_, _, err := OutputFromBytes(originBytes)
+		_, _, err = OutputFromBytes(originBytes)
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -265,6 +296,7 @@ func TestAliasOutputFromMarshalUtil(t *testing.T) {
 
 	t.Run("CASE: Too much state data", func(t *testing.T) {
 		originAlias := dummyAliasOutput()
+		originAlias.governanceMetadata = nil
 		originAlias.immutableData = nil
 		originAlias.governingAddress = nil
 		originAlias.stateData = []byte{1}
@@ -279,8 +311,26 @@ func TestAliasOutputFromMarshalUtil(t *testing.T) {
 		assert.Error(t, err)
 	})
 
+	t.Run("CASE: Too much governance metadata", func(t *testing.T) {
+		originAlias := dummyAliasOutput()
+		originAlias.governanceMetadata = []byte{1}
+		originAlias.immutableData = nil
+		originAlias.governingAddress = nil
+		originAlias.stateData = nil
+		originBytes := originAlias.Bytes()
+		governanceMetadataSizeIndex := 1 + 1 + AddressLength + len(originAlias.balances.Bytes()) + AddressLength + 4
+		binary.LittleEndian.PutUint16(originBytes[governanceMetadataSizeIndex:], MaxOutputPayloadSize+1)
+		fakeGovernanceMetadata := make([]byte, MaxOutputPayloadSize)
+		// original one byte governance metadata is left untouched
+		modBytes := byteutils.ConcatBytes(originBytes, fakeGovernanceMetadata)
+		_, _, err := OutputFromBytes(modBytes)
+		t.Log(err)
+		assert.Error(t, err)
+	})
+
 	t.Run("CASE: Too much immutable data", func(t *testing.T) {
 		originAlias := dummyAliasOutput()
+		originAlias.governanceMetadata = nil
 		originAlias.immutableData = []byte{1}
 		originAlias.governingAddress = nil
 		originAlias.stateData = nil
@@ -341,6 +391,7 @@ func TestAliasOutput_Bytes(t *testing.T) {
 		assert.Equal(t, alias.Balances().Bytes(), restoredAlias.Balances().Bytes())
 		assert.Equal(t, alias.GetStateIndex(), restoredAlias.GetStateIndex())
 		assert.Equal(t, alias.GetStateData(), restoredAlias.GetStateData())
+		assert.Equal(t, alias.GetGovernanceMetadata(), restoredAlias.GetGovernanceMetadata())
 		assert.Equal(t, alias.GetImmutableData(), restoredAlias.GetImmutableData())
 		assert.Equal(t, alias.GetIsGovernanceUpdated(), restoredAlias.GetIsGovernanceUpdated())
 	})
@@ -369,6 +420,21 @@ func TestAliasOutput_GetGoverningAddress(t *testing.T) {
 		alias.governingAddress = nil
 		governingAddy := alias.GetGoverningAddress()
 		assert.True(t, governingAddy.Equals(alias.stateAddress))
+	})
+}
+
+func TestAliasOutput_GetGovernanceMetadata(t *testing.T) {
+	t.Run("CASE: Happy path", func(t *testing.T) {
+		alias := dummyAliasOutput()
+		data := alias.GetGovernanceMetadata()
+		assert.Equal(t, data, alias.governanceMetadata)
+	})
+
+	t.Run("CASE: No data", func(t *testing.T) {
+		alias := dummyAliasOutput()
+		alias.governanceMetadata = nil
+		data := alias.GetGovernanceMetadata()
+		assert.Equal(t, data, alias.governanceMetadata)
 	})
 }
 
@@ -531,8 +597,18 @@ func TestAliasOutput_SetImmutableData(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		alias := dummyAliasOutput()
 		data := []byte("new dummy nft data")
-		alias.SetImmutableData(data)
+		err := alias.SetImmutableData(data)
+		assert.NoError(t, err)
 		assert.Equal(t, alias.GetImmutableData(), data)
+	})
+}
+
+func TestAliasOutput_SetGovernanceMetadata(t *testing.T) {
+	t.Run("CASE: Happy path", func(t *testing.T) {
+		alias := dummyAliasOutput()
+		data := []byte("new dummy gov metadata")
+		alias.SetGovernanceMetadata(data)
+		assert.Equal(t, alias.GetGovernanceMetadata(), data)
 	})
 }
 
@@ -721,6 +797,14 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
+	t.Run("CASE: Gov update, modified governance metadata", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		next := prev.NewAliasOutputNext(true)
+		next.governanceMetadata = []byte("chain is run by another VM")
+		err := prev.validateTransition(next)
+		assert.NoError(t, err)
+	})
+
 	t.Run("CASE: State update, wrong state index", func(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(false)
@@ -743,6 +827,15 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(false)
 		next.governingAddress = randAliasAddress()
+		err := prev.validateTransition(next)
+		t.Log(err)
+		assert.Error(t, err)
+	})
+
+	t.Run("CASE: State update, modify governance metadata", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		next := prev.NewAliasOutputNext(false)
+		next.governanceMetadata = []byte("chain is run by another VM")
 		err := prev.validateTransition(next)
 		t.Log(err)
 		assert.Error(t, err)
@@ -2003,6 +2096,7 @@ func dummyAliasOutput(origin ...bool) *AliasOutput {
 		stateAddress:        randEd25119Address(),
 		stateIndex:          0,
 		stateData:           []byte("initial"),
+		governanceMetadata:  []byte("This chain runs EVM v0.0.0"),
 		immutableData:       []byte("don't touch this"),
 		isGovernanceUpdate:  false,
 		isOrigin:            orig,
