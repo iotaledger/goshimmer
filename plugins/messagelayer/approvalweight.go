@@ -79,7 +79,7 @@ func onBranchConfirmed(branchID ledgerstate.BranchID, newLevel int, transition e
 	plugin.LogDebugf("%s confirmed by ApprovalWeight.", branchID)
 
 	if Tangle().LedgerState.BranchDAG.InclusionState(branchID) == ledgerstate.Rejected {
-		remotelog.SendLogMsg(logger.LevelWarn, "REORG", fmt.Sprintf("%s reorg detected by ApprovalWeight.", branchID))
+		remotelog.SendLogMsg(logger.LevelWarn, "REORG", fmt.Sprintf("%s reorg detected by ApprovalWeight", branchID))
 		plugin.LogInfof("%s reorg detected by ApprovalWeight.", branchID)
 	}
 }
