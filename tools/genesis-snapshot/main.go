@@ -26,10 +26,17 @@ const (
 	cfgSnapshotFileName     = "snapshot-file"
 	cfgSnapshotGenesisSeed  = "seed"
 	defaultSnapshotFileName = "./snapshot.bin"
+
+	tokensToPledge = uint64(10000000)
+	faucetPledge   = "EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP"
 )
 
+var nodesToPledge = []string{
+	"CHfU1NUf6ZvUKDQHTG2df53GR7CvuMFtyt7YymJ6DwS3", // Faucet
+}
+
 func init() {
-	flag.Int(cfgGenesisTokenAmount, 1000000000000000, "the amount of tokens to add to the genesis output")
+	flag.Uint64(cfgGenesisTokenAmount, 1000000000000000, "the amount of tokens to add to the genesis output")
 	flag.String(cfgSnapshotFileName, defaultSnapshotFileName, "the name of the generated snapshot file")
 	flag.String(cfgSnapshotGenesisSeed, "", "the genesis seed")
 }
@@ -39,7 +46,7 @@ func main() {
 	if err := viper.BindPFlags(flag.CommandLine); err != nil {
 		panic(err)
 	}
-	genesisTokenAmount := viper.GetInt64(cfgGenesisTokenAmount)
+	genesisTokenAmount := viper.GetUint64(cfgGenesisTokenAmount)
 	snapshotFileName := viper.GetString(cfgSnapshotFileName)
 	log.Printf("creating snapshot %s...", snapshotFileName)
 
@@ -58,7 +65,7 @@ func main() {
 			Address:  genesisSeed.Address(0),
 			OutputID: ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0),
 			Balances: ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
-				ledgerstate.ColorIOTA: 1000000000000000,
+				ledgerstate.ColorIOTA: genesisTokenAmount,
 			}),
 			InclusionState: wallet.InclusionState{
 				Liked:     true,
@@ -69,12 +76,24 @@ func main() {
 
 	output := ledgerstate.NewSigLockedColoredOutput(
 		ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
-			ledgerstate.ColorIOTA: 1000000000000000,
+			ledgerstate.ColorIOTA: genesisTokenAmount,
 		}),
 		genesisSeed.Address(0).Address(),
 	)
 
-	pubKey, err := ed25519.PublicKeyFromString("Gm7W191NDnqyF7KJycZqK7V6ENLwqxTwoKQN4SmpkB24")
+	randomSeed := seed.NewSeed()
+
+	output1 := ledgerstate.NewSigLockedColoredOutput(
+		ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
+			ledgerstate.ColorIOTA: tokensToPledge,
+		}),
+		randomSeed.Address(0).Address(),
+	)
+
+	transactionsMap := make(map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence)
+
+	// Peer master
+	pubKey, err := ed25519.PublicKeyFromString(faucetPledge)
 	if err != nil {
 		panic(err)
 	}
@@ -87,11 +106,31 @@ func main() {
 		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
 		ledgerstate.NewOutputs(output),
 	), ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
-	newSnapshot := &ledgerstate.Snapshot{
-		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{
-			tx.ID(): tx.Essence(),
-		},
+
+	transactionsMap[tx.ID()] = tx.Essence()
+
+	var transactions []*ledgerstate.Transaction
+	for i, pk := range nodesToPledge {
+		pubKey, err = ed25519.PublicKeyFromString(pk)
+		if err != nil {
+			panic(err)
+		}
+		nodeID = identity.NewID(pubKey)
+
+		tx = ledgerstate.NewTransaction(ledgerstate.NewTransactionEssence(
+			0,
+			time.Unix(epochs.DefaultGenesisTime, 0),
+			nodeID,
+			nodeID,
+			ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, uint16(i+1)))),
+			ledgerstate.NewOutputs(output1),
+		), ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
+
+		transactions = append(transactions, tx)
+		transactionsMap[tx.ID()] = tx.Essence()
 	}
+
+	newSnapshot := &ledgerstate.Snapshot{Transactions: transactionsMap}
 
 	genesisWallet := wallet.New(wallet.Import(genesisSeed, 1, []bitmask.BitMask{}, wallet.NewAssetRegistry()), wallet.GenericConnector(mockedConnector))
 	genesisAddress := genesisWallet.Seed().Address(0).Address()
