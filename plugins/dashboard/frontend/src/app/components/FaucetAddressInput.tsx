@@ -24,7 +24,16 @@ export class FaucetAddressInput extends React.Component<Props, any> {
     }
 
     updateSend = (e) => {
-        this.props.faucetStore.updateSend(e.target.value);
+        switch (e.target.name) {
+            case "address":
+                this.props.faucetStore.updateSend(e.target.value);
+                break;
+            case "accessMana":
+                this.props.faucetStore.updateSendAccessManaNodeID(e.target.value);
+                break;
+            case "consensusMana":
+                this.props.faucetStore.updateSendConsensusManaNodeID(e.target.value);
+        }
     };
 
     executeSend = (e: KeyboardEvent) => {
@@ -37,7 +46,7 @@ export class FaucetAddressInput extends React.Component<Props, any> {
     };
 
     render() {
-        let {send_addr, query_error, sending} = this.props.faucetStore;
+        let {send_addr, query_error, sending, send_access_mana_node_id, send_consensus_mana_node_id} = this.props.faucetStore;
 
         return (
             <React.Fragment>
@@ -45,10 +54,41 @@ export class FaucetAddressInput extends React.Component<Props, any> {
                     <Col>
                         <InputGroup className="mb-3">
                             <FormControl
+                                name="address"
                                 placeholder="Address"
                                 aria-label="Address"
                                 aria-describedby="basic-addon1"
                                 value={send_addr} onChange={this.updateSend}
+                                onKeyUp={this.executeSend}
+                                disabled={sending}
+                            />
+                        </InputGroup>
+                    </Col>
+                </Row>
+                <Row className={"mb-3"}>
+                    <Col>
+                        <InputGroup className="mb-3">
+                            <FormControl
+                                name="accessMana"
+                                placeholder="Access mana Node ID"
+                                aria-label="accessMana"
+                                aria-describedby="basic-addon1"
+                                value={send_access_mana_node_id} onChange={this.updateSend}
+                                onKeyUp={this.executeSend}
+                                disabled={sending}
+                            />
+                        </InputGroup>
+                    </Col>
+                </Row>
+                <Row className={"mb-3"}>
+                    <Col>
+                        <InputGroup className="mb-3">
+                            <FormControl
+                                name="consensusMana"
+                                placeholder="Consensus mana Node ID"
+                                aria-label="consensusMana"
+                                aria-describedby="basic-addon1"
+                                value={send_consensus_mana_node_id} onChange={this.updateSend}
                                 onKeyUp={this.executeSend}
                                 disabled={sending}
                             />

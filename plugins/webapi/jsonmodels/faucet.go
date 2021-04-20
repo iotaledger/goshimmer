@@ -8,5 +8,7 @@ type FaucetResponse struct {
 
 // FaucetRequest contains the address to request funds from faucet.
 type FaucetRequest struct {
-	Address string `json:"address"`
+	Address               string `json:"address"`
+	AccessManaPledgeID    string `json:"accessManaPledgeID"`
+	ConsensusManaPledgeID string `json:"consensusManaPledgeID"`
 }

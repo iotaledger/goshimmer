@@ -41,6 +41,9 @@ const (
 	// PrefixIndividuallyMappedMessage defines the storage prefix for the IndividuallyMappedMessage.
 	PrefixIndividuallyMappedMessage
 
+	// PrefixMarkerMessageMapping defines the storage prefix for the MarkerMessageMapping.
+	PrefixMarkerMessageMapping
+
 	// DBSequenceNumber defines the db sequence number.
 	DBSequenceNumber = "seq"
 )
@@ -60,6 +63,7 @@ type Storage struct {
 	attachmentStorage                 *objectstorage.ObjectStorage
 	markerIndexBranchIDMappingStorage *objectstorage.ObjectStorage
 	individuallyMappedMessageStorage  *objectstorage.ObjectStorage
+	markerMessageMappingStorage       *objectstorage.ObjectStorage
 
 	Events   *StorageEvents
 	shutdown chan struct{}
@@ -79,6 +83,7 @@ func NewStorage(tangle *Tangle) (storage *Storage) {
 		attachmentStorage:                 osFactory.New(PrefixAttachments, AttachmentFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.PartitionKey(ledgerstate.TransactionIDLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false)),
 		markerIndexBranchIDMappingStorage: osFactory.New(PrefixMarkerBranchIDMapping, MarkerIndexBranchIDMappingFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
 		individuallyMappedMessageStorage:  osFactory.New(PrefixIndividuallyMappedMessage, IndividuallyMappedMessageFromObjectStorage, objectstorage.CacheTime(CacheTime), IndividuallyMappedMessagePartitionKeys, objectstorage.LeakDetectionEnabled(false)),
+		markerMessageMappingStorage:       osFactory.New(PrefixMarkerMessageMapping, MarkerMessageMappingFromObjectStorage, objectstorage.CacheTime(CacheTime), MarkerMessageMappingPartitionKeys),
 
 		Events: &StorageEvents{
 			MessageStored:        events.NewEvent(MessageIDCaller),
@@ -283,6 +288,30 @@ func (s *Storage) IndividuallyMappedMessages(branchID ledgerstate.BranchID) (cac
 	return
 }
 
+// StoreMarkerMessageMapping stores a MarkerMessageMapping in the underlying object storage.
+func (s *Storage) StoreMarkerMessageMapping(markerMessageMapping *MarkerMessageMapping) {
+	s.markerMessageMappingStorage.Store(markerMessageMapping).Release()
+}
+
+// DeleteMarkerMessageMapping deleted a MarkerMessageMapping in the underlying object storage.
+func (s *Storage) DeleteMarkerMessageMapping(branchID ledgerstate.BranchID, messageID MessageID) {
+	s.markerMessageMappingStorage.Delete(byteutils.ConcatBytes(branchID.Bytes(), messageID.Bytes()))
+}
+
+// MarkerMessageMapping retrieves the MarkerMessageMapping associated with the given details.
+func (s *Storage) MarkerMessageMapping(marker *markers.Marker) (cachedMarkerMessageMappings *CachedMarkerMessageMapping) {
+	return &CachedMarkerMessageMapping{CachedObject: s.markerMessageMappingStorage.Load(marker.Bytes())}
+}
+
+// MarkerMessageMappings retrieves the MarkerMessageMappings of a Sequence in the object storage.
+func (s *Storage) MarkerMessageMappings(sequenceID markers.SequenceID) (cachedMarkerMessageMappings CachedMarkerMessageMappings) {
+	s.markerMessageMappingStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		cachedMarkerMessageMappings = append(cachedMarkerMessageMappings, &CachedMarkerMessageMapping{CachedObject: cachedObject})
+		return true
+	}, objectstorage.WithIteratorPrefix(sequenceID.Bytes()))
+	return
+}
+
 func (s *Storage) storeGenesis() {
 	s.MessageMetadata(EmptyMessageID, func() *MessageMetadata {
 		genesisMetadata := &MessageMetadata{
@@ -327,6 +356,7 @@ func (s *Storage) Shutdown() {
 	s.attachmentStorage.Shutdown()
 	s.markerIndexBranchIDMappingStorage.Shutdown()
 	s.individuallyMappedMessageStorage.Shutdown()
+	s.markerMessageMappingStorage.Shutdown()
 
 	close(s.shutdown)
 }
@@ -341,6 +371,7 @@ func (s *Storage) Prune() error {
 		s.attachmentStorage,
 		s.markerIndexBranchIDMappingStorage,
 		s.individuallyMappedMessageStorage,
+		s.markerMessageMappingStorage,
 	} {
 		if err := storage.Prune(); err != nil {
 			err = fmt.Errorf("failed to prune storage: %w", err)
