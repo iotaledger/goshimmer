@@ -1,10 +1,6 @@
 # Protocol high-level overview
 
-<<<<<<< HEAD
 To orientate the reader, we provide a high-level overview of the protocol, following the natural life cycle of a message. The first module used&mdash;while the message is still being created&mdash;, is the **Tip Selection**(ADD LINK) module. Here, the node must choose a certain number (from two to eight) of other messages to reference, meaning that the newly created message will be cryptographically attached to these referenced messages. An honest node must always choose tips uniformly at random from a tip pool, i.e., from a set of still unreferenced messages that satisfy a certain set of conditions, as discussed on INSERT LINK. In the diagram below, the issuance process being described now is represented in the context of the complete protocol. 
-=======
-To orientate the reader, we provide a high-level overview of the protocol, following the natural life cycle of a message. The first module used -while the message is still being created-, is the **Tip Selection**(ADD LINK) module. Here, the node must choose a certain number (from two to some defined upper number) of other messages to reference, meaning that the newly created message will be cryptographically attached to these referenced messages. An honest node must always choose tips uniformly at random from a tip pool, i.e., from a set of still unreferenced messages that satisfy a certain set of conditions, as discussed on INSERT LINK. In the diagram below, the issuance process being described now is represented in the context of the complete protocol. 
->>>>>>> 5f8a178da3f9f54f920801e38c7f0e2af018ed1d
 
 ![title](Protocol_overview_own_message.png)
 
@@ -49,8 +45,5 @@ Some concepts or modules implemented -even not strictly being part of the protoc
 4. **Grade 4**: If the message achieved grade 3 and 30 minutes (??????????) have passed since the timestamp of the message
 
 For more details on the grades above, see LINK.
-<<<<<<< HEAD
 
 
-=======
->>>>>>> 5f8a178da3f9f54f920801e38c7f0e2af018ed1d
