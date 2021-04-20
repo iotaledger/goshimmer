@@ -30,10 +30,10 @@ import (
 
 var (
 	maxQueueWeight  = 1024.0 * 1024.0
-	rate            = time.Second / 5000
+	testRate        = time.Second / 5000
 	beta            = 1.0
 	schedulerParams = SchedulerParams{
-		Rate:                        rate,
+		Rate:                        testRate,
 		MaxQueueWeight:              &maxQueueWeight,
 		AccessManaRetrieveFunc:      getAccessMana,
 		TotalAccessManaRetrieveFunc: getTotalAccessMana,
@@ -534,6 +534,11 @@ func TestTangle_Flow(t *testing.T) {
 	}))
 
 	tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
+		n := atomic.AddInt32(&scheduledMessages, 1)
+		t.Logf("scheduled messages %d/%d", n, totalMsgCount)
+	}))
+
+	tangle.DummyScheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
 		n := atomic.AddInt32(&scheduledMessages, 1)
 		t.Logf("scheduled messages %d/%d", n, totalMsgCount)
 	}))

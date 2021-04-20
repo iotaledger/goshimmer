@@ -67,6 +67,9 @@ func TestScheduler_Schedule(t *testing.T) {
 	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
 	defer tangle.Shutdown()
 
+	tangle.Scheduler.Setup()
+	tangle.Scheduler.Start()
+
 	messageScheduled := make(chan MessageID, 1)
 	tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(id MessageID) { messageScheduled <- id }))
 
@@ -89,6 +92,9 @@ func TestScheduler_Schedule(t *testing.T) {
 func TestScheduler_Time(t *testing.T) {
 	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
 	defer tangle.Shutdown()
+
+	tangle.Scheduler.Setup()
+	tangle.Scheduler.Start()
 
 	messageScheduled := make(chan MessageID, 1)
 	tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(id MessageID) { messageScheduled <- id }))
@@ -131,6 +137,8 @@ func TestScheduler_Issue(t *testing.T) {
 	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
 	defer tangle.Shutdown()
 	tangle.Setup()
+	tangle.Scheduler.Setup()
+	tangle.Scheduler.Start()
 
 	const numMessages = 5
 	ids := make([]MessageID, numMessages)
@@ -166,6 +174,7 @@ func TestSchedulerFlow(t *testing.T) {
 	tangle.Storage.Setup()
 	tangle.Solidifier.Setup()
 	tangle.Scheduler.Setup()
+	tangle.Scheduler.Start()
 
 	// testing desired scheduled order: A - B - D - C  (B - A - D - C is equivalent)
 	messages := make(map[string]*Message)

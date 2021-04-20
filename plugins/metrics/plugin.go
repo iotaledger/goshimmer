@@ -163,6 +163,9 @@ func registerLocalMetrics() {
 	messagelayer.Tangle().Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		increasePerComponentCounter(Scheduler)
 	}))
+	messagelayer.Tangle().DummyScheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		increasePerComponentCounter(Scheduler)
+	}))
 
 	messagelayer.Tangle().Booker.Events.MessageBooked.Attach(events.NewClosure(func(message tangle.MessageID) {
 		increasePerComponentCounter(Booker)

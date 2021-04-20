@@ -27,6 +27,7 @@ type Tangle struct {
 	Storage          *Storage
 	Solidifier       *Solidifier
 	Scheduler        *Scheduler
+	DummyScheduler   *OldScheduler
 	Booker           *Booker
 	ConsensusManager *ConsensusManager
 	TipManager       *TipManager
@@ -48,6 +49,7 @@ func New(options ...Option) (tangle *Tangle) {
 		Events: &Events{
 			MessageEligible: events.NewEvent(MessageIDCaller),
 			MessageInvalid:  events.NewEvent(MessageIDCaller),
+			SyncChanged:     events.NewEvent(SyncChangedCaller),
 			Error:           events.NewEvent(events.ErrorCaller),
 		},
 	}
@@ -58,6 +60,7 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.Storage = NewStorage(tangle)
 	tangle.Solidifier = NewSolidifier(tangle)
 	tangle.Scheduler = NewScheduler(tangle)
+	tangle.DummyScheduler = NewOldScheduler(tangle)
 	tangle.LedgerState = NewLedgerState(tangle)
 	tangle.Booker = NewBooker(tangle)
 	tangle.ConsensusManager = NewConsensusManager(tangle)
@@ -94,7 +97,8 @@ func (t *Tangle) Setup() {
 	t.Storage.Setup()
 	t.Solidifier.Setup()
 	t.Requester.Setup()
-	t.Scheduler.Setup()
+	t.DummyScheduler.Setup()
+	//t.Scheduler.Setup()
 	t.Booker.Setup()
 	t.ConsensusManager.Setup()
 	t.TipManager.Setup()
@@ -162,6 +166,7 @@ func (t *Tangle) SetSynced(synced bool) (modified bool) {
 	t.synced = synced
 	modified = true
 
+	t.Events.SyncChanged.Trigger(&SyncChangedEvent{synced})
 	return
 }
 
@@ -195,13 +200,26 @@ type Events struct {
 	// Fired when a message has been eligible.
 	MessageEligible *events.Event
 
+	// Fired when the nodes sync status changes.
+	SyncChanged *events.Event
+
 	// Error is triggered when the Tangle faces an error from which it can not recover.
 	Error *events.Event
+}
+
+// SyncChangedEvent represents a syn changed event.
+type SyncChangedEvent struct {
+	Synced bool
 }
 
 // MessageIDCaller is the caller function for events that hand over a MessageID.
 func MessageIDCaller(handler interface{}, params ...interface{}) {
 	handler.(func(MessageID))(params[0].(MessageID))
+}
+
+// SyncChangedCaller is the caller function for sync changed event.
+func SyncChangedCaller(handler interface{}, params ...interface{}) {
+	handler.(func(ev *SyncChangedEvent))(params[0].(*SyncChangedEvent))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

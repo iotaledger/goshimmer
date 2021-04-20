@@ -100,7 +100,7 @@ func configureSyncBeaconFollower(*node.Plugin) {
 		syncBeaconFollowerPlugin.Panicf("Follow node list cannot be empty: %w", ErrMissingFollowNodes)
 	}
 
-	Tangle().Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+	f := events.NewClosure(func(messageID tangle.MessageID) {
 		Tangle().Storage.Message(messageID).Consume(func(msg *tangle.Message) {
 			messagePayload := msg.Payload()
 			if messagePayload.Type() != syncbeacon_payload.Type {
@@ -128,7 +128,9 @@ func configureSyncBeaconFollower(*node.Plugin) {
 
 			handlePayload(payload, msg.IssuerPublicKey(), msg.ID())
 		})
-	}))
+	})
+	Tangle().Scheduler.Events.MessageScheduled.Attach(f)
+	Tangle().DummyScheduler.Events.MessageScheduled.Attach(f)
 }
 
 // handlePayload handles the received payload. It does the following checks:

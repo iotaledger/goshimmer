@@ -23,8 +23,8 @@ const (
 var (
 	// MaxQueueWeight is the maximum mana-scaled inbox size; >= minMessageSize / minAccessMana
 	MaxQueueWeight = 1024.0
-	// Rate is the minimum time interval between two scheduled messages, i.e. 1s / MPS
-	Rate = time.Second / 200
+	// rate is the minimum time interval between two scheduled messages, i.e. 1s / MPS
+	rate = time.Second / 200
 )
 
 var (
@@ -52,21 +52,17 @@ type SchedulerParams struct {
 
 // Scheduler is a Tangle component that takes care of scheduling the messages that shall be booked.
 type Scheduler struct {
-	Events *SchedulerEvents
-
-	tangle *Tangle
-
-	self identity.ID
-
-	// everything below is protected with a lock
-	mu sync.Mutex
-
-	// scheduler
-	buffer   *BufferQueue
-	deficits map[identity.ID]float64
-
-	shutdownSignal chan struct{}
-	shutdownOnce   sync.Once
+	Events           *SchedulerEvents
+	tangle           *Tangle
+	self             identity.ID
+	mu               sync.Mutex
+	buffer           *BufferQueue
+	deficits         map[identity.ID]float64
+	onMessageSolid   *events.Closure
+	onMessageInvalid *events.Closure
+	shutdownSignal   chan struct{}
+	shutdownOnce     sync.Once
+	ticker           *time.Ticker
 }
 
 // NewScheduler returns a new Scheduler.
@@ -85,7 +81,7 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 		MaxQueueWeight = *tangle.Options.SchedulerParams.MaxQueueWeight
 	}
 	if tangle.Options.SchedulerParams.Rate > 0 {
-		Rate = tangle.Options.SchedulerParams.Rate
+		rate = tangle.Options.SchedulerParams.Rate
 	}
 
 	scheduler := &Scheduler{
@@ -100,17 +96,32 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 		deficits:       make(map[identity.ID]float64),
 		shutdownSignal: make(chan struct{}),
 	}
-
-	go scheduler.mainLoop()
-
+	scheduler.onMessageSolid = events.NewClosure(scheduler.onMessageSolidHandler)
+	scheduler.onMessageInvalid = events.NewClosure(scheduler.onMessageInvalidHandler)
 	return scheduler
+}
+
+func (s *Scheduler) onMessageSolidHandler(ID MessageID) {
+	s.SubmitAndReadyMessage(ID)
+}
+func (s *Scheduler) onMessageInvalidHandler(ID MessageID) {
+	s.Unsubmit(ID)
+}
+
+func (s *Scheduler) Start() {
+	go s.mainLoop()
+}
+
+// Detach detaches the scheduler from the tangle events.
+func (s *Scheduler) Detach() {
+	s.tangle.Solidifier.Events.MessageSolid.Detach(s.onMessageSolid)
+	s.tangle.Events.MessageInvalid.Detach(s.onMessageInvalid)
 }
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (s *Scheduler) Setup() {
 	s.tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(s.SubmitAndReadyMessage))
 	s.tangle.Events.MessageInvalid.Attach(events.NewClosure(s.Unsubmit))
-	//s.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(s.booked))
 
 	//  TODO: wait for all messages to be scheduled here or in message layer?
 	/*
@@ -126,6 +137,12 @@ func (s *Scheduler) Setup() {
 func (s *Scheduler) SubmitAndReadyMessage(messageID MessageID) {
 	s.Submit(messageID)
 	s.Ready(messageID)
+}
+
+// SetRate sets the rate of the scheduler.
+func (s *Scheduler) SetRate(rate time.Duration) {
+	s.ticker = time.NewTicker(rate)
+	s.tangle.Options.SchedulerParams.Rate = rate
 }
 
 // Shutdown shuts down the Scheduler.
@@ -253,13 +270,13 @@ func (s *Scheduler) schedule() *Message {
 
 // mainLoop periodically triggers the scheduling of ready messages.
 func (s *Scheduler) mainLoop() {
-	schedule := time.NewTicker(Rate)
-	defer schedule.Stop()
+	s.ticker = time.NewTicker(rate)
+	defer s.ticker.Stop()
 
 	for {
 		select {
-		// every Rate time units
-		case <-schedule.C:
+		// every rate time units
+		case <-s.ticker.C:
 			// TODO: do we need to pause the ticker, if there are no ready messages
 			msg := s.schedule()
 			if msg != nil {

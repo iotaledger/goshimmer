@@ -196,7 +196,6 @@ func (r *RateSetter) issueNext() bool {
 
 func (r *RateSetter) issueInterval(msg *Message) time.Duration {
 	wait := time.Duration(math.Ceil(float64(len(msg.Bytes())) / r.lambda.Load() * float64(time.Second)))
-	fmt.Println("wait: ", wait)
 	return wait
 }
 

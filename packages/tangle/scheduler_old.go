@@ -24,6 +24,9 @@ type OldScheduler struct {
 	shutdownSignal         chan struct{}
 	shutdown               sync.WaitGroup
 	shutdownOnce           sync.Once
+	onMessageSolid         *events.Closure
+	onOpinionFormed        *events.Closure
+	onMessageInvalid       *events.Closure
 }
 
 // NewOldScheduler returns a new scheduler.
@@ -38,6 +41,9 @@ func NewOldScheduler(tangle *Tangle) (scheduler *OldScheduler) {
 		shutdownSignal:    make(chan struct{}),
 		scheduledMessages: set.New(true),
 	}
+	scheduler.onMessageSolid = events.NewClosure(scheduler.messageSolidHandler)
+	scheduler.onMessageInvalid = events.NewClosure(scheduler.messageInvalidHandler)
+	scheduler.onOpinionFormed = events.NewClosure(scheduler.opinionFormedHandler)
 	scheduler.run()
 
 	return
@@ -45,19 +51,14 @@ func NewOldScheduler(tangle *Tangle) (scheduler *OldScheduler) {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (s *OldScheduler) Setup() {
-	s.tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(s.Schedule))
+	s.tangle.Solidifier.Events.MessageSolid.Attach(s.onMessageSolid)
+	s.tangle.ConsensusManager.Events.MessageOpinionFormed.Attach(s.onOpinionFormed)
+	s.tangle.Events.MessageInvalid.Attach(s.onMessageInvalid)
+}
 
-	s.tangle.ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID MessageID) {
-		if s.scheduledMessages.Delete(messageID) {
-			s.allMessagesScheduledWG.Done()
-		}
-	}))
-
-	s.tangle.Events.MessageInvalid.Attach(events.NewClosure(func(messageID MessageID) {
-		if s.scheduledMessages.Delete(messageID) {
-			s.allMessagesScheduledWG.Done()
-		}
-	}))
+// Detach detaches the scheduler from the tangle events.
+func (s *OldScheduler) Detach() {
+	s.tangle.Solidifier.Events.MessageSolid.Detach(s.onMessageSolid)
 }
 
 // Schedule schedules the given messageID.
@@ -73,13 +74,12 @@ func (s *OldScheduler) Shutdown() {
 
 	s.shutdown.Wait()
 	s.allMessagesScheduledWG.Wait()
+	s.tangle.ConsensusManager.Events.MessageOpinionFormed.Detach(s.onOpinionFormed)
+	s.tangle.Events.MessageInvalid.Detach(s.onMessageInvalid)
 }
 
 func (s *OldScheduler) run() {
-	s.shutdown.Add(1)
 	go func() {
-		defer s.shutdown.Done()
-
 		for {
 			select {
 			case messageID := <-s.inbox:
@@ -137,6 +137,22 @@ type OldSchedulerEvents struct {
 	MessageScheduled *events.Event
 	MessageDiscarded *events.Event
 	NodeBlacklisted  *events.Event
+}
+
+func (s *OldScheduler) messageSolidHandler(messageID MessageID) {
+	s.Schedule(messageID)
+}
+
+func (s *OldScheduler) messageInvalidHandler(messageID MessageID) {
+	if s.scheduledMessages.Delete(messageID) {
+		s.allMessagesScheduledWG.Done()
+	}
+}
+
+func (s *OldScheduler) opinionFormedHandler(messageID MessageID) {
+	if s.scheduledMessages.Delete(messageID) {
+		s.allMessagesScheduledWG.Done()
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

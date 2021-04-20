@@ -39,6 +39,7 @@ var (
 	rateSetterInitial float64
 	rateSetterBeta    float64
 	schedulerRate     time.Duration
+	syncedOnce        sync.Once
 )
 
 // Plugin gets the plugin instance.
@@ -76,6 +77,25 @@ func configure(plugin *node.Plugin) {
 
 	Tangle().Scheduler.Events.NodeBlacklisted.Attach(events.NewClosure(func(nodeID identity.ID) {
 		// TODO: node blacklisted.
+	}))
+
+	Tangle().Events.SyncChanged.Attach(events.NewClosure(func(ev *tangle.SyncChangedEvent) {
+		plugin.LogInfo("Sync changed: ", ev.Synced)
+		if ev.Synced {
+			Tangle().Scheduler.SetRate(schedulerRate)
+			// Only for the first synced
+			syncedOnce.Do(func() {
+				Tangle().Scheduler.Setup()         //start buffering solid messages
+				Tangle().DummyScheduler.Detach()   // stop receiving more messages
+				Tangle().DummyScheduler.Shutdown() // schedule remaining messages
+				Tangle().Scheduler.Start()         // start scheduler
+			})
+		} else {
+			// increase scheduler rate
+			rate := Tangle().Options.SchedulerParams.Rate
+			rate -= rate / 2 // 50% increase
+			Tangle().Scheduler.SetRate(rate)
+		}
 	}))
 
 	// read snapshot file
