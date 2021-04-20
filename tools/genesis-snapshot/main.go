@@ -27,7 +27,8 @@ const (
 	cfgSnapshotGenesisSeed  = "seed"
 	defaultSnapshotFileName = "./snapshot.bin"
 
-	tokensToPledge = uint64(10000000)
+	amountToPledge = 10000000
+	tokensToPledge = uint64(amountToPledge)
 	faucetPledge   = "EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP"
 )
 
@@ -109,7 +110,6 @@ func main() {
 
 	transactionsMap[tx.ID()] = tx.Essence()
 
-	var transactions []*ledgerstate.Transaction
 	for i, pk := range nodesToPledge {
 		pubKey, err = ed25519.PublicKeyFromString(pk)
 		if err != nil {
@@ -126,7 +126,6 @@ func main() {
 			ledgerstate.NewOutputs(output1),
 		), ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
 
-		transactions = append(transactions, tx)
 		transactionsMap[tx.ID()] = tx.Essence()
 	}
 
