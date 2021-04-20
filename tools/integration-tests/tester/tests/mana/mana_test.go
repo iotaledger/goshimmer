@@ -221,14 +221,14 @@ func TestApis(t *testing.T) {
 		fmt.Println("nodeid: ", m.NodeID, " mana: ", m.Mana)
 	}
 	timestampPast := allManaResp.ConsensusTimestamp
-	resp3, err := peers[0].GoShimmerAPI.GetNHighestAccessMana(len(peers))
+	resp3, err := peers[0].GoShimmerAPI.GetNHighestAccessMana(len(peers) + 2)
 	require.NoError(t, err)
 	resp3.Nodes = stripGenesisNodeID(resp3.Nodes)
-	resp4, err := peers[0].GoShimmerAPI.GetNHighestConsensusMana(len(peers))
+	resp4, err := peers[0].GoShimmerAPI.GetNHighestConsensusMana(len(peers) + 2)
 	require.NoError(t, err)
 	resp4.Nodes = stripGenesisNodeID(resp4.Nodes)
-	require.Equal(t, 2, len(resp3.Nodes))
-	require.Equal(t, 2, len(resp4.Nodes))
+	require.Equal(t, 3, len(resp3.Nodes))
+	require.Equal(t, 3, len(resp4.Nodes))
 	for i := 0; i < 3; i++ {
 		assert.Equal(t, base58.Encode(peers[i].ID().Bytes()), resp3.Nodes[i].NodeID)
 		// faucet pledged its cons mana to emptyNodeID...
