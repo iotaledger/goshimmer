@@ -15,7 +15,7 @@ export class SigLockedColoredOutputComponent extends React.Component<Props, any>
         return (
             <div className={"mb-2"} key={this.props.id.base58}>
                 <ListGroup>
-                    <ListGroup.Item>Type: SigLockedSingleOutput</ListGroup.Item>
+                    <ListGroup.Item>Type: SigLockerColoredOutput</ListGroup.Item>
                     <ListGroup.Item>OutputID: <a href={`/explorer/output/${this.props.id.base58}`}>{this.props.id.base58}</a></ListGroup.Item>
                     <ListGroup.Item>Address: <a href={`/explorer/address/${this.props.output.address}`}> {this.props.output.address}</a></ListGroup.Item>
                     <ListGroup.Item>
