@@ -1,12 +1,13 @@
 # Protocol high-level overview
 
-To orientate the reader, we provide a high-level overview of the protocol, following the natural life cycle of a message. The first module used -while the message is still being created-, is the **Tip Selection**(ADD LINK) module. Here, the node must choose a certain number (from two to eight) of other messages to reference, meaning that the newly created message will be cryptographically attached to these referenced messages. An honest node must always choose tips uniformly at random from a tip pool, i.e., from a set of still unreferenced messages that satisfy a certain set of conditions, as discussed on INSERT LINK. In the diagram below, the issuance process being described now is represented in the context of the complete protocol. 
+To orientate the reader, we provide a high-level overview of the protocol, following the natural life cycle of a message. The first module used&mdash;while the message is still being created&mdash;, is the **Tip Selection**(ADD LINK) module. Here, the node must choose a certain number (from two to eight) of other messages to reference, meaning that the newly created message will be cryptographically attached to these referenced messages. An honest node must always choose tips uniformly at random from a tip pool, i.e., from a set of still unreferenced messages that satisfy a certain set of conditions, as discussed on INSERT LINK. In the diagram below, the issuance process being described now is represented in the context of the complete protocol. 
 
 ![title](Protocol_overview_own_message.png)
 
 Each node in the network has limited bandwidth, CPU, and memory. In order to avoid any node from being overloaded, the right to write in everybody else's Tangle is regulated by the **Congestion Control Module**. This module fairly allocates the network resources accordingly to a quantity called **Access Mana**, that acts as a [Sybil protection](https://en.wikipedia.org/wiki/Sybil_attack) mechanism. The exact manner in which Access Mana is acquired is discussed in INSERT LINK. But -for the purposes of this overview- we can summarize Access Mana as a scarce resource, that makes an effective Sybil protection mechanism. Thus, each node has the right to issue messages at a rate proportional to their Access Mana. This fair rate is not constant (since the utilization of the network may fluctuate), and to correctly set its own individual rate of issuance of messages, each node uses a mechanism called the **Rate Setter**, that makes the average issuance rate of the node converge to the fair rate guaranteed by Access Mana. Nodes which do not use the rate Setter will be punished by the **Rate Control Module**, which uses **adaptive Proof of Work** to limit the rate an attacker can create messages. Essentially, to issue a message, honest nodes must do a small amount of proof of work. However, if an attacker begins to issue too many messages and floods the network with messages, the difficulty of the proof of work for that node will increase exponentially. Eventually, the attacker will be incapable of issuing new messages.
 
 Between the Rate Setter and the actual gossip of the message, several steps will take place, but -for the sake of clearness- we ignore these steps for now and return to this subject later. Then, assuming that the message was properly created, it will be propagated to the rest of the network. Since we deal with a large number of nodes, the communication graph cannot be [complete](https://en.wikipedia.org/wiki/Complete_graph). Thus, the [network topology](https://en.wikipedia.org/wiki/Network_topology) will be dictated by the **Neighbor Selection** (aka Auto-Peering) module, described in INSERT LINK. 
+
 
 ![title](Protocol_overview_received_message.png)
 
@@ -44,3 +45,5 @@ Some concepts or modules implemented -even not strictly being part of the protoc
 4. **Grade 4**: If the message achieved grade 3 and 30 minutes (??????????) have passed since the timestamp of the message
 
 For more details on the grades above, see LINK.
+
+
