@@ -1,6 +1,10 @@
 # Protocol high-level overview
 
+<<<<<<< HEAD
 To orientate the reader, we provide a high-level overview of the protocol, following the natural life cycle of a message. The first module used&mdash;while the message is still being created&mdash;, is the **Tip Selection**(ADD LINK) module. Here, the node must choose a certain number (from two to eight) of other messages to reference, meaning that the newly created message will be cryptographically attached to these referenced messages. An honest node must always choose tips uniformly at random from a tip pool, i.e., from a set of still unreferenced messages that satisfy a certain set of conditions, as discussed on INSERT LINK. In the diagram below, the issuance process being described now is represented in the context of the complete protocol. 
+=======
+To orientate the reader, we provide a high-level overview of the protocol, following the natural life cycle of a message. The first module used -while the message is still being created-, is the **Tip Selection**(ADD LINK) module. Here, the node must choose a certain number (from two to some defined upper number) of other messages to reference, meaning that the newly created message will be cryptographically attached to these referenced messages. An honest node must always choose tips uniformly at random from a tip pool, i.e., from a set of still unreferenced messages that satisfy a certain set of conditions, as discussed on INSERT LINK. In the diagram below, the issuance process being described now is represented in the context of the complete protocol. 
+>>>>>>> 5f8a178da3f9f54f920801e38c7f0e2af018ed1d
 
 ![title](Protocol_overview_own_message.png)
 
@@ -11,7 +15,7 @@ Between the Rate Setter and the actual gossip of the message, several steps will
 
 ![title](Protocol_overview_received_message.png)
 
-We turn our attention now to another point of view: the one of the nodes receiving the new messages, represented in the diagram above. After receiving a message, the node will perform several **syntactical verifications**, that will act like a filter to the messages. Additionally, the message has to be **solidified**, meaning that the node must know all the past cone of the message (i.e., the set of all messages directly or indirectly referenced by the message in question). After this step, the node places all the messages left into an inbox (OUTBOX OR INBOX??). At a fixed global rate (meaning that all nodes use the same rate), the node uses a **scheduler** to choose a message from the inbox. This scheduler works as a gatekeeper, effectively regulating the use of the most scarce resources of the nodes. Since the scheduler works at a fixed rate, the network cannot be overwhelmed. As discussed in INSERT LINK, the scheduler is designed to ensure the following properties:
+We turn our attention now to another point of view: the one of the nodes receiving new messages, represented in the diagram above. After receiving a message, the node will perform several **syntactical verifications**, that will act like a filter to the messages. Additionally, the message has to be **solidified**, meaning that the node must know all the past cone of the message (i.e., the set of all messages directly or indirectly referenced by the message in question). After this step, the node places all the messages left into an inbox (OUTBOX OR INBOX??). At a fixed global rate (meaning that all nodes use the same rate), the node uses a **scheduler** to choose a message from the inbox. This scheduler works as a gatekeeper, effectively regulating the use of the most scarce resources of the nodes. Since the scheduler works at a fixed rate, the network cannot be overwhelmed. As discussed in INSERT LINK, the scheduler is designed to ensure the following properties:
 
 1. **Consistency**: all honest nodes will schedule the same messages
 2. **Fair access**: the nodes' messages will be scheduled at a fair rate according to their Access Mana
@@ -25,13 +29,13 @@ Only after passing the scheduler the messages can be written into the local Tang
 After having the message booked, the node is free to **gossip** it, but a crucial step of the protocol is still missing: the **Opinion Setter** and the voting protocol, that deal with the most subjective parts of the consensus mechanism (notice that, until now, the protocol has mostly dealt with objective checks). The voting protocol used here is the FPC (or **Fast Probabilistic Consensus**), which is a binary voting protocol which allows a large group of nodes to come to consensus on the value of a single bit. The FPC begins with each node having an initial opinion, set using the node's local time perception and ordering of the messages. The nodes must set opinions about two subjects: 
 
 1. **The legitimacy of the timestamp of the message**: Whenever a node issues a message, it adds a timestamp to it, which should represent the local time of issuance (as seen by the issuer node). The other nodes will judge if this timestamp is reasonable, by checking if it is too far away from their own local clock. The specific rule to do this check is described in LINK.
-2. In the case of a value transfer, **whether it is a conflict**: We use the **FCoB Rule** (ADD LINK). Roughly, the node will have a positive opinion about a transaction A if and only all its conflicts arrived later than a certain time interval after A's arrival. 
+2. In the case of a value transfer, **whether it is a conflict**: We use the **FCoB Rule** (ADD LINK). Roughly, the node will have a positive opinion about a transaction A if and only if all its conflicts arrived later than a certain time interval after A's arrival. 
 
-In each round, nodes randomly choose other nodes to query about their opinions about one of the subjects above. The querying node changes its own opinion if the number of responses with a different opinion than it is greater than a certain threshold. In order to prevent liveness attacks, this threshold is determined by a random number issued by a committee of high Consensus Mana nodes via the **dRNG** application. Without the random threshold, an attacker could lie about its responses to prevent the protocol from terminating. Finally, a node will finalize on a certain opinion after holding it for a certain number of rounds. 
+In each round, nodes randomly choose other nodes to query about their opinions about one of the subjects above. The querying node changes its own opinion if the number of responses with a different opinion than it is greater than a certain threshold. In order to prevent liveness attacks, this threshold is determined by a random number issued by a committee of high Consensus Mana nodes via the **dRNG** application. Without the random threshold, an attacker could lie about its responses in a way that could prevent the protocol from terminating. Finally, a node will finalize on a certain opinion after holding it for a certain number of rounds. 
 
 When selecting which other nodes to query, a node must weight the list of all nodes by Consensus Mana. Thus, high Consensus Mana nodes are queried more often then low Consensus Mana nodes. This makes it difficult for an attacker to manipulate the outcome of the voting. Unless the attacker controls more than 1/3 of the Consensus Mana in the system, with high probability, we know that FPC has the following properties:
 
-1. **Termination**: every honest node will finalize on some opinion.
+1. **Termination**: every honest node will finalize on some opinion before a maximum round number.
 2. **Agreement**: all honest nodes will finalize on the same opinion.
 3. **Integrity**: if a super majority of nodes -e.g. more than 90% weighted by Consensus Mana-, have the same initial opinion, then FPC will terminate with that value.
 
@@ -45,5 +49,8 @@ Some concepts or modules implemented -even not strictly being part of the protoc
 4. **Grade 4**: If the message achieved grade 3 and 30 minutes (??????????) have passed since the timestamp of the message
 
 For more details on the grades above, see LINK.
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> 5f8a178da3f9f54f920801e38c7f0e2af018ed1d
