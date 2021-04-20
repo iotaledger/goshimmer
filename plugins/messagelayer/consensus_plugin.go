@@ -51,8 +51,6 @@ var (
 	registryOnce        sync.Once
 	dRNGState           *drng.State
 	dRNGStateMutex      sync.RWMutex
-
-	// dRNGState := drng.Instance().LoadState(FPCParameters.DRNGInstanceID)
 )
 
 // ConsensusPlugin returns the consensus plugin.
@@ -180,7 +178,7 @@ func runFPC(plugin *node.Plugin) {
 		plugin.LogInfof("Started FPC round initiator")
 		defer plugin.LogInfof("Stopped FPC round initiator")
 
-		dRNGTicker := drng.NewTicker(DRNGState, FPCParameters.RoundInterval, fpc.DefaultParameters().EndingRoundsFixedThreshold, FPCParameters.AwaitOffset)
+		dRNGTicker := drng.NewTicker(DRNGState, FPCParameters.RoundInterval, FPCParameters.DefaultRandomness, FPCParameters.AwaitOffset)
 		dRNGTicker.Start()
 	exit:
 		for {
