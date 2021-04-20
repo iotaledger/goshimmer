@@ -178,7 +178,7 @@ func (a *ApprovalWeightManager) onSequenceSupportUpdated(marker *markers.Marker,
 	for i := a.lowestLastConfirmedMarker(marker.SequenceID()); i <= marker.Index(); i++ {
 		currentMarker := markers.NewMarker(marker.SequenceID(), i)
 		branchID := a.tangle.Booker.MarkersManager.BranchID(currentMarker)
-		if branchID != ledgerstate.MasterBranchID && a.Events.BranchConfirmation.Level(branchID) == 0 {
+		if branchID != ledgerstate.MasterBranchID {
 			break
 		}
 
