@@ -81,8 +81,6 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 		referencedSequences = map[SequenceID]types.Empty{0: types.Void}
 	}
 
-	fmt.Println(sequenceAlias)
-
 	cachedSequence, newSequenceCreated := m.fetchSequence(referencedMarkers, rankOfReferencedSequences, sequenceAlias)
 	if newSequenceCreated {
 		cachedSequence.Consume(func(sequence *Sequence) {
