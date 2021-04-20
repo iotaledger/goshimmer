@@ -67,6 +67,9 @@ func (l *LedgerState) InheritBranch(referencedBranchIDs ledgerstate.BranchIDs) (
 // not pass.
 func (l *LedgerState) TransactionValid(transaction *ledgerstate.Transaction, messageID MessageID) (err error) {
 	if err = l.utxoDAG.CheckTransaction(transaction); err != nil {
+		l.tangle.Storage.MessageMetadata(messageID).Consume(func(messagemetadata *MessageMetadata) {
+			messagemetadata.SetInvalid(true)
+		})
 		l.tangle.Events.MessageInvalid.Trigger(messageID)
 
 		return xerrors.Errorf("invalid transaction in message with %s: %w", messageID, err)
@@ -100,6 +103,9 @@ func (l *LedgerState) BookTransaction(transaction *ledgerstate.Transaction, mess
 			return
 		}
 
+		l.tangle.Storage.MessageMetadata(messageID).Consume(func(messagemetadata *MessageMetadata) {
+			messagemetadata.SetInvalid(true)
+		})
 		l.tangle.Events.MessageInvalid.Trigger(messageID)
 
 		// non-fatal errors should not bubble up - we trigger a MessageInvalid event instead

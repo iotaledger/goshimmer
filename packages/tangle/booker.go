@@ -230,6 +230,9 @@ func (b *Booker) bookPayload(message *Message) (branchID ledgerstate.BranchID, e
 	}
 
 	if !b.tangle.Utils.AllTransactionsApprovedByMessages(transaction.ReferencedTransactionIDs(), message.ID()) {
+		b.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messagemetadata *MessageMetadata) {
+			messagemetadata.SetInvalid(true)
+		})
 		b.tangle.Events.MessageInvalid.Trigger(message.ID())
 
 		return ledgerstate.UndefinedBranchID, xerrors.Errorf("message with %s does not approve its referenced %s: %w", message.ID(), transaction.ReferencedTransactionIDs(), cerrors.ErrFatal)
