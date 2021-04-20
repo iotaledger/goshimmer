@@ -85,6 +85,6 @@ func (utrng *UnixTimestampPrng) Stop() {
 }
 
 // ResolveNextTimePoint returns the next time point.
-func ResolveNextTimePoint(nowSec int64, interval int64) int64 {
+func ResolveNextTimePoint(nowSec, interval int64) int64 {
 	return nowSec + (interval - nowSec%interval)
 }

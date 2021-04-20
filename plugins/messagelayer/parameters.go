@@ -46,6 +46,9 @@ var FPCParameters = struct {
 
 	// AwaitOffset defines the max amount of time (in seconds) to wait for the next dRNG round after the excected time has elapsed.
 	AwaitOffset int `default:"3" usage:"The max amount of time (in seconds) to wait for the next dRNG round after the excected time has elapsed"`
+
+	// DefaultRandomness defines default randomness used by FPC when no random is received from the dRNG
+	DefaultRandomness float64 `default:"0.5" usage:"The default randomness used by FPC when no random is received from the dRNG"`
 }{}
 
 // StatementParameters contains the configuration parameters used by the FPC statements in the tangle.
