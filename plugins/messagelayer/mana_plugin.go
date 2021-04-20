@@ -3,6 +3,7 @@ package messagelayer
 import (
 	"fmt"
 	"math"
+	"os"
 	"sort"
 	"sync"
 	"time"
@@ -223,7 +224,21 @@ func runManaPlugin(_ *node.Plugin) {
 		defer ticker.Stop()
 		cleanupTicker := time.NewTicker(vectorsCleanUpInterval)
 		defer cleanupTicker.Stop()
-		readStoredManaVectors()
+		if !readStoredManaVectors() {
+			// read snapshot file
+			if Parameters.Snapshot.File != "" {
+				snapshot := &ledgerstate.Snapshot{}
+				f, err := os.Open(Parameters.Snapshot.File)
+				if err != nil {
+					plugin.Panic("can not open snapshot file:", err)
+				}
+				if _, err := snapshot.ReadFrom(f); err != nil {
+					plugin.Panic("could not read snapshot file:", err)
+				}
+				loadSnapshot(snapshot)
+				plugin.LogInfof("MANA: read snapshot from %s", Parameters.Snapshot.File)
+			}
+		}
 		pruneStorages()
 		for {
 			select {
@@ -246,7 +261,7 @@ func runManaPlugin(_ *node.Plugin) {
 	}
 }
 
-func readStoredManaVectors() {
+func readStoredManaVectors() (read bool) {
 	for vectorType := range baseManaVectors {
 		storages[vectorType].ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 			cachedPbm := &mana.CachedPersistableBaseMana{CachedObject: cachedObject}
@@ -255,10 +270,12 @@ func readStoredManaVectors() {
 				if err != nil {
 					manaLogger.Errorf("error while restoring %s mana vector: %w", vectorType.String(), err)
 				}
+				read = true
 			})
 			return true
 		})
 	}
+	return
 }
 
 func storeManaVectors() {
@@ -313,6 +330,17 @@ func GetManaMap(manaType mana.Type, optionalUpdateTime ...time.Time) (mana.NodeM
 		return mana.NodeMap{}, time.Now(), ErrQueryNotAllowed
 	}
 	return baseManaVectors[manaType].GetManaMap(optionalUpdateTime...)
+}
+
+// ManaEpoch is a wrapper for the approval weight.
+func ManaEpoch(t time.Time) map[identity.ID]float64 {
+	ManaPlugin().LogInfo("CALLING ManaEpoch")
+	m, _, err := GetManaMap(mana.ConsensusMana, t)
+	ManaPlugin().LogInfo("m: ", m, t.Unix())
+	if err != nil {
+		panic(err)
+	}
+	return m
 }
 
 // GetAccessMana returns the access mana of the node specified.
@@ -765,5 +793,35 @@ type EventsLogs struct {
 func QueryAllowed() (allowed bool) {
 	// if debugging enabled, reply to the query
 	// if debugging is not allowed, only reply when in sync
-	return Tangle().Synced() || debuggingEnabled
+	// return Tangle().Synced() || debuggingEnabled
+	return true
+}
+
+func loadSnapshot(snapshot *ledgerstate.Snapshot) {
+	manaSnapshot := make(map[identity.ID]*mana.SnapshotInfo)
+	var snapshotTime time.Time
+
+	for txID, essence := range snapshot.Transactions {
+		totalBalance := uint64(0)
+		for _, output := range essence.Outputs() {
+			output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+				totalBalance += balance
+				return true
+			})
+		}
+		info := &mana.SnapshotInfo{
+			Value: float64(totalBalance),
+			TxID:  txID,
+		}
+		manaSnapshot[essence.ConsensusPledgeID()] = info
+
+		snapshotTime = essence.Timestamp()
+	}
+
+	baseManaVectors[mana.ConsensusMana].LoadSnapshot(manaSnapshot, snapshotTime)
+	baseManaVectors[mana.AccessMana].LoadSnapshot(manaSnapshot, time.Now())
+	if ManaParameters.EnableResearchVectors {
+		baseManaVectors[mana.ResearchAccess].LoadSnapshot(manaSnapshot, snapshotTime)
+		baseManaVectors[mana.ResearchConsensus].LoadSnapshot(manaSnapshot, snapshotTime)
+	}
 }

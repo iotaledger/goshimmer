@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	// defaultGenesisTime is the default time (Unix in seconds) of the genesis, i.e., the start of the epochs at 2021-03-19 9:00:00 UTC.
-	defaultGenesisTime int64 = 1616144400
+	// DefaultGenesisTime is the default time (Unix in seconds) of the genesis, i.e., the start of the epochs at 2021-03-19 9:00:00 UTC.
+	DefaultGenesisTime int64 = 1616144400
 
 	// defaultInterval is the default interval of epochs, i.e., their duration, and is 30 minutes (specified in seconds).
 	defaultInterval int64 = 30 * 60
@@ -52,7 +52,7 @@ func NewManager(opts ...ManagerOption) *Manager {
 	options := &ManagerOptions{
 		Store:            mapdb.NewMapDB(),
 		CacheTime:        cacheTime,
-		GenesisTime:      defaultGenesisTime,
+		GenesisTime:      DefaultGenesisTime,
 		Interval:         defaultInterval,
 		OracleEpochShift: defaultOracleEpochShift,
 	}

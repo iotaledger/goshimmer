@@ -1,12 +1,16 @@
 package messagelayer
 
 import (
+	"fmt"
+
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/logger"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/plugins/remotelog"
 )
 
 func configureApprovalWeight() {
@@ -15,11 +19,17 @@ func configureApprovalWeight() {
 }
 
 func onMarkerConfirmed(marker markers.Marker, newLevel int, transition events.ThresholdEventTransition) {
+	if transition != events.ThresholdLevelIncreased {
+		Plugin().LogInfo("transition != events.ThresholdLevelIncreased")
+		return
+	}
 	// get message ID of marker
 	messageID := Tangle().Booker.MarkersManager.MessageID(&marker)
+	Plugin().LogInfo("message ID of marker ", messageID)
 
 	// mark marker as finalized
 	Tangle().Storage.MessageMetadata(messageID).Consume(func(metadata *tangle.MessageMetadata) {
+		Plugin().LogInfo("mark marker(%d,%d) as finalized ", marker.SequenceID(), marker.Index())
 		metadata.SetFinalizedApprovalWeight(true)
 	})
 
@@ -69,6 +79,7 @@ func onBranchConfirmed(branchID ledgerstate.BranchID, newLevel int, transition e
 	plugin.LogDebugf("%s confirmed by ApprovalWeight.", branchID)
 
 	if Tangle().LedgerState.BranchDAG.InclusionState(branchID) == ledgerstate.Rejected {
+		remotelog.SendLogMsg(logger.LevelWarn, "REORG", fmt.Sprintf("%s reorg detected by ApprovalWeight", branchID))
 		plugin.LogInfof("%s reorg detected by ApprovalWeight.", branchID)
 	}
 }
