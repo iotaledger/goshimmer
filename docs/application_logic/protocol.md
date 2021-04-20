@@ -29,7 +29,7 @@ After having the message booked, the node is free to **gossip** it, but a crucia
 
 In each round, nodes randomly choose other nodes to query about their opinions about one of the subjects above. The querying node changes its own opinion if the number of responses with a different opinion than it is greater than a certain threshold. In order to prevent liveness attacks, this threshold is determined by a random number issued by a committee of high Consensus Mana nodes via the **dRNG** application. Without the random threshold, an attacker could lie about its responses in a way that could prevent the protocol from terminating. Finally, a node will finalize on a certain opinion after holding it for a certain number of rounds. 
 
-When selecting which other nodes to query, a node must weight the list of all nodes by Consensus Mana. Thus, high Consensus Mana nodes are queried more often then low Consensus Mana nodes. This makes it difficult for an attacker to manipulate the outcome of the voting. Unless the attacker controls more than 1/3 of the Consensus Mana in the system, with high probability, we know that FPC has the following properties:
+When selecting which other nodes to query, a node must weight the list of all nodes by Consensus Mana. Thus, high Consensus Mana nodes are queried more often than low Consensus Mana nodes. This makes it difficult for an attacker to manipulate the outcome of the voting. Unless the attacker controls more than 1/3 of the Consensus Mana in the system, with high probability, we know that FPC has the following properties:
 
 1. **Termination**: every honest node will finalize on some opinion before a maximum round number.
 2. **Agreement**: all honest nodes will finalize on the same opinion.
@@ -45,5 +45,4 @@ Some concepts or modules implemented&mdash;even not strictly being part of the p
 4. **Grade 4**: If the message achieved grade 3 and 30 minutes (??????????) have passed since the timestamp of the message
 
 For more details on the grades above, see LINK.
-
 
