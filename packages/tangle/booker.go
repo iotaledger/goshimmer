@@ -302,6 +302,8 @@ func (b *Booker) updateMarker(currentMarker *markers.Marker, conflictBranchID le
 
 	b.Events.MarkerBranchUpdated.Trigger(currentMarker, oldBranchID, newBranchID)
 
+	b.MarkersManager.UnregisterSequenceAlias(markers.NewSequenceAlias(oldBranchID.Bytes()))
+
 	b.MarkersManager.Sequence(currentMarker.SequenceID()).Consume(func(sequence *markers.Sequence) {
 		sequence.ReferencingMarkers(currentMarker.Index()).ForEachSorted(func(referencingSequenceID markers.SequenceID, referencingIndex markers.Index) bool {
 			walk.Push(markers.NewMarker(referencingSequenceID, referencingIndex))

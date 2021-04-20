@@ -242,8 +242,8 @@ func (a *ApprovalWeightManager) onBranchSupportRemoved(branchID ledgerstate.Bran
 func (a *ApprovalWeightManager) weightOfHeaviestConflictingBranch(branchID ledgerstate.BranchID) (weight float64) {
 	a.tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
 		a.tangle.Storage.BranchWeight(conflictingBranchID).Consume(func(branchWeight *BranchWeight) {
-			if branchWeight.Weight() > weight {
-				weight = branchWeight.Weight()
+			if newWeight := branchWeight.Weight(); newWeight > weight {
+				weight = newWeight
 			}
 		})
 	})

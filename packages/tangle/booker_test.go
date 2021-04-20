@@ -1985,7 +1985,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message19": ledgerstate.UndefinedBranchID,
 			"Message20": branchIDs["H+C"],
 			"Message21": ledgerstate.UndefinedBranchID,
-			"Message22": ledgerstate.MasterBranchID,
+			"Message22": ledgerstate.UndefinedBranchID,
 		})
 		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
 			"Message1":  branchIDs["A"],
@@ -2012,9 +2012,8 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message22": ledgerstate.MasterBranchID,
 		})
 		checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
-			branchIDs["F+C"]:           {"Message12"},
-			branchIDs["H+C"]:           {"Message14", "Message15", "Message20"},
-			ledgerstate.MasterBranchID: {"Message22"},
+			branchIDs["F+C"]: {"Message12"},
+			branchIDs["H+C"]: {"Message14", "Message15", "Message20"},
 		})
 	}
 
@@ -2046,7 +2045,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message20": markers.NewMarkers(markers.NewMarker(1, 4), markers.NewMarker(6, 5)),
 			"Message21": markers.NewMarkers(markers.NewMarker(10, 2)),
 			"Message22": markers.NewMarkers(markers.NewMarker(4, 1)),
-			"Message23": markers.NewMarkers(markers.NewMarker(10, 2)),
+			"Message23": markers.NewMarkers(markers.NewMarker(10, 3)),
 		})
 		checkMessageMetadataBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
 			"Message1":  ledgerstate.UndefinedBranchID,
@@ -2070,7 +2069,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message19": ledgerstate.UndefinedBranchID,
 			"Message20": branchIDs["H+C"],
 			"Message21": ledgerstate.UndefinedBranchID,
-			"Message22": ledgerstate.MasterBranchID,
+			"Message22": ledgerstate.UndefinedBranchID,
 			"Message23": ledgerstate.UndefinedBranchID,
 		})
 		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchID{
@@ -2099,9 +2098,8 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message23": ledgerstate.MasterBranchID,
 		})
 		checkIndividuallyMappedMessages(t, testFramework, map[ledgerstate.BranchID][]string{
-			branchIDs["F+C"]:           {"Message12"},
-			branchIDs["H+C"]:           {"Message14", "Message15", "Message20"},
-			ledgerstate.MasterBranchID: {"Message22"},
+			branchIDs["F+C"]: {"Message12"},
+			branchIDs["H+C"]: {"Message14", "Message15", "Message20"},
 		})
 	}
 }
