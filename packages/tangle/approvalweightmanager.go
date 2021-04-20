@@ -177,14 +177,14 @@ func (a *ApprovalWeightManager) onSequenceSupportUpdated(marker *markers.Marker,
 
 	for i := a.lowestLastConfirmedMarker(marker.SequenceID()); i <= marker.Index(); i++ {
 		currentMarker := markers.NewMarker(marker.SequenceID(), i)
-		branchID := a.tangle.Booker.MarkersManager.BranchID(currentMarker)
-		if branchID != ledgerstate.MasterBranchID {
-			break
+
+		if a.tangle.Booker.MarkersManager.MessageID(currentMarker) == EmptyMessageID {
+			continue
 		}
 
 		supportersOfMarker := a.supportersManager.SupportersOfMarker(currentMarker)
 		supporterWeight := float64(0)
-		if branchID == ledgerstate.MasterBranchID {
+		if branchID := a.tangle.Booker.MarkersManager.BranchID(currentMarker); branchID == ledgerstate.MasterBranchID {
 			supportersOfMarker.ForEach(func(supporter Supporter) {
 				supporterWeight += activeWeights[supporter]
 			})
