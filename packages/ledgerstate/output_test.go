@@ -468,6 +468,21 @@ func TestAliasOutput_GetIsGovernanceUpdated(t *testing.T) {
 	})
 }
 
+func TestAliasOutput_IsGoldenCoin(t *testing.T) {
+	t.Run("CASE: Happy path", func(t *testing.T) {
+		alias := dummyAliasOutput()
+		isGoldenCoin := alias.IsGoldenCoin()
+		assert.Equal(t, isGoldenCoin, alias.isGoldenCoin)
+	})
+
+	t.Run("CASE: Happy path, true", func(t *testing.T) {
+		alias := dummyAliasOutput()
+		alias.isGoldenCoin = true
+		isGoldenCoin := alias.IsGoldenCoin()
+		assert.Equal(t, isGoldenCoin, alias.isGoldenCoin)
+	})
+}
+
 func TestAliasOutput_GetStateAddress(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		alias := dummyAliasOutput()
@@ -617,6 +632,15 @@ func TestAliasOutput_SetIsGovernanceUpdated(t *testing.T) {
 		alias := dummyAliasOutput()
 		alias.SetIsGovernanceUpdated(true)
 		assert.Equal(t, alias.GetIsGovernanceUpdated(), true)
+	})
+}
+
+func TestAliasOutput_SetIsGoldenCoin(t *testing.T) {
+	t.Run("CASE: Happy path", func(t *testing.T) {
+		alias := dummyAliasOutput()
+		isGoldenCoin := true
+		alias.SetIsGoldenCoin(isGoldenCoin)
+		assert.Equal(t, alias.isGoldenCoin, isGoldenCoin)
 	})
 }
 

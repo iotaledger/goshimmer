@@ -927,6 +927,7 @@ const (
 	flagAliasOutputGovernanceMetadataPresent
 	flagAliasOutputImmutableDataPresent
 	flagAliasOutputIsOrigin
+	flagAliasOutputGoldenCoinConstraint
 )
 
 // AliasOutput represents output which defines as AliasAddress.
@@ -962,6 +963,8 @@ type AliasOutput struct {
 	governingAddress Address
 	// true if it is the first output in the chain
 	isOrigin bool
+	// true if the output is subject to the "golden coin" constraint: upon transition tokens cannot be changed
+	isGoldenCoin bool
 
 	objectstorage.StorableObjectFlags
 }
@@ -1112,7 +1115,17 @@ func (a *AliasOutput) SetIsOrigin(isOrigin bool) {
 	a.isOrigin = isOrigin
 }
 
-// IsSelfGoverned return if
+// IsOrigin returns true if it starts the chain
+func (a *AliasOutput) IsGoldenCoin() bool {
+	return a.isGoldenCoin
+}
+
+// SetIsOrigin sets the isOrigin field of the output.
+func (a *AliasOutput) SetIsGoldenCoin(isGoldenCoin bool) {
+	a.isGoldenCoin = isGoldenCoin
+}
+
+// IsSelfGoverned return if governing address is not set which means that stateAddress is same as governingAddress
 func (a *AliasOutput) IsSelfGoverned() bool {
 	return a.governingAddress == nil
 }
@@ -1487,8 +1500,8 @@ func (a *AliasOutput) findChainedOutputAndCheckFork(tx *Transaction) (*AliasOutp
 	return ret, nil
 }
 
-// equalColoredBalance utility to compare colored balances
-func equalColoredBalance(b1, b2 *ColoredBalances) bool {
+// equalColoredBalances utility to compare colored balances
+func equalColoredBalances(b1, b2 *ColoredBalances) bool {
 	allColors := make(map[Color]bool)
 	b1.ForEach(func(col Color, bal uint64) bool {
 		allColors[col] = true
@@ -1533,10 +1546,10 @@ func isExactDustMinimum(b *ColoredBalances) bool {
 func (a *AliasOutput) validateTransition(chained *AliasOutput) error {
 	// enforce immutability of alias address and immutable data
 	if !a.GetAliasAddress().Equals(chained.GetAliasAddress()) {
-		return xerrors.New("chain alias address can't be modified")
+		return xerrors.New("AliasOutput: can't modify alias address")
 	}
 	if !bytes.Equal(a.immutableData, chained.immutableData) {
-		return xerrors.New("can't modify immutable data")
+		return xerrors.New("AliasOutput: can't modify immutable data")
 	}
 	// depending on update type, enforce valid transition
 	if chained.isGovernanceUpdate {
@@ -1550,12 +1563,14 @@ func (a *AliasOutput) validateTransition(chained *AliasOutput) error {
 			return xerrors.New("AliasOutput: state index is not unlocked for modification")
 		}
 		// should not modify tokens
-		if !equalColoredBalance(a.balances, chained.balances) {
+		if !equalColoredBalances(a.balances, chained.balances) {
 			return xerrors.New("AliasOutput: tokens are not unlocked for modification")
 		}
 		// can modify state address
 		// can modify governing address
 		// can modify governance metadata
+		// can modify token balances
+		// can modify 'golden coin' status
 	} else {
 		// STATE TRANSITION
 		// can modify state data
@@ -1576,6 +1591,14 @@ func (a *AliasOutput) validateTransition(chained *AliasOutput) error {
 		// should not modify governance metadata
 		if !bytes.Equal(a.governanceMetadata, chained.governanceMetadata) {
 			return xerrors.New("AliasOutput: governance metadata is not unlocked for modification")
+		}
+		// should not modify token balances if 'golden coin' constraint is set
+		if a.IsGoldenCoin() && !equalColoredBalances(a.balances, chained.balances) {
+			return xerrors.New("AliasOutput: 'golden coin' funds can't be changed")
+		}
+		// should not modify 'golden coin' status if not self governed
+		if a.IsGoldenCoin() != chained.IsGoldenCoin() {
+			return xerrors.New("AliasOutput: 'golden coin' status can't be changed")
 		}
 	}
 	return nil
