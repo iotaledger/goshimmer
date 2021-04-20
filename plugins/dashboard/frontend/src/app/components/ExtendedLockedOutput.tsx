@@ -33,7 +33,7 @@ export class ExtendedLockedOutputComponent extends React.Component<Props, any> {
                     <ListGroup.Item>
                         Balances:
                         <div>
-                            {balances.map((entry, i) => (<div key={i}><Badge variant="success">{entry.value} {resolveColor(entry.color)}</Badge></div>))}
+                            {balances.map((entry, i) => (<div key={i}><Badge variant="success">{new Intl.NumberFormat().format(entry.value)} {resolveColor(entry.color)}</Badge></div>))}
                         </div>
                     </ListGroup.Item>
                     <ListGroup.Item>Transaction: <a href={`/explorer/transaction/${this.props.id.transactionID}`}> {this.props.id.transactionID}</a></ListGroup.Item>

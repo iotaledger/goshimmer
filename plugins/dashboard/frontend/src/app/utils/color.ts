@@ -9,5 +9,5 @@ export function resolveColor(color: string) {
     }
 }
 
-const Base58EncodedColorIOTA = "11111111111111111111111111111111"
-const Base58EncodedColorMint = "JEKNVnkbo3jma5nREBBJCDoXFVeKkD56V3xKrvRmWxFG"
+export const Base58EncodedColorIOTA = "11111111111111111111111111111111"
+export const Base58EncodedColorMint = "JEKNVnkbo3jma5nREBBJCDoXFVeKkD56V3xKrvRmWxFG"

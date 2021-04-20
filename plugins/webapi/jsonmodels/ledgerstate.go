@@ -472,19 +472,24 @@ type OutputMetadata struct {
 	Solid              bool      `json:"solid"`
 	SolidificationTime int64     `json:"solidificationTime"`
 	ConsumerCount      int       `json:"consumerCount"`
-	FirstConsumer      string    `json:"firstConsumer"`
+	FirstConsumer      string    `json:"firstConsumer,omitempty"`
 	Finalized          bool      `json:"finalized"`
 }
 
 // NewOutputMetadata returns the OutputMetadata from the given ledgerstate.OutputMetadata.
 func NewOutputMetadata(outputMetadata *ledgerstate.OutputMetadata) *OutputMetadata {
+	firstConsumer := ""
+	// omit firstconsumer field if it hasn't been consumed yet
+	if outputMetadata.FirstConsumer().Base58() != ledgerstate.GenesisTransactionID.Base58() {
+		firstConsumer = outputMetadata.FirstConsumer().Base58()
+	}
 	return &OutputMetadata{
 		OutputID:           NewOutputID(outputMetadata.ID()),
 		BranchID:           outputMetadata.BranchID().Base58(),
 		Solid:              outputMetadata.Solid(),
 		SolidificationTime: outputMetadata.SolidificationTime().Unix(),
 		ConsumerCount:      outputMetadata.ConsumerCount(),
-		FirstConsumer:      outputMetadata.FirstConsumer().Base58(),
+		FirstConsumer:      firstConsumer,
 		Finalized:          outputMetadata.Finalized(),
 	}
 }
