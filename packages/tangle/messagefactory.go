@@ -135,6 +135,12 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, t ...*Tangle) (*Message
 // It is the modification of IssuePayload method that wait specified time delay after message creation and before issuance
 func (f *MessageFactory) IssuePayloadWithDelay(p payload.Payload, delay time.Duration, t ...*Tangle) (*Message, error) {
 	payloadLen := len(p.Bytes())
+	if delay < 0 {
+		err := fmt.Errorf("time delay %d, less than zero is not allowed", delay)
+		f.Events.Error.Trigger(err)
+		return nil, err
+	}
+
 	if payloadLen > payload.MaxSize {
 		err := fmt.Errorf("maximum payload size of %d bytes exceeded", payloadLen)
 		f.Events.Error.Trigger(err)
