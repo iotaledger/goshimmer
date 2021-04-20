@@ -8,6 +8,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58/base58"
 	"github.com/stretchr/testify/require"
@@ -34,9 +35,18 @@ func TestConsensusNoConflicts(t *testing.T) {
 
 	snapshot := tests.GetSnapshot()
 
+	faucetPledge := "EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP"
+	pubKey, err := ed25519.PublicKeyFromString(faucetPledge)
+	if err != nil {
+		panic(err)
+	}
+	nodeID := identity.NewID(pubKey)
+
 	genesisTransactionID := ledgerstate.GenesisTransactionID
-	for ID := range snapshot.Transactions {
-		genesisTransactionID = ID
+	for ID, tx := range snapshot.Transactions {
+		if tx.AccessPledgeID() == nodeID {
+			genesisTransactionID = ID
+		}
 	}
 
 	const genesisBalance = 1000000000000000

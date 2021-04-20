@@ -63,9 +63,18 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 
 	snapshot := tests.GetSnapshot()
 
+	faucetPledge := "EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP"
+	pubKey, err := ed25519.PublicKeyFromString(faucetPledge)
+	if err != nil {
+		panic(err)
+	}
+	nodeID := identity.NewID(pubKey)
+
 	genesisTransactionID := ledgerstate.GenesisTransactionID
-	for ID := range snapshot.Transactions {
-		genesisTransactionID = ID
+	for ID, tx := range snapshot.Transactions {
+		if tx.AccessPledgeID() == nodeID {
+			genesisTransactionID = ID
+		}
 	}
 
 	// make genesis fund easily divisible for further splitting of the funds
