@@ -4,13 +4,13 @@ import (
 	"container/heap"
 	"container/ring"
 	"errors"
-	"fmt"
 	"math"
 	"sync"
 	"time"
 
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
+	"golang.org/x/xerrors"
 )
 
 const (
@@ -135,8 +135,17 @@ func (s *Scheduler) Setup() {
 
 // SubmitAndReadyMessage submits the message to the scheduler and makes it ready when it's parents are booked.
 func (s *Scheduler) SubmitAndReadyMessage(messageID MessageID) {
-	s.Submit(messageID)
-	s.Ready(messageID)
+	err := s.Submit(messageID)
+	if err != nil {
+		s.tangle.Events.Error.Trigger(xerrors.Errorf("error in Scheduler Submit: %v", err))
+		return
+	}
+
+	err = s.Ready(messageID)
+	if err != nil {
+		s.tangle.Events.Error.Trigger(xerrors.Errorf("error in Scheduler Ready: %v", err))
+		return
+	}
 }
 
 // SetRate sets the rate of the scheduler.
@@ -155,7 +164,9 @@ func (s *Scheduler) Shutdown() {
 // Submit submits a message to be considered by the scheduler.
 // This transactions will be included in all the control metrics, but it will never be
 // scheduled until Ready(messageID) has been called.
-func (s *Scheduler) Submit(messageID MessageID) {
+func (s *Scheduler) Submit(messageID MessageID) error {
+	var err error
+
 	if !s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
@@ -164,7 +175,7 @@ func (s *Scheduler) Submit(messageID MessageID) {
 		// get the current access mana inside the lock
 		mana := s.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(nodeID)
 
-		err := s.buffer.Submit(message, mana)
+		err = s.buffer.Submit(message, mana)
 		if err != nil {
 			s.Events.MessageDiscarded.Trigger(messageID)
 		}
@@ -172,8 +183,10 @@ func (s *Scheduler) Submit(messageID MessageID) {
 			s.Events.NodeBlacklisted.Trigger(nodeID)
 		}
 	}) {
-		panic(fmt.Sprintf("failed to get message '%x' from storage", messageID))
+		err = xerrors.Errorf("failed to get message '%x' from storage", messageID)
 	}
+
+	return err
 }
 
 // Unsubmit removes a message from the submitted messages.
@@ -184,26 +197,30 @@ func (s *Scheduler) Unsubmit(messageID MessageID) {
 		defer s.mu.Unlock()
 		s.buffer.Unsubmit(message)
 	}) {
-		panic(fmt.Sprintf("failed to get message '%x' from storage", messageID))
+		s.tangle.Events.Error.Trigger(xerrors.Errorf("error in Scheduler (Unsubmit): failed to get message '%x' from storage", messageID))
 	}
 }
 
 // Ready marks a previously submitted message as ready to be scheduled.
 // If Ready is called without a previous Submit, it has no effect.
-func (s *Scheduler) Ready(messageID MessageID) {
+func (s *Scheduler) Ready(messageID MessageID) error {
+	var err error
+
 	if !s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		s.buffer.Ready(message)
 	}) {
-		panic(fmt.Sprintf("failed to get message '%x' from storage", messageID))
+		err = xerrors.Errorf("failed to get message '%x' from storage", messageID)
 	}
+
+	return err
 }
 
 // RemoveNode removes all messages (submitted and ready) for the given node.
-func (s *Scheduler) RemoveNode(nodeID identity.ID) {
+func (s *Scheduler) RemoveNode(nodeID identity.ID) (err error) {
 	if nodeID == s.self {
-		panic("invalid node")
+		return xerrors.Errorf("Invalid node to remove")
 	}
 
 	s.mu.Lock()
@@ -211,6 +228,7 @@ func (s *Scheduler) RemoveNode(nodeID identity.ID) {
 
 	// TODO: is it necessary to trigger MessageDiscarded for all the removed messages.
 	s.buffer.RemoveNode(nodeID)
+	return
 }
 
 func (s *Scheduler) parentsBooked(messageID MessageID) (parentsBooked bool) {
@@ -250,9 +268,18 @@ func (s *Scheduler) schedule() *Message {
 		}
 		// otherwise increase the deficit
 		mana := s.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(q.NodeID())
-		s.setDeficit(q.NodeID(), s.getDeficit(q.NodeID())+mana)
+		err := s.setDeficit(q.NodeID(), s.getDeficit(q.NodeID())+mana)
+		if err != nil {
+			s.tangle.Events.Error.Trigger(err)
+			return nil
+		}
+
 		// TODO: different from spec
 		q = s.buffer.Next()
+		if q == nil {
+			s.tangle.Events.Error.Trigger(xerrors.Errorf("error in Scheduler (schedule): failed to get next message from bufferQueue"))
+			return nil
+		}
 		if q == start {
 			return nil
 		}
@@ -264,7 +291,12 @@ func (s *Scheduler) schedule() *Message {
 	}
 	msg := s.buffer.PopFront()
 	nodeID := identity.NewID(msg.IssuerPublicKey())
-	s.setDeficit(nodeID, s.getDeficit(nodeID)-float64(len(msg.Bytes())))
+	err := s.setDeficit(nodeID, s.getDeficit(nodeID)-float64(len(msg.Bytes())))
+	if err != nil {
+		s.tangle.Events.Error.Trigger(err)
+		return nil
+	}
+
 	return msg
 }
 
@@ -294,11 +326,13 @@ func (s *Scheduler) getDeficit(nodeID identity.ID) float64 {
 	return s.deficits[nodeID]
 }
 
-func (s *Scheduler) setDeficit(nodeID identity.ID, deficit float64) {
+func (s *Scheduler) setDeficit(nodeID identity.ID, deficit float64) (err error) {
 	if deficit < 0 {
-		panic("invalid deficit")
+		return xerrors.Errorf("error in Scheduler (setDeficit): deficit is less than 0")
 	}
 	s.deficits[nodeID] = math.Min(deficit, MaxDeficit)
+
+	return
 }
 
 // NodeQueueSize returns the size of the nodeIDs queue.
@@ -345,18 +379,18 @@ func (q *NodeQueue) NodeID() identity.ID {
 }
 
 // Submit submits a message for the queue.
-func (q *NodeQueue) Submit(msg *Message) bool {
+func (q *NodeQueue) Submit(msg *Message) (bool, error) {
 	msgNodeID := identity.NewID(msg.IssuerPublicKey())
 	if q.nodeID != msgNodeID {
-		panic("invalid message")
+		return false, xerrors.Errorf("Queue node ID(%x) and issuer ID(%x) doesn't match.", q.nodeID, msgNodeID)
 	}
 	if _, submitted := q.submitted[msg.ID()]; submitted {
-		return false
+		return false, nil
 	}
 
 	q.submitted[msg.ID()] = msg
 	q.size += uint(len(msg.Bytes()))
-	return true
+	return true, nil
 }
 
 // Unsubmit removes a previously submitted message from the queue.
@@ -453,9 +487,14 @@ func (b *BufferQueue) Submit(msg *Message, rep float64) error {
 		return ErrInboxExceeded
 	}
 
-	if !nodeQueue.Submit(msg) {
-		panic("message already submitted")
+	submitted, err := nodeQueue.Submit(msg)
+	if err != nil {
+		return err
 	}
+	if !submitted {
+		return xerrors.Errorf("error in BufferQueue (Submit): message has already been submitted %x", msg.ID)
+	}
+
 	b.size += uint(len(msg.Bytes()))
 	return nil
 }
@@ -509,11 +548,11 @@ func (b *BufferQueue) RemoveNode(nodeID identity.ID) {
 
 // Next returns the next NodeQueue in round robin order.
 func (b *BufferQueue) Next() *NodeQueue {
-	if b.ring == nil {
-		panic("empty buffer")
+	if b.ring != nil {
+		b.ring = b.ring.Next()
+		return b.ring.Value.(*NodeQueue)
 	}
-	b.ring = b.ring.Next()
-	return b.ring.Value.(*NodeQueue)
+	return nil
 }
 
 // Current returns the current NodeQueue in round robin order.
