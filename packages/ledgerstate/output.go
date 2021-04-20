@@ -1023,6 +1023,8 @@ func AliasOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*AliasOut
 	flags := bitmask.BitMask(flagsByte)
 	ret.isOrigin = flags.HasBit(flagAliasOutputIsOrigin)
 	ret.isGovernanceUpdate = flags.HasBit(flagAliasOutputGovernanceUpdate)
+	ret.isGoldenCoin = flags.HasBit(flagAliasOutputGoldenCoinConstraint)
+
 	addr, err2 := AliasAddressFromMarshalUtil(marshalUtil)
 	if err2 != nil {
 		return nil, xerrors.Errorf("AliasOutput: failed to parse alias address (%v): %w", err2, cerrors.ErrParseBytesFailed)
@@ -1474,6 +1476,9 @@ func (a *AliasOutput) mustFlags() bitmask.BitMask {
 	}
 	if len(a.governanceMetadata) > 0 {
 		ret = ret.SetBit(flagAliasOutputGovernanceMetadataPresent)
+	}
+	if a.isGoldenCoin {
+		ret = ret.SetBit(flagAliasOutputGoldenCoinConstraint)
 	}
 	return ret
 }
