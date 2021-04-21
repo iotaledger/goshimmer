@@ -19,12 +19,12 @@ export class SigLockedSingleOutputComponent extends React.Component<Props, any> 
                     <ListGroup.Item>
                         Balances:
                         <div>
-                            <div><Badge variant="success">{this.props.output.balance} IOTA</Badge></div>
+                            <div><Badge variant="success">{new Intl.NumberFormat().format(this.props.output.balance)} IOTA</Badge></div>
                         </div>
                     </ListGroup.Item>
-                </ListGroup>
                 <ListGroup.Item>Transaction: <a href={`/explorer/transaction/${this.props.id.transactionID}`}> {this.props.id.transactionID}</a></ListGroup.Item>
                 <ListGroup.Item>Output Index: {this.props.id.outputIndex}</ListGroup.Item>
+                </ListGroup>
             </div>
         );
     }

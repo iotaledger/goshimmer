@@ -26,7 +26,7 @@ func TestSendIotas(t *testing.T) {
 	txb := utxoutil.NewBuilder(outputs...)
 	err = txb.AddSigLockedIOTAOutput(addr2, 42)
 	require.NoError(t, err)
-	err = txb.AddReminderOutputIfNeeded(addr1, nil)
+	err = txb.AddRemainderOutputIfNeeded(addr1, nil)
 	require.NoError(t, err)
 
 	tx, err := txb.BuildWithED25519(user1)
@@ -59,7 +59,7 @@ func TestSendIotasMany(t *testing.T) {
 
 		err = txb.AddSigLockedIOTAOutput(addr2, 1)
 		require.NoError(t, err)
-		err = txb.AddReminderOutputIfNeeded(addr1, nil)
+		err = txb.AddRemainderOutputIfNeeded(addr1, nil)
 		require.NoError(t, err)
 
 		tx, err1 := txb.BuildWithED25519(user1)
@@ -97,7 +97,7 @@ func TestSendIotas1FromMany(t *testing.T) {
 		txb := utxoutil.NewBuilder(outputs...)
 		err = txb.AddSigLockedIOTAOutput(addr2, outputAmount)
 		require.NoError(t, err)
-		err = txb.AddReminderOutputIfNeeded(addr1, nil)
+		err = txb.AddRemainderOutputIfNeeded(addr1, nil)
 		require.NoError(t, err)
 
 		tx, bErr := txb.BuildWithED25519(user1)
@@ -120,7 +120,7 @@ func TestSendIotas1FromMany(t *testing.T) {
 	txb := utxoutil.NewBuilder(outputs...)
 	err = txb.AddSigLockedIOTAOutput(addr1, outputAmount)
 	require.NoError(t, err)
-	err = txb.AddReminderOutputIfNeeded(addr2, nil)
+	err = txb.AddRemainderOutputIfNeeded(addr2, nil)
 	require.NoError(t, err)
 	tx, err := txb.BuildWithED25519(user2)
 	require.NoError(t, err)
@@ -141,7 +141,7 @@ func TestSendIotas1FromMany(t *testing.T) {
 	txb = utxoutil.NewBuilder(outputs...)
 	err = txb.AddSigLockedIOTAOutput(addr1, 3)
 	require.NoError(t, err)
-	err = txb.AddReminderOutputIfNeeded(addr2, nil)
+	err = txb.AddRemainderOutputIfNeeded(addr2, nil)
 	require.NoError(t, err)
 	tx, err = txb.BuildWithED25519(user2)
 	require.NoError(t, err)
@@ -176,7 +176,7 @@ func TestSendIotasManyFromMany(t *testing.T) {
 		txb := utxoutil.NewBuilder(outputs...)
 		err = txb.AddSigLockedIOTAOutput(addr2, outputAmount)
 		require.NoError(t, err)
-		err = txb.AddReminderOutputIfNeeded(addr1, nil)
+		err = txb.AddRemainderOutputIfNeeded(addr1, nil)
 		require.NoError(t, err)
 		tx, err1 := txb.BuildWithED25519(user1)
 		require.NoError(t, err1)

@@ -273,9 +273,9 @@ func (b *Builder) AddExtendedOutputConsume(targetAddress ledgerstate.Address, da
 	return nil
 }
 
-// AddReminderOutputIfNeeded consumes already touched inputs and spends consumed-unspend.
+// AddRemainderOutputIfNeeded consumes already touched inputs and spends consumed-unspend.
 // Creates reminder output if needed
-func (b *Builder) AddReminderOutputIfNeeded(reminderAddr ledgerstate.Address, data []byte, compress ...bool) error {
+func (b *Builder) AddRemainderOutputIfNeeded(remainderAddr ledgerstate.Address, data []byte, compress ...bool) error {
 	compr := false
 	if len(compress) > 0 {
 		compr = compress[0]
@@ -286,7 +286,7 @@ func (b *Builder) AddReminderOutputIfNeeded(reminderAddr ledgerstate.Address, da
 		// no need for reminder output
 		return nil
 	}
-	return b.AddExtendedOutputConsume(reminderAddr, data, unspent)
+	return b.AddExtendedOutputConsume(remainderAddr, data, unspent)
 }
 
 // AddMintingOutputConsume mints new tokens. Consumes additional iotas if needed
@@ -362,8 +362,8 @@ func (b *Builder) AliasNextChainedOutput(addressAlias ledgerstate.Address) (*led
 	return out.NewAliasOutputNext(false), nil
 }
 
-// AddAliasOutputAsReminder forms an reminder by creating new alias output
-func (b *Builder) AddAliasOutputAsReminder(addressAlias ledgerstate.Address, stateData []byte, compress ...bool) error {
+// AddAliasOutputAsRemainder forms an reminder by creating new alias output
+func (b *Builder) AddAliasOutputAsRemainder(addressAlias ledgerstate.Address, stateData []byte, compress ...bool) error {
 	out, _, ok := FindAliasConsumableInput(addressAlias, b.consumables...)
 	if !ok {
 		return xerrors.Errorf("can't find chain input for %s", addressAlias)

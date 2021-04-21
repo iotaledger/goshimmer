@@ -49,9 +49,8 @@ type DrngCollectiveBeaconPayload struct {
 
 // TransactionPayload contains the transaction information.
 type TransactionPayload struct {
-	TxID               string   `json:"tx_id"`
-	TransactionEssence Essence  `json:"tx_essence"`
-	UnlockBlocks       []string `json:"unlock_blocks"`
+	TxID        string                  `json:"txID"`
+	Transaction *jsonmodels.Transaction `json:"transaction"`
 }
 
 // Essence contains the transaction essence information.
@@ -193,52 +192,16 @@ func processTransactionPayload(p payload.Payload) (tp TransactionPayload) {
 	if err != nil {
 		return
 	}
-
-	var inputs []*jsonmodels.Output
-	var outputs []*jsonmodels.Output
-	var stringifiedUnlockBlocks []string
-
-	// fill in inputs
-	for _, input := range tx.Essence().Inputs() {
-		if input.Type() == ledgerstate.UTXOInputType {
-			utxoInput := input.(*ledgerstate.UTXOInput)
-			refOutputID := utxoInput.ReferencedOutputID()
-			_ = messagelayer.Tangle().LedgerState.Output(refOutputID).Consume(func(o ledgerstate.Output) {
-				content := jsonmodels.NewOutput(o)
-				inputs = append(inputs, content)
-			})
-		}
+	tp.TxID = tx.ID().Base58()
+	tp.Transaction = jsonmodels.NewTransaction(tx)
+	// add consumed inputs
+	for i, input := range tx.Essence().Inputs() {
+		refOutputID := input.(*ledgerstate.UTXOInput).ReferencedOutputID()
+		messagelayer.Tangle().LedgerState.Output(refOutputID).Consume(func(output ledgerstate.Output) {
+			tp.Transaction.Inputs[i].Output = jsonmodels.NewOutput(output)
+		})
 	}
 
-	// fill in outputs
-	for _, output := range tx.Essence().Outputs() {
-		content := jsonmodels.NewOutput(output)
-		outputs = append(outputs, content)
-	}
-
-	for _, unlockBlock := range tx.UnlockBlocks() {
-		stringifiedUnlockBlocks = append(stringifiedUnlockBlocks, unlockBlock.String())
-	}
-
-	var dataPayloadString string
-	dataPayload := tx.Essence().Payload()
-	if dataPayload != nil {
-		dataPayloadString = dataPayload.String()
-	}
-
-	tp = TransactionPayload{
-		TxID: tx.ID().Base58(),
-		TransactionEssence: Essence{
-			Version:           uint8(tx.Essence().Version()),
-			Timestamp:         int(tx.Essence().Timestamp().Unix()),
-			AccessPledgeID:    tx.Essence().AccessPledgeID().String(),
-			ConsensusPledgeID: tx.Essence().ConsensusPledgeID().String(),
-			Inputs:            inputs,
-			Outputs:           outputs,
-			Data:              dataPayloadString,
-		},
-		UnlockBlocks: stringifiedUnlockBlocks,
-	}
 	return
 }
 
