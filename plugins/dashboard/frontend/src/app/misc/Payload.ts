@@ -92,6 +92,8 @@ export class AliasOutput {
     stateIndex: number;
     isGovernanceUpdate: boolean;
     isOrigin: boolean;
+    isGoldenCoin: boolean;
+    delegationTimelock: number;
     governingAddress: string;
 
     stateData: any;
