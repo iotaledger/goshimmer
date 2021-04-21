@@ -35,6 +35,12 @@ func TestTicker(t *testing.T) {
 
 	stateTest = NewState(SetCommittee(dummyCommittee()), SetRandomness(testRandomness(time.Now().Add(time.Duration(interval)*time.Second))))
 	randomness := stateTest.Randomness().Float64()
+	// mock the dRNG event
+	go func() {
+		time.Sleep(time.Duration(interval) * time.Second)
+		ticker.UpdateRandomness(stateTest.Randomness())
+	}()
+
 	r = <-ticker.C()
 	assert.Equal(t, r, randomness)
 }

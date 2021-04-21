@@ -70,4 +70,13 @@ func configureEvents() {
 	}))
 
 	messagelayer.SetDRNGState(Instance().LoadState(messagelayer.FPCParameters.DRNGInstanceID))
+
+	// Section to update the randomness for the dRNG ticker used by FPC.
+	Instance().Events.Randomness.Attach(events.NewClosure(func(state *drng.State) {
+		if state.Committee().InstanceID == messagelayer.FPCParameters.DRNGInstanceID {
+			if ticker := messagelayer.DRNGTicker(); ticker != nil {
+				ticker.UpdateRandomness(state.Randomness())
+			}
+		}
+	}))
 }

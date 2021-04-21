@@ -51,7 +51,16 @@ var (
 	registryOnce        sync.Once
 	dRNGState           *drng.State
 	dRNGStateMutex      sync.RWMutex
+	dRNGTicker          *drng.Ticker
+	dRNGTickerMutex     sync.RWMutex
 )
+
+// DRNGTicker returns the pointer to the dRNGTicker.
+func DRNGTicker() *drng.Ticker {
+	dRNGTickerMutex.RLock()
+	defer dRNGTickerMutex.RUnlock()
+	return dRNGTicker
+}
 
 // ConsensusPlugin returns the consensus plugin.
 func ConsensusPlugin() *node.Plugin {
@@ -178,7 +187,9 @@ func runFPC(plugin *node.Plugin) {
 		plugin.LogInfof("Started FPC round initiator")
 		defer plugin.LogInfof("Stopped FPC round initiator")
 
-		dRNGTicker := drng.NewTicker(DRNGState, FPCParameters.RoundInterval, FPCParameters.DefaultRandomness, FPCParameters.AwaitOffset)
+		dRNGTickerMutex.Lock()
+		dRNGTicker = drng.NewTicker(DRNGState, FPCParameters.RoundInterval, FPCParameters.DefaultRandomness, FPCParameters.AwaitOffset)
+		dRNGTickerMutex.Unlock()
 		dRNGTicker.Start()
 	exit:
 		for {
