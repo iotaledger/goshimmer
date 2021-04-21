@@ -248,7 +248,7 @@ func TestApis(t *testing.T) {
 	resp5, err = peers[0].GoShimmerAPI.GetManaPercentile(base58.Encode(emptyNodeID.Bytes()))
 	require.NoError(t, err)
 	assert.Equal(t, base58.Encode(emptyNodeID.Bytes()), resp5.NodeID)
-	assert.InDelta(t, 60., resp5.Consensus, 0.01)
+	assert.InDelta(t, 40., resp5.Consensus, 0.01)
 
 	// Test /mana/online/access
 	resp6, err := peers[0].GoShimmerAPI.GetOnlineAccessMana()
