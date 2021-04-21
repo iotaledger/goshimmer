@@ -450,10 +450,6 @@ type OutputID struct {
 
 // NewOutputID returns an OutputID from the given ledgerstate.OutputID.
 func NewOutputID(outputID ledgerstate.OutputID) *OutputID {
-	if outputID == ledgerstate.EmptyOutputID {
-		return nil
-	}
-
 	return &OutputID{
 		Base58:        outputID.Base58(),
 		TransactionID: outputID.TransactionID().Base58(),
@@ -472,19 +468,24 @@ type OutputMetadata struct {
 	Solid              bool      `json:"solid"`
 	SolidificationTime int64     `json:"solidificationTime"`
 	ConsumerCount      int       `json:"consumerCount"`
-	FirstConsumer      string    `json:"firstConsumer"`
+	FirstConsumer      string    `json:"firstConsumer,omitempty"`
 	Finalized          bool      `json:"finalized"`
 }
 
 // NewOutputMetadata returns the OutputMetadata from the given ledgerstate.OutputMetadata.
 func NewOutputMetadata(outputMetadata *ledgerstate.OutputMetadata) *OutputMetadata {
+	firstConsumer := ""
+	// omit firstconsumer field if it hasn't been consumed yet
+	if outputMetadata.FirstConsumer().Base58() != ledgerstate.GenesisTransactionID.Base58() {
+		firstConsumer = outputMetadata.FirstConsumer().Base58()
+	}
 	return &OutputMetadata{
 		OutputID:           NewOutputID(outputMetadata.ID()),
 		BranchID:           outputMetadata.BranchID().Base58(),
 		Solid:              outputMetadata.Solid(),
 		SolidificationTime: outputMetadata.SolidificationTime().Unix(),
 		ConsumerCount:      outputMetadata.ConsumerCount(),
-		FirstConsumer:      outputMetadata.FirstConsumer().Base58(),
+		FirstConsumer:      firstConsumer,
 		Finalized:          outputMetadata.Finalized(),
 	}
 }
@@ -656,14 +657,24 @@ func NewTransaction(transaction *ledgerstate.Transaction) *Transaction {
 type Input struct {
 	Type               string    `json:"type"`
 	ReferencedOutputID *OutputID `json:"referencedOutputID,omitempty"`
+	// the referenced output object, omit if not specified
+	Output *Output `json:"output,omitempty"`
 }
 
 // NewInput returns an Input from the given ledgerstate.Input.
-func NewInput(input ledgerstate.Input) *Input {
+func NewInput(input ledgerstate.Input, referencedOutput ...*Output) *Input {
 	if input.Type() == ledgerstate.UTXOInputType {
-		return &Input{
-			Type:               input.Type().String(),
-			ReferencedOutputID: NewOutputID(input.(*ledgerstate.UTXOInput).ReferencedOutputID()),
+		if len(referencedOutput) < 1 {
+			return &Input{
+				Type:               input.Type().String(),
+				ReferencedOutputID: NewOutputID(input.(*ledgerstate.UTXOInput).ReferencedOutputID()),
+			}
+		} else {
+			return &Input{
+				Type:               input.Type().String(),
+				ReferencedOutputID: NewOutputID(input.(*ledgerstate.UTXOInput).ReferencedOutputID()),
+				Output:             referencedOutput[0],
+			}
 		}
 	}
 

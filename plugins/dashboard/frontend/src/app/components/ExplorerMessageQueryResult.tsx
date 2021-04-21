@@ -237,19 +237,14 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                             </Col>
                         </Row>
 
-                        <Row className={"mb-3"}>
+                        <Row className={"mb-3"} style={{marginTop: "20px", marginBottom: "20px"}}>
                             <Col>
-                                <h4>Payload</h4>
+                                <h3>Payload</h3>
                             </Col>
                         </Row>
-
                         <Row className={"mb-3"}>
                             <Col>
-                                <ListGroup>
-                                    <ListGroup.Item className="text-break">
-                                        {this.renderPayload()}
-                                    </ListGroup.Item>
-                                </ListGroup>
+                                {this.renderPayload()}
                             </Col>
                         </Row>
                     </React.Fragment>
