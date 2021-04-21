@@ -74,9 +74,6 @@ func (u *UTXODAG) CheckTransaction(transaction *Transaction) (err error) {
 	defer cachedConsumedOutputs.Release()
 	consumedOutputs := cachedConsumedOutputs.Unwrap()
 
-	// fmt.Println("consumedOutputs: ", consumedOutputs)
-	// fmt.Println("transaction: ", transaction)
-
 	// perform cheap checks
 	if !u.allOutputsExist(consumedOutputs) {
 		return xerrors.Errorf("not all consumedOutputs of transaction are solid: %w", ErrTransactionNotSolid)
@@ -268,8 +265,6 @@ func (u *UTXODAG) LoadSnapshot(snapshot *Snapshot) {
 			cached.Release()
 		}
 		for _, output := range essence.outputs {
-			// // output.SetID(NewOutputID(transactionID, uint16(index)))
-			// fmt.Println("Output.ID(): ", output.ID())
 			cachedOutput, stored := u.outputStorage.StoreIfAbsent(output)
 			if stored {
 				cachedOutput.Release()

@@ -28,7 +28,6 @@ func onMarkerConfirmed(marker markers.Marker, newLevel int, transition events.Th
 
 	// mark marker as finalized
 	Tangle().Storage.MessageMetadata(messageID).Consume(func(metadata *tangle.MessageMetadata) {
-		Plugin().LogInfof("%s - marker(%d,%d) finalized ", messageID, marker.SequenceID(), marker.Index())
 		metadata.SetFinalizedApprovalWeight(true)
 	})
 
@@ -75,7 +74,7 @@ func propagateFinalizedApprovalWeight(message *tangle.Message, messageMetadata *
 }
 
 func onBranchConfirmed(branchID ledgerstate.BranchID, newLevel int, transition events.ThresholdEventTransition) {
-	plugin.LogInfof("%s confirmed by ApprovalWeight.", branchID)
+	plugin.LogDebugf("%s confirmed by ApprovalWeight.", branchID)
 
 	if Tangle().LedgerState.BranchDAG.InclusionState(branchID) == ledgerstate.Rejected {
 		remotelog.SendLogMsg(logger.LevelWarn, "REORG", fmt.Sprintf("%s reorg detected by ApprovalWeight", branchID))

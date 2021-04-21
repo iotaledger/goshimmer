@@ -73,7 +73,6 @@ func configure(plugin *node.Plugin) {
 		}
 		Tangle().LedgerState.LoadSnapshot(snapshot)
 		plugin.LogInfof("read snapshot from %s", Parameters.Snapshot.File)
-		plugin.LogInfof("Snapshot: %s", snapshot)
 	}
 
 	fcob.LikedThreshold = time.Duration(Parameters.FCOB.AverageNetworkDelay) * time.Second
