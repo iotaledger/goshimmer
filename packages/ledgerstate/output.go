@@ -928,6 +928,7 @@ const (
 	flagAliasOutputImmutableDataPresent
 	flagAliasOutputIsOrigin
 	flagAliasOutputGoldenCoinConstraint
+	flagAliasOutputDelegationTimelockPresent
 )
 
 // AliasOutput represents output which defines as AliasAddress.
@@ -965,6 +966,8 @@ type AliasOutput struct {
 	isOrigin bool
 	// true if the output is subject to the "golden coin" constraint: upon transition tokens cannot be changed
 	isGoldenCoin bool
+	// delegation timelock (optional)
+	delegationTimelock time.Time
 
 	objectstorage.StorableObjectFlags
 }
@@ -1003,6 +1006,19 @@ func (a *AliasOutput) NewAliasOutputNext(governanceUpdate ...bool) *AliasOutput 
 		ret.stateIndex = a.stateIndex + 1
 	}
 	return ret
+}
+
+// WithGoldenCoin retuns the output as a golden coin alias output.
+func (a *AliasOutput) WithGoldenCoin() *AliasOutput {
+	a.isGoldenCoin = true
+	return a
+}
+
+// WithGoldenCoinDelegationTimelock returns the output as a golden coin alias output and a set delegation timelock.
+func (a *AliasOutput) WithGoldenCoinDelegationTimelock(lockUntil time.Time) *AliasOutput {
+	a.isGoldenCoin = true
+	a.delegationTimelock = lockUntil
+	return a
 }
 
 // AliasOutputFromMarshalUtil unmarshals a AliasOutput using a MarshalUtil (for easier unmarshaling).
@@ -1079,6 +1095,12 @@ func AliasOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*AliasOut
 			return nil, xerrors.Errorf("AliasOutput: failed to parse governing address (%v): %w", err, cerrors.ErrParseBytesFailed)
 		}
 	}
+	if flags.HasBit(flagAliasOutputDelegationTimelockPresent) {
+		ret.delegationTimelock, err = marshalUtil.ReadTime()
+		if err != nil {
+			return nil, xerrors.Errorf("AliasOutput: failed to parse delegation timelock (%v): %w", err, cerrors.ErrParseBytesFailed)
+		}
+	}
 	if err7 := ret.checkBasicValidity(); err7 != nil {
 		return nil, err7
 	}
@@ -1117,12 +1139,12 @@ func (a *AliasOutput) SetIsOrigin(isOrigin bool) {
 	a.isOrigin = isOrigin
 }
 
-// IsOrigin returns true if it starts the chain
+// IsGoldenCoin returns true if it is a golden coin.
 func (a *AliasOutput) IsGoldenCoin() bool {
 	return a.isGoldenCoin
 }
 
-// SetIsOrigin sets the isOrigin field of the output.
+// SetIsGoldenCoin sets the isGoldenCoin field of the output.
 func (a *AliasOutput) SetIsGoldenCoin(isGoldenCoin bool) {
 	a.isGoldenCoin = isGoldenCoin
 }
@@ -1227,6 +1249,32 @@ func (a *AliasOutput) SetImmutableData(data []byte) error {
 	return nil
 }
 
+// SetDelegationTimelock sets the delegation timelock. An error is returend if the output is not a golden coin.
+func (a *AliasOutput) SetDelegationTimelock(timelock time.Time) error {
+	if !a.isGoldenCoin {
+		return xerrors.Errorf("AliasOutput: delegation timelock can only be set on a golden coin")
+	}
+	a.delegationTimelock = timelock
+	return nil
+}
+
+// DelegationTimelock returns the delegation timelock. If the output is not a golden coin, or delegation timelock is
+// not set, it returns the xero time object.
+func (a *AliasOutput) DelegationTimelock() time.Time {
+	if !a.isGoldenCoin {
+		return time.Time{}
+	}
+	return a.delegationTimelock
+}
+
+// DelegationTimeLockedNow determines if the alias output is delegation timelocked at a given time.
+func (a *AliasOutput) DelegationTimeLockedNow(nowis time.Time) bool {
+	if !a.isGoldenCoin || a.delegationTimelock.IsZero() {
+		return false
+	}
+	return a.delegationTimelock.After(nowis)
+}
+
 // Clone clones the structure
 func (a *AliasOutput) Clone() Output {
 	return a.clone()
@@ -1243,7 +1291,9 @@ func (a *AliasOutput) clone() *AliasOutput {
 		stateData:          make([]byte, len(a.stateData)),
 		governanceMetadata: make([]byte, len(a.governanceMetadata)),
 		immutableData:      make([]byte, len(a.immutableData)),
+		delegationTimelock: a.delegationTimelock,
 		isOrigin:           a.isOrigin,
+		isGoldenCoin:       a.isGoldenCoin,
 		isGovernanceUpdate: a.isGovernanceUpdate,
 	}
 	if a.governingAddress != nil {
@@ -1354,6 +1404,9 @@ func (a *AliasOutput) ObjectStorageValue() []byte {
 	if flags.HasBit(flagAliasOutputGovernanceSet) {
 		ret.WriteBytes(a.governingAddress.Bytes())
 	}
+	if flags.HasBit(flagAliasOutputDelegationTimelockPresent) {
+		ret.WriteTime(a.delegationTimelock)
+	}
 	return ret.Bytes()
 }
 
@@ -1380,7 +1433,7 @@ func (a *AliasOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inpu
 				}
 			}
 			// validate if transition passes the constraints
-			if err := a.validateTransition(chained); err != nil {
+			if err := a.validateTransition(chained, tx); err != nil {
 				return false, err
 			}
 		} else {
@@ -1445,6 +1498,9 @@ func (a *AliasOutput) checkBasicValidity() error {
 		return xerrors.Errorf("AliasOutput: size of the immutableData (%d) exceeds maximum allowed (%d)",
 			len(a.immutableData), MaxOutputPayloadSize)
 	}
+	if !a.isGoldenCoin && !a.delegationTimelock.IsZero() {
+		return xerrors.Errorf("AliasOutput: delegation timelock present, but output is not a golden coin")
+	}
 	return nil
 }
 
@@ -1479,6 +1535,9 @@ func (a *AliasOutput) mustFlags() bitmask.BitMask {
 	}
 	if a.isGoldenCoin {
 		ret = ret.SetBit(flagAliasOutputGoldenCoinConstraint)
+	}
+	if !a.delegationTimelock.IsZero() {
+		ret = ret.SetBit(flagAliasOutputDelegationTimelockPresent)
 	}
 	return ret
 }
@@ -1548,7 +1607,7 @@ func isExactDustMinimum(b *ColoredBalances) bool {
 }
 
 // validateTransition enforces transition constraints between input and output chain outputs
-func (a *AliasOutput) validateTransition(chained *AliasOutput) error {
+func (a *AliasOutput) validateTransition(chained *AliasOutput, tx *Transaction) error {
 	// enforce immutability of alias address and immutable data
 	if !a.GetAliasAddress().Equals(chained.GetAliasAddress()) {
 		return xerrors.New("AliasOutput: can't modify alias address")
@@ -1571,11 +1630,16 @@ func (a *AliasOutput) validateTransition(chained *AliasOutput) error {
 		if !equalColoredBalances(a.balances, chained.balances) {
 			return xerrors.New("AliasOutput: tokens are not unlocked for modification")
 		}
+		// golden coin delegation timelock is set and active, transition is invalid
+		if a.IsGoldenCoin() && a.DelegationTimeLockedNow(tx.Essence().Timestamp()) {
+			return xerrors.Errorf("AliasOutput: governance transition not allowed until %s, transaction timestamp is: %s",
+				a.delegationTimelock.String(), tx.Essence().Timestamp().String())
+		}
 		// can modify state address
 		// can modify governing address
 		// can modify governance metadata
-		// can modify token balances
 		// can modify 'golden coin' status
+		// can modify delegation timelock
 	} else {
 		// STATE TRANSITION
 		// can modify state data
@@ -1604,6 +1668,17 @@ func (a *AliasOutput) validateTransition(chained *AliasOutput) error {
 		// should not modify 'golden coin' status if not self governed
 		if a.IsGoldenCoin() != chained.IsGoldenCoin() {
 			return xerrors.New("AliasOutput: 'golden coin' status can't be changed")
+		}
+		// should not modify delegation timelock
+		if !a.DelegationTimelock().Equal(chained.DelegationTimelock()) {
+			return xerrors.New("AliasOutput: 'golden coin' delegation timelock can't be changed")
+		}
+		// can only be accepted:
+		//    - if no delegation timelock, state update can happen whenever
+		//    - if delegation timelock is present, need to check if the timelock is active, otherwise state update not allowed
+		if a.IsGoldenCoin() && !a.DelegationTimelock().IsZero() && !a.DelegationTimeLockedNow(tx.Essence().Timestamp()) {
+			return xerrors.Errorf("AliasOutput: state transition of golden coin not allowed after %s, transaction timestamp is %s",
+				a.delegationTimelock.String(), tx.Essence().Timestamp().String())
 		}
 	}
 	return nil

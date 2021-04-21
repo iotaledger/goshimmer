@@ -150,7 +150,7 @@ func TestAliasOutput_NewAliasOutputNext(t *testing.T) {
 
 func TestAliasOutputFromMarshalUtil(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
-		originAlias := dummyAliasOutput()
+		originAlias := dummyAliasOutput().WithGoldenCoinDelegationTimelock(time.Now())
 		bytesLength := len(originAlias.Bytes())
 		marshaledAlias, consumed, err := OutputFromBytes(originAlias.Bytes())
 		assert.NoError(t, err)
@@ -590,6 +590,60 @@ func TestAliasOutput_ObjectStorageValue(t *testing.T) {
 	// same as Bytes()
 }
 
+func TestAliasOutput_DelegationTimelock(t *testing.T) {
+	t.Run("CASE: Happy path", func(t *testing.T) {
+		alias := dummyAliasOutput()
+		// not a golden coin,
+		assert.True(t, alias.DelegationTimelock().IsZero())
+		// is a golden coin, but no timelock set
+		alias.isGoldenCoin = true
+		assert.True(t, alias.DelegationTimelock().IsZero())
+		// golden coin, timelock set
+		timelock := time.Now()
+		alias.delegationTimelock = timelock
+		assert.True(t, timelock.Equal(alias.DelegationTimelock()))
+	})
+}
+
+func TestAliasOutput_DelegationTimeLockedNow(t *testing.T) {
+	t.Run("CASE: Happy path", func(t *testing.T) {
+		timelock := time.Now()
+		alias := dummyAliasOutput()
+		alias.isGoldenCoin = true
+		err := alias.SetDelegationTimelock(timelock)
+		assert.NoError(t, err)
+
+		assert.True(t, alias.DelegationTimeLockedNow(timelock.Add(-time.Second)))
+		assert.False(t, alias.DelegationTimeLockedNow(timelock.Add(time.Second)))
+	})
+
+	t.Run("CASE: Golden coin without timelock", func(t *testing.T) {
+		timelock := time.Now()
+		alias := dummyAliasOutput()
+		alias.isGoldenCoin = true
+
+		assert.False(t, alias.DelegationTimeLockedNow(timelock.Add(-time.Second)))
+		assert.False(t, alias.DelegationTimeLockedNow(timelock.Add(time.Second)))
+	})
+}
+
+func TestAliasOutput_SetDelegationTimelock(t *testing.T) {
+	t.Run("CASE: Happy path", func(t *testing.T) {
+		timelock := time.Now()
+		alias := dummyAliasOutput()
+		// not a golden coin,
+		err := alias.SetDelegationTimelock(timelock)
+		t.Log(err)
+		assert.Error(t, err)
+		assert.True(t, alias.DelegationTimelock().IsZero())
+		// is a golden coin
+		alias.isGoldenCoin = true
+		err = alias.SetDelegationTimelock(timelock)
+		assert.NoError(t, err)
+		assert.True(t, alias.DelegationTimelock().Equal(timelock))
+	})
+}
+
 func TestAliasOutput_SetGoverningAddress(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		alias := dummyAliasOutput()
@@ -616,14 +670,31 @@ func TestAliasOutput_SetImmutableData(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, alias.GetImmutableData(), data)
 	})
+
+	t.Run("CASE: Too much data", func(t *testing.T) {
+		alias := dummyAliasOutput()
+		data := make([]byte, MaxOutputPayloadSize+1)
+		err := alias.SetImmutableData(data)
+		t.Log(err)
+		assert.Error(t, err)
+	})
 }
 
 func TestAliasOutput_SetGovernanceMetadata(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		alias := dummyAliasOutput()
 		data := []byte("new dummy gov metadata")
-		alias.SetGovernanceMetadata(data)
+		err := alias.SetGovernanceMetadata(data)
+		assert.NoError(t, err)
 		assert.Equal(t, alias.GetGovernanceMetadata(), data)
+	})
+
+	t.Run("CASE: Too much data", func(t *testing.T) {
+		alias := dummyAliasOutput()
+		data := make([]byte, MaxOutputPayloadSize+1)
+		err := alias.SetGovernanceMetadata(data)
+		t.Log(err)
+		assert.Error(t, err)
 	})
 }
 
@@ -632,6 +703,15 @@ func TestAliasOutput_SetIsGovernanceUpdated(t *testing.T) {
 		alias := dummyAliasOutput()
 		alias.SetIsGovernanceUpdated(true)
 		assert.Equal(t, alias.GetIsGovernanceUpdated(), true)
+	})
+}
+
+func TestAliasOutput_SetIsOrigin(t *testing.T) {
+	t.Run("CASE: Happy path", func(t *testing.T) {
+		alias := dummyAliasOutput()
+		assert.Equal(t, false, alias.isOrigin)
+		alias.SetIsOrigin(true)
+		assert.Equal(t, true, alias.isOrigin)
 	})
 }
 
@@ -743,18 +823,47 @@ func TestAliasOutput_UpdateMintingColor(t *testing.T) {
 	})
 }
 
+func TestAliasOutput_checkBasicValidity(t *testing.T) {
+	t.Run("CASE: state address nil", func(t *testing.T) {
+		alias := dummyAliasOutput()
+		alias.stateAddress = nil
+		err := alias.checkBasicValidity()
+		t.Log(err)
+		assert.Error(t, err)
+	})
+
+	t.Run("CASE: delegation timelock for non golden coin", func(t *testing.T) {
+		alias := dummyAliasOutput()
+		alias.isGoldenCoin = false
+		alias.delegationTimelock = time.Now()
+		err := alias.checkBasicValidity()
+		t.Log(err)
+		assert.Error(t, err)
+	})
+}
+
+func TestAliasOutput_mustValidate(t *testing.T) {
+	t.Run("CASE: did not validate", func(t *testing.T) {
+		alias := dummyAliasOutput()
+		alias.stateAddress = nil
+		assert.Panics(t, func() {
+			alias.mustValidate()
+		})
+	})
+}
+
 func TestAliasOutput_validateTransition(t *testing.T) {
 	t.Run("CASE: Happy path, state transition", func(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(false)
-		err := prev.validateTransition(next)
+		err := prev.validateTransition(next, &Transaction{})
 		assert.NoError(t, err)
 	})
 
 	t.Run("CASE: Happy path, governance transition", func(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(true)
-		err := prev.validateTransition(next)
+		err := prev.validateTransition(next, &Transaction{})
 		assert.NoError(t, err)
 	})
 
@@ -762,7 +871,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(false)
 		next.aliasAddress = *randAliasAddress()
-		err := prev.validateTransition(next)
+		err := prev.validateTransition(next, &Transaction{})
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -771,7 +880,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(false)
 		next.immutableData = []byte("something new")
-		err := prev.validateTransition(next)
+		err := prev.validateTransition(next, &Transaction{})
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -780,7 +889,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(true)
 		next.stateData = []byte("something new")
-		err := prev.validateTransition(next)
+		err := prev.validateTransition(next, &Transaction{})
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -789,7 +898,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(true)
 		next.stateIndex = prev.stateIndex + 1
-		err := prev.validateTransition(next)
+		err := prev.validateTransition(next, &Transaction{})
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -800,7 +909,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		newBalance := prev.Balances().Map()
 		newBalance[ColorIOTA]++
 		next.balances = NewColoredBalances(newBalance)
-		err := prev.validateTransition(next)
+		err := prev.validateTransition(next, &Transaction{})
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -809,7 +918,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(true)
 		next.stateAddress = randEd25119Address()
-		err := prev.validateTransition(next)
+		err := prev.validateTransition(next, &Transaction{})
 		assert.NoError(t, err)
 	})
 
@@ -817,7 +926,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(true)
 		next.governingAddress = randAliasAddress()
-		err := prev.validateTransition(next)
+		err := prev.validateTransition(next, &Transaction{})
 		assert.NoError(t, err)
 	})
 
@@ -825,15 +934,95 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(true)
 		next.governanceMetadata = []byte("chain is run by another VM")
-		err := prev.validateTransition(next)
+		err := prev.validateTransition(next, &Transaction{})
 		assert.NoError(t, err)
+	})
+
+	t.Run("CASE: Gov update, modified golden coin status", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		next := prev.NewAliasOutputNext(true)
+		next.isGoldenCoin = true
+		err := prev.validateTransition(next, &Transaction{})
+		assert.NoError(t, err)
+	})
+
+	t.Run("CASE: Gov update, golden coin without delegation lock", func(t *testing.T) {
+		prev := dummyAliasOutput().WithGoldenCoin()
+		next := prev.NewAliasOutputNext(true)
+		assert.Equal(t, true, next.IsGoldenCoin())
+		err := prev.validateTransition(next, &Transaction{essence: &TransactionEssence{timestamp: time.Now()}})
+		assert.NoError(t, err)
+	})
+
+	t.Run("CASE: Gov update, golden coin with delegation lock", func(t *testing.T) {
+		timelock := time.Now()
+		prev := dummyAliasOutput().WithGoldenCoinDelegationTimelock(timelock)
+		next := prev.NewAliasOutputNext(true)
+		assert.Equal(t, true, next.IsGoldenCoin())
+		// happy case, timelock expired
+		err := prev.validateTransition(next, &Transaction{essence: &TransactionEssence{timestamp: timelock.Add(time.Second)}})
+		assert.NoError(t, err)
+		// not happy case, timelock is still active
+		err = prev.validateTransition(next, &Transaction{essence: &TransactionEssence{timestamp: timelock.Add(-time.Second)}})
+		t.Log(err)
+		assert.Error(t, err)
+	})
+
+	t.Run("CASE: State update, golden coin without timelock", func(t *testing.T) {
+		prev := dummyAliasOutput().WithGoldenCoin()
+		next := prev.NewAliasOutputNext(false)
+		err := prev.validateTransition(next, &Transaction{essence: &TransactionEssence{timestamp: time.Now()}})
+		assert.NoError(t, err)
+	})
+
+	t.Run("CASE: State update, golden coin with timelock", func(t *testing.T) {
+		timelock := time.Now()
+		prev := dummyAliasOutput().WithGoldenCoinDelegationTimelock(timelock)
+		next := prev.NewAliasOutputNext(false)
+		// timelock is active state transition allowed
+		err := prev.validateTransition(next, &Transaction{essence: &TransactionEssence{timestamp: timelock.Add(-time.Second)}})
+		assert.NoError(t, err)
+		// timelock expired, state transition should fail
+		err = prev.validateTransition(next, &Transaction{essence: &TransactionEssence{timestamp: timelock.Add(time.Second)}})
+		t.Log(err)
+		assert.Error(t, err)
+	})
+
+	t.Run("CASE: State update, golden coin delegation timelock changed", func(t *testing.T) {
+		prev := dummyAliasOutput().WithGoldenCoin()
+		next := prev.NewAliasOutputNext(false)
+		next.delegationTimelock = time.Now()
+		err := prev.validateTransition(next, &Transaction{essence: &TransactionEssence{timestamp: time.Now()}})
+		t.Log(err)
+		assert.Error(t, err)
+	})
+
+	t.Run("CASE: State update, modified golden coin status", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		next := prev.NewAliasOutputNext(false)
+		next.isGoldenCoin = true
+		err := prev.validateTransition(next, &Transaction{})
+		t.Log(err)
+		assert.Error(t, err)
+	})
+
+	t.Run("CASE: State update of golden coin, modified balance status", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		prev.isGoldenCoin = true
+		next := prev.NewAliasOutputNext(false)
+		bal := next.balances.Map()
+		bal[ColorIOTA] += 1
+		next.balances = NewColoredBalances(bal)
+		err := prev.validateTransition(next, &Transaction{})
+		t.Log(err)
+		assert.Error(t, err)
 	})
 
 	t.Run("CASE: State update, wrong state index", func(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(false)
 		next.stateIndex = prev.GetStateIndex() + 2
-		err := prev.validateTransition(next)
+		err := prev.validateTransition(next, &Transaction{})
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -842,7 +1031,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(false)
 		next.stateAddress = randEd25119Address()
-		err := prev.validateTransition(next)
+		err := prev.validateTransition(next, &Transaction{})
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -851,7 +1040,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(false)
 		next.governingAddress = randAliasAddress()
-		err := prev.validateTransition(next)
+		err := prev.validateTransition(next, &Transaction{})
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -860,7 +1049,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(false)
 		next.governanceMetadata = []byte("chain is run by another VM")
-		err := prev.validateTransition(next)
+		err := prev.validateTransition(next, &Transaction{})
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -870,7 +1059,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev.governingAddress = nil
 		next := prev.NewAliasOutputNext(false)
 		next.governingAddress = randAliasAddress()
-		err := prev.validateTransition(next)
+		err := prev.validateTransition(next, &Transaction{})
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -879,7 +1068,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(false)
 		next.governingAddress = nil
-		err := prev.validateTransition(next)
+		err := prev.validateTransition(next, &Transaction{})
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -888,7 +1077,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(false)
 		next.stateData = []byte("new state data")
-		err := prev.validateTransition(next)
+		err := prev.validateTransition(next, &Transaction{})
 		assert.NoError(t, err)
 	})
 
@@ -898,7 +1087,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		newBalance := prev.Balances().Map()
 		newBalance[ColorIOTA]++
 		next.balances = NewColoredBalances(newBalance)
-		err := prev.validateTransition(next)
+		err := prev.validateTransition(next, &Transaction{})
 		assert.NoError(t, err)
 	})
 }
@@ -1390,6 +1579,7 @@ func TestAliasOutput_UnlockValid(t *testing.T) {
 
 func TestAliasOutput_Clone(t *testing.T) {
 	out := dummyAliasOutput()
+	out.isGoldenCoin = true
 	outBack := out.Clone()
 	outBackT, ok := outBack.(*AliasOutput)
 	assert.True(t, ok)
@@ -2124,7 +2314,9 @@ func dummyAliasOutput(origin ...bool) *AliasOutput {
 		immutableData:       []byte("don't touch this"),
 		isGovernanceUpdate:  false,
 		isOrigin:            orig,
+		isGoldenCoin:        false,
 		governingAddress:    randAliasAddress(),
+		delegationTimelock:  time.Time{},
 		StorableObjectFlags: objectstorage.StorableObjectFlags{},
 	}
 }
