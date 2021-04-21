@@ -27,7 +27,7 @@ const (
 	cfgSnapshotGenesisSeed  = "seed"
 	defaultSnapshotFileName = "./snapshot.bin"
 
-	amountToPledge = 10000000
+	amountToPledge = 1000000000000000
 	tokensToPledge = uint64(amountToPledge)
 	faucetPledge   = "EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP"
 )
