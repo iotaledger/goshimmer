@@ -126,6 +126,7 @@ func (f *ConsensusMechanism) EvaluateTimestamp(messageID tangle.MessageID) {
 
 	f.setTimestampOpinionDone(messageID)
 
+	// trigger MessageOpinionFormed event for messageID and all its approvers once both opinions for timestamp and payload are set
 	if f.messageDone(messageID) {
 		f.tangle.Utils.WalkMessageID(f.createMessageOpinion, tangle.MessageIDs{messageID}, true)
 	}
@@ -167,6 +168,7 @@ func (f *ConsensusMechanism) ProcessVote(ev *vote.OpinionEvent) {
 
 		f.setTimestampOpinionDone(messageID)
 
+		// trigger MessageOpinionFormed event for messageID and all its approvers once both opinions for timestamp and payload are set
 		if f.messageDone(messageID) {
 			f.tangle.Utils.WalkMessageID(f.createMessageOpinion, tangle.MessageIDs{messageID}, true)
 		}
@@ -346,6 +348,7 @@ func (f *ConsensusMechanism) onPayloadOpinionFormed(messageID tangle.MessageID, 
 
 	f.setPayloadOpinionDone(messageID)
 
+	// trigger MessageOpinionFormed event for messageID and all its approvers once both opinions for timestamp and payload are set
 	if f.messageDone(messageID) {
 		f.tangle.Utils.WalkMessageID(f.createMessageOpinion, tangle.MessageIDs{messageID}, true)
 	}
