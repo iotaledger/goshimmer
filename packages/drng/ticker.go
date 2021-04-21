@@ -84,9 +84,9 @@ func (t *Ticker) C() <-chan float64 {
 func (t *Ticker) send() {
 	randomness := t.defaultValue
 
-	if t.dRNGState() != nil {
+	if t.dRNGState() != nil && t.dRNGTicker != nil {
 		// check if the randomness is "fresh"
-		if t.dRNGTicker != nil && t.missingDRNG && clock.Since(t.dRNGState().Randomness().Timestamp) < time.Duration(t.interval)*time.Second {
+		if t.missingDRNG && clock.Since(t.dRNGState().Randomness().Timestamp) < time.Duration(t.interval)*time.Second {
 			t.missingDRNG = false
 			randomness = t.dRNGState().Randomness().Float64()
 			// the expected time that we should receive a new randomness
