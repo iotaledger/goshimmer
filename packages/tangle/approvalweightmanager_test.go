@@ -432,8 +432,6 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	{
 		testFramework.CreateMessage("Message7", WithStrongParents("Message5"), WithIssuer(nodes["C"].PublicKey()), WithInputs("B"), WithOutput("E", 500))
 
-		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(1, 5), 1, events.ThresholdLevelIncreased)
-
 		testFramework.PreventNewMarkers(true)
 		issueAndValidateMessageApproval(t, "Message7", testEventMock, testFramework, map[ledgerstate.BranchID]float64{
 			testFramework.BranchID("Message5"): 0.55,
@@ -490,9 +488,6 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 	{
 		testFramework.CreateMessage("Message9", WithStrongParents("Message8"), WithIssuer(nodes["A"].PublicKey()))
 
-		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(2, 5), 1, events.ThresholdLevelIncreased)
-		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(2, 6), 1, events.ThresholdLevelIncreased)
-
 		issueAndValidateMessageApproval(t, "Message9", testEventMock, testFramework, map[ledgerstate.BranchID]float64{
 			testFramework.BranchID("Message5"): 0.25,
 			testFramework.BranchID("Message6"): 0.60,
@@ -513,6 +508,8 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 		testFramework.CreateMessage("Message10", WithStrongParents("Message9"), WithIssuer(nodes["B"].PublicKey()))
 
 		testEventMock.Expect("BranchConfirmed", testFramework.BranchID("Message6"), 1, events.ThresholdLevelIncreased)
+		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(2, 5), 1, events.ThresholdLevelIncreased)
+		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(2, 6), 1, events.ThresholdLevelIncreased)
 
 		issueAndValidateMessageApproval(t, "Message10", testEventMock, testFramework, map[ledgerstate.BranchID]float64{
 			testFramework.BranchID("Message5"): 0.25,
@@ -564,7 +561,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 		testFramework.CreateMessage("Message12", WithStrongParents("Message11"), WithIssuer(nodes["D"].PublicKey()))
 
 		testEventMock.Expect("BranchConfirmed", testFramework.BranchID("Message5"), 1, events.ThresholdLevelIncreased)
-		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(3, 6), 1, events.ThresholdLevelIncreased)
+		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(1, 5), 1, events.ThresholdLevelIncreased)
 
 		issueAndValidateMessageApproval(t, "Message12", testEventMock, testFramework, map[ledgerstate.BranchID]float64{
 			testFramework.BranchID("Message5"):  0.75,
@@ -616,6 +613,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 		testFramework.CreateMessage("Message14", WithStrongParents("Message13"), WithIssuer(nodes["B"].PublicKey()))
 
 		testEventMock.Expect("BranchConfirmed", testFramework.BranchID("Message11"), 1, events.ThresholdLevelIncreased)
+		testEventMock.Expect("MarkerConfirmed", *markers.NewMarker(3, 6), 1, events.ThresholdLevelIncreased)
 
 		issueAndValidateMessageApproval(t, "Message14", testEventMock, testFramework, map[ledgerstate.BranchID]float64{
 			testFramework.BranchID("Message5"):  1,
