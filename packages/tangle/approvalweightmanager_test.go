@@ -74,7 +74,7 @@ func TestSupporterManager_updateBranchSupporters(t *testing.T) {
 
 	tangle := New(ApprovalWeights(WeightProviderFromEpochsManager(manager)))
 	defer tangle.Shutdown()
-	supporterManager := NewSupporterManager(tangle)
+	supporterManager := NewApprovalWeightManager(tangle)
 
 	conflictIDs := map[string]ledgerstate.ConflictID{
 		"Conflict 1": ledgerstate.ConflictIDFromRandomness(),
@@ -208,7 +208,7 @@ func TestSupporterManager_updateBranchSupporters(t *testing.T) {
 func TestSupporterManager_updateSequenceSupporters(t *testing.T) {
 	tangle := New()
 	defer tangle.Shutdown()
-	supporterManager := NewSupporterManager(tangle)
+	supporterManager := NewApprovalWeightManager(tangle)
 	supporters := map[string]*identity.Identity{
 		"A": identity.New(ed25519.GenerateKeyPair().PublicKey),
 		"B": identity.New(ed25519.GenerateKeyPair().PublicKey),
@@ -661,9 +661,9 @@ func issueAndValidateMessageApproval(t *testing.T, messageAlias string, eventMoc
 	eventMock.AssertExpectations(t)
 }
 
-func validateMarkerSupporters(t *testing.T, approvalWeightManager *SupporterManager, markersMap map[string]*markers.StructureDetails, expectedSupporters map[string][]*identity.Identity) {
+func validateMarkerSupporters(t *testing.T, approvalWeightManager *ApprovalWeightManager, markersMap map[string]*markers.StructureDetails, expectedSupporters map[string][]*identity.Identity) {
 	for markerAlias, expectedSupportersOfMarker := range expectedSupporters {
-		supporters := approvalWeightManager.SupportersOfMarker(markersMap[markerAlias].PastMarkers.Marker())
+		supporters := approvalWeightManager.supportersOfMarker(markersMap[markerAlias].PastMarkers.Marker())
 
 		assert.Equal(t, len(expectedSupportersOfMarker), supporters.Size(), "size of supporters for Marker("+markerAlias+") does not match")
 		for _, supporter := range expectedSupportersOfMarker {
@@ -672,7 +672,7 @@ func validateMarkerSupporters(t *testing.T, approvalWeightManager *SupporterMana
 	}
 }
 
-func approveMarkers(approvalWeightManager *SupporterManager, supporter *identity.Identity, markersToApprove ...*markers.Marker) (message *Message) {
+func approveMarkers(approvalWeightManager *ApprovalWeightManager, supporter *identity.Identity, markersToApprove ...*markers.Marker) (message *Message) {
 	message = newTestDataMessagePublicKey("test", supporter.PublicKey())
 	approvalWeightManager.tangle.Storage.StoreMessage(message)
 	approvalWeightManager.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
@@ -701,10 +701,10 @@ func createBranch(t *testing.T, tangle *Tangle, branchAlias string, branchIDs ma
 	ledgerstate.RegisterBranchIDAlias(branchID, branchAlias)
 }
 
-func validateStatementResults(t *testing.T, supporterManager *SupporterManager, branchIDs map[string]ledgerstate.BranchID, supporter Supporter, expectedResults map[string]bool) {
+func validateStatementResults(t *testing.T, approvalWeightManager *ApprovalWeightManager, branchIDs map[string]ledgerstate.BranchID, supporter Supporter, expectedResults map[string]bool) {
 	for branchIDString, expectedResult := range expectedResults {
 		var actualResult bool
-		supporters := supporterManager.SupportersOfBranch(branchIDs[branchIDString])
+		supporters := approvalWeightManager.supportersOfBranch(branchIDs[branchIDString])
 		if supporters != nil {
 			actualResult = supporters.Has(supporter)
 		}

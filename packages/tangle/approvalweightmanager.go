@@ -60,20 +60,8 @@ func (a *ApprovalWeightManager) Setup() {
 	}
 
 	a.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(a.ProcessMessage))
-	a.tangle.Booker.Events.MessageBranchUpdated.Attach(events.NewClosure(a.onBookMessageIntoNewBranch))
-	a.tangle.Booker.Events.MarkerBranchUpdated.Attach(events.NewClosure(a.onBookMarkerIntoNewBranch))
-}
-
-// Shutdown shuts down the ApprovalWeightManager and persists its state.
-func (a *ApprovalWeightManager) Shutdown() {
-	if err := a.tangle.Options.Store.Set(kvstore.Key("BranchConfirmation"), a.Events.BranchConfirmation.Bytes()); err != nil {
-		a.tangle.Events.Error.Trigger(xerrors.Errorf("failed to persists BranchConfirmation event (%v): %w", err, cerrors.ErrFatal))
-		return
-	}
-	if err := a.tangle.Options.Store.Set(kvstore.Key("MarkerConfirmation"), a.Events.MarkerConfirmation.Bytes()); err != nil {
-		a.tangle.Events.Error.Trigger(xerrors.Errorf("failed to persists MarkerConfirmation event (%v): %w", err, cerrors.ErrFatal))
-		return
-	}
+	a.tangle.Booker.Events.MessageBranchUpdated.Attach(events.NewClosure(a.moveMessageWeightToNewBranch))
+	a.tangle.Booker.Events.MarkerBranchUpdated.Attach(events.NewClosure(a.moveMarkerWeightToNewBranch))
 }
 
 // ProcessMessage is the main entry point for the ApprovalWeightManager. It takes the Message's issuer, adds it to the
@@ -88,8 +76,120 @@ func (a *ApprovalWeightManager) ProcessMessage(messageID MessageID) {
 	})
 }
 
-// SupportersOfBranch returns the Supporters of the given ledgerstate.BranchID.
-func (a *ApprovalWeightManager) SupportersOfBranch(branchID ledgerstate.BranchID) (supporters *Supporters) {
+// WeightOfBranch returns the weight of the given Branch that was added by Supporters of the given epoch.
+func (a *ApprovalWeightManager) WeightOfBranch(branchID ledgerstate.BranchID) (weight float64) {
+	a.tangle.Storage.BranchWeight(branchID).Consume(func(branchWeight *BranchWeight) {
+		weight = branchWeight.Weight()
+	})
+
+	return
+}
+
+// WeightOfMarker returns the weight of the given marker based on the anchorTime.
+func (a *ApprovalWeightManager) WeightOfMarker(marker *markers.Marker, anchorTime time.Time) (weight float64) {
+	currentEpoch := a.tangle.WeightProvider.Epoch(anchorTime)
+
+	activeWeight, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantSupporters(currentEpoch)
+	branchID := a.tangle.Booker.MarkersManager.BranchID(marker)
+	supportersOfMarker := a.supportersOfMarker(marker)
+	supporterWeight := float64(0)
+	if branchID == ledgerstate.MasterBranchID {
+		supportersOfMarker.ForEach(func(supporter Supporter) {
+			supporterWeight += activeWeight[supporter]
+		})
+	} else {
+		a.supportersOfBranch(branchID).ForEach(func(supporter Supporter) {
+			if supportersOfMarker.Has(supporter) {
+				supporterWeight += activeWeight[supporter]
+			}
+		})
+	}
+
+	return supporterWeight / totalWeight
+}
+
+// Shutdown shuts down the ApprovalWeightManager and persists its state.
+func (a *ApprovalWeightManager) Shutdown() {
+	if err := a.tangle.Options.Store.Set(kvstore.Key("BranchConfirmation"), a.Events.BranchConfirmation.Bytes()); err != nil {
+		a.tangle.Events.Error.Trigger(xerrors.Errorf("failed to persists BranchConfirmation event (%v): %w", err, cerrors.ErrFatal))
+		return
+	}
+	if err := a.tangle.Options.Store.Set(kvstore.Key("MarkerConfirmation"), a.Events.MarkerConfirmation.Bytes()); err != nil {
+		a.tangle.Events.Error.Trigger(xerrors.Errorf("failed to persists MarkerConfirmation event (%v): %w", err, cerrors.ErrFatal))
+		return
+	}
+}
+
+// initThresholdEvent returns the ThresholdEvent that belongs to the given name. Since ThresholdEvents are stateful,
+func (a *ApprovalWeightManager) initThresholdEvent(name string, options ...events.ThresholdEventOption) (thresholdEvent *events.ThresholdEvent) {
+	marshaledThresholdEvent, err := a.tangle.Options.Store.Get(kvstore.Key(name))
+	if err != nil && !errors.Is(err, kvstore.ErrKeyNotFound) {
+		panic(err)
+	}
+	if marshaledThresholdEvent != nil {
+		if thresholdEvent, _, err = events.ThresholdEventFromBytes(marshaledThresholdEvent, options...); err != nil {
+			panic(err)
+		}
+	} else {
+		thresholdEvent = events.NewThresholdEvent(options...)
+	}
+
+	return
+}
+
+func (a *ApprovalWeightManager) statementFromMessage(message *Message, optionalBranchID ...ledgerstate.BranchID) (statement *Statement, isNewStatement bool) {
+	nodeID := identity.NewID(message.IssuerPublicKey())
+
+	var branchID ledgerstate.BranchID
+	if len(optionalBranchID) > 0 {
+		branchID = optionalBranchID[0]
+	} else {
+		var err error
+		branchID, err = a.tangle.Booker.MessageBranchID(message.ID())
+		if err != nil {
+			// TODO: handle error properly
+			panic(err)
+		}
+	}
+
+	a.tangle.Storage.Statement(branchID, nodeID, func() *Statement {
+		return NewStatement(branchID, nodeID)
+	}).Consume(func(consumedStatement *Statement) {
+		statement = consumedStatement
+		// We already have a newer statement for this branchID of this supporter.
+		if !statement.UpdateSequenceNumber(message.SequenceNumber()) {
+			return
+		}
+
+		isNewStatement = true
+	})
+
+	return
+}
+
+// firstUnconfirmedMarkerIndex returns the first Index in the given Sequence that was not confirmed, yet.
+func (a *ApprovalWeightManager) firstUnconfirmedMarkerIndex(sequenceID markers.SequenceID) (index markers.Index) {
+	index, exists := a.lastConfirmedMarkers[sequenceID]
+	if !exists {
+		a.tangle.Booker.MarkersManager.Manager.Sequence(sequenceID).Consume(func(sequence *markers.Sequence) {
+			index = sequence.LowestIndex() - 1
+		})
+		a.lastConfirmedMarkers[sequenceID] = index
+	}
+
+	index++
+
+	return
+}
+
+func (a *ApprovalWeightManager) isRelevantSupporter(message *Message) bool {
+	supporterWeight, totalWeight := a.tangle.WeightProvider.Weight(a.tangle.WeightProvider.Epoch(message.IssuingTime()), message)
+
+	return supporterWeight/totalWeight >= minSupporterWeight
+}
+
+// supportersOfBranch returns the Supporters of the given ledgerstate.BranchID.
+func (a *ApprovalWeightManager) supportersOfBranch(branchID ledgerstate.BranchID) (supporters *Supporters) {
 	if !a.tangle.Storage.BranchSupporters(branchID).Consume(func(branchSupporters *BranchSupporters) {
 		supporters = branchSupporters.Supporters()
 	}) {
@@ -99,8 +199,8 @@ func (a *ApprovalWeightManager) SupportersOfBranch(branchID ledgerstate.BranchID
 	return
 }
 
-// SupportersOfMarker returns the Supporters of the given markers.Marker.
-func (a *ApprovalWeightManager) SupportersOfMarker(marker *markers.Marker) (supporters *Supporters) {
+// supportersOfMarker returns the Supporters of the given markers.Marker.
+func (a *ApprovalWeightManager) supportersOfMarker(marker *markers.Marker) (supporters *Supporters) {
 	if !a.tangle.Storage.SequenceSupporters(marker.SequenceID()).Consume(func(sequenceSupporters *SequenceSupporters) {
 		supporters = sequenceSupporters.Supporters(marker.Index())
 	}) {
@@ -108,73 +208,6 @@ func (a *ApprovalWeightManager) SupportersOfMarker(marker *markers.Marker) (supp
 	}
 
 	return
-}
-
-func (a *ApprovalWeightManager) migrateMarkerSupportersToNewBranch(marker *markers.Marker, oldBranchID, newBranchID ledgerstate.BranchID) {
-	a.tangle.Storage.BranchSupporters(newBranchID, NewBranchSupporters).Consume(func(branchSupporters *BranchSupporters) {
-		supportersOfMarker := a.SupportersOfMarker(marker)
-
-		if oldBranchID == ledgerstate.MasterBranchID {
-			supportersOfMarker.ForEach(func(supporter Supporter) {
-				branchSupporters.AddSupporter(supporter)
-			})
-			return
-		}
-
-		a.SupportersOfBranch(oldBranchID).ForEach(func(supporter Supporter) {
-			if supportersOfMarker.Has(supporter) {
-				branchSupporters.AddSupporter(supporter)
-			}
-		})
-	})
-
-	a.tangle.Storage.Message(a.tangle.Booker.MarkersManager.MessageID(marker)).Consume(func(message *Message) {
-		a.updateBranchWeight(newBranchID, message)
-	})
-}
-
-func (a *ApprovalWeightManager) updateSequenceSupporters(message *Message) {
-	a.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
-		supportWalker := walker.New()
-
-		messageMetadata.StructureDetails().PastMarkers.ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
-			supportWalker.Push(markers.NewMarker(sequenceID, index))
-
-			return true
-		})
-
-		for supportWalker.HasNext() {
-			a.addSupportToMarker(supportWalker.Next().(*markers.Marker), message, supportWalker)
-		}
-	})
-}
-
-func (a *ApprovalWeightManager) addSupportToMarker(marker *markers.Marker, message *Message, walk *walker.Walker) {
-	// Avoid tracking support of markers in sequence 0.
-	if marker.SequenceID() == 0 {
-		return
-	}
-
-	a.tangle.Storage.SequenceSupporters(marker.SequenceID(), func() *SequenceSupporters {
-		return NewSequenceSupporters(marker.SequenceID())
-	}).Consume(func(sequenceSupporters *SequenceSupporters) {
-		if sequenceSupporters.AddSupporter(identity.NewID(message.IssuerPublicKey()), marker.Index()) {
-			a.updateMarkerWeight(marker, message)
-
-			a.tangle.Booker.MarkersManager.Manager.Sequence(marker.SequenceID()).Consume(func(sequence *markers.Sequence) {
-				sequence.ReferencedMarkers(marker.Index()).ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
-					// Avoid adding and tracking support of markers in sequence 0.
-					if sequenceID == 0 {
-						return true
-					}
-
-					walk.Push(markers.NewMarker(sequenceID, index))
-
-					return true
-				})
-			})
-		}
-	})
 }
 
 func (a *ApprovalWeightManager) updateBranchSupporters(message *Message) {
@@ -200,12 +233,6 @@ func (a *ApprovalWeightManager) propagateSupportToBranches(branchID ledgerstate.
 	for supportWalker.HasNext() {
 		a.addSupportToBranch(supportWalker.Next().(ledgerstate.BranchID), message, supportWalker)
 	}
-}
-
-func (a *ApprovalWeightManager) isRelevantSupporter(message *Message) bool {
-	supporterWeight, totalWeight := a.tangle.WeightProvider.Weight(a.tangle.WeightProvider.Epoch(message.IssuingTime()), message)
-
-	return supporterWeight/totalWeight >= minSupporterWeight
 }
 
 func (a *ApprovalWeightManager) addSupportToBranch(branchID ledgerstate.BranchID, message *Message, walk *walker.Walker) {
@@ -270,109 +297,70 @@ func (a *ApprovalWeightManager) revokeSupportFromBranch(branchID ledgerstate.Bra
 	})
 }
 
-func (a *ApprovalWeightManager) statementFromMessage(message *Message, optionalBranchID ...ledgerstate.BranchID) (statement *Statement, isNewStatement bool) {
-	nodeID := identity.NewID(message.IssuerPublicKey())
+func (a *ApprovalWeightManager) updateSequenceSupporters(message *Message) {
+	a.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
+		supportWalker := walker.New()
 
-	var branchID ledgerstate.BranchID
-	if len(optionalBranchID) > 0 {
-		branchID = optionalBranchID[0]
-	} else {
-		var err error
-		branchID, err = a.tangle.Booker.MessageBranchID(message.ID())
-		if err != nil {
-			// TODO: handle error properly
-			panic(err)
+		messageMetadata.StructureDetails().PastMarkers.ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
+			supportWalker.Push(markers.NewMarker(sequenceID, index))
+
+			return true
+		})
+
+		for supportWalker.HasNext() {
+			a.addSupportToMarker(supportWalker.Next().(*markers.Marker), message, supportWalker)
 		}
+	})
+}
+
+func (a *ApprovalWeightManager) addSupportToMarker(marker *markers.Marker, message *Message, walk *walker.Walker) {
+	// Avoid tracking support of markers in sequence 0.
+	if marker.SequenceID() == 0 {
+		return
 	}
 
-	a.tangle.Storage.Statement(branchID, nodeID, func() *Statement {
-		return NewStatement(branchID, nodeID)
-	}).Consume(func(consumedStatement *Statement) {
-		statement = consumedStatement
-		// We already have a newer statement for this branchID of this supporter.
-		if !statement.UpdateSequenceNumber(message.SequenceNumber()) {
+	a.tangle.Storage.SequenceSupporters(marker.SequenceID(), func() *SequenceSupporters {
+		return NewSequenceSupporters(marker.SequenceID())
+	}).Consume(func(sequenceSupporters *SequenceSupporters) {
+		if sequenceSupporters.AddSupporter(identity.NewID(message.IssuerPublicKey()), marker.Index()) {
+			a.updateMarkerWeight(marker, message)
+
+			a.tangle.Booker.MarkersManager.Manager.Sequence(marker.SequenceID()).Consume(func(sequence *markers.Sequence) {
+				sequence.ReferencedMarkers(marker.Index()).ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
+					// Avoid adding and tracking support of markers in sequence 0.
+					if sequenceID == 0 {
+						return true
+					}
+
+					walk.Push(markers.NewMarker(sequenceID, index))
+
+					return true
+				})
+			})
+		}
+	})
+}
+
+func (a *ApprovalWeightManager) migrateMarkerSupportersToNewBranch(marker *markers.Marker, oldBranchID, newBranchID ledgerstate.BranchID) {
+	a.tangle.Storage.BranchSupporters(newBranchID, NewBranchSupporters).Consume(func(branchSupporters *BranchSupporters) {
+		supportersOfMarker := a.supportersOfMarker(marker)
+
+		if oldBranchID == ledgerstate.MasterBranchID {
+			supportersOfMarker.ForEach(func(supporter Supporter) {
+				branchSupporters.AddSupporter(supporter)
+			})
 			return
 		}
 
-		isNewStatement = true
-	})
-
-	return
-}
-
-// WeightOfBranch returns the weight of the given Branch that was added by Supporters of the given epoch.
-func (a *ApprovalWeightManager) WeightOfBranch(branchID ledgerstate.BranchID) (weight float64) {
-	a.tangle.Storage.BranchWeight(branchID).Consume(func(branchWeight *BranchWeight) {
-		weight = branchWeight.Weight()
-	})
-
-	return
-}
-
-// WeightOfMarker returns the weight of the given marker based on the anchorTime.
-func (a *ApprovalWeightManager) WeightOfMarker(marker *markers.Marker, anchorTime time.Time) (weight float64) {
-	currentEpoch := a.tangle.WeightProvider.Epoch(anchorTime)
-
-	activeWeight, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantSupporters(currentEpoch)
-	branchID := a.tangle.Booker.MarkersManager.BranchID(marker)
-	supportersOfMarker := a.SupportersOfMarker(marker)
-	supporterWeight := float64(0)
-	if branchID == ledgerstate.MasterBranchID {
-		supportersOfMarker.ForEach(func(supporter Supporter) {
-			supporterWeight += activeWeight[supporter]
-		})
-	} else {
-		a.SupportersOfBranch(branchID).ForEach(func(supporter Supporter) {
+		a.supportersOfBranch(oldBranchID).ForEach(func(supporter Supporter) {
 			if supportersOfMarker.Has(supporter) {
-				supporterWeight += activeWeight[supporter]
+				branchSupporters.AddSupporter(supporter)
 			}
 		})
-	}
-
-	return supporterWeight / totalWeight
-}
-
-// initThresholdEvent returns the ThresholdEvent that belongs to the given name. Since ThresholdEvents are stateful,
-func (a *ApprovalWeightManager) initThresholdEvent(name string, options ...events.ThresholdEventOption) (thresholdEvent *events.ThresholdEvent) {
-	marshaledThresholdEvent, err := a.tangle.Options.Store.Get(kvstore.Key(name))
-	if err != nil && !errors.Is(err, kvstore.ErrKeyNotFound) {
-		panic(err)
-	}
-	if marshaledThresholdEvent != nil {
-		if thresholdEvent, _, err = events.ThresholdEventFromBytes(marshaledThresholdEvent, options...); err != nil {
-			panic(err)
-		}
-	} else {
-		thresholdEvent = events.NewThresholdEvent(options...)
-	}
-
-	return
-}
-
-func (a *ApprovalWeightManager) onBookMessageIntoNewBranch(messageID MessageID, _, newBranchID ledgerstate.BranchID) {
-	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		a.propagateSupportToBranches(newBranchID, message)
 	})
-}
 
-func (a *ApprovalWeightManager) onBookMarkerIntoNewBranch(marker *markers.Marker, oldBranchID, newBranchID ledgerstate.BranchID) {
-	a.migrateMarkerSupportersToNewBranch(marker, oldBranchID, newBranchID)
-
-	messageID := a.tangle.Booker.MarkersManager.MessageID(marker)
-	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		epochID := a.tangle.WeightProvider.Epoch(message.IssuingTime())
-
-		weightsOfSupporters, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantSupporters(epochID)
-		branchWeight := float64(0)
-		a.SupportersOfBranch(newBranchID).ForEach(func(supporter Supporter) {
-			branchWeight += weightsOfSupporters[supporter]
-		})
-
-		a.tangle.Storage.BranchWeight(newBranchID, func() *BranchWeight {
-			return NewBranchWeight(newBranchID)
-		}).Consume(func(b *BranchWeight) {
-			b.SetWeight(branchWeight / totalWeight)
-		})
+	a.tangle.Storage.Message(a.tangle.Booker.MarkersManager.MessageID(marker)).Consume(func(message *Message) {
+		a.updateBranchWeight(newBranchID, message)
 	})
 }
 
@@ -384,7 +372,7 @@ func (a *ApprovalWeightManager) updateMarkerWeight(marker *markers.Marker, messa
 	epoch := a.tangle.WeightProvider.Epoch(message.IssuingTime())
 	activeWeights, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantSupporters(epoch)
 
-	for i := a.lowestLastConfirmedMarker(marker.SequenceID()); i <= marker.Index(); i++ {
+	for i := a.firstUnconfirmedMarkerIndex(marker.SequenceID()); i <= marker.Index(); i++ {
 		currentMarker := markers.NewMarker(marker.SequenceID(), i)
 		branchID := a.tangle.Booker.MarkersManager.BranchID(currentMarker)
 
@@ -396,14 +384,14 @@ func (a *ApprovalWeightManager) updateMarkerWeight(marker *markers.Marker, messa
 			break
 		}
 
-		supportersOfMarker := a.SupportersOfMarker(currentMarker)
+		supportersOfMarker := a.supportersOfMarker(currentMarker)
 		supporterWeight := float64(0)
 		if branchID == ledgerstate.MasterBranchID {
 			supportersOfMarker.ForEach(func(supporter Supporter) {
 				supporterWeight += activeWeights[supporter]
 			})
 		} else {
-			a.SupportersOfBranch(branchID).ForEach(func(supporter Supporter) {
+			a.supportersOfBranch(branchID).ForEach(func(supporter Supporter) {
 				if supportersOfMarker.Has(supporter) {
 					supporterWeight += activeWeights[supporter]
 				}
@@ -418,24 +406,12 @@ func (a *ApprovalWeightManager) updateMarkerWeight(marker *markers.Marker, messa
 	}
 }
 
-// lowestLastConfirmedMarker is an internal utility function that returns the last confirmed or lowest marker in a sequence.
-func (a *ApprovalWeightManager) lowestLastConfirmedMarker(sequenceID markers.SequenceID) (index markers.Index) {
-	index = a.lastConfirmedMarkers[sequenceID] + 1
-	a.tangle.Booker.MarkersManager.Manager.Sequence(sequenceID).Consume(func(sequence *markers.Sequence) {
-		if index < sequence.LowestIndex() {
-			index = sequence.LowestIndex()
-		}
-	})
-
-	return
-}
-
 func (a *ApprovalWeightManager) updateBranchWeight(branchID ledgerstate.BranchID, message *Message) {
 	epoch := a.tangle.WeightProvider.Epoch(message.IssuingTime())
 	activeWeights, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantSupporters(epoch)
 
 	var supporterWeight float64
-	a.SupportersOfBranch(branchID).ForEach(func(supporter Supporter) {
+	a.supportersOfBranch(branchID).ForEach(func(supporter Supporter) {
 		supporterWeight += activeWeights[supporter]
 	})
 
@@ -461,6 +437,35 @@ func (a *ApprovalWeightManager) weightOfHeaviestConflictingBranch(branchID ledge
 
 	return
 }
+
+func (a *ApprovalWeightManager) moveMessageWeightToNewBranch(messageID MessageID, _, newBranchID ledgerstate.BranchID) {
+	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+		a.propagateSupportToBranches(newBranchID, message)
+	})
+}
+
+func (a *ApprovalWeightManager) moveMarkerWeightToNewBranch(marker *markers.Marker, oldBranchID, newBranchID ledgerstate.BranchID) {
+	a.migrateMarkerSupportersToNewBranch(marker, oldBranchID, newBranchID)
+
+	messageID := a.tangle.Booker.MarkersManager.MessageID(marker)
+	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+		epochID := a.tangle.WeightProvider.Epoch(message.IssuingTime())
+
+		weightsOfSupporters, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantSupporters(epochID)
+		branchWeight := float64(0)
+		a.supportersOfBranch(newBranchID).ForEach(func(supporter Supporter) {
+			branchWeight += weightsOfSupporters[supporter]
+		})
+
+		a.tangle.Storage.BranchWeight(newBranchID, func() *BranchWeight {
+			return NewBranchWeight(newBranchID)
+		}).Consume(func(b *BranchWeight) {
+			b.SetWeight(branchWeight / totalWeight)
+		})
+	})
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
