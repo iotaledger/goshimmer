@@ -50,6 +50,7 @@ services:
       --metrics.manaResearch=false
       --mana.enableResearchVectors=false
       --statement.writeStatement=true
+      --statement.writeManaThreshold=1.0
       --webapi.exportPath=/tmp/
     volumes:
       - ./config.docker.json:/tmp/config.json:ro
@@ -75,6 +76,8 @@ services:
       --faucet.seed=7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih
       --messageLayer.snapshot.genesisNode=
       --node.disablePlugins=portcheck,clock
+      --statement.writeStatement=true
+      --statement.writeManaThreshold=1.0
       --syncbeaconfollower.followNodes=EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP
       --webapi.exportPath=/tmp/
     volumes:
@@ -98,6 +101,8 @@ services:
       --messageLayer.snapshot.file=/tmp/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin
       --messageLayer.snapshot.genesisNode=
       --node.disablePlugins=portcheck,clock
+      --statement.writeStatement=true
+      --statement.writeManaThreshold=1.0
       --syncbeaconfollower.followNodes=EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP
       --webapi.exportPath=/tmp/
     volumes:
