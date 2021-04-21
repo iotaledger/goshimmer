@@ -6,11 +6,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/clock"
 )
 
-const (
-	intervalCheckDRNG = 100 // interval for checking whether a dRNG message is received, in ms
-	checksPerSecond   = 1000 / intervalCheckDRNG
-)
-
 // Ticker holds a channel that delivers randomness at intervals.
 type Ticker struct {
 	dRNGState           func() *State
@@ -38,6 +33,7 @@ func NewTicker(dRNGState func() *State, interval int64, defaultValue float64, aw
 	}
 }
 
+// UpdateRandomness updates the randomness of the ticker.
 func (t *Ticker) UpdateRandomness(r Randomness) {
 	select {
 	case <-t.fromRandomnessEvent:
