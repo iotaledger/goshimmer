@@ -1008,7 +1008,7 @@ func (a *AliasOutput) NewAliasOutputNext(governanceUpdate ...bool) *AliasOutput 
 	return ret
 }
 
-// WithGoldenCoin retuns the output as a golden coin alias output.
+// WithGoldenCoin returns the output as a golden coin alias output.
 func (a *AliasOutput) WithGoldenCoin() *AliasOutput {
 	a.isGoldenCoin = true
 	return a
@@ -1259,7 +1259,7 @@ func (a *AliasOutput) SetDelegationTimelock(timelock time.Time) error {
 }
 
 // DelegationTimelock returns the delegation timelock. If the output is not a golden coin, or delegation timelock is
-// not set, it returns the xero time object.
+// not set, it returns the zero time object.
 func (a *AliasOutput) DelegationTimelock() time.Time {
 	if !a.isGoldenCoin {
 		return time.Time{}

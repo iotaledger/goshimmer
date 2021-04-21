@@ -1011,7 +1011,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev.isGoldenCoin = true
 		next := prev.NewAliasOutputNext(false)
 		bal := next.balances.Map()
-		bal[ColorIOTA] += 1
+		bal[ColorIOTA]++
 		next.balances = NewColoredBalances(bal)
 		err := prev.validateTransition(next, &Transaction{})
 		t.Log(err)
