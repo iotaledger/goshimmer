@@ -131,7 +131,7 @@ func (f *FPC) Round(rand float64, delayedRoundStart time.Duration) error {
 	f.ctxsMu.Unlock()
 
 	// query for opinions on the current vote contexts
-	queriedOpinions, err := f.queryOpinions()
+	queriedOpinions, err := f.queryOpinions(delayedRoundStart)
 	if err == nil {
 		f.lastRoundCompletedSuccessfully = true
 		// execute a round executed event
@@ -203,7 +203,7 @@ func (f *FPC) finalizeOpinions() {
 }
 
 // queries the opinions of QuerySampleSize amount of OpinionGivers.
-func (f *FPC) queryOpinions() ([]opinion.QueriedOpinions, error) {
+func (f *FPC) queryOpinions(delayedRoundStart time.Duration) ([]opinion.QueriedOpinions, error) {
 	conflictIDs, timestampIDs := f.voteContextIDs()
 
 	// nothing to vote on
@@ -251,7 +251,7 @@ func (f *FPC) queryOpinions() ([]opinion.QueriedOpinions, error) {
 			defer cancel()
 
 			// query
-			opinions, err := opinionGiverToQuery.Query(queryCtx, conflictIDs, timestampIDs)
+			opinions, err := opinionGiverToQuery.Query(queryCtx, conflictIDs, timestampIDs, delayedRoundStart)
 			if err != nil || len(opinions) != len(conflictIDs)+len(timestampIDs) {
 				// ignore opinions
 				return

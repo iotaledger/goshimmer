@@ -264,7 +264,7 @@ func (o *OpinionGiver) Query(ctx context.Context, conflictIDs []string, timestam
 	}
 
 	// query node directly
-	return o.pog.Query(ctx, conflictIDs, timestampIDs)
+	return o.pog.Query(ctx, conflictIDs, timestampIDs, delayedRoundStart)
 }
 
 // ID returns the identifier of the underlying Peer.
@@ -344,7 +344,7 @@ type PeerOpinionGiver struct {
 }
 
 // Query queries another node for its opinion.
-func (pog *PeerOpinionGiver) Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (opinion.Opinions, error) {
+func (pog *PeerOpinionGiver) Query(ctx context.Context, conflictIDs []string, timestampIDs []string, delayedRoundStart time.Duration) (opinion.Opinions, error) {
 	if pog == nil {
 		return nil, fmt.Errorf("unable to query opinions, PeerOpinionGiver is nil")
 	}
