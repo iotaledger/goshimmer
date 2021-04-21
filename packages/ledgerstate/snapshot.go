@@ -75,7 +75,6 @@ func (s *Snapshot) ReadFrom(reader io.Reader) (int64, error) {
 		if err := binary.Read(reader, binary.LittleEndian, &transactionIDBytes); err != nil {
 			return 0, fmt.Errorf("unable to read transactionID: %w", err)
 		}
-		bytesRead += TransactionIDLength
 
 		txID, n, e := TransactionIDFromBytes(transactionIDBytes)
 		if e != nil {
