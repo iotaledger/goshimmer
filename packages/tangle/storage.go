@@ -344,10 +344,10 @@ func (s *Storage) SequenceSupporters(sequenceID markers.SequenceID, computeIfAbs
 }
 
 // BranchSupporters retrieves the BranchSupporters with the given ledgerstate.BranchID.
-func (s *Storage) BranchSupporters(branchID ledgerstate.BranchID, computeIfAbsentCallback ...func() *BranchSupporters) *CachedBranchSupporters {
+func (s *Storage) BranchSupporters(branchID ledgerstate.BranchID, computeIfAbsentCallback ...func(branchID ledgerstate.BranchID) *BranchSupporters) *CachedBranchSupporters {
 	if len(computeIfAbsentCallback) >= 1 {
 		return &CachedBranchSupporters{s.branchSupportersStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) objectstorage.StorableObject {
-			return computeIfAbsentCallback[0]()
+			return computeIfAbsentCallback[0](branchID)
 		})}
 	}
 

@@ -338,7 +338,7 @@ func (s *SupporterManager) SupportersOfBranch(branchID ledgerstate.BranchID) (su
 	if !s.tangle.Storage.BranchSupporters(branchID).Consume(func(branchSupporters *BranchSupporters) {
 		supporters = branchSupporters.Supporters()
 	}) {
-		return NewSupporters()
+		supporters = NewSupporters()
 	}
 
 	return
@@ -356,9 +356,7 @@ func (s *SupporterManager) SupportersOfMarker(marker *markers.Marker) (supporter
 }
 
 func (s *SupporterManager) migrateMarkerSupportersToNewBranch(marker *markers.Marker, oldBranchID, newBranchID ledgerstate.BranchID) {
-	s.tangle.Storage.BranchSupporters(newBranchID, func() *BranchSupporters {
-		return NewBranchSupporters(newBranchID)
-	}).Consume(func(branchSupporters *BranchSupporters) {
+	s.tangle.Storage.BranchSupporters(newBranchID, NewBranchSupporters).Consume(func(branchSupporters *BranchSupporters) {
 		supportersOfMarker := s.SupportersOfMarker(marker)
 
 		if oldBranchID == ledgerstate.MasterBranchID {
@@ -466,9 +464,7 @@ func (s *SupporterManager) addSupportToBranch(branchID ledgerstate.BranchID, mes
 	}
 
 	var added bool
-	s.tangle.Storage.BranchSupporters(branchID, func() *BranchSupporters {
-		return NewBranchSupporters(branchID)
-	}).Consume(func(branchSupporters *BranchSupporters) {
+	s.tangle.Storage.BranchSupporters(branchID, NewBranchSupporters).Consume(func(branchSupporters *BranchSupporters) {
 		added = branchSupporters.AddSupporter(identity.NewID(message.IssuerPublicKey()))
 	})
 	// Abort if this node already supports this branch.
@@ -500,9 +496,7 @@ func (s *SupporterManager) revokeSupportFromBranch(branchID ledgerstate.BranchID
 	}
 
 	var deleted bool
-	s.tangle.Storage.BranchSupporters(branchID, func() *BranchSupporters {
-		return NewBranchSupporters(branchID)
-	}).Consume(func(branchSupporters *BranchSupporters) {
+	s.tangle.Storage.BranchSupporters(branchID, NewBranchSupporters).Consume(func(branchSupporters *BranchSupporters) {
 		deleted = branchSupporters.DeleteSupporter(identity.NewID(message.IssuerPublicKey()))
 	})
 	// Abort if this node did not support this branch.
