@@ -141,7 +141,7 @@ func TestFPCFinalizedEvent(t *testing.T) {
 
 	// do 5 rounds of FPC -> 5 because the last one finalizes the vote
 	for i := 0; i < 5; i++ {
-		assert.NoError(t, voter.Round(0.5))
+		assert.NoError(t, voter.Round(0.5, 0))
 	}
 
 	require.NotNil(t, finalizedOpinion, "finalized event should have been fired")
@@ -177,7 +177,7 @@ func TestFPCFailedEvent(t *testing.T) {
 	assert.NoError(t, voter.Vote(id, vote.ConflictType, opinion.Like))
 
 	for i := 0; i < 4; i++ {
-		assert.NoError(t, voter.Round(0.5))
+		assert.NoError(t, voter.Round(0.5, 0))
 	}
 
 	require.NotNil(t, failedOpinion, "failed event should have been fired")
@@ -223,7 +223,7 @@ func TestFPCVotingMultipleOpinionGivers(t *testing.T) {
 
 		var roundsDone int
 		for finalOpinion == nil {
-			assert.NoError(t, voter.Round(0.7))
+			assert.NoError(t, voter.Round(0.7, 0))
 			roundsDone++
 		}
 
@@ -348,7 +348,7 @@ func TestFPCVotingMultipleOpinionGiversWithMana(t *testing.T) {
 
 		var roundsDone int
 		for finalOpinion == nil {
-			assert.NoError(t, voter.Round(0.7))
+			assert.NoError(t, voter.Round(0.7, 0))
 			roundsDone++
 		}
 

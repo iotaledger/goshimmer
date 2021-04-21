@@ -195,7 +195,7 @@ func runFPC(plugin *node.Plugin) {
 		for {
 			select {
 			case r := <-dRNGTicker.C():
-				if err := voter.Round(r); err != nil {
+				if err := voter.Round(r, dRNGTicker.DelayedRoundStart()); err != nil {
 					plugin.LogWarnf("unable to execute FPC round: %s", err)
 				}
 			case <-shutdownSignal:
@@ -242,12 +242,16 @@ type OpinionGiver struct {
 type OpinionGivers map[identity.ID]OpinionGiver
 
 // Query retrieves the opinions about the given conflicts and timestamps.
-func (o *OpinionGiver) Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (opinions opinion.Opinions, err error) {
+func (o *OpinionGiver) Query(ctx context.Context, conflictIDs []string, timestampIDs []string, delayedRoundStart time.Duration) (opinions opinion.Opinions, err error) {
+	waitForStatements := time.Duration(StatementParameters.WaitForStatement) * time.Second
+	if delayedRoundStart < waitForStatements && delayedRoundStart > 0 {
+		waitForStatements = waitForStatements - delayedRoundStart
+	}
 	// if o.view == nil, then we can immediately perform P2P query instead of waiting for statement
 	// because it won't be provided.
 	if o.view != nil {
 		// wait for statement(s) to arrive
-		time.Sleep(time.Duration(StatementParameters.WaitForStatement) * time.Second)
+		time.Sleep(waitForStatements)
 
 		// check if node has been active in the last two rounds
 		// note, we cannot simply set one RoundInterval since the last message could e.g. have arrived 1.5 intervals ago
@@ -356,7 +360,7 @@ func (pog *PeerOpinionGiver) Query(ctx context.Context, conflictIDs []string, ti
 	defer func() {
 		cerr := conn.Close()
 		if err == nil {
-			err = xerrors.Errorf("failed to close conneection: %w", cerr)
+			err = xerrors.Errorf("failed to close connection: %w", cerr)
 		}
 	}()
 

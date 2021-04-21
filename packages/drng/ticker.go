@@ -12,8 +12,9 @@ type Ticker struct {
 	dRNGTicker          *time.Ticker
 	interval            int64 // the interval at which the ticker should tick (in seconds).
 	defaultValue        float64
-	awaitOffset         int // defines the max amount of time (in seconds) to wait for the next dRNG round after the excected time has elapsed.
+	awaitOffset         int // defines the max amount of time (in seconds) to wait for the next dRNG round after the expected time has elapsed.
 	missingDRNG         bool
+	delayedRoundStart   time.Duration
 	c                   chan float64
 	exit                chan struct{}
 	fromRandomnessEvent chan Randomness
@@ -76,6 +77,11 @@ func (t *Ticker) C() <-chan float64 {
 	return t.c
 }
 
+// MissingDRNG returns whether the DRNG randomness is missing for this round.
+func (t *Ticker) DelayedRoundStart() time.Duration {
+	return t.delayedRoundStart
+}
+
 // sends the next random number to the consumer channel.
 func (t *Ticker) send() {
 	randomness := t.defaultValue
@@ -84,6 +90,7 @@ func (t *Ticker) send() {
 		// check if the randomness is "fresh"
 		if t.missingDRNG && clock.Since(t.dRNGState().Randomness().Timestamp) < time.Duration(t.interval)*time.Second {
 			t.missingDRNG = false
+			t.delayedRoundStart = 0
 			randomness = t.dRNGState().Randomness().Float64()
 			// the expected time that we should receive a new randomness
 			timeToNextDRNG := t.dRNGState().Randomness().Timestamp.Add(time.Duration(t.interval) * time.Second).Sub(clock.SyncedTime())
@@ -104,6 +111,7 @@ func (t *Ticker) send() {
 			case randomnessEvent := <-t.fromRandomnessEvent:
 				// check if the randomness is "fresh"
 				if clock.Since(randomnessEvent.Timestamp) < time.Duration(t.awaitOffset)*time.Second {
+					t.delayedRoundStart = 0
 					randomness = t.dRNGState().Randomness().Float64()
 					if t.dRNGTicker != nil {
 						t.dRNGTicker.Reset(time.Duration(t.interval) * time.Second)
@@ -113,6 +121,7 @@ func (t *Ticker) send() {
 			case <-t.dRNGTicker.C:
 				// still no new randomness within awaitOffset, take the default value, and reset dRNGTicker
 				now := clock.SyncedTime().Unix()
+				t.delayedRoundStart = time.Duration(t.interval) * time.Second
 				t.dRNGTicker.Reset(time.Duration(ResolveNextTimePoint(now, t.interval)-now) * time.Second)
 				break out
 			}
