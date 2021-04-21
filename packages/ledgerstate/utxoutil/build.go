@@ -275,7 +275,7 @@ func (b *Builder) AddExtendedOutputConsume(targetAddress ledgerstate.Address, da
 
 // AddRemainderOutputIfNeeded consumes already touched inputs and spends consumed-unspend.
 // Creates reminder output if needed
-func (b *Builder) AddRemainderOutputIfNeeded(reminderAddr ledgerstate.Address, data []byte, compress ...bool) error {
+func (b *Builder) AddRemainderOutputIfNeeded(remainderAddr ledgerstate.Address, data []byte, compress ...bool) error {
 	compr := false
 	if len(compress) > 0 {
 		compr = compress[0]
@@ -286,7 +286,7 @@ func (b *Builder) AddRemainderOutputIfNeeded(reminderAddr ledgerstate.Address, d
 		// no need for reminder output
 		return nil
 	}
-	return b.AddExtendedOutputConsume(reminderAddr, data, unspent)
+	return b.AddExtendedOutputConsume(remainderAddr, data, unspent)
 }
 
 // AddMintingOutputConsume mints new tokens. Consumes additional iotas if needed
