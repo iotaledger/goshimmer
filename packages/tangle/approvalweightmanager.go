@@ -65,8 +65,8 @@ func (a *ApprovalWeightManager) Setup() {
 	a.tangle.Booker.Events.MessageBranchUpdated.Attach(events.NewClosure(a.updateMessageBranch))
 	a.tangle.Booker.Events.MarkerBranchUpdated.Attach(events.NewClosure(a.updateMarkerBranch))
 
-	a.supportersManager.Events.BranchSupportAdded.Attach(events.NewClosure(a.addMessageWeightToBranch))
-	a.supportersManager.Events.BranchSupportRemoved.Attach(events.NewClosure(a.onBranchSupportRemoved))
+	a.supportersManager.Events.BranchSupportAdded.Attach(events.NewClosure(a.onBranchSupportUpdated))
+	a.supportersManager.Events.BranchSupportRemoved.Attach(events.NewClosure(a.onBranchSupportUpdated))
 	a.supportersManager.Events.SequenceSupportUpdated.Attach(events.NewClosure(a.onSequenceSupportUpdated))
 }
 
@@ -177,14 +177,19 @@ func (a *ApprovalWeightManager) onSequenceSupportUpdated(marker *markers.Marker,
 
 	for i := a.lowestLastConfirmedMarker(marker.SequenceID()); i <= marker.Index(); i++ {
 		currentMarker := markers.NewMarker(marker.SequenceID(), i)
+		branchID := a.tangle.Booker.MarkersManager.BranchID(currentMarker)
 
+		// Skip if there is no marker at the given index, i.e., the sequence has a gap.
 		if a.tangle.Booker.MarkersManager.MessageID(currentMarker) == EmptyMessageID {
 			continue
+		}
+		if branchID != ledgerstate.MasterBranchID && a.Events.BranchConfirmation.Level(branchID) == 0 {
+			break
 		}
 
 		supportersOfMarker := a.supportersManager.SupportersOfMarker(currentMarker)
 		supporterWeight := float64(0)
-		if branchID := a.tangle.Booker.MarkersManager.BranchID(currentMarker); branchID == ledgerstate.MasterBranchID {
+		if branchID == ledgerstate.MasterBranchID {
 			supportersOfMarker.ForEach(func(supporter Supporter) {
 				supporterWeight += activeWeights[supporter]
 			})
@@ -216,27 +221,24 @@ func (a *ApprovalWeightManager) lowestLastConfirmedMarker(sequenceID markers.Seq
 	return
 }
 
-func (a *ApprovalWeightManager) addMessageWeightToBranch(branchID ledgerstate.BranchID, message *Message) {
-	weightOfMessage, totalWeight := a.tangle.WeightProvider.Weight(
-		a.tangle.WeightProvider.Epoch(message.IssuingTime()),
-		message,
-	)
+func (a *ApprovalWeightManager) onBranchSupportUpdated(branchID ledgerstate.BranchID, message *Message) {
+	epoch := a.tangle.WeightProvider.Epoch(message.IssuingTime())
+	activeWeights, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantSupporters(epoch)
 
+	var supporterWeight float64
+	a.supportersManager.SupportersOfBranch(branchID).ForEach(func(supporter Supporter) {
+		supporterWeight += activeWeights[supporter]
+	})
+
+	newBranchWeight := supporterWeight / totalWeight
+	// Cache branch weight
 	a.tangle.Storage.BranchWeight(branchID, func() *BranchWeight {
 		return NewBranchWeight(branchID)
 	}).Consume(func(branchWeight *BranchWeight) {
-		a.Events.BranchConfirmation.Set(branchID, branchWeight.IncreaseWeight(weightOfMessage/totalWeight)-a.weightOfHeaviestConflictingBranch(branchID))
+		branchWeight.SetWeight(newBranchWeight)
 	})
-}
 
-func (a *ApprovalWeightManager) onBranchSupportRemoved(branchID ledgerstate.BranchID, message *Message) {
-	weightOfSupporter, totalWeight := a.tangle.WeightProvider.Weight(a.tangle.WeightProvider.Epoch(message.IssuingTime()), message)
-
-	a.tangle.Storage.BranchWeight(branchID, func() *BranchWeight {
-		return NewBranchWeight(branchID)
-	}).Consume(func(branchWeight *BranchWeight) {
-		a.Events.BranchConfirmation.Set(branchID, branchWeight.DecreaseWeight(weightOfSupporter/totalWeight)-a.weightOfHeaviestConflictingBranch(branchID))
-	})
+	a.Events.BranchConfirmation.Set(branchID, newBranchWeight-a.weightOfHeaviestConflictingBranch(branchID))
 }
 
 func (a *ApprovalWeightManager) weightOfHeaviestConflictingBranch(branchID ledgerstate.BranchID) (weight float64) {
@@ -371,6 +373,10 @@ func (s *SupporterManager) migrateMarkerSupportersToNewBranch(marker *markers.Ma
 				branchSupporters.AddSupporter(supporter)
 			}
 		})
+	})
+
+	s.tangle.Storage.Message(s.tangle.Booker.MarkersManager.MessageID(marker)).Consume(func(message *Message) {
+		s.Events.BranchSupportAdded.Trigger(newBranchID, message)
 	})
 }
 
