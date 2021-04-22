@@ -98,7 +98,6 @@ func (t *Tangle) Setup() {
 	t.Solidifier.Setup()
 	t.Requester.Setup()
 	t.DummyScheduler.Setup()
-	//t.Scheduler.Setup()
 	t.Booker.Setup()
 	t.ConsensusManager.Setup()
 	t.TipManager.Setup()

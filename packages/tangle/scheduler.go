@@ -68,7 +68,7 @@ type Scheduler struct {
 // NewScheduler returns a new Scheduler.
 func NewScheduler(tangle *Tangle) *Scheduler {
 	// TODO: panic?
-	//panic("the option AccessManaRetriever and TotalAccessManaRetriever must be defined so that AccessMana can be determined in scheduler")
+	// panic("the option AccessManaRetriever and TotalAccessManaRetriever must be defined so that AccessMana can be determined in scheduler")
 	if tangle.Options.SchedulerParams.AccessManaRetrieveFunc == nil || tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc == nil {
 		tangle.Options.SchedulerParams.AccessManaRetrieveFunc = func(_ identity.ID) float64 {
 			return 0
@@ -101,13 +101,15 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 	return scheduler
 }
 
-func (s *Scheduler) onMessageSolidHandler(ID MessageID) {
-	s.SubmitAndReadyMessage(ID)
-}
-func (s *Scheduler) onMessageInvalidHandler(ID MessageID) {
-	s.Unsubmit(ID)
+func (s *Scheduler) onMessageSolidHandler(messageID MessageID) {
+	s.SubmitAndReadyMessage(messageID)
 }
 
+func (s *Scheduler) onMessageInvalidHandler(messageID MessageID) {
+	s.Unsubmit(messageID)
+}
+
+// Start starts the scheduler.
 func (s *Scheduler) Start() {
 	go s.mainLoop()
 }
