@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"math"
 	"reflect"
 	"sync/atomic"
@@ -10,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -643,6 +645,188 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 			*markers.NewMarker(3, 7): 0.45,
 			*markers.NewMarker(3, 8): 0.25,
 			*markers.NewMarker(3, 9): 0.15,
+		})
+	}
+
+	// ISSUE Message15
+	{
+		testFramework.CreateMessage("Message15", WithStrongParents("Message11", "Message5"), WithIssuer(nodes["B"].PublicKey()), WithInputs("D"), WithOutput("E", 500))
+
+		issueAndValidateMessageApproval(t, "Message15", testEventMock, testFramework, map[ledgerstate.BranchID]float64{
+			testFramework.BranchID("Message5"):  1,
+			testFramework.BranchID("Message6"):  0,
+			testFramework.BranchID("Message7"):  0.25,
+			testFramework.BranchID("Message11"): 0.75,
+		}, map[markers.Marker]float64{
+			*markers.NewMarker(1, 1): 1,
+			*markers.NewMarker(1, 2): 1,
+			*markers.NewMarker(1, 3): 1,
+			*markers.NewMarker(1, 4): 1,
+			*markers.NewMarker(1, 5): 1,
+			*markers.NewMarker(2, 5): 0,
+			*markers.NewMarker(2, 6): 0,
+			*markers.NewMarker(2, 7): 0,
+			*markers.NewMarker(2, 8): 0,
+			*markers.NewMarker(3, 6): 0.75,
+			*markers.NewMarker(3, 7): 0.45,
+			*markers.NewMarker(3, 8): 0.25,
+			*markers.NewMarker(3, 9): 0.15,
+		})
+	}
+
+	// ISSUE Message16
+	{
+		testFramework.CreateMessage("Message16", WithStrongParents("Message12", "Message5"), WithIssuer(nodes["B"].PublicKey()), WithInputs("D"), WithOutput("E", 500))
+		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message15")), "Branch4")
+		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message16")), "Branch5")
+
+		issueAndValidateMessageApproval(t, "Message16", testEventMock, testFramework, map[ledgerstate.BranchID]float64{
+			testFramework.BranchID("Message5"):  1,
+			testFramework.BranchID("Message6"):  0,
+			testFramework.BranchID("Message7"):  0.25,
+			testFramework.BranchID("Message11"): 0.75,
+		}, map[markers.Marker]float64{
+			*markers.NewMarker(1, 1): 1,
+			*markers.NewMarker(1, 2): 1,
+			*markers.NewMarker(1, 3): 1,
+			*markers.NewMarker(1, 4): 1,
+			*markers.NewMarker(1, 5): 1,
+			*markers.NewMarker(2, 5): 0,
+			*markers.NewMarker(2, 6): 0,
+			*markers.NewMarker(2, 7): 0,
+			*markers.NewMarker(2, 8): 0,
+			*markers.NewMarker(3, 6): 0.75,
+			*markers.NewMarker(3, 7): 0.45,
+			*markers.NewMarker(3, 8): 0.25,
+			*markers.NewMarker(3, 9): 0.15,
+		})
+	}
+
+	fmt.Println(testFramework.MessageMetadata("Message15"))
+	fmt.Println(testFramework.MessageMetadata("Message16"))
+}
+
+func TestAggregatedBranchApproval(t *testing.T) {
+	nodes := make(map[string]*identity.Identity)
+	for _, node := range []string{"A", "B", "C", "D", "E"} {
+		nodes[node] = identity.GenerateIdentity()
+	}
+
+	manager := epochs.NewManager(epochs.ManaRetriever(func(t time.Time) map[identity.ID]float64 {
+		return map[identity.ID]float64{
+			nodes["A"].ID(): 30,
+			nodes["B"].ID(): 15,
+			nodes["C"].ID(): 25,
+			nodes["D"].ID(): 20,
+			nodes["E"].ID(): 10,
+		}
+	}), epochs.CacheTime(0))
+
+	tangle := New(ApprovalWeights(WeightProviderFromEpochsManager(manager)))
+	defer tangle.Shutdown()
+	tangle.Setup()
+
+	//testEventMock := newEventMock(t, tangle.ApprovalWeightManager)
+	testFramework := NewMessageTestFramework(tangle, WithGenesisOutput("G1", 500), WithGenesisOutput("G2", 500))
+
+	// ISSUE Message1
+	{
+		testFramework.CreateMessage("Message1", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()), WithInputs("G1"), WithOutput("A", 500))
+		testFramework.IssueMessages("Message1").WaitApprovalWeightProcessed()
+		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message1")), "Branch1")
+		fmt.Println(testFramework.MessageMetadata("Message1"))
+	}
+
+	// ISSUE Message2
+	{
+		testFramework.CreateMessage("Message2", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()), WithInputs("G2"), WithOutput("B", 500))
+		testFramework.IssueMessages("Message2").WaitApprovalWeightProcessed()
+		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message2")), "Branch2")
+
+		fmt.Println(testFramework.MessageMetadata("Message2"))
+	}
+
+	// ISSUE Message3
+	{
+		testFramework.CreateMessage("Message3", WithStrongParents("Message2"), WithIssuer(nodes["A"].PublicKey()), WithInputs("B"), WithOutput("C", 500))
+		testFramework.IssueMessages("Message3").WaitApprovalWeightProcessed()
+		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message3")), "Branch3")
+
+		fmt.Println(testFramework.MessageMetadata("Message3"))
+	}
+
+	// ISSUE Message4
+	{
+		testFramework.CreateMessage("Message4", WithStrongParents("Message2"), WithIssuer(nodes["A"].PublicKey()), WithInputs("B"), WithOutput("D", 500))
+		testFramework.IssueMessages("Message4").WaitApprovalWeightProcessed()
+		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message4")), "Branch4")
+
+		fmt.Println(testFramework.MessageMetadata("Message4"))
+	}
+
+	// ISSUE Message5
+	{
+		testFramework.CreateMessage("Message5", WithStrongParents("Message4", "Message1"), WithIssuer(nodes["A"].PublicKey()), WithInputs("A"), WithOutput("E", 500))
+		testFramework.IssueMessages("Message5").WaitApprovalWeightProcessed()
+		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message5")), "Branch5")
+		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewAggregatedBranch(ledgerstate.BranchIDs{
+			testFramework.BranchID("Message4"): types.Void,
+			testFramework.BranchID("Message5"): types.Void}).ID(),
+			"Branch4+5",
+		)
+
+		fmt.Println(testFramework.MessageMetadata("Message5"))
+	}
+
+	// ISSUE Message6
+	{
+		testFramework.CreateMessage("Message6", WithStrongParents("Message4", "Message1"), WithIssuer(nodes["A"].PublicKey()), WithInputs("A"), WithOutput("F", 500))
+		testFramework.IssueMessages("Message6").WaitApprovalWeightProcessed()
+		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message6")), "Branch6")
+
+		fmt.Println(testFramework.MessageMetadata("Message6"))
+		branchID, err := tangle.Booker.MessageBranchID(testFramework.Message("Message6").ID())
+		require.NoError(t, err)
+		tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
+			fmt.Println(branch)
+		})
+	}
+
+	// ISSUE Message7
+	{
+		testFramework.CreateMessage("Message7", WithStrongParents("Message5"), WithIssuer(nodes["A"].PublicKey()), WithInputs("E"), WithOutput("H", 500))
+		testFramework.IssueMessages("Message7").WaitApprovalWeightProcessed()
+		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message7")), "Branch7")
+		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewAggregatedBranch(
+			ledgerstate.BranchIDs{
+				testFramework.BranchID("Message4"): types.Void,
+				testFramework.BranchID("Message5"): types.Void,
+				testFramework.BranchID("Message7"): types.Void,
+			}).ID(),
+			"Branch4+5+7",
+		)
+
+		fmt.Println(testFramework.MessageMetadata("Message7"))
+	}
+
+	// ISSUE Message8
+	{
+		testFramework.CreateMessage("Message8", WithStrongParents("Message5"), WithIssuer(nodes["A"].PublicKey()), WithInputs("E"), WithOutput("I", 500))
+		testFramework.IssueMessages("Message8").WaitApprovalWeightProcessed()
+		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message8")), "Branch8")
+		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewAggregatedBranch(
+			ledgerstate.BranchIDs{
+				testFramework.BranchID("Message4"): types.Void,
+				testFramework.BranchID("Message5"): types.Void,
+				testFramework.BranchID("Message8"): types.Void,
+			}).ID(),
+			"Branch4+5+8",
+		)
+		fmt.Println(testFramework.MessageMetadata("Message8"))
+		branchID, err := tangle.Booker.MessageBranchID(testFramework.Message("Message8").ID())
+		require.NoError(t, err)
+		tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
+			fmt.Println(branch)
 		})
 	}
 }
