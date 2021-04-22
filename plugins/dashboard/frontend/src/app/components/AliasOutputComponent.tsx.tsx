@@ -16,6 +16,12 @@ export class AliasOutputComponent extends React.Component<Props, any> {
             <div className={"mb-2"} key={this.props.id.base58}>
                 <ListGroup>
                     <ListGroup.Item>Type: AliasOutput</ListGroup.Item>
+                    <ListGroup.Item>
+                        Balances:
+                        <div>
+                            {balances.map((entry, i) => (<div key={i}><Badge variant="success">{new Intl.NumberFormat().format(entry.value)} {resolveColor(entry.color)}</Badge></div>))}
+                        </div>
+                    </ListGroup.Item>
                     <ListGroup.Item>OutputID: <a href={`/explorer/output/${this.props.id.base58}`}>{this.props.id.base58}</a></ListGroup.Item>
                     <ListGroup.Item>AliasAddress: <a href={`/explorer/address/${this.props.output.aliasAddress}`}> {this.props.output.aliasAddress}</a></ListGroup.Item>
                     <ListGroup.Item>StateAddress: <a href={`/explorer/address/${this.props.output.stateAddress}`}> {this.props.output.stateAddress}</a></ListGroup.Item>
@@ -35,12 +41,11 @@ export class AliasOutputComponent extends React.Component<Props, any> {
                     }
                     <ListGroup.Item>Governance Update: {this.props.output.isGovernanceUpdate.toString()}</ListGroup.Item>
                     <ListGroup.Item>Origin: {this.props.output.isOrigin.toString()}</ListGroup.Item>
-                    <ListGroup.Item>
-                        Balances:
-                        <div>
-                            {balances.map((entry, i) => (<div key={i}><Badge variant="success">{new Intl.NumberFormat().format(entry.value)} {resolveColor(entry.color)}</Badge></div>))}
-                        </div>
-                    </ListGroup.Item>
+                    <ListGroup.Item>Golden Coin: {this.props.output.isGoldenCoin.toString()}</ListGroup.Item>
+                    {
+                        this.props.output.delegationTimelock &&
+                        <ListGroup.Item>Delegation Timelocked Until: {new Date(this.props.output.delegationTimelock * 1000).toLocaleString()}</ListGroup.Item>
+                    }
                     <ListGroup.Item>Transaction: <a href={`/explorer/transaction/${this.props.id.transactionID}`}> {this.props.id.transactionID}</a></ListGroup.Item>
                     <ListGroup.Item>Output Index: {this.props.id.outputIndex}</ListGroup.Item>
                 </ListGroup>
