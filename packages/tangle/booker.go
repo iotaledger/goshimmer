@@ -37,8 +37,10 @@ type Booker struct {
 func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 	messageBooker = &Booker{
 		Events: &BookerEvents{
-			MessageBooked: events.NewEvent(MessageIDCaller),
-			Error:         events.NewEvent(events.ErrorCaller),
+			MessageBooked:        events.NewEvent(MessageIDCaller),
+			MarkerBranchUpdated:  events.NewEvent(markerBranchUpdatedCaller),
+			MessageBranchUpdated: events.NewEvent(messageBranchUpdatedCaller),
+			Error:                events.NewEvent(events.ErrorCaller),
 		},
 		tangle:         tangle,
 		MarkersManager: NewMarkersManager(tangle),
@@ -289,7 +291,8 @@ func (b *Booker) updateMarkerFutureCone(marker *markers.Marker, newConflictBranc
 
 // updateMarker updates a single Marker and queues the next Elements that need to be updated.
 func (b *Booker) updateMarker(currentMarker *markers.Marker, conflictBranchID ledgerstate.BranchID, walk *walker.Walker) (err error) {
-	newBranchID, branchIDUpdated, err := b.updatedBranchID(b.MarkersManager.BranchID(currentMarker), conflictBranchID)
+	oldBranchID := b.MarkersManager.BranchID(currentMarker)
+	newBranchID, branchIDUpdated, err := b.updatedBranchID(oldBranchID, conflictBranchID)
 	if err != nil {
 		err = xerrors.Errorf("failed to add Conflict%s to BranchID %s: %w", b.MarkersManager.BranchID(currentMarker), conflictBranchID, err)
 		return
@@ -297,6 +300,10 @@ func (b *Booker) updateMarker(currentMarker *markers.Marker, conflictBranchID le
 	if !branchIDUpdated || !b.MarkersManager.SetBranchID(currentMarker, newBranchID) {
 		return
 	}
+
+	b.Events.MarkerBranchUpdated.Trigger(currentMarker, oldBranchID, newBranchID)
+
+	b.MarkersManager.UnregisterSequenceAlias(markers.NewSequenceAlias(oldBranchID.Bytes()))
 
 	b.MarkersManager.Sequence(currentMarker.SequenceID()).Consume(func(sequence *markers.Sequence) {
 		sequence.ReferencingMarkers(currentMarker.Index()).ForEachSorted(func(referencingSequenceID markers.SequenceID, referencingIndex markers.Index) bool {
@@ -353,6 +360,8 @@ func (b *Booker) updateMetadataFutureCone(messageMetadata *MessageMetadata, newC
 	b.tangle.Storage.DeleteIndividuallyMappedMessage(oldBranchID, messageMetadata.ID())
 	b.tangle.Storage.StoreIndividuallyMappedMessage(NewIndividuallyMappedMessage(newBranchID, messageMetadata.ID(), messageMetadata.StructureDetails().PastMarkers))
 
+	b.Events.MessageBranchUpdated.Trigger(messageMetadata.ID(), oldBranchID, newBranchID)
+
 	for _, approvingMessageID := range b.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID(), StrongApprover) {
 		walk.Push(approvingMessageID)
 	}
@@ -369,8 +378,22 @@ type BookerEvents struct {
 	// MessageBooked is triggered when a Message was booked (it's Branch and it's Payload's Branch where determined).
 	MessageBooked *events.Event
 
+	// MessageBranchUpdated is triggered when the BranchID of a Message is changed in its MessageMetadata.
+	MessageBranchUpdated *events.Event
+
+	// MarkerBranchUpdated is triggered when a Marker is mapped to a new BranchID.
+	MarkerBranchUpdated *events.Event
+
 	// Error gets triggered when the Booker faces an unexpected error.
 	Error *events.Event
+}
+
+func markerBranchUpdatedCaller(handler interface{}, params ...interface{}) {
+	handler.(func(marker *markers.Marker, oldBranchID, newBranchID ledgerstate.BranchID))(params[0].(*markers.Marker), params[1].(ledgerstate.BranchID), params[2].(ledgerstate.BranchID))
+}
+
+func messageBranchUpdatedCaller(handler interface{}, params ...interface{}) {
+	handler.(func(messageID MessageID, oldBranchID, newBranchID ledgerstate.BranchID))(params[0].(MessageID), params[1].(ledgerstate.BranchID), params[2].(ledgerstate.BranchID))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
