@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -190,10 +191,19 @@ func (a *ApprovalWeightManager) isRelevantSupporter(message *Message) bool {
 
 // supportersOfBranch returns the Supporters of the given ledgerstate.BranchID.
 func (a *ApprovalWeightManager) supportersOfBranch(branchID ledgerstate.BranchID) (supporters *Supporters) {
-	if !a.tangle.Storage.BranchSupporters(branchID).Consume(func(branchSupporters *BranchSupporters) {
-		supporters = branchSupporters.Supporters()
-	}) {
-		supporters = NewSupporters()
+	conflictBranchIDs, err := a.tangle.LedgerState.BranchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchID))
+	if err != nil {
+		panic(err)
+	}
+
+	allSupporters := NewSupporters()
+
+	for conflictBranchID := range conflictBranchIDs {
+		if !a.tangle.Storage.BranchSupporters(conflictBranchID).Consume(func(branchSupporters *BranchSupporters) {
+			supporters = branchSupporters.Supporters()
+		}) {
+			supporters = NewSupporters()
+		}
 	}
 
 	return
@@ -342,26 +352,36 @@ func (a *ApprovalWeightManager) addSupportToMarker(marker *markers.Marker, messa
 }
 
 func (a *ApprovalWeightManager) migrateMarkerSupportersToNewBranch(marker *markers.Marker, oldBranchID, newBranchID ledgerstate.BranchID) {
-	a.tangle.Storage.BranchSupporters(newBranchID, NewBranchSupporters).Consume(func(branchSupporters *BranchSupporters) {
-		supportersOfMarker := a.supportersOfMarker(marker)
+	conflictBranchIDs, err := a.tangle.LedgerState.BranchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(newBranchID))
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(marker)
+	fmt.Println("oldBranchID", oldBranchID, "newBranchID", newBranchID)
+	fmt.Println(conflictBranchIDs)
 
-		if oldBranchID == ledgerstate.MasterBranchID {
-			supportersOfMarker.ForEach(func(supporter Supporter) {
-				branchSupporters.AddSupporter(supporter)
-			})
-			return
-		}
+	for conflictBranchID := range conflictBranchIDs {
+		a.tangle.Storage.BranchSupporters(conflictBranchID, NewBranchSupporters).Consume(func(branchSupporters *BranchSupporters) {
+			supportersOfMarker := a.supportersOfMarker(marker)
 
-		a.supportersOfBranch(oldBranchID).ForEach(func(supporter Supporter) {
-			if supportersOfMarker.Has(supporter) {
-				branchSupporters.AddSupporter(supporter)
+			if oldBranchID == ledgerstate.MasterBranchID {
+				supportersOfMarker.ForEach(func(supporter Supporter) {
+					branchSupporters.AddSupporter(supporter)
+				})
+				return
 			}
-		})
-	})
 
-	a.tangle.Storage.Message(a.tangle.Booker.MarkersManager.MessageID(marker)).Consume(func(message *Message) {
-		a.updateBranchWeight(newBranchID, message)
-	})
+			a.supportersOfBranch(oldBranchID).ForEach(func(supporter Supporter) {
+				if supportersOfMarker.Has(supporter) {
+					branchSupporters.AddSupporter(supporter)
+				}
+			})
+		})
+
+		a.tangle.Storage.Message(a.tangle.Booker.MarkersManager.MessageID(marker)).Consume(func(message *Message) {
+			a.updateBranchWeight(newBranchID, message)
+		})
+	}
 }
 
 func (a *ApprovalWeightManager) updateMarkerWeight(marker *markers.Marker, message *Message) {
