@@ -120,8 +120,8 @@ func (s *Scheduler) Detach() {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (s *Scheduler) Setup() {
-	s.tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(s.SubmitAndReadyMessage))
-	s.tangle.Events.MessageInvalid.Attach(events.NewClosure(s.Unsubmit))
+	s.tangle.Solidifier.Events.MessageSolid.Attach(s.onMessageSolid)
+	s.tangle.Events.MessageInvalid.Attach(s.onMessageInvalid)
 
 	//  TODO: wait for all messages to be scheduled here or in message layer?
 	/*
@@ -240,7 +240,7 @@ func (s *Scheduler) parentsBooked(messageID MessageID) (parentsBooked bool) {
 			}
 
 			if !s.tangle.Storage.MessageMetadata(parent.ID).Consume(func(messageMetadata *MessageMetadata) {
-				parentsBooked = messageMetadata.IsBooked()
+				parentsBooked = parentsBooked && messageMetadata.IsBooked()
 			}) {
 				parentsBooked = false
 			}
