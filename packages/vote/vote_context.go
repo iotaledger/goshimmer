@@ -16,7 +16,7 @@ type ObjectType uint8
 
 const (
 	// ConflictType defines an object type conflict.
-	ConflictType = iota
+	ConflictType ObjectType = iota
 	// TimestampType defines an object type timestamp.
 	TimestampType
 )

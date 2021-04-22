@@ -64,8 +64,8 @@ func configureConsensusPlugin(plugin *node.Plugin) {
 	configureFPC(plugin)
 
 	// subscribe to FCOB events
-	ConsensusMechanism().Events.Vote.Attach(events.NewClosure(func(id string, initOpn opinion.Opinion) {
-		if err := Voter().Vote(id, vote.ConflictType, initOpn); err != nil {
+	ConsensusMechanism().Events.Vote.Attach(events.NewClosure(func(id string, initOpn opinion.Opinion, objectType vote.ObjectType) {
+		if err := Voter().Vote(id, objectType, initOpn); err != nil {
 			plugin.LogWarnf("FPC vote: %s", err)
 		}
 	}))
@@ -402,8 +402,12 @@ func OwnManaRetriever() (float64, error) {
 func OpinionRetriever(id string, objectType vote.ObjectType) opinion.Opinion {
 	switch objectType {
 	case vote.TimestampType:
-		// TODO: implement
-		return opinion.Like
+		messageID, err := tangle.NewMessageID(id)
+		if err != nil {
+			plugin.LogErrorf("received invalid vote request for branch '%s'", id)
+			return opinion.Unknown
+		}
+		return ConsensusMechanism().TimestampOpinion(messageID)
 	default: // conflict type
 		transactionID, err := ledgerstate.TransactionIDFromBase58(id)
 		if err != nil {

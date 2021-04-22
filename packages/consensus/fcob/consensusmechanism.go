@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/timedexecutor"
 	"github.com/iotaledger/hive.go/timedqueue"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/vote"
@@ -68,7 +69,7 @@ func (f *ConsensusMechanism) TransactionLiked(transactionID ledgerstate.Transact
 				return
 			}
 
-			f.Storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
+			f.Storage.TransactionOpinion(transactionID).Consume(func(opinion *Opinion) {
 				liked = opinion.OpinionEssence.liked
 			})
 		})
@@ -99,17 +100,32 @@ func (f *ConsensusMechanism) Evaluate(messageID tangle.MessageID) {
 
 // EvaluateTimestamp evaluates the honesty of the timestamp of the given Message.
 func (f *ConsensusMechanism) EvaluateTimestamp(messageID tangle.MessageID) {
-	f.Storage.StoreMessageMetadata(NewMessageMetadata(messageID))
-	f.Storage.StoreTimestampOpinion(&TimestampOpinion{
-		MessageID: messageID,
-		Value:     voter.Like,
-		LoK:       Two,
-	})
 
+	f.Storage.StoreMessageMetadata(NewMessageMetadata(messageID))
+
+	var issuingTime time.Time
+
+	if !f.tangle.Storage.Message(messageID).Consume(func(messageMetadata *tangle.Message) {
+		issuingTime = messageMetadata.IssuingTime()
+	}) {
+		// FIXME: what to do when message does not exist in the storage?
+		return
+	}
+
+	timestampOpinion, _ := TimestampQuality(messageID, issuingTime, clock.SyncedTime())
+
+	f.Storage.StoreTimestampOpinion(timestampOpinion)
+
+	if timestampOpinion.LoK < Two {
+		f.Events.Vote.Trigger(messageID.Base58(), timestampOpinion.Value, vote.TimestampType)
+		return
+	}
+	// eligible when timestamp is ok but confirmed when timestamp and tx is correct
 	f.setEligibility(messageID)
 
 	f.setTimestampOpinionDone(messageID)
 
+	// trigger MessageOpinionFormed event for messageID and all its approvers once both opinions for timestamp and payload are set
 	if f.messageDone(messageID) {
 		f.tangle.Utils.WalkMessageID(f.createMessageOpinion, tangle.MessageIDs{messageID}, true)
 	}
@@ -117,14 +133,15 @@ func (f *ConsensusMechanism) EvaluateTimestamp(messageID tangle.MessageID) {
 
 // ProcessVote allows an external voter to hand in the results of the voting process.
 func (f *ConsensusMechanism) ProcessVote(ev *vote.OpinionEvent) {
-	if ev.Ctx.Type == vote.ConflictType {
+	switch ev.Ctx.Type {
+	case vote.ConflictType:
 		transactionID, err := ledgerstate.TransactionIDFromBase58(ev.ID)
 		if err != nil {
 			f.Events.Error.Trigger(err)
 			return
 		}
 
-		f.Storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
+		f.Storage.TransactionOpinion(transactionID).Consume(func(opinion *Opinion) {
 			opinion.SetLiked(ev.Opinion == voter.Like)
 			opinion.SetLevelOfKnowledge(Two)
 			// trigger PayloadOpinionFormed event
@@ -133,13 +150,43 @@ func (f *ConsensusMechanism) ProcessVote(ev *vote.OpinionEvent) {
 				f.onPayloadOpinionFormed(messageID, opinion.liked)
 			}
 		})
+	case vote.TimestampType:
+		messageID, err := tangle.NewMessageID(ev.ID)
+		if err != nil {
+			f.Events.Error.Trigger(err)
+			return
+		}
+
+		f.Storage.TimestampOpinion(messageID).Consume(func(opinion *TimestampOpinion) {
+			opinion.SetLiked(ev.Opinion)
+			opinion.SetLevelOfKnowledge(Two)
+		})
+
+		// eligible when timestamp is ok but confirmed when timestamp and tx is correct
+		f.setEligibility(messageID)
+
+		f.setTimestampOpinionDone(messageID)
+
+		// trigger MessageOpinionFormed event for messageID and all its approvers once both opinions for timestamp and payload are set
+		if f.messageDone(messageID) {
+			f.tangle.Utils.WalkMessageID(f.createMessageOpinion, tangle.MessageIDs{messageID}, true)
+		}
 	}
 }
 
 // TransactionOpinionEssence returns the opinion essence of a given transactionID.
 func (f *ConsensusMechanism) TransactionOpinionEssence(transactionID ledgerstate.TransactionID) (opinion OpinionEssence) {
+	// what TODO when transactionID does not exist?
 	opinion = f.Storage.OpinionEssence(transactionID)
+	return
+}
 
+// TimestampOpinion returns the opinion of a given messageID.
+func (f *ConsensusMechanism) TimestampOpinion(messageID tangle.MessageID) (timestampOpinion opinion.Opinion) {
+	// what TODO when messageID does not exist?
+	f.Storage.TimestampOpinion(messageID).Consume(func(o *TimestampOpinion) {
+		timestampOpinion = o.Value
+	})
 	return
 }
 
@@ -160,7 +207,7 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 	// if the opinion for this transactionID is already present,
 	// it's a reattachment and thus, we re-use the same opinion.
 	isReattachment := false
-	f.Storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
+	f.Storage.TransactionOpinion(transactionID).Consume(func(opinion *Opinion) {
 		// if the opinion has been already set by the opinion provider, re-use it
 		if opinion.LevelOfKnowledge() > One {
 			// trigger PayloadOpinionFormed event
@@ -210,7 +257,7 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 			if newOpinion.liked {
 				liked = voter.Like
 			}
-			f.Events.Vote.Trigger(transactionID.Base58(), liked)
+			f.Events.Vote.Trigger(transactionID.Base58(), liked, vote.ConflictType)
 			return
 
 		default:
@@ -231,7 +278,7 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 	// Wait LikedThreshold
 	f.likedThresholdExecutor.ExecuteAt(func() {
 		runLocallyFinalizedExecutor := true
-		if !f.Storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
+		if !f.Storage.TransactionOpinion(transactionID).Consume(func(opinion *Opinion) {
 			opinion.SetFCOBTime1(time.Now())
 
 			if f.tangle.LedgerState.TransactionConflicting(transactionID) {
@@ -244,13 +291,13 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 					opinion.SetLiked(true)
 					opinion.SetLevelOfKnowledge(One)
 					// trigger voting for this transactionID
-					f.Events.Vote.Trigger(transactionID.Base58(), voter.Like)
+					f.Events.Vote.Trigger(transactionID.Base58(), voter.Like, vote.ConflictType)
 					return
 				}
 				opinion.SetLevelOfKnowledge(One)
 				opinion.SetLiked(false)
 				// trigger voting for this transactionID
-				f.Events.Vote.Trigger(transactionID.Base58(), voter.Dislike)
+				f.Events.Vote.Trigger(transactionID.Base58(), voter.Dislike, vote.ConflictType)
 				return
 			}
 			opinion.SetLevelOfKnowledge(One)
@@ -262,13 +309,13 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 		if runLocallyFinalizedExecutor {
 			// Wait LocallyFinalizedThreshold
 			f.locallyFinalizedExecutor.ExecuteAt(func() {
-				if !f.Storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
+				if !f.Storage.TransactionOpinion(transactionID).Consume(func(opinion *Opinion) {
 					opinion.SetFCOBTime2(time.Now())
 
 					opinion.SetLiked(true)
 					if f.tangle.LedgerState.TransactionConflicting(transactionID) {
 						// trigger voting for this transactionID
-						f.Events.Vote.Trigger(transactionID.Base58(), voter.Like)
+						f.Events.Vote.Trigger(transactionID.Base58(), voter.Like, vote.ConflictType)
 						return
 					}
 					opinion.SetLevelOfKnowledge(Two)
@@ -300,6 +347,7 @@ func (f *ConsensusMechanism) onPayloadOpinionFormed(messageID tangle.MessageID, 
 
 	f.setPayloadOpinionDone(messageID)
 
+	// trigger MessageOpinionFormed event for messageID and all its approvers once both opinions for timestamp and payload are set
 	if f.messageDone(messageID) {
 		f.tangle.Utils.WalkMessageID(f.createMessageOpinion, tangle.MessageIDs{messageID}, true)
 	}
@@ -447,7 +495,7 @@ type ConsensusMechanismEvents struct {
 }
 
 func voteEventHandler(handler interface{}, params ...interface{}) {
-	handler.(func(id string, initOpn voter.Opinion))(params[0].(string), params[1].(voter.Opinion))
+	handler.(func(id string, initOpn voter.Opinion, objectType vote.ObjectType))(params[0].(string), params[1].(voter.Opinion), params[2].(vote.ObjectType))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

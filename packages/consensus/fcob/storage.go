@@ -61,7 +61,7 @@ func (s *Storage) OpinionEssence(transactionID ledgerstate.TransactionID) (opini
 }
 
 // Opinion returns the Opinion associated with given TransactionID.
-func (s *Storage) Opinion(transactionID ledgerstate.TransactionID) (cachedOpinion *CachedOpinion) {
+func (s *Storage) TransactionOpinion(transactionID ledgerstate.TransactionID) (cachedOpinion *CachedOpinion) {
 	return &CachedOpinion{CachedObject: s.opinionStorage.Load(transactionID.Bytes())}
 }
 
@@ -482,6 +482,9 @@ type TimestampOpinion struct {
 	Value     opinion.Opinion
 	LoK       LevelOfKnowledge
 
+	valueMutex sync.RWMutex
+	lokMutex   sync.RWMutex
+
 	objectstorage.StorableObjectFlags
 }
 
@@ -578,6 +581,22 @@ func (t *TimestampOpinion) ObjectStorageValue() []byte {
 		WriteByte(byte(t.Value)).
 		WriteUint8(uint8(t.LoK)).
 		Bytes()
+}
+
+// SetLiked sets the opinion's like status.
+func (t *TimestampOpinion) SetLiked(newOpinion opinion.Opinion) {
+	t.valueMutex.Lock()
+	defer t.valueMutex.Unlock()
+	t.Value = newOpinion
+	t.SetModified(true)
+}
+
+// SetLevelOfKnowledge returns the opinion's LevelOfKnowledge.
+func (t *TimestampOpinion) SetLevelOfKnowledge(lok LevelOfKnowledge) {
+	t.lokMutex.Lock()
+	defer t.lokMutex.Unlock()
+	t.LoK = lok
+	t.SetModified(true)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

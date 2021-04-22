@@ -1,6 +1,10 @@
 package dashboard
 
-import "time"
+import (
+	"time"
+
+	"github.com/iotaledger/goshimmer/packages/vote"
+)
 
 // conflictSet is defined as a a map of conflict IDs and their conflict.
 type conflictSet = map[string]conflict
@@ -12,10 +16,11 @@ type conflict struct {
 }
 
 type voteContext struct {
-	NodeID   string  `json:"nodeid" bson:"nodeid"`
-	Rounds   int     `json:"rounds" bson:"rounds"`
-	Opinions []int32 `json:"opinions" bson:"opinions"`
-	Outcome  int32   `json:"outcome" bson:"outcome"`
+	NodeID   string          `json:"nodeid" bson:"nodeid"`
+	Rounds   int             `json:"rounds" bson:"rounds"`
+	Opinions []int32         `json:"opinions" bson:"opinions"`
+	Type     vote.ObjectType `json:"type" bson:"type"`
+	Outcome  int32           `json:"outcome" bson:"outcome"`
 }
 
 func newConflict() conflict {

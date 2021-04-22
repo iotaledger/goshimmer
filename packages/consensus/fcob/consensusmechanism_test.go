@@ -22,6 +22,8 @@ import (
 func TestOpinionFormer_Scenario2(t *testing.T) {
 	LikedThreshold = 2 * time.Second
 	LocallyFinalizedThreshold = 2 * time.Second
+	TimestampWindow = 60 * time.Second
+	GratuitousNetworkDelay = 15 * time.Second
 
 	consensusProvider := NewConsensusMechanism()
 
@@ -135,7 +137,7 @@ func TestOpinionFormer_Scenario2(t *testing.T) {
 	transactionLiked[transactions["6"].ID()] = true
 	transactionLiked[transactions["8"].ID()] = false
 
-	consensusProvider.Events.Vote.Attach(events.NewClosure(func(transactionID string, initialOpinion opinion.Opinion) {
+	consensusProvider.Events.Vote.Attach(events.NewClosure(func(transactionID string, initialOpinion opinion.Opinion, objectType vote.ObjectType) {
 		t.Log("Voting requested for:", transactionID)
 		txID, err := ledgerstate.TransactionIDFromBase58(transactionID)
 		require.NoError(t, err)
@@ -146,7 +148,7 @@ func TestOpinionFormer_Scenario2(t *testing.T) {
 		consensusProvider.ProcessVote(&vote.OpinionEvent{
 			ID:      transactionID,
 			Opinion: o,
-			Ctx:     vote.Context{Type: vote.ConflictType},
+			Ctx:     vote.Context{Type: objectType},
 		})
 	}))
 
@@ -265,12 +267,12 @@ func TestOpinionFormer(t *testing.T) {
 		wg.Done()
 	}))
 
-	consensusProvider.Events.Vote.Attach(events.NewClosure(func(transactionID string, initialOpinion opinion.Opinion) {
+	consensusProvider.Events.Vote.Attach(events.NewClosure(func(transactionID string, initialOpinion opinion.Opinion, objectType vote.ObjectType) {
 		t.Log("Voting requested for:", transactionID)
 		consensusProvider.ProcessVote(&vote.OpinionEvent{
 			ID:      transactionID,
 			Opinion: opinion.Dislike,
-			Ctx:     vote.Context{Type: vote.ConflictType},
+			Ctx:     vote.Context{Type: objectType},
 		})
 	}))
 

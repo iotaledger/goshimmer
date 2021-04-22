@@ -7,6 +7,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	metricspkg "github.com/iotaledger/goshimmer/packages/metrics"
+	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	analysisserver "github.com/iotaledger/goshimmer/plugins/analysis/server"
 	"github.com/iotaledger/goshimmer/plugins/banner"
@@ -14,8 +15,10 @@ import (
 )
 
 const (
-	like    = "LIKE"
-	dislike = "DISLIKE"
+	like      = "LIKE"
+	dislike   = "DISLIKE"
+	conflict  = "CONFLICT"
+	timestamp = "TIMESTAMP"
 )
 
 // These metrics store information collected via the analysis server.
@@ -38,16 +41,19 @@ var (
 var onFPCFinalized = events.NewClosure(func(ev *metricspkg.AnalysisFPCFinalizedEvent) {
 	conflictCount.WithLabelValues(
 		ev.NodeID,
+		voteTypeToString(ev.Type),
 	).Add(1)
 
 	conflictFinalizationRounds.WithLabelValues(
 		ev.ConflictID,
 		ev.NodeID,
+		voteTypeToString(ev.Type),
 	).Set(float64(ev.Rounds + 1))
 
 	conflictOutcome.WithLabelValues(
 		ev.ConflictID,
 		ev.NodeID,
+		voteTypeToString(ev.Type),
 		opinionToString(ev.Outcome),
 	).Set(1)
 
@@ -55,6 +61,7 @@ var onFPCFinalized = events.NewClosure(func(ev *metricspkg.AnalysisFPCFinalizedE
 		conflictInitialOpinion.WithLabelValues(
 			ev.ConflictID,
 			ev.NodeID,
+			voteTypeToString(ev.Type),
 			opinionToString(ev.Opinions[0]),
 		).Set(1)
 	}
@@ -110,6 +117,7 @@ func registerClientsMetrics() {
 		},
 		[]string{
 			"nodeID",
+			"voteType",
 		},
 	)
 
@@ -121,6 +129,7 @@ func registerClientsMetrics() {
 		[]string{
 			"conflictID",
 			"nodeID",
+			"voteType",
 		},
 	)
 
@@ -132,6 +141,7 @@ func registerClientsMetrics() {
 		[]string{
 			"conflictID",
 			"nodeID",
+			"voteType",
 			"opinion",
 		},
 	)
@@ -144,6 +154,7 @@ func registerClientsMetrics() {
 		[]string{
 			"conflictID",
 			"nodeID",
+			"voteType",
 			"opinion",
 		},
 	)
@@ -198,4 +209,11 @@ func opinionToString(o opinion.Opinion) string {
 		return like
 	}
 	return dislike
+}
+
+func voteTypeToString(o vote.ObjectType) string {
+	if o == vote.TimestampType {
+		return timestamp
+	}
+	return conflict
 }
