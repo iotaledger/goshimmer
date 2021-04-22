@@ -1,4 +1,4 @@
-# v0.5.7 - 2021-04-21
+# v0.5.7 - 2021-04-22
 * Add approval weight manager (soft launch)
 * Add epochs
 * Add debug APIs for epochs
