@@ -249,12 +249,15 @@ type AliasOutput struct {
 	StateIndex         uint32            `json:"stateIndex"`
 	IsGovernanceUpdate bool              `json:"isGovernanceUpdate"`
 	IsOrigin           bool              `json:"isOrigin"`
+	IsGoldenCoin       bool              `json:"isGoldenCoin"`
 
 	// marshaled to base64
 	StateData          []byte `json:"stateData,omitempty"`
 	GovernanceMetadata []byte `json:"governanceMetadata"`
 	ImmutableData      []byte `json:"immutableData,omitempty"`
+
 	GoverningAddress   string `json:"governingAddress,omitempty"`
+	DelegationTimelock int64  `json:"delegationTimelock,omitempty"`
 }
 
 // ToLedgerStateOutput builds a ledgerstate.Output from SigLockedSingleOutput with the given outputID.
@@ -279,6 +282,8 @@ func (a *AliasOutput) ToLedgerStateOutput(id ledgerstate.OutputID) (ledgerstate.
 	isGovernanceUpdate := a.IsGovernanceUpdate
 	// isOrigin
 	isOrigin := a.IsOrigin
+	// isGoldenCoin
+	isGoldenCoin := a.IsGoldenCoin
 
 	// no suitable constructor, doing it the manual way
 	res := &ledgerstate.AliasOutput{}
@@ -295,6 +300,7 @@ func (a *AliasOutput) ToLedgerStateOutput(id ledgerstate.OutputID) (ledgerstate.
 	res.SetStateIndex(stateIndex)
 	res.SetIsGovernanceUpdated(isGovernanceUpdate)
 	res.SetIsOrigin(isOrigin)
+	res.SetIsGoldenCoin(isGoldenCoin)
 
 	// optional fields
 	if a.StateData != nil {
@@ -322,6 +328,12 @@ func (a *AliasOutput) ToLedgerStateOutput(id ledgerstate.OutputID) (ledgerstate.
 		}
 		res.SetGoverningAddress(addy)
 	}
+	if a.DelegationTimelock != 0 {
+		err = res.SetDelegationTimelock(time.Unix(a.DelegationTimelock, 0))
+		if err != nil {
+			return nil, err
+		}
+	}
 	return res, nil
 }
 
@@ -341,10 +353,14 @@ func AliasOutputFromLedgerstate(output ledgerstate.Output) (*AliasOutput, error)
 		GovernanceMetadata: castedOutput.GetGovernanceMetadata(),
 		ImmutableData:      castedOutput.GetImmutableData(),
 		IsOrigin:           castedOutput.IsOrigin(),
+		IsGoldenCoin:       castedOutput.IsGoldenCoin(),
 	}
 
 	if !castedOutput.IsSelfGoverned() {
 		res.GoverningAddress = castedOutput.GetGoverningAddress().Base58()
+	}
+	if !castedOutput.DelegationTimelock().IsZero() {
+		res.DelegationTimelock = castedOutput.DelegationTimelock().Unix()
 	}
 	return res, nil
 }
