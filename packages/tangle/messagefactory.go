@@ -129,7 +129,13 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, t ...*Tangle) (*Message
 // allows to issue requested message multiple times
 func (f *MessageFactory) IssuePayloadWithDelay(p payload.Payload, delay time.Duration, repeat int, t ...*Tangle) ([]*Message, error) {
 	// validate query parameters
-	if correct, err := f.validateParameters(delay, repeat); correct {
+	if delay < 0 {
+		err := fmt.Errorf("time delay %d, less than zero is not allowed", delay)
+		f.Events.Error.Trigger(err)
+		return nil, err
+	}
+	if repeat <= 0 {
+		err := fmt.Errorf("repeat %d, less than zero is not allowed", repeat)
 		f.Events.Error.Trigger(err)
 		return nil, err
 	}
@@ -214,18 +220,6 @@ func (f *MessageFactory) IssuePayloadWithDelay(p payload.Payload, delay time.Dur
 	case <-time.After(timeout):
 		return nil, xerrors.Errorf("not all messages issued after one additional delay")
 	}
-}
-
-func (f *MessageFactory) validateParameters(delay time.Duration, repeat int) (bool, error) {
-	if delay < 0 {
-		err := fmt.Errorf("time delay %d, less than zero is not allowed", delay)
-		return false, err
-	}
-	if repeat <= 0 {
-		err := fmt.Errorf("repeat %d, less than zero is not allowed", repeat)
-		return false, err
-	}
-	return true, nil
 }
 
 // enforceIssuingTimeForParentAge make sure the issuing time is correct with the parent age check
