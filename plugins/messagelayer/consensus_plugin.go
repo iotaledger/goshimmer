@@ -242,10 +242,10 @@ type OpinionGiver struct {
 type OpinionGivers map[identity.ID]OpinionGiver
 
 // Query retrieves the opinions about the given conflicts and timestamps.
-func (o *OpinionGiver) Query(ctx context.Context, conflictIDs []string, timestampIDs []string, delayedRoundStart time.Duration) (opinions opinion.Opinions, err error) {
+func (o *OpinionGiver) Query(ctx context.Context, conflictIDs, timestampIDs []string, delayedRoundStart time.Duration) (opinions opinion.Opinions, err error) {
 	waitForStatements := time.Duration(StatementParameters.WaitForStatement) * time.Second
 	if delayedRoundStart < waitForStatements && delayedRoundStart > 0 {
-		waitForStatements = waitForStatements - delayedRoundStart
+		waitForStatements -= delayedRoundStart
 	}
 	// if o.view == nil, then we can immediately perform P2P query instead of waiting for statement
 	// because it won't be provided.
@@ -344,7 +344,7 @@ type PeerOpinionGiver struct {
 }
 
 // Query queries another node for its opinion.
-func (pog *PeerOpinionGiver) Query(ctx context.Context, conflictIDs []string, timestampIDs []string, delayedRoundStart time.Duration) (opinion.Opinions, error) {
+func (pog *PeerOpinionGiver) Query(ctx context.Context, conflictIDs, timestampIDs []string, delayedRoundStart time.Duration) (opinion.Opinions, error) {
 	if pog == nil {
 		return nil, fmt.Errorf("unable to query opinions, PeerOpinionGiver is nil")
 	}

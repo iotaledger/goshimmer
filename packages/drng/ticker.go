@@ -77,7 +77,7 @@ func (t *Ticker) C() <-chan float64 {
 	return t.c
 }
 
-// MissingDRNG returns whether the DRNG randomness is missing for this round.
+// DelayedRoundStart returns how much the current Round is delayed already.
 func (t *Ticker) DelayedRoundStart() time.Duration {
 	return t.delayedRoundStart
 }

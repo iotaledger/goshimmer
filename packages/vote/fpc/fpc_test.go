@@ -97,7 +97,7 @@ func (ogm *opiniongivermock) ID() identity.ID {
 	return ogm.id
 }
 
-func (ogm *opiniongivermock) Query(_ context.Context, _ []string, _ []string, _ time.Duration) (opinion.Opinions, error) {
+func (ogm *opiniongivermock) Query(_ context.Context, _, _ []string, _ time.Duration) (opinion.Opinions, error) {
 	if ogm.roundIndex >= len(ogm.roundsReplies) {
 		return ogm.roundsReplies[len(ogm.roundsReplies)-1], nil
 	}

@@ -250,7 +250,7 @@ func (f *FPC) queryOpinions(delayedRoundStart time.Duration) ([]opinion.QueriedO
 			queryCtx, cancel := context.WithTimeout(context.Background(), f.paras.QueryTimeout)
 			defer cancel()
 
-			// query
+			// query (both statements and P2P)
 			opinions, err := opinionGiverToQuery.Query(queryCtx, conflictIDs, timestampIDs, delayedRoundStart)
 			if err != nil || len(opinions) != len(conflictIDs)+len(timestampIDs) {
 				// ignore opinions
