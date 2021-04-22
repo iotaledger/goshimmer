@@ -40,6 +40,7 @@ var Core = node.Plugins(
 	clock.Plugin(),
 	messagelayer.Plugin(),
 	manualpeering.Plugin(),
+	messagelayer.ManaPlugin(),
 	gossip.Plugin(),
 	syncbeacon.Plugin(),
 	messagelayer.SyncBeaconFollowerPlugin(),
@@ -48,6 +49,5 @@ var Core = node.Plugins(
 	messagelayer.ConsensusPlugin(),
 	metrics.Plugin(),
 	spammer.Plugin(),
-	messagelayer.ManaPlugin(),
 	manaeventlogger.Plugin(),
 )
