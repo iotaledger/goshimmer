@@ -135,7 +135,8 @@ func BenchmarkTangle_StoreMessage(b *testing.B) {
 
 func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
 	messageTangle := New()
-	messageTangle.Setup()
+	messageTangle.Storage.Setup()
+	messageTangle.Solidifier.Setup()
 	defer messageTangle.Shutdown()
 
 	var storedMessages, solidMessages, invalidMessages int32
