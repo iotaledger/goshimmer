@@ -1,6 +1,7 @@
 package drng
 
 import (
+	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
@@ -15,6 +16,7 @@ type Ticker struct {
 	awaitOffset         int // defines the max amount of time (in seconds) to wait for the next dRNG round after the expected time has elapsed.
 	missingDRNG         bool
 	delayedRoundStart   time.Duration
+	delayedRoundStartMu sync.RWMutex
 	c                   chan float64
 	exit                chan struct{}
 	fromRandomnessEvent chan Randomness
@@ -79,18 +81,27 @@ func (t *Ticker) C() <-chan float64 {
 
 // DelayedRoundStart returns how much the current Round is delayed already.
 func (t *Ticker) DelayedRoundStart() time.Duration {
+	t.delayedRoundStartMu.RLock()
+	defer t.delayedRoundStartMu.RUnlock()
 	return t.delayedRoundStart
+}
+
+func (t *Ticker) setDelayedRoundStart(d time.Duration) {
+	t.delayedRoundStartMu.Lock()
+	defer t.delayedRoundStartMu.Unlock()
+	t.delayedRoundStart = d
 }
 
 // sends the next random number to the consumer channel.
 func (t *Ticker) send() {
 	randomness := t.defaultValue
+	start := time.Now()
 
 	if t.dRNGState() != nil && t.dRNGTicker != nil {
 		// check if the randomness is "fresh"
 		if t.missingDRNG && clock.Since(t.dRNGState().Randomness().Timestamp) < time.Duration(t.interval)*time.Second {
 			t.missingDRNG = false
-			t.delayedRoundStart = 0
+			t.setDelayedRoundStart(0)
 			randomness = t.dRNGState().Randomness().Float64()
 			// the expected time that we should receive a new randomness
 			timeToNextDRNG := t.dRNGState().Randomness().Timestamp.Add(time.Duration(t.interval) * time.Second).Sub(clock.SyncedTime())
@@ -111,7 +122,8 @@ func (t *Ticker) send() {
 			case randomnessEvent := <-t.fromRandomnessEvent:
 				// check if the randomness is "fresh"
 				if clock.Since(randomnessEvent.Timestamp) < time.Duration(t.awaitOffset)*time.Second {
-					t.delayedRoundStart = 0
+					delay := time.Since(start)
+					t.setDelayedRoundStart(delay)
 					randomness = t.dRNGState().Randomness().Float64()
 					if t.dRNGTicker != nil {
 						t.dRNGTicker.Reset(time.Duration(t.interval) * time.Second)
@@ -120,8 +132,9 @@ func (t *Ticker) send() {
 				}
 			case <-t.dRNGTicker.C:
 				// still no new randomness within awaitOffset, take the default value, and reset dRNGTicker
+				delay := time.Since(start)
+				t.setDelayedRoundStart(delay)
 				now := clock.SyncedTime().Unix()
-				t.delayedRoundStart = time.Duration(t.interval) * time.Second
 				t.dRNGTicker.Reset(time.Duration(ResolveNextTimePoint(now, t.interval)-now) * time.Second)
 				break out
 			}

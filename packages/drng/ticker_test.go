@@ -2,10 +2,12 @@ package drng
 
 import (
 	"crypto/rand"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/magiconair/properties/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func testRandomness(t time.Time) *Randomness {
@@ -32,6 +34,7 @@ func TestTicker(t *testing.T) {
 
 	r := <-ticker.C()
 	assert.Equal(t, r, defaultValue)
+	fmt.Println(ticker.DelayedRoundStart())
 
 	stateTest = NewState(SetCommittee(dummyCommittee()), SetRandomness(testRandomness(time.Now().Add(time.Duration(interval)*time.Second))))
 	randomness := stateTest.Randomness().Float64()
@@ -43,6 +46,20 @@ func TestTicker(t *testing.T) {
 
 	r = <-ticker.C()
 	assert.Equal(t, r, randomness)
+	fmt.Println(ticker.DelayedRoundStart())
+
+	stateTest = NewState(SetCommittee(dummyCommittee()), SetRandomness(testRandomness(time.Now().Add(time.Duration(interval)*time.Second))))
+	randomness = stateTest.Randomness().Float64()
+	// mock the dRNG event
+	go func() {
+		time.Sleep(time.Duration(interval+2) * time.Second)
+		ticker.UpdateRandomness(stateTest.Randomness())
+	}()
+
+	r = <-ticker.C()
+	assert.Equal(t, r, randomness)
+	require.InDelta(t, 2*time.Second, ticker.DelayedRoundStart(), 10*float64(time.Second/(time.Microsecond)))
+	fmt.Println(ticker.DelayedRoundStart())
 }
 
 func TestNoDRNGTicker(t *testing.T) {
