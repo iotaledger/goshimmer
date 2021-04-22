@@ -206,7 +206,16 @@ func TestSupporterManager_updateBranchSupporters(t *testing.T) {
 // TestSupporterManager_updateSequenceSupporters tests the SupporterManager's functionality regarding sequences.
 // The scenario can be found in images/approvalweight-updateSequenceSupporters.png.
 func TestSupporterManager_updateSequenceSupporters(t *testing.T) {
-	tangle := New()
+	keyPair := ed25519.GenerateKeyPair()
+
+	manaRetrieverMock := func(t time.Time) map[identity.ID]float64 {
+		return map[identity.ID]float64{
+			identity.NewID(keyPair.PublicKey): 100,
+		}
+	}
+	manager := epochs.NewManager(epochs.ManaRetriever(manaRetrieverMock), epochs.CacheTime(0))
+
+	tangle := New(ApprovalWeights(WeightProviderFromEpochsManager(manager)))
 	defer tangle.Shutdown()
 	supporterManager := NewApprovalWeightManager(tangle)
 	supporters := map[string]*identity.Identity{
