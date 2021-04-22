@@ -791,6 +791,44 @@ func TestAggregatedBranchApproval(t *testing.T) {
 			fmt.Println(branch)
 		})
 	}
+
+	// ISSUE Message7
+	{
+		testFramework.CreateMessage("Message7", WithStrongParents("Message5"), WithIssuer(nodes["A"].PublicKey()), WithInputs("E"), WithOutput("H", 500))
+		testFramework.IssueMessages("Message7").WaitApprovalWeightProcessed()
+		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message7")), "Branch7")
+		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewAggregatedBranch(
+			ledgerstate.BranchIDs{
+				testFramework.BranchID("Message4"): types.Void,
+				testFramework.BranchID("Message5"): types.Void,
+				testFramework.BranchID("Message7"): types.Void,
+			}).ID(),
+			"Branch4+5+7",
+		)
+
+		fmt.Println(testFramework.MessageMetadata("Message7"))
+	}
+
+	// ISSUE Message8
+	{
+		testFramework.CreateMessage("Message8", WithStrongParents("Message5"), WithIssuer(nodes["A"].PublicKey()), WithInputs("E"), WithOutput("I", 500))
+		testFramework.IssueMessages("Message8").WaitApprovalWeightProcessed()
+		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message8")), "Branch8")
+		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewAggregatedBranch(
+			ledgerstate.BranchIDs{
+				testFramework.BranchID("Message4"): types.Void,
+				testFramework.BranchID("Message5"): types.Void,
+				testFramework.BranchID("Message8"): types.Void,
+			}).ID(),
+			"Branch4+5+8",
+		)
+		fmt.Println(testFramework.MessageMetadata("Message8"))
+		branchID, err := tangle.Booker.MessageBranchID(testFramework.Message("Message8").ID())
+		require.NoError(t, err)
+		tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
+			fmt.Println(branch)
+		})
+	}
 }
 
 func issueAndValidateMessageApproval(t *testing.T, messageAlias string, eventMock *eventMock, testFramework *MessageTestFramework, expectedBranchWeights map[ledgerstate.BranchID]float64, expectedMarkerWeights map[markers.Marker]float64) {
