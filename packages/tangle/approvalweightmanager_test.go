@@ -60,9 +60,9 @@ func TestBranchSupportersMarshalling(t *testing.T) {
 	})
 }
 
-// TestSupporterManager_updateBranchSupporters tests the SupporterManager's functionality regarding branches.
+// TestApprovalWeightManager_updateBranchSupporters tests the ApprovalWeightManager's functionality regarding branches.
 // The scenario can be found in images/approvalweight-updateBranchSupporters.png.
-func TestSupporterManager_updateBranchSupporters(t *testing.T) {
+func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()
 
 	manaRetrieverMock := func(t time.Time) map[identity.ID]float64 {
@@ -74,7 +74,7 @@ func TestSupporterManager_updateBranchSupporters(t *testing.T) {
 
 	tangle := New(ApprovalWeights(WeightProviderFromEpochsManager(manager)))
 	defer tangle.Shutdown()
-	supporterManager := NewApprovalWeightManager(tangle)
+	approvalWeightManager := tangle.ApprovalWeightManager
 
 	conflictIDs := map[string]ledgerstate.ConflictID{
 		"Conflict 1": ledgerstate.ConflictIDFromRandomness(),
@@ -132,7 +132,7 @@ func TestSupporterManager_updateBranchSupporters(t *testing.T) {
 		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetBranchID(branchIDs["Branch 4.1.2"])
 		})
-		supporterManager.updateBranchSupporters(message)
+		approvalWeightManager.updateBranchSupporters(message)
 
 		expectedResults := map[string]bool{
 			"Branch 1":     false,
@@ -147,7 +147,7 @@ func TestSupporterManager_updateBranchSupporters(t *testing.T) {
 			"Branch 4.1.2": true,
 			"Branch 4.2":   false,
 		}
-		validateStatementResults(t, supporterManager, branchIDs, identity.NewID(keyPair.PublicKey), expectedResults)
+		validateStatementResults(t, approvalWeightManager, branchIDs, identity.NewID(keyPair.PublicKey), expectedResults)
 	}
 
 	// statement 1: "Branch 1.1 + Branch 4.1.1"
@@ -158,7 +158,7 @@ func TestSupporterManager_updateBranchSupporters(t *testing.T) {
 		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetBranchID(branchIDs["Branch 1.1 + Branch 4.1.1"])
 		})
-		supporterManager.updateBranchSupporters(message)
+		approvalWeightManager.updateBranchSupporters(message)
 
 		expectedResults := map[string]bool{
 			"Branch 1":     true,
@@ -173,7 +173,7 @@ func TestSupporterManager_updateBranchSupporters(t *testing.T) {
 			"Branch 4.1.2": true,
 			"Branch 4.2":   false,
 		}
-		validateStatementResults(t, supporterManager, branchIDs, identity.NewID(keyPair.PublicKey), expectedResults)
+		validateStatementResults(t, approvalWeightManager, branchIDs, identity.NewID(keyPair.PublicKey), expectedResults)
 	}
 
 	//// statement 3: "Branch 2"
@@ -184,7 +184,7 @@ func TestSupporterManager_updateBranchSupporters(t *testing.T) {
 		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetBranchID(branchIDs["Branch 2"])
 		})
-		supporterManager.updateBranchSupporters(message)
+		approvalWeightManager.updateBranchSupporters(message)
 
 		expectedResults := map[string]bool{
 			"Branch 1":     false,
@@ -199,13 +199,13 @@ func TestSupporterManager_updateBranchSupporters(t *testing.T) {
 			"Branch 4.1.2": true,
 			"Branch 4.2":   false,
 		}
-		validateStatementResults(t, supporterManager, branchIDs, identity.NewID(keyPair.PublicKey), expectedResults)
+		validateStatementResults(t, approvalWeightManager, branchIDs, identity.NewID(keyPair.PublicKey), expectedResults)
 	}
 }
 
-// TestSupporterManager_updateSequenceSupporters tests the SupporterManager's functionality regarding sequences.
+// TestApprovalWeightManager_updateSequenceSupporters tests the ApprovalWeightManager's functionality regarding sequences.
 // The scenario can be found in images/approvalweight-updateSequenceSupporters.png.
-func TestSupporterManager_updateSequenceSupporters(t *testing.T) {
+func TestApprovalWeightManager_updateSequenceSupporters(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()
 
 	manaRetrieverMock := func(t time.Time) map[identity.ID]float64 {
@@ -217,7 +217,7 @@ func TestSupporterManager_updateSequenceSupporters(t *testing.T) {
 
 	tangle := New(ApprovalWeights(WeightProviderFromEpochsManager(manager)))
 	defer tangle.Shutdown()
-	supporterManager := NewApprovalWeightManager(tangle)
+	approvalWeightManager := tangle.ApprovalWeightManager
 	supporters := map[string]*identity.Identity{
 		"A": identity.New(ed25519.GenerateKeyPair().PublicKey),
 		"B": identity.New(ed25519.GenerateKeyPair().PublicKey),
@@ -244,9 +244,9 @@ func TestSupporterManager_updateSequenceSupporters(t *testing.T) {
 
 	// CASE1: APPROVE MARKER(1, 3)
 	{
-		supporterManager.updateSequenceSupporters(approveMarkers(supporterManager, supporters["A"], markers.NewMarker(1, 3)))
+		approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["A"], markers.NewMarker(1, 3)))
 
-		validateMarkerSupporters(t, supporterManager, markersMap, map[string][]*identity.Identity{
+		validateMarkerSupporters(t, approvalWeightManager, markersMap, map[string][]*identity.Identity{
 			"1,1": {supporters["A"]},
 			"1,2": {supporters["A"]},
 			"1,3": {supporters["A"]},
@@ -266,9 +266,9 @@ func TestSupporterManager_updateSequenceSupporters(t *testing.T) {
 
 	// CASE2: APPROVE MARKER(1, 4) + MARKER(3, 5)
 	{
-		supporterManager.updateSequenceSupporters(approveMarkers(supporterManager, supporters["A"], markers.NewMarker(1, 4), markers.NewMarker(3, 5)))
+		approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["A"], markers.NewMarker(1, 4), markers.NewMarker(3, 5)))
 
-		validateMarkerSupporters(t, supporterManager, markersMap, map[string][]*identity.Identity{
+		validateMarkerSupporters(t, approvalWeightManager, markersMap, map[string][]*identity.Identity{
 			"1,1": {supporters["A"]},
 			"1,2": {supporters["A"]},
 			"1,3": {supporters["A"]},
@@ -288,9 +288,9 @@ func TestSupporterManager_updateSequenceSupporters(t *testing.T) {
 
 	// CASE3: APPROVE MARKER(5, 8)
 	{
-		supporterManager.updateSequenceSupporters(approveMarkers(supporterManager, supporters["A"], markers.NewMarker(5, 8)))
+		approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["A"], markers.NewMarker(5, 8)))
 
-		validateMarkerSupporters(t, supporterManager, markersMap, map[string][]*identity.Identity{
+		validateMarkerSupporters(t, approvalWeightManager, markersMap, map[string][]*identity.Identity{
 			"1,1": {supporters["A"]},
 			"1,2": {supporters["A"]},
 			"1,3": {supporters["A"]},
@@ -310,9 +310,9 @@ func TestSupporterManager_updateSequenceSupporters(t *testing.T) {
 
 	// CASE4: APPROVE MARKER(2, 3)
 	{
-		supporterManager.updateSequenceSupporters(approveMarkers(supporterManager, supporters["B"], markers.NewMarker(2, 3)))
+		approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["B"], markers.NewMarker(2, 3)))
 
-		validateMarkerSupporters(t, supporterManager, markersMap, map[string][]*identity.Identity{
+		validateMarkerSupporters(t, approvalWeightManager, markersMap, map[string][]*identity.Identity{
 			"1,1": {supporters["A"]},
 			"1,2": {supporters["A"]},
 			"1,3": {supporters["A"]},
