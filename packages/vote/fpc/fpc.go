@@ -109,14 +109,14 @@ func (f *FPC) Events() vote.Events {
 
 // Round enqueues new items, sets opinions on active vote contexts, finalizes them and then
 // queries for opinions.
-func (f *FPC) Round(rand float64, delayedRoundStart ...time.Duration) error {
+func (f *FPC) Round(random float64, delayedRoundStart ...time.Duration) error {
 	start := time.Now()
 	// enqueue new voting contexts
 	f.enqueue()
 	// we can only form opinions when the last round was actually executed successfully
 	if f.lastRoundCompletedSuccessfully {
 		// form opinions by using the random number supplied for this new round
-		f.formOpinions(rand)
+		f.formOpinions(random)
 		// clean opinions on vote contexts where an opinion was reached in TotalRoundFinalization
 		// number of rounds and clear those who failed to be finalized in MaxRoundsPerVoteContext.
 		f.finalizeOpinions()
@@ -142,7 +142,7 @@ func (f *FPC) Round(rand float64, delayedRoundStart ...time.Duration) error {
 		// execute a round executed event
 		roundStats := &vote.RoundStats{
 			Duration:           time.Since(start),
-			RandUsed:           rand,
+			RandUsed:           random,
 			ActiveVoteContexts: f.ctxs,
 			QueriedOpinions:    queriedOpinions,
 		}
@@ -295,6 +295,12 @@ func (f *FPC) queryOpinions(delayedRoundStart ...time.Duration) ([]opinion.Queri
 	}
 	wg.Wait()
 
+	f.computeLikeProportion(voteMap, ownMana, totalMana)
+
+	return allQueriedOpinions, nil
+}
+
+func (f *FPC) computeLikeProportion(voteMap map[string]opinion.Opinions, ownMana, totalMana float64) {
 	f.ctxsMu.RLock()
 	defer f.ctxsMu.RUnlock()
 	// compute liked proportion
@@ -321,8 +327,6 @@ func (f *FPC) queryOpinions(delayedRoundStart ...time.Duration) ([]opinion.Queri
 		}
 		f.ctxs[id].ProportionLiked = likedSum / float64(votedCount)
 	}
-
-	return allQueriedOpinions, nil
 }
 
 func (f *FPC) voteContextIDs() (conflictIDs []string, timestampIDs []string) {
