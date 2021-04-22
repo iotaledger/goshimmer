@@ -41,7 +41,7 @@ export class AliasOutputComponent extends React.Component<Props, any> {
                     }
                     <ListGroup.Item>Governance Update: {this.props.output.isGovernanceUpdate.toString()}</ListGroup.Item>
                     <ListGroup.Item>Origin: {this.props.output.isOrigin.toString()}</ListGroup.Item>
-                    <ListGroup.Item>Golden Coin: {this.props.output.isGoldenCoin.toString()}</ListGroup.Item>
+                    <ListGroup.Item>Delegated: {this.props.output.isDelegated.toString()}</ListGroup.Item>
                     {
                         this.props.output.delegationTimelock &&
                         <ListGroup.Item>Delegation Timelocked Until: {new Date(this.props.output.delegationTimelock * 1000).toLocaleString()}</ListGroup.Item>

@@ -150,7 +150,7 @@ func TestAliasOutput_NewAliasOutputNext(t *testing.T) {
 
 func TestAliasOutputFromMarshalUtil(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
-		originAlias := dummyAliasOutput().WithGoldenCoinDelegationTimelock(time.Now())
+		originAlias := dummyAliasOutput().WithDelegationAndTimelock(time.Now())
 		bytesLength := len(originAlias.Bytes())
 		marshaledAlias, consumed, err := OutputFromBytes(originAlias.Bytes())
 		assert.NoError(t, err)
@@ -468,18 +468,18 @@ func TestAliasOutput_GetIsGovernanceUpdated(t *testing.T) {
 	})
 }
 
-func TestAliasOutput_IsGoldenCoin(t *testing.T) {
+func TestAliasOutput_IsDelegated(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		alias := dummyAliasOutput()
-		isGoldenCoin := alias.IsGoldenCoin()
-		assert.Equal(t, isGoldenCoin, alias.isGoldenCoin)
+		isDelegated := alias.IsDelegated()
+		assert.Equal(t, isDelegated, alias.isDelegated)
 	})
 
 	t.Run("CASE: Happy path, true", func(t *testing.T) {
 		alias := dummyAliasOutput()
-		alias.isGoldenCoin = true
-		isGoldenCoin := alias.IsGoldenCoin()
-		assert.Equal(t, isGoldenCoin, alias.isGoldenCoin)
+		alias.isDelegated = true
+		isDelegated := alias.IsDelegated()
+		assert.Equal(t, isDelegated, alias.isDelegated)
 	})
 }
 
@@ -593,12 +593,12 @@ func TestAliasOutput_ObjectStorageValue(t *testing.T) {
 func TestAliasOutput_DelegationTimelock(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		alias := dummyAliasOutput()
-		// not a golden coin,
+		// not a delegated aliasoutput,
 		assert.True(t, alias.DelegationTimelock().IsZero())
-		// is a golden coin, but no timelock set
-		alias.isGoldenCoin = true
+		// is a delegated output, but no timelock set
+		alias.isDelegated = true
 		assert.True(t, alias.DelegationTimelock().IsZero())
-		// golden coin, timelock set
+		// delegated output, timelock set
 		timelock := time.Now()
 		alias.delegationTimelock = timelock
 		assert.True(t, timelock.Equal(alias.DelegationTimelock()))
@@ -609,7 +609,7 @@ func TestAliasOutput_DelegationTimeLockedNow(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		timelock := time.Now()
 		alias := dummyAliasOutput()
-		alias.isGoldenCoin = true
+		alias.isDelegated = true
 		err := alias.SetDelegationTimelock(timelock)
 		assert.NoError(t, err)
 
@@ -617,10 +617,10 @@ func TestAliasOutput_DelegationTimeLockedNow(t *testing.T) {
 		assert.False(t, alias.DelegationTimeLockedNow(timelock.Add(time.Second)))
 	})
 
-	t.Run("CASE: Golden coin without timelock", func(t *testing.T) {
+	t.Run("CASE: Delegation without timelock", func(t *testing.T) {
 		timelock := time.Now()
 		alias := dummyAliasOutput()
-		alias.isGoldenCoin = true
+		alias.isDelegated = true
 
 		assert.False(t, alias.DelegationTimeLockedNow(timelock.Add(-time.Second)))
 		assert.False(t, alias.DelegationTimeLockedNow(timelock.Add(time.Second)))
@@ -631,13 +631,13 @@ func TestAliasOutput_SetDelegationTimelock(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		timelock := time.Now()
 		alias := dummyAliasOutput()
-		// not a golden coin,
+		// not delegated,
 		err := alias.SetDelegationTimelock(timelock)
 		t.Log(err)
 		assert.Error(t, err)
 		assert.True(t, alias.DelegationTimelock().IsZero())
-		// is a golden coin
-		alias.isGoldenCoin = true
+		// delegated
+		alias.isDelegated = true
 		err = alias.SetDelegationTimelock(timelock)
 		assert.NoError(t, err)
 		assert.True(t, alias.DelegationTimelock().Equal(timelock))
@@ -715,12 +715,12 @@ func TestAliasOutput_SetIsOrigin(t *testing.T) {
 	})
 }
 
-func TestAliasOutput_SetIsGoldenCoin(t *testing.T) {
+func TestAliasOutput_SetIsDelegated(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		alias := dummyAliasOutput()
-		isGoldenCoin := true
-		alias.SetIsGoldenCoin(isGoldenCoin)
-		assert.Equal(t, alias.isGoldenCoin, isGoldenCoin)
+		isDelegated := true
+		alias.SetIsDelegated(isDelegated)
+		assert.Equal(t, alias.isDelegated, isDelegated)
 	})
 }
 
@@ -832,9 +832,9 @@ func TestAliasOutput_checkBasicValidity(t *testing.T) {
 		assert.Error(t, err)
 	})
 
-	t.Run("CASE: delegation timelock for non golden coin", func(t *testing.T) {
+	t.Run("CASE: delegation timelock for non delegated output", func(t *testing.T) {
 		alias := dummyAliasOutput()
-		alias.isGoldenCoin = false
+		alias.isDelegated = false
 		alias.delegationTimelock = time.Now()
 		err := alias.checkBasicValidity()
 		t.Log(err)
@@ -938,27 +938,27 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("CASE: Gov update, modified golden coin status", func(t *testing.T) {
+	t.Run("CASE: Gov update, modified delegation status", func(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(true)
-		next.isGoldenCoin = true
+		next.isDelegated = true
 		err := prev.validateTransition(next, &Transaction{})
 		assert.NoError(t, err)
 	})
 
-	t.Run("CASE: Gov update, golden coin without delegation lock", func(t *testing.T) {
-		prev := dummyAliasOutput().WithGoldenCoin()
+	t.Run("CASE: Gov update, delegation without delegation lock", func(t *testing.T) {
+		prev := dummyAliasOutput().WithDelegation()
 		next := prev.NewAliasOutputNext(true)
-		assert.Equal(t, true, next.IsGoldenCoin())
+		assert.Equal(t, true, next.IsDelegated())
 		err := prev.validateTransition(next, &Transaction{essence: &TransactionEssence{timestamp: time.Now()}})
 		assert.NoError(t, err)
 	})
 
-	t.Run("CASE: Gov update, golden coin with delegation lock", func(t *testing.T) {
+	t.Run("CASE: Gov update, delegation with delegation lock", func(t *testing.T) {
 		timelock := time.Now()
-		prev := dummyAliasOutput().WithGoldenCoinDelegationTimelock(timelock)
+		prev := dummyAliasOutput().WithDelegationAndTimelock(timelock)
 		next := prev.NewAliasOutputNext(true)
-		assert.Equal(t, true, next.IsGoldenCoin())
+		assert.Equal(t, true, next.IsDelegated())
 		// happy case, timelock expired
 		err := prev.validateTransition(next, &Transaction{essence: &TransactionEssence{timestamp: timelock.Add(time.Second)}})
 		assert.NoError(t, err)
@@ -968,16 +968,16 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		assert.Error(t, err)
 	})
 
-	t.Run("CASE: State update, golden coin without timelock", func(t *testing.T) {
-		prev := dummyAliasOutput().WithGoldenCoin()
+	t.Run("CASE: State update, delegation without timelock", func(t *testing.T) {
+		prev := dummyAliasOutput().WithDelegation()
 		next := prev.NewAliasOutputNext(false)
 		err := prev.validateTransition(next, &Transaction{essence: &TransactionEssence{timestamp: time.Now()}})
 		assert.NoError(t, err)
 	})
 
-	t.Run("CASE: State update, golden coin with timelock", func(t *testing.T) {
+	t.Run("CASE: State update, delegation with timelock", func(t *testing.T) {
 		timelock := time.Now()
-		prev := dummyAliasOutput().WithGoldenCoinDelegationTimelock(timelock)
+		prev := dummyAliasOutput().WithDelegationAndTimelock(timelock)
 		next := prev.NewAliasOutputNext(false)
 		// timelock is active state transition allowed
 		err := prev.validateTransition(next, &Transaction{essence: &TransactionEssence{timestamp: timelock.Add(-time.Second)}})
@@ -988,8 +988,8 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		assert.Error(t, err)
 	})
 
-	t.Run("CASE: State update, golden coin delegation timelock changed", func(t *testing.T) {
-		prev := dummyAliasOutput().WithGoldenCoin()
+	t.Run("CASE: State update, delegated, delegation timelock changed", func(t *testing.T) {
+		prev := dummyAliasOutput().WithDelegation()
 		next := prev.NewAliasOutputNext(false)
 		next.delegationTimelock = time.Now()
 		err := prev.validateTransition(next, &Transaction{essence: &TransactionEssence{timestamp: time.Now()}})
@@ -997,18 +997,18 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		assert.Error(t, err)
 	})
 
-	t.Run("CASE: State update, modified golden coin status", func(t *testing.T) {
+	t.Run("CASE: State update, modified delegation status", func(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(false)
-		next.isGoldenCoin = true
+		next.isDelegated = true
 		err := prev.validateTransition(next, &Transaction{})
 		t.Log(err)
 		assert.Error(t, err)
 	})
 
-	t.Run("CASE: State update of golden coin, modified balance status", func(t *testing.T) {
+	t.Run("CASE: State update of delegated output, modified balance status", func(t *testing.T) {
 		prev := dummyAliasOutput()
-		prev.isGoldenCoin = true
+		prev.isDelegated = true
 		next := prev.NewAliasOutputNext(false)
 		bal := next.balances.Map()
 		bal[ColorIOTA]++
@@ -1129,7 +1129,7 @@ func TestAliasOutput_validateDestroyTransition(t *testing.T) {
 
 	t.Run("CASE: Can destroy delegation if not-timelocked", func(t *testing.T) {
 		prev := dummyAliasOutput()
-		prev.SetIsGoldenCoin(true)
+		prev.SetIsDelegated(true)
 		err := prev.validateDestroyTransitionNow(time.Now())
 		assert.NoError(t, err)
 	})
@@ -1138,7 +1138,7 @@ func TestAliasOutput_validateDestroyTransition(t *testing.T) {
 		prev := dummyAliasOutput()
 		deadline := time.Now()
 		nowis := deadline.Add(-1 * time.Nanosecond)
-		prev.SetIsGoldenCoin(true)
+		prev.SetIsDelegated(true)
 		err := prev.SetDelegationTimelock(deadline)
 		assert.NoError(t, err)
 		assert.True(t, prev.DelegationTimeLockedNow(nowis))
@@ -1150,7 +1150,7 @@ func TestAliasOutput_validateDestroyTransition(t *testing.T) {
 		prev := dummyAliasOutput()
 		deadline := time.Now()
 		nowis := deadline.Add(1 * time.Nanosecond)
-		prev.SetIsGoldenCoin(true)
+		prev.SetIsDelegated(true)
 		err := prev.SetDelegationTimelock(deadline)
 		assert.NoError(t, err)
 		assert.False(t, prev.DelegationTimeLockedNow(nowis))
@@ -1611,7 +1611,7 @@ func TestAliasOutput_UnlockValid(t *testing.T) {
 
 func TestAliasOutput_Clone(t *testing.T) {
 	out := dummyAliasOutput()
-	out.isGoldenCoin = true
+	out.isDelegated = true
 	outBack := out.Clone()
 	outBackT, ok := outBack.(*AliasOutput)
 	assert.True(t, ok)
@@ -2346,7 +2346,7 @@ func dummyAliasOutput(origin ...bool) *AliasOutput {
 		immutableData:       []byte("don't touch this"),
 		isGovernanceUpdate:  false,
 		isOrigin:            orig,
-		isGoldenCoin:        false,
+		isDelegated:         false,
 		governingAddress:    randAliasAddress(),
 		delegationTimelock:  time.Time{},
 		StorableObjectFlags: objectstorage.StorableObjectFlags{},
