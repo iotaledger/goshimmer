@@ -1249,7 +1249,7 @@ func (a *AliasOutput) SetImmutableData(data []byte) error {
 	return nil
 }
 
-// SetDelegationTimelock sets the delegation timelock. An error is returend if the output is not a golden coin.
+// SetDelegationTimelock sets the delegation timelock. An error is returned if the output is not a golden coin.
 func (a *AliasOutput) SetDelegationTimelock(timelock time.Time) error {
 	if !a.isGoldenCoin {
 		return xerrors.Errorf("AliasOutput: delegation timelock can only be set on a golden coin")
@@ -1443,7 +1443,7 @@ func (a *AliasOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inpu
 				return false, xerrors.New("signature is invalid for chain output deletion")
 			}
 			// validate deletion constraint
-			if err := a.validateDestroyTransition(); err != nil {
+			if err := a.validateDestroyTransitionNow(tx.Essence().Timestamp()); err != nil {
 				return false, err
 			}
 		}
@@ -1499,7 +1499,7 @@ func (a *AliasOutput) checkBasicValidity() error {
 			len(a.immutableData), MaxOutputPayloadSize)
 	}
 	if !a.isGoldenCoin && !a.delegationTimelock.IsZero() {
-		return xerrors.Errorf("AliasOutput: delegation timelock present, but output is not a golden coin")
+		return xerrors.Errorf("AliasOutput: delegation timelock is present, but output is not a golden coin")
 	}
 	return nil
 }
@@ -1630,7 +1630,8 @@ func (a *AliasOutput) validateTransition(chained *AliasOutput, tx *Transaction) 
 		if !equalColoredBalances(a.balances, chained.balances) {
 			return xerrors.New("AliasOutput: tokens are not unlocked for modification")
 		}
-		// golden coin delegation timelock is set and active, transition is invalid
+		// if 'golden coin' delegation timelock is set and active, governance transition is invalid
+		// It means delegating party can't take funds back before timelock deadline
 		if a.IsGoldenCoin() && a.DelegationTimeLockedNow(tx.Essence().Timestamp()) {
 			return xerrors.Errorf("AliasOutput: governance transition not allowed until %s, transaction timestamp is: %s",
 				a.delegationTimelock.String(), tx.Essence().Timestamp().String())
@@ -1665,7 +1666,7 @@ func (a *AliasOutput) validateTransition(chained *AliasOutput, tx *Transaction) 
 		if a.IsGoldenCoin() && !equalColoredBalances(a.balances, chained.balances) {
 			return xerrors.New("AliasOutput: 'golden coin' funds can't be changed")
 		}
-		// should not modify 'golden coin' status if not self governed
+		// should not modify 'golden coin' status in state transition
 		if a.IsGoldenCoin() != chained.IsGoldenCoin() {
 			return xerrors.New("AliasOutput: 'golden coin' status can't be changed")
 		}
@@ -1677,17 +1678,20 @@ func (a *AliasOutput) validateTransition(chained *AliasOutput, tx *Transaction) 
 		//    - if no delegation timelock, state update can happen whenever
 		//    - if delegation timelock is present, need to check if the timelock is active, otherwise state update not allowed
 		if a.IsGoldenCoin() && !a.DelegationTimelock().IsZero() && !a.DelegationTimeLockedNow(tx.Essence().Timestamp()) {
-			return xerrors.Errorf("AliasOutput: state transition of golden coin not allowed after %s, transaction timestamp is %s",
+			return xerrors.Errorf("AliasOutput: state transition of 'golden coin' not allowed after %s, transaction timestamp is %s",
 				a.delegationTimelock.String(), tx.Essence().Timestamp().String())
 		}
 	}
 	return nil
 }
 
-// validateDestroyTransition check validity if input is not chained (destroyed)
-func (a *AliasOutput) validateDestroyTransition() error {
+// validateDestroyTransitionNow check validity if input is not chained (destroyed)
+func (a *AliasOutput) validateDestroyTransitionNow(nowis time.Time) error {
 	if !isExactDustMinimum(a.balances) {
 		return xerrors.New("AliasOutput: didn't find chained output and there are more tokens then upper limit for alias destruction")
+	}
+	if a.IsGoldenCoin() && a.DelegationTimeLockedNow(nowis) {
+		return xerrors.New("AliasOutput: didn't find expected chained output for delegated 'golden coin'")
 	}
 	return nil
 }

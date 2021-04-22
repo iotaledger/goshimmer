@@ -1095,7 +1095,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 func TestAliasOutput_validateDestroyTransition(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		prev := dummyAliasOutput()
-		err := prev.validateDestroyTransition()
+		err := prev.validateDestroyTransitionNow(time.Time{})
 		assert.NoError(t, err)
 	})
 
@@ -1104,7 +1104,7 @@ func TestAliasOutput_validateDestroyTransition(t *testing.T) {
 		newBalance := prev.Balances().Map()
 		newBalance[ColorIOTA]++
 		prev.balances = NewColoredBalances(newBalance)
-		err := prev.validateDestroyTransition()
+		err := prev.validateDestroyTransitionNow(time.Time{})
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -1114,7 +1114,7 @@ func TestAliasOutput_validateDestroyTransition(t *testing.T) {
 		newBalance := prev.Balances().Map()
 		newBalance[Color{8}] = 1
 		prev.balances = NewColoredBalances(newBalance)
-		err := prev.validateDestroyTransition()
+		err := prev.validateDestroyTransitionNow(time.Time{})
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -1122,10 +1122,42 @@ func TestAliasOutput_validateDestroyTransition(t *testing.T) {
 	t.Run("CASE: Only color balance", func(t *testing.T) {
 		prev := dummyAliasOutput()
 		prev.balances = NewColoredBalances(map[Color]uint64{{8}: DustThresholdAliasOutputIOTA})
-		err := prev.validateDestroyTransition()
+		err := prev.validateDestroyTransitionNow(time.Time{})
 		t.Log(err)
 		assert.Error(t, err)
 	})
+
+	t.Run("CASE: Can destroy delegation if not-timelocked", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		prev.SetIsGoldenCoin(true)
+		err := prev.validateDestroyTransitionNow(time.Now())
+		assert.NoError(t, err)
+	})
+
+	t.Run("CASE: Can't destroy timelocked delegation", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		deadline := time.Now()
+		nowis := deadline.Add(-1 * time.Nanosecond)
+		prev.SetIsGoldenCoin(true)
+		err := prev.SetDelegationTimelock(deadline)
+		assert.NoError(t, err)
+		assert.True(t, prev.DelegationTimeLockedNow(nowis))
+		err = prev.validateDestroyTransitionNow(nowis)
+		assert.Error(t, err)
+	})
+
+	t.Run("CASE: Can destroy timeUNlocked delegation", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		deadline := time.Now()
+		nowis := deadline.Add(1 * time.Nanosecond)
+		prev.SetIsGoldenCoin(true)
+		err := prev.SetDelegationTimelock(deadline)
+		assert.NoError(t, err)
+		assert.False(t, prev.DelegationTimeLockedNow(nowis))
+		err = prev.validateDestroyTransitionNow(nowis)
+		assert.NoError(t, err)
+	})
+
 }
 
 func TestAliasOutput_findChainedOutputAndCheckFork(t *testing.T) {
