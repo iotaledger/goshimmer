@@ -196,7 +196,7 @@ func (f *FPC) finalizeOpinions() {
 			continue
 		}
 		if voteCtx.Rounds >= f.paras.MaxRoundsPerVoteContext {
-			f.events.Failed.Trigger(&vote.OpinionEvent{ID: id, Opinion: voteCtx.LastOpinion(), Ctx: *voteCtx})
+			f.events.Failed.Trigger(&vote.OpinionEvent{ID: id, Opinion: opinion.Dislike, Ctx: *voteCtx})
 			delete(f.ctxs, id)
 		}
 	}

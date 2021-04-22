@@ -25,10 +25,10 @@ func TimestampQuality(messageID tangle.MessageID, target, current time.Time) (ti
 
 	diff := current.Sub(target)
 
-	// timestamp is in the future
+	// timestamp is in the future. This point in the code should only be reached in case of edge cases such as updating sync clock.
 	if diff < 0 {
-		timestampOpinion.SetLiked(true)
-		timestampOpinion.SetLevelOfKnowledge(Three)
+		timestampOpinion.Value = opinion.Like
+		timestampOpinion.LoK = Three
 		// This point in the code should not be reached
 		// err = xerrors.Errorf("Timestamp is in the future : %w", err, cerrors.ErrFatal)
 		return
