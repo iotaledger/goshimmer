@@ -27,7 +27,7 @@ type Voter interface {
 type DRNGRoundBasedVoter interface {
 	Voter
 	// Round starts a new round.
-	Round(rand float64, delayedRoundStart time.Duration) error
+	Round(rand float64, delayedRoundStart ...*time.Duration) error
 }
 
 // Events defines events which happen on a Voter.

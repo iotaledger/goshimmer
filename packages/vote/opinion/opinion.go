@@ -11,7 +11,7 @@ import (
 type OpinionGiver interface {
 	// Query queries the OpinionGiver for its opinions on the given IDs.
 	// The passed in context can be used to signal cancellation of the query.
-	Query(ctx context.Context, conflictIDs []string, timestampIDs []string, delayedRoundStart time.Duration) (Opinions, error)
+	Query(ctx context.Context, conflictIDs []string, timestampIDs []string, delayedRoundStart ...*time.Duration) (Opinions, error)
 	// ID returns the ID of the opinion giver.
 	ID() identity.ID
 	Mana() float64

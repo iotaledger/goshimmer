@@ -109,7 +109,7 @@ func (f *FPC) Events() vote.Events {
 
 // Round enqueues new items, sets opinions on active vote contexts, finalizes them and then
 // queries for opinions.
-func (f *FPC) Round(rand float64, delayedRoundStart time.Duration) error {
+func (f *FPC) Round(rand float64, delayedRoundStart ...*time.Duration) error {
 	start := time.Now()
 	// enqueue new voting contexts
 	f.enqueue()
@@ -130,8 +130,13 @@ func (f *FPC) Round(rand float64, delayedRoundStart time.Duration) error {
 	}
 	f.ctxsMu.Unlock()
 
+	// delayedRoundStart gives the time that has elapsed since the start of the current round.
+	var delay *time.Duration
+	if len(delayedRoundStart) != 0 {
+		delay = delayedRoundStart[0]
+	}
 	// query for opinions on the current vote contexts
-	queriedOpinions, err := f.queryOpinions(delayedRoundStart)
+	queriedOpinions, err := f.queryOpinions(delay)
 	if err == nil {
 		f.lastRoundCompletedSuccessfully = true
 		// execute a round executed event
@@ -203,7 +208,7 @@ func (f *FPC) finalizeOpinions() {
 }
 
 // queries the opinions of QuerySampleSize amount of OpinionGivers.
-func (f *FPC) queryOpinions(delayedRoundStart time.Duration) ([]opinion.QueriedOpinions, error) {
+func (f *FPC) queryOpinions(delayedRoundStart ...*time.Duration) ([]opinion.QueriedOpinions, error) {
 	conflictIDs, timestampIDs := f.voteContextIDs()
 
 	// nothing to vote on
@@ -250,8 +255,13 @@ func (f *FPC) queryOpinions(delayedRoundStart time.Duration) ([]opinion.QueriedO
 			queryCtx, cancel := context.WithTimeout(context.Background(), f.paras.QueryTimeout)
 			defer cancel()
 
+			// delayedRoundStart gives the time that has elapsed since the start of the current round.
+			var delay *time.Duration
+			if len(delayedRoundStart) != 0 {
+				delay = delayedRoundStart[0]
+			}
 			// query (both statements and P2P)
-			opinions, err := opinionGiverToQuery.Query(queryCtx, conflictIDs, timestampIDs, delayedRoundStart)
+			opinions, err := opinionGiverToQuery.Query(queryCtx, conflictIDs, timestampIDs, delay)
 			if err != nil || len(opinions) != len(conflictIDs)+len(timestampIDs) {
 				// ignore opinions
 				return

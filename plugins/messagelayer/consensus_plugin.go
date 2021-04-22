@@ -242,11 +242,15 @@ type OpinionGiver struct {
 type OpinionGivers map[identity.ID]OpinionGiver
 
 // Query retrieves the opinions about the given conflicts and timestamps.
-func (o *OpinionGiver) Query(ctx context.Context, conflictIDs, timestampIDs []string, delayedRoundStart time.Duration) (opinions opinion.Opinions, err error) {
+func (o *OpinionGiver) Query(ctx context.Context, conflictIDs, timestampIDs []string, delayedRoundStart ...*time.Duration) (opinions opinion.Opinions, err error) {
 	waitForStatements := time.Duration(StatementParameters.WaitForStatement) * time.Second
-	if delayedRoundStart < waitForStatements && delayedRoundStart > 0 {
-		waitForStatements -= delayedRoundStart
+	// delayedRoundStart gives the time that has elapsed since the start of the current round.
+	if len(delayedRoundStart) != 0 {
+		if *delayedRoundStart[0] < waitForStatements && *delayedRoundStart[0] > 0 {
+			waitForStatements -= *delayedRoundStart[0]
+		}
 	}
+
 	// if o.view == nil, then we can immediately perform P2P query instead of waiting for statement
 	// because it won't be provided.
 	if o.view != nil {
@@ -264,7 +268,7 @@ func (o *OpinionGiver) Query(ctx context.Context, conflictIDs, timestampIDs []st
 	}
 
 	// query node directly
-	return o.pog.Query(ctx, conflictIDs, timestampIDs, delayedRoundStart)
+	return o.pog.Query(ctx, conflictIDs, timestampIDs)
 }
 
 // ID returns the identifier of the underlying Peer.
@@ -344,7 +348,7 @@ type PeerOpinionGiver struct {
 }
 
 // Query queries another node for its opinion.
-func (pog *PeerOpinionGiver) Query(ctx context.Context, conflictIDs, timestampIDs []string, delayedRoundStart time.Duration) (opinion.Opinions, error) {
+func (pog *PeerOpinionGiver) Query(ctx context.Context, conflictIDs, timestampIDs []string, _ ...*time.Duration) (opinion.Opinions, error) {
 	if pog == nil {
 		return nil, fmt.Errorf("unable to query opinions, PeerOpinionGiver is nil")
 	}
