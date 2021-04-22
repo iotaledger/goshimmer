@@ -43,12 +43,10 @@ func NewType(typeNumber uint32, typeName string, typeUnmarshaler UnmarshalerFunc
 			" tries to overwrite previously created type " +
 			registeredType.Name + "(" + strconv.FormatUint(uint64(typeNumber), 10) + ")")
 	}
-
 	typeRegister[payloadType] = typeMetadata{
 		Name:            typeName,
 		UnmarshalerFunc: typeUnmarshaler,
 	}
-
 	return
 }
 

@@ -2,6 +2,7 @@ package client
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
@@ -53,4 +54,14 @@ func (api *GoShimmerAPI) SendPayload(payload []byte) (string, error) {
 	}
 
 	return res.ID, nil
+}
+
+// SendPayloadWithDelay send a message with the given payload and time delay.
+func (api *GoShimmerAPI) SendPayloadWithDelay(payload []byte, delay time.Duration, repeat int) ([]string, error) {
+	res := &jsonmodels.PostPayloadsResponse{}
+	if err := api.do(http.MethodPost, routeSendPayload,
+		&jsonmodels.PostPayloadRequest{Payload: payload, Repeat: repeat, Delay: delay}, res); err != nil {
+		return []string{}, err
+	}
+	return res.IDs, nil
 }

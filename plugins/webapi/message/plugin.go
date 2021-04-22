@@ -141,13 +141,25 @@ func PostPayload(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
-
-	msg, err := messagelayer.Tangle().IssuePayload(parsedPayload)
+	// check if query parameter delay was provided
+	if request.Delay == 0 {
+		msg, err := messagelayer.Tangle().IssuePayload(parsedPayload)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+		}
+		return c.JSON(http.StatusOK, jsonmodels.NewPostPayloadResponse(msg))
+	}
+	delay := request.Delay
+	// check if query parameter repeat was provided
+	repeat := 1
+	if request.Repeat != 0 {
+		repeat = request.Repeat
+	}
+	messages, err := messagelayer.Tangle().IssuePayloadWithDelay(parsedPayload, delay, repeat)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
-
-	return c.JSON(http.StatusOK, jsonmodels.NewPostPayloadResponse(msg))
+	return c.JSON(http.StatusOK, jsonmodels.NewPostPayloadsResponse(messages))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
