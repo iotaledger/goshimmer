@@ -40,19 +40,13 @@ func Plugin() *node.Plugin {
 	return plugin
 }
 
-func log() *logger.Logger {
-	return logger.NewLogger(PluginName)
-}
-
 // Manager is a singleton for manualpeering Manager.
 func Manager() *manualpeering.Manager {
-	managerOnce.Do(createManager)
+	managerOnce.Do(func() {
+		lPeer := local.GetInstance()
+		manager = manualpeering.NewManager(gossip.Manager(), lPeer, logger.NewLogger(PluginName))
+	})
 	return manager
-}
-
-func createManager() {
-	lPeer := local.GetInstance()
-	manager = manualpeering.NewManager(gossip.Manager(), lPeer, log())
 }
 
 func configurePlugin(*node.Plugin) {
@@ -61,7 +55,7 @@ func configurePlugin(*node.Plugin) {
 
 func runPlugin(*node.Plugin) {
 	if err := daemon.BackgroundWorker(PluginName, startManager, shutdown.PriorityManualpeering); err != nil {
-		log().Panicf("Failed to start as daemon: %s", err)
+		plugin.Panicf("Failed to start as daemon: %s", err)
 	}
 }
 
@@ -70,7 +64,7 @@ func startManager(shutdownSignal <-chan struct{}) {
 	mgr.Start()
 	defer func() {
 		if err := mgr.Stop(); err != nil {
-			log().Errorw("Failed to stop the manager", "err", err)
+			plugin.Logger().Errorw("Failed to stop the manager", "err", err)
 		}
 	}()
 	addPeersFromConfigToManager(mgr)
@@ -80,10 +74,10 @@ func startManager(shutdownSignal <-chan struct{}) {
 func addPeersFromConfigToManager(mgr *manualpeering.Manager) {
 	peers, err := getKnownPeersFromConfig()
 	if err != nil {
-		log().Errorw("Failed to get known peers from the config file, continuing without them...", "err", err)
+		plugin.Logger().Errorw("Failed to get known peers from the config file, continuing without them...", "err", err)
 	} else if len(peers) != 0 {
-		log().Infow("Pass known peers list from the config file to the manager", "peers", peers)
-		mgr.AddPeers(peers)
+		plugin.Logger().Infow("Pass known peers list from the config file to the manager", "peers", peers)
+		mgr.AddPeer(peers...)
 	}
 }
 

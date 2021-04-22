@@ -19,16 +19,35 @@ func configureWebAPI() {
 	webapi.Server().GET("manualpeering/peers", getPeersHandler)
 }
 
+/*
+An example of the HTTP JSON request:
+[
+    {
+        "publicKey": "EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP",
+        "ip": "172.19.0.3",
+        "services": {
+            "peering":{
+                "network":"TCP",
+                "port":14626
+            },
+            "gossip": {
+                "network": "TCP",
+                "port": 14666
+            }
+        }
+    }
+]
+*/
 func addPeersHandler(c echo.Context) error {
 	var peers []*peer.Peer
 	if err := webapi.ParseJSONRequest(c, &peers); err != nil {
-		log().Errorw("Failed to parse peers from the request", "err", err)
+		plugin.Logger().Errorw("Failed to parse peers from the request", "err", err)
 		return c.JSON(
 			http.StatusBadRequest,
 			jsonmodels.NewErrorResponse(errors.Wrap(err, "Invalid add peers request")),
 		)
 	}
-	Manager().AddPeers(peers)
+	Manager().AddPeer(peers...)
 	return c.JSON(http.StatusOK, map[string]bool{"ok": true})
 }
 
@@ -36,23 +55,31 @@ type peerToRemove struct {
 	PublicKey string `json:"publicKey"`
 }
 
+/*
+An example of the HTTP JSON request:
+[
+    {
+        "publicKey": "8qN1yD95fhbfDZtKX49RYFEXqej5fvsXJ2NPmF1LCqbd"
+    }
+]
+*/
 func removePeersHandler(c echo.Context) error {
 	var peersToRemove []*peerToRemove
 	if err := webapi.ParseJSONRequest(c, &peersToRemove); err != nil {
-		log().Errorw("Failed to parse peers to remove from the request", "err", err)
+		plugin.Logger().Errorw("Failed to parse peers to remove from the request", "err", err)
 		return c.JSON(
 			http.StatusBadRequest,
 			jsonmodels.NewErrorResponse(errors.Wrap(err, "Invalid remove peers request")),
 		)
 	}
 	if err := removePeers(peersToRemove); err != nil {
-		log().Errorw(
+		plugin.Logger().Errorw(
 			"Can't remove some of the peers from the HTTP request",
 			"err", err,
 		)
 		return c.JSON(http.StatusInternalServerError, jsonmodels.NewErrorResponse(err))
 	}
-	return c.JSON(http.StatusOK, map[string]bool{"ok": true})
+	return c.JSON(http.StatusNoContent, map[string]bool{"ok": true})
 }
 
 func removePeers(ntds []*peerToRemove) error {
@@ -64,7 +91,7 @@ func removePeers(ntds []*peerToRemove) error {
 		}
 		keys[i] = publicKey
 	}
-	Manager().RemovePeers(keys)
+	Manager().RemovePeer(keys...)
 	return nil
 }
 

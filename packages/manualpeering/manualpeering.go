@@ -2,8 +2,9 @@ package manualpeering
 
 import (
 	"sync"
-	"sync/atomic"
 	"time"
+
+	"github.com/iotaledger/hive.go/typeutils"
 
 	"github.com/iotaledger/goshimmer/packages/gossip"
 
@@ -30,7 +31,7 @@ type Manager struct {
 	log                     *logger.Logger
 	local                   *peer.Local
 	startOnce               sync.Once
-	isStarted               int32
+	isStarted               typeutils.AtomicBool
 	stopOnce                sync.Once
 	stopCh                  chan struct{}
 	workersWG               sync.WaitGroup
@@ -40,6 +41,8 @@ type Manager struct {
 	knownPeers              map[identity.ID]*peer.Peer
 	connectedNeighborsMutex sync.RWMutex
 	connectedNeighbors      map[identity.ID]*peer.Peer
+
+	onGossipNeighborRemovedClosure *events.Closure
 }
 
 // NewManager initializes a new Manager instance.
@@ -54,11 +57,12 @@ func NewManager(gm *gossip.Manager, local *peer.Local, log *logger.Logger) *Mana
 		knownPeers:         map[identity.ID]*peer.Peer{},
 		connectedNeighbors: map[identity.ID]*peer.Peer{},
 	}
+	m.onGossipNeighborRemovedClosure = events.NewClosure(m.onGossipNeighborRemoved)
 	return m
 }
 
-// AddPeers adds multiple peers to the list of known peers.
-func (m *Manager) AddPeers(peers []*peer.Peer) {
+// AddPeer adds multiple peers to the list of known peers.
+func (m *Manager) AddPeer(peers ...*peer.Peer) {
 	m.mutateKnownPeers(func(knownPeers map[identity.ID]*peer.Peer) {
 		for _, p := range peers {
 			knownPeers[p.ID()] = p
@@ -66,8 +70,8 @@ func (m *Manager) AddPeers(peers []*peer.Peer) {
 	})
 }
 
-// RemovePeers removes multiple peers from the list of known peers.
-func (m *Manager) RemovePeers(keys []ed25519.PublicKey) {
+// RemovePeer removes multiple peers from the list of known peers.
+func (m *Manager) RemovePeer(keys ...ed25519.PublicKey) {
 	ids := make([]identity.ID, len(keys))
 	for i, key := range keys {
 		ids[i] = identity.NewID(key)
@@ -76,21 +80,6 @@ func (m *Manager) RemovePeers(keys []ed25519.PublicKey) {
 		for _, id := range ids {
 			delete(knownPeers, id)
 		}
-	})
-}
-
-// AddPeer adds a single peer to the list on known peers.
-func (m *Manager) AddPeer(p *peer.Peer) {
-	m.mutateKnownPeers(func(knownPeers map[identity.ID]*peer.Peer) {
-		knownPeers[p.ID()] = p
-	})
-}
-
-// RemovePeer removes single peer from the list on known peers.
-func (m *Manager) RemovePeer(key ed25519.PublicKey) {
-	peerID := identity.NewID(key)
-	m.mutateKnownPeers(func(knownPeers map[identity.ID]*peer.Peer) {
-		delete(knownPeers, peerID)
 	})
 }
 
@@ -118,23 +107,23 @@ func (m *Manager) mutateKnownPeers(mutateFn func(knownPeers map[identity.ID]*pee
 // Calling multiple times has no effect.
 func (m *Manager) Start() {
 	m.startOnce.Do(func() {
-		m.gm.NeighborsEvents(gossip.NeighborsGroupManual).NeighborRemoved.Attach(events.NewClosure(m.onGossipNeighborRemoved))
+		m.gm.NeighborsEvents(gossip.NeighborsGroupManual).NeighborRemoved.Attach(m.onGossipNeighborRemovedClosure)
 		m.workersWG.Add(1)
 		go func() {
 			defer m.workersWG.Done()
 			m.syncGossipNeighbors()
 		}()
-		atomic.StoreInt32(&m.isStarted, 1)
+		m.isStarted.Set()
 	})
 }
 
 // Stop terminates internal background workers. Calling multiple times has no effect.
 func (m *Manager) Stop() error {
-	if atomic.LoadInt32(&m.isStarted) != 1 {
+	if !m.isStarted.IsSet() {
 		return errors.New("can't stop the manager: it hasn't been started yet")
 	}
 	m.stopOnce.Do(func() {
-		m.gm.NeighborsEvents(gossip.NeighborsGroupManual).NeighborRemoved.Detach(events.NewClosure(m.onGossipNeighborRemoved))
+		m.gm.NeighborsEvents(gossip.NeighborsGroupManual).NeighborRemoved.Detach(m.onGossipNeighborRemovedClosure)
 		close(m.stopCh)
 		m.workersWG.Wait()
 	})
