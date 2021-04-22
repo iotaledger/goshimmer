@@ -1,9 +1,10 @@
 package jsonmodels
 
 import (
+	"time"
+
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"time"
 )
 
 // region GetAddressResponse ///////////////////////////////////////////////////////////////////////////////////////////

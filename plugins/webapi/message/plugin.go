@@ -2,10 +2,11 @@ package message
 
 import (
 	"fmt"
-	"github.com/iotaledger/hive.go/node"
-	"github.com/labstack/echo"
 	"net/http"
 	"sync"
+
+	"github.com/iotaledger/hive.go/node"
+	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"

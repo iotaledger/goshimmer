@@ -111,36 +111,36 @@ func (t *Tangle) ProcessGossipMessage(messageBytes []byte, peer *peer.Peer) {
 }
 
 // IssuePayload allows to attach a payload (i.e. a Transaction) to the Tangle.
-func (t *Tangle) IssuePayload(payload payload.Payload) (message *Message, err error) {
+func (t *Tangle) IssuePayload(msgPayload payload.Payload) (message *Message, err error) {
 	if !t.Synced() {
 		err = xerrors.Errorf("can't issue payload: %w", ErrNotSynced)
 		return
 	}
-	err = t.validatePayload(payload)
+	err = t.validatePayload(msgPayload)
 	if err != nil {
 		return
 	}
-	return t.MessageFactory.IssuePayload(payload)
+	return t.MessageFactory.IssuePayload(msgPayload)
 }
 
 // IssuePayloadWithDelay allows to attach a payload (i.e. a Transaction) to the Tangle with specified time delay.
-func (t *Tangle) IssuePayloadWithDelay(payload payload.Payload, delay time.Duration, repeat int) (message []*Message, err error) {
+func (t *Tangle) IssuePayloadWithDelay(msgPayload payload.Payload, delay time.Duration, repeat int) (message []*Message, err error) {
 	if !t.Synced() {
 		err = xerrors.Errorf("can't issue payload: %w", ErrNotSynced)
 		return
 	}
-	err = t.validatePayload(payload)
+	err = t.validatePayload(msgPayload)
 	if err != nil {
 		return
 	}
-	return t.MessageFactory.IssuePayloadWithDelay(payload, delay, repeat)
+	return t.MessageFactory.IssuePayloadWithDelay(msgPayload, delay, repeat)
 }
 
 // validatePayload allows to validate transaction inputs within a payload
-func (t *Tangle) validatePayload(payload payload.Payload) error {
-	if payload.Type() == ledgerstate.TransactionType {
+func (t *Tangle) validatePayload(msgPayload payload.Payload) error {
+	if msgPayload.Type() == ledgerstate.TransactionType {
 		var invalidInputs []string
-		transaction := payload.(*ledgerstate.Transaction)
+		transaction := msgPayload.(*ledgerstate.Transaction)
 		for _, input := range transaction.Essence().Inputs() {
 			if input.Type() == ledgerstate.UTXOInputType {
 				t.LedgerState.OutputMetadata(input.(*ledgerstate.UTXOInput).ReferencedOutputID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
