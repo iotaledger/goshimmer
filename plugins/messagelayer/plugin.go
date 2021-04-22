@@ -14,6 +14,7 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
+	"github.com/iotaledger/goshimmer/packages/epochs"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -92,7 +93,7 @@ func configure(plugin *node.Plugin) {
 
 	// read snapshot file
 	if Parameters.Snapshot.File != "" {
-		snapshot := ledgerstate.Snapshot{}
+		snapshot := &ledgerstate.Snapshot{}
 		f, err := os.Open(Parameters.Snapshot.File)
 		if err != nil {
 			plugin.Panic("can not open snapshot file:", err)
@@ -106,6 +107,8 @@ func configure(plugin *node.Plugin) {
 
 	fcob.LikedThreshold = time.Duration(Parameters.FCOB.AverageNetworkDelay) * time.Second
 	fcob.LocallyFinalizedThreshold = time.Duration(Parameters.FCOB.AverageNetworkDelay*2) * time.Second
+
+	configureApprovalWeight()
 }
 
 func run(*node.Plugin) {
@@ -129,12 +132,14 @@ var (
 // Tangle gets the tangle instance.
 func Tangle() *tangle.Tangle {
 	tangleOnce.Do(func() {
+		epochManager := epochs.NewManager(epochs.ManaRetriever(ManaEpoch))
 		tangleInstance = tangle.New(
 			tangle.Store(database.Store()),
 			tangle.Identity(local.GetInstance().LocalIdentity()),
 			tangle.Width(Parameters.TangleWidth),
 			tangle.Consensus(ConsensusMechanism()),
 			tangle.GenesisNode(Parameters.Snapshot.GenesisNode),
+			tangle.ApprovalWeights(tangle.WeightProviderFromEpochsManager(epochManager)),
 			tangle.SchedulerConfig(tangle.SchedulerParams{
 				Rate:                        schedulerRate(SchedulerParameters.Rate),
 				AccessManaRetrieveFunc:      accessManaRetriever,

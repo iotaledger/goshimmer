@@ -216,7 +216,7 @@ type DiagnosticMessagesInfo struct {
 
 func getDiagnosticMessageInfo(messageID tangle.MessageID) *DiagnosticMessagesInfo {
 	msgInfo := &DiagnosticMessagesInfo{
-		ID: messageID.String(),
+		ID: messageID.Base58(),
 	}
 
 	messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
@@ -231,11 +231,14 @@ func getDiagnosticMessageInfo(messageID tangle.MessageID) *DiagnosticMessagesInf
 		}
 	})
 
-	branchID := ledgerstate.BranchID{}
+	branchID, err := messagelayer.Tangle().Booker.MessageBranchID(messageID)
+	if err != nil {
+		branchID = ledgerstate.BranchID{}
+	}
 	messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(metadata *tangle.MessageMetadata) {
 		msgInfo.ArrivalTime = metadata.ReceivedTime()
 		msgInfo.SolidTime = metadata.SolidificationTime()
-		msgInfo.BranchID = metadata.BranchID().String()
+		msgInfo.BranchID = branchID.String()
 		msgInfo.Scheduled = metadata.Scheduled()
 		msgInfo.ScheduledTime = metadata.ScheduledTime()
 		msgInfo.BookedTime = metadata.BookedTime()
@@ -253,8 +256,6 @@ func getDiagnosticMessageInfo(messageID tangle.MessageID) *DiagnosticMessagesInf
 			msgInfo.FMHI = uint64(metadata.StructureDetails().FutureMarkers.HighestIndex())
 			msgInfo.FMLI = uint64(metadata.StructureDetails().FutureMarkers.LowestIndex())
 		}
-
-		branchID = metadata.BranchID()
 	}, false)
 
 	msgInfo.StrongApprovers = messagelayer.Tangle().Utils.ApprovingMessageIDs(messageID, tangle.StrongApprover)

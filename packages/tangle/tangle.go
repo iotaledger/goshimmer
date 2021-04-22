@@ -3,6 +3,7 @@ package tangle
 import (
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -13,6 +14,7 @@ import (
 	"github.com/mr-tron/base58"
 	"golang.org/x/xerrors"
 
+	"github.com/iotaledger/goshimmer/packages/epochs"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
@@ -22,21 +24,23 @@ import (
 
 // Tangle is the central data structure of the IOTA protocol.
 type Tangle struct {
-	Options          *Options
-	Parser           *Parser
-	Storage          *Storage
-	Solidifier       *Solidifier
-	Scheduler        *Scheduler
-	DummyScheduler   *OldScheduler
-	Booker           *Booker
-	ConsensusManager *ConsensusManager
-	TipManager       *TipManager
-	Requester        *Requester
-	MessageFactory   *MessageFactory
-	RateSetter       *RateSetter
-	LedgerState      *LedgerState
-	Utils            *Utils
-	Events           *Events
+	Options               *Options
+	Parser                *Parser
+	Storage               *Storage
+	Solidifier            *Solidifier
+	Scheduler             *Scheduler
+	DummyScheduler        *OldScheduler
+	Booker                *Booker
+	ApprovalWeightManager *ApprovalWeightManager
+	ConsensusManager      *ConsensusManager
+	TipManager            *TipManager
+	Requester             *Requester
+	MessageFactory        *MessageFactory
+	RateSetter            *RateSetter
+	LedgerState           *LedgerState
+	Utils                 *Utils
+	WeightProvider        WeightProvider
+	Events                *Events
 
 	setupParserOnce sync.Once
 	syncedMutex     sync.RWMutex
@@ -63,12 +67,15 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.DummyScheduler = NewOldScheduler(tangle)
 	tangle.LedgerState = NewLedgerState(tangle)
 	tangle.Booker = NewBooker(tangle)
+	tangle.ApprovalWeightManager = NewApprovalWeightManager(tangle)
 	tangle.ConsensusManager = NewConsensusManager(tangle)
 	tangle.Requester = NewRequester(tangle)
 	tangle.TipManager = NewTipManager(tangle)
 	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager)
 	tangle.Utils = NewUtils(tangle)
 	tangle.RateSetter = NewRateSetter(tangle)
+
+	tangle.WeightProvider = tangle.Options.WeightProvider
 
 	return
 }
@@ -99,12 +106,17 @@ func (t *Tangle) Setup() {
 	t.Requester.Setup()
 	t.DummyScheduler.Setup()
 	t.Booker.Setup()
+	t.ApprovalWeightManager.Setup()
 	t.ConsensusManager.Setup()
 	t.TipManager.Setup()
 	t.RateSetter.Setup()
 
 	t.MessageFactory.Events.Error.Attach(events.NewClosure(func(err error) {
 		t.Events.Error.Trigger(xerrors.Errorf("error in MessageFactory: %w", err))
+	}))
+
+	t.Booker.Events.Error.Attach(events.NewClosure(func(err error) {
+		t.Events.Error.Trigger(xerrors.Errorf("error in Booker: %w", err))
 	}))
 }
 
@@ -183,6 +195,7 @@ func (t *Tangle) Shutdown() {
 	t.LedgerState.Shutdown()
 	t.ConsensusManager.Shutdown()
 	t.Storage.Shutdown()
+	t.LedgerState.Shutdown()
 	t.Options.Store.Shutdown()
 	t.TipManager.Shutdown()
 }
@@ -239,6 +252,7 @@ type Options struct {
 	GenesisNode                  *ed25519.PublicKey
 	SchedulerParams              SchedulerParams
 	RateSetterParams             RateSetterParams
+	WeightProvider               WeightProvider
 }
 
 // Store is an Option for the Tangle that allows to specify which storage layer is supposed to be used to persist data.
@@ -303,5 +317,58 @@ func RateSetterConfig(params RateSetterParams) Option {
 		options.RateSetterParams = params
 	}
 }
+
+// ApprovalWeights is an Option for the Tangle that allows to define how the approval weights of Messages is determined.
+func ApprovalWeights(weightProvider WeightProvider) Option {
+	return func(options *Options) {
+		options.WeightProvider = weightProvider
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region WeightProvider //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// WeightProvider is an interface that allows the ApprovalWeightManager to determine approval weights of Messages
+// in a flexible way, independently of a specific implementation.
+type WeightProvider interface {
+	// Epoch returns the Epoch from the given referenceTime.
+	Epoch(referenceTime time.Time) Epoch
+
+	// Weight returns the weight and total weight for the given epoch and message.
+	Weight(epoch Epoch, message *Message) (weight, totalWeight float64)
+
+	// WeightsOfRelevantSupporters returns all relevant weights for the given epoch.
+	WeightsOfRelevantSupporters(epoch Epoch) (weights map[identity.ID]float64, totalWeight float64)
+}
+
+// WeightProviderFromEpochsManager returns a WeightProvider from an epochs.Manager instance so that it can be used as a
+// WeightProvider.
+func WeightProviderFromEpochsManager(epochManager *epochs.Manager) WeightProvider {
+	return &epochsManagerWeightProvider{Manager: epochManager}
+}
+
+type epochsManagerWeightProvider struct {
+	*epochs.Manager
+}
+
+func (e *epochsManagerWeightProvider) Epoch(referenceTime time.Time) Epoch {
+	return uint64(e.Manager.TimeToOracleEpochID(referenceTime))
+}
+
+func (e *epochsManagerWeightProvider) Weight(_ Epoch, message *Message) (weight, totalWeight float64) {
+	weight, totalWeight, _ = e.Manager.RelativeNodeMana(identity.NewID(message.IssuerPublicKey()), message.IssuingTime())
+
+	return weight, totalWeight
+}
+
+func (e *epochsManagerWeightProvider) WeightsOfRelevantSupporters(epoch Epoch) (weights map[identity.ID]float64, totalWeight float64) {
+	return e.Manager.ActiveMana(epochs.ID(epoch))
+}
+
+var _ WeightProvider = &epochsManagerWeightProvider{}
+
+// Epoch is an alias for a uint64 that represents a universal time interval.
+type Epoch = uint64
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

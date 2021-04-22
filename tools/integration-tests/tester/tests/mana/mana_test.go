@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	manaPkg "github.com/iotaledger/goshimmer/packages/mana"
+
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
@@ -198,13 +200,14 @@ func TestApis(t *testing.T) {
 	// Test /mana/all
 	resp2, err := peers[0].GoShimmerAPI.GetAllMana()
 	require.NoError(t, err)
-	assert.Equal(t, 1, len(resp2.Access))
+	assert.Equal(t, 3, len(resp2.Access))
 	assert.Greater(t, resp2.Access[0].Mana, 0.0)
 
 	// Test /mana/access/nhighest and /mana/consensus/nhighest
 	// send funds to node 1
 	_, err = peers[1].SendFaucetRequest(peers[1].Seed.Address(0).Address().Base58())
 	require.NoError(t, err)
+	time.Sleep(10 * time.Second)
 	// send funds to node 2
 	_, err = peers[2].SendFaucetRequest(peers[2].Seed.Address(0).Address().Base58())
 	require.NoError(t, err)
@@ -218,10 +221,12 @@ func TestApis(t *testing.T) {
 		fmt.Println("nodeid: ", m.NodeID, " mana: ", m.Mana)
 	}
 	timestampPast := allManaResp.ConsensusTimestamp
-	resp3, err := peers[0].GoShimmerAPI.GetNHighestAccessMana(len(peers))
+	resp3, err := peers[0].GoShimmerAPI.GetNHighestAccessMana(len(peers) + 2)
 	require.NoError(t, err)
-	resp4, err := peers[0].GoShimmerAPI.GetNHighestConsensusMana(len(peers))
+	resp3.Nodes = stripGenesisNodeID(resp3.Nodes)
+	resp4, err := peers[0].GoShimmerAPI.GetNHighestConsensusMana(len(peers) + 2)
 	require.NoError(t, err)
+	resp4.Nodes = stripGenesisNodeID(resp4.Nodes)
 	require.Equal(t, 3, len(resp3.Nodes))
 	require.Equal(t, 3, len(resp4.Nodes))
 	for i := 0; i < 3; i++ {
@@ -238,12 +243,12 @@ func TestApis(t *testing.T) {
 	resp5, err := peers[0].GoShimmerAPI.GetManaPercentile(base58.Encode(peers[0].ID().Bytes()))
 	require.NoError(t, err)
 	assert.Equal(t, base58.Encode(peers[0].ID().Bytes()), resp5.NodeID)
-	assert.InDelta(t, 66.66, resp5.Access, 0.01)
+	assert.InDelta(t, 80.0, resp5.Access, 0.01)
 
 	resp5, err = peers[0].GoShimmerAPI.GetManaPercentile(base58.Encode(emptyNodeID.Bytes()))
 	require.NoError(t, err)
 	assert.Equal(t, base58.Encode(emptyNodeID.Bytes()), resp5.NodeID)
-	assert.InDelta(t, 66.66, resp5.Consensus, 0.01)
+	assert.InDelta(t, 40., resp5.Consensus, 0.01)
 
 	// Test /mana/online/access
 	resp6, err := peers[0].GoShimmerAPI.GetOnlineAccessMana()
@@ -283,7 +288,7 @@ func TestApis(t *testing.T) {
 	time.Sleep(12 * time.Second)
 	resp9, err := peers[0].GoShimmerAPI.GetPastConsensusManaVector(timestampPast)
 	require.NoError(t, err)
-	assert.Equal(t, 3, len(resp9.Consensus)) //excluding node 3
+	assert.Equal(t, 5, len(resp9.Consensus)) //excluding node 3
 	m := make(map[string]float64)
 	for _, c := range resp9.Consensus {
 		m[c.ShortNodeID] = c.Mana
@@ -328,4 +333,16 @@ func TestApis(t *testing.T) {
 	time.Sleep(3 * time.Second)
 	_, err = peers[0].GoShimmerAPI.GetPastConsensusVectorMetadata()
 	require.NoError(t, err)
+}
+
+func stripGenesisNodeID(input []manaPkg.NodeStr) (output []manaPkg.NodeStr) {
+	peerMaster := "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5"
+	faucet := "FZ6xmPZXRs2M8z9m9ETTQok4PCga4X8FRHwQE6uYm4rV"
+	for _, id := range input {
+		if id.NodeID == peerMaster || id.NodeID == faucet {
+			continue
+		}
+		output = append(output, id)
+	}
+	return
 }

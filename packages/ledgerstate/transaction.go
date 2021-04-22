@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -30,7 +31,14 @@ var TransactionType payload.Type
 // init defers the initialization of the TransactionType to not have an initialization loop.
 func init() {
 	TransactionType = payload.NewType(1337, "TransactionType", func(data []byte) (payload.Payload, error) {
-		return TransactionFromMarshalUtil(marshalutil.New(data))
+		tx, consumedBytes, err := TransactionFromBytes(data)
+		if err != nil {
+			return nil, err
+		}
+		if consumedBytes != len(data) {
+			return nil, xerrors.New("not all payload bytes were consumed")
+		}
+		return tx, nil
 	})
 }
 
@@ -126,8 +134,13 @@ func (t TransactionIDs) Clone() (transactionIDs TransactionIDs) {
 	return
 }
 
-// Strings returns a slice of string representation of the TransactionIDs.
-func (t TransactionIDs) Strings() (transactionIDs []string) {
+// String returns a human readable version of the TransactionIDs.
+func (t TransactionIDs) String() (result string) {
+	return "TransactionIDs(" + strings.Join(t.Base58s(), ",") + ")"
+}
+
+// Base58s returns a slice of base58 encoded versions of the contained TransactionIDs.
+func (t TransactionIDs) Base58s() (transactionIDs []string) {
 	transactionIDs = make([]string, 0, len(t))
 	for transactionID := range t {
 		transactionIDs = append(transactionIDs, transactionID.Base58())

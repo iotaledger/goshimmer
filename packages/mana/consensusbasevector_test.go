@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/iotaledger/goshimmer/packages/epochs"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
@@ -517,7 +518,7 @@ func TestConsensusBaseManaVector_GetHighestManaNodesFraction(t *testing.T) {
 	assert.InDelta(t, 9.0, result[0].Mana, delta)
 
 	// requesting the holders of top 10% of mana
-	result, _, err = bmv.GetHighestManaNodesFraction(0.2)
+	result, _, err = bmv.GetHighestManaNodesFraction(0.1)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(result))
 	assert.Equal(t, nodeIDs[9], result[0].ID)
@@ -716,6 +717,13 @@ func TestConsensusBaseManaVector_BuildPastBaseVector(t *testing.T) {
 	var eventsLog []Event
 	emptyID := identity.ID{}
 
+	snapshot := map[identity.ID]*SnapshotInfo{
+		emptyID: {
+			Value: 10.0,
+			TxID:  ledgerstate.GenesisTransactionID,
+		},
+	}
+
 	tx1Info := &TxInfo{
 		TimeStamp:     txTime,
 		TransactionID: randomTxID(),
@@ -775,6 +783,8 @@ func TestConsensusBaseManaVector_BuildPastBaseVector(t *testing.T) {
 		eventsLog = append(eventsLog, ev)
 	}))
 
+	bmv.LoadSnapshot(snapshot, time.Unix(epochs.DefaultGenesisTime, 0))
+
 	bmv.Book(tx1Info)
 	bmv.Book(tx2Info)
 	bmv.Book(tx3Info)
@@ -830,7 +840,7 @@ func TestConsensusBaseManaVector_BuildPastBaseVector(t *testing.T) {
 		return true
 	})
 
-	assert.Equal(t, 2, len(past))
+	assert.Equal(t, 3, len(past))
 	_, ok := past[inputPledgeID3]
 	assert.False(t, ok)
 

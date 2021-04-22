@@ -125,12 +125,6 @@ The `FM` list of a message is empty at start and gets updated when a new marker 
 1. the `FM` list of a message includes a previous marker of the same sequence;
 2. the message is the marker in the different sequence, we update the `FM` list of that marker only.
 
-The figure below shows an example of applying markers to the Tangle with 1 sequence only. The yellow messages are markers with identifiers: $[0,1]$ and $[0,2]$. Both markers are in Sequence **0** with `MI` **1** and **2** respectively.
-
-For a more complete but complex example, including multiple sequences refer to the next figure.
-
-![](https://i.imgur.com/RluZWCJ.png)
-
 
 ### The Sequence
 Sequences are used to track the UTXO DAG branches, each branch corresponds to a sequence with a unique `SID`, and the sequences form a DAG as well.
@@ -186,12 +180,19 @@ For whatever reason a sequence is created, we assign a new $SID = 1+max(referenc
 The rank of a sequence graph is the number of sequences from the starting point to itself. The sequence ranks are shown in the figure above.
 
 
-## Example
+## Example 1
 Here is an example of how the markers and sequences structures would look in the Tangle:
 The purple colored messages are markers.
 
 ![](https://i.imgur.com/GENej3O.png)
 
+## Example 2: Test for the Mapping interaction with the Booker
+
+The Marker tool implementation is tested for correct Marker and Booker mapping. A transaction-by-transaction discussion of the test can be found [here](./../../packages/tangle/images/TestBookerMarkerMappings.md) and can be viewed by opening the file locally in a browser. Transactions arrive in the order of the their transaction number. The end result and the values in the various fields is shown in the following figures:
+
+![](https://imgur.com/h6Hs3xG.png)
+
+![](https://imgur.com/sCkXXrG.png)
 
 ## Implementation details
 In the following we describe some of the functions in more detail.

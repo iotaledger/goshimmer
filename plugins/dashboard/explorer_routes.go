@@ -38,12 +38,13 @@ type ExplorerMessage struct {
 	// WeakApprovers are the weak approvers of the message.
 	WeakApprovers []string `json:"weakApprovers"`
 	// Solid defines the solid status of the message.
-	Solid     bool   `json:"solid"`
-	BranchID  string `json:"branchID"`
-	Scheduled bool   `json:"scheduled"`
-	Booked    bool   `json:"booked"`
-	Eligible  bool   `json:"eligible"`
-	Invalid   bool   `json:"invalid"`
+	Solid                   bool   `json:"solid"`
+	BranchID                string `json:"branchID"`
+	Scheduled               bool   `json:"scheduled"`
+	Booked                  bool   `json:"booked"`
+	Eligible                bool   `json:"eligible"`
+	Invalid                 bool   `json:"invalid"`
+	FinalizedApprovalWeight bool   `json:"finalizedApprovalWeight"`
 	// PayloadType defines the type of the payload.
 	PayloadType uint32 `json:"payload_type"`
 	// Payload is the content of the payload.
@@ -55,8 +56,14 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 	cachedMessageMetadata := messagelayer.Tangle().Storage.MessageMetadata(messageID)
 	defer cachedMessageMetadata.Release()
 	messageMetadata := cachedMessageMetadata.Unwrap()
+
+	branchID, err := messagelayer.Tangle().Booker.MessageBranchID(messageID)
+	if err != nil {
+		branchID = ledgerstate.BranchID{}
+	}
+
 	t := &ExplorerMessage{
-		ID:                      messageID.String(),
+		ID:                      messageID.Base58(),
 		SolidificationTimestamp: messageMetadata.SolidificationTime().Unix(),
 		IssuanceTimestamp:       msg.IssuingTime().Unix(),
 		IssuerPublicKey:         msg.IssuerPublicKey().String(),
@@ -67,11 +74,12 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		StrongApprovers:         messagelayer.Tangle().Utils.ApprovingMessageIDs(messageID, tangle.StrongApprover).ToStrings(),
 		WeakApprovers:           messagelayer.Tangle().Utils.ApprovingMessageIDs(messageID, tangle.WeakApprover).ToStrings(),
 		Solid:                   messageMetadata.IsSolid(),
-		BranchID:                messageMetadata.BranchID().Base58(),
+		BranchID:                branchID.Base58(),
 		Scheduled:               messageMetadata.Scheduled(),
 		Booked:                  messageMetadata.IsBooked(),
 		Eligible:                messageMetadata.IsEligible(),
 		Invalid:                 messageMetadata.IsInvalid(),
+		FinalizedApprovalWeight: messageMetadata.IsFinalizedApprovalWeight(),
 		PayloadType:             uint32(msg.Payload().Type()),
 		Payload:                 ProcessPayload(msg.Payload()),
 	}
@@ -177,7 +185,7 @@ func findMessage(messageID tangle.MessageID) (explorerMsg *ExplorerMessage, err 
 	if !messagelayer.Tangle().Storage.Message(messageID).Consume(func(msg *tangle.Message) {
 		explorerMsg = createExplorerMessage(msg)
 	}) {
-		err = fmt.Errorf("%w: message %s", ErrNotFound, messageID.String())
+		err = fmt.Errorf("%w: message %s", ErrNotFound, messageID.Base58())
 	}
 
 	return

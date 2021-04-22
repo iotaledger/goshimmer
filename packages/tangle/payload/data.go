@@ -12,7 +12,14 @@ var GenericDataPayloadType = NewType(0, "GenericDataPayloadType", GenericDataPay
 
 // GenericDataPayloadUnmarshaler is the UnmarshalerFunc of the GenericDataPayload which is also used as a unmarshaler for unknown Types.
 func GenericDataPayloadUnmarshaler(data []byte) (Payload, error) {
-	return GenericDataPayloadFromMarshalUtil(marshalutil.New(data))
+	payload, consumedBytes, err := GenericDataPayloadFromBytes(data)
+	if err != nil {
+		return nil, err
+	}
+	if consumedBytes != len(data) {
+		return nil, xerrors.New("not all payload bytes were consumed")
+	}
+	return payload, nil
 }
 
 // GenericDataPayload represents a payload which just contains a blob of data.

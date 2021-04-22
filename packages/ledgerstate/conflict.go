@@ -7,6 +7,7 @@ import (
 
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
+	"github.com/iotaledger/hive.go/crypto"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
@@ -66,6 +67,13 @@ func ConflictIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictID
 		return
 	}
 	copy(conflictID[:], conflictIDBytes)
+
+	return
+}
+
+// ConflictIDFromRandomness returns a random ConflictID which can for example be used for unit tests.
+func ConflictIDFromRandomness() (conflictID ConflictID) {
+	crypto.Randomness.Read(conflictID[:])
 
 	return
 }
@@ -560,7 +568,7 @@ func (c CachedConflictMembers) Unwrap() (unwrappedConflictMembers []*ConflictMem
 // Consume iterates over the CachedObjects, unwraps them and passes a type-casted version to the consumer (if the object
 // is not empty - it exists). It automatically releases the object when the consumer finishes. It returns true, if at
 // least one object was consumed.
-func (c CachedConflictMembers) Consume(consumer func(childBranch *ConflictMember), forceRelease ...bool) (consumed bool) {
+func (c CachedConflictMembers) Consume(consumer func(conflictMember *ConflictMember), forceRelease ...bool) (consumed bool) {
 	for _, cachedConflictMember := range c {
 		consumed = cachedConflictMember.Consume(func(output *ConflictMember) {
 			consumer(output)

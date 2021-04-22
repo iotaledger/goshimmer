@@ -37,6 +37,9 @@ var FPCParameters = struct {
 
 	// QuerySampleSize defines how many nodes will be queried each round.
 	QuerySampleSize int `default:"21" usage:"Size of the voting quorum (k)"`
+
+	// TotalRoundsFinalization The amount of rounds a vote context's opinion needs to stay the same to be considered final. Also called 'l'.
+	TotalRoundsFinalization int `default:"10" usage:"The number of rounds opinion needs to stay the same to become final (l)."`
 }{}
 
 // StatementParameters contains the configuration parameters used by the FPC statements in the tangle.

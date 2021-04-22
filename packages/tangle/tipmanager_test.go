@@ -5,21 +5,55 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/packages/epochs"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 func TestTipManager_AddTip(t *testing.T) {
 	tangle := New()
 	defer tangle.Shutdown()
+	tangle.Storage.Setup()
+	tangle.Solidifier.Setup()
 	tipManager := tangle.TipManager
+
+	seed := ed25519.NewSeed()
+
+	output := ledgerstate.NewSigLockedColoredOutput(
+		ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
+			ledgerstate.ColorIOTA: 10000,
+		}),
+		ledgerstate.NewED25519Address(seed.KeyPair(0).PublicKey),
+	)
+
+	genesisEssence := ledgerstate.NewTransactionEssence(
+		0,
+		time.Unix(epochs.DefaultGenesisTime, 0),
+		identity.ID{},
+		identity.ID{},
+		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
+		ledgerstate.NewOutputs(output),
+	)
+
+	genesisTransaction := ledgerstate.NewTransaction(genesisEssence, ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
+
+	snapshot := &ledgerstate.Snapshot{
+		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{
+			genesisTransaction.ID(): genesisEssence,
+		},
+	}
+
+	tangle.LedgerState.LoadSnapshot(snapshot)
 
 	// not eligible messages -> nothing is added
 	{
 		message := newTestParentsDataMessage("testmessage", []MessageID{EmptyMessageID}, []MessageID{})
 		tangle.Storage.StoreMessage(message)
+		tangle.Booker.BookMessage(message.ID())
 		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetEligible(false)
 		})
@@ -31,8 +65,34 @@ func TestTipManager_AddTip(t *testing.T) {
 
 	// payload not liked -> nothing is added
 	{
-		message := newTestParentsDataMessage("testmessage", []MessageID{EmptyMessageID}, []MessageID{})
+		randomID, err := identity.RandomID()
+		require.NoError(t, err)
+
+		transactionEssence := ledgerstate.NewTransactionEssence(
+			1,
+			time.Now(),
+			randomID,
+			randomID,
+			ledgerstate.NewInputs(
+				ledgerstate.NewUTXOInput(
+					ledgerstate.NewOutputID(genesisTransaction.ID(), 0),
+				),
+			),
+			ledgerstate.NewOutputs(
+				ledgerstate.NewSigLockedSingleOutput(10000, ledgerstate.NewED25519Address(seed.KeyPair(1).PublicKey)),
+			),
+		)
+
+		transaction := ledgerstate.NewTransaction(
+			transactionEssence,
+			[]ledgerstate.UnlockBlock{
+				ledgerstate.NewSignatureUnlockBlock(ledgerstate.NewED25519Signature(seed.KeyPair(0).PublicKey, seed.KeyPair(0).PrivateKey.Sign(transactionEssence.Bytes()))),
+			},
+		)
+
+		message := newTestParentsPayloadMessage(transaction, []MessageID{EmptyMessageID}, []MessageID{})
 		tangle.Storage.StoreMessage(message)
+		tangle.Booker.BookMessage(message.ID())
 		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetEligible(true)
 		})
@@ -40,12 +100,6 @@ func TestTipManager_AddTip(t *testing.T) {
 		// mock the Tangle's PayloadOpinionProvider so that we can add payloads without actually building opinions
 		tangle.Options.ConsensusMechanism = &mockConsensusProvider{
 			func(transactionID ledgerstate.TransactionID) bool {
-				if message.Payload().Type() == ledgerstate.TransactionType {
-					if transactionID == message.Payload().(*ledgerstate.Transaction).ID() {
-						return true
-					}
-				}
-
 				return false
 			},
 		}
@@ -353,17 +407,31 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		map[ledgerstate.Color]uint64{
 			ledgerstate.ColorIOTA: 8,
 		})
-	snapshot := map[ledgerstate.TransactionID]map[ledgerstate.Address]*ledgerstate.ColoredBalances{
-		ledgerstate.GenesisTransactionID: {
-			wallets["G1"].address: g1Balance,
-			wallets["G2"].address: g2Balance,
+
+	genesisEssence := ledgerstate.NewTransactionEssence(
+		0,
+		time.Unix(epochs.DefaultGenesisTime, 0),
+		identity.ID{},
+		identity.ID{},
+		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
+		ledgerstate.NewOutputs([]ledgerstate.Output{
+			ledgerstate.NewSigLockedColoredOutput(g1Balance, wallets["G1"].address),
+			ledgerstate.NewSigLockedColoredOutput(g2Balance, wallets["G2"].address),
+		}...),
+	)
+
+	genesisTransaction := ledgerstate.NewTransaction(genesisEssence, ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
+
+	snapshot := &ledgerstate.Snapshot{
+		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{
+			genesisTransaction.ID(): genesisEssence,
 		},
 	}
 
 	tangle.LedgerState.LoadSnapshot(snapshot)
 	// determine genesis index so that correct output can be referenced
 	var g1, g2 uint16
-	tangle.LedgerState.utxoDAG.Output(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0)).Consume(func(output ledgerstate.Output) {
+	tangle.LedgerState.utxoDAG.Output(ledgerstate.NewOutputID(genesisTransaction.ID(), 0)).Consume(func(output ledgerstate.Output) {
 		balance, _ := output.Balances().Get(ledgerstate.ColorIOTA)
 		if balance == uint64(5) {
 			g1 = 0
@@ -398,7 +466,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 
 	// Message 1
 	{
-		inputs["G1"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, g1))
+		inputs["G1"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(genesisTransaction.ID(), g1))
 		outputs["A"] = ledgerstate.NewSigLockedSingleOutput(3, wallets["A"].address)
 		outputs["B"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["B"].address)
 		outputs["C"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["C"].address)
@@ -417,7 +485,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 
 	// Message 2
 	{
-		inputs["G2"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, g2))
+		inputs["G2"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(genesisTransaction.ID(), g2))
 		outputs["D"] = ledgerstate.NewSigLockedSingleOutput(6, wallets["D"].address)
 		outputs["E"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["E"].address)
 		outputs["F"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["F"].address)
@@ -767,16 +835,18 @@ func storeBookLikeMessage(t *testing.T, tangle *Tangle, message *Message) {
 	tangle.Storage.StoreMessage(message)
 	// TODO: CheckTransaction should be removed here once the booker passes on errors
 	if message.payload.Type() == ledgerstate.TransactionType {
-		_, err := tangle.LedgerState.utxoDAG.CheckTransaction(message.payload.(*ledgerstate.Transaction))
+		err := tangle.LedgerState.utxoDAG.CheckTransaction(message.payload.(*ledgerstate.Transaction))
 		require.NoError(t, err)
 	}
-	err := tangle.Booker.Book(message.ID())
+	err := tangle.Booker.BookMessage(message.ID())
 	require.NoError(t, err)
 
 	tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 		// make sure that everything was booked into master branch
 		require.True(t, messageMetadata.booked)
-		require.Equal(t, ledgerstate.MasterBranchID, messageMetadata.BranchID())
+		messageBranchID, err := tangle.Booker.MessageBranchID(message.ID())
+		assert.NoError(t, err)
+		require.Equal(t, ledgerstate.MasterBranchID, messageBranchID)
 
 		messageMetadata.SetEligible(true)
 	})
