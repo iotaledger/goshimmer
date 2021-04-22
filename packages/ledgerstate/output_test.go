@@ -1329,7 +1329,7 @@ func TestAliasOutput_unlockedGovernanceByAliasIndex(t *testing.T) {
 
 		tx := NewTransaction(essence, unlocks)
 
-		ok, err := alias.unlockedGovernanceByAliasIndex(tx, uint16(indexOfGoverningAliasInput), inputs)
+		ok, err := alias.unlockedGovernanceTransitionByAliasIndex(tx, uint16(indexOfGoverningAliasInput), inputs)
 		assert.NoError(t, err)
 		assert.True(t, ok)
 	})
@@ -1338,7 +1338,7 @@ func TestAliasOutput_unlockedGovernanceByAliasIndex(t *testing.T) {
 		dummyAlias := dummyAliasOutput()
 		dummyAlias.governingAddress = nil
 
-		ok, err := dummyAlias.unlockedGovernanceByAliasIndex(&Transaction{}, 0, Outputs{})
+		ok, err := dummyAlias.unlockedGovernanceTransitionByAliasIndex(&Transaction{}, 0, Outputs{})
 		t.Log(err)
 		assert.Error(t, err)
 		assert.False(t, ok)
@@ -1348,7 +1348,7 @@ func TestAliasOutput_unlockedGovernanceByAliasIndex(t *testing.T) {
 		dummyAlias := dummyAliasOutput()
 		dummyAlias.governingAddress = randEd25119Address()
 
-		ok, err := dummyAlias.unlockedGovernanceByAliasIndex(&Transaction{}, 0, Outputs{})
+		ok, err := dummyAlias.unlockedGovernanceTransitionByAliasIndex(&Transaction{}, 0, Outputs{})
 		t.Log(err)
 		assert.Error(t, err)
 		assert.False(t, ok)
@@ -1357,7 +1357,7 @@ func TestAliasOutput_unlockedGovernanceByAliasIndex(t *testing.T) {
 	t.Run("CASE: Invalid referenced index", func(t *testing.T) {
 		dummyAlias := dummyAliasOutput()
 
-		ok, err := dummyAlias.unlockedGovernanceByAliasIndex(&Transaction{}, 1, Outputs{})
+		ok, err := dummyAlias.unlockedGovernanceTransitionByAliasIndex(&Transaction{}, 1, Outputs{})
 		t.Log(err)
 		assert.Error(t, err)
 		assert.False(t, ok)
@@ -1366,7 +1366,7 @@ func TestAliasOutput_unlockedGovernanceByAliasIndex(t *testing.T) {
 	t.Run("CASE: Referenced output is not an alias", func(t *testing.T) {
 		dummyAlias := dummyAliasOutput()
 
-		ok, err := dummyAlias.unlockedGovernanceByAliasIndex(&Transaction{}, 0, Outputs{NewSigLockedSingleOutput(DustThresholdAliasOutputIOTA, randEd25119Address())})
+		ok, err := dummyAlias.unlockedGovernanceTransitionByAliasIndex(&Transaction{}, 0, Outputs{NewSigLockedSingleOutput(DustThresholdAliasOutputIOTA, randEd25119Address())})
 		t.Log(err)
 		assert.Error(t, err)
 		assert.False(t, ok)
@@ -1376,7 +1376,7 @@ func TestAliasOutput_unlockedGovernanceByAliasIndex(t *testing.T) {
 		dummyAlias := dummyAliasOutput()
 		dummyGoverningAlias := dummyAliasOutput()
 
-		ok, err := dummyAlias.unlockedGovernanceByAliasIndex(&Transaction{}, 0, Outputs{dummyGoverningAlias})
+		ok, err := dummyAlias.unlockedGovernanceTransitionByAliasIndex(&Transaction{}, 0, Outputs{dummyGoverningAlias})
 		t.Log(err)
 		assert.Error(t, err)
 		assert.False(t, ok)

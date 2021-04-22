@@ -58,6 +58,7 @@ func UnlockBlocksValid(inputs Outputs, transaction *Transaction) (valid bool) {
 // In case an unlockblock is invalid, it returns the error that caused it.
 func UnlockBlocksValidWithError(inputs Outputs, transaction *Transaction) (bool, error) {
 	unlockBlocks := transaction.UnlockBlocks()
+	// TODO: Check circular dependency of AliasUnlockBlocks
 	for i, input := range inputs {
 		currentUnlockBlock := unlockBlocks[i]
 		if currentUnlockBlock.Type() == ReferenceUnlockBlockType {
