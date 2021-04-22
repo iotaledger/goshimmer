@@ -180,6 +180,7 @@ func (s *Scheduler) Submit(messageID MessageID) error {
 		mana := s.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(nodeID)
 		if mana <= 0 {
 			err = ErrInvalidMana
+			s.Events.MessageDiscarded.Trigger(messageID)
 			return
 		}
 
