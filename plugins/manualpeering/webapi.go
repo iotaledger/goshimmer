@@ -14,9 +14,9 @@ import (
 )
 
 func configureWebAPI() {
-	webapi.Server().POST("manualpeering/knownPeers", addPeersHandler)
-	webapi.Server().DELETE("manualpeering/knownPeers", removePeersHandler)
-	webapi.Server().GET("manualpeering/knownPeers", getPeersHandler)
+	webapi.Server().POST("manualpeering/peers", addPeersHandler)
+	webapi.Server().DELETE("manualpeering/peers", removePeersHandler)
+	webapi.Server().GET("manualpeering/peers", getPeersHandler)
 }
 
 func addPeersHandler(c echo.Context) error {
