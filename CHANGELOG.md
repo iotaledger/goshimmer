@@ -1,3 +1,21 @@
+# v0.5.7 - 2021-04-21
+* Add approval weight manager (soft launch)
+* Add epochs
+* Add debug APIs for epochs
+* Update local dashboard to show finalization based on approval weight
+* Improve FPC
+* Improve markers manager
+* Improve integration tests
+* Improve payload unmarshaling
+* Remove unless-stopped option from Docker default config
+* Increase CfgGossipAgeThreshold parameter
+* Fix several bugs on hive.go
+* Fix mana event storage pruning
+* Fix mana leaderboard and explorer live feed scroll view
+* Update snapshot with initial mana state
+* Update to latest hive.go
+* **Breaking**: bumps network and database versions
+
 # v0.5.6 - 2021-04-03
 * Fix childBranchType
 * Fix FPC empty round increase
