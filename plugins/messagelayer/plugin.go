@@ -186,7 +186,7 @@ func schedulerRate(durationString string) time.Duration {
 }
 
 func accessManaRetriever(nodeID identity.ID) float64 {
-	nodeMana, _, err := GetAccessManaQueryAllowed(nodeID)
+	nodeMana, _, err := GetAccessMana(nodeID)
 	if err != nil {
 		return 0
 	}
@@ -194,7 +194,7 @@ func accessManaRetriever(nodeID identity.ID) float64 {
 }
 
 func totalAccessManaRetriever() float64 {
-	totalMana, _, err := GetTotalManaQueryAllowed(mana.AccessMana)
+	totalMana, _, err := GetTotalMana(mana.AccessMana)
 	if err != nil {
 		return 0
 	}

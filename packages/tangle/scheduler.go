@@ -32,6 +32,8 @@ var (
 	ErrBufferFull = errors.New("maximum buffer size exceeded")
 	// ErrInboxExceeded is returned when a node has exceeded its allowed inbox size.
 	ErrInboxExceeded = errors.New("maximum mana-scaled inbox length exceeded")
+	// ErrInvalidMana is returned when the mana is <= 0.
+	ErrInvalidMana = errors.New("mana cannot be <= 0")
 )
 
 // AccessManaRetrieveFunc is a function type to retrieve access mana (e.g. via the mana plugin)
@@ -176,6 +178,10 @@ func (s *Scheduler) Submit(messageID MessageID) error {
 		nodeID := identity.NewID(message.IssuerPublicKey())
 		// get the current access mana inside the lock
 		mana := s.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(nodeID)
+		if mana <= 0 {
+			err = ErrInvalidMana
+			return
+		}
 
 		err = s.buffer.Submit(message, mana)
 		if err != nil {

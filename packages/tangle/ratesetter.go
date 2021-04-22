@@ -1,15 +1,14 @@
 package tangle
 
 import (
-	"fmt"
 	"math"
 	"sync"
 	"time"
 
 	"github.com/iotaledger/hive.go/events"
-
 	"github.com/iotaledger/hive.go/identity"
 	"go.uber.org/atomic"
+	"golang.org/x/xerrors"
 )
 
 const (
@@ -97,8 +96,14 @@ func (r *RateSetter) submit(message *Message) {
 		r.Events.MessageDiscarded.Trigger(message.ID())
 		return
 	}
-	r.issuingQueue.Submit(message)
-	r.issue <- message
+	submitted, err := r.issuingQueue.Submit(message)
+	if err != nil {
+		r.tangle.Events.Error.Trigger(xerrors.Errorf("failed to submit message to issuing queue: %w", err))
+		return
+	}
+	if submitted {
+		r.issue <- message
+	}
 }
 
 func (r *RateSetter) Shutdown() {
@@ -116,7 +121,8 @@ func (r *RateSetter) rateSetting() {
 	mana := r.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(r.self)
 	totalMana := r.tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc()
 	if mana <= 0 {
-		panic(fmt.Sprintf("invalid mana: %f", mana))
+		r.tangle.Events.Error.Trigger(xerrors.Errorf("invalid mana: %f", mana))
+		return
 	}
 
 	lambda := r.lambda.Load()
