@@ -78,8 +78,8 @@ func (t *Ticker) C() <-chan float64 {
 }
 
 // DelayedRoundStart returns how much the current Round is delayed already.
-func (t *Ticker) DelayedRoundStart() *time.Duration {
-	return &t.delayedRoundStart
+func (t *Ticker) DelayedRoundStart() time.Duration {
+	return t.delayedRoundStart
 }
 
 // sends the next random number to the consumer channel.

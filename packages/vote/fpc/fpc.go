@@ -109,7 +109,7 @@ func (f *FPC) Events() vote.Events {
 
 // Round enqueues new items, sets opinions on active vote contexts, finalizes them and then
 // queries for opinions.
-func (f *FPC) Round(rand float64, delayedRoundStart ...*time.Duration) error {
+func (f *FPC) Round(rand float64, delayedRoundStart ...time.Duration) error {
 	start := time.Now()
 	// enqueue new voting contexts
 	f.enqueue()
@@ -131,7 +131,7 @@ func (f *FPC) Round(rand float64, delayedRoundStart ...*time.Duration) error {
 	f.ctxsMu.Unlock()
 
 	// delayedRoundStart gives the time that has elapsed since the start of the current round.
-	var delay *time.Duration
+	delay := time.Duration(0)
 	if len(delayedRoundStart) != 0 {
 		delay = delayedRoundStart[0]
 	}
@@ -208,7 +208,7 @@ func (f *FPC) finalizeOpinions() {
 }
 
 // queries the opinions of QuerySampleSize amount of OpinionGivers.
-func (f *FPC) queryOpinions(delayedRoundStart ...*time.Duration) ([]opinion.QueriedOpinions, error) {
+func (f *FPC) queryOpinions(delayedRoundStart ...time.Duration) ([]opinion.QueriedOpinions, error) {
 	conflictIDs, timestampIDs := f.voteContextIDs()
 
 	// nothing to vote on
@@ -256,7 +256,7 @@ func (f *FPC) queryOpinions(delayedRoundStart ...*time.Duration) ([]opinion.Quer
 			defer cancel()
 
 			// delayedRoundStart gives the time that has elapsed since the start of the current round.
-			var delay *time.Duration
+			delay := time.Duration(0)
 			if len(delayedRoundStart) != 0 {
 				delay = delayedRoundStart[0]
 			}
