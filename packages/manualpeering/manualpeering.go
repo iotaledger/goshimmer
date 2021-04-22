@@ -189,12 +189,17 @@ func (m *Manager) connectNeighbors(peers []*peer.Peer) {
 		return
 	}
 	m.log.Infow("Found known peers that aren't in the gossip neighbors list, connecting to them", "peers", peers)
+	wg := sync.WaitGroup{}
+	wg.Add(len(peers))
 	for _, p := range peers {
-		if err := m.connectNeighbor(p); err != nil {
-			m.log.Errorw("Failed to add a neighbor to gossip layer, skip it", "err", err)
-			continue
-		}
+		go func(p *peer.Peer) {
+			defer wg.Done()
+			if err := m.connectNeighbor(p); err != nil {
+				m.log.Errorw("Failed to add a neighbor to gossip layer, skip it", "err", err)
+			}
+		}(p)
 	}
+	wg.Wait()
 }
 
 func (m *Manager) dropNeighbors(peers []*peer.Peer) {
@@ -202,12 +207,17 @@ func (m *Manager) dropNeighbors(peers []*peer.Peer) {
 		return
 	}
 	m.log.Infow("Found gossip neighbors that aren't in the known peers anymore, dropping them", "peers", peers)
+	wg := sync.WaitGroup{}
+	wg.Add(len(peers))
 	for _, p := range peers {
-		if err := m.dropNeighbor(p); err != nil {
-			m.log.Errorw("Failed to drop a neighbor in gossip layer, skip it", "err", err)
-			continue
-		}
+		go func(p *peer.Peer) {
+			defer wg.Done()
+			if err := m.dropNeighbor(p); err != nil {
+				m.log.Errorw("Failed to drop a neighbor in gossip layer, skip it", "err", err)
+			}
+		}(p)
 	}
+	wg.Wait()
 }
 
 func (m *Manager) connectNeighbor(p *peer.Peer) error {
