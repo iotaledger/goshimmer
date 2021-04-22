@@ -196,13 +196,16 @@ func (a *ApprovalWeightManager) supportersOfBranch(branchID ledgerstate.BranchID
 		panic(err)
 	}
 
-	allSupporters := NewSupporters()
-
 	for conflictBranchID := range conflictBranchIDs {
 		if !a.tangle.Storage.BranchSupporters(conflictBranchID).Consume(func(branchSupporters *BranchSupporters) {
-			supporters = branchSupporters.Supporters()
+			if supporters == nil {
+				supporters = branchSupporters.Supporters()
+			} else {
+				supporters = supporters.Intersect(branchSupporters.Supporters())
+			}
 		}) {
 			supporters = NewSupporters()
+			return
 		}
 	}
 
@@ -968,6 +971,18 @@ func (s *Supporters) Clone() (clonedSupporters *Supporters) {
 	clonedSupporters = NewSupporters()
 	s.ForEach(func(supporter Supporter) {
 		clonedSupporters.Add(supporter)
+	})
+
+	return
+}
+
+// Intersect creates an intersection of two set of Supporters.
+func (s *Supporters) Intersect(other *Supporters) (intersection *Supporters) {
+	intersection = NewSupporters()
+	s.ForEach(func(supporter Supporter) {
+		if other.Has(supporter) {
+			intersection.Add(supporter)
+		}
 	})
 
 	return
