@@ -34,12 +34,9 @@ var ErrMessageWasNotBookedInTime = errors.New("message could not be booked in ti
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 var (
-	plugin            *node.Plugin
-	pluginOnce        sync.Once
-	rateSetterInitial float64
-	rateSetterBeta    float64
-	schedulerRate     time.Duration
-	syncedOnce        sync.Once
+	plugin     *node.Plugin
+	pluginOnce sync.Once
+	syncedOnce sync.Once
 )
 
 // Plugin gets the plugin instance.
@@ -52,11 +49,6 @@ func Plugin() *node.Plugin {
 }
 
 func configure(plugin *node.Plugin) {
-	// TODO: get from params
-	rateSetterBeta = 0.7
-	rateSetterInitial = 20000
-	schedulerRate = time.Second / 200
-
 	Tangle().Events.Error.Attach(events.NewClosure(func(err error) {
 		plugin.LogError(err)
 	}))
@@ -82,10 +74,10 @@ func configure(plugin *node.Plugin) {
 	Tangle().Events.SyncChanged.Attach(events.NewClosure(func(ev *tangle.SyncChangedEvent) {
 		plugin.LogInfo("Sync changed: ", ev.Synced)
 		if ev.Synced {
-			Tangle().Scheduler.SetRate(schedulerRate)
+			Tangle().Scheduler.SetRate(schedulerRate(SchedulerParameters.Rate))
 			// Only for the first synced
 			syncedOnce.Do(func() {
-				Tangle().Scheduler.Setup()         //start buffering solid messages
+				Tangle().Scheduler.Setup()         // start buffering solid messages
 				Tangle().DummyScheduler.Detach()   // stop receiving more messages
 				Tangle().DummyScheduler.Shutdown() // schedule remaining messages
 				Tangle().Scheduler.Start()         // start scheduler
@@ -143,15 +135,14 @@ func Tangle() *tangle.Tangle {
 			tangle.Width(Parameters.TangleWidth),
 			tangle.Consensus(ConsensusMechanism()),
 			tangle.GenesisNode(Parameters.Snapshot.GenesisNode),
-			// TODO: get values from external config.
 			tangle.SchedulerConfig(tangle.SchedulerParams{
-				Rate:                        schedulerRate,
+				Rate:                        schedulerRate(SchedulerParameters.Rate),
 				AccessManaRetrieveFunc:      accessManaRetriever,
 				TotalAccessManaRetrieveFunc: totalAccessManaRetriever,
 			}),
 			tangle.RateSetterConfig(tangle.RateSetterParams{
-				Beta:    &rateSetterBeta,
-				Initial: &rateSetterInitial,
+				Beta:    &RateSetterParameters.Beta,
+				Initial: &RateSetterParameters.Initial,
 			}),
 		)
 
@@ -179,6 +170,15 @@ func ConsensusMechanism() *fcob.ConsensusMechanism {
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func schedulerRate(durationString string) time.Duration {
+	duration, err := time.ParseDuration(durationString)
+	// if parseDuration failed, scheduler will take default value (5ms)
+	if err != nil {
+		return 0
+	}
+	return duration
+}
 
 func accessManaRetriever(nodeID identity.ID) float64 {
 	nodeMana, _, err := GetAccessManaQueryAllowed(nodeID)
