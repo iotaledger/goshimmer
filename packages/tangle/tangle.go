@@ -124,7 +124,7 @@ func (t *Tangle) IssuePayload(payload payload.Payload) (message *Message, err er
 }
 
 // IssuePayloadWithDelay allows to attach a payload (i.e. a Transaction) to the Tangle with specified time delay.
-func (t *Tangle) IssuePayloadWithDelay(payload payload.Payload, delay time.Duration) (message *Message, err error) {
+func (t *Tangle) IssuePayloadWithDelay(payload payload.Payload, delay time.Duration, repeat int) (message []*Message, err error) {
 	if !t.Synced() {
 		err = xerrors.Errorf("can't issue payload: %w", ErrNotSynced)
 		return
@@ -133,7 +133,7 @@ func (t *Tangle) IssuePayloadWithDelay(payload payload.Payload, delay time.Durat
 	if err != nil {
 		return
 	}
-	return t.MessageFactory.IssuePayloadWithDelay(payload, delay)
+	return t.MessageFactory.IssuePayloadWithDelay(payload, delay, repeat)
 }
 
 // validatePayload allows to validate transaction inputs within a payload

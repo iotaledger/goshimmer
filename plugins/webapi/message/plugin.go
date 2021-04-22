@@ -2,13 +2,10 @@ package message
 
 import (
 	"fmt"
-	"net/http"
-	"strconv"
-	"sync"
-	"time"
-
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
+	"net/http"
+	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -37,7 +34,6 @@ func Plugin() *node.Plugin {
 			webapi.Server().GET("messages/:messageID/metadata", GetMessageMetadata)
 			webapi.Server().GET("messages/:messageID/consensus", GetMessageConsensusMetadata)
 			webapi.Server().POST("messages/payload", PostPayload)
-			webapi.Server().POST("messages/payload/:delay", PostPayload)
 		})
 	})
 
@@ -134,12 +130,6 @@ func GetMessageConsensusMetadata(c echo.Context) (err error) {
 
 // PostPayload is the handler for the /messages/payload endpoint.
 func PostPayload(c echo.Context) error {
-
-	delay, err := delayFromContext(c)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
-	}
-
 	var request jsonmodels.PostPayloadRequest
 	if err := c.Bind(&request); err != nil {
 		Plugin().LogInfo(err.Error())
@@ -150,19 +140,25 @@ func PostPayload(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
-
-	if delay == 0 {
+	// check if query parameter delay was provided
+	if request.Delay == 0 {
 		msg, err := messagelayer.Tangle().IssuePayload(parsedPayload)
 		if err != nil {
 			return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 		}
 		return c.JSON(http.StatusOK, jsonmodels.NewPostPayloadResponse(msg))
 	}
-	msg, err := messagelayer.Tangle().IssuePayloadWithDelay(parsedPayload, delay)
+	delay := request.Delay
+	// check if query parameter repeat was provided
+	repeat := 1
+	if request.Repeat != 0 {
+		repeat = request.Repeat
+	}
+	messages, err := messagelayer.Tangle().IssuePayloadWithDelay(parsedPayload, delay, repeat)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
-	return c.JSON(http.StatusOK, jsonmodels.NewPostPayloadResponse(msg))
+	return c.JSON(http.StatusOK, jsonmodels.NewPostPayloadsResponse(messages))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -179,22 +175,6 @@ func messageIDFromContext(c echo.Context) (messageID tangle.MessageID, err error
 		messageID, err = tangle.NewMessageID(messageIDString)
 	}
 
-	return
-}
-
-// delayFromContext determines the delay from the delay parameter in an echo.Context. It expects it to
-// be a string representing delay time in nanoseconds.
-func delayFromContext(c echo.Context) (delay time.Duration, err error) {
-	parameter := c.Param("delay")
-	if parameter == "" {
-		delay = time.Duration(0)
-		return
-	}
-	delayString, err := strconv.Atoi(parameter)
-	if err != nil {
-		return delay, err
-	}
-	delay = time.Duration(delayString)
 	return
 }
 

@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"fmt"
+	"github.com/iotaledger/hive.go/timedqueue"
 	"sync"
 	"time"
 
@@ -133,10 +134,15 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, t ...*Tangle) (*Message
 // It also triggers the MessageConstructed event once it's done, which is for example used by the plugins to listen for
 // messages that shall be attached to the tangle.
 // It is the modification of IssuePayload method that wait specified time delay after message creation and before issuance
-func (f *MessageFactory) IssuePayloadWithDelay(p payload.Payload, delay time.Duration, t ...*Tangle) (*Message, error) {
+func (f *MessageFactory) IssuePayloadWithDelay(p payload.Payload, delay time.Duration, repeat int, t ...*Tangle) ([]*Message, error) {
 	payloadLen := len(p.Bytes())
 	if delay < 0 {
 		err := fmt.Errorf("time delay %d, less than zero is not allowed", delay)
+		f.Events.Error.Trigger(err)
+		return nil, err
+	}
+	if repeat <= 0 {
+		err := fmt.Errorf("repeat %d, less than zero is not allowed", repeat)
 		f.Events.Error.Trigger(err)
 		return nil, err
 	}
@@ -149,62 +155,87 @@ func (f *MessageFactory) IssuePayloadWithDelay(p payload.Payload, delay time.Dur
 
 	f.issuanceMutex.Lock()
 	defer f.issuanceMutex.Unlock()
-	sequenceNumber, err := f.sequence.Next()
-	if err != nil {
-		err = xerrors.Errorf("could not create sequence number: %w", err)
-		f.Events.Error.Trigger(err)
-		return nil, err
-	}
 
-	strongParents, weakParents, err := f.selector.Tips(p, 2, 2)
-	if err != nil {
-		err = xerrors.Errorf("tips could not be selected: %w", err)
-		f.Events.Error.Trigger(err)
-		return nil, err
-	}
-
-	issuingTime := clock.SyncedTime()
-
-	// due to the ParentAge check we must ensure that we set the right issuing time.
-	if t != nil {
-		for _, parent := range strongParents {
-			t[0].Storage.Message(parent).Consume(func(msg *Message) {
-				if msg.ID() != EmptyMessageID && !msg.IssuingTime().Before(issuingTime) {
-					time.Sleep(msg.IssuingTime().Sub(issuingTime) + 1*time.Nanosecond)
-					issuingTime = clock.SyncedTime()
-				}
-			})
+	messages := make([]*Message, repeat)
+	timeQueue := timedqueue.New()
+	finished := make(chan bool, 1)
+	// dequeue and issue msg after time delay
+	go func() {
+		time.Sleep(delay)
+		var msgCount int
+		for timeQueue.Size() > 0 {
+			msg := timeQueue.Poll(false).(*Message)
+			if msg == nil {
+				continue
+			}
+			messages[msgCount] = msg
+			f.Events.MessageConstructed.Trigger(messages[msgCount])
+			msgCount++
 		}
+		finished <- true
+	}()
+	// issue message repeat times
+	for i := 0; i < repeat; i++ {
+		sequenceNumber, err := f.sequence.Next()
+		if err != nil {
+			err = xerrors.Errorf("could not create sequence number: %w", err)
+			f.Events.Error.Trigger(err)
+			return nil, err
+		}
+
+		strongParents, weakParents, err := f.selector.Tips(p, 2, 2)
+		if err != nil {
+			err = xerrors.Errorf("tips could not be selected: %w", err)
+			f.Events.Error.Trigger(err)
+			return nil, err
+		}
+
+		issuingTime := clock.SyncedTime()
+
+		// due to the ParentAge check we must ensure that we set the right issuing time.
+		if t != nil {
+			for _, parent := range strongParents {
+				t[0].Storage.Message(parent).Consume(func(msg *Message) {
+					if msg.ID() != EmptyMessageID && !msg.IssuingTime().Before(issuingTime) {
+						time.Sleep(msg.IssuingTime().Sub(issuingTime) + 1*time.Nanosecond)
+						issuingTime = clock.SyncedTime()
+					}
+				})
+			}
+		}
+
+		issuerPublicKey := f.localIdentity.PublicKey()
+
+		// do the PoW
+		nonce, err := f.doPOW(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p)
+		if err != nil {
+			err = xerrors.Errorf("pow failed: %w", err)
+			f.Events.Error.Trigger(err)
+			return nil, err
+		}
+
+		// create the signature
+		signature := f.sign(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
+
+		msg := NewMessage(
+			strongParents,
+			weakParents,
+			issuingTime,
+			issuerPublicKey,
+			sequenceNumber,
+			p,
+			nonce,
+			signature,
+		)
+		timeQueue.Add(msg, msg.issuingTime.Add(delay))
 	}
-
-	issuerPublicKey := f.localIdentity.PublicKey()
-
-	// do the PoW
-	nonce, err := f.doPOW(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p)
-	if err != nil {
-		err = xerrors.Errorf("pow failed: %w", err)
-		f.Events.Error.Trigger(err)
-		return nil, err
+	timeout := time.After(2 * delay)
+	select {
+	case <-finished:
+		return messages, nil
+	case <-timeout:
+		return nil, xerrors.Errorf("not all messages issued after one additional delay")
 	}
-
-	// create the signature
-	signature := f.sign(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
-
-	msg := NewMessage(
-		strongParents,
-		weakParents,
-		issuingTime,
-		issuerPublicKey,
-		sequenceNumber,
-		p,
-		nonce,
-		signature,
-	)
-
-	time.Sleep(delay)
-
-	f.Events.MessageConstructed.Trigger(msg)
-	return msg, nil
 }
 
 // Shutdown closes the MessageFactory and persists the sequence number.
