@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/timedqueue"
+
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
@@ -91,16 +93,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, t ...*Tangle) (*Message
 	issuingTime := clock.SyncedTime()
 
 	// due to the ParentAge check we must ensure that we set the right issuing time.
-	if t != nil {
-		for _, parent := range strongParents {
-			t[0].Storage.Message(parent).Consume(func(msg *Message) {
-				if msg.ID() != EmptyMessageID && !msg.IssuingTime().Before(issuingTime) {
-					time.Sleep(msg.IssuingTime().Sub(issuingTime) + 1*time.Nanosecond)
-					issuingTime = clock.SyncedTime()
-				}
-			})
-		}
-	}
+	issuingTime = f.enforceIssuingTimeForParentAge(t, strongParents, issuingTime)
 
 	issuerPublicKey := f.localIdentity.PublicKey()
 
@@ -127,6 +120,121 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, t ...*Tangle) (*Message
 	)
 	f.Events.MessageConstructed.Trigger(msg)
 	return msg, nil
+}
+
+// IssuePayloadWithDelay creates a new message including sequence number and tip selection and returns it.
+// It also triggers the MessageConstructed event once it's done, which is for example used by the plugins to listen for
+// messages that shall be attached to the tangle.
+// It is the modification of IssuePayload method that wait specified time delay after message creation and
+// allows to issue requested message multiple times
+func (f *MessageFactory) IssuePayloadWithDelay(p payload.Payload, delay time.Duration, repeat int, t ...*Tangle) ([]*Message, error) {
+	// validate query parameters
+	if delay < 0 {
+		err := fmt.Errorf("time delay %d, less than zero is not allowed", delay)
+		f.Events.Error.Trigger(err)
+		return nil, err
+	}
+	if repeat <= 0 {
+		err := fmt.Errorf("repeat %d, less than zero is not allowed", repeat)
+		f.Events.Error.Trigger(err)
+		return nil, err
+	}
+	payloadLen := len(p.Bytes())
+	if payloadLen > payload.MaxSize {
+		err := fmt.Errorf("maximum payload size of %d bytes exceeded", payloadLen)
+		f.Events.Error.Trigger(err)
+		return nil, err
+	}
+
+	f.issuanceMutex.Lock()
+	defer f.issuanceMutex.Unlock()
+
+	messages := make([]*Message, repeat)
+	timeQueue := timedqueue.New()
+	finished := make(chan bool, 1)
+	// dequeue and issue msg after time delay
+	go func() {
+		time.Sleep(delay)
+		var msgCount int
+		for timeQueue.Size() > 0 {
+			msg := timeQueue.Poll(false).(*Message)
+			if msg == nil {
+				continue
+			}
+			messages[msgCount] = msg
+			f.Events.MessageConstructed.Trigger(messages[msgCount])
+			msgCount++
+		}
+		finished <- true
+	}()
+	// issue message repeat times
+	for i := 0; i < repeat; i++ {
+		sequenceNumber, err := f.sequence.Next()
+		if err != nil {
+			err = xerrors.Errorf("could not create sequence number: %w", err)
+			f.Events.Error.Trigger(err)
+			return nil, err
+		}
+
+		strongParents, weakParents, err := f.selector.Tips(p, 2, 2)
+		if err != nil {
+			err = xerrors.Errorf("tips could not be selected: %w", err)
+			f.Events.Error.Trigger(err)
+			return nil, err
+		}
+
+		issuingTime := clock.SyncedTime()
+
+		// due to the ParentAge check we must ensure that we set the right issuing time.
+		issuingTime = f.enforceIssuingTimeForParentAge(t, strongParents, issuingTime)
+
+		issuerPublicKey := f.localIdentity.PublicKey()
+
+		// do the PoW
+		nonce, err := f.doPOW(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p)
+		if err != nil {
+			err = xerrors.Errorf("pow failed: %w", err)
+			f.Events.Error.Trigger(err)
+			return nil, err
+		}
+
+		// create the signature
+		signature := f.sign(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
+
+		msg := NewMessage(
+			strongParents,
+			weakParents,
+			issuingTime,
+			issuerPublicKey,
+			sequenceNumber,
+			p,
+			nonce,
+			signature,
+		)
+		timeQueue.Add(msg, msg.issuingTime.Add(delay))
+	}
+	timeout := 2 * delay
+	select {
+	case <-finished:
+		return messages, nil
+	case <-time.After(timeout):
+		return nil, xerrors.Errorf("not all messages issued after one additional delay")
+	}
+}
+
+// enforceIssuingTimeForParentAge make sure the issuing time is correct with the parent age check
+func (f *MessageFactory) enforceIssuingTimeForParentAge(t []*Tangle, strongParents MessageIDs, issuingTime time.Time) time.Time {
+	if t != nil {
+		for _, parent := range strongParents {
+			t[0].Storage.Message(parent).Consume(func(msg *Message) {
+				if msg.ID() != EmptyMessageID && !msg.IssuingTime().Before(issuingTime) {
+					time.Sleep(msg.IssuingTime().Sub(issuingTime) + 1*time.Nanosecond)
+					issuingTime = clock.SyncedTime()
+				}
+			})
+		}
+	}
+	return issuingTime
 }
 
 // Shutdown closes the MessageFactory and persists the sequence number.

@@ -1,6 +1,8 @@
 package jsonmodels
 
 import (
+	"time"
+
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
@@ -136,7 +138,9 @@ func NewGetTransactionAttachmentsResponse(transactionID ledgerstate.TransactionI
 
 // PostPayloadRequest represents the JSON model of a PostPayload request.
 type PostPayloadRequest struct {
-	Payload []byte `json:"payload"`
+	Payload []byte        `json:"payload"`
+	Repeat  int           `json:"repeat"`
+	Delay   time.Duration `json:"delay"`
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -148,10 +152,26 @@ type PostPayloadResponse struct {
 	ID string `json:"id"`
 }
 
+// PostPayloadsResponse represents the JSON model of a PostPayload response.
+type PostPayloadsResponse struct {
+	IDs []string `json:"ids"`
+}
+
 // NewPostPayloadResponse returns a PostPayloadResponse from the given tangle.Message.
 func NewPostPayloadResponse(message *tangle.Message) *PostPayloadResponse {
 	return &PostPayloadResponse{
 		ID: message.ID().Base58(),
+	}
+}
+
+// NewPostPayloadsResponse returns a PostPayloadsResponse from the given tangle.Message.
+func NewPostPayloadsResponse(messages []*tangle.Message) *PostPayloadsResponse {
+	messagesIDs := make([]string, len(messages))
+	for i, msg := range messages {
+		messagesIDs[i] = msg.ID().Base58()
+	}
+	return &PostPayloadsResponse{
+		IDs: messagesIDs,
 	}
 }
 

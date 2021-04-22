@@ -3,6 +3,7 @@ package tangle
 import (
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -110,15 +111,36 @@ func (t *Tangle) ProcessGossipMessage(messageBytes []byte, peer *peer.Peer) {
 }
 
 // IssuePayload allows to attach a payload (i.e. a Transaction) to the Tangle.
-func (t *Tangle) IssuePayload(payload payload.Payload) (message *Message, err error) {
+func (t *Tangle) IssuePayload(msgPayload payload.Payload) (message *Message, err error) {
 	if !t.Synced() {
 		err = xerrors.Errorf("can't issue payload: %w", ErrNotSynced)
 		return
 	}
+	err = t.validatePayload(msgPayload)
+	if err != nil {
+		return
+	}
+	return t.MessageFactory.IssuePayload(msgPayload)
+}
 
-	if payload.Type() == ledgerstate.TransactionType {
+// IssuePayloadWithDelay allows to attach a payload (i.e. a Transaction) to the Tangle with specified time delay.
+func (t *Tangle) IssuePayloadWithDelay(msgPayload payload.Payload, delay time.Duration, repeat int) (message []*Message, err error) {
+	if !t.Synced() {
+		err = xerrors.Errorf("can't issue payload: %w", ErrNotSynced)
+		return
+	}
+	err = t.validatePayload(msgPayload)
+	if err != nil {
+		return
+	}
+	return t.MessageFactory.IssuePayloadWithDelay(msgPayload, delay, repeat)
+}
+
+// validatePayload allows to validate transaction inputs within a payload
+func (t *Tangle) validatePayload(msgPayload payload.Payload) error {
+	if msgPayload.Type() == ledgerstate.TransactionType {
 		var invalidInputs []string
-		transaction := payload.(*ledgerstate.Transaction)
+		transaction := msgPayload.(*ledgerstate.Transaction)
 		for _, input := range transaction.Essence().Inputs() {
 			if input.Type() == ledgerstate.UTXOInputType {
 				t.LedgerState.OutputMetadata(input.(*ledgerstate.UTXOInput).ReferencedOutputID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
@@ -131,11 +153,10 @@ func (t *Tangle) IssuePayload(payload payload.Payload) (message *Message, err er
 			}
 		}
 		if len(invalidInputs) > 0 {
-			return nil, xerrors.Errorf("invalid inputs: %s: %w", strings.Join(invalidInputs, ","), ErrInvalidInputs)
+			return xerrors.Errorf("invalid inputs: %s: %w", strings.Join(invalidInputs, ","), ErrInvalidInputs)
 		}
 	}
-
-	return t.MessageFactory.IssuePayload(payload)
+	return nil
 }
 
 // Synced returns a boolean value that indicates if the node is fully synced and the Tangle has solidified all messages
