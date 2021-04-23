@@ -7,6 +7,8 @@ import (
 
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/stringify"
+	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
@@ -53,14 +55,16 @@ const (
 
 // Event is the interface definition of an event.
 type Event interface {
-	// ManaType returns the type of the event.
+	// Type returns the type of the event.
 	Type() byte
 	// ToJSONSerializable returns a struct that can be serialized into JSON object.
 	ToJSONSerializable() interface{}
 	// ToPersistable returns an event that can be persisted.
 	ToPersistable() *PersistableEvent
-	// Time returns the time of the event.
+	// Timestamp returns the time of the event.
 	Timestamp() time.Time
+	// String returns a human readable version of the event.
+	String() string
 }
 
 // PledgedEvent is the struct that is passed along with triggering a Pledged event.
@@ -90,6 +94,18 @@ func (p *PledgedEvent) ToJSONSerializable() interface{} {
 		TxID:     p.TransactionID.Base58(),
 		Amount:   p.Amount,
 	}
+}
+
+// String returns a human readable version of the event.
+func (p *PledgedEvent) String() string {
+	return stringify.Struct("PledgeEvent",
+		stringify.StructField("type", p.ManaType.String()),
+		stringify.StructField("shortNodeID", p.NodeID.String()),
+		stringify.StructField("fullNodeID", base58.Encode(p.NodeID.Bytes())),
+		stringify.StructField("time", p.Time.String()),
+		stringify.StructField("amount", p.Amount),
+		stringify.StructField("txID", p.TransactionID),
+	)
 }
 
 // ToPersistable returns an event that can be persisted.
@@ -174,6 +190,19 @@ func (r *RevokedEvent) ToJSONSerializable() interface{} {
 	}
 }
 
+// String returns a human readable version of the event.
+func (r *RevokedEvent) String() string {
+	return stringify.Struct("RevokedEvent",
+		stringify.StructField("type", r.ManaType.String()),
+		stringify.StructField("shortNodeID", r.NodeID.String()),
+		stringify.StructField("fullNodeID", base58.Encode(r.NodeID.Bytes())),
+		stringify.StructField("time", r.Time.String()),
+		stringify.StructField("amount", r.Amount),
+		stringify.StructField("txID", r.TransactionID),
+		stringify.StructField("inputID", r.InputID),
+	)
+}
+
 // ToPersistable returns an event that can be persisted.
 func (r *RevokedEvent) ToPersistable() *PersistableEvent {
 	return &PersistableEvent{
@@ -238,6 +267,17 @@ func (u *UpdatedEvent) ToJSONSerializable() interface{} {
 			LastUpdated:       u.NewMana.LastUpdate().Unix(),
 		},
 	}
+}
+
+// String returns a human readable version of the event.
+func (u *UpdatedEvent) String() string {
+	return stringify.Struct("UpdatedEvent",
+		stringify.StructField("type", u.ManaType.String()),
+		stringify.StructField("shortNodeID", u.NodeID.String()),
+		stringify.StructField("fullNodeID", base58.Encode(u.NodeID.Bytes())),
+		stringify.StructField("oldBaseMana", u.OldMana),
+		stringify.StructField("newBaseMana", u.NewMana),
+	)
 }
 
 // ToPersistable converts the event to a persistable event.

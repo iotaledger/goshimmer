@@ -138,7 +138,7 @@ func configure(*node.Plugin) {
 			log.Warnf("couldn't fulfill funding request to %s: %s", addr.Base58(), err)
 			return
 		}
-		log.Infof("sent funds to address %s via tx %s and msg %s", addr.Base58(), txID, msg.ID().String())
+		log.Infof("sent funds to address %s via tx %s and msg %s", addr.Base58(), txID, msg.ID())
 	}, workerpool.WorkerCount(fundingWorkerCount), workerpool.QueueSize(fundingWorkerQueueSize))
 
 	configureEvents()
@@ -189,19 +189,19 @@ func configureEvents() {
 			fundingRequest := message.Payload().(*Request)
 			addr := fundingRequest.Address()
 			if IsAddressBlackListed(addr) {
-				log.Debugf("can't fund address %s since it is blacklisted", addr.Base58())
+				log.Infof("can't fund address %s since it is blacklisted", addr.Base58())
 				return
 			}
 
 			// verify PoW
 			leadingZeroes, err := powVerifier.LeadingZeros(fundingRequest.Bytes())
 			if err != nil {
-				log.Warnf("couldn't verify PoW of funding request for address %s", addr)
+				log.Infof("couldn't verify PoW of funding request for address %s", addr.Base58())
 				return
 			}
 
 			if leadingZeroes < targetPoWDifficulty {
-				log.Debugf("funding request for address %s doesn't fulfill PoW requirement %d vs. %d", addr, targetPoWDifficulty, leadingZeroes)
+				log.Infof("funding request for address %s doesn't fulfill PoW requirement %d vs. %d", addr.Base58(), targetPoWDifficulty, leadingZeroes)
 				return
 			}
 

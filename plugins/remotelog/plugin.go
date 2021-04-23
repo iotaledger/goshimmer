@@ -35,6 +35,10 @@ const (
 	PluginName = "RemoteLog"
 
 	remoteLogType = "log"
+
+	levelIndex   = 0
+	nameIndex    = 1
+	messageIndex = 2
 )
 
 var (
@@ -81,7 +85,7 @@ func configure(plugin *node.Plugin) {
 	getGitInfo()
 
 	workerPool = workerpool.New(func(task workerpool.Task) {
-		sendLogMsg(task.Param(0).(logger.Level), task.Param(1).(string), task.Param(2).(string))
+		SendLogMsg(task.Param(levelIndex).(logger.Level), task.Param(nameIndex).(string), task.Param(messageIndex).(string))
 
 		task.Return(nil)
 	}, workerpool.WorkerCount(runtime.GOMAXPROCS(0)), workerpool.QueueSize(1000))
@@ -105,7 +109,8 @@ func run(plugin *node.Plugin) {
 	}
 }
 
-func sendLogMsg(level logger.Level, name string, msg string) {
+// SendLogMsg sends log message to the remote logger.
+func SendLogMsg(level logger.Level, name, msg string) {
 	m := logMessage{
 		banner.AppVersion,
 		myGitHead,

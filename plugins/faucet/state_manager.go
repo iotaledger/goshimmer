@@ -212,7 +212,7 @@ func (s *StateManager) FulFillFundingRequest(requestMsg *tangle.Message) (m *tan
 	s.Lock()
 	defer s.Unlock()
 
-	addr := requestMsg.Payload().(*Request).Address()
+	faucetReq := requestMsg.Payload().(*Request)
 
 	// get an output that we can spend
 	fundingOutput, fErr := s.getFundingOutput()
@@ -238,8 +238,17 @@ func (s *StateManager) FulFillFundingRequest(requestMsg *tangle.Message) (m *tan
 	}
 
 	// prepare funding tx, pledge mana to requester
-	pledgeID := identity.NewID(requestMsg.IssuerPublicKey())
-	tx := s.prepareFaucetTransaction(addr, fundingOutput, pledgeID)
+	emptyID := identity.ID{}
+	accessManaPledgeID := identity.NewID(requestMsg.IssuerPublicKey())
+	consensusManaPledgeID := identity.NewID(requestMsg.IssuerPublicKey())
+	if faucetReq.AccessManaPledgeID() != emptyID {
+		accessManaPledgeID = faucetReq.AccessManaPledgeID()
+	}
+	if faucetReq.ConsensusManaPledgeID() != emptyID {
+		consensusManaPledgeID = faucetReq.ConsensusManaPledgeID()
+	}
+
+	tx := s.prepareFaucetTransaction(faucetReq.Address(), fundingOutput, accessManaPledgeID, consensusManaPledgeID)
 
 	// issue funding request
 	m, err = s.issueTX(tx)
@@ -253,7 +262,7 @@ func (s *StateManager) FulFillFundingRequest(requestMsg *tangle.Message) (m *tan
 
 // prepareFaucetTransaction prepares a funding faucet transaction that spends fundingOutput to destAddr and pledges
 // mana to pledgeID.
-func (s *StateManager) prepareFaucetTransaction(destAddr ledgerstate.Address, fundingOutput *FaucetOutput, pledgeID identity.ID) (tx *ledgerstate.Transaction) {
+func (s *StateManager) prepareFaucetTransaction(destAddr ledgerstate.Address, fundingOutput *FaucetOutput, accessManaPledgeID, consensusManaPledgeID identity.ID) (tx *ledgerstate.Transaction) {
 	inputs := ledgerstate.NewInputs(ledgerstate.NewUTXOInput(fundingOutput.ID))
 
 	outputs := ledgerstate.NewOutputs(ledgerstate.NewSigLockedColoredOutput(
@@ -268,8 +277,8 @@ func (s *StateManager) prepareFaucetTransaction(destAddr ledgerstate.Address, fu
 	essence := ledgerstate.NewTransactionEssence(
 		0,
 		clock.SyncedTime(),
-		pledgeID,
-		pledgeID,
+		accessManaPledgeID,
+		consensusManaPledgeID,
 		ledgerstate.NewInputs(inputs...),
 		ledgerstate.NewOutputs(outputs...),
 	)
@@ -368,7 +377,7 @@ func (s *StateManager) prepareMoreFundingOutputs() (err error) {
 			return err
 		case <-ticker.C:
 			if timeoutCounter >= maxWaitAttempts {
-				return xerrors.Errorf("Message %s: %w", issuedMsg.ID().String(), ErrConfirmationTimeoutExpired)
+				return xerrors.Errorf("Message %s: %w", issuedMsg.ID(), ErrConfirmationTimeoutExpired)
 			}
 			timeoutCounter++
 		}

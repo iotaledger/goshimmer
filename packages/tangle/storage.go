@@ -38,11 +38,30 @@ const (
 	// PrefixMarkerBranchIDMapping defines the storage prefix for the PrefixMarkerBranchIDMapping.
 	PrefixMarkerBranchIDMapping
 
-	cacheTime = 2 * time.Second
+	// PrefixIndividuallyMappedMessage defines the storage prefix for the IndividuallyMappedMessage.
+	PrefixIndividuallyMappedMessage
+
+	// PrefixSequenceSupporters defines the storage prefix for the SequenceSupporters.
+	PrefixSequenceSupporters
+
+	// PrefixBranchSupporters defines the storage prefix for the BranchSupporters.
+	PrefixBranchSupporters
+
+	// PrefixStatement defines the storage prefix for the Statement.
+	PrefixStatement
+
+	// PrefixBranchWeight defines the storage prefix for the BranchWeight.
+	PrefixBranchWeight
+
+	// PrefixMarkerMessageMapping defines the storage prefix for the MarkerMessageMapping.
+	PrefixMarkerMessageMapping
 
 	// DBSequenceNumber defines the db sequence number.
 	DBSequenceNumber = "seq"
 )
+
+// CacheTime defines how long the object stay in the cache of the object storage.
+var CacheTime = 2 * time.Second
 
 // region Storage //////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -55,6 +74,12 @@ type Storage struct {
 	missingMessageStorage             *objectstorage.ObjectStorage
 	attachmentStorage                 *objectstorage.ObjectStorage
 	markerIndexBranchIDMappingStorage *objectstorage.ObjectStorage
+	individuallyMappedMessageStorage  *objectstorage.ObjectStorage
+	sequenceSupportersStorage         *objectstorage.ObjectStorage
+	branchSupportersStorage           *objectstorage.ObjectStorage
+	statementStorage                  *objectstorage.ObjectStorage
+	branchWeightStorage               *objectstorage.ObjectStorage
+	markerMessageMappingStorage       *objectstorage.ObjectStorage
 
 	Events   *StorageEvents
 	shutdown chan struct{}
@@ -67,12 +92,18 @@ func NewStorage(tangle *Tangle) (storage *Storage) {
 	storage = &Storage{
 		tangle:                            tangle,
 		shutdown:                          make(chan struct{}),
-		messageStorage:                    osFactory.New(PrefixMessage, MessageFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
-		messageMetadataStorage:            osFactory.New(PrefixMessageMetadata, MessageMetadataFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
-		approverStorage:                   osFactory.New(PrefixApprovers, ApproverFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.PartitionKey(MessageIDLength, ApproverTypeLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false)),
-		missingMessageStorage:             osFactory.New(PrefixMissingMessage, MissingMessageFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
-		attachmentStorage:                 osFactory.New(PrefixAttachments, AttachmentFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.PartitionKey(ledgerstate.TransactionIDLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false)),
-		markerIndexBranchIDMappingStorage: osFactory.New(PrefixMarkerBranchIDMapping, MarkerIndexBranchIDMappingFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		messageStorage:                    osFactory.New(PrefixMessage, MessageFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
+		messageMetadataStorage:            osFactory.New(PrefixMessageMetadata, MessageMetadataFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
+		approverStorage:                   osFactory.New(PrefixApprovers, ApproverFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.PartitionKey(MessageIDLength, ApproverTypeLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false)),
+		missingMessageStorage:             osFactory.New(PrefixMissingMessage, MissingMessageFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
+		attachmentStorage:                 osFactory.New(PrefixAttachments, AttachmentFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.PartitionKey(ledgerstate.TransactionIDLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false)),
+		markerIndexBranchIDMappingStorage: osFactory.New(PrefixMarkerBranchIDMapping, MarkerIndexBranchIDMappingFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
+		individuallyMappedMessageStorage:  osFactory.New(PrefixIndividuallyMappedMessage, IndividuallyMappedMessageFromObjectStorage, objectstorage.CacheTime(CacheTime), IndividuallyMappedMessagePartitionKeys, objectstorage.LeakDetectionEnabled(false)),
+		sequenceSupportersStorage:         osFactory.New(PrefixSequenceSupporters, SequenceSupportersFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
+		branchSupportersStorage:           osFactory.New(PrefixBranchSupporters, BranchSupportersFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
+		statementStorage:                  osFactory.New(PrefixStatement, StatementFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
+		branchWeightStorage:               osFactory.New(PrefixBranchWeight, BranchWeightFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
+		markerMessageMappingStorage:       osFactory.New(PrefixMarkerMessageMapping, MarkerMessageMappingFromObjectStorage, objectstorage.CacheTime(CacheTime), MarkerMessageMappingPartitionKeys),
 
 		Events: &StorageEvents{
 			MessageStored:        events.NewEvent(MessageIDCaller),
@@ -253,6 +284,98 @@ func (s *Storage) MarkerIndexBranchIDMapping(sequenceID markers.SequenceID, comp
 	return &CachedMarkerIndexBranchIDMapping{CachedObject: s.markerIndexBranchIDMappingStorage.Load(sequenceID.Bytes())}
 }
 
+// StoreIndividuallyMappedMessage stores an IndividuallyMappedMessage in the underlying object storage.
+func (s *Storage) StoreIndividuallyMappedMessage(individuallyMappedMessage *IndividuallyMappedMessage) {
+	s.individuallyMappedMessageStorage.Store(individuallyMappedMessage).Release()
+}
+
+// DeleteIndividuallyMappedMessage deleted an IndividuallyMappedMessage in the underlying object storage.
+func (s *Storage) DeleteIndividuallyMappedMessage(branchID ledgerstate.BranchID, messageID MessageID) {
+	s.individuallyMappedMessageStorage.Delete(byteutils.ConcatBytes(branchID.Bytes(), messageID.Bytes()))
+}
+
+// IndividuallyMappedMessage retrieves the IndividuallyMappedMessage associated with the given details.
+func (s *Storage) IndividuallyMappedMessage(branchID ledgerstate.BranchID, messageID MessageID) (cachedIndividuallyMappedMessages *CachedIndividuallyMappedMessage) {
+	return &CachedIndividuallyMappedMessage{CachedObject: s.individuallyMappedMessageStorage.Load(byteutils.ConcatBytes(branchID.Bytes(), messageID.Bytes()))}
+}
+
+// IndividuallyMappedMessages retrieves the IndividuallyMappedMessages of a Branch in the object storage.
+func (s *Storage) IndividuallyMappedMessages(branchID ledgerstate.BranchID) (cachedIndividuallyMappedMessages CachedIndividuallyMappedMessages) {
+	s.individuallyMappedMessageStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		cachedIndividuallyMappedMessages = append(cachedIndividuallyMappedMessages, &CachedIndividuallyMappedMessage{CachedObject: cachedObject})
+		return true
+	}, objectstorage.WithIteratorPrefix(branchID.Bytes()))
+	return
+}
+
+// StoreMarkerMessageMapping stores a MarkerMessageMapping in the underlying object storage.
+func (s *Storage) StoreMarkerMessageMapping(markerMessageMapping *MarkerMessageMapping) {
+	s.markerMessageMappingStorage.Store(markerMessageMapping).Release()
+}
+
+// DeleteMarkerMessageMapping deleted a MarkerMessageMapping in the underlying object storage.
+func (s *Storage) DeleteMarkerMessageMapping(branchID ledgerstate.BranchID, messageID MessageID) {
+	s.markerMessageMappingStorage.Delete(byteutils.ConcatBytes(branchID.Bytes(), messageID.Bytes()))
+}
+
+// MarkerMessageMapping retrieves the MarkerMessageMapping associated with the given details.
+func (s *Storage) MarkerMessageMapping(marker *markers.Marker) (cachedMarkerMessageMappings *CachedMarkerMessageMapping) {
+	return &CachedMarkerMessageMapping{CachedObject: s.markerMessageMappingStorage.Load(marker.Bytes())}
+}
+
+// MarkerMessageMappings retrieves the MarkerMessageMappings of a Sequence in the object storage.
+func (s *Storage) MarkerMessageMappings(sequenceID markers.SequenceID) (cachedMarkerMessageMappings CachedMarkerMessageMappings) {
+	s.markerMessageMappingStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		cachedMarkerMessageMappings = append(cachedMarkerMessageMappings, &CachedMarkerMessageMapping{CachedObject: cachedObject})
+		return true
+	}, objectstorage.WithIteratorPrefix(sequenceID.Bytes()))
+	return
+}
+
+// SequenceSupporters retrieves the SequenceSupporters with the given SequenceID.
+func (s *Storage) SequenceSupporters(sequenceID markers.SequenceID, computeIfAbsentCallback ...func() *SequenceSupporters) *CachedSequenceSupporters {
+	if len(computeIfAbsentCallback) >= 1 {
+		return &CachedSequenceSupporters{s.sequenceSupportersStorage.ComputeIfAbsent(sequenceID.Bytes(), func(key []byte) objectstorage.StorableObject {
+			return computeIfAbsentCallback[0]()
+		})}
+	}
+
+	return &CachedSequenceSupporters{CachedObject: s.sequenceSupportersStorage.Load(sequenceID.Bytes())}
+}
+
+// BranchSupporters retrieves the BranchSupporters with the given ledgerstate.BranchID.
+func (s *Storage) BranchSupporters(branchID ledgerstate.BranchID, computeIfAbsentCallback ...func(branchID ledgerstate.BranchID) *BranchSupporters) *CachedBranchSupporters {
+	if len(computeIfAbsentCallback) >= 1 {
+		return &CachedBranchSupporters{s.branchSupportersStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) objectstorage.StorableObject {
+			return computeIfAbsentCallback[0](branchID)
+		})}
+	}
+
+	return &CachedBranchSupporters{CachedObject: s.branchSupportersStorage.Load(branchID.Bytes())}
+}
+
+// Statement retrieves the Statement with the given ledgerstate.BranchID and Supporter.
+func (s *Storage) Statement(branchID ledgerstate.BranchID, supporter Supporter, computeIfAbsentCallback ...func() *Statement) *CachedStatement {
+	if len(computeIfAbsentCallback) >= 1 {
+		return &CachedStatement{s.statementStorage.ComputeIfAbsent(byteutils.ConcatBytes(branchID.Bytes(), supporter.Bytes()), func(key []byte) objectstorage.StorableObject {
+			return computeIfAbsentCallback[0]()
+		})}
+	}
+
+	return &CachedStatement{CachedObject: s.statementStorage.Load(byteutils.ConcatBytes(branchID.Bytes(), supporter.Bytes()))}
+}
+
+// BranchWeight retrieves the BranchWeight with the given ledgerstate.BranchID.
+func (s *Storage) BranchWeight(branchID ledgerstate.BranchID, computeIfAbsentCallback ...func(branchID ledgerstate.BranchID) *BranchWeight) *CachedBranchWeight {
+	if len(computeIfAbsentCallback) >= 1 {
+		return &CachedBranchWeight{s.branchWeightStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) objectstorage.StorableObject {
+			return computeIfAbsentCallback[0](branchID)
+		})}
+	}
+
+	return &CachedBranchWeight{CachedObject: s.branchWeightStorage.Load(branchID.Bytes())}
+}
+
 func (s *Storage) storeGenesis() {
 	s.MessageMetadata(EmptyMessageID, func() *MessageMetadata {
 		genesisMetadata := &MessageMetadata{
@@ -296,6 +419,12 @@ func (s *Storage) Shutdown() {
 	s.missingMessageStorage.Shutdown()
 	s.attachmentStorage.Shutdown()
 	s.markerIndexBranchIDMappingStorage.Shutdown()
+	s.individuallyMappedMessageStorage.Shutdown()
+	s.sequenceSupportersStorage.Shutdown()
+	s.branchSupportersStorage.Shutdown()
+	s.statementStorage.Shutdown()
+	s.branchWeightStorage.Shutdown()
+	s.markerMessageMappingStorage.Shutdown()
 
 	close(s.shutdown)
 }
@@ -309,6 +438,12 @@ func (s *Storage) Prune() error {
 		s.missingMessageStorage,
 		s.attachmentStorage,
 		s.markerIndexBranchIDMappingStorage,
+		s.individuallyMappedMessageStorage,
+		s.sequenceSupportersStorage,
+		s.branchSupportersStorage,
+		s.statementStorage,
+		s.branchWeightStorage,
+		s.markerMessageMappingStorage,
 	} {
 		if err := storage.Prune(); err != nil {
 			err = fmt.Errorf("failed to prune storage: %w", err)

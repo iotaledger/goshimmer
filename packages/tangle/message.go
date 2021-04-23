@@ -128,9 +128,36 @@ func (id MessageID) Bytes() []byte {
 	return id[:]
 }
 
-// String returns the base58 encode of the MessageID.
-func (id MessageID) String() string {
+// Base58 returns a base58 encoded version of the MessageID.
+func (id MessageID) Base58() string {
 	return base58.Encode(id[:])
+}
+
+// String returns a human readable representation of the MessageID.
+func (id MessageID) String() string {
+	if id == EmptyMessageID {
+		return "MessageID(EmptyMessageID)"
+	}
+
+	if messageIDAlias, exists := messageIDAliases[id]; exists {
+		return "MessageID(" + messageIDAlias + ")"
+	}
+
+	return "MessageID(" + base58.Encode(id[:]) + ")"
+}
+
+// messageIDAliases contains a list of aliases registered for a set of MessageIDs.
+var messageIDAliases = make(map[MessageID]string)
+
+// RegisterMessageIDAlias registers an alias that will modify the String() output of the MessageID to show a human
+// readable string instead of the base58 encoded version of itself.
+func RegisterMessageIDAlias(messageID MessageID, alias string) {
+	messageIDAliases[messageID] = alias
+}
+
+// UnregisterMessageIDAliases removes all aliases registered through the RegisterMessageIDAlias function.
+func UnregisterMessageIDAliases() {
+	messageIDAliases = make(map[MessageID]string)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -144,7 +171,7 @@ type MessageIDs []MessageID
 func (ids MessageIDs) ToStrings() []string {
 	result := make([]string, 0, len(ids))
 	for _, id := range ids {
-		result = append(result, id.String())
+		result = append(result, id.Base58())
 	}
 	return result
 }
@@ -624,29 +651,31 @@ func (c *CachedMessage) Unwrap() *Message {
 type MessageMetadata struct {
 	objectstorage.StorableObjectFlags
 
-	messageID          MessageID
-	receivedTime       time.Time
-	solid              bool
-	solidificationTime time.Time
-	structureDetails   *markers.StructureDetails
-	branchID           ledgerstate.BranchID
-	scheduled          bool
-	scheduledTime      time.Time
-	booked             bool
-	bookedTime         time.Time
-	eligible           bool
-	invalid            bool
+	messageID               MessageID
+	receivedTime            time.Time
+	solid                   bool
+	solidificationTime      time.Time
+	structureDetails        *markers.StructureDetails
+	branchID                ledgerstate.BranchID
+	scheduled               bool
+	scheduledTime           time.Time
+	booked                  bool
+	bookedTime              time.Time
+	eligible                bool
+	invalid                 bool
+	finalizedApprovalWeight bool
 
-	solidMutex              sync.RWMutex
-	solidificationTimeMutex sync.RWMutex
-	structureDetailsMutex   sync.RWMutex
-	branchIDMutex           sync.RWMutex
-	scheduledMutex          sync.RWMutex
-	scheduledTimeMutex      sync.RWMutex
-	bookedMutex             sync.RWMutex
-	bookedTimeMutex         sync.RWMutex
-	eligibleMutex           sync.RWMutex
-	invalidMutex            sync.RWMutex
+	solidMutex                   sync.RWMutex
+	solidificationTimeMutex      sync.RWMutex
+	structureDetailsMutex        sync.RWMutex
+	branchIDMutex                sync.RWMutex
+	scheduledMutex               sync.RWMutex
+	scheduledTimeMutex           sync.RWMutex
+	bookedMutex                  sync.RWMutex
+	bookedTimeMutex              sync.RWMutex
+	eligibleMutex                sync.RWMutex
+	invalidMutex                 sync.RWMutex
+	finalizedApprovalWeightMutex sync.RWMutex
 }
 
 // NewMessageMetadata creates a new MessageMetadata from the specified messageID.
@@ -716,6 +745,10 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 	}
 	if result.invalid, err = marshalUtil.ReadBool(); err != nil {
 		err = fmt.Errorf("failed to parse invalid flag of message metadata: %w", err)
+		return
+	}
+	if result.finalizedApprovalWeight, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse finalizedApprovalWeight flag of message metadata: %w", err)
 		return
 	}
 
@@ -955,6 +988,32 @@ func (m *MessageMetadata) SetInvalid(invalid bool) (modified bool) {
 	return
 }
 
+// SetFinalizedApprovalWeight sets the message associated with this metadata as finalized by approval weight.
+// It returns true if the finalizedApprovalWeight status is modified. False otherwise.
+func (m *MessageMetadata) SetFinalizedApprovalWeight(finalized bool) (modified bool) {
+	m.finalizedApprovalWeightMutex.Lock()
+	defer m.finalizedApprovalWeightMutex.Unlock()
+
+	if m.finalizedApprovalWeight == finalized {
+		return false
+	}
+
+	m.finalizedApprovalWeight = finalized
+	m.SetModified()
+	modified = true
+
+	return
+}
+
+// IsFinalizedApprovalWeight returns true if the message represented by this metadata is finalized by approval weight.
+// False otherwise.
+func (m *MessageMetadata) IsFinalizedApprovalWeight() (result bool) {
+	m.finalizedApprovalWeightMutex.RLock()
+	defer m.finalizedApprovalWeightMutex.RUnlock()
+
+	return m.finalizedApprovalWeight
+}
+
 // Bytes returns a marshaled version of the whole MessageMetadata object.
 func (m *MessageMetadata) Bytes() []byte {
 	return byteutils.ConcatBytes(m.ObjectStorageKey(), m.ObjectStorageValue())
@@ -981,6 +1040,7 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 		WriteTime(m.BookedTime()).
 		WriteBool(m.IsEligible()).
 		WriteBool(m.IsInvalid()).
+		WriteBool(m.IsFinalizedApprovalWeight()).
 		Bytes()
 }
 
@@ -1005,6 +1065,7 @@ func (m *MessageMetadata) String() string {
 		stringify.StructField("bookedTime", m.BookedTime()),
 		stringify.StructField("eligible", m.IsEligible()),
 		stringify.StructField("invalid", m.IsInvalid()),
+		stringify.StructField("finalizedApprovalWeight", m.IsFinalizedApprovalWeight()),
 	)
 }
 

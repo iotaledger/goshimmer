@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"os"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -18,7 +19,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	valueutils "github.com/iotaledger/goshimmer/plugins/webapi/value"
+	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels/value"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 )
 
@@ -449,11 +450,11 @@ func False() *bool {
 // All fields are optional.
 type ExpectedTransaction struct {
 	// The optional input IDs to check against.
-	Inputs *[]valueutils.Input
+	Inputs *[]value.Input
 	// The optional outputs to check against.
-	Outputs *[]valueutils.Output
+	Outputs *[]value.Output
 	// The optional unlock blocks to check against.
-	UnlockBlocks *[]valueutils.UnlockBlock
+	UnlockBlocks *[]value.UnlockBlock
 }
 
 // CheckTransactions performs checks to make sure that all peers have received all transactions.
@@ -634,4 +635,16 @@ func SelectIndex(transaction *ledgerstate.Transaction, address ledgerstate.Addre
 		}
 	}
 	return
+}
+
+func GetSnapshot() *ledgerstate.Snapshot {
+	snapshot := &ledgerstate.Snapshot{}
+	f, err := os.Open("/tmp/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin")
+	if err != nil {
+		panic(fmt.Sprintln("can not open snapshot file: ", err))
+	}
+	if _, err := snapshot.ReadFrom(f); err != nil {
+		panic(fmt.Sprintln("could not read snapshot file: ", err))
+	}
+	return snapshot
 }

@@ -3,6 +3,7 @@ package messagelayer
 import (
 	"fmt"
 	"math"
+	"os"
 	"sort"
 	"sync"
 	"time"
@@ -31,8 +32,8 @@ const (
 	// PluginName is the name of the mana plugin.
 	PluginName = "Mana"
 
-	maxConsensusEventsInStorage = 108000
-	slidingEventsInterval       = 10800 // 10% of maxConsensusEventsInStorage
+	maxConsensusEventsInStorage = 110000
+	slidingEventsInterval       = 10000 // 10% of maxConsensusEventsInStorage
 )
 
 var (
@@ -90,6 +91,7 @@ func configureManaPlugin(*node.Plugin) {
 	}
 	consensusEventsLogStorage = osFactory.New(mana.PrefixEventStorage, mana.FromEventObjectStorage)
 	consensusEventsLogsStorageSize.Store(getConsensusEventLogsStorageSize())
+	manaLogger.Infof("read %d mana events from storage", consensusEventsLogsStorageSize.Load())
 	consensusBaseManaPastVectorStorage = osFactory.New(mana.PrefixConsensusPastVector, mana.FromObjectStorage)
 	consensusBaseManaPastVectorMetadataStorage = osFactory.New(mana.PrefixConsensusPastMetadata, mana.FromMetadataObjectStorage)
 
@@ -136,7 +138,7 @@ func onTransactionConfirmed(msgID tangle.MessageID) {
 		tx, _, err = ledgerstate.TransactionFromBytes(message.Payload().Bytes())
 		if err != nil {
 			isTx = false
-			manaLogger.Errorf("Message %s contains invalid transaction payload: %w", msgID.String(), err)
+			manaLogger.Errorf("Message %s contains invalid transaction payload: %v", msgID, err)
 			return
 		}
 	})
@@ -222,7 +224,21 @@ func runManaPlugin(_ *node.Plugin) {
 		defer ticker.Stop()
 		cleanupTicker := time.NewTicker(vectorsCleanUpInterval)
 		defer cleanupTicker.Stop()
-		readStoredManaVectors()
+		if !readStoredManaVectors() {
+			// read snapshot file
+			if Parameters.Snapshot.File != "" {
+				snapshot := &ledgerstate.Snapshot{}
+				f, err := os.Open(Parameters.Snapshot.File)
+				if err != nil {
+					plugin.Panic("can not open snapshot file:", err)
+				}
+				if _, err := snapshot.ReadFrom(f); err != nil {
+					plugin.Panic("could not read snapshot file:", err)
+				}
+				loadSnapshot(snapshot)
+				plugin.LogInfof("MANA: read snapshot from %s", Parameters.Snapshot.File)
+			}
+		}
 		pruneStorages()
 		for {
 			select {
@@ -245,7 +261,7 @@ func runManaPlugin(_ *node.Plugin) {
 	}
 }
 
-func readStoredManaVectors() {
+func readStoredManaVectors() (read bool) {
 	for vectorType := range baseManaVectors {
 		storages[vectorType].ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 			cachedPbm := &mana.CachedPersistableBaseMana{CachedObject: cachedObject}
@@ -254,10 +270,12 @@ func readStoredManaVectors() {
 				if err != nil {
 					manaLogger.Errorf("error while restoring %s mana vector: %w", vectorType.String(), err)
 				}
+				read = true
 			})
 			return true
 		})
 	}
+	return
 }
 
 func storeManaVectors() {
@@ -312,6 +330,15 @@ func GetManaMap(manaType mana.Type, optionalUpdateTime ...time.Time) (mana.NodeM
 		return mana.NodeMap{}, time.Now(), ErrQueryNotAllowed
 	}
 	return baseManaVectors[manaType].GetManaMap(optionalUpdateTime...)
+}
+
+// ManaEpoch is a wrapper for the approval weight.
+func ManaEpoch(t time.Time) map[identity.ID]float64 {
+	m, _, err := GetManaMap(mana.ConsensusMana, t)
+	if err != nil {
+		panic(err)
+	}
+	return m
 }
 
 // GetAccessMana returns the access mana of the node specified.
@@ -621,7 +648,8 @@ func pruneConsensusEventLogsStorage() {
 	if consensusEventsLogsStorageSize.Load() < maxConsensusEventsInStorage {
 		return
 	}
-	cachedObj := consensusBaseManaPastVectorMetadataStorage.Get([]byte(mana.ConsensusBaseManaPastVectorMetadataStorageKey))
+
+	cachedObj := consensusBaseManaPastVectorMetadataStorage.Load([]byte(mana.ConsensusBaseManaPastVectorMetadataStorageKey))
 	cachedMetadata := &mana.CachedConsensusBasePastManaVectorMetadata{CachedObject: cachedObj}
 	defer cachedMetadata.Release()
 
@@ -654,9 +682,17 @@ func pruneConsensusEventLogsStorage() {
 		cachedPe := &mana.CachedPersistableEvent{CachedObject: cachedObject}
 		defer cachedPe.Release()
 		pe := cachedPe.Unwrap()
-
 		var ev mana.Event
 		ev, err = mana.FromPersistableEvent(pe)
+
+		if cachedMetadata.Exists() {
+			metadata := cachedMetadata.Unwrap()
+			if ev.Timestamp().Before(metadata.Timestamp) {
+				manaLogger.Errorf("consensus event storage contains event that is older, than the stored metadata timestamp %s: %s", metadata.Timestamp, ev.String())
+				return true
+			}
+		}
+
 		if err != nil {
 			return false
 		}
@@ -668,22 +704,33 @@ func pruneConsensusEventLogsStorage() {
 		return
 	}
 	eventLogs.Sort()
-	// Make sure to take related events.
+	// we always want (maxConsensusEventsInStorage - slidingEventsInterval) number of events left
+	deleteWindow := len(eventLogs) - (maxConsensusEventsInStorage - slidingEventsInterval)
+	storageSizeInt := int(consensusEventsLogsStorageSize.Load())
+	if deleteWindow < 0 || deleteWindow > storageSizeInt {
+		manaLogger.Errorf("invalid delete window %d for storage size %d, max storage size %d and sliding interval %d",
+			deleteWindow, storageSizeInt, maxConsensusEventsInStorage, slidingEventsInterval)
+		return
+	}
+	// Make sure to take related events. (we take deleteWindow oldest events)
 	// Ensures that related events (same time) are not split between different intervals.
-	prev := eventLogs[slidingEventsInterval-1]
+	prev := eventLogs[deleteWindow-1]
 	var i int
-	for i = slidingEventsInterval; i < len(eventLogs); i++ {
-		if eventLogs[i].Timestamp() != prev.Timestamp() {
+	for i = deleteWindow; i < len(eventLogs); i++ {
+		if !eventLogs[i].Timestamp().Equal(prev.Timestamp()) {
 			break
 		}
 		prev = eventLogs[i]
 	}
-	eventLogs = eventLogs[:i]
-	t := eventLogs[len(eventLogs)-1].Timestamp()
+	toBePrunedEvents := eventLogs[:i]
+	// TODO: later, when we have epochs, we have to make sure that `t` is before the epoch to be "finalized" next.
+	// Otherwise, we won't be able to calculate the consensus mana for that epoch because we already pruned the events
+	// leading up to it.
+	t := toBePrunedEvents[len(toBePrunedEvents)-1].Timestamp()
 
-	err = cbmvPast.BuildPastBaseVector(eventLogs, t)
+	err = cbmvPast.BuildPastBaseVector(toBePrunedEvents, t)
 	if err != nil {
-		manaLogger.Error("error building past consensus base mana vector: %v", err)
+		manaLogger.Errorf("error building past consensus base mana vector: %w", err)
 		return
 	}
 
@@ -701,19 +748,20 @@ func pruneConsensusEventLogsStorage() {
 		Timestamp: t,
 	}
 
-	if !cachedMetadata.Exists() {
-		consensusBaseManaPastVectorMetadataStorage.Store(metadata).Release()
-	} else {
-		m := cachedMetadata.Unwrap()
-		m.Update(metadata)
+	if err = consensusBaseManaPastVectorMetadataStorage.Prune(); err != nil {
+		manaLogger.Errorf("error pruning consensus base mana vector metadata storage: %w", err)
+		return
 	}
+	consensusBaseManaPastVectorMetadataStorage.Store(metadata).Release()
 
 	var entriesToDelete [][]byte
-	for _, ev := range eventLogs {
+	for _, ev := range toBePrunedEvents {
 		entriesToDelete = append(entriesToDelete, ev.ToPersistable().ObjectStorageKey())
 	}
+	manaLogger.Infof("deleting %d events from consensus event storage", len(entriesToDelete))
 	consensusEventsLogStorage.DeleteEntriesFromStore(entriesToDelete)
 	consensusEventsLogsStorageSize.Sub(uint32(len(entriesToDelete)))
+	manaLogger.Infof("%d events remaining in consensus event storage", consensusEventsLogsStorageSize.Load())
 }
 
 func cleanupManaVectors() {
@@ -743,5 +791,35 @@ type EventsLogs struct {
 func QueryAllowed() (allowed bool) {
 	// if debugging enabled, reply to the query
 	// if debugging is not allowed, only reply when in sync
-	return Tangle().Synced() || debuggingEnabled
+	// return Tangle().Synced() || debuggingEnabled
+	return true
+}
+
+func loadSnapshot(snapshot *ledgerstate.Snapshot) {
+	manaSnapshot := make(map[identity.ID]*mana.SnapshotInfo)
+	var snapshotTime time.Time
+
+	for txID, essence := range snapshot.Transactions {
+		totalBalance := uint64(0)
+		for _, output := range essence.Outputs() {
+			output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+				totalBalance += balance
+				return true
+			})
+		}
+		info := &mana.SnapshotInfo{
+			Value: float64(totalBalance),
+			TxID:  txID,
+		}
+		manaSnapshot[essence.ConsensusPledgeID()] = info
+
+		snapshotTime = essence.Timestamp()
+	}
+
+	baseManaVectors[mana.ConsensusMana].LoadSnapshot(manaSnapshot, snapshotTime)
+	baseManaVectors[mana.AccessMana].LoadSnapshot(manaSnapshot, time.Now())
+	if ManaParameters.EnableResearchVectors {
+		baseManaVectors[mana.ResearchAccess].LoadSnapshot(manaSnapshot, snapshotTime)
+		baseManaVectors[mana.ResearchConsensus].LoadSnapshot(manaSnapshot, snapshotTime)
+	}
 }

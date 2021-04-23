@@ -14,7 +14,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/plugins/webapi/value"
+	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels/value"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
@@ -23,14 +23,16 @@ import (
 // then issues valid value objects spending the genesis in both, deletes the partitions (and lets them merge)
 // and then checks that the conflicts are resolved via FPC.
 func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
-
 	// override avg. network delay to accustom integration test slowness
 	backupFCoBAvgNetworkDelay := framework.ParaFCoBAverageNetworkDelay
+	// adjust l according to networkDelay l = l+c/roundTimeInterval
+	// backupFPCTotalRoundsFinalization := framework.ParaFPCTotalRoundsFinalization
 	backupBootstrapOnEveryNode := framework.ParaSyncBeaconOnEveryNode
 	backupParaWaitToKill := framework.ParaWaitToKill
 	framework.ParaFCoBAverageNetworkDelay = 60
 	framework.ParaSyncBeaconOnEveryNode = true
 	framework.ParaWaitToKill = 2*framework.ParaFCoBAverageNetworkDelay + 10
+	// framework.ParaFPCTotalRoundsFinalization = backupFPCTotalRoundsFinalization + framework.ParaFCoBAverageNetworkDelay/int(framework.ParaFPCRoundInterval)
 
 	const numberOfPeers = 6
 
@@ -39,6 +41,7 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 		framework.ParaFCoBAverageNetworkDelay = backupFCoBAvgNetworkDelay
 		framework.ParaSyncBeaconOnEveryNode = backupBootstrapOnEveryNode
 		framework.ParaWaitToKill = backupParaWaitToKill
+		// framework.ParaFPCTotalRoundsFinalization = backupFPCTotalRoundsFinalization
 	}()
 
 	// create two partitions with their own peers
@@ -58,10 +61,26 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	genesisSeedBytes, err := base58.Decode("7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih")
 	require.NoError(t, err, "couldn't decode genesis seed from base58 seed")
 
+	snapshot := tests.GetSnapshot()
+
+	faucetPledge := "EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP"
+	pubKey, err := ed25519.PublicKeyFromString(faucetPledge)
+	if err != nil {
+		panic(err)
+	}
+	nodeID := identity.NewID(pubKey)
+
+	genesisTransactionID := ledgerstate.GenesisTransactionID
+	for ID, tx := range snapshot.Transactions {
+		if tx.AccessPledgeID() == nodeID {
+			genesisTransactionID = ID
+		}
+	}
+
 	// make genesis fund easily divisible for further splitting of the funds
 	const genesisBalance = 1000000000000000
 	genesisSeed := seed.NewSeed(genesisSeedBytes)
-	genesisOutputID := ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0)
+	genesisOutputID := ledgerstate.NewOutputID(genesisTransactionID, 0)
 	input := ledgerstate.NewUTXOInput(genesisOutputID)
 	// splitting genesis funds to one address per peer plus one additional that will be used for the conflict
 	spendingGenTx, destGenSeed := CreateOutputs(input, genesisBalance, genesisSeed.KeyPair(0), numberOfPeers+1, identity.ID{}, "skewed")
@@ -78,7 +97,7 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	// issue one transaction per peer to pledge mana to nodes
 	// leave one unspent output from splitting genesis transaction for further conflict creation
 
-	//prepare all the pledgingTxs
+	// prepare all the pledgingTxs
 	pledgingTxs := make([]*ledgerstate.Transaction, numberOfPeers+1)
 	pledgeSeed := make([]*seed.Seed, numberOfPeers+1)
 	receiverId := 0
@@ -107,7 +126,7 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	log.Printf("waiting 2 * %d seconds avg. network delay + 5s to make the transactions confirmed", framework.ParaFCoBAverageNetworkDelay)
 	time.Sleep(time.Duration(framework.ParaFCoBAverageNetworkDelay)*2*time.Second + 5*time.Second)
 
-	//prepare two conflicting transactions from one additional unused genesis output
+	// prepare two conflicting transactions from one additional unused genesis output
 	conflictingTxs := make([]*ledgerstate.Transaction, len(n.Partitions()))
 	conflictingTxIDs := make([]string, len(n.Partitions()))
 	receiverSeeds := make([]*seed.Seed, len(n.Partitions()))
@@ -201,7 +220,6 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	confirmed := make([]int, 2)
 
 	for i, conflictingTx := range conflictingTxIDs {
-
 		for _, p := range n.Peers() {
 			tx, err := p.GetTransactionByID(conflictingTx)
 			assert.NoError(t, err)
@@ -219,7 +237,6 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	assert.Equal(t, len(n.Peers()), rejected[1], "the rejected count for second transaction should be equal to %d", len(n.Peers()))
 	assert.Equal(t, 0, confirmed[1], "the confirmed count for second transaction should be equal to 0")
 	assert.Equal(t, len(n.Peers()), confirmed[0], "the confirmed count for first transaction should be equal to the amount of peers %d", len(n.Peers()))
-
 }
 
 func CreateOutputs(input *ledgerstate.UTXOInput, inputBalance uint64, kp *ed25519.KeyPair, nOutputs int, pledgeID identity.ID, balanceType string) (*ledgerstate.Transaction, *seed.Seed) {
@@ -282,7 +299,7 @@ func createBalances(balanceType string, nOutputs int, inputBalance uint64) []uin
 			}
 			lastBalance, _ := ledgerstate.SafeSubUint64(remainingBalance, totalBalance)
 			outputBalances = append(outputBalances, lastBalance)
-			//outputBalances = append(outputBalances, createBalances("equal", nOutputs-1, remainingBalance)...)
+			// outputBalances = append(outputBalances, createBalances("equal", nOutputs-1, remainingBalance)...)
 			fmt.Printf("rady %v", outputBalances)
 		}
 	}
