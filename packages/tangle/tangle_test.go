@@ -419,9 +419,11 @@ func TestTangle_Flow(t *testing.T) {
 		require.NoError(t, err)
 
 		// remove a tip if the width of the tangle is reached
-		if tips.Size() >= tangleWidth {
-			index := rand.Intn(len(msg.StrongParents()))
-			tips.Delete(msg.StrongParents()[index])
+		if !invalidTS {
+			if tips.Size() >= tangleWidth {
+				index := rand.Intn(len(msg.StrongParents()))
+				tips.Delete(msg.StrongParents()[index])
+			}
 		}
 
 		// add current message as a tip
@@ -560,9 +562,9 @@ func TestTangle_Flow(t *testing.T) {
 
 	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&solidMessages))
 	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&scheduledMessages))
-	assert.EqualValues(t, totalMsgCount, atomic.LoadInt32(&storedMessages))
-	assert.EqualValues(t, totalMsgCount, atomic.LoadInt32(&parsedMessages))
-	assert.EqualValues(t, invalidMsgCount, atomic.LoadInt32(&invalidMessages))
+	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&storedMessages))
+	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&parsedMessages))
+	assert.EqualValues(t, 0, atomic.LoadInt32(&invalidMessages))
 	assert.EqualValues(t, 0, atomic.LoadInt32(&opinionFormedTransactions))
 	assert.EqualValues(t, 0, atomic.LoadInt32(&missingMessages))
 }
