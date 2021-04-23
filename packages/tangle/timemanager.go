@@ -5,19 +5,20 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/epochs"
-	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/epochs"
+	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
 const (
-	lastConfirmedKey = "lastConfirmedMessage"
+	lastConfirmedKey = "LastConfirmedMessage"
 )
 
 // region TimeManager //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -28,7 +29,7 @@ const (
 type TimeManager struct {
 	tangle *Tangle
 
-	lastConfirmedMessage lastConfirmedMessage
+	lastConfirmedMessage LastConfirmedMessage
 	lastConfirmedMutex   sync.RWMutex
 }
 
@@ -51,7 +52,7 @@ func NewTimeManager(tangle *Tangle) (timeManager *TimeManager) {
 	}
 
 	// Initialize with Genesis if not found in storage.
-	timeManager.lastConfirmedMessage = lastConfirmedMessage{
+	timeManager.lastConfirmedMessage = LastConfirmedMessage{
 		MessageID: EmptyMessageID,
 		Time:      time.Unix(epochs.DefaultGenesisTime, 0),
 	}
@@ -72,9 +73,17 @@ func (t *TimeManager) Shutdown() {
 	defer t.lastConfirmedMutex.RUnlock()
 
 	if err := t.tangle.Options.Store.Set(kvstore.Key(lastConfirmedKey), t.lastConfirmedMessage.Bytes()); err != nil {
-		t.tangle.Events.Error.Trigger(xerrors.Errorf("failed to persists lastConfirmedMessage (%v): %w", err, cerrors.ErrFatal))
+		t.tangle.Events.Error.Trigger(xerrors.Errorf("failed to persists LastConfirmedMessage (%v): %w", err, cerrors.ErrFatal))
 		return
 	}
+}
+
+// LastConfirmedMessage returns the last confirmed message.
+func (t *TimeManager) LastConfirmedMessage() LastConfirmedMessage {
+	t.lastConfirmedMutex.RLock()
+	defer t.lastConfirmedMutex.RUnlock()
+
+	return t.lastConfirmedMessage
 }
 
 // Time returns the TangleTime, i.e., the issuing time of the last confirmed message.
@@ -91,7 +100,7 @@ func (t *TimeManager) Synced() bool {
 	t.lastConfirmedMutex.RLock()
 	defer t.lastConfirmedMutex.RUnlock()
 
-	return clock.SyncedTime().Sub(t.lastConfirmedMessage.Time) < t.tangle.Options.SyncTimeWindow
+	return clock.Since(t.lastConfirmedMessage.Time) < t.tangle.Options.SyncTimeWindow
 }
 
 // updateTime updates the last confirmed message.
@@ -107,7 +116,7 @@ func (t *TimeManager) updateTime(marker markers.Marker, newLevel int, transition
 		defer t.lastConfirmedMutex.Unlock()
 
 		if t.lastConfirmedMessage.Time.Before(message.IssuingTime()) {
-			t.lastConfirmedMessage = lastConfirmedMessage{
+			t.lastConfirmedMessage = LastConfirmedMessage{
 				MessageID: messageID,
 				Time:      message.IssuingTime(),
 			}
@@ -117,19 +126,19 @@ func (t *TimeManager) updateTime(marker markers.Marker, newLevel int, transition
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region lastConfirmedMessage /////////////////////////////////////////////////////////////////////////////////////////
+// region LastConfirmedMessage /////////////////////////////////////////////////////////////////////////////////////////
 
-// lastConfirmedMessage is a wrapper type for the last confirmed message, consisting of MessageID and time.
-type lastConfirmedMessage struct {
+// LastConfirmedMessage is a wrapper type for the last confirmed message, consisting of MessageID and time.
+type LastConfirmedMessage struct {
 	MessageID MessageID
 	Time      time.Time
 }
 
-// lastConfirmedMessageFromBytes unmarshals a lastConfirmedMessage object from a sequence of bytes.
-func lastConfirmedMessageFromBytes(bytes []byte) (lcm lastConfirmedMessage, consumedBytes int, err error) {
+// lastConfirmedMessageFromBytes unmarshals a LastConfirmedMessage object from a sequence of bytes.
+func lastConfirmedMessageFromBytes(bytes []byte) (lcm LastConfirmedMessage, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if lcm, err = lastConfirmedMessageFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse lastConfirmedMessage from MarshalUtil: %w", err)
+		err = xerrors.Errorf("failed to parse LastConfirmedMessage from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -137,9 +146,9 @@ func lastConfirmedMessageFromBytes(bytes []byte) (lcm lastConfirmedMessage, cons
 	return
 }
 
-// lastConfirmedMessageFromMarshalUtil unmarshals a lastConfirmedMessage object using a MarshalUtil (for easier unmarshaling).
-func lastConfirmedMessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (lcm lastConfirmedMessage, err error) {
-	lcm = lastConfirmedMessage{}
+// lastConfirmedMessageFromMarshalUtil unmarshals a LastConfirmedMessage object using a MarshalUtil (for easier unmarshaling).
+func lastConfirmedMessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (lcm LastConfirmedMessage, err error) {
+	lcm = LastConfirmedMessage{}
 	if lcm.MessageID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse MessageID from MarshalUtil: %w", err)
 		return
@@ -153,17 +162,17 @@ func lastConfirmedMessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (
 	return
 }
 
-// Bytes returns a marshaled version of the lastConfirmedMessage.
-func (l lastConfirmedMessage) Bytes() (marshaledLastConfirmedMessage []byte) {
+// Bytes returns a marshaled version of the LastConfirmedMessage.
+func (l LastConfirmedMessage) Bytes() (marshaledLastConfirmedMessage []byte) {
 	return marshalutil.New(MessageIDLength + marshalutil.TimeSize).
 		Write(l.MessageID).
 		WriteTime(l.Time).
 		Bytes()
 }
 
-// String returns a human readable version of the lastConfirmedMessage.
-func (l lastConfirmedMessage) String() string {
-	return stringify.Struct("lastConfirmedMessage",
+// String returns a human readable version of the LastConfirmedMessage.
+func (l LastConfirmedMessage) String() string {
+	return stringify.Struct("LastConfirmedMessage",
 		stringify.StructField("MessageID", l.MessageID),
 		stringify.StructField("Time", l.Time),
 	)

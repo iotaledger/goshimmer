@@ -22,6 +22,9 @@ var Parameters = struct {
 	FCOB struct {
 		AverageNetworkDelay int `default:"5" usage:"the avg. network delay to use for FCoB rules"`
 	}
+
+	// TangleTimeWindow defines the time window in which the node considers itself as synced according to TangleTime.
+	TangleTimeWindow time.Duration `default:"1m" usage:"the time window in which the node considers itself as synced according to TangleTime"`
 }{}
 
 // FPCParameters contains the configuration parameters used by the FPC consensus.
