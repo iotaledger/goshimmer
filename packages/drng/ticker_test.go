@@ -20,6 +20,7 @@ func testRandomness(t time.Time) *Randomness {
 	return r
 }
 
+// Test that the
 func TestTicker(t *testing.T) {
 	interval := 5
 	defaultValue := 0.6
@@ -32,10 +33,14 @@ func TestTicker(t *testing.T) {
 	ticker.Start()
 	defer ticker.Stop()
 
+	// no dRNG event
+	fmt.Println("no dRNG event")
 	r := <-ticker.C()
 	assert.Equal(t, r, defaultValue)
 	fmt.Println(ticker.DelayedRoundStart())
 
+	// event arrives before (interval+awaitOffset)
+	fmt.Println("event arrives before (interval+awaitOffset)")
 	stateTest = NewState(SetCommittee(dummyCommittee()), SetRandomness(testRandomness(time.Now().Add(time.Duration(interval)*time.Second))))
 	randomness := stateTest.Randomness().Float64()
 	// mock the dRNG event
@@ -43,23 +48,41 @@ func TestTicker(t *testing.T) {
 		time.Sleep(time.Duration(interval) * time.Second)
 		ticker.UpdateRandomness(stateTest.Randomness())
 	}()
-
 	r = <-ticker.C()
+	fmt.Println("r= ", r, ", randomness=", randomness)
 	assert.Equal(t, r, randomness)
 	fmt.Println(ticker.DelayedRoundStart())
 
+	// event arrives after (interval+awaitOffset)
+	fmt.Println("event arrives after (interval+awaitOffset)")
 	stateTest = NewState(SetCommittee(dummyCommittee()), SetRandomness(testRandomness(time.Now().Add(time.Duration(interval)*time.Second))))
 	randomness = stateTest.Randomness().Float64()
 	// mock the dRNG event
 	go func() {
-		time.Sleep(time.Duration(interval+2) * time.Second)
+		time.Sleep(time.Duration(interval+awaitOffset+1) * time.Second)
 		ticker.UpdateRandomness(stateTest.Randomness())
 	}()
-
 	r = <-ticker.C()
-	assert.Equal(t, r, randomness)
-	require.InDelta(t, 2*time.Second, ticker.DelayedRoundStart(), 10*float64(time.Second/(time.Microsecond)))
+	fmt.Println("r= ", r, ", randomness =", randomness)
+	assert.Equal(t, r, defaultValue)
+	require.InDelta(t, time.Duration(awaitOffset)*time.Second, ticker.DelayedRoundStart(), float64(100*time.Millisecond))
 	fmt.Println(ticker.DelayedRoundStart())
+
+	// event arrives after (2*interval)
+	fmt.Println("event arrives after (2*interval)")
+	stateTest = NewState(SetCommittee(dummyCommittee()), SetRandomness(testRandomness(time.Now().Add(time.Duration(interval)*time.Second))))
+	randomness = stateTest.Randomness().Float64()
+	// mock the dRNG event
+	go func() {
+		time.Sleep(time.Duration(2*interval+1) * time.Second)
+		ticker.UpdateRandomness(stateTest.Randomness())
+	}()
+	r = <-ticker.C()
+	fmt.Println("r= ", r, ", randomness=", randomness)
+	assert.Equal(t, r, randomness)
+	require.InDelta(t, 0, ticker.DelayedRoundStart(), float64(100*time.Millisecond))
+	fmt.Println(ticker.DelayedRoundStart())
+
 }
 
 func TestNoDRNGTicker(t *testing.T) {
