@@ -191,6 +191,7 @@ func (t *Tangle) Shutdown() {
 	t.ConsensusManager.Shutdown()
 	t.Storage.Shutdown()
 	t.LedgerState.Shutdown()
+	t.TimeManager.Shutdown()
 	t.Options.Store.Shutdown()
 	t.TipManager.Shutdown()
 }
@@ -294,6 +295,8 @@ func ApprovalWeights(weightProvider WeightProvider) Option {
 	}
 }
 
+// SyncTimeWindow is an Option for the Tangle that allows to define the time window in which the node will consider
+// itself in sync.
 func SyncTimeWindow(syncTimeWindow time.Duration) Option {
 	return func(options *Options) {
 		options.SyncTimeWindow = syncTimeWindow
