@@ -1014,6 +1014,16 @@ func (s *Supporters) ForEach(callback func(supporter Supporter)) {
 	})
 }
 
+// Clone returns a copy of the Supporters.
+func (s *Supporters) Clone() (clonedSupporters *Supporters) {
+	clonedSupporters = NewSupporters()
+	s.ForEach(func(supporter Supporter) {
+		clonedSupporters.Add(supporter)
+	})
+
+	return
+}
+
 // Intersect creates an intersection of two set of Supporters.
 func (s *Supporters) Intersect(other *Supporters) (intersection *Supporters) {
 	intersection = NewSupporters()
@@ -1021,16 +1031,6 @@ func (s *Supporters) Intersect(other *Supporters) (intersection *Supporters) {
 		if other.Has(supporter) {
 			intersection.Add(supporter)
 		}
-	})
-
-	return
-}
-
-// Clone returns a copy of the Supporters.
-func (s *Supporters) Clone() (clonedSupporters *Supporters) {
-	clonedSupporters = NewSupporters()
-	s.ForEach(func(supporter Supporter) {
-		clonedSupporters.Add(supporter)
 	})
 
 	return
