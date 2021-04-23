@@ -249,7 +249,7 @@ type AliasOutput struct {
 	StateIndex         uint32            `json:"stateIndex"`
 	IsGovernanceUpdate bool              `json:"isGovernanceUpdate"`
 	IsOrigin           bool              `json:"isOrigin"`
-	IsGoldenCoin       bool              `json:"isGoldenCoin"`
+	IsDelegated        bool              `json:"isDelegated"`
 
 	// marshaled to base64
 	StateData          []byte `json:"stateData,omitempty"`
@@ -282,8 +282,8 @@ func (a *AliasOutput) ToLedgerStateOutput(id ledgerstate.OutputID) (ledgerstate.
 	isGovernanceUpdate := a.IsGovernanceUpdate
 	// isOrigin
 	isOrigin := a.IsOrigin
-	// isGoldenCoin
-	isGoldenCoin := a.IsGoldenCoin
+	// isDelegated
+	isDelegated := a.IsDelegated
 
 	// no suitable constructor, doing it the manual way
 	res := &ledgerstate.AliasOutput{}
@@ -300,7 +300,7 @@ func (a *AliasOutput) ToLedgerStateOutput(id ledgerstate.OutputID) (ledgerstate.
 	res.SetStateIndex(stateIndex)
 	res.SetIsGovernanceUpdated(isGovernanceUpdate)
 	res.SetIsOrigin(isOrigin)
-	res.SetIsGoldenCoin(isGoldenCoin)
+	res.SetIsDelegated(isDelegated)
 
 	// optional fields
 	if a.StateData != nil {
@@ -353,7 +353,7 @@ func AliasOutputFromLedgerstate(output ledgerstate.Output) (*AliasOutput, error)
 		GovernanceMetadata: castedOutput.GetGovernanceMetadata(),
 		ImmutableData:      castedOutput.GetImmutableData(),
 		IsOrigin:           castedOutput.IsOrigin(),
-		IsGoldenCoin:       castedOutput.IsGoldenCoin(),
+		IsDelegated:        castedOutput.IsDelegated(),
 	}
 
 	if !castedOutput.IsSelfGoverned() {
