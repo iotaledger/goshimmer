@@ -1024,18 +1024,6 @@ func (s *Supporters) Clone() (clonedSupporters *Supporters) {
 	return
 }
 
-// Intersect creates an intersection of two set of Supporters.
-func (s *Supporters) Intersect(other *Supporters) (intersection *Supporters) {
-	intersection = NewSupporters()
-	s.ForEach(func(supporter Supporter) {
-		if other.Has(supporter) {
-			intersection.Add(supporter)
-		}
-	})
-
-	return
-}
-
 // String returns a human readable version of the Supporters.
 func (s *Supporters) String() string {
 	structBuilder := stringify.StructBuilder("Supporters")
