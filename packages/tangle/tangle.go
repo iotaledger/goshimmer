@@ -189,6 +189,7 @@ func (t *Tangle) Shutdown() {
 	t.Booker.Shutdown()
 	t.LedgerState.Shutdown()
 	t.ConsensusManager.Shutdown()
+	t.ApprovalWeightManager.Shutdown()
 	t.Storage.Shutdown()
 	t.LedgerState.Shutdown()
 	t.TimeManager.Shutdown()
