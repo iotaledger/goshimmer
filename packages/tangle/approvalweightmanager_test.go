@@ -726,7 +726,6 @@ func TestAggregatedBranchApproval(t *testing.T) {
 	defer tangle.Shutdown()
 	tangle.Setup()
 
-	//testEventMock := newEventMock(t, tangle.ApprovalWeightManager)
 	testFramework := NewMessageTestFramework(tangle, WithGenesisOutput("G1", 500), WithGenesisOutput("G2", 500))
 
 	// ISSUE Message1
@@ -769,9 +768,11 @@ func TestAggregatedBranchApproval(t *testing.T) {
 		testFramework.CreateMessage("Message5", WithStrongParents("Message4", "Message1"), WithIssuer(nodes["A"].PublicKey()), WithInputs("A"), WithOutput("E", 500))
 		testFramework.IssueMessages("Message5").WaitApprovalWeightProcessed()
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message5")), "Branch5")
-		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewAggregatedBranch(ledgerstate.BranchIDs{
-			testFramework.BranchID("Message4"): types.Void,
-			testFramework.BranchID("Message5"): types.Void}).ID(),
+		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewAggregatedBranch(
+			ledgerstate.BranchIDs{
+				testFramework.BranchID("Message4"): types.Void,
+				testFramework.BranchID("Message5"): types.Void,
+			}).ID(),
 			"Branch4+5",
 		)
 
