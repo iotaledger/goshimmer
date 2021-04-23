@@ -394,6 +394,22 @@ func (a *ApprovalWeightManager) migrateMarkerSupportersToNewBranch(marker *marke
 	}
 }
 
+func (a *ApprovalWeightManager) branchConfirmationLevel(branchID ledgerstate.BranchID) (branchConfirmationLevel int) {
+	conflictBranchIDs, err := a.tangle.LedgerState.BranchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchID))
+	if err != nil {
+		panic(err)
+	}
+
+	branchConfirmationLevel = int(^uint(0) >> 1)
+	for conflictBranchID := range conflictBranchIDs {
+		if currentLevel := a.Events.BranchConfirmation.Level(conflictBranchID); currentLevel < branchConfirmationLevel {
+			branchConfirmationLevel = currentLevel
+		}
+	}
+
+	return
+}
+
 func (a *ApprovalWeightManager) updateMarkerWeight(marker *markers.Marker, message *Message) {
 	if index, exists := a.lastConfirmedMarkers[marker.SequenceID()]; exists && index >= marker.Index() {
 		return
@@ -410,7 +426,7 @@ func (a *ApprovalWeightManager) updateMarkerWeight(marker *markers.Marker, messa
 		if a.tangle.Booker.MarkersManager.MessageID(currentMarker) == EmptyMessageID {
 			continue
 		}
-		if branchID != ledgerstate.MasterBranchID && a.Events.BranchConfirmation.Level(branchID) == 0 {
+		if branchID != ledgerstate.MasterBranchID && a.branchConfirmationLevel(branchID) == 0 {
 			break
 		}
 
