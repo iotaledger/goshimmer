@@ -1,6 +1,7 @@
 package drng
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -94,19 +95,20 @@ func (t *Ticker) setDelayedRoundStart(d time.Duration) {
 
 // sends the next random number to the consumer channel.
 func (t *Ticker) send() {
+	t.setDelayedRoundStart(0)
 	randomness := t.defaultValue
-	start := time.Now()
 
 	if t.dRNGState() != nil && t.dRNGTicker != nil {
 		// check if the randomness is "fresh"
 		if t.missingDRNG && clock.Since(t.dRNGState().Randomness().Timestamp) < time.Duration(t.interval)*time.Second {
+			fmt.Println("L103")
 			t.missingDRNG = false
-			t.setDelayedRoundStart(0)
 			randomness = t.dRNGState().Randomness().Float64()
 			// the expected time that we should receive a new randomness
 			timeToNextDRNG := t.dRNGState().Randomness().Timestamp.Add(time.Duration(t.interval) * time.Second).Sub(clock.SyncedTime())
 			t.dRNGTicker.Reset(timeToNextDRNG)
 		} else {
+			fmt.Println("L110")
 			// set ticker to awaitOffset
 			t.dRNGTicker.Reset(time.Duration(t.awaitOffset) * time.Second)
 		}
@@ -115,25 +117,29 @@ func (t *Ticker) send() {
 		for {
 			// abort if we already get the latest randomness
 			if randomness != t.defaultValue {
+				fmt.Println("L119")
 				break out
 			}
 			select {
 			// receive randomness from Randomness event
 			case randomnessEvent := <-t.fromRandomnessEvent:
+				fmt.Println("L126:")
 				// check if the randomness is "fresh"
-				if clock.Since(randomnessEvent.Timestamp) < time.Duration(t.awaitOffset)*time.Second {
-					delay := time.Since(start)
-					t.setDelayedRoundStart(delay)
-					randomness = t.dRNGState().Randomness().Float64()
-					if t.dRNGTicker != nil {
-						t.dRNGTicker.Reset(time.Duration(t.interval) * time.Second)
+				if t.dRNGTicker != nil {
+					fmt.Println("L129")
+					if clock.Since(randomnessEvent.Timestamp) < time.Duration(t.awaitOffset)*time.Second {
+						fmt.Println("L131")
+						randomness = t.dRNGState().Randomness().Float64()
+						timeToNextDRNG := randomnessEvent.Timestamp.Add(time.Duration(t.interval) * time.Second).Sub(clock.SyncedTime())
+						t.dRNGTicker.Reset(timeToNextDRNG)
+						t.setDelayedRoundStart(time.Duration(t.interval)*time.Second - timeToNextDRNG)
 					}
 					break out
 				}
 			case <-t.dRNGTicker.C:
+				fmt.Println("L140")
 				// still no new randomness within awaitOffset, take the default value, and reset dRNGTicker
-				delay := time.Since(start)
-				t.setDelayedRoundStart(delay)
+				t.setDelayedRoundStart(time.Duration(t.awaitOffset) * time.Second)
 				now := clock.SyncedTime().Unix()
 				t.dRNGTicker.Reset(time.Duration(ResolveNextTimePoint(now, t.interval)-now) * time.Second)
 				break out
