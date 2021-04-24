@@ -56,8 +56,8 @@ func TestAliasOutput_NewAliasOutputMint(t *testing.T) {
 		stateAddy := randAliasAddress()
 		data := []byte("dummy")
 		alias, err := NewAliasOutputMint(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}, stateAddy, data)
-		assert.Error(t, err)
-		assert.Nil(t, alias)
+		assert.NoError(t, err)
+		assert.NotNil(t, alias)
 	})
 
 	t.Run("CASE: Non existent state address", func(t *testing.T) {
@@ -727,10 +727,10 @@ func TestAliasOutput_SetIsDelegated(t *testing.T) {
 func TestAliasOutput_SetStateAddress(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		alias := dummyAliasOutput()
-		newWrongAddy := randAliasAddress()
+		newAliasAddy := randAliasAddress()
 		newAddy := randEd25119Address()
-		err := alias.SetStateAddress(newWrongAddy)
-		assert.Error(t, err)
+		err := alias.SetStateAddress(newAliasAddy)
+		assert.NoError(t, err)
 		err = alias.SetStateAddress(newAddy)
 		assert.NoError(t, err)
 		assert.True(t, alias.GetStateAddress().Equals(newAddy))
@@ -1602,7 +1602,9 @@ func TestAliasOutput_UnlockValid(t *testing.T) {
 	})
 
 	t.Run("CASE: Unsupported unlock block", func(t *testing.T) {
-		ok, err := alias.UnlockValid(&Transaction{}, NewReferenceUnlockBlock(0), Outputs{})
+		txEssence := NewTransactionEssence(0, time.Time{}, identity.ID{}, identity.ID{}, nil, nil)
+		tx := NewTransaction(txEssence, nil)
+		ok, err := alias.UnlockValid(tx, NewReferenceUnlockBlock(0), Outputs{})
 		t.Log(err)
 		assert.Error(t, err)
 		assert.False(t, ok)
