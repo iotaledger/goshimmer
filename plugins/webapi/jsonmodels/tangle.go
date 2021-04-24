@@ -55,16 +55,17 @@ func NewMessage(message *tangle.Message) Message {
 
 // MessageMetadata represents the JSON model of the tangle.MessageMetadata.
 type MessageMetadata struct {
-	ID                 string            `json:"id"`
-	ReceivedTime       int64             `json:"receivedTime"`
-	Solid              bool              `json:"solid"`
-	SolidificationTime int64             `json:"solidificationTime"`
-	StructureDetails   *StructureDetails `json:"structureDetails,omitempty"`
-	BranchID           string            `json:"branchID"`
-	Scheduled          bool              `json:"scheduled"`
-	Booked             bool              `json:"booked"`
-	Eligible           bool              `json:"eligible"`
-	Invalid            bool              `json:"invalid"`
+	ID                      string            `json:"id"`
+	ReceivedTime            int64             `json:"receivedTime"`
+	Solid                   bool              `json:"solid"`
+	SolidificationTime      int64             `json:"solidificationTime"`
+	StructureDetails        *StructureDetails `json:"structureDetails,omitempty"`
+	BranchID                string            `json:"branchID"`
+	Scheduled               bool              `json:"scheduled"`
+	Booked                  bool              `json:"booked"`
+	Eligible                bool              `json:"eligible"`
+	Invalid                 bool              `json:"invalid"`
+	FinalizedApprovalWeight bool              `json:"finalizedApprovalWeight"`
 }
 
 // NewMessageMetadata returns MessageMetadata from the given tangle.MessageMetadata.
@@ -75,16 +76,17 @@ func NewMessageMetadata(metadata *tangle.MessageMetadata) MessageMetadata {
 	}
 
 	return MessageMetadata{
-		ID:                 metadata.ID().Base58(),
-		ReceivedTime:       metadata.ReceivedTime().Unix(),
-		Solid:              metadata.IsSolid(),
-		SolidificationTime: metadata.SolidificationTime().Unix(),
-		StructureDetails:   NewStructureDetails(metadata.StructureDetails()),
-		BranchID:           branchID.String(),
-		Scheduled:          metadata.Scheduled(),
-		Booked:             metadata.IsBooked(),
-		Eligible:           metadata.IsEligible(),
-		Invalid:            metadata.IsInvalid(),
+		ID:                      metadata.ID().Base58(),
+		ReceivedTime:            metadata.ReceivedTime().Unix(),
+		Solid:                   metadata.IsSolid(),
+		SolidificationTime:      metadata.SolidificationTime().Unix(),
+		StructureDetails:        NewStructureDetails(metadata.StructureDetails()),
+		BranchID:                branchID.String(),
+		Scheduled:               metadata.Scheduled(),
+		Booked:                  metadata.IsBooked(),
+		Eligible:                metadata.IsEligible(),
+		Invalid:                 metadata.IsInvalid(),
+		FinalizedApprovalWeight: metadata.IsFinalizedApprovalWeight(),
 	}
 }
 

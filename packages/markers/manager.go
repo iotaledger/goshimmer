@@ -71,14 +71,14 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 	// rank for this message is set to highest rank of parents + 1
 	inheritedStructureDetails.Rank++
 
-	normalizedMarkers, normalizedSequences := m.normalizeMarkers(mergedPastMarkers)
+	normalizedMarkers, referencedSequences := m.normalizeMarkers(mergedPastMarkers)
 	rankOfReferencedSequences := normalizedMarkers.HighestRank()
 	referencedMarkers, referencedMarkersExist := normalizedMarkers.Markers()
 
 	// if this is the first marker create the genesis sequence and index
 	if !referencedMarkersExist {
 		referencedMarkers = NewMarkers(&Marker{sequenceID: 0, index: 0})
-		normalizedSequences = map[SequenceID]types.Empty{0: types.Void}
+		referencedSequences = map[SequenceID]types.Empty{0: types.Void}
 	}
 
 	cachedSequence, newSequenceCreated := m.fetchSequence(referencedMarkers, rankOfReferencedSequences, sequenceAlias)
@@ -94,7 +94,7 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 	}
 
 	cachedSequence.Consume(func(sequence *Sequence) {
-		if _, fetchedSequenceReferenced := normalizedSequences[sequence.ID()]; !fetchedSequenceReferenced {
+		if _, fetchedSequenceReferenced := referencedSequences[sequence.ID()]; !fetchedSequenceReferenced {
 			inheritedStructureDetails.PastMarkers = referencedMarkers
 			return
 		}
@@ -279,14 +279,14 @@ func (m *Manager) Shutdown() {
 // same set (the remaining Markers are the "most special" Markers that reference all Markers in the set grouped by the
 // rank of their corresponding Sequence). In addition, the method returns all SequenceIDs of the Markers that were not
 // referenced by any of the Markers (the tips of the Sequence DAG).
-func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkersByRank *markersByRank, normalizedSequences SequenceIDs) {
+func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkersByRank *markersByRank, referencedSequences SequenceIDs) {
 	rankOfSequencesCache := make(map[SequenceID]uint64)
 
 	normalizedMarkersByRank = newMarkersByRank()
-	normalizedSequences = make(SequenceIDs)
+	referencedSequences = make(SequenceIDs)
 	// group markers with same sequence rank
 	markers.ForEach(func(sequenceID SequenceID, index Index) bool {
-		normalizedSequences[sequenceID] = types.Void
+		referencedSequences[sequenceID] = types.Void
 		normalizedMarkersByRank.Add(m.rankOfSequence(sequenceID, rankOfSequencesCache), sequenceID, index)
 
 		return true
@@ -311,9 +311,6 @@ func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkersByRank *m
 			if !m.Sequence(sequenceID).Consume(func(sequence *Sequence) {
 				// for each of the parentMarkers of this particular index
 				sequence.ReferencedMarkers(index).ForEach(func(referencedSequenceID SequenceID, referencedIndex Index) bool {
-					// of this marker delete the referenced sequences since they are no sequence tips anymore in the sequence DAG
-					delete(normalizedSequences, referencedSequenceID)
-
 					rankOfReferencedSequence := m.rankOfSequence(referencedSequenceID, rankOfSequencesCache)
 					// check whether there is a marker in normalizedMarkersByRank that is from the same sequence
 					if index, indexExists := normalizedMarkersByRank.Index(rankOfReferencedSequence, referencedSequenceID); indexExists {
@@ -349,7 +346,7 @@ func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkersByRank *m
 		}
 	}
 
-	return normalizedMarkersByRank, normalizedSequences
+	return normalizedMarkersByRank, referencedSequences
 }
 
 // markersReferenceMarkersOfSameSequence is an internal utility function that determines if the given markers reference
