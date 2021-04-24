@@ -62,8 +62,6 @@ func NewTimeManager(tangle *Tangle) (timeManager *TimeManager) {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (t *TimeManager) Setup() {
-	// TODO: maybe it is better to attach to an event for each message being confirmed.
-	//  However, we're confirming a marker and walking in its past cone, hence it should have the most recent timestamp.
 	t.tangle.ApprovalWeightManager.Events.MarkerConfirmation.Attach(events.NewClosure(t.updateTime))
 }
 
