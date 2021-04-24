@@ -20,23 +20,31 @@ class EpochData {
 }
 
 export class EpochStore {
-    @observable oracleEpoch: EpochData = null;
+    @observable currentOracleEpoch: EpochData = null;
+    @observable previousOracleEpoch: EpochData = null;
+
 
     // loading
     @observable query_loading: boolean = false;
     @observable query_err: any = null;
 
-    @action getOracleEpoch = async () => {
+    @action getOracleEpochs = async () => {
         try {
             let res = await fetch("/api/epochs/oracle/current");
             if (res.status === 404) {
                 this.updateQueryError(QueryError.NotFound);
                 return;
             }
+            // get current oracle epoch
             let epochID = (await res.json() as EpochIDResponse).epochID;
             let dataRes = await this.getEpochData(epochID);
             let data = await dataRes as EpochData;
-            this.updateOracleEpoch(data);
+            this.updateOracleEpoch(true, data);
+
+            // get previous oracle epoch
+            dataRes = await this.getEpochData(epochID-1);
+            data = await dataRes as EpochData;
+            this.updateOracleEpoch(false, data);
         } catch (err) {
             this.updateQueryError(err);
         }
@@ -62,16 +70,21 @@ export class EpochStore {
     }
 
     @action
-    updateOracleEpoch = (data: EpochData) => {
+    updateOracleEpoch = (updateCurrentOracleEpoch: boolean, data: EpochData) => {
         data.weights.sort((a, b) => {
             return b.mana - a.mana;
         })
-        this.oracleEpoch = data;
+        if (updateCurrentOracleEpoch) {
+            this.currentOracleEpoch = data;
+        } else {
+            this.previousOracleEpoch = data;
+        }
     }
 
     @action
     reset = () => {
-        this.oracleEpoch = null;
+        this.currentOracleEpoch = null;
+        this.previousOracleEpoch = null;
         this.query_err = null;
         this.query_loading = null;
     }

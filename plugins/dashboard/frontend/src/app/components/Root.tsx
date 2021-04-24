@@ -83,7 +83,7 @@ export class Root extends React.Component<Props, any> {
                         </LinkContainer>
                         <LinkContainer to="/epoch">
                             <Nav.Link>
-                                Epoch
+                                Epochs
                             </Nav.Link>
                         </LinkContainer>
                     </Nav>
