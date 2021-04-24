@@ -943,7 +943,7 @@ type AliasOutput struct {
 	aliasAddress AliasAddress
 	// address which controls the state and state data
 	// It can only be changed by governing entity, if set. Otherwise it is self governed.
-	// It should be an address unlocked by signature, not AliasAddress
+	// Can also be an AliasAddress
 	stateAddress Address
 	// state index is enforced incremental counter of state updates. The constraint is:
 	// - start at 0 when chain in minted
@@ -978,8 +978,8 @@ func NewAliasOutputMint(balances map[Color]uint64, stateAddr Address, immutableD
 	if !IsAboveDustThreshold(balances) {
 		return nil, xerrors.New("AliasOutput: colored balances are below dust threshold")
 	}
-	if stateAddr == nil || stateAddr.Type() == AliasAddressType {
-		return nil, xerrors.New("AliasOutput: mandatory state address must be backed by a private key, can't be an alias")
+	if stateAddr == nil {
+		return nil, xerrors.New("AliasOutput: mandatory state address cannot be nil")
 	}
 	ret := &AliasOutput{
 		balances:     NewColoredBalances(balances),
@@ -1162,14 +1162,14 @@ func (a *AliasOutput) GetStateAddress() Address {
 
 // SetStateAddress sets the state controlling address
 func (a *AliasOutput) SetStateAddress(addr Address) error {
-	if addr == nil || addr.Type() == AliasAddressType {
-		return xerrors.New("AliasOutput: mandatory state address cannot be a AliasAddress")
+	if addr == nil {
+		return xerrors.New("AliasOutput: mandatory state address cannot be nil")
 	}
 	a.stateAddress = addr
 	return nil
 }
 
-// SetGoverningAddress sets the governing address or nil for self-giverning
+// SetGoverningAddress sets the governing address or nil for self-governing
 func (a *AliasOutput) SetGoverningAddress(addr Address) {
 	if addr.Array() == a.stateAddress.Array() {
 		addr = nil // self governing
@@ -1413,12 +1413,13 @@ func (a *AliasOutput) ObjectStorageValue() []byte {
 
 // UnlockValid check unlock and validates chain
 func (a *AliasOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inputs []Output) (bool, error) {
+	// find the chained output in the tx
+	chained, err := a.findChainedOutputAndCheckFork(tx)
+	if err != nil {
+		return false, err
+	}
 	switch blk := unlockBlock.(type) {
 	case *SignatureUnlockBlock:
-		chained, err := a.findChainedOutputAndCheckFork(tx)
-		if err != nil {
-			return false, err
-		}
 		// check signatures and validate transition
 		if chained != nil {
 			// chained output is present
@@ -1449,10 +1450,40 @@ func (a *AliasOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inpu
 			}
 		}
 		return true, nil
-
 	case *AliasUnlockBlock:
-		// state cannot be unlocked by alias reference, so only checking governance mode
-		return a.unlockedGovernanceByAliasIndex(tx, blk.AliasInputIndex(), inputs)
+		// The referenced alias output should always be unlocked itself for state transition. But since the state address
+		// can be an AliasAddress, the referenced alias may be unlocked by in turn an other referenced alias. This can cause
+		// circular dependency among the unlock blocks, that results in all of them being unlocked without anyone having to
+		// provide a signature. As a consequence, the circular dependencies of the alias unlock blocks is checked before
+		// the UnlockValid() methods are called on any unlock blocks. We assume in this function that there is no such
+		// circular dependency.
+		if chained != nil {
+			// chained output is present
+			if chained.isGovernanceUpdate {
+				if valid, err := a.unlockedGovernanceTransitionByAliasIndex(tx, blk.AliasInputIndex(), inputs); !valid {
+					return false, xerrors.Errorf("referenced alias does not unlock alias for governance transition: %w", err)
+				}
+			} else {
+				if valid, err := a.unlockedStateTransitionByAliasIndex(tx, blk.AliasInputIndex(), inputs); !valid {
+					return false, xerrors.Errorf("referenced alias does not unlock alias for state transition: %w", err)
+				}
+			}
+			// validate if transition passes the constraints
+			if err := a.validateTransition(chained, tx); err != nil {
+				return false, err
+			}
+		} else {
+			// no chained output is present. Alias being destroyed?
+			// check if alias is unlocked for governance transition by the referenced
+			if valid, err := a.unlockedGovernanceTransitionByAliasIndex(tx, blk.AliasInputIndex(), inputs); !valid {
+				return false, xerrors.Errorf("referenced alias does not unlock alias for governance transition: %w", err)
+			}
+			// validate deletion constraint
+			if err := a.validateDestroyTransitionNow(tx.Essence().Timestamp()); err != nil {
+				return false, err
+			}
+		}
+		return true, nil
 	}
 	return false, xerrors.New("unsupported unlock block type")
 }
@@ -1697,12 +1728,10 @@ func (a *AliasOutput) validateDestroyTransitionNow(nowis time.Time) error {
 	return nil
 }
 
-// unlockedGovernanceByAliasIndex unlock one step of alias dereference
-func (a *AliasOutput) unlockedGovernanceByAliasIndex(tx *Transaction, refIndex uint16, inputs []Output) (bool, error) {
-	if a.IsSelfGoverned() {
-		return false, xerrors.New("AliasOutput: self-governing alias output can't be unlocked by alias reference")
-	}
-	if a.governingAddress.Type() != AliasAddressType {
+// unlockedGovernanceTransitionByAliasIndex unlocks one step of alias dereference for governance transition
+func (a *AliasOutput) unlockedGovernanceTransitionByAliasIndex(tx *Transaction, refIndex uint16, inputs []Output) (bool, error) {
+	// when output is self governed, a.GetGoverningAddress() returns the state address
+	if a.GetGoverningAddress().Type() != AliasAddressType {
 		return false, xerrors.New("AliasOutput: expected governing address of AliasAddress type")
 	}
 	if int(refIndex) > len(inputs) {
@@ -1712,7 +1741,27 @@ func (a *AliasOutput) unlockedGovernanceByAliasIndex(tx *Transaction, refIndex u
 	if !ok {
 		return false, xerrors.New("AliasOutput: the referenced output is not of AliasOutput type")
 	}
-	if !refInput.GetAliasAddress().Equals(a.governingAddress.(*AliasAddress)) {
+	if !refInput.GetAliasAddress().Equals(a.GetGoverningAddress().(*AliasAddress)) {
+		return false, xerrors.New("AliasOutput: wrong alias reference address")
+	}
+	// the referenced output must be unlocked for state update
+	return !refInput.hasToBeUnlockedForGovernanceUpdate(tx), nil
+}
+
+// unlockedStateTransitionByAliasIndex unlocks one step of alias dereference for state transition
+func (a *AliasOutput) unlockedStateTransitionByAliasIndex(tx *Transaction, refIndex uint16, inputs []Output) (bool, error) {
+	// when output is self governed, a.GetGoverningAddress() returns the state address
+	if a.GetStateAddress().Type() != AliasAddressType {
+		return false, xerrors.New("AliasOutput: expected state address of AliasAddress type")
+	}
+	if int(refIndex) > len(inputs) {
+		return false, xerrors.New("AliasOutput: wrong alias reference index")
+	}
+	refInput, ok := inputs[refIndex].(*AliasOutput)
+	if !ok {
+		return false, xerrors.New("AliasOutput: the referenced output is not of AliasOutput type")
+	}
+	if !refInput.GetAliasAddress().Equals(a.GetStateAddress().(*AliasAddress)) {
 		return false, xerrors.New("AliasOutput: wrong alias reference address")
 	}
 	// the referenced output must be unlocked for state update
