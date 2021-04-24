@@ -125,14 +125,20 @@ func configureFPC(plugin *node.Plugin) {
 
 	Voter().Events().Finalized.Attach(events.NewClosure(ConsensusMechanism().ProcessVote))
 	Voter().Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
-		if ev.Ctx.Type == vote.ConflictType {
+		switch ev.Ctx.Type {
+		case vote.ConflictType:
 			plugin.LogInfof("FPC finalized for transaction with id '%s' - final opinion: '%s'", ev.ID, ev.Opinion)
+		case vote.TimestampType:
+			plugin.LogInfof("FPC finalized for message with id '%s' - final opinion: '%s'", ev.ID, ev.Opinion)
 		}
 	}))
 
 	Voter().Events().Failed.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
-		if ev.Ctx.Type == vote.ConflictType {
+		switch ev.Ctx.Type {
+		case vote.ConflictType:
 			plugin.LogWarnf("FPC failed for transaction with id '%s' - last opinion: '%s'", ev.ID, ev.Opinion)
+		case vote.TimestampType:
+			plugin.LogWarnf("FPC failed for message with id '%s' - last opinion: '%s'", ev.ID, ev.Opinion)
 		}
 	}))
 }
