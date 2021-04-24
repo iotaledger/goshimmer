@@ -22,7 +22,7 @@ services:
       --prometheus.bindAddress=0.0.0.0:9312
       --prometheus.processMetrics=false
       --node.enablePlugins=analysis-server,analysis-dashboard,prometheus
-      --node.disablePlugins=portcheck,clock,dashboard,analysis-client,gossip,drng,issuer,syncbeaconfollower,messagelayer,pow,valuetransfers,consensus,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
+      --node.disablePlugins=portcheck,clock,dashboard,analysis-client,gossip,drng,issuer,syncbeaconfollower,messagelayer,mana,pow,valuetransfers,consensus,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
     volumes:
       - ./config.docker.json:/tmp/config.json:ro
       - goshimmer-cache:/go
@@ -41,16 +41,16 @@ services:
       --config=/tmp/config.json
       --database.directory=/tmp/mainnetdb
       --autopeering.seed=base58:8q491c3YWjbPwLmF2WD95YmCgh61j2kenCKHfGfByoWi
-      --node.enablePlugins=prometheus,spammer,faucet,syncbeacon,"webapi tools endpoint"
+      --node.enablePlugins=prometheus,spammer,syncbeacon,"webapi tools endpoint"
       --node.disablePlugins=syncbeaconfollower,clock
-      --faucet.seed=7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih
       --messageLayer.snapshot.file=/tmp/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin
       --messageLayer.snapshot.genesisNode=
       --syncbeacon.broadcastInterval=5
       --syncbeacon.startSynced=true
-      --metrics.manaResearch=true
-      --mana.enableResearchVectors=true
+      --metrics.manaResearch=false
+      --mana.enableResearchVectors=false
       --statement.writeStatement=true
+      --statement.writeManaThreshold=1.0
       --webapi.exportPath=/tmp/
     volumes:
       - ./config.docker.json:/tmp/config.json:ro
@@ -60,6 +60,33 @@ services:
       - "127.0.0.1:8080:8080/tcp" # web API
       - "127.0.0.1:8081:8081/tcp" # dashboard
       - "127.0.0.1:9311:9311/tcp" # prometheus
+    depends_on:
+      - entry_node
+
+  faucet:
+    image: golang:1.16.2
+    stop_grace_period: 1m
+    entrypoint: /go/bin/main
+    command: >
+      --config=/tmp/config.json
+      --database.directory=/tmp/mainnetdb
+      --autopeering.seed=base58:3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E
+      --node.enablePlugins=bootstrap,"webapi tools endpoint",faucet
+      --messageLayer.snapshot.file=/tmp/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin
+      --faucet.seed=7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih
+      --messageLayer.snapshot.genesisNode=
+      --node.disablePlugins=portcheck,clock
+      --statement.writeStatement=true
+      --statement.writeManaThreshold=1.0
+      --syncbeaconfollower.followNodes=EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP
+      --webapi.exportPath=/tmp/
+    volumes:
+      - ./config.docker.json:/tmp/config.json:ro
+      - goshimmer-cache:/go
+      - ../integration-tests/assets:/tmp/assets
+    ports:
+      - "127.0.0.1:8090:8080/tcp" # web API
+      - "127.0.0.1:8091:8081/tcp" # dashboard
     depends_on:
       - entry_node
 
@@ -74,6 +101,8 @@ services:
       --messageLayer.snapshot.file=/tmp/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin
       --messageLayer.snapshot.genesisNode=
       --node.disablePlugins=portcheck,clock
+      --statement.writeStatement=true
+      --statement.writeManaThreshold=1.0
       --syncbeaconfollower.followNodes=EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP
       --webapi.exportPath=/tmp/
     volumes:

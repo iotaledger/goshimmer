@@ -67,7 +67,7 @@ func (m *Marker) Index() (index Index) {
 }
 
 // Bytes returns a marshaled version of the Marker.
-func (m *Marker) Bytes() (marshaledMarker []byte) {
+func (m Marker) Bytes() (marshaledMarker []byte) {
 	return marshalutil.New(marshalutil.Uint64Size + marshalutil.Uint64Size).
 		Write(m.sequenceID).
 		Write(m.index).
@@ -263,10 +263,14 @@ func (m *Markers) Delete(sequenceID SequenceID) (existed bool) {
 // The method returns false if the iteration was aborted.
 func (m *Markers) ForEach(iterator func(sequenceID SequenceID, index Index) bool) (success bool) {
 	m.markersMutex.RLock()
-	defer m.markersMutex.RUnlock()
+	markersCopy := make(map[SequenceID]Index)
+	for sequenceID, index := range m.markers {
+		markersCopy[sequenceID] = index
+	}
+	m.markersMutex.RUnlock()
 
 	success = true
-	for sequenceID, index := range m.markers {
+	for sequenceID, index := range markersCopy {
 		if success = iterator(sequenceID, index); !success {
 			return
 		}
