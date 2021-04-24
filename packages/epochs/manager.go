@@ -137,6 +137,7 @@ func (m *Manager) RelativeNodeMana(nodeID identity.ID, t time.Time) (ownWeight, 
 func (m *Manager) ActiveMana(epochID ID) (manaPerID map[identity.ID]float64, totalMana float64) {
 	if !m.Epoch(epochID).Consume(func(epoch *Epoch) {
 		if !epoch.ManaRetrieved() {
+			// TODO: make sure that mana retrieved is always at end of epoch. otherwise it might have been retrieved before.
 			consensusMana := m.options.ManaRetriever(m.EpochIDToEndTime(epochID))
 			epoch.SetMana(consensusMana)
 		}
@@ -174,7 +175,6 @@ func (m *Manager) Shutdown() {
 	m.epochStorage.Shutdown()
 }
 
-// randomTimeInEpoch is a utility function useful for testing to generate a random time within an epoch.
 func (m *Manager) randomTimeInEpoch(epochID ID) time.Time {
 	startUnix := m.options.GenesisTime + int64(epochID)*m.options.Interval
 	return time.Unix(startUnix+rand.Int63n(m.options.Interval), 0)

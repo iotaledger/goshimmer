@@ -121,6 +121,11 @@ func EpochFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Epoch, 
 		return
 	}
 
+	if result.manaRetrieved, err = marshalUtil.ReadBool(); err != nil {
+		err = xerrors.Errorf("failed to parse mana retrieved value from MarshalUtil: %w", err)
+		return
+	}
+
 	return result, nil
 }
 
@@ -239,6 +244,7 @@ func (e *Epoch) ObjectStorageValue() []byte {
 		marshalUtil.WriteUint64(math.Float64bits(mana))
 	}
 	marshalUtil.WriteFloat64(e.totalMana)
+	marshalUtil.WriteBool(e.manaRetrieved)
 
 	return marshalUtil.Bytes()
 }

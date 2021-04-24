@@ -191,6 +191,10 @@ func (t *Tangle) Shutdown() {
 	t.LedgerState.Shutdown()
 	t.Options.Store.Shutdown()
 	t.TipManager.Shutdown()
+
+	if t.WeightProvider != nil {
+		t.WeightProvider.Shutdown()
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -315,6 +319,9 @@ type WeightProvider interface {
 
 	// EpochIDToEndTime calculates the end time of the given epoch.
 	EpochIDToEndTime(epochID Epoch) time.Time
+
+	// Shutdown shuts down the WeightProvider and persists its state.
+	Shutdown()
 }
 
 // WeightProviderFromEpochsManager returns a WeightProvider from an epochs.Manager instance so that it can be used as a
