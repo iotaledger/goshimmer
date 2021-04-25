@@ -122,6 +122,7 @@ func (t *Ticker) send() {
 				// check if the randomness is "fresh"
 				if t.dRNGTicker != nil {
 					if clock.Since(randomnessEvent.Timestamp) < time.Duration(t.awaitOffset)*time.Second {
+						t.missingDRNG = false
 						randomness = t.dRNGState().Randomness().Float64()
 						timeToNextDRNG := randomnessEvent.Timestamp.Add(time.Duration(t.interval) * time.Second).Sub(clock.SyncedTime())
 						t.dRNGTicker.Reset(timeToNextDRNG)
@@ -130,6 +131,7 @@ func (t *Ticker) send() {
 					break out
 				}
 			case <-t.dRNGTicker.C:
+				t.missingDRNG = true
 				// still no new randomness within awaitOffset, take the default value, and reset dRNGTicker
 				t.setDelayedRoundStart(time.Duration(t.awaitOffset) * time.Second)
 				t.dRNGTicker.Reset(time.Duration(time.Duration(t.interval-t.awaitOffset) * time.Second))

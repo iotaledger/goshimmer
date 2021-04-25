@@ -23,34 +23,41 @@ func testRandomness(t time.Time) *Randomness {
 
 // Test that the
 func TestTicker(t *testing.T) {
-	testInterval := int64(10) // needs to be the same value as in the code
-	// defaultValue := 0.6       // needs to be the same value as in the code
-	awaitOffset := int64(3) // needs to be the same value as in the code
+	testInterval := int64(10)
+	randDefault := 0.6
+	awaitOffset := int64(3)
 
-	fmt.Println("=========== event just after (interval) =========== ")
-	_, _, delay := tickerFunc(time.Duration(testInterval+1) * time.Second)
-	// randResult, randInput := ticker.tickerFunc(time.Duration(testInterval+1)*time.Second, time.Duration(testInterval)*time.Second)
-	// assert.Equal(t, randResult, randInput)
+	fmt.Println("=========== rand event arrives just before (interval) =========== ")
+	randResult, randInput, delay := tickerFunc(time.Duration(testInterval-1) * time.Second)
+	assert.Equal(t, randResult, randInput)
 	require.InDelta(t, time.Duration(0)*time.Second, delay, float64(100*time.Millisecond))
 
-	fmt.Println("=========== event arrives just before (interval+awaitOffset) =========== ")
-	_, _, delay = tickerFunc(time.Duration(testInterval+awaitOffset-1) * time.Second)
+	fmt.Println("=========== rand event arrives just after (interval) =========== ")
+	randResult, randInput, delay = tickerFunc(time.Duration(testInterval+1) * time.Second)
+	assert.Equal(t, randResult, randInput)
 	require.InDelta(t, time.Duration(0)*time.Second, delay, float64(100*time.Millisecond))
 
-	fmt.Println("=========== event arrives just after (interval+awaitOffset) =========== ")
-	_, _, delay = tickerFunc(time.Duration(testInterval+awaitOffset+1) * time.Second)
+	fmt.Println("=========== rand event arrives arrives just before (interval+awaitOffset) =========== ")
+	randResult, randInput, delay = tickerFunc(time.Duration(testInterval+awaitOffset-1) * time.Second)
+	assert.Equal(t, randResult, randInput)
+	require.InDelta(t, time.Duration(0)*time.Second, delay, float64(100*time.Millisecond))
+
+	fmt.Println("=========== rand event arrives arrives just after (interval+awaitOffset) =========== ")
+	randResult, randInput, delay = tickerFunc(time.Duration(testInterval+awaitOffset+1) * time.Second)
+	assert.Equal(t, randResult, randDefault)
 	require.InDelta(t, time.Duration(awaitOffset)*time.Second, delay, float64(100*time.Millisecond))
 
 }
 
 func tickerFunc(timestamp time.Duration) (randResult, randInput float64, delay time.Duration) {
-	testInterval := int64(10) // needs to be the same value as in the code
-	defaultValue := 0.6       // needs to be the same value as in the code
-	awaitOffset := int64(3)   // needs to be the same value as in the code
+
+	testInterval := int64(10)
+	randDefault := 0.6
+	awaitOffset := int64(3)
 	var testState *State
 	testState = NewState(SetCommittee(dummyCommittee()), SetRandomness(testRandomness(time.Now())))
 	stateFunc := func() *State { return testState }
-	ticker := NewTicker(stateFunc, testInterval, defaultValue, awaitOffset)
+	ticker := NewTicker(stateFunc, testInterval, randDefault, awaitOffset)
 
 	ticker.testStart()
 	defer ticker.Stop()
@@ -65,7 +72,14 @@ func tickerFunc(timestamp time.Duration) (randResult, randInput float64, delay t
 		ticker.UpdateRandomness(*timestampedRandomness)
 	}()
 
+	// listen to the randomness event after some delay
+	go func() {
+		time.Sleep(5 * time.Second)
+		randResult = <-ticker.C()
+	}()
+
 	ticker.missingDRNG = true
+	// sleep till everything is done
 	time.Sleep(time.Duration(testInterval)*time.Second + 5*time.Second)
 	delay = ticker.DelayedRoundStart()
 
