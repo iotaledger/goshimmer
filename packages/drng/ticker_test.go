@@ -21,8 +21,8 @@ func testRandomness(t time.Time) *Randomness {
 	return r
 }
 
-// Test that the
-func TestTicker(t *testing.T) {
+// Test that the send() function sets the delay and randomness correct
+func TestSend(t *testing.T) {
 	testInterval := int64(10)
 	randDefault := 0.6
 	awaitOffset := int64(3)
