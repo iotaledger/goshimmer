@@ -62,7 +62,11 @@ func (b *Booker) Setup() {
 			b.Events.Error.Trigger(xerrors.Errorf("failed to propagate ConflictBranch of %s to tangle: %w", transactionID, err))
 		}
 	}))
+
+	b.tangle.LedgerState.BranchDAG.Events.BranchConfirmed.Attach(events.NewClosure(b.CleanupBranch))
 }
+
+func (b *Booker) CleanupBranch(branchID ledgerstate.BranchID) {}
 
 // BookMessage tries to book the given Message (and potentially its contained Transaction) into the LedgerState and the Tangle.
 // It fires a MessageBooked event if it succeeds.

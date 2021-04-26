@@ -740,7 +740,7 @@ func (b *BranchDAG) setBranchLiked(cachedBranch *CachedBranch, liked bool) (modi
 		}
 
 		// trigger event
-		b.Events.BranchLiked.Trigger(NewBranchDAGEvent(cachedBranch))
+		b.Events.BranchLiked.Trigger(conflictBranch.ID())
 
 		// update the liked status of the future cone (it only effects the AggregatedBranches)
 		if err = b.updateLikedOfAggregatedChildBranches(conflictBranch.ID(), true); err != nil {
@@ -757,7 +757,7 @@ func (b *BranchDAG) setBranchLiked(cachedBranch *CachedBranch, liked bool) (modi
 		// set the branch to be not liked
 		if modified = conflictBranch.SetLiked(false); modified {
 			// trigger event
-			b.Events.BranchDisliked.Trigger(NewBranchDAGEvent(cachedBranch))
+			b.Events.BranchDisliked.Trigger(conflictBranch.ID())
 
 			// update the liked status of the future cone (it only affect the AggregatedBranches)
 			if propagationErr := b.updateLikedOfAggregatedChildBranches(conflictBranch.ID(), false); propagationErr != nil {
@@ -843,7 +843,7 @@ func (b *BranchDAG) setBranchMonotonicallyLiked(cachedBranch *CachedBranch, like
 
 		// trigger event if we changed the flag
 		if branch.SetLiked(true) {
-			b.Events.BranchLiked.Trigger(NewBranchDAGEvent(cachedBranch))
+			b.Events.BranchLiked.Trigger(branch.ID())
 		}
 
 		// update the liked status of the future cone (it only effects the AggregatedBranches)
@@ -864,7 +864,7 @@ func (b *BranchDAG) setBranchMonotonicallyLiked(cachedBranch *CachedBranch, like
 		}
 
 		// trigger event
-		b.Events.BranchDisliked.Trigger(NewBranchDAGEvent(cachedBranch))
+		b.Events.BranchDisliked.Trigger(branch.ID())
 
 		// update the like status and set the modified flag
 		if modified, err = b.updateMonotonicallyLikedStatus(branch.ID(), false); err != nil {
@@ -920,7 +920,7 @@ func (b *BranchDAG) setBranchFinalized(cachedBranch *CachedBranch, finalized boo
 	switch finalized {
 	case true:
 		// trigger event
-		b.Events.BranchFinalized.Trigger(NewBranchDAGEvent(cachedBranch))
+		b.Events.BranchFinalized.Trigger(branch.ID())
 
 		// propagate finalized update to aggregated ChildBranches
 		if err = b.updateFinalizedOfAggregatedChildBranches(branch.ID(), true); err != nil {
@@ -963,7 +963,7 @@ func (b *BranchDAG) setBranchFinalized(cachedBranch *CachedBranch, finalized boo
 		}
 	case false:
 		// trigger event
-		b.Events.BranchUnfinalized.Trigger(NewBranchDAGEvent(cachedBranch))
+		b.Events.BranchUnfinalized.Trigger(branch.ID())
 
 		// propagate finalized update to aggregated ChildBranches
 		if err = b.updateFinalizedOfAggregatedChildBranches(branch.ID(), false); err != nil {
@@ -1053,12 +1053,12 @@ func (b *BranchDAG) updateLikedOfAggregatedBranch(currentCachedBranch *CachedBra
 
 		// trigger event if the value was changed
 		if currentBranch.SetLiked(true) {
-			b.Events.BranchLiked.Trigger(NewBranchDAGEvent(currentCachedBranch))
+			b.Events.BranchLiked.Trigger(currentBranch.ID())
 		}
 	case false:
 		// trigger event if the value was changed
 		if currentBranch.SetLiked(false) {
-			b.Events.BranchDisliked.Trigger(NewBranchDAGEvent(currentCachedBranch))
+			b.Events.BranchDisliked.Trigger(currentBranch.ID())
 		}
 	}
 
@@ -1137,12 +1137,12 @@ func (b *BranchDAG) updateFinalizedOfAggregatedBranch(currentCachedBranch *Cache
 
 		// trigger event if the value was changed
 		if currentBranch.SetFinalized(true) {
-			b.Events.BranchFinalized.Trigger(NewBranchDAGEvent(currentCachedBranch))
+			b.Events.BranchFinalized.Trigger(currentBranch.ID())
 		}
 	case false:
 		// trigger event if the value was changed
 		if currentBranch.SetFinalized(false) {
-			b.Events.BranchUnfinalized.Trigger(NewBranchDAGEvent(currentCachedBranch))
+			b.Events.BranchUnfinalized.Trigger(currentBranch.ID())
 		}
 	}
 
@@ -1222,7 +1222,7 @@ ProcessStack:
 			}
 
 			// trigger event
-			b.Events.BranchMonotonicallyLiked.Trigger(NewBranchDAGEvent(currentCachedBranch))
+			b.Events.BranchMonotonicallyLiked.Trigger(currentBranch.ID())
 		case false:
 			// abort if the current Branch is disliked already
 			if !currentBranch.SetMonotonicallyLiked(false) {
@@ -1237,7 +1237,7 @@ ProcessStack:
 			}
 
 			// trigger event
-			b.Events.BranchMonotonicallyDisliked.Trigger(NewBranchDAGEvent(currentCachedBranch))
+			b.Events.BranchMonotonicallyDisliked.Trigger(currentBranch.ID())
 		}
 
 		// iterate through ChildBranch references and queue found Branches for propagation
@@ -1330,7 +1330,7 @@ ProcessStack:
 			}
 
 			// trigger event
-			b.Events.BranchConfirmed.Trigger(NewBranchDAGEvent(currentCachedBranch))
+			b.Events.BranchConfirmed.Trigger(currentBranch.ID())
 		case Rejected:
 			// abort if the current Branch is not confirmed already
 			if !currentBranch.SetInclusionState(Rejected) {
@@ -1339,7 +1339,7 @@ ProcessStack:
 			}
 
 			// trigger event
-			b.Events.BranchRejected.Trigger(NewBranchDAGEvent(currentCachedBranch))
+			b.Events.BranchRejected.Trigger(currentBranch.ID())
 		case Pending:
 			// abort if the current Branch is not confirmed already
 			if !currentBranch.SetInclusionState(Pending) {
@@ -1348,7 +1348,7 @@ ProcessStack:
 			}
 
 			// trigger event
-			b.Events.BranchPending.Trigger(NewBranchDAGEvent(currentCachedBranch))
+			b.Events.BranchPending.Trigger(currentBranch.ID())
 		}
 
 		// iterate through ChildBranch references and queue found Branches for propagation
@@ -1428,39 +1428,11 @@ func NewBranchDAGEvents() *BranchDAGEvents {
 	}
 }
 
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region BranchDAGEvent ///////////////////////////////////////////////////////////////////////////////////////////////
-
-// BranchDAGEvent represents an event object that contains a Branch and that is triggered by the BranchDAG.
-type BranchDAGEvent struct {
-	Branch *CachedBranch
-}
-
-// NewBranchDAGEvent creates a new BranchDAGEvent from the given CachedBranch.
-func NewBranchDAGEvent(branch *CachedBranch) (newBranchEvent *BranchDAGEvent) {
-	return &BranchDAGEvent{Branch: branch}
-}
-
-// Retain marks all of the CachedObjects in the event to be retained for future use.
-func (b *BranchDAGEvent) Retain() *BranchDAGEvent {
-	return &BranchDAGEvent{
-		Branch: b.Branch.Retain(),
-	}
-}
-
-// Release marks all of the CachedObjects in the event as not used anymore.
-func (b *BranchDAGEvent) Release() *BranchDAGEvent {
-	b.Branch.Release()
-
-	return b
-}
-
 // branchEventCaller is an internal utility function that type casts the generic parameters of the event handler to
 // their specific type. It automatically retains all the contained CachedObjects for their use in the registered
 // callback.
 func branchEventCaller(handler interface{}, params ...interface{}) {
-	handler.(func(branch *BranchDAGEvent))(params[0].(*BranchDAGEvent).Retain())
+	handler.(func(branchID BranchID))(params[0].(BranchID))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

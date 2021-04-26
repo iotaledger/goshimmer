@@ -1302,101 +1302,92 @@ func (e *eventMock) AssertExpectations(t mock.TestingT) bool {
 	return e.Mock.AssertExpectations(t)
 }
 
-func (e *eventMock) BranchLiked(cachedBranch *BranchDAGEvent) {
-	if debugAlias, exists := e.debugAlias[cachedBranch.Branch.Unwrap().ID()]; exists {
+func (e *eventMock) BranchLiked(branchID BranchID) {
+	if debugAlias, exists := e.debugAlias[branchID]; exists {
 		e.test.Logf("EVENT TRIGGERED:\tBranchLiked(%s)", debugAlias)
 	}
 
-	defer cachedBranch.Release()
-	e.Called(cachedBranch.Branch.Unwrap().ID())
+	e.Called(branchID)
 
 	e.calledEvents++
 }
 
-func (e *eventMock) BranchDisliked(cachedBranch *BranchDAGEvent) {
-	if debugAlias, exists := e.debugAlias[cachedBranch.Branch.Unwrap().ID()]; exists {
+func (e *eventMock) BranchDisliked(branchID BranchID) {
+	if debugAlias, exists := e.debugAlias[branchID]; exists {
 		e.test.Logf("EVENT TRIGGERED:\tBranchDisliked(%s)", debugAlias)
 	}
 
-	defer cachedBranch.Release()
-	e.Called(cachedBranch.Branch.Unwrap().ID())
+	e.Called(branchID)
 
 	e.calledEvents++
 }
 
-func (e *eventMock) BranchMonotonicallyLiked(cachedBranch *BranchDAGEvent) {
-	if debugAlias, exists := e.debugAlias[cachedBranch.Branch.Unwrap().ID()]; exists {
+func (e *eventMock) BranchMonotonicallyLiked(branchID BranchID) {
+	if debugAlias, exists := e.debugAlias[branchID]; exists {
 		e.test.Logf("EVENT TRIGGERED:\tBranchMonotonicallyLiked(%s)", debugAlias)
 	}
 
-	defer cachedBranch.Release()
-	e.Called(cachedBranch.Branch.Unwrap().ID())
+	e.Called(branchID)
 
 	e.calledEvents++
 }
 
-func (e *eventMock) BranchMonotonicallyDisliked(cachedBranch *BranchDAGEvent) {
-	if debugAlias, exists := e.debugAlias[cachedBranch.Branch.Unwrap().ID()]; exists {
+func (e *eventMock) BranchMonotonicallyDisliked(branchID BranchID) {
+	if debugAlias, exists := e.debugAlias[branchID]; exists {
 		e.test.Logf("EVENT TRIGGERED:\tBranchMonotonicallyDisliked(%s)", debugAlias)
 	}
 
-	defer cachedBranch.Release()
-	e.Called(cachedBranch.Branch.Unwrap().ID())
+	e.Called(branchID)
 
 	e.calledEvents++
 }
 
-func (e *eventMock) BranchFinalized(cachedBranch *BranchDAGEvent) {
-	if debugAlias, exists := e.debugAlias[cachedBranch.Branch.Unwrap().ID()]; exists {
+func (e *eventMock) BranchFinalized(branchID BranchID) {
+	if debugAlias, exists := e.debugAlias[branchID]; exists {
 		e.test.Logf("EVENT TRIGGERED:\tBranchFinalized(%s)", debugAlias)
 	}
 
-	defer cachedBranch.Release()
-	e.Called(cachedBranch.Branch.Unwrap().ID())
+	e.Called(branchID)
 
 	e.calledEvents++
 }
 
-func (e *eventMock) BranchUnfinalized(cachedBranch *BranchDAGEvent) {
-	if debugAlias, exists := e.debugAlias[cachedBranch.Branch.Unwrap().ID()]; exists {
+func (e *eventMock) BranchUnfinalized(branchID BranchID) {
+	if debugAlias, exists := e.debugAlias[branchID]; exists {
 		e.test.Logf("EVENT TRIGGERED:\tBranchUnfinalized(%s)", debugAlias)
 	}
 
-	defer cachedBranch.Release()
-	e.Called(cachedBranch.Branch.Unwrap().ID())
+	e.Called(branchID)
 
 	e.calledEvents++
 }
 
-func (e *eventMock) BranchConfirmed(cachedBranch *BranchDAGEvent) {
-	if debugAlias, exists := e.debugAlias[cachedBranch.Branch.Unwrap().ID()]; exists {
+func (e *eventMock) BranchConfirmed(branchID BranchID) {
+	if debugAlias, exists := e.debugAlias[branchID]; exists {
 		e.test.Logf("EVENT TRIGGERED:\tBranchConfirmed(%s)", debugAlias)
 	}
 
-	defer cachedBranch.Release()
-	e.Called(cachedBranch.Branch.Unwrap().ID())
+	e.Called(branchID)
 
 	e.calledEvents++
 }
 
-func (e *eventMock) BranchRejected(cachedBranch *BranchDAGEvent) {
-	if debugAlias, exists := e.debugAlias[cachedBranch.Branch.Unwrap().ID()]; exists {
+func (e *eventMock) BranchRejected(branchID BranchID) {
+	if debugAlias, exists := e.debugAlias[branchID]; exists {
 		e.test.Logf("EVENT TRIGGERED:\tBranchRejected(%s)", debugAlias)
 	}
 
-	defer cachedBranch.Release()
-	e.Called(cachedBranch.Branch.Unwrap().ID())
+	e.Called(branchID)
 
 	e.calledEvents++
 }
 
-func (e *eventMock) BranchPending(cachedBranch *BranchDAGEvent) {
-	if debugAlias, exists := e.debugAlias[cachedBranch.Branch.Unwrap().ID()]; exists {
+func (e *eventMock) BranchPending(branchID BranchID) {
+	if debugAlias, exists := e.debugAlias[branchID]; exists {
 		e.test.Logf("EVENT TRIGGERED:\tBranchPending(%s)", debugAlias)
 	}
 
-	defer cachedBranch.Release()
-	e.Called(cachedBranch.Branch.Unwrap().ID())
+	e.Called(branchID)
 
 	e.calledEvents++
 }
