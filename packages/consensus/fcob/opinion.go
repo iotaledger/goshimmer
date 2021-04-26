@@ -128,11 +128,16 @@ func (o *Opinion) Liked() bool {
 }
 
 // SetLiked sets the opinion's liked.
-func (o *Opinion) SetLiked(l bool) {
+func (o *Opinion) SetLiked(l bool) (modified bool) {
 	o.likedMutex.Lock()
 	defer o.likedMutex.Unlock()
+	if o.liked == l {
+		return
+	}
 	o.liked = l
+	modified = true
 	o.SetModified(true)
+	return
 }
 
 // LevelOfKnowledge returns the opinion's LevelOfKnowledge.

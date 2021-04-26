@@ -77,6 +77,16 @@ func (f *ConsensusMechanism) TransactionLiked(transactionID ledgerstate.Transact
 	return
 }
 
+// SetTransactionLiked sets the transaction like status.
+func (f *ConsensusMechanism) SetTransactionLiked(transactionID ledgerstate.TransactionID, liked bool) (modified bool) {
+	f.Storage.Opinion(transactionID).Consume(func(opinion *Opinion) {
+		modified = opinion.SetLiked(liked)
+		opinion.SetLevelOfKnowledge(Three)
+	})
+
+	return modified
+}
+
 // Shutdown shuts down the ConsensusMechanism and persists its state.
 func (f *ConsensusMechanism) Shutdown() {
 	f.likedThresholdExecutor.Shutdown(timedqueue.CancelPendingElements)
@@ -286,16 +296,13 @@ func (f *ConsensusMechanism) onTransactionBooked(transactionID ledgerstate.Trans
 }
 
 func (f *ConsensusMechanism) onPayloadOpinionFormed(messageID tangle.MessageID, liked bool) {
-	// set BranchLiked and BranchFinalized if this payload was a conflict
+	// set BranchLiked if this payload was a conflict and the transaction has not been finalized yet by the approval weight.
 	f.tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
 		f.tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-			transactionMetadata.SetFinalized(true)
+			if !transactionMetadata.Finalized() && f.tangle.LedgerState.TransactionConflicting(transactionID) {
+				f.tangle.LedgerState.BranchDAG.SetBranchLiked(f.tangle.LedgerState.BranchID(transactionID), liked)
+			}
 		})
-		if f.tangle.LedgerState.TransactionConflicting(transactionID) {
-			_, _ = f.tangle.LedgerState.BranchDAG.SetBranchLiked(f.tangle.LedgerState.BranchID(transactionID), liked)
-			// TODO: move this to approval weight logic
-			_, _ = f.tangle.LedgerState.BranchDAG.SetBranchFinalized(f.tangle.LedgerState.BranchID(transactionID), true)
-		}
 	})
 
 	f.setPayloadOpinionDone(messageID)
@@ -313,20 +320,6 @@ func (f *ConsensusMechanism) createMessageOpinion(messageID tangle.MessageID, wa
 	if !f.setMessageOpinionFormed(messageID) {
 		return
 	}
-
-	// trigger TransactionOpinionFormed if the message contains a transaction
-	f.tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
-		if f.tangle.LedgerState.BranchInclusionState(f.tangle.LedgerState.BranchID(transactionID)) == ledgerstate.Confirmed {
-			// skip reattachments
-			for _, attachmentID := range f.tangle.Storage.AttachmentMessageIDs(transactionID) {
-				if f.messageOpinionTriggered(attachmentID) {
-					return
-				}
-			}
-
-			f.tangle.ConsensusManager.Events.TransactionConfirmed.Trigger(messageID)
-		}
-	})
 
 	f.tangle.ConsensusManager.Events.MessageOpinionFormed.Trigger(messageID)
 

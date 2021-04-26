@@ -56,14 +56,16 @@ func propagateFinalizedApprovalWeight(message *tangle.Message, messageMetadata *
 	}
 
 	// abort if the message is already finalized
-	if !messageMetadata.SetFinalized(true) {
+	if !setMessageFinalized(message, messageMetadata) {
 		return
 	}
 
 	// mark weak parents as finalized but not propagate finalized flag to its past cone
 	message.ForEachWeakParent(func(parentID tangle.MessageID) {
-		Tangle().Storage.MessageMetadata(parentID).Consume(func(metadata *tangle.MessageMetadata) {
-			metadata.SetFinalized(true)
+		Tangle().Storage.Message(parentID).Consume(func(parentMessage *tangle.Message) {
+			Tangle().Storage.MessageMetadata(parentID).Consume(func(parentMetadata *tangle.MessageMetadata) {
+				setMessageFinalized(parentMessage, parentMetadata)
+			})
 		})
 	})
 
@@ -76,8 +78,31 @@ func propagateFinalizedApprovalWeight(message *tangle.Message, messageMetadata *
 func onBranchConfirmed(branchID ledgerstate.BranchID, newLevel int, transition events.ThresholdEventTransition) {
 	plugin.LogDebugf("%s confirmed by ApprovalWeight.", branchID)
 
+	Tangle().LedgerState.BranchDAG.SetBranchLiked(branchID, true)
+	Tangle().LedgerState.BranchDAG.SetBranchFinalized(branchID, true)
+
 	if Tangle().LedgerState.BranchDAG.InclusionState(branchID) == ledgerstate.Rejected {
 		remotelog.SendLogMsg(logger.LevelWarn, "REORG", fmt.Sprintf("%s reorg detected by ApprovalWeight", branchID))
 		plugin.LogInfof("%s reorg detected by ApprovalWeight.", branchID)
 	}
+}
+
+func setMessageFinalized(message *tangle.Message, messageMetadata *tangle.MessageMetadata) (modified bool) {
+	// abort if the message is already finalized
+	if modified = messageMetadata.SetFinalized(true); !modified {
+		return
+	}
+
+	Tangle().Utils.ComputeIfTransaction(message.ID(), func(transactionID ledgerstate.TransactionID) {
+		Tangle().LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+			modified := transactionMetadata.SetFinalized(true)
+			if modified {
+				Tangle().ConsensusManager.SetTransactionLiked(transactionID, true)
+				// trigger TransactionOpinionFormed if the message contains a transaction
+				Tangle().ConsensusManager.Events.TransactionConfirmed.Trigger(message.ID())
+			}
+		})
+	})
+
+	return
 }
