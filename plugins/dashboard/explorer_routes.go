@@ -79,7 +79,7 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		Booked:                  messageMetadata.IsBooked(),
 		Eligible:                messageMetadata.IsEligible(),
 		Invalid:                 messageMetadata.IsInvalid(),
-		FinalizedApprovalWeight: messageMetadata.IsFinalizedApprovalWeight(),
+		FinalizedApprovalWeight: messageMetadata.IsFinalized(),
 		PayloadType:             uint32(msg.Payload().Type()),
 		Payload:                 ProcessPayload(msg.Payload()),
 	}

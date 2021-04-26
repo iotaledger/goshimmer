@@ -28,7 +28,7 @@ func onMarkerConfirmed(marker markers.Marker, newLevel int, transition events.Th
 
 	// mark marker as finalized
 	Tangle().Storage.MessageMetadata(messageID).Consume(func(metadata *tangle.MessageMetadata) {
-		metadata.SetFinalizedApprovalWeight(true)
+		metadata.SetFinalized(true)
 	})
 
 	var entryMessageIDs tangle.MessageIDs
@@ -36,7 +36,7 @@ func onMarkerConfirmed(marker markers.Marker, newLevel int, transition events.Th
 		// mark weak parents as finalized but not propagate finalized flag to its past cone
 		message.ForEachWeakParent(func(parentID tangle.MessageID) {
 			Tangle().Storage.MessageMetadata(parentID).Consume(func(metadata *tangle.MessageMetadata) {
-				metadata.SetFinalizedApprovalWeight(true)
+				metadata.SetFinalized(true)
 			})
 		})
 
@@ -56,14 +56,14 @@ func propagateFinalizedApprovalWeight(message *tangle.Message, messageMetadata *
 	}
 
 	// abort if the message is already finalized
-	if !messageMetadata.SetFinalizedApprovalWeight(true) {
+	if !messageMetadata.SetFinalized(true) {
 		return
 	}
 
 	// mark weak parents as finalized but not propagate finalized flag to its past cone
 	message.ForEachWeakParent(func(parentID tangle.MessageID) {
 		Tangle().Storage.MessageMetadata(parentID).Consume(func(metadata *tangle.MessageMetadata) {
-			metadata.SetFinalizedApprovalWeight(true)
+			metadata.SetFinalized(true)
 		})
 	})
 
