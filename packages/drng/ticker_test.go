@@ -67,7 +67,7 @@ func TestSendIndividually(t *testing.T) {
 
 	fmt.Println("=========== rand event arrives before (interval) but timestamp out of sync =========== ")
 	timestamp = time.Duration(testInterval-2) * time.Second
-	randResult, randInput, delay = tickerFunc(timestamp, timestamp+4*time.Second, true)
+	randResult, _, delay = tickerFunc(timestamp, timestamp+4*time.Second, true)
 	assert.Equal(t, randResult, randDefault)
 	require.InDelta(t, time.Duration(3)*time.Second, delay, float64(100*time.Millisecond))
 
