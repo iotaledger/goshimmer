@@ -36,6 +36,10 @@ export class Message {
     finalizedApprovalWeight: boolean;
     payload_type: number;
     payload: any;
+    rank: number;
+    isPastMarker: boolean;
+    pastMarkers: string;
+    futureMarkers: string;
 }
 
 class AddressResult {
