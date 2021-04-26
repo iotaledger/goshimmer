@@ -58,8 +58,14 @@ func propagateFinalizedApprovalWeight(message *tangle.Message, messageMetadata *
 func onBranchConfirmed(branchID ledgerstate.BranchID, newLevel int, transition events.ThresholdEventTransition) {
 	plugin.LogDebugf("%s confirmed by ApprovalWeight.", branchID)
 
-	Tangle().LedgerState.BranchDAG.SetBranchMonotonicallyLiked(branchID, true)
-	Tangle().LedgerState.BranchDAG.SetBranchFinalized(branchID, true)
+	_, err := Tangle().LedgerState.BranchDAG.SetBranchMonotonicallyLiked(branchID, true)
+	if err != nil {
+		panic(err)
+	}
+	_, err = Tangle().LedgerState.BranchDAG.SetBranchFinalized(branchID, true)
+	if err != nil {
+		panic(err)
+	}
 
 	if Tangle().LedgerState.BranchDAG.InclusionState(branchID) == ledgerstate.Rejected {
 		remotelog.SendLogMsg(logger.LevelWarn, "REORG", fmt.Sprintf("%s reorg detected by ApprovalWeight", branchID))
