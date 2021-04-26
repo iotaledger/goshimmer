@@ -20,11 +20,6 @@ func testRandomness(t time.Time) *Randomness {
 	return r
 }
 
-// Test that the send() function sets the delay and randomness correct
-func TestSend(t *testing.T) {
-
-}
-
 func TestSendIndividually(t *testing.T) {
 	testInterval := int64(10)
 	randDefault := 0.6
@@ -64,7 +59,7 @@ func TestSendIndividually(t *testing.T) {
 
 	fmt.Println("=========== rand event arrives just after (interval+awaitOffset) =========== ")
 	timestamp = time.Duration(testInterval+awaitOffset+1) * time.Second
-	randResult, randInput, delay = tickerFunc(timestamp, timestamp, true)
+	randResult, _, delay = tickerFunc(timestamp, timestamp, true)
 	assert.Equal(t, randResult, randDefault)
 	require.InDelta(t, time.Duration(awaitOffset)*time.Second, delay, float64(100*time.Millisecond))
 
@@ -73,23 +68,20 @@ func TestSendIndividually(t *testing.T) {
 	fmt.Println("=========== rand event arrives before (interval) but timestamp out of sync =========== ")
 	timestamp = time.Duration(testInterval-2) * time.Second
 	randResult, randInput, delay = tickerFunc(timestamp, timestamp+4*time.Second, true)
-	assert.Equal(t, randResult, randInput)
-	require.InDelta(t, time.Duration(4)*time.Second, delay, float64(100*time.Millisecond))
+	assert.Equal(t, randResult, randDefault)
+	require.InDelta(t, time.Duration(3)*time.Second, delay, float64(100*time.Millisecond))
 
 	timestamp = time.Duration(testInterval-2) * time.Second
-	randResult, randInput, delay = tickerFunc(timestamp, timestamp+6*time.Second, true)
+	randResult, _, delay = tickerFunc(timestamp, timestamp+6*time.Second, true)
 	assert.Equal(t, randResult, randDefault)
 	require.InDelta(t, time.Duration(awaitOffset)*time.Second, delay, float64(100*time.Millisecond))
-
 }
 
 func tickerFunc(timestamp, timestampSendTime time.Duration, missingDRNG bool) (randResult, randInput float64, delay time.Duration) {
-
 	testInterval := int64(10)
 	randDefault := 0.6
 	awaitOffset := int64(3)
-	var testState *State
-	testState = NewState(SetCommittee(dummyCommittee()), SetRandomness(testRandomness(time.Now())))
+	testState := NewState(SetCommittee(dummyCommittee()), SetRandomness(testRandomness(time.Now())))
 	stateFunc := func() *State { return testState }
 	ticker := NewTicker(stateFunc, testInterval, randDefault, awaitOffset)
 
@@ -114,7 +106,7 @@ func tickerFunc(timestamp, timestampSendTime time.Duration, missingDRNG bool) (r
 	randResult = <-ticker.C()
 	delay = ticker.DelayedRoundStart()
 
-	return
+	return randResult, randInput, delay
 }
 
 func TestNoDRNGTicker(t *testing.T) {
