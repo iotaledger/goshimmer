@@ -69,15 +69,8 @@ type Scheduler struct {
 
 // NewScheduler returns a new Scheduler.
 func NewScheduler(tangle *Tangle) *Scheduler {
-	// TODO: panic?
-	// panic("the option AccessManaRetriever and TotalAccessManaRetriever must be defined so that AccessMana can be determined in scheduler")
 	if tangle.Options.SchedulerParams.AccessManaRetrieveFunc == nil || tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc == nil {
-		tangle.Options.SchedulerParams.AccessManaRetrieveFunc = func(_ identity.ID) float64 {
-			return 0
-		}
-		tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc = func() float64 {
-			return 0
-		}
+		panic("the option AccessManaRetriever and TotalAccessManaRetriever must be defined so that AccessMana can be determined in scheduler")
 	}
 	if tangle.Options.SchedulerParams.MaxQueueWeight != nil {
 		MaxQueueWeight = *tangle.Options.SchedulerParams.MaxQueueWeight
