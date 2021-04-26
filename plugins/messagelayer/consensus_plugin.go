@@ -188,7 +188,7 @@ func runFPC(plugin *node.Plugin) {
 		defer plugin.LogInfof("Stopped FPC round initiator")
 
 		dRNGTickerMutex.Lock()
-		dRNGTicker = drng.NewTicker(DRNGState, FPCParameters.RoundInterval, FPCParameters.DefaultRandomness, FPCParameters.AwaitOffset)
+		dRNGTicker = drng.NewTicker(DRNGState, FPCParameters.RoundInterval, FPCParameters.DefaultRandomness, FPCParameters.AwaitOffset, FPCParameters.MaxAgeTimestamp)
 		dRNGTickerMutex.Unlock()
 		dRNGTicker.Start()
 	exit:

@@ -14,6 +14,7 @@ type Ticker struct {
 	interval            int64 // the interval at which the ticker should tick (in seconds).
 	defaultValue        float64
 	awaitOffset         int64 // defines the max amount of time (in seconds) to wait for the next dRNG round after the expected time has elapsed.
+	maxAgeTimestamp     int64 // defines the max amount of time (in seconds) the dRNG timestamp can be old
 	missingDRNG         bool
 	delayedRoundStart   time.Duration
 	delayedRoundStartMu sync.RWMutex
@@ -23,12 +24,13 @@ type Ticker struct {
 }
 
 // NewTicker returns a pointer to a new Ticker.
-func NewTicker(dRNGState func() *State, interval int64, defaultValue float64, awaitOffset int64) *Ticker {
+func NewTicker(dRNGState func() *State, interval int64, defaultValue float64, awaitOffset int64, maxAgeTimestamp int64) *Ticker {
 	return &Ticker{
 		dRNGState:           dRNGState,
 		interval:            interval,
 		defaultValue:        defaultValue,
 		awaitOffset:         awaitOffset,
+		maxAgeTimestamp:     maxAgeTimestamp,
 		missingDRNG:         true,
 		c:                   make(chan float64),
 		exit:                make(chan struct{}),
@@ -121,14 +123,17 @@ func (t *Ticker) send() {
 			case randomnessEvent := <-t.fromRandomnessEvent:
 				// check if the randomness is "fresh"
 				if t.dRNGTicker != nil {
-					if clock.Since(randomnessEvent.Timestamp) < time.Duration(t.awaitOffset)*time.Second {
+					// fmt.Println("FFFF: ")
+					// fmt.Println("FFFF: SinceTimestamp", clock.Since(randomnessEvent.Timestamp))
+					if clock.Since(randomnessEvent.Timestamp) < time.Duration(t.maxAgeTimestamp)*time.Second {
 						t.missingDRNG = false
 						randomness = t.dRNGState().Randomness().Float64()
 						timeToNextDRNG := randomnessEvent.Timestamp.Add(time.Duration(t.interval) * time.Second).Sub(clock.SyncedTime())
+						// fmt.Println("FFFF: ", timeToNextDRNG)
 						t.dRNGTicker.Reset(timeToNextDRNG)
 						t.setDelayedRoundStart(time.Duration(t.interval)*time.Second - timeToNextDRNG)
+						break out
 					}
-					break out
 				}
 			case <-t.dRNGTicker.C:
 				t.missingDRNG = true
