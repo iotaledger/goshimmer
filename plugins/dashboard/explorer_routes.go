@@ -49,6 +49,12 @@ type ExplorerMessage struct {
 	PayloadType uint32 `json:"payload_type"`
 	// Payload is the content of the payload.
 	Payload interface{} `json:"payload"`
+
+	// Structure details
+	Rank          uint64 `json:"rank"`
+	IsPastMarker  bool   `json:"isPastMarker"`
+	PastMarkers   string `json:"pastMarkers"`
+	FutureMarkers string `json:"futureMarkers"`
 }
 
 func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
@@ -82,6 +88,13 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		FinalizedApprovalWeight: messageMetadata.IsFinalizedApprovalWeight(),
 		PayloadType:             uint32(msg.Payload().Type()),
 		Payload:                 ProcessPayload(msg.Payload()),
+	}
+
+	if d := messageMetadata.StructureDetails(); d != nil {
+		t.Rank = d.Rank
+		t.IsPastMarker = d.IsPastMarker
+		t.PastMarkers = d.PastMarkers.String()
+		t.FutureMarkers = d.FutureMarkers.String()
 	}
 
 	return t

@@ -117,6 +117,7 @@ func Tangle() *tangle.Tangle {
 			tangle.Consensus(ConsensusMechanism()),
 			tangle.GenesisNode(Parameters.Snapshot.GenesisNode),
 			tangle.ApprovalWeights(tangle.WeightProviderFromEpochsManager(EpochsManager())),
+			tangle.SyncTimeWindow(Parameters.TangleTimeWindow),
 		)
 
 		tangleInstance.Setup()

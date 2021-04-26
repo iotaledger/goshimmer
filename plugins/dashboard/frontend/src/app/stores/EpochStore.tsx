@@ -11,7 +11,7 @@ class EpochIDResponse {
     epochID: number
 }
 
-class EpochData {
+export class EpochData {
     epochID: number;
     epochStartTime: number;
     epochEndTime: number;
@@ -29,6 +29,7 @@ export class EpochStore {
     @observable query_err: any = null;
 
     @action getOracleEpochs = async () => {
+        this.updateQueryLoading(true);
         try {
             let res = await fetch("/api/epochs/oracle/current");
             if (res.status === 404) {
@@ -45,6 +46,7 @@ export class EpochStore {
             dataRes = await this.getEpochData(epochID-1);
             data = await dataRes as EpochData;
             this.updateOracleEpoch(false, data);
+            this.updateQueryLoading(false);
         } catch (err) {
             this.updateQueryError(err);
         }

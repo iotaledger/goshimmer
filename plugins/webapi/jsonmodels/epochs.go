@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/identity"
+	"time"
 
 	"github.com/iotaledger/goshimmer/packages/mana"
 )

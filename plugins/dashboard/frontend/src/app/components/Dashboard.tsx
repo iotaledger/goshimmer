@@ -13,6 +13,7 @@ import ListGroup from "react-bootstrap/ListGroup";
 import Card from "react-bootstrap/Card";
 import MemChart from "app/components/MemChart";
 import ComponentCounterChart from "app/components/ComponentCounterChart";
+import TangleTime from "app/components/TangleTime";
 interface Props {
     nodeStore?: NodeStore;
 }
@@ -47,6 +48,9 @@ export class Dashboard extends React.Component<Props, any> {
                 </Row>
                 <Row className={"mb-3"}>
                     <Col><Synced/></Col>
+                </Row>
+                <Row className={"mb-3"}>
+                    <Col><TangleTime/></Col>
                 </Row>
                 <Row className={"mb-3"}>
                     <Col><MPSChart/></Col>

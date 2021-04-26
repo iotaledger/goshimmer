@@ -31,6 +31,7 @@ type Tangle struct {
 	Scheduler             *Scheduler
 	Booker                *Booker
 	ApprovalWeightManager *ApprovalWeightManager
+	TimeManager           *TimeManager
 	ConsensusManager      *ConsensusManager
 	TipManager            *TipManager
 	Requester             *Requester
@@ -64,6 +65,7 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.LedgerState = NewLedgerState(tangle)
 	tangle.Booker = NewBooker(tangle)
 	tangle.ApprovalWeightManager = NewApprovalWeightManager(tangle)
+	tangle.TimeManager = NewTimeManager(tangle)
 	tangle.ConsensusManager = NewConsensusManager(tangle)
 	tangle.Requester = NewRequester(tangle)
 	tangle.TipManager = NewTipManager(tangle)
@@ -102,6 +104,7 @@ func (t *Tangle) Setup() {
 	t.Scheduler.Setup()
 	t.Booker.Setup()
 	t.ApprovalWeightManager.Setup()
+	t.TimeManager.Setup()
 	t.ConsensusManager.Setup()
 	t.TipManager.Setup()
 
@@ -189,6 +192,7 @@ func (t *Tangle) Shutdown() {
 	t.ApprovalWeightManager.Shutdown()
 	t.Storage.Shutdown()
 	t.LedgerState.Shutdown()
+	t.TimeManager.Shutdown()
 	t.Options.Store.Shutdown()
 	t.TipManager.Shutdown()
 
@@ -235,6 +239,7 @@ type Options struct {
 	ConsensusMechanism           ConsensusMechanism
 	GenesisNode                  *ed25519.PublicKey
 	WeightProvider               WeightProvider
+	SyncTimeWindow               time.Duration
 }
 
 // Store is an Option for the Tangle that allows to specify which storage layer is supposed to be used to persist data.
@@ -292,6 +297,14 @@ func GenesisNode(genesisNodeBase58 string) Option {
 func ApprovalWeights(weightProvider WeightProvider) Option {
 	return func(options *Options) {
 		options.WeightProvider = weightProvider
+	}
+}
+
+// SyncTimeWindow is an Option for the Tangle that allows to define the time window in which the node will consider
+// itself in sync.
+func SyncTimeWindow(syncTimeWindow time.Duration) Option {
+	return func(options *Options) {
+		options.SyncTimeWindow = syncTimeWindow
 	}
 }
 
