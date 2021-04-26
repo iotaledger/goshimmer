@@ -63,11 +63,17 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 	mergedPastMarkers := NewMarkers()
 	for _, referencedMarkerPair := range referencedStructureDetails {
 		mergedPastMarkers.Merge(referencedMarkerPair.PastMarkers)
+		if referencedMarkerPair.PastMarkerGap > inheritedStructureDetails.PastMarkerGap {
+			inheritedStructureDetails.PastMarkerGap = referencedMarkerPair.PastMarkerGap
+		}
+
 		// update highest rank
 		if referencedMarkerPair.Rank > inheritedStructureDetails.Rank {
 			inheritedStructureDetails.Rank = referencedMarkerPair.Rank
 		}
 	}
+	// past marker gap for this message is set to highest past marker gap of parents + 1
+	inheritedStructureDetails.PastMarkerGap++
 	// rank for this message is set to highest rank of parents + 1
 	inheritedStructureDetails.Rank++
 
@@ -85,6 +91,7 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 	if newSequenceCreated {
 		cachedSequence.Consume(func(sequence *Sequence) {
 			inheritedStructureDetails.IsPastMarker = true
+			inheritedStructureDetails.PastMarkerGap = 0
 			// sequence has just been created, so lowestIndex = highestIndex
 			inheritedStructureDetails.PastMarkers = NewMarkers(&Marker{sequenceID: sequence.id, index: sequence.lowestIndex})
 
@@ -102,6 +109,7 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 		if currentIndex, _ := referencedMarkers.Get(sequence.id); sequence.HighestIndex() == currentIndex && increaseIndexCallback(sequence.id, currentIndex) {
 			if newIndex, increased := sequence.IncreaseHighestIndex(referencedMarkers); increased {
 				inheritedStructureDetails.IsPastMarker = true
+				inheritedStructureDetails.PastMarkerGap = 0
 				inheritedStructureDetails.PastMarkers = NewMarkers(&Marker{sequenceID: sequence.id, index: newIndex})
 
 				m.registerReferencingMarker(referencedMarkers, NewMarker(sequence.id, newIndex))

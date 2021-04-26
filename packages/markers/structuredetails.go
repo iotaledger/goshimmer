@@ -15,6 +15,7 @@ import (
 // to interact with the public API of this package.
 type StructureDetails struct {
 	Rank                     uint64
+	PastMarkerGap            uint64
 	IsPastMarker             bool
 	PastMarkers              *Markers
 	FutureMarkers            *Markers
@@ -49,6 +50,10 @@ func StructureDetailsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (mark
 		err = xerrors.Errorf("failed to parse Rank (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
+	if markersPair.PastMarkerGap, err = marshalUtil.ReadUint64(); err != nil {
+		err = xerrors.Errorf("failed to parse PastMarkerGap (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
 	if markersPair.IsPastMarker, err = marshalUtil.ReadBool(); err != nil {
 		err = xerrors.Errorf("failed to parse IsPastMarker (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
@@ -69,6 +74,7 @@ func StructureDetailsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (mark
 func (m *StructureDetails) Clone() (clone *StructureDetails) {
 	return &StructureDetails{
 		Rank:          m.Rank,
+		PastMarkerGap: m.PastMarkerGap,
 		IsPastMarker:  m.IsPastMarker,
 		PastMarkers:   m.PastMarkers.Clone(),
 		FutureMarkers: m.FutureMarkers.Clone(),
@@ -84,6 +90,7 @@ func (m *StructureDetails) Bytes() (marshaledStructureDetails []byte) {
 	return marshalutil.New().
 		WriteBool(true).
 		WriteUint64(m.Rank).
+		WriteUint64(m.PastMarkerGap).
 		WriteBool(m.IsPastMarker).
 		Write(m.PastMarkers).
 		Write(m.FutureMarkers).
@@ -94,6 +101,7 @@ func (m *StructureDetails) Bytes() (marshaledStructureDetails []byte) {
 func (m *StructureDetails) String() (humanReadableStructureDetails string) {
 	return stringify.Struct("StructureDetails",
 		stringify.StructField("Rank", m.Rank),
+		stringify.StructField("PastMarkerGap", m.PastMarkerGap),
 		stringify.StructField("IsPastMarker", m.IsPastMarker),
 		stringify.StructField("PastMarkers", m.PastMarkers),
 		stringify.StructField("FutureMarkers", m.FutureMarkers),
