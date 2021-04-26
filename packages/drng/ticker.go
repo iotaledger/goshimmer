@@ -14,7 +14,6 @@ type Ticker struct {
 	interval            int64 // the interval at which the ticker should tick (in seconds).
 	defaultValue        float64
 	awaitOffset         int64 // defines the max amount of time (in seconds) to wait for the next dRNG round after the expected time has elapsed.
-	maxAgeTimestamp     int64 // defines the max amount of time (in seconds) the dRNG timestamp can be old
 	missingDRNG         bool
 	delayedRoundStart   time.Duration
 	delayedRoundStartMu sync.RWMutex
@@ -24,13 +23,12 @@ type Ticker struct {
 }
 
 // NewTicker returns a pointer to a new Ticker.
-func NewTicker(dRNGState func() *State, interval int64, defaultValue float64, awaitOffset int64, maxAgeTimestamp int64) *Ticker {
+func NewTicker(dRNGState func() *State, interval int64, defaultValue float64, awaitOffset int64) *Ticker {
 	return &Ticker{
 		dRNGState:           dRNGState,
 		interval:            interval,
 		defaultValue:        defaultValue,
 		awaitOffset:         awaitOffset,
-		maxAgeTimestamp:     maxAgeTimestamp,
 		missingDRNG:         true,
 		c:                   make(chan float64),
 		exit:                make(chan struct{}),
@@ -100,36 +98,39 @@ func (t *Ticker) send() {
 	randomness := t.defaultValue
 
 	if t.dRNGState() != nil && t.dRNGTicker != nil {
-		// check if the randomness is "fresh"
-		if t.missingDRNG && clock.Since(t.dRNGState().Randomness().Timestamp) < time.Duration(t.interval)*time.Second {
+		// we expect a randomness, it arrived already, and its newer than the last one
+		if !t.missingDRNG && clock.Since(t.dRNGState().Randomness().Timestamp) < time.Duration(t.interval)*time.Second {
+			randomness = t.dRNGState().Randomness().Float64()
+			timeToNextDRNG := t.dRNGState().Randomness().Timestamp.Add(time.Duration(t.interval) * time.Second).Sub(clock.SyncedTime())
+			t.setDelayedRoundStart(time.Duration(t.interval)*time.Second - timeToNextDRNG)
+			t.dRNGTicker.Reset(timeToNextDRNG)
+			// we were missing a dRNG message previously but the check if the last randomness received is "fresh"
+		} else if t.missingDRNG && clock.Since(t.dRNGState().Randomness().Timestamp) < time.Duration(t.interval)*time.Second {
 			t.missingDRNG = false
 			randomness = t.dRNGState().Randomness().Float64()
-			// the expected time that we should receive a new randomness
 			timeToNextDRNG := t.dRNGState().Randomness().Timestamp.Add(time.Duration(t.interval) * time.Second).Sub(clock.SyncedTime())
+			t.setDelayedRoundStart(time.Duration(t.interval)*time.Second - timeToNextDRNG)
 			t.dRNGTicker.Reset(timeToNextDRNG)
 		} else {
-			// set ticker to awaitOffset
+			// set ticker to awaitOffset, to await arrival of randomness event, continue at out:
 			t.dRNGTicker.Reset(time.Duration(t.awaitOffset) * time.Second)
 		}
 	out:
 		// if fresh randomness is not received, we wait for new randomness for awaitOffset seconds
 		for {
-			// abort if we already get the latest randomness
+			// abort if we already got the latest randomness
 			if randomness != t.defaultValue {
 				break out
 			}
 			select {
-			// receive randomness from Randomness event
+			// receive or consume randomness from Randomness event
 			case randomnessEvent := <-t.fromRandomnessEvent:
 				// check if the randomness is "fresh"
 				if t.dRNGTicker != nil {
-					// fmt.Println("FFFF: ")
-					// fmt.Println("FFFF: SinceTimestamp", clock.Since(randomnessEvent.Timestamp))
-					if clock.Since(randomnessEvent.Timestamp) < time.Duration(t.maxAgeTimestamp)*time.Second {
+					if clock.Since(randomnessEvent.Timestamp) < time.Duration(t.interval)*time.Second {
 						t.missingDRNG = false
 						randomness = t.dRNGState().Randomness().Float64()
 						timeToNextDRNG := randomnessEvent.Timestamp.Add(time.Duration(t.interval) * time.Second).Sub(clock.SyncedTime())
-						// fmt.Println("FFFF: ", timeToNextDRNG)
 						t.dRNGTicker.Reset(timeToNextDRNG)
 						t.setDelayedRoundStart(time.Duration(t.interval)*time.Second - timeToNextDRNG)
 						break out
@@ -140,7 +141,6 @@ func (t *Ticker) send() {
 				// still no new randomness within awaitOffset, take the default value, and reset dRNGTicker
 				t.setDelayedRoundStart(time.Duration(t.awaitOffset) * time.Second)
 				t.dRNGTicker.Reset(time.Duration(time.Duration(t.interval-t.awaitOffset) * time.Second))
-				// t.dRNGTicker.Reset(time.Duration(ResolveNextTimePoint(now, t.interval)-now) * time.Second)
 				break out
 			}
 		}

@@ -31,26 +31,25 @@ func TestSendIndividually(t *testing.T) {
 	randDefault := 0.6
 	awaitOffset := int64(3)
 
-	fmt.Println("+++++++++++ in sync with dRNG , dRNG not missing +++++++++++ ")
+	fmt.Println("+++++++++++ in sync and out of sync with dRNG , dRNG not missing +++++++++++ ")
 
 	timestamp := time.Duration(testInterval-4) * time.Second
 	randResult, randInput, delay := tickerFunc(timestamp, timestamp, false)
 	assert.Equal(t, randResult, randInput)
-	require.InDelta(t, time.Duration(0)*time.Second, delay, float64(100*time.Millisecond))
+	require.InDelta(t, time.Duration(4)*time.Second, delay, float64(100*time.Millisecond))
+
+	timestamp = time.Duration(testInterval-4) * time.Second
+	randResult, randInput, delay = tickerFunc(timestamp, timestamp+2, false)
+	assert.Equal(t, randResult, randInput)
+	require.InDelta(t, time.Duration(4)*time.Second, delay, float64(100*time.Millisecond))
 
 	fmt.Println("+++++++++++ in sync with dRNG , dRNG missing +++++++++++ ")
 
-	fmt.Println("=========== rand event arrives before (interval) but timestamp too old =========== ")
+	fmt.Println("=========== rand event arrives before (interval)  =========== ")
 	timestamp = time.Duration(testInterval-4) * time.Second
 	randResult, randInput, delay = tickerFunc(timestamp, timestamp, true)
-	assert.Equal(t, randResult, randDefault)
-	require.InDelta(t, time.Duration(awaitOffset)*time.Second, delay, float64(100*time.Millisecond))
-
-	fmt.Println("=========== rand event arrives just before (interval) =========== ")
-	timestamp = time.Duration(testInterval-2) * time.Second
-	randResult, randInput, delay = tickerFunc(timestamp, timestamp, true)
 	assert.Equal(t, randResult, randInput)
-	require.InDelta(t, time.Duration(2)*time.Second, delay, float64(100*time.Millisecond))
+	require.InDelta(t, time.Duration(4)*time.Second, delay, float64(100*time.Millisecond))
 
 	fmt.Println("=========== rand event arrives just after (interval) =========== ")
 	timestamp = time.Duration(testInterval+1) * time.Second
@@ -73,13 +72,13 @@ func TestSendIndividually(t *testing.T) {
 	fmt.Println("+++++++++++ out of sync with dRNG , dRNG missing +++++++++++ ")
 
 	fmt.Println("=========== rand event arrives before (interval) but timestamp out of sync =========== ")
-	timestamp = time.Duration(testInterval-1) * time.Second
-	randResult, randInput, delay = tickerFunc(timestamp, timestamp+2*time.Second, true)
-	assert.Equal(t, randResult, randInput)
-	require.InDelta(t, time.Duration(2)*time.Second, delay, float64(100*time.Millisecond))
-
 	timestamp = time.Duration(testInterval-2) * time.Second
 	randResult, randInput, delay = tickerFunc(timestamp, timestamp+4*time.Second, true)
+	assert.Equal(t, randResult, randInput)
+	require.InDelta(t, time.Duration(4)*time.Second, delay, float64(100*time.Millisecond))
+
+	timestamp = time.Duration(testInterval-2) * time.Second
+	randResult, randInput, delay = tickerFunc(timestamp, timestamp+6*time.Second, true)
 	assert.Equal(t, randResult, randDefault)
 	require.InDelta(t, time.Duration(awaitOffset)*time.Second, delay, float64(100*time.Millisecond))
 
@@ -90,11 +89,10 @@ func tickerFunc(timestamp, timestampSendTime time.Duration, missingDRNG bool) (r
 	testInterval := int64(10)
 	randDefault := 0.6
 	awaitOffset := int64(3)
-	maxAgeTimestamp := int64(3)
 	var testState *State
 	testState = NewState(SetCommittee(dummyCommittee()), SetRandomness(testRandomness(time.Now())))
 	stateFunc := func() *State { return testState }
-	ticker := NewTicker(stateFunc, testInterval, randDefault, awaitOffset, maxAgeTimestamp)
+	ticker := NewTicker(stateFunc, testInterval, randDefault, awaitOffset)
 
 	ticker.testStart()
 	defer ticker.Stop()
@@ -105,11 +103,12 @@ func tickerFunc(timestamp, timestampSendTime time.Duration, missingDRNG bool) (r
 	start := time.Now()
 	timestampedRandomness := testRandomness(time.Now().Add(timestamp))
 	randInput = timestampedRandomness.Float64()
-	fmt.Println("tickerFunc_______  Timestamp, randTimestamp :: ", clock.Since(timestampedRandomness.Timestamp), ", ", randInput, " _______", time.Since(start), "(note, neg timestamp is in the future)")
+
+	fmt.Println("tickerFunc_______  Timestamp, timestampSendTime :: ", timestamp, timestampSendTime)
+	fmt.Println("tickerFunc_______  Timestamp, randTimestamp :: ", clock.Since(timestampedRandomness.Timestamp), ", ", randInput, " _______", time.Since(start))
 
 	// mock the dRNG event
 	go func() {
-		fmt.Println("tickerFunc: ", timestamp, timestampSendTime)
 		time.Sleep(timestampSendTime)
 		ticker.dRNGState().UpdateRandomness(timestampedRandomness)
 		ticker.UpdateRandomness(*timestampedRandomness)
@@ -125,11 +124,10 @@ func TestNoDRNGTicker(t *testing.T) {
 	interval := int64(5)
 	defaultValue := 0.6
 	awaitOffset := int64(3)
-	maxAgeTimestamp := int64(3)
 
 	stateFunc := func() *State { return nil }
 
-	ticker := NewTicker(stateFunc, interval, defaultValue, awaitOffset, maxAgeTimestamp)
+	ticker := NewTicker(stateFunc, interval, defaultValue, awaitOffset)
 
 	ticker.Start()
 	defer ticker.Stop()
