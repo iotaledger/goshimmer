@@ -39,7 +39,7 @@ func TestSendIndividually(t *testing.T) {
 	require.InDelta(t, time.Duration(4)*time.Second, delay, float64(100*time.Millisecond))
 
 	timestamp = time.Duration(testInterval-4) * time.Second
-	randResult, randInput, delay = tickerFunc(timestamp, timestamp+2, false)
+	randResult, randInput, delay = tickerFunc(timestamp, timestamp+2*time.Second, false)
 	assert.Equal(t, randResult, randInput)
 	require.InDelta(t, time.Duration(4)*time.Second, delay, float64(100*time.Millisecond))
 
