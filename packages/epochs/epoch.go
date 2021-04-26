@@ -69,11 +69,16 @@ type Epoch struct {
 }
 
 // NewEpoch is the constructor for an Epoch.
-func NewEpoch(id ID) *Epoch {
-	return &Epoch{
+func NewEpoch(id ID) (epoch *Epoch) {
+	epoch = &Epoch{
 		id:   id,
 		mana: make(map[identity.ID]float64),
 	}
+
+	epoch.SetModified()
+	epoch.Persist()
+
+	return
 }
 
 // EpochFromBytes parses the given bytes into an Epoch.
