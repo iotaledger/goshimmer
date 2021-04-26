@@ -63,10 +63,10 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 	mergedPastMarkers := NewMarkers()
 	for _, referencedMarkerPair := range referencedStructureDetails {
 		mergedPastMarkers.Merge(referencedMarkerPair.PastMarkers)
+		// update highest past marker gap
 		if referencedMarkerPair.PastMarkerGap > inheritedStructureDetails.PastMarkerGap {
 			inheritedStructureDetails.PastMarkerGap = referencedMarkerPair.PastMarkerGap
 		}
-
 		// update highest rank
 		if referencedMarkerPair.Rank > inheritedStructureDetails.Rank {
 			inheritedStructureDetails.Rank = referencedMarkerPair.Rank
@@ -259,8 +259,8 @@ func (m *Manager) SequenceFromAlias(sequenceAlias SequenceAlias) (cachedSequence
 // RegisterSequenceAlias adds a mapping from a SequenceAlias to a Sequence.
 func (m *Manager) RegisterSequenceAlias(sequenceAlias SequenceAlias, sequenceID SequenceID) {
 	if cachedObject, stored := m.sequenceAliasMappingStore.StoreIfAbsent(&SequenceAliasMapping{
-		sequenceAlias: sequenceAlias,
-		sequenceID:    sequenceID,
+		sequenceAlias:  sequenceAlias,
+		mainSequenceID: sequenceID,
 	}); stored {
 		cachedObject.Release()
 	}
@@ -464,8 +464,8 @@ func (m *Manager) fetchSequence(referencedMarkers *Markers, rank uint64, sequenc
 		cachedSequence = &CachedSequence{CachedObject: m.sequenceStore.Store(sequence)}
 
 		sequenceAliasMapping := &SequenceAliasMapping{
-			sequenceAlias: sequenceAlias,
-			sequenceID:    sequence.id,
+			sequenceAlias:  sequenceAlias,
+			mainSequenceID: sequence.id,
 		}
 
 		sequenceAliasMapping.Persist()

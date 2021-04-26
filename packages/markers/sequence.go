@@ -467,8 +467,9 @@ func (a SequenceAlias) String() (humanReadableSequenceAlias string) {
 
 // SequenceAliasMapping represents the mapping between a SequenceAlias and its SequenceID.
 type SequenceAliasMapping struct {
-	sequenceAlias SequenceAlias
-	sequenceID    SequenceID
+	sequenceAlias          SequenceAlias
+	mainSequenceID         SequenceID
+	alternativeSequenceIDs map[SequenceID]bool
 
 	objectstorage.StorableObjectFlags
 }
@@ -487,14 +488,30 @@ func SequenceAliasMappingFromBytes(mappingBytes []byte) (mapping *SequenceAliasM
 
 // SequenceAliasMappingFromMarshalUtil unmarshals a SequenceAliasMapping using a MarshalUtil (for easier unmarshaling).
 func SequenceAliasMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (mapping *SequenceAliasMapping, err error) {
-	mapping = &SequenceAliasMapping{}
+	mapping = &SequenceAliasMapping{
+		alternativeSequenceIDs: make(map[SequenceID]bool),
+	}
 	if mapping.sequenceAlias, err = SequenceAliasFromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse Alias from MarshalUtil: %w", err)
 		return
 	}
-	if mapping.sequenceID, err = SequenceIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
+	if mapping.mainSequenceID, err = SequenceIDFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse main SequenceID from MarshalUtil: %w", err)
 		return
+	}
+
+	alternativeSequenceIDsCount, err := marshalUtil.ReadUint64()
+	if err != nil {
+		err = xerrors.Errorf("failed to parse alternative SequenceIDs count from MarshalUtil (%v): %w", err, cerrors.ErrFatal)
+		return
+	}
+	for i := 0; i < int(alternativeSequenceIDsCount); i++ {
+		sequenceID, sequenceIDErr := SequenceIDFromMarshalUtil(marshalUtil)
+		if sequenceIDErr != nil {
+			err = xerrors.Errorf("failed to parse alternative SequenceID from MarshalUtil: %w", sequenceIDErr)
+			return
+		}
+		mapping.alternativeSequenceIDs[sequenceID] = true
 	}
 
 	return
@@ -517,7 +534,7 @@ func (s *SequenceAliasMapping) SequenceAlias() (sequenceAlias SequenceAlias) {
 
 // SequenceID returns the SequenceID of the SequenceAliasMapping.
 func (s *SequenceAliasMapping) SequenceID() (sequenceID SequenceID) {
-	return s.sequenceID
+	return s.mainSequenceID
 }
 
 // Bytes returns a marshaled version of the SequenceAliasMapping.
@@ -528,7 +545,7 @@ func (s *SequenceAliasMapping) Bytes() (marshaledSequenceAliasMapping []byte) {
 func (s *SequenceAliasMapping) String() string {
 	return stringify.Struct("SequenceAliasMapping",
 		stringify.StructField("sequenceAlias", s.sequenceAlias),
-		stringify.StructField("sequenceID", s.sequenceID),
+		stringify.StructField("mainSequenceID", s.mainSequenceID),
 	)
 }
 
@@ -546,7 +563,16 @@ func (s *SequenceAliasMapping) ObjectStorageKey() (objectStorageKey []byte) {
 // ObjectStorageValue marshals the Transaction into a sequence of bytes. The ID is not serialized here as it is only
 // used as a key in the object storage.
 func (s *SequenceAliasMapping) ObjectStorageValue() (objectStorageValue []byte) {
-	return s.sequenceID.Bytes()
+	marshalUtil := marshalutil.New()
+	marshalUtil.Write(s.mainSequenceID)
+
+	alternativeSequenceIDsCount := len(s.alternativeSequenceIDs)
+	marshalUtil.WriteUint64(uint64(alternativeSequenceIDsCount))
+	for alternativeSequenceID := range s.alternativeSequenceIDs {
+		marshalUtil.Write(alternativeSequenceID)
+	}
+
+	return marshalUtil.Bytes()
 }
 
 // code contract (make sure the type implements all required methods)
