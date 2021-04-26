@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/magiconair/properties/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -57,13 +56,13 @@ func TestSendIndividually(t *testing.T) {
 	assert.Equal(t, randResult, randInput)
 	require.InDelta(t, time.Duration(0)*time.Second, delay, float64(100*time.Millisecond))
 
-	fmt.Println("=========== rand event arrives arrives just before (interval+awaitOffset) =========== ")
+	fmt.Println("=========== rand event arrives just before (interval+awaitOffset) =========== ")
 	timestamp = time.Duration(testInterval+awaitOffset-1) * time.Second
 	randResult, randInput, delay = tickerFunc(timestamp, timestamp, true)
 	assert.Equal(t, randResult, randInput)
 	require.InDelta(t, time.Duration(0)*time.Second, delay, float64(100*time.Millisecond))
 
-	fmt.Println("=========== rand event arrives arrives just after (interval+awaitOffset) =========== ")
+	fmt.Println("=========== rand event arrives just after (interval+awaitOffset) =========== ")
 	timestamp = time.Duration(testInterval+awaitOffset+1) * time.Second
 	randResult, randInput, delay = tickerFunc(timestamp, timestamp, true)
 	assert.Equal(t, randResult, randDefault)
@@ -94,18 +93,16 @@ func tickerFunc(timestamp, timestampSendTime time.Duration, missingDRNG bool) (r
 	stateFunc := func() *State { return testState }
 	ticker := NewTicker(stateFunc, testInterval, randDefault, awaitOffset)
 
-	ticker.testStart()
+	ticker.Start()
 	defer ticker.Stop()
 
 	ticker.missingDRNG = missingDRNG
 
 	<-ticker.C()
-	start := time.Now()
 	timestampedRandomness := testRandomness(time.Now().Add(timestamp))
 	randInput = timestampedRandomness.Float64()
 
-	fmt.Println("tickerFunc_______  Timestamp, timestampSendTime :: ", timestamp, timestampSendTime)
-	fmt.Println("tickerFunc_______  Timestamp, randTimestamp :: ", clock.Since(timestampedRandomness.Timestamp), ", ", randInput, " _______", time.Since(start))
+	fmt.Println("tickerFunc_______  Timestamp, timestampSendTime, randInput :: ", timestamp, timestampSendTime, randInput)
 
 	// mock the dRNG event
 	go func() {
@@ -137,23 +134,4 @@ func TestNoDRNGTicker(t *testing.T) {
 
 	r = <-ticker.C()
 	assert.Equal(t, r, defaultValue)
-}
-
-// Start starts the Ticker.
-func (t *Ticker) testStart() {
-	time.AfterFunc(0, func() {
-		t.dRNGTicker = time.NewTicker(time.Duration(t.interval) * time.Second)
-		// send for the first time right after the timer is started
-		t.send()
-		defer t.Stop()
-	out:
-		for {
-			select {
-			case <-t.dRNGTicker.C:
-				t.send()
-			case <-t.exit:
-				break out
-			}
-		}
-	})
 }

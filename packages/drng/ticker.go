@@ -99,13 +99,8 @@ func (t *Ticker) send() {
 
 	if t.dRNGState() != nil && t.dRNGTicker != nil {
 		// we expect a randomness, it arrived already, and its newer than the last one
-		if !t.missingDRNG && clock.Since(t.dRNGState().Randomness().Timestamp) < time.Duration(t.interval)*time.Second {
-			randomness = t.dRNGState().Randomness().Float64()
-			timeToNextDRNG := t.dRNGState().Randomness().Timestamp.Add(time.Duration(t.interval) * time.Second).Sub(clock.SyncedTime())
-			t.setDelayedRoundStart(time.Duration(t.interval)*time.Second - timeToNextDRNG)
-			t.dRNGTicker.Reset(timeToNextDRNG)
-			// we were missing a dRNG message previously but the check if the last randomness received is "fresh"
-		} else if t.missingDRNG && clock.Since(t.dRNGState().Randomness().Timestamp) < time.Duration(t.interval)*time.Second {
+		// OR we were missing a dRNG message previously but the check if the last randomness received is "fresh"
+		if clock.Since(t.dRNGState().Randomness().Timestamp) < time.Duration(t.interval)*time.Second {
 			t.missingDRNG = false
 			randomness = t.dRNGState().Randomness().Float64()
 			timeToNextDRNG := t.dRNGState().Randomness().Timestamp.Add(time.Duration(t.interval) * time.Second).Sub(clock.SyncedTime())
@@ -127,7 +122,8 @@ func (t *Ticker) send() {
 			case randomnessEvent := <-t.fromRandomnessEvent:
 				// check if the randomness is "fresh"
 				if t.dRNGTicker != nil {
-					if clock.Since(randomnessEvent.Timestamp) < time.Duration(t.interval)*time.Second {
+					// check against awaitOffset to be no more than 6 seconds
+					if clock.Since(randomnessEvent.Timestamp) < time.Duration(t.awaitOffset)*time.Second {
 						t.missingDRNG = false
 						randomness = t.dRNGState().Randomness().Float64()
 						timeToNextDRNG := randomnessEvent.Timestamp.Add(time.Duration(t.interval) * time.Second).Sub(clock.SyncedTime())
@@ -140,7 +136,7 @@ func (t *Ticker) send() {
 				t.missingDRNG = true
 				// still no new randomness within awaitOffset, take the default value, and reset dRNGTicker
 				t.setDelayedRoundStart(time.Duration(t.awaitOffset) * time.Second)
-				t.dRNGTicker.Reset(time.Duration(time.Duration(t.interval-t.awaitOffset) * time.Second))
+				t.dRNGTicker.Reset(time.Duration(t.interval-t.awaitOffset) * time.Second)
 				break out
 			}
 		}
