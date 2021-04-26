@@ -14,6 +14,13 @@ class Status {
     synced: boolean;
     beacons: Map<string, Beacon>;
     mem: MemoryMetrics = new MemoryMetrics();
+    tangleTime: TangleTime;
+}
+
+class TangleTime {
+    synced: boolean;
+    time: number;
+    messageID: string;
 }
 
 class Beacon {
@@ -179,6 +186,8 @@ export class NodeStore {
 
     constructor() {
         this.status.beacons = new Map<string, Beacon>();
+        this.status.tangleTime = new TangleTime;
+        this.status.tangleTime.time = 0;
         this.registerHandlers();
     }
 
