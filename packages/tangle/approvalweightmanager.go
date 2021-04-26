@@ -98,7 +98,7 @@ func (a *ApprovalWeightManager) WeightOfBranch(branchID ledgerstate.BranchID) (w
 
 // WeightOfMarker returns the weight of the given marker based on the anchorTime.
 func (a *ApprovalWeightManager) WeightOfMarker(marker *markers.Marker, anchorTime time.Time) (weight float64) {
-	currentEpoch := a.tangle.WeightProvider.Epoch(anchorTime)
+	currentEpoch := a.tangle.WeightProvider.OracleEpoch(anchorTime)
 
 	activeWeight, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantSupporters(currentEpoch)
 	branchID := a.tangle.Booker.MarkersManager.BranchID(marker)
@@ -194,7 +194,7 @@ func (a *ApprovalWeightManager) firstUnconfirmedMarkerIndex(sequenceID markers.S
 }
 
 func (a *ApprovalWeightManager) isRelevantSupporter(message *Message) bool {
-	supporterWeight, totalWeight := a.tangle.WeightProvider.Weight(a.tangle.WeightProvider.Epoch(message.IssuingTime()), message)
+	supporterWeight, totalWeight := a.tangle.WeightProvider.Weight(a.tangle.WeightProvider.OracleEpoch(message.IssuingTime()), message)
 
 	return supporterWeight/totalWeight >= minSupporterWeight
 }
@@ -415,7 +415,7 @@ func (a *ApprovalWeightManager) updateMarkerWeight(marker *markers.Marker, messa
 		return
 	}
 
-	epoch := a.tangle.WeightProvider.Epoch(message.IssuingTime())
+	epoch := a.tangle.WeightProvider.OracleEpoch(message.IssuingTime())
 	activeWeights, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantSupporters(epoch)
 
 	for i := a.firstUnconfirmedMarkerIndex(marker.SequenceID()); i <= marker.Index(); i++ {
@@ -453,7 +453,7 @@ func (a *ApprovalWeightManager) updateMarkerWeight(marker *markers.Marker, messa
 }
 
 func (a *ApprovalWeightManager) updateBranchWeight(branchID ledgerstate.BranchID, message *Message) {
-	epoch := a.tangle.WeightProvider.Epoch(message.IssuingTime())
+	epoch := a.tangle.WeightProvider.OracleEpoch(message.IssuingTime())
 	activeWeights, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantSupporters(epoch)
 
 	var supporterWeight float64
@@ -511,7 +511,7 @@ func (a *ApprovalWeightManager) moveMarkerWeightToNewBranch(marker *markers.Mark
 
 	messageID := a.tangle.Booker.MarkersManager.MessageID(marker)
 	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		epochID := a.tangle.WeightProvider.Epoch(message.IssuingTime())
+		epochID := a.tangle.WeightProvider.OracleEpoch(message.IssuingTime())
 
 		weightsOfSupporters, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantSupporters(epochID)
 		branchWeight := float64(0)
