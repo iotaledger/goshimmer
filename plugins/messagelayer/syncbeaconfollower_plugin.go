@@ -130,7 +130,7 @@ func configureSyncBeaconFollower(*node.Plugin) {
 		})
 	})
 	Tangle().Scheduler.Events.MessageScheduled.Attach(f)
-	Tangle().DummyScheduler.Events.MessageScheduled.Attach(f)
+	Tangle().FifoScheduler.Events.MessageScheduled.Attach(f)
 }
 
 // handlePayload handles the received payload. It does the following checks:

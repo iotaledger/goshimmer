@@ -78,10 +78,10 @@ func configure(plugin *node.Plugin) {
 			Tangle().Scheduler.SetRate(schedulerRate(SchedulerParameters.Rate))
 			// Only for the first synced
 			syncedOnce.Do(func() {
-				Tangle().Scheduler.Setup()         // start buffering solid messages
-				Tangle().DummyScheduler.Detach()   // stop receiving more messages
-				Tangle().DummyScheduler.Shutdown() // schedule remaining messages
-				Tangle().Scheduler.Start()         // start scheduler
+				Tangle().Scheduler.Setup()        // start buffering solid messages
+				Tangle().FifoScheduler.Detach()   // stop receiving more messages
+				Tangle().FifoScheduler.Shutdown() // schedule remaining messages
+				Tangle().Scheduler.Start()        // start scheduler
 			})
 		} else {
 			// increase scheduler rate

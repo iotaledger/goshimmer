@@ -13,9 +13,9 @@ const (
 
 // region Scheduler ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// OldScheduler is a Tangle component that takes care of scheduling the messages that shall be booked.
-type OldScheduler struct {
-	Events *OldSchedulerEvents
+// FifoScheduler is a Tangle component that takes care of scheduling the messages that shall be booked.
+type FifoScheduler struct {
+	Events *FifoSchedulerEvents
 
 	tangle                 *Tangle
 	inbox                  chan MessageID
@@ -29,10 +29,10 @@ type OldScheduler struct {
 	onMessageInvalid       *events.Closure
 }
 
-// NewOldScheduler returns a new scheduler.
-func NewOldScheduler(tangle *Tangle) (scheduler *OldScheduler) {
-	scheduler = &OldScheduler{
-		Events: &OldSchedulerEvents{
+// NewFifoScheduler returns a new scheduler.
+func NewFifoScheduler(tangle *Tangle) (scheduler *FifoScheduler) {
+	scheduler = &FifoScheduler{
+		Events: &FifoSchedulerEvents{
 			MessageScheduled: events.NewEvent(MessageIDCaller),
 		},
 
@@ -50,24 +50,24 @@ func NewOldScheduler(tangle *Tangle) (scheduler *OldScheduler) {
 }
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
-func (s *OldScheduler) Setup() {
+func (s *FifoScheduler) Setup() {
 	s.tangle.Solidifier.Events.MessageSolid.Attach(s.onMessageSolid)
 	s.tangle.ConsensusManager.Events.MessageOpinionFormed.Attach(s.onOpinionFormed)
 	s.tangle.Events.MessageInvalid.Attach(s.onMessageInvalid)
 }
 
 // Detach detaches the scheduler from the tangle events.
-func (s *OldScheduler) Detach() {
+func (s *FifoScheduler) Detach() {
 	s.tangle.Solidifier.Events.MessageSolid.Detach(s.onMessageSolid)
 }
 
 // Schedule schedules the given messageID.
-func (s *OldScheduler) Schedule(messageID MessageID) {
+func (s *FifoScheduler) Schedule(messageID MessageID) {
 	s.inbox <- messageID
 }
 
 // Shutdown shuts down the Scheduler and persists its state.
-func (s *OldScheduler) Shutdown() {
+func (s *FifoScheduler) Shutdown() {
 	s.shutdownOnce.Do(func() {
 		close(s.shutdownSignal)
 	})
@@ -78,7 +78,7 @@ func (s *OldScheduler) Shutdown() {
 	s.tangle.Events.MessageInvalid.Detach(s.onMessageInvalid)
 }
 
-func (s *OldScheduler) run() {
+func (s *FifoScheduler) run() {
 	go func() {
 		for {
 			select {
@@ -93,7 +93,7 @@ func (s *OldScheduler) run() {
 	}()
 }
 
-func (s *OldScheduler) scheduleMessage(messageID MessageID) {
+func (s *FifoScheduler) scheduleMessage(messageID MessageID) {
 	if !s.parentsBooked(messageID) {
 		return
 	}
@@ -108,7 +108,7 @@ func (s *OldScheduler) scheduleMessage(messageID MessageID) {
 	})
 }
 
-func (s *OldScheduler) parentsBooked(messageID MessageID) (parentsBooked bool) {
+func (s *FifoScheduler) parentsBooked(messageID MessageID) (parentsBooked bool) {
 	s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		parentsBooked = true
 		message.ForEachParent(func(parent Parent) {
@@ -131,25 +131,25 @@ func (s *OldScheduler) parentsBooked(messageID MessageID) (parentsBooked bool) {
 
 // region SchedulerEvents /////////////////////////////////////////////////////////////////////////////////////////////
 
-// OldSchedulerEvents represents events happening in the Scheduler.
-type OldSchedulerEvents struct {
+// FifoSchedulerEvents represents events happening in the Scheduler.
+type FifoSchedulerEvents struct {
 	// MessageScheduled is triggered when a message is ready to be scheduled.
 	MessageScheduled *events.Event
 	MessageDiscarded *events.Event
 	NodeBlacklisted  *events.Event
 }
 
-func (s *OldScheduler) messageSolidHandler(messageID MessageID) {
+func (s *FifoScheduler) messageSolidHandler(messageID MessageID) {
 	s.Schedule(messageID)
 }
 
-func (s *OldScheduler) messageInvalidHandler(messageID MessageID) {
+func (s *FifoScheduler) messageInvalidHandler(messageID MessageID) {
 	if s.scheduledMessages.Delete(messageID) {
 		s.allMessagesScheduledWG.Done()
 	}
 }
 
-func (s *OldScheduler) opinionFormedHandler(messageID MessageID) {
+func (s *FifoScheduler) opinionFormedHandler(messageID MessageID) {
 	if s.scheduledMessages.Delete(messageID) {
 		s.allMessagesScheduledWG.Done()
 	}

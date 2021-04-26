@@ -29,7 +29,7 @@ type Tangle struct {
 	Storage               *Storage
 	Solidifier            *Solidifier
 	Scheduler             *Scheduler
-	DummyScheduler        *OldScheduler
+	FifoScheduler         *FifoScheduler
 	Booker                *Booker
 	ApprovalWeightManager *ApprovalWeightManager
 	ConsensusManager      *ConsensusManager
@@ -64,7 +64,7 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.Storage = NewStorage(tangle)
 	tangle.Solidifier = NewSolidifier(tangle)
 	tangle.Scheduler = NewScheduler(tangle)
-	tangle.DummyScheduler = NewOldScheduler(tangle)
+	tangle.FifoScheduler = NewFifoScheduler(tangle)
 	tangle.LedgerState = NewLedgerState(tangle)
 	tangle.Booker = NewBooker(tangle)
 	tangle.ApprovalWeightManager = NewApprovalWeightManager(tangle)
@@ -104,7 +104,7 @@ func (t *Tangle) Setup() {
 	t.Storage.Setup()
 	t.Solidifier.Setup()
 	t.Requester.Setup()
-	t.DummyScheduler.Setup()
+	t.FifoScheduler.Setup()
 	t.Booker.Setup()
 	t.ApprovalWeightManager.Setup()
 	t.ConsensusManager.Setup()

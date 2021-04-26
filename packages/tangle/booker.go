@@ -57,7 +57,7 @@ func (b *Booker) Setup() {
 		}
 	})
 	b.tangle.Scheduler.Events.MessageScheduled.Attach(f)
-	b.tangle.DummyScheduler.Events.MessageScheduled.Attach(f)
+	b.tangle.FifoScheduler.Events.MessageScheduled.Attach(f)
 
 	b.tangle.LedgerState.utxoDAG.Events.TransactionBranchIDUpdated.Attach(events.NewClosure(func(transactionID ledgerstate.TransactionID) {
 		if err := b.BookConflictingTransaction(transactionID); err != nil {
