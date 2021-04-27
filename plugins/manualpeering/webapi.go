@@ -48,7 +48,7 @@ func addPeersHandler(c echo.Context) error {
 		)
 	}
 	Manager().AddPeer(peers...)
-	return c.JSON(http.StatusOK, map[string]bool{"ok": true})
+	return c.NoContent(http.StatusNoContent)
 }
 
 type peerToRemove struct {
