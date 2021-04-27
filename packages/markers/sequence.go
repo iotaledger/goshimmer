@@ -509,7 +509,7 @@ func SequenceAliasMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (
 			return
 		}
 
-		mapping.sequenceIDs.Set(currentSequenceID, true)
+		mapping.sequenceIDs.Set(currentSequenceID, types.Void)
 	}
 
 	return
@@ -532,96 +532,40 @@ func (s *SequenceAliasMapping) SequenceAlias() (sequenceAlias SequenceAlias) {
 
 // SequenceID returns the SequenceID of the SequenceAliasMapping.
 func (s *SequenceAliasMapping) SequenceID(referencedMarkers *Markers) (sequenceID SequenceID) {
-	if _, exists := referencedMarkers.Get(s.mainSequenceID); exists {
-		return s.mainSequenceID
-	}
-
-	referencedMarkers.ForEach(func(alternativeSequenceID SequenceID, _ Index) bool {
-		if _, exists := s.alternativeSequenceIDs[alternativeSequenceID]; exists && alternativeSequenceID > sequenceID {
-			sequenceID = alternativeSequenceID
+	s.sequenceIDs.ForEachReverse(func(key, value interface{}) bool {
+		if _, exists := referencedMarkers.Get(key.(SequenceID)); exists {
+			sequenceID = key.(SequenceID)
+			return false
 		}
 
 		return true
 	})
 
-	if sequenceID == 0 {
-		sequenceID = s.mainSequenceID
+	if sequenceID != 0 {
+		return
 	}
+
+	lastSequenceID, _, _ := s.sequenceIDs.Tail()
+	sequenceID = lastSequenceID.(SequenceID)
 
 	return
 }
 
-func (s *SequenceAliasMapping) RegisterMapping(sequenceID SequenceID, mainSequenceID bool) (updated bool) {
-	if s.mainSequenceID == sequenceID {
-		if !mainSequenceID {
-			s.mainSequenceID = 0
-			for alternativeSequenceID := range s.alternativeSequenceIDs {
-				if alternativeSequenceID > s.mainSequenceID {
-					s.mainSequenceID = alternativeSequenceID
-				}
-			}
-
-			s.alternativeSequenceIDs[sequenceID] = types.Void
-
-			s.SetModified()
-			updated = true
-		}
-
-		return
-	}
-
-	if mainSequenceID {
-		if _, exists := s.alternativeSequenceIDs[sequenceID]; exists {
-			delete(s.alternativeSequenceIDs, sequenceID)
-		}
-
-		if s.mainSequenceID != 0 {
-			s.alternativeSequenceIDs[s.mainSequenceID] = types.Void
-		}
-
-		s.mainSequenceID = sequenceID
-
+func (s *SequenceAliasMapping) RegisterMapping(sequenceID SequenceID) (updated bool) {
+	if updated = s.sequenceIDs.Set(sequenceID, types.Void); updated {
 		s.SetModified()
-		updated = true
-
-		return
 	}
-
-	if _, exists := s.alternativeSequenceIDs[sequenceID]; exists {
-		return
-	}
-
-	s.alternativeSequenceIDs[sequenceID] = types.Void
-
-	s.SetModified()
-	updated = true
 
 	return
 }
 
 func (s *SequenceAliasMapping) UnregisterMapping(sequenceID SequenceID) (updated bool, emptied bool) {
-	switch s.mainSequenceID {
-	case sequenceID:
-		s.mainSequenceID = 0
-		for alternativeSequenceID := range s.alternativeSequenceIDs {
-			if alternativeSequenceID > s.mainSequenceID {
-				s.mainSequenceID = alternativeSequenceID
-			}
-		}
-
-		if emptied = s.mainSequenceID == 0; !emptied {
-			delete(s.alternativeSequenceIDs, s.mainSequenceID)
-		}
-	default:
-		if _, exists := s.alternativeSequenceIDs[sequenceID]; !exists {
-			return
-		}
-
-		delete(s.alternativeSequenceIDs, sequenceID)
+	if updated = s.sequenceIDs.Delete(sequenceID); !updated {
+		return
 	}
 
 	s.SetModified()
-	updated = true
+	emptied = s.sequenceIDs.Size() == 0
 
 	return
 }
@@ -632,10 +576,16 @@ func (s *SequenceAliasMapping) Bytes() (marshaledSequenceAliasMapping []byte) {
 }
 
 func (s *SequenceAliasMapping) String() string {
+	sequenceIDs := make(SequenceIDs)
+	s.sequenceIDs.ForEach(func(key, value interface{}) bool {
+		sequenceIDs[key.(SequenceID)] = value.(types.Empty)
+
+		return true
+	})
+
 	return stringify.Struct("SequenceAliasMapping",
 		stringify.StructField("sequenceAlias", s.sequenceAlias),
-		stringify.StructField("mainSequenceID", s.mainSequenceID),
-		stringify.StructField("alternativeSequenceIDs", s.alternativeSequenceIDs),
+		stringify.StructField("sequenceIDs", sequenceIDs),
 	)
 }
 
@@ -653,10 +603,15 @@ func (s *SequenceAliasMapping) ObjectStorageKey() (objectStorageKey []byte) {
 // ObjectStorageValue marshals the Transaction into a sequence of bytes. The ID is not serialized here as it is only
 // used as a key in the object storage.
 func (s *SequenceAliasMapping) ObjectStorageValue() (objectStorageValue []byte) {
-	return marshalutil.New().
-		Write(s.mainSequenceID).
-		Write(s.alternativeSequenceIDs).
-		Bytes()
+	marshalUtil := marshalutil.New()
+	marshalUtil.WriteUint64(uint64(s.sequenceIDs.Size()))
+
+	s.sequenceIDs.ForEach(func(key, _ interface{}) bool {
+		marshalUtil.Write(key.(SequenceID))
+		return true
+	})
+
+	return marshalUtil.Bytes()
 }
 
 // code contract (make sure the type implements all required methods)

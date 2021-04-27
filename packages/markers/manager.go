@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/iotaledger/hive.go/datastructure/orderedmap"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/types"
@@ -258,11 +259,11 @@ func (m *Manager) SequenceAliasMapping(sequenceAlias SequenceAlias, computeIfAbs
 }
 
 // RegisterSequenceAliasMapping adds a mapping from a SequenceAlias to a Sequence.
-func (m *Manager) RegisterSequenceAliasMapping(sequenceAlias SequenceAlias, sequenceID SequenceID, mainSequenceID bool) (updated bool) {
+func (m *Manager) RegisterSequenceAliasMapping(sequenceAlias SequenceAlias, sequenceID SequenceID) (updated bool) {
 	m.SequenceAliasMapping(sequenceAlias, func(sequenceAlias SequenceAlias) *SequenceAliasMapping {
 		newSequenceAliasMapping := &SequenceAliasMapping{
-			sequenceAlias:          sequenceAlias,
-			alternativeSequenceIDs: make(SequenceIDs),
+			sequenceAlias: sequenceAlias,
+			sequenceIDs:   orderedmap.New(),
 		}
 
 		newSequenceAliasMapping.Persist()
@@ -270,7 +271,7 @@ func (m *Manager) RegisterSequenceAliasMapping(sequenceAlias SequenceAlias, sequ
 
 		return newSequenceAliasMapping
 	}).Consume(func(sequenceAliasMapping *SequenceAliasMapping) {
-		updated = sequenceAliasMapping.RegisterMapping(sequenceID, mainSequenceID)
+		updated = sequenceAliasMapping.RegisterMapping(sequenceID)
 	})
 
 	return
@@ -480,10 +481,10 @@ func (m *Manager) fetchSequence(referencedMarkers *Markers, rank uint64, sequenc
 		cachedSequence = &CachedSequence{CachedObject: m.sequenceStore.Store(sequence)}
 
 		sequenceAliasMapping := &SequenceAliasMapping{
-			sequenceAlias:          sequenceAlias,
-			mainSequenceID:         sequence.id,
-			alternativeSequenceIDs: make(SequenceIDs),
+			sequenceAlias: sequenceAlias,
+			sequenceIDs:   orderedmap.New(),
 		}
+		sequenceAliasMapping.RegisterMapping(sequence.id)
 
 		sequenceAliasMapping.Persist()
 		sequenceAliasMapping.SetModified()

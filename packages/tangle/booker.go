@@ -303,7 +303,7 @@ func (b *Booker) updateMarker(currentMarker *markers.Marker, conflictBranchID le
 
 	b.Events.MarkerBranchUpdated.Trigger(currentMarker, oldBranchID, newBranchID)
 
-	b.MarkersManager.UnregisterSequenceAliasMapping(markers.NewSequenceAlias(oldBranchID.Bytes()))
+	b.MarkersManager.UnregisterSequenceAliasMapping(markers.NewSequenceAlias(oldBranchID.Bytes()), currentMarker.SequenceID())
 
 	b.MarkersManager.Sequence(currentMarker.SequenceID()).Consume(func(sequence *markers.Sequence) {
 		sequence.ReferencingMarkers(currentMarker.Index()).ForEachSorted(func(referencingSequenceID markers.SequenceID, referencingIndex markers.Index) bool {
@@ -463,7 +463,7 @@ func (m *MarkersManager) SetBranchID(marker *markers.Marker, branchID ledgerstat
 		}
 
 		if floorMarker == marker.Index() {
-			m.UnregisterSequenceAliasMapping(markers.NewSequenceAlias(floorBranchID.Bytes()))
+			m.UnregisterSequenceAliasMapping(markers.NewSequenceAlias(floorBranchID.Bytes()), marker.SequenceID())
 		}
 		m.RegisterSequenceAliasMapping(markers.NewSequenceAlias(branchID.Bytes()), marker.SequenceID())
 	}
