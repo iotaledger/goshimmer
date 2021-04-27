@@ -81,8 +81,7 @@ func setMessageFinalized(message *tangle.Message, messageMetadata *tangle.Messag
 
 	Tangle().Utils.ComputeIfTransaction(message.ID(), func(transactionID ledgerstate.TransactionID) {
 		Tangle().LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-			modified := transactionMetadata.SetFinalized(true)
-			if modified {
+			if transactionMetadata.SetFinalized(true) {
 				Tangle().ConsensusManager.SetTransactionLiked(transactionID, true)
 				// trigger TransactionOpinionFormed if the message contains a transaction
 				Tangle().ConsensusManager.Events.TransactionConfirmed.Trigger(message.ID())
@@ -97,8 +96,7 @@ func setMessageFinalized(message *tangle.Message, messageMetadata *tangle.Messag
 					continue
 				}
 				Tangle().LedgerState.TransactionMetadata(conflicingTx).Consume(func(conflictingTransactionMetadata *ledgerstate.TransactionMetadata) {
-					modified := conflictingTransactionMetadata.SetFinalized(true)
-					if modified {
+					if conflictingTransactionMetadata.SetFinalized(true) {
 						Tangle().ConsensusManager.SetTransactionLiked(transactionID, false)
 					}
 				})
