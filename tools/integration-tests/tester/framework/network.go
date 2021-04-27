@@ -163,6 +163,27 @@ func (n *Network) CreatePeer(c GoShimmerConfig) (*Peer, error) {
 	return peer, nil
 }
 
+// CreatePeerWithMana creates a new peers/Goshimmer node in the network and returns it.
+// It requests funds from the faucet and pledges mana to itself.
+func (n *Network) CreatePeerWithMana(c GoShimmerConfig) (*Peer, error) {
+	peer, err := n.CreatePeer(c)
+	if err != nil {
+		return nil, err
+	}
+	addr := peer.Seed.Address(uint64(0)).Address()
+	ID := base58.Encode(peer.ID().Bytes())
+	_, err = peer.SendFaucetRequest(addr.Base58(), ID, ID)
+	if err != nil {
+		_ = peer.Stop()
+		return nil, fmt.Errorf("error sending faucet request... shutting down: %w", err)
+	}
+	err = n.WaitForMana(peer)
+	if err != nil {
+		return nil, err
+	}
+	return peer, nil
+}
+
 // Shutdown creates logs and removes network and containers.
 // Should always be called when a network is not needed anymore!
 func (n *Network) Shutdown() error {
@@ -295,12 +316,16 @@ func (n *Network) WaitForAutopeering(minimumNeighbors int) error {
 
 // WaitForMana waits until all peers have access mana.
 // Returns error if all peers don't have mana after waitForManaMaxTries
-func (n *Network) WaitForMana() error {
+func (n *Network) WaitForMana(optionalPeers ...*Peer) error {
 	log.Printf("Waiting for nodes to get mana...\n")
 	defer log.Printf("Waiting for nodes to get mana... done\n")
 
+	peers := n.peers
+	if len(optionalPeers) > 0 {
+		peers = optionalPeers
+	}
 	m := make(map[*Peer]struct{})
-	for _, peer := range n.peers {
+	for _, peer := range peers {
 		m[peer] = struct{}{}
 	}
 	for i := waitForManaMaxTries; i > 0; i-- {

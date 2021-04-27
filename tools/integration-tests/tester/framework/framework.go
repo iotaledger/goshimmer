@@ -14,7 +14,6 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/mr-tron/base58"
-	"golang.org/x/xerrors"
 )
 
 var (
@@ -319,10 +318,10 @@ func (f *Framework) CreateNetworkWithMana(name string, peers, minimumNeighbors i
 		return nil, err
 	}
 	if !config.Faucet {
-		return nil, xerrors.Errorf("faucet is required to create mana network")
+		return nil, fmt.Errorf("faucet is required")
 	}
 	if !config.Mana {
-		return nil, xerrors.Errorf("mana plugin is required to load mana snapshot")
+		return nil, fmt.Errorf("mana plugin is required to load mana snapshot")
 	}
 	for i := 1; i < len(n.peers); i++ {
 		peer := n.peers[i]
@@ -330,7 +329,7 @@ func (f *Framework) CreateNetworkWithMana(name string, peers, minimumNeighbors i
 		ID := base58.Encode(peer.ID().Bytes())
 		_, err := peer.SendFaucetRequest(addr.Base58(), ID, ID)
 		if err != nil {
-			return nil, xerrors.Errorf("faucet request failed on peer %s: %w", peer.ID(), err)
+			return nil, fmt.Errorf("faucet request failed on peer %s: %w", peer.ID(), err)
 		}
 	}
 	err = n.WaitForMana()
