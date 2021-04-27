@@ -551,6 +551,7 @@ func (s *SequenceAliasMapping) SequenceID(referencedMarkers *Markers) (sequenceI
 	return
 }
 
+// RegisterMapping adds a mapping to a new SequenceID from the current SequenceAlias.
 func (s *SequenceAliasMapping) RegisterMapping(sequenceID SequenceID) (updated bool) {
 	if updated = s.sequenceIDs.Set(sequenceID, types.Void); updated {
 		s.SetModified()
@@ -559,6 +560,7 @@ func (s *SequenceAliasMapping) RegisterMapping(sequenceID SequenceID) (updated b
 	return
 }
 
+// UnregisterMapping removed a mapping to a SequenceID from the current SequenceAlias.
 func (s *SequenceAliasMapping) UnregisterMapping(sequenceID SequenceID) (updated, emptied bool) {
 	if updated = s.sequenceIDs.Delete(sequenceID); !updated {
 		return

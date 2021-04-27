@@ -558,6 +558,7 @@ func TestScenario_2(t *testing.T) {
 		}
 		structureDetails[messages["4"].ID()] = &markers.StructureDetails{
 			Rank:          2,
+			PastMarkerGap: 1,
 			IsPastMarker:  false,
 			PastMarkers:   markers.NewMarkers(markers.NewMarker(1, 1)),
 			FutureMarkers: markers.NewMarkers(markers.NewMarker(3, 2)),
