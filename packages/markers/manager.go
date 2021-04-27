@@ -247,28 +247,44 @@ func (m *Manager) Sequence(sequenceID SequenceID) *CachedSequence {
 	return &CachedSequence{CachedObject: m.sequenceStore.Load(sequenceID.Bytes())}
 }
 
-// SequenceFromAlias returns a Sequence from the given SequenceAlias.
-func (m *Manager) SequenceFromAlias(sequenceAlias SequenceAlias) (cachedSequence *CachedSequence, exists bool) {
-	exists = (&CachedSequenceAliasMapping{CachedObject: m.sequenceAliasMappingStore.Load(sequenceAlias.Bytes())}).Consume(func(sequenceAliasMapping *SequenceAliasMapping) {
-		cachedSequence = m.Sequence(sequenceAliasMapping.SequenceID())
+func (m *Manager) SequenceAliasMapping(sequenceAlias SequenceAlias, computeIfAbsentCallback ...func(sequenceAlias SequenceAlias) *SequenceAliasMapping) (sequenceAliasMapping *CachedSequenceAliasMapping) {
+	if len(computeIfAbsentCallback) >= 1 {
+		return &CachedSequenceAliasMapping{m.sequenceAliasMappingStore.ComputeIfAbsent(sequenceAlias.Bytes(), func(key []byte) objectstorage.StorableObject {
+			return computeIfAbsentCallback[0](sequenceAlias)
+		})}
+	}
+
+	return &CachedSequenceAliasMapping{CachedObject: m.sequenceAliasMappingStore.Load(sequenceAlias.Bytes())}
+}
+
+// RegisterSequenceAliasMapping adds a mapping from a SequenceAlias to a Sequence.
+func (m *Manager) RegisterSequenceAliasMapping(sequenceAlias SequenceAlias, sequenceID SequenceID, mainSequenceID bool) (updated bool) {
+	m.SequenceAliasMapping(sequenceAlias, func(sequenceAlias SequenceAlias) *SequenceAliasMapping {
+		newSequenceAliasMapping := &SequenceAliasMapping{
+			sequenceAlias:          sequenceAlias,
+			alternativeSequenceIDs: make(SequenceIDs),
+		}
+
+		newSequenceAliasMapping.Persist()
+		newSequenceAliasMapping.SetModified()
+
+		return newSequenceAliasMapping
+	}).Consume(func(sequenceAliasMapping *SequenceAliasMapping) {
+		updated = sequenceAliasMapping.RegisterMapping(sequenceID, mainSequenceID)
 	})
 
 	return
 }
 
-// RegisterSequenceAlias adds a mapping from a SequenceAlias to a Sequence.
-func (m *Manager) RegisterSequenceAlias(sequenceAlias SequenceAlias, sequenceID SequenceID) {
-	if cachedObject, stored := m.sequenceAliasMappingStore.StoreIfAbsent(&SequenceAliasMapping{
-		sequenceAlias:  sequenceAlias,
-		mainSequenceID: sequenceID,
-	}); stored {
-		cachedObject.Release()
-	}
-}
+// UnregisterSequenceAliasMapping removes the mapping of the given SequenceAlias to its corresponding Sequence.
+func (m *Manager) UnregisterSequenceAliasMapping(sequenceAlias SequenceAlias, sequenceID SequenceID) (updated bool, emptied bool) {
+	m.SequenceAliasMapping(sequenceAlias).Consume(func(sequenceAliasMapping *SequenceAliasMapping) {
+		if updated, emptied = sequenceAliasMapping.UnregisterMapping(sequenceID); emptied {
+			sequenceAliasMapping.Delete()
+		}
+	})
 
-// UnregisterSequenceAlias removes the mapping of the given SequenceAlias to its corresponding Sequence.
-func (m *Manager) UnregisterSequenceAlias(sequenceAlias SequenceAlias) {
-	m.sequenceAliasMappingStore.Delete(sequenceAlias.Bytes())
+	return
 }
 
 // Shutdown shuts down the Manager and persists its state.
@@ -455,7 +471,7 @@ func (m *Manager) registerReferencingMarker(referencedMarkers *Markers, marker *
 // fetchSequence is an internal utility function that retrieves or creates the Sequence that represents the given
 // parameters and returns it.
 func (m *Manager) fetchSequence(referencedMarkers *Markers, rank uint64, sequenceAlias SequenceAlias) (cachedSequence *CachedSequence, isNew bool) {
-	cachedSequenceAliasMapping := &CachedSequenceAliasMapping{CachedObject: m.sequenceAliasMappingStore.ComputeIfAbsent(sequenceAlias.Bytes(), func(key []byte) objectstorage.StorableObject {
+	cachedSequenceAliasMapping := m.SequenceAliasMapping(sequenceAlias, func(sequenceAlias SequenceAlias) *SequenceAliasMapping {
 		m.sequenceIDCounterMutex.Lock()
 		sequence := NewSequence(m.sequenceIDCounter, referencedMarkers, rank+1)
 		m.sequenceIDCounter++
@@ -464,15 +480,16 @@ func (m *Manager) fetchSequence(referencedMarkers *Markers, rank uint64, sequenc
 		cachedSequence = &CachedSequence{CachedObject: m.sequenceStore.Store(sequence)}
 
 		sequenceAliasMapping := &SequenceAliasMapping{
-			sequenceAlias:  sequenceAlias,
-			mainSequenceID: sequence.id,
+			sequenceAlias:          sequenceAlias,
+			mainSequenceID:         sequence.id,
+			alternativeSequenceIDs: make(SequenceIDs),
 		}
 
 		sequenceAliasMapping.Persist()
 		sequenceAliasMapping.SetModified()
 
 		return sequenceAliasMapping
-	})}
+	})
 
 	if isNew = cachedSequence != nil; isNew {
 		cachedSequenceAliasMapping.Release()
@@ -480,7 +497,7 @@ func (m *Manager) fetchSequence(referencedMarkers *Markers, rank uint64, sequenc
 	}
 
 	cachedSequenceAliasMapping.Consume(func(sequenceAliasMapping *SequenceAliasMapping) {
-		cachedSequence = m.Sequence(sequenceAliasMapping.SequenceID())
+		cachedSequence = m.Sequence(sequenceAliasMapping.SequenceID(referencedMarkers))
 	})
 
 	return
