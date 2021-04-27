@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mr-tron/base58"
+
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
@@ -104,9 +106,16 @@ func SendFaucetRequestOnRandomPeer(t *testing.T, peers []*framework.Peer, numMes
 	return ids, addrBalance
 }
 
-// SendFaucetRequest sends a data message on a given peer and returns the id and a DataMessageSent struct.
-func SendFaucetRequest(t *testing.T, peer *framework.Peer, addr ledgerstate.Address) (string, DataMessageSent) {
-	resp, err := peer.SendFaucetRequest(addr.Base58())
+// SendFaucetRequest sends a data message on a given peer and returns the id and a DataMessageSent struct. By default,
+// it pledges mana to the peer making the request.
+func SendFaucetRequest(t *testing.T, peer *framework.Peer, addr ledgerstate.Address, manaPledgeIDs ...string) (string, DataMessageSent) {
+	peerID := base58.Encode(peer.ID().Bytes())
+	aManaPledgeID, cManaPledgeID := peerID, peerID
+	if len(manaPledgeIDs) > 1 {
+		aManaPledgeID, cManaPledgeID = manaPledgeIDs[0], manaPledgeIDs[1]
+	}
+
+	resp, err := peer.SendFaucetRequest(addr.Base58(), aManaPledgeID, cManaPledgeID)
 	require.NoErrorf(t, err, "Could not send faucet request on %s", peer.String())
 
 	sent := DataMessageSent{

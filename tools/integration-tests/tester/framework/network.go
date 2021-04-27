@@ -293,6 +293,32 @@ func (n *Network) WaitForAutopeering(minimumNeighbors int) error {
 	return fmt.Errorf("autopeering not successful")
 }
 
+// WaitForMana waits until all peers have access mana.
+// Returns error if all peers don't have mana after waitForManaMaxTries
+func (n *Network) WaitForMana() error {
+	log.Printf("Waiting for nodes to get mana...\n")
+	defer log.Printf("Waiting for nodes to get mana... done\n")
+
+	m := make(map[*Peer]struct{})
+	for _, peer := range n.peers {
+		m[peer] = struct{}{}
+	}
+	for i := waitForManaMaxTries; i > 0; i-- {
+		for peer := range m {
+			infoRes, err := peer.Info()
+			if err == nil && infoRes.Mana.Access > 0.0 {
+				delete(m, peer)
+			}
+		}
+		if len(m) == 0 {
+			return nil
+		}
+		log.Println("Not done yet. Try again in 5 seconds...")
+		time.Sleep(5 * time.Second)
+	}
+	return fmt.Errorf("waiting for mana not successful")
+}
+
 // namePrefix returns the suffix prefixed with the name.
 func (n *Network) namePrefix(suffix string) string {
 	return fmt.Sprintf("%s-%s", n.name, suffix)

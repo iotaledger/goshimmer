@@ -11,10 +11,10 @@ const (
 )
 
 // SendFaucetRequest requests funds from faucet nodes by sending a faucet request payload message.
-func (api *GoShimmerAPI) SendFaucetRequest(base58EncodedAddr string) (*jsonmodels.FaucetResponse, error) {
+func (api *GoShimmerAPI) SendFaucetRequest(base58EncodedAddr string, accessManaPledgeID string, consensusManaPledgeID string) (*jsonmodels.FaucetResponse, error) {
 	res := &jsonmodels.FaucetResponse{}
 	if err := api.do(http.MethodPost, routeFaucet,
-		&jsonmodels.FaucetRequest{Address: base58EncodedAddr}, res); err != nil {
+		&jsonmodels.FaucetRequest{Address: base58EncodedAddr, AccessManaPledgeID: accessManaPledgeID, ConsensusManaPledgeID: consensusManaPledgeID}, res); err != nil {
 		return nil, err
 	}
 

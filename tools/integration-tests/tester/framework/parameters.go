@@ -2,6 +2,7 @@ package framework
 
 const (
 	autopeeringMaxTries = 50
+	waitForManaMaxTries = 10
 
 	apiPort = "8080"
 
