@@ -46,6 +46,17 @@ func (api *GoShimmerAPI) GetAddressUnspentOutputs(base58EncodedAddress string) (
 	return res, nil
 }
 
+// PostAddressUnspentOutputs gets the unspent outputs of several addresses.
+func (api *GoShimmerAPI) PostAddressUnspentOutputs(base58EncodedAddresses []string) (*json_models.PostAddressesUnspentOutputsResponse, error) {
+	res := &json_models.PostAddressesUnspentOutputsResponse{}
+	if err := api.do(http.MethodPost, func() string {
+		return strings.Join([]string{routeGetAddresses, "unspentOutputs"}, "")
+	}(), &json_models.PostAddressesUnspentOutputsRequest{Addresses: base58EncodedAddresses}, res); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
 // GetBranch gets the branch information.
 func (api *GoShimmerAPI) GetBranch(base58EncodedBranchID string) (*json_models.Branch, error) {
 	res := &json_models.Branch{}

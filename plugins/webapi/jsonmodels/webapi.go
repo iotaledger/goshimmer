@@ -32,6 +32,22 @@ func NewGetAddressResponse(address ledgerstate.Address, outputs ledgerstate.Outp
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// region PostAddressesUnspentOutputsRequest
+
+type PostAddressesUnspentOutputsRequest struct {
+	Addresses []string `json:"addresses"`
+}
+
+// endregion
+
+// region PostAddressesUnspentOutputsResponse
+
+type PostAddressesUnspentOutputsResponse struct {
+	UnspentOutputs []*WalletOutputsOnAddress `json:"unspentOutputs"`
+}
+
+// endregion
+
 // region GetBranchChildrenResponse ////////////////////////////////////////////////////////////////////////////////////
 
 // GetBranchChildrenResponse represents the JSON model of a response from the GetBranchChildren endpoint.
