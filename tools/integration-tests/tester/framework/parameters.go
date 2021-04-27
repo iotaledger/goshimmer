@@ -22,8 +22,8 @@ const (
 
 	exitStatusSuccessful = 0
 
-	syncBeaconSeed      = "8q491c3YWjbPwLmF2WD95YmCgh61j2kenCKHfGfByoWi"
-	syncBeaconPublicKey = "EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP"
+	syncBeaconSeed      = "3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E"
+	syncBeaconPublicKey = "CHfU1NUf6ZvUKDQHTG2df53GR7CvuMFtyt7YymJ6DwS3"
 
 	// GenesisTokenAmount is the amount of tokens in the genesis output.
 	GenesisTokenAmount = 1000000000000000

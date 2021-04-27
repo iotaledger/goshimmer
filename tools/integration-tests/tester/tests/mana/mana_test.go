@@ -220,18 +220,22 @@ func TestApis(t *testing.T) {
 	}
 	timestampPast := allManaResp.ConsensusTimestamp
 	resp3, err := peers[0].GoShimmerAPI.GetNHighestAccessMana(len(peers) + 2)
+	t.Log("resp3", resp3)
 	require.NoError(t, err)
 	resp3.Nodes = stripGenesisNodeID(resp3.Nodes)
 	resp4, err := peers[0].GoShimmerAPI.GetNHighestConsensusMana(len(peers) + 2)
+	t.Log("resp", resp4)
 	require.NoError(t, err)
 	resp4.Nodes = stripGenesisNodeID(resp4.Nodes)
-	require.Equal(t, 2, len(resp3.Nodes))
-	require.Equal(t, 3, len(resp4.Nodes))
+	require.Equal(t, 3, len(resp3.Nodes))
+	require.Equal(t, 4, len(resp4.Nodes))
 	for i := 0; i < 3; i++ {
 		assert.Equal(t, base58.Encode(peers[i].ID().Bytes()), resp3.Nodes[i].NodeID)
 		// faucet pledged its cons mana to emptyNodeID...
-		if i == 0 {
+		if i == 1 {
 			assert.Equal(t, base58.Encode(emptyNodeID.Bytes()), resp4.Nodes[i].NodeID)
+		} else if i > 1 {
+			assert.Equal(t, base58.Encode(peers[i-1].ID().Bytes()), resp4.Nodes[i].NodeID)
 		} else {
 			assert.Equal(t, base58.Encode(peers[i].ID().Bytes()), resp4.Nodes[i].NodeID)
 		}
@@ -241,7 +245,7 @@ func TestApis(t *testing.T) {
 	resp5, err := peers[0].GoShimmerAPI.GetManaPercentile(base58.Encode(peers[0].ID().Bytes()))
 	require.NoError(t, err)
 	assert.Equal(t, base58.Encode(peers[0].ID().Bytes()), resp5.NodeID)
-	assert.InDelta(t, 80.0, resp5.Access, 0.01)
+	assert.InDelta(t, 75.0, resp5.Access, 0.01)
 
 	resp5, err = peers[0].GoShimmerAPI.GetManaPercentile(base58.Encode(emptyNodeID.Bytes()))
 	require.NoError(t, err)
@@ -255,7 +259,7 @@ func TestApis(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 3, len(resp6.Online))
 	// emptyNodeID cannot be online!
-	require.Equal(t, 2, len(resp7.Online))
+	require.Equal(t, 3, len(resp7.Online))
 	fmt.Println("online nodes access mana")
 	for _, r := range resp6.Online {
 		fmt.Println("node - ", r.ShortID, " -- mana: ", r.Mana)
@@ -265,8 +269,8 @@ func TestApis(t *testing.T) {
 	assert.Equal(t, base58.Encode(peers[2].ID().Bytes()), resp6.Online[2].ID)
 
 	// emptyNodeID cannot be online!
-	assert.Equal(t, base58.Encode(peers[1].ID().Bytes()), resp7.Online[0].ID)
-	assert.Equal(t, base58.Encode(peers[2].ID().Bytes()), resp7.Online[1].ID)
+	assert.Equal(t, base58.Encode(peers[0].ID().Bytes()), resp7.Online[0].ID)
+	assert.Equal(t, base58.Encode(peers[1].ID().Bytes()), resp7.Online[1].ID)
 
 	// Test /mana/pending
 	unspentOutputs, err := peers[1].GetUnspentOutputs([]string{peers[1].Seed.Address(0).Address().Base58()})
@@ -335,9 +339,9 @@ func TestApis(t *testing.T) {
 
 func stripGenesisNodeID(input []manaPkg.NodeStr) (output []manaPkg.NodeStr) {
 	peerMaster := "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5"
-	faucet := "FZ6xmPZXRs2M8z9m9ETTQok4PCga4X8FRHwQE6uYm4rV"
+	// faucet := "FZ6xmPZXRs2M8z9m9ETTQok4PCga4X8FRHwQE6uYm4rV"
 	for _, id := range input {
-		if id.NodeID == peerMaster || id.NodeID == faucet {
+		if id.NodeID == peerMaster {
 			continue
 		}
 		output = append(output, id)
