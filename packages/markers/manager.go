@@ -248,6 +248,8 @@ func (m *Manager) Sequence(sequenceID SequenceID) *CachedSequence {
 	return &CachedSequence{CachedObject: m.sequenceStore.Load(sequenceID.Bytes())}
 }
 
+// SequenceAliasMapping retrieves the SequenceAliasMapping from the object storage. It accepts an optional
+// computeIfAbsentCallback that is executed to determine the value if it is missing.
 func (m *Manager) SequenceAliasMapping(sequenceAlias SequenceAlias, computeIfAbsentCallback ...func(sequenceAlias SequenceAlias) *SequenceAliasMapping) (sequenceAliasMapping *CachedSequenceAliasMapping) {
 	if len(computeIfAbsentCallback) >= 1 {
 		return &CachedSequenceAliasMapping{m.sequenceAliasMappingStore.ComputeIfAbsent(sequenceAlias.Bytes(), func(key []byte) objectstorage.StorableObject {
@@ -278,7 +280,7 @@ func (m *Manager) RegisterSequenceAliasMapping(sequenceAlias SequenceAlias, sequ
 }
 
 // UnregisterSequenceAliasMapping removes the mapping of the given SequenceAlias to its corresponding Sequence.
-func (m *Manager) UnregisterSequenceAliasMapping(sequenceAlias SequenceAlias, sequenceID SequenceID) (updated bool, emptied bool) {
+func (m *Manager) UnregisterSequenceAliasMapping(sequenceAlias SequenceAlias, sequenceID SequenceID) (updated, emptied bool) {
 	m.SequenceAliasMapping(sequenceAlias).Consume(func(sequenceAliasMapping *SequenceAliasMapping) {
 		if updated, emptied = sequenceAliasMapping.UnregisterMapping(sequenceID); emptied {
 			sequenceAliasMapping.Delete()

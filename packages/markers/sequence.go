@@ -559,7 +559,7 @@ func (s *SequenceAliasMapping) RegisterMapping(sequenceID SequenceID) (updated b
 	return
 }
 
-func (s *SequenceAliasMapping) UnregisterMapping(sequenceID SequenceID) (updated bool, emptied bool) {
+func (s *SequenceAliasMapping) UnregisterMapping(sequenceID SequenceID) (updated, emptied bool) {
 	if updated = s.sequenceIDs.Delete(sequenceID); !updated {
 		return
 	}
