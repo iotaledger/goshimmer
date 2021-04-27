@@ -81,6 +81,13 @@ func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int, 
 				}
 				return i == 0
 			}(i),
+			SyncBeaconBroadcastInterval: func(i int) int {
+				broadcastInterval := 0
+				if i == 0 {
+					broadcastInterval = 1
+				}
+				return broadcastInterval
+			}(i),
 			SyncBeaconFollower: func(i int) bool {
 				if ParaSyncBeaconOnEveryNode {
 					return false
