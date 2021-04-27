@@ -192,10 +192,13 @@ func TestConsensus(t *testing.T) {
 		}
 	}
 
-	// assert.Equal(t, 0, rejected[0], "the rejected count for first transaction should be equal to 0")
-	// assert.Equal(t, len(n.Peers()), rejected[1], "the rejected count for second transaction should be equal to %d", len(n.Peers()))
-	// assert.Equal(t, 0, confirmed[1], "the confirmed count for second transaction should be equal to 0")
-	// assert.Equal(t, len(n.Peers()), confirmed[0], "the confirmed count for first transaction should be equal to the amount of peers %d", len(n.Peers()))
+	assert.Equal(t, 0, rejected[0], "the rejected count for first transaction should be equal to 0")
+	assert.Equal(t, len(n.Peers()), rejected[1], "the rejected count for second transaction should be equal to %d", len(n.Peers()))
+	assert.Equal(t, 0, confirmed[1], "the confirmed count for second transaction should be equal to 0")
+	assert.Equal(t, len(n.Peers()), confirmed[0], "the confirmed count for first transaction should be equal to the amount of peers %d", len(n.Peers()))
+
+	t.Log("Waiting for the potentially last rounds")
+	time.Sleep(30 * time.Second)
 }
 
 func CreateOutputs(input *ledgerstate.UTXOInput, inputBalance uint64, kp *ed25519.KeyPair, nOutputs int, pledgeID identity.ID, balanceType string) (*ledgerstate.Transaction, *seed.Seed) {

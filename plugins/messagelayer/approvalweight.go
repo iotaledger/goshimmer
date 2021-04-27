@@ -106,5 +106,5 @@ func setMessageFinalized(message *tangle.Message, messageMetadata *tangle.Messag
 		})
 	})
 
-	return
+	return modified
 }
