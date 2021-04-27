@@ -7,6 +7,7 @@ import (
 
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
+	"github.com/iotaledger/hive.go/datastructure/orderedmap"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
@@ -467,9 +468,8 @@ func (a SequenceAlias) String() (humanReadableSequenceAlias string) {
 
 // SequenceAliasMapping represents the mapping between a SequenceAlias and its SequenceID.
 type SequenceAliasMapping struct {
-	sequenceAlias          SequenceAlias
-	mainSequenceID         SequenceID
-	alternativeSequenceIDs SequenceIDs
+	sequenceAlias SequenceAlias
+	sequenceIDs   *orderedmap.OrderedMap
 
 	objectstorage.StorableObjectFlags
 }
@@ -489,19 +489,27 @@ func SequenceAliasMappingFromBytes(mappingBytes []byte) (mapping *SequenceAliasM
 // SequenceAliasMappingFromMarshalUtil unmarshals a SequenceAliasMapping using a MarshalUtil (for easier unmarshaling).
 func SequenceAliasMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (mapping *SequenceAliasMapping, err error) {
 	mapping = &SequenceAliasMapping{
-		alternativeSequenceIDs: NewSequenceIDs(),
+		sequenceIDs: orderedmap.New(),
 	}
+
 	if mapping.sequenceAlias, err = SequenceAliasFromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse Alias from MarshalUtil: %w", err)
 		return
 	}
-	if mapping.mainSequenceID, err = SequenceIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse main SequenceID from MarshalUtil: %w", err)
+
+	sequenceIDCount, err := marshalUtil.ReadUint64()
+	if err != nil {
+		err = xerrors.Errorf("failed to SequenceID count from MarshalUtil (%v): %w", err, cerrors.ErrFatal)
 		return
 	}
-	if mapping.alternativeSequenceIDs, err = SequenceIDsFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse alternative SequenceIDs from MarshalUtil: %w", err)
-		return
+	for i := uint64(0); i < sequenceIDCount; i++ {
+		currentSequenceID, sequenceIDErr := SequenceIDFromMarshalUtil(marshalUtil)
+		if sequenceIDErr != nil {
+			err = xerrors.Errorf("failed to parse SequenceID from MarshalUtil: %w", sequenceIDErr)
+			return
+		}
+
+		mapping.sequenceIDs.Set(currentSequenceID, true)
 	}
 
 	return
