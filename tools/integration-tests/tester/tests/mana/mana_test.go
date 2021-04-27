@@ -226,7 +226,7 @@ func TestApis(t *testing.T) {
 	require.NoError(t, err)
 	resp4.Nodes = stripGenesisNodeID(resp4.Nodes)
 	require.Equal(t, 2, len(resp3.Nodes))
-	require.Equal(t, 2, len(resp4.Nodes))
+	require.Equal(t, 3, len(resp4.Nodes))
 	for i := 0; i < 3; i++ {
 		assert.Equal(t, base58.Encode(peers[i].ID().Bytes()), resp3.Nodes[i].NodeID)
 		// faucet pledged its cons mana to emptyNodeID...
