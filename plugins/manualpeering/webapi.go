@@ -79,7 +79,7 @@ func removePeersHandler(c echo.Context) error {
 		)
 		return c.JSON(http.StatusInternalServerError, jsonmodels.NewErrorResponse(err))
 	}
-	return c.JSON(http.StatusNoContent, map[string]bool{"ok": true})
+	return c.NoContent(http.StatusNoContent)
 }
 
 func removePeers(ntds []*peerToRemove) error {
