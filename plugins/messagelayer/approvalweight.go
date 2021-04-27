@@ -87,6 +87,22 @@ func setMessageFinalized(message *tangle.Message, messageMetadata *tangle.Messag
 				// trigger TransactionOpinionFormed if the message contains a transaction
 				Tangle().ConsensusManager.Events.TransactionConfirmed.Trigger(message.ID())
 			}
+
+			if !Tangle().LedgerState.TransactionConflicting(transactionID) {
+				return
+			}
+
+			for conflicingTx := range Tangle().LedgerState.ConflictSet(transactionID) {
+				if conflicingTx == transactionID {
+					continue
+				}
+				Tangle().LedgerState.TransactionMetadata(conflicingTx).Consume(func(conflictingTransactionMetadata *ledgerstate.TransactionMetadata) {
+					modified := conflictingTransactionMetadata.SetFinalized(true)
+					if modified {
+						Tangle().ConsensusManager.SetTransactionLiked(transactionID, false)
+					}
+				})
+			}
 		})
 	})
 

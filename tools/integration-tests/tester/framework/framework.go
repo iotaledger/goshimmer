@@ -108,6 +108,13 @@ func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int, 
 				}
 				return config.Mana && i == 0
 			}(i),
+			FPCRoundInterval:           ParaFPCRoundInterval,
+			FPCTotalRoundsFinalization: ParaFPCTotalRoundsFinalization,
+			WaitForStatement:           ParaWaitForStatement,
+			FPCListen:                  ParaFPCListen,
+			WriteStatement:             ParaWriteStatement,
+			WriteManaThreshold:         ParaWriteManaThreshold,
+			ReadManaThreshold:          ParaReadManaThreshold,
 		}
 		if _, err = network.CreatePeer(config); err != nil {
 			return nil, err
@@ -173,6 +180,7 @@ func (f *Framework) CreateNetworkWithPartitions(name string, peers, partitions, 
 				return ""
 			}(i),
 			Faucet:                     config.Faucet && i == 0,
+			Mana:                       config.Mana,
 			FPCRoundInterval:           ParaFPCRoundInterval,
 			FPCTotalRoundsFinalization: ParaFPCTotalRoundsFinalization,
 			WaitForStatement:           ParaWaitForStatement,
