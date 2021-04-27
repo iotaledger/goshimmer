@@ -5,16 +5,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	manaPkg "github.com/iotaledger/goshimmer/packages/mana"
-
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
+	"github.com/iotaledger/hive.go/identity"
 )
 
 func TestManaPersistence(t *testing.T) {
@@ -31,8 +30,7 @@ func TestManaPersistence(t *testing.T) {
 	require.NoError(t, err)
 	manaBefore := info.Mana
 	require.Greater(t, manaBefore.Access, 0.0)
-	// cons mana is pledged to emptyNodeID
-	require.Equal(t, manaBefore.Consensus, 0.0)
+	require.Greater(t, manaBefore.Consensus, 0.0)
 
 	// stop all nodes. Expects mana to be saved successfully
 	for _, peer := range n.Peers() {
@@ -53,7 +51,7 @@ func TestManaPersistence(t *testing.T) {
 	require.NoError(t, err)
 	manaAfter := info.Mana
 	require.Greater(t, manaAfter.Access, 0.0)
-	require.Equal(t, manaAfter.Consensus, 0.0)
+	require.Greater(t, manaAfter.Consensus, 0.0)
 }
 
 func TestPledgeFilter(t *testing.T) {
@@ -80,6 +78,7 @@ func TestPledgeFilter(t *testing.T) {
 
 	// faucet
 	faucet, err := n.CreatePeer(framework.GoShimmerConfig{
+		Seed:                              "3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E",
 		Faucet:                            true,
 		Mana:                              true,
 		ManaAllowedAccessFilterEnabled:    true,
@@ -187,20 +186,19 @@ func TestApis(t *testing.T) {
 	resp, err := peers[0].GoShimmerAPI.GetManaFullNodeID(base58.Encode(emptyNodeID.Bytes()))
 	require.NoError(t, err)
 	assert.Equal(t, base58.Encode(emptyNodeID.Bytes()), resp.NodeID)
-	assert.Equal(t, resp.Access, 0.0)
+	assert.Equal(t, 0.0, resp.Access)
 	assert.Greater(t, resp.Consensus, 0.0)
 
-	// access mana was pledged to itself by the faucet
 	resp, err = peers[0].GoShimmerAPI.GetManaFullNodeID(base58.Encode(peers[0].ID().Bytes()))
 	require.NoError(t, err)
 	assert.Equal(t, base58.Encode(peers[0].ID().Bytes()), resp.NodeID)
 	assert.Greater(t, resp.Access, 0.0)
-	assert.Equal(t, resp.Consensus, 0.0)
+	assert.Greater(t, resp.Consensus, 0.0)
 
 	// Test /mana/all
 	resp2, err := peers[0].GoShimmerAPI.GetAllMana()
 	require.NoError(t, err)
-	assert.Equal(t, 3, len(resp2.Access))
+	assert.Equal(t, 2, len(resp2.Access))
 	assert.Greater(t, resp2.Access[0].Mana, 0.0)
 
 	// Test /mana/access/nhighest and /mana/consensus/nhighest
@@ -227,8 +225,8 @@ func TestApis(t *testing.T) {
 	resp4, err := peers[0].GoShimmerAPI.GetNHighestConsensusMana(len(peers) + 2)
 	require.NoError(t, err)
 	resp4.Nodes = stripGenesisNodeID(resp4.Nodes)
-	require.Equal(t, 3, len(resp3.Nodes))
-	require.Equal(t, 3, len(resp4.Nodes))
+	require.Equal(t, 2, len(resp3.Nodes))
+	require.Equal(t, 2, len(resp4.Nodes))
 	for i := 0; i < 3; i++ {
 		assert.Equal(t, base58.Encode(peers[i].ID().Bytes()), resp3.Nodes[i].NodeID)
 		// faucet pledged its cons mana to emptyNodeID...

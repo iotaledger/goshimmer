@@ -26,6 +26,7 @@ func TestPrepareFaucet(t *testing.T) {
 	defer tests.ShutdownNetwork(t, n)
 
 	faucet, err := n.CreatePeer(framework.GoShimmerConfig{
+		Seed:       "3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E",
 		Faucet:     true,
 		Mana:       true,
 		SyncBeacon: true,
