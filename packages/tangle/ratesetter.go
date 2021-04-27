@@ -31,6 +31,7 @@ var (
 
 // region RateSetterParams /////////////////////////////////////////////////////////////////////////////////////////////
 
+// RateSetterParams represents the parameters for RateSetter.
 type RateSetterParams struct {
 	Beta    *float64
 	Initial *float64
@@ -40,6 +41,7 @@ type RateSetterParams struct {
 
 // region RateSetter /////////////////////////////////////////////////////////////////////////////////////////////
 
+// RateSetter is a Tangle component that takes care of congestion control of local node.
 type RateSetter struct {
 	tangle         *Tangle
 	Events         *RateSetterEvents
@@ -53,6 +55,7 @@ type RateSetter struct {
 	shutdownOnce   sync.Once
 }
 
+// NewRateSetter returns a new RateSetter.
 func NewRateSetter(tangle *Tangle) *RateSetter {
 	rateSetter := &RateSetter{
 		tangle: tangle,
@@ -79,6 +82,7 @@ func NewRateSetter(tangle *Tangle) *RateSetter {
 	return rateSetter
 }
 
+// Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (r *RateSetter) Setup() {
 	r.tangle.MessageFactory.Events.MessageConstructed.Attach(events.NewClosure(r.submit))
 	r.tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
@@ -106,6 +110,7 @@ func (r *RateSetter) submit(message *Message) {
 	}
 }
 
+// Shutdown shuts down the RateSetter.
 func (r *RateSetter) Shutdown() {
 	r.shutdownOnce.Do(func() {
 		close(r.shutdownSignal)

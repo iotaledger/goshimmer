@@ -306,12 +306,14 @@ func GenesisNode(genesisNodeBase58 string) Option {
 	}
 }
 
+// SchedulerConfig is an Option for the Tangle that allows to set the scheduler.
 func SchedulerConfig(config SchedulerParams) Option {
 	return func(options *Options) {
 		options.SchedulerParams = config
 	}
 }
 
+// RateSetterConfig is an Option for the Tangle that allows to set the rate setter.
 func RateSetterConfig(params RateSetterParams) Option {
 	return func(options *Options) {
 		options.RateSetterParams = params
