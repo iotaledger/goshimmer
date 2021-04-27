@@ -52,6 +52,7 @@ type ExplorerMessage struct {
 
 	// Structure details
 	Rank          uint64 `json:"rank"`
+	PastMarkerGap uint64 `json:"pastMarkerGap"`
 	IsPastMarker  bool   `json:"isPastMarker"`
 	PastMarkers   string `json:"pastMarkers"`
 	FutureMarkers string `json:"futureMarkers"`
@@ -92,6 +93,7 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 
 	if d := messageMetadata.StructureDetails(); d != nil {
 		t.Rank = d.Rank
+		t.PastMarkerGap = d.PastMarkerGap
 		t.IsPastMarker = d.IsPastMarker
 		t.PastMarkers = d.PastMarkers.String()
 		t.FutureMarkers = d.FutureMarkers.String()
