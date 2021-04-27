@@ -88,7 +88,7 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 		referencedSequences = map[SequenceID]types.Empty{0: types.Void}
 	}
 
-	cachedSequence, newSequenceCreated := m.fetchSequence(referencedMarkers, rankOfReferencedSequences, sequenceAlias)
+	cachedSequence, newSequenceCreated := m.fetchSequence(referencedMarkers, inheritedStructureDetails.PastMarkerGap, rankOfReferencedSequences, sequenceAlias)
 	if newSequenceCreated {
 		cachedSequence.Consume(func(sequence *Sequence) {
 			inheritedStructureDetails.IsPastMarker = true
@@ -471,9 +471,15 @@ func (m *Manager) registerReferencingMarker(referencedMarkers *Markers, marker *
 	})
 }
 
+const maxPastMarkerGap uint64 = 50
+
 // fetchSequence is an internal utility function that retrieves or creates the Sequence that represents the given
 // parameters and returns it.
-func (m *Manager) fetchSequence(referencedMarkers *Markers, rank uint64, sequenceAlias SequenceAlias) (cachedSequence *CachedSequence, isNew bool) {
+func (m *Manager) fetchSequence(referencedMarkers *Markers, pastMarkerGap uint64, rank uint64, sequenceAlias SequenceAlias) (cachedSequence *CachedSequence, isNew bool) {
+	// if pastMarkerGap > threshold {
+	//     create new Sequence and return that
+	// }
+
 	cachedSequenceAliasMapping := m.SequenceAliasMapping(sequenceAlias, func(sequenceAlias SequenceAlias) *SequenceAliasMapping {
 		m.sequenceIDCounterMutex.Lock()
 		sequence := NewSequence(m.sequenceIDCounter, referencedMarkers, rank+1)
@@ -487,7 +493,6 @@ func (m *Manager) fetchSequence(referencedMarkers *Markers, rank uint64, sequenc
 			sequenceIDs:   orderedmap.New(),
 		}
 		sequenceAliasMapping.RegisterMapping(sequence.id)
-
 		sequenceAliasMapping.Persist()
 		sequenceAliasMapping.SetModified()
 
@@ -500,7 +505,19 @@ func (m *Manager) fetchSequence(referencedMarkers *Markers, rank uint64, sequenc
 	}
 
 	cachedSequenceAliasMapping.Consume(func(sequenceAliasMapping *SequenceAliasMapping) {
-		cachedSequence = m.Sequence(sequenceAliasMapping.SequenceID(referencedMarkers))
+		if pastMarkerGap < maxPastMarkerGap {
+			cachedSequence = m.Sequence(sequenceAliasMapping.SequenceID(referencedMarkers))
+			return
+		}
+
+		m.sequenceIDCounterMutex.Lock()
+		sequence := NewSequence(m.sequenceIDCounter, referencedMarkers, rank+1)
+		m.sequenceIDCounter++
+		m.sequenceIDCounterMutex.Unlock()
+
+		cachedSequence = &CachedSequence{CachedObject: m.sequenceStore.Store(sequence)}
+
+		sequenceAliasMapping.RegisterMapping(sequence.id)
 	})
 
 	return
