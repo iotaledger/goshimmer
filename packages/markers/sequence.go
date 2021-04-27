@@ -525,7 +525,7 @@ func (s *SequenceAliasMapping) SequenceAlias() (sequenceAlias SequenceAlias) {
 // SequenceID returns the SequenceID of the SequenceAliasMapping.
 func (s *SequenceAliasMapping) SequenceID(referencedMarkers *Markers) (sequenceID SequenceID) {
 	if _, exists := referencedMarkers.Get(s.mainSequenceID); exists {
-		return s.mainSequenceIDy
+		return s.mainSequenceID
 	}
 
 	referencedMarkers.ForEach(func(alternativeSequenceID SequenceID, _ Index) bool {
