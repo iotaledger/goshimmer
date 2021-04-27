@@ -99,6 +99,13 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, t ...*Tangle) (*Message
 				}
 			})
 		}
+		for _, parent := range weakParents {
+			t[0].Storage.Message(parent).Consume(func(msg *Message) {
+				if msg.ID() != EmptyMessageID && !msg.IssuingTime().Before(issuingTime) {
+					issuingTime = msg.IssuingTime()
+				}
+			})
+		}
 	}
 
 	issuerPublicKey := f.localIdentity.PublicKey()
