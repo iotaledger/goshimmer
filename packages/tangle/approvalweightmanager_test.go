@@ -72,7 +72,7 @@ func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
 	}
 	manager := epochs.NewManager(epochs.ManaRetriever(manaRetrieverMock), epochs.CacheTime(0))
 
-	tangle := New(ApprovalWeights(WeightProviderFromEpochsManager(manager)))
+	tangle := newTestTangle(ApprovalWeights(WeightProviderFromEpochsManager(manager)))
 	defer tangle.Shutdown()
 	approvalWeightManager := tangle.ApprovalWeightManager
 
@@ -215,7 +215,7 @@ func TestApprovalWeightManager_updateSequenceSupporters(t *testing.T) {
 	}
 	manager := epochs.NewManager(epochs.ManaRetriever(manaRetrieverMock), epochs.CacheTime(0))
 
-	tangle := New(ApprovalWeights(WeightProviderFromEpochsManager(manager)))
+	tangle := newTestTangle(ApprovalWeights(WeightProviderFromEpochsManager(manager)))
 	defer tangle.Shutdown()
 	approvalWeightManager := tangle.ApprovalWeightManager
 	supporters := map[string]*identity.Identity{
@@ -349,7 +349,7 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 		}
 	}), epochs.CacheTime(0))
 
-	tangle := New(ApprovalWeights(WeightProviderFromEpochsManager(manager)))
+	tangle := newTestTangle(ApprovalWeights(WeightProviderFromEpochsManager(manager)))
 	defer tangle.Shutdown()
 	tangle.Setup()
 

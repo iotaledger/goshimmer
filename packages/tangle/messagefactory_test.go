@@ -25,7 +25,7 @@ const (
 )
 
 func TestMessageFactory_BuildMessage(t *testing.T) {
-	tangle := New()
+	tangle := newTestTangle()
 	defer tangle.Shutdown()
 
 	tangle.MessageFactory = NewMessageFactory(
@@ -114,7 +114,7 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 }
 
 func TestMessageFactory_POW(t *testing.T) {
-	tangle := New()
+	tangle := newTestTangle()
 	defer tangle.Shutdown()
 
 	msgFactory := NewMessageFactory(
@@ -144,7 +144,7 @@ func TestMessageFactory_POW(t *testing.T) {
 }
 
 func TestWorkerFunc_PayloadSize(t *testing.T) {
-	testTangle := New()
+	testTangle := newTestTangle()
 	defer testTangle.Shutdown()
 
 	msgFactory := NewMessageFactory(

@@ -15,24 +15,24 @@ import (
 // region Scheduler_test /////////////////////////////////////////////////////////////////////////////////////////////
 
 var (
-	selfLocalIdentity   = identity.GenerateLocalIdentity()
-	selfNode            = identity.New(selfLocalIdentity.PublicKey())
-	peerNode            = identity.GenerateIdentity()
-	otherNode           = identity.GenerateIdentity()
-	testSchedulerParams = SchedulerParams{
+	selfLocalIdentity = identity.GenerateLocalIdentity()
+	selfNode          = identity.New(selfLocalIdentity.PublicKey())
+	peerNode          = identity.GenerateIdentity()
+	otherNode         = identity.GenerateIdentity()
+	params            = SchedulerParams{
 		AccessManaRetrieveFunc:      getAccessMana,
 		TotalAccessManaRetrieveFunc: getTotalAccessMana,
 	}
 )
 
 func TestScheduler_StartStop(t *testing.T) {
-	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
+	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(params))
 	defer tangle.Shutdown()
 	time.Sleep(10 * time.Millisecond)
 }
 
 func TestScheduler_Submit(t *testing.T) {
-	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
+	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(params))
 	defer tangle.Shutdown()
 
 	msg := newMessage(selfNode.PublicKey())
@@ -42,7 +42,7 @@ func TestScheduler_Submit(t *testing.T) {
 }
 
 func TestScheduler_Discarded(t *testing.T) {
-	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
+	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(params))
 	defer tangle.Shutdown()
 
 	messageDiscarded := make(chan MessageID, 1)
@@ -64,7 +64,7 @@ func TestScheduler_Discarded(t *testing.T) {
 }
 
 func TestScheduler_Schedule(t *testing.T) {
-	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
+	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(params))
 	defer tangle.Shutdown()
 
 	tangle.Scheduler.Setup()
@@ -90,7 +90,7 @@ func TestScheduler_Schedule(t *testing.T) {
 }
 
 func TestScheduler_Time(t *testing.T) {
-	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
+	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(params))
 	defer tangle.Shutdown()
 
 	tangle.Scheduler.Setup()
@@ -134,7 +134,7 @@ func TestScheduler_Time(t *testing.T) {
 }
 
 func TestScheduler_Issue(t *testing.T) {
-	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
+	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(params))
 	defer tangle.Shutdown()
 	tangle.Setup()
 	tangle.Scheduler.Setup()
@@ -167,7 +167,7 @@ func TestScheduler_Issue(t *testing.T) {
 func TestSchedulerFlow(t *testing.T) {
 	// create Scheduler dependencies
 	// create the tangle
-	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
+	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(params))
 	defer tangle.Shutdown()
 
 	// setup tangle up till the Scheduler

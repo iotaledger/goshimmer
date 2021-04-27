@@ -194,7 +194,7 @@ func TestMessage_VerifySignature(t *testing.T) {
 }
 
 func TestMessage_UnmarshalTransaction(t *testing.T) {
-	tangle := New()
+	tangle := newTestTangle()
 	defer tangle.Shutdown()
 
 	testMessage := NewMessage(randomParents(1),
@@ -212,7 +212,7 @@ func TestMessage_UnmarshalTransaction(t *testing.T) {
 }
 
 func TestMessage_MarshalUnmarshal(t *testing.T) {
-	tangle := New()
+	tangle := newTestTangle()
 	defer tangle.Shutdown()
 
 	testMessage, err := tangle.MessageFactory.IssuePayload(payload.NewGenericDataPayload([]byte("test")))

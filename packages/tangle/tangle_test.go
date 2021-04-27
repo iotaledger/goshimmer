@@ -44,7 +44,7 @@ var (
 )
 
 func BenchmarkVerifyDataMessages(b *testing.B) {
-	tangle := New()
+	tangle := newTestTangle()
 
 	var pool async.WorkerPool
 	pool.Tune(runtime.GOMAXPROCS(0))
@@ -77,7 +77,7 @@ func BenchmarkVerifyDataMessages(b *testing.B) {
 }
 
 func BenchmarkVerifySignature(b *testing.B) {
-	tangle := New()
+	tangle := newTestTangle()
 
 	pool, _ := ants.NewPool(80, ants.WithNonblocking(false))
 
@@ -112,7 +112,7 @@ func BenchmarkVerifySignature(b *testing.B) {
 }
 
 func BenchmarkTangle_StoreMessage(b *testing.B) {
-	tangle := New()
+	tangle := newTestTangle()
 	defer tangle.Shutdown()
 	if err := tangle.Prune(); err != nil {
 		b.Error(err)
@@ -134,7 +134,7 @@ func BenchmarkTangle_StoreMessage(b *testing.B) {
 }
 
 func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
-	messageTangle := New()
+	messageTangle := newTestTangle()
 	messageTangle.Storage.Setup()
 	messageTangle.Solidifier.Setup()
 	defer messageTangle.Shutdown()
@@ -190,7 +190,7 @@ func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
 }
 
 func TestTangle_StoreMessage(t *testing.T) {
-	messageTangle := New()
+	messageTangle := newTestTangle()
 	defer messageTangle.Shutdown()
 	if err := messageTangle.Prune(); err != nil {
 		t.Error(err)
@@ -236,7 +236,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 	require.NoError(t, err)
 
 	// create the tangle
-	tangle := New(Store(badger))
+	tangle := newTestTangle(Store(badger))
 	defer tangle.Shutdown()
 	require.NoError(t, tangle.Prune())
 
@@ -334,7 +334,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 }
 
 func TestRetrieveAllTips(t *testing.T) {
-	messageTangle := New(SchedulerConfig(schedulerParams))
+	messageTangle := newTestTangle()
 	messageTangle.Setup()
 	defer messageTangle.Shutdown()
 
@@ -390,7 +390,7 @@ func TestTangle_Flow(t *testing.T) {
 	tips.Set(EmptyMessageID, EmptyMessageID)
 
 	// create the tangle
-	tangle := New(Store(badger), SchedulerConfig(schedulerParams), RateSetterConfig(rateSetterParams))
+	tangle := newTestTangle(Store(badger), RateSetterConfig(rateSetterParams))
 	defer tangle.Shutdown()
 
 	// create local peer

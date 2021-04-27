@@ -5,19 +5,13 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestFifoScheduler(t *testing.T) {
 	// create Scheduler dependencies
 	// create the tangle
-	tangle := New(
-		SchedulerConfig(SchedulerParams{
-			AccessManaRetrieveFunc:      accessManaRetriever,
-			TotalAccessManaRetrieveFunc: totalAccessManaRetriever,
-		}),
-	)
+	tangle := newTestTangle()
 	defer tangle.Shutdown()
 
 	// setup tangle up till the Scheduler
@@ -60,12 +54,4 @@ func TestFifoScheduler(t *testing.T) {
 
 		return allMessagedScheduled
 	}, 10*time.Second, 100*time.Millisecond)
-}
-
-func accessManaRetriever(nodeID identity.ID) float64 {
-	return 1.0
-}
-
-func totalAccessManaRetriever() float64 {
-	return 1.0
 }
