@@ -43,13 +43,13 @@ func TestFaucetPersistence(t *testing.T) {
 	tests.CheckBalances(t, peers[1:], addrBalance)
 
 	// stop all nodes
-	for _, peer := range n.Peers() {
+	for _, peer := range n.Peers()[1:] {
 		err = peer.Stop()
 		require.NoError(t, err)
 	}
 
 	// start all nodes
-	for _, peer := range n.Peers() {
+	for _, peer := range n.Peers()[1:] {
 		err = peer.Start()
 		require.NoError(t, err)
 	}
