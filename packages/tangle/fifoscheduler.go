@@ -34,6 +34,8 @@ func NewFifoScheduler(tangle *Tangle) (scheduler *FifoScheduler) {
 	scheduler = &FifoScheduler{
 		Events: &FifoSchedulerEvents{
 			MessageScheduled: events.NewEvent(MessageIDCaller),
+			MessageDiscarded: events.NewEvent(MessageIDCaller),
+			NodeBlacklisted:  events.NewEvent(NodeIDCaller),
 		},
 
 		tangle:            tangle,

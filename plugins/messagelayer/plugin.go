@@ -69,7 +69,7 @@ func configure(plugin *node.Plugin) {
 	}))
 
 	Tangle().Scheduler.Events.NodeBlacklisted.Attach(events.NewClosure(func(nodeID identity.ID) {
-		plugin.LogInfof("Node %s is blacklisted.", nodeID.String())
+		plugin.LogInfof("Node %s is blacklisted in scheduler.", nodeID.String())
 	}))
 
 	Tangle().Scheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(messageID tangle.MessageID) {
@@ -78,6 +78,10 @@ func configure(plugin *node.Plugin) {
 
 	Tangle().FifoScheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		plugin.LogInfof("Message discarded in FifoScheduler %s", messageID.String())
+	}))
+
+	Tangle().FifoScheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(nodeID identity.ID) {
+		plugin.LogInfof("Node %s is blacklisted in FifoScheduler %s", nodeID.String())
 	}))
 
 	Tangle().Events.SyncChanged.Attach(events.NewClosure(func(ev *tangle.SyncChangedEvent) {
