@@ -19,43 +19,21 @@ import (
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
 
-// TestConsensusFiftyFiftyOpinionSplit spawns two network partitions with their own peers,
-// then issues valid value objects spending the genesis in both, deletes the partitions (and lets them merge)
-// and then checks that the conflicts are resolved via FPC.
-func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
-	// override avg. network delay to accustom integration test slowness
-	backupFCoBAvgNetworkDelay := framework.ParaFCoBAverageNetworkDelay
-	// adjust l according to networkDelay l = l+c/roundTimeInterval
-	// backupFPCTotalRoundsFinalization := framework.ParaFPCTotalRoundsFinalization
-	backupBootstrapOnEveryNode := framework.ParaSyncBeaconOnEveryNode
-	backupParaWaitToKill := framework.ParaWaitToKill
-	framework.ParaFCoBAverageNetworkDelay = 60
-	framework.ParaSyncBeaconOnEveryNode = true
-	framework.ParaWaitToKill = 2*framework.ParaFCoBAverageNetworkDelay + 10
-	// framework.ParaFPCTotalRoundsFinalization = backupFPCTotalRoundsFinalization + framework.ParaFCoBAverageNetworkDelay/int(framework.ParaFPCRoundInterval)
+func TestConsensus(t *testing.T) {
+	// backupParaWaitToKill := framework.ParaWaitToKill
+	// framework.ParaWaitToKill = 2*framework.ParaFCoBAverageNetworkDelay + 10
 
 	const numberOfPeers = 6
 
-	// reset framework paras
-	defer func() {
-		framework.ParaFCoBAverageNetworkDelay = backupFCoBAvgNetworkDelay
-		framework.ParaSyncBeaconOnEveryNode = backupBootstrapOnEveryNode
-		framework.ParaWaitToKill = backupParaWaitToKill
-		// framework.ParaFPCTotalRoundsFinalization = backupFPCTotalRoundsFinalization
-	}()
+	// // reset framework paras
+	// defer func() {
+	// 	framework.ParaWaitToKill = backupParaWaitToKill
+	// }()
 
 	// create two partitions with their own peers
-	n, err := f.CreateNetworkWithPartitions("abc", numberOfPeers, 2, 2, framework.CreateNetworkConfig{})
+	n, err := f.CreateNetwork("conflict", numberOfPeers, 3, framework.CreateNetworkConfig{Mana: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
-
-	// split the network
-	for i, partition := range n.Partitions() {
-		log.Printf("partition %d peers:", i)
-		for _, p := range partition.Peers() {
-			log.Println(p.ID().String())
-		}
-	}
 
 	// genesis wallet
 	genesisSeedBytes, err := base58.Decode("7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih")
@@ -85,9 +63,8 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	// splitting genesis funds to one address per peer plus one additional that will be used for the conflict
 	spendingGenTx, destGenSeed := CreateOutputs(input, genesisBalance, genesisSeed.KeyPair(0), numberOfPeers+1, identity.ID{}, "skewed")
 
-	// issue the transaction on the first peer of each partition, both partitions will have the same view
-	issueTransaction(n.Partitions()[0].Peers()[0], spendingGenTx, t, "genesis splitting", 0)
-	issueTransaction(n.Partitions()[1].Peers()[0], spendingGenTx, t, "genesis splitting", 1)
+	// issue the transaction
+	n.Peers()[0].SendTransaction(spendingGenTx.Bytes())
 
 	// sleep the avg. network delay so both partitions confirm their own first seen transaction
 	log.Printf("waiting %d seconds avg. network delay to make the transactions "+
@@ -101,35 +78,39 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	pledgingTxs := make([]*ledgerstate.Transaction, numberOfPeers+1)
 	pledgeSeed := make([]*seed.Seed, numberOfPeers+1)
 	receiverId := 0
-	for _, partition := range n.Partitions() {
-		for _, peer := range partition.Peers() {
-			// get next dest addresses
-			destAddr := destGenSeed.Address(uint64(receiverId)).Address()
-			fmt.Printf("dest addr: %s\n", destAddr)
-			// Get tx output for current dest address
+	for _, peer := range n.Peers() {
+		// get next dest addresses
+		destAddr := destGenSeed.Address(uint64(receiverId)).Address()
+		fmt.Printf("dest addr: %s\n", destAddr)
+		// Get tx output for current dest address
 
-			outputGenTx := spendingGenTx.Essence().Outputs().Filter(func(output ledgerstate.Output) bool {
-				return output.Address().Base58() == destAddr.Base58()
-			})[0]
-			balance, _ := outputGenTx.Balances().Get(ledgerstate.ColorIOTA)
-			pledgeInput := ledgerstate.NewUTXOInput(outputGenTx.ID())
-			pledgingTxs[receiverId], pledgeSeed[receiverId] = CreateOutputs(pledgeInput, balance, destGenSeed.KeyPair(uint64(receiverId)), 1, peer.ID(), "equal")
+		outputGenTx := spendingGenTx.Essence().Outputs().Filter(func(output ledgerstate.Output) bool {
+			return output.Address().Base58() == destAddr.Base58()
+		})[0]
+		balance, _ := outputGenTx.Balances().Get(ledgerstate.ColorIOTA)
+		pledgeInput := ledgerstate.NewUTXOInput(outputGenTx.ID())
+		pledgingTxs[receiverId], pledgeSeed[receiverId] = CreateOutputs(pledgeInput, balance, destGenSeed.KeyPair(uint64(receiverId)), 1, peer.ID(), "equal")
 
-			// issue the transaction to peers on both partitions
-			issueTransaction(n.Partitions()[0].Peers()[0], pledgingTxs[receiverId], t, "pledging", 0)
-			issueTransaction(n.Partitions()[1].Peers()[0], pledgingTxs[receiverId], t, "pledging", 1)
-			receiverId++
-		}
+		// issue the transaction
+		n.Peers()[0].SendTransaction(pledgingTxs[receiverId].Bytes())
+		receiverId++
 	}
 	// sleep 3* the avg. network delay so both partitions confirm their own pledging transaction
 	// and 1 avg delay more to make sure each node has mana
 	log.Printf("waiting 2 * %d seconds avg. network delay + 5s to make the transactions confirmed", framework.ParaFCoBAverageNetworkDelay)
 	time.Sleep(time.Duration(framework.ParaFCoBAverageNetworkDelay)*2*time.Second + 5*time.Second)
 
+	// Wait for transaction to be finalized via the sync beacons weight
+	time.Sleep(20 * time.Second)
+
+	resp1, err := n.Peers()[0].GoShimmerAPI.GetAllMana()
+	require.NoError(t, err)
+	t.Log(resp1)
+
 	// prepare two conflicting transactions from one additional unused genesis output
-	conflictingTxs := make([]*ledgerstate.Transaction, len(n.Partitions()))
-	conflictingTxIDs := make([]string, len(n.Partitions()))
-	receiverSeeds := make([]*seed.Seed, len(n.Partitions()))
+	conflictingTxs := make([]*ledgerstate.Transaction, 2)
+	conflictingTxIDs := make([]string, 2)
+	receiverSeeds := make([]*seed.Seed, 2)
 	// get address for last created unused genesis output
 	lastAddress := destGenSeed.Address(uint64(numberOfPeers)).Address()
 	// Get ast created unused genesis output and its balance
@@ -138,43 +119,21 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	})[0]
 	lastOutputBalance, _ := lastOutputTx.Balances().Get(ledgerstate.ColorIOTA)
 	// prepare two conflicting transactions, one per partition
-	for i, partition := range n.Partitions() {
+	for i, peer := range n.Peers()[1:3] {
 		conflictInput := ledgerstate.NewUTXOInput(lastOutputTx.ID())
-		conflictingTxs[i], receiverSeeds[i] = CreateOutputs(conflictInput, lastOutputBalance, destGenSeed.KeyPair(numberOfPeers), 1, partition.Peers()[0].ID(), "equal")
+		conflictingTxs[i], receiverSeeds[i] = CreateOutputs(conflictInput, lastOutputBalance, destGenSeed.KeyPair(numberOfPeers), 1, peer.ID(), "equal")
 
-		// issue conflicting transaction on the current partition
-		txId := issueTransaction(partition.Peers()[0], conflictingTxs[i], t, "conflicting", 0)
+		// issue conflicting transaction
+		txId, err := peer.SendTransaction(conflictingTxs[i].Bytes())
+		require.NoError(t, err)
 		conflictingTxIDs[i] = txId
-	}
 
-	// sleep the avg. network delay so both partitions prefer their own first seen transaction
-	log.Printf("waiting %d seconds, 1/4th of avg. network delay before merging the partitions", framework.ParaFCoBAverageNetworkDelay/4)
-	time.Sleep(time.Duration(framework.ParaFCoBAverageNetworkDelay) / 4 * time.Second)
-	premergeTimestamp := time.Now()
-	// merge back the partitions
-	log.Println("merging partitions...")
-	assert.NoError(t, n.DeletePartitions(), "merging the network partitions should work")
-	log.Println("waiting for resolved partitions to autopeer to each other")
-	err = n.WaitForAutopeering(4)
-	require.NoError(t, err)
-
-	diff := time.Since(premergeTimestamp)
-	if diff < time.Duration(framework.ParaFCoBAverageNetworkDelay)*time.Second {
-		log.Printf("waiting remaining  %d seconds of avg. network delay to make the transactions "+
-			"preferred in their corresponding partition", framework.ParaFCoBAverageNetworkDelay-int(diff.Seconds()))
-		time.Sleep(time.Duration(framework.ParaFCoBAverageNetworkDelay)*time.Second - diff)
-	}
-
-	for _, conflict := range conflictingTxs {
-		// issue the reattachment on the first peer
-		issuerPeer := n.Peers()[0]
-		_, err := issuerPeer.SendPayload(conflict.Bytes())
-		log.Printf("issued reattachment conflict transaction %s on peer %s", conflict.ID(), issuerPeer.ID().String())
-		assert.NoError(t, err)
+		// sleep to prefer the first one
+		time.Sleep(time.Duration(framework.ParaFCoBAverageNetworkDelay) * time.Second)
 	}
 
 	log.Println("waiting for transactions to be available on all peers...")
-	missing, err := tests.AwaitTransactionAvailability(n.Peers(), conflictingTxIDs, time.Duration(framework.ParaFCoBAverageNetworkDelay)*time.Second)
+	missing, err := tests.AwaitTransactionAvailability(n.Peers(), conflictingTxIDs, time.Duration(3)*time.Minute)
 	if err != nil {
 		assert.NoError(t, err, "transactions should have been available")
 		for p, missingOnPeer := range missing {
@@ -237,6 +196,9 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	assert.Equal(t, len(n.Peers()), rejected[1], "the rejected count for second transaction should be equal to %d", len(n.Peers()))
 	assert.Equal(t, 0, confirmed[1], "the confirmed count for second transaction should be equal to 0")
 	assert.Equal(t, len(n.Peers()), confirmed[0], "the confirmed count for first transaction should be equal to the amount of peers %d", len(n.Peers()))
+
+	t.Log("Waiting for the potentially last rounds")
+	time.Sleep(30 * time.Second)
 }
 
 func CreateOutputs(input *ledgerstate.UTXOInput, inputBalance uint64, kp *ed25519.KeyPair, nOutputs int, pledgeID identity.ID, balanceType string) (*ledgerstate.Transaction, *seed.Seed) {
@@ -260,13 +222,6 @@ func CreateOutputs(input *ledgerstate.UTXOInput, inputBalance uint64, kp *ed2551
 	unlockBlock := ledgerstate.NewSignatureUnlockBlock(sig)
 	tx := ledgerstate.NewTransaction(txEssence, ledgerstate.UnlockBlocks{unlockBlock})
 	return tx, partitionReceiverSeed
-}
-
-func issueTransaction(issuerPeer *framework.Peer, tx *ledgerstate.Transaction, t *testing.T, txDescription string, partNum int) string {
-	txID, err := issuerPeer.SendTransaction(tx.Bytes())
-	assert.NoError(t, err)
-	log.Printf("issued %s transaction %s on partition %d on peer %s", txDescription, txID, partNum, issuerPeer.ID().String())
-	return txID
 }
 
 func createBalances(balanceType string, nOutputs int, inputBalance uint64) []uint64 {
