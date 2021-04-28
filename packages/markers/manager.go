@@ -91,6 +91,8 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 	cachedSequence, newSequenceCreated := m.fetchSequence(referencedMarkers, inheritedStructureDetails.PastMarkerGap, rankOfReferencedSequences, sequenceAlias)
 	if newSequenceCreated {
 		cachedSequence.Consume(func(sequence *Sequence) {
+			sequence.decreaseVerticesWithoutFutureMarker()
+			inheritedStructureDetails.SequenceID = sequence.id
 			inheritedStructureDetails.IsPastMarker = true
 			inheritedStructureDetails.PastMarkerGap = 0
 			// sequence has just been created, so lowestIndex = highestIndex
@@ -102,6 +104,8 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 	}
 
 	cachedSequence.Consume(func(sequence *Sequence) {
+		inheritedStructureDetails.SequenceID = sequence.id
+
 		if _, fetchedSequenceReferenced := referencedSequences[sequence.ID()]; !fetchedSequenceReferenced {
 			inheritedStructureDetails.PastMarkers = referencedMarkers
 			return
@@ -109,6 +113,7 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 
 		if currentIndex, _ := referencedMarkers.Get(sequence.id); sequence.HighestIndex() == currentIndex && increaseIndexCallback(sequence.id, currentIndex) {
 			if newIndex, increased := sequence.IncreaseHighestIndex(referencedMarkers); increased {
+				sequence.decreaseVerticesWithoutFutureMarker()
 				inheritedStructureDetails.IsPastMarker = true
 				inheritedStructureDetails.PastMarkerGap = 0
 				inheritedStructureDetails.PastMarkers = NewMarkers(&Marker{sequenceID: sequence.id, index: newIndex})
@@ -135,6 +140,12 @@ func (m *Manager) UpdateStructureDetails(structureDetailsToUpdate *StructureDeta
 	// abort if future markers of structureDetailsToUpdate reference markerToInherit
 	if m.markersReferenceMarkers(NewMarkers(markerToInherit), structureDetailsToUpdate.FutureMarkers, false) {
 		return
+	}
+
+	if structureDetailsToUpdate.FutureMarkers.Size() == 0 {
+		m.Sequence(structureDetailsToUpdate.SequenceID).Consume(func(sequence *Sequence) {
+			sequence.decreaseVerticesWithoutFutureMarker()
+		})
 	}
 
 	structureDetailsToUpdate.FutureMarkers.Set(markerToInherit.sequenceID, markerToInherit.index)
@@ -483,6 +494,7 @@ func (m *Manager) fetchSequence(referencedMarkers *Markers, pastMarkerGap, rank 
 	cachedSequenceAliasMapping := m.SequenceAliasMapping(sequenceAlias, func(sequenceAlias SequenceAlias) *SequenceAliasMapping {
 		m.sequenceIDCounterMutex.Lock()
 		sequence := NewSequence(m.sequenceIDCounter, referencedMarkers, rank+1)
+		sequence.increaseVerticesWithoutFutureMarker()
 		m.sequenceIDCounter++
 		m.sequenceIDCounterMutex.Unlock()
 
@@ -505,17 +517,25 @@ func (m *Manager) fetchSequence(referencedMarkers *Markers, pastMarkerGap, rank 
 	}
 
 	cachedSequenceAliasMapping.Consume(func(sequenceAliasMapping *SequenceAliasMapping) {
-		if pastMarkerGap < maxPastMarkerGap {
-			cachedSequence = m.Sequence(sequenceAliasMapping.SequenceID(referencedMarkers))
+		cachedSequence = m.Sequence(sequenceAliasMapping.SequenceID(referencedMarkers))
+
+		sequence := cachedSequence.Unwrap()
+		if sequence == nil {
+			return
+		}
+		sequence.increaseVerticesWithoutFutureMarker()
+		if !sequence.newSequenceRequired(pastMarkerGap) {
 			return
 		}
 
 		m.sequenceIDCounterMutex.Lock()
-		sequence := NewSequence(m.sequenceIDCounter, referencedMarkers, rank+1)
+		sequence = NewSequence(m.sequenceIDCounter, referencedMarkers, rank+1)
+		sequence.increaseVerticesWithoutFutureMarker()
 		m.sequenceIDCounter++
 		m.sequenceIDCounterMutex.Unlock()
 
 		cachedSequence = &CachedSequence{CachedObject: m.sequenceStore.Store(sequence)}
+		isNew = true
 
 		sequenceAliasMapping.RegisterMapping(sequence.id)
 	})

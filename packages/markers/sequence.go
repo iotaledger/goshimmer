@@ -17,17 +17,23 @@ import (
 	"golang.org/x/xerrors"
 )
 
+const maxVerticesWithoutFutureMarker = 300
+
 // region Sequence /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Sequence represents a set of ever increasing Indexes that are encapsulating a certain part of the DAG.
 type Sequence struct {
-	id                 SequenceID
-	referencedMarkers  *ReferencedMarkers
-	referencingMarkers *ReferencingMarkers
-	rank               uint64
-	lowestIndex        Index
-	highestIndex       Index
-	highestIndexMutex  sync.RWMutex
+	id                               SequenceID
+	referencedMarkers                *ReferencedMarkers
+	referencingMarkers               *ReferencingMarkers
+	rank                             uint64
+	lowestIndex                      Index
+	highestIndex                     Index
+	newSequenceTrigger               uint64
+	maxPastMarkerGap                 uint64
+	verticesWithoutFutureMarker      uint64
+	verticesWithoutFutureMarkerMutex sync.RWMutex
+	highestIndexMutex                sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
@@ -75,6 +81,18 @@ func SequenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequence *Se
 	}
 	if sequence.rank, err = marshalUtil.ReadUint64(); err != nil {
 		err = xerrors.Errorf("failed to parse rank (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	if sequence.newSequenceTrigger, err = marshalUtil.ReadUint64(); err != nil {
+		err = xerrors.Errorf("failed to parse newSequenceTrigger (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	if sequence.maxPastMarkerGap, err = marshalUtil.ReadUint64(); err != nil {
+		err = xerrors.Errorf("failed to parse maxPastMarkerGap (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	if sequence.verticesWithoutFutureMarker, err = marshalUtil.ReadUint64(); err != nil {
+		err = xerrors.Errorf("failed to parse verticesWithoutFutureMarker (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if sequence.lowestIndex, err = IndexFromMarshalUtil(marshalUtil); err != nil {
@@ -171,9 +189,9 @@ func (s *Sequence) AddReferencingMarker(index Index, referencingMarker *Marker) 
 func (s *Sequence) String() string {
 	return stringify.Struct("Sequence",
 		stringify.StructField("ID", s.ID()),
-		stringify.StructField("ID", s.Rank()),
-		stringify.StructField("ID", s.LowestIndex()),
-		stringify.StructField("ID", s.HighestIndex()),
+		stringify.StructField("Rank", s.Rank()),
+		stringify.StructField("LowestIndex", s.LowestIndex()),
+		stringify.StructField("HighestIndex", s.HighestIndex()),
 	)
 }
 
@@ -196,13 +214,70 @@ func (s *Sequence) ObjectStorageKey() []byte {
 // ObjectStorageValue marshals the Sequence into a sequence of bytes. The ID is not serialized here as it is only used as
 // a key in the object storage.
 func (s *Sequence) ObjectStorageValue() []byte {
+	s.verticesWithoutFutureMarkerMutex.RLock()
+	defer s.verticesWithoutFutureMarkerMutex.RUnlock()
+
 	return marshalutil.New().
 		Write(s.referencedMarkers).
 		Write(s.referencingMarkers).
 		WriteUint64(s.rank).
+		WriteUint64(s.newSequenceTrigger).
+		WriteUint64(s.maxPastMarkerGap).
+		WriteUint64(s.verticesWithoutFutureMarker).
 		Write(s.lowestIndex).
 		Write(s.HighestIndex()).
 		Bytes()
+}
+
+func (s *Sequence) increaseVerticesWithoutFutureMarker() {
+	s.verticesWithoutFutureMarkerMutex.Lock()
+	defer s.verticesWithoutFutureMarkerMutex.Unlock()
+
+	s.verticesWithoutFutureMarker++
+
+	s.SetModified()
+}
+
+func (s *Sequence) decreaseVerticesWithoutFutureMarker() {
+	s.verticesWithoutFutureMarkerMutex.Lock()
+	defer s.verticesWithoutFutureMarkerMutex.Unlock()
+
+	s.verticesWithoutFutureMarker--
+
+	s.SetModified()
+}
+
+func (s *Sequence) newSequenceRequired(pastMarkerGap uint64) (newSequenceRequired bool) {
+	s.verticesWithoutFutureMarkerMutex.Lock()
+	defer s.verticesWithoutFutureMarkerMutex.Unlock()
+
+	s.SetModified()
+
+	// decrease the maxPastMarkerGap threshold with every processed message so it ultimately goes back to a healthy
+	// level after the triggering
+	s.maxPastMarkerGap--
+
+	if pastMarkerGap > s.maxPastMarkerGap {
+		s.maxPastMarkerGap = pastMarkerGap
+	}
+
+	s.verticesWithoutFutureMarker++
+	if s.verticesWithoutFutureMarker < maxVerticesWithoutFutureMarker {
+		return false
+	}
+
+	if s.newSequenceTrigger == 0 {
+		s.newSequenceTrigger = s.maxPastMarkerGap
+		return false
+	}
+
+	if pastMarkerGap < s.newSequenceTrigger {
+		return false
+	}
+
+	s.newSequenceTrigger = 0
+
+	return true
 }
 
 // code contract (make sure the type implements all required methods)
