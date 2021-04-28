@@ -120,8 +120,9 @@ func PostAddressUnspentOutputs(c echo.Context) error {
 			Type:   addy.Type().String(),
 			Base58: addy.Base58(),
 		}
-		res.UnspentOutputs[i].Outputs = make([]jsonmodels.WalletOutput, len(cachedOutputs))
-		for index, output := range cachedOutputs.Unwrap().Filter(func(output ledgerstate.Output) (isUnspent bool) {
+		res.UnspentOutputs[i].Outputs = make([]jsonmodels.WalletOutput, 0)
+
+		for _, output := range cachedOutputs.Unwrap().Filter(func(output ledgerstate.Output) (isUnspent bool) {
 			messagelayer.Tangle().LedgerState.OutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 				isUnspent = outputMetadata.ConsumerCount() == 0
 			})
@@ -149,11 +150,11 @@ func PostAddressUnspentOutputs(c echo.Context) error {
 					cachedTx.Consume(func(tx *ledgerstate.Transaction) {
 						timestamp = tx.Essence().Timestamp()
 					})
-					res.UnspentOutputs[i].Outputs[index] = jsonmodels.WalletOutput{
+					res.UnspentOutputs[i].Outputs = append(res.UnspentOutputs[i].Outputs, jsonmodels.WalletOutput{
 						Output:         *jsonmodels.NewOutput(output),
 						InclusionState: inclusionState,
 						Metadata:       jsonmodels.WalletOutputMetadata{Timestamp: timestamp},
-					}
+					})
 				}
 			})
 		}

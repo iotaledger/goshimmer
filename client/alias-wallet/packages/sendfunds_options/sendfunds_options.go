@@ -1,4 +1,4 @@
-package alias_wallet
+package sendfunds_options
 
 import (
 	"errors"
@@ -86,8 +86,8 @@ type sendFundsOptions struct {
 	ConsensusManaPledgeID string
 }
 
-// buildSendFundsOptions is a utility function that constructs the sendFundsOptions.
-func buildSendFundsOptions(options ...SendFundsOption) (result *sendFundsOptions, err error) {
+// BuildSendFundsOptions is a utility function that constructs the sendFundsOptions.
+func BuildSendFundsOptions(options ...SendFundsOption) (result *sendFundsOptions, err error) {
 	// create options to collect the arguments provided
 	result = &sendFundsOptions{}
 
@@ -99,11 +99,11 @@ func buildSendFundsOptions(options ...SendFundsOption) (result *sendFundsOptions
 	}
 
 	// sanitize parameters
-	//if len(result.Destinations) == 0 {
-	//	err = errors.New("you need to provide at least one Destination for a valid transfer to be issued")
-	//
-	//	return
-	//}
+	if len(result.Destinations) == 0 {
+		err = errors.New("you need to provide at least one Destination for a valid transfer to be issued")
+
+		return
+	}
 
 	return
 }

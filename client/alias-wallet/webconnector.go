@@ -75,7 +75,8 @@ func (webConnector WebConnector) UnspentOutputs(addresses ...address.Address) (u
 			}
 			// build output
 			walletOutput := &Output{
-				Object: lOutput,
+				Address: addr,
+				Object:  lOutput,
 				InclusionState: InclusionState{
 					Liked:       output.InclusionState.Liked,
 					Confirmed:   output.InclusionState.Confirmed,

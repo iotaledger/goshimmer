@@ -1625,8 +1625,8 @@ func IsAboveDustThreshold(m map[Color]uint64) bool {
 	return false
 }
 
-// isExactDustMinimum checks if colored balances are exactly what is required by dust constraint
-func isExactDustMinimum(b *ColoredBalances) bool {
+// IsExactDustMinimum checks if colored balances are exactly what is required by dust constraint
+func IsExactDustMinimum(b *ColoredBalances) bool {
 	bals := b.Map()
 	if len(bals) != 1 {
 		return false
@@ -1719,7 +1719,7 @@ func (a *AliasOutput) validateTransition(chained *AliasOutput, tx *Transaction) 
 
 // validateDestroyTransitionNow check validity if input is not chained (destroyed)
 func (a *AliasOutput) validateDestroyTransitionNow(nowis time.Time) error {
-	if !isExactDustMinimum(a.balances) {
+	if !IsExactDustMinimum(a.balances) {
 		return xerrors.New("AliasOutput: didn't find chained output and there are more tokens then upper limit for alias destruction")
 	}
 	if a.IsDelegated() && a.DelegationTimeLockedNow(nowis) {
