@@ -11,7 +11,7 @@ import (
 
 func TestUtils_AllTransactionsApprovedByMessages(t *testing.T) {
 	// imgages/util-AllTransactionsApprovedByMessages-parallel-markers.png
-	tangle := New(SchedulerConfig(schedulerParams))
+	tangle := newTestTangle()
 	defer tangle.Shutdown()
 
 	tangle.Setup()

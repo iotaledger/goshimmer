@@ -29,15 +29,7 @@ import (
 )
 
 var (
-	maxQueueWeight  = 1024.0 * 1024.0
-	testRate        = time.Second / 5000
-	beta            = 1.0
-	schedulerParams = SchedulerParams{
-		Rate:                        testRate,
-		MaxQueueWeight:              &maxQueueWeight,
-		AccessManaRetrieveFunc:      getAccessMana,
-		TotalAccessManaRetrieveFunc: getTotalAccessMana,
-	}
+	beta             = 1.0
 	rateSetterParams = RateSetterParams{
 		Beta: &beta,
 	}
@@ -226,7 +218,7 @@ func TestTangle_StoreMessage(t *testing.T) {
 
 func TestTangle_MissingMessages(t *testing.T) {
 	const (
-		messageCount = 20000
+		messageCount = 2000
 		tangleWidth  = 250
 		storeDelay   = 5 * time.Millisecond
 	)
@@ -368,7 +360,7 @@ func TestTangle_Flow(t *testing.T) {
 		testPort    = 8000
 		targetPOW   = 2
 
-		solidMsgCount   = 20000
+		solidMsgCount   = 2000
 		invalidMsgCount = 10
 		tangleWidth     = 250
 		networkDelay    = 5 * time.Millisecond
