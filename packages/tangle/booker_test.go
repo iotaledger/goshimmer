@@ -540,24 +540,28 @@ func TestScenario_2(t *testing.T) {
 		structureDetails := make(map[MessageID]*markers.StructureDetails)
 		structureDetails[messages["1"].ID()] = &markers.StructureDetails{
 			Rank:          1,
+			SequenceID:    1,
 			IsPastMarker:  true,
 			PastMarkers:   markers.NewMarkers(markers.NewMarker(1, 1)),
 			FutureMarkers: markers.NewMarkers(markers.NewMarker(1, 2), markers.NewMarker(3, 2)),
 		}
 		structureDetails[messages["2"].ID()] = &markers.StructureDetails{
 			Rank:          2,
+			SequenceID:    1,
 			IsPastMarker:  true,
 			PastMarkers:   markers.NewMarkers(markers.NewMarker(1, 2)),
 			FutureMarkers: markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(2, 3)),
 		}
 		structureDetails[messages["3"].ID()] = &markers.StructureDetails{
 			Rank:          3,
+			SequenceID:    1,
 			IsPastMarker:  true,
 			PastMarkers:   markers.NewMarkers(markers.NewMarker(1, 3)),
 			FutureMarkers: markers.NewMarkers(),
 		}
 		structureDetails[messages["4"].ID()] = &markers.StructureDetails{
 			Rank:          2,
+			SequenceID:    1,
 			PastMarkerGap: 1,
 			IsPastMarker:  false,
 			PastMarkers:   markers.NewMarkers(markers.NewMarker(1, 1)),
@@ -565,30 +569,35 @@ func TestScenario_2(t *testing.T) {
 		}
 		structureDetails[messages["5"].ID()] = &markers.StructureDetails{
 			Rank:          3,
+			SequenceID:    2,
 			IsPastMarker:  true,
 			PastMarkers:   markers.NewMarkers(markers.NewMarker(2, 3)),
 			FutureMarkers: markers.NewMarkers(markers.NewMarker(2, 4)),
 		}
 		structureDetails[messages["6"].ID()] = &markers.StructureDetails{
 			Rank:          4,
+			SequenceID:    2,
 			IsPastMarker:  true,
 			PastMarkers:   markers.NewMarkers(markers.NewMarker(2, 4)),
 			FutureMarkers: markers.NewMarkers(),
 		}
 		structureDetails[messages["7"].ID()] = &markers.StructureDetails{
 			Rank:          3,
+			SequenceID:    3,
 			IsPastMarker:  true,
 			PastMarkers:   markers.NewMarkers(markers.NewMarker(3, 2)),
 			FutureMarkers: markers.NewMarkers(markers.NewMarker(3, 3), markers.NewMarker(4, 3)),
 		}
 		structureDetails[messages["8"].ID()] = &markers.StructureDetails{
 			Rank:          4,
+			SequenceID:    3,
 			IsPastMarker:  true,
 			PastMarkers:   markers.NewMarkers(markers.NewMarker(3, 3)),
 			FutureMarkers: markers.NewMarkers(),
 		}
 		structureDetails[messages["9"].ID()] = &markers.StructureDetails{
 			Rank:          4,
+			SequenceID:    4,
 			IsPastMarker:  true,
 			PastMarkers:   markers.NewMarkers(markers.NewMarker(4, 3)),
 			FutureMarkers: markers.NewMarkers(),
