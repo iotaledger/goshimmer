@@ -3,11 +3,13 @@ package data
 import (
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
@@ -16,6 +18,8 @@ import (
 
 // PluginName is the name of the web API data endpoint plugin.
 const PluginName = "WebAPI data Endpoint"
+
+const maxBookedAwaitTime = 5 * time.Second
 
 var (
 	// plugin is the plugin instance of the web API data endpoint plugin.
@@ -46,9 +50,14 @@ func broadcastData(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: err.Error()})
 	}
 
-	msg, err := messagelayer.Tangle().IssuePayload(payload.NewGenericDataPayload(request.Data))
+	issueMsg := func() (*tangle.Message, error) {
+		return messagelayer.Tangle().IssuePayload(payload.NewGenericDataPayload(request.Data))
+	}
+
+	msg, err := messagelayer.AwaitMessageToBeIssued(issueMsg, maxBookedAwaitTime)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: err.Error()})
 	}
+
 	return c.JSON(http.StatusOK, jsonmodels.DataResponse{ID: msg.ID().Base58()})
 }

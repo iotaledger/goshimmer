@@ -61,9 +61,7 @@ func (f *MessageFactory) SetWorker(worker Worker) {
 	f.worker = worker
 }
 
-// IssuePayload creates a new message including sequence number and tip selection and returns it.
-// It also triggers the MessageConstructed event once it's done, which is for example used by the plugins to listen for
-// messages that shall be attached to the tangle.
+// IssuePayload creates a new message including sequence number and tip selection and submits to the rate setter.
 func (f *MessageFactory) IssuePayload(p payload.Payload, t ...*Tangle) (*Message, error) {
 	payloadLen := len(p.Bytes())
 	if payloadLen > payload.MaxSize {
@@ -126,7 +124,10 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, t ...*Tangle) (*Message
 		signature,
 	)
 	f.Events.MessageConstructed.Trigger(msg)
-	return msg, nil
+
+	err = f.tangle.RateSetter.Submit(msg)
+
+	return msg, err
 }
 
 // Shutdown closes the MessageFactory and persists the sequence number.

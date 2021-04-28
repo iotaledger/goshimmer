@@ -28,9 +28,13 @@ const (
 	DefaultAverageNetworkDelay = 5 * time.Second
 )
 
-// ErrMessageWasNotBookedInTime is returned if a message did not get booked
-// within the defined await time.
-var ErrMessageWasNotBookedInTime = errors.New("message could not be booked in time")
+var (
+	// ErrMessageWasNotBookedInTime is returned if a message did not get booked within the defined await time.
+	ErrMessageWasNotBookedInTime = errors.New("message could not be booked in time")
+
+	// ErrMessageWasNotIssuedInTime is returned if a message did not get issued within the defined await time.
+	ErrMessageWasNotIssuedInTime = errors.New("message could not be issued in time")
+)
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -271,6 +275,53 @@ func AwaitMessageToBeBooked(f func() (*tangle.Message, error), txID ledgerstate.
 	case <-time.After(maxAwait):
 		return nil, ErrMessageWasNotBookedInTime
 	case <-booked:
+		return result.msg, nil
+	}
+}
+
+// AwaitMessageToBeIssued awaits maxAwait for the given message to get issued.
+func AwaitMessageToBeIssued(f func() (*tangle.Message, error), maxAwait time.Duration) (*tangle.Message, error) {
+	issued := make(chan struct{}, 1)
+	exit := make(chan struct{})
+	defer close(exit)
+
+	// channel to receive the result of issuance
+	issueResult := make(chan struct {
+		msg *tangle.Message
+		err error
+	}, 1)
+
+	go func() {
+		msg, err := f()
+		issueResult <- struct {
+			msg *tangle.Message
+			err error
+		}{msg: msg, err: err}
+	}()
+
+	// wait on issuance
+	result := <-issueResult
+
+	if result.err != nil || result.msg == nil {
+		return nil, xerrors.Errorf("Failed to issue message: %w", result.err)
+	}
+
+	closure := events.NewClosure(func(message *tangle.Message) {
+		if message.ID() != result.msg.ID() {
+			return
+		}
+		select {
+		case issued <- struct{}{}:
+		case <-exit:
+		}
+	})
+	Tangle().RateSetter.Events.MessageIssued.Attach(closure)
+	defer Tangle().RateSetter.Events.MessageIssued.Detach(closure)
+
+	select {
+	case <-time.After(maxAwait):
+		return nil, ErrMessageWasNotIssuedInTime
+	case <-issued:
 		return result.msg, nil
 	}
 }

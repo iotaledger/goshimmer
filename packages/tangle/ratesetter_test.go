@@ -35,7 +35,7 @@ func TestRateSetter_Submit(t *testing.T) {
 	defer tangle.Shutdown()
 
 	msg := newMessage(localNode.PublicKey())
-	tangle.RateSetter.submit(msg)
+	tangle.RateSetter.Submit(msg)
 	time.Sleep(100 * time.Millisecond)
 }
 
@@ -56,10 +56,10 @@ func TestRateSetter_ErrorHandling(t *testing.T) {
 
 		// message issued by other nodes
 		msg1 := newMessage(peerNode.PublicKey())
-		tangle.RateSetter.submit(msg1)
+		tangle.RateSetter.Submit(msg1)
 
 		msg2 := newMessage(localNode.PublicKey())
-		tangle.RateSetter.submit(msg2)
+		tangle.RateSetter.Submit(msg2)
 
 		assert.Eventually(t, func() bool {
 			return assert.Equal(t, int32(1), otherMsg)
@@ -77,7 +77,7 @@ func TestRateSetter_ErrorHandling(t *testing.T) {
 		tangle.RateSetter.issuingQueue.size = MaxLocalQueueSize
 
 		msg := newMessage(localNode.PublicKey())
-		tangle.RateSetter.submit(msg)
+		tangle.RateSetter.Submit(msg)
 
 		assert.Eventually(t, func() bool {
 			select {

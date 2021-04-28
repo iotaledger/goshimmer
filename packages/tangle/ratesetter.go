@@ -84,7 +84,6 @@ func NewRateSetter(tangle *Tangle) *RateSetter {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (r *RateSetter) Setup() {
-	r.tangle.MessageFactory.Events.MessageConstructed.Attach(events.NewClosure(r.submit))
 	r.tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
 		r.rateSetting()
 	}))
@@ -95,19 +94,21 @@ func (r *RateSetter) unsubmit(message *Message) {
 	r.tangle.Scheduler.Unsubmit(message.ID())
 }
 
-func (r *RateSetter) submit(message *Message) {
+// Submit submits a message to the local issuing queue.
+func (r *RateSetter) Submit(message *Message) error {
 	if r.issuingQueue.Size()+uint(len(message.Bytes())) > MaxLocalQueueSize {
 		r.Events.MessageDiscarded.Trigger(message.ID())
-		return
+		return xerrors.Errorf("local queue exceeded: %s", message.ID())
 	}
 	submitted, err := r.issuingQueue.Submit(message)
 	if err != nil {
 		r.tangle.Events.Error.Trigger(xerrors.Errorf("failed to submit message to issuing queue: %w", err))
-		return
+		return err
 	}
 	if submitted {
 		r.issue <- message
 	}
+	return nil
 }
 
 // Shutdown shuts down the RateSetter.
