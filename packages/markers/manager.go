@@ -487,10 +487,6 @@ const maxPastMarkerGap uint64 = 50
 // fetchSequence is an internal utility function that retrieves or creates the Sequence that represents the given
 // parameters and returns it.
 func (m *Manager) fetchSequence(referencedMarkers *Markers, pastMarkerGap, rank uint64, sequenceAlias SequenceAlias) (cachedSequence *CachedSequence, isNew bool) {
-	// if pastMarkerGap > threshold {
-	//     create new Sequence and return that
-	// }
-
 	cachedSequenceAliasMapping := m.SequenceAliasMapping(sequenceAlias, func(sequenceAlias SequenceAlias) *SequenceAliasMapping {
 		m.sequenceIDCounterMutex.Lock()
 		sequence := NewSequence(m.sequenceIDCounter, referencedMarkers, rank+1)

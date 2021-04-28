@@ -38,6 +38,7 @@ export class Message {
     payload: any;
     rank: number;
     isPastMarker: boolean;
+    pastMarkerGap: number;
     pastMarkers: string;
     futureMarkers: string;
 }
