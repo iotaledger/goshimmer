@@ -1,11 +1,16 @@
 package metrics
 
 import (
+	"time"
+
 	"github.com/iotaledger/hive.go/syncutils"
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/vote"
+	"github.com/iotaledger/goshimmer/packages/vote/opinion"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/remotelog"
 )
 
 var (
@@ -105,4 +110,66 @@ func processQueryReplyError(ev *metrics.QueryReplyErrorEvent) {
 	queryReplyErrorCount.Inc()
 	// containing this many conflicts to give opinion about
 	opinionQueryReplyErrorCount.Add((uint64)(ev.OpinionCount))
+}
+
+// FPCConflictRecord defines the FPC conflict record to sent be to remote logger.
+type FPCConflictRecord struct {
+	// ConflictID defines the ID of the conflict.
+	ConflictID string `json:"conflictid" bson:"conflictid"`
+	// NodeID defines the ID of the node.
+	NodeID string `json:"nodeid" bson:"nodeid"`
+	// Rounds defines number of rounds performed to finalize the conflict.
+	Rounds int `json:"rounds" bson:"rounds"`
+	// Opinions contains the opinion of each round.
+	Opinions []int32 `json:"opinions" bson:"opinions"`
+	// Time defines the time when the conflict has been finalized.
+	Time time.Time `json:"datetime" bson:"datetime"`
+}
+
+// FPCConflictRecordFinalized defines the finalized FPC conflict record to be sent to remote logger.
+type FPCConflictRecordFinalized struct {
+	*FPCConflictRecord
+	// Outcome defines final opinion of the conflict.
+	Outcome   int32 `json:"outcome" bson:"outcome"`
+	Finalized bool  `json:"finalized" bson:"finalized"`
+}
+
+func onVoteFinalized(ev *vote.OpinionEvent) {
+	var nodeID string
+	if local.GetInstance() != nil {
+		nodeID = local.GetInstance().ID().String()
+	}
+	record := FPCConflictRecordFinalized{
+		FPCConflictRecord: &FPCConflictRecord{
+			ConflictID: ev.Ctx.ID,
+			NodeID:     nodeID,
+			Rounds:     ev.Ctx.Rounds,
+			Opinions:   opinion.ConvertOpinionsToInts32ForLiveFeed(ev.Ctx.Opinions),
+			Time:       time.Now().UTC(),
+		},
+		Outcome:   opinion.ConvertOpinionToInt32ForLiveFeed(ev.Opinion),
+		Finalized: true,
+	}
+	if err := remotelog.RemoteLogger().Send(record); err != nil {
+		log.Errorw("Failed to send finalized FPC conflict record on finalized event", "err", err)
+	}
+}
+
+func onVoteRoundExecuted(roundStats *vote.RoundStats) {
+	var nodeID string
+	if local.GetInstance() != nil {
+		nodeID = local.GetInstance().ID().String()
+	}
+	for conflictID, conflictContext := range roundStats.ActiveVoteContexts {
+		record := &FPCConflictRecord{
+			ConflictID: conflictID,
+			NodeID:     nodeID,
+			Rounds:     conflictContext.Rounds,
+			Opinions:   opinion.ConvertOpinionsToInts32ForLiveFeed(conflictContext.Opinions),
+			Time:       time.Now().UTC(),
+		}
+		if err := remotelog.RemoteLogger().Send(record); err != nil {
+			log.Errorw("Failed to send FPC conflict record on round executed event", "err", err)
+		}
+	}
 }

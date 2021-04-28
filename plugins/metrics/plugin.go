@@ -53,6 +53,7 @@ func run(_ *node.Plugin) {
 		measureInitialDBStats()
 		registerLocalMetrics()
 	}
+	registerFPCConflictsMetrics()
 
 	// Events from analysis server
 	if config.Node().Bool(CfgMetricsGlobal) {
@@ -232,4 +233,9 @@ func registerLocalMetrics() {
 	mana.Events().Pledged.Attach(events.NewClosure(func(ev *mana.PledgedEvent) {
 		addPledge(ev)
 	}))
+}
+
+func registerFPCConflictsMetrics() {
+	messagelayer.Voter().Events().Finalized.Attach(events.NewClosure(onVoteFinalized))
+	messagelayer.Voter().Events().RoundExecuted.Attach(events.NewClosure(onVoteRoundExecuted))
 }
