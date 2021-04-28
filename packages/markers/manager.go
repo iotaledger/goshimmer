@@ -482,8 +482,6 @@ func (m *Manager) registerReferencingMarker(referencedMarkers *Markers, marker *
 	})
 }
 
-const maxPastMarkerGap uint64 = 50
-
 // fetchSequence is an internal utility function that retrieves or creates the Sequence that represents the given
 // parameters and returns it.
 func (m *Manager) fetchSequence(referencedMarkers *Markers, pastMarkerGap, rank uint64, sequenceAlias SequenceAlias) (cachedSequence *CachedSequence, isNew bool) {
