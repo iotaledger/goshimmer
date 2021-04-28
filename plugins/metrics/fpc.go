@@ -129,23 +129,24 @@ type FPCConflictRecord struct {
 	Time time.Time `json:"datetime" bson:"datetime"`
 }
 
-type FPCMetricsLogger struct {
+type fpcMetricsLogger struct {
 	finalized      map[string]opinion.Opinion
 	finalizedMutex sync.RWMutex
 }
 
-func NewFPCMetricsLogger() *FPCMetricsLogger {
-	return &FPCMetricsLogger{
+func newFPCMetricsLogger() *fpcMetricsLogger {
+	return &fpcMetricsLogger{
 		finalized: map[string]opinion.Opinion{},
 	}
 }
-func (ml *FPCMetricsLogger) onVoteFinalized(ev *vote.OpinionEvent) {
+
+func (ml *fpcMetricsLogger) onVoteFinalized(ev *vote.OpinionEvent) {
 	ml.finalizedMutex.Lock()
 	defer ml.finalizedMutex.Unlock()
 	ml.finalized[ev.ID] = ev.Opinion
 }
 
-func (ml *FPCMetricsLogger) onVoteRoundExecuted(roundStats *vote.RoundStats) {
+func (ml *fpcMetricsLogger) onVoteRoundExecuted(roundStats *vote.RoundStats) {
 	var nodeID string
 	if local.GetInstance() != nil {
 		nodeID = local.GetInstance().ID().String()
@@ -166,7 +167,7 @@ func (ml *FPCMetricsLogger) onVoteRoundExecuted(roundStats *vote.RoundStats) {
 	ml.refreshFinalized()
 }
 
-func (ml *FPCMetricsLogger) getOutcome(conflictID string) int32 {
+func (ml *fpcMetricsLogger) getOutcome(conflictID string) int32 {
 	ml.finalizedMutex.RLock()
 	defer ml.finalizedMutex.RUnlock()
 	finalOpinion, ok := ml.finalized[conflictID]
@@ -176,7 +177,7 @@ func (ml *FPCMetricsLogger) getOutcome(conflictID string) int32 {
 	return 0
 }
 
-func (ml *FPCMetricsLogger) refreshFinalized() {
+func (ml *fpcMetricsLogger) refreshFinalized() {
 	ml.finalizedMutex.Lock()
 	defer ml.finalizedMutex.Unlock()
 	ml.finalized = map[string]opinion.Opinion{}

@@ -236,7 +236,7 @@ func registerLocalMetrics() {
 }
 
 func registerFPCConflictsMetrics() {
-	metricsLogger := NewFPCMetricsLogger()
+	metricsLogger := newFPCMetricsLogger()
 	messagelayer.Voter().Events().Finalized.Attach(events.NewClosure(metricsLogger.onVoteFinalized))
 	messagelayer.Voter().Events().RoundExecuted.Attach(events.NewClosure(metricsLogger.onVoteRoundExecuted))
 }
