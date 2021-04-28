@@ -191,6 +191,11 @@ func (wallet *Wallet) CreateNFT(options ...createnft_options.CreateNFTOption) (t
 		return nil, nil, xerrors.Errorf("created transaction is invalid: %s", tx.String())
 	}
 
+	prevGovernedAliases, _, err := wallet.AliasBalance()
+	if err != nil {
+		return nil, nil, err
+	}
+
 	// mark outputs as spent
 	for addr, outputs := range consumedOutputs {
 		for outputID := range outputs {
@@ -219,10 +224,6 @@ func (wallet *Wallet) CreateNFT(options ...createnft_options.CreateNFTOption) (t
 	}
 
 	// else we wait for confirmation
-	prevGovernedAliases, _, err := wallet.AliasBalance()
-	if err != nil {
-		return nil, nil, err
-	}
 
 	err = wallet.connector.SendTransaction(tx)
 	if err != nil {
@@ -326,6 +327,11 @@ func (wallet *Wallet) TransferNFT(options ...transfernft_options.TransferNFTOpti
 		return nil, xerrors.Errorf("created transaction is invalid: %s", tx.String())
 	}
 
+	prevGovernedAliases, _, err := wallet.AliasBalance()
+	if err != nil {
+		return nil, err
+	}
+
 	// mark output as spent
 	wallet.outputManager.MarkOutputSpent(walletAlias.Address, walletAlias.Object.ID())
 	// mark addresses as spent
@@ -340,10 +346,6 @@ func (wallet *Wallet) TransferNFT(options ...transfernft_options.TransferNFTOpti
 	}
 
 	// else we wait for confirmation
-	prevGovernedAliases, _, err := wallet.AliasBalance()
-	if err != nil {
-		return nil, err
-	}
 
 	err = wallet.connector.SendTransaction(tx)
 	if err != nil {
