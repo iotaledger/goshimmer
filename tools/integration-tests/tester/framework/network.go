@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -192,13 +193,27 @@ func (n *Network) Shutdown() error {
 	if err != nil {
 		return err
 	}
-	for _, p := range n.peers {
-		err = p.Stop()
-		if err != nil {
-			return err
-		}
+	var wg sync.WaitGroup
+
+	wg.Add(len(n.peers))
+	errs := make([]error, len(n.peers))
+	for i := range n.peers {
+		go func(index int) {
+			defer wg.Done()
+			err = n.peers[index].Stop()
+			if err != nil {
+				errs[index] = err
+			}
+		}(i)
 	}
 
+	wg.Wait()
+
+	for _, e := range errs {
+		if e != nil {
+			return e
+		}
+	}
 	// delete all partitions
 	err = n.DeletePartitions()
 	if err != nil {
