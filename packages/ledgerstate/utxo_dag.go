@@ -342,7 +342,7 @@ func (u *UTXODAG) SetTransactionConfirmed(transactionID TransactionID) (err erro
 		u.Events.TransactionConfirmed.Trigger(currentTransactionID)
 	}
 
-	return
+	return err
 }
 
 func (u *UTXODAG) setTransactionConfirmed(transactionID TransactionID, confirmedTransactions *list.List, seenTransactions set.Set, confirmationWalker *walker.Walker) {
