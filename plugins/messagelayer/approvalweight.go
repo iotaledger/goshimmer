@@ -20,7 +20,7 @@ func configureApprovalWeight() {
 
 func onMarkerConfirmed(marker markers.Marker, newLevel int, transition events.ThresholdEventTransition) {
 	if transition != events.ThresholdLevelIncreased {
-		Plugin().LogInfo("transition != events.ThresholdLevelIncreased")
+		plugin.LogInfo("transition != events.ThresholdLevelIncreased for %s", marker)
 		return
 	}
 	// get message ID of marker
@@ -52,7 +52,10 @@ func propagateFinalizedApprovalWeight(message *tangle.Message, messageMetadata *
 }
 
 func onBranchConfirmed(branchID ledgerstate.BranchID, newLevel int, transition events.ThresholdEventTransition) {
-	plugin.LogDebugf("%s confirmed by ApprovalWeight.", branchID)
+	if transition != events.ThresholdLevelIncreased {
+		plugin.LogInfo("transition != events.ThresholdLevelIncreased for %s", branchID)
+		return
+	}
 
 	_, err := Tangle().LedgerState.BranchDAG.SetBranchMonotonicallyLiked(branchID, true)
 	if err != nil {
@@ -82,47 +85,8 @@ func setMessageFinalized(messageMetadata *tangle.MessageMetadata) (modified bool
 
 func setPayloadFinalized(messageID tangle.MessageID) {
 	Tangle().Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
-
-		walk := walker.New()
-		walk.Push(transactionID)
-
-		for walk.HasNext() {
-			propagateTransactionFinalized(walk.Next().(ledgerstate.TransactionID), walk)
+		if err := Tangle().LedgerState.UTXODAG.SetTransactionConfirmed(transactionID); err != nil {
+			plugin.LogError(err)
 		}
-	})
-}
-
-func propagateTransactionFinalized(transactionID ledgerstate.TransactionID, walk *walker.Walker) {
-	Tangle().LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
-		Tangle().LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-			if transactionMetadata.Finalized() {
-				return
-			}
-
-			for _, input := range transaction.Essence().Inputs() {
-				utxoInput := input.(*ledgerstate.UTXOInput)
-				utxoInput.ReferencedOutputID()
-			}
-
-			if transactionMetadata.SetFinalized(true) {
-				Tangle().ConsensusManager.SetTransactionLiked(transactionID, true)
-				// trigger TransactionOpinionFormed if the message contains a transaction
-				Tangle().LedgerState.UTXODAG.Events.TransactionConfirmed.Trigger(transactionID)
-			}
-
-			if !Tangle().LedgerState.TransactionConflicting(transactionID) {
-				return
-			}
-
-			for conflictingTx := range Tangle().LedgerState.ConflictSet(transactionID) {
-				if conflictingTx == transactionID {
-					continue
-				}
-				Tangle().LedgerState.TransactionMetadata(conflictingTx).Consume(func(conflictingTransactionMetadata *ledgerstate.TransactionMetadata) {
-					Tangle().ConsensusManager.SetTransactionLiked(transactionID, false)
-					conflictingTransactionMetadata.SetFinalized(true)
-				})
-			}
-		})
 	})
 }
