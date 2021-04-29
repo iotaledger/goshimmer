@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/set"
+	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -308,8 +309,49 @@ func (u *UTXODAG) AddressOutputMapping(address Address) (cachedAddressOutputMapp
 	return
 }
 
-func (u *UTXODAG) SetTransactionConfirmed() {
+func (u *UTXODAG) setTransactionConfirmed(transactionID TransactionID, confirmedTransactions *list.List, confirmationWalker *walker.Walker) (err error) {
+	u.TransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
+		if transactionMetadata.Finalized() {
+			return
+		}
 
+		confirmedTransactions.PushFront(transactionID)
+
+		u.Transaction(transactionID).Consume(func(transaction *Transaction) {
+			for referencedTransactionID := range transaction.ReferencedTransactionIDs() {
+				confirmationWalker.Push(referencedTransactionID)
+			}
+		})
+	})
+
+	return
+}
+
+func (u *UTXODAG) SetTransactionConfirmed(transactionID TransactionID) (err error) {
+	confirmationWalker := walker.New()
+	confirmationWalker.Push(transactionID)
+
+	u.TransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
+		err = u.branchDAG.SetBranchConfirmed(transactionMetadata.BranchID())
+	})
+	if err != nil {
+		err = xerrors.Errorf("failed to set Branch of Transaction with %s to be confirmed: %w", transactionID, cerrors.ErrFatal)
+		return
+	}
+
+	confirmedTransactions := list.New()
+	for confirmationWalker.HasNext() {
+		if err = u.setTransactionConfirmed(confirmationWalker.Next().(TransactionID), confirmedTransactions, confirmationWalker); err != nil {
+			err = xerrors.Errorf("failed to set Transaction with %s to be confirmed: %w", transactionID, err)
+			return
+		}
+	}
+
+	for confirmedTransactions.Len() > 0 {
+		u.Events.TransactionConfirmed.Trigger(confirmedTransactions.Front().Value.(TransactionID))
+	}
+
+	return
 }
 
 // region booking functions ////////////////////////////////////////////////////////////////////////////////////////////
