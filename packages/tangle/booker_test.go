@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
@@ -894,6 +895,40 @@ func TestScenario_3(t *testing.T) {
 	txBranchID, err = transactionBranchID(tangle, transactions["2"].ID())
 	require.NoError(t, err)
 	assert.Equal(t, branches["purple"], txBranchID)
+}
+
+func TestBookerNewAutomaticSequence(t *testing.T) {
+	tangle := New()
+	defer tangle.Shutdown()
+
+	testFramework := NewMessageTestFramework(tangle)
+
+	tangle.Setup()
+
+	testFramework.CreateMessage("Message1", WithStrongParents("Genesis"))
+	testFramework.CreateMessage("Message2", WithStrongParents("Message1"))
+	testFramework.IssueMessages("Message1", "Message2").WaitMessagesBooked()
+
+	messageAliases := []string{"Message1"}
+	for i := 0; i < 20; i++ {
+		parentMessageAlias := messageAliases[i]
+		currentMessageAlias := "Message" + strconv.Itoa(i+3)
+		messageAliases = append(messageAliases, currentMessageAlias)
+		testFramework.CreateMessage(currentMessageAlias, WithStrongParents(parentMessageAlias))
+	}
+
+	testFramework.IssueMessages(messageAliases[1:]...).WaitMessagesBooked()
+
+	assert.True(t, tangle.Storage.MessageMetadata(testFramework.Message("Message19").ID()).Consume(func(messageMetadata *MessageMetadata) {
+		assert.Equal(t, messageMetadata.StructureDetails(), &markers.StructureDetails{
+			Rank:          18,
+			PastMarkerGap: 0,
+			IsPastMarker:  true,
+			SequenceID:    2,
+			PastMarkers:   markers.NewMarkers(markers.NewMarker(2, 13)),
+			FutureMarkers: markers.NewMarkers(markers.NewMarker(2, 14)),
+		})
+	}))
 }
 
 func TestBookerMarkerMappings(t *testing.T) {

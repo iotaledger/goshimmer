@@ -17,7 +17,7 @@ import (
 	"golang.org/x/xerrors"
 )
 
-const maxVerticesWithoutFutureMarker = 300
+const maxVerticesWithoutFutureMarker = 10
 
 // region Sequence /////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -201,7 +201,7 @@ func (s *Sequence) Bytes() []byte {
 }
 
 // Update is required to match the StorableObject interface but updates of the object are disabled.
-func (s *Sequence) Update(other objectstorage.StorableObject) {
+func (s *Sequence) Update(objectstorage.StorableObject) {
 	panic("updates disabled")
 }
 
@@ -255,13 +255,16 @@ func (s *Sequence) newSequenceRequired(pastMarkerGap uint64) (newSequenceRequire
 
 	// decrease the maxPastMarkerGap threshold with every processed message so it ultimately goes back to a healthy
 	// level after the triggering
-	s.maxPastMarkerGap--
+	if s.maxPastMarkerGap > 0 {
+		s.maxPastMarkerGap--
+	}
 
 	if pastMarkerGap > s.maxPastMarkerGap {
 		s.maxPastMarkerGap = pastMarkerGap
 	}
 
 	s.verticesWithoutFutureMarker++
+
 	if s.verticesWithoutFutureMarker < maxVerticesWithoutFutureMarker {
 		return false
 	}

@@ -163,6 +163,10 @@ func (m *MessageTestFramework) BranchID(messageAlias string) ledgerstate.BranchI
 
 // createGenesisOutputs initializes the Outputs that are used by the MessageTestFramework as the genesis.
 func (m *MessageTestFramework) createGenesisOutputs() {
+	if len(m.options.genesisOutputs) == 0 {
+		return
+	}
+
 	genesisOutputs := make(map[ledgerstate.Address]*ledgerstate.ColoredBalances)
 
 	for alias, balance := range m.options.genesisOutputs {

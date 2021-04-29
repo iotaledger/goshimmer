@@ -522,6 +522,8 @@ func (m *Manager) fetchSequence(referencedMarkers *Markers, pastMarkerGap, rank 
 			return
 		}
 
+		cachedSequence.Release()
+
 		m.sequenceIDCounterMutex.Lock()
 		sequence = NewSequence(m.sequenceIDCounter, referencedMarkers, rank+1)
 		sequence.increaseVerticesWithoutFutureMarker()
