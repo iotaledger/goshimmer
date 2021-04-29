@@ -722,7 +722,7 @@ func TestAggregatedBranchApproval(t *testing.T) {
 		}
 	}), epochs.CacheTime(0))
 
-	tangle := New(ApprovalWeights(WeightProviderFromEpochsManager(manager)))
+	tangle := newTestTangle(ApprovalWeights(WeightProviderFromEpochsManager(manager)))
 	defer tangle.Shutdown()
 	tangle.Setup()
 
