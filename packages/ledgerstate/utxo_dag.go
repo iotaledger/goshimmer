@@ -309,17 +309,34 @@ func (u *UTXODAG) AddressOutputMapping(address Address) (cachedAddressOutputMapp
 	return
 }
 
-func (u *UTXODAG) setTransactionConfirmed(transactionID TransactionID, confirmedTransactions *list.List, confirmationWalker *walker.Walker) (err error) {
+func (u *UTXODAG) setTransactionConfirmed(transactionID TransactionID, confirmedTransactions *list.List, seenTransactions set.Set, confirmationWalker *walker.Walker) (err error) {
 	u.TransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
-		if transactionMetadata.Finalized() {
+		if !transactionMetadata.SetFinalized(true) {
 			return
 		}
 
+		seenTransactions.Add(transactionID)
 		confirmedTransactions.PushFront(transactionID)
 
 		u.Transaction(transactionID).Consume(func(transaction *Transaction) {
+			for _, output := range transaction.Essence().Outputs() {
+				u.OutputMetadata(output.ID()).Consume(func(outputMetadata *OutputMetadata) {
+					outputMetadata.SetFinalized(true)
+				})
+			}
+
 			for referencedTransactionID := range transaction.ReferencedTransactionIDs() {
-				confirmationWalker.Push(referencedTransactionID)
+				u.TransactionMetadata(referencedTransactionID).Consume(func(referencedTransactionMetadata *TransactionMetadata) {
+					if referencedTransactionMetadata.Finalized() {
+						if seenTransactions.Has(referencedTransactionID) {
+							confirmedTransactions.PushFront(referencedTransactionMetadata)
+						}
+
+						return
+					}
+
+					confirmationWalker.Push(referencedTransactionID)
+				})
 			}
 		})
 	})
@@ -339,16 +356,23 @@ func (u *UTXODAG) SetTransactionConfirmed(transactionID TransactionID) (err erro
 		return
 	}
 
+	seenTransactions := set.New()
 	confirmedTransactions := list.New()
 	for confirmationWalker.HasNext() {
-		if err = u.setTransactionConfirmed(confirmationWalker.Next().(TransactionID), confirmedTransactions, confirmationWalker); err != nil {
+		if err = u.setTransactionConfirmed(confirmationWalker.Next().(TransactionID), confirmedTransactions, seenTransactions, confirmationWalker); err != nil {
 			err = xerrors.Errorf("failed to set Transaction with %s to be confirmed: %w", transactionID, err)
 			return
 		}
 	}
 
+	triggeredEvents := set.New()
 	for confirmedTransactions.Len() > 0 {
-		u.Events.TransactionConfirmed.Trigger(confirmedTransactions.Front().Value.(TransactionID))
+		currentTransactionID := confirmedTransactions.Front().Value.(TransactionID)
+		if !triggeredEvents.Add(currentTransactionID) {
+			continue
+		}
+
+		u.Events.TransactionConfirmed.Trigger(currentTransactionID)
 	}
 
 	return
