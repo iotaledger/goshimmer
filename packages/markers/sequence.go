@@ -265,8 +265,6 @@ func (s *Sequence) newSequenceRequired(pastMarkerGap uint64) (newSequenceRequire
 		s.maxPastMarkerGap = pastMarkerGap
 	}
 
-	s.verticesWithoutFutureMarker++
-
 	if s.verticesWithoutFutureMarker < maxVerticesWithoutFutureMarker {
 		return false
 	}

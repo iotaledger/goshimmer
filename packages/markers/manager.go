@@ -91,7 +91,6 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 	cachedSequence, newSequenceCreated := m.fetchSequence(referencedMarkers, inheritedStructureDetails.PastMarkerGap, rankOfReferencedSequences, sequenceAlias)
 	if newSequenceCreated {
 		cachedSequence.Consume(func(sequence *Sequence) {
-			sequence.decreaseVerticesWithoutFutureMarker()
 			inheritedStructureDetails.SequenceID = sequence.id
 			inheritedStructureDetails.IsPastMarker = true
 			inheritedStructureDetails.PastMarkerGap = 0
@@ -113,7 +112,6 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 
 		if currentIndex, _ := referencedMarkers.Get(sequence.id); sequence.HighestIndex() == currentIndex && increaseIndexCallback(sequence.id, currentIndex) {
 			if newIndex, increased := sequence.IncreaseHighestIndex(referencedMarkers); increased {
-				sequence.decreaseVerticesWithoutFutureMarker()
 				inheritedStructureDetails.IsPastMarker = true
 				inheritedStructureDetails.PastMarkerGap = 0
 				inheritedStructureDetails.PastMarkers = NewMarkers(&Marker{sequenceID: sequence.id, index: newIndex})

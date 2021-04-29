@@ -910,24 +910,24 @@ func TestBookerNewAutomaticSequence(t *testing.T) {
 	testFramework.IssueMessages("Message1", "Message2").WaitMessagesBooked()
 
 	messageAliases := []string{"Message1"}
-	for i := 0; i < 20; i++ {
+	for i := 0; i < 320; i++ {
 		parentMessageAlias := messageAliases[i]
 		currentMessageAlias := "Message" + strconv.Itoa(i+3)
 		messageAliases = append(messageAliases, currentMessageAlias)
 		testFramework.CreateMessage(currentMessageAlias, WithStrongParents(parentMessageAlias))
+		testFramework.IssueMessages(currentMessageAlias)
+		testFramework.WaitMessagesBooked()
 	}
 
-	testFramework.IssueMessages(messageAliases[1:]...).WaitMessagesBooked()
-
-	assert.True(t, tangle.Storage.MessageMetadata(testFramework.Message("Message19").ID()).Consume(func(messageMetadata *MessageMetadata) {
-		assert.Equal(t, messageMetadata.StructureDetails(), &markers.StructureDetails{
-			Rank:          18,
+	assert.True(t, tangle.Storage.MessageMetadata(testFramework.Message("Message309").ID()).Consume(func(messageMetadata *MessageMetadata) {
+		assert.Equal(t, &markers.StructureDetails{
+			Rank:          308,
 			PastMarkerGap: 0,
 			IsPastMarker:  true,
 			SequenceID:    2,
-			PastMarkers:   markers.NewMarkers(markers.NewMarker(2, 13)),
-			FutureMarkers: markers.NewMarkers(markers.NewMarker(2, 14)),
-		})
+			PastMarkers:   markers.NewMarkers(markers.NewMarker(2, 9)),
+			FutureMarkers: markers.NewMarkers(markers.NewMarker(2, 10)),
+		}, messageMetadata.StructureDetails())
 	}))
 }
 
