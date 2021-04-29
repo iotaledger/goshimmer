@@ -25,16 +25,18 @@ var (
 func Plugin() *node.Plugin {
 	once.Do(func() {
 		plugin = node.NewPlugin("WebAPI epochs Endpoint", node.Enabled, func(*node.Plugin) {
-			webapi.Server().GET("epochs/:epochID", getEpoch)
-			webapi.Server().GET("epochs/time/current", getEpochID)
-			webapi.Server().GET("epochs/time/:unixTime", getEpochID)
+			webapi.Server().GET("epochs/:epochID", GetEpoch)
+			webapi.Server().GET("epochs/current", GetEpochID)
+			webapi.Server().GET("epochs/time/:unixTime", GetEpochID)
+			webapi.Server().GET("epochs/oracle/current", GetOracleEpochID)
+			webapi.Server().GET("epochs/oracle/time/:unixTime", GetOracleEpochID)
 		})
 	})
 
 	return plugin
 }
 
-// getEpoch returns the weights and total weight of active nodes for the given epoch ID.
+// GetEpoch returns the weights and total weight of active nodes for the given epoch ID.
 //{
 //   "weights": [
 //       {
@@ -45,21 +47,42 @@ func Plugin() *node.Plugin {
 //   ],
 //   "totalWeight": 1000000000000000
 //}
-func getEpoch(c echo.Context) error {
+func GetEpoch(c echo.Context) error {
 	epochID, err := strconv.ParseUint(c.Param("epochID"), 10, 64)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
-
+	start := messagelayer.Tangle().WeightProvider.EpochIDToStartTime(epochID)
+	end := messagelayer.Tangle().WeightProvider.EpochIDToEndTime(epochID)
 	weights, totalWeight := messagelayer.Tangle().WeightProvider.WeightsOfRelevantSupporters(epochID)
-	return c.JSON(http.StatusOK, jsonmodels.NewEpoch(weights, totalWeight))
+	return c.JSON(http.StatusOK, jsonmodels.NewEpoch(epochID, start, end, weights, totalWeight))
 }
 
-// getEpochID gets the epoch ID for the given time or the current epoch if no time is specified.
+// GetOracleEpochID gets the oracle epoch ID for the given time or the current epoch if no time is specified.
 //{
 //    "epochId": 1484
 //}
-func getEpochID(c echo.Context) error {
+func GetOracleEpochID(c echo.Context) error {
+	var unixTime int64
+	if c.Param("unixTime") != "" {
+		var err error
+		unixTime, err = strconv.ParseInt(c.Param("unixTime"), 10, 64)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+		}
+	} else {
+		unixTime = clock.SyncedTime().Unix()
+	}
+
+	epochID := messagelayer.Tangle().WeightProvider.OracleEpoch(time.Unix(unixTime, 0))
+	return c.JSON(http.StatusOK, jsonmodels.EpochID{EpochID: epochID})
+}
+
+// GetEpochID gets the epoch ID for the given time or the current epoch if no time is specified.
+//{
+//    "epochId": 1484
+//}
+func GetEpochID(c echo.Context) error {
 	var unixTime int64
 	if c.Param("unixTime") != "" {
 		var err error

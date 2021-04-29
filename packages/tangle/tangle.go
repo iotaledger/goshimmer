@@ -32,6 +32,7 @@ type Tangle struct {
 	FifoScheduler         *FifoScheduler
 	Booker                *Booker
 	ApprovalWeightManager *ApprovalWeightManager
+	TimeManager           *TimeManager
 	ConsensusManager      *ConsensusManager
 	TipManager            *TipManager
 	Requester             *Requester
@@ -68,6 +69,7 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.LedgerState = NewLedgerState(tangle)
 	tangle.Booker = NewBooker(tangle)
 	tangle.ApprovalWeightManager = NewApprovalWeightManager(tangle)
+	tangle.TimeManager = NewTimeManager(tangle)
 	tangle.ConsensusManager = NewConsensusManager(tangle)
 	tangle.Requester = NewRequester(tangle)
 	tangle.TipManager = NewTipManager(tangle)
@@ -107,6 +109,7 @@ func (t *Tangle) Setup() {
 	t.FifoScheduler.Setup()
 	t.Booker.Setup()
 	t.ApprovalWeightManager.Setup()
+	t.TimeManager.Setup()
 	t.ConsensusManager.Setup()
 	t.TipManager.Setup()
 	t.RateSetter.Setup()
@@ -153,7 +156,7 @@ func (t *Tangle) IssuePayload(payload payload.Payload) (message *Message, err er
 		}
 	}
 
-	return t.MessageFactory.IssuePayload(payload)
+	return t.MessageFactory.IssuePayload(payload, t)
 }
 
 // Synced returns a boolean value that indicates if the node is fully synced and the Tangle has solidified all messages
@@ -194,10 +197,16 @@ func (t *Tangle) Shutdown() {
 	t.Booker.Shutdown()
 	t.LedgerState.Shutdown()
 	t.ConsensusManager.Shutdown()
+	t.ApprovalWeightManager.Shutdown()
 	t.Storage.Shutdown()
 	t.LedgerState.Shutdown()
+	t.TimeManager.Shutdown()
 	t.Options.Store.Shutdown()
 	t.TipManager.Shutdown()
+
+	if t.WeightProvider != nil {
+		t.WeightProvider.Shutdown()
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -253,6 +262,7 @@ type Options struct {
 	SchedulerParams              SchedulerParams
 	RateSetterParams             RateSetterParams
 	WeightProvider               WeightProvider
+	SyncTimeWindow               time.Duration
 }
 
 // Store is an Option for the Tangle that allows to specify which storage layer is supposed to be used to persist data.
@@ -327,6 +337,14 @@ func ApprovalWeights(weightProvider WeightProvider) Option {
 	}
 }
 
+// SyncTimeWindow is an Option for the Tangle that allows to define the time window in which the node will consider
+// itself in sync.
+func SyncTimeWindow(syncTimeWindow time.Duration) Option {
+	return func(options *Options) {
+		options.SyncTimeWindow = syncTimeWindow
+	}
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region WeightProvider //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -334,7 +352,10 @@ func ApprovalWeights(weightProvider WeightProvider) Option {
 // WeightProvider is an interface that allows the ApprovalWeightManager to determine approval weights of Messages
 // in a flexible way, independently of a specific implementation.
 type WeightProvider interface {
-	// Epoch returns the Epoch from the given referenceTime.
+	// OracleEpoch returns the oracle epoch from the given referenceTime.
+	OracleEpoch(referenceTime time.Time) Epoch
+
+	// Epoch returns the epoch from the given referenceTime.
 	Epoch(referenceTime time.Time) Epoch
 
 	// Weight returns the weight and total weight for the given epoch and message.
@@ -342,6 +363,15 @@ type WeightProvider interface {
 
 	// WeightsOfRelevantSupporters returns all relevant weights for the given epoch.
 	WeightsOfRelevantSupporters(epoch Epoch) (weights map[identity.ID]float64, totalWeight float64)
+
+	// EpochIDToStartTime calculates the start time of the given epoch.
+	EpochIDToStartTime(epochID Epoch) time.Time
+
+	// EpochIDToEndTime calculates the end time of the given epoch.
+	EpochIDToEndTime(epochID Epoch) time.Time
+
+	// Shutdown shuts down the WeightProvider and persists its state.
+	Shutdown()
 }
 
 // WeightProviderFromEpochsManager returns a WeightProvider from an epochs.Manager instance so that it can be used as a
@@ -354,8 +384,12 @@ type epochsManagerWeightProvider struct {
 	*epochs.Manager
 }
 
-func (e *epochsManagerWeightProvider) Epoch(referenceTime time.Time) Epoch {
+func (e *epochsManagerWeightProvider) OracleEpoch(referenceTime time.Time) Epoch {
 	return uint64(e.Manager.TimeToOracleEpochID(referenceTime))
+}
+
+func (e *epochsManagerWeightProvider) Epoch(referenceTime time.Time) Epoch {
+	return uint64(e.Manager.TimeToEpochID(referenceTime))
 }
 
 func (e *epochsManagerWeightProvider) Weight(_ Epoch, message *Message) (weight, totalWeight float64) {
@@ -366,6 +400,16 @@ func (e *epochsManagerWeightProvider) Weight(_ Epoch, message *Message) (weight,
 
 func (e *epochsManagerWeightProvider) WeightsOfRelevantSupporters(epoch Epoch) (weights map[identity.ID]float64, totalWeight float64) {
 	return e.Manager.ActiveMana(epochs.ID(epoch))
+}
+
+// EpochIDToEndTime calculates the end time of the given epoch.
+func (e *epochsManagerWeightProvider) EpochIDToEndTime(epochID Epoch) time.Time {
+	return e.Manager.EpochIDToEndTime(epochs.ID(epochID))
+}
+
+// EpochIDToStartTime calculates the end time of the given epoch.
+func (e *epochsManagerWeightProvider) EpochIDToStartTime(epochID Epoch) time.Time {
+	return e.Manager.EpochIDToStartTime(epochs.ID(epochID))
 }
 
 var _ WeightProvider = &epochsManagerWeightProvider{}

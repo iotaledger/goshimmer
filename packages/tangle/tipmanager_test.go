@@ -887,4 +887,8 @@ func (m *mockConsensusProvider) TransactionLiked(transactionID ledgerstate.Trans
 	return m.opinionLikedFnc(transactionID)
 }
 
+func (m *mockConsensusProvider) SetTransactionLiked(transactionID ledgerstate.TransactionID, liked bool) (modified bool) {
+	return
+}
+
 func (m *mockConsensusProvider) Shutdown() {}

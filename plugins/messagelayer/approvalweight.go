@@ -26,44 +26,26 @@ func onMarkerConfirmed(marker markers.Marker, newLevel int, transition events.Th
 	// get message ID of marker
 	messageID := Tangle().Booker.MarkersManager.MessageID(&marker)
 
-	// mark marker as finalized
-	Tangle().Storage.MessageMetadata(messageID).Consume(func(metadata *tangle.MessageMetadata) {
-		metadata.SetFinalizedApprovalWeight(true)
-	})
-
-	var entryMessageIDs tangle.MessageIDs
-	Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
-		// mark weak parents as finalized but not propagate finalized flag to its past cone
-		message.ForEachWeakParent(func(parentID tangle.MessageID) {
-			Tangle().Storage.MessageMetadata(parentID).Consume(func(metadata *tangle.MessageMetadata) {
-				metadata.SetFinalizedApprovalWeight(true)
-			})
-		})
-
-		// propagate finalized flag to strong parents' past cone
-		message.ForEachStrongParent(func(parentID tangle.MessageID) {
-			entryMessageIDs = append(entryMessageIDs, parentID)
-		})
-	})
-
-	Tangle().Utils.WalkMessageAndMetadata(propagateFinalizedApprovalWeight, entryMessageIDs, false)
+	Tangle().Utils.WalkMessageAndMetadata(propagateFinalizedApprovalWeight, tangle.MessageIDs{messageID}, false)
 }
 
 func propagateFinalizedApprovalWeight(message *tangle.Message, messageMetadata *tangle.MessageMetadata, finalizedWalker *walker.Walker) {
 	// stop walking to past cone if reach a marker
-	if messageMetadata.StructureDetails().IsPastMarker {
+	if messageMetadata.StructureDetails().IsPastMarker && messageMetadata.IsFinalized() {
 		return
 	}
 
 	// abort if the message is already finalized
-	if !messageMetadata.SetFinalizedApprovalWeight(true) {
+	if !setMessageFinalized(message, messageMetadata) {
 		return
 	}
 
 	// mark weak parents as finalized but not propagate finalized flag to its past cone
 	message.ForEachWeakParent(func(parentID tangle.MessageID) {
-		Tangle().Storage.MessageMetadata(parentID).Consume(func(metadata *tangle.MessageMetadata) {
-			metadata.SetFinalizedApprovalWeight(true)
+		Tangle().Storage.Message(parentID).Consume(func(parentMessage *tangle.Message) {
+			Tangle().Storage.MessageMetadata(parentID).Consume(func(parentMetadata *tangle.MessageMetadata) {
+				setMessageFinalized(parentMessage, parentMetadata)
+			})
 		})
 	})
 
@@ -76,8 +58,51 @@ func propagateFinalizedApprovalWeight(message *tangle.Message, messageMetadata *
 func onBranchConfirmed(branchID ledgerstate.BranchID, newLevel int, transition events.ThresholdEventTransition) {
 	plugin.LogDebugf("%s confirmed by ApprovalWeight.", branchID)
 
+	_, err := Tangle().LedgerState.BranchDAG.SetBranchMonotonicallyLiked(branchID, true)
+	if err != nil {
+		panic(err)
+	}
+	_, err = Tangle().LedgerState.BranchDAG.SetBranchFinalized(branchID, true)
+	if err != nil {
+		panic(err)
+	}
+
 	if Tangle().LedgerState.BranchDAG.InclusionState(branchID) == ledgerstate.Rejected {
 		remotelog.SendLogMsg(logger.LevelWarn, "REORG", fmt.Sprintf("%s reorg detected by ApprovalWeight", branchID))
 		plugin.LogInfof("%s reorg detected by ApprovalWeight.", branchID)
 	}
+}
+
+func setMessageFinalized(message *tangle.Message, messageMetadata *tangle.MessageMetadata) (modified bool) {
+	// abort if the message is already finalized
+	if modified = messageMetadata.SetFinalized(true); !modified {
+		return
+	}
+
+	Tangle().Utils.ComputeIfTransaction(message.ID(), func(transactionID ledgerstate.TransactionID) {
+		Tangle().LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+			if transactionMetadata.SetFinalized(true) {
+				Tangle().ConsensusManager.SetTransactionLiked(transactionID, true)
+				// trigger TransactionOpinionFormed if the message contains a transaction
+				Tangle().ConsensusManager.Events.TransactionConfirmed.Trigger(message.ID())
+			}
+
+			if !Tangle().LedgerState.TransactionConflicting(transactionID) {
+				return
+			}
+
+			for conflicingTx := range Tangle().LedgerState.ConflictSet(transactionID) {
+				if conflicingTx == transactionID {
+					continue
+				}
+				Tangle().LedgerState.TransactionMetadata(conflicingTx).Consume(func(conflictingTransactionMetadata *ledgerstate.TransactionMetadata) {
+					if conflictingTransactionMetadata.SetFinalized(true) {
+						Tangle().ConsensusManager.SetTransactionLiked(transactionID, false)
+					}
+				})
+			}
+		})
+	})
+
+	return modified
 }

@@ -13,12 +13,15 @@ func Test_EpochMarshaling(t *testing.T) {
 	epoch := NewEpoch(1)
 	id, _ := identity.RandomID()
 	epoch.AddNode(id)
+	epoch.SetMana(map[identity.ID]float64{id: 10})
 
 	epochFromBytes, _, err := EpochFromBytes(epoch.Bytes())
 	require.NoError(t, err)
 
 	assert.Equal(t, epoch.Bytes(), epochFromBytes.Bytes())
 	assert.Equal(t, epoch.TotalMana(), epochFromBytes.TotalMana())
+	assert.Equal(t, epoch.ManaRetrieved(), epochFromBytes.ManaRetrieved())
+	assert.Equal(t, epoch.Mana(), epochFromBytes.Mana())
 	assert.Equal(t, epoch.mana[id], epochFromBytes.mana[id])
 }
 

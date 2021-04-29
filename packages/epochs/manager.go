@@ -111,14 +111,7 @@ func (m *Manager) EpochIDToEndTime(epochID ID) time.Time {
 func (m *Manager) Update(t time.Time, nodeID identity.ID) {
 	epochID := m.TimeToEpochID(t)
 
-	// create typed version of the stored Epoch
-	(&CachedEpoch{CachedObject: m.epochStorage.ComputeIfAbsent(epochID.Bytes(), func(key []byte) objectstorage.StorableObject {
-		newEpoch := NewEpoch(epochID)
-		newEpoch.SetModified()
-		newEpoch.Persist()
-
-		return newEpoch
-	})}).Consume(func(epoch *Epoch) {
+	m.Epoch(epochID, NewEpoch).Consume(func(epoch *Epoch) {
 		// add active node to the corresponding epoch
 		epoch.AddNode(nodeID)
 	})
@@ -146,16 +139,12 @@ func (m *Manager) ActiveMana(epochID ID) (manaPerID map[identity.ID]float64, tot
 	}) {
 		// TODO: improve this: always default to epoch 0
 		epochID = ID(0)
-		(&CachedEpoch{CachedObject: m.epochStorage.ComputeIfAbsent(epochID.Bytes(), func(key []byte) objectstorage.StorableObject {
-			newEpoch := NewEpoch(epochID)
-			consensusMana := m.options.ManaRetriever(m.EpochIDToEndTime(epochID))
-			newEpoch.SetMana(consensusMana, true)
+		m.Epoch(epochID, NewEpoch).Consume(func(epoch *Epoch) {
+			if !epoch.ManaRetrieved() {
+				consensusMana := m.options.ManaRetriever(m.EpochIDToEndTime(epochID))
+				epoch.SetMana(consensusMana, true)
+			}
 
-			newEpoch.SetModified()
-			newEpoch.Persist()
-
-			return newEpoch
-		})}).Consume(func(epoch *Epoch) {
 			manaPerID = epoch.Mana()
 			totalMana = epoch.TotalMana()
 		})
@@ -164,8 +153,14 @@ func (m *Manager) ActiveMana(epochID ID) (manaPerID map[identity.ID]float64, tot
 	return
 }
 
-// Epoch retrieves an Epoch from the epoch storage.
-func (m *Manager) Epoch(epochID ID) *CachedEpoch {
+// Epoch retrieves an Epoch from the epoch storage. If computeIfAbsentCallback is given a ComputeIfAbsent is executed.
+func (m *Manager) Epoch(epochID ID, computeIfAbsentCallback ...func(epochID ID) *Epoch) *CachedEpoch {
+	if len(computeIfAbsentCallback) >= 1 {
+		return &CachedEpoch{m.epochStorage.ComputeIfAbsent(epochID.Bytes(), func(key []byte) objectstorage.StorableObject {
+			return computeIfAbsentCallback[0](epochID)
+		})}
+	}
+
 	return &CachedEpoch{CachedObject: m.epochStorage.Load(epochID.Bytes())}
 }
 
@@ -174,7 +169,6 @@ func (m *Manager) Shutdown() {
 	m.epochStorage.Shutdown()
 }
 
-// randomTimeInEpoch is a utility function useful for testing to generate a random time within an epoch.
 func (m *Manager) randomTimeInEpoch(epochID ID) time.Time {
 	startUnix := m.options.GenesisTime + int64(epochID)*m.options.Interval
 	return time.Unix(startUnix+rand.Int63n(m.options.Interval), 0)

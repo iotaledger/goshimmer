@@ -132,6 +132,15 @@ func (m *MessageTestFramework) Message(alias string) (message *Message) {
 	return m.messagesByAlias[alias]
 }
 
+// MessageMetadata retrieves the MessageMetadata that is associated with the given alias.
+func (m *MessageTestFramework) MessageMetadata(alias string) (messageMetadata *MessageMetadata) {
+	m.tangle.Storage.MessageMetadata(m.messagesByAlias[alias].ID()).Consume(func(msgMetadata *MessageMetadata) {
+		messageMetadata = msgMetadata
+	})
+
+	return
+}
+
 // TransactionID returns the TransactionID of the Transaction contained in the Message associated with the given alias.
 func (m *MessageTestFramework) TransactionID(messageAlias string) ledgerstate.TransactionID {
 	messagePayload := m.messagesByAlias[messageAlias].Payload()

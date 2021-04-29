@@ -656,31 +656,33 @@ func (c *CachedMessage) Unwrap() *Message {
 type MessageMetadata struct {
 	objectstorage.StorableObjectFlags
 
-	messageID               MessageID
-	receivedTime            time.Time
-	solid                   bool
-	solidificationTime      time.Time
-	structureDetails        *markers.StructureDetails
-	branchID                ledgerstate.BranchID
-	scheduled               bool
-	scheduledTime           time.Time
-	booked                  bool
-	bookedTime              time.Time
-	eligible                bool
-	invalid                 bool
-	finalizedApprovalWeight bool
+	messageID          MessageID
+	receivedTime       time.Time
+	solid              bool
+	solidificationTime time.Time
+	structureDetails   *markers.StructureDetails
+	branchID           ledgerstate.BranchID
+	scheduled          bool
+	scheduledTime      time.Time
+	booked             bool
+	bookedTime         time.Time
+	eligible           bool
+	invalid            bool
+	finalized          bool
+	finalizedTime      time.Time
 
-	solidMutex                   sync.RWMutex
-	solidificationTimeMutex      sync.RWMutex
-	structureDetailsMutex        sync.RWMutex
-	branchIDMutex                sync.RWMutex
-	scheduledMutex               sync.RWMutex
-	scheduledTimeMutex           sync.RWMutex
-	bookedMutex                  sync.RWMutex
-	bookedTimeMutex              sync.RWMutex
-	eligibleMutex                sync.RWMutex
-	invalidMutex                 sync.RWMutex
-	finalizedApprovalWeightMutex sync.RWMutex
+	solidMutex              sync.RWMutex
+	solidificationTimeMutex sync.RWMutex
+	structureDetailsMutex   sync.RWMutex
+	branchIDMutex           sync.RWMutex
+	scheduledMutex          sync.RWMutex
+	scheduledTimeMutex      sync.RWMutex
+	bookedMutex             sync.RWMutex
+	bookedTimeMutex         sync.RWMutex
+	eligibleMutex           sync.RWMutex
+	invalidMutex            sync.RWMutex
+	finalizedMutex          sync.RWMutex
+	finalizedTimeMutex      sync.RWMutex
 }
 
 // NewMessageMetadata creates a new MessageMetadata from the specified messageID.
@@ -752,8 +754,12 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 		err = fmt.Errorf("failed to parse invalid flag of message metadata: %w", err)
 		return
 	}
-	if result.finalizedApprovalWeight, err = marshalUtil.ReadBool(); err != nil {
+	if result.finalized, err = marshalUtil.ReadBool(); err != nil {
 		err = fmt.Errorf("failed to parse finalizedApprovalWeight flag of message metadata: %w", err)
+		return
+	}
+	if result.finalizedTime, err = marshalUtil.ReadTime(); err != nil {
+		err = fmt.Errorf("failed to parse finalized time of message metadata: %w", err)
 		return
 	}
 
@@ -993,30 +999,41 @@ func (m *MessageMetadata) SetInvalid(invalid bool) (modified bool) {
 	return
 }
 
-// SetFinalizedApprovalWeight sets the message associated with this metadata as finalized by approval weight.
-// It returns true if the finalizedApprovalWeight status is modified. False otherwise.
-func (m *MessageMetadata) SetFinalizedApprovalWeight(finalized bool) (modified bool) {
-	m.finalizedApprovalWeightMutex.Lock()
-	defer m.finalizedApprovalWeightMutex.Unlock()
+// SetFinalized sets the message associated with this metadata as finalized by approval weight.
+// It returns true if the finalized status is modified. False otherwise.
+func (m *MessageMetadata) SetFinalized(finalized bool) (modified bool) {
+	m.finalizedMutex.Lock()
+	m.finalizedTimeMutex.Lock()
+	defer m.finalizedMutex.Unlock()
+	defer m.finalizedTimeMutex.Unlock()
 
-	if m.finalizedApprovalWeight == finalized {
+	if m.finalized == finalized {
 		return false
 	}
 
-	m.finalizedApprovalWeight = finalized
+	m.finalized = finalized
+	m.finalizedTime = clock.SyncedTime()
 	m.SetModified()
 	modified = true
 
 	return
 }
 
-// IsFinalizedApprovalWeight returns true if the message represented by this metadata is finalized by approval weight.
+// IsFinalized returns true if the message represented by this metadata is finalized by approval weight.
 // False otherwise.
-func (m *MessageMetadata) IsFinalizedApprovalWeight() (result bool) {
-	m.finalizedApprovalWeightMutex.RLock()
-	defer m.finalizedApprovalWeightMutex.RUnlock()
+func (m *MessageMetadata) IsFinalized() (result bool) {
+	m.finalizedMutex.RLock()
+	defer m.finalizedMutex.RUnlock()
 
-	return m.finalizedApprovalWeight
+	return m.finalized
+}
+
+// FinalizedTime returns the time when the message represented by this metadata was finalized.
+func (m *MessageMetadata) FinalizedTime() time.Time {
+	m.finalizedTimeMutex.RLock()
+	defer m.finalizedTimeMutex.RUnlock()
+
+	return m.finalizedTime
 }
 
 // Bytes returns a marshaled version of the whole MessageMetadata object.
@@ -1045,7 +1062,8 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 		WriteTime(m.BookedTime()).
 		WriteBool(m.IsEligible()).
 		WriteBool(m.IsInvalid()).
-		WriteBool(m.IsFinalizedApprovalWeight()).
+		WriteBool(m.IsFinalized()).
+		WriteTime(m.FinalizedTime()).
 		Bytes()
 }
 
@@ -1070,7 +1088,8 @@ func (m *MessageMetadata) String() string {
 		stringify.StructField("bookedTime", m.BookedTime()),
 		stringify.StructField("eligible", m.IsEligible()),
 		stringify.StructField("invalid", m.IsInvalid()),
-		stringify.StructField("finalizedApprovalWeight", m.IsFinalizedApprovalWeight()),
+		stringify.StructField("finalized", m.IsFinalized()),
+		stringify.StructField("finalizedTime", m.FinalizedTime()),
 	)
 }
 

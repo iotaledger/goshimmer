@@ -69,11 +69,16 @@ type Epoch struct {
 }
 
 // NewEpoch is the constructor for an Epoch.
-func NewEpoch(id ID) *Epoch {
-	return &Epoch{
+func NewEpoch(id ID) (epoch *Epoch) {
+	epoch = &Epoch{
 		id:   id,
 		mana: make(map[identity.ID]float64),
 	}
+
+	epoch.SetModified()
+	epoch.Persist()
+
+	return
 }
 
 // EpochFromBytes parses the given bytes into an Epoch.
@@ -118,6 +123,11 @@ func EpochFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Epoch, 
 
 	if result.totalMana, err = marshalUtil.ReadFloat64(); err != nil {
 		err = xerrors.Errorf("failed to parse total mana value from MarshalUtil: %w", err)
+		return
+	}
+
+	if result.manaRetrieved, err = marshalUtil.ReadBool(); err != nil {
+		err = xerrors.Errorf("failed to parse mana retrieved value from MarshalUtil: %w", err)
 		return
 	}
 
@@ -239,6 +249,7 @@ func (e *Epoch) ObjectStorageValue() []byte {
 		marshalUtil.WriteUint64(math.Float64bits(mana))
 	}
 	marshalUtil.WriteFloat64(e.totalMana)
+	marshalUtil.WriteBool(e.manaRetrieved)
 
 	return marshalUtil.Bytes()
 }

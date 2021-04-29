@@ -124,6 +124,13 @@ func configure(plugin *node.Plugin) {
 	fcob.LikedThreshold = time.Duration(Parameters.FCOB.AverageNetworkDelay) * time.Second
 	fcob.LocallyFinalizedThreshold = time.Duration(Parameters.FCOB.AverageNetworkDelay*2) * time.Second
 
+	// set up epochsManager so that we mark nodes as active
+	Tangle().Booker.Events.MessageBooked.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
+			EpochsManager().Update(message.IssuingTime(), identity.NewID(message.IssuerPublicKey()))
+		})
+	}))
+
 	configureApprovalWeight()
 }
 
@@ -148,14 +155,12 @@ var (
 // Tangle gets the tangle instance.
 func Tangle() *tangle.Tangle {
 	tangleOnce.Do(func() {
-		epochManager := epochs.NewManager(epochs.ManaRetriever(ManaEpoch))
 		tangleInstance = tangle.New(
 			tangle.Store(database.Store()),
 			tangle.Identity(local.GetInstance().LocalIdentity()),
 			tangle.Width(Parameters.TangleWidth),
 			tangle.Consensus(ConsensusMechanism()),
 			tangle.GenesisNode(Parameters.Snapshot.GenesisNode),
-			tangle.ApprovalWeights(tangle.WeightProviderFromEpochsManager(epochManager)),
 			tangle.SchedulerConfig(tangle.SchedulerParams{
 				Rate:                        schedulerRate(SchedulerParameters.Rate),
 				AccessManaRetrieveFunc:      accessManaRetriever,
@@ -165,6 +170,8 @@ func Tangle() *tangle.Tangle {
 				Beta:    &RateSetterParameters.Beta,
 				Initial: &RateSetterParameters.Initial,
 			}),
+			tangle.ApprovalWeights(tangle.WeightProviderFromEpochsManager(EpochsManager())),
+			tangle.SyncTimeWindow(Parameters.TangleTimeWindow),
 		)
 
 		tangleInstance.Setup()
@@ -216,6 +223,24 @@ func totalAccessManaRetriever() float64 {
 	}
 	return totalMana
 }
+
+// region Epochs ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+var (
+	epochsManager     *epochs.Manager
+	epochsManagerOnce sync.Once
+)
+
+// EpochsManager returns the instance of the epochs manager.
+func EpochsManager() *epochs.Manager {
+	epochsManagerOnce.Do(func() {
+		epochsManager = epochs.NewManager(epochs.Store(database.Store()), epochs.ManaRetriever(ManaEpoch), epochs.CacheTime(0))
+	})
+
+	return epochsManager
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // AwaitMessageToBeBooked awaits maxAwait for the given message to get booked.
 func AwaitMessageToBeBooked(f func() (*tangle.Message, error), txID ledgerstate.TransactionID, maxAwait time.Duration) (*tangle.Message, error) {

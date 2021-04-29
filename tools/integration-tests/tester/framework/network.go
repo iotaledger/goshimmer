@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -163,6 +164,27 @@ func (n *Network) CreatePeer(c GoShimmerConfig) (*Peer, error) {
 	return peer, nil
 }
 
+// CreatePeerWithMana creates a new peers/Goshimmer node in the network and returns it.
+// It requests funds from the faucet and pledges mana to itself.
+func (n *Network) CreatePeerWithMana(c GoShimmerConfig) (*Peer, error) {
+	peer, err := n.CreatePeer(c)
+	if err != nil {
+		return nil, err
+	}
+	addr := peer.Seed.Address(uint64(0)).Address()
+	ID := base58.Encode(peer.ID().Bytes())
+	_, err = peer.SendFaucetRequest(addr.Base58(), ID, ID)
+	if err != nil {
+		_ = peer.Stop()
+		return nil, fmt.Errorf("error sending faucet request... shutting down: %w", err)
+	}
+	err = n.WaitForMana(peer)
+	if err != nil {
+		return nil, err
+	}
+	return peer, nil
+}
+
 // Shutdown creates logs and removes network and containers.
 // Should always be called when a network is not needed anymore!
 func (n *Network) Shutdown() error {
@@ -171,13 +193,27 @@ func (n *Network) Shutdown() error {
 	if err != nil {
 		return err
 	}
-	for _, p := range n.peers {
-		err = p.Stop()
-		if err != nil {
-			return err
-		}
+	var wg sync.WaitGroup
+
+	wg.Add(len(n.peers))
+	errs := make([]error, len(n.peers))
+	for i := range n.peers {
+		go func(index int) {
+			defer wg.Done()
+			err = n.peers[index].Stop()
+			if err != nil {
+				errs[index] = err
+			}
+		}(i)
 	}
 
+	wg.Wait()
+
+	for _, e := range errs {
+		if e != nil {
+			return e
+		}
+	}
 	// delete all partitions
 	err = n.DeletePartitions()
 	if err != nil {
@@ -291,6 +327,36 @@ func (n *Network) WaitForAutopeering(minimumNeighbors int) error {
 	}
 
 	return fmt.Errorf("autopeering not successful")
+}
+
+// WaitForMana waits until all peers have access mana.
+// Returns error if all peers don't have mana after waitForManaMaxTries
+func (n *Network) WaitForMana(optionalPeers ...*Peer) error {
+	log.Printf("Waiting for nodes to get mana...\n")
+	defer log.Printf("Waiting for nodes to get mana... done\n")
+
+	peers := n.peers
+	if len(optionalPeers) > 0 {
+		peers = optionalPeers
+	}
+	m := make(map[*Peer]struct{})
+	for _, peer := range peers {
+		m[peer] = struct{}{}
+	}
+	for i := waitForManaMaxTries; i > 0; i-- {
+		for peer := range m {
+			infoRes, err := peer.Info()
+			if err == nil && infoRes.Mana.Access > 0.0 {
+				delete(m, peer)
+			}
+		}
+		if len(m) == 0 {
+			return nil
+		}
+		log.Println("Not done yet. Try again in 5 seconds...")
+		time.Sleep(5 * time.Second)
+	}
+	return fmt.Errorf("waiting for mana not successful")
 }
 
 // namePrefix returns the suffix prefixed with the name.

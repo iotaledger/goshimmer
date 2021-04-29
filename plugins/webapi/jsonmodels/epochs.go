@@ -1,6 +1,8 @@
 package jsonmodels
 
 import (
+	"time"
+
 	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/goshimmer/packages/mana"
@@ -8,12 +10,18 @@ import (
 
 // Epoch represents the JSON model of epochs.Epoch.
 type Epoch struct {
-	Weights     []mana.NodeStr `json:"weights"`
-	TotalWeight float64        `json:"totalWeight"`
+	EpochID        uint64         `json:"epochID"`
+	EpochStartTime int64          `json:"epochStartTime"`
+	EpochEndTime   int64          `json:"epochEndTime"`
+	Weights        []mana.NodeStr `json:"weights"`
+	TotalWeight    float64        `json:"totalWeight"`
 }
 
 // NewEpoch is the constructor for Epoch.
-func NewEpoch(weights map[identity.ID]float64, totalWeight float64) (epoch Epoch) {
+func NewEpoch(epochID uint64, epochStartTime, epochEndTime time.Time, weights map[identity.ID]float64, totalWeight float64) (epoch Epoch) {
+	epoch.EpochID = epochID
+	epoch.EpochStartTime = epochStartTime.Unix()
+	epoch.EpochEndTime = epochEndTime.Unix()
 	epoch.TotalWeight = totalWeight
 
 	for nodeID, weight := range weights {
@@ -29,5 +37,5 @@ func NewEpoch(weights map[identity.ID]float64, totalWeight float64) (epoch Epoch
 
 // EpochID represents the JSON model of epochs.ID.
 type EpochID struct {
-	EpochID uint64 `json:"epochId"`
+	EpochID uint64 `json:"epochID"`
 }
