@@ -22,7 +22,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/database"
@@ -107,7 +106,7 @@ func configureManaPlugin(*node.Plugin) {
 
 func configureEvents() {
 	// until we have the proper event...
-	Tangle().ConsensusManager.Events.TransactionConfirmed.Attach(onTransactionConfirmedClosure)
+	Tangle().LedgerState.UTXODAG.Events.TransactionConfirmed.Attach(onTransactionConfirmedClosure)
 	mana.Events().Pledged.Attach(onPledgeEventClosure)
 	mana.Events().Revoked.Attach(onRevokeEventClosure)
 }
@@ -126,87 +125,70 @@ func logRevokeEvent(ev *mana.RevokedEvent) {
 	}
 }
 
-func onTransactionConfirmed(msgID tangle.MessageID) {
-	var tx *ledgerstate.Transaction
-	isTx := false
-	Tangle().Storage.Message(msgID).Consume(func(message *tangle.Message) {
-		if message.Payload().Type() != ledgerstate.TransactionType {
-			return
-		}
-		isTx = true
-		var err error
-		tx, _, err = ledgerstate.TransactionFromBytes(message.Payload().Bytes())
-		if err != nil {
-			isTx = false
-			manaLogger.Errorf("Message %s contains invalid transaction payload: %v", msgID, err)
-			return
-		}
-	})
-	if !isTx {
-		return
-	}
+func onTransactionConfirmed(transactionID ledgerstate.TransactionID) {
+	Tangle().LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
+		// holds all info mana pkg needs for correct mana calculations from the transaction
+		var txInfo *mana.TxInfo
+		// process transaction object to build txInfo
+		var totalAmount float64
+		var inputInfos []mana.InputInfo
 
-	// holds all info mana pkg needs for correct mana calculations from the transaction
-	var txInfo *mana.TxInfo
-	// process transaction object to build txInfo
-	var totalAmount float64
-	var inputInfos []mana.InputInfo
+		// iterate over all inputs within the transaction
+		for _, input := range transaction.Essence().Inputs() {
+			i := input.(*ledgerstate.UTXOInput)
 
-	// iterate over all inputs within the transaction
-	for _, input := range tx.Essence().Inputs() {
-		i := input.(*ledgerstate.UTXOInput)
+			var amount float64
+			var inputTimestamp time.Time
+			var accessManaNodeID identity.ID
+			var consensusManaNodeID identity.ID
+			var _inputInfo mana.InputInfo
 
-		var amount float64
-		var inputTimestamp time.Time
-		var accessManaNodeID identity.ID
-		var consensusManaNodeID identity.ID
-		var _inputInfo mana.InputInfo
-
-		Tangle().LedgerState.Output(i.ReferencedOutputID()).Consume(func(o ledgerstate.Output) {
-			// first, sum balances of the input, calculate total amount as well for later
-			o.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
-				amount += float64(balance)
-				totalAmount += amount
-				return true
-			})
-			// derive the transaction that created this input
-			inputTxID := o.ID().TransactionID()
-			// look into the transaction, we need timestamp and access & consensus pledge IDs
-			Tangle().LedgerState.Transaction(inputTxID).Consume(func(transaction *ledgerstate.Transaction) {
-				if transaction != nil {
-					inputTimestamp = transaction.Essence().Timestamp()
-					accessManaNodeID = transaction.Essence().AccessPledgeID()
-					consensusManaNodeID = transaction.Essence().ConsensusPledgeID()
+			Tangle().LedgerState.Output(i.ReferencedOutputID()).Consume(func(o ledgerstate.Output) {
+				// first, sum balances of the input, calculate total amount as well for later
+				o.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+					amount += float64(balance)
+					totalAmount += amount
+					return true
+				})
+				// derive the transaction that created this input
+				inputTxID := o.ID().TransactionID()
+				// look into the transaction, we need timestamp and access & consensus pledge IDs
+				Tangle().LedgerState.Transaction(inputTxID).Consume(func(transaction *ledgerstate.Transaction) {
+					if transaction != nil {
+						inputTimestamp = transaction.Essence().Timestamp()
+						accessManaNodeID = transaction.Essence().AccessPledgeID()
+						consensusManaNodeID = transaction.Essence().ConsensusPledgeID()
+					}
+				})
+				// build InputInfo for this particular input in the transaction
+				_inputInfo = mana.InputInfo{
+					TimeStamp: inputTimestamp,
+					Amount:    amount,
+					PledgeID: map[mana.Type]identity.ID{
+						mana.AccessMana:    accessManaNodeID,
+						mana.ConsensusMana: consensusManaNodeID,
+					},
+					InputID: o.ID(),
 				}
 			})
-			// build InputInfo for this particular input in the transaction
-			_inputInfo = mana.InputInfo{
-				TimeStamp: inputTimestamp,
-				Amount:    amount,
-				PledgeID: map[mana.Type]identity.ID{
-					mana.AccessMana:    accessManaNodeID,
-					mana.ConsensusMana: consensusManaNodeID,
-				},
-				InputID: o.ID(),
-			}
-		})
-		inputInfos = append(inputInfos, _inputInfo)
-	}
+			inputInfos = append(inputInfos, _inputInfo)
+		}
 
-	txInfo = &mana.TxInfo{
-		TimeStamp:     tx.Essence().Timestamp(),
-		TransactionID: tx.ID(),
-		TotalBalance:  totalAmount,
-		PledgeID: map[mana.Type]identity.ID{
-			mana.AccessMana:    tx.Essence().AccessPledgeID(),
-			mana.ConsensusMana: tx.Essence().ConsensusPledgeID(),
-		},
-		InputInfos: inputInfos,
-	}
-	// book in all mana vectors.
-	for _, baseManaVector := range baseManaVectors {
-		baseManaVector.Book(txInfo)
-	}
+		txInfo = &mana.TxInfo{
+			TimeStamp:     transaction.Essence().Timestamp(),
+			TransactionID: transactionID,
+			TotalBalance:  totalAmount,
+			PledgeID: map[mana.Type]identity.ID{
+				mana.AccessMana:    transaction.Essence().AccessPledgeID(),
+				mana.ConsensusMana: transaction.Essence().ConsensusPledgeID(),
+			},
+			InputInfos: inputInfos,
+		}
+		// book in all mana vectors.
+		for _, baseManaVector := range baseManaVectors {
+			baseManaVector.Book(txInfo)
+		}
+	})
 }
 
 func runManaPlugin(_ *node.Plugin) {
@@ -246,7 +228,7 @@ func runManaPlugin(_ *node.Plugin) {
 				manaLogger.Infof("Stopping %s ...", PluginName)
 				mana.Events().Pledged.Detach(onPledgeEventClosure)
 				mana.Events().Pledged.Detach(onRevokeEventClosure)
-				Tangle().ConsensusManager.Events.TransactionConfirmed.Detach(onTransactionConfirmedClosure)
+				Tangle().LedgerState.UTXODAG.Events.TransactionConfirmed.Detach(onTransactionConfirmedClosure)
 				storeManaVectors()
 				shutdownStorages()
 				return

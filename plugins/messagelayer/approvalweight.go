@@ -36,17 +36,13 @@ func propagateFinalizedApprovalWeight(message *tangle.Message, messageMetadata *
 	}
 
 	// abort if the message is already finalized
-	if !setMessageFinalized(message, messageMetadata) {
+	if !setMessageFinalized(messageMetadata) {
 		return
 	}
 
 	// mark weak parents as finalized but not propagate finalized flag to its past cone
 	message.ForEachWeakParent(func(parentID tangle.MessageID) {
-		Tangle().Storage.Message(parentID).Consume(func(parentMessage *tangle.Message) {
-			Tangle().Storage.MessageMetadata(parentID).Consume(func(parentMetadata *tangle.MessageMetadata) {
-				setMessageFinalized(parentMessage, parentMetadata)
-			})
-		})
+		setPayloadFinalized(parentID)
 	})
 
 	// propagate finalized to strong parents
@@ -73,36 +69,60 @@ func onBranchConfirmed(branchID ledgerstate.BranchID, newLevel int, transition e
 	}
 }
 
-func setMessageFinalized(message *tangle.Message, messageMetadata *tangle.MessageMetadata) (modified bool) {
+func setMessageFinalized(messageMetadata *tangle.MessageMetadata) (modified bool) {
 	// abort if the message is already finalized
 	if modified = messageMetadata.SetFinalized(true); !modified {
 		return
 	}
 
-	Tangle().Utils.ComputeIfTransaction(message.ID(), func(transactionID ledgerstate.TransactionID) {
+	setPayloadFinalized(messageMetadata.ID())
+
+	return modified
+}
+
+func setPayloadFinalized(messageID tangle.MessageID) {
+	Tangle().Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
+
+		walk := walker.New()
+		walk.Push(transactionID)
+
+		for walk.HasNext() {
+			propagateTransactionFinalized(walk.Next().(ledgerstate.TransactionID), walk)
+		}
+	})
+}
+
+func propagateTransactionFinalized(transactionID ledgerstate.TransactionID, walk *walker.Walker) {
+	Tangle().LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
 		Tangle().LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+			if transactionMetadata.Finalized() {
+				return
+			}
+
+			for _, input := range transaction.Essence().Inputs() {
+				utxoInput := input.(*ledgerstate.UTXOInput)
+				utxoInput.ReferencedOutputID()
+			}
+
 			if transactionMetadata.SetFinalized(true) {
 				Tangle().ConsensusManager.SetTransactionLiked(transactionID, true)
 				// trigger TransactionOpinionFormed if the message contains a transaction
-				Tangle().ConsensusManager.Events.TransactionConfirmed.Trigger(message.ID())
+				Tangle().LedgerState.UTXODAG.Events.TransactionConfirmed.Trigger(transactionID)
 			}
 
 			if !Tangle().LedgerState.TransactionConflicting(transactionID) {
 				return
 			}
 
-			for conflicingTx := range Tangle().LedgerState.ConflictSet(transactionID) {
-				if conflicingTx == transactionID {
+			for conflictingTx := range Tangle().LedgerState.ConflictSet(transactionID) {
+				if conflictingTx == transactionID {
 					continue
 				}
-				Tangle().LedgerState.TransactionMetadata(conflicingTx).Consume(func(conflictingTransactionMetadata *ledgerstate.TransactionMetadata) {
-					if conflictingTransactionMetadata.SetFinalized(true) {
-						Tangle().ConsensusManager.SetTransactionLiked(transactionID, false)
-					}
+				Tangle().LedgerState.TransactionMetadata(conflictingTx).Consume(func(conflictingTransactionMetadata *ledgerstate.TransactionMetadata) {
+					Tangle().ConsensusManager.SetTransactionLiked(transactionID, false)
+					conflictingTransactionMetadata.SetFinalized(true)
 				})
 			}
 		})
 	})
-
-	return modified
 }

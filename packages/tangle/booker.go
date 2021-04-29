@@ -57,7 +57,7 @@ func (b *Booker) Setup() {
 		}
 	}))
 
-	b.tangle.LedgerState.utxoDAG.Events.TransactionBranchIDUpdated.Attach(events.NewClosure(func(transactionID ledgerstate.TransactionID) {
+	b.tangle.LedgerState.UTXODAG.Events.TransactionBranchIDUpdated.Attach(events.NewClosure(func(transactionID ledgerstate.TransactionID) {
 		if err := b.BookConflictingTransaction(transactionID); err != nil {
 			b.Events.Error.Trigger(xerrors.Errorf("failed to propagate ConflictBranch of %s to tangle: %w", transactionID, err))
 		}
@@ -204,7 +204,7 @@ func (b *Booker) parentsBranchIDs(message *Message) (branchIDs ledgerstate.Branc
 			if payload := message.Payload(); payload != nil && payload.Type() == ledgerstate.TransactionType {
 				transactionID := payload.(*ledgerstate.Transaction).ID()
 
-				if !b.tangle.LedgerState.utxoDAG.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+				if !b.tangle.LedgerState.UTXODAG.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 					branchIDs[transactionMetadata.BranchID()] = types.Void
 				}) {
 					panic(fmt.Errorf("failed to load TransactionMetadata with %s", transactionID))
@@ -245,7 +245,7 @@ func (b *Booker) bookPayload(message *Message) (branchID ledgerstate.BranchID, e
 	}
 
 	for _, output := range transaction.Essence().Outputs() {
-		b.tangle.LedgerState.utxoDAG.StoreAddressOutputMapping(output.Address(), output.ID())
+		b.tangle.LedgerState.UTXODAG.StoreAddressOutputMapping(output.Address(), output.ID())
 	}
 
 	if attachment, stored := b.tangle.Storage.StoreAttachment(transaction.ID(), message.ID()); stored {

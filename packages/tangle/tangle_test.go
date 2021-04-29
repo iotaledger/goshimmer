@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/async"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
@@ -531,7 +532,7 @@ func TestTangle_Flow(t *testing.T) {
 	}))
 
 	// data messages should not trigger this event
-	tangle.ConsensusManager.Events.TransactionConfirmed.Attach(events.NewClosure(func(messageID MessageID) {
+	tangle.LedgerState.UTXODAG.Events.TransactionConfirmed.Attach(events.NewClosure(func(transactionID ledgerstate.TransactionID) {
 		n := atomic.AddInt32(&opinionFormedTransactions, 1)
 		t.Logf("opinion formed transaction %d/%d", n, totalMsgCount)
 	}))

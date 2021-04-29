@@ -44,6 +44,7 @@ func NewUTXODAG(store kvstore.KVStore, branchDAG *BranchDAG) (utxoDAG *UTXODAG) 
 	utxoDAG = &UTXODAG{
 		Events: &UTXODAGEvents{
 			TransactionBranchIDUpdated: events.NewEvent(transactionIDEventHandler),
+			TransactionConfirmed:       events.NewEvent(transactionIDEventHandler),
 		},
 		transactionStorage:          osFactory.New(PrefixTransactionStorage, TransactionFromObjectStorage, transactionStorageOptions...),
 		transactionMetadataStorage:  osFactory.New(PrefixTransactionMetadataStorage, TransactionMetadataFromObjectStorage, transactionMetadataStorageOptions...),
@@ -305,6 +306,10 @@ func (u *UTXODAG) AddressOutputMapping(address Address) (cachedAddressOutputMapp
 		return true
 	}, objectstorage.WithIteratorPrefix(address.Bytes()))
 	return
+}
+
+func (u *UTXODAG) SetTransactionConfirmed() {
+
 }
 
 // region booking functions ////////////////////////////////////////////////////////////////////////////////////////////
@@ -830,6 +835,8 @@ func (u *UTXODAG) lockTransaction(transaction *Transaction) {
 type UTXODAGEvents struct {
 	// TransactionBranchIDUpdated gets triggered when the BranchID of a Transaction is changed after the initial booking.
 	TransactionBranchIDUpdated *events.Event
+	// Fired when a transaction gets confirmed.
+	TransactionConfirmed *events.Event
 }
 
 func transactionIDEventHandler(handler interface{}, params ...interface{}) {
