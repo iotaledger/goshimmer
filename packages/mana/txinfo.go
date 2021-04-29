@@ -41,3 +41,9 @@ type InputInfo struct {
 	// InputID is the input consumed.
 	InputID ledgerstate.OutputID
 }
+
+// SnapshotInfo defines the info for the mana snapshot.
+type SnapshotInfo struct {
+	Value float64
+	TxID  ledgerstate.TransactionID
+}

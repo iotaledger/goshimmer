@@ -55,6 +55,29 @@ func (w *WeightedBaseManaVector) Has(nodeID identity.ID) bool {
 	return exists
 }
 
+// LoadSnapshot loads the initial mana state into the base mana vector.
+func (w *WeightedBaseManaVector) LoadSnapshot(snapshot map[identity.ID]*SnapshotInfo, snapshotTime time.Time) {
+	w.Lock()
+	defer w.Unlock()
+
+	for nodeID, info := range snapshot {
+		w.vector[nodeID] = NewWeightedMana(w.weight)
+		cBase := &ConsensusBaseMana{
+			BaseMana1:          info.Value,
+			EffectiveBaseMana1: info.Value,
+			LastUpdated:        snapshotTime,
+		}
+		w.SetMana1(nodeID, cBase)
+		Events().Pledged.Trigger(&PledgedEvent{
+			NodeID:        nodeID,
+			Amount:        info.Value,
+			Time:          snapshotTime,
+			ManaType:      w.Type(),
+			TransactionID: info.TxID,
+		})
+	}
+}
+
 // Book books mana for a transaction.
 func (w *WeightedBaseManaVector) Book(txInfo *TxInfo) {
 	w.Lock()
@@ -64,10 +87,10 @@ func (w *WeightedBaseManaVector) Book(txInfo *TxInfo) {
 		// which node did the input pledge mana to?
 		pledgeNodeID := inputInfo.PledgeID[w.target]
 		// can't revoke from genesis
-		emptyID := identity.ID{}
-		if pledgeNodeID == emptyID {
-			continue
-		}
+		//emptyID := identity.ID{}
+		//if pledgeNodeID == emptyID {
+		//	continue
+		//}
 		if _, exist := w.vector[pledgeNodeID]; !exist {
 			// first time we see this node
 			w.vector[pledgeNodeID] = NewWeightedMana(w.weight)

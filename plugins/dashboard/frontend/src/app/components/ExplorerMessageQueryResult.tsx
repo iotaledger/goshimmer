@@ -145,9 +145,36 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                                     <ListGroup.Item>
                                         Invalid: {msg.invalid ? 'Yes' : 'No'}
                                     </ListGroup.Item>
+                                    <ListGroup.Item>
+                                        FinalizedApprovalWeight: {msg.finalizedApprovalWeight ? 'Yes' : 'No'}
+                                    </ListGroup.Item>
                                 </ListGroup>
                             </Col>
                         </Row>
+
+                        {
+                            msg.rank &&
+                            <Row className={"mb-3"}>
+                                <Col>
+                                    <h5>Markers</h5>
+                                    <ListGroup>
+                                        <ListGroup.Item>
+                                            Rank: {msg.rank}
+                                        </ListGroup.Item>
+                                        <ListGroup.Item>
+                                            IsPastMarker: {msg.isPastMarker ? 'Yes' : 'No'}
+                                        </ListGroup.Item>
+                                        <ListGroup.Item>
+                                            Past markers: {msg.pastMarkers}
+                                        </ListGroup.Item>
+                                        <ListGroup.Item>
+                                            Future markers: {msg.futureMarkers}
+                                        </ListGroup.Item>
+                                    </ListGroup>
+                                </Col>
+                            </Row>
+                        }
+
 
                         <Row className={"mb-3"}>
                             <Col>

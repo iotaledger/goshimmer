@@ -33,8 +33,13 @@ export class Message {
     booked: boolean;
     eligible: boolean;
     invalid: boolean;
+    finalizedApprovalWeight: boolean;
     payload_type: number;
     payload: any;
+    rank: number;
+    isPastMarker: boolean;
+    pastMarkers: string;
+    futureMarkers: string;
 }
 
 class AddressResult {

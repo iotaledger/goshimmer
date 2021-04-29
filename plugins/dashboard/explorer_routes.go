@@ -38,16 +38,23 @@ type ExplorerMessage struct {
 	// WeakApprovers are the weak approvers of the message.
 	WeakApprovers []string `json:"weakApprovers"`
 	// Solid defines the solid status of the message.
-	Solid     bool   `json:"solid"`
-	BranchID  string `json:"branchID"`
-	Scheduled bool   `json:"scheduled"`
-	Booked    bool   `json:"booked"`
-	Eligible  bool   `json:"eligible"`
-	Invalid   bool   `json:"invalid"`
+	Solid                   bool   `json:"solid"`
+	BranchID                string `json:"branchID"`
+	Scheduled               bool   `json:"scheduled"`
+	Booked                  bool   `json:"booked"`
+	Eligible                bool   `json:"eligible"`
+	Invalid                 bool   `json:"invalid"`
+	FinalizedApprovalWeight bool   `json:"finalizedApprovalWeight"`
 	// PayloadType defines the type of the payload.
 	PayloadType uint32 `json:"payload_type"`
 	// Payload is the content of the payload.
 	Payload interface{} `json:"payload"`
+
+	// Structure details
+	Rank          uint64 `json:"rank"`
+	IsPastMarker  bool   `json:"isPastMarker"`
+	PastMarkers   string `json:"pastMarkers"`
+	FutureMarkers string `json:"futureMarkers"`
 }
 
 func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
@@ -78,8 +85,16 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		Booked:                  messageMetadata.IsBooked(),
 		Eligible:                messageMetadata.IsEligible(),
 		Invalid:                 messageMetadata.IsInvalid(),
+		FinalizedApprovalWeight: messageMetadata.IsFinalizedApprovalWeight(),
 		PayloadType:             uint32(msg.Payload().Type()),
 		Payload:                 ProcessPayload(msg.Payload()),
+	}
+
+	if d := messageMetadata.StructureDetails(); d != nil {
+		t.Rank = d.Rank
+		t.IsPastMarker = d.IsPastMarker
+		t.PastMarkers = d.PastMarkers.String()
+		t.FutureMarkers = d.FutureMarkers.String()
 	}
 
 	return t
