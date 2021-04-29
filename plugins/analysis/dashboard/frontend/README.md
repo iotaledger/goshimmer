@@ -25,5 +25,5 @@ We are using [packr2](https://github.com/gobuffalo/packr/tree/master/v2) to wrap
 3. Build Analysis Dashboard by running `yarn build` within the `frontend` directory.
 4. Navigate to the root of the repo.
 5. Run `pkger` in the root of the repo.
-6. `plugins/analysis/dashboard/packrd` should have been modified.
+6. `pkged.go` should have been modified.
 7. Done. Now you can build goShimmer and your Analysis Dashboard changes will be included within the binary.
