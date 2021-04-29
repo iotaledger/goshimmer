@@ -364,7 +364,7 @@ func (u *UTXODAG) setTransactionConfirmed(transactionID TransactionID, confirmed
 				u.TransactionMetadata(referencedTransactionID).Consume(func(referencedTransactionMetadata *TransactionMetadata) {
 					if referencedTransactionMetadata.Finalized() {
 						if seenTransactions.Has(referencedTransactionID) {
-							confirmedTransactions.PushFront(referencedTransactionMetadata)
+							confirmedTransactions.PushFront(referencedTransactionID)
 						}
 
 						return
