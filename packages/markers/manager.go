@@ -3,6 +3,7 @@ package markers
 import (
 	"errors"
 	"fmt"
+	"math"
 	"sync"
 
 	"github.com/iotaledger/hive.go/datastructure/orderedmap"
@@ -62,10 +63,11 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 
 	// merge parent's pastMarkers
 	mergedPastMarkers := NewMarkers()
+	inheritedStructureDetails.PastMarkerGap = math.MaxUint64
 	for _, referencedMarkerPair := range referencedStructureDetails {
 		mergedPastMarkers.Merge(referencedMarkerPair.PastMarkers)
 		// update highest past marker gap
-		if referencedMarkerPair.PastMarkerGap > inheritedStructureDetails.PastMarkerGap {
+		if referencedMarkerPair.PastMarkerGap < inheritedStructureDetails.PastMarkerGap {
 			inheritedStructureDetails.PastMarkerGap = referencedMarkerPair.PastMarkerGap
 		}
 		// update highest rank
