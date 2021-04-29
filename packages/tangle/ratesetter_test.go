@@ -74,7 +74,7 @@ func TestRateSetter_ErrorHandling(t *testing.T) {
 
 		// set issuingQueue size to maximum
 		queueSize := tangle.RateSetter.issuingQueue.Size()
-		tangle.RateSetter.issuingQueue.size = MaxLocalQueueSize
+		tangle.RateSetter.issuingQueue.SetSize(uint(MaxLocalQueueSize))
 
 		msg := newMessage(localNode.PublicKey())
 		tangle.RateSetter.Submit(msg)
@@ -89,6 +89,6 @@ func TestRateSetter_ErrorHandling(t *testing.T) {
 		}, 1*time.Second, 10*time.Millisecond)
 
 		tangle.RateSetter.Events.MessageDiscarded.Detach(discardedCounter)
-		tangle.RateSetter.issuingQueue.size = queueSize
+		tangle.RateSetter.issuingQueue.SetSize(queueSize)
 	}
 }

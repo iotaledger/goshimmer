@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/tangle/schedulerutils"
+
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"go.uber.org/atomic"
@@ -47,7 +49,7 @@ type RateSetter struct {
 	Events         *RateSetterEvents
 	self           identity.ID
 	mu             sync.Mutex
-	issuingQueue   *NodeQueue
+	issuingQueue   *schedulerutils.NodeQueue
 	issue          chan *Message
 	lambda         *atomic.Float64
 	haltUpdate     uint
@@ -64,7 +66,7 @@ func NewRateSetter(tangle *Tangle) *RateSetter {
 			MessageIssued:    events.NewEvent(messageEventHandler),
 		},
 		self:           tangle.Options.Identity.ID(),
-		issuingQueue:   NewNodeQueue(tangle.Options.Identity.ID()),
+		issuingQueue:   schedulerutils.NewNodeQueue(tangle.Options.Identity.ID()),
 		issue:          make(chan *Message, 1),
 		lambda:         atomic.NewFloat64(Initial),
 		haltUpdate:     0,
@@ -160,7 +162,7 @@ func (r *RateSetter) issuerLoop() {
 			lastIssueTime = time.Now()
 
 			if next := r.issuingQueue.Front(); next != nil {
-				issue.Reset(time.Until(lastIssueTime.Add(r.issueInterval(next))))
+				issue.Reset(time.Until(lastIssueTime.Add(r.issueInterval(next.(*Message)))))
 				timerStopped = false
 			}
 
@@ -183,7 +185,7 @@ func (r *RateSetter) issuerLoop() {
 				break
 			}
 			if next := r.issuingQueue.Front(); next != nil {
-				issue.Reset(time.Until(lastIssueTime.Add(r.issueInterval(next))))
+				issue.Reset(time.Until(lastIssueTime.Add(r.issueInterval(next.(*Message)))))
 			}
 
 		// on close, exit the loop

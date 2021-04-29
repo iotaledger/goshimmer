@@ -1,22 +1,30 @@
-package tangle
+package schedulerutils
 
 import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/crypto/blake2b"
 )
 
 // region Buffered Queue test /////////////////////////////////////////////////////////////////////////////////////////////
 
 const numMessages = 100
 
+var (
+	selfLocalIdentity = identity.GenerateLocalIdentity()
+	selfNode          = identity.New(selfLocalIdentity.PublicKey())
+)
+
 func TestSubmit(t *testing.T) {
 	b := NewBufferQueue()
 	var size int
 	for i := 0; i < numMessages; i++ {
-		msg := newMessage(identity.GenerateIdentity().PublicKey())
+		msg := newTestMessage(identity.GenerateIdentity().PublicKey())
 		size += len(msg.Bytes())
 		assert.NoError(t, b.Submit(msg, 1))
 		assert.EqualValues(t, i+1, b.NumActiveNodes())
@@ -28,9 +36,9 @@ func TestSubmit(t *testing.T) {
 func TestUnsubmit(t *testing.T) {
 	b := NewBufferQueue()
 
-	messages := make([]*Message, numMessages)
+	messages := make([]*testMessage, numMessages)
 	for i := range messages {
-		messages[i] = newMessage(identity.GenerateIdentity().PublicKey())
+		messages[i] = newTestMessage(identity.GenerateIdentity().PublicKey())
 		assert.NoError(t, b.Submit(messages[i], 1))
 	}
 	assert.EqualValues(t, numMessages, b.NumActiveNodes())
@@ -46,9 +54,9 @@ func TestUnsubmit(t *testing.T) {
 func TestReady(t *testing.T) {
 	b := NewBufferQueue()
 
-	messages := make([]*Message, numMessages)
+	messages := make([]*testMessage, numMessages)
 	for i := range messages {
-		messages[i] = newMessage(identity.GenerateIdentity().PublicKey())
+		messages[i] = newTestMessage(identity.GenerateIdentity().PublicKey())
 		assert.NoError(t, b.Submit(messages[i], 1))
 	}
 	for i := range messages {
@@ -62,12 +70,12 @@ func TestReady(t *testing.T) {
 func TestTime(t *testing.T) {
 	b := NewBufferQueue()
 
-	future := newMessage(selfNode.PublicKey())
+	future := newTestMessage(selfNode.PublicKey())
 	future.issuingTime = time.Now().Add(time.Second)
 	assert.NoError(t, b.Submit(future, 1))
 	assert.True(t, b.Ready(future))
 
-	now := newMessage(selfNode.PublicKey())
+	now := newTestMessage(selfNode.PublicKey())
 	assert.NoError(t, b.Submit(now, 1))
 	assert.True(t, b.Ready(now))
 
@@ -80,9 +88,9 @@ func TestTime(t *testing.T) {
 func TestRing(t *testing.T) {
 	b := NewBufferQueue()
 
-	messages := make([]*Message, numMessages)
+	messages := make([]*testMessage, numMessages)
 	for i := range messages {
-		messages[i] = newMessage(identity.GenerateIdentity().PublicKey())
+		messages[i] = newTestMessage(identity.GenerateIdentity().PublicKey())
 		assert.NoError(t, b.Submit(messages[i], 1))
 		b.Ready(messages[i])
 	}
@@ -105,3 +113,43 @@ func ringLen(b *BufferQueue) int {
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type testMessage struct {
+	pubKey      ed25519.PublicKey
+	issuingTime time.Time
+	bytes       []byte
+}
+
+func newTestMessage(pubKey ed25519.PublicKey) *testMessage {
+	return &testMessage{
+		pubKey:      pubKey,
+		issuingTime: time.Now(),
+	}
+}
+
+func (m *testMessage) IDBytes() []byte {
+	tmp := blake2b.Sum256(m.Bytes())
+	return tmp[:]
+}
+
+func (m *testMessage) Bytes() []byte {
+	if m.bytes != nil {
+		return m.bytes
+	}
+	// marshal result
+	marshalUtil := marshalutil.New()
+	marshalUtil.Write(m.pubKey)
+	marshalUtil.WriteTime(m.issuingTime)
+
+	m.bytes = marshalUtil.Bytes()
+
+	return m.bytes
+}
+
+func (m *testMessage) IssuerPublicKey() ed25519.PublicKey {
+	return m.pubKey
+}
+
+func (m *testMessage) IssuingTime() time.Time {
+	return m.issuingTime
+}

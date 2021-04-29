@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/tangle/schedulerutils"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"golang.org/x/xerrors"
@@ -16,19 +17,8 @@ const (
 	MaxDeficit = MaxMessageSize
 )
 
-var (
-	// MaxQueueWeight is the maximum mana-scaled inbox size; >= minMessageSize / minAccessMana
-	MaxQueueWeight = 1024.0
-	// rate is the minimum time interval between two scheduled messages, i.e. 1s / MPS
-	rate = time.Second / 200
-)
-
-var (
-	// ErrInboxExceeded is returned when a node has exceeded its allowed inbox size.
-	ErrInboxExceeded = errors.New("maximum mana-scaled inbox length exceeded")
-	// ErrInvalidMana is returned when the mana is <= 0.
-	ErrInvalidMana = errors.New("mana cannot be <= 0")
-)
+// rate is the minimum time interval between two scheduled messages, i.e. 1s / MPS
+var rate = time.Second / 200
 
 // AccessManaRetrieveFunc is a function type to retrieve access mana (e.g. via the mana plugin)
 type AccessManaRetrieveFunc func(nodeID identity.ID) float64
@@ -50,7 +40,7 @@ type Scheduler struct {
 	tangle           *Tangle
 	self             identity.ID
 	mu               sync.Mutex
-	buffer           *BufferQueue
+	buffer           *schedulerutils.BufferQueue
 	deficits         map[identity.ID]float64
 	onMessageSolid   *events.Closure
 	onMessageInvalid *events.Closure
@@ -65,7 +55,7 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 		panic("the option AccessManaRetriever and TotalAccessManaRetriever must be defined so that AccessMana can be determined in scheduler")
 	}
 	if tangle.Options.SchedulerParams.MaxQueueWeight != nil {
-		MaxQueueWeight = *tangle.Options.SchedulerParams.MaxQueueWeight
+		schedulerutils.MaxQueueWeight = *tangle.Options.SchedulerParams.MaxQueueWeight
 	}
 	if tangle.Options.SchedulerParams.Rate > 0 {
 		rate = tangle.Options.SchedulerParams.Rate
@@ -79,7 +69,7 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 		},
 		self:           tangle.Options.Identity.ID(),
 		tangle:         tangle,
-		buffer:         NewBufferQueue(),
+		buffer:         schedulerutils.NewBufferQueue(),
 		deficits:       make(map[identity.ID]float64),
 		shutdownSignal: make(chan struct{}),
 	}
@@ -164,7 +154,7 @@ func (s *Scheduler) Submit(messageID MessageID) error {
 		// get the current access mana inside the lock
 		mana := s.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(nodeID)
 		if mana <= 0 {
-			err = ErrInvalidMana
+			err = schedulerutils.ErrInvalidMana
 			s.Events.MessageDiscarded.Trigger(messageID)
 			return
 		}
@@ -173,7 +163,7 @@ func (s *Scheduler) Submit(messageID MessageID) error {
 		if err != nil {
 			s.Events.MessageDiscarded.Trigger(messageID)
 		}
-		if errors.Is(err, ErrInboxExceeded) {
+		if errors.Is(err, schedulerutils.ErrInboxExceeded) {
 			s.Events.NodeBlacklisted.Trigger(nodeID)
 		}
 	}) {
@@ -279,8 +269,8 @@ func (s *Scheduler) schedule() *Message {
 		}
 	}
 
-	// will stay in buffer
-	if !s.parentsBooked(s.buffer.Current().Front().ID()) {
+	// will stay in
+	if !s.parentsBooked(s.buffer.Current().Front().(*Message).ID()) {
 		return nil
 	}
 	msg := s.buffer.PopFront()
@@ -291,7 +281,7 @@ func (s *Scheduler) schedule() *Message {
 		return nil
 	}
 
-	return msg
+	return msg.(*Message)
 }
 
 // mainLoop periodically triggers the scheduling of ready messages.

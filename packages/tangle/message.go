@@ -425,6 +425,11 @@ func (m *Message) ID() (result MessageID) {
 	return
 }
 
+// IDBytes implements Element interface in scheduler NodeQueue that returns the MessageID of the message in bytes.
+func (m *Message) IDBytes() []byte {
+	return m.ID().Bytes()
+}
+
 // Version returns the message version.
 func (m *Message) Version() uint8 {
 	return m.version
