@@ -367,7 +367,9 @@ func (u *UTXODAG) SetTransactionConfirmed(transactionID TransactionID) (err erro
 
 	triggeredEvents := set.New()
 	for confirmedTransactions.Len() > 0 {
-		currentTransactionID := confirmedTransactions.Front().Value.(TransactionID)
+		currentElement := confirmedTransactions.Front()
+		confirmedTransactions.Remove(currentElement)
+		currentTransactionID := currentElement.Value.(TransactionID)
 		if !triggeredEvents.Add(currentTransactionID) {
 			continue
 		}
