@@ -309,7 +309,43 @@ func (u *UTXODAG) AddressOutputMapping(address Address) (cachedAddressOutputMapp
 	return
 }
 
-func (u *UTXODAG) setTransactionConfirmed(transactionID TransactionID, confirmedTransactions *list.List, seenTransactions set.Set, confirmationWalker *walker.Walker) (err error) {
+// SetTransactionConfirmed marks a Transaction (and all Transactions in its past cone) as confirmed. It also marks the
+// conflicting Transactions to be rejected.
+func (u *UTXODAG) SetTransactionConfirmed(transactionID TransactionID) (err error) {
+	confirmationWalker := walker.New()
+	confirmationWalker.Push(transactionID)
+
+	u.TransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
+		err = u.branchDAG.SetBranchConfirmed(transactionMetadata.BranchID())
+	})
+	if err != nil {
+		err = xerrors.Errorf("failed to set Branch of Transaction with %s to be confirmed: %w", transactionID, cerrors.ErrFatal)
+		return
+	}
+
+	seenTransactions := set.New()
+	confirmedTransactions := list.New()
+	for confirmationWalker.HasNext() {
+		u.setTransactionConfirmed(confirmationWalker.Next().(TransactionID), confirmedTransactions, seenTransactions, confirmationWalker)
+	}
+
+	triggeredEvents := set.New()
+	for confirmedTransactions.Len() > 0 {
+		currentElement := confirmedTransactions.Front()
+		confirmedTransactions.Remove(currentElement)
+		currentTransactionID := currentElement.Value.(TransactionID)
+
+		if !triggeredEvents.Add(currentTransactionID) {
+			continue
+		}
+
+		u.Events.TransactionConfirmed.Trigger(currentTransactionID)
+	}
+
+	return
+}
+
+func (u *UTXODAG) setTransactionConfirmed(transactionID TransactionID, confirmedTransactions *list.List, seenTransactions set.Set, confirmationWalker *walker.Walker) {
 	u.TransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
 		if !transactionMetadata.SetFinalized(true) {
 			return
@@ -340,42 +376,6 @@ func (u *UTXODAG) setTransactionConfirmed(transactionID TransactionID, confirmed
 			}
 		})
 	})
-
-	return
-}
-
-func (u *UTXODAG) SetTransactionConfirmed(transactionID TransactionID) (err error) {
-	confirmationWalker := walker.New()
-	confirmationWalker.Push(transactionID)
-
-	u.TransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
-		err = u.branchDAG.SetBranchConfirmed(transactionMetadata.BranchID())
-	})
-	if err != nil {
-		err = xerrors.Errorf("failed to set Branch of Transaction with %s to be confirmed: %w", transactionID, cerrors.ErrFatal)
-		return
-	}
-
-	seenTransactions := set.New()
-	confirmedTransactions := list.New()
-	for confirmationWalker.HasNext() {
-		if err = u.setTransactionConfirmed(confirmationWalker.Next().(TransactionID), confirmedTransactions, seenTransactions, confirmationWalker); err != nil {
-			err = xerrors.Errorf("failed to set Transaction with %s to be confirmed: %w", transactionID, err)
-			return
-		}
-	}
-
-	triggeredEvents := set.New()
-	for confirmedTransactions.Len() > 0 {
-		currentElement := confirmedTransactions.Front()
-		confirmedTransactions.Remove(currentElement)
-		currentTransactionID := currentElement.Value.(TransactionID)
-		if !triggeredEvents.Add(currentTransactionID) {
-			continue
-		}
-
-		u.Events.TransactionConfirmed.Trigger(currentTransactionID)
-	}
 
 	return
 }
