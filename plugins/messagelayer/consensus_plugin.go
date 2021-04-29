@@ -20,10 +20,10 @@ import (
 
 	clockPkg "github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
+	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/metrics"
-	"github.com/iotaledger/goshimmer/packages/prng"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
@@ -49,7 +49,18 @@ var (
 	voterServer         *votenet.VoterServer
 	registry            *statement.Registry
 	registryOnce        sync.Once
+	dRNGState           *drng.State
+	dRNGStateMutex      sync.RWMutex
+	dRNGTicker          *drng.Ticker
+	dRNGTickerMutex     sync.RWMutex
 )
+
+// DRNGTicker returns the pointer to the dRNGTicker.
+func DRNGTicker() *drng.Ticker {
+	dRNGTickerMutex.RLock()
+	defer dRNGTickerMutex.RUnlock()
+	return dRNGTicker
+}
 
 // ConsensusPlugin returns the consensus plugin.
 func ConsensusPlugin() *node.Plugin {
@@ -175,17 +186,20 @@ func runFPC(plugin *node.Plugin) {
 	if err := daemon.BackgroundWorker("FPCRoundsInitiator", func(shutdownSignal <-chan struct{}) {
 		plugin.LogInfof("Started FPC round initiator")
 		defer plugin.LogInfof("Stopped FPC round initiator")
-		unixTsPRNG := prng.NewUnixTimestampPRNG(FPCParameters.RoundInterval)
-		unixTsPRNG.Start()
-		defer unixTsPRNG.Stop()
+
+		dRNGTickerMutex.Lock()
+		dRNGTicker = drng.NewTicker(DRNGState, FPCParameters.RoundInterval, FPCParameters.DefaultRandomness, FPCParameters.AwaitOffset)
+		dRNGTickerMutex.Unlock()
+		dRNGTicker.Start()
 	exit:
 		for {
 			select {
-			case r := <-unixTsPRNG.C():
-				if err := voter.Round(r); err != nil {
+			case r := <-dRNGTicker.C():
+				if err := voter.Round(r, dRNGTicker.DelayedRoundStart()); err != nil {
 					plugin.LogWarnf("unable to execute FPC round: %s", err)
 				}
 			case <-shutdownSignal:
+				dRNGTicker.Stop()
 				break exit
 			}
 		}
@@ -228,12 +242,20 @@ type OpinionGiver struct {
 type OpinionGivers map[identity.ID]OpinionGiver
 
 // Query retrieves the opinions about the given conflicts and timestamps.
-func (o *OpinionGiver) Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (opinions opinion.Opinions, err error) {
+func (o *OpinionGiver) Query(ctx context.Context, conflictIDs, timestampIDs []string, delayedRoundStart ...time.Duration) (opinions opinion.Opinions, err error) {
+	waitForStatements := time.Duration(StatementParameters.WaitForStatement) * time.Second
+	// delayedRoundStart gives the time that has elapsed since the start of the current round.
+	if len(delayedRoundStart) != 0 {
+		if delayedRoundStart[0] < waitForStatements && delayedRoundStart[0] > 0 {
+			waitForStatements -= delayedRoundStart[0]
+		}
+	}
+
 	// if o.view == nil, then we can immediately perform P2P query instead of waiting for statement
 	// because it won't be provided.
 	if o.view != nil {
 		// wait for statement(s) to arrive
-		time.Sleep(time.Duration(StatementParameters.WaitForStatement) * time.Second)
+		time.Sleep(waitForStatements)
 
 		// check if node has been active in the last two rounds
 		// note, we cannot simply set one RoundInterval since the last message could e.g. have arrived 1.5 intervals ago
@@ -326,7 +348,7 @@ type PeerOpinionGiver struct {
 }
 
 // Query queries another node for its opinion.
-func (pog *PeerOpinionGiver) Query(ctx context.Context, conflictIDs []string, timestampIDs []string) (opinion.Opinions, error) {
+func (pog *PeerOpinionGiver) Query(ctx context.Context, conflictIDs, timestampIDs []string, _ ...time.Duration) (opinion.Opinions, error) {
 	if pog == nil {
 		return nil, fmt.Errorf("unable to query opinions, PeerOpinionGiver is nil")
 	}
@@ -342,7 +364,7 @@ func (pog *PeerOpinionGiver) Query(ctx context.Context, conflictIDs []string, ti
 	defer func() {
 		cerr := conn.Close()
 		if err == nil {
-			err = xerrors.Errorf("failed to close conneection: %w", cerr)
+			err = xerrors.Errorf("failed to close connection: %w", cerr)
 		}
 	}()
 
@@ -637,3 +659,17 @@ func readStatement(messageID tangle.MessageID) {
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// SetDRNGState sets the dRNGState to the given state.
+func SetDRNGState(state *drng.State) {
+	dRNGStateMutex.Lock()
+	defer dRNGStateMutex.Unlock()
+	dRNGState = state
+}
+
+// DRNGState returns the dRNGState.
+func DRNGState() *drng.State {
+	dRNGStateMutex.RLock()
+	defer dRNGStateMutex.RUnlock()
+	return dRNGState
+}
