@@ -3,6 +3,7 @@ package schedulerutils
 import (
 	"container/heap"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -51,6 +52,8 @@ type NodeQueue struct {
 	submitted map[ElementID]*Element
 	inbox     *ElementHeap
 	size      uint
+
+	submittedMutex sync.Mutex
 }
 
 // NewNodeQueue returns a new NodeQueue
@@ -93,6 +96,8 @@ func (q *NodeQueue) Submit(element Element) (bool, error) {
 		return false, xerrors.Errorf("Queue node ID(%x) and issuer ID(%x) doesn't match.", q.nodeID, msgNodeID)
 	}
 
+	q.submittedMutex.Lock()
+	defer q.submittedMutex.Unlock()
 	id, err := ElementIDFromBytes(element.IDBytes())
 	if err != nil {
 		return false, err
@@ -108,6 +113,8 @@ func (q *NodeQueue) Submit(element Element) (bool, error) {
 
 // Unsubmit removes a previously submitted message from the queue.
 func (q *NodeQueue) Unsubmit(element Element) bool {
+	q.submittedMutex.Lock()
+	defer q.submittedMutex.Unlock()
 	id, err := ElementIDFromBytes(element.IDBytes())
 	if err != nil {
 		return false
@@ -123,6 +130,8 @@ func (q *NodeQueue) Unsubmit(element Element) bool {
 
 // Ready marks a previously submitted message as ready to be scheduled.
 func (q *NodeQueue) Ready(element Element) bool {
+	q.submittedMutex.Lock()
+	defer q.submittedMutex.Unlock()
 	id, err := ElementIDFromBytes(element.IDBytes())
 	if err != nil {
 		return false
