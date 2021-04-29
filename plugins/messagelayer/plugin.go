@@ -280,34 +280,13 @@ func AwaitMessageToBeBooked(f func() (*tangle.Message, error), txID ledgerstate.
 }
 
 // AwaitMessageToBeIssued awaits maxAwait for the given message to get issued.
-func AwaitMessageToBeIssued(f func() (*tangle.Message, error), maxAwait time.Duration) (*tangle.Message, error) {
+func AwaitMessageToBeIssued(messageID tangle.MessageID, maxAwait time.Duration) error {
 	issued := make(chan struct{}, 1)
 	exit := make(chan struct{})
 	defer close(exit)
 
-	// channel to receive the result of issuance
-	issueResult := make(chan struct {
-		msg *tangle.Message
-		err error
-	}, 1)
-
-	go func() {
-		msg, err := f()
-		issueResult <- struct {
-			msg *tangle.Message
-			err error
-		}{msg: msg, err: err}
-	}()
-
-	// wait on issuance
-	result := <-issueResult
-
-	if result.err != nil || result.msg == nil {
-		return nil, xerrors.Errorf("Failed to issue message: %w", result.err)
-	}
-
 	closure := events.NewClosure(func(message *tangle.Message) {
-		if message.ID() != result.msg.ID() {
+		if message.ID() != messageID {
 			return
 		}
 		select {
@@ -320,8 +299,8 @@ func AwaitMessageToBeIssued(f func() (*tangle.Message, error), maxAwait time.Dur
 
 	select {
 	case <-time.After(maxAwait):
-		return nil, ErrMessageWasNotIssuedInTime
+		return ErrMessageWasNotIssuedInTime
 	case <-issued:
-		return result.msg, nil
+		return nil
 	}
 }
