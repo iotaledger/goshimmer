@@ -23,7 +23,7 @@ We are using [packr2](https://github.com/gobuffalo/packr/tree/master/v2) to wrap
 
    2.2 If a newer version is installed use `yarn remove webpack-cli` and `yarn add webpack-cli@3.3.11` 
 3. Build Analysis Dashboard by running `yarn build` within the `frontend` directory.
-4. Change to the `plugins/analysis/dashboard` directory.
+4. Navigate to the root of the repo.
 5. Run `packr2`.
 6. `plugins/analysis/dashboard/packrd` should have been modified.
 7. Done. Now you can build goShimmer and your Analysis Dashboard changes will be included within the binary.
