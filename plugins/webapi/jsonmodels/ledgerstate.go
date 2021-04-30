@@ -769,6 +769,28 @@ func NewTransactionMetadata(transactionMetadata *ledgerstate.TransactionMetadata
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// region TransactionInclusionState ///////////////////////////////////////////////////////////////////////////////////////////
+
+// TransactionInclusionState represents the JSON model of the ledgerstate.InclusionState.
+type TransactionInclusionState struct {
+	TransactionID string `json:"transactionID"`
+	Pending       bool   `json:"pending"`
+	Confirmed     bool   `json:"confirmed"`
+	Rejected      bool   `json:"rejected"`
+}
+
+// NewTransactionInclusionState returns the TransactionInclusionState from the given ledgerstate.InclusionState.
+func NewTransactionInclusionState(inclusionState ledgerstate.InclusionState, ID ledgerstate.TransactionID) *TransactionInclusionState {
+	return &TransactionInclusionState{
+		TransactionID: ID.Base58(),
+		Pending:       inclusionState == ledgerstate.Pending,
+		Confirmed:     inclusionState == ledgerstate.Confirmed,
+		Rejected:      inclusionState == ledgerstate.Rejected,
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // region TransactionConsensusMetadata /////////////////////////////////////////////////////////////////////////////////
 
 // TransactionConsensusMetadata represents the JSON model of the transaction's consensus metadata.
