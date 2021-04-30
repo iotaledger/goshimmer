@@ -20,8 +20,9 @@ import (
 	"unsafe"
 )
 
-// alias wallet is a wallet that can handle aliases and extendedlockedoutputs
+// region Wallet ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// Wallet is a wallet that can handle aliases and extendedlockedoutputs.
 type Wallet struct {
 	addressManager *AddressManager
 	assetRegistry  *AssetRegistry
@@ -70,11 +71,19 @@ func New(options ...Option) (wallet *Wallet) {
 	return
 }
 
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region SendFunds ////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // SendFunds sends funds from the wallet
 func (wallet *Wallet) SendFunds(options ...sendfunds_options.SendFundsOption) (tx *ledgerstate.Transaction, err error) {
 	// TODO: implement
 	return
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region CreateAsset //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // CreateAsset creates a new colored token with the given details.
 func (wallet *Wallet) CreateAsset(asset Asset) (assetColor ledgerstate.Color, err error) {
@@ -82,11 +91,29 @@ func (wallet *Wallet) CreateAsset(asset Asset) (assetColor ledgerstate.Color, er
 	return
 }
 
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region DelegateFunds ////////////////////////////////////////////////////////////////////////////////////////////////
+
 // DelegateFunds delegates funds to a given address by creating a delegated alias output.
 func (wallet *Wallet) DelegateFunds() (tx *ledgerstate.Transaction, err error) {
 	// TODO: implement
 	return
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region ReclaimDelegatedFunds ////////////////////////////////////////////////////////////////////////////////////////
+
+// ReclaimDelegatedFunds reclaims delegated funds (alias outputs).
+func (wallet *Wallet) ReclaimDelegatedFunds() (tx *ledgerstate.Transaction, err error) {
+	// TODO: implement
+	return
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region CreateNFT ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // CreateNFT spends funds from the wallet to create an NFT.
 func (wallet *Wallet) CreateNFT(options ...createnft_options.CreateNFTOption) (tx *ledgerstate.Transaction, nftID *ledgerstate.AliasAddress, err error) { // build options from the parameters
@@ -202,11 +229,15 @@ func (wallet *Wallet) CreateNFT(options ...createnft_options.CreateNFTOption) (t
 		return nil, nil, err
 	}
 	if createNFTOptions.WaitForConfirmation {
-		err = wallet.waitForTxConfirmation(tx.ID())
+		err = wallet.WaitForTxConfirmation(tx.ID())
 	}
 
 	return
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TransferNFT //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // TransferNFT transfers an NFT to a given address.
 func (wallet *Wallet) TransferNFT(options ...transfernft_options.TransferNFTOption) (tx *ledgerstate.Transaction, err error) {
@@ -281,11 +312,15 @@ func (wallet *Wallet) TransferNFT(options ...transfernft_options.TransferNFTOpti
 	}
 
 	if transferOptions.WaitForConfirmation {
-		err = wallet.waitForTxConfirmation(tx.ID())
+		err = wallet.WaitForTxConfirmation(tx.ID())
 	}
 
 	return
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region DestroyNFT ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // DestroyNFT destroys the given nft (alias).
 func (wallet *Wallet) DestroyNFT(options ...destroynft_options.DestroyNFTOption) (tx *ledgerstate.Transaction, err error) {
@@ -355,11 +390,15 @@ func (wallet *Wallet) DestroyNFT(options ...destroynft_options.DestroyNFTOption)
 	}
 
 	if destroyOptions.WaitForConfirmation {
-		err = wallet.waitForTxConfirmation(tx.ID())
+		err = wallet.WaitForTxConfirmation(tx.ID())
 	}
 
 	return
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region WithdrawFundsFromNFT /////////////////////////////////////////////////////////////////////////////////////////
 
 // WithdrawFundsFromNFT withdraws funds from the given alias. If the wallet is not the state controller, or too much funds
 // are withdrawn, an error is returned.
@@ -458,11 +497,15 @@ func (wallet *Wallet) WithdrawFundsFromNFT(options ...withdrawfundsfromnft_optio
 	}
 
 	if withdrawOptions.WaitForConfirmation {
-		err = wallet.waitForTxConfirmation(tx.ID())
+		err = wallet.WaitForTxConfirmation(tx.ID())
 	}
 
 	return
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region DepositFundsToNFT ////////////////////////////////////////////////////////////////////////////////////////////
 
 // DepositFundsToNFT deposits funds to the given alias from the wallet funds. If the wallet is not the state controller, an error is returned.
 func (wallet *Wallet) DepositFundsToNFT(options ...depositfundstonft_options.DepositFundsToNFTOption) (tx *ledgerstate.Transaction, err error) {
@@ -593,56 +636,96 @@ func (wallet *Wallet) DepositFundsToNFT(options ...depositfundstonft_options.Dep
 	}
 
 	if depositOptions.WaitForConfirmation {
-		err = wallet.waitForTxConfirmation(tx.ID())
+		err = wallet.WaitForTxConfirmation(tx.ID())
 	}
 
 	return
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region ServerStatus /////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ServerStatus retrieves the connected server status.
 func (wallet *Wallet) ServerStatus() (status ServerStatus, err error) {
 	return wallet.connector.(*WebConnector).ServerStatus()
 }
 
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region AllowedPledgeNodeIDs /////////////////////////////////////////////////////////////////////////////////////////
+
 // AllowedPledgeNodeIDs retrieves the allowed pledge node IDs.
 func (wallet *Wallet) AllowedPledgeNodeIDs() (res map[mana.Type][]string, err error) {
 	return wallet.connector.(*WebConnector).GetAllowedPledgeIDs()
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region AssetRegistry ////////////////////////////////////////////////////////////////////////////////////////////////
 
 // AssetRegistry return the internal AssetRegistry instance of the wallet.
 func (wallet *Wallet) AssetRegistry() *AssetRegistry {
 	return wallet.assetRegistry
 }
 
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region ReceiveAddress ///////////////////////////////////////////////////////////////////////////////////////////////
+
 // ReceiveAddress returns the last receive address of the wallet.
 func (wallet *Wallet) ReceiveAddress() address.Address {
 	return wallet.addressManager.LastUnspentAddress()
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region NewReceiveAddress ////////////////////////////////////////////////////////////////////////////////////////////
 
 // NewReceiveAddress generates and returns a new unused receive address.
 func (wallet *Wallet) NewReceiveAddress() address.Address {
 	return wallet.addressManager.NewAddress()
 }
 
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region RemainderAddress /////////////////////////////////////////////////////////////////////////////////////////////
+
 // RemainderAddress returns the address that is used for the remainder of funds.
 func (wallet *Wallet) RemainderAddress() address.Address {
 	return wallet.addressManager.FirstUnspentAddress()
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region UnspentOutputs ///////////////////////////////////////////////////////////////////////////////////////////////
 
 // UnspentOutputs returns the unspent outputs that are available for spending.
 func (wallet *Wallet) UnspentOutputs() map[address.Address]map[ledgerstate.OutputID]*Output {
 	return wallet.outputManager.UnspentOutputs()
 }
 
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region UnspentValueOutputs //////////////////////////////////////////////////////////////////////////////////////////
+
 // UnspentValueOutputs returns the unspent value type outputs that are available for spending.
 func (wallet *Wallet) UnspentValueOutputs() map[address.Address]map[ledgerstate.OutputID]*Output {
 	return wallet.outputManager.UnspentValueOutputs()
 }
 
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region UnspentAliasOutputs //////////////////////////////////////////////////////////////////////////////////////////
+
 // UnspentAliasOutputs returns the unspent alias outputs that are available for spending.
 func (wallet *Wallet) UnspentAliasOutputs() map[address.Address]map[ledgerstate.OutputID]*Output {
 	return wallet.outputManager.UnspentAliasOutputs()
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region RequestFaucetFunds ///////////////////////////////////////////////////////////////////////////////////////////
 
 // RequestFaucetFunds requests some funds from the faucet for testing purposes.
 func (wallet *Wallet) RequestFaucetFunds(waitForConfirmation ...bool) (err error) {
@@ -668,13 +751,20 @@ func (wallet *Wallet) RequestFaucetFunds(waitForConfirmation ...bool) (err error
 	return
 }
 
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Refresh //////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // Refresh scans the addresses for incoming transactions. If the optional rescanSpentAddresses parameter is set to true
 // we also scan the spent addresses again (this can take longer).
 func (wallet *Wallet) Refresh(rescanSpentAddresses ...bool) (err error) {
 	err = wallet.outputManager.Refresh(rescanSpentAddresses...)
-
 	return
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Balance //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Balance returns the confirmed and pending balance of the funds managed by this wallet.
 func (wallet *Wallet) Balance() (confirmedBalance map[ledgerstate.Color]uint64, pendingBalance map[ledgerstate.Color]uint64, err error) {
@@ -761,6 +851,10 @@ func (wallet *Wallet) Balance() (confirmedBalance map[ledgerstate.Color]uint64, 
 	return
 }
 
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region AliasBalance /////////////////////////////////////////////////////////////////////////////////////////////////
+
 // AliasBalance returns the aliases held by this wallet
 func (wallet *Wallet) AliasBalance() (
 	confirmedGovernedAliases map[*ledgerstate.AliasAddress]*ledgerstate.AliasOutput,
@@ -812,15 +906,27 @@ func (wallet *Wallet) AliasBalance() (
 	return
 }
 
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Seed /////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // Seed returns the seed of this wallet that is used to generate all of the wallets addresses and private keys.
 func (wallet *Wallet) Seed() *seed.Seed {
 	return wallet.addressManager.seed
 }
 
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region AddressManager ///////////////////////////////////////////////////////////////////////////////////////////////
+
 // AddressManager returns the manager for the addresses of this wallet.
 func (wallet *Wallet) AddressManager() *AddressManager {
 	return wallet.addressManager
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region ExportState //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ExportState exports the current state of the wallet to a marshaled version.
 func (wallet *Wallet) ExportState() []byte {
@@ -833,7 +939,12 @@ func (wallet *Wallet) ExportState() []byte {
 	return marshalUtil.Bytes()
 }
 
-func (wallet *Wallet) waitForTxConfirmation(txID ledgerstate.TransactionID) (err error) {
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region WaitForTxConfirmation ////////////////////////////////////////////////////////////////////////////////////////
+
+// WaitForTxConfirmation waits for the given tx to confirm. If the transaction is rejected, an error is returned.
+func (wallet *Wallet) WaitForTxConfirmation(txID ledgerstate.TransactionID) (err error) {
 	for {
 		time.Sleep(500 * time.Millisecond)
 		state, fetchErr := wallet.connector.GetTransactionInclusionState(txID)
@@ -848,6 +959,10 @@ func (wallet *Wallet) waitForTxConfirmation(txID ledgerstate.TransactionID) (err
 		}
 	}
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Internal Methods /////////////////////////////////////////////////////////////////////////////////////////////
 
 // waitForBalanceConfirmation waits until the balance of the wallet changes compared to the provided argument.
 // (a transaction modifying the wallet balance got confirmed)
@@ -1050,3 +1165,5 @@ func checkBalancesAndUnlocks(inputs ledgerstate.Outputs, tx *ledgerstate.Transac
 	}
 	return balancesValid && unlocksValid, nil
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
