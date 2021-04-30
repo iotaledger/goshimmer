@@ -640,13 +640,30 @@ func (s *SigLockedSingleOutput) Balances() *ColoredBalances {
 
 // UnlockValid determines if the given Transaction and the corresponding UnlockBlock are allowed to spend the Output.
 func (s *SigLockedSingleOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inputs []Output) (unlockValid bool, err error) {
-	signatureUnlockBlock, correctType := unlockBlock.(*SignatureUnlockBlock)
-	if !correctType {
-		err = xerrors.Errorf("UnlockBlock does not match expected OutputType: %w", cerrors.ErrParseBytesFailed)
-		return
-	}
+	switch blk := unlockBlock.(type) {
+	case *SignatureUnlockBlock:
+		// unlocking by signature
+		unlockValid = blk.AddressSignatureValid(s.address, tx.Essence().Bytes())
 
-	unlockValid = signatureUnlockBlock.AddressSignatureValid(s.address, tx.Essence().Bytes())
+	case *AliasUnlockBlock:
+		// unlocking by alias reference. The unlock is valid if:
+		// - referenced alias output has same alias address
+		// - it is not unlocked for governance
+		if s.address.Type() != AliasAddressType {
+			return false, xerrors.Errorf("SigLockedSingleOutput: %s address can't be unlocked by alias reference", s.address.Type().String())
+		}
+		refAliasOutput, isAlias := inputs[blk.AliasInputIndex()].(*AliasOutput)
+		if !isAlias {
+			return false, xerrors.New("SigLockedSingleOutput: referenced input must be AliasOutput")
+		}
+		if !s.address.Equals(refAliasOutput.GetAliasAddress()) {
+			return false, xerrors.New("SigLockedSingleOutput: wrong alias referenced")
+		}
+		unlockValid = !refAliasOutput.hasToBeUnlockedForGovernanceUpdate(tx)
+
+	default:
+		err = xerrors.Errorf("SigLockedSingleOutput: unsupported unlock block type: %w", cerrors.ErrParseBytesFailed)
+	}
 
 	return
 }
@@ -816,13 +833,30 @@ func (s *SigLockedColoredOutput) Balances() *ColoredBalances {
 
 // UnlockValid determines if the given Transaction and the corresponding UnlockBlock are allowed to spend the Output.
 func (s *SigLockedColoredOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inputs []Output) (unlockValid bool, err error) {
-	signatureUnlockBlock, correctType := unlockBlock.(*SignatureUnlockBlock)
-	if !correctType {
-		err = xerrors.Errorf("UnlockBlock does not match expected OutputType: %w", cerrors.ErrParseBytesFailed)
-		return
-	}
+	switch blk := unlockBlock.(type) {
+	case *SignatureUnlockBlock:
+		// unlocking by signature
+		unlockValid = blk.AddressSignatureValid(s.address, tx.Essence().Bytes())
 
-	unlockValid = signatureUnlockBlock.AddressSignatureValid(s.address, tx.Essence().Bytes())
+	case *AliasUnlockBlock:
+		// unlocking by alias reference. The unlock is valid if:
+		// - referenced alias output has same alias address
+		// - it is not unlocked for governance
+		if s.address.Type() != AliasAddressType {
+			return false, xerrors.Errorf("SigLockedColoredOutput: %s address can't be unlocked by alias reference", s.address.Type().String())
+		}
+		refAliasOutput, isAlias := inputs[blk.AliasInputIndex()].(*AliasOutput)
+		if !isAlias {
+			return false, xerrors.New("SigLockedColoredOutput: referenced input must be AliasOutput")
+		}
+		if !s.address.Equals(refAliasOutput.GetAliasAddress()) {
+			return false, xerrors.New("SigLockedColoredOutput: wrong alias referenced")
+		}
+		unlockValid = !refAliasOutput.hasToBeUnlockedForGovernanceUpdate(tx)
+
+	default:
+		err = xerrors.Errorf("SigLockedColoredOutput: unsupported unlock block type: %w", cerrors.ErrParseBytesFailed)
+	}
 
 	return
 }
@@ -1991,6 +2025,9 @@ func (o *ExtendedLockedOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBl
 		// unlocking by alias reference. The unlock is valid if:
 		// - referenced alias output has same alias address
 		// - it is not unlocked for governance
+		if addr.Type() != AliasAddressType {
+			return false, xerrors.Errorf("ExtendedLockedOutput: %s address can't be unlocked by alias reference", addr.Type().String())
+		}
 		refAliasOutput, isAlias := inputs[blk.AliasInputIndex()].(*AliasOutput)
 		if !isAlias {
 			return false, xerrors.New("ExtendedLockedOutput: referenced input must be AliasOutput")
