@@ -1,10 +1,11 @@
 package tangle
 
 import (
-	"errors"
 	"math"
 	"sync"
 	"time"
+
+	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
@@ -16,7 +17,6 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
@@ -122,11 +122,11 @@ func (a *ApprovalWeightManager) WeightOfMarker(marker *markers.Marker, anchorTim
 // Shutdown shuts down the ApprovalWeightManager and persists its state.
 func (a *ApprovalWeightManager) Shutdown() {
 	if err := a.tangle.Options.Store.Set(kvstore.Key("BranchConfirmation"), a.Events.BranchConfirmation.Bytes()); err != nil {
-		a.tangle.Events.Error.Trigger(xerrors.Errorf("failed to persists BranchConfirmation event (%v): %w", err, cerrors.ErrFatal))
+		a.tangle.Events.Error.Trigger(errors.Errorf("failed to persists BranchConfirmation event (%v): %w", err, cerrors.ErrFatal))
 		return
 	}
 	if err := a.tangle.Options.Store.Set(kvstore.Key("MarkerConfirmation"), a.Events.MarkerConfirmation.Bytes()); err != nil {
-		a.tangle.Events.Error.Trigger(xerrors.Errorf("failed to persists MarkerConfirmation event (%v): %w", err, cerrors.ErrFatal))
+		a.tangle.Events.Error.Trigger(errors.Errorf("failed to persists MarkerConfirmation event (%v): %w", err, cerrors.ErrFatal))
 		return
 	}
 }
@@ -549,7 +549,7 @@ var (
 		events.WithIdentifierParser(func(marshalUtil *marshalutil.MarshalUtil) (identifier interface{}, err error) {
 			branchID, err := ledgerstate.BranchIDFromMarshalUtil(marshalUtil)
 			if err != nil {
-				err = xerrors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
+				err = errors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
 				return
 			}
 
@@ -566,7 +566,7 @@ var (
 		events.WithIdentifierParser(func(marshalUtil *marshalutil.MarshalUtil) (identifier interface{}, err error) {
 			marker, err := markers.MarkerFromMarshalUtil(marshalUtil)
 			if err != nil {
-				err = xerrors.Errorf("failed to parse Marker from MarshalUtil: %w", err)
+				err = errors.Errorf("failed to parse Marker from MarshalUtil: %w", err)
 				return
 			}
 
@@ -613,7 +613,7 @@ func NewBranchWeight(branchID ledgerstate.BranchID) (branchWeight *BranchWeight)
 func BranchWeightFromBytes(bytes []byte) (branchWeight *BranchWeight, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if branchWeight, err = BranchWeightFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse BranchWeight from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse BranchWeight from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -625,12 +625,12 @@ func BranchWeightFromBytes(bytes []byte) (branchWeight *BranchWeight, consumedBy
 func BranchWeightFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchWeight *BranchWeight, err error) {
 	branchWeight = &BranchWeight{}
 	if branchWeight.branchID, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
 		return
 	}
 
 	if branchWeight.weight, err = marshalUtil.ReadFloat64(); err != nil {
-		err = xerrors.Errorf("failed to parse weight (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse weight (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -640,7 +640,7 @@ func BranchWeightFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchWe
 // BranchWeightFromObjectStorage restores a BranchWeight object from the object storage.
 func BranchWeightFromObjectStorage(key, data []byte) (result objectstorage.StorableObject, err error) {
 	if result, _, err = BranchWeightFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = xerrors.Errorf("failed to parse BranchWeight from bytes: %w", err)
+		err = errors.Errorf("failed to parse BranchWeight from bytes: %w", err)
 		return
 	}
 
@@ -814,7 +814,7 @@ func NewStatement(branchID ledgerstate.BranchID, supporter Supporter) (statement
 func StatementFromBytes(bytes []byte) (statement *Statement, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if statement, err = StatementFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse SequenceSupporters from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse SequenceSupporters from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -826,17 +826,17 @@ func StatementFromBytes(bytes []byte) (statement *Statement, consumedBytes int, 
 func StatementFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (statement *Statement, err error) {
 	statement = &Statement{}
 	if statement.branchID, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
 		return
 	}
 
 	if statement.supporter, err = identity.IDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Supporter from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse Supporter from MarshalUtil: %w", err)
 		return
 	}
 
 	if statement.sequenceNumber, err = marshalUtil.ReadUint64(); err != nil {
-		err = xerrors.Errorf("failed to parse sequence number (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse sequence number (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -846,7 +846,7 @@ func StatementFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (statement *
 // StatementFromObjectStorage restores a Statement object from the object storage.
 func StatementFromObjectStorage(key, data []byte) (result objectstorage.StorableObject, err error) {
 	if result, _, err = StatementFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = xerrors.Errorf("failed to parse Statement from bytes: %w", err)
+		err = errors.Errorf("failed to parse Statement from bytes: %w", err)
 		return
 	}
 
@@ -1077,7 +1077,7 @@ func NewBranchSupporters(branchID ledgerstate.BranchID) (branchSupporters *Branc
 func BranchSupportersFromBytes(bytes []byte) (branchSupporters *BranchSupporters, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if branchSupporters, err = BranchSupportersFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse SequenceSupporters from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse SequenceSupporters from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -1089,20 +1089,20 @@ func BranchSupportersFromBytes(bytes []byte) (branchSupporters *BranchSupporters
 func BranchSupportersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchSupporters *BranchSupporters, err error) {
 	branchSupporters = &BranchSupporters{}
 	if branchSupporters.branchID, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
 		return
 	}
 
 	supportersCount, err := marshalUtil.ReadUint64()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse supporters count (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse supporters count (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	branchSupporters.supporters = NewSupporters()
 	for i := uint64(0); i < supportersCount; i++ {
 		supporter, supporterErr := identity.IDFromMarshalUtil(marshalUtil)
 		if supporterErr != nil {
-			err = xerrors.Errorf("failed to parse Supporter (%v): %w", supporterErr, cerrors.ErrParseBytesFailed)
+			err = errors.Errorf("failed to parse Supporter (%v): %w", supporterErr, cerrors.ErrParseBytesFailed)
 			return
 		}
 
@@ -1115,7 +1115,7 @@ func BranchSupportersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (bran
 // BranchSupportersFromObjectStorage restores a BranchSupporters object from the object storage.
 func BranchSupportersFromObjectStorage(key, data []byte) (result objectstorage.StorableObject, err error) {
 	if result, _, err = BranchSupportersFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = xerrors.Errorf("failed to parse BranchSupporters from bytes: %w", err)
+		err = errors.Errorf("failed to parse BranchSupporters from bytes: %w", err)
 		return
 	}
 
@@ -1279,7 +1279,7 @@ func NewSequenceSupporters(sequenceID markers.SequenceID) (sequenceSupporters *S
 func SequenceSupportersFromBytes(bytes []byte) (sequenceSupporters *SequenceSupporters, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if sequenceSupporters, err = SequenceSupportersFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse SequenceSupporters from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse SequenceSupporters from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -1291,25 +1291,25 @@ func SequenceSupportersFromBytes(bytes []byte) (sequenceSupporters *SequenceSupp
 func SequenceSupportersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequenceSupporters *SequenceSupporters, err error) {
 	sequenceSupporters = &SequenceSupporters{}
 	if sequenceSupporters.sequenceID, err = markers.SequenceIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
 		return
 	}
 	supportersCount, err := marshalUtil.ReadUint64()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse supporters count (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse supporters count (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	sequenceSupporters.supportersPerIndex = make(map[Supporter]markers.Index)
 	for i := uint64(0); i < supportersCount; i++ {
 		supporter, supporterErr := identity.IDFromMarshalUtil(marshalUtil)
 		if supporterErr != nil {
-			err = xerrors.Errorf("failed to parse Supporter (%v): %w", supporterErr, cerrors.ErrParseBytesFailed)
+			err = errors.Errorf("failed to parse Supporter (%v): %w", supporterErr, cerrors.ErrParseBytesFailed)
 			return
 		}
 
 		index, indexErr := markers.IndexFromMarshalUtil(marshalUtil)
 		if indexErr != nil {
-			err = xerrors.Errorf("failed to parse Index: %w", indexErr)
+			err = errors.Errorf("failed to parse Index: %w", indexErr)
 			return
 		}
 
@@ -1322,7 +1322,7 @@ func SequenceSupportersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (se
 // SequenceSupportersFromObjectStorage restores a SequenceSupporters object from the object storage.
 func SequenceSupportersFromObjectStorage(key, data []byte) (result objectstorage.StorableObject, err error) {
 	if result, _, err = SequenceSupportersFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = xerrors.Errorf("failed to parse SequenceSupporters from bytes: %w", err)
+		err = errors.Errorf("failed to parse SequenceSupporters from bytes: %w", err)
 		return
 	}
 

@@ -1,8 +1,8 @@
 package tangle
 
 import (
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/types"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
@@ -48,13 +48,13 @@ func (l *LedgerState) InheritBranch(referencedBranchIDs ledgerstate.BranchIDs) (
 
 	cachedAggregatedBranch, _, err := l.BranchDAG.AggregateBranches(referencedBranchIDs)
 	if err != nil {
-		if xerrors.Is(err, ledgerstate.ErrInvalidStateTransition) {
+		if errors.Is(err, ledgerstate.ErrInvalidStateTransition) {
 			inheritedBranch = ledgerstate.InvalidBranchID
 			err = nil
 			return
 		}
 
-		err = xerrors.Errorf("failed to aggregate BranchIDs: %w", err)
+		err = errors.Errorf("failed to aggregate BranchIDs: %w", err)
 		return
 	}
 	cachedAggregatedBranch.Release()
@@ -72,7 +72,7 @@ func (l *LedgerState) TransactionValid(transaction *ledgerstate.Transaction, mes
 		})
 		l.tangle.Events.MessageInvalid.Trigger(messageID)
 
-		return xerrors.Errorf("invalid transaction in message with %s: %w", messageID, err)
+		return errors.Errorf("invalid transaction in message with %s: %w", messageID, err)
 	}
 
 	return nil
@@ -98,8 +98,8 @@ func (l *LedgerState) Transaction(transactionID ledgerstate.TransactionID) *ledg
 func (l *LedgerState) BookTransaction(transaction *ledgerstate.Transaction, messageID MessageID) (targetBranch ledgerstate.BranchID, err error) {
 	targetBranch, err = l.utxoDAG.BookTransaction(transaction)
 	if err != nil {
-		if !xerrors.Is(err, ledgerstate.ErrTransactionInvalid) && !xerrors.Is(err, ledgerstate.ErrTransactionNotSolid) {
-			err = xerrors.Errorf("failed to book Transaction: %w", err)
+		if !errors.Is(err, ledgerstate.ErrTransactionInvalid) && !errors.Is(err, ledgerstate.ErrTransactionNotSolid) {
+			err = errors.Errorf("failed to book Transaction: %w", err)
 			return
 		}
 

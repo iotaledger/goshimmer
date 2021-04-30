@@ -4,11 +4,11 @@ import (
 	"context"
 	"crypto"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/pow"
@@ -52,7 +52,7 @@ func NewRequest(addr ledgerstate.Address, powTarget int, accessManaPledgeID, con
 	powRelevantBytes := objectBytes[:len(objectBytes)-pow.NonceBytes]
 	nonce, err := powWorker.Mine(context.Background(), powRelevantBytes, powTarget)
 	if err != nil {
-		err = xerrors.Errorf("failed to do PoW for faucet request: %w", err)
+		err = errors.Errorf("failed to do PoW for faucet request: %w", err)
 		return nil, err
 	}
 	p.nonce = nonce
@@ -66,37 +66,37 @@ func FromBytes(bytes []byte) (result *Request, consumedBytes int, err error) {
 
 	result = &Request{}
 	if _, err = marshalUtil.ReadUint32(); err != nil {
-		err = xerrors.Errorf("failed to parse payload size (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse payload size (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	result.payloadType, err = payload.TypeFromMarshalUtil(marshalUtil)
 	if err != nil {
-		err = xerrors.Errorf("failed to parse Type from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse Type from MarshalUtil: %w", err)
 		return
 	}
 	addr, err := marshalUtil.ReadBytes(ledgerstate.AddressLength)
 	if err != nil {
-		err = xerrors.Errorf("failed to parse address of faucet request (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse address of faucet request (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	result.address, _, err = ledgerstate.AddressFromBytes(addr)
 	if err != nil {
-		err = xerrors.Errorf("failed to unmarshal address of faucet request (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to unmarshal address of faucet request (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	result.accessManaPledgeID, err = identity.IDFromMarshalUtil(marshalUtil)
 	if err != nil {
-		err = xerrors.Errorf("failed to unmarshal access mana pledge ID of faucet request (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to unmarshal access mana pledge ID of faucet request (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	result.consensusManaPledgeID, err = identity.IDFromMarshalUtil(marshalUtil)
 	if err != nil {
-		err = xerrors.Errorf("failed to unmarshal consensus mana pledge ID of faucet request (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to unmarshal consensus mana pledge ID of faucet request (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	result.nonce, err = marshalUtil.ReadUint64()
 	if err != nil {
-		err = xerrors.Errorf("failed to unmarshal nonce of faucet request (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to unmarshal nonce of faucet request (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -158,7 +158,7 @@ func PayloadUnmarshaler(data []byte) (payload payload.Payload, err error) {
 		return nil, err
 	}
 	if consumedBytes != len(data) {
-		return nil, xerrors.New("not all payload bytes were consumed")
+		return nil, errors.New("not all payload bytes were consumed")
 	}
 	return
 }

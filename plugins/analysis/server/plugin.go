@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
@@ -16,7 +17,6 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/protocol"
 	flag "github.com/spf13/pflag"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
@@ -141,7 +141,7 @@ func wireUp(p *protocol.Protocol) {
 func processHeartbeatPacket(data []byte) {
 	heartbeatPacket, err := packet.ParseHeartbeat(data)
 	if err != nil {
-		if !xerrors.Is(err, packet.ErrInvalidHeartbeatNetworkVersion) {
+		if !errors.Is(err, packet.ErrInvalidHeartbeatNetworkVersion) {
 			Events.Error.Trigger(err)
 		}
 		return
@@ -155,7 +155,7 @@ func processHeartbeatPacket(data []byte) {
 func processFPCHeartbeatPacket(data []byte) {
 	hb, err := packet.ParseFPCHeartbeat(data)
 	if err != nil {
-		if !xerrors.Is(err, packet.ErrInvalidFPCHeartbeatVersion) {
+		if !errors.Is(err, packet.ErrInvalidFPCHeartbeatVersion) {
 			Events.Error.Trigger(err)
 		}
 		return
@@ -169,7 +169,7 @@ func processFPCHeartbeatPacket(data []byte) {
 func processMetricHeartbeatPacket(data []byte) {
 	hb, err := packet.ParseMetricHeartbeat(data)
 	if err != nil {
-		if !xerrors.Is(err, packet.ErrInvalidMetricHeartbeatVersion) {
+		if !errors.Is(err, packet.ErrInvalidMetricHeartbeatVersion) {
 			Events.Error.Trigger(err)
 		}
 		return

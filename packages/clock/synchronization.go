@@ -1,12 +1,12 @@
 package clock
 
 import (
-	"errors"
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
+
 	"github.com/beevik/ntp"
-	"golang.org/x/xerrors"
 )
 
 // ErrNTPQueryFailed is returned if an NTP query failed.
@@ -23,7 +23,7 @@ var (
 func FetchTimeOffset(host string) error {
 	resp, err := ntp.Query(host)
 	if err != nil {
-		return xerrors.Errorf("NTP query error (%v): %w", err, ErrNTPQueryFailed)
+		return errors.Errorf("NTP query error (%v): %w", err, ErrNTPQueryFailed)
 	}
 	offsetMutex.Lock()
 	defer offsetMutex.Unlock()

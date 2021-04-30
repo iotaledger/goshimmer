@@ -5,13 +5,13 @@ import (
 	"math"
 	"sync"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
-	"golang.org/x/xerrors"
 )
 
 // region EpochID /////////////////////////////////////////////////////////////////////////////////////////////////
@@ -23,7 +23,7 @@ type ID uint64
 func IDFromBytes(bytes []byte) (id ID, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if id, err = IDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse ID from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse ID from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -35,7 +35,7 @@ func IDFromBytes(bytes []byte) (id ID, consumedBytes int, err error) {
 func IDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (id ID, err error) {
 	untypedID, err := marshalUtil.ReadUint64()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse ID (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse ID (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	id = ID(untypedID)
@@ -95,26 +95,26 @@ func EpochFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Epoch, 
 		mana: make(map[identity.ID]float64),
 	}
 	if result.id, err = IDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse EpochID from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse EpochID from MarshalUtil: %w", err)
 		return
 	}
 
 	var nodesCount uint32
 	if nodesCount, err = marshalUtil.ReadUint32(); err != nil {
-		err = xerrors.Errorf("failed to parse nodes count from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse nodes count from MarshalUtil: %w", err)
 		return
 	}
 
 	for i := 0; i < int(nodesCount); i++ {
 		var nodeID identity.ID
 		if nodeID, err = identity.IDFromMarshalUtil(marshalUtil); err != nil {
-			err = xerrors.Errorf("failed to parse nodeID from MarshalUtil: %w", err)
+			err = errors.Errorf("failed to parse nodeID from MarshalUtil: %w", err)
 			return
 		}
 
 		var mana uint64
 		if mana, err = marshalUtil.ReadUint64(); err != nil {
-			err = xerrors.Errorf("failed to parse mana value from MarshalUtil: %w", err)
+			err = errors.Errorf("failed to parse mana value from MarshalUtil: %w", err)
 			return
 		}
 
@@ -122,12 +122,12 @@ func EpochFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Epoch, 
 	}
 
 	if result.totalMana, err = marshalUtil.ReadFloat64(); err != nil {
-		err = xerrors.Errorf("failed to parse total mana value from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse total mana value from MarshalUtil: %w", err)
 		return
 	}
 
 	if result.manaRetrieved, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse mana retrieved value from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse mana retrieved value from MarshalUtil: %w", err)
 		return
 	}
 
@@ -137,7 +137,7 @@ func EpochFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Epoch, 
 // EpochFromObjectStorage is the factory method for Epoch stored in the ObjectStorage.
 func EpochFromObjectStorage(key, data []byte) (result objectstorage.StorableObject, err error) {
 	if result, _, err = EpochFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = xerrors.Errorf("failed to parse Epoch from bytes: %w", err)
+		err = errors.Errorf("failed to parse Epoch from bytes: %w", err)
 		return
 	}
 

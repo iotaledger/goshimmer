@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/xerrors"
 )
 
 // delta interval for checking quasi-equivalence of float64 values
@@ -466,7 +466,7 @@ func TestWeightedBaseMana_SetWeight(t *testing.T) {
 		}
 		err := bm.SetWeight(-0.5)
 		assert.Error(t, err)
-		assert.True(t, xerrors.Is(err, ErrInvalidWeightParameter))
+		assert.True(t, errors.Is(err, ErrInvalidWeightParameter))
 	})
 
 	t.Run("CASE: Too big", func(t *testing.T) {
@@ -485,6 +485,6 @@ func TestWeightedBaseMana_SetWeight(t *testing.T) {
 		}
 		err := bm.SetWeight(1.1)
 		assert.Error(t, err)
-		assert.True(t, xerrors.Is(err, ErrInvalidWeightParameter))
+		assert.True(t, errors.Is(err, ErrInvalidWeightParameter))
 	})
 }

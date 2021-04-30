@@ -3,8 +3,8 @@ package dashboard
 import (
 	"sync"
 
+	"github.com/cockroachdb/errors"
 	"github.com/gorilla/websocket"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/mana"
 )
@@ -69,15 +69,15 @@ func (m *ManaBuffer) SendEvents(ws *websocket.Conn) error {
 				Data: ev.ToJSONSerializable(),
 			}
 		default:
-			return xerrors.Errorf("unexpected mana event type")
+			return errors.Errorf("unexpected mana event type")
 		}
 		if err := sendJSON(ws, msg); err != nil {
-			return xerrors.Errorf("failed to send mana event to client: %w", err)
+			return errors.Errorf("failed to send mana event to client: %w", err)
 		}
 	}
 	// signal to frontend that all initial values are sent
 	if err := sendJSON(ws, &wsmsg{MsgTypeManaInitDone, nil}); err != nil {
-		return xerrors.Errorf("failed to send mana event to client: %w", err)
+		return errors.Errorf("failed to send mana event to client: %w", err)
 	}
 	return nil
 }
@@ -103,7 +103,7 @@ func (m *ManaBuffer) SendValueMsgs(ws *websocket.Conn) error {
 			Data: valueMsg,
 		}
 		if err := sendJSON(ws, msg); err != nil {
-			return xerrors.Errorf("failed to send mana value to client: %w", err)
+			return errors.Errorf("failed to send mana value to client: %w", err)
 		}
 	}
 	return nil
@@ -133,7 +133,7 @@ func (m *ManaBuffer) SendMapOverall(ws *websocket.Conn) error {
 			Data: msgData,
 		}
 		if err := sendJSON(ws, msg); err != nil {
-			return xerrors.Errorf("failed to send overall mana map to client: %w", err)
+			return errors.Errorf("failed to send overall mana map to client: %w", err)
 		}
 	}
 	return nil
@@ -163,7 +163,7 @@ func (m *ManaBuffer) SendMapOnline(ws *websocket.Conn) error {
 			Data: msgData,
 		}
 		if err := sendJSON(ws, msg); err != nil {
-			return xerrors.Errorf("failed to send online mana map to client: %w", err)
+			return errors.Errorf("failed to send online mana map to client: %w", err)
 		}
 	}
 	return nil

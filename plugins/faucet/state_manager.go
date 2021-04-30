@@ -6,10 +6,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
-	"golang.org/x/xerrors"
 
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/clock"
@@ -149,7 +149,7 @@ func (s *StateManager) DeriveStateFromTangle(startIndex int) (err error) {
 		})
 	})
 	if foundRemainderOutput == nil {
-		return xerrors.Errorf("can't find an output on address %s that has at least %d tokens", remainderAddress.Base58(), int(MinimumFaucetBalance))
+		return errors.Errorf("can't find an output on address %s that has at least %d tokens", remainderAddress.Base58(), int(MinimumFaucetBalance))
 	}
 
 	endIndex := (GenesisTokenAmount - foundRemainderOutput.Balance) / s.tokensPerRequest
@@ -195,7 +195,7 @@ func (s *StateManager) DeriveStateFromTangle(startIndex int) (err error) {
 		// prepare more funding outputs if we did not find any
 		err = s.prepareMoreFundingOutputs()
 		if err != nil {
-			return xerrors.Errorf("Found no prepared outputs, failed to create them: %w", err)
+			return errors.Errorf("Found no prepared outputs, failed to create them: %w", err)
 		}
 	} else {
 		// else just save the found outputs into the state
@@ -217,23 +217,23 @@ func (s *StateManager) FulFillFundingRequest(requestMsg *tangle.Message) (m *tan
 	// get an output that we can spend
 	fundingOutput, fErr := s.getFundingOutput()
 	// we don't have funding outputs
-	if xerrors.Is(fErr, ErrNotEnoughFundingOutputs) {
+	if errors.Is(fErr, ErrNotEnoughFundingOutputs) {
 		// try preparing them
 		log.Infof("Preparing more outputs...")
 		pErr := s.prepareMoreFundingOutputs()
 		if pErr != nil {
-			err = xerrors.Errorf("failed to prepare more outputs: %w", pErr)
+			err = errors.Errorf("failed to prepare more outputs: %w", pErr)
 			return
 		}
 		log.Infof("Preparing more outputs... DONE")
 		// and try getting the output again
 		fundingOutput, fErr = s.getFundingOutput()
 		if fErr != nil {
-			err = xerrors.Errorf("failed to gather funding outputs")
+			err = errors.Errorf("failed to gather funding outputs")
 			return
 		}
 	} else if fErr != nil {
-		err = xerrors.Errorf("failed to gather funding outputs")
+		err = errors.Errorf("failed to gather funding outputs")
 		return
 	}
 
@@ -377,7 +377,7 @@ func (s *StateManager) prepareMoreFundingOutputs() (err error) {
 			return err
 		case <-ticker.C:
 			if timeoutCounter >= maxWaitAttempts {
-				return xerrors.Errorf("Message %s: %w", issuedMsg.ID(), ErrConfirmationTimeoutExpired)
+				return errors.Errorf("Message %s: %w", issuedMsg.ID(), ErrConfirmationTimeoutExpired)
 			}
 			timeoutCounter++
 		}
@@ -393,7 +393,7 @@ func (s *StateManager) updateState(tx *ledgerstate.Transaction) error {
 	for _, output := range tx.Essence().Outputs() {
 		iotaBalance, hasIota := output.Balances().Get(ledgerstate.ColorIOTA)
 		if !hasIota {
-			return xerrors.Errorf("tx outputs don't have IOTA balance ")
+			return errors.Errorf("tx outputs don't have IOTA balance ")
 		}
 		switch iotaBalance {
 		case s.tokensPerRequest:
@@ -411,7 +411,7 @@ func (s *StateManager) updateState(tx *ledgerstate.Transaction) error {
 				AddressIndex: s.addressToIndex[output.Address().Base58()],
 			}
 		default:
-			err := xerrors.Errorf("tx %s should not have output with balance %d", tx.ID().Base58(), iotaBalance)
+			err := errors.Errorf("tx %s should not have output with balance %d", tx.ID().Base58(), iotaBalance)
 			return err
 		}
 	}
@@ -487,7 +487,7 @@ func (s *StateManager) issueTX(tx *ledgerstate.Transaction) (msg *tangle.Message
 	// TODO: replace with an actual more reactive way
 	msg, err = messagelayer.AwaitMessageToBeBooked(issueTransaction, tx.ID(), s.maxTxBookedAwaitTime)
 	if err != nil {
-		return nil, xerrors.Errorf("%w: tx %s", err, tx.ID().String())
+		return nil, errors.Errorf("%w: tx %s", err, tx.ID().String())
 	}
 	return
 }

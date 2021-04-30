@@ -1,12 +1,12 @@
 package dashboard
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 
+	"github.com/cockroachdb/errors"
 	"github.com/labstack/echo"
 	"github.com/markbates/pkger"
 

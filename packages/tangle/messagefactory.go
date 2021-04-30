@@ -5,11 +5,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
@@ -76,14 +76,14 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, t ...*Tangle) (*Message
 	defer f.issuanceMutex.Unlock()
 	sequenceNumber, err := f.sequence.Next()
 	if err != nil {
-		err = xerrors.Errorf("could not create sequence number: %w", err)
+		err = errors.Errorf("could not create sequence number: %w", err)
 		f.Events.Error.Trigger(err)
 		return nil, err
 	}
 
 	strongParents, weakParents, err := f.selector.Tips(p, 2, 2)
 	if err != nil {
-		err = xerrors.Errorf("tips could not be selected: %w", err)
+		err = errors.Errorf("tips could not be selected: %w", err)
 		f.Events.Error.Trigger(err)
 		return nil, err
 	}
@@ -113,7 +113,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, t ...*Tangle) (*Message
 	// do the PoW
 	nonce, err := f.doPOW(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p)
 	if err != nil {
-		err = xerrors.Errorf("pow failed: %w", err)
+		err = errors.Errorf("pow failed: %w", err)
 		f.Events.Error.Trigger(err)
 		return nil, err
 	}

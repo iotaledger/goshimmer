@@ -4,10 +4,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/xerrors"
 )
 
 func TestNewResearchBaseManaVector(t *testing.T) {
@@ -21,19 +21,19 @@ func TestNewResearchBaseManaVector(t *testing.T) {
 	t.Run("CASE: Wrong type", func(t *testing.T) {
 		_, err := NewResearchBaseManaVector(AccessMana, AccessMana, Mixed)
 		assert.Error(t, err)
-		assert.True(t, xerrors.Is(err, ErrUnknownManaType))
+		assert.True(t, errors.Is(err, ErrUnknownManaType))
 	})
 
 	t.Run("CASE: Wrong target type", func(t *testing.T) {
 		_, err := NewResearchBaseManaVector(WeightedMana, WeightedMana, Mixed)
 		assert.Error(t, err)
-		assert.True(t, xerrors.Is(err, ErrInvalidTargetManaType))
+		assert.True(t, errors.Is(err, ErrInvalidTargetManaType))
 	})
 
 	t.Run("CASE: Invalid weight parameter", func(t *testing.T) {
 		_, err := NewResearchBaseManaVector(WeightedMana, ConsensusMana, 5.0)
 		assert.Error(t, err)
-		assert.True(t, xerrors.Is(err, ErrInvalidWeightParameter))
+		assert.True(t, errors.Is(err, ErrInvalidWeightParameter))
 	})
 }
 
