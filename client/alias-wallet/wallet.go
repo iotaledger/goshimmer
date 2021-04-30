@@ -251,24 +251,9 @@ func (wallet *Wallet) CreateNFT(options ...createnft_options.CreateNFTOption) (t
 	// create tx essence
 	outputs := ledgerstate.NewOutputs(unsortedOutputs...)
 	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), accessPledgeNodeID, consensusPledgeNodeID, inputs, outputs)
-	// determine unlock blocks
-	outputsByID := consumedOutputs.OutputsByID()
-	inputsInOrder := ledgerstate.Outputs{}
-	unlockBlocks := make([]ledgerstate.UnlockBlock, len(inputs))
-	existingUnlockBlocks := make(map[address.Address]uint16)
-	for outputIndex, input := range inputs {
-		output := outputsByID[input.(*ledgerstate.UTXOInput).ReferencedOutputID()]
-		inputsInOrder = append(inputsInOrder, output.Object)
-		if unlockBlockIndex, unlockBlockExists := existingUnlockBlocks[output.Address]; unlockBlockExists {
-			unlockBlocks[outputIndex] = ledgerstate.NewReferenceUnlockBlock(unlockBlockIndex)
-			continue
-		}
 
-		keyPair := wallet.Seed().KeyPair(output.Address.Index)
-		unlockBlock := ledgerstate.NewSignatureUnlockBlock(ledgerstate.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(txEssence.Bytes())))
-		unlockBlocks[outputIndex] = unlockBlock
-		existingUnlockBlocks[output.Address] = uint16(len(existingUnlockBlocks))
-	}
+	// build unlock blocks
+	unlockBlocks, inputsInOrder := wallet.buildUnlockBlocks(inputs, consumedOutputs.OutputsByID(), txEssence)
 
 	tx = ledgerstate.NewTransaction(txEssence, unlockBlocks)
 
@@ -665,24 +650,9 @@ func (wallet *Wallet) DepositFundsToNFT(options ...depositfundstonft_options.Dep
 		consumedOutputs[walletAlias.Address] = make(map[ledgerstate.OutputID]*Output)
 	}
 	consumedOutputs[walletAlias.Address][walletAlias.Object.ID()] = walletAlias
-	// determine unlock blocks
-	outputsByID := consumedOutputs.OutputsByID()
-	inputsInOrder := ledgerstate.Outputs{}
-	unlockBlocks := make([]ledgerstate.UnlockBlock, len(inputs))
-	existingUnlockBlocks := make(map[address.Address]uint16)
-	for outputIndex, input := range inputs {
-		output := outputsByID[input.(*ledgerstate.UTXOInput).ReferencedOutputID()]
-		inputsInOrder = append(inputsInOrder, output.Object)
-		if unlockBlockIndex, unlockBlockExists := existingUnlockBlocks[output.Address]; unlockBlockExists {
-			unlockBlocks[outputIndex] = ledgerstate.NewReferenceUnlockBlock(unlockBlockIndex)
-			continue
-		}
 
-		keyPair := wallet.Seed().KeyPair(output.Address.Index)
-		unlockBlock := ledgerstate.NewSignatureUnlockBlock(ledgerstate.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(txEssence.Bytes())))
-		unlockBlocks[outputIndex] = unlockBlock
-		existingUnlockBlocks[output.Address] = uint16(len(existingUnlockBlocks))
-	}
+	// build unlock blocks
+	unlockBlocks, inputsInOrder := wallet.buildUnlockBlocks(inputs, consumedOutputs.OutputsByID(), txEssence)
 
 	tx = ledgerstate.NewTransaction(txEssence, unlockBlocks)
 
