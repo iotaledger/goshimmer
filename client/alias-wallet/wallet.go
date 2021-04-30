@@ -77,7 +77,92 @@ func New(options ...Option) (wallet *Wallet) {
 
 // SendFunds sends funds from the wallet
 func (wallet *Wallet) SendFunds(options ...sendfunds_options.SendFundsOption) (tx *ledgerstate.Transaction, err error) {
-	// TODO: implement
+	sendOptions, err := sendfunds_options.BuildSendFundsOptions(options...)
+	if err != nil {
+		return
+	}
+
+	// how much funds will we need to fund this transfer?
+	requiredFunds := sendOptions.RequiredFunds()
+	// collect that many outputs for funding
+	consumedOutputs, err := wallet.collectOutputsForFunding(requiredFunds)
+	if err != nil {
+		return
+	}
+
+	// determine pledgeIDs
+	aPledgeID, cPledgeID, err := wallet.derivePledgeIDs(sendOptions.AccessManaPledgeID, sendOptions.ConsensusManaPledgeID)
+	if err != nil {
+		return
+	}
+
+	// build inputs from consumed outputs
+	inputs := wallet.buildInputs(consumedOutputs)
+	// aggregate all the funds we consume from inputs
+	totalConsumedFunds := consumedOutputs.TotalFundsInOutputs()
+	var remainderAddress address.Address
+	if sendOptions.RemainderAddress == address.AddressEmpty {
+		_, spendFromRemainderAddress := consumedOutputs[wallet.RemainderAddress()]
+		_, spendFromReceiveAddress := consumedOutputs[wallet.ReceiveAddress()]
+		if spendFromRemainderAddress && spendFromReceiveAddress {
+			// we are about to spend from both
+			remainderAddress = wallet.NewReceiveAddress()
+		} else if spendFromRemainderAddress && !spendFromReceiveAddress {
+			// we are about to spend from remainder, but not from receive
+			remainderAddress = wallet.ReceiveAddress()
+		} else {
+			// we are not spending from remainder
+			remainderAddress = wallet.RemainderAddress()
+		}
+	} else {
+		remainderAddress = sendOptions.RemainderAddress
+	}
+	outputs := wallet.buildOutputs(sendOptions.Destinations, totalConsumedFunds, remainderAddress)
+
+	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), aPledgeID, cPledgeID, inputs, outputs)
+	outputsByID := consumedOutputs.OutputsByID()
+
+	unlockBlocks, inputsAsOutputsInOrder := wallet.buildUnlockBlocks(inputs, outputsByID, txEssence)
+
+	tx = ledgerstate.NewTransaction(txEssence, unlockBlocks)
+
+	// check syntactical validity by marshaling an unmarshaling
+	tx, _, err = ledgerstate.TransactionFromBytes(tx.Bytes())
+	if err != nil {
+		return nil, err
+	}
+
+	//check tx validity (balances, unlock blocks)
+	ok, err := checkBalancesAndUnlocks(inputsAsOutputsInOrder, tx)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, xerrors.Errorf("created transaction is invalid: %s", tx.String())
+	}
+
+	// mark outputs as spent
+	for addr, outputs := range consumedOutputs {
+		for outputID := range outputs {
+			wallet.outputManager.MarkOutputSpent(addr, outputID)
+		}
+	}
+
+	// mark addresses as spent
+	if !wallet.reusableAddress {
+		for addr := range consumedOutputs {
+			wallet.addressManager.MarkAddressSpent(addr.Index)
+		}
+	}
+
+	err = wallet.connector.SendTransaction(tx)
+	if err != nil {
+		return nil, err
+	}
+	if sendOptions.WaitForConfirmation {
+		err = wallet.WaitForTxConfirmation(tx.ID())
+	}
+
 	return
 }
 
@@ -1145,7 +1230,7 @@ func enoughCollected(collected map[ledgerstate.Color]uint64, target map[ledgerst
 	return true
 }
 
-// buildInputs build a list of deterministically sorted inputs from the provided OutputsByAddressAndOutputID mapping.
+// buildInputs builds a list of deterministically sorted inputs from the provided OutputsByAddressAndOutputID mapping.
 func (wallet *Wallet) buildInputs(addressToIDToOutput OutputsByAddressAndOutputID) ledgerstate.Inputs {
 	unsortedInputs := ledgerstate.Inputs{}
 	for _, outputIDToOutputMap := range addressToIDToOutput {
@@ -1154,6 +1239,80 @@ func (wallet *Wallet) buildInputs(addressToIDToOutput OutputsByAddressAndOutputI
 		}
 	}
 	return ledgerstate.NewInputs(unsortedInputs...)
+}
+
+// buildOutputs builds outputs based on desired destination balances and consumedFunds. If consumedFunds is greater, than
+// the destination funds, remainderAddress specifies where the remaining amount is put.
+func (wallet *Wallet) buildOutputs(
+	destinations map[address.Address]map[ledgerstate.Color]uint64,
+	consumedFunds map[ledgerstate.Color]uint64,
+	remainderAddress address.Address,
+) (outputs ledgerstate.Outputs) {
+	// build outputs for destinations
+	outputsByColor := make(map[address.Address]map[ledgerstate.Color]uint64)
+	for walletAddress, coloredBalances := range destinations {
+		if _, addressExists := outputsByColor[walletAddress]; !addressExists {
+			outputsByColor[walletAddress] = make(map[ledgerstate.Color]uint64)
+		}
+		for color, amount := range coloredBalances {
+			outputsByColor[walletAddress][color] += amount
+			if color == ledgerstate.ColorMint {
+				consumedFunds[ledgerstate.ColorIOTA] -= amount
+
+				if consumedFunds[ledgerstate.ColorIOTA] == 0 {
+					delete(consumedFunds, ledgerstate.ColorIOTA)
+				}
+			} else {
+				consumedFunds[color] -= amount
+
+				if consumedFunds[color] == 0 {
+					delete(consumedFunds, color)
+				}
+			}
+		}
+	}
+
+	// build outputs for remainder
+	if len(consumedFunds) != 0 {
+		if _, addressExists := outputsByColor[remainderAddress]; !addressExists {
+			outputsByColor[remainderAddress] = make(map[ledgerstate.Color]uint64)
+		}
+
+		for color, amount := range consumedFunds {
+			outputsByColor[remainderAddress][color] += amount
+		}
+	}
+
+	// construct result
+	var outputsSlice []ledgerstate.Output
+	for addr, outputBalanceMap := range outputsByColor {
+		coloredBalances := ledgerstate.NewColoredBalances(outputBalanceMap)
+		output := ledgerstate.NewSigLockedColoredOutput(coloredBalances, addr.Address())
+		outputsSlice = append(outputsSlice, output)
+	}
+	outputs = ledgerstate.NewOutputs(outputsSlice...)
+
+	return
+}
+
+// buildUnlockBlocks constructs the unlock blocks for a transaction.
+func (wallet *Wallet) buildUnlockBlocks(inputs ledgerstate.Inputs, consumedOutputsByID OutputsByID, essence *ledgerstate.TransactionEssence) (unlocks ledgerstate.UnlockBlocks, inputsInOrder ledgerstate.Outputs) {
+	unlocks = make([]ledgerstate.UnlockBlock, len(inputs))
+	existingUnlockBlocks := make(map[address.Address]uint16)
+	for outputIndex, input := range inputs {
+		output := consumedOutputsByID[input.(*ledgerstate.UTXOInput).ReferencedOutputID()]
+		inputsInOrder = append(inputsInOrder, output.Object)
+		if unlockBlockIndex, unlockBlockExists := existingUnlockBlocks[output.Address]; unlockBlockExists {
+			unlocks[outputIndex] = ledgerstate.NewReferenceUnlockBlock(unlockBlockIndex)
+			continue
+		}
+
+		keyPair := wallet.Seed().KeyPair(output.Address.Index)
+		unlockBlock := ledgerstate.NewSignatureUnlockBlock(ledgerstate.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(essence.Bytes())))
+		unlocks[outputIndex] = unlockBlock
+		existingUnlockBlocks[output.Address] = uint16(len(existingUnlockBlocks))
+	}
+	return
 }
 
 // checkBalancesAndUnlocks checks if tx balances are okay and unlock blocks are valid.
