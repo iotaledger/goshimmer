@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"golang.org/x/crypto/blake2b"
 	"golang.org/x/xerrors"
 	"reflect"
 	"time"
@@ -171,8 +172,72 @@ func (wallet *Wallet) SendFunds(options ...sendfunds_options.SendFundsOption) (t
 // region CreateAsset //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // CreateAsset creates a new colored token with the given details.
-func (wallet *Wallet) CreateAsset(asset Asset) (assetColor ledgerstate.Color, err error) {
-	// TODO: implement
+func (wallet *Wallet) CreateAsset(asset Asset, waitForConfirmation ...bool) (assetColor ledgerstate.Color, err error) {
+	if asset.Amount == 0 {
+		err = xerrors.New("required to provide the amount when trying to create an asset")
+
+		return
+	}
+
+	if asset.Name == "" {
+		err = xerrors.New("required to provide a name when trying to create an asset")
+
+		return
+	}
+
+	// which address to send to? remainder/receive/new receive?
+	var receiveAddress address.Address
+	// where will we spend from?
+	consumedOutputs, err := wallet.collectOutputsForFunding(map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: asset.Amount})
+	if err != nil {
+		return
+	}
+	_, spendFromRemainderAddress := consumedOutputs[wallet.RemainderAddress()]
+	_, spendFromReceiveAddress := consumedOutputs[wallet.ReceiveAddress()]
+	if spendFromRemainderAddress && spendFromReceiveAddress {
+		// we are about to spend from both
+		receiveAddress = wallet.NewReceiveAddress()
+	} else if spendFromRemainderAddress && !spendFromReceiveAddress {
+		// we are about to spend from remainder, but not from receive
+		receiveAddress = wallet.ReceiveAddress()
+	} else {
+		// we are not spending from remainder
+		receiveAddress = wallet.RemainderAddress()
+	}
+
+	var wait bool
+	if len(waitForConfirmation) > 0 {
+		wait = waitForConfirmation[0]
+	}
+
+	tx, err := wallet.SendFunds(
+		sendfunds_options.Destination(receiveAddress, asset.Amount, ledgerstate.ColorMint),
+		sendfunds_options.WaitForConfirmation(wait),
+	)
+	if err != nil {
+		return
+	}
+
+	// this only works if there is only one MINT output in the transaction
+	assetColor = ledgerstate.ColorIOTA
+	for _, output := range tx.Essence().Outputs() {
+		output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+			if color == ledgerstate.ColorMint {
+				digest := blake2b.Sum256(output.ID().Bytes())
+				assetColor, _, err = ledgerstate.ColorFromBytes(digest[:])
+			}
+			return true
+		})
+	}
+
+	if err != nil {
+		return
+	}
+
+	if assetColor != ledgerstate.ColorIOTA {
+		wallet.assetRegistry.RegisterAsset(assetColor, asset)
+	}
+
 	return
 }
 
@@ -495,6 +560,9 @@ func (wallet *Wallet) WithdrawFundsFromNFT(options ...withdrawfundsfromnft_optio
 			return false
 		}
 		newAliasBalance[color] = balance - withdrawBalances[color]
+		if newAliasBalance[color] == 0 {
+			delete(newAliasBalance, color)
+		}
 		if color == ledgerstate.ColorIOTA && newAliasBalance[color] < ledgerstate.DustThresholdAliasOutputIOTA {
 			err = xerrors.Errorf("%d IOTA tokens would remain after withdrawal, which is less, then the minimum required %d",
 				newAliasBalance[color], ledgerstate.DustThresholdAliasOutputIOTA)
