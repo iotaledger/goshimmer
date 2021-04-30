@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/node"
@@ -44,6 +45,22 @@ func DumpCurrentLedger(c echo.Context) (err error) {
 	// 	}
 	// }
 	return c.JSON(http.StatusOK, nil)
+}
+
+func New_DumpCurrentLedger(c echo.Context) (snapshot *ledgerstate.Snapshot, err error) {
+	transactions := messagelayer.Tangle().LedgerState.Transactions()
+	snapshot = &ledgerstate.Snapshot{
+		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{},
+	}
+
+	for _, transaction := range transactions {
+		snapshot.Transactions[transaction.ID()] = transaction.Essence()
+	}
+
+	return snapshot, c.JSON(http.StatusOK, nil)
+
+	// // testTangle.LedgerState.LoadSnapshot(snapshot)
+
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
