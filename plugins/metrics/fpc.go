@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -115,6 +116,8 @@ func processQueryReplyError(ev *metrics.QueryReplyErrorEvent) {
 
 // FPCConflictRecord defines the FPC conflict record to sent be to remote logger.
 type FPCConflictRecord struct {
+	// Type defines the type of the message.
+	Type string `json:"type" bson:"type"`
 	// ConflictID defines the ID of the conflict.
 	ConflictID string `json:"conflictid" bson:"conflictid"`
 	// NodeID defines the ID of the node.
@@ -153,6 +156,7 @@ func (ml *fpcMetricsLogger) onVoteRoundExecuted(roundStats *vote.RoundStats) {
 	}
 	for conflictID, conflictContext := range roundStats.ActiveVoteContexts {
 		record := &FPCConflictRecord{
+			Type:       "fpc",
 			ConflictID: conflictID,
 			NodeID:     nodeID,
 			Rounds:     conflictContext.Rounds,
@@ -160,6 +164,7 @@ func (ml *fpcMetricsLogger) onVoteRoundExecuted(roundStats *vote.RoundStats) {
 			Outcome:    ml.getOutcome(conflictID),
 			Time:       time.Now().UTC(),
 		}
+		fmt.Println("Issue FPC round to remotelogger")
 		if err := remotelog.RemoteLogger().Send(record); err != nil {
 			log.Errorw("Failed to send FPC conflict record on round executed event", "err", err)
 		}
