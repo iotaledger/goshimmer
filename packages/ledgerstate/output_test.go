@@ -2375,7 +2375,7 @@ func randEd25119Address() *ED25519Address {
 }
 
 func randAliasAddress() *AliasAddress {
-	randOutputIDBytes := make([]byte, 34)
+	randOutputIDBytes := make([]byte, 32)
 	_, _ = rand.Read(randOutputIDBytes)
 	return NewAliasAddress(randOutputIDBytes)
 }
