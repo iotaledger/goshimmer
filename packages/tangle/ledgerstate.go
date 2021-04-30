@@ -172,6 +172,11 @@ func (l *LedgerState) LoadSnapshot(snapshot *ledgerstate.Snapshot) {
 	}
 }
 
+// Transactions returns all the transactions.
+func (l *LedgerState) Transactions() (transactions []*ledgerstate.Transaction) {
+	return l.utxoDAG.Transactions()
+}
+
 // Output returns the Output with the given ID.
 func (l *LedgerState) Output(outputID ledgerstate.OutputID) *ledgerstate.CachedOutput {
 	return l.utxoDAG.Output(outputID)

@@ -38,6 +38,18 @@ type UTXODAG struct {
 	shutdownOnce                sync.Once
 }
 
+// Transactions returns all the transactions.
+func (u *UTXODAG) Transactions() (transactions []*Transaction) {
+	u.transactionStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		(&CachedTransaction{CachedObject: cachedObject}).Consume(func(transaction *Transaction) {
+			fmt.Println(transaction)
+			transactions = append(transactions, transaction)
+		})
+		return true
+	})
+	return
+}
+
 // NewUTXODAG create a new UTXODAG from the given details.
 func NewUTXODAG(store kvstore.KVStore, branchDAG *BranchDAG) (utxoDAG *UTXODAG) {
 	osFactory := objectstorage.NewFactory(store, database.PrefixLedgerState)
