@@ -89,8 +89,8 @@ func (o *OutputManager) getOutputs(addresses ...address.Address) (unspentOutputs
 
 		// iterate through outputs
 		for transactionID, output := range unspentOutputsOnAddress {
-			// skip spent outputs
-			if output.InclusionState.Spent {
+			// skip spent outputs, and also not confirmed ones
+			if output.InclusionState.Spent || !output.InclusionState.Confirmed {
 				continue
 			}
 
