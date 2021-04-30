@@ -107,6 +107,30 @@ func (webConnector WebConnector) SendTransaction(tx *ledgerstate.Transaction) (e
 	return
 }
 
+// GetTransactionInclusionState fetches the inlcusion state of the transaction.
+func (webConnector WebConnector) GetTransactionInclusionState(txID ledgerstate.TransactionID) (inc ledgerstate.InclusionState, err error) {
+	inclusionState, err := webConnector.client.GetTransactionInclusionState(txID.Base58())
+	if err != nil {
+		return
+	}
+	if inclusionState != nil {
+		if inclusionState.Pending && !inclusionState.Confirmed && !inclusionState.Rejected {
+			inc = ledgerstate.Pending
+			return
+		}
+		if !inclusionState.Pending && inclusionState.Confirmed && !inclusionState.Rejected {
+			inc = ledgerstate.Confirmed
+			return
+		}
+		if !inclusionState.Pending && !inclusionState.Confirmed && inclusionState.Rejected {
+			inc = ledgerstate.Rejected
+			return
+		}
+	}
+	return
+
+}
+
 // GetAllowedPledgeIDs gets the list of nodeIDs that the node accepts as pledgeIDs in a transaction.
 func (webConnector WebConnector) GetAllowedPledgeIDs() (pledgeIDMap map[mana.Type][]string, err error) {
 	res, err := webConnector.client.GetAllowedManaPledgeNodeIDs()

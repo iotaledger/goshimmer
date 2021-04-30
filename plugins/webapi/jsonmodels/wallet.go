@@ -17,13 +17,13 @@ type WalletOutput struct {
 
 // InclusionState represents the different states of an output.
 type InclusionState struct {
-	Solid       bool `json:"solid,omitempty"`
-	Confirmed   bool `json:"confirmed,omitempty"`
-	Rejected    bool `json:"rejected,omitempty"`
-	Liked       bool `json:"liked,omitempty"`
-	Conflicting bool `json:"conflicting,omitempty"`
-	Finalized   bool `json:"finalized,omitempty"`
-	Preferred   bool `json:"preferred,omitempty"`
+	Solid       bool `json:"solid"`
+	Confirmed   bool `json:"confirmed"`
+	Rejected    bool `json:"rejected"`
+	Liked       bool `json:"liked"`
+	Conflicting bool `json:"conflicting"`
+	Finalized   bool `json:"finalized"`
+	Preferred   bool `json:"preferred"`
 }
 
 // WalletOutputMetadata holds metadata about the output.

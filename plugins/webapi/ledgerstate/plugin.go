@@ -43,6 +43,7 @@ func Plugin() *node.Plugin {
 			webapi.Server().GET("ledgerstate/outputs/:outputID/metadata", GetOutputMetadata)
 			webapi.Server().GET("ledgerstate/transactions/:transactionID", GetTransaction)
 			webapi.Server().GET("ledgerstate/transactions/:transactionID/metadata", GetTransactionMetadata)
+			webapi.Server().GET("ledgerstate/transactions/:transactionID/inclusionState", GetTransactionInclusionState)
 			webapi.Server().GET("ledgerstate/transactions/:transactionID/consensus", GetTransactionConsensusMetadata)
 			webapi.Server().GET("ledgerstate/transactions/:transactionID/attachments", GetTransactionAttachments)
 		})
@@ -140,10 +141,9 @@ func PostAddressUnspentOutputs(c echo.Context) error {
 					messagelayer.Tangle().LedgerState.TransactionMetadata(txID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 						inclusionState.Finalized = transactionMetadata.Finalized()
 					})
-
 					inclusionState.Confirmed = txInclusionState == ledgerstate.Confirmed
 					inclusionState.Rejected = txInclusionState == ledgerstate.Rejected
-					inclusionState.Conflicting = len(messagelayer.Tangle().LedgerState.ConflictSet(txID)) == 0
+					inclusionState.Conflicting = len(messagelayer.Tangle().LedgerState.ConflictSet(txID)) != 0
 
 					cachedTx := messagelayer.Tangle().LedgerState.Transaction(output.ID().TransactionID())
 					var timestamp time.Time
@@ -332,6 +332,27 @@ func GetTransactionMetadata(c echo.Context) (err error) {
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region GetTransactionInclusionState /////////////////////////////////////////////////////////////////////////////////
+
+// GetTransactionInclusionState is the handler for the ledgerstate/transactions/:transactionID/inclusionState endpoint.
+func GetTransactionInclusionState(c echo.Context) (err error) {
+	transactionID, err := ledgerstate.TransactionIDFromBase58(c.Param("transactionID"))
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	}
+
+	inclusionState, err := messagelayer.Tangle().LedgerState.TransactionInclusionState(transactionID)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	}
+
+	return c.JSON(http.StatusOK, jsonmodels.NewTransactionInclusionState(inclusionState, transactionID))
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region GetTransactionConsensusMetadata //////////////////////////////////////////////////////////////////////////////
 
 // GetTransactionConsensusMetadata is the handler for the ledgerstate/transactions/:transactionID/consensus endpoint.
 func GetTransactionConsensusMetadata(c echo.Context) (err error) {
