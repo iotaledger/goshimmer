@@ -179,6 +179,11 @@ func (l *LedgerState) Snapshot() (snapshot *ledgerstate.Snapshot) {
 	}
 
 	for _, transaction := range l.Transactions() {
+		// skip unconfirmed transactions
+		inclusionState, err := l.TransactionInclusionState(transaction.ID())
+		if err != nil || inclusionState != ledgerstate.Confirmed {
+			continue
+		}
 		unpsentOutputs := make([]bool, len(transaction.Essence().Outputs()))
 		for i, output := range transaction.Essence().Outputs() {
 			l.OutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
@@ -187,6 +192,7 @@ func (l *LedgerState) Snapshot() (snapshot *ledgerstate.Snapshot) {
 				}
 			})
 		}
+		// include only transactions with at least one unspent output
 		if len(unpsentOutputs) > 0 {
 			snapshot.Transactions[transaction.ID()] = ledgerstate.Record{
 				Essence:        transaction.Essence(),
