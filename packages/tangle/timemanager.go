@@ -101,6 +101,10 @@ func (t *TimeManager) Synced() bool {
 	return clock.Since(t.lastConfirmedMessage.Time) < t.tangle.Options.SyncTimeWindow
 }
 
+func (t *TimeManager) IsGenesis() bool {
+	return t.Time() == time.Unix(epochs.DefaultGenesisTime, 0)
+}
+
 // updateTime updates the last confirmed message.
 func (t *TimeManager) updateTime(marker markers.Marker, newLevel int, transition events.ThresholdEventTransition) {
 	if transition != events.ThresholdLevelIncreased {

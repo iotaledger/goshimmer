@@ -56,6 +56,9 @@ const (
 	// PrefixMarkerMessageMapping defines the storage prefix for the MarkerMessageMapping.
 	PrefixMarkerMessageMapping
 
+	// PrefixBucketMessageID defines the storage prefix for the BucketMessageID.
+	PrefixBucketMessageID
+
 	// DBSequenceNumber defines the db sequence number.
 	DBSequenceNumber = "seq"
 )
@@ -80,6 +83,7 @@ type Storage struct {
 	statementStorage                  *objectstorage.ObjectStorage
 	branchWeightStorage               *objectstorage.ObjectStorage
 	markerMessageMappingStorage       *objectstorage.ObjectStorage
+	bucketMessageIDStorage            *objectstorage.ObjectStorage
 
 	Events   *StorageEvents
 	shutdown chan struct{}
@@ -103,7 +107,8 @@ func NewStorage(tangle *Tangle) (storage *Storage) {
 		branchSupportersStorage:           osFactory.New(PrefixBranchSupporters, BranchSupportersFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
 		statementStorage:                  osFactory.New(PrefixStatement, StatementFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
 		branchWeightStorage:               osFactory.New(PrefixBranchWeight, BranchWeightFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
-		markerMessageMappingStorage:       osFactory.New(PrefixMarkerMessageMapping, MarkerMessageMappingFromObjectStorage, objectstorage.CacheTime(CacheTime), MarkerMessageMappingPartitionKeys),
+		markerMessageMappingStorage:       osFactory.New(PrefixMarkerMessageMapping, MarkerMessageMappingFromObjectStorage, objectstorage.CacheTime(CacheTime), MarkerMessageMappingPartitionKeys, objectstorage.LeakDetectionEnabled(false)),
+		bucketMessageIDStorage:            osFactory.New(PrefixBucketMessageID, BucketMessageIDFromObjectStorage, objectstorage.CacheTime(CacheTime), BucketMessageIDPartitionKeys, objectstorage.LeakDetectionEnabled(false)),
 
 		Events: &StorageEvents{
 			MessageStored:        events.NewEvent(MessageIDCaller),
@@ -376,6 +381,25 @@ func (s *Storage) BranchWeight(branchID ledgerstate.BranchID, computeIfAbsentCal
 	return &CachedBranchWeight{CachedObject: s.branchWeightStorage.Load(branchID.Bytes())}
 }
 
+// StoreBucketMessageID stores a new BucketMessageID if not already stored.
+func (s *Storage) StoreBucketMessageID(bucketTime int64, messageID MessageID) (stored bool) {
+	cachedObject, stored := s.bucketMessageIDStorage.StoreIfAbsent(NewBucketMessageID(bucketTime, messageID))
+	if !stored {
+		return
+	}
+	cachedObject.Release()
+	return
+}
+
+// BucketMessageIDs retrieves the BucketMessageIDs of a bucket time in bucketMessageIDStorage.
+func (s *Storage) BucketMessageIDs(bucketTime int64) (cachedBucketMessageIDs CachedBucketMessageIDs) {
+	s.bucketMessageIDStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		cachedBucketMessageIDs = append(cachedBucketMessageIDs, &CachedBucketMessageID{CachedObject: cachedObject})
+		return true
+	}, objectstorage.WithIteratorPrefix(marshalutil.New(marshalutil.Int64Size).WriteInt64(bucketTime).Bytes()))
+	return
+}
+
 func (s *Storage) storeGenesis() {
 	s.MessageMetadata(EmptyMessageID, func() *MessageMetadata {
 		genesisMetadata := &MessageMetadata{
@@ -425,6 +449,7 @@ func (s *Storage) Shutdown() {
 	s.statementStorage.Shutdown()
 	s.branchWeightStorage.Shutdown()
 	s.markerMessageMappingStorage.Shutdown()
+	s.bucketMessageIDStorage.Shutdown()
 
 	close(s.shutdown)
 }
@@ -444,6 +469,7 @@ func (s *Storage) Prune() error {
 		s.statementStorage,
 		s.branchWeightStorage,
 		s.markerMessageMappingStorage,
+		s.bucketMessageIDStorage,
 	} {
 		if err := storage.Prune(); err != nil {
 			err = fmt.Errorf("failed to prune storage: %w", err)
