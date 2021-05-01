@@ -407,29 +407,44 @@ func (m *Manager) markersReferenceMarkersOfSameSequence(laterMarkers, earlierMar
 	return
 }
 
+func (m *Manager) markersReference() {}
+
+func (m *Manager) rankOfLowestSequence(markers *Markers, rankCache map[SequenceID]uint64) (rankOfLowestSequence uint64) {
+	rankOfLowestSequence = uint64(1<<64 - 1)
+	markers.ForEach(func(sequenceID SequenceID, index Index) bool {
+		if rankOfSequence := m.rankOfSequence(sequenceID, rankCache); rankOfSequence < rankOfLowestSequence {
+			rankOfLowestSequence = rankOfSequence
+		}
+
+		return true
+	})
+
+	return
+}
+
 // markersReferenceMarkers is an internal utility function that returns true if the later Markers reference the earlier
 // Markers. If requireBiggerMarkers is false then a Marker with an equal Index is considered to be a valid reference.
 func (m *Manager) markersReferenceMarkers(laterMarkers, earlierMarkers *Markers, requireBiggerMarkers bool) (result bool) {
 	rankCache := make(map[SequenceID]uint64)
 	futureMarkersByRank := newMarkersByRank()
 
-	continueScanningForPotentialReferences := func(laterMarkers *Markers, requireBiggerMarkers bool) bool {
-		// don't abort scanning but don't execute additional checks in our current path (we can not find matching
-		// markers anymore)
+	markersReferenceEarlierMarkers := func(laterMarkers *Markers, requireBiggerMarkers bool) types.TriBool {
 		if requireBiggerMarkers && earlierMarkers.LowestIndex() >= laterMarkers.HighestIndex() {
-			return true
+			return types.Maybe
 		}
 		if earlierMarkers.LowestIndex() > laterMarkers.HighestIndex() {
-			return true
+			return types.Maybe
 		}
 
-		// abort scanning if we reached a matching sequence
-		var referencedSequenceFound bool
-		if referencedSequenceFound, result = m.markersReferenceMarkersOfSameSequence(laterMarkers, earlierMarkers, requireBiggerMarkers); referencedSequenceFound {
-			return false
+		referencedSequenceFound, markersReferenceEachOther := m.markersReferenceMarkersOfSameSequence(laterMarkers, earlierMarkers, requireBiggerMarkers)
+		if referencedSequenceFound {
+			if !markersReferenceEachOther {
+				return types.False
+			}
+
+			return types.True
 		}
 
-		// queue parents for additional checks
 		laterMarkers.ForEach(func(sequenceID SequenceID, index Index) bool {
 			m.Sequence(sequenceID).Consume(func(sequence *Sequence) {
 				sequence.ReferencedMarkers(index).ForEach(func(referencedSequenceID SequenceID, referencedIndex Index) bool {
@@ -440,34 +455,34 @@ func (m *Manager) markersReferenceMarkers(laterMarkers, earlierMarkers *Markers,
 			return true
 		})
 
-		return true
+		return types.Maybe
 	}
 
-	if !continueScanningForPotentialReferences(laterMarkers, requireBiggerMarkers) {
-		return
+	switch markersReferenceEarlierMarkers(laterMarkers, requireBiggerMarkers) {
+	case types.True:
+		return true
+	case types.False:
+		return false
 	}
 
-	rankOfLowestSequence := uint64(1<<64 - 1)
-	earlierMarkers.ForEach(func(sequenceID SequenceID, index Index) bool {
-		if rankOfSequence := m.rankOfSequence(sequenceID, rankCache); rankOfSequence < rankOfLowestSequence {
-			rankOfLowestSequence = rankOfSequence
-		}
+	highestRankOfFutureMarkers := futureMarkersByRank.HighestRank() + 1
+	lowestRankOfEarlierPastMarkers := m.rankOfLowestSequence(earlierMarkers, rankCache)
 
-		return true
-	})
-
-	for rank := futureMarkersByRank.HighestRank() + 1; rank > rankOfLowestSequence; rank-- {
-		markersByRank, rankExists := futureMarkersByRank.Markers(rank - 1)
+	for currentRank := highestRankOfFutureMarkers; currentRank > lowestRankOfEarlierPastMarkers; currentRank-- {
+		currentMarkers, rankExists := futureMarkersByRank.Markers(currentRank - 1)
 		if !rankExists {
 			continue
 		}
 
-		if !continueScanningForPotentialReferences(markersByRank, false) {
-			return
+		switch markersReferenceEarlierMarkers(currentMarkers, false) {
+		case types.True:
+			return true
+		case types.False:
+			return false
 		}
 	}
 
-	return result
+	return false
 }
 
 // registerReferencingMarker is an internal utility function that adds a referencing Marker to the internal data

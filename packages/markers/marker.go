@@ -685,7 +685,7 @@ func (r *ReferencedMarkers) String() (humanReadableReferencedMarkers string) {
 	for sequenceID, thresholdMap := range r.referencedIndexesBySequence {
 		thresholdMap.ForEach(func(node *thresholdmap.Element) bool {
 			index := Index(node.Key().(uint64))
-			referencedIndex := Index(node.Value().(uint64))
+			referencedIndex := node.Value().(Index)
 			if _, exists := referencedMarkersByReferencingIndex[index]; !exists {
 				referencedMarkersByReferencingIndex[index] = NewMarkers()
 
