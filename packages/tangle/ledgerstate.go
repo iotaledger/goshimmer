@@ -172,6 +172,33 @@ func (l *LedgerState) LoadSnapshot(snapshot *ledgerstate.Snapshot) {
 	}
 }
 
+// Snapshot returns the UTXO snapshot.
+func (l *LedgerState) Snapshot() (snapshot *ledgerstate.Snapshot) {
+	snapshot = &ledgerstate.Snapshot{
+		Transactions: make(map[ledgerstate.TransactionID]ledgerstate.Record),
+	}
+
+	transactions := l.Transactions()
+	for _, transaction := range transactions {
+		unpsentOutputs := make([]bool, len(transaction.Essence().Outputs()))
+		for i, output := range transaction.Essence().Outputs() {
+			l.OutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+				if outputMetadata.ConsumerCount() == 0 {
+					unpsentOutputs[i] = true
+				}
+			})
+		}
+		if len(unpsentOutputs) > 0 {
+			snapshot.Transactions[transaction.ID()] = ledgerstate.Record{
+				Essence:        transaction.Essence(),
+				UnpsentOutputs: unpsentOutputs,
+			}
+		}
+	}
+
+	return snapshot
+}
+
 // Transactions returns all the transactions.
 func (l *LedgerState) Transactions() (transactions []*ledgerstate.Transaction) {
 	return l.utxoDAG.Transactions()

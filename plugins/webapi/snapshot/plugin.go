@@ -4,7 +4,6 @@ import (
 	"os"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 
@@ -43,27 +42,7 @@ func Plugin() *node.Plugin {
 
 // DumpCurrentLedger dumps the current ledger state.
 func DumpCurrentLedger(c echo.Context) (err error) {
-	snapshot := &ledgerstate.Snapshot{
-		Transactions: make(map[ledgerstate.TransactionID]ledgerstate.Record),
-	}
-
-	transactions := messagelayer.Tangle().LedgerState.Transactions()
-	for _, transaction := range transactions {
-		unpsentOutputs := make([]bool, len(transaction.Essence().Outputs()))
-		for i, output := range transaction.Essence().Outputs() {
-			messagelayer.Tangle().LedgerState.OutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
-				if outputMetadata.ConsumerCount() == 0 {
-					unpsentOutputs[i] = true
-				}
-			})
-		}
-		if len(unpsentOutputs) > 0 {
-			snapshot.Transactions[transaction.ID()] = ledgerstate.Record{
-				Essence:        transaction.Essence(),
-				UnpsentOutputs: unpsentOutputs,
-			}
-		}
-	}
+	snapshot := messagelayer.Tangle().LedgerState.Snapshot()
 
 	f, err := os.OpenFile(snapshotFileName, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
