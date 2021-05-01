@@ -717,10 +717,13 @@ func TestConsensusBaseManaVector_BuildPastBaseVector(t *testing.T) {
 	var eventsLog []Event
 	emptyID := identity.ID{}
 
-	snapshot := map[identity.ID]*SnapshotInfo{
+	snapshot := map[identity.ID][]*SnapshotInfo{
 		emptyID: {
-			Value: 10.0,
-			TxID:  ledgerstate.GenesisTransactionID,
+			{
+				Value:     10.0,
+				TxID:      ledgerstate.GenesisTransactionID,
+				Timestamp: time.Unix(epochs.DefaultGenesisTime, 0),
+			},
 		},
 	}
 
@@ -783,7 +786,7 @@ func TestConsensusBaseManaVector_BuildPastBaseVector(t *testing.T) {
 		eventsLog = append(eventsLog, ev)
 	}))
 
-	bmv.LoadSnapshot(snapshot, time.Unix(epochs.DefaultGenesisTime, 0))
+	bmv.LoadSnapshot(snapshot)
 
 	bmv.Book(tx1Info)
 	bmv.Book(tx2Info)

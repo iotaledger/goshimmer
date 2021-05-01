@@ -44,6 +44,7 @@ type InputInfo struct {
 
 // SnapshotInfo defines the info for the mana snapshot.
 type SnapshotInfo struct {
-	Value float64
-	TxID  ledgerstate.TransactionID
+	Value     float64
+	TxID      ledgerstate.TransactionID
+	Timestamp time.Time
 }

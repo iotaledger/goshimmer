@@ -90,7 +90,7 @@ func main() {
 		randomSeed.Address(0).Address(),
 	)
 
-	transactionsMap := make(map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence)
+	transactionsMap := make(map[ledgerstate.TransactionID]ledgerstate.Record)
 
 	// Peer master
 	pubKey, err := ed25519.PublicKeyFromString(faucetPledge)
@@ -107,7 +107,11 @@ func main() {
 		ledgerstate.NewOutputs(output),
 	), ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
 
-	transactionsMap[tx.ID()] = tx.Essence()
+	record := ledgerstate.Record{
+		Essence:        tx.Essence(),
+		UnpsentOutputs: []bool{true},
+	}
+	transactionsMap[tx.ID()] = record
 
 	for i, pk := range nodesToPledge {
 		pubKey, err = ed25519.PublicKeyFromString(pk)
@@ -125,7 +129,11 @@ func main() {
 			ledgerstate.NewOutputs(output1),
 		), ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
 
-		transactionsMap[tx.ID()] = tx.Essence()
+		record := ledgerstate.Record{
+			Essence:        tx.Essence(),
+			UnpsentOutputs: []bool{true},
+		}
+		transactionsMap[tx.ID()] = record
 	}
 
 	newSnapshot := &ledgerstate.Snapshot{Transactions: transactionsMap}

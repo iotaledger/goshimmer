@@ -270,13 +270,16 @@ func (u *UTXODAG) LoadSnapshot(snapshot *Snapshot) {
 		return transactionMetadata
 	})}).Release()
 
-	for txID, essence := range snapshot.Transactions {
-		transaction := NewTransaction(essence, UnlockBlocks{NewReferenceUnlockBlock(0)})
+	for txID, record := range snapshot.Transactions {
+		transaction := NewTransaction(record.Essence, UnlockBlocks{NewReferenceUnlockBlock(0)})
 		cached, stored := u.transactionStorage.StoreIfAbsent(transaction)
 		if stored {
 			cached.Release()
 		}
-		for _, output := range essence.outputs {
+		for i, output := range record.Essence.outputs {
+			if !record.UnpsentOutputs[i] {
+				continue
+			}
 			cachedOutput, stored := u.outputStorage.StoreIfAbsent(output)
 			if stored {
 				cachedOutput.Release()

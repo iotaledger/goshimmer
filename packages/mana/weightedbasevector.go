@@ -56,25 +56,27 @@ func (w *WeightedBaseManaVector) Has(nodeID identity.ID) bool {
 }
 
 // LoadSnapshot loads the initial mana state into the base mana vector.
-func (w *WeightedBaseManaVector) LoadSnapshot(snapshot map[identity.ID]*SnapshotInfo, snapshotTime time.Time) {
+func (w *WeightedBaseManaVector) LoadSnapshot(snapshot map[identity.ID][]*SnapshotInfo) {
 	w.Lock()
 	defer w.Unlock()
 
-	for nodeID, info := range snapshot {
-		w.vector[nodeID] = NewWeightedMana(w.weight)
-		cBase := &ConsensusBaseMana{
-			BaseMana1:          info.Value,
-			EffectiveBaseMana1: info.Value,
-			LastUpdated:        snapshotTime,
+	for nodeID, records := range snapshot {
+		for _, record := range records {
+			w.vector[nodeID] = NewWeightedMana(w.weight)
+			cBase := &ConsensusBaseMana{
+				BaseMana1:          record.Value,
+				EffectiveBaseMana1: record.Value,
+				LastUpdated:        record.Timestamp,
+			}
+			w.SetMana1(nodeID, cBase)
+			Events().Pledged.Trigger(&PledgedEvent{
+				NodeID:        nodeID,
+				Amount:        record.Value,
+				Time:          record.Timestamp,
+				ManaType:      w.Type(),
+				TransactionID: record.TxID,
+			})
 		}
-		w.SetMana1(nodeID, cBase)
-		Events().Pledged.Trigger(&PledgedEvent{
-			NodeID:        nodeID,
-			Amount:        info.Value,
-			Time:          snapshotTime,
-			ManaType:      w.Type(),
-			TransactionID: info.TxID,
-		})
 	}
 }
 

@@ -1,12 +1,14 @@
 package snapshot
 
 import (
+	"fmt"
 	"net/http"
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
+
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 )
@@ -36,31 +38,33 @@ func Plugin() *node.Plugin {
 
 // region DumpCurrentLedger ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+// DumpCurrentLedger dumps the current ledger state.
 func DumpCurrentLedger(c echo.Context) (err error) {
-	// transactions :=
-	messagelayer.Tangle().LedgerState.Transactions()
-	// for _, transaction := range transactions {
-	// 	for _, output := range transaction.Essence().Outputs(){
-	// 		messagelayer.Tangle().LedgerState.
-	// 	}
-	// }
-	return c.JSON(http.StatusOK, nil)
-}
+	snapshot := &ledgerstate.Snapshot{
+		Transactions: make(map[ledgerstate.TransactionID]ledgerstate.Record),
+	}
 
-func New_DumpCurrentLedger(c echo.Context) (snapshot *ledgerstate.Snapshot, err error) {
 	transactions := messagelayer.Tangle().LedgerState.Transactions()
-	snapshot = &ledgerstate.Snapshot{
-		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{},
-	}
-
 	for _, transaction := range transactions {
-		snapshot.Transactions[transaction.ID()] = transaction.Essence()
+		unpsentOutputs := make([]bool, len(transaction.Essence().Outputs()))
+		for i, output := range transaction.Essence().Outputs() {
+			messagelayer.Tangle().LedgerState.OutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+				if outputMetadata.ConsumerCount() == 0 {
+					unpsentOutputs[i] = true
+				}
+			})
+		}
+		if len(unpsentOutputs) > 0 {
+			snapshot.Transactions[transaction.ID()] = ledgerstate.Record{
+				Essence:        transaction.Essence(),
+				UnpsentOutputs: unpsentOutputs,
+			}
+		}
 	}
 
-	return snapshot, c.JSON(http.StatusOK, nil)
+	fmt.Println(snapshot)
 
-	// // testTangle.LedgerState.LoadSnapshot(snapshot)
-
+	return c.JSON(http.StatusOK, nil)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

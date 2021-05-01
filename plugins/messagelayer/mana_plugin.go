@@ -796,30 +796,31 @@ func QueryAllowed() (allowed bool) {
 }
 
 func loadSnapshot(snapshot *ledgerstate.Snapshot) {
-	manaSnapshot := make(map[identity.ID]*mana.SnapshotInfo)
-	var snapshotTime time.Time
+	manaSnapshot := make(map[identity.ID][]*mana.SnapshotInfo)
 
-	for txID, essence := range snapshot.Transactions {
+	for txID, record := range snapshot.Transactions {
 		totalBalance := uint64(0)
-		for _, output := range essence.Outputs() {
+		for i, output := range record.Essence.Outputs() {
+			if !record.UnpsentOutputs[i] {
+				continue
+			}
 			output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
 				totalBalance += balance
 				return true
 			})
 		}
 		info := &mana.SnapshotInfo{
-			Value: float64(totalBalance),
-			TxID:  txID,
+			Value:     float64(totalBalance),
+			TxID:      txID,
+			Timestamp: record.Essence.Timestamp(),
 		}
-		manaSnapshot[essence.ConsensusPledgeID()] = info
-
-		snapshotTime = essence.Timestamp()
+		manaSnapshot[record.Essence.ConsensusPledgeID()] = append(manaSnapshot[record.Essence.ConsensusPledgeID()], info)
 	}
 
-	baseManaVectors[mana.ConsensusMana].LoadSnapshot(manaSnapshot, snapshotTime)
-	baseManaVectors[mana.AccessMana].LoadSnapshot(manaSnapshot, time.Now())
+	baseManaVectors[mana.ConsensusMana].LoadSnapshot(manaSnapshot)
+	baseManaVectors[mana.AccessMana].LoadSnapshot(manaSnapshot)
 	if ManaParameters.EnableResearchVectors {
-		baseManaVectors[mana.ResearchAccess].LoadSnapshot(manaSnapshot, snapshotTime)
-		baseManaVectors[mana.ResearchConsensus].LoadSnapshot(manaSnapshot, snapshotTime)
+		baseManaVectors[mana.ResearchAccess].LoadSnapshot(manaSnapshot)
+		baseManaVectors[mana.ResearchConsensus].LoadSnapshot(manaSnapshot)
 	}
 }
