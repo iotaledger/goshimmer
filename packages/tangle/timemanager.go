@@ -27,6 +27,7 @@ const (
 // entire network as it tracks the time of the last confirmed message. Comparing the issuing time of the last confirmed
 // message to the node's current wall clock time then yields a reasonable assessment of how much in sync the node is.
 type TimeManager struct {
+	Events *TimeManagerEvents
 	tangle *Tangle
 
 	lastConfirmedMessage LastConfirmedMessage
@@ -36,6 +37,9 @@ type TimeManager struct {
 // NewTimeManager is the constructor for TimeManager.
 func NewTimeManager(tangle *Tangle) (timeManager *TimeManager) {
 	timeManager = &TimeManager{
+		Events: &TimeManagerEvents{
+			TimeUpdated: events.NewEvent(TimeCaller),
+		},
 		tangle: tangle,
 	}
 
@@ -101,6 +105,7 @@ func (t *TimeManager) Synced() bool {
 	return clock.Since(t.lastConfirmedMessage.Time) < t.tangle.Options.SyncTimeWindow
 }
 
+// IsGenesis returns true if the Time is equal to epochs.DefaultGenesisTime.
 func (t *TimeManager) IsGenesis() bool {
 	return t.Time() == time.Unix(epochs.DefaultGenesisTime, 0)
 }
@@ -113,6 +118,7 @@ func (t *TimeManager) updateTime(marker markers.Marker, newLevel int, transition
 	// get message ID of marker
 	messageID := t.tangle.Booker.MarkersManager.MessageID(&marker)
 
+	var updated bool
 	t.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		t.lastConfirmedMutex.Lock()
 		defer t.lastConfirmedMutex.Unlock()
@@ -122,8 +128,28 @@ func (t *TimeManager) updateTime(marker markers.Marker, newLevel int, transition
 				MessageID: messageID,
 				Time:      message.IssuingTime(),
 			}
+			updated = true
 		}
 	})
+
+	if updated {
+		t.Events.TimeUpdated.Trigger(t.Time())
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TimeManagerEvents ////////////////////////////////////////////////////////////////////////////////////////////////
+
+// TimeManagerEvents represents events happening in the TimeManager.
+type TimeManagerEvents struct {
+	// TimeUpdated is triggered when the TangleTime is updated.
+	TimeUpdated *events.Event
+}
+
+// TimeCaller is the caller function for events that hand over a time.Time.
+func TimeCaller(handler interface{}, params ...interface{}) {
+	handler.(func(time.Time))(params[0].(time.Time))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"sync"
 	"time"
 
 	"github.com/iotaledger/hive.go/byteutils"
@@ -10,39 +11,70 @@ import (
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/epochs"
 )
 
 const (
+	// allowedFutureBooking defines the duration in which messages ahead of the TangleTime can be forwarded to the scheduler.
 	allowedFutureBooking = 10 * time.Minute
-	bucketGranularity    = 60
+	// bucketGranularity defines the granularity of the time based buckets in seconds.
+	bucketGranularity = 60
+	bucketInboxSize   = 10
 )
 
+var allowedFutureBookingSeconds = int64(allowedFutureBooking.Seconds())
+
+// Orderer is a Tangle component that makes sure that no messages too far ahead of the TangleTime are booked.
+// This is necessary to basically replay the tangle data structure as it was constructed during syncing to avoid
+// distortions in perceptions of the approval weight.
 type Orderer struct {
 	Events *OrdererEvents
 
-	tangle *Tangle
+	tangle         *Tangle
+	shutdownSignal chan struct{}
+	shutdownWG     sync.WaitGroup
+	shutdownOnce   sync.Once
+
+	bucketInboxMin      int64
+	bucketInbox         chan int64
+	lastScheduledBucket int64
 }
 
+// NewOrderer is the constructor for Orderer.
 func NewOrderer(tangle *Tangle) (orderer *Orderer) {
 	orderer = &Orderer{
 		Events: &OrdererEvents{
 			MessageOrdered: events.NewEvent(MessageIDCaller),
 		},
-		tangle: tangle,
+		tangle:         tangle,
+		shutdownSignal: make(chan struct{}),
+		bucketInbox:    make(chan int64, bucketInboxSize),
 	}
+	orderer.run()
+
+	// store lastScheduledBucket and initialize with genesis if not found
+	orderer.lastScheduledBucket = bucketTime(time.Unix(epochs.DefaultGenesisTime, 0))
 
 	return
 }
 
+// Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (o *Orderer) Setup() {
 	o.tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(o.Order))
-
+	o.tangle.TimeManager.Events.TimeUpdated.Attach(events.NewClosure(o.onTangleTimeUpdated))
 }
 
+// Shutdown shuts down the Orderer and persists its state.
 func (o *Orderer) Shutdown() {
+	o.shutdownOnce.Do(func() {
+		close(o.shutdownSignal)
+	})
 
+	o.shutdownWG.Wait()
 }
 
+// Order is the main function of the Orderer, making sure that no message too far ahead of TangleTime gets scheduled.
 func (o *Orderer) Order(messageID MessageID) {
 	o.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		if o.tangle.TimeManager.IsGenesis() || message.IssuingTime().Before(o.tangle.TimeManager.Time().Add(allowedFutureBooking)) {
@@ -52,15 +84,48 @@ func (o *Orderer) Order(messageID MessageID) {
 		}
 
 		// store message in corresponding bucket
-		o.tangle.Storage.StoreBucketMessageID(o.bucketTime(message.IssuingTime()), messageID)
+		o.tangle.Storage.StoreBucketMessageID(bucketTime(message.IssuingTime()), messageID)
 	})
 }
 
+// run runs the background thread that listens to TangleTime updates (through a channel) and then schedules messages
+// as the TangleTime advances forward.
 func (o *Orderer) run() {
+	o.shutdownWG.Add(1)
+	go func() {
+		defer o.shutdownWG.Done()
 
+		for {
+			select {
+			case <-o.shutdownSignal:
+				return
+			case bucketTime := <-o.bucketInbox:
+				o.scheduleUntil(bucketTime)
+			}
+		}
+	}()
 }
 
-func (o *Orderer) bucketTime(t time.Time) int64 {
+// scheduleUntil schedules messages in stored buckets from lastScheduledBucket until the given bucketTime + allowedFutureBookingSeconds.
+func (o *Orderer) scheduleUntil(bucketTime int64) {
+	for ; o.lastScheduledBucket <= bucketTime+allowedFutureBookingSeconds; o.lastScheduledBucket += bucketGranularity {
+		o.tangle.Storage.BucketMessageIDs(o.lastScheduledBucket).Consume(func(bucketMessageID *BucketMessageID) {
+			o.Events.MessageOrdered.Trigger(bucketMessageID.MessageID())
+		})
+	}
+}
+
+// onTangleTimeUpdated listens to TangleTime updates and pushes buckets to the channel so that they can be scheduled.
+func (o *Orderer) onTangleTimeUpdated(tangleTime time.Time) {
+	bucketTime := bucketTime(tangleTime)
+	if bucketTime > o.bucketInboxMin {
+		o.bucketInboxMin = bucketTime
+		o.bucketInbox <- bucketTime
+	}
+}
+
+// bucketTime converts a time to a bucket with bucketGranularity.
+func bucketTime(t time.Time) int64 {
 	return t.Unix() / bucketGranularity * bucketGranularity
 }
 

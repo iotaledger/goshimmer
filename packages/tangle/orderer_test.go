@@ -63,15 +63,17 @@ func TestOrderer_Order(t *testing.T) {
 	}
 
 	// issue message too far in the future of TangleTime
-	time3 := time2.Add(12 * time.Minute)
+	time3 := time2.Add(11*time.Minute + 20*time.Second)
 	{
+		testFramework.PreventNewMarkers(true)
 		testFramework.CreateMessage("Message3", WithStrongParents("Message2"), WithIssuingTime(time3), WithIssuer(keyPair.PublicKey))
 		testFramework.IssueMessages("Message3")
+		testFramework.PreventNewMarkers(false)
 
 		assert.False(t, testFramework.MessageMetadata("Message3").IsBooked())
 		assert.Equal(t, time2, tangle.TimeManager.Time())
 
-		expectedBucketTime := tangle.Orderer.bucketTime(time3)
+		expectedBucketTime := bucketTime(time3)
 		cachedBucketMessageIDs := tangle.Storage.BucketMessageIDs(expectedBucketTime)
 		assert.Len(t, cachedBucketMessageIDs, 1)
 
@@ -79,6 +81,20 @@ func TestOrderer_Order(t *testing.T) {
 			assert.Equal(t, bucketMessageID.BucketTime(), expectedBucketTime)
 			assert.Equal(t, bucketMessageID.MessageID(), testFramework.MessageMetadata("Message3").ID())
 		})
-
 	}
+
+	// issue message in time, advance TangleTime and then Message3 should be scheduled too
+	time4 := time2.Add(2 * time.Minute)
+	{
+		testFramework.CreateMessage("Message4", WithStrongParents("Message2"), WithIssuingTime(time4), WithIssuer(keyPair.PublicKey))
+		testFramework.IssueMessages("Message4").WaitApprovalWeightProcessed()
+
+		assert.True(t, testFramework.MessageMetadata("Message4").IsBooked())
+		assert.Equal(t, time4, tangle.TimeManager.Time())
+	}
+
+	// Message3 should be booked now.
+	assert.Eventuallyf(t, func() bool {
+		return testFramework.MessageMetadata("Message3").IsBooked()
+	}, 10*time.Second, 500*time.Millisecond, "Message %s not booked in time.", testFramework.MessageMetadata("Message3").ID())
 }
