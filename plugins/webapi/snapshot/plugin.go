@@ -1,8 +1,7 @@
 package snapshot
 
 import (
-	"fmt"
-	"net/http"
+	"os"
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -14,6 +13,10 @@ import (
 )
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+const (
+	snapshotFileName = "snapshot.bin"
+)
 
 var (
 	// plugin holds the singleton instance of the plugin.
@@ -62,9 +65,23 @@ func DumpCurrentLedger(c echo.Context) (err error) {
 		}
 	}
 
-	fmt.Println(snapshot)
+	// plugin.LogInfo(snapshot)
 
-	return c.JSON(http.StatusOK, nil)
+	f, err := os.OpenFile(snapshotFileName, os.O_RDWR|os.O_CREATE, 0666)
+	if err != nil {
+		plugin.LogFatal("unable to create snapshot file", err)
+	}
+
+	n, err := snapshot.WriteTo(f)
+	if err != nil {
+		plugin.LogFatal("unable to write snapshot content to file", err)
+	}
+
+	plugin.LogInfo("Bytes written %d", n)
+	f.Close()
+
+	return c.Attachment(snapshotFileName, snapshotFileName)
+	// JSON(http.StatusOK, nil)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

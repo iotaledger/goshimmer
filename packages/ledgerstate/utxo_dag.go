@@ -42,7 +42,6 @@ type UTXODAG struct {
 func (u *UTXODAG) Transactions() (transactions []*Transaction) {
 	u.transactionStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		(&CachedTransaction{CachedObject: cachedObject}).Consume(func(transaction *Transaction) {
-			fmt.Println(transaction)
 			transactions = append(transactions, transaction)
 		})
 		return true
