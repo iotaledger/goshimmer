@@ -178,8 +178,7 @@ func (l *LedgerState) Snapshot() (snapshot *ledgerstate.Snapshot) {
 		Transactions: make(map[ledgerstate.TransactionID]ledgerstate.Record),
 	}
 
-	transactions := l.Transactions()
-	for _, transaction := range transactions {
+	for _, transaction := range l.Transactions() {
 		unpsentOutputs := make([]bool, len(transaction.Essence().Outputs()))
 		for i, output := range transaction.Essence().Outputs() {
 			l.OutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
