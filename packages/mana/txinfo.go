@@ -48,3 +48,10 @@ type SnapshotInfo struct {
 	TxID      ledgerstate.TransactionID
 	Timestamp time.Time
 }
+
+// SortedSnapshotInfo defines a list of SnapshotInfo sorted by timestamp.
+type SortedSnapshotInfo []*SnapshotInfo
+
+func (s SortedSnapshotInfo) Len() int           { return len(s) }
+func (s SortedSnapshotInfo) Less(i, j int) bool { return s[i].Timestamp.Before(s[j].Timestamp) }
+func (s SortedSnapshotInfo) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }

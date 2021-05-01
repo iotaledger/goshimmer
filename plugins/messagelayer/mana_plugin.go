@@ -796,7 +796,7 @@ func QueryAllowed() (allowed bool) {
 }
 
 func loadSnapshot(snapshot *ledgerstate.Snapshot) {
-	manaSnapshot := make(map[identity.ID][]*mana.SnapshotInfo)
+	manaSnapshot := make(map[identity.ID]mana.SortedSnapshotInfo)
 
 	for txID, record := range snapshot.Transactions {
 		totalBalance := uint64(0)
@@ -815,6 +815,10 @@ func loadSnapshot(snapshot *ledgerstate.Snapshot) {
 			Timestamp: record.Essence.Timestamp(),
 		}
 		manaSnapshot[record.Essence.ConsensusPledgeID()] = append(manaSnapshot[record.Essence.ConsensusPledgeID()], info)
+	}
+
+	for nodeID := range manaSnapshot {
+		sort.Sort(manaSnapshot[nodeID])
 	}
 
 	baseManaVectors[mana.ConsensusMana].LoadSnapshot(manaSnapshot)

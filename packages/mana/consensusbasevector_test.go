@@ -717,7 +717,7 @@ func TestConsensusBaseManaVector_BuildPastBaseVector(t *testing.T) {
 	var eventsLog []Event
 	emptyID := identity.ID{}
 
-	snapshot := map[identity.ID][]*SnapshotInfo{
+	snapshot := map[identity.ID]SortedSnapshotInfo{
 		emptyID: {
 			{
 				Value:     10.0,
