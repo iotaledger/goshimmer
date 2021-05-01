@@ -17,6 +17,7 @@ func TestScheduler(t *testing.T) {
 	// setup tangle up till the Scheduler
 	tangle.Storage.Setup()
 	tangle.Solidifier.Setup()
+	tangle.Orderer.Setup()
 	tangle.Scheduler.Setup()
 
 	// testing desired scheduled order: A - B - D - C  (B - A - D - C is equivalent)
