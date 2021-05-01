@@ -185,9 +185,11 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 	}
 
 	outputs := []ledgerstate.Output{}
+	unspentOutputs := []bool{}
 
 	for address, balance := range genesisOutputs {
 		outputs = append(outputs, ledgerstate.NewSigLockedColoredOutput(balance, address))
+		unspentOutputs = append(unspentOutputs, true)
 	}
 
 	genesisEssence := ledgerstate.NewTransactionEssence(
@@ -205,7 +207,7 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 		Transactions: map[ledgerstate.TransactionID]ledgerstate.Record{
 			genesisTransaction.ID(): {
 				Essence:        genesisEssence,
-				UnpsentOutputs: []bool{true},
+				UnpsentOutputs: unspentOutputs,
 			},
 		},
 	}
