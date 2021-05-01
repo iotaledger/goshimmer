@@ -337,27 +337,17 @@ func (s *StateManager) prepareMoreFundingOutputs() (err error) {
 	// take remainder output and split it up
 	tx := s.createSplittingTx()
 
-	txConfirmed := make(chan *ledgerstate.Transaction, 1)
+	txConfirmed := make(chan ledgerstate.TransactionID, 1)
 
-	monitorTxConfirmation := events.NewClosure(
-		func(msgID tangle.MessageID) {
-			messagelayer.Tangle().Storage.Message(msgID).Consume(func(msg *tangle.Message) {
-				if msg.Payload().Type() == ledgerstate.TransactionType {
-					msgTx, _, er := ledgerstate.TransactionFromBytes(msg.Payload().Bytes())
-					if er != nil {
-						// log.Errorf("Message %s contains invalid transaction payload: %w", msgID.String(), err)
-						return
-					}
-					if msgTx.ID() == tx.ID() {
-						txConfirmed <- msgTx
-					}
-				}
-			})
-		})
+	monitorTxConfirmation := events.NewClosure(func(transactionID ledgerstate.TransactionID) {
+		if tx.ID() == transactionID {
+			txConfirmed <- transactionID
+		}
+	})
 
 	// listen on confirmation
-	messagelayer.Tangle().ConsensusManager.Events.TransactionConfirmed.Attach(monitorTxConfirmation)
-	defer messagelayer.Tangle().ConsensusManager.Events.TransactionConfirmed.Detach(monitorTxConfirmation)
+	messagelayer.Tangle().LedgerState.UTXODAG.Events.TransactionConfirmed.Attach(monitorTxConfirmation)
+	defer messagelayer.Tangle().LedgerState.UTXODAG.Events.TransactionConfirmed.Detach(monitorTxConfirmation)
 
 	// issue the tx
 	issuedMsg, issueErr := s.issueTX(tx)
@@ -385,39 +375,43 @@ func (s *StateManager) prepareMoreFundingOutputs() (err error) {
 }
 
 // updateState takes a confirmed transaction (splitting tx), and updates the faucet internal state based on its content.
-func (s *StateManager) updateState(tx *ledgerstate.Transaction) error {
-	remainingBalance := s.remainderOutput.Balance - s.tokensPerRequest*s.preparedOutputsCount
-	fundingOutputs := make([]*FaucetOutput, 0, s.preparedOutputsCount)
+func (s *StateManager) updateState(transactionID ledgerstate.TransactionID) (err error) {
+	messagelayer.Tangle().LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
+		remainingBalance := s.remainderOutput.Balance - s.tokensPerRequest*s.preparedOutputsCount
+		fundingOutputs := make([]*FaucetOutput, 0, s.preparedOutputsCount)
 
-	// derive information from outputs
-	for _, output := range tx.Essence().Outputs() {
-		iotaBalance, hasIota := output.Balances().Get(ledgerstate.ColorIOTA)
-		if !hasIota {
-			return xerrors.Errorf("tx outputs don't have IOTA balance ")
-		}
-		switch iotaBalance {
-		case s.tokensPerRequest:
-			fundingOutputs = append(fundingOutputs, &FaucetOutput{
-				ID:           output.ID(),
-				Balance:      iotaBalance,
-				Address:      output.Address(),
-				AddressIndex: s.addressToIndex[output.Address().Base58()],
-			})
-		case remainingBalance:
-			s.remainderOutput = &FaucetOutput{
-				ID:           output.ID(),
-				Balance:      iotaBalance,
-				Address:      output.Address(),
-				AddressIndex: s.addressToIndex[output.Address().Base58()],
+		// derive information from outputs
+		for _, output := range transaction.Essence().Outputs() {
+			iotaBalance, hasIota := output.Balances().Get(ledgerstate.ColorIOTA)
+			if !hasIota {
+				err = xerrors.Errorf("tx outputs don't have IOTA balance ")
+				return
 			}
-		default:
-			err := xerrors.Errorf("tx %s should not have output with balance %d", tx.ID().Base58(), iotaBalance)
-			return err
+			switch iotaBalance {
+			case s.tokensPerRequest:
+				fundingOutputs = append(fundingOutputs, &FaucetOutput{
+					ID:           output.ID(),
+					Balance:      iotaBalance,
+					Address:      output.Address(),
+					AddressIndex: s.addressToIndex[output.Address().Base58()],
+				})
+			case remainingBalance:
+				s.remainderOutput = &FaucetOutput{
+					ID:           output.ID(),
+					Balance:      iotaBalance,
+					Address:      output.Address(),
+					AddressIndex: s.addressToIndex[output.Address().Base58()],
+				}
+			default:
+				err = xerrors.Errorf("tx %s should not have output with balance %d", transactionID.Base58(), iotaBalance)
+				return
+			}
 		}
-	}
-	// save the info in internal state
-	s.saveFundingOutputs(fundingOutputs)
-	return nil
+		// save the info in internal state
+		s.saveFundingOutputs(fundingOutputs)
+	})
+
+	return err
 }
 
 // createSplittingTx takes the current remainder output and creates a transaction that splits it into s.preparedOutputsCount
