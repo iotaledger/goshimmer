@@ -46,15 +46,15 @@ func DumpCurrentLedger(c echo.Context) (err error) {
 
 	f, err := os.OpenFile(snapshotFileName, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
-		plugin.LogError("unable to create snapshot file", err)
+		plugin.LogErrorf("unable to create snapshot file %s", err)
 	}
 
 	n, err := snapshot.WriteTo(f)
 	if err != nil {
-		plugin.LogError("unable to write snapshot content to file", err)
+		plugin.LogErrorf("unable to write snapshot content to file %s", err)
 	}
 
-	plugin.LogInfo("Bytes written %d", n)
+	plugin.LogInfof("Bytes written %d", n)
 	f.Close()
 
 	return c.Attachment(snapshotFileName, snapshotFileName)
