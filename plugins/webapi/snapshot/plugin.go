@@ -65,8 +65,6 @@ func DumpCurrentLedger(c echo.Context) (err error) {
 		}
 	}
 
-	// plugin.LogInfo(snapshot)
-
 	f, err := os.OpenFile(snapshotFileName, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
 		plugin.LogFatal("unable to create snapshot file", err)
@@ -81,7 +79,6 @@ func DumpCurrentLedger(c echo.Context) (err error) {
 	f.Close()
 
 	return c.Attachment(snapshotFileName, snapshotFileName)
-	// JSON(http.StatusOK, nil)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
