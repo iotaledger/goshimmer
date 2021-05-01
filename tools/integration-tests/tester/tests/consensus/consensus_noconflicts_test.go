@@ -43,8 +43,8 @@ func TestConsensusNoConflicts(t *testing.T) {
 	nodeID := identity.NewID(pubKey)
 
 	genesisTransactionID := ledgerstate.GenesisTransactionID
-	for ID, tx := range snapshot.Transactions {
-		if tx.AccessPledgeID() == nodeID {
+	for ID, record := range snapshot.Transactions {
+		if record.Essence.AccessPledgeID() == nodeID {
 			genesisTransactionID = ID
 		}
 	}
