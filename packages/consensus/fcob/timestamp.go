@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 )
 
 var (
@@ -21,29 +20,31 @@ var (
 func TimestampQuality(messageID tangle.MessageID, target, current time.Time) (timestampOpinion *TimestampOpinion, err error) {
 	timestampOpinion = &TimestampOpinion{
 		MessageID: messageID,
-		Value:     opinion.Like,
 	}
+	timestampOpinion.SetLiked(true)
 
 	diff := current.Sub(target)
 
 	// timestamp is in the future. This point in the code should only be reached in case of edge cases such as updating sync clock.
 	if diff < 0 {
-		timestampOpinion.Value = opinion.Like
-		timestampOpinion.LoK = Three
+		timestampOpinion.SetLiked(true)
+		timestampOpinion.SetLevelOfKnowledge(Three)
+		// This point in the code should not be reached
+		// err = xerrors.Errorf("Timestamp is in the future : %w", err, cerrors.ErrFatal)
 		return
 	}
 
 	if diff >= TimestampWindow {
-		timestampOpinion.Value = opinion.Dislike
+		timestampOpinion.SetLiked(false)
 	}
 
 	switch {
 	case abs(diff-TimestampWindow) < GratuitousNetworkDelay:
-		timestampOpinion.LoK = One
+		timestampOpinion.SetLevelOfKnowledge(One)
 	case abs(diff-TimestampWindow) < 2*GratuitousNetworkDelay:
-		timestampOpinion.LoK = Two
+		timestampOpinion.SetLevelOfKnowledge(Two)
 	default:
-		timestampOpinion.LoK = Three
+		timestampOpinion.SetLevelOfKnowledge(Three)
 	}
 
 	return

@@ -267,7 +267,7 @@ func GetTransactionConsensusMetadata(c echo.Context) (err error) {
 
 	consensusMechanism := messagelayer.Tangle().Options.ConsensusMechanism.(*fcob.ConsensusMechanism)
 	if consensusMechanism != nil {
-		if consensusMechanism.Storage.TransactionOpinion(transactionID).Consume(func(opinion *fcob.Opinion) {
+		if consensusMechanism.Storage.TransactionOpinion(transactionID).Consume(func(opinion *fcob.TransactionOpinion) {
 			err = c.JSON(http.StatusOK, jsonmodels.NewTransactionConsensusMetadata(transactionID, opinion))
 		}) {
 			return

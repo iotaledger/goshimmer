@@ -372,7 +372,7 @@ type TransactionConsensusMetadata struct {
 }
 
 // NewTransactionConsensusMetadata returns the TransactionConsensusMetadata from the given transaction ID.
-func NewTransactionConsensusMetadata(transactionID ledgerstate.TransactionID, opinion *fcob.Opinion) *TransactionConsensusMetadata {
+func NewTransactionConsensusMetadata(transactionID ledgerstate.TransactionID, opinion *fcob.TransactionOpinion) *TransactionConsensusMetadata {
 	return &TransactionConsensusMetadata{
 		TransactionID: transactionID.Base58(),
 		Timestamp:     opinion.Timestamp().Unix(),
