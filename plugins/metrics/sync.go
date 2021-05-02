@@ -15,7 +15,7 @@ func measureSynced() {
 	metrics.Events().SyncBeaconSynced.Trigger(sbs)
 
 	tts := messagelayer.Tangle().TimeManager.Synced()
-	metrics.Events().SyncBeaconSynced.Trigger(tts)
+	metrics.Events().TangleTimeSynced.Trigger(tts)
 }
 
 // TangleTimeSynced returns if the node is synced based on tangle time.

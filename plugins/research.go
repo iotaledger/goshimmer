@@ -1,6 +1,7 @@
 package plugins
 
 import (
+	"github.com/iotaledger/goshimmer/plugins/remotelogmetrics"
 	"github.com/iotaledger/hive.go/node"
 
 	analysisclient "github.com/iotaledger/goshimmer/plugins/analysis/client"
@@ -18,5 +19,6 @@ var Research = node.Plugins(
 	analysisclient.Plugin(),
 	analysisdashboard.Plugin(),
 	prometheus.Plugin(),
+	remotelogmetrics.Plugin(),
 	networkdelay.App(),
 )
