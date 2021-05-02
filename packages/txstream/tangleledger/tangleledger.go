@@ -2,6 +2,7 @@ package tangleledger
 
 import (
 	"fmt"
+	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -120,7 +121,7 @@ func (t *TangleLedger) PostTransaction(tx *ledgerstate.Transaction) error {
 
 // RequestFunds requests funds from the faucet
 func (t *TangleLedger) RequestFunds(target ledgerstate.Address) error {
-	faucetPayload, err := faucet.NewRequest(target, config.Node().Int(faucet.CfgFaucetPoWDifficulty))
+	faucetPayload, err := faucet.NewRequest(target, config.Node().Int(faucet.CfgFaucetPoWDifficulty), identity.ID{}, identity.ID{})
 	if err != nil {
 		return err
 	}
