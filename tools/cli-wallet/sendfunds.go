@@ -9,6 +9,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/sendfunds_options"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
@@ -64,11 +65,11 @@ func execSendFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	}
 
 	_, err = cliWallet.SendFunds(
-		wallet.Destination(address.Address{
+		sendfunds_options.Destination(address.Address{
 			AddressBytes: destinationAddress.Array(),
 		}, uint64(*amountPtr), color),
-		wallet.AccessManaPledgeID(*accessManaPledgeIDPtr),
-		wallet.ConsensusManaPledgeID(*consensusManaPledgeIDPtr),
+		sendfunds_options.AccessManaPledgeID(*accessManaPledgeIDPtr),
+		sendfunds_options.ConsensusManaPledgeID(*consensusManaPledgeIDPtr),
 	)
 	if err != nil {
 		printUsage(command, err.Error())
