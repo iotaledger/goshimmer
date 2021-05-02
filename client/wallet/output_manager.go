@@ -1,7 +1,7 @@
-package alias_wallet
+package wallet
 
 import (
-	"github.com/iotaledger/goshimmer/client/alias-wallet/packages/address"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 

@@ -53,7 +53,7 @@ func (webConnector WebConnector) UnspentOutputs(addresses ...address.Address) (u
 	}
 
 	// request unspent outputs
-	response, err := webConnector.client.GetUnspentOutputs(base58EncodedAddresses)
+	response, err := webConnector.client.PostAddressUnspentOutputs(base58EncodedAddresses)
 	if err != nil {
 		return
 	}
@@ -62,34 +62,21 @@ func (webConnector WebConnector) UnspentOutputs(addresses ...address.Address) (u
 	unspentOutputs = make(map[address.Address]map[ledgerstate.OutputID]*Output)
 	for _, unspentOutput := range response.UnspentOutputs {
 		// lookup wallet address from raw address
-		addr, addressRequested := addressReverseLookupTable[unspentOutput.Address]
+		addr, addressRequested := addressReverseLookupTable[unspentOutput.Address.Base58]
 		if !addressRequested {
 			panic("the server returned an unrequested address")
 		}
 
 		// iterate through outputs
-		for _, output := range unspentOutput.OutputIDs {
-			// parse output id
-			outputID, parseErr := ledgerstate.OutputIDFromBase58(output.ID)
-			if parseErr != nil {
-				err = parseErr
-
-				return
+		for _, output := range unspentOutput.Outputs {
+			lOutput, err := output.Output.ToLedgerstateOutput()
+			if err != nil {
+				return nil, err
 			}
-
-			// build balances map
-			balancesByColor := make(map[ledgerstate.Color]uint64)
-			for _, bal := range output.Balances {
-				color := colorFromString(bal.Color)
-				balancesByColor[color] += uint64(bal.Value)
-			}
-			balances := ledgerstate.NewColoredBalances(balancesByColor)
-
 			// build output
 			walletOutput := &Output{
-				Address:  addr,
-				OutputID: outputID,
-				Balances: balances,
+				Address: addr,
+				Object:  lOutput,
 				InclusionState: InclusionState{
 					Liked:       output.InclusionState.Liked,
 					Confirmed:   output.InclusionState.Confirmed,
@@ -106,7 +93,7 @@ func (webConnector WebConnector) UnspentOutputs(addresses ...address.Address) (u
 			if _, addressExists := unspentOutputs[addr]; !addressExists {
 				unspentOutputs[addr] = make(map[ledgerstate.OutputID]*Output)
 			}
-			unspentOutputs[addr][walletOutput.OutputID] = walletOutput
+			unspentOutputs[addr][walletOutput.Object.ID()] = walletOutput
 		}
 	}
 
@@ -118,6 +105,30 @@ func (webConnector WebConnector) SendTransaction(tx *ledgerstate.Transaction) (e
 	_, err = webConnector.client.SendTransaction(tx.Bytes())
 
 	return
+}
+
+// GetTransactionInclusionState fetches the inlcusion state of the transaction.
+func (webConnector WebConnector) GetTransactionInclusionState(txID ledgerstate.TransactionID) (inc ledgerstate.InclusionState, err error) {
+	inclusionState, err := webConnector.client.GetTransactionInclusionState(txID.Base58())
+	if err != nil {
+		return
+	}
+	if inclusionState != nil {
+		if inclusionState.Pending && !inclusionState.Confirmed && !inclusionState.Rejected {
+			inc = ledgerstate.Pending
+			return
+		}
+		if !inclusionState.Pending && inclusionState.Confirmed && !inclusionState.Rejected {
+			inc = ledgerstate.Confirmed
+			return
+		}
+		if !inclusionState.Pending && !inclusionState.Confirmed && inclusionState.Rejected {
+			inc = ledgerstate.Rejected
+			return
+		}
+	}
+	return
+
 }
 
 // GetAllowedPledgeIDs gets the list of nodeIDs that the node accepts as pledgeIDs in a transaction.

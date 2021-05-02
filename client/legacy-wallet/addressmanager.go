@@ -1,12 +1,12 @@
-package wallet
+package legacy_wallet
 
 import (
 	"runtime"
 
 	"github.com/iotaledger/hive.go/bitmask"
 
-	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
-	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/client/legacy-wallet/packages/address"
+	"github.com/iotaledger/goshimmer/client/legacy-wallet/packages/seed"
 )
 
 // AddressManager is an manager struct that allows us to keep track of the used and spent addresses.

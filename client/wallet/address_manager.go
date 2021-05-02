@@ -1,12 +1,12 @@
-package alias_wallet
+package wallet
 
 import (
 	"runtime"
 
 	"github.com/iotaledger/hive.go/bitmask"
 
-	"github.com/iotaledger/goshimmer/client/alias-wallet/packages/address"
-	"github.com/iotaledger/goshimmer/client/alias-wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 )
 
 // AddressManager is an manager struct that allows us to keep track of the used and spent addresses.

@@ -1,10 +1,10 @@
-package alias_wallet
+package legacy_wallet
 
 import (
 	"github.com/iotaledger/hive.go/bitmask"
 
 	"github.com/iotaledger/goshimmer/client"
-	"github.com/iotaledger/goshimmer/client/alias-wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/client/legacy-wallet/packages/seed"
 )
 
 // Option represents an optional parameter .

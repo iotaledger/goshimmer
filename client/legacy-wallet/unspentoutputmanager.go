@@ -1,7 +1,7 @@
-package wallet
+package legacy_wallet
 
 import (
-	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
+	"github.com/iotaledger/goshimmer/client/legacy-wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 

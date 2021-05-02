@@ -1,4 +1,4 @@
-package wallet
+package legacy_wallet
 
 import (
 	"crypto/rand"
@@ -9,9 +9,9 @@ import (
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
-	walletaddr "github.com/iotaledger/goshimmer/client/wallet/packages/address"
-	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/client/legacy-wallet/packages/address"
+	walletaddr "github.com/iotaledger/goshimmer/client/legacy-wallet/packages/address"
+	walletseed "github.com/iotaledger/goshimmer/client/legacy-wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 )

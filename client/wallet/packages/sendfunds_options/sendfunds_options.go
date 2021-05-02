@@ -1,4 +1,4 @@
-package wallet
+package sendfunds_options
 
 import (
 	"errors"
@@ -78,16 +78,42 @@ func ConsensusManaPledgeID(nodeID string) SendFundsOption {
 	}
 }
 
+// WaitForConfirmation
+func WaitForConfirmation(wait bool) SendFundsOption {
+	return func(options *sendFundsOptions) error {
+		options.WaitForConfirmation = wait
+		return nil
+	}
+}
+
 // sendFundsOptions is a struct that is used to aggregate the optional parameters provided in the SendFunds call.
 type sendFundsOptions struct {
 	Destinations          map[address.Address]map[ledgerstate.Color]uint64
 	RemainderAddress      address.Address
 	AccessManaPledgeID    string
 	ConsensusManaPledgeID string
+	WaitForConfirmation   bool
 }
 
-// buildSendFundsOptions is a utility function that constructs the sendFundsOptions.
-func buildSendFundsOptions(options ...SendFundsOption) (result *sendFundsOptions, err error) {
+// RequiredFunds derives how much funds are needed based on the Destinations to fund the transfer.
+func (s *sendFundsOptions) RequiredFunds() map[ledgerstate.Color]uint64 {
+	// aggregate total amount of required funds, so we now what and how many funds we need
+	requiredFunds := make(map[ledgerstate.Color]uint64)
+	for _, coloredBalances := range s.Destinations {
+		for color, amount := range coloredBalances {
+			// if we want to color sth then we need fresh IOTA
+			if color == ledgerstate.ColorMint {
+				color = ledgerstate.ColorIOTA
+			}
+
+			requiredFunds[color] += amount
+		}
+	}
+	return requiredFunds
+}
+
+// BuildSendFundsOptions is a utility function that constructs the sendFundsOptions.
+func BuildSendFundsOptions(options ...SendFundsOption) (result *sendFundsOptions, err error) {
 	// create options to collect the arguments provided
 	result = &sendFundsOptions{}
 

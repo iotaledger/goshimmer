@@ -1,4 +1,4 @@
-package alias_wallet
+package legacy_wallet
 
 import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"

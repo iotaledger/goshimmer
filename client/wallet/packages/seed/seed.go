@@ -1,9 +1,9 @@
 package seed
 
 import (
+	address "github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 
-	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 

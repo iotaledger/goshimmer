@@ -1,4 +1,4 @@
-package alias_wallet
+package legacy_wallet
 
 // ServerStatus defines the information of connected server
 type ServerStatus struct {
