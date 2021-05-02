@@ -428,7 +428,7 @@ func (m *Manager) markersReferenceMarkers(laterMarkers, earlierMarkers *Markers,
 	rankCache := make(map[SequenceID]uint64)
 	futureMarkersByRank := newMarkersByRank()
 
-	markersReferenceEarlierMarkers := func(laterMarkers *Markers, requireBiggerMarkers bool) types.TriBool {
+	checkReferenceAndQueueReferencedMarkers := func(laterMarkers *Markers, requireBiggerMarkers bool) types.TriBool {
 		if requireBiggerMarkers && earlierMarkers.LowestIndex() >= laterMarkers.HighestIndex() {
 			return types.Maybe
 		}
@@ -458,27 +458,21 @@ func (m *Manager) markersReferenceMarkers(laterMarkers, earlierMarkers *Markers,
 		return types.Maybe
 	}
 
-	switch markersReferenceEarlierMarkers(laterMarkers, requireBiggerMarkers) {
+	switch markersReferenceEachOther := checkReferenceAndQueueReferencedMarkers(laterMarkers, requireBiggerMarkers); markersReferenceEachOther {
 	case types.True:
 		return true
-	case types.False:
-		return false
-	}
-
-	highestRankOfFutureMarkers := futureMarkersByRank.HighestRank() + 1
-	lowestRankOfEarlierPastMarkers := m.rankOfLowestSequence(earlierMarkers, rankCache)
-
-	for currentRank := highestRankOfFutureMarkers; currentRank > lowestRankOfEarlierPastMarkers; currentRank-- {
-		currentMarkers, rankExists := futureMarkersByRank.Markers(currentRank - 1)
-		if !rankExists {
-			continue
+	case types.Maybe:
+		lowestRankOfEarlierPastMarkers := m.rankOfLowestSequence(earlierMarkers, rankCache)
+		for currentRank := futureMarkersByRank.HighestRank() + 1; currentRank > lowestRankOfEarlierPastMarkers; currentRank-- {
+			if currentMarkers, rankExists := futureMarkersByRank.Markers(currentRank - 1); rankExists {
+				if markersReferenceEachOther = checkReferenceAndQueueReferencedMarkers(currentMarkers, false); markersReferenceEachOther != types.Maybe {
+					break
+				}
+			}
 		}
 
-		switch markersReferenceEarlierMarkers(currentMarkers, false) {
-		case types.True:
+		if markersReferenceEachOther == types.True {
 			return true
-		case types.False:
-			return false
 		}
 	}
 
