@@ -108,7 +108,7 @@ func (o *Orderer) run() {
 
 // scheduleUntil schedules messages in stored buckets from lastScheduledBucket until the given bucketTime + allowedFutureBookingSeconds.
 func (o *Orderer) scheduleUntil(bucketTime int64) {
-	for ; o.lastScheduledBucket <= bucketTime+allowedFutureBookingSeconds; o.lastScheduledBucket += bucketGranularity {
+	for ; o.lastScheduledBucket < bucketTime+allowedFutureBookingSeconds; o.lastScheduledBucket += bucketGranularity {
 		o.tangle.Storage.BucketMessageIDs(o.lastScheduledBucket).Consume(func(bucketMessageID *BucketMessageID) {
 			o.Events.MessageOrdered.Trigger(bucketMessageID.MessageID())
 		})
