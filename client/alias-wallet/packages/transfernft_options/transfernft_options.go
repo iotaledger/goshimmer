@@ -54,6 +54,22 @@ func ToAddress(address string) TransferNFTOption {
 	}
 }
 
+// ResetStateAddress defines if the state address should be set to ToAddress as well, or not.
+func ResetStateAddress(reset bool) TransferNFTOption {
+	return func(options *transferNFTOptions) error {
+		options.ResetStateAddress = reset
+		return nil
+	}
+}
+
+// ResetDelegation defines if the output's delegation staus should be reset.
+func ResetDelegation(reset bool) TransferNFTOption {
+	return func(options *transferNFTOptions) error {
+		options.ResetDelegation = reset
+		return nil
+	}
+}
+
 // transferNFTOptions is a struct that is used to aggregate the optional parameters in the TransferNFT call.
 type transferNFTOptions struct {
 	AccessManaPledgeID    string
@@ -61,6 +77,8 @@ type transferNFTOptions struct {
 	Alias                 *ledgerstate.AliasAddress
 	ToAddress             ledgerstate.Address
 	WaitForConfirmation   bool
+	ResetStateAddress     bool
+	ResetDelegation       bool
 }
 
 func BuildTransferNFTOptions(options ...TransferNFTOption) (result *transferNFTOptions, err error) {

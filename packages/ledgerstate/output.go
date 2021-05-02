@@ -1205,6 +1205,11 @@ func (a *AliasOutput) SetStateAddress(addr Address) error {
 
 // SetGoverningAddress sets the governing address or nil for self-governing
 func (a *AliasOutput) SetGoverningAddress(addr Address) {
+	if addr == nil {
+		a.governingAddress = nil
+		return
+	}
+	// calling Array on nil panics
 	if addr.Array() == a.stateAddress.Array() {
 		addr = nil // self governing
 	}

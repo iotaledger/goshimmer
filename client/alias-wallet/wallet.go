@@ -3,8 +3,10 @@ package alias_wallet
 import (
 	"github.com/iotaledger/goshimmer/client/alias-wallet/packages/address"
 	"github.com/iotaledger/goshimmer/client/alias-wallet/packages/createnft_options"
+	"github.com/iotaledger/goshimmer/client/alias-wallet/packages/delegatefunds_options"
 	"github.com/iotaledger/goshimmer/client/alias-wallet/packages/depositfundstonft_options"
 	"github.com/iotaledger/goshimmer/client/alias-wallet/packages/destroynft_options"
+	"github.com/iotaledger/goshimmer/client/alias-wallet/packages/reclaimfunds_options"
 	"github.com/iotaledger/goshimmer/client/alias-wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/client/alias-wallet/packages/sendfunds_options"
 	"github.com/iotaledger/goshimmer/client/alias-wallet/packages/transfernft_options"
@@ -246,8 +248,122 @@ func (wallet *Wallet) CreateAsset(asset Asset, waitForConfirmation ...bool) (ass
 // region DelegateFunds ////////////////////////////////////////////////////////////////////////////////////////////////
 
 // DelegateFunds delegates funds to a given address by creating a delegated alias output.
-func (wallet *Wallet) DelegateFunds() (tx *ledgerstate.Transaction, err error) {
-	// TODO: implement
+func (wallet *Wallet) DelegateFunds(options ...delegatefunds_options.DelegateFundsOption) (tx *ledgerstate.Transaction, err error) {
+	// build options
+	delegateOptions, err := delegatefunds_options.BuildDelegateFundsOptions(options...)
+	if err != nil {
+		return
+	}
+
+	// how much funds will we need to fund this transfer?
+	requiredFunds := delegateOptions.RequiredFunds()
+	// collect that many outputs for funding
+	consumedOutputs, err := wallet.collectOutputsForFunding(requiredFunds)
+	if err != nil {
+		return
+	}
+
+	// determine pledgeIDs
+	aPledgeID, cPledgeID, err := wallet.derivePledgeIDs(delegateOptions.AccessManaPledgeID, delegateOptions.ConsensusManaPledgeID)
+	if err != nil {
+		return
+	}
+
+	// build inputs from consumed outputs
+	inputs := wallet.buildInputs(consumedOutputs)
+	// aggregate all the funds we consume from inputs
+	totalConsumedFunds := consumedOutputs.TotalFundsInOutputs()
+	var remainderAddress address.Address
+	if delegateOptions.RemainderAddress == address.AddressEmpty {
+		_, spendFromRemainderAddress := consumedOutputs[wallet.RemainderAddress()]
+		_, spendFromReceiveAddress := consumedOutputs[wallet.ReceiveAddress()]
+		if spendFromRemainderAddress && spendFromReceiveAddress {
+			// we are about to spend from both
+			remainderAddress = wallet.NewReceiveAddress()
+		} else if spendFromRemainderAddress && !spendFromReceiveAddress {
+			// we are about to spend from remainder, but not from receive
+			remainderAddress = wallet.ReceiveAddress()
+		} else {
+			// we are not spending from remainder
+			remainderAddress = wallet.RemainderAddress()
+		}
+	} else {
+		remainderAddress = delegateOptions.RemainderAddress
+	}
+
+	unsortedOutputs := ledgerstate.Outputs{}
+	for addr, balanceMap := range delegateOptions.Destinations {
+		var delegationOutput *ledgerstate.AliasOutput
+		delegationOutput, err = ledgerstate.NewAliasOutputMint(balanceMap, addr.Address())
+		if err != nil {
+			return
+		}
+		// we are the governance controllers, so we can claim back the delegated funds
+		delegationOutput.SetGoverningAddress(wallet.ReceiveAddress().Address())
+		// is there a delegation timelock?
+		if !delegateOptions.DelegateUntil.IsZero() {
+			delegationOutput = delegationOutput.WithDelegationAndTimelock(delegateOptions.DelegateUntil)
+		} else {
+			delegationOutput = delegationOutput.WithDelegation()
+		}
+		unsortedOutputs = append(unsortedOutputs, delegationOutput)
+	}
+	// remainder balance = totalConsumed - required
+	for color, balance := range requiredFunds {
+		if totalConsumedFunds[color] < balance {
+			return nil, xerrors.Errorf("delegated funds are greater than consumed funds")
+		}
+		totalConsumedFunds[color] -= balance
+		if totalConsumedFunds[color] <= 0 {
+			delete(totalConsumedFunds, color)
+		}
+	}
+	remainderBalances := ledgerstate.NewColoredBalances(totalConsumedFunds)
+	unsortedOutputs = append(unsortedOutputs, ledgerstate.NewSigLockedColoredOutput(remainderBalances, remainderAddress.Address()))
+
+	outputs := ledgerstate.NewOutputs(unsortedOutputs...)
+	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), aPledgeID, cPledgeID, inputs, outputs)
+	outputsByID := consumedOutputs.OutputsByID()
+	unlockBlocks, inputsAsOutputsInOrder := wallet.buildUnlockBlocks(inputs, outputsByID, txEssence)
+	tx = ledgerstate.NewTransaction(txEssence, unlockBlocks)
+
+	// check syntactical validity by marshaling an unmarshaling
+	tx, _, err = ledgerstate.TransactionFromBytes(tx.Bytes())
+	if err != nil {
+		return nil, err
+	}
+
+	//check tx validity (balances, unlock blocks)
+	ok, err := checkBalancesAndUnlocks(inputsAsOutputsInOrder, tx)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, xerrors.Errorf("created transaction is invalid: %s", tx.String())
+	}
+
+	// mark outputs as spent
+	for addr, outputs := range consumedOutputs {
+		for outputID := range outputs {
+			wallet.outputManager.MarkOutputSpent(addr, outputID)
+		}
+	}
+
+	// mark addresses as spent
+	if !wallet.reusableAddress {
+		for addr := range consumedOutputs {
+			wallet.addressManager.MarkAddressSpent(addr.Index)
+		}
+	}
+
+	err = wallet.connector.SendTransaction(tx)
+	if err != nil {
+		return nil, err
+	}
+	if delegateOptions.WaitForConfirmation {
+		err = wallet.WaitForTxConfirmation(tx.ID())
+	}
+
 	return
 }
 
@@ -256,8 +372,55 @@ func (wallet *Wallet) DelegateFunds() (tx *ledgerstate.Transaction, err error) {
 // region ReclaimDelegatedFunds ////////////////////////////////////////////////////////////////////////////////////////
 
 // ReclaimDelegatedFunds reclaims delegated funds (alias outputs).
-func (wallet *Wallet) ReclaimDelegatedFunds() (tx *ledgerstate.Transaction, err error) {
-	// TODO: implement
+func (wallet *Wallet) ReclaimDelegatedFunds(options ...reclaimfunds_options.ReclaimFundsOption) (tx *ledgerstate.Transaction, err error) {
+	// build options
+	reclaimOptions, err := reclaimfunds_options.BuildReclaimFundsOptions(options...)
+	if err != nil {
+		return
+	}
+	if reclaimOptions.ToAddress == nil {
+		reclaimOptions.ToAddress = wallet.ReceiveAddress().Address()
+	}
+
+	// step 1: set state address to our own, reset delegation status (needs governance transition)
+	// step 2: withdraw whatever is left in it (needs state transition)
+	// step 3: destroy the alias, keep the funds (needs governance transition)
+
+	// step 1
+	tx, err = wallet.TransferNFT(
+		transfernft_options.Alias(reclaimOptions.Alias.Base58()),
+		transfernft_options.ResetStateAddress(true),
+		transfernft_options.ResetDelegation(true),
+		transfernft_options.ToAddress(reclaimOptions.ToAddress.Base58()),
+		transfernft_options.WaitForConfirmation(true),
+	)
+	if err != nil {
+		return
+	}
+
+	// step 2:
+	//how much is inside?
+	_, stateControlled, _, _, err := wallet.AliasBalance()
+	if err != nil {
+		return
+	}
+	withdrawAmount := stateControlled[*reclaimOptions.Alias].Balances().Map()
+	// leave the minimum
+	withdrawAmount[ledgerstate.ColorIOTA] -= ledgerstate.DustThresholdAliasOutputIOTA
+	tx, err = wallet.WithdrawFundsFromNFT(
+		withdrawfundsfromnft_options.Alias(reclaimOptions.Alias.Base58()),
+		withdrawfundsfromnft_options.Amount(withdrawAmount),
+		withdrawfundsfromnft_options.WaitForConfirmation(true),
+	)
+	if err != nil {
+		return
+	}
+	// step 3:
+	tx, err = wallet.DestroyNFT(
+		destroynft_options.Alias(reclaimOptions.Alias.Base58()),
+		destroynft_options.WaitForConfirmation(true),
+	)
+
 	return
 }
 
@@ -398,6 +561,7 @@ func (wallet *Wallet) TransferNFT(options ...transfernft_options.TransferNFTOpti
 			alias.DelegationTimelock().String())
 		return
 	}
+
 	// transfer means we are transferring the governor role, so it has to be a governance update
 	nextAlias := alias.NewAliasOutputNext(true)
 	if nextAlias.IsSelfGoverned() {
@@ -406,7 +570,21 @@ func (wallet *Wallet) TransferNFT(options ...transfernft_options.TransferNFTOpti
 			return
 		}
 	} else {
-		nextAlias.SetGoverningAddress(transferOptions.ToAddress)
+		if transferOptions.ResetStateAddress {
+			// we make it self governed for the receive address
+			nextAlias.SetGoverningAddress(nil)
+			err = nextAlias.SetStateAddress(transferOptions.ToAddress)
+			if err != nil {
+				return
+			}
+		} else {
+			// only transfer the governor role, state controller remains.
+			nextAlias.SetGoverningAddress(transferOptions.ToAddress)
+		}
+	}
+
+	if transferOptions.ResetDelegation {
+		nextAlias.SetIsDelegated(false)
 	}
 
 	essence := ledgerstate.NewTransactionEssence(0, time.Now(), accessPledgeNodeID, consensusPledgeNodeID,
@@ -980,16 +1158,16 @@ func (wallet *Wallet) Balance() (confirmedBalance map[ledgerstate.Color]uint64, 
 
 // AliasBalance returns the aliases held by this wallet
 func (wallet *Wallet) AliasBalance() (
-	confirmedGovernedAliases map[*ledgerstate.AliasAddress]*ledgerstate.AliasOutput,
-	confirmedStateControlledAliases map[*ledgerstate.AliasAddress]*ledgerstate.AliasOutput,
-	pendingGovernedAliases map[*ledgerstate.AliasAddress]*ledgerstate.AliasOutput,
-	pendingStateControlledAliases map[*ledgerstate.AliasAddress]*ledgerstate.AliasOutput,
+	confirmedGovernedAliases map[ledgerstate.AliasAddress]*ledgerstate.AliasOutput,
+	confirmedStateControlledAliases map[ledgerstate.AliasAddress]*ledgerstate.AliasOutput,
+	pendingGovernedAliases map[ledgerstate.AliasAddress]*ledgerstate.AliasOutput,
+	pendingStateControlledAliases map[ledgerstate.AliasAddress]*ledgerstate.AliasOutput,
 	err error,
 ) {
-	confirmedGovernedAliases = map[*ledgerstate.AliasAddress]*ledgerstate.AliasOutput{}
-	confirmedStateControlledAliases = map[*ledgerstate.AliasAddress]*ledgerstate.AliasOutput{}
-	pendingGovernedAliases = map[*ledgerstate.AliasAddress]*ledgerstate.AliasOutput{}
-	pendingStateControlledAliases = map[*ledgerstate.AliasAddress]*ledgerstate.AliasOutput{}
+	confirmedGovernedAliases = map[ledgerstate.AliasAddress]*ledgerstate.AliasOutput{}
+	confirmedStateControlledAliases = map[ledgerstate.AliasAddress]*ledgerstate.AliasOutput{}
+	pendingGovernedAliases = map[ledgerstate.AliasAddress]*ledgerstate.AliasOutput{}
+	pendingStateControlledAliases = map[ledgerstate.AliasAddress]*ledgerstate.AliasOutput{}
 	err = wallet.Refresh(true)
 	if err != nil {
 		return nil, nil, nil, nil, err
@@ -1005,7 +1183,7 @@ func (wallet *Wallet) AliasBalance() (
 					continue
 				}
 				// target maps
-				var governedAliases, stateControlledAliases map[*ledgerstate.AliasAddress]*ledgerstate.AliasOutput
+				var governedAliases, stateControlledAliases map[ledgerstate.AliasAddress]*ledgerstate.AliasOutput
 				//fmt.Println("Output ", output.Object.ID().Base58(), " confirmed: ", output.InclusionState.Confirmed)
 				if output.InclusionState.Confirmed {
 					governedAliases = confirmedGovernedAliases
@@ -1017,11 +1195,56 @@ func (wallet *Wallet) AliasBalance() (
 				alias := output.Object.(*ledgerstate.AliasOutput)
 				if alias.GetGoverningAddress().Equals(addr.Address()) {
 					// alias is governed by the wallet
-					governedAliases[alias.GetAliasAddress()] = alias
+					governedAliases[*alias.GetAliasAddress()] = alias
 				}
 				if alias.GetStateAddress().Equals(addr.Address()) {
 					// alias is state controlled by the wallet
-					stateControlledAliases[alias.GetAliasAddress()] = alias
+					stateControlledAliases[*alias.GetAliasAddress()] = alias
+				}
+			}
+		}
+	}
+	return
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region DelegatedAliasBalance ////////////////////////////////////////////////////////////////////////////////////////
+
+// DelegatedAliasBalance returns the pending and confirmed aliases that are delegated.
+func (wallet *Wallet) DelegatedAliasBalance() (
+	confirmedDelegatedAliases map[ledgerstate.AliasAddress]*ledgerstate.AliasOutput,
+	pendingDelegatedAliases map[ledgerstate.AliasAddress]*ledgerstate.AliasOutput,
+	err error,
+) {
+	confirmedDelegatedAliases = map[ledgerstate.AliasAddress]*ledgerstate.AliasOutput{}
+	pendingDelegatedAliases = map[ledgerstate.AliasAddress]*ledgerstate.AliasOutput{}
+
+	err = wallet.Refresh(true)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	aliasOutputs := wallet.UnspentAliasOutputs()
+
+	for addr, outputIDToOutputMap := range aliasOutputs {
+		for _, output := range outputIDToOutputMap {
+			if output.Object.Type() == ledgerstate.AliasOutputType {
+				alias := output.Object.(*ledgerstate.AliasOutput)
+				// skip if the output was rejected, spent already or not a delegated one
+				if output.InclusionState.Spent || output.InclusionState.Rejected || !alias.IsDelegated() {
+					continue
+				}
+				// target maps
+				var delegatedAliases map[ledgerstate.AliasAddress]*ledgerstate.AliasOutput
+				if output.InclusionState.Confirmed {
+					delegatedAliases = confirmedDelegatedAliases
+				} else {
+					delegatedAliases = pendingDelegatedAliases
+				}
+				if alias.GetGoverningAddress().Equals(addr.Address()) {
+					// alias is governed by the wallet (and we previously checked that it is delegated)
+					delegatedAliases[*alias.GetAliasAddress()] = alias
 				}
 			}
 		}
