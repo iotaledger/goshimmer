@@ -8,6 +8,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58/base58"
 	"github.com/stretchr/testify/require"
@@ -22,7 +23,7 @@ import (
 // TestConsensusNoConflicts issues valid non-conflicting value objects and then checks
 // whether the ledger of every peer reflects the same correct state.
 func TestConsensusNoConflicts(t *testing.T) {
-	n, err := f.CreateNetwork("consensus_TestConsensusNoConflicts", 4, 2, framework.CreateNetworkConfig{})
+	n, err := f.CreateNetwork("consensus_TestConsensusNoConflicts", 4, 2, framework.CreateNetworkConfig{Mana: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -32,10 +33,26 @@ func TestConsensusNoConflicts(t *testing.T) {
 	genesisSeedBytes, err := base58.Decode("7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih")
 	require.NoError(t, err, "couldn't decode genesis seed from base58 seed")
 
+	snapshot := tests.GetSnapshot()
+
+	faucetPledge := "EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP"
+	pubKey, err := ed25519.PublicKeyFromString(faucetPledge)
+	if err != nil {
+		panic(err)
+	}
+	nodeID := identity.NewID(pubKey)
+
+	genesisTransactionID := ledgerstate.GenesisTransactionID
+	for ID, tx := range snapshot.Transactions {
+		if tx.AccessPledgeID() == nodeID {
+			genesisTransactionID = ID
+		}
+	}
+
 	const genesisBalance = 1000000000000000
 	genesisSeed := seed.NewSeed(genesisSeedBytes)
 	genesisAddr := genesisSeed.Address(0).Address()
-	genesisOutputID := ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0)
+	genesisOutputID := ledgerstate.NewOutputID(genesisTransactionID, 0)
 	input := ledgerstate.NewUTXOInput(genesisOutputID)
 
 	firstReceiver := seed.NewSeed()
@@ -79,8 +96,8 @@ func TestConsensusNoConflicts(t *testing.T) {
 	log.Println("checking that genesis has no UTXOs")
 	tests.CheckAddressOutputsFullyConsumed(t, n.Peers(), []string{genesisAddr.Base58()})
 
-	// since we waited 2.5 avg. network delays and there were no conflicting transactions,
-	// the transaction we just issued must be preferred, liked, finalized and confirmed
+	// Wait for the approval weigth to build up via the sync beacon.
+	time.Sleep(20 * time.Second)
 	log.Println("check that the transaction is finalized/confirmed by all peers")
 	tests.CheckTransactions(t, n.Peers(), map[string]*tests.ExpectedTransaction{
 		txID: {Inputs: &utilsTx.Inputs, Outputs: &utilsTx.Outputs, UnlockBlocks: &utilsTx.UnlockBlocks},
@@ -127,6 +144,9 @@ func TestConsensusNoConflicts(t *testing.T) {
 	time.Sleep(messagelayer.DefaultAverageNetworkDelay*2 + messagelayer.DefaultAverageNetworkDelay/2)
 	log.Println("checking that first set of addresses contain no UTXOs")
 	tests.CheckAddressOutputsFullyConsumed(t, n.Peers(), firstReceiverAddresses)
+
+	// Wait for the approval weigth to build up via the sync beacon.
+	time.Sleep(20 * time.Second)
 	log.Println("checking that the 2nd batch transactions are finalized/confirmed")
 	tests.CheckTransactions(t, n.Peers(), secondReceiverExpectedTransactions, true,
 		tests.ExpectedInclusionState{

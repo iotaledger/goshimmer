@@ -146,6 +146,7 @@ var DiagnosticMessagesTableDescription = []string{
 	"ScheduledTime",
 	"BookedTime",
 	"OpinionFormedTime",
+	"FinalizedTime",
 	"StrongParents",
 	"WeakParents",
 	"StrongApprovers",
@@ -156,6 +157,7 @@ var DiagnosticMessagesTableDescription = []string{
 	"Booked",
 	"Eligible",
 	"Invalid",
+	"Finalized",
 	"Rank",
 	"IsPastMarker",
 	"PastMarkers",
@@ -185,6 +187,7 @@ type DiagnosticMessagesInfo struct {
 	ScheduledTime     time.Time
 	BookedTime        time.Time
 	OpinionFormedTime time.Time
+	FinalizedTime     time.Time
 	StrongParents     tangle.MessageIDs
 	WeakParents       tangle.MessageIDs
 	StrongApprovers   tangle.MessageIDs
@@ -195,6 +198,7 @@ type DiagnosticMessagesInfo struct {
 	Booked            bool
 	Eligible          bool
 	Invalid           bool
+	Finalized         bool
 	Rank              uint64
 	IsPastMarker      bool
 	PastMarkers       string // PastMarkers
@@ -231,18 +235,23 @@ func getDiagnosticMessageInfo(messageID tangle.MessageID) *DiagnosticMessagesInf
 		}
 	})
 
-	branchID := ledgerstate.BranchID{}
+	branchID, err := messagelayer.Tangle().Booker.MessageBranchID(messageID)
+	if err != nil {
+		branchID = ledgerstate.BranchID{}
+	}
 	messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(metadata *tangle.MessageMetadata) {
 		msgInfo.ArrivalTime = metadata.ReceivedTime()
 		msgInfo.SolidTime = metadata.SolidificationTime()
-		msgInfo.BranchID = metadata.BranchID().String()
+		msgInfo.BranchID = branchID.String()
 		msgInfo.Scheduled = metadata.Scheduled()
 		msgInfo.ScheduledTime = metadata.ScheduledTime()
 		msgInfo.BookedTime = metadata.BookedTime()
 		msgInfo.OpinionFormedTime = messagelayer.ConsensusMechanism().OpinionFormedTime(messageID)
+		msgInfo.FinalizedTime = metadata.FinalizedTime()
 		msgInfo.Booked = metadata.IsBooked()
 		msgInfo.Eligible = metadata.IsEligible()
 		msgInfo.Invalid = metadata.IsInvalid()
+		msgInfo.Finalized = metadata.IsFinalized()
 		if metadata.StructureDetails() != nil {
 			msgInfo.Rank = metadata.StructureDetails().Rank
 			msgInfo.IsPastMarker = metadata.StructureDetails().IsPastMarker
@@ -253,8 +262,6 @@ func getDiagnosticMessageInfo(messageID tangle.MessageID) *DiagnosticMessagesInf
 			msgInfo.FMHI = uint64(metadata.StructureDetails().FutureMarkers.HighestIndex())
 			msgInfo.FMLI = uint64(metadata.StructureDetails().FutureMarkers.LowestIndex())
 		}
-
-		branchID = metadata.BranchID()
 	}, false)
 
 	msgInfo.StrongApprovers = messagelayer.Tangle().Utils.ApprovingMessageIDs(messageID, tangle.StrongApprover)

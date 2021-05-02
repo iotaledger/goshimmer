@@ -14,7 +14,7 @@ class ManaMsg {
     time: number;
 }
 
-class Node {
+export class Node {
     shortNodeID: string;
     nodeID: string;
     mana: number;

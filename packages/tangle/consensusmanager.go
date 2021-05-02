@@ -81,6 +81,15 @@ func (o *ConsensusManager) MessageEligible(messageID MessageID) (eligible bool) 
 	return
 }
 
+// SetTransactionLiked sets the transaction like status.
+func (o *ConsensusManager) SetTransactionLiked(transactionID ledgerstate.TransactionID, liked bool) (modified bool) {
+	if o.tangle.Options.ConsensusMechanism == nil {
+		return
+	}
+
+	return o.tangle.Options.ConsensusMechanism.SetTransactionLiked(transactionID, liked)
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region ConsensusManagerEvents ///////////////////////////////////////////////////////////////////////////////////////
@@ -111,6 +120,9 @@ type ConsensusMechanism interface {
 
 	// Shutdown shuts down the ConsensusMechanism and persists its state.
 	Shutdown()
+
+	// SetTransactionLiked sets the transaction like status.
+	SetTransactionLiked(transactionID ledgerstate.TransactionID, liked bool) (modified bool)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

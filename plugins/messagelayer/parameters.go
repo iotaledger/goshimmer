@@ -22,6 +22,9 @@ var Parameters = struct {
 	FCOB struct {
 		AverageNetworkDelay int `default:"5" usage:"the avg. network delay to use for FCoB rules"`
 	}
+
+	// TangleTimeWindow defines the time window in which the node considers itself as synced according to TangleTime.
+	TangleTimeWindow time.Duration `default:"1m" usage:"the time window in which the node considers itself as synced according to TangleTime"`
 }{}
 
 // FPCParameters contains the configuration parameters used by the FPC consensus.
@@ -38,8 +41,17 @@ var FPCParameters = struct {
 	// QuerySampleSize defines how many nodes will be queried each round.
 	QuerySampleSize int `default:"21" usage:"Size of the voting quorum (k)"`
 
-	// TotalRoundsFinalization The amount of rounds a vote context's opinion needs to stay the same to be considered final. Also called 'l'.
-	TotalRoundsFinalization int `default:"10" usage:"The number of rounds opinion needs to stay the same to become final (l)."`
+	// TotalRoundsFinalization defines the amount of rounds a vote context's opinion needs to stay the same to be considered final. Also called 'l'.
+	TotalRoundsFinalization int `default:"10" usage:"The number of rounds opinion needs to stay the same to become final (l)"`
+
+	// DRNGInstanceID the instanceID of the dRNG to be used with FPC
+	DRNGInstanceID uint32 `default:"1339" usage:"The instanceID of the dRNG to be used with FPC"`
+
+	// AwaitOffset defines the max amount of time (in seconds) to wait for the next dRNG round after the excected time has elapsed.
+	AwaitOffset int64 `default:"3" usage:"The max amount of time (in seconds) to wait for the next dRNG round after the excected time has elapsed"`
+
+	// DefaultRandomness defines default randomness used by FPC when no random is received from the dRNG
+	DefaultRandomness float64 `default:"0.5" usage:"The default randomness used by FPC when no random is received from the dRNG"`
 }{}
 
 // StatementParameters contains the configuration parameters used by the FPC statements in the tangle.

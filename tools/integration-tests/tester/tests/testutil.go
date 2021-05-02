@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"os"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -12,6 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
+	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
@@ -103,9 +105,16 @@ func SendFaucetRequestOnRandomPeer(t *testing.T, peers []*framework.Peer, numMes
 	return ids, addrBalance
 }
 
-// SendFaucetRequest sends a data message on a given peer and returns the id and a DataMessageSent struct.
-func SendFaucetRequest(t *testing.T, peer *framework.Peer, addr ledgerstate.Address) (string, DataMessageSent) {
-	resp, err := peer.SendFaucetRequest(addr.Base58())
+// SendFaucetRequest sends a data message on a given peer and returns the id and a DataMessageSent struct. By default,
+// it pledges mana to the peer making the request.
+func SendFaucetRequest(t *testing.T, peer *framework.Peer, addr ledgerstate.Address, manaPledgeIDs ...string) (string, DataMessageSent) {
+	peerID := base58.Encode(peer.ID().Bytes())
+	aManaPledgeID, cManaPledgeID := peerID, peerID
+	if len(manaPledgeIDs) > 1 {
+		aManaPledgeID, cManaPledgeID = manaPledgeIDs[0], manaPledgeIDs[1]
+	}
+
+	resp, err := peer.SendFaucetRequest(addr.Base58(), aManaPledgeID, cManaPledgeID)
 	require.NoErrorf(t, err, "Could not send faucet request on %s", peer.String())
 
 	sent := DataMessageSent{
@@ -634,4 +643,16 @@ func SelectIndex(transaction *ledgerstate.Transaction, address ledgerstate.Addre
 		}
 	}
 	return
+}
+
+func GetSnapshot() *ledgerstate.Snapshot {
+	snapshot := &ledgerstate.Snapshot{}
+	f, err := os.Open("/tmp/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin")
+	if err != nil {
+		panic(fmt.Sprintln("can not open snapshot file: ", err))
+	}
+	if _, err := snapshot.ReadFrom(f); err != nil {
+		panic(fmt.Sprintln("could not read snapshot file: ", err))
+	}
+	return snapshot
 }

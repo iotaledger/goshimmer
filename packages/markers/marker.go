@@ -16,6 +16,9 @@ import (
 
 // region Marker ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// MarkerLength represents the amount of bytes of a marshaled Marker.
+const MarkerLength = SequenceIDLength + IndexLength
+
 // Marker represents a coordinate in a Sequence that is identified by an ever increasing Index.
 type Marker struct {
 	sequenceID SequenceID
@@ -64,7 +67,7 @@ func (m *Marker) Index() (index Index) {
 }
 
 // Bytes returns a marshaled version of the Marker.
-func (m *Marker) Bytes() (marshaledMarker []byte) {
+func (m Marker) Bytes() (marshaledMarker []byte) {
 	return marshalutil.New(marshalutil.Uint64Size + marshalutil.Uint64Size).
 		Write(m.sequenceID).
 		Write(m.index).
@@ -156,19 +159,23 @@ func (m *Markers) SequenceIDs() (sequenceIDs SequenceIDs) {
 	return NewSequenceIDs(sequenceIDsSlice...)
 }
 
-// HighestSequenceMarker returns the Marker of the highest SequenceID in the collection. It can for example be used to
-// retrieve the new Marker that was assigned when increasing the Index of a Sequence.
-func (m *Markers) HighestSequenceMarker() (highestSequenceMarker *Marker) {
+// Marker type casts the Markers to a Marker if it contains only 1 element.
+func (m *Markers) Marker() (marker *Marker) {
 	m.markersMutex.RLock()
 	defer m.markersMutex.RUnlock()
 
-	for sequenceID, index := range m.markers {
-		if highestSequenceMarker == nil || sequenceID > highestSequenceMarker.SequenceID() {
-			highestSequenceMarker = &Marker{sequenceID: sequenceID, index: index}
+	switch len(m.markers) {
+	case 0:
+		panic("converting empty Markers into a single Marker is not supported")
+	case 1:
+		for sequenceID, index := range m.markers {
+			return &Marker{sequenceID: sequenceID, index: index}
 		}
+	default:
+		panic("converting multiple Markers into a single Marker is not supported")
 	}
 
-	return highestSequenceMarker
+	return
 }
 
 // Get returns the Index of the Marker with the given Sequence and a flag that indicates if the Marker exists.
@@ -256,10 +263,14 @@ func (m *Markers) Delete(sequenceID SequenceID) (existed bool) {
 // The method returns false if the iteration was aborted.
 func (m *Markers) ForEach(iterator func(sequenceID SequenceID, index Index) bool) (success bool) {
 	m.markersMutex.RLock()
-	defer m.markersMutex.RUnlock()
+	markersCopy := make(map[SequenceID]Index)
+	for sequenceID, index := range m.markers {
+		markersCopy[sequenceID] = index
+	}
+	m.markersMutex.RUnlock()
 
 	success = true
-	for sequenceID, index := range m.markers {
+	for sequenceID, index := range markersCopy {
 		if success = iterator(sequenceID, index); !success {
 			return
 		}
