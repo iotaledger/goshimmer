@@ -124,13 +124,13 @@ func OutputIDFromBytes(bytes []byte) (outputID OutputID, consumedBytes int, err 
 
 // OutputIDFromBase58 creates an OutputID from a base58 encoded string.
 func OutputIDFromBase58(base58String string) (outputID OutputID, err error) {
-	bytes, err := base58.Decode(base58String)
+	decodedBytes, err := base58.Decode(base58String)
 	if err != nil {
 		err = xerrors.Errorf("error while decoding base58 encoded OutputID (%v): %w", err, cerrors.ErrBase58DecodeFailed)
 		return
 	}
 
-	if outputID, _, err = OutputIDFromBytes(bytes); err != nil {
+	if outputID, _, err = OutputIDFromBytes(decodedBytes); err != nil {
 		err = xerrors.Errorf("failed to parse OutputID from bytes: %w", err)
 		return
 	}

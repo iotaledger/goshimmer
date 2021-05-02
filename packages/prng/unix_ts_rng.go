@@ -11,12 +11,12 @@ import (
 type TimeSourceFunc func() int64
 
 // NewUnixTimestampPRNG creates a new Unix timestamp based pseudo random number generator
-// using the given resolution. The resolution defines at which second interval numbers are generated.
-func NewUnixTimestampPRNG(resolution int64, timeSourceFunc ...TimeSourceFunc) *UnixTimestampPrng {
+// using the given interval. The interval defines at which second interval numbers are generated.
+func NewUnixTimestampPRNG(interval int64, timeSourceFunc ...TimeSourceFunc) *UnixTimestampPrng {
 	utrng := &UnixTimestampPrng{
 		c:              make(chan float64),
 		exit:           make(chan struct{}),
-		resolution:     resolution,
+		interval:       interval,
 		timeSourceFunc: func() int64 { return clock.SyncedTime().Unix() },
 	}
 	if len(timeSourceFunc) > 0 {
@@ -30,21 +30,21 @@ func NewUnixTimestampPRNG(resolution int64, timeSourceFunc ...TimeSourceFunc) *U
 type UnixTimestampPrng struct {
 	c              chan float64
 	exit           chan struct{}
-	resolution     int64
+	interval       int64
 	timeSourceFunc TimeSourceFunc
 }
 
 // Start starts the Unix timestamp pseudo random number generator by examining the
 // interval and then starting production of numbers after at least interval seconds
-// plus delta of the next resolution time have elapsed.
+// plus delta of the next interval time have elapsed.
 func (utrng *UnixTimestampPrng) Start() {
 	nowSec := utrng.timeSourceFunc()
-	nextTimePoint := ResolveNextTimePoint(nowSec, utrng.resolution)
+	nextTimePoint := ResolveNextTimePoint(nowSec, utrng.interval)
 	time.AfterFunc(time.Duration(nextTimePoint-nowSec)*time.Second, func() {
 		// send for the first time right after the timer is executed
 		utrng.send()
 
-		t := time.NewTicker(time.Duration(utrng.resolution) * time.Second)
+		t := time.NewTicker(time.Duration(utrng.interval) * time.Second)
 		defer t.Stop()
 	out:
 		for {
@@ -61,8 +61,8 @@ func (utrng *UnixTimestampPrng) Start() {
 // sends the next pseudo random number to the consumer channel.
 func (utrng *UnixTimestampPrng) send() {
 	now := utrng.timeSourceFunc()
-	// reduce to last resolution
-	timePoint := now - (now % utrng.resolution)
+	// reduce to last interval
+	timePoint := now - (now % utrng.interval)
 
 	// add entropy and convert to float64
 	pseudoR := rand.New(rand.NewSource(timePoint)).Float64()
@@ -85,6 +85,6 @@ func (utrng *UnixTimestampPrng) Stop() {
 }
 
 // ResolveNextTimePoint returns the next time point.
-func ResolveNextTimePoint(nowSec int64, resolution int64) int64 {
-	return nowSec + (resolution - nowSec%resolution)
+func ResolveNextTimePoint(nowSec, interval int64) int64 {
+	return nowSec + (interval - nowSec%interval)
 }

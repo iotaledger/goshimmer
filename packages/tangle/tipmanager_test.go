@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/packages/epochs"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
@@ -22,15 +23,31 @@ func TestTipManager_AddTip(t *testing.T) {
 
 	seed := ed25519.NewSeed()
 
-	tangle.LedgerState.LoadSnapshot(map[ledgerstate.TransactionID]map[ledgerstate.Address]*ledgerstate.ColoredBalances{
-		ledgerstate.GenesisTransactionID: {
-			ledgerstate.NewED25519Address(seed.KeyPair(0).PublicKey): ledgerstate.NewColoredBalances(
-				map[ledgerstate.Color]uint64{
-					ledgerstate.ColorIOTA: 10000,
-				},
-			),
+	output := ledgerstate.NewSigLockedColoredOutput(
+		ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
+			ledgerstate.ColorIOTA: 10000,
+		}),
+		ledgerstate.NewED25519Address(seed.KeyPair(0).PublicKey),
+	)
+
+	genesisEssence := ledgerstate.NewTransactionEssence(
+		0,
+		time.Unix(epochs.DefaultGenesisTime, 0),
+		identity.ID{},
+		identity.ID{},
+		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
+		ledgerstate.NewOutputs(output),
+	)
+
+	genesisTransaction := ledgerstate.NewTransaction(genesisEssence, ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
+
+	snapshot := &ledgerstate.Snapshot{
+		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{
+			genesisTransaction.ID(): genesisEssence,
 		},
-	})
+	}
+
+	tangle.LedgerState.LoadSnapshot(snapshot)
 
 	// not eligible messages -> nothing is added
 	{
@@ -58,7 +75,7 @@ func TestTipManager_AddTip(t *testing.T) {
 			randomID,
 			ledgerstate.NewInputs(
 				ledgerstate.NewUTXOInput(
-					ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0),
+					ledgerstate.NewOutputID(genesisTransaction.ID(), 0),
 				),
 			),
 			ledgerstate.NewOutputs(
@@ -390,17 +407,31 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		map[ledgerstate.Color]uint64{
 			ledgerstate.ColorIOTA: 8,
 		})
-	snapshot := map[ledgerstate.TransactionID]map[ledgerstate.Address]*ledgerstate.ColoredBalances{
-		ledgerstate.GenesisTransactionID: {
-			wallets["G1"].address: g1Balance,
-			wallets["G2"].address: g2Balance,
+
+	genesisEssence := ledgerstate.NewTransactionEssence(
+		0,
+		time.Unix(epochs.DefaultGenesisTime, 0),
+		identity.ID{},
+		identity.ID{},
+		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
+		ledgerstate.NewOutputs([]ledgerstate.Output{
+			ledgerstate.NewSigLockedColoredOutput(g1Balance, wallets["G1"].address),
+			ledgerstate.NewSigLockedColoredOutput(g2Balance, wallets["G2"].address),
+		}...),
+	)
+
+	genesisTransaction := ledgerstate.NewTransaction(genesisEssence, ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
+
+	snapshot := &ledgerstate.Snapshot{
+		Transactions: map[ledgerstate.TransactionID]*ledgerstate.TransactionEssence{
+			genesisTransaction.ID(): genesisEssence,
 		},
 	}
 
 	tangle.LedgerState.LoadSnapshot(snapshot)
 	// determine genesis index so that correct output can be referenced
 	var g1, g2 uint16
-	tangle.LedgerState.utxoDAG.Output(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0)).Consume(func(output ledgerstate.Output) {
+	tangle.LedgerState.utxoDAG.Output(ledgerstate.NewOutputID(genesisTransaction.ID(), 0)).Consume(func(output ledgerstate.Output) {
 		balance, _ := output.Balances().Get(ledgerstate.ColorIOTA)
 		if balance == uint64(5) {
 			g1 = 0
@@ -435,7 +466,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 
 	// Message 1
 	{
-		inputs["G1"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, g1))
+		inputs["G1"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(genesisTransaction.ID(), g1))
 		outputs["A"] = ledgerstate.NewSigLockedSingleOutput(3, wallets["A"].address)
 		outputs["B"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["B"].address)
 		outputs["C"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["C"].address)
@@ -454,7 +485,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 
 	// Message 2
 	{
-		inputs["G2"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, g2))
+		inputs["G2"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(genesisTransaction.ID(), g2))
 		outputs["D"] = ledgerstate.NewSigLockedSingleOutput(6, wallets["D"].address)
 		outputs["E"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["E"].address)
 		outputs["F"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["F"].address)
@@ -854,6 +885,10 @@ func (m *mockConsensusProvider) Setup() {}
 
 func (m *mockConsensusProvider) TransactionLiked(transactionID ledgerstate.TransactionID) (liked bool) {
 	return m.opinionLikedFnc(transactionID)
+}
+
+func (m *mockConsensusProvider) SetTransactionLiked(transactionID ledgerstate.TransactionID, liked bool) (modified bool) {
+	return
 }
 
 func (m *mockConsensusProvider) Shutdown() {}

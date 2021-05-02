@@ -59,10 +59,10 @@ export default class Autopeering extends React.Component<AutopeeringProps, unkno
                             />
                         </div>
                         <div className="node-list">
-                            {nodeListView.length === 0 && search.length > 0 && 
+                            {nodeListView.length === 0 && search.length > 0 &&
                                 <p>There are no nodes to view with the current search parameters.</p>
                             }
-                            {nodeListView.map((nodeId) => 
+                            {nodeListView.map((nodeId) =>
                                 <button
                                     key={nodeId}
                                     onClick={() => this.props.autopeeringStore.handleNodeSelection(nodeId)}
@@ -78,12 +78,12 @@ export default class Autopeering extends React.Component<AutopeeringProps, unkno
                         </div>
                     </div>
                     <div className="node-view-container">
-                        {!this.props.autopeeringStore.selectedNode && 
+                        {!this.props.autopeeringStore.selectedNode &&
                             <div className="card">
                                 <p className="margin-t-t">Select a node to inspect its details.</p>
                             </div>
                         }
-                        {this.props.autopeeringStore.selectedNode && 
+                        {this.props.autopeeringStore.selectedNode &&
                             <NodeView {...this.props} />
                         }
                     </div>
@@ -92,20 +92,20 @@ export default class Autopeering extends React.Component<AutopeeringProps, unkno
                 <div className="visualizer" id="visualizer" >
                     <div className="controls">
                         Active Consensus Mana <BootstrapSwitchButton
-                        size="xs"
-                        onstyle="dark"
-                        checked={this.props.autopeeringStore.manaColoringActive}
-                        onlabel='On'
-                        offlabel='Off'
-                        onChange={(checked: boolean) => {
-                            this.props.autopeeringStore.handleManaColoringChange(checked);
-                        }}
-                    />
+                            size="xs"
+                            onstyle="dark"
+                            checked={this.props.autopeeringStore.manaColoringActive}
+                            onlabel='On'
+                            offlabel='Off'
+                            onChange={(checked: boolean) => {
+                                this.props.autopeeringStore.handleManaColoringChange(checked);
+                            }}
+                        />
                     </div>
                     <div>
                         {
                             this.props.autopeeringStore.manaColoringActive &&
-                            <ManaLegend min={'0 m'} mid={"500 Tm"} max={"1 Pm"}/>
+                            <ManaLegend min={'0 m'} mid={"1e8 m (100Mm)"} max={"1e15 (1Pm)"} />
                         }
                     </div>
                 </div>

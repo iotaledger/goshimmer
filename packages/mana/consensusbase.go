@@ -28,14 +28,13 @@ func (c *ConsensusBaseMana) updateEBM1(n time.Duration) {
 	if c.BaseMana1 == c.EffectiveBaseMana1 {
 		return
 	}
-	// they are not the same, but close. Stop the future updates.
-	if math.Abs(c.BaseMana1-c.EffectiveBaseMana1) < DeltaStopUpdate {
-		c.EffectiveBaseMana1 = c.BaseMana1
-		return
-	}
 	// normal update
 	c.EffectiveBaseMana1 = math.Pow(math.E, -emaCoeff1*n.Seconds())*c.EffectiveBaseMana1 +
 		(1-math.Pow(math.E, -emaCoeff1*n.Seconds()))*c.BaseMana1
+	// they are not the same, but close. Stop the future updates.
+	if math.Abs(c.BaseMana1-c.EffectiveBaseMana1) < DeltaStopUpdate {
+		c.EffectiveBaseMana1 = c.BaseMana1
+	}
 }
 
 func (c *ConsensusBaseMana) revoke(amount float64, t time.Time) error {
