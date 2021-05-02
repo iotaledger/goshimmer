@@ -29,7 +29,7 @@ type Snapshot struct {
 // Record defines a record of the snapshot.
 type Record struct {
 	Essence        *TransactionEssence
-	UnpsentOutputs []bool
+	UnspentOutputs []bool
 }
 
 // WriteTo writes the snapshot data to the given writer.
@@ -55,17 +55,17 @@ func (s *Snapshot) WriteTo(writer io.Writer) (int64, error) {
 		}
 		bytesWritten += int64(len(record.Essence.Bytes()))
 
-		if err := binary.Write(writer, binary.LittleEndian, uint32(len(record.UnpsentOutputs))); err != nil {
+		if err := binary.Write(writer, binary.LittleEndian, uint32(len(record.UnspentOutputs))); err != nil {
 			return 0, fmt.Errorf("unable to write unspent output index lengt hwith %s: %w", transactionID, err)
 		}
 		bytesWritten += 4
 
-		for _, unspentOutput := range record.UnpsentOutputs {
+		for _, unspentOutput := range record.UnspentOutputs {
 			if err := binary.Write(writer, binary.LittleEndian, unspentOutput); err != nil {
 				return 0, fmt.Errorf("unable to write unspent output index with %s: %w", transactionID, err)
 			}
 		}
-		bytesWritten += int64(len(record.UnpsentOutputs))
+		bytesWritten += int64(len(record.UnspentOutputs))
 	}
 
 	return bytesWritten, nil
@@ -111,24 +111,24 @@ func (s *Snapshot) ReadFrom(reader io.Reader) (int64, error) {
 		}
 		bytesRead += int64(n)
 
-		var unspentOutputsLenght uint32
-		if err := binary.Read(reader, binary.LittleEndian, &unspentOutputsLenght); err != nil {
+		var unspentOutputsLength uint32
+		if err := binary.Read(reader, binary.LittleEndian, &unspentOutputsLength); err != nil {
 			return 0, fmt.Errorf("unable to read unspent outputs length at index %d: %w", i, err)
 		}
 		bytesRead += 4
 
-		unspentOutputs := make([]bool, unspentOutputsLenght)
-		for j := 0; j < int(unspentOutputsLenght); j++ {
+		unspentOutputs := make([]bool, unspentOutputsLength)
+		for j := 0; j < int(unspentOutputsLength); j++ {
 			if err := binary.Read(reader, binary.LittleEndian, &unspentOutputs[j]); err != nil {
 				return 0, fmt.Errorf("unable to read unspent output at index %d: %w", j, err)
 			}
 		}
 
-		bytesRead += int64(unspentOutputsLenght)
+		bytesRead += int64(unspentOutputsLength)
 
 		s.Transactions[txID] = Record{
 			Essence:        txEssence,
-			UnpsentOutputs: unspentOutputs,
+			UnspentOutputs: unspentOutputs,
 		}
 	}
 

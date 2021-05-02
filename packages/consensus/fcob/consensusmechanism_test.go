@@ -68,7 +68,7 @@ func TestOpinionFormer_Scenario2(t *testing.T) {
 		Transactions: map[ledgerstate.TransactionID]ledgerstate.Record{
 			genesisTransaction.ID(): {
 				Essence:        genesisEssence,
-				UnpsentOutputs: []bool{true},
+				UnspentOutputs: []bool{true},
 			},
 		},
 	}
@@ -255,7 +255,7 @@ func TestOpinionFormer(t *testing.T) {
 		Transactions: map[ledgerstate.TransactionID]ledgerstate.Record{
 			genesisTransaction.ID(): {
 				Essence:        genesisEssence,
-				UnpsentOutputs: []bool{true},
+				UnspentOutputs: []bool{true},
 			},
 		},
 	}

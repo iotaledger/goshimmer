@@ -56,7 +56,7 @@ func TestScenario_1(t *testing.T) {
 		Transactions: map[ledgerstate.TransactionID]ledgerstate.Record{
 			genesisTransaction.ID(): {
 				Essence:        genesisEssence,
-				UnpsentOutputs: []bool{true},
+				UnspentOutputs: []bool{true},
 			},
 		},
 	}
@@ -297,7 +297,7 @@ func TestScenario_2(t *testing.T) {
 		Transactions: map[ledgerstate.TransactionID]ledgerstate.Record{
 			genesisTransaction.ID(): {
 				Essence:        genesisEssence,
-				UnpsentOutputs: []bool{true},
+				UnspentOutputs: []bool{true},
 			},
 		},
 	}
@@ -650,7 +650,7 @@ func TestScenario_3(t *testing.T) {
 		Transactions: map[ledgerstate.TransactionID]ledgerstate.Record{
 			genesisTransaction.ID(): {
 				Essence:        genesisEssence,
-				UnpsentOutputs: []bool{true},
+				UnspentOutputs: []bool{true},
 			},
 		},
 	}

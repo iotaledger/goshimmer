@@ -45,7 +45,7 @@ func TestTipManager_AddTip(t *testing.T) {
 		Transactions: map[ledgerstate.TransactionID]ledgerstate.Record{
 			genesisTransaction.ID(): {
 				Essence:        genesisEssence,
-				UnpsentOutputs: []bool{true},
+				UnspentOutputs: []bool{true},
 			},
 		},
 	}
@@ -429,7 +429,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		Transactions: map[ledgerstate.TransactionID]ledgerstate.Record{
 			genesisTransaction.ID(): {
 				Essence:        genesisEssence,
-				UnpsentOutputs: []bool{true, true},
+				UnspentOutputs: []bool{true, true},
 			},
 		},
 	}

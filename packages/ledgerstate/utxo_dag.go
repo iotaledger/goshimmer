@@ -276,7 +276,7 @@ func (u *UTXODAG) LoadSnapshot(snapshot *Snapshot) {
 			cached.Release()
 		}
 		for i, output := range record.Essence.outputs {
-			if !record.UnpsentOutputs[i] {
+			if !record.UnspentOutputs[i] {
 				continue
 			}
 			cachedOutput, stored := u.outputStorage.StoreIfAbsent(output)

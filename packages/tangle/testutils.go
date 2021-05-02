@@ -207,7 +207,7 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 		Transactions: map[ledgerstate.TransactionID]ledgerstate.Record{
 			genesisTransaction.ID(): {
 				Essence:        genesisEssence,
-				UnpsentOutputs: unspentOutputs,
+				UnspentOutputs: unspentOutputs,
 			},
 		},
 	}

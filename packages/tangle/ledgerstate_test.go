@@ -42,7 +42,7 @@ func TestLoadSnapshot(t *testing.T) {
 		Transactions: map[ledgerstate.TransactionID]ledgerstate.Record{
 			genesisTransaction.ID(): {
 				Essence:        genesisEssence,
-				UnpsentOutputs: []bool{true},
+				UnspentOutputs: []bool{true},
 			},
 		},
 	}

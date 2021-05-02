@@ -801,7 +801,7 @@ func loadSnapshot(snapshot *ledgerstate.Snapshot) {
 	for txID, record := range snapshot.Transactions {
 		totalBalance := uint64(0)
 		for i, output := range record.Essence.Outputs() {
-			if !record.UnpsentOutputs[i] {
+			if !record.UnspentOutputs[i] {
 				continue
 			}
 			output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {

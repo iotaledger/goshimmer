@@ -109,7 +109,7 @@ func main() {
 
 	record := ledgerstate.Record{
 		Essence:        tx.Essence(),
-		UnpsentOutputs: []bool{true},
+		UnspentOutputs: []bool{true},
 	}
 	transactionsMap[tx.ID()] = record
 
@@ -131,7 +131,7 @@ func main() {
 
 		record := ledgerstate.Record{
 			Essence:        tx.Essence(),
-			UnpsentOutputs: []bool{true},
+			UnspentOutputs: []bool{true},
 		}
 		transactionsMap[tx.ID()] = record
 	}
