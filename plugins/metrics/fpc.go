@@ -1,7 +1,6 @@
 package metrics
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -164,7 +163,6 @@ func (ml *fpcMetricsLogger) onVoteRoundExecuted(roundStats *vote.RoundStats) {
 			Outcome:    ml.getOutcome(conflictID),
 			Time:       time.Now().UTC(),
 		}
-		fmt.Println("Issue FPC round to remotelogger")
 		if err := remotelog.RemoteLogger().Send(record); err != nil {
 			log.Errorw("Failed to send FPC conflict record on round executed event", "err", err)
 		}
