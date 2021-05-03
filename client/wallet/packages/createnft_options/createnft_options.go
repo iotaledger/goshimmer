@@ -32,6 +32,9 @@ func ImmutableData(data []byte) CreateNFTOption {
 		if data == nil {
 			return xerrors.Errorf("empty data supplied for immutable data")
 		}
+		if len(data) > ledgerstate.MaxOutputPayloadSize {
+			return xerrors.Errorf("provided immutable data size %d is greater than maximum allowed %d", len(data), ledgerstate.MaxOutputPayloadSize)
+		}
 		options.ImmutableData = data
 		return nil
 	}

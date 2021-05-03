@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/createnft_options"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/mr-tron/base58"
+	"io/ioutil"
 	"os"
 )
 
@@ -18,6 +19,7 @@ func execCreateNFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	helpPtr := command.Bool("help", false, "show this help screen")
 	initialAmountPtr := command.Int64("initial-amount", 0, "the amount of tokens that should be deposited into the nft upon creation (on top of the minimum required)")
 	colorPtr := command.String("color", "IOTA", "color of the tokens that should be deposited into the nft upon creation (on top of the minimum required)")
+	immutableDataFile := command.String("immutable-data", "", "path to the file containing the immutable data that shall be attached to the nft")
 	accessManaPledgeIDPtr := command.String("access-mana-id", "", "node ID to pledge access mana to")
 	consensusManaPledgeIDPtr := command.String("consensus-mana-id", "", "node ID to pledge consensus mana to")
 
@@ -35,6 +37,19 @@ func execCreateNFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	}
 	if *colorPtr == "" {
 		printUsage(command, "color must be set")
+	}
+	var data []byte
+	if *immutableDataFile != "" {
+		file, err := os.Open(*immutableDataFile)
+		if err != nil {
+			printUsage(command, err.Error())
+		}
+		defer file.Close()
+
+		data, err = ioutil.ReadAll(file)
+		if err != nil {
+			printUsage(command, err.Error())
+		}
 	}
 
 	initialBalance := map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: ledgerstate.DustThresholdAliasOutputIOTA}
@@ -60,11 +75,16 @@ func execCreateNFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 		initialBalance[initColor] = uint64(*initialAmountPtr)
 	}
 
-	_, nftID, err := cliWallet.CreateNFT(
+	options := []createnft_options.CreateNFTOption{
 		createnft_options.InitialBalance(initialBalance),
 		createnft_options.AccessManaPledgeID(*accessManaPledgeIDPtr),
 		createnft_options.ConsensusManaPledgeID(*consensusManaPledgeIDPtr),
-	)
+	}
+	if data != nil {
+		options = append(options, createnft_options.ImmutableData(data))
+	}
+
+	_, nftID, err := cliWallet.CreateNFT(options...)
 	if err != nil {
 		printUsage(command, err.Error())
 	}
