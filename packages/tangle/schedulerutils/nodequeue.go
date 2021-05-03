@@ -31,7 +31,7 @@ func ElementIDFromBytes(bytes []byte) (result ElementID, err error) {
 
 // Element represents the generic interface for an message in NodeQueue.
 type Element interface {
-	// ID returns the ID of an Element.
+	// IDBytes returns the ID of an Element as a byte slice.
 	IDBytes() []byte
 
 	// Bytes returns a marshaled version of the Element.
