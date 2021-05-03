@@ -665,6 +665,11 @@ func (wallet *Wallet) DestroyNFT(options ...destroynft_options.DestroyNFTOption)
 		if err != nil {
 			return
 		}
+		walletAlias, err = wallet.findGovernedAliasOutputByAliasID(destroyOptions.Alias)
+		if err != nil {
+			return
+		}
+		alias = walletAlias.Object.(*ledgerstate.AliasOutput)
 	}
 
 	// determine where the remainder will go
