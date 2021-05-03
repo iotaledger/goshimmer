@@ -124,8 +124,11 @@ func (s *Scheduler) Setup() {
 
 // SetRate sets the rate of the scheduler.
 func (s *Scheduler) SetRate(rate time.Duration) {
-	s.ticker.Reset(rate)
 	s.tangle.Options.SchedulerParams.Rate = rate
+	// only update the ticker when the scheduler is running
+	if s.running.Load() {
+		s.ticker.Reset(rate)
+	}
 }
 
 // Submit submits a message to be considered by the scheduler.
