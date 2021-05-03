@@ -1154,6 +1154,60 @@ func (wallet *Wallet) Balance() (confirmedBalance map[ledgerstate.Color]uint64, 
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// region AvailableBalance //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// AvailableBalance returns the balance that is not held in aliases, and therefore can be used to funds transfers.
+func (wallet *Wallet) AvailableBalance() (confirmedBalance map[ledgerstate.Color]uint64, pendingBalance map[ledgerstate.Color]uint64, err error) {
+	err = wallet.outputManager.Refresh()
+	if err != nil {
+		return
+	}
+
+	confirmedBalance = make(map[ledgerstate.Color]uint64)
+	pendingBalance = make(map[ledgerstate.Color]uint64)
+
+	// iterate through the unspent outputs
+	for addy, outputsOnAddress := range wallet.outputManager.UnspentOutputs() {
+		for _, output := range outputsOnAddress {
+			// skip if the output was rejected or spent already
+			if output.InclusionState.Spent || output.InclusionState.Rejected {
+				continue
+			}
+			// determine target map
+			var targetMap map[ledgerstate.Color]uint64
+			if output.InclusionState.Confirmed {
+				targetMap = confirmedBalance
+			} else {
+				targetMap = pendingBalance
+			}
+
+			switch output.Object.Type() {
+			case ledgerstate.SigLockedSingleOutputType:
+			case ledgerstate.SigLockedColoredOutputType:
+				// extract balance
+				output.Object.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+					targetMap[color] += balance
+					return true
+				})
+			case ledgerstate.ExtendedLockedOutputType:
+				casted := output.Object.(*ledgerstate.ExtendedLockedOutput)
+				unlockAddyNow := casted.UnlockAddressNow(time.Now())
+				if addy.Address().Equals(unlockAddyNow) {
+					// we own this output now
+					casted.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+						targetMap[color] += balance
+						return true
+					})
+				}
+			}
+		}
+	}
+
+	return
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // region AliasBalance /////////////////////////////////////////////////////////////////////////////////////////////////
 
 // AliasBalance returns the aliases held by this wallet
