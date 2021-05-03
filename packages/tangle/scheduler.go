@@ -18,8 +18,8 @@ const (
 	MaxDeficit = MaxMessageSize
 )
 
-// rate is the minimum time interval between two scheduled messages, i.e. 1s / MPS
-var rate = time.Second / 200
+var (
+	// ErrNotRunning is returned when a message is submitted when the scheduler has not been started
 	ErrNotRunning = xerrors.New("scheduler is not running")
 )
 
@@ -59,9 +59,6 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 	}
 	if tangle.Options.SchedulerParams.MaxQueueWeight != nil {
 		schedulerutils.MaxQueueWeight = *tangle.Options.SchedulerParams.MaxQueueWeight
-	}
-	if tangle.Options.SchedulerParams.Rate > 0 {
-		rate = tangle.Options.SchedulerParams.Rate
 	}
 
 	scheduler := &Scheduler{
@@ -130,7 +127,7 @@ func (s *Scheduler) Setup() {
 
 // SetRate sets the rate of the scheduler.
 func (s *Scheduler) SetRate(rate time.Duration) {
-	s.ticker = time.NewTicker(rate)
+	s.ticker.Reset(rate)
 	s.tangle.Options.SchedulerParams.Rate = rate
 }
 
@@ -257,6 +254,8 @@ func (s *Scheduler) schedule() *Message {
 // mainLoop periodically triggers the scheduling of ready messages.
 func (s *Scheduler) mainLoop() {
 	defer s.wg.Done()
+
+	s.ticker = time.NewTicker(s.tangle.Options.SchedulerParams.Rate)
 	defer s.ticker.Stop()
 	for {
 		select {

@@ -92,6 +92,31 @@ func TestScheduler_Schedule(t *testing.T) {
 	}, 1*time.Second, 10*time.Millisecond)
 }
 
+func TestScheduler_SetRate(t *testing.T) {
+	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
+	defer tangle.Shutdown()
+	tangle.Scheduler.Start()
+
+	var scheduled atomic.Bool
+	tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(MessageID) { scheduled.Store(true) }))
+
+	// make sure that the scheduler has been started and effectively disabled the rate
+	time.Sleep(100 * time.Millisecond)
+	tangle.Scheduler.SetRate(time.Hour)
+
+	msg := newMessage(peerNode.PublicKey())
+	tangle.Storage.StoreMessage(msg)
+	assert.NoError(t, tangle.Scheduler.Submit(msg.ID()))
+	assert.NoError(t, tangle.Scheduler.Ready(msg.ID()))
+
+	// the message should not be scheduled as the rate is too low
+	time.Sleep(100 * time.Millisecond)
+	assert.False(t, scheduled.Load())
+
+	tangle.Scheduler.SetRate(testRate)
+	assert.Eventually(t, scheduled.Load, 1*time.Second, 10*time.Millisecond)
+}
+
 func TestScheduler_Time(t *testing.T) {
 	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
 	defer tangle.Shutdown()
