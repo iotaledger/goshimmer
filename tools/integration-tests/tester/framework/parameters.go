@@ -88,6 +88,8 @@ type GoShimmerConfig struct {
 
 	Faucet bool
 
+	GossipDisableAutopeering bool
+
 	SyncBeacon                  bool
 	SyncBeaconFollower          bool
 	SyncBeaconFollowNodes       string

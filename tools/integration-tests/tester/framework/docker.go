@@ -118,6 +118,12 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 			"--webapi.bindAddress=0.0.0.0:8080",
 			fmt.Sprintf("--autopeering.seed=base58:%s", config.Seed),
 			fmt.Sprintf("--autopeering.entryNodes=%s@%s:14626", config.EntryNodePublicKey, config.EntryNodeHost),
+			func() string {
+				if config.GossipDisableAutopeering {
+					return "--gossip.disableAutopeering"
+				}
+				return ""
+			}(),
 			fmt.Sprintf("--fpc.roundInterval=%d", config.FPCRoundInterval),
 			fmt.Sprintf("--fpc.listen=%v", config.FPCListen),
 			fmt.Sprintf("--fpc.totalRoundsFinalization=%d", config.FPCTotalRoundsFinalization),

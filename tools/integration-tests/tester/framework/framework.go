@@ -115,6 +115,7 @@ func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int, 
 			WriteStatement:             ParaWriteStatement,
 			WriteManaThreshold:         ParaWriteManaThreshold,
 			ReadManaThreshold:          ParaReadManaThreshold,
+			GossipDisableAutopeering:   true,
 		}
 		if _, err = network.CreatePeer(config); err != nil {
 			return nil, err
