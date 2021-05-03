@@ -16,7 +16,8 @@ import (
 func configureWebAPI() {
 	webapi.Server().POST("manualpeering/peers", addPeersHandler)
 	webapi.Server().DELETE("manualpeering/peers", removePeersHandler)
-	webapi.Server().GET("manualpeering/peers", getPeersHandler)
+	webapi.Server().GET("manualpeering/peers/known", getKnownPeersHandler)
+	webapi.Server().GET("manualpeering/peers/connected", getConnectedPeersHandler)
 }
 
 /*
@@ -95,7 +96,12 @@ func removePeers(ntds []*peerToRemove) error {
 	return nil
 }
 
-func getPeersHandler(c echo.Context) error {
-	peers := Manager().GetPeers()
+func getKnownPeersHandler(c echo.Context) error {
+	peers := Manager().GetKnownPeers()
+	return c.JSON(http.StatusOK, peers)
+}
+
+func getConnectedPeersHandler(c echo.Context) error {
+	peers := Manager().GetConnectedPeers()
 	return c.JSON(http.StatusOK, peers)
 }
