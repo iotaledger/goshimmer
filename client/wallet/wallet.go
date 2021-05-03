@@ -655,9 +655,16 @@ func (wallet *Wallet) DestroyNFT(options ...destroynft_options.DestroyNFTOption)
 
 	// can only be destroyed when minimal funds are present
 	if !ledgerstate.IsExactDustMinimum(alias.Balances()) {
-		err = xerrors.Errorf("alias %s has more, than minimum balances required for destroy transition", alias.GetAliasAddress().Base58())
-		return
-		// TODO: withdraw funds from alias and continue
+		withdrawAmount := alias.Balances().Map()
+		withdrawAmount[ledgerstate.ColorIOTA] -= ledgerstate.DustThresholdAliasOutputIOTA
+		_, err = wallet.WithdrawFundsFromNFT(
+			withdrawfundsfromnft_options.Alias(destroyOptions.Alias.Base58()),
+			withdrawfundsfromnft_options.Amount(withdrawAmount),
+			withdrawfundsfromnft_options.WaitForConfirmation(true),
+		)
+		if err != nil {
+			return
+		}
 	}
 
 	// determine where the remainder will go
