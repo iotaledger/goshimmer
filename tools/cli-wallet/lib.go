@@ -142,6 +142,8 @@ func printUsage(command *flag.FlagSet, optionalErrorMessage ...string) {
 		fmt.Println("        create an nft as an unforkable alias output")
 		fmt.Println("  transfer-nft")
 		fmt.Println("        transfer the ownership of an nft")
+		fmt.Println("  destroy-nft")
+		fmt.Println("        destroy an nft")
 		fmt.Println("  address")
 		fmt.Println("        start the address manager of this wallet")
 		fmt.Println("  request-funds")
