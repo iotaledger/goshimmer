@@ -5,6 +5,7 @@ import (
 
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/syncutils"
 )
 
 // maxParentsTimeDifference defines the smallest allowed time difference between a child Message and its parents.
@@ -21,6 +22,8 @@ type Solidifier struct {
 	Events *SolidifierEvents
 
 	tangle *Tangle
+
+	triggerMutex syncutils.RWMultiMutex
 }
 
 // NewSolidifier is the constructor of the Solidifier.
@@ -61,6 +64,15 @@ func (s *Solidifier) checkMessageSolidity(message *Message, messageMetadata *Mes
 		return
 	}
 
+	lockBuilder := syncutils.MultiMutexLockBuilder{}
+	lockBuilder.AddLock(messageMetadata.ID())
+	for _, parentMessageID := range message.Parents() {
+		lockBuilder.AddLock(parentMessageID)
+	}
+	lock := lockBuilder.Build()
+
+	s.triggerMutex.Lock(lock...)
+	defer s.triggerMutex.Unlock(lock...)
 	if !messageMetadata.SetSolid(true) {
 		return
 	}
