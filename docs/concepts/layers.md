@@ -6,10 +6,10 @@
 
 GoShimmer abstracts node functionalities into different layers. Similar to other architectures, upper layers build on the provided functionality of the layers below them. A layer is merely the concept of creating a clear separation of concerns.
 
-Layers operate on payloads and it is up to the layer to react to the wanted payload types.
+Layers operate on payloads, and it is up to the layer to react to the wanted payload types.
 
 ## Communication Layer
-The communication layer is the most primitive layer, as its job is to simply form a graph made out of messages which contain payloads. As the name implies, messages are communicated/gossiped throughout the entire network. Think of it as the "physical layer" in the OSI-model. This layer forms a DAG made up from messages as a each message references two previous messages.
+The communication layer is the most primitive layer, as its job is to simply form a graph made out of messages which contain payloads. As the name implies, messages are communicated/gossiped throughout the entire network. Think of it as the "physical layer" in the OSI-model. This layer forms a DAG made up of messages as each message references two previous messages.
 
 ### Message
 A message is a core data type which reflects a vertex in the communication layer [DAG](https://en.wikipedia.org/wiki/Directed_acyclic_graph).
@@ -21,7 +21,7 @@ It contains following properties:
 * The message sequence number from the node which issued the message
 * Payload which might be interpreted by upper layers
 * The nonce which lets the message fulfill the PoW requirement
-* A Signature signing all of the above fields.
+* A Signature signing all the above fields.
 
 A message is gossiped only when it becomes solid, meaning that its past history is known to the node. Messages currently must become solid within a 30 seconds time period, otherwise they are discarded.
 
@@ -74,7 +74,7 @@ A value object is an object derived from a message containing a value object pay
 
 The two references express vouching for the referenced value objects, meaning that they are seen as valid from the PoV of the value object which references them.
 
-A value object is solid when its past cone is known and the contained transaction's inputs are known.
+A value object is solid when its past cone is known, and the contained transaction's inputs are known.
 
 A transaction can occur in multiple value objects. In that case we speak of reattachments.
 
@@ -96,7 +96,7 @@ As just described, an input is merely a reference to another transaction's outpu
 Addresses are BLAKE2b hashes of the corresponding Ed25519 and BLS public keys.
 
 #### Outputs
-An output encapsulates a destination address and a list of balances. A balance is an amount of tokens and a color.
+An output encapsulates a destination address, and a list of balances. A balance is an amount of tokens and a color.
 
 ##### Color & Coloring
 The color of a balance is simply an array of 32 bytes and per default, tokens have a color of type "IOTA", where all 32 bytes are zero.
@@ -120,7 +120,7 @@ These properties minus the signatures make up the "essence" bytes of the transac
 
 A transaction is marked as solid when all of its referenced inputs are known.
 
-A transactions’s byte layout is defined as:
+A transaction’s byte layout is defined as:
 
 ```
 inputs_count<uint32-4bytes>
