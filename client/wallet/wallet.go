@@ -1238,7 +1238,6 @@ func (wallet *Wallet) AliasBalance() (
 				}
 				// target maps
 				var governedAliases, stateControlledAliases map[ledgerstate.AliasAddress]*ledgerstate.AliasOutput
-				//fmt.Println("Output ", output.Object.ID().Base58(), " confirmed: ", output.InclusionState.Confirmed)
 				if output.InclusionState.Confirmed {
 					governedAliases = confirmedGovernedAliases
 					stateControlledAliases = confirmedStateControlledAliases
