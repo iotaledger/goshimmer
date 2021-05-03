@@ -11,8 +11,6 @@ import (
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 	"golang.org/x/xerrors"
-
-	"github.com/iotaledger/goshimmer/packages/epochs"
 )
 
 const (
@@ -20,7 +18,7 @@ const (
 	allowedFutureBooking = 10 * time.Minute
 	// bucketGranularity defines the granularity of the time based buckets in seconds.
 	bucketGranularity = 60
-	bucketInboxSize   = 10
+	bucketInboxSize   = 30
 )
 
 var allowedFutureBookingSeconds = int64(allowedFutureBooking.Seconds())
@@ -36,9 +34,8 @@ type Orderer struct {
 	shutdownWG     sync.WaitGroup
 	shutdownOnce   sync.Once
 
-	bucketInboxMin      int64
-	bucketInbox         chan int64
-	lastScheduledBucket int64
+	bucketInboxMin int64
+	bucketInbox    chan int64
 }
 
 // NewOrderer is the constructor for Orderer.
@@ -52,9 +49,6 @@ func NewOrderer(tangle *Tangle) (orderer *Orderer) {
 		bucketInbox:    make(chan int64, bucketInboxSize),
 	}
 	orderer.run()
-
-	// store lastScheduledBucket and initialize with genesis if not found
-	orderer.lastScheduledBucket = bucketTime(time.Unix(epochs.DefaultGenesisTime, 0))
 
 	return
 }
@@ -83,8 +77,9 @@ func (o *Orderer) Order(messageID MessageID) {
 			return
 		}
 
-		// store message in corresponding bucket
-		o.tangle.Storage.StoreBucketMessageID(bucketTime(message.IssuingTime()), messageID)
+		b := bucketTime(message.IssuingTime())
+		// Store message in corresponding bucket.
+		o.tangle.Storage.StoreBucketMessageID(b, messageID)
 	})
 }
 
@@ -106,11 +101,12 @@ func (o *Orderer) run() {
 	}()
 }
 
-// scheduleUntil schedules messages in stored buckets from lastScheduledBucket until the given bucketTime + allowedFutureBookingSeconds.
+// scheduleUntil schedules messages in stored buckets from lowestStoredBucket until the given bucketTime + allowedFutureBookingSeconds.
 func (o *Orderer) scheduleUntil(bucketTime int64) {
-	for ; o.lastScheduledBucket < bucketTime+allowedFutureBookingSeconds; o.lastScheduledBucket += bucketGranularity {
-		o.tangle.Storage.BucketMessageIDs(o.lastScheduledBucket).Consume(func(bucketMessageID *BucketMessageID) {
+	for i := bucketTime; i < bucketTime+allowedFutureBookingSeconds; i += bucketGranularity {
+		o.tangle.Storage.BucketMessageIDs(i).Consume(func(bucketMessageID *BucketMessageID) {
 			o.Events.MessageOrdered.Trigger(bucketMessageID.MessageID())
+			bucketMessageID.Delete()
 		})
 	}
 }
