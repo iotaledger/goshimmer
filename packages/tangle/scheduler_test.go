@@ -100,7 +100,8 @@ func TestScheduler_SetRate(t *testing.T) {
 	var scheduled atomic.Bool
 	tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(MessageID) { scheduled.Store(true) }))
 
-	// effectively disabled the rate
+	// make sure that the scheduler has been started and effectively disabled the rate
+	time.Sleep(100 * time.Millisecond)
 	tangle.Scheduler.SetRate(time.Hour)
 
 	msg := newMessage(peerNode.PublicKey())

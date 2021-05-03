@@ -123,6 +123,7 @@ func (s *Scheduler) Setup() {
 }
 
 // SetRate sets the rate of the scheduler.
+// It must only be called, when the scheduler has already been started.
 func (s *Scheduler) SetRate(rate time.Duration) {
 	s.tangle.Options.SchedulerParams.Rate = rate
 	// only update the ticker when the scheduler is running
