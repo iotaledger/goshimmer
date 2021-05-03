@@ -52,7 +52,9 @@ func addPeersHandler(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-type peerToRemove struct {
+// PeerToRemove holds the data that uniquely identifies the peer to be removed, e.g. public key or ID.
+// Only public key is supported for now.
+type PeerToRemove struct {
 	PublicKey string `json:"publicKey"`
 }
 
@@ -65,7 +67,7 @@ An example of the HTTP JSON request:
 ]
 */
 func removePeersHandler(c echo.Context) error {
-	var peersToRemove []*peerToRemove
+	var peersToRemove []*PeerToRemove
 	if err := webapi.ParseJSONRequest(c, &peersToRemove); err != nil {
 		plugin.Logger().Errorw("Failed to parse peers to remove from the request", "err", err)
 		return c.JSON(
@@ -83,7 +85,7 @@ func removePeersHandler(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-func removePeers(ntds []*peerToRemove) error {
+func removePeers(ntds []*PeerToRemove) error {
 	keys := make([]ed25519.PublicKey, len(ntds))
 	for i, ntd := range ntds {
 		publicKey, err := ed25519.PublicKeyFromString(ntd.PublicKey)

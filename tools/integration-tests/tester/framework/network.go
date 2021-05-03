@@ -300,7 +300,7 @@ func (n *Network) WaitForAutopeering(minimumNeighbors int) error {
 	for i := autopeeringMaxTries; i > 0; i-- {
 
 		for _, p := range n.peers {
-			if resp, err := p.GetNeighbors(false); err != nil {
+			if resp, err := p.GetAutopeeringNeighbors(false); err != nil {
 				log.Printf("request error: %v\n", err)
 			} else {
 				p.SetNeighbors(resp.Chosen, resp.Accepted)
