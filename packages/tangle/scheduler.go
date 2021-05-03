@@ -78,7 +78,7 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 }
 
 func (s *Scheduler) onMessageSolidHandler(messageID MessageID) {
-	// submit the message to the scheduler and makes it ready when it's parents are booked
+	// submit the message to the scheduler and marks it ready right away
 	err := s.Submit(messageID)
 	if err != nil {
 		s.tangle.Events.Error.Trigger(xerrors.Errorf("failed to submit: %w", err))
