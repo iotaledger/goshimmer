@@ -38,6 +38,7 @@ http://goshimmer.docs.iota.org/
   - [Value layer](./apis/value.md)
 - [Tooling](./tooling.md)
   - [Docker private network](./tooling/docker_private_network.md)
+  - [Integration tests](./tooling/integration_tests.md)
 
 - [Specification of Implementation](./specification.md)
   - [Mana](./specification/001-mana.md)
