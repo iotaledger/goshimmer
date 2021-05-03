@@ -6,10 +6,9 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/tangle/schedulerutils"
-	"go.uber.org/atomic"
-
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
+	"go.uber.org/atomic"
 	"golang.org/x/xerrors"
 )
 
@@ -18,10 +17,8 @@ const (
 	MaxDeficit = MaxMessageSize
 )
 
-var (
-	// ErrNotRunning is returned when a message is submitted when the scheduler has not been started
-	ErrNotRunning = xerrors.New("scheduler is not running")
-)
+// ErrNotRunning is returned when a message is submitted when the scheduler has not been started
+var ErrNotRunning = xerrors.New("scheduler is not running")
 
 // AccessManaRetrieveFunc is a function type to retrieve access mana (e.g. via the mana plugin)
 type AccessManaRetrieveFunc func(nodeID identity.ID) float64
