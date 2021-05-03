@@ -40,7 +40,7 @@ signature<64bytes>
 ```
 
 ### Payloads
-As described above, a message contains a payload. In GoShimmer, there are 3 defined payload types, however, [more such types can be defined by developers seeking to implement their own application on top of the communication layer](https://github.com/iotaledger/goshimmer/wiki/How-to-create-a-simple-dApp).
+As described above, a message contains a payload. In GoShimmer, there are 3 defined payload types, however, [more such types can be defined by developers seeking to implement their own application on top of the communication layer](../tutorials/dApp.md).
 
 | Type ID | Name | Purpose |
 | -------- | -------- | -------- |

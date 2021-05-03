@@ -16,7 +16,7 @@ The command `./run.sh` spins up a GoShimmer network within Docker as schematical
 * default (no argument) or 0: Grafana disabled
 * 1: Grafana enabled
 
-More details on how to set up the dashboard can be found [here](https://github.com/iotaledger/goshimmer/wiki/Setup-up-a-GoShimmer-node-(Joining-the-pollen-testnet)#setting-up-the-grafana-dashboard).
+More details on how to set up the dashboard can be found [here](../tutorials/setup.md).
 
 The peers can communicate freely within the Docker network 
 while the analysis and visualizer dashboard, as well as the `master_peer's` dashboard and web API are reachable from the host system on the respective ports.
