@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -117,13 +118,13 @@ func (s *Scheduler) Setup() {
 func (s *Scheduler) SubmitAndReadyMessage(messageID MessageID) {
 	err := s.Submit(messageID)
 	if err != nil {
-		s.tangle.Events.Error.Trigger(xerrors.Errorf("error in Scheduler Submit: %v", err))
+		s.tangle.Events.Info.Trigger(fmt.Sprintf("error submitting message %s in scheduler: %v", messageID.Base58(), err))
 		return
 	}
 
 	err = s.Ready(messageID)
 	if err != nil {
-		s.tangle.Events.Error.Trigger(xerrors.Errorf("error in Scheduler Ready: %v", err))
+		s.tangle.Events.Error.Trigger(fmt.Sprintf("error setting message %s as ready in scheduler: %v", messageID.Base58(), err))
 		return
 	}
 }
@@ -182,7 +183,7 @@ func (s *Scheduler) Unsubmit(messageID MessageID) {
 		defer s.mu.Unlock()
 		s.buffer.Unsubmit(message)
 	}) {
-		s.tangle.Events.Error.Trigger(xerrors.Errorf("error in Scheduler (Unsubmit): failed to get message '%x' from storage", messageID))
+		s.tangle.Events.Info.Trigger(fmt.Sprintf("error in Scheduler (Unsubmit): failed to get message '%x' from storage", messageID))
 	}
 }
 

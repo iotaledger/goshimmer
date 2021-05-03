@@ -15,7 +15,7 @@ import (
 
 const (
 	// MaxLocalQueueSize is the maximum local (containing the message to be issued) queue size in bytes
-	MaxLocalQueueSize = 20 * MaxMessageSize
+	MaxLocalQueueSize = 10000 * MaxMessageSize //TODO: 20
 	// Backoff is the local threshold for rate setting; < MaxQueueWeight
 	Backoff = 25.0
 	// A is the additive increase
@@ -87,7 +87,7 @@ func NewRateSetter(tangle *Tangle) *RateSetter {
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (r *RateSetter) Setup() {
 	r.tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
-		r.rateSetting()
+		r.rateSetting(messageID)
 	}))
 }
 
@@ -104,7 +104,7 @@ func (r *RateSetter) Submit(message *Message) error {
 	}
 	submitted, err := r.issuingQueue.Submit(message)
 	if err != nil {
-		r.tangle.Events.Error.Trigger(xerrors.Errorf("failed to submit message to issuing queue: %w", err))
+		r.tangle.Events.Info.Trigger(xerrors.Errorf("failed to submit message %s to issuing queue: %w", message.ID().Base58(), err))
 		return err
 	}
 	if submitted {
@@ -120,7 +120,17 @@ func (r *RateSetter) Shutdown() {
 	})
 }
 
-func (r *RateSetter) rateSetting() {
+func (r *RateSetter) rateSetting(messageID MessageID) {
+	cachedMessage := r.tangle.Storage.Message(messageID)
+	var isIssuer bool
+	cachedMessage.Consume(func(message *Message) {
+		nodeID := identity.NewID(message.IssuerPublicKey())
+		isIssuer = r.self == nodeID
+	})
+	if !isIssuer {
+		return
+	}
+
 	if r.haltUpdate > 0 {
 		r.haltUpdate--
 		return
@@ -129,7 +139,7 @@ func (r *RateSetter) rateSetting() {
 	mana := r.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(r.self)
 	totalMana := r.tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc()
 	if mana <= 0 {
-		r.tangle.Events.Error.Trigger(xerrors.Errorf("invalid mana: %f", mana))
+		r.tangle.Events.Info.Trigger(xerrors.Errorf("invalid mana: %f when setting rate for message %s", mana, messageID.Base58()))
 		return
 	}
 

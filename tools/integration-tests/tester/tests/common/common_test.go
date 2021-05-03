@@ -1,10 +1,12 @@
 package common
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
@@ -16,7 +18,10 @@ import (
 // and becomes synced again.
 func TestSynchronization(t *testing.T) {
 	initialPeers := 4
-	n, err := f.CreateNetwork("common_TestSynchronization", initialPeers, 2, framework.CreateNetworkConfig{})
+	n, err := f.CreateNetworkWithMana("common_TestSynchronization", initialPeers, 2, framework.CreateNetworkConfig{
+		Faucet: true,
+		Mana:   true,
+	})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -41,9 +46,12 @@ func TestSynchronization(t *testing.T) {
 
 	// 3. issue some messages on old peers so that new peer can solidify
 	ids = tests.SendDataMessagesOnRandomPeer(t, n.Peers()[:initialPeers], 10, ids)
+	for id := range ids {
+		fmt.Println("issued: ", id)
+	}
 
 	// wait for peer to solidify
-	time.Sleep(15 * time.Second)
+	time.Sleep(90 * time.Second)
 
 	// 4. check whether all issued messages are available on all nodes
 	tests.CheckForMessageIDs(t, n.Peers(), ids, true)

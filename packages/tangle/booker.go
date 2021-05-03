@@ -69,6 +69,7 @@ func (b *Booker) Setup() {
 // BookMessage tries to book the given Message (and potentially its contained Transaction) into the LedgerState and the Tangle.
 // It fires a MessageBooked event if it succeeds.
 func (b *Booker) BookMessage(messageID MessageID) (err error) {
+	fmt.Println("booking message: ", messageID.Base58())
 	b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 			branchIDOfPayload, bookingErr := b.bookPayload(message)

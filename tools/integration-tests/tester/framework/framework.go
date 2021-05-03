@@ -328,26 +328,29 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers, minimumNeighb
 // CreateNetworkWithMana creates and returns a (Docker) Network that contains peers that all have some mana.
 // Mana is gotten by sending faucet requests.
 func (f *Framework) CreateNetworkWithMana(name string, peers, minimumNeighbors int, config CreateNetworkConfig) (*Network, error) {
-	n, err := f.CreateNetwork(name, peers, minimumNeighbors, config)
-	if err != nil {
-		return nil, err
-	}
 	if !config.Faucet {
 		return nil, fmt.Errorf("faucet is required")
 	}
 	if !config.Mana {
 		return nil, fmt.Errorf("mana plugin is required to load mana snapshot")
 	}
+
+	n, err := f.CreateNetwork(name, peers, minimumNeighbors, config)
+	if err != nil {
+		return nil, err
+	}
+	time.Sleep(15 * time.Second)
 	for i := 1; i < len(n.peers); i++ {
 		peer := n.peers[i]
 		addr := peer.Seed.Address(uint64(0)).Address()
 		ID := base58.Encode(peer.ID().Bytes())
-		_, err := peer.SendFaucetRequest(addr.Base58(), ID, ID)
+		_, err := n.peers[0].SendFaucetRequest(addr.Base58(), ID, ID)
+		time.Sleep(2 * time.Second)
 		if err != nil {
 			return nil, fmt.Errorf("faucet request failed on peer %s: %w", peer.ID(), err)
 		}
 	}
-	err = n.WaitForMana()
+	err = n.WaitForMana(n.peers[1:]...)
 	if err != nil {
 		return nil, err
 	}

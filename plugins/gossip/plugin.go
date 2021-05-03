@@ -1,6 +1,7 @@
 package gossip
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -133,17 +134,22 @@ func configureMessageLayer() {
 
 	// configure flow of outgoing messages (gossip after booking)
 	messagelayer.Tangle().Booker.Events.MessageBooked.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		fmt.Println("message booked in gossip plugin: ", messageID.Base58())
+
 		messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
 			messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
 				if clock.Since(messageMetadata.ReceivedTime()) > ageThreshold {
+					fmt.Println("too old: ", messageID.Base58())
 					return
 				}
 
 				// do not gossip requested messages
 				if requested := requestedMsgs.delete(messageID); requested {
+					fmt.Println("skipping requested: ", messageID.Base58())
 					return
 				}
 
+				fmt.Println("message sent: ", messageID.Base58())
 				mgr.SendMessage(message.Bytes())
 			})
 		})

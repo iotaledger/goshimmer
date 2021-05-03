@@ -55,11 +55,13 @@ func broadcastData(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, jsonmodels.DataResponse{Error: err.Error()})
 	}
 
-	// await MessageIssued event to be triggered.
-	err = messagelayer.AwaitMessageToBeIssued(msg.ID(), maxIssuedAwaitTime)
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, jsonmodels.DataResponse{Error: err.Error()})
-	}
+	//TODO: fix this
+	//
+	//// await MessageIssued event to be triggered.
+	//err = messagelayer.AwaitMessageToBeIssued(msg.ID(), maxIssuedAwaitTime)
+	//if err != nil {
+	//	return c.JSON(http.StatusInternalServerError, jsonmodels.DataResponse{Error: err.Error()})
+	//}
 
 	return c.JSON(http.StatusOK, jsonmodels.DataResponse{ID: msg.ID().Base58()})
 }

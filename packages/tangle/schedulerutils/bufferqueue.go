@@ -3,6 +3,7 @@ package schedulerutils
 import (
 	"container/ring"
 	"errors"
+	"fmt"
 
 	"github.com/iotaledger/hive.go/identity"
 	"golang.org/x/xerrors"
@@ -14,7 +15,7 @@ const (
 )
 
 // MaxQueueWeight is the maximum mana-scaled inbox size; >= minMessageSize / minAccessMana
-var MaxQueueWeight = 1024.0
+var MaxQueueWeight = 1024.0 * 1024
 
 var (
 	// ErrInboxExceeded is returned when a node has exceeded its allowed inbox size.
@@ -79,6 +80,11 @@ func (b *BufferQueue) Submit(msg Element, rep float64) error {
 
 	nodeQueue := element.Value.(*NodeQueue)
 	if float64(nodeQueue.Size()+uint(len(msg.Bytes())))/rep > MaxQueueWeight {
+		fmt.Println("node queue size: ", nodeQueue.Size())
+		fmt.Println("len msg: ", len(msg.Bytes()))
+		fmt.Println("rep: ", rep)
+		fmt.Println("val: ", float64(nodeQueue.Size()+uint(len(msg.Bytes())))/rep)
+		fmt.Println("maxqueue weight: ", MaxQueueWeight)
 		return ErrInboxExceeded
 	}
 
