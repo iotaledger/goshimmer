@@ -96,6 +96,8 @@ func (s *Scheduler) onMessageInvalidHandler(messageID MessageID) {
 
 // Start starts the scheduler.
 func (s *Scheduler) Start() {
+	// create the ticker here to assure that SetRate never hits an uninitialized ticker
+	s.ticker = time.NewTicker(s.tangle.Options.SchedulerParams.Rate)
 	// start the main loop
 	s.wg.Add(1)
 	go s.mainLoop()
@@ -123,7 +125,6 @@ func (s *Scheduler) Setup() {
 }
 
 // SetRate sets the rate of the scheduler.
-// It must only be called, when the scheduler has already been started.
 func (s *Scheduler) SetRate(rate time.Duration) {
 	s.tangle.Options.SchedulerParams.Rate = rate
 	// only update the ticker when the scheduler is running
@@ -255,9 +256,8 @@ func (s *Scheduler) schedule() *Message {
 // mainLoop periodically triggers the scheduling of ready messages.
 func (s *Scheduler) mainLoop() {
 	defer s.wg.Done()
-
-	s.ticker = time.NewTicker(s.tangle.Options.SchedulerParams.Rate)
 	defer s.ticker.Stop()
+
 	for {
 		select {
 		// every rate time units
