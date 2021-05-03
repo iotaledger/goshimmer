@@ -426,7 +426,7 @@ func (m *Manager) rankOfLowestSequence(markers *Markers, rankCache map[SequenceI
 // Markers. If requireBiggerMarkers is false then a Marker with an equal Index is considered to be a valid reference.
 func (m *Manager) markersReferenceMarkers(laterMarkers, earlierMarkers *Markers, requireBiggerMarkers bool) (result bool) {
 	rankCache := make(map[SequenceID]uint64)
-	futureMarkersByRank := newMarkersByRank()
+	queuedMarkersByRank := newMarkersByRank()
 
 	checkReferenceAndQueueReferencedMarkers := func(laterMarkers *Markers, requireBiggerMarkers bool) types.TriBool {
 		if requireBiggerMarkers && earlierMarkers.LowestIndex() >= laterMarkers.HighestIndex() {
@@ -448,7 +448,7 @@ func (m *Manager) markersReferenceMarkers(laterMarkers, earlierMarkers *Markers,
 		laterMarkers.ForEach(func(sequenceID SequenceID, index Index) bool {
 			m.Sequence(sequenceID).Consume(func(sequence *Sequence) {
 				sequence.ReferencedMarkers(index).ForEach(func(referencedSequenceID SequenceID, referencedIndex Index) bool {
-					futureMarkersByRank.Add(m.rankOfSequence(referencedSequenceID, rankCache), referencedSequenceID, referencedIndex)
+					queuedMarkersByRank.Add(m.rankOfSequence(referencedSequenceID, rankCache), referencedSequenceID, referencedIndex)
 					return true
 				})
 			})
@@ -463,8 +463,8 @@ func (m *Manager) markersReferenceMarkers(laterMarkers, earlierMarkers *Markers,
 		return true
 	case types.Maybe:
 		lowestRankOfEarlierPastMarkers := m.rankOfLowestSequence(earlierMarkers, rankCache)
-		for currentRank := futureMarkersByRank.HighestRank() + 1; currentRank > lowestRankOfEarlierPastMarkers; currentRank-- {
-			if currentMarkers, rankExists := futureMarkersByRank.Markers(currentRank - 1); rankExists {
+		for currentRank := queuedMarkersByRank.HighestRank() + 1; currentRank > lowestRankOfEarlierPastMarkers; currentRank-- {
+			if currentMarkers, rankExists := queuedMarkersByRank.Markers(currentRank - 1); rankExists {
 				if markersReferenceEachOther = checkReferenceAndQueueReferencedMarkers(currentMarkers, false); markersReferenceEachOther != types.Maybe {
 					break
 				}
