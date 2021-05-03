@@ -2,7 +2,6 @@ package schedulerutils
 
 import (
 	"container/ring"
-	"errors"
 
 	"github.com/iotaledger/hive.go/identity"
 	"golang.org/x/xerrors"
@@ -18,13 +17,11 @@ var MaxQueueWeight = 1024.0
 
 var (
 	// ErrInboxExceeded is returned when a node has exceeded its allowed inbox size.
-	ErrInboxExceeded = errors.New("maximum mana-scaled inbox length exceeded")
-
+	ErrInboxExceeded = xerrors.New("maximum mana-scaled inbox length exceeded")
 	// ErrInvalidMana is returned when the mana is <= 0.
-	ErrInvalidMana = errors.New("mana cannot be <= 0")
-
+	ErrInvalidMana = xerrors.New("mana cannot be <= 0")
 	// ErrBufferFull is returned when the maximum buffer size is exceeded.
-	ErrBufferFull = errors.New("maximum buffer size exceeded")
+	ErrBufferFull = xerrors.New("maximum buffer size exceeded")
 )
 
 // region BufferQueue /////////////////////////////////////////////////////////////////////////////////////////////

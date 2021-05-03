@@ -1,7 +1,6 @@
 package tangle
 
 import (
-	"errors"
 	"math"
 	"sync"
 	"time"
@@ -164,7 +163,7 @@ func (s *Scheduler) Submit(messageID MessageID) error {
 		if err != nil {
 			s.Events.MessageDiscarded.Trigger(messageID)
 		}
-		if errors.Is(err, schedulerutils.ErrInboxExceeded) {
+		if xerrors.Is(err, schedulerutils.ErrInboxExceeded) {
 			s.Events.NodeBlacklisted.Trigger(nodeID)
 		}
 	}) {
