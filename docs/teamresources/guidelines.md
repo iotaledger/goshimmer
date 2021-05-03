@@ -28,7 +28,7 @@
 
 We use the new error wrapping API and behavior introduced with Go 1.13 but we use the "github.com/cockroachdb/errors" drop-in replacement which follows the Go 2 design draft and which enables us to have a stack trace for every "wrapping" of the error.
 
-Errors should always be wrapped an annotated with an additional message at each step. The following example shows how errors are wrapped and turned into the corresponding sentinel errors.
+Errors should always be wrapped and annotated with an additional message at each step. The following example shows how errors are wrapped and turned into the corresponding sentinel errors.
 
 ```go
 package example
