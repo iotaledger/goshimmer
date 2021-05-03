@@ -400,6 +400,25 @@ func (s *Storage) BucketMessageIDs(bucketTime int64) (cachedBucketMessageIDs Cac
 	return
 }
 
+// AllBucketMessageIDsBuckets retrieves all time buckets in bucketMessageIDStorage for debug purposes.
+func (s *Storage) AllBucketMessageIDsBuckets() (buckets []int64, bucketsMap map[int64]int) {
+	bucketsMap = make(map[int64]int)
+	s.bucketMessageIDStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		cachedBucketMessageID := &CachedBucketMessageID{CachedObject: cachedObject}
+		cachedBucketMessageID.Consume(func(bucketMessageID *BucketMessageID) {
+			bucketTime := bucketMessageID.BucketTime()
+			if _, ok := bucketsMap[bucketTime]; !ok {
+				bucketsMap[bucketTime] = 1
+				buckets = append(buckets, bucketTime)
+			} else {
+				bucketsMap[bucketTime]++
+			}
+		})
+		return true
+	})
+	return
+}
+
 func (s *Storage) storeGenesis() {
 	s.MessageMetadata(EmptyMessageID, func() *MessageMetadata {
 		genesisMetadata := &MessageMetadata{

@@ -34,6 +34,7 @@ func configure(_ *node.Plugin) {
 	webapi.Server().GET("tools/message/approval", message.ApprovalHandler)
 	webapi.Server().GET("tools/value/objects", value.ObjectsHandler)
 	webapi.Server().GET("tools/message/orphanage", message.OrphanageHandler)
+	webapi.Server().GET("tools/orderer/debug", message.OrdererDebugHandler)
 
 	webapi.Server().GET("tools/diagnostic/messages", message.DiagnosticMessagesHandler)
 	webapi.Server().GET("tools/diagnostic/messages/firstweakreferences", message.DiagnosticMessagesOnlyFirstWeakReferencesHandler)
