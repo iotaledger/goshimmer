@@ -92,6 +92,15 @@ func TestScheduler_Schedule(t *testing.T) {
 	}, 1*time.Second, 10*time.Millisecond)
 }
 
+func TestScheduler_SetRateBeforeStart(t *testing.T) {
+	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
+	defer tangle.Shutdown()
+
+	tangle.Scheduler.SetRate(time.Hour)
+	tangle.Scheduler.Start()
+	tangle.Scheduler.SetRate(testRate)
+}
+
 func TestScheduler_SetRate(t *testing.T) {
 	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
 	defer tangle.Shutdown()
