@@ -1,0 +1,79 @@
+package main
+
+import (
+	"flag"
+	"fmt"
+	"github.com/iotaledger/goshimmer/client/wallet"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/depositfundstonft_options"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/mr-tron/base58"
+	"os"
+)
+
+func execDepositToNFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
+	command.Usage = func() {
+		printUsage(command)
+	}
+
+	helpPtr := command.Bool("help", false, "show this help screen")
+	nftIDPtr := command.String("nft-id", "", "unique identifier of the nft to deposit to")
+	colorPtr := command.String("color", "IOTA", "color of funds to deposit")
+	amountPtr := command.Int64("amount", 0, "the amount of tokens that are supposed to be deposited")
+	accessManaPledgeIDPtr := command.String("access-mana-id", "", "node ID to pledge access mana to")
+	consensusManaPledgeIDPtr := command.String("consensus-mana-id", "", "node ID to pledge consensus mana to")
+
+	err := command.Parse(os.Args[2:])
+	if *helpPtr {
+		printUsage(command)
+	}
+
+	if *nftIDPtr == "" {
+		printUsage(command, "nft-id to deposit to should be given")
+	}
+
+	if *amountPtr <= 0 {
+		printUsage(command, "amount has to be set and be bigger than 0")
+	}
+	if *colorPtr == "" {
+		printUsage(command, "color must be set")
+	}
+
+	aliasID, err := ledgerstate.AliasAddressFromBase58EncodedString(*nftIDPtr)
+	if err != nil {
+		printUsage(command, err.Error())
+	}
+
+	depositBalance := map[ledgerstate.Color]uint64{}
+	if *amountPtr > 0 {
+		var initColor ledgerstate.Color
+		// get color
+		switch *colorPtr {
+		case "IOTA":
+			initColor = ledgerstate.ColorIOTA
+		case "NEW":
+			initColor = ledgerstate.ColorMint
+		default:
+			colorBytes, parseErr := base58.Decode(*colorPtr)
+			if parseErr != nil {
+				printUsage(command, parseErr.Error())
+			}
+
+			initColor, _, parseErr = ledgerstate.ColorFromBytes(colorBytes)
+			if parseErr != nil {
+				printUsage(command, parseErr.Error())
+			}
+		}
+		depositBalance[initColor] = uint64(*amountPtr)
+	}
+
+	_, err = cliWallet.DepositFundsToNFT(
+		depositfundstonft_options.Alias(aliasID.Base58()),
+		depositfundstonft_options.Amount(depositBalance),
+		depositfundstonft_options.AccessManaPledgeID(*accessManaPledgeIDPtr),
+		depositfundstonft_options.ConsensusManaPledgeID(*consensusManaPledgeIDPtr),
+	)
+	if err != nil {
+		printUsage(command, err.Error())
+	}
+	fmt.Println("Depositing funds into NFT ... [DONE]")
+}
