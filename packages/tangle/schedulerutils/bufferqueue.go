@@ -2,9 +2,9 @@ package schedulerutils
 
 import (
 	"container/ring"
-	"errors"
 
 	"github.com/iotaledger/hive.go/identity"
+	"go.uber.org/atomic"
 	"golang.org/x/xerrors"
 )
 
@@ -18,13 +18,11 @@ var MaxQueueWeight = 1024.0
 
 var (
 	// ErrInboxExceeded is returned when a node has exceeded its allowed inbox size.
-	ErrInboxExceeded = errors.New("maximum mana-scaled inbox length exceeded")
-
+	ErrInboxExceeded = xerrors.New("maximum mana-scaled inbox length exceeded")
 	// ErrInvalidMana is returned when the mana is <= 0.
-	ErrInvalidMana = errors.New("mana cannot be <= 0")
-
+	ErrInvalidMana = xerrors.New("mana cannot be <= 0")
 	// ErrBufferFull is returned when the maximum buffer size is exceeded.
-	ErrBufferFull = errors.New("maximum buffer size exceeded")
+	ErrBufferFull = xerrors.New("maximum buffer size exceeded")
 )
 
 // region BufferQueue /////////////////////////////////////////////////////////////////////////////////////////////
@@ -33,7 +31,7 @@ var (
 type BufferQueue struct {
 	activeNode map[identity.ID]*ring.Ring
 	ring       *ring.Ring
-	size       uint
+	size       atomic.Uint64
 }
 
 // NewBufferQueue returns a new BufferQueue
@@ -41,7 +39,6 @@ func NewBufferQueue() *BufferQueue {
 	return &BufferQueue{
 		activeNode: make(map[identity.ID]*ring.Ring),
 		ring:       nil,
-		size:       0,
 	}
 }
 
@@ -51,8 +48,9 @@ func (b *BufferQueue) NumActiveNodes() int {
 }
 
 // Size returns the total size (in bytes) of all messages in b.
-func (b *BufferQueue) Size() uint {
-	return b.size
+// Size is thread-safe.
+func (b *BufferQueue) Size() uint64 {
+	return b.size.Load()
 }
 
 // NodeQueue returns the queue for the corresponding node.
@@ -66,7 +64,7 @@ func (b *BufferQueue) NodeQueue(nodeID identity.ID) *NodeQueue {
 
 // Submit submits a message.
 func (b *BufferQueue) Submit(msg Element, rep float64) error {
-	if b.size+uint(len(msg.Bytes())) > MaxBufferSize {
+	if b.Size()+uint64(len(msg.Bytes())) > MaxBufferSize {
 		return ErrBufferFull
 	}
 
@@ -90,7 +88,7 @@ func (b *BufferQueue) Submit(msg Element, rep float64) error {
 		return xerrors.Errorf("error in BufferQueue (Submit): message has already been submitted %x", msg.IDBytes())
 	}
 
-	b.size += uint(len(msg.Bytes()))
+	b.size.Add(uint64(len(msg.Bytes())))
 	return nil
 }
 
@@ -109,7 +107,7 @@ func (b *BufferQueue) Unsubmit(msg Element) bool {
 		return false
 	}
 
-	b.size -= uint(len(msg.Bytes()))
+	b.size.Sub(uint64(len(msg.Bytes())))
 	if nodeQueue.IsInactive() {
 		b.ringRemove(element)
 		delete(b.activeNode, nodeID)
@@ -126,20 +124,6 @@ func (b *BufferQueue) Ready(msg Element) bool {
 
 	nodeQueue := element.Value.(*NodeQueue)
 	return nodeQueue.Ready(msg)
-}
-
-// RemoveNode removes all messages (submitted and ready) for the given node.
-func (b *BufferQueue) RemoveNode(nodeID identity.ID) {
-	element, ok := b.activeNode[nodeID]
-	if !ok {
-		return
-	}
-
-	nodeQueue := element.Value.(*NodeQueue)
-	b.size -= nodeQueue.Size()
-
-	b.ringRemove(element)
-	delete(b.activeNode, nodeID)
 }
 
 // Next returns the next NodeQueue in round robin order.
@@ -168,7 +152,7 @@ func (b *BufferQueue) PopFront() Element {
 		delete(b.activeNode, identity.NewID(msg.IssuerPublicKey()))
 	}
 
-	b.size -= uint(len(msg.Bytes()))
+	b.size.Sub(uint64(len(msg.Bytes())))
 	return msg
 }
 
