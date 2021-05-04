@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/datastructure/set"
@@ -95,6 +96,7 @@ func (s *Scheduler) run() {
 
 func (s *Scheduler) scheduleMessage(messageID MessageID) {
 	if !s.parentsBooked(messageID) {
+		fmt.Println("Parents not booked", messageID)
 		return
 	}
 

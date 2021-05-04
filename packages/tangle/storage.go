@@ -108,7 +108,7 @@ func NewStorage(tangle *Tangle) (storage *Storage) {
 		statementStorage:                  osFactory.New(PrefixStatement, StatementFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
 		branchWeightStorage:               osFactory.New(PrefixBranchWeight, BranchWeightFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
 		markerMessageMappingStorage:       osFactory.New(PrefixMarkerMessageMapping, MarkerMessageMappingFromObjectStorage, objectstorage.CacheTime(CacheTime), MarkerMessageMappingPartitionKeys, objectstorage.LeakDetectionEnabled(false)),
-		bucketMessageIDStorage:            osFactory.New(PrefixBucketMessageID, BucketMessageIDFromObjectStorage, objectstorage.CacheTime(CacheTime), BucketMessageIDPartitionKeys, objectstorage.LeakDetectionEnabled(false)),
+		bucketMessageIDStorage:            osFactory.New(PrefixBucketMessageID, BucketMessageIDFromObjectStorage, objectstorage.CacheTime(CacheTime), objectstorage.LeakDetectionEnabled(false)),
 
 		Events: &StorageEvents{
 			MessageStored:        events.NewEvent(MessageIDCaller),
@@ -382,8 +382,8 @@ func (s *Storage) BranchWeight(branchID ledgerstate.BranchID, computeIfAbsentCal
 }
 
 // StoreBucketMessageID stores a new BucketMessageID if not already stored.
-func (s *Storage) StoreBucketMessageID(bucketTime int64, messageID MessageID) (stored bool) {
-	cachedObject, stored := s.bucketMessageIDStorage.StoreIfAbsent(NewBucketMessageID(bucketTime, messageID))
+func (s *Storage) StoreBucketMessageID(bucketTime int64, count uint64, messageID MessageID) (stored bool) {
+	cachedObject, stored := s.bucketMessageIDStorage.StoreIfAbsent(NewBucketMessageID(bucketTime, count, messageID))
 	if !stored {
 		return
 	}
@@ -392,12 +392,17 @@ func (s *Storage) StoreBucketMessageID(bucketTime int64, messageID MessageID) (s
 }
 
 // BucketMessageIDs retrieves the BucketMessageIDs of a bucket time in bucketMessageIDStorage.
-func (s *Storage) BucketMessageIDs(bucketTime int64) (cachedBucketMessageIDs CachedBucketMessageIDs) {
-	s.bucketMessageIDStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
-		cachedBucketMessageIDs = append(cachedBucketMessageIDs, &CachedBucketMessageID{CachedObject: cachedObject})
-		return true
-	}, objectstorage.WithIteratorPrefix(marshalutil.New(marshalutil.Int64Size).WriteInt64(bucketTime).Bytes()))
-	return
+//func (s *Storage) BucketMessageIDs(bucketTime int64) (cachedBucketMessageIDs CachedBucketMessageIDs) {
+//	s.bucketMessageIDStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+//		cachedBucketMessageIDs = append(cachedBucketMessageIDs, &CachedBucketMessageID{CachedObject: cachedObject})
+//		return true
+//	}, objectstorage.WithIteratorPrefix(marshalutil.New(marshalutil.Int64Size).WriteInt64(bucketTime).Bytes()))
+//	return
+//}
+
+func (s *Storage) BucketMessageID(bucket int64, count uint64) *CachedBucketMessageID {
+	marshalUtil := marshalutil.New(marshalutil.Int64Size + marshalutil.Uint64Size)
+	return &CachedBucketMessageID{CachedObject: s.bucketMessageIDStorage.Load(marshalUtil.WriteInt64(bucket).WriteUint64(count).Bytes())}
 }
 
 // AllBucketMessageIDsBuckets retrieves all time buckets in bucketMessageIDStorage for debug purposes.

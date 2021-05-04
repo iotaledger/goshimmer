@@ -14,13 +14,14 @@ import (
 )
 
 func TestBucketMessageIDMarshalling(t *testing.T) {
-	bucketMessageID := NewBucketMessageID(1234, randomMessageID())
+	bucketMessageID := NewBucketMessageID(1234, 5555, randomMessageID())
 
 	bucketMessageIDFromBytes, _, err := BucketMessageIDFromBytes(bucketMessageID.Bytes())
 	require.NoError(t, err)
 
 	assert.Equal(t, bucketMessageID.Bytes(), bucketMessageIDFromBytes.Bytes())
 	assert.Equal(t, bucketMessageID.BucketTime(), bucketMessageIDFromBytes.BucketTime())
+	assert.Equal(t, bucketMessageID.Count(), bucketMessageIDFromBytes.Count())
 	assert.Equal(t, bucketMessageID.MessageID(), bucketMessageIDFromBytes.MessageID())
 }
 
@@ -63,7 +64,7 @@ func TestOrderer_Order(t *testing.T) {
 	}
 
 	// issue message too far in the future of TangleTime
-	time3 := time2.Add(11*time.Minute + 20*time.Second)
+	time3 := time2.Add(11 * time.Minute)
 	{
 		testFramework.PreventNewMarkers(true)
 		testFramework.CreateMessage("Message3", WithStrongParents("Message2"), WithIssuingTime(time3), WithIssuer(keyPair.PublicKey))
@@ -74,13 +75,14 @@ func TestOrderer_Order(t *testing.T) {
 		assert.Equal(t, time2, tangle.TimeManager.Time())
 
 		expectedBucketTime := bucketTime(time3)
-		cachedBucketMessageIDs := tangle.Storage.BucketMessageIDs(expectedBucketTime)
-		assert.Len(t, cachedBucketMessageIDs, 1)
+		expectedCount := uint64(0)
+		cachedBucketMessageID := tangle.Storage.BucketMessageID(expectedBucketTime, expectedCount)
 
-		cachedBucketMessageIDs.Consume(func(bucketMessageID *BucketMessageID) {
+		assert.True(t, cachedBucketMessageID.Consume(func(bucketMessageID *BucketMessageID) {
 			assert.Equal(t, bucketMessageID.BucketTime(), expectedBucketTime)
+			assert.Equal(t, bucketMessageID.Count(), expectedCount)
 			assert.Equal(t, bucketMessageID.MessageID(), testFramework.MessageMetadata("Message3").ID())
-		})
+		}))
 	}
 
 	// issue message in time, advance TangleTime and then Message3 should be scheduled too

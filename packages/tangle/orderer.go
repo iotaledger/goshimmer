@@ -36,6 +36,12 @@ type Orderer struct {
 
 	bucketInboxMin int64
 	bucketInbox    chan int64
+
+	maxBucketScheduled     int64
+	maxBucketScheduledCond *sync.Cond
+
+	bucketsMap      map[int64]uint64
+	bucketsMapMutex sync.Mutex
 }
 
 // NewOrderer is the constructor for Orderer.
@@ -44,9 +50,11 @@ func NewOrderer(tangle *Tangle) (orderer *Orderer) {
 		Events: &OrdererEvents{
 			MessageOrdered: events.NewEvent(MessageIDCaller),
 		},
-		tangle:         tangle,
-		shutdownSignal: make(chan struct{}),
-		bucketInbox:    make(chan int64, bucketInboxSize),
+		tangle:                 tangle,
+		shutdownSignal:         make(chan struct{}),
+		bucketInbox:            make(chan int64, bucketInboxSize),
+		maxBucketScheduledCond: sync.NewCond(&sync.Mutex{}),
+		bucketsMap:             make(map[int64]uint64),
 	}
 	orderer.run()
 
@@ -70,17 +78,44 @@ func (o *Orderer) Shutdown() {
 
 // Order is the main function of the Orderer, making sure that no message too far ahead of TangleTime gets scheduled.
 func (o *Orderer) Order(messageID MessageID) {
+	var issuingTime time.Time
 	o.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		if o.tangle.TimeManager.IsGenesis() || message.IssuingTime().Before(o.tangle.TimeManager.Time().Add(allowedFutureBooking)) {
-			// messages can be scheduled directly
-			o.Events.MessageOrdered.Trigger(messageID)
-			return
-		}
-
-		b := bucketTime(message.IssuingTime())
-		// Store message in corresponding bucket.
-		o.tangle.Storage.StoreBucketMessageID(b, messageID)
+		issuingTime = message.IssuingTime()
 	})
+
+	if o.tangle.TimeManager.IsGenesis() {
+		o.Events.MessageOrdered.Trigger(messageID)
+		return
+	}
+
+	bucket := bucketTime(issuingTime)
+	//fmt.Println("Order", messageID, bucket)
+	// TODO: maybe this check is not necessary with maxBucketScheduled
+	if issuingTime.Before(o.tangle.TimeManager.Time().Add(allowedFutureBooking)) {
+		// Messages can be scheduled directly after their bucket has been fully scheduled to make sure messages are scheduled
+		// in order as they got solid (parents are scheduled before children).
+		o.awaitBucketScheduled(bucket)
+
+		o.Events.MessageOrdered.Trigger(messageID)
+		return
+	}
+
+	// Store message in corresponding bucket and remember order from solidifier with count.
+	o.bucketsMapMutex.Lock()
+	count := o.bucketsMap[bucket]
+	o.bucketsMap[bucket] = count + 1
+	o.bucketsMapMutex.Unlock()
+	o.tangle.Storage.StoreBucketMessageID(bucket, count, messageID)
+	//fmt.Println("STORED", messageID, bucket, count)
+}
+
+func (o *Orderer) awaitBucketScheduled(bucket int64) {
+	o.maxBucketScheduledCond.L.Lock()
+	for bucket >= o.maxBucketScheduled {
+		//fmt.Println("WAIT")
+		o.maxBucketScheduledCond.Wait()
+	}
+	o.maxBucketScheduledCond.L.Unlock()
 }
 
 // run runs the background thread that listens to TangleTime updates (through a channel) and then schedules messages
@@ -94,30 +129,48 @@ func (o *Orderer) run() {
 			select {
 			case <-o.shutdownSignal:
 				return
-			case bucketTime := <-o.bucketInbox:
-				o.scheduleUntil(bucketTime)
+			case bucket := <-o.bucketInbox:
+				o.scheduleUntil(bucket)
 			}
 		}
 	}()
 }
 
 // scheduleUntil schedules messages in stored buckets from lowestStoredBucket until the given bucketTime + allowedFutureBookingSeconds.
-func (o *Orderer) scheduleUntil(bucketTime int64) {
-	for i := bucketTime; i < bucketTime+allowedFutureBookingSeconds; i += bucketGranularity {
-		o.tangle.Storage.BucketMessageIDs(i).Consume(func(bucketMessageID *BucketMessageID) {
-			o.Events.MessageOrdered.Trigger(bucketMessageID.MessageID())
-			bucketMessageID.Delete()
-		})
+func (o *Orderer) scheduleUntil(bucket int64) {
+	// iterate over all buckets up until allowed bucket
+	for currentBucket := bucket; currentBucket < bucket+allowedFutureBookingSeconds; currentBucket += bucketGranularity {
+		o.bucketsMapMutex.Lock()
+		maxCount := o.bucketsMap[currentBucket]
+		delete(o.bucketsMap, currentBucket)
+		o.bucketsMapMutex.Unlock()
+		// iterate over all messages in bucket and forward to scheduler in order
+		for count := uint64(0); count < maxCount; count++ {
+			//fmt.Println("scheduleUntil", bucket, currentBucket, maxCount)
+			//fmt.Println("maxCount", maxCount, count)
+			o.tangle.Storage.BucketMessageID(currentBucket, count).Consume(func(bucketMessageID *BucketMessageID) {
+				o.Events.MessageOrdered.Trigger(bucketMessageID.MessageID())
+				bucketMessageID.Delete()
+			})
+		}
 	}
+
+	// Signal all threads waiting for buckets
+	o.maxBucketScheduledCond.L.Lock()
+	o.maxBucketScheduled = bucket + allowedFutureBookingSeconds
+	//fmt.Println("o.maxBucketScheduled", o.maxBucketScheduled)
+	o.maxBucketScheduledCond.L.Unlock()
+	o.maxBucketScheduledCond.Broadcast()
 }
 
 // onTangleTimeUpdated listens to TangleTime updates and pushes buckets to the channel so that they can be scheduled.
 func (o *Orderer) onTangleTimeUpdated(tangleTime time.Time) {
-	bucketTime := bucketTime(tangleTime)
-	if bucketTime > o.bucketInboxMin {
-		o.bucketInboxMin = bucketTime
-		o.bucketInbox <- bucketTime
+	bucket := bucketTime(tangleTime)
+	if bucket > o.bucketInboxMin {
+		o.bucketInboxMin = bucket
+		o.bucketInbox <- bucket
 	}
+	//fmt.Println("onTangleTimeUpdated", bucket)
 }
 
 // bucketTime converts a time to a bucket with bucketGranularity.
@@ -139,20 +192,22 @@ type OrdererEvents struct {
 
 // BucketMessageIDPartitionKeys defines the "layout" of the key. This enables prefix iterations in the object
 // storage.
-var BucketMessageIDPartitionKeys = objectstorage.PartitionKey(marshalutil.Int64Size, MessageIDLength)
+//var BucketMessageIDPartitionKeys = objectstorage.PartitionKey(marshalutil.Int64Size, MessageIDLength)
 
 // BucketMessageID is a data structure that maps a time bucket to a MessageID.
 type BucketMessageID struct {
 	bucketTime int64
+	count      uint64
 	messageID  MessageID
 
 	objectstorage.StorableObjectFlags
 }
 
 // NewBucketMessageID creates a new BucketMessageID.
-func NewBucketMessageID(bucketTime int64, messageID MessageID) (bucketMessageID *BucketMessageID) {
+func NewBucketMessageID(bucketTime int64, count uint64, messageID MessageID) (bucketMessageID *BucketMessageID) {
 	bucketMessageID = &BucketMessageID{
 		bucketTime: bucketTime,
+		count:      count,
 		messageID:  messageID,
 	}
 
@@ -180,6 +235,11 @@ func BucketMessageIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (bucke
 		return
 	}
 
+	if bucketMessageID.count, err = marshalUtil.ReadUint64(); err != nil {
+		err = xerrors.Errorf("failed to parse count (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+
 	if bucketMessageID.messageID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
 		err = xerrors.Errorf("failed to parse MessageID from MarshalUtil: %w", err)
 		return
@@ -203,6 +263,11 @@ func (b *BucketMessageID) BucketTime() (bucketTime int64) {
 	return b.bucketTime
 }
 
+// Count returns the count of the bucket.
+func (b *BucketMessageID) Count() (count uint64) {
+	return b.count
+}
+
 // MessageID returns the MessageID that belongs to the bucket time.
 func (b *BucketMessageID) MessageID() (messageID MessageID) {
 	return b.messageID
@@ -217,6 +282,7 @@ func (b *BucketMessageID) Bytes() (marshaledSequenceSupporters []byte) {
 func (b *BucketMessageID) String() string {
 	return stringify.Struct("BucketMessageID",
 		stringify.StructField("bucketTime", b.BucketTime()),
+		stringify.StructField("count", b.Count()),
 		stringify.StructField("MessageID", b.MessageID()),
 	)
 }
@@ -229,18 +295,18 @@ func (b *BucketMessageID) Update(objectstorage.StorableObject) {
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (b *BucketMessageID) ObjectStorageKey() []byte {
-	marshalUtil := marshalutil.New(marshalutil.Int64Size + MessageIDLength)
+	marshalUtil := marshalutil.New(marshalutil.Int64Size + marshalutil.Uint64Size)
 
 	return marshalUtil.
 		WriteInt64(b.bucketTime).
-		Write(b.messageID).
+		WriteUint64(b.count).
 		Bytes()
 }
 
 // ObjectStorageValue marshals the BucketMessageID into a sequence of bytes that are used as the value part in the
 // object storage.
 func (b *BucketMessageID) ObjectStorageValue() (value []byte) {
-	return
+	return b.MessageID().Bytes()
 }
 
 // code contract (make sure the struct implements all required methods)
