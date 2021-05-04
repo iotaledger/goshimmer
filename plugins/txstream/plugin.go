@@ -34,7 +34,7 @@ var (
 // Plugin returns the plugin instance
 func Plugin() *node.Plugin {
 	once.Do(func() {
-		plugin = node.NewPlugin(pluginName, node.Enabled, configPlugin, runPlugin)
+		plugin = node.NewPlugin(pluginName, node.Disabled, configPlugin, runPlugin)
 	})
 	return plugin
 }
