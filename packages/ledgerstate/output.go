@@ -1767,8 +1767,9 @@ func (a *AliasOutput) validateTransition(chained *AliasOutput, tx *Transaction) 
 
 // validateDestroyTransitionNow check validity if input is not chained (destroyed)
 func (a *AliasOutput) validateDestroyTransitionNow(nowis time.Time) error {
-	if !IsExactDustMinimum(a.balances) {
-		return xerrors.New("AliasOutput: didn't find chained output and there are more tokens then upper limit for alias destruction")
+	if !a.IsDelegated() && !IsExactDustMinimum(a.balances) {
+		// if the output is delegated, it can be destroyed with more than minimum balance
+		return xerrors.New("AliasOutput: didn't find chained output and there are more tokens then upper limit for non-delegated alias destruction")
 	}
 	if a.IsDelegated() && a.DelegationTimeLockedNow(nowis) {
 		return xerrors.New("AliasOutput: didn't find expected chained output for delegated output")

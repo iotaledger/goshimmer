@@ -1125,6 +1125,16 @@ func TestAliasOutput_validateDestroyTransition(t *testing.T) {
 		assert.Error(t, err)
 	})
 
+	t.Run("CASE: Delegated output, more balance than minimum", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		newBalance := prev.Balances().Map()
+		newBalance[ColorIOTA]++
+		prev.balances = NewColoredBalances(newBalance)
+		prev.isDelegated = true
+		err := prev.validateDestroyTransitionNow(time.Time{})
+		assert.NoError(t, err)
+	})
+
 	t.Run("CASE: More color balance than minimum", func(t *testing.T) {
 		prev := dummyAliasOutput()
 		newBalance := prev.Balances().Map()
