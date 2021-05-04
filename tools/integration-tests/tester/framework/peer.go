@@ -9,7 +9,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/client"
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 // Peer represents a GoShimmer node inside the Docker network
@@ -29,8 +28,7 @@ type Peer struct {
 	// Seed
 	*walletseed.Seed
 
-	chosen   []jsonmodels.Neighbor
-	accepted []jsonmodels.Neighbor
+	neighborsNumber int
 }
 
 // newPeer creates a new instance of Peer with the given information.
@@ -58,14 +56,10 @@ func (p *Peer) String() string {
 
 // TotalNeighbors returns the total number of neighbors the peer has.
 func (p *Peer) TotalNeighbors() int {
-	return len(p.chosen) + len(p.accepted)
+	return p.neighborsNumber
 }
 
-// SetNeighbors sets the neighbors of the peer accordingly.
-func (p *Peer) SetNeighbors(chosen, accepted []jsonmodels.Neighbor) {
-	p.chosen = make([]jsonmodels.Neighbor, len(chosen))
-	copy(p.chosen, chosen)
-
-	p.accepted = make([]jsonmodels.Neighbor, len(accepted))
-	copy(p.accepted, accepted)
+// SetNeighborsNumber sets the number of neighbors of the peer.
+func (p *Peer) SetNeighborsNumber(number int) {
+	p.neighborsNumber = number
 }
