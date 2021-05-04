@@ -832,6 +832,22 @@ func TestAliasOutput_checkBasicValidity(t *testing.T) {
 		assert.Error(t, err)
 	})
 
+	t.Run("CASE: state address same as alias address", func(t *testing.T) {
+		alias := dummyAliasOutput()
+		alias.stateAddress = alias.GetAliasAddress()
+		err := alias.checkBasicValidity()
+		t.Log(err)
+		assert.Error(t, err)
+	})
+
+	t.Run("CASE: governing address same as alias address", func(t *testing.T) {
+		alias := dummyAliasOutput()
+		alias.governingAddress = alias.GetAliasAddress()
+		err := alias.checkBasicValidity()
+		t.Log(err)
+		assert.Error(t, err)
+	})
+
 	t.Run("CASE: delegation timelock for non delegated output", func(t *testing.T) {
 		alias := dummyAliasOutput()
 		alias.isDelegated = false
