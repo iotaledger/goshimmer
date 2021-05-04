@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/docker/docker/api/types/strslice"
 	"github.com/docker/docker/client"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -67,8 +68,7 @@ func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int, 
 		return nil, err
 	}
 
-	err = network.createEntryNode()
-	if err != nil {
+	if err := network.createEntryNode(); err!= nil {
 		return nil, err
 	}
 
@@ -117,16 +117,17 @@ func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int, 
 			ReadManaThreshold:          ParaReadManaThreshold,
 			GossipDisableAutopeering:   true,
 		}
-		if _, err = network.CreatePeer(config); err != nil {
+		if _, err := network.CreatePeer(config); err != nil {
 			return nil, err
 		}
 	}
-
 	// wait until containers are fully started
 	time.Sleep(1 * time.Second)
-	err = network.WaitForAutopeering(minimumNeighbors)
-	if err != nil {
-		return nil, err
+	if err := network.doManualPeering(); err != nil {
+		return nil, errors.WithStack(err)
+	}
+	if err := network.WaitForManualpeering(); err != nil {
+		return nil, errors.Wrap(err, "manual peering failed after waiting for it")
 	}
 
 	return network, nil

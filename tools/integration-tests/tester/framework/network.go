@@ -289,6 +289,19 @@ func (n *Network) Shutdown() error {
 	return nil
 }
 
+func (n *Network) doManualPeering() error {
+	for idx, p := range n.peers {
+		allOtherPeers := make([]*Peer, 0, len(n.peers)-1)
+		allOtherPeers = append(allOtherPeers, n.peers[:idx]...)
+		allOtherPeers = append(allOtherPeers, n.peers[idx+1:]...)
+		peersToAdd := ToPeerModels(allOtherPeers)
+		if err := p.AddManualPeers(peersToAdd); err != nil {
+			return errors.Wrap(err, "failed to add manual peers via API")
+		}
+	}
+	return nil
+}
+
 // WaitForAutopeering waits until all peers have reached the minimum amount of neighbors.
 // Returns error if this minimum is not reached after peeringMaxTries.
 func (n *Network) WaitForAutopeering(minimumNeighbors int) error {
