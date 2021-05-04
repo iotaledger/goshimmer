@@ -45,7 +45,7 @@ func (webConnector *WebConnector) RequestFaucetFunds(addr address.Address) (err 
 }
 
 // UnspentOutputs returns the outputs of transactions on the given addresses that have not been spent yet.
-func (webConnector WebConnector) UnspentOutputs(addresses ...address.Address) (unspentOutputs map[address.Address]map[ledgerstate.OutputID]*Output, err error) {
+func (webConnector WebConnector) UnspentOutputs(addresses ...address.Address) (unspentOutputs OutputsByAddressAndOutputID, err error) {
 	// build reverse lookup table + arguments for client call
 	addressReverseLookupTable := make(map[string]address.Address)
 	base58EncodedAddresses := make([]string, len(addresses))

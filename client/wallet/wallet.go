@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/reclaimfunds_options"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sendfunds_options"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/sweepnftownedfunds_options"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/transfernft_options"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/withdrawfundsfromnft_options"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -946,6 +947,125 @@ func (wallet *Wallet) DepositFundsToNFT(options ...depositfundstonft_options.Dep
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// region SweepNFTOwnedFunds ///////////////////////////////////////////////////////////////////////////////////////////
+
+// SweepNFTOwnedFunds collects all funds from outputs that are owned by the nft into the wallet.
+func (wallet Wallet) SweepNFTOwnedFunds(options ...sweepnftownedfunds_options.SweepNFTOwnedFundsOption) (tx *ledgerstate.Transaction, err error) {
+	sweepOptions, err := sweepnftownedfunds_options.BuildSweepNFTOwnedFundsOptions(options...)
+	if err != nil {
+		return
+	}
+	// derive mana pledge IDs
+	accessPledgeNodeID, consensusPledgeNodeID, err := wallet.derivePledgeIDs(sweepOptions.AccessManaPledgeID, sweepOptions.ConsensusManaPledgeID)
+	if err != nil {
+		return
+	}
+	// do we own the nft as a state controller?
+	_, stateControlled, _, _, err := wallet.AliasBalance()
+	if _, has := stateControlled[*sweepOptions.Alias]; !has {
+		err = xerrors.Errorf("nft %s is not state controlled by the wallet", sweepOptions.Alias.Base58())
+	}
+	// look up if we have the alias output. Only the state controller can modify balances in aliases.
+	walletAlias, err := wallet.findStateControlledAliasOutputByAliasID(sweepOptions.Alias)
+	if err != nil {
+		return
+	}
+	alias := walletAlias.Object.(*ledgerstate.AliasOutput)
+
+	owned, _, err := wallet.OutputsOnNFT(sweepOptions.Alias.Base58())
+	if err != nil {
+		return
+	}
+	if len(owned) == 0 {
+		err = xerrors.Errorf("no owned outputs with funds are found on nft %s", sweepOptions.Alias.Base58())
+	}
+
+	toBeConsumed := ledgerstate.Outputs{}
+	totalConsumed := map[ledgerstate.Color]uint64{}
+	for _, output := range owned {
+		if output.Type() == ledgerstate.AliasOutputType {
+			casted := output.(*ledgerstate.AliasOutput)
+			if !casted.IsDelegated() && !ledgerstate.IsExactDustMinimum(casted.Balances()) {
+				// we are trying to destroy an alias that is not delegated and has more funds than minimum
+				// TODO: withdraw from it
+				continue
+			}
+		}
+		output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+			totalConsumed[color] += balance
+			return true
+		})
+		toBeConsumed = append(toBeConsumed, output)
+	}
+
+	nextAlias := alias.NewAliasOutputNext(false)
+	toBeConsumed = append(toBeConsumed, alias)
+
+	unsortedInputs := toBeConsumed.Inputs()
+	unsortedOutputs := ledgerstate.Outputs{nextAlias, ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(totalConsumed), wallet.ReceiveAddress().Address())}
+
+	essence := ledgerstate.NewTransactionEssence(0, time.Now(), accessPledgeNodeID, consensusPledgeNodeID, ledgerstate.NewInputs(unsortedInputs...), ledgerstate.NewOutputs(unsortedOutputs...))
+
+	toBeConsumeByID := toBeConsumed.ByID()
+	inputsInOrder := ledgerstate.Outputs{}
+	unlockBlocks := make(ledgerstate.UnlockBlocks, len(essence.Inputs()))
+	aliasInputIndex := -1
+	// find the input of alias
+	for index, input := range essence.Inputs() {
+		if input.Type() == ledgerstate.UTXOInputType {
+			casted := input.(*ledgerstate.UTXOInput)
+			if casted.ReferencedOutputID() == alias.ID() {
+				keyPair := wallet.Seed().KeyPair(walletAlias.Address.Index)
+				unlockBlock := ledgerstate.NewSignatureUnlockBlock(ledgerstate.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(essence.Bytes())))
+				unlockBlocks[index] = unlockBlock
+				aliasInputIndex = index
+			}
+			inputsInOrder = append(inputsInOrder, toBeConsumeByID[casted.ReferencedOutputID()])
+		}
+
+	}
+	if aliasInputIndex < 0 {
+		err = xerrors.Errorf("failed to find alias %s among prepared transaction inputs", alias.GetAliasAddress().Base58())
+		return
+	}
+	// fill rest of the unlock blocks
+	for i, _ := range essence.Inputs() {
+		if i != aliasInputIndex {
+			unlockBlocks[i] = ledgerstate.NewAliasUnlockBlock(uint16(aliasInputIndex))
+		}
+	}
+
+	tx = ledgerstate.NewTransaction(essence, unlockBlocks)
+
+	// check syntactical validity by marshaling an unmarshaling
+	tx, _, err = ledgerstate.TransactionFromBytes(tx.Bytes())
+	if err != nil {
+		return nil, err
+	}
+
+	//check tx validity (balances, unlock blocks)
+	ok, err := checkBalancesAndUnlocks(inputsInOrder, tx)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, xerrors.Errorf("created transaction is invalid: %s", tx.String())
+	}
+
+	err = wallet.connector.SendTransaction(tx)
+	if err != nil {
+		return nil, err
+	}
+
+	if sweepOptions.WaitForConfirmation {
+		err = wallet.WaitForTxConfirmation(tx.ID())
+	}
+
+	return
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // region ServerStatus /////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ServerStatus retrieves the connected server status.
@@ -1255,6 +1375,44 @@ func (wallet *Wallet) AliasBalance() (
 					// alias is state controlled by the wallet
 					stateControlledAliases[*alias.GetAliasAddress()] = alias
 				}
+			}
+		}
+	}
+	return
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region OutputsOnNFT /////////////////////////////////////////////////////////////////////////////////////////////////
+
+// OutputsOnNFT returns all outputs that are either owned (SigLocked***, Extended, stateControlled Alias) or governed
+// (governance controlled alias outputs)
+func (wallet Wallet) OutputsOnNFT(nftID string) (owned ledgerstate.Outputs, governed ledgerstate.Outputs, err error) {
+	aliasAddress, err := ledgerstate.AliasAddressFromBase58EncodedString(nftID)
+	if err != nil {
+		return
+	}
+	res, err := wallet.connector.UnspentOutputs(address.Address{AddressBytes: aliasAddress.Array()})
+	if err != nil {
+		return
+	}
+	outputs := res.ToLedgerStateOutputs()
+	for _, o := range outputs {
+		switch o.Type() {
+		case ledgerstate.SigLockedSingleOutputType, ledgerstate.SigLockedColoredOutputType:
+			owned = append(owned, o)
+		case ledgerstate.ExtendedLockedOutputType:
+			casted := o.(*ledgerstate.ExtendedLockedOutput)
+			if casted.UnlockAddressNow(time.Now()).Equals(aliasAddress) {
+				owned = append(owned, o)
+			}
+		case ledgerstate.AliasOutputType:
+			casted := o.(*ledgerstate.AliasOutput)
+			// the alias output of aliasAddress is filtered out
+			if casted.GetStateAddress().Equals(aliasAddress) {
+				owned = append(owned, o)
+			} else if casted.GetGoverningAddress().Equals(aliasAddress) {
+				governed = append(governed, o)
 			}
 		}
 	}
