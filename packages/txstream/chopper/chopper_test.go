@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/iotaledger/goshimmer/packages/txstream/chopper"
+
 	"github.com/stretchr/testify/assert"
 )
 

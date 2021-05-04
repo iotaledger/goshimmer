@@ -31,6 +31,8 @@ type (
 	wrapBookedTx    *ledgerstate.Transaction
 )
 
+const rcvClientIDTimeout = 5 * time.Second
+
 // Listen starts a TCP listener and starts a Connection for each accepted connection
 func Listen(ledger txstream.Ledger, bindAddress string, log *logger.Logger, shutdownSignal <-chan struct{}) error {
 	listener, err := net.Listen("tcp", bindAddress)
@@ -92,7 +94,7 @@ func Run(conn net.Conn, log *logger.Logger, ledger txstream.Ledger, shutdownSign
 	case <-bconnClosed:
 		c.log.Errorf("connection lost")
 		return
-	case <-time.After(5 * time.Second):
+	case <-time.After(rcvClientIDTimeout):
 		c.log.Errorf("timeout receiving client ID")
 		return
 	}

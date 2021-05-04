@@ -3,6 +3,7 @@ package utxodbledger
 import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate/utxodb"
+
 	"github.com/iotaledger/hive.go/events"
 	"golang.org/x/xerrors"
 )

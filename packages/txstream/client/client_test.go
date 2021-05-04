@@ -94,7 +94,7 @@ func send(t *testing.T, n *Client, sendMsg func(), callback func(msg txstream.Me
 	}
 }
 
-func createAliasChain(t *testing.T, u *utxodbledger.UtxoDBLedger, creatorIndex int, stateControlIndex int, balances map[ledgerstate.Color]uint64) (*ledgerstate.Transaction, *ledgerstate.AliasAddress) {
+func createAliasChain(t *testing.T, u *utxodbledger.UtxoDBLedger, creatorIndex, stateControlIndex int, balances map[ledgerstate.Color]uint64) (*ledgerstate.Transaction, *ledgerstate.AliasAddress) {
 	t.Helper()
 
 	creatorKP, creatorAddr := u.NewKeyPairByIndex(creatorIndex)

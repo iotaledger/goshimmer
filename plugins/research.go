@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/prometheus"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
 	"github.com/iotaledger/goshimmer/plugins/txstream"
+
 	"github.com/iotaledger/hive.go/node"
 )
 

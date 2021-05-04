@@ -2,7 +2,6 @@ package tangleledger
 
 import (
 	"fmt"
-	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -10,7 +9,9 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/identity"
 )
 
 // TangleLedger imlpements txstream.TangleLedger with the Goshimmer tangle as backend

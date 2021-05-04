@@ -14,8 +14,9 @@ import (
 const (
 	// for the final data packet to be not bigger than tangle.MaxMessageSize
 	// 4 - chunk id, 1 seq nr, 1 num chunks, 2 - data len
-	chunkHeaderSize = 4 + 1 + 1 + 2
-	maxTTL          = 5 * time.Minute
+	chunkHeaderSize     = 4 + 1 + 1 + 2
+	maxTTL              = 5 * time.Minute
+	cleanupLoopInterval = 10 * time.Second
 )
 
 // Chopper handles the splitting and joining of large messages
@@ -53,7 +54,7 @@ func (c *Chopper) cleanupLoop() {
 		select {
 		case <-c.closeCh:
 			return
-		case <-time.After(10 * time.Second):
+		case <-time.After(cleanupLoopInterval):
 			toDelete := make([]uint32, 0)
 			nowis := time.Now()
 			c.mutex.Lock()

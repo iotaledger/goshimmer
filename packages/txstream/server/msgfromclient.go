@@ -6,6 +6,7 @@ package server
 import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/txstream"
+
 	"golang.org/x/xerrors"
 )
 

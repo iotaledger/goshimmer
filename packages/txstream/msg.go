@@ -143,6 +143,7 @@ type MsgUnspentAliasOutput struct {
 
 // endregion
 
+// EncodeMsg encodes the given Message as a byte slice
 func EncodeMsg(msg Message) []byte {
 	m := marshalutil.New()
 	m.WriteByte(byte(msg.Type()))
@@ -150,6 +151,7 @@ func EncodeMsg(msg Message) []byte {
 	return m.Bytes()
 }
 
+// DecodeMsg decodes a Message from the given bytes
 func DecodeMsg(data []byte, expectedFlags uint8) (interface{}, error) {
 	if len(data) < 1 {
 		return nil, fmt.Errorf("wrong message")
@@ -222,6 +224,7 @@ func (msg *MsgPostTransaction) Read(m *marshalutil.MarshalUtil) error {
 	return nil
 }
 
+// Type returns the Message type
 func (msg *MsgPostTransaction) Type() MessageType {
 	return msgTypePostTransaction
 }
@@ -248,6 +251,7 @@ func (msg *MsgUpdateSubscriptions) Read(m *marshalutil.MarshalUtil) error {
 	return nil
 }
 
+// Type returns the Message type
 func (msg *MsgUpdateSubscriptions) Type() MessageType {
 	return msgTypeSubscribe
 }
@@ -266,6 +270,7 @@ func (msg *MsgGetConfirmedTransaction) Read(m *marshalutil.MarshalUtil) error {
 	return err
 }
 
+// Type returns the Message type
 func (msg *MsgGetConfirmedTransaction) Type() MessageType {
 	return msgTypeGetConfirmedTransaction
 }
@@ -286,6 +291,7 @@ func (msg *MsgGetTxInclusionState) Read(m *marshalutil.MarshalUtil) error {
 	return nil
 }
 
+// Type returns the Message type
 func (msg *MsgGetTxInclusionState) Type() MessageType {
 	return msgTypeGetTxInclusionState
 }
@@ -300,6 +306,7 @@ func (msg *MsgGetBacklog) Read(m *marshalutil.MarshalUtil) error {
 	return err
 }
 
+// Type returns the Message type
 func (msg *MsgGetBacklog) Type() MessageType {
 	return msgTypeGetBacklog
 }
@@ -323,6 +330,7 @@ func (msg *MsgSetID) Read(m *marshalutil.MarshalUtil) error {
 	return nil
 }
 
+// Type returns the Message type
 func (msg *MsgSetID) Type() MessageType {
 	return msgTypeSetID
 }
@@ -343,6 +351,7 @@ func (msg *MsgTransaction) Read(m *marshalutil.MarshalUtil) error {
 	return nil
 }
 
+// Type returns the Message type
 func (msg *MsgTransaction) Type() MessageType {
 	return msgTypeTransaction
 }
@@ -367,6 +376,7 @@ func (msg *MsgTxInclusionState) Read(m *marshalutil.MarshalUtil) error {
 	return nil
 }
 
+// Type returns the Message type
 func (msg *MsgTxInclusionState) Type() MessageType {
 	return msgTypeTxInclusionState
 }
@@ -385,6 +395,7 @@ func (msg *MsgGetConfirmedOutput) Read(m *marshalutil.MarshalUtil) error {
 	return err
 }
 
+// Type returns the Message type
 func (msg *MsgGetConfirmedOutput) Type() MessageType {
 	return msgTypeGetConfirmedOutput
 }
@@ -401,6 +412,7 @@ func (msg *MsgGetUnspentAliasOutput) Read(m *marshalutil.MarshalUtil) error {
 	return err
 }
 
+// Type returns the Message type
 func (msg *MsgGetUnspentAliasOutput) Type() MessageType {
 	return msgTypeGetUnspentAliasOutput
 }
@@ -425,6 +437,7 @@ func (msg *MsgOutput) Read(m *marshalutil.MarshalUtil) error {
 	return err
 }
 
+// Type returns the Message type
 func (msg *MsgOutput) Type() MessageType {
 	return msgTypeOutput
 }
@@ -453,6 +466,7 @@ func (msg *MsgUnspentAliasOutput) Read(m *marshalutil.MarshalUtil) error {
 	return err
 }
 
+// Type returns the Message type
 func (msg *MsgUnspentAliasOutput) Type() MessageType {
 	return msgTypeUnspentAliasOutput
 }
@@ -472,6 +486,7 @@ func (msg *MsgChunk) Read(m *marshalutil.MarshalUtil) error {
 	return err
 }
 
+// Type returns the Message type
 func (msg *MsgChunk) Type() MessageType {
 	return msgTypeChunk
 }
