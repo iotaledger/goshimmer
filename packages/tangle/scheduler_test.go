@@ -5,11 +5,13 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-
+	"github.com/iotaledger/goshimmer/packages/tangle/schedulerutils"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/atomic"
+	"golang.org/x/xerrors"
 )
 
 // region Scheduler_test /////////////////////////////////////////////////////////////////////////////////////////////
@@ -18,40 +20,43 @@ var (
 	selfLocalIdentity = identity.GenerateLocalIdentity()
 	selfNode          = identity.New(selfLocalIdentity.PublicKey())
 	peerNode          = identity.GenerateIdentity()
-	otherNode         = identity.GenerateIdentity()
-	params            = SchedulerParams{
-		AccessManaRetrieveFunc:      getAccessMana,
-		TotalAccessManaRetrieveFunc: getTotalAccessMana,
-	}
 )
 
 func TestScheduler_StartStop(t *testing.T) {
-	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(params))
+	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
 	defer tangle.Shutdown()
+	tangle.Scheduler.Start()
+
 	time.Sleep(10 * time.Millisecond)
+	tangle.Scheduler.Shutdown()
 }
 
 func TestScheduler_Submit(t *testing.T) {
-	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(params))
+	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
 	defer tangle.Shutdown()
+	tangle.Scheduler.Start()
 
 	msg := newMessage(selfNode.PublicKey())
 	tangle.Storage.StoreMessage(msg)
-	tangle.Scheduler.Submit(msg.ID())
+	assert.NoError(t, tangle.Scheduler.Submit(msg.ID()))
 	time.Sleep(100 * time.Millisecond)
+	// unsubmit to allow the scheduler to shutdown
+	assert.NoError(t, tangle.Scheduler.Unsubmit(msg.ID()))
 }
 
 func TestScheduler_Discarded(t *testing.T) {
-	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(params))
+	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
 	defer tangle.Shutdown()
+	tangle.Scheduler.Start()
 
 	messageDiscarded := make(chan MessageID, 1)
 	tangle.Scheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(id MessageID) { messageDiscarded <- id }))
 
 	// this node has no mana so the message will be discarded
-	msg := newMessage(otherNode.PublicKey())
+	msg := newMessage(noAManaNode.PublicKey())
 	tangle.Storage.StoreMessage(msg)
-	tangle.Scheduler.Submit(msg.ID())
+	err := tangle.Scheduler.Submit(msg.ID())
+	assert.Truef(t, xerrors.Is(err, schedulerutils.ErrInvalidMana), "unexpected error: %v", err)
 
 	assert.Eventually(t, func() bool {
 		select {
@@ -64,10 +69,8 @@ func TestScheduler_Discarded(t *testing.T) {
 }
 
 func TestScheduler_Schedule(t *testing.T) {
-	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(params))
+	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
 	defer tangle.Shutdown()
-
-	tangle.Scheduler.Setup()
 	tangle.Scheduler.Start()
 
 	messageScheduled := make(chan MessageID, 1)
@@ -76,8 +79,8 @@ func TestScheduler_Schedule(t *testing.T) {
 	// create a new message from a different node
 	msg := newMessage(peerNode.PublicKey())
 	tangle.Storage.StoreMessage(msg)
-	tangle.Scheduler.Submit(msg.ID())
-	tangle.Scheduler.Ready(msg.ID())
+	assert.NoError(t, tangle.Scheduler.Submit(msg.ID()))
+	assert.NoError(t, tangle.Scheduler.Ready(msg.ID()))
 
 	assert.Eventually(t, func() bool {
 		select {
@@ -89,11 +92,42 @@ func TestScheduler_Schedule(t *testing.T) {
 	}, 1*time.Second, 10*time.Millisecond)
 }
 
-func TestScheduler_Time(t *testing.T) {
-	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(params))
+func TestScheduler_SetRateBeforeStart(t *testing.T) {
+	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
 	defer tangle.Shutdown()
 
-	tangle.Scheduler.Setup()
+	tangle.Scheduler.SetRate(time.Hour)
+	tangle.Scheduler.Start()
+	tangle.Scheduler.SetRate(testRate)
+}
+
+func TestScheduler_SetRate(t *testing.T) {
+	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
+	defer tangle.Shutdown()
+	tangle.Scheduler.Start()
+
+	var scheduled atomic.Bool
+	tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(MessageID) { scheduled.Store(true) }))
+
+	// disable the scheduler by setting a very long rate
+	tangle.Scheduler.SetRate(time.Hour)
+
+	msg := newMessage(peerNode.PublicKey())
+	tangle.Storage.StoreMessage(msg)
+	assert.NoError(t, tangle.Scheduler.Submit(msg.ID()))
+	assert.NoError(t, tangle.Scheduler.Ready(msg.ID()))
+
+	// the message should not be scheduled as the rate is too low
+	time.Sleep(100 * time.Millisecond)
+	assert.False(t, scheduled.Load())
+
+	tangle.Scheduler.SetRate(testRate)
+	assert.Eventually(t, scheduled.Load, 1*time.Second, 10*time.Millisecond)
+}
+
+func TestScheduler_Time(t *testing.T) {
+	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
+	defer tangle.Shutdown()
 	tangle.Scheduler.Start()
 
 	messageScheduled := make(chan MessageID, 1)
@@ -102,14 +136,14 @@ func TestScheduler_Time(t *testing.T) {
 	future := newMessage(peerNode.PublicKey())
 	future.issuingTime = time.Now().Add(time.Second)
 	tangle.Storage.StoreMessage(future)
-	tangle.Scheduler.Submit(future.ID())
+	assert.NoError(t, tangle.Scheduler.Submit(future.ID()))
 
 	now := newMessage(peerNode.PublicKey())
 	tangle.Storage.StoreMessage(now)
-	tangle.Scheduler.Submit(now.ID())
+	assert.NoError(t, tangle.Scheduler.Submit(now.ID()))
 
-	tangle.Scheduler.Ready(future.ID())
-	tangle.Scheduler.Ready(now.ID())
+	assert.NoError(t, tangle.Scheduler.Ready(future.ID()))
+	assert.NoError(t, tangle.Scheduler.Ready(now.ID()))
 
 	done := make(chan struct{})
 	var scheduledIDs []MessageID
@@ -134,22 +168,27 @@ func TestScheduler_Time(t *testing.T) {
 }
 
 func TestScheduler_Issue(t *testing.T) {
-	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(params))
+	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
 	defer tangle.Shutdown()
-	tangle.Setup()
+
+	tangle.Events.Error.Attach(events.NewClosure(func(err error) { assert.Failf(t, "unexpected error", "error event triggered: %v", err) }))
+
+	// setup tangle up till the Scheduler
+	tangle.Storage.Setup()
+	tangle.Solidifier.Setup()
 	tangle.Scheduler.Setup()
 	tangle.Scheduler.Start()
 
 	const numMessages = 5
+	messageScheduled := make(chan MessageID, numMessages)
+	tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(id MessageID) { messageScheduled <- id }))
+
 	ids := make([]MessageID, numMessages)
 	for i := range ids {
 		msg := newMessage(selfNode.PublicKey())
 		tangle.Storage.StoreMessage(msg)
 		ids[i] = msg.ID()
 	}
-
-	messageScheduled := make(chan MessageID, numMessages)
-	tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(id MessageID) { messageScheduled <- id }))
 
 	var scheduledIDs []MessageID
 	assert.Eventually(t, func() bool {
@@ -167,8 +206,10 @@ func TestScheduler_Issue(t *testing.T) {
 func TestSchedulerFlow(t *testing.T) {
 	// create Scheduler dependencies
 	// create the tangle
-	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(params))
+	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
 	defer tangle.Shutdown()
+
+	tangle.Events.Error.Attach(events.NewClosure(func(err error) { assert.Failf(t, "unexpected error", "error event triggered: %v", err) }))
 
 	// setup tangle up till the Scheduler
 	tangle.Storage.Setup()
@@ -222,17 +263,6 @@ func TestSchedulerFlow(t *testing.T) {
 			return false
 		}
 	}, 10*time.Second, 100*time.Millisecond)
-}
-
-func getAccessMana(nodeID identity.ID) float64 {
-	if nodeID == otherNode.ID() {
-		return 0
-	}
-	return 1000
-}
-
-func getTotalAccessMana() float64 {
-	return 10000
 }
 
 func newMessage(issuerPublicKey ed25519.PublicKey) *Message {
