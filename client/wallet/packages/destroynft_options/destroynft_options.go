@@ -42,11 +42,24 @@ func Alias(aliasID string) DestroyNFTOption {
 	}
 }
 
+// RemainderAddress specifies the address where the funds of the destroyed NFT will be sent. (optional)
+func RemainderAddress(address string) DestroyNFTOption {
+	return func(options *destroyNFTOption) error {
+		parsed, err := ledgerstate.AddressFromBase58EncodedString(address)
+		if err != nil {
+			return err
+		}
+		options.RemainderAddress = parsed
+		return nil
+	}
+}
+
 // destroyNFTOption is a struct that is used to aggregate the optional parameters in the DestroyNFT call.
 type destroyNFTOption struct {
 	AccessManaPledgeID    string
 	ConsensusManaPledgeID string
 	Alias                 *ledgerstate.AliasAddress
+	RemainderAddress      ledgerstate.Address
 	WaitForConfirmation   bool
 }
 

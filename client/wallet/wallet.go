@@ -379,45 +379,13 @@ func (wallet *Wallet) ReclaimDelegatedFunds(options ...reclaimfunds_options.Recl
 		return
 	}
 	if reclaimOptions.ToAddress == nil {
+		// if no optional address is provided, send to receive address of the wallet
 		reclaimOptions.ToAddress = wallet.ReceiveAddress().Address()
 	}
 
-	// step 1: set state address to our own, reset delegation status (needs governance transition)
-	// step 2: withdraw whatever is left in it (needs state transition)
-	// step 3: destroy the alias, keep the funds (needs governance transition)
-
-	// step 1
-	tx, err = wallet.TransferNFT(
-		transfernft_options.Alias(reclaimOptions.Alias.Base58()),
-		transfernft_options.ResetStateAddress(true),
-		transfernft_options.ResetDelegation(true),
-		transfernft_options.ToAddress(reclaimOptions.ToAddress.Base58()),
-		transfernft_options.WaitForConfirmation(true),
-	)
-	if err != nil {
-		return
-	}
-
-	// step 2:
-	//how much is inside?
-	_, stateControlled, _, _, err := wallet.AliasBalance()
-	if err != nil {
-		return
-	}
-	withdrawAmount := stateControlled[*reclaimOptions.Alias].Balances().Map()
-	// leave the minimum
-	withdrawAmount[ledgerstate.ColorIOTA] -= ledgerstate.DustThresholdAliasOutputIOTA
-	tx, err = wallet.WithdrawFundsFromNFT(
-		withdrawfundsfromnft_options.Alias(reclaimOptions.Alias.Base58()),
-		withdrawfundsfromnft_options.Amount(withdrawAmount),
-		withdrawfundsfromnft_options.WaitForConfirmation(true),
-	)
-	if err != nil {
-		return
-	}
-	// step 3:
 	tx, err = wallet.DestroyNFT(
 		destroynft_options.Alias(reclaimOptions.Alias.Base58()),
+		destroynft_options.RemainderAddress(reclaimOptions.ToAddress.Base58()),
 		destroynft_options.WaitForConfirmation(true),
 	)
 
@@ -653,8 +621,8 @@ func (wallet *Wallet) DestroyNFT(options ...destroynft_options.DestroyNFTOption)
 	}
 	alias := walletAlias.Object.(*ledgerstate.AliasOutput)
 
-	// can only be destroyed when minimal funds are present
-	if !ledgerstate.IsExactDustMinimum(alias.Balances()) {
+	// can only be destroyed when minimal funds are present (unless it is delegated)
+	if !alias.IsDelegated() && !ledgerstate.IsExactDustMinimum(alias.Balances()) {
 		withdrawAmount := alias.Balances().Map()
 		withdrawAmount[ledgerstate.ColorIOTA] -= ledgerstate.DustThresholdAliasOutputIOTA
 		_, err = wallet.WithdrawFundsFromNFT(
