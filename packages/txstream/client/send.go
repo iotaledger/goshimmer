@@ -5,10 +5,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/txstream"
 )
 
-func (n *Client) sendWaspID() {
-	n.sendMessage(&txstream.MsgSetID{ClientID: n.clientID})
-}
-
 // RequestBacklog requests the backlog for a given address
 func (n *Client) RequestBacklog(addr ledgerstate.Address) {
 	n.sendMessage(&txstream.MsgGetBacklog{Address: addr})

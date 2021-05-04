@@ -99,7 +99,7 @@ func NumChunks(dataLen, maxMsgSize, includingChoppingOverhead int) (byte, int, e
 
 // ChopData chops data into pieces (not more than 255) and adds chopper header to each piece
 // for IncomingChunk function to reassemble it
-func (c *Chopper) ChopData(data []byte, maxMsgSize int, includingChoppingOverhead int) ([][]byte, bool, error) {
+func (c *Chopper) ChopData(data []byte, maxMsgSize, includingChoppingOverhead int) ([][]byte, bool, error) {
 	numChunks, maxChunkSize, err := NumChunks(len(data), maxMsgSize, includingChoppingOverhead)
 	if err != nil {
 		return nil, false, err
@@ -136,7 +136,7 @@ func (c *Chopper) ChopData(data []byte, maxMsgSize int, includingChoppingOverhea
 // IncomingChunk collects all incoming chunks.
 // Returned != nil value of the reassembled data
 // maxChunkSize parameter must be the same on both sides
-func (c *Chopper) IncomingChunk(data []byte, maxMsgSize int, includingChoppingOverhead int) ([]byte, error) {
+func (c *Chopper) IncomingChunk(data []byte, maxMsgSize, includingChoppingOverhead int) ([]byte, error) {
 	maxChunkSize := maxMsgSize - includingChoppingOverhead
 	maxSizeWithoutHeader := maxChunkSize - chunkHeaderSize
 	msg := msgChunk{}
@@ -161,10 +161,8 @@ func (c *Chopper) IncomingChunk(data []byte, maxMsgSize int, includingChoppingOv
 			ttl:    time.Now().Add(maxTTL),
 		}
 		c.chunks[msg.msgID] = dip
-	} else {
-		if dip.buffer[msg.chunkSeqNum] != nil {
-			return nil, fmt.Errorf("IncomingChunk: repeating seq number")
-		}
+	} else if dip.buffer[msg.chunkSeqNum] != nil {
+		return nil, fmt.Errorf("IncomingChunk: repeating seq number")
 	}
 	dip.buffer[msg.chunkSeqNum] = msg.data
 	dip.numReceived++
