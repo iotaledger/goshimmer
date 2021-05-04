@@ -9,11 +9,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/hive.go/identity"
+
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	manaPkg "github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
-	"github.com/iotaledger/hive.go/identity"
 )
 
 func TestManaPersistence(t *testing.T) {
@@ -87,9 +88,10 @@ func TestPledgeFilter(t *testing.T) {
 		ManaAllowedConsensusPledge:        []string{consensusPeerID},
 		SyncBeacon:                        true,
 	})
-
 	require.NoError(t, err)
-	err = n.WaitForAutopeering(2)
+
+	time.Sleep(1 * time.Second)
+	err = n.DoManualPeeringAndWait()
 	require.NoError(t, err)
 
 	time.Sleep(10 * time.Second)

@@ -123,7 +123,7 @@ func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int, 
 	}
 	// wait until containers are fully started
 	time.Sleep(1 * time.Second)
-	if err := network.doManualPeering(); err != nil {
+	if err := network.DoManualPeering(); err != nil {
 		return nil, errors.WithStack(err)
 	}
 	if err := network.WaitForManualpeering(); err != nil {

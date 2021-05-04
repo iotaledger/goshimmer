@@ -32,11 +32,9 @@ func TestSynchronization(t *testing.T) {
 	time.Sleep(10 * time.Second)
 
 	// 2. spawn peer without knowledge of previous messages
-	newPeer, err := n.CreatePeer(framework.GoShimmerConfig{
+	newPeer, err := n.CreatePeerAndWaitForManualPeering(framework.GoShimmerConfig{
 		SyncBeaconFollower: true,
 	})
-	require.NoError(t, err)
-	err = n.WaitForAutopeering(3)
 	require.NoError(t, err)
 
 	// 3. issue some messages on old peers so that new peer can solidify
@@ -58,7 +56,7 @@ func TestSynchronization(t *testing.T) {
 	// wait for peer to start
 	time.Sleep(5 * time.Second)
 
-	err = n.WaitForAutopeering(3)
+	err = n.WaitForManualpeering()
 	require.NoError(t, err)
 
 	// note: this check is too dependent on the initial time a node sends bootstrap messages

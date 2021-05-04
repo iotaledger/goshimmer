@@ -86,6 +86,17 @@ func (n *Network) createEntryNode() error {
 
 	return nil
 }
+func (n *Network) CreatePeerAndWaitForManualPeering(c GoShimmerConfig) (*Peer, error) {
+	p, err := n.CreatePeer(c)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	time.Sleep(1 * time.Second)
+	if err := n.DoManualPeeringAndWait(); err != nil {
+		return nil, errors.WithStack(err)
+	}
+	return p, nil
+}
 
 // CreatePeer creates a new peer/GoShimmer node in the network and returns it.
 // Passing bootstrap true enables the bootstrap plugin on the given peer.
@@ -289,7 +300,17 @@ func (n *Network) Shutdown() error {
 	return nil
 }
 
-func (n *Network) doManualPeering() error {
+func (n *Network) DoManualPeeringAndWait() error {
+	if err := n.DoManualPeering(); err != nil {
+		return errors.WithStack(err)
+	}
+	if err := n.WaitForManualpeering(); err != nil {
+		return errors.WithStack(err)
+	}
+	return nil
+}
+
+func (n *Network) DoManualPeering() error {
 	for idx, p := range n.peers {
 		allOtherPeers := make([]*Peer, 0, len(n.peers)-1)
 		allOtherPeers = append(allOtherPeers, n.peers[:idx]...)
@@ -326,7 +347,7 @@ func (n *Network) WaitForManualpeering() error {
 		return len(peers), nil
 	}
 	err := n.waitForPeering(len(n.peers)-1, getNeighborsFn)
-	return errors.WithStack(err)
+	return errors.Wrap(err, "failed to wait for manual peering to succeed")
 }
 
 type getNeighborsNumberFunc func(p *Peer) (int, error)

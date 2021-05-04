@@ -33,17 +33,16 @@ func TestSyncBeacon(t *testing.T) {
 		beaconPublicKeys = append(beaconPublicKeys, peer.PublicKey().String())
 	}
 	peers := n.Peers()
-	err = n.WaitForAutopeering(3)
+	time.Sleep(1 * time.Second)
+	err = n.DoManualPeeringAndWait()
 	require.NoError(t, err)
 
 	// beacon follower node to follow all previous nodes
-	peer, err := n.CreatePeer(framework.GoShimmerConfig{
+	peer, err := n.CreatePeerAndWaitForManualPeering(framework.GoShimmerConfig{
 		SyncBeaconFollower:          true,
 		SyncBeaconFollowNodes:       strings.Join(beaconPublicKeys, ","),
 		SyncBeaconMaxTimeOfflineSec: 15,
 	})
-	require.NoError(t, err)
-	err = n.WaitForAutopeering(3)
 	require.NoError(t, err)
 
 	log.Println("Waiting...1/2")

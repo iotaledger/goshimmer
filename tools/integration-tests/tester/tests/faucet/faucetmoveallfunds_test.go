@@ -58,8 +58,10 @@ func TestPrepareFaucet(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	err = n.WaitForAutopeering(1)
+	time.Sleep(1 * time.Second)
+	err = n.DoManualPeeringAndWait()
 	require.NoError(t, err)
+
 	time.Sleep(5 * time.Second)
 
 	// issue 9 requests to consume the 1st 9 faucet prepared outputs.
