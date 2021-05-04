@@ -15,7 +15,7 @@ func execDestroyNFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	}
 
 	helpPtr := command.Bool("help", false, "show this help screen")
-	nftIDPtr := command.String("nft-id", "", "unique identifier of the nft that should be destroyed")
+	nftIDPtr := command.String("id", "", "unique identifier of the nft that should be destroyed")
 	accessManaPledgeIDPtr := command.String("access-mana-id", "", "node ID to pledge access mana to")
 	consensusManaPledgeIDPtr := command.String("consensus-mana-id", "", "node ID to pledge consensus mana to")
 

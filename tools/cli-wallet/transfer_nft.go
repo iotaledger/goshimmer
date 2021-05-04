@@ -15,7 +15,7 @@ func execTransferNFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	}
 
 	helpPtr := command.Bool("help", false, "show this help screen")
-	nftIDPtr := command.String("nft-id", "", "unique identifier of the nft that should be transferred")
+	nftIDPtr := command.String("id", "", "unique identifier of the nft that should be transferred")
 	addressPtr := command.String("dest-addr", "", "destination address for the transfer")
 	resetStateAddrPtr := command.Bool("reset-state-addr", false, "defines whether to set the state address to dest-addr")
 	resetDelegationPtr := command.Bool("reset-delegation", false, "defines whether to reset the delegation status of the alias being transferred")

@@ -530,6 +530,27 @@ func (wallet *Wallet) TransferNFT(options ...transfernft_options.TransferNFTOpti
 		return
 	}
 
+	// check if we are not trying to governance deadlock
+	// Note, that a deadlock means that aliases circularly govern each other. Such aliases will not be able to get
+	// governance unlocked due to protocol constraints.
+	//  - an alias cannot govern itself, so level 1 circular dependency is covered by the syntactic checks of outputs
+	//  - here we can check if the other alias is governed by us, hence preventing level 2 circular dependency
+	//  - but we can't prevent level 3 or greater circular dependency without walking the governing path, which can be
+	//    expensive.
+	if transferOptions.ToAddress.Type() == ledgerstate.AliasAddressType {
+		// we are giving the governor role to another alias. Is that other alias governed by this alias?
+		var otherAlias *ledgerstate.AliasOutput
+		otherAlias, err = wallet.connector.GetUnspentAliasOutput(transferOptions.ToAddress.(*ledgerstate.AliasAddress))
+		if err != nil {
+			err = xerrors.Errorf("failed to check that transfer wouldn't result in deadlocked outputs: %w", err)
+			return
+		}
+		if otherAlias.GetGoverningAddress().Equals(alias.GetAliasAddress()) {
+			err = xerrors.Errorf("transfer of nft to %s would result in circular alias governance", transferOptions.ToAddress.Base58())
+			return
+		}
+	}
+
 	// transfer means we are transferring the governor role, so it has to be a governance update
 	nextAlias := alias.NewAliasOutputNext(true)
 	if nextAlias.IsSelfGoverned() {

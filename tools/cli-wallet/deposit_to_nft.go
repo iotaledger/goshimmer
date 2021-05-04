@@ -16,7 +16,7 @@ func execDepositToNFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	}
 
 	helpPtr := command.Bool("help", false, "show this help screen")
-	nftIDPtr := command.String("nft-id", "", "unique identifier of the nft to deposit to")
+	nftIDPtr := command.String("id", "", "unique identifier of the nft to deposit to")
 	colorPtr := command.String("color", "IOTA", "color of funds to deposit")
 	amountPtr := command.Int64("amount", 0, "the amount of tokens that are supposed to be deposited")
 	accessManaPledgeIDPtr := command.String("access-mana-id", "", "node ID to pledge access mana to")
@@ -28,7 +28,7 @@ func execDepositToNFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	}
 
 	if *nftIDPtr == "" {
-		printUsage(command, "nft-id to deposit to should be given")
+		printUsage(command, "id of the nft to deposit to should be given")
 	}
 
 	if *amountPtr <= 0 {

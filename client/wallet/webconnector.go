@@ -1,6 +1,8 @@
 package wallet
 
 import (
+	"golang.org/x/xerrors"
+
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -143,6 +145,34 @@ func (webConnector WebConnector) GetAllowedPledgeIDs() (pledgeIDMap map[mana.Typ
 	}
 
 	return
+}
+
+// GetUnspentAliasOutput returns the current unspent alias output that belongs to a given alias address.
+func (webConnector WebConnector) GetUnspentAliasOutput(address *ledgerstate.AliasAddress) (output *ledgerstate.AliasOutput, err error) {
+	res, err := webConnector.client.GetAddressUnspentOutputs(address.Base58())
+	if err != nil {
+		return
+	}
+	for _, o := range res.Outputs {
+		if o.Type == ledgerstate.AliasOutputType.String() {
+			var uncastedOutput ledgerstate.Output
+			uncastedOutput, err = o.ToLedgerstateOutput()
+			if err != nil {
+				return
+			}
+			alias, ok := uncastedOutput.(*ledgerstate.AliasOutput)
+			if !ok {
+				err = xerrors.Errorf("alias output received from api cannot be casted to ledgerstate representation")
+				return
+			}
+			if alias.GetAliasAddress().Equals(address) {
+				// we found what we were looking for
+				output = alias
+				return
+			}
+		}
+	}
+	return nil, xerrors.Errorf("couldn't find unspent alias output for alias address %s", address.Base58())
 }
 
 // colorFromString is an internal utility method that parses the given string into a Color.

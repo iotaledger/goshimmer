@@ -14,4 +14,5 @@ type Connector interface {
 	RequestFaucetFunds(address address.Address) (err error)
 	GetAllowedPledgeIDs() (pledgeIDMap map[mana.Type][]string, err error)
 	GetTransactionInclusionState(txID ledgerstate.TransactionID) (inc ledgerstate.InclusionState, err error)
+	GetUnspentAliasOutput(address *ledgerstate.AliasAddress) (output *ledgerstate.AliasOutput, err error)
 }
