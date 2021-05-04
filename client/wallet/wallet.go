@@ -979,6 +979,10 @@ func (wallet Wallet) SweepNFTOwnedFunds(options ...sweepnftownedfunds_options.Sw
 	if len(owned) == 0 {
 		err = xerrors.Errorf("no owned outputs with funds are found on nft %s", sweepOptions.Alias.Base58())
 	}
+	if len(owned) > 126 {
+		// we can spend at most 127 inputs in a tx
+		owned = owned[:126]
+	}
 
 	toBeConsumed := ledgerstate.Outputs{}
 	totalConsumed := map[ledgerstate.Color]uint64{}
