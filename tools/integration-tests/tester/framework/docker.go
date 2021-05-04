@@ -119,7 +119,7 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 			fmt.Sprintf("--autopeering.seed=base58:%s", config.Seed),
 			fmt.Sprintf("--autopeering.entryNodes=%s@%s:14626", config.EntryNodePublicKey, config.EntryNodeHost),
 			func() string {
-				if config.GossipDisableAutopeering {
+				if !config.EnableAutopeeringForGossip {
 					return "--gossip.disableAutopeering"
 				}
 				return ""

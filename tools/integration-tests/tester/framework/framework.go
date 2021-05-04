@@ -115,7 +115,6 @@ func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int, 
 			WriteStatement:             ParaWriteStatement,
 			WriteManaThreshold:         ParaWriteManaThreshold,
 			ReadManaThreshold:          ParaReadManaThreshold,
-			GossipDisableAutopeering:   true,
 		}
 		if _, err := network.CreatePeer(config); err != nil {
 			return nil, err
@@ -123,11 +122,8 @@ func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int, 
 	}
 	// wait until containers are fully started
 	time.Sleep(1 * time.Second)
-	if err := network.DoManualPeering(); err != nil {
+	if err := network.DoManualPeeringAndWait(); err != nil {
 		return nil, errors.WithStack(err)
-	}
-	if err := network.WaitForManualpeering(); err != nil {
-		return nil, errors.Wrap(err, "manual peering failed after waiting for it")
 	}
 
 	return network, nil
@@ -190,6 +186,7 @@ func (f *Framework) CreateNetworkWithPartitions(name string, peers, partitions, 
 			WriteStatement:             ParaWriteStatement,
 			WriteManaThreshold:         ParaWriteManaThreshold,
 			ReadManaThreshold:          ParaReadManaThreshold,
+			EnableAutopeeringForGossip: true,
 		}
 		if _, err = network.CreatePeer(config); err != nil {
 			return nil, err
@@ -286,7 +283,6 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers, minimumNeighb
 			drngCommittee += pubKeys[i].String()
 		}
 	}
-
 	config := GoShimmerConfig{
 		DRNGInstance:       111,
 		DRNGThreshold:      3,
@@ -319,9 +315,9 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers, minimumNeighb
 
 	// wait until peers are fully started and connected
 	time.Sleep(1 * time.Second)
-	err = drng.network.WaitForAutopeering(minimumNeighbors)
+	err = drng.network.DoManualPeeringAndWait()
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 
 	return drng, nil
