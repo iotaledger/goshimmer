@@ -1,16 +1,14 @@
 package tangle
 
 import (
-	"errors"
-	"fmt"
 	"math"
 	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/tangle/schedulerutils"
-
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
+	"go.uber.org/atomic"
 	"golang.org/x/xerrors"
 )
 
@@ -19,8 +17,8 @@ const (
 	MaxDeficit = MaxMessageSize
 )
 
-// rate is the minimum time interval between two scheduled messages, i.e. 1s / MPS
-var rate = time.Second / 200
+// ErrNotRunning is returned when a message is submitted when the scheduler has not been started
+var ErrNotRunning = xerrors.New("scheduler is not running")
 
 // AccessManaRetrieveFunc is a function type to retrieve access mana (e.g. via the mana plugin)
 type AccessManaRetrieveFunc func(nodeID identity.ID) float64
@@ -46,21 +44,18 @@ type Scheduler struct {
 	deficits         map[identity.ID]float64
 	onMessageSolid   *events.Closure
 	onMessageInvalid *events.Closure
-	shutdownSignal   chan struct{}
-	shutdownOnce     sync.Once
+	running          atomic.Bool
+	wg               sync.WaitGroup
 	ticker           *time.Ticker
 }
 
 // NewScheduler returns a new Scheduler.
 func NewScheduler(tangle *Tangle) *Scheduler {
 	if tangle.Options.SchedulerParams.AccessManaRetrieveFunc == nil || tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc == nil {
-		panic("the option AccessManaRetriever and TotalAccessManaRetriever must be defined so that AccessMana can be determined in scheduler")
+		panic("scheduler: the option AccessManaRetriever and TotalAccessManaRetriever must be defined so that AccessMana can be determined in scheduler")
 	}
 	if tangle.Options.SchedulerParams.MaxQueueWeight != nil {
 		schedulerutils.MaxQueueWeight = *tangle.Options.SchedulerParams.MaxQueueWeight
-	}
-	if tangle.Options.SchedulerParams.Rate > 0 {
-		rate = tangle.Options.SchedulerParams.Rate
 	}
 
 	scheduler := &Scheduler{
@@ -69,11 +64,10 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 			MessageDiscarded: events.NewEvent(MessageIDCaller),
 			NodeBlacklisted:  events.NewEvent(NodeIDCaller),
 		},
-		self:           tangle.Options.Identity.ID(),
-		tangle:         tangle,
-		buffer:         schedulerutils.NewBufferQueue(),
-		deficits:       make(map[identity.ID]float64),
-		shutdownSignal: make(chan struct{}),
+		self:     tangle.Options.Identity.ID(),
+		tangle:   tangle,
+		buffer:   schedulerutils.NewBufferQueue(),
+		deficits: make(map[identity.ID]float64),
 	}
 	scheduler.onMessageSolid = events.NewClosure(scheduler.onMessageSolidHandler)
 	scheduler.onMessageInvalid = events.NewClosure(scheduler.onMessageInvalidHandler)
@@ -81,16 +75,41 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 }
 
 func (s *Scheduler) onMessageSolidHandler(messageID MessageID) {
-	s.SubmitAndReadyMessage(messageID)
+	// submit the message to the scheduler and marks it ready right away
+	err := s.Submit(messageID)
+	if err != nil {
+		s.tangle.Events.Error.Trigger(xerrors.Errorf("failed to submit: %w", err))
+		return
+	}
+	err = s.Ready(messageID)
+	if err != nil {
+		s.tangle.Events.Error.Trigger(xerrors.Errorf("failed to ready: %w", err))
+		return
+	}
 }
 
 func (s *Scheduler) onMessageInvalidHandler(messageID MessageID) {
-	s.Unsubmit(messageID)
+	// unsubmit the message
+	err := s.Unsubmit(messageID)
+	s.tangle.Events.Error.Trigger(xerrors.Errorf("failed to unsubmit: %w", err))
 }
 
 // Start starts the scheduler.
 func (s *Scheduler) Start() {
+	// create the ticker here to assure that SetRate never hits an uninitialized ticker
+	s.ticker = time.NewTicker(s.tangle.Options.SchedulerParams.Rate)
+	// start the main loop
+	s.wg.Add(1)
 	go s.mainLoop()
+
+	s.running.Store(true)
+}
+
+// Shutdown shuts down the Scheduler.
+// Shutdown blocks until the scheduler has been shutdown successfully.
+func (s *Scheduler) Shutdown() {
+	s.running.Store(false)
+	s.wg.Wait()
 }
 
 // Detach detaches the scheduler from the tangle events.
@@ -103,50 +122,24 @@ func (s *Scheduler) Detach() {
 func (s *Scheduler) Setup() {
 	s.tangle.Solidifier.Events.MessageSolid.Attach(s.onMessageSolid)
 	s.tangle.Events.MessageInvalid.Attach(s.onMessageInvalid)
-
-	//  TODO: wait for all messages to be scheduled here or in message layer?
-	/*
-		s.tangle.ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID MessageID) {
-			if s.scheduledMessages.Delete(messageID) {
-				s.allMessagesScheduledWG.Done()
-			}
-		}))
-	*/
-}
-
-// SubmitAndReadyMessage submits the message to the scheduler and makes it ready when it's parents are booked.
-func (s *Scheduler) SubmitAndReadyMessage(messageID MessageID) {
-	err := s.Submit(messageID)
-	if err != nil {
-		s.tangle.Events.Info.Trigger(fmt.Sprintf("error submitting message %s in scheduler: %v", messageID.Base58(), err))
-		return
-	}
-
-	err = s.Ready(messageID)
-	if err != nil {
-		s.tangle.Events.Error.Trigger(fmt.Sprintf("error setting message %s as ready in scheduler: %v", messageID.Base58(), err))
-		return
-	}
 }
 
 // SetRate sets the rate of the scheduler.
 func (s *Scheduler) SetRate(rate time.Duration) {
-	s.ticker = time.NewTicker(rate)
 	s.tangle.Options.SchedulerParams.Rate = rate
-}
-
-// Shutdown shuts down the Scheduler.
-func (s *Scheduler) Shutdown() {
-	s.shutdownOnce.Do(func() {
-		close(s.shutdownSignal)
-	})
+	// only update the ticker when the scheduler is running
+	if s.running.Load() {
+		s.ticker.Reset(rate)
+	}
 }
 
 // Submit submits a message to be considered by the scheduler.
 // This transactions will be included in all the control metrics, but it will never be
 // scheduled until Ready(messageID) has been called.
-func (s *Scheduler) Submit(messageID MessageID) error {
-	var err error
+func (s *Scheduler) Submit(messageID MessageID) (err error) {
+	if !s.running.Load() {
+		return ErrNotRunning
+	}
 
 	if !s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		s.mu.Lock()
@@ -165,33 +158,31 @@ func (s *Scheduler) Submit(messageID MessageID) error {
 		if err != nil {
 			s.Events.MessageDiscarded.Trigger(messageID)
 		}
-		if errors.Is(err, schedulerutils.ErrInboxExceeded) {
+		if xerrors.Is(err, schedulerutils.ErrInboxExceeded) {
 			s.Events.NodeBlacklisted.Trigger(nodeID)
 		}
 	}) {
 		err = xerrors.Errorf("failed to get message '%x' from storage", messageID)
 	}
-
 	return err
 }
 
 // Unsubmit removes a message from the submitted messages.
 // If that message is already marked as ready, Unsubmit has no effect.
-func (s *Scheduler) Unsubmit(messageID MessageID) {
+func (s *Scheduler) Unsubmit(messageID MessageID) (err error) {
 	if !s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		s.buffer.Unsubmit(message)
 	}) {
-		s.tangle.Events.Info.Trigger(fmt.Sprintf("error in Scheduler (Unsubmit): failed to get message '%x' from storage", messageID))
+		err = xerrors.Errorf("failed to get message '%x' from storage", messageID)
 	}
+	return err
 }
 
 // Ready marks a previously submitted message as ready to be scheduled.
 // If Ready is called without a previous Submit, it has no effect.
-func (s *Scheduler) Ready(messageID MessageID) error {
-	var err error
-
+func (s *Scheduler) Ready(messageID MessageID) (err error) {
 	if !s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
@@ -199,22 +190,7 @@ func (s *Scheduler) Ready(messageID MessageID) error {
 	}) {
 		err = xerrors.Errorf("failed to get message '%x' from storage", messageID)
 	}
-
 	return err
-}
-
-// RemoveNode removes all messages (submitted and ready) for the given node.
-func (s *Scheduler) RemoveNode(nodeID identity.ID) (err error) {
-	if nodeID == s.self {
-		return xerrors.Errorf("Invalid node to remove")
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	// TODO: is it necessary to trigger MessageDiscarded for all the removed messages.
-	s.buffer.RemoveNode(nodeID)
-	return
 }
 
 func (s *Scheduler) parentsBooked(messageID MessageID) (parentsBooked bool) {
@@ -252,58 +228,47 @@ func (s *Scheduler) schedule() *Message {
 		if f != nil && s.getDeficit(q.NodeID()) >= float64(len(f.Bytes())) && !now.Before(f.IssuingTime()) {
 			break
 		}
-		// otherwise increase the deficit
+		// otherwise increase its deficit
 		mana := s.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(q.NodeID())
-		err := s.setDeficit(q.NodeID(), s.getDeficit(q.NodeID())+mana)
-		if err != nil {
-			s.tangle.Events.Error.Trigger(err)
-			return nil
-		}
+		s.updateDeficit(q.NodeID(), mana)
 
-		// TODO: different from spec
+		// TODO: this is slightly different from the spec, check that the spec is updated
 		q = s.buffer.Next()
-		if q == nil {
-			s.tangle.Events.Error.Trigger(xerrors.Errorf("error in Scheduler (schedule): failed to get next message from bufferQueue"))
-			return nil
-		}
+		// since the buffer is not empty, this will never return nil
 		if q == start {
 			return nil
 		}
 	}
 
-	// will stay in
+	// if the parents are not booked yet, do not schedule the message
+	// TODO: eventually this should be handled outside the scheduler by only calling Ready() when the parents are booked
 	if !s.parentsBooked(s.buffer.Current().Front().(*Message).ID()) {
 		return nil
 	}
+	// remove the message from the buffer and adjust node's deficit
 	msg := s.buffer.PopFront()
 	nodeID := identity.NewID(msg.IssuerPublicKey())
-	err := s.setDeficit(nodeID, s.getDeficit(nodeID)-float64(len(msg.Bytes())))
-	if err != nil {
-		s.tangle.Events.Error.Trigger(err)
-		return nil
-	}
+	s.updateDeficit(nodeID, -float64(len(msg.Bytes())))
 
 	return msg.(*Message)
 }
 
 // mainLoop periodically triggers the scheduling of ready messages.
 func (s *Scheduler) mainLoop() {
-	s.ticker = time.NewTicker(rate)
+	defer s.wg.Done()
 	defer s.ticker.Stop()
 
 	for {
 		select {
 		// every rate time units
 		case <-s.ticker.C:
-			// TODO: do we need to pause the ticker, if there are no ready messages
-			msg := s.schedule()
-			if msg != nil {
+			// TODO: pause the ticker, if there are no ready messages
+			if msg := s.schedule(); msg != nil {
 				s.Events.MessageScheduled.Trigger(msg.ID())
 			}
-
-		// on close, exit the loop
-		case <-s.shutdownSignal:
-			return
+			if !s.running.Load() && s.buffer.Size() == 0 {
+				return
+			}
 		}
 	}
 }
@@ -312,13 +277,13 @@ func (s *Scheduler) getDeficit(nodeID identity.ID) float64 {
 	return s.deficits[nodeID]
 }
 
-func (s *Scheduler) setDeficit(nodeID identity.ID, deficit float64) (err error) {
+func (s *Scheduler) updateDeficit(nodeID identity.ID, d float64) {
+	deficit := s.deficits[nodeID] + d
 	if deficit < 0 {
-		return xerrors.Errorf("error in Scheduler (setDeficit): deficit is less than 0")
+		// this will never happen and is just here for debugging purposes
+		panic("scheduler: deficit is less than 0")
 	}
 	s.deficits[nodeID] = math.Min(deficit, MaxDeficit)
-
-	return
 }
 
 // NodeQueueSize returns the size of the nodeIDs queue.

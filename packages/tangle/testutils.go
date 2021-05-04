@@ -600,6 +600,7 @@ var (
 	totalAMana          = 1000.0
 	maxQueueWeight      = 1024.0 * 1024.0
 	testRate            = time.Second / 5000
+	noAManaNode         = identity.GenerateIdentity()
 	testSchedulerParams = SchedulerParams{
 		Rate:                        testRate,
 		MaxQueueWeight:              &maxQueueWeight,
@@ -608,7 +609,10 @@ var (
 	}
 )
 
-func accessManaRetriever(_ identity.ID) float64 {
+func accessManaRetriever(id identity.ID) float64 {
+	if id == noAManaNode.ID() {
+		return 0
+	}
 	return aMana
 }
 
