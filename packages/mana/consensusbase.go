@@ -14,9 +14,9 @@ func (c *ConsensusBaseMana) update(now time.Time) error {
 }
 
 func (c *ConsensusBaseMana) revoke(amount float64) error {
-	if c.BaseMana1-amount < 0.0 {
-		return ErrBaseManaNegative
-	}
+	//if c.BaseMana1-amount < 0.0 {
+	//	return ErrBaseManaNegative
+	//}
 	c.BaseMana1 -= amount
 	return nil
 }

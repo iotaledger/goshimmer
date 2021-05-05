@@ -111,7 +111,7 @@ func Tangle() *tangle.Tangle {
 			tangle.SyncTimeWindow(Parameters.TangleTimeWindow),
 		)
 
-		tangleInstance.Options.WeightProvider = tangle.NewCManaWeightProvider(GetCMana, tangleInstance.TimeManager.Time)
+		tangleInstance.WeightProvider = tangle.NewCManaWeightProvider(GetCMana, tangleInstance.TimeManager.Time)
 
 		tangleInstance.Setup()
 	})

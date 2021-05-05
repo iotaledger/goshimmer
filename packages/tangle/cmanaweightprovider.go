@@ -36,12 +36,12 @@ func (c *CManaWeightProvider) Update(t time.Time, nodeID identity.ID) {
 	}
 }
 
-func (c *CManaWeightProvider) Weight(epoch Epoch, message *Message) (weight, totalWeight float64) {
-	weights, totalWeight := c.WeightsOfRelevantSupporters(epoch)
+func (c *CManaWeightProvider) Weight(message *Message) (weight, totalWeight float64) {
+	weights, totalWeight := c.WeightsOfRelevantSupporters()
 	return weights[identity.NewID(message.IssuerPublicKey())], totalWeight
 }
 
-func (c *CManaWeightProvider) WeightsOfRelevantSupporters(_ Epoch) (weights map[identity.ID]float64, totalWeight float64) {
+func (c *CManaWeightProvider) WeightsOfRelevantSupporters() (weights map[identity.ID]float64, totalWeight float64) {
 	weights = make(map[identity.ID]float64)
 
 	mana := c.manaRetrieverFunc()
@@ -66,24 +66,8 @@ func (c *CManaWeightProvider) WeightsOfRelevantSupporters(_ Epoch) (weights map[
 	return weights, totalWeight
 }
 
-func (c *CManaWeightProvider) EpochIDToStartTime(epochID Epoch) time.Time {
-	panic("implement me")
-}
-
-func (c *CManaWeightProvider) EpochIDToEndTime(epochID Epoch) time.Time {
-	panic("implement me")
-}
-
 func (c *CManaWeightProvider) Shutdown() {
 	//	TODO: possibly persist state
-}
-
-func (c *CManaWeightProvider) OracleEpoch(referenceTime time.Time) Epoch {
-	return 0
-}
-
-func (c *CManaWeightProvider) Epoch(referenceTime time.Time) Epoch {
-	return 0
 }
 
 // ManaRetrieverFunc is a function type to retrieve consensus mana (e.g. via the mana plugin)

@@ -14,10 +14,14 @@ import (
 	"github.com/mr-tron/base58"
 	"golang.org/x/xerrors"
 
-	"github.com/iotaledger/goshimmer/packages/epochs"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+)
+
+const (
+	// DefaultGenesisTime is the default time (Unix in seconds) of the genesis, i.e., the start of the epochs at 2021-03-19 9:00:00 UTC.
+	DefaultGenesisTime int64 = 1616144400
 )
 
 // region Tangle ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -98,8 +102,6 @@ func (t *Tangle) Configure(options ...Option) {
 
 // Setup sets up the data flow by connecting the different components (by calling their corresponding Setup method).
 func (t *Tangle) Setup() {
-	t.WeightProvider = t.Options.WeightProvider
-
 	t.Storage.Setup()
 	t.Solidifier.Setup()
 	t.Requester.Setup()
@@ -317,71 +319,17 @@ func SyncTimeWindow(syncTimeWindow time.Duration) Option {
 // WeightProvider is an interface that allows the ApprovalWeightManager to determine approval weights of Messages
 // in a flexible way, independently of a specific implementation.
 type WeightProvider interface {
-	// OracleEpoch returns the oracle epoch from the given referenceTime.
-	OracleEpoch(referenceTime time.Time) Epoch
-
-	// Epoch returns the epoch from the given referenceTime.
-	Epoch(referenceTime time.Time) Epoch
+	// Update updates the underlying data structure and keeps track of active nodes.
+	Update(t time.Time, nodeID identity.ID)
 
 	// Weight returns the weight and total weight for the given epoch and message.
-	Weight(epoch Epoch, message *Message) (weight, totalWeight float64)
+	Weight(message *Message) (weight, totalWeight float64)
 
 	// WeightsOfRelevantSupporters returns all relevant weights for the given epoch.
-	WeightsOfRelevantSupporters(epoch Epoch) (weights map[identity.ID]float64, totalWeight float64)
-
-	// EpochIDToStartTime calculates the start time of the given epoch.
-	EpochIDToStartTime(epochID Epoch) time.Time
-
-	// EpochIDToEndTime calculates the end time of the given epoch.
-	EpochIDToEndTime(epochID Epoch) time.Time
+	WeightsOfRelevantSupporters() (weights map[identity.ID]float64, totalWeight float64)
 
 	// Shutdown shuts down the WeightProvider and persists its state.
 	Shutdown()
-
-	Update(t time.Time, nodeID identity.ID)
 }
-
-// WeightProviderFromEpochsManager returns a WeightProvider from an epochs.Manager instance so that it can be used as a
-// WeightProvider.
-func WeightProviderFromEpochsManager(epochManager *epochs.Manager) WeightProvider {
-	return &epochsManagerWeightProvider{Manager: epochManager}
-}
-
-type epochsManagerWeightProvider struct {
-	*epochs.Manager
-}
-
-func (e *epochsManagerWeightProvider) OracleEpoch(referenceTime time.Time) Epoch {
-	return uint64(e.Manager.TimeToOracleEpochID(referenceTime))
-}
-
-func (e *epochsManagerWeightProvider) Epoch(referenceTime time.Time) Epoch {
-	return uint64(e.Manager.TimeToEpochID(referenceTime))
-}
-
-func (e *epochsManagerWeightProvider) Weight(_ Epoch, message *Message) (weight, totalWeight float64) {
-	weight, totalWeight, _ = e.Manager.RelativeNodeMana(identity.NewID(message.IssuerPublicKey()), message.IssuingTime())
-
-	return weight, totalWeight
-}
-
-func (e *epochsManagerWeightProvider) WeightsOfRelevantSupporters(epoch Epoch) (weights map[identity.ID]float64, totalWeight float64) {
-	return e.Manager.ActiveMana(epochs.ID(epoch))
-}
-
-// EpochIDToEndTime calculates the end time of the given epoch.
-func (e *epochsManagerWeightProvider) EpochIDToEndTime(epochID Epoch) time.Time {
-	return e.Manager.EpochIDToEndTime(epochs.ID(epochID))
-}
-
-// EpochIDToStartTime calculates the end time of the given epoch.
-func (e *epochsManagerWeightProvider) EpochIDToStartTime(epochID Epoch) time.Time {
-	return e.Manager.EpochIDToStartTime(epochs.ID(epochID))
-}
-
-var _ WeightProvider = &epochsManagerWeightProvider{}
-
-// Epoch is an alias for a uint64 that represents a universal time interval.
-type Epoch = uint64
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

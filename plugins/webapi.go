@@ -7,7 +7,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/webapi/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/webapi/data"
 	"github.com/iotaledger/goshimmer/plugins/webapi/drng"
-	"github.com/iotaledger/goshimmer/plugins/webapi/epochs"
 	"github.com/iotaledger/goshimmer/plugins/webapi/faucet"
 	"github.com/iotaledger/goshimmer/plugins/webapi/healthz"
 	"github.com/iotaledger/goshimmer/plugins/webapi/info"
@@ -32,5 +31,4 @@ var WebAPI = node.Plugins(
 	tools.Plugin(),
 	mana.Plugin(),
 	ledgerstate.Plugin(),
-	epochs.Plugin(),
 )
