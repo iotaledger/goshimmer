@@ -37,7 +37,9 @@ export class Message {
     payload_type: number;
     payload: any;
     rank: number;
+    sequenceID: number;
     isPastMarker: boolean;
+    pastMarkerGap: number;
     pastMarkers: string;
     futureMarkers: string;
 }

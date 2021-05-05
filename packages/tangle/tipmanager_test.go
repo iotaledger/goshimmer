@@ -430,7 +430,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 	tangle.LedgerState.LoadSnapshot(snapshot)
 	// determine genesis index so that correct output can be referenced
 	var g1, g2 uint16
-	tangle.LedgerState.utxoDAG.Output(ledgerstate.NewOutputID(genesisTransaction.ID(), 0)).Consume(func(output ledgerstate.Output) {
+	tangle.LedgerState.UTXODAG.Output(ledgerstate.NewOutputID(genesisTransaction.ID(), 0)).Consume(func(output ledgerstate.Output) {
 		balance, _ := output.Balances().Get(ledgerstate.ColorIOTA)
 		if balance == uint64(5) {
 			g1 = 0
@@ -834,7 +834,7 @@ func storeBookLikeMessage(t *testing.T, tangle *Tangle, message *Message) {
 	tangle.Storage.StoreMessage(message)
 	// TODO: CheckTransaction should be removed here once the booker passes on errors
 	if message.payload.Type() == ledgerstate.TransactionType {
-		err := tangle.LedgerState.utxoDAG.CheckTransaction(message.payload.(*ledgerstate.Transaction))
+		err := tangle.LedgerState.UTXODAG.CheckTransaction(message.payload.(*ledgerstate.Transaction))
 		require.NoError(t, err)
 	}
 	err := tangle.Booker.BookMessage(message.ID())

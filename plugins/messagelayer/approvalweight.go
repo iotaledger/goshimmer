@@ -5,7 +5,6 @@ import (
 
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -21,7 +20,7 @@ func configureApprovalWeight() {
 
 func onMarkerConfirmed(marker markers.Marker, newLevel int, transition events.ThresholdEventTransition) {
 	if transition != events.ThresholdLevelIncreased {
-		Plugin().LogInfo("transition != events.ThresholdLevelIncreased")
+		plugin.LogInfo("transition != events.ThresholdLevelIncreased for %s", marker)
 		return
 	}
 	// get message ID of marker
@@ -37,17 +36,13 @@ func propagateFinalizedApprovalWeight(message *tangle.Message, messageMetadata *
 	}
 
 	// abort if the message is already finalized
-	if !setMessageFinalized(message, messageMetadata) {
+	if !setMessageFinalized(messageMetadata) {
 		return
 	}
 
 	// mark weak parents as finalized but not propagate finalized flag to its past cone
 	message.ForEachWeakParent(func(parentID tangle.MessageID) {
-		Tangle().Storage.Message(parentID).Consume(func(parentMessage *tangle.Message) {
-			Tangle().Storage.MessageMetadata(parentID).Consume(func(parentMetadata *tangle.MessageMetadata) {
-				setMessageFinalized(parentMessage, parentMetadata)
-			})
-		})
+		setPayloadFinalized(parentID)
 	})
 
 	// propagate finalized to strong parents
@@ -57,7 +52,10 @@ func propagateFinalizedApprovalWeight(message *tangle.Message, messageMetadata *
 }
 
 func onBranchConfirmed(branchID ledgerstate.BranchID, newLevel int, transition events.ThresholdEventTransition) {
-	plugin.LogDebugf("%s confirmed by ApprovalWeight.", branchID)
+	if transition != events.ThresholdLevelIncreased {
+		plugin.LogInfo("transition != events.ThresholdLevelIncreased for %s", branchID)
+		return
+	}
 
 	_, err := Tangle().LedgerState.BranchDAG.SetBranchMonotonicallyLiked(branchID, true)
 	if err != nil {
@@ -74,38 +72,21 @@ func onBranchConfirmed(branchID ledgerstate.BranchID, newLevel int, transition e
 	}
 }
 
-func setMessageFinalized(message *tangle.Message, messageMetadata *tangle.MessageMetadata) (modified bool) {
+func setMessageFinalized(messageMetadata *tangle.MessageMetadata) (modified bool) {
 	// abort if the message is already finalized
 	if modified = messageMetadata.SetFinalized(true); !modified {
 		return
 	}
 
-	Tangle().WeightProvider.Update(message.IssuingTime(), identity.NewID(message.IssuerPublicKey()))
-
-	Tangle().Utils.ComputeIfTransaction(message.ID(), func(transactionID ledgerstate.TransactionID) {
-		Tangle().LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-			if transactionMetadata.SetFinalized(true) {
-				Tangle().ConsensusManager.SetTransactionLiked(transactionID, true)
-				// trigger TransactionOpinionFormed if the message contains a transaction
-				Tangle().ConsensusManager.Events.TransactionConfirmed.Trigger(message.ID())
-			}
-
-			if !Tangle().LedgerState.TransactionConflicting(transactionID) {
-				return
-			}
-
-			for conflicingTx := range Tangle().LedgerState.ConflictSet(transactionID) {
-				if conflicingTx == transactionID {
-					continue
-				}
-				Tangle().LedgerState.TransactionMetadata(conflicingTx).Consume(func(conflictingTransactionMetadata *ledgerstate.TransactionMetadata) {
-					if conflictingTransactionMetadata.SetFinalized(true) {
-						Tangle().ConsensusManager.SetTransactionLiked(transactionID, false)
-					}
-				})
-			}
-		})
-	})
+	setPayloadFinalized(messageMetadata.ID())
 
 	return modified
+}
+
+func setPayloadFinalized(messageID tangle.MessageID) {
+	Tangle().Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
+		if err := Tangle().LedgerState.UTXODAG.SetTransactionConfirmed(transactionID); err != nil {
+			plugin.LogError(err)
+		}
+	})
 }

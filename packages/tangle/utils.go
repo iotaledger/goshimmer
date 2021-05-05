@@ -232,6 +232,7 @@ func (u *Utils) messageStronglyApprovedBy(approvedMessageID MessageID, approving
 	case types.False:
 		stronglyApproved = false
 	case types.Maybe:
+		fmt.Println("Need to walk...", approvedMessageID, approvingMessageID)
 		u.WalkMessageID(func(messageID MessageID, walker *walker.Walker) {
 			if messageID == approvingMessageID {
 				stronglyApproved = true

@@ -116,6 +116,26 @@ func (b *BranchDAG) AggregateBranches(branchIDS BranchIDs) (cachedAggregatedBran
 	return
 }
 
+// SetBranchConfirmed sets a Branch to be monotonically liked and finalized. It automatically triggers conflicting
+// Branches to be marked as rejected.
+func (b *BranchDAG) SetBranchConfirmed(branchID BranchID) (err error) {
+	if b.InclusionState(branchID) == Confirmed {
+		return
+	}
+
+	if _, branchErr := b.SetBranchMonotonicallyLiked(branchID, true); branchErr != nil {
+		err = xerrors.Errorf("failed to set Branch with %s to be monotonically liked: %w", branchID, branchErr)
+		return
+	}
+
+	if _, branchErr := b.SetBranchFinalized(branchID, true); branchErr != nil {
+		err = xerrors.Errorf("failed to set Branch with %s to be finalized: %w", branchID, branchErr)
+		return
+	}
+
+	return
+}
+
 // SetBranchLiked sets the liked flag of the given Branch. It returns true if the value has been updated or an error if
 // it failed.
 func (b *BranchDAG) SetBranchLiked(branchID BranchID, liked bool) (modified bool, err error) {
