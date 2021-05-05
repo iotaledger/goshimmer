@@ -326,9 +326,9 @@ func GetManaMap(manaType mana.Type, optionalUpdateTime ...time.Time) (mana.NodeM
 	return baseManaVectors[manaType].GetManaMap(optionalUpdateTime...)
 }
 
-// ManaEpoch is a wrapper for the approval weight.
-func ManaEpoch(t time.Time) map[identity.ID]float64 {
-	m, _, err := GetManaMap(mana.ConsensusMana, t)
+// GetCMana is a wrapper for the approval weight.
+func GetCMana() map[identity.ID]float64 {
+	m, _, err := GetManaMap(mana.ConsensusMana)
 	if err != nil {
 		panic(err)
 	}

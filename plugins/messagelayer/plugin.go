@@ -8,13 +8,11 @@ import (
 
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/gommon/log"
 	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
-	"github.com/iotaledger/goshimmer/packages/epochs"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -79,13 +77,6 @@ func configure(plugin *node.Plugin) {
 	fcob.LikedThreshold = time.Duration(Parameters.FCOB.AverageNetworkDelay) * time.Second
 	fcob.LocallyFinalizedThreshold = time.Duration(Parameters.FCOB.AverageNetworkDelay*2) * time.Second
 
-	// set up epochsManager so that we mark nodes as active
-	Tangle().Booker.Events.MessageBooked.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
-			EpochsManager().Update(message.IssuingTime(), identity.NewID(message.IssuerPublicKey()))
-		})
-	}))
-
 	configureApprovalWeight()
 }
 
@@ -110,15 +101,17 @@ var (
 // Tangle gets the tangle instance.
 func Tangle() *tangle.Tangle {
 	tangleOnce.Do(func() {
+
 		tangleInstance = tangle.New(
 			tangle.Store(database.Store()),
 			tangle.Identity(local.GetInstance().LocalIdentity()),
 			tangle.Width(Parameters.TangleWidth),
 			tangle.Consensus(ConsensusMechanism()),
 			tangle.GenesisNode(Parameters.Snapshot.GenesisNode),
-			tangle.ApprovalWeights(tangle.WeightProviderFromEpochsManager(EpochsManager())),
 			tangle.SyncTimeWindow(Parameters.TangleTimeWindow),
 		)
+
+		tangleInstance.Options.WeightProvider = tangle.NewCManaWeightProvider(GetCMana, tangleInstance.TimeManager.Time)
 
 		tangleInstance.Setup()
 	})
@@ -142,24 +135,6 @@ func ConsensusMechanism() *fcob.ConsensusMechanism {
 	})
 
 	return consensusMechanism
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region Epochs ///////////////////////////////////////////////////////////////////////////////////////////////////////
-
-var (
-	epochsManager     *epochs.Manager
-	epochsManagerOnce sync.Once
-)
-
-// EpochsManager returns the instance of the epochs manager.
-func EpochsManager() *epochs.Manager {
-	epochsManagerOnce.Do(func() {
-		epochsManager = epochs.NewManager(epochs.Store(database.Store()), epochs.ManaRetriever(ManaEpoch), epochs.CacheTime(0))
-	})
-
-	return epochsManager
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

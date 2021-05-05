@@ -335,6 +335,8 @@ type WeightProvider interface {
 
 	// Shutdown shuts down the WeightProvider and persists its state.
 	Shutdown()
+
+	Update(t time.Time, nodeID identity.ID)
 }
 
 // WeightProviderFromEpochsManager returns a WeightProvider from an epochs.Manager instance so that it can be used as a
