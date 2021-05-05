@@ -80,8 +80,10 @@ var SyncBeaconFollowerParameters = struct {
 	// FollowNodes defines the list of nodes this node should follow to determine its sync status.
 	FollowNodes []string `default:"Gm7W191NDnqyF7KJycZqK7V6ENLwqxTwoKQN4SmpkB24,9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd" usage:"list of trusted nodes to follow their sync status"`
 
+	// TODO: fix this
+
 	// MaxTimeWindowSec defines the maximum time window for which a sync payload would be considerable.
-	MaxTimeWindowSec int `default:"10" usage:"the maximum time window for which a sync payload would be considerable"`
+	MaxTimeWindowSec int `default:"3600" usage:"the maximum time window for which a sync payload would be considerable"`
 
 	// MaxTimeOffline defines the maximum time a beacon node can stay without receiving updates.
 	MaxTimeOffline int `default:"70" usage:"the maximum time the node should stay synced without receiving updates"`

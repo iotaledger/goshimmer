@@ -129,12 +129,17 @@ func SendFaucetRequest(t *testing.T, peer *framework.Peer, addr ledgerstate.Addr
 func CheckForMessageIDs(t *testing.T, peers []*framework.Peer, messageIDs map[string]DataMessageSent, checkSynchronized bool) {
 	for _, peer := range peers {
 		// TODO: check this
-		//if checkSynchronized {
-		//	// check that the peer sees itself as synchronized
-		//	info, err := peer.Info()
-		//	require.NoError(t, err)
-		//	assert.Truef(t, info.Synced, "Node %s is not synced", peer)
-		//}
+		if checkSynchronized {
+			// check that the peer sees itself as synchronized
+			info, err := peer.Info()
+			//require.NoError(t, err)
+			//assert.Truef(t, info.Synced, "Node %s is not synced", peer)
+			if err != nil {
+				fmt.Println("node: ", peer.ID().String(), " - err getting info: ", err.Error())
+			} else {
+				fmt.Println("node: ", peer.ID().String(), " - synced: ", info.Synced)
+			}
+		}
 
 		var idsSlice []string
 		var respIDs []string

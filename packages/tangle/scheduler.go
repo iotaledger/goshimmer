@@ -1,15 +1,17 @@
 package tangle
 
 import (
+	"fmt"
 	"math"
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/tangle/schedulerutils"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"go.uber.org/atomic"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/tangle/schedulerutils"
 )
 
 const (
@@ -75,17 +77,20 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 }
 
 func (s *Scheduler) onMessageSolidHandler(messageID MessageID) {
+	fmt.Println("message solid: SCH: ", messageID.Base58())
 	// submit the message to the scheduler and marks it ready right away
 	err := s.Submit(messageID)
 	if err != nil {
 		s.tangle.Events.Error.Trigger(xerrors.Errorf("failed to submit: %w", err))
 		return
 	}
+	fmt.Println("message submitted: SCH: ", messageID.Base58())
 	err = s.Ready(messageID)
 	if err != nil {
 		s.tangle.Events.Error.Trigger(xerrors.Errorf("failed to ready: %w", err))
 		return
 	}
+	fmt.Println("message ready: SCH: ", messageID.Base58())
 }
 
 func (s *Scheduler) onMessageInvalidHandler(messageID MessageID) {
@@ -136,8 +141,8 @@ func (s *Scheduler) SetRate(rate time.Duration) {
 // Submit submits a message to be considered by the scheduler.
 // This transactions will be included in all the control metrics, but it will never be
 // scheduled until Ready(messageID) has been called.
-func (s *Scheduler) Submit(messageID MessageID) (err error) {
-	if !s.running.Load() {
+func (s *Scheduler) Submit(messageID MessageID, force ...bool) (err error) {
+	if !s.running.Load() && (len(force) == 0 || !force[0]) {
 		return ErrNotRunning
 	}
 
@@ -213,6 +218,9 @@ func (s *Scheduler) parentsBooked(messageID MessageID) (parentsBooked bool) {
 }
 
 func (s *Scheduler) schedule() *Message {
+	if !s.running.Load() {
+		fmt.Println("after shutdown: in scheduler")
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -225,6 +233,9 @@ func (s *Scheduler) schedule() *Message {
 	now := time.Now()
 	for q := start; ; {
 		f := q.Front() // check whether the front of the queue can be scheduled
+		if f != nil {
+			fmt.Println("q node: ", q.NodeID().String(), " = ", s.getDeficit(q.NodeID()), " - required: ", float64(len(f.Bytes())), " message: ", f.(*Message).ID())
+		}
 		if f != nil && s.getDeficit(q.NodeID()) >= float64(len(f.Bytes())) && !now.Before(f.IssuingTime()) {
 			break
 		}
@@ -243,6 +254,19 @@ func (s *Scheduler) schedule() *Message {
 	// if the parents are not booked yet, do not schedule the message
 	// TODO: eventually this should be handled outside the scheduler by only calling Ready() when the parents are booked
 	if !s.parentsBooked(s.buffer.Current().Front().(*Message).ID()) {
+		fmt.Println("not parents booked -- nodeID", s.buffer.Current().NodeID().String(), " -- message: ", s.buffer.Current().Front().(*Message).ID())
+		cachedMessage := s.tangle.Storage.Message(s.buffer.Current().Front().(*Message).ID())
+		if cachedMessage.Exists() {
+			message := cachedMessage.Unwrap()
+			cachedMessage.Release()
+			message.ForEachParent(func(parent Parent) {
+				fmt.Println("solidifying parent: ", parent.ID.Base58())
+				s.tangle.Solidifier.Solidify(parent.ID)
+				if err := s.Submit(parent.ID, true); err == nil {
+					_ = s.Ready(parent.ID)
+				}
+			})
+		}
 		return nil
 	}
 	// remove the message from the buffer and adjust node's deficit
@@ -262,8 +286,12 @@ func (s *Scheduler) mainLoop() {
 		select {
 		// every rate time units
 		case <-s.ticker.C:
+			if !s.running.Load() {
+				fmt.Println("after shutdown tick")
+			}
 			// TODO: pause the ticker, if there are no ready messages
 			if msg := s.schedule(); msg != nil {
+				fmt.Println("message scheduled. SCH: ", msg.ID().Base58())
 				s.Events.MessageScheduled.Trigger(msg.ID())
 			}
 			if !s.running.Load() && s.buffer.Size() == 0 {

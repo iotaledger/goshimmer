@@ -66,12 +66,12 @@ func configure(plugin *node.Plugin) {
 		plugin.LogError(rejectedEvent.Message)
 	}))
 
-	//Tangle().Parser.Events.BytesRejected.Attach(events.NewClosure(func(ev *tangle.BytesRejectedEvent, err error) {
-	//	msg, _, err1 := tangle.MessageFromBytes(ev.Bytes)
-	//	if err1 == nil {
-	//		plugin.LogInfo("bytes rejected. ", msg.ID().Base58(), " err: ", err.Error())
-	//	}
-	//}))
+	Tangle().Parser.Events.BytesRejected.Attach(events.NewClosure(func(ev *tangle.BytesRejectedEvent, err error) {
+		msg, _, err1 := tangle.MessageFromBytes(ev.Bytes)
+		if err1 == nil {
+			plugin.LogInfo("bytes rejected. ", msg.ID().Base58(), " err: ", err.Error())
+		}
+	}))
 
 	// Messages created by the node need to pass through the normal flow.
 	Tangle().RateSetter.Events.MessageIssued.Attach(events.NewClosure(func(message *tangle.Message) {
@@ -95,9 +95,13 @@ func configure(plugin *node.Plugin) {
 		plugin.LogInfof("Message discarded in scheduler %s", messageID.Base58())
 	}))
 
-	Tangle().Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		plugin.LogInfo("message scheduled: ", messageID.Base58())
+	Tangle().Events.MessageInvalid.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		plugin.LogInfo("Message invalid: ", messageID.Base58())
 	}))
+
+	//Tangle().Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+	//	plugin.LogInfo("message scheduled: ", messageID.Base58())
+	//}))
 
 	Tangle().FifoScheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		plugin.LogInfof("Message discarded in FifoScheduler %s", messageID.Base58())
@@ -111,9 +115,9 @@ func configure(plugin *node.Plugin) {
 		plugin.LogInfo("message booked in message layer: ", messageID.Base58())
 	}))
 
-	Tangle().Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		plugin.LogInfo("message solid: ", messageID.Base58())
-	}))
+	//Tangle().Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+	//	plugin.LogInfo("message solid: ", messageID.Base58())
+	//}))
 
 	Tangle().Events.SyncChanged.Attach(events.NewClosure(func(ev *tangle.SyncChangedEvent) {
 		plugin.LogInfo("Sync changed: ", ev.Synced)

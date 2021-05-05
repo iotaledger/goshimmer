@@ -14,7 +14,7 @@ const (
 )
 
 // MaxQueueWeight is the maximum mana-scaled inbox size; >= minMessageSize / minAccessMana
-var MaxQueueWeight = 1024.0
+var MaxQueueWeight = 1024.0 * 1024.0
 
 var (
 	// ErrInboxExceeded is returned when a node has exceeded its allowed inbox size.

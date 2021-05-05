@@ -351,10 +351,12 @@ func (n *Network) WaitForMana(optionalPeers ...*Peer) error {
 				log.Printf("err getting info for peer %s: %v", peer.ID(), err)
 				continue
 			}
-			if infoRes.Mana.Access > 0.0 {
+			fmt.Println("node: ", peer.ID().String(), " - mana: ", infoRes.Mana.Access)
+			if infoRes.Mana.Access > 1.0 {
 				delete(m, peer)
 			}
 		}
+		fmt.Println("len: ", len(m))
 		if len(m) == 0 {
 			return nil
 		}
