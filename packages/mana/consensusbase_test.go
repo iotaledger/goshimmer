@@ -23,8 +23,8 @@ func TestRevokeNegativeBalance_Consensus(t *testing.T) {
 		BaseMana1: 0.0,
 	}
 	err := bm.revoke(1.0)
-	assert.Error(t, err)
-	assert.Equal(t, ErrBaseManaNegative, err)
+	assert.NoError(t, err)
+	assert.EqualValues(t, -1, bm.BaseMana1)
 }
 
 func TestPledgeAndUpdateRegularOldFunds_Consensus(t *testing.T) {
