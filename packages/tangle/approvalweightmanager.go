@@ -408,7 +408,7 @@ func (a *ApprovalWeightManager) branchConfirmationLevel(branchID ledgerstate.Bra
 	return
 }
 
-func (a *ApprovalWeightManager) updateMarkerWeight(marker *markers.Marker, message *Message) {
+func (a *ApprovalWeightManager) updateMarkerWeight(marker *markers.Marker, _ *Message) {
 	if index, exists := a.lastConfirmedMarkers[marker.SequenceID()]; exists && index >= marker.Index() {
 		return
 	}
@@ -449,7 +449,7 @@ func (a *ApprovalWeightManager) updateMarkerWeight(marker *markers.Marker, messa
 	}
 }
 
-func (a *ApprovalWeightManager) updateBranchWeight(branchID ledgerstate.BranchID, message *Message) {
+func (a *ApprovalWeightManager) updateBranchWeight(branchID ledgerstate.BranchID, _ *Message) {
 	activeWeights, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantSupporters()
 
 	var supporterWeight float64

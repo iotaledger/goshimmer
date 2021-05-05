@@ -8,6 +8,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/datastructure/set"
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/objectstorage"
+
 	db_pkg "github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -17,21 +25,14 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/database"
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/datastructure/set"
-	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/node"
-	"github.com/iotaledger/hive.go/objectstorage"
 )
 
 const (
 	// PluginName is the name of the mana plugin.
 	PluginName = "Mana"
 
-	//maxConsensusEventsInStorage = 110000
-	//slidingEventsInterval       = 10000 // 10% of maxConsensusEventsInStorage
+	// maxConsensusEventsInStorage = 110000
+	// slidingEventsInterval       = 10000 // 10% of maxConsensusEventsInStorage
 )
 
 var (
@@ -43,17 +44,17 @@ var (
 	osFactory          *objectstorage.Factory
 	storages           map[mana.Type]*objectstorage.ObjectStorage
 	allowedPledgeNodes map[mana.Type]AllowedPledge
-	//consensusBaseManaPastVectorStorage         *objectstorage.ObjectStorage
-	//consensusBaseManaPastVectorMetadataStorage *objectstorage.ObjectStorage
-	//consensusEventsLogStorage                  *objectstorage.ObjectStorage
-	//consensusEventsLogsStorageSize             atomic.Uint32
+	// consensusBaseManaPastVectorStorage         *objectstorage.ObjectStorage
+	// consensusBaseManaPastVectorMetadataStorage *objectstorage.ObjectStorage
+	// consensusEventsLogStorage                  *objectstorage.ObjectStorage
+	// consensusEventsLogsStorageSize             atomic.Uint32
 	onTransactionConfirmedClosure *events.Closure
-	//onPledgeEventClosure          *events.Closure
-	//onRevokeEventClosure          *events.Closure
-	//debuggingEnabled              bool
+	// onPledgeEventClosure          *events.Closure
+	// onRevokeEventClosure          *events.Closure
+	// debuggingEnabled              bool
 )
 
-// Plugin gets the plugin instance.
+// ManaPlugin gets the plugin instance.
 func ManaPlugin() *node.Plugin {
 	once.Do(func() {
 		manaPlugin = node.NewPlugin(PluginName, node.Enabled, configureManaPlugin, runManaPlugin)
@@ -65,8 +66,8 @@ func configureManaPlugin(*node.Plugin) {
 	manaLogger = logger.NewLogger(PluginName)
 
 	onTransactionConfirmedClosure = events.NewClosure(onTransactionConfirmed)
-	//onPledgeEventClosure = events.NewClosure(logPledgeEvent)
-	//onRevokeEventClosure = events.NewClosure(logRevokeEvent)
+	// onPledgeEventClosure = events.NewClosure(logPledgeEvent)
+	// onRevokeEventClosure = events.NewClosure(logRevokeEvent)
 
 	allowedPledgeNodes = make(map[mana.Type]AllowedPledge)
 	baseManaVectors = make(map[mana.Type]mana.BaseManaVector)
@@ -83,18 +84,18 @@ func configureManaPlugin(*node.Plugin) {
 		storages[mana.ResearchAccess] = osFactory.New(mana.PrefixAccessResearch, mana.FromObjectStorage)
 		storages[mana.ResearchConsensus] = osFactory.New(mana.PrefixConsensusResearch, mana.FromObjectStorage)
 	}
-	//consensusEventsLogStorage = osFactory.New(mana.PrefixEventStorage, mana.FromEventObjectStorage)
-	//consensusEventsLogsStorageSize.Store(getConsensusEventLogsStorageSize())
-	//manaLogger.Infof("read %d mana events from storage", consensusEventsLogsStorageSize.Load())
-	//consensusBaseManaPastVectorStorage = osFactory.New(mana.PrefixConsensusPastVector, mana.FromObjectStorage)
-	//consensusBaseManaPastVectorMetadataStorage = osFactory.New(mana.PrefixConsensusPastMetadata, mana.FromMetadataObjectStorage)
+	// consensusEventsLogStorage = osFactory.New(mana.PrefixEventStorage, mana.FromEventObjectStorage)
+	// consensusEventsLogsStorageSize.Store(getConsensusEventLogsStorageSize())
+	// manaLogger.Infof("read %d mana events from storage", consensusEventsLogsStorageSize.Load())
+	// consensusBaseManaPastVectorStorage = osFactory.New(mana.PrefixConsensusPastVector, mana.FromObjectStorage)
+	// consensusBaseManaPastVectorMetadataStorage = osFactory.New(mana.PrefixConsensusPastMetadata, mana.FromMetadataObjectStorage)
 
 	err := verifyPledgeNodes()
 	if err != nil {
 		manaLogger.Panic(err.Error())
 	}
 
-	//debuggingEnabled = ManaParameters.DebuggingEnabled
+	// debuggingEnabled = ManaParameters.DebuggingEnabled
 
 	configureEvents()
 }
@@ -102,8 +103,8 @@ func configureManaPlugin(*node.Plugin) {
 func configureEvents() {
 	// until we have the proper event...
 	Tangle().ConsensusManager.Events.TransactionConfirmed.Attach(onTransactionConfirmedClosure)
-	//mana.Events().Pledged.Attach(onPledgeEventClosure)
-	//mana.Events().Revoked.Attach(onRevokeEventClosure)
+	// mana.Events().Pledged.Attach(onPledgeEventClosure)
+	// mana.Events().Revoked.Attach(onRevokeEventClosure)
 }
 
 //func logPledgeEvent(ev *mana.PledgedEvent) {
@@ -214,8 +215,8 @@ func runManaPlugin(_ *node.Plugin) {
 	mana.SetCoefficients(ema1, ema2, dec)
 	if err := daemon.BackgroundWorker("Mana", func(shutdownSignal <-chan struct{}) {
 		defer manaLogger.Infof("Stopping %s ... done", PluginName)
-		//ticker := time.NewTicker(pruneInterval)
-		//defer ticker.Stop()
+		// ticker := time.NewTicker(pruneInterval)
+		// defer ticker.Stop()
 		cleanupTicker := time.NewTicker(vectorsCleanUpInterval)
 		defer cleanupTicker.Stop()
 		if !readStoredManaVectors() {
@@ -238,14 +239,14 @@ func runManaPlugin(_ *node.Plugin) {
 			select {
 			case <-shutdownSignal:
 				manaLogger.Infof("Stopping %s ...", PluginName)
-				//mana.Events().Pledged.Detach(onPledgeEventClosure)
-				//mana.Events().Pledged.Detach(onRevokeEventClosure)
+				// mana.Events().Pledged.Detach(onPledgeEventClosure)
+				// mana.Events().Pledged.Detach(onRevokeEventClosure)
 				Tangle().ConsensusManager.Events.TransactionConfirmed.Detach(onTransactionConfirmedClosure)
 				storeManaVectors()
 				shutdownStorages()
 				return
-			//case <-ticker.C:
-			//pruneConsensusEventLogsStorage()
+			// case <-ticker.C:
+			// pruneConsensusEventLogsStorage()
 			case <-cleanupTicker.C:
 				cleanupManaVectors()
 			}
@@ -291,9 +292,9 @@ func shutdownStorages() {
 	for vectorType := range baseManaVectors {
 		storages[vectorType].Shutdown()
 	}
-	//consensusEventsLogStorage.Shutdown()
-	//consensusBaseManaPastVectorStorage.Shutdown()
-	//consensusBaseManaPastVectorMetadataStorage.Shutdown()
+	// consensusEventsLogStorage.Shutdown()
+	// consensusBaseManaPastVectorStorage.Shutdown()
+	// consensusBaseManaPastVectorMetadataStorage.Shutdown()
 }
 
 // GetHighestManaNodes returns the n highest type mana nodes in descending order.

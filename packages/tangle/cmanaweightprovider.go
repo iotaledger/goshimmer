@@ -12,6 +12,8 @@ const (
 	minimumManaThreshold = 0
 )
 
+// CManaWeightProvider is a WeightProvider for consensus mana. It keeps track of active nodes based on their time-based
+// activity in relation to activeTimeThreshold.
 type CManaWeightProvider struct {
 	mutex             sync.RWMutex
 	activeNodes       map[identity.ID]time.Time
@@ -19,6 +21,7 @@ type CManaWeightProvider struct {
 	timeRetrieverFunc TimeRetrieverFunc
 }
 
+// NewCManaWeightProvider is the constructor for CManaWeightProvider.
 func NewCManaWeightProvider(manaRetrieverFunc ManaRetrieverFunc, timeRetrieverFunc TimeRetrieverFunc) *CManaWeightProvider {
 	return &CManaWeightProvider{
 		activeNodes:       make(map[identity.ID]time.Time),
@@ -27,6 +30,7 @@ func NewCManaWeightProvider(manaRetrieverFunc ManaRetrieverFunc, timeRetrieverFu
 	}
 }
 
+// Update updates the underlying data structure and keeps track of active nodes.
 func (c *CManaWeightProvider) Update(t time.Time, nodeID identity.ID) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -36,11 +40,13 @@ func (c *CManaWeightProvider) Update(t time.Time, nodeID identity.ID) {
 	}
 }
 
+// Weight returns the weight and total weight for the given message.
 func (c *CManaWeightProvider) Weight(message *Message) (weight, totalWeight float64) {
 	weights, totalWeight := c.WeightsOfRelevantSupporters()
 	return weights[identity.NewID(message.IssuerPublicKey())], totalWeight
 }
 
+// WeightsOfRelevantSupporters returns all relevant weights.
 func (c *CManaWeightProvider) WeightsOfRelevantSupporters() (weights map[identity.ID]float64, totalWeight float64) {
 	weights = make(map[identity.ID]float64)
 
@@ -66,6 +72,7 @@ func (c *CManaWeightProvider) WeightsOfRelevantSupporters() (weights map[identit
 	return weights, totalWeight
 }
 
+// Shutdown shuts down the WeightProvider and persists its state.
 func (c *CManaWeightProvider) Shutdown() {
 	//	TODO: possibly persist state
 }
@@ -73,4 +80,5 @@ func (c *CManaWeightProvider) Shutdown() {
 // ManaRetrieverFunc is a function type to retrieve consensus mana (e.g. via the mana plugin)
 type ManaRetrieverFunc func() map[identity.ID]float64
 
+// TimeRetrieverFunc is a function type to retrieve the time.
 type TimeRetrieverFunc func() time.Time
