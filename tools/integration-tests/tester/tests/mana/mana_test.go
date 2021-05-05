@@ -236,9 +236,14 @@ func TestApis(t *testing.T) {
 	assert.Equal(t, base58.Encode(peers[1].ID().Bytes()), resp6.Online[1].ID)
 	assert.Equal(t, base58.Encode(peers[2].ID().Bytes()), resp6.Online[2].ID)
 
+	fmt.Println("online nodes consensus mana")
+	for _, r := range resp7.Online {
+		fmt.Println("node - ", r.ShortID, " -- mana: ", r.Mana)
+	}
 	// emptyNodeID cannot be online!
 	assert.Equal(t, base58.Encode(peers[0].ID().Bytes()), resp7.Online[0].ID)
-	assert.Equal(t, base58.Encode(peers[1].ID().Bytes()), resp7.Online[1].ID)
+	assert.True(t, base58.Encode(peers[1].ID().Bytes()) == resp7.Online[1].ID ||
+		base58.Encode(peers[1].ID().Bytes()) == resp7.Online[2].ID)
 
 	// Test /mana/pending
 	unspentOutputs, err := peers[1].GetUnspentOutputs([]string{peers[1].Seed.Address(0).Address().Base58()})
