@@ -246,21 +246,32 @@ func (s *Scheduler) schedule() *Message {
 		return nil
 	}
 
+	eligibleNode := false
 	start := s.buffer.Current()
 	now := time.Now()
 	for q := start; ; {
-		f := q.Front() // check whether the front of the queue can be scheduled
-		if f != nil && s.getDeficit(q.NodeID()) >= float64(len(f.Bytes())) && !now.Before(f.IssuingTime()) {
+		msg := q.Front()
+		// a message can be scheduled, if it is ready and its issuing time is not in the future
+		valid := msg != nil && !now.Before(msg.IssuingTime())
+		// if the current node has enough deficit and the first message in its outbox is valid, we are done
+		if valid && s.getDeficit(q.NodeID()) >= float64(len(msg.Bytes())) {
 			break
 		}
 		// otherwise increase its deficit
 		mana := s.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(q.NodeID())
-		s.updateDeficit(q.NodeID(), mana)
+		// TODO: introduce positive amount of mana as minimum threshold
+		if mana > 0 {
+			s.updateDeficit(q.NodeID(), mana)
+			if valid {
+				eligibleNode = true
+			}
+		}
 
-		// TODO: this is slightly different from the spec, check that the spec is updated
+		// progress tho the next node that has ready messages
 		q = s.buffer.Next()
-		// since the buffer is not empty, this will never return nil
-		if q == start {
+		// if we reached the first node again without seeing any eligible nodes, break to prevent infinite loops
+		if !eligibleNode && q == start {
+			// TODO: this eligibility check is not in the spec and should be added
 			return nil
 		}
 	}
