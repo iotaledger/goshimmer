@@ -4,17 +4,20 @@
 package remotelogmetrics
 
 import (
-	"github.com/iotaledger/goshimmer/packages/remotelogmetrics"
-	"github.com/iotaledger/goshimmer/plugins/remotelog"
-	"github.com/iotaledger/hive.go/timeutil"
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/hive.go/timeutil"
+
+	"github.com/iotaledger/goshimmer/packages/remotelogmetrics"
+	"github.com/iotaledger/goshimmer/plugins/remotelog"
+
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+
+	"github.com/iotaledger/goshimmer/packages/shutdown"
 )
 
 const (
@@ -64,7 +67,6 @@ func run(plugin *node.Plugin) {
 	}, shutdown.PriorityRemoteLog); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
-
 }
 
 func sendSyncStatusChangedEvent() func(syncUpdate remotelogmetrics.SyncStatusChangedEvent) {

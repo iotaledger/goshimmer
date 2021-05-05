@@ -1,16 +1,19 @@
 package remotelogmetrics
 
 import (
+	"go.uber.org/atomic"
+
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/remotelogmetrics"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
-var isSyncBeaconSynced atomic.Bool
-var isTangleTimeSynced atomic.Bool
+var (
+	isSyncBeaconSynced atomic.Bool
+	isTangleTimeSynced atomic.Bool
+)
 
 func checkSynced() {
 	oldSyncBeaconSynced := isSyncBeaconSynced.Load()

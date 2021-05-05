@@ -7,8 +7,10 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
-var isSyncBeaconSynced atomic.Bool
-var isTangleTimeSynced atomic.Bool
+var (
+	isSyncBeaconSynced atomic.Bool
+	isTangleTimeSynced atomic.Bool
+)
 
 func measureSynced() {
 	sbs := messagelayer.Tangle().Synced()
