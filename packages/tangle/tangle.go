@@ -98,6 +98,8 @@ func (t *Tangle) Configure(options ...Option) {
 
 // Setup sets up the data flow by connecting the different components (by calling their corresponding Setup method).
 func (t *Tangle) Setup() {
+	t.WeightProvider = t.Options.WeightProvider
+
 	t.Storage.Setup()
 	t.Solidifier.Setup()
 	t.Requester.Setup()

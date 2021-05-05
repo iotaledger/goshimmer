@@ -29,7 +29,7 @@ func NewCManaWeightProvider(manaRetrieverFunc ManaRetrieverFunc, timeRetrieverFu
 
 func (c *CManaWeightProvider) Update(t time.Time, nodeID identity.ID) {
 	c.mutex.Lock()
-	defer c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	if c.activeNodes[nodeID].Before(t) {
 		c.activeNodes[nodeID] = t
@@ -47,7 +47,7 @@ func (c *CManaWeightProvider) WeightsOfRelevantSupporters(_ Epoch) (weights map[
 	mana := c.manaRetrieverFunc()
 	targetTime := c.timeRetrieverFunc()
 	c.mutex.Lock()
-	defer c.mutex.Lock()
+	defer c.mutex.Unlock()
 
 	for nodeID, t := range c.activeNodes {
 		if targetTime.Sub(t) > activeTimeThreshold {
@@ -79,11 +79,11 @@ func (c *CManaWeightProvider) Shutdown() {
 }
 
 func (c *CManaWeightProvider) OracleEpoch(referenceTime time.Time) Epoch {
-	panic("implement me")
+	return 0
 }
 
 func (c *CManaWeightProvider) Epoch(referenceTime time.Time) Epoch {
-	panic("implement me")
+	return 0
 }
 
 // ManaRetrieverFunc is a function type to retrieve consensus mana (e.g. via the mana plugin)
