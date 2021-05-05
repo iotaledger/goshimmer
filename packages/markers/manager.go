@@ -330,8 +330,13 @@ func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkers *Markers
 
 	lowestRankOfMarkers := m.rankOfLowestSequence(markers, rankCache)
 
+	seenMarkers := NewMarkers()
 	for i := 0; normalizeWalker.HasNext(); i++ {
 		currentMarker := normalizeWalker.Next().(*Marker)
+
+		if added, updated := seenMarkers.Set(currentMarker.SequenceID(), currentMarker.Index()); !added && !updated {
+			continue
+		}
 
 		sequenceRank := m.rankOfSequence(currentMarker.SequenceID(), rankCache)
 		if i < markers.Size() {
