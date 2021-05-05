@@ -1,13 +1,16 @@
 package tangle
 
 import (
+	"fmt"
 	"math"
 	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/tangle/schedulerutils"
+
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/workerpool"
 	"go.uber.org/atomic"
 	"golang.org/x/xerrors"
 )
@@ -19,6 +22,12 @@ const (
 
 // ErrNotRunning is returned when a message is submitted when the scheduler has not been started
 var ErrNotRunning = xerrors.New("scheduler is not running")
+
+var (
+	submitWorkerCount     = 4
+	submitWorkerQueueSize = 250
+	submitWorkerPool      *workerpool.WorkerPool
+)
 
 // AccessManaRetrieveFunc is a function type to retrieve access mana (e.g. via the mana plugin)
 type AccessManaRetrieveFunc func(nodeID identity.ID) float64
@@ -71,21 +80,17 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 	}
 	scheduler.onMessageSolid = events.NewClosure(scheduler.onMessageSolidHandler)
 	scheduler.onMessageInvalid = events.NewClosure(scheduler.onMessageInvalidHandler)
+
+	submitWorkerPool = workerpool.New(func(task workerpool.Task) {
+		scheduler.SubmitAndReadyMessage(task.Param(0).(MessageID))
+		task.Return(nil)
+	}, workerpool.WorkerCount(submitWorkerCount), workerpool.QueueSize(submitWorkerQueueSize))
+
 	return scheduler
 }
 
 func (s *Scheduler) onMessageSolidHandler(messageID MessageID) {
-	// submit the message to the scheduler and marks it ready right away
-	err := s.Submit(messageID)
-	if err != nil {
-		s.tangle.Events.Error.Trigger(xerrors.Errorf("failed to submit: %w", err))
-		return
-	}
-	err = s.Ready(messageID)
-	if err != nil {
-		s.tangle.Events.Error.Trigger(xerrors.Errorf("failed to ready: %w", err))
-		return
-	}
+	submitWorkerPool.TrySubmit(messageID)
 }
 
 func (s *Scheduler) onMessageInvalidHandler(messageID MessageID) {
@@ -102,6 +107,10 @@ func (s *Scheduler) Start() {
 	s.wg.Add(1)
 	go s.mainLoop()
 
+	// start schedule queued messages
+	fmt.Println("start workerpool queued size: ", submitWorkerPool.GetPendingQueueSize())
+	submitWorkerPool.Start()
+
 	s.running.Store(true)
 }
 
@@ -110,6 +119,7 @@ func (s *Scheduler) Start() {
 func (s *Scheduler) Shutdown() {
 	s.running.Store(false)
 	s.wg.Wait()
+	submitWorkerPool.Stop()
 }
 
 // Detach detaches the scheduler from the tangle events.
@@ -122,6 +132,21 @@ func (s *Scheduler) Detach() {
 func (s *Scheduler) Setup() {
 	s.tangle.Solidifier.Events.MessageSolid.Attach(s.onMessageSolid)
 	s.tangle.Events.MessageInvalid.Attach(s.onMessageInvalid)
+}
+
+// SubmitAndReadyMessage submits the message to the scheduler and makes it ready when it's parents are booked.
+func (s *Scheduler) SubmitAndReadyMessage(messageID MessageID) {
+	// submit the message to the scheduler and marks it ready right away
+	err := s.Submit(messageID)
+	if err != nil {
+		s.tangle.Events.Error.Trigger(xerrors.Errorf("failed to submit: %w", err))
+		return
+	}
+	err = s.Ready(messageID)
+	if err != nil {
+		s.tangle.Events.Error.Trigger(xerrors.Errorf("failed to ready: %w", err))
+		return
+	}
 }
 
 // SetRate sets the rate of the scheduler.
