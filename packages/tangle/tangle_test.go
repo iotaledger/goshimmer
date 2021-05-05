@@ -140,7 +140,6 @@ func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
 	messageTangle.Storage.Events.MessageStored.Attach(events.NewClosure(func(messageID MessageID) {
 		fmt.Println("STORED:", messageID)
 		atomic.AddInt32(&storedMessages, 1)
-		wg.Done()
 	}))
 
 	messageTangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(messageID MessageID) {
@@ -148,9 +147,15 @@ func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
 		atomic.AddInt32(&solidMessages, 1)
 	}))
 
+	messageTangle.Booker.Events.MessageBooked.AttachAfter(events.NewClosure(func(messageID MessageID) {
+		fmt.Println("BOOKED:", messageID)
+		wg.Done()
+	}))
+
 	messageTangle.Events.MessageInvalid.Attach(events.NewClosure(func(messageID MessageID) {
 		fmt.Println("INVALID:", messageID)
 		atomic.AddInt32(&invalidMessages, 1)
+		wg.Done()
 	}))
 
 	messageA := newTestDataMessage("some data")

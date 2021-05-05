@@ -128,27 +128,27 @@ func (m *Manager) RelativeNodeMana(nodeID identity.ID, t time.Time) (ownWeight, 
 // ActiveMana returns the active consensus mana that is valid for the given time t. Active consensus mana is always
 // retrieved from the oracle epoch.
 func (m *Manager) ActiveMana(epochID ID) (manaPerID map[identity.ID]float64, totalMana float64) {
-	if !m.Epoch(epochID).Consume(func(epoch *Epoch) {
+	//if !m.Epoch(epochID).Consume(func(epoch *Epoch) {
+	//	if !epoch.ManaRetrieved() {
+	//		consensusMana := m.options.ManaRetriever(m.EpochIDToEndTime(epochID))
+	//		epoch.SetMana(consensusMana)
+	//	}
+	//
+	//	manaPerID = epoch.Mana()
+	//	totalMana = epoch.TotalMana()
+	//}) {
+	// TODO: improve this: always default to epoch 0
+	epochID = ID(0)
+	m.Epoch(epochID, NewEpoch).Consume(func(epoch *Epoch) {
 		if !epoch.ManaRetrieved() {
 			consensusMana := m.options.ManaRetriever(m.EpochIDToEndTime(epochID))
-			epoch.SetMana(consensusMana)
+			epoch.SetMana(consensusMana, true)
 		}
 
 		manaPerID = epoch.Mana()
 		totalMana = epoch.TotalMana()
-	}) {
-		// TODO: improve this: always default to epoch 0
-		epochID = ID(0)
-		m.Epoch(epochID, NewEpoch).Consume(func(epoch *Epoch) {
-			if !epoch.ManaRetrieved() {
-				consensusMana := m.options.ManaRetriever(m.EpochIDToEndTime(epochID))
-				epoch.SetMana(consensusMana, true)
-			}
-
-			manaPerID = epoch.Mana()
-			totalMana = epoch.TotalMana()
-		})
-	}
+	})
+	//}
 
 	return
 }

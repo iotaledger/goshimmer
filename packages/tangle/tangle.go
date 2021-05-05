@@ -24,11 +24,11 @@ import (
 
 // Tangle is the central data structure of the IOTA protocol.
 type Tangle struct {
-	Options               *Options
-	Parser                *Parser
-	Storage               *Storage
-	Solidifier            *Solidifier
-	Orderer               *Orderer
+	Options    *Options
+	Parser     *Parser
+	Storage    *Storage
+	Solidifier *Solidifier
+	//Orderer               *Orderer
 	Scheduler             *Scheduler
 	Booker                *Booker
 	ApprovalWeightManager *ApprovalWeightManager
@@ -62,7 +62,7 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.Parser = NewParser()
 	tangle.Storage = NewStorage(tangle)
 	tangle.Solidifier = NewSolidifier(tangle)
-	tangle.Orderer = NewOrderer(tangle)
+	//tangle.Orderer = NewOrderer(tangle)
 	tangle.Scheduler = NewScheduler(tangle)
 	tangle.LedgerState = NewLedgerState(tangle)
 	tangle.Booker = NewBooker(tangle)
@@ -103,7 +103,7 @@ func (t *Tangle) Setup() {
 	t.Storage.Setup()
 	t.Solidifier.Setup()
 	t.Requester.Setup()
-	t.Orderer.Setup()
+	//t.Orderer.Setup()
 	t.Scheduler.Setup()
 	t.Booker.Setup()
 	t.ApprovalWeightManager.Setup()
@@ -188,7 +188,7 @@ func (t *Tangle) Prune() (err error) {
 // Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
 func (t *Tangle) Shutdown() {
 	t.MessageFactory.Shutdown()
-	t.Orderer.Shutdown()
+	//t.Orderer.Shutdown()
 	t.Scheduler.Shutdown()
 	t.Booker.Shutdown()
 	t.LedgerState.Shutdown()

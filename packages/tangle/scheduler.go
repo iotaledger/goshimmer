@@ -46,7 +46,7 @@ func NewScheduler(tangle *Tangle) (scheduler *Scheduler) {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (s *Scheduler) Setup() {
-	s.tangle.Orderer.Events.MessageOrdered.Attach(events.NewClosure(s.Schedule))
+	s.tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(s.Schedule))
 
 	s.tangle.ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID MessageID) {
 		if s.scheduledMessages.Delete(messageID) {

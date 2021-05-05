@@ -154,8 +154,11 @@ func (e *Epoch) AddNode(id identity.ID) {
 	e.manaMutex.Lock()
 	defer e.manaMutex.Unlock()
 
-	e.mana[id] = 0
+	if e.manaRetrieved {
+		return
+	}
 
+	e.mana[id] = 0
 	e.SetModified()
 }
 

@@ -15,7 +15,7 @@ import (
 
 const (
 	// allowedFutureBooking defines the duration in which messages ahead of the TangleTime can be forwarded to the scheduler.
-	allowedFutureBooking = 10 * time.Minute
+	allowedFutureBooking = 30 * time.Minute
 	// bucketGranularity defines the granularity of the time based buckets in seconds.
 	bucketGranularity = 60
 	bucketInboxSize   = 30
@@ -37,11 +37,15 @@ type Orderer struct {
 	bucketInboxMin int64
 	bucketInbox    chan int64
 
-	maxBucketScheduled     int64
-	maxBucketScheduledCond *sync.Cond
+	//maxBucketScheduled     int64
+	//maxBucketScheduledCond *sync.Cond
 
 	bucketsMap      map[int64]uint64
 	bucketsMapMutex sync.Mutex
+
+	bookedMessageChan chan MessageID
+	inbox             chan MessageID
+	parentsMap        map[MessageID][]MessageID
 }
 
 // NewOrderer is the constructor for Orderer.
@@ -50,13 +54,46 @@ func NewOrderer(tangle *Tangle) (orderer *Orderer) {
 		Events: &OrdererEvents{
 			MessageOrdered: events.NewEvent(MessageIDCaller),
 		},
-		tangle:                 tangle,
-		shutdownSignal:         make(chan struct{}),
-		bucketInbox:            make(chan int64, bucketInboxSize),
-		maxBucketScheduledCond: sync.NewCond(&sync.Mutex{}),
-		bucketsMap:             make(map[int64]uint64),
+		tangle:            tangle,
+		shutdownSignal:    make(chan struct{}),
+		bucketInbox:       make(chan int64, bucketInboxSize),
+		bucketsMap:        make(map[int64]uint64),
+		bookedMessageChan: make(chan MessageID),
+		inbox:             make(chan MessageID, 1024),
+		parentsMap:        make(map[MessageID][]MessageID),
 	}
 	orderer.run()
+
+	return
+}
+
+func (o *Orderer) onMessageBooked(messageID MessageID) {
+	//fmt.Println(messageID)
+	o.bookedMessageChan <- messageID
+}
+
+func (o *Orderer) parentsToBook(messageID MessageID) (parents MessageIDs) {
+	o.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+		message.ForEachParent(func(parent Parent) {
+			o.tangle.Storage.MessageMetadata(parent.ID).Consume(func(messageMetadata *MessageMetadata) {
+				if !messageMetadata.IsBooked() {
+					parents = append(parents, parent.ID)
+				}
+			})
+		})
+	})
+
+	return parents
+}
+
+func (o *Orderer) tryToSchedule(messageID MessageID) (parentsToBook []MessageID) {
+	parentsToBook = o.parentsToBook(messageID)
+	if len(parentsToBook) > 0 {
+		return
+	}
+
+	// all parents are booked
+	o.Events.MessageOrdered.Trigger(messageID)
 
 	return
 }
@@ -65,6 +102,7 @@ func NewOrderer(tangle *Tangle) (orderer *Orderer) {
 func (o *Orderer) Setup() {
 	o.tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(o.Order))
 	o.tangle.TimeManager.Events.TimeUpdated.Attach(events.NewClosure(o.onTangleTimeUpdated))
+	o.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(o.onMessageBooked))
 }
 
 // Shutdown shuts down the Orderer and persists its state.
@@ -90,13 +128,8 @@ func (o *Orderer) Order(messageID MessageID) {
 
 	bucket := bucketTime(issuingTime)
 	//fmt.Println("Order", messageID, bucket)
-	// TODO: maybe this check is not necessary with maxBucketScheduled
 	if issuingTime.Before(o.tangle.TimeManager.Time().Add(allowedFutureBooking)) {
-		// Messages can be scheduled directly after their bucket has been fully scheduled to make sure messages are scheduled
-		// in order as they got solid (parents are scheduled before children).
-		o.awaitBucketScheduled(bucket)
-
-		o.Events.MessageOrdered.Trigger(messageID)
+		o.inbox <- messageID
 		return
 	}
 
@@ -107,15 +140,6 @@ func (o *Orderer) Order(messageID MessageID) {
 	o.bucketsMapMutex.Unlock()
 	o.tangle.Storage.StoreBucketMessageID(bucket, count, messageID)
 	//fmt.Println("STORED", messageID, bucket, count)
-}
-
-func (o *Orderer) awaitBucketScheduled(bucket int64) {
-	o.maxBucketScheduledCond.L.Lock()
-	for bucket >= o.maxBucketScheduled {
-		//fmt.Println("WAIT")
-		o.maxBucketScheduledCond.Wait()
-	}
-	o.maxBucketScheduledCond.L.Unlock()
 }
 
 // run runs the background thread that listens to TangleTime updates (through a channel) and then schedules messages
@@ -134,6 +158,38 @@ func (o *Orderer) run() {
 			}
 		}
 	}()
+
+	o.shutdownWG.Add(1)
+	go func() {
+		defer o.shutdownWG.Done()
+
+		for {
+			select {
+			case bookedMessage := <-o.bookedMessageChan:
+				if _, exists := o.parentsMap[bookedMessage]; !exists {
+					continue
+				}
+
+				for _, childID := range o.parentsMap[bookedMessage] {
+					o.tryToSchedule(childID)
+				}
+				delete(o.parentsMap, bookedMessage)
+			case messageID := <-o.inbox:
+				parentsToBook := o.tryToSchedule(messageID)
+
+				for _, parent := range parentsToBook {
+					if _, exists := o.parentsMap[parent]; !exists {
+						o.parentsMap[parent] = make([]MessageID, 0)
+					}
+					o.parentsMap[parent] = append(o.parentsMap[parent], messageID)
+				}
+			case <-o.shutdownSignal:
+				if len(o.inbox) == 0 {
+					return
+				}
+			}
+		}
+	}()
 }
 
 // scheduleUntil schedules messages in stored buckets from lowestStoredBucket until the given bucketTime + allowedFutureBookingSeconds.
@@ -149,18 +205,11 @@ func (o *Orderer) scheduleUntil(bucket int64) {
 			//fmt.Println("scheduleUntil", bucket, currentBucket, maxCount)
 			//fmt.Println("maxCount", maxCount, count)
 			o.tangle.Storage.BucketMessageID(currentBucket, count).Consume(func(bucketMessageID *BucketMessageID) {
-				o.Events.MessageOrdered.Trigger(bucketMessageID.MessageID())
+				o.inbox <- bucketMessageID.MessageID()
 				bucketMessageID.Delete()
 			})
 		}
 	}
-
-	// Signal all threads waiting for buckets
-	o.maxBucketScheduledCond.L.Lock()
-	o.maxBucketScheduled = bucket + allowedFutureBookingSeconds
-	//fmt.Println("o.maxBucketScheduled", o.maxBucketScheduled)
-	o.maxBucketScheduledCond.L.Unlock()
-	o.maxBucketScheduledCond.Broadcast()
 }
 
 // onTangleTimeUpdated listens to TangleTime updates and pushes buckets to the channel so that they can be scheduled.

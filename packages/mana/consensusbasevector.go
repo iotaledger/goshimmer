@@ -131,9 +131,11 @@ func (c *ConsensusBaseManaVector) Book(txInfo *TxInfo) {
 		err := c.vector[pledgeNodeID].revoke(inputInfo.Amount, txInfo.TimeStamp)
 		switch err {
 		case ErrBaseManaNegative:
-			panic(fmt.Sprintf("Revoking %f base mana 1 from node %s results in negative balance", inputInfo.Amount, pledgeNodeID.String()))
+			fmt.Println(txInfo)
+			panic(fmt.Sprintf("Revoking %f base mana 1 of input %s from node %s results in negative balance", inputInfo.Amount, inputInfo.InputID, pledgeNodeID.String()))
 		case ErrEffBaseManaNegative:
-			panic(fmt.Sprintf("Revoking (%f) eff base mana 1 from node %s results in negative balance", inputInfo.Amount, pledgeNodeID.String()))
+			fmt.Println(txInfo)
+			panic(fmt.Sprintf("Revoking (%f) eff base mana 1 of input %s from node %s results in negative balance", inputInfo.Amount, inputInfo.InputID, pledgeNodeID.String()))
 		}
 		// trigger events
 		Events().Revoked.Trigger(&RevokedEvent{pledgeNodeID, inputInfo.Amount, txInfo.TimeStamp, c.Type(), txInfo.TransactionID, inputInfo.InputID})
