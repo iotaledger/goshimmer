@@ -41,7 +41,7 @@ func main() {
 	transferNFTCommand := flag.NewFlagSet("transfer-nft", flag.ExitOnError)
 	destroyNFTCommand := flag.NewFlagSet("destroy-nft", flag.ExitOnError)
 	depositToNFTCommand := flag.NewFlagSet("deposit-to-nft", flag.ExitOnError)
-	withdrawFromNFTCommand := flag.NewFlagSet("deposit-to-nft", flag.ExitOnError)
+	withdrawFromNFTCommand := flag.NewFlagSet("withdraw-from-nft", flag.ExitOnError)
 	sweepNFTOwnedCommand := flag.NewFlagSet("sweep-nft-owned", flag.ExitOnError)
 	addressCommand := flag.NewFlagSet("address", flag.ExitOnError)
 	requestFaucetFundsCommand := flag.NewFlagSet("request-funds", flag.ExitOnError)

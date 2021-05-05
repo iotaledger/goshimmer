@@ -16,7 +16,7 @@ func execWithdrawFromFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) 
 	}
 
 	helpPtr := command.Bool("help", false, "show this help screen")
-	nftIDPtr := command.String("nft-id", "", "unique identifier of the nft to withdraw from")
+	nftIDPtr := command.String("id", "", "unique identifier of the nft to withdraw from")
 	addressPtr := command.String("dest-addr", "", "(optional) address to send the withdrew tokens to")
 	colorPtr := command.String("color", "IOTA", "color of funds to withdraw")
 	amountPtr := command.Int64("amount", 0, "the amount of tokens that are supposed to be withdrew")

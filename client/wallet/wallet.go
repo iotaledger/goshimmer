@@ -949,7 +949,7 @@ func (wallet *Wallet) DepositFundsToNFT(options ...depositfundstonft_options.Dep
 
 // region SweepNFTOwnedFunds ///////////////////////////////////////////////////////////////////////////////////////////
 
-// SweepNFTOwnedFunds collects all funds from outputs that are owned by the nft into the wallet.
+// SweepNFTOwnedFunds collects all funds from non-alias outputs that are owned by the nft into the wallet.
 func (wallet Wallet) SweepNFTOwnedFunds(options ...sweepnftownedfunds_options.SweepNFTOwnedFundsOption) (tx *ledgerstate.Transaction, err error) {
 	sweepOptions, err := sweepnftownedfunds_options.BuildSweepNFTOwnedFundsOptions(options...)
 	if err != nil {
@@ -972,28 +972,30 @@ func (wallet Wallet) SweepNFTOwnedFunds(options ...sweepnftownedfunds_options.Sw
 	}
 	alias := walletAlias.Object.(*ledgerstate.AliasOutput)
 
-	owned, _, err := wallet.OutputsOnNFT(sweepOptions.Alias.Base58())
+	owned, _, err := wallet.AvailableOutputsOnNFT(sweepOptions.Alias.Base58())
 	if err != nil {
 		return
 	}
 	if len(owned) == 0 {
 		err = xerrors.Errorf("no owned outputs with funds are found on nft %s", sweepOptions.Alias.Base58())
 	}
-	if len(owned) > 126 {
-		// we can spend at most 127 inputs in a tx
-		owned = owned[:126]
-	}
 
 	toBeConsumed := ledgerstate.Outputs{}
 	totalConsumed := map[ledgerstate.Color]uint64{}
+	// owned contains all outputs that are owned by nft. we want to filter out alias outputs, as they are not "funds"
 	for _, output := range owned {
+		if len(toBeConsumed) == 126 {
+			// we can spend at most 127 inputs in a tx, need one more for the alias
+			break
+		}
 		if output.Type() == ledgerstate.AliasOutputType {
-			casted := output.(*ledgerstate.AliasOutput)
-			if !casted.IsDelegated() && !ledgerstate.IsExactDustMinimum(casted.Balances()) {
-				// we are trying to destroy an alias that is not delegated and has more funds than minimum
-				// TODO: withdraw from it
-				continue
-			}
+			continue
+			//casted := output.(*ledgerstate.AliasOutput)
+			//if !casted.IsDelegated() && !ledgerstate.IsExactDustMinimum(casted.Balances()) {
+			//	// we are trying to destroy an alias that is not delegated and has more funds than minimum
+			//	// TODO: withdraw from it
+			//	continue
+			//}
 		}
 		output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
 			totalConsumed[color] += balance
@@ -1387,11 +1389,11 @@ func (wallet *Wallet) AliasBalance() (
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region OutputsOnNFT /////////////////////////////////////////////////////////////////////////////////////////////////
+// region AvailableOutputsOnNFT /////////////////////////////////////////////////////////////////////////////////////////////////
 
-// OutputsOnNFT returns all outputs that are either owned (SigLocked***, Extended, stateControlled Alias) or governed
-// (governance controlled alias outputs)
-func (wallet Wallet) OutputsOnNFT(nftID string) (owned ledgerstate.Outputs, governed ledgerstate.Outputs, err error) {
+// AvailableOutputsOnNFT returns all outputs that are either owned (SigLocked***, Extended, stateControlled Alias) or governed
+// (governance controlled alias outputs) and are not currently locked.
+func (wallet Wallet) AvailableOutputsOnNFT(nftID string) (owned ledgerstate.Outputs, governed ledgerstate.Outputs, err error) {
 	aliasAddress, err := ledgerstate.AliasAddressFromBase58EncodedString(nftID)
 	if err != nil {
 		return
@@ -1401,21 +1403,22 @@ func (wallet Wallet) OutputsOnNFT(nftID string) (owned ledgerstate.Outputs, gove
 		return
 	}
 	outputs := res.ToLedgerStateOutputs()
+	now := time.Now()
 	for _, o := range outputs {
 		switch o.Type() {
 		case ledgerstate.SigLockedSingleOutputType, ledgerstate.SigLockedColoredOutputType:
 			owned = append(owned, o)
 		case ledgerstate.ExtendedLockedOutputType:
 			casted := o.(*ledgerstate.ExtendedLockedOutput)
-			if casted.UnlockAddressNow(time.Now()).Equals(aliasAddress) {
+			if casted.UnlockAddressNow(now).Equals(aliasAddress) && !casted.TimeLockedNow(now) {
 				owned = append(owned, o)
 			}
 		case ledgerstate.AliasOutputType:
 			casted := o.(*ledgerstate.AliasOutput)
 			// the alias output of aliasAddress is filtered out
-			if casted.GetStateAddress().Equals(aliasAddress) {
+			if casted.GetStateAddress().Equals(aliasAddress) && !casted.DelegationTimeLockedNow(now) {
 				owned = append(owned, o)
-			} else if casted.GetGoverningAddress().Equals(aliasAddress) {
+			} else if casted.GetGoverningAddress().Equals(aliasAddress) && !casted.DelegationTimeLockedNow(now) {
 				governed = append(governed, o)
 			}
 		}
