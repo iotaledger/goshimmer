@@ -6,6 +6,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/packages/tangle/schedulerutils"
+
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
@@ -252,6 +253,72 @@ func TestSchedulerFlow(t *testing.T) {
 	for _, message := range messages {
 		tangle.Storage.StoreMessage(message)
 	}
+
+	var scheduledIDs []MessageID
+	assert.Eventually(t, func() bool {
+		select {
+		case id := <-messageScheduled:
+			scheduledIDs = append(scheduledIDs, id)
+			return len(scheduledIDs) == len(messages)
+		default:
+			return false
+		}
+	}, 10*time.Second, 100*time.Millisecond)
+}
+
+func TestSchedulerSubmitWorkerPool(t *testing.T) {
+	// create Scheduler dependencies
+	// create the tangle
+	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
+	defer tangle.Shutdown()
+
+	tangle.Events.Error.Attach(events.NewClosure(func(err error) { assert.Failf(t, "unexpected error", "error event triggered: %v", err) }))
+
+	// setup tangle up till the Scheduler
+	tangle.Storage.Setup()
+	tangle.Solidifier.Setup()
+	tangle.Scheduler.Setup()
+
+	// testing desired scheduled order: A - B - D - C  (B - A - D - C is equivalent)
+	messages := make(map[string]*Message)
+	messages["A"] = newMessage(selfNode.PublicKey())
+	messages["B"] = newMessage(peerNode.PublicKey())
+
+	// set C to have a timestamp in the future
+	msgC := newMessage(selfNode.PublicKey())
+	msgC.strongParents = []MessageID{messages["A"].ID(), messages["B"].ID()}
+	msgC.issuingTime = time.Now().Add(5 * time.Second)
+	messages["C"] = msgC
+
+	msgD := newMessage(peerNode.PublicKey())
+	msgD.strongParents = []MessageID{messages["A"].ID(), messages["B"].ID()}
+	messages["D"] = msgD
+
+	msgE := newMessage(selfNode.PublicKey())
+	msgE.strongParents = []MessageID{messages["A"].ID(), messages["B"].ID()}
+	msgE.issuingTime = time.Now().Add(3 * time.Second)
+	messages["E"] = msgE
+
+	messageScheduled := make(chan MessageID, len(messages))
+	tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(id MessageID) { messageScheduled <- id }))
+
+	// Bypass the Booker
+	tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
+		tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+			messageMetadata.SetBooked(true)
+			tangle.Booker.Events.MessageBooked.Trigger(messageID)
+			tangle.ConsensusManager.Events.MessageOpinionFormed.Trigger(messageID)
+		})
+	}))
+
+	for _, message := range messages {
+		tangle.Storage.StoreMessage(message)
+	}
+
+	time.Sleep(5 * time.Second)
+
+	// start scheduling queued messages
+	tangle.Scheduler.Start()
 
 	var scheduledIDs []MessageID
 	assert.Eventually(t, func() bool {
