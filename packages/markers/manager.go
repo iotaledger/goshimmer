@@ -338,9 +338,7 @@ func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkers *Markers
 			if sequenceRank > highestSequenceRank {
 				highestSequenceRank = sequenceRank
 			}
-		}
-
-		if i >= markers.Size() {
+		} else {
 			if sequenceRank < lowestRankOfMarkers {
 				continue
 			}
