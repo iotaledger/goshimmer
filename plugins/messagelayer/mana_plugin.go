@@ -171,7 +171,7 @@ func onTransactionConfirmed(msgID tangle.MessageID) {
 			})
 			// derive the transaction that created this input
 			inputTxID := o.ID().TransactionID()
-			// look into the transaction, we need timestamp and access & consensus pledge IDs
+			// look into the transaction, we need timestamp and access & consensus pledge IDs, for example to revoke mana when pledging to new pledge ID
 			Tangle().LedgerState.Transaction(inputTxID).Consume(func(transaction *ledgerstate.Transaction) {
 				if transaction != nil {
 					inputTimestamp = transaction.Essence().Timestamp()

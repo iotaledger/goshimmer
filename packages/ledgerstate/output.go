@@ -984,6 +984,8 @@ type OutputMetadata struct {
 	consumerMutex           sync.RWMutex
 	finalized               bool
 	finalizedMutex          sync.RWMutex
+	finalizedSpend          bool // the spending transaction of the output is finalized
+	finalizedSpendMutex     sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
@@ -1038,6 +1040,10 @@ func OutputMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output
 	}
 	if outputMetadata.finalized, err = marshalUtil.ReadBool(); err != nil {
 		err = xerrors.Errorf("failed to parse finalized flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	if outputMetadata.finalizedSpend, err = marshalUtil.ReadBool(); err != nil {
+		err = xerrors.Errorf("failed to parse finalized spend flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -1162,6 +1168,15 @@ func (o *OutputMetadata) Finalized() (finalized bool) {
 	return o.finalized
 }
 
+// FinalizedSpend returns a boolean flag that indicates if the spend of the output has been finalized regarding its decision of being
+// included in the ledger state.
+func (o *OutputMetadata) FinalizedSpend() bool {
+	o.finalizedSpendMutex.RLock()
+	defer o.finalizedSpendMutex.RUnlock()
+
+	return o.finalizedSpend
+}
+
 // SetFinalized updates the finalized flag of the Transaction. It returns true if the lazy booked flag was modified.
 func (o *OutputMetadata) SetFinalized(finalized bool) (modified bool) {
 	o.finalizedMutex.Lock()
@@ -1172,6 +1187,22 @@ func (o *OutputMetadata) SetFinalized(finalized bool) (modified bool) {
 	}
 
 	o.finalized = finalized
+	o.SetModified()
+	modified = true
+
+	return
+}
+
+// SetFinalizedSpend updates the finalizedSpend flag of the output.
+func (o *OutputMetadata) SetFinalizedSpend(finalizedSpend bool) (modified bool) {
+	o.finalizedSpendMutex.Lock()
+	defer o.finalizedSpendMutex.Unlock()
+
+	if o.finalizedSpend == finalizedSpend {
+		return
+	}
+
+	o.finalizedSpend = finalizedSpend
 	o.SetModified()
 	modified = true
 
@@ -1193,6 +1224,7 @@ func (o *OutputMetadata) String() string {
 		stringify.StructField("consumerCount", o.ConsumerCount()),
 		stringify.StructField("firstConsumer", o.FirstConsumer()),
 		stringify.StructField("finalized", o.Finalized()),
+		stringify.StructField("finalizedSpend", o.FinalizedSpend()),
 	)
 }
 
@@ -1217,6 +1249,7 @@ func (o *OutputMetadata) ObjectStorageValue() []byte {
 		WriteUint64(uint64(o.ConsumerCount())).
 		Write(o.FirstConsumer()).
 		WriteBool(o.Finalized()).
+		WriteBool(o.FinalizedSpend()).
 		Bytes()
 }
 
