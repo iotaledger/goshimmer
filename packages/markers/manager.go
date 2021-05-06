@@ -399,7 +399,7 @@ func (m *Manager) markersReferenceMarkers(laterMarkers, earlierMarkers *Markers,
 
 // markerReferencesMarkers is used to recursively check if the given Marker and its parents have an overlap with the
 // given Markers.
-func (m *Manager) markerReferencesMarkers(marker *Marker, markers *Markers, requireBiggerMarkers bool, seenMarkers *Markers, walker *walker.Walker) bool {
+func (m *Manager) markerReferencesMarkers(marker *Marker, markers *Markers, requireBiggerMarkers bool, seenMarkers *Markers, w *walker.Walker) bool {
 	if added, updated := seenMarkers.Set(marker.SequenceID(), marker.Index()); !added && !updated {
 		return false
 	}
@@ -410,7 +410,7 @@ func (m *Manager) markerReferencesMarkers(marker *Marker, markers *Markers, requ
 
 	if earlierIndex, sequenceExists := markers.Get(marker.SequenceID()); sequenceExists {
 		if (requireBiggerMarkers && earlierIndex < marker.Index()) || (!requireBiggerMarkers && earlierIndex <= marker.Index()) {
-			walker.StopWalk()
+			w.StopWalk()
 
 			return true
 		}
@@ -420,7 +420,7 @@ func (m *Manager) markerReferencesMarkers(marker *Marker, markers *Markers, requ
 
 	m.Sequence(marker.SequenceID()).Consume(func(sequence *Sequence) {
 		sequence.ReferencedMarkers(marker.Index()).ForEach(func(referencedSequenceID SequenceID, referencedIndex Index) bool {
-			walker.Push(NewMarker(referencedSequenceID, referencedIndex))
+			w.Push(NewMarker(referencedSequenceID, referencedIndex))
 
 			return true
 		})

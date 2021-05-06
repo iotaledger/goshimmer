@@ -58,6 +58,7 @@ func getWeightsHandler(c echo.Context) (err error) {
 	return c.JSON(http.StatusOK, resp)
 }
 
+// Weights defines the weights associated to the nodes.
 type Weights struct {
 	Weights     map[string]float64 `json:"weights"`
 	TotalWeight float64            `json:"totalWeight"`

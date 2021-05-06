@@ -81,17 +81,18 @@ func (c *CManaWeightProvider) Shutdown() {
 	//	TODO: possibly persist state
 }
 
-func (c *CManaWeightProvider) ActiveNodes() (copy map[identity.ID]time.Time) {
-	copy = make(map[identity.ID]time.Time)
+// ActiveNodes returns the map of the active nodes.
+func (c *CManaWeightProvider) ActiveNodes() (activeNodes map[identity.ID]time.Time) {
+	activeNodes = make(map[identity.ID]time.Time)
 
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	for nodeID, t := range c.activeNodes {
-		copy[nodeID] = t
+		activeNodes[nodeID] = t
 	}
 
-	return copy
+	return activeNodes
 }
 
 // ManaRetrieverFunc is a function type to retrieve consensus mana (e.g. via the mana plugin)

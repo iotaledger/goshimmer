@@ -1,7 +1,6 @@
 package plugins
 
 import (
-	"github.com/iotaledger/goshimmer/plugins/webapi/weightprovider"
 	"github.com/iotaledger/hive.go/node"
 
 	"github.com/iotaledger/goshimmer/plugins/webapi"
@@ -16,6 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/webapi/message"
 	"github.com/iotaledger/goshimmer/plugins/webapi/tools"
 	"github.com/iotaledger/goshimmer/plugins/webapi/value"
+	"github.com/iotaledger/goshimmer/plugins/webapi/weightprovider"
 )
 
 // WebAPI contains the webapi endpoint plugins of a GoShimmer node.
