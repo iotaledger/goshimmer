@@ -8,13 +8,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/node"
-	"golang.org/x/xerrors"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 
@@ -364,7 +364,7 @@ func (pog *PeerOpinionGiver) Query(ctx context.Context, conflictIDs, timestampID
 	defer func() {
 		cerr := conn.Close()
 		if err == nil {
-			err = xerrors.Errorf("failed to close connection: %w", cerr)
+			err = errors.Errorf("failed to close connection: %w", cerr)
 		}
 	}()
 
@@ -536,14 +536,14 @@ func makeStatement(roundStats *vote.RoundStats, broadcastFunc func(conflicts sta
 		case vote.TimestampType:
 			timeStampStatement, err := makeTimeStampStatement(id, v)
 			if err != nil {
-				plugin.LogErrorf("Statement error: %s", xerrors.Errorf("Failed to create a TimeStamp statement: %w", err))
+				plugin.LogErrorf("Statement error: %s", errors.Errorf("Failed to create a TimeStamp statement: %w", err))
 				break
 			}
 			timestamps = append(timestamps, timeStampStatement)
 		case vote.ConflictType:
 			conflictStatement, err := makeConflictStatement(id, v)
 			if err != nil {
-				plugin.LogErrorf("Statement error: %s", xerrors.Errorf("Failed to create a Conflict statement: %w", err))
+				plugin.LogErrorf("Statement error: %s", errors.Errorf("Failed to create a Conflict statement: %w", err))
 				break
 			}
 			conflicts = append(conflicts, conflictStatement)
@@ -575,7 +575,7 @@ func hasStatementExceededMaxSize(conflicts statement.Conflicts, timestamps state
 func makeConflictStatement(id string, v *vote.Context) (statement.Conflict, error) {
 	messageID, err := ledgerstate.TransactionIDFromBase58(id)
 	if err != nil {
-		err = xerrors.Errorf("Failed to create a Conflict statement: %w", err)
+		err = errors.Errorf("Failed to create a Conflict statement: %w", err)
 		return statement.Conflict{}, err
 	}
 	conflict := statement.Conflict{
@@ -591,7 +591,7 @@ func makeConflictStatement(id string, v *vote.Context) (statement.Conflict, erro
 func makeTimeStampStatement(id string, v *vote.Context) (statement.Timestamp, error) {
 	messageID, err := tangle.NewMessageID(id)
 	if err != nil {
-		err = xerrors.Errorf("Failed to create a TimeStamp statement: %w", err)
+		err = errors.Errorf("Failed to create a TimeStamp statement: %w", err)
 		return statement.Timestamp{}, err
 	}
 	timestamp := statement.Timestamp{

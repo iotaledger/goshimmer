@@ -3,9 +3,9 @@ package markers
 import (
 	"strconv"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
-	"golang.org/x/xerrors"
 )
 
 // region Index ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -20,7 +20,7 @@ type Index uint64
 func IndexFromBytes(sequenceBytes []byte) (index Index, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(sequenceBytes)
 	if index, err = IndexFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Index from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse Index from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -32,7 +32,7 @@ func IndexFromBytes(sequenceBytes []byte) (index Index, consumedBytes int, err e
 func IndexFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (index Index, err error) {
 	untypedIndex, err := marshalUtil.ReadUint64()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse Index (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse Index (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	index = Index(untypedIndex)

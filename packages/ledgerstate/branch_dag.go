@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/set"
@@ -13,7 +14,6 @@ import (
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/types"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/database"
 )
@@ -53,7 +53,7 @@ func NewBranchDAG(store kvstore.KVStore) (newBranchDAG *BranchDAG) {
 func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs BranchIDs, conflictIDs ConflictIDs) (cachedConflictBranch *CachedBranch, newBranchCreated bool, err error) {
 	normalizedParentBranchIDs, err := b.normalizeBranches(parentBranchIDs)
 	if err != nil {
-		err = xerrors.Errorf("failed to normalize parent Branches: %w", err)
+		err = errors.Errorf("failed to normalize parent Branches: %w", err)
 		return
 	}
 
@@ -69,17 +69,17 @@ func (b *BranchDAG) UpdateConflictBranchParents(conflictBranchID BranchID, newPa
 
 	conflictBranch, err := cachedConflictBranch.UnwrapConflictBranch()
 	if err != nil {
-		err = xerrors.Errorf("failed to unwrap ConflictBranch: %w", err)
+		err = errors.Errorf("failed to unwrap ConflictBranch: %w", err)
 		return
 	}
 	if conflictBranch == nil {
-		err = xerrors.Errorf("failed to unwrap ConflictBranch: %w", cerrors.ErrFatal)
+		err = errors.Errorf("failed to unwrap ConflictBranch: %w", cerrors.ErrFatal)
 		return
 	}
 
 	newParentBranchIDs, err = b.normalizeBranches(newParentBranchIDs)
 	if err != nil {
-		err = xerrors.Errorf("failed to normalize new parent BranchIDs: %w", err)
+		err = errors.Errorf("failed to normalize new parent BranchIDs: %w", err)
 		return
 	}
 
@@ -108,11 +108,31 @@ func (b *BranchDAG) UpdateConflictBranchParents(conflictBranchID BranchID, newPa
 func (b *BranchDAG) AggregateBranches(branchIDS BranchIDs) (cachedAggregatedBranch *CachedBranch, newBranchCreated bool, err error) {
 	normalizedBranchIDs, err := b.normalizeBranches(branchIDS)
 	if err != nil {
-		err = xerrors.Errorf("failed to normalize Branches: %w", err)
+		err = errors.Errorf("failed to normalize Branches: %w", err)
 		return
 	}
 
 	cachedAggregatedBranch, newBranchCreated, err = b.aggregateNormalizedBranches(normalizedBranchIDs)
+	return
+}
+
+// SetBranchConfirmed sets a Branch to be monotonically liked and finalized. It automatically triggers conflicting
+// Branches to be marked as rejected.
+func (b *BranchDAG) SetBranchConfirmed(branchID BranchID) (err error) {
+	if b.InclusionState(branchID) == Confirmed {
+		return
+	}
+
+	if _, branchErr := b.SetBranchMonotonicallyLiked(branchID, true); branchErr != nil {
+		err = errors.Errorf("failed to set Branch with %s to be monotonically liked: %w", branchID, branchErr)
+		return
+	}
+
+	if _, branchErr := b.SetBranchFinalized(branchID, true); branchErr != nil {
+		err = errors.Errorf("failed to set Branch with %s to be finalized: %w", branchID, branchErr)
+		return
+	}
+
 	return
 }
 
@@ -146,23 +166,23 @@ func (b *BranchDAG) MergeToMaster(branchID BranchID) (movedBranches map[BranchID
 	// unwrap ConflictBranch
 	conflictBranch, err := cachedBranch.UnwrapConflictBranch()
 	if err != nil {
-		err = xerrors.Errorf("tried to merge non-ConflictBranch with %s to Master: %w", branchID, err)
+		err = errors.Errorf("tried to merge non-ConflictBranch with %s to Master: %w", branchID, err)
 		return
 	} else if conflictBranch == nil {
-		err = xerrors.Errorf("failed to load Branch with %s: %w", branchID, cerrors.ErrFatal)
+		err = errors.Errorf("failed to load Branch with %s: %w", branchID, cerrors.ErrFatal)
 		return
 	}
 
 	// abort if the Branch is not Confirmed
 	if conflictBranch.InclusionState() != Confirmed {
-		err = xerrors.Errorf("tried to merge non-confirmed Branch with %s to Master: %w", branchID, cerrors.ErrFatal)
+		err = errors.Errorf("tried to merge non-confirmed Branch with %s to Master: %w", branchID, cerrors.ErrFatal)
 		return
 	}
 
 	// abort if the Branch is not at the bottom of the BranchDAG
 	parentBranches := conflictBranch.Parents()
 	if _, masterBranchIsParent := parentBranches[MasterBranchID]; len(parentBranches) != 1 || !masterBranchIsParent {
-		err = xerrors.Errorf("tried to merge Branch with %s to Master that is not at the bottom of the BranchDAG: %w", branchID, err)
+		err = errors.Errorf("tried to merge Branch with %s to Master that is not at the bottom of the BranchDAG: %w", branchID, err)
 		return
 	}
 
@@ -178,7 +198,7 @@ func (b *BranchDAG) MergeToMaster(branchID BranchID) (movedBranches map[BranchID
 	for _, cachedChildBranchReference := range cachedChildBranchReferences {
 		childBranchReference := cachedChildBranchReference.Unwrap()
 		if childBranchReference == nil {
-			err = xerrors.Errorf("failed to load ChildBranch reference: %w", cerrors.ErrFatal)
+			err = errors.Errorf("failed to load ChildBranch reference: %w", cerrors.ErrFatal)
 			return
 		}
 
@@ -189,7 +209,7 @@ func (b *BranchDAG) MergeToMaster(branchID BranchID) (movedBranches map[BranchID
 			childBranch, unwrapErr := cachedChildBranch.UnwrapAggregatedBranch()
 			if unwrapErr != nil {
 				cachedChildBranch.Release()
-				err = xerrors.Errorf("failed to load AggregatedBranch with %s: %w", cachedChildBranch.ID(), unwrapErr)
+				err = errors.Errorf("failed to load AggregatedBranch with %s: %w", cachedChildBranch.ID(), unwrapErr)
 				return
 			}
 
@@ -206,7 +226,7 @@ func (b *BranchDAG) MergeToMaster(branchID BranchID) (movedBranches map[BranchID
 			} else {
 				cachedNewAggregatedBranch, _, newAggregatedBranchErr := b.AggregateBranches(parentBranches)
 				if newAggregatedBranchErr != nil {
-					err = xerrors.Errorf("failed to retrieve AggregatedBranch: %w", newAggregatedBranchErr)
+					err = errors.Errorf("failed to retrieve AggregatedBranch: %w", newAggregatedBranchErr)
 					return
 				}
 				cachedNewAggregatedBranch.Release()
@@ -228,7 +248,7 @@ func (b *BranchDAG) MergeToMaster(branchID BranchID) (movedBranches map[BranchID
 			childBranch, unwrapErr := cachedChildBranch.UnwrapConflictBranch()
 			if unwrapErr != nil {
 				cachedChildBranch.Release()
-				err = xerrors.Errorf("failed to load ConflictBranch with %s: %w", cachedChildBranch.ID(), unwrapErr)
+				err = errors.Errorf("failed to load ConflictBranch with %s: %w", cachedChildBranch.ID(), unwrapErr)
 				return
 			}
 
@@ -353,7 +373,7 @@ func (b *BranchDAG) ResolveConflictBranchIDs(branchIDs BranchIDs) (conflictBranc
 				}
 			}
 		}) {
-			err = xerrors.Errorf("failed to load Branch with %s: %w", branchID, cerrors.ErrFatal)
+			err = errors.Errorf("failed to load Branch with %s: %w", branchID, cerrors.ErrFatal)
 			return
 		}
 	}
@@ -393,7 +413,7 @@ func (b *BranchDAG) Prune() (err error) {
 		b.conflictMemberStorage,
 	} {
 		if err = storage.Prune(); err != nil {
-			err = xerrors.Errorf("failed to prune the object storage (%v): %w", err, cerrors.ErrFatal)
+			err = errors.Errorf("failed to prune the object storage (%v): %w", err, cerrors.ErrFatal)
 			return
 		}
 	}
@@ -453,7 +473,7 @@ func (b *BranchDAG) normalizeBranches(branchIDs BranchIDs) (normalizedBranches B
 	// retrieve conflict branches and abort if we faced an error
 	conflictBranches, err := b.ResolveConflictBranchIDs(branchIDs)
 	if err != nil {
-		err = xerrors.Errorf("failed to resolve ConflictBranchIDs: %w", err)
+		err = errors.Errorf("failed to resolve ConflictBranchIDs: %w", err)
 		return
 	}
 
@@ -477,7 +497,7 @@ func (b *BranchDAG) normalizeBranches(branchIDs BranchIDs) (normalizedBranches B
 	checkConflictsAndQueueParents := func(currentBranch Branch) {
 		currentConflictBranch, typeCastOK := currentBranch.(*ConflictBranch)
 		if !typeCastOK {
-			err = xerrors.Errorf("failed to type cast Branch with %s to ConflictBranch: %w", currentBranch.ID(), cerrors.ErrFatal)
+			err = errors.Errorf("failed to type cast Branch with %s to ConflictBranch: %w", currentBranch.ID(), cerrors.ErrFatal)
 			return
 		}
 
@@ -489,7 +509,7 @@ func (b *BranchDAG) normalizeBranches(branchIDs BranchIDs) (normalizedBranches B
 		// return error if conflict set was seen twice
 		for conflictSetID := range currentConflictBranch.Conflicts() {
 			if !seenConflictSets.Add(conflictSetID) {
-				err = xerrors.Errorf("combined Branches are conflicting: %w", ErrInvalidStateTransition)
+				err = errors.Errorf("combined Branches are conflicting: %w", ErrInvalidStateTransition)
 				return
 			}
 		}
@@ -508,7 +528,7 @@ func (b *BranchDAG) normalizeBranches(branchIDs BranchIDs) (normalizedBranches B
 
 		// check branch and queue parents
 		if !b.Branch(conflictBranchID).Consume(checkConflictsAndQueueParents) {
-			err = xerrors.Errorf("failed to load Branch with %s: %w", conflictBranchID, cerrors.ErrFatal)
+			err = errors.Errorf("failed to load Branch with %s: %w", conflictBranchID, cerrors.ErrFatal)
 			return
 		}
 
@@ -528,7 +548,7 @@ func (b *BranchDAG) normalizeBranches(branchIDs BranchIDs) (normalizedBranches B
 
 		// check branch, queue parents and abort if we faced an error
 		if !b.Branch(parentBranchID).Consume(checkConflictsAndQueueParents) {
-			err = xerrors.Errorf("failed to load Branch with %s: %w", parentBranchID, cerrors.ErrFatal)
+			err = errors.Errorf("failed to load Branch with %s: %w", parentBranchID, cerrors.ErrFatal)
 			return
 		}
 
@@ -561,14 +581,14 @@ func (b *BranchDAG) createConflictBranchFromNormalizedParentBranchIDs(branchID B
 	}
 	branch := cachedConflictBranch.Unwrap()
 	if branch == nil {
-		err = xerrors.Errorf("failed to load Branch with %s: %w", branchID, cerrors.ErrFatal)
+		err = errors.Errorf("failed to load Branch with %s: %w", branchID, cerrors.ErrFatal)
 		return
 	}
 
 	// type cast to ConflictBranch
 	conflictBranch, typeCastOK := branch.(*ConflictBranch)
 	if !typeCastOK {
-		err = xerrors.Errorf("failed to type cast Branch with %s to ConflictBranch: %w", branchID, cerrors.ErrFatal)
+		err = errors.Errorf("failed to type cast Branch with %s to ConflictBranch: %w", branchID, cerrors.ErrFatal)
 		return
 	}
 
@@ -628,29 +648,29 @@ func (b *BranchDAG) aggregateNormalizedBranches(normalizedBranchIDs BranchIDs) (
 		for normalizedBranchID := range normalizedBranchIDs {
 			if !b.Branch(normalizedBranchID).Consume(func(normalizedBranch Branch) {
 				if likedErr := b.updateLikedOfAggregatedBranch(cachedAggregatedBranch.Retain(), normalizedBranch.Liked()); likedErr != nil {
-					err = xerrors.Errorf("failed to update liked flag of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), likedErr)
+					err = errors.Errorf("failed to update liked flag of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), likedErr)
 					return
 				}
 				if _, monotonicallyLikedErr := b.updateMonotonicallyLikedStatus(cachedAggregatedBranch.ID(), normalizedBranch.MonotonicallyLiked()); monotonicallyLikedErr != nil {
-					err = xerrors.Errorf("failed to update monotonically liked flag of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), monotonicallyLikedErr)
+					err = errors.Errorf("failed to update monotonically liked flag of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), monotonicallyLikedErr)
 					return
 				}
 				if finalizedErr := b.updateFinalizedOfAggregatedBranch(cachedAggregatedBranch.Retain(), normalizedBranch.Finalized()); finalizedErr != nil {
-					err = xerrors.Errorf("failed to update finalized flag of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), finalizedErr)
+					err = errors.Errorf("failed to update finalized flag of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), finalizedErr)
 					return
 				}
 				if inclusionStateErr := b.updateInclusionState(aggregatedBranch.ID(), normalizedBranch.InclusionState()); inclusionStateErr != nil {
-					err = xerrors.Errorf("failed to update inclusion state of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), inclusionStateErr)
+					err = errors.Errorf("failed to update inclusion state of newly added AggregatedBranch with %s: %w", aggregatedBranch.ID(), inclusionStateErr)
 					return
 				}
 			}) {
-				err = xerrors.Errorf("failed to load parent Branch with %s: %w", normalizedBranchID, cerrors.ErrFatal)
+				err = errors.Errorf("failed to load parent Branch with %s: %w", normalizedBranchID, cerrors.ErrFatal)
 			}
 
 			return
 		}
 
-		err = xerrors.Errorf("failed to load parent Branch: %w", cerrors.ErrFatal)
+		err = errors.Errorf("failed to load parent Branch: %w", cerrors.ErrFatal)
 	}
 
 	return
@@ -699,7 +719,7 @@ func (b *BranchDAG) setBranchLiked(cachedBranch *CachedBranch, liked bool) (modi
 	// unwrap ConflictBranch
 	conflictBranch, err := cachedBranch.UnwrapConflictBranch()
 	if err != nil {
-		err = xerrors.Errorf("failed to load ConflictBranch with %s: %w", cachedBranch.ID(), cerrors.ErrFatal)
+		err = errors.Errorf("failed to load ConflictBranch with %s: %w", cachedBranch.ID(), cerrors.ErrFatal)
 		return
 	}
 
@@ -715,7 +735,7 @@ func (b *BranchDAG) setBranchLiked(cachedBranch *CachedBranch, liked bool) (modi
 				conflictMember := cachedConflictMember.Unwrap()
 				if conflictMember == nil {
 					cachedConflictMembers.Release()
-					err = xerrors.Errorf("failed to load ConflictMember of %s: %w", conflictID, cerrors.ErrFatal)
+					err = errors.Errorf("failed to load ConflictMember of %s: %w", conflictID, cerrors.ErrFatal)
 					return
 				}
 
@@ -727,7 +747,7 @@ func (b *BranchDAG) setBranchLiked(cachedBranch *CachedBranch, liked bool) (modi
 				// update the other ConflictMembers to be not liked
 				if _, err = b.setBranchLiked(b.Branch(conflictMember.BranchID()), false); err != nil {
 					cachedConflictMembers.Release()
-					err = xerrors.Errorf("failed to propagate liked changes to other ConflictMembers: %w", err)
+					err = errors.Errorf("failed to propagate liked changes to other ConflictMembers: %w", err)
 					return
 				}
 			}
@@ -744,13 +764,13 @@ func (b *BranchDAG) setBranchLiked(cachedBranch *CachedBranch, liked bool) (modi
 
 		// update the liked status of the future cone (it only effects the AggregatedBranches)
 		if err = b.updateLikedOfAggregatedChildBranches(conflictBranch.ID(), true); err != nil {
-			err = xerrors.Errorf("failed to update liked status of future cone of Branch with %s: %w", conflictBranch.ID(), err)
+			err = errors.Errorf("failed to update liked status of future cone of Branch with %s: %w", conflictBranch.ID(), err)
 			return
 		}
 
 		// update the liked status of the future cone (if necessary)
 		if _, err = b.updateMonotonicallyLikedStatus(conflictBranch.ID(), true); err != nil {
-			err = xerrors.Errorf("failed to update liked status of future cone of Branch with %s: %w", conflictBranch.ID(), err)
+			err = errors.Errorf("failed to update liked status of future cone of Branch with %s: %w", conflictBranch.ID(), err)
 			return
 		}
 	case false:
@@ -761,13 +781,13 @@ func (b *BranchDAG) setBranchLiked(cachedBranch *CachedBranch, liked bool) (modi
 
 			// update the liked status of the future cone (it only affect the AggregatedBranches)
 			if propagationErr := b.updateLikedOfAggregatedChildBranches(conflictBranch.ID(), false); propagationErr != nil {
-				err = xerrors.Errorf("failed to propagate liked changes to AggregatedBranches: %w", propagationErr)
+				err = errors.Errorf("failed to propagate liked changes to AggregatedBranches: %w", propagationErr)
 				return
 			}
 
 			// update the liked status of the future cone (if necessary)
 			if _, propagationErr := b.updateMonotonicallyLikedStatus(conflictBranch.ID(), false); propagationErr != nil {
-				err = xerrors.Errorf("failed to update liked status of future cone of Branch with %s: %w", conflictBranch.ID(), propagationErr)
+				err = errors.Errorf("failed to update liked status of future cone of Branch with %s: %w", conflictBranch.ID(), propagationErr)
 				return
 			}
 		}
@@ -785,7 +805,7 @@ func (b *BranchDAG) setBranchMonotonicallyLiked(cachedBranch *CachedBranch, like
 	// unwrap Branch
 	branch := cachedBranch.Unwrap()
 	if branch == nil {
-		err = xerrors.Errorf("failed to load Branch with %s: %w", cachedBranch.ID(), cerrors.ErrFatal)
+		err = errors.Errorf("failed to load Branch with %s: %w", cachedBranch.ID(), cerrors.ErrFatal)
 		return
 	}
 
@@ -794,7 +814,7 @@ func (b *BranchDAG) setBranchMonotonicallyLiked(cachedBranch *CachedBranch, like
 		// disliking an AggregatedBranch is too "unspecific" - we need to know which one of its parents caused the
 		// dislike
 		if !liked {
-			err = xerrors.Errorf("Branch of type AggregatedBranchType can not be disliked (status depends on its parents): %w", cerrors.ErrFatal)
+			err = errors.Errorf("Branch of type AggregatedBranchType can not be disliked (status depends on its parents): %w", cerrors.ErrFatal)
 			return
 		}
 
@@ -802,7 +822,7 @@ func (b *BranchDAG) setBranchMonotonicallyLiked(cachedBranch *CachedBranch, like
 		for parentBranchID := range branch.Parents() {
 			parentBranchModified, parentBranchErr := b.setBranchMonotonicallyLiked(b.Branch(parentBranchID), true)
 			if parentBranchErr != nil {
-				err = xerrors.Errorf("failed to set liked status of parent Branch with %s: %w", parentBranchID, parentBranchErr)
+				err = errors.Errorf("failed to set liked status of parent Branch with %s: %w", parentBranchID, parentBranchErr)
 				return
 			}
 			modified = modified || parentBranchModified
@@ -817,7 +837,7 @@ func (b *BranchDAG) setBranchMonotonicallyLiked(cachedBranch *CachedBranch, like
 		// start with liking the parents (like propagates from past to present)
 		for parentBranchID := range branch.Parents() {
 			if _, err = b.setBranchMonotonicallyLiked(b.Branch(parentBranchID), true); err != nil {
-				err = xerrors.Errorf("failed to set liked status of parent Branch with %s: %w", parentBranchID, err)
+				err = errors.Errorf("failed to set liked status of parent Branch with %s: %w", parentBranchID, err)
 				return
 			}
 		}
@@ -835,7 +855,7 @@ func (b *BranchDAG) setBranchMonotonicallyLiked(cachedBranch *CachedBranch, like
 				// Conflict
 				_, err = b.setBranchLiked(b.Branch(conflictMember.BranchID()), false)
 				if err != nil {
-					err = xerrors.Errorf("failed to update liked status of parent Branch with %s: %w", conflictMember.BranchID(), err)
+					err = errors.Errorf("failed to update liked status of parent Branch with %s: %w", conflictMember.BranchID(), err)
 					return
 				}
 			})
@@ -848,13 +868,13 @@ func (b *BranchDAG) setBranchMonotonicallyLiked(cachedBranch *CachedBranch, like
 
 		// update the liked status of the future cone (it only effects the AggregatedBranches)
 		if err = b.updateLikedOfAggregatedChildBranches(branch.ID(), true); err != nil {
-			err = xerrors.Errorf("failed to update liked status of future cone of Branch with %s: %w", branch.ID(), err)
+			err = errors.Errorf("failed to update liked status of future cone of Branch with %s: %w", branch.ID(), err)
 			return
 		}
 
 		// update the liked status and determine the modified flag
 		if modified, err = b.updateMonotonicallyLikedStatus(branch.ID(), true); err != nil {
-			err = xerrors.Errorf("failed to update liked status of Branch with %s: %w", branch.ID(), err)
+			err = errors.Errorf("failed to update liked status of Branch with %s: %w", branch.ID(), err)
 			return
 		}
 	case false:
@@ -868,7 +888,7 @@ func (b *BranchDAG) setBranchMonotonicallyLiked(cachedBranch *CachedBranch, like
 
 		// update the like status and set the modified flag
 		if modified, err = b.updateMonotonicallyLikedStatus(branch.ID(), false); err != nil {
-			err = xerrors.Errorf("failed to update liked status of future cone of Branch with %s: %w", branch.ID(), err)
+			err = errors.Errorf("failed to update liked status of future cone of Branch with %s: %w", branch.ID(), err)
 			return
 		}
 	}
@@ -885,7 +905,7 @@ func (b *BranchDAG) setBranchFinalized(cachedBranch *CachedBranch, finalized boo
 	// unwrap ConflictBranch
 	branch := cachedBranch.Unwrap()
 	if branch == nil {
-		err = xerrors.Errorf("failed to load ConflictBranch with %s: %w", cachedBranch.ID(), cerrors.ErrFatal)
+		err = errors.Errorf("failed to load ConflictBranch with %s: %w", cachedBranch.ID(), cerrors.ErrFatal)
 		return
 	}
 
@@ -894,7 +914,7 @@ func (b *BranchDAG) setBranchFinalized(cachedBranch *CachedBranch, finalized boo
 		// unfinalizing an AggregatedBranch is too "unspecific" - we need to know which one of its parents caused the
 		// unfinalize
 		if !finalized {
-			err = xerrors.Errorf("Branch of type AggregatedBranchType can not be unfinalized (status depends on its parents): %w", cerrors.ErrFatal)
+			err = errors.Errorf("Branch of type AggregatedBranchType can not be unfinalized (status depends on its parents): %w", cerrors.ErrFatal)
 			return
 		}
 
@@ -902,7 +922,7 @@ func (b *BranchDAG) setBranchFinalized(cachedBranch *CachedBranch, finalized boo
 		for parentBranchID := range branch.Parents() {
 			parentBranchModified, parentBranchErr := b.setBranchFinalized(b.Branch(parentBranchID), true)
 			if parentBranchErr != nil {
-				err = xerrors.Errorf("failed to set finalized status of parent Branch with %s: %w", parentBranchID, parentBranchErr)
+				err = errors.Errorf("failed to set finalized status of parent Branch with %s: %w", parentBranchID, parentBranchErr)
 				return
 			}
 			modified = modified || parentBranchModified
@@ -924,7 +944,7 @@ func (b *BranchDAG) setBranchFinalized(cachedBranch *CachedBranch, finalized boo
 
 		// propagate finalized update to aggregated ChildBranches
 		if err = b.updateFinalizedOfAggregatedChildBranches(branch.ID(), true); err != nil {
-			err = xerrors.Errorf("failed to update finalized status of future cone of Branch with %s: %w", branch.ID(), err)
+			err = errors.Errorf("failed to update finalized status of future cone of Branch with %s: %w", branch.ID(), err)
 			return
 		}
 
@@ -943,7 +963,7 @@ func (b *BranchDAG) setBranchFinalized(cachedBranch *CachedBranch, finalized boo
 					// Branch in every Conflict)
 					_, err = b.setBranchFinalized(b.Branch(conflictMember.BranchID()), true)
 					if err != nil {
-						err = xerrors.Errorf("failed to set other Branches of the same Conflict to also be finalized: %w", cerrors.ErrFatal)
+						err = errors.Errorf("failed to set other Branches of the same Conflict to also be finalized: %w", cerrors.ErrFatal)
 						return
 					}
 				})
@@ -951,13 +971,13 @@ func (b *BranchDAG) setBranchFinalized(cachedBranch *CachedBranch, finalized boo
 
 			// update InclusionState of future cone
 			if err = b.updateInclusionState(branch.ID(), Confirmed); err != nil {
-				err = xerrors.Errorf("failed to update InclusionState of future cone of Branch with %s: %w", branch.ID(), err)
+				err = errors.Errorf("failed to update InclusionState of future cone of Branch with %s: %w", branch.ID(), err)
 				return
 			}
 		case false:
 			// update InclusionState of future cone
 			if err = b.updateInclusionState(branch.ID(), Rejected); err != nil {
-				err = xerrors.Errorf("failed to update InclusionState of future cone of Branch with %s: %w", branch.ID(), err)
+				err = errors.Errorf("failed to update InclusionState of future cone of Branch with %s: %w", branch.ID(), err)
 				return
 			}
 		}
@@ -967,13 +987,13 @@ func (b *BranchDAG) setBranchFinalized(cachedBranch *CachedBranch, finalized boo
 
 		// propagate finalized update to aggregated ChildBranches
 		if err = b.updateFinalizedOfAggregatedChildBranches(branch.ID(), false); err != nil {
-			err = xerrors.Errorf("failed to update finalized status of future cone of Branch with %s: %w", branch.ID(), err)
+			err = errors.Errorf("failed to update finalized status of future cone of Branch with %s: %w", branch.ID(), err)
 			return
 		}
 
 		// update InclusionState of future cone
 		if err = b.updateInclusionState(branch.ID(), Pending); err != nil {
-			err = xerrors.Errorf("failed to update InclusionState of future cone of Branch with %s: %w", branch.ID(), err)
+			err = errors.Errorf("failed to update InclusionState of future cone of Branch with %s: %w", branch.ID(), err)
 			return
 		}
 	}
@@ -1000,7 +1020,7 @@ func (b *BranchDAG) updateLikedOfAggregatedChildBranches(branchID BranchID, like
 		branchStack.Remove(currentEntry)
 
 		if err = b.updateLikedOfAggregatedBranch(b.Branch(currentEntry.Value.(BranchID)), liked); err != nil {
-			err = xerrors.Errorf("failed to update liked flag of AggregatedBranch with %s: %w", currentEntry.Value.(BranchID), err)
+			err = errors.Errorf("failed to update liked flag of AggregatedBranch with %s: %w", currentEntry.Value.(BranchID), err)
 			return
 		}
 	}
@@ -1017,11 +1037,11 @@ func (b *BranchDAG) updateLikedOfAggregatedBranch(currentCachedBranch *CachedBra
 	// unwrap current CachedBranch
 	currentBranch, typeErr := currentCachedBranch.UnwrapAggregatedBranch()
 	if typeErr != nil {
-		err = xerrors.Errorf("failed to load AggregatedBranch with %s: %w", currentCachedBranch.ID(), typeErr)
+		err = errors.Errorf("failed to load AggregatedBranch with %s: %w", currentCachedBranch.ID(), typeErr)
 		return
 	}
 	if currentBranch == nil {
-		err = xerrors.Errorf("failed to load AggregatedBranch with %s: %w", currentCachedBranch.ID(), cerrors.ErrFatal)
+		err = errors.Errorf("failed to load AggregatedBranch with %s: %w", currentCachedBranch.ID(), cerrors.ErrFatal)
 		return
 	}
 
@@ -1037,7 +1057,7 @@ func (b *BranchDAG) updateLikedOfAggregatedBranch(currentCachedBranch *CachedBra
 			parentBranch := cachedParentBranch.Unwrap()
 			if parentBranch == nil {
 				cachedParentBranch.Release()
-				err = xerrors.Errorf("failed to load parent Branch with %s: %w", parentBranchID, cerrors.ErrFatal)
+				err = errors.Errorf("failed to load parent Branch with %s: %w", parentBranchID, cerrors.ErrFatal)
 				return
 			}
 
@@ -1084,7 +1104,7 @@ func (b *BranchDAG) updateFinalizedOfAggregatedChildBranches(branchID BranchID, 
 		branchStack.Remove(currentEntry)
 
 		if err = b.updateFinalizedOfAggregatedBranch(b.Branch(currentEntry.Value.(BranchID)), finalized); err != nil {
-			err = xerrors.Errorf("failed to update finalized flag of AggregatedBranch with %s: %w", currentEntry.Value.(BranchID), err)
+			err = errors.Errorf("failed to update finalized flag of AggregatedBranch with %s: %w", currentEntry.Value.(BranchID), err)
 			return
 		}
 	}
@@ -1101,11 +1121,11 @@ func (b *BranchDAG) updateFinalizedOfAggregatedBranch(currentCachedBranch *Cache
 	// unwrap current CachedBranch
 	currentBranch, typeErr := currentCachedBranch.UnwrapAggregatedBranch()
 	if typeErr != nil {
-		err = xerrors.Errorf("failed to load AggregatedBranch with %s: %w", currentCachedBranch.ID(), typeErr)
+		err = errors.Errorf("failed to load AggregatedBranch with %s: %w", currentCachedBranch.ID(), typeErr)
 		return
 	}
 	if currentBranch == nil {
-		err = xerrors.Errorf("failed to load AggregatedBranch with %s: %w", currentCachedBranch.ID(), cerrors.ErrFatal)
+		err = errors.Errorf("failed to load AggregatedBranch with %s: %w", currentCachedBranch.ID(), cerrors.ErrFatal)
 		return
 	}
 
@@ -1121,7 +1141,7 @@ func (b *BranchDAG) updateFinalizedOfAggregatedBranch(currentCachedBranch *Cache
 			parentBranch := cachedParentBranch.Unwrap()
 			if parentBranch == nil {
 				cachedParentBranch.Release()
-				err = xerrors.Errorf("failed to load parent Branch with %s: %w", parentBranchID, cerrors.ErrFatal)
+				err = errors.Errorf("failed to load parent Branch with %s: %w", parentBranchID, cerrors.ErrFatal)
 				return
 			}
 
@@ -1171,7 +1191,7 @@ ProcessStack:
 		currentBranch := currentCachedBranch.Unwrap()
 		if currentBranch == nil {
 			currentCachedBranch.Release()
-			err = xerrors.Errorf("failed to load Branch with %s: %w", currentCachedBranch.ID(), cerrors.ErrFatal)
+			err = errors.Errorf("failed to load Branch with %s: %w", currentCachedBranch.ID(), cerrors.ErrFatal)
 			return
 		}
 
@@ -1194,7 +1214,7 @@ ProcessStack:
 				if parentBranch == nil {
 					currentCachedBranch.Release()
 					cachedParentBranch.Release()
-					err = xerrors.Errorf("failed to load parent Branch with %s: %w", parentBranchID, cerrors.ErrFatal)
+					err = errors.Errorf("failed to load parent Branch with %s: %w", parentBranchID, cerrors.ErrFatal)
 					return
 				}
 
@@ -1248,7 +1268,7 @@ ProcessStack:
 			if childBranchReference == nil {
 				currentCachedBranch.Release()
 				cachedChildBranchReferences.Release()
-				err = xerrors.Errorf("failed to load ChildBranch reference: %w", cerrors.ErrFatal)
+				err = errors.Errorf("failed to load ChildBranch reference: %w", cerrors.ErrFatal)
 				return
 			}
 
@@ -1285,7 +1305,7 @@ ProcessStack:
 		currentBranch := currentCachedBranch.Unwrap()
 		if currentBranch == nil {
 			currentCachedBranch.Release()
-			err = xerrors.Errorf("failed to load Branch with %s: %w", currentCachedBranch.ID(), cerrors.ErrFatal)
+			err = errors.Errorf("failed to load Branch with %s: %w", currentCachedBranch.ID(), cerrors.ErrFatal)
 			return
 		}
 
@@ -1308,7 +1328,7 @@ ProcessStack:
 				if parentBranch == nil {
 					currentCachedBranch.Release()
 					cachedParentBranch.Release()
-					err = xerrors.Errorf("failed to load parent Branch with %s: %w", parentBranchID, cerrors.ErrFatal)
+					err = errors.Errorf("failed to load parent Branch with %s: %w", parentBranchID, cerrors.ErrFatal)
 					return
 				}
 
@@ -1359,7 +1379,7 @@ ProcessStack:
 			if childBranchReference == nil {
 				currentCachedBranch.Release()
 				cachedChildBranchReferences.Release()
-				err = xerrors.Errorf("failed to load ChildBranch reference: %w", cerrors.ErrFatal)
+				err = errors.Errorf("failed to load ChildBranch reference: %w", cerrors.ErrFatal)
 				return
 			}
 

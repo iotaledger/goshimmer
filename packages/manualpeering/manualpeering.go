@@ -83,12 +83,23 @@ func (m *Manager) RemovePeer(keys ...ed25519.PublicKey) {
 	})
 }
 
-// GetPeers returns the list of known peers.
-func (m *Manager) GetPeers() []*peer.Peer {
+// GetKnownPeers returns the list of known peers.
+func (m *Manager) GetKnownPeers() []*peer.Peer {
 	m.knownPeersMutex.RLock()
 	defer m.knownPeersMutex.RUnlock()
 	peers := make([]*peer.Peer, 0, len(m.knownPeers))
 	for _, p := range m.knownPeers {
+		peers = append(peers, p)
+	}
+	return peers
+}
+
+// GetConnectedPeers returns the list of connected peers.
+func (m *Manager) GetConnectedPeers() []*peer.Peer {
+	m.connectedNeighborsMutex.RLock()
+	defer m.connectedNeighborsMutex.RUnlock()
+	peers := make([]*peer.Peer, 0, len(m.connectedNeighbors))
+	for _, p := range m.connectedNeighbors {
 		peers = append(peers, p)
 	}
 	return peers

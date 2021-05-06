@@ -5,13 +5,13 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/database"
@@ -544,7 +544,7 @@ type ApproverType uint8
 func ApproverTypeFromBytes(bytes []byte) (approverType ApproverType, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if approverType, err = ApproverTypeFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse ApproverType from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse ApproverType from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -556,11 +556,11 @@ func ApproverTypeFromBytes(bytes []byte) (approverType ApproverType, consumedByt
 func ApproverTypeFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (approverType ApproverType, err error) {
 	untypedApproverType, err := marshalUtil.ReadUint8()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse ApproverType (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse ApproverType (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if approverType = ApproverType(untypedApproverType); approverType != StrongApprover && approverType != WeakApprover {
-		err = xerrors.Errorf("invalid ApproverType(%X): %w", approverType, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("invalid ApproverType(%X): %w", approverType, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -624,15 +624,15 @@ func ApproverFromBytes(bytes []byte) (result *Approver, consumedBytes int, err e
 func ApproverFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Approver, err error) {
 	result = &Approver{}
 	if result.referencedMessageID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse referenced MessageID from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse referenced MessageID from MarshalUtil: %w", err)
 		return
 	}
 	if result.approverType, err = ApproverTypeFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse ApproverType from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse ApproverType from MarshalUtil: %w", err)
 		return
 	}
 	if result.approverMessageID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse approver MessageID from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse approver MessageID from MarshalUtil: %w", err)
 		return
 	}
 
@@ -642,7 +642,7 @@ func ApproverFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Appr
 // ApproverFromObjectStorage is the factory method for Approvers stored in the ObjectStorage.
 func ApproverFromObjectStorage(key []byte, _ []byte) (result objectstorage.StorableObject, err error) {
 	if result, _, err = ApproverFromBytes(key); err != nil {
-		err = xerrors.Errorf("failed to parse Approver from bytes: %w", err)
+		err = errors.Errorf("failed to parse Approver from bytes: %w", err)
 		return
 	}
 
@@ -827,11 +827,11 @@ func AttachmentFromBytes(bytes []byte) (result *Attachment, consumedBytes int, e
 func ParseAttachment(marshalUtil *marshalutil.MarshalUtil) (result *Attachment, err error) {
 	result = &Attachment{}
 	if result.transactionID, err = ledgerstate.TransactionIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse transaction ID in attachment: %w", err)
+		err = errors.Errorf("failed to parse transaction ID in attachment: %w", err)
 		return
 	}
 	if result.messageID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse message ID in attachment: %w", err)
+		err = errors.Errorf("failed to parse message ID in attachment: %w", err)
 		return
 	}
 
@@ -843,7 +843,7 @@ func ParseAttachment(marshalUtil *marshalutil.MarshalUtil) (result *Attachment, 
 func AttachmentFromObjectStorage(key []byte, _ []byte) (result objectstorage.StorableObject, err error) {
 	result, _, err = AttachmentFromBytes(key)
 	if err != nil {
-		err = xerrors.Errorf("failed to parse attachment from object storage: %w", err)
+		err = errors.Errorf("failed to parse attachment from object storage: %w", err)
 	}
 
 	return

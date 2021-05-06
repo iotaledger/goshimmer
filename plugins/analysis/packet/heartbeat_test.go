@@ -2,9 +2,9 @@ package packet_test
 
 import (
 	"crypto/sha256"
-	"errors"
 	"testing"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/protocol/tlv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

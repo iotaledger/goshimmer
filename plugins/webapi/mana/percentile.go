@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
@@ -34,7 +34,7 @@ func getPercentileHandler(c echo.Context) error {
 	}
 	accessPercentile, err := access.GetPercentile(ID)
 	if err != nil {
-		if xerrors.Is(err, mana.ErrNodeNotFoundInBaseManaVector) {
+		if errors.Is(err, mana.ErrNodeNotFoundInBaseManaVector) {
 			accessPercentile = 0
 		} else {
 			return c.JSON(http.StatusBadRequest, jsonmodels.GetManaResponse{Error: err.Error()})
@@ -46,7 +46,7 @@ func getPercentileHandler(c echo.Context) error {
 	}
 	consensusPercentile, err := consensus.GetPercentile(ID)
 	if err != nil {
-		if xerrors.Is(err, mana.ErrNodeNotFoundInBaseManaVector) {
+		if errors.Is(err, mana.ErrNodeNotFoundInBaseManaVector) {
 			consensusPercentile = 0
 		} else {
 			return c.JSON(http.StatusBadRequest, jsonmodels.GetManaResponse{Error: err.Error()})

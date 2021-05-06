@@ -1,10 +1,13 @@
 package markers
 
 import (
-	"errors"
 	"fmt"
+	"math"
 	"sync"
 
+	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/datastructure/orderedmap"
+	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/types"
@@ -61,30 +64,36 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 
 	// merge parent's pastMarkers
 	mergedPastMarkers := NewMarkers()
+	inheritedStructureDetails.PastMarkerGap = math.MaxUint64
 	for _, referencedMarkerPair := range referencedStructureDetails {
 		mergedPastMarkers.Merge(referencedMarkerPair.PastMarkers)
+		// update highest past marker gap
+		if referencedMarkerPair.PastMarkerGap < inheritedStructureDetails.PastMarkerGap {
+			inheritedStructureDetails.PastMarkerGap = referencedMarkerPair.PastMarkerGap
+		}
 		// update highest rank
 		if referencedMarkerPair.Rank > inheritedStructureDetails.Rank {
 			inheritedStructureDetails.Rank = referencedMarkerPair.Rank
 		}
 	}
+	// past marker gap for this message is set to highest past marker gap of parents + 1
+	inheritedStructureDetails.PastMarkerGap++
 	// rank for this message is set to highest rank of parents + 1
 	inheritedStructureDetails.Rank++
 
-	normalizedMarkers, referencedSequences := m.normalizeMarkers(mergedPastMarkers)
-	rankOfReferencedSequences := normalizedMarkers.HighestRank()
-	referencedMarkers, referencedMarkersExist := normalizedMarkers.Markers()
-
 	// if this is the first marker create the genesis sequence and index
-	if !referencedMarkersExist {
+	referencedMarkers, referencedSequences, rankOfReferencedSequences := m.normalizeMarkers(mergedPastMarkers)
+	if referencedMarkers.Size() == 0 {
 		referencedMarkers = NewMarkers(&Marker{sequenceID: 0, index: 0})
 		referencedSequences = map[SequenceID]types.Empty{0: types.Void}
 	}
 
-	cachedSequence, newSequenceCreated := m.fetchSequence(referencedMarkers, rankOfReferencedSequences, sequenceAlias)
+	cachedSequence, newSequenceCreated := m.fetchSequence(referencedMarkers, inheritedStructureDetails.PastMarkerGap, rankOfReferencedSequences, sequenceAlias)
 	if newSequenceCreated {
 		cachedSequence.Consume(func(sequence *Sequence) {
+			inheritedStructureDetails.SequenceID = sequence.id
 			inheritedStructureDetails.IsPastMarker = true
+			inheritedStructureDetails.PastMarkerGap = 0
 			// sequence has just been created, so lowestIndex = highestIndex
 			inheritedStructureDetails.PastMarkers = NewMarkers(&Marker{sequenceID: sequence.id, index: sequence.lowestIndex})
 
@@ -94,6 +103,8 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 	}
 
 	cachedSequence.Consume(func(sequence *Sequence) {
+		inheritedStructureDetails.SequenceID = sequence.id
+
 		if _, fetchedSequenceReferenced := referencedSequences[sequence.ID()]; !fetchedSequenceReferenced {
 			inheritedStructureDetails.PastMarkers = referencedMarkers
 			return
@@ -102,6 +113,7 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 		if currentIndex, _ := referencedMarkers.Get(sequence.id); sequence.HighestIndex() == currentIndex && increaseIndexCallback(sequence.id, currentIndex) {
 			if newIndex, increased := sequence.IncreaseHighestIndex(referencedMarkers); increased {
 				inheritedStructureDetails.IsPastMarker = true
+				inheritedStructureDetails.PastMarkerGap = 0
 				inheritedStructureDetails.PastMarkers = NewMarkers(&Marker{sequenceID: sequence.id, index: newIndex})
 
 				m.registerReferencingMarker(referencedMarkers, NewMarker(sequence.id, newIndex))
@@ -126,6 +138,12 @@ func (m *Manager) UpdateStructureDetails(structureDetailsToUpdate *StructureDeta
 	// abort if future markers of structureDetailsToUpdate reference markerToInherit
 	if m.markersReferenceMarkers(NewMarkers(markerToInherit), structureDetailsToUpdate.FutureMarkers, false) {
 		return
+	}
+
+	if structureDetailsToUpdate.FutureMarkers.Size() == 0 {
+		m.Sequence(structureDetailsToUpdate.SequenceID).Consume(func(sequence *Sequence) {
+			sequence.decreaseVerticesWithoutFutureMarker()
+		})
 	}
 
 	structureDetailsToUpdate.FutureMarkers.Set(markerToInherit.sequenceID, markerToInherit.index)
@@ -239,28 +257,46 @@ func (m *Manager) Sequence(sequenceID SequenceID) *CachedSequence {
 	return &CachedSequence{CachedObject: m.sequenceStore.Load(sequenceID.Bytes())}
 }
 
-// SequenceFromAlias returns a Sequence from the given SequenceAlias.
-func (m *Manager) SequenceFromAlias(sequenceAlias SequenceAlias) (cachedSequence *CachedSequence, exists bool) {
-	exists = (&CachedSequenceAliasMapping{CachedObject: m.sequenceAliasMappingStore.Load(sequenceAlias.Bytes())}).Consume(func(sequenceAliasMapping *SequenceAliasMapping) {
-		cachedSequence = m.Sequence(sequenceAliasMapping.SequenceID())
+// SequenceAliasMapping retrieves the SequenceAliasMapping from the object storage. It accepts an optional
+// computeIfAbsentCallback that is executed to determine the value if it is missing.
+func (m *Manager) SequenceAliasMapping(sequenceAlias SequenceAlias, computeIfAbsentCallback ...func(sequenceAlias SequenceAlias) *SequenceAliasMapping) (sequenceAliasMapping *CachedSequenceAliasMapping) {
+	if len(computeIfAbsentCallback) >= 1 {
+		return &CachedSequenceAliasMapping{m.sequenceAliasMappingStore.ComputeIfAbsent(sequenceAlias.Bytes(), func(key []byte) objectstorage.StorableObject {
+			return computeIfAbsentCallback[0](sequenceAlias)
+		})}
+	}
+
+	return &CachedSequenceAliasMapping{CachedObject: m.sequenceAliasMappingStore.Load(sequenceAlias.Bytes())}
+}
+
+// RegisterSequenceAliasMapping adds a mapping from a SequenceAlias to a Sequence.
+func (m *Manager) RegisterSequenceAliasMapping(sequenceAlias SequenceAlias, sequenceID SequenceID) (updated bool) {
+	m.SequenceAliasMapping(sequenceAlias, func(sequenceAlias SequenceAlias) *SequenceAliasMapping {
+		newSequenceAliasMapping := &SequenceAliasMapping{
+			sequenceAlias: sequenceAlias,
+			sequenceIDs:   orderedmap.New(),
+		}
+
+		newSequenceAliasMapping.Persist()
+		newSequenceAliasMapping.SetModified()
+
+		return newSequenceAliasMapping
+	}).Consume(func(sequenceAliasMapping *SequenceAliasMapping) {
+		updated = sequenceAliasMapping.RegisterMapping(sequenceID)
 	})
 
 	return
 }
 
-// RegisterSequenceAlias adds a mapping from a SequenceAlias to a Sequence.
-func (m *Manager) RegisterSequenceAlias(sequenceAlias SequenceAlias, sequenceID SequenceID) {
-	if cachedObject, stored := m.sequenceAliasMappingStore.StoreIfAbsent(&SequenceAliasMapping{
-		sequenceAlias: sequenceAlias,
-		sequenceID:    sequenceID,
-	}); stored {
-		cachedObject.Release()
-	}
-}
+// UnregisterSequenceAliasMapping removes the mapping of the given SequenceAlias to its corresponding Sequence.
+func (m *Manager) UnregisterSequenceAliasMapping(sequenceAlias SequenceAlias, sequenceID SequenceID) (updated, emptied bool) {
+	m.SequenceAliasMapping(sequenceAlias).Consume(func(sequenceAliasMapping *SequenceAliasMapping) {
+		if updated, emptied = sequenceAliasMapping.UnregisterMapping(sequenceID); emptied {
+			sequenceAliasMapping.Delete()
+		}
+	})
 
-// UnregisterSequenceAlias removes the mapping of the given SequenceAlias to its corresponding Sequence.
-func (m *Manager) UnregisterSequenceAlias(sequenceAlias SequenceAlias) {
-	m.sequenceAliasMappingStore.Delete(sequenceAlias.Bytes())
+	return
 }
 
 // Shutdown shuts down the Manager and persists its state.
@@ -279,138 +315,123 @@ func (m *Manager) Shutdown() {
 // same set (the remaining Markers are the "most special" Markers that reference all Markers in the set grouped by the
 // rank of their corresponding Sequence). In addition, the method returns all SequenceIDs of the Markers that were not
 // referenced by any of the Markers (the tips of the Sequence DAG).
-func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkersByRank *markersByRank, referencedSequences SequenceIDs) {
-	rankOfSequencesCache := make(map[SequenceID]uint64)
-
-	normalizedMarkersByRank = newMarkersByRank()
+func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkers *Markers, referencedSequences SequenceIDs, highestSequenceRank uint64) {
+	normalizedMarkers = markers.Clone()
 	referencedSequences = make(SequenceIDs)
-	// group markers with same sequence rank
+
+	rankCache := make(map[SequenceID]uint64)
+	normalizeWalker := walker.New()
 	markers.ForEach(func(sequenceID SequenceID, index Index) bool {
 		referencedSequences[sequenceID] = types.Void
-		normalizedMarkersByRank.Add(m.rankOfSequence(sequenceID, rankOfSequencesCache), sequenceID, index)
+		normalizeWalker.Push(NewMarker(sequenceID, index))
 
 		return true
 	})
-	markersToIterate := normalizedMarkersByRank.Clone()
 
-	// iterate from highest sequence rank to lowest
-	for i := markersToIterate.HighestRank() + 1; i > normalizedMarkersByRank.LowestRank(); i-- {
-		currentRank := i - 1
-		markersByRank, rankExists := markersToIterate.Markers(currentRank)
-		if !rankExists {
-			continue
+	lowestRankOfMarkers := m.rankOfLowestSequence(markers, rankCache)
+
+	seenMarkers := NewMarkers()
+	for i := 0; normalizeWalker.HasNext(); i++ {
+		currentMarker := normalizeWalker.Next().(*Marker)
+
+		sequenceRank := m.rankOfSequence(currentMarker.SequenceID(), rankCache)
+		if i < markers.Size() {
+			if sequenceRank > highestSequenceRank {
+				highestSequenceRank = sequenceRank
+			}
+		} else {
+			if added, updated := seenMarkers.Set(currentMarker.SequenceID(), currentMarker.Index()); !added && !updated {
+				continue
+			}
+
+			if sequenceRank < lowestRankOfMarkers {
+				continue
+			}
+
+			index, exists := normalizedMarkers.Get(currentMarker.SequenceID())
+			if exists {
+				if index > currentMarker.Index() {
+					continue
+				}
+
+				normalizedMarkers.Delete(currentMarker.SequenceID())
+			}
 		}
 
-		// for each marker from the current sequence rank check if we can remove a marker in normalizedMarkersByRank,
-		// and add the parent markers to markersToIterate if necessary
-		if !markersByRank.ForEach(func(sequenceID SequenceID, index Index) bool {
-			if currentRank <= normalizedMarkersByRank.LowestRank() {
-				return false
-			}
+		if !m.Sequence(currentMarker.SequenceID()).Consume(func(sequence *Sequence) {
+			sequence.ReferencedMarkers(currentMarker.Index()).ForEach(func(referencedSequenceID SequenceID, referencedIndex Index) bool {
+				normalizeWalker.Push(NewMarker(referencedSequenceID, referencedIndex))
 
-			if !m.Sequence(sequenceID).Consume(func(sequence *Sequence) {
-				// for each of the parentMarkers of this particular index
-				sequence.ReferencedMarkers(index).ForEach(func(referencedSequenceID SequenceID, referencedIndex Index) bool {
-					rankOfReferencedSequence := m.rankOfSequence(referencedSequenceID, rankOfSequencesCache)
-					// check whether there is a marker in normalizedMarkersByRank that is from the same sequence
-					if index, indexExists := normalizedMarkersByRank.Index(rankOfReferencedSequence, referencedSequenceID); indexExists {
-						if referencedIndex >= index {
-							// this referencedParentMarker is from the same sequence as a marker in the list but with higher index - hence remove the index from the Marker list
-							normalizedMarkersByRank.Delete(rankOfReferencedSequence, referencedSequenceID)
-
-							// if rankOfReferencedSequence is already the lowest rank of the original markers list,
-							// no need to add it since parents of the referencedMarker cannot delete any further elements from the list
-							if rankOfReferencedSequence > normalizedMarkersByRank.LowestRank() {
-								markersToIterate.Add(rankOfReferencedSequence, referencedSequenceID, referencedIndex)
-							}
-						}
-
-						return true
-					}
-
-					// if rankOfReferencedSequence is already the lowest rank of the original markers list,
-					// no need to add it since parents of the referencedMarker cannot delete any further elements from the list
-					if rankOfReferencedSequence > normalizedMarkersByRank.LowestRank() {
-						markersToIterate.Add(rankOfReferencedSequence, referencedSequenceID, referencedIndex)
-					}
-
-					return true
-				})
-			}) {
-				panic(fmt.Sprintf("failed to load Sequence with %s", sequenceID))
-			}
-
-			return true
+				return true
+			})
 		}) {
-			return
+			panic(fmt.Sprintf("failed to load Sequence with %s", currentMarker.SequenceID()))
 		}
 	}
 
-	return normalizedMarkersByRank, referencedSequences
-}
-
-// markersReferenceMarkersOfSameSequence is an internal utility function that determines if the given markers reference
-// each other as part of the same Sequence.
-func (m *Manager) markersReferenceMarkersOfSameSequence(laterMarkers, earlierMarkers *Markers, requireBiggerMarkers bool) (sameSequenceFound, referenceFound bool) {
-	sameSequenceFound = !laterMarkers.ForEach(func(sequenceID SequenceID, laterIndex Index) bool {
-		earlierIndex, sequenceExists := earlierMarkers.Get(sequenceID)
-		if !sequenceExists {
-			return true
-		}
-
-		if requireBiggerMarkers {
-			referenceFound = earlierIndex < laterIndex
-		} else {
-			referenceFound = earlierIndex <= laterIndex
-		}
-
-		return false
-	})
-	return
+	return normalizedMarkers, referencedSequences, highestSequenceRank
 }
 
 // markersReferenceMarkers is an internal utility function that returns true if the later Markers reference the earlier
 // Markers. If requireBiggerMarkers is false then a Marker with an equal Index is considered to be a valid reference.
 func (m *Manager) markersReferenceMarkers(laterMarkers, earlierMarkers *Markers, requireBiggerMarkers bool) (result bool) {
-	rankCache := make(map[SequenceID]uint64)
-	futureMarkersByRank := newMarkersByRank()
-
-	continueScanningForPotentialReferences := func(laterMarkers *Markers, requireBiggerMarkers bool) bool {
-		// don't abort scanning but don't execute additional checks in our current path (we can not find matching
-		// markers anymore)
-		if requireBiggerMarkers && earlierMarkers.LowestIndex() >= laterMarkers.HighestIndex() {
-			return true
-		}
-		if earlierMarkers.LowestIndex() > laterMarkers.HighestIndex() {
-			return true
-		}
-
-		// abort scanning if we reached a matching sequence
-		var referencedSequenceFound bool
-		if referencedSequenceFound, result = m.markersReferenceMarkersOfSameSequence(laterMarkers, earlierMarkers, requireBiggerMarkers); referencedSequenceFound {
-			return false
-		}
-
-		// queue parents for additional checks
-		laterMarkers.ForEach(func(sequenceID SequenceID, index Index) bool {
-			m.Sequence(sequenceID).Consume(func(sequence *Sequence) {
-				sequence.ReferencedMarkers(index).ForEach(func(referencedSequenceID SequenceID, referencedIndex Index) bool {
-					futureMarkersByRank.Add(m.rankOfSequence(referencedSequenceID, rankCache), referencedSequenceID, referencedIndex)
-					return true
-				})
-			})
-			return true
-		})
+	referenceWalker := walker.New()
+	laterMarkers.ForEach(func(sequenceID SequenceID, index Index) bool {
+		referenceWalker.Push(NewMarker(sequenceID, index))
 
 		return true
+	})
+
+	seenMarkers := NewMarkers()
+	rankCache := make(map[SequenceID]uint64)
+	lowestRankOfEarlierPastMarkers := m.rankOfLowestSequence(earlierMarkers, rankCache)
+	for i := 0; referenceWalker.HasNext(); i++ {
+		marker := referenceWalker.Next().(*Marker)
+		if m.rankOfSequence(marker.SequenceID(), rankCache) < lowestRankOfEarlierPastMarkers {
+			continue
+		}
+
+		result = m.markerReferencesMarkers(marker, earlierMarkers, i < laterMarkers.Size() && requireBiggerMarkers, seenMarkers, referenceWalker)
 	}
 
-	if !continueScanningForPotentialReferences(laterMarkers, requireBiggerMarkers) {
-		return
+	return result
+}
+
+// markerReferencesMarkers is used to recursively check if the given Marker and its parents have an overlap with the
+// given Markers.
+func (m *Manager) markerReferencesMarkers(marker *Marker, markers *Markers, requireBiggerMarkers bool, seenMarkers *Markers, w *walker.Walker) bool {
+	if added, updated := seenMarkers.Set(marker.SequenceID(), marker.Index()); !added && !updated {
+		return false
 	}
 
-	rankOfLowestSequence := uint64(1<<64 - 1)
-	earlierMarkers.ForEach(func(sequenceID SequenceID, index Index) bool {
+	if markers.LowestIndex() > marker.Index() || (requireBiggerMarkers && markers.LowestIndex() >= marker.Index()) {
+		return false
+	}
+
+	if earlierIndex, sequenceExists := markers.Get(marker.SequenceID()); sequenceExists {
+		if (requireBiggerMarkers && earlierIndex < marker.Index()) || (!requireBiggerMarkers && earlierIndex <= marker.Index()) {
+			w.StopWalk()
+
+			return true
+		}
+
+		return false
+	}
+
+	m.Sequence(marker.SequenceID()).Consume(func(sequence *Sequence) {
+		sequence.ReferencedMarkers(marker.Index()).ForEach(func(referencedSequenceID SequenceID, referencedIndex Index) bool {
+			w.Push(NewMarker(referencedSequenceID, referencedIndex))
+
+			return true
+		})
+	})
+
+	return false
+}
+
+func (m *Manager) rankOfLowestSequence(markers *Markers, rankCache map[SequenceID]uint64) (rankOfLowestSequence uint64) {
+	rankOfLowestSequence = uint64(1<<64 - 1)
+	markers.ForEach(func(sequenceID SequenceID, index Index) bool {
 		if rankOfSequence := m.rankOfSequence(sequenceID, rankCache); rankOfSequence < rankOfLowestSequence {
 			rankOfLowestSequence = rankOfSequence
 		}
@@ -418,18 +439,7 @@ func (m *Manager) markersReferenceMarkers(laterMarkers, earlierMarkers *Markers,
 		return true
 	})
 
-	for rank := futureMarkersByRank.HighestRank() + 1; rank > rankOfLowestSequence; rank-- {
-		markersByRank, rankExists := futureMarkersByRank.Markers(rank - 1)
-		if !rankExists {
-			continue
-		}
-
-		if !continueScanningForPotentialReferences(markersByRank, false) {
-			return
-		}
-	}
-
-	return result
+	return
 }
 
 // registerReferencingMarker is an internal utility function that adds a referencing Marker to the internal data
@@ -446,10 +456,11 @@ func (m *Manager) registerReferencingMarker(referencedMarkers *Markers, marker *
 
 // fetchSequence is an internal utility function that retrieves or creates the Sequence that represents the given
 // parameters and returns it.
-func (m *Manager) fetchSequence(referencedMarkers *Markers, rank uint64, sequenceAlias SequenceAlias) (cachedSequence *CachedSequence, isNew bool) {
-	cachedSequenceAliasMapping := &CachedSequenceAliasMapping{CachedObject: m.sequenceAliasMappingStore.ComputeIfAbsent(sequenceAlias.Bytes(), func(key []byte) objectstorage.StorableObject {
+func (m *Manager) fetchSequence(referencedMarkers *Markers, pastMarkerGap, rank uint64, sequenceAlias SequenceAlias) (cachedSequence *CachedSequence, isNew bool) {
+	cachedSequenceAliasMapping := m.SequenceAliasMapping(sequenceAlias, func(sequenceAlias SequenceAlias) *SequenceAliasMapping {
 		m.sequenceIDCounterMutex.Lock()
 		sequence := NewSequence(m.sequenceIDCounter, referencedMarkers, rank+1)
+		sequence.increaseVerticesWithoutFutureMarker()
 		m.sequenceIDCounter++
 		m.sequenceIDCounterMutex.Unlock()
 
@@ -457,14 +468,14 @@ func (m *Manager) fetchSequence(referencedMarkers *Markers, rank uint64, sequenc
 
 		sequenceAliasMapping := &SequenceAliasMapping{
 			sequenceAlias: sequenceAlias,
-			sequenceID:    sequence.id,
+			sequenceIDs:   orderedmap.New(),
 		}
-
+		sequenceAliasMapping.RegisterMapping(sequence.id)
 		sequenceAliasMapping.Persist()
 		sequenceAliasMapping.SetModified()
 
 		return sequenceAliasMapping
-	})}
+	})
 
 	if isNew = cachedSequence != nil; isNew {
 		cachedSequenceAliasMapping.Release()
@@ -472,7 +483,29 @@ func (m *Manager) fetchSequence(referencedMarkers *Markers, rank uint64, sequenc
 	}
 
 	cachedSequenceAliasMapping.Consume(func(sequenceAliasMapping *SequenceAliasMapping) {
-		cachedSequence = m.Sequence(sequenceAliasMapping.SequenceID())
+		cachedSequence = m.Sequence(sequenceAliasMapping.SequenceID(referencedMarkers))
+
+		sequence := cachedSequence.Unwrap()
+		if sequence == nil {
+			return
+		}
+		sequence.increaseVerticesWithoutFutureMarker()
+		if !sequence.newSequenceRequired(pastMarkerGap) {
+			return
+		}
+
+		cachedSequence.Release()
+
+		m.sequenceIDCounterMutex.Lock()
+		sequence = NewSequence(m.sequenceIDCounter, referencedMarkers, rank+1)
+		sequence.increaseVerticesWithoutFutureMarker()
+		m.sequenceIDCounter++
+		m.sequenceIDCounterMutex.Unlock()
+
+		cachedSequence = &CachedSequence{CachedObject: m.sequenceStore.Store(sequence)}
+		isNew = true
+
+		sequenceAliasMapping.RegisterMapping(sequence.id)
 	})
 
 	return

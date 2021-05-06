@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -14,7 +15,6 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/xerrors"
 )
 
 var testData = []byte("foobar")
@@ -91,7 +91,7 @@ func TestNeighborParallelWrite(t *testing.T) {
 		defer wg.Done()
 		for i := 0; i < neighborQueueSize; i++ {
 			l, err := neighborA.Write(testData)
-			if xerrors.Is(err, ErrNeighborQueueFull) || l == 0 {
+			if errors.Is(err, ErrNeighborQueueFull) || l == 0 {
 				continue
 			}
 			assert.NoError(t, err)
@@ -103,7 +103,7 @@ func TestNeighborParallelWrite(t *testing.T) {
 		defer wg.Done()
 		for i := 0; i < neighborQueueSize; i++ {
 			l, err := neighborA.Write(testData)
-			if xerrors.Is(err, ErrNeighborQueueFull) || l == 0 {
+			if errors.Is(err, ErrNeighborQueueFull) || l == 0 {
 				continue
 			}
 			assert.NoError(t, err)

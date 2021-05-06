@@ -4,13 +4,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/database"
@@ -189,7 +189,7 @@ type MessageMetadata struct {
 func MessageMetadataFromBytes(bytes []byte) (messageMetadata *MessageMetadata, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if messageMetadata, err = MessageMetadataFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse MessageMetadata from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse MessageMetadata from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -201,27 +201,27 @@ func MessageMetadataFromBytes(bytes []byte) (messageMetadata *MessageMetadata, c
 func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (messageMetadata *MessageMetadata, err error) {
 	messageMetadata = &MessageMetadata{}
 	if messageMetadata.id, err = tangle.MessageIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse MessageID: %w", err)
+		err = errors.Errorf("failed to parse MessageID: %w", err)
 		return
 	}
 	if messageMetadata.payloadOpinionFormed, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse payloadOpinionFormed flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse payloadOpinionFormed flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if messageMetadata.timestampOpinionFormed, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse timestampOpinionFormed flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse timestampOpinionFormed flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if messageMetadata.messageOpinionFormed, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse messageOpinionFormed flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse messageOpinionFormed flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if messageMetadata.messageOpinionTriggered, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse messageOpinionTriggered flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse messageOpinionTriggered flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if messageMetadata.opinionFormedTime, err = marshalUtil.ReadTime(); err != nil {
-		err = xerrors.Errorf("failed to parse opinionFormedTime (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse opinionFormedTime (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -231,7 +231,7 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (messa
 // MessageMetadataFromObjectStorage restores a MessageMetadata object from the object Storage.
 func MessageMetadataFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
 	if result, _, err = MessageMetadataFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = xerrors.Errorf("failed to parse MessageMetadata from bytes: %w", err)
+		err = errors.Errorf("failed to parse MessageMetadata from bytes: %w", err)
 		return
 	}
 
@@ -489,7 +489,7 @@ type TimestampOpinion struct {
 func TimestampOpinionFromBytes(bytes []byte) (timestampOpinion *TimestampOpinion, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if timestampOpinion, err = TimestampOpinionFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse TimestampOpinion from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse TimestampOpinion from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -504,19 +504,19 @@ func TimestampOpinionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resu
 	// read information that are required to identify the TimestampOpinion
 	result = &TimestampOpinion{}
 	if result.MessageID, err = tangle.MessageIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse MessageID from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse MessageID from MarshalUtil: %w", err)
 		return
 	}
 	opinionByte, e := marshalUtil.ReadByte()
 	if e != nil {
-		err = xerrors.Errorf("failed to parse opinion from bytes: %w", e)
+		err = errors.Errorf("failed to parse opinion from bytes: %w", e)
 		return
 	}
 	result.Value = opinion.Opinion(opinionByte)
 
 	loKUint8, err := marshalUtil.ReadUint8()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse Level of Knowledge from bytes: %w", err)
+		err = errors.Errorf("failed to parse Level of Knowledge from bytes: %w", err)
 		return
 	}
 	result.LoK = LevelOfKnowledge(loKUint8)
@@ -524,7 +524,7 @@ func TimestampOpinionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resu
 	// return the number of bytes we processed
 	parsedBytes := marshalUtil.ReadOffset() - readStartOffset
 	if parsedBytes != TimestampOpinionLength {
-		err = xerrors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, TimestampOpinionLength, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, TimestampOpinionLength, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -534,7 +534,7 @@ func TimestampOpinionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resu
 // TimestampOpinionFromObjectStorage restores a TimestampOpinion from the object Storage.
 func TimestampOpinionFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
 	if result, _, err = TimestampOpinionFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = xerrors.Errorf("failed to parse TimestampOpinion from bytes: %w", err)
+		err = errors.Errorf("failed to parse TimestampOpinion from bytes: %w", err)
 		return
 	}
 

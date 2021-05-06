@@ -1,8 +1,9 @@
 package client
 
 import (
-	"errors"
 	"net/http"
+
+	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )

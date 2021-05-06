@@ -7,7 +7,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/webapi/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/webapi/data"
 	"github.com/iotaledger/goshimmer/plugins/webapi/drng"
-	"github.com/iotaledger/goshimmer/plugins/webapi/epochs"
 	"github.com/iotaledger/goshimmer/plugins/webapi/faucet"
 	"github.com/iotaledger/goshimmer/plugins/webapi/healthz"
 	"github.com/iotaledger/goshimmer/plugins/webapi/info"
@@ -17,6 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/webapi/snapshot"
 	"github.com/iotaledger/goshimmer/plugins/webapi/tools"
 	"github.com/iotaledger/goshimmer/plugins/webapi/value"
+	"github.com/iotaledger/goshimmer/plugins/webapi/weightprovider"
 )
 
 // WebAPI contains the webapi endpoint plugins of a GoShimmer node.
@@ -33,6 +33,6 @@ var WebAPI = node.Plugins(
 	tools.Plugin(),
 	mana.Plugin(),
 	ledgerstate.Plugin(),
-	epochs.Plugin(),
 	snapshot.Plugin(),
+	weightprovider.Plugin(),
 )

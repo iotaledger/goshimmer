@@ -9,6 +9,7 @@ import (
 // StructureDetails represents the JSON model of the markers.StructureDetails.
 type StructureDetails struct {
 	Rank          uint64   `json:"rank"`
+	PastMarkerGap uint64   `json:"pastMarkerGap"`
 	IsPastMarker  bool     `json:"isPastMarker"`
 	PastMarkers   *Markers `json:"pastMarkers"`
 	FutureMarkers *Markers `json:"futureMarkers"`
@@ -23,6 +24,7 @@ func NewStructureDetails(structureDetails *markersPackage.StructureDetails) *Str
 	return &StructureDetails{
 		Rank:          structureDetails.Rank,
 		IsPastMarker:  structureDetails.IsPastMarker,
+		PastMarkerGap: structureDetails.PastMarkerGap,
 		PastMarkers:   NewMarkers(structureDetails.PastMarkers),
 		FutureMarkers: NewMarkers(structureDetails.FutureMarkers),
 	}

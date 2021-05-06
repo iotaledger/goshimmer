@@ -3,12 +3,13 @@ package pow
 import (
 	"context"
 	"encoding/binary"
-	"errors"
 	"hash"
 	"math"
 	"math/big"
 	"sync"
 	"sync/atomic"
+
+	"github.com/cockroachdb/errors"
 )
 
 // errors returned by the PoW

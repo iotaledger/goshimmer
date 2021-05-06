@@ -1,11 +1,11 @@
 package gossip
 
 import (
-	"errors"
 	"net"
 	"strconv"
 	"sync"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/netutil"

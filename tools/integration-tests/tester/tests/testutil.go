@@ -1,7 +1,7 @@
 package tests
 
 import (
-	"errors"
+	"github.com/cockroachdb/errors"
 	"fmt"
 	"math/rand"
 	"os"
