@@ -146,6 +146,10 @@ func ColoredBalancesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (color
 		err = xerrors.Errorf("failed to parse element count (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
+	if balancesCount == 0 {
+		err = xerrors.Errorf("empty balances in output")
+		return
+	}
 
 	var previousColor *Color
 	coloredBalances = NewColoredBalances(nil)
