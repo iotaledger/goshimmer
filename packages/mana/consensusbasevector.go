@@ -92,13 +92,13 @@ func txInfoFromPledgeEvent(ev *PledgedEvent) *TxInfo {
 }
 
 // LoadSnapshot loads the snapshot.
-func (c *ConsensusBaseManaVector) LoadSnapshot(snapshot map[identity.ID]SortedSnapshotInfo) {
+func (c *ConsensusBaseManaVector) LoadSnapshot(snapshot map[identity.ID]SnapshotInfo) {
 	c.Lock()
 	defer c.Unlock()
 
 	for nodeID, records := range snapshot {
 		var value float64
-		for _, record := range records {
+		for _, record := range records.SortedSnapshotInfo {
 			value += record.Value
 			c.vector[nodeID] = &ConsensusBaseMana{
 				BaseMana1:          value,

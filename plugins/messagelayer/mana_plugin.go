@@ -795,10 +795,12 @@ func QueryAllowed() (allowed bool) {
 	return true
 }
 
-func loadSnapshot(snapshot *ledgerstate.Snapshot) {
-	manaSnapshot := make(map[identity.ID]mana.SortedSnapshotInfo)
+// loadSnapshot loads the tx snapshot and the access mana snapshot, sorts it and loads it into the various mana versions
+func loadSnapshot(txSnapshot *ledgerstate.Snapshot) {
+	txSnapshotInfo := make(map[identity.ID]mana.SortedSnapshotInfo)
 
-	for txID, record := range snapshot.Transactions {
+	// load txSnapshot into SnapshotInfoVec
+	for txID, record := range txSnapshot.Transactions {
 		totalBalance := uint64(0)
 		for i, output := range record.Essence.Outputs() {
 			if !record.UnspentOutputs[i] {
@@ -809,22 +811,38 @@ func loadSnapshot(snapshot *ledgerstate.Snapshot) {
 				return true
 			})
 		}
-		info := &mana.SnapshotInfo{
+		txInfo := &mana.TxSnapshotInfo{
 			Value:     float64(totalBalance),
 			TxID:      txID,
 			Timestamp: record.Essence.Timestamp(),
 		}
-		manaSnapshot[record.Essence.ConsensusPledgeID()] = append(manaSnapshot[record.Essence.ConsensusPledgeID()], info)
+		txSnapshotInfo[record.Essence.ConsensusPledgeID()] = append(txSnapshotInfo[record.Essence.ConsensusPledgeID()], txInfo)
 	}
 
-	for nodeID := range manaSnapshot {
-		sort.Sort(manaSnapshot[nodeID])
+	SnapshotInfoVec := make(map[identity.ID]mana.SnapshotInfo)
+
+	for nodeID := range txSnapshotInfo {
+		sort.Sort(txSnapshotInfo[nodeID])
+		snapshotInfo := mana.SnapshotInfo{
+			SortedSnapshotInfo: txSnapshotInfo[nodeID],
+		}
+		SnapshotInfoVec[nodeID] = snapshotInfo
 	}
 
-	baseManaVectors[mana.ConsensusMana].LoadSnapshot(manaSnapshot)
-	baseManaVectors[mana.AccessMana].LoadSnapshot(manaSnapshot)
+	// load access mana into SnapshotInfoVec
+	for nodeID, accessMana := range txSnapshot.AccessManaVector {
+		_, ok := SnapshotInfoVec[nodeID]
+		if !ok {
+			SnapshotInfoVec[nodeID] = mana.SnapshotInfo{}
+		}
+		accessManaField := &mana.SnapshotAccessMana{Value: accessMana.Value, Timestamp: accessMana.Timestamp}
+		SnapshotInfoVec[nodeID].AccessMana = *accessManaField
+	}
+
+	baseManaVectors[mana.ConsensusMana].LoadSnapshot(SnapshotInfoVec)
+	baseManaVectors[mana.AccessMana].LoadSnapshot(SnapshotInfoVec)
 	if ManaParameters.EnableResearchVectors {
-		baseManaVectors[mana.ResearchAccess].LoadSnapshot(manaSnapshot)
-		baseManaVectors[mana.ResearchConsensus].LoadSnapshot(manaSnapshot)
+		baseManaVectors[mana.ResearchAccess].LoadSnapshot(SnapshotInfoVec)
+		baseManaVectors[mana.ResearchConsensus].LoadSnapshot(SnapshotInfoVec)
 	}
 }

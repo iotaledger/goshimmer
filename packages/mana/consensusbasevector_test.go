@@ -717,13 +717,17 @@ func TestConsensusBaseManaVector_BuildPastBaseVector(t *testing.T) {
 	var eventsLog []Event
 	emptyID := identity.ID{}
 
-	snapshot := map[identity.ID]SortedSnapshotInfo{
+	sortedSnapshotInfo := SortedSnapshotInfo{
+		{
+			Value:     10.0,
+			TxID:      ledgerstate.GenesisTransactionID,
+			Timestamp: time.Unix(epochs.DefaultGenesisTime, 0),
+		},
+	}
+
+	snapshot := map[identity.ID]SnapshotInfo{
 		emptyID: {
-			{
-				Value:     10.0,
-				TxID:      ledgerstate.GenesisTransactionID,
-				Timestamp: time.Unix(epochs.DefaultGenesisTime, 0),
-			},
+			SortedSnapshotInfo: sortedSnapshotInfo,
 		},
 	}
 

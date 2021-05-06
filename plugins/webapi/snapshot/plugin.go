@@ -40,7 +40,7 @@ func Plugin() *node.Plugin {
 
 // region DumpCurrentLedger ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-// DumpCurrentLedger dumps the current ledger state.
+// DumpCurrentLedger dumps a snapshot (required UTXO and required mana) from now.
 func DumpCurrentLedger(c echo.Context) (err error) {
 	snapshot := messagelayer.Tangle().LedgerState.Snapshot()
 

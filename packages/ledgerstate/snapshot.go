@@ -4,26 +4,21 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"time"
+
+	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/marshalutil"
 )
-
-// 1. Genesis Message (empty messageID)
-// 2. Genesis Output (within genesis Transaction) -> total supply
-
-// Make so that all the transactions contained in the snapshot are attached by the genesis message
-// Store the transction info of the snapshot into the mana object storage only if the transaction was not stored already
-
-// c-mana
-// a-mana
-
-// type snapshot []TransactionEssence
-// tx1: input genesis -> output (pledge to X) 2 weeks ago
-
-// Today
-// tx2: referenced output - > 100 ouputs (pledge to empty)
 
 // Snapshot defines a snapshot of the ledger state.
 type Snapshot struct {
-	Transactions map[TransactionID]Record
+	Transactions     map[TransactionID]Record
+	AccessManaVector map[identity.ID]AccessMana
+}
+
+type AccessMana struct {
+	Value     float64
+	Timestamp time.Time
 }
 
 // Record defines a record of the snapshot.
@@ -68,6 +63,25 @@ func (s *Snapshot) WriteTo(writer io.Writer) (int64, error) {
 		bytesWritten += int64(len(record.UnspentOutputs))
 	}
 
+	if err := binary.Write(writer, binary.LittleEndian, uint32(len(s.AccessManaVector))); err != nil {
+		return 0, fmt.Errorf("unable to write AccessMana count: %w", err)
+	}
+	bytesWritten += 4
+	for nodeID, accessMana := range s.AccessManaVector {
+		if err := binary.Write(writer, binary.LittleEndian, nodeID.Bytes()); err != nil {
+			return 0, fmt.Errorf("unable to write nodeID with %s: %w", nodeID, err)
+		}
+		bytesWritten += identity.IDLength
+		if err := binary.Write(writer, binary.LittleEndian, accessMana.Value); err != nil {
+			return 0, fmt.Errorf("unable to write access mana : %w", err)
+		}
+		bytesWritten += 8
+		if err := binary.Write(writer, binary.LittleEndian, accessMana.Timestamp.Unix()); err != nil {
+			return 0, fmt.Errorf("unable to write timestamp : %w", err)
+		}
+		bytesWritten += 8
+	}
+
 	return bytesWritten, nil
 }
 
@@ -75,8 +89,12 @@ func (s *Snapshot) WriteTo(writer io.Writer) (int64, error) {
 // This function overrides existing content of the snapshot.
 func (s *Snapshot) ReadFrom(reader io.Reader) (int64, error) {
 	s.Transactions = make(map[TransactionID]Record)
+	s.AccessManaVector = make(map[identity.ID]AccessMana)
 	var bytesRead int64
 	var transactionCount uint32
+	var accessManaCount uint32
+
+	// read Transactions
 	if err := binary.Read(reader, binary.LittleEndian, &transactionCount); err != nil {
 		return 0, fmt.Errorf("unable to read transaction count: %w", err)
 	}
@@ -129,6 +147,42 @@ func (s *Snapshot) ReadFrom(reader io.Reader) (int64, error) {
 		s.Transactions[txID] = Record{
 			Essence:        txEssence,
 			UnspentOutputs: unspentOutputs,
+		}
+	}
+
+	// read access mana
+	if err := binary.Read(reader, binary.LittleEndian, &accessManaCount); err != nil {
+		return 0, fmt.Errorf("unable to read AccessMana count: %w", err)
+	}
+	bytesRead += 4
+	for i := 0; i < int(accessManaCount); i++ {
+		nodeIDBytes := make([]byte, identity.IDLength)
+		if err := binary.Read(reader, binary.LittleEndian, &nodeIDBytes); err != nil {
+			return 0, fmt.Errorf("unable to read nodeID: %w", err)
+		}
+		bytesRead += identity.IDLength
+		marshalutilNodeID := marshalutil.New(nodeIDBytes)
+		nodeID, err := identity.IDFromMarshalUtil(marshalutilNodeID)
+		if err != nil {
+			return 0, fmt.Errorf("unable to parse nodeID: %w", err)
+		}
+
+		var accessMana float64
+		if err := binary.Read(reader, binary.LittleEndian, &accessMana); err != nil {
+			return 0, fmt.Errorf("unable to read access mana: %w", err)
+		}
+		bytesRead += 8
+
+		var timestampUnix int64
+		if err := binary.Read(reader, binary.LittleEndian, &timestampUnix); err != nil {
+			return 0, fmt.Errorf("unable to read timestamp: %w", err)
+		}
+		bytesRead += 8
+		timestamp := time.Unix(timestampUnix, 0)
+
+		s.AccessManaVector[nodeID] = AccessMana{
+			Value:     accessMana,
+			Timestamp: timestamp,
 		}
 	}
 

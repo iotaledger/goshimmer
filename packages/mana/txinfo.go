@@ -44,13 +44,24 @@ type InputInfo struct {
 
 // SnapshotInfo defines the info for the mana snapshot.
 type SnapshotInfo struct {
+	AccessMana         SnapshotAccessMana
+	SortedSnapshotInfo SortedSnapshotInfo
+}
+
+type SnapshotAccessMana struct {
+	Value     float64
+	Timestamp time.Time
+}
+
+// SnapshotInfo defines the info for the mana snapshot.
+type TxSnapshotInfo struct {
 	Value     float64
 	TxID      ledgerstate.TransactionID
 	Timestamp time.Time
 }
 
 // SortedSnapshotInfo defines a list of SnapshotInfo sorted by timestamp.
-type SortedSnapshotInfo []*SnapshotInfo
+type SortedSnapshotInfo []*TxSnapshotInfo
 
 func (s SortedSnapshotInfo) Len() int           { return len(s) }
 func (s SortedSnapshotInfo) Less(i, j int) bool { return s[i].Timestamp.Before(s[j].Timestamp) }

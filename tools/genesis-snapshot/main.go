@@ -136,7 +136,11 @@ func main() {
 		transactionsMap[tx.ID()] = record
 	}
 
-	newSnapshot := &ledgerstate.Snapshot{Transactions: transactionsMap}
+	newSnapshot := &ledgerstate.Snapshot{
+		// assign 0 access mana to all nodes, since the docker network
+		AccessManaVector: make(map[identity.ID]ledgerstate.AccessMana),
+		Transactions:     transactionsMap,
+	}
 
 	genesisWallet := wallet.New(wallet.Import(genesisSeed, 1, []bitmask.BitMask{}, wallet.NewAssetRegistry()), wallet.GenericConnector(mockedConnector))
 	genesisAddress := genesisWallet.Seed().Address(0).Address()

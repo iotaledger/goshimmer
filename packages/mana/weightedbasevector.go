@@ -56,12 +56,12 @@ func (w *WeightedBaseManaVector) Has(nodeID identity.ID) bool {
 }
 
 // LoadSnapshot loads the initial mana state into the base mana vector.
-func (w *WeightedBaseManaVector) LoadSnapshot(snapshot map[identity.ID]SortedSnapshotInfo) {
+func (w *WeightedBaseManaVector) LoadSnapshot(snapshot map[identity.ID]SnapshotInfo) {
 	w.Lock()
 	defer w.Unlock()
 
 	for nodeID, records := range snapshot {
-		for _, record := range records {
+		for _, record := range records.SortedSnapshotInfo {
 			w.vector[nodeID] = NewWeightedMana(w.weight)
 			cBase := &ConsensusBaseMana{
 				BaseMana1:          record.Value,

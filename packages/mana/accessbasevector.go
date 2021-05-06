@@ -36,28 +36,25 @@ func (a *AccessBaseManaVector) Has(nodeID identity.ID) bool {
 }
 
 // LoadSnapshot loads the initial mana state into the base mana vector.
-func (a *AccessBaseManaVector) LoadSnapshot(snapshot map[identity.ID]SortedSnapshotInfo) {
+func (a *AccessBaseManaVector) LoadSnapshot(snapshot map[identity.ID]SnapshotInfo) {
 	a.Lock()
 	defer a.Unlock()
 
-	// pledging "fake" mana to nodes present in the snapshot
-	now := time.Now()
-	for nodeID, records := range snapshot {
-		for _, record := range records {
-			a.vector[nodeID] = &AccessBaseMana{
-				BaseMana2:          100,
-				EffectiveBaseMana2: 0,
-				LastUpdated:        now,
-			}
-			// trigger events
-			Events().Pledged.Trigger(&PledgedEvent{
-				NodeID:        nodeID,
-				Amount:        100,
-				Time:          now,
-				ManaType:      a.Type(),
-				TransactionID: record.TxID,
-			})
+	// pledging aMana to nodes present in the snapshot as if all was pledged at Timestamp
+	for nodeID, record := range snapshot {
+		a.vector[nodeID] = &AccessBaseMana{
+			BaseMana2:          record.AccessMana.Value,
+			EffectiveBaseMana2: record.AccessMana.Value,
+			LastUpdated:        record.AccessMana.Timestamp,
 		}
+		// trigger events
+		Events().Pledged.Trigger(&PledgedEvent{
+			NodeID:   nodeID,
+			Amount:   record.AccessMana.Value,
+			Time:     record.AccessMana.Timestamp,
+			ManaType: a.Type(),
+			// TransactionID: record.TxID,
+		})
 	}
 }
 
