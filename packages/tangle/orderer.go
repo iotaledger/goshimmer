@@ -38,40 +38,6 @@ func NewOrderer(tangle *Tangle) (orderer *Orderer) {
 	return
 }
 
-func (o *Orderer) onMessageBooked(messageID MessageID) {
-	o.bookedMessageChan <- messageID
-}
-
-func (o *Orderer) parentsToBook(messageID MessageID) (parents MessageIDs) {
-	o.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		message.ForEachParent(func(parent Parent) {
-			o.tangle.Storage.MessageMetadata(parent.ID).Consume(func(messageMetadata *MessageMetadata) {
-				if !messageMetadata.IsBooked() {
-					parents = append(parents, parent.ID)
-				}
-			})
-		})
-	})
-
-	return parents
-}
-
-func (o *Orderer) tryToSchedule(messageID MessageID) (parentsToBook []MessageID) {
-	parentsToBook = o.parentsToBook(messageID)
-	if len(parentsToBook) > 0 {
-		return
-	}
-
-	// all parents are booked
-	o.Events.MessageOrdered.Trigger(messageID)
-
-	return
-}
-
-func (o *Orderer) onMessageScheduled(messageID MessageID) {
-	o.inbox <- messageID
-}
-
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (o *Orderer) Setup() {
 	o.tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(o.onMessageScheduled))
@@ -85,10 +51,6 @@ func (o *Orderer) Shutdown() {
 	})
 
 	o.shutdownWG.Wait()
-}
-
-func (o *Orderer) processMessage(messageID MessageID) {
-	o.inbox <- messageID
 }
 
 // run runs the background thread that listens to TangleTime updates (through a channel) and then schedules messages
@@ -138,6 +100,40 @@ func (o *Orderer) run() {
 			}
 		}
 	}()
+}
+
+func (o *Orderer) parentsToBook(messageID MessageID) (parents MessageIDs) {
+	o.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+		message.ForEachParent(func(parent Parent) {
+			o.tangle.Storage.MessageMetadata(parent.ID).Consume(func(messageMetadata *MessageMetadata) {
+				if !messageMetadata.IsBooked() {
+					parents = append(parents, parent.ID)
+				}
+			})
+		})
+	})
+
+	return parents
+}
+
+func (o *Orderer) tryToSchedule(messageID MessageID) (parentsToBook []MessageID) {
+	parentsToBook = o.parentsToBook(messageID)
+	if len(parentsToBook) > 0 {
+		return
+	}
+
+	// all parents are booked
+	o.Events.MessageOrdered.Trigger(messageID)
+
+	return
+}
+
+func (o *Orderer) onMessageBooked(messageID MessageID) {
+	o.bookedMessageChan <- messageID
+}
+
+func (o *Orderer) onMessageScheduled(messageID MessageID) {
+	o.inbox <- messageID
 }
 
 // region OrdererEvents ////////////////////////////////////////////////////////////////////////////////////////////////
