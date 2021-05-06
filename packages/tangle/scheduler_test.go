@@ -332,6 +332,65 @@ func TestSchedulerSubmitWorkerPool(t *testing.T) {
 	}, 10*time.Second, 100*time.Millisecond)
 }
 
+func TestSchedulerParallelSubmit(t *testing.T) {
+	const (
+		totalMsgCount = 200
+		tangleWidth   = 250
+		networkDelay  = 5 * time.Millisecond
+	)
+
+	var totalScheduled atomic.Int32
+
+	// create Scheduler dependencies
+	// create the tangle
+	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
+	defer tangle.Shutdown()
+
+	tangle.Events.Error.Attach(events.NewClosure(func(err error) { assert.Failf(t, "unexpected error", "error event triggered: %v", err) }))
+
+	// setup tangle up till the Scheduler
+	tangle.Storage.Setup()
+	tangle.Solidifier.Setup()
+	tangle.Scheduler.Setup()
+	tangle.Scheduler.Start()
+
+	// generate the messages we want to solidify
+	messages := make(map[MessageID]*Message, totalMsgCount)
+	for i := 0; i < totalMsgCount/2; i++ {
+		msg := newMessage(selfNode.PublicKey())
+		messages[msg.ID()] = msg
+	}
+
+	for i := 0; i < totalMsgCount/2; i++ {
+		msg := newMessage(peerNode.PublicKey())
+		messages[msg.ID()] = msg
+	}
+
+	tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(messageID MessageID) {
+		t.Logf(messageID.Base58(), " solid")
+	}))
+
+	tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
+		n := totalScheduled.Add(1)
+		t.Logf("scheduled messages %d/%d", n, totalMsgCount)
+	}))
+
+	// issue tips to start solidification
+	t.Run("ParallelSubmit", func(t *testing.T) {
+		for _, m := range messages {
+			t.Run(m.ID().Base58(), func(t *testing.T) {
+				m := m
+				t.Parallel()
+				t.Logf("issue message: %s", m.ID().Base58())
+				tangle.Storage.StoreMessage(m)
+			})
+		}
+	})
+
+	// wait for all messages to have a formed opinion
+	assert.Eventually(t, func() bool { return totalScheduled.Load() == totalMsgCount }, 5*time.Minute, 100*time.Millisecond)
+}
+
 func newMessage(issuerPublicKey ed25519.PublicKey) *Message {
 	return NewMessage(
 		[]MessageID{EmptyMessageID},
