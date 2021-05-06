@@ -831,18 +831,16 @@ func loadSnapshot(txSnapshot *ledgerstate.Snapshot) {
 
 	// load access mana into SnapshotInfoVec
 	for nodeID, accessMana := range txSnapshot.AccessManaVector {
-		_, ok := SnapshotInfoVec[nodeID]
-		if !ok {
-			SnapshotInfoVec[nodeID] = mana.SnapshotInfo{}
+		snapshotInfo, ok := SnapshotInfoVec[nodeID]
+		if ok {
+			snapshotInfo.AccessMana = mana.SnapshotAccessMana{
+				Value:     accessMana.Value,
+				Timestamp: accessMana.Timestamp,
+			}
 		}
-		accessManaField := &mana.SnapshotAccessMana{Value: accessMana.Value, Timestamp: accessMana.Timestamp}
-		SnapshotInfoVec[nodeID].AccessMana = *accessManaField
+		SnapshotInfoVec[nodeID] = snapshotInfo
 	}
 
 	baseManaVectors[mana.ConsensusMana].LoadSnapshot(SnapshotInfoVec)
 	baseManaVectors[mana.AccessMana].LoadSnapshot(SnapshotInfoVec)
-	if ManaParameters.EnableResearchVectors {
-		baseManaVectors[mana.ResearchAccess].LoadSnapshot(SnapshotInfoVec)
-		baseManaVectors[mana.ResearchConsensus].LoadSnapshot(SnapshotInfoVec)
-	}
 }

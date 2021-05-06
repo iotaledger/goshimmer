@@ -4,9 +4,12 @@ import (
 	"os"
 	"sync"
 
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 )
@@ -44,6 +47,12 @@ func Plugin() *node.Plugin {
 func DumpCurrentLedger(c echo.Context) (err error) {
 	snapshot := messagelayer.Tangle().LedgerState.Snapshot()
 
+	aMana, err := DumpAccessMana()
+	if err != nil {
+		return err
+	}
+	snapshot.AccessManaVector = aMana
+
 	f, err := os.OpenFile(snapshotFileName, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
 		plugin.LogErrorf("unable to create snapshot file %s", err)
@@ -54,10 +63,28 @@ func DumpCurrentLedger(c echo.Context) (err error) {
 		plugin.LogErrorf("unable to write snapshot content to file %s", err)
 	}
 
+	plugin.LogInfo(snapshot)
+
 	plugin.LogInfof("Bytes written %d", n)
 	f.Close()
 
 	return c.Attachment(snapshotFileName, snapshotFileName)
+}
+
+func DumpAccessMana() (aManaSnapshot map[identity.ID]ledgerstate.AccessMana, err error) {
+	aManaSnapshot = make(map[identity.ID]ledgerstate.AccessMana)
+
+	m, t, err := messagelayer.GetManaMap(mana.AccessMana)
+	if err != nil {
+		return nil, err
+	}
+	for nodeID, aMana := range m {
+		aManaSnapshot[nodeID] = ledgerstate.AccessMana{
+			Value:     aMana,
+			Timestamp: t,
+		}
+	}
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
