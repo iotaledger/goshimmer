@@ -32,6 +32,10 @@ func NewCManaWeightProvider(manaRetrieverFunc ManaRetrieverFunc, timeRetrieverFu
 
 // Update updates the underlying data structure and keeps track of active nodes.
 func (c *CManaWeightProvider) Update(t time.Time, nodeID identity.ID) {
+	if c.timeRetrieverFunc().Before(t) {
+		return
+	}
+
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 

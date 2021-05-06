@@ -5,6 +5,7 @@ import (
 
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -77,6 +78,10 @@ func setMessageFinalized(messageMetadata *tangle.MessageMetadata) (modified bool
 	if modified = messageMetadata.SetFinalized(true); !modified {
 		return
 	}
+
+	Tangle().Storage.Message(messageMetadata.ID()).Consume(func(message *tangle.Message) {
+		Tangle().WeightProvider.Update(message.IssuingTime(), identity.NewID(message.IssuerPublicKey()))
+	})
 
 	setPayloadFinalized(messageMetadata.ID())
 

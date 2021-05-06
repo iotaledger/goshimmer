@@ -231,14 +231,14 @@ func (b *Booker) bookPayload(message *Message) (branchID ledgerstate.BranchID, e
 		return ledgerstate.UndefinedBranchID, xerrors.Errorf("invalid transaction in message with %s: %w", message.ID(), transactionErr)
 	}
 
-	if !b.tangle.Utils.AllTransactionsApprovedByMessages(transaction.ReferencedTransactionIDs(), message.ID()) {
-		b.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messagemetadata *MessageMetadata) {
-			messagemetadata.SetInvalid(true)
-		})
-		b.tangle.Events.MessageInvalid.Trigger(message.ID())
+	// if !b.tangle.Utils.AllTransactionsApprovedByMessages(transaction.ReferencedTransactionIDs(), message.ID()) {
+	// 	b.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messagemetadata *MessageMetadata) {
+	// 		messagemetadata.SetInvalid(true)
+	// 	})
+	// 	b.tangle.Events.MessageInvalid.Trigger(message.ID())
 
-		return ledgerstate.UndefinedBranchID, xerrors.Errorf("message with %s does not approve its referenced %s: %w", message.ID(), transaction.ReferencedTransactionIDs(), cerrors.ErrFatal)
-	}
+	// 	return ledgerstate.UndefinedBranchID, xerrors.Errorf("message with %s does not approve its referenced %s: %w", message.ID(), transaction.ReferencedTransactionIDs(), cerrors.ErrFatal)
+	// }
 
 	if branchID, err = b.tangle.LedgerState.BookTransaction(transaction, message.ID()); err != nil {
 		return ledgerstate.UndefinedBranchID, xerrors.Errorf("failed to book Transaction of Message with %s: %w", message.ID(), err)

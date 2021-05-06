@@ -8,6 +8,7 @@ import (
 
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/gommon/log"
 	"golang.org/x/xerrors"
@@ -58,6 +59,12 @@ func configure(plugin *node.Plugin) {
 	// Messages created by the node need to pass through the normal flow.
 	Tangle().MessageFactory.Events.MessageConstructed.Attach(events.NewClosure(func(message *tangle.Message) {
 		Tangle().ProcessGossipMessage(message.Bytes(), local.GetInstance().Peer)
+	}))
+
+	Tangle().Storage.Events.MessageStored.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
+			Tangle().WeightProvider.Update(message.IssuingTime(), identity.NewID(message.IssuerPublicKey()))
+		})
 	}))
 
 	// read snapshot file
