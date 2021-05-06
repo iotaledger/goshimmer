@@ -1,16 +1,16 @@
 package tangle
 
 import (
-	"errors"
 	"sync"
 	"time"
+
+	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/epochs"
@@ -71,7 +71,7 @@ func (t *TimeManager) Shutdown() {
 	defer t.lastConfirmedMutex.RUnlock()
 
 	if err := t.tangle.Options.Store.Set(kvstore.Key(lastConfirmedKey), t.lastConfirmedMessage.Bytes()); err != nil {
-		t.tangle.Events.Error.Trigger(xerrors.Errorf("failed to persists LastConfirmedMessage (%v): %w", err, cerrors.ErrFatal))
+		t.tangle.Events.Error.Trigger(errors.Errorf("failed to persists LastConfirmedMessage (%v): %w", err, cerrors.ErrFatal))
 		return
 	}
 }
@@ -136,7 +136,7 @@ type LastConfirmedMessage struct {
 func lastConfirmedMessageFromBytes(bytes []byte) (lcm LastConfirmedMessage, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if lcm, err = lastConfirmedMessageFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse LastConfirmedMessage from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse LastConfirmedMessage from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -148,12 +148,12 @@ func lastConfirmedMessageFromBytes(bytes []byte) (lcm LastConfirmedMessage, cons
 func lastConfirmedMessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (lcm LastConfirmedMessage, err error) {
 	lcm = LastConfirmedMessage{}
 	if lcm.MessageID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse MessageID from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse MessageID from MarshalUtil: %w", err)
 		return
 	}
 
 	if lcm.Time, err = marshalUtil.ReadTime(); err != nil {
-		err = xerrors.Errorf("failed to parse time (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse time (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 

@@ -5,7 +5,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"golang.org/x/xerrors"
+	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
@@ -51,7 +51,7 @@ func (spammer *Spammer) run(rate int, timeUnit time.Duration, processID int64, i
 
 		// we don't care about errors or the actual issued message
 		_, err := spammer.issuePayloadFunc(payload.NewGenericDataPayload([]byte("SPAM")))
-		if xerrors.Is(err, tangle.ErrNotSynced) {
+		if errors.Is(err, tangle.ErrNotSynced) {
 			// can't issue msg because node not in sync
 			return
 		}

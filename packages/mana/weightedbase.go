@@ -3,7 +3,7 @@ package mana
 import (
 	"time"
 
-	"golang.org/x/xerrors"
+	"github.com/cockroachdb/errors"
 )
 
 // WeightedBaseMana holds information about the combined mana1+mana2 base values of a node.
@@ -68,7 +68,7 @@ func (w *WeightedBaseMana) LastUpdate() time.Time {
 // SetWeight sets the weight, that has to be within [0,1], otherwise an error is returned.
 func (w *WeightedBaseMana) SetWeight(weight float64) error {
 	if weight < 0.0 || weight > 1.0 {
-		return xerrors.Errorf("error while setting weight to %f: %w", weight, ErrInvalidWeightParameter)
+		return errors.Errorf("error while setting weight to %f: %w", weight, ErrInvalidWeightParameter)
 	}
 	w.weight = weight
 	return nil

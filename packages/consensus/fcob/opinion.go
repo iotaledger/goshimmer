@@ -5,12 +5,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
@@ -230,29 +230,29 @@ func OpinionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Opini
 	// parse information
 	result = &Opinion{}
 	if result.timestamp, err = marshalUtil.ReadTime(); err != nil {
-		err = xerrors.Errorf("failed to parse opinion timestamp from MarshalUtil (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse opinion timestamp from MarshalUtil (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
 	if result.liked, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse liked flag of the opinion (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse liked flag of the opinion (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
 	levelOfKnowledgeUint8, err := marshalUtil.ReadUint8()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse level of knowledge of the opinion (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse level of knowledge of the opinion (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	result.levelOfKnowledge = LevelOfKnowledge(levelOfKnowledgeUint8)
 
 	if result.fcobTime1, err = marshalUtil.ReadTime(); err != nil {
-		err = xerrors.Errorf("failed to parse opinion fcob time 1 from MarshalUtil (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse opinion fcob time 1 from MarshalUtil (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
 	if result.fcobTime2, err = marshalUtil.ReadTime(); err != nil {
-		err = xerrors.Errorf("failed to parse opinion fcob time 2 from MarshalUtil (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse opinion fcob time 2 from MarshalUtil (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -264,14 +264,14 @@ func OpinionFromObjectStorage(key []byte, data []byte) (result objectstorage.Sto
 	// parse the opinion
 	opinion, err := OpinionFromMarshalUtil(marshalutil.New(data))
 	if err != nil {
-		err = xerrors.Errorf("failed to parse opinion from object Storage (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse opinion from object Storage (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
 	// parse the TransactionID from they key
 	id, err := ledgerstate.TransactionIDFromMarshalUtil(marshalutil.New(key))
 	if err != nil {
-		err = xerrors.Errorf("failed to parse transaction ID from object Storage (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse transaction ID from object Storage (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	opinion.transactionID = id

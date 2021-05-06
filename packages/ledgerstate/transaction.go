@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/identity"
@@ -18,7 +19,6 @@ import (
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -36,7 +36,7 @@ func init() {
 			return nil, err
 		}
 		if consumedBytes != len(data) {
-			return nil, xerrors.New("not all payload bytes were consumed")
+			return nil, errors.New("not all payload bytes were consumed")
 		}
 		return tx, nil
 	})
@@ -59,7 +59,7 @@ var GenesisTransactionID TransactionID
 func TransactionIDFromBytes(bytes []byte) (transactionID TransactionID, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if transactionID, err = TransactionIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse TransactionID from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse TransactionID from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -71,12 +71,12 @@ func TransactionIDFromBytes(bytes []byte) (transactionID TransactionID, consumed
 func TransactionIDFromBase58(base58String string) (transactionID TransactionID, err error) {
 	bytes, err := base58.Decode(base58String)
 	if err != nil {
-		err = xerrors.Errorf("error while decoding base58 encoded TransactionID (%v): %w", err, cerrors.ErrBase58DecodeFailed)
+		err = errors.Errorf("error while decoding base58 encoded TransactionID (%v): %w", err, cerrors.ErrBase58DecodeFailed)
 		return
 	}
 
 	if transactionID, _, err = TransactionIDFromBytes(bytes); err != nil {
-		err = xerrors.Errorf("failed to parse TransactionID from bytes: %w", err)
+		err = errors.Errorf("failed to parse TransactionID from bytes: %w", err)
 		return
 	}
 
@@ -87,7 +87,7 @@ func TransactionIDFromBase58(base58String string) (transactionID TransactionID, 
 func TransactionIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transactionID TransactionID, err error) {
 	transactionIDBytes, err := marshalUtil.ReadBytes(TransactionIDLength)
 	if err != nil {
-		err = xerrors.Errorf("failed to parse TransactionID (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse TransactionID (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	copy(transactionID[:], transactionIDBytes)
@@ -185,7 +185,7 @@ func NewTransaction(essence *TransactionEssence, unlockBlocks UnlockBlocks) (tra
 func TransactionFromBytes(bytes []byte) (transaction *Transaction, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if transaction, err = TransactionFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Transaction from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse Transaction from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -199,7 +199,7 @@ func TransactionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transacti
 
 	payloadSize, err := marshalUtil.ReadUint32()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse payload size from MarshalUtil (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse payload size from MarshalUtil (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	// a payloadSize of 0 indicates the payload is omitted and the payload is nil
@@ -208,32 +208,32 @@ func TransactionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transacti
 	}
 	payloadType, err := payload.TypeFromMarshalUtil(marshalUtil)
 	if err != nil {
-		err = xerrors.Errorf("failed to parse payload Type from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse payload Type from MarshalUtil: %w", err)
 		return
 	}
 	if payloadType != TransactionType {
-		err = xerrors.Errorf("payload type '%s' does not match expected '%s': %w", payloadType, TransactionType, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("payload type '%s' does not match expected '%s': %w", payloadType, TransactionType, cerrors.ErrParseBytesFailed)
 		return
 	}
 
 	transaction = &Transaction{}
 	if transaction.essence, err = TransactionEssenceFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse TransactionEssence from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse TransactionEssence from MarshalUtil: %w", err)
 		return
 	}
 	if transaction.unlockBlocks, err = UnlockBlocksFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse UnlockBlocks from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse UnlockBlocks from MarshalUtil: %w", err)
 		return
 	}
 
 	parsedBytes := marshalUtil.ReadOffset() - readStartOffset
 	if parsedBytes != int(payloadSize)+marshalutil.Uint32Size {
-		err = xerrors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, payloadSize, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, payloadSize, cerrors.ErrParseBytesFailed)
 		return
 	}
 
 	if len(transaction.unlockBlocks) != len(transaction.essence.Inputs()) {
-		err = xerrors.Errorf("amount of UnlockBlocks (%d) does not match amount of Inputs (%d): %w", len(transaction.unlockBlocks), len(transaction.essence.inputs), cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("amount of UnlockBlocks (%d) does not match amount of Inputs (%d): %w", len(transaction.unlockBlocks), len(transaction.essence.inputs), cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -241,7 +241,7 @@ func TransactionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transacti
 	for i, unlockBlock := range transaction.unlockBlocks {
 		if unlockBlock.Type() == ReferenceUnlockBlockType {
 			if unlockBlock.(*ReferenceUnlockBlock).ReferencedIndex() > uint16(maxReferencedUnlockIndex) {
-				err = xerrors.Errorf("unlock block %d references non-existent unlock block at index %d", i, unlockBlock.(*ReferenceUnlockBlock).ReferencedIndex())
+				err = errors.Errorf("unlock block %d references non-existent unlock block at index %d", i, unlockBlock.(*ReferenceUnlockBlock).ReferencedIndex())
 				return
 			}
 		}
@@ -257,13 +257,13 @@ func TransactionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transacti
 // TransactionFromObjectStorage restores a Transaction that was stored in the ObjectStorage.
 func TransactionFromObjectStorage(key []byte, data []byte) (transaction objectstorage.StorableObject, err error) {
 	if transaction, _, err = TransactionFromBytes(data); err != nil {
-		err = xerrors.Errorf("failed to parse Transaction from bytes: %w", err)
+		err = errors.Errorf("failed to parse Transaction from bytes: %w", err)
 		return
 	}
 
 	transactionID, _, err := TransactionIDFromBytes(key)
 	if err != nil {
-		err = xerrors.Errorf("failed to parse TransactionID from bytes: %w", err)
+		err = errors.Errorf("failed to parse TransactionID from bytes: %w", err)
 		return
 	}
 	transaction.(*Transaction).id = &transactionID
@@ -458,7 +458,7 @@ func NewTransactionEssence(
 func TransactionEssenceFromBytes(bytes []byte) (transactionEssence *TransactionEssence, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if transactionEssence, err = TransactionEssenceFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse TransactionEssence from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse TransactionEssence from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -470,18 +470,18 @@ func TransactionEssenceFromBytes(bytes []byte) (transactionEssence *TransactionE
 func TransactionEssenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transactionEssence *TransactionEssence, err error) {
 	transactionEssence = &TransactionEssence{}
 	if transactionEssence.version, err = TransactionEssenceVersionFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse TransactionEssenceVersion from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse TransactionEssenceVersion from MarshalUtil: %w", err)
 		return
 	}
 	// unmarshal timestamp
 	if transactionEssence.timestamp, err = marshalUtil.ReadTime(); err != nil {
-		err = xerrors.Errorf("failed to parse Transaction timestamp from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse Transaction timestamp from MarshalUtil: %w", err)
 		return
 	}
 	// unmarshal accessPledgeID
 	var accessPledgeIDBytes []byte
 	if accessPledgeIDBytes, err = marshalUtil.ReadBytes(len(identity.ID{})); err != nil {
-		err = xerrors.Errorf("failed to parse accessPledgeID from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse accessPledgeID from MarshalUtil: %w", err)
 		return
 	}
 	copy(transactionEssence.accessPledgeID[:], accessPledgeIDBytes)
@@ -489,21 +489,21 @@ func TransactionEssenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (tr
 	// unmarshal consensusPledgeIDBytes
 	var consensusPledgeIDBytes []byte
 	if consensusPledgeIDBytes, err = marshalUtil.ReadBytes(len(identity.ID{})); err != nil {
-		err = xerrors.Errorf("failed to parse consensusPledgeID from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse consensusPledgeID from MarshalUtil: %w", err)
 		return
 	}
 	copy(transactionEssence.consensusPledgeID[:], consensusPledgeIDBytes)
 
 	if transactionEssence.inputs, err = InputsFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Inputs from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse Inputs from MarshalUtil: %w", err)
 		return
 	}
 	if transactionEssence.outputs, err = OutputsFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Outputs from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse Outputs from MarshalUtil: %w", err)
 		return
 	}
 	if transactionEssence.payload, err = payload.FromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Payload from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse Payload from MarshalUtil: %w", err)
 		return
 	}
 
@@ -594,7 +594,7 @@ type TransactionEssenceVersion uint8
 func TransactionEssenceVersionFromBytes(bytes []byte) (version TransactionEssenceVersion, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if version, err = TransactionEssenceVersionFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse version TransactionEssenceVersion from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse version TransactionEssenceVersion from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -607,11 +607,11 @@ func TransactionEssenceVersionFromBytes(bytes []byte) (version TransactionEssenc
 func TransactionEssenceVersionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (version TransactionEssenceVersion, err error) {
 	readByte, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse TransactionEssenceVersion (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse TransactionEssenceVersion (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if readByte != 0 {
-		err = xerrors.Errorf("invalid TransactionVersion (%d): %w", readByte, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("invalid TransactionVersion (%d): %w", readByte, cerrors.ErrParseBytesFailed)
 		return
 	}
 	version = TransactionEssenceVersion(readByte)
@@ -675,7 +675,7 @@ func NewTransactionMetadata(transactionID TransactionID) *TransactionMetadata {
 func TransactionMetadataFromBytes(bytes []byte) (transactionMetadata *TransactionMetadata, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if transactionMetadata, err = TransactionMetadataFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse TransactionMetadata from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse TransactionMetadata from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -687,27 +687,27 @@ func TransactionMetadataFromBytes(bytes []byte) (transactionMetadata *Transactio
 func TransactionMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transactionMetadata *TransactionMetadata, err error) {
 	transactionMetadata = &TransactionMetadata{}
 	if transactionMetadata.id, err = TransactionIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse TransactionID: %w", err)
+		err = errors.Errorf("failed to parse TransactionID: %w", err)
 		return
 	}
 	if transactionMetadata.branchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse BranchID: %w", err)
+		err = errors.Errorf("failed to parse BranchID: %w", err)
 		return
 	}
 	if transactionMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse solid flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse solid flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if transactionMetadata.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
-		err = xerrors.Errorf("failed to parse solidification time (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse solidification time (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if transactionMetadata.finalized, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse finalized flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse finalized flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if transactionMetadata.lazyBooked, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse lazy booked flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse lazy booked flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -717,7 +717,7 @@ func TransactionMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (t
 // TransactionMetadataFromObjectStorage restores TransactionMetadata that were stored in the ObjectStorage.
 func TransactionMetadataFromObjectStorage(key []byte, data []byte) (transactionMetadata objectstorage.StorableObject, err error) {
 	if transactionMetadata, _, err = TransactionMetadataFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = xerrors.Errorf("failed to parse TransactionMetadata from bytes: %w", err)
+		err = errors.Errorf("failed to parse TransactionMetadata from bytes: %w", err)
 		return
 	}
 

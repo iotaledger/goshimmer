@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/identity"
-	"golang.org/x/xerrors"
 )
 
 // WeightedBaseManaVector represents a base mana vector.
@@ -38,7 +38,7 @@ func (w *WeightedBaseManaVector) Size() int {
 // SetWeight sets the weight for the whole vector.
 func (w *WeightedBaseManaVector) SetWeight(weight float64) error {
 	if weight < OnlyMana2 || weight > OnlyMana1 {
-		return xerrors.Errorf("error while setting weight to %f: %w", weight, ErrInvalidWeightParameter)
+		return errors.Errorf("error while setting weight to %f: %w", weight, ErrInvalidWeightParameter)
 	}
 	w.weight = weight
 	for _, bm := range w.vector {
@@ -325,15 +325,15 @@ func (w *WeightedBaseManaVector) ToPersistables() []*PersistableBaseMana {
 // FromPersistable fills the WeightedBaseManaVector from persistable mana objects.
 func (w *WeightedBaseManaVector) FromPersistable(p *PersistableBaseMana) (err error) {
 	if p.ManaType != WeightedMana {
-		err = xerrors.Errorf("persistable mana object has type %s instead of %s", p.ManaType.String(), WeightedMana.String())
+		err = errors.Errorf("persistable mana object has type %s instead of %s", p.ManaType.String(), WeightedMana.String())
 		return
 	}
 	if len(p.BaseValues) != 2 {
-		err = xerrors.Errorf("persistable mana object has %d base values instead of 2", len(p.BaseValues))
+		err = errors.Errorf("persistable mana object has %d base values instead of 2", len(p.BaseValues))
 		return
 	}
 	if len(p.EffectiveValues) != 2 {
-		err = xerrors.Errorf("persistable mana object has %d effective values instead of 2", len(p.EffectiveValues))
+		err = errors.Errorf("persistable mana object has %d effective values instead of 2", len(p.EffectiveValues))
 		return
 	}
 	w.Lock()

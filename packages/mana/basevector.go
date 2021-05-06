@@ -3,8 +3,8 @@ package mana
 import (
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/identity"
-	"golang.org/x/xerrors"
 )
 
 // BaseManaVector is an interface for vectors that store base mana values of nodes in the network.
@@ -55,14 +55,14 @@ func NewBaseManaVector(vectorType Type) (BaseManaVector, error) {
 			vector: make(map[identity.ID]*ConsensusBaseMana),
 		}, nil
 	default:
-		return nil, xerrors.Errorf("error while creating base mana vector with type %d: %w", vectorType, ErrUnknownManaType)
+		return nil, errors.Errorf("error while creating base mana vector with type %d: %w", vectorType, ErrUnknownManaType)
 	}
 }
 
 // NewResearchBaseManaVector creates a base mana vector for research purposes.
 func NewResearchBaseManaVector(vectorType Type, targetMana Type, weight float64) (BaseManaVector, error) {
 	if targetMana != AccessMana && targetMana != ConsensusMana {
-		return nil, xerrors.Errorf(
+		return nil, errors.Errorf(
 			"targetMana must be either %s or %s, but it is %s: %w",
 			AccessMana.String(),
 			ConsensusMana.String(),
@@ -77,10 +77,10 @@ func NewResearchBaseManaVector(vectorType Type, targetMana Type, weight float64)
 			target: targetMana,
 		}
 		if err := vec.SetWeight(weight); err != nil {
-			return nil, xerrors.Errorf("error while creating base mana vector with weight %f: %w", weight, err)
+			return nil, errors.Errorf("error while creating base mana vector with weight %f: %w", weight, err)
 		}
 		return vec, nil
 	default:
-		return nil, xerrors.Errorf("error while creating base mana vector with type %d: %w", vectorType, ErrUnknownManaType)
+		return nil, errors.Errorf("error while creating base mana vector with type %d: %w", vectorType, ErrUnknownManaType)
 	}
 }

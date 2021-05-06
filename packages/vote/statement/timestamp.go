@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
@@ -37,7 +37,7 @@ func (t Timestamp) Bytes() (bytes []byte) {
 func TimestampFromBytes(bytes []byte) (timestamp Timestamp, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if timestamp, err = TimestampFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Timestamp from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse Timestamp from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -52,25 +52,25 @@ func TimestampFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (timestamp T
 	timestamp = Timestamp{}
 	bytesID, err := marshalUtil.ReadBytes(int(tangle.MessageIDLength))
 	if err != nil {
-		err = xerrors.Errorf("failed to parse ID from timestamp: %w", err)
+		err = errors.Errorf("failed to parse ID from timestamp: %w", err)
 		return
 	}
 	timestamp.ID, _, err = tangle.MessageIDFromBytes(bytesID)
 	if err != nil {
-		err = xerrors.Errorf("failed to parse ID from bytes: %w", err)
+		err = errors.Errorf("failed to parse ID from bytes: %w", err)
 		return
 	}
 
 	timestamp.Opinion, err = OpinionFromMarshalUtil(marshalUtil)
 	if err != nil {
-		err = xerrors.Errorf("failed to parse opinion from timestamp: %w", err)
+		err = errors.Errorf("failed to parse opinion from timestamp: %w", err)
 		return
 	}
 
 	// return the number of bytes we processed
 	parsedBytes := marshalUtil.ReadOffset() - readStartOffset
 	if parsedBytes != TimestampLength {
-		err = xerrors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, TimestampLength, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, TimestampLength, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -108,13 +108,13 @@ func (t Timestamps) Bytes() (bytes []byte) {
 // TimestampsFromBytes parses a slice of timestamp statements from a byte slice.
 func TimestampsFromBytes(bytes []byte, n uint32) (timestamps Timestamps, consumedBytes int, err error) {
 	if len(bytes)/TimestampLength < int(n) {
-		err = xerrors.Errorf("not enough bytes to parse %d timestamps", n)
+		err = errors.Errorf("not enough bytes to parse %d timestamps", n)
 		return
 	}
 
 	marshalUtil := marshalutil.New(bytes)
 	if timestamps, err = TimestampsFromMarshalUtil(marshalUtil, n); err != nil {
-		err = xerrors.Errorf("failed to parse Timestamps from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse Timestamps from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -139,7 +139,7 @@ func TimestampsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil, n uint32) (
 	// return the number of bytes we processed
 	parsedBytes := marshalUtil.ReadOffset() - readStartOffset
 	if parsedBytes != int(TimestampLength*n) {
-		err = xerrors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, TimestampLength*n, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, TimestampLength*n, cerrors.ErrParseBytesFailed)
 		return
 	}
 

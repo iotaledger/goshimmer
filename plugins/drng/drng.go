@@ -2,9 +2,9 @@ package drng
 
 import (
 	"encoding/hex"
-	"errors"
 	"fmt"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/mr-tron/base58/base58"

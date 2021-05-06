@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -13,7 +14,6 @@ import (
 	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
-	"golang.org/x/xerrors"
 )
 
 // region Sequence /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -49,7 +49,7 @@ func NewSequence(id SequenceID, referencedMarkers *Markers, rank uint64) *Sequen
 func SequenceFromBytes(sequenceBytes []byte) (sequence *Sequence, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(sequenceBytes)
 	if sequence, err = SequenceFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Sequence from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse Sequence from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -61,27 +61,27 @@ func SequenceFromBytes(sequenceBytes []byte) (sequence *Sequence, consumedBytes 
 func SequenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequence *Sequence, err error) {
 	sequence = &Sequence{}
 	if sequence.id, err = SequenceIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
 		return
 	}
 	if sequence.referencedMarkers, err = ReferencedMarkersFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse ReferencedMarkers from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse ReferencedMarkers from MarshalUtil: %w", err)
 		return
 	}
 	if sequence.referencingMarkers, err = ReferencingMarkersFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse ReferencingMarkers from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse ReferencingMarkers from MarshalUtil: %w", err)
 		return
 	}
 	if sequence.rank, err = marshalUtil.ReadUint64(); err != nil {
-		err = xerrors.Errorf("failed to parse rank (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse rank (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if sequence.lowestIndex, err = IndexFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse lowest Index from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse lowest Index from MarshalUtil: %w", err)
 		return
 	}
 	if sequence.highestIndex, err = IndexFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse highest Index from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse highest Index from MarshalUtil: %w", err)
 		return
 	}
 
@@ -91,7 +91,7 @@ func SequenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequence *Se
 // SequenceFromObjectStorage restores an Sequence that was stored in the object storage.
 func SequenceFromObjectStorage(key, data []byte) (sequence objectstorage.StorableObject, err error) {
 	if sequence, _, err = SequenceFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = xerrors.Errorf("failed to parse Sequence from bytes: %w", err)
+		err = errors.Errorf("failed to parse Sequence from bytes: %w", err)
 		return
 	}
 
@@ -259,7 +259,7 @@ type SequenceID uint64
 func SequenceIDFromBytes(sequenceIDBytes []byte) (sequenceID SequenceID, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(sequenceIDBytes)
 	if sequenceID, err = SequenceIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -271,7 +271,7 @@ func SequenceIDFromBytes(sequenceIDBytes []byte) (sequenceID SequenceID, consume
 func SequenceIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequenceID SequenceID, err error) {
 	untypedSequenceID, err := marshalUtil.ReadUint64()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse SequenceID (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse SequenceID (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	sequenceID = SequenceID(untypedSequenceID)
@@ -310,7 +310,7 @@ func NewSequenceIDs(sequenceIDs ...SequenceID) (result SequenceIDs) {
 func SequenceIDsFromBytes(sequenceIDBytes []byte) (sequenceIDs SequenceIDs, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(sequenceIDBytes)
 	if sequenceIDs, err = SequenceIDsFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse SequenceIDs from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse SequenceIDs from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -322,14 +322,14 @@ func SequenceIDsFromBytes(sequenceIDBytes []byte) (sequenceIDs SequenceIDs, cons
 func SequenceIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequenceIDs SequenceIDs, err error) {
 	sequenceIDsCount, err := marshalUtil.ReadUint32()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse SequenceIDs count (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse SequenceIDs count (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	sequenceIDs = make(SequenceIDs, sequenceIDsCount)
 	for i := uint32(0); i < sequenceIDsCount; i++ {
 		sequenceID, sequenceIDErr := SequenceIDFromMarshalUtil(marshalUtil)
 		if sequenceIDErr != nil {
-			err = xerrors.Errorf("failed to parse SequenceID from MarshalUtil: %w", sequenceIDErr)
+			err = errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", sequenceIDErr)
 			return
 		}
 		sequenceIDs[sequenceID] = types.Void
@@ -403,7 +403,7 @@ func NewSequenceAlias(bytes []byte) SequenceAlias {
 func SequenceAliasFromBytes(aggregatedSequencesIDBytes []byte) (aggregatedSequencesID SequenceAlias, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(aggregatedSequencesIDBytes)
 	if aggregatedSequencesID, err = SequenceAliasFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Alias from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse Alias from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -415,12 +415,12 @@ func SequenceAliasFromBytes(aggregatedSequencesIDBytes []byte) (aggregatedSequen
 func SequenceAliasFromBase58(base58String string) (aggregatedSequencesID SequenceAlias, err error) {
 	bytes, err := base58.Decode(base58String)
 	if err != nil {
-		err = xerrors.Errorf("error while decoding base58 encoded Alias (%v): %w", err, cerrors.ErrBase58DecodeFailed)
+		err = errors.Errorf("error while decoding base58 encoded Alias (%v): %w", err, cerrors.ErrBase58DecodeFailed)
 		return
 	}
 
 	if aggregatedSequencesID, _, err = SequenceAliasFromBytes(bytes); err != nil {
-		err = xerrors.Errorf("failed to parse Alias from bytes: %w", err)
+		err = errors.Errorf("failed to parse Alias from bytes: %w", err)
 		return
 	}
 
@@ -431,7 +431,7 @@ func SequenceAliasFromBase58(base58String string) (aggregatedSequencesID Sequenc
 func SequenceAliasFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (aggregatedSequencesID SequenceAlias, err error) {
 	aggregatedSequencesIDBytes, err := marshalUtil.ReadBytes(SequenceAliasLength)
 	if err != nil {
-		err = xerrors.Errorf("failed to parse Alias (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse Alias (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	copy(aggregatedSequencesID[:], aggregatedSequencesIDBytes)
@@ -477,7 +477,7 @@ type SequenceAliasMapping struct {
 func SequenceAliasMappingFromBytes(mappingBytes []byte) (mapping *SequenceAliasMapping, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(mappingBytes)
 	if mapping, err = SequenceAliasMappingFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse SequenceAliasMapping from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse SequenceAliasMapping from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -489,11 +489,11 @@ func SequenceAliasMappingFromBytes(mappingBytes []byte) (mapping *SequenceAliasM
 func SequenceAliasMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (mapping *SequenceAliasMapping, err error) {
 	mapping = &SequenceAliasMapping{}
 	if mapping.sequenceAlias, err = SequenceAliasFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Alias from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse Alias from MarshalUtil: %w", err)
 		return
 	}
 	if mapping.sequenceID, err = SequenceIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
 		return
 	}
 
@@ -503,7 +503,7 @@ func SequenceAliasMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (
 // SequenceAliasMappingFromObjectStorage restores a SequenceAlias that was stored in the object storage.
 func SequenceAliasMappingFromObjectStorage(key, data []byte) (mapping objectstorage.StorableObject, err error) {
 	if mapping, _, err = SequenceAliasMappingFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = xerrors.Errorf("failed to parse SequenceAliasMapping from bytes: %w", err)
+		err = errors.Errorf("failed to parse SequenceAliasMapping from bytes: %w", err)
 		return
 	}
 

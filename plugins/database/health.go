@@ -1,9 +1,9 @@
 package database
 
 import (
-	"errors"
 	"fmt"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/kvstore"
 
 	"github.com/iotaledger/goshimmer/packages/database"
