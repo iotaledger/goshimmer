@@ -319,7 +319,7 @@ func (u *UTXODAG) SetTransactionConfirmed(transactionID TransactionID) (err erro
 		err = u.branchDAG.SetBranchConfirmed(transactionMetadata.BranchID())
 	})
 	if err != nil {
-		return xerrors.Errorf("failed to set Branch of Transaction with %s to be confirmed: %w", transactionID, cerrors.ErrFatal)
+		return errors.Errorf("failed to set Branch of Transaction with %s to be confirmed: %w", transactionID, cerrors.ErrFatal)
 	}
 
 	seenTransactions := set.New()

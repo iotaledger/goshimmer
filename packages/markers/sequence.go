@@ -15,7 +15,6 @@ import (
 	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
-	"golang.org/x/xerrors"
 )
 
 // maxVerticesWithoutFutureMarker defines the amount of vertices in the DAG are allowed to have no future marker before
@@ -87,15 +86,15 @@ func SequenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequence *Se
 		return
 	}
 	if sequence.newSequenceTrigger, err = marshalUtil.ReadUint64(); err != nil {
-		err = xerrors.Errorf("failed to parse newSequenceTrigger (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse newSequenceTrigger (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if sequence.maxPastMarkerGap, err = marshalUtil.ReadUint64(); err != nil {
-		err = xerrors.Errorf("failed to parse maxPastMarkerGap (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse maxPastMarkerGap (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if sequence.verticesWithoutFutureMarker, err = marshalUtil.ReadUint64(); err != nil {
-		err = xerrors.Errorf("failed to parse verticesWithoutFutureMarker (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse verticesWithoutFutureMarker (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if sequence.lowestIndex, err = IndexFromMarshalUtil(marshalUtil); err != nil {

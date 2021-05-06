@@ -124,12 +124,12 @@ func (b *BranchDAG) SetBranchConfirmed(branchID BranchID) (err error) {
 	}
 
 	if _, branchErr := b.SetBranchMonotonicallyLiked(branchID, true); branchErr != nil {
-		err = xerrors.Errorf("failed to set Branch with %s to be monotonically liked: %w", branchID, branchErr)
+		err = errors.Errorf("failed to set Branch with %s to be monotonically liked: %w", branchID, branchErr)
 		return
 	}
 
 	if _, branchErr := b.SetBranchFinalized(branchID, true); branchErr != nil {
-		err = xerrors.Errorf("failed to set Branch with %s to be finalized: %w", branchID, branchErr)
+		err = errors.Errorf("failed to set Branch with %s to be finalized: %w", branchID, branchErr)
 		return
 	}
 
