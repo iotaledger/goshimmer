@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/labstack/echo"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
@@ -24,7 +24,7 @@ func setupFaucetRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/faucet/:hash", func(c echo.Context) (err error) {
 		addr, err := ledgerstate.AddressFromBase58EncodedString(c.Param("hash"))
 		if err != nil {
-			return xerrors.Errorf("faucet request address invalid: %s: %w", addr, ErrInvalidParameter)
+			return errors.Errorf("faucet request address invalid: %s: %w", addr, ErrInvalidParameter)
 		}
 
 		emptyID := identity.ID{}
@@ -35,7 +35,7 @@ func setupFaucetRoutes(routeGroup *echo.Group) {
 		if accessManaStr != "" {
 			accessMana, err = mana.IDFromStr(accessManaStr)
 			if err != nil {
-				return xerrors.Errorf("faucet request access mana node ID invalid: %s: %w", accessManaStr, err)
+				return errors.Errorf("faucet request access mana node ID invalid: %s: %w", accessManaStr, err)
 			}
 		}
 
@@ -43,7 +43,7 @@ func setupFaucetRoutes(routeGroup *echo.Group) {
 		if consensusManaStr != "" {
 			consensusMana, err = mana.IDFromStr(consensusManaStr)
 			if err != nil {
-				return xerrors.Errorf("faucet request consensus mana node ID invalid: %s: %w", consensusManaStr, err)
+				return errors.Errorf("faucet request consensus mana node ID invalid: %s: %w", consensusManaStr, err)
 			}
 		}
 
@@ -67,7 +67,7 @@ func sendFaucetReq(addr ledgerstate.Address, accessManaNodeID, consensusManaNode
 	}
 	msg, err := messagelayer.Tangle().MessageFactory.IssuePayload(faucetPayload, messagelayer.Tangle())
 	if err != nil {
-		return nil, xerrors.Errorf("Failed to send faucet request: %s: %w", err.Error(), ErrInternalError)
+		return nil, errors.Errorf("Failed to send faucet request: %s: %w", err.Error(), ErrInternalError)
 	}
 
 	r := &ReqMsg{

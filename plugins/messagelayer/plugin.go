@@ -1,17 +1,17 @@
 package messagelayer
 
 import (
-	"errors"
 	"os"
 	"sync"
 	"time"
+
+	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/gommon/log"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -196,7 +196,7 @@ func AwaitMessageToBeBooked(f func() (*tangle.Message, error), txID ledgerstate.
 	result := <-issueResult
 
 	if result.err != nil || result.msg == nil {
-		return nil, xerrors.Errorf("Failed to issue transaction %s: %w", txID.String(), result.err)
+		return nil, errors.Errorf("Failed to issue transaction %s: %w", txID.String(), result.err)
 	}
 
 	select {

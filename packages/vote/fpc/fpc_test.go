@@ -2,10 +2,11 @@ package fpc_test
 
 import (
 	"context"
-	"errors"
 	"math/rand"
 	"testing"
 	"time"
+
+	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"

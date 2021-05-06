@@ -3,10 +3,10 @@ package markers
 import (
 	"sync"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
-	"golang.org/x/xerrors"
 )
 
 // region StructureDetails /////////////////////////////////////////////////////////////////////////////////////////////
@@ -27,7 +27,7 @@ type StructureDetails struct {
 func StructureDetailsFromBytes(markersBytes []byte) (markersPair *StructureDetails, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(markersBytes)
 	if markersPair, err = StructureDetailsFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse StructureDetails from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse StructureDetails from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -39,7 +39,7 @@ func StructureDetailsFromBytes(markersBytes []byte) (markersPair *StructureDetai
 func StructureDetailsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (structureDetails *StructureDetails, err error) {
 	detailsExist, err := marshalUtil.ReadBool()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse exists flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse exists flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if !detailsExist {
@@ -48,27 +48,27 @@ func StructureDetailsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (stru
 
 	structureDetails = &StructureDetails{}
 	if structureDetails.Rank, err = marshalUtil.ReadUint64(); err != nil {
-		err = xerrors.Errorf("failed to parse Rank (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse Rank (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if structureDetails.PastMarkerGap, err = marshalUtil.ReadUint64(); err != nil {
-		err = xerrors.Errorf("failed to parse PastMarkerGap (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse PastMarkerGap (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if structureDetails.IsPastMarker, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse IsPastMarker (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse IsPastMarker (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if structureDetails.SequenceID, err = SequenceIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
 		return
 	}
 	if structureDetails.PastMarkers, err = FromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse PastMarkers from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse PastMarkers from MarshalUtil: %w", err)
 		return
 	}
 	if structureDetails.FutureMarkers, err = FromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse FutureMarkers from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse FutureMarkers from MarshalUtil: %w", err)
 		return
 	}
 

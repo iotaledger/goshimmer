@@ -6,12 +6,12 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -32,7 +32,7 @@ func runDiagnosticDRNGMessages(c echo.Context) (err error) {
 
 	csvWriter := csv.NewWriter(c.Response())
 	if err := csvWriter.Write(DiagnosticDRNGMessagesTableDescription); err != nil {
-		return xerrors.Errorf("failed to write table description row: %w", err)
+		return errors.Errorf("failed to write table description row: %w", err)
 	}
 
 	var writeErr error
@@ -44,7 +44,7 @@ func runDiagnosticDRNGMessages(c echo.Context) (err error) {
 					return
 				}
 				if err := csvWriter.Write(messageInfo.toCSVRow()); err != nil {
-					writeErr = xerrors.Errorf("failed to write message diagnostic info row: %w", err)
+					writeErr = errors.Errorf("failed to write message diagnostic info row: %w", err)
 					return
 				}
 			}
@@ -60,7 +60,7 @@ func runDiagnosticDRNGMessages(c echo.Context) (err error) {
 	}
 	csvWriter.Flush()
 	if err := csvWriter.Error(); err != nil {
-		return xerrors.Errorf("csv writer failed after flush: %w", err)
+		return errors.Errorf("csv writer failed after flush: %w", err)
 	}
 
 	return nil

@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"sort"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/orderedmap"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/mr-tron/base58"
-	"golang.org/x/xerrors"
 )
 
 // region Color ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -30,7 +30,7 @@ type Color [ColorLength]byte
 func ColorFromBytes(colorBytes []byte) (color Color, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(colorBytes)
 	if color, err = ColorFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Color from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse Color from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -42,12 +42,12 @@ func ColorFromBytes(colorBytes []byte) (color Color, consumedBytes int, err erro
 func ColorFromBase58EncodedString(base58String string) (color Color, err error) {
 	parsedBytes, err := base58.Decode(base58String)
 	if err != nil {
-		err = xerrors.Errorf("error while decoding base58 encoded Color (%v): %w", err, cerrors.ErrBase58DecodeFailed)
+		err = errors.Errorf("error while decoding base58 encoded Color (%v): %w", err, cerrors.ErrBase58DecodeFailed)
 		return
 	}
 
 	if color, _, err = ColorFromBytes(parsedBytes); err != nil {
-		err = xerrors.Errorf("failed to parse Color from bytes: %w", err)
+		err = errors.Errorf("failed to parse Color from bytes: %w", err)
 		return
 	}
 
@@ -58,7 +58,7 @@ func ColorFromBase58EncodedString(base58String string) (color Color, err error) 
 func ColorFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (color Color, err error) {
 	colorBytes, err := marshalUtil.ReadBytes(ColorLength)
 	if err != nil {
-		err = xerrors.Errorf("failed to parse Color (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse Color (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	copy(color[:], colorBytes)
@@ -127,7 +127,7 @@ func NewColoredBalances(balances map[Color]uint64) (coloredBalances *ColoredBala
 func ColoredBalancesFromBytes(bytes []byte) (coloredBalances *ColoredBalances, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if coloredBalances, err = ColoredBalancesFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse ColoredBalances from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse ColoredBalances from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -139,7 +139,7 @@ func ColoredBalancesFromBytes(bytes []byte) (coloredBalances *ColoredBalances, c
 func ColoredBalancesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (coloredBalances *ColoredBalances, err error) {
 	balancesCount, err := marshalUtil.ReadUint32()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse element count (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse element count (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -148,19 +148,19 @@ func ColoredBalancesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (color
 	for i := uint32(0); i < balancesCount; i++ {
 		color, colorErr := ColorFromMarshalUtil(marshalUtil)
 		if colorErr != nil {
-			err = xerrors.Errorf("failed to parse Color from MarshalUtil: %w", colorErr)
+			err = errors.Errorf("failed to parse Color from MarshalUtil: %w", colorErr)
 			return
 		}
 
 		// check semantic correctness (ensure ordering)
 		if previousColor != nil && previousColor.Compare(color) != -1 {
-			err = xerrors.Errorf("parsed Colors are not in correct order: %w", cerrors.ErrParseBytesFailed)
+			err = errors.Errorf("parsed Colors are not in correct order: %w", cerrors.ErrParseBytesFailed)
 			return
 		}
 
 		balance, balanceErr := marshalUtil.ReadUint64()
 		if balanceErr != nil {
-			err = xerrors.Errorf("failed to parse balance of Color %s (%v): %w", color.String(), balanceErr, cerrors.ErrParseBytesFailed)
+			err = errors.Errorf("failed to parse balance of Color %s (%v): %w", color.String(), balanceErr, cerrors.ErrParseBytesFailed)
 			return
 		}
 

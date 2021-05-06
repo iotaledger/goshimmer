@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -19,7 +20,6 @@ import (
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
@@ -694,7 +694,7 @@ func TestMessageFromBytes(t *testing.T) {
 		msgBytes = append(msgBytes, []byte{0, 1, 2, 3, 4}...)
 		_, _, err := MessageFromBytes(msgBytes)
 		assert.Error(t, err)
-		assert.True(t, xerrors.Is(err, cerrors.ErrParseBytesFailed))
+		assert.True(t, errors.Is(err, cerrors.ErrParseBytesFailed))
 	})
 }
 

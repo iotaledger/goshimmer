@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/mr-tron/base58"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -140,7 +140,7 @@ var Type = payload.NewType(189, ObjectName, func(data []byte) (payload payload.P
 		return nil, err
 	}
 	if consumedBytes != len(data) {
-		return nil, xerrors.New("not all payload bytes were consumed")
+		return nil, errors.New("not all payload bytes were consumed")
 	}
 	return
 })

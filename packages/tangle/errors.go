@@ -1,6 +1,6 @@
 package tangle
 
-import "errors"
+import "github.com/cockroachdb/errors"
 
 var (
 	// ErrNotSynced is triggered when somebody tries to issue a Payload before the Tangle is fully synced.

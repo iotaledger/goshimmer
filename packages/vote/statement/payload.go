@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -29,7 +29,7 @@ func init() {
 			return nil, err
 		}
 		if consumedBytes != len(data) {
-			return nil, xerrors.New("not all payload bytes were consumed")
+			return nil, errors.New("not all payload bytes were consumed")
 		}
 		return
 	})
@@ -60,7 +60,7 @@ func New(conflicts Conflicts, timestamps Timestamps) *Statement {
 func FromBytes(bytes []byte) (statement *Statement, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if statement, err = Parse(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Statement Payload from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse Statement Payload from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -79,7 +79,7 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (statement *Statement, err erro
 	statement = &Statement{}
 	payloadSize, err := marshalUtil.ReadUint32()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse payload size of statement payload: %w", err)
+		err = errors.Errorf("failed to parse payload size of statement payload: %w", err)
 		return
 	}
 	// a payloadSize of 0 indicates the payload is omitted and the payload is nil
@@ -89,17 +89,17 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (statement *Statement, err erro
 
 	payloadType, err := payload.TypeFromMarshalUtil(marshalUtil)
 	if err != nil {
-		err = xerrors.Errorf("failed to parse payload type of statement payload: %w", err)
+		err = errors.Errorf("failed to parse payload type of statement payload: %w", err)
 		return
 	}
 	if payloadType != StatementType {
-		err = xerrors.Errorf("payload type '%s' does not match expected '%s': %w", payloadType, StatementType, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("payload type '%s' does not match expected '%s': %w", payloadType, StatementType, cerrors.ErrParseBytesFailed)
 		return
 	}
 
 	// parse conflicts
 	if statement.ConflictsCount, err = marshalUtil.ReadUint32(); err != nil {
-		err = xerrors.Errorf("failed to parse conflicts len of statement payload: %w", err)
+		err = errors.Errorf("failed to parse conflicts len of statement payload: %w", err)
 		return
 	}
 
@@ -110,13 +110,13 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (statement *Statement, err erro
 	}
 
 	if statement.Conflicts, err = ConflictsFromMarshalUtil(marshalUtil, statement.ConflictsCount); err != nil {
-		err = xerrors.Errorf("failed to parse conflicts from statement payload: %w", err)
+		err = errors.Errorf("failed to parse conflicts from statement payload: %w", err)
 		return
 	}
 
 	// parse timestamps
 	if statement.TimestampsCount, err = marshalUtil.ReadUint32(); err != nil {
-		err = xerrors.Errorf("failed to parse timestamps len of statement payload: %w", err)
+		err = errors.Errorf("failed to parse timestamps len of statement payload: %w", err)
 		return
 	}
 
@@ -127,14 +127,14 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (statement *Statement, err erro
 	}
 
 	if statement.Timestamps, err = TimestampsFromMarshalUtil(marshalUtil, statement.TimestampsCount); err != nil {
-		err = xerrors.Errorf("failed to parse timestamps from statement payload: %w", err)
+		err = errors.Errorf("failed to parse timestamps from statement payload: %w", err)
 		return
 	}
 
 	// return the number of bytes we processed
 	parsedBytes = marshalUtil.ReadOffset() - readStartOffset
 	if parsedBytes != int(payloadSize)+4 { // skip the payload size
-		err = xerrors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, payloadSize, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, payloadSize, cerrors.ErrParseBytesFailed)
 		return
 	}
 

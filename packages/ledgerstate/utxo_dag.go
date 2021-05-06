@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/set"
@@ -17,7 +18,6 @@ import (
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/iotaledger/hive.go/typeutils"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/database"
 )
@@ -78,13 +78,13 @@ func (u *UTXODAG) CheckTransaction(transaction *Transaction) (err error) {
 
 	// perform cheap checks
 	if !u.allOutputsExist(consumedOutputs) {
-		return xerrors.Errorf("not all consumedOutputs of transaction are solid: %w", ErrTransactionNotSolid)
+		return errors.Errorf("not all consumedOutputs of transaction are solid: %w", ErrTransactionNotSolid)
 	}
 	if !TransactionBalancesValid(consumedOutputs, transaction.Essence().Outputs()) {
-		return xerrors.Errorf("sum of consumed and spent balances is not 0: %w", ErrTransactionInvalid)
+		return errors.Errorf("sum of consumed and spent balances is not 0: %w", ErrTransactionInvalid)
 	}
 	if !UnlockBlocksValid(consumedOutputs, transaction) {
-		return xerrors.Errorf("spending of referenced consumedOutputs is not authorized: %w", ErrTransactionInvalid)
+		return errors.Errorf("spending of referenced consumedOutputs is not authorized: %w", ErrTransactionInvalid)
 	}
 
 	return nil
@@ -112,7 +112,7 @@ func (u *UTXODAG) BookTransaction(transaction *Transaction) (targetBranch Branch
 		if !cachedTransactionMetadata.Consume(func(transactionMetadata *TransactionMetadata) {
 			targetBranch = transactionMetadata.BranchID()
 		}) {
-			err = xerrors.Errorf("failed to load TransactionMetadata with %s: %w", transaction.ID(), cerrors.ErrFatal)
+			err = errors.Errorf("failed to load TransactionMetadata with %s: %w", transaction.ID(), cerrors.ErrFatal)
 		}
 		return
 	}
@@ -142,7 +142,7 @@ func (u *UTXODAG) BookTransaction(transaction *Transaction) (targetBranch Branch
 
 	// check if any Input was spent by a confirmed Transaction already
 	if inputsSpentByConfirmedTransaction, tmpErr := u.inputsSpentByConfirmedTransaction(inputsMetadata); tmpErr != nil {
-		err = xerrors.Errorf("failed to check if inputs were spent by confirmed Transaction: %w", err)
+		err = errors.Errorf("failed to check if inputs were spent by confirmed Transaction: %w", err)
 		return
 	} else if inputsSpentByConfirmedTransaction {
 		targetBranch, err = u.bookRejectedConflictingTransaction(transaction, transactionMetadata, inputsMetadata)
@@ -159,7 +159,7 @@ func (u *UTXODAG) BookTransaction(transaction *Transaction) (targetBranch Branch
 	// determine the booking details before we book
 	branchesOfInputsConflicting, normalizedBranchIDs, conflictingInputs, err := u.determineBookingDetails(inputsMetadata)
 	if err != nil {
-		err = xerrors.Errorf("failed to determine book details of Transaction with %s: %w", transaction.ID(), err)
+		err = errors.Errorf("failed to determine book details of Transaction with %s: %w", transaction.ID(), err)
 		return
 	}
 
@@ -187,7 +187,7 @@ func (u *UTXODAG) InclusionState(transactionID TransactionID) (inclusionState In
 	defer cachedTransactionMetadata.Release()
 	transactionMetadata := cachedTransactionMetadata.Unwrap()
 	if transactionMetadata == nil {
-		err = xerrors.Errorf("failed to load TransactionMetadata with %s: %w", transactionID, cerrors.ErrFatal)
+		err = errors.Errorf("failed to load TransactionMetadata with %s: %w", transactionID, cerrors.ErrFatal)
 		return
 	}
 
@@ -195,7 +195,7 @@ func (u *UTXODAG) InclusionState(transactionID TransactionID) (inclusionState In
 	defer cachedBranch.Release()
 	branch := cachedBranch.Unwrap()
 	if branch == nil {
-		err = xerrors.Errorf("failed to load Branch with %s: %w", transactionMetadata.BranchID(), cerrors.ErrFatal)
+		err = errors.Errorf("failed to load Branch with %s: %w", transactionMetadata.BranchID(), cerrors.ErrFatal)
 		return
 	}
 
@@ -409,7 +409,7 @@ func (u *UTXODAG) bookRejectedConflictingTransaction(transaction *Transaction, t
 	targetBranch = NewBranchID(transaction.ID())
 	cachedConflictBranch, _, conflictBranchErr := u.branchDAG.CreateConflictBranch(targetBranch, NewBranchIDs(LazyBookedConflictsBranchID), nil)
 	if conflictBranchErr != nil {
-		err = xerrors.Errorf("failed to create ConflictBranch for lazy booked Transaction with %s: %w", transaction.ID(), conflictBranchErr)
+		err = errors.Errorf("failed to create ConflictBranch for lazy booked Transaction with %s: %w", transaction.ID(), conflictBranchErr)
 		return
 	}
 
@@ -421,7 +421,7 @@ func (u *UTXODAG) bookRejectedConflictingTransaction(transaction *Transaction, t
 
 		u.bookRejectedTransaction(transaction, transactionMetadata, inputsMetadata, targetBranch)
 	}) {
-		err = xerrors.Errorf("failed to load ConflictBranch with %s: %w", cachedConflictBranch.ID(), cerrors.ErrFatal)
+		err = errors.Errorf("failed to load ConflictBranch with %s: %w", cachedConflictBranch.ID(), cerrors.ErrFatal)
 	}
 
 	return
@@ -620,13 +620,13 @@ func (u *UTXODAG) determineBookingDetails(inputsMetadata OutputsMetadata) (branc
 
 	normalizedBranchIDs, err = u.branchDAG.normalizeBranches(NewBranchIDs(consumedBranches...))
 	if err != nil {
-		if xerrors.Is(err, ErrInvalidStateTransition) {
+		if errors.Is(err, ErrInvalidStateTransition) {
 			branchesOfInputsConflicting = true
 			err = nil
 			return
 		}
 
-		err = xerrors.Errorf("failed to normalize branches: %w", cerrors.ErrFatal)
+		err = errors.Errorf("failed to normalize branches: %w", cerrors.ErrFatal)
 		return
 	}
 
@@ -777,7 +777,7 @@ func (u *UTXODAG) inputsSpentByConfirmedTransaction(inputsMetadata OutputsMetada
 				inclusionState, inclusionStateErr := u.InclusionState(consumer.TransactionID())
 				if inclusionStateErr != nil {
 					cachedConsumers.Release()
-					err = xerrors.Errorf("failed to determine InclusionState of Transaction with %s: %w", consumer.TransactionID(), inclusionStateErr)
+					err = errors.Errorf("failed to determine InclusionState of Transaction with %s: %w", consumer.TransactionID(), inclusionStateErr)
 					return
 				}
 
@@ -936,7 +936,7 @@ func NewAddressOutputMapping(address Address, outputID OutputID) *AddressOutputM
 func AddressOutputMappingFromBytes(bytes []byte) (addressOutputMapping *AddressOutputMapping, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if addressOutputMapping, err = AddressOutputMappingFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse AddressOutputMapping from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse AddressOutputMapping from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -948,11 +948,11 @@ func AddressOutputMappingFromBytes(bytes []byte) (addressOutputMapping *AddressO
 func AddressOutputMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (addressOutputMapping *AddressOutputMapping, err error) {
 	addressOutputMapping = &AddressOutputMapping{}
 	if addressOutputMapping.address, err = AddressFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse consumed Address from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse consumed Address from MarshalUtil: %w", err)
 		return
 	}
 	if addressOutputMapping.outputID, err = OutputIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse OutputID from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse OutputID from MarshalUtil: %w", err)
 		return
 	}
 
@@ -963,7 +963,7 @@ func AddressOutputMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (
 // storage key of the object storage. It is used by the object storage, to create new instances of this entity.
 func AddressOutputMappingFromObjectStorage(key []byte, _ []byte) (result objectstorage.StorableObject, err error) {
 	if result, _, err = AddressOutputMappingFromBytes(key); err != nil {
-		err = xerrors.Errorf("failed to parse AddressOutputMapping from bytes: %w", err)
+		err = errors.Errorf("failed to parse AddressOutputMapping from bytes: %w", err)
 		return
 	}
 
@@ -1146,7 +1146,7 @@ func NewConsumer(consumedInput OutputID, transactionID TransactionID, valid type
 func ConsumerFromBytes(bytes []byte) (consumer *Consumer, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if consumer, err = ConsumerFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Consumer from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse Consumer from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -1158,15 +1158,15 @@ func ConsumerFromBytes(bytes []byte) (consumer *Consumer, consumedBytes int, err
 func ConsumerFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (consumer *Consumer, err error) {
 	consumer = &Consumer{}
 	if consumer.consumedInput, err = OutputIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse consumed Input from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse consumed Input from MarshalUtil: %w", err)
 		return
 	}
 	if consumer.transactionID, err = TransactionIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse TransactionID from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse TransactionID from MarshalUtil: %w", err)
 		return
 	}
 	if consumer.valid, err = types.TriBoolFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse valid flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse valid flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -1177,7 +1177,7 @@ func ConsumerFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (consumer *Co
 // object storage. It is used by the object storage, to create new instances of this entity.
 func ConsumerFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
 	if result, _, err = ConsumerFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = xerrors.Errorf("failed to parse Consumer from bytes: %w", err)
+		err = errors.Errorf("failed to parse Consumer from bytes: %w", err)
 		return
 	}
 

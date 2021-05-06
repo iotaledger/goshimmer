@@ -1,12 +1,12 @@
 package value
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/clock"

@@ -4,10 +4,10 @@ import (
 	"context"
 	"crypto"
 	"crypto/ed25519"
-	"errors"
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/logger"
 	_ "golang.org/x/crypto/blake2b" // required by crypto.BLAKE2b_512
 

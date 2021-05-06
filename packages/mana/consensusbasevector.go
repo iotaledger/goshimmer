@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/identity"
-	"golang.org/x/xerrors"
 )
 
 // ConsensusBaseManaVector represents a base mana vector.
@@ -325,11 +325,11 @@ func (c *ConsensusBaseManaVector) ToPersistables() []*PersistableBaseMana {
 // FromPersistable fills the ConsensusBaseManaVector from persistable mana objects.
 func (c *ConsensusBaseManaVector) FromPersistable(p *PersistableBaseMana) (err error) {
 	if p.ManaType != ConsensusMana {
-		err = xerrors.Errorf("persistable mana object has type %s instead of %s", p.ManaType.String(), ConsensusMana.String())
+		err = errors.Errorf("persistable mana object has type %s instead of %s", p.ManaType.String(), ConsensusMana.String())
 		return
 	}
 	if len(p.BaseValues) != 1 {
-		err = xerrors.Errorf("persistable mana object has %d base values instead of 1", len(p.BaseValues))
+		err = errors.Errorf("persistable mana object has %d base values instead of 1", len(p.BaseValues))
 		return
 	}
 	c.Lock()

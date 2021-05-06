@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
@@ -12,7 +13,6 @@ import (
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/mr-tron/base58"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
@@ -113,11 +113,11 @@ func (t *Tangle) Setup() {
 	t.TipManager.Setup()
 
 	t.MessageFactory.Events.Error.Attach(events.NewClosure(func(err error) {
-		t.Events.Error.Trigger(xerrors.Errorf("error in MessageFactory: %w", err))
+		t.Events.Error.Trigger(errors.Errorf("error in MessageFactory: %w", err))
 	}))
 
 	t.Booker.Events.Error.Attach(events.NewClosure(func(err error) {
-		t.Events.Error.Trigger(xerrors.Errorf("error in Booker: %w", err))
+		t.Events.Error.Trigger(errors.Errorf("error in Booker: %w", err))
 	}))
 }
 
@@ -131,7 +131,7 @@ func (t *Tangle) ProcessGossipMessage(messageBytes []byte, peer *peer.Peer) {
 // IssuePayload allows to attach a payload (i.e. a Transaction) to the Tangle.
 func (t *Tangle) IssuePayload(payload payload.Payload) (message *Message, err error) {
 	if !t.Synced() {
-		err = xerrors.Errorf("can't issue payload: %w", ErrNotSynced)
+		err = errors.Errorf("can't issue payload: %w", ErrNotSynced)
 		return
 	}
 
@@ -150,7 +150,7 @@ func (t *Tangle) IssuePayload(payload payload.Payload) (message *Message, err er
 			}
 		}
 		if len(invalidInputs) > 0 {
-			return nil, xerrors.Errorf("invalid inputs: %s: %w", strings.Join(invalidInputs, ","), ErrInvalidInputs)
+			return nil, errors.Errorf("invalid inputs: %s: %w", strings.Join(invalidInputs, ","), ErrInvalidInputs)
 		}
 	}
 

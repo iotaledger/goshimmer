@@ -3,13 +3,13 @@ package fpc
 import (
 	"container/list"
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"math/rand"
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/events"
 
 	"github.com/iotaledger/goshimmer/packages/clock"

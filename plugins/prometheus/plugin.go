@@ -6,13 +6,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/gin-gonic/gin"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/config"
@@ -108,7 +108,7 @@ func run(plugin *node.Plugin) {
 
 		go func() {
 			log.Infof("You can now access the Prometheus exporter using: http://%s/metrics", bindAddr)
-			if err := server.ListenAndServe(); err != nil && !xerrors.Is(err, http.ErrServerClosed) {
+			if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				log.Error("Stopping Prometheus exporter due to an error ... done")
 			}
 		}()

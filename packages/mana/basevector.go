@@ -3,8 +3,8 @@ package mana
 import (
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/identity"
-	"golang.org/x/xerrors"
 )
 
 // BaseManaVector is an interface for vectors that store base mana values of nodes in the network.
@@ -55,6 +55,6 @@ func NewBaseManaVector(vectorType Type) (BaseManaVector, error) {
 			vector: make(map[identity.ID]*ConsensusBaseMana),
 		}, nil
 	default:
-		return nil, xerrors.Errorf("error while creating base mana vector with type %d: %w", vectorType, ErrUnknownManaType)
+		return nil, errors.Errorf("error while creating base mana vector with type %d: %w", vectorType, ErrUnknownManaType)
 	}
 }
