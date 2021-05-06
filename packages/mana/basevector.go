@@ -58,29 +58,3 @@ func NewBaseManaVector(vectorType Type) (BaseManaVector, error) {
 		return nil, errors.Errorf("error while creating base mana vector with type %d: %w", vectorType, ErrUnknownManaType)
 	}
 }
-
-// NewResearchBaseManaVector creates a base mana vector for research purposes.
-func NewResearchBaseManaVector(vectorType Type, targetMana Type, weight float64) (BaseManaVector, error) {
-	if targetMana != AccessMana && targetMana != ConsensusMana {
-		return nil, errors.Errorf(
-			"targetMana must be either %s or %s, but it is %s: %w",
-			AccessMana.String(),
-			ConsensusMana.String(),
-			targetMana.String(),
-			ErrInvalidTargetManaType,
-		)
-	}
-	switch vectorType {
-	case WeightedMana:
-		vec := &WeightedBaseManaVector{
-			vector: make(map[identity.ID]*WeightedBaseMana),
-			target: targetMana,
-		}
-		if err := vec.SetWeight(weight); err != nil {
-			return nil, errors.Errorf("error while creating base mana vector with weight %f: %w", weight, err)
-		}
-		return vec, nil
-	default:
-		return nil, errors.Errorf("error while creating base mana vector with type %d: %w", vectorType, ErrUnknownManaType)
-	}
-}

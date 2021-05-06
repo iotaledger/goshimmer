@@ -95,6 +95,13 @@ func BranchIDFromRandomness() (branchID BranchID) {
 	return
 }
 
+// TransactionID returns the TransactionID of its underlying conflicting Transaction.
+func (b BranchID) TransactionID() (transactionID TransactionID) {
+	copy(transactionID[:], b[:])
+
+	return
+}
+
 // Bytes returns a marshaled version of the BranchID.
 func (b BranchID) Bytes() []byte {
 	return b[:]

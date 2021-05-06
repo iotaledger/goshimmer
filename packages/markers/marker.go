@@ -203,7 +203,7 @@ func (m *Markers) Set(sequenceID SequenceID, index Index) (updated, added bool) 
 			m.markers[sequenceID] = index
 
 			// find new lowest index
-			if index == m.lowestIndex {
+			if existingIndex == m.lowestIndex {
 				m.lowestIndex = 0
 				for _, scannedIndex := range m.markers {
 					if scannedIndex < m.lowestIndex || m.lowestIndex == 0 {
@@ -405,6 +405,8 @@ func (m *Markers) String() (humanReadableMarkers string) {
 
 		return true
 	})
+	structBuilder.AddField(stringify.StructField("lowestIndex", m.LowestIndex()))
+	structBuilder.AddField(stringify.StructField("highestIndex", m.HighestIndex()))
 
 	return structBuilder.String()
 }
@@ -685,7 +687,7 @@ func (r *ReferencedMarkers) String() (humanReadableReferencedMarkers string) {
 	for sequenceID, thresholdMap := range r.referencedIndexesBySequence {
 		thresholdMap.ForEach(func(node *thresholdmap.Element) bool {
 			index := Index(node.Key().(uint64))
-			referencedIndex := Index(node.Value().(uint64))
+			referencedIndex := node.Value().(Index)
 			if _, exists := referencedMarkersByReferencingIndex[index]; !exists {
 				referencedMarkersByReferencingIndex[index] = NewMarkers()
 

@@ -13,7 +13,6 @@ import (
 	"github.com/iotaledger/hive.go/stringify"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/epochs"
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
@@ -54,7 +53,7 @@ func NewTimeManager(tangle *Tangle) (timeManager *TimeManager) {
 	// Initialize with Genesis if not found in storage.
 	timeManager.lastConfirmedMessage = LastConfirmedMessage{
 		MessageID: EmptyMessageID,
-		Time:      time.Unix(epochs.DefaultGenesisTime, 0),
+		Time:      time.Unix(DefaultGenesisTime, 0),
 	}
 
 	return

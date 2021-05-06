@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/set"
+	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -44,6 +45,7 @@ func NewUTXODAG(store kvstore.KVStore, branchDAG *BranchDAG) (utxoDAG *UTXODAG) 
 	utxoDAG = &UTXODAG{
 		Events: &UTXODAGEvents{
 			TransactionBranchIDUpdated: events.NewEvent(transactionIDEventHandler),
+			TransactionConfirmed:       events.NewEvent(transactionIDEventHandler),
 		},
 		transactionStorage:          osFactory.New(PrefixTransactionStorage, TransactionFromObjectStorage, transactionStorageOptions...),
 		transactionMetadataStorage:  osFactory.New(PrefixTransactionMetadataStorage, TransactionMetadataFromObjectStorage, transactionMetadataStorageOptions...),
@@ -304,6 +306,76 @@ func (u *UTXODAG) AddressOutputMapping(address Address) (cachedAddressOutputMapp
 		cachedAddressOutputMappings = append(cachedAddressOutputMappings, &CachedAddressOutputMapping{cachedObject})
 		return true
 	}, objectstorage.WithIteratorPrefix(address.Bytes()))
+	return
+}
+
+// SetTransactionConfirmed marks a Transaction (and all Transactions in its past cone) as confirmed. It also marks the
+// conflicting Transactions to be rejected.
+func (u *UTXODAG) SetTransactionConfirmed(transactionID TransactionID) (err error) {
+	confirmationWalker := walker.New()
+	confirmationWalker.Push(transactionID)
+
+	u.TransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
+		err = u.branchDAG.SetBranchConfirmed(transactionMetadata.BranchID())
+	})
+	if err != nil {
+		return errors.Errorf("failed to set Branch of Transaction with %s to be confirmed: %w", transactionID, cerrors.ErrFatal)
+	}
+
+	seenTransactions := set.New()
+	confirmedTransactions := list.New()
+	for confirmationWalker.HasNext() {
+		u.setTransactionConfirmed(confirmationWalker.Next().(TransactionID), confirmedTransactions, seenTransactions, confirmationWalker)
+	}
+
+	triggeredEvents := set.New()
+	for confirmedTransactions.Len() > 0 {
+		currentElement := confirmedTransactions.Front()
+		confirmedTransactions.Remove(currentElement)
+		currentTransactionID := currentElement.Value.(TransactionID)
+
+		if !triggeredEvents.Add(currentTransactionID) {
+			continue
+		}
+
+		u.Events.TransactionConfirmed.Trigger(currentTransactionID)
+	}
+
+	return err
+}
+
+func (u *UTXODAG) setTransactionConfirmed(transactionID TransactionID, confirmedTransactions *list.List, seenTransactions set.Set, confirmationWalker *walker.Walker) {
+	u.TransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
+		if !transactionMetadata.SetFinalized(true) {
+			return
+		}
+
+		seenTransactions.Add(transactionID)
+		confirmedTransactions.PushFront(transactionID)
+
+		u.Transaction(transactionID).Consume(func(transaction *Transaction) {
+			for _, output := range transaction.Essence().Outputs() {
+				u.OutputMetadata(output.ID()).Consume(func(outputMetadata *OutputMetadata) {
+					outputMetadata.SetFinalized(true)
+				})
+			}
+
+			for referencedTransactionID := range transaction.ReferencedTransactionIDs() {
+				u.TransactionMetadata(referencedTransactionID).Consume(func(referencedTransactionMetadata *TransactionMetadata) {
+					if referencedTransactionMetadata.Finalized() {
+						if seenTransactions.Has(referencedTransactionID) {
+							confirmedTransactions.PushFront(referencedTransactionID)
+						}
+
+						return
+					}
+
+					confirmationWalker.Push(referencedTransactionID)
+				})
+			}
+		})
+	})
+
 	return
 }
 
@@ -830,6 +902,8 @@ func (u *UTXODAG) lockTransaction(transaction *Transaction) {
 type UTXODAGEvents struct {
 	// TransactionBranchIDUpdated gets triggered when the BranchID of a Transaction is changed after the initial booking.
 	TransactionBranchIDUpdated *events.Event
+	// Fired when a transaction gets confirmed.
+	TransactionConfirmed *events.Event
 }
 
 func transactionIDEventHandler(handler interface{}, params ...interface{}) {

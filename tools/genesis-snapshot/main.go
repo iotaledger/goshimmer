@@ -16,9 +16,9 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	"github.com/iotaledger/goshimmer/packages/epochs"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
 const (
@@ -100,7 +100,7 @@ func main() {
 	nodeID := identity.NewID(pubKey)
 	tx := ledgerstate.NewTransaction(ledgerstate.NewTransactionEssence(
 		0,
-		time.Unix(epochs.DefaultGenesisTime, 0),
+		time.Unix(tangle.DefaultGenesisTime, 0),
 		nodeID,
 		nodeID,
 		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
@@ -118,7 +118,7 @@ func main() {
 
 		tx = ledgerstate.NewTransaction(ledgerstate.NewTransactionEssence(
 			0,
-			time.Unix(epochs.DefaultGenesisTime, 0),
+			time.Unix(tangle.DefaultGenesisTime, 0),
 			nodeID,
 			nodeID,
 			ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, uint16(i+1)))),
