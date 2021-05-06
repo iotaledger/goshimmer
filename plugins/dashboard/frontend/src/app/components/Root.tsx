@@ -21,7 +21,6 @@ import {Mana} from "app/components/Mana";
 import {ExplorerTransactionQueryResult} from "app/components/ExplorerTransactionQueryResult";
 import {ExplorerOutputQueryResult} from "app/components/ExplorerOutputQueryResult";
 import {ExplorerBranchQueryResult} from "app/components/ExplorerBranchQueryResult";
-import {Epoch} from "app/components/Epoch";
 
 interface Props {
     history: any;
@@ -106,7 +105,6 @@ export class Root extends React.Component<Props, any> {
                     <Route exact path="/visualizer/history" component={Visualizer}/>
                     <Route exact path="/faucet" component={Faucet}/>
                     <Route exact path="/mana" component={Mana}/>
-                    <Route exact path="/epoch" component={Epoch}/>
                     <Redirect to="/dashboard"/>
                 </Switch>
                 {this.props.children}
