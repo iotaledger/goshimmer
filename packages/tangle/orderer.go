@@ -144,7 +144,7 @@ func (o *Orderer) run() {
 
 // OrdererEvents represents events happening in the Orderer.
 type OrdererEvents struct {
-	// MessageOrdered is triggered when a message is ordered and thus ready to be scheduled.
+	// MessageOrdered is triggered when a message is ordered and thus ready to be booked.
 	MessageOrdered *events.Event
 }
 
