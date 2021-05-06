@@ -62,13 +62,13 @@ func newFramework() (*Framework, error) {
 // CreateNetwork creates and returns a (Docker) Network that contains `peers` GoShimmer nodes.
 // It waits for the peers to autopeer until the minimum neighbors criteria is met for every peer.
 // The first peer automatically starts with the bootstrap plugin enabled.
-func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int, config CreateNetworkConfig) (*Network, error) {
+func (f *Framework) CreateNetwork(name string, peers int, config CreateNetworkConfig) (*Network, error) {
 	network, err := newNetwork(f.dockerClient, strings.ToLower(name), f.tester)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := network.createEntryNode(); err!= nil {
+	if err := network.createEntryNode(); err != nil {
 		return nil, err
 	}
 
@@ -325,8 +325,8 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers, minimumNeighb
 
 // CreateNetworkWithMana creates and returns a (Docker) Network that contains peers that all have some mana.
 // Mana is gotten by sending faucet requests.
-func (f *Framework) CreateNetworkWithMana(name string, peers, minimumNeighbors int, config CreateNetworkConfig) (*Network, error) {
-	n, err := f.CreateNetwork(name, peers, minimumNeighbors, config)
+func (f *Framework) CreateNetworkWithMana(name string, peers int, config CreateNetworkConfig) (*Network, error) {
+	n, err := f.CreateNetwork(name, peers, config)
 	if err != nil {
 		return nil, err
 	}

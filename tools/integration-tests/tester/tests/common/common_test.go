@@ -16,7 +16,7 @@ import (
 // and becomes synced again.
 func TestSynchronization(t *testing.T) {
 	initialPeers := 4
-	n, err := f.CreateNetwork("common_TestSynchronization", initialPeers, 2, framework.CreateNetworkConfig{})
+	n, err := f.CreateNetwork("common_TestSynchronization", initialPeers, framework.CreateNetworkConfig{})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -56,7 +56,7 @@ func TestSynchronization(t *testing.T) {
 	// wait for peer to start
 	time.Sleep(5 * time.Second)
 
-	err = n.WaitForManualpeering()
+	err = n.DoManualPeeringAndWait()
 	require.NoError(t, err)
 
 	// note: this check is too dependent on the initial time a node sends bootstrap messages

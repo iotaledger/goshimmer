@@ -31,7 +31,7 @@ func TestConsensus(t *testing.T) {
 	// }()
 
 	// create two partitions with their own peers
-	n, err := f.CreateNetwork("conflict", numberOfPeers, 3, framework.CreateNetworkConfig{Mana: true})
+	n, err := f.CreateNetwork("conflict", numberOfPeers,  framework.CreateNetworkConfig{Mana: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 

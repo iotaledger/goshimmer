@@ -18,7 +18,7 @@ import (
 )
 
 func TestManaPersistence(t *testing.T) {
-	n, err := f.CreateNetwork("mana_TestPersistence", 1, 0, framework.CreateNetworkConfig{Faucet: true, Mana: true})
+	n, err := f.CreateNetwork("mana_TestPersistence", 1,  framework.CreateNetworkConfig{Faucet: true, Mana: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -57,7 +57,7 @@ func TestManaPersistence(t *testing.T) {
 
 func TestPledgeFilter(t *testing.T) {
 	numPeers := 2
-	n, err := f.CreateNetwork("mana_TestAPI", 0, 0, framework.CreateNetworkConfig{})
+	n, err := f.CreateNetwork("mana_TestAPI", 0,  framework.CreateNetworkConfig{})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -136,7 +136,7 @@ func TestPledgeFilter(t *testing.T) {
 }
 
 func TestConsensusManaInThePast(t *testing.T) {
-	n, err := f.CreateNetwork("mana_TestConsensusManaInThePast", 2, 1, framework.CreateNetworkConfig{Faucet: true, Mana: true})
+	n, err := f.CreateNetwork("mana_TestConsensusManaInThePast", 2,  framework.CreateNetworkConfig{Faucet: true, Mana: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -172,7 +172,7 @@ func TestApis(t *testing.T) {
 	defer func() {
 		framework.ParaManaOnEveryNode = prevParaManaOnEveryNode
 	}()
-	n, err := f.CreateNetwork("mana_TestAPI", 4, 3, framework.CreateNetworkConfig{Faucet: true, Mana: true})
+	n, err := f.CreateNetwork("mana_TestAPI", 4,  framework.CreateNetworkConfig{Faucet: true, Mana: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
