@@ -239,7 +239,7 @@ func (f *Framework) CreateNetworkWithPartitions(name string, peers, partitions, 
 }
 
 // CreateDRNGNetwork creates and returns a (Docker) Network that contains drand and `peers` GoShimmer nodes.
-func (f *Framework) CreateDRNGNetwork(name string, members, peers, minimumNeighbors int) (*DRNGNetwork, error) {
+func (f *Framework) CreateDRNGNetwork(name string, members, peers int) (*DRNGNetwork, error) {
 	drng, err := newDRNGNetwork(f.dockerClient, strings.ToLower(name), f.tester)
 	if err != nil {
 		return nil, err

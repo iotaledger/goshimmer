@@ -69,6 +69,8 @@ func TestTransactionPersistence(t *testing.T) {
 
 	// wait for peers to start
 	time.Sleep(20 * time.Second)
+	err = n.DoManualPeeringAndWait()
+	require.NoError(t, err)
 
 	// check whether all issued transactions are available on all nodes and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
@@ -137,6 +139,8 @@ func TestValueColoredPersistence(t *testing.T) {
 
 	// wait for peers to start
 	time.Sleep(20 * time.Second)
+	err = n.DoManualPeeringAndWait()
+	require.NoError(t, err)
 
 	// check whether all issued transactions are persistently available on all nodes, and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
