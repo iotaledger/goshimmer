@@ -81,11 +81,6 @@ export class Root extends React.Component<Props, any> {
                                 Mana
                             </Nav.Link>
                         </LinkContainer>
-                        <LinkContainer to="/epoch">
-                            <Nav.Link>
-                                Epochs
-                            </Nav.Link>
-                        </LinkContainer>
                     </Nav>
                     <Navbar.Collapse className="justify-content-end">
                         <NavExplorerSearchbar/>

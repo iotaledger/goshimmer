@@ -1,6 +1,7 @@
 package plugins
 
 import (
+	"github.com/iotaledger/goshimmer/plugins/webapi/weightprovider"
 	"github.com/iotaledger/hive.go/node"
 
 	"github.com/iotaledger/goshimmer/plugins/webapi"
@@ -31,4 +32,5 @@ var WebAPI = node.Plugins(
 	tools.Plugin(),
 	mana.Plugin(),
 	ledgerstate.Plugin(),
+	weightprovider.Plugin(),
 )

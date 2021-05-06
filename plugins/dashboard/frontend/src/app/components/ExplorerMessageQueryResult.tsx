@@ -189,6 +189,9 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                                         Issuer Public Key: {msg.issuer_public_key}
                                     </ListGroup.Item>
                                     <ListGroup.Item>
+                                        Issuer NodeID: {msg.issuer_short_id}
+                                    </ListGroup.Item>
+                                    <ListGroup.Item>
                                         Message Signature: {msg.signature}
                                     </ListGroup.Item>
                                 </ListGroup>
