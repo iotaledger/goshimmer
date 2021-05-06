@@ -909,7 +909,7 @@ func TestBookerNewAutomaticSequence(t *testing.T) {
 	testFramework.IssueMessages("Message1", "Message2").WaitMessagesBooked()
 
 	messageAliases := []string{"Message1"}
-	for i := 0; i < 320; i++ {
+	for i := 0; i < 3020; i++ {
 		parentMessageAlias := messageAliases[i]
 		currentMessageAlias := "Message" + strconv.Itoa(i+3)
 		messageAliases = append(messageAliases, currentMessageAlias)
@@ -918,9 +918,9 @@ func TestBookerNewAutomaticSequence(t *testing.T) {
 		testFramework.WaitMessagesBooked()
 	}
 
-	assert.True(t, tangle.Storage.MessageMetadata(testFramework.Message("Message309").ID()).Consume(func(messageMetadata *MessageMetadata) {
+	assert.True(t, tangle.Storage.MessageMetadata(testFramework.Message("Message3009").ID()).Consume(func(messageMetadata *MessageMetadata) {
 		assert.Equal(t, &markers.StructureDetails{
-			Rank:          308,
+			Rank:          3008,
 			PastMarkerGap: 0,
 			IsPastMarker:  true,
 			SequenceID:    2,
