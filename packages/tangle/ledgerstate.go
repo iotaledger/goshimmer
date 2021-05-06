@@ -208,7 +208,7 @@ func (l *LedgerState) Snapshot() (snapshot *ledgerstate.Snapshot) {
 
 // Transactions returns all the transactions.
 func (l *LedgerState) Transactions() (transactions []*ledgerstate.Transaction) {
-	return l.utxoDAG.Transactions()
+	return l.UTXODAG.Transactions()
 }
 
 // Output returns the Output with the given ID.

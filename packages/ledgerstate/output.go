@@ -1043,7 +1043,7 @@ func OutputMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output
 		return
 	}
 	if outputMetadata.finalizedSpend, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse finalized spend flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse finalized spend flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
