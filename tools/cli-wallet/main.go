@@ -37,6 +37,8 @@ func main() {
 	balanceCommand := flag.NewFlagSet("balance", flag.ExitOnError)
 	sendFundsCommand := flag.NewFlagSet("send-funds", flag.ExitOnError)
 	createAssetCommand := flag.NewFlagSet("create-asset", flag.ExitOnError)
+	delegateFundsCommand := flag.NewFlagSet("delegate-funds", flag.ExitOnError)
+	reclaimDelegatedFundsCommand := flag.NewFlagSet("reclaim-delegated", flag.ExitOnError)
 	createNFTCommand := flag.NewFlagSet("create-nft", flag.ExitOnError)
 	transferNFTCommand := flag.NewFlagSet("transfer-nft", flag.ExitOnError)
 	destroyNFTCommand := flag.NewFlagSet("destroy-nft", flag.ExitOnError)
@@ -59,6 +61,10 @@ func main() {
 		execSendFundsCommand(sendFundsCommand, wallet)
 	case "create-asset":
 		execCreateAssetCommand(createAssetCommand, wallet)
+	case "delegate-funds":
+		execDelegateFundsCommand(delegateFundsCommand, wallet)
+	case "reclaim-delegated":
+		execReclaimDelegatedFundsCommand(reclaimDelegatedFundsCommand, wallet)
 	case "create-nft":
 		execCreateNFTCommand(createNFTCommand, wallet)
 	case "transfer-nft":

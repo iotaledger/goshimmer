@@ -249,7 +249,7 @@ func (wallet *Wallet) CreateAsset(asset Asset, waitForConfirmation ...bool) (ass
 // region DelegateFunds ////////////////////////////////////////////////////////////////////////////////////////////////
 
 // DelegateFunds delegates funds to a given address by creating a delegated alias output.
-func (wallet *Wallet) DelegateFunds(options ...delegatefunds_options.DelegateFundsOption) (tx *ledgerstate.Transaction, err error) {
+func (wallet *Wallet) DelegateFunds(options ...delegatefunds_options.DelegateFundsOption) (tx *ledgerstate.Transaction, delegationIDs []*ledgerstate.AliasAddress, err error) {
 	// build options
 	delegateOptions, err := delegatefunds_options.BuildDelegateFundsOptions(options...)
 	if err != nil {
@@ -312,15 +312,19 @@ func (wallet *Wallet) DelegateFunds(options ...delegatefunds_options.DelegateFun
 	// remainder balance = totalConsumed - required
 	for color, balance := range requiredFunds {
 		if totalConsumedFunds[color] < balance {
-			return nil, xerrors.Errorf("delegated funds are greater than consumed funds")
+			err = xerrors.Errorf("delegated funds are greater than consumed funds")
+			return
 		}
 		totalConsumedFunds[color] -= balance
 		if totalConsumedFunds[color] <= 0 {
 			delete(totalConsumedFunds, color)
 		}
 	}
-	remainderBalances := ledgerstate.NewColoredBalances(totalConsumedFunds)
-	unsortedOutputs = append(unsortedOutputs, ledgerstate.NewSigLockedColoredOutput(remainderBalances, remainderAddress.Address()))
+	// only create remainder output if there is a remainder balance
+	if len(totalConsumedFunds) > 0 {
+		remainderBalances := ledgerstate.NewColoredBalances(totalConsumedFunds)
+		unsortedOutputs = append(unsortedOutputs, ledgerstate.NewSigLockedColoredOutput(remainderBalances, remainderAddress.Address()))
+	}
 
 	outputs := ledgerstate.NewOutputs(unsortedOutputs...)
 	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), aPledgeID, cPledgeID, inputs, outputs)
@@ -331,16 +335,26 @@ func (wallet *Wallet) DelegateFunds(options ...delegatefunds_options.DelegateFun
 	// check syntactical validity by marshaling an unmarshaling
 	tx, _, err = ledgerstate.TransactionFromBytes(tx.Bytes())
 	if err != nil {
-		return nil, err
+		return
 	}
 
 	//check tx validity (balances, unlock blocks)
 	ok, err := checkBalancesAndUnlocks(inputsAsOutputsInOrder, tx)
 	if err != nil {
-		return nil, err
+		return
 	}
 	if !ok {
-		return nil, xerrors.Errorf("created transaction is invalid: %s", tx.String())
+		err = xerrors.Errorf("created transaction is invalid: %s", tx.String())
+		return
+	}
+
+	// look for the ids of the freshly created delegation aliases that are only available after the outputID is set.
+	delegationIDs = make([]*ledgerstate.AliasAddress, 0)
+	for _, output := range tx.Essence().Outputs() {
+		if output.Type() == ledgerstate.AliasOutputType {
+			// Address() for an alias output returns the alias address, the unique ID of the alias
+			delegationIDs = append(delegationIDs, output.Address().(*ledgerstate.AliasAddress))
+		}
 	}
 
 	// mark outputs as spent
@@ -359,7 +373,7 @@ func (wallet *Wallet) DelegateFunds(options ...delegatefunds_options.DelegateFun
 
 	err = wallet.connector.SendTransaction(tx)
 	if err != nil {
-		return nil, err
+		return
 	}
 	if delegateOptions.WaitForConfirmation {
 		err = wallet.WaitForTxConfirmation(tx.ID())
@@ -387,7 +401,7 @@ func (wallet *Wallet) ReclaimDelegatedFunds(options ...reclaimfunds_options.Recl
 	tx, err = wallet.DestroyNFT(
 		destroynft_options.Alias(reclaimOptions.Alias.Base58()),
 		destroynft_options.RemainderAddress(reclaimOptions.ToAddress.Base58()),
-		destroynft_options.WaitForConfirmation(true),
+		destroynft_options.WaitForConfirmation(reclaimOptions.WaitForConfirmation),
 	)
 
 	return
@@ -642,6 +656,11 @@ func (wallet *Wallet) DestroyNFT(options ...destroynft_options.DestroyNFTOption)
 		return
 	}
 	alias := walletAlias.Object.(*ledgerstate.AliasOutput)
+
+	if alias.DelegationTimeLockedNow(time.Now()) {
+		err = xerrors.Errorf("alias %s is delegation timelocked until %s", alias.GetAliasAddress().Base58(), alias.DelegationTimelock().String())
+		return
+	}
 
 	// can only be destroyed when minimal funds are present (unless it is delegated)
 	if !alias.IsDelegated() && !ledgerstate.IsExactDustMinimum(alias.Balances()) {

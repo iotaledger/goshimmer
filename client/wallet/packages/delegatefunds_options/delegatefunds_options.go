@@ -13,21 +13,11 @@ import (
 type DelegateFundsOption func(*delegateFundsOptions) error
 
 // Destination is an option for the SendFunds call that defines a destination for funds that are supposed to be moved.
-func Destination(addr address.Address, amount uint64, optionalColor ...ledgerstate.Color) DelegateFundsOption {
-	// determine optional output color
-	var outputColor ledgerstate.Color
-	switch len(optionalColor) {
-	case 0:
-		outputColor = ledgerstate.ColorIOTA
-	case 1:
-		outputColor = optionalColor[0]
-	default:
-		return optionError(xerrors.Errorf("providing more than one output color for the destination of funds is forbidden"))
-	}
+func Destination(addr address.Address, balance map[ledgerstate.Color]uint64) DelegateFundsOption {
 
-	// return an error if the amount is less
-	if amount < ledgerstate.DustThresholdAliasOutputIOTA {
-		return optionError(xerrors.Errorf("the amount provided in the destinations needs to be larger than %d", ledgerstate.DustThresholdAliasOutputIOTA))
+	// return an error if the IOTA amount is less
+	if balance[ledgerstate.ColorIOTA] < ledgerstate.DustThresholdAliasOutputIOTA {
+		return optionError(xerrors.Errorf("the IOTA amount provided in the destination needs to be larger than %d", ledgerstate.DustThresholdAliasOutputIOTA))
 	}
 
 	// return Option
@@ -42,14 +32,10 @@ func Destination(addr address.Address, amount uint64, optionalColor ...ledgersta
 			options.Destinations[addr] = make(map[ledgerstate.Color]uint64)
 		}
 
-		// initialize color specific destination
-		if _, colorExists := options.Destinations[addr][outputColor]; !colorExists {
-			options.Destinations[addr][outputColor] = 0
+		for color, amount := range balance {
+			// increase amount
+			options.Destinations[addr][color] += amount
 		}
-
-		// increase amount
-		options.Destinations[addr][outputColor] += amount
-
 		return nil
 	}
 }
