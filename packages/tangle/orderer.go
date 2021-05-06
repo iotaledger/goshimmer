@@ -6,14 +6,7 @@ import (
 	"github.com/iotaledger/hive.go/events"
 )
 
-const (
-	workerCount     = 1
-	workerQueueSize = 1024
-)
-
-// Orderer is a Tangle component that makes sure that no messages too far ahead of the TangleTime are booked.
-// This is necessary to basically replay the tangle data structure as it was constructed during syncing to avoid
-// distortions in perceptions of the approval weight.
+// Orderer is a Tangle component that makes sure that no messages are booked without their parents being booked first.
 type Orderer struct {
 	Events *OrdererEvents
 
@@ -35,7 +28,7 @@ func NewOrderer(tangle *Tangle) (orderer *Orderer) {
 		},
 		tangle:            tangle,
 		shutdownSignal:    make(chan struct{}),
-		bookedMessageChan: make(chan MessageID),
+		bookedMessageChan: make(chan MessageID, 1024),
 		inbox:             make(chan MessageID, 1024),
 		parentsMap:        make(map[MessageID][]MessageID),
 	}
@@ -106,6 +99,19 @@ func (o *Orderer) run() {
 		defer o.shutdownWG.Done()
 
 		for {
+			select {
+			case bookedMessage := <-o.bookedMessageChan:
+				if _, exists := o.parentsMap[bookedMessage]; !exists {
+					continue
+				}
+
+				for _, childID := range o.parentsMap[bookedMessage] {
+					o.tryToSchedule(childID)
+				}
+				delete(o.parentsMap, bookedMessage)
+			default:
+			}
+
 			select {
 			case bookedMessage := <-o.bookedMessageChan:
 				if _, exists := o.parentsMap[bookedMessage]; !exists {
