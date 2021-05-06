@@ -1,7 +1,7 @@
 # How to configure followed sync beacon nodes
 
 ## Why do you need to follow sync beacons?
-[Sync beacons](https://github.com/iotaledger/goshimmer/wiki/How-to-run-a-sync-beacon#what-is-a-sync-beacon) help your node to determine its synced status. To conclude that your node has the same view on the Tangle in a fully decentralized network, you have to rely on information coming from your peers. Sync beacons are part of the mechanism that lets you do exactly this.
+[Sync beacons](./syncbeacon.md) help your node to determine its synced status. To conclude that your node has the same view on the Tangle in a fully decentralized network, you have to rely on information coming from your peers. Sync beacons are part of the mechanism that lets you do exactly this.
 
 You listen to sync beacons in the message Tangle from your choice of nodes, and try to solidify them. If successfully done within a predefined time window, you conclude that your node is `synced` compared to the node that issued the sync beacon. Since you can follow an arbitrary number of sync beacon nodes, your `own synced` status is determined as a quorum of your `synced` status compared to others. The quorum size (in percentage) is configurable via config file or cli flags, but has to be within the [0.5, 1.0] interval. `0.5` means that you have to be in sync at least to half of the nodes you are following, `1.0` means that you have to be synced to all of them.
 ## Follow a set of nodes
