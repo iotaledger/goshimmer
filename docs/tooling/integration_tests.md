@@ -14,6 +14,7 @@ Prerequisites:
 
 ```
 # Mac & Linux
+cd tools/integration-tests
 ./runTests.sh
 ```
 The tests produce `*.log` files for every networks' peer in the `logs` folder after every run.
@@ -21,7 +22,7 @@ The tests produce `*.log` files for every networks' peer in the `logs` folder af
 On GitHub logs of every peer are stored as artifacts and can be downloaded for closer inspection once the job finishes.
 
 ## Creating tests
-Tests can be written in regular Go style. Each tested component should reside in its own test file in `tester/tests`.
+Tests can be written in regular Go style. Each tested component should reside in its own test file in `tools/integration-tests/tester/tests`.
 `main_test` with its `TestMain` function is executed before any test in the package and initializes the integration test framework.
 
 Each test has to specify its network where the tests are run. This can be done via the framework at the beginning of a test.
