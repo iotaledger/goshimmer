@@ -196,18 +196,15 @@ func TestApis(t *testing.T) {
 	require.NoError(t, err)
 	resp4.Nodes = stripGenesisNodeID(resp4.Nodes)
 	require.Equal(t, 3, len(resp3.Nodes))
-	require.Equal(t, 4, len(resp4.Nodes))
 	for i := 0; i < 3; i++ {
 		assert.Equal(t, base58.Encode(peers[i].ID().Bytes()), resp3.Nodes[i].NodeID)
-		// faucet pledged its cons mana to emptyNodeID...
-		if i == 1 {
-			assert.Equal(t, base58.Encode(emptyNodeID.Bytes()), resp4.Nodes[i].NodeID)
-		} else if i > 1 {
-			assert.Equal(t, base58.Encode(peers[i-1].ID().Bytes()), resp4.Nodes[i].NodeID)
-		} else {
-			assert.Equal(t, base58.Encode(peers[i].ID().Bytes()), resp4.Nodes[i].NodeID)
-		}
 	}
+
+	require.Equal(t, 4, len(resp4.Nodes))
+	assert.Equal(t, base58.Encode(peers[0].ID().Bytes()), resp4.Nodes[0].NodeID)
+	assert.Equal(t, base58.Encode(emptyNodeID.Bytes()), resp4.Nodes[1].NodeID)
+	assert.True(t, base58.Encode(peers[1].ID().Bytes()) == resp4.Nodes[2].NodeID || base58.Encode(peers[1].ID().Bytes()) == resp4.Nodes[3].NodeID)
+	assert.True(t, base58.Encode(peers[2].ID().Bytes()) == resp4.Nodes[2].NodeID || base58.Encode(peers[2].ID().Bytes()) == resp4.Nodes[3].NodeID)
 
 	// Test /mana/percentile
 	resp5, err := peers[0].GoShimmerAPI.GetManaPercentile(base58.Encode(peers[0].ID().Bytes()))
