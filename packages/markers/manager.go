@@ -6,13 +6,13 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/datastructure/orderedmap"
+	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/hive.go/datastructure/orderedmap"
-	"github.com/iotaledger/hive.go/datastructure/walker"
 )
 
 // region Manager //////////////////////////////////////////////////////////////////////////////////////////////////////
