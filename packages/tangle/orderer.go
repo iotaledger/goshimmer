@@ -2,14 +2,13 @@ package tangle
 
 import (
 	"sync"
-	"time"
 
 	"github.com/iotaledger/hive.go/events"
 )
 
 const (
-	// allowedFutureBooking defines the duration in which messages ahead of the TangleTime can be forwarded to the scheduler.
-	allowedFutureBooking = 30 * time.Minute
+	workerCount     = 1
+	workerQueueSize = 1024
 )
 
 // Orderer is a Tangle component that makes sure that no messages too far ahead of the TangleTime are booked.
@@ -40,13 +39,13 @@ func NewOrderer(tangle *Tangle) (orderer *Orderer) {
 		inbox:             make(chan MessageID, 1024),
 		parentsMap:        make(map[MessageID][]MessageID),
 	}
+
 	orderer.run()
 
 	return
 }
 
 func (o *Orderer) onMessageBooked(messageID MessageID) {
-	//fmt.Println(messageID)
 	o.bookedMessageChan <- messageID
 }
 
@@ -76,9 +75,13 @@ func (o *Orderer) tryToSchedule(messageID MessageID) (parentsToBook []MessageID)
 	return
 }
 
+func (o *Orderer) onMessageScheduled(messageID MessageID) {
+	o.inbox <- messageID
+}
+
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (o *Orderer) Setup() {
-	// o.tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(o.Order))
+	o.tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(o.onMessageScheduled))
 	o.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(o.onMessageBooked))
 }
 
@@ -89,6 +92,10 @@ func (o *Orderer) Shutdown() {
 	})
 
 	o.shutdownWG.Wait()
+}
+
+func (o *Orderer) processMessage(messageID MessageID) {
+	o.inbox <- messageID
 }
 
 // run runs the background thread that listens to TangleTime updates (through a channel) and then schedules messages
