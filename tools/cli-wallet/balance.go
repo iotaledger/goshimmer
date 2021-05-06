@@ -49,13 +49,43 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	}
 	w.Flush()
 
-	// print alias balances
+	// fetch balances from wallet
 	confirmedGovAliasBalance, confirmedStateAliasBalance, pendingGovAliasBalance, pendingStateAliasBalance, err := cliWallet.AliasBalance()
+	confirmedDel, pendingDel, err := cliWallet.DelegatedAliasBalance()
+
+	// process returned data, prepare for printing
+
+	// remove alias outputs from confirmedStateAliasBalance that are state & governance controlled
+	for aliasID, _ := range confirmedStateAliasBalance {
+		if _, has := confirmedGovAliasBalance[aliasID]; has {
+			delete(confirmedStateAliasBalance, aliasID)
+		}
+	}
+	// remove alias outputs from pendingStateAliasBalance that are state & governance controlled
+	for aliasID, _ := range pendingStateAliasBalance {
+		if _, has := pendingGovAliasBalance[aliasID]; has {
+			delete(pendingStateAliasBalance, aliasID)
+		}
+	}
+
+	// remove confirmed delegated alias outputs from governance controlled balance
+	for aliasID, _ := range confirmedDel {
+		if _, has := confirmedGovAliasBalance[aliasID]; has {
+			delete(confirmedGovAliasBalance, aliasID)
+		}
+	}
+	// remove pending delegated alias outputs from governance controlled balance
+	for aliasID, _ := range pendingDel {
+		if _, has := pendingGovAliasBalance[aliasID]; has {
+			delete(pendingGovAliasBalance, aliasID)
+		}
+	}
 
 	if err != nil {
 		printUsage(nil, err.Error())
 	}
 
+	// first print governed aliases
 	if len(confirmedGovAliasBalance) != 0 || len(pendingGovAliasBalance) != 0 {
 		// initialize tab writer
 		wAlias := new(tabwriter.Writer)
@@ -69,6 +99,9 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 		_, _ = fmt.Fprintf(wAlias, "%s\t%s\t%s\t%s\t%s\n", "------", "--------------------------------------------", "---------------", "--------------------------------------------", "-------------------------")
 
 		for aliasID, alias := range confirmedGovAliasBalance {
+			if _, has := confirmedDel[aliasID]; has {
+				continue
+			}
 			balances := alias.Balances()
 			i := 0
 			balances.ForEach(func(color ledgerstate.Color, balance uint64) bool {
@@ -82,6 +115,9 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 			})
 		}
 		for aliasID, alias := range pendingGovAliasBalance {
+			if _, has := pendingDel[aliasID]; has {
+				continue
+			}
 			balances := alias.Balances()
 			i := 0
 			balances.ForEach(func(color ledgerstate.Color, balance uint64) bool {
@@ -98,17 +134,7 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 		wAlias.Flush()
 	}
 
-	for aliasID, _ := range confirmedStateAliasBalance {
-		if _, has := confirmedGovAliasBalance[aliasID]; has {
-			delete(confirmedStateAliasBalance, aliasID)
-		}
-	}
-	for aliasID, _ := range pendingStateAliasBalance {
-		if _, has := pendingGovAliasBalance[aliasID]; has {
-			delete(pendingStateAliasBalance, aliasID)
-		}
-	}
-
+	// then print only state controlled aliases
 	if len(confirmedStateAliasBalance) != 0 || len(pendingStateAliasBalance) != 0 {
 		// initialize tab writer
 		sAlias := new(tabwriter.Writer)
@@ -151,7 +177,7 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 		sAlias.Flush()
 	}
 
-	confirmedDel, pendingDel, err := cliWallet.DelegatedAliasBalance()
+	// finally print delegated aliases
 	if len(confirmedDel) != 0 || len(pendingDel) != 0 {
 		// initialize tab writer
 		wDel := new(tabwriter.Writer)
