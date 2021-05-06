@@ -24,7 +24,8 @@ const (
 var ErrNotRunning = xerrors.New("scheduler is not running")
 
 var (
-	submitWorkerCount     = 4
+	// TODO: investigate multiple workers
+	submitWorkerCount     = 1
 	submitWorkerQueueSize = 250
 	submitWorkerPool      *workerpool.WorkerPool
 )
