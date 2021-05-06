@@ -58,7 +58,7 @@ func TestPrepareFaucet(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	time.Sleep(1 * time.Second)
+	time.Sleep(5 * time.Second)
 	err = n.DoManualPeeringAndWait()
 	require.NoError(t, err)
 

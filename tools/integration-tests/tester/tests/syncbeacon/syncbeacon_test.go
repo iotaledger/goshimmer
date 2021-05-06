@@ -33,7 +33,7 @@ func TestSyncBeacon(t *testing.T) {
 		beaconPublicKeys = append(beaconPublicKeys, peer.PublicKey().String())
 	}
 	peers := n.Peers()
-	time.Sleep(1 * time.Second)
+	time.Sleep(5 * time.Second)
 	err = n.DoManualPeeringAndWait()
 	require.NoError(t, err)
 

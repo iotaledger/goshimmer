@@ -121,7 +121,7 @@ func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int, 
 		}
 	}
 	// wait until containers are fully started
-	time.Sleep(1 * time.Second)
+	time.Sleep(5 * time.Second)
 	if err := network.DoManualPeeringAndWait(); err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -314,7 +314,7 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers, minimumNeighb
 	}
 
 	// wait until peers are fully started and connected
-	time.Sleep(1 * time.Second)
+	time.Sleep(5 * time.Second)
 	err = drng.network.DoManualPeeringAndWait()
 	if err != nil {
 		return nil, errors.WithStack(err)

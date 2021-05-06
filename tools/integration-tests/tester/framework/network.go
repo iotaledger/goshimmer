@@ -91,7 +91,7 @@ func (n *Network) CreatePeerAndWaitForManualPeering(c GoShimmerConfig) (*Peer, e
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	time.Sleep(1 * time.Second)
+	time.Sleep(5 * time.Second)
 	if err := n.DoManualPeeringAndWait(); err != nil {
 		return nil, errors.WithStack(err)
 	}
