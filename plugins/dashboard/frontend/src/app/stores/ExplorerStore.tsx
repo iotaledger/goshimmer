@@ -22,6 +22,7 @@ export class Message {
     issuance_timestamp: number;
     sequence_number: number;
     issuer_public_key: string;
+    issuer_short_id: string;
     signature: string;
     strongParents: Array<string>;
     weakParents: Array<string>;

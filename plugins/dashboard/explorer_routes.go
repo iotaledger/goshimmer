@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58/base58"
 
@@ -27,6 +28,8 @@ type ExplorerMessage struct {
 	SequenceNumber uint64 `json:"sequence_number"`
 	// The public key of the issuer who issued this message.
 	IssuerPublicKey string `json:"issuer_public_key"`
+	// The shortID of the issuer.
+	IssuerShortID string `json:"issuer_short_id"`
 	// The signature of the message.
 	Signature string `json:"signature"`
 	// StrongParents are the strong parents (references) of the message.
@@ -73,6 +76,7 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		SolidificationTimestamp: messageMetadata.SolidificationTime().Unix(),
 		IssuanceTimestamp:       msg.IssuingTime().Unix(),
 		IssuerPublicKey:         msg.IssuerPublicKey().String(),
+		IssuerShortID:           identity.NewID(msg.IssuerPublicKey()).String(),
 		Signature:               msg.Signature().String(),
 		SequenceNumber:          msg.SequenceNumber(),
 		StrongParents:           msg.StrongParents().ToStrings(),
