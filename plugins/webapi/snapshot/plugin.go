@@ -47,7 +47,7 @@ func Plugin() *node.Plugin {
 func DumpCurrentLedger(c echo.Context) (err error) {
 	snapshot := messagelayer.Tangle().LedgerState.Snapshot()
 
-	aMana, err := DumpAccessMana()
+	aMana, err := dumpAccessMana()
 	if err != nil {
 		return err
 	}
@@ -71,7 +71,7 @@ func DumpCurrentLedger(c echo.Context) (err error) {
 	return c.Attachment(snapshotFileName, snapshotFileName)
 }
 
-func DumpAccessMana() (aManaSnapshot map[identity.ID]ledgerstate.AccessMana, err error) {
+func dumpAccessMana() (aManaSnapshot map[identity.ID]ledgerstate.AccessMana, err error) {
 	aManaSnapshot = make(map[identity.ID]ledgerstate.AccessMana)
 
 	m, t, err := messagelayer.GetManaMap(mana.AccessMana)

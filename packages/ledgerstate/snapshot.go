@@ -16,6 +16,7 @@ type Snapshot struct {
 	AccessManaVector map[identity.ID]AccessMana
 }
 
+// AccessMana defines the info for the aMana snapshot.
 type AccessMana struct {
 	Value     float64
 	Timestamp time.Time
@@ -88,11 +89,23 @@ func (s *Snapshot) WriteTo(writer io.Writer) (int64, error) {
 // ReadFrom reads the snapshot bytes from the given reader.
 // This function overrides existing content of the snapshot.
 func (s *Snapshot) ReadFrom(reader io.Reader) (int64, error) {
+	bytesTransactions, err := s.readTransactions(reader)
+	if err != nil {
+		return bytesTransactions, err
+	}
+
+	bytesAccessMana, err := s.readAccessMana(reader)
+	if err != nil {
+		return bytesAccessMana, err
+	}
+
+	return bytesTransactions + bytesAccessMana, nil
+}
+
+func (s *Snapshot) readTransactions(reader io.Reader) (int64, error) {
 	s.Transactions = make(map[TransactionID]Record)
-	s.AccessManaVector = make(map[identity.ID]AccessMana)
 	var bytesRead int64
 	var transactionCount uint32
-	var accessManaCount uint32
 
 	// read Transactions
 	if err := binary.Read(reader, binary.LittleEndian, &transactionCount); err != nil {
@@ -149,6 +162,14 @@ func (s *Snapshot) ReadFrom(reader io.Reader) (int64, error) {
 			UnspentOutputs: unspentOutputs,
 		}
 	}
+
+	return bytesRead, nil
+}
+
+func (s *Snapshot) readAccessMana(reader io.Reader) (int64, error) {
+	s.AccessManaVector = make(map[identity.ID]AccessMana)
+	var bytesRead int64
+	var accessManaCount uint32
 
 	// read access mana
 	if err := binary.Read(reader, binary.LittleEndian, &accessManaCount); err != nil {

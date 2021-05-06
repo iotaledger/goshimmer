@@ -48,12 +48,13 @@ type SnapshotInfo struct {
 	SortedSnapshotInfo SortedSnapshotInfo
 }
 
+// SnapshotAccessMana defines the info for the aMana snapshot
 type SnapshotAccessMana struct {
 	Value     float64
 	Timestamp time.Time
 }
 
-// SnapshotInfo defines the info for the mana snapshot.
+// TxSnapshotInfo defines the info for the snapshot.
 type TxSnapshotInfo struct {
 	Value     float64
 	TxID      ledgerstate.TransactionID
