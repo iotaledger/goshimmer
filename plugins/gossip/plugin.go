@@ -4,18 +4,20 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/gossip"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/autopeering"
-	"github.com/iotaledger/goshimmer/plugins/config"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/selection"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+
+	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/gossip"
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/plugins/autopeering"
+	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 // PluginName is the name of the gossip plugin.
@@ -29,6 +31,8 @@ var (
 	log                     *logger.Logger
 	ageThreshold            time.Duration
 	tipsBroadcasterInterval time.Duration
+
+	requestedMsgs *requestedMessages
 )
 
 // Plugin gets the plugin instance.
@@ -41,12 +45,16 @@ func Plugin() *node.Plugin {
 
 func configure(*node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	ageThreshold = config.Node().GetDuration(CfgGossipAgeThreshold)
-	tipsBroadcasterInterval = config.Node().GetDuration(CfgGossipTipsBroadcastInterval)
+	ageThreshold = config.Node().Duration(CfgGossipAgeThreshold)
+	tipsBroadcasterInterval = config.Node().Duration(CfgGossipTipsBroadcastInterval)
+	disableAutopeering := config.Node().Bool(CfgGossipDisableAutopeering)
+	requestedMsgs = newRequestedMessages()
 
 	configureLogging()
 	configureMessageLayer()
-	configureAutopeering()
+	if !disableAutopeering {
+		configureAutopeering()
+	}
 }
 
 func run(*node.Plugin) {
@@ -59,6 +67,7 @@ func run(*node.Plugin) {
 }
 
 func configureAutopeering() {
+	log.Info("Configuring autopeering to manage neighbors in the gossip layer")
 	// assure that the Manager is instantiated
 	mgr := Manager()
 
@@ -66,7 +75,7 @@ func configureAutopeering() {
 	peerSel := autopeering.Selection()
 	peerSel.Events().Dropped.Attach(events.NewClosure(func(ev *selection.DroppedEvent) {
 		go func() {
-			if err := mgr.DropNeighbor(ev.DroppedID); err != nil {
+			if err := mgr.DropNeighbor(ev.DroppedID, gossip.NeighborsGroupAuto); err != nil {
 				log.Debugw("error dropping neighbor", "id", ev.DroppedID, "err", err)
 			}
 		}()
@@ -76,7 +85,7 @@ func configureAutopeering() {
 			return // ignore rejected peering
 		}
 		go func() {
-			if err := mgr.AddInbound(ev.Peer); err != nil {
+			if err := mgr.AddInbound(ev.Peer, gossip.NeighborsGroupAuto); err != nil {
 				log.Debugw("error adding inbound", "id", ev.Peer.ID(), "err", err)
 			}
 		}()
@@ -86,17 +95,17 @@ func configureAutopeering() {
 			return // ignore rejected peering
 		}
 		go func() {
-			if err := mgr.AddOutbound(ev.Peer); err != nil {
+			if err := mgr.AddOutbound(ev.Peer, gossip.NeighborsGroupAuto); err != nil {
 				log.Debugw("error adding outbound", "id", ev.Peer.ID(), "err", err)
 			}
 		}()
 	}))
 
 	// notify the autopeering on connection loss
-	mgr.Events().ConnectionFailed.Attach(events.NewClosure(func(p *peer.Peer, _ error) {
+	mgr.NeighborsEvents(gossip.NeighborsGroupAuto).ConnectionFailed.Attach(events.NewClosure(func(p *peer.Peer, _ error) {
 		peerSel.RemoveNeighbor(p.ID())
 	}))
-	mgr.Events().NeighborRemoved.Attach(events.NewClosure(func(n *gossip.Neighbor) {
+	mgr.NeighborsEvents(gossip.NeighborsGroupAuto).NeighborRemoved.Attach(events.NewClosure(func(n *gossip.Neighbor) {
 		peerSel.RemoveNeighbor(n.ID())
 	}))
 }
@@ -106,13 +115,13 @@ func configureLogging() {
 	mgr := Manager()
 
 	// log the gossip events
-	mgr.Events().ConnectionFailed.Attach(events.NewClosure(func(p *peer.Peer, err error) {
+	mgr.NeighborsEvents(gossip.NeighborsGroupAuto).ConnectionFailed.Attach(events.NewClosure(func(p *peer.Peer, err error) {
 		log.Infof("Connection to neighbor %s / %s failed: %s", gossip.GetAddress(p), p.ID(), err)
 	}))
-	mgr.Events().NeighborAdded.Attach(events.NewClosure(func(n *gossip.Neighbor) {
+	mgr.NeighborsEvents(gossip.NeighborsGroupAuto).NeighborAdded.Attach(events.NewClosure(func(n *gossip.Neighbor) {
 		log.Infof("Neighbor added: %s / %s", gossip.GetAddress(n.Peer), n.ID())
 	}))
-	mgr.Events().NeighborRemoved.Attach(events.NewClosure(func(n *gossip.Neighbor) {
+	mgr.NeighborsEvents(gossip.NeighborsGroupAuto).NeighborRemoved.Attach(events.NewClosure(func(n *gossip.Neighbor) {
 		log.Infof("Neighbor removed: %s / %s", gossip.GetAddress(n.Peer), n.ID())
 	}))
 }
@@ -123,26 +132,34 @@ func configureMessageLayer() {
 
 	// configure flow of incoming messages
 	mgr.Events().MessageReceived.Attach(events.NewClosure(func(event *gossip.MessageReceivedEvent) {
-		messagelayer.MessageParser().Parse(event.Data, event.Peer)
+		messagelayer.Tangle().ProcessGossipMessage(event.Data, event.Peer)
 	}))
 
-	// configure flow of outgoing messages (gossip on solidification)
-	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
-		defer cachedMsgEvent.Message.Release()
-		defer cachedMsgEvent.MessageMetadata.Release()
+	// configure flow of outgoing messages (gossip after booking)
+	messagelayer.Tangle().Booker.Events.MessageBooked.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		messagelayer.Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
+			messagelayer.Tangle().Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
+				if clock.Since(messageMetadata.ReceivedTime()) > ageThreshold {
+					return
+				}
 
-		// only broadcast new message shortly after they have been received
-		metadata := cachedMsgEvent.MessageMetadata.Unwrap()
-		if time.Since(metadata.ReceivedTime()) > ageThreshold {
-			return
-		}
+				// do not gossip requested messages
+				if requested := requestedMsgs.delete(messageID); requested {
+					return
+				}
 
-		msg := cachedMsgEvent.Message.Unwrap()
-		mgr.SendMessage(msg.Bytes())
+				mgr.SendMessage(message.Bytes())
+			})
+		})
 	}))
 
 	// request missing messages
-	messagelayer.MessageRequester().Events.SendRequest.Attach(events.NewClosure(func(sendRequest *tangle.SendRequestEvent) {
+	messagelayer.Tangle().Requester.Events.SendRequest.Attach(events.NewClosure(func(sendRequest *tangle.SendRequestEvent) {
 		mgr.RequestMessage(sendRequest.ID[:])
 	}))
+
+	messagelayer.Tangle().Storage.Events.MissingMessageStored.Attach(events.NewClosure(requestedMsgs.append))
+
+	// delete the message from requestedMsgs if it's invalid, otherwise it will always be in the list and never get removed in some cases.
+	messagelayer.Tangle().Events.MessageInvalid.Attach(events.NewClosure(func(messageID tangle.MessageID) { requestedMsgs.delete(messageID) }))
 }

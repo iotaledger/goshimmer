@@ -11,24 +11,24 @@ var (
 )
 
 func initConfig() {
-	if config.Node().GetString(CfgTargetNode) == "" {
+	if config.Node().String(CfgTargetNode) == "" {
 		panic("Set the target node address\n")
 	}
-	target = config.Node().GetString(CfgTargetNode)
+	target = config.Node().String(CfgTargetNode)
 
-	if len(config.Node().GetStringSlice(CfgTestNodes)) == 0 {
+	if len(config.Node().Strings(CfgTestNodes)) == 0 {
 		panic("Set node addresses\n")
 	}
-	nodes = append(nodes, config.Node().GetStringSlice(CfgTestNodes)...)
+	nodes = append(nodes, config.Node().Strings(CfgTestNodes)...)
 
 	// optional settings
-	if config.Node().GetString(CfgData) != "" {
-		msgData = config.Node().GetString(CfgData)
+	if config.Node().String(CfgData) != "" {
+		msgData = config.Node().String(CfgData)
 	}
-	if config.Node().GetInt(CfgCooldownTime) > 0 {
-		cooldownTime = config.Node().GetInt(CfgCooldownTime)
+	if config.Node().Int(CfgCooldownTime) > 0 {
+		cooldownTime = config.Node().Int(CfgCooldownTime)
 	}
-	if config.Node().GetInt(CfgRepeat) > 0 {
-		repeat = config.Node().GetInt(CfgRepeat)
+	if config.Node().Int(CfgRepeat) > 0 {
+		repeat = config.Node().Int(CfgRepeat)
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	_ "golang.org/x/crypto/blake2b" // required by crypto.BLAKE2b_512
@@ -59,7 +60,7 @@ func TestWorker_Cancel(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 	cancel()
 
-	assert.Eventually(t, func() bool { return err == ErrCancelled }, time.Second, 10*time.Millisecond)
+	assert.Eventually(t, func() bool { return errors.Is(err, ErrCancelled) }, time.Second, 10*time.Millisecond)
 }
 
 func BenchmarkWorker(b *testing.B) {

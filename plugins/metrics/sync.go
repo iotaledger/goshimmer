@@ -1,21 +1,31 @@
 package metrics
 
 import (
-	"github.com/iotaledger/goshimmer/packages/metrics"
-	"github.com/iotaledger/goshimmer/plugins/syncbeaconfollower"
 	"go.uber.org/atomic"
+
+	"github.com/iotaledger/goshimmer/packages/metrics"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 var (
-	isSynced atomic.Bool
+	isSyncBeaconSynced atomic.Bool
+	isTangleTimeSynced atomic.Bool
 )
 
 func measureSynced() {
-	s := syncbeaconfollower.Synced()
-	metrics.Events().Synced.Trigger(s)
+	sbs := messagelayer.Tangle().Synced()
+	metrics.Events().SyncBeaconSynced.Trigger(sbs)
+
+	tts := messagelayer.Tangle().TimeManager.Synced()
+	metrics.Events().TangleTimeSynced.Trigger(tts)
 }
 
-// Synced returns if the node is synced.
-func Synced() bool {
-	return isSynced.Load()
+// TangleTimeSynced returns if the node is synced based on tangle time.
+func TangleTimeSynced() bool {
+	return isTangleTimeSynced.Load()
+}
+
+// SyncBeaconSynced returns if the node is synced based on sync beacon.
+func SyncBeaconSynced() bool {
+	return isSyncBeaconSynced.Load()
 }

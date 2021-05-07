@@ -3,8 +3,9 @@ package value
 import (
 	"sync"
 
-	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/node"
+
+	"github.com/iotaledger/goshimmer/plugins/webapi"
 )
 
 // PluginName is the name of the web API DRNG endpoint plugin.
@@ -30,4 +31,5 @@ func configure(_ *node.Plugin) {
 	webapi.Server().POST("value/sendTransaction", sendTransactionHandler)
 	webapi.Server().POST("value/sendTransactionByJson", sendTransactionByJSONHandler)
 	webapi.Server().GET("value/transactionByID", getTransactionByIDHandler)
+	webapi.Server().GET("value/allowedManaPledge", allowedManaPledgeHandler)
 }

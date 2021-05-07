@@ -3,13 +3,14 @@ package drng
 import (
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/drng"
-	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/node"
+
+	"github.com/iotaledger/goshimmer/packages/drng"
+	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 // PluginName is the name of the DRNG plugin.
@@ -44,10 +45,8 @@ func configureEvents() {
 		return
 	}
 
-	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
-		cachedMsgEvent.MessageMetadata.Release()
-
-		cachedMsgEvent.Message.Consume(func(msg *tangle.Message) {
+	messagelayer.Tangle().ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		messagelayer.Tangle().Storage.Message(messageID).Consume(func(msg *tangle.Message) {
 			if msg.Payload().Type() != drng.PayloadType {
 				return
 			}
@@ -57,16 +56,27 @@ func configureEvents() {
 			marshalUtil := marshalutil.New(msg.Payload().Bytes())
 			parsedPayload, err := drng.PayloadFromMarshalUtil(marshalUtil)
 			if err != nil {
-				//TODO: handle error
+				// TODO: handle error
 				log.Debug(err)
 				return
 			}
 			if err := instance.Dispatch(msg.IssuerPublicKey(), msg.IssuingTime(), parsedPayload); err != nil {
-				//TODO: handle error
+				// TODO: handle error
 				log.Debug(err)
 				return
 			}
 			log.Debug("New randomness: ", instance.State[parsedPayload.InstanceID].Randomness())
 		})
+	}))
+
+	messagelayer.SetDRNGState(Instance().LoadState(messagelayer.FPCParameters.DRNGInstanceID))
+
+	// Section to update the randomness for the dRNG ticker used by FPC.
+	Instance().Events.Randomness.Attach(events.NewClosure(func(state *drng.State) {
+		if state.Committee().InstanceID == messagelayer.FPCParameters.DRNGInstanceID {
+			if ticker := messagelayer.DRNGTicker(); ticker != nil {
+				ticker.UpdateRandomness(state.Randomness())
+			}
+		}
 	}))
 }

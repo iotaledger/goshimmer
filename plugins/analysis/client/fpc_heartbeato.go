@@ -3,16 +3,18 @@ package client
 import (
 	"sync"
 
+	"github.com/iotaledger/hive.go/identity"
+
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/vote"
+	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
-	"github.com/iotaledger/hive.go/identity"
 )
 
 var (
-	finalized      map[string]vote.Opinion
+	finalized      map[string]opinion.Opinion
 	finalizedMutex sync.RWMutex
 )
 
@@ -46,7 +48,7 @@ func onRoundExecuted(roundStats *vote.RoundStats) {
 
 		finalizedMutex.Lock()
 		hb.Finalized = finalized
-		finalized = make(map[string]vote.Opinion)
+		finalized = make(map[string]opinion.Opinion)
 		finalizedMutex.Unlock()
 
 		// abort if empty round and no finalized conflicts.

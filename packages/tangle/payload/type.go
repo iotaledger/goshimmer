@@ -5,10 +5,13 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/cerrors"
+	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
-	"golang.org/x/xerrors"
 )
+
+// TypeLength contains the amount of bytes of a marshaled Type.
+const TypeLength = marshalutil.Uint32Size
 
 // Type represents the Type of a payload.
 type Type uint32
@@ -53,7 +56,7 @@ func NewType(typeNumber uint32, typeName string, typeUnmarshaler UnmarshalerFunc
 func TypeFromBytes(typeBytes []byte) (typeResult Type, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(typeBytes)
 	if typeResult, err = TypeFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Type from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse Type from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -65,7 +68,7 @@ func TypeFromBytes(typeBytes []byte) (typeResult Type, consumedBytes int, err er
 func TypeFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (typeResult Type, err error) {
 	typeUint32, err := marshalUtil.ReadUint32()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse type (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse type (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	typeResult = Type(typeUint32)

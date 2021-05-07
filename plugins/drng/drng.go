@@ -2,14 +2,15 @@ package drng
 
 import (
 	"encoding/hex"
-	"errors"
 	"fmt"
 
-	"github.com/iotaledger/goshimmer/packages/drng"
-	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/mr-tron/base58/base58"
+
+	"github.com/iotaledger/goshimmer/packages/drng"
+	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 const (
@@ -18,12 +19,13 @@ const (
 
 	// XTeam defines the instance ID of the X-Team drng committee.
 	XTeam = 1339
+
+	// Community defines the instance ID of the Community drng committee.
+	Community = 7438
 )
 
-var (
-	// ErrParsingCommitteeMember is returned for an invalid committee member
-	ErrParsingCommitteeMember = errors.New("cannot parse committee member")
-)
+// ErrParsingCommitteeMember is returned for an invalid committee member
+var ErrParsingCommitteeMember = errors.New("cannot parse committee member")
 
 func configureDRNG() *drng.DRNG {
 	c := make(map[uint32][]drng.Option)
@@ -31,7 +33,7 @@ func configureDRNG() *drng.DRNG {
 
 	// Pollen dRNG configuration
 	// parse identities of the committee members
-	committeeMembers, err := parseCommitteeMembers(config.Node().GetStringSlice(CfgDRNGCommitteeMembers))
+	committeeMembers, err := parseCommitteeMembers(config.Node().Strings(CfgDRNGCommitteeMembers))
 	if err != nil {
 		log.Warnf("Invalid %s: %s", CfgDRNGCommitteeMembers, err)
 	}
@@ -45,7 +47,7 @@ func configureDRNG() *drng.DRNG {
 	// configure pollen committee
 	pollenConf := &drng.Committee{
 		InstanceID:    Pollen,
-		Threshold:     uint8(config.Node().GetUint32(CfgDRNGThreshold)),
+		Threshold:     uint8(config.Node().Int(CfgDRNGThreshold)),
 		DistributedPK: dpk,
 		Identities:    committeeMembers,
 	}
@@ -56,7 +58,7 @@ func configureDRNG() *drng.DRNG {
 
 	// X-Team dRNG configuration
 	// parse identities of the x-team committee members
-	committeeMembers, err = parseCommitteeMembers(config.Node().GetStringSlice(CfgDRNGXTeamCommitteeMembers))
+	committeeMembers, err = parseCommitteeMembers(config.Node().Strings(CfgDRNGXTeamCommitteeMembers))
 	if err != nil {
 		log.Warnf("Invalid %s: %s", CfgDRNGXTeamCommitteeMembers, err)
 	}
@@ -70,7 +72,7 @@ func configureDRNG() *drng.DRNG {
 	// configure X-Team committee
 	xTeamConf := &drng.Committee{
 		InstanceID:    XTeam,
-		Threshold:     uint8(config.Node().GetUint32(CfgDRNGXTeamThreshold)),
+		Threshold:     uint8(config.Node().Int(CfgDRNGXTeamThreshold)),
 		DistributedPK: dpk,
 		Identities:    committeeMembers,
 	}
@@ -81,7 +83,7 @@ func configureDRNG() *drng.DRNG {
 
 	// Custom dRNG configuration
 	// parse identities of the x-team committee members
-	committeeMembers, err = parseCommitteeMembers(config.Node().GetStringSlice(CfgDRNGCustomCommitteeMembers))
+	committeeMembers, err = parseCommitteeMembers(config.Node().Strings(CfgDRNGCustomCommitteeMembers))
 	if err != nil {
 		log.Warnf("Invalid %s: %s", CfgDRNGCustomCommitteeMembers, err)
 	}
@@ -94,8 +96,8 @@ func configureDRNG() *drng.DRNG {
 
 	// configure Custom committee
 	customConf := &drng.Committee{
-		InstanceID:    config.Node().GetUint32(CfgDRNGCustomInstanceID),
-		Threshold:     uint8(config.Node().GetUint32(CfgDRNGCustomThreshold)),
+		InstanceID:    uint32(config.Node().Int(CfgDRNGCustomInstanceID)),
+		Threshold:     uint8(config.Node().Int(CfgDRNGCustomThreshold)),
 		DistributedPK: dpk,
 		Identities:    committeeMembers,
 	}
@@ -139,7 +141,7 @@ func parseCommitteeMembers(committeeMembers []string) (result []ed25519.PublicKe
 }
 
 func parseDistributedPublicKey(pubKey string) (dpk []byte, err error) {
-	if str := config.Node().GetString(pubKey); str != "" {
+	if str := config.Node().String(pubKey); str != "" {
 		dpk, err = hex.DecodeString(str)
 		if err != nil {
 			return []byte{}, fmt.Errorf("Invalid %s: %s", pubKey, err)

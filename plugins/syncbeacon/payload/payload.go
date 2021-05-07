@@ -3,10 +3,11 @@ package payload
 import (
 	"fmt"
 
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
+
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
 const (
@@ -16,8 +17,14 @@ const (
 
 // Type is the type of the syncbeacon payload.
 var Type = payload.NewType(200, ObjectName, func(data []byte) (payload payload.Payload, err error) {
-	payload, _, err = FromBytes(data)
-
+	var consumedBytes int
+	payload, consumedBytes, err = FromBytes(data)
+	if err != nil {
+		return nil, err
+	}
+	if consumedBytes != len(data) {
+		return nil, errors.New("not all payload bytes were consumed")
+	}
 	return
 })
 
@@ -79,10 +86,10 @@ func (p *Payload) SentTime() int64 {
 func (p *Payload) Bytes() []byte {
 	// initialize helper
 	marshalUtil := marshalutil.New()
-	objectLength := marshalutil.INT64_SIZE
+	objectLength := marshalutil.Int64Size
 
 	// marshal the p specific information
-	marshalUtil.WriteUint32(uint32(objectLength))
+	marshalUtil.WriteUint32(payload.TypeLength + uint32(objectLength))
 	marshalUtil.WriteBytes(Type.Bytes())
 	marshalUtil.WriteInt64(p.sentTime)
 

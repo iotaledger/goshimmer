@@ -1,3 +1,212 @@
+# v0.5.7 - 2021-04-23
+* Add approval weight manager (soft launch)
+* Add epochs
+* Add debug APIs for epochs
+* Update local dashboard to show finalization based on approval weight
+* Improve FPC
+* Improve markers manager
+* Improve integration tests
+* Improve payload unmarshaling
+* Remove unless-stopped option from Docker default config
+* Increase CfgGossipAgeThreshold parameter
+* Fix several bugs on hive.go
+* Fix mana event storage pruning
+* Fix mana leaderboard and explorer live feed scroll view
+* Update snapshot with initial mana state
+* Update to latest hive.go
+* **Breaking**: bumps network and database versions
+
+# v0.5.6 - 2021-04-03
+* Fix childBranchType
+* Fix FPC empty round increase
+* Make reading of FPC statements less strict
+* Fix aggregated branch diagnostic API and dashboard page  
+* **Breaking**: bumps network and database versions
+
+# v0.5.5 - 2021-04-01
+* Integrate Mana with FPC
+* Integrate Mana with the Autopeering
+* Add several FPC optimizations
+* Add dRNG diagnostic API
+* Simplify memory usage of dashboard and align to Grafana
+* Add a chart for stored, solidifier, scheduler and booker MPS
+* Update to latest hive.go
+* **Breaking**: bumps network and database versions
+
+# v0.5.4 - 2021-03-29
+* Add new diagnostic APIs
+* Add new docs sections
+* Add branch inclusion state check before issuing new transactions
+* Refactor the Faucet plugin
+* Optimize transaction's past cone check
+* Make issued messages pass through the parser filters
+* Fix Faucet time usage
+* Fix markers issue
+* Fix max inputs count check
+* Fix nil pointer in diagnostic API
+* Update to latest hive.go 
+* Enhance golangci-lint
+* **Breaking**: bumps network and database versions
+
+# v0.5.3 - 2021-03-25
+* Added new API endpoints
+* Added models navigation through the Dashboard Explorer
+* Added new diagnostic APIs
+* Added new docs sections
+* Fix dashboard mana event feed
+* Fix markers issue
+* Fix UnlockBlocks check
+* Fix loading of config parameters
+* Fix bug in the Get method of ColoredBalances
+* Enhance golangci-lint
+* **Breaking**: bumps network and database versions
+
+# v0.5.2 - 2021-03-17
+* Fix markers past cone check
+* Add more information to explorer and message API
+* Restrict Genesis attachment
+* Fix parsing of GenesisNode public key
+* Display mana histogram in log scale on dashboards
+* **Breaking**: bumps network and database versions
+
+# v0.5.1 - 2021-03-15
+* Implement FCoB*
+* Fix markers persistence bug
+* Fix Docker shutdown too early
+* Make FCoB fire the MessageOpinionFormed event only if the event for its parents was also fired
+* Update JS dependencies
+* Refactor parameters in MessageLayer
+* Upgrade go to 1.16.2
+* Upgrade to latest hive.go
+* **Breaking**: bumps network and database versions
+
+# v0.5.0 - 2021-03-11
+* Add Mana (currently not used by any of the modules)
+* Add Mana APIs
+* Add Mana section to the local dashboard
+* Add Mana section to the Pollen Analyzer dashboard
+* Add Mana section to the Grafana dashboard
+* Refactor the Consensus Manager to be independent from the concrete consensus mechanism implemented  
+* Improve Tangle visualizer
+* Improve documentation
+* **Breaking**: bumps network and database versions
+
+# v0.4.1 - 2021-03-02
+* Add orphanage analysis tool
+* Add documentation web-api
+* Simplify past-cone checks
+* Improve message findByID API
+* Improve value transactionByID API
+* Fix saving markers in message metadata
+* Fix issue with ReferenceUnlockBlocks
+* Fix Faucet address blacklist
+* Fix some visualizer glitches
+* **Breaking**: bumps network and database versions
+
+# v0.4.0 - 2021-02-26
+* Remove the value Tangle
+* Add approval switch
+* Add Markers integration
+* Add new message booker
+* Add new ledger state
+* Add new opinion former
+* Add new Tip manager
+* Add new flow unit tests
+* Add remote spammer tool
+* Add sendTransaction timestamp validity check
+* Add clock Since method
+* Add docs actions
+* Add Tangle width debug tool option
+* Update client-lib
+* Update wallet
+* Update web-API
+* Update Grafana dashboard to show MPS for entire data-flow
+* Update to latest hive.go
+* Refactor integration tests
+* Refactor transaction validity check
+* Refactor cli-wallet
+* Refactor sendTransactionByJson API
+* Refactor inclusion state
+* Refactor TransactionConfirmed event
+* Refactor transaction visualization in the local dashboard
+* Refactor scheduler
+* Refactor snapshot script
+* Fix clock time usage
+* Fix wrong handler in the MessageInvalidEvent
+* Decrease cache time
+* **Breaking**: bumps network and database versions
+
+# v0.3.6 - 2021-02-12
+* Finalize Payload layout
+* Update dRNG with finalized payload layout
+* Add simple scheduler
+* Add message approval analysis API
+* Add core logic for timestamp voting (still disabled)
+* Refactor message parser
+* Refactor solidifier
+* Refactor Tangle events
+* Update entry node URL
+* Update gossip to not gossip requested messages
+* Introduce invalid message flag
+* Merge the new data flow
+* Fix visualizer bug
+* Update hive.go
+* Update JS dependencies
+* **Breaking**: bumps network and database versions
+
+# v0.3.5 - 2021-01-13
+* Fix consensus statement bug
+* Fix deadlock in RandomMap
+* Fix several shutdown related issues
+* Load old messages in visualizer
+* Fix wrong Tips count in visualizer
+* Fix dashboard typos
+* Improve integration tests
+* Improve network delay analysis
+* Update hive.go
+* Update JS dependencies
+* **Breaking**: bumps network and database versions
+
+# v0.3.4 - 2020-12-11
+* Revert Pebble to Badger.
+* **Breaking**: bumps network and database versions
+
+# v0.3.3 - 2020-12-10
+* Fix sync issue.
+* Fix pkger issue.
+* **Breaking**: bumps network and database versions
+
+# v0.3.2 - 2020-12-09
+* Switch from BadgerDB to Pebble.
+* Add FPC statements.
+* Add clock based time to message metadata.
+* Improve dashboard message live feed.
+* Improve spammer to evenly distribute issued messages within a minute.
+* Fix panic when writing on a closed channel in the dashboard web socket.
+* Upgrade Go to 1.15.5
+* Upgrade to latest hive.go
+* **Breaking**: bumps network and database versions
+
+# v0.3.1 - 2020-11-13
+* Refactor message structure according to the new Tangle RFC: 
+    * add support for multiple parents
+    * update local dashboard
+    * new unit tests
+    * max payload size changed to 65157 bytes
+* Add community-based entry node.
+* Add commit tag to version.
+* Add package for common sentinel errors.
+* Improve dashboard websocket management.
+* Integrate NTP-based clock to the network delay app.
+* Switch from packer to pkger to pack dashboard.
+* Switch from Viper to koanf as core library for configuration.
+* Fix Value Tangle tip selection management.
+* Fix mps query label in grafana.
+* Fix potential race condition within the clock package.
+* Upgrade to latest hive.go
+* Upgrade NodeJS dependencies of the dashboard.
+* **Breaking**: bumps network and database versions
+
 # v0.3.0 - 2020-10-12
 * Added multiple dRNG committees support: Pollen, X-Team and Custom.
 * Added clock synchronization plugin via NTP.

@@ -3,6 +3,8 @@ package dashboard
 import (
 	"sync"
 	"time"
+
+	"github.com/iotaledger/goshimmer/packages/clock"
 )
 
 // activeConflictSet contains the set of the active conflicts, not yet finalized.
@@ -38,44 +40,44 @@ func (cr *activeConflictSet) ToFPCUpdate() *FPCUpdate {
 	}
 }
 
-func (cr *activeConflictSet) load(ID string) (conflict, bool) {
+func (cr *activeConflictSet) load(id string) (conflict, bool) {
 	cr.lock.RLock()
 	defer cr.lock.RUnlock()
 
 	// update the internal state
-	if c, ok := cr.conflictSet[ID]; !ok {
+	if c, ok := cr.conflictSet[id]; !ok {
 		return c, false
 	}
 
-	return cr.conflictSet[ID], true
+	return cr.conflictSet[id], true
 }
 
-func (cr *activeConflictSet) update(ID string, c conflict) {
+func (cr *activeConflictSet) update(id string, c conflict) {
 	cr.lock.Lock()
 	defer cr.lock.Unlock()
 
 	// update the internal state
-	if _, ok := cr.conflictSet[ID]; !ok {
-		cr.conflictSet[ID] = newConflict()
+	if _, ok := cr.conflictSet[id]; !ok {
+		cr.conflictSet[id] = newConflict()
 	}
 
 	for nodeID, context := range c.NodesView {
-		cr.conflictSet[ID].NodesView[nodeID] = context
+		cr.conflictSet[id].NodesView[nodeID] = context
 	}
 
-	tmp := cr.conflictSet[ID]
-	tmp.Modified = time.Now()
-	cr.conflictSet[ID] = tmp
+	tmp := cr.conflictSet[id]
+	tmp.Modified = clock.SyncedTime()
+	cr.conflictSet[id] = tmp
 }
 
-func (cr *activeConflictSet) delete(ID string) {
+func (cr *activeConflictSet) delete(id string) {
 	cr.lock.Lock()
 	defer cr.lock.Unlock()
 
 	// update the internal state
-	if _, ok := cr.conflictSet[ID]; !ok {
+	if _, ok := cr.conflictSet[id]; !ok {
 		return
 	}
 
-	delete(cr.conflictSet, ID)
+	delete(cr.conflictSet, id)
 }

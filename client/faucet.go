@@ -3,7 +3,7 @@ package client
 import (
 	"net/http"
 
-	webapi_faucet "github.com/iotaledger/goshimmer/plugins/webapi/faucet"
+	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
 const (
@@ -11,10 +11,14 @@ const (
 )
 
 // SendFaucetRequest requests funds from faucet nodes by sending a faucet request payload message.
-func (api *GoShimmerAPI) SendFaucetRequest(base58EncodedAddr string) (*webapi_faucet.Response, error) {
-	res := &webapi_faucet.Response{}
+func (api *GoShimmerAPI) SendFaucetRequest(base58EncodedAddr string, pledgeIDs ...string) (*jsonmodels.FaucetResponse, error) {
+	aManaPledgeID, cManaPledgeID := "", ""
+	if len(pledgeIDs) > 1 {
+		aManaPledgeID, cManaPledgeID = pledgeIDs[0], pledgeIDs[1]
+	}
+	res := &jsonmodels.FaucetResponse{}
 	if err := api.do(http.MethodPost, routeFaucet,
-		&webapi_faucet.Request{Address: base58EncodedAddr}, res); err != nil {
+		&jsonmodels.FaucetRequest{Address: base58EncodedAddr, AccessManaPledgeID: aManaPledgeID, ConsensusManaPledgeID: cManaPledgeID}, res); err != nil {
 		return nil, err
 	}
 

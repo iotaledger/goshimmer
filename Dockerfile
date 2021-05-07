@@ -1,8 +1,10 @@
+# syntax = docker/dockerfile:1.2.1
+
 ############################
 # Build
 ############################
-# golang:1.14.4-buster
-FROM golang@sha256:fbaba67d3bd0a6fd154eaa27d1a0a9e5e80ecdb0792736017fde7326d9bf8d69 AS build
+# golang:1.16.2-buster
+FROM golang@sha256:a23a7e49a820f9ae69df0fedf64f037cb15b004997effa93ec885e5032277bc1 AS build
 
 # Ensure ca-certficates are up to date
 RUN update-ca-certificates
@@ -19,13 +21,16 @@ ENV GO111MODULE=on
 RUN go mod download
 RUN go mod verify
 
-# Copy everything from the current directory to the PWD(Present Working Directory) inside the container
-COPY . .
-
-# Build the binary
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
-      -ldflags='-w -s -extldflags "-static"' -a \
-       -o /go/bin/goshimmer
+# 1. Mount everything from the current directory to the PWD(Present Working Directory) inside the container
+# 2. Mount the build cache volume
+# 3. Build the binary
+# 4. Verify that goshimmer binary is statically linked
+RUN --mount=target=. \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags='-w -s -extldflags "-static"' \
+    -o /go/bin/goshimmer; \
+    ./check_static.sh
 
 ############################
 # Image
@@ -44,4 +49,4 @@ COPY config.default.json /config.json
 # Copy the Pre-built binary file from the previous stage
 COPY --from=build /go/bin/goshimmer /run/goshimmer
 
-ENTRYPOINT ["/run/goshimmer", "--config-dir=/", "--valueLayer.snapshot.file=/snapshot.bin", "--database.directory=/tmp/mainnetdb"]
+ENTRYPOINT ["/run/goshimmer", "--config=/config.json", "--messageLayer.snapshot.file=/snapshot.bin", "--database.directory=/tmp/mainnetdb"]

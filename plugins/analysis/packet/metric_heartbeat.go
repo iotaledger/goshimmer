@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/gob"
-	"errors"
+	"github.com/cockroachdb/errors"
 
-	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/hive.go/protocol/message"
 	"github.com/iotaledger/hive.go/protocol/tlv"
+
+	"github.com/iotaledger/goshimmer/plugins/banner"
 )
 
 var (
@@ -18,14 +19,12 @@ var (
 	ErrInvalidMetricHeartbeatVersion = errors.New("invalid Metric heartbeat version")
 )
 
-var (
-	// MetricHeartbeatMessageDefinition defines a metric heartbeat message's format.
-	MetricHeartbeatMessageDefinition = &message.Definition{
-		ID:             MessageTypeMetricHeartbeat,
-		MaxBytesLength: 65535,
-		VariableLength: true,
-	}
-)
+// MetricHeartbeatMessageDefinition defines a metric heartbeat message's format.
+var MetricHeartbeatMessageDefinition = &message.Definition{
+	ID:             MessageTypeMetricHeartbeat,
+	MaxBytesLength: 65535,
+	VariableLength: true,
+}
 
 // MetricHeartbeat represents a metric heartbeat packet.
 type MetricHeartbeat struct {

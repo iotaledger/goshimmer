@@ -4,13 +4,15 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
+	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/identity"
+	"github.com/labstack/echo"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-
-	"github.com/labstack/echo"
-	"github.com/pkg/errors"
 )
 
 // ReqMsg defines the struct of the faucet request message ID.
@@ -20,12 +22,32 @@ type ReqMsg struct {
 
 func setupFaucetRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/faucet/:hash", func(c echo.Context) (err error) {
-		addr, err := address.FromBase58(c.Param("hash"))
+		addr, err := ledgerstate.AddressFromBase58EncodedString(c.Param("hash"))
 		if err != nil {
-			return errors.Wrapf(ErrInvalidParameter, "faucet request address invalid: %s", addr)
+			return errors.Errorf("faucet request address invalid: %s: %w", addr, ErrInvalidParameter)
 		}
 
-		t, err := sendFaucetReq(addr)
+		emptyID := identity.ID{}
+		accessMana := emptyID
+		consensusMana := emptyID
+
+		accessManaStr := c.QueryParam("accessMana")
+		if accessManaStr != "" {
+			accessMana, err = mana.IDFromStr(accessManaStr)
+			if err != nil {
+				return errors.Errorf("faucet request access mana node ID invalid: %s: %w", accessManaStr, err)
+			}
+		}
+
+		consensusManaStr := c.QueryParam("consensusMana")
+		if consensusManaStr != "" {
+			consensusMana, err = mana.IDFromStr(consensusManaStr)
+			if err != nil {
+				return errors.Errorf("faucet request consensus mana node ID invalid: %s: %w", consensusManaStr, err)
+			}
+		}
+
+		t, err := sendFaucetReq(addr, accessMana, consensusMana)
 		if err != nil {
 			return
 		}
@@ -36,20 +58,20 @@ func setupFaucetRoutes(routeGroup *echo.Group) {
 
 var fundingReqMu = sync.Mutex{}
 
-func sendFaucetReq(addr address.Address) (res *ReqMsg, err error) {
+func sendFaucetReq(addr ledgerstate.Address, accessManaNodeID, consensusManaNodeID identity.ID) (res *ReqMsg, err error) {
 	fundingReqMu.Lock()
 	defer fundingReqMu.Unlock()
-	faucetPayload, err := faucet.NewRequest(addr, config.Node().GetInt(faucet.CfgFaucetPoWDifficulty))
+	faucetPayload, err := faucet.NewRequest(addr, config.Node().Int(faucet.CfgFaucetPoWDifficulty), accessManaNodeID, consensusManaNodeID)
 	if err != nil {
 		return nil, err
 	}
-	msg, err := messagelayer.MessageFactory().IssuePayload(faucetPayload)
+	msg, err := messagelayer.Tangle().MessageFactory.IssuePayload(faucetPayload, messagelayer.Tangle())
 	if err != nil {
-		return nil, errors.Wrapf(ErrInternalError, "Failed to send faucet request: %s", err.Error())
+		return nil, errors.Errorf("Failed to send faucet request: %s: %w", err.Error(), ErrInternalError)
 	}
 
 	r := &ReqMsg{
-		ID: msg.ID().String(),
+		ID: msg.ID().Base58(),
 	}
 	return r, nil
 }

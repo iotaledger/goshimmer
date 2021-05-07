@@ -77,15 +77,17 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 	containerConfig := &container.Config{
 		Image: "iotaledger/goshimmer",
 		ExposedPorts: nat.PortSet{
-			nat.Port("8080/tcp"): {},
+			nat.Port("8080/tcp"):  {},
+			nat.Port("10895/tcp"): {},
 		},
 		Cmd: strslice.StrSlice{
 			"--skip-config=true",
 			"--logger.level=debug",
-			fmt.Sprintf("--valueLayer.fcob.averageNetworkDelay=%d", ParaFCoBAverageNetworkDelay),
+			fmt.Sprintf("--messageLayer.fcob.averageNetworkDelay=%d", ParaFCoBAverageNetworkDelay),
 			fmt.Sprintf("--node.disablePlugins=%s", config.DisabledPlugins),
 			fmt.Sprintf("--pow.difficulty=%d", ParaPoWDifficulty),
 			fmt.Sprintf("--faucet.powDifficulty=%d", ParaPoWFaucetDifficulty),
+			fmt.Sprintf("--faucet.preparedOutputsCounts=%d", ParaFaucetPreparedOutputsCount),
 			fmt.Sprintf("--gracefulshutdown.waitToKillTime=%d", ParaWaitToKill),
 			fmt.Sprintf("--node.enablePlugins=%s", func() string {
 				var plugins []string
@@ -98,6 +100,9 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 				if config.SyncBeaconFollower {
 					plugins = append(plugins, "SyncBeaconFollower")
 				}
+				if config.Mana {
+					plugins = append(plugins, "Mana")
+				}
 				return strings.Join(plugins[:], ",")
 			}()),
 			// define the faucet seed in case the faucet dApp is enabled
@@ -108,10 +113,18 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 				return fmt.Sprintf("--faucet.seed=%s", genesisSeedBase58)
 			}(),
 			fmt.Sprintf("--faucet.tokensPerRequest=%d", ParaFaucetTokensPerRequest),
-			fmt.Sprintf("--valueLayer.snapshot.file=%s", config.SnapshotFilePath),
+			fmt.Sprintf("--messageLayer.snapshot.file=%s", config.SnapshotFilePath),
+			"--messageLayer.snapshot.genesisNode=",
 			"--webapi.bindAddress=0.0.0.0:8080",
 			fmt.Sprintf("--autopeering.seed=base58:%s", config.Seed),
 			fmt.Sprintf("--autopeering.entryNodes=%s@%s:14626", config.EntryNodePublicKey, config.EntryNodeHost),
+			fmt.Sprintf("--fpc.roundInterval=%d", config.FPCRoundInterval),
+			fmt.Sprintf("--fpc.listen=%v", config.FPCListen),
+			fmt.Sprintf("--fpc.totalRoundsFinalization=%d", config.FPCTotalRoundsFinalization),
+			fmt.Sprintf("--statement.writeStatement=%v", config.WriteStatement),
+			fmt.Sprintf("--statement.waitForStatement=%d", config.WaitForStatement),
+			fmt.Sprintf("--statement.readManaThreshold=%f", config.ReadManaThreshold),
+			fmt.Sprintf("--statement.writeManaThreshold=%f", config.WriteManaThreshold),
 			fmt.Sprintf("--drng.custom.instanceId=%d", config.DRNGInstance),
 			fmt.Sprintf("--drng.custom.threshold=%d", config.DRNGThreshold),
 			fmt.Sprintf("--drng.custom.committeeMembers=%s", config.DRNGCommittee),
@@ -127,6 +140,14 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 				}
 				return fmt.Sprintf("--syncbeaconfollower.maxTimeOffline=%d", config.SyncBeaconMaxTimeOfflineSec)
 			}(),
+			fmt.Sprintf("--mana.allowedAccessFilterEnabled=%t", config.ManaAllowedAccessFilterEnabled),
+			fmt.Sprintf("--mana.allowedConsensusFilterEnabled=%t", config.ManaAllowedConsensusFilterEnabled),
+			fmt.Sprintf("--mana.allowedAccessPledge=%s", func() string {
+				return strings.Join(config.ManaAllowedAccessPledge[:], ",")
+			}()),
+			fmt.Sprintf("--mana.allowedConsensusPledge=%s", func() string {
+				return strings.Join(config.ManaAllowedConsensusPledge[:], ",")
+			}()),
 		},
 	}
 
@@ -144,7 +165,7 @@ func (d *DockerContainer) CreateDrandMember(name string, goShimmerAPI string, le
 	}
 	env = append(env, "GOSHIMMER=http://"+goShimmerAPI)
 	containerConfig := &container.Config{
-		Image: "angelocapossele/drand:1.1.3",
+		Image: "angelocapossele/drand:v1.1.4",
 		ExposedPorts: nat.PortSet{
 			nat.Port("8000/tcp"): {},
 		},

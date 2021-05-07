@@ -11,10 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/banner"
-	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
@@ -22,6 +18,12 @@ import (
 	"github.com/iotaledger/hive.go/workerpool"
 	flag "github.com/spf13/pflag"
 	"gopkg.in/src-d/go-git.v4"
+
+	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/banner"
+	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 const (
@@ -33,6 +35,10 @@ const (
 	PluginName = "RemoteLog"
 
 	remoteLogType = "log"
+
+	levelIndex   = 0
+	nameIndex    = 1
+	messageIndex = 2
 )
 
 var (
@@ -64,7 +70,7 @@ func init() {
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 
-	if config.Node().GetBool(CfgDisableEvents) {
+	if config.Node().Bool(CfgDisableEvents) {
 		log.Fatalf("%s in config.json needs to be false so that events can be captured!", CfgDisableEvents)
 		return
 	}
@@ -79,7 +85,7 @@ func configure(plugin *node.Plugin) {
 	getGitInfo()
 
 	workerPool = workerpool.New(func(task workerpool.Task) {
-		sendLogMsg(task.Param(0).(logger.Level), task.Param(1).(string), task.Param(2).(string))
+		SendLogMsg(task.Param(levelIndex).(logger.Level), task.Param(nameIndex).(string), task.Param(messageIndex).(string))
 
 		task.Return(nil)
 	}, workerpool.WorkerCount(runtime.GOMAXPROCS(0)), workerpool.QueueSize(1000))
@@ -103,7 +109,8 @@ func run(plugin *node.Plugin) {
 	}
 }
 
-func sendLogMsg(level logger.Level, name string, msg string) {
+// SendLogMsg sends log message to the remote logger.
+func SendLogMsg(level logger.Level, name, msg string) {
 	m := logMessage{
 		banner.AppVersion,
 		myGitHead,
@@ -112,7 +119,7 @@ func sendLogMsg(level logger.Level, name string, msg string) {
 		level.CapitalString(),
 		name,
 		msg,
-		time.Now(),
+		clock.SyncedTime(),
 		remoteLogType,
 	}
 
@@ -160,7 +167,7 @@ func getGitDir() string {
 // RemoteLogger represents a connection to our remote log server.
 func RemoteLogger() *RemoteLoggerConn {
 	remoteLoggerOnce.Do(func() {
-		r, err := newRemoteLoggerConn(config.Node().GetString(CfgLoggerRemotelogServerAddress))
+		r, err := newRemoteLoggerConn(config.Node().String(CfgLoggerRemotelogServerAddress))
 		if err != nil {
 			log.Fatal(err)
 			return

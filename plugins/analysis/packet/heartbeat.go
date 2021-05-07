@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/protocol/message"
 	"github.com/iotaledger/hive.go/protocol/tlv"
 )
@@ -181,12 +181,12 @@ func NewHeartbeatMessage(hb *Heartbeat) ([]byte, error) {
 
 	offset := HeartbeatPacketNetworkIDBytesCountSize
 
-	copy(packet[offset:offset+len(hb.NetworkID)], hb.NetworkID[:])
+	copy(packet[offset:offset+len(hb.NetworkID)], hb.NetworkID)
 
 	offset += len(hb.NetworkID)
 
 	// own nodeId
-	copy(packet[offset:offset+HeartbeatPacketPeerIDSize], hb.OwnID[:])
+	copy(packet[offset:offset+HeartbeatPacketPeerIDSize], hb.OwnID)
 
 	// outbound id count
 	packet[offset+HeartbeatPacketPeerIDSize] = byte(len(hb.OutboundIDs))

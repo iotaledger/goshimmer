@@ -1,9 +1,10 @@
 package metrics
 
 import (
-	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/hive.go/identity"
 	"go.uber.org/atomic"
+
+	"github.com/iotaledger/goshimmer/plugins/gossip"
 )
 
 var (
@@ -42,6 +43,12 @@ func GossipOutboundBytes() uint64 {
 // AnalysisOutboundBytes returns the total outbound analysis traffic.
 func AnalysisOutboundBytes() uint64 {
 	return analysisOutboundBytes.Load()
+}
+
+func measureGossipTraffic() {
+	g := gossipCurrentTraffic()
+	gossipCurrentRx.Store(g.BytesRead)
+	gossipCurrentTx.Store(g.BytesWritten)
 }
 
 type gossipTrafficMetric struct {

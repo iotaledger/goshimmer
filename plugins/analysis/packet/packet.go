@@ -1,17 +1,15 @@
 package packet
 
 import (
-	"errors"
 	"sync"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/protocol/message"
 	"github.com/iotaledger/hive.go/protocol/tlv"
 )
 
-var (
-	// ErrMalformedPacket is returned when malformed packets are tried to be parsed.
-	ErrMalformedPacket = errors.New("malformed packet")
-)
+// ErrMalformedPacket is returned when malformed packets are tried to be parsed.
+var ErrMalformedPacket = errors.New("malformed packet")
 
 var (
 	// analysisMsgRegistry holds all message definitions for analysis server related messages

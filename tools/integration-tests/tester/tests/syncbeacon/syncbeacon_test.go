@@ -6,17 +6,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
-	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
 
 // TestSyncBeacon checks that beacon nodes broadcast sync beacons
 // and follower nodes use those payloads to determine if they are synced or not.
 func TestSyncBeacon(t *testing.T) {
 	initialPeers := 4
-	n, err := f.CreateNetwork("syncbeacon_TestSyncBeacon", 0, 0)
+	n, err := f.CreateNetwork("syncbeacon_TestSyncBeacon", 0, 0, framework.CreateNetworkConfig{})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 

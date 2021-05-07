@@ -1,0 +1,33 @@
+name: GoShimmer mdBook
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'docs/**'
+
+jobs:
+
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Setup mdBook
+        uses: peaceiris/actions-mdbook@v1
+        with:
+          mdbook-version: 'latest'
+
+      - name: Run mdBook
+        run: mdbook build
+
+      - name: Deploy to GitHub Pages
+        uses: iotaledger/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: ./book
+          cname: goshimmer.docs.iota.org

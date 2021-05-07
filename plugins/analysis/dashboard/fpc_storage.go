@@ -5,11 +5,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/plugins/config"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
+
+	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 // FPCRecord defines the FPC record to be stored into a mongoDB.
@@ -38,7 +39,7 @@ const (
 
 var (
 	clientDB *mongo.Client
-	//db       *mongo.Database
+	// db       *mongo.Database
 	dbOnce sync.Once
 	// read locked by pingers and write locked by the routine trying to reconnect.
 	mongoReconnectLock sync.RWMutex
@@ -56,9 +57,9 @@ func mongoDB() *mongo.Database {
 }
 
 func newMongoDB() (*mongo.Client, error) {
-	username := config.Node().GetString(CfgMongoDBUsername)
-	password := config.Node().GetString(CfgMongoDBPassword)
-	hostAddr := config.Node().GetString(CfgMongoDBHostAddress)
+	username := config.Node().String(CfgMongoDBUsername)
+	password := config.Node().String(CfgMongoDBPassword)
+	hostAddr := config.Node().String(CfgMongoDBHostAddress)
 
 	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://" + username + ":" + password + "@" + hostAddr))
 	if err != nil {

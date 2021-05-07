@@ -1,11 +1,12 @@
 package database
 
 import (
-	"errors"
 	"fmt"
 
-	"github.com/iotaledger/goshimmer/packages/database"
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/kvstore"
+
+	"github.com/iotaledger/goshimmer/packages/database"
 )
 
 var (

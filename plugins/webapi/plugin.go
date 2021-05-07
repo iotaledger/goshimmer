@@ -2,19 +2,20 @@ package webapi
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
+
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 // PluginName is the name of the web API plugin.
@@ -50,10 +51,10 @@ func Server() *echo.Echo {
 		}))
 
 		// if enabled, configure basic-auth
-		if config.Node().GetBool(CfgBasicAuthEnabled) {
+		if config.Node().Bool(CfgBasicAuthEnabled) {
 			server.Use(middleware.BasicAuth(func(username, password string, c echo.Context) (bool, error) {
-				if username == config.Node().GetString(CfgBasicAuthUsername) &&
-					password == config.Node().GetString(CfgBasicAuthPassword) {
+				if username == config.Node().String(CfgBasicAuthUsername) &&
+					password == config.Node().String(CfgBasicAuthPassword) {
 					return true, nil
 				}
 				return false, nil
@@ -67,7 +68,6 @@ func Server() *echo.Echo {
 			var message string
 
 			switch errors.Unwrap(err) {
-
 			case echo.ErrUnauthorized:
 				statusCode = http.StatusUnauthorized
 				message = "unauthorized"
@@ -120,9 +120,9 @@ func worker(shutdownSignal <-chan struct{}) {
 	defer log.Infof("Stopping %s ... done", PluginName)
 
 	stopped := make(chan struct{})
-	bindAddr := config.Node().GetString(CfgBindAddress)
+	bindAddr := config.Node().String(CfgBindAddress)
 	go func() {
-		log.Infof("%s started, bind-address=%s, basic-auth=%v", PluginName, bindAddr, config.Node().GetBool(CfgBasicAuthEnabled))
+		log.Infof("%s started, bind-address=%s, basic-auth=%v", PluginName, bindAddr, config.Node().Bool(CfgBasicAuthEnabled))
 		if err := server.Start(bindAddr); err != nil {
 			if !errors.Is(err, http.ErrServerClosed) {
 				log.Errorf("Error serving: %s", err)

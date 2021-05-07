@@ -1,19 +1,20 @@
 package clock
 
 import (
-	"errors"
 	"math/rand"
 	"sync"
 	"time"
+
+	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/node"
+	flag "github.com/spf13/pflag"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/gracefulshutdown"
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/node"
-	flag "github.com/spf13/pflag"
 )
 
 const (
@@ -51,7 +52,7 @@ func init() {
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 
-	ntpPools = config.Node().GetStringSlice(CfgNTPPools)
+	ntpPools = config.Node().Strings(CfgNTPPools)
 	if len(ntpPools) == 0 {
 		log.Fatalf("%s needs to provide at least 1 NTP pool to synchronize the local clock.", CfgNTPPools)
 	}

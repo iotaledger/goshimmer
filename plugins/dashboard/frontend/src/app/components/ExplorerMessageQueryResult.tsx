@@ -12,9 +12,11 @@ import * as dateformat from 'dateformat';
 import {Link} from 'react-router-dom';
 import {BasicPayload} from 'app/components/BasicPayload'
 import {DrngPayload} from 'app/components/DrngPayload'
-import {ValuePayload} from 'app/components/ValuePayload'
+import {TransactionPayload} from 'app/components/TransactionPayload'
 import {SyncBeaconPayload} from 'app/components/SyncBeaconPayload'
-import {PayloadType} from 'app/misc/Payload'
+import {getPayloadType, PayloadType} from 'app/misc/Payload'
+import {StatementPayload} from "app/components/StatemenetPayload";
+import {resolveBase58BranchID} from "app/utils/branch";
 
 interface Props {
     nodeStore?: NodeStore;
@@ -48,28 +50,17 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
     }
 
     getPayloadType() {
-        switch (this.props.explorerStore.msg.payload_type) {
-            case PayloadType.Data:
-                return "Data"
-            case PayloadType.Value:
-                return "Value"
-            case PayloadType.Drng:
-                return "Drng"
-            case PayloadType.Faucet:
-                return "Faucet"
-            case PayloadType.SyncBeacon:
-                return "SyncBeacon"
-            default:
-                return "Unknown"
-        }
+        return getPayloadType(this.props.explorerStore.msg.payload_type)
     }
 
     renderPayload() {
         switch (this.props.explorerStore.msg.payload_type) {
             case PayloadType.Drng:
                 return <DrngPayload/>
-            case PayloadType.Value:
-                return <ValuePayload/>
+            case PayloadType.Transaction:
+                return <TransactionPayload/>
+            case PayloadType.Statement:
+                return <StatementPayload/>
             case PayloadType.Data:
                 return <BasicPayload/>
             case PayloadType.SyncBeacon:
@@ -137,17 +128,68 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                                         Sequence Number: {msg.sequence_number}
                                     </ListGroup.Item>
                                     <ListGroup.Item>
+                                        BranchID: <Link to={`/explorer/branch/${msg.branchID}`}>{resolveBase58BranchID(msg.branchID)}</Link>
+                                    </ListGroup.Item>
+                                    <ListGroup.Item>
                                         Solid: {msg.solid ? 'Yes' : 'No'}
+                                    </ListGroup.Item>
+                                    <ListGroup.Item>
+                                        Scheduled: {msg.scheduled ? 'Yes' : 'No'}
+                                    </ListGroup.Item>
+                                    <ListGroup.Item>
+                                        Booked: {msg.booked ? 'Yes' : 'No'}
+                                    </ListGroup.Item>
+                                    <ListGroup.Item>
+                                        Eligible: {msg.eligible ? 'Yes' : 'No'}
+                                    </ListGroup.Item>
+                                    <ListGroup.Item>
+                                        Invalid: {msg.invalid ? 'Yes' : 'No'}
+                                    </ListGroup.Item>
+                                    <ListGroup.Item>
+                                        Finalized: {msg.finalized ? 'Yes' : 'No'}
                                     </ListGroup.Item>
                                 </ListGroup>
                             </Col>
                         </Row>
+
+                        {
+                            msg.rank &&
+                            <Row className={"mb-3"}>
+                                <Col>
+                                    <h5>Markers</h5>
+                                    <ListGroup>
+                                        <ListGroup.Item>
+                                            Rank: {msg.rank}
+                                        </ListGroup.Item>
+                                        <ListGroup.Item>
+                                            SequenceID: {msg.sequenceID}
+                                        </ListGroup.Item>
+                                        <ListGroup.Item>
+                                            PastMarkerGap: {msg.pastMarkerGap}
+                                        </ListGroup.Item>
+                                        <ListGroup.Item>
+                                            IsPastMarker: {msg.isPastMarker ? 'Yes' : 'No'}
+                                        </ListGroup.Item>
+                                        <ListGroup.Item>
+                                            Past markers: {msg.pastMarkers}
+                                        </ListGroup.Item>
+                                        <ListGroup.Item>
+                                            Future markers: {msg.futureMarkers}
+                                        </ListGroup.Item>
+                                    </ListGroup>
+                                </Col>
+                            </Row>
+                        }
+
 
                         <Row className={"mb-3"}>
                             <Col>
                                 <ListGroup>
                                     <ListGroup.Item>
                                         Issuer Public Key: {msg.issuer_public_key}
+                                    </ListGroup.Item>
+                                    <ListGroup.Item>
+                                        Issuer NodeID: {msg.issuer_short_id}
                                     </ListGroup.Item>
                                     <ListGroup.Item>
                                         Message Signature: {msg.signature}
@@ -159,22 +201,74 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                         <Row className={"mb-3"}>
                             <Col>
                                 <ListGroup>
-                                    <ListGroup.Item className="text-break">
-                                        Parent 1 Message ID: {' '}
-                                        <Link to={`/explorer/message/${msg.parent1_message_id}`}>
-                                            {msg.parent1_message_id}
-                                        </Link>
-                                    </ListGroup.Item>
+                                    {
+                                        msg.strongParents.map((value, index) => {
+                                            return (
+                                                <ListGroup.Item className="text-break">
+                                                    Strong Parent {index + 1}: {' '}
+                                                    <Link to={`/explorer/message/${msg.strongParents[index]}`}>
+                                                        {msg.strongParents[index]}
+                                                    </Link>
+                                                </ListGroup.Item>
+                                                )
+                                        })
+                                    }
                                 </ListGroup>
                             </Col>
+                        </Row>
+                        <Row>
                             <Col>
                                 <ListGroup>
-                                    <ListGroup.Item className="text-break">
-                                        Parent 2 Message ID: {' '}
-                                        <Link to={`/explorer/message/${msg.parent2_message_id}`}>
-                                            {msg.parent2_message_id}
-                                        </Link>
-                                    </ListGroup.Item>
+                                        {
+                                            msg.weakParents.map((value, index) => {
+                                                return (
+                                                    <ListGroup.Item className="text-break">
+                                                        Weak Parent {index + 1}: {' '}
+                                                        <Link to={`/explorer/message/${msg.weakParents[index]}`}>
+                                                            {msg.weakParents[index]}
+                                                        </Link>
+                                                    </ListGroup.Item>
+                                                )
+                                            })
+                                        }
+                                </ListGroup>
+                            </Col>
+                        </Row>
+
+                        <Row>
+                            <Col>
+                                <ListGroup>
+                                    {
+                                        msg.strongApprovers.map((value, index) => {
+                                            return (
+                                                <ListGroup.Item className="text-break">
+                                                    Strong Approver {index + 1}: {' '}
+                                                    <Link to={`/explorer/message/${msg.strongApprovers[index]}`}>
+                                                        {msg.strongApprovers[index]}
+                                                    </Link>
+                                                </ListGroup.Item>
+                                            )
+                                        })
+                                    }
+                                </ListGroup>
+                            </Col>
+                        </Row>
+
+                        <Row>
+                            <Col>
+                                <ListGroup>
+                                    {
+                                        msg.weakApprovers.map((value, index) => {
+                                            return (
+                                                <ListGroup.Item className="text-break">
+                                                    Weak Approver {index + 1}: {' '}
+                                                    <Link to={`/explorer/message/${msg.weakApprovers[index]}`}>
+                                                        {msg.weakApprovers[index]}
+                                                    </Link>
+                                                </ListGroup.Item>
+                                            )
+                                        })
+                                    }
                                 </ListGroup>
                             </Col>
                         </Row>

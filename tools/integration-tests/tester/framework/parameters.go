@@ -2,6 +2,7 @@ package framework
 
 const (
 	autopeeringMaxTries = 50
+	waitForManaMaxTries = 10
 
 	apiPort = "8080"
 
@@ -13,8 +14,8 @@ const (
 
 	logsDir = "/tmp/logs/"
 
-	disabledPluginsEntryNode = "portcheck,dashboard,analysis-client,profiling,gossip,drng,issuer,syncbeaconfollower,metrics,valuetransfers,messagelayer,pow,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint"
-	disabledPluginsPeer      = "portcheck,dashboard,analysis-client,profiling"
+	disabledPluginsEntryNode = "portcheck,dashboard,analysis-client,profiling,gossip,drng,issuer,syncbeaconfollower,metrics,valuetransfers,consensus,messagelayer,pow,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint,clock"
+	disabledPluginsPeer      = "portcheck,dashboard,analysis-client,profiling,clock"
 	snapshotFilePath         = "/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin"
 	dockerLogsPrefixLen      = 8
 
@@ -22,8 +23,11 @@ const (
 
 	exitStatusSuccessful = 0
 
-	syncBeaconSeed      = "Dw6dKWvQGbcijpib6A8t1vSiuDU1XWsnT71xhLSzXUGc"
-	syncBeaconPublicKey = "6wuo4zNP4MXzojmj2EXGsPEHPkWJNnbKZ9e17ufdTmp"
+	syncBeaconSeed      = "3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E"
+	syncBeaconPublicKey = "CHfU1NUf6ZvUKDQHTG2df53GR7CvuMFtyt7YymJ6DwS3"
+
+	// GenesisTokenAmount is the amount of tokens in the genesis output.
+	GenesisTokenAmount = 1000000000000000
 )
 
 // Parameters to override before calling any peer creation function.
@@ -40,8 +44,26 @@ var (
 	ParaWaitToKill = 60
 	// ParaPoWFaucetDifficulty defines the PoW difficulty for faucet payloads.
 	ParaPoWFaucetDifficulty = 2
+	// ParaFaucetPreparedOutputsCount defines the number of outputs the faucet should prepare.
+	ParaFaucetPreparedOutputsCount = 10
 	// ParaSyncBeaconOnEveryNode defines whether all nodes should be sync beacons.
 	ParaSyncBeaconOnEveryNode = false
+	// ParaManaOnEveryNode defines whether all nodes should have mana enabled.
+	ParaManaOnEveryNode = true
+	// ParaFPCRoundInterval defines how long a round lasts (in seconds)
+	ParaFPCRoundInterval int64 = 10
+	// ParaFPCTotalRoundsFinalization the amount of FPC rounds where an opinion needs to stay the same to be considered final. Also called 'l'.
+	ParaFPCTotalRoundsFinalization int = 10
+	// ParaWaitForStatement is the time in seconds for which the node wait for receiving the new statement.
+	ParaWaitForStatement = 3
+	// ParaFPCListen defines if the FPC service should listen.
+	ParaFPCListen = false
+	// ParaWriteStatement defines if the node should write statements.
+	ParaWriteStatement = true
+	// ParaReadManaThreshold defines the Mana threshold to accept a statement.
+	ParaReadManaThreshold = 1.0
+	// ParaWriteManaThreshold defines the Mana threshold to write a statement.
+	ParaWriteManaThreshold = 1.0
 )
 
 var (
@@ -71,9 +93,29 @@ type GoShimmerConfig struct {
 	SyncBeaconFollowNodes       string
 	SyncBeaconBroadcastInterval int
 	SyncBeaconMaxTimeOfflineSec int
+
+	Mana                              bool
+	ManaAllowedAccessFilterEnabled    bool
+	ManaAllowedConsensusFilterEnabled bool
+	ManaAllowedAccessPledge           []string
+	ManaAllowedConsensusPledge        []string
+
+	FPCRoundInterval           int64
+	FPCTotalRoundsFinalization int
+	WaitForStatement           int
+	FPCListen                  bool
+	WriteStatement             bool
+	WriteManaThreshold         float64
+	ReadManaThreshold          float64
 }
 
 // NetworkConfig defines the config of a GoShimmer Docker network.
 type NetworkConfig struct {
 	BootstrapInitialIssuanceTimePeriodSec int
+}
+
+// CreateNetworkConfig is the config for optional plugins passed through createNetwork.
+type CreateNetworkConfig struct {
+	Faucet bool
+	Mana   bool
 }

@@ -6,13 +6,14 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/labstack/echo"
+
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/metrics"
 )
 
 var (
@@ -23,7 +24,7 @@ var (
 	webSocketWriteTimeout = time.Duration(3) * time.Second
 
 	// clients
-	wsClientsMu    sync.Mutex
+	wsClientsMu    sync.RWMutex
 	wsClients      = make(map[uint64]*wsclient)
 	nextWsClientID uint64
 
@@ -45,10 +46,15 @@ type wsclient struct {
 
 func configureWebSocketWorkerPool() {
 	wsSendWorkerPool = workerpool.New(func(task workerpool.Task) {
-		broadcastWsMessage(&wsmsg{MsgTypeMPSMetric, task.Param(0).(uint64)})
-		broadcastWsMessage(&wsmsg{MsgTypeNodeStatus, currentNodeStatus()})
-		broadcastWsMessage(&wsmsg{MsgTypeNeighborMetric, neighborMetrics()})
-		broadcastWsMessage(&wsmsg{MsgTypeTipsMetric, messagelayer.TipSelector().TipCount()})
+		switch x := task.Param(0).(type) {
+		case uint64:
+			broadcastWsMessage(&wsmsg{MsgTypeMPSMetric, x})
+			broadcastWsMessage(&wsmsg{MsgTypeNodeStatus, currentNodeStatus()})
+			broadcastWsMessage(&wsmsg{MsgTypeNeighborMetric, neighborMetrics()})
+			broadcastWsMessage(&wsmsg{MsgTypeTipsMetric, messagelayer.Tangle().TipManager.StrongTipCount()})
+		case *componentsmetric:
+			broadcastWsMessage(&wsmsg{MsgTypeComponentCounterMetric, x})
+		}
 		task.Return(nil)
 	}, workerpool.WorkerCount(wsSendWorkerCount), workerpool.QueueSize(wsSendWorkerQueueSize))
 }
@@ -57,9 +63,19 @@ func runWebSocketStreams() {
 	updateStatus := events.NewClosure(func(mps uint64) {
 		wsSendWorkerPool.TrySubmit(mps)
 	})
+	updateComponentCounterStatus := events.NewClosure(func(componentStatus map[metrics.ComponentType]uint64) {
+		updateStatus := &componentsmetric{
+			Store:      componentStatus[metrics.Store],
+			Solidifier: componentStatus[metrics.Solidifier],
+			Scheduler:  componentStatus[metrics.Scheduler],
+			Booker:     componentStatus[metrics.Booker],
+		}
+		wsSendWorkerPool.TrySubmit(updateStatus)
+	})
 
 	if err := daemon.BackgroundWorker("Dashboard[StatusUpdate]", func(shutdownSignal <-chan struct{}) {
 		metrics.Events.ReceivedMPSUpdated.Attach(updateStatus)
+		metrics.Events.ComponentCounterUpdated.Attach(updateComponentCounterStatus)
 		wsSendWorkerPool.Start()
 		<-shutdownSignal
 		log.Info("Stopping Dashboard[StatusUpdate] ...")
@@ -77,7 +93,7 @@ func registerWSClient() (uint64, *wsclient) {
 	defer wsClientsMu.Unlock()
 	clientID := nextWsClientID
 	wsClient := &wsclient{
-		channel: make(chan interface{}, 500),
+		channel: make(chan interface{}, 2000),
 		exit:    make(chan struct{}),
 	}
 	wsClients[clientID] = wsClient
@@ -87,18 +103,21 @@ func registerWSClient() (uint64, *wsclient) {
 
 // removes the websocket client with the given id.
 func removeWsClient(clientID uint64) {
-	wsClientsMu.Lock()
-	defer wsClientsMu.Unlock()
+	wsClientsMu.RLock()
 	wsClient := wsClients[clientID]
 	close(wsClient.exit)
-	close(wsClient.channel)
+	wsClientsMu.RUnlock()
+
+	wsClientsMu.Lock()
+	defer wsClientsMu.Unlock()
 	delete(wsClients, clientID)
+	close(wsClient.channel)
 }
 
 // broadcasts the given message to all connected websocket clients.
 func broadcastWsMessage(msg interface{}, dontDrop ...bool) {
-	wsClientsMu.Lock()
-	defer wsClientsMu.Unlock()
+	wsClientsMu.RLock()
+	defer wsClientsMu.RUnlock()
 	for _, wsClient := range wsClients {
 		if len(dontDrop) > 0 {
 			select {
@@ -114,6 +133,25 @@ func broadcastWsMessage(msg interface{}, dontDrop ...bool) {
 			// potentially drop if slow consumer
 		}
 	}
+}
+
+func sendInitialData(ws *websocket.Conn) error {
+	if err := sendAllowedManaPledge(ws); err != nil {
+		return err
+	}
+	if err := manaBuffer.SendEvents(ws); err != nil {
+		return err
+	}
+	if err := manaBuffer.SendValueMsgs(ws); err != nil {
+		return err
+	}
+	if err := manaBuffer.SendMapOverall(ws); err != nil {
+		return err
+	}
+	if err := manaBuffer.SendMapOnline(ws); err != nil {
+		return err
+	}
+	return nil
 }
 
 func websocketRoute(c echo.Context) error {
@@ -135,6 +173,12 @@ func websocketRoute(c echo.Context) error {
 	clientID, wsClient := registerWSClient()
 	defer removeWsClient(clientID)
 
+	// send initial data to the connected client
+	err = sendInitialData(ws)
+	if err != nil {
+		return err
+	}
+
 	for {
 		msg := <-wsClient.channel
 		if err := ws.WriteJSON(msg); err != nil {
@@ -143,6 +187,16 @@ func websocketRoute(c echo.Context) error {
 		if err := ws.SetWriteDeadline(time.Now().Add(webSocketWriteTimeout)); err != nil {
 			break
 		}
+	}
+	return nil
+}
+
+func sendJSON(ws *websocket.Conn, msg *wsmsg) error {
+	if err := ws.WriteJSON(msg); err != nil {
+		return err
+	}
+	if err := ws.SetWriteDeadline(time.Now().Add(webSocketWriteTimeout)); err != nil {
+		return err
 	}
 	return nil
 }

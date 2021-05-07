@@ -4,10 +4,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
-	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
 
 // TestSynchronization checks whether messages are relayed through the network,
@@ -15,7 +16,7 @@ import (
 // and becomes synced again.
 func TestSynchronization(t *testing.T) {
 	initialPeers := 4
-	n, err := f.CreateNetwork("common_TestSynchronization", initialPeers, 2)
+	n, err := f.CreateNetwork("common_TestSynchronization", initialPeers, 2, framework.CreateNetworkConfig{})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -45,7 +46,7 @@ func TestSynchronization(t *testing.T) {
 	time.Sleep(15 * time.Second)
 
 	// 4. check whether all issued messages are available on all nodes
-	tests.CheckForMessageIds(t, n.Peers(), ids, true)
+	tests.CheckForMessageIDs(t, n.Peers(), ids, true)
 
 	// 5. shut down newly added peer
 	err = newPeer.Stop()
@@ -78,5 +79,5 @@ func TestSynchronization(t *testing.T) {
 	assert.Truef(t, resp.Synced, "Peer %s should be synced but is desynced!", newPeer.String())
 
 	// 10. check whether all issued messages are available on all nodes
-	tests.CheckForMessageIds(t, n.Peers(), ids, true)
+	tests.CheckForMessageIDs(t, n.Peers(), ids, true)
 }

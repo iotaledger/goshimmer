@@ -1,8 +1,9 @@
 package metrics
 
 import (
-	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/hive.go/events"
+
+	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 )
 
 // CollectionEvents defines the events fot the metrics package.
@@ -17,8 +18,10 @@ type CollectionEvents struct {
 	CPUUsage *events.Event
 	// MemUsage defines the local GoShimmer memory usage.
 	MemUsage *events.Event
-	// Synced defines the local sync status event.
-	Synced *events.Event
+	// SyncBeaconSynced defines the local sync status event based on sync beacon.
+	SyncBeaconSynced *events.Event
+	// TangleTimeSynced defines the local sync status event based on tangle time.
+	TangleTimeSynced *events.Event
 	// ValueTips defines the local value tips count event.
 	ValueTips *events.Event
 	// MessageTips defines the local message tips count event.
@@ -55,9 +58,9 @@ type AnalysisFPCFinalizedEvent struct {
 	// Rounds defines the number of rounds performed to finalize.
 	Rounds int
 	// Opinions contains the opinion of each round.
-	Opinions []vote.Opinion
+	Opinions []opinion.Opinion
 	// Outcome defines the outcome of the FPC voting.
-	Outcome vote.Opinion
+	Outcome opinion.Opinion
 }
 
 func queryReceivedEventCaller(handler interface{}, params ...interface{}) {

@@ -2,7 +2,6 @@ package dashboard
 
 import (
 	"context"
-	"errors"
 	"net"
 	"net/http"
 	"runtime"
@@ -10,15 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/autopeering"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/banner"
-	"github.com/iotaledger/goshimmer/plugins/config"
-	"github.com/iotaledger/goshimmer/plugins/drng"
-	"github.com/iotaledger/goshimmer/plugins/gossip"
-	"github.com/iotaledger/goshimmer/plugins/metrics"
-	"github.com/iotaledger/goshimmer/plugins/syncbeaconfollower"
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/daemon"
@@ -27,7 +18,19 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
+
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/autopeering"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/banner"
+	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/plugins/drng"
+	"github.com/iotaledger/goshimmer/plugins/gossip"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/metrics"
 )
+
+// TODO: mana visualization + metrics
 
 // PluginName is the name of the dashboard plugin.
 const PluginName = "Dashboard"
@@ -57,6 +60,7 @@ func configure(plugin *node.Plugin) {
 	configureLiveFeed()
 	configureDrngLiveFeed()
 	configureVisualizer()
+	configureManaFeed()
 	configureServer()
 }
 
@@ -66,10 +70,10 @@ func configureServer() {
 	server.HidePort = true
 	server.Use(middleware.Recover())
 
-	if config.Node().GetBool(CfgBasicAuthEnabled) {
+	if config.Node().Bool(CfgBasicAuthEnabled) {
 		server.Use(middleware.BasicAuth(func(username, password string, c echo.Context) (bool, error) {
-			if username == config.Node().GetString(CfgBasicAuthUsername) &&
-				password == config.Node().GetString(CfgBasicAuthPassword) {
+			if username == config.Node().String(CfgBasicAuthUsername) &&
+				password == config.Node().String(CfgBasicAuthPassword) {
 				return true, nil
 			}
 			return false, nil
@@ -86,6 +90,7 @@ func run(*node.Plugin) {
 	runLiveFeed()
 	// run the visualizer vertex feed
 	runVisualizer()
+	runManaFeed()
 	// run dRNG live feed if dRNG plugin is enabled
 	if !node.IsSkipped(drng.Plugin()) {
 		runDrngLiveFeed()
@@ -110,9 +115,9 @@ func worker(shutdownSignal <-chan struct{}) {
 	defer metrics.Events.ReceivedMPSUpdated.Detach(notifyStatus)
 
 	stopped := make(chan struct{})
-	bindAddr := config.Node().GetString(CfgBindAddress)
+	bindAddr := config.Node().String(CfgBindAddress)
 	go func() {
-		log.Infof("%s started, bind-address=%s, basic-auth=%v", PluginName, bindAddr, config.Node().GetBool(CfgBasicAuthEnabled))
+		log.Infof("%s started, bind-address=%s, basic-auth=%v", PluginName, bindAddr, config.Node().Bool(CfgBasicAuthEnabled))
 		if err := server.Start(bindAddr); err != nil {
 			if !errors.Is(err, http.ErrServerClosed) {
 				log.Errorf("Error serving: %s", err)
@@ -144,6 +149,8 @@ const (
 	MsgTypeMessage
 	// MsgTypeNeighborMetric is the type of the NeighborMetric message.
 	MsgTypeNeighborMetric
+	// MsgTypeComponentCounterMetric is the type of the component counter triggered per second.
+	MsgTypeComponentCounterMetric
 	// MsgTypeDrng is the type of the dRNG message.
 	MsgTypeDrng
 	// MsgTypeTipsMetric is the type of the TipsMetric message.
@@ -152,6 +159,28 @@ const (
 	MsgTypeVertex
 	// MsgTypeTipInfo defines a tip info message.
 	MsgTypeTipInfo
+	// MsgTypeManaValue defines a mana value message.
+	MsgTypeManaValue
+	// MsgTypeManaMapOverall defines a message containing overall mana map.
+	MsgTypeManaMapOverall
+	// MsgTypeManaMapOnline defines a message containing online mana map.
+	MsgTypeManaMapOnline
+	// MsgTypeManaAllowedPledge defines a message containing a list of allowed mana pledge nodeIDs.
+	MsgTypeManaAllowedPledge
+	// MsgTypeManaPledge defines a message that is sent when mana was pledged to the node.
+	MsgTypeManaPledge
+	// MsgTypeManaInitPledge defines a message that is sent when initial pledge events are sent to the dashboard.
+	MsgTypeManaInitPledge
+	// MsgTypeManaRevoke defines a message that is sent when mana was revoked from a node.
+	MsgTypeManaRevoke
+	// MsgTypeManaInitRevoke defines a message that is sent when initial revoke events are sent to the dashboard.
+	MsgTypeManaInitRevoke
+	// MsgTypeManaInitDone defines a message that is sent when all initial values are sent.
+	MsgTypeManaInitDone
+	// MsgManaDashboardAddress is the socket address of the dashboard to stream mana from.
+	MsgManaDashboardAddress
+	// MsgTypeMsgOpinionFormed defines a tip info message.
+	MsgTypeMsgOpinionFormed
 )
 
 type wsmsg struct {
@@ -160,17 +189,25 @@ type wsmsg struct {
 }
 
 type msg struct {
-	ID    string `json:"id"`
-	Value int64  `json:"value"`
+	ID          string `json:"id"`
+	Value       int64  `json:"value"`
+	PayloadType uint32 `json:"payload_type"`
 }
 
 type nodestatus struct {
-	ID      string            `json:"id"`
-	Version string            `json:"version"`
-	Uptime  int64             `json:"uptime"`
-	Synced  bool              `json:"synced"`
-	Beacons map[string]Beacon `json:"beacons"`
-	Mem     *memmetrics       `json:"mem"`
+	ID         string            `json:"id"`
+	Version    string            `json:"version"`
+	Uptime     int64             `json:"uptime"`
+	Synced     bool              `json:"synced"`
+	Beacons    map[string]Beacon `json:"beacons"`
+	Mem        *memmetrics       `json:"mem"`
+	TangleTime tangleTime        `json:"tangleTime"`
+}
+
+type tangleTime struct {
+	Synced    bool   `json:"synced"`
+	Time      int64  `json:"time"`
+	MessageID string `json:"messageID"`
 }
 
 // Beacon contains a sync beacons detailed status.
@@ -181,15 +218,11 @@ type Beacon struct {
 }
 
 type memmetrics struct {
-	Sys          uint64 `json:"sys"`
 	HeapSys      uint64 `json:"heap_sys"`
-	HeapInuse    uint64 `json:"heap_inuse"`
+	HeapAlloc    uint64 `json:"heap_alloc"`
 	HeapIdle     uint64 `json:"heap_idle"`
 	HeapReleased uint64 `json:"heap_released"`
 	HeapObjects  uint64 `json:"heap_objects"`
-	MSpanInuse   uint64 `json:"m_span_inuse"`
-	MCacheInuse  uint64 `json:"m_cache_inuse"`
-	StackSys     uint64 `json:"stack_sys"`
 	NumGC        uint32 `json:"num_gc"`
 	LastPauseGC  uint64 `json:"last_pause_gc"`
 }
@@ -200,6 +233,13 @@ type neighbormetric struct {
 	ConnectionOrigin string `json:"connection_origin"`
 	BytesRead        uint64 `json:"bytes_read"`
 	BytesWritten     uint64 `json:"bytes_written"`
+}
+
+type componentsmetric struct {
+	Store      uint64 `json:"store"`
+	Solidifier uint64 `json:"solidifier"`
+	Scheduler  uint64 `json:"scheduler"`
+	Booker     uint64 `json:"booker"`
 }
 
 func neighborMetrics() []neighbormetric {
@@ -246,12 +286,12 @@ func currentNodeStatus() *nodestatus {
 	status.Version = banner.AppVersion
 	status.Uptime = time.Since(nodeStartAt).Milliseconds()
 
-	var beacons map[ed25519.PublicKey]syncbeaconfollower.Status
-	status.Synced, beacons = syncbeaconfollower.SyncStatus()
+	var beacons map[ed25519.PublicKey]messagelayer.Status
+	status.Synced, beacons = messagelayer.SyncStatus()
 
 	for publicKey, s := range beacons {
 		status.Beacons[publicKey.String()] = Beacon{
-			MsgID:    s.MsgID.String(),
+			MsgID:    s.MsgID.Base58(),
 			SentTime: s.SentTime,
 			Synced:   s.Synced,
 		}
@@ -259,17 +299,21 @@ func currentNodeStatus() *nodestatus {
 
 	// memory metrics
 	status.Mem = &memmetrics{
-		Sys:          m.Sys,
 		HeapSys:      m.HeapSys,
-		HeapInuse:    m.HeapInuse,
+		HeapAlloc:    m.HeapAlloc,
 		HeapIdle:     m.HeapIdle,
 		HeapReleased: m.HeapReleased,
 		HeapObjects:  m.HeapObjects,
-		MSpanInuse:   m.MSpanInuse,
-		MCacheInuse:  m.MCacheInuse,
-		StackSys:     m.StackSys,
 		NumGC:        m.NumGC,
 		LastPauseGC:  m.PauseNs[(m.NumGC+255)%256],
+	}
+
+	// get TangleTime
+	lcm := messagelayer.Tangle().TimeManager.LastConfirmedMessage()
+	status.TangleTime = tangleTime{
+		Synced:    messagelayer.Tangle().TimeManager.Synced(),
+		Time:      lcm.Time.UnixNano(),
+		MessageID: lcm.MessageID.Base58(),
 	}
 	return status
 }

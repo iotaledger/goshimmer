@@ -3,18 +3,18 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"unsafe"
 
-	"github.com/iotaledger/goshimmer/client"
-	"github.com/iotaledger/goshimmer/client/wallet"
-	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/mr-tron/base58"
+
+	"github.com/iotaledger/goshimmer/client"
+	"github.com/iotaledger/goshimmer/client/wallet"
+	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 )
 
 func printBanner() {
@@ -40,7 +40,7 @@ func loadWallet() *wallet.Wallet {
 }
 
 func importWalletStateFile(filename string) (seed *walletseed.Seed, lastAddressIndex uint64, spentAddresses []bitmask.BitMask, assetRegistry *wallet.AssetRegistry, err error) {
-	walletStateBytes, err := ioutil.ReadFile(filename)
+	walletStateBytes, err := os.ReadFile(filename)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			return
@@ -114,7 +114,7 @@ func writeWalletStateFile(wallet *wallet.Wallet, filename string) {
 		}
 	}
 
-	err = ioutil.WriteFile(filename, wallet.ExportState(), 0644)
+	err = os.WriteFile(filename, wallet.ExportState(), 0644)
 	if err != nil {
 		panic(err)
 	}
@@ -146,6 +146,8 @@ func printUsage(command *flag.FlagSet, optionalErrorMessage ...string) {
 		fmt.Println("        generate a new wallet using a random seed")
 		fmt.Println("  server-status")
 		fmt.Println("        display the server status")
+		fmt.Println("  pledge-id")
+		fmt.Println("        query allowed mana pledge nodeIDs")
 		fmt.Println("  help")
 		fmt.Println("        display this help screen")
 

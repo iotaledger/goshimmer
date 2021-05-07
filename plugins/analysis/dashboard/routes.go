@@ -1,15 +1,16 @@
 package dashboard
 
 import (
-	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 
-	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/cockroachdb/errors"
 	"github.com/labstack/echo"
 	"github.com/markbates/pkger"
+
+	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 // ErrInvalidParameter defines the invalid parameter error.
@@ -31,12 +32,17 @@ const (
 )
 
 func indexRoute(e echo.Context) error {
-	if config.Node().GetBool(CfgDev) {
-		res, err := http.Get("http://127.0.0.1:9090/")
+	if config.Node().Bool(CfgDev) {
+		req, err := http.NewRequestWithContext(e.Request().Context(), "GET", "http://127.0.0.1:9090/", nil /* body */)
 		if err != nil {
 			return err
 		}
-		devIndexHTML, err := ioutil.ReadAll(res.Body)
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return err
+		}
+		defer res.Body.Close()
+		devIndexHTML, err := io.ReadAll(res.Body)
 		if err != nil {
 			return err
 		}
@@ -48,7 +54,7 @@ func indexRoute(e echo.Context) error {
 	}
 	defer index.Close()
 
-	indexHTML, err := ioutil.ReadAll(index)
+	indexHTML, err := io.ReadAll(index)
 	if err != nil {
 		return err
 	}
@@ -56,11 +62,9 @@ func indexRoute(e echo.Context) error {
 }
 
 func setupRoutes(e *echo.Echo) {
-
-	if config.Node().GetBool("analysis.dashboard.dev") {
+	if config.Node().Bool("analysis.dashboard.dev") {
 		e.Static("/assets", "./plugins/analysis/dashboard/frontend/src/assets")
 	} else {
-
 		// load assets from packr: either from within the binary or actual disk
 		pkger.Walk(app, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
@@ -92,7 +96,6 @@ func setupRoutes(e *echo.Echo) {
 		var message string
 
 		switch errors.Unwrap(err) {
-
 		case echo.ErrNotFound:
 			c.Redirect(http.StatusSeeOther, "/")
 			return

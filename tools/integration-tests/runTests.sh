@@ -1,12 +1,14 @@
 #!/bin/bash
 
-TEST_NAMES='autopeering common drng message value consensus faucet syncbeacon'
+TEST_NAMES='autopeering common drng message value consensus faucet syncbeacon mana'
 
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
 echo "Build GoShimmer image"
 docker build -t iotaledger/goshimmer ../../.
 
 echo "Pull additional Docker images"
-docker pull angelocapossele/drand:1.1.3
+docker pull angelocapossele/drand:v1.1.4
 docker pull gaiaadm/pumba:0.7.2
 docker pull gaiadocker/iproute2:latest
 

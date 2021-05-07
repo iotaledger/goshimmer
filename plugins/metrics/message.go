@@ -3,12 +3,43 @@ package metrics
 import (
 	"time"
 
+	"github.com/iotaledger/hive.go/syncutils"
+	"go.uber.org/atomic"
+
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/hive.go/syncutils"
-	"go.uber.org/atomic"
 )
+
+// ComponentType defines the component for the different MPS metrics.
+type ComponentType byte
+
+const (
+	// Store denotes messages stored by the message store.
+	Store ComponentType = iota
+	// Solidifier denotes messages solidified by the solidifier.
+	Solidifier
+	// Scheduler denotes messages scheduled by the scheduler.
+	Scheduler
+	// Booker denotes messages booked by the booker.
+	Booker
+)
+
+// String returns the stringified component type.
+func (c ComponentType) String() string {
+	switch c {
+	case Store:
+		return "Store"
+	case Solidifier:
+		return "Solidifier"
+	case Scheduler:
+		return "Scheduler"
+	case Booker:
+		return "Booker"
+	default:
+		return "Unknown"
+	}
+}
 
 var (
 	// Total number of processed messages since start of the node.
@@ -54,6 +85,12 @@ var (
 	// protect map from concurrent read/write.
 	messageCountPerPayloadMutex syncutils.RWMutex
 
+	// Number of messages per component (store, scheduler, booker) type since start of the node.
+	messageCountPerComponent = make(map[ComponentType]uint64)
+
+	// protect map from concurrent read/write.
+	messageCountPerComponentMutex syncutils.RWMutex
+
 	// number of messages being requested by the message layer.
 	requestQueueSize atomic.Int64
 )
@@ -73,6 +110,20 @@ func MessageCountSinceStartPerPayload() map[payload.Type]uint64 {
 	// copy the original map
 	clone := make(map[payload.Type]uint64)
 	for key, element := range messageCountPerPayload {
+		clone[key] = element
+	}
+
+	return clone
+}
+
+// MessageCountSinceStartPerComponent returns a map of message count per component types and their count since the start of the node.
+func MessageCountSinceStartPerComponent() map[ComponentType]uint64 {
+	messageCountPerComponentMutex.RLock()
+	defer messageCountPerComponentMutex.RUnlock()
+
+	// copy the original map
+	clone := make(map[ComponentType]uint64)
+	for key, element := range messageCountPerComponent {
 		clone[key] = element
 	}
 
@@ -131,8 +182,32 @@ func increasePerPayloadCounter(p payload.Type) {
 	messageTotalCount.Inc()
 }
 
+func increasePerComponentCounter(c ComponentType) {
+	messageCountPerComponentMutex.Lock()
+	defer messageCountPerComponentMutex.Unlock()
+
+	// increase cumulative metrics
+	messageCountPerComponent[c]++
+}
+
+// measures the Component Counter value per second
+func measurePerComponentCounter() {
+	// sample the current counter value into a measured MPS value
+	componentCounters := MessageCountSinceStartPerComponent()
+
+	// reset the counter
+	messageCountPerComponentMutex.Lock()
+	for key := range messageCountPerComponent {
+		messageCountPerComponent[key] = 0
+	}
+	messageCountPerComponentMutex.Unlock()
+
+	// trigger events for outside listeners
+	Events.ComponentCounterUpdated.Trigger(componentCounters)
+}
+
 func measureMessageTips() {
-	metrics.Events().MessageTips.Trigger((uint64)(messagelayer.TipSelector().TipCount()))
+	metrics.Events().MessageTips.Trigger((uint64)(messagelayer.Tangle().TipManager.StrongTipCount()))
 }
 
 // increases the received MPS counter
@@ -156,12 +231,12 @@ func measureReceivedMPS() {
 }
 
 func measureRequestQueueSize() {
-	size := int64(messagelayer.MessageRequester().RequestQueueSize())
+	size := int64(messagelayer.Tangle().Requester.RequestQueueSize())
 	requestQueueSize.Store(size)
 }
 
 func measureInitialDBStats() {
-	solid, total, avgSolidTime, missing := messagelayer.Tangle().DBStats()
+	solid, total, avgSolidTime, missing := messagelayer.Tangle().Storage.DBStats()
 	initialMessageSolidCountDB = uint64(solid)
 	initialMessageTotalCountDB = uint64(total)
 	initialSumSolidificationTime = avgSolidTime * float64(solid)

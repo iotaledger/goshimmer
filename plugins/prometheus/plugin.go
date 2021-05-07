@@ -6,15 +6,17 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/gin-gonic/gin"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/config"
-	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/plugins/metrics"
 )
 
 // PluginName is the name of the prometheus plugin.
@@ -42,18 +44,18 @@ func Plugin() *node.Plugin {
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(plugin.Name)
 
-	if config.Node().GetBool(CfgPrometheusWorkerpoolMetrics) {
+	if config.Node().Bool(CfgPrometheusWorkerpoolMetrics) {
 		registerWorkerpoolMetrics()
 	}
 
-	if config.Node().GetBool(CfgPrometheusGoMetrics) {
+	if config.Node().Bool(CfgPrometheusGoMetrics) {
 		registry.MustRegister(prometheus.NewGoCollector())
 	}
-	if config.Node().GetBool(CfgPrometheusProcessMetrics) {
+	if config.Node().Bool(CfgPrometheusProcessMetrics) {
 		registry.MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
 	}
 
-	if config.Node().GetBool(metrics.CfgMetricsLocal) {
+	if config.Node().Bool(metrics.CfgMetricsLocal) {
 		registerAutopeeringMetrics()
 		registerDBMetrics()
 		registerFPCMetrics()
@@ -61,10 +63,15 @@ func configure(plugin *node.Plugin) {
 		registerNetworkMetrics()
 		registerProcessMetrics()
 		registerTangleMetrics()
+		registerManaMetrics()
 	}
 
-	if config.Node().GetBool(metrics.CfgMetricsGlobal) {
+	if config.Node().Bool(metrics.CfgMetricsGlobal) {
 		registerClientsMetrics()
+	}
+
+	if config.Node().Bool(metrics.CfgMetricsManaResearch) {
+		registerManaResearchMetrics()
 	}
 }
 
@@ -90,18 +97,18 @@ func run(plugin *node.Plugin) {
 					EnableOpenMetrics: true,
 				},
 			)
-			if config.Node().GetBool(CfgPrometheusPromhttpMetrics) {
+			if config.Node().Bool(CfgPrometheusPromhttpMetrics) {
 				handler = promhttp.InstrumentMetricHandler(registry, handler)
 			}
 			handler.ServeHTTP(c.Writer, c.Request)
 		})
 
-		bindAddr := config.Node().GetString(CfgPrometheusBindAddress)
+		bindAddr := config.Node().String(CfgPrometheusBindAddress)
 		server = &http.Server{Addr: bindAddr, Handler: engine}
 
 		go func() {
 			log.Infof("You can now access the Prometheus exporter using: http://%s/metrics", bindAddr)
-			if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				log.Error("Stopping Prometheus exporter due to an error ... done")
 			}
 		}()
