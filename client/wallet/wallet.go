@@ -19,6 +19,7 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/reclaimfunds_options"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sendfunds_options"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/sweepfunds_options"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sweepnftownedfunds_options"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sweepnftownednfts_options"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/transfernft_options"
@@ -170,6 +171,102 @@ func (wallet *Wallet) SendFunds(options ...sendfunds_options.SendFundsOption) (t
 		err = wallet.WaitForTxConfirmation(tx.ID())
 	}
 
+	return
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region SweepFunds ///////////////////////////////////////////////////////////////////////////////////////////////////
+
+func (wallet *Wallet) SweepFunds(options ...sweepfunds_options.SweepFundsOption) (tx *ledgerstate.Transaction, err error) {
+	sweepOptions, err := sweepfunds_options.BuildSweepFundsOptions(options...)
+	if err != nil {
+		return
+	}
+	// get available balances
+	confirmedAvailableBalance, _, err := wallet.AvailableBalance()
+	if err != nil {
+		return
+	}
+	if len(confirmedAvailableBalance) == 0 {
+		err = xerrors.Errorf("no available balance to be swept in wallet")
+		return
+	}
+	// collect outputs
+	consumedOutputs, err := wallet.collectOutputsForFunding(confirmedAvailableBalance)
+	if err != nil {
+		return
+	}
+
+	// build inputs from consumed outputs
+	inputs := wallet.buildInputs(consumedOutputs)
+	// aggregate all the funds we consume from inputs
+	totalConsumedFunds := consumedOutputs.TotalFundsInOutputs()
+	var toAddress address.Address
+	_, spendFromRemainderAddress := consumedOutputs[wallet.RemainderAddress()]
+	_, spendFromReceiveAddress := consumedOutputs[wallet.ReceiveAddress()]
+	if spendFromRemainderAddress && spendFromReceiveAddress {
+		// we are about to spend from both
+		toAddress = wallet.NewReceiveAddress()
+	} else if spendFromRemainderAddress && !spendFromReceiveAddress {
+		// we are about to spend from remainder, but not from receive
+		toAddress = wallet.ReceiveAddress()
+	} else {
+		// we are not spending from remainder
+		toAddress = wallet.RemainderAddress()
+	}
+
+	outputs := ledgerstate.NewOutputs(ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(totalConsumedFunds), toAddress.Address()))
+
+	// determine pledgeIDs
+	aPledgeID, cPledgeID, err := wallet.derivePledgeIDs(sweepOptions.AccessManaPledgeID, sweepOptions.ConsensusManaPledgeID)
+	if err != nil {
+		return
+	}
+
+	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), aPledgeID, cPledgeID, inputs, outputs)
+	outputsByID := consumedOutputs.OutputsByID()
+
+	unlockBlocks, inputsAsOutputsInOrder := wallet.buildUnlockBlocks(inputs, outputsByID, txEssence)
+
+	tx = ledgerstate.NewTransaction(txEssence, unlockBlocks)
+
+	// check syntactical validity by marshaling an unmarshaling
+	tx, _, err = ledgerstate.TransactionFromBytes(tx.Bytes())
+	if err != nil {
+		return nil, err
+	}
+
+	//check tx validity (balances, unlock blocks)
+	ok, err := checkBalancesAndUnlocks(inputsAsOutputsInOrder, tx)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, xerrors.Errorf("created transaction is invalid: %s", tx.String())
+	}
+
+	// mark outputs as spent
+	for addr, outputs := range consumedOutputs {
+		for outputID := range outputs {
+			wallet.outputManager.MarkOutputSpent(addr, outputID)
+		}
+	}
+
+	// mark addresses as spent
+	if !wallet.reusableAddress {
+		for addr := range consumedOutputs {
+			wallet.addressManager.MarkAddressSpent(addr.Index)
+		}
+	}
+
+	err = wallet.connector.SendTransaction(tx)
+	if err != nil {
+		return nil, err
+	}
+	if sweepOptions.WaitForConfirmation {
+		err = wallet.WaitForTxConfirmation(tx.ID())
+	}
 	return
 }
 
@@ -1449,7 +1546,7 @@ func (wallet *Wallet) Balance() (confirmedBalance map[ledgerstate.Color]uint64, 
 
 // region AvailableBalance //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// AvailableBalance returns the balance that is not held in aliases, and therefore can be used to funds transfers.
+// AvailableBalance returns the balance that is not held in aliases, and therefore can be used to fund transfers.
 func (wallet *Wallet) AvailableBalance() (confirmedBalance map[ledgerstate.Color]uint64, pendingBalance map[ledgerstate.Color]uint64, err error) {
 	err = wallet.outputManager.Refresh()
 	if err != nil {
@@ -1458,7 +1555,7 @@ func (wallet *Wallet) AvailableBalance() (confirmedBalance map[ledgerstate.Color
 
 	confirmedBalance = make(map[ledgerstate.Color]uint64)
 	pendingBalance = make(map[ledgerstate.Color]uint64)
-
+	now := time.Now()
 	// iterate through the unspent outputs
 	for addy, outputsOnAddress := range wallet.outputManager.UnspentOutputs() {
 		for _, output := range outputsOnAddress {
@@ -1484,7 +1581,11 @@ func (wallet *Wallet) AvailableBalance() (confirmedBalance map[ledgerstate.Color
 				})
 			case ledgerstate.ExtendedLockedOutputType:
 				casted := output.Object.(*ledgerstate.ExtendedLockedOutput)
-				unlockAddyNow := casted.UnlockAddressNow(time.Now())
+				if casted.TimeLockedNow(now) {
+					// timelocked funds are not available
+					continue
+				}
+				unlockAddyNow := casted.UnlockAddressNow(now)
 				if addy.Address().Equals(unlockAddyNow) {
 					// we own this output now
 					casted.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
@@ -1832,11 +1933,19 @@ func (wallet *Wallet) collectOutputsForFunding(fundingBalance map[ledgerstate.Co
 
 	collected := make(map[ledgerstate.Color]uint64)
 	outputsToConsume := NewAddressToOutputs()
+	now := time.Now()
 	for _, addy := range addresses {
 		for outputID, output := range unspentOutputs[addy] {
 			if output.InclusionState.Spent {
 				// skip counting spent outputs
 				continue
+			}
+			if output.Object.Type() == ledgerstate.ExtendedLockedOutputType {
+				casted := output.Object.(*ledgerstate.ExtendedLockedOutput)
+				if casted.TimeLockedNow(now) || !casted.UnlockAddressNow(now).Equals(addy.Address()) {
+					// skip the output because we wouldn't be able to unlock it
+					continue
+				}
 			}
 			contributingOutput := false
 			output.Object.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
