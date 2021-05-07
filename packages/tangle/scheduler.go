@@ -19,7 +19,7 @@ const (
 	MaxDeficit = MaxMessageSize
 	// MinMana is the minimum mana require to be able to issue a message.
 	// TODO: what is a good value? Would something > MaxMessageSize / 1000 be possible
-	MinMana = 0.001
+	MinMana = 1e-6
 )
 
 // ErrNotRunning is returned when a message is submitted when the scheduler has not been started
