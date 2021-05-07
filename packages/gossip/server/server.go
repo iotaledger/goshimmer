@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"container/list"
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -36,10 +37,10 @@ var (
 
 // connection timeouts
 const (
-	dialTimeout       = 1 * time.Second                    // timeout for net.Dial
-	handshakeTimeout  = 500 * time.Millisecond             // read/write timeout of the handshake packages
-	acceptTimeout     = 3 * time.Second                    // timeout to accept incoming connections
-	connectionTimeout = acceptTimeout + 2*handshakeTimeout // timeout after which the connection must be established
+	defaultDialTimeout       = 1 * time.Second                    // timeout for net.Dial
+	handshakeTimeout         = 500 * time.Millisecond             // read/write timeout of the handshake packages
+	acceptTimeout            = 3 * time.Second                    // timeout to accept incoming connections
+	defaultConnectionTimeout = acceptTimeout + 2*handshakeTimeout // timeout after which the connection must be established
 
 	maxHandshakePacketSize = 256
 )
@@ -120,7 +121,7 @@ func (t *TCP) LocalAddr() net.Addr {
 
 // DialPeer establishes a gossip connection to the given peer.
 // If the peer does not accept the connection or the handshake fails, an error is returned.
-func (t *TCP) DialPeer(p *peer.Peer) (net.Conn, error) {
+func (t *TCP) DialPeer(ctx context.Context, p *peer.Peer) (net.Conn, error) {
 	gossipEndpoint := p.Services().Get(service.GossipKey)
 	if gossipEndpoint == nil {
 		return nil, ErrNoGossip
@@ -130,7 +131,8 @@ func (t *TCP) DialPeer(p *peer.Peer) (net.Conn, error) {
 	if err := backoff.Retry(dialRetryPolicy, func() error {
 		var err error
 		address := net.JoinHostPort(p.IP().String(), strconv.Itoa(gossipEndpoint.Port()))
-		conn, err = net.DialTimeout("tcp", address, dialTimeout)
+		dialer := &net.Dialer{Timeout: defaultDialTimeout}
+		conn, err = dialer.DialContext(ctx, "tcp", address)
 		if err != nil {
 			return fmt.Errorf("dial %s / %s failed: %w", address, p.ID(), err)
 		}
@@ -152,14 +154,14 @@ func (t *TCP) DialPeer(p *peer.Peer) (net.Conn, error) {
 
 // AcceptPeer awaits an incoming connection from the given peer.
 // If the peer does not establish the connection or the handshake fails, an error is returned.
-func (t *TCP) AcceptPeer(p *peer.Peer) (net.Conn, error) {
+func (t *TCP) AcceptPeer(ctx context.Context, p *peer.Peer) (net.Conn, error) {
 	gossipEndpoint := p.Services().Get(service.GossipKey)
 	if gossipEndpoint == nil {
 		return nil, ErrNoGossip
 	}
 
 	// wait for the connection
-	connected := <-t.acceptPeer(p)
+	connected := <-t.acceptPeer(ctx, p)
 	if connected.err != nil {
 		return nil, fmt.Errorf("accept %s / %s failed: %w", net.JoinHostPort(p.IP().String(), strconv.Itoa(gossipEndpoint.Port())), p.ID(), connected.err)
 	}
@@ -171,11 +173,12 @@ func (t *TCP) AcceptPeer(p *peer.Peer) (net.Conn, error) {
 	return connected.c, nil
 }
 
-func (t *TCP) acceptPeer(p *peer.Peer) <-chan connect {
+func (t *TCP) acceptPeer(ctx context.Context, p *peer.Peer) <-chan connect {
 	connected := make(chan connect, 1)
 	// add the matcher
+	deadline, _ := ctx.Deadline()
 	select {
-	case t.addAcceptMatcher <- &acceptMatcher{peer: p, connected: connected}:
+	case t.addAcceptMatcher <- &acceptMatcher{peer: p, connected: connected, deadline: deadline}:
 	case <-t.closing:
 		connected <- connect{nil, ErrClosed}
 	}
@@ -212,7 +215,9 @@ func (t *TCP) run() {
 		select {
 		// add a new matcher to the list
 		case m := <-t.addAcceptMatcher:
-			m.deadline = time.Now().Add(connectionTimeout)
+			if m.deadline.IsZero() {
+				m.deadline = time.Now().Add(defaultConnectionTimeout)
+			}
 			matcherList.PushBack(m)
 
 		// on accept received, check all matchers for a fit

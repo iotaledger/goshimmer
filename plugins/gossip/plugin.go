@@ -1,6 +1,7 @@
 package gossip
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -85,7 +86,7 @@ func configureAutopeering() {
 			return // ignore rejected peering
 		}
 		go func() {
-			if err := mgr.AddInbound(ev.Peer, gossip.NeighborsGroupAuto); err != nil {
+			if err := mgr.AddInbound(context.Background(),ev.Peer, gossip.NeighborsGroupAuto); err != nil {
 				log.Debugw("error adding inbound", "id", ev.Peer.ID(), "err", err)
 			}
 		}()
@@ -95,7 +96,7 @@ func configureAutopeering() {
 			return // ignore rejected peering
 		}
 		go func() {
-			if err := mgr.AddOutbound(ev.Peer, gossip.NeighborsGroupAuto); err != nil {
+			if err := mgr.AddOutbound(context.Background(),ev.Peer, gossip.NeighborsGroupAuto); err != nil {
 				log.Debugw("error adding outbound", "id", ev.Peer.ID(), "err", err)
 			}
 		}()

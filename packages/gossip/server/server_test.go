@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"net"
 	"sync"
 	"testing"
@@ -31,7 +32,7 @@ func TestUnansweredAccept(t *testing.T) {
 	transA, closeA := newTestServer(t, "A")
 	defer closeA()
 
-	_, err := transA.AcceptPeer(getPeer(transA))
+	_, err := transA.AcceptPeer(context.Background(), getPeer(transA))
 	assert.Error(t, err)
 }
 
@@ -42,7 +43,7 @@ func TestCloseWhileAccepting(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		_, err := transA.AcceptPeer(getPeer(transA))
+		_, err := transA.AcceptPeer(context.Background(), getPeer(transA))
 		assert.Error(t, err)
 	}()
 	time.Sleep(graceTime)
@@ -60,7 +61,7 @@ func TestUnansweredDial(t *testing.T) {
 	services.Update(service.GossipKey, "tcp", 0)
 	unreachablePeer := peer.NewPeer(getPeer(transA).Identity, net.ParseIP("127.0.0.1"), services)
 
-	_, err := transA.DialPeer(unreachablePeer)
+	_, err := transA.DialPeer(context.Background(), unreachablePeer)
 	assert.Error(t, err)
 }
 
@@ -84,7 +85,7 @@ func TestNoHandshakeResponse(t *testing.T) {
 	services.Update(service.GossipKey, lis.Addr().Network(), lis.Addr().(*net.TCPAddr).Port)
 	p := peer.NewPeer(getPeer(transA).Identity, lis.Addr().(*net.TCPAddr).IP, services)
 
-	_, err = transA.DialPeer(p)
+	_, err = transA.DialPeer(context.Background(), p)
 	assert.Error(t, err)
 }
 
@@ -96,7 +97,7 @@ func TestNoHandshakeRequest(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		_, err := transA.AcceptPeer(getPeer(transA))
+		_, err := transA.AcceptPeer(context.Background(), getPeer(transA))
 		assert.Error(t, err)
 	}()
 	time.Sleep(graceTime)
@@ -120,7 +121,7 @@ func TestConnect(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
-		c, err := transA.AcceptPeer(getPeer(transB))
+		c, err := transA.AcceptPeer(context.Background(), getPeer(transB))
 		assert.NoError(t, err)
 		if assert.NotNil(t, c) {
 			_ = c.Close()
@@ -129,7 +130,7 @@ func TestConnect(t *testing.T) {
 	time.Sleep(graceTime)
 	go func() {
 		defer wg.Done()
-		c, err := transB.DialPeer(getPeer(transA))
+		c, err := transB.DialPeer(context.Background(), getPeer(transA))
 		assert.NoError(t, err)
 		if assert.NotNil(t, c) {
 			_ = c.Close()
@@ -153,12 +154,12 @@ func TestWrongConnect(t *testing.T) {
 	// a expects connection from B, but C is connecting
 	go func() {
 		defer wg.Done()
-		_, err := transA.AcceptPeer(getPeer(transB))
+		_, err := transA.AcceptPeer(context.Background(), getPeer(transB))
 		assert.Error(t, err)
 	}()
 	go func() {
 		defer wg.Done()
-		_, err := transC.DialPeer(getPeer(transA))
+		_, err := transC.DialPeer(context.Background(), getPeer(transA))
 		assert.Error(t, err)
 	}()
 

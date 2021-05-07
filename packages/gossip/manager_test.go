@@ -1,6 +1,7 @@
 package gossip
 
 import (
+	"context"
 	"net"
 	"sync"
 	"testing"
@@ -51,13 +52,13 @@ func TestClosedConnection(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
-		err := mgrA.AddInbound(peerB, NeighborsGroupAuto)
+		err := mgrA.AddInbound(context.Background(), peerB, NeighborsGroupAuto)
 		assert.NoError(t, err)
 	}()
 	time.Sleep(graceTime)
 	go func() {
 		defer wg.Done()
-		err := mgrB.AddOutbound(peerA, NeighborsGroupAuto)
+		err := mgrB.AddOutbound(context.Background(), peerA, NeighborsGroupAuto)
 		assert.NoError(t, err)
 	}()
 
@@ -91,13 +92,13 @@ func TestP2PSend(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
-		err := mgrA.AddInbound(peerB, NeighborsGroupAuto)
+		err := mgrA.AddInbound(context.Background(), peerB, NeighborsGroupAuto)
 		assert.NoError(t, err)
 	}()
 	time.Sleep(graceTime)
 	go func() {
 		defer wg.Done()
-		err := mgrB.AddOutbound(peerA, NeighborsGroupAuto)
+		err := mgrB.AddOutbound(context.Background(), peerA, NeighborsGroupAuto)
 		assert.NoError(t, err)
 	}()
 
@@ -138,13 +139,13 @@ func TestP2PSendTwice(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
-		err := mgrA.AddInbound(peerB, NeighborsGroupAuto)
+		err := mgrA.AddInbound(context.Background(), peerB, NeighborsGroupAuto)
 		assert.NoError(t, err)
 	}()
 	time.Sleep(graceTime)
 	go func() {
 		defer wg.Done()
-		err := mgrB.AddOutbound(peerA, NeighborsGroupAuto)
+		err := mgrB.AddOutbound(context.Background(), peerA, NeighborsGroupAuto)
 		assert.NoError(t, err)
 	}()
 
@@ -189,23 +190,23 @@ func TestBroadcast(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
-		err := mgrA.AddInbound(peerB, NeighborsGroupAuto)
+		err := mgrA.AddInbound(context.Background(), peerB, NeighborsGroupAuto)
 		assert.NoError(t, err)
 	}()
 	go func() {
 		defer wg.Done()
-		err := mgrA.AddInbound(peerC, NeighborsGroupAuto)
+		err := mgrA.AddInbound(context.Background(), peerC, NeighborsGroupAuto)
 		assert.NoError(t, err)
 	}()
 	time.Sleep(graceTime)
 	go func() {
 		defer wg.Done()
-		err := mgrB.AddOutbound(peerA, NeighborsGroupAuto)
+		err := mgrB.AddOutbound(context.Background(), peerA, NeighborsGroupAuto)
 		assert.NoError(t, err)
 	}()
 	go func() {
 		defer wg.Done()
-		err := mgrC.AddOutbound(peerA, NeighborsGroupAuto)
+		err := mgrC.AddOutbound(context.Background(), peerA, NeighborsGroupAuto)
 		assert.NoError(t, err)
 	}()
 
@@ -250,23 +251,23 @@ func TestSingleSend(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
-		err := mgrA.AddInbound(peerB, NeighborsGroupAuto)
+		err := mgrA.AddInbound(context.Background(), peerB, NeighborsGroupAuto)
 		assert.NoError(t, err)
 	}()
 	go func() {
 		defer wg.Done()
-		err := mgrA.AddInbound(peerC, NeighborsGroupAuto)
+		err := mgrA.AddInbound(context.Background(), peerC, NeighborsGroupAuto)
 		assert.NoError(t, err)
 	}()
 	time.Sleep(graceTime)
 	go func() {
 		defer wg.Done()
-		err := mgrB.AddOutbound(peerA, NeighborsGroupAuto)
+		err := mgrB.AddOutbound(context.Background(), peerA, NeighborsGroupAuto)
 		assert.NoError(t, err)
 	}()
 	go func() {
 		defer wg.Done()
-		err := mgrC.AddOutbound(peerA, NeighborsGroupAuto)
+		err := mgrC.AddOutbound(context.Background(), peerA, NeighborsGroupAuto)
 		assert.NoError(t, err)
 	}()
 
@@ -303,7 +304,7 @@ func TestDropUnsuccessfulAccept(t *testing.T) {
 
 	mgrA.On("connectionFailed", peerB, mock.Anything).Once()
 
-	err := mgrA.AddInbound(peerB, NeighborsGroupAuto)
+	err := mgrA.AddInbound(context.Background(), peerB, NeighborsGroupAuto)
 	assert.Error(t, err)
 
 	mgrA.AssertExpectations(t)
@@ -324,13 +325,13 @@ func TestMessageRequest(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
-		err := mgrA.AddInbound(peerB, NeighborsGroupAuto)
+		err := mgrA.AddInbound(context.Background(), peerB, NeighborsGroupAuto)
 		assert.NoError(t, err)
 	}()
 	time.Sleep(graceTime)
 	go func() {
 		defer wg.Done()
-		err := mgrB.AddOutbound(peerA, NeighborsGroupAuto)
+		err := mgrB.AddOutbound(context.Background(), peerA, NeighborsGroupAuto)
 		assert.NoError(t, err)
 	}()
 
@@ -377,8 +378,8 @@ func TestDropNeighbor(t *testing.T) {
 		mgrB.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Attach(signal)
 		defer mgrB.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Detach(signal)
 
-		go func() { assert.NoError(t, mgrA.AddInbound(peerB, NeighborsGroupAuto)) }()
-		go func() { assert.NoError(t, mgrB.AddOutbound(peerA, NeighborsGroupAuto)) }()
+		go func() { assert.NoError(t, mgrA.AddInbound(context.Background(), peerB, NeighborsGroupAuto)) }()
+		go func() { assert.NoError(t, mgrB.AddOutbound(context.Background(), peerA, NeighborsGroupAuto)) }()
 		wg.Wait() // wait until the events were triggered and the peers are connected
 	}
 	// close connection
@@ -437,8 +438,8 @@ func TestDropNeighborDifferentGroup(t *testing.T) {
 		mgrB.NeighborsEvents(NeighborsGroupManual).NeighborAdded.Attach(signal)
 		defer mgrB.NeighborsEvents(NeighborsGroupManual).NeighborAdded.Detach(signal)
 
-		go func() { assert.NoError(t, mgrA.AddInbound(peerB, NeighborsGroupManual)) }()
-		go func() { assert.NoError(t, mgrB.AddOutbound(peerA, NeighborsGroupManual)) }()
+		go func() { assert.NoError(t, mgrA.AddInbound(context.Background(), peerB, NeighborsGroupManual)) }()
+		go func() { assert.NoError(t, mgrB.AddOutbound(context.Background(), peerA, NeighborsGroupManual)) }()
 		wg.Wait() // wait until the events were triggered and the peers are connected
 	}
 	// close connection
