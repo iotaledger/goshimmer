@@ -377,7 +377,7 @@ func (u *UTXODAG) setTransactionConfirmed(transactionID TransactionID, confirmed
 			for _, input := range transaction.Essence().Inputs() {
 				referencedOutputID := input.(*UTXOInput).ReferencedOutputID()
 				u.OutputMetadata(referencedOutputID).Consume(func(outputMetadata *OutputMetadata) {
-					outputMetadata.SetFinalizedSpend(true)
+					outputMetadata.SetConfirmedConsumer(*transaction.id)
 				})
 			}
 

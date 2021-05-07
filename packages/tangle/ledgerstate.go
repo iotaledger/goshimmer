@@ -172,23 +172,31 @@ func (l *LedgerState) LoadSnapshot(snapshot *ledgerstate.Snapshot) {
 	}
 }
 
-// Snapshot returns the UTXO snapshot, which is a list of transactions with unspent outputs.
-func (l *LedgerState) Snapshot() (snapshot *ledgerstate.Snapshot) {
+// SnapshotUTXO returns the UTXO snapshot, which is a list of transactions with unspent outputs.
+func (ledgerState *LedgerState) SnapshotUTXO() (snapshot *ledgerstate.Snapshot) {
 	snapshot = &ledgerstate.Snapshot{
 		Transactions: make(map[ledgerstate.TransactionID]ledgerstate.Record),
 	}
 
-	for _, transaction := range l.Transactions() {
+	// need to make an entire copy of the ledgerState and block writing into it until then
+
+	// ??? this code has potential race conditions
+	for _, transaction := range ledgerState.Transactions() {
 		// skip unconfirmed transactions
-		inclusionState, err := l.TransactionInclusionState(transaction.ID())
+		inclusionState, err := ledgerState.TransactionInclusionState(transaction.ID())
+		// PROBLEM ???: the later in the loop the more likely the tx is confirmed because ledgerstate still changes, we can eleviate this by throwing away everything younger than 2*Delta,
+		// everything older than Delta should be confirmed
 		if err != nil || inclusionState != ledgerstate.Confirmed {
 			continue
 		}
 		unspentOutputs := make([]bool, len(transaction.Essence().Outputs()))
 		includeTransaction := false
+		// PROBLEM ??? : the later in the loop the more likely a spend of the ouput is confirmed because ledgerstate still changes,
+		// can we eleviate this this by throwing away everything younger than Delta?
+		// everything older than Delta should be confirmed
 		for i, output := range transaction.Essence().Outputs() {
-			l.OutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
-				if outputMetadata.FinalizedSpend() {
+			ledgerState.OutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+				if outputMetadata.ConfirmedConsumer() != nil { // ??? changed this from bool to the TransactionID of the spending transaction
 					unspentOutputs[i] = true
 					includeTransaction = true
 				}
@@ -202,6 +210,9 @@ func (l *LedgerState) Snapshot() (snapshot *ledgerstate.Snapshot) {
 			}
 		}
 	}
+
+	// due to possible race conditions we need to check the consistency of the UTXO snapshot
+	// ???
 
 	return snapshot
 }

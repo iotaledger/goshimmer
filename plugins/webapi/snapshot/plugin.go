@@ -45,7 +45,7 @@ func Plugin() *node.Plugin {
 
 // DumpCurrentLedger dumps a snapshot (all unspent UTXO and all of the access mana) from now.
 func DumpCurrentLedger(c echo.Context) (err error) {
-	snapshot := messagelayer.Tangle().LedgerState.Snapshot()
+	snapshot := messagelayer.Tangle().LedgerState.SnapshotUTXO()
 
 	aMana, err := snapshotAccessMana()
 	if err != nil {
