@@ -54,8 +54,10 @@ type TCP struct {
 	listener *net.TCPListener
 	log      *zap.SugaredLogger
 
-	addAcceptMatcher chan *acceptMatcher
-	acceptReceived   chan accept
+	addAcceptMatcherCh chan *acceptMatcher
+	acceptReceivedCh   chan accept
+	matchersList       *list.List
+	matchersMutex      sync.RWMutex
 
 	closeOnce sync.Once
 	wg        sync.WaitGroup
@@ -69,9 +71,28 @@ type connect struct {
 }
 
 type acceptMatcher struct {
-	peer      *peer.Peer   // connecting peer
-	deadline  time.Time    // deadline for the incoming call
-	connected chan connect // result of the connection is signaled here
+	ctx  context.Context
+	peer *peer.Peer // connecting peer
+
+	connectOnce sync.Once
+	connect     connect
+	connectDone chan struct{}
+}
+
+func newAcceptMatcher(ctx context.Context, p *peer.Peer) *acceptMatcher {
+	return &acceptMatcher{ctx: ctx, peer: p, connectDone: make(chan struct{})}
+}
+
+func (am *acceptMatcher) setConnect(c connect) {
+	am.connectOnce.Do(func() {
+		am.connect = c
+		close(am.connectDone)
+	})
+}
+
+func (am *acceptMatcher) waitAndGetConnect() connect {
+	<-am.connectDone
+	return am.connect
 }
 
 type accept struct {
@@ -83,12 +104,13 @@ type accept struct {
 // ServeTCP creates the object and starts listening for incoming connections.
 func ServeTCP(local *peer.Local, listener *net.TCPListener, log *zap.SugaredLogger) *TCP {
 	t := &TCP{
-		local:            local,
-		listener:         listener,
-		log:              log,
-		addAcceptMatcher: make(chan *acceptMatcher),
-		acceptReceived:   make(chan accept),
-		closing:          make(chan struct{}),
+		local:              local,
+		listener:           listener,
+		log:                log,
+		addAcceptMatcherCh: make(chan *acceptMatcher),
+		acceptReceivedCh:   make(chan accept),
+		matchersList:       list.New(),
+		closing:            make(chan struct{}),
 	}
 
 	t.log.Debugw("server started",
@@ -161,7 +183,7 @@ func (t *TCP) AcceptPeer(ctx context.Context, p *peer.Peer) (net.Conn, error) {
 	}
 
 	// wait for the connection
-	connected := <-t.acceptPeer(ctx, p)
+	connected := t.acceptPeer(ctx, p)
 	if connected.err != nil {
 		return nil, fmt.Errorf("accept %s / %s failed: %w", net.JoinHostPort(p.IP().String(), strconv.Itoa(gossipEndpoint.Port())), p.ID(), connected.err)
 	}
@@ -173,16 +195,20 @@ func (t *TCP) AcceptPeer(ctx context.Context, p *peer.Peer) (net.Conn, error) {
 	return connected.c, nil
 }
 
-func (t *TCP) acceptPeer(ctx context.Context, p *peer.Peer) <-chan connect {
-	connected := make(chan connect, 1)
-	// add the matcher
-	deadline, _ := ctx.Deadline()
-	select {
-	case t.addAcceptMatcher <- &acceptMatcher{peer: p, connected: connected, deadline: deadline}:
-	case <-t.closing:
-		connected <- connect{nil, ErrClosed}
+func (t *TCP) acceptPeer(ctx context.Context, p *peer.Peer) connect {
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, defaultConnectionTimeout)
+		defer cancel()
 	}
-	return connected
+	// add the matcher
+	am := newAcceptMatcher(ctx, p)
+	select {
+	case t.addAcceptMatcherCh <- am:
+	case <-t.closing:
+		am.setConnect(connect{c: nil, err: ErrClosed})
+	}
+	return am.waitAndGetConnect()
 }
 
 func (t *TCP) closeConnection(c net.Conn) {
@@ -193,73 +219,71 @@ func (t *TCP) closeConnection(c net.Conn) {
 
 func (t *TCP) run() {
 	defer t.wg.Done()
-
-	var (
-		matcherList = list.New()
-		timeout     = time.NewTimer(0)
-	)
-	defer timeout.Stop()
-
-	<-timeout.C // ignore first timeout
-
 	for {
-		// Set the timer so that it fires when the next accept expires
-		if e := matcherList.Front(); e != nil {
-			// the first element always has the closest deadline
-			m := e.Value.(*acceptMatcher)
-			timeout.Reset(time.Until(m.deadline))
-		} else {
-			timeout.Stop()
-		}
-
 		select {
 		// add a new matcher to the list
-		case m := <-t.addAcceptMatcher:
-			if m.deadline.IsZero() {
-				m.deadline = time.Now().Add(defaultConnectionTimeout)
-			}
-			matcherList.PushBack(m)
+		case m := <-t.addAcceptMatcherCh:
+			go t.handleAcceptMatcher(m)
 
 		// on accept received, check all matchers for a fit
-		case a := <-t.acceptReceived:
-			matched := false
-			for e := matcherList.Front(); e != nil; e = e.Next() {
-				m := e.Value.(*acceptMatcher)
-				if m.peer.ID() == a.fromID {
-					matched = true
-					matcherList.Remove(e)
-					// finish the handshake
-					go t.matchAccept(m, a.req, a.conn)
-				}
-			}
+		case a := <-t.acceptReceivedCh:
+			matched := t.matchNewConnection(a)
 			// close the connection if not matched
 			if !matched {
 				t.log.Debugw("unexpected connection", "id", a.fromID, "addr", a.conn.RemoteAddr())
 				t.closeConnection(a.conn)
 			}
-
-		// on timeout, check for expired matchers
-		case <-timeout.C:
-			now := time.Now()
-
-			// notify and remove any expired matchers
-			for e := matcherList.Front(); e != nil; e = e.Next() {
-				m := e.Value.(*acceptMatcher)
-				if now.After(m.deadline) || now.Equal(m.deadline) {
-					t.log.Debugw("accept timeout", "id", m.peer.ID())
-					m.connected <- connect{nil, ErrTimeout}
-					matcherList.Remove(e)
-				}
-			}
-
-		// on close, notify all the matchers
-		case <-t.closing:
-			for e := matcherList.Front(); e != nil; e = e.Next() {
-				e.Value.(*acceptMatcher).connected <- connect{nil, ErrClosed}
-			}
-			return
 		}
 	}
+}
+
+func (t *TCP) handleAcceptMatcher(m *acceptMatcher) {
+	listElem := t.pushAcceptMatcher(m)
+	defer t.removeAcceptMatcher(listElem)
+	select {
+	case <-m.connectDone:
+		return
+	case <-m.ctx.Done():
+		err := m.ctx.Err()
+		if errors.Is(err, context.DeadlineExceeded) {
+			t.log.Debugw("accept timeout", "id", m.peer.ID())
+			m.setConnect(connect{nil, ErrTimeout})
+		} else {
+			t.log.Debugw("context error", "id", m.peer.ID(), "err", err)
+			m.setConnect(connect{nil, err})
+		}
+		return
+	case <-t.closing:
+		m.setConnect(connect{c: nil, err: ErrClosed})
+		return
+	}
+}
+
+func (t *TCP) matchNewConnection(a accept) bool {
+	t.matchersMutex.RLock()
+	defer t.matchersMutex.RUnlock()
+	matched := false
+	for e := t.matchersList.Front(); e != nil; e = e.Next() {
+		m := e.Value.(*acceptMatcher)
+		if m.peer.ID() == a.fromID {
+			matched = true
+			// finish the handshake
+			go t.matchAccept(m, a.req, a.conn)
+		}
+	}
+	return matched
+}
+
+func (t *TCP) pushAcceptMatcher(m *acceptMatcher) *list.Element {
+	t.matchersMutex.Lock()
+	defer t.matchersMutex.Unlock()
+	return t.matchersList.PushBack(m)
+}
+
+func (t *TCP) removeAcceptMatcher(e *list.Element) {
+	t.matchersMutex.Lock()
+	defer t.matchersMutex.Unlock()
+	t.matchersList.Remove(e)
 }
 
 func (t *TCP) matchAccept(m *acceptMatcher, req []byte, conn net.Conn) {
@@ -267,11 +291,12 @@ func (t *TCP) matchAccept(m *acceptMatcher, req []byte, conn net.Conn) {
 	defer t.wg.Done()
 
 	if err := t.writeHandshakeResponse(req, conn); err != nil {
-		m.connected <- connect{nil, fmt.Errorf("incoming handshake failed: %w", err)}
+		m.setConnect(connect{nil, fmt.Errorf("incoming handshake failed: %w", err)})
+
 		t.closeConnection(conn)
 		return
 	}
-	m.connected <- connect{conn, nil}
+	m.setConnect(connect{conn, nil})
 }
 
 func (t *TCP) listenLoop() {
@@ -300,7 +325,7 @@ func (t *TCP) listenLoop() {
 		}
 
 		select {
-		case t.acceptReceived <- accept{
+		case t.acceptReceivedCh <- accept{
 			fromID: identity.NewID(key),
 			req:    req,
 			conn:   conn,
