@@ -16,7 +16,8 @@ import (
 
 const (
 	// PluginName is the plugin name of the activity plugin.
-	PluginName = "Activity"
+	PluginName  = "Activity"
+	delayOffset = 10
 )
 
 var (
@@ -64,7 +65,7 @@ func run(_ *node.Plugin) {
 	if err := daemon.BackgroundWorker("Activity-plugin", func(shutdownSignal <-chan struct{}) {
 		// start with initial delay
 		rand.NewSource(time.Now().UnixNano())
-		initialDelay := rand.Intn(10)
+		initialDelay := rand.Intn(delayOffset)
 		time.Sleep(time.Duration(initialDelay) * time.Second)
 
 		ticker := time.NewTicker(time.Duration(Parameters.BroadcastIntervalSec) * time.Second)
