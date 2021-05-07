@@ -1,6 +1,7 @@
 package activity
 
 import (
+	"math/rand"
 	"sync"
 	"time"
 
@@ -49,7 +50,7 @@ func broadcastActivityMessage() (doneSignal chan struct{}) {
 		activityPayload := payload.NewGenericDataPayload([]byte("activity"))
 		msg, err := messagelayer.Tangle().IssuePayload(activityPayload)
 		if err != nil {
-			log.Warnf("error issuing activity message: %w", err)
+			log.Warnf("error issuing activity message: %s", err)
 			return
 		}
 
@@ -61,6 +62,11 @@ func broadcastActivityMessage() (doneSignal chan struct{}) {
 
 func run(_ *node.Plugin) {
 	if err := daemon.BackgroundWorker("Activity-plugin", func(shutdownSignal <-chan struct{}) {
+		// start with initial delay
+		rand.NewSource(time.Now().UnixNano())
+		initialDelay := rand.Intn(10)
+		time.Sleep(time.Duration(initialDelay) * time.Second)
+
 		ticker := time.NewTicker(time.Duration(Parameters.BroadcastIntervalSec) * time.Second)
 		defer ticker.Stop()
 		for {
