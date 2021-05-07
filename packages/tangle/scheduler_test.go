@@ -4,10 +4,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/packages/tangle/schedulerutils"
-
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
@@ -69,6 +68,31 @@ func TestScheduler_Discarded(t *testing.T) {
 	}, 1*time.Second, 10*time.Millisecond)
 }
 
+func TestScheduler_DiscardedAtShutdown(t *testing.T) {
+	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
+	defer tangle.Shutdown()
+	tangle.Scheduler.Start()
+
+	messageDiscarded := make(chan MessageID, 1)
+	tangle.Scheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(id MessageID) { messageDiscarded <- id }))
+
+	msg := newMessage(selfNode.PublicKey())
+	tangle.Storage.StoreMessage(msg)
+	assert.NoError(t, tangle.Scheduler.Submit(msg.ID()))
+
+	time.Sleep(100 * time.Millisecond)
+	tangle.Scheduler.Shutdown()
+
+	assert.Eventually(t, func() bool {
+		select {
+		case id := <-messageDiscarded:
+			return assert.Equal(t, msg.ID(), id)
+		default:
+			return false
+		}
+	}, 1*time.Second, 10*time.Millisecond)
+}
+
 func TestScheduler_Schedule(t *testing.T) {
 	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
 	defer tangle.Shutdown()
@@ -91,15 +115,6 @@ func TestScheduler_Schedule(t *testing.T) {
 			return false
 		}
 	}, 1*time.Second, 10*time.Millisecond)
-}
-
-func TestScheduler_SetRateBeforeStart(t *testing.T) {
-	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
-	defer tangle.Shutdown()
-
-	tangle.Scheduler.SetRate(time.Hour)
-	tangle.Scheduler.Start()
-	tangle.Scheduler.SetRate(testRate)
 }
 
 func TestScheduler_SetRate(t *testing.T) {

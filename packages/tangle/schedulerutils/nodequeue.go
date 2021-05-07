@@ -2,7 +2,6 @@ package schedulerutils
 
 import (
 	"container/heap"
-	"fmt"
 	"sync"
 	"time"
 
@@ -18,10 +17,10 @@ const ElementIDLength = 32
 type ElementID [ElementIDLength]byte
 
 // ElementIDFromBytes converts byte array to an ElementID.
-func ElementIDFromBytes(bytes []byte) (result ElementID, err error) {
+func ElementIDFromBytes(bytes []byte) (result ElementID) {
 	// check arguments
 	if len(bytes) < ElementIDLength {
-		err = fmt.Errorf("bytes not long enough to encode a valid message id")
+		panic("bytes not long enough to encode a valid message id")
 		return
 	}
 
@@ -98,10 +97,7 @@ func (q *NodeQueue) Submit(element Element) (bool, error) {
 
 	q.submittedMutex.Lock()
 	defer q.submittedMutex.Unlock()
-	id, err := ElementIDFromBytes(element.IDBytes())
-	if err != nil {
-		return false, err
-	}
+	id := ElementIDFromBytes(element.IDBytes())
 	if _, submitted := q.submitted[id]; submitted {
 		return false, nil
 	}
@@ -115,10 +111,7 @@ func (q *NodeQueue) Submit(element Element) (bool, error) {
 func (q *NodeQueue) Unsubmit(element Element) bool {
 	q.submittedMutex.Lock()
 	defer q.submittedMutex.Unlock()
-	id, err := ElementIDFromBytes(element.IDBytes())
-	if err != nil {
-		return false
-	}
+	id := ElementIDFromBytes(element.IDBytes())
 	if _, submitted := q.submitted[id]; !submitted {
 		return false
 	}
@@ -132,10 +125,7 @@ func (q *NodeQueue) Unsubmit(element Element) bool {
 func (q *NodeQueue) Ready(element Element) bool {
 	q.submittedMutex.Lock()
 	defer q.submittedMutex.Unlock()
-	id, err := ElementIDFromBytes(element.IDBytes())
-	if err != nil {
-		return false
-	}
+	id := ElementIDFromBytes(element.IDBytes())
 	if _, submitted := q.submitted[id]; !submitted {
 		return false
 	}
@@ -143,6 +133,19 @@ func (q *NodeQueue) Ready(element Element) bool {
 	delete(q.submitted, id)
 	heap.Push(q.inbox, element)
 	return true
+}
+
+// IDs returns the IDs of all submitted messages (ready or not).
+func (q *NodeQueue) IDs() (ids []ElementID) {
+	q.submittedMutex.Lock()
+	defer q.submittedMutex.Unlock()
+	for id := range q.submitted {
+		ids = append(ids, id)
+	}
+	for _, element := range *q.inbox {
+		ids = append(ids, ElementIDFromBytes(element.IDBytes()))
+	}
+	return ids
 }
 
 // Front returns the first ready message in the queue.

@@ -20,7 +20,7 @@ var (
 	selfNode          = identity.New(selfLocalIdentity.PublicKey())
 )
 
-func TestSubmit(t *testing.T) {
+func TestBufferQueue_Submit(t *testing.T) {
 	b := NewBufferQueue()
 	var size int
 	for i := 0; i < numMessages; i++ {
@@ -33,7 +33,7 @@ func TestSubmit(t *testing.T) {
 	assert.EqualValues(t, size, b.Size())
 }
 
-func TestUnsubmit(t *testing.T) {
+func TestBufferQueue_Unsubmit(t *testing.T) {
 	b := NewBufferQueue()
 
 	messages := make([]*testMessage, numMessages)
@@ -51,7 +51,7 @@ func TestUnsubmit(t *testing.T) {
 	assert.EqualValues(t, 0, b.Size())
 }
 
-func TestReady(t *testing.T) {
+func TestBufferQueue_Ready(t *testing.T) {
 	b := NewBufferQueue()
 
 	messages := make([]*testMessage, numMessages)
@@ -67,7 +67,7 @@ func TestReady(t *testing.T) {
 	assert.EqualValues(t, 0, b.Size())
 }
 
-func TestTime(t *testing.T) {
+func TestBufferQueue_Time(t *testing.T) {
 	b := NewBufferQueue()
 
 	future := newTestMessage(selfNode.PublicKey())
@@ -85,20 +85,52 @@ func TestTime(t *testing.T) {
 	assert.EqualValues(t, 0, b.Size())
 }
 
-func TestRing(t *testing.T) {
+func TestBufferQueue_Ring(t *testing.T) {
 	b := NewBufferQueue()
 
 	messages := make([]*testMessage, numMessages)
 	for i := range messages {
 		messages[i] = newTestMessage(identity.GenerateIdentity().PublicKey())
 		assert.NoError(t, b.Submit(messages[i], 1))
-		b.Ready(messages[i])
+		assert.True(t, b.Ready(messages[i]))
 	}
 	for i := range messages {
 		assert.Equal(t, messages[i], b.Current().Front())
 		b.Next()
 	}
 	assert.Equal(t, messages[0], b.Current().Front())
+}
+
+func TestBufferQueue_IDs(t *testing.T) {
+	b := NewBufferQueue()
+
+	assert.Empty(t, b.IDs())
+
+	ids := make([]ElementID, numMessages)
+	for i := range ids {
+		msg := newTestMessage(identity.GenerateIdentity().PublicKey())
+		assert.NoError(t, b.Submit(msg, 1))
+		if i%2 == 0 {
+			assert.True(t, b.Ready(msg))
+		}
+		ids[i] = ElementIDFromBytes(msg.IDBytes())
+	}
+	assert.ElementsMatch(t, ids, b.IDs())
+}
+
+func TestBufferQueue_RemoveNode(t *testing.T) {
+	b := NewBufferQueue()
+
+	assert.NoError(t, b.Submit(newTestMessage(selfNode.PublicKey()), 1))
+
+	otherNode := identity.GenerateIdentity()
+	assert.NoError(t, b.Submit(newTestMessage(otherNode.PublicKey()), 1))
+
+	assert.Equal(t, selfNode.ID(), b.Current().NodeID())
+	b.RemoveNode(selfNode.ID())
+	assert.Equal(t, otherNode.ID(), b.Current().NodeID())
+	b.RemoveNode(selfNode.ID())
+	assert.Nil(t, b.Current())
 }
 
 func ringLen(b *BufferQueue) int {
