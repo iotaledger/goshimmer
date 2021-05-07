@@ -1,4 +1,4 @@
-package syncbeacon
+package activity
 
 import (
 	"sync"
@@ -7,25 +7,16 @@ import (
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-	flag "github.com/spf13/pflag"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 const (
 	// PluginName is the plugin name of the activity plugin.
 	PluginName = "Activity"
-
-	// CfgActivityBroadcastIntervalSec is the interval in seconds at which the node broadcasts its activity message.
-	CfgActivityBroadcastIntervalSec = "activity.broadcastInterval"
 )
-
-func init() {
-	flag.Int(CfgActivityBroadcastIntervalSec, 3, "the interval at which the node will broadcast its activity message")
-}
 
 var (
 	// plugin is the plugin instance of the activity plugin.
@@ -70,7 +61,7 @@ func broadcastActivityMessage() (doneSignal chan struct{}) {
 
 func run(_ *node.Plugin) {
 	if err := daemon.BackgroundWorker("Activity-plugin", func(shutdownSignal <-chan struct{}) {
-		ticker := time.NewTicker(config.Node().Duration(CfgActivityBroadcastIntervalSec) * time.Second)
+		ticker := time.NewTicker(time.Duration(Parameters.BroadcastIntervalSec) * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
