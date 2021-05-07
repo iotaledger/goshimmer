@@ -105,7 +105,9 @@ func (c *CManaWeightProvider) WeightsOfRelevantSupporters() (weights map[identit
 
 // Shutdown shuts down the WeightProvider and persists its state.
 func (c *CManaWeightProvider) Shutdown() {
-	_ = c.store.Set(kvstore.Key(activeNodesKey), activeNodesToBytes(c.ActiveNodes()))
+	if c.store != nil {
+		_ = c.store.Set(kvstore.Key(activeNodesKey), activeNodesToBytes(c.ActiveNodes()))
+	}
 }
 
 // ActiveNodes returns the map of the active nodes.
