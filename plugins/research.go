@@ -3,6 +3,7 @@ package plugins
 import (
 	"github.com/iotaledger/hive.go/node"
 
+	"github.com/iotaledger/goshimmer/plugins/activity"
 	analysisclient "github.com/iotaledger/goshimmer/plugins/analysis/client"
 	analysisdashboard "github.com/iotaledger/goshimmer/plugins/analysis/dashboard"
 	analysisserver "github.com/iotaledger/goshimmer/plugins/analysis/server"
@@ -19,4 +20,5 @@ var Research = node.Plugins(
 	analysisdashboard.Plugin(),
 	prometheus.Plugin(),
 	networkdelay.App(),
+	activity.Plugin(),
 )
