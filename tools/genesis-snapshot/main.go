@@ -138,7 +138,7 @@ func main() {
 
 	newSnapshot := &ledgerstate.Snapshot{
 		// assign 0 access mana to all nodes, since the docker network
-		AccessManaVector: make(map[identity.ID]ledgerstate.AccessMana),
+		AccessManaByNode: make(map[identity.ID]ledgerstate.AccessMana),
 		Transactions:     transactionsMap,
 	}
 

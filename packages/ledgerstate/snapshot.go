@@ -13,7 +13,7 @@ import (
 // Snapshot defines a snapshot of the ledger state.
 type Snapshot struct {
 	Transactions     map[TransactionID]Record
-	AccessManaVector map[identity.ID]AccessMana
+	AccessManaByNode map[identity.ID]AccessMana
 }
 
 // AccessMana defines the info for the aMana snapshot.
@@ -64,11 +64,11 @@ func (s *Snapshot) WriteTo(writer io.Writer) (int64, error) {
 		bytesWritten += int64(len(record.UnspentOutputs))
 	}
 
-	if err := binary.Write(writer, binary.LittleEndian, uint32(len(s.AccessManaVector))); err != nil {
+	if err := binary.Write(writer, binary.LittleEndian, uint32(len(s.AccessManaByNode))); err != nil {
 		return 0, fmt.Errorf("unable to write AccessMana count: %w", err)
 	}
 	bytesWritten += 4
-	for nodeID, accessMana := range s.AccessManaVector {
+	for nodeID, accessMana := range s.AccessManaByNode {
 		if err := binary.Write(writer, binary.LittleEndian, nodeID.Bytes()); err != nil {
 			return 0, fmt.Errorf("unable to write nodeID with %s: %w", nodeID, err)
 		}
@@ -167,7 +167,7 @@ func (s *Snapshot) readTransactions(reader io.Reader) (int64, error) {
 }
 
 func (s *Snapshot) readAccessMana(reader io.Reader) (int64, error) {
-	s.AccessManaVector = make(map[identity.ID]AccessMana)
+	s.AccessManaByNode = make(map[identity.ID]AccessMana)
 	var bytesRead int64
 	var accessManaCount uint32
 
@@ -201,7 +201,7 @@ func (s *Snapshot) readAccessMana(reader io.Reader) (int64, error) {
 		bytesRead += 8
 		timestamp := time.Unix(timestampUnix, 0)
 
-		s.AccessManaVector[nodeID] = AccessMana{
+		s.AccessManaByNode[nodeID] = AccessMana{
 			Value:     accessMana,
 			Timestamp: timestamp,
 		}

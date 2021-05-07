@@ -773,11 +773,11 @@ func QueryAllowed() (allowed bool) {
 }
 
 // loadSnapshot loads the tx snapshot and the access mana snapshot, sorts it and loads it into the various mana versions
-func loadSnapshot(txSnapshot *ledgerstate.Snapshot) {
-	txSnapshotInfo := make(map[identity.ID]mana.SortedTxSnapshot)
+func loadSnapshot(snapshot *ledgerstate.Snapshot) {
+	txSnapshotByNode := make(map[identity.ID]mana.SortedTxSnapshot)
 
 	// load txSnapshot into SnapshotInfoVec
-	for txID, record := range txSnapshot.Transactions {
+	for txID, record := range snapshot.Transactions {
 		totalBalance := uint64(0)
 		for i, output := range record.Essence.Outputs() {
 			if !record.UnspentOutputs[i] {
@@ -793,31 +793,33 @@ func loadSnapshot(txSnapshot *ledgerstate.Snapshot) {
 			TxID:      txID,
 			Timestamp: record.Essence.Timestamp(),
 		}
-		txSnapshotInfo[record.Essence.ConsensusPledgeID()] = append(txSnapshotInfo[record.Essence.ConsensusPledgeID()], txInfo)
+		txSnapshotByNode[record.Essence.ConsensusPledgeID()] = append(txSnapshotByNode[record.Essence.ConsensusPledgeID()], txInfo)
 	}
 
-	SnapshotInfoVec := make(map[identity.ID]mana.NodeSnapshot)
+	SnapshotByNode := make(map[identity.ID]mana.SnapshotNode)
 
-	for nodeID := range txSnapshotInfo {
-		sort.Sort(txSnapshotInfo[nodeID])
-		snapshotInfo := mana.NodeSnapshot{
-			SortedSnapshotInfo: txSnapshotInfo[nodeID],
+	for nodeID := range txSnapshotByNode {
+		sort.Sort(txSnapshotByNode[nodeID])
+		snapshotNode := mana.SnapshotNode{
+			SortedTxSnapshot: txSnapshotByNode[nodeID],
 		}
-		SnapshotInfoVec[nodeID] = snapshotInfo
+		SnapshotByNode[nodeID] = snapshotNode
 	}
 
 	// load access mana into SnapshotInfoVec
-	for nodeID, accessMana := range txSnapshot.AccessManaVector {
-		snapshotInfo, ok := SnapshotInfoVec[nodeID]
-		if ok {
-			snapshotInfo.AccessMana = mana.AccessManaSnapshot{
-				Value:     accessMana.Value,
-				Timestamp: accessMana.Timestamp,
-			}
+	for nodeID, accessMana := range snapshot.AccessManaByNode {
+		snapshotNode, ok := SnapshotByNode[nodeID]
+		if !ok { // fill with empty element if it does not exist yet
+			snapshotNode = mana.SnapshotNode{}
+			SnapshotByNode[nodeID] = snapshotNode
 		}
-		SnapshotInfoVec[nodeID] = snapshotInfo
+		snapshotNode.AccessMana = mana.AccessManaSnapshot{
+			Value:     accessMana.Value,
+			Timestamp: accessMana.Timestamp,
+		}
+		SnapshotByNode[nodeID] = snapshotNode
 	}
 
-	baseManaVectors[mana.ConsensusMana].LoadSnapshot(SnapshotInfoVec)
-	baseManaVectors[mana.AccessMana].LoadSnapshot(SnapshotInfoVec)
+	baseManaVectors[mana.ConsensusMana].LoadSnapshot(SnapshotByNode)
+	baseManaVectors[mana.AccessMana].LoadSnapshot(SnapshotByNode)
 }

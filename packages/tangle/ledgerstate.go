@@ -172,7 +172,7 @@ func (l *LedgerState) LoadSnapshot(snapshot *ledgerstate.Snapshot) {
 	}
 }
 
-// Snapshot returns the UTXO snapshot.
+// Snapshot returns the UTXO snapshot, which is a list of transactions with unspent outputs.
 func (l *LedgerState) Snapshot() (snapshot *ledgerstate.Snapshot) {
 	snapshot = &ledgerstate.Snapshot{
 		Transactions: make(map[ledgerstate.TransactionID]ledgerstate.Record),

@@ -42,10 +42,10 @@ type InputInfo struct {
 	InputID ledgerstate.OutputID
 }
 
-// NodeSnapshot defines the record for the mana snapshot of one node.
-type NodeSnapshot struct {
-	AccessMana         AccessManaSnapshot
-	SortedSnapshotInfo SortedTxSnapshot
+// SnapshotNode defines the record for the mana snapshot of one node.
+type SnapshotNode struct {
+	AccessMana       AccessManaSnapshot
+	SortedTxSnapshot SortedTxSnapshot
 }
 
 // AccessManaSnapshot defines the record for the aMana snapshot of one node

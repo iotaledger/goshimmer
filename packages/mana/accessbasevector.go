@@ -36,7 +36,7 @@ func (a *AccessBaseManaVector) Has(nodeID identity.ID) bool {
 }
 
 // LoadSnapshot loads the initial mana state into the base mana vector.
-func (a *AccessBaseManaVector) LoadSnapshot(snapshot map[identity.ID]NodeSnapshot) {
+func (a *AccessBaseManaVector) LoadSnapshot(snapshot map[identity.ID]SnapshotNode) {
 	a.Lock()
 	defer a.Unlock()
 

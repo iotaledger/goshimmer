@@ -43,15 +43,15 @@ func Plugin() *node.Plugin {
 
 // region DumpCurrentLedger ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-// DumpCurrentLedger dumps a snapshot (required UTXO and required mana) from now.
+// DumpCurrentLedger dumps a snapshot (all unspent UTXO and all of the access mana) from now.
 func DumpCurrentLedger(c echo.Context) (err error) {
 	snapshot := messagelayer.Tangle().LedgerState.Snapshot()
 
-	aMana, err := dumpAccessMana()
+	aMana, err := snapshotAccessMana()
 	if err != nil {
 		return err
 	}
-	snapshot.AccessManaVector = aMana
+	snapshot.AccessManaByNode = aMana
 
 	f, err := os.OpenFile(snapshotFileName, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
@@ -71,7 +71,8 @@ func DumpCurrentLedger(c echo.Context) (err error) {
 	return c.Attachment(snapshotFileName, snapshotFileName)
 }
 
-func dumpAccessMana() (aManaSnapshot map[identity.ID]ledgerstate.AccessMana, err error) {
+// snapshotAccessMana returns snapshot of the current access mana.
+func snapshotAccessMana() (aManaSnapshot map[identity.ID]ledgerstate.AccessMana, err error) {
 	aManaSnapshot = make(map[identity.ID]ledgerstate.AccessMana)
 
 	m, t, err := messagelayer.GetManaMap(mana.AccessMana)
