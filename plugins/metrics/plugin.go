@@ -208,8 +208,11 @@ func registerLocalMetrics() {
 	metrics.Events().MemUsage.Attach(events.NewClosure(func(memAllocBytes uint64) {
 		memUsageBytes.Store(memAllocBytes)
 	}))
-	metrics.Events().Synced.Attach(events.NewClosure(func(synced bool) {
-		isSynced.Store(synced)
+	metrics.Events().TangleTimeSynced.Attach(events.NewClosure(func(synced bool) {
+		isTangleTimeSynced.Store(synced)
+	}))
+	metrics.Events().SyncBeaconSynced.Attach(events.NewClosure(func(synced bool) {
+		isSyncBeaconSynced.Store(synced)
 	}))
 
 	gossip.Manager().NeighborsEvents(gossippkg.NeighborsGroupAuto).NeighborRemoved.Attach(onNeighborRemoved)
