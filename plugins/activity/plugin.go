@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -15,8 +14,6 @@ import (
 )
 
 const (
-	// PluginName is the plugin name of the activity plugin.
-	PluginName  = "Activity"
 	delayOffset = 10
 )
 
@@ -24,22 +21,19 @@ var (
 	// plugin is the plugin instance of the activity plugin.
 	plugin *node.Plugin
 	once   sync.Once
-	log    *logger.Logger
 )
 
 // Plugin gets the plugin instance.
 func Plugin() *node.Plugin {
 	once.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
+		plugin = node.NewPlugin("Activity", node.Disabled, configure, run)
 	})
 	return plugin
 }
 
 // configure events
 func configure(_ *node.Plugin) {
-	log = logger.NewLogger(PluginName)
-
-	log.Infof("starting node with activity plugin")
+	plugin.LogInfof("starting node with activity plugin")
 }
 
 // broadcastActivityMessage broadcasts a sync beacon via communication layer.
@@ -51,11 +45,11 @@ func broadcastActivityMessage() (doneSignal chan struct{}) {
 		activityPayload := payload.NewGenericDataPayload([]byte("activity"))
 		msg, err := messagelayer.Tangle().IssuePayload(activityPayload)
 		if err != nil {
-			log.Warnf("error issuing activity message: %s", err)
+			plugin.LogWarnf("error issuing activity message: %s", err)
 			return
 		}
 
-		log.Debugf("issued activity message %s", msg.ID())
+		plugin.LogDebugf("issued activity message %s", msg.ID())
 	}()
 
 	return
@@ -86,6 +80,6 @@ func run(_ *node.Plugin) {
 			}
 		}
 	}, shutdown.PriorityActivity); err != nil {
-		log.Panicf("Failed to start as daemon: %s", err)
+		plugin.Panicf("Failed to start as daemon: %s", err)
 	}
 }
