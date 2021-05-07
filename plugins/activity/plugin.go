@@ -7,6 +7,7 @@ import (
 
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/timeutil"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
@@ -37,22 +38,15 @@ func configure(_ *node.Plugin) {
 }
 
 // broadcastActivityMessage broadcasts a sync beacon via communication layer.
-func broadcastActivityMessage() (doneSignal chan struct{}) {
-	doneSignal = make(chan struct{}, 1)
-	go func() {
-		defer close(doneSignal)
+func broadcastActivityMessage() {
+	activityPayload := payload.NewGenericDataPayload([]byte("activity"))
+	msg, err := messagelayer.Tangle().IssuePayload(activityPayload)
+	if err != nil {
+		plugin.LogWarnf("error issuing activity message: %s", err)
+		return
+	}
 
-		activityPayload := payload.NewGenericDataPayload([]byte("activity"))
-		msg, err := messagelayer.Tangle().IssuePayload(activityPayload)
-		if err != nil {
-			plugin.LogWarnf("error issuing activity message: %s", err)
-			return
-		}
-
-		plugin.LogDebugf("issued activity message %s", msg.ID())
-	}()
-
-	return
+	plugin.LogDebugf("issued activity message %s", msg.ID())
 }
 
 func run(_ *node.Plugin) {
@@ -62,23 +56,10 @@ func run(_ *node.Plugin) {
 		initialDelay := rand.Intn(delayOffset)
 		time.Sleep(time.Duration(initialDelay) * time.Second)
 
-		ticker := time.NewTicker(time.Duration(Parameters.BroadcastIntervalSec) * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-shutdownSignal:
-				return
-			case <-ticker.C:
-				doneSignal := broadcastActivityMessage()
+		timeutil.NewTicker(broadcastActivityMessage, time.Duration(Parameters.BroadcastIntervalSec)*time.Second, shutdownSignal)
 
-				select {
-				case <-shutdownSignal:
-					return
-				case <-doneSignal:
-					// continue with the next message
-				}
-			}
-		}
+		// Wait before terminating so we get correct log messages from the daemon regarding the shutdown order.
+		<-shutdownSignal
 	}, shutdown.PriorityActivity); err != nil {
 		plugin.Panicf("Failed to start as daemon: %s", err)
 	}
