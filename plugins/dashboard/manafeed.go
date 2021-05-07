@@ -15,7 +15,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
@@ -153,7 +152,7 @@ func sendManaMapOnline() {
 		Data: accessPayload,
 	})
 
-	weights, totalWeight := messagelayer.Tangle().WeightProvider.WeightsOfRelevantSupporters()
+	weights, totalWeight := manaPlugin.Tangle().WeightProvider.WeightsOfRelevantSupporters()
 	consensusPayload := &ManaNetworkListMsgData{ManaType: mana.ConsensusMana.String()}
 	for nodeID, weight := range weights {
 		n := mana.Node{
