@@ -774,7 +774,7 @@ func QueryAllowed() (allowed bool) {
 
 // loadSnapshot loads the tx snapshot and the access mana snapshot, sorts it and loads it into the various mana versions
 func loadSnapshot(txSnapshot *ledgerstate.Snapshot) {
-	txSnapshotInfo := make(map[identity.ID]mana.SortedSnapshotInfo)
+	txSnapshotInfo := make(map[identity.ID]mana.SortedTxSnapshot)
 
 	// load txSnapshot into SnapshotInfoVec
 	for txID, record := range txSnapshot.Transactions {
@@ -788,7 +788,7 @@ func loadSnapshot(txSnapshot *ledgerstate.Snapshot) {
 				return true
 			})
 		}
-		txInfo := &mana.TxSnapshotInfo{
+		txInfo := &mana.TxSnapshot{
 			Value:     float64(totalBalance),
 			TxID:      txID,
 			Timestamp: record.Essence.Timestamp(),
@@ -796,11 +796,11 @@ func loadSnapshot(txSnapshot *ledgerstate.Snapshot) {
 		txSnapshotInfo[record.Essence.ConsensusPledgeID()] = append(txSnapshotInfo[record.Essence.ConsensusPledgeID()], txInfo)
 	}
 
-	SnapshotInfoVec := make(map[identity.ID]mana.SnapshotInfo)
+	SnapshotInfoVec := make(map[identity.ID]mana.NodeSnapshot)
 
 	for nodeID := range txSnapshotInfo {
 		sort.Sort(txSnapshotInfo[nodeID])
-		snapshotInfo := mana.SnapshotInfo{
+		snapshotInfo := mana.NodeSnapshot{
 			SortedSnapshotInfo: txSnapshotInfo[nodeID],
 		}
 		SnapshotInfoVec[nodeID] = snapshotInfo
@@ -810,7 +810,7 @@ func loadSnapshot(txSnapshot *ledgerstate.Snapshot) {
 	for nodeID, accessMana := range txSnapshot.AccessManaVector {
 		snapshotInfo, ok := SnapshotInfoVec[nodeID]
 		if ok {
-			snapshotInfo.AccessMana = mana.SnapshotAccessMana{
+			snapshotInfo.AccessMana = mana.AccessManaSnapshot{
 				Value:     accessMana.Value,
 				Timestamp: accessMana.Timestamp,
 			}

@@ -42,28 +42,28 @@ type InputInfo struct {
 	InputID ledgerstate.OutputID
 }
 
-// SnapshotInfo defines the info for the mana snapshot.
-type SnapshotInfo struct {
-	AccessMana         SnapshotAccessMana
-	SortedSnapshotInfo SortedSnapshotInfo
+// NodeSnapshot defines the record for the mana snapshot of one node.
+type NodeSnapshot struct {
+	AccessMana         AccessManaSnapshot
+	SortedSnapshotInfo SortedTxSnapshot
 }
 
-// SnapshotAccessMana defines the info for the aMana snapshot
-type SnapshotAccessMana struct {
+// AccessManaSnapshot defines the record for the aMana snapshot of one node
+type AccessManaSnapshot struct {
 	Value     float64
 	Timestamp time.Time
 }
 
-// TxSnapshotInfo defines the info for the snapshot.
-type TxSnapshotInfo struct {
+// TxSnapshot defines the record of one transaction.
+type TxSnapshot struct {
 	Value     float64
 	TxID      ledgerstate.TransactionID
 	Timestamp time.Time
 }
 
-// SortedSnapshotInfo defines a list of SnapshotInfo sorted by timestamp.
-type SortedSnapshotInfo []*TxSnapshotInfo
+// SortedTxSnapshot defines a list of SnapshotInfo sorted by timestamp.
+type SortedTxSnapshot []*TxSnapshot
 
-func (s SortedSnapshotInfo) Len() int           { return len(s) }
-func (s SortedSnapshotInfo) Less(i, j int) bool { return s[i].Timestamp.Before(s[j].Timestamp) }
-func (s SortedSnapshotInfo) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s SortedTxSnapshot) Len() int           { return len(s) }
+func (s SortedTxSnapshot) Less(i, j int) bool { return s[i].Timestamp.Before(s[j].Timestamp) }
+func (s SortedTxSnapshot) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
