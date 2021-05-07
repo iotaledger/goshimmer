@@ -100,7 +100,17 @@ func (c *ConsensusBaseManaVector) LoadSnapshot(snapshot map[identity.ID]Snapshot
 		var value float64
 		for _, record := range records.SortedTxSnapshot {
 			value += record.Value
+
+			// trigger event
+			Events().Pledged.Trigger(&PledgedEvent{
+				NodeID:        nodeID,
+				Amount:        record.Value,
+				Time:          record.Timestamp,
+				ManaType:      c.Type(),
+				TransactionID: record.TxID,
+			})
 		}
+
 		c.vector[nodeID] = &ConsensusBaseMana{
 			BaseMana1: value,
 		}
