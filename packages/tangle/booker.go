@@ -37,8 +37,10 @@ type Booker struct {
 func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 	messageBooker = &Booker{
 		Events: &BookerEvents{
-			MessageBooked: events.NewEvent(MessageIDCaller),
-			Error:         events.NewEvent(events.ErrorCaller),
+			MessageBooked:        events.NewEvent(MessageIDCaller),
+			MarkerBranchUpdated:  events.NewEvent(markerBranchUpdatedCaller),
+			MessageBranchUpdated: events.NewEvent(messageBranchUpdatedCaller),
+			Error:                events.NewEvent(events.ErrorCaller),
 		},
 		tangle:         tangle,
 		MarkersManager: NewMarkersManager(tangle),
@@ -82,12 +84,12 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 			inheritedStructureDetails := b.MarkersManager.InheritStructureDetails(message, markers.NewSequenceAlias(inheritedBranch.Bytes()))
 			messageMetadata.SetStructureDetails(inheritedStructureDetails)
 
-			if !b.MarkersManager.BranchMappedByPastMarkers(inheritedBranch, inheritedStructureDetails.PastMarkers) {
+			if inheritedStructureDetails.PastMarkers.Size() != 1 || !b.MarkersManager.BranchMappedByPastMarkers(inheritedBranch, inheritedStructureDetails.PastMarkers) {
 				if !inheritedStructureDetails.IsPastMarker {
 					messageMetadata.SetBranchID(inheritedBranch)
 					b.tangle.Storage.StoreIndividuallyMappedMessage(NewIndividuallyMappedMessage(inheritedBranch, message.ID(), inheritedStructureDetails.PastMarkers))
 				} else {
-					b.MarkersManager.SetBranchID(inheritedStructureDetails.PastMarkers.HighestSequenceMarker(), inheritedBranch)
+					b.MarkersManager.SetBranchID(inheritedStructureDetails.PastMarkers.Marker(), inheritedBranch)
 				}
 			}
 
@@ -110,8 +112,8 @@ func (b *Booker) BookConflictingTransaction(transactionID ledgerstate.Transactio
 		}
 
 		if structureDetails := messageMetadata.StructureDetails(); structureDetails.IsPastMarker {
-			if err = b.updateMarkerFutureCone(structureDetails.PastMarkers.HighestSequenceMarker(), conflictBranchID); err != nil {
-				err = xerrors.Errorf("failed to propagate conflict%s to future cone of %s: %w", conflictBranchID, structureDetails.PastMarkers.HighestSequenceMarker(), err)
+			if err = b.updateMarkerFutureCone(structureDetails.PastMarkers.Marker(), conflictBranchID); err != nil {
+				err = xerrors.Errorf("failed to propagate conflict%s to future cone of %s: %w", conflictBranchID, structureDetails.PastMarkers.Marker(), err)
 				walker.StopWalk()
 			}
 
@@ -144,8 +146,12 @@ func (b *Booker) MessageBranchID(messageID MessageID) (branchID ledgerstate.Bran
 			err = xerrors.Errorf("failed to retrieve StructureDetails of %s: %w", messageID, cerrors.ErrFatal)
 			return
 		}
+		if structureDetails.PastMarkers.Size() != 1 {
+			err = xerrors.Errorf("BranchID of %s should have been mapped in the MessageMetadata (multiple PastMarkers): %w", messageID, cerrors.ErrFatal)
+			return
+		}
 
-		branchID = b.MarkersManager.BranchID(structureDetails.PastMarkers.HighestSequenceMarker())
+		branchID = b.MarkersManager.BranchID(structureDetails.PastMarkers.Marker())
 	}) {
 		err = xerrors.Errorf("failed to load MessageMetadata of %s: %w", messageID, cerrors.ErrFatal)
 		return
@@ -183,7 +189,7 @@ func (b *Booker) parentsBranchIDs(message *Message) (branchIDs ledgerstate.Branc
 				panic(fmt.Errorf("tried to retrieve BranchID from Message with multiple past markers - %s: %v", messageID, cerrors.ErrFatal))
 			}
 
-			branchIDs[b.MarkersManager.BranchID(structureDetailsOfMessage.PastMarkers.HighestSequenceMarker())] = types.Void
+			branchIDs[b.MarkersManager.BranchID(structureDetailsOfMessage.PastMarkers.Marker())] = types.Void
 		}) {
 			panic(fmt.Errorf("failed to load MessageMetadata with %s", messageID))
 		}
@@ -226,6 +232,9 @@ func (b *Booker) bookPayload(message *Message) (branchID ledgerstate.BranchID, e
 	}
 
 	if !b.tangle.Utils.AllTransactionsApprovedByMessages(transaction.ReferencedTransactionIDs(), message.ID()) {
+		b.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messagemetadata *MessageMetadata) {
+			messagemetadata.SetInvalid(true)
+		})
 		b.tangle.Events.MessageInvalid.Trigger(message.ID())
 
 		return ledgerstate.UndefinedBranchID, xerrors.Errorf("message with %s does not approve its referenced %s: %w", message.ID(), transaction.ReferencedTransactionIDs(), cerrors.ErrFatal)
@@ -301,7 +310,8 @@ func (b *Booker) updateMarkerFutureCone(marker *markers.Marker, newConflictBranc
 
 // updateMarker updates a single Marker and queues the next Elements that need to be updated.
 func (b *Booker) updateMarker(currentMarker *markers.Marker, conflictBranchID ledgerstate.BranchID, walk *walker.Walker) (err error) {
-	newBranchID, branchIDUpdated, err := b.updatedBranchID(b.MarkersManager.BranchID(currentMarker), conflictBranchID)
+	oldBranchID := b.MarkersManager.BranchID(currentMarker)
+	newBranchID, branchIDUpdated, err := b.updatedBranchID(oldBranchID, conflictBranchID)
 	if err != nil {
 		err = xerrors.Errorf("failed to add Conflict%s to BranchID %s: %w", b.MarkersManager.BranchID(currentMarker), conflictBranchID, err)
 		return
@@ -309,6 +319,10 @@ func (b *Booker) updateMarker(currentMarker *markers.Marker, conflictBranchID le
 	if !branchIDUpdated || !b.MarkersManager.SetBranchID(currentMarker, newBranchID) {
 		return
 	}
+
+	b.Events.MarkerBranchUpdated.Trigger(currentMarker, oldBranchID, newBranchID)
+
+	b.MarkersManager.UnregisterSequenceAlias(markers.NewSequenceAlias(oldBranchID.Bytes()))
 
 	b.MarkersManager.Sequence(currentMarker.SequenceID()).Consume(func(sequence *markers.Sequence) {
 		sequence.ReferencingMarkers(currentMarker.Index()).ForEachSorted(func(referencingSequenceID markers.SequenceID, referencingIndex markers.Index) bool {
@@ -365,6 +379,8 @@ func (b *Booker) updateMetadataFutureCone(messageMetadata *MessageMetadata, newC
 	b.tangle.Storage.DeleteIndividuallyMappedMessage(oldBranchID, messageMetadata.ID())
 	b.tangle.Storage.StoreIndividuallyMappedMessage(NewIndividuallyMappedMessage(newBranchID, messageMetadata.ID(), messageMetadata.StructureDetails().PastMarkers))
 
+	b.Events.MessageBranchUpdated.Trigger(messageMetadata.ID(), oldBranchID, newBranchID)
+
 	for _, approvingMessageID := range b.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID(), StrongApprover) {
 		walk.Push(approvingMessageID)
 	}
@@ -381,8 +397,22 @@ type BookerEvents struct {
 	// MessageBooked is triggered when a Message was booked (it's Branch and it's Payload's Branch where determined).
 	MessageBooked *events.Event
 
+	// MessageBranchUpdated is triggered when the BranchID of a Message is changed in its MessageMetadata.
+	MessageBranchUpdated *events.Event
+
+	// MarkerBranchUpdated is triggered when a Marker is mapped to a new BranchID.
+	MarkerBranchUpdated *events.Event
+
 	// Error gets triggered when the Booker faces an unexpected error.
 	Error *events.Event
+}
+
+func markerBranchUpdatedCaller(handler interface{}, params ...interface{}) {
+	handler.(func(marker *markers.Marker, oldBranchID, newBranchID ledgerstate.BranchID))(params[0].(*markers.Marker), params[1].(ledgerstate.BranchID), params[2].(ledgerstate.BranchID))
+}
+
+func messageBranchUpdatedCaller(handler interface{}, params ...interface{}) {
+	handler.(func(messageID MessageID, oldBranchID, newBranchID ledgerstate.BranchID))(params[0].(MessageID), params[1].(ledgerstate.BranchID), params[2].(ledgerstate.BranchID))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -410,10 +440,25 @@ func NewMarkersManager(tangle *Tangle) *MarkersManager {
 func (m *MarkersManager) InheritStructureDetails(message *Message, sequenceAlias markers.SequenceAlias) (structureDetails *markers.StructureDetails) {
 	structureDetails, _ = m.Manager.InheritStructureDetails(m.structureDetailsOfStrongParents(message), m.tangle.Options.IncreaseMarkersIndexCallback, sequenceAlias)
 	if structureDetails.IsPastMarker {
-		m.tangle.Utils.WalkMessageMetadata(m.propagatePastMarkerToFutureMarkers(structureDetails.PastMarkers.HighestSequenceMarker()), message.StrongParents())
+		m.SetMessageID(structureDetails.PastMarkers.Marker(), message.ID())
+		m.tangle.Utils.WalkMessageMetadata(m.propagatePastMarkerToFutureMarkers(structureDetails.PastMarkers.Marker()), message.StrongParents())
 	}
 
 	return
+}
+
+// MessageID retrieves the MessageID of the given Marker.
+func (m *MarkersManager) MessageID(marker *markers.Marker) (messageID MessageID) {
+	m.tangle.Storage.MarkerMessageMapping(marker).Consume(func(markerMessageMapping *MarkerMessageMapping) {
+		messageID = markerMessageMapping.MessageID()
+	})
+
+	return
+}
+
+// SetMessageID associates a MessageID with the given Marker.
+func (m *MarkersManager) SetMessageID(marker *markers.Marker, messageID MessageID) {
+	m.tangle.Storage.StoreMarkerMessageMapping(NewMarkerMessageMapping(marker, messageID))
 }
 
 // BranchID returns the BranchID that is associated with the given Marker.
@@ -875,6 +920,7 @@ func (i *IndividuallyMappedMessage) Bytes() []byte {
 	return byteutils.ConcatBytes(i.ObjectStorageKey(), i.ObjectStorageValue())
 }
 
+// String returns a human readable version of the IndividuallyMappedMessage.
 func (i *IndividuallyMappedMessage) String() string {
 	return stringify.Struct("IndividuallyMappedMessage",
 		stringify.StructField("branchID", i.branchID),
@@ -999,6 +1045,213 @@ func (c CachedIndividuallyMappedMessages) String() string {
 	structBuilder := stringify.StructBuilder("CachedIndividuallyMappedMessages")
 	for i, cachedIndividuallyMappedMessage := range c {
 		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), cachedIndividuallyMappedMessage))
+	}
+
+	return structBuilder.String()
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region MarkerMessageMapping /////////////////////////////////////////////////////////////////////////////////////////
+
+// MarkerMessageMappingPartitionKeys defines the "layout" of the key. This enables prefix iterations in the object
+// storage.
+var MarkerMessageMappingPartitionKeys = objectstorage.PartitionKey(markers.SequenceIDLength, markers.IndexLength)
+
+// MarkerMessageMapping is a data structure that denotes if a Message has its BranchID set individually in its own
+// MessageMetadata.
+type MarkerMessageMapping struct {
+	marker    *markers.Marker
+	messageID MessageID
+
+	objectstorage.StorableObjectFlags
+}
+
+// NewMarkerMessageMapping is the constructor for the MarkerMessageMapping.
+func NewMarkerMessageMapping(marker *markers.Marker, messageID MessageID) *MarkerMessageMapping {
+	return &MarkerMessageMapping{
+		marker:    marker,
+		messageID: messageID,
+	}
+}
+
+// MarkerMessageMappingFromBytes unmarshals an MarkerMessageMapping from a sequence of bytes.
+func MarkerMessageMappingFromBytes(bytes []byte) (individuallyMappedMessage *MarkerMessageMapping, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(bytes)
+	if individuallyMappedMessage, err = MarkerMessageMappingFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse MarkerMessageMapping from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// MarkerMessageMappingFromMarshalUtil unmarshals an MarkerMessageMapping using a MarshalUtil (for easier unmarshaling).
+func MarkerMessageMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (markerMessageMapping *MarkerMessageMapping, err error) {
+	markerMessageMapping = &MarkerMessageMapping{}
+	if markerMessageMapping.marker, err = markers.MarkerFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse Marker from MarshalUtil: %w", err)
+		return
+	}
+	if markerMessageMapping.messageID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
+		err = xerrors.Errorf("failed to parse MessageID from MarshalUtil: %w", err)
+		return
+	}
+
+	return
+}
+
+// MarkerMessageMappingFromObjectStorage is a factory method that creates a new MarkerMessageMapping instance
+// from a storage key of the object storage. It is used by the object storage, to create new instances of this entity.
+func MarkerMessageMappingFromObjectStorage(key, value []byte) (result objectstorage.StorableObject, err error) {
+	if result, _, err = MarkerMessageMappingFromBytes(byteutils.ConcatBytes(key, value)); err != nil {
+		err = xerrors.Errorf("failed to parse MarkerMessageMapping from bytes: %w", err)
+		return
+	}
+
+	return
+}
+
+// Marker returns the Marker that is mapped to a MessageID.
+func (m *MarkerMessageMapping) Marker() *markers.Marker {
+	return m.marker
+}
+
+// MessageID returns the MessageID of the Marker.
+func (m *MarkerMessageMapping) MessageID() MessageID {
+	return m.messageID
+}
+
+// Bytes returns a marshaled version of the MarkerMessageMapping.
+func (m *MarkerMessageMapping) Bytes() []byte {
+	return byteutils.ConcatBytes(m.ObjectStorageKey(), m.ObjectStorageValue())
+}
+
+// String returns a human readable version of the MarkerMessageMapping.
+func (m *MarkerMessageMapping) String() string {
+	return stringify.Struct("MarkerMessageMapping",
+		stringify.StructField("marker", m.marker),
+		stringify.StructField("messageID", m.messageID),
+	)
+}
+
+// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
+func (m *MarkerMessageMapping) Update(objectstorage.StorableObject) {
+	panic("updates disabled")
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (m *MarkerMessageMapping) ObjectStorageKey() []byte {
+	return m.marker.Bytes()
+}
+
+// ObjectStorageValue marshals the MarkerMessageMapping into a sequence of bytes that are used as the value part in
+// the object storage.
+func (m *MarkerMessageMapping) ObjectStorageValue() []byte {
+	return m.messageID.Bytes()
+}
+
+// code contract (make sure the type implements all required methods)
+var _ objectstorage.StorableObject = &MarkerMessageMapping{}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region CachedMarkerMessageMapping ///////////////////////////////////////////////////////////////////////////////////
+
+// CachedMarkerMessageMapping is a wrapper for the generic CachedObject returned by the object storage that overrides
+// the accessor methods with a type-casted one.
+type CachedMarkerMessageMapping struct {
+	objectstorage.CachedObject
+}
+
+// Retain marks the CachedObject to still be in use by the program.
+func (c *CachedMarkerMessageMapping) Retain() *CachedMarkerMessageMapping {
+	return &CachedMarkerMessageMapping{c.CachedObject.Retain()}
+}
+
+// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
+func (c *CachedMarkerMessageMapping) Unwrap() *MarkerMessageMapping {
+	untypedObject := c.Get()
+	if untypedObject == nil {
+		return nil
+	}
+
+	typedObject := untypedObject.(*MarkerMessageMapping)
+	if typedObject == nil || typedObject.IsDeleted() {
+		return nil
+	}
+
+	return typedObject
+}
+
+// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
+// exists). It automatically releases the object when the consumer finishes.
+func (c *CachedMarkerMessageMapping) Consume(consumer func(markerMessageMapping *MarkerMessageMapping), forceRelease ...bool) (consumed bool) {
+	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*MarkerMessageMapping))
+	}, forceRelease...)
+}
+
+// String returns a human readable version of the CachedMarkerMessageMapping.
+func (c *CachedMarkerMessageMapping) String() string {
+	return stringify.Struct("CachedMarkerMessageMapping",
+		stringify.StructField("CachedObject", c.Unwrap()),
+	)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region CachedMarkerMessageMappings //////////////////////////////////////////////////////////////////////////////////
+
+// CachedMarkerMessageMappings defines a slice of *CachedMarkerMessageMapping.
+type CachedMarkerMessageMappings []*CachedMarkerMessageMapping
+
+// Unwrap is the type-casted equivalent of Get. It returns a slice of unwrapped objects with the object being nil if it
+// does not exist.
+func (c CachedMarkerMessageMappings) Unwrap() (unwrappedMarkerMessageMappings []*MarkerMessageMapping) {
+	unwrappedMarkerMessageMappings = make([]*MarkerMessageMapping, len(c))
+	for i, cachedMarkerMessageMapping := range c {
+		untypedObject := cachedMarkerMessageMapping.Get()
+		if untypedObject == nil {
+			continue
+		}
+
+		typedObject := untypedObject.(*MarkerMessageMapping)
+		if typedObject == nil || typedObject.IsDeleted() {
+			continue
+		}
+
+		unwrappedMarkerMessageMappings[i] = typedObject
+	}
+
+	return
+}
+
+// Consume iterates over the CachedObjects, unwraps them and passes a type-casted version to the consumer (if the object
+// is not empty - it exists). It automatically releases the object when the consumer finishes. It returns true, if at
+// least one object was consumed.
+func (c CachedMarkerMessageMappings) Consume(consumer func(markerMessageMapping *MarkerMessageMapping), forceRelease ...bool) (consumed bool) {
+	for _, cachedMarkerMessageMapping := range c {
+		consumed = cachedMarkerMessageMapping.Consume(consumer, forceRelease...) || consumed
+	}
+
+	return
+}
+
+// Release is a utility function that allows us to release all CachedObjects in the collection.
+func (c CachedMarkerMessageMappings) Release(force ...bool) {
+	for _, cachedMarkerMessageMapping := range c {
+		cachedMarkerMessageMapping.Release(force...)
+	}
+}
+
+// String returns a human readable version of the CachedMarkerMessageMappings.
+func (c CachedMarkerMessageMappings) String() string {
+	structBuilder := stringify.StructBuilder("CachedMarkerMessageMappings")
+	for i, cachedMarkerMessageMapping := range c {
+		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), cachedMarkerMessageMapping))
 	}
 
 	return structBuilder.String()

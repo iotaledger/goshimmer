@@ -81,6 +81,13 @@ func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int, 
 				}
 				return i == 0
 			}(i),
+			SyncBeaconBroadcastInterval: func(i int) int {
+				broadcastInterval := 0
+				if i == 0 {
+					broadcastInterval = 1
+				}
+				return broadcastInterval
+			}(i),
 			SyncBeaconFollower: func(i int) bool {
 				if ParaSyncBeaconOnEveryNode {
 					return false
@@ -101,6 +108,13 @@ func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int, 
 				}
 				return config.Mana && i == 0
 			}(i),
+			FPCRoundInterval:           ParaFPCRoundInterval,
+			FPCTotalRoundsFinalization: ParaFPCTotalRoundsFinalization,
+			WaitForStatement:           ParaWaitForStatement,
+			FPCListen:                  ParaFPCListen,
+			WriteStatement:             ParaWriteStatement,
+			WriteManaThreshold:         ParaWriteManaThreshold,
+			ReadManaThreshold:          ParaReadManaThreshold,
 		}
 		if _, err = network.CreatePeer(config); err != nil {
 			return nil, err
@@ -166,6 +180,7 @@ func (f *Framework) CreateNetworkWithPartitions(name string, peers, partitions, 
 				return ""
 			}(i),
 			Faucet:                     config.Faucet && i == 0,
+			Mana:                       config.Mana,
 			FPCRoundInterval:           ParaFPCRoundInterval,
 			FPCTotalRoundsFinalization: ParaFPCTotalRoundsFinalization,
 			WaitForStatement:           ParaWaitForStatement,
@@ -308,4 +323,33 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers, minimumNeighb
 	}
 
 	return drng, nil
+}
+
+// CreateNetworkWithMana creates and returns a (Docker) Network that contains peers that all have some mana.
+// Mana is gotten by sending faucet requests.
+func (f *Framework) CreateNetworkWithMana(name string, peers, minimumNeighbors int, config CreateNetworkConfig) (*Network, error) {
+	n, err := f.CreateNetwork(name, peers, minimumNeighbors, config)
+	if err != nil {
+		return nil, err
+	}
+	if !config.Faucet {
+		return nil, fmt.Errorf("faucet is required")
+	}
+	if !config.Mana {
+		return nil, fmt.Errorf("mana plugin is required to load mana snapshot")
+	}
+	for i := 1; i < len(n.peers); i++ {
+		peer := n.peers[i]
+		addr := peer.Seed.Address(uint64(0)).Address()
+		ID := base58.Encode(peer.ID().Bytes())
+		_, err := peer.SendFaucetRequest(addr.Base58(), ID, ID)
+		if err != nil {
+			return nil, fmt.Errorf("faucet request failed on peer %s: %w", peer.ID(), err)
+		}
+	}
+	err = n.WaitForMana()
+	if err != nil {
+		return nil, err
+	}
+	return n, nil
 }

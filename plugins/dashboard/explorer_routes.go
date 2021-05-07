@@ -45,10 +45,17 @@ type ExplorerMessage struct {
 	Booked    bool   `json:"booked"`
 	Eligible  bool   `json:"eligible"`
 	Invalid   bool   `json:"invalid"`
+	Finalized bool   `json:"finalized"`
 	// PayloadType defines the type of the payload.
 	PayloadType uint32 `json:"payload_type"`
 	// Payload is the content of the payload.
 	Payload interface{} `json:"payload"`
+
+	// Structure details
+	Rank          uint64 `json:"rank"`
+	IsPastMarker  bool   `json:"isPastMarker"`
+	PastMarkers   string `json:"pastMarkers"`
+	FutureMarkers string `json:"futureMarkers"`
 }
 
 func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
@@ -56,6 +63,12 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 	cachedMessageMetadata := messagelayer.Tangle().Storage.MessageMetadata(messageID)
 	defer cachedMessageMetadata.Release()
 	messageMetadata := cachedMessageMetadata.Unwrap()
+
+	branchID, err := messagelayer.Tangle().Booker.MessageBranchID(messageID)
+	if err != nil {
+		branchID = ledgerstate.BranchID{}
+	}
+
 	t := &ExplorerMessage{
 		ID:                      messageID.Base58(),
 		SolidificationTimestamp: messageMetadata.SolidificationTime().Unix(),
@@ -68,13 +81,21 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		StrongApprovers:         messagelayer.Tangle().Utils.ApprovingMessageIDs(messageID, tangle.StrongApprover).ToStrings(),
 		WeakApprovers:           messagelayer.Tangle().Utils.ApprovingMessageIDs(messageID, tangle.WeakApprover).ToStrings(),
 		Solid:                   messageMetadata.IsSolid(),
-		BranchID:                messageMetadata.BranchID().Base58(),
+		BranchID:                branchID.Base58(),
 		Scheduled:               messageMetadata.Scheduled(),
 		Booked:                  messageMetadata.IsBooked(),
 		Eligible:                messageMetadata.IsEligible(),
 		Invalid:                 messageMetadata.IsInvalid(),
+		Finalized:               messageMetadata.IsFinalized(),
 		PayloadType:             uint32(msg.Payload().Type()),
 		Payload:                 ProcessPayload(msg.Payload()),
+	}
+
+	if d := messageMetadata.StructureDetails(); d != nil {
+		t.Rank = d.Rank
+		t.IsPastMarker = d.IsPastMarker
+		t.PastMarkers = d.PastMarkers.String()
+		t.FutureMarkers = d.FutureMarkers.String()
 	}
 
 	return t

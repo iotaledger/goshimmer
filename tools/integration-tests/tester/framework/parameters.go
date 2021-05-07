@@ -2,6 +2,7 @@ package framework
 
 const (
 	autopeeringMaxTries = 50
+	waitForManaMaxTries = 10
 
 	apiPort = "8080"
 
@@ -22,8 +23,8 @@ const (
 
 	exitStatusSuccessful = 0
 
-	syncBeaconSeed      = "Dw6dKWvQGbcijpib6A8t1vSiuDU1XWsnT71xhLSzXUGc"
-	syncBeaconPublicKey = "6wuo4zNP4MXzojmj2EXGsPEHPkWJNnbKZ9e17ufdTmp"
+	syncBeaconSeed      = "3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E"
+	syncBeaconPublicKey = "CHfU1NUf6ZvUKDQHTG2df53GR7CvuMFtyt7YymJ6DwS3"
 
 	// GenesisTokenAmount is the amount of tokens in the genesis output.
 	GenesisTokenAmount = 1000000000000000
@@ -50,7 +51,7 @@ var (
 	// ParaManaOnEveryNode defines whether all nodes should have mana enabled.
 	ParaManaOnEveryNode = true
 	// ParaFPCRoundInterval defines how long a round lasts (in seconds)
-	ParaFPCRoundInterval int64 = 5
+	ParaFPCRoundInterval int64 = 10
 	// ParaFPCTotalRoundsFinalization the amount of FPC rounds where an opinion needs to stay the same to be considered final. Also called 'l'.
 	ParaFPCTotalRoundsFinalization int = 10
 	// ParaWaitForStatement is the time in seconds for which the node wait for receiving the new statement.
