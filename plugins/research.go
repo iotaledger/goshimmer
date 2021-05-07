@@ -1,7 +1,6 @@
 package plugins
 
 import (
-	"github.com/iotaledger/goshimmer/plugins/remotelogmetrics"
 	"github.com/iotaledger/hive.go/node"
 
 	analysisclient "github.com/iotaledger/goshimmer/plugins/analysis/client"
@@ -10,6 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/networkdelay"
 	"github.com/iotaledger/goshimmer/plugins/prometheus"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
+	"github.com/iotaledger/goshimmer/plugins/remotelogmetrics"
 )
 
 // Research contains research plugins of a GoShimmer node.

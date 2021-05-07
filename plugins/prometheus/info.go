@@ -49,15 +49,15 @@ func registerInfoMetrics() {
 func collectInfoMetrics() {
 	tangleTimeSyncStatus.Set(func() float64 {
 		if metrics.TangleTimeSynced() {
-			return 1.0
+			return 1
 		}
-		return 0.
+		return 0
 	}())
 
 	syncBeaconSyncStatus.Set(func() float64 {
 		if metrics.SyncBeaconSynced() {
-			return 1.0
+			return 1
 		}
-		return 0.
+		return 0
 	}())
 }

@@ -1,8 +1,9 @@
 package remotelogmetrics
 
 import (
-	"github.com/iotaledger/hive.go/events"
 	"time"
+
+	"github.com/iotaledger/hive.go/events"
 )
 
 // CollectionLogEvents defines the events for the remotelogmetrics package.
