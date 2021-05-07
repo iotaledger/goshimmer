@@ -171,9 +171,10 @@ func (n *Network) CreatePeerWithMana(c GoShimmerConfig) (*Peer, error) {
 	if err != nil {
 		return nil, err
 	}
+	time.Sleep(15 * time.Second)
 	addr := peer.Seed.Address(uint64(0)).Address()
 	ID := base58.Encode(peer.ID().Bytes())
-	_, err = peer.SendFaucetRequest(addr.Base58(), ID, ID)
+	_, err = n.peers[0].SendFaucetRequest(addr.Base58(), ID, ID)
 	if err != nil {
 		_ = peer.Stop()
 		return nil, fmt.Errorf("error sending faucet request... shutting down: %w", err)
@@ -346,10 +347,16 @@ func (n *Network) WaitForMana(optionalPeers ...*Peer) error {
 	for i := waitForManaMaxTries; i > 0; i-- {
 		for peer := range m {
 			infoRes, err := peer.Info()
-			if err == nil && infoRes.Mana.Access > 0.0 {
+			if err != nil {
+				log.Printf("err getting info for peer %s: %v", peer.ID(), err)
+				continue
+			}
+			fmt.Println("node: ", peer.ID().String(), " - mana: ", infoRes.Mana.Access)
+			if infoRes.Mana.Access > 1.0 {
 				delete(m, peer)
 			}
 		}
+		fmt.Println("len: ", len(m))
 		if len(m) == 0 {
 			return nil
 		}

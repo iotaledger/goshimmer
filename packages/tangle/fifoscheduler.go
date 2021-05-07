@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/datastructure/set"
@@ -97,6 +98,7 @@ func (s *FifoScheduler) run() {
 
 func (s *FifoScheduler) scheduleMessage(messageID MessageID) {
 	if !s.parentsBooked(messageID) {
+		fmt.Println("not parents booked in scheduler: ", messageID.Base58())
 		return
 	}
 
@@ -105,6 +107,7 @@ func (s *FifoScheduler) scheduleMessage(messageID MessageID) {
 			if s.scheduledMessages.Add(messageID) {
 				s.allMessagesScheduledWG.Add(1)
 			}
+			fmt.Println("message scheduled: FIFO: ", messageID.Base58())
 			s.Events.MessageScheduled.Trigger(messageID)
 		}
 	})
@@ -142,6 +145,7 @@ type FifoSchedulerEvents struct {
 }
 
 func (s *FifoScheduler) messageSolidHandler(messageID MessageID) {
+	fmt.Println("message solid: FIFO: ", messageID.Base58())
 	s.Schedule(messageID)
 }
 

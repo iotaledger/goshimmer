@@ -203,6 +203,7 @@ func onTransactionConfirmed(msgID tangle.MessageID) {
 		},
 		InputInfos: inputInfos,
 	}
+	plugin.LogInfof("booking txInfo:\n%+v\n", txInfo)
 	// book in all mana vectors.
 	for _, baseManaVector := range baseManaVectors {
 		baseManaVector.Book(txInfo)
@@ -327,6 +328,7 @@ func GetHighestManaNodesFraction(manaType mana.Type, p float64) ([]mana.Node, ti
 // GetManaMap returns type mana perception of the node.
 func GetManaMap(manaType mana.Type, optionalUpdateTime ...time.Time) (mana.NodeMap, time.Time, error) {
 	if !QueryAllowed() {
+		fmt.Println("no query allowed")
 		return mana.NodeMap{}, time.Now(), ErrQueryNotAllowed
 	}
 	return baseManaVectors[manaType].GetManaMap(optionalUpdateTime...)
@@ -831,6 +833,11 @@ func loadSnapshot(snapshot *ledgerstate.Snapshot) {
 		manaSnapshot[essence.ConsensusPledgeID()] = info
 
 		snapshotTime = essence.Timestamp()
+	}
+
+	fmt.Println("loading snapshot")
+	for nodeID, snapshotInfo := range manaSnapshot {
+		fmt.Printf("nodeID: %s, snapshotInfo: %+v\n", nodeID, snapshotInfo)
 	}
 
 	baseManaVectors[mana.ConsensusMana].LoadSnapshot(manaSnapshot, snapshotTime)

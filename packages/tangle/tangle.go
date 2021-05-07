@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -57,6 +58,7 @@ func New(options ...Option) (tangle *Tangle) {
 			MessageInvalid:  events.NewEvent(MessageIDCaller),
 			SyncChanged:     events.NewEvent(SyncChangedCaller),
 			Error:           events.NewEvent(events.ErrorCaller),
+			Info:            events.NewEvent(events.StringCaller),
 		},
 	}
 
@@ -128,6 +130,12 @@ func (t *Tangle) Setup() {
 
 // ProcessGossipMessage is used to feed new Messages from the gossip layer into the Tangle.
 func (t *Tangle) ProcessGossipMessage(messageBytes []byte, peer *peer.Peer) {
+	msg, _, err := MessageFromBytes(messageBytes)
+	if err == nil {
+		fmt.Println("message received: ", msg.ID().Base58())
+	} else {
+		fmt.Println("err getting msg from bytes")
+	}
 	t.setupParserOnce.Do(t.Parser.Setup)
 
 	t.Parser.Parse(messageBytes, peer)
@@ -183,7 +191,9 @@ func (t *Tangle) SetSynced(synced bool) (modified bool) {
 	t.synced = synced
 	modified = true
 
-	t.Events.SyncChanged.Trigger(&SyncChangedEvent{synced})
+	go func() {
+		t.Events.SyncChanged.Trigger(&SyncChangedEvent{synced})
+	}()
 	return
 }
 
@@ -229,6 +239,9 @@ type Events struct {
 
 	// Error is triggered when the Tangle faces an error from which it can not recover.
 	Error *events.Event
+
+	// Info is triggered when the tangle should log the info provided.
+	Info *events.Event
 }
 
 // SyncChangedEvent represents a syn changed event.

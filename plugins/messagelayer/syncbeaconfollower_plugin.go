@@ -2,8 +2,11 @@ package messagelayer
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"time"
+
+	"github.com/iotaledger/goshimmer/packages/mana"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/daemon"
@@ -137,10 +140,12 @@ func configureSyncBeaconFollower(*node.Plugin) {
 // The time that payload was sent is not greater than CfgSyncBeaconMaxTimeWindowSec. If the duration is longer than CfgSyncBeaconMaxTimeWindowSec, we consider that beacon to be out of sync till we receive a newer payload.
 // More than syncPercentage of followed nodes are also synced, the node is set to synced. Otherwise, its set as desynced.
 func handlePayload(syncBeaconPayload *syncbeacon_payload.Payload, issuerPublicKey ed25519.PublicKey, msgID tangle.MessageID) {
+	ID, _ := mana.IDFromPubKey(issuerPublicKey.String())
+	fmt.Println("sync beacon received from nodeID: ", ID, " message: ", msgID.Base58())
 	synced := true
 	dur := clock.Since(time.Unix(0, syncBeaconPayload.SentTime()))
 	if dur.Seconds() > float64(SyncBeaconFollowerParameters.MaxTimeWindowSec) {
-		syncBeaconFollowerPlugin.LogDebugf("sync beacon %s, received from %s is too old.", msgID, issuerPublicKey)
+		syncBeaconFollowerPlugin.LogDebugf("sync beacon %s, received from %s is too old.", msgID, issuerPublicKey, dur.String())
 		synced = false
 	}
 
@@ -156,12 +161,13 @@ func handlePayload(syncBeaconPayload *syncbeacon_payload.Payload, issuerPublicKe
 // updateSynced checks the beacon nodes and update the nodes sync status
 func updateSynced() {
 	beaconNodesSyncedCount := 0.0
-	for _, status := range currentBeacons {
+	for pub, status := range currentBeacons {
+		ID, _ := mana.IDFromPubKey(pub.String())
+		fmt.Println("beacon: ", ID.String(), " - synced: ", status.Synced)
 		if status.Synced {
 			beaconNodesSyncedCount++
 		}
 	}
-
 	var globalSynced bool
 	if len(currentBeacons) > 0 {
 		globalSynced = beaconNodesSyncedCount/float64(len(currentBeacons)) >= SyncBeaconFollowerParameters.SyncPercentage

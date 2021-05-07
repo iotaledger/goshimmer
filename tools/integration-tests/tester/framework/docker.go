@@ -131,6 +131,7 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 			fmt.Sprintf("--drng.custom.distributedPubKey=%s", config.DRNGDistKey),
 			fmt.Sprintf("--drng.xteam.committeeMembers="),
 			fmt.Sprintf("--drng.pollen.committeeMembers="),
+			fmt.Sprintf("--gossip.ageThreshold=%s", "2m"),
 			fmt.Sprintf("--syncbeaconfollower.followNodes=%s", config.SyncBeaconFollowNodes),
 			fmt.Sprintf("--syncbeacon.broadcastInterval=%d", config.SyncBeaconBroadcastInterval),
 			"--syncbeacon.startSynced=true",
