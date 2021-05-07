@@ -12,6 +12,7 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/consolidatefunds_options"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/createnft_options"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/delegatefunds_options"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/depositfundstonft_options"
@@ -19,7 +20,6 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/reclaimfunds_options"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sendfunds_options"
-	"github.com/iotaledger/goshimmer/client/wallet/packages/sweepfunds_options"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sweepnftownedfunds_options"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sweepnftownednfts_options"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/transfernft_options"
@@ -125,7 +125,7 @@ func (wallet *Wallet) SendFunds(options ...sendfunds_options.SendFundsOption) (t
 	} else {
 		remainderAddress = sendOptions.RemainderAddress
 	}
-	outputs := wallet.buildOutputs(sendOptions.Destinations, totalConsumedFunds, remainderAddress)
+	outputs := wallet.buildOutputs(sendOptions, totalConsumedFunds, remainderAddress)
 
 	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), aPledgeID, cPledgeID, inputs, outputs)
 	outputsByID := consumedOutputs.OutputsByID()
@@ -176,10 +176,10 @@ func (wallet *Wallet) SendFunds(options ...sendfunds_options.SendFundsOption) (t
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region SweepFunds ///////////////////////////////////////////////////////////////////////////////////////////////////
+// region ConsolidateFunds ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-func (wallet *Wallet) SweepFunds(options ...sweepfunds_options.SweepFundsOption) (tx *ledgerstate.Transaction, err error) {
-	sweepOptions, err := sweepfunds_options.BuildSweepFundsOptions(options...)
+func (wallet *Wallet) ConsolidateFunds(options ...consolidatefunds_options.ConsolidateFundsOption) (tx *ledgerstate.Transaction, err error) {
+	consolidateOptions, err := consolidatefunds_options.BuildConsolidateFundsOptions(options...)
 	if err != nil {
 		return
 	}
@@ -219,7 +219,7 @@ func (wallet *Wallet) SweepFunds(options ...sweepfunds_options.SweepFundsOption)
 	outputs := ledgerstate.NewOutputs(ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(totalConsumedFunds), toAddress.Address()))
 
 	// determine pledgeIDs
-	aPledgeID, cPledgeID, err := wallet.derivePledgeIDs(sweepOptions.AccessManaPledgeID, sweepOptions.ConsensusManaPledgeID)
+	aPledgeID, cPledgeID, err := wallet.derivePledgeIDs(consolidateOptions.AccessManaPledgeID, consolidateOptions.ConsensusManaPledgeID)
 	if err != nil {
 		return
 	}
@@ -264,7 +264,7 @@ func (wallet *Wallet) SweepFunds(options ...sweepfunds_options.SweepFundsOption)
 	if err != nil {
 		return nil, err
 	}
-	if sweepOptions.WaitForConfirmation {
+	if consolidateOptions.WaitForConfirmation {
 		err = wallet.WaitForTxConfirmation(tx.ID())
 	}
 	return
@@ -1999,13 +1999,13 @@ func (wallet *Wallet) buildInputs(addressToIDToOutput OutputsByAddressAndOutputI
 // buildOutputs builds outputs based on desired destination balances and consumedFunds. If consumedFunds is greater, than
 // the destination funds, remainderAddress specifies where the remaining amount is put.
 func (wallet *Wallet) buildOutputs(
-	destinations map[address.Address]map[ledgerstate.Color]uint64,
+	sendOptions *sendfunds_options.SendFundsOptions,
 	consumedFunds map[ledgerstate.Color]uint64,
 	remainderAddress address.Address,
 ) (outputs ledgerstate.Outputs) {
 	// build outputs for destinations
 	outputsByColor := make(map[address.Address]map[ledgerstate.Color]uint64)
-	for walletAddress, coloredBalances := range destinations {
+	for walletAddress, coloredBalances := range sendOptions.Destinations {
 		if _, addressExists := outputsByColor[walletAddress]; !addressExists {
 			outputsByColor[walletAddress] = make(map[ledgerstate.Color]uint64)
 		}
@@ -2026,23 +2026,30 @@ func (wallet *Wallet) buildOutputs(
 			}
 		}
 	}
-
-	// build outputs for remainder
-	if len(consumedFunds) != 0 {
-		if _, addressExists := outputsByColor[remainderAddress]; !addressExists {
-			outputsByColor[remainderAddress] = make(map[ledgerstate.Color]uint64)
-		}
-
-		for color, amount := range consumedFunds {
-			outputsByColor[remainderAddress][color] += amount
-		}
-	}
-
 	// construct result
 	var outputsSlice []ledgerstate.Output
+
+	// add output for remainder
+	if len(consumedFunds) != 0 {
+		outputsSlice = append(outputsSlice, ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(consumedFunds), remainderAddress.Address()))
+	}
+
 	for addr, outputBalanceMap := range outputsByColor {
 		coloredBalances := ledgerstate.NewColoredBalances(outputBalanceMap)
-		output := ledgerstate.NewSigLockedColoredOutput(coloredBalances, addr.Address())
+		var output ledgerstate.Output
+		if !sendOptions.LockUntil.IsZero() || !sendOptions.FallbackDeadline.IsZero() || sendOptions.FallbackAddress != nil {
+			extended := ledgerstate.NewExtendedLockedOutput(outputBalanceMap, addr.Address())
+			if !sendOptions.LockUntil.IsZero() {
+				extended = extended.WithTimeLock(sendOptions.LockUntil)
+			}
+			if !sendOptions.FallbackDeadline.IsZero() && sendOptions.FallbackAddress != nil {
+				extended = extended.WithFallbackOptions(sendOptions.FallbackAddress, sendOptions.FallbackDeadline)
+			}
+			output = extended
+		} else {
+			output = ledgerstate.NewSigLockedColoredOutput(coloredBalances, addr.Address())
+		}
+
 		outputsSlice = append(outputsSlice, output)
 	}
 	outputs = ledgerstate.NewOutputs(outputsSlice...)
@@ -2065,7 +2072,7 @@ func (wallet *Wallet) buildUnlockBlocks(inputs ledgerstate.Inputs, consumedOutpu
 		keyPair := wallet.Seed().KeyPair(output.Address.Index)
 		unlockBlock := ledgerstate.NewSignatureUnlockBlock(ledgerstate.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(essence.Bytes())))
 		unlocks[outputIndex] = unlockBlock
-		existingUnlockBlocks[output.Address] = uint16(len(existingUnlockBlocks))
+		existingUnlockBlocks[output.Address] = uint16(outputIndex)
 	}
 	return
 }

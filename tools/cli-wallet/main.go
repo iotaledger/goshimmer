@@ -36,6 +36,7 @@ func main() {
 	// define sub commands
 	balanceCommand := flag.NewFlagSet("balance", flag.ExitOnError)
 	sendFundsCommand := flag.NewFlagSet("send-funds", flag.ExitOnError)
+	consolidateFundsCommand := flag.NewFlagSet("consolidate-funds", flag.ExitOnError)
 	createAssetCommand := flag.NewFlagSet("create-asset", flag.ExitOnError)
 	delegateFundsCommand := flag.NewFlagSet("delegate-funds", flag.ExitOnError)
 	reclaimDelegatedFundsCommand := flag.NewFlagSet("reclaim-delegated", flag.ExitOnError)
@@ -60,6 +61,8 @@ func main() {
 		execAddressCommand(addressCommand, wallet)
 	case "send-funds":
 		execSendFundsCommand(sendFundsCommand, wallet)
+	case "consolidate-funds":
+		execConsolidateFundsCommand(consolidateFundsCommand, wallet)
 	case "create-asset":
 		execCreateAssetCommand(createAssetCommand, wallet)
 	case "delegate-funds":

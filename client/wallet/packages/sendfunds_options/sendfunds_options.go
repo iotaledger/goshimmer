@@ -2,13 +2,15 @@ package sendfunds_options
 
 import (
 	"errors"
+	"golang.org/x/xerrors"
+	"time"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 // SendFundsOption is the type for the optional parameters for the SendFunds call.
-type SendFundsOption func(*sendFundsOptions) error
+type SendFundsOption func(*SendFundsOptions) error
 
 // Destination is an option for the SendFunds call that defines a destination for funds that are supposed to be moved.
 func Destination(addr address.Address, amount uint64, optionalColor ...ledgerstate.Color) SendFundsOption {
@@ -29,7 +31,7 @@ func Destination(addr address.Address, amount uint64, optionalColor ...ledgersta
 	}
 
 	// return Option
-	return func(options *sendFundsOptions) error {
+	return func(options *SendFundsOptions) error {
 		// initialize destinations property
 		if options.Destinations == nil {
 			options.Destinations = make(map[address.Address]map[ledgerstate.Color]uint64)
@@ -55,7 +57,7 @@ func Destination(addr address.Address, amount uint64, optionalColor ...ledgersta
 // Remainder is an option for the SendsFunds call that allows us to specify the remainder address that is
 // supposed to be used in the corresponding transaction.
 func Remainder(addr address.Address) SendFundsOption {
-	return func(options *sendFundsOptions) error {
+	return func(options *SendFundsOptions) error {
 		options.RemainderAddress = addr
 
 		return nil
@@ -64,7 +66,7 @@ func Remainder(addr address.Address) SendFundsOption {
 
 // AccessManaPledgeID is an option for SendFunds call that defines the nodeID to pledge access mana to.
 func AccessManaPledgeID(nodeID string) SendFundsOption {
-	return func(options *sendFundsOptions) error {
+	return func(options *SendFundsOptions) error {
 		options.AccessManaPledgeID = nodeID
 		return nil
 	}
@@ -72,7 +74,7 @@ func AccessManaPledgeID(nodeID string) SendFundsOption {
 
 // ConsensusManaPledgeID is an option for SendFunds call that defines the nodeID to pledge consensus mana to.
 func ConsensusManaPledgeID(nodeID string) SendFundsOption {
-	return func(options *sendFundsOptions) error {
+	return func(options *SendFundsOptions) error {
 		options.ConsensusManaPledgeID = nodeID
 		return nil
 	}
@@ -80,23 +82,53 @@ func ConsensusManaPledgeID(nodeID string) SendFundsOption {
 
 // WaitForConfirmation
 func WaitForConfirmation(wait bool) SendFundsOption {
-	return func(options *sendFundsOptions) error {
+	return func(options *SendFundsOptions) error {
 		options.WaitForConfirmation = wait
 		return nil
 	}
 }
 
-// sendFundsOptions is a struct that is used to aggregate the optional parameters provided in the SendFunds call.
-type sendFundsOptions struct {
+// LockUntil is an option for SendFunds call that defines if the created outputs should be locked until a certain time.
+func LockUntil(until time.Time) SendFundsOption {
+	return func(options *SendFundsOptions) error {
+		if until.Before(time.Now()) {
+			return xerrors.Errorf("can't timelock funds in the past")
+		}
+		options.LockUntil = until
+		return nil
+	}
+}
+
+// Fallback defines the parameters for conditional sending: fallback address and fallback deadline.
+// If the output is not spent by the recipient within the fallback deadline, only fallback address is able to unlock it.
+func Fallback(addy ledgerstate.Address, deadline time.Time) SendFundsOption {
+	return func(options *SendFundsOptions) error {
+		if addy == nil {
+			return xerrors.Errorf("empty fallback address provided")
+		}
+		if deadline.Before(time.Now()) {
+			return xerrors.Errorf("invalid fallback deadline: %s is in the past", deadline.String())
+		}
+		options.FallbackAddress = addy
+		options.FallbackDeadline = deadline
+		return nil
+	}
+}
+
+// SendFundsOptions is a struct that is used to aggregate the optional parameters provided in the SendFunds call.
+type SendFundsOptions struct {
 	Destinations          map[address.Address]map[ledgerstate.Color]uint64
 	RemainderAddress      address.Address
+	LockUntil             time.Time
+	FallbackAddress       ledgerstate.Address
+	FallbackDeadline      time.Time
 	AccessManaPledgeID    string
 	ConsensusManaPledgeID string
 	WaitForConfirmation   bool
 }
 
 // RequiredFunds derives how much funds are needed based on the Destinations to fund the transfer.
-func (s *sendFundsOptions) RequiredFunds() map[ledgerstate.Color]uint64 {
+func (s *SendFundsOptions) RequiredFunds() map[ledgerstate.Color]uint64 {
 	// aggregate total amount of required funds, so we now what and how many funds we need
 	requiredFunds := make(map[ledgerstate.Color]uint64)
 	for _, coloredBalances := range s.Destinations {
@@ -112,10 +144,10 @@ func (s *sendFundsOptions) RequiredFunds() map[ledgerstate.Color]uint64 {
 	return requiredFunds
 }
 
-// BuildSendFundsOptions is a utility function that constructs the sendFundsOptions.
-func BuildSendFundsOptions(options ...SendFundsOption) (result *sendFundsOptions, err error) {
+// BuildSendFundsOptions is a utility function that constructs the SendFundsOptions.
+func BuildSendFundsOptions(options ...SendFundsOption) (result *SendFundsOptions, err error) {
 	// create options to collect the arguments provided
-	result = &sendFundsOptions{}
+	result = &SendFundsOptions{}
 
 	// apply arguments to our options
 	for _, option := range options {
@@ -137,7 +169,7 @@ func BuildSendFundsOptions(options ...SendFundsOption) (result *sendFundsOptions
 // optionError is a utility function that returns a Option that returns the error provided in the
 // argument.
 func optionError(err error) SendFundsOption {
-	return func(options *sendFundsOptions) error {
+	return func(options *SendFundsOptions) error {
 		return err
 	}
 }
