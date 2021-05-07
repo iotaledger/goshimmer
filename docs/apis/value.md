@@ -2,7 +2,7 @@
 
 The value layer builds on top of the communication layer. It encapsulates the functionality of token transfers, ledger representation, conflict state and consensus via FPC.
 
-Note that the value layer operates on `Value Objects` which is a payload type which is transferred via `Messages`. A `Value Object` encapsulates the transaction spending [UTXOs](https://en.wikipedia.org/wiki/Unspent_transaction_output) to new outputs and references two other `Value Objects`. Please refer to [concepts & layers](https://github.com/iotaledger/goshimmer/wiki/Concepts-&-Layers) for a more in depth explanation of the value layer.
+Note that the value layer operates on `Value Objects` which is a payload type which is transferred via `Messages`. A `Value Object` encapsulates the transaction spending [UTXOs](https://en.wikipedia.org/wiki/Unspent_transaction_output) to new outputs and references two other `Value Objects`. Please refer to [concepts & layers](../concepts/layers.md) for a more in depth explanation of the value layer.
 
 The API provides multiple functions to interact with the value layer and retrieve/issue the corresponding objects described above.
 

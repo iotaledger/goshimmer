@@ -1,19 +1,19 @@
 package messagelayer
 
 import (
-	"errors"
 	"os"
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
+
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/gommon/log"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
-	"github.com/iotaledger/goshimmer/packages/epochs"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -61,6 +61,12 @@ func configure(plugin *node.Plugin) {
 		Tangle().ProcessGossipMessage(message.Bytes(), local.GetInstance().Peer)
 	}))
 
+	Tangle().Storage.Events.MessageStored.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
+			Tangle().WeightProvider.Update(message.IssuingTime(), identity.NewID(message.IssuerPublicKey()))
+		})
+	}))
+
 	// read snapshot file
 	if Parameters.Snapshot.File != "" {
 		snapshot := &ledgerstate.Snapshot{}
@@ -102,15 +108,16 @@ var (
 // Tangle gets the tangle instance.
 func Tangle() *tangle.Tangle {
 	tangleOnce.Do(func() {
-		epochManager := epochs.NewManager(epochs.ManaRetriever(ManaEpoch))
 		tangleInstance = tangle.New(
 			tangle.Store(database.Store()),
 			tangle.Identity(local.GetInstance().LocalIdentity()),
 			tangle.Width(Parameters.TangleWidth),
 			tangle.Consensus(ConsensusMechanism()),
 			tangle.GenesisNode(Parameters.Snapshot.GenesisNode),
-			tangle.ApprovalWeights(tangle.WeightProviderFromEpochsManager(epochManager)),
+			tangle.SyncTimeWindow(Parameters.TangleTimeWindow),
 		)
+
+		tangleInstance.WeightProvider = tangle.NewCManaWeightProvider(GetCMana, tangleInstance.TimeManager.Time, database.Store())
 
 		tangleInstance.Setup()
 	})
@@ -189,7 +196,7 @@ func AwaitMessageToBeBooked(f func() (*tangle.Message, error), txID ledgerstate.
 	result := <-issueResult
 
 	if result.err != nil || result.msg == nil {
-		return nil, xerrors.Errorf("Failed to issue transaction %s: %w", txID.String(), result.err)
+		return nil, errors.Errorf("Failed to issue transaction %s: %w", txID.String(), result.err)
 	}
 
 	select {

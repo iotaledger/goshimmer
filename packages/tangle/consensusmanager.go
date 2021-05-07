@@ -20,7 +20,6 @@ func NewConsensusManager(tangle *Tangle) (opinionFormer *ConsensusManager) {
 	opinionFormer = &ConsensusManager{
 		Events: &ConsensusManagerEvents{
 			MessageOpinionFormed: events.NewEvent(MessageIDCaller),
-			TransactionConfirmed: events.NewEvent(MessageIDCaller),
 		},
 
 		tangle: tangle,
@@ -81,6 +80,15 @@ func (o *ConsensusManager) MessageEligible(messageID MessageID) (eligible bool) 
 	return
 }
 
+// SetTransactionLiked sets the transaction like status.
+func (o *ConsensusManager) SetTransactionLiked(transactionID ledgerstate.TransactionID, liked bool) (modified bool) {
+	if o.tangle.Options.ConsensusMechanism == nil {
+		return
+	}
+
+	return o.tangle.Options.ConsensusMechanism.SetTransactionLiked(transactionID, liked)
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region ConsensusManagerEvents ///////////////////////////////////////////////////////////////////////////////////////
@@ -89,9 +97,6 @@ func (o *ConsensusManager) MessageEligible(messageID MessageID) (eligible bool) 
 type ConsensusManagerEvents struct {
 	// Fired when an opinion of a message is formed.
 	MessageOpinionFormed *events.Event
-
-	// Fired when a transaction gets confirmed.
-	TransactionConfirmed *events.Event
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -111,6 +116,9 @@ type ConsensusMechanism interface {
 
 	// Shutdown shuts down the ConsensusMechanism and persists its state.
 	Shutdown()
+
+	// SetTransactionLiked sets the transaction like status.
+	SetTransactionLiked(transactionID ledgerstate.TransactionID, liked bool) (modified bool)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

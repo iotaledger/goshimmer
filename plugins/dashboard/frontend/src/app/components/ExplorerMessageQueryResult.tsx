@@ -146,17 +146,50 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                                         Invalid: {msg.invalid ? 'Yes' : 'No'}
                                     </ListGroup.Item>
                                     <ListGroup.Item>
-                                        FinalizedApprovalWeight: {msg.finalizedApprovalWeight ? 'Yes' : 'No'}
+                                        Finalized: {msg.finalized ? 'Yes' : 'No'}
                                     </ListGroup.Item>
                                 </ListGroup>
                             </Col>
                         </Row>
+
+                        {
+                            msg.rank &&
+                            <Row className={"mb-3"}>
+                                <Col>
+                                    <h5>Markers</h5>
+                                    <ListGroup>
+                                        <ListGroup.Item>
+                                            Rank: {msg.rank}
+                                        </ListGroup.Item>
+                                        <ListGroup.Item>
+                                            SequenceID: {msg.sequenceID}
+                                        </ListGroup.Item>
+                                        <ListGroup.Item>
+                                            PastMarkerGap: {msg.pastMarkerGap}
+                                        </ListGroup.Item>
+                                        <ListGroup.Item>
+                                            IsPastMarker: {msg.isPastMarker ? 'Yes' : 'No'}
+                                        </ListGroup.Item>
+                                        <ListGroup.Item>
+                                            Past markers: {msg.pastMarkers}
+                                        </ListGroup.Item>
+                                        <ListGroup.Item>
+                                            Future markers: {msg.futureMarkers}
+                                        </ListGroup.Item>
+                                    </ListGroup>
+                                </Col>
+                            </Row>
+                        }
+
 
                         <Row className={"mb-3"}>
                             <Col>
                                 <ListGroup>
                                     <ListGroup.Item>
                                         Issuer Public Key: {msg.issuer_public_key}
+                                    </ListGroup.Item>
+                                    <ListGroup.Item>
+                                        Issuer NodeID: {msg.issuer_short_id}
                                     </ListGroup.Item>
                                     <ListGroup.Item>
                                         Message Signature: {msg.signature}

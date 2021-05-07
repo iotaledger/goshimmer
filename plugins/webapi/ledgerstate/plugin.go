@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/fcob"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -173,7 +173,7 @@ func GetOutput(c echo.Context) (err error) {
 	if !messagelayer.Tangle().LedgerState.Output(outputID).Consume(func(output ledgerstate.Output) {
 		err = c.JSON(http.StatusOK, jsonmodels.NewOutput(output))
 	}) {
-		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(xerrors.Errorf("failed to load Output with %s", outputID)))
+		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load Output with %s", outputID)))
 	}
 
 	return
@@ -210,7 +210,7 @@ func GetOutputMetadata(c echo.Context) (err error) {
 	if !messagelayer.Tangle().LedgerState.OutputMetadata(outputID).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 		err = c.JSON(http.StatusOK, jsonmodels.NewOutputMetadata(outputMetadata))
 	}) {
-		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(xerrors.Errorf("failed to load OutputMetadata with %s", outputID)))
+		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load OutputMetadata with %s", outputID)))
 	}
 
 	return
@@ -230,7 +230,7 @@ func GetTransaction(c echo.Context) (err error) {
 	if !messagelayer.Tangle().LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
 		err = c.JSON(http.StatusOK, jsonmodels.NewTransaction(transaction))
 	}) {
-		err = c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(xerrors.Errorf("failed to load Transaction with %s", transactionID)))
+		err = c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load Transaction with %s", transactionID)))
 	}
 
 	return
@@ -250,7 +250,7 @@ func GetTransactionMetadata(c echo.Context) (err error) {
 	if !messagelayer.Tangle().LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 		err = c.JSON(http.StatusOK, jsonmodels.NewTransactionMetadata(transactionMetadata))
 	}) {
-		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(xerrors.Errorf("failed to load TransactionMetadata of Transaction with %s", transactionID)))
+		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load TransactionMetadata of Transaction with %s", transactionID)))
 	}
 
 	return
@@ -274,7 +274,7 @@ func GetTransactionConsensusMetadata(c echo.Context) (err error) {
 		}
 	}
 
-	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(xerrors.Errorf("failed to load TransactionConsensusMetadata of Transaction with %s", transactionID)))
+	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load TransactionConsensusMetadata of Transaction with %s", transactionID)))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -292,7 +292,7 @@ func GetTransactionAttachments(c echo.Context) (err error) {
 	if !messagelayer.Tangle().Storage.Attachments(transactionID).Consume(func(attachment *tangle.Attachment) {
 		messageIDs = append(messageIDs, attachment.MessageID())
 	}) {
-		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(xerrors.Errorf("failed to load GetTransactionAttachmentsResponse of Transaction with %s", transactionID)))
+		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load GetTransactionAttachmentsResponse of Transaction with %s", transactionID)))
 	}
 
 	return c.JSON(http.StatusOK, jsonmodels.NewGetTransactionAttachmentsResponse(transactionID, messageIDs))

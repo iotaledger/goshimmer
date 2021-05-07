@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
@@ -12,12 +13,15 @@ import (
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/mr-tron/base58"
-	"golang.org/x/xerrors"
 
-	"github.com/iotaledger/goshimmer/packages/epochs"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+)
+
+const (
+	// DefaultGenesisTime is the default time (Unix in seconds) of the genesis, i.e., the start of the epochs at 2021-03-19 9:00:00 UTC.
+	DefaultGenesisTime int64 = 1616144400
 )
 
 // region Tangle ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -31,6 +35,7 @@ type Tangle struct {
 	Scheduler             *Scheduler
 	Booker                *Booker
 	ApprovalWeightManager *ApprovalWeightManager
+	TimeManager           *TimeManager
 	ConsensusManager      *ConsensusManager
 	TipManager            *TipManager
 	Requester             *Requester
@@ -64,6 +69,7 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.LedgerState = NewLedgerState(tangle)
 	tangle.Booker = NewBooker(tangle)
 	tangle.ApprovalWeightManager = NewApprovalWeightManager(tangle)
+	tangle.TimeManager = NewTimeManager(tangle)
 	tangle.ConsensusManager = NewConsensusManager(tangle)
 	tangle.Requester = NewRequester(tangle)
 	tangle.TipManager = NewTipManager(tangle)
@@ -102,15 +108,16 @@ func (t *Tangle) Setup() {
 	t.Scheduler.Setup()
 	t.Booker.Setup()
 	t.ApprovalWeightManager.Setup()
+	t.TimeManager.Setup()
 	t.ConsensusManager.Setup()
 	t.TipManager.Setup()
 
 	t.MessageFactory.Events.Error.Attach(events.NewClosure(func(err error) {
-		t.Events.Error.Trigger(xerrors.Errorf("error in MessageFactory: %w", err))
+		t.Events.Error.Trigger(errors.Errorf("error in MessageFactory: %w", err))
 	}))
 
 	t.Booker.Events.Error.Attach(events.NewClosure(func(err error) {
-		t.Events.Error.Trigger(xerrors.Errorf("error in Booker: %w", err))
+		t.Events.Error.Trigger(errors.Errorf("error in Booker: %w", err))
 	}))
 }
 
@@ -124,7 +131,7 @@ func (t *Tangle) ProcessGossipMessage(messageBytes []byte, peer *peer.Peer) {
 // IssuePayload allows to attach a payload (i.e. a Transaction) to the Tangle.
 func (t *Tangle) IssuePayload(payload payload.Payload) (message *Message, err error) {
 	if !t.Synced() {
-		err = xerrors.Errorf("can't issue payload: %w", ErrNotSynced)
+		err = errors.Errorf("can't issue payload: %w", ErrNotSynced)
 		return
 	}
 
@@ -143,11 +150,11 @@ func (t *Tangle) IssuePayload(payload payload.Payload) (message *Message, err er
 			}
 		}
 		if len(invalidInputs) > 0 {
-			return nil, xerrors.Errorf("invalid inputs: %s: %w", strings.Join(invalidInputs, ","), ErrInvalidInputs)
+			return nil, errors.Errorf("invalid inputs: %s: %w", strings.Join(invalidInputs, ","), ErrInvalidInputs)
 		}
 	}
 
-	return t.MessageFactory.IssuePayload(payload)
+	return t.MessageFactory.IssuePayload(payload, t)
 }
 
 // Synced returns a boolean value that indicates if the node is fully synced and the Tangle has solidified all messages
@@ -189,8 +196,13 @@ func (t *Tangle) Shutdown() {
 	t.ApprovalWeightManager.Shutdown()
 	t.Storage.Shutdown()
 	t.LedgerState.Shutdown()
+	t.TimeManager.Shutdown()
 	t.Options.Store.Shutdown()
 	t.TipManager.Shutdown()
+
+	if t.WeightProvider != nil {
+		t.WeightProvider.Shutdown()
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -231,6 +243,7 @@ type Options struct {
 	ConsensusMechanism           ConsensusMechanism
 	GenesisNode                  *ed25519.PublicKey
 	WeightProvider               WeightProvider
+	SyncTimeWindow               time.Duration
 }
 
 // Store is an Option for the Tangle that allows to specify which storage layer is supposed to be used to persist data.
@@ -291,6 +304,14 @@ func ApprovalWeights(weightProvider WeightProvider) Option {
 	}
 }
 
+// SyncTimeWindow is an Option for the Tangle that allows to define the time window in which the node will consider
+// itself in sync.
+func SyncTimeWindow(syncTimeWindow time.Duration) Option {
+	return func(options *Options) {
+		options.SyncTimeWindow = syncTimeWindow
+	}
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region WeightProvider //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -298,43 +319,17 @@ func ApprovalWeights(weightProvider WeightProvider) Option {
 // WeightProvider is an interface that allows the ApprovalWeightManager to determine approval weights of Messages
 // in a flexible way, independently of a specific implementation.
 type WeightProvider interface {
-	// Epoch returns the Epoch from the given referenceTime.
-	Epoch(referenceTime time.Time) Epoch
+	// Update updates the underlying data structure and keeps track of active nodes.
+	Update(t time.Time, nodeID identity.ID)
 
-	// Weight returns the weight and total weight for the given epoch and message.
-	Weight(epoch Epoch, message *Message) (weight, totalWeight float64)
+	// Weight returns the weight and total weight for the given message.
+	Weight(message *Message) (weight, totalWeight float64)
 
-	// WeightsOfRelevantSupporters returns all relevant weights for the given epoch.
-	WeightsOfRelevantSupporters(epoch Epoch) (weights map[identity.ID]float64, totalWeight float64)
+	// WeightsOfRelevantSupporters returns all relevant weights.
+	WeightsOfRelevantSupporters() (weights map[identity.ID]float64, totalWeight float64)
+
+	// Shutdown shuts down the WeightProvider and persists its state.
+	Shutdown()
 }
-
-// WeightProviderFromEpochsManager returns a WeightProvider from an epochs.Manager instance so that it can be used as a
-// WeightProvider.
-func WeightProviderFromEpochsManager(epochManager *epochs.Manager) WeightProvider {
-	return &epochsManagerWeightProvider{Manager: epochManager}
-}
-
-type epochsManagerWeightProvider struct {
-	*epochs.Manager
-}
-
-func (e *epochsManagerWeightProvider) Epoch(referenceTime time.Time) Epoch {
-	return uint64(e.Manager.TimeToOracleEpochID(referenceTime))
-}
-
-func (e *epochsManagerWeightProvider) Weight(_ Epoch, message *Message) (weight, totalWeight float64) {
-	weight, totalWeight, _ = e.Manager.RelativeNodeMana(identity.NewID(message.IssuerPublicKey()), message.IssuingTime())
-
-	return weight, totalWeight
-}
-
-func (e *epochsManagerWeightProvider) WeightsOfRelevantSupporters(epoch Epoch) (weights map[identity.ID]float64, totalWeight float64) {
-	return e.Manager.ActiveMana(epochs.ID(epoch))
-}
-
-var _ WeightProvider = &epochsManagerWeightProvider{}
-
-// Epoch is an alias for a uint64 that represents a universal time interval.
-type Epoch = uint64
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

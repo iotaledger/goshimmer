@@ -2,7 +2,6 @@ package dashboard
 
 import (
 	"context"
-	"errors"
 	"net"
 	"net/http"
 	"runtime"
@@ -10,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/daemon"
@@ -195,12 +195,19 @@ type msg struct {
 }
 
 type nodestatus struct {
-	ID      string            `json:"id"`
-	Version string            `json:"version"`
-	Uptime  int64             `json:"uptime"`
-	Synced  bool              `json:"synced"`
-	Beacons map[string]Beacon `json:"beacons"`
-	Mem     *memmetrics       `json:"mem"`
+	ID         string            `json:"id"`
+	Version    string            `json:"version"`
+	Uptime     int64             `json:"uptime"`
+	Synced     bool              `json:"synced"`
+	Beacons    map[string]Beacon `json:"beacons"`
+	Mem        *memmetrics       `json:"mem"`
+	TangleTime tangleTime        `json:"tangleTime"`
+}
+
+type tangleTime struct {
+	Synced    bool   `json:"synced"`
+	Time      int64  `json:"time"`
+	MessageID string `json:"messageID"`
 }
 
 // Beacon contains a sync beacons detailed status.
@@ -299,6 +306,14 @@ func currentNodeStatus() *nodestatus {
 		HeapObjects:  m.HeapObjects,
 		NumGC:        m.NumGC,
 		LastPauseGC:  m.PauseNs[(m.NumGC+255)%256],
+	}
+
+	// get TangleTime
+	lcm := messagelayer.Tangle().TimeManager.LastConfirmedMessage()
+	status.TangleTime = tangleTime{
+		Synced:    messagelayer.Tangle().TimeManager.Synced(),
+		Time:      lcm.Time.UnixNano(),
+		MessageID: lcm.MessageID.Base58(),
 	}
 	return status
 }

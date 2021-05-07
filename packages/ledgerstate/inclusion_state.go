@@ -3,9 +3,9 @@ package ledgerstate
 import (
 	"fmt"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
-	"golang.org/x/xerrors"
 )
 
 const (
@@ -29,7 +29,7 @@ type InclusionState uint8
 func InclusionStateFromBytes(inclusionStateBytes []byte) (inclusionState InclusionState, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(inclusionStateBytes)
 	if inclusionState, err = InclusionStateFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse InclusionState from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse InclusionState from MarshalUtil: %w", err)
 	}
 	consumedBytes = marshalUtil.ReadOffset()
 
@@ -40,7 +40,7 @@ func InclusionStateFromBytes(inclusionStateBytes []byte) (inclusionState Inclusi
 func InclusionStateFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (inclusionState InclusionState, err error) {
 	inclusionStateUint8, err := marshalUtil.ReadUint8()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse InclusionState (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse InclusionState (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -49,7 +49,7 @@ func InclusionStateFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (inclus
 	case Confirmed:
 	case Rejected:
 	default:
-		err = xerrors.Errorf("unsupported InclusionState (%X): %w", inclusionStateUint8, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("unsupported InclusionState (%X): %w", inclusionStateUint8, cerrors.ErrParseBytesFailed)
 		return
 	}
 

@@ -6,17 +6,17 @@ require (
 	github.com/DataDog/zstd v1.4.8 // indirect
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
 	github.com/beevik/ntp v0.3.0
+	github.com/cockroachdb/errors v1.8.4
 	github.com/dgraph-io/badger/v2 v2.0.3
 	github.com/drand/drand v1.1.1
 	github.com/drand/kyber v1.1.2
 	github.com/gin-gonic/gin v1.6.3
 	github.com/go-ole/go-ole v1.2.4 // indirect
 	github.com/gobuffalo/packr/v2 v2.2.0
-	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.4.3
 	github.com/golang/snappy v0.0.2 // indirect
 	github.com/gorilla/websocket v1.4.2
-	github.com/iotaledger/hive.go v0.0.0-20210420114224-0b2c378f627f
+	github.com/iotaledger/hive.go v0.0.0-20210427112115-75c7ebf4ebbb
 	github.com/kr/pretty v0.2.1 // indirect
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0
@@ -41,7 +41,6 @@ require (
 	golang.org/x/net v0.0.0-20201202161906-c7110b5ffcbb // indirect
 	golang.org/x/sys v0.0.0-20210224231101-5640770f5e4e // indirect
 	golang.org/x/text v0.3.4 // indirect
-	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
 	google.golang.org/genproto v0.0.0-20201203001206-6486ece9c497 // indirect
 	google.golang.org/grpc v1.34.0
 	google.golang.org/protobuf v1.25.0

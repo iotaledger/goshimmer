@@ -5,6 +5,7 @@ import (
 
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -20,51 +21,29 @@ func configureApprovalWeight() {
 
 func onMarkerConfirmed(marker markers.Marker, newLevel int, transition events.ThresholdEventTransition) {
 	if transition != events.ThresholdLevelIncreased {
-		Plugin().LogInfo("transition != events.ThresholdLevelIncreased")
+		plugin.LogInfo("transition != events.ThresholdLevelIncreased for %s", marker)
 		return
 	}
 	// get message ID of marker
 	messageID := Tangle().Booker.MarkersManager.MessageID(&marker)
 
-	// mark marker as finalized
-	Tangle().Storage.MessageMetadata(messageID).Consume(func(metadata *tangle.MessageMetadata) {
-		metadata.SetFinalizedApprovalWeight(true)
-	})
-
-	var entryMessageIDs tangle.MessageIDs
-	Tangle().Storage.Message(messageID).Consume(func(message *tangle.Message) {
-		// mark weak parents as finalized but not propagate finalized flag to its past cone
-		message.ForEachWeakParent(func(parentID tangle.MessageID) {
-			Tangle().Storage.MessageMetadata(parentID).Consume(func(metadata *tangle.MessageMetadata) {
-				metadata.SetFinalizedApprovalWeight(true)
-			})
-		})
-
-		// propagate finalized flag to strong parents' past cone
-		message.ForEachStrongParent(func(parentID tangle.MessageID) {
-			entryMessageIDs = append(entryMessageIDs, parentID)
-		})
-	})
-
-	Tangle().Utils.WalkMessageAndMetadata(propagateFinalizedApprovalWeight, entryMessageIDs, false)
+	Tangle().Utils.WalkMessageAndMetadata(propagateFinalizedApprovalWeight, tangle.MessageIDs{messageID}, false)
 }
 
 func propagateFinalizedApprovalWeight(message *tangle.Message, messageMetadata *tangle.MessageMetadata, finalizedWalker *walker.Walker) {
 	// stop walking to past cone if reach a marker
-	if messageMetadata.StructureDetails().IsPastMarker {
+	if messageMetadata.StructureDetails().IsPastMarker && messageMetadata.IsFinalized() {
 		return
 	}
 
 	// abort if the message is already finalized
-	if !messageMetadata.SetFinalizedApprovalWeight(true) {
+	if !setMessageFinalized(messageMetadata) {
 		return
 	}
 
 	// mark weak parents as finalized but not propagate finalized flag to its past cone
 	message.ForEachWeakParent(func(parentID tangle.MessageID) {
-		Tangle().Storage.MessageMetadata(parentID).Consume(func(metadata *tangle.MessageMetadata) {
-			metadata.SetFinalizedApprovalWeight(true)
-		})
+		setPayloadFinalized(parentID)
 	})
 
 	// propagate finalized to strong parents
@@ -74,10 +53,45 @@ func propagateFinalizedApprovalWeight(message *tangle.Message, messageMetadata *
 }
 
 func onBranchConfirmed(branchID ledgerstate.BranchID, newLevel int, transition events.ThresholdEventTransition) {
-	plugin.LogDebugf("%s confirmed by ApprovalWeight.", branchID)
+	if transition != events.ThresholdLevelIncreased {
+		plugin.LogInfo("transition != events.ThresholdLevelIncreased for %s", branchID)
+		return
+	}
+
+	_, err := Tangle().LedgerState.BranchDAG.SetBranchMonotonicallyLiked(branchID, true)
+	if err != nil {
+		panic(err)
+	}
+	_, err = Tangle().LedgerState.BranchDAG.SetBranchFinalized(branchID, true)
+	if err != nil {
+		panic(err)
+	}
 
 	if Tangle().LedgerState.BranchDAG.InclusionState(branchID) == ledgerstate.Rejected {
 		remotelog.SendLogMsg(logger.LevelWarn, "REORG", fmt.Sprintf("%s reorg detected by ApprovalWeight", branchID))
 		plugin.LogInfof("%s reorg detected by ApprovalWeight.", branchID)
 	}
+}
+
+func setMessageFinalized(messageMetadata *tangle.MessageMetadata) (modified bool) {
+	// abort if the message is already finalized
+	if modified = messageMetadata.SetFinalized(true); !modified {
+		return
+	}
+
+	Tangle().Storage.Message(messageMetadata.ID()).Consume(func(message *tangle.Message) {
+		Tangle().WeightProvider.Update(message.IssuingTime(), identity.NewID(message.IssuerPublicKey()))
+	})
+
+	setPayloadFinalized(messageMetadata.ID())
+
+	return modified
+}
+
+func setPayloadFinalized(messageID tangle.MessageID) {
+	Tangle().Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
+		if err := Tangle().LedgerState.UTXODAG.SetTransactionConfirmed(transactionID); err != nil {
+			plugin.LogError(err)
+		}
+	})
 }

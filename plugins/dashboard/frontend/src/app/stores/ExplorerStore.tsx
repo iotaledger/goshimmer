@@ -22,6 +22,7 @@ export class Message {
     issuance_timestamp: number;
     sequence_number: number;
     issuer_public_key: string;
+    issuer_short_id: string;
     signature: string;
     strongParents: Array<string>;
     weakParents: Array<string>;
@@ -33,9 +34,15 @@ export class Message {
     booked: boolean;
     eligible: boolean;
     invalid: boolean;
-    finalizedApprovalWeight: boolean;
+    finalized: boolean;
     payload_type: number;
     payload: any;
+    rank: number;
+    sequenceID: number;
+    isPastMarker: boolean;
+    pastMarkerGap: number;
+    pastMarkers: string;
+    futureMarkers: string;
 }
 
 class AddressResult {

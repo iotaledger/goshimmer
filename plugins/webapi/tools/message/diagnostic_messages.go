@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/xerrors"
+	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/identity"
@@ -50,7 +50,7 @@ func runDiagnosticMessages(c echo.Context, rank ...uint64) (err error) {
 
 	csvWriter := csv.NewWriter(c.Response())
 	if err := csvWriter.Write(DiagnosticMessagesTableDescription); err != nil {
-		return xerrors.Errorf("failed to write table description row: %w", err)
+		return errors.Errorf("failed to write table description row: %w", err)
 	}
 
 	startRank := uint64(0)
@@ -64,7 +64,7 @@ func runDiagnosticMessages(c echo.Context, rank ...uint64) (err error) {
 
 		if messageInfo.Rank >= startRank {
 			if err := csvWriter.Write(messageInfo.toCSVRow()); err != nil {
-				writeErr = xerrors.Errorf("failed to write message diagnostic info row: %w", err)
+				writeErr = errors.Errorf("failed to write message diagnostic info row: %w", err)
 				return
 			}
 		}
@@ -78,7 +78,7 @@ func runDiagnosticMessages(c echo.Context, rank ...uint64) (err error) {
 	}
 	csvWriter.Flush()
 	if err := csvWriter.Error(); err != nil {
-		return xerrors.Errorf("csv writer failed after flush: %w", err)
+		return errors.Errorf("csv writer failed after flush: %w", err)
 	}
 
 	return nil
@@ -91,7 +91,7 @@ func runDiagnosticMessagesOnFirstWeakReferences(c echo.Context) (err error) {
 
 	csvWriter := csv.NewWriter(c.Response())
 	if err := csvWriter.Write(DiagnosticMessagesTableDescription); err != nil {
-		return xerrors.Errorf("failed to write table description row: %w", err)
+		return errors.Errorf("failed to write table description row: %w", err)
 	}
 	var writeErr error
 	messagelayer.Tangle().Utils.WalkMessageID(func(messageID tangle.MessageID, walker *walker.Walker) {
@@ -99,7 +99,7 @@ func runDiagnosticMessagesOnFirstWeakReferences(c echo.Context) (err error) {
 
 		if len(messageInfo.WeakApprovers) > 0 {
 			if err := csvWriter.Write(messageInfo.toCSVRow()); err != nil {
-				writeErr = xerrors.Errorf("failed to write message diagnostic info row: %w", err)
+				writeErr = errors.Errorf("failed to write message diagnostic info row: %w", err)
 				return
 			}
 
@@ -107,7 +107,7 @@ func runDiagnosticMessagesOnFirstWeakReferences(c echo.Context) (err error) {
 				message.ForEachParent(func(parent tangle.Parent) {
 					parentMessageInfo := getDiagnosticMessageInfo(parent.ID)
 					if err := csvWriter.Write(parentMessageInfo.toCSVRow()); err != nil {
-						writeErr = xerrors.Errorf("failed to write parent message diagnostic info row: %w", err)
+						writeErr = errors.Errorf("failed to write parent message diagnostic info row: %w", err)
 						return
 					}
 				})
@@ -129,7 +129,7 @@ func runDiagnosticMessagesOnFirstWeakReferences(c echo.Context) (err error) {
 
 	csvWriter.Flush()
 	if err := csvWriter.Error(); err != nil {
-		return xerrors.Errorf("csv writer failed after flush: %w", err)
+		return errors.Errorf("csv writer failed after flush: %w", err)
 	}
 
 	return nil
@@ -146,6 +146,7 @@ var DiagnosticMessagesTableDescription = []string{
 	"ScheduledTime",
 	"BookedTime",
 	"OpinionFormedTime",
+	"FinalizedTime",
 	"StrongParents",
 	"WeakParents",
 	"StrongApprovers",
@@ -156,6 +157,7 @@ var DiagnosticMessagesTableDescription = []string{
 	"Booked",
 	"Eligible",
 	"Invalid",
+	"Finalized",
 	"Rank",
 	"IsPastMarker",
 	"PastMarkers",
@@ -185,6 +187,7 @@ type DiagnosticMessagesInfo struct {
 	ScheduledTime     time.Time
 	BookedTime        time.Time
 	OpinionFormedTime time.Time
+	FinalizedTime     time.Time
 	StrongParents     tangle.MessageIDs
 	WeakParents       tangle.MessageIDs
 	StrongApprovers   tangle.MessageIDs
@@ -195,6 +198,7 @@ type DiagnosticMessagesInfo struct {
 	Booked            bool
 	Eligible          bool
 	Invalid           bool
+	Finalized         bool
 	Rank              uint64
 	IsPastMarker      bool
 	PastMarkers       string // PastMarkers
@@ -243,9 +247,11 @@ func getDiagnosticMessageInfo(messageID tangle.MessageID) *DiagnosticMessagesInf
 		msgInfo.ScheduledTime = metadata.ScheduledTime()
 		msgInfo.BookedTime = metadata.BookedTime()
 		msgInfo.OpinionFormedTime = messagelayer.ConsensusMechanism().OpinionFormedTime(messageID)
+		msgInfo.FinalizedTime = metadata.FinalizedTime()
 		msgInfo.Booked = metadata.IsBooked()
 		msgInfo.Eligible = metadata.IsEligible()
 		msgInfo.Invalid = metadata.IsInvalid()
+		msgInfo.Finalized = metadata.IsFinalized()
 		if metadata.StructureDetails() != nil {
 			msgInfo.Rank = metadata.StructureDetails().Rank
 			msgInfo.IsPastMarker = metadata.StructureDetails().IsPastMarker

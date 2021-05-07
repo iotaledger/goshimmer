@@ -1,7 +1,7 @@
 package wallet
 
 import (
-	"errors"
+	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"

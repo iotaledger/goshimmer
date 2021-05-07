@@ -7,8 +7,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 
+	"github.com/cockroachdb/errors"
 	"github.com/labstack/echo"
-	"golang.org/x/xerrors"
 )
 
 type tipsDiagnosticType int
@@ -56,7 +56,7 @@ func runTipsDiagnostic(c echo.Context, diagnosticType tipsDiagnosticType) (err e
 
 	csvWriter := csv.NewWriter(response)
 	if err := csvWriter.Write(tipsDiagnosticTableDescription); err != nil {
-		return xerrors.Errorf("can't write table description row: %w", err)
+		return errors.Errorf("can't write table description row: %w", err)
 	}
 	var strongTips, weakTips tangle.MessageIDs
 	if diagnosticType == strongTipsOnly || diagnosticType == allTips {
@@ -66,14 +66,14 @@ func runTipsDiagnostic(c echo.Context, diagnosticType tipsDiagnosticType) (err e
 		weakTips = messagelayer.Tangle().TipManager.AllWeakTips()
 	}
 	if err := buildAndWriteTipsDiagnostic(csvWriter, strongTips, tangle.StrongTip); err != nil {
-		return xerrors.Errorf("%w", err)
+		return errors.Errorf("%w", err)
 	}
 	if err := buildAndWriteTipsDiagnostic(csvWriter, weakTips, tangle.WeakTip); err != nil {
-		return xerrors.Errorf("%w", err)
+		return errors.Errorf("%w", err)
 	}
 	csvWriter.Flush()
 	if err := csvWriter.Error(); err != nil {
-		return xerrors.Errorf("csv writer failed after flush: %w", err)
+		return errors.Errorf("csv writer failed after flush: %w", err)
 	}
 	return nil
 }
@@ -86,7 +86,7 @@ func buildAndWriteTipsDiagnostic(w *csv.Writer, tips tangle.MessageIDs, tipType 
 			DiagnosticMessagesInfo: messageInfo,
 		}
 		if err := w.Write(tipInfo.toCSVRow()); err != nil {
-			return xerrors.Errorf("failed to write tip diagnostic info row: %w", err)
+			return errors.Errorf("failed to write tip diagnostic info row: %w", err)
 		}
 	}
 	return nil

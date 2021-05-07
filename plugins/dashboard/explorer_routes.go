@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58/base58"
 
@@ -27,6 +28,8 @@ type ExplorerMessage struct {
 	SequenceNumber uint64 `json:"sequence_number"`
 	// The public key of the issuer who issued this message.
 	IssuerPublicKey string `json:"issuer_public_key"`
+	// The shortID of the issuer.
+	IssuerShortID string `json:"issuer_short_id"`
 	// The signature of the message.
 	Signature string `json:"signature"`
 	// StrongParents are the strong parents (references) of the message.
@@ -38,17 +41,25 @@ type ExplorerMessage struct {
 	// WeakApprovers are the weak approvers of the message.
 	WeakApprovers []string `json:"weakApprovers"`
 	// Solid defines the solid status of the message.
-	Solid                   bool   `json:"solid"`
-	BranchID                string `json:"branchID"`
-	Scheduled               bool   `json:"scheduled"`
-	Booked                  bool   `json:"booked"`
-	Eligible                bool   `json:"eligible"`
-	Invalid                 bool   `json:"invalid"`
-	FinalizedApprovalWeight bool   `json:"finalizedApprovalWeight"`
+	Solid     bool   `json:"solid"`
+	BranchID  string `json:"branchID"`
+	Scheduled bool   `json:"scheduled"`
+	Booked    bool   `json:"booked"`
+	Eligible  bool   `json:"eligible"`
+	Invalid   bool   `json:"invalid"`
+	Finalized bool   `json:"finalized"`
 	// PayloadType defines the type of the payload.
 	PayloadType uint32 `json:"payload_type"`
 	// Payload is the content of the payload.
 	Payload interface{} `json:"payload"`
+
+	// Structure details
+	Rank          uint64 `json:"rank"`
+	SequenceID    uint64 `json:"sequenceID"`
+	PastMarkerGap uint64 `json:"pastMarkerGap"`
+	IsPastMarker  bool   `json:"isPastMarker"`
+	PastMarkers   string `json:"pastMarkers"`
+	FutureMarkers string `json:"futureMarkers"`
 }
 
 func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
@@ -67,6 +78,7 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		SolidificationTimestamp: messageMetadata.SolidificationTime().Unix(),
 		IssuanceTimestamp:       msg.IssuingTime().Unix(),
 		IssuerPublicKey:         msg.IssuerPublicKey().String(),
+		IssuerShortID:           identity.NewID(msg.IssuerPublicKey()).String(),
 		Signature:               msg.Signature().String(),
 		SequenceNumber:          msg.SequenceNumber(),
 		StrongParents:           msg.StrongParents().ToStrings(),
@@ -79,9 +91,18 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		Booked:                  messageMetadata.IsBooked(),
 		Eligible:                messageMetadata.IsEligible(),
 		Invalid:                 messageMetadata.IsInvalid(),
-		FinalizedApprovalWeight: messageMetadata.IsFinalizedApprovalWeight(),
+		Finalized:               messageMetadata.IsFinalized(),
 		PayloadType:             uint32(msg.Payload().Type()),
 		Payload:                 ProcessPayload(msg.Payload()),
+	}
+
+	if d := messageMetadata.StructureDetails(); d != nil {
+		t.Rank = d.Rank
+		t.SequenceID = uint64(d.SequenceID)
+		t.PastMarkerGap = d.PastMarkerGap
+		t.IsPastMarker = d.IsPastMarker
+		t.PastMarkers = d.PastMarkers.String()
+		t.FutureMarkers = d.FutureMarkers.String()
 	}
 
 	return t

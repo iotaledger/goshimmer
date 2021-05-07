@@ -9,14 +9,18 @@ We provide a tool at `tools/docker-network` with which a local test network can 
 
 In the docker network run for example
 ```
-./run.sh 5 1
+./run.sh 5 1 1
 ```
 
 The command `./run.sh` spins up a GoShimmer network within Docker as schematically shown in the figure above. The first integer input defines the number of `peer_replicas` `N`. The second argument is optional for activating the Grafana dashboard, where 
 * default (no argument) or 0: Grafana disabled
 * 1: Grafana enabled
 
-More details on how to set up the dashboard can be found [here](https://github.com/iotaledger/goshimmer/wiki/Setup-up-a-GoShimmer-node-(Joining-the-pollen-testnet)#setting-up-the-grafana-dashboard).
+More details on how to set up the dashboard can be found [here](../tutorials/setup.md).
+
+The third argument is optional for activating a dRNG committee, where
+* default (no argument) or 0: dRNG disabled
+* 1: dRNG enabled
 
 The peers can communicate freely within the Docker network 
 while the analysis and visualizer dashboard, as well as the `master_peer's` dashboard and web API are reachable from the host system on the respective ports.

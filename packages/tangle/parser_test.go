@@ -3,11 +3,11 @@ package tangle
 import (
 	"context"
 	"crypto"
-	"errors"
 	"strconv"
 	"testing"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"

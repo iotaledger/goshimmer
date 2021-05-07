@@ -6,7 +6,7 @@ GoShimmer is shipped with its internal node dashboard that you can reach at `127
 Node operators who wish to have more insights into what is happening within their node have the option to enable a [Prometheus](https://prometheus.io/) exporter plugin that gathers important metrics about their node. To visualize these metrics, a [Grafana Dashboard](https://grafana.com/oss/grafana/) is utilized.
 
 # Setting up (run Goshimmer from a VPS)
-To enable the **Monitoring Dashboard** for a GoShimmer node running from a VPS as described [here](https://github.com/iotaledger/goshimmer/wiki/Setup-up-a-GoShimmer-node-(Joining-the-GoShimmer-testnet)), you need to carry out some additional steps.
+To enable the **Monitoring Dashboard** for a GoShimmer node running from a VPS as described [here](./setup.md), you need to carry out some additional steps.
 1. Edit `docker-compose.yml`
    TODO
 2. Create Prometheus config.

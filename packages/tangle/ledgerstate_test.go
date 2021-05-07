@@ -8,7 +8,6 @@ import (
 	"github.com/magiconair/properties/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/epochs"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
@@ -29,7 +28,7 @@ func TestLoadSnapshot(t *testing.T) {
 
 	genesisEssence := ledgerstate.NewTransactionEssence(
 		0,
-		time.Unix(epochs.DefaultGenesisTime, 0),
+		time.Unix(DefaultGenesisTime, 0),
 		identity.ID{},
 		identity.ID{},
 		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
