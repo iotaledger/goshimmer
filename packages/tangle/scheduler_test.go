@@ -56,7 +56,7 @@ func TestScheduler_Discarded(t *testing.T) {
 	msg := newMessage(noAManaNode.PublicKey())
 	tangle.Storage.StoreMessage(msg)
 	err := tangle.Scheduler.Submit(msg.ID())
-	assert.Truef(t, errors.Is(err, schedulerutils.ErrInvalidMana), "unexpected error: %v", err)
+	assert.Truef(t, errors.Is(err, schedulerutils.ErrInsufficientMana), "unexpected error: %v", err)
 
 	assert.Eventually(t, func() bool {
 		select {

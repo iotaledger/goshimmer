@@ -18,8 +18,8 @@ var MaxQueueWeight = 1024.0 * 1024.0
 var (
 	// ErrInboxExceeded is returned when a node has exceeded its allowed inbox size.
 	ErrInboxExceeded = errors.New("maximum mana-scaled inbox length exceeded")
-	// ErrInvalidMana is returned when the mana is <= 0.
-	ErrInvalidMana = errors.New("mana cannot be <= 0")
+	// ErrInsufficientMana is returned when the mana is insufficient.
+	ErrInsufficientMana = errors.New("insufficient node's mana to schedule the message")
 	// ErrBufferFull is returned when the maximum buffer size is exceeded.
 	ErrBufferFull = errors.New("maximum buffer size exceeded")
 )
