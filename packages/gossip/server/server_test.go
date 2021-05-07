@@ -33,7 +33,17 @@ func TestUnansweredAccept(t *testing.T) {
 	defer closeA()
 
 	_, err := transA.AcceptPeer(context.Background(), getPeer(transA))
-	assert.Error(t, err)
+	assert.ErrorIs(t, err, ErrTimeout)
+}
+
+func TestCancelledAccept(t *testing.T) {
+	transA, closeA := newTestServer(t, "A")
+	defer closeA()
+	ctx := context.Background()
+	ctx, cancel := context.WithCancel(ctx)
+	cancel()
+	_, err := transA.AcceptPeer(ctx, getPeer(transA))
+	assert.ErrorIs(t, err, context.Canceled)
 }
 
 func TestCloseWhileAccepting(t *testing.T) {

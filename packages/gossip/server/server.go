@@ -118,7 +118,6 @@ func ServeTCP(local *peer.Local, listener *net.TCPListener, log *zap.SugaredLogg
 		"address", listener.Addr().String(),
 	)
 
-	t.wg.Add(2)
 	go t.run()
 	go t.listenLoop()
 
@@ -218,6 +217,7 @@ func (t *TCP) closeConnection(c net.Conn) {
 }
 
 func (t *TCP) run() {
+	t.wg.Add(1)
 	defer t.wg.Done()
 	for {
 		select {
@@ -233,11 +233,15 @@ func (t *TCP) run() {
 				t.log.Debugw("unexpected connection", "id", a.fromID, "addr", a.conn.RemoteAddr())
 				t.closeConnection(a.conn)
 			}
+		case <-t.closing:
+			return
 		}
 	}
 }
 
 func (t *TCP) handleAcceptMatcher(m *acceptMatcher) {
+	t.wg.Add(1)
+	defer t.wg.Done()
 	listElem := t.pushAcceptMatcher(m)
 	defer t.removeAcceptMatcher(listElem)
 	select {
@@ -300,6 +304,7 @@ func (t *TCP) matchAccept(m *acceptMatcher, req []byte, conn net.Conn) {
 }
 
 func (t *TCP) listenLoop() {
+	t.wg.Add(1)
 	defer t.wg.Done()
 
 	for {
