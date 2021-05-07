@@ -95,9 +95,7 @@ func (s *Scheduler) onMessageSolidHandler(messageID MessageID) {
 }
 
 func (s *Scheduler) onMessageInvalidHandler(messageID MessageID) {
-	// unsubmit the message
-	err := s.Unsubmit(messageID)
-	s.tangle.Events.Error.Trigger(xerrors.Errorf("failed to unsubmit: %w", err))
+	s.tangle.Events.Error.Trigger(xerrors.Errorf("Invalid message in scheduler: %w", messageID))
 }
 
 // Start starts the scheduler.
