@@ -273,7 +273,7 @@ func (wallet *Wallet) ConsolidateFunds(options ...consolidatefunds_options.Conso
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region ClaimConditionalFunds /////////////////////////////////////////////////////////////////////////////////////////////
+// region ClaimConditionalFunds ////////////////////////////////////////////////////////////////////////////////////////
 
 // ClaimConditionalFunds gathers all currently conditionally owned outputs and consolidates them into the output.
 func (wallet *Wallet) ClaimConditionalFunds(options ...claimconditionalfunds_options.ClaimConditionalFundsOption) (tx *ledgerstate.Transaction, err error) {

@@ -138,6 +138,8 @@ func printUsage(command *flag.FlagSet, optionalErrorMessage ...string) {
 		fmt.Println("        initiate a value transfer")
 		fmt.Println("  consolidate-funds")
 		fmt.Println("        consolidate available funds under one wallet address")
+		fmt.Println("  claim-conditional")
+		fmt.Println("        claim (move) conditionally owned funds into the wallet")
 		fmt.Println("  request-funds")
 		fmt.Println("        request funds from the testnet-faucet")
 		fmt.Println("  create-asset")
