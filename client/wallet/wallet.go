@@ -12,6 +12,7 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/claimconditionalfunds_options"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/consolidatefunds_options"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/createnft_options"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/delegatefunds_options"
@@ -176,7 +177,7 @@ func (wallet *Wallet) SendFunds(options ...sendfunds_options.SendFundsOption) (t
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region ConsolidateFunds ///////////////////////////////////////////////////////////////////////////////////////////////////
+// region ConsolidateFunds /////////////////////////////////////////////////////////////////////////////////////////////
 
 func (wallet *Wallet) ConsolidateFunds(options ...consolidatefunds_options.ConsolidateFundsOption) (tx *ledgerstate.Transaction, err error) {
 	consolidateOptions, err := consolidatefunds_options.BuildConsolidateFundsOptions(options...)
@@ -271,6 +272,106 @@ func (wallet *Wallet) ConsolidateFunds(options ...consolidatefunds_options.Conso
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region ClaimConditionalFunds /////////////////////////////////////////////////////////////////////////////////////////////
+
+// ClaimConditionalFunds gathers all currently conditionally owned outputs and consolidates them into the output.
+func (wallet *Wallet) ClaimConditionalFunds(options ...claimconditionalfunds_options.ClaimConditionalFundsOption) (tx *ledgerstate.Transaction, err error) {
+	claimOptions, err := claimconditionalfunds_options.BuildClaimConditionalFundsOptions(options...)
+	if err != nil {
+		return
+	}
+	confirmedConditionalBalance, _, err := wallet.ConditionalBalances()
+	if err != nil {
+		return
+	}
+	if len(confirmedConditionalBalance) == 0 {
+		err = xerrors.Errorf("no conditional balance found in the wallet")
+		return
+	}
+	addresses := wallet.addressManager.Addresses()
+	consumedOutputs := wallet.outputManager.UnspentConditionalOutputs(addresses...)
+	if len(consumedOutputs) == 0 {
+		err = xerrors.Errorf("failed to find conditionally owned outputs in wallet")
+		return
+	}
+
+	// build inputs from consumed outputs
+	inputs := wallet.buildInputs(consumedOutputs)
+	// aggregate all the funds we consume from inputs
+	totalConsumedFunds := consumedOutputs.TotalFundsInOutputs()
+
+	var toAddress address.Address
+	_, spendFromRemainderAddress := consumedOutputs[wallet.RemainderAddress()]
+	_, spendFromReceiveAddress := consumedOutputs[wallet.ReceiveAddress()]
+	if spendFromRemainderAddress && spendFromReceiveAddress {
+		// we are about to spend from both
+		toAddress = wallet.NewReceiveAddress()
+	} else if spendFromRemainderAddress && !spendFromReceiveAddress {
+		// we are about to spend from remainder, but not from receive
+		toAddress = wallet.ReceiveAddress()
+	} else {
+		// we are not spending from remainder
+		toAddress = wallet.RemainderAddress()
+	}
+
+	outputs := ledgerstate.NewOutputs(ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(totalConsumedFunds), toAddress.Address()))
+
+	// determine pledgeIDs
+	aPledgeID, cPledgeID, err := wallet.derivePledgeIDs(claimOptions.AccessManaPledgeID, claimOptions.ConsensusManaPledgeID)
+	if err != nil {
+		return
+	}
+
+	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), aPledgeID, cPledgeID, inputs, outputs)
+	outputsByID := consumedOutputs.OutputsByID()
+
+	unlockBlocks, inputsAsOutputsInOrder := wallet.buildUnlockBlocks(inputs, outputsByID, txEssence)
+
+	tx = ledgerstate.NewTransaction(txEssence, unlockBlocks)
+
+	// check syntactical validity by marshaling an unmarshaling
+	tx, _, err = ledgerstate.TransactionFromBytes(tx.Bytes())
+	if err != nil {
+		return nil, err
+	}
+
+	//check tx validity (balances, unlock blocks)
+	ok, err := checkBalancesAndUnlocks(inputsAsOutputsInOrder, tx)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, xerrors.Errorf("created transaction is invalid: %s", tx.String())
+	}
+
+	// mark outputs as spent
+	for addr, outputs := range consumedOutputs {
+		for outputID := range outputs {
+			wallet.outputManager.MarkOutputSpent(addr, outputID)
+		}
+	}
+
+	// mark addresses as spent
+	if !wallet.reusableAddress {
+		for addr := range consumedOutputs {
+			wallet.addressManager.MarkAddressSpent(addr.Index)
+		}
+	}
+
+	err = wallet.connector.SendTransaction(tx)
+	if err != nil {
+		return nil, err
+	}
+	if claimOptions.WaitForConfirmation {
+		err = wallet.WaitForTxConfirmation(tx.ID())
+	}
+	return
+
+	return
+}
+
+// endregion //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region CreateAsset //////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1634,6 +1735,51 @@ func (wallet *Wallet) TimelockedBalances() (confirmed, pending TimelockedBalance
 						confirmed = append(confirmed, tBal)
 					} else {
 						pending = append(pending, tBal)
+					}
+				}
+			}
+		}
+	}
+
+	return
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region ConditionalBalances //////////////////////////////////////////////////////////////////////////////////////////
+
+// ConditionalBalances returns all confirmed and pending balances that can be claimed by the wallet up to a certain time.
+func (wallet *Wallet) ConditionalBalances() (confirmed, pending ConditionalBalanceSlice, err error) {
+	err = wallet.outputManager.Refresh()
+	if err != nil {
+		return
+	}
+
+	confirmed = make(ConditionalBalanceSlice, 0)
+	pending = make(ConditionalBalanceSlice, 0)
+	now := time.Now()
+
+	// iterate through the unspent outputs
+	for addy, outputsOnAddress := range wallet.outputManager.UnspentOutputs() {
+		for _, output := range outputsOnAddress {
+			// skip if the output was rejected or spent already
+			if output.InclusionState.Spent || output.InclusionState.Rejected {
+				continue
+			}
+			switch output.Object.Type() {
+			case ledgerstate.ExtendedLockedOutputType:
+				casted := output.Object.(*ledgerstate.ExtendedLockedOutput)
+				_, fallbackDeadline := casted.FallbackOptions()
+				if !fallbackDeadline.IsZero() && addy.Address().Equals(casted.UnlockAddressNow(now)) {
+					// fallback option is set and currently we are the unlock address
+					cBal := &ConditionalBalance{
+						Balance:          casted.Balances().Map(),
+						FallbackDeadline: fallbackDeadline,
+					}
+					if output.InclusionState.Confirmed {
+						confirmed = append(confirmed, cBal)
+					} else {
+						pending = append(pending, cBal)
 					}
 				}
 			}

@@ -65,6 +65,12 @@ func (o *OutputManager) UnspentValueOutputs(addresses ...address.Address) (unspe
 	return o.getOutputs(addresses...).ValueOutputsOnly()
 }
 
+// UnspentConditionalOutputs returns the ExtendedLockedoutputs that are conditionally owned by the wallet right now and
+// have not been spent yet. Such outputs can be claimed by the wallet.
+func (o *OutputManager) UnspentConditionalOutputs(addresses ...address.Address) (unspentOutputs OutputsByAddressAndOutputID) {
+	return o.getOutputs(addresses...).ConditionalOutputsOnly()
+}
+
 // UnspentAliasOutputs returns the alias type outputs that have not been spent, yet.
 func (o *OutputManager) UnspentAliasOutputs(addresses ...address.Address) (unspentOutputs OutputsByAddressAndOutputID) {
 	return o.getOutputs(addresses...).AliasOutputsOnly()

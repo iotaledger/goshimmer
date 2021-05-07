@@ -51,6 +51,9 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 
 	// fetch timelocked balances
 	confirmedTimelocked, pendingTimelocked, err := cliWallet.TimelockedBalances()
+	if err != nil {
+		printUsage(nil, err.Error())
+	}
 
 	if len(confirmedTimelocked) > 0 || len(pendingTimelocked) > 0 {
 		// initialize tab writer
@@ -63,7 +66,9 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 		fmt.Println()
 		_, _ = fmt.Fprintf(wT, "%s\t%s\t%s\t%s\t%s\n", "STATUS", "LOCKED UNTIL", "BALANCE", "COLOR", "TOKEN NAME")
 		_, _ = fmt.Fprintf(wT, "%s\t%s\t%s\t%s\t%s\n", "------", "------------------------------", "---------------", "--------------------------------------------", "-------------------------")
-		confirmedTimelocked.Sort()
+		if confirmedTimelocked != nil {
+			confirmedTimelocked.Sort()
+		}
 		for _, timelockedBalance := range confirmedTimelocked {
 			// print balances
 			for color, amount := range timelockedBalance.Balance {
@@ -72,7 +77,9 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 					cliWallet.AssetRegistry().Name(color))
 			}
 		}
-		pendingTimelocked.Sort()
+		if pendingTimelocked != nil {
+			pendingTimelocked.Sort()
+		}
 		for _, timelockedBalance := range pendingTimelocked {
 			// print balances
 			for color, amount := range timelockedBalance.Balance {
@@ -82,6 +89,48 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 			}
 		}
 		wT.Flush()
+	}
+
+	// fetch conditional balances
+	confirmedConditional, pendingConditional, err := cliWallet.ConditionalBalances()
+	if err != nil {
+		printUsage(nil, err.Error())
+	}
+
+	if len(confirmedConditional) > 0 || len(pendingConditional) > 0 {
+		// initialize tab writer
+		wC := new(tabwriter.Writer)
+		wC.Init(os.Stdout, 0, 8, 2, '\t', 0)
+		//defer w.Flush()
+		// print header
+		fmt.Println()
+		fmt.Println("Conditional Token Balances - execute `claim-conditional` command to sweep these funds into wallet")
+		fmt.Println()
+		_, _ = fmt.Fprintf(wC, "%s\t%s\t%s\t%s\t%s\n", "STATUS", "OWNED UNTIL", "BALANCE", "COLOR", "TOKEN NAME")
+		_, _ = fmt.Fprintf(wC, "%s\t%s\t%s\t%s\t%s\n", "------", "------------------------------", "---------------", "--------------------------------------------", "-------------------------")
+		if confirmedConditional != nil {
+			confirmedConditional.Sort()
+		}
+		for _, conditionalBalance := range confirmedConditional {
+			// print balances
+			for color, amount := range conditionalBalance.Balance {
+				_, _ = fmt.Fprintf(wC, "%s\t%s\t%d %s\t%s\t%s\n",
+					"[ OK ]", conditionalBalance.FallbackDeadline.String(), amount, cliWallet.AssetRegistry().Symbol(color), color.String(),
+					cliWallet.AssetRegistry().Name(color))
+			}
+		}
+		if pendingConditional != nil {
+			pendingConditional.Sort()
+		}
+		for _, conditionalBalance := range pendingConditional {
+			// print balances
+			for color, amount := range conditionalBalance.Balance {
+				_, _ = fmt.Fprintf(wC, "%s\t%s\t%d %s\t%s\t%s\n",
+					"[PEND]", conditionalBalance.FallbackDeadline.String(), amount, cliWallet.AssetRegistry().Symbol(color), color.String(),
+					cliWallet.AssetRegistry().Name(color))
+			}
+		}
+		wC.Flush()
 	}
 
 	// fetch balances from wallet

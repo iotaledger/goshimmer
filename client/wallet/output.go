@@ -102,6 +102,28 @@ func (o OutputsByAddressAndOutputID) ValueOutputsOnly() OutputsByAddressAndOutpu
 	return result
 }
 
+// ConditionalOutputsOnly return ExtendedLockedOutputs that are currently conditionally owned by the wallet.
+func (o OutputsByAddressAndOutputID) ConditionalOutputsOnly() OutputsByAddressAndOutputID {
+	now := time.Now()
+	result := NewAddressToOutputs()
+	for addy, IDToOutputMap := range o {
+		for outputID, output := range IDToOutputMap {
+			switch output.Object.Type() {
+			case ledgerstate.ExtendedLockedOutputType:
+				casted := output.Object.(*ledgerstate.ExtendedLockedOutput)
+				_, fallbackDeadline := casted.FallbackOptions()
+				if !fallbackDeadline.IsZero() && addy.Address().Equals(casted.UnlockAddressNow(now)) {
+					if _, addressExists := result[addy]; !addressExists {
+						result[addy] = make(map[ledgerstate.OutputID]*Output)
+					}
+					result[addy][outputID] = output
+				}
+			}
+		}
+	}
+	return result
+}
+
 func (o OutputsByAddressAndOutputID) AliasOutputsOnly() OutputsByAddressAndOutputID {
 	result := NewAddressToOutputs()
 	for addy, IDToOutputMap := range o {

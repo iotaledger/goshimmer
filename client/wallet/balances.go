@@ -18,3 +18,16 @@ func (t TimelockedBalanceSlice) Sort() {
 		return t[i].LockedUntil.Before(t[j].LockedUntil)
 	})
 }
+
+type ConditionalBalance struct {
+	Balance          map[ledgerstate.Color]uint64
+	FallbackDeadline time.Time
+}
+
+type ConditionalBalanceSlice []*ConditionalBalance
+
+func (c ConditionalBalanceSlice) Sort() {
+	sort.Slice(c, func(i, j int) bool {
+		return c[i].FallbackDeadline.Before(c[j].FallbackDeadline)
+	})
+}
