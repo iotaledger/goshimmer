@@ -56,7 +56,7 @@ func (b *Booker) Setup() {
 			b.Events.Error.Trigger(xerrors.Errorf("failed to book message with %s: %w", messageID, err))
 		}
 	})
-	b.tangle.Scheduler.Events.MessageScheduled.Attach(f)
+	b.tangle.Orderer.Events.MessageOrdered.Attach(f)
 	b.tangle.FifoScheduler.Events.MessageScheduled.Attach(f)
 
 	b.tangle.LedgerState.utxoDAG.Events.TransactionBranchIDUpdated.Attach(events.NewClosure(func(transactionID ledgerstate.TransactionID) {
