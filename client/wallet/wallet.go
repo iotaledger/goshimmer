@@ -1167,7 +1167,7 @@ func (wallet *Wallet) SweepNFTOwnedNFTs(options ...sweepnftownednfts_options.Swe
 		}
 	}
 	// we will consume the nft that owns the others too
-	toBeConsumed = append(toBeConsumed, nextAlias)
+	toBeConsumed = append(toBeConsumed, alias)
 	unsortedInputs := toBeConsumed.Inputs()
 
 	// create essence, contains sorted inputs and outputs
