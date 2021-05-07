@@ -49,6 +49,41 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	}
 	w.Flush()
 
+	// fetch timelocked balances
+	confirmedTimelocked, pendingTimelocked, err := cliWallet.TimelockedBalances()
+
+	if len(confirmedTimelocked) > 0 || len(pendingTimelocked) > 0 {
+		// initialize tab writer
+		wT := new(tabwriter.Writer)
+		wT.Init(os.Stdout, 0, 8, 2, '\t', 0)
+		//defer w.Flush()
+		// print header
+		fmt.Println()
+		fmt.Println("Timelocked Token Balances")
+		fmt.Println()
+		_, _ = fmt.Fprintf(wT, "%s\t%s\t%s\t%s\t%s\n", "STATUS", "LOCKED UNTIL", "BALANCE", "COLOR", "TOKEN NAME")
+		_, _ = fmt.Fprintf(wT, "%s\t%s\t%s\t%s\t%s\n", "------", "------------------------------", "---------------", "--------------------------------------------", "-------------------------")
+		confirmedTimelocked.Sort()
+		for _, timelockedBalance := range confirmedTimelocked {
+			// print balances
+			for color, amount := range timelockedBalance.Balance {
+				_, _ = fmt.Fprintf(wT, "%s\t%s\t%d %s\t%s\t%s\n",
+					"[ OK ]", timelockedBalance.LockedUntil.String(), amount, cliWallet.AssetRegistry().Symbol(color), color.String(),
+					cliWallet.AssetRegistry().Name(color))
+			}
+		}
+		pendingTimelocked.Sort()
+		for _, timelockedBalance := range pendingTimelocked {
+			// print balances
+			for color, amount := range timelockedBalance.Balance {
+				_, _ = fmt.Fprintf(wT, "%s\t%s\t%d %s\t%s\t%s\n",
+					"[PEND]", timelockedBalance.LockedUntil.String(), amount, cliWallet.AssetRegistry().Symbol(color), color.String(),
+					cliWallet.AssetRegistry().Name(color))
+			}
+		}
+		wT.Flush()
+	}
+
 	// fetch balances from wallet
 	confirmedGovAliasBalance, confirmedStateAliasBalance, pendingGovAliasBalance, pendingStateAliasBalance, err := cliWallet.AliasBalance()
 	confirmedDel, pendingDel, err := cliWallet.DelegatedAliasBalance()

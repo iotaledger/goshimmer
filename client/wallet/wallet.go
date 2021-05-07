@@ -1544,7 +1544,7 @@ func (wallet *Wallet) Balance() (confirmedBalance map[ledgerstate.Color]uint64, 
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region AvailableBalance //////////////////////////////////////////////////////////////////////////////////////////////////////
+// region AvailableBalance /////////////////////////////////////////////////////////////////////////////////////////////
 
 // AvailableBalance returns the balance that is not held in aliases, and therefore can be used to fund transfers.
 func (wallet *Wallet) AvailableBalance() (confirmedBalance map[ledgerstate.Color]uint64, pendingBalance map[ledgerstate.Color]uint64, err error) {
@@ -1592,6 +1592,49 @@ func (wallet *Wallet) AvailableBalance() (confirmedBalance map[ledgerstate.Color
 						targetMap[color] += balance
 						return true
 					})
+				}
+			}
+		}
+	}
+
+	return
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TimelockedBalances ///////////////////////////////////////////////////////////////////////////////////////////
+
+// TimelockedBalances returns all confirmed and pending balances that are currently timelocked.
+func (wallet *Wallet) TimelockedBalances() (confirmed, pending TimelockedBalanceSlice, err error) {
+	err = wallet.outputManager.Refresh()
+	if err != nil {
+		return
+	}
+
+	confirmed = make([]*TimelockedBalance, 0)
+	pending = make([]*TimelockedBalance, 0)
+	now := time.Now()
+
+	// iterate through the unspent outputs
+	for _, outputsOnAddress := range wallet.outputManager.UnspentOutputs() {
+		for _, output := range outputsOnAddress {
+			// skip if the output was rejected or spent already
+			if output.InclusionState.Spent || output.InclusionState.Rejected {
+				continue
+			}
+			switch output.Object.Type() {
+			case ledgerstate.ExtendedLockedOutputType:
+				casted := output.Object.(*ledgerstate.ExtendedLockedOutput)
+				if casted.TimeLockedNow(now) {
+					tBal := &TimelockedBalance{
+						Balance:     casted.Balances().Map(),
+						LockedUntil: casted.TimeLock(),
+					}
+					if output.InclusionState.Confirmed {
+						confirmed = append(confirmed, tBal)
+					} else {
+						pending = append(pending, tBal)
+					}
 				}
 			}
 		}
@@ -1656,7 +1699,7 @@ func (wallet *Wallet) AliasBalance() (
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region AvailableOutputsOnNFT /////////////////////////////////////////////////////////////////////////////////////////////////
+// region AvailableOutputsOnNFT ////////////////////////////////////////////////////////////////////////////////////////
 
 // AvailableOutputsOnNFT returns all outputs that are either owned (SigLocked***, Extended, stateControlled Alias) or governed
 // (governance controlled alias outputs) and are not currently locked.
