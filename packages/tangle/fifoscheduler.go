@@ -1,7 +1,6 @@
 package tangle
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/datastructure/set"
@@ -97,39 +96,14 @@ func (s *FifoScheduler) run() {
 }
 
 func (s *FifoScheduler) scheduleMessage(messageID MessageID) {
-	if !s.parentsBooked(messageID) {
-		fmt.Println("not parents booked in scheduler: ", messageID.Base58())
-		return
-	}
-
 	s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 		if messageMetadata.SetScheduled(true) {
 			if s.scheduledMessages.Add(messageID) {
 				s.allMessagesScheduledWG.Add(1)
 			}
-			fmt.Println("message scheduled: FIFO: ", messageID.Base58())
 			s.Events.MessageScheduled.Trigger(messageID)
 		}
 	})
-}
-
-func (s *FifoScheduler) parentsBooked(messageID MessageID) (parentsBooked bool) {
-	s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		parentsBooked = true
-		message.ForEachParent(func(parent Parent) {
-			if !parentsBooked || parent.ID == EmptyMessageID {
-				return
-			}
-
-			if !s.tangle.Storage.MessageMetadata(parent.ID).Consume(func(messageMetadata *MessageMetadata) {
-				parentsBooked = messageMetadata.IsBooked()
-			}) {
-				parentsBooked = false
-			}
-		})
-	})
-
-	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -145,7 +119,6 @@ type FifoSchedulerEvents struct {
 }
 
 func (s *FifoScheduler) messageSolidHandler(messageID MessageID) {
-	fmt.Println("message solid: FIFO: ", messageID.Base58())
 	s.Schedule(messageID)
 }
 

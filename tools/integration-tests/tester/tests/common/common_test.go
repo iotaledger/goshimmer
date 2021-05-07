@@ -1,7 +1,6 @@
 package common
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -46,9 +45,6 @@ func TestSynchronization(t *testing.T) {
 
 	// 3. issue some messages on old peers so that new peer can solidify
 	ids = tests.SendDataMessagesOnRandomPeer(t, n.Peers()[:initialPeers], 10, ids)
-	for id := range ids {
-		fmt.Println("issued: ", id)
-	}
 
 	// wait for peer to solidify
 	time.Sleep(90 * time.Second)

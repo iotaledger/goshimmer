@@ -135,7 +135,7 @@ func (s *Scheduler) Setup() {
 	s.tangle.Events.MessageInvalid.Attach(s.onMessageInvalid)
 }
 
-// SubmitAndReadyMessage submits the message to the scheduler and makes it ready when it's parents are booked.
+// SubmitAndReadyMessage submits the message to the scheduler and makes it ready.
 func (s *Scheduler) SubmitAndReadyMessage(messageID MessageID) {
 	// submit the message to the scheduler and marks it ready right away
 	err := s.Submit(messageID)
@@ -162,8 +162,8 @@ func (s *Scheduler) SetRate(rate time.Duration) {
 // Submit submits a message to be considered by the scheduler.
 // This transactions will be included in all the control metrics, but it will never be
 // scheduled until Ready(messageID) has been called.
-func (s *Scheduler) Submit(messageID MessageID, force ...bool) (err error) {
-	if !s.running.Load() && (len(force) == 0 || !force[0]) {
+func (s *Scheduler) Submit(messageID MessageID) (err error) {
+	if !s.running.Load() {
 		return ErrNotRunning
 	}
 
@@ -219,29 +219,7 @@ func (s *Scheduler) Ready(messageID MessageID) (err error) {
 	return err
 }
 
-func (s *Scheduler) parentsBooked(messageID MessageID) (parentsBooked bool) {
-	s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		parentsBooked = true
-		message.ForEachParent(func(parent Parent) {
-			if !parentsBooked || parent.ID == EmptyMessageID {
-				return
-			}
-
-			if !s.tangle.Storage.MessageMetadata(parent.ID).Consume(func(messageMetadata *MessageMetadata) {
-				parentsBooked = parentsBooked && messageMetadata.IsBooked()
-			}) {
-				parentsBooked = false
-			}
-		})
-	})
-
-	return
-}
-
 func (s *Scheduler) schedule() *Message {
-	if !s.running.Load() {
-		fmt.Println("after shutdown: in scheduler")
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -279,25 +257,6 @@ func (s *Scheduler) schedule() *Message {
 			return nil
 		}
 	}
-
-	// if the parents are not booked yet, do not schedule the message
-	// TODO: eventually this should be handled outside the scheduler by only calling Ready() when the parents are booked
-	if !s.parentsBooked(s.buffer.Current().Front().(*Message).ID()) {
-		fmt.Println("not parents booked -- nodeID", s.buffer.Current().NodeID().String(), " -- message: ", s.buffer.Current().Front().(*Message).ID())
-		cachedMessage := s.tangle.Storage.Message(s.buffer.Current().Front().(*Message).ID())
-		if cachedMessage.Exists() {
-			message := cachedMessage.Unwrap()
-			cachedMessage.Release()
-			message.ForEachParent(func(parent Parent) {
-				fmt.Println("solidifying parent: ", parent.ID.Base58())
-				s.tangle.Solidifier.Solidify(parent.ID)
-				if err := s.Submit(parent.ID, true); err == nil {
-					_ = s.Ready(parent.ID)
-				}
-			})
-		}
-		return nil
-	}
 	// remove the message from the buffer and adjust node's deficit
 	msg := s.buffer.PopFront()
 	nodeID := identity.NewID(msg.IssuerPublicKey())
@@ -315,12 +274,8 @@ func (s *Scheduler) mainLoop() {
 		select {
 		// every rate time units
 		case <-s.ticker.C:
-			if !s.running.Load() {
-				fmt.Println("after shutdown tick")
-			}
 			// TODO: pause the ticker, if there are no ready messages
 			if msg := s.schedule(); msg != nil {
-				fmt.Println("message scheduled. SCH: ", msg.ID().Base58())
 				s.Events.MessageScheduled.Trigger(msg.ID())
 			}
 			if !s.running.Load() && s.buffer.Size() == 0 {

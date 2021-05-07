@@ -51,14 +51,11 @@ func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (b *Booker) Setup() {
-	f := events.NewClosure(func(messageID MessageID) {
+	b.tangle.Orderer.Events.MessageOrdered.Attach(events.NewClosure(func(messageID MessageID) {
 		if err := b.BookMessage(messageID); err != nil {
 			b.Events.Error.Trigger(xerrors.Errorf("failed to book message with %s: %w", messageID, err))
 		}
-	})
-	b.tangle.Orderer.Events.MessageOrdered.Attach(f)
-	b.tangle.FifoScheduler.Events.MessageScheduled.Attach(f)
-
+	}))
 	b.tangle.LedgerState.utxoDAG.Events.TransactionBranchIDUpdated.Attach(events.NewClosure(func(transactionID ledgerstate.TransactionID) {
 		if err := b.BookConflictingTransaction(transactionID); err != nil {
 			b.Events.Error.Trigger(xerrors.Errorf("failed to propagate ConflictBranch of %s to tangle: %w", transactionID, err))
@@ -69,7 +66,6 @@ func (b *Booker) Setup() {
 // BookMessage tries to book the given Message (and potentially its contained Transaction) into the LedgerState and the Tangle.
 // It fires a MessageBooked event if it succeeds.
 func (b *Booker) BookMessage(messageID MessageID) (err error) {
-	fmt.Println("booking message: ", messageID.Base58())
 	b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 			branchIDOfPayload, bookingErr := b.bookPayload(message)

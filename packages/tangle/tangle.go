@@ -1,7 +1,6 @@
 package tangle
 
 import (
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -130,14 +129,8 @@ func (t *Tangle) Setup() {
 
 // ProcessGossipMessage is used to feed new Messages from the gossip layer into the Tangle.
 func (t *Tangle) ProcessGossipMessage(messageBytes []byte, peer *peer.Peer) {
-	msg, _, err := MessageFromBytes(messageBytes)
-	if err == nil {
-		fmt.Println("message received: ", msg.ID().Base58())
-	} else {
-		fmt.Println("err getting msg from bytes")
-	}
+	_, _, _ = MessageFromBytes(messageBytes)
 	t.setupParserOnce.Do(t.Parser.Setup)
-
 	t.Parser.Parse(messageBytes, peer)
 }
 
@@ -207,6 +200,7 @@ func (t *Tangle) Shutdown() {
 	t.MessageFactory.Shutdown()
 	t.RateSetter.Shutdown()
 	t.Scheduler.Shutdown()
+	t.Orderer.Shutdown()
 	t.Booker.Shutdown()
 	t.LedgerState.Shutdown()
 	t.ConsensusManager.Shutdown()

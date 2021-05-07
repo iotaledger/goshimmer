@@ -159,7 +159,6 @@ func (s *Storage) StoreMessage(message *Message) {
 
 	// messages are stored, trigger MessageStored event to move on next check
 	s.Events.MessageStored.Trigger(message.ID())
-	fmt.Println("message stored: ", message.ID().Base58())
 }
 
 // Message retrieves a message from the message store.

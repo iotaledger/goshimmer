@@ -130,8 +130,6 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, t ...*Tangle) (*Message
 		signature,
 	)
 	f.Events.MessageConstructed.Trigger(msg)
-	fmt.Println("issued payload: ", msg.ID())
-
 	err = f.tangle.RateSetter.Submit(msg)
 
 	return msg, err

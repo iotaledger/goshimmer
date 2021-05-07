@@ -333,7 +333,7 @@ func (n *Network) WaitForAutopeering(minimumNeighbors int) error {
 // WaitForMana waits until all peers have access mana.
 // Returns error if all peers don't have mana after waitForManaMaxTries
 func (n *Network) WaitForMana(optionalPeers ...*Peer) error {
-	log.Printf("Waiting for nodes to get mana...\n")
+	log.Printf("Waiting for nodes to get at least 1.0 access mana...\n")
 	defer log.Printf("Waiting for nodes to get mana... done\n")
 
 	peers := n.peers
@@ -351,12 +351,12 @@ func (n *Network) WaitForMana(optionalPeers ...*Peer) error {
 				log.Printf("err getting info for peer %s: %v", peer.ID(), err)
 				continue
 			}
-			fmt.Println("node: ", peer.ID().String(), " - mana: ", infoRes.Mana.Access)
+			log.Println("node: ", peer.ID().String(), " - mana: ", infoRes.Mana.Access)
 			if infoRes.Mana.Access > 1.0 {
 				delete(m, peer)
 			}
 		}
-		fmt.Println("len: ", len(m))
+		log.Println("remaining... ", len(m))
 		if len(m) == 0 {
 			return nil
 		}
