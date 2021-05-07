@@ -15,6 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/gracefulshutdown"
 	"github.com/iotaledger/goshimmer/plugins/logger"
 	"github.com/iotaledger/goshimmer/plugins/manaeventlogger"
+	"github.com/iotaledger/goshimmer/plugins/manualpeering"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/goshimmer/plugins/portcheck"
@@ -39,6 +40,7 @@ var Core = node.Plugins(
 	clock.Plugin(),
 	messagelayer.ManaPlugin(),
 	messagelayer.Plugin(),
+	manualpeering.Plugin(),
 	gossip.Plugin(),
 	syncbeacon.Plugin(),
 	messagelayer.SyncBeaconFollowerPlugin(),

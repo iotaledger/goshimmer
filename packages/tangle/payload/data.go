@@ -1,10 +1,10 @@
 package payload
 
 import (
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
-	"golang.org/x/xerrors"
 )
 
 // GenericDataPayloadType is the Type of a generic GenericDataPayload.
@@ -17,7 +17,7 @@ func GenericDataPayloadUnmarshaler(data []byte) (Payload, error) {
 		return nil, err
 	}
 	if consumedBytes != len(data) {
-		return nil, xerrors.New("not all payload bytes were consumed")
+		return nil, errors.New("not all payload bytes were consumed")
 	}
 	return payload, nil
 }
@@ -40,7 +40,7 @@ func NewGenericDataPayload(data []byte) *GenericDataPayload {
 func GenericDataPayloadFromBytes(bytes []byte) (genericDataPayload *GenericDataPayload, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if genericDataPayload, err = GenericDataPayloadFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse GenericDataPayload from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse GenericDataPayload from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -52,17 +52,17 @@ func GenericDataPayloadFromBytes(bytes []byte) (genericDataPayload *GenericDataP
 func GenericDataPayloadFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (genericDataPayload *GenericDataPayload, err error) {
 	payloadSize, err := marshalUtil.ReadUint32()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse payload size (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse payload size (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
 	genericDataPayload = &GenericDataPayload{}
 	if genericDataPayload.payloadType, err = TypeFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Type from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse Type from MarshalUtil: %w", err)
 		return
 	}
 	if genericDataPayload.data, err = marshalUtil.ReadBytes(int(payloadSize) - TypeLength); err != nil {
-		err = xerrors.Errorf("failed to parse data (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse data (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 

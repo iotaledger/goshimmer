@@ -3,10 +3,10 @@ package markers
 import (
 	"sync"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
-	"golang.org/x/xerrors"
 )
 
 // region StructureDetails /////////////////////////////////////////////////////////////////////////////////////////////
@@ -15,7 +15,9 @@ import (
 // to interact with the public API of this package.
 type StructureDetails struct {
 	Rank                     uint64
+	PastMarkerGap            uint64
 	IsPastMarker             bool
+	SequenceID               SequenceID
 	PastMarkers              *Markers
 	FutureMarkers            *Markers
 	futureMarkersUpdateMutex sync.Mutex
@@ -25,7 +27,7 @@ type StructureDetails struct {
 func StructureDetailsFromBytes(markersBytes []byte) (markersPair *StructureDetails, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(markersBytes)
 	if markersPair, err = StructureDetailsFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse StructureDetails from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse StructureDetails from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -34,31 +36,39 @@ func StructureDetailsFromBytes(markersBytes []byte) (markersPair *StructureDetai
 }
 
 // StructureDetailsFromMarshalUtil unmarshals a StructureDetails using a MarshalUtil (for easier unmarshaling).
-func StructureDetailsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (markersPair *StructureDetails, err error) {
+func StructureDetailsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (structureDetails *StructureDetails, err error) {
 	detailsExist, err := marshalUtil.ReadBool()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse exists flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse exists flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if !detailsExist {
 		return
 	}
 
-	markersPair = &StructureDetails{}
-	if markersPair.Rank, err = marshalUtil.ReadUint64(); err != nil {
-		err = xerrors.Errorf("failed to parse Rank (%v): %w", err, cerrors.ErrParseBytesFailed)
+	structureDetails = &StructureDetails{}
+	if structureDetails.Rank, err = marshalUtil.ReadUint64(); err != nil {
+		err = errors.Errorf("failed to parse Rank (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	if markersPair.IsPastMarker, err = marshalUtil.ReadBool(); err != nil {
-		err = xerrors.Errorf("failed to parse IsPastMarker (%v): %w", err, cerrors.ErrParseBytesFailed)
+	if structureDetails.PastMarkerGap, err = marshalUtil.ReadUint64(); err != nil {
+		err = errors.Errorf("failed to parse PastMarkerGap (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	if markersPair.PastMarkers, err = FromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse PastMarkers from MarshalUtil: %w", err)
+	if structureDetails.IsPastMarker, err = marshalUtil.ReadBool(); err != nil {
+		err = errors.Errorf("failed to parse IsPastMarker (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	if markersPair.FutureMarkers, err = FromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse FutureMarkers from MarshalUtil: %w", err)
+	if structureDetails.SequenceID, err = SequenceIDFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
+		return
+	}
+	if structureDetails.PastMarkers, err = FromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse PastMarkers from MarshalUtil: %w", err)
+		return
+	}
+	if structureDetails.FutureMarkers, err = FromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse FutureMarkers from MarshalUtil: %w", err)
 		return
 	}
 
@@ -69,7 +79,9 @@ func StructureDetailsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (mark
 func (m *StructureDetails) Clone() (clone *StructureDetails) {
 	return &StructureDetails{
 		Rank:          m.Rank,
+		PastMarkerGap: m.PastMarkerGap,
 		IsPastMarker:  m.IsPastMarker,
+		SequenceID:    m.SequenceID,
 		PastMarkers:   m.PastMarkers.Clone(),
 		FutureMarkers: m.FutureMarkers.Clone(),
 	}
@@ -84,7 +96,9 @@ func (m *StructureDetails) Bytes() (marshaledStructureDetails []byte) {
 	return marshalutil.New().
 		WriteBool(true).
 		WriteUint64(m.Rank).
+		WriteUint64(m.PastMarkerGap).
 		WriteBool(m.IsPastMarker).
+		Write(m.SequenceID).
 		Write(m.PastMarkers).
 		Write(m.FutureMarkers).
 		Bytes()
@@ -94,7 +108,9 @@ func (m *StructureDetails) Bytes() (marshaledStructureDetails []byte) {
 func (m *StructureDetails) String() (humanReadableStructureDetails string) {
 	return stringify.Struct("StructureDetails",
 		stringify.StructField("Rank", m.Rank),
+		stringify.StructField("PastMarkerGap", m.PastMarkerGap),
 		stringify.StructField("IsPastMarker", m.IsPastMarker),
+		stringify.StructField("SequenceID", m.SequenceID),
 		stringify.StructField("PastMarkers", m.PastMarkers),
 		stringify.StructField("FutureMarkers", m.FutureMarkers),
 	)

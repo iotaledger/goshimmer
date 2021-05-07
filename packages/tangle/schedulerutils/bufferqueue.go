@@ -3,9 +3,9 @@ package schedulerutils
 import (
 	"container/ring"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/identity"
 	"go.uber.org/atomic"
-	"golang.org/x/xerrors"
 )
 
 const (
@@ -18,11 +18,11 @@ var MaxQueueWeight = 1024.0 * 1024.0
 
 var (
 	// ErrInboxExceeded is returned when a node has exceeded its allowed inbox size.
-	ErrInboxExceeded = xerrors.New("maximum mana-scaled inbox length exceeded")
+	ErrInboxExceeded = errors.New("maximum mana-scaled inbox length exceeded")
 	// ErrInvalidMana is returned when the mana is <= 0.
-	ErrInvalidMana = xerrors.New("mana cannot be <= 0")
+	ErrInvalidMana = errors.New("mana cannot be <= 0")
 	// ErrBufferFull is returned when the maximum buffer size is exceeded.
-	ErrBufferFull = xerrors.New("maximum buffer size exceeded")
+	ErrBufferFull = errors.New("maximum buffer size exceeded")
 )
 
 // region BufferQueue /////////////////////////////////////////////////////////////////////////////////////////////
@@ -85,7 +85,7 @@ func (b *BufferQueue) Submit(msg Element, rep float64) error {
 		return err
 	}
 	if !submitted {
-		return xerrors.Errorf("error in BufferQueue (Submit): message has already been submitted %x", msg.IDBytes())
+		return errors.Errorf("error in BufferQueue (Submit): message has already been submitted %x", msg.IDBytes())
 	}
 
 	b.size.Add(uint64(len(msg.Bytes())))

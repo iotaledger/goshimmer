@@ -18,7 +18,7 @@ func TestNetworkSplit(t *testing.T) {
 	// test that nodes only have neighbors from same partition
 	for _, partition := range n.Partitions() {
 		for _, peer := range partition.Peers() {
-			resp, err := peer.GetNeighbors(false)
+			resp, err := peer.GetAutopeeringNeighbors(false)
 			require.NoError(t, err)
 
 			// check that all neighbors are indeed in the same partition

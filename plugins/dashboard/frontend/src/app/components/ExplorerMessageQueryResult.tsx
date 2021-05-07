@@ -162,6 +162,12 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                                             Rank: {msg.rank}
                                         </ListGroup.Item>
                                         <ListGroup.Item>
+                                            SequenceID: {msg.sequenceID}
+                                        </ListGroup.Item>
+                                        <ListGroup.Item>
+                                            PastMarkerGap: {msg.pastMarkerGap}
+                                        </ListGroup.Item>
+                                        <ListGroup.Item>
                                             IsPastMarker: {msg.isPastMarker ? 'Yes' : 'No'}
                                         </ListGroup.Item>
                                         <ListGroup.Item>
@@ -181,6 +187,9 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                                 <ListGroup>
                                     <ListGroup.Item>
                                         Issuer Public Key: {msg.issuer_public_key}
+                                    </ListGroup.Item>
+                                    <ListGroup.Item>
+                                        Issuer NodeID: {msg.issuer_short_id}
                                     </ListGroup.Item>
                                     <ListGroup.Item>
                                         Message Signature: {msg.signature}

@@ -1,12 +1,12 @@
 package discovery
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"strings"
 	"sync"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/discover"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"

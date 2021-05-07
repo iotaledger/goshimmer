@@ -56,6 +56,15 @@ func (f *ConsensusMechanism) Init(tangle *tangle.Tangle) {
 
 // Setup sets up the behavior of the ConsensusMechanism by making it attach to the relevant events in the Tangle.
 func (f *ConsensusMechanism) Setup() {
+	f.tangle.LedgerState.BranchDAG.Events.BranchConfirmed.Attach(events.NewClosure(func(branchDAGEvent *ledgerstate.BranchDAGEvent) {
+		defer branchDAGEvent.Release()
+		f.SetTransactionLiked(branchDAGEvent.Branch.ID().TransactionID(), true)
+	}))
+	f.tangle.LedgerState.BranchDAG.Events.BranchRejected.Attach(events.NewClosure(func(branchDAGEvent *ledgerstate.BranchDAGEvent) {
+		defer branchDAGEvent.Release()
+		f.SetTransactionLiked(branchDAGEvent.Branch.ID().TransactionID(), false)
+	}))
+
 	f.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(f.Evaluate))
 	f.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(f.EvaluateTimestamp))
 }

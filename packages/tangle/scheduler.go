@@ -6,13 +6,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/tangle/schedulerutils"
-
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/workerpool"
 	"go.uber.org/atomic"
-	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/tangle/schedulerutils"
 )
 
 const (
@@ -21,7 +21,7 @@ const (
 )
 
 // ErrNotRunning is returned when a message is submitted when the scheduler has not been started
-var ErrNotRunning = xerrors.New("scheduler is not running")
+var ErrNotRunning = errors.New("scheduler is not running")
 
 var (
 	// TODO: investigate multiple workers
@@ -95,7 +95,7 @@ func (s *Scheduler) onMessageSolidHandler(messageID MessageID) {
 }
 
 func (s *Scheduler) onMessageInvalidHandler(messageID MessageID) {
-	s.tangle.Events.Error.Trigger(xerrors.Errorf("Invalid message in scheduler: %w", messageID))
+	s.tangle.Events.Error.Trigger(errors.Errorf("Invalid message in scheduler: %w", messageID))
 }
 
 // Start starts the scheduler.
@@ -138,12 +138,12 @@ func (s *Scheduler) SubmitAndReadyMessage(messageID MessageID) {
 	// submit the message to the scheduler and marks it ready right away
 	err := s.Submit(messageID)
 	if err != nil {
-		s.tangle.Events.Error.Trigger(xerrors.Errorf("failed to submit: %w", err))
+		s.tangle.Events.Error.Trigger(errors.Errorf("failed to submit: %w", err))
 		return
 	}
 	err = s.Ready(messageID)
 	if err != nil {
-		s.tangle.Events.Error.Trigger(xerrors.Errorf("failed to ready: %w", err))
+		s.tangle.Events.Error.Trigger(errors.Errorf("failed to ready: %w", err))
 		return
 	}
 }
@@ -182,11 +182,11 @@ func (s *Scheduler) Submit(messageID MessageID) (err error) {
 		if err != nil {
 			s.Events.MessageDiscarded.Trigger(messageID)
 		}
-		if xerrors.Is(err, schedulerutils.ErrInboxExceeded) {
+		if errors.Is(err, schedulerutils.ErrInboxExceeded) {
 			s.Events.NodeBlacklisted.Trigger(nodeID)
 		}
 	}) {
-		err = xerrors.Errorf("failed to get message '%x' from storage", messageID)
+		err = errors.Errorf("failed to get message '%x' from storage", messageID)
 	}
 	return err
 }
@@ -199,7 +199,7 @@ func (s *Scheduler) Unsubmit(messageID MessageID) (err error) {
 		defer s.mu.Unlock()
 		s.buffer.Unsubmit(message)
 	}) {
-		err = xerrors.Errorf("failed to get message '%x' from storage", messageID)
+		err = errors.Errorf("failed to get message '%x' from storage", messageID)
 	}
 	return err
 }
@@ -212,7 +212,7 @@ func (s *Scheduler) Ready(messageID MessageID) (err error) {
 		defer s.mu.Unlock()
 		s.buffer.Ready(message)
 	}) {
-		err = xerrors.Errorf("failed to get message '%x' from storage", messageID)
+		err = errors.Errorf("failed to get message '%x' from storage", messageID)
 	}
 	return err
 }

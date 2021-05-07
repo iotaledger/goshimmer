@@ -5,12 +5,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/datastructure/randommap"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/timedexecutor"
 	"github.com/iotaledger/hive.go/timedqueue"
 	"github.com/iotaledger/hive.go/types"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -282,7 +282,7 @@ func (t *TipManager) Tips(p payload.Payload, countStrongParents, countWeakParent
 		tries := 5
 		for !t.tangle.Utils.AllTransactionsApprovedByMessages(transaction.ReferencedTransactionIDs(), strongParents...) {
 			if tries == 0 {
-				err = xerrors.Errorf("not able to make sure that all inputs are in the past cone of selected tips")
+				err = errors.Errorf("not able to make sure that all inputs are in the past cone of selected tips")
 				return nil, nil, err
 			}
 			tries--

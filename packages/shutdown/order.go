@@ -21,6 +21,8 @@ const (
 	PriorityMetrics
 	// PriorityAutopeering defines the shutdown priority for autopeering.
 	PriorityAutopeering
+	// PriorityManualpeering defines the shutdown priority for manualpeering.
+	PriorityManualpeering
 	// PriorityGossip defines the shutdown priority for gossip.
 	PriorityGossip
 	// PriorityWebAPI defines the shutdown priority for webapi.
@@ -29,6 +31,8 @@ const (
 	PriorityDashboard
 	// PrioritySynchronization defines the shutdown priority for synchronization.
 	PrioritySynchronization
+	// PriorityActivity defines the shutdown priority for the activity plugin.
+	PriorityActivity
 	// PrioritySpammer defines the shutdown priority for spammer.
 	PrioritySpammer
 	// PriorityBootstrap defines the shutdown priority for bootstrap.

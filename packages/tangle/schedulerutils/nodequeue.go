@@ -6,9 +6,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
-	"golang.org/x/xerrors"
 )
 
 // ElementIDLength defines the length of an ElementID.
@@ -93,7 +93,7 @@ func (q *NodeQueue) NodeID() identity.ID {
 func (q *NodeQueue) Submit(element Element) (bool, error) {
 	msgNodeID := identity.NewID(element.IssuerPublicKey())
 	if q.nodeID != msgNodeID {
-		return false, xerrors.Errorf("Queue node ID(%x) and issuer ID(%x) doesn't match.", q.nodeID, msgNodeID)
+		return false, errors.Errorf("Queue node ID(%x) and issuer ID(%x) doesn't match.", q.nodeID, msgNodeID)
 	}
 
 	q.submittedMutex.Lock()

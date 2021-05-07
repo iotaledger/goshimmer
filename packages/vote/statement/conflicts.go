@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
@@ -37,7 +37,7 @@ func (c Conflict) Bytes() (bytes []byte) {
 func ConflictFromBytes(bytes []byte) (conflict Conflict, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if conflict, err = ConflictFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Conflict from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse Conflict from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -52,25 +52,25 @@ func ConflictFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflict Con
 	conflict = Conflict{}
 	bytesID, err := marshalUtil.ReadBytes(int(ledgerstate.TransactionIDLength))
 	if err != nil {
-		err = xerrors.Errorf("failed to parse ID from conflict: %w", err)
+		err = errors.Errorf("failed to parse ID from conflict: %w", err)
 		return
 	}
 	conflict.ID, _, err = ledgerstate.TransactionIDFromBytes(bytesID)
 	if err != nil {
-		err = xerrors.Errorf("failed to parse ID from bytes: %w", err)
+		err = errors.Errorf("failed to parse ID from bytes: %w", err)
 		return
 	}
 
 	conflict.Opinion, err = OpinionFromMarshalUtil(marshalUtil)
 	if err != nil {
-		err = xerrors.Errorf("failed to parse opinion from conflict: %w", err)
+		err = errors.Errorf("failed to parse opinion from conflict: %w", err)
 		return
 	}
 
 	// return the number of bytes we processed
 	parsedBytes := marshalUtil.ReadOffset() - readStartOffset
 	if parsedBytes != ConflictLength {
-		err = xerrors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, ConflictLength, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, ConflictLength, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -118,13 +118,13 @@ func (c Conflicts) String() string {
 // ConflictsFromBytes parses a slice of conflict statements from a byte slice.
 func ConflictsFromBytes(bytes []byte, n uint32) (conflicts Conflicts, consumedBytes int, err error) {
 	if len(bytes)/ConflictLength < int(n) {
-		err = xerrors.Errorf("not enough bytes to parse %d conflicts", n)
+		err = errors.Errorf("not enough bytes to parse %d conflicts", n)
 		return
 	}
 
 	marshalUtil := marshalutil.New(bytes)
 	if conflicts, err = ConflictsFromMarshalUtil(marshalUtil, n); err != nil {
-		err = xerrors.Errorf("failed to parse Conflicts from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse Conflicts from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -149,7 +149,7 @@ func ConflictsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil, n uint32) (c
 	// return the number of bytes we processed
 	parsedBytes := marshalUtil.ReadOffset() - readStartOffset
 	if parsedBytes != int(ConflictLength*n) {
-		err = xerrors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, ConflictLength*n, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, ConflictLength*n, cerrors.ErrParseBytesFailed)
 		return
 	}
 

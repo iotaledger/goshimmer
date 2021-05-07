@@ -16,7 +16,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/epochs"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
@@ -67,14 +66,17 @@ func TestBranchSupportersMarshalling(t *testing.T) {
 func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()
 
-	manaRetrieverMock := func(t time.Time) map[identity.ID]float64 {
+	var weightProvider *CManaWeightProvider
+	manaRetrieverMock := func() map[identity.ID]float64 {
+		nodeID := identity.NewID(keyPair.PublicKey)
+		weightProvider.Update(time.Now(), nodeID)
 		return map[identity.ID]float64{
-			identity.NewID(keyPair.PublicKey): 100,
+			nodeID: 100,
 		}
 	}
-	manager := epochs.NewManager(epochs.ManaRetriever(manaRetrieverMock), epochs.CacheTime(0))
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
-	tangle := newTestTangle(ApprovalWeights(WeightProviderFromEpochsManager(manager)))
+	tangle := newTestTangle(ApprovalWeights(weightProvider))
 	defer tangle.Shutdown()
 	approvalWeightManager := tangle.ApprovalWeightManager
 
@@ -210,14 +212,17 @@ func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
 func TestApprovalWeightManager_updateSequenceSupporters(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()
 
-	manaRetrieverMock := func(t time.Time) map[identity.ID]float64 {
+	var weightProvider *CManaWeightProvider
+	manaRetrieverMock := func() map[identity.ID]float64 {
+		nodeID := identity.NewID(keyPair.PublicKey)
+		weightProvider.Update(time.Now(), nodeID)
 		return map[identity.ID]float64{
-			identity.NewID(keyPair.PublicKey): 100,
+			nodeID: 100,
 		}
 	}
-	manager := epochs.NewManager(epochs.ManaRetriever(manaRetrieverMock), epochs.CacheTime(0))
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
-	tangle := newTestTangle(ApprovalWeights(WeightProviderFromEpochsManager(manager)))
+	tangle := newTestTangle(ApprovalWeights(weightProvider))
 	defer tangle.Shutdown()
 	approvalWeightManager := tangle.ApprovalWeightManager
 	supporters := map[string]*identity.Identity{
@@ -341,7 +346,11 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 		nodes[node] = identity.GenerateIdentity()
 	}
 
-	manager := epochs.NewManager(epochs.ManaRetriever(func(t time.Time) map[identity.ID]float64 {
+	var weightProvider *CManaWeightProvider
+	manaRetrieverMock := func() map[identity.ID]float64 {
+		for _, node := range nodes {
+			weightProvider.Update(time.Now(), node.ID())
+		}
 		return map[identity.ID]float64{
 			nodes["A"].ID(): 30,
 			nodes["B"].ID(): 15,
@@ -349,9 +358,10 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 			nodes["D"].ID(): 20,
 			nodes["E"].ID(): 10,
 		}
-	}), epochs.CacheTime(0))
+	}
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
-	tangle := newTestTangle(ApprovalWeights(WeightProviderFromEpochsManager(manager)))
+	tangle := newTestTangle(ApprovalWeights(weightProvider))
 	defer tangle.Shutdown()
 	tangle.Setup()
 
@@ -701,9 +711,6 @@ func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
 			*markers.NewMarker(3, 9): 0.15,
 		})
 	}
-
-	fmt.Println(testFramework.MessageMetadata("Message15"))
-	fmt.Println(testFramework.MessageMetadata("Message16"))
 }
 
 func TestAggregatedBranchApproval(t *testing.T) {
@@ -712,7 +719,11 @@ func TestAggregatedBranchApproval(t *testing.T) {
 		nodes[node] = identity.GenerateIdentity()
 	}
 
-	manager := epochs.NewManager(epochs.ManaRetriever(func(t time.Time) map[identity.ID]float64 {
+	var weightProvider *CManaWeightProvider
+	manaRetrieverMock := func() map[identity.ID]float64 {
+		for _, node := range nodes {
+			weightProvider.Update(time.Now(), node.ID())
+		}
 		return map[identity.ID]float64{
 			nodes["A"].ID(): 30,
 			nodes["B"].ID(): 15,
@@ -720,9 +731,10 @@ func TestAggregatedBranchApproval(t *testing.T) {
 			nodes["D"].ID(): 20,
 			nodes["E"].ID(): 10,
 		}
-	}), epochs.CacheTime(0))
+	}
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
-	tangle := newTestTangle(ApprovalWeights(WeightProviderFromEpochsManager(manager)))
+	tangle := newTestTangle(ApprovalWeights(weightProvider))
 	defer tangle.Shutdown()
 	tangle.Setup()
 

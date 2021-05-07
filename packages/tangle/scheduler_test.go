@@ -7,12 +7,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/packages/tangle/schedulerutils"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/atomic"
-	"golang.org/x/xerrors"
 )
 
 // region Scheduler_test /////////////////////////////////////////////////////////////////////////////////////////////
@@ -57,7 +57,7 @@ func TestScheduler_Discarded(t *testing.T) {
 	msg := newMessage(noAManaNode.PublicKey())
 	tangle.Storage.StoreMessage(msg)
 	err := tangle.Scheduler.Submit(msg.ID())
-	assert.Truef(t, xerrors.Is(err, schedulerutils.ErrInvalidMana), "unexpected error: %v", err)
+	assert.Truef(t, errors.Is(err, schedulerutils.ErrInvalidMana), "unexpected error: %v", err)
 
 	assert.Eventually(t, func() bool {
 		select {

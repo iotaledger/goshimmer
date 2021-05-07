@@ -163,6 +163,10 @@ func (m *MessageTestFramework) BranchID(messageAlias string) ledgerstate.BranchI
 
 // createGenesisOutputs initializes the Outputs that are used by the MessageTestFramework as the genesis.
 func (m *MessageTestFramework) createGenesisOutputs() {
+	if len(m.options.genesisOutputs) == 0 {
+		return
+	}
+
 	genesisOutputs := make(map[ledgerstate.Address]*ledgerstate.ColoredBalances)
 
 	for alias, balance := range m.options.genesisOutputs {
@@ -210,8 +214,8 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 	m.tangle.LedgerState.LoadSnapshot(snapshot)
 
 	for alias := range m.options.genesisOutputs {
-		m.tangle.LedgerState.utxoDAG.AddressOutputMapping(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *ledgerstate.AddressOutputMapping) {
-			m.tangle.LedgerState.utxoDAG.Output(addressOutputMapping.OutputID()).Consume(func(output ledgerstate.Output) {
+		m.tangle.LedgerState.UTXODAG.AddressOutputMapping(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *ledgerstate.AddressOutputMapping) {
+			m.tangle.LedgerState.UTXODAG.Output(addressOutputMapping.OutputID()).Consume(func(output ledgerstate.Output) {
 				m.outputsByAlias[alias] = output
 				m.outputsByID[addressOutputMapping.OutputID()] = output
 				m.inputsByAlias[alias] = ledgerstate.NewUTXOInput(addressOutputMapping.OutputID())
@@ -220,8 +224,8 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 	}
 
 	for alias := range m.options.coloredGenesisOutputs {
-		m.tangle.LedgerState.utxoDAG.AddressOutputMapping(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *ledgerstate.AddressOutputMapping) {
-			m.tangle.LedgerState.utxoDAG.Output(addressOutputMapping.OutputID()).Consume(func(output ledgerstate.Output) {
+		m.tangle.LedgerState.UTXODAG.AddressOutputMapping(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *ledgerstate.AddressOutputMapping) {
+			m.tangle.LedgerState.UTXODAG.Output(addressOutputMapping.OutputID()).Consume(func(output ledgerstate.Output) {
 				m.outputsByAlias[alias] = output
 				m.outputsByID[addressOutputMapping.OutputID()] = output
 			})

@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/timeutil"
 
+	gossippkg "github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -210,12 +211,15 @@ func registerLocalMetrics() {
 	metrics.Events().MemUsage.Attach(events.NewClosure(func(memAllocBytes uint64) {
 		memUsageBytes.Store(memAllocBytes)
 	}))
-	metrics.Events().Synced.Attach(events.NewClosure(func(synced bool) {
-		isSynced.Store(synced)
+	metrics.Events().TangleTimeSynced.Attach(events.NewClosure(func(synced bool) {
+		isTangleTimeSynced.Store(synced)
+	}))
+	metrics.Events().SyncBeaconSynced.Attach(events.NewClosure(func(synced bool) {
+		isSyncBeaconSynced.Store(synced)
 	}))
 
-	gossip.Manager().Events().NeighborRemoved.Attach(onNeighborRemoved)
-	gossip.Manager().Events().NeighborAdded.Attach(onNeighborAdded)
+	gossip.Manager().NeighborsEvents(gossippkg.NeighborsGroupAuto).NeighborRemoved.Attach(onNeighborRemoved)
+	gossip.Manager().NeighborsEvents(gossippkg.NeighborsGroupAuto).NeighborAdded.Attach(onNeighborAdded)
 
 	autopeering.Selection().Events().IncomingPeering.Attach(onAutopeeringSelection)
 	autopeering.Selection().Events().OutgoingPeering.Attach(onAutopeeringSelection)

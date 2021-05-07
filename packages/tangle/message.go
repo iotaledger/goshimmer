@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
@@ -18,7 +19,6 @@ import (
 	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -264,7 +264,7 @@ func MessageFromBytes(bytes []byte) (result *Message, consumedBytes int, err err
 	consumedBytes = marshalUtil.ReadOffset()
 
 	if len(bytes) != consumedBytes {
-		err = xerrors.Errorf("consumed bytes %d not equal total bytes %d: %w", consumedBytes, len(bytes), cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("consumed bytes %d not equal total bytes %d: %w", consumedBytes, len(bytes), cerrors.ErrParseBytesFailed)
 	}
 	return
 }
@@ -277,27 +277,27 @@ func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Messa
 	// parse information
 	result = &Message{}
 	if result.version, err = marshalUtil.ReadByte(); err != nil {
-		err = xerrors.Errorf("failed to parse message version from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse message version from MarshalUtil: %w", err)
 		return
 	}
 
 	var parentsCount uint8
 	if parentsCount, err = marshalUtil.ReadByte(); err != nil {
-		err = xerrors.Errorf("failed to parse parents count from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse parents count from MarshalUtil: %w", err)
 		return
 	}
 	if parentsCount < MinParentsCount || parentsCount > MaxParentsCount {
-		err = xerrors.Errorf("parents count %d not allowed: %w", parentsCount, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("parents count %d not allowed: %w", parentsCount, cerrors.ErrParseBytesFailed)
 		return
 	}
 
 	var parentTypes uint8
 	if parentTypes, err = marshalUtil.ReadByte(); err != nil {
-		err = xerrors.Errorf("failed to parse parent types from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse parent types from MarshalUtil: %w", err)
 		return
 	}
 	if bits.OnesCount8(parentTypes) < 1 {
-		err = xerrors.Errorf("invalid parent types, no strong parent specified: %b", parentTypes)
+		err = errors.Errorf("invalid parent types, no strong parent specified: %b", parentTypes)
 		return
 	}
 	bitMask := bitmask.BitMask(parentTypes)
@@ -306,7 +306,7 @@ func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Messa
 	for i := 0; i < int(parentsCount); i++ {
 		var parentID MessageID
 		if parentID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
-			err = xerrors.Errorf("failed to parse parent %d from MarshalUtil: %w", i, err)
+			err = errors.Errorf("failed to parse parent %d from MarshalUtil: %w", i, err)
 			return
 		}
 		if bitMask.HasBit(uint(i)) {
@@ -318,14 +318,14 @@ func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Messa
 		// verify that parents are sorted lexicographically ASC and unique
 		// if parentID is EmptyMessageID, bytes.Compare returns 0 in the first iteration
 		if bytes.Compare(previousParent.Bytes(), parentID.Bytes()) > 0 {
-			err = xerrors.Errorf("parents not sorted lexicographically ascending: %w", cerrors.ErrParseBytesFailed)
+			err = errors.Errorf("parents not sorted lexicographically ascending: %w", cerrors.ErrParseBytesFailed)
 			return
 		}
 		previousParent = parentID
 	}
 
 	if len(result.strongParents) < MinStrongParentsCount {
-		err = xerrors.Errorf("strong parents count %d not allowed: %w", len(result.strongParents), cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("strong parents count %d not allowed: %w", len(result.strongParents), cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -723,11 +723,11 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 		return
 	}
 	if result.structureDetails, err = markers.StructureDetailsFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse StructureDetails from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse StructureDetails from MarshalUtil: %w", err)
 		return
 	}
 	if result.branchID, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
 		return
 	}
 	if result.scheduled, err = marshalUtil.ReadBool(); err != nil {

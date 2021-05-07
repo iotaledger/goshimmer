@@ -5,12 +5,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/tangle/schedulerutils"
-
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"go.uber.org/atomic"
-	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/tangle/schedulerutils"
 )
 
 const (
@@ -100,11 +100,11 @@ func (r *RateSetter) unsubmit(message *Message) {
 func (r *RateSetter) Submit(message *Message) error {
 	if r.issuingQueue.Size()+uint(len(message.Bytes())) > MaxLocalQueueSize {
 		r.Events.MessageDiscarded.Trigger(message.ID())
-		return xerrors.Errorf("local queue exceeded: %s", message.ID())
+		return errors.Errorf("local queue exceeded: %s", message.ID())
 	}
 	submitted, err := r.issuingQueue.Submit(message)
 	if err != nil {
-		r.tangle.Events.Info.Trigger(xerrors.Errorf("failed to submit message %s to issuing queue: %w", message.ID().Base58(), err))
+		r.tangle.Events.Info.Trigger(errors.Errorf("failed to submit message %s to issuing queue: %w", message.ID().Base58(), err))
 		return err
 	}
 	if submitted {
@@ -139,7 +139,7 @@ func (r *RateSetter) rateSetting(messageID MessageID) {
 	mana := r.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(r.self)
 	totalMana := r.tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc()
 	if mana <= 0 {
-		r.tangle.Events.Info.Trigger(xerrors.Errorf("invalid mana: %f when setting rate for message %s", mana, messageID.Base58()))
+		r.tangle.Events.Info.Trigger(errors.Errorf("invalid mana: %f when setting rate for message %s", mana, messageID.Base58()))
 		return
 	}
 
