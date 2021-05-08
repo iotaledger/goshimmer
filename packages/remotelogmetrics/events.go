@@ -35,3 +35,21 @@ type SyncStatusChangedEvent struct {
 	// LastConfirmedMessageTime contains time of the last confirmed message
 	LastConfirmedMessageTime time.Time `json:"lastConfirmedMessageTime" bson:"lastConfirmedMessageTime"`
 }
+
+// FPCConflictRecord defines the FPC conflict record to sent be to remote logger.
+type FPCConflictRecord struct {
+	// Type defines the type of the message.
+	Type string `json:"type" bson:"type"`
+	// ConflictID defines the ID of the conflict.
+	ConflictID string `json:"conflictid" bson:"conflictid"`
+	// NodeID defines the ID of the node.
+	NodeID string `json:"nodeid" bson:"nodeid"`
+	// Rounds defines number of rounds performed to finalize the conflict.
+	Rounds int `json:"rounds" bson:"rounds"`
+	// Opinions contains the opinion of each round.
+	Opinions []int32 `json:"opinions" bson:"opinions"`
+	// Outcome defines final opinion of the conflict.
+	Outcome int32 `json:"outcome,omitempty" bson:"outcome,omitempty"`
+	// Time defines the time when the conflict has been finalized.
+	Time time.Time `json:"datetime" bson:"datetime"`
+}
