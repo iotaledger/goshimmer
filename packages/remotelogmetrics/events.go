@@ -14,7 +14,7 @@ type CollectionLogEvents struct {
 	TangleTimeSyncChanged *events.Event
 }
 
-func boolCaller(handler interface{}, params ...interface{}) {
+func SyncStatusChangedEventCaller(handler interface{}, params ...interface{}) {
 	handler.(func(SyncStatusChangedEvent))(params[0].(SyncStatusChangedEvent))
 }
 
