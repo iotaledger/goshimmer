@@ -2,8 +2,6 @@ package schedulerutils
 
 import (
 	"container/heap"
-	"fmt"
-	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -18,10 +16,10 @@ const ElementIDLength = 32
 type ElementID [ElementIDLength]byte
 
 // ElementIDFromBytes converts byte array to an ElementID.
-func ElementIDFromBytes(bytes []byte) (result ElementID, err error) {
+func ElementIDFromBytes(bytes []byte) (result ElementID) {
 	// check arguments
 	if len(bytes) < ElementIDLength {
-		err = fmt.Errorf("bytes not long enough to encode a valid message id")
+		panic("bytes not long enough to encode a valid message id")
 		return
 	}
 
@@ -52,8 +50,6 @@ type NodeQueue struct {
 	submitted map[ElementID]*Element
 	inbox     *ElementHeap
 	size      uint
-
-	submittedMutex sync.Mutex
 }
 
 // NewNodeQueue returns a new NodeQueue
@@ -96,12 +92,7 @@ func (q *NodeQueue) Submit(element Element) (bool, error) {
 		return false, errors.Errorf("Queue node ID(%x) and issuer ID(%x) doesn't match.", q.nodeID, msgNodeID)
 	}
 
-	q.submittedMutex.Lock()
-	defer q.submittedMutex.Unlock()
-	id, err := ElementIDFromBytes(element.IDBytes())
-	if err != nil {
-		return false, err
-	}
+	id := ElementIDFromBytes(element.IDBytes())
 	if _, submitted := q.submitted[id]; submitted {
 		return false, nil
 	}
@@ -113,12 +104,7 @@ func (q *NodeQueue) Submit(element Element) (bool, error) {
 
 // Unsubmit removes a previously submitted message from the queue.
 func (q *NodeQueue) Unsubmit(element Element) bool {
-	q.submittedMutex.Lock()
-	defer q.submittedMutex.Unlock()
-	id, err := ElementIDFromBytes(element.IDBytes())
-	if err != nil {
-		return false
-	}
+	id := ElementIDFromBytes(element.IDBytes())
 	if _, submitted := q.submitted[id]; !submitted {
 		return false
 	}
@@ -130,12 +116,7 @@ func (q *NodeQueue) Unsubmit(element Element) bool {
 
 // Ready marks a previously submitted message as ready to be scheduled.
 func (q *NodeQueue) Ready(element Element) bool {
-	q.submittedMutex.Lock()
-	defer q.submittedMutex.Unlock()
-	id, err := ElementIDFromBytes(element.IDBytes())
-	if err != nil {
-		return false
-	}
+	id := ElementIDFromBytes(element.IDBytes())
 	if _, submitted := q.submitted[id]; !submitted {
 		return false
 	}
@@ -143,6 +124,17 @@ func (q *NodeQueue) Ready(element Element) bool {
 	delete(q.submitted, id)
 	heap.Push(q.inbox, element)
 	return true
+}
+
+// IDs returns the IDs of all submitted messages (ready or not).
+func (q *NodeQueue) IDs() (ids []ElementID) {
+	for id := range q.submitted {
+		ids = append(ids, id)
+	}
+	for _, element := range *q.inbox {
+		ids = append(ids, ElementIDFromBytes(element.IDBytes()))
+	}
+	return ids
 }
 
 // Front returns the first ready message in the queue.
