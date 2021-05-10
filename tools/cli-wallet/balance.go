@@ -26,7 +26,6 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	// initialize tab writer
 	w := new(tabwriter.Writer)
 	w.Init(os.Stdout, 0, 8, 2, '\t', 0)
-	// defer w.Flush()
 	// print header
 	fmt.Println()
 	fmt.Println("Available Token Balances")
@@ -46,7 +45,7 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 			_, _ = fmt.Fprintf(w, "%s\t%d\t%s\t%s\n", "[PEND]", amount, color.String(), cliWallet.AssetRegistry().Name(color))
 		}
 	}
-	w.Flush()
+	_ = w.Flush()
 
 	// fetch timelocked balances
 	confirmedTimelocked, pendingTimelocked, err := cliWallet.TimelockedBalances()
@@ -55,39 +54,9 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	}
 
 	if len(confirmedTimelocked) > 0 || len(pendingTimelocked) > 0 {
-		// initialize tab writer
-		wT := new(tabwriter.Writer)
-		wT.Init(os.Stdout, 0, 8, 2, '\t', 0)
-		// defer w.Flush()
-		// print header
-		fmt.Println()
-		fmt.Println("Timelocked Token Balances")
-		fmt.Println()
-		_, _ = fmt.Fprintf(wT, "%s\t%s\t%s\t%s\t%s\n", "STATUS", "LOCKED UNTIL", "BALANCE", "COLOR", "TOKEN NAME")
-		_, _ = fmt.Fprintf(wT, "%s\t%s\t%s\t%s\t%s\n", "------", "------------------------------", "---------------", "--------------------------------------------", "-------------------------")
-		if confirmedTimelocked != nil {
-			confirmedTimelocked.Sort()
-		}
-		for _, timelockedBalance := range confirmedTimelocked {
-			// print balances
-			for color, amount := range timelockedBalance.Balance {
-				_, _ = fmt.Fprintf(wT, "%s\t%s\t%d %s\t%s\t%s\n",
-					"[ OK ]", timelockedBalance.LockedUntil.String(), amount, cliWallet.AssetRegistry().Symbol(color), color.String(),
-					cliWallet.AssetRegistry().Name(color))
-			}
-		}
-		if pendingTimelocked != nil {
-			pendingTimelocked.Sort()
-		}
-		for _, timelockedBalance := range pendingTimelocked {
-			// print balances
-			for color, amount := range timelockedBalance.Balance {
-				_, _ = fmt.Fprintf(wT, "%s\t%s\t%d %s\t%s\t%s\n",
-					"[PEND]", timelockedBalance.LockedUntil.String(), amount, cliWallet.AssetRegistry().Symbol(color), color.String(),
-					cliWallet.AssetRegistry().Name(color))
-			}
-		}
-		wT.Flush()
+		header := "Timelocked Token Balances"
+		timeTitle := "LOCKED UNTIL"
+		printTimedBalance(header, timeTitle, cliWallet, confirmedTimelocked, pendingTimelocked)
 	}
 
 	// fetch conditional balances
@@ -97,39 +66,9 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	}
 
 	if len(confirmedConditional) > 0 || len(pendingConditional) > 0 {
-		// initialize tab writer
-		wC := new(tabwriter.Writer)
-		wC.Init(os.Stdout, 0, 8, 2, '\t', 0)
-		// defer w.Flush()
-		// print header
-		fmt.Println()
-		fmt.Println("Conditional Token Balances - execute `claim-conditional` command to sweep these funds into wallet")
-		fmt.Println()
-		_, _ = fmt.Fprintf(wC, "%s\t%s\t%s\t%s\t%s\n", "STATUS", "OWNED UNTIL", "BALANCE", "COLOR", "TOKEN NAME")
-		_, _ = fmt.Fprintf(wC, "%s\t%s\t%s\t%s\t%s\n", "------", "------------------------------", "---------------", "--------------------------------------------", "-------------------------")
-		if confirmedConditional != nil {
-			confirmedConditional.Sort()
-		}
-		for _, conditionalBalance := range confirmedConditional {
-			// print balances
-			for color, amount := range conditionalBalance.Balance {
-				_, _ = fmt.Fprintf(wC, "%s\t%s\t%d %s\t%s\t%s\n",
-					"[ OK ]", conditionalBalance.FallbackDeadline.String(), amount, cliWallet.AssetRegistry().Symbol(color), color.String(),
-					cliWallet.AssetRegistry().Name(color))
-			}
-		}
-		if pendingConditional != nil {
-			pendingConditional.Sort()
-		}
-		for _, conditionalBalance := range pendingConditional {
-			// print balances
-			for color, amount := range conditionalBalance.Balance {
-				_, _ = fmt.Fprintf(wC, "%s\t%s\t%d %s\t%s\t%s\n",
-					"[PEND]", conditionalBalance.FallbackDeadline.String(), amount, cliWallet.AssetRegistry().Symbol(color), color.String(),
-					cliWallet.AssetRegistry().Name(color))
-			}
-		}
-		wC.Flush()
+		header := "Conditional Token Balances - execute `claim-conditional` command to sweep these funds into wallet"
+		timeTitle := "OWNED UNTIL"
+		printTimedBalance(header, timeTitle, cliWallet, confirmedConditional, pendingConditional)
 	}
 
 	// fetch balances from wallet
@@ -214,92 +153,94 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 			})
 		}
 
-		wAlias.Flush()
+		_ = wAlias.Flush()
 	}
 
 	// then print only state controlled aliases
 	if len(confirmedStateAliasBalance) != 0 || len(pendingStateAliasBalance) != 0 {
-		// initialize tab writer
-		sAlias := new(tabwriter.Writer)
-		sAlias.Init(os.Stdout, 0, 8, 2, '\t', 0)
-
-		// print header
-		fmt.Println()
-		fmt.Println("Only State Controlled Aliases")
-		fmt.Println()
-		_, _ = fmt.Fprintf(sAlias, "%s\t%s\t%s\t%s\t%s\n", "STATUS", "ALIAS ID", "BALANCE", "COLOR", "TOKEN NAME")
-		_, _ = fmt.Fprintf(sAlias, "%s\t%s\t%s\t%s\t%s\n", "------", "--------------------------------------------", "---------------", "--------------------------------------------", "-------------------------")
-
-		for aliasID, alias := range confirmedStateAliasBalance {
-			balances := alias.Balances()
-			i := 0
-			balances.ForEach(func(color ledgerstate.Color, balance uint64) bool {
-				if i == 0 {
-					_, _ = fmt.Fprintf(sAlias, "%s\t%s\t%d\t%s\t%s\n", "[ OK ]", aliasID.Base58(), balance, color.String(), cliWallet.AssetRegistry().Name(color))
-				} else {
-					_, _ = fmt.Fprintf(sAlias, "%s\t%s\t%d\t%s\t%s\n", "", "", balance, color.String(), cliWallet.AssetRegistry().Name(color))
-				}
-				i++
-				return true
-			})
-		}
-		for aliasID, alias := range pendingStateAliasBalance {
-			balances := alias.Balances()
-			i := 0
-			balances.ForEach(func(color ledgerstate.Color, balance uint64) bool {
-				if i == 0 {
-					_, _ = fmt.Fprintf(sAlias, "%s\t%s\t%d\t%s\t%s\n", "[PEND]", aliasID.Base58(), balance, color.String(), cliWallet.AssetRegistry().Name(color))
-				} else {
-					_, _ = fmt.Fprintf(sAlias, "%s\t%s\t%d\t%s\t%s\n", "", "", balance, color.String(), cliWallet.AssetRegistry().Name(color))
-				}
-				i++
-				return true
-			})
-		}
-
-		sAlias.Flush()
+		printAliasBalance("Only State Controlled Aliases", "ALIAS ID", cliWallet, confirmedStateAliasBalance, pendingStateAliasBalance)
 	}
 
 	// finally print delegated aliases
 	if len(confirmedDel) != 0 || len(pendingDel) != 0 {
-		// initialize tab writer
-		wDel := new(tabwriter.Writer)
-		wDel.Init(os.Stdout, 0, 8, 2, '\t', 0)
-
-		// print header
-		fmt.Println()
-		fmt.Println("Delegated Funds")
-		fmt.Println()
-		_, _ = fmt.Fprintf(wDel, "%s\t%s\t%s\t%s\t%s\n", "STATUS", "DELEGATION (ALIAS) ID", "BALANCE", "COLOR", "TOKEN NAME")
-		_, _ = fmt.Fprintf(wDel, "%s\t%s\t%s\t%s\t%s\n", "------", "--------------------------------------------", "---------------", "--------------------------------------------", "-------------------------")
-
-		for aliasID, alias := range confirmedDel {
-			balances := alias.Balances()
-			i := 0
-			balances.ForEach(func(color ledgerstate.Color, balance uint64) bool {
-				if i == 0 {
-					_, _ = fmt.Fprintf(wDel, "%s\t%s\t%d\t%s\t%s\n", "[ OK ]", aliasID.Base58(), balance, color.String(), cliWallet.AssetRegistry().Name(color))
-				} else {
-					_, _ = fmt.Fprintf(wDel, "%s\t%s\t%d\t%s\t%s\n", "", "", balance, color.String(), cliWallet.AssetRegistry().Name(color))
-				}
-				i++
-				return true
-			})
-		}
-		for aliasID, alias := range pendingDel {
-			balances := alias.Balances()
-			i := 0
-			balances.ForEach(func(color ledgerstate.Color, balance uint64) bool {
-				if i == 0 {
-					_, _ = fmt.Fprintf(wDel, "%s\t%s\t%d\t%s\t%s\n", "[PEND]", aliasID.Base58(), balance, color.String(), cliWallet.AssetRegistry().Name(color))
-				} else {
-					_, _ = fmt.Fprintf(wDel, "%s\t%s\t%d\t%s\t%s\n", "", "", balance, color.String(), cliWallet.AssetRegistry().Name(color))
-				}
-				i++
-				return true
-			})
-		}
-
-		wDel.Flush()
+		printAliasBalance("Delegated Funds", "DELEGATION ID (ALIASID)", cliWallet, confirmedDel, pendingDel)
 	}
+}
+
+func printTimedBalance(header, timeTitle string, cliWallet *wallet.Wallet, confirmed, pending wallet.TimedBalanceSlice) {
+	// initialize tab writer
+	w := new(tabwriter.Writer)
+	w.Init(os.Stdout, 0, 8, 2, '\t', 0)
+	// defer w.Flush()
+	// print header
+	fmt.Println()
+	fmt.Println(header)
+	fmt.Println()
+	_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", "STATUS", timeTitle, "BALANCE", "COLOR", "TOKEN NAME")
+	_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", "------", "------------------------------", "---------------", "--------------------------------------------", "-------------------------")
+	if confirmed != nil {
+		confirmed.Sort()
+	}
+	for _, conditionalBalance := range confirmed {
+		// print balances
+		for color, amount := range conditionalBalance.Balance {
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%d %s\t%s\t%s\n",
+				"[ OK ]", conditionalBalance.Time.String(), amount, cliWallet.AssetRegistry().Symbol(color), color.String(),
+				cliWallet.AssetRegistry().Name(color))
+		}
+	}
+	if pending != nil {
+		pending.Sort()
+	}
+	for _, conditionalBalance := range pending {
+		// print balances
+		for color, amount := range conditionalBalance.Balance {
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%d %s\t%s\t%s\n",
+				"[PEND]", conditionalBalance.Time.String(), amount, cliWallet.AssetRegistry().Symbol(color), color.String(),
+				cliWallet.AssetRegistry().Name(color))
+		}
+	}
+	_ = w.Flush()
+}
+
+func printAliasBalance(header string, IDName string, cliWallet *wallet.Wallet, confirmed, pending map[ledgerstate.AliasAddress]*ledgerstate.AliasOutput) {
+	// initialize tab writer
+	w := new(tabwriter.Writer)
+	w.Init(os.Stdout, 0, 8, 2, '\t', 0)
+
+	// print header
+	fmt.Println()
+	fmt.Println(header)
+	fmt.Println()
+	_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", "STATUS", IDName, "BALANCE", "COLOR", "TOKEN NAME")
+	_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", "------", "--------------------------------------------", "---------------", "--------------------------------------------", "-------------------------")
+
+	for aliasID, alias := range confirmed {
+		balances := alias.Balances()
+		i := 0
+		balances.ForEach(func(color ledgerstate.Color, balance uint64) bool {
+			if i == 0 {
+				_, _ = fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\n", "[ OK ]", aliasID.Base58(), balance, color.String(), cliWallet.AssetRegistry().Name(color))
+			} else {
+				_, _ = fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\n", "", "", balance, color.String(), cliWallet.AssetRegistry().Name(color))
+			}
+			i++
+			return true
+		})
+	}
+	for aliasID, alias := range pending {
+		balances := alias.Balances()
+		i := 0
+		balances.ForEach(func(color ledgerstate.Color, balance uint64) bool {
+			if i == 0 {
+				_, _ = fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\n", "[PEND]", aliasID.Base58(), balance, color.String(), cliWallet.AssetRegistry().Name(color))
+			} else {
+				_, _ = fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\n", "", "", balance, color.String(), cliWallet.AssetRegistry().Name(color))
+			}
+			i++
+			return true
+		})
+	}
+
+	_ = w.Flush()
 }

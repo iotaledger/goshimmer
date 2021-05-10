@@ -1704,14 +1704,14 @@ func (wallet *Wallet) AvailableBalance() (confirmedBalance map[ledgerstate.Color
 // region TimelockedBalances ///////////////////////////////////////////////////////////////////////////////////////////
 
 // TimelockedBalances returns all confirmed and pending balances that are currently timelocked.
-func (wallet *Wallet) TimelockedBalances() (confirmed, pending TimelockedBalanceSlice, err error) {
+func (wallet *Wallet) TimelockedBalances() (confirmed, pending TimedBalanceSlice, err error) {
 	err = wallet.outputManager.Refresh()
 	if err != nil {
 		return
 	}
 
-	confirmed = make([]*TimelockedBalance, 0)
-	pending = make([]*TimelockedBalance, 0)
+	confirmed = make([]*TimedBalance, 0)
+	pending = make([]*TimedBalance, 0)
 	now := time.Now()
 
 	// iterate through the unspent outputs
@@ -1725,9 +1725,9 @@ func (wallet *Wallet) TimelockedBalances() (confirmed, pending TimelockedBalance
 			case ledgerstate.ExtendedLockedOutputType:
 				casted := output.Object.(*ledgerstate.ExtendedLockedOutput)
 				if casted.TimeLockedNow(now) {
-					tBal := &TimelockedBalance{
-						Balance:     casted.Balances().Map(),
-						LockedUntil: casted.TimeLock(),
+					tBal := &TimedBalance{
+						Balance: casted.Balances().Map(),
+						Time:    casted.TimeLock(),
 					}
 					if output.InclusionState.Confirmed {
 						confirmed = append(confirmed, tBal)
@@ -1747,14 +1747,14 @@ func (wallet *Wallet) TimelockedBalances() (confirmed, pending TimelockedBalance
 // region ConditionalBalances //////////////////////////////////////////////////////////////////////////////////////////
 
 // ConditionalBalances returns all confirmed and pending balances that can be claimed by the wallet up to a certain time.
-func (wallet *Wallet) ConditionalBalances() (confirmed, pending ConditionalBalanceSlice, err error) {
+func (wallet *Wallet) ConditionalBalances() (confirmed, pending TimedBalanceSlice, err error) {
 	err = wallet.outputManager.Refresh()
 	if err != nil {
 		return
 	}
 
-	confirmed = make(ConditionalBalanceSlice, 0)
-	pending = make(ConditionalBalanceSlice, 0)
+	confirmed = make(TimedBalanceSlice, 0)
+	pending = make(TimedBalanceSlice, 0)
 	now := time.Now()
 
 	// iterate through the unspent outputs
@@ -1770,9 +1770,9 @@ func (wallet *Wallet) ConditionalBalances() (confirmed, pending ConditionalBalan
 				_, fallbackDeadline := casted.FallbackOptions()
 				if !fallbackDeadline.IsZero() && addy.Address().Equals(casted.UnlockAddressNow(now)) {
 					// fallback option is set and currently we are the unlock address
-					cBal := &ConditionalBalance{
-						Balance:          casted.Balances().Map(),
-						FallbackDeadline: fallbackDeadline,
+					cBal := &TimedBalance{
+						Balance: casted.Balances().Map(),
+						Time:    fallbackDeadline,
 					}
 					if output.InclusionState.Confirmed {
 						confirmed = append(confirmed, cBal)

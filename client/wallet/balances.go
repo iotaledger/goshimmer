@@ -7,28 +7,18 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
-type TimelockedBalance struct {
-	Balance     map[ledgerstate.Color]uint64
-	LockedUntil time.Time
+// TimedBalance represents a balance that is time dependent.
+type TimedBalance struct {
+	Balance map[ledgerstate.Color]uint64
+	Time    time.Time
 }
 
-type TimelockedBalanceSlice []*TimelockedBalance
+// TimedBalanceSlice is a slice containing TimedBalances.
+type TimedBalanceSlice []*TimedBalance
 
-func (t TimelockedBalanceSlice) Sort() {
+// Sort sorts the balances based on their Time.
+func (t TimedBalanceSlice) Sort() {
 	sort.Slice(t, func(i, j int) bool {
-		return t[i].LockedUntil.Before(t[j].LockedUntil)
-	})
-}
-
-type ConditionalBalance struct {
-	Balance          map[ledgerstate.Color]uint64
-	FallbackDeadline time.Time
-}
-
-type ConditionalBalanceSlice []*ConditionalBalance
-
-func (c ConditionalBalanceSlice) Sort() {
-	sort.Slice(c, func(i, j int) bool {
-		return c[i].FallbackDeadline.Before(c[j].FallbackDeadline)
+		return t[i].Time.Before(t[j].Time)
 	})
 }
