@@ -1,4 +1,4 @@
-package withdrawfundsfromnft_options
+package withdrawfromnftoptions
 
 import (
 	"golang.org/x/xerrors"
@@ -75,8 +75,8 @@ type withdrawFundsFromNFTOption struct {
 	WaitForConfirmation   bool
 }
 
-// BuildWithdrawFundsFromNFTOptions builds the options.
-func BuildWithdrawFundsFromNFTOptions(options ...WithdrawFundsFromNFTOption) (result *withdrawFundsFromNFTOption, err error) {
+// Build builds the options.
+func Build(options ...WithdrawFundsFromNFTOption) (result *withdrawFundsFromNFTOption, err error) {
 	// create options to collect the arguments provided
 	result = &withdrawFundsFromNFTOption{}
 

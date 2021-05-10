@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/iotaledger/goshimmer/client/wallet"
-	"github.com/iotaledger/goshimmer/client/wallet/packages/claimconditionalfunds_options"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/claimconditionaloptions"
 )
 
 func execClaimConditionalCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
@@ -28,8 +28,8 @@ func execClaimConditionalCommand(command *flag.FlagSet, cliWallet *wallet.Wallet
 	}
 
 	_, err = cliWallet.ClaimConditionalFunds(
-		claimconditionalfunds_options.AccessManaPledgeID(*accessManaPledgeIDPtr),
-		claimconditionalfunds_options.ConsensusManaPledgeID(*consensusManaPledgeIDPtr),
+		claimconditionaloptions.AccessManaPledgeID(*accessManaPledgeIDPtr),
+		claimconditionaloptions.ConsensusManaPledgeID(*consensusManaPledgeIDPtr),
 	)
 	if err != nil {
 		printUsage(command, err.Error())

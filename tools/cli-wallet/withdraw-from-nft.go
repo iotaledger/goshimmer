@@ -8,7 +8,7 @@ import (
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/client/wallet"
-	"github.com/iotaledger/goshimmer/client/wallet/packages/withdrawfundsfromnft_options"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/withdrawfromnftoptions"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
@@ -73,11 +73,11 @@ func execWithdrawFromFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) 
 		withdrawBalance[initColor] = uint64(*amountPtr)
 	}
 
-	options := []withdrawfundsfromnft_options.WithdrawFundsFromNFTOption{
-		withdrawfundsfromnft_options.Alias(aliasID.Base58()),
-		withdrawfundsfromnft_options.Amount(withdrawBalance),
-		withdrawfundsfromnft_options.AccessManaPledgeID(*accessManaPledgeIDPtr),
-		withdrawfundsfromnft_options.ConsensusManaPledgeID(*consensusManaPledgeIDPtr),
+	options := []withdrawfromnftoptions.WithdrawFundsFromNFTOption{
+		withdrawfromnftoptions.Alias(aliasID.Base58()),
+		withdrawfromnftoptions.Amount(withdrawBalance),
+		withdrawfromnftoptions.AccessManaPledgeID(*accessManaPledgeIDPtr),
+		withdrawfromnftoptions.ConsensusManaPledgeID(*consensusManaPledgeIDPtr),
 	}
 
 	if *addressPtr != "" {
@@ -85,7 +85,7 @@ func execWithdrawFromFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) 
 		if aErr != nil {
 			printUsage(command, aErr.Error())
 		}
-		options = append(options, withdrawfundsfromnft_options.ToAddress(address.Base58()))
+		options = append(options, withdrawfromnftoptions.ToAddress(address.Base58()))
 	}
 
 	_, err = cliWallet.WithdrawFundsFromNFT(options...)

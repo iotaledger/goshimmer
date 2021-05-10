@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/iotaledger/goshimmer/client/wallet"
-	"github.com/iotaledger/goshimmer/client/wallet/packages/destroynft_options"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/destroynftoptions"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
@@ -39,9 +39,9 @@ func execDestroyNFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	}
 
 	_, err = cliWallet.DestroyNFT(
-		destroynft_options.Alias(aliasID.Base58()),
-		destroynft_options.AccessManaPledgeID(*accessManaPledgeIDPtr),
-		destroynft_options.ConsensusManaPledgeID(*consensusManaPledgeIDPtr),
+		destroynftoptions.Alias(aliasID.Base58()),
+		destroynftoptions.AccessManaPledgeID(*accessManaPledgeIDPtr),
+		destroynftoptions.ConsensusManaPledgeID(*consensusManaPledgeIDPtr),
 	)
 	if err != nil {
 		printUsage(command, err.Error())

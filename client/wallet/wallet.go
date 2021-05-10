@@ -12,19 +12,19 @@ import (
 	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
-	"github.com/iotaledger/goshimmer/client/wallet/packages/claimconditionalfunds_options"
-	"github.com/iotaledger/goshimmer/client/wallet/packages/consolidatefunds_options"
-	"github.com/iotaledger/goshimmer/client/wallet/packages/createnft_options"
-	"github.com/iotaledger/goshimmer/client/wallet/packages/delegatefunds_options"
-	"github.com/iotaledger/goshimmer/client/wallet/packages/depositfundstonft_options"
-	"github.com/iotaledger/goshimmer/client/wallet/packages/destroynft_options"
-	"github.com/iotaledger/goshimmer/client/wallet/packages/reclaimfunds_options"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/claimconditionaloptions"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/consolidateoptions"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/createnftoptions"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/delegateoptions"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/deposittonftoptions"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/destroynftoptions"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/reclaimoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	"github.com/iotaledger/goshimmer/client/wallet/packages/sendfunds_options"
-	"github.com/iotaledger/goshimmer/client/wallet/packages/sweepnftownedfunds_options"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/sendoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sweepnftownednfts_options"
-	"github.com/iotaledger/goshimmer/client/wallet/packages/transfernft_options"
-	"github.com/iotaledger/goshimmer/client/wallet/packages/withdrawfundsfromnft_options"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/sweepnftownedoptions"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/transfernftoptions"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/withdrawfromnftoptions"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 )
@@ -86,8 +86,8 @@ func New(options ...Option) (wallet *Wallet) {
 // region SendFunds ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // SendFunds sends funds from the wallet
-func (wallet *Wallet) SendFunds(options ...sendfunds_options.SendFundsOption) (tx *ledgerstate.Transaction, err error) {
-	sendOptions, err := sendfunds_options.BuildSendFundsOptions(options...)
+func (wallet *Wallet) SendFunds(options ...sendoptions.SendFundsOption) (tx *ledgerstate.Transaction, err error) {
+	sendOptions, err := sendoptions.Build(options...)
 	if err != nil {
 		return
 	}
@@ -169,8 +169,8 @@ func (wallet *Wallet) SendFunds(options ...sendfunds_options.SendFundsOption) (t
 // region ConsolidateFunds /////////////////////////////////////////////////////////////////////////////////////////////
 
 // ConsolidateFunds consolidates available wallet funds into one output.
-func (wallet *Wallet) ConsolidateFunds(options ...consolidatefunds_options.ConsolidateFundsOption) (tx *ledgerstate.Transaction, err error) {
-	consolidateOptions, err := consolidatefunds_options.BuildConsolidateFundsOptions(options...)
+func (wallet *Wallet) ConsolidateFunds(options ...consolidateoptions.ConsolidateFundsOption) (tx *ledgerstate.Transaction, err error) {
+	consolidateOptions, err := consolidateoptions.Build(options...)
 	if err != nil {
 		return
 	}
@@ -253,8 +253,8 @@ func (wallet *Wallet) ConsolidateFunds(options ...consolidatefunds_options.Conso
 // region ClaimConditionalFunds ////////////////////////////////////////////////////////////////////////////////////////
 
 // ClaimConditionalFunds gathers all currently conditionally owned outputs and consolidates them into the output.
-func (wallet *Wallet) ClaimConditionalFunds(options ...claimconditionalfunds_options.ClaimConditionalFundsOption) (tx *ledgerstate.Transaction, err error) {
-	claimOptions, err := claimconditionalfunds_options.BuildClaimConditionalFundsOptions(options...)
+func (wallet *Wallet) ClaimConditionalFunds(options ...claimconditionaloptions.ClaimConditionalFundsOption) (tx *ledgerstate.Transaction, err error) {
+	claimOptions, err := claimconditionaloptions.Build(options...)
 	if err != nil {
 		return
 	}
@@ -378,8 +378,8 @@ func (wallet *Wallet) CreateAsset(asset Asset, waitForConfirmation ...bool) (ass
 	}
 
 	tx, err := wallet.SendFunds(
-		sendfunds_options.Destination(receiveAddress, asset.Amount, ledgerstate.ColorMint),
-		sendfunds_options.WaitForConfirmation(wait),
+		sendoptions.Destination(receiveAddress, asset.Amount, ledgerstate.ColorMint),
+		sendoptions.WaitForConfirmation(wait),
 	)
 	if err != nil {
 		return
@@ -413,9 +413,9 @@ func (wallet *Wallet) CreateAsset(asset Asset, waitForConfirmation ...bool) (ass
 // region DelegateFunds ////////////////////////////////////////////////////////////////////////////////////////////////
 
 // DelegateFunds delegates funds to a given address by creating a delegated alias output.
-func (wallet *Wallet) DelegateFunds(options ...delegatefunds_options.DelegateFundsOption) (tx *ledgerstate.Transaction, delegationIDs []*ledgerstate.AliasAddress, err error) {
+func (wallet *Wallet) DelegateFunds(options ...delegateoptions.DelegateFundsOption) (tx *ledgerstate.Transaction, delegationIDs []*ledgerstate.AliasAddress, err error) {
 	// build options
-	delegateOptions, err := delegatefunds_options.BuildDelegateFundsOptions(options...)
+	delegateOptions, err := delegateoptions.Build(options...)
 	if err != nil {
 		return
 	}
@@ -523,9 +523,9 @@ func (wallet *Wallet) DelegateFunds(options ...delegatefunds_options.DelegateFun
 // region ReclaimDelegatedFunds ////////////////////////////////////////////////////////////////////////////////////////
 
 // ReclaimDelegatedFunds reclaims delegated funds (alias outputs).
-func (wallet *Wallet) ReclaimDelegatedFunds(options ...reclaimfunds_options.ReclaimFundsOption) (tx *ledgerstate.Transaction, err error) {
+func (wallet *Wallet) ReclaimDelegatedFunds(options ...reclaimoptions.ReclaimFundsOption) (tx *ledgerstate.Transaction, err error) {
 	// build options
-	reclaimOptions, err := reclaimfunds_options.BuildReclaimFundsOptions(options...)
+	reclaimOptions, err := reclaimoptions.Build(options...)
 	if err != nil {
 		return
 	}
@@ -535,9 +535,9 @@ func (wallet *Wallet) ReclaimDelegatedFunds(options ...reclaimfunds_options.Recl
 	}
 
 	tx, err = wallet.DestroyNFT(
-		destroynft_options.Alias(reclaimOptions.Alias.Base58()),
-		destroynft_options.RemainderAddress(reclaimOptions.ToAddress.Base58()),
-		destroynft_options.WaitForConfirmation(reclaimOptions.WaitForConfirmation),
+		destroynftoptions.Alias(reclaimOptions.Alias.Base58()),
+		destroynftoptions.RemainderAddress(reclaimOptions.ToAddress.Base58()),
+		destroynftoptions.WaitForConfirmation(reclaimOptions.WaitForConfirmation),
 	)
 
 	return
@@ -548,9 +548,9 @@ func (wallet *Wallet) ReclaimDelegatedFunds(options ...reclaimfunds_options.Recl
 // region CreateNFT ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // CreateNFT spends funds from the wallet to create an NFT.
-func (wallet *Wallet) CreateNFT(options ...createnft_options.CreateNFTOption) (tx *ledgerstate.Transaction, nftID *ledgerstate.AliasAddress, err error) { // build options from the parameters
+func (wallet *Wallet) CreateNFT(options ...createnftoptions.CreateNFTOption) (tx *ledgerstate.Transaction, nftID *ledgerstate.AliasAddress, err error) { // build options from the parameters
 	// build options
-	createNFTOptions, err := createnft_options.BuildCreateNFTOptions(options...)
+	createNFTOptions, err := createnftoptions.Build(options...)
 	if err != nil {
 		return
 	}
@@ -645,8 +645,8 @@ func (wallet *Wallet) CreateNFT(options ...createnft_options.CreateNFTOption) (t
 // region TransferNFT //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // TransferNFT transfers an NFT to a given address.
-func (wallet *Wallet) TransferNFT(options ...transfernft_options.TransferNFTOption) (tx *ledgerstate.Transaction, err error) {
-	transferOptions, err := transfernft_options.BuildTransferNFTOptions(options...)
+func (wallet *Wallet) TransferNFT(options ...transfernftoptions.TransferNFTOption) (tx *ledgerstate.Transaction, err error) {
+	transferOptions, err := transfernftoptions.Build(options...)
 	if err != nil {
 		return
 	}
@@ -761,8 +761,8 @@ func (wallet *Wallet) TransferNFT(options ...transfernft_options.TransferNFTOpti
 // region DestroyNFT ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // DestroyNFT destroys the given nft (alias).
-func (wallet *Wallet) DestroyNFT(options ...destroynft_options.DestroyNFTOption) (tx *ledgerstate.Transaction, err error) {
-	destroyOptions, err := destroynft_options.BuildDestroyNFTOptions(options...)
+func (wallet *Wallet) DestroyNFT(options ...destroynftoptions.DestroyNFTOption) (tx *ledgerstate.Transaction, err error) {
+	destroyOptions, err := destroynftoptions.Build(options...)
 	if err != nil {
 		return
 	}
@@ -788,9 +788,9 @@ func (wallet *Wallet) DestroyNFT(options ...destroynft_options.DestroyNFTOption)
 		withdrawAmount := alias.Balances().Map()
 		withdrawAmount[ledgerstate.ColorIOTA] -= ledgerstate.DustThresholdAliasOutputIOTA
 		_, err = wallet.WithdrawFundsFromNFT(
-			withdrawfundsfromnft_options.Alias(destroyOptions.Alias.Base58()),
-			withdrawfundsfromnft_options.Amount(withdrawAmount),
-			withdrawfundsfromnft_options.WaitForConfirmation(true),
+			withdrawfromnftoptions.Alias(destroyOptions.Alias.Base58()),
+			withdrawfromnftoptions.Amount(withdrawAmount),
+			withdrawfromnftoptions.WaitForConfirmation(true),
 		)
 		if err != nil {
 			return
@@ -854,8 +854,8 @@ func (wallet *Wallet) DestroyNFT(options ...destroynft_options.DestroyNFTOption)
 
 // WithdrawFundsFromNFT withdraws funds from the given alias. If the wallet is not the state controller, or too much funds
 // are withdrawn, an error is returned.
-func (wallet *Wallet) WithdrawFundsFromNFT(options ...withdrawfundsfromnft_options.WithdrawFundsFromNFTOption) (tx *ledgerstate.Transaction, err error) {
-	withdrawOptions, err := withdrawfundsfromnft_options.BuildWithdrawFundsFromNFTOptions(options...)
+func (wallet *Wallet) WithdrawFundsFromNFT(options ...withdrawfromnftoptions.WithdrawFundsFromNFTOption) (tx *ledgerstate.Transaction, err error) {
+	withdrawOptions, err := withdrawfromnftoptions.Build(options...)
 	if err != nil {
 		return
 	}
@@ -960,8 +960,8 @@ func (wallet *Wallet) WithdrawFundsFromNFT(options ...withdrawfundsfromnft_optio
 // region DepositFundsToNFT ////////////////////////////////////////////////////////////////////////////////////////////
 
 // DepositFundsToNFT deposits funds to the given alias from the wallet funds. If the wallet is not the state controller, an error is returned.
-func (wallet *Wallet) DepositFundsToNFT(options ...depositfundstonft_options.DepositFundsToNFTOption) (tx *ledgerstate.Transaction, err error) {
-	depositOptions, err := depositfundstonft_options.BuildDepositFundsToNFTOptions(options...)
+func (wallet *Wallet) DepositFundsToNFT(options ...deposittonftoptions.DepositFundsToNFTOption) (tx *ledgerstate.Transaction, err error) {
+	depositOptions, err := deposittonftoptions.Build(options...)
 	if err != nil {
 		return
 	}
@@ -1072,8 +1072,8 @@ func (wallet *Wallet) DepositFundsToNFT(options ...depositfundstonft_options.Dep
 // region SweepNFTOwnedFunds ///////////////////////////////////////////////////////////////////////////////////////////
 
 // SweepNFTOwnedFunds collects all funds from non-alias outputs that are owned by the nft into the wallet.
-func (wallet Wallet) SweepNFTOwnedFunds(options ...sweepnftownedfunds_options.SweepNFTOwnedFundsOption) (tx *ledgerstate.Transaction, err error) {
-	sweepOptions, err := sweepnftownedfunds_options.BuildSweepNFTOwnedFundsOptions(options...)
+func (wallet Wallet) SweepNFTOwnedFunds(options ...sweepnftownedoptions.SweepNFTOwnedFundsOption) (tx *ledgerstate.Transaction, err error) {
+	sweepOptions, err := sweepnftownedoptions.Build(options...)
 	if err != nil {
 		return
 	}
@@ -1238,7 +1238,7 @@ func (wallet *Wallet) SweepNFTOwnedNFTs(options ...sweepnftownednfts_options.Swe
 	// owned contains all outputs that are owned by nft. we want to filter out non alias outputs
 	now := time.Now()
 	for _, output := range owned {
-		if len(toBeConsumed) == 126 {
+		if len(toBeConsumed) == ledgerstate.MaxInputCount-1 {
 			// we can spend at most 127 inputs in a tx, need one more for the alias
 			break
 		}
@@ -2104,7 +2104,7 @@ func (wallet *Wallet) buildInputs(addressToIDToOutput OutputsByAddressAndOutputI
 // buildOutputs builds outputs based on desired destination balances and consumedFunds. If consumedFunds is greater, than
 // the destination funds, remainderAddress specifies where the remaining amount is put.
 func (wallet *Wallet) buildOutputs(
-	sendOptions *sendfunds_options.SendFundsOptions,
+	sendOptions *sendoptions.SendFundsOptions,
 	consumedFunds map[ledgerstate.Color]uint64,
 	remainderAddress address.Address,
 ) (outputs ledgerstate.Outputs) {

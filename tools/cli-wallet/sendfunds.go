@@ -10,7 +10,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
-	"github.com/iotaledger/goshimmer/client/wallet/packages/sendfunds_options"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/sendoptions"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
@@ -68,12 +68,12 @@ func execSendFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 		}
 	}
 
-	options := []sendfunds_options.SendFundsOption{
-		sendfunds_options.Destination(address.Address{
+	options := []sendoptions.SendFundsOption{
+		sendoptions.Destination(address.Address{
 			AddressBytes: destinationAddress.Array(),
 		}, uint64(*amountPtr), color),
-		sendfunds_options.AccessManaPledgeID(*accessManaPledgeIDPtr),
-		sendfunds_options.ConsensusManaPledgeID(*consensusManaPledgeIDPtr),
+		sendoptions.AccessManaPledgeID(*accessManaPledgeIDPtr),
+		sendoptions.ConsensusManaPledgeID(*consensusManaPledgeIDPtr),
 	}
 
 	nowis := time.Now()
@@ -82,7 +82,7 @@ func execSendFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 		if timelock.Before(nowis) {
 			printUsage(command, fmt.Sprintf("can't lock funds in the past: lock-until is %s", timelock.String()))
 		}
-		options = append(options, sendfunds_options.LockUntil(timelock))
+		options = append(options, sendoptions.LockUntil(timelock))
 	}
 
 	if *fallbackAddressPtr != "" || *fallbackDeadlinePtr > 0 {
@@ -97,7 +97,7 @@ func execSendFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 		if fDeadline.Before(nowis) {
 			printUsage(command, fmt.Sprintf("fallback deadline %s is in the past", fDeadline.String()))
 		}
-		options = append(options, sendfunds_options.Fallback(fAddy, fDeadline))
+		options = append(options, sendoptions.Fallback(fAddy, fDeadline))
 	}
 
 	_, err = cliWallet.SendFunds(options...)

@@ -1,4 +1,4 @@
-package depositfundstonft_options
+package deposittonftoptions
 
 import (
 	"golang.org/x/xerrors"
@@ -62,8 +62,8 @@ type depositFundsToNFTOption struct {
 	WaitForConfirmation   bool
 }
 
-// BuildDepositFundsToNFTOptions build the options.
-func BuildDepositFundsToNFTOptions(options ...DepositFundsToNFTOption) (result *depositFundsToNFTOption, err error) {
+// Build build the options.
+func Build(options ...DepositFundsToNFTOption) (result *depositFundsToNFTOption, err error) {
 	// create options to collect the arguments provided
 	result = &depositFundsToNFTOption{}
 

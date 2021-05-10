@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/iotaledger/goshimmer/client/wallet"
-	"github.com/iotaledger/goshimmer/client/wallet/packages/reclaimfunds_options"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/reclaimoptions"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
@@ -46,14 +46,14 @@ func execReclaimDelegatedFundsCommand(command *flag.FlagSet, cliWallet *wallet.W
 		printUsage(command, fmt.Sprintf("%s is not a valid IOTA alias address: %s", *delegationIDPtr, err.Error()))
 	}
 
-	options := []reclaimfunds_options.ReclaimFundsOption{
-		reclaimfunds_options.Alias(delegationID.Base58()),
-		reclaimfunds_options.AccessManaPledgeID(*accessManaPledgeIDPtr),
-		reclaimfunds_options.ConsensusManaPledgeID(*consensusManaPledgeIDPtr),
+	options := []reclaimoptions.ReclaimFundsOption{
+		reclaimoptions.Alias(delegationID.Base58()),
+		reclaimoptions.AccessManaPledgeID(*accessManaPledgeIDPtr),
+		reclaimoptions.ConsensusManaPledgeID(*consensusManaPledgeIDPtr),
 	}
 
 	if toAddress != nil {
-		options = append(options, reclaimfunds_options.ToAddress(toAddress.Base58()))
+		options = append(options, reclaimoptions.ToAddress(toAddress.Base58()))
 	}
 
 	_, err = cliWallet.ReclaimDelegatedFunds(options...)

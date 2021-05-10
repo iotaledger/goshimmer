@@ -1,4 +1,4 @@
-package destroynft_options
+package destroynftoptions
 
 import (
 	"golang.org/x/xerrors"
@@ -65,8 +65,8 @@ type destroyNFTOption struct {
 	WaitForConfirmation   bool
 }
 
-// BuildDestroyNFTOptions builds the options.
-func BuildDestroyNFTOptions(options ...DestroyNFTOption) (result *destroyNFTOption, err error) {
+// Build builds the options.
+func Build(options ...DestroyNFTOption) (result *destroyNFTOption, err error) {
 	// create options to collect the arguments provided
 	result = &destroyNFTOption{}
 

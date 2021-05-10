@@ -1,4 +1,4 @@
-package transfernft_options
+package transfernftoptions
 
 import (
 	"golang.org/x/xerrors"
@@ -84,8 +84,8 @@ type transferNFTOptions struct {
 	ResetDelegation       bool
 }
 
-// BuildTransferNFTOptions build the options.
-func BuildTransferNFTOptions(options ...TransferNFTOption) (result *transferNFTOptions, err error) {
+// Build build the options.
+func Build(options ...TransferNFTOption) (result *transferNFTOptions, err error) {
 	// create options to collect the arguments provided
 	result = &transferNFTOptions{}
 

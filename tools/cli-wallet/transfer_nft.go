@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/iotaledger/goshimmer/client/wallet"
-	"github.com/iotaledger/goshimmer/client/wallet/packages/transfernft_options"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/transfernftoptions"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
@@ -50,12 +50,12 @@ func execTransferNFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	}
 
 	_, err = cliWallet.TransferNFT(
-		transfernft_options.Alias(aliasID.Base58()),
-		transfernft_options.ToAddress(destinationAddress.Base58()),
-		transfernft_options.ResetStateAddress(*resetStateAddrPtr),
-		transfernft_options.ResetDelegation(*resetDelegationPtr),
-		transfernft_options.AccessManaPledgeID(*accessManaPledgeIDPtr),
-		transfernft_options.ConsensusManaPledgeID(*consensusManaPledgeIDPtr),
+		transfernftoptions.Alias(aliasID.Base58()),
+		transfernftoptions.ToAddress(destinationAddress.Base58()),
+		transfernftoptions.ResetStateAddress(*resetStateAddrPtr),
+		transfernftoptions.ResetDelegation(*resetDelegationPtr),
+		transfernftoptions.AccessManaPledgeID(*accessManaPledgeIDPtr),
+		transfernftoptions.ConsensusManaPledgeID(*consensusManaPledgeIDPtr),
 	)
 	if err != nil {
 		printUsage(command, err.Error())

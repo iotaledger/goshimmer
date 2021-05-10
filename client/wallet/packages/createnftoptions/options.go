@@ -1,4 +1,4 @@
-package createnft_options
+package createnftoptions
 
 import (
 	"golang.org/x/xerrors"
@@ -67,8 +67,8 @@ type createNFTOptions struct {
 	WaitForConfirmation   bool
 }
 
-// BuildCreateNFTOptions builds the options.
-func BuildCreateNFTOptions(options ...CreateNFTOption) (result *createNFTOptions, err error) {
+// Build builds the options.
+func Build(options ...CreateNFTOption) (result *createNFTOptions, err error) {
 	// create options to collect the arguments provided
 	result = &createNFTOptions{}
 

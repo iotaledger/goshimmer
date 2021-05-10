@@ -1,4 +1,4 @@
-package reclaimfunds_options
+package reclaimoptions
 
 import (
 	"golang.org/x/xerrors"
@@ -65,8 +65,8 @@ type reclaimFundsOption struct {
 	WaitForConfirmation   bool
 }
 
-// BuildReclaimFundsOptions build the options.
-func BuildReclaimFundsOptions(options ...ReclaimFundsOption) (result *reclaimFundsOption, err error) {
+// Build build the options.
+func Build(options ...ReclaimFundsOption) (result *reclaimFundsOption, err error) {
 	// create options to collect the arguments provided
 	result = &reclaimFundsOption{}
 

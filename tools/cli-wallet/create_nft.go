@@ -9,7 +9,7 @@ import (
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/client/wallet"
-	"github.com/iotaledger/goshimmer/client/wallet/packages/createnft_options"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/createnftoptions"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
@@ -77,13 +77,13 @@ func execCreateNFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 		initialBalance[initColor] = uint64(*initialAmountPtr)
 	}
 
-	options := []createnft_options.CreateNFTOption{
-		createnft_options.InitialBalance(initialBalance),
-		createnft_options.AccessManaPledgeID(*accessManaPledgeIDPtr),
-		createnft_options.ConsensusManaPledgeID(*consensusManaPledgeIDPtr),
+	options := []createnftoptions.CreateNFTOption{
+		createnftoptions.InitialBalance(initialBalance),
+		createnftoptions.AccessManaPledgeID(*accessManaPledgeIDPtr),
+		createnftoptions.ConsensusManaPledgeID(*consensusManaPledgeIDPtr),
 	}
 	if data != nil {
-		options = append(options, createnft_options.ImmutableData(data))
+		options = append(options, createnftoptions.ImmutableData(data))
 	}
 
 	_, nftID, err := cliWallet.CreateNFT(options...)

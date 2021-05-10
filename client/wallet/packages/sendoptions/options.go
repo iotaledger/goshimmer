@@ -1,4 +1,4 @@
-package sendfunds_options
+package sendoptions
 
 import (
 	"errors"
@@ -145,8 +145,8 @@ func (s *SendFundsOptions) RequiredFunds() map[ledgerstate.Color]uint64 {
 	return requiredFunds
 }
 
-// BuildSendFundsOptions is a utility function that constructs the SendFundsOptions.
-func BuildSendFundsOptions(options ...SendFundsOption) (result *SendFundsOptions, err error) {
+// Build is a utility function that constructs the SendFundsOptions.
+func Build(options ...SendFundsOption) (result *SendFundsOptions, err error) {
 	// create options to collect the arguments provided
 	result = &SendFundsOptions{}
 

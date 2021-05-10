@@ -1,4 +1,4 @@
-package delegatefunds_options
+package delegateoptions
 
 import (
 	"errors"
@@ -112,8 +112,8 @@ func (s *delegateFundsOptions) RequiredFunds() map[ledgerstate.Color]uint64 {
 	return requiredFunds
 }
 
-// BuildDelegateFundsOptions is a utility function that constructs the delegateFundsOptions.
-func BuildDelegateFundsOptions(options ...DelegateFundsOption) (result *delegateFundsOptions, err error) {
+// Build is a utility function that constructs the delegateFundsOptions.
+func Build(options ...DelegateFundsOption) (result *delegateFundsOptions, err error) {
 	// create options to collect the arguments provided
 	result = &delegateFundsOptions{}
 

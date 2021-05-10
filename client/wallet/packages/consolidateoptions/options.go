@@ -1,4 +1,4 @@
-package consolidatefunds_options
+package consolidateoptions
 
 // ConsolidateFundsOption is a function that provides options.
 type ConsolidateFundsOption func(options *consolidateFundsOptions) error
@@ -35,8 +35,8 @@ type consolidateFundsOptions struct {
 	WaitForConfirmation   bool
 }
 
-// BuildConsolidateFundsOptions build the options.
-func BuildConsolidateFundsOptions(options ...ConsolidateFundsOption) (result *consolidateFundsOptions, err error) {
+// Build build the options.
+func Build(options ...ConsolidateFundsOption) (result *consolidateFundsOptions, err error) {
 	// create options to collect the arguments provided
 	result = &consolidateFundsOptions{}
 

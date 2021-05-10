@@ -10,7 +10,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
-	"github.com/iotaledger/goshimmer/client/wallet/packages/delegatefunds_options"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/delegateoptions"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
@@ -71,20 +71,20 @@ func execDelegateFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 		printUsage(command, fmt.Sprintf("%s is not a valid IOTA address: %s", *delegationAddressPtr, err.Error()))
 	}
 
-	options := []delegatefunds_options.DelegateFundsOption{
-		delegatefunds_options.AccessManaPledgeID(*accessManaPledgeIDPtr),
-		delegatefunds_options.ConsensusManaPledgeID(*consensusManaPledgeIDPtr),
+	options := []delegateoptions.DelegateFundsOption{
+		delegateoptions.AccessManaPledgeID(*accessManaPledgeIDPtr),
+		delegateoptions.ConsensusManaPledgeID(*consensusManaPledgeIDPtr),
 	}
 
 	if fundsColor == ledgerstate.ColorIOTA {
 		// when we are delegating IOTA, we automatically fulfill the minimum dust requirement of the alias
-		options = append(options, delegatefunds_options.Destination(
+		options = append(options, delegateoptions.Destination(
 			address.Address{AddressBytes: delegationAddress.Array()}, map[ledgerstate.Color]uint64{
 				fundsColor: uint64(*amountPtr),
 			}))
 	} else {
 		// when we are delegating anything else, we need IOTAs
-		options = append(options, delegatefunds_options.Destination(
+		options = append(options, delegateoptions.Destination(
 			address.Address{AddressBytes: delegationAddress.Array()}, map[ledgerstate.Color]uint64{
 				ledgerstate.ColorIOTA: ledgerstate.DustThresholdAliasOutputIOTA,
 				fundsColor:            uint64(*amountPtr),
@@ -95,7 +95,7 @@ func execDelegateFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 		if time.Now().Unix() > *timelockUntilPtr {
 			printUsage(command, fmt.Sprintf("delegation timelock %s is in the past. now is: %s", time.Unix(*timelockUntilPtr, 0).String(), time.Unix(time.Now().Unix(), 0).String()))
 		} else {
-			options = append(options, delegatefunds_options.DelegateUntil(time.Unix(*timelockUntilPtr, 0)))
+			options = append(options, delegateoptions.DelegateUntil(time.Unix(*timelockUntilPtr, 0)))
 		}
 	}
 

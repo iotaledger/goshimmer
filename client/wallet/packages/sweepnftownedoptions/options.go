@@ -1,4 +1,4 @@
-package sweepnftownedfunds_options
+package sweepnftownedoptions
 
 import (
 	"golang.org/x/xerrors"
@@ -66,8 +66,8 @@ type sweepNFTOwnedFundsOptions struct {
 	WaitForConfirmation   bool
 }
 
-// BuildSweepNFTOwnedFundsOptions build the options.
-func BuildSweepNFTOwnedFundsOptions(options ...SweepNFTOwnedFundsOption) (result *sweepNFTOwnedFundsOptions, err error) {
+// Build build the options.
+func Build(options ...SweepNFTOwnedFundsOption) (result *sweepNFTOwnedFundsOptions, err error) {
 	// create options to collect the arguments provided
 	result = &sweepNFTOwnedFundsOptions{}
 

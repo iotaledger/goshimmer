@@ -1,4 +1,4 @@
-package claimconditionalfunds_options
+package claimconditionaloptions
 
 // ClaimConditionalFundsOption is a function that provides options.
 type ClaimConditionalFundsOption func(options *claimConditionalFundsOptions) error
@@ -35,8 +35,8 @@ type claimConditionalFundsOptions struct {
 	WaitForConfirmation   bool
 }
 
-// BuildClaimConditionalFundsOptions builds the options.
-func BuildClaimConditionalFundsOptions(options ...ClaimConditionalFundsOption) (result *claimConditionalFundsOptions, err error) {
+// Build builds the options.
+func Build(options ...ClaimConditionalFundsOption) (result *claimConditionalFundsOptions, err error) {
 	// create options to collect the arguments provided
 	result = &claimConditionalFundsOptions{}
 

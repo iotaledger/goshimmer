@@ -8,7 +8,7 @@ import (
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/client/wallet"
-	"github.com/iotaledger/goshimmer/client/wallet/packages/depositfundstonft_options"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/deposittonftoptions"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
@@ -72,10 +72,10 @@ func execDepositToNFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	}
 
 	_, err = cliWallet.DepositFundsToNFT(
-		depositfundstonft_options.Alias(aliasID.Base58()),
-		depositfundstonft_options.Amount(depositBalance),
-		depositfundstonft_options.AccessManaPledgeID(*accessManaPledgeIDPtr),
-		depositfundstonft_options.ConsensusManaPledgeID(*consensusManaPledgeIDPtr),
+		deposittonftoptions.Alias(aliasID.Base58()),
+		deposittonftoptions.Amount(depositBalance),
+		deposittonftoptions.AccessManaPledgeID(*accessManaPledgeIDPtr),
+		deposittonftoptions.ConsensusManaPledgeID(*consensusManaPledgeIDPtr),
 	)
 	if err != nil {
 		printUsage(command, err.Error())

@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/iotaledger/goshimmer/client/wallet"
-	"github.com/iotaledger/goshimmer/client/wallet/packages/consolidatefunds_options"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/consolidateoptions"
 )
 
 func execConsolidateFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
@@ -28,8 +28,8 @@ func execConsolidateFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet
 	}
 
 	_, err = cliWallet.ConsolidateFunds(
-		consolidatefunds_options.AccessManaPledgeID(*accessManaPledgeIDPtr),
-		consolidatefunds_options.ConsensusManaPledgeID(*consensusManaPledgeIDPtr),
+		consolidateoptions.AccessManaPledgeID(*accessManaPledgeIDPtr),
+		consolidateoptions.ConsensusManaPledgeID(*consensusManaPledgeIDPtr),
 	)
 	if err != nil {
 		printUsage(command, err.Error())
