@@ -128,7 +128,7 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 			fmt.Sprintf("--drng.custom.distributedPubKey=%s", config.DRNGDistKey),
 			fmt.Sprintf("--drng.xteam.committeeMembers="),
 			fmt.Sprintf("--drng.pollen.committeeMembers="),
-			fmt.Sprintf("--activity.broadcastInterval=%d", config.ActivityInterval),
+			fmt.Sprintf("--activity.broadcastIntervalSec=%d", config.ActivityInterval),
 			"--messageLayer.startSynced=true",
 			fmt.Sprintf("--mana.allowedAccessFilterEnabled=%t", config.ManaAllowedAccessFilterEnabled),
 			fmt.Sprintf("--mana.allowedConsensusFilterEnabled=%t", config.ManaAllowedConsensusFilterEnabled),
