@@ -72,7 +72,7 @@ func configure(plugin *node.Plugin) {
 	}))
 
 	Tangle().Parser.Events.MessageRejected.Attach(events.NewClosure(func(ev *tangle.MessageRejectedEvent) {
-		plugin.LogInfo("message rejected in parser: %s", ev.Message.ID().Base58())
+		plugin.LogInfof("message rejected in parser: %s", ev.Message.ID().Base58())
 	}))
 
 	Tangle().FifoScheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(messageID tangle.MessageID) {
@@ -104,11 +104,11 @@ func configure(plugin *node.Plugin) {
 	}))
 
 	Tangle().Events.MessageInvalid.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		plugin.LogInfo("Message invalid: ", messageID.Base58())
+		plugin.LogInfof("message invalid: %s", messageID.Base58())
 	}))
 
 	Tangle().Booker.Events.MessageBooked.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		plugin.LogDebugf("message booked in message layer: ", messageID.Base58())
+		plugin.LogDebugf("message booked in message layer: %s", messageID.Base58())
 	}))
 
 	Tangle().Events.SyncChanged.Attach(events.NewClosure(func(ev *tangle.SyncChangedEvent) {
