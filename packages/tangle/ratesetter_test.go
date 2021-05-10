@@ -22,7 +22,7 @@ var (
 func TestRateSetter_StartStop(t *testing.T) {
 	localID := identity.GenerateLocalIdentity()
 
-	tangle := New(Identity(localID), SchedulerConfig(testSchedulerParams), RateSetterConfig(testRateSetterParams))
+	tangle := newTestTangle(Identity(localID), RateSetterConfig(testRateSetterParams))
 	defer tangle.Shutdown()
 	time.Sleep(10 * time.Millisecond)
 }
@@ -31,7 +31,7 @@ func TestRateSetter_Submit(t *testing.T) {
 	localID := identity.GenerateLocalIdentity()
 	localNode := identity.New(localID.PublicKey())
 
-	tangle := New(Identity(localID), SchedulerConfig(testSchedulerParams), RateSetterConfig(testRateSetterParams))
+	tangle := newTestTangle(Identity(localID), RateSetterConfig(testRateSetterParams))
 	defer tangle.Shutdown()
 
 	msg := newMessage(localNode.PublicKey())
@@ -46,13 +46,13 @@ func TestRateSetter_ErrorHandling(t *testing.T) {
 	peerID := identity.GenerateLocalIdentity()
 	peerNode := identity.New(peerID.PublicKey())
 
-	tangle := New(Identity(localID), SchedulerConfig(testSchedulerParams), RateSetterConfig(testRateSetterParams))
+	tangle := newTestTangle(Identity(localID), RateSetterConfig(testRateSetterParams))
 	defer tangle.Shutdown()
 
 	// Test 1: non-local node issuer message is not accepted
 	{
 		var otherMsg int32
-		tangle.Events.Error.Attach(events.NewClosure(func(err error) { atomic.AddInt32(&otherMsg, 1) }))
+		tangle.Events.Info.Attach(events.NewClosure(func(err error) { atomic.AddInt32(&otherMsg, 1) }))
 
 		// message issued by other nodes
 		msg1 := newMessage(peerNode.PublicKey())

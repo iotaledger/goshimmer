@@ -897,7 +897,7 @@ func TestScenario_3(t *testing.T) {
 }
 
 func TestBookerNewAutomaticSequence(t *testing.T) {
-	tangle := New()
+	tangle := newTestTangle()
 	defer tangle.Shutdown()
 
 	testFramework := NewMessageTestFramework(tangle)

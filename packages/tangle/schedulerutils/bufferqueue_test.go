@@ -129,7 +129,7 @@ func TestBufferQueue_RemoveNode(t *testing.T) {
 	assert.Equal(t, selfNode.ID(), b.Current().NodeID())
 	b.RemoveNode(selfNode.ID())
 	assert.Equal(t, otherNode.ID(), b.Current().NodeID())
-	b.RemoveNode(selfNode.ID())
+	b.RemoveNode(otherNode.ID())
 	assert.Nil(t, b.Current())
 }
 
