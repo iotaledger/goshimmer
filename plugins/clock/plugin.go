@@ -19,7 +19,8 @@ const (
 	// CfgNTPPools defines the config flag of the NTP pools.
 	CfgNTPPools = "clock.ntpPools"
 
-	maxTries = 3
+	maxTries     = 3
+	syncInterval = 30 * time.Minute
 )
 
 var (
@@ -53,7 +54,7 @@ func run(plugin *node.Plugin) {
 		queryNTPPool()
 
 		// sync clock every 30min to counter drift
-		timeutil.NewTicker(queryNTPPool, 30*time.Minute, shutdownSignal)
+		timeutil.NewTicker(queryNTPPool, syncInterval, shutdownSignal)
 
 		<-shutdownSignal
 	}, shutdown.PrioritySynchronization); err != nil {
