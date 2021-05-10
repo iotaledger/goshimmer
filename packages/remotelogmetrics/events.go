@@ -14,6 +14,7 @@ type CollectionLogEvents struct {
 	TangleTimeSyncChanged *events.Event
 }
 
+// SyncStatusChangedEventCaller is called when a node changes its sync status.
 func SyncStatusChangedEventCaller(handler interface{}, params ...interface{}) {
 	handler.(func(SyncStatusChangedEvent))(params[0].(SyncStatusChangedEvent))
 }

@@ -4,7 +4,6 @@
 package remotelogmetrics
 
 import (
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"sync"
 	"time"
 
@@ -15,6 +14,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/remotelogmetrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
 )
 

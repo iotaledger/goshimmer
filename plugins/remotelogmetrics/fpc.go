@@ -1,13 +1,14 @@
 package remotelogmetrics
 
 import (
+	"sync"
+
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/remotelogmetrics"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
-	"sync"
 )
 
 type fpcMetricsLogger struct {
