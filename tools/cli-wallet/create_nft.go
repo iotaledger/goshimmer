@@ -6,10 +6,11 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/mr-tron/base58"
+
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/createnft_options"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/mr-tron/base58"
 )
 
 func execCreateNFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
@@ -41,9 +42,9 @@ func execCreateNFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	}
 	var data []byte
 	if *immutableDataFile != "" {
-		file, err := os.Open(*immutableDataFile)
-		if err != nil {
-			printUsage(command, err.Error())
+		file, fErr := os.Open(*immutableDataFile)
+		if fErr != nil {
+			printUsage(command, fErr.Error())
 		}
 		defer file.Close()
 

@@ -1,13 +1,15 @@
 package createnft_options
 
 import (
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
+// CreateNFTOption is a function that provides options.
 type CreateNFTOption func(options *createNFTOptions) error
 
-// WaitForConfirmation
+// WaitForConfirmation defines if the call should wait for confirmation before it returns.
 func WaitForConfirmation(wait bool) CreateNFTOption {
 	return func(options *createNFTOptions) error {
 		options.WaitForConfirmation = wait
@@ -65,6 +67,7 @@ type createNFTOptions struct {
 	WaitForConfirmation   bool
 }
 
+// BuildCreateNFTOptions builds the options.
 func BuildCreateNFTOptions(options ...CreateNFTOption) (result *createNFTOptions, err error) {
 	// create options to collect the arguments provided
 	result = &createNFTOptions{}

@@ -108,7 +108,7 @@ func (o *OutputManager) getOutputs(addresses ...address.Address) (unspentOutputs
 		}
 	}
 
-	return
+	return unspentOutputs
 }
 
 // MarkOutputSpent marks the output identified by the given parameters as spent.

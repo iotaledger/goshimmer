@@ -1,13 +1,15 @@
 package depositfundstonft_options
 
 import (
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
+// DepositFundsToNFTOption is a function that provides options.
 type DepositFundsToNFTOption func(options *depositFundsToNFTOption) error
 
-// WaitForConfirmation
+// WaitForConfirmation defines if the call should wait for confirmation before it returns.
 func WaitForConfirmation(wait bool) DepositFundsToNFTOption {
 	return func(options *depositFundsToNFTOption) error {
 		options.WaitForConfirmation = wait
@@ -60,6 +62,7 @@ type depositFundsToNFTOption struct {
 	WaitForConfirmation   bool
 }
 
+// BuildDepositFundsToNFTOptions build the options.
 func BuildDepositFundsToNFTOptions(options ...DepositFundsToNFTOption) (result *depositFundsToNFTOption, err error) {
 	// create options to collect the arguments provided
 	result = &depositFundsToNFTOption{}

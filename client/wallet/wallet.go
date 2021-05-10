@@ -39,7 +39,8 @@ type Wallet struct {
 	connector      Connector
 
 	// if this option is enabled the wallet will use a single reusable address instead of changing addresses.
-	reusableAddress bool
+	reusableAddress          bool
+	ConfirmationPollInterval int // in milliseconds
 }
 
 // New is the factory method of the wallet. It either creates a new wallet or restores the wallet backup that is handed
@@ -167,6 +168,7 @@ func (wallet *Wallet) SendFunds(options ...sendfunds_options.SendFundsOption) (t
 
 // region ConsolidateFunds /////////////////////////////////////////////////////////////////////////////////////////////
 
+// ConsolidateFunds consolidates available wallet funds into one output.
 func (wallet *Wallet) ConsolidateFunds(options ...consolidatefunds_options.ConsolidateFundsOption) (tx *ledgerstate.Transaction, err error) {
 	consolidateOptions, err := consolidatefunds_options.BuildConsolidateFundsOptions(options...)
 	if err != nil {
@@ -243,7 +245,7 @@ func (wallet *Wallet) ConsolidateFunds(options ...consolidatefunds_options.Conso
 	if consolidateOptions.WaitForConfirmation {
 		err = wallet.WaitForTxConfirmation(tx.ID())
 	}
-	return
+	return tx, err
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -635,7 +637,7 @@ func (wallet *Wallet) CreateNFT(options ...createnft_options.CreateNFTOption) (t
 		err = wallet.WaitForTxConfirmation(tx.ID())
 	}
 
-	return
+	return tx, nftID, err
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -751,7 +753,7 @@ func (wallet *Wallet) TransferNFT(options ...transfernft_options.TransferNFTOpti
 		err = wallet.WaitForTxConfirmation(tx.ID())
 	}
 
-	return
+	return tx, err
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -843,7 +845,7 @@ func (wallet *Wallet) DestroyNFT(options ...destroynft_options.DestroyNFTOption)
 		err = wallet.WaitForTxConfirmation(tx.ID())
 	}
 
-	return
+	return tx, err
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -950,7 +952,7 @@ func (wallet *Wallet) WithdrawFundsFromNFT(options ...withdrawfundsfromnft_optio
 		err = wallet.WaitForTxConfirmation(tx.ID())
 	}
 
-	return
+	return tx, err
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1062,7 +1064,7 @@ func (wallet *Wallet) DepositFundsToNFT(options ...depositfundstonft_options.Dep
 		err = wallet.WaitForTxConfirmation(tx.ID())
 	}
 
-	return
+	return tx, err
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1082,6 +1084,9 @@ func (wallet Wallet) SweepNFTOwnedFunds(options ...sweepnftownedfunds_options.Sw
 	}
 	// do we own the nft as a state controller?
 	_, stateControlled, _, _, err := wallet.AliasBalance()
+	if err != nil {
+		return
+	}
 	if _, has := stateControlled[*sweepOptions.Alias]; !has {
 		err = xerrors.Errorf("nft %s is not state controlled by the wallet", sweepOptions.Alias.Base58())
 	}
@@ -1104,7 +1109,7 @@ func (wallet Wallet) SweepNFTOwnedFunds(options ...sweepnftownedfunds_options.Sw
 	totalConsumed := map[ledgerstate.Color]uint64{}
 	// owned contains all outputs that are owned by nft. we want to filter out alias outputs, as they are not "funds"
 	for _, output := range owned {
-		if len(toBeConsumed) == 126 {
+		if len(toBeConsumed) == ledgerstate.MaxOutputCount-1 {
 			// we can spend at most 127 inputs in a tx, need one more for the alias
 			break
 		}
@@ -1190,7 +1195,7 @@ func (wallet Wallet) SweepNFTOwnedFunds(options ...sweepnftownedfunds_options.Sw
 		err = wallet.WaitForTxConfirmation(tx.ID())
 	}
 
-	return
+	return tx, err
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1210,6 +1215,9 @@ func (wallet *Wallet) SweepNFTOwnedNFTs(options ...sweepnftownednfts_options.Swe
 
 	// do we own the nft as a state controller?
 	_, stateControlled, _, _, err := wallet.AliasBalance()
+	if err != nil {
+		return
+	}
 	if _, has := stateControlled[*sweepOptions.Alias]; !has {
 		err = xerrors.Errorf("nft %s is not state controlled by the wallet", sweepOptions.Alias.Base58())
 	}
@@ -1242,7 +1250,6 @@ func (wallet *Wallet) SweepNFTOwnedNFTs(options ...sweepnftownednfts_options.Swe
 			}
 			toBeConsumed = append(toBeConsumed, output)
 		}
-
 	}
 	// determine which address to send to
 	var toAddress ledgerstate.Address
@@ -1338,7 +1345,7 @@ func (wallet *Wallet) SweepNFTOwnedNFTs(options ...sweepnftownednfts_options.Swe
 	if sweepOptions.WaitForConfirmation {
 		err = wallet.WaitForTxConfirmation(tx.ID())
 	}
-	return
+	return tx, sweptNFTs, err
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1466,7 +1473,7 @@ func (wallet *Wallet) Refresh(rescanSpentAddresses ...bool) (err error) {
 // region Balance //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Balance returns the confirmed and pending balance of the funds managed by this wallet.
-func (wallet *Wallet) Balance() (confirmedBalance map[ledgerstate.Color]uint64, pendingBalance map[ledgerstate.Color]uint64, err error) {
+func (wallet *Wallet) Balance() (confirmedBalance, pendingBalance map[ledgerstate.Color]uint64, err error) {
 	err = wallet.outputManager.Refresh()
 	if err != nil {
 		return
@@ -1511,7 +1518,7 @@ func (wallet *Wallet) Balance() (confirmedBalance map[ledgerstate.Color]uint64, 
 			case ledgerstate.AliasOutputType:
 				casted := output.Object.(*ledgerstate.AliasOutput)
 				if casted.IsDelegated() {
-					break
+					continue
 				}
 				if casted.IsSelfGoverned() {
 					// if it is self governed, addy is the state address, so we own everything
@@ -1519,7 +1526,7 @@ func (wallet *Wallet) Balance() (confirmedBalance map[ledgerstate.Color]uint64, 
 						targetMap[color] += balance
 						return true
 					})
-					break
+					continue
 				}
 				if casted.GetStateAddress().Equals(addy.Address()) {
 					// we are state controller
@@ -1536,18 +1543,18 @@ func (wallet *Wallet) Balance() (confirmedBalance map[ledgerstate.Color]uint64, 
 						}
 						return true
 					})
-					break
+					continue
 				}
 				if casted.GetGoverningAddress().Equals(addy.Address()) {
 					// we are the governor, so we only own the minimum dust amount that cannot be withdrawn by the state controller
 					targetMap[ledgerstate.ColorIOTA] += ledgerstate.DustThresholdAliasOutputIOTA
-					break
+					continue
 				}
 			}
 		}
 	}
 
-	return
+	return confirmedBalance, pendingBalance, err
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1605,7 +1612,7 @@ func (wallet *Wallet) AvailableBalance() (confirmedBalance, pendingBalance map[l
 		}
 	}
 
-	return
+	return confirmedBalance, pendingBalance, err
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1630,25 +1637,25 @@ func (wallet *Wallet) TimelockedBalances() (confirmed, pending TimedBalanceSlice
 			if output.InclusionState.Spent || output.InclusionState.Rejected {
 				continue
 			}
-			switch output.Object.Type() {
-			case ledgerstate.ExtendedLockedOutputType:
-				casted := output.Object.(*ledgerstate.ExtendedLockedOutput)
-				if casted.TimeLockedNow(now) {
-					tBal := &TimedBalance{
-						Balance: casted.Balances().Map(),
-						Time:    casted.TimeLock(),
-					}
-					if output.InclusionState.Confirmed {
-						confirmed = append(confirmed, tBal)
-					} else {
-						pending = append(pending, tBal)
-					}
+			if output.Object.Type() != ledgerstate.ExtendedLockedOutputType {
+				continue
+			}
+			casted := output.Object.(*ledgerstate.ExtendedLockedOutput)
+			if casted.TimeLockedNow(now) {
+				tBal := &TimedBalance{
+					Balance: casted.Balances().Map(),
+					Time:    casted.TimeLock(),
+				}
+				if output.InclusionState.Confirmed {
+					confirmed = append(confirmed, tBal)
+				} else {
+					pending = append(pending, tBal)
 				}
 			}
 		}
 	}
 
-	return
+	return confirmed, pending, err
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1673,27 +1680,27 @@ func (wallet *Wallet) ConditionalBalances() (confirmed, pending TimedBalanceSlic
 			if output.InclusionState.Spent || output.InclusionState.Rejected {
 				continue
 			}
-			switch output.Object.Type() {
-			case ledgerstate.ExtendedLockedOutputType:
-				casted := output.Object.(*ledgerstate.ExtendedLockedOutput)
-				_, fallbackDeadline := casted.FallbackOptions()
-				if !fallbackDeadline.IsZero() && addy.Address().Equals(casted.UnlockAddressNow(now)) {
-					// fallback option is set and currently we are the unlock address
-					cBal := &TimedBalance{
-						Balance: casted.Balances().Map(),
-						Time:    fallbackDeadline,
-					}
-					if output.InclusionState.Confirmed {
-						confirmed = append(confirmed, cBal)
-					} else {
-						pending = append(pending, cBal)
-					}
+			if output.Object.Type() != ledgerstate.ExtendedLockedOutputType {
+				continue
+			}
+			casted := output.Object.(*ledgerstate.ExtendedLockedOutput)
+			_, fallbackDeadline := casted.FallbackOptions()
+			if !fallbackDeadline.IsZero() && addy.Address().Equals(casted.UnlockAddressNow(now)) {
+				// fallback option is set and currently we are the unlock address
+				cBal := &TimedBalance{
+					Balance: casted.Balances().Map(),
+					Time:    fallbackDeadline,
+				}
+				if output.InclusionState.Confirmed {
+					confirmed = append(confirmed, cBal)
+				} else {
+					pending = append(pending, cBal)
 				}
 			}
 		}
 	}
 
-	return
+	return confirmed, pending, err
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1748,7 +1755,7 @@ func (wallet *Wallet) AliasBalance() (
 			}
 		}
 	}
-	return
+	return confirmedGovernedAliases, confirmedStateControlledAliases, pendingGovernedAliases, pendingStateControlledAliases, err
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1787,7 +1794,7 @@ func (wallet Wallet) AvailableOutputsOnNFT(nftID string) (owned, governed ledger
 			}
 		}
 	}
-	return
+	return owned, governed, err
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1833,7 +1840,7 @@ func (wallet *Wallet) DelegatedAliasBalance() (
 			}
 		}
 	}
-	return
+	return confirmedDelegatedAliases, pendingDelegatedAliases, err
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1876,7 +1883,7 @@ func (wallet *Wallet) ExportState() []byte {
 // WaitForTxConfirmation waits for the given tx to confirm. If the transaction is rejected, an error is returned.
 func (wallet *Wallet) WaitForTxConfirmation(txID ledgerstate.TransactionID) (err error) {
 	for {
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(time.Duration(wallet.ConfirmationPollInterval) * time.Millisecond)
 		state, fetchErr := wallet.connector.GetTransactionInclusionState(txID)
 		if fetchErr != nil {
 			return fetchErr
@@ -1899,7 +1906,7 @@ func (wallet *Wallet) WaitForTxConfirmation(txID ledgerstate.TransactionID) (err
 func (wallet *Wallet) waitForBalanceConfirmation(prevConfirmedBalance map[ledgerstate.Color]uint64) (err error) {
 	// TODO: sensible timeout limit
 	for {
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(time.Duration(wallet.ConfirmationPollInterval) * time.Millisecond)
 		if err = wallet.Refresh(); err != nil {
 			return
 		}
@@ -1918,7 +1925,7 @@ func (wallet *Wallet) waitForBalanceConfirmation(prevConfirmedBalance map[ledger
 // (a tx submitting an alias governance transition is confirmed)
 func (wallet *Wallet) waitForGovAliasBalanceConfirmation(preGovAliasBalance map[*ledgerstate.AliasAddress]*ledgerstate.AliasOutput) (err error) {
 	for {
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(time.Duration(wallet.ConfirmationPollInterval) * time.Millisecond)
 		if err = wallet.Refresh(); err != nil {
 			return
 		}
@@ -1937,7 +1944,7 @@ func (wallet *Wallet) waitForGovAliasBalanceConfirmation(preGovAliasBalance map[
 // (a tx submitting an alias state transition is confirmed)
 func (wallet *Wallet) waitForStateAliasBalanceConfirmation(preStateAliasBalance map[*ledgerstate.AliasAddress]*ledgerstate.AliasOutput) (err error) {
 	for {
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(time.Duration(wallet.ConfirmationPollInterval) * time.Millisecond)
 
 		if err = wallet.Refresh(); err != nil {
 			return

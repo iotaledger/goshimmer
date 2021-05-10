@@ -6,11 +6,12 @@ import (
 	"os"
 	"time"
 
+	"github.com/mr-tron/base58"
+
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/delegatefunds_options"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/mr-tron/base58"
 )
 
 func execDelegateFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
@@ -104,10 +105,8 @@ func execDelegateFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	}
 
 	fmt.Println()
-	if delegationIDs != nil {
-		for _, id := range delegationIDs {
-			fmt.Println("Delegation ID is: ", id.Base58())
-		}
+	for _, id := range delegationIDs {
+		fmt.Println("Delegation ID is: ", id.Base58())
 	}
 	fmt.Println("Delegating funds... [DONE]")
 }

@@ -1,12 +1,15 @@
 package sweepnftownednfts_options
 
 import (
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
+// SweepNFTOwnedNFTsOption is a function that provides an option.
 type SweepNFTOwnedNFTsOption func(options *sweepNFTOwnedNFTsOptions) error
 
+// WaitForConfirmation defines if the call should wait for confirmation before it returns.
 func WaitForConfirmation(wait bool) SweepNFTOwnedNFTsOption {
 	return func(options *sweepNFTOwnedNFTsOptions) error {
 		options.WaitForConfirmation = wait
@@ -63,6 +66,7 @@ type sweepNFTOwnedNFTsOptions struct {
 	WaitForConfirmation   bool
 }
 
+// BuildSweepNFTOwnedNFTsOptions builds the options.
 func BuildSweepNFTOwnedNFTsOptions(options ...SweepNFTOwnedNFTsOption) (result *sweepNFTOwnedNFTsOptions, err error) {
 	// create options to collect the arguments provided
 	result = &sweepNFTOwnedNFTsOptions{}

@@ -685,13 +685,13 @@ func NewInput(input ledgerstate.Input, referencedOutput ...*Output) *Input {
 				Type:               input.Type().String(),
 				ReferencedOutputID: NewOutputID(input.(*ledgerstate.UTXOInput).ReferencedOutputID()),
 			}
-		} else {
-			return &Input{
-				Type:               input.Type().String(),
-				ReferencedOutputID: NewOutputID(input.(*ledgerstate.UTXOInput).ReferencedOutputID()),
-				Output:             referencedOutput[0],
-			}
 		}
+		return &Input{
+			Type:               input.Type().String(),
+			ReferencedOutputID: NewOutputID(input.(*ledgerstate.UTXOInput).ReferencedOutputID()),
+			Output:             referencedOutput[0],
+		}
+
 	}
 
 	return &Input{

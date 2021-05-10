@@ -2055,7 +2055,7 @@ func (o *ExtendedLockedOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBl
 	default:
 		err = xerrors.Errorf("ExtendedLockedOutput: unsupported unlock block type: %w", cerrors.ErrParseBytesFailed)
 	}
-	return
+	return unlockValid, err
 }
 
 // Address returns the Address that the Output is associated to.
@@ -2082,17 +2082,25 @@ func (o *ExtendedLockedOutput) Input() Input {
 
 // Clone creates a copy of the Output.
 func (o *ExtendedLockedOutput) Clone() Output {
-	ret := *o
-	ret.balances = o.balances.Clone()
-	ret.address = o.address.Clone()
+	ret := &ExtendedLockedOutput{
+		balances: o.balances.Clone(),
+		address:  o.address.Clone(),
+	}
+	copy(ret.id[:], o.id[:])
 	if o.fallbackAddress != nil {
 		ret.fallbackAddress = o.fallbackAddress.Clone()
+	}
+	if !o.fallbackDeadline.IsZero() {
+		ret.fallbackDeadline = o.fallbackDeadline
+	}
+	if !o.timelock.IsZero() {
+		ret.timelock = o.timelock
 	}
 	if o.payload != nil {
 		ret.payload = make([]byte, len(o.payload))
 		copy(ret.payload, o.payload)
 	}
-	return &ret
+	return ret
 }
 
 // UpdateMintingColor replaces the ColorMint in the balances of the Output with the hash of the OutputID. It returns a

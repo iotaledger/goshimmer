@@ -1,12 +1,15 @@
 package sweepnftownedfunds_options
 
 import (
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
+// SweepNFTOwnedFundsOption is a function that provides option.
 type SweepNFTOwnedFundsOption func(options *sweepNFTOwnedFundsOptions) error
 
+// WaitForConfirmation defines if the call should wait for confirmation before it returns.
 func WaitForConfirmation(wait bool) SweepNFTOwnedFundsOption {
 	return func(options *sweepNFTOwnedFundsOptions) error {
 		options.WaitForConfirmation = wait
@@ -63,6 +66,7 @@ type sweepNFTOwnedFundsOptions struct {
 	WaitForConfirmation   bool
 }
 
+// BuildSweepNFTOwnedFundsOptions build the options.
 func BuildSweepNFTOwnedFundsOptions(options ...SweepNFTOwnedFundsOption) (result *sweepNFTOwnedFundsOptions, err error) {
 	// create options to collect the arguments provided
 	result = &sweepNFTOwnedFundsOptions{}

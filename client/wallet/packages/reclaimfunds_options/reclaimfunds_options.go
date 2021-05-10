@@ -1,10 +1,12 @@
 package reclaimfunds_options
 
 import (
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
+// ReclaimFundsOption is a function that provides an option.
 type ReclaimFundsOption func(options *reclaimFundsOption) error
 
 func WaitForConfirmation(wait bool) ReclaimFundsOption {
@@ -63,6 +65,7 @@ type reclaimFundsOption struct {
 	WaitForConfirmation   bool
 }
 
+// BuildReclaimFundsOptions build the options.
 func BuildReclaimFundsOptions(options ...ReclaimFundsOption) (result *reclaimFundsOption, err error) {
 	// create options to collect the arguments provided
 	result = &reclaimFundsOption{}

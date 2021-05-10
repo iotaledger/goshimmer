@@ -3,9 +3,10 @@ package wallet
 import (
 	"time"
 
+	"github.com/iotaledger/hive.go/stringify"
+
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/hive.go/stringify"
 )
 
 // Output is a wallet specific representation of an output in the IOTA network.
@@ -71,6 +72,7 @@ func (o OutputsByID) OutputsByAddressAndOutputID() (outputsByAddressAndOutputID 
 
 type OutputsByAddressAndOutputID map[address.Address]map[ledgerstate.OutputID]*Output
 
+// NewAddressToOutputs creates an empty container.
 func NewAddressToOutputs() OutputsByAddressAndOutputID {
 	return make(map[address.Address]map[ledgerstate.OutputID]*Output)
 }
@@ -87,6 +89,7 @@ func (o OutputsByAddressAndOutputID) OutputsByID() (outputsByID OutputsByID) {
 	return
 }
 
+// ValueOutputsOnly filters out non-value type outputs (aliases).
 func (o OutputsByAddressAndOutputID) ValueOutputsOnly() OutputsByAddressAndOutputID {
 	result := NewAddressToOutputs()
 	for addy, IDToOutputMap := range o {
@@ -124,6 +127,7 @@ func (o OutputsByAddressAndOutputID) ConditionalOutputsOnly() OutputsByAddressAn
 	return result
 }
 
+// AliasOutputsOnly filters out any non-alias outputs.
 func (o OutputsByAddressAndOutputID) AliasOutputsOnly() OutputsByAddressAndOutputID {
 	result := NewAddressToOutputs()
 	for addy, IDToOutputMap := range o {
@@ -139,6 +143,7 @@ func (o OutputsByAddressAndOutputID) AliasOutputsOnly() OutputsByAddressAndOutpu
 	return result
 }
 
+// TotalFundsInOutputs returns the total funds present in the outputs.
 func (o OutputsByAddressAndOutputID) TotalFundsInOutputs() map[ledgerstate.Color]uint64 {
 	result := make(map[ledgerstate.Color]uint64)
 	for _, IDToOutputMap := range o {
@@ -152,6 +157,7 @@ func (o OutputsByAddressAndOutputID) TotalFundsInOutputs() map[ledgerstate.Color
 	return result
 }
 
+// ToLedgerStateOutputs transforms all outputs in the mapping into a slice of ledgerstate outputs.
 func (o OutputsByAddressAndOutputID) ToLedgerStateOutputs() ledgerstate.Outputs {
 	outputs := ledgerstate.Outputs{}
 	for _, outputIDMapping := range o {

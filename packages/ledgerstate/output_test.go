@@ -1183,7 +1183,6 @@ func TestAliasOutput_validateDestroyTransition(t *testing.T) {
 		err = prev.validateDestroyTransitionNow(nowis)
 		assert.NoError(t, err)
 	})
-
 }
 
 func TestAliasOutput_findChainedOutputAndCheckFork(t *testing.T) {

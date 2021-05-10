@@ -1,12 +1,15 @@
 package transfernft_options
 
 import (
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
+// TransferNFTOption is a function that provides an option.
 type TransferNFTOption func(options *transferNFTOptions) error
 
+// WaitForConfirmation defines if the call should wait for confirmation before it returns.
 func WaitForConfirmation(wait bool) TransferNFTOption {
 	return func(options *transferNFTOptions) error {
 		options.WaitForConfirmation = wait
@@ -81,6 +84,7 @@ type transferNFTOptions struct {
 	ResetDelegation       bool
 }
 
+// BuildTransferNFTOptions build the options.
 func BuildTransferNFTOptions(options ...TransferNFTOption) (result *transferNFTOptions, err error) {
 	// create options to collect the arguments provided
 	result = &transferNFTOptions{}

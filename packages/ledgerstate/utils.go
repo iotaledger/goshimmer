@@ -156,9 +156,9 @@ func (g *UnlockGraph) IsCycleDetected() bool {
 	recursionStack := make([]bool, len(g.Vertices))
 
 	for _, node := range g.Vertices {
-		if visited[node] == false {
+		if !visited[node] {
 			// visit node
-			if g.dfs(node, visited, recursionStack) == true {
+			if g.dfs(node, visited, recursionStack) {
 				return true
 			}
 		}
@@ -176,11 +176,11 @@ func (g *UnlockGraph) dfs(node uint16, visited []bool, recursionStack []bool) bo
 	// recursively visit path from node
 	referenced, hasReferenced := g.Edges[node]
 	if hasReferenced {
-		if visited[referenced] == false {
-			if g.dfs(referenced, visited, recursionStack) == true {
+		if !visited[referenced] {
+			if g.dfs(referenced, visited, recursionStack) {
 				return true
 			}
-		} else if recursionStack[referenced] == true {
+		} else if recursionStack[referenced] {
 			// we arrived at a cycle
 			return true
 		}

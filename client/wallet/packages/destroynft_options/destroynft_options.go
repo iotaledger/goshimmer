@@ -1,10 +1,12 @@
 package destroynft_options
 
 import (
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
+// DestroyNFTOption is a function that provides options.
 type DestroyNFTOption func(options *destroyNFTOption) error
 
 func WaitForConfirmation(wait bool) DestroyNFTOption {
@@ -63,6 +65,7 @@ type destroyNFTOption struct {
 	WaitForConfirmation   bool
 }
 
+// BuildDestroyNFTOptions builds the options.
 func BuildDestroyNFTOptions(options ...DestroyNFTOption) (result *destroyNFTOption, err error) {
 	// create options to collect the arguments provided
 	result = &destroyNFTOption{}

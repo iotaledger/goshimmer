@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/mr-tron/base58"
+
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/withdrawfundsfromnft_options"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/mr-tron/base58"
 )
 
 func execWithdrawFromFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
@@ -80,9 +81,9 @@ func execWithdrawFromFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) 
 	}
 
 	if *addressPtr != "" {
-		address, err := ledgerstate.AddressFromBase58EncodedString(*addressPtr)
-		if err != nil {
-			printUsage(command, err.Error())
+		address, aErr := ledgerstate.AddressFromBase58EncodedString(*addressPtr)
+		if aErr != nil {
+			printUsage(command, aErr.Error())
 		}
 		options = append(options, withdrawfundsfromnft_options.ToAddress(address.Base58()))
 	}

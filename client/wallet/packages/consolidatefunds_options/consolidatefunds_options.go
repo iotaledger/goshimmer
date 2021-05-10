@@ -1,5 +1,6 @@
 package consolidatefunds_options
 
+// ConsolidateFundsOption is a function that provides options.
 type ConsolidateFundsOption func(options *consolidateFundsOptions) error
 
 // WaitForConfirmation is an optional parameter to define if the consolidateFunds command should wait for confirmation
@@ -34,6 +35,7 @@ type consolidateFundsOptions struct {
 	WaitForConfirmation   bool
 }
 
+// BuildConsolidateFundsOptions build the options.
 func BuildConsolidateFundsOptions(options ...ConsolidateFundsOption) (result *consolidateFundsOptions, err error) {
 	// create options to collect the arguments provided
 	result = &consolidateFundsOptions{}

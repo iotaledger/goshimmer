@@ -89,9 +89,9 @@ func execSendFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 		if !(*fallbackAddressPtr != "" && *fallbackDeadlinePtr > 0) {
 			printUsage(command, "please provide both fallb-addr and fallb-deadline arguments for conditional sending")
 		}
-		fAddy, err := ledgerstate.AddressFromBase58EncodedString(*fallbackAddressPtr)
-		if err != nil {
-			printUsage(command, fmt.Sprintf("wrong fallback address: %s", err.Error()))
+		fAddy, aErr := ledgerstate.AddressFromBase58EncodedString(*fallbackAddressPtr)
+		if aErr != nil {
+			printUsage(command, fmt.Sprintf("wrong fallback address: %s", aErr.Error()))
 		}
 		fDeadline := time.Unix(*fallbackDeadlinePtr, 0)
 		if fDeadline.Before(nowis) {

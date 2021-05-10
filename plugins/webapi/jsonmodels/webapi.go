@@ -34,6 +34,7 @@ func NewGetAddressResponse(address ledgerstate.Address, outputs ledgerstate.Outp
 
 // region PostAddressesUnspentOutputsRequest
 
+// PostAddressesUnspentOutputsRequest is a the request object for the /ledgerstate/addresses/unspentOutputs endpoint.
 type PostAddressesUnspentOutputsRequest struct {
 	Addresses []string `json:"addresses"`
 }
@@ -42,6 +43,7 @@ type PostAddressesUnspentOutputsRequest struct {
 
 // region PostAddressesUnspentOutputsResponse
 
+// PostAddressesUnspentOutputsResponse is a the response object for the /ledgerstate/addresses/unspentOutputs endpoint.
 type PostAddressesUnspentOutputsResponse struct {
 	UnspentOutputs []*WalletOutputsOnAddress `json:"unspentOutputs"`
 }

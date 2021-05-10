@@ -223,6 +223,6 @@ func (connector *mockConnector) GetTransactionInclusionState(txID ledgerstate.Tr
 	return
 }
 
-func (connector *mockConnector) GetUnspentAliasOutput(address *ledgerstate.AliasAddress) (output *ledgerstate.AliasOutput, err error) {
+func (connector *mockConnector) GetUnspentAliasOutput(addr *ledgerstate.AliasAddress) (output *ledgerstate.AliasOutput, err error) {
 	return
 }

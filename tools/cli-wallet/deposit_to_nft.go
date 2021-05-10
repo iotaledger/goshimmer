@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/mr-tron/base58"
+
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/depositfundstonft_options"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/mr-tron/base58"
 )
 
 func execDepositToNFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
@@ -24,6 +25,9 @@ func execDepositToNFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	consensusManaPledgeIDPtr := command.String("consensus-mana-id", "", "node ID to pledge consensus mana to")
 
 	err := command.Parse(os.Args[2:])
+	if err != nil {
+		printUsage(command, err.Error())
+	}
 	if *helpPtr {
 		printUsage(command)
 	}

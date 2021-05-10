@@ -1,5 +1,6 @@
 package claimconditionalfunds_options
 
+// ClaimConditionalFundsOption is a function that provides options.
 type ClaimConditionalFundsOption func(options *claimConditionalFundsOptions) error
 
 // WaitForConfirmation is an optional parameter to define if the ClaimConditionalFunds command should wait for confirmation
@@ -34,6 +35,7 @@ type claimConditionalFundsOptions struct {
 	WaitForConfirmation   bool
 }
 
+// BuildClaimConditionalFundsOptions builds the options.
 func BuildClaimConditionalFundsOptions(options ...ClaimConditionalFundsOption) (result *claimConditionalFundsOptions, err error) {
 	// create options to collect the arguments provided
 	result = &claimConditionalFundsOptions{}

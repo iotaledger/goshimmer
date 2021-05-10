@@ -73,7 +73,13 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 
 	// fetch balances from wallet
 	confirmedGovAliasBalance, confirmedStateAliasBalance, pendingGovAliasBalance, pendingStateAliasBalance, err := cliWallet.AliasBalance()
+	if err != nil {
+		printUsage(nil, err.Error())
+	}
 	confirmedDel, pendingDel, err := cliWallet.DelegatedAliasBalance()
+	if err != nil {
+		printUsage(nil, err.Error())
+	}
 
 	// process returned data, prepare for printing
 
@@ -92,15 +98,11 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 
 	// remove confirmed delegated alias outputs from governance controlled balance
 	for aliasID := range confirmedDel {
-		if _, has := confirmedGovAliasBalance[aliasID]; has {
-			delete(confirmedGovAliasBalance, aliasID)
-		}
+		delete(confirmedGovAliasBalance, aliasID)
 	}
 	// remove pending delegated alias outputs from governance controlled balance
 	for aliasID := range pendingDel {
-		if _, has := pendingGovAliasBalance[aliasID]; has {
-			delete(pendingGovAliasBalance, aliasID)
-		}
+		delete(pendingGovAliasBalance, aliasID)
 	}
 
 	if err != nil {
@@ -203,7 +205,7 @@ func printTimedBalance(header, timeTitle string, cliWallet *wallet.Wallet, confi
 	_ = w.Flush()
 }
 
-func printAliasBalance(header string, IDName string, cliWallet *wallet.Wallet, confirmed, pending map[ledgerstate.AliasAddress]*ledgerstate.AliasOutput) {
+func printAliasBalance(header string, idName string, cliWallet *wallet.Wallet, confirmed, pending map[ledgerstate.AliasAddress]*ledgerstate.AliasOutput) {
 	// initialize tab writer
 	w := new(tabwriter.Writer)
 	w.Init(os.Stdout, 0, 8, 2, '\t', 0)
@@ -212,7 +214,7 @@ func printAliasBalance(header string, IDName string, cliWallet *wallet.Wallet, c
 	fmt.Println()
 	fmt.Println(header)
 	fmt.Println()
-	_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", "STATUS", IDName, "BALANCE", "COLOR", "TOKEN NAME")
+	_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", "STATUS", idName, "BALANCE", "COLOR", "TOKEN NAME")
 	_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", "------", "--------------------------------------------", "---------------", "--------------------------------------------", "-------------------------")
 
 	for aliasID, alias := range confirmed {

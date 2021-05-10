@@ -1,13 +1,15 @@
 package withdrawfundsfromnft_options
 
 import (
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"golang.org/x/xerrors"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
+// WithdrawFundsFromNFTOption is a function that provides an option.
 type WithdrawFundsFromNFTOption func(options *withdrawFundsFromNFTOption) error
 
-// WaitForConfirmation
+// WaitForConfirmation defines if the call should wait for confirmation before it returns.
 func WaitForConfirmation(wait bool) WithdrawFundsFromNFTOption {
 	return func(options *withdrawFundsFromNFTOption) error {
 		options.WaitForConfirmation = wait
@@ -73,6 +75,7 @@ type withdrawFundsFromNFTOption struct {
 	WaitForConfirmation   bool
 }
 
+// BuildWithdrawFundsFromNFTOptions builds the options.
 func BuildWithdrawFundsFromNFTOptions(options ...WithdrawFundsFromNFTOption) (result *withdrawFundsFromNFTOption, err error) {
 	// create options to collect the arguments provided
 	result = &withdrawFundsFromNFTOption{}

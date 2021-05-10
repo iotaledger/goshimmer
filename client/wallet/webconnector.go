@@ -147,31 +147,32 @@ func (webConnector WebConnector) GetAllowedPledgeIDs() (pledgeIDMap map[mana.Typ
 }
 
 // GetUnspentAliasOutput returns the current unspent alias output that belongs to a given alias address.
-func (webConnector WebConnector) GetUnspentAliasOutput(address *ledgerstate.AliasAddress) (output *ledgerstate.AliasOutput, err error) {
-	res, err := webConnector.client.GetAddressUnspentOutputs(address.Base58())
+func (webConnector WebConnector) GetUnspentAliasOutput(addr *ledgerstate.AliasAddress) (output *ledgerstate.AliasOutput, err error) {
+	res, err := webConnector.client.GetAddressUnspentOutputs(addr.Base58())
 	if err != nil {
 		return
 	}
 	for _, o := range res.Outputs {
-		if o.Type == ledgerstate.AliasOutputType.String() {
-			var uncastedOutput ledgerstate.Output
-			uncastedOutput, err = o.ToLedgerstateOutput()
-			if err != nil {
-				return
-			}
-			alias, ok := uncastedOutput.(*ledgerstate.AliasOutput)
-			if !ok {
-				err = xerrors.Errorf("alias output received from api cannot be casted to ledgerstate representation")
-				return
-			}
-			if alias.GetAliasAddress().Equals(address) {
-				// we found what we were looking for
-				output = alias
-				return
-			}
+		if o.Type != ledgerstate.AliasOutputType.String() {
+			continue
+		}
+		var uncastedOutput ledgerstate.Output
+		uncastedOutput, err = o.ToLedgerstateOutput()
+		if err != nil {
+			return
+		}
+		alias, ok := uncastedOutput.(*ledgerstate.AliasOutput)
+		if !ok {
+			err = xerrors.Errorf("alias output received from api cannot be casted to ledgerstate representation")
+			return
+		}
+		if alias.GetAliasAddress().Equals(addr) {
+			// we found what we were looking for
+			output = alias
+			return
 		}
 	}
-	return nil, xerrors.Errorf("couldn't find unspent alias output for alias address %s", address.Base58())
+	return nil, xerrors.Errorf("couldn't find unspent alias output for alias addr %s", addr.Base58())
 }
 
 // colorFromString is an internal utility method that parses the given string into a Color.
