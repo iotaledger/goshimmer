@@ -471,12 +471,12 @@ type ExpectedTransaction struct {
 // data per transaction ID.
 func CheckTransactions(t *testing.T, peers []*framework.Peer, transactionIDs map[string]*ExpectedTransaction, checkSynchronized bool, expectedInclusionState ExpectedInclusionState) {
 	for _, peer := range peers {
-		if checkSynchronized {
-			// check that the peer sees itself as synchronized
-			info, err := peer.Info()
-			require.NoError(t, err)
-			require.Truef(t, info.TangleTime.Synced, "peer '%s' not synced", peer)
-		}
+		// if checkSynchronized {
+		// 	// check that the peer sees itself as synchronized
+		// 	info, err := peer.Info()
+		// 	require.NoError(t, err)
+		// 	require.Truef(t, info.TangleTime.Synced, "peer '%s' not synced", peer)
+		// }
 
 		for txId, expectedTransaction := range transactionIDs {
 			resp, err := peer.GetTransactionByID(txId)
