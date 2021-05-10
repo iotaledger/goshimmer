@@ -36,7 +36,7 @@ const (
 	DefaultPollingInterval = 500 // in ms
 	// DefaultConfirmationTimeout is the timeout of waiting for confirmation. (in ms)
 	DefaultConfirmationTimeout = 150000 // in ms
-	milliSeconds               = 1000   //miliseconds in a second
+	milliSeconds               = 1000   // miliseconds in a second
 )
 
 // Wallet is a wallet that can handle aliases and extendedlockedoutputs.
