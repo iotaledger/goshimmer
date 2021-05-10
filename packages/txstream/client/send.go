@@ -42,6 +42,6 @@ func (n *Client) RequestUnspentAliasOutput(addr *ledgerstate.AliasAddress) {
 }
 
 // PostTransaction posts a transaction to the ledger
-func (n *Client) PostTransaction(tx *ledgerstate.Transaction, fromSc ledgerstate.Address, fromLeader uint16) {
+func (n *Client) PostTransaction(tx *ledgerstate.Transaction) {
 	n.sendMessage(&txstream.MsgPostTransaction{Tx: tx})
 }
