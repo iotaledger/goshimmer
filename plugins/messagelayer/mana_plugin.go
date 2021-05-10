@@ -138,7 +138,7 @@ func onTransactionConfirmed(transactionID ledgerstate.TransactionID) {
 			var consensusManaNodeID identity.ID
 			var _inputInfo mana.InputInfo
 
-			Tangle().LedgerState.Output(i.ReferencedOutputID()).Consume(func(o ledgerstate.Output) {
+			Tangle().LedgerState.CachedOutput(i.ReferencedOutputID()).Consume(func(o ledgerstate.Output) {
 				// first, sum balances of the input, calculate total amount as well for later
 				o.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
 					amount += float64(balance)
@@ -441,7 +441,7 @@ func verifyPledgeNodes() error {
 
 // PendingManaOnOutput predicts how much mana (bm2) will be pledged to a node if the output specified is spent.
 func PendingManaOnOutput(outputID ledgerstate.OutputID) (float64, time.Time) {
-	cachedOutputMetadata := Tangle().LedgerState.OutputMetadata(outputID)
+	cachedOutputMetadata := Tangle().LedgerState.CachedOutputMetadata(outputID)
 	defer cachedOutputMetadata.Release()
 	outputMetadata := cachedOutputMetadata.Unwrap()
 
@@ -451,7 +451,7 @@ func PendingManaOnOutput(outputID ledgerstate.OutputID) (float64, time.Time) {
 	}
 
 	var value float64
-	Tangle().LedgerState.Output(outputID).Consume(func(output ledgerstate.Output) {
+	Tangle().LedgerState.CachedOutput(outputID).Consume(func(output ledgerstate.Output) {
 		output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
 			value += float64(balance)
 			return true

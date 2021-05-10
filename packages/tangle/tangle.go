@@ -140,7 +140,7 @@ func (t *Tangle) IssuePayload(payload payload.Payload) (message *Message, err er
 		transaction := payload.(*ledgerstate.Transaction)
 		for _, input := range transaction.Essence().Inputs() {
 			if input.Type() == ledgerstate.UTXOInputType {
-				t.LedgerState.OutputMetadata(input.(*ledgerstate.UTXOInput).ReferencedOutputID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+				t.LedgerState.CachedOutputMetadata(input.(*ledgerstate.UTXOInput).ReferencedOutputID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 					t.LedgerState.BranchDAG.Branch(outputMetadata.BranchID()).Consume(func(branch ledgerstate.Branch) {
 						if branch.InclusionState() == ledgerstate.Rejected || !branch.MonotonicallyLiked() {
 							invalidInputs = append(invalidInputs, input.Base58())

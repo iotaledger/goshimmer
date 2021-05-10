@@ -91,6 +91,7 @@ func main() {
 	)
 
 	transactionsMap := make(map[ledgerstate.TransactionID]ledgerstate.Record)
+	accessManaMap := make(map[identity.ID]ledgerstate.AccessMana)
 
 	// Peer master
 	pubKey, err := ed25519.PublicKeyFromString(faucetPledge)
@@ -107,11 +108,16 @@ func main() {
 		ledgerstate.NewOutputs(output),
 	), ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
 
-	record := ledgerstate.Record{
+	txRecord := ledgerstate.Record{
 		Essence:        tx.Essence(),
 		UnspentOutputs: []bool{true},
 	}
-	transactionsMap[tx.ID()] = record
+	transactionsMap[tx.ID()] = txRecord
+	accessManaRecord := ledgerstate.AccessMana{
+		Value:     float64(genesisTokenAmount),
+		Timestamp: time.Unix(tangle.DefaultGenesisTime, 0),
+	}
+	accessManaMap[nodeID] = accessManaRecord
 
 	for i, pk := range nodesToPledge {
 		pubKey, err = ed25519.PublicKeyFromString(pk)
@@ -134,11 +140,16 @@ func main() {
 			UnspentOutputs: []bool{true},
 		}
 		transactionsMap[tx.ID()] = record
+		accessManaRecord := ledgerstate.AccessMana{
+			Value:     float64(genesisTokenAmount),
+			Timestamp: time.Unix(tangle.DefaultGenesisTime, 0),
+		}
+		accessManaMap[nodeID] = accessManaRecord
+
 	}
 
 	newSnapshot := &ledgerstate.Snapshot{
-		// assign 0 access mana to all nodes, since the docker network
-		AccessManaByNode: make(map[identity.ID]ledgerstate.AccessMana),
+		AccessManaByNode: accessManaMap,
 		Transactions:     transactionsMap,
 	}
 
