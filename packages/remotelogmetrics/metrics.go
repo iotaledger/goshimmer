@@ -14,7 +14,6 @@ var (
 func newEvents() *CollectionLogEvents {
 	return &CollectionLogEvents{
 		TangleTimeSyncChanged: events.NewEvent(boolCaller),
-		SyncBeaconSyncChanged: events.NewEvent(boolCaller),
 	}
 }
 
