@@ -112,12 +112,12 @@ func (o *OutputManager) getOutputs(addresses ...address.Address) (unspentOutputs
 }
 
 // MarkOutputSpent marks the output identified by the given parameters as spent.
-func (o *OutputManager) MarkOutputSpent(address address.Address, outputID ledgerstate.OutputID) {
+func (o *OutputManager) MarkOutputSpent(addy address.Address, outputID ledgerstate.OutputID) {
 	// abort if we try to mark an unknown output as spent
-	if _, addressExists := o.unspentOutputs[address]; !addressExists {
+	if _, addressExists := o.unspentOutputs[addy]; !addressExists {
 		return
 	}
-	output, outputExists := o.unspentOutputs[address][outputID]
+	output, outputExists := o.unspentOutputs[addy][outputID]
 	if !outputExists {
 		return
 	}

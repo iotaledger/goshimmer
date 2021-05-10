@@ -780,9 +780,9 @@ type TransactionInclusionState struct {
 }
 
 // NewTransactionInclusionState returns the TransactionInclusionState from the given ledgerstate.InclusionState.
-func NewTransactionInclusionState(inclusionState ledgerstate.InclusionState, ID ledgerstate.TransactionID) *TransactionInclusionState {
+func NewTransactionInclusionState(inclusionState ledgerstate.InclusionState, id ledgerstate.TransactionID) *TransactionInclusionState {
 	return &TransactionInclusionState{
-		TransactionID: ID.Base58(),
+		TransactionID: id.Base58(),
 		Pending:       inclusionState == ledgerstate.Pending,
 		Confirmed:     inclusionState == ledgerstate.Confirmed,
 		Rejected:      inclusionState == ledgerstate.Rejected,

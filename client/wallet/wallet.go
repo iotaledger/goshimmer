@@ -150,19 +150,7 @@ func (wallet *Wallet) SendFunds(options ...sendfunds_options.SendFundsOption) (t
 		return nil, xerrors.Errorf("created transaction is invalid: %s", tx.String())
 	}
 
-	// mark outputs as spent
-	for addr, outputs := range consumedOutputs {
-		for outputID := range outputs {
-			wallet.outputManager.MarkOutputSpent(addr, outputID)
-		}
-	}
-
-	// mark addresses as spent
-	if !wallet.reusableAddress {
-		for addr := range consumedOutputs {
-			wallet.addressManager.MarkAddressSpent(addr.Index)
-		}
-	}
+	wallet.markOutputsAndAddressesSpent(consumedOutputs)
 
 	err = wallet.connector.SendTransaction(tx)
 	if err != nil {
@@ -247,20 +235,7 @@ func (wallet *Wallet) ConsolidateFunds(options ...consolidatefunds_options.Conso
 		return nil, xerrors.Errorf("created transaction is invalid: %s", tx.String())
 	}
 
-	// mark outputs as spent
-	for addr, outputs := range consumedOutputs {
-		for outputID := range outputs {
-			wallet.outputManager.MarkOutputSpent(addr, outputID)
-		}
-	}
-
-	// mark addresses as spent
-	if !wallet.reusableAddress {
-		for addr := range consumedOutputs {
-			wallet.addressManager.MarkAddressSpent(addr.Index)
-		}
-	}
-
+	wallet.markOutputsAndAddressesSpent(consumedOutputs)
 	err = wallet.connector.SendTransaction(tx)
 	if err != nil {
 		return nil, err
@@ -345,19 +320,7 @@ func (wallet *Wallet) ClaimConditionalFunds(options ...claimconditionalfunds_opt
 		return nil, xerrors.Errorf("created transaction is invalid: %s", tx.String())
 	}
 
-	// mark outputs as spent
-	for addr, outputs := range consumedOutputs {
-		for outputID := range outputs {
-			wallet.outputManager.MarkOutputSpent(addr, outputID)
-		}
-	}
-
-	// mark addresses as spent
-	if !wallet.reusableAddress {
-		for addr := range consumedOutputs {
-			wallet.addressManager.MarkAddressSpent(addr.Index)
-		}
-	}
+	wallet.markOutputsAndAddressesSpent(consumedOutputs)
 
 	err = wallet.connector.SendTransaction(tx)
 	if err != nil {
@@ -366,8 +329,6 @@ func (wallet *Wallet) ClaimConditionalFunds(options ...claimconditionalfunds_opt
 	if claimOptions.WaitForConfirmation {
 		err = wallet.WaitForTxConfirmation(tx.ID())
 	}
-	return
-
 	return
 }
 
@@ -475,23 +436,7 @@ func (wallet *Wallet) DelegateFunds(options ...delegatefunds_options.DelegateFun
 	inputs := wallet.buildInputs(consumedOutputs)
 	// aggregate all the funds we consume from inputs
 	totalConsumedFunds := consumedOutputs.TotalFundsInOutputs()
-	var remainderAddress address.Address
-	if delegateOptions.RemainderAddress == address.AddressEmpty {
-		_, spendFromRemainderAddress := consumedOutputs[wallet.RemainderAddress()]
-		_, spendFromReceiveAddress := consumedOutputs[wallet.ReceiveAddress()]
-		if spendFromRemainderAddress && spendFromReceiveAddress {
-			// we are about to spend from both
-			remainderAddress = wallet.NewReceiveAddress()
-		} else if spendFromRemainderAddress && !spendFromReceiveAddress {
-			// we are about to spend from remainder, but not from receive
-			remainderAddress = wallet.ReceiveAddress()
-		} else {
-			// we are not spending from remainder
-			remainderAddress = wallet.RemainderAddress()
-		}
-	} else {
-		remainderAddress = delegateOptions.RemainderAddress
-	}
+	remainderAddress := wallet.chooseRemainder(consumedOutputs, delegateOptions.RemainderAddress)
 
 	unsortedOutputs := ledgerstate.Outputs{}
 	for addr, balanceMap := range delegateOptions.Destinations {
@@ -558,19 +503,7 @@ func (wallet *Wallet) DelegateFunds(options ...delegatefunds_options.DelegateFun
 		}
 	}
 
-	// mark outputs as spent
-	for addr, outputs := range consumedOutputs {
-		for outputID := range outputs {
-			wallet.outputManager.MarkOutputSpent(addr, outputID)
-		}
-	}
-
-	// mark addresses as spent
-	if !wallet.reusableAddress {
-		for addr := range consumedOutputs {
-			wallet.addressManager.MarkAddressSpent(addr.Index)
-		}
-	}
+	wallet.markOutputsAndAddressesSpent(consumedOutputs)
 
 	err = wallet.connector.SendTransaction(tx)
 	if err != nil {
@@ -692,19 +625,7 @@ func (wallet *Wallet) CreateNFT(options ...createnft_options.CreateNFTOption) (t
 		}
 	}
 
-	// mark outputs as spent
-	for addr, outputs := range consumedOutputs {
-		for outputID := range outputs {
-			wallet.outputManager.MarkOutputSpent(addr, outputID)
-		}
-	}
-
-	// mark addresses as spent
-	if !wallet.reusableAddress {
-		for addr := range consumedOutputs {
-			wallet.addressManager.MarkAddressSpent(addr.Index)
-		}
-	}
+	wallet.markOutputsAndAddressesSpent(consumedOutputs)
 
 	err = wallet.connector.SendTransaction(tx)
 	if err != nil {
@@ -817,12 +738,9 @@ func (wallet *Wallet) TransferNFT(options ...transfernft_options.TransferNFTOpti
 		return nil, xerrors.Errorf("created transaction is invalid: %s", tx.String())
 	}
 
-	// mark output as spent
-	wallet.outputManager.MarkOutputSpent(walletAlias.Address, walletAlias.Object.ID())
-	// mark addresses as spent
-	if !wallet.reusableAddress {
-		wallet.addressManager.MarkAddressSpent(walletAlias.Address.Index)
-	}
+	wallet.markOutputsAndAddressesSpent(OutputsByAddressAndOutputID{walletAlias.Address: {
+		walletAlias.Object.ID(): walletAlias,
+	}})
 
 	err = wallet.connector.SendTransaction(tx)
 	if err != nil {
@@ -912,12 +830,9 @@ func (wallet *Wallet) DestroyNFT(options ...destroynft_options.DestroyNFTOption)
 		return nil, xerrors.Errorf("created transaction is invalid: %s", tx.String())
 	}
 
-	// mark output as spent
-	wallet.outputManager.MarkOutputSpent(walletAlias.Address, walletAlias.Object.ID())
-	// mark addresses as spent
-	if !wallet.reusableAddress {
-		wallet.addressManager.MarkAddressSpent(walletAlias.Address.Index)
-	}
+	wallet.markOutputsAndAddressesSpent(OutputsByAddressAndOutputID{walletAlias.Address: {
+		walletAlias.Object.ID(): walletAlias,
+	}})
 
 	err = wallet.connector.SendTransaction(tx)
 	if err != nil {
@@ -1022,12 +937,9 @@ func (wallet *Wallet) WithdrawFundsFromNFT(options ...withdrawfundsfromnft_optio
 		return nil, xerrors.Errorf("created transaction is invalid: %s", tx.String())
 	}
 
-	// mark output as spent
-	wallet.outputManager.MarkOutputSpent(walletAlias.Address, walletAlias.Object.ID())
-	// mark addresses as spent
-	if !wallet.reusableAddress {
-		wallet.addressManager.MarkAddressSpent(walletAlias.Address.Index)
-	}
+	wallet.markOutputsAndAddressesSpent(OutputsByAddressAndOutputID{walletAlias.Address: {
+		walletAlias.Object.ID(): walletAlias,
+	}})
 
 	err = wallet.connector.SendTransaction(tx)
 	if err != nil {
@@ -1139,19 +1051,7 @@ func (wallet *Wallet) DepositFundsToNFT(options ...depositfundstonft_options.Dep
 		return nil, xerrors.Errorf("created transaction is invalid: %s", tx.String())
 	}
 
-	// mark outputs as spent
-	for addr, outputs := range consumedOutputs {
-		for outputID := range outputs {
-			wallet.outputManager.MarkOutputSpent(addr, outputID)
-		}
-	}
-
-	// mark addresses as spent
-	if !wallet.reusableAddress {
-		for addr := range consumedOutputs {
-			wallet.addressManager.MarkAddressSpent(addr.Index)
-		}
-	}
+	wallet.markOutputsAndAddressesSpent(consumedOutputs)
 
 	err = wallet.connector.SendTransaction(tx)
 	if err != nil {
@@ -1277,6 +1177,10 @@ func (wallet Wallet) SweepNFTOwnedFunds(options ...sweepnftownedfunds_options.Sw
 		return nil, xerrors.Errorf("created transaction is invalid: %s", tx.String())
 	}
 
+	wallet.markOutputsAndAddressesSpent(OutputsByAddressAndOutputID{walletAlias.Address: {
+		walletAlias.Object.ID(): walletAlias,
+	}})
+
 	err = wallet.connector.SendTransaction(tx)
 	if err != nil {
 		return nil, err
@@ -1352,16 +1256,17 @@ func (wallet *Wallet) SweepNFTOwnedNFTs(options ...sweepnftownednfts_options.Swe
 	// transition nft owned aliases
 	unsortedOutputs := ledgerstate.Outputs{nextAlias}
 	for _, output := range toBeConsumed {
-		if output.Type() == ledgerstate.AliasOutputType {
-			next := output.(*ledgerstate.AliasOutput).NewAliasOutputNext(true)
-			// set to self-governed by toAddress
-			next.SetGoverningAddress(nil)
-			err = next.SetStateAddress(toAddress)
-			if err != nil {
-				return
-			}
-			unsortedOutputs = append(unsortedOutputs, next)
+		if output.Type() != ledgerstate.AliasOutputType {
+			continue
 		}
+		next := output.(*ledgerstate.AliasOutput).NewAliasOutputNext(true)
+		// set to self-governed by toAddress
+		next.SetGoverningAddress(nil)
+		err = next.SetStateAddress(toAddress)
+		if err != nil {
+			return
+		}
+		unsortedOutputs = append(unsortedOutputs, next)
 	}
 	// we will consume the nft that owns the others too
 	toBeConsumed = append(toBeConsumed, alias)
@@ -1409,6 +1314,10 @@ func (wallet *Wallet) SweepNFTOwnedNFTs(options ...sweepnftownednfts_options.Swe
 		err = xerrors.Errorf("created transaction is invalid: %s", tx.String())
 		return
 	}
+
+	wallet.markOutputsAndAddressesSpent(OutputsByAddressAndOutputID{walletAlias.Address: {
+		walletAlias.Object.ID(): walletAlias,
+	}})
 
 	err = wallet.connector.SendTransaction(tx)
 	if err != nil {
@@ -1646,7 +1555,7 @@ func (wallet *Wallet) Balance() (confirmedBalance map[ledgerstate.Color]uint64, 
 // region AvailableBalance /////////////////////////////////////////////////////////////////////////////////////////////
 
 // AvailableBalance returns the balance that is not held in aliases, and therefore can be used to fund transfers.
-func (wallet *Wallet) AvailableBalance() (confirmedBalance map[ledgerstate.Color]uint64, pendingBalance map[ledgerstate.Color]uint64, err error) {
+func (wallet *Wallet) AvailableBalance() (confirmedBalance, pendingBalance map[ledgerstate.Color]uint64, err error) {
 	err = wallet.outputManager.Refresh()
 	if err != nil {
 		return
@@ -1793,9 +1702,9 @@ func (wallet *Wallet) ConditionalBalances() (confirmed, pending TimedBalanceSlic
 
 // AliasBalance returns the aliases held by this wallet
 func (wallet *Wallet) AliasBalance() (
-	confirmedGovernedAliases map[ledgerstate.AliasAddress]*ledgerstate.AliasOutput,
-	confirmedStateControlledAliases map[ledgerstate.AliasAddress]*ledgerstate.AliasOutput,
-	pendingGovernedAliases map[ledgerstate.AliasAddress]*ledgerstate.AliasOutput,
+	confirmedGovernedAliases,
+	confirmedStateControlledAliases,
+	pendingGovernedAliases,
 	pendingStateControlledAliases map[ledgerstate.AliasAddress]*ledgerstate.AliasOutput,
 	err error,
 ) {
@@ -1812,29 +1721,30 @@ func (wallet *Wallet) AliasBalance() (
 
 	for addr, outputIDToOutputMap := range aliasOutputs {
 		for _, output := range outputIDToOutputMap {
-			if output.Object.Type() == ledgerstate.AliasOutputType {
-				// skip if the output was rejected or spent already
-				if output.InclusionState.Spent || output.InclusionState.Rejected {
-					continue
-				}
-				// target maps
-				var governedAliases, stateControlledAliases map[ledgerstate.AliasAddress]*ledgerstate.AliasOutput
-				if output.InclusionState.Confirmed {
-					governedAliases = confirmedGovernedAliases
-					stateControlledAliases = confirmedStateControlledAliases
-				} else {
-					governedAliases = pendingGovernedAliases
-					stateControlledAliases = pendingStateControlledAliases
-				}
-				alias := output.Object.(*ledgerstate.AliasOutput)
-				if alias.GetGoverningAddress().Equals(addr.Address()) {
-					// alias is governed by the wallet
-					governedAliases[*alias.GetAliasAddress()] = alias
-				}
-				if alias.GetStateAddress().Equals(addr.Address()) {
-					// alias is state controlled by the wallet
-					stateControlledAliases[*alias.GetAliasAddress()] = alias
-				}
+			if output.Object.Type() != ledgerstate.AliasOutputType {
+				continue
+			}
+			// skip if the output was rejected or spent already
+			if output.InclusionState.Spent || output.InclusionState.Rejected {
+				continue
+			}
+			// target maps
+			var governedAliases, stateControlledAliases map[ledgerstate.AliasAddress]*ledgerstate.AliasOutput
+			if output.InclusionState.Confirmed {
+				governedAliases = confirmedGovernedAliases
+				stateControlledAliases = confirmedStateControlledAliases
+			} else {
+				governedAliases = pendingGovernedAliases
+				stateControlledAliases = pendingStateControlledAliases
+			}
+			alias := output.Object.(*ledgerstate.AliasOutput)
+			if alias.GetGoverningAddress().Equals(addr.Address()) {
+				// alias is governed by the wallet
+				governedAliases[*alias.GetAliasAddress()] = alias
+			}
+			if alias.GetStateAddress().Equals(addr.Address()) {
+				// alias is state controlled by the wallet
+				stateControlledAliases[*alias.GetAliasAddress()] = alias
 			}
 		}
 	}
@@ -1847,7 +1757,7 @@ func (wallet *Wallet) AliasBalance() (
 
 // AvailableOutputsOnNFT returns all outputs that are either owned (SigLocked***, Extended, stateControlled Alias) or governed
 // (governance controlled alias outputs) and are not currently locked.
-func (wallet Wallet) AvailableOutputsOnNFT(nftID string) (owned ledgerstate.Outputs, governed ledgerstate.Outputs, err error) {
+func (wallet Wallet) AvailableOutputsOnNFT(nftID string) (owned, governed ledgerstate.Outputs, err error) {
 	aliasAddress, err := ledgerstate.AliasAddressFromBase58EncodedString(nftID)
 	if err != nil {
 		return
@@ -1902,23 +1812,24 @@ func (wallet *Wallet) DelegatedAliasBalance() (
 
 	for addr, outputIDToOutputMap := range aliasOutputs {
 		for _, output := range outputIDToOutputMap {
-			if output.Object.Type() == ledgerstate.AliasOutputType {
-				alias := output.Object.(*ledgerstate.AliasOutput)
-				// skip if the output was rejected, spent already or not a delegated one
-				if output.InclusionState.Spent || output.InclusionState.Rejected || !alias.IsDelegated() {
-					continue
-				}
-				// target maps
-				var delegatedAliases map[ledgerstate.AliasAddress]*ledgerstate.AliasOutput
-				if output.InclusionState.Confirmed {
-					delegatedAliases = confirmedDelegatedAliases
-				} else {
-					delegatedAliases = pendingDelegatedAliases
-				}
-				if alias.GetGoverningAddress().Equals(addr.Address()) {
-					// alias is governed by the wallet (and we previously checked that it is delegated)
-					delegatedAliases[*alias.GetAliasAddress()] = alias
-				}
+			if output.Object.Type() != ledgerstate.AliasOutputType {
+				continue
+			}
+			alias := output.Object.(*ledgerstate.AliasOutput)
+			// skip if the output was rejected, spent already or not a delegated one
+			if output.InclusionState.Spent || output.InclusionState.Rejected || !alias.IsDelegated() {
+				continue
+			}
+			// target maps
+			var delegatedAliases map[ledgerstate.AliasAddress]*ledgerstate.AliasOutput
+			if output.InclusionState.Confirmed {
+				delegatedAliases = confirmedDelegatedAliases
+			} else {
+				delegatedAliases = pendingDelegatedAliases
+			}
+			if alias.GetGoverningAddress().Equals(addr.Address()) {
+				// alias is governed by the wallet (and we previously checked that it is delegated)
+				delegatedAliases[*alias.GetAliasAddress()] = alias
 			}
 		}
 	}
@@ -2069,7 +1980,7 @@ func (wallet *Wallet) derivePledgeIDs(aIDFromOptions, cIDFromOptions string) (aI
 }
 
 // findGovernedAliasOutputByAliasID tries to load the output with given alias address from output manager that is governed by this wallet.
-func (wallet *Wallet) findGovernedAliasOutputByAliasID(ID *ledgerstate.AliasAddress) (res *Output, err error) {
+func (wallet *Wallet) findGovernedAliasOutputByAliasID(id *ledgerstate.AliasAddress) (res *Output, err error) {
 	err = wallet.outputManager.Refresh()
 	if err != nil {
 		return
@@ -2078,18 +1989,18 @@ func (wallet *Wallet) findGovernedAliasOutputByAliasID(ID *ledgerstate.AliasAddr
 	unspentAliasOutputs := wallet.outputManager.UnspentAliasOutputs()
 	for _, outputIDMap := range unspentAliasOutputs {
 		for _, output := range outputIDMap {
-			if output.Object.Address().Equals(ID) && output.Object.(*ledgerstate.AliasOutput).GetGoverningAddress().Equals(output.Address.Address()) {
+			if output.Object.Address().Equals(id) && output.Object.(*ledgerstate.AliasOutput).GetGoverningAddress().Equals(output.Address.Address()) {
 				res = output
 				return res, nil
 			}
 		}
 	}
-	err = xerrors.Errorf("couldn't find aliasID %s in the wallet that is owned for governance", ID.Base58())
+	err = xerrors.Errorf("couldn't find aliasID %s in the wallet that is owned for governance", id.Base58())
 	return nil, err
 }
 
 // findStateControlledAliasOutputByAliasID tries to load the output with given alias address from output manager that is state controlled by this wallet.
-func (wallet *Wallet) findStateControlledAliasOutputByAliasID(ID *ledgerstate.AliasAddress) (res *Output, err error) {
+func (wallet *Wallet) findStateControlledAliasOutputByAliasID(id *ledgerstate.AliasAddress) (res *Output, err error) {
 	err = wallet.outputManager.Refresh()
 	if err != nil {
 		return
@@ -2098,13 +2009,13 @@ func (wallet *Wallet) findStateControlledAliasOutputByAliasID(ID *ledgerstate.Al
 	unspentAliasOutputs := wallet.outputManager.UnspentAliasOutputs()
 	for _, outputIDMap := range unspentAliasOutputs {
 		for _, output := range outputIDMap {
-			if output.Object.Address().Equals(ID) && output.Object.(*ledgerstate.AliasOutput).GetStateAddress().Equals(output.Address.Address()) {
+			if output.Object.Address().Equals(id) && output.Object.(*ledgerstate.AliasOutput).GetStateAddress().Equals(output.Address.Address()) {
 				res = output
 				return res, nil
 			}
 		}
 	}
-	err = xerrors.Errorf("couldn't find aliasID %s in the wallet that is state controlled by the wallet", ID.Base58())
+	err = xerrors.Errorf("couldn't find aliasID %s in the wallet that is state controlled by the wallet", id.Base58())
 	return nil, err
 }
 
@@ -2163,7 +2074,7 @@ func (wallet *Wallet) collectOutputsForFunding(fundingBalance map[ledgerstate.Co
 }
 
 // enoughCollected checks if collected has at least target funds
-func enoughCollected(collected map[ledgerstate.Color]uint64, target map[ledgerstate.Color]uint64) bool {
+func enoughCollected(collected, target map[ledgerstate.Color]uint64) bool {
 	for color, balance := range target {
 		if collected[color] < balance {
 			return false
@@ -2260,6 +2171,43 @@ func (wallet *Wallet) buildUnlockBlocks(inputs ledgerstate.Inputs, consumedOutpu
 		unlockBlock := ledgerstate.NewSignatureUnlockBlock(ledgerstate.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(essence.Bytes())))
 		unlocks[outputIndex] = unlockBlock
 		existingUnlockBlocks[output.Address] = uint16(outputIndex)
+	}
+	return
+}
+
+// markOutputsAndAddressesSpent marks consumed outputs and their addresses as spent.
+func (wallet *Wallet) markOutputsAndAddressesSpent(consumedOutputs OutputsByAddressAndOutputID) {
+	// mark outputs as spent
+	for addr, outputs := range consumedOutputs {
+		for outputID := range outputs {
+			wallet.outputManager.MarkOutputSpent(addr, outputID)
+		}
+	}
+
+	// mark addresses as spent
+	if !wallet.reusableAddress {
+		for addr := range consumedOutputs {
+			wallet.addressManager.MarkAddressSpent(addr.Index)
+		}
+	}
+}
+
+func (wallet *Wallet) chooseRemainder(consumedOutputs OutputsByAddressAndOutputID, optionsRemainder address.Address) (remainder address.Address) {
+	if optionsRemainder == address.AddressEmpty {
+		_, spendFromRemainderAddress := consumedOutputs[wallet.RemainderAddress()]
+		_, spendFromReceiveAddress := consumedOutputs[wallet.ReceiveAddress()]
+		if spendFromRemainderAddress && spendFromReceiveAddress {
+			// we are about to spend from both
+			remainder = wallet.NewReceiveAddress()
+		} else if spendFromRemainderAddress && !spendFromReceiveAddress {
+			// we are about to spend from remainder, but not from receive
+			remainder = wallet.ReceiveAddress()
+		} else {
+			// we are not spending from remainder
+			remainder = wallet.RemainderAddress()
+		}
+	} else {
+		remainder = optionsRemainder
 	}
 	return
 }

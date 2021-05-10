@@ -109,8 +109,7 @@ func (o OutputsByAddressAndOutputID) ConditionalOutputsOnly() OutputsByAddressAn
 	result := NewAddressToOutputs()
 	for addy, IDToOutputMap := range o {
 		for outputID, output := range IDToOutputMap {
-			switch output.Object.Type() {
-			case ledgerstate.ExtendedLockedOutputType:
+			if output.Object.Type() == ledgerstate.ExtendedLockedOutputType {
 				casted := output.Object.(*ledgerstate.ExtendedLockedOutput)
 				_, fallbackDeadline := casted.FallbackOptions()
 				if !fallbackDeadline.IsZero() && addy.Address().Equals(casted.UnlockAddressNow(now)) {
@@ -129,8 +128,7 @@ func (o OutputsByAddressAndOutputID) AliasOutputsOnly() OutputsByAddressAndOutpu
 	result := NewAddressToOutputs()
 	for addy, IDToOutputMap := range o {
 		for outputID, output := range IDToOutputMap {
-			switch output.Object.Type() {
-			case ledgerstate.AliasOutputType:
+			if output.Object.Type() == ledgerstate.AliasOutputType {
 				if _, addressExists := result[addy]; !addressExists {
 					result[addy] = make(map[ledgerstate.OutputID]*Output)
 				}
