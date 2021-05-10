@@ -178,6 +178,10 @@ func (m *testMessage) Bytes() []byte {
 	return m.bytes
 }
 
+func (m *testMessage) Size() int {
+	return len(m.Bytes())
+}
+
 func (m *testMessage) IssuerPublicKey() ed25519.PublicKey {
 	return m.pubKey
 }

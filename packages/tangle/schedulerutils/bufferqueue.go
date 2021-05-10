@@ -30,7 +30,7 @@ var (
 type BufferQueue struct {
 	activeNode map[identity.ID]*ring.Ring
 	ring       *ring.Ring
-	size       uint
+	size       int
 }
 
 // NewBufferQueue returns a new BufferQueue
@@ -47,7 +47,7 @@ func (b *BufferQueue) NumActiveNodes() int {
 }
 
 // Size returns the total size (in bytes) of all messages in b.
-func (b *BufferQueue) Size() uint {
+func (b *BufferQueue) Size() int {
 	return b.size
 }
 
@@ -62,31 +62,32 @@ func (b *BufferQueue) NodeQueue(nodeID identity.ID) *NodeQueue {
 
 // Submit submits a message.
 func (b *BufferQueue) Submit(msg Element, rep float64) error {
-	if b.size+uint(len(msg.Bytes())) > MaxBufferSize {
+	size := msg.Size()
+	if b.size+size > MaxBufferSize {
 		return ErrBufferFull
 	}
 
 	nodeID := identity.NewID(msg.IssuerPublicKey())
-	element, ok := b.activeNode[nodeID]
-	if !ok {
-		element = b.ringInsert(NewNodeQueue(nodeID))
-		b.activeNode[nodeID] = element
+	element, nodeActive := b.activeNode[nodeID]
+	var nodeQueue *NodeQueue
+	if nodeActive {
+		nodeQueue = element.Value.(*NodeQueue)
+	} else {
+		nodeQueue = NewNodeQueue(nodeID)
 	}
 
-	nodeQueue := element.Value.(*NodeQueue)
-	if float64(nodeQueue.Size()+uint(len(msg.Bytes())))/rep > MaxQueueWeight {
+	if float64(nodeQueue.Size()+size)/rep > MaxQueueWeight {
 		return ErrInboxExceeded
 	}
-
-	submitted, err := nodeQueue.Submit(msg)
-	if err != nil {
-		return err
-	}
-	if !submitted {
-		return errors.Errorf("error in BufferQueue (Submit): message has already been submitted %x", msg.IDBytes())
+	if !nodeQueue.Submit(msg) {
+		panic("message already submitted")
 	}
 
-	b.size += uint(len(msg.Bytes()))
+	// if the node was not active before, add it now
+	if !nodeActive {
+		b.activeNode[nodeID] = b.ringInsert(nodeQueue)
+	}
+	b.size += size
 	return nil
 }
 
@@ -105,7 +106,7 @@ func (b *BufferQueue) Unsubmit(msg Element) bool {
 		return false
 	}
 
-	b.size -= uint(len(msg.Bytes()))
+	b.size -= msg.Size()
 	if nodeQueue.IsInactive() {
 		b.ringRemove(element)
 		delete(b.activeNode, nodeID)
@@ -164,7 +165,7 @@ func (b *BufferQueue) PopFront() Element {
 		delete(b.activeNode, identity.NewID(msg.IssuerPublicKey()))
 	}
 
-	b.size -= uint(len(msg.Bytes()))
+	b.size -= msg.Size()
 	return msg
 }
 

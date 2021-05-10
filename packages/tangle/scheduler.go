@@ -5,13 +5,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/goshimmer/packages/tangle/schedulerutils"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/typeutils"
-	"github.com/iotaledger/hive.go/workerpool"
-
-	"github.com/cockroachdb/errors"
 )
 
 const (
@@ -22,15 +20,8 @@ const (
 	MinMana = 0.0001
 )
 
-// ErrNotRunning is returned when a message is submitted when the scheduler has not been started
-var ErrNotRunning = errors.New("scheduler is not running")
-
-var (
-	// TODO: currently the worker pool just serves as a buffer to allow submitting messages to a not running scheduler; investigate why this is necessary.
-	submitWorkerCount     = 1
-	submitWorkerQueueSize = 250
-	submitWorkerPool      *workerpool.WorkerPool
-)
+// ErrNotRunning is returned when a message is submitted when the scheduler has been stopped
+var ErrNotRunning = errors.New("scheduler stopped")
 
 // AccessManaRetrieveFunc is a function type to retrieve access mana (e.g. via the mana plugin)
 type AccessManaRetrieveFunc func(nodeID identity.ID) float64
@@ -51,9 +42,8 @@ type Scheduler struct {
 	Events *SchedulerEvents
 
 	tangle  *Tangle
-	self    identity.ID
 	ticker  *time.Ticker
-	running typeutils.AtomicBool
+	stopped typeutils.AtomicBool
 
 	mu       sync.Mutex
 	buffer   *schedulerutils.BufferQueue
@@ -84,8 +74,8 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 			MessageDiscarded: events.NewEvent(MessageIDCaller),
 			NodeBlacklisted:  events.NewEvent(NodeIDCaller),
 		},
-		self:           tangle.Options.Identity.ID(),
 		tangle:         tangle,
+		ticker:         time.NewTicker(tangle.Options.SchedulerParams.Rate),
 		buffer:         schedulerutils.NewBufferQueue(),
 		deficits:       make(map[identity.ID]float64),
 		shutdownSignal: make(chan struct{}),
@@ -94,18 +84,21 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 	scheduler.closures.messageInvalid = events.NewClosure(scheduler.messageInvalidHandler)
 	scheduler.closures.messageDiscarded = events.NewClosure(scheduler.messageDiscardedHandler)
 
-	submitWorkerPool = workerpool.New(func(task workerpool.Task) {
-		if err := scheduler.SubmitAndReady(task.Param(0).(MessageID)); err != nil {
-			scheduler.tangle.Events.Error.Trigger(errors.Errorf("failed to submit to scheduler: %w", err))
-		}
-		task.Return(nil)
-	}, workerpool.WorkerCount(submitWorkerCount), workerpool.QueueSize(submitWorkerQueueSize))
-
 	return scheduler
 }
 
 func (s *Scheduler) messageSolidHandler(id MessageID) {
-	submitWorkerPool.TrySubmit(id)
+	s.tangle.Storage.Message(id).Consume(func(message *Message) {
+		if identity.NewID(message.IssuerPublicKey()) == s.tangle.Options.Identity.ID() {
+			if err := s.tangle.RateSetter.Issue(message); err != nil {
+				s.tangle.Events.Error.Trigger(errors.Errorf("failed to issue to rate setter: %w", err))
+			}
+		} else {
+			if err := s.tangle.Scheduler.SubmitAndReady(message.ID()); err != nil {
+				s.tangle.Events.Error.Trigger(errors.Errorf("failed to submit to scheduler: %w", err))
+			}
+		}
+	})
 }
 
 func (s *Scheduler) messageInvalidHandler(id MessageID) {
@@ -119,26 +112,18 @@ func (s *Scheduler) messageDiscardedHandler(id MessageID) {
 
 // Start starts the scheduler.
 func (s *Scheduler) Start() {
-	// create the ticker here to assure that SetRate never hits an uninitialized ticker
-	s.ticker = time.NewTicker(s.tangle.Options.SchedulerParams.Rate)
 	// start the main loop
 	go s.mainLoop()
-
-	// start schedule queued messages
-	submitWorkerPool.Start()
-
-	s.running.Set()
 }
 
 // Shutdown shuts down the Scheduler.
 // Shutdown blocks until the scheduler has been shutdown successfully.
 func (s *Scheduler) Shutdown() {
 	s.shutdownOnce.Do(func() {
-		submitWorkerPool.Stop()
 		// lock the scheduler to make sure that any Submit() has been finished
 		s.mu.Lock()
 		defer s.mu.Unlock()
-		s.running.UnSet()
+		s.stopped.Set()
 		close(s.shutdownSignal)
 	})
 }
@@ -171,11 +156,9 @@ func (s *Scheduler) SubmitAndReady(messageID MessageID) error {
 }
 
 // SetRate sets the rate of the scheduler.
-// SetRate must only be called after the scheduler has been started.
 func (s *Scheduler) SetRate(rate time.Duration) {
-	s.tangle.Options.SchedulerParams.Rate = rate
 	// only update the ticker when the scheduler is running
-	if s.running.IsSet() {
+	if !s.stopped.IsSet() {
 		s.ticker.Reset(rate)
 	}
 }
@@ -188,7 +171,7 @@ func (s *Scheduler) Submit(messageID MessageID) (err error) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 
-		if !s.running.IsSet() {
+		if s.stopped.IsSet() {
 			err = ErrNotRunning
 			return
 		}
@@ -271,7 +254,7 @@ func (s *Scheduler) schedule() *Message {
 		// a message can be scheduled, if it is ready and its issuing time is not in the future
 		hasReady := msg != nil && !now.Before(msg.IssuingTime())
 		// if the current node has enough deficit and the first message in its outbox is valid, we are done
-		if hasReady && s.getDeficit(q.NodeID()) >= float64(len(msg.Bytes())) {
+		if hasReady && s.getDeficit(q.NodeID()) >= float64(msg.Size()) {
 			break
 		}
 		// otherwise increase its deficit
@@ -293,7 +276,7 @@ func (s *Scheduler) schedule() *Message {
 	// remove the message from the buffer and adjust node's deficit
 	msg := s.buffer.PopFront()
 	nodeID := identity.NewID(msg.IssuerPublicKey())
-	s.updateDeficit(nodeID, -float64(len(msg.Bytes())))
+	s.updateDeficit(nodeID, -float64(msg.Size()))
 
 	return msg.(*Message)
 }
@@ -336,7 +319,7 @@ func (s *Scheduler) updateDeficit(nodeID identity.ID, d float64) {
 }
 
 // NodeQueueSize returns the size of the nodeIDs queue.
-func (s *Scheduler) NodeQueueSize(nodeID identity.ID) uint {
+func (s *Scheduler) NodeQueueSize(nodeID identity.ID) int {
 	return s.buffer.NodeQueue(nodeID).Size()
 }
 

@@ -5,38 +5,43 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/goshimmer/packages/tangle/schedulerutils"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
-	"go.uber.org/atomic"
 
-	"github.com/iotaledger/goshimmer/packages/tangle/schedulerutils"
+	"github.com/cockroachdb/errors"
+	"go.uber.org/atomic"
 )
 
 const (
 	// MaxLocalQueueSize is the maximum local (containing the message to be issued) queue size in bytes
-	MaxLocalQueueSize = 10000 * MaxMessageSize //TODO: 20
+	MaxLocalQueueSize = 20 * MaxMessageSize
 	// Backoff is the local threshold for rate setting; < MaxQueueWeight
 	Backoff = 25.0
-	// A is the additive increase
-	A = 1.0
-	// Tau is the time to wait before next rate's update after a backoff
-	Tau = 2
+	// RateSettingIncrease is the global additive increase parameter.
+	RateSettingIncrease = 1.0
+	// RateSettingDecrease global multiplicative decrease parameter  (larger than 1)
+	RateSettingDecrease = 1.5
+	// RateSettingPause is the time to wait before next rate's update after a backoff
+	RateSettingPause = 2
+)
+
+var (
+	// ErrInvalidIssuer is returned when an invalid message is passed to the rate setter.
+	ErrInvalidIssuer = errors.New("message not issued by local node")
+	// ErrStopped is returned when a message is passed to a stopped rate setter.
+	ErrStopped = errors.New("rate setter stopped")
 )
 
 var (
 	// Initial is the rate in bytes per second
 	Initial = 20000.0
-	// Beta is the multiplicative decrease
-	Beta          = 0.7
-	issueChanSize = 1000
 )
 
 // region RateSetterParams /////////////////////////////////////////////////////////////////////////////////////////////
 
 // RateSetterParams represents the parameters for RateSetter.
 type RateSetterParams struct {
-	Beta    *float64
 	Initial *float64
 }
 
@@ -51,8 +56,8 @@ type RateSetter struct {
 	self           identity.ID
 	mu             sync.Mutex
 	issuingQueue   *schedulerutils.NodeQueue
-	issue          chan *Message
-	lambda         *atomic.Float64
+	issueChan      chan *Message
+	ownRate        *atomic.Float64
 	haltUpdate     uint
 	shutdownSignal chan struct{}
 	shutdownOnce   sync.Once
@@ -64,21 +69,17 @@ func NewRateSetter(tangle *Tangle) *RateSetter {
 		tangle: tangle,
 		Events: &RateSetterEvents{
 			MessageDiscarded: events.NewEvent(MessageIDCaller),
-			MessageIssued:    events.NewEvent(messageEventHandler),
 		},
 		self:           tangle.Options.Identity.ID(),
 		issuingQueue:   schedulerutils.NewNodeQueue(tangle.Options.Identity.ID()),
-		issue:          make(chan *Message, issueChanSize),
-		lambda:         atomic.NewFloat64(Initial),
+		issueChan:      make(chan *Message),
+		ownRate:        atomic.NewFloat64(Initial),
 		haltUpdate:     0,
 		shutdownSignal: make(chan struct{}),
 		shutdownOnce:   sync.Once{},
 	}
 	if tangle.Options.RateSetterParams.Initial != nil {
 		Initial = *tangle.Options.RateSetterParams.Initial
-	}
-	if tangle.Options.RateSetterParams.Beta != nil {
-		Beta = *tangle.Options.RateSetterParams.Beta
 	}
 
 	go rateSetter.issuerLoop()
@@ -92,32 +93,18 @@ func (r *RateSetter) Setup() {
 	}))
 }
 
-func (r *RateSetter) unsubmit(message *Message) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	r.issuingQueue.Unsubmit(message)
-	r.tangle.Scheduler.Unsubmit(message.ID())
-}
-
-// Submit submits a message to the local issuing queue.
-func (r *RateSetter) Submit(message *Message) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if r.issuingQueue.Size()+uint(len(message.Bytes())) > MaxLocalQueueSize {
-		r.Events.MessageDiscarded.Trigger(message.ID())
-		return errors.Errorf("local queue exceeded: %s", message.ID())
+// Issue submits a message to the local issuing queue.
+func (r *RateSetter) Issue(message *Message) error {
+	if identity.NewID(message.IssuerPublicKey()) != r.self {
+		return ErrInvalidIssuer
 	}
-	submitted, err := r.issuingQueue.Submit(message)
-	if err != nil {
-		r.tangle.Events.Info.Trigger("failed to submit message ", message.ID().Base58(), " to issuing queue: ", err)
-		return err
+
+	select {
+	case r.issueChan <- message:
+		return nil
+	case <-r.shutdownSignal:
+		return ErrStopped
 	}
-	if submitted {
-		r.issue <- message
-	}
-	return nil
 }
 
 // Shutdown shuts down the RateSetter.
@@ -128,9 +115,8 @@ func (r *RateSetter) Shutdown() {
 }
 
 func (r *RateSetter) rateSetting(messageID MessageID) {
-	cachedMessage := r.tangle.Storage.Message(messageID)
-	var isIssuer bool
-	cachedMessage.Consume(func(message *Message) {
+	isIssuer := false
+	r.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		nodeID := identity.NewID(message.IssuerPublicKey())
 		isIssuer = r.self == nodeID
 	})
@@ -145,88 +131,79 @@ func (r *RateSetter) rateSetting(messageID MessageID) {
 
 	mana := r.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(r.self)
 	totalMana := r.tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc()
-	if mana <= 0 {
-		r.tangle.Events.Info.Trigger(errors.Errorf("invalid mana: %f when setting rate for message %s", mana, messageID.Base58()))
-		return
-	}
 
-	lambda := r.lambda.Load()
+	ownRate := r.ownRate.Load()
 	if float64(r.tangle.Scheduler.NodeQueueSize(r.self))/mana > Backoff {
-		lambda *= Beta
-		r.haltUpdate = Tau
+		ownRate /= RateSettingDecrease
+		r.haltUpdate = RateSettingPause
 	} else {
-		lambda += A * mana / totalMana
+		ownRate += RateSettingIncrease * mana / totalMana
 	}
-	r.lambda.Store(lambda)
+	r.ownRate.Store(ownRate)
 }
 
 func (r *RateSetter) issuerLoop() {
 	var (
-		issue         = time.NewTimer(0) // setting this to 0 will cause a trigger right away
+		issueTimer    = time.NewTimer(0) // setting this to 0 will cause a trigger right away
 		timerStopped  = false
 		lastIssueTime = time.Now()
 	)
-	defer issue.Stop()
+	defer issueTimer.Stop()
 
+loop:
 	for {
 		select {
-		// a new message can be scheduled
-		case <-issue.C:
+		// a new message can be submitted to the scheduler
+		case <-issueTimer.C:
 			timerStopped = true
-			if !r.issueNext() {
+			if r.issuingQueue.Front() == nil {
 				continue
+			}
+
+			msg := r.issuingQueue.PopFront().(*Message)
+			if err := r.tangle.Scheduler.SubmitAndReady(msg.ID()); err != nil {
+				r.Events.MessageDiscarded.Trigger(msg.ID())
 			}
 			lastIssueTime = time.Now()
 
 			if next := r.issuingQueue.Front(); next != nil {
-				issue.Reset(time.Until(lastIssueTime.Add(r.issueInterval(next.(*Message)))))
+				issueTimer.Reset(time.Until(lastIssueTime.Add(r.issueInterval(next.(*Message)))))
 				timerStopped = false
 			}
 
 		// add a new message to the local issuer queue
-		case msg := <-r.issue:
-			nodeID := identity.NewID(msg.IssuerPublicKey())
-			if nodeID != r.self {
-				panic("invalid message")
+		case msg := <-r.issueChan:
+			if r.issuingQueue.Size()+msg.Size() > MaxLocalQueueSize {
+				r.Events.MessageDiscarded.Trigger(msg.ID())
+				continue
 			}
-			// mark the message as ready so that it will be picked up at the next tick
-			func() {
-				r.mu.Lock()
-				defer r.mu.Unlock()
-				r.issuingQueue.Ready(msg)
-			}()
+			// add to queue
+			r.issuingQueue.Submit(msg)
+			r.issuingQueue.Ready(msg)
 
 			// set a new timer if needed
-			// if a timer is already running it is not updated, even if the lambda has changed
+			// if a timer is already running it is not updated, even if the ownRate has changed
 			if !timerStopped {
 				break
 			}
 			if next := r.issuingQueue.Front(); next != nil {
-				issue.Reset(time.Until(lastIssueTime.Add(r.issueInterval(next.(*Message)))))
+				issueTimer.Reset(time.Until(lastIssueTime.Add(r.issueInterval(next.(*Message)))))
 			}
 
 		// on close, exit the loop
 		case <-r.shutdownSignal:
-			return
+			break loop
 		}
 	}
-}
 
-func (r *RateSetter) issueNext() bool {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	msg := r.issuingQueue.Front()
-	if msg == nil {
-		return false
+	// discard all remaining messages at shutdown
+	for _, id := range r.issuingQueue.IDs() {
+		r.Events.MessageDiscarded.Trigger(id)
 	}
-	r.Events.MessageIssued.Trigger(msg)
-	r.issuingQueue.PopFront()
-	return true
 }
 
 func (r *RateSetter) issueInterval(msg *Message) time.Duration {
-	wait := time.Duration(math.Ceil(float64(len(msg.Bytes())) / r.lambda.Load() * float64(time.Second)))
+	wait := time.Duration(math.Ceil(float64(len(msg.Bytes())) / r.ownRate.Load() * float64(time.Second)))
 	return wait
 }
 
@@ -237,7 +214,6 @@ func (r *RateSetter) issueInterval(msg *Message) time.Duration {
 // RateSetterEvents represents events happening in the rate setter.
 type RateSetterEvents struct {
 	MessageDiscarded *events.Event
-	MessageIssued    *events.Event
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

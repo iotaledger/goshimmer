@@ -61,8 +61,7 @@ func configure(plugin *node.Plugin) {
 	}))
 
 	// Messages created by the node need to pass through the normal flow.
-	Tangle().RateSetter.Events.MessageIssued.Attach(events.NewClosure(func(message *tangle.Message) {
-		plugin.LogInfo("issued message: %s", message.ID().Base58())
+	Tangle().MessageFactory.Events.MessageConstructed.Attach(events.NewClosure(func(message *tangle.Message) {
 		Tangle().ProcessGossipMessage(message.Bytes(), local.GetInstance().Peer)
 	}))
 
@@ -72,54 +71,66 @@ func configure(plugin *node.Plugin) {
 		})
 	}))
 
-	Tangle().RateSetter.Events.MessageDiscarded.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		plugin.LogInfof("issuing queue is full. Message discarded. %s", messageID.Base58())
-	}))
-
 	Tangle().Parser.Events.MessageRejected.Attach(events.NewClosure(func(ev *tangle.MessageRejectedEvent) {
 		plugin.LogInfo("message rejected in parser: %s", ev.Message.ID().Base58())
 	}))
 
-	Tangle().Scheduler.Events.NodeBlacklisted.Attach(events.NewClosure(func(nodeID identity.ID) {
-		plugin.LogInfof("Node %s is blacklisted in scheduler.", nodeID.String())
+	Tangle().FifoScheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		plugin.LogInfof("message discarded in FifoScheduler %s", messageID.Base58())
+	}))
+
+	Tangle().FifoScheduler.Events.NodeBlacklisted.Attach(events.NewClosure(func(nodeID identity.ID) {
+		plugin.LogInfof("node %s is blacklisted in FifoScheduler", nodeID.String())
+	}))
+
+	Tangle().FifoScheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		plugin.LogDebugf("message scheduled in FifoScheduler: %s", messageID.Base58())
+	}))
+
+	Tangle().RateSetter.Events.MessageDiscarded.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		plugin.LogInfof("message discarded in rate setter: %s", messageID.Base58())
 	}))
 
 	Tangle().Scheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		plugin.LogInfof("Message discarded in scheduler %s", messageID.Base58())
+		plugin.LogInfof("message rejected in scheduler: %s", messageID.Base58())
+	}))
+
+	Tangle().Scheduler.Events.NodeBlacklisted.Attach(events.NewClosure(func(nodeID identity.ID) {
+		plugin.LogInfof("node %s is blacklisted in scheduler", nodeID.String())
+	}))
+
+	Tangle().Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		plugin.LogDebugf("message scheduled in scheduler: %s", messageID.Base58())
 	}))
 
 	Tangle().Events.MessageInvalid.Attach(events.NewClosure(func(messageID tangle.MessageID) {
 		plugin.LogInfo("Message invalid: ", messageID.Base58())
 	}))
 
-	Tangle().FifoScheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		plugin.LogInfof("Message discarded in FifoScheduler %s", messageID.Base58())
-	}))
-
-	Tangle().FifoScheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(nodeID identity.ID) {
-		plugin.LogInfof("Node %s is blacklisted in FifoScheduler %s", nodeID.String())
-	}))
-
 	Tangle().Booker.Events.MessageBooked.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		plugin.LogInfo("message booked in message layer: ", messageID.Base58())
+		plugin.LogDebugf("message booked in message layer: ", messageID.Base58())
 	}))
 
 	Tangle().Events.SyncChanged.Attach(events.NewClosure(func(ev *tangle.SyncChangedEvent) {
 		plugin.LogInfo("Sync changed: ", ev.Synced)
 		if ev.Synced {
-			Tangle().Scheduler.SetRate(schedulerRate(SchedulerParameters.Rate))
 			// Only for the first synced
 			syncedOnce.Do(func() {
 				Tangle().Scheduler.Setup()        // start buffering solid messages
 				Tangle().FifoScheduler.Detach()   // stop receiving more messages
 				Tangle().FifoScheduler.Shutdown() // schedule remaining messages
-				Tangle().Scheduler.Start()        // start scheduler
+				Tangle().Scheduler.Start()        // start the actual scheduler
 			})
+			// make sure that we are using the configured rate when synced
+			rate := Tangle().Options.SchedulerParams.Rate
+			Tangle().Scheduler.SetRate(rate)
+			plugin.LogInfof("Scheduler rate: %v", rate)
 		} else {
 			// increase scheduler rate
 			rate := Tangle().Options.SchedulerParams.Rate
 			rate -= rate / 2 // 50% increase
 			Tangle().Scheduler.SetRate(rate)
+			plugin.LogInfof("Scheduler rate: %v", rate)
 		}
 	}))
 
@@ -176,7 +187,6 @@ func Tangle() *tangle.Tangle {
 				TotalAccessManaRetrieveFunc: totalAccessManaRetriever,
 			}),
 			tangle.RateSetterConfig(tangle.RateSetterParams{
-				Beta:    &RateSetterParameters.Beta,
 				Initial: &RateSetterParameters.Initial,
 			}),
 			tangle.SyncTimeWindow(Parameters.TangleTimeWindow),
@@ -315,8 +325,8 @@ func AwaitMessageToBeIssued(messageID tangle.MessageID, maxAwait time.Duration) 
 		case <-exit:
 		}
 	})
-	Tangle().RateSetter.Events.MessageIssued.Attach(closure)
-	defer Tangle().RateSetter.Events.MessageIssued.Detach(closure)
+	Tangle().Scheduler.Events.MessageScheduled.Attach(closure)
+	defer Tangle().Scheduler.Events.MessageScheduled.Detach(closure)
 
 	select {
 	case <-time.After(maxAwait):

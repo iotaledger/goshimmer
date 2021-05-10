@@ -29,13 +29,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
-var (
-	beta             = 1.0
-	rateSetterParams = RateSetterParams{
-		Beta: &beta,
-	}
-)
-
 func BenchmarkVerifyDataMessages(b *testing.B) {
 	tangle := newTestTangle()
 
@@ -383,7 +376,7 @@ func TestTangle_Flow(t *testing.T) {
 	tips.Set(EmptyMessageID, EmptyMessageID)
 
 	// create the tangle
-	tangle := newTestTangle(Store(badger), RateSetterConfig(rateSetterParams))
+	tangle := newTestTangle(Store(badger))
 	defer tangle.Shutdown()
 
 	// create local peer

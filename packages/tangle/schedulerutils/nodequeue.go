@@ -2,9 +2,9 @@ package schedulerutils
 
 import (
 	"container/heap"
+	"fmt"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 )
@@ -32,8 +32,7 @@ type Element interface {
 	// IDBytes returns the ID of an Element as a byte slice.
 	IDBytes() []byte
 
-	// Bytes returns a marshaled version of the Element.
-	Bytes() []byte
+	Size() int
 
 	// IssuerPublicKey returns the issuer public key of the element.
 	IssuerPublicKey() ed25519.PublicKey
@@ -49,7 +48,7 @@ type NodeQueue struct {
 	nodeID    identity.ID
 	submitted map[ElementID]*Element
 	inbox     *ElementHeap
-	size      uint
+	size      int
 }
 
 // NewNodeQueue returns a new NodeQueue
@@ -67,13 +66,8 @@ func (q *NodeQueue) IsInactive() bool {
 	return q.Size() == 0
 }
 
-// SetSize sets the size of NodeQueue (for testing).
-func (q *NodeQueue) SetSize(size uint) {
-	q.size = size
-}
-
 // Size returns the total size of the messages in the queue.
-func (q *NodeQueue) Size() uint {
+func (q *NodeQueue) Size() int {
 	if q == nil {
 		return 0
 	}
@@ -86,20 +80,20 @@ func (q *NodeQueue) NodeID() identity.ID {
 }
 
 // Submit submits a message for the queue.
-func (q *NodeQueue) Submit(element Element) (bool, error) {
-	msgNodeID := identity.NewID(element.IssuerPublicKey())
-	if q.nodeID != msgNodeID {
-		return false, errors.Errorf("Queue node ID(%x) and issuer ID(%x) doesn't match.", q.nodeID, msgNodeID)
+func (q *NodeQueue) Submit(element Element) bool {
+	// this is just a debugging check, it will never happen in practice
+	if msgNodeID := identity.NewID(element.IssuerPublicKey()); q.nodeID != msgNodeID {
+		panic(fmt.Sprintf("nodequeue: queue node ID(%x) and issuer ID(%x) does not match.", q.nodeID, msgNodeID))
 	}
 
 	id := ElementIDFromBytes(element.IDBytes())
 	if _, submitted := q.submitted[id]; submitted {
-		return false, nil
+		return false
 	}
 
 	q.submitted[id] = &element
-	q.size += uint(len(element.Bytes()))
-	return true, nil
+	q.size += element.Size()
+	return true
 }
 
 // Unsubmit removes a previously submitted message from the queue.
@@ -110,7 +104,7 @@ func (q *NodeQueue) Unsubmit(element Element) bool {
 	}
 
 	delete(q.submitted, id)
-	q.size -= uint(len(element.Bytes()))
+	q.size -= element.Size()
 	return true
 }
 
@@ -148,7 +142,7 @@ func (q *NodeQueue) Front() Element {
 // PopFront removes the first ready message from the queue.
 func (q *NodeQueue) PopFront() Element {
 	msg := heap.Pop(q.inbox).(Element)
-	q.size -= uint(len(msg.Bytes()))
+	q.size -= msg.Size()
 	return msg
 }
 

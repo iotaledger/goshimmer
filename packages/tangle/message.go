@@ -566,6 +566,11 @@ func (m *Message) Bytes() []byte {
 	return m.bytes
 }
 
+// Size returns the message size in bytes.
+func (m *Message) Size() int {
+	return len(m.Bytes())
+}
+
 // ObjectStorageKey returns the key of the stored message object.
 // This returns the bytes of the message ID.
 func (m *Message) ObjectStorageKey() []byte {

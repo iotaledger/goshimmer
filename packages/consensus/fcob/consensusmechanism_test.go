@@ -21,12 +21,13 @@ import (
 
 var (
 	schedulerParams = tangle.SchedulerParams{
+		Rate:                        100 * time.Millisecond,
 		AccessManaRetrieveFunc:      getAccessMana,
 		TotalAccessManaRetrieveFunc: getTotalAccessMana,
 	}
 )
 
-func getAccessMana(nodeID identity.ID) float64 {
+func getAccessMana(_ identity.ID) float64 {
 	return 800
 }
 
