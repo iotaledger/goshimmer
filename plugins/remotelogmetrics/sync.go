@@ -4,9 +4,8 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-
 	"github.com/iotaledger/goshimmer/packages/remotelogmetrics"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 

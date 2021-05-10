@@ -181,9 +181,12 @@ func (a *ApprovalWeightManager) firstUnconfirmedMarkerIndex(sequenceID markers.S
 	index, exists := a.lastConfirmedMarkers[sequenceID]
 	if !exists {
 		a.tangle.Booker.MarkersManager.Manager.Sequence(sequenceID).Consume(func(sequence *markers.Sequence) {
-			index = sequence.LowestIndex() - 1
+			index = sequence.LowestIndex()
 		})
-		a.lastConfirmedMarkers[sequenceID] = index
+		for ; a.Events.MarkerConfirmation.Level(*markers.NewMarker(sequenceID, index)) != 0; index++ {
+			a.lastConfirmedMarkers[sequenceID] = index
+		}
+		return
 	}
 
 	index++

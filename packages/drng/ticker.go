@@ -94,14 +94,15 @@ func (t *Ticker) setDelayedRoundStart(d time.Duration) {
 func (t *Ticker) send() {
 	t.setDelayedRoundStart(0)
 	randomness := t.defaultValue
+	now := clock.SyncedTime()
 
 	if t.dRNGState() != nil && t.dRNGTicker != nil {
 		// we expect a randomness, it arrived already, and its newer than the last one
 		// OR we were missing a dRNG message previously but the check if the last randomness received is "fresh"
-		if clock.Since(t.dRNGState().Randomness().Timestamp) < time.Duration(t.interval)*time.Second {
+		if now.Sub(t.dRNGState().Randomness().Timestamp) < time.Duration(t.interval)*time.Second && now.Sub(t.dRNGState().Randomness().Timestamp) > 0 {
 			t.missingDRNG = false
 			randomness = t.dRNGState().Randomness().Float64()
-			timeToNextDRNG := t.dRNGState().Randomness().Timestamp.Add(time.Duration(t.interval) * time.Second).Sub(clock.SyncedTime())
+			timeToNextDRNG := t.dRNGState().Randomness().Timestamp.Add(time.Duration(t.interval) * time.Second).Sub(now)
 			t.setDelayedRoundStart(time.Duration(t.interval)*time.Second - timeToNextDRNG)
 			t.dRNGTicker.Reset(timeToNextDRNG)
 		} else {
@@ -120,11 +121,12 @@ func (t *Ticker) send() {
 			case randomnessEvent := <-t.fromRandomnessEvent:
 				// check if the randomness is "fresh"
 				if t.dRNGTicker != nil {
+					now := clock.SyncedTime()
 					// check against awaitOffset to be no more than 6 seconds
-					if clock.Since(randomnessEvent.Timestamp) < time.Duration(t.awaitOffset)*time.Second {
+					if now.Sub(randomnessEvent.Timestamp) < time.Duration(t.awaitOffset)*time.Second && now.Sub(randomnessEvent.Timestamp) > 0 {
 						t.missingDRNG = false
 						randomness = t.dRNGState().Randomness().Float64()
-						timeToNextDRNG := randomnessEvent.Timestamp.Add(time.Duration(t.interval) * time.Second).Sub(clock.SyncedTime())
+						timeToNextDRNG := randomnessEvent.Timestamp.Add(time.Duration(t.interval) * time.Second).Sub(now)
 						t.dRNGTicker.Reset(timeToNextDRNG)
 						t.setDelayedRoundStart(time.Duration(t.interval)*time.Second - timeToNextDRNG)
 						break out
