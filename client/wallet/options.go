@@ -33,6 +33,28 @@ func ReusableAddress(enabled bool) Option {
 	}
 }
 
+// ConfirmationPollingInterval defines how often the wallet polls the node for confirmation info.
+func ConfirmationPollingInterval(interval int) Option {
+	return func(wallet *Wallet) {
+		if interval < 0 {
+			wallet.ConfirmationPollInterval = DefaultPollingInterval
+		} else {
+			wallet.ConfirmationPollInterval = interval
+		}
+	}
+}
+
+// ConfirmationTimeout defines the timeout for waiting for tx confirmation.
+func ConfirmationTimeout(timeout int) Option {
+	return func(wallet *Wallet) {
+		if timeout < 0 {
+			wallet.ConfirmationPollInterval = DefaultConfirmationTimeout
+		} else {
+			wallet.ConfirmationPollInterval = timeout
+		}
+	}
+}
+
 // GenericConnector allows us to provide a generic connector to the wallet. It can be used to mock the behavior of a
 // real connector in tests or to provide new connection methods for nodes.
 func GenericConnector(connector Connector) Option {

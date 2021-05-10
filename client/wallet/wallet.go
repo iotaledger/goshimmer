@@ -31,6 +31,11 @@ import (
 
 // region Wallet ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
+const (
+	DefaultPollingInterval     = 500    // in ms
+	DefaultConfirmationTimeout = 150000 // in ms
+)
+
 // Wallet is a wallet that can handle aliases and extendedlockedoutputs.
 type Wallet struct {
 	addressManager *AddressManager
@@ -41,6 +46,7 @@ type Wallet struct {
 	// if this option is enabled the wallet will use a single reusable address instead of changing addresses.
 	reusableAddress          bool
 	ConfirmationPollInterval int // in milliseconds
+	ConfirmationTimeout      int // in ms
 }
 
 // New is the factory method of the wallet. It either creates a new wallet or restores the wallet backup that is handed
@@ -54,6 +60,14 @@ func New(options ...Option) (wallet *Wallet) {
 	// configure wallet
 	for _, option := range options {
 		option(wallet)
+	}
+
+	if wallet.ConfirmationPollInterval == 0 {
+		wallet.ConfirmationPollInterval = DefaultPollingInterval
+	}
+
+	if wallet.ConfirmationTimeout == 0 {
+		wallet.ConfirmationTimeout = DefaultConfirmationTimeout
 	}
 
 	// initialize wallet with default address manager if we did not import a previous wallet
@@ -1882,8 +1896,10 @@ func (wallet *Wallet) ExportState() []byte {
 
 // WaitForTxConfirmation waits for the given tx to confirm. If the transaction is rejected, an error is returned.
 func (wallet *Wallet) WaitForTxConfirmation(txID ledgerstate.TransactionID) (err error) {
+	timeoutCounter := 0
 	for {
 		time.Sleep(time.Duration(wallet.ConfirmationPollInterval) * time.Millisecond)
+		timeoutCounter += wallet.ConfirmationPollInterval
 		state, fetchErr := wallet.connector.GetTransactionInclusionState(txID)
 		if fetchErr != nil {
 			return fetchErr
@@ -1893,6 +1909,9 @@ func (wallet *Wallet) WaitForTxConfirmation(txID ledgerstate.TransactionID) (err
 		}
 		if state == ledgerstate.Rejected {
 			return xerrors.Errorf("transaction %s has been rejected", txID.Base58())
+		}
+		if timeoutCounter > wallet.ConfirmationTimeout {
+			return xerrors.Errorf("transaction %s did not confirm within %d seconds", txID.Base58(), wallet.ConfirmationTimeout/1000)
 		}
 	}
 }
@@ -1904,9 +1923,10 @@ func (wallet *Wallet) WaitForTxConfirmation(txID ledgerstate.TransactionID) (err
 // waitForBalanceConfirmation waits until the balance of the wallet changes compared to the provided argument.
 // (a transaction modifying the wallet balance got confirmed)
 func (wallet *Wallet) waitForBalanceConfirmation(prevConfirmedBalance map[ledgerstate.Color]uint64) (err error) {
-	// TODO: sensible timeout limit
+	timeoutCounter := 0
 	for {
 		time.Sleep(time.Duration(wallet.ConfirmationPollInterval) * time.Millisecond)
+		timeoutCounter += wallet.ConfirmationPollInterval
 		if err = wallet.Refresh(); err != nil {
 			return
 		}
@@ -1917,6 +1937,9 @@ func (wallet *Wallet) waitForBalanceConfirmation(prevConfirmedBalance map[ledger
 		}
 		if !reflect.DeepEqual(prevConfirmedBalance, newConfirmedBalance) {
 			return
+		}
+		if timeoutCounter > wallet.ConfirmationTimeout {
+			return xerrors.Errorf("confirmed balance did not change within timeout limit (%d)", wallet.ConfirmationTimeout/1000)
 		}
 	}
 }
