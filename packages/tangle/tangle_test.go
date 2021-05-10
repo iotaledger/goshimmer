@@ -323,7 +323,7 @@ func TestRetrieveAllTips(t *testing.T) {
 	messageTangle.Setup()
 	defer messageTangle.Shutdown()
 
-	messageA := newTestParentsDataMessage("A", []MessageID{EmptyMessageID}, []MessageID{EmptyMessageID})
+	messageA := newTestParentsDataMessage("A", []MessageID{EmptyMessageID}, []MessageID{})
 	messageB := newTestParentsDataMessage("B", []MessageID{messageA.ID()}, []MessageID{EmptyMessageID})
 	messageC := newTestParentsDataMessage("C", []MessageID{messageA.ID()}, []MessageID{EmptyMessageID})
 
