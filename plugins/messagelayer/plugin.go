@@ -89,6 +89,9 @@ func configure(plugin *node.Plugin) {
 
 func run(*node.Plugin) {
 	if err := daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
+		if Parameters.StartSynced {
+			Tangle().TimeManager.Synced()
+		}
 		<-shutdownSignal
 		Tangle().Shutdown()
 	}, shutdown.PriorityTangle); err != nil {
@@ -115,6 +118,7 @@ func Tangle() *tangle.Tangle {
 			tangle.Consensus(ConsensusMechanism()),
 			tangle.GenesisNode(Parameters.Snapshot.GenesisNode),
 			tangle.SyncTimeWindow(Parameters.TangleTimeWindow),
+			tangle.StartSynced(Parameters.StartSynced),
 		)
 
 		tangleInstance.WeightProvider = tangle.NewCManaWeightProvider(GetCMana, tangleInstance.TimeManager.Time, database.Store())
