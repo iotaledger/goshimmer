@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/tangle/schedulerutils"
-	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/identity"
 	"go.uber.org/atomic"
 )
 
@@ -33,10 +33,8 @@ var (
 	ErrStopped = errors.New("rate setter stopped")
 )
 
-var (
-	// Initial is the rate in bytes per second
-	Initial = 20000.0
-)
+// Initial is the rate in bytes per second
+var Initial = 20000.0
 
 // region RateSetterParams /////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -54,7 +52,6 @@ type RateSetter struct {
 	tangle         *Tangle
 	Events         *RateSetterEvents
 	self           identity.ID
-	mu             sync.Mutex
 	issuingQueue   *schedulerutils.NodeQueue
 	issueChan      chan *Message
 	ownRate        *atomic.Float64

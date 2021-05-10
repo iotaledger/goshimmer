@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
@@ -51,7 +52,7 @@ func TestRateSetter_ErrorHandling(t *testing.T) {
 
 	msg := NewMessage(
 		[]MessageID{EmptyMessageID},
-		[]MessageID{EmptyMessageID},
+		[]MessageID{},
 		time.Now(),
 		localNode.PublicKey(),
 		0,

@@ -133,7 +133,6 @@ func (t *Tangle) Setup() {
 
 // ProcessGossipMessage is used to feed new Messages from the gossip layer into the Tangle.
 func (t *Tangle) ProcessGossipMessage(messageBytes []byte, peer *peer.Peer) {
-	_, _, _ = MessageFromBytes(messageBytes)
 	t.setupParserOnce.Do(t.Parser.Setup)
 	t.Parser.Parse(messageBytes, peer)
 }

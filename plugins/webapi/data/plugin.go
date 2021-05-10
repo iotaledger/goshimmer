@@ -3,7 +3,6 @@ package data
 import (
 	"net/http"
 	"sync"
-	"time"
 
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
@@ -17,8 +16,6 @@ import (
 
 // PluginName is the name of the web API data endpoint plugin.
 const PluginName = "WebAPI data Endpoint"
-
-const maxIssuedAwaitTime = 5 * time.Second
 
 var (
 	// plugin is the plugin instance of the web API data endpoint plugin.

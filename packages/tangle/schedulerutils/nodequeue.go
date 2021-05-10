@@ -20,7 +20,6 @@ func ElementIDFromBytes(bytes []byte) (result ElementID) {
 	// check arguments
 	if len(bytes) < ElementIDLength {
 		panic("bytes not long enough to encode a valid message id")
-		return
 	}
 
 	copy(result[:], bytes)
@@ -32,6 +31,7 @@ type Element interface {
 	// IDBytes returns the ID of an Element as a byte slice.
 	IDBytes() []byte
 
+	// Size returns the size of the element.
 	Size() int
 
 	// IssuerPublicKey returns the issuer public key of the element.

@@ -4,9 +4,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/packages/tangle/schedulerutils"
+
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
@@ -352,7 +353,7 @@ func TestSchedulerParallelSubmit(t *testing.T) {
 func newMessage(issuerPublicKey ed25519.PublicKey) *Message {
 	return NewMessage(
 		[]MessageID{EmptyMessageID},
-		[]MessageID{EmptyMessageID},
+		[]MessageID{},
 		time.Now(),
 		issuerPublicKey,
 		0,
