@@ -46,8 +46,6 @@ var (
 	ParaPoWFaucetDifficulty = 2
 	// ParaFaucetPreparedOutputsCount defines the number of outputs the faucet should prepare.
 	ParaFaucetPreparedOutputsCount = 10
-	// ParaSyncBeaconOnEveryNode defines whether all nodes should be sync beacons.
-	ParaSyncBeaconOnEveryNode = false
 	// ParaManaOnEveryNode defines whether all nodes should have mana enabled.
 	ParaManaOnEveryNode = true
 	// ParaFPCRoundInterval defines how long a round lasts (in seconds)
@@ -64,6 +62,10 @@ var (
 	ParaReadManaThreshold = 1.0
 	// ParaWriteManaThreshold defines the Mana threshold to write a statement.
 	ParaWriteManaThreshold = 1.0
+	// ParaActivityInterval defines the interval between activity messages (in seconds).
+	ParaActivityInterval = 1
+	// ParaActivityInterval defines if activity messages are issue by all the nodes.
+	ParaActivityPluginOnEveryNode = false
 )
 
 var (
@@ -88,11 +90,8 @@ type GoShimmerConfig struct {
 
 	Faucet bool
 
-	SyncBeacon                  bool
-	SyncBeaconFollower          bool
-	SyncBeaconFollowNodes       string
-	SyncBeaconBroadcastInterval int
-	SyncBeaconMaxTimeOfflineSec int
+	ActivityPlugin   bool
+	ActivityInterval int
 
 	Mana                              bool
 	ManaAllowedAccessFilterEnabled    bool
