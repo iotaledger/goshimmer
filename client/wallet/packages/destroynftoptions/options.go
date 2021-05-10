@@ -9,6 +9,7 @@ import (
 // DestroyNFTOption is a function that provides options.
 type DestroyNFTOption func(options *DestroyNFTOptions) error
 
+// WaitForConfirmation defines if the call should wait for confirmation before it returns.
 func WaitForConfirmation(wait bool) DestroyNFTOption {
 	return func(options *DestroyNFTOptions) error {
 		options.WaitForConfirmation = wait

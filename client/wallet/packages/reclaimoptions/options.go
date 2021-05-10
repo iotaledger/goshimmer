@@ -9,6 +9,7 @@ import (
 // ReclaimFundsOption is a function that provides an option.
 type ReclaimFundsOption func(options *ReclaimFundsOptions) error
 
+// WaitForConfirmation defines if the call should wait for confirmation before it returns.
 func WaitForConfirmation(wait bool) ReclaimFundsOption {
 	return func(options *ReclaimFundsOptions) error {
 		options.WaitForConfirmation = wait

@@ -81,7 +81,7 @@ func ConsensusManaPledgeID(nodeID string) SendFundsOption {
 	}
 }
 
-// WaitForConfirmation
+// WaitForConfirmation defines if the call should wait for confirmation before it returns.
 func WaitForConfirmation(wait bool) SendFundsOption {
 	return func(options *SendFundsOptions) error {
 		options.WaitForConfirmation = wait

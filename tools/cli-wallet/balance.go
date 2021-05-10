@@ -205,7 +205,7 @@ func printTimedBalance(header, timeTitle string, cliWallet *wallet.Wallet, confi
 	_ = w.Flush()
 }
 
-func printAliasBalance(header string, idName string, cliWallet *wallet.Wallet, confirmed, pending map[ledgerstate.AliasAddress]*ledgerstate.AliasOutput) {
+func printAliasBalance(header, idName string, cliWallet *wallet.Wallet, confirmed, pending map[ledgerstate.AliasAddress]*ledgerstate.AliasOutput) {
 	// initialize tab writer
 	w := new(tabwriter.Writer)
 	w.Init(os.Stdout, 0, 8, 2, '\t', 0)

@@ -161,7 +161,7 @@ func (wallet *Wallet) SendFunds(options ...sendoptions.SendFundsOption) (tx *led
 		err = wallet.WaitForTxConfirmation(tx.ID())
 	}
 
-	return
+	return tx, err
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
