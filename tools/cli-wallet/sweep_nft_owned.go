@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/iotaledger/goshimmer/client/wallet"
-	"github.com/iotaledger/goshimmer/client/wallet/packages/sweepnftownednfts_options"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/sweepnftownednftsoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sweepnftownedoptions"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
@@ -86,14 +86,14 @@ func execSweepNFTOwnedNFTsCommand(command *flag.FlagSet, cliWallet *wallet.Walle
 	if err != nil {
 		printUsage(command, err.Error())
 	}
-	options := []sweepnftownednfts_options.SweepNFTOwnedNFTsOption{
-		sweepnftownednfts_options.Alias(aliasID.Base58()),
-		sweepnftownednfts_options.AccessManaPledgeID(*accessManaPledgeIDPtr),
-		sweepnftownednfts_options.ConsensusManaPledgeID(*consensusManaPledgeIDPtr),
+	options := []sweepnftownednftsoptions.SweepNFTOwnedNFTsOption{
+		sweepnftownednftsoptions.Alias(aliasID.Base58()),
+		sweepnftownednftsoptions.AccessManaPledgeID(*accessManaPledgeIDPtr),
+		sweepnftownednftsoptions.ConsensusManaPledgeID(*consensusManaPledgeIDPtr),
 	}
 
 	if *toAddressPtr != "" {
-		options = append(options, sweepnftownednfts_options.ToAddress(*toAddressPtr))
+		options = append(options, sweepnftownednftsoptions.ToAddress(*toAddressPtr))
 	}
 
 	var sweptNFTs []*ledgerstate.AliasAddress

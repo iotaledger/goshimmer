@@ -7,11 +7,11 @@ import (
 )
 
 // TransferNFTOption is a function that provides an option.
-type TransferNFTOption func(options *transferNFTOptions) error
+type TransferNFTOption func(options *TransferNFTOptions) error
 
 // WaitForConfirmation defines if the call should wait for confirmation before it returns.
 func WaitForConfirmation(wait bool) TransferNFTOption {
-	return func(options *transferNFTOptions) error {
+	return func(options *TransferNFTOptions) error {
 		options.WaitForConfirmation = wait
 		return nil
 	}
@@ -19,7 +19,7 @@ func WaitForConfirmation(wait bool) TransferNFTOption {
 
 // AccessManaPledgeID is an option for SendFunds call that defines the nodeID to pledge access mana to.
 func AccessManaPledgeID(nodeID string) TransferNFTOption {
-	return func(options *transferNFTOptions) error {
+	return func(options *TransferNFTOptions) error {
 		options.AccessManaPledgeID = nodeID
 		return nil
 	}
@@ -27,7 +27,7 @@ func AccessManaPledgeID(nodeID string) TransferNFTOption {
 
 // ConsensusManaPledgeID is an option for SendFunds call that defines the nodeID to pledge consensus mana to.
 func ConsensusManaPledgeID(nodeID string) TransferNFTOption {
-	return func(options *transferNFTOptions) error {
+	return func(options *TransferNFTOptions) error {
 		options.ConsensusManaPledgeID = nodeID
 		return nil
 	}
@@ -35,7 +35,7 @@ func ConsensusManaPledgeID(nodeID string) TransferNFTOption {
 
 // Alias specifies which alias to transfer.
 func Alias(aliasID string) TransferNFTOption {
-	return func(options *transferNFTOptions) error {
+	return func(options *TransferNFTOptions) error {
 		parsed, err := ledgerstate.AliasAddressFromBase58EncodedString(aliasID)
 		if err != nil {
 			return err
@@ -47,7 +47,7 @@ func Alias(aliasID string) TransferNFTOption {
 
 // ToAddress specifies the new governor of the alias.
 func ToAddress(address string) TransferNFTOption {
-	return func(options *transferNFTOptions) error {
+	return func(options *TransferNFTOptions) error {
 		parsed, err := ledgerstate.AddressFromBase58EncodedString(address)
 		if err != nil {
 			return err
@@ -59,7 +59,7 @@ func ToAddress(address string) TransferNFTOption {
 
 // ResetStateAddress defines if the state address should be set to ToAddress as well, or not.
 func ResetStateAddress(reset bool) TransferNFTOption {
-	return func(options *transferNFTOptions) error {
+	return func(options *TransferNFTOptions) error {
 		options.ResetStateAddress = reset
 		return nil
 	}
@@ -67,14 +67,14 @@ func ResetStateAddress(reset bool) TransferNFTOption {
 
 // ResetDelegation defines if the output's delegation staus should be reset.
 func ResetDelegation(reset bool) TransferNFTOption {
-	return func(options *transferNFTOptions) error {
+	return func(options *TransferNFTOptions) error {
 		options.ResetDelegation = reset
 		return nil
 	}
 }
 
-// transferNFTOptions is a struct that is used to aggregate the optional parameters in the TransferNFT call.
-type transferNFTOptions struct {
+// TransferNFTOptions is a struct that is used to aggregate the optional parameters in the TransferNFT call.
+type TransferNFTOptions struct {
 	AccessManaPledgeID    string
 	ConsensusManaPledgeID string
 	Alias                 *ledgerstate.AliasAddress
@@ -85,9 +85,9 @@ type transferNFTOptions struct {
 }
 
 // Build build the options.
-func Build(options ...TransferNFTOption) (result *transferNFTOptions, err error) {
+func Build(options ...TransferNFTOption) (result *TransferNFTOptions, err error) {
 	// create options to collect the arguments provided
-	result = &transferNFTOptions{}
+	result = &TransferNFTOptions{}
 
 	// apply arguments to our options
 	for _, option := range options {

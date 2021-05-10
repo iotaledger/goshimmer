@@ -21,7 +21,7 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/reclaimoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sendoptions"
-	"github.com/iotaledger/goshimmer/client/wallet/packages/sweepnftownednfts_options"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/sweepnftownednftsoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sweepnftownedoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/transfernftoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/withdrawfromnftoptions"
@@ -1202,8 +1202,8 @@ func (wallet Wallet) SweepNFTOwnedFunds(options ...sweepnftownedoptions.SweepNFT
 
 // region SweepNFTOwnedNFTs ////////////////////////////////////////////////////////////////////////////////////////////
 
-func (wallet *Wallet) SweepNFTOwnedNFTs(options ...sweepnftownednfts_options.SweepNFTOwnedNFTsOption) (tx *ledgerstate.Transaction, sweptNFTs []*ledgerstate.AliasAddress, err error) {
-	sweepOptions, err := sweepnftownednfts_options.BuildSweepNFTOwnedNFTsOptions(options...)
+func (wallet *Wallet) SweepNFTOwnedNFTs(options ...sweepnftownednftsoptions.SweepNFTOwnedNFTsOption) (tx *ledgerstate.Transaction, sweptNFTs []*ledgerstate.AliasAddress, err error) {
+	sweepOptions, err := sweepnftownednftsoptions.Build(options...)
 	if err != nil {
 		return
 	}

@@ -11,7 +11,7 @@ import (
 )
 
 // DelegateFundsOption is the type for the optional parameters for the DelegateFunds call.
-type DelegateFundsOption func(*delegateFundsOptions) error
+type DelegateFundsOption func(*DelegateFundsOptions) error
 
 // Destination is an option for the SendFunds call that defines a destination for funds that are supposed to be moved.
 func Destination(addr address.Address, balance map[ledgerstate.Color]uint64) DelegateFundsOption {
@@ -21,7 +21,7 @@ func Destination(addr address.Address, balance map[ledgerstate.Color]uint64) Del
 	}
 
 	// return Option
-	return func(options *delegateFundsOptions) error {
+	return func(options *DelegateFundsOptions) error {
 		// initialize destinations property
 		if options.Destinations == nil {
 			options.Destinations = make(map[address.Address]map[ledgerstate.Color]uint64)
@@ -42,7 +42,7 @@ func Destination(addr address.Address, balance map[ledgerstate.Color]uint64) Del
 
 // DelegateUntil is an option for the DelegateFunds call that specifies until when the delegation should last.
 func DelegateUntil(until time.Time) DelegateFundsOption {
-	return func(options *delegateFundsOptions) error {
+	return func(options *DelegateFundsOptions) error {
 		if until.Before(time.Now()) {
 			return xerrors.Errorf("can't delegate funds in the past")
 		}
@@ -54,7 +54,7 @@ func DelegateUntil(until time.Time) DelegateFundsOption {
 // Remainder is an option for the SendsFunds call that allows us to specify the remainder address that is
 // supposed to be used in the corresponding transaction.
 func Remainder(addr address.Address) DelegateFundsOption {
-	return func(options *delegateFundsOptions) error {
+	return func(options *DelegateFundsOptions) error {
 		options.RemainderAddress = addr
 
 		return nil
@@ -63,7 +63,7 @@ func Remainder(addr address.Address) DelegateFundsOption {
 
 // AccessManaPledgeID is an option for SendFunds call that defines the nodeID to pledge access mana to.
 func AccessManaPledgeID(nodeID string) DelegateFundsOption {
-	return func(options *delegateFundsOptions) error {
+	return func(options *DelegateFundsOptions) error {
 		options.AccessManaPledgeID = nodeID
 		return nil
 	}
@@ -71,7 +71,7 @@ func AccessManaPledgeID(nodeID string) DelegateFundsOption {
 
 // ConsensusManaPledgeID is an option for SendFunds call that defines the nodeID to pledge consensus mana to.
 func ConsensusManaPledgeID(nodeID string) DelegateFundsOption {
-	return func(options *delegateFundsOptions) error {
+	return func(options *DelegateFundsOptions) error {
 		options.ConsensusManaPledgeID = nodeID
 		return nil
 	}
@@ -79,14 +79,14 @@ func ConsensusManaPledgeID(nodeID string) DelegateFundsOption {
 
 // WaitForConfirmation defines if the call should wait for confirmation before it returns.
 func WaitForConfirmation(wait bool) DelegateFundsOption {
-	return func(options *delegateFundsOptions) error {
+	return func(options *DelegateFundsOptions) error {
 		options.WaitForConfirmation = wait
 		return nil
 	}
 }
 
-// delegateFundsOptions is a struct that is used to aggregate the optional parameters provided in the DelegateFunds call.
-type delegateFundsOptions struct {
+// DelegateFundsOptions is a struct that is used to aggregate the optional parameters provided in the DelegateFunds call.
+type DelegateFundsOptions struct {
 	Destinations          map[address.Address]map[ledgerstate.Color]uint64
 	DelegateUntil         time.Time
 	RemainderAddress      address.Address
@@ -96,7 +96,7 @@ type delegateFundsOptions struct {
 }
 
 // RequiredFunds derives how much funds are needed based on the Destinations to fund the transfer.
-func (s *delegateFundsOptions) RequiredFunds() map[ledgerstate.Color]uint64 {
+func (s *DelegateFundsOptions) RequiredFunds() map[ledgerstate.Color]uint64 {
 	// aggregate total amount of required funds, so we now what and how many funds we need
 	requiredFunds := make(map[ledgerstate.Color]uint64)
 	for _, coloredBalances := range s.Destinations {
@@ -112,10 +112,10 @@ func (s *delegateFundsOptions) RequiredFunds() map[ledgerstate.Color]uint64 {
 	return requiredFunds
 }
 
-// Build is a utility function that constructs the delegateFundsOptions.
-func Build(options ...DelegateFundsOption) (result *delegateFundsOptions, err error) {
+// Build is a utility function that constructs the DelegateFundsOptions.
+func Build(options ...DelegateFundsOption) (result *DelegateFundsOptions, err error) {
 	// create options to collect the arguments provided
-	result = &delegateFundsOptions{}
+	result = &DelegateFundsOptions{}
 
 	// apply arguments to our options
 	for _, option := range options {
@@ -137,7 +137,7 @@ func Build(options ...DelegateFundsOption) (result *delegateFundsOptions, err er
 // optionError is a utility function that returns a Option that returns the error provided in the
 // argument.
 func optionError(err error) DelegateFundsOption {
-	return func(options *delegateFundsOptions) error {
+	return func(options *DelegateFundsOptions) error {
 		return err
 	}
 }

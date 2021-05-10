@@ -7,10 +7,10 @@ import (
 )
 
 // ReclaimFundsOption is a function that provides an option.
-type ReclaimFundsOption func(options *reclaimFundsOption) error
+type ReclaimFundsOption func(options *ReclaimFundsOptions) error
 
 func WaitForConfirmation(wait bool) ReclaimFundsOption {
-	return func(options *reclaimFundsOption) error {
+	return func(options *ReclaimFundsOptions) error {
 		options.WaitForConfirmation = wait
 		return nil
 	}
@@ -18,7 +18,7 @@ func WaitForConfirmation(wait bool) ReclaimFundsOption {
 
 // AccessManaPledgeID is an option for SendFunds call that defines the nodeID to pledge access mana to.
 func AccessManaPledgeID(nodeID string) ReclaimFundsOption {
-	return func(options *reclaimFundsOption) error {
+	return func(options *ReclaimFundsOptions) error {
 		options.AccessManaPledgeID = nodeID
 		return nil
 	}
@@ -26,7 +26,7 @@ func AccessManaPledgeID(nodeID string) ReclaimFundsOption {
 
 // ConsensusManaPledgeID is an option for SendFunds call that defines the nodeID to pledge consensus mana to.
 func ConsensusManaPledgeID(nodeID string) ReclaimFundsOption {
-	return func(options *reclaimFundsOption) error {
+	return func(options *ReclaimFundsOptions) error {
 		options.ConsensusManaPledgeID = nodeID
 		return nil
 	}
@@ -34,7 +34,7 @@ func ConsensusManaPledgeID(nodeID string) ReclaimFundsOption {
 
 // Alias specifies which alias to reclaim.
 func Alias(aliasID string) ReclaimFundsOption {
-	return func(options *reclaimFundsOption) error {
+	return func(options *ReclaimFundsOptions) error {
 		parsed, err := ledgerstate.AliasAddressFromBase58EncodedString(aliasID)
 		if err != nil {
 			return err
@@ -46,7 +46,7 @@ func Alias(aliasID string) ReclaimFundsOption {
 
 // ToAddress specifies the new governor of the alias.
 func ToAddress(address string) ReclaimFundsOption {
-	return func(options *reclaimFundsOption) error {
+	return func(options *ReclaimFundsOptions) error {
 		parsed, err := ledgerstate.AddressFromBase58EncodedString(address)
 		if err != nil {
 			return err
@@ -56,8 +56,8 @@ func ToAddress(address string) ReclaimFundsOption {
 	}
 }
 
-// reclaimFundsOption is a struct that is used to aggregate the optional parameters in the ReclaimDelegatedFunds call.
-type reclaimFundsOption struct {
+// ReclaimFundsOptions is a struct that is used to aggregate the optional parameters in the ReclaimDelegatedFunds call.
+type ReclaimFundsOptions struct {
 	AccessManaPledgeID    string
 	ConsensusManaPledgeID string
 	Alias                 *ledgerstate.AliasAddress
@@ -66,9 +66,9 @@ type reclaimFundsOption struct {
 }
 
 // Build build the options.
-func Build(options ...ReclaimFundsOption) (result *reclaimFundsOption, err error) {
+func Build(options ...ReclaimFundsOption) (result *ReclaimFundsOptions, err error) {
 	// create options to collect the arguments provided
-	result = &reclaimFundsOption{}
+	result = &ReclaimFundsOptions{}
 
 	// apply arguments to our options
 	for _, option := range options {

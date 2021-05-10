@@ -7,11 +7,11 @@ import (
 )
 
 // CreateNFTOption is a function that provides options.
-type CreateNFTOption func(options *createNFTOptions) error
+type CreateNFTOption func(options *CreateNFTOptions) error
 
 // WaitForConfirmation defines if the call should wait for confirmation before it returns.
 func WaitForConfirmation(wait bool) CreateNFTOption {
-	return func(options *createNFTOptions) error {
+	return func(options *CreateNFTOptions) error {
 		options.WaitForConfirmation = wait
 		return nil
 	}
@@ -19,7 +19,7 @@ func WaitForConfirmation(wait bool) CreateNFTOption {
 
 // InitialBalance sets the initial balance of the newly created NFT.
 func InitialBalance(balance map[ledgerstate.Color]uint64) CreateNFTOption {
-	return func(options *createNFTOptions) error {
+	return func(options *CreateNFTOptions) error {
 		if balance[ledgerstate.ColorIOTA] < ledgerstate.DustThresholdAliasOutputIOTA {
 			return xerrors.Errorf("NFT must have at least %d IOTA balance", ledgerstate.DustThresholdAliasOutputIOTA)
 		}
@@ -30,7 +30,7 @@ func InitialBalance(balance map[ledgerstate.Color]uint64) CreateNFTOption {
 
 // ImmutableData sets the immutable data field of the freshly created NFT.
 func ImmutableData(data []byte) CreateNFTOption {
-	return func(options *createNFTOptions) error {
+	return func(options *CreateNFTOptions) error {
 		if data == nil {
 			return xerrors.Errorf("empty data supplied for immutable data")
 		}
@@ -44,7 +44,7 @@ func ImmutableData(data []byte) CreateNFTOption {
 
 // AccessManaPledgeID is an option for SendFunds call that defines the nodeID to pledge access mana to.
 func AccessManaPledgeID(nodeID string) CreateNFTOption {
-	return func(options *createNFTOptions) error {
+	return func(options *CreateNFTOptions) error {
 		options.AccessManaPledgeID = nodeID
 		return nil
 	}
@@ -52,14 +52,14 @@ func AccessManaPledgeID(nodeID string) CreateNFTOption {
 
 // ConsensusManaPledgeID is an option for SendFunds call that defines the nodeID to pledge consensus mana to.
 func ConsensusManaPledgeID(nodeID string) CreateNFTOption {
-	return func(options *createNFTOptions) error {
+	return func(options *CreateNFTOptions) error {
 		options.ConsensusManaPledgeID = nodeID
 		return nil
 	}
 }
 
-// createNFTOptions is a struct that is used to aggregate the optional parameters in the CreateNFT call.
-type createNFTOptions struct {
+// CreateNFTOptions is a struct that is used to aggregate the optional parameters in the CreateNFT call.
+type CreateNFTOptions struct {
 	InitialBalance        map[ledgerstate.Color]uint64
 	ImmutableData         []byte
 	AccessManaPledgeID    string
@@ -68,9 +68,9 @@ type createNFTOptions struct {
 }
 
 // Build builds the options.
-func Build(options ...CreateNFTOption) (result *createNFTOptions, err error) {
+func Build(options ...CreateNFTOption) (result *CreateNFTOptions, err error) {
 	// create options to collect the arguments provided
-	result = &createNFTOptions{}
+	result = &CreateNFTOptions{}
 
 	// apply arguments to our options
 	for _, option := range options {

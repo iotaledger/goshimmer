@@ -7,11 +7,11 @@ import (
 )
 
 // DepositFundsToNFTOption is a function that provides options.
-type DepositFundsToNFTOption func(options *depositFundsToNFTOption) error
+type DepositFundsToNFTOption func(options *DepositFundsToNFTOptions) error
 
 // WaitForConfirmation defines if the call should wait for confirmation before it returns.
 func WaitForConfirmation(wait bool) DepositFundsToNFTOption {
-	return func(options *depositFundsToNFTOption) error {
+	return func(options *DepositFundsToNFTOptions) error {
 		options.WaitForConfirmation = wait
 		return nil
 	}
@@ -19,7 +19,7 @@ func WaitForConfirmation(wait bool) DepositFundsToNFTOption {
 
 // Amount sets how much funds should be withdrew.
 func Amount(amount map[ledgerstate.Color]uint64) DepositFundsToNFTOption {
-	return func(options *depositFundsToNFTOption) error {
+	return func(options *DepositFundsToNFTOptions) error {
 		options.Amount = amount
 		return nil
 	}
@@ -27,7 +27,7 @@ func Amount(amount map[ledgerstate.Color]uint64) DepositFundsToNFTOption {
 
 // Alias specifies which alias to transfer.
 func Alias(aliasID string) DepositFundsToNFTOption {
-	return func(options *depositFundsToNFTOption) error {
+	return func(options *DepositFundsToNFTOptions) error {
 		parsed, err := ledgerstate.AliasAddressFromBase58EncodedString(aliasID)
 		if err != nil {
 			return err
@@ -39,7 +39,7 @@ func Alias(aliasID string) DepositFundsToNFTOption {
 
 // AccessManaPledgeID is an option for SendFunds call that defines the nodeID to pledge access mana to.
 func AccessManaPledgeID(nodeID string) DepositFundsToNFTOption {
-	return func(options *depositFundsToNFTOption) error {
+	return func(options *DepositFundsToNFTOptions) error {
 		options.AccessManaPledgeID = nodeID
 		return nil
 	}
@@ -47,14 +47,14 @@ func AccessManaPledgeID(nodeID string) DepositFundsToNFTOption {
 
 // ConsensusManaPledgeID is an option for SendFunds call that defines the nodeID to pledge consensus mana to.
 func ConsensusManaPledgeID(nodeID string) DepositFundsToNFTOption {
-	return func(options *depositFundsToNFTOption) error {
+	return func(options *DepositFundsToNFTOptions) error {
 		options.ConsensusManaPledgeID = nodeID
 		return nil
 	}
 }
 
-// depositFundsToNFTOption is a struct that is used to aggregate the optional parameters in the DepositFundsToNFT call.
-type depositFundsToNFTOption struct {
+// DepositFundsToNFTOptions is a struct that is used to aggregate the optional parameters in the DepositFundsToNFT call.
+type DepositFundsToNFTOptions struct {
 	Amount                map[ledgerstate.Color]uint64
 	Alias                 *ledgerstate.AliasAddress
 	AccessManaPledgeID    string
@@ -63,9 +63,9 @@ type depositFundsToNFTOption struct {
 }
 
 // Build build the options.
-func Build(options ...DepositFundsToNFTOption) (result *depositFundsToNFTOption, err error) {
+func Build(options ...DepositFundsToNFTOption) (result *DepositFundsToNFTOptions, err error) {
 	// create options to collect the arguments provided
-	result = &depositFundsToNFTOption{}
+	result = &DepositFundsToNFTOptions{}
 
 	// apply arguments to our options
 	for _, option := range options {

@@ -7,10 +7,10 @@ import (
 )
 
 // DestroyNFTOption is a function that provides options.
-type DestroyNFTOption func(options *destroyNFTOption) error
+type DestroyNFTOption func(options *DestroyNFTOptions) error
 
 func WaitForConfirmation(wait bool) DestroyNFTOption {
-	return func(options *destroyNFTOption) error {
+	return func(options *DestroyNFTOptions) error {
 		options.WaitForConfirmation = wait
 		return nil
 	}
@@ -18,7 +18,7 @@ func WaitForConfirmation(wait bool) DestroyNFTOption {
 
 // AccessManaPledgeID is an option for DestroyNFT call that defines the nodeID to pledge access mana to.
 func AccessManaPledgeID(nodeID string) DestroyNFTOption {
-	return func(options *destroyNFTOption) error {
+	return func(options *DestroyNFTOptions) error {
 		options.AccessManaPledgeID = nodeID
 		return nil
 	}
@@ -26,7 +26,7 @@ func AccessManaPledgeID(nodeID string) DestroyNFTOption {
 
 // ConsensusManaPledgeID is an option for DestroyNFT call that defines the nodeID to pledge consensus mana to.
 func ConsensusManaPledgeID(nodeID string) DestroyNFTOption {
-	return func(options *destroyNFTOption) error {
+	return func(options *DestroyNFTOptions) error {
 		options.ConsensusManaPledgeID = nodeID
 		return nil
 	}
@@ -34,7 +34,7 @@ func ConsensusManaPledgeID(nodeID string) DestroyNFTOption {
 
 // Alias specifies which alias to destroy.
 func Alias(aliasID string) DestroyNFTOption {
-	return func(options *destroyNFTOption) error {
+	return func(options *DestroyNFTOptions) error {
 		parsed, err := ledgerstate.AliasAddressFromBase58EncodedString(aliasID)
 		if err != nil {
 			return err
@@ -46,7 +46,7 @@ func Alias(aliasID string) DestroyNFTOption {
 
 // RemainderAddress specifies the address where the funds of the destroyed NFT will be sent. (optional)
 func RemainderAddress(address string) DestroyNFTOption {
-	return func(options *destroyNFTOption) error {
+	return func(options *DestroyNFTOptions) error {
 		parsed, err := ledgerstate.AddressFromBase58EncodedString(address)
 		if err != nil {
 			return err
@@ -56,8 +56,8 @@ func RemainderAddress(address string) DestroyNFTOption {
 	}
 }
 
-// destroyNFTOption is a struct that is used to aggregate the optional parameters in the DestroyNFT call.
-type destroyNFTOption struct {
+// DestroyNFTOptions is a struct that is used to aggregate the optional parameters in the DestroyNFT call.
+type DestroyNFTOptions struct {
 	AccessManaPledgeID    string
 	ConsensusManaPledgeID string
 	Alias                 *ledgerstate.AliasAddress
@@ -66,9 +66,9 @@ type destroyNFTOption struct {
 }
 
 // Build builds the options.
-func Build(options ...DestroyNFTOption) (result *destroyNFTOption, err error) {
+func Build(options ...DestroyNFTOption) (result *DestroyNFTOptions, err error) {
 	// create options to collect the arguments provided
-	result = &destroyNFTOption{}
+	result = &DestroyNFTOptions{}
 
 	// apply arguments to our options
 	for _, option := range options {

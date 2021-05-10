@@ -1,4 +1,4 @@
-package sweepnftownednfts_options
+package sweepnftownednftsoptions
 
 import (
 	"golang.org/x/xerrors"
@@ -7,11 +7,11 @@ import (
 )
 
 // SweepNFTOwnedNFTsOption is a function that provides an option.
-type SweepNFTOwnedNFTsOption func(options *sweepNFTOwnedNFTsOptions) error
+type SweepNFTOwnedNFTsOption func(options *SweepNFTOwnedNFTsOptions) error
 
 // WaitForConfirmation defines if the call should wait for confirmation before it returns.
 func WaitForConfirmation(wait bool) SweepNFTOwnedNFTsOption {
-	return func(options *sweepNFTOwnedNFTsOptions) error {
+	return func(options *SweepNFTOwnedNFTsOptions) error {
 		options.WaitForConfirmation = wait
 		return nil
 	}
@@ -19,7 +19,7 @@ func WaitForConfirmation(wait bool) SweepNFTOwnedNFTsOption {
 
 // AccessManaPledgeID is an option for SweepNFTOwnedFunds call that defines the nodeID to pledge access mana to.
 func AccessManaPledgeID(nodeID string) SweepNFTOwnedNFTsOption {
-	return func(options *sweepNFTOwnedNFTsOptions) error {
+	return func(options *SweepNFTOwnedNFTsOptions) error {
 		options.AccessManaPledgeID = nodeID
 		return nil
 	}
@@ -27,7 +27,7 @@ func AccessManaPledgeID(nodeID string) SweepNFTOwnedNFTsOption {
 
 // ConsensusManaPledgeID is an option for SweepNFTOwnedFunds call that defines the nodeID to pledge consensus mana to.
 func ConsensusManaPledgeID(nodeID string) SweepNFTOwnedNFTsOption {
-	return func(options *sweepNFTOwnedNFTsOptions) error {
+	return func(options *SweepNFTOwnedNFTsOptions) error {
 		options.ConsensusManaPledgeID = nodeID
 		return nil
 	}
@@ -35,7 +35,7 @@ func ConsensusManaPledgeID(nodeID string) SweepNFTOwnedNFTsOption {
 
 // Alias specifies which an aliasID that is checked for available funds.
 func Alias(aliasID string) SweepNFTOwnedNFTsOption {
-	return func(options *sweepNFTOwnedNFTsOptions) error {
+	return func(options *SweepNFTOwnedNFTsOptions) error {
 		parsed, err := ledgerstate.AliasAddressFromBase58EncodedString(aliasID)
 		if err != nil {
 			return err
@@ -47,7 +47,7 @@ func Alias(aliasID string) SweepNFTOwnedNFTsOption {
 
 // ToAddress specifies the optional receiving address.
 func ToAddress(address string) SweepNFTOwnedNFTsOption {
-	return func(options *sweepNFTOwnedNFTsOptions) error {
+	return func(options *SweepNFTOwnedNFTsOptions) error {
 		parsed, err := ledgerstate.AddressFromBase58EncodedString(address)
 		if err != nil {
 			return err
@@ -57,8 +57,8 @@ func ToAddress(address string) SweepNFTOwnedNFTsOption {
 	}
 }
 
-// sweepNFTOwnedNFTsOptions is a struct that is used to aggregate the optional parameters in the sweepNFTOwnedNFTs call.
-type sweepNFTOwnedNFTsOptions struct {
+// SweepNFTOwnedNFTsOptions is a struct that is used to aggregate the optional parameters in the sweepNFTOwnedNFTs call.
+type SweepNFTOwnedNFTsOptions struct {
 	AccessManaPledgeID    string
 	ConsensusManaPledgeID string
 	Alias                 *ledgerstate.AliasAddress
@@ -66,10 +66,10 @@ type sweepNFTOwnedNFTsOptions struct {
 	WaitForConfirmation   bool
 }
 
-// BuildSweepNFTOwnedNFTsOptions builds the options.
-func BuildSweepNFTOwnedNFTsOptions(options ...SweepNFTOwnedNFTsOption) (result *sweepNFTOwnedNFTsOptions, err error) {
+// Build builds the options.
+func Build(options ...SweepNFTOwnedNFTsOption) (result *SweepNFTOwnedNFTsOptions, err error) {
 	// create options to collect the arguments provided
-	result = &sweepNFTOwnedNFTsOptions{}
+	result = &SweepNFTOwnedNFTsOptions{}
 
 	// apply arguments to our options
 	for _, option := range options {
