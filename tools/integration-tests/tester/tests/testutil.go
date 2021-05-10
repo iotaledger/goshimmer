@@ -129,12 +129,12 @@ func SendFaucetRequest(t *testing.T, peer *framework.Peer, addr ledgerstate.Addr
 // CheckForMessageIDs performs checks to make sure that all peers received all given messages defined in ids.
 func CheckForMessageIDs(t *testing.T, peers []*framework.Peer, messageIDs map[string]DataMessageSent, checkSynchronized bool) {
 	for _, peer := range peers {
-		// if checkSynchronized {
-		// 	// check that the peer sees itself as synchronized
-		// 	info, err := peer.Info()
-		// 	require.NoError(t, err)
-		// 	assert.Truef(t, info.TangleTime.Synced, "Node %s is not synced", peer)
-		// }
+		if checkSynchronized {
+			// check that the peer sees itself as synchronized
+			info, err := peer.Info()
+			require.NoError(t, err)
+			assert.Truef(t, info.TangleTime.Synced, "Node %s is not synced", peer)
+		}
 
 		var idsSlice []string
 		var respIDs []string
@@ -471,12 +471,12 @@ type ExpectedTransaction struct {
 // data per transaction ID.
 func CheckTransactions(t *testing.T, peers []*framework.Peer, transactionIDs map[string]*ExpectedTransaction, checkSynchronized bool, expectedInclusionState ExpectedInclusionState) {
 	for _, peer := range peers {
-		// if checkSynchronized {
-		// 	// check that the peer sees itself as synchronized
-		// 	info, err := peer.Info()
-		// 	require.NoError(t, err)
-		// 	require.Truef(t, info.TangleTime.Synced, "peer '%s' not synced", peer)
-		// }
+		if checkSynchronized {
+			// check that the peer sees itself as synchronized
+			info, err := peer.Info()
+			require.NoError(t, err)
+			require.Truef(t, info.TangleTime.Synced, "peer '%s' not synced", peer)
+		}
 
 		for txId, expectedTransaction := range transactionIDs {
 			resp, err := peer.GetTransactionByID(txId)
