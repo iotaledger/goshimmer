@@ -38,12 +38,10 @@ func NewTicker(dRNGState func() *State, interval int64, defaultValue float64, aw
 
 // UpdateRandomness updates the randomness of the ticker.
 func (t *Ticker) UpdateRandomness(r Randomness) {
-	select {
-	case <-t.fromRandomnessEvent:
-		t.fromRandomnessEvent <- r
-	default:
-		t.fromRandomnessEvent <- r
+	for len(t.fromRandomnessEvent) > 0 {
+		<-t.fromRandomnessEvent
 	}
+	t.fromRandomnessEvent <- r
 }
 
 // Start starts the Ticker.
