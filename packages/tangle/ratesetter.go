@@ -111,7 +111,7 @@ func (r *RateSetter) Submit(message *Message) error {
 	}
 	submitted, err := r.issuingQueue.Submit(message)
 	if err != nil {
-		r.tangle.Events.Info.Trigger(errors.Errorf("failed to submit message %s to issuing queue: %w", message.ID().Base58(), err))
+		r.tangle.Events.Info.Trigger("failed to submit message ", message.ID().Base58(), " to issuing queue: ", err)
 		return err
 	}
 	if submitted {

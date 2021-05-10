@@ -52,7 +52,7 @@ func TestRateSetter_ErrorHandling(t *testing.T) {
 	// Test 1: non-local node issuer message is not accepted
 	{
 		var otherMsg int32
-		tangle.Events.Info.Attach(events.NewClosure(func(err error) { atomic.AddInt32(&otherMsg, 1) }))
+		tangle.Events.Info.Attach(events.NewClosure(func(str string) { atomic.AddInt32(&otherMsg, 1) }))
 
 		// message issued by other nodes
 		msg1 := newMessage(peerNode.PublicKey())
