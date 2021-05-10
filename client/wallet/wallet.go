@@ -32,8 +32,11 @@ import (
 // region Wallet ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 const (
-	DefaultPollingInterval     = 500    // in ms
+	// DefaultPollingInterval is the polling interval of the wallet when waiting for confirmation. (in ms)
+	DefaultPollingInterval = 500 // in ms
+	// DefaultConfirmationTimeout is the timeout of waiting for confirmation. (in ms)
 	DefaultConfirmationTimeout = 150000 // in ms
+	milliSeconds               = 1000   //miliseconds in a second
 )
 
 // Wallet is a wallet that can handle aliases and extendedlockedoutputs.
@@ -1911,7 +1914,7 @@ func (wallet *Wallet) WaitForTxConfirmation(txID ledgerstate.TransactionID) (err
 			return xerrors.Errorf("transaction %s has been rejected", txID.Base58())
 		}
 		if timeoutCounter > wallet.ConfirmationTimeout {
-			return xerrors.Errorf("transaction %s did not confirm within %d seconds", txID.Base58(), wallet.ConfirmationTimeout/1000)
+			return xerrors.Errorf("transaction %s did not confirm within %d seconds", txID.Base58(), wallet.ConfirmationTimeout/milliSeconds)
 		}
 	}
 }
@@ -1939,7 +1942,7 @@ func (wallet *Wallet) waitForBalanceConfirmation(prevConfirmedBalance map[ledger
 			return
 		}
 		if timeoutCounter > wallet.ConfirmationTimeout {
-			return xerrors.Errorf("confirmed balance did not change within timeout limit (%d)", wallet.ConfirmationTimeout/1000)
+			return xerrors.Errorf("confirmed balance did not change within timeout limit (%d)", wallet.ConfirmationTimeout/milliSeconds)
 		}
 	}
 }

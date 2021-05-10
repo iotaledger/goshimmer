@@ -33,10 +33,15 @@ func loadWallet() *wallet.Wallet {
 		options = append(options, client.WithBasicAuth(config.BasicAuth.Credentials()))
 	}
 
-	return wallet.New(
+	walletOptions := []wallet.Option{
 		wallet.WebAPI(config.WebAPI, options...),
 		wallet.Import(seed, lastAddressIndex, spentAddresses, assetRegistry),
-	)
+	}
+	if config.ReuseAddresses {
+		walletOptions = append(walletOptions, wallet.ReusableAddress(true))
+	}
+
+	return wallet.New(walletOptions...)
 }
 
 func importWalletStateFile(filename string) (seed *walletseed.Seed, lastAddressIndex uint64, spentAddresses []bitmask.BitMask, assetRegistry *wallet.AssetRegistry, err error) {
