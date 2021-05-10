@@ -118,6 +118,8 @@ var ManaParameters = struct {
 	VectorsCleanupInterval time.Duration `default:"30m" usage:"interval to cleanup empty mana nodes from the mana vectors"`
 	// DebuggingEnabled defines if the mana plugin responds to queries while not being in sync or not.
 	DebuggingEnabled bool `default:"false" usage:"if mana plugin responds to queries while not in sync"`
+	// SnapshotResetTime defines if the aMana Snapshot should be reset to the current Time.
+	SnapshotResetTime bool `default:"false" usage:"when loading snapshot reset to current time when true"`
 }{}
 
 func init() {

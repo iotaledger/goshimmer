@@ -64,6 +64,8 @@ var (
 	ParaReadManaThreshold = 1.0
 	// ParaWriteManaThreshold defines the Mana threshold to write a statement.
 	ParaWriteManaThreshold = 1.0
+	// ParaSnapshotResetTime defines if the aMana Snapshot should be reset to the current Time.
+	ParaSnapshotResetTime = false
 )
 
 var (
@@ -107,6 +109,7 @@ type GoShimmerConfig struct {
 	WriteStatement             bool
 	WriteManaThreshold         float64
 	ReadManaThreshold          float64
+	SnapshotResetTime          bool
 }
 
 // NetworkConfig defines the config of a GoShimmer Docker network.

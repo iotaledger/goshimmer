@@ -21,6 +21,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/database"
@@ -807,6 +808,8 @@ func loadSnapshot(snapshot *ledgerstate.Snapshot) {
 	}
 
 	// load access mana into SnapshotInfoVec
+	genesisTime := time.Unix(tangle.DefaultGenesisTime, 0)
+	maxTimestamp := genesisTime
 	for nodeID, accessMana := range snapshot.AccessManaByNode {
 		snapshotNode, ok := SnapshotByNode[nodeID]
 		if !ok { // fill with empty element if it does not exist yet
@@ -817,7 +820,17 @@ func loadSnapshot(snapshot *ledgerstate.Snapshot) {
 			Value:     accessMana.Value,
 			Timestamp: accessMana.Timestamp,
 		}
+		if accessMana.Timestamp.After(maxTimestamp) {
+			maxTimestamp = accessMana.Timestamp
+		}
 		SnapshotByNode[nodeID] = snapshotNode
+	}
+	// for certain applications (docker-network) reset to the latest timestamp, to have large enough aMana
+	if settings.SnapshotResetTime {
+		addTime := time.Now().Sub(maxTimestamp)
+		for nodeID, _ := range snapshot.AccessManaByNode {
+			SnapshotByNode[nodeID].AccessMana.Timestamp = SnapshotByNode[nodeID].AccessMana.Timestamp.Add(addTime)
+		}
 	}
 
 	baseManaVectors[mana.ConsensusMana].LoadSnapshot(SnapshotByNode)

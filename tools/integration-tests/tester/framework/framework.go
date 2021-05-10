@@ -115,6 +115,7 @@ func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int, 
 			WriteStatement:             ParaWriteStatement,
 			WriteManaThreshold:         ParaWriteManaThreshold,
 			ReadManaThreshold:          ParaReadManaThreshold,
+			SnapshotResetTime:          ParaSnapshotResetTime,
 		}
 		if _, err = network.CreatePeer(config); err != nil {
 			return nil, err
@@ -188,6 +189,7 @@ func (f *Framework) CreateNetworkWithPartitions(name string, peers, partitions, 
 			WriteStatement:             ParaWriteStatement,
 			WriteManaThreshold:         ParaWriteManaThreshold,
 			ReadManaThreshold:          ParaReadManaThreshold,
+			SnapshotResetTime:          ParaSnapshotResetTime,
 		}
 		if _, err = network.CreatePeer(config); err != nil {
 			return nil, err
