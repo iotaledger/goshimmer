@@ -28,7 +28,8 @@ var (
 	// Initial is the rate in bytes per second
 	Initial = 20000.0
 	// Beta is the multiplicative decrease
-	Beta = 0.7
+	Beta          = 0.7
+	issueChanSize = 1000
 )
 
 // region RateSetterParams /////////////////////////////////////////////////////////////////////////////////////////////
@@ -67,7 +68,7 @@ func NewRateSetter(tangle *Tangle) *RateSetter {
 		},
 		self:           tangle.Options.Identity.ID(),
 		issuingQueue:   schedulerutils.NewNodeQueue(tangle.Options.Identity.ID()),
-		issue:          make(chan *Message, 1),
+		issue:          make(chan *Message, issueChanSize),
 		lambda:         atomic.NewFloat64(Initial),
 		haltUpdate:     0,
 		shutdownSignal: make(chan struct{}),
@@ -92,12 +93,18 @@ func (r *RateSetter) Setup() {
 }
 
 func (r *RateSetter) unsubmit(message *Message) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	r.issuingQueue.Unsubmit(message)
 	r.tangle.Scheduler.Unsubmit(message.ID())
 }
 
 // Submit submits a message to the local issuing queue.
 func (r *RateSetter) Submit(message *Message) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	if r.issuingQueue.Size()+uint(len(message.Bytes())) > MaxLocalQueueSize {
 		r.Events.MessageDiscarded.Trigger(message.ID())
 		return errors.Errorf("local queue exceeded: %s", message.ID())
