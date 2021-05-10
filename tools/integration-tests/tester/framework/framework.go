@@ -82,7 +82,7 @@ func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int, 
 				return i == 0
 			}(i),
 			ActivityInterval: func(i int) int {
-				broadcastInterval := 0
+				broadcastInterval := 3
 				if i == 0 {
 					broadcastInterval = 1
 				}
