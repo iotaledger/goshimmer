@@ -160,6 +160,13 @@ func (f *Framework) CreateNetworkWithPartitions(name string, peers, partitions, 
 				}
 				return i == 0
 			}(i),
+			ActivityInterval: func(i int) int {
+				broadcastInterval := 3
+				if i == 0 {
+					broadcastInterval = 1
+				}
+				return broadcastInterval
+			}(i),
 			Seed: func(i int) string {
 				if i == 0 {
 					return syncBeaconSeed
