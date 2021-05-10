@@ -476,25 +476,25 @@ func TestTangle_Flow(t *testing.T) {
 	)
 
 	// filter rejected events
-	tangle.Parser.Events.MessageRejected.Attach(events.NewClosure(func(msgRejectedEvent *MessageRejectedEvent, _ error) {
+	tangle.Parser.Events.MessageRejected.AttachAfter(events.NewClosure(func(msgRejectedEvent *MessageRejectedEvent, _ error) {
 		n := atomic.AddInt32(&rejectedMessages, 1)
-		t.Logf("rejected by message filter messages %d/%d", n, totalMsgCount)
+		t.Logf("rejected by message filter messages %d/%d - %s", n, totalMsgCount, msgRejectedEvent.Message.ID())
 	}))
 
-	tangle.Parser.Events.MessageParsed.Attach(events.NewClosure(func(msgParsedEvent *MessageParsedEvent) {
+	tangle.Parser.Events.MessageParsed.AttachAfter(events.NewClosure(func(msgParsedEvent *MessageParsedEvent) {
 		n := atomic.AddInt32(&parsedMessages, 1)
-		t.Logf("parsed messages %d/%d", n, totalMsgCount)
+		t.Logf("parsed messages %d/%d - %s", n, totalMsgCount, msgParsedEvent.Message.ID())
 	}))
 
 	// message invalid events
-	tangle.Events.MessageInvalid.Attach(events.NewClosure(func(messageID MessageID) {
+	tangle.Events.MessageInvalid.AttachAfter(events.NewClosure(func(messageID MessageID) {
 		n := atomic.AddInt32(&invalidMessages, 1)
-		t.Logf("invalid messages %d/%d", n, totalMsgCount)
+		t.Logf("invalid messages %d/%d - %s", n, totalMsgCount, messageID)
 	}))
 
-	tangle.Storage.Events.MessageStored.Attach(events.NewClosure(func(MessageID) {
+	tangle.Storage.Events.MessageStored.AttachAfter(events.NewClosure(func(messageID MessageID) {
 		n := atomic.AddInt32(&storedMessages, 1)
-		t.Logf("stored messages %d/%d", n, totalMsgCount)
+		t.Logf("stored messages %d/%d - %s", n, totalMsgCount, messageID)
 	}))
 
 	// increase the counter when a missing message was detected
@@ -506,35 +506,35 @@ func TestTangle_Flow(t *testing.T) {
 	}))
 
 	// decrease the counter when a missing message was received
-	tangle.Storage.Events.MissingMessageStored.Attach(events.NewClosure(func(MessageID) {
+	tangle.Storage.Events.MissingMessageStored.AttachAfter(events.NewClosure(func(messageID MessageID) {
 		n := atomic.AddInt32(&missingMessages, -1)
-		t.Logf("missing messages %d", n)
+		t.Logf("missing messages %d - %s", n, messageID)
 	}))
 
-	tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(MessageID) {
+	tangle.Solidifier.Events.MessageSolid.AttachAfter(events.NewClosure(func(messageID MessageID) {
 		n := atomic.AddInt32(&solidMessages, 1)
-		t.Logf("solid messages %d/%d", n, totalMsgCount)
+		t.Logf("solid messages %d/%d - %s", n, totalMsgCount, messageID)
 	}))
 
-	tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
+	tangle.Scheduler.Events.MessageScheduled.AttachAfter(events.NewClosure(func(messageID MessageID) {
 		n := atomic.AddInt32(&scheduledMessages, 1)
-		t.Logf("scheduled messages %d/%d", n, totalMsgCount)
+		t.Logf("scheduled messages %d/%d - %s", n, totalMsgCount, messageID)
 	}))
 
-	tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(func(messageID MessageID) {
+	tangle.Booker.Events.MessageBooked.AttachAfter(events.NewClosure(func(messageID MessageID) {
 		n := atomic.AddInt32(&bookedMessages, 1)
-		t.Logf("booked messages %d/%d", n, totalMsgCount)
+		t.Logf("booked messages %d/%d - %s", n, totalMsgCount, messageID)
 	}))
 
-	tangle.ConsensusManager.Events.MessageOpinionFormed.Attach(events.NewClosure(func(messageID MessageID) {
+	tangle.ConsensusManager.Events.MessageOpinionFormed.AttachAfter(events.NewClosure(func(messageID MessageID) {
 		n := atomic.AddInt32(&opinionFormedMessages, 1)
 		t.Logf("opinion formed messages %d/%d", n, totalMsgCount)
 	}))
 
 	// data messages should not trigger this event
-	tangle.LedgerState.UTXODAG.Events.TransactionConfirmed.Attach(events.NewClosure(func(transactionID ledgerstate.TransactionID) {
+	tangle.LedgerState.UTXODAG.Events.TransactionConfirmed.AttachAfter(events.NewClosure(func(transactionID ledgerstate.TransactionID) {
 		n := atomic.AddInt32(&opinionFormedTransactions, 1)
-		t.Logf("opinion formed transaction %d/%d", n, totalMsgCount)
+		t.Logf("opinion formed transaction %d/%d - %s", n, totalMsgCount, transactionID)
 	}))
 
 	tangle.Events.Error.Attach(events.NewClosure(func(err error) {
