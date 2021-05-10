@@ -14,6 +14,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/remotelogmetrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/drng"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
 )
@@ -39,6 +40,7 @@ func Plugin() *node.Plugin {
 func configure(_ *node.Plugin) {
 	configureSyncMetrics()
 	configureFPCConflictsMetrics()
+	configureDRNGMetrics()
 }
 
 func run(_ *node.Plugin) {
@@ -79,4 +81,9 @@ func configureFPCConflictsMetrics() {
 	metricsLogger := newFPCMetricsLogger()
 	messagelayer.Voter().Events().Finalized.Attach(events.NewClosure(metricsLogger.onVoteFinalized))
 	messagelayer.Voter().Events().RoundExecuted.Attach(events.NewClosure(metricsLogger.onVoteRoundExecuted))
+}
+
+func configureDRNGMetrics() {
+	metricsLogger := newDRNGMetricsLogger()
+	drng.Instance().Events.Randomness.Attach(events.NewClosure(metricsLogger.onRandomnessReceived))
 }

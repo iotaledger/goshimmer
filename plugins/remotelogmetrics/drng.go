@@ -9,14 +9,20 @@ import (
 )
 
 type dRNGMetricsLogger struct {
-	InstanceID        uint32    `json:"instanceID"`
-	Round             uint64    `json:"round"`
-	IssuedTimestamp   time.Time `json:"issuedTimestamp"`
-	ReceivedTimestamp time.Time `json:"receivedTimestamp"`
+	Type              string    `json:"type" bson:"type"`
+	InstanceID        uint32    `json:"instanceID" bson:"instanceID"`
+	Round             uint64    `json:"round" bson:"round"`
+	IssuedTimestamp   time.Time `json:"issuedTimestamp" bson:"issuedTimestamp"`
+	ReceivedTimestamp time.Time `json:"receivedTimestamp" bson:"receivedTimestamp"`
+}
+
+func newDRNGMetricsLogger() *dRNGMetricsLogger {
+	return &dRNGMetricsLogger{}
 }
 
 func (ml *dRNGMetricsLogger) onRandomnessReceived(state *drng.State) {
 	record := &dRNGMetricsLogger{
+		Type:              "drng",
 		InstanceID:        state.Committee().InstanceID,
 		Round:             state.Randomness().Round,
 		IssuedTimestamp:   state.Randomness().Timestamp,
