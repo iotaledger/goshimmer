@@ -1,9 +1,10 @@
 package wallet
 
 import (
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"sort"
 	"time"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 type TimelockedBalance struct {

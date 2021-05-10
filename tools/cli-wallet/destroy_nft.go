@@ -3,10 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
+
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/destroynft_options"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"os"
 )
 
 func execDestroyNFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
@@ -48,5 +49,4 @@ func execDestroyNFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 
 	fmt.Println()
 	fmt.Println("Destroying NFT... [DONE]")
-
 }

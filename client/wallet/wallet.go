@@ -141,7 +141,7 @@ func (wallet *Wallet) SendFunds(options ...sendfunds_options.SendFundsOption) (t
 		return nil, err
 	}
 
-	//check tx validity (balances, unlock blocks)
+	// check tx validity (balances, unlock blocks)
 	ok, err := checkBalancesAndUnlocks(inputsAsOutputsInOrder, tx)
 	if err != nil {
 		return nil, err
@@ -238,7 +238,7 @@ func (wallet *Wallet) ConsolidateFunds(options ...consolidatefunds_options.Conso
 		return nil, err
 	}
 
-	//check tx validity (balances, unlock blocks)
+	// check tx validity (balances, unlock blocks)
 	ok, err := checkBalancesAndUnlocks(inputsAsOutputsInOrder, tx)
 	if err != nil {
 		return nil, err
@@ -336,7 +336,7 @@ func (wallet *Wallet) ClaimConditionalFunds(options ...claimconditionalfunds_opt
 		return nil, err
 	}
 
-	//check tx validity (balances, unlock blocks)
+	// check tx validity (balances, unlock blocks)
 	ok, err := checkBalancesAndUnlocks(inputsAsOutputsInOrder, tx)
 	if err != nil {
 		return nil, err
@@ -539,7 +539,7 @@ func (wallet *Wallet) DelegateFunds(options ...delegatefunds_options.DelegateFun
 		return
 	}
 
-	//check tx validity (balances, unlock blocks)
+	// check tx validity (balances, unlock blocks)
 	ok, err := checkBalancesAndUnlocks(inputsAsOutputsInOrder, tx)
 	if err != nil {
 		return
@@ -675,7 +675,7 @@ func (wallet *Wallet) CreateNFT(options ...createnft_options.CreateNFTOption) (t
 		return nil, nil, err
 	}
 
-	//check tx validity (balances, unlock blocks)
+	// check tx validity (balances, unlock blocks)
 	ok, err := checkBalancesAndUnlocks(inputsInOrder, tx)
 	if err != nil {
 		return nil, nil, err
@@ -808,7 +808,7 @@ func (wallet *Wallet) TransferNFT(options ...transfernft_options.TransferNFTOpti
 		return nil, err
 	}
 
-	//check tx validity (balances, unlock blocks)
+	// check tx validity (balances, unlock blocks)
 	ok, err := checkBalancesAndUnlocks(ledgerstate.Outputs{alias}, tx)
 	if err != nil {
 		return nil, err
@@ -903,7 +903,7 @@ func (wallet *Wallet) DestroyNFT(options ...destroynft_options.DestroyNFTOption)
 		return nil, err
 	}
 
-	//check tx validity (balances, unlock blocks)
+	// check tx validity (balances, unlock blocks)
 	ok, err := checkBalancesAndUnlocks(ledgerstate.Outputs{alias}, tx)
 	if err != nil {
 		return nil, err
@@ -1013,7 +1013,7 @@ func (wallet *Wallet) WithdrawFundsFromNFT(options ...withdrawfundsfromnft_optio
 		return nil, err
 	}
 
-	//check tx validity (balances, unlock blocks)
+	// check tx validity (balances, unlock blocks)
 	ok, err := checkBalancesAndUnlocks(ledgerstate.Outputs{alias}, tx)
 	if err != nil {
 		return nil, err
@@ -1130,7 +1130,7 @@ func (wallet *Wallet) DepositFundsToNFT(options ...depositfundstonft_options.Dep
 		return nil, err
 	}
 
-	//check tx validity (balances, unlock blocks)
+	// check tx validity (balances, unlock blocks)
 	ok, err := checkBalancesAndUnlocks(inputsInOrder, tx)
 	if err != nil {
 		return nil, err
@@ -1248,14 +1248,13 @@ func (wallet Wallet) SweepNFTOwnedFunds(options ...sweepnftownedfunds_options.Sw
 			}
 			inputsInOrder = append(inputsInOrder, toBeConsumeByID[casted.ReferencedOutputID()])
 		}
-
 	}
 	if aliasInputIndex < 0 {
 		err = xerrors.Errorf("failed to find alias %s among prepared transaction inputs", alias.GetAliasAddress().Base58())
 		return
 	}
 	// fill rest of the unlock blocks
-	for i, _ := range essence.Inputs() {
+	for i := range essence.Inputs() {
 		if i != aliasInputIndex {
 			unlockBlocks[i] = ledgerstate.NewAliasUnlockBlock(uint16(aliasInputIndex))
 		}
@@ -1269,7 +1268,7 @@ func (wallet Wallet) SweepNFTOwnedFunds(options ...sweepnftownedfunds_options.Sw
 		return nil, err
 	}
 
-	//check tx validity (balances, unlock blocks)
+	// check tx validity (balances, unlock blocks)
 	ok, err := checkBalancesAndUnlocks(inputsInOrder, tx)
 	if err != nil {
 		return nil, err
@@ -1387,14 +1386,13 @@ func (wallet *Wallet) SweepNFTOwnedNFTs(options ...sweepnftownednfts_options.Swe
 			}
 			inputsInOrder = append(inputsInOrder, toBeConsumeByID[casted.ReferencedOutputID()])
 		}
-
 	}
 	if aliasInputIndex < 0 {
 		err = xerrors.Errorf("failed to find alias %s among prepared transaction inputs", alias.GetAliasAddress().Base58())
 		return
 	}
 	// fill rest of the unlock blocks
-	for i, _ := range essence.Inputs() {
+	for i := range essence.Inputs() {
 		if i != aliasInputIndex {
 			unlockBlocks[i] = ledgerstate.NewAliasUnlockBlock(uint16(aliasInputIndex))
 		}
@@ -1402,7 +1400,7 @@ func (wallet *Wallet) SweepNFTOwnedNFTs(options ...sweepnftownednfts_options.Swe
 
 	tx = ledgerstate.NewTransaction(essence, unlockBlocks)
 
-	//check tx validity (balances, unlock blocks)
+	// check tx validity (balances, unlock blocks)
 	ok, err := checkBalancesAndUnlocks(inputsInOrder, tx)
 	if err != nil {
 		return

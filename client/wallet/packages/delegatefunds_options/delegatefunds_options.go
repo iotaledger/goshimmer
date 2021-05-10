@@ -2,8 +2,9 @@ package delegatefunds_options
 
 import (
 	"errors"
-	"golang.org/x/xerrors"
 	"time"
+
+	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -14,7 +15,6 @@ type DelegateFundsOption func(*delegateFundsOptions) error
 
 // Destination is an option for the SendFunds call that defines a destination for funds that are supposed to be moved.
 func Destination(addr address.Address, balance map[ledgerstate.Color]uint64) DelegateFundsOption {
-
 	// return an error if the IOTA amount is less
 	if balance[ledgerstate.ColorIOTA] < ledgerstate.DustThresholdAliasOutputIOTA {
 		return optionError(xerrors.Errorf("the IOTA amount provided in the destination needs to be larger than %d", ledgerstate.DustThresholdAliasOutputIOTA))

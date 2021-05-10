@@ -34,7 +34,7 @@ func loadConfig() {
 			panic(err)
 		}
 
-		if err = os.WriteFile("config.json", []byte(configJSON), 0644); err != nil {
+		if err = os.WriteFile("config.json", []byte(configJSON), 0o644); err != nil {
 			panic(err)
 		}
 		if file, err = os.Open("config.json"); err != nil {

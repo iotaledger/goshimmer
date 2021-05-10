@@ -130,7 +130,6 @@ func (webConnector WebConnector) GetTransactionInclusionState(txID ledgerstate.T
 		}
 	}
 	return
-
 }
 
 // GetAllowedPledgeIDs gets the list of nodeIDs that the node accepts as pledgeIDs in a transaction.

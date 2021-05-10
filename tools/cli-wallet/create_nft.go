@@ -3,12 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
+	"os"
+
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/createnft_options"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/mr-tron/base58"
-	"io/ioutil"
-	"os"
 )
 
 func execCreateNFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {

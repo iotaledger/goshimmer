@@ -3,13 +3,14 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
+	"time"
+
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/delegatefunds_options"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/mr-tron/base58"
-	"os"
-	"time"
 )
 
 func execDelegateFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
@@ -98,7 +99,6 @@ func execDelegateFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	}
 
 	_, delegationIDs, err := cliWallet.DelegateFunds(options...)
-
 	if err != nil {
 		printUsage(command, err.Error())
 	}

@@ -3,11 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
+
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sweepnftownedfunds_options"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sweepnftownednfts_options"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"os"
 )
 
 func execSweepNFTOwnedFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
@@ -55,7 +56,6 @@ func execSweepNFTOwnedFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wall
 
 	fmt.Println()
 	fmt.Println("Sweeping NFT owned funds... [DONE]")
-
 }
 
 func execSweepNFTOwnedNFTsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
@@ -107,5 +107,4 @@ func execSweepNFTOwnedNFTsCommand(command *flag.FlagSet, cliWallet *wallet.Walle
 		fmt.Println(fmt.Sprintf("Swept NFT %s into the wallet", sweptNFT.Base58()))
 	}
 	fmt.Println("Sweeping NFT owned NFTs... [DONE]")
-
 }

@@ -114,7 +114,7 @@ func writeWalletStateFile(wallet *wallet.Wallet, filename string) {
 		}
 	}
 
-	err = os.WriteFile(filename, wallet.ExportState(), 0644)
+	err = os.WriteFile(filename, wallet.ExportState(), 0o644)
 	if err != nil {
 		panic(err)
 	}

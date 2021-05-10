@@ -1,10 +1,11 @@
 package wallet
 
 import (
+	"time"
+
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/stringify"
-	"time"
 )
 
 // Output is a wallet specific representation of an output in the IOTA network.

@@ -3,9 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
+
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/consolidatefunds_options"
-	"os"
 )
 
 func execConsolidateFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
@@ -36,5 +37,4 @@ func execConsolidateFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet
 
 	fmt.Println()
 	fmt.Println("Consolidating funds... [DONE]")
-
 }

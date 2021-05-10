@@ -26,7 +26,7 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	// initialize tab writer
 	w := new(tabwriter.Writer)
 	w.Init(os.Stdout, 0, 8, 2, '\t', 0)
-	//defer w.Flush()
+	// defer w.Flush()
 	// print header
 	fmt.Println()
 	fmt.Println("Available Token Balances")
@@ -37,7 +37,6 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	// print empty if no balances founds
 	if len(confirmedBalance) == 0 && len(pendingBalance) == 0 {
 		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", "<EMPTY>", "<EMPTY>", "<EMPTY>", "<EMPTY>")
-
 	} else {
 		// print balances
 		for color, amount := range confirmedBalance {
@@ -59,7 +58,7 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 		// initialize tab writer
 		wT := new(tabwriter.Writer)
 		wT.Init(os.Stdout, 0, 8, 2, '\t', 0)
-		//defer w.Flush()
+		// defer w.Flush()
 		// print header
 		fmt.Println()
 		fmt.Println("Timelocked Token Balances")
@@ -101,7 +100,7 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 		// initialize tab writer
 		wC := new(tabwriter.Writer)
 		wC.Init(os.Stdout, 0, 8, 2, '\t', 0)
-		//defer w.Flush()
+		// defer w.Flush()
 		// print header
 		fmt.Println()
 		fmt.Println("Conditional Token Balances - execute `claim-conditional` command to sweep these funds into wallet")
@@ -140,26 +139,26 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	// process returned data, prepare for printing
 
 	// remove alias outputs from confirmedStateAliasBalance that are state & governance controlled
-	for aliasID, _ := range confirmedStateAliasBalance {
+	for aliasID := range confirmedStateAliasBalance {
 		if _, has := confirmedGovAliasBalance[aliasID]; has {
 			delete(confirmedStateAliasBalance, aliasID)
 		}
 	}
 	// remove alias outputs from pendingStateAliasBalance that are state & governance controlled
-	for aliasID, _ := range pendingStateAliasBalance {
+	for aliasID := range pendingStateAliasBalance {
 		if _, has := pendingGovAliasBalance[aliasID]; has {
 			delete(pendingStateAliasBalance, aliasID)
 		}
 	}
 
 	// remove confirmed delegated alias outputs from governance controlled balance
-	for aliasID, _ := range confirmedDel {
+	for aliasID := range confirmedDel {
 		if _, has := confirmedGovAliasBalance[aliasID]; has {
 			delete(confirmedGovAliasBalance, aliasID)
 		}
 	}
 	// remove pending delegated alias outputs from governance controlled balance
-	for aliasID, _ := range pendingDel {
+	for aliasID := range pendingDel {
 		if _, has := pendingGovAliasBalance[aliasID]; has {
 			delete(pendingGovAliasBalance, aliasID)
 		}

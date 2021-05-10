@@ -3,10 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
+
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/reclaimfunds_options"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"os"
 )
 
 func execReclaimDelegatedFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
