@@ -25,7 +25,6 @@ func checkSynced() {
 			LastConfirmedMessageTime: messagelayer.Tangle().TimeManager.Time(),
 			CurrentStatus:            tts,
 			PreviousStatus:           oldTangleTimeSynced,
-			SyncType:                 "tangletime",
 		}
 		remotelogmetrics.Events().TangleTimeSyncChanged.Trigger(syncStatusChangedEvent)
 	}
