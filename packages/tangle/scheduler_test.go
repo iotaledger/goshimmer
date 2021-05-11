@@ -48,10 +48,11 @@ func TestScheduler_Submit(t *testing.T) {
 func TestScheduler_Discarded(t *testing.T) {
 	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
 	defer tangle.Shutdown()
-	tangle.Scheduler.Start()
 
 	messageDiscarded := make(chan MessageID, 1)
 	tangle.Scheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(id MessageID) { messageDiscarded <- id }))
+
+	tangle.Scheduler.Start()
 
 	// this node has no mana so the message will be discarded
 	msg := newMessage(noAManaNode.PublicKey())
@@ -72,10 +73,11 @@ func TestScheduler_Discarded(t *testing.T) {
 func TestScheduler_DiscardedAtShutdown(t *testing.T) {
 	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
 	defer tangle.Shutdown()
-	tangle.Scheduler.Start()
 
 	messageDiscarded := make(chan MessageID, 1)
 	tangle.Scheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(id MessageID) { messageDiscarded <- id }))
+
+	tangle.Scheduler.Start()
 
 	msg := newMessage(selfNode.PublicKey())
 	tangle.Storage.StoreMessage(msg)
@@ -94,13 +96,23 @@ func TestScheduler_DiscardedAtShutdown(t *testing.T) {
 	}, 1*time.Second, 10*time.Millisecond)
 }
 
+func TestScheduler_SetRateBeforeStart(t *testing.T) {
+	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
+	defer tangle.Shutdown()
+
+	tangle.Scheduler.SetRate(time.Hour)
+	tangle.Scheduler.Start()
+	tangle.Scheduler.SetRate(testRate)
+}
+
 func TestScheduler_Schedule(t *testing.T) {
 	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
 	defer tangle.Shutdown()
-	tangle.Scheduler.Start()
 
 	messageScheduled := make(chan MessageID, 1)
 	tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(id MessageID) { messageScheduled <- id }))
+
+	tangle.Scheduler.Start()
 
 	// create a new message from a different node
 	msg := newMessage(peerNode.PublicKey())
@@ -118,22 +130,16 @@ func TestScheduler_Schedule(t *testing.T) {
 	}, 1*time.Second, 10*time.Millisecond)
 }
 
-func TestScheduler_SetRateBeforeStart(t *testing.T) {
-	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
-	defer tangle.Shutdown()
-
-	tangle.Scheduler.SetRate(time.Hour)
-	tangle.Scheduler.Start()
-	tangle.Scheduler.SetRate(testRate)
-}
-
 func TestScheduler_SetRate(t *testing.T) {
 	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
 	defer tangle.Shutdown()
-	tangle.Scheduler.Start()
 
 	var scheduled atomic.Bool
 	tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(MessageID) { scheduled.Store(true) }))
+
+	// start and make sure scheduler is running
+	tangle.Scheduler.Start()
+	time.Sleep(100 * time.Millisecond)
 
 	// disable the scheduler by setting a very long rate
 	tangle.Scheduler.SetRate(time.Hour)
@@ -154,10 +160,11 @@ func TestScheduler_SetRate(t *testing.T) {
 func TestScheduler_Time(t *testing.T) {
 	tangle := New(Identity(selfLocalIdentity), SchedulerConfig(testSchedulerParams))
 	defer tangle.Shutdown()
-	tangle.Scheduler.Start()
 
 	messageScheduled := make(chan MessageID, 1)
 	tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(id MessageID) { messageScheduled <- id }))
+
+	tangle.Scheduler.Start()
 
 	future := newMessage(peerNode.PublicKey())
 	future.issuingTime = time.Now().Add(time.Second)
