@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -1092,7 +1092,7 @@ func AliasOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*AliasOut
 	}
 	ret.stateIndex, err = marshalUtil.ReadUint32()
 	if err != nil {
-		return nil, xerrors.Errorf("AliasOutput: failed to parse state address (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return nil, errors.Errorf("AliasOutput: failed to parse state address (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
 	if flags.HasBit(flagAliasOutputStateDataPresent) {
 		size, err4 := marshalUtil.ReadUint16()
@@ -1948,7 +1948,7 @@ func ExtendedOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output
 	flags := bitmask.BitMask(flagsByte)
 	if flags.HasBit(flagExtendedLockedOutputFallbackPresent) {
 		if output.fallbackAddress, err = AddressFromMarshalUtil(marshalUtil); err != nil {
-			err = xerrors.Errorf("failed to parse fallbackAddress (%v): %w", err, cerrors.ErrParseBytesFailed)
+			err = errors.Errorf("failed to parse fallbackAddress (%v): %w", err, cerrors.ErrParseBytesFailed)
 			return
 		}
 		if output.fallbackDeadline, err = marshalUtil.ReadTime(); err != nil {

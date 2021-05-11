@@ -129,7 +129,7 @@ func AddressFromSignature(sig Signature) (Address, error) {
 	case *BLSSignature:
 		return NewBLSAddress(s.Signature.PublicKey.Bytes()), nil
 	}
-	return nil, xerrors.New("signature has no corresponding address")
+	return nil, errors.New("signature has no corresponding address")
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

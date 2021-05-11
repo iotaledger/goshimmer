@@ -263,7 +263,7 @@ func TransactionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transacti
 			}
 		case AliasUnlockBlockType:
 			if unlockBlock.(*AliasUnlockBlock).AliasInputIndex() > uint16(maxReferencedUnlockIndex) {
-				err = xerrors.Errorf("unlock block %d references non-existent chain input at index %d", i, unlockBlock.(*AliasUnlockBlock).AliasInputIndex())
+				err = errors.Errorf("unlock block %d references non-existent chain input at index %d", i, unlockBlock.(*AliasUnlockBlock).AliasInputIndex())
 				return
 			}
 		}
@@ -277,11 +277,11 @@ func TransactionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transacti
 			alias := output.(*AliasOutput)
 			aliasAddress := alias.GetAliasAddress()
 			if alias.GetStateAddress().Equals(aliasAddress) {
-				err = xerrors.Errorf("state address of alias output at index %d (id: %s) cannot be its own alias address", i, alias.ID().Base58())
+				err = errors.Errorf("state address of alias output at index %d (id: %s) cannot be its own alias address", i, alias.ID().Base58())
 				return
 			}
 			if alias.GetGoverningAddress().Equals(aliasAddress) {
-				err = xerrors.Errorf("governing address of alias output at index %d (id: %s) cannot be its own alias address", i, alias.ID().Base58())
+				err = errors.Errorf("governing address of alias output at index %d (id: %s) cannot be its own alias address", i, alias.ID().Base58())
 				return
 			}
 		}

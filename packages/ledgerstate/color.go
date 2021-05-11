@@ -147,7 +147,7 @@ func ColoredBalancesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (color
 		return
 	}
 	if balancesCount == 0 {
-		err = xerrors.Errorf("empty balances in output")
+		err = errors.Errorf("empty balances in output")
 		return
 	}
 
@@ -172,7 +172,7 @@ func ColoredBalancesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (color
 			return
 		}
 		if balance == 0 {
-			err = xerrors.Errorf("zero balance found for color %s", color.String())
+			err = errors.Errorf("zero balance found for color %s", color.String())
 			return
 		}
 
