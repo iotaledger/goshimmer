@@ -490,7 +490,7 @@ func (m *Manager) fetchSequence(referencedMarkers *Markers, pastMarkerGap, rank 
 			return
 		}
 		sequence.increaseVerticesWithoutFutureMarker()
-		if !sequence.newSequenceRequired(pastMarkerGap) {
+		if true || !sequence.newSequenceRequired(pastMarkerGap) {
 			return
 		}
 
