@@ -73,7 +73,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, t ...*Tangle) (*Message
 	}
 
 	f.issuanceMutex.Lock()
-	defer f.issuanceMutex.Unlock()
+
 	sequenceNumber, err := f.sequence.Next()
 	if err != nil {
 		err = errors.Errorf("could not create sequence number: %w", err)
@@ -117,6 +117,8 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, t ...*Tangle) (*Message
 		f.Events.Error.Trigger(err)
 		return nil, err
 	}
+
+	f.issuanceMutex.Unlock()
 
 	// create the signature
 	signature := f.sign(strongParents, weakParents, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)

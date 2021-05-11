@@ -56,7 +56,9 @@ func run(_ *node.Plugin) {
 		initialDelay := rand.Intn(delayOffset)
 		time.Sleep(time.Duration(initialDelay) * time.Second)
 
-		timeutil.NewTicker(broadcastActivityMessage, time.Duration(Parameters.BroadcastIntervalSec)*time.Second, shutdownSignal)
+		if Parameters.BroadcastIntervalSec > 0 {
+			timeutil.NewTicker(broadcastActivityMessage, time.Duration(Parameters.BroadcastIntervalSec)*time.Second, shutdownSignal)
+		}
 
 		// Wait before terminating so we get correct log messages from the daemon regarding the shutdown order.
 		<-shutdownSignal

@@ -1,3 +1,19 @@
+# v0.5.9 - 2021-05-11
+* Replace sync beacons with Tangle Time
+* Fix approval weight manager persistence
+* Fix non positive ticker
+* Fix marker issues
+* Fix solidification issues
+* Fix concurrency-related issues
+* Improve FPC metrics logging
+* Improve clock synchronization handling
+* Improve dRNG plugin
+* Improve integration tests
+* Update JS dependencies
+* Update to latest hive.go
+* Update documentation
+* **Breaking**: bumps network and database versions
+
 # v0.5.8 - 2021-05-07
 * Integrate FPC with the X-Team committee
 * Enable finality via approval weight
