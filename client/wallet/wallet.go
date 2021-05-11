@@ -2242,7 +2242,6 @@ func (wallet *Wallet) chooseRemainderAddress(consumedOutputs OutputsByAddressAnd
 		}
 		// we are not spending from remainder
 		return wallet.RemainderAddress()
-
 	}
 	return optionsRemainder
 }
