@@ -14,8 +14,6 @@ http://goshimmer.docs.iota.org/
   - [Obtaining tokens from the faucet](./tutorials/request_funds.md)
   - [The wallet library](./tutorials/wallet.md)
   - [Writing a dApp](./tutorials/dApp.md)
-  - [How to run a sync beacon](./tutorials/syncbeacon.md)
-  - [How to configure followed sync beacon nodes](./tutorials/follow_syncbeacon.md)
   - [How to create a static identity](./tutorials/static_identity.md)
   - [How to setup a custom dRNG committee](./tutorials/custom_dRNG.md)
   - [Setting up Monitoring Dashboard](./tutorials/monitoring.md)
@@ -38,6 +36,7 @@ http://goshimmer.docs.iota.org/
   - [Value layer](./apis/value.md)
 - [Tooling](./tooling.md)
   - [Docker private network](./tooling/docker_private_network.md)
+  - [Integration tests](./tooling/integration_tests.md)
 
 - [Specification of Implementation](./specification.md)
   - [Mana](./specification/001-mana.md)

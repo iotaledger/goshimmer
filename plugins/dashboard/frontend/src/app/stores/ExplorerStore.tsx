@@ -7,8 +7,8 @@ import {
     DrngSubtype,
     PayloadType,
     TransactionPayload,
-    SyncBeaconPayload,
-    getPayloadType, Output
+    getPayloadType,
+    Output
 } from "app/misc/Payload";
 import * as React from "react";
 import {Link} from 'react-router-dom';
@@ -22,6 +22,7 @@ export class Message {
     issuance_timestamp: number;
     sequence_number: number;
     issuer_public_key: string;
+    issuer_short_id: string;
     signature: string;
     strongParents: Array<string>;
     weakParents: Array<string>;
@@ -37,7 +38,9 @@ export class Message {
     payload_type: number;
     payload: any;
     rank: number;
+    sequenceID: number;
     isPastMarker: boolean;
+    pastMarkerGap: number;
     pastMarkers: string;
     futureMarkers: string;
 }
@@ -513,10 +516,6 @@ export class ExplorerStore {
                 break;
             case PayloadType.Data:
                 this.payload = msg.payload as BasicPayload
-                break;
-            case PayloadType.SyncBeacon:
-                this.payload = msg.payload as SyncBeaconPayload
-                // console.log(this.payload.sent_time);
                 break;
             case PayloadType.Faucet:
             default:

@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/identity"
-	"golang.org/x/xerrors"
 )
 
 // AccessBaseManaVector represents a base mana vector.
@@ -259,15 +259,15 @@ func (a *AccessBaseManaVector) ToPersistables() []*PersistableBaseMana {
 // FromPersistable fills the AccessBaseManaVector from persistable mana objects.
 func (a *AccessBaseManaVector) FromPersistable(p *PersistableBaseMana) (err error) {
 	if p.ManaType != AccessMana {
-		err = xerrors.Errorf("persistable mana object has type %s instead of %s", p.ManaType.String(), AccessMana.String())
+		err = errors.Errorf("persistable mana object has type %s instead of %s", p.ManaType.String(), AccessMana.String())
 		return
 	}
 	if len(p.BaseValues) != 1 {
-		err = xerrors.Errorf("persistable mana object has %d base values instead of 1", len(p.BaseValues))
+		err = errors.Errorf("persistable mana object has %d base values instead of 1", len(p.BaseValues))
 		return
 	}
 	if len(p.EffectiveValues) != 1 {
-		err = xerrors.Errorf("persistable mana object has %d effective values instead of 1", len(p.EffectiveValues))
+		err = errors.Errorf("persistable mana object has %d effective values instead of 1", len(p.EffectiveValues))
 		return
 	}
 	a.Lock()

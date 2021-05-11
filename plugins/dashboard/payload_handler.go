@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/vote/statement"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	syncbeaconpayload "github.com/iotaledger/goshimmer/plugins/syncbeacon/payload"
 	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 )
 
@@ -24,11 +23,6 @@ type BasicPayload struct {
 type BasicStringPayload struct {
 	ContentTitle string `json:"content_title"`
 	Content      string `json:"content"`
-}
-
-// SyncBeaconPayload contains sent time of a sync beacon.
-type SyncBeaconPayload struct {
-	SentTime int64 `json:"sent_time"`
 }
 
 // DrngPayload contains the subtype of drng payload, instance ID
@@ -131,9 +125,6 @@ func ProcessPayload(p payload.Payload) interface{} {
 	case drng.PayloadType:
 		// drng payload
 		return processDrngPayload(p)
-	case syncbeaconpayload.Type:
-		// sync beacon payload
-		return processSyncBeaconPayload(p)
 	default:
 		// unknown payload
 		return BasicPayload{
@@ -170,19 +161,6 @@ func processDrngPayload(p payload.Payload) (dp DrngPayload) {
 		SubPayloadType: drngPayload.Header.PayloadType,
 		InstanceID:     drngPayload.Header.InstanceID,
 		SubPayload:     subpayload,
-	}
-}
-
-// processDrngPayload handles the subtypes of Drng payload
-func processSyncBeaconPayload(p payload.Payload) (dp SyncBeaconPayload) {
-	syncBeaconPayload, ok := p.(*syncbeaconpayload.Payload)
-	if !ok {
-		log.Info("could not cast payload to sync beacon object")
-		return
-	}
-
-	return SyncBeaconPayload{
-		SentTime: syncBeaconPayload.SentTime(),
 	}
 }
 

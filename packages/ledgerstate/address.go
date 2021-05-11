@@ -3,6 +3,7 @@ package ledgerstate
 import (
 	"bytes"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -10,7 +11,6 @@ import (
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
-	"golang.org/x/xerrors"
 )
 
 // region AddressType //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -76,7 +76,7 @@ type Address interface {
 func AddressFromBytes(bytes []byte) (address Address, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if address, err = AddressFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Address from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse Address from MarshalUtil: %w", err)
 	}
 	consumedBytes = marshalUtil.ReadOffset()
 
@@ -85,14 +85,14 @@ func AddressFromBytes(bytes []byte) (address Address, consumedBytes int, err err
 
 // AddressFromBase58EncodedString creates an Address from a base58 encoded string.
 func AddressFromBase58EncodedString(base58String string) (address Address, err error) {
-	decodedBytes, err := base58.Decode(base58String)
+	bytes, err := base58.Decode(base58String)
 	if err != nil {
-		err = xerrors.Errorf("error while decoding base58 encoded Address (%v): %w", err, cerrors.ErrBase58DecodeFailed)
+		err = errors.Errorf("error while decoding base58 encoded Address (%v): %w", err, cerrors.ErrBase58DecodeFailed)
 		return
 	}
 
-	if address, _, err = AddressFromBytes(decodedBytes); err != nil {
-		err = xerrors.Errorf("failed to parse Address from bytes: %w", err)
+	if address, _, err = AddressFromBytes(bytes); err != nil {
+		err = errors.Errorf("failed to parse Address from bytes: %w", err)
 		return
 	}
 
@@ -103,7 +103,7 @@ func AddressFromBase58EncodedString(base58String string) (address Address, err e
 func AddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address Address, err error) {
 	addressType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse AddressType (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse AddressType (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	marshalUtil.ReadSeek(-1)
@@ -116,7 +116,7 @@ func AddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address Addre
 	case AliasAddressType:
 		return AliasAddressFromMarshalUtil(marshalUtil)
 	default:
-		err = xerrors.Errorf("unsupported address type (%X): %w", addressType, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("unsupported address type (%X): %w", addressType, cerrors.ErrParseBytesFailed)
 		return
 	}
 }
@@ -154,7 +154,7 @@ func NewED25519Address(publicKey ed25519.PublicKey) *ED25519Address {
 func ED25519AddressFromBytes(bytes []byte) (address *ED25519Address, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if address, err = ED25519AddressFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse ED25519Address from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse ED25519Address from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -164,14 +164,14 @@ func ED25519AddressFromBytes(bytes []byte) (address *ED25519Address, consumedByt
 
 // ED25519AddressFromBase58EncodedString creates an ED25519Address from a base58 encoded string.
 func ED25519AddressFromBase58EncodedString(base58String string) (address *ED25519Address, err error) {
-	decodedBytes, err := base58.Decode(base58String)
+	bytes, err := base58.Decode(base58String)
 	if err != nil {
-		err = xerrors.Errorf("error while decoding base58 encoded ED25519Address (%v): %w", err, cerrors.ErrBase58DecodeFailed)
+		err = errors.Errorf("error while decoding base58 encoded ED25519Address (%v): %w", err, cerrors.ErrBase58DecodeFailed)
 		return
 	}
 
-	if address, _, err = ED25519AddressFromBytes(decodedBytes); err != nil {
-		err = xerrors.Errorf("failed to parse ED25519Address from bytes: %w", err)
+	if address, _, err = ED25519AddressFromBytes(bytes); err != nil {
+		err = errors.Errorf("failed to parse ED25519Address from bytes: %w", err)
 		return
 	}
 
@@ -182,17 +182,17 @@ func ED25519AddressFromBase58EncodedString(base58String string) (address *ED2551
 func ED25519AddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address *ED25519Address, err error) {
 	addressType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = xerrors.Errorf("failed to parse AddressType (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse AddressType (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if AddressType(addressType) != ED25519AddressType {
-		err = xerrors.Errorf("invalid AddressType (%X): %w", addressType, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("invalid AddressType (%X): %w", addressType, cerrors.ErrParseBytesFailed)
 		return
 	}
 
 	address = &ED25519Address{}
 	if address.digest, err = marshalUtil.ReadBytes(32); err != nil {
-		err = xerrors.Errorf("error parsing digest (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("error parsing digest (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -274,7 +274,7 @@ func NewBLSAddress(publicKey []byte) *BLSAddress {
 func BLSAddressFromBytes(bytes []byte) (address *BLSAddress, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if address, err = BLSAddressFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse BLSAddress from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse BLSAddress from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -284,14 +284,14 @@ func BLSAddressFromBytes(bytes []byte) (address *BLSAddress, consumedBytes int, 
 
 // BLSAddressFromBase58EncodedString creates an BLSAddress from a base58 encoded string.
 func BLSAddressFromBase58EncodedString(base58String string) (address *BLSAddress, err error) {
-	decodedBytes, err := base58.Decode(base58String)
+	bytes, err := base58.Decode(base58String)
 	if err != nil {
-		err = xerrors.Errorf("error while decoding base58 encoded BLSAddress (%v): %w", err, cerrors.ErrBase58DecodeFailed)
+		err = errors.Errorf("error while decoding base58 encoded BLSAddress (%v): %w", err, cerrors.ErrBase58DecodeFailed)
 		return
 	}
 
-	if address, _, err = BLSAddressFromBytes(decodedBytes); err != nil {
-		err = xerrors.Errorf("failed to parse BLSAddress from bytes: %w", err)
+	if address, _, err = BLSAddressFromBytes(bytes); err != nil {
+		err = errors.Errorf("failed to parse BLSAddress from bytes: %w", err)
 		return
 	}
 
@@ -302,17 +302,17 @@ func BLSAddressFromBase58EncodedString(base58String string) (address *BLSAddress
 func BLSAddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address *BLSAddress, err error) {
 	addressType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = xerrors.Errorf("error parsing AddressType (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("error parsing AddressType (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if AddressType(addressType) != BLSAddressType {
-		err = xerrors.Errorf("invalid AddressType (%X): %w", addressType, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("invalid AddressType (%X): %w", addressType, cerrors.ErrParseBytesFailed)
 		return
 	}
 
 	address = &BLSAddress{}
 	if address.digest, err = marshalUtil.ReadBytes(32); err != nil {
-		err = xerrors.Errorf("error parsing digest (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("error parsing digest (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -397,7 +397,7 @@ func NewAliasAddress(data []byte) *AliasAddress {
 func AliasAddressFromBytes(data []byte) (address *AliasAddress, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(data)
 	if address, err = AliasAddressFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse AliasAddress from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse AliasAddress from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -409,12 +409,12 @@ func AliasAddressFromBytes(data []byte) (address *AliasAddress, consumedBytes in
 func AliasAddressFromBase58EncodedString(base58String string) (address *AliasAddress, err error) {
 	data, err := base58.Decode(base58String)
 	if err != nil {
-		err = xerrors.Errorf("error while decoding base58 encoded AliasAddress (%v): %w", err, cerrors.ErrBase58DecodeFailed)
+		err = errors.Errorf("error while decoding base58 encoded AliasAddress (%v): %w", err, cerrors.ErrBase58DecodeFailed)
 		return
 	}
 
 	if address, _, err = AliasAddressFromBytes(data); err != nil {
-		err = xerrors.Errorf("failed to parse AliasAddress from data: %w", err)
+		err = errors.Errorf("failed to parse AliasAddress from data: %w", err)
 		return
 	}
 
@@ -425,17 +425,17 @@ func AliasAddressFromBase58EncodedString(base58String string) (address *AliasAdd
 func AliasAddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address *AliasAddress, err error) {
 	addressType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = xerrors.Errorf("error parsing AddressType (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("error parsing AddressType (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if AddressType(addressType) != AliasAddressType {
-		err = xerrors.Errorf("invalid AddressType (%X): %w", addressType, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("invalid AddressType (%X): %w", addressType, cerrors.ErrParseBytesFailed)
 		return
 	}
 
 	data, err := marshalUtil.ReadBytes(AliasAddressDigestSize)
 	if err != nil {
-		err = xerrors.Errorf("error parsing digest (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("error parsing digest (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	address = &AliasAddress{}

@@ -4,7 +4,6 @@ export enum PayloadType {
     Faucet = 2,
     Statement = 3,
     Drng = 111,
-    SyncBeacon = 200,
 }
 
 export enum DrngSubtype {
@@ -116,11 +115,6 @@ export class Balance {
     color: string;
 }
 
-// Sync beacon payload
-export class SyncBeaconPayload {
-    sent_time: number;
-}
-
 export class StatementPayload {
     conflicts: Array<Conflict>;
     timestamps: Array<Timestamp>;
@@ -154,8 +148,6 @@ export function getPayloadType(p: number){
             return "Drng"
         case PayloadType.Faucet:
             return "Faucet"
-        case PayloadType.SyncBeacon:
-            return "SyncBeacon"
         default:
             return "Unknown"
     }

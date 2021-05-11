@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/thresholdmap"
@@ -15,7 +16,6 @@ import (
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
@@ -53,13 +53,13 @@ func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 func (b *Booker) Setup() {
 	b.tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
 		if err := b.BookMessage(messageID); err != nil {
-			b.Events.Error.Trigger(xerrors.Errorf("failed to book message with %s: %w", messageID, err))
+			b.Events.Error.Trigger(errors.Errorf("failed to book message with %s: %w", messageID, err))
 		}
 	}))
 
-	b.tangle.LedgerState.utxoDAG.Events.TransactionBranchIDUpdated.Attach(events.NewClosure(func(transactionID ledgerstate.TransactionID) {
+	b.tangle.LedgerState.UTXODAG.Events.TransactionBranchIDUpdated.Attach(events.NewClosure(func(transactionID ledgerstate.TransactionID) {
 		if err := b.BookConflictingTransaction(transactionID); err != nil {
-			b.Events.Error.Trigger(xerrors.Errorf("failed to propagate ConflictBranch of %s to tangle: %w", transactionID, err))
+			b.Events.Error.Trigger(errors.Errorf("failed to propagate ConflictBranch of %s to tangle: %w", transactionID, err))
 		}
 	}))
 }
@@ -71,13 +71,13 @@ func (b *Booker) BookMessage(messageID MessageID) (err error) {
 		b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 			branchIDOfPayload, bookingErr := b.bookPayload(message)
 			if bookingErr != nil {
-				err = xerrors.Errorf("failed to book payload of %s: %w", messageID, bookingErr)
+				err = errors.Errorf("failed to book payload of %s: %w", messageID, bookingErr)
 				return
 			}
 
 			inheritedBranch, inheritErr := b.tangle.LedgerState.InheritBranch(b.parentsBranchIDs(message).Add(branchIDOfPayload))
 			if inheritErr != nil {
-				err = xerrors.Errorf("failed to inherit Branch when booking Message with %s: %w", message.ID(), inheritErr)
+				err = errors.Errorf("failed to inherit Branch when booking Message with %s: %w", message.ID(), inheritErr)
 				return
 			}
 
@@ -113,7 +113,7 @@ func (b *Booker) BookConflictingTransaction(transactionID ledgerstate.Transactio
 
 		if structureDetails := messageMetadata.StructureDetails(); structureDetails.IsPastMarker {
 			if err = b.updateMarkerFutureCone(structureDetails.PastMarkers.Marker(), conflictBranchID); err != nil {
-				err = xerrors.Errorf("failed to propagate conflict%s to future cone of %s: %w", conflictBranchID, structureDetails.PastMarkers.Marker(), err)
+				err = errors.Errorf("failed to propagate conflict%s to future cone of %s: %w", conflictBranchID, structureDetails.PastMarkers.Marker(), err)
 				walker.StopWalk()
 			}
 
@@ -121,7 +121,7 @@ func (b *Booker) BookConflictingTransaction(transactionID ledgerstate.Transactio
 		}
 
 		if err = b.updateMetadataFutureCone(messageMetadata, conflictBranchID, walker); err != nil {
-			err = xerrors.Errorf("failed to propagate conflict%s to MessageMetadata future cone of %s: %w", conflictBranchID, messageMetadata.ID(), err)
+			err = errors.Errorf("failed to propagate conflict%s to MessageMetadata future cone of %s: %w", conflictBranchID, messageMetadata.ID(), err)
 			walker.StopWalk()
 			return
 		}
@@ -143,17 +143,17 @@ func (b *Booker) MessageBranchID(messageID MessageID) (branchID ledgerstate.Bran
 
 		structureDetails := messageMetadata.StructureDetails()
 		if structureDetails == nil {
-			err = xerrors.Errorf("failed to retrieve StructureDetails of %s: %w", messageID, cerrors.ErrFatal)
+			err = errors.Errorf("failed to retrieve StructureDetails of %s: %w", messageID, cerrors.ErrFatal)
 			return
 		}
 		if structureDetails.PastMarkers.Size() != 1 {
-			err = xerrors.Errorf("BranchID of %s should have been mapped in the MessageMetadata (multiple PastMarkers): %w", messageID, cerrors.ErrFatal)
+			err = errors.Errorf("BranchID of %s should have been mapped in the MessageMetadata (multiple PastMarkers): %w", messageID, cerrors.ErrFatal)
 			return
 		}
 
 		branchID = b.MarkersManager.BranchID(structureDetails.PastMarkers.Marker())
 	}) {
-		err = xerrors.Errorf("failed to load MessageMetadata of %s: %w", messageID, cerrors.ErrFatal)
+		err = errors.Errorf("failed to load MessageMetadata of %s: %w", messageID, cerrors.ErrFatal)
 		return
 	}
 
@@ -204,7 +204,7 @@ func (b *Booker) parentsBranchIDs(message *Message) (branchIDs ledgerstate.Branc
 			if payload := message.Payload(); payload != nil && payload.Type() == ledgerstate.TransactionType {
 				transactionID := payload.(*ledgerstate.Transaction).ID()
 
-				if !b.tangle.LedgerState.utxoDAG.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+				if !b.tangle.LedgerState.UTXODAG.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 					branchIDs[transactionMetadata.BranchID()] = types.Void
 				}) {
 					panic(fmt.Errorf("failed to load TransactionMetadata with %s", transactionID))
@@ -228,42 +228,43 @@ func (b *Booker) bookPayload(message *Message) (branchID ledgerstate.BranchID, e
 	transaction := payload.(*ledgerstate.Transaction)
 
 	if transactionErr := b.tangle.LedgerState.TransactionValid(transaction, message.ID()); transactionErr != nil {
-		return ledgerstate.UndefinedBranchID, xerrors.Errorf("invalid transaction in message with %s: %w", message.ID(), transactionErr)
+		return ledgerstate.UndefinedBranchID, errors.Errorf("invalid transaction in message with %s: %w", message.ID(), transactionErr)
 	}
 
-	if !b.tangle.Utils.AllTransactionsApprovedByMessages(transaction.ReferencedTransactionIDs(), message.ID()) {
-		b.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messagemetadata *MessageMetadata) {
-			messagemetadata.SetInvalid(true)
-		})
-		b.tangle.Events.MessageInvalid.Trigger(message.ID())
+	// if !b.tangle.Utils.AllTransactionsApprovedByMessages(transaction.ReferencedTransactionIDs(), message.ID()) {
+	// 	b.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messagemetadata *MessageMetadata) {
+	// 		messagemetadata.SetInvalid(true)
+	// 	})
+	// 	b.tangle.Events.MessageInvalid.Trigger(message.ID())
 
-		return ledgerstate.UndefinedBranchID, xerrors.Errorf("message with %s does not approve its referenced %s: %w", message.ID(), transaction.ReferencedTransactionIDs(), cerrors.ErrFatal)
-	}
+	// 	return ledgerstate.UndefinedBranchID, errors.Errorf("message with %s does not approve its referenced %s: %w", message.ID(), transaction.ReferencedTransactionIDs(), cerrors.ErrFatal)
+	// }
 
 	if branchID, err = b.tangle.LedgerState.BookTransaction(transaction, message.ID()); err != nil {
-		return ledgerstate.UndefinedBranchID, xerrors.Errorf("failed to book Transaction of Message with %s: %w", message.ID(), err)
+		return ledgerstate.UndefinedBranchID, errors.Errorf("failed to book Transaction of Message with %s: %w", message.ID(), err)
 	}
 
 	for _, output := range transaction.Essence().Outputs() {
+		b.tangle.LedgerState.UTXODAG.StoreAddressOutputMapping(output.Address(), output.ID())
 		// TODO: decide where to map what address
 		switch output.Type() {
 		case ledgerstate.AliasOutputType:
 			castedOutput := output.(*ledgerstate.AliasOutput)
 			// if it is an origin alias output, we don't have the aliasaddress from the parsed bytes.
 			// that happens in utxodag output booking, so we calculate the alias address here
-			b.tangle.LedgerState.utxoDAG.StoreAddressOutputMapping(castedOutput.GetAliasAddress(), output.ID())
-			b.tangle.LedgerState.utxoDAG.StoreAddressOutputMapping(castedOutput.GetStateAddress(), output.ID())
+			b.tangle.LedgerState.UTXODAG.StoreAddressOutputMapping(castedOutput.GetAliasAddress(), output.ID())
+			b.tangle.LedgerState.UTXODAG.StoreAddressOutputMapping(castedOutput.GetStateAddress(), output.ID())
 			if !castedOutput.IsSelfGoverned() {
-				b.tangle.LedgerState.utxoDAG.StoreAddressOutputMapping(castedOutput.GetGoverningAddress(), output.ID())
+				b.tangle.LedgerState.UTXODAG.StoreAddressOutputMapping(castedOutput.GetGoverningAddress(), output.ID())
 			}
 		case ledgerstate.ExtendedLockedOutputType:
 			castedOutput := output.(*ledgerstate.ExtendedLockedOutput)
 			if castedOutput.FallbackAddress() != nil {
-				b.tangle.LedgerState.utxoDAG.StoreAddressOutputMapping(castedOutput.FallbackAddress(), output.ID())
+				b.tangle.LedgerState.UTXODAG.StoreAddressOutputMapping(castedOutput.FallbackAddress(), output.ID())
 			}
-			b.tangle.LedgerState.utxoDAG.StoreAddressOutputMapping(output.Address(), output.ID())
+			b.tangle.LedgerState.UTXODAG.StoreAddressOutputMapping(output.Address(), output.ID())
 		default:
-			b.tangle.LedgerState.utxoDAG.StoreAddressOutputMapping(output.Address(), output.ID())
+			b.tangle.LedgerState.UTXODAG.StoreAddressOutputMapping(output.Address(), output.ID())
 		}
 	}
 
@@ -281,7 +282,7 @@ func (b *Booker) updatedBranchID(branchID, conflictBranchID ledgerstate.BranchID
 	}
 
 	if newBranchID, err = b.tangle.LedgerState.InheritBranch(ledgerstate.NewBranchIDs(branchID, conflictBranchID)); err != nil {
-		return ledgerstate.UndefinedBranchID, false, xerrors.Errorf("failed to combine %s and %s into a new BranchID: %w", branchID, conflictBranchID, cerrors.ErrFatal)
+		return ledgerstate.UndefinedBranchID, false, errors.Errorf("failed to combine %s and %s into a new BranchID: %w", branchID, conflictBranchID, cerrors.ErrFatal)
 	}
 
 	if newBranchID == branchID {
@@ -300,7 +301,7 @@ func (b *Booker) updateMarkerFutureCone(marker *markers.Marker, newConflictBranc
 		currentMarker := walk.Next().(*markers.Marker)
 
 		if err = b.updateMarker(currentMarker, newConflictBranchID, walk); err != nil {
-			err = xerrors.Errorf("failed to propagate Conflict%s to Messages approving %s: %w", newConflictBranchID, currentMarker, err)
+			err = errors.Errorf("failed to propagate Conflict%s to Messages approving %s: %w", newConflictBranchID, currentMarker, err)
 			return
 		}
 	}
@@ -313,7 +314,7 @@ func (b *Booker) updateMarker(currentMarker *markers.Marker, conflictBranchID le
 	oldBranchID := b.MarkersManager.BranchID(currentMarker)
 	newBranchID, branchIDUpdated, err := b.updatedBranchID(oldBranchID, conflictBranchID)
 	if err != nil {
-		err = xerrors.Errorf("failed to add Conflict%s to BranchID %s: %w", b.MarkersManager.BranchID(currentMarker), conflictBranchID, err)
+		err = errors.Errorf("failed to add Conflict%s to BranchID %s: %w", b.MarkersManager.BranchID(currentMarker), conflictBranchID, err)
 		return
 	}
 	if !branchIDUpdated || !b.MarkersManager.SetBranchID(currentMarker, newBranchID) {
@@ -322,7 +323,7 @@ func (b *Booker) updateMarker(currentMarker *markers.Marker, conflictBranchID le
 
 	b.Events.MarkerBranchUpdated.Trigger(currentMarker, oldBranchID, newBranchID)
 
-	b.MarkersManager.UnregisterSequenceAlias(markers.NewSequenceAlias(oldBranchID.Bytes()))
+	b.MarkersManager.UnregisterSequenceAliasMapping(markers.NewSequenceAlias(oldBranchID.Bytes()), currentMarker.SequenceID())
 
 	b.MarkersManager.Sequence(currentMarker.SequenceID()).Consume(func(sequence *markers.Sequence) {
 		sequence.ReferencingMarkers(currentMarker.Index()).ForEachSorted(func(referencingSequenceID markers.SequenceID, referencingIndex markers.Index) bool {
@@ -364,13 +365,13 @@ func (b *Booker) updateIndividuallyMappedMessages(oldChildBranch ledgerstate.Bra
 func (b *Booker) updateMetadataFutureCone(messageMetadata *MessageMetadata, newConflictBranchID ledgerstate.BranchID, walk *walker.Walker) (err error) {
 	oldBranchID, err := b.MessageBranchID(messageMetadata.ID())
 	if err != nil {
-		err = xerrors.Errorf("failed to propagate conflict%s to MessageMetadata of %s: %w", newConflictBranchID, messageMetadata.ID(), err)
+		err = errors.Errorf("failed to propagate conflict%s to MessageMetadata of %s: %w", newConflictBranchID, messageMetadata.ID(), err)
 		return
 	}
 
 	newBranchID, branchIDUpdated, err := b.updatedBranchID(oldBranchID, newConflictBranchID)
 	if err != nil {
-		err = xerrors.Errorf("failed to propagate conflict%s to MessageMetadata of %s: %w", newConflictBranchID, messageMetadata.ID(), err)
+		err = errors.Errorf("failed to propagate conflict%s to MessageMetadata of %s: %w", newConflictBranchID, messageMetadata.ID(), err)
 		return
 	} else if !branchIDUpdated || !messageMetadata.SetBranchID(newBranchID) {
 		return
@@ -482,9 +483,9 @@ func (m *MarkersManager) SetBranchID(marker *markers.Marker, branchID ledgerstat
 		}
 
 		if floorMarker == marker.Index() {
-			m.UnregisterSequenceAlias(markers.NewSequenceAlias(floorBranchID.Bytes()))
+			m.UnregisterSequenceAliasMapping(markers.NewSequenceAlias(floorBranchID.Bytes()), marker.SequenceID())
 		}
-		m.RegisterSequenceAlias(markers.NewSequenceAlias(branchID.Bytes()), marker.SequenceID())
+		m.RegisterSequenceAliasMapping(markers.NewSequenceAlias(branchID.Bytes()), marker.SequenceID())
 	}
 
 	m.tangle.Storage.MarkerIndexBranchIDMapping(marker.SequenceID(), NewMarkerIndexBranchIDMapping).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
@@ -593,7 +594,7 @@ func NewMarkerIndexBranchIDMapping(sequenceID markers.SequenceID) (markerBranchM
 func MarkerIndexBranchIDMappingFromBytes(bytes []byte) (markerIndexBranchIDMapping *MarkerIndexBranchIDMapping, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if markerIndexBranchIDMapping, err = MarkerIndexBranchIDMappingFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse MarkerIndexBranchIDMapping from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse MarkerIndexBranchIDMapping from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -606,25 +607,25 @@ func MarkerIndexBranchIDMappingFromBytes(bytes []byte) (markerIndexBranchIDMappi
 func MarkerIndexBranchIDMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (markerIndexBranchIDMapping *MarkerIndexBranchIDMapping, err error) {
 	markerIndexBranchIDMapping = &MarkerIndexBranchIDMapping{}
 	if markerIndexBranchIDMapping.sequenceID, err = markers.SequenceIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
 		return
 	}
 	mappingCount, mappingCountErr := marshalUtil.ReadUint64()
 	if mappingCountErr != nil {
-		err = xerrors.Errorf("failed to parse reference count (%v): %w", mappingCountErr, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse reference count (%v): %w", mappingCountErr, cerrors.ErrParseBytesFailed)
 		return
 	}
 	markerIndexBranchIDMapping.mapping = thresholdmap.New(thresholdmap.LowerThresholdMode, markerIndexComparator)
 	for j := uint64(0); j < mappingCount; j++ {
 		index, indexErr := marshalUtil.ReadUint64()
 		if indexErr != nil {
-			err = xerrors.Errorf("failed to parse Index (%v): %w", indexErr, cerrors.ErrParseBytesFailed)
+			err = errors.Errorf("failed to parse Index (%v): %w", indexErr, cerrors.ErrParseBytesFailed)
 			return
 		}
 
 		branchID, branchIDErr := ledgerstate.BranchIDFromMarshalUtil(marshalUtil)
 		if branchIDErr != nil {
-			err = xerrors.Errorf("failed to parse BranchID: %w", branchIDErr)
+			err = errors.Errorf("failed to parse BranchID: %w", branchIDErr)
 			return
 		}
 
@@ -638,7 +639,7 @@ func MarkerIndexBranchIDMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalU
 // storage.
 func MarkerIndexBranchIDMappingFromObjectStorage(key []byte, data []byte) (markerIndexBranchIDMapping objectstorage.StorableObject, err error) {
 	if markerIndexBranchIDMapping, _, err = MarkerIndexBranchIDMappingFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = xerrors.Errorf("failed to parse MarkerIndexBranchIDMapping from bytes: %w", err)
+		err = errors.Errorf("failed to parse MarkerIndexBranchIDMapping from bytes: %w", err)
 		return
 	}
 
@@ -861,7 +862,7 @@ func NewIndividuallyMappedMessage(branchID ledgerstate.BranchID, messageID Messa
 func IndividuallyMappedMessageFromBytes(bytes []byte) (individuallyMappedMessage *IndividuallyMappedMessage, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if individuallyMappedMessage, err = IndividuallyMappedMessageFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse IndividuallyMappedMessage from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse IndividuallyMappedMessage from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -873,15 +874,15 @@ func IndividuallyMappedMessageFromBytes(bytes []byte) (individuallyMappedMessage
 func IndividuallyMappedMessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (individuallyMappedMessage *IndividuallyMappedMessage, err error) {
 	individuallyMappedMessage = &IndividuallyMappedMessage{}
 	if individuallyMappedMessage.branchID, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
 		return
 	}
 	if individuallyMappedMessage.messageID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse MessageID from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse MessageID from MarshalUtil: %w", err)
 		return
 	}
 	if individuallyMappedMessage.pastMarkers, err = markers.FromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Markers from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse Markers from MarshalUtil: %w", err)
 		return
 	}
 
@@ -892,7 +893,7 @@ func IndividuallyMappedMessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUt
 // from a storage key of the object storage. It is used by the object storage, to create new instances of this entity.
 func IndividuallyMappedMessageFromObjectStorage(key, value []byte) (result objectstorage.StorableObject, err error) {
 	if result, _, err = IndividuallyMappedMessageFromBytes(byteutils.ConcatBytes(key, value)); err != nil {
-		err = xerrors.Errorf("failed to parse IndividuallyMappedMessage from bytes: %w", err)
+		err = errors.Errorf("failed to parse IndividuallyMappedMessage from bytes: %w", err)
 		return
 	}
 
@@ -1079,7 +1080,7 @@ func NewMarkerMessageMapping(marker *markers.Marker, messageID MessageID) *Marke
 func MarkerMessageMappingFromBytes(bytes []byte) (individuallyMappedMessage *MarkerMessageMapping, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if individuallyMappedMessage, err = MarkerMessageMappingFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse MarkerMessageMapping from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse MarkerMessageMapping from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -1091,11 +1092,11 @@ func MarkerMessageMappingFromBytes(bytes []byte) (individuallyMappedMessage *Mar
 func MarkerMessageMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (markerMessageMapping *MarkerMessageMapping, err error) {
 	markerMessageMapping = &MarkerMessageMapping{}
 	if markerMessageMapping.marker, err = markers.MarkerFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse Marker from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse Marker from MarshalUtil: %w", err)
 		return
 	}
 	if markerMessageMapping.messageID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
-		err = xerrors.Errorf("failed to parse MessageID from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse MessageID from MarshalUtil: %w", err)
 		return
 	}
 
@@ -1106,7 +1107,7 @@ func MarkerMessageMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (
 // from a storage key of the object storage. It is used by the object storage, to create new instances of this entity.
 func MarkerMessageMappingFromObjectStorage(key, value []byte) (result objectstorage.StorableObject, err error) {
 	if result, _, err = MarkerMessageMappingFromBytes(byteutils.ConcatBytes(key, value)); err != nil {
-		err = xerrors.Errorf("failed to parse MarkerMessageMapping from bytes: %w", err)
+		err = errors.Errorf("failed to parse MarkerMessageMapping from bytes: %w", err)
 		return
 	}
 

@@ -58,7 +58,7 @@ func (a *AccessBaseMana) updateEBM2(n time.Duration) {
 	}
 }
 
-func (a *AccessBaseMana) revoke(float64, time.Time) error {
+func (a *AccessBaseMana) revoke(float64) error {
 	panic("access mana cannot be revoked")
 }
 

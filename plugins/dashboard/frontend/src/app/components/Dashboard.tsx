@@ -4,7 +4,6 @@ import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import Uptime from "app/components/Uptime";
 import Version from "app/components/Version";
-import Synced from "app/components/Synced";
 import MPSChart from "app/components/MPSChart";
 import TipsChart from "app/components/TipsChart";
 import NodeStore from "app/stores/NodeStore";
@@ -45,9 +44,6 @@ export class Dashboard extends React.Component<Props, any> {
                             </Card.Body>
                         </Card>
                     </Col>
-                </Row>
-                <Row className={"mb-3"}>
-                    <Col><Synced/></Col>
                 </Row>
                 <Row className={"mb-3"}>
                     <Col><TangleTime/></Col>

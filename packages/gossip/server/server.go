@@ -3,7 +3,6 @@ package server
 import (
 	"bytes"
 	"container/list"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -12,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	pb "github.com/iotaledger/hive.go/autopeering/server/proto"

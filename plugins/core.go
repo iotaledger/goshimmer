@@ -22,7 +22,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/pow"
 	"github.com/iotaledger/goshimmer/plugins/profiling"
 	"github.com/iotaledger/goshimmer/plugins/spammer"
-	"github.com/iotaledger/goshimmer/plugins/syncbeacon"
 )
 
 // Core contains the core plugins of a GoShimmer node.
@@ -42,8 +41,6 @@ var Core = node.Plugins(
 	manualpeering.Plugin(),
 	messagelayer.ManaPlugin(),
 	gossip.Plugin(),
-	syncbeacon.Plugin(),
-	messagelayer.SyncBeaconFollowerPlugin(),
 	drng.Plugin(),
 	faucet.Plugin(),
 	messagelayer.ConsensusPlugin(),

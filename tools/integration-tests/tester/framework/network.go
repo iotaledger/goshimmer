@@ -113,19 +113,8 @@ func (n *Network) CreatePeer(c GoShimmerConfig) (*Peer, error) {
 	config.Name = name
 	config.EntryNodeHost = n.namePrefix(containerNameEntryNode)
 	config.EntryNodePublicKey = n.entryNodePublicKey()
-	config.DisabledPlugins = func() string {
-		if !config.SyncBeaconFollower {
-			return disabledPluginsPeer + ",SyncBeaconFollower"
-		}
-		return disabledPluginsPeer
-	}()
+	config.DisabledPlugins = disabledPluginsPeer
 	config.SnapshotFilePath = snapshotFilePath
-	if config.SyncBeaconFollowNodes == "" {
-		config.SyncBeaconFollowNodes = syncBeaconPublicKey
-	}
-	if config.SyncBeaconBroadcastInterval == 0 {
-		config.SyncBeaconBroadcastInterval = 5
-	}
 	if config.FPCRoundInterval == 0 {
 		config.FPCRoundInterval = 5
 	}
@@ -300,7 +289,7 @@ func (n *Network) WaitForAutopeering(minimumNeighbors int) error {
 	for i := autopeeringMaxTries; i > 0; i-- {
 
 		for _, p := range n.peers {
-			if resp, err := p.GetNeighbors(false); err != nil {
+			if resp, err := p.GetAutopeeringNeighbors(false); err != nil {
 				log.Printf("request error: %v\n", err)
 			} else {
 				p.SetNeighbors(resp.Chosen, resp.Accepted)

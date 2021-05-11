@@ -3,6 +3,8 @@ package tangle
 import (
 	"sync"
 
+	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/events"
 )
@@ -95,6 +97,7 @@ func (s *Scheduler) run() {
 
 func (s *Scheduler) scheduleMessage(messageID MessageID) {
 	if !s.parentsBooked(messageID) {
+		s.tangle.Events.Error.Trigger(errors.Errorf("parents of %s not booked: %w", messageID, cerrors.ErrFatal))
 		return
 	}
 

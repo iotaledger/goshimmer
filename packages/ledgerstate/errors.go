@@ -1,7 +1,7 @@
 package ledgerstate
 
 import (
-	"errors"
+	"github.com/cockroachdb/errors"
 )
 
 var (

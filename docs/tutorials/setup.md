@@ -248,9 +248,7 @@ $ docker logs -f --since=1m goshimmer
 
 ### Syncing
 
-When the node starts for the first time, it must synchronize its state with the rest of the network. GoShimmer currently uses a sync beacon mechanism to help nodes determine their synced status and help syncing messages.
-
-Follow these links to learn more about [how sync beacons work, why you should run sync beacons](https://github.com/iotaledger/goshimmer/wiki/How-to-run-a-sync-beacon#what-is-a-sync-beacon) on your node and how to [configure your node to listen to certain sync beacons](https://github.com/iotaledger/goshimmer/wiki/How-to-configure-followed-sync-beacon-nodes).
+When the node starts for the first time, it must synchronize its state with the rest of the network. GoShimmer currently uses the Tangle Time to help nodes determine their synced status.
 
 #### Dashboard
 The dashboard of your GoShimmer node should be accessible via `http://<your-ip>:8081`. If your node is still synchronizing, you might see a higher inflow of MPS.
