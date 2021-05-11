@@ -730,12 +730,6 @@
           "refId": "E"
         },
         {
-          "expr": "irate(tangle_messages_per_type_count{message_type=\"syncbeacon(200)\"}[5m])",
-          "interval": "",
-          "legendFormat": "Sync Beacons Per Second",
-          "refId": "F"
-        },
-        {
           "expr": "irate(tangle_messages_per_type_count{message_type=\"Statement(3)\"}[5m])",
           "interval": "",
           "legendFormat": "Statements Per Second",

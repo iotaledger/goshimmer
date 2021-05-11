@@ -39,18 +39,7 @@ func (n *DRNGNetwork) CreatePeer(c GoShimmerConfig, publicKey ed25519.PublicKey)
 	config.Name = name
 	config.EntryNodeHost = n.network.namePrefix(containerNameEntryNode)
 	config.EntryNodePublicKey = n.network.entryNodePublicKey()
-	config.DisabledPlugins = func() string {
-		if !config.SyncBeaconFollower {
-			return disabledPluginsPeer + ",SyncBeaconFollower"
-		}
-		return disabledPluginsPeer
-	}()
-	if config.SyncBeaconFollowNodes == "" {
-		config.SyncBeaconFollowNodes = syncBeaconPublicKey
-	}
-	if config.SyncBeaconBroadcastInterval == 0 {
-		config.SyncBeaconBroadcastInterval = 5
-	}
+	config.DisabledPlugins = disabledPluginsPeer
 	if config.FPCRoundInterval == 0 {
 		config.FPCRoundInterval = 5
 	}

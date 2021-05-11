@@ -13,7 +13,6 @@ import {Link} from 'react-router-dom';
 import {BasicPayload} from 'app/components/BasicPayload'
 import {DrngPayload} from 'app/components/DrngPayload'
 import {TransactionPayload} from 'app/components/TransactionPayload'
-import {SyncBeaconPayload} from 'app/components/SyncBeaconPayload'
 import {getPayloadType, PayloadType} from 'app/misc/Payload'
 import {StatementPayload} from "app/components/StatemenetPayload";
 import {resolveBase58BranchID} from "app/utils/branch";
@@ -63,8 +62,6 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                 return <StatementPayload/>
             case PayloadType.Data:
                 return <BasicPayload/>
-            case PayloadType.SyncBeacon:
-                return <SyncBeaconPayload/>
             case PayloadType.Faucet:
             default:
                 return <BasicPayload/>
