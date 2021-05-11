@@ -64,7 +64,7 @@ func (f *MessageFactory) SetWorker(worker Worker) {
 // IssuePayload creates a new message including sequence number and tip selection and returns it.
 // It also triggers the MessageConstructed event once it's done, which is for example used by the plugins to listen for
 // messages that shall be attached to the tangle.
-func (f *MessageFactory) IssuePayload(p payload.Payload) (*Message, error) {
+func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*Message, error) {
 	payloadLen := len(p.Bytes())
 	if payloadLen > payload.MaxSize {
 		err := fmt.Errorf("maximum payload size of %d bytes exceeded", payloadLen)
@@ -81,7 +81,12 @@ func (f *MessageFactory) IssuePayload(p payload.Payload) (*Message, error) {
 		return nil, err
 	}
 
-	strongParents, weakParents, err := f.selector.Tips(p, 2, 2)
+	countStrongParents := 2
+	if len(parentsCount) > 0 {
+		countStrongParents = parentsCount[0]
+	}
+
+	strongParents, weakParents, err := f.selector.Tips(p, countStrongParents, 2)
 	if err != nil {
 		err = errors.Errorf("tips could not be selected: %w", err)
 		f.Events.Error.Trigger(err)
