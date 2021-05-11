@@ -1,6 +1,7 @@
 package manualpeering
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -238,11 +239,11 @@ func (m *Manager) connectNeighbor(p *peer.Peer) error {
 	}
 	switch connDirection {
 	case connDirectionOutbound:
-		if err := m.gm.AddOutbound(p, gossip.NeighborsGroupManual); err != nil {
+		if err := m.gm.AddOutbound(context.Background(), p, gossip.NeighborsGroupManual); err != nil {
 			return errors.Wrapf(err, "failed to connect an outbound neighbor; publicKey=%s", p.PublicKey())
 		}
 	case connDirectionInbound:
-		if err := m.gm.AddInbound(p, gossip.NeighborsGroupManual); err != nil {
+		if err := m.gm.AddInbound(context.Background(), p, gossip.NeighborsGroupManual); err != nil {
 			return errors.Wrapf(err, "failed to connect an inbound neighbor; publicKey=%s", p.PublicKey())
 		}
 	default:

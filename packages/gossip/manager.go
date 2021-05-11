@@ -1,6 +1,7 @@
 package gossip
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"runtime"
@@ -144,13 +145,13 @@ func (m *Manager) stop() {
 }
 
 // AddOutbound tries to add a neighbor by connecting to that peer.
-func (m *Manager) AddOutbound(p *peer.Peer, group NeighborsGroup) error {
-	return m.addNeighbor(p, group, m.srv.DialPeer)
+func (m *Manager) AddOutbound(ctx context.Context, p *peer.Peer, group NeighborsGroup) error {
+	return m.addNeighbor(ctx, p, group, m.srv.DialPeer)
 }
 
 // AddInbound tries to add a neighbor by accepting an incoming connection from that peer.
-func (m *Manager) AddInbound(p *peer.Peer, group NeighborsGroup) error {
-	return m.addNeighbor(p, group, m.srv.AcceptPeer)
+func (m *Manager) AddInbound(ctx context.Context, p *peer.Peer, group NeighborsGroup) error {
+	return m.addNeighbor(ctx, p, group, m.srv.AcceptPeer)
 }
 
 // DropNeighbor disconnects the neighbor with the given ID.
@@ -223,7 +224,7 @@ func (m *Manager) send(b []byte, to ...identity.ID) {
 	}
 }
 
-func (m *Manager) addNeighbor(p *peer.Peer, group NeighborsGroup, connectorFunc func(*peer.Peer) (net.Conn, error),
+func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group NeighborsGroup, connectorFunc func(context.Context, *peer.Peer) (net.Conn, error),
 ) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -235,7 +236,7 @@ func (m *Manager) addNeighbor(p *peer.Peer, group NeighborsGroup, connectorFunc 
 		return ErrNotRunning
 	}
 
-	conn, err := connectorFunc(p)
+	conn, err := connectorFunc(ctx, p)
 	if err != nil {
 		m.neighborsEvents[group].ConnectionFailed.Trigger(p, err)
 		return err
