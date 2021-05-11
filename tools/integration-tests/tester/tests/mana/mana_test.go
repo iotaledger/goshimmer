@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -13,7 +14,6 @@ import (
 	manaPkg "github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
-	"github.com/iotaledger/hive.go/identity"
 )
 
 func TestManaPersistence(t *testing.T) {
@@ -172,11 +172,13 @@ func TestApis(t *testing.T) {
 
 	// Test /mana/access/nhighest and /mana/consensus/nhighest
 	// send funds to node 1
-	_, err = peers[1].SendFaucetRequest(peers[1].Seed.Address(0).Address().Base58())
+	peer1ID := base58.Encode(peers[1].ID().Bytes())
+	_, err = peers[0].SendFaucetRequest(peers[1].Seed.Address(0).Address().Base58(), peer1ID, peer1ID)
 	require.NoError(t, err)
 	time.Sleep(10 * time.Second)
 	// send funds to node 2
-	_, err = peers[2].SendFaucetRequest(peers[2].Seed.Address(0).Address().Base58())
+	peer2ID := base58.Encode(peers[2].ID().Bytes())
+	_, err = peers[0].SendFaucetRequest(peers[2].Seed.Address(0).Address().Base58(), peer2ID, peer2ID)
 	require.NoError(t, err)
 	time.Sleep(20 * time.Second)
 
