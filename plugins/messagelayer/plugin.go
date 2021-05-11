@@ -89,9 +89,6 @@ func configure(plugin *node.Plugin) {
 
 func run(*node.Plugin) {
 	if err := daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
-		if Parameters.StartSynced {
-			Tangle().TimeManager.Synced()
-		}
 		<-shutdownSignal
 		Tangle().Shutdown()
 	}, shutdown.PriorityTangle); err != nil {
