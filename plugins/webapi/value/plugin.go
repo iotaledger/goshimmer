@@ -31,5 +31,4 @@ func configure(_ *node.Plugin) {
 	webapi.Server().POST("value/sendTransaction", sendTransactionHandler)
 	webapi.Server().POST("value/sendTransactionByJson", sendTransactionByJSONHandler)
 	webapi.Server().GET("value/transactionByID", getTransactionByIDHandler)
-	webapi.Server().GET("value/allowedManaPledge", allowedManaPledgeHandler)
 }
