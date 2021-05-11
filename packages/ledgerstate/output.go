@@ -640,13 +640,30 @@ func (s *SigLockedSingleOutput) Balances() *ColoredBalances {
 
 // UnlockValid determines if the given Transaction and the corresponding UnlockBlock are allowed to spend the Output.
 func (s *SigLockedSingleOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inputs []Output) (unlockValid bool, err error) {
-	signatureUnlockBlock, correctType := unlockBlock.(*SignatureUnlockBlock)
-	if !correctType {
-		err = xerrors.Errorf("UnlockBlock does not match expected OutputType: %w", cerrors.ErrParseBytesFailed)
-		return
-	}
+	switch blk := unlockBlock.(type) {
+	case *SignatureUnlockBlock:
+		// unlocking by signature
+		unlockValid = blk.AddressSignatureValid(s.address, tx.Essence().Bytes())
 
-	unlockValid = signatureUnlockBlock.AddressSignatureValid(s.address, tx.Essence().Bytes())
+	case *AliasUnlockBlock:
+		// unlocking by alias reference. The unlock is valid if:
+		// - referenced alias output has same alias address
+		// - it is not unlocked for governance
+		if s.address.Type() != AliasAddressType {
+			return false, xerrors.Errorf("SigLockedSingleOutput: %s address can't be unlocked by alias reference", s.address.Type().String())
+		}
+		refAliasOutput, isAlias := inputs[blk.AliasInputIndex()].(*AliasOutput)
+		if !isAlias {
+			return false, xerrors.New("SigLockedSingleOutput: referenced input must be AliasOutput")
+		}
+		if !s.address.Equals(refAliasOutput.GetAliasAddress()) {
+			return false, xerrors.New("SigLockedSingleOutput: wrong alias referenced")
+		}
+		unlockValid = !refAliasOutput.hasToBeUnlockedForGovernanceUpdate(tx)
+
+	default:
+		err = xerrors.Errorf("SigLockedSingleOutput: unsupported unlock block type: %w", cerrors.ErrParseBytesFailed)
+	}
 
 	return
 }
@@ -816,13 +833,30 @@ func (s *SigLockedColoredOutput) Balances() *ColoredBalances {
 
 // UnlockValid determines if the given Transaction and the corresponding UnlockBlock are allowed to spend the Output.
 func (s *SigLockedColoredOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inputs []Output) (unlockValid bool, err error) {
-	signatureUnlockBlock, correctType := unlockBlock.(*SignatureUnlockBlock)
-	if !correctType {
-		err = xerrors.Errorf("UnlockBlock does not match expected OutputType: %w", cerrors.ErrParseBytesFailed)
-		return
-	}
+	switch blk := unlockBlock.(type) {
+	case *SignatureUnlockBlock:
+		// unlocking by signature
+		unlockValid = blk.AddressSignatureValid(s.address, tx.Essence().Bytes())
 
-	unlockValid = signatureUnlockBlock.AddressSignatureValid(s.address, tx.Essence().Bytes())
+	case *AliasUnlockBlock:
+		// unlocking by alias reference. The unlock is valid if:
+		// - referenced alias output has same alias address
+		// - it is not unlocked for governance
+		if s.address.Type() != AliasAddressType {
+			return false, xerrors.Errorf("SigLockedColoredOutput: %s address can't be unlocked by alias reference", s.address.Type().String())
+		}
+		refAliasOutput, isAlias := inputs[blk.AliasInputIndex()].(*AliasOutput)
+		if !isAlias {
+			return false, xerrors.New("SigLockedColoredOutput: referenced input must be AliasOutput")
+		}
+		if !s.address.Equals(refAliasOutput.GetAliasAddress()) {
+			return false, xerrors.New("SigLockedColoredOutput: wrong alias referenced")
+		}
+		unlockValid = !refAliasOutput.hasToBeUnlockedForGovernanceUpdate(tx)
+
+	default:
+		err = xerrors.Errorf("SigLockedColoredOutput: unsupported unlock block type: %w", cerrors.ErrParseBytesFailed)
+	}
 
 	return
 }
@@ -1171,6 +1205,11 @@ func (a *AliasOutput) SetStateAddress(addr Address) error {
 
 // SetGoverningAddress sets the governing address or nil for self-governing
 func (a *AliasOutput) SetGoverningAddress(addr Address) {
+	if addr == nil {
+		a.governingAddress = nil
+		return
+	}
+	// calling Array on nil panics
 	if addr.Array() == a.stateAddress.Array() {
 		addr = nil // self governing
 	}
@@ -1518,6 +1557,15 @@ func (a *AliasOutput) checkBasicValidity() error {
 	if a.IsOrigin() && a.stateIndex != 0 {
 		return xerrors.New("AliasOutput: origin must have stateIndex == 0")
 	}
+	// a.aliasAddress is not set if the output is origin. It is only set after the output has been included in a tx, and
+	// its outputID is known. To cover this edge case, TransactionFromMarshalUtil() performs the two checks below after
+	// the ID has been set.
+	if a.GetStateAddress().Equals(&a.aliasAddress) {
+		return xerrors.New("state address cannot be the output's own alias address")
+	}
+	if a.GetGoverningAddress().Equals(&a.aliasAddress) {
+		return xerrors.New("governing address cannot be the output's own alias address")
+	}
 	if len(a.stateData) > MaxOutputPayloadSize {
 		return xerrors.Errorf("AliasOutput: size of the stateData (%d) exceeds maximum allowed (%d)",
 			len(a.stateData), MaxOutputPayloadSize)
@@ -1625,8 +1673,8 @@ func IsAboveDustThreshold(m map[Color]uint64) bool {
 	return false
 }
 
-// isExactDustMinimum checks if colored balances are exactly what is required by dust constraint
-func isExactDustMinimum(b *ColoredBalances) bool {
+// IsExactDustMinimum checks if colored balances are exactly what is required by dust constraint
+func IsExactDustMinimum(b *ColoredBalances) bool {
 	bals := b.Map()
 	if len(bals) != 1 {
 		return false
@@ -1719,8 +1767,9 @@ func (a *AliasOutput) validateTransition(chained *AliasOutput, tx *Transaction) 
 
 // validateDestroyTransitionNow check validity if input is not chained (destroyed)
 func (a *AliasOutput) validateDestroyTransitionNow(nowis time.Time) error {
-	if !isExactDustMinimum(a.balances) {
-		return xerrors.New("AliasOutput: didn't find chained output and there are more tokens then upper limit for alias destruction")
+	if !a.IsDelegated() && !IsExactDustMinimum(a.balances) {
+		// if the output is delegated, it can be destroyed with more than minimum balance
+		return xerrors.New("AliasOutput: didn't find chained output and there are more tokens then upper limit for non-delegated alias destruction")
 	}
 	if a.IsDelegated() && a.DelegationTimeLockedNow(nowis) {
 		return xerrors.New("AliasOutput: didn't find expected chained output for delegated output")
@@ -1991,6 +2040,9 @@ func (o *ExtendedLockedOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBl
 		// unlocking by alias reference. The unlock is valid if:
 		// - referenced alias output has same alias address
 		// - it is not unlocked for governance
+		if addr.Type() != AliasAddressType {
+			return false, xerrors.Errorf("ExtendedLockedOutput: %s address can't be unlocked by alias reference", addr.Type().String())
+		}
 		refAliasOutput, isAlias := inputs[blk.AliasInputIndex()].(*AliasOutput)
 		if !isAlias {
 			return false, xerrors.New("ExtendedLockedOutput: referenced input must be AliasOutput")
@@ -2003,7 +2055,7 @@ func (o *ExtendedLockedOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBl
 	default:
 		err = xerrors.Errorf("ExtendedLockedOutput: unsupported unlock block type: %w", cerrors.ErrParseBytesFailed)
 	}
-	return
+	return unlockValid, err
 }
 
 // Address returns the Address that the Output is associated to.
@@ -2030,17 +2082,25 @@ func (o *ExtendedLockedOutput) Input() Input {
 
 // Clone creates a copy of the Output.
 func (o *ExtendedLockedOutput) Clone() Output {
-	ret := *o
-	ret.balances = o.balances.Clone()
-	ret.address = o.address.Clone()
+	ret := &ExtendedLockedOutput{
+		balances: o.balances.Clone(),
+		address:  o.address.Clone(),
+	}
+	copy(ret.id[:], o.id[:])
 	if o.fallbackAddress != nil {
 		ret.fallbackAddress = o.fallbackAddress.Clone()
+	}
+	if !o.fallbackDeadline.IsZero() {
+		ret.fallbackDeadline = o.fallbackDeadline
+	}
+	if !o.timelock.IsZero() {
+		ret.timelock = o.timelock
 	}
 	if o.payload != nil {
 		ret.payload = make([]byte, len(o.payload))
 		copy(ret.payload, o.payload)
 	}
-	return &ret
+	return ret
 }
 
 // UpdateMintingColor replaces the ColorMint in the balances of the Output with the hash of the OutputID. It returns a

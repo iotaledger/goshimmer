@@ -14,7 +14,7 @@ export class AliasOutputComponent extends React.Component<Props, any> {
         let balances = Object.keys(this.props.output.balances).map((key) => {return {color:key, value:this.props.output.balances[key]}})
         return (
             <div className={"mb-2"} key={this.props.id.base58}>
-                <ListGroup>
+                <ListGroup style={{wordBreak: "break-word"}}>
                     <ListGroup.Item>Type: AliasOutput</ListGroup.Item>
                     <ListGroup.Item>
                         Balances:

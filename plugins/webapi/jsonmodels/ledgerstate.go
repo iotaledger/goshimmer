@@ -685,13 +685,13 @@ func NewInput(input ledgerstate.Input, referencedOutput ...*Output) *Input {
 				Type:               input.Type().String(),
 				ReferencedOutputID: NewOutputID(input.(*ledgerstate.UTXOInput).ReferencedOutputID()),
 			}
-		} else {
-			return &Input{
-				Type:               input.Type().String(),
-				ReferencedOutputID: NewOutputID(input.(*ledgerstate.UTXOInput).ReferencedOutputID()),
-				Output:             referencedOutput[0],
-			}
 		}
+		return &Input{
+			Type:               input.Type().String(),
+			ReferencedOutputID: NewOutputID(input.(*ledgerstate.UTXOInput).ReferencedOutputID()),
+			Output:             referencedOutput[0],
+		}
+
 	}
 
 	return &Input{
@@ -764,6 +764,28 @@ func NewTransactionMetadata(transactionMetadata *ledgerstate.TransactionMetadata
 		SolidificationTime: transactionMetadata.SolidificationTime().Unix(),
 		Finalized:          transactionMetadata.Finalized(),
 		LazyBooked:         transactionMetadata.LazyBooked(),
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TransactionInclusionState ///////////////////////////////////////////////////////////////////////////////////////////
+
+// TransactionInclusionState represents the JSON model of the ledgerstate.InclusionState.
+type TransactionInclusionState struct {
+	TransactionID string `json:"transactionID"`
+	Pending       bool   `json:"pending"`
+	Confirmed     bool   `json:"confirmed"`
+	Rejected      bool   `json:"rejected"`
+}
+
+// NewTransactionInclusionState returns the TransactionInclusionState from the given ledgerstate.InclusionState.
+func NewTransactionInclusionState(inclusionState ledgerstate.InclusionState, id ledgerstate.TransactionID) *TransactionInclusionState {
+	return &TransactionInclusionState{
+		TransactionID: id.Base58(),
+		Pending:       inclusionState == ledgerstate.Pending,
+		Confirmed:     inclusionState == ledgerstate.Confirmed,
+		Rejected:      inclusionState == ledgerstate.Rejected,
 	}
 }
 

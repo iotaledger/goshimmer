@@ -11,8 +11,8 @@ const (
 	// basic routes
 	routeGetAddresses    = "ledgerstate/addresses/"
 	routeGetBranches     = "ledgerstate/branches/"
-	routeGetOutputs      = "ledgerstate/outputs"
-	routeGetTransactions = "ledgerstate/transactions"
+	routeGetOutputs      = "ledgerstate/outputs/"
+	routeGetTransactions = "ledgerstate/transactions/"
 
 	// route path modifiers
 	pathUnspentOutputs = "/unspentOutputs"
@@ -20,6 +20,7 @@ const (
 	pathConflicts      = "/conflicts"
 	pathConsumers      = "/consumers"
 	pathMetadata       = "/metadata"
+	pathInclusionState = "/inclusionState"
 	pathConsensus      = "/consensus"
 	pathAttachments    = "/attachments"
 )
@@ -41,6 +42,17 @@ func (api *GoShimmerAPI) GetAddressUnspentOutputs(base58EncodedAddress string) (
 	if err := api.do(http.MethodGet, func() string {
 		return strings.Join([]string{routeGetAddresses, base58EncodedAddress, pathUnspentOutputs}, "")
 	}(), nil, res); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+// PostAddressUnspentOutputs gets the unspent outputs of several addresses.
+func (api *GoShimmerAPI) PostAddressUnspentOutputs(base58EncodedAddresses []string) (*json_models.PostAddressesUnspentOutputsResponse, error) {
+	res := &json_models.PostAddressesUnspentOutputsResponse{}
+	if err := api.do(http.MethodPost, func() string {
+		return strings.Join([]string{routeGetAddresses, "unspentOutputs"}, "")
+	}(), &json_models.PostAddressesUnspentOutputsRequest{Addresses: base58EncodedAddresses}, res); err != nil {
 		return nil, err
 	}
 	return res, nil
@@ -128,6 +140,17 @@ func (api *GoShimmerAPI) GetTransactionMetadata(base58EncodedTransactionID strin
 	res := &json_models.TransactionMetadata{}
 	if err := api.do(http.MethodGet, func() string {
 		return strings.Join([]string{routeGetTransactions, base58EncodedTransactionID, pathMetadata}, "")
+	}(), nil, res); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+// GetTransactionInclusionState gets inclusion state of the transaction corresponding to TransactionID.
+func (api *GoShimmerAPI) GetTransactionInclusionState(base58EncodedTransactionID string) (*json_models.TransactionInclusionState, error) {
+	res := &json_models.TransactionInclusionState{}
+	if err := api.do(http.MethodGet, func() string {
+		return strings.Join([]string{routeGetTransactions, base58EncodedTransactionID, pathInclusionState}, "")
 	}(), nil, res); err != nil {
 		return nil, err
 	}

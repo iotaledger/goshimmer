@@ -832,6 +832,22 @@ func TestAliasOutput_checkBasicValidity(t *testing.T) {
 		assert.Error(t, err)
 	})
 
+	t.Run("CASE: state address same as alias address", func(t *testing.T) {
+		alias := dummyAliasOutput()
+		alias.stateAddress = alias.GetAliasAddress()
+		err := alias.checkBasicValidity()
+		t.Log(err)
+		assert.Error(t, err)
+	})
+
+	t.Run("CASE: governing address same as alias address", func(t *testing.T) {
+		alias := dummyAliasOutput()
+		alias.governingAddress = alias.GetAliasAddress()
+		err := alias.checkBasicValidity()
+		t.Log(err)
+		assert.Error(t, err)
+	})
+
 	t.Run("CASE: delegation timelock for non delegated output", func(t *testing.T) {
 		alias := dummyAliasOutput()
 		alias.isDelegated = false
@@ -1109,6 +1125,16 @@ func TestAliasOutput_validateDestroyTransition(t *testing.T) {
 		assert.Error(t, err)
 	})
 
+	t.Run("CASE: Delegated output, more balance than minimum", func(t *testing.T) {
+		prev := dummyAliasOutput()
+		newBalance := prev.Balances().Map()
+		newBalance[ColorIOTA]++
+		prev.balances = NewColoredBalances(newBalance)
+		prev.isDelegated = true
+		err := prev.validateDestroyTransitionNow(time.Time{})
+		assert.NoError(t, err)
+	})
+
 	t.Run("CASE: More color balance than minimum", func(t *testing.T) {
 		prev := dummyAliasOutput()
 		newBalance := prev.Balances().Map()
@@ -1157,7 +1183,6 @@ func TestAliasOutput_validateDestroyTransition(t *testing.T) {
 		err = prev.validateDestroyTransitionNow(nowis)
 		assert.NoError(t, err)
 	})
-
 }
 
 func TestAliasOutput_findChainedOutputAndCheckFork(t *testing.T) {
@@ -2375,7 +2400,7 @@ func randEd25119Address() *ED25519Address {
 }
 
 func randAliasAddress() *AliasAddress {
-	randOutputIDBytes := make([]byte, 34)
+	randOutputIDBytes := make([]byte, 32)
 	_, _ = rand.Read(randOutputIDBytes)
 	return NewAliasAddress(randOutputIDBytes)
 }
