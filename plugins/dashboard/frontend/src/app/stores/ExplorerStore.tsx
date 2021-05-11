@@ -561,7 +561,7 @@ export class ExplorerStore {
                 <tr key={msg.id}>
                     <td>
                         <Link to={`/explorer/message/${msg.id}`}>
-                            {msg.id.substr(0, 35)}
+                            {msg.id}
                         </Link>
                     </td>
                     <td>
