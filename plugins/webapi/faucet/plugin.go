@@ -86,7 +86,7 @@ func requestFunds(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.FaucetResponse{Error: err.Error()})
 	}
-	msg, err := messagelayer.Tangle().MessageFactory.IssuePayload(faucetPayload, messagelayer.Tangle())
+	msg, err := messagelayer.Tangle().MessageFactory.IssuePayload(faucetPayload)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, jsonmodels.FaucetResponse{Error: fmt.Sprintf("Failed to send faucetrequest: %s", err.Error())})
 	}
