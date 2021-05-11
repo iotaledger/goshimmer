@@ -45,10 +45,12 @@ func New() *TangleLedger {
 		txBookedEvent:    events.NewEvent(txEventHandler),
 	}
 
-	t.txConfirmedClosure = events.NewClosure(func(id tangle.MessageID) {
-		extractTransaction(id, t.txConfirmedEvent)
+	t.txConfirmedClosure = events.NewClosure(func(id ledgerstate.TransactionID) {
+		messagelayer.Tangle().LedgerState.UTXODAG.Transaction(id).Consume(func(transaction *ledgerstate.Transaction) {
+			t.txConfirmedEvent.Trigger(transaction)
+		})
 	})
-	messagelayer.Tangle().ConsensusManager.Events.TransactionConfirmed.Attach(t.txConfirmedClosure)
+	messagelayer.Tangle().LedgerState.UTXODAG.Events.TransactionConfirmed.Attach(t.txConfirmedClosure)
 
 	t.txBookedClosure = events.NewClosure(func(id tangle.MessageID) {
 		extractTransaction(id, t.txBookedEvent)
@@ -60,7 +62,7 @@ func New() *TangleLedger {
 
 // Detach detaches the event handlers
 func (t *TangleLedger) Detach() {
-	messagelayer.Tangle().ConsensusManager.Events.TransactionConfirmed.Detach(t.txConfirmedClosure)
+	messagelayer.Tangle().LedgerState.UTXODAG.Events.TransactionConfirmed.Detach(t.txConfirmedClosure)
 	messagelayer.Tangle().Booker.Events.MessageBooked.Detach(t.txBookedClosure)
 }
 
