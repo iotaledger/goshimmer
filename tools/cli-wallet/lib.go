@@ -18,7 +18,7 @@ import (
 )
 
 func printBanner() {
-	fmt.Println("IOTA Pollen CLI-Wallet 0.1")
+	fmt.Println("IOTA Pollen CLI-Wallet 0.2")
 }
 
 func loadWallet() *wallet.Wallet {

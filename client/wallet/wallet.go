@@ -127,23 +127,7 @@ func (wallet *Wallet) SendFunds(options ...sendoptions.SendFundsOption) (tx *led
 	inputs := wallet.buildInputs(consumedOutputs)
 	// aggregate all the funds we consume from inputs
 	totalConsumedFunds := consumedOutputs.TotalFundsInOutputs()
-	var remainderAddress address.Address
-	if sendOptions.RemainderAddress == address.AddressEmpty {
-		_, spendFromRemainderAddress := consumedOutputs[wallet.RemainderAddress()]
-		_, spendFromReceiveAddress := consumedOutputs[wallet.ReceiveAddress()]
-		if spendFromRemainderAddress && spendFromReceiveAddress {
-			// we are about to spend from both
-			remainderAddress = wallet.NewReceiveAddress()
-		} else if spendFromRemainderAddress && !spendFromReceiveAddress {
-			// we are about to spend from remainder, but not from receive
-			remainderAddress = wallet.ReceiveAddress()
-		} else {
-			// we are not spending from remainder
-			remainderAddress = wallet.RemainderAddress()
-		}
-	} else {
-		remainderAddress = sendOptions.RemainderAddress
-	}
+	remainderAddress := wallet.chooseRemainderAddress(consumedOutputs, sendOptions.RemainderAddress)
 	outputs := wallet.buildOutputs(sendOptions, totalConsumedFunds, remainderAddress)
 
 	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), aPledgeID, cPledgeID, inputs, outputs)
@@ -210,19 +194,7 @@ func (wallet *Wallet) ConsolidateFunds(options ...consolidateoptions.Consolidate
 	inputs := wallet.buildInputs(consumedOutputs)
 	// aggregate all the funds we consume from inputs
 	totalConsumedFunds := consumedOutputs.TotalFundsInOutputs()
-	var toAddress address.Address
-	_, spendFromRemainderAddress := consumedOutputs[wallet.RemainderAddress()]
-	_, spendFromReceiveAddress := consumedOutputs[wallet.ReceiveAddress()]
-	if spendFromRemainderAddress && spendFromReceiveAddress {
-		// we are about to spend from both
-		toAddress = wallet.NewReceiveAddress()
-	} else if spendFromRemainderAddress && !spendFromReceiveAddress {
-		// we are about to spend from remainder, but not from receive
-		toAddress = wallet.ReceiveAddress()
-	} else {
-		// we are not spending from remainder
-		toAddress = wallet.RemainderAddress()
-	}
+	toAddress := wallet.chooseToAddress(consumedOutputs, address.AddressEmpty) // no optional toAddress from options
 
 	outputs := ledgerstate.NewOutputs(ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(totalConsumedFunds), toAddress.Address()))
 
@@ -294,21 +266,7 @@ func (wallet *Wallet) ClaimConditionalFunds(options ...claimconditionaloptions.C
 	inputs := wallet.buildInputs(consumedOutputs)
 	// aggregate all the funds we consume from inputs
 	totalConsumedFunds := consumedOutputs.TotalFundsInOutputs()
-
-	var toAddress address.Address
-	_, spendFromRemainderAddress := consumedOutputs[wallet.RemainderAddress()]
-	_, spendFromReceiveAddress := consumedOutputs[wallet.ReceiveAddress()]
-	if spendFromRemainderAddress && spendFromReceiveAddress {
-		// we are about to spend from both
-		toAddress = wallet.NewReceiveAddress()
-	} else if spendFromRemainderAddress && !spendFromReceiveAddress {
-		// we are about to spend from remainder, but not from receive
-		toAddress = wallet.ReceiveAddress()
-	} else {
-		// we are not spending from remainder
-		toAddress = wallet.RemainderAddress()
-	}
-
+	toAddress := wallet.chooseToAddress(consumedOutputs, address.AddressEmpty) // no optional toAddress from options
 	outputs := ledgerstate.NewOutputs(ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(totalConsumedFunds), toAddress.Address()))
 
 	// determine pledgeIDs
@@ -369,25 +327,12 @@ func (wallet *Wallet) CreateAsset(asset Asset, waitForConfirmation ...bool) (ass
 		return
 	}
 
-	// which address to send to? remainder/receive/new receive?
-	var receiveAddress address.Address
 	// where will we spend from?
 	consumedOutputs, err := wallet.collectOutputsForFunding(map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: asset.Amount})
 	if err != nil {
 		return
 	}
-	_, spendFromRemainderAddress := consumedOutputs[wallet.RemainderAddress()]
-	_, spendFromReceiveAddress := consumedOutputs[wallet.ReceiveAddress()]
-	if spendFromRemainderAddress && spendFromReceiveAddress {
-		// we are about to spend from both
-		receiveAddress = wallet.NewReceiveAddress()
-	} else if spendFromRemainderAddress && !spendFromReceiveAddress {
-		// we are about to spend from remainder, but not from receive
-		receiveAddress = wallet.ReceiveAddress()
-	} else {
-		// we are not spending from remainder
-		receiveAddress = wallet.RemainderAddress()
-	}
+	receiveAddress := wallet.chooseToAddress(consumedOutputs, address.AddressEmpty)
 
 	var wait bool
 	if len(waitForConfirmation) > 0 {
@@ -455,7 +400,7 @@ func (wallet *Wallet) DelegateFunds(options ...delegateoptions.DelegateFundsOpti
 	inputs := wallet.buildInputs(consumedOutputs)
 	// aggregate all the funds we consume from inputs
 	totalConsumedFunds := consumedOutputs.TotalFundsInOutputs()
-	remainderAddress := wallet.chooseRemainder(consumedOutputs, delegateOptions.RemainderAddress)
+	remainderAddress := wallet.chooseRemainderAddress(consumedOutputs, delegateOptions.RemainderAddress)
 
 	unsortedOutputs := ledgerstate.Outputs{}
 	for addr, balanceMap := range delegateOptions.Destinations {
@@ -581,8 +526,8 @@ func (wallet *Wallet) CreateNFT(options ...createnftoptions.CreateNFTOption) (tx
 	if err != nil {
 		return nil, nil, err
 	}
-	// get a new address from address manager
-	nftWalletAddress := wallet.NewReceiveAddress()
+	// determine which address should receive the nft
+	nftWalletAddress := wallet.chooseToAddress(consumedOutputs, address.AddressEmpty)
 	// build inputs from consumed outputs
 	inputs := wallet.buildInputs(consumedOutputs)
 	// aggregate all the funds we consume from inputs
@@ -610,7 +555,7 @@ func (wallet *Wallet) CreateNFT(options ...createnftoptions.CreateNFTOption) (tx
 	// only add remainder output if there is a remainder balance
 	if remainderBalances.Size() != 0 {
 		unsortedOutputs = append(unsortedOutputs, ledgerstate.NewSigLockedColoredOutput(
-			remainderBalances, wallet.addressManager.FirstUnspentAddress().Address()))
+			remainderBalances, wallet.chooseRemainderAddress(consumedOutputs, address.AddressEmpty).Address()))
 	}
 	// create tx essence
 	outputs := ledgerstate.NewOutputs(unsortedOutputs...)
@@ -820,7 +765,11 @@ func (wallet *Wallet) DestroyNFT(options ...destroynftoptions.DestroyNFTOption) 
 	}
 
 	// determine where the remainder will go
-	remainderAddy := wallet.ReceiveAddress()
+	consumedOutputs := OutputsByAddressAndOutputID{
+		// we only consume the to-be-destroyed alias
+		walletAlias.Address: {walletAlias.Object.ID(): walletAlias},
+	}
+	remainderAddy := wallet.chooseRemainderAddress(consumedOutputs, address.AddressEmpty)
 	remainderOutput := ledgerstate.NewSigLockedColoredOutput(alias.Balances(), remainderAddy.Address())
 
 	inputs := ledgerstate.Inputs{alias.Input()}
@@ -914,14 +863,19 @@ func (wallet *Wallet) WithdrawFundsFromNFT(options ...withdrawfromnftoptions.Wit
 		return
 	}
 
-	var remainderAddress ledgerstate.Address
-	if withdrawOptions.ToAddress == nil {
-		remainderAddress = wallet.ReceiveAddress().Address()
-	} else {
-		remainderAddress = withdrawOptions.ToAddress
+	consumedOutputs := OutputsByAddressAndOutputID{
+		// we only consume the to-be-destroyed alias
+		walletAlias.Address: {walletAlias.Object.ID(): walletAlias},
 	}
+	var optionsToAddress address.Address
+	if withdrawOptions.ToAddress == nil {
+		optionsToAddress = address.AddressEmpty
+	} else {
+		optionsToAddress = address.Address{AddressBytes: withdrawOptions.ToAddress.Array()}
+	}
+	remainderAddress := wallet.chooseRemainderAddress(consumedOutputs, optionsToAddress)
 
-	remainderOutput := ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(withdrawBalances), remainderAddress)
+	remainderOutput := ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(withdrawBalances), remainderAddress.Address())
 
 	inputs := ledgerstate.Inputs{alias.Input()}
 	outputs := ledgerstate.Outputs{remainderOutput, nextAlias}
@@ -1033,12 +987,10 @@ func (wallet *Wallet) DepositFundsToNFT(options ...deposittonftoptions.DepositFu
 		}
 	}
 	remainderBalances := ledgerstate.NewColoredBalances(totalConsumed)
-	// remainder funds sent here
-	remainderAddress := wallet.ReceiveAddress()
 	// only add remainder output if there is a remainder balance
 	if remainderBalances.Size() != 0 {
 		unsortedOutputs = append(unsortedOutputs, ledgerstate.NewSigLockedColoredOutput(
-			remainderBalances, remainderAddress.Address()))
+			remainderBalances, wallet.chooseRemainderAddress(consumedOutputs, address.AddressEmpty).Address()))
 	}
 
 	// create tx essence
@@ -1132,12 +1084,6 @@ func (wallet Wallet) SweepNFTOwnedFunds(options ...sweepnftownedoptions.SweepNFT
 		}
 		if output.Type() == ledgerstate.AliasOutputType {
 			continue
-			//casted := output.(*ledgerstate.AliasOutput)
-			//if !casted.IsDelegated() && !ledgerstate.IsExactDustMinimum(casted.Balances()) {
-			//	// we are trying to destroy an alias that is not delegated and has more funds than minimum
-			//	// TODO: withdraw from it
-			//	continue
-			//}
 		}
 		output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
 			totalConsumed[color] += balance
@@ -1149,8 +1095,20 @@ func (wallet Wallet) SweepNFTOwnedFunds(options ...sweepnftownedoptions.SweepNFT
 	nextAlias := alias.NewAliasOutputNext(false)
 	toBeConsumed = append(toBeConsumed, alias)
 
+	var optionsToAddress address.Address
+	if sweepOptions.ToAddress == nil {
+		optionsToAddress = address.AddressEmpty
+	} else {
+		optionsToAddress = address.Address{AddressBytes: sweepOptions.ToAddress.Array()}
+	}
+	consumedOutputs := OutputsByAddressAndOutputID{
+		// we only consume the to-be-destroyed alias from the wallet
+		walletAlias.Address: {walletAlias.Object.ID(): walletAlias},
+	}
+	toAddress := wallet.chooseToAddress(consumedOutputs, optionsToAddress)
+
 	unsortedInputs := toBeConsumed.Inputs()
-	unsortedOutputs := ledgerstate.Outputs{nextAlias, ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(totalConsumed), wallet.ReceiveAddress().Address())}
+	unsortedOutputs := ledgerstate.Outputs{nextAlias, ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(totalConsumed), toAddress.Address())}
 
 	essence := ledgerstate.NewTransactionEssence(0, time.Now(), accessPledgeNodeID, consensusPledgeNodeID, ledgerstate.NewInputs(unsortedInputs...), ledgerstate.NewOutputs(unsortedOutputs...))
 
@@ -1269,12 +1227,17 @@ func (wallet *Wallet) SweepNFTOwnedNFTs(options ...sweepnftownednftsoptions.Swee
 		}
 	}
 	// determine which address to send to
-	var toAddress ledgerstate.Address
-	if sweepOptions.ToAddress != nil {
-		toAddress = sweepOptions.ToAddress
+	var optionsToAddress address.Address
+	if sweepOptions.ToAddress == nil {
+		optionsToAddress = address.AddressEmpty
 	} else {
-		toAddress = wallet.ReceiveAddress().Address()
+		optionsToAddress = address.Address{AddressBytes: sweepOptions.ToAddress.Array()}
 	}
+	consumedOutputs := OutputsByAddressAndOutputID{
+		// we only consume the to-be-destroyed alias from the wallet
+		walletAlias.Address: {walletAlias.Object.ID(): walletAlias},
+	}
+	toAddress := wallet.chooseToAddress(consumedOutputs, optionsToAddress)
 	// nextAlias is the nft we control
 	nextAlias := alias.NewAliasOutputNext(false)
 	// transition nft owned aliases
@@ -1286,7 +1249,7 @@ func (wallet *Wallet) SweepNFTOwnedNFTs(options ...sweepnftownednftsoptions.Swee
 		next := output.(*ledgerstate.AliasOutput).NewAliasOutputNext(true)
 		// set to self-governed by toAddress
 		next.SetGoverningAddress(nil)
-		err = next.SetStateAddress(toAddress)
+		err = next.SetStateAddress(toAddress.Address())
 		if err != nil {
 			return
 		}
@@ -2261,22 +2224,52 @@ func (wallet *Wallet) markOutputsAndAddressesSpent(consumedOutputs OutputsByAddr
 	}
 }
 
-func (wallet *Wallet) chooseRemainder(consumedOutputs OutputsByAddressAndOutputID, optionsRemainder address.Address) (remainder address.Address) {
+// chooseRemainderAddress chooses an appropriate remainder address based on the wallet configuration and where we are spending from.
+func (wallet *Wallet) chooseRemainderAddress(consumedOutputs OutputsByAddressAndOutputID, optionsRemainder address.Address) (remainder address.Address) {
 	if optionsRemainder == address.AddressEmpty {
-		_, spendFromRemainderAddress := consumedOutputs[wallet.RemainderAddress()]
-		_, spendFromReceiveAddress := consumedOutputs[wallet.ReceiveAddress()]
-		if spendFromRemainderAddress && spendFromReceiveAddress {
-			// we are about to spend from both
-			remainder = wallet.NewReceiveAddress()
-		} else if spendFromRemainderAddress && !spendFromReceiveAddress {
-			// we are about to spend from remainder, but not from receive
-			remainder = wallet.ReceiveAddress()
+		if wallet.reusableAddress {
+			return wallet.RemainderAddress()
 		} else {
-			// we are not spending from remainder
-			remainder = wallet.RemainderAddress()
+			_, spendFromRemainderAddress := consumedOutputs[wallet.RemainderAddress()]
+			_, spendFromReceiveAddress := consumedOutputs[wallet.ReceiveAddress()]
+			if spendFromRemainderAddress && spendFromReceiveAddress {
+				// we are about to spend from both
+				remainder = wallet.NewReceiveAddress()
+			} else if spendFromRemainderAddress && !spendFromReceiveAddress {
+				// we are about to spend from remainder, but not from receive
+				remainder = wallet.ReceiveAddress()
+			} else {
+				// we are not spending from remainder
+				remainder = wallet.RemainderAddress()
+			}
 		}
 	} else {
 		remainder = optionsRemainder
+	}
+	return
+}
+
+// chooseToAddress chooses an appropriate toAddress based on the wallet configuration and where we are spending from.
+func (wallet *Wallet) chooseToAddress(consumedOutputs OutputsByAddressAndOutputID, optionsToAddress address.Address) (toAddress address.Address) {
+	if optionsToAddress == address.AddressEmpty {
+		if wallet.reusableAddress {
+			return wallet.ReceiveAddress()
+		} else {
+			_, spendFromRemainderAddress := consumedOutputs[wallet.RemainderAddress()]
+			_, spendFromReceiveAddress := consumedOutputs[wallet.ReceiveAddress()]
+			if spendFromRemainderAddress && spendFromReceiveAddress {
+				// we are about to spend from both
+				toAddress = wallet.NewReceiveAddress()
+			} else if spendFromRemainderAddress && !spendFromReceiveAddress {
+				// we are about to spend from remainder, but not from receive
+				toAddress = wallet.ReceiveAddress()
+			} else {
+				// we are not spending from remainder
+				toAddress = wallet.RemainderAddress()
+			}
+		}
+	} else {
+		toAddress = optionsToAddress
 	}
 	return
 }
