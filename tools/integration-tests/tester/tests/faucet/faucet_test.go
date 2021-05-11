@@ -18,7 +18,10 @@ func TestFaucetPersistence(t *testing.T) {
 	defer func() {
 		framework.ParaPoWDifficulty = prevPoWDiff
 	}()
-	n, err := f.CreateNetwork("faucet_TestPersistence", 5, 2, framework.CreateNetworkConfig{Faucet: true, Mana: true})
+	n, err := f.CreateNetworkWithMana("common_TestSynchronization", 5, 2, framework.CreateNetworkConfig{
+		Faucet: true,
+		Mana:   true,
+	})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
