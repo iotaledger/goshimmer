@@ -11,7 +11,6 @@ class Status {
     id: string;
     version: string;
     uptime: number;
-    synced: boolean;
     mem: MemoryMetrics = new MemoryMetrics();
     tangleTime: TangleTime;
 }
