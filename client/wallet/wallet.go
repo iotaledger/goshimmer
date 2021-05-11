@@ -284,7 +284,7 @@ func (wallet *Wallet) ClaimConditionalFunds(options ...claimconditionaloptions.C
 		return
 	}
 	addresses := wallet.addressManager.Addresses()
-	consumedOutputs := wallet.outputManager.UnspentConditionalOutputs(addresses...)
+	consumedOutputs := wallet.outputManager.UnspentConditionalOutputs(false, addresses...)
 	if len(consumedOutputs) == 0 {
 		err = xerrors.Errorf("failed to find conditionally owned outputs in wallet")
 		return
@@ -1425,7 +1425,7 @@ func (wallet *Wallet) RemainderAddress() address.Address {
 
 // UnspentOutputs returns the unspent outputs that are available for spending.
 func (wallet *Wallet) UnspentOutputs() map[address.Address]map[ledgerstate.OutputID]*Output {
-	return wallet.outputManager.UnspentOutputs()
+	return wallet.outputManager.UnspentOutputs(false)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1434,7 +1434,7 @@ func (wallet *Wallet) UnspentOutputs() map[address.Address]map[ledgerstate.Outpu
 
 // UnspentValueOutputs returns the unspent value type outputs that are available for spending.
 func (wallet *Wallet) UnspentValueOutputs() map[address.Address]map[ledgerstate.OutputID]*Output {
-	return wallet.outputManager.UnspentValueOutputs()
+	return wallet.outputManager.UnspentValueOutputs(false)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1442,8 +1442,8 @@ func (wallet *Wallet) UnspentValueOutputs() map[address.Address]map[ledgerstate.
 // region UnspentAliasOutputs //////////////////////////////////////////////////////////////////////////////////////////
 
 // UnspentAliasOutputs returns the unspent alias outputs that are available for spending.
-func (wallet *Wallet) UnspentAliasOutputs() map[address.Address]map[ledgerstate.OutputID]*Output {
-	return wallet.outputManager.UnspentAliasOutputs()
+func (wallet *Wallet) UnspentAliasOutputs(includePending bool) map[address.Address]map[ledgerstate.OutputID]*Output {
+	return wallet.outputManager.UnspentAliasOutputs(includePending)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1490,17 +1490,23 @@ func (wallet *Wallet) Refresh(rescanSpentAddresses ...bool) (err error) {
 // region Balance //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Balance returns the confirmed and pending balance of the funds managed by this wallet.
-func (wallet *Wallet) Balance() (confirmedBalance, pendingBalance map[ledgerstate.Color]uint64, err error) {
-	err = wallet.outputManager.Refresh()
-	if err != nil {
-		return
+func (wallet *Wallet) Balance(refresh ...bool) (confirmedBalance, pendingBalance map[ledgerstate.Color]uint64, err error) {
+	shouldRefresh := true
+	if len(refresh) > 0 {
+		shouldRefresh = refresh[0]
+	}
+	if shouldRefresh {
+		err = wallet.outputManager.Refresh()
+		if err != nil {
+			return
+		}
 	}
 
 	confirmedBalance = make(map[ledgerstate.Color]uint64)
 	pendingBalance = make(map[ledgerstate.Color]uint64)
 
 	// iterate through the unspent outputs
-	for addy, outputsOnAddress := range wallet.outputManager.UnspentOutputs() {
+	for addy, outputsOnAddress := range wallet.outputManager.UnspentOutputs(true) {
 		for _, output := range outputsOnAddress {
 			// skip if the output was rejected or spent already
 			if output.InclusionState.Spent || output.InclusionState.Rejected {
@@ -1579,17 +1585,23 @@ func (wallet *Wallet) Balance() (confirmedBalance, pendingBalance map[ledgerstat
 // region AvailableBalance /////////////////////////////////////////////////////////////////////////////////////////////
 
 // AvailableBalance returns the balance that is not held in aliases, and therefore can be used to fund transfers.
-func (wallet *Wallet) AvailableBalance() (confirmedBalance, pendingBalance map[ledgerstate.Color]uint64, err error) {
-	err = wallet.outputManager.Refresh()
-	if err != nil {
-		return
+func (wallet *Wallet) AvailableBalance(refresh ...bool) (confirmedBalance, pendingBalance map[ledgerstate.Color]uint64, err error) {
+	shouldRefresh := true
+	if len(refresh) > 0 {
+		shouldRefresh = refresh[0]
+	}
+	if shouldRefresh {
+		err = wallet.outputManager.Refresh()
+		if err != nil {
+			return
+		}
 	}
 
 	confirmedBalance = make(map[ledgerstate.Color]uint64)
 	pendingBalance = make(map[ledgerstate.Color]uint64)
 	now := time.Now()
 	// iterate through the unspent outputs
-	for addy, outputsOnAddress := range wallet.outputManager.UnspentOutputs() {
+	for addy, outputsOnAddress := range wallet.outputManager.UnspentOutputs(true) {
 		for _, output := range outputsOnAddress {
 			// skip if the output was rejected or spent already
 			if output.InclusionState.Spent || output.InclusionState.Rejected {
@@ -1637,10 +1649,16 @@ func (wallet *Wallet) AvailableBalance() (confirmedBalance, pendingBalance map[l
 // region TimelockedBalances ///////////////////////////////////////////////////////////////////////////////////////////
 
 // TimelockedBalances returns all confirmed and pending balances that are currently timelocked.
-func (wallet *Wallet) TimelockedBalances() (confirmed, pending TimedBalanceSlice, err error) {
-	err = wallet.outputManager.Refresh()
-	if err != nil {
-		return
+func (wallet *Wallet) TimelockedBalances(refresh ...bool) (confirmed, pending TimedBalanceSlice, err error) {
+	shouldRefresh := true
+	if len(refresh) > 0 {
+		shouldRefresh = refresh[0]
+	}
+	if shouldRefresh {
+		err = wallet.outputManager.Refresh()
+		if err != nil {
+			return
+		}
 	}
 
 	confirmed = make([]*TimedBalance, 0)
@@ -1648,7 +1666,7 @@ func (wallet *Wallet) TimelockedBalances() (confirmed, pending TimedBalanceSlice
 	now := time.Now()
 
 	// iterate through the unspent outputs
-	for _, outputsOnAddress := range wallet.outputManager.UnspentOutputs() {
+	for _, outputsOnAddress := range wallet.outputManager.UnspentOutputs(true) {
 		for _, output := range outputsOnAddress {
 			// skip if the output was rejected or spent already
 			if output.InclusionState.Spent || output.InclusionState.Rejected {
@@ -1680,10 +1698,16 @@ func (wallet *Wallet) TimelockedBalances() (confirmed, pending TimedBalanceSlice
 // region ConditionalBalances //////////////////////////////////////////////////////////////////////////////////////////
 
 // ConditionalBalances returns all confirmed and pending balances that can be claimed by the wallet up to a certain time.
-func (wallet *Wallet) ConditionalBalances() (confirmed, pending TimedBalanceSlice, err error) {
-	err = wallet.outputManager.Refresh()
-	if err != nil {
-		return
+func (wallet *Wallet) ConditionalBalances(refresh ...bool) (confirmed, pending TimedBalanceSlice, err error) {
+	shouldRefresh := true
+	if len(refresh) > 0 {
+		shouldRefresh = refresh[0]
+	}
+	if shouldRefresh {
+		err = wallet.outputManager.Refresh()
+		if err != nil {
+			return
+		}
 	}
 
 	confirmed = make(TimedBalanceSlice, 0)
@@ -1691,7 +1715,7 @@ func (wallet *Wallet) ConditionalBalances() (confirmed, pending TimedBalanceSlic
 	now := time.Now()
 
 	// iterate through the unspent outputs
-	for addy, outputsOnAddress := range wallet.outputManager.UnspentOutputs() {
+	for addy, outputsOnAddress := range wallet.outputManager.UnspentOutputs(true) {
 		for _, output := range outputsOnAddress {
 			// skip if the output was rejected or spent already
 			if output.InclusionState.Spent || output.InclusionState.Rejected {
@@ -1725,7 +1749,7 @@ func (wallet *Wallet) ConditionalBalances() (confirmed, pending TimedBalanceSlic
 // region AliasBalance /////////////////////////////////////////////////////////////////////////////////////////////////
 
 // AliasBalance returns the aliases held by this wallet
-func (wallet *Wallet) AliasBalance() (
+func (wallet *Wallet) AliasBalance(refresh ...bool) (
 	confirmedGovernedAliases,
 	confirmedStateControlledAliases,
 	pendingGovernedAliases,
@@ -1736,12 +1760,18 @@ func (wallet *Wallet) AliasBalance() (
 	confirmedStateControlledAliases = map[ledgerstate.AliasAddress]*ledgerstate.AliasOutput{}
 	pendingGovernedAliases = map[ledgerstate.AliasAddress]*ledgerstate.AliasOutput{}
 	pendingStateControlledAliases = map[ledgerstate.AliasAddress]*ledgerstate.AliasOutput{}
-	err = wallet.Refresh(true)
-	if err != nil {
-		return nil, nil, nil, nil, err
+	shouldRefresh := true
+	if len(refresh) > 0 {
+		shouldRefresh = refresh[0]
+	}
+	if shouldRefresh {
+		err = wallet.outputManager.Refresh()
+		if err != nil {
+			return
+		}
 	}
 
-	aliasOutputs := wallet.UnspentAliasOutputs()
+	aliasOutputs := wallet.UnspentAliasOutputs(true)
 
 	for addr, outputIDToOutputMap := range aliasOutputs {
 		for _, output := range outputIDToOutputMap {
@@ -1819,7 +1849,7 @@ func (wallet Wallet) AvailableOutputsOnNFT(nftID string) (owned, governed ledger
 // region DelegatedAliasBalance ////////////////////////////////////////////////////////////////////////////////////////
 
 // DelegatedAliasBalance returns the pending and confirmed aliases that are delegated.
-func (wallet *Wallet) DelegatedAliasBalance() (
+func (wallet *Wallet) DelegatedAliasBalance(refresh ...bool) (
 	confirmedDelegatedAliases map[ledgerstate.AliasAddress]*ledgerstate.AliasOutput,
 	pendingDelegatedAliases map[ledgerstate.AliasAddress]*ledgerstate.AliasOutput,
 	err error,
@@ -1827,12 +1857,18 @@ func (wallet *Wallet) DelegatedAliasBalance() (
 	confirmedDelegatedAliases = map[ledgerstate.AliasAddress]*ledgerstate.AliasOutput{}
 	pendingDelegatedAliases = map[ledgerstate.AliasAddress]*ledgerstate.AliasOutput{}
 
-	err = wallet.Refresh(true)
-	if err != nil {
-		return nil, nil, err
+	shouldRefresh := true
+	if len(refresh) > 0 {
+		shouldRefresh = refresh[0]
+	}
+	if shouldRefresh {
+		err = wallet.outputManager.Refresh()
+		if err != nil {
+			return
+		}
 	}
 
-	aliasOutputs := wallet.UnspentAliasOutputs()
+	aliasOutputs := wallet.UnspentAliasOutputs(true)
 
 	for addr, outputIDToOutputMap := range aliasOutputs {
 		for _, output := range outputIDToOutputMap {
@@ -2019,7 +2055,7 @@ func (wallet *Wallet) findGovernedAliasOutputByAliasID(id *ledgerstate.AliasAddr
 		return
 	}
 
-	unspentAliasOutputs := wallet.outputManager.UnspentAliasOutputs()
+	unspentAliasOutputs := wallet.outputManager.UnspentAliasOutputs(false)
 	for _, outputIDMap := range unspentAliasOutputs {
 		for _, output := range outputIDMap {
 			if output.Object.Address().Equals(id) && output.Object.(*ledgerstate.AliasOutput).GetGoverningAddress().Equals(output.Address.Address()) {
@@ -2039,7 +2075,7 @@ func (wallet *Wallet) findStateControlledAliasOutputByAliasID(id *ledgerstate.Al
 		return
 	}
 
-	unspentAliasOutputs := wallet.outputManager.UnspentAliasOutputs()
+	unspentAliasOutputs := wallet.outputManager.UnspentAliasOutputs(false)
 	for _, outputIDMap := range unspentAliasOutputs {
 		for _, output := range outputIDMap {
 			if output.Object.Address().Equals(id) && output.Object.(*ledgerstate.AliasOutput).GetStateAddress().Equals(output.Address.Address()) {
@@ -2060,15 +2096,15 @@ func (wallet *Wallet) collectOutputsForFunding(fundingBalance map[ledgerstate.Co
 
 	_ = wallet.outputManager.Refresh()
 	addresses := wallet.addressManager.Addresses()
-	unspentOutputs := wallet.outputManager.UnspentValueOutputs(addresses...)
+	unspentOutputs := wallet.outputManager.UnspentValueOutputs(false, addresses...)
 
 	collected := make(map[ledgerstate.Color]uint64)
 	outputsToConsume := NewAddressToOutputs()
 	now := time.Now()
 	for _, addy := range addresses {
 		for outputID, output := range unspentOutputs[addy] {
-			if output.InclusionState.Spent {
-				// skip counting spent outputs
+			if output.InclusionState.Spent || !output.InclusionState.Confirmed {
+				// skip counting spent and not confirmed outputs
 				continue
 			}
 			if output.Object.Type() == ledgerstate.ExtendedLockedOutputType {

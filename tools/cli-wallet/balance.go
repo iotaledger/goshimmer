@@ -16,9 +16,13 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 		panic(err)
 	}
 
+	// refresh wallet once
+	err = cliWallet.Refresh(true)
+	if err != nil {
+		printUsage(nil, err.Error())
+	}
 	// print token balances
-
-	confirmedBalance, pendingBalance, err := cliWallet.AvailableBalance()
+	confirmedBalance, pendingBalance, err := cliWallet.AvailableBalance(false)
 	if err != nil {
 		printUsage(nil, err.Error())
 	}
@@ -48,7 +52,7 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	_ = w.Flush()
 
 	// fetch timelocked balances
-	confirmedTimelocked, pendingTimelocked, err := cliWallet.TimelockedBalances()
+	confirmedTimelocked, pendingTimelocked, err := cliWallet.TimelockedBalances(false)
 	if err != nil {
 		printUsage(nil, err.Error())
 	}
@@ -60,7 +64,7 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	}
 
 	// fetch conditional balances
-	confirmedConditional, pendingConditional, err := cliWallet.ConditionalBalances()
+	confirmedConditional, pendingConditional, err := cliWallet.ConditionalBalances(false)
 	if err != nil {
 		printUsage(nil, err.Error())
 	}
@@ -72,11 +76,11 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	}
 
 	// fetch balances from wallet
-	confirmedGovAliasBalance, confirmedStateAliasBalance, pendingGovAliasBalance, pendingStateAliasBalance, err := cliWallet.AliasBalance()
+	confirmedGovAliasBalance, confirmedStateAliasBalance, pendingGovAliasBalance, pendingStateAliasBalance, err := cliWallet.AliasBalance(false)
 	if err != nil {
 		printUsage(nil, err.Error())
 	}
-	confirmedDel, pendingDel, err := cliWallet.DelegatedAliasBalance()
+	confirmedDel, pendingDel, err := cliWallet.DelegatedAliasBalance(false)
 	if err != nil {
 		printUsage(nil, err.Error())
 	}

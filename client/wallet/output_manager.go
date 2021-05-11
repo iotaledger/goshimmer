@@ -56,27 +56,27 @@ func (o *OutputManager) Refresh(includeSpentAddresses ...bool) error {
 }
 
 // UnspentOutputs returns the all outputs that have not been spent, yet.
-func (o *OutputManager) UnspentOutputs(addresses ...address.Address) (unspentOutputs OutputsByAddressAndOutputID) {
-	return o.getOutputs(addresses...)
+func (o *OutputManager) UnspentOutputs(includePending bool, addresses ...address.Address) (unspentOutputs OutputsByAddressAndOutputID) {
+	return o.getOutputs(includePending, addresses...)
 }
 
 // UnspentValueOutputs returns the value type outputs that have not been spent, yet.
-func (o *OutputManager) UnspentValueOutputs(addresses ...address.Address) (unspentOutputs OutputsByAddressAndOutputID) {
-	return o.getOutputs(addresses...).ValueOutputsOnly()
+func (o *OutputManager) UnspentValueOutputs(includePending bool, addresses ...address.Address) (unspentOutputs OutputsByAddressAndOutputID) {
+	return o.getOutputs(includePending, addresses...).ValueOutputsOnly()
 }
 
 // UnspentConditionalOutputs returns the ExtendedLockedoutputs that are conditionally owned by the wallet right now and
 // have not been spent yet. Such outputs can be claimed by the wallet.
-func (o *OutputManager) UnspentConditionalOutputs(addresses ...address.Address) (unspentOutputs OutputsByAddressAndOutputID) {
-	return o.getOutputs(addresses...).ConditionalOutputsOnly()
+func (o *OutputManager) UnspentConditionalOutputs(includePending bool, addresses ...address.Address) (unspentOutputs OutputsByAddressAndOutputID) {
+	return o.getOutputs(includePending, addresses...).ConditionalOutputsOnly()
 }
 
 // UnspentAliasOutputs returns the alias type outputs that have not been spent, yet.
-func (o *OutputManager) UnspentAliasOutputs(addresses ...address.Address) (unspentOutputs OutputsByAddressAndOutputID) {
-	return o.getOutputs(addresses...).AliasOutputsOnly()
+func (o *OutputManager) UnspentAliasOutputs(includePending bool, addresses ...address.Address) (unspentOutputs OutputsByAddressAndOutputID) {
+	return o.getOutputs(includePending, addresses...).AliasOutputsOnly()
 }
 
-func (o *OutputManager) getOutputs(addresses ...address.Address) (unspentOutputs OutputsByAddressAndOutputID) {
+func (o *OutputManager) getOutputs(includePending bool, addresses ...address.Address) (unspentOutputs OutputsByAddressAndOutputID) {
 	// prepare result
 	unspentOutputs = make(map[address.Address]map[ledgerstate.OutputID]*Output)
 
@@ -95,8 +95,12 @@ func (o *OutputManager) getOutputs(addresses ...address.Address) (unspentOutputs
 
 		// iterate through outputs
 		for transactionID, output := range unspentOutputsOnAddress {
-			// skip spent outputs, and also not confirmed ones
-			if output.InclusionState.Spent || !output.InclusionState.Confirmed {
+			// skip spent outputs
+			if output.InclusionState.Spent {
+				continue
+			}
+			// discard non-confirmed if includePending is false
+			if !includePending && !output.InclusionState.Confirmed {
 				continue
 			}
 
