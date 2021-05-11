@@ -14,8 +14,6 @@ http://goshimmer.docs.iota.org/
   - [Obtaining tokens from the faucet](./tutorials/request_funds.md)
   - [The wallet library](./tutorials/wallet.md)
   - [Writing a dApp](./tutorials/dApp.md)
-  - [How to run a sync beacon](./tutorials/syncbeacon.md)
-  - [How to configure followed sync beacon nodes](./tutorials/follow_syncbeacon.md)
   - [How to create a static identity](./tutorials/static_identity.md)
   - [How to setup a custom dRNG committee](./tutorials/custom_dRNG.md)
   - [Setting up Monitoring Dashboard](./tutorials/monitoring.md)

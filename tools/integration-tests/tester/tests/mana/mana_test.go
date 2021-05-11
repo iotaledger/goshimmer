@@ -64,8 +64,8 @@ func TestPledgeFilter(t *testing.T) {
 	peers := make([]*framework.Peer, numPeers)
 	for i := 0; i < numPeers; i++ {
 		peer, err := n.CreatePeer(framework.GoShimmerConfig{
-			Mana:       true,
-			SyncBeacon: true,
+			Mana:           true,
+			ActivityPlugin: true,
 		})
 		require.NoError(t, err)
 		peers[i] = peer
@@ -85,7 +85,7 @@ func TestPledgeFilter(t *testing.T) {
 		ManaAllowedConsensusFilterEnabled: true,
 		ManaAllowedAccessPledge:           []string{accessPeerID},
 		ManaAllowedConsensusPledge:        []string{consensusPeerID},
-		SyncBeacon:                        true,
+		ActivityPlugin:                    true,
 	})
 
 	require.NoError(t, err)

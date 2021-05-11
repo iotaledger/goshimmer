@@ -16,7 +16,7 @@ export default class TangleTime extends React.Component<Props, any> {
         return (
             <Card>
                 <Card.Body>
-                    <Card.Title>TangleTime Synced: {this.props.nodeStore.status.tangleTime.synced? "Yes":"No"} (experimental)</Card.Title>
+                    <Card.Title>TangleTime Synced: {this.props.nodeStore.status.tangleTime.synced? "Yes":"No"} </Card.Title>
                     <small>
                         <div>
                             <hr/>

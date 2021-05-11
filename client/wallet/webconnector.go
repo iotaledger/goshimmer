@@ -28,7 +28,7 @@ func (webConnector *WebConnector) ServerStatus() (status ServerStatus, err error
 	}
 
 	status.ID = response.IdentityID
-	status.Synced = response.Synced
+	status.Synced = response.TangleTime.Synced
 	status.Version = response.Version
 	status.ManaDecay = response.ManaDecay
 

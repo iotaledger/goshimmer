@@ -45,13 +45,11 @@ func configure(_ *node.Plugin) {
 // e.g.,
 // {
 // 	"version":"v0.2.0",
-//  "synchronized": true,
-//	"beacons":[{
-// 		"public_key":"EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP",
-// 		"msg_id":"24Uq4UFQ7p5oLyjuXX32jHhNreo5hY9eo8Awh36RhdTHCwFMtct3SE2rhe3ceYz6rjKDjBs3usoHS3ujFEabP5ri",
-// 		"sent_time":1595528075204868900,
+//	"tangleTime":{
+// 		"messageID":"24Uq4UFQ7p5oLyjuXX32jHhNreo5hY9eo8Awh36RhdTHCwFMtct3SE2rhe3ceYz6rjKDjBs3usoHS3ujFEabP5ri",
+// 		"time":1595528075204868900,
 // 		"synced":true
-// }]
+// }
 // 	"identityID":"5bf4aa1d6c47e4ce",
 // 	"publickey":"CjUsn86jpFHWnSCx3NhWfU4Lk16mDdy1Hr7ERSTv3xn9",
 // 	"enabledplugins":[
@@ -96,15 +94,12 @@ func getInfo(c echo.Context) error {
 	sort.Strings(enabledPlugins)
 	sort.Strings(disabledPlugins)
 
-	synced, beacons := messagelayer.SyncStatus()
-	var beaconsStatus []jsonmodels.Beacon
-	for publicKey, s := range beacons {
-		beaconsStatus = append(beaconsStatus, jsonmodels.Beacon{
-			PublicKey: publicKey.String(),
-			MsgID:     s.MsgID.Base58(),
-			SentTime:  s.SentTime,
-			Synced:    s.Synced,
-		})
+	// get TangleTime
+	lcm := messagelayer.Tangle().TimeManager.LastConfirmedMessage()
+	tangleTime := jsonmodels.TangleTime{
+		Synced:    messagelayer.Tangle().TimeManager.Synced(),
+		Time:      lcm.Time.UnixNano(),
+		MessageID: lcm.MessageID.Base58(),
 	}
 
 	t := time.Now()
@@ -120,8 +115,7 @@ func getInfo(c echo.Context) error {
 	return c.JSON(http.StatusOK, jsonmodels.InfoResponse{
 		Version:                 banner.AppVersion,
 		NetworkVersion:          discovery.NetworkVersion(),
-		Synced:                  synced,
-		Beacons:                 beaconsStatus,
+		TangleTime:              tangleTime,
 		IdentityID:              base58.Encode(local.GetInstance().Identity.ID().Bytes()),
 		IdentityIDShort:         local.GetInstance().Identity.ID().String(),
 		PublicKey:               local.GetInstance().PublicKey().String(),
