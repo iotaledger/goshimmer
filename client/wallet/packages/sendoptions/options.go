@@ -1,10 +1,9 @@
 package sendoptions
 
 import (
-	"errors"
 	"time"
 
-	"golang.org/x/xerrors"
+	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -93,7 +92,7 @@ func WaitForConfirmation(wait bool) SendFundsOption {
 func LockUntil(until time.Time) SendFundsOption {
 	return func(options *SendFundsOptions) error {
 		if until.Before(time.Now()) {
-			return xerrors.Errorf("can't timelock funds in the past")
+			return errors.Errorf("can't timelock funds in the past")
 		}
 		options.LockUntil = until
 		return nil
@@ -105,10 +104,10 @@ func LockUntil(until time.Time) SendFundsOption {
 func Fallback(addy ledgerstate.Address, deadline time.Time) SendFundsOption {
 	return func(options *SendFundsOptions) error {
 		if addy == nil {
-			return xerrors.Errorf("empty fallback address provided")
+			return errors.Errorf("empty fallback address provided")
 		}
 		if deadline.Before(time.Now()) {
-			return xerrors.Errorf("invalid fallback deadline: %s is in the past", deadline.String())
+			return errors.Errorf("invalid fallback deadline: %s is in the past", deadline.String())
 		}
 		options.FallbackAddress = addy
 		options.FallbackDeadline = deadline

@@ -1,7 +1,7 @@
 package sweepnftownednftsoptions
 
 import (
-	"golang.org/x/xerrors"
+	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
@@ -79,7 +79,7 @@ func Build(options ...SweepNFTOwnedNFTsOption) (result *SweepNFTOwnedNFTsOptions
 	}
 
 	if result.Alias == nil {
-		return nil, xerrors.Errorf("an nft identifier must be specified to sweep funds from")
+		return nil, errors.Errorf("an nft identifier must be specified to sweep funds from")
 	}
 
 	return

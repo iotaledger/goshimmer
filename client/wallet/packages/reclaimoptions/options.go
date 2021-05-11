@@ -1,7 +1,7 @@
 package reclaimoptions
 
 import (
-	"golang.org/x/xerrors"
+	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
@@ -79,7 +79,7 @@ func Build(options ...ReclaimFundsOption) (result *ReclaimFundsOptions, err erro
 	}
 
 	if result.Alias == nil {
-		return nil, xerrors.Errorf("an alias identifier must be specified for reclaiming delegated funds")
+		return nil, errors.Errorf("an alias identifier must be specified for reclaiming delegated funds")
 	}
 
 	return

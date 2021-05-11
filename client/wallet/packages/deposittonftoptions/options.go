@@ -1,7 +1,7 @@
 package deposittonftoptions
 
 import (
-	"golang.org/x/xerrors"
+	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
@@ -74,11 +74,11 @@ func Build(options ...DepositFundsToNFTOption) (result *DepositFundsToNFTOptions
 		}
 	}
 	if result.Alias == nil {
-		return nil, xerrors.Errorf("an alias identifier must be specified for withdrawal")
+		return nil, errors.Errorf("an alias identifier must be specified for withdrawal")
 	}
 
 	if result.Amount == nil {
-		return nil, xerrors.Errorf("no funds provided for deposit")
+		return nil, errors.Errorf("no funds provided for deposit")
 	}
 
 	return

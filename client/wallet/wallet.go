@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"golang.org/x/crypto/blake2b"
-	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/claimconditionaloptions"
@@ -150,7 +149,7 @@ func (wallet *Wallet) SendFunds(options ...sendoptions.SendFundsOption) (tx *led
 		return nil, err
 	}
 	if !ok {
-		return nil, xerrors.Errorf("created transaction is invalid: %s", tx.String())
+		return nil, errors.Errorf("created transaction is invalid: %s", tx.String())
 	}
 
 	wallet.markOutputsAndAddressesSpent(consumedOutputs)
@@ -182,7 +181,7 @@ func (wallet *Wallet) ConsolidateFunds(options ...consolidateoptions.Consolidate
 		return
 	}
 	if len(confirmedAvailableBalance) == 0 {
-		err = xerrors.Errorf("no available balance to be swept in wallet")
+		err = errors.Errorf("no available balance to be swept in wallet")
 		return
 	}
 	// collect outputs
@@ -224,7 +223,7 @@ func (wallet *Wallet) ConsolidateFunds(options ...consolidateoptions.Consolidate
 		return nil, err
 	}
 	if !ok {
-		return nil, xerrors.Errorf("created transaction is invalid: %s", tx.String())
+		return nil, errors.Errorf("created transaction is invalid: %s", tx.String())
 	}
 
 	wallet.markOutputsAndAddressesSpent(consumedOutputs)
@@ -253,13 +252,13 @@ func (wallet *Wallet) ClaimConditionalFunds(options ...claimconditionaloptions.C
 		return
 	}
 	if len(confirmedConditionalBalance) == 0 {
-		err = xerrors.Errorf("no conditional balance found in the wallet")
+		err = errors.Errorf("no conditional balance found in the wallet")
 		return
 	}
 	addresses := wallet.addressManager.Addresses()
 	consumedOutputs := wallet.outputManager.UnspentConditionalOutputs(false, addresses...)
 	if len(consumedOutputs) == 0 {
-		err = xerrors.Errorf("failed to find conditionally owned outputs in wallet")
+		err = errors.Errorf("failed to find conditionally owned outputs in wallet")
 		return
 	}
 
@@ -295,7 +294,7 @@ func (wallet *Wallet) ClaimConditionalFunds(options ...claimconditionaloptions.C
 		return nil, err
 	}
 	if !ok {
-		return nil, xerrors.Errorf("created transaction is invalid: %s", tx.String())
+		return nil, errors.Errorf("created transaction is invalid: %s", tx.String())
 	}
 
 	wallet.markOutputsAndAddressesSpent(consumedOutputs)
@@ -317,13 +316,13 @@ func (wallet *Wallet) ClaimConditionalFunds(options ...claimconditionaloptions.C
 // CreateAsset creates a new colored token with the given details.
 func (wallet *Wallet) CreateAsset(asset Asset, waitForConfirmation ...bool) (assetColor ledgerstate.Color, err error) {
 	if asset.Amount == 0 {
-		err = xerrors.New("required to provide the amount when trying to create an asset")
+		err = errors.New("required to provide the amount when trying to create an asset")
 
 		return
 	}
 
 	if asset.Name == "" {
-		err = xerrors.New("required to provide a name when trying to create an asset")
+		err = errors.New("required to provide a name when trying to create an asset")
 
 		return
 	}
@@ -423,7 +422,7 @@ func (wallet *Wallet) DelegateFunds(options ...delegateoptions.DelegateFundsOpti
 	// remainder balance = totalConsumed - required
 	for color, balance := range requiredFunds {
 		if totalConsumedFunds[color] < balance {
-			err = xerrors.Errorf("delegated funds are greater than consumed funds")
+			err = errors.Errorf("delegated funds are greater than consumed funds")
 			return
 		}
 		totalConsumedFunds[color] -= balance
@@ -455,7 +454,7 @@ func (wallet *Wallet) DelegateFunds(options ...delegateoptions.DelegateFundsOpti
 		return
 	}
 	if !ok {
-		err = xerrors.Errorf("created transaction is invalid: %s", tx.String())
+		err = errors.Errorf("created transaction is invalid: %s", tx.String())
 		return
 	}
 
@@ -579,7 +578,7 @@ func (wallet *Wallet) CreateNFT(options ...createnftoptions.CreateNFTOption) (tx
 		return nil, nil, err
 	}
 	if !ok {
-		return nil, nil, xerrors.Errorf("created transaction is invalid: %s", tx.String())
+		return nil, nil, errors.Errorf("created transaction is invalid: %s", tx.String())
 	}
 
 	// look for the id of the freshly created nft (alias) that is only available after the outputID is set.
@@ -627,7 +626,7 @@ func (wallet *Wallet) TransferNFT(options ...transfernftoptions.TransferNFTOptio
 	}
 	alias := walletAlias.Object.(*ledgerstate.AliasOutput)
 	if alias.DelegationTimeLockedNow(time.Now()) {
-		err = xerrors.Errorf("alias %s is delegation timelocked until %s", alias.GetAliasAddress().Base58(),
+		err = errors.Errorf("alias %s is delegation timelocked until %s", alias.GetAliasAddress().Base58(),
 			alias.DelegationTimelock().String())
 		return
 	}
@@ -644,11 +643,11 @@ func (wallet *Wallet) TransferNFT(options ...transfernftoptions.TransferNFTOptio
 		var otherAlias *ledgerstate.AliasOutput
 		otherAlias, err = wallet.connector.GetUnspentAliasOutput(transferOptions.ToAddress.(*ledgerstate.AliasAddress))
 		if err != nil {
-			err = xerrors.Errorf("failed to check that transfer wouldn't result in deadlocked outputs: %w", err)
+			err = errors.Errorf("failed to check that transfer wouldn't result in deadlocked outputs: %w", err)
 			return
 		}
 		if otherAlias.GetGoverningAddress().Equals(alias.GetAliasAddress()) {
-			err = xerrors.Errorf("transfer of nft to %s would result in circular alias governance", transferOptions.ToAddress.Base58())
+			err = errors.Errorf("transfer of nft to %s would result in circular alias governance", transferOptions.ToAddress.Base58())
 			return
 		}
 	}
@@ -700,7 +699,7 @@ func (wallet *Wallet) TransferNFT(options ...transfernftoptions.TransferNFTOptio
 		return nil, err
 	}
 	if !ok {
-		return nil, xerrors.Errorf("created transaction is invalid: %s", tx.String())
+		return nil, errors.Errorf("created transaction is invalid: %s", tx.String())
 	}
 
 	wallet.markOutputsAndAddressesSpent(OutputsByAddressAndOutputID{walletAlias.Address: {
@@ -742,7 +741,7 @@ func (wallet *Wallet) DestroyNFT(options ...destroynftoptions.DestroyNFTOption) 
 	alias := walletAlias.Object.(*ledgerstate.AliasOutput)
 
 	if alias.DelegationTimeLockedNow(time.Now()) {
-		err = xerrors.Errorf("alias %s is delegation timelocked until %s", alias.GetAliasAddress().Base58(), alias.DelegationTimelock().String())
+		err = errors.Errorf("alias %s is delegation timelocked until %s", alias.GetAliasAddress().Base58(), alias.DelegationTimelock().String())
 		return
 	}
 
@@ -796,7 +795,7 @@ func (wallet *Wallet) DestroyNFT(options ...destroynftoptions.DestroyNFTOption) 
 		return nil, err
 	}
 	if !ok {
-		return nil, xerrors.Errorf("created transaction is invalid: %s", tx.String())
+		return nil, errors.Errorf("created transaction is invalid: %s", tx.String())
 	}
 
 	wallet.markOutputsAndAddressesSpent(OutputsByAddressAndOutputID{walletAlias.Address: {
@@ -839,7 +838,7 @@ func (wallet *Wallet) WithdrawFundsFromNFT(options ...withdrawfromnftoptions.Wit
 	// check if withdrawBalance is valid for alias
 	balancesOfAlias.ForEach(func(color ledgerstate.Color, balance uint64) bool {
 		if balance < withdrawBalances[color] {
-			err = xerrors.Errorf("trying to withdraw %d %s tokens from alias, but there are only %d tokens in it",
+			err = errors.Errorf("trying to withdraw %d %s tokens from alias, but there are only %d tokens in it",
 				withdrawBalances[color], color.Base58(), balance)
 			return false
 		}
@@ -848,7 +847,7 @@ func (wallet *Wallet) WithdrawFundsFromNFT(options ...withdrawfromnftoptions.Wit
 			delete(newAliasBalance, color)
 		}
 		if color == ledgerstate.ColorIOTA && newAliasBalance[color] < ledgerstate.DustThresholdAliasOutputIOTA {
-			err = xerrors.Errorf("%d IOTA tokens would remain after withdrawal, which is less, then the minimum required %d",
+			err = errors.Errorf("%d IOTA tokens would remain after withdrawal, which is less, then the minimum required %d",
 				newAliasBalance[color], ledgerstate.DustThresholdAliasOutputIOTA)
 			return false
 		}
@@ -908,7 +907,7 @@ func (wallet *Wallet) WithdrawFundsFromNFT(options ...withdrawfromnftoptions.Wit
 		return nil, err
 	}
 	if !ok {
-		return nil, xerrors.Errorf("created transaction is invalid: %s", tx.String())
+		return nil, errors.Errorf("created transaction is invalid: %s", tx.String())
 	}
 
 	wallet.markOutputsAndAddressesSpent(OutputsByAddressAndOutputID{walletAlias.Address: {
@@ -980,7 +979,7 @@ func (wallet *Wallet) DepositFundsToNFT(options ...deposittonftoptions.DepositFu
 	// remainder balance = totalConsumed - deposit
 	for color, balance := range depositBalances {
 		if totalConsumed[color] < balance {
-			return nil, xerrors.Errorf("deposit funds are greater than consumed funds")
+			return nil, errors.Errorf("deposit funds are greater than consumed funds")
 		}
 		totalConsumed[color] -= balance
 		if totalConsumed[color] <= 0 {
@@ -1020,7 +1019,7 @@ func (wallet *Wallet) DepositFundsToNFT(options ...deposittonftoptions.DepositFu
 		return nil, err
 	}
 	if !ok {
-		return nil, xerrors.Errorf("created transaction is invalid: %s", tx.String())
+		return nil, errors.Errorf("created transaction is invalid: %s", tx.String())
 	}
 
 	wallet.markOutputsAndAddressesSpent(consumedOutputs)
@@ -1058,7 +1057,7 @@ func (wallet Wallet) SweepNFTOwnedFunds(options ...sweepnftownedoptions.SweepNFT
 		return
 	}
 	if _, has := stateControlled[*sweepOptions.Alias]; !has {
-		err = xerrors.Errorf("nft %s is not state controlled by the wallet", sweepOptions.Alias.Base58())
+		err = errors.Errorf("nft %s is not state controlled by the wallet", sweepOptions.Alias.Base58())
 	}
 	// look up if we have the alias output. Only the state controller can modify balances in aliases.
 	walletAlias, err := wallet.findStateControlledAliasOutputByAliasID(sweepOptions.Alias)
@@ -1072,7 +1071,7 @@ func (wallet Wallet) SweepNFTOwnedFunds(options ...sweepnftownedoptions.SweepNFT
 		return
 	}
 	if len(owned) == 0 {
-		err = xerrors.Errorf("no owned outputs with funds are found on nft %s", sweepOptions.Alias.Base58())
+		err = errors.Errorf("no owned outputs with funds are found on nft %s", sweepOptions.Alias.Base58())
 	}
 
 	toBeConsumed := ledgerstate.Outputs{}
@@ -1131,7 +1130,7 @@ func (wallet Wallet) SweepNFTOwnedFunds(options ...sweepnftownedoptions.SweepNFT
 		}
 	}
 	if aliasInputIndex < 0 {
-		err = xerrors.Errorf("failed to find alias %s among prepared transaction inputs", alias.GetAliasAddress().Base58())
+		err = errors.Errorf("failed to find alias %s among prepared transaction inputs", alias.GetAliasAddress().Base58())
 		return
 	}
 	// fill rest of the unlock blocks
@@ -1155,7 +1154,7 @@ func (wallet Wallet) SweepNFTOwnedFunds(options ...sweepnftownedoptions.SweepNFT
 		return nil, err
 	}
 	if !ok {
-		return nil, xerrors.Errorf("created transaction is invalid: %s", tx.String())
+		return nil, errors.Errorf("created transaction is invalid: %s", tx.String())
 	}
 
 	wallet.markOutputsAndAddressesSpent(OutputsByAddressAndOutputID{walletAlias.Address: {
@@ -1195,7 +1194,7 @@ func (wallet *Wallet) SweepNFTOwnedNFTs(options ...sweepnftownednftsoptions.Swee
 		return
 	}
 	if _, has := stateControlled[*sweepOptions.Alias]; !has {
-		err = xerrors.Errorf("nft %s is not state controlled by the wallet", sweepOptions.Alias.Base58())
+		err = errors.Errorf("nft %s is not state controlled by the wallet", sweepOptions.Alias.Base58())
 	}
 	// look up if we have the alias output. Only the state controller can modify balances in aliases.
 	walletAlias, err := wallet.findStateControlledAliasOutputByAliasID(sweepOptions.Alias)
@@ -1208,7 +1207,7 @@ func (wallet *Wallet) SweepNFTOwnedNFTs(options ...sweepnftownednftsoptions.Swee
 		return
 	}
 	if len(owned) == 0 {
-		err = xerrors.Errorf("no owned outputs with funds are found on nft %s", sweepOptions.Alias.Base58())
+		err = errors.Errorf("no owned outputs with funds are found on nft %s", sweepOptions.Alias.Base58())
 	}
 	toBeConsumed := ledgerstate.Outputs{}
 	// owned contains all outputs that are owned by nft. we want to filter out non alias outputs
@@ -1281,7 +1280,7 @@ func (wallet *Wallet) SweepNFTOwnedNFTs(options ...sweepnftownednftsoptions.Swee
 		}
 	}
 	if aliasInputIndex < 0 {
-		err = xerrors.Errorf("failed to find alias %s among prepared transaction inputs", alias.GetAliasAddress().Base58())
+		err = errors.Errorf("failed to find alias %s among prepared transaction inputs", alias.GetAliasAddress().Base58())
 		return
 	}
 	// fill rest of the unlock blocks
@@ -1299,7 +1298,7 @@ func (wallet *Wallet) SweepNFTOwnedNFTs(options ...sweepnftownednftsoptions.Swee
 		return
 	}
 	if !ok {
-		err = xerrors.Errorf("created transaction is invalid: %s", tx.String())
+		err = errors.Errorf("created transaction is invalid: %s", tx.String())
 		return
 	}
 
@@ -1911,10 +1910,10 @@ func (wallet *Wallet) WaitForTxConfirmation(txID ledgerstate.TransactionID) (err
 			return
 		}
 		if state == ledgerstate.Rejected {
-			return xerrors.Errorf("transaction %s has been rejected", txID.Base58())
+			return errors.Errorf("transaction %s has been rejected", txID.Base58())
 		}
 		if timeoutCounter > wallet.ConfirmationTimeout {
-			return xerrors.Errorf("transaction %s did not confirm within %d seconds", txID.Base58(), wallet.ConfirmationTimeout/milliSeconds)
+			return errors.Errorf("transaction %s did not confirm within %d seconds", txID.Base58(), wallet.ConfirmationTimeout/milliSeconds)
 		}
 	}
 }
@@ -1942,7 +1941,7 @@ func (wallet *Wallet) waitForBalanceConfirmation(prevConfirmedBalance map[ledger
 			return
 		}
 		if timeoutCounter > wallet.ConfirmationTimeout {
-			return xerrors.Errorf("confirmed balance did not change within timeout limit (%d)", wallet.ConfirmationTimeout/milliSeconds)
+			return errors.Errorf("confirmed balance did not change within timeout limit (%d)", wallet.ConfirmationTimeout/milliSeconds)
 		}
 	}
 }
@@ -2028,7 +2027,7 @@ func (wallet *Wallet) findGovernedAliasOutputByAliasID(id *ledgerstate.AliasAddr
 			}
 		}
 	}
-	err = xerrors.Errorf("couldn't find aliasID %s in the wallet that is owned for governance", id.Base58())
+	err = errors.Errorf("couldn't find aliasID %s in the wallet that is owned for governance", id.Base58())
 	return nil, err
 }
 
@@ -2048,14 +2047,14 @@ func (wallet *Wallet) findStateControlledAliasOutputByAliasID(id *ledgerstate.Al
 			}
 		}
 	}
-	err = xerrors.Errorf("couldn't find aliasID %s in the wallet that is state controlled by the wallet", id.Base58())
+	err = errors.Errorf("couldn't find aliasID %s in the wallet that is state controlled by the wallet", id.Base58())
 	return nil, err
 }
 
 // collectOutputsForFunding tries to collect unspent outputs to fund fundingBalance
 func (wallet *Wallet) collectOutputsForFunding(fundingBalance map[ledgerstate.Color]uint64) (OutputsByAddressAndOutputID, error) {
 	if fundingBalance == nil {
-		return nil, xerrors.Errorf("can't collect fund: empty fundingBalance provided")
+		return nil, errors.Errorf("can't collect fund: empty fundingBalance provided")
 	}
 
 	_ = wallet.outputManager.Refresh()
@@ -2100,7 +2099,7 @@ func (wallet *Wallet) collectOutputsForFunding(fundingBalance map[ledgerstate.Co
 		}
 	}
 
-	return nil, xerrors.Errorf("failed to gather initial funds \n %s, there are only \n %s funds available",
+	return nil, errors.Errorf("failed to gather initial funds \n %s, there are only \n %s funds available",
 		ledgerstate.NewColoredBalances(fundingBalance).String(),
 		ledgerstate.NewColoredBalances(collected).String(),
 	)

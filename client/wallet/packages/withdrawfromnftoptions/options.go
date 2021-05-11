@@ -1,7 +1,7 @@
 package withdrawfromnftoptions
 
 import (
-	"golang.org/x/xerrors"
+	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
@@ -87,7 +87,7 @@ func Build(options ...WithdrawFundsFromNFTOption) (result *WithdrawFundsFromNFTO
 		}
 	}
 	if result.Alias == nil {
-		return nil, xerrors.Errorf("an alias identifier must be specified for withdrawal")
+		return nil, errors.Errorf("an alias identifier must be specified for withdrawal")
 	}
 
 	return

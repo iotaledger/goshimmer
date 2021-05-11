@@ -1,7 +1,7 @@
 package wallet
 
 import (
-	"golang.org/x/xerrors"
+	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
@@ -163,7 +163,7 @@ func (webConnector WebConnector) GetUnspentAliasOutput(addr *ledgerstate.AliasAd
 		}
 		alias, ok := uncastedOutput.(*ledgerstate.AliasOutput)
 		if !ok {
-			err = xerrors.Errorf("alias output received from api cannot be casted to ledgerstate representation")
+			err = errors.Errorf("alias output received from api cannot be casted to ledgerstate representation")
 			return
 		}
 		if alias.GetAliasAddress().Equals(addr) {
@@ -172,7 +172,7 @@ func (webConnector WebConnector) GetUnspentAliasOutput(addr *ledgerstate.AliasAd
 			return
 		}
 	}
-	return nil, xerrors.Errorf("couldn't find unspent alias output for alias addr %s", addr.Base58())
+	return nil, errors.Errorf("couldn't find unspent alias output for alias addr %s", addr.Base58())
 }
 
 // colorFromString is an internal utility method that parses the given string into a Color.

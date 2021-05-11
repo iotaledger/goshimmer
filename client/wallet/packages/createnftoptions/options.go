@@ -1,7 +1,7 @@
 package createnftoptions
 
 import (
-	"golang.org/x/xerrors"
+	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
@@ -21,7 +21,7 @@ func WaitForConfirmation(wait bool) CreateNFTOption {
 func InitialBalance(balance map[ledgerstate.Color]uint64) CreateNFTOption {
 	return func(options *CreateNFTOptions) error {
 		if balance[ledgerstate.ColorIOTA] < ledgerstate.DustThresholdAliasOutputIOTA {
-			return xerrors.Errorf("NFT must have at least %d IOTA balance", ledgerstate.DustThresholdAliasOutputIOTA)
+			return errors.Errorf("NFT must have at least %d IOTA balance", ledgerstate.DustThresholdAliasOutputIOTA)
 		}
 		options.InitialBalance = balance
 		return nil
@@ -32,10 +32,10 @@ func InitialBalance(balance map[ledgerstate.Color]uint64) CreateNFTOption {
 func ImmutableData(data []byte) CreateNFTOption {
 	return func(options *CreateNFTOptions) error {
 		if data == nil {
-			return xerrors.Errorf("empty data supplied for immutable data")
+			return errors.Errorf("empty data supplied for immutable data")
 		}
 		if len(data) > ledgerstate.MaxOutputPayloadSize {
-			return xerrors.Errorf("provided immutable data size %d is greater than maximum allowed %d", len(data), ledgerstate.MaxOutputPayloadSize)
+			return errors.Errorf("provided immutable data size %d is greater than maximum allowed %d", len(data), ledgerstate.MaxOutputPayloadSize)
 		}
 		options.ImmutableData = data
 		return nil

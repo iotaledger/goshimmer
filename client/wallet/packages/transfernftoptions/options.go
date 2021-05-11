@@ -1,7 +1,7 @@
 package transfernftoptions
 
 import (
-	"golang.org/x/xerrors"
+	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
@@ -97,10 +97,10 @@ func Build(options ...TransferNFTOption) (result *TransferNFTOptions, err error)
 	}
 
 	if result.Alias == nil {
-		return nil, xerrors.Errorf("an alias identifier must be specified for transfer")
+		return nil, errors.Errorf("an alias identifier must be specified for transfer")
 	}
 	if result.ToAddress == nil {
-		return nil, xerrors.Errorf("no receiving address specified for nft transfer")
+		return nil, errors.Errorf("no receiving address specified for nft transfer")
 	}
 
 	return

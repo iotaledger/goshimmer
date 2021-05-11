@@ -1,10 +1,9 @@
 package delegateoptions
 
 import (
-	"errors"
 	"time"
 
-	"golang.org/x/xerrors"
+	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -17,7 +16,7 @@ type DelegateFundsOption func(*DelegateFundsOptions) error
 func Destination(addr address.Address, balance map[ledgerstate.Color]uint64) DelegateFundsOption {
 	// return an error if the IOTA amount is less
 	if balance[ledgerstate.ColorIOTA] < ledgerstate.DustThresholdAliasOutputIOTA {
-		return optionError(xerrors.Errorf("the IOTA amount provided in the destination needs to be larger than %d", ledgerstate.DustThresholdAliasOutputIOTA))
+		return optionError(errors.Errorf("the IOTA amount provided in the destination needs to be larger than %d", ledgerstate.DustThresholdAliasOutputIOTA))
 	}
 
 	// return Option
@@ -44,7 +43,7 @@ func Destination(addr address.Address, balance map[ledgerstate.Color]uint64) Del
 func DelegateUntil(until time.Time) DelegateFundsOption {
 	return func(options *DelegateFundsOptions) error {
 		if until.Before(time.Now()) {
-			return xerrors.Errorf("can't delegate funds in the past")
+			return errors.Errorf("can't delegate funds in the past")
 		}
 		options.DelegateUntil = until
 		return nil

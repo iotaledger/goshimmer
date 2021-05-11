@@ -1,7 +1,7 @@
 package destroynftoptions
 
 import (
-	"golang.org/x/xerrors"
+	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
@@ -79,7 +79,7 @@ func Build(options ...DestroyNFTOption) (result *DestroyNFTOptions, err error) {
 	}
 
 	if result.Alias == nil {
-		return nil, xerrors.Errorf("an alias identifier must be specified for destroy")
+		return nil, errors.Errorf("an alias identifier must be specified for destroy")
 	}
 
 	return

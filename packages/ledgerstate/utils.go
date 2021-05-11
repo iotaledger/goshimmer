@@ -3,7 +3,7 @@ package ledgerstate
 import (
 	"math"
 
-	"golang.org/x/xerrors"
+	"github.com/cockroachdb/errors"
 )
 
 // TransactionBalancesValid is an internal utility function that checks if the sum of the balance changes equals to 0.
@@ -62,10 +62,10 @@ func UnlockBlocksValidWithError(inputs Outputs, transaction *Transaction) (bool,
 	unlockBlocks := transaction.UnlockBlocks()
 	cyclePresent, err := checkReferenceCycle(unlockBlocks)
 	if err != nil {
-		return false, xerrors.Errorf("unlock blocks are semantically invalid: %w", err)
+		return false, errors.Errorf("unlock blocks are semantically invalid: %w", err)
 	}
 	if cyclePresent {
-		return false, xerrors.New("unlock blocks contain cyclic dependency, no signature present for an unlock path")
+		return false, errors.New("unlock blocks contain cyclic dependency, no signature present for an unlock path")
 	}
 	for i, input := range inputs {
 		currentUnlockBlock := unlockBlocks[i]
@@ -123,7 +123,7 @@ type UnlockGraph struct {
 // NewUnlockGraph creates a new UnlockGraph and checks semantic validity of the unlock block references.
 func NewUnlockGraph(blocks UnlockBlocks) (*UnlockGraph, error) {
 	if len(blocks) > MaxInputCount {
-		return nil, xerrors.Errorf("number of unlock blocks %d exceeds max input count %d", len(blocks), MaxInputCount)
+		return nil, errors.Errorf("number of unlock blocks %d exceeds max input count %d", len(blocks), MaxInputCount)
 	}
 	g := &UnlockGraph{
 		Vertices: make([]uint16, len(blocks)),
@@ -138,13 +138,13 @@ func NewUnlockGraph(blocks UnlockBlocks) (*UnlockGraph, error) {
 			// a reference unlock block can not point to another reference unlock block
 			refIndex := block.(*ReferenceUnlockBlock).ReferencedIndex()
 			if blocks[refIndex].Type() == ReferenceUnlockBlockType {
-				return nil, xerrors.Errorf("reference unlock block %d points to another reference unlock block %d", i, refIndex)
+				return nil, errors.Errorf("reference unlock block %d points to another reference unlock block %d", i, refIndex)
 			}
 			g.Edges[uint16(i)] = refIndex
 		case AliasUnlockBlockType:
 			g.Edges[uint16(i)] = block.(*AliasUnlockBlock).AliasInputIndex()
 		default:
-			return nil, xerrors.Errorf("unknown unlock block type at index %d", i)
+			return nil, errors.Errorf("unknown unlock block type at index %d", i)
 		}
 	}
 	return g, nil
