@@ -41,6 +41,7 @@ func configure(_ *node.Plugin) {
 	configureSyncMetrics()
 	configureFPCConflictsMetrics()
 	configureDRNGMetrics()
+	configureTransactionMetrics()
 }
 
 func run(_ *node.Plugin) {
@@ -82,4 +83,9 @@ func configureFPCConflictsMetrics() {
 func configureDRNGMetrics() {
 	metricsLogger := newDRNGMetricsLogger()
 	drng.Instance().Events.Randomness.Attach(events.NewClosure(metricsLogger.onRandomnessReceived))
+}
+
+func configureTransactionMetrics() {
+	metricsLogger := newTransactionMetricsLogger()
+	messagelayer.Tangle().LedgerState.UTXODAG.Events.TransactionConfirmed.Attach(events.NewClosure(metricsLogger.onTransactionConfirmed))
 }
