@@ -7,7 +7,6 @@ import {
     DrngSubtype,
     PayloadType,
     TransactionPayload,
-    SyncBeaconPayload,
     getPayloadType
 } from "app/misc/Payload";
 import * as React from "react";
@@ -524,10 +523,6 @@ export class ExplorerStore {
                 break;
             case PayloadType.Data:
                 this.payload = msg.payload as BasicPayload
-                break;
-            case PayloadType.SyncBeacon:
-                this.payload = msg.payload as SyncBeaconPayload
-                // console.log(this.payload.sent_time);
                 break;
             case PayloadType.Faucet:
             default:

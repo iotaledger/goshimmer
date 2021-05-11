@@ -8,8 +8,6 @@ import (
 
 // CollectionLogEvents defines the events for the remotelogmetrics package.
 type CollectionLogEvents struct {
-	// SyncBeaconSyncChanged defines the local sync status change event based on sync beacon.
-	SyncBeaconSyncChanged *events.Event
 	// TangleTimeSyncChanged defines the local sync status change event based on tangle time.
 	TangleTimeSyncChanged *events.Event
 }
@@ -31,8 +29,6 @@ type SyncStatusChangedEvent struct {
 	CurrentStatus bool `json:"currentStatus" bson:"currentStatus"`
 	// PreviousStatus contains previous sync status
 	PreviousStatus bool `json:"previousStatus" bson:"previousStatus"`
-	// SyncType contains the type of sync that changed - tangletime or syncbeacon
-	SyncType string `json:"syncType" bson:"syncType"`
 	// LastConfirmedMessageTime contains time of the last confirmed message
 	LastConfirmedMessageTime time.Time `json:"lastConfirmedMessageTime" bson:"lastConfirmedMessageTime"`
 }

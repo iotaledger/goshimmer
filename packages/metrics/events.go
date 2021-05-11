@@ -18,8 +18,6 @@ type CollectionEvents struct {
 	CPUUsage *events.Event
 	// MemUsage defines the local GoShimmer memory usage.
 	MemUsage *events.Event
-	// SyncBeaconSynced defines the local sync status event based on sync beacon.
-	SyncBeaconSynced *events.Event
 	// TangleTimeSynced defines the local sync status event based on tangle time.
 	TangleTimeSynced *events.Event
 	// ValueTips defines the local value tips count event.

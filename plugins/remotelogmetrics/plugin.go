@@ -60,14 +60,10 @@ func run(_ *node.Plugin) {
 }
 
 func configureSyncMetrics() {
-	remotelogmetrics.Events().SyncBeaconSyncChanged.Attach(events.NewClosure(func(syncUpdate remotelogmetrics.SyncStatusChangedEvent) {
-		isSyncBeaconSynced.Store(syncUpdate.CurrentStatus)
-	}))
 	remotelogmetrics.Events().TangleTimeSyncChanged.Attach(events.NewClosure(func(syncUpdate remotelogmetrics.SyncStatusChangedEvent) {
 		isTangleTimeSynced.Store(syncUpdate.CurrentStatus)
 	}))
 	remotelogmetrics.Events().TangleTimeSyncChanged.Attach(events.NewClosure(sendSyncStatusChangedEvent))
-	remotelogmetrics.Events().SyncBeaconSyncChanged.Attach(events.NewClosure(sendSyncStatusChangedEvent))
 }
 
 func sendSyncStatusChangedEvent(syncUpdate remotelogmetrics.SyncStatusChangedEvent) {
