@@ -2229,24 +2229,22 @@ func (wallet *Wallet) chooseRemainderAddress(consumedOutputs OutputsByAddressAnd
 	if optionsRemainder == address.AddressEmpty {
 		if wallet.reusableAddress {
 			return wallet.RemainderAddress()
-		} else {
-			_, spendFromRemainderAddress := consumedOutputs[wallet.RemainderAddress()]
-			_, spendFromReceiveAddress := consumedOutputs[wallet.ReceiveAddress()]
-			if spendFromRemainderAddress && spendFromReceiveAddress {
-				// we are about to spend from both
-				remainder = wallet.NewReceiveAddress()
-			} else if spendFromRemainderAddress && !spendFromReceiveAddress {
-				// we are about to spend from remainder, but not from receive
-				remainder = wallet.ReceiveAddress()
-			} else {
-				// we are not spending from remainder
-				remainder = wallet.RemainderAddress()
-			}
 		}
-	} else {
-		remainder = optionsRemainder
+		_, spendFromRemainderAddress := consumedOutputs[wallet.RemainderAddress()]
+		_, spendFromReceiveAddress := consumedOutputs[wallet.ReceiveAddress()]
+		if spendFromRemainderAddress && spendFromReceiveAddress {
+			// we are about to spend from both
+			return wallet.NewReceiveAddress()
+		}
+		if spendFromRemainderAddress && !spendFromReceiveAddress {
+			// we are about to spend from remainder, but not from receive
+			return wallet.ReceiveAddress()
+		}
+		// we are not spending from remainder
+		return wallet.RemainderAddress()
+
 	}
-	return
+	return optionsRemainder
 }
 
 // chooseToAddress chooses an appropriate toAddress based on the wallet configuration and where we are spending from.
@@ -2254,24 +2252,21 @@ func (wallet *Wallet) chooseToAddress(consumedOutputs OutputsByAddressAndOutputI
 	if optionsToAddress == address.AddressEmpty {
 		if wallet.reusableAddress {
 			return wallet.ReceiveAddress()
-		} else {
-			_, spendFromRemainderAddress := consumedOutputs[wallet.RemainderAddress()]
-			_, spendFromReceiveAddress := consumedOutputs[wallet.ReceiveAddress()]
-			if spendFromRemainderAddress && spendFromReceiveAddress {
-				// we are about to spend from both
-				toAddress = wallet.NewReceiveAddress()
-			} else if spendFromRemainderAddress && !spendFromReceiveAddress {
-				// we are about to spend from remainder, but not from receive
-				toAddress = wallet.ReceiveAddress()
-			} else {
-				// we are not spending from remainder
-				toAddress = wallet.RemainderAddress()
-			}
 		}
-	} else {
-		toAddress = optionsToAddress
+		_, spendFromRemainderAddress := consumedOutputs[wallet.RemainderAddress()]
+		_, spendFromReceiveAddress := consumedOutputs[wallet.ReceiveAddress()]
+		if spendFromRemainderAddress && spendFromReceiveAddress {
+			// we are about to spend from both
+			return wallet.NewReceiveAddress()
+		}
+		if spendFromRemainderAddress && !spendFromReceiveAddress {
+			// we are about to spend from remainder, but not from receive
+			return wallet.ReceiveAddress()
+		}
+		// we are not spending from remainder
+		return wallet.RemainderAddress()
 	}
-	return
+	return optionsToAddress
 }
 
 // checkBalancesAndUnlocks checks if tx balances are okay and unlock blocks are valid.
