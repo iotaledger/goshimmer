@@ -22,7 +22,7 @@ services:
       --prometheus.bindAddress=0.0.0.0:9312
       --prometheus.processMetrics=false
       --node.enablePlugins=analysis-server,analysis-dashboard,prometheus
-      --node.disablePlugins=portcheck,clock,dashboard,analysis-client,gossip,drng,issuer,syncbeaconfollower,messagelayer,mana,pow,valuetransfers,consensus,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
+      --node.disablePlugins=portcheck,clock,dashboard,analysis-client,gossip,drng,issuer,messagelayer,mana,pow,valuetransfers,consensus,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
     volumes:
       - ./config.docker.json:/tmp/config.json:ro
       - goshimmer-cache:/go
@@ -41,12 +41,10 @@ services:
       --config=/tmp/config.json
       --database.directory=/tmp/mainnetdb
       --autopeering.seed=base58:8q491c3YWjbPwLmF2WD95YmCgh61j2kenCKHfGfByoWi
-      --node.enablePlugins=prometheus,spammer,syncbeacon,"webapi tools endpoint",activity
-      --node.disablePlugins=syncbeaconfollower,clock
+      --node.enablePlugins=prometheus,spammer,"webapi tools endpoint",activity
+      --node.disablePlugins=clock
       --messageLayer.snapshot.file=/tmp/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin
       --messageLayer.snapshot.genesisNode=
-      --syncbeacon.broadcastInterval=5
-      --syncbeacon.startSynced=true
       --metrics.manaResearch=false
       --mana.enableResearchVectors=false
       --statement.writeStatement=true
@@ -99,12 +97,12 @@ services:
       --autopeering.seed=base58:3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E
       --node.enablePlugins=bootstrap,"webapi tools endpoint",faucet,activity
       --messageLayer.snapshot.file=/tmp/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin
+      --messageLayer.startSynced=true
       --faucet.seed=7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih
       --messageLayer.snapshot.genesisNode=
       --node.disablePlugins=portcheck,clock
       --statement.writeStatement=true
       --statement.writeManaThreshold=1.0
-      --syncbeaconfollower.followNodes=EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP
       --webapi.exportPath=/tmp/
     volumes:
       - ./config.docker.json:/tmp/config.json:ro
@@ -129,7 +127,6 @@ services:
       --node.disablePlugins=portcheck,clock
       --statement.writeStatement=true
       --statement.writeManaThreshold=1.0
-      --syncbeaconfollower.followNodes=EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP
       --webapi.exportPath=/tmp/
     volumes:
       - ./config.docker.json:/tmp/config.json:ro

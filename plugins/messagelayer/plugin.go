@@ -190,6 +190,7 @@ func Tangle() *tangle.Tangle {
 				Initial: &RateSetterParameters.Initial,
 			}),
 			tangle.SyncTimeWindow(Parameters.TangleTimeWindow),
+			tangle.StartSynced(Parameters.StartSynced),
 		)
 
 		tangleInstance.WeightProvider = tangle.NewCManaWeightProvider(GetCMana, tangleInstance.TimeManager.Time, database.Store())

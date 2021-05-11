@@ -54,8 +54,6 @@ func run(_ *node.Plugin) {
 		measureInitialDBStats()
 		registerLocalMetrics()
 	}
-	registerFPCConflictsMetrics()
-
 	// Events from analysis server
 	if config.Node().Bool(CfgMetricsGlobal) {
 		server.Events.MetricHeartbeat.Attach(onMetricHeartbeatReceived)
@@ -215,9 +213,6 @@ func registerLocalMetrics() {
 	metrics.Events().TangleTimeSynced.Attach(events.NewClosure(func(synced bool) {
 		isTangleTimeSynced.Store(synced)
 	}))
-	metrics.Events().SyncBeaconSynced.Attach(events.NewClosure(func(synced bool) {
-		isSyncBeaconSynced.Store(synced)
-	}))
 
 	gossip.Manager().NeighborsEvents(gossippkg.NeighborsGroupAuto).NeighborRemoved.Attach(onNeighborRemoved)
 	gossip.Manager().NeighborsEvents(gossippkg.NeighborsGroupAuto).NeighborAdded.Attach(onNeighborAdded)
@@ -240,10 +235,4 @@ func registerLocalMetrics() {
 	mana.Events().Pledged.Attach(events.NewClosure(func(ev *mana.PledgedEvent) {
 		addPledge(ev)
 	}))
-}
-
-func registerFPCConflictsMetrics() {
-	metricsLogger := newFPCMetricsLogger()
-	messagelayer.Voter().Events().Finalized.Attach(events.NewClosure(metricsLogger.onVoteFinalized))
-	messagelayer.Voter().Events().RoundExecuted.Attach(events.NewClosure(metricsLogger.onVoteRoundExecuted))
 }

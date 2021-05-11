@@ -36,9 +36,7 @@ func TestSynchronization(t *testing.T) {
 	time.Sleep(10 * time.Second)
 
 	// 2. spawn peer without knowledge of previous messages
-	newPeer, err := n.CreatePeer(framework.GoShimmerConfig{
-		SyncBeaconFollower: true,
-	})
+	newPeer, err := n.CreatePeer(framework.GoShimmerConfig{})
 	require.NoError(t, err)
 	err = n.WaitForAutopeering(3)
 	require.NoError(t, err)
@@ -80,7 +78,7 @@ func TestSynchronization(t *testing.T) {
 	// 9. newPeer becomes synced again
 	resp, err := newPeer.Info()
 	require.NoError(t, err)
-	assert.Truef(t, resp.Synced, "Peer %s should be synced but is desynced!", newPeer.String())
+	assert.Truef(t, resp.TangleTime.Synced, "Peer %s should be synced but is desynced!", newPeer.String())
 
 	// 10. check whether all issued messages are available on all nodes
 	tests.CheckForMessageIDs(t, n.Peers(), ids, true)

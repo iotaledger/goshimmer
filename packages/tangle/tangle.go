@@ -49,8 +49,6 @@ type Tangle struct {
 	Events                *Events
 
 	setupParserOnce sync.Once
-	syncedMutex     sync.RWMutex
-	synced          bool
 }
 
 // New is the constructor for the Tangle.
@@ -169,28 +167,7 @@ func (t *Tangle) IssuePayload(payload payload.Payload) (message *Message, err er
 // Synced returns a boolean value that indicates if the node is fully synced and the Tangle has solidified all messages
 // until the genesis.
 func (t *Tangle) Synced() (synced bool) {
-	t.syncedMutex.RLock()
-	defer t.syncedMutex.RUnlock()
-
-	return t.synced
-}
-
-// SetSynced allows to set a boolean value that indicates if the Tangle has solidified all messages until the genesis.
-func (t *Tangle) SetSynced(synced bool) (modified bool) {
-	t.syncedMutex.Lock()
-	defer t.syncedMutex.Unlock()
-
-	if t.synced == synced {
-		return
-	}
-
-	t.synced = synced
-	modified = true
-
-	go func() {
-		t.Events.SyncChanged.Trigger(&SyncChangedEvent{synced})
-	}()
-	return
+	return t.TimeManager.Synced()
 }
 
 // Prune resets the database and deletes all stored objects (good for testing or "node resets").
@@ -276,6 +253,7 @@ type Options struct {
 	RateSetterParams             RateSetterParams
 	WeightProvider               WeightProvider
 	SyncTimeWindow               time.Duration
+	StartSynced                  bool
 }
 
 // Store is an Option for the Tangle that allows to specify which storage layer is supposed to be used to persist data.
@@ -355,6 +333,13 @@ func ApprovalWeights(weightProvider WeightProvider) Option {
 func SyncTimeWindow(syncTimeWindow time.Duration) Option {
 	return func(options *Options) {
 		options.SyncTimeWindow = syncTimeWindow
+	}
+}
+
+// StartSynced is an Option for the Tangle that allows to define if the node starts as synced.
+func StartSynced(startSynced bool) Option {
+	return func(options *Options) {
+		options.StartSynced = startSynced
 	}
 }
 

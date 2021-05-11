@@ -11,9 +11,7 @@ import (
 var (
 	infoApp              *prometheus.GaugeVec
 	tangleTimeSyncStatus prometheus.Gauge
-	syncBeaconSyncStatus prometheus.Gauge
-
-	nodeID string
+	nodeID               string
 )
 
 func registerInfoMetrics() {
@@ -34,14 +32,8 @@ func registerInfoMetrics() {
 		Help: "Node sync status based on TangleTime.",
 	})
 
-	syncBeaconSyncStatus = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "syncBeaconSynced",
-		Help: "Node sync status based on SyncBeacon.",
-	})
-
 	registry.MustRegister(infoApp)
 	registry.MustRegister(tangleTimeSyncStatus)
-	registry.MustRegister(syncBeaconSyncStatus)
 
 	addCollect(collectInfoMetrics)
 }
@@ -49,13 +41,6 @@ func registerInfoMetrics() {
 func collectInfoMetrics() {
 	tangleTimeSyncStatus.Set(func() float64 {
 		if metrics.TangleTimeSynced() {
-			return 1
-		}
-		return 0
-	}())
-
-	syncBeaconSyncStatus.Set(func() float64 {
-		if metrics.SyncBeaconSynced() {
 			return 1
 		}
 		return 0
