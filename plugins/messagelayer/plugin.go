@@ -156,7 +156,22 @@ func configure(plugin *node.Plugin) {
 
 func run(*node.Plugin) {
 	if err := daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
-		<-shutdownSignal
+		syncCheckTimer := time.NewTicker(time.Second)
+		sync := false
+		// hack of switching scheduler
+	out:
+		for {
+			select {
+			case <-syncCheckTimer.C:
+				newSync := Tangle().TimeManager.Synced()
+				if newSync != sync {
+					go Tangle().Events.SyncChanged.Trigger(&tangle.SyncChangedEvent{Synced: newSync})
+					sync = newSync
+				}
+			case <-shutdownSignal:
+				break out
+			}
+		}
 		Tangle().Shutdown()
 	}, shutdown.PriorityTangle); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)

@@ -52,7 +52,7 @@ func TestPrepareFaucet(t *testing.T) {
 	assert.Equal(t, balance, outputs.UnspentOutputs[0].OutputIDs[0].Balances[0].Value)
 
 	// add 1 node to the network
-	peer, err := n.CreatePeer(framework.GoShimmerConfig{
+	peer, err := n.CreatePeerWithMana(framework.GoShimmerConfig{
 		Mana:           true,
 		ActivityPlugin: true,
 	})
@@ -63,7 +63,7 @@ func TestPrepareFaucet(t *testing.T) {
 	time.Sleep(5 * time.Second)
 
 	// issue 9 requests to consume the 1st 9 faucet prepared outputs.
-	for i = 0; i < 9; i++ {
+	for i = 1; i < 9; i++ {
 		addr := peer.Address(i).Address()
 		tests.SendFaucetRequest(t, peer, addr)
 	}
