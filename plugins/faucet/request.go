@@ -14,6 +14,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+	"github.com/iotaledger/goshimmer/plugins/config"
+	powPlugin "github.com/iotaledger/goshimmer/plugins/pow"
 
 	// Only want to use init
 	_ "golang.org/x/crypto/blake2b"
@@ -36,11 +38,13 @@ type Request struct {
 // Type represents the identifier for the faucet Request type.
 var (
 	Type      = payload.NewType(2, ObjectName, PayloadUnmarshaler)
-	powWorker = pow.New(crypto.BLAKE2b_512, 1)
+	powWorker *pow.Worker
 )
 
 // NewRequest is the constructor of a Request and creates a new Request object from the given details.
 func NewRequest(addr ledgerstate.Address, powTarget int, accessManaPledgeID, consensusManaPledgeID identity.ID) (*Request, error) {
+	numWorkers := config.Node().Int(powPlugin.CfgPOWNumThreads)
+	pow.New(crypto.BLAKE2b_512, numWorkers)
 	p := &Request{
 		payloadType:           Type,
 		address:               addr,

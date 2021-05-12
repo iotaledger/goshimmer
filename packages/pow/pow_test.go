@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto"
 	"math"
+	"runtime"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -19,7 +21,7 @@ const (
 	target  = 10
 )
 
-var testWorker = New(crypto.BLAKE2b_512, workers)
+var testWorker = New(crypto.BLAKE2b_512, runtime.GOMAXPROCS(0))
 
 func TestWorker_Work(t *testing.T) {
 	nonce, err := testWorker.Mine(context.Background(), nil, target)
@@ -76,4 +78,24 @@ func BenchmarkWorker(b *testing.B) {
 	for atomic.LoadUint64(&counter) < uint64(b.N) {
 	}
 	atomic.StoreUint32(&done, 1)
+}
+
+func BenchmarkMine(b *testing.B) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var (
+		buf = make([]byte, 1024)
+	)
+
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		_, _ = testWorker.Mine(ctx, buf, 25)
+
+	}()
+	b.ResetTimer()
+
+	wg.Wait()
 }
