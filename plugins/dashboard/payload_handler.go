@@ -202,7 +202,7 @@ func processTransactionPayload(p payload.Payload) (tp TransactionPayload) {
 		if input.Type() == ledgerstate.UTXOInputType {
 			utxoInput := input.(*ledgerstate.UTXOInput)
 			refOutputID := utxoInput.ReferencedOutputID()
-			_ = messagelayer.Tangle().LedgerState.Output(refOutputID).Consume(func(o ledgerstate.Output) {
+			_ = messagelayer.Tangle().LedgerState.CachedOutput(refOutputID).Consume(func(o ledgerstate.Output) {
 				content := InputContent{
 					OutputID: o.ID().Base58(),
 					Address:  o.Address().Base58(),

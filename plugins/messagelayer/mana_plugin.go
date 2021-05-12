@@ -211,7 +211,7 @@ func runManaPlugin(_ *node.Plugin) {
 					plugin.Panic("can not open snapshot file:", err)
 				}
 				if _, err := snapshot.ReadFrom(f); err != nil {
-					plugin.Panic("could not read snapshot file:", err)
+					plugin.Panic("could not read snapshot file in Mana Plugin:", err)
 				}
 				loadSnapshot(snapshot)
 				plugin.LogInfof("MANA: read snapshot from %s", Parameters.Snapshot.File)

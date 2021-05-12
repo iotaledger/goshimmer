@@ -177,13 +177,13 @@ func (l *LedgerState) LoadSnapshot(snapshot *ledgerstate.Snapshot) {
 // SnapshotUTXO returns the UTXO snapshot, which is a list of transactions with unspent outputs.
 func (l *LedgerState) SnapshotUTXO() (snapshot *ledgerstate.Snapshot) {
 	// The following parameter should be much larger than the max timestamp variation, and the required time for confirmation.
-	minAge := 120 * time.Second // TODO ??? this should be two times the max allowed time stamp offset
+	minAge := 120 * time.Second // this should be at least two times the max allowed time stamp offset
 	snapshot = &ledgerstate.Snapshot{
 		Transactions: make(map[ledgerstate.TransactionID]ledgerstate.Record),
 	}
 
 	startSnapshot := time.Now()
-	copyLedgerState := l.Transactions() // this may take quite some time
+	copyLedgerState := l.Transactions() // consider that this may take quite some time
 
 	for _, transaction := range copyLedgerState {
 		// skip unconfirmed transactions

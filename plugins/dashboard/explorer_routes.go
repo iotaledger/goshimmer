@@ -222,7 +222,7 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 	inclusionState := value.InclusionState{}
 
 	// get outputids by address
-	messagelayer.Tangle().LedgerState.OutputsOnAddress(address).Consume(func(output ledgerstate.Output) {
+	messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(address).Consume(func(output ledgerstate.Output) {
 		// iterate balances
 		var b []value.Balance
 		output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
@@ -236,7 +236,7 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 		txInclusionState, _ := messagelayer.Tangle().LedgerState.TransactionInclusionState(transactionID)
 		var consumerCount int
 		var branch ledgerstate.Branch
-		messagelayer.Tangle().LedgerState.OutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+		messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 			consumerCount = outputMetadata.ConsumerCount()
 			messagelayer.Tangle().LedgerState.BranchDAG.Branch(outputMetadata.BranchID()).Consume(func(b ledgerstate.Branch) {
 				branch = b
