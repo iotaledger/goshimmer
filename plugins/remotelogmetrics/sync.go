@@ -9,9 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
-var (
-	isTangleTimeSynced atomic.Bool
-)
+var isTangleTimeSynced atomic.Bool
 
 func checkSynced() {
 	oldTangleTimeSynced := isTangleTimeSynced.Load()

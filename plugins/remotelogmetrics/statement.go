@@ -1,14 +1,15 @@
 package remotelogmetrics
 
 import (
+	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/node"
+
 	"github.com/iotaledger/goshimmer/packages/remotelogmetrics"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/clock"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/node"
 )
 
 func onStatementReceived(msg *tangle.Message) {
@@ -39,5 +40,4 @@ func onStatementReceived(msg *tangle.Message) {
 			plugin.Logger().Errorw("Failed to send statement metrics", "err", err)
 		}
 	})
-
 }

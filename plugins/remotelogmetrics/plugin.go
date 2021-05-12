@@ -40,7 +40,6 @@ func configure(_ *node.Plugin) {
 	configureSyncMetrics()
 	configureFPCConflictsMetrics()
 	configureStatementMetrics()
-
 }
 
 func run(_ *node.Plugin) {
