@@ -11,8 +11,6 @@ class Status {
     id: string;
     version: string;
     uptime: number;
-    synced: boolean;
-    beacons: Map<string, Beacon>;
     mem: MemoryMetrics = new MemoryMetrics();
     tangleTime: TangleTime;
 }
@@ -21,12 +19,6 @@ class TangleTime {
     synced: boolean;
     time: number;
     messageID: string;
-}
-
-class Beacon {
-    msg_id: string;
-    sent_time: number;
-    synced: boolean;
 }
 
 class MemoryMetrics {
@@ -185,7 +177,6 @@ export class NodeStore {
     @observable collecting: boolean = true;
 
     constructor() {
-        this.status.beacons = new Map<string, Beacon>();
         this.status.tangleTime = new TangleTime;
         this.status.tangleTime.time = 0;
         this.registerHandlers();

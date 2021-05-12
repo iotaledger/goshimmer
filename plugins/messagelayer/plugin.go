@@ -115,9 +115,10 @@ func Tangle() *tangle.Tangle {
 			tangle.Consensus(ConsensusMechanism()),
 			tangle.GenesisNode(Parameters.Snapshot.GenesisNode),
 			tangle.SyncTimeWindow(Parameters.TangleTimeWindow),
+			tangle.StartSynced(Parameters.StartSynced),
 		)
 
-		tangleInstance.WeightProvider = tangle.NewCManaWeightProvider(GetCMana, tangleInstance.TimeManager.Time)
+		tangleInstance.WeightProvider = tangle.NewCManaWeightProvider(GetCMana, tangleInstance.TimeManager.Time, database.Store())
 
 		tangleInstance.Setup()
 	})

@@ -54,7 +54,6 @@ func run(_ *node.Plugin) {
 		measureInitialDBStats()
 		registerLocalMetrics()
 	}
-
 	// Events from analysis server
 	if config.Node().Bool(CfgMetricsGlobal) {
 		server.Events.MetricHeartbeat.Attach(onMetricHeartbeatReceived)
@@ -208,8 +207,8 @@ func registerLocalMetrics() {
 	metrics.Events().MemUsage.Attach(events.NewClosure(func(memAllocBytes uint64) {
 		memUsageBytes.Store(memAllocBytes)
 	}))
-	metrics.Events().Synced.Attach(events.NewClosure(func(synced bool) {
-		isSynced.Store(synced)
+	metrics.Events().TangleTimeSynced.Attach(events.NewClosure(func(synced bool) {
+		isTangleTimeSynced.Store(synced)
 	}))
 
 	gossip.Manager().NeighborsEvents(gossippkg.NeighborsGroupAuto).NeighborRemoved.Attach(onNeighborRemoved)

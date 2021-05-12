@@ -7,7 +7,6 @@ import {
     DrngSubtype,
     PayloadType,
     TransactionPayload,
-    SyncBeaconPayload,
     getPayloadType
 } from "app/misc/Payload";
 import * as React from "react";
@@ -525,10 +524,6 @@ export class ExplorerStore {
             case PayloadType.Data:
                 this.payload = msg.payload as BasicPayload
                 break;
-            case PayloadType.SyncBeacon:
-                this.payload = msg.payload as SyncBeaconPayload
-                // console.log(this.payload.sent_time);
-                break;
             case PayloadType.Faucet:
             default:
                 this.payload = msg.payload as BasicPayload
@@ -566,7 +561,7 @@ export class ExplorerStore {
                 <tr key={msg.id}>
                     <td>
                         <Link to={`/explorer/message/${msg.id}`}>
-                            {msg.id.substr(0, 35)}
+                            {msg.id}
                         </Link>
                     </td>
                     <td>

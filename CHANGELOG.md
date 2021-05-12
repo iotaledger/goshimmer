@@ -1,3 +1,40 @@
+# v0.5.9 - 2021-05-11
+* Replace sync beacons with Tangle Time
+* Fix approval weight manager persistence
+* Fix non positive ticker
+* Fix marker issues
+* Fix solidification issues
+* Fix concurrency-related issues
+* Improve FPC metrics logging
+* Improve clock synchronization handling
+* Improve dRNG plugin
+* Improve integration tests
+* Update JS dependencies
+* Update to latest hive.go
+* Update documentation
+* **Breaking**: bumps network and database versions
+
+# v0.5.8 - 2021-05-07
+* Integrate FPC with the X-Team committee
+* Enable finality via approval weight
+* Add Tangle Time
+* Add sync status monitoring
+* Add activity plugin
+* Add manual peering support
+* Add markers info to message view
+* Remove moving average for cMana
+* Replace epochs with weight provider using Tangle Time
+* Fix marker issues
+* Fix sync issues
+* Disable past-cone check when booking transactions
+* Improve integration tests
+* Refactor error handling
+* Update snapshot
+* Update JS dependencies
+* Update to latest hive.go
+* Update documentation
+* **Breaking**: bumps network and database versions
+
 # v0.5.7 - 2021-04-23
 * Add approval weight manager (soft launch)
 * Add epochs

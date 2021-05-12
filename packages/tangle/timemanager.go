@@ -30,12 +30,15 @@ type TimeManager struct {
 
 	lastConfirmedMessage LastConfirmedMessage
 	lastConfirmedMutex   sync.RWMutex
+
+	startSynced bool
 }
 
 // NewTimeManager is the constructor for TimeManager.
 func NewTimeManager(tangle *Tangle) (timeManager *TimeManager) {
 	timeManager = &TimeManager{
-		tangle: tangle,
+		tangle:      tangle,
+		startSynced: tangle.Options.StartSynced,
 	}
 
 	marshaledLastConfirmedMessage, err := tangle.Options.Store.Get(kvstore.Key(lastConfirmedKey))
@@ -96,6 +99,10 @@ func (t *TimeManager) Time() time.Time {
 func (t *TimeManager) Synced() bool {
 	t.lastConfirmedMutex.RLock()
 	defer t.lastConfirmedMutex.RUnlock()
+
+	if t.startSynced && t.lastConfirmedMessage.Time.Unix() == DefaultGenesisTime {
+		return true
+	}
 
 	return clock.Since(t.lastConfirmedMessage.Time) < t.tangle.Options.SyncTimeWindow
 }

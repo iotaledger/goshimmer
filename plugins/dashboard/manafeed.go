@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"sort"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -150,17 +151,22 @@ func sendManaMapOnline() {
 		Type: MsgTypeManaMapOnline,
 		Data: accessPayload,
 	})
-	consensusManaList, _, err := manaPlugin.GetOnlineNodes(mana.ConsensusMana)
-	if err != nil && !errors.Is(err, manaPlugin.ErrQueryNotAllowed) {
-		log.Errorf("failed to get list of online consensus mana nodes: %s ", err.Error())
-	}
+
+	weights, totalWeight := manaPlugin.Tangle().WeightProvider.WeightsOfRelevantSupporters()
 	consensusPayload := &ManaNetworkListMsgData{ManaType: mana.ConsensusMana.String()}
-	totalConsensusMana := 0.0
-	for i := 0; i < len(consensusManaList); i++ {
-		consensusPayload.Nodes = append(consensusPayload.Nodes, consensusManaList[i].ToNodeStr())
-		totalConsensusMana += consensusManaList[i].Mana
+	for nodeID, weight := range weights {
+		n := mana.Node{
+			ID:   nodeID,
+			Mana: weight,
+		}
+		consensusPayload.Nodes = append(consensusPayload.Nodes, n.ToNodeStr())
 	}
-	consensusPayload.TotalMana = totalConsensusMana
+
+	sort.Slice(consensusPayload.Nodes, func(i, j int) bool {
+		return consensusPayload.Nodes[i].Mana > consensusPayload.Nodes[j].Mana
+	})
+
+	consensusPayload.TotalMana = totalWeight
 	broadcastWsMessage(&wsmsg{
 		Type: MsgTypeManaMapOnline,
 		Data: consensusPayload,

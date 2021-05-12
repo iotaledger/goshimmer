@@ -5,6 +5,7 @@ import (
 
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
+  "github.com/iotaledger/hive.go/syncutils"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
@@ -22,7 +23,8 @@ type Solidifier struct {
 	// Events contains the Solidifier related events.
 	Events *SolidifierEvents
 
-	tangle *Tangle
+	triggerMutex syncutils.MultiMutex
+	tangle       *Tangle
 }
 
 // NewSolidifier is the constructor of the Solidifier.
@@ -62,6 +64,16 @@ func (s *Solidifier) checkMessageSolidity(message *Message, messageMetadata *Mes
 		s.tangle.Events.MessageInvalid.Trigger(message.ID())
 		return
 	}
+
+	lockBuilder := syncutils.MultiMutexLockBuilder{}
+	lockBuilder.AddLock(messageMetadata.ID())
+	for _, parentMessageID := range message.Parents() {
+		lockBuilder.AddLock(parentMessageID)
+	}
+	lock := lockBuilder.Build()
+
+	s.triggerMutex.Lock(lock...)
+	defer s.triggerMutex.Unlock(lock...)
 
 	if !messageMetadata.SetSolid(true) {
 		return
