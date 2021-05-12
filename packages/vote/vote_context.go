@@ -1,10 +1,14 @@
 package vote
 
-import "github.com/iotaledger/goshimmer/packages/vote/opinion"
+import (
+	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/vote/opinion"
+	"time"
+)
 
 // NewContext creates a new vote context.
 func NewContext(id string, objectType ObjectType, initOpn opinion.Opinion) *Context {
-	voteCtx := &Context{ID: id, Type: objectType, ProportionLiked: likedInit}
+	voteCtx := &Context{ID: id, Type: objectType, ProportionLiked: likedInit, ConflictCreationTime: clock.SyncedTime()}
 	voteCtx.AddOpinion(initOpn)
 	return voteCtx
 }
@@ -34,6 +38,8 @@ type Context struct {
 	Opinions []opinion.Opinion
 	// Weights used for voting
 	Weights VotingWeights
+	// ConflictCreationTime points to time when the context has been created
+	ConflictCreationTime time.Time
 }
 
 // VotingWeights stores parameters used for weighted voting calculation
