@@ -957,13 +957,15 @@ type MissingMessage struct {
 	objectstorage.StorableObjectFlags
 
 	messageID    MessageID
+	requestType  MessageSource
 	missingSince time.Time
 }
 
 // NewMissingMessage creates new missing message with the specified messageID.
-func NewMissingMessage(messageID MessageID) *MissingMessage {
+func NewMissingMessage(messageID MessageID, requestType MessageSource) *MissingMessage {
 	return &MissingMessage{
 		messageID:    messageID,
+		requestType:  requestType,
 		missingSince: time.Now(),
 	}
 }

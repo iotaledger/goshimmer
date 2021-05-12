@@ -653,6 +653,8 @@ type MessageMetadata struct {
 
 	messageID          MessageID
 	receivedTime       time.Time
+	messageSource      MessageSource
+	weaklySolid        bool
 	solid              bool
 	solidificationTime time.Time
 	structureDetails   *markers.StructureDetails
@@ -666,6 +668,8 @@ type MessageMetadata struct {
 	finalized          bool
 	finalizedTime      time.Time
 
+	messageSourceMutex      sync.RWMutex
+	weaklySolidMutex        sync.RWMutex
 	solidMutex              sync.RWMutex
 	solidificationTimeMutex sync.RWMutex
 	structureDetailsMutex   sync.RWMutex
@@ -781,13 +785,56 @@ func (m *MessageMetadata) ReceivedTime() time.Time {
 	return m.receivedTime
 }
 
+// IsWeaklySolid returns true if the message represented by this metadata is weakly solid. False otherwise.
+func (m *MessageMetadata) IsWeaklySolid() (result bool) {
+	m.weaklySolidMutex.RLock()
+	defer m.weaklySolidMutex.RUnlock()
+
+	return m.solid
+}
+
+func (m *MessageMetadata) SetMessageSource(messageSource MessageSource) (updated bool) {
+	m.messageSourceMutex.Lock()
+	defer m.messageSourceMutex.Unlock()
+
+	if messageSource <= m.messageSource {
+		return false
+	}
+
+	m.messageSource = messageSource
+	m.SetModified()
+
+	return true
+}
+
+// SetWeaklySolid sets the message associated with this metadata as weakly solid.
+// It returns true if the solid status is modified. False otherwise.
+func (m *MessageMetadata) SetWeaklySolid(weaklySolid bool) (modified bool) {
+	m.weaklySolidMutex.RLock()
+	if m.weaklySolid == weaklySolid {
+		m.weaklySolidMutex.RUnlock()
+		return
+	}
+
+	m.weaklySolidMutex.RUnlock()
+	m.weaklySolidMutex.Lock()
+	defer m.weaklySolidMutex.Unlock()
+	if m.weaklySolid == weaklySolid {
+		return
+	}
+
+	m.weaklySolid = weaklySolid
+	m.SetModified()
+
+	return true
+}
+
 // IsSolid returns true if the message represented by this metadata is solid. False otherwise.
 func (m *MessageMetadata) IsSolid() (result bool) {
 	m.solidMutex.RLock()
 	defer m.solidMutex.RUnlock()
-	result = m.solid
 
-	return
+	return m.solid
 }
 
 // SetSolid sets the message associated with this metadata as solid.
