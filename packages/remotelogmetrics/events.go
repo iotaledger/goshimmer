@@ -47,6 +47,8 @@ type FPCConflictRecord struct {
 	Opinions []int32 `json:"opinions" bson:"opinions"`
 	// Outcome defines final opinion of the conflict.
 	Outcome int32 `json:"outcome,omitempty" bson:"outcome,omitempty"`
-	// Time defines the time when the conflict has been finalized.
+	// Time defines the time when the voting round has been finalized.
 	Time time.Time `json:"datetime" bson:"datetime"`
+	// ConflictCreationTime points to time when the context has been created
+	ConflictCreationTime time.Time `json:"conflictStart" bson:"conflictStart"`
 }
