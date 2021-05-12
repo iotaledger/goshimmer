@@ -9,15 +9,21 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
-var isTangleTimeSynced atomic.Bool
+var (
+	isTangleTimeSynced atomic.Bool
+)
 
 func checkSynced() {
 	oldTangleTimeSynced := isTangleTimeSynced.Load()
 	tts := messagelayer.Tangle().TimeManager.Synced()
 	if oldTangleTimeSynced != tts {
+		var myID string
+		if local.GetInstance() != nil {
+			myID = local.GetInstance().ID().String()
+		}
 		syncStatusChangedEvent := remotelogmetrics.SyncStatusChangedEvent{
 			Type:                     "sync",
-			NodeID:                   local.GetInstance().ID().String(),
+			NodeID:                   myID,
 			Time:                     clock.SyncedTime(),
 			LastConfirmedMessageTime: messagelayer.Tangle().TimeManager.Time(),
 			CurrentStatus:            tts,

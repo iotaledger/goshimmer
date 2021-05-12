@@ -39,6 +39,8 @@ func Plugin() *node.Plugin {
 func configure(_ *node.Plugin) {
 	configureSyncMetrics()
 	configureFPCConflictsMetrics()
+	configureStatementMetrics()
+
 }
 
 func run(_ *node.Plugin) {
@@ -75,4 +77,8 @@ func configureFPCConflictsMetrics() {
 	metricsLogger := newFPCMetricsLogger()
 	messagelayer.Voter().Events().Finalized.Attach(events.NewClosure(metricsLogger.onVoteFinalized))
 	messagelayer.Voter().Events().RoundExecuted.Attach(events.NewClosure(metricsLogger.onVoteRoundExecuted))
+}
+
+func configureStatementMetrics() {
+	messagelayer.Tangle().ConsensusManager.Events.StatementProcessed.Attach(events.NewClosure(onStatementReceived))
 }
