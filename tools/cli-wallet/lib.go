@@ -175,6 +175,8 @@ func printUsage(command *flag.FlagSet, optionalErrorMessage ...string) {
 		fmt.Println("        display the server status")
 		fmt.Println("  pledge-id")
 		fmt.Println("        query allowed mana pledge nodeIDs")
+		fmt.Println("  pending-mana")
+		fmt.Println("        display current pending mana of all outputs in the wallet grouped by address")
 		fmt.Println("  help")
 		fmt.Println("        display this help screen")
 

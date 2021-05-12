@@ -121,9 +121,9 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 
 		// print header
 		fmt.Println()
-		fmt.Println("Governance Controlled Aliases")
+		fmt.Println("Owned NFTs (Governance Controlled Aliases)")
 		fmt.Println()
-		_, _ = fmt.Fprintf(wAlias, "%s\t%s\t%s\t%s\t%s\n", "STATUS", "ALIAS ID", "BALANCE", "COLOR", "TOKEN NAME")
+		_, _ = fmt.Fprintf(wAlias, "%s\t%s\t%s\t%s\t%s\n", "STATUS", "NFT ID (ALIAS ID)", "BALANCE", "COLOR", "TOKEN NAME")
 		_, _ = fmt.Fprintf(wAlias, "%s\t%s\t%s\t%s\t%s\n", "------", "--------------------------------------------", "---------------", "--------------------------------------------", "-------------------------")
 
 		for aliasID, alias := range confirmedGovAliasBalance {
@@ -169,7 +169,7 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 
 	// finally print delegated aliases
 	if len(confirmedDel) != 0 || len(pendingDel) != 0 {
-		printAliasBalance("Delegated Funds", "DELEGATION ID (ALIASID)", cliWallet, confirmedDel, pendingDel)
+		printAliasBalance("Delegated Funds", "DELEGATION ID (ALIAS ID)", cliWallet, confirmedDel, pendingDel)
 	}
 }
 
