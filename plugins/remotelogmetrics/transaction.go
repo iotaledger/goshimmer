@@ -9,7 +9,7 @@ import (
 )
 
 func onTransactionConfirmed(transactionID ledgerstate.TransactionID) {
-	record := &remotelogmetrics.TransactionMetricsLogger{
+	record := &remotelogmetrics.TransactionMetrics{
 		Type:          "transaction",
 		TransactionID: transactionID.Base58(),
 	}

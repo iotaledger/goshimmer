@@ -51,7 +51,8 @@ type FPCConflictRecord struct {
 	Time time.Time `json:"datetime" bson:"datetime"`
 }
 
-type TransactionMetricsLogger struct {
+// TransactionMetrics defines the transaction metrics record to sent be to remote logger.
+type TransactionMetrics struct {
 	Type               string    `json:"type" bson:"type"`
 	MessageID          string    `json:"messageID" bson:"messageID"`
 	TransactionID      string    `json:"transactionID" bson:"transactionID"`
