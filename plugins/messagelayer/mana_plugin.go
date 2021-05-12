@@ -21,6 +21,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/database"
@@ -138,7 +139,7 @@ func onTransactionConfirmed(transactionID ledgerstate.TransactionID) {
 			var consensusManaNodeID identity.ID
 			var _inputInfo mana.InputInfo
 
-			Tangle().LedgerState.Output(i.ReferencedOutputID()).Consume(func(o ledgerstate.Output) {
+			Tangle().LedgerState.CachedOutput(i.ReferencedOutputID()).Consume(func(o ledgerstate.Output) {
 				// first, sum balances of the input, calculate total amount as well for later
 				o.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
 					amount += float64(balance)
@@ -210,7 +211,7 @@ func runManaPlugin(_ *node.Plugin) {
 					plugin.Panic("can not open snapshot file:", err)
 				}
 				if _, err := snapshot.ReadFrom(f); err != nil {
-					plugin.Panic("could not read snapshot file:", err)
+					plugin.Panic("could not read snapshot file in Mana Plugin:", err)
 				}
 				loadSnapshot(snapshot)
 				plugin.LogInfof("MANA: read snapshot from %s", Parameters.Snapshot.File)
@@ -441,7 +442,7 @@ func verifyPledgeNodes() error {
 
 // PendingManaOnOutput predicts how much mana (bm2) will be pledged to a node if the output specified is spent.
 func PendingManaOnOutput(outputID ledgerstate.OutputID) (float64, time.Time) {
-	cachedOutputMetadata := Tangle().LedgerState.OutputMetadata(outputID)
+	cachedOutputMetadata := Tangle().LedgerState.CachedOutputMetadata(outputID)
 	defer cachedOutputMetadata.Release()
 	outputMetadata := cachedOutputMetadata.Unwrap()
 
@@ -451,7 +452,7 @@ func PendingManaOnOutput(outputID ledgerstate.OutputID) (float64, time.Time) {
 	}
 
 	var value float64
-	Tangle().LedgerState.Output(outputID).Consume(func(output ledgerstate.Output) {
+	Tangle().LedgerState.CachedOutput(outputID).Consume(func(output ledgerstate.Output) {
 		output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
 			value += float64(balance)
 			return true
@@ -807,6 +808,18 @@ func loadSnapshot(snapshot *ledgerstate.Snapshot) {
 	}
 
 	// load access mana into SnapshotInfoVec
+	var addTime time.Duration
+	// for certain applications (e.g. docker-network) update all timestamps, to have large enough aMana
+	maxTimestamp := time.Unix(tangle.DefaultGenesisTime, 0)
+	if ManaParameters.SnapshotResetTime {
+		for _, accessMana := range snapshot.AccessManaByNode {
+			if accessMana.Timestamp.After(maxTimestamp) {
+				maxTimestamp = accessMana.Timestamp
+			}
+		}
+		addTime = time.Since(maxTimestamp)
+	}
+
 	for nodeID, accessMana := range snapshot.AccessManaByNode {
 		snapshotNode, ok := SnapshotByNode[nodeID]
 		if !ok { // fill with empty element if it does not exist yet
@@ -815,7 +828,7 @@ func loadSnapshot(snapshot *ledgerstate.Snapshot) {
 		}
 		snapshotNode.AccessMana = mana.AccessManaSnapshot{
 			Value:     accessMana.Value,
-			Timestamp: accessMana.Timestamp,
+			Timestamp: accessMana.Timestamp.Add(addTime),
 		}
 		SnapshotByNode[nodeID] = snapshotNode
 	}

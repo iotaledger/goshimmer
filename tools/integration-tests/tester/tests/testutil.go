@@ -1,7 +1,6 @@
 package tests
 
 import (
-	"github.com/cockroachdb/errors"
 	"fmt"
 	"math/rand"
 	"os"
@@ -9,6 +8,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/stringify"

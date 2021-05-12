@@ -436,7 +436,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 	tangle.LedgerState.LoadSnapshot(snapshot)
 	// determine genesis index so that correct output can be referenced
 	var g1, g2 uint16
-	tangle.LedgerState.UTXODAG.Output(ledgerstate.NewOutputID(genesisTransaction.ID(), 0)).Consume(func(output ledgerstate.Output) {
+	tangle.LedgerState.UTXODAG.CachedOutput(ledgerstate.NewOutputID(genesisTransaction.ID(), 0)).Consume(func(output ledgerstate.Output) {
 		balance, _ := output.Balances().Get(ledgerstate.ColorIOTA)
 		if balance == uint64(5) {
 			g1 = 0

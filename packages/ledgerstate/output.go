@@ -984,8 +984,8 @@ type OutputMetadata struct {
 	consumerMutex           sync.RWMutex
 	finalized               bool
 	finalizedMutex          sync.RWMutex
-	finalizedSpend          bool // the spending transaction of the output is finalized
-	finalizedSpendMutex     sync.RWMutex
+	confirmedConsumer       TransactionID // not nil if the spending transaction of the output is finalized
+	confirmedConsumerMutex  sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
@@ -1042,8 +1042,8 @@ func OutputMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output
 		err = errors.Errorf("failed to parse finalized flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	if outputMetadata.finalizedSpend, err = marshalUtil.ReadBool(); err != nil {
-		err = errors.Errorf("failed to parse finalized spend flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+	if outputMetadata.confirmedConsumer, err = TransactionIDFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse confirmed consumer: %w", err)
 		return
 	}
 
@@ -1168,13 +1168,12 @@ func (o *OutputMetadata) Finalized() (finalized bool) {
 	return o.finalized
 }
 
-// FinalizedSpend returns a boolean flag that indicates if the spend of the output has been finalized regarding its decision of being
-// included in the ledger state.
-func (o *OutputMetadata) FinalizedSpend() bool {
-	o.finalizedSpendMutex.RLock()
-	defer o.finalizedSpendMutex.RUnlock()
+// ConfirmedConsumer returns the consumer that spent the transaction if the consumer is confirmed already
+func (o *OutputMetadata) ConfirmedConsumer() TransactionID {
+	o.confirmedConsumerMutex.RLock()
+	defer o.confirmedConsumerMutex.RUnlock()
 
-	return o.finalizedSpend
+	return o.confirmedConsumer
 }
 
 // SetFinalized updates the finalized flag of the Transaction. It returns true if the lazy booked flag was modified.
@@ -1194,15 +1193,15 @@ func (o *OutputMetadata) SetFinalized(finalized bool) (modified bool) {
 }
 
 // SetFinalizedSpend updates the finalizedSpend flag of the output.
-func (o *OutputMetadata) SetFinalizedSpend(finalizedSpend bool) (modified bool) {
-	o.finalizedSpendMutex.Lock()
-	defer o.finalizedSpendMutex.Unlock()
+func (o *OutputMetadata) SetConfirmedConsumer(confirmedConsumer TransactionID) (modified bool) {
+	o.confirmedConsumerMutex.Lock()
+	defer o.confirmedConsumerMutex.Unlock()
 
-	if o.finalizedSpend == finalizedSpend {
+	if o.confirmedConsumer == confirmedConsumer {
 		return
 	}
 
-	o.finalizedSpend = finalizedSpend
+	o.confirmedConsumer = confirmedConsumer
 	o.SetModified()
 	modified = true
 
@@ -1224,7 +1223,7 @@ func (o *OutputMetadata) String() string {
 		stringify.StructField("consumerCount", o.ConsumerCount()),
 		stringify.StructField("firstConsumer", o.FirstConsumer()),
 		stringify.StructField("finalized", o.Finalized()),
-		stringify.StructField("finalizedSpend", o.FinalizedSpend()),
+		stringify.StructField("confirmedConsumer", o.ConfirmedConsumer()),
 	)
 }
 
@@ -1249,7 +1248,7 @@ func (o *OutputMetadata) ObjectStorageValue() []byte {
 		WriteUint64(uint64(o.ConsumerCount())).
 		Write(o.FirstConsumer()).
 		WriteBool(o.Finalized()).
-		WriteBool(o.FinalizedSpend()).
+		Write(o.ConfirmedConsumer()).
 		Bytes()
 }
 

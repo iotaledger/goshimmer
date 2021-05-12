@@ -30,9 +30,9 @@ func unspentOutputsHandler(c echo.Context) error {
 
 		outputids := make([]value.OutputID, 0)
 		// get outputids by address
-		cachedOutputs := messagelayer.Tangle().LedgerState.OutputsOnAddress(address)
+		cachedOutputs := messagelayer.Tangle().LedgerState.CachedOutputsOnAddress(address)
 		cachedOutputs.Consume(func(output ledgerstate.Output) {
-			cachedOutputMetadata := messagelayer.Tangle().LedgerState.OutputMetadata(output.ID())
+			cachedOutputMetadata := messagelayer.Tangle().LedgerState.CachedOutputMetadata(output.ID())
 			cachedOutputMetadata.Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 				if outputMetadata.ConsumerCount() == 0 {
 					// iterate balances

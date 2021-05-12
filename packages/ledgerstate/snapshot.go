@@ -52,7 +52,7 @@ func (s *Snapshot) WriteTo(writer io.Writer) (int64, error) {
 		bytesWritten += int64(len(record.Essence.Bytes()))
 
 		if err := binary.Write(writer, binary.LittleEndian, uint32(len(record.UnspentOutputs))); err != nil {
-			return 0, fmt.Errorf("unable to write unspent output index lengt hwith %s: %w", transactionID, err)
+			return 0, fmt.Errorf("unable to write unspent output index length with %s: %w", transactionID, err)
 		}
 		bytesWritten += 4
 
@@ -102,6 +102,7 @@ func (s *Snapshot) ReadFrom(reader io.Reader) (int64, error) {
 	return bytesTransactions + bytesAccessMana, nil
 }
 
+// readTransactions reads the transactions from the snapshot
 func (s *Snapshot) readTransactions(reader io.Reader) (int64, error) {
 	s.Transactions = make(map[TransactionID]Record)
 	var bytesRead int64
@@ -166,6 +167,7 @@ func (s *Snapshot) readTransactions(reader io.Reader) (int64, error) {
 	return bytesRead, nil
 }
 
+// readAccessMana reads the access mana from the snapshot
 func (s *Snapshot) readAccessMana(reader io.Reader) (int64, error) {
 	s.AccessManaByNode = make(map[identity.ID]AccessMana)
 	var bytesRead int64

@@ -125,6 +125,7 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 			fmt.Sprintf("--statement.waitForStatement=%d", config.WaitForStatement),
 			fmt.Sprintf("--statement.readManaThreshold=%f", config.ReadManaThreshold),
 			fmt.Sprintf("--statement.writeManaThreshold=%f", config.WriteManaThreshold),
+			fmt.Sprintf("--mana.snapshotResetTime=%v", config.SnapshotResetTime),
 			fmt.Sprintf("--drng.custom.instanceId=%d", config.DRNGInstance),
 			fmt.Sprintf("--drng.custom.threshold=%d", config.DRNGThreshold),
 			fmt.Sprintf("--drng.custom.committeeMembers=%s", config.DRNGCommittee),

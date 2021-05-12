@@ -27,8 +27,9 @@ const (
 	cfgSnapshotGenesisSeed  = "seed"
 	defaultSnapshotFileName = "./snapshot.bin"
 
-	tokensToPledge uint64 = 1000000000000000
-	faucetPledge          = "EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP"
+	// In the docker network tokensToPledge is also pledged to the faucet
+	tokensToPledge   uint64 = 1000000000000000                               // we pledge the following amount to nodesToPledge
+	peerMasterPledge        = "EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP" // peer master pledge ID
 )
 
 var nodesToPledge = []string{
@@ -36,9 +37,11 @@ var nodesToPledge = []string{
 }
 
 func init() {
-	flag.Uint64(cfgGenesisTokenAmount, 1000000000000000, "the amount of tokens to add to the genesis output")
+	flag.Uint64(cfgGenesisTokenAmount, 1000000000000000, "the amount of tokens to add to the genesis output") // we pledge this amount to peer master
 	flag.String(cfgSnapshotFileName, defaultSnapshotFileName, "the name of the generated snapshot file")
 	flag.String(cfgSnapshotGenesisSeed, "", "the genesis seed")
+	// Most recent seed when checking ../integration-tests/assets :
+	// flag.String(cfgSnapshotGenesisSeed, "7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih", "the genesis seed")
 }
 
 func main() {
@@ -52,7 +55,7 @@ func main() {
 
 	seedStr := viper.GetString(cfgSnapshotGenesisSeed)
 	if seedStr == "" {
-		log.Fatal("Seed is required")
+		log.Fatal("Seed is required. Enter it via --seed=... ")
 	}
 	seedBytes, err := base58.Decode(seedStr)
 	if err != nil {
@@ -60,6 +63,7 @@ func main() {
 	}
 	genesisSeed := seed.NewSeed(seedBytes)
 
+	// Wallet mocker
 	mockedConnector := newMockConnector(
 		&wallet.Output{
 			Address:  genesisSeed.Address(0),
@@ -74,6 +78,11 @@ func main() {
 		},
 	)
 
+	// define maps for snapshot
+	transactionsMap := make(map[ledgerstate.TransactionID]ledgerstate.Record)
+	accessManaMap := make(map[identity.ID]ledgerstate.AccessMana)
+
+	//////////////// prepare pledge to Peer master ////////////////////////////////////////////////////////////////
 	output := ledgerstate.NewSigLockedColoredOutput(
 		ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
 			ledgerstate.ColorIOTA: genesisTokenAmount,
@@ -81,19 +90,7 @@ func main() {
 		genesisSeed.Address(0).Address(),
 	)
 
-	randomSeed := seed.NewSeed()
-
-	output1 := ledgerstate.NewSigLockedColoredOutput(
-		ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
-			ledgerstate.ColorIOTA: tokensToPledge,
-		}),
-		randomSeed.Address(0).Address(),
-	)
-
-	transactionsMap := make(map[ledgerstate.TransactionID]ledgerstate.Record)
-
-	// Peer master
-	pubKey, err := ed25519.PublicKeyFromString(faucetPledge)
+	pubKey, err := ed25519.PublicKeyFromString(peerMasterPledge)
 	if err != nil {
 		panic(err)
 	}
@@ -107,12 +104,27 @@ func main() {
 		ledgerstate.NewOutputs(output),
 	), ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
 
-	record := ledgerstate.Record{
+	txRecord := ledgerstate.Record{
 		Essence:        tx.Essence(),
 		UnspentOutputs: []bool{true},
 	}
-	transactionsMap[tx.ID()] = record
+	transactionsMap[tx.ID()] = txRecord
+	accessManaRecord := ledgerstate.AccessMana{
+		Value:     float64(genesisTokenAmount),
+		Timestamp: time.Unix(tangle.DefaultGenesisTime, 0),
+	}
+	accessManaMap[nodeID] = accessManaRecord
 
+	//////////////// prepare pledge for nodesToPledge ////////////////////////////////////////////////////////////////
+	randomSeed := seed.NewSeed()
+	output1 := ledgerstate.NewSigLockedColoredOutput(
+		ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
+			ledgerstate.ColorIOTA: tokensToPledge,
+		}),
+		randomSeed.Address(0).Address(),
+	)
+
+	// nodesToPledge is currently the faucet, and
 	for i, pk := range nodesToPledge {
 		pubKey, err = ed25519.PublicKeyFromString(pk)
 		if err != nil {
@@ -134,11 +146,15 @@ func main() {
 			UnspentOutputs: []bool{true},
 		}
 		transactionsMap[tx.ID()] = record
+		accessManaRecord := ledgerstate.AccessMana{
+			Value:     float64(tokensToPledge),
+			Timestamp: time.Unix(tangle.DefaultGenesisTime, 0),
+		}
+		accessManaMap[nodeID] = accessManaRecord
 	}
 
 	newSnapshot := &ledgerstate.Snapshot{
-		// assign 0 access mana to all nodes, since the docker network
-		AccessManaByNode: make(map[identity.ID]ledgerstate.AccessMana),
+		AccessManaByNode: accessManaMap,
 		Transactions:     transactionsMap,
 	}
 
@@ -178,7 +194,17 @@ func main() {
 	}
 	f.Close()
 
-	fmt.Println(readSnapshot)
+	fmt.Println("\n================= read Snapshot ===============")
+	fmt.Printf("\n================= %d Snapshot Txs ===============\n", len(readSnapshot.Transactions))
+	for key, txRecord := range readSnapshot.Transactions {
+		fmt.Println("===== key =", key)
+		fmt.Println(txRecord)
+	}
+	fmt.Printf("\n================= %d Snapshot Access Manas ===============\n", len(readSnapshot.AccessManaByNode))
+	for key, accessManaNode := range readSnapshot.AccessManaByNode {
+		fmt.Println("===== key =", key)
+		fmt.Println(accessManaNode)
+	}
 }
 
 type mockConnector struct {
