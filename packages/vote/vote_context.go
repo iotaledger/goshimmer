@@ -1,9 +1,10 @@
 package vote
 
 import (
+	"time"
+
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/vote/opinion"
-	"time"
 )
 
 // NewContext creates a new vote context.
