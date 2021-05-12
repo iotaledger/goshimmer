@@ -262,10 +262,16 @@ STATUS  OWNED UNTIL                     BALANCE                 COLOR           
 As the output suggests, you need to execute the `claim-conditional` command to claim these funds:
 ```bash
 ./cli-wallet claim-conditional
+```
+```
 IOTA Pollen CLI-Wallet 0.2
 
 Claiming conditionally owned funds... [DONE]
+```
+```
 ./cli-wallet balance
+```
+```
 IOTA Pollen CLI-Wallet 0.2
 
 Available Token Balances
@@ -308,7 +314,7 @@ None of the flags are strictly required to mint an NFT, so we could just execute
 cases, you'll want to attach immutable metadata to it, which is only possible during creation. Each NFT must have some
 IOTAs backing it (locked into its output) to prevent bloating the ledger database. Currently, the minimum requirement
 is 100 IOTA tokens, but bear in mind that it might change in the future.
-Nevertheless, on top of the minimum required amount IOTAs, yuo can lock any additional funds into the NFT. To do so,
+Nevertheless, on top of the minimum required amount IOTAs, you can lock any additional funds into the NFT. To do so,
 use the `-initial-amount` and `-color` flags.
 
 To attach immutable data to the NFT, you can define a path to a file that holds the metadata. The wallet will read the
@@ -337,11 +343,13 @@ following content:
   }
 }
 ```
-The above JSON file is just a template, you can define binary data that fits the size limit to be attached to the NFT.
+The above JSON file is just a template, you can aby define binary data that fits the size limit to be attached to the NFT.
 
-TO create the NFT, simply execute:
+To create the NFT, simply execute:
 ```bash
 ./cli-wallet create-nft -immutable-data nft_metadata.json
+```
+```
 IOTA Pollen CLI-Wallet 0.2
 
 Created NFT with ID:  gSfeBrWp1HwDLwSL7rt1qEMM59YBFZ4iBgAqHuqaQHo5
@@ -356,6 +364,8 @@ The immutable data field contains the attached binary metadata (encoded in base6
 The NFT is also displayed on the balance page of the cli-wallet:
 ```
 ./cli-wallet balance
+```
+```
 IOTA Pollen CLI-Wallet 0.2
 
 Available Token Balances
@@ -406,6 +416,8 @@ unique identifier of the NFT that you wish to transfer, the latter is the destin
 Let's transfer the NFT to our friend's address:
 ```bash
 ./cli-wallet transfer-nft -id gSfeBrWp1HwDLwSL7rt1qEMM59YBFZ4iBgAqHuqaQHo5 -dest-addr 1E5Q82XTF5QGyC598br9oCj71cREyjD1CGUk2gmaJaFQt
+```
+```
 IOTA Pollen CLI-Wallet 0.2
 
 Transferring NFT... [DONE]
@@ -439,6 +451,8 @@ OPTIONS:
 Let's create an NFT and destroy it right after:
 ```bash
 ./cli-wallet create-nft
+```
+```
 IOTA Pollen CLI-Wallet 0.2
 
 Created NFT with ID:  bdrvyKvaE6CZUEbdRDK57oBCRb2SLUyE8padFGxrV3zg
@@ -447,6 +461,8 @@ Creating NFT ... [DONE]
 Then let's wait until the balance page shows that the NFT status is `OK`:
 ```bash
 ./cli-wallet balance
+```
+```
 IOTA Pollen CLI-Wallet 0.2
 
 Available Token Balances
@@ -465,6 +481,8 @@ STATUS  NFT ID (ALIAS ID)                               BALANCE                 
 Finally, let's destroy it:
 ```bash
 ./cli-wallet destroy-nft -id bdrvyKvaE6CZUEbdRDK57oBCRb2SLUyE8padFGxrV3zg
+```
+```
 IOTA Pollen CLI-Wallet 0.2
 
 Destroying NFT... [DONE]
@@ -514,6 +532,8 @@ To deposit some previously created `MyUniqueTokens` into the NFT, we need to spe
 Balance before the deposit looks like this:
 ```bash
 ./cli-wallet balance
+```
+```
 IOTA Pollen CLI-Wallet 0.2
 
 Available Token Balances
@@ -534,9 +554,15 @@ The actual deposit operation:
 
 ```bash
 ./cli-wallet deposit-to-nft -id f1BW8jcdDn3staviCVbVz54NqVwsshb5gpNLqY6Rrgrg -amount 500 -color HJdkZkn6MKda9fNuXFQZ8Dzdzu1wvuSUQp8QX1AMH4wn
+```
+```
 IOTA Pollen CLI-Wallet 0.2
 Depositing funds into NFT ... [DONE]
+```
+```
 ./cli-wallet balance
+```
+```
 IOTA Pollen CLI-Wallet 0.2
 
 Available Token Balances
@@ -583,6 +609,8 @@ OPTIONS:
 Therefore, to withdraw the previously deposited `MyUniqueTokens`, execute the following command:
 ```bash
 ./cli-wallet withdraw-from-nft -id f1BW8jcdDn3staviCVbVz54NqVwsshb5gpNLqY6Rrgrg -amount 500 -color HJdkZkn6MKda9fNuXFQZ8Dzdzu1wvuSUQp8QX1AMH4wn
+```
+```
 IOTA Pollen CLI-Wallet 0.2
 
 Withdrawing funds from NFT... [DONE]
@@ -590,6 +618,8 @@ Withdrawing funds from NFT... [DONE]
 Once the transaction confirms, you'll see the updated balance:
 ```bash
 ./cli-wallet balance
+```
+```
 IOTA Pollen CLI-Wallet 0.2
 
 Available Token Balances
@@ -642,6 +672,8 @@ with a normal `send-funds` command:
 We can execute the `sweep-nft-owned-funds` command to transfer these funds into our wallet:
 ```bash
 ./cli-wallet sweep-nft-owned-funds -id f1BW8jcdDn3staviCVbVz54NqVwsshb5gpNLqY6Rrgrg
+```
+```
 IOTA Pollen CLI-Wallet 0.2
 
 Sweeping NFT owned funds... [DONE]
@@ -649,6 +681,8 @@ Sweeping NFT owned funds... [DONE]
 The wallet balance should be updated, the wallet contains 1 MI more:
 ```bash
 ./cli-wallet balance
+```
+```
 IOTA Pollen CLI-Wallet 0.2
 
 Available Token Balances
@@ -671,11 +705,17 @@ NFTs can own other NFTs, that in turn can own other NFTs and so on... wow, NFTce
 Let's say your friend created an NFT, and transferred it to your NFT's ID `f1BW8jcdDn3staviCVbVz54NqVwsshb5gpNLqY6Rrgrg`.
 ```bash
 ./your-friends-wallet create-nft
+```
+```
 IOTA Pollen CLI-Wallet 0.2
 
 Created NFT with ID:  faf9tkdBfcTv2AgPm3Zt8duX4iUGKjqbEyrdBYsUb2hi
 Creating NFT ... [DONE]
+```
+```
 ./your-friends-wallet transfer-nft -id faf9tkdBfcTv2AgPm3Zt8duX4iUGKjqbEyrdBYsUb2hi -dest-addr f1BW8jcdDn3staviCVbVz54NqVwsshb5gpNLqY6Rrgrg
+```
+```
 IOTA Pollen CLI-Wallet 0.2
 
 Transferring NFT... [DONE]
@@ -706,6 +746,8 @@ OPTIONS:
 All you need to specify is the `-id` of your NFT that you would like to check for owned NFTs:
 ```bash
 ./cli-wallet sweep-nft-owned-nfts -id f1BW8jcdDn3staviCVbVz54NqVwsshb5gpNLqY6Rrgrg
+```
+```
 IOTA Pollen CLI-Wallet 0.2
 
 Swept NFT faf9tkdBfcTv2AgPm3Zt8duX4iUGKjqbEyrdBYsUb2hi into the wallet
@@ -716,6 +758,8 @@ you would be able to sweep them into your wallet just like you did for `f1BW8jcd
 
 ```bash
 ./cli-wallet balance
+```
+```
 IOTA Pollen CLI-Wallet 0.2
 
 Available Token Balances
@@ -779,6 +823,8 @@ OPTIONS:
 Let's delegate some funds to an address provided by a node in the network, `1EqJf5K1LJ6bVMCrxxxdZ6VNYoBTvEoXgxnbLJe7aqajc`:
 ```bash
 ./cli-wallet delegate-funds -amount 1000000 -del-addr 1EqJf5K1LJ6bVMCrxxxdZ6VNYoBTvEoXgxnbLJe7aqajc
+```
+```
 IOTA Pollen CLI-Wallet 0.2
 
 Delegation ID is:  tGoTKjt2y277ssKax9stsZXfLGdf8bPj3TZFaUDcAEwK
@@ -787,6 +833,8 @@ Delegating funds... [DONE]
 By running the `balance` command, we can see the delegated funds:
 ```bash
 ./cli-wallet balance
+```
+```
 IOTA Pollen CLI-Wallet 0.2
 
 Available Token Balances
@@ -832,6 +880,8 @@ OPTIONS:
 To reclaim the funds delegated in the previous section, simply run:
 ```bash
 ./cli-wallet reclaim-delegated -id tGoTKjt2y277ssKax9stsZXfLGdf8bPj3TZFaUDcAEwK
+```
+```
 IOTA Pollen CLI-Wallet 0.2
 
 Reclaimed delegation ID is:  tGoTKjt2y277ssKax9stsZXfLGdf8bPj3TZFaUDcAEwK
@@ -840,6 +890,8 @@ Reclaiming delegated fund... [DONE]
 The balance should appear in the `Available Balances` section of the balance page:
 ```bash
 ./cli-wallet balance
+```
+```
 IOTA Pollen CLI-Wallet 0.2
 
 Available Token Balances
