@@ -86,6 +86,5 @@ func configureDRNGMetrics() {
 }
 
 func configureTransactionMetrics() {
-	metricsLogger := newTransactionMetricsLogger()
-	messagelayer.Tangle().LedgerState.UTXODAG.Events.TransactionConfirmed.Attach(events.NewClosure(metricsLogger.onTransactionConfirmed))
+	messagelayer.Tangle().LedgerState.UTXODAG.Events.TransactionConfirmed.Attach(events.NewClosure(onTransactionConfirmed))
 }

@@ -50,3 +50,14 @@ type FPCConflictRecord struct {
 	// Time defines the time when the conflict has been finalized.
 	Time time.Time `json:"datetime" bson:"datetime"`
 }
+
+type TransactionMetricsLogger struct {
+	Type               string    `json:"type" bson:"type"`
+	MessageID          string    `json:"messageID" bson:"messageID"`
+	TransactionID      string    `json:"transactionID" bson:"transactionID"`
+	IssuedTimestamp    time.Time `json:"issuedTimestamp" bson:"issuedTimestamp"`
+	SolidTimestamp     time.Time `json:"solidTimestamp" bson:"solidTimestamp"`
+	ScheduledTimestamp time.Time `json:"scheduledTimestamp" bson:"scheduledTimestamp"`
+	BookedTimestamp    time.Time `json:"bookedTimestamp" bson:"bookedTimestamp"`
+	ConfirmedTimestamp time.Time `json:"confirmedTimestamp" bson:"confirmedTimestamp"`
+}

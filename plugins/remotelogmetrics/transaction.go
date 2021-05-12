@@ -1,31 +1,15 @@
 package remotelogmetrics
 
 import (
-	"time"
-
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/remotelogmetrics"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
 )
 
-type transactionMetricsLogger struct {
-	Type               string    `json:"type" bson:"type"`
-	MessageID          string    `json:"messageID" bson:"messageID"`
-	TransactionID      string    `json:"transactionID" bson:"transactionID"`
-	IssuedTimestamp    time.Time `json:"issuedTimestamp" bson:"issuedTimestamp"`
-	SolidTimestamp     time.Time `json:"solidTimestamp" bson:"solidTimestamp"`
-	ScheduledTimestamp time.Time `json:"scheduledTimestamp" bson:"scheduledTimestamp"`
-	BookedTimestamp    time.Time `json:"bookedTimestamp" bson:"bookedTimestamp"`
-	ConfirmedTimestamp time.Time `json:"confirmedTimestamp" bson:"confirmedTimestamp"`
-}
-
-func newTransactionMetricsLogger() *transactionMetricsLogger {
-	return &transactionMetricsLogger{}
-}
-
-func (ml *transactionMetricsLogger) onTransactionConfirmed(transactionID ledgerstate.TransactionID) {
-	record := &transactionMetricsLogger{
+func onTransactionConfirmed(transactionID ledgerstate.TransactionID) {
+	record := &remotelogmetrics.TransactionMetricsLogger{
 		Type:          "transaction",
 		TransactionID: transactionID.Base58(),
 	}
