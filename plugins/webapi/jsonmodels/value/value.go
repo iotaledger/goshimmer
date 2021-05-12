@@ -6,19 +6,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
-// AttachmentsResponse is the HTTP response from retrieving value objects.
-type AttachmentsResponse struct {
-	Attachments []ValueObject `json:"attachments,omitempty"`
-	Error       string        `json:"error,omitempty"`
-}
-
-// ValueObject holds the information of a value object.
-type ValueObject struct {
-	ID          string      `json:"id"`
-	Parents     []string    `json:"parents"`
-	Transaction Transaction `json:"transaction"`
-}
-
 // TransactionMetadata holds the information of a transaction metadata.
 type TransactionMetadata struct {
 	BranchID           string `json:"branchID"`
