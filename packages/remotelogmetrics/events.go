@@ -61,3 +61,12 @@ type TransactionMetricsLogger struct {
 	BookedTimestamp    time.Time `json:"bookedTimestamp" bson:"bookedTimestamp"`
 	ConfirmedTimestamp time.Time `json:"confirmedTimestamp" bson:"confirmedTimestamp"`
 }
+
+// DRNGMetrics defines the DRNG metrics record to sent be to remote logger.
+type DRNGMetrics struct {
+	Type              string    `json:"type" bson:"type"`
+	InstanceID        uint32    `json:"instanceID" bson:"instanceID"`
+	Round             uint64    `json:"round" bson:"round"`
+	IssuedTimestamp   time.Time `json:"issuedTimestamp" bson:"issuedTimestamp"`
+	ReceivedTimestamp time.Time `json:"receivedTimestamp" bson:"receivedTimestamp"`
+}
