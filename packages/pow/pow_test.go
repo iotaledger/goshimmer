@@ -83,9 +83,8 @@ func BenchmarkWorker(b *testing.B) {
 func BenchmarkMine(b *testing.B) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	var (
-		buf = make([]byte, 1024)
-	)
+
+	buf := make([]byte, 1024)
 
 	var wg sync.WaitGroup
 
@@ -93,7 +92,6 @@ func BenchmarkMine(b *testing.B) {
 	go func() {
 		defer wg.Done()
 		_, _ = testWorker.Mine(ctx, buf, 25)
-
 	}()
 	b.ResetTimer()
 
