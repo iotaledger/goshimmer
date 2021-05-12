@@ -8,7 +8,7 @@ import (
 )
 
 func onRandomnessReceived(state *drng.State) {
-	record := &remotelogmetrics.DRNGMetricsLogger{
+	record := &remotelogmetrics.DRNGMetrics{
 		Type:              "drng",
 		InstanceID:        state.Committee().InstanceID,
 		Round:             state.Randomness().Round,
