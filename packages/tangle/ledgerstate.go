@@ -221,7 +221,7 @@ func (l *LedgerState) SnapshotUTXO() (snapshot *ledgerstate.Snapshot) {
 		}
 	}
 
-	// ??? due to possible race conditions we could add a check for the consistency of the UTXO snapshot
+	// TODO ??? due to possible race conditions we could add a check for the consistency of the UTXO snapshot
 
 	return snapshot
 }
