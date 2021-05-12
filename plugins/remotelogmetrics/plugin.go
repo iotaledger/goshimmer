@@ -80,6 +80,5 @@ func configureFPCConflictsMetrics() {
 }
 
 func configureDRNGMetrics() {
-	metricsLogger := newDRNGMetricsLogger()
-	drng.Instance().Events.Randomness.Attach(events.NewClosure(metricsLogger.onRandomnessReceived))
+	drng.Instance().Events.Randomness.Attach(events.NewClosure(onRandomnessReceived))
 }

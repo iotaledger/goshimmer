@@ -50,3 +50,11 @@ type FPCConflictRecord struct {
 	// Time defines the time when the conflict has been finalized.
 	Time time.Time `json:"datetime" bson:"datetime"`
 }
+
+type DRNGMetricsLogger struct {
+	Type              string    `json:"type" bson:"type"`
+	InstanceID        uint32    `json:"instanceID" bson:"instanceID"`
+	Round             uint64    `json:"round" bson:"round"`
+	IssuedTimestamp   time.Time `json:"issuedTimestamp" bson:"issuedTimestamp"`
+	ReceivedTimestamp time.Time `json:"receivedTimestamp" bson:"receivedTimestamp"`
+}
