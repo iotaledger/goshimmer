@@ -5,7 +5,7 @@ import (
 
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
-  "github.com/iotaledger/hive.go/syncutils"
+	"github.com/iotaledger/hive.go/syncutils"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
