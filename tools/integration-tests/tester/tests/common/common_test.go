@@ -18,8 +18,9 @@ import (
 func TestSynchronization(t *testing.T) {
 	initialPeers := 4
 	n, err := f.CreateNetworkWithMana("common_TestSynchronization", initialPeers, 2, framework.CreateNetworkConfig{
-		Faucet: true,
-		Mana:   true,
+		Faucet:    true,
+		Mana:      true,
+		StartSync: true,
 	})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
@@ -36,7 +37,7 @@ func TestSynchronization(t *testing.T) {
 	time.Sleep(10 * time.Second)
 
 	// 2. spawn peer without knowledge of previous messages
-	newPeer, err := n.CreatePeer(framework.GoShimmerConfig{})
+	newPeer, err := n.CreatePeerWithMana(framework.GoShimmerConfig{Mana: true})
 	require.NoError(t, err)
 	err = n.WaitForAutopeering(3)
 	require.NoError(t, err)

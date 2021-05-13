@@ -101,6 +101,7 @@ func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int, 
 				}
 				return config.Mana && i == 0
 			}(i),
+			StartSync:                  config.StartSync,
 			FPCRoundInterval:           ParaFPCRoundInterval,
 			FPCTotalRoundsFinalization: ParaFPCTotalRoundsFinalization,
 			WaitForStatement:           ParaWaitForStatement,

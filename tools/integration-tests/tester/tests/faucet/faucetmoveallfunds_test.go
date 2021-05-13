@@ -30,6 +30,7 @@ func TestPrepareFaucet(t *testing.T) {
 		Faucet:         true,
 		Mana:           true,
 		ActivityPlugin: true,
+		StartSync: true,
 	})
 	require.NoError(t, err)
 	time.Sleep(5 * time.Second)

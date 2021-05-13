@@ -21,6 +21,7 @@ func TestFaucetPersistence(t *testing.T) {
 	n, err := f.CreateNetworkWithMana("common_TestSynchronization", 5, 2, framework.CreateNetworkConfig{
 		Faucet: true,
 		Mana:   true,
+		StartSync: true,
 	})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)

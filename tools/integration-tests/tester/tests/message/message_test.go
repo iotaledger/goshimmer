@@ -15,6 +15,7 @@ func TestPersistence(t *testing.T) {
 	n, err := f.CreateNetworkWithMana("message_TestPersistence", 4, 2, framework.CreateNetworkConfig{
 		Faucet: true,
 		Mana:   true,
+		StartSync: true,
 	})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
