@@ -9,28 +9,13 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
-// region Output ///////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // Output is a wallet specific representation of an output in the IOTA network.
 type Output struct {
 	Address        address.Address
-	OutputID       ledgerstate.OutputID
-	Balances       *ledgerstate.ColoredBalances
+	Object         ledgerstate.Output
 	InclusionState InclusionState
 	Metadata       OutputMetadata
 }
-
-// String returns a human-readable representation of the Output.
-func (o *Output) String() string {
-	return stringify.Struct("Output",
-		stringify.StructField("Address", o.Address),
-		stringify.StructField("OutputID", o.OutputID),
-		stringify.StructField("Balances", o.Balances),
-		stringify.StructField("InclusionState", o.InclusionState),
-	)
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region InclusionState ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -85,10 +70,12 @@ func (o OutputsByID) OutputsByAddressAndOutputID() (outputsByAddressAndOutputID 
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region OutputsByAddressAndOutputID //////////////////////////////////////////////////////////////////////////////////
-
-// OutputsByAddressAndOutputID is a collection of Outputs associated with their Address and OutputID.
 type OutputsByAddressAndOutputID map[address.Address]map[ledgerstate.OutputID]*Output
+
+// NewAddressToOutputs creates an empty container.
+func NewAddressToOutputs() OutputsByAddressAndOutputID {
+	return make(map[address.Address]map[ledgerstate.OutputID]*Output)
+}
 
 // OutputsByID returns a collection of Outputs associated with their OutputID.
 func (o OutputsByAddressAndOutputID) OutputsByID() (outputsByID OutputsByID) {
@@ -102,4 +89,81 @@ func (o OutputsByAddressAndOutputID) OutputsByID() (outputsByID OutputsByID) {
 	return
 }
 
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+// ValueOutputsOnly filters out non-value type outputs (aliases).
+func (o OutputsByAddressAndOutputID) ValueOutputsOnly() OutputsByAddressAndOutputID {
+	result := NewAddressToOutputs()
+	for addy, IDToOutputMap := range o {
+		for outputID, output := range IDToOutputMap {
+			switch output.Object.Type() {
+			case ledgerstate.SigLockedSingleOutputType, ledgerstate.SigLockedColoredOutputType, ledgerstate.ExtendedLockedOutputType:
+				if _, addressExists := result[addy]; !addressExists {
+					result[addy] = make(map[ledgerstate.OutputID]*Output)
+				}
+				result[addy][outputID] = output
+			}
+		}
+	}
+	return result
+}
+
+// ConditionalOutputsOnly return ExtendedLockedOutputs that are currently conditionally owned by the wallet.
+func (o OutputsByAddressAndOutputID) ConditionalOutputsOnly() OutputsByAddressAndOutputID {
+	now := time.Now()
+	result := NewAddressToOutputs()
+	for addy, IDToOutputMap := range o {
+		for outputID, output := range IDToOutputMap {
+			if output.Object.Type() == ledgerstate.ExtendedLockedOutputType {
+				casted := output.Object.(*ledgerstate.ExtendedLockedOutput)
+				_, fallbackDeadline := casted.FallbackOptions()
+				if !fallbackDeadline.IsZero() && addy.Address().Equals(casted.UnlockAddressNow(now)) {
+					if _, addressExists := result[addy]; !addressExists {
+						result[addy] = make(map[ledgerstate.OutputID]*Output)
+					}
+					result[addy][outputID] = output
+				}
+			}
+		}
+	}
+	return result
+}
+
+// AliasOutputsOnly filters out any non-alias outputs.
+func (o OutputsByAddressAndOutputID) AliasOutputsOnly() OutputsByAddressAndOutputID {
+	result := NewAddressToOutputs()
+	for addy, IDToOutputMap := range o {
+		for outputID, output := range IDToOutputMap {
+			if output.Object.Type() == ledgerstate.AliasOutputType {
+				if _, addressExists := result[addy]; !addressExists {
+					result[addy] = make(map[ledgerstate.OutputID]*Output)
+				}
+				result[addy][outputID] = output
+			}
+		}
+	}
+	return result
+}
+
+// TotalFundsInOutputs returns the total funds present in the outputs.
+func (o OutputsByAddressAndOutputID) TotalFundsInOutputs() map[ledgerstate.Color]uint64 {
+	result := make(map[ledgerstate.Color]uint64)
+	for _, IDToOutputMap := range o {
+		for _, output := range IDToOutputMap {
+			output.Object.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+				result[color] += balance
+				return true
+			})
+		}
+	}
+	return result
+}
+
+// ToLedgerStateOutputs transforms all outputs in the mapping into a slice of ledgerstate outputs.
+func (o OutputsByAddressAndOutputID) ToLedgerStateOutputs() ledgerstate.Outputs {
+	outputs := ledgerstate.Outputs{}
+	for _, outputIDMapping := range o {
+		for _, output := range outputIDMapping {
+			outputs = append(outputs, output.Object)
+		}
+	}
+	return outputs
+}

@@ -155,7 +155,7 @@ func (addressManager *AddressManager) updateFirstUnspentAddressIndex() {
 	}
 }
 
-// updateLastUnspentAddressIndex searches for the first unspent address and updates the lastUnspentAddressIndex.
+// updateLastUnspentAddressIndex searches for the last unspent address and updates the lastUnspentAddressIndex.
 func (addressManager *AddressManager) updateLastUnspentAddressIndex() {
 	// search for last unspent address
 	for i := addressManager.lastUnspentAddressIndex; true; i-- {
