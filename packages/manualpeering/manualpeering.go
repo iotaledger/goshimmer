@@ -20,58 +20,24 @@ import (
 
 const defaultReconnectInterval = 5 * time.Second
 
-type ConnectionDirection int8
+type ConnectionDirection string
 
 const (
-	ConnDirectionOutbound ConnectionDirection = iota
-	ConnDirectionInbound
+	ConnDirectionOutbound ConnectionDirection = "outbound"
+	ConnDirectionInbound  ConnectionDirection = "inbound"
 )
 
-//go:generate stringer -type=ConnectionDirection
-
-type ConnectionStatus int8
+type ConnectionStatus string
 
 const (
-	ConnStatusDisconnected ConnectionStatus = iota
-	ConnStatusConnected
+	ConnStatusDisconnected ConnectionStatus = "disconnected"
+	ConnStatusConnected    ConnectionStatus = "connected"
 )
-
-//go:generate stringer -type=ConnectionStatus
 
 type KnownPeer struct {
-	peer          *peer.Peer
-	connDirection ConnectionDirection
-	connStatus    *atomic.Value
-	removeCh      chan struct{}
-	doneCh        chan struct{}
-}
-
-func newKnownPeer(p *peer.Peer, connDirection ConnectionDirection) *KnownPeer {
-	kp := &KnownPeer{
-		peer:          p,
-		connDirection: connDirection,
-		connStatus:    &atomic.Value{},
-		removeCh:      make(chan struct{}),
-		doneCh:        make(chan struct{}),
-	}
-	kp.setConnStatus(ConnStatusDisconnected)
-	return kp
-}
-
-func (kp *KnownPeer) ConnStatus() ConnectionStatus {
-	return kp.connStatus.Load().(ConnectionStatus)
-}
-
-func (kp *KnownPeer) setConnStatus(cs ConnectionStatus) {
-	kp.connStatus.Store(cs)
-}
-
-func (kp *KnownPeer) Peer() *peer.Peer {
-	return kp.peer
-}
-
-func (kp *KnownPeer) ConnDirection() ConnectionDirection {
-	return kp.connDirection
+	Peer          *peer.Peer          `json:"peer"`
+	ConnDirection ConnectionDirection `json:"connectionDirection"`
+	ConnStatus    ConnectionStatus    `json:"connectionStatus"`
 }
 
 // Manager is the core entity in the manualpeering package.
@@ -93,7 +59,7 @@ type Manager struct {
 	isStopped         bool
 	reconnectInterval time.Duration
 	knownPeersMutex   sync.RWMutex
-	knownPeers        map[identity.ID]*KnownPeer
+	knownPeers        map[identity.ID]*knownPeer
 
 	onGossipNeighborRemovedClosure *events.Closure
 	onGossipNeighborAddedClosure   *events.Closure
@@ -106,7 +72,7 @@ func NewManager(gm *gossip.Manager, local *peer.Local, log *logger.Logger) *Mana
 		local:             local,
 		log:               log,
 		reconnectInterval: defaultReconnectInterval,
-		knownPeers:        map[identity.ID]*KnownPeer{},
+		knownPeers:        map[identity.ID]*knownPeer{},
 	}
 	m.onGossipNeighborRemovedClosure = events.NewClosure(m.onGossipNeighborRemoved)
 	m.onGossipNeighborAddedClosure = events.NewClosure(m.onGossipNeighborAdded)
@@ -135,30 +101,47 @@ func (m *Manager) RemovePeer(keys ...ed25519.PublicKey) error {
 	return resultErr
 }
 
-type getKnownPeersConfig struct {
-	onlyConnected bool
+type GetKnownPeersConfig struct {
+	OnlyConnected bool `json:"onlyConnected"`
 }
 
-type GetKnownPeersOption func(options *getKnownPeersConfig)
+type GetKnownPeersOption func(conf *GetKnownPeersConfig)
+
+func BuildGetKnownPeersConfig(opts []GetKnownPeersOption) *GetKnownPeersConfig {
+	conf := &GetKnownPeersConfig{}
+	for _, o := range opts {
+		o(conf)
+	}
+	return conf
+}
+
+func (c *GetKnownPeersConfig) ToOptions() (opts []GetKnownPeersOption) {
+	if c.OnlyConnected {
+		opts = append(opts, WithOnlyConnectedPeers())
+	}
+	return opts
+}
 
 func WithOnlyConnectedPeers() GetKnownPeersOption {
-	return func(options *getKnownPeersConfig) {
-		options.onlyConnected = true
+	return func(conf *GetKnownPeersConfig) {
+		conf.OnlyConnected = true
 	}
 }
 
 // GetKnownPeers returns the list of known peers.
 func (m *Manager) GetKnownPeers(opts ...GetKnownPeersOption) []*KnownPeer {
-	conf := &getKnownPeersConfig{}
-	for _, o := range opts {
-		o(conf)
-	}
+	conf := BuildGetKnownPeersConfig(opts)
 	m.knownPeersMutex.RLock()
 	defer m.knownPeersMutex.RUnlock()
 	peers := make([]*KnownPeer, 0, len(m.knownPeers))
-	for _, p := range m.knownPeers {
-		if !conf.onlyConnected || p.ConnStatus() == ConnStatusConnected {
-			peers = append(peers, p)
+	for _, kp := range m.knownPeers {
+		connStatus := kp.getConnStatus()
+		if !conf.OnlyConnected || connStatus == ConnStatusConnected {
+			peers = append(peers, &KnownPeer{
+				Peer:          kp.peer,
+				ConnDirection: kp.connDirection,
+				ConnStatus:    connStatus,
+			})
 		}
 	}
 	return peers
@@ -190,6 +173,34 @@ func (m *Manager) Stop() (err error) {
 	return err
 }
 
+type knownPeer struct {
+	peer          *peer.Peer
+	connDirection ConnectionDirection
+	connStatus    *atomic.Value
+	removeCh      chan struct{}
+	doneCh        chan struct{}
+}
+
+func newKnownPeer(p *peer.Peer, connDirection ConnectionDirection) *knownPeer {
+	kp := &knownPeer{
+		peer:          p,
+		connDirection: connDirection,
+		connStatus:    &atomic.Value{},
+		removeCh:      make(chan struct{}),
+		doneCh:        make(chan struct{}),
+	}
+	kp.setConnStatus(ConnStatusDisconnected)
+	return kp
+}
+
+func (kp *knownPeer) getConnStatus() ConnectionStatus {
+	return kp.connStatus.Load().(ConnectionStatus)
+}
+
+func (kp *knownPeer) setConnStatus(cs ConnectionStatus) {
+	kp.connStatus.Store(cs)
+}
+
 func (m *Manager) addPeer(p *peer.Peer) error {
 	if !m.isStarted.IsSet() {
 		return errors.New("manualpeering manager hasn't been started yet")
@@ -209,6 +220,7 @@ func (m *Manager) addPeer(p *peer.Peer) error {
 	if _, exists := m.knownPeers[kp.peer.ID()]; exists {
 		return nil
 	}
+	m.log.Infow("Adding new peer to the list of known peers in manualpeering", "peer", p)
 	m.knownPeers[kp.peer.ID()] = kp
 	go func() {
 		defer close(kp.doneCh)
@@ -220,6 +232,8 @@ func (m *Manager) addPeer(p *peer.Peer) error {
 func (m *Manager) removePeer(key ed25519.PublicKey) error {
 	m.knownPeersMutex.Lock()
 	defer m.knownPeersMutex.Unlock()
+	m.log.Infow("Removing peer from from the list of known peers in manualpeering",
+		"publicKey", key)
 	peerID := identity.NewID(key)
 	err := m.removePeerByID(peerID)
 	return errors.WithStack(err)
@@ -243,6 +257,7 @@ func (m *Manager) removePeerByID(peerID identity.ID) error {
 		return nil
 	}
 	delete(m.knownPeers, peerID)
+	close(kp.removeCh)
 	<-kp.doneCh
 	if err := m.gm.DropNeighbor(peerID, gossip.NeighborsGroupManual);
 		err != nil && !errors.Is(err, gossip.ErrUnknownNeighbor) {
@@ -251,7 +266,7 @@ func (m *Manager) removePeerByID(peerID identity.ID) error {
 	return nil
 }
 
-func (m *Manager) keepPeerConnected(kp *KnownPeer) {
+func (m *Manager) keepPeerConnected(kp *knownPeer) {
 	ctx, ctxCancel := context.WithCancel(context.Background())
 	cancelContextOnRemove := func() {
 		<-kp.removeCh
@@ -265,12 +280,16 @@ func (m *Manager) keepPeerConnected(kp *KnownPeer) {
 	peerID := kp.peer.ID()
 	connectorFn := m.getConnectorFn(kp)
 	for {
-		if kp.ConnStatus() == ConnStatusDisconnected {
+		if kp.getConnStatus() == ConnStatusDisconnected {
+			m.log.Infow(
+				"Peer is disconnected, calling gossip layer to establish connection",
+				"peer", kp.peer, "connectionDirection", kp.connDirection,
+			)
 			if err := connectorFn(ctx, kp.peer, gossip.NeighborsGroupManual);
 				err != nil && !errors.Is(err, gossip.ErrDuplicateNeighbor) && !errors.Is(err, context.Canceled) {
 				m.log.Errorw(
 					"Failed to connect a neighbor in the gossip layer",
-					"peerID", peerID, "ConnectionDirection", kp.connDirection, "err", err,
+					"peerID", peerID, "connectionDirection", kp.connDirection, "err", err,
 				)
 			}
 		}
@@ -285,7 +304,7 @@ func (m *Manager) keepPeerConnected(kp *KnownPeer) {
 
 type connectorFunc func(context.Context, *peer.Peer, gossip.NeighborsGroup) error
 
-func (m *Manager) getConnectorFn(kp *KnownPeer) connectorFunc {
+func (m *Manager) getConnectorFn(kp *knownPeer) connectorFunc {
 	var fn connectorFunc
 	if kp.connDirection == ConnDirectionOutbound {
 		fn = m.gm.AddOutbound
@@ -320,7 +339,7 @@ func (m *Manager) connectionDirection(p *peer.Peer) (ConnectionDirection, error)
 	} else if localPK > peerPK {
 		return ConnDirectionInbound, nil
 	} else {
-		return ConnectionDirection(0), errors.Newf(
+		return "", errors.Newf(
 			"manualpeering: provided neighbor public key %s is the same as the local %s: can't compare lexicographically",
 			peerPK,
 			localPK,
