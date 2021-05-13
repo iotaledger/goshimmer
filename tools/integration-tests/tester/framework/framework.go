@@ -266,7 +266,7 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers, minimumNeighb
 	privKeys := make([]ed25519.PrivateKey, peers)
 	var drngCommittee string
 
-	for i := 0; i < peers; i++ {
+	for i := 1; i < peers; i++ {
 		pubKeys[i], privKeys[i], err = ed25519.GenerateKey()
 		if err != nil {
 			return nil, err
@@ -285,32 +285,47 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers, minimumNeighb
 		DRNGThreshold: 3,
 		DRNGDistKey:   hex.EncodeToString(drng.distKey),
 		DRNGCommittee: drngCommittee,
+		Mana:          true,
+		StartSync:     true,
 	}
 
 	// create peers/GoShimmer nodes
 	for i := 0; i < peers; i++ {
-		config.Seed = privKeys[i].Seed().String()
-		if _, err = drng.CreatePeer(config, pubKeys[i]); err != nil {
-			return nil, err
+		if i != 0 {
+			config.Seed = privKeys[i].Seed().String()
 		}
-	}
-
-	// create extra sync beacon node
-	config = GoShimmerConfig{
-		ActivityPlugin: true,
-		Seed:           syncBeaconSeed,
-	}
-	bytes, err := base58.Decode(config.Seed)
-	if err != nil {
-		return nil, err
-	}
-	if _, err = drng.CreatePeer(config, ed25519.PrivateKeyFromSeed(bytes).Public()); err != nil {
-		return nil, err
+		if _, e := drng.CreatePeer(func() GoShimmerConfig {
+			if i == 0 {
+				faucetConfig := config
+				faucetConfig.Faucet = true
+				faucetConfig.Seed = syncBeaconSeed
+				return faucetConfig
+			}
+			return config
+		}(), pubKeys[i]); e != nil {
+			return nil, e
+		}
 	}
 
 	// wait until peers are fully started and connected
 	time.Sleep(1 * time.Second)
 	err = drng.network.WaitForAutopeering(minimumNeighbors)
+	if err != nil {
+		return nil, err
+	}
+
+	// get mana from faucet
+	for i := 1; i < peers; i++ {
+		peer := drng.network.peers[i]
+		addr := peer.Seed.Address(uint64(0)).Address()
+		ID := base58.Encode(peer.ID().Bytes())
+		_, err := drng.network.peers[0].SendFaucetRequest(addr.Base58(), ID, ID)
+		if err != nil {
+			return nil, fmt.Errorf("faucet request failed on peer %s: %w", peer.ID(), err)
+		}
+		time.Sleep(2 * time.Second)
+	}
+	err = drng.network.WaitForMana(drng.network.peers[1:]...)
 	if err != nil {
 		return nil, err
 	}
