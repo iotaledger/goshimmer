@@ -65,6 +65,11 @@ func configure(plugin *node.Plugin) {
 
 func configureServer() {
 	server = echo.New()
+	server.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		Skipper:      middleware.DefaultSkipper,
+		AllowOrigins: []string{"*"},
+		AllowMethods: []string{http.MethodGet, http.MethodHead, http.MethodPut, http.MethodPatch, http.MethodPost, http.MethodDelete},
+	}))
 	server.HideBanner = true
 	server.HidePort = true
 	server.Use(middleware.Recover())

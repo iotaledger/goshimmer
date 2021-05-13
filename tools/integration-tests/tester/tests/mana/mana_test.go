@@ -251,6 +251,15 @@ func TestApis(t *testing.T) {
 	assert.Equal(t, outputID, resp8.OutputID)
 	fmt.Println("pending mana: ", resp8.Mana)
 	assert.Greater(t, resp8.Mana, 0.0)
+
+	//Test /mana/allowedManaPledge
+	pledgeList, err := peers[0].GoShimmerAPI.GetAllowedManaPledgeNodeIDs()
+	require.NoError(t, err, "Error occurred while testing allowed mana pledge api")
+	assert.Equal(t, false, pledgeList.Access.IsFilterEnabled, "/mana/allowedManaPledge: FilterEnabled field for access mana is not as expected")
+	assert.Equal(t, base58.Encode(peers[0].ID().Bytes()), pledgeList.Access.Allowed[0], "/mana/allowedManaPledge: Allowed node id to pledge access mana is not as expected")
+	assert.Equal(t, false, pledgeList.Consensus.IsFilterEnabled, "/mana/allowedManaPledge: FilterEnabled field for consensus mana is not as expected")
+	assert.Equal(t, base58.Encode(peers[0].ID().Bytes()), pledgeList.Consensus.Allowed[0], "/mana/allowedManaPledge: Allowed node id to pledge consensus mana is not as expected")
+
 }
 
 func stripGenesisNodeID(input []manaPkg.NodeStr) (output []manaPkg.NodeStr) {

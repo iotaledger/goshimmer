@@ -65,7 +65,7 @@ func sendFaucetReq(addr ledgerstate.Address, accessManaNodeID, consensusManaNode
 	if err != nil {
 		return nil, err
 	}
-	msg, err := messagelayer.Tangle().MessageFactory.IssuePayload(faucetPayload, messagelayer.Tangle())
+	msg, err := messagelayer.Tangle().MessageFactory.IssuePayload(faucetPayload)
 	if err != nil {
 		return nil, errors.Errorf("Failed to send faucet request: %s: %w", err.Error(), ErrInternalError)
 	}
