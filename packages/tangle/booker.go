@@ -245,8 +245,6 @@ func (b *Booker) bookPayload(message *Message) (branchID ledgerstate.BranchID, e
 	}
 
 	for _, output := range transaction.Essence().Outputs() {
-		b.tangle.LedgerState.UTXODAG.StoreAddressOutputMapping(output.Address(), output.ID())
-		// TODO: decide where to map what address
 		switch output.Type() {
 		case ledgerstate.AliasOutputType:
 			castedOutput := output.(*ledgerstate.AliasOutput)
