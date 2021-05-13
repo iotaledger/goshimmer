@@ -40,11 +40,10 @@ const (
 
 type KnownPeer struct {
 	peer          *peer.Peer
-	wg            sync.WaitGroup
-	mutex         sync.RWMutex
 	connDirection ConnectionDirection
 	connStatus    *atomic.Value
 	removeCh      chan struct{}
+	doneCh        chan struct{}
 }
 
 func newKnownPeer(p *peer.Peer, connDirection ConnectionDirection) *KnownPeer {
@@ -53,6 +52,7 @@ func newKnownPeer(p *peer.Peer, connDirection ConnectionDirection) *KnownPeer {
 		connDirection: connDirection,
 		connStatus:    &atomic.Value{},
 		removeCh:      make(chan struct{}),
+		doneCh:        make(chan struct{}),
 	}
 	kp.setConnStatus(ConnStatusDisconnected)
 	return kp
@@ -89,8 +89,8 @@ type Manager struct {
 	startOnce         sync.Once
 	isStarted         typeutils.AtomicBool
 	stopOnce          sync.Once
-	stopCh            chan struct{}
-	workersWG         sync.WaitGroup
+	stopMutex         sync.RWMutex
+	isStopped         bool
 	reconnectInterval time.Duration
 	knownPeersMutex   sync.RWMutex
 	knownPeers        map[identity.ID]*KnownPeer
@@ -106,7 +106,6 @@ func NewManager(gm *gossip.Manager, local *peer.Local, log *logger.Logger) *Mana
 		local:             local,
 		log:               log,
 		reconnectInterval: defaultReconnectInterval,
-		stopCh:            make(chan struct{}),
 		knownPeers:        map[identity.ID]*KnownPeer{},
 	}
 	m.onGossipNeighborRemovedClosure = events.NewClosure(m.onGossipNeighborRemoved)
@@ -176,34 +175,43 @@ func (m *Manager) Start() {
 }
 
 // Stop terminates internal background workers. Calling multiple times has no effect.
-func (m *Manager) Stop() error {
+func (m *Manager) Stop() (err error) {
 	if !m.isStarted.IsSet() {
 		return errors.New("can't stop the manager: it hasn't been started yet")
 	}
 	m.stopOnce.Do(func() {
+		m.stopMutex.Lock()
+		defer m.stopMutex.Unlock()
+		m.isStopped = true
+		err = errors.WithStack(m.removeAllKnownPeers())
 		m.gm.NeighborsEvents(gossip.NeighborsGroupManual).NeighborRemoved.Detach(m.onGossipNeighborRemovedClosure)
 		m.gm.NeighborsEvents(gossip.NeighborsGroupManual).NeighborAdded.Detach(m.onGossipNeighborAddedClosure)
-		close(m.stopCh)
-		m.workersWG.Wait()
 	})
-	return nil
+	return err
 }
 
 func (m *Manager) addPeer(p *peer.Peer) error {
+	if !m.isStarted.IsSet() {
+		return errors.New("manualpeering manager hasn't been started yet")
+	}
+	m.stopMutex.RLock()
+	defer m.stopMutex.RUnlock()
+	if m.isStopped {
+		return errors.New("manualpeering manager was stopped")
+	}
 	m.knownPeersMutex.Lock()
 	defer m.knownPeersMutex.Unlock()
-	if _, exists := m.knownPeers[p.ID()]; exists {
-		return nil
-	}
 	connDirection, err := m.connectionDirection(p)
 	if err != nil {
 		return errors.WithStack(err)
 	}
 	kp := newKnownPeer(p, connDirection)
-	m.knownPeers[p.ID()] = kp
+	if _, exists := m.knownPeers[kp.peer.ID()]; exists {
+		return nil
+	}
+	m.knownPeers[kp.peer.ID()] = kp
 	go func() {
-		kp.wg.Add(1)
-		defer kp.wg.Done()
+		defer close(kp.doneCh)
 		m.keepPeerConnected(kp)
 	}()
 	return nil
@@ -213,13 +221,29 @@ func (m *Manager) removePeer(key ed25519.PublicKey) error {
 	m.knownPeersMutex.Lock()
 	defer m.knownPeersMutex.Unlock()
 	peerID := identity.NewID(key)
+	err := m.removePeerByID(peerID)
+	return errors.WithStack(err)
+}
+
+func (m *Manager) removeAllKnownPeers() error {
+	m.knownPeersMutex.Lock()
+	defer m.knownPeersMutex.Unlock()
+	var resultErr error
+	for peerID := range m.knownPeers {
+		if err := m.removePeerByID(peerID); err != nil {
+			resultErr = errors.CombineErrors(resultErr, err)
+		}
+	}
+	return resultErr
+}
+
+func (m *Manager) removePeerByID(peerID identity.ID) error {
 	kp, exists := m.knownPeers[peerID]
 	if !exists {
 		return nil
 	}
-	close(kp.removeCh)
-	kp.wg.Wait()
 	delete(m.knownPeers, peerID)
+	<-kp.doneCh
 	if err := m.gm.DropNeighbor(peerID, gossip.NeighborsGroupManual);
 		err != nil && !errors.Is(err, gossip.ErrUnknownNeighbor) {
 		return errors.Wrapf(err, "failed to drop known peer %s in the gossip layer", peerID)
@@ -228,16 +252,12 @@ func (m *Manager) removePeer(key ed25519.PublicKey) error {
 }
 
 func (m *Manager) keepPeerConnected(kp *KnownPeer) {
-	wg := sync.WaitGroup{}
 	ctx, ctxCancel := context.WithCancel(context.Background())
 	cancelContextOnRemove := func() {
-		defer wg.Done()
 		<-kp.removeCh
 		ctxCancel()
 	}
-	wg.Add(1)
 	go cancelContextOnRemove()
-	defer wg.Wait()
 
 	ticker := time.NewTicker(m.reconnectInterval)
 	defer ticker.Stop()
@@ -257,6 +277,7 @@ func (m *Manager) keepPeerConnected(kp *KnownPeer) {
 		select {
 		case <-ticker.C:
 		case <-kp.removeCh:
+			<-ctx.Done()
 			return
 		}
 	}
@@ -282,8 +303,8 @@ func (m *Manager) onGossipNeighborAdded(neighbor *gossip.Neighbor) {
 	m.changeNeighborStatus(neighbor, ConnStatusConnected)
 }
 func (m *Manager) changeNeighborStatus(neighbor *gossip.Neighbor, connStatus ConnectionStatus) {
-	m.knownPeersMutex.Lock()
-	defer m.knownPeersMutex.Unlock()
+	m.knownPeersMutex.RLock()
+	defer m.knownPeersMutex.RUnlock()
 	kp, exists := m.knownPeers[neighbor.ID()]
 	if !exists {
 		return
