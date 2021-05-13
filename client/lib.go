@@ -2,8 +2,10 @@
 package client
 
 import (
+	"bufio"
 	"bytes"
 	"context"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -28,7 +30,9 @@ var (
 )
 
 const (
+	contentType     = "Content-Type"
 	contentTypeJSON = "application/json"
+	contentTypeCSV  = "text/csv"
 )
 
 // Option is a function which sets the given option.
@@ -99,9 +103,16 @@ func interpretBody(res *http.Response, decodeTo interface{}) error {
 	defer res.Body.Close()
 
 	if res.StatusCode == http.StatusOK || res.StatusCode == http.StatusCreated {
-		return json.Unmarshal(resBody, decodeTo)
+		switch contType := res.Header.Get(contentType); contType {
+		case contentTypeJSON:
+			return json.Unmarshal(resBody, decodeTo)
+		case contentTypeCSV:
+			decodeTo = csv.NewReader(bufio.NewReader(bytes.NewReader(resBody)))
+			return nil
+		default:
+			return fmt.Errorf("Can't decode %s content-type", contType)
+		}
 	}
-
 	errRes := &errorresponse{}
 	if err := json.Unmarshal(resBody, errRes); err != nil {
 		return fmt.Errorf("unable to read error from response body: %w repsonseBody: %s", err, resBody)
