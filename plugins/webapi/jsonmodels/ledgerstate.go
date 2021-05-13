@@ -384,3 +384,27 @@ func NewTransactionConsensusMetadata(transactionID ledgerstate.TransactionID, op
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region InclusionState /////////////////////////////////////////////////////////////////////////////////
+
+// InclusionState represents the different states of an OutputID
+type InclusionState struct {
+	Solid       bool `json:"solid,omitempty"`
+	Confirmed   bool `json:"confirmed,omitempty"`
+	Rejected    bool `json:"rejected,omitempty"`
+	Liked       bool `json:"liked,omitempty"`
+	Conflicting bool `json:"conflicting,omitempty"`
+	Finalized   bool `json:"finalized,omitempty"`
+	Preferred   bool `json:"preferred,omitempty"`
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// GetTransactionByIDResponse represents the JSON model of the transaction's consensus metadata.
+type GetTransactionByIDResponse struct {
+	TransactionMetadata TransactionMetadata `json:"transactionMetadata"`
+	Transaction         Transaction         `json:"transaction"`
+	InclusionState      InclusionState      `json:"inclusion_state"`
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

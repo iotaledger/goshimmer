@@ -1,31 +1,17 @@
 package client
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels/value"
 )
 
 const (
-	routeGetTxnByID           = "value/transactionByID"
 	routeSendTxn              = "value/sendTransaction"
 	routeSendTxnByJSON        = "value/sendTransactionByJson"
 	routeUnspentOutputs       = "value/unspentOutputs"
 	routeAllowedPledgeNodeIDs = "value/allowedManaPledge"
 )
-
-// GetTransactionByID gets the transaction of a transaction ID
-func (api *GoShimmerAPI) GetTransactionByID(base58EncodedTxnID string) (*value.GetTransactionByIDResponse, error) {
-	res := &value.GetTransactionByIDResponse{}
-	if err := api.do(http.MethodGet, func() string {
-		return fmt.Sprintf("%s?txnID=%s", routeGetTxnByID, base58EncodedTxnID)
-	}(), nil, res); err != nil {
-		return nil, err
-	}
-
-	return res, nil
-}
 
 // GetUnspentOutputs return unspent output IDs of addresses
 func (api *GoShimmerAPI) GetUnspentOutputs(addresses []string) (*value.UnspentOutputsResponse, error) {

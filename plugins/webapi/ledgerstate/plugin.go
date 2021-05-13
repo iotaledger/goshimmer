@@ -212,7 +212,6 @@ func GetOutputMetadata(c echo.Context) (err error) {
 	}) {
 		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load OutputMetadata with %s", outputID)))
 	}
-
 	return
 }
 
@@ -227,13 +226,57 @@ func GetTransaction(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
+	var tx *ledgerstate.Transaction
+	var txMetadata *ledgerstate.TransactionMetadata
+	// retrieve transaction
 	if !messagelayer.Tangle().LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
-		err = c.JSON(http.StatusOK, jsonmodels.NewTransaction(transaction))
+		tx = transaction
 	}) {
 		err = c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load Transaction with %s", transactionID)))
+		return
+	}
+	// retrieve transaction metadata
+	if !messagelayer.Tangle().LedgerState.TransactionMetadata(transactionID).Consume(func(metadata *ledgerstate.TransactionMetadata) {
+		txMetadata = metadata
+	}) {
+		err = c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load TransactionMetadata with %s", transactionID)))
+		return
+	}
+	inclState, err := GetInclusionState(txMetadata)
+	if err != nil {
+		err = c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load InclusionState with transactionID %s", transactionID)))
 	}
 
-	return
+	return c.JSON(http.StatusOK, &jsonmodels.GetTransactionByIDResponse{
+		TransactionMetadata: *jsonmodels.NewTransactionMetadata(txMetadata),
+		Transaction:         *jsonmodels.NewTransaction(tx),
+		InclusionState:      *inclState,
+	})
+}
+
+// GetInclusionState returns jsonmodel with inclusion states based on transaction metadata
+func GetInclusionState(txMetadata *ledgerstate.TransactionMetadata) (*jsonmodels.InclusionState, error) {
+	// retrieve branch of the transaction
+	var txBranch ledgerstate.Branch
+	if !messagelayer.Tangle().LedgerState.BranchDAG.Branch(txMetadata.BranchID()).Consume(func(branch ledgerstate.Branch) {
+		txBranch = branch
+	}) {
+		return nil, errors.Errorf("failed to load Branch with %s", txMetadata.BranchID())
+	}
+	state, err := messagelayer.Tangle().LedgerState.TransactionInclusionState(txMetadata.ID())
+	if err != nil {
+		return nil, errors.Errorf("failed to load InclusionState with transactionID %s", txMetadata.ID())
+	}
+	inclusionState := &jsonmodels.InclusionState{
+		Solid:       txMetadata.Solid(),
+		Confirmed:   state == ledgerstate.Confirmed,
+		Rejected:    state == ledgerstate.Rejected,
+		Liked:       txBranch.Liked(),
+		Conflicting: messagelayer.Tangle().LedgerState.TransactionConflicting(txMetadata.ID()),
+		Finalized:   txMetadata.Finalized(),
+		Preferred:   false,
+	}
+	return inclusionState, nil
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -6,15 +6,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
-// TransactionMetadata holds the information of a transaction metadata.
-type TransactionMetadata struct {
-	BranchID           string `json:"branchID"`
-	Solid              bool   `json:"solid"`
-	SolidificationTime int64  `json:"solidificationTime"`
-	Finalized          bool   `json:"finalized"`
-	LazyBooked         bool   `json:"lazyBooked"`
-}
-
 // Transaction holds the information of a transaction.
 type Transaction struct {
 	Version           ledgerstate.TransactionEssenceVersion `json:"version"`
@@ -82,14 +73,6 @@ type UnlockBlock struct {
 	SignatureType   ledgerstate.SignatureType   `json:"signatureType,omitempty"`
 	PublicKey       string                      `json:"publicKey,omitempty"`
 	Signature       string                      `json:"signature,omitempty"`
-}
-
-// GetTransactionByIDResponse is the HTTP response from retrieving transaction.
-type GetTransactionByIDResponse struct {
-	TransactionMetadata TransactionMetadata `json:"transactionMetadata"`
-	Transaction         Transaction         `json:"transaction"`
-	InclusionState      InclusionState      `json:"inclusion_state"`
-	Error               string              `json:"error,omitempty"`
 }
 
 // SendTransactionByJSONRequest holds the transaction object(json) to send.
