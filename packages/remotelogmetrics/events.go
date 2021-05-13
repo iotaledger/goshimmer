@@ -51,6 +51,18 @@ type FPCConflictRecord struct {
 	Time time.Time `json:"datetime" bson:"datetime"`
 }
 
+// TransactionMetrics defines the transaction metrics record to sent be to remote logger.
+type TransactionMetrics struct {
+	Type               string    `json:"type" bson:"type"`
+	MessageID          string    `json:"messageID" bson:"messageID"`
+	TransactionID      string    `json:"transactionID" bson:"transactionID"`
+	IssuedTimestamp    time.Time `json:"issuedTimestamp" bson:"issuedTimestamp"`
+	SolidTimestamp     time.Time `json:"solidTimestamp" bson:"solidTimestamp"`
+	ScheduledTimestamp time.Time `json:"scheduledTimestamp" bson:"scheduledTimestamp"`
+	BookedTimestamp    time.Time `json:"bookedTimestamp" bson:"bookedTimestamp"`
+	ConfirmedTimestamp time.Time `json:"confirmedTimestamp" bson:"confirmedTimestamp"`
+}
+
 // DRNGMetrics defines the DRNG metrics record to sent be to remote logger.
 type DRNGMetrics struct {
 	Type              string    `json:"type" bson:"type"`
