@@ -128,7 +128,7 @@ func (t *TangleLedger) RequestFunds(target ledgerstate.Address) error {
 	if err != nil {
 		return err
 	}
-	_, err = messagelayer.Tangle().MessageFactory.IssuePayload(faucetPayload, messagelayer.Tangle())
+	_, err = messagelayer.Tangle().MessageFactory.IssuePayload(faucetPayload)
 	return err
 }
 
