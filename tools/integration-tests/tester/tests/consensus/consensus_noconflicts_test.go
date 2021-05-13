@@ -1,6 +1,7 @@
 package consensus
 
 import (
+	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 	"log"
 	"math/rand"
 	"testing"
@@ -16,7 +17,6 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels/value"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
 
@@ -81,7 +81,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 	sig := ledgerstate.NewED25519Signature(kp.PublicKey, kp.PrivateKey.Sign(tx1Essence.Bytes()))
 	unlockBlock := ledgerstate.NewSignatureUnlockBlock(sig)
 	tx1 := ledgerstate.NewTransaction(tx1Essence, ledgerstate.UnlockBlocks{unlockBlock})
-	utilsTx := value.ParseTransaction(tx1)
+	utilsTx := jsonmodels.NewTransaction(tx1)
 
 	txID, err := n.Peers()[0].SendTransaction(tx1.Bytes())
 	require.NoError(t, err)
@@ -100,7 +100,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 	time.Sleep(20 * time.Second)
 	log.Println("check that the transaction is finalized/confirmed by all peers")
 	tests.CheckTransactions(t, n.Peers(), map[string]*tests.ExpectedTransaction{
-		txID: {Inputs: &utilsTx.Inputs, Outputs: &utilsTx.Outputs, UnlockBlocks: &utilsTx.UnlockBlocks},
+		txID: {Inputs: utilsTx.Inputs, Outputs: utilsTx.Outputs, UnlockBlocks: utilsTx.UnlockBlocks},
 	}, true, tests.ExpectedInclusionState{
 		Confirmed: tests.True(), Finalized: tests.True(),
 		Conflicting: tests.False(), Solid: tests.True(),
@@ -131,11 +131,11 @@ func TestConsensusNoConflicts(t *testing.T) {
 		txID, err := n.Peers()[rand.Intn(len(n.Peers()))].SendTransaction(tx.Bytes())
 		require.NoError(t, err)
 
-		utilsTx := value.ParseTransaction(tx)
+		utilsTx := jsonmodels.NewTransaction(tx)
 
 		secondReceiverExpectedBalances[addr.Base58()] = map[ledgerstate.Color]int64{ledgerstate.ColorIOTA: deposit}
 		secondReceiverExpectedTransactions[txID] = &tests.ExpectedTransaction{
-			Inputs: &utilsTx.Inputs, Outputs: &utilsTx.Outputs, UnlockBlocks: &utilsTx.UnlockBlocks,
+			Inputs: utilsTx.Inputs, Outputs: utilsTx.Outputs, UnlockBlocks: utilsTx.UnlockBlocks,
 		}
 	}
 

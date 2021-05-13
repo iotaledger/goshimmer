@@ -1,8 +1,9 @@
 package tests
 
 import (
-	"github.com/cockroachdb/errors"
 	"fmt"
+	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 	"math/rand"
 	"os"
 	"sync"
@@ -20,7 +21,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels/value"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 )
 
@@ -458,11 +458,11 @@ func False() *bool {
 // All fields are optional.
 type ExpectedTransaction struct {
 	// The optional input IDs to check against.
-	Inputs *[]value.Input
+	Inputs []*jsonmodels.Input
 	// The optional outputs to check against.
-	Outputs *[]value.Output
+	Outputs []*jsonmodels.Output
 	// The optional unlock blocks to check against.
-	UnlockBlocks *[]value.UnlockBlock
+	UnlockBlocks []*jsonmodels.UnlockBlock
 }
 
 // CheckTransactions performs checks to make sure that all peers have received all transactions.
@@ -503,13 +503,13 @@ func CheckTransactions(t *testing.T, peers []*framework.Peer, transactionIDs map
 
 			if expectedTransaction != nil {
 				if expectedTransaction.Inputs != nil {
-					assert.Equal(t, *expectedTransaction.Inputs, resp.Transaction.Inputs, "inputs do not match - tx %s - peer '%s'", txId, peer)
+					assert.Equal(t, expectedTransaction.Inputs, resp.Transaction.Inputs, "inputs do not match - tx %s - peer '%s'", txId, peer)
 				}
 				if expectedTransaction.Outputs != nil {
-					assert.Equal(t, *expectedTransaction.Outputs, resp.Transaction.Outputs, "outputs do not match - tx %s - peer '%s'", txId, peer)
+					assert.Equal(t, expectedTransaction.Outputs, resp.Transaction.Outputs, "outputs do not match - tx %s - peer '%s'", txId, peer)
 				}
 				if expectedTransaction.UnlockBlocks != nil {
-					assert.Equal(t, *expectedTransaction.UnlockBlocks, resp.Transaction.UnlockBlocks, "signatures do not match - tx %s - peer '%s'", txId, peer)
+					assert.Equal(t, expectedTransaction.UnlockBlocks, resp.Transaction.UnlockBlocks, "signatures do not match - tx %s - peer '%s'", txId, peer)
 				}
 			}
 		}

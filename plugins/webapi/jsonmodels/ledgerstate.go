@@ -399,12 +399,3 @@ type InclusionState struct {
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// GetTransactionByIDResponse represents the JSON model of the transaction's consensus metadata.
-type GetTransactionByIDResponse struct {
-	TransactionMetadata TransactionMetadata `json:"transactionMetadata"`
-	Transaction         Transaction         `json:"transaction"`
-	InclusionState      InclusionState      `json:"inclusion_state"`
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

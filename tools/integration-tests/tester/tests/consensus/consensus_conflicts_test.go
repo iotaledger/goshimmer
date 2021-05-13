@@ -2,6 +2,7 @@ package consensus
 
 import (
 	"fmt"
+	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 	"log"
 	"testing"
 	"time"
@@ -14,7 +15,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels/value"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
@@ -147,11 +147,11 @@ func TestConsensus(t *testing.T) {
 
 	expectations := map[string]*tests.ExpectedTransaction{}
 	for _, conflictingTx := range conflictingTxs {
-		utilsTx := value.ParseTransaction(conflictingTx)
+		utilsTx := jsonmodels.NewTransaction(conflictingTx)
 		expectations[conflictingTx.ID().Base58()] = &tests.ExpectedTransaction{
-			Inputs:       &utilsTx.Inputs,
-			Outputs:      &utilsTx.Outputs,
-			UnlockBlocks: &utilsTx.UnlockBlocks,
+			Inputs:       utilsTx.Inputs,
+			Outputs:      utilsTx.Outputs,
+			UnlockBlocks: utilsTx.UnlockBlocks,
 		}
 	}
 
