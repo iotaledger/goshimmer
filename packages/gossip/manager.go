@@ -145,13 +145,15 @@ func (m *Manager) stop() {
 }
 
 // AddOutbound tries to add a neighbor by connecting to that peer.
-func (m *Manager) AddOutbound(ctx context.Context, p *peer.Peer, group NeighborsGroup) error {
-	return m.addNeighbor(ctx, p, group, m.srv.DialPeer)
+func (m *Manager) AddOutbound(ctx context.Context, p *peer.Peer, group NeighborsGroup,
+	connectOpts ...server.ConnectPeerOption) error {
+	return m.addNeighbor(ctx, p, group, m.srv.DialPeer, connectOpts)
 }
 
 // AddInbound tries to add a neighbor by accepting an incoming connection from that peer.
-func (m *Manager) AddInbound(ctx context.Context, p *peer.Peer, group NeighborsGroup) error {
-	return m.addNeighbor(ctx, p, group, m.srv.AcceptPeer)
+func (m *Manager) AddInbound(ctx context.Context, p *peer.Peer, group NeighborsGroup,
+	connectOpts ...server.ConnectPeerOption) error {
+	return m.addNeighbor(ctx, p, group, m.srv.AcceptPeer, connectOpts)
 }
 
 // DropNeighbor disconnects the neighbor with the given ID.
@@ -224,7 +226,9 @@ func (m *Manager) send(b []byte, to ...identity.ID) {
 	}
 }
 
-func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group NeighborsGroup, connectorFunc func(context.Context, *peer.Peer) (net.Conn, error),
+func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group NeighborsGroup,
+	connectorFunc func(context.Context, *peer.Peer, ...server.ConnectPeerOption) (net.Conn, error),
+	connectOpts []server.ConnectPeerOption,
 ) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -236,7 +240,7 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 		return ErrNotRunning
 	}
 
-	conn, err := connectorFunc(ctx, p)
+	conn, err := connectorFunc(ctx, p, connectOpts...)
 	if err != nil {
 		m.neighborsEvents[group].ConnectionFailed.Trigger(p, err)
 		return err
