@@ -746,7 +746,7 @@ for nodeID, e := range res.Logs {
 | `inputID`   | string | The input ID of revoked mana.     |
 
 
-## `/value/allowedManaPledge`
+## `/mana/allowedManaPledge`
 
 This returns the list of allowed mana pledge node IDs.
 
@@ -758,7 +758,7 @@ None.
 #### cURL
 
 ```shell
-curl http://localhost:8080/value/allowedManaPledge \
+curl http://localhost:8080/mana/allowedManaPledge \
 -X GET \
 -H 'Content-Type: application/json'
 ```
@@ -810,7 +810,7 @@ for _, id := range res.Consensus.Allowed {
 |field | Type | Description|
 |:-----|:------|:------|
 | `isFilterEnabled`  | bool | A flag shows that if mana pledge filter is enabled.   |
-| `allowed`   | []string | A list of node ID that allow to be pledged mana.     |
+| `allowed`   | []string | A list of node ID that allow to be pledged mana. This list has effect only if `isFilterEnabled` is `true`|
 
 
 
