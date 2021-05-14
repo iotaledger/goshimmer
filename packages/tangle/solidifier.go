@@ -247,124 +247,51 @@ func (s SolidificationType) String() (humanReadableSolidificationType string) {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region MessageSource ////////////////////////////////////////////////////////////////////////////////////////////////
+// region S0lidifier ////////////////////////////////////////////////////////////////////////////////////////////////
 
-// MessageSource is a type that represents different sources for Messages in a nodes database.
-type MessageSource uint8
+type S0lidifier struct {
+	// Events contains the Solidifier related events.
+	Events *SolidifierEvents
 
-const (
-	// UndefinedMessageSource represents the zero value of a MessageSource.
-	UndefinedMessageSource MessageSource = iota
+	triggerMutex syncutils.MultiMutex
+	tangle       *Tangle
+}
 
-	// WeakSolidificationSource represents Messages that were requested as a missing weak parent.
-	WeakSolidificationSource
+// NewS0lidifier is the constructor of the S0lidifier.
+func NewS0lidifier(tangle *Tangle) (solidifier *S0lidifier) {
+	solidifier = &S0lidifier{
+		Events: &SolidifierEvents{
+			MessageWeaklySolid: events.NewEvent(MessageIDCaller),
+			MessageSolid:       events.NewEvent(MessageIDCaller),
+			MessageMissing:     events.NewEvent(MessageIDCaller),
+		},
 
-	// StrongSolidificationSource represents Messages that were requested as a missing strong parent.
-	StrongSolidificationSource
-
-	// GossipSource represents Messages that were received via Gossip without previously requesting them.
-	GossipSource
-)
-
-// MessageSourceFromBytes unmarshals a MessageSource from a sequence of bytes.
-func MessageSourceFromBytes(messageSourceBytes []byte) (messageSource MessageSource, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(messageSourceBytes)
-	if messageSource, err = MessageSourceFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse MessageSource from MarshalUtil: %w", err)
-		return
+		tangle: tangle,
 	}
-	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
-// MessageSourceFromMarshalUtil unmarshals a MessageSource using a MarshalUtil (for easier unmarshaling).
-func MessageSourceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (messageSource MessageSource, err error) {
-	untypedMessageSource, err := marshalUtil.ReadUint8()
-	if err != nil {
-		err = errors.Errorf("failed to parse MessageSource (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	return MessageSource(untypedMessageSource), nil
-}
-
-// SolidificationType returns the SolidificationType that is used for Messages of the given MessageSource.
-func (m MessageSource) SolidificationType() SolidificationType {
-	switch m {
-	case UndefinedMessageSource:
-		return UndefinedSolidificationType
-	case WeakSolidificationSource:
-		return WeakSolidification
-	default:
-		return StrongSolidification
-	}
-}
-
-// Bytes returns a marshaled version of the MessageSource.
-func (m MessageSource) Bytes() (marshaledMessageSource []byte) {
-	return []byte{uint8(m)}
-}
-
-// String returns a human readable version of the MessageSource.
-func (m MessageSource) String() (humanReadableMessageSource string) {
-	switch m {
-	case UndefinedMessageSource:
-		return "MessageSource(UndefinedMessageSource)"
-	case WeakSolidificationSource:
-		return "MessageSource(WeakSolidificationSource)"
-	case StrongSolidificationSource:
-		return "MessageSource(StrongSolidificationSource)"
-	case GossipSource:
-		return "MessageSource(GossipSource)"
-	default:
-		return "MessageSource(" + strconv.Itoa(int(m)) + ")"
-	}
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region S0lidifier ////////////////////////////////////////////////////////////////////////////////////////////////
-
-type S0lidifier struct {
-	Events *SolidifierEvents
-	tangle *Tangle
+// Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
+func (s *S0lidifier) Setup() {
+	s.tangle.Storage.Events.MessageStored.Attach(events.NewClosure(s.Solidify))
 }
 
 func (s *S0lidifier) OnTransactionSolid(transactionID ledgerstate.TransactionID) {
 	s.propagateSolidity(s.tangle.Storage.AttachmentMessageIDs(transactionID)...)
 }
 
-func (s *S0lidifier) propagateSolidity(messageIDs ...MessageID) {
-	s.tangle.Utils.WalkMessageAndMetadata(func(message *Message, messageMetadata *MessageMetadata, walker *walker.Walker) {
-		if !s.isMessageWeaklySolid(message, messageMetadata, false) {
+func (s *S0lidifier) Solidify(messageID MessageID) {
+	s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		solidificationType := messageMetadata.Source().SolidificationType()
+		if solidificationType == UndefinedSolidificationType {
 			return
 		}
 
-		var eventToTrigger *events.Event
-		var approvingMessageIDs MessageIDs
-		if s.isMessageSolid(message, messageMetadata, false) {
-			if !messageMetadata.SetSolid(true) {
-				return
-			}
-
-			eventToTrigger = s.Events.MessageSolid
-			approvingMessageIDs = s.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID())
-		} else {
-			if !messageMetadata.SetWeaklySolid(true) {
-				return
-			}
-
-			eventToTrigger = s.Events.MessageWeaklySolid
-			approvingMessageIDs = s.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID(), WeakApprover)
-		}
-
-		eventToTrigger.Trigger(messageMetadata.ID())
-
-		for _, messageID := range approvingMessageIDs {
-			walker.Push(messageID)
-		}
-	}, messageIDs, true)
+		s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+			s.solidify(message, messageMetadata, solidificationType)
+		})
+	})
 }
 
 func (s *S0lidifier) solidify(message *Message, messageMetadata *MessageMetadata, solidificationType SolidificationType) {
@@ -394,48 +321,6 @@ func (s *S0lidifier) solidify(message *Message, messageMetadata *MessageMetadata
 			s.triggerWeaklySolidUpdate(messageMetadata)
 		}
 	}
-}
-
-func (s *S0lidifier) Solidify(messageID MessageID) {
-	s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-		solidificationType := messageMetadata.messageSource.SolidificationType()
-		if solidificationType == UndefinedSolidificationType {
-			return
-		}
-
-		s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-			s.solidify(message, messageMetadata, solidificationType)
-		})
-	})
-}
-
-func (s *S0lidifier) isPayloadSolid(message *Message) (solid bool) {
-	transaction, typeCastOkay := message.Payload().(*ledgerstate.Transaction)
-	if !typeCastOkay {
-		return true
-	}
-
-	isNew := false
-	s.tangle.Storage.Attachment(transaction.ID(), message.ID(), func(transactionID ledgerstate.TransactionID, messageID MessageID) *Attachment {
-		isNew = true
-
-		attachment := NewAttachment(transactionID, messageID)
-		attachment.SetModified()
-		attachment.Persist()
-
-		solid = s.tangle.LedgerState.UTXODAG.ProcessTransaction(transaction)
-
-		return attachment
-	})
-	if isNew {
-		return solid
-	}
-
-	s.tangle.LedgerState.UTXODAG.TransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-		solid = transactionMetadata.Solid()
-	})
-
-	return solid
 }
 
 func (s *S0lidifier) isMessageWeaklySolid(message *Message, messageMetadata *MessageMetadata, requestMissingMessages bool) (weaklySolid bool) {
@@ -545,6 +430,67 @@ func (s *S0lidifier) isMessageMarkedAsWeaklySolid(messageID MessageID, requestMi
 	})
 
 	return
+}
+
+func (s *S0lidifier) isPayloadSolid(message *Message) (solid bool) {
+	transaction, typeCastOkay := message.Payload().(*ledgerstate.Transaction)
+	if !typeCastOkay {
+		return true
+	}
+
+	isNew := false
+	s.tangle.Storage.Attachment(transaction.ID(), message.ID(), func(transactionID ledgerstate.TransactionID, messageID MessageID) *Attachment {
+		isNew = true
+
+		attachment := NewAttachment(transactionID, messageID)
+		attachment.SetModified()
+		attachment.Persist()
+
+		solid = s.tangle.LedgerState.UTXODAG.ProcessTransaction(transaction)
+
+		return attachment
+	})
+	if isNew {
+		return solid
+	}
+
+	s.tangle.LedgerState.UTXODAG.TransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+		solid = transactionMetadata.Solid()
+	})
+
+	return solid
+}
+
+func (s *S0lidifier) propagateSolidity(messageIDs ...MessageID) {
+	s.tangle.Utils.WalkMessageAndMetadata(func(message *Message, messageMetadata *MessageMetadata, walker *walker.Walker) {
+		if !s.isMessageWeaklySolid(message, messageMetadata, false) {
+			return
+		}
+
+		var eventToTrigger *events.Event
+		var approvingMessageIDs MessageIDs
+		if s.isMessageSolid(message, messageMetadata, false) {
+			if !messageMetadata.SetSolid(true) {
+				return
+			}
+
+			eventToTrigger = s.Events.MessageSolid
+			approvingMessageIDs = s.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID())
+		} else {
+			if !messageMetadata.SetWeaklySolid(true) {
+				return
+			}
+
+			eventToTrigger = s.Events.MessageWeaklySolid
+			approvingMessageIDs = s.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID(), WeakApprover)
+		}
+
+		eventToTrigger.Trigger(messageMetadata.ID())
+
+		for _, messageID := range approvingMessageIDs {
+			walker.Push(messageID)
+		}
+	}, messageIDs, true)
 }
 
 func (s *S0lidifier) triggerWeaklySolidUpdate(messageMetadata *MessageMetadata) {
