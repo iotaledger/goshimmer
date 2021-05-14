@@ -10,7 +10,6 @@ const (
 	routeSendTxn              = "value/sendTransaction"
 	routeSendTxnByJSON        = "value/sendTransactionByJson"
 	routeUnspentOutputs       = "value/unspentOutputs"
-	routeAllowedPledgeNodeIDs = "value/allowedManaPledge"
 )
 
 // GetUnspentOutputs return unspent output IDs of addresses
@@ -51,14 +50,4 @@ func (api *GoShimmerAPI) SendTransactionByJSON(txn value.SendTransactionByJSONRe
 	}
 
 	return res.TransactionID, nil
-}
-
-// GetAllowedManaPledgeNodeIDs returns the list of allowed mana pledge IDs.
-func (api *GoShimmerAPI) GetAllowedManaPledgeNodeIDs() (*value.AllowedManaPledgeResponse, error) {
-	res := &value.AllowedManaPledgeResponse{}
-	if err := api.do(http.MethodGet, routeAllowedPledgeNodeIDs, nil, res); err != nil {
-		return nil, err
-	}
-
-	return res, nil
 }

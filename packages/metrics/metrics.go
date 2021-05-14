@@ -19,7 +19,6 @@ func newEvents() *CollectionEvents {
 		CPUUsage:              events.NewEvent(float64Caller),
 		MemUsage:              events.NewEvent(uint64Caller),
 		TangleTimeSynced:      events.NewEvent(boolCaller),
-		SyncBeaconSynced:      events.NewEvent(boolCaller),
 		ValueTips:             events.NewEvent(uint64Caller),
 		MessageTips:           events.NewEvent(uint64Caller),
 		QueryReceived:         events.NewEvent(queryReceivedEventCaller),

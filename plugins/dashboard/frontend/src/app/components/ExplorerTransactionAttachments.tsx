@@ -1,5 +1,4 @@
 import * as React from 'react';
-import Container from "react-bootstrap/Container";
 import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import NodeStore from "app/stores/NodeStore";
@@ -26,7 +25,7 @@ export class ExplorerTransactionAttachments extends React.Component<Props, any> 
     render() {
         let { txAttachments } = this.props.explorerStore;
         return (
-            <Container>
+            <div style={{marginTop: "20px", marginBottom: "20px"}}>
                 <h4>Attachments</h4>
                 {txAttachments && txAttachments.messageIDs && <Row className={"mb-3"}>
                    <Col>
@@ -37,7 +36,7 @@ export class ExplorerTransactionAttachments extends React.Component<Props, any> 
                        </ListGroup>
                    </Col>
                 </Row>}
-            </Container>
+            </div>
         )
     }
 }

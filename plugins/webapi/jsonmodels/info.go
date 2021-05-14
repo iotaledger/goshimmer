@@ -8,10 +8,8 @@ type InfoResponse struct {
 	Version string `json:"version,omitempty"`
 	// Network Version of the autopeering
 	NetworkVersion uint32 `json:"networkVersion,omitempty"`
-	// whether the node is synchronized
-	Synced bool `json:"synced"`
-	// sync beacons status
-	Beacons []Beacon `json:"beacons"`
+	// TangleTime sync status
+	TangleTime TangleTime `json:"tangleTime,omitempty"`
 	// identity ID of the node encoded in base58
 	IdentityID string `json:"identityID,omitempty"`
 	// identity ID of the node encoded in base58 and truncated to its first 8 bytes
@@ -36,11 +34,10 @@ type InfoResponse struct {
 	Error string `json:"error,omitempty"`
 }
 
-// Beacon contains a sync beacons detailed status.
-type Beacon struct {
-	PublicKey string `json:"public_key"`
-	MsgID     string `json:"msg_id"`
-	SentTime  int64  `json:"sent_time"`
+// TangleTime contains the TangleTime sync detailed status.
+type TangleTime struct {
+	MessageID string `json:"messageID"`
+	Time      int64  `json:"time"`
 	Synced    bool   `json:"synced"`
 }
 

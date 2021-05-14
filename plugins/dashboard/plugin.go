@@ -11,7 +11,6 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
@@ -66,6 +65,11 @@ func configure(plugin *node.Plugin) {
 
 func configureServer() {
 	server = echo.New()
+	server.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		Skipper:      middleware.DefaultSkipper,
+		AllowOrigins: []string{"*"},
+		AllowMethods: []string{http.MethodGet, http.MethodHead, http.MethodPut, http.MethodPatch, http.MethodPost, http.MethodDelete},
+	}))
 	server.HideBanner = true
 	server.HidePort = true
 	server.Use(middleware.Recover())
@@ -195,26 +199,17 @@ type msg struct {
 }
 
 type nodestatus struct {
-	ID         string            `json:"id"`
-	Version    string            `json:"version"`
-	Uptime     int64             `json:"uptime"`
-	Synced     bool              `json:"synced"`
-	Beacons    map[string]Beacon `json:"beacons"`
-	Mem        *memmetrics       `json:"mem"`
-	TangleTime tangleTime        `json:"tangleTime"`
+	ID         string      `json:"id"`
+	Version    string      `json:"version"`
+	Uptime     int64       `json:"uptime"`
+	Mem        *memmetrics `json:"mem"`
+	TangleTime tangleTime  `json:"tangleTime"`
 }
 
 type tangleTime struct {
 	Synced    bool   `json:"synced"`
 	Time      int64  `json:"time"`
 	MessageID string `json:"messageID"`
-}
-
-// Beacon contains a sync beacons detailed status.
-type Beacon struct {
-	MsgID    string `json:"msg_id"`
-	SentTime int64  `json:"sent_time"`
-	Synced   bool   `json:"synced"`
 }
 
 type memmetrics struct {
@@ -277,25 +272,12 @@ func neighborMetrics() []neighbormetric {
 func currentNodeStatus() *nodestatus {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
-	status := &nodestatus{
-		Beacons: make(map[string]Beacon),
-	}
+	status := &nodestatus{}
 	status.ID = local.GetInstance().ID().String()
 
 	// node status
 	status.Version = banner.AppVersion
 	status.Uptime = time.Since(nodeStartAt).Milliseconds()
-
-	var beacons map[ed25519.PublicKey]messagelayer.Status
-	status.Synced, beacons = messagelayer.SyncStatus()
-
-	for publicKey, s := range beacons {
-		status.Beacons[publicKey.String()] = Beacon{
-			MsgID:    s.MsgID.Base58(),
-			SentTime: s.SentTime,
-			Synced:   s.Synced,
-		}
-	}
 
 	// memory metrics
 	status.Mem = &memmetrics{

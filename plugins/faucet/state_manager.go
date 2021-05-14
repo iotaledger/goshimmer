@@ -358,7 +358,7 @@ func (s *StateManager) prepareMoreFundingOutputs() (err error) {
 	ticker := time.NewTicker(WaitForConfirmation)
 	defer ticker.Stop()
 	timeoutCounter := 0
-	maxWaitAttempts := 10 // 100 s max timeout (if fpc voting is in place)
+	maxWaitAttempts := 24 // 240 s max timeout (if fpc voting is in place)
 
 	for {
 		select {

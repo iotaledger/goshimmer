@@ -14,6 +14,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/remotelogmetrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/drng"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
 )
 
@@ -36,14 +38,10 @@ func Plugin() *node.Plugin {
 }
 
 func configure(_ *node.Plugin) {
-	remotelogmetrics.Events().SyncBeaconSyncChanged.Attach(events.NewClosure(func(syncUpdate remotelogmetrics.SyncStatusChangedEvent) {
-		isSyncBeaconSynced.Store(syncUpdate.CurrentStatus)
-	}))
-	remotelogmetrics.Events().TangleTimeSyncChanged.Attach(events.NewClosure(func(syncUpdate remotelogmetrics.SyncStatusChangedEvent) {
-		isTangleTimeSynced.Store(syncUpdate.CurrentStatus)
-	}))
-	remotelogmetrics.Events().TangleTimeSyncChanged.Attach(events.NewClosure(sendSyncStatusChangedEvent))
-	remotelogmetrics.Events().SyncBeaconSyncChanged.Attach(events.NewClosure(sendSyncStatusChangedEvent))
+	configureSyncMetrics()
+	configureFPCConflictsMetrics()
+	configureDRNGMetrics()
+	configureTransactionMetrics()
 }
 
 func run(_ *node.Plugin) {
@@ -62,9 +60,30 @@ func run(_ *node.Plugin) {
 	}
 }
 
+func configureSyncMetrics() {
+	remotelogmetrics.Events().TangleTimeSyncChanged.Attach(events.NewClosure(func(syncUpdate remotelogmetrics.SyncStatusChangedEvent) {
+		isTangleTimeSynced.Store(syncUpdate.CurrentStatus)
+	}))
+	remotelogmetrics.Events().TangleTimeSyncChanged.Attach(events.NewClosure(sendSyncStatusChangedEvent))
+}
+
 func sendSyncStatusChangedEvent(syncUpdate remotelogmetrics.SyncStatusChangedEvent) {
 	err := remotelog.RemoteLogger().Send(syncUpdate)
 	if err != nil {
 		plugin.Logger().Errorw("Failed to send sync status changed record on sync change event.", "err", err)
 	}
+}
+
+func configureFPCConflictsMetrics() {
+	metricsLogger := newFPCMetricsLogger()
+	messagelayer.Voter().Events().Finalized.Attach(events.NewClosure(metricsLogger.onVoteFinalized))
+	messagelayer.Voter().Events().RoundExecuted.Attach(events.NewClosure(metricsLogger.onVoteRoundExecuted))
+}
+
+func configureDRNGMetrics() {
+	drng.Instance().Events.Randomness.Attach(events.NewClosure(onRandomnessReceived))
+}
+
+func configureTransactionMetrics() {
+	messagelayer.Tangle().LedgerState.UTXODAG.Events.TransactionConfirmed.Attach(events.NewClosure(onTransactionConfirmed))
 }

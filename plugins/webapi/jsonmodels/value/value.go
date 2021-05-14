@@ -128,16 +128,3 @@ type SendTransactionResponse struct {
 	TransactionID string `json:"transaction_id,omitempty"`
 	Error         string `json:"error,omitempty"`
 }
-
-// AllowedManaPledgeResponse is the http response.
-type AllowedManaPledgeResponse struct {
-	Access    AllowedPledge `json:"accessMana"`
-	Consensus AllowedPledge `json:"consensusMana"`
-	Error     string        `json:"error,omitempty"`
-}
-
-// AllowedPledge represents the nodes that mana is allowed to be pledged to.
-type AllowedPledge struct {
-	IsFilterEnabled bool     `json:"isFilterEnabled"`
-	Allowed         []string `json:"allowed,omitempty"`
-}

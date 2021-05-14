@@ -1,6 +1,8 @@
 package wallet
 
 import (
+	"github.com/cockroachdb/errors"
+
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -28,7 +30,7 @@ func (webConnector *WebConnector) ServerStatus() (status ServerStatus, err error
 	}
 
 	status.ID = response.IdentityID
-	status.Synced = response.Synced
+	status.Synced = response.TangleTime.Synced
 	status.Version = response.Version
 	status.ManaDecay = response.ManaDecay
 
@@ -43,7 +45,7 @@ func (webConnector *WebConnector) RequestFaucetFunds(addr address.Address) (err 
 }
 
 // UnspentOutputs returns the outputs of transactions on the given addresses that have not been spent yet.
-func (webConnector WebConnector) UnspentOutputs(addresses ...address.Address) (unspentOutputs map[address.Address]map[ledgerstate.OutputID]*Output, err error) {
+func (webConnector WebConnector) UnspentOutputs(addresses ...address.Address) (unspentOutputs OutputsByAddressAndOutputID, err error) {
 	// build reverse lookup table + arguments for client call
 	addressReverseLookupTable := make(map[string]address.Address)
 	base58EncodedAddresses := make([]string, len(addresses))
@@ -53,7 +55,7 @@ func (webConnector WebConnector) UnspentOutputs(addresses ...address.Address) (u
 	}
 
 	// request unspent outputs
-	response, err := webConnector.client.GetUnspentOutputs(base58EncodedAddresses)
+	response, err := webConnector.client.PostAddressUnspentOutputs(base58EncodedAddresses)
 	if err != nil {
 		return
 	}
@@ -62,34 +64,21 @@ func (webConnector WebConnector) UnspentOutputs(addresses ...address.Address) (u
 	unspentOutputs = make(map[address.Address]map[ledgerstate.OutputID]*Output)
 	for _, unspentOutput := range response.UnspentOutputs {
 		// lookup wallet address from raw address
-		addr, addressRequested := addressReverseLookupTable[unspentOutput.Address]
+		addr, addressRequested := addressReverseLookupTable[unspentOutput.Address.Base58]
 		if !addressRequested {
 			panic("the server returned an unrequested address")
 		}
 
 		// iterate through outputs
-		for _, output := range unspentOutput.OutputIDs {
-			// parse output id
-			outputID, parseErr := ledgerstate.OutputIDFromBase58(output.ID)
-			if parseErr != nil {
-				err = parseErr
-
-				return
+		for _, output := range unspentOutput.Outputs {
+			lOutput, err := output.Output.ToLedgerstateOutput()
+			if err != nil {
+				return nil, err
 			}
-
-			// build balances map
-			balancesByColor := make(map[ledgerstate.Color]uint64)
-			for _, bal := range output.Balances {
-				color := colorFromString(bal.Color)
-				balancesByColor[color] += uint64(bal.Value)
-			}
-			balances := ledgerstate.NewColoredBalances(balancesByColor)
-
 			// build output
 			walletOutput := &Output{
-				Address:  addr,
-				OutputID: outputID,
-				Balances: balances,
+				Address: addr,
+				Object:  lOutput,
 				InclusionState: InclusionState{
 					Liked:       output.InclusionState.Liked,
 					Confirmed:   output.InclusionState.Confirmed,
@@ -106,7 +95,7 @@ func (webConnector WebConnector) UnspentOutputs(addresses ...address.Address) (u
 			if _, addressExists := unspentOutputs[addr]; !addressExists {
 				unspentOutputs[addr] = make(map[ledgerstate.OutputID]*Output)
 			}
-			unspentOutputs[addr][walletOutput.OutputID] = walletOutput
+			unspentOutputs[addr][walletOutput.Object.ID()] = walletOutput
 		}
 	}
 
@@ -117,6 +106,29 @@ func (webConnector WebConnector) UnspentOutputs(addresses ...address.Address) (u
 func (webConnector WebConnector) SendTransaction(tx *ledgerstate.Transaction) (err error) {
 	_, err = webConnector.client.SendTransaction(tx.Bytes())
 
+	return
+}
+
+// GetTransactionInclusionState fetches the inlcusion state of the transaction.
+func (webConnector WebConnector) GetTransactionInclusionState(txID ledgerstate.TransactionID) (inc ledgerstate.InclusionState, err error) {
+	inclusionState, err := webConnector.client.GetTransactionInclusionState(txID.Base58())
+	if err != nil {
+		return
+	}
+	if inclusionState != nil {
+		if inclusionState.Pending && !inclusionState.Confirmed && !inclusionState.Rejected {
+			inc = ledgerstate.Pending
+			return
+		}
+		if !inclusionState.Pending && inclusionState.Confirmed && !inclusionState.Rejected {
+			inc = ledgerstate.Confirmed
+			return
+		}
+		if !inclusionState.Pending && !inclusionState.Confirmed && inclusionState.Rejected {
+			inc = ledgerstate.Rejected
+			return
+		}
+	}
 	return
 }
 
@@ -132,6 +144,35 @@ func (webConnector WebConnector) GetAllowedPledgeIDs() (pledgeIDMap map[mana.Typ
 	}
 
 	return
+}
+
+// GetUnspentAliasOutput returns the current unspent alias output that belongs to a given alias address.
+func (webConnector WebConnector) GetUnspentAliasOutput(addr *ledgerstate.AliasAddress) (output *ledgerstate.AliasOutput, err error) {
+	res, err := webConnector.client.GetAddressUnspentOutputs(addr.Base58())
+	if err != nil {
+		return
+	}
+	for _, o := range res.Outputs {
+		if o.Type != ledgerstate.AliasOutputType.String() {
+			continue
+		}
+		var uncastedOutput ledgerstate.Output
+		uncastedOutput, err = o.ToLedgerstateOutput()
+		if err != nil {
+			return
+		}
+		alias, ok := uncastedOutput.(*ledgerstate.AliasOutput)
+		if !ok {
+			err = errors.Errorf("alias output received from api cannot be casted to ledgerstate representation")
+			return
+		}
+		if alias.GetAliasAddress().Equals(addr) {
+			// we found what we were looking for
+			output = alias
+			return
+		}
+	}
+	return nil, errors.Errorf("couldn't find unspent alias output for alias addr %s", addr.Base58())
 }
 
 // colorFromString is an internal utility method that parses the given string into a Color.
