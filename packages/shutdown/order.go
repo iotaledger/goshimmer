@@ -19,12 +19,12 @@ const (
 	PriorityPrometheus
 	// PriorityMetrics defines the shutdown priority for metrics server.
 	PriorityMetrics
+	// PriorityGossip defines the shutdown priority for gossip.
+	PriorityGossip
 	// PriorityAutopeering defines the shutdown priority for autopeering.
 	PriorityAutopeering
 	// PriorityManualpeering defines the shutdown priority for manualpeering.
 	PriorityManualpeering
-	// PriorityGossip defines the shutdown priority for gossip.
-	PriorityGossip
 	// PriorityWebAPI defines the shutdown priority for webapi.
 	PriorityWebAPI
 	// PriorityDashboard defines the shutdown priority for dashboard.
