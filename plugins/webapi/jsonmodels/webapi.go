@@ -175,6 +175,21 @@ func NewPostPayloadResponse(message *tangle.Message) *PostPayloadResponse {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// region PostTransaction Req/Resp /////////////////////////////////////////////////////////////////////////////////////
+
+// SendTransactionRequest holds the transaction object(bytes) to send.
+type PostTransactionRequest struct {
+	TransactionBytes []byte `json:"txn_bytes"`
+}
+
+// SendTransactionResponse is the HTTP response from sending transaction.
+type PostTransactionResponse struct {
+	TransactionID string `json:"transaction_id,omitempty"`
+	Error         string `json:"error,omitempty"`
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // region ErrorResponse ////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ErrorResponse represents the JSON model of an error response from an API endpoint.
