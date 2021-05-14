@@ -8,7 +8,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 
-	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58/base58"
 	"github.com/stretchr/testify/require"
@@ -20,10 +19,11 @@ import (
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
 
+
 // TestConsensusNoConflicts issues valid non-conflicting value objects and then checks
 // whether the ledger of every peer reflects the same correct state.
 func TestConsensusNoConflicts(t *testing.T) {
-	n, err := f.CreateNetwork("consensus_TestConsensusNoConflicts", 4, 2, framework.CreateNetworkConfig{Mana: true})
+	n, err := f.CreateNetworkWithMana("consensus_TestConsensusNoConflicts", 4, 2, framework.CreateNetworkConfig{Mana: true, Faucet: true, StartSync: true})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -33,31 +33,20 @@ func TestConsensusNoConflicts(t *testing.T) {
 	genesisSeedBytes, err := base58.Decode("7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih")
 	require.NoError(t, err, "couldn't decode genesis seed from base58 seed")
 
-	snapshot := tests.GetSnapshot()
 
-	faucetPledge := "EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP"
-	pubKey, err := ed25519.PublicKeyFromString(faucetPledge)
-	if err != nil {
-		panic(err)
-	}
-	nodeID := identity.NewID(pubKey)
 
-	genesisTransactionID := ledgerstate.GenesisTransactionID
-	for ID, tx := range snapshot.Transactions {
-		if tx.AccessPledgeID() == nodeID {
-			genesisTransactionID = ID
-		}
-	}
-
-	const genesisBalance = 1000000000000000
 	genesisSeed := seed.NewSeed(genesisSeedBytes)
 	genesisAddr := genesisSeed.Address(0).Address()
-	genesisOutputID := ledgerstate.NewOutputID(genesisTransactionID, 0)
+	unspentOutputs, err := n.Peers()[0].GetUnspentOutputs([]string{genesisAddr.Base58()})
+	require.NoErrorf(t, err, "could not get unspent outputs on %s", n.Peers()[0].String())
+	genesisBalance := unspentOutputs.UnspentOutputs[0].OutputIDs[0].Balances[0].Value
+
+	genesisOutputID, _ := ledgerstate.OutputIDFromBase58(unspentOutputs.UnspentOutputs[0].OutputIDs[0].ID)
 	input := ledgerstate.NewUTXOInput(genesisOutputID)
 
 	firstReceiver := seed.NewSeed()
 	const depositCount = 10
-	const deposit = genesisBalance / depositCount
+	deposit := uint64(genesisBalance / depositCount)
 	firstReceiverAddresses := make([]string, depositCount)
 	firstReceiverDepositAddrs := make([]ledgerstate.Address, depositCount)
 	firstReceiverDepositOutputs := make(map[ledgerstate.Address]*ledgerstate.ColoredBalances)
@@ -67,7 +56,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 		firstReceiverDepositAddrs[i] = addr
 		firstReceiverAddresses[i] = addr.Base58()
 		firstReceiverDepositOutputs[addr] = ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: deposit})
-		firstReceiverExpectedBalances[addr.Base58()] = map[ledgerstate.Color]int64{ledgerstate.ColorIOTA: deposit}
+		firstReceiverExpectedBalances[addr.Base58()] = map[ledgerstate.Color]int64{ledgerstate.ColorIOTA: int64(deposit)}
 	}
 
 	// issue transaction spending from the genesis output
@@ -133,7 +122,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 
 		utilsTx := value.ParseTransaction(tx)
 
-		secondReceiverExpectedBalances[addr.Base58()] = map[ledgerstate.Color]int64{ledgerstate.ColorIOTA: deposit}
+		secondReceiverExpectedBalances[addr.Base58()] = map[ledgerstate.Color]int64{ledgerstate.ColorIOTA: int64(deposit)}
 		secondReceiverExpectedTransactions[txID] = &tests.ExpectedTransaction{
 			Inputs: &utilsTx.Inputs, Outputs: &utilsTx.Outputs, UnlockBlocks: &utilsTx.UnlockBlocks,
 		}
