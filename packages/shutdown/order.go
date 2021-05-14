@@ -37,4 +37,6 @@ const (
 	PrioritySpammer
 	// PriorityBootstrap defines the shutdown priority for bootstrap.
 	PriorityBootstrap
+	// PriorityTXStream defines the shutdown priority for realtime.
+	PriorityTXStream
 )

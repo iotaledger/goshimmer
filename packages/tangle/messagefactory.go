@@ -61,8 +61,10 @@ func (f *MessageFactory) SetWorker(worker Worker) {
 	f.worker = worker
 }
 
-// IssuePayload creates a new message including sequence number and tip selection and submits to the rate setter.
-func (f *MessageFactory) IssuePayload(p payload.Payload, t ...*Tangle) (*Message, error) {
+// IssuePayload creates a new message including sequence number and tip selection and returns it.
+// It also triggers the MessageConstructed event once it's done, which is for example used by the plugins to listen for
+// messages that shall be attached to the tangle.
+func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*Message, error) {
 	payloadLen := len(p.Bytes())
 	if payloadLen > payload.MaxSize {
 		err := fmt.Errorf("maximum payload size of %d bytes exceeded", payloadLen)
@@ -79,7 +81,12 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, t ...*Tangle) (*Message
 		return nil, err
 	}
 
-	strongParents, weakParents, err := f.selector.Tips(p, 2, 2)
+	countStrongParents := 2
+	if len(parentsCount) > 0 {
+		countStrongParents = parentsCount[0]
+	}
+
+	strongParents, weakParents, err := f.selector.Tips(p, countStrongParents, 2)
 	if err != nil {
 		err = errors.Errorf("tips could not be selected: %w", err)
 		f.Events.Error.Trigger(err)
@@ -89,21 +96,20 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, t ...*Tangle) (*Message
 	issuingTime := clock.SyncedTime()
 
 	// due to the ParentAge check we must ensure that we set the right issuing time.
-	if t != nil {
-		for _, parent := range strongParents {
-			t[0].Storage.Message(parent).Consume(func(msg *Message) {
-				if msg.ID() != EmptyMessageID && !msg.IssuingTime().Before(issuingTime) {
-					issuingTime = msg.IssuingTime()
-				}
-			})
-		}
-		for _, parent := range weakParents {
-			t[0].Storage.Message(parent).Consume(func(msg *Message) {
-				if msg.ID() != EmptyMessageID && !msg.IssuingTime().Before(issuingTime) {
-					issuingTime = msg.IssuingTime()
-				}
-			})
-		}
+
+	for _, parent := range strongParents {
+		f.tangle.Storage.Message(parent).Consume(func(msg *Message) {
+			if msg.ID() != EmptyMessageID && !msg.IssuingTime().Before(issuingTime) {
+				issuingTime = msg.IssuingTime()
+			}
+		})
+	}
+	for _, parent := range weakParents {
+		f.tangle.Storage.Message(parent).Consume(func(msg *Message) {
+			if msg.ID() != EmptyMessageID && !msg.IssuingTime().Before(issuingTime) {
+				issuingTime = msg.IssuingTime()
+			}
+		})
 	}
 
 	issuerPublicKey := f.localIdentity.PublicKey()
@@ -132,8 +138,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, t ...*Tangle) (*Message
 		signature,
 	)
 	f.Events.MessageConstructed.Trigger(msg)
-
-	return msg, err
+	return msg, nil
 }
 
 // Shutdown closes the MessageFactory and persists the sequence number.

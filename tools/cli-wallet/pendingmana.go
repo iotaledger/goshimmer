@@ -26,10 +26,10 @@ func execPendingMana(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	fmt.Println("-----------------------------------")
 	unspentOutputs := cliWallet.UnspentOutputs()
 	for addr, v := range unspentOutputs {
-		fmt.Printf("Address: %s\n", addr.String())
+		fmt.Printf("Address: %s\n", addr.Base58())
 		for ID, output := range v {
 			var total float64
-			output.Balances.ForEach(func(color ledgerstate.Color, balance uint64) bool {
+			output.Object.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
 				total += float64(balance)
 				return true
 			})
