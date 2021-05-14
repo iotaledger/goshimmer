@@ -43,7 +43,7 @@ func configure(_ *node.Plugin) {
 	refresher = NewRefresher(localWallet, &DelegationReceiver{wallet: localWallet})
 
 	if Parameters.RefreshInterval < minRefreshInterval {
-		panic(fmt.Sprintf("manarefresh interval of %d minutes is too small, minimum is %s minutes", Parameters.RefreshInterval, minRefreshInterval))
+		panic(fmt.Sprintf("manarefresh interval of %d minutes is too small, minimum is %d minutes", Parameters.RefreshInterval, minRefreshInterval))
 	}
 }
 
