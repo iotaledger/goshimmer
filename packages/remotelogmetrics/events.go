@@ -51,6 +51,7 @@ type FPCConflictRecord struct {
 	Time time.Time `json:"datetime" bson:"datetime"`
 }
 
+// StatementLog defines the statement metrics record to sent be to remote logger.
 type StatementLog struct {
 	NodeID       string    `json:"nodeID"`
 	MsgID        string    `json:"msgID"`
