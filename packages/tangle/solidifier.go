@@ -1,10 +1,14 @@
 package tangle
 
 import (
+	"strconv"
 	"time"
 
+	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/syncutils"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -112,7 +116,7 @@ func (s *Solidifier) isMessageMarkedAsSolid(messageID MessageID) (solid bool) {
 	}
 
 	s.tangle.Storage.MessageMetadata(messageID, func() *MessageMetadata {
-		if cachedMissingMessage, stored := s.tangle.Storage.StoreMissingMessage(NewMissingMessage(messageID, MessageSourceStrongParent)); stored {
+		if cachedMissingMessage, stored := s.tangle.Storage.StoreMissingMessage(NewMissingMessage(messageID, StrongSolidificationSource)); stored {
 			cachedMissingMessage.Consume(func(missingMessage *MissingMessage) {
 				s.Events.MessageMissing.Trigger(messageID)
 			})
@@ -184,19 +188,143 @@ type SolidifierEvents struct {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region S0lidifier ////////////////////////////////////////////////////////////////////////////////////////////////
+// region SolidificationType ///////////////////////////////////////////////////////////////////////////////////////////
 
+// SolidificationType is a type that represents the different forms of solidification used in the Tangle.
+type SolidificationType uint8
+
+const (
+	// UndefinedSolidificationType represents the zero value of a SolidificationType.
+	UndefinedSolidificationType SolidificationType = iota
+
+	// WeakSolidification represents the type of solidification where the node requests only the weak parents of a
+	// Message.
+	WeakSolidification
+
+	// StrongSolidification represents the type of solidification where the node requests all parents of a Message.
+	StrongSolidification
+)
+
+// SolidificationTypeFromBytes unmarshals a SolidificationType from a sequence of bytes.
+func SolidificationTypeFromBytes(solidificationTypeBytes []byte) (solidificationType SolidificationType, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(solidificationTypeBytes)
+	if solidificationType, err = SolidificationTypeFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse SolidificationType from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// SolidificationTypeFromMarshalUtil unmarshals a SolidificationType using a MarshalUtil (for easier unmarshaling).
+func SolidificationTypeFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (solidificationType SolidificationType, err error) {
+	untypedSolidificationType, err := marshalUtil.ReadUint8()
+	if err != nil {
+		err = errors.Errorf("failed to parse SolidificationType (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+
+	return SolidificationType(untypedSolidificationType), nil
+}
+
+// Bytes returns a marshaled version of the SolidificationType.
+func (s SolidificationType) Bytes() (marshaledSolidificationType []byte) {
+	return []byte{uint8(s)}
+}
+
+// String returns a human readable version of the SolidificationType.
+func (s SolidificationType) String() (humanReadableSolidificationType string) {
+	switch s {
+	case StrongSolidification:
+		return "SolidificationType(StrongSolidification)"
+	case WeakSolidification:
+		return "SolidificationType(WeakSolidification)"
+	default:
+		return "SolidificationType(" + strconv.Itoa(int(s)) + ")"
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region MessageSource ////////////////////////////////////////////////////////////////////////////////////////////////
+
+// MessageSource is a type that represents different sources for Messages in a nodes database.
 type MessageSource uint8
 
 const (
-	MessageSourceUndefined MessageSource = iota
+	// UndefinedMessageSource represents the zero value of a MessageSource.
+	UndefinedMessageSource MessageSource = iota
 
-	MessageSourceWeakParent
+	// WeakSolidificationSource represents Messages that were requested as a missing weak parent.
+	WeakSolidificationSource
 
-	MessageSourceStrongParent
+	// StrongSolidificationSource represents Messages that were requested as a missing strong parent.
+	StrongSolidificationSource
 
-	MessageSourceGossip
+	// GossipSource represents Messages that were received via Gossip without previously requesting them.
+	GossipSource
 )
+
+// MessageSourceFromBytes unmarshals a MessageSource from a sequence of bytes.
+func MessageSourceFromBytes(messageSourceBytes []byte) (messageSource MessageSource, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(messageSourceBytes)
+	if messageSource, err = MessageSourceFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse MessageSource from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// MessageSourceFromMarshalUtil unmarshals a MessageSource using a MarshalUtil (for easier unmarshaling).
+func MessageSourceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (messageSource MessageSource, err error) {
+	untypedMessageSource, err := marshalUtil.ReadUint8()
+	if err != nil {
+		err = errors.Errorf("failed to parse MessageSource (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+
+	return MessageSource(untypedMessageSource), nil
+}
+
+// SolidificationType returns the SolidificationType that is used for Messages of the given MessageSource.
+func (m MessageSource) SolidificationType() SolidificationType {
+	switch m {
+	case UndefinedMessageSource:
+		return UndefinedSolidificationType
+	case WeakSolidificationSource:
+		return WeakSolidification
+	default:
+		return StrongSolidification
+	}
+}
+
+// Bytes returns a marshaled version of the MessageSource.
+func (m MessageSource) Bytes() (marshaledMessageSource []byte) {
+	return []byte{uint8(m)}
+}
+
+// String returns a human readable version of the MessageSource.
+func (m MessageSource) String() (humanReadableMessageSource string) {
+	switch m {
+	case UndefinedMessageSource:
+		return "MessageSource(UndefinedMessageSource)"
+	case WeakSolidificationSource:
+		return "MessageSource(WeakSolidificationSource)"
+	case StrongSolidificationSource:
+		return "MessageSource(StrongSolidificationSource)"
+	case GossipSource:
+		return "MessageSource(GossipSource)"
+	default:
+		return "MessageSource(" + strconv.Itoa(int(m)) + ")"
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region S0lidifier ////////////////////////////////////////////////////////////////////////////////////////////////
 
 type S0lidifier struct {
 	Events *SolidifierEvents
@@ -239,48 +367,44 @@ func (s *S0lidifier) propagateSolidity(messageIDs ...MessageID) {
 	}, messageIDs, true)
 }
 
-func (s *S0lidifier) Solidify(messageID MessageID, source MessageSource) {
-	switch source {
-	case MessageSourceGossip:
-		s.StronglySolidify(messageID)
-	case MessageSourceStrongParent:
-		s.StronglySolidify(messageID)
-	case MessageSourceWeakParent:
+func (s *S0lidifier) solidify(message *Message, messageMetadata *MessageMetadata, solidificationType SolidificationType) {
+	if !messageMetadata.SetSolidificationType(solidificationType) {
+		return
+	}
+
+	switch solidificationType {
+	case WeakSolidification:
+		if !s.isMessageWeaklySolid(message, messageMetadata, true) {
+			return
+		}
+
+		switch s.isMessageSolid(message, messageMetadata, false) {
+		case false:
+			s.triggerWeaklySolidUpdate(messageMetadata)
+		case true:
+			s.triggerSolidUpdate(messageMetadata)
+		}
+	case StrongSolidification:
+		if s.isMessageSolid(message, messageMetadata, true) {
+			s.triggerSolidUpdate(messageMetadata)
+			return
+		}
+
+		if s.isMessageWeaklySolid(message, messageMetadata, false) {
+			s.triggerWeaklySolidUpdate(messageMetadata)
+		}
 	}
 }
 
-func (s *S0lidifier) StronglySolidify(messageID MessageID) {
+func (s *S0lidifier) Solidify(messageID MessageID) {
 	s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-		if !messageMetadata.SetMessageSource(MessageSourceStrongParent) {
+		solidificationType := messageMetadata.messageSource.SolidificationType()
+		if solidificationType == UndefinedSolidificationType {
 			return
 		}
 
 		s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-			if s.isMessageSolid(message, messageMetadata, true) {
-				s.triggerSolidUpdate(messageMetadata)
-				return
-			}
-
-			if s.isMessageWeaklySolid(message, messageMetadata, false) {
-				s.triggerWeaklySolidUpdate(messageMetadata)
-			}
-		})
-	})
-}
-
-func (s *S0lidifier) WeaklySolidify(messageID MessageID) {
-	s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-		s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-			if !s.isMessageWeaklySolid(message, messageMetadata, true) {
-				return
-			}
-
-			switch s.isMessageSolid(message, messageMetadata, false) {
-			case false:
-				s.triggerWeaklySolidUpdate(messageMetadata)
-			case true:
-				s.triggerSolidUpdate(messageMetadata)
-			}
+			s.solidify(message, messageMetadata, solidificationType)
 		})
 	})
 }
@@ -381,7 +505,7 @@ func (s *S0lidifier) isMessageMarkedAsSolid(messageID MessageID, requestMissingM
 			return nil
 		}
 
-		if cachedMissingMessage, stored := s.tangle.Storage.StoreMissingMessage(NewMissingMessage(messageID, MessageSourceStrongParent)); stored {
+		if cachedMissingMessage, stored := s.tangle.Storage.StoreMissingMessage(NewMissingMessage(messageID, StrongSolidificationSource)); stored {
 			cachedMissingMessage.Consume(func(missingMessage *MissingMessage) {
 				s.Events.MessageMissing.Trigger(messageID)
 			})
@@ -407,7 +531,7 @@ func (s *S0lidifier) isMessageMarkedAsWeaklySolid(messageID MessageID, requestMi
 			return nil
 		}
 
-		if cachedMissingMessage, stored := s.tangle.Storage.StoreMissingMessage(NewMissingMessage(messageID, MessageSourceWeakParent)); stored {
+		if cachedMissingMessage, stored := s.tangle.Storage.StoreMissingMessage(NewMissingMessage(messageID, WeakSolidificationSource)); stored {
 			cachedMissingMessage.Consume(func(missingMessage *MissingMessage) {
 				s.Events.MessageMissing.Trigger(messageID)
 			})

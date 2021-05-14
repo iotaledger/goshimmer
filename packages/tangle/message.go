@@ -793,7 +793,7 @@ func (m *MessageMetadata) IsWeaklySolid() (result bool) {
 	return m.solid
 }
 
-func (m *MessageMetadata) SetMessageSource(messageSource MessageSource) (updated bool) {
+func (m *MessageMetadata) SetSolidificationType(messageSource MessageSource) (updated bool) {
 	m.messageSourceMutex.Lock()
 	defer m.messageSourceMutex.Unlock()
 

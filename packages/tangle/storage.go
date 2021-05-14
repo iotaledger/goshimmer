@@ -226,6 +226,17 @@ func (s *Storage) StoreAttachment(transactionID ledgerstate.TransactionID, messa
 	return
 }
 
+// Attachment retrieves the Attachment of a Transaction from the object storage.
+func (s *Storage) Attachment(transactionID ledgerstate.TransactionID, messageID MessageID, computeIfAbsentCallback ...func(transactionID ledgerstate.TransactionID, messageID MessageID) *Attachment) (cachedAttachment *CachedAttachment) {
+	if len(computeIfAbsentCallback) >= 1 {
+		return &CachedAttachment{s.attachmentStorage.ComputeIfAbsent(byteutils.ConcatBytes(transactionID.Bytes(), messageID.Bytes()), func(key []byte) objectstorage.StorableObject {
+			return computeIfAbsentCallback[0](transactionID, messageID)
+		})}
+	}
+
+	return &CachedAttachment{CachedObject: s.attachmentStorage.Load(byteutils.ConcatBytes(transactionID.Bytes(), messageID.Bytes()))}
+}
+
 // Attachments retrieves the attachment of a transaction in attachmentStorage.
 func (s *Storage) Attachments(transactionID ledgerstate.TransactionID) (cachedAttachments CachedAttachments) {
 	s.attachmentStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
