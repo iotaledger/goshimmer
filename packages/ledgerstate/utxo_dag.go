@@ -269,28 +269,56 @@ func (u *UTXODAG) CachedConsumers(outputID OutputID) (cachedConsumers CachedCons
 func (u *UTXODAG) LoadSnapshot(snapshot *Snapshot) {
 	// storing genesis tx and genesis output
 	// store TransactionMetadata
-	transactionMetadata := NewTransactionMetadata(GenesisTransactionID)
-	transactionMetadata.SetSolid(true)
-	transactionMetadata.SetBranchID(MasterBranchID)
-	transactionMetadata.SetFinalized(true)
+	// transactionMetadata := NewTransactionMetadata(GenesisTransactionID)
+	// transactionMetadata.SetSolid(true)
+	// transactionMetadata.SetBranchID(MasterBranchID)
+	// transactionMetadata.SetFinalized(true)
 
-	(&CachedTransactionMetadata{CachedObject: u.transactionMetadataStorage.ComputeIfAbsent(GenesisTransactionID.Bytes(), func(key []byte) objectstorage.StorableObject {
-		transactionMetadata.Persist()
-		transactionMetadata.SetModified()
-		return transactionMetadata
-	})}).Release()
+	// (&CachedTransactionMetadata{CachedObject: u.transactionMetadataStorage.ComputeIfAbsent(GenesisTransactionID.Bytes(), func(key []byte) objectstorage.StorableObject {
+	// 	transactionMetadata.Persist()
+	// 	transactionMetadata.SetModified()
+	// 	return transactionMetadata
+	// })}).Release()
+
+	fmt.Println("___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ___ ")
+	fmt.Println("___", GenesisTransactionID)
 
 	for txID, record := range snapshot.Transactions {
+		fmt.Println("__ txID ", txID)
+		fmt.Println("__ outputs  ", len(record.Essence.outputs))
 		transaction := NewTransaction(record.Essence, UnlockBlocks{NewReferenceUnlockBlock(0)})
+		// fmt.Println(transaction)
 		cached, stored := u.transactionStorage.StoreIfAbsent(transaction)
+		fmt.Println("***************************************************************")
+		if !u.transactionStorage.Contains(txID.Bytes()) {
+			fmt.Println("Cannot find txID in storage: ", txID)
+		} else {
+			fmt.Println("Found txID in storage: ", txID)
+		}
+		fmt.Println("***************************************************************")
+
+		fmt.Println("____ stored tx: ", stored)
 		if stored {
 			cached.Release()
 		}
+
+		// u.outputStorage.ForEach()
+		// if !messagelayer.Tangle().LedgerState.Output(outputID).Consume(func(output ledgerstate.Output) {
+		// 	err = c.JSON(http.StatusOK, jsonmodels.NewOutput(output))
+		// }) {
+		// 	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load Output with %s", outputID)))
+		// }
+
 		for i, output := range record.Essence.outputs {
+			// fmt.Println("_____________ ", output.ID().OutputIndex())
+			// fmt.Println("_____________ ", output.ID())
+			// fmt.Println("_____________ ", output.Balances())
+			// fmt.Println("_____________ ", output.Address())
 			if !record.UnspentOutputs[i] {
 				continue
 			}
 			cachedOutput, stored := u.outputStorage.StoreIfAbsent(output)
+			// fmt.Println("_____________ stored output: ", stored)
 			if stored {
 				cachedOutput.Release()
 			}

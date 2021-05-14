@@ -1192,7 +1192,7 @@ func (o *OutputMetadata) SetFinalized(finalized bool) (modified bool) {
 	return
 }
 
-// SetFinalizedSpend updates the finalizedSpend flag of the output.
+// SetConfirmedConsumer updates the confirmedConsumer of the output.
 func (o *OutputMetadata) SetConfirmedConsumer(confirmedConsumer TransactionID) (modified bool) {
 	o.confirmedConsumerMutex.Lock()
 	defer o.confirmedConsumerMutex.Unlock()

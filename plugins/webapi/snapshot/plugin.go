@@ -63,7 +63,19 @@ func DumpCurrentLedger(c echo.Context) (err error) {
 		plugin.LogErrorf("unable to write snapshot content to file %s", err)
 	}
 
-	plugin.LogInfo(snapshot)
+	// plugin.LogInfo(snapshot)
+	plugin.LogInfo("Snapshot information: ")
+	plugin.LogInfo("     Number of snapshotted transactions: ", len(snapshot.Transactions))
+	plugin.LogInfo("          inputs, outputs, txID, unspentOutputs")
+	for key, tx := range snapshot.Transactions {
+		plugin.LogInfo("          ", len(tx.Essence.Inputs()), len(tx.Essence.Outputs()), key)
+		plugin.LogInfo("          ", tx.UnspentOutputs)
+	}
+	plugin.LogInfo("     Number of snapshotted accessManaEntries: ", len(snapshot.AccessManaByNode))
+	plugin.LogInfo("          nodeID, aMana, timestamp")
+	for nodeID, accessMana := range snapshot.AccessManaByNode {
+		plugin.LogInfo("          ", nodeID, accessMana.Value, accessMana.Timestamp)
+	}
 
 	plugin.LogInfof("Bytes written %d", n)
 	f.Close()
